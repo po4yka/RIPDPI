@@ -141,6 +141,12 @@ pub(super) struct UdpFlowGroupPolicy {
     pub(super) source_rebind: UdpSourceRebindPolicy,
 }
 
+pub(super) enum WsSeedClassification {
+    NotMtproto,
+    UnmappableDc { raw_dc: i32, dc: Option<TelegramDc> },
+    ValidatedMtproto { dc: TelegramDc },
+}
+
 #[derive(Clone)]
 pub(super) struct RouteConnectPolicy {
     pub(super) tfo_enabled: bool,
@@ -311,6 +317,29 @@ impl RuntimeState {
 
     pub(super) fn ws_tunnel_config(&self, resolved_addr: Option<SocketAddr>) -> WsTunnelConfig {
         ws_tunnel_config_with(&self.ws_tunnel_settings, resolved_addr)
+    }
+
+    pub(super) fn classify_mtproto_seed(seed: &[u8]) -> WsSeedClassification {
+        match ripdpi_proxy_runtime_adapter::ws_bootstrap::classify_mtproto_seed(seed) {
+            ripdpi_proxy_runtime_adapter::ws_bootstrap::MtprotoSeedClassification::NotMtproto => {
+                WsSeedClassification::NotMtproto
+            }
+            ripdpi_proxy_runtime_adapter::ws_bootstrap::MtprotoSeedClassification::UnmappableDc { raw_dc, dc } => {
+                WsSeedClassification::UnmappableDc { raw_dc, dc }
+            }
+            ripdpi_proxy_runtime_adapter::ws_bootstrap::MtprotoSeedClassification::ValidatedMtproto { dc } => {
+                WsSeedClassification::ValidatedMtproto { dc }
+            }
+        }
+    }
+
+    pub(super) fn relay_ws_tunnel(
+        client: TcpStream,
+        dc: TelegramDc,
+        seed_request: Vec<u8>,
+        config: &WsTunnelConfig,
+    ) -> io::Result<()> {
+        ripdpi_proxy_runtime_adapter::ws_bootstrap::relay_ws_tunnel(client, dc, seed_request, config)
     }
 
     pub(super) fn warmup_probe_scheduler_enabled(&self) -> bool {

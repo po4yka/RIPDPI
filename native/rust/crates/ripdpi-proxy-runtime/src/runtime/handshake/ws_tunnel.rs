@@ -1,11 +1,9 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
-    self as ws_bootstrap, MtprotoSeedClassification, TelegramDc, WsTunnelConfig,
-};
+use ripdpi_proxy_runtime_adapter::ws_bootstrap::{TelegramDc, WsTunnelConfig};
 
-use super::super::state::RuntimeState;
+use super::super::state::{RuntimeState, WsSeedClassification};
 
 /// Check if WS tunnel should be tried first (Always mode).
 pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
@@ -37,7 +35,7 @@ pub(super) fn run_ws_tunnel(client: TcpStream, state: &RuntimeState) -> WsTunnel
         state,
         read_mtproto_seed,
         RuntimeState::resolve_ws_tunnel_addr,
-        ws_bootstrap::relay_ws_tunnel,
+        RuntimeState::relay_ws_tunnel,
     )
 }
 
@@ -53,7 +51,7 @@ pub(super) fn run_ws_tunnel_with_seed(
         seed_request,
         state,
         RuntimeState::resolve_ws_tunnel_addr,
-        ws_bootstrap::relay_ws_tunnel,
+        RuntimeState::relay_ws_tunnel,
     )
 }
 
@@ -97,16 +95,16 @@ where
         };
     }
 
-    match ws_bootstrap::classify_mtproto_seed(&seed_request[..64]) {
-        MtprotoSeedClassification::NotMtproto => {
+    match RuntimeState::classify_mtproto_seed(&seed_request[..64]) {
+        WsSeedClassification::NotMtproto => {
             tracing::debug!("WS tunnel skipped: first request is not valid MTProto obfuscated2");
             WsTunnelResult::NotMtproto { seed_request }
         }
-        MtprotoSeedClassification::UnmappableDc { raw_dc, dc } => {
+        WsSeedClassification::UnmappableDc { raw_dc, dc } => {
             tracing::info!("WS tunnel skipped: MTProto DC raw={raw_dc} is not tunnelable");
             WsTunnelResult::UnmappableDc { raw_dc, dc, seed_request }
         }
-        MtprotoSeedClassification::ValidatedMtproto { dc } => {
+        WsSeedClassification::ValidatedMtproto { dc } => {
             let resolved_addr = match resolve_addr(state, dc) {
                 Ok(addr) => addr,
                 Err(error) => {
