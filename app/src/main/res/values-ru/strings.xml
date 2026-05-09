@@ -1440,9 +1440,6 @@ fakeddisorder endhost</string>
     <string name="customization_shape_sheet_action">Понятно</string>
     <string name="customization_themed_icon_title">Монохромный тематический значок</string>
     <string name="customization_themed_icon_body">Следовать системной теме Material You</string>
-    <string name="customization_icon_default">По умолчанию</string>
-    <string name="customization_icon_dark">Тёмный</string>
-    <string name="customization_icon_black">Чёрный</string>
     <string name="customization_icon_raven">Raven</string>
     <string name="customization_icon_raven_dark">Raven Dark</string>
     <string name="customization_icon_raven_black">Raven Black</string>
