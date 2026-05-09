@@ -5,7 +5,7 @@ use ripdpi_proxy_runtime_adapter::model::decision::{RouteAdvance, TransportProto
 use super::flow::UdpFlowActivationState;
 use crate::runtime::adaptive::{
     note_adaptive_udp_failure, note_adaptive_udp_success, note_direct_path_all_ips_failed,
-    note_direct_path_quic_success, note_direct_path_udp_failure, note_evolver_failure, note_evolver_success,
+    note_direct_path_quic_success, note_direct_path_udp_failure,
 };
 use crate::runtime::retry::{
     build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure, note_retry_success,
@@ -44,7 +44,7 @@ pub(super) fn note_udp_first_response_success(
         entry.host.as_deref(),
         TransportProtocol::Udp,
     )?;
-    note_evolver_success(state, 0);
+    state.note_evolver_success();
     entry.awaiting_response = false;
     Ok(())
 }
@@ -64,7 +64,7 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
     )?;
     let _ = note_direct_path_udp_failure(state, entry.host.as_deref(), &entry.target_candidates);
     note_adaptive_udp_failure(state, failed_target, entry.route.group_index, entry.host.as_deref(), &entry.payload)?;
-    note_evolver_failure(state, RuntimeState::silent_drop_failure_class());
+    state.note_evolver_failure(RuntimeState::silent_drop_failure_class());
     let retry_penalties = build_retry_selection_penalties(
         state,
         failed_target,

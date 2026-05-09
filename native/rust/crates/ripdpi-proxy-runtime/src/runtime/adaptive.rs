@@ -6,7 +6,6 @@
 // fallback, and telemetry adaptation into focused implementation modules.
 
 mod direct_path;
-mod evolver;
 mod fake_ttl;
 mod hints;
 
@@ -15,7 +14,6 @@ pub(super) use direct_path::{
     note_direct_path_tcp_success, note_direct_path_tls_post_client_hello_failure, note_direct_path_transport_attempt,
     note_direct_path_udp_failure, now_millis,
 };
-pub(super) use evolver::{note_evolver_failure, note_evolver_success};
 pub(super) use fake_ttl::{note_adaptive_fake_ttl_failure, note_adaptive_fake_ttl_success, note_server_ttl_for_route};
 pub(super) use hints::{
     note_adaptive_tcp_failure, note_adaptive_tcp_success, note_adaptive_udp_failure, note_adaptive_udp_success,

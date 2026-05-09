@@ -6,7 +6,6 @@ use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportPr
 
 use crate::runtime::adaptive::{
     note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure, note_direct_path_tls_post_client_hello_failure,
-    note_evolver_failure,
 };
 use crate::runtime::retry::note_retry_failure;
 use crate::runtime::routing::policy::preferred_targets_for_transport;
@@ -34,6 +33,6 @@ pub(super) fn record_failure_feedback(
         note_adaptive_tcp_failure(state, target, route.group_index, host, payload)?;
     }
     note_adaptive_fake_ttl_failure(state, target, route.group_index, host)?;
-    note_evolver_failure(state, failure.class);
+    state.note_evolver_failure(failure.class);
     Ok(true)
 }
