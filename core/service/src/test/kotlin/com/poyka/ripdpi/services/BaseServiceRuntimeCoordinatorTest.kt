@@ -368,9 +368,10 @@ private class TestCoordinator(
     private suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution =
         sampleResolution(mode = Mode.Proxy)
 
+    @Suppress("UnusedParameter")
     private suspend fun resolveHandoverConnectionPolicy(
-        _fingerprint: NetworkFingerprint,
-        _handoverClassification: String,
+        fingerprint: NetworkFingerprint,
+        handoverClassification: String,
     ): ConnectionPolicyResolution = sampleResolution(mode = Mode.Proxy, policySignature = "handover")
 
     private fun applyActiveConnectionPolicy(
@@ -395,9 +396,10 @@ private class TestCoordinator(
         )
     }
 
+    @Suppress("UnusedParameter")
     private suspend fun startResolvedRuntime(
-        _session: ProxyRuntimeSession,
-        _resolution: ConnectionPolicyResolution,
+        session: ProxyRuntimeSession,
+        resolution: ConnectionPolicyResolution,
     ) {
         startCalls += 1
         if (failOnStart) {
@@ -405,12 +407,14 @@ private class TestCoordinator(
         }
     }
 
-    private suspend fun stopModeRuntime(_skipRuntimeShutdown: Boolean) {
+    @Suppress("UnusedParameter")
+    private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
         stopCalls += 1
         stopGate?.await()
     }
 
-    private fun startModeTelemetryUpdates(_replaceTelemetryJob: TelemetryJobReplacer) = Unit
+    @Suppress("UnusedParameter")
+    private fun startModeTelemetryUpdates(replaceTelemetryJob: TelemetryJobReplacer) = Unit
 
     private suspend fun restartAfterHandover(
         session: ProxyRuntimeSession,
@@ -430,9 +434,10 @@ private class TestCoordinator(
         )
     }
 
+    @Suppress("UnusedParameter")
     private fun updateStatus(
         newStatus: ServiceStatus,
-        _failureReason: FailureReason?,
+        failureReason: FailureReason?,
     ) {
         status = newStatus
         statusTransitions += newStatus
