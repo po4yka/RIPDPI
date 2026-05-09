@@ -105,6 +105,17 @@ pub(super) struct RuntimeSessionError {
     pub(super) code: u8,
 }
 
+#[derive(Clone)]
+pub(super) struct RuntimeSessionState(SessionState);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct RuntimeOutboundProgress {
+    pub(super) round: u32,
+    pub(super) payload_size: usize,
+    pub(super) stream_start: usize,
+    pub(super) stream_end: usize,
+}
+
 struct RuntimeTelemetryDirectPathObserver<'a>(&'a dyn RuntimeTelemetrySink);
 
 impl DirectPathLearningObserver for RuntimeTelemetryDirectPathObserver<'_> {
@@ -473,7 +484,7 @@ impl RuntimeState {
     pub(super) fn start_relay_rotation_round(
         &self,
         rotation: &mut CircularTcpRotationController,
-        progress: OutboundProgress,
+        progress: RuntimeOutboundProgress,
         payload: &[u8],
         retrans_baseline: Option<u32>,
         host: Option<&str>,
@@ -503,43 +514,50 @@ impl RuntimeState {
         self.first_outbound_payload_policy.buffer_size
     }
 
-    pub(super) fn new_session_state() -> SessionState {
-        new_session_state()
+    pub(super) fn new_session_state() -> RuntimeSessionState {
+        RuntimeSessionState(new_session_state())
     }
 
-    pub(super) fn observe_session_inbound_payload(state: &mut SessionState, payload: &[u8]) {
-        observe_inbound_payload(state, payload);
+    pub(super) fn observe_session_inbound_payload(state: &mut RuntimeSessionState, payload: &[u8]) {
+        observe_inbound_payload(&mut state.0, payload);
     }
 
-    pub(super) fn session_has_inbound_payload(state: &SessionState) -> bool {
-        has_inbound_payload(state)
+    pub(super) fn session_has_inbound_payload(state: &RuntimeSessionState) -> bool {
+        has_inbound_payload(&state.0)
     }
 
-    pub(super) fn observe_session_outbound_payload(state: &mut SessionState, payload: &[u8]) -> OutboundProgress {
-        observe_outbound_payload(state, payload)
+    pub(super) fn observe_session_outbound_payload(
+        state: &mut RuntimeSessionState,
+        payload: &[u8],
+    ) -> RuntimeOutboundProgress {
+        runtime_outbound_progress(observe_outbound_payload(&mut state.0, payload))
     }
 
     pub(super) fn observe_session_datagram_outbound_payload(
-        state: &mut SessionState,
+        state: &mut RuntimeSessionState,
         payload: &[u8],
-    ) -> OutboundProgress {
-        observe_datagram_outbound_payload(state, payload)
+    ) -> RuntimeOutboundProgress {
+        runtime_outbound_progress(observe_datagram_outbound_payload(&mut state.0, payload))
     }
 
-    pub(super) fn single_payload_progress(payload_size: usize) -> OutboundProgress {
-        OutboundProgress { round: 1, payload_size, stream_start: 0, stream_end: payload_size.saturating_sub(1) }
+    pub(super) fn single_payload_progress(payload_size: usize) -> RuntimeOutboundProgress {
+        RuntimeOutboundProgress { round: 1, payload_size, stream_start: 0, stream_end: payload_size.saturating_sub(1) }
     }
 
-    pub(super) fn observe_session_first_response_payload(state: &mut SessionState, payload: &[u8]) -> bool {
-        observe_first_response_payload(state, payload)
+    pub(super) fn observe_session_first_response_payload(state: &mut RuntimeSessionState, payload: &[u8]) -> bool {
+        observe_first_response_payload(&mut state.0, payload)
     }
 
-    pub(super) fn observe_session_retry_response_payload(state: &mut SessionState, payload: &[u8]) {
-        observe_retry_response_payload(state, payload);
+    pub(super) fn observe_session_retry_response_payload(state: &mut RuntimeSessionState, payload: &[u8]) {
+        observe_retry_response_payload(&mut state.0, payload);
     }
 
-    pub(super) fn outbound_payload_count_this_round(state: &SessionState) -> usize {
-        outbound_payload_count_this_round(state)
+    pub(super) fn outbound_payload_count_this_round(state: &RuntimeSessionState) -> usize {
+        outbound_payload_count_this_round(&state.0)
+    }
+
+    pub(super) fn session_round_count(state: &RuntimeSessionState) -> u32 {
+        state.0.round_count
     }
 
     pub(super) fn encode_upstream_socks_connect(target: SocketAddr) -> Vec<u8> {
@@ -1186,12 +1204,19 @@ impl RuntimeState {
         &self,
         group_index: usize,
         payload: &[u8],
-        progress: OutboundProgress,
+        progress: RuntimeOutboundProgress,
         host: Option<&str>,
         target: SocketAddr,
         default_ttl: u8,
     ) -> io::Result<Vec<UdpDesyncAction>> {
-        self.plan_udp_desync_actions(UdpDesyncPlanRequest { group_index, payload, progress, host, target, default_ttl })
+        self.plan_udp_desync_actions(UdpDesyncPlanRequest {
+            group_index,
+            payload,
+            progress: progress.into_adapter(),
+            host,
+            target,
+            default_ttl,
+        })
     }
 
     pub(super) fn execute_udp_desync_actions(
@@ -1630,6 +1655,26 @@ fn runtime_client_request(request: ClientRequest) -> RuntimeClientRequest {
 
 fn runtime_session_error(error: SessionError) -> RuntimeSessionError {
     RuntimeSessionError { code: error.code }
+}
+
+fn runtime_outbound_progress(progress: OutboundProgress) -> RuntimeOutboundProgress {
+    RuntimeOutboundProgress {
+        round: progress.round,
+        payload_size: progress.payload_size,
+        stream_start: progress.stream_start,
+        stream_end: progress.stream_end,
+    }
+}
+
+impl RuntimeOutboundProgress {
+    pub(super) fn into_adapter(self) -> OutboundProgress {
+        OutboundProgress {
+            round: self.round,
+            payload_size: self.payload_size,
+            stream_start: self.stream_start,
+            stream_end: self.stream_end,
+        }
+    }
 }
 
 fn resolve_localhost(host: &str, ipv6_enabled: bool) -> Option<SocketAddr> {

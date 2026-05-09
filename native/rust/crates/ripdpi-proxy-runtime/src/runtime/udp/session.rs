@@ -1,9 +1,7 @@
-use ripdpi_proxy_runtime_adapter::model::session::{OutboundProgress, SessionState};
-
-use crate::runtime::state::RuntimeState;
+use crate::runtime::state::{RuntimeOutboundProgress, RuntimeSessionState, RuntimeState};
 
 pub(super) struct UdpFlowSession {
-    state: SessionState,
+    state: RuntimeSessionState,
 }
 
 impl UdpFlowSession {
@@ -15,11 +13,11 @@ impl UdpFlowSession {
         RuntimeState::observe_session_inbound_payload(&mut self.state, payload);
     }
 
-    pub(super) fn observe_datagram_outbound(&mut self, payload: &[u8]) -> OutboundProgress {
+    pub(super) fn observe_datagram_outbound(&mut self, payload: &[u8]) -> RuntimeOutboundProgress {
         RuntimeState::observe_session_datagram_outbound_payload(&mut self.state, payload)
     }
 
     pub(super) fn round_count(&self) -> u32 {
-        self.state.round_count
+        RuntimeState::session_round_count(&self.state)
     }
 }

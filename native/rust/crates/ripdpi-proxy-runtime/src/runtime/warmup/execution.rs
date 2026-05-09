@@ -32,7 +32,7 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
             group_index: route.group_index,
             group_override: None,
             payload: &payload,
-            progress,
+            progress: progress.into_adapter(),
             host: Some(domain),
             target,
         },

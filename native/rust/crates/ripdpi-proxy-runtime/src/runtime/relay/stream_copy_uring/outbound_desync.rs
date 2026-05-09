@@ -62,7 +62,7 @@ fn flush_outbound_payload(
                 group_index,
                 group_override: None,
                 payload,
-                progress,
+                progress: progress.into_adapter(),
                 host: parsed_host.as_deref().or(remembered_host.as_deref()),
                 target: peer_addr,
             },

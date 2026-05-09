@@ -22,7 +22,7 @@ pub(super) fn execute_first_write(
             group_index: route.group_index,
             group_override: None,
             payload: original_request,
-            progress,
+            progress: progress.into_adapter(),
             host,
             target,
         },

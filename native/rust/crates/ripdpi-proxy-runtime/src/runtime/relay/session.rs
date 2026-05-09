@@ -3,17 +3,16 @@ use crate::sync::{Arc, Mutex};
 use std::io;
 
 use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RotationPolicy};
-use ripdpi_proxy_runtime_adapter::model::session::{OutboundProgress, SessionState};
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 
-use crate::runtime::state::RuntimeState;
+use crate::runtime::state::{RuntimeOutboundProgress, RuntimeSessionState, RuntimeState};
 
 pub(super) struct RelaySession {
-    state: SessionState,
+    state: RuntimeSessionState,
 }
 
 pub(super) struct FirstOutboundSession {
-    state: SessionState,
+    state: RuntimeSessionState,
 }
 
 impl FirstOutboundSession {
@@ -25,7 +24,7 @@ impl FirstOutboundSession {
         RelaySession::from_state(self.state)
     }
 
-    pub(super) fn observe_first_outbound_payload(&mut self, original_request: &[u8]) -> OutboundProgress {
+    pub(super) fn observe_first_outbound_payload(&mut self, original_request: &[u8]) -> RuntimeOutboundProgress {
         RuntimeState::observe_session_outbound_payload(&mut self.state, original_request)
     }
 
@@ -39,7 +38,7 @@ impl FirstOutboundSession {
 }
 
 impl RelaySession {
-    pub(super) fn from_state(state: SessionState) -> Self {
+    pub(super) fn from_state(state: RuntimeSessionState) -> Self {
         Self { state }
     }
 
@@ -66,7 +65,7 @@ impl RelaySession {
 
 #[derive(Clone)]
 pub(super) struct RelaySharedSession {
-    state: Arc<Mutex<SessionState>>,
+    state: Arc<Mutex<RuntimeSessionState>>,
 }
 
 impl RelaySharedSession {
@@ -83,7 +82,7 @@ impl RelaySharedSession {
         }
     }
 
-    pub(super) fn observe_outbound_payload(&self, payload: &[u8]) -> io::Result<(bool, OutboundProgress)> {
+    pub(super) fn observe_outbound_payload(&self, payload: &[u8]) -> io::Result<(bool, RuntimeOutboundProgress)> {
         let mut state = self.state.lock().map_err(|_| io::Error::other("session mutex poisoned"))?;
         let is_new_round = RuntimeState::outbound_payload_count_this_round(&state) == 0;
         let progress = RuntimeState::observe_session_outbound_payload(&mut state, payload);

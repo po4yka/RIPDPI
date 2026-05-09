@@ -131,7 +131,7 @@ pub(super) fn flush_outbound_payload(
                 group_index,
                 group_override: group.as_ref(),
                 payload,
-                progress,
+                progress: progress.into_adapter(),
                 host: host.as_deref(),
                 target: peer_addr,
             },
