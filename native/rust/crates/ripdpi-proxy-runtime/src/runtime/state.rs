@@ -28,9 +28,9 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     ws_tunnel_settings, DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings,
     NetworkReprobeSettings, ProxyHandshakeSettings, ProxyProtocolMode, RelayGroupSettings, RelayGroupSettingsTable,
     ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, RuntimeTimeoutSettings,
-    ShadowsocksTargetPolicy, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings,
-    UdpGroupPacketSettings, UdpGroupSettingsTable, UdpGroupSocketSettings, UdpSourceRebindPolicy, WarmupProbeSettings,
-    WsTunnelSettings, DETECT_CONNECT,
+    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupPacketSettings,
+    UdpGroupSettingsTable, UdpGroupSocketSettings, UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings,
+    DETECT_CONNECT,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
@@ -55,9 +55,9 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     observe_outbound_payload, observe_retry_response_payload, outbound_payload_count_this_round,
     parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request, parse_socks5_request,
     payload_host_extractor, read_upstream_socks_reply, udp_packet_parser, udp_payload_classifier, ClientRequest,
-    FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, PayloadHostExtractor, ProxyReply, SessionConfig,
-    SessionError, SessionState, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, S_ATP_I4, S_ATP_I6,
-    S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_GEN, S_VER5,
+    FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, PayloadHostExtractor, ProxyReply, SessionError,
+    SessionState, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, S_ATP_I4, S_ATP_I6, S_AUTH_BAD,
+    S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use ripdpi_proxy_runtime_adapter::protocol_payload::{
@@ -78,6 +78,32 @@ use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum RuntimeProxyProtocolMode {
+    Transparent,
+    HttpConnect,
+    BytePrefixed { shadowsocks_enabled: bool },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct RuntimeTarget {
+    pub(super) addr: SocketAddr,
+    pub(super) host: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum RuntimeClientRequest {
+    Socks4Connect(RuntimeTarget),
+    Socks5Connect(RuntimeTarget),
+    Socks5UdpAssociate,
+    HttpConnect(RuntimeTarget),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct RuntimeSessionError {
+    pub(super) code: u8,
+}
 
 struct RuntimeTelemetryDirectPathObserver<'a>(&'a dyn RuntimeTelemetrySink);
 
@@ -267,20 +293,18 @@ impl RuntimeState {
         self.listener_settings.route_group_count
     }
 
-    pub(super) fn proxy_protocol_mode(&self) -> ProxyProtocolMode {
-        self.handshake_settings.protocol_mode
+    pub(super) fn proxy_protocol_mode(&self) -> RuntimeProxyProtocolMode {
+        match self.handshake_settings.protocol_mode {
+            ProxyProtocolMode::Transparent => RuntimeProxyProtocolMode::Transparent,
+            ProxyProtocolMode::HttpConnect => RuntimeProxyProtocolMode::HttpConnect,
+            ProxyProtocolMode::BytePrefixed { shadowsocks_enabled } => {
+                RuntimeProxyProtocolMode::BytePrefixed { shadowsocks_enabled }
+            }
+        }
     }
 
     pub(super) fn proxy_auth_token(&self) -> Option<&str> {
         self.handshake_settings.auth_token.as_deref()
-    }
-
-    pub(super) fn proxy_session_config(&self) -> SessionConfig {
-        self.handshake_settings.session_config
-    }
-
-    pub(super) fn shadowsocks_target_policy(&self) -> ShadowsocksTargetPolicy {
-        self.handshake_settings.shadowsocks_target_policy
     }
 
     pub(super) fn udp_associate_enabled(&self) -> bool {
@@ -589,28 +613,66 @@ impl RuntimeState {
         encode_http_connect_reply(success)
     }
 
-    pub(super) fn parse_socks4_request(
-        request: &[u8],
-        session_config: SessionConfig,
-        resolve_name: impl Fn(&str, SocketType) -> Option<SocketAddr>,
-    ) -> Result<ClientRequest, SessionError> {
-        parse_socks4_request(request, session_config, &resolve_name)
+    pub(super) fn resolve_proxy_name(&self, host: &str, _socket_type: SocketType) -> Option<SocketAddr> {
+        use std::net::IpAddr;
+
+        if let Ok(ip) = host.parse::<IpAddr>() {
+            return Some(SocketAddr::new(ip, 0));
+        }
+
+        let session_config = self.handshake_settings.session_config;
+        if let Some(loopback) = resolve_localhost(host, session_config.ipv6) {
+            return Some(loopback);
+        }
+        if !session_config.resolve {
+            return None;
+        }
+
+        let protect_path = self.handshake_protect_path();
+        self.resolve_encrypted_dns_host(host, protect_path.as_deref(), session_config.ipv6).ok()
     }
 
-    pub(super) fn parse_socks5_request(
-        request: &[u8],
-        socket_type: SocketType,
-        session_config: SessionConfig,
-        resolve_name: impl Fn(&str, SocketType) -> Option<SocketAddr>,
-    ) -> Result<ClientRequest, SessionError> {
-        parse_socks5_request(request, socket_type, session_config, &resolve_name)
+    pub(super) fn resolve_handshake_name(&self, host: &str) -> Option<SocketAddr> {
+        self.resolve_proxy_name(host, SocketType::Stream)
     }
 
-    pub(super) fn parse_http_connect_request(
+    pub(super) fn parse_socks4_client_request(
+        &self,
         request: &[u8],
-        resolve_name: impl Fn(&str, SocketType) -> Option<SocketAddr>,
-    ) -> Result<ClientRequest, SessionError> {
-        parse_http_connect_request(request, &resolve_name)
+        resolve_name: impl Fn(&str) -> Option<SocketAddr>,
+    ) -> Result<RuntimeClientRequest, RuntimeSessionError> {
+        let resolver = |host: &str, socket_type: SocketType| {
+            let _ = socket_type;
+            resolve_name(host)
+        };
+        parse_socks4_request(request, self.handshake_settings.session_config, &resolver)
+            .map(runtime_client_request)
+            .map_err(runtime_session_error)
+    }
+
+    pub(super) fn parse_socks5_client_request(
+        &self,
+        request: &[u8],
+        resolve_name: impl Fn(&str) -> Option<SocketAddr>,
+    ) -> Result<RuntimeClientRequest, RuntimeSessionError> {
+        let resolver = |host: &str, socket_type: SocketType| {
+            let _ = socket_type;
+            resolve_name(host)
+        };
+        parse_socks5_request(request, SocketType::Stream, self.handshake_settings.session_config, &resolver)
+            .map(runtime_client_request)
+            .map_err(runtime_session_error)
+    }
+
+    pub(super) fn parse_http_connect_client_request(
+        request: &[u8],
+        resolve_name: impl Fn(&str) -> Option<SocketAddr>,
+    ) -> Result<RuntimeClientRequest, RuntimeSessionError> {
+        let resolver = |host: &str, socket_type: SocketType| {
+            let _ = socket_type;
+            resolve_name(host)
+        };
+        parse_http_connect_request(request, &resolver).map(runtime_client_request).map_err(runtime_session_error)
     }
 
     pub(super) fn validate_http_proxy_auth(request: &[u8], token: &str) -> bool {
@@ -618,11 +680,14 @@ impl RuntimeState {
     }
 
     pub(super) fn parse_shadowsocks_target(
+        &self,
         request: &[u8],
-        policy: ShadowsocksTargetPolicy,
-        mut resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
+        mut resolve_name: impl FnMut(&str) -> Option<SocketAddr>,
     ) -> Option<(SocketAddr, usize)> {
-        parse_shadowsocks_target(request, policy, &mut resolve_name)
+        parse_shadowsocks_target(request, self.handshake_settings.shadowsocks_target_policy, |host, socket_type| {
+            let _ = socket_type;
+            resolve_name(host)
+        })
     }
 
     pub(super) fn classify_first_outbound_payload(&self, payload: &[u8]) -> OutboundPayloadInfo {
@@ -1546,4 +1611,34 @@ impl Drop for ClientSlotGuard {
     fn drop(&mut self) {
         self.active.fetch_sub(1, Ordering::AcqRel);
     }
+}
+
+fn runtime_client_request(request: ClientRequest) -> RuntimeClientRequest {
+    match request {
+        ClientRequest::Socks4Connect(target) => {
+            RuntimeClientRequest::Socks4Connect(RuntimeTarget { addr: target.addr, host: target.host })
+        }
+        ClientRequest::Socks5Connect(target) => {
+            RuntimeClientRequest::Socks5Connect(RuntimeTarget { addr: target.addr, host: target.host })
+        }
+        ClientRequest::Socks5UdpAssociate(_target) => RuntimeClientRequest::Socks5UdpAssociate,
+        ClientRequest::HttpConnect(target) => {
+            RuntimeClientRequest::HttpConnect(RuntimeTarget { addr: target.addr, host: target.host })
+        }
+    }
+}
+
+fn runtime_session_error(error: SessionError) -> RuntimeSessionError {
+    RuntimeSessionError { code: error.code }
+}
+
+fn resolve_localhost(host: &str, ipv6_enabled: bool) -> Option<SocketAddr> {
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+    if !host.eq_ignore_ascii_case("localhost") && !host.eq_ignore_ascii_case("localhost.") {
+        return None;
+    }
+
+    let ip = if ipv6_enabled { IpAddr::V6(Ipv6Addr::LOCALHOST) } else { IpAddr::V4(Ipv4Addr::LOCALHOST) };
+    Some(SocketAddr::new(ip, 0))
 }

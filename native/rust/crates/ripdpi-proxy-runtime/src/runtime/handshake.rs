@@ -10,8 +10,6 @@ use std::thread;
 use std::time::Duration;
 
 use crate::sync::{Arc, AtomicBool, Ordering};
-use ripdpi_proxy_runtime_adapter::model::config::ProxyProtocolMode;
-use ripdpi_proxy_runtime_adapter::model::session::{ClientRequest, SessionError, SocketType};
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
@@ -20,17 +18,17 @@ use protocol_io::{
     negotiate_socks5, read_http_connect_request, read_shadowsocks_request, read_socks4_request, read_socks5_request,
 };
 
-pub(super) use protocol_io::resolve_name;
-
-use super::state::{RuntimeState, HANDSHAKE_TIMEOUT};
+use super::state::{
+    RuntimeClientRequest, RuntimeProxyProtocolMode, RuntimeSessionError, RuntimeState, HANDSHAKE_TIMEOUT,
+};
 
 pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     let _ = client.set_write_timeout(Some(HANDSHAKE_TIMEOUT));
     match state.proxy_protocol_mode() {
-        ProxyProtocolMode::Transparent => handle_transparent(client, state),
-        ProxyProtocolMode::HttpConnect => handle_http_connect(client, state),
-        ProxyProtocolMode::BytePrefixed { shadowsocks_enabled } => {
+        RuntimeProxyProtocolMode::Transparent => handle_transparent(client, state),
+        RuntimeProxyProtocolMode::HttpConnect => handle_http_connect(client, state),
+        RuntimeProxyProtocolMode::BytePrefixed { shadowsocks_enabled } => {
             let mut first = [0u8; 1];
             client.read_exact(&mut first)?;
             if shadowsocks_enabled {
@@ -71,10 +69,10 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
 
 fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io::Result<()> {
     let request = read_socks4_request(&mut client, version)?;
-    let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
-    let parsed = RuntimeState::parse_socks4_request(&request, state.proxy_session_config(), resolver);
+    let resolver = |host: &str| state.resolve_handshake_name(host);
+    let parsed = state.parse_socks4_client_request(&request, resolver);
     match parsed {
-        Ok(ClientRequest::Socks4Connect(target)) => {
+        Ok(RuntimeClientRequest::Socks4Connect(target)) => {
             let dc_host = state.telegram_dc_host_hint(target.addr);
             let host_hint = target.host.or(dc_host);
             match connect_and_relay(&mut client, target.addr, state, host_hint, SuccessReply::Socks4) {
@@ -99,10 +97,10 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     }
     negotiate_socks5(&mut client, state.proxy_auth_token())?;
     let request = read_socks5_request(&mut client)?;
-    let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
+    let resolver = |host: &str| state.resolve_handshake_name(host);
 
-    match RuntimeState::parse_socks5_request(&request, SocketType::Stream, state.proxy_session_config(), resolver) {
-        Ok(ClientRequest::Socks5Connect(target)) => {
+    match state.parse_socks5_client_request(&request, resolver) {
+        Ok(RuntimeClientRequest::Socks5Connect(target)) => {
             let dc_host = state.telegram_dc_host_hint(target.addr);
             let host_hint = target.host.or(dc_host);
             match connect_and_relay(&mut client, target.addr, state, host_hint, SuccessReply::Socks5) {
@@ -110,7 +108,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
                 Err(err) => handle_socks5_connect_error(&mut client, err),
             }
         }
-        Ok(ClientRequest::Socks5UdpAssociate(_target)) => {
+        Ok(RuntimeClientRequest::Socks5UdpAssociate) => {
             if !state.udp_associate_enabled() {
                 let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
                 client.write_all(
@@ -127,7 +125,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
             )?;
             Ok(())
         }
-        Err(SessionError { code }) => {
+        Err(RuntimeSessionError { code }) => {
             let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
             client.write_all(RuntimeState::encode_socks5_reply(code, fail).as_bytes())?;
             Ok(())
@@ -144,9 +142,9 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "missing or invalid http proxy credentials"));
         }
     }
-    let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
-    match RuntimeState::parse_http_connect_request(&request, resolver) {
-        Ok(ClientRequest::HttpConnect(target)) => {
+    let resolver = |host: &str| state.resolve_handshake_name(host);
+    match RuntimeState::parse_http_connect_client_request(&request, resolver) {
+        Ok(RuntimeClientRequest::HttpConnect(target)) => {
             let dc_host = state.telegram_dc_host_hint(target.addr);
             let host_hint = target.host.or(dc_host);
             match connect_and_relay(&mut client, target.addr, state, host_hint, SuccessReply::HttpConnect) {
@@ -162,9 +160,9 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
 }
 
 fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u8) -> io::Result<()> {
-    let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
+    let resolver = |host: &str| state.resolve_handshake_name(host);
     let (target, first_request): (SocketAddr, Vec<u8>) =
-        read_shadowsocks_request(&mut client, first_byte, state.shadowsocks_target_policy(), resolver)?;
+        read_shadowsocks_request(&mut client, first_byte, state, resolver)?;
     let host = state.extract_relay_payload_host(&first_request);
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_ref()) };
     let (upstream, route) = super::routing::connect_target(target, state, payload, false, host)?;

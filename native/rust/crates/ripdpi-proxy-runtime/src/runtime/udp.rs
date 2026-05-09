@@ -30,7 +30,7 @@ pub(crate) fn encode_socks5_udp_packet(target: SocketAddr, payload: &[u8]) -> Ve
 }
 
 pub(crate) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], state: &RuntimeState) -> Option<(SocketAddr, &'a [u8])> {
-    state.parse_socks5_udp_packet(packet, |host, socket_type| super::handshake::resolve_name(host, socket_type, state))
+    state.parse_socks5_udp_packet(packet, |host, socket_type| state.resolve_proxy_name(host, socket_type))
 }
 
 pub(super) fn udp_associate_loop(
