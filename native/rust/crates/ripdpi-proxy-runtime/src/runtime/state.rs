@@ -60,9 +60,6 @@ use ripdpi_proxy_runtime_adapter::protocol_payload::{
 use ripdpi_proxy_runtime_adapter::raw_packet_requirements::{
     raw_packet_requirements, validate_ip_fragmentation_support,
 };
-use ripdpi_proxy_runtime_adapter::response_triggers::{
-    failure_penalizes_strategy, failure_trigger_mask, first_response_exchange_policy, FirstResponseExchangePolicy,
-};
 use ripdpi_proxy_runtime_adapter::udp_desync::{
     execute_udp_actions, plan_udp_actions_for_runtime, udp_desync_planner, UdpActionExecContext, UdpDesyncAction,
     UdpDesyncPlanContext, UdpDesyncPlanRequest, UdpDesyncPlanner,
@@ -72,6 +69,12 @@ use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host, EncryptedDnsIpAnswers,
 };
 
+use super::response::{
+    runtime_failure_penalizes_strategy, runtime_failure_trigger_mask, runtime_first_response_exchange_policy,
+    runtime_first_response_exchange_required, RuntimeFirstResponseExchangePolicy,
+};
+#[cfg(test)]
+use super::response::{runtime_response_trigger_flag, runtime_response_trigger_supported, RuntimeTriggerEvent};
 use super::types::{
     runtime_classify_response_failure, runtime_client_request, runtime_outbound_progress, runtime_probe_result,
     runtime_response_requires_dns_tampering_evidence, runtime_session_error, runtime_udp_packet_settings,
@@ -121,7 +124,7 @@ pub(super) struct RuntimeState {
     relay_host_extractor: PayloadHostExtractor,
     relay_first_response: FirstResponseSettings,
     first_outbound_payload_policy: FirstOutboundPayloadPolicy,
-    first_response_exchange_policy: FirstResponseExchangePolicy,
+    first_response_exchange_policy: RuntimeFirstResponseExchangePolicy,
     response_failure_evidence_settings: ResponseFailureEvidenceSettings,
     services: ServicesStateHandle,
     active_clients: Arc<AtomicUsize>,
@@ -194,7 +197,7 @@ impl RuntimeState {
         let relay_host_extractor = payload_host_extractor(&config);
         let relay_first_response = first_response_settings(&config);
         let first_outbound_payload_policy = first_outbound_payload_policy(&config);
-        let first_response_exchange_policy = first_response_exchange_policy(&config);
+        let first_response_exchange_policy = runtime_first_response_exchange_policy(&config);
         let response_failure_evidence_settings = response_failure_evidence_settings(&config);
 
         Self {
@@ -694,10 +697,9 @@ impl RuntimeState {
     }
 
     pub(super) fn first_response_exchange_required(&self) -> io::Result<bool> {
-        ripdpi_proxy_runtime_adapter::response_triggers::first_response_exchange_required_with(
-            self.first_response_exchange_policy,
-            |trigger| Ok(PolicyPort::supports_trigger(&self.services, trigger)),
-        )
+        runtime_first_response_exchange_required(self.first_response_exchange_policy, |trigger| {
+            Ok(PolicyPort::supports_trigger(&self.services, trigger))
+        })
     }
 
     pub(super) fn primary_tcp_strategy_family(&self, group_index: usize) -> Option<&'static str> {
@@ -861,7 +863,7 @@ impl RuntimeState {
     }
 
     pub(super) fn retry_trigger_for_failure(&self, failure: &ClassifiedFailure) -> Option<u32> {
-        let trigger = failure_trigger_mask(failure);
+        let trigger = runtime_failure_trigger_mask(failure);
         if failure.action != FailureAction::RetryWithMatchingGroup
             || trigger == 0
             || !self.runtime_supports_trigger(trigger)
@@ -872,25 +874,22 @@ impl RuntimeState {
     }
 
     pub(super) fn failure_penalizes_strategy(failure: &ClassifiedFailure) -> bool {
-        failure_penalizes_strategy(failure)
+        runtime_failure_penalizes_strategy(failure)
     }
 
     #[cfg(test)]
     pub(super) fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
-        failure_trigger_mask(failure)
+        runtime_failure_trigger_mask(failure)
     }
 
     #[cfg(test)]
-    pub(super) fn trigger_flag(trigger: ripdpi_proxy_runtime_adapter::model::session::TriggerEvent) -> u32 {
-        ripdpi_proxy_runtime_adapter::response_triggers::response_trigger_flag(trigger)
+    pub(super) fn trigger_flag(trigger: RuntimeTriggerEvent) -> u32 {
+        runtime_response_trigger_flag(trigger)
     }
 
     #[cfg(test)]
-    pub(super) fn response_trigger_supported(
-        config: &RuntimeConfig,
-        trigger: ripdpi_proxy_runtime_adapter::model::session::TriggerEvent,
-    ) -> bool {
-        ripdpi_proxy_runtime_adapter::response_triggers::response_trigger_supported(config, trigger)
+    pub(super) fn response_trigger_supported(config: &RuntimeConfig, trigger: RuntimeTriggerEvent) -> bool {
+        runtime_response_trigger_supported(config, trigger)
     }
 
     pub(super) fn udp_flow_timeout_failure() -> Option<ClassifiedFailure> {
@@ -1560,7 +1559,7 @@ impl RuntimeState {
         let relay_host_extractor = payload_host_extractor(&config);
         let relay_first_response = first_response_settings(&config);
         let first_outbound_payload_policy = first_outbound_payload_policy(&config);
-        let first_response_exchange_policy = first_response_exchange_policy(&config);
+        let first_response_exchange_policy = runtime_first_response_exchange_policy(&config);
         let response_failure_evidence_settings = response_failure_evidence_settings(&config);
 
         Self {
