@@ -2,11 +2,9 @@ use std::net::SocketAddr;
 
 use std::collections::BTreeMap;
 
-use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, RetrySelectionPenalty};
-
 use crate::runtime::retry::maybe_emit_candidate_diversification;
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::RuntimeClassifiedFailure;
+use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeConnectionRoute, RuntimeRetrySelectionPenalty};
 
 pub(in crate::runtime) fn emit_failure_classified(
     state: &RuntimeState,
@@ -23,12 +21,12 @@ pub(in crate::runtime) fn emit_failure_classified(
 pub(super) fn emit_route_advance_telemetry(
     state: &RuntimeState,
     target: SocketAddr,
-    previous_route: &ConnectionRoute,
-    next_route: Option<&ConnectionRoute>,
+    previous_route: &RuntimeConnectionRoute,
+    next_route: Option<&RuntimeConnectionRoute>,
     trigger: u32,
     failure: &RuntimeClassifiedFailure,
     host: Option<&str>,
-    retry_penalties: &BTreeMap<usize, RetrySelectionPenalty>,
+    retry_penalties: &BTreeMap<usize, RuntimeRetrySelectionPenalty>,
 ) {
     if let Some(next_route) = next_route {
         maybe_emit_candidate_diversification(state, target, next_route, retry_penalties);

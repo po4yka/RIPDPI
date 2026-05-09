@@ -5,7 +5,9 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     DesyncGroup, IpIdMode, RelayGroupSettings, RotationPolicy, RuntimeTimeoutSettings, UdpGroupPacketSettings,
     UdpSourceRebindPolicy,
 };
-use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
+use ripdpi_proxy_runtime_adapter::model::decision::{
+    ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
+};
 use ripdpi_proxy_runtime_adapter::model::session::{ClientRequest, OutboundProgress, SessionError, SessionState};
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{TelegramDc, WsTunnelConfig};
 
@@ -13,6 +15,8 @@ pub(super) type RuntimeClassifiedFailure = ClassifiedFailure;
 pub(super) type RuntimeFailureAction = FailureAction;
 pub(super) type RuntimeFailureClass = FailureClass;
 pub(super) type RuntimeConnectionRoute = ConnectionRoute;
+pub(super) type RuntimeRetrySelectionPenalty = RetrySelectionPenalty;
+pub(super) type RuntimeRouteAdvance<'a> = RouteAdvance<'a>;
 pub(super) type RuntimeTransportProtocol = TransportProtocol;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

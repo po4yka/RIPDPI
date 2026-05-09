@@ -3,9 +3,8 @@ use std::io;
 use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, RetrySelectionPenalty, TransportProtocol};
-
 use super::state::RuntimeState;
+use super::types::{RuntimeConnectionRoute, RuntimeRetrySelectionPenalty, RuntimeTransportProtocol};
 
 pub(super) fn now_millis() -> u64 {
     SystemTime::now()
@@ -20,7 +19,7 @@ pub(super) fn note_retry_success(
     group_index: usize,
     host: Option<&str>,
     payload: Option<&[u8]>,
-    transport: TransportProtocol,
+    transport: RuntimeTransportProtocol,
 ) -> io::Result<()> {
     state.note_retry_success(target, group_index, host, payload, transport)
 }
@@ -31,7 +30,7 @@ pub(super) fn note_retry_failure(
     group_index: usize,
     host: Option<&str>,
     payload: Option<&[u8]>,
-    transport: TransportProtocol,
+    transport: RuntimeTransportProtocol,
 ) -> io::Result<()> {
     state.note_retry_failure(target, group_index, host, payload, transport, now_millis())
 }
@@ -42,16 +41,16 @@ pub(super) fn build_retry_selection_penalties(
     target: SocketAddr,
     host: Option<&str>,
     payload: Option<&[u8]>,
-    transport: TransportProtocol,
-) -> io::Result<BTreeMap<usize, RetrySelectionPenalty>> {
+    transport: RuntimeTransportProtocol,
+) -> io::Result<BTreeMap<usize, RuntimeRetrySelectionPenalty>> {
     state.build_retry_penalties(target, host, payload, transport, now_millis())
 }
 
 pub(super) fn maybe_emit_candidate_diversification(
     state: &RuntimeState,
     target: SocketAddr,
-    route: &ConnectionRoute,
-    penalties: &BTreeMap<usize, RetrySelectionPenalty>,
+    route: &RuntimeConnectionRoute,
+    penalties: &BTreeMap<usize, RuntimeRetrySelectionPenalty>,
 ) {
     let Some(selected_penalty) = penalties.get(&route.group_index).copied() else {
         return;
@@ -70,7 +69,7 @@ pub(super) fn maybe_emit_candidate_diversification(
 pub(super) fn apply_retry_pacing_before_connect(
     state: &RuntimeState,
     target: SocketAddr,
-    route: &ConnectionRoute,
+    route: &RuntimeConnectionRoute,
     host: Option<&str>,
     payload: Option<&[u8]>,
 ) -> io::Result<()> {

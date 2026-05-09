@@ -1,13 +1,12 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
-
 use super::super::adaptive::{note_direct_path_all_ips_failed, note_direct_path_transport_attempt};
 use super::super::state::RuntimeState;
 use super::connect::connect_target_candidates_via_group;
 use super::failure::{advance_route_for_failure, emit_failure_classified, note_block_signal_for_failure};
 use super::policy::{preferred_targets_for_transport, select_route};
+use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
 
 pub(in crate::runtime) fn connect_target(
     target: SocketAddr,
@@ -15,7 +14,7 @@ pub(in crate::runtime) fn connect_target(
     payload: Option<&[u8]>,
     allow_unknown_payload: bool,
     host: Option<String>,
-) -> io::Result<(TcpStream, ConnectionRoute)> {
+) -> io::Result<(TcpStream, RuntimeConnectionRoute)> {
     let route = select_route(state, target, payload, host.as_deref(), allow_unknown_payload)?;
     state.note_route_selected(target, route.group_index, host.as_deref(), "initial");
     connect_target_with_route(target, state, route, payload, host)
@@ -24,14 +23,16 @@ pub(in crate::runtime) fn connect_target(
 pub(in crate::runtime) fn connect_target_with_route(
     target: SocketAddr,
     state: &RuntimeState,
-    mut route: ConnectionRoute,
+    mut route: RuntimeConnectionRoute,
     payload: Option<&[u8]>,
     host: Option<String>,
-) -> io::Result<(TcpStream, ConnectionRoute)> {
+) -> io::Result<(TcpStream, RuntimeConnectionRoute)> {
     let mut retries: usize = 0;
     loop {
-        let attempt_targets = preferred_targets_for_transport(state, target, host.as_deref(), TransportProtocol::Tcp);
-        let _ = note_direct_path_transport_attempt(state, host.as_deref(), &attempt_targets, TransportProtocol::Tcp);
+        let attempt_targets =
+            preferred_targets_for_transport(state, target, host.as_deref(), RuntimeTransportProtocol::Tcp);
+        let _ =
+            note_direct_path_transport_attempt(state, host.as_deref(), &attempt_targets, RuntimeTransportProtocol::Tcp);
         match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, payload, true) {
             Ok(stream) => return Ok((stream, route)),
             Err(mut err) => {
@@ -73,26 +74,26 @@ pub(in crate::runtime) fn connect_target_with_route(
 pub(in crate::runtime) fn reconnect_target(
     target: SocketAddr,
     state: &RuntimeState,
-    route: ConnectionRoute,
+    route: RuntimeConnectionRoute,
     host: Option<String>,
     payload: Option<&[u8]>,
-) -> io::Result<(TcpStream, ConnectionRoute)> {
+) -> io::Result<(TcpStream, RuntimeConnectionRoute)> {
     reconnect_target_with_tfo_mode(target, state, route, host, payload, true)
 }
 
 pub(in crate::runtime) fn reconnect_target_without_tfo(
     target: SocketAddr,
     state: &RuntimeState,
-    route: ConnectionRoute,
+    route: RuntimeConnectionRoute,
     host: Option<String>,
     payload: Option<&[u8]>,
-) -> io::Result<(TcpStream, ConnectionRoute)> {
+) -> io::Result<(TcpStream, RuntimeConnectionRoute)> {
     reconnect_target_with_tfo_mode(target, state, route, host, payload, false)
 }
 
 pub(in crate::runtime) fn route_uses_direct_syn_data_tfo(
     state: &RuntimeState,
-    route: &ConnectionRoute,
+    route: &RuntimeConnectionRoute,
     payload: Option<&[u8]>,
 ) -> bool {
     state.route_uses_direct_syn_data_tfo(route, payload)
@@ -101,15 +102,16 @@ pub(in crate::runtime) fn route_uses_direct_syn_data_tfo(
 fn reconnect_target_with_tfo_mode(
     target: SocketAddr,
     state: &RuntimeState,
-    mut route: ConnectionRoute,
+    mut route: RuntimeConnectionRoute,
     host: Option<String>,
     payload: Option<&[u8]>,
     allow_tfo: bool,
-) -> io::Result<(TcpStream, ConnectionRoute)> {
+) -> io::Result<(TcpStream, RuntimeConnectionRoute)> {
     let mut retries: usize = 0;
     loop {
         crate::runtime::retry::apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
-        let attempt_targets = preferred_targets_for_transport(state, target, host.as_deref(), TransportProtocol::Tcp);
+        let attempt_targets =
+            preferred_targets_for_transport(state, target, host.as_deref(), RuntimeTransportProtocol::Tcp);
         match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, payload, allow_tfo) {
             Ok(stream) => return Ok((stream, route)),
             Err(mut err) => {

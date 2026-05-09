@@ -2,28 +2,27 @@ use std::collections::BTreeMap;
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::model::decision::{
-    ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
-};
-
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::{
+    RuntimeConnectionRoute, RuntimeRetrySelectionPenalty, RuntimeRouteAdvance, RuntimeTransportProtocol,
+};
 
 pub(super) fn advance_cache_route(
     state: &RuntimeState,
     target: SocketAddr,
-    route: &ConnectionRoute,
+    route: &RuntimeConnectionRoute,
     host: Option<String>,
     payload: Option<&[u8]>,
     trigger: u32,
     penalize: bool,
-    retry_penalties: &BTreeMap<usize, RetrySelectionPenalty>,
-) -> io::Result<Option<ConnectionRoute>> {
+    retry_penalties: &BTreeMap<usize, RuntimeRetrySelectionPenalty>,
+) -> io::Result<Option<RuntimeConnectionRoute>> {
     state.advance_route(
         route,
-        RouteAdvance {
+        RuntimeRouteAdvance {
             dest: target,
             payload,
-            transport: TransportProtocol::Tcp,
+            transport: RuntimeTransportProtocol::Tcp,
             trigger,
             can_reconnect: true,
             host,
