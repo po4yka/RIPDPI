@@ -6,19 +6,9 @@ import android.net.LocalSocketAddress
 import android.net.VpnService
 import android.system.Os
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.data.FailureReason
 import java.io.File
 import java.io.FileDescriptor
 import java.io.IOException
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.RejectedExecutionException
-import java.util.concurrent.Semaphore
-import java.util.concurrent.ThreadFactory
-import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Listens on a Unix domain socket (filesystem namespace) and calls [VpnService.protect] on any
@@ -73,6 +63,14 @@ internal class VpnProtectSocketServer(
             handlerConcurrency = handlerConcurrency,
             maxPendingSessions = maxPendingSessions,
             joinTimeoutMs = handlerJoinTimeoutMs,
+        )
+    private val fdProtection =
+        ProtectSocketFdProtector(
+            protectFailureMonitor = protectFailureMonitor,
+            fdProtector = fdProtector,
+            clock = clock,
+            beforeProtectAncillaryFds = beforeProtectAncillaryFds,
+            fileDescriptorIntExtractor = fileDescriptorIntExtractor,
         )
 
     @Volatile private var serverSocket: LocalServerSocket? = null
@@ -129,7 +127,7 @@ internal class VpnProtectSocketServer(
             session.use { client ->
                 val bytesRead = client.readHandshake()
                 if (bytesRead <= 0) return
-                val allProtected = protectAncillaryFds(client)
+                val allProtected = fdProtection.protectAncillaryFds(client)
                 client.writeAck(success = allProtected)
             }
         } catch (e: InterruptedException) {
@@ -138,121 +136,6 @@ internal class VpnProtectSocketServer(
         } catch (e: IOException) {
             log.w(e) { "protect socket handle error" }
         }
-    }
-
-    private fun protectAncillaryFds(session: ProtectSocketClientSession): Boolean {
-        val fds = session.ancillaryFileDescriptors.orEmpty()
-        if (fds.isEmpty()) return true
-
-        beforeProtectAncillaryFds()
-
-        var allProtected = true
-        for (fd in fds) {
-            when (val extracted = fileDescriptorIntExtractor.extract(fd)) {
-                is ProtectSocketFdExtractionResult.Extracted -> {
-                    if (!protectFd(extracted.value)) {
-                        allProtected = false
-                    }
-                }
-
-                is ProtectSocketFdExtractionResult.Failed -> {
-                    reportProtectFailure(
-                        fd = -1,
-                        reason = FailureReason.NativeError(extracted.error.detail),
-                        detail = extracted.error.detail,
-                    )
-                    allProtected = false
-                }
-            }
-            runCatching { Os.close(fd) }
-        }
-        return allProtected
-    }
-
-    private fun protectFd(fdInt: Int): Boolean {
-        val protectResult =
-            runCatching { fdProtector(fdInt) }
-                .fold(
-                    onSuccess = { protected ->
-                        if (protected) {
-                            ProtectResult.Protected
-                        } else {
-                            ProtectResult.Rejected("VpnService.protect() returned false")
-                        }
-                    },
-                    onFailure = { error ->
-                        ProtectResult.Failed(
-                            reason =
-                                when (error) {
-                                    is SecurityException -> {
-                                        FailureReason.PermissionLost("VPN")
-                                    }
-
-                                    else -> {
-                                        FailureReason.NativeError(
-                                            "VpnService.protect() failed for fd=$fdInt: " +
-                                                "${error.message ?: "unknown error"}",
-                                        )
-                                    }
-                                },
-                            detail =
-                                error.message
-                                    ?: "VpnService.protect() threw ${error::class.java.simpleName}",
-                        )
-                    },
-                )
-        when (protectResult) {
-            ProtectResult.Protected -> {
-                log.d { "protected fd=$fdInt" }
-                return true
-            }
-
-            is ProtectResult.Rejected -> {
-                reportProtectFailure(
-                    fd = fdInt,
-                    reason = FailureReason.PermissionLost("VPN"),
-                    detail = protectResult.detail,
-                )
-            }
-
-            is ProtectResult.Failed -> {
-                reportProtectFailure(
-                    fd = fdInt,
-                    reason = protectResult.reason,
-                    detail = protectResult.detail,
-                )
-            }
-        }
-        return false
-    }
-
-    private fun reportProtectFailure(
-        fd: Int,
-        reason: FailureReason,
-        detail: String,
-    ) {
-        protectFailureMonitor.report(
-            VpnProtectFailureEvent(
-                fd = fd,
-                reason = reason,
-                detail = detail,
-                detectedAt = clock(),
-            ),
-        )
-        log.e { "vpn protect failed for fd=$fd: $detail" }
-    }
-
-    private sealed interface ProtectResult {
-        data object Protected : ProtectResult
-
-        data class Rejected(
-            val detail: String,
-        ) : ProtectResult
-
-        data class Failed(
-            val reason: FailureReason,
-            val detail: String,
-        ) : ProtectResult
     }
 
     fun stop() {
@@ -281,164 +164,5 @@ internal class VpnProtectSocketServer(
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
         }
-    }
-}
-
-private class ProtectSocketSessionDispatcher(
-    handlerConcurrency: Int,
-    maxPendingSessions: Int,
-    private val joinTimeoutMs: Long,
-) {
-    private val closed = AtomicBoolean(false)
-    private val permits: Semaphore
-    private val activeTasks = ConcurrentHashMap.newKeySet<ProtectSocketHandlerTask>()
-    private val executor: ThreadPoolExecutor
-
-    init {
-        require(handlerConcurrency > 0) { "handlerConcurrency must be > 0" }
-        require(maxPendingSessions >= 0) { "maxPendingSessions must be >= 0" }
-        require(joinTimeoutMs >= 0L) { "joinTimeoutMs must be >= 0" }
-
-        permits = Semaphore(handlerConcurrency + maxPendingSessions)
-        executor =
-            ThreadPoolExecutor(
-                handlerConcurrency,
-                handlerConcurrency,
-                0L,
-                TimeUnit.MILLISECONDS,
-                LinkedBlockingQueue(),
-                ProtectSocketThreadFactory(),
-            )
-    }
-
-    fun submit(
-        session: ProtectSocketClientSession,
-        handler: (ProtectSocketClientSession) -> Unit,
-    ): Boolean {
-        if (!tryAcquirePermit()) {
-            rejectSession(session)
-            return false
-        }
-
-        val task = ProtectSocketHandlerTask(session, permits, handler, activeTasks)
-        activeTasks += task
-        return try {
-            executor.execute(task)
-            true
-        } catch (_: RejectedExecutionException) {
-            activeTasks -= task
-            permits.release()
-            rejectSession(session)
-            false
-        }
-    }
-
-    private fun tryAcquirePermit(): Boolean {
-        if (closed.get() || !permits.tryAcquire()) return false
-        val closedAfterAcquire = closed.get()
-        if (closedAfterAcquire) permits.release()
-        return !closedAfterAcquire
-    }
-
-    fun shutdown() {
-        if (!closed.compareAndSet(false, true)) return
-
-        val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(joinTimeoutMs)
-        closeActiveSessions()
-        executor.shutdown()
-        if (awaitTerminationBefore(deadlineNanos)) return
-
-        executor
-            .shutdownNow()
-            .filterIsInstance<ProtectSocketHandlerTask>()
-            .forEach(ProtectSocketHandlerTask::closeSessionQuietly)
-        closeActiveSessions()
-        awaitTerminationBefore(deadlineNanos)
-    }
-
-    private fun awaitTerminationBefore(deadlineNanos: Long): Boolean {
-        var result = executor.isTerminated
-        while (!result) {
-            val remainingNanos = deadlineNanos - System.nanoTime()
-            if (remainingNanos <= 0L) {
-                result = executor.isTerminated
-                break
-            }
-            result =
-                try {
-                    executor.awaitTermination(remainingNanos, TimeUnit.NANOSECONDS)
-                } catch (_: InterruptedException) {
-                    Thread.currentThread().interrupt()
-                    executor.isTerminated
-                }
-        }
-        return result
-    }
-
-    private fun closeActiveSessions() {
-        activeTasks.forEach(ProtectSocketHandlerTask::closeSessionQuietly)
-    }
-
-    private fun rejectSession(session: ProtectSocketClientSession) {
-        runCatching {
-            session.use {
-                it.writeAck(success = false)
-            }
-        }
-    }
-}
-
-private class ProtectSocketHandlerTask(
-    private val session: ProtectSocketClientSession,
-    private val permits: Semaphore,
-    private val handler: (ProtectSocketClientSession) -> Unit,
-    private val activeTasks: MutableSet<ProtectSocketHandlerTask>,
-) : Runnable {
-    override fun run() {
-        try {
-            handler(session)
-        } finally {
-            permits.release()
-            activeTasks.remove(this)
-        }
-    }
-
-    fun closeSessionQuietly() {
-        runCatching { session.close() }
-    }
-}
-
-private class ProtectSocketThreadFactory : ThreadFactory {
-    private val index = AtomicInteger(0)
-
-    override fun newThread(runnable: Runnable): Thread =
-        Thread(runnable, "vpn-protect-handler-${index.incrementAndGet()}").apply {
-            isDaemon = true
-        }
-}
-
-internal interface ProtectSocketClientSession : AutoCloseable {
-    val ancillaryFileDescriptors: Array<FileDescriptor>?
-
-    fun readHandshake(): Int
-
-    fun writeAck(success: Boolean)
-}
-
-private class LocalSocketClientSession(
-    private val socket: LocalSocket,
-) : ProtectSocketClientSession {
-    override val ancillaryFileDescriptors: Array<FileDescriptor>?
-        get() = socket.ancillaryFileDescriptors
-
-    override fun readHandshake(): Int = socket.inputStream.read(ByteArray(1))
-
-    override fun writeAck(success: Boolean) {
-        socket.outputStream.write(byteArrayOf(if (success) 0 else 1))
-        socket.outputStream.flush()
-    }
-
-    override fun close() {
-        socket.close()
     }
 }
