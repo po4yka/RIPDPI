@@ -4,10 +4,6 @@ use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::desync_platform::{
-    send_tcp_desync_payload, tcp_desync_executor, DesyncSendRequest, OutboundSendError, OutboundSendOutcome,
-    TcpDesyncExecutionContext, TcpDesyncExecutor,
-};
 use ripdpi_proxy_runtime_adapter::model::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
     ensure_default_ttl, first_response_settings, first_response_timeout, first_response_timeout_count_limit,
@@ -61,6 +57,10 @@ use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host, EncryptedDnsIpAnswers,
 };
 
+use super::desync::{
+    send_tcp_desync_payload, tcp_desync_executor, DesyncSendRequest, OutboundSendError, OutboundSendOutcome,
+    TcpDesyncExecutionContext, TcpDesyncExecutor,
+};
 use super::response::{
     runtime_failure_penalizes_strategy, runtime_failure_trigger_mask, runtime_first_response_exchange_policy,
     runtime_first_response_exchange_required, RuntimeFirstResponseExchangePolicy,
