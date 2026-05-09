@@ -9,7 +9,6 @@
 
 mod autolearn;
 mod block_signal;
-mod classification;
 mod execution;
 mod resolver;
 mod scheduler;

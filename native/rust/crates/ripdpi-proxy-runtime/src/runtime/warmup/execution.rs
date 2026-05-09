@@ -5,14 +5,10 @@ use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use super::autolearn::{advance_after_failure, record_route_success};
 use super::block_signal::record_block_signal;
-use super::classification::{
-    classify_closed_before_response, classify_first_response_error, classify_response, classify_send_error,
-    emit_classified_failure,
-};
 use super::resolver::resolve_probe_target;
 use super::target_catalog::PROBE_TIMEOUT;
 use crate::runtime::desync::DesyncSendRequest;
-use crate::runtime::routing::connect_target;
+use crate::runtime::routing::{classify_response_failure, connect_target, emit_failure_classified};
 use crate::runtime::state::RuntimeState;
 use ripdpi_proxy_runtime_adapter::platform::warmup as warmup_platform;
 
@@ -44,8 +40,8 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
 
     if let Err(err) = send_result {
         let io_err = err.into_io_error();
-        let failure = classify_send_error(&io_err);
-        emit_classified_failure(state, target, &failure, domain);
+        let failure = RuntimeState::classify_warmup_send_error(&io_err);
+        emit_failure_classified(state, target, &failure, Some(domain));
         return advance_after_failure(state, target, &route, domain, &payload, &failure);
     }
 
@@ -54,10 +50,17 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
     let read_result = upstream.read(&mut response_buf);
 
     match read_result {
-        Ok(0) => handle_blocked_response(state, target, &route, domain, &payload, classify_closed_before_response()),
+        Ok(0) => handle_blocked_response(
+            state,
+            target,
+            &route,
+            domain,
+            &payload,
+            RuntimeState::classify_warmup_closed_before_response(),
+        ),
         Ok(n) => {
             let response = &response_buf[..n];
-            if let Some(failure) = classify_response(state, target, &payload, response, domain) {
+            if let Some(failure) = classify_response_failure(state, target, &payload, response, Some(domain)) {
                 handle_blocked_response(state, target, &route, domain, &payload, failure)
             } else {
                 record_route_success(state, target, &route, domain)?;
@@ -65,7 +68,7 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
             }
         }
         Err(err) => {
-            let failure = classify_first_response_error(&err);
+            let failure = RuntimeState::classify_warmup_first_response_error(&err);
             handle_blocked_response(state, target, &route, domain, &payload, failure)
         }
     }
@@ -80,6 +83,6 @@ fn handle_blocked_response(
     failure: ClassifiedFailure,
 ) -> io::Result<bool> {
     record_block_signal(state, domain, &failure);
-    emit_classified_failure(state, target, &failure, domain);
+    emit_failure_classified(state, target, &failure, Some(domain));
     advance_after_failure(state, target, route, domain, payload, &failure)
 }
