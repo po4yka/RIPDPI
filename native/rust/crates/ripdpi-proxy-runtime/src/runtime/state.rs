@@ -8,13 +8,6 @@ use ripdpi_proxy_runtime_adapter::desync_platform::{
     send_tcp_desync_payload, tcp_desync_executor, DesyncSendRequest, OutboundSendError, OutboundSendOutcome,
     TcpDesyncExecutionContext, TcpDesyncExecutor,
 };
-use ripdpi_proxy_runtime_adapter::failure::{
-    block_signal_from_failure, classify_first_response_closed_before_response,
-    classify_first_response_partial_tls_timeout, classify_probe_connect_error, classify_probe_read_error,
-    classify_probe_tls_response, classify_probe_write_error, classify_relay_connection_freeze,
-    classify_strategy_execution_failure, classify_transport_error, classify_warmup_closed_before_response,
-    classify_warmup_first_response_error, classify_warmup_send_error, should_track_strategy_target,
-};
 use ripdpi_proxy_runtime_adapter::model::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
     ensure_default_ttl, first_response_settings, first_response_timeout, first_response_timeout_count_limit,
@@ -75,17 +68,22 @@ use super::response::{
 #[cfg(test)]
 use super::response::{runtime_response_trigger_flag, runtime_response_trigger_supported, RuntimeTriggerEvent};
 use super::types::{
-    runtime_classify_first_outbound_payload, runtime_classify_mtproto_seed, runtime_classify_quic_probe,
-    runtime_classify_response_failure, runtime_classify_udp_payload, runtime_client_request, runtime_outbound_progress,
-    runtime_parse_socks5_udp_packet, runtime_probe_result, runtime_relay_ws_tunnel,
-    runtime_response_requires_dns_tampering_evidence, runtime_session_error, runtime_udp_packet_settings,
-    RuntimeBlockSignal, RuntimeClassifiedFailure, RuntimeClientRequest, RuntimeConnectionRoute,
-    RuntimeDnsTamperingEvidence, RuntimeFailureAction, RuntimeFailureClass, RuntimeFailureStage,
-    RuntimeOutboundProgress, RuntimeProbeResult, RuntimeProxyProtocolMode, RuntimeRelayGroupSettings,
-    RuntimeRelayRotationSeed, RuntimeRelayTimeouts, RuntimeRetrySelectionPenalty, RuntimeRouteAdvance,
-    RuntimeSessionError, RuntimeSessionState, RuntimeTelegramDc, RuntimeTransportProtocol, RuntimeUdpPacketSettings,
-    RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, RuntimeWsTunnelConfig, UdpFlowGroupPolicy,
-    WsSeedClassification,
+    runtime_block_signal_from_failure, runtime_classify_first_outbound_payload,
+    runtime_classify_first_response_closed_before_response, runtime_classify_first_response_partial_tls_timeout,
+    runtime_classify_mtproto_seed, runtime_classify_probe_connect_error, runtime_classify_probe_read_error,
+    runtime_classify_probe_tls_response, runtime_classify_probe_write_error, runtime_classify_quic_probe,
+    runtime_classify_relay_connection_freeze, runtime_classify_response_failure,
+    runtime_classify_strategy_execution_failure, runtime_classify_transport_error, runtime_classify_udp_payload,
+    runtime_classify_warmup_closed_before_response, runtime_classify_warmup_first_response_error,
+    runtime_classify_warmup_send_error, runtime_client_request, runtime_outbound_progress,
+    runtime_parse_socks5_udp_packet, runtime_relay_ws_tunnel, runtime_response_requires_dns_tampering_evidence,
+    runtime_session_error, runtime_should_track_strategy_target, runtime_udp_packet_settings, RuntimeBlockSignal,
+    RuntimeClassifiedFailure, RuntimeClientRequest, RuntimeConnectionRoute, RuntimeDnsTamperingEvidence,
+    RuntimeFailureAction, RuntimeFailureClass, RuntimeFailureStage, RuntimeOutboundProgress, RuntimeProbeResult,
+    RuntimeProxyProtocolMode, RuntimeRelayGroupSettings, RuntimeRelayRotationSeed, RuntimeRelayTimeouts,
+    RuntimeRetrySelectionPenalty, RuntimeRouteAdvance, RuntimeSessionError, RuntimeSessionState, RuntimeTelegramDc,
+    RuntimeTransportProtocol, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy,
+    RuntimeWsTunnelConfig, UdpFlowGroupPolicy, WsSeedClassification,
 };
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -886,23 +884,23 @@ impl RuntimeState {
     }
 
     pub(super) fn classify_connect_transport_error(source: &io::Error) -> RuntimeClassifiedFailure {
-        classify_transport_error(RuntimeFailureStage::Connect, source)
+        runtime_classify_transport_error(RuntimeFailureStage::Connect, source)
     }
 
     pub(super) fn classify_first_response_transport_error(source: &io::Error) -> RuntimeClassifiedFailure {
-        classify_transport_error(RuntimeFailureStage::FirstResponse, source)
+        runtime_classify_transport_error(RuntimeFailureStage::FirstResponse, source)
     }
 
     pub(super) fn classify_first_response_closed_before_response() -> RuntimeClassifiedFailure {
-        classify_first_response_closed_before_response()
+        runtime_classify_first_response_closed_before_response()
     }
 
     pub(super) fn classify_first_response_partial_tls_timeout() -> RuntimeClassifiedFailure {
-        classify_first_response_partial_tls_timeout()
+        runtime_classify_first_response_partial_tls_timeout()
     }
 
     pub(super) fn classify_relay_connection_freeze(timeouts: RuntimeRelayTimeouts) -> RuntimeClassifiedFailure {
-        classify_relay_connection_freeze(timeouts.into_adapter())
+        runtime_classify_relay_connection_freeze(timeouts.into_adapter())
     }
 
     pub(super) fn relay_timeouts(&self, group_index: usize) -> io::Result<RuntimeRelayTimeouts> {
@@ -910,36 +908,38 @@ impl RuntimeState {
     }
 
     pub(super) fn classify_warmup_send_error(source: &io::Error) -> RuntimeClassifiedFailure {
-        classify_warmup_send_error(source)
+        runtime_classify_warmup_send_error(source)
     }
 
     pub(super) fn classify_warmup_first_response_error(source: &io::Error) -> RuntimeClassifiedFailure {
-        classify_warmup_first_response_error(source)
+        runtime_classify_warmup_first_response_error(source)
     }
 
     pub(super) fn classify_warmup_closed_before_response() -> RuntimeClassifiedFailure {
-        classify_warmup_closed_before_response()
+        runtime_classify_warmup_closed_before_response()
     }
 
     pub(super) fn classify_probe_connect_error(source: &io::Error) -> RuntimeProbeResult {
-        runtime_probe_result(classify_probe_connect_error(source))
+        runtime_classify_probe_connect_error(source)
     }
 
     pub(super) fn classify_probe_write_error(source: &io::Error) -> RuntimeProbeResult {
-        runtime_probe_result(classify_probe_write_error(source))
+        runtime_classify_probe_write_error(source)
     }
 
     pub(super) fn classify_probe_read_error(source: &io::Error) -> RuntimeProbeResult {
-        runtime_probe_result(classify_probe_read_error(source))
+        runtime_classify_probe_read_error(source)
     }
 
     pub(super) fn classify_probe_tls_response(header: [u8; 5], handshake_type: Option<u8>) -> RuntimeProbeResult {
-        runtime_probe_result(classify_probe_tls_response(header, handshake_type))
+        runtime_classify_probe_tls_response(header, handshake_type)
     }
 
     pub(super) fn classify_first_write_failure(error: &OutboundSendError) -> RuntimeClassifiedFailure {
         match error {
-            OutboundSendError::Transport(source) => classify_transport_error(RuntimeFailureStage::FirstWrite, source),
+            OutboundSendError::Transport(source) => {
+                runtime_classify_transport_error(RuntimeFailureStage::FirstWrite, source)
+            }
             OutboundSendError::StrategyExecution {
                 action,
                 strategy_family,
@@ -948,14 +948,14 @@ impl RuntimeState {
                 source_errno,
                 source,
             } => {
-                let mut failure = classify_strategy_execution_failure(
+                let mut failure = runtime_classify_strategy_execution_failure(
                     RuntimeFailureStage::FirstWrite,
                     action,
                     source.kind(),
                     *source_errno,
                     error.to_string(),
                 )
-                .unwrap_or_else(|| classify_transport_error(RuntimeFailureStage::FirstWrite, source));
+                .unwrap_or_else(|| runtime_classify_transport_error(RuntimeFailureStage::FirstWrite, source));
                 failure = failure.with_tag("strategyFamily", (*strategy_family).to_string());
                 failure = failure.with_tag("bytesCommitted", bytes_committed.to_string());
                 if let Some(fallback_family) = fallback {
@@ -989,7 +989,7 @@ impl RuntimeState {
     }
 
     pub(super) fn should_track_strategy_target(target: SocketAddr) -> bool {
-        should_track_strategy_target(target)
+        runtime_should_track_strategy_target(target)
     }
 
     pub(super) fn note_block_signal_for_failure(
@@ -1001,7 +1001,7 @@ impl RuntimeState {
         let Some(host) = host else {
             return;
         };
-        let Some(signal) = block_signal_from_failure(failure, tcp_total_retransmissions) else {
+        let Some(signal) = runtime_block_signal_from_failure(failure, tcp_total_retransmissions) else {
             return;
         };
         self.note_block_signal(
