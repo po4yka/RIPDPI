@@ -3714,6 +3714,7 @@ dependencies = [
  "ripdpi-io-uring",
  "ripdpi-packets",
  "ripdpi-proxy-runtime-adapter",
+ "ripdpi-runtime-api",
  "rustls",
  "serde_json",
  "tempfile",
