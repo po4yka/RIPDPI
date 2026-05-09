@@ -10,8 +10,8 @@
   "maxNewCrateSizeBytes": 65536,
   "packages": {
     "ripdpi-android": {
-      "fileSize": 28285912,
-      "textSectionSize": 8182442,
+      "fileSize": 28516352,
+      "textSectionSize": 8679530,
       "functions": [
         {
           "crate": "aws_lc_sys",
@@ -36,7 +36,7 @@
         {
           "crate": "ripdpi_config",
           "name": "ripdpi_config::parse::cli::options::handle_option",
-          "size": 26667
+          "size": 26553
         },
         {
           "name": "Lp384_montjscalarmul_alt_p384_montjadd",
@@ -99,7 +99,7 @@
         {
           "crate": "ripdpi_desync_runtime",
           "name": "ripdpi_desync_runtime::tcp_plan::execution::dispatcher::execute",
-          "size": 15025
+          "size": 14742
         },
         {
           "crate": "ripdpi_android_diagnostics_adapter",
@@ -107,9 +107,9 @@
           "size": 13997
         },
         {
-          "crate": "ripdpi_proxy_config",
-          "name": "ripdpi_proxy_config::convert::runtime_config_from_ui",
-          "size": 13854
+          "crate": "ripdpi_monitor_engine",
+          "name": "std::sys::backtrace::__rust_begin_short_backtrace",
+          "size": 13770
         }
       ],
       "crates": [
@@ -118,28 +118,28 @@
           "size": 1265387
         },
         {
-          "name": "[Unknown]",
-          "size": 926217
+          "name": "std",
+          "size": 736040
         },
         {
           "name": "boring_sys",
-          "size": 765876
+          "size": 699913
         },
         {
-          "name": "std",
-          "size": 710781
+          "name": "[Unknown]",
+          "size": 659473
         },
         {
           "name": "rustls",
-          "size": 351927
+          "size": 352181
         },
         {
           "name": "reqwest",
-          "size": 277115
+          "size": 277176
         },
         {
           "name": "ripdpi_proxy_config",
-          "size": 267859
+          "size": 269342
         },
         {
           "name": "quinn_proto",
@@ -150,54 +150,54 @@
           "size": 197598
         },
         {
-          "name": "ripdpi_monitor_engine",
-          "size": 178116
+          "name": "ripdpi_dns_resolver",
+          "size": 184110
         },
         {
-          "name": "ripdpi_dns_resolver",
-          "size": 165185
+          "name": "ripdpi_monitor_engine",
+          "size": 178050
         },
         {
           "name": "ripdpi_runtime_policy",
-          "size": 142057
-        },
-        {
-          "name": "ripdpi_proxy_runtime",
-          "size": 134411
+          "size": 142781
         },
         {
           "name": "h2",
-          "size": 116886
+          "size": 116352
         },
         {
           "name": "jni",
-          "size": 115025
+          "size": 114768
         },
         {
           "name": "ripdpi_android_diagnostics_adapter",
-          "size": 113924
+          "size": 113989
         },
         {
           "name": "ripdpi_diagnostics_runner",
-          "size": 105121
+          "size": 105123
         },
         {
           "name": "ripdpi_android_fetch_adapter",
-          "size": 102351
+          "size": 102288
+        },
+        {
+          "name": "ripdpi_proxy_runtime",
+          "size": 97717
         },
         {
           "name": "ripdpi_runtime_adaptive",
-          "size": 96258
+          "size": 95469
         },
         {
           "name": "hickory_proto",
-          "size": 82703
+          "size": 82544
         }
       ]
     },
     "ripdpi-tunnel-android": {
-      "fileSize": 23012592,
-      "textSectionSize": 6103002,
+      "fileSize": 24245728,
+      "textSectionSize": 5759194,
       "functions": [
         {
           "crate": "aws_lc_sys",
@@ -258,7 +258,7 @@
           "size": 17833
         },
         {
-          "crate": "serde_json?",
+          "crate": "serde_json",
           "name": "<&mut serde_json::de::Deserializer<R> as serde_core::de::Deserializer>::deserialize_struct",
           "size": 17614
         },
@@ -284,12 +284,13 @@
         },
         {
           "crate": "boring_sys",
-          "name": "_ZN4bssl20ssl_client_handshakeEPNS_13SSL_HANDSHAKEE",
-          "size": 13453
+          "name": "_ZN4bssl20ssl_server_handshakeEPNS_13SSL_HANDSHAKEE",
+          "size": 13149
         },
         {
-          "name": "_ZN4bssl7entropy12_GLOBAL__N_123sha512_block_data_orderEPmPKhm",
-          "size": 13086
+          "crate": "ripdpi_dns_resolver",
+          "name": "ripdpi_dns_resolver::resolver::tcp::<impl ripdpi_dns_resolver::resolver::EncryptedDnsResolver>::connect_plain_tcp::{{closure}}",
+          "size": 12957
         },
         {
           "crate": "aws_lc_sys",
@@ -303,24 +304,24 @@
           "size": 1264693
         },
         {
-          "name": "[Unknown]",
-          "size": 944716
+          "name": "boring_sys",
+          "size": 699471
         },
         {
-          "name": "boring_sys",
-          "size": 763884
+          "name": "[Unknown]",
+          "size": 681493
         },
         {
           "name": "std",
-          "size": 522284
+          "size": 528290
         },
         {
           "name": "rustls",
-          "size": 316541
+          "size": 316647
         },
         {
           "name": "reqwest",
-          "size": 276212
+          "size": 276259
         },
         {
           "name": "quinn_proto",
@@ -328,31 +329,31 @@
         },
         {
           "name": "ring",
-          "size": 197326
+          "size": 197128
         },
         {
           "name": "ripdpi_tunnel_core",
-          "size": 127312
-        },
-        {
-          "name": "h2",
-          "size": 116886
-        },
-        {
-          "name": "jni",
-          "size": 115540
+          "size": 127977
         },
         {
           "name": "ripdpi_dns_resolver",
-          "size": 110606
+          "size": 124350
+        },
+        {
+          "name": "h2",
+          "size": 116352
+        },
+        {
+          "name": "jni",
+          "size": 114987
         },
         {
           "name": "hickory_proto",
-          "size": 82478
+          "size": 82473
         },
         {
           "name": "tokio",
-          "size": 77330
+          "size": 77885
         },
         {
           "name": "webpki",
@@ -360,7 +361,7 @@
         },
         {
           "name": "hyper_util",
-          "size": 54211
+          "size": 54225
         },
         {
           "name": "hyper",
@@ -372,11 +373,11 @@
         },
         {
           "name": "curve25519_dalek",
-          "size": 41017
+          "size": 40828
         },
         {
           "name": "smoltcp",
-          "size": 39784
+          "size": 39696
         }
       ]
     }
