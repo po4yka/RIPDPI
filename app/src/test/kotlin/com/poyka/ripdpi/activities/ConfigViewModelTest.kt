@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
+import com.poyka.ripdpi.config.relay.toRelayPresetReason
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DirectModeVerdictResult

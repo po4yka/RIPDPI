@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.config.relay.buildDirectPathCapabilityObservation
+import com.poyka.ripdpi.config.relay.buildRelayCapabilityObservation
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.ServerCapabilityRecord

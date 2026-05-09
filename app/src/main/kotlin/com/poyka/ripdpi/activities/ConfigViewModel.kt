@@ -3,6 +3,8 @@ package com.poyka.ripdpi.activities
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
+import com.poyka.ripdpi.config.relay.toUiState
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.security.ImportedMasqueClientIdentity
