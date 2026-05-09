@@ -55,6 +55,7 @@ PROMPT.md
 .claude/worktrees/
 .claude/settings.json
 .claude/scheduled_tasks.lock
+.claude/agent-memory/
 security-audit-report.*
 .omc/
 docs/superpowers/
