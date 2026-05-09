@@ -21,6 +21,11 @@ pub enum RunnerOutcome {
     Cancelled,
 }
 
+/// Small lane-registration contract used by diagnostics-runner.
+///
+/// Concrete DNS/HTTP/TLS/Telegram/transport lanes stay behind their adapter
+/// modules; the coordinator only sees family identity, scheduling phase,
+/// step count, and a bounded run entrypoint.
 pub trait ProbeFamilyRunner {
     fn family(&self) -> ProbeTaskFamily;
 
@@ -118,5 +123,101 @@ impl ExecutionRuntime {
 
     pub fn into_results(self) -> Vec<ProbeResult> {
         self.results
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ripdpi_diagnostics_transport::transport::direct_transport;
+    use std::sync::atomic::AtomicBool;
+
+    struct FakeRunner {
+        family: ProbeTaskFamily,
+        steps: usize,
+    }
+
+    impl ProbeFamilyRunner for FakeRunner {
+        fn family(&self) -> ProbeTaskFamily {
+            self.family.clone()
+        }
+
+        fn phase(&self) -> &'static str {
+            "fake"
+        }
+
+        fn total_steps(&self, _plan: &ExecutionPlan) -> usize {
+            self.steps
+        }
+
+        fn run(
+            &self,
+            plan: &ExecutionPlan,
+            runtime: &mut ExecutionRuntime,
+            _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+        ) -> RunnerOutcome {
+            runtime.push_result(
+                plan,
+                self.phase(),
+                "fake complete".to_string(),
+                ProbeResult {
+                    probe_type: "fake".to_string(),
+                    target: "example.test".to_string(),
+                    outcome: "ok".to_string(),
+                    details: Vec::new(),
+                },
+            );
+            RunnerOutcome::Completed
+        }
+    }
+
+    fn plan() -> ExecutionPlan {
+        ExecutionPlan {
+            session_id: "session".to_string(),
+            request: ScanRequest {
+                profile_id: "profile".to_string(),
+                display_name: "Profile".to_string(),
+                path_mode: crate::types::ScanPathMode::RawPath,
+                kind: crate::types::ScanKind::Connectivity,
+                family: crate::types::DiagnosticProfileFamily::General,
+                region_tag: None,
+                manual_only: false,
+                pack_refs: Vec::new(),
+                proxy_host: None,
+                proxy_port: None,
+                probe_tasks: Vec::new(),
+                domain_targets: Vec::new(),
+                dns_targets: Vec::new(),
+                tcp_targets: Vec::new(),
+                quic_targets: Vec::new(),
+                service_targets: Vec::new(),
+                circumvention_targets: Vec::new(),
+                throughput_targets: Vec::new(),
+                whitelist_sni: Vec::new(),
+                telegram_target: None,
+                strategy_probe: None,
+                network_snapshot: None,
+                route_probe: None,
+                scan_deadline_ms: None,
+            },
+            started_at: 0,
+            total_steps: 1,
+            transport: direct_transport(),
+            family_order: vec![ProbeTaskFamily::Dns],
+        }
+    }
+
+    #[test]
+    fn coordinator_runs_only_registered_lane_family() {
+        let coordinator = ExecutionCoordinator::new(vec![
+            Box::new(FakeRunner { family: ProbeTaskFamily::Dns, steps: 1 }),
+            Box::new(FakeRunner { family: ProbeTaskFamily::Tcp, steps: 1 }),
+        ]);
+        let shared = Arc::new(Mutex::new(SharedState { progress: None, report: None, log_context: None }));
+        let mut runtime = ExecutionRuntime::new(shared, Arc::new(AtomicBool::new(false)), Vec::new());
+
+        assert!(matches!(coordinator.run(&plan(), &mut runtime, None), RunnerOutcome::Completed));
+        assert_eq!(runtime.results.len(), 1);
+        assert_eq!(runtime.results[0].probe_type, "fake");
     }
 }

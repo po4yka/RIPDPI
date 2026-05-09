@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 
-use crate::connectivity::adapters::dns::*;
+use crate::connectivity::adapters::dns::{
+    build_fallback_encrypted_dns_endpoints, encrypted_dns_endpoint_for_target, resolve_via_encrypted_dns_with_raw,
+    resolve_via_udp_with_raw,
+};
 use crate::connectivity::adapters::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::connectivity::adapters::util::{is_suspected_dns_tampering_outcome, DEFAULT_DNS_SERVER};

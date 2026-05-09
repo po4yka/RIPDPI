@@ -119,6 +119,45 @@ pub use ripdpi_runtime_policy::{DirectPathLearningState, RuntimePolicy};
         self.assertTrue(any("direct-path learning state export" in message for message in messages))
 
 
+class DiagnosticsLaneContractTests(unittest.TestCase):
+    def test_explicit_diagnostics_adapter_exports_pass(self) -> None:
+        source = """
+pub(crate) mod dns {
+    pub use ripdpi_diagnostics_dns::dns::{resolve_via_udp_with_raw, resolve_via_encrypted_dns};
+}
+"""
+        violations = sut.diagnostics_lane_adapter_violations(
+            Path("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/adapters.rs"),
+            source,
+        )
+        self.assertEqual(violations, [])
+
+    def test_broad_diagnostics_adapter_exports_fail(self) -> None:
+        source = """
+pub(crate) mod dns {
+    pub use ripdpi_diagnostics_dns::dns::*;
+}
+use crate::connectivity::adapters::dns::*;
+"""
+        violations = sut.diagnostics_lane_adapter_violations(
+            Path("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/adapters.rs"),
+            source,
+        )
+        messages = [violation.message for violation in violations]
+        self.assertTrue(any("explicit symbols" in message for message in messages))
+        self.assertTrue(any("broad lane adapter globs" in message for message in messages))
+
+    def test_monitor_engine_concrete_lane_dependency_fails(self) -> None:
+        source = """
+[dependencies]
+ripdpi-diagnostics-contracts = { workspace = true }
+ripdpi-diagnostics-dns = { workspace = true }
+"""
+        violations = sut.monitor_engine_dependency_violations(sut.MONITOR_ENGINE_CARGO_PATH, source)
+        self.assertEqual(len(violations), 1)
+        self.assertIn("ripdpi-diagnostics-dns", violations[0].message)
+
+
 class RepoCollectionTests(unittest.TestCase):
     def test_collect_violations_reads_repo_layout(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -146,6 +185,18 @@ class RepoCollectionTests(unittest.TestCase):
             self._write(
                 repo_root / "native/rust/crates/ripdpi-runtime-decision-ports/src/lib.rs",
                 "pub use ripdpi_runtime_policy::{ConnectionRoute, PolicyPort};\n",
+            )
+            self._write(
+                repo_root / "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/adapters.rs",
+                "pub(crate) mod dns { pub use ripdpi_diagnostics_dns::dns::resolve_via_udp_with_raw; }\n",
+            )
+            self._write(
+                repo_root / "native/rust/crates/ripdpi-diagnostics-runner/src/strategy/adapters.rs",
+                "pub(crate) mod dns { pub use ripdpi_diagnostics_dns::dns::resolve_via_encrypted_dns; }\n",
+            )
+            self._write(
+                repo_root / "native/rust/crates/ripdpi-monitor-engine/Cargo.toml",
+                "ripdpi-diagnostics-contracts = { workspace = true }\n",
             )
 
             violations = sut.collect_violations(repo_root)

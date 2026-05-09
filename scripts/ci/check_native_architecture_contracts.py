@@ -20,6 +20,11 @@ CONFIG_ROOT = Path("native/rust/crates/ripdpi-config/src")
 CONFIG_PARSE_ROOT = CONFIG_ROOT / "parse"
 CONFIG_MODEL_PATH = CONFIG_ROOT / "model" / "mod.rs"
 RUNTIME_DECISION_PORTS_PATH = Path("native/rust/crates/ripdpi-runtime-decision-ports/src/lib.rs")
+MONITOR_ENGINE_CARGO_PATH = Path("native/rust/crates/ripdpi-monitor-engine/Cargo.toml")
+DIAGNOSTICS_RUNNER_ADAPTER_FILES = (
+    Path("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/adapters.rs"),
+    Path("native/rust/crates/ripdpi-diagnostics-runner/src/strategy/adapters.rs"),
+)
 PARSE_OWNED_FN_PREFIXES = ("parse_", "normalize_")
 PARSE_OWNED_FN_NAMES = {"data_from_str", "file_or_inline_bytes"}
 
@@ -63,6 +68,18 @@ RUNTIME_DECISION_PORTS_FORBIDDEN_PATTERNS = {
     "runtime policy engine type export": re.compile(r"\bRuntimePolicy\b"),
     "direct-path learning state export": re.compile(r"\bDirectPathLearningState\b"),
 }
+DIAGNOSTICS_LANE_BROAD_REEXPORT_RE = re.compile(
+    r"^\s*pub\s+use\s+ripdpi_diagnostics_[A-Za-z0-9_]+::[A-Za-z0-9_:]+::\*\s*;",
+    re.MULTILINE,
+)
+DIAGNOSTICS_LANE_BROAD_IMPORT_RE = re.compile(
+    r"^\s*use\s+crate::(?:connectivity|strategy)::adapters::[A-Za-z0-9_]+::\*\s*;",
+    re.MULTILINE,
+)
+MONITOR_ENGINE_CONCRETE_LANE_DEP_RE = re.compile(
+    r"^\s*ripdpi-diagnostics-(?!contracts\b)[A-Za-z0-9-]+\s*=",
+    re.MULTILINE,
+)
 
 
 @dataclass(frozen=True)
@@ -142,6 +159,40 @@ def runtime_decision_ports_violations(relative_path: Path, source_text: str) -> 
     return violations
 
 
+def diagnostics_lane_adapter_violations(relative_path: Path, source_text: str) -> list[Violation]:
+    violations: list[Violation] = []
+
+    if DIAGNOSTICS_LANE_BROAD_REEXPORT_RE.search(source_text):
+        violations.append(
+            Violation(
+                path=relative_path.as_posix(),
+                message="diagnostics lane adapters must re-export explicit symbols, not concrete crate globs",
+            )
+        )
+    if DIAGNOSTICS_LANE_BROAD_IMPORT_RE.search(source_text):
+        violations.append(
+            Violation(
+                path=relative_path.as_posix(),
+                message="diagnostics runner callers must not depend on broad lane adapter globs",
+            )
+        )
+
+    return violations
+
+
+def monitor_engine_dependency_violations(relative_path: Path, source_text: str) -> list[Violation]:
+    violations: list[Violation] = []
+    for match in MONITOR_ENGINE_CONCRETE_LANE_DEP_RE.finditer(source_text):
+        dependency = match.group(0).split("=", maxsplit=1)[0].strip()
+        violations.append(
+            Violation(
+                path=relative_path.as_posix(),
+                message=f"monitor-engine must not depend on concrete diagnostics lane crate `{dependency}`",
+            )
+        )
+    return violations
+
+
 def collect_violations(repo_root: Path) -> list[Violation]:
     violations: list[Violation] = []
 
@@ -156,6 +207,15 @@ def collect_violations(repo_root: Path) -> list[Violation]:
     runtime_ports_path = repo_root / RUNTIME_DECISION_PORTS_PATH
     violations.extend(
         runtime_decision_ports_violations(RUNTIME_DECISION_PORTS_PATH, read_production_source(runtime_ports_path))
+    )
+
+    for relative_path in DIAGNOSTICS_RUNNER_ADAPTER_FILES:
+        source_path = repo_root / relative_path
+        violations.extend(diagnostics_lane_adapter_violations(relative_path, read_production_source(source_path)))
+
+    monitor_engine_cargo = repo_root / MONITOR_ENGINE_CARGO_PATH
+    violations.extend(
+        monitor_engine_dependency_violations(MONITOR_ENGINE_CARGO_PATH, monitor_engine_cargo.read_text(encoding="utf-8"))
     )
 
     return violations
