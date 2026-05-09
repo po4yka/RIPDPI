@@ -8,9 +8,15 @@ import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.StrategyPackCatalog
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceBundled
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
+import com.poyka.ripdpi.data.StrategyPackDefinition
+import com.poyka.ripdpi.data.StrategyPackFeatureFlag
+import com.poyka.ripdpi.data.StrategyPackMorphPolicy
 import com.poyka.ripdpi.data.StrategyPackRefreshFailureCode
+import com.poyka.ripdpi.data.StrategyPackRefreshPolicyAutomatic
 import com.poyka.ripdpi.data.StrategyPackRefreshPolicyManual
 import com.poyka.ripdpi.data.StrategyPackSnapshot
+import com.poyka.ripdpi.data.StrategyPackTlsProfileSet
+import com.poyka.ripdpi.data.StrategyPackTransportModule
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -371,6 +377,117 @@ class StrategyPackServiceTest {
             )
             assertEquals("Unexpected EOF", stateStore.state.value.cacheDegradationDetail)
         }
+
+    @Test
+    fun `refresh backoff policy schedules ttl retry and manual reseed without repository details`() {
+        val policy =
+            StrategyPackRefreshBackoffPolicy(
+                clock = StrategyPackClock { 1_000L },
+                refreshSuccessTtlMs = 6_000L,
+                initialFailureBackoffMs = 100L,
+                maxFailureBackoffMs = 1_000L,
+            )
+
+        assertEquals(5_000L, policy.nextDelay(StrategyPackRefreshScheduleReason.Startup, 0L, 0))
+        assertEquals(0L, policy.nextDelay(StrategyPackRefreshScheduleReason.RelevantSettingsChanged, 0L, 0))
+        assertEquals(6_000L, policy.nextDelay(StrategyPackRefreshScheduleReason.TtlDue, 0L, 0))
+        assertEquals(6_000L, policy.nextDelay(StrategyPackRefreshScheduleReason.ManualRefreshReseed, 0L, 0))
+        assertEquals(100L, policy.nextDelay(StrategyPackRefreshScheduleReason.RetryBackoff, 0L, 1))
+        assertEquals(200L, policy.nextFailureBackoff(consecutiveAutomaticFailures = 2))
+        assertEquals(1_000L, policy.nextFailureBackoff(consecutiveAutomaticFailures = 10))
+    }
+
+    @Test
+    fun `state publisher resolves selected pack without mutating refresh state`() {
+        val stateStore = InMemoryStrategyPackStateStore()
+        val publisher = StrategyPackStatePublisher(stateStore = stateStore, clock = StrategyPackClock { 42L })
+        val snapshot =
+            StrategyPackSnapshot(
+                catalog =
+                    StrategyPackCatalog(
+                        channel = "stable",
+                        sequence = 11L,
+                        packs =
+                            listOf(
+                                StrategyPackDefinition(
+                                    id = "baseline",
+                                    version = "2026.04.0",
+                                    title = "Baseline",
+                                    description = "Baseline pack",
+                                ),
+                                StrategyPackDefinition(
+                                    id = "mobile",
+                                    version = "2026.04.1",
+                                    title = "Mobile",
+                                    description = "Mobile pack",
+                                    tlsProfileSetId = "tls-modern",
+                                    morphPolicyId = "morph-light",
+                                    transportModuleIds = listOf("relay-ws"),
+                                    featureFlagIds = listOf("finalmask"),
+                                ),
+                            ),
+                        tlsProfiles =
+                            listOf(
+                                StrategyPackTlsProfileSet(
+                                    id = "tls-modern",
+                                    title = "Modern TLS",
+                                    catalogVersion = "v2",
+                                    allowedProfileIds = listOf("chrome_124"),
+                                    rotationEnabled = true,
+                                    echPolicy = "prefer",
+                                    proxyModeNotice = "proxy-mode",
+                                    acceptanceCorpusRef = "corpus://tls",
+                                ),
+                            ),
+                        morphPolicies = listOf(StrategyPackMorphPolicy(id = "morph-light", title = "Light")),
+                        transportModules =
+                            listOf(
+                                StrategyPackTransportModule(id = "relay-ws", kind = "relay", title = "WS"),
+                            ),
+                        featureFlags = listOf(StrategyPackFeatureFlag(id = "finalmask", enabled = true)),
+                    ),
+                source = StrategyPackCatalogSourceDownloaded,
+                lastFetchedAtEpochMillis = 7L,
+            )
+
+        publisher.publishSelectionForSnapshot(
+            snapshot = snapshot,
+            key =
+                StrategyPackRefreshKey(
+                    channel = "stable",
+                    refreshPolicy = StrategyPackRefreshPolicyAutomatic,
+                    pinnedPackId = "mobile",
+                    pinnedPackVersion = "2026.04.1",
+                    allowRollbackOverride = false,
+                ),
+            lastRefreshAttemptAtEpochMillis = 12L,
+            lastRefreshError = "previous error",
+            lastRefreshFailureCode = StrategyPackRefreshFailureCode.StaleCatalog,
+            lastRejectedSequence = 10L,
+            cacheDegradationCode = ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+            cacheDegradationDetail = "read failed",
+        )
+
+        val state = stateStore.state.value
+        assertEquals("mobile", state.selectedPackId)
+        assertEquals("2026.04.1", state.selectedPackVersion)
+        assertEquals("tls-modern", state.tlsProfileSetId)
+        assertEquals(listOf("chrome_124"), state.tlsProfileAllowedIds)
+        assertTrue(state.tlsRotationEnabled)
+        assertEquals("prefer", state.tlsProfileEchPolicy)
+        assertEquals("morph-light", state.morphPolicyId)
+        assertEquals(listOf("relay-ws"), state.transportModuleIds)
+        assertEquals(mapOf("finalmask" to true), state.featureFlags)
+        assertEquals(42L, state.lastResolvedAtEpochMillis)
+        assertEquals(12L, state.lastRefreshAttemptAtEpochMillis)
+        assertEquals("previous error", state.lastRefreshError)
+        assertEquals(StrategyPackRefreshFailureCode.StaleCatalog, state.lastRefreshFailureCode)
+        assertEquals(11L, state.lastAcceptedSequence)
+        assertEquals(10L, state.lastRejectedSequence)
+        assertEquals(ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable, state.cacheDegradationCode)
+        assertEquals("read failed", state.cacheDegradationDetail)
+        assertEquals(StrategyPackRefreshPolicyAutomatic, state.refreshPolicy)
+    }
 
     private fun TestScope.newService(
         repository: FakeStrategyPackRepository,
