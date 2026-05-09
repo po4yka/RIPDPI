@@ -5,18 +5,15 @@ use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::time::Duration;
 
 use super::config::{
-    connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
-    ensure_default_ttl, first_response_settings, first_response_timeout, first_response_timeout_count_limit,
-    listener_settings, network_reprobe_settings, primary_tcp_strategy_family_with, proxy_handshake_settings,
-    relay_group_settings_table, relay_group_settings_with, response_failure_evidence_settings,
-    route_matches_transport_payload_with, route_payload_matcher, route_requires_delay_payload_with,
-    should_rebind_udp_source_port_with, tcp_rotation_seed_with, tcp_route_connect_settings_table,
-    tcp_route_connect_settings_with, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_at_capacity,
-    udp_flow_limit, udp_group_settings_table, udp_group_settings_with, warmup_probe_settings, ws_tunnel_settings,
-    DelayedConnectSettings, FirstResponseSettings, ListenerSettings, NetworkReprobeSettings, ProxyHandshakeSettings,
-    ProxyProtocolMode, RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RoutePayloadMatcher, RuntimeConfig,
-    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable,
-    WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
+    connection_route_requests_direct_syn_data_tfo_with, delayed_route_matches_payload_with, ensure_default_ttl,
+    first_response_timeout, first_response_timeout_count_limit, listener_settings, primary_tcp_strategy_family_with,
+    relay_group_settings_with, route_matches_transport_payload_with, route_requires_delay_payload_with,
+    runtime_config_projection, should_rebind_udp_source_port_with, tcp_rotation_seed_with,
+    tcp_route_connect_settings_with, udp_flow_at_capacity, udp_group_settings_with, DelayedConnectSettings,
+    FirstResponseSettings, ListenerSettings, NetworkReprobeSettings, ProxyHandshakeSettings, ProxyProtocolMode,
+    RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RoutePayloadMatcher, RuntimeConfig,
+    RuntimeConfigProjection, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings,
+    UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
 };
 use super::desync::{
     execute_udp_actions, plan_udp_actions_for_runtime, send_tcp_desync_payload, tcp_desync_executor,
@@ -171,28 +168,30 @@ impl RuntimeState {
 
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
 
-        let listener_settings = listener_settings(&config);
-        let handshake_settings = proxy_handshake_settings(&config);
-        let delayed_connect_settings = delayed_connect_settings(&config);
-        let network_reprobe_settings = network_reprobe_settings(&config);
-        let ws_tunnel_settings = ws_tunnel_settings(&config);
-        let warmup_probe_settings = warmup_probe_settings(&config);
-        let route_retry_settings = tcp_route_retry_settings(&config);
-        let route_syn_data_settings = tcp_route_syn_data_settings(&config);
-        let route_connect_settings = tcp_route_connect_settings_table(&config);
+        let RuntimeConfigProjection {
+            listener_settings,
+            handshake_settings,
+            delayed_connect_settings,
+            network_reprobe_settings,
+            ws_tunnel_settings,
+            warmup_probe_settings,
+            route_retry_settings,
+            route_syn_data_settings,
+            route_connect_settings,
+            udp_group_settings,
+            route_payload_matcher,
+            udp_flow_limit,
+            relay_group_settings,
+            relay_first_response,
+            response_failure_evidence_settings,
+        } = runtime_config_projection(&config);
         let tcp_desync_executor = tcp_desync_executor(&config);
-        let udp_group_settings = udp_group_settings_table(&config);
-        let route_payload_matcher = route_payload_matcher(&config);
         let udp_desync_planner = udp_desync_planner(&config);
-        let udp_flow_limit = udp_flow_limit(&config);
         let udp_packet_parser = udp_packet_parser(&config);
         let udp_payload_classifier = udp_payload_classifier(&config);
-        let relay_group_settings = relay_group_settings_table(&config);
         let relay_host_extractor = payload_host_extractor(&config);
-        let relay_first_response = first_response_settings(&config);
         let first_outbound_payload_policy = first_outbound_payload_policy(&config);
         let first_response_exchange_policy = runtime_first_response_exchange_policy(&config);
-        let response_failure_evidence_settings = response_failure_evidence_settings(&config);
 
         Self {
             listener_settings,
@@ -1519,28 +1518,30 @@ impl RuntimeState {
         runtime_context: Option<ProxyRuntimeContext>,
     ) -> Self {
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
-        let listener_settings = listener_settings(&config);
-        let handshake_settings = proxy_handshake_settings(&config);
-        let delayed_connect_settings = delayed_connect_settings(&config);
-        let network_reprobe_settings = network_reprobe_settings(&config);
-        let ws_tunnel_settings = ws_tunnel_settings(&config);
-        let warmup_probe_settings = warmup_probe_settings(&config);
-        let route_retry_settings = tcp_route_retry_settings(&config);
-        let route_syn_data_settings = tcp_route_syn_data_settings(&config);
-        let route_connect_settings = tcp_route_connect_settings_table(&config);
+        let RuntimeConfigProjection {
+            listener_settings,
+            handshake_settings,
+            delayed_connect_settings,
+            network_reprobe_settings,
+            ws_tunnel_settings,
+            warmup_probe_settings,
+            route_retry_settings,
+            route_syn_data_settings,
+            route_connect_settings,
+            udp_group_settings,
+            route_payload_matcher,
+            udp_flow_limit,
+            relay_group_settings,
+            relay_first_response,
+            response_failure_evidence_settings,
+        } = runtime_config_projection(&config);
         let tcp_desync_executor = tcp_desync_executor(&config);
-        let udp_group_settings = udp_group_settings_table(&config);
-        let route_payload_matcher = route_payload_matcher(&config);
         let udp_desync_planner = udp_desync_planner(&config);
-        let udp_flow_limit = udp_flow_limit(&config);
         let udp_packet_parser = udp_packet_parser(&config);
         let udp_payload_classifier = udp_payload_classifier(&config);
-        let relay_group_settings = relay_group_settings_table(&config);
         let relay_host_extractor = payload_host_extractor(&config);
-        let relay_first_response = first_response_settings(&config);
         let first_outbound_payload_policy = first_outbound_payload_policy(&config);
         let first_response_exchange_policy = runtime_first_response_exchange_policy(&config);
-        let response_failure_evidence_settings = response_failure_evidence_settings(&config);
 
         Self {
             listener_settings,
