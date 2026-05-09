@@ -56,7 +56,8 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request, parse_socks5_request,
     payload_host_extractor, read_upstream_socks_reply, udp_packet_parser, udp_payload_classifier, ClientRequest,
     FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, PayloadHostExtractor, ProxyReply, SessionConfig,
-    SessionError, SessionState, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
+    SessionError, SessionState, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, S_AUTH_NONE,
+    S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use ripdpi_proxy_runtime_adapter::protocol_payload::{
@@ -483,6 +484,18 @@ impl RuntimeState {
 
     pub(super) fn read_upstream_socks_reply(reader: &mut impl Read) -> io::Result<Vec<u8>> {
         read_upstream_socks_reply(reader)
+    }
+
+    pub(super) fn upstream_socks_auth_request() -> [u8; 3] {
+        [S_VER5, 1, S_AUTH_NONE]
+    }
+
+    pub(super) fn upstream_socks_auth_accepted(reply: [u8; 2]) -> bool {
+        reply == [S_VER5, S_AUTH_NONE]
+    }
+
+    pub(super) fn upstream_socks_connect_succeeded(reply: &[u8]) -> bool {
+        reply.get(1).copied().unwrap_or(S_ER_GEN) == 0
     }
 
     pub(super) fn encode_socks4_reply(granted: bool) -> ProxyReply {

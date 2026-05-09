@@ -2,8 +2,6 @@ use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::model::session::{S_AUTH_NONE, S_ER_GEN, S_VER5};
-
 use super::socket::connect_socket;
 use crate::runtime::state::RuntimeState;
 pub(in crate::runtime::routing::connect) fn connect_via_socks(
@@ -19,17 +17,17 @@ pub(in crate::runtime::routing::connect) fn connect_via_socks(
     stream.set_write_timeout(connect_timeout)?;
 
     let handshake_result = (|| {
-        stream.write_all(&[S_VER5, 1, S_AUTH_NONE])?;
+        stream.write_all(&RuntimeState::upstream_socks_auth_request())?;
         let mut auth = [0u8; 2];
         stream.read_exact(&mut auth)?;
-        if auth != [S_VER5, S_AUTH_NONE] {
+        if !RuntimeState::upstream_socks_auth_accepted(auth) {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "upstream socks auth failed"));
         }
 
         let request = RuntimeState::encode_upstream_socks_connect(target);
         stream.write_all(&request)?;
         let reply = RuntimeState::read_upstream_socks_reply(&mut stream)?;
-        if reply.get(1).copied().unwrap_or(S_ER_GEN) != 0 {
+        if !RuntimeState::upstream_socks_connect_succeeded(&reply) {
             return Err(io::Error::new(io::ErrorKind::ConnectionRefused, "upstream socks connect failed"));
         }
         Ok(())
@@ -44,7 +42,6 @@ pub(in crate::runtime::routing::connect) fn connect_via_socks(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ripdpi_proxy_runtime_adapter::model::session::S_ATP_I4;
     use std::io;
     use std::net::{Ipv4Addr, TcpListener};
     use std::thread;
@@ -85,7 +82,7 @@ mod tests {
             let (mut stream, _) = listener.accept().expect("accept upstream socks client");
             let mut auth = [0u8; 3];
             stream.read_exact(&mut auth).expect("read auth request");
-            stream.write_all(&[S_VER5, S_AUTH_NONE]).expect("write auth response");
+            stream.write_all(&[0x05, 0x00]).expect("write auth response");
             let mut connect = [0u8; 10];
             stream.read_exact(&mut connect).expect("read connect request");
             thread::sleep(Duration::from_millis(250));
@@ -116,10 +113,10 @@ mod tests {
             let (mut stream, _) = listener.accept().expect("accept upstream socks client");
             let mut auth = [0u8; 3];
             stream.read_exact(&mut auth).expect("read auth request");
-            stream.write_all(&[S_VER5, S_AUTH_NONE]).expect("write auth response");
+            stream.write_all(&[0x05, 0x00]).expect("write auth response");
             let mut connect = [0u8; 10];
             stream.read_exact(&mut connect).expect("read connect request");
-            stream.write_all(&[S_VER5, 0, 0, S_ATP_I4, 127, 0, 0, 1, 0x1f, 0x90]).expect("write connect success");
+            stream.write_all(&[0x05, 0, 0, 0x01, 127, 0, 0, 1, 0x1f, 0x90]).expect("write connect success");
         });
 
         let stream = connect_via_socks(
