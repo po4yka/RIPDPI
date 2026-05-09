@@ -13,8 +13,7 @@ use ripdpi_proxy_runtime_adapter::failure::{
     classify_first_response_partial_tls_timeout, classify_probe_connect_error, classify_probe_read_error,
     classify_probe_tls_response, classify_probe_write_error, classify_relay_connection_freeze,
     classify_strategy_execution_failure, classify_transport_error, classify_warmup_closed_before_response,
-    classify_warmup_first_response_error, classify_warmup_send_error, should_track_strategy_target, BlockSignal,
-    ClassifiedFailure, FailureAction, FailureClass, FailureStage,
+    classify_warmup_first_response_error, classify_warmup_send_error, should_track_strategy_target,
 };
 use ripdpi_proxy_runtime_adapter::model::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
@@ -80,11 +79,13 @@ use super::types::{
     runtime_classify_response_failure, runtime_classify_udp_payload, runtime_client_request, runtime_outbound_progress,
     runtime_parse_socks5_udp_packet, runtime_probe_result, runtime_relay_ws_tunnel,
     runtime_response_requires_dns_tampering_evidence, runtime_session_error, runtime_udp_packet_settings,
-    RuntimeClientRequest, RuntimeConnectionRoute, RuntimeDnsTamperingEvidence, RuntimeOutboundProgress,
-    RuntimeProbeResult, RuntimeProxyProtocolMode, RuntimeRelayGroupSettings, RuntimeRelayRotationSeed,
-    RuntimeRelayTimeouts, RuntimeRetrySelectionPenalty, RuntimeRouteAdvance, RuntimeSessionError, RuntimeSessionState,
-    RuntimeTelegramDc, RuntimeTransportProtocol, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings,
-    RuntimeUdpSourceRebindPolicy, RuntimeWsTunnelConfig, UdpFlowGroupPolicy, WsSeedClassification,
+    RuntimeBlockSignal, RuntimeClassifiedFailure, RuntimeClientRequest, RuntimeConnectionRoute,
+    RuntimeDnsTamperingEvidence, RuntimeFailureAction, RuntimeFailureClass, RuntimeFailureStage,
+    RuntimeOutboundProgress, RuntimeProbeResult, RuntimeProxyProtocolMode, RuntimeRelayGroupSettings,
+    RuntimeRelayRotationSeed, RuntimeRelayTimeouts, RuntimeRetrySelectionPenalty, RuntimeRouteAdvance,
+    RuntimeSessionError, RuntimeSessionState, RuntimeTelegramDc, RuntimeTransportProtocol, RuntimeUdpPacketSettings,
+    RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, RuntimeWsTunnelConfig, UdpFlowGroupPolicy,
+    WsSeedClassification,
 };
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -842,9 +843,9 @@ impl RuntimeState {
         PolicyPort::supports_trigger(&self.services, trigger)
     }
 
-    pub(super) fn retry_trigger_for_failure(&self, failure: &ClassifiedFailure) -> Option<u32> {
+    pub(super) fn retry_trigger_for_failure(&self, failure: &RuntimeClassifiedFailure) -> Option<u32> {
         let trigger = runtime_failure_trigger_mask(failure);
-        if failure.action != FailureAction::RetryWithMatchingGroup
+        if failure.action != RuntimeFailureAction::RetryWithMatchingGroup
             || trigger == 0
             || !self.runtime_supports_trigger(trigger)
         {
@@ -853,12 +854,12 @@ impl RuntimeState {
         Some(trigger)
     }
 
-    pub(super) fn failure_penalizes_strategy(failure: &ClassifiedFailure) -> bool {
+    pub(super) fn failure_penalizes_strategy(failure: &RuntimeClassifiedFailure) -> bool {
         runtime_failure_penalizes_strategy(failure)
     }
 
     #[cfg(test)]
-    pub(super) fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
+    pub(super) fn failure_trigger_mask(failure: &RuntimeClassifiedFailure) -> u32 {
         runtime_failure_trigger_mask(failure)
     }
 
@@ -872,35 +873,35 @@ impl RuntimeState {
         runtime_response_trigger_supported(config, trigger)
     }
 
-    pub(super) fn udp_flow_timeout_failure() -> Option<ClassifiedFailure> {
+    pub(super) fn udp_flow_timeout_failure() -> Option<RuntimeClassifiedFailure> {
         runtime_classify_quic_probe("quic_timeout", Some("UDP flow expired before first response"))
     }
 
-    pub(super) fn silent_drop_failure_class() -> FailureClass {
-        FailureClass::SilentDrop
+    pub(super) fn silent_drop_failure_class() -> RuntimeFailureClass {
+        RuntimeFailureClass::SilentDrop
     }
 
     pub(super) fn connect_failure_trigger() -> u32 {
         DETECT_CONNECT
     }
 
-    pub(super) fn classify_connect_transport_error(source: &io::Error) -> ClassifiedFailure {
-        classify_transport_error(FailureStage::Connect, source)
+    pub(super) fn classify_connect_transport_error(source: &io::Error) -> RuntimeClassifiedFailure {
+        classify_transport_error(RuntimeFailureStage::Connect, source)
     }
 
-    pub(super) fn classify_first_response_transport_error(source: &io::Error) -> ClassifiedFailure {
-        classify_transport_error(FailureStage::FirstResponse, source)
+    pub(super) fn classify_first_response_transport_error(source: &io::Error) -> RuntimeClassifiedFailure {
+        classify_transport_error(RuntimeFailureStage::FirstResponse, source)
     }
 
-    pub(super) fn classify_first_response_closed_before_response() -> ClassifiedFailure {
+    pub(super) fn classify_first_response_closed_before_response() -> RuntimeClassifiedFailure {
         classify_first_response_closed_before_response()
     }
 
-    pub(super) fn classify_first_response_partial_tls_timeout() -> ClassifiedFailure {
+    pub(super) fn classify_first_response_partial_tls_timeout() -> RuntimeClassifiedFailure {
         classify_first_response_partial_tls_timeout()
     }
 
-    pub(super) fn classify_relay_connection_freeze(timeouts: RuntimeRelayTimeouts) -> ClassifiedFailure {
+    pub(super) fn classify_relay_connection_freeze(timeouts: RuntimeRelayTimeouts) -> RuntimeClassifiedFailure {
         classify_relay_connection_freeze(timeouts.into_adapter())
     }
 
@@ -908,15 +909,15 @@ impl RuntimeState {
         self.relay_group(group_index).map(|group| group.timeouts())
     }
 
-    pub(super) fn classify_warmup_send_error(source: &io::Error) -> ClassifiedFailure {
+    pub(super) fn classify_warmup_send_error(source: &io::Error) -> RuntimeClassifiedFailure {
         classify_warmup_send_error(source)
     }
 
-    pub(super) fn classify_warmup_first_response_error(source: &io::Error) -> ClassifiedFailure {
+    pub(super) fn classify_warmup_first_response_error(source: &io::Error) -> RuntimeClassifiedFailure {
         classify_warmup_first_response_error(source)
     }
 
-    pub(super) fn classify_warmup_closed_before_response() -> ClassifiedFailure {
+    pub(super) fn classify_warmup_closed_before_response() -> RuntimeClassifiedFailure {
         classify_warmup_closed_before_response()
     }
 
@@ -936,9 +937,9 @@ impl RuntimeState {
         runtime_probe_result(classify_probe_tls_response(header, handshake_type))
     }
 
-    pub(super) fn classify_first_write_failure(error: &OutboundSendError) -> ClassifiedFailure {
+    pub(super) fn classify_first_write_failure(error: &OutboundSendError) -> RuntimeClassifiedFailure {
         match error {
-            OutboundSendError::Transport(source) => classify_transport_error(FailureStage::FirstWrite, source),
+            OutboundSendError::Transport(source) => classify_transport_error(RuntimeFailureStage::FirstWrite, source),
             OutboundSendError::StrategyExecution {
                 action,
                 strategy_family,
@@ -948,20 +949,20 @@ impl RuntimeState {
                 source,
             } => {
                 let mut failure = classify_strategy_execution_failure(
-                    FailureStage::FirstWrite,
+                    RuntimeFailureStage::FirstWrite,
                     action,
                     source.kind(),
                     *source_errno,
                     error.to_string(),
                 )
-                .unwrap_or_else(|| classify_transport_error(FailureStage::FirstWrite, source));
+                .unwrap_or_else(|| classify_transport_error(RuntimeFailureStage::FirstWrite, source));
                 failure = failure.with_tag("strategyFamily", (*strategy_family).to_string());
                 failure = failure.with_tag("bytesCommitted", bytes_committed.to_string());
                 if let Some(fallback_family) = fallback {
                     failure = failure.with_tag("fallback", (*fallback_family).to_string());
                 }
                 if *bytes_committed > 0 {
-                    failure.action = FailureAction::SurfaceOnly;
+                    failure.action = RuntimeFailureAction::SurfaceOnly;
                 }
                 failure
             }
@@ -970,20 +971,21 @@ impl RuntimeState {
 
     pub(super) fn first_write_failure_retries_syn_data_without_tfo(
         route_requests_direct_syn_data_tfo: bool,
-        failure: &ClassifiedFailure,
+        failure: &RuntimeClassifiedFailure,
         already_retried: bool,
     ) -> bool {
         !already_retried
             && route_requests_direct_syn_data_tfo
-            && failure.action != FailureAction::SurfaceOnly
-            && matches!(failure.class, FailureClass::ConnectFailure | FailureClass::TcpReset)
+            && failure.action != RuntimeFailureAction::SurfaceOnly
+            && matches!(failure.class, RuntimeFailureClass::ConnectFailure | RuntimeFailureClass::TcpReset)
     }
 
     pub(super) fn connect_failure_retries_without_tfo(
         tcp_fast_open_enabled: bool,
-        failure: &ClassifiedFailure,
+        failure: &RuntimeClassifiedFailure,
     ) -> bool {
-        tcp_fast_open_enabled && matches!(failure.class, FailureClass::ConnectFailure | FailureClass::TcpReset)
+        tcp_fast_open_enabled
+            && matches!(failure.class, RuntimeFailureClass::ConnectFailure | RuntimeFailureClass::TcpReset)
     }
 
     pub(super) fn should_track_strategy_target(target: SocketAddr) -> bool {
@@ -993,7 +995,7 @@ impl RuntimeState {
     pub(super) fn note_block_signal_for_failure(
         &self,
         host: Option<&str>,
-        failure: &ClassifiedFailure,
+        failure: &RuntimeClassifiedFailure,
         tcp_total_retransmissions: Option<u32>,
     ) {
         let Some(host) = host else {
@@ -1016,7 +1018,7 @@ impl RuntimeState {
         request: &[u8],
         response: &[u8],
         host: Option<&str>,
-    ) -> Option<ClassifiedFailure> {
+    ) -> Option<RuntimeClassifiedFailure> {
         let answer_set = if runtime_response_requires_dns_tampering_evidence(request, response) {
             host.and_then(|value| self.encrypted_dns_ip_answers_for_host(value).ok())
         } else {
@@ -1034,7 +1036,7 @@ impl RuntimeState {
     pub(super) fn note_block_signal(
         &self,
         host: &str,
-        signal: BlockSignal,
+        signal: RuntimeBlockSignal,
         provider: Option<&str>,
         confirmation_allowed: bool,
     ) {
@@ -1131,7 +1133,7 @@ impl RuntimeState {
         AdaptiveFeedbackPort::note_evolver_success(&self.services);
     }
 
-    pub(super) fn note_evolver_failure(&self, class: FailureClass) {
+    pub(super) fn note_evolver_failure(&self, class: RuntimeFailureClass) {
         AdaptiveFeedbackPort::note_evolver_failure(&self.services, class);
     }
 
@@ -1323,7 +1325,12 @@ impl RuntimeState {
         }
     }
 
-    pub(super) fn note_failure_classified(&self, target: SocketAddr, failure: &ClassifiedFailure, host: Option<&str>) {
+    pub(super) fn note_failure_classified(
+        &self,
+        target: SocketAddr,
+        failure: &RuntimeClassifiedFailure,
+        host: Option<&str>,
+    ) {
         if let Some(telemetry) = &self.telemetry {
             telemetry.on_failure_classified(target, failure, host);
         }

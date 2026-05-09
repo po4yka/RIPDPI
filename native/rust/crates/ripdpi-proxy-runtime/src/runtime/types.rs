@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{
-    classify_quic_probe, ClassifiedFailure, FailureAction, FailureClass, ProbeResult,
+    classify_quic_probe, BlockSignal, ClassifiedFailure, FailureAction, FailureClass, FailureStage, ProbeResult,
 };
 use ripdpi_proxy_runtime_adapter::model::config::{
     DesyncGroup, IpIdMode, RelayGroupSettings, RotationPolicy, RuntimeTimeoutSettings, UdpGroupPacketSettings,
@@ -22,8 +22,10 @@ use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
 };
 
 pub(super) type RuntimeClassifiedFailure = ClassifiedFailure;
+pub(super) type RuntimeBlockSignal = BlockSignal;
 pub(super) type RuntimeFailureAction = FailureAction;
 pub(super) type RuntimeFailureClass = FailureClass;
+pub(super) type RuntimeFailureStage = FailureStage;
 pub(super) type RuntimeConnectionRoute = ConnectionRoute;
 pub(super) type RuntimeDnsTamperingEvidence<'a> = DnsTamperingEvidence<'a>;
 pub(super) type RuntimeRetrySelectionPenalty = RetrySelectionPenalty;
