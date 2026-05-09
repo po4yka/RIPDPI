@@ -7,6 +7,7 @@ use std::time::Instant;
 
 use super::super::super::desync::{DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
+use super::super::platform as relay_platform;
 use super::super::session::RelaySharedSession;
 use super::freeze::FreezeDetector;
 use super::observers::{observe_rotation_inbound_chunk, observe_rotation_transport_failure};
@@ -103,11 +104,8 @@ pub(super) fn flush_outbound_payload(
     let peer_addr = writer.peer_addr()?;
     let group = if let Some(rotation) = rotation {
         let mut rotation = rotation.lock().map_err(|_| io::Error::other("rotation mutex poisoned"))?;
-        let retrans_baseline = if is_new_round {
-            ripdpi_proxy_runtime_adapter::platform::relay::tcp_total_retransmissions(writer).ok().flatten()
-        } else {
-            None
-        };
+        let retrans_baseline =
+            if is_new_round { relay_platform::relay_tcp_total_retransmissions(writer).ok().flatten() } else { None };
         if is_new_round {
             state.start_relay_rotation_round(
                 &mut rotation,

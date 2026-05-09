@@ -5,6 +5,7 @@ use std::net::TcpStream;
 
 use super::super::super::routing::{classify_response_failure, note_block_signal_for_failure};
 use super::super::super::state::RuntimeState;
+use super::super::platform as relay_platform;
 
 pub(super) fn remembered_host_value(remembered_host: &Arc<Mutex<Option<String>>>) -> Option<String> {
     remembered_host.lock().ok().and_then(|host| host.clone())
@@ -59,7 +60,7 @@ pub(super) fn observe_rotation_inbound_chunk(
             return;
         }
     }
-    let retrans_delta = ripdpi_proxy_runtime_adapter::platform::relay::tcp_total_retransmissions(reader)
+    let retrans_delta = relay_platform::relay_tcp_total_retransmissions(reader)
         .ok()
         .flatten()
         .zip(retrans_baseline)
@@ -102,7 +103,7 @@ pub(super) fn observe_rotation_transport_failure(
     }
     let host = remembered_host_value(remembered_host);
     let failure = RuntimeState::classify_first_response_transport_error(&err);
-    let retrans_delta = ripdpi_proxy_runtime_adapter::platform::relay::tcp_total_retransmissions(reader)
+    let retrans_delta = relay_platform::relay_tcp_total_retransmissions(reader)
         .ok()
         .flatten()
         .zip(retrans_baseline)

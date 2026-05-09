@@ -6,13 +6,13 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     first_response_timeout as projected_first_response_timeout, first_response_timeout_count_limit,
     FirstResponseSettings,
 };
-use ripdpi_proxy_runtime_adapter::platform::first_response as first_response_platform;
 #[cfg(test)]
 use ripdpi_proxy_runtime_adapter::protocol_payload::FirstResponseBoundaryTracker;
 
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure};
 use super::super::state::RuntimeState;
 use super::super::types::RuntimeClassifiedFailure;
+use super::platform as relay_platform;
 
 pub(super) enum FirstResponse {
     Forward(Vec<u8>, Option<u8>),
@@ -31,7 +31,7 @@ pub(super) fn read_first_response(
     upstream: &mut TcpStream,
     request: &[u8],
 ) -> io::Result<FirstResponse> {
-    let _ = first_response_platform::enable_recv_ttl(upstream);
+    let _ = relay_platform::enable_recv_ttl(upstream);
     let mut collected = Vec::new();
     let mut chunk = vec![0u8; state.relay_first_response_buffer_size()];
     let mut tls_partial = state.relay_first_response_boundary_tracker(request);
@@ -41,7 +41,7 @@ pub(super) fn read_first_response(
     loop {
         let _ = upstream.set_read_timeout(state.relay_first_response_timeout(&tls_partial));
         let read_result = if collected.is_empty() {
-            first_response_platform::read_chunk_with_ttl(upstream, &mut chunk).map(|(n, ttl)| {
+            relay_platform::read_chunk_with_ttl(upstream, &mut chunk).map(|(n, ttl)| {
                 if ttl.is_some() {
                     observed_server_ttl = ttl;
                 }
@@ -82,7 +82,8 @@ pub(super) fn read_first_response(
                     }
                 } else if state.relay_first_response_reports_timeout_failure() {
                     let failure = RuntimeState::classify_first_response_transport_error(&err);
-                    let retransmissions = first_response_platform::tcp_total_retransmissions(upstream).ok().flatten();
+                    let retransmissions =
+                        relay_platform::first_response_tcp_total_retransmissions(upstream).ok().flatten();
                     note_block_signal_for_failure(state, host, &failure, retransmissions);
                     Ok(FirstResponse::Failure { failure, response_bytes: None })
                 } else {
@@ -106,7 +107,7 @@ pub(super) fn read_first_response(
                     state,
                     host,
                     &failure,
-                    first_response_platform::tcp_total_retransmissions(upstream).ok().flatten(),
+                    relay_platform::first_response_tcp_total_retransmissions(upstream).ok().flatten(),
                 );
                 Ok(FirstResponse::Failure { failure, response_bytes: None })
             }

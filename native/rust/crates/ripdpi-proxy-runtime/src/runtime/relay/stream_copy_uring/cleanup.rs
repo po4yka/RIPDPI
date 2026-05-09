@@ -1,8 +1,7 @@
 use std::io;
 use std::net::{Shutdown, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::platform::relay as relay_platform;
-
+use super::super::platform as relay_platform;
 use super::RELAY_IDLE_TIMEOUT;
 
 pub(super) struct RelaySockets {

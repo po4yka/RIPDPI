@@ -13,6 +13,7 @@ use std::thread;
 
 use super::super::state::RuntimeState;
 use super::super::types::{RuntimeRelayGroupSettings, RuntimeRelayRotationSeed};
+use super::platform as relay_platform;
 use super::session::RelaySession;
 
 const RELAY_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
@@ -112,7 +113,7 @@ pub(super) fn relay_streams(
     let _ = client.shutdown(Shutdown::Both);
 
     if settings.group.drop_sack() {
-        let _ = ripdpi_proxy_runtime_adapter::platform::relay::detach_drop_sack(&upstream);
+        let _ = relay_platform::detach_drop_sack(&upstream);
     }
 
     up_result.and(down_result)?;
