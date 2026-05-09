@@ -10,13 +10,14 @@ use ripdpi_proxy_runtime_adapter::failure::{
     BlockSignalObservation, ClassifiedFailure, FailureAction, FailureClass, FailureStage, ProbeResult,
 };
 use ripdpi_proxy_runtime_adapter::model::config::{
-    DesyncGroup, FirstResponseSettings, IpIdMode, RelayGroupSettings, RotationPolicy, RuntimeTimeoutSettings,
-    UdpGroupPacketSettings, UdpSourceRebindPolicy,
+    ws_tunnel_config_with, DesyncGroup, FirstResponseSettings, IpIdMode, RelayGroupSettings, RotationPolicy,
+    RuntimeTimeoutSettings, UdpGroupPacketSettings, UdpSourceRebindPolicy, WsTunnelSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     classify_response_failure, response_requires_dns_tampering_evidence, ConnectionRoute, DnsTamperingEvidence,
     RetrySelectionPenalty, RouteAdvance, TransportProtocol,
 };
+use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
 use ripdpi_proxy_runtime_adapter::model::session::{
     classify_first_outbound_payload, classify_udp_payload_with, parse_socks5_udp_packet_with, ClientRequest,
     FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, SessionError, SessionState, SocketType,
@@ -26,7 +27,9 @@ use ripdpi_proxy_runtime_adapter::protocol_payload::{
     build_probe_client_hello, FirstResponseBoundaryTracker, OutboundTlsClientHelloAssembler,
 };
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
-    classify_mtproto_seed, relay_ws_tunnel, MtprotoSeedClassification, TelegramDc, WsTunnelConfig,
+    classify_mtproto_seed, detect_telegram_dc, encrypted_dns_ip_answers_for_host, relay_ws_tunnel,
+    resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr, should_tunnel_fallback_with, should_tunnel_first_with,
+    telegram_dc_host, EncryptedDnsIpAnswers, MtprotoSeedClassification, TelegramDc, WsTunnelConfig,
 };
 
 pub(super) type RuntimeClassifiedFailure = ClassifiedFailure;
@@ -42,6 +45,7 @@ pub(super) type RuntimeRouteAdvance<'a> = RouteAdvance<'a>;
 pub(super) type RuntimeTransportProtocol = TransportProtocol;
 pub(super) type RuntimeFirstResponseBoundaryTracker = FirstResponseBoundaryTracker;
 pub(super) type RuntimeOutboundTlsClientHelloAssembler = OutboundTlsClientHelloAssembler;
+pub(super) type RuntimeEncryptedDnsIpAnswers = EncryptedDnsIpAnswers;
 
 pub(super) fn runtime_response_requires_dns_tampering_evidence(request: &[u8], response: &[u8]) -> bool {
     response_requires_dns_tampering_evidence(request, response)
@@ -159,6 +163,60 @@ pub(super) fn runtime_outbound_tls_client_hello_assembler() -> RuntimeOutboundTl
 
 pub(super) fn runtime_build_probe_client_hello(domain: &str) -> Vec<u8> {
     build_probe_client_hello(domain)
+}
+
+pub(super) fn runtime_should_ws_tunnel_first(
+    target: SocketAddr,
+    settings: &WsTunnelSettings,
+) -> Option<RuntimeTelegramDc> {
+    should_tunnel_first_with(target, settings).map(RuntimeTelegramDc::from_adapter)
+}
+
+pub(super) fn runtime_should_ws_tunnel_fallback(
+    target: SocketAddr,
+    settings: &WsTunnelSettings,
+) -> Option<RuntimeTelegramDc> {
+    should_tunnel_fallback_with(target, settings).map(RuntimeTelegramDc::from_adapter)
+}
+
+pub(super) fn runtime_ws_tunnel_config(
+    settings: &WsTunnelSettings,
+    resolved_addr: Option<SocketAddr>,
+) -> RuntimeWsTunnelConfig {
+    RuntimeWsTunnelConfig::from_adapter(ws_tunnel_config_with(settings, resolved_addr))
+}
+
+pub(super) fn runtime_resolve_host_via_encrypted_dns(
+    host: &str,
+    runtime_context: Option<&ProxyRuntimeContext>,
+    protect_path: Option<&str>,
+    ipv6_enabled: bool,
+) -> io::Result<SocketAddr> {
+    resolve_host_via_encrypted_dns(host, runtime_context, protect_path, ipv6_enabled)
+}
+
+pub(super) fn runtime_encrypted_dns_ip_answers_for_host(
+    host: &str,
+    runtime_context: Option<&ProxyRuntimeContext>,
+    protect_path: Option<&str>,
+) -> io::Result<RuntimeEncryptedDnsIpAnswers> {
+    encrypted_dns_ip_answers_for_host(host, runtime_context, protect_path)
+}
+
+pub(super) fn runtime_detect_telegram_dc(target: SocketAddr) -> Option<u8> {
+    detect_telegram_dc(target)
+}
+
+pub(super) fn runtime_telegram_dc_host(dc: u8) -> String {
+    telegram_dc_host(dc)
+}
+
+pub(super) fn runtime_resolve_ws_tunnel_addr(
+    dc: RuntimeTelegramDc,
+    runtime_context: Option<&ProxyRuntimeContext>,
+    protect_path: Option<&str>,
+) -> io::Result<SocketAddr> {
+    resolve_ws_tunnel_addr(dc.into_adapter(), runtime_context, protect_path)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

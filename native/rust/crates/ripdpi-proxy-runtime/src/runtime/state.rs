@@ -4,6 +4,39 @@ use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::time::Duration;
 
+use super::desync::{
+    send_tcp_desync_payload, tcp_desync_executor, DesyncSendRequest, OutboundSendError, OutboundSendOutcome,
+    TcpDesyncExecutionContext, TcpDesyncExecutor,
+};
+use super::response::{
+    runtime_failure_penalizes_strategy, runtime_failure_trigger_mask, runtime_first_response_exchange_policy,
+    runtime_first_response_exchange_required, RuntimeFirstResponseExchangePolicy,
+};
+#[cfg(test)]
+use super::response::{runtime_response_trigger_flag, runtime_response_trigger_supported, RuntimeTriggerEvent};
+use super::types::{
+    runtime_block_signal_from_failure, runtime_build_probe_client_hello, runtime_classify_first_outbound_payload,
+    runtime_classify_first_response_closed_before_response, runtime_classify_first_response_partial_tls_timeout,
+    runtime_classify_mtproto_seed, runtime_classify_probe_connect_error, runtime_classify_probe_read_error,
+    runtime_classify_probe_tls_response, runtime_classify_probe_write_error, runtime_classify_quic_probe,
+    runtime_classify_relay_connection_freeze, runtime_classify_response_failure,
+    runtime_classify_strategy_execution_failure, runtime_classify_transport_error, runtime_classify_udp_payload,
+    runtime_classify_warmup_closed_before_response, runtime_classify_warmup_first_response_error,
+    runtime_classify_warmup_send_error, runtime_client_request, runtime_detect_telegram_dc,
+    runtime_encrypted_dns_ip_answers_for_host, runtime_first_response_boundary_tracker, runtime_outbound_progress,
+    runtime_outbound_tls_client_hello_assembler, runtime_parse_socks5_udp_packet, runtime_relay_ws_tunnel,
+    runtime_resolve_host_via_encrypted_dns, runtime_resolve_ws_tunnel_addr,
+    runtime_response_requires_dns_tampering_evidence, runtime_session_error, runtime_should_track_strategy_target,
+    runtime_should_ws_tunnel_fallback, runtime_should_ws_tunnel_first, runtime_telegram_dc_host,
+    runtime_udp_packet_settings, runtime_ws_tunnel_config, RuntimeBlockSignal, RuntimeClassifiedFailure,
+    RuntimeClientRequest, RuntimeConnectionRoute, RuntimeDnsTamperingEvidence, RuntimeEncryptedDnsIpAnswers,
+    RuntimeFailureAction, RuntimeFailureClass, RuntimeFailureStage, RuntimeFirstResponseBoundaryTracker,
+    RuntimeOutboundProgress, RuntimeOutboundTlsClientHelloAssembler, RuntimeProbeResult, RuntimeProxyProtocolMode,
+    RuntimeRelayGroupSettings, RuntimeRelayRotationSeed, RuntimeRelayTimeouts, RuntimeRetrySelectionPenalty,
+    RuntimeRouteAdvance, RuntimeSessionError, RuntimeSessionState, RuntimeTelegramDc, RuntimeTransportProtocol,
+    RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, RuntimeWsTunnelConfig,
+    UdpFlowGroupPolicy, WsSeedClassification,
+};
 use ripdpi_proxy_runtime_adapter::model::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
     ensure_default_ttl, first_response_settings, first_response_timeout, first_response_timeout_count_limit,
@@ -12,11 +45,11 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     route_matches_transport_payload_with, route_payload_matcher, route_requires_delay_payload_with,
     should_rebind_udp_source_port_with, tcp_rotation_seed_with, tcp_route_connect_settings_table,
     tcp_route_connect_settings_with, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_at_capacity,
-    udp_flow_limit, udp_group_settings_table, udp_group_settings_with, warmup_probe_settings, ws_tunnel_config_with,
-    ws_tunnel_settings, DelayedConnectSettings, FirstResponseSettings, ListenerSettings, NetworkReprobeSettings,
-    ProxyHandshakeSettings, ProxyProtocolMode, RelayGroupSettingsTable, ResponseFailureEvidenceSettings,
-    RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings,
-    UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
+    udp_flow_limit, udp_group_settings_table, udp_group_settings_with, warmup_probe_settings, ws_tunnel_settings,
+    DelayedConnectSettings, FirstResponseSettings, ListenerSettings, NetworkReprobeSettings, ProxyHandshakeSettings,
+    ProxyProtocolMode, RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RoutePayloadMatcher, RuntimeConfig,
+    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable,
+    WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
 };
 use ripdpi_proxy_runtime_adapter::model::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningObserver, DirectPathLearningPort, PolicyPort,
@@ -48,41 +81,6 @@ use ripdpi_proxy_runtime_adapter::raw_packet_requirements::{
 use ripdpi_proxy_runtime_adapter::udp_desync::{
     execute_udp_actions, plan_udp_actions_for_runtime, udp_desync_planner, UdpActionExecContext, UdpDesyncAction,
     UdpDesyncPlanContext, UdpDesyncPlanRequest, UdpDesyncPlanner,
-};
-use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
-    detect_telegram_dc, encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr,
-    should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host, EncryptedDnsIpAnswers,
-};
-
-use super::desync::{
-    send_tcp_desync_payload, tcp_desync_executor, DesyncSendRequest, OutboundSendError, OutboundSendOutcome,
-    TcpDesyncExecutionContext, TcpDesyncExecutor,
-};
-use super::response::{
-    runtime_failure_penalizes_strategy, runtime_failure_trigger_mask, runtime_first_response_exchange_policy,
-    runtime_first_response_exchange_required, RuntimeFirstResponseExchangePolicy,
-};
-#[cfg(test)]
-use super::response::{runtime_response_trigger_flag, runtime_response_trigger_supported, RuntimeTriggerEvent};
-use super::types::{
-    runtime_block_signal_from_failure, runtime_build_probe_client_hello, runtime_classify_first_outbound_payload,
-    runtime_classify_first_response_closed_before_response, runtime_classify_first_response_partial_tls_timeout,
-    runtime_classify_mtproto_seed, runtime_classify_probe_connect_error, runtime_classify_probe_read_error,
-    runtime_classify_probe_tls_response, runtime_classify_probe_write_error, runtime_classify_quic_probe,
-    runtime_classify_relay_connection_freeze, runtime_classify_response_failure,
-    runtime_classify_strategy_execution_failure, runtime_classify_transport_error, runtime_classify_udp_payload,
-    runtime_classify_warmup_closed_before_response, runtime_classify_warmup_first_response_error,
-    runtime_classify_warmup_send_error, runtime_client_request, runtime_first_response_boundary_tracker,
-    runtime_outbound_progress, runtime_outbound_tls_client_hello_assembler, runtime_parse_socks5_udp_packet,
-    runtime_relay_ws_tunnel, runtime_response_requires_dns_tampering_evidence, runtime_session_error,
-    runtime_should_track_strategy_target, runtime_udp_packet_settings, RuntimeBlockSignal, RuntimeClassifiedFailure,
-    RuntimeClientRequest, RuntimeConnectionRoute, RuntimeDnsTamperingEvidence, RuntimeFailureAction,
-    RuntimeFailureClass, RuntimeFailureStage, RuntimeFirstResponseBoundaryTracker, RuntimeOutboundProgress,
-    RuntimeOutboundTlsClientHelloAssembler, RuntimeProbeResult, RuntimeProxyProtocolMode, RuntimeRelayGroupSettings,
-    RuntimeRelayRotationSeed, RuntimeRelayTimeouts, RuntimeRetrySelectionPenalty, RuntimeRouteAdvance,
-    RuntimeSessionError, RuntimeSessionState, RuntimeTelegramDc, RuntimeTransportProtocol, RuntimeUdpPacketSettings,
-    RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, RuntimeWsTunnelConfig, UdpFlowGroupPolicy,
-    WsSeedClassification,
 };
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -310,15 +308,15 @@ impl RuntimeState {
     }
 
     pub(super) fn should_ws_tunnel_first(&self, target: SocketAddr) -> Option<RuntimeTelegramDc> {
-        should_tunnel_first_with(target, &self.ws_tunnel_settings).map(RuntimeTelegramDc::from_adapter)
+        runtime_should_ws_tunnel_first(target, &self.ws_tunnel_settings)
     }
 
     pub(super) fn should_ws_tunnel_fallback(&self, target: SocketAddr) -> Option<RuntimeTelegramDc> {
-        should_tunnel_fallback_with(target, &self.ws_tunnel_settings).map(RuntimeTelegramDc::from_adapter)
+        runtime_should_ws_tunnel_fallback(target, &self.ws_tunnel_settings)
     }
 
     pub(super) fn ws_tunnel_config(&self, resolved_addr: Option<SocketAddr>) -> RuntimeWsTunnelConfig {
-        RuntimeWsTunnelConfig::from_adapter(ws_tunnel_config_with(&self.ws_tunnel_settings, resolved_addr))
+        runtime_ws_tunnel_config(&self.ws_tunnel_settings, resolved_addr)
     }
 
     pub(super) fn classify_mtproto_seed(seed: &[u8]) -> WsSeedClassification {
@@ -343,7 +341,7 @@ impl RuntimeState {
     }
 
     pub(super) fn resolve_warmup_probe_host(&self, host: &str) -> io::Result<SocketAddr> {
-        resolve_host_via_encrypted_dns(
+        runtime_resolve_host_via_encrypted_dns(
             host,
             self.runtime_context.as_ref(),
             self.warmup_probe_settings.protect_path.as_deref(),
@@ -1209,8 +1207,8 @@ impl RuntimeState {
         }
     }
 
-    pub(super) fn encrypted_dns_ip_answers_for_host(&self, host: &str) -> io::Result<EncryptedDnsIpAnswers> {
-        encrypted_dns_ip_answers_for_host(
+    pub(super) fn encrypted_dns_ip_answers_for_host(&self, host: &str) -> io::Result<RuntimeEncryptedDnsIpAnswers> {
+        runtime_encrypted_dns_ip_answers_for_host(
             host,
             self.runtime_context.as_ref(),
             self.response_failure_evidence_settings.protect_path.as_deref(),
@@ -1284,11 +1282,11 @@ impl RuntimeState {
     }
 
     pub(super) fn detect_telegram_dc(target: SocketAddr) -> Option<u8> {
-        detect_telegram_dc(target)
+        runtime_detect_telegram_dc(target)
     }
 
     pub(super) fn telegram_dc_host(dc: u8) -> String {
-        telegram_dc_host(dc)
+        runtime_telegram_dc_host(dc)
     }
 
     pub(super) fn telegram_dc_host_hint(&self, target: SocketAddr) -> Option<String> {
@@ -1389,12 +1387,12 @@ impl RuntimeState {
         protect_path: Option<&str>,
         ipv6_enabled: bool,
     ) -> io::Result<SocketAddr> {
-        resolve_host_via_encrypted_dns(host, self.runtime_context.as_ref(), protect_path, ipv6_enabled)
+        runtime_resolve_host_via_encrypted_dns(host, self.runtime_context.as_ref(), protect_path, ipv6_enabled)
     }
 
     pub(super) fn resolve_ws_tunnel_addr(&self, dc: RuntimeTelegramDc) -> io::Result<SocketAddr> {
-        resolve_ws_tunnel_addr(
-            dc.into_adapter(),
+        runtime_resolve_ws_tunnel_addr(
+            dc,
             self.runtime_context.as_ref(),
             self.ws_tunnel_settings.protect_path.as_deref(),
         )
