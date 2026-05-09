@@ -15,6 +15,3 @@ pub(super) use retry::{
     connect_target, connect_target_with_route, reconnect_target, reconnect_target_without_tfo,
     route_uses_direct_syn_data_tfo,
 };
-
-#[cfg(test)]
-pub(super) use failure::trigger_flag;

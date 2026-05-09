@@ -65,7 +65,6 @@ pub(super) fn relay(
 mod tests {
     use std::time::{Duration, Instant};
 
-    use super::super::routing::trigger_flag;
     use super::failure_retry::retry_logic::classify_first_write_failure;
     use super::first_exchange::{first_response_timeout, response_trigger_supported, timeout_count_limit};
     use super::*;
@@ -190,8 +189,8 @@ mod tests {
         assert!(response_trigger_supported(&config, TriggerEvent::Redirect));
         assert!(response_trigger_supported(&config, TriggerEvent::Connect));
         assert!(!response_trigger_supported(&config, TriggerEvent::Torst));
-        assert_eq!(trigger_flag(TriggerEvent::SslErr), DETECT_TLS_HANDSHAKE_FAILURE);
-        assert_eq!(trigger_flag(TriggerEvent::Torst), DETECT_TORST);
+        assert_eq!(RuntimeState::trigger_flag(TriggerEvent::SslErr), DETECT_TLS_HANDSHAKE_FAILURE);
+        assert_eq!(RuntimeState::trigger_flag(TriggerEvent::Torst), DETECT_TORST);
 
         config.groups[0].matches.detect = 0;
         let settings = first_response_settings(&config);

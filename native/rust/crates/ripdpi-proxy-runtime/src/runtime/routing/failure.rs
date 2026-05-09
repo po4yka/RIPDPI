@@ -43,9 +43,3 @@ mod tests {
         assert!(RuntimeState::should_track_strategy_target(SocketAddr::from(([142, 251, 127, 84], 443))));
     }
 }
-
-#[cfg(test)]
-#[allow(clippy::items_after_test_module)]
-pub(in crate::runtime) fn trigger_flag(trigger: ripdpi_proxy_runtime_adapter::model::session::TriggerEvent) -> u32 {
-    RuntimeState::trigger_flag(trigger)
-}
