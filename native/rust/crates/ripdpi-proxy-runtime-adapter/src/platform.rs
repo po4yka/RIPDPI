@@ -309,9 +309,7 @@ pub mod process {
     use std::fs::{self, File, OpenOptions};
     use std::io;
     use std::io::Write;
-    use std::num::NonZeroUsize;
     use std::path::{Path, PathBuf};
-    use std::thread;
 
     use daemonize::Daemonize;
     use nix::fcntl::{Flock, FlockArg};
@@ -342,18 +340,7 @@ pub mod process {
     }
 
     pub fn detected_parallelism(fallback: usize) -> usize {
-        // On Android, std::thread::available_parallelism() reads cgroup files
-        // that SELinux denies on Android 14+, polluting logcat with avc:
-        // denied entries. Use sysconf(_SC_NPROCESSORS_ONLN) directly to skip
-        // the cgroup probe.
-        #[cfg(target_os = "android")]
-        {
-            let n = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_ONLN) };
-            if n > 0 {
-                return n as usize;
-            }
-        }
-        thread::available_parallelism().map(NonZeroUsize::get).unwrap_or(fallback)
+        ripdpi_runtime_platform::capability::detected_parallelism(fallback)
     }
 
     fn daemonize(pid_file: Option<&Path>) -> io::Result<()> {
