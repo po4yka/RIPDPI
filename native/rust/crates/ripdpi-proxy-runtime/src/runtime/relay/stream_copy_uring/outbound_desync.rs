@@ -2,7 +2,7 @@ use std::io::{self, Read};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::super::super::desync::{send_with_group, DesyncSendRequest, OutboundSendError};
+use super::super::super::desync::{DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
 use super::super::session::RelaySharedSession;
 use super::cleanup::shutdown_direction;
@@ -55,19 +55,19 @@ fn flush_outbound_payload(
         *remembered_host = parsed_host.clone();
     }
     let peer_addr = writer.peer_addr()?;
-    let send_outcome = send_with_group(
-        writer,
-        state,
-        DesyncSendRequest {
-            group_index,
-            group_override: None,
-            payload,
-            progress,
-            host: parsed_host.as_deref().or(remembered_host.as_deref()),
-            target: peer_addr,
-        },
-    )
-    .map_err(OutboundSendError::into_io_error)?;
+    let send_outcome = state
+        .send_tcp_desync_payload(
+            writer,
+            DesyncSendRequest {
+                group_index,
+                group_override: None,
+                payload,
+                progress,
+                host: parsed_host.as_deref().or(remembered_host.as_deref()),
+                target: peer_addr,
+            },
+        )
+        .map_err(OutboundSendError::into_io_error)?;
     tracing::trace!(
         target = %peer_addr,
         strategy_family = send_outcome.strategy_family.unwrap_or("plain"),

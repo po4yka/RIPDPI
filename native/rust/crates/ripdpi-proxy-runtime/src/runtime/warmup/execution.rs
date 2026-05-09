@@ -12,7 +12,7 @@ use super::classification::{
 };
 use super::resolver::resolve_probe_target;
 use super::target_catalog::PROBE_TIMEOUT;
-use crate::runtime::desync::{send_with_group, DesyncSendRequest};
+use crate::runtime::desync::DesyncSendRequest;
 use crate::runtime::routing::connect_target;
 use crate::runtime::state::RuntimeState;
 use ripdpi_proxy_runtime_adapter::platform::warmup as warmup_platform;
@@ -36,9 +36,8 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
         stream_start: 0,
         stream_end: payload.len().saturating_sub(1),
     };
-    let send_result = send_with_group(
+    let send_result = state.send_tcp_desync_payload(
         &mut upstream,
-        state,
         DesyncSendRequest {
             group_index: route.group_index,
             group_override: None,

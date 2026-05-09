@@ -2,7 +2,7 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
-use crate::runtime::desync::{send_with_group, DesyncSendRequest, OutboundSendError};
+use crate::runtime::desync::{DesyncSendRequest, OutboundSendError};
 use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::state::RuntimeState;
 
@@ -16,9 +16,8 @@ pub(super) fn execute_first_write(
     session_state: &mut FirstOutboundSession,
 ) -> Result<Option<&'static str>, OutboundSendError> {
     let progress = session_state.observe_first_outbound_payload(original_request);
-    let send_outcome = send_with_group(
+    let send_outcome = state.send_tcp_desync_payload(
         upstream,
-        state,
         DesyncSendRequest {
             group_index: route.group_index,
             group_override: None,
