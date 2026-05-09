@@ -6,7 +6,7 @@ use std::io;
 use std::net::TcpListener;
 use std::sync::Arc as StdArc;
 
-use ripdpi_proxy_runtime_adapter::model::config::{ensure_default_ttl, ListenerSettings, RuntimeConfig};
+use ripdpi_proxy_runtime_adapter::model::config::{ListenerSettings, RuntimeConfig};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
@@ -23,7 +23,7 @@ pub(super) fn run_proxy_with_listener_internal(
     control: Option<StdArc<EmbeddedProxyControl>>,
 ) -> io::Result<()> {
     let mut config = config;
-    ensure_default_ttl(&mut config, listener_platform::detect_default_ttl)?;
+    RuntimeState::ensure_config_default_ttl(&mut config, listener_platform::detect_default_ttl)?;
     let state = RuntimeState::new(config, control.clone());
     let client_capacity = state.listener_client_capacity();
     let listener_addr = listener.local_addr()?;
