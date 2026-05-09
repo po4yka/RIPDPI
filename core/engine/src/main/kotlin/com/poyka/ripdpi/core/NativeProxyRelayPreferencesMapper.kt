@@ -1,0 +1,67 @@
+package com.poyka.ripdpi.core
+
+import com.poyka.ripdpi.data.toRelaySettingsModel
+import com.poyka.ripdpi.proto.AppSettings
+
+@Suppress("LongMethod")
+internal fun buildRelayConfig(settings: AppSettings): RipDpiRelayConfig {
+    val relay = settings.toRelaySettingsModel()
+    return RipDpiRelayConfig(
+        enabled = relay.enabled,
+        kind = relay.kind,
+        profileId = relay.profileId,
+        outboundBindIp = relay.profile.outboundBindIp,
+        server = relay.profile.server,
+        serverPort = relay.profile.serverPort,
+        serverName = relay.profile.serverName,
+        realityPublicKey = relay.profile.realityPublicKey,
+        realityShortId = relay.profile.realityShortId,
+        vlessTransport = relay.profile.vlessTransport,
+        xhttpPath = relay.profile.xhttpPath,
+        xhttpHost = relay.profile.xhttpHost,
+        cloudflareTunnelMode = relay.profile.cloudflareTunnelMode,
+        cloudflarePublishLocalOriginUrl = relay.profile.cloudflarePublishLocalOriginUrl,
+        cloudflareCredentialsRef = relay.profile.cloudflareCredentialsRef,
+        chainEntryServer = relay.profile.chainEntryServer,
+        chainEntryPort = relay.profile.chainEntryPort,
+        chainEntryServerName = relay.profile.chainEntryServerName,
+        chainEntryPublicKey = relay.profile.chainEntryPublicKey,
+        chainEntryShortId = relay.profile.chainEntryShortId,
+        chainEntryProfileId = relay.profile.chainEntryProfileId,
+        chainExitServer = relay.profile.chainExitServer,
+        chainExitPort = relay.profile.chainExitPort,
+        chainExitServerName = relay.profile.chainExitServerName,
+        chainExitPublicKey = relay.profile.chainExitPublicKey,
+        chainExitShortId = relay.profile.chainExitShortId,
+        chainExitProfileId = relay.profile.chainExitProfileId,
+        masqueUrl = relay.profile.masqueUrl,
+        masqueUseHttp2Fallback = relay.profile.masqueUseHttp2Fallback,
+        masqueCloudflareGeohashEnabled = relay.profile.masqueCloudflareGeohashEnabled,
+        tuicZeroRtt = relay.profile.tuicZeroRtt,
+        tuicCongestionControl = relay.profile.tuicCongestionControl,
+        shadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
+        naivePath = relay.profile.naivePath,
+        appsScriptScriptIds = relay.profile.appsScriptScriptIds,
+        appsScriptGoogleIp = relay.profile.appsScriptGoogleIp,
+        appsScriptFrontDomain = relay.profile.appsScriptFrontDomain,
+        appsScriptSniHosts = relay.profile.appsScriptSniHosts,
+        appsScriptVerifySsl = relay.profile.appsScriptVerifySsl,
+        appsScriptParallelRelay = relay.profile.appsScriptParallelRelay,
+        appsScriptDirectHosts = relay.profile.appsScriptDirectHosts,
+        localSocksHost = relay.profile.localSocksHost,
+        localSocksPort = relay.profile.localSocksPort,
+        udpEnabled = relay.profile.udpEnabled,
+        tcpFallbackEnabled = relay.profile.tcpFallbackEnabled,
+        finalmask =
+            RipDpiRelayFinalmaskConfig(
+                type = relay.profile.finalmask.type,
+                headerHex = relay.profile.finalmask.headerHex,
+                trailerHex = relay.profile.finalmask.trailerHex,
+                randRange = relay.profile.finalmask.randRange,
+                sudokuSeed = relay.profile.finalmask.sudokuSeed,
+                fragmentPackets = relay.profile.finalmask.fragmentPackets,
+                fragmentMinBytes = relay.profile.finalmask.fragmentMinBytes,
+                fragmentMaxBytes = relay.profile.finalmask.fragmentMaxBytes,
+            ),
+    )
+}
