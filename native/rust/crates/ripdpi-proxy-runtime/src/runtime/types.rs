@@ -10,8 +10,8 @@ use ripdpi_proxy_runtime_adapter::failure::{
     BlockSignalObservation, ClassifiedFailure, FailureAction, FailureClass, FailureStage, ProbeResult,
 };
 use ripdpi_proxy_runtime_adapter::model::config::{
-    DesyncGroup, IpIdMode, RelayGroupSettings, RotationPolicy, RuntimeTimeoutSettings, UdpGroupPacketSettings,
-    UdpSourceRebindPolicy,
+    DesyncGroup, FirstResponseSettings, IpIdMode, RelayGroupSettings, RotationPolicy, RuntimeTimeoutSettings,
+    UdpGroupPacketSettings, UdpSourceRebindPolicy,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     classify_response_failure, response_requires_dns_tampering_evidence, ConnectionRoute, DnsTamperingEvidence,
@@ -21,6 +21,9 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     classify_first_outbound_payload, classify_udp_payload_with, parse_socks5_udp_packet_with, ClientRequest,
     FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, SessionError, SessionState, SocketType,
     UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
+};
+use ripdpi_proxy_runtime_adapter::protocol_payload::{
+    build_probe_client_hello, FirstResponseBoundaryTracker, OutboundTlsClientHelloAssembler,
 };
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     classify_mtproto_seed, relay_ws_tunnel, MtprotoSeedClassification, TelegramDc, WsTunnelConfig,
@@ -37,6 +40,8 @@ pub(super) type RuntimeDnsTamperingEvidence<'a> = DnsTamperingEvidence<'a>;
 pub(super) type RuntimeRetrySelectionPenalty = RetrySelectionPenalty;
 pub(super) type RuntimeRouteAdvance<'a> = RouteAdvance<'a>;
 pub(super) type RuntimeTransportProtocol = TransportProtocol;
+pub(super) type RuntimeFirstResponseBoundaryTracker = FirstResponseBoundaryTracker;
+pub(super) type RuntimeOutboundTlsClientHelloAssembler = OutboundTlsClientHelloAssembler;
 
 pub(super) fn runtime_response_requires_dns_tampering_evidence(request: &[u8], response: &[u8]) -> bool {
     response_requires_dns_tampering_evidence(request, response)
@@ -139,6 +144,21 @@ pub(super) fn runtime_parse_socks5_udp_packet<'a>(
 
 pub(super) fn runtime_classify_udp_payload(classifier: &UdpPayloadClassifier, payload: &[u8]) -> UdpPayloadInfo {
     classify_udp_payload_with(classifier, payload)
+}
+
+pub(super) fn runtime_first_response_boundary_tracker(
+    request: &[u8],
+    settings: FirstResponseSettings,
+) -> RuntimeFirstResponseBoundaryTracker {
+    FirstResponseBoundaryTracker::for_request(request, settings)
+}
+
+pub(super) fn runtime_outbound_tls_client_hello_assembler() -> RuntimeOutboundTlsClientHelloAssembler {
+    OutboundTlsClientHelloAssembler::new()
+}
+
+pub(super) fn runtime_build_probe_client_hello(domain: &str) -> Vec<u8> {
+    build_probe_client_hello(domain)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -42,9 +42,6 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
-use ripdpi_proxy_runtime_adapter::protocol_payload::{
-    build_probe_client_hello, FirstResponseBoundaryTracker, OutboundTlsClientHelloAssembler,
-};
 use ripdpi_proxy_runtime_adapter::raw_packet_requirements::{
     raw_packet_requirements, validate_ip_fragmentation_support,
 };
@@ -68,22 +65,24 @@ use super::response::{
 #[cfg(test)]
 use super::response::{runtime_response_trigger_flag, runtime_response_trigger_supported, RuntimeTriggerEvent};
 use super::types::{
-    runtime_block_signal_from_failure, runtime_classify_first_outbound_payload,
+    runtime_block_signal_from_failure, runtime_build_probe_client_hello, runtime_classify_first_outbound_payload,
     runtime_classify_first_response_closed_before_response, runtime_classify_first_response_partial_tls_timeout,
     runtime_classify_mtproto_seed, runtime_classify_probe_connect_error, runtime_classify_probe_read_error,
     runtime_classify_probe_tls_response, runtime_classify_probe_write_error, runtime_classify_quic_probe,
     runtime_classify_relay_connection_freeze, runtime_classify_response_failure,
     runtime_classify_strategy_execution_failure, runtime_classify_transport_error, runtime_classify_udp_payload,
     runtime_classify_warmup_closed_before_response, runtime_classify_warmup_first_response_error,
-    runtime_classify_warmup_send_error, runtime_client_request, runtime_outbound_progress,
-    runtime_parse_socks5_udp_packet, runtime_relay_ws_tunnel, runtime_response_requires_dns_tampering_evidence,
-    runtime_session_error, runtime_should_track_strategy_target, runtime_udp_packet_settings, RuntimeBlockSignal,
-    RuntimeClassifiedFailure, RuntimeClientRequest, RuntimeConnectionRoute, RuntimeDnsTamperingEvidence,
-    RuntimeFailureAction, RuntimeFailureClass, RuntimeFailureStage, RuntimeOutboundProgress, RuntimeProbeResult,
-    RuntimeProxyProtocolMode, RuntimeRelayGroupSettings, RuntimeRelayRotationSeed, RuntimeRelayTimeouts,
-    RuntimeRetrySelectionPenalty, RuntimeRouteAdvance, RuntimeSessionError, RuntimeSessionState, RuntimeTelegramDc,
-    RuntimeTransportProtocol, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy,
-    RuntimeWsTunnelConfig, UdpFlowGroupPolicy, WsSeedClassification,
+    runtime_classify_warmup_send_error, runtime_client_request, runtime_first_response_boundary_tracker,
+    runtime_outbound_progress, runtime_outbound_tls_client_hello_assembler, runtime_parse_socks5_udp_packet,
+    runtime_relay_ws_tunnel, runtime_response_requires_dns_tampering_evidence, runtime_session_error,
+    runtime_should_track_strategy_target, runtime_udp_packet_settings, RuntimeBlockSignal, RuntimeClassifiedFailure,
+    RuntimeClientRequest, RuntimeConnectionRoute, RuntimeDnsTamperingEvidence, RuntimeFailureAction,
+    RuntimeFailureClass, RuntimeFailureStage, RuntimeFirstResponseBoundaryTracker, RuntimeOutboundProgress,
+    RuntimeOutboundTlsClientHelloAssembler, RuntimeProbeResult, RuntimeProxyProtocolMode, RuntimeRelayGroupSettings,
+    RuntimeRelayRotationSeed, RuntimeRelayTimeouts, RuntimeRetrySelectionPenalty, RuntimeRouteAdvance,
+    RuntimeSessionError, RuntimeSessionState, RuntimeTelegramDc, RuntimeTransportProtocol, RuntimeUdpPacketSettings,
+    RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, RuntimeWsTunnelConfig, UdpFlowGroupPolicy,
+    WsSeedClassification,
 };
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -424,11 +423,14 @@ impl RuntimeState {
         self.relay_first_response.buffer_size
     }
 
-    pub(super) fn relay_first_response_boundary_tracker(&self, request: &[u8]) -> FirstResponseBoundaryTracker {
-        FirstResponseBoundaryTracker::for_request(request, self.relay_first_response)
+    pub(super) fn relay_first_response_boundary_tracker(&self, request: &[u8]) -> RuntimeFirstResponseBoundaryTracker {
+        runtime_first_response_boundary_tracker(request, self.relay_first_response)
     }
 
-    pub(super) fn relay_first_response_timeout(&self, tls_partial: &FirstResponseBoundaryTracker) -> Option<Duration> {
+    pub(super) fn relay_first_response_timeout(
+        &self,
+        tls_partial: &RuntimeFirstResponseBoundaryTracker,
+    ) -> Option<Duration> {
         first_response_timeout(self.relay_first_response, tls_partial.active())
     }
 
@@ -671,12 +673,12 @@ impl RuntimeState {
         runtime_classify_first_outbound_payload(&self.first_outbound_payload_policy, payload)
     }
 
-    pub(super) fn first_outbound_tls_client_hello_assembler() -> OutboundTlsClientHelloAssembler {
-        OutboundTlsClientHelloAssembler::new()
+    pub(super) fn first_outbound_tls_client_hello_assembler() -> RuntimeOutboundTlsClientHelloAssembler {
+        runtime_outbound_tls_client_hello_assembler()
     }
 
     pub(super) fn build_probe_client_hello(domain: &str) -> Vec<u8> {
-        build_probe_client_hello(domain)
+        runtime_build_probe_client_hello(domain)
     }
 
     pub(super) fn first_response_exchange_required(&self) -> io::Result<bool> {
