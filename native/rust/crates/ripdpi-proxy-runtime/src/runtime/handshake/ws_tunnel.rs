@@ -3,7 +3,8 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{TelegramDc, WsTunnelConfig};
 
-use super::super::state::{RuntimeState, WsSeedClassification};
+use super::super::state::RuntimeState;
+use super::super::types::WsSeedClassification;
 
 /// Check if WS tunnel should be tried first (Always mode).
 pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {

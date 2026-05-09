@@ -5,7 +5,8 @@ use std::io;
 use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RotationPolicy};
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 
-use crate::runtime::state::{RuntimeOutboundProgress, RuntimeSessionState, RuntimeState};
+use crate::runtime::state::RuntimeState;
+use crate::runtime::types::{RuntimeOutboundProgress, RuntimeSessionState};
 
 pub(super) struct RelaySession {
     state: RuntimeSessionState,

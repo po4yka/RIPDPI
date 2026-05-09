@@ -18,9 +18,8 @@ use protocol_io::{
     negotiate_socks5, read_http_connect_request, read_shadowsocks_request, read_socks4_request, read_socks5_request,
 };
 
-use super::state::{
-    RuntimeClientRequest, RuntimeProxyProtocolMode, RuntimeSessionError, RuntimeState, HANDSHAKE_TIMEOUT,
-};
+use super::state::{RuntimeState, HANDSHAKE_TIMEOUT};
+use super::types::{RuntimeClientRequest, RuntimeProxyProtocolMode, RuntimeSessionError};
 
 pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));

@@ -14,7 +14,7 @@ use ripdpi_proxy_runtime_adapter::failure::{
     classify_probe_tls_response, classify_probe_write_error, classify_relay_connection_freeze,
     classify_strategy_execution_failure, classify_transport_error, classify_warmup_closed_before_response,
     classify_warmup_first_response_error, classify_warmup_send_error, should_track_strategy_target, BlockSignal,
-    ClassifiedFailure, FailureAction, FailureClass, FailureStage, ProbeResult,
+    ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
 use ripdpi_proxy_runtime_adapter::model::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
@@ -28,9 +28,8 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     ws_tunnel_settings, DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings,
     NetworkReprobeSettings, ProxyHandshakeSettings, ProxyProtocolMode, RelayGroupSettings, RelayGroupSettingsTable,
     ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, RuntimeTimeoutSettings,
-    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupPacketSettings,
-    UdpGroupSettingsTable, UdpGroupSocketSettings, UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings,
-    DETECT_CONNECT,
+    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable,
+    WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
@@ -54,10 +53,10 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     new_session_state, observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
     observe_outbound_payload, observe_retry_response_payload, outbound_payload_count_this_round,
     parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request, parse_socks5_request,
-    payload_host_extractor, read_upstream_socks_reply, udp_packet_parser, udp_payload_classifier, ClientRequest,
-    FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, PayloadHostExtractor, ProxyReply, SessionError,
-    SessionState, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, S_ATP_I4, S_ATP_I6, S_AUTH_BAD,
-    S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_GEN, S_VER5,
+    payload_host_extractor, read_upstream_socks_reply, udp_packet_parser, udp_payload_classifier,
+    FirstOutboundPayloadPolicy, OutboundPayloadInfo, PayloadHostExtractor, ProxyReply, SocketType, UdpPacketParser,
+    UdpPayloadClassifier, UdpPayloadInfo, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD,
+    S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use ripdpi_proxy_runtime_adapter::protocol_payload::{
@@ -76,52 +75,15 @@ use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     WsTunnelConfig,
 };
 
+use super::types::{
+    runtime_client_request, runtime_outbound_progress, runtime_probe_result, runtime_session_error,
+    runtime_udp_packet_settings, RuntimeClientRequest, RuntimeOutboundProgress, RuntimeProbeResult,
+    RuntimeProxyProtocolMode, RuntimeSessionError, RuntimeSessionState, RuntimeUdpPacketSettings,
+    RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy, WsSeedClassification,
+};
+
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum RuntimeProxyProtocolMode {
-    Transparent,
-    HttpConnect,
-    BytePrefixed { shadowsocks_enabled: bool },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct RuntimeTarget {
-    pub(super) addr: SocketAddr,
-    pub(super) host: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum RuntimeClientRequest {
-    Socks4Connect(RuntimeTarget),
-    Socks5Connect(RuntimeTarget),
-    Socks5UdpAssociate,
-    HttpConnect(RuntimeTarget),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct RuntimeSessionError {
-    pub(super) code: u8,
-}
-
-#[derive(Clone)]
-pub(super) struct RuntimeSessionState(SessionState);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct RuntimeOutboundProgress {
-    pub(super) round: u32,
-    pub(super) payload_size: usize,
-    pub(super) stream_start: usize,
-    pub(super) stream_end: usize,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum RuntimeProbeResult {
-    Success,
-    DpiFailure(&'static str),
-    NetworkError(&'static str),
-}
 
 struct RuntimeTelemetryDirectPathObserver<'a>(&'a dyn RuntimeTelemetrySink);
 
@@ -176,19 +138,6 @@ pub(super) struct RuntimeState {
     /// io_uring driver for zero-copy relay (Linux 6.0+, optional).
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
     io_uring: Option<std::sync::Arc<ripdpi_io_uring::IoUringDriver>>,
-}
-
-#[derive(Clone, Copy)]
-pub(super) struct UdpFlowGroupPolicy {
-    pub(super) socket: UdpGroupSocketSettings,
-    pub(super) packet: UdpGroupPacketSettings,
-    pub(super) source_rebind: UdpSourceRebindPolicy,
-}
-
-pub(super) enum WsSeedClassification {
-    NotMtproto,
-    UnmappableDc { raw_dc: i32, dc: Option<TelegramDc> },
-    ValidatedMtproto { dc: TelegramDc },
 }
 
 #[derive(Clone)]
@@ -800,16 +749,20 @@ impl RuntimeState {
 
     pub(super) fn udp_flow_group_policy(&self, group_index: usize) -> Option<UdpFlowGroupPolicy> {
         let group = udp_group_settings_with(&self.udp_group_settings, group_index)?;
-        Some(UdpFlowGroupPolicy { socket: group.socket, packet: group.packet, source_rebind: group.source_rebind })
+        Some(UdpFlowGroupPolicy {
+            socket: RuntimeUdpSocketSettings { bind_low_port: group.socket.bind_low_port },
+            packet: runtime_udp_packet_settings(group.packet),
+            source_rebind: RuntimeUdpSourceRebindPolicy { after_handshake: group.source_rebind.after_handshake },
+        })
     }
 
     pub(super) fn should_rebind_udp_flow_source_port(
-        policy: UdpSourceRebindPolicy,
+        policy: RuntimeUdpSourceRebindPolicy,
         quic_migrated: bool,
         round_count: u32,
         inbound_payload: &[u8],
     ) -> bool {
-        should_rebind_udp_source_port_with(policy, quic_migrated, round_count, inbound_payload)
+        should_rebind_udp_source_port_with(policy.into_adapter(), quic_migrated, round_count, inbound_payload)
     }
 
     pub(super) fn max_route_retries(&self) -> usize {
@@ -1229,7 +1182,7 @@ impl RuntimeState {
     pub(super) fn execute_udp_desync_actions(
         upstream: &UdpSocket,
         target: SocketAddr,
-        packet_settings: UdpGroupPacketSettings,
+        packet_settings: RuntimeUdpPacketSettings,
         protect_path: Option<&str>,
         actions: &[UdpDesyncAction],
     ) -> io::Result<()> {
@@ -1642,53 +1595,6 @@ impl ClientSlotGuard {
 impl Drop for ClientSlotGuard {
     fn drop(&mut self) {
         self.active.fetch_sub(1, Ordering::AcqRel);
-    }
-}
-
-fn runtime_client_request(request: ClientRequest) -> RuntimeClientRequest {
-    match request {
-        ClientRequest::Socks4Connect(target) => {
-            RuntimeClientRequest::Socks4Connect(RuntimeTarget { addr: target.addr, host: target.host })
-        }
-        ClientRequest::Socks5Connect(target) => {
-            RuntimeClientRequest::Socks5Connect(RuntimeTarget { addr: target.addr, host: target.host })
-        }
-        ClientRequest::Socks5UdpAssociate(_target) => RuntimeClientRequest::Socks5UdpAssociate,
-        ClientRequest::HttpConnect(target) => {
-            RuntimeClientRequest::HttpConnect(RuntimeTarget { addr: target.addr, host: target.host })
-        }
-    }
-}
-
-fn runtime_session_error(error: SessionError) -> RuntimeSessionError {
-    RuntimeSessionError { code: error.code }
-}
-
-fn runtime_outbound_progress(progress: OutboundProgress) -> RuntimeOutboundProgress {
-    RuntimeOutboundProgress {
-        round: progress.round,
-        payload_size: progress.payload_size,
-        stream_start: progress.stream_start,
-        stream_end: progress.stream_end,
-    }
-}
-
-impl RuntimeOutboundProgress {
-    pub(super) fn into_adapter(self) -> OutboundProgress {
-        OutboundProgress {
-            round: self.round,
-            payload_size: self.payload_size,
-            stream_start: self.stream_start,
-            stream_end: self.stream_end,
-        }
-    }
-}
-
-fn runtime_probe_result(result: ProbeResult) -> RuntimeProbeResult {
-    match result {
-        ProbeResult::Success => RuntimeProbeResult::Success,
-        ProbeResult::DpiFailure(reason) => RuntimeProbeResult::DpiFailure(reason),
-        ProbeResult::NetworkError(reason) => RuntimeProbeResult::NetworkError(reason),
     }
 }
 

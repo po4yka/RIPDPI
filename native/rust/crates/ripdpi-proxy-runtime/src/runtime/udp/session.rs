@@ -1,4 +1,5 @@
-use crate::runtime::state::{RuntimeOutboundProgress, RuntimeSessionState, RuntimeState};
+use crate::runtime::state::RuntimeState;
+use crate::runtime::types::{RuntimeOutboundProgress, RuntimeSessionState};
 
 pub(super) struct UdpFlowSession {
     state: RuntimeSessionState,

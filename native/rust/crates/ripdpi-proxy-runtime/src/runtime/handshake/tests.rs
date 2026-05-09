@@ -1,5 +1,6 @@
 use super::protocol_io::*;
-use crate::runtime::state::{RuntimeClientRequest, RuntimeState};
+use crate::runtime::state::RuntimeState;
+use crate::runtime::types::RuntimeClientRequest;
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RuntimeConfig};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};

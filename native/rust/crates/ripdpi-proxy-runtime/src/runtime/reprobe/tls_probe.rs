@@ -2,7 +2,8 @@ use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use super::super::routing::connect_socket;
-use super::super::state::{RuntimeProbeResult, RuntimeState};
+use super::super::state::RuntimeState;
+use super::super::types::RuntimeProbeResult;
 use super::target_catalog::PROBE_TIMEOUT;
 
 /// Attempt a raw TLS ClientHello to `target` and read the first response bytes.

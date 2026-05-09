@@ -3,7 +3,8 @@ use std::thread;
 
 use ripdpi_proxy_runtime_adapter::model::services::ReprobeResetHandle;
 
-use super::super::state::{RuntimeProbeResult, RuntimeState};
+use super::super::state::RuntimeState;
+use super::super::types::RuntimeProbeResult;
 use super::cache_flush::flush_runtime_cache_after_handover;
 use super::reset_policy::reset_if_strategy_mismatch;
 use super::target_catalog::{PROBE_TARGETS, TOTAL_DEADLINE};

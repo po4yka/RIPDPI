@@ -70,11 +70,11 @@ pub(super) fn maybe_rebind_udp_source_port(
 #[cfg(test)]
 mod tests {
     use crate::runtime::state::RuntimeState;
-    use ripdpi_proxy_runtime_adapter::model::config::UdpSourceRebindPolicy;
+    use crate::runtime::types::RuntimeUdpSourceRebindPolicy;
 
     #[test]
     fn udp_source_rebind_waits_for_short_header_after_two_rounds() {
-        let policy = UdpSourceRebindPolicy { after_handshake: true };
+        let policy = RuntimeUdpSourceRebindPolicy::after_handshake(true);
 
         assert!(!RuntimeState::should_rebind_udp_flow_source_port(policy, true, 2, &[0x40]));
         assert!(!RuntimeState::should_rebind_udp_flow_source_port(policy, false, 1, &[0x40]));

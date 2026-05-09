@@ -7,6 +7,7 @@ mod reprobe;
 mod retry;
 mod routing;
 mod state;
+mod types;
 mod udp;
 mod warmup;
 

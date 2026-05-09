@@ -3,23 +3,21 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::{
-    UdpGroupPacketSettings, UdpGroupSocketSettings, UdpSourceRebindPolicy,
-};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use super::feedback::note_udp_flow_timeout_failure;
 use super::flow_selection::try_advance_udp_preferred_target;
 use super::session::UdpFlowSession;
 use crate::runtime::state::{RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
+use crate::runtime::types::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy};
 
 pub(super) struct UdpFlowActivationState {
     pub(super) session: UdpFlowSession,
     pub(super) last_used: Instant,
     pub(super) route: ConnectionRoute,
-    pub(super) socket_settings: UdpGroupSocketSettings,
-    pub(super) packet_settings: UdpGroupPacketSettings,
-    pub(super) source_rebind_policy: UdpSourceRebindPolicy,
+    pub(super) socket_settings: RuntimeUdpSocketSettings,
+    pub(super) packet_settings: RuntimeUdpPacketSettings,
+    pub(super) source_rebind_policy: RuntimeUdpSourceRebindPolicy,
     pub(super) host: Option<String>,
     pub(super) payload: Vec<u8>,
     pub(super) awaiting_response: bool,

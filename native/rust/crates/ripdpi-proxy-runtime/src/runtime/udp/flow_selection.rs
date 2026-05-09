@@ -3,10 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::{
-    config::{UdpGroupPacketSettings, UdpGroupSocketSettings, UdpSourceRebindPolicy},
-    decision::{ConnectionRoute, TransportProtocol},
-};
+use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use super::client_receive::UdpClientPacket;
 use super::flow::{udp_flow_at_capacity, UdpFlowActivationState};
@@ -15,14 +12,15 @@ use super::sockets::build_udp_upstream_socket;
 use super::upstream_pump::send_udp_flow_payload;
 use crate::runtime::routing::{preferred_targets_for_transport, select_route_for_transport};
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy};
 
 pub(super) struct UdpFlowSelection {
     pub(super) target: SocketAddr,
     pub(super) target_index: usize,
     pub(super) route: ConnectionRoute,
-    pub(super) socket_settings: UdpGroupSocketSettings,
-    pub(super) packet_settings: UdpGroupPacketSettings,
-    pub(super) source_rebind_policy: UdpSourceRebindPolicy,
+    pub(super) socket_settings: RuntimeUdpSocketSettings,
+    pub(super) packet_settings: RuntimeUdpPacketSettings,
+    pub(super) source_rebind_policy: RuntimeUdpSourceRebindPolicy,
     pub(super) upstream: UdpSocket,
 }
 
@@ -30,9 +28,9 @@ pub(super) struct UdpFlowSelectionWithCandidates {
     pub(super) target: SocketAddr,
     pub(super) target_index: usize,
     pub(super) route: ConnectionRoute,
-    pub(super) socket_settings: UdpGroupSocketSettings,
-    pub(super) packet_settings: UdpGroupPacketSettings,
-    pub(super) source_rebind_policy: UdpSourceRebindPolicy,
+    pub(super) socket_settings: RuntimeUdpSocketSettings,
+    pub(super) packet_settings: RuntimeUdpPacketSettings,
+    pub(super) source_rebind_policy: RuntimeUdpSourceRebindPolicy,
     pub(super) upstream: UdpSocket,
     pub(super) target_candidates: Vec<SocketAddr>,
 }
