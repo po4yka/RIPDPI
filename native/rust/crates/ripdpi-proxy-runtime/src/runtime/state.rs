@@ -727,6 +727,11 @@ impl RuntimeState {
         failure_trigger_mask(failure)
     }
 
+    #[cfg(test)]
+    pub(super) fn trigger_flag(trigger: ripdpi_proxy_runtime_adapter::model::session::TriggerEvent) -> u32 {
+        ripdpi_proxy_runtime_adapter::response_triggers::response_trigger_flag(trigger)
+    }
+
     pub(super) fn udp_flow_timeout_failure() -> Option<ClassifiedFailure> {
         ripdpi_proxy_runtime_adapter::failure::classify_quic_probe(
             "quic_timeout",

@@ -47,5 +47,5 @@ mod tests {
 #[cfg(test)]
 #[allow(clippy::items_after_test_module)]
 pub(in crate::runtime) fn trigger_flag(trigger: ripdpi_proxy_runtime_adapter::model::session::TriggerEvent) -> u32 {
-    ripdpi_proxy_runtime_adapter::response_triggers::response_trigger_flag(trigger)
+    RuntimeState::trigger_flag(trigger)
 }
