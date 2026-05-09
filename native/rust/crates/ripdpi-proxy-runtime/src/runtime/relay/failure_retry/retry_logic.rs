@@ -1,7 +1,6 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use crate::runtime::adaptive::{
@@ -11,6 +10,7 @@ use crate::runtime::desync::OutboundSendError;
 use crate::runtime::retry::note_retry_success;
 use crate::runtime::routing::{note_route_success, preferred_targets_for_transport};
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::RuntimeClassifiedFailure;
 
 pub(crate) fn record_stream_relay_success(
     state: &RuntimeState,
@@ -36,13 +36,13 @@ pub(crate) fn record_stream_relay_success(
     Ok(())
 }
 
-pub(crate) fn classify_first_write_failure(error: &OutboundSendError) -> ClassifiedFailure {
+pub(crate) fn classify_first_write_failure(error: &OutboundSendError) -> RuntimeClassifiedFailure {
     RuntimeState::classify_first_write_failure(error)
 }
 
 pub(crate) fn should_retry_syn_data_without_tfo(
     route_requests_direct_syn_data_tfo: bool,
-    failure: &ClassifiedFailure,
+    failure: &RuntimeClassifiedFailure,
     already_retried: bool,
 ) -> bool {
     RuntimeState::first_write_failure_retries_syn_data_without_tfo(

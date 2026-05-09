@@ -1,7 +1,6 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureClass};
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use crate::runtime::adaptive::{
@@ -10,6 +9,7 @@ use crate::runtime::adaptive::{
 use crate::runtime::retry::note_retry_failure;
 use crate::runtime::routing::policy::preferred_targets_for_transport;
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeFailureClass};
 
 pub(super) fn record_failure_feedback(
     state: &RuntimeState,
@@ -17,7 +17,7 @@ pub(super) fn record_failure_feedback(
     route: &ConnectionRoute,
     host: Option<&str>,
     payload: Option<&[u8]>,
-    failure: &ClassifiedFailure,
+    failure: &RuntimeClassifiedFailure,
 ) -> io::Result<bool> {
     note_retry_failure(state, target, route.group_index, host, payload, TransportProtocol::Tcp)?;
     let penalize = RuntimeState::failure_penalizes_strategy(failure);
@@ -25,7 +25,7 @@ pub(super) fn record_failure_feedback(
         return Ok(false);
     }
 
-    if matches!(failure.class, FailureClass::TlsAlert | FailureClass::TlsHandshakeFailure) {
+    if matches!(failure.class, RuntimeFailureClass::TlsAlert | RuntimeFailureClass::TlsHandshakeFailure) {
         let targets = preferred_targets_for_transport(state, target, host, TransportProtocol::Tcp);
         let _ = note_direct_path_tls_post_client_hello_failure(state, host, &targets);
     }

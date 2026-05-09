@@ -1,11 +1,11 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use crate::runtime::routing::{advance_route_for_failure, note_route_success};
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::RuntimeClassifiedFailure;
 
 pub(crate) fn flush_updates(state: &RuntimeState) {
     // The policy port handles autolearn flushing internally on every mutating
@@ -29,7 +29,7 @@ pub(crate) fn advance_after_failure(
     route: &ConnectionRoute,
     domain: &str,
     payload: &[u8],
-    failure: &ClassifiedFailure,
+    failure: &RuntimeClassifiedFailure,
 ) -> io::Result<bool> {
     let advanced = advance_route_for_failure(state, target, route, Some(domain.to_owned()), Some(payload), failure)?;
     Ok(advanced.is_some())

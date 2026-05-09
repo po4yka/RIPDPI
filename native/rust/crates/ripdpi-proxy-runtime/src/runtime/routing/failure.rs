@@ -1,8 +1,7 @@
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
-
 use super::super::state::RuntimeState;
+use super::super::types::RuntimeClassifiedFailure;
 
 mod advance;
 mod cache;
@@ -15,7 +14,7 @@ pub(in crate::runtime) use telemetry::emit_failure_classified;
 pub(in crate::runtime) fn note_block_signal_for_failure(
     state: &RuntimeState,
     host: Option<&str>,
-    failure: &ClassifiedFailure,
+    failure: &RuntimeClassifiedFailure,
     tcp_total_retransmissions: Option<u32>,
 ) {
     state.note_block_signal_for_failure(host, failure, tcp_total_retransmissions);
@@ -27,7 +26,7 @@ pub(in crate::runtime) fn classify_response_failure(
     request: &[u8],
     response: &[u8],
     host: Option<&str>,
-) -> Option<ClassifiedFailure> {
+) -> Option<RuntimeClassifiedFailure> {
     state.classify_response_failure(target, request, response, host)
 }
 

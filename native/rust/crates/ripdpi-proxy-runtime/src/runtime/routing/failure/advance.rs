@@ -1,7 +1,6 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use super::cache::advance_cache_route;
@@ -9,6 +8,7 @@ use super::feedback::record_failure_feedback;
 use super::telemetry::emit_route_advance_telemetry;
 use crate::runtime::retry::build_retry_selection_penalties;
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::RuntimeClassifiedFailure;
 
 pub(in crate::runtime) fn advance_route_for_failure(
     state: &RuntimeState,
@@ -16,7 +16,7 @@ pub(in crate::runtime) fn advance_route_for_failure(
     route: &ConnectionRoute,
     host: Option<String>,
     payload: Option<&[u8]>,
-    failure: &ClassifiedFailure,
+    failure: &RuntimeClassifiedFailure,
 ) -> io::Result<Option<ConnectionRoute>> {
     if !RuntimeState::should_track_strategy_target(target) {
         return Ok(None);

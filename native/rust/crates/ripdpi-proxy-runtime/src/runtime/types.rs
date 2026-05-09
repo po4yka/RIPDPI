@@ -1,12 +1,16 @@
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::failure::ProbeResult;
+use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, ProbeResult};
 use ripdpi_proxy_runtime_adapter::model::config::{
     DesyncGroup, IpIdMode, RelayGroupSettings, RotationPolicy, RuntimeTimeoutSettings, UdpGroupPacketSettings,
     UdpSourceRebindPolicy,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{ClientRequest, OutboundProgress, SessionError, SessionState};
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{TelegramDc, WsTunnelConfig};
+
+pub(super) type RuntimeClassifiedFailure = ClassifiedFailure;
+pub(super) type RuntimeFailureAction = FailureAction;
+pub(super) type RuntimeFailureClass = FailureClass;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum RuntimeProxyProtocolMode {

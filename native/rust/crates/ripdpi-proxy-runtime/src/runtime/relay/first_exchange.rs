@@ -1,7 +1,6 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 #[cfg(test)]
 use ripdpi_proxy_runtime_adapter::model::config::{
     first_response_timeout as projected_first_response_timeout, first_response_timeout_count_limit,
@@ -13,10 +12,11 @@ use ripdpi_proxy_runtime_adapter::protocol_payload::FirstResponseBoundaryTracker
 
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure};
 use super::super::state::RuntimeState;
+use super::super::types::RuntimeClassifiedFailure;
 
 pub(super) enum FirstResponse {
     Forward(Vec<u8>, Option<u8>),
-    Failure { failure: ClassifiedFailure, response_bytes: Option<Vec<u8>> },
+    Failure { failure: RuntimeClassifiedFailure, response_bytes: Option<Vec<u8>> },
     NoData,
 }
 

@@ -1,6 +1,5 @@
 use std::io::{self, Read};
 
-use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use super::autolearn::{advance_after_failure, record_route_success};
@@ -10,6 +9,7 @@ use super::target_catalog::PROBE_TIMEOUT;
 use crate::runtime::desync::DesyncSendRequest;
 use crate::runtime::routing::{classify_response_failure, connect_target, emit_failure_classified};
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::RuntimeClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::platform::warmup as warmup_platform;
 
 /// Probe a single domain by resolving it, connecting through the desync
@@ -80,7 +80,7 @@ fn handle_blocked_response(
     route: &ConnectionRoute,
     domain: &str,
     payload: &[u8],
-    failure: ClassifiedFailure,
+    failure: RuntimeClassifiedFailure,
 ) -> io::Result<bool> {
     record_block_signal(state, domain, &failure);
     emit_failure_classified(state, target, &failure, Some(domain));

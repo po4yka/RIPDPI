@@ -2,16 +2,16 @@ use std::net::SocketAddr;
 
 use std::collections::BTreeMap;
 
-use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, RetrySelectionPenalty};
 
 use crate::runtime::retry::maybe_emit_candidate_diversification;
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::RuntimeClassifiedFailure;
 
 pub(in crate::runtime) fn emit_failure_classified(
     state: &RuntimeState,
     target: SocketAddr,
-    failure: &ClassifiedFailure,
+    failure: &RuntimeClassifiedFailure,
     host: Option<&str>,
 ) {
     if !RuntimeState::should_track_strategy_target(target) {
@@ -26,7 +26,7 @@ pub(super) fn emit_route_advance_telemetry(
     previous_route: &ConnectionRoute,
     next_route: Option<&ConnectionRoute>,
     trigger: u32,
-    failure: &ClassifiedFailure,
+    failure: &RuntimeClassifiedFailure,
     host: Option<&str>,
     retry_penalties: &BTreeMap<usize, RetrySelectionPenalty>,
 ) {

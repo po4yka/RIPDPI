@@ -1,7 +1,6 @@
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use crate::runtime::desync::OutboundSendError;
@@ -14,6 +13,7 @@ use crate::runtime::routing::{
     reconnect_target_without_tfo, route_uses_direct_syn_data_tfo,
 };
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeFailureAction, RuntimeFailureClass};
 
 #[derive(Default)]
 pub(super) struct RouteRetryState {
@@ -31,7 +31,7 @@ pub(super) struct FirstResponseFailureContext<'a> {
     pub(super) route: &'a ConnectionRoute,
     pub(super) host: Option<String>,
     pub(super) original_request: &'a [u8],
-    pub(super) failure: &'a ClassifiedFailure,
+    pub(super) failure: &'a RuntimeClassifiedFailure,
     pub(super) response_bytes: Option<Vec<u8>>,
 }
 
@@ -100,7 +100,7 @@ pub(super) fn handle_first_response_failure(
             .map(Some);
     }
 
-    if context.failure.action == FailureAction::ResolverOverrideRecommended {
+    if context.failure.action == RuntimeFailureAction::ResolverOverrideRecommended {
         return Err(io::Error::new(io::ErrorKind::ConnectionReset, context.failure.evidence.summary.clone()));
     }
     if let Some(bytes) = context.response_bytes {
@@ -108,7 +108,7 @@ pub(super) fn handle_first_response_failure(
         client.write_all(&bytes)?;
         return Ok(None);
     }
-    if context.failure.class == FailureClass::SilentDrop {
+    if context.failure.class == RuntimeFailureClass::SilentDrop {
         return Ok(None);
     }
     Err(io::Error::new(io::ErrorKind::ConnectionReset, context.failure.evidence.summary.clone()))
@@ -118,7 +118,7 @@ fn should_retry_syn_data(
     state: &RuntimeState,
     route: &ConnectionRoute,
     original_request: &[u8],
-    failure: &ClassifiedFailure,
+    failure: &RuntimeClassifiedFailure,
     retry_state: &RouteRetryState,
 ) -> bool {
     let route_requests_direct_syn_data_tfo = route_uses_direct_syn_data_tfo(state, route, Some(original_request));
