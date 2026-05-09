@@ -326,10 +326,11 @@ Existing custom detekt rules live in `quality/detekt-rules/` (`InjectConstructor
 
 ## Agent Skills
 
-Project-specific skills are split across two directories:
+Project-specific skills are split across three directories:
 
 - `.github/skills/` -- Android, Kotlin, Gradle, CI, and testing skills (shared across Claude Code and Codex)
-- `.claude/skills/` -- Rust native, low-level systems, and diagnostics skills (Claude Code only)
+- `.claude/skills/` -- Rust native, systems, Compose, and diagnostics skills
+- `.codex/skills/` -- relative symlinks to `.claude/skills/` entries (same skills, available to Codex agents)
 
 | Skill | Use when |
 |-------|----------|
@@ -365,25 +366,26 @@ Project-specific skills are split across two directories:
 | `local-ci-act` | Running CI workflows locally with act, troubleshooting CI failures |
 | `mutation-testing` | Running cargo-mutants on the native/rust workspace, interpreting mutation testing results, triaging survived mutants, improving test adequacy, configuring mutants.toml, reviewing mutants-output artifacts, or writing mutation-resistant tests |
 
-Additional Rust/native skills in `.claude/skills/`:
+Additional skills in `.claude/skills/` (also accessible to Codex via `.codex/skills/` symlinks):
 
 | Skill | Use when |
 |-------|----------|
 | `cargo-workflows` | Managing the Rust workspace, feature flags, build scripts, Gradle-Cargo integration, or cross-compilation |
-| `compose-audit` | Conducting a periodic Compose codebase audit, scoring Performance/State/Side Effects/API Quality across `:app`, generating `COMPOSE-AUDIT-REPORT.md` with evidence-based deductions, or establishing a scored Compose quality baseline before a release |
+| `compose` | Compose expert guidance (state, recomposition, modifiers, navigation, theming) or scored Compose codebase audit (Performance/State/Side Effects/API Quality), generating `COMPOSE-AUDIT-REPORT.md` |
 | `desync-engine` | Working with DPI desync evasion pipeline, DesyncMode, DesyncGroup, TcpChainStep, UdpChainStep, OffsetExpr, or ActivationFilter |
 | `diagnostics-system` | Working with diagnostics scan pipeline, ScanRequest, ScanReport, ProbeTask, ripdpi-monitor, strategy probes, or diagnostics catalog |
+| `legal-check` | Reviewing public docs, store listings, or UI copy for Russian VPN/circumvention advertising risk |
+| `material-3` | Material Design 3 token usage, component selection, dynamic color, layout, or accessibility guidance |
 | `memory-model` | Understanding memory ordering, writing lock-free code, using Rust atomics, or diagnosing data races on ARM64 Android |
 | `play-store-screenshots` | Creating Play Store listing assets, marketing screenshots, or feature graphics |
-| `rust-anti-patterns` | Reviewing or writing Rust that touches panic/error/Drop/allocation/atomic-ordering policy, or choosing concurrency primitives and `spawn_blocking` vs dedicated threads |
+| `repo-task-board` | Creating, updating, triaging, or completing repository tasks in `docs/tasks/` |
 | `rust-async-internals` | Diagnosing select!/join! pitfalls, blocking-in-async issues, JNI-to-async bridging, or tokio runtime configuration for Android NDK |
-| `rust-build-times` | Profiling builds with cargo-timings, configuring sccache, splitting workspaces, or optimizing Android NDK cross-compilation times |
 | `rust-debugging` | Debugging Rust native libraries on Android (JNI panics, logcat tracing, tombstones, addr2line), using GDB/LLDB with Rust |
-| `rust-profiling` | Profiling Android .so binaries with simpleperf/perfetto, measuring monomorphization bloat, or micro-benchmarking with Criterion |
+| `rust-discipline` | Authoring or reviewing Rust API signatures (borrowed args, lifetime infection, HRTB, Drop rules) and catching anti-patterns (panic policy, error propagation, RAII, hot-path allocation, concurrency primitives, atomic ordering, unsafe encapsulation, lints) |
+| `rust-performance` | Profiling Android .so binaries with simpleperf/perfetto or cargo-flamegraph; measuring monomorphization bloat with cargo-llvm-lines; micro-benchmarking with Criterion; or optimizing build times with cargo-timings, sccache, and NDK cross-compilation |
 | `rust-sanitizers-miri` | Running AddressSanitizer or ThreadSanitizer on Rust code, using Miri to detect undefined behaviour in unsafe Rust |
 | `rust-security` | Auditing dependencies with cargo-audit, enforcing policies with cargo-deny, or reviewing RUSTSEC advisories |
 | `rust-unsafe` | Writing or reviewing unsafe Rust, auditing unsafe blocks, understanding raw pointers, or implementing safe abstractions over FFI |
-| `rust-api-design` | Authoring or reviewing public API signatures for borrowed-arg discipline, lifetime-infection via `&'a mut` fields, HRTB callbacks, `fn(T) -> T` perf, and `Drop`-placement rules |
 | `ws-tunnel-telegram` | Working with MTProto WebSocket tunnel for Telegram traffic, ripdpi-ws-tunnel crate, DC IP database, or obfuscated2 classification |
 
 Treat the tables above as an index only. The source of truth for each skill is its own `SKILL.md`.
