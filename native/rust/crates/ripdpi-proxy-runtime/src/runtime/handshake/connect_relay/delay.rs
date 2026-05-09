@@ -2,15 +2,14 @@ use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
-
 use super::super::super::state::RuntimeState;
 use super::super::protocol_io::{send_success_reply, HandshakeKind};
 use super::ConnectRelayError;
+use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
 
 pub(super) enum DelayConnect {
     Immediate,
-    Delayed { route: ConnectionRoute, payload: Vec<u8> },
+    Delayed { route: RuntimeConnectionRoute, payload: Vec<u8> },
     Closed,
 }
 
@@ -52,7 +51,7 @@ pub(super) fn maybe_delay_connect(
                 target,
                 Some(&payload),
                 host.as_deref(),
-                TransportProtocol::Tcp,
+                RuntimeTransportProtocol::Tcp,
                 RuntimeState::connect_failure_trigger(),
                 true,
                 None,
