@@ -25,11 +25,10 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     should_rebind_udp_source_port_with, tcp_rotation_seed_with, tcp_route_connect_settings_table,
     tcp_route_connect_settings_with, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_at_capacity,
     udp_flow_limit, udp_group_settings_table, udp_group_settings_with, warmup_probe_settings, ws_tunnel_config_with,
-    ws_tunnel_settings, DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings,
-    NetworkReprobeSettings, ProxyHandshakeSettings, ProxyProtocolMode, RelayGroupSettings, RelayGroupSettingsTable,
-    ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettingsTable,
-    TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings,
-    DETECT_CONNECT,
+    ws_tunnel_settings, DelayedConnectSettings, FirstResponseSettings, ListenerSettings, NetworkReprobeSettings,
+    ProxyHandshakeSettings, ProxyProtocolMode, RelayGroupSettingsTable, ResponseFailureEvidenceSettings,
+    RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings,
+    UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
@@ -78,11 +77,11 @@ use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
 };
 
 use super::types::{
-    runtime_client_request, runtime_outbound_progress, runtime_probe_result, runtime_relay_timeouts,
-    runtime_session_error, runtime_udp_packet_settings, RuntimeClientRequest, RuntimeOutboundProgress,
-    RuntimeProbeResult, RuntimeProxyProtocolMode, RuntimeRelayTimeouts, RuntimeSessionError, RuntimeSessionState,
-    RuntimeTelegramDc, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy,
-    RuntimeWsTunnelConfig, UdpFlowGroupPolicy, WsSeedClassification,
+    runtime_client_request, runtime_outbound_progress, runtime_probe_result, runtime_session_error,
+    runtime_udp_packet_settings, RuntimeClientRequest, RuntimeOutboundProgress, RuntimeProbeResult,
+    RuntimeProxyProtocolMode, RuntimeRelayGroupSettings, RuntimeRelayRotationSeed, RuntimeRelayTimeouts,
+    RuntimeSessionError, RuntimeSessionState, RuntimeTelegramDc, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings,
+    RuntimeUdpSourceRebindPolicy, RuntimeWsTunnelConfig, UdpFlowGroupPolicy, WsSeedClassification,
 };
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -424,12 +423,13 @@ impl RuntimeState {
         )
     }
 
-    pub(super) fn relay_group(&self, group_index: usize) -> io::Result<RelayGroupSettings> {
+    pub(super) fn relay_group(&self, group_index: usize) -> io::Result<RuntimeRelayGroupSettings> {
         relay_group_settings_with(&self.relay_group_settings, group_index)
+            .map(RuntimeRelayGroupSettings::from_adapter)
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))
     }
 
-    pub(super) fn relay_rotation_seed(&self, group_index: usize) -> io::Result<Option<(DesyncGroup, RotationPolicy)>> {
+    pub(super) fn relay_rotation_seed(&self, group_index: usize) -> io::Result<Option<RuntimeRelayRotationSeed>> {
         tcp_rotation_seed_with(&self.relay_group_settings, group_index)
     }
 
@@ -927,7 +927,7 @@ impl RuntimeState {
     }
 
     pub(super) fn relay_timeouts(&self, group_index: usize) -> io::Result<RuntimeRelayTimeouts> {
-        self.relay_group(group_index).map(|group| runtime_relay_timeouts(group.timeouts))
+        self.relay_group(group_index).map(|group| group.timeouts())
     }
 
     pub(super) fn classify_warmup_send_error(source: &io::Error) -> ClassifiedFailure {

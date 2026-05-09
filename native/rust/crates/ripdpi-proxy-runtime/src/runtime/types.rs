@@ -2,7 +2,8 @@ use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::failure::ProbeResult;
 use ripdpi_proxy_runtime_adapter::model::config::{
-    IpIdMode, RuntimeTimeoutSettings, UdpGroupPacketSettings, UdpSourceRebindPolicy,
+    DesyncGroup, IpIdMode, RelayGroupSettings, RotationPolicy, RuntimeTimeoutSettings, UdpGroupPacketSettings,
+    UdpSourceRebindPolicy,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{ClientRequest, OutboundProgress, SessionError, SessionState};
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{TelegramDc, WsTunnelConfig};
@@ -79,6 +80,32 @@ pub(super) struct RuntimeRelayTimeouts {
     pub(super) freeze_window_ms: u32,
     pub(super) freeze_min_bytes: u32,
     pub(super) freeze_max_stalls: u32,
+}
+
+pub(super) type RuntimeRelayRotationSeed = (DesyncGroup, RotationPolicy);
+
+#[derive(Clone)]
+pub(super) struct RuntimeRelayGroupSettings {
+    inner: RelayGroupSettings,
+}
+
+impl RuntimeRelayGroupSettings {
+    pub(super) fn from_adapter(inner: RelayGroupSettings) -> Self {
+        Self { inner }
+    }
+
+    #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+    pub(super) fn rotation_enabled(&self) -> bool {
+        self.inner.rotation_enabled
+    }
+
+    pub(super) fn drop_sack(&self) -> bool {
+        self.inner.drop_sack
+    }
+
+    pub(super) fn timeouts(&self) -> RuntimeRelayTimeouts {
+        runtime_relay_timeouts(self.inner.timeouts)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

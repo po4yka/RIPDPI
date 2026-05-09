@@ -2,11 +2,10 @@ use crate::sync::{Arc, Mutex};
 
 use std::io;
 
-use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RotationPolicy};
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::{RuntimeOutboundProgress, RuntimeSessionState};
+use crate::runtime::types::{RuntimeOutboundProgress, RuntimeRelayRotationSeed, RuntimeSessionState};
 
 pub(super) struct RelaySession {
     state: RuntimeSessionState,
@@ -53,7 +52,7 @@ impl RelaySession {
 
     pub(super) fn rotation_controller(
         &self,
-        rotation_seed: Option<(DesyncGroup, RotationPolicy)>,
+        rotation_seed: Option<RuntimeRelayRotationSeed>,
     ) -> Option<Arc<Mutex<CircularTcpRotationController>>> {
         if !self.has_inbound_payload() {
             return None;

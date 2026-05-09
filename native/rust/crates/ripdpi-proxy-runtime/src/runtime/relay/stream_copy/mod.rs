@@ -6,14 +6,13 @@ use copy_halves::{copy_inbound_half, copy_outbound_half};
 use freeze::FreezeDetector;
 
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RelayGroupSettings, RotationPolicy};
 use std::io;
 use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use super::super::state::RuntimeState;
-use super::super::types::runtime_relay_timeouts;
+use super::super::types::{RuntimeRelayGroupSettings, RuntimeRelayRotationSeed};
 use super::session::RelaySession;
 
 const RELAY_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
@@ -22,8 +21,8 @@ pub(super) const CONNECTION_FREEZE_MARKER: &str = "connection freeze detected";
 
 #[derive(Clone)]
 pub(super) struct RelayStreamSettings {
-    pub(super) group: RelayGroupSettings,
-    pub(super) rotation_seed: Option<(DesyncGroup, RotationPolicy)>,
+    pub(super) group: RuntimeRelayGroupSettings,
+    pub(super) rotation_seed: Option<RuntimeRelayRotationSeed>,
 }
 
 pub(super) struct RelayOutboundContext {
@@ -66,7 +65,7 @@ pub(super) fn relay_streams(
     let outbound_rotation = rotation_state.clone();
 
     let freeze_flag = freeze_detected.clone();
-    let timeouts = runtime_relay_timeouts(settings.group.timeouts);
+    let timeouts = settings.group.timeouts();
     let down_done = peer_done.clone();
     let down = thread::Builder::new()
         .name("ripdpi-dn".into())
@@ -112,7 +111,7 @@ pub(super) fn relay_streams(
     let _ = upstream.shutdown(Shutdown::Both);
     let _ = client.shutdown(Shutdown::Both);
 
-    if settings.group.drop_sack {
+    if settings.group.drop_sack() {
         let _ = ripdpi_proxy_runtime_adapter::platform::relay::detach_drop_sack(&upstream);
     }
 
