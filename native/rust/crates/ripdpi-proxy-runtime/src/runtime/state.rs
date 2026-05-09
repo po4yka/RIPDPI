@@ -56,8 +56,8 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request, parse_socks5_request,
     payload_host_extractor, read_upstream_socks_reply, udp_packet_parser, udp_payload_classifier, ClientRequest,
     FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, PayloadHostExtractor, ProxyReply, SessionConfig,
-    SessionError, SessionState, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, S_AUTH_BAD,
-    S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_GEN, S_VER5,
+    SessionError, SessionState, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, S_ATP_I4, S_ATP_I6,
+    S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use ripdpi_proxy_runtime_adapter::protocol_payload::{
@@ -523,6 +523,18 @@ impl RuntimeState {
 
     pub(super) fn socks5_general_failure_code() -> u8 {
         S_ER_GEN
+    }
+
+    pub(super) fn socks5_fixed_address_tail_len(address_type: u8) -> Option<usize> {
+        match address_type {
+            S_ATP_I4 => Some(6),
+            S_ATP_I6 => Some(18),
+            _ => None,
+        }
+    }
+
+    pub(super) fn is_socks5_domain_address_type(address_type: u8) -> bool {
+        address_type == 0x03
     }
 
     pub(super) fn encode_socks4_reply(granted: bool) -> ProxyReply {

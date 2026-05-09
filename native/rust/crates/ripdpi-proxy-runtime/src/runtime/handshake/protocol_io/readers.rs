@@ -1,8 +1,6 @@
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
-use ripdpi_proxy_runtime_adapter::model::session::{S_ATP_I4, S_ATP_I6};
-
 use crate::runtime::state::RuntimeState;
 
 pub(in crate::runtime::handshake) fn negotiate_socks5(
@@ -34,31 +32,22 @@ pub(in crate::runtime::handshake) fn read_socks5_request(client: &mut TcpStream)
     let mut header = [0u8; 4];
     client.read_exact(&mut header)?;
     let mut out = header.to_vec();
-    match header[3] {
-        S_ATP_I4 => {
-            let mut tail = [0u8; 6];
-            client.read_exact(&mut tail)?;
-            out.extend_from_slice(&tail);
+    if let Some(tail_len) = RuntimeState::socks5_fixed_address_tail_len(header[3]) {
+        let mut tail = vec![0u8; tail_len];
+        client.read_exact(&mut tail)?;
+        out.extend_from_slice(&tail);
+    } else if RuntimeState::is_socks5_domain_address_type(header[3]) {
+        let mut len = [0u8; 1];
+        client.read_exact(&mut len)?;
+        if len[0] == 0 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "empty SOCKS5 domain name"));
         }
-        S_ATP_I6 => {
-            let mut tail = [0u8; 18];
-            client.read_exact(&mut tail)?;
-            out.extend_from_slice(&tail);
-        }
-        0x03 => {
-            let mut len = [0u8; 1];
-            client.read_exact(&mut len)?;
-            if len[0] == 0 {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "empty SOCKS5 domain name"));
-            }
-            out.extend_from_slice(&len);
-            let mut tail = vec![0u8; len[0] as usize + 2];
-            client.read_exact(&mut tail)?;
-            out.extend_from_slice(&tail);
-        }
-        _ => {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 address type"));
-        }
+        out.extend_from_slice(&len);
+        let mut tail = vec![0u8; len[0] as usize + 2];
+        client.read_exact(&mut tail)?;
+        out.extend_from_slice(&tail);
+    } else {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 address type"));
     }
     Ok(out)
 }
