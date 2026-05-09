@@ -9,7 +9,6 @@ use super::encode_socks5_udp_packet;
 use super::feedback::note_udp_first_response_success;
 use super::flow::UdpFlowActivationState;
 use super::migration::maybe_rebind_udp_source_port;
-use super::observations::{observe_datagram_outbound, observe_upstream_response};
 use crate::runtime::state::RuntimeState;
 
 pub(super) fn pump_udp_upstream_responses(
@@ -26,7 +25,7 @@ pub(super) fn pump_udp_upstream_responses(
                 made_progress = true;
                 let now = Instant::now();
                 entry.last_used = now;
-                observe_upstream_response(entry, &upstream_buffer[..n]);
+                entry.session.observe_upstream_response(&upstream_buffer[..n]);
                 note_udp_first_response_success(state, entry)?;
                 maybe_rebind_udp_source_port(state, entry, &upstream_buffer[..n], protect_path)?;
                 let packet = encode_socks5_udp_packet(entry.current_target, &upstream_buffer[..n]);
@@ -51,7 +50,7 @@ pub(super) fn send_udp_flow_payload(
     entry.payload.clear();
     entry.payload.extend_from_slice(payload);
     entry.awaiting_response = true;
-    let progress = observe_datagram_outbound(entry, payload);
+    let progress = entry.session.observe_datagram_outbound(payload);
     let actions = state.plan_udp_flow_actions(
         entry.route.group_index,
         payload,

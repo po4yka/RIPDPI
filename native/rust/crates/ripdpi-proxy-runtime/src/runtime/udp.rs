@@ -3,7 +3,6 @@ mod feedback;
 mod flow;
 mod flow_selection;
 mod migration;
-mod observations;
 mod session;
 mod sockets;
 mod upstream_pump;
