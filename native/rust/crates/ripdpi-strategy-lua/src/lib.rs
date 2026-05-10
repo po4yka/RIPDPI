@@ -7,7 +7,7 @@ mod enabled {
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
 
-    use mlua::{Function, Lua, RegistryKey, String as LuaString, Table, Value};
+    use mlua::{Function, Lua, RegistryKey, String as LuaString, Table, Value, Variadic};
     use ripdpi_strategy_trait::{
         DesyncAction, DesyncPlan, DesyncStrategy, FlowId, L7Protocol, MarkerName, RuntimeCapability, StrategyContext,
         StrategyDescriptor, StrategyError, StrategyVerdict,
@@ -59,6 +59,7 @@ mod enabled {
             globals.set("VERDICT_MODIFY", VERDICT_MODIFY).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
             globals.set("VERDICT_DROP", VERDICT_DROP).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
             drop(globals);
+            install_zapret_compat_globals(&lua)?;
 
             Ok(Self {
                 inner: Arc::new(Mutex::new(LuaEngineInner {
@@ -210,7 +211,7 @@ mod enabled {
             let call_plan = Arc::new(Mutex::new(LuaCallPlan::default()));
             let desync = create_desync_table(&inner.lua, ctx, conn, Arc::clone(&call_plan))?;
 
-            match function.call::<Value>(desync).map_err(|error| LuaError::Call(error.to_string()))? {
+            match call_lua_strategy_function(&function, desync)? {
                 Value::String(output) => {
                     let call_plan = take_call_plan(call_plan)?;
                     Ok(LuaCallOutcome {
@@ -248,6 +249,47 @@ mod enabled {
             }
         }
         Ok(names)
+    }
+
+    fn install_zapret_compat_globals(lua: &Lua) -> Result<(), LuaError> {
+        let globals = lua.globals();
+        globals.set("NFQWS2_COMPAT_VER", 5).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+        globals
+            .set("bitand", lua.create_function(|_, (left, right): (i64, i64)| Ok(left & right)).map_err(to_load)?)
+            .map_err(to_load)?;
+        globals
+            .set("bitor", lua.create_function(|_, (left, right): (i64, i64)| Ok(left | right)).map_err(to_load)?)
+            .map_err(to_load)?;
+        globals
+            .set("bitxor", lua.create_function(|_, (left, right): (i64, i64)| Ok(left ^ right)).map_err(to_load)?)
+            .map_err(to_load)?;
+        globals.set("bitnot", lua.create_function(|_, value: i64| Ok(!value)).map_err(to_load)?).map_err(to_load)?;
+        globals
+            .set("getpid", lua.create_function(|_, ()| Ok(i64::from(std::process::id()))).map_err(to_load)?)
+            .map_err(to_load)?;
+        globals.set("gettid", lua.create_function(|_, ()| Ok(0_i64)).map_err(to_load)?).map_err(to_load)?;
+        globals
+            .set(
+                "clock_gettime",
+                lua.create_function(|_, ()| {
+                    let elapsed =
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+                    Ok(i64::try_from(elapsed.as_nanos()).unwrap_or(i64::MAX))
+                })
+                .map_err(to_load)?,
+            )
+            .map_err(to_load)?;
+        globals.set("DLOG", lua.create_function(|_, _: Variadic<Value>| Ok(())).map_err(to_load)?).map_err(to_load)?;
+        Ok(())
+    }
+
+    fn call_lua_strategy_function(function: &Function, desync: Table) -> Result<Value, LuaError> {
+        match function.call::<Value>(desync.clone()) {
+            Ok(value) => Ok(value),
+            Err(first_error) => function.call::<Value>((Value::Nil, desync)).map_err(|second_error| {
+                LuaError::Call(format!("{first_error}; retry with zapret ctx=nil convention failed: {second_error}"))
+            }),
+        }
     }
 
     #[cfg(test)]
@@ -644,6 +686,10 @@ mod enabled {
 
     fn to_call(error: mlua::Error) -> LuaError {
         LuaError::Call(error.to_string())
+    }
+
+    fn to_load(error: mlua::Error) -> LuaError {
+        LuaError::ScriptLoad(error.to_string())
     }
 
     struct LuaFunctionStrategy {
