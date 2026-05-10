@@ -35,17 +35,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-mainviewmodel.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/MainViewModel.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/MainViewModel.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-config-configscreen.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
@@ -123,28 +112,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-diagnostics-diagnosticsscreen.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScreen.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScreen.kt carries 3 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 3,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-diagnostics-diagnosticsstrategyprobereport.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsStrategyProbeReport.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsStrategyProbeReport.kt carries 4 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 4,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-dns-dnssettingscards.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
@@ -194,127 +161,6 @@
       "priority": 3,
       "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/onboarding/OnboardingScreen.kt",
       "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/onboarding/OnboardingScreen.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-advancedsettingscomponents.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsComponents.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsComponents.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-advancedsettingssections.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsSections.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsSections.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-desyncadaptivefakettlsection.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/DesyncAdaptiveFakeTtlSection.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/DesyncAdaptiveFakeTtlSection.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-desyncadaptivesplitsection.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/DesyncAdaptiveSplitSection.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/DesyncAdaptiveSplitSection.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-detectionresistancesection.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/DetectionResistanceSection.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/DetectionResistanceSection.kt carries 3 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 3,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-hostautolearnsection.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/HostAutolearnSection.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/HostAutolearnSection.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-hostssection.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/HostsSection.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/HostsSection.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-httpparsersection.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/HttpParserSection.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/HttpParserSection.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-httpssection.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/HttpsSection.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/HttpsSection.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-quicsection.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/QuicSection.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/QuicSection.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-warpsection.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/WarpSection.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/WarpSection.kt carries 2 complexity suppressions",
       "metricName": "suppressionCount",
       "baselineValue": 2,
       "limit": 0,
@@ -482,28 +328,6 @@
       "message": "ScanProgressCard spans 115 lines",
       "metricName": "functionLines",
       "baselineValue": 115,
-      "limit": 100,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-diagnostics-diagnosticsscreen.kt:eventssection",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScreen.kt",
-      "message": "EventsSection spans 133 lines",
-      "metricName": "functionLines",
-      "baselineValue": 133,
-      "limit": 100,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-diagnostics-diagnosticsstrategyprobereport.kt:strategyprobereportcard",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsStrategyProbeReport.kt",
-      "message": "StrategyProbeReportCard spans 205 lines",
-      "metricName": "functionLines",
-      "baselineValue": 205,
       "limit": 100,
       "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
     },
