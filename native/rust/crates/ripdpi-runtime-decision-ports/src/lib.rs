@@ -4,6 +4,14 @@
 //! policy/adaptive engines directly. The engines remain behind these port traits
 //! and selected-route data contracts.
 
+mod snapshot;
+
+pub use snapshot::{
+    AdaptiveDecisionSnapshot, DesyncDecisionSnapshot, DirectPathDnsMode, DirectPathQuicMode, DnsDecisionSnapshot,
+    ProxyDecisionSnapshot, QuicDecisionSnapshot, RelayDecisionSnapshot, RoutingDecisionSnapshot,
+    RuntimeDecisionSnapshot, StrategyPackDecisionSnapshot, UiDecisionSnapshot, WarpDecisionSnapshot,
+};
+
 pub use ripdpi_runtime_adaptive::{
     AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, PreferredTargets, RetryPacingPort,
 };
