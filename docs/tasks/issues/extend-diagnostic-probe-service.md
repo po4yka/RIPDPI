@@ -1,18 +1,18 @@
 ---
 title: Extend Diagnostic Probe Service with Strategy Automation
 type: task
-status: backlog
+status: review
 area: diagnostics
 priority: medium
-owner: unassigned
+owner: Codex
 parent: zapret2-feature-parity-epic
 blocks: []
-blocked_by: [add-ripdpi-strategy-registry-crate]
+blocked_by: []
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Extend Diagnostic Probe Service with Strategy Automation #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [ ] #task Extend Diagnostic Probe Service with Strategy Automation #repo/RIPDPI #area/diagnostics #status/review 🔼
 
 ## Objective
 
@@ -37,14 +37,27 @@ The probe loops over all registered strategies from `StrategyRegistry.list()`, t
 
 ## Acceptance criteria
 
-- [ ] `StrategyProbeService.run()` emits `ProbeResult` for each (strategy, domain) pair as it completes — not batched at the end
-- [ ] Probe does not crash the app if a strategy causes a connection timeout (timeout is capped at `ProbeConfig.timeout_ms`)
-- [ ] Active strategy is restored to the previous value after probe completes or is cancelled
-- [ ] Results include `latency_ms` measured from connection start to TLS established (not full HTTP response)
-- [ ] DNS tampering detection: compare probe domain IP via DoH vs local DNS; flag result as `DnsTampered` if mismatch (mirrors zapret2's blockcheck DoH comparison)
-- [ ] Probe can be cancelled via `Job.cancel()` — all in-flight connections are aborted
-- [ ] `ProbeReport.ranked_strategies` returns strategies sorted by (success_rate DESC, avg_latency ASC)
-- [ ] Unit test with a mock SOCKS5 proxy: verify `run()` emits correct `ProbeResult` values
+- [x] `StrategyProbeService.run()` emits `ProbeResult` for each (strategy, domain) pair as it completes — not batched at the end
+- [x] Probe does not crash the app if a strategy causes a connection timeout (timeout is capped at `ProbeConfig.timeout_ms`)
+- [x] Active strategy is restored to the previous value after probe completes or is cancelled
+- [x] Results include `latency_ms` measured from connection start to TLS established (not full HTTP response)
+- [x] DNS tampering detection: compare probe domain IP via DoH vs local DNS; flag result as `DnsTampered` if mismatch (mirrors zapret2's blockcheck DoH comparison)
+- [x] Probe can be cancelled via `Job.cancel()` — all in-flight connections are aborted
+- [x] `ProbeReport.ranked_strategies` returns strategies sorted by (success_rate DESC, avg_latency ASC)
+- [x] Unit test with a mock SOCKS5 proxy: verify `run()` emits correct `ProbeResult` values
+
+## Implementation notes
+
+- Added `StrategyProbeService` in `core/diagnostics` with streaming `Flow<StrategyProbeResult>` output, built-in plus Lua strategy enumeration, settings snapshot/restore activation, SOCKS-backed OkHttp transport, DNS-over-HTTPS versus local DNS comparison, and `summarizeStrategyProbeResults()` ranking.
+- Production activation persists the selected strategy into `strategy_chain_yaml` and applies parseable built-in DSL entries through the existing DataStore strategy chain fields. Lua-only candidates are discoverable through `StrategyEngineBindings.luaListStrategies()` and are persisted as YAML metadata for later native YAML/Lua execution integration.
+- The requested app test files were implemented as a focused diagnostics-module test suite at `core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/StrategyProbeServiceTest.kt` because the service lives in `:core:diagnostics` and the app module should consume it rather than own the diagnostics runtime.
+- The initial TDD command failed before implementation with unresolved `StrategyProbeService` symbols:
+  `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.StrategyProbeServiceTest -Pripdpi.skipNativeBuild=true`.
+
+## Validation
+
+- `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.StrategyProbeServiceTest -Pripdpi.skipNativeBuild=true`
+- `./gradlew :core:diagnostics:ktlintCheck -Pripdpi.skipNativeBuild=true`
 
 ## Source references
 
