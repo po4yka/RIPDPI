@@ -32,7 +32,7 @@ pub fn classify_l7(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool) -
     }
 
     if is_dns(payload, src_port, dst_port, is_udp) {
-        return L7Protocol::Dns(DnsDissect { is_query: payload.get(2).is_some_and(|flags| flags & 0x80 == 0) });
+        return L7Protocol::Dns(DnsDissect { is_query: dns_is_query(payload, is_udp) });
     }
 
     // MTProto has no stable fixed signature in the first bytes. This is only a
@@ -90,6 +90,11 @@ fn is_dns(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool) -> bool {
     } else {
         payload.len() >= 14 && u16::from_be_bytes([payload[0], payload[1]]) as usize == payload.len() - 2
     }
+}
+
+fn dns_is_query(payload: &[u8], is_udp: bool) -> bool {
+    let flags_offset = if is_udp { 2 } else { 4 };
+    payload.get(flags_offset).is_some_and(|flags| flags & 0x80 == 0)
 }
 
 fn is_mtproto_heuristic(payload: &[u8], src_port: u16, dst_port: u16) -> bool {
