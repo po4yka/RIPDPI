@@ -1,7 +1,7 @@
 ---
 title: Add TCP window size clamping strategies
 type: task
-status: backlog
+status: review
 area: rust-native
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Add TCP window size clamping strategies #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [ ] #task Add TCP window size clamping strategies #repo/RIPDPI #area/rust-native #status/review 🔼
 
 ## Objective
 
@@ -67,3 +67,11 @@ Parameters:
 ## Definition of done
 
 `cargo test -p ripdpi-strategy-window` green; `wsize` selectable from YAML config and verified via `getsockopt` in integration test. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+- Added `ripdpi-strategy-window` with `WsizeStrategy` and `WssizeStrategy`, producing `SetWindowClamp` actions when `TcpWindowClamp` is available and no-oping when unavailable.
+- Registered `wsize` and `wssize` through `StrategyRegistry::with_builtin_techniques()` with `TcpWindowClamp` capability metadata.
+- Covered YAML `type: wsize` / `type: wssize` parameter parsing for `value`, `size`, and `scale`.
+- Verification: `CARGO_TARGET_DIR=target/codex-window cargo test -p ripdpi-strategy-window -p ripdpi-strategy-registry -p ripdpi-strategy-config --locked`; `CARGO_TARGET_DIR=target/codex-window cargo clippy -p ripdpi-strategy-window -p ripdpi-strategy-registry -p ripdpi-strategy-config --all-targets --locked -- -D warnings`.
+- Remaining review evidence: live socket-path integration test proving the emitted `SetWindowClamp` action applies the expected `TCP_WINDOW_CLAMP` value via `getsockopt`.

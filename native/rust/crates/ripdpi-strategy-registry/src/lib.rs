@@ -66,6 +66,8 @@ impl StrategyRegistry {
             self.register(strategy);
         } else if let Some(strategy) = ripdpi_strategy_udp::strategy_by_id(id) {
             self.register(strategy);
+        } else if let Some(strategy) = ripdpi_strategy_window::strategy_by_id(id) {
+            self.register(strategy);
         } else {
             self.register(Box::new(BuiltinTechnique { definition }));
         }

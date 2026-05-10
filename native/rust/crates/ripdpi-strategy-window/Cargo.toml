@@ -1,0 +1,8 @@
+[package]
+name = "ripdpi-strategy-window"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+ripdpi-strategy-trait = { workspace = true }
