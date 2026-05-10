@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core.detection.consensus
 
 import com.poyka.ripdpi.core.detection.BypassResult
+import com.poyka.ripdpi.core.detection.CallTransportResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CdnPullingEndpointStatus
 import com.poyka.ripdpi.core.detection.CdnPullingResult
@@ -18,6 +19,7 @@ enum class IpConsensusChannel {
     BYPASS_DIRECT,
     BYPASS_PROXY,
     BYPASS_STUN,
+    CALL_TRANSPORT,
     ;
 
     fun label(): String =
@@ -147,8 +149,9 @@ object IpConsensusBuilder {
         bypassResult: BypassResult,
         ipComparison: IpComparisonResult?,
         cdnPulling: CdnPullingResult?,
+        callTransport: CallTransportResult? = null,
     ): IpConsensusResult {
-        val observations = observationsFrom(geoIp, bypassResult, ipComparison, cdnPulling)
+        val observations = observationsFrom(geoIp, bypassResult, ipComparison, cdnPulling, callTransport)
         val geoIpInfo = geoIp.asnInfoFromFindings()
         val knownInfo = geoIpInfo?.let { mapOf(it.ip to it) }.orEmpty()
         return build(observations = observations, asnResolver = MapBackedIpAsnResolver(knownInfo))
@@ -159,12 +162,18 @@ object IpConsensusBuilder {
         bypassResult: BypassResult,
         ipComparison: IpComparisonResult?,
         cdnPulling: CdnPullingResult?,
+        callTransport: CallTransportResult? = null,
         asnResolver: SuspendingIpAsnResolver,
     ): IpConsensusResult =
         buildResolved(
-            observations = observationsFrom(geoIp, bypassResult, ipComparison, cdnPulling),
+            observations = observationsFrom(geoIp, bypassResult, ipComparison, cdnPulling, callTransport),
             asnResolver = asnResolver,
         )
+
+    fun observationsFrom(callTransport: CallTransportResult): List<IpObservation> =
+        callTransport.stunObservations.map { observation ->
+            IpObservation(IpConsensusChannel.CALL_TRANSPORT, observation.reflexiveAddress)
+        }
 
     fun build(
         observations: List<IpObservation>,
@@ -223,6 +232,7 @@ object IpConsensusBuilder {
         bypassResult: BypassResult,
         ipComparison: IpComparisonResult?,
         cdnPulling: CdnPullingResult?,
+        callTransport: CallTransportResult?,
     ): List<IpObservation> {
         val geoIpInfo = geoIp.asnInfoFromFindings()
         return buildList {
@@ -239,6 +249,7 @@ object IpConsensusBuilder {
             bypassResult.directIp?.let { add(IpObservation(IpConsensusChannel.BYPASS_DIRECT, it)) }
             bypassResult.proxyIp?.let { add(IpObservation(IpConsensusChannel.BYPASS_PROXY, it)) }
             bypassResult.stunReflexiveAddresses.forEach { add(IpObservation(IpConsensusChannel.BYPASS_STUN, it)) }
+            callTransport?.let { addAll(observationsFrom(it)) }
         }
     }
 

@@ -31,6 +31,7 @@ enum class EvidenceSource {
     CDN_PULLING,
     IP_CONSENSUS,
     NATIVE_SIGNS,
+    CALL_TRANSPORT,
 }
 
 enum class VpnAppKind {
@@ -184,6 +185,41 @@ data class NativeSignsResult(
     val hasError: Boolean = false,
 )
 
+enum class CallTransportPath {
+    VPN,
+    UNDERLYING,
+}
+
+enum class CallTransportStunScope {
+    RU,
+    GLOBAL,
+}
+
+data class CallTransportStunServer(
+    val host: String,
+    val port: Int,
+    val scope: CallTransportStunScope,
+)
+
+data class CallTransportStunRequest(
+    val path: CallTransportPath,
+    val server: CallTransportStunServer,
+)
+
+data class CallTransportStunObservation(
+    val path: CallTransportPath,
+    val server: CallTransportStunServer,
+    val reflexiveAddress: String,
+)
+
+data class CallTransportResult(
+    val category: CategoryResult,
+    val stunObservations: List<CallTransportStunObservation> = emptyList(),
+    val mtProtoReachable: Boolean = false,
+    val proxyEndpoint: ProxyEndpoint? = null,
+    val proxyStunReflexiveAddresses: List<String> = emptyList(),
+)
+
 enum class Verdict {
     NOT_DETECTED,
     NEEDS_REVIEW,
@@ -267,6 +303,7 @@ data class DetectionCheckResult(
     val rttTriangulation: RttTriangulationResult? = null,
     val cdnPulling: CdnPullingResult? = null,
     val nativeSigns: NativeSignsResult? = null,
+    val callTransport: CallTransportResult? = null,
     val verdict: Verdict,
     val methodologyVersion: String = MethodologyVersion.CURRENT,
     val ipConsensus: IpConsensusResult? = null,
