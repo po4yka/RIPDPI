@@ -26,6 +26,7 @@ import com.poyka.ripdpi.ui.components.RipDpiLogsPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiModeEditorPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiSettingsDarkPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiSettingsMediumPreviewScene
+import com.poyka.ripdpi.ui.components.RipDpiStrategyConfigPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiVpnPermissionDialogPreviewScene
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -218,6 +219,13 @@ class RipDpiScreenCatalogScreenshotTest {
     fun modeEditorScreen() {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 1200) {
             RipDpiModeEditorPreviewScene()
+        }
+    }
+
+    @Test
+    fun strategyConfigScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
+            RipDpiStrategyConfigPreviewScene()
         }
     }
 

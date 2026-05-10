@@ -43,6 +43,9 @@ import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionDialog
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsActions
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsScreen
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyScreen
+import com.poyka.ripdpi.ui.screens.settings.StrategyConfigScreen
+import com.poyka.ripdpi.ui.screens.settings.StrategyConfigScreenState
+import com.poyka.ripdpi.ui.screens.settings.StrategyConfigSource
 import com.poyka.ripdpi.ui.screens.settings.TlsPreludeModeDisabled
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -161,6 +164,33 @@ internal fun RipDpiAdvancedSettingsPreviewScene() {
             strategyPackCatalog = StrategyPackCatalogUiState(),
             notice = null,
             actions = noopAdvancedSettingsActions(),
+        )
+    }
+}
+
+@Composable
+internal fun RipDpiStrategyConfigPreviewScene() {
+    RipDpiTheme(themePreference = "light") {
+        StrategyConfigScreen(
+            state =
+                StrategyConfigScreenState(
+                    source = StrategyConfigSource.CustomYaml,
+                    configText = "",
+                    luaPath = "",
+                    luaFunction = "",
+                    activePath = "Imported YAML",
+                    banner = null,
+                ),
+            onBack = {},
+            onSourceChanged = {},
+            onConfigTextChanged = {},
+            onLuaPathChanged = {},
+            onLuaFunctionChanged = {},
+            onImport = {},
+            onExport = {},
+            onSave = {},
+            onReload = {},
+            onValidateLua = {},
         )
     }
 }
