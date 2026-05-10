@@ -509,8 +509,10 @@ private fun DetectionResultSummary(
         }
 
         DetectionReportActions(
+            result = it,
             reportText = reportText,
             debugReportText = debugReportText,
+            privacyModeEnabled = privacyModeEnabled,
             performHaptic = performHaptic,
         )
 
@@ -520,12 +522,15 @@ private fun DetectionResultSummary(
 
 @Composable
 private fun DetectionReportActions(
+    result: DetectionCheckResult,
     reportText: String?,
     debugReportText: String?,
+    privacyModeEnabled: Boolean,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
 ) {
     val context = LocalContext.current
     val spacing = RipDpiThemeTokens.spacing
+    var exportDialogVisible by rememberSaveable { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -537,12 +542,22 @@ private fun DetectionReportActions(
             modifier = Modifier.weight(1f),
         )
         DetectionShareReportButton(
-            reportText = reportText,
-            context = context,
-            performHaptic = performHaptic,
+            onClick = {
+                performHaptic(RipDpiHapticFeedback.Acknowledge)
+                exportDialogVisible = true
+            },
             modifier = Modifier.weight(1f),
         )
     }
+    DetectionExportFormatDialog(
+        visible = exportDialogVisible,
+        result = result,
+        privacyModeEnabled = privacyModeEnabled,
+        debugModeEnabled = debugReportText != null,
+        onDismiss = { exportDialogVisible = false },
+        context = context,
+        performHaptic = performHaptic,
+    )
     debugReportText?.let { text ->
         RipDpiButton(
             text = "Copy diagnostics",
@@ -580,26 +595,88 @@ private fun DetectionCopyReportButton(
 
 @Composable
 private fun DetectionShareReportButton(
-    reportText: String?,
-    context: Context,
-    performHaptic: (RipDpiHapticFeedback) -> Unit,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     RipDpiButton(
         text = stringResource(R.string.detection_check_share),
-        onClick = {
-            performHaptic(RipDpiHapticFeedback.Acknowledge)
-            reportText?.let { text ->
-                val intent =
-                    Intent(Intent.ACTION_SEND)
-                        .setType("text/plain")
-                        .putExtra(Intent.EXTRA_TEXT, text)
-                context.startActivity(Intent.createChooser(intent, null))
-            }
-        },
+        onClick = onClick,
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.DetectionShare),
         variant = RipDpiButtonVariant.Outline,
     )
+}
+
+@Composable
+private fun DetectionExportFormatDialog(
+    visible: Boolean,
+    result: DetectionCheckResult,
+    privacyModeEnabled: Boolean,
+    debugModeEnabled: Boolean,
+    onDismiss: () -> Unit,
+    context: Context,
+    performHaptic: (RipDpiHapticFeedback) -> Unit,
+) {
+    if (!visible) return
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = "Share detection report",
+        dismissAction = RipDpiDialogAction(label = stringResource(R.string.action_dismiss), onClick = onDismiss),
+    ) {
+        RipDpiButton(
+            text = "Markdown",
+            onClick = {
+                performHaptic(RipDpiHapticFeedback.Acknowledge)
+                shareDetectionExport(context, result, privacyModeEnabled, DetectionExportFormat.MARKDOWN)
+                onDismiss()
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        RipDpiButton(
+            text = "JSON",
+            onClick = {
+                performHaptic(RipDpiHapticFeedback.Acknowledge)
+                shareDetectionExport(context, result, privacyModeEnabled, DetectionExportFormat.JSON)
+                onDismiss()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            variant = RipDpiButtonVariant.Outline,
+        )
+        if (debugModeEnabled) {
+            RipDpiButton(
+                text = "Copy Markdown",
+                onClick = {
+                    performHaptic(RipDpiHapticFeedback.Acknowledge)
+                    val text =
+                        DetectionExportShare.renderText(
+                            result = result,
+                            privacyModeEnabled = privacyModeEnabled,
+                            format = DetectionExportFormat.MARKDOWN,
+                        )
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Detection Markdown Export", text))
+                    onDismiss()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                variant = RipDpiButtonVariant.Outline,
+            )
+        }
+    }
+}
+
+private fun shareDetectionExport(
+    context: Context,
+    result: DetectionCheckResult,
+    privacyModeEnabled: Boolean,
+    format: DetectionExportFormat,
+) {
+    val intent =
+        DetectionExportShare.createShareIntent(
+            context = context,
+            result = result,
+            privacyModeEnabled = privacyModeEnabled,
+            format = format,
+        )
+    context.startActivity(Intent.createChooser(intent, null))
 }
 
 @Composable

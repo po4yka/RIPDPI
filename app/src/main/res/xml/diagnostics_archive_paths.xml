@@ -3,4 +3,7 @@
     <cache-path
         name="diagnostics_archives"
         path="diagnostics-archives/" />
+    <cache-path
+        name="detection_exports"
+        path="detection-exports/" />
 </paths>
