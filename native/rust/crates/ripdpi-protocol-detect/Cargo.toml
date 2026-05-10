@@ -1,0 +1,11 @@
+[package]
+name = "ripdpi-protocol-detect"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-strategy-trait = { workspace = true }

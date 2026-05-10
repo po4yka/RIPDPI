@@ -3686,6 +3686,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-protocol-detect"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-strategy-trait",
+]
+
+[[package]]
 name = "ripdpi-proxy-config"
 version = "0.1.0"
 dependencies = [

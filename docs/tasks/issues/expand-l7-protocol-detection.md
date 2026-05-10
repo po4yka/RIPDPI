@@ -1,7 +1,7 @@
 ---
 title: Expand L7 protocol detection to cover WireGuard, DTLS, MTProto, STUN, DHT, and DNS
 type: task
-status: backlog
+status: review
 area: rust-native
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: zapret2-feature-parity-epic
 blocks: []
 blocked_by: [add-ripdpi-strategy-trait-crate]
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Expand L7 protocol detection to cover WireGuard, DTLS, MTProto, STUN, DHT, and DNS #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [ ] #task Expand L7 protocol detection to cover WireGuard, DTLS, MTProto, STUN, DHT, and DNS #repo/RIPDPI #area/rust-native #status/review 🔼
 
 ## Objective
 
@@ -72,3 +72,9 @@ Output: `classify_l7(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool)
 ## Definition of done
 
 `cargo test -p ripdpi-protocol-detect` green; WireGuard and DTLS classification verified with packet samples captured from real WireGuard and DTLS handshakes. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+- Added `ripdpi-protocol-detect` with allocation-free `classify_l7()` coverage for TLS, QUIC, WireGuard, DTLS, STUN, DHT, DNS, MTProto, and Unknown.
+- Verification: `CARGO_TARGET_DIR=target/codex-protocol-detect cargo test -p ripdpi-protocol-detect --locked`; `CARGO_TARGET_DIR=target/codex-protocol-detect cargo clippy -p ripdpi-protocol-detect --all-targets -- -D warnings`.
+- Remaining review evidence: real WireGuard/DTLS capture samples and explicit branch-coverage report.
