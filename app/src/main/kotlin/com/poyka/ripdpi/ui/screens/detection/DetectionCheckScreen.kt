@@ -70,6 +70,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -94,6 +95,7 @@ internal fun DetectionCheckRoute(
             onBack = onBack,
             onDismissOnboarding = remember(viewModel) { viewModel::dismissOnboarding },
             onApplyFixes = remember(viewModel) { viewModel::applyAllFixes },
+            onPrivacyModeChange = remember(viewModel) { viewModel::setPrivacyModeEnabled },
             onReloadCommunityStats = remember(viewModel) { viewModel::reloadCommunityStats },
             onRequestPermissions = onRequestPermissions,
         )
@@ -142,6 +144,7 @@ internal fun DetectionCheckScreen(
     onBack: () -> Unit,
     onDismissOnboarding: () -> Unit,
     onApplyFixes: () -> Unit,
+    onPrivacyModeChange: (Boolean) -> Unit,
     onReloadCommunityStats: () -> Unit,
     onRequestPermissions: () -> Unit,
 ) {
@@ -187,6 +190,7 @@ internal fun DetectionCheckScreen(
                 onStart = onStart,
                 onStop = onStop,
                 onApplyFixes = onApplyFixes,
+                onPrivacyModeChange = onPrivacyModeChange,
                 onReloadCommunityStats = onReloadCommunityStats,
                 onRequestPermissions = onRequestPermissions,
                 performHaptic = performHaptic,
@@ -201,6 +205,7 @@ private fun DetectionCheckScreenContent(
     onStart: () -> Unit,
     onStop: () -> Unit,
     onApplyFixes: () -> Unit,
+    onPrivacyModeChange: (Boolean) -> Unit,
     onReloadCommunityStats: () -> Unit,
     onRequestPermissions: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
@@ -222,6 +227,10 @@ private fun DetectionCheckScreenContent(
             style = type.secondaryBody,
             color = colors.mutedForeground,
         )
+        DetectionPrivacyModeToggle(
+            enabled = uiState.privacyModeEnabled,
+            onEnabledChange = onPrivacyModeChange,
+        )
         DetectionPermissionWarning(
             missingPermissions = uiState.missingPermissions,
             permissionAction = uiState.permissionAction,
@@ -242,6 +251,7 @@ private fun DetectionCheckScreenContent(
             autoTuneFixes = uiState.autoTuneFixes,
             recommendations = uiState.recommendations,
             reportText = uiState.reportText,
+            privacyModeEnabled = uiState.privacyModeEnabled,
             onApplyFixes = onApplyFixes,
             performHaptic = performHaptic,
         )
@@ -256,6 +266,18 @@ private fun DetectionCheckScreenContent(
         )
         Spacer(modifier = Modifier.height(spacing.lg))
     }
+}
+
+@Composable
+private fun DetectionPrivacyModeToggle(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+) {
+    RipDpiSwitch(
+        checked = enabled,
+        onCheckedChange = onEnabledChange,
+        label = stringResource(R.string.detection_privacy_mode),
+    )
 }
 
 @Composable
@@ -400,6 +422,7 @@ private fun DetectionResultSummary(
     autoTuneFixes: List<AutoTuneFix>,
     recommendations: List<Recommendation>,
     reportText: String?,
+    privacyModeEnabled: Boolean,
     onApplyFixes: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
 ) {
@@ -470,7 +493,7 @@ private fun DetectionResultSummary(
             )
         }
 
-        DetectionCategoryCards(it)
+        DetectionCategoryCards(it, privacyModeEnabled = privacyModeEnabled)
     }
 }
 

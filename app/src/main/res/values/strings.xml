@@ -2348,6 +2348,7 @@ Source: %2$s</string>
     <string name="detection_stealth_score">Stealth Score</string>
     <string name="detection_auto_tune_title">Recommended Fixes</string>
     <string name="detection_auto_tune_apply">Apply All Fixes</string>
+    <string name="detection_privacy_mode">Privacy mode</string>
     <string name="detection_history_title">History</string>
     <string name="detection_check_category_dns_leak">DNS Leak</string>
     <string name="detection_check_category_webrtc">WebRTC Leak</string>

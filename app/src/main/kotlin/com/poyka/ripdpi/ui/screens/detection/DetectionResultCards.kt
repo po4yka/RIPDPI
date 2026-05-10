@@ -37,6 +37,7 @@ import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.Recommendation
 import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.core.detection.Verdict
+import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
@@ -213,7 +214,10 @@ internal fun DetectionRecommendations(recommendations: List<Recommendation>) {
 }
 
 @Composable
-internal fun DetectionCategoryCards(result: DetectionCheckResult) {
+internal fun DetectionCategoryCards(
+    result: DetectionCheckResult,
+    privacyModeEnabled: Boolean,
+) {
     var expandedCategories by rememberSaveable { mutableStateOf(emptySet<String>()) }
     val categories = detectionCategoryEntries(result)
 
@@ -226,6 +230,7 @@ internal fun DetectionCategoryCards(result: DetectionCheckResult) {
         expandedCategories = expandedCategories,
         onToggle = { expandedCategories = it },
         findings = result.bypassResult.findings,
+        privacyModeEnabled = privacyModeEnabled,
     )
 
     for (entry in categories) {
@@ -238,6 +243,7 @@ internal fun DetectionCategoryCards(result: DetectionCheckResult) {
             expandedCategories = expandedCategories,
             onToggle = { expandedCategories = it },
             findings = entry.category.findings,
+            privacyModeEnabled = privacyModeEnabled,
         )
     }
 }
@@ -340,6 +346,7 @@ private fun CollapsibleCard(
     expandedCategories: Set<String>,
     onToggle: (Set<String>) -> Unit,
     findings: List<Finding>,
+    privacyModeEnabled: Boolean,
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
@@ -397,14 +404,17 @@ private fun CollapsibleCard(
             exit = motion.sectionExitTransition(),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                findings.forEach { FindingRow(it) }
+                findings.forEach { FindingRow(it, privacyModeEnabled = privacyModeEnabled) }
             }
         }
     }
 }
 
 @Composable
-private fun FindingRow(finding: Finding) {
+private fun FindingRow(
+    finding: Finding,
+    privacyModeEnabled: Boolean,
+) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
@@ -433,7 +443,7 @@ private fun FindingRow(finding: Finding) {
             drawCircle(color = dotColor)
         }
         Text(
-            text = finding.description,
+            text = DetectionPrivacyMask.maskIpsInText(finding.description, enabled = privacyModeEnabled),
             style = type.caption,
             color = dotColor,
         )

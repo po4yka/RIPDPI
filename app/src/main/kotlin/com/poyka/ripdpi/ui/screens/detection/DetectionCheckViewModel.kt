@@ -50,6 +50,7 @@ data class DetectionCheckUiState(
     val communityStats: CommunityStats? = null,
     val communityStatsLoading: Boolean = false,
     val communityStatsError: String? = null,
+    val privacyModeEnabled: Boolean = false,
 )
 
 private const val entropyModeBalanced = 3
@@ -84,8 +85,25 @@ class DetectionCheckViewModel
                 _uiState.value = _uiState.value.copy(showOnboarding = true)
             }
             refreshPermissionState()
+            observePrivacyMode()
             loadHistory()
             loadCommunityState()
+        }
+
+        private fun observePrivacyMode() {
+            viewModelScope.launch {
+                appSettingsRepository.settings.collect { settings ->
+                    val enabled = settings.detectionCheckPrivacyModeEnabled
+                    _uiState.value =
+                        _uiState.value.copy(
+                            privacyModeEnabled = enabled,
+                            reportText =
+                                _uiState.value.result?.let { result ->
+                                    DetectionReportFormatter.format(result, privacyModeEnabled = enabled)
+                                } ?: _uiState.value.reportText,
+                        )
+                }
+            }
         }
 
         private fun loadHistory() {
@@ -202,7 +220,12 @@ class DetectionCheckViewModel
                                         settings = settings,
                                         snapshot = routingProtectionCatalogService.snapshot(),
                                     )
-                            val reportText = DetectionReportFormatter.format(result)
+                            val privacyModeEnabled = settings.detectionCheckPrivacyModeEnabled
+                            val reportText =
+                                DetectionReportFormatter.format(
+                                    result = result,
+                                    privacyModeEnabled = privacyModeEnabled,
+                                )
                             val fixes =
                                 DetectionAutoTuner.suggestFixes(
                                     result = result,
@@ -314,6 +337,14 @@ class DetectionCheckViewModel
                     }
                 }
                 _uiState.value = _uiState.value.copy(autoTuneFixes = emptyList())
+            }
+        }
+
+        fun setPrivacyModeEnabled(enabled: Boolean) {
+            viewModelScope.launch {
+                appSettingsRepository.update {
+                    detectionCheckPrivacyModeEnabled = enabled
+                }
             }
         }
 
