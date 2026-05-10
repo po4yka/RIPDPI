@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screens.detection
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateIntAsState
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,6 +44,8 @@ import com.poyka.ripdpi.core.detection.VerdictExplanation
 import com.poyka.ripdpi.core.detection.VerdictNarrative
 import com.poyka.ripdpi.core.detection.VerdictNarrativeRow
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
+import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
+import com.poyka.ripdpi.core.detection.ui.DetectionVisualState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
@@ -98,6 +99,8 @@ internal fun VerdictScoreCard(
     label: String?,
     explanation: VerdictExplanation? = null,
     narrative: VerdictNarrative? = null,
+    colorVisionMode: DetectionColorVisionMode = DetectionColorVisionMode.OFF,
+    onHeroTap: (() -> Unit)? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
@@ -137,6 +140,7 @@ internal fun VerdictScoreCard(
 
     RipDpiCard(
         variant = RipDpiCardVariant.Elevated,
+        onClick = onHeroTap,
         modifier =
             Modifier
                 .semantics { liveRegion = LiveRegionMode.Polite }
@@ -146,6 +150,8 @@ internal fun VerdictScoreCard(
             verdictLabel = verdictLabel,
             indicatorTone = indicatorTone,
             narrative = narrative,
+            visualState = verdict.toDetectionVisualState(),
+            colorVisionMode = colorVisionMode,
         )
         explanation?.let {
             Text(
@@ -191,12 +197,20 @@ private fun VerdictScoreHeader(
     verdictLabel: String,
     indicatorTone: StatusIndicatorTone,
     narrative: VerdictNarrative?,
+    visualState: DetectionVisualState,
+    colorVisionMode: DetectionColorVisionMode,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        StatusVisualIndicator(
+            state = visualState,
+            mode = colorVisionMode,
+            size = 20.dp,
+            contentDescription = verdictLabel,
+        )
         StatusIndicator(label = verdictLabel, tone = indicatorTone)
         narrative?.let {
             StatusIndicator(
@@ -366,6 +380,7 @@ internal fun DetectionRecommendations(recommendations: List<Recommendation>) {
 internal fun DetectionCategoryCards(
     result: DetectionCheckResult,
     privacyModeEnabled: Boolean,
+    colorVisionMode: DetectionColorVisionMode,
 ) {
     var expandedCategories by rememberSaveable { mutableStateOf(emptySet<String>()) }
     val categories = detectionCategoryEntries(result)
@@ -380,6 +395,7 @@ internal fun DetectionCategoryCards(
         onToggle = { expandedCategories = it },
         findings = result.bypassResult.findings,
         privacyModeEnabled = privacyModeEnabled,
+        colorVisionMode = colorVisionMode,
     )
 
     for (entry in categories) {
@@ -393,6 +409,7 @@ internal fun DetectionCategoryCards(
             onToggle = { expandedCategories = it },
             findings = entry.category.findings,
             privacyModeEnabled = privacyModeEnabled,
+            colorVisionMode = colorVisionMode,
         )
     }
 }
@@ -514,6 +531,7 @@ private fun CollapsibleCard(
     onToggle: (Set<String>) -> Unit,
     findings: List<Finding>,
     privacyModeEnabled: Boolean,
+    colorVisionMode: DetectionColorVisionMode,
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
@@ -533,6 +551,7 @@ private fun CollapsibleCard(
             else -> stringResource(R.string.detection_status_ok)
         }
     val isExpanded = key in expandedCategories || detected || needsReview
+    val visualState = detectionCategoryVisualState(detected = detected, needsReview = needsReview)
 
     RipDpiCard(
         variant = RipDpiCardVariant.Outlined,
@@ -563,7 +582,18 @@ private fun CollapsibleCard(
                 )
                 Text(text = title, style = type.bodyEmphasis)
             }
-            StatusIndicator(label = statusLabel, tone = tone)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StatusVisualIndicator(
+                    state = visualState,
+                    mode = colorVisionMode,
+                    size = 14.dp,
+                    contentDescription = statusLabel,
+                )
+                StatusIndicator(label = statusLabel, tone = tone)
+            }
         }
         AnimatedVisibility(
             visible = isExpanded,
@@ -571,7 +601,13 @@ private fun CollapsibleCard(
             exit = motion.sectionExitTransition(),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                findings.forEach { FindingRow(it, privacyModeEnabled = privacyModeEnabled) }
+                findings.forEach {
+                    FindingRow(
+                        finding = it,
+                        privacyModeEnabled = privacyModeEnabled,
+                        colorVisionMode = colorVisionMode,
+                    )
+                }
             }
         }
     }
@@ -581,11 +617,12 @@ private fun CollapsibleCard(
 private fun FindingRow(
     finding: Finding,
     privacyModeEnabled: Boolean,
+    colorVisionMode: DetectionColorVisionMode,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
-    val dotColor =
+    val contentColor =
         when {
             finding.detected -> colors.destructive
             finding.needsReview -> colors.warning
@@ -601,18 +638,20 @@ private fun FindingRow(
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Canvas(
-            modifier =
-                Modifier
-                    .size(8.dp)
-                    .semantics { contentDescription = dotDescription },
-        ) {
-            drawCircle(color = dotColor)
-        }
+        StatusVisualIndicator(
+            state =
+                detectionCategoryVisualState(
+                    detected = finding.detected,
+                    needsReview = finding.needsReview,
+                ),
+            mode = colorVisionMode,
+            size = 10.dp,
+            contentDescription = dotDescription,
+        )
         Text(
             text = DetectionPrivacyMask.maskIpsInText(finding.description, enabled = privacyModeEnabled),
             style = type.caption,
-            color = dotColor,
+            color = contentColor,
         )
     }
 }

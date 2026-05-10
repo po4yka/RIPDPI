@@ -23,6 +23,7 @@ import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.core.detection.community.CommunityStatsRepository
 import com.poyka.ripdpi.core.detection.debug.DetectionDebugFormatter
 import com.poyka.ripdpi.core.detection.debug.DetectionDebugSettings
+import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
@@ -58,6 +59,8 @@ data class DetectionCheckUiState(
     val privacyModeEnabled: Boolean = false,
     val cdnPullingEnabled: Boolean = false,
     val debugModeEnabled: Boolean = false,
+    val colorVisionMode: DetectionColorVisionMode = DetectionColorVisionMode.OFF,
+    val protanopiaVariantUnlocked: Boolean = false,
 )
 
 private const val entropyModeBalanced = 3
@@ -102,11 +105,15 @@ class DetectionCheckViewModel
                 appSettingsRepository.settings.collect { settings ->
                     val privacyModeEnabled = settings.detectionCheckPrivacyModeEnabled
                     val debugModeEnabled = settings.detectionCheckDebugModeEnabled
+                    val colorVisionMode =
+                        DetectionColorVisionMode.fromWire(settings.detectionCheckColorVisionMode)
                     _uiState.value =
                         _uiState.value.copy(
                             privacyModeEnabled = privacyModeEnabled,
                             cdnPullingEnabled = settings.detectionCheckCdnPullingEnabled,
                             debugModeEnabled = debugModeEnabled,
+                            colorVisionMode = colorVisionMode,
+                            protanopiaVariantUnlocked = settings.detectionCheckProtanopiaVariantUnlocked,
                             reportText =
                                 _uiState.value.result?.let { result ->
                                     DetectionReportFormatter.format(
@@ -408,6 +415,23 @@ class DetectionCheckViewModel
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckDebugModeEnabled = enabled
+                }
+            }
+        }
+
+        fun setColorVisionMode(mode: DetectionColorVisionMode) {
+            viewModelScope.launch {
+                appSettingsRepository.update {
+                    detectionCheckColorVisionMode = mode.wireValue
+                }
+            }
+        }
+
+        fun unlockProtanopiaVariant() {
+            viewModelScope.launch {
+                appSettingsRepository.update {
+                    detectionCheckProtanopiaVariantUnlocked = true
+                    detectionCheckColorVisionMode = DetectionColorVisionMode.RED_GREEN.wireValue
                 }
             }
         }

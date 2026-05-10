@@ -124,6 +124,8 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setDiagnosticsHistoryRetentionDays(14)
             .setDiagnosticsExportIncludeHistory(true)
             .setCanonicalDefaultStrategyChains()
+            .setDetectionCheckColorVisionMode("off")
+            .setDetectionCheckProtanopiaVariantUnlocked(false)
             .setExcludeRussianAppsEnabled(true)
             .setAppRoutingPolicyMode(AppRoutingPolicyModePrompt)
             .addAppRoutingEnabledPresetIds(DefaultAppRoutingRussianPresetId)

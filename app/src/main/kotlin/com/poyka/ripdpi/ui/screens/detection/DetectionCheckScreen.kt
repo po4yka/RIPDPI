@@ -12,6 +12,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -57,6 +58,7 @@ import com.poyka.ripdpi.core.detection.MethodologyVersion
 import com.poyka.ripdpi.core.detection.Recommendation
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.community.CommunityStats
+import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -70,6 +72,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
@@ -77,6 +80,8 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+private const val ProtanopiaUnlockTapCount = 10
 
 @Composable
 internal fun DetectionCheckRoute(
@@ -98,6 +103,8 @@ internal fun DetectionCheckRoute(
             onPrivacyModeChange = remember(viewModel) { viewModel::setPrivacyModeEnabled },
             onCdnPullingChange = remember(viewModel) { viewModel::setCdnPullingEnabled },
             onDebugModeChange = remember(viewModel) { viewModel::setDebugModeEnabled },
+            onColorVisionModeChange = remember(viewModel) { viewModel::setColorVisionMode },
+            onUnlockProtanopiaVariant = remember(viewModel) { viewModel::unlockProtanopiaVariant },
             onReloadCommunityStats = remember(viewModel) { viewModel::reloadCommunityStats },
             onRequestPermissions = onRequestPermissions,
         )
@@ -149,6 +156,8 @@ internal fun DetectionCheckScreen(
     onPrivacyModeChange: (Boolean) -> Unit,
     onCdnPullingChange: (Boolean) -> Unit = {},
     onDebugModeChange: (Boolean) -> Unit = {},
+    onColorVisionModeChange: (DetectionColorVisionMode) -> Unit = {},
+    onUnlockProtanopiaVariant: () -> Unit = {},
     onReloadCommunityStats: () -> Unit,
     onRequestPermissions: () -> Unit,
 ) {
@@ -197,6 +206,8 @@ internal fun DetectionCheckScreen(
                 onPrivacyModeChange = onPrivacyModeChange,
                 onCdnPullingChange = onCdnPullingChange,
                 onDebugModeChange = onDebugModeChange,
+                onColorVisionModeChange = onColorVisionModeChange,
+                onUnlockProtanopiaVariant = onUnlockProtanopiaVariant,
                 onReloadCommunityStats = onReloadCommunityStats,
                 onRequestPermissions = onRequestPermissions,
                 performHaptic = performHaptic,
@@ -214,6 +225,8 @@ private fun DetectionCheckScreenContent(
     onPrivacyModeChange: (Boolean) -> Unit,
     onCdnPullingChange: (Boolean) -> Unit,
     onDebugModeChange: (Boolean) -> Unit,
+    onColorVisionModeChange: (DetectionColorVisionMode) -> Unit,
+    onUnlockProtanopiaVariant: () -> Unit,
     onReloadCommunityStats: () -> Unit,
     onRequestPermissions: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
@@ -249,6 +262,12 @@ private fun DetectionCheckScreenContent(
             onEnabledChange = onDebugModeChange,
             controlEnabled = !uiState.isRunning,
         )
+        DetectionColorVisionControls(
+            selectedMode = uiState.colorVisionMode,
+            protanopiaVariantUnlocked = uiState.protanopiaVariantUnlocked,
+            onModeChange = onColorVisionModeChange,
+            controlEnabled = !uiState.isRunning,
+        )
         DetectionPermissionWarning(
             missingPermissions = uiState.missingPermissions,
             permissionAction = uiState.permissionAction,
@@ -272,7 +291,10 @@ private fun DetectionCheckScreenContent(
             reportText = uiState.reportText,
             debugReportText = uiState.debugReportText,
             privacyModeEnabled = uiState.privacyModeEnabled,
+            colorVisionMode = uiState.colorVisionMode,
+            protanopiaVariantUnlocked = uiState.protanopiaVariantUnlocked,
             onApplyFixes = onApplyFixes,
+            onUnlockProtanopiaVariant = onUnlockProtanopiaVariant,
             performHaptic = performHaptic,
         )
         DetectionHistoryCommunitySection(
@@ -285,6 +307,50 @@ private fun DetectionCheckScreenContent(
             onReload = onReloadCommunityStats,
         )
         Spacer(modifier = Modifier.height(spacing.lg))
+    }
+}
+
+@Composable
+private fun DetectionColorVisionControls(
+    selectedMode: DetectionColorVisionMode,
+    protanopiaVariantUnlocked: Boolean,
+    onModeChange: (DetectionColorVisionMode) -> Unit,
+    controlEnabled: Boolean,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        Text(
+            text = "Status visuals",
+            style = type.sectionTitle,
+            color = colors.mutedForeground,
+        )
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DetectionColorVisionMode.entries.forEach { mode ->
+                RipDpiChip(
+                    text = mode.displayName,
+                    selected = selectedMode == mode,
+                    enabled = controlEnabled,
+                    onClick = { onModeChange(mode) },
+                )
+            }
+        }
+        StatusVisualPreviewRow(mode = selectedMode)
+        if (protanopiaVariantUnlocked) {
+            Text(
+                text = "Protanopia-safe red/green mode is unlocked.",
+                style = type.caption,
+                color = colors.mutedForeground,
+            )
+        }
     }
 }
 
@@ -473,7 +539,10 @@ private fun DetectionResultSummary(
     reportText: String?,
     debugReportText: String?,
     privacyModeEnabled: Boolean,
+    colorVisionMode: DetectionColorVisionMode,
+    protanopiaVariantUnlocked: Boolean,
     onApplyFixes: () -> Unit,
+    onUnlockProtanopiaVariant: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
 ) {
     result?.let {
@@ -491,6 +560,9 @@ private fun DetectionResultSummary(
             stealthScore = stealthScore,
             stealthLabel = stealthLabel,
             privacyModeEnabled = privacyModeEnabled,
+            colorVisionMode = colorVisionMode,
+            protanopiaVariantUnlocked = protanopiaVariantUnlocked,
+            onUnlockProtanopiaVariant = onUnlockProtanopiaVariant,
         )
 
         if (autoTuneFixes.isNotEmpty()) {
@@ -516,7 +588,11 @@ private fun DetectionResultSummary(
             performHaptic = performHaptic,
         )
 
-        DetectionCategoryCards(it, privacyModeEnabled = privacyModeEnabled)
+        DetectionCategoryCards(
+            result = it,
+            privacyModeEnabled = privacyModeEnabled,
+            colorVisionMode = colorVisionMode,
+        )
     }
 }
 
@@ -686,7 +762,11 @@ private fun DetectionNarrativeSummary(
     stealthScore: Int?,
     stealthLabel: String?,
     privacyModeEnabled: Boolean,
+    colorVisionMode: DetectionColorVisionMode,
+    protanopiaVariantUnlocked: Boolean,
+    onUnlockProtanopiaVariant: () -> Unit,
 ) {
+    var verdictTapCount by rememberSaveable(result.verdict) { mutableStateOf(0) }
     val verdictNarrative = narrative ?: result.verdictNarrative
     VerdictScoreCard(
         verdict = result.verdict,
@@ -694,6 +774,15 @@ private fun DetectionNarrativeSummary(
         label = stealthLabel,
         explanation = result.verdictExplanation,
         narrative = verdictNarrative,
+        colorVisionMode = colorVisionMode,
+        onHeroTap = {
+            if (!protanopiaVariantUnlocked) {
+                verdictTapCount += 1
+                if (verdictTapCount >= ProtanopiaUnlockTapCount) {
+                    onUnlockProtanopiaVariant()
+                }
+            }
+        },
     )
     verdictNarrative?.let {
         VerdictNarrativeCard(
