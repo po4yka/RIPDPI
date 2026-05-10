@@ -13,6 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.permissions.PermissionResult
+import com.poyka.ripdpi.ui.screens.diagnostics.share.DiagnosticShareLinkDeepLink
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.util.Optional
@@ -52,6 +53,9 @@ class MainActivity : AppCompatActivity() {
 
         internal fun requestsConfiguredStart(intent: Intent?): Boolean =
             intent?.getBooleanExtra(EXTRA_START_CONFIGURED_MODE, false) == true
+
+        internal fun diagnosticShareFragment(intent: Intent?): String? =
+            DiagnosticShareLinkDeepLink.fragmentFrom(intent)
 
         internal fun mapNotificationPermissionResult(
             granted: Boolean,

@@ -40,6 +40,7 @@ import com.poyka.ripdpi.ui.screens.customization.AboutRoute
 import com.poyka.ripdpi.ui.screens.customization.AppCustomizationRoute
 import com.poyka.ripdpi.ui.screens.detection.DetectionCheckRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
+import com.poyka.ripdpi.ui.screens.diagnostics.share.SharedResultRenderRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute
@@ -81,6 +82,8 @@ data class RipDpiNavHostLaunchRequests(
     val onLaunchHomeHandled: () -> Unit = {},
     val launchRouteRequested: String? = null,
     val onLaunchRouteHandled: () -> Unit = {},
+    val sharedDiagnosticFragmentRequested: String? = null,
+    val onSharedDiagnosticFragmentHandled: () -> Unit = {},
     val relockRequested: Boolean = false,
     val onRelockHandled: () -> Unit = {},
 )
@@ -120,6 +123,11 @@ fun RipDpiNavHost(
                     launchSingleTop = true
                     restoreState = true
                 }
+            }
+        },
+        navigateToSharedDiagnostic = { fragment ->
+            navController.navigate(Route.SharedDiagnosticResult(fragment = fragment)) {
+                launchSingleTop = true
             }
         },
         relockToRoute = { destination ->
@@ -168,6 +176,7 @@ private fun HandleLaunchRequests(
     currentStableRoute: String?,
     navigateHome: () -> Unit,
     navigateToRoute: (Route) -> Unit,
+    navigateToSharedDiagnostic: (String) -> Unit,
     relockToRoute: (Route) -> Unit,
 ) {
     LaunchedEffect(launchRequests.launchHomeRequested, currentStableRoute) {
@@ -196,6 +205,15 @@ private fun HandleLaunchRequests(
         val destination = Route.fromStableRoute(requestedStableRoute) ?: return@LaunchedEffect
         navigateToRoute(destination)
         launchRequests.onLaunchRouteHandled()
+    }
+
+    LaunchedEffect(launchRequests.sharedDiagnosticFragmentRequested, currentStableRoute) {
+        val fragment = launchRequests.sharedDiagnosticFragmentRequested ?: return@LaunchedEffect
+        if (currentStableRoute == null) {
+            return@LaunchedEffect
+        }
+        navigateToSharedDiagnostic(fragment)
+        launchRequests.onSharedDiagnosticFragmentHandled()
     }
 
     LaunchedEffect(launchRequests.relockRequested) {
@@ -460,6 +478,13 @@ private fun NavGraphBuilder.addSettingsRoutes(
                 onBack = { navController.popBackStack() },
             )
         }
+        composable<Route.SharedDiagnosticResult> { backStackEntry ->
+            val route = backStackEntry.toRoute<Route.SharedDiagnosticResult>()
+            SharedResultRenderRoute(
+                fragment = route.fragment,
+                onBack = { navController.popBackStack() },
+            )
+        }
     }
 }
 
@@ -526,6 +551,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.DataTransparency.stableRoute to { hasRoute<Route.DataTransparency>() },
         Route.DetectionCheck.stableRoute to { hasRoute<Route.DetectionCheck>() },
         Route.OwnedStackBrowser().stableRoute to { hasRoute<Route.OwnedStackBrowser>() },
+        Route.SharedDiagnosticResult().stableRoute to { hasRoute<Route.SharedDiagnosticResult>() },
     )
 
 internal fun shouldNavigateToHomeFromLaunchRequest(

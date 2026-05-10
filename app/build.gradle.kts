@@ -151,17 +151,27 @@ extensions.configure<ApplicationExtension> {
                 }
             }.get()
 
+    val diagnosticShareBaseUrl =
+        providers
+            .gradleProperty("ripdpi.diagnosticShareBaseUrl")
+            .orElse("https://po4yka.github.io/RIPDPI/share")
+            .get()
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+
     buildTypes {
         release {
             signingConfig = signingConfigs.findByName("release")
             buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}\"")
             buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
             buildConfigField("String", "NATIVE_LIB_VERSION", "\"$nativeLibVersion\"")
+            buildConfigField("String", "DIAGNOSTIC_SHARE_BASE_URL", "\"$diagnosticShareBaseUrl\"")
         }
         debug {
             buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}-debug\"")
             buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
             buildConfigField("String", "NATIVE_LIB_VERSION", "\"$nativeLibVersion\"")
+            buildConfigField("String", "DIAGNOSTIC_SHARE_BASE_URL", "\"$diagnosticShareBaseUrl\"")
             enableAndroidTestCoverage = true
         }
         create("benchmark") {
@@ -172,6 +182,7 @@ extensions.configure<ApplicationExtension> {
             buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}-bench\"")
             buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
             buildConfigField("String", "NATIVE_LIB_VERSION", "\"$nativeLibVersion\"")
+            buildConfigField("String", "DIAGNOSTIC_SHARE_BASE_URL", "\"$diagnosticShareBaseUrl\"")
         }
     }
 

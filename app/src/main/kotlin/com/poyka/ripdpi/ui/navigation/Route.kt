@@ -168,6 +168,20 @@ sealed class Route {
     }
 
     @Serializable
+    data class SharedDiagnosticResult(
+        val fragment: String = "",
+    ) : Route() {
+        @kotlinx.serialization.Transient
+        override val stableRoute = "shared_diagnostic_result"
+
+        @kotlinx.serialization.Transient
+        override val titleRes = R.string.title_shared_diagnostic_result
+
+        @kotlinx.serialization.Transient
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class OwnedStackBrowser(
         val initialUrl: String = "",
     ) : Route() {
@@ -207,6 +221,7 @@ sealed class Route {
                     About,
                     DataTransparency,
                     DetectionCheck,
+                    SharedDiagnosticResult(),
                     OwnedStackBrowser(),
                 )
 

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.update
 internal data class MainActivityShellState(
     val launchHomeRequested: Boolean = false,
     val launchRouteRequested: String? = null,
+    val sharedDiagnosticFragmentRequested: String? = null,
     val startConfiguredModeRequested: Boolean = false,
     val vpnPermissionDialogVisible: Boolean = false,
     val relockRequested: Boolean = false,
@@ -31,6 +32,7 @@ internal class MainActivityShellController(
         MutableStateFlow(
             MainActivityShellState(
                 launchHomeRequested = MainActivity.requestsHomeTab(initialIntent),
+                sharedDiagnosticFragmentRequested = MainActivity.diagnosticShareFragment(initialIntent),
                 startConfiguredModeRequested = MainActivity.requestsConfiguredStart(initialIntent),
             ),
         )
@@ -54,6 +56,8 @@ internal class MainActivityShellController(
         _state.update { current ->
             current.copy(
                 launchHomeRequested = current.launchHomeRequested || MainActivity.requestsHomeTab(intent),
+                sharedDiagnosticFragmentRequested =
+                    MainActivity.diagnosticShareFragment(intent) ?: current.sharedDiagnosticFragmentRequested,
                 startConfiguredModeRequested =
                     current.startConfiguredModeRequested || MainActivity.requestsConfiguredStart(intent),
             )
@@ -117,6 +121,10 @@ internal class MainActivityShellController(
 
     fun consumeLaunchRouteRequest() {
         _state.update { it.copy(launchRouteRequested = null) }
+    }
+
+    fun consumeDiagnosticShareFragmentRequest() {
+        _state.update { it.copy(sharedDiagnosticFragmentRequested = null) }
     }
 
     fun consumeStartConfiguredModeRequest() {
