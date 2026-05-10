@@ -82,9 +82,11 @@ import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
+import kotlinx.serialization.json.Json
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
+import javax.inject.Named
 
 private const val NavigationProfileId = "default"
 
@@ -191,6 +193,17 @@ class MainActivityNavigationInstrumentedTest {
 
     @get:Rule(order = 2)
     val composeRule = createAndroidComposeRule<MainActivity>()
+
+    @BindValue
+    @JvmField
+    @Named("diagnosticsJson")
+    var diagnosticsJson: Json =
+        Json {
+            ignoreUnknownKeys = true
+            prettyPrint = true
+            encodeDefaults = true
+            explicitNulls = false
+        }
 
     @BindValue
     @JvmField
@@ -420,6 +433,17 @@ class MainActivityOnboardingStartupInstrumentedTest {
 
     @BindValue
     @JvmField
+    @Named("diagnosticsJson")
+    var diagnosticsJson: Json =
+        Json {
+            ignoreUnknownKeys = true
+            prettyPrint = true
+            encodeDefaults = true
+            explicitNulls = false
+        }
+
+    @BindValue
+    @JvmField
     var appSettingsRepository: AppSettingsRepository =
         FakeInstrumentedAppSettingsRepository(
             navigationSettings(onboardingComplete = false),
@@ -557,6 +581,17 @@ class MainActivityBiometricStartupInstrumentedTest {
 
     @get:Rule(order = 2)
     val composeRule = createAndroidComposeRule<MainActivity>()
+
+    @BindValue
+    @JvmField
+    @Named("diagnosticsJson")
+    var diagnosticsJson: Json =
+        Json {
+            ignoreUnknownKeys = true
+            prettyPrint = true
+            encodeDefaults = true
+            explicitNulls = false
+        }
 
     @BindValue
     @JvmField

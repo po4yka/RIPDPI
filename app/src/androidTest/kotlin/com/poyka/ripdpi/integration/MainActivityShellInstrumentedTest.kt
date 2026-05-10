@@ -79,11 +79,13 @@ import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import javax.inject.Named
 
 @HiltAndroidTest
 @UninstallModules(
@@ -109,6 +111,17 @@ class MainActivityShellInstrumentedTest {
 
     @get:Rule(order = 2)
     val composeRule = createAndroidComposeRule<MainActivity>()
+
+    @BindValue
+    @JvmField
+    @Named("diagnosticsJson")
+    var diagnosticsJson: Json =
+        Json {
+            ignoreUnknownKeys = true
+            prettyPrint = true
+            encodeDefaults = true
+            explicitNulls = false
+        }
 
     @BindValue
     @JvmField
