@@ -189,11 +189,13 @@ impl DesyncStrategy for BuiltinTechnique {
         match self.definition.id {
             "split" => plan.actions.push(DesyncAction::Split { offset: 0, disorder: false }),
             "disorder" => plan.actions.push(DesyncAction::Split { offset: 0, disorder: true }),
-            "fake" | "oob" | "fake_rst" | "ip_frag" | "multi_disorder" => {
-                plan.actions.push(DesyncAction::RawSend(Vec::new()));
-            }
+            "fake" => plan.actions.push(DesyncAction::WriteFake { ttl: None, sni_mode: None, payload_file: None }),
+            "oob" => plan.actions.push(DesyncAction::WriteUrgent { prefix: Vec::new(), urgent_byte: 0 }),
+            "fake_rst" => plan.actions.push(DesyncAction::SendFakeRst { ttl: None }),
+            "udplen" => plan.actions.push(DesyncAction::UdpLen { delta: 0 }),
+            "ip_frag" | "multi_disorder" => plan.actions.push(DesyncAction::RawSend(Vec::new())),
             "seq_overlap" | "tls_rec" | "tls_rand_rec" => plan.actions.push(DesyncAction::Write(Vec::new())),
-            "udplen" | "ipv6_ext" | "http_domcase" | "http_hostcase" | "wsize" | "wssize" => {}
+            "ipv6_ext" | "http_domcase" | "http_hostcase" | "wsize" | "wssize" => {}
             _ => {
                 return Err(StrategyError::InvalidConfig(format!("unknown built-in technique {}", self.definition.id)))
             }

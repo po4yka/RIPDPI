@@ -250,6 +250,32 @@ pub enum DesyncAction {
     Write(Vec<u8>),
     /// Send raw bytes through a VPN-protected socket.
     RawSend(Vec<u8>),
+    /// Send a fake TCP payload using the runtime's fake-packet path.
+    WriteFake {
+        /// Optional TTL to use for the fake packet.
+        ttl: Option<u8>,
+        /// Optional zapret-compatible SNI generation mode.
+        sni_mode: Option<String>,
+        /// Optional payload source path supplied by the script/config.
+        payload_file: Option<String>,
+    },
+    /// Send a TCP urgent/OOB byte after an optional prefix.
+    WriteUrgent {
+        /// Bytes written before the urgent byte.
+        prefix: Vec<u8>,
+        /// TCP urgent byte.
+        urgent_byte: u8,
+    },
+    /// Send a fake TCP RST packet.
+    SendFakeRst {
+        /// Optional TTL to use for the fake RST packet.
+        ttl: Option<u8>,
+    },
+    /// Falsify the UDP length field by the given delta.
+    UdpLen {
+        /// Signed length delta.
+        delta: i16,
+    },
     /// Split a payload at an offset.
     Split { offset: usize, disorder: bool },
     /// Set the socket TTL.

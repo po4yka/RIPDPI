@@ -545,34 +545,34 @@ mod enabled {
             .map_err(to_call)?;
         desync.set("set_ttl", set_ttl).map_err(to_call)?;
 
-        attach_compatibility_placeholders(lua, desync, call_plan)?;
+        attach_compatibility_actions(lua, desync, ctx, call_plan)?;
         Ok(())
     }
 
-    fn attach_compatibility_placeholders(
+    fn attach_compatibility_actions(
         lua: &Lua,
         desync: &Table,
+        ctx: &StrategyContext<'_>,
         call_plan: Arc<Mutex<LuaCallPlan>>,
     ) -> Result<(), LuaError> {
         let fake_plan = Arc::clone(&call_plan);
         let fake = lua
-            .create_function(move |_, (ttl, _sni_mode, _payload_file): (Option<u8>, Option<String>, Option<String>)| {
+            .create_function(move |_, (ttl, sni_mode, payload_file): (Option<u8>, Option<String>, Option<String>)| {
                 let mut plan = lock_lua_call_plan(&fake_plan)?;
-                if let Some(ttl) = ttl {
-                    plan.actions.push(DesyncAction::SetTtl(ttl));
-                }
-                plan.actions.push(DesyncAction::RawSend(Vec::new()));
+                plan.actions.push(DesyncAction::WriteFake { ttl, sni_mode, payload_file });
                 plan.verdict = Some(StrategyVerdict::Apply);
                 Ok(VERDICT_MODIFY)
             })
             .map_err(to_call)?;
         desync.set("fake", fake).map_err(to_call)?;
 
+        let payload = ctx.payload.to_vec();
         let oob_plan = Arc::clone(&call_plan);
         let oob = lua
-            .create_function(move |_, (_offset, byte): (usize, u8)| {
+            .create_function(move |_, (offset, byte): (usize, u8)| {
                 let mut plan = lock_lua_call_plan(&oob_plan)?;
-                plan.actions.push(DesyncAction::Write(vec![byte]));
+                let prefix = payload.get(..offset.min(payload.len())).unwrap_or_default().to_vec();
+                plan.actions.push(DesyncAction::WriteUrgent { prefix, urgent_byte: byte });
                 plan.verdict = Some(StrategyVerdict::Apply);
                 Ok(VERDICT_MODIFY)
             })
@@ -583,10 +583,7 @@ mod enabled {
         let fake_rst = lua
             .create_function(move |_, ttl: Option<u8>| {
                 let mut plan = lock_lua_call_plan(&fake_rst_plan)?;
-                if let Some(ttl) = ttl {
-                    plan.actions.push(DesyncAction::SetTtl(ttl));
-                }
-                plan.actions.push(DesyncAction::RawSend(Vec::new()));
+                plan.actions.push(DesyncAction::SendFakeRst { ttl });
                 plan.verdict = Some(StrategyVerdict::Apply);
                 Ok(VERDICT_MODIFY)
             })
@@ -597,7 +594,7 @@ mod enabled {
         let udplen = lua
             .create_function(move |_, delta: i16| {
                 let mut plan = lock_lua_call_plan(&udplen_plan)?;
-                plan.actions.push(DesyncAction::RawSend(delta.to_be_bytes().to_vec()));
+                plan.actions.push(DesyncAction::UdpLen { delta });
                 plan.verdict = Some(StrategyVerdict::Apply);
                 Ok(VERDICT_MODIFY)
             })

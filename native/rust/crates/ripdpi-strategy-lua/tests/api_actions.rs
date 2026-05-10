@@ -75,3 +75,51 @@ fn lua_drop_sets_drop_verdict() {
 
     assert_eq!(plan.verdict, StrategyVerdict::Drop);
 }
+
+#[test]
+fn lua_zapret_compat_actions_append_typed_plan_actions() {
+    let engine = LuaStrategyEngine::new().expect("lua vm");
+    engine
+        .load_bytes(
+            "typed_actions",
+            br#"
+            function typed_actions(desync)
+                desync.fake(7, "rand", "/tmp/fake.bin")
+                desync.oob(2, 33)
+                desync.fake_rst(5)
+                desync.udplen(4)
+                return VERDICT_MODIFY
+            end
+            "#,
+        )
+        .expect("load script");
+    engine.register_function("typed_actions").expect("register typed actions");
+    let strategy = engine.make_strategy("typed_actions").expect("make strategy");
+    let dissect = Dissect::default();
+    let ctx = StrategyContext {
+        dissect: &dissect,
+        conn: &ConnectionState::default(),
+        caps: &Capabilities::default(),
+        flow_id: FlowId(2),
+        payload: b"payload",
+        direction: FlowDirection::Outbound,
+    };
+    let mut plan = DesyncPlan::default();
+
+    strategy.plan(&ctx, &mut plan).expect("call typed actions");
+
+    assert_eq!(plan.verdict, StrategyVerdict::Apply);
+    assert_eq!(
+        plan.actions,
+        vec![
+            DesyncAction::WriteFake {
+                ttl: Some(7),
+                sni_mode: Some("rand".to_owned()),
+                payload_file: Some("/tmp/fake.bin".to_owned()),
+            },
+            DesyncAction::WriteUrgent { prefix: b"pa".to_vec(), urgent_byte: 33 },
+            DesyncAction::SendFakeRst { ttl: Some(5) },
+            DesyncAction::UdpLen { delta: 4 },
+        ]
+    );
+}
