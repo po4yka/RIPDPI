@@ -17,7 +17,15 @@
 
 <p align="center"><a href="README.md">English</a> | <b>Русский</b></p>
 
-Android-инструментарий диагностики и оптимизации сетевого пути. RIPDPI измеряет, классифицирует и оптимизирует прохождение отдельных потоков через локальную сеть и путь до origin — полезно, когда middleboxes, перегруженные сотовые каналы, рассинхронизация MTU или middlebox-induced TLS handshake aborts ухудшают соединение с конкретными authority, оставляя остальные здоровыми. RIPDPI поставляется с:
+RIPDPI — универсальный Android-инструмент для работы с сетевым подключением. Три основных задачи работают независимо или совместно:
+
+**Обход активного DPI** — применяет настраиваемые мутации пакетов на устройстве для обхода систем глубокой инспекции трафика без выхода за пределы устройства. Root не требуется для основного пути.
+
+**Подключение к VPN-серверу** — туннелирует трафик через зашифрованные relay-протоколы до сервера, который вы контролируете: VLESS Reality и xHTTP, WARP, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, Cloudflare Tunnel и другие.
+
+**Диагностика** — сканирует каждый целевой адрес отдельно, классифицирует результат (`TRANSPARENT_WORKS`, `OWNED_STACK_ONLY`, `NO_DIRECT_SOLUTION`, `IP_BLOCK_SUSPECT`) и запоминает вердикт для каждого сетевого fingerprint.
+
+RIPDPI поставляется с:
 
 - **VLESS Reality и xHTTP** в качестве основного tunneled outbound для производительности и приватности, реализованных нативно в `ripdpi-vless` / `ripdpi-relay-core` / `ripdpi-relay-mux` без Go-рантайма; `ripdpi-relay-android` обеспечивает JNI surface и Android socket protection
 - дополнительные tunneled-outbound протоколы на том же пути: WARP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3 и NaiveProxy
