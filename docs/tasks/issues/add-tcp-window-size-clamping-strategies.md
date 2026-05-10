@@ -9,7 +9,7 @@ parent: zapret2-feature-parity-epic
 blocks: []
 blocked_by: [expose-existing-techniques-as-config-addressable]
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
 - [ ] #task Add TCP window size clamping strategies #repo/RIPDPI #area/rust-native #status/backlog 🔼
@@ -46,7 +46,7 @@ Parameters:
 ## Source references
 
 - zapret2 Lua: `/Users/po4yka/GitRep/zapret2/lua/zapret-antidpi.lua` — `wsize`, `wssize` functions
-- RIPDPI socket operations: `native/rust/crates/ripdpi-privileged-ops/src/linux.rs` — existing socket option setters to extend
+- RIPDPI socket operations: `native/rust/crates/ripdpi-privileged-ops/src/linux/socket_options.rs` — existing socket option setters to extend
 - RIPDPI capabilities: `native/rust/crates/ripdpi-capabilities/` — add `TCP_WINDOW_CLAMP` detection
 
 ## TDD workflow

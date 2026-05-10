@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
 - [ ] #task Port zapret2 DPI-bypass technique set into RIPDPI Rust+Android framework #repo/RIPDPI #area/epic #status/backlog 🔼

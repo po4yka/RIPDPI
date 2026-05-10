@@ -10,7 +10,7 @@ blocks: []
 blocked_by:
   - add-ripdpi-strategy-trait-crate
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
 - [ ] #task Create ripdpi-strategy-registry crate with chain executor and UCB1 integration #repo/RIPDPI #area/rust-native #status/backlog 🔼
@@ -35,7 +35,7 @@ impl StrategyRegistry {
 ```
 
 Source files:
-- `native/rust/crates/ripdpi-runtime-strategy/src/strategy_evolver.rs` — UCB1 bandit to integrate with
+- `native/rust/crates/ripdpi-runtime-strategy/src/strategy_evolver/` — UCB1 bandit module (decomposed; see `lifecycle/`, `selection.rs`, `prior_store.rs`)
 - `native/rust/crates/ripdpi-desync/src/types.rs` — `AdaptivePlannerHints` to consume
 - zapret2 `lua/zapret-lib.lua` — `orchestrate()`, `verdict_aggregate()` for chain logic reference
 

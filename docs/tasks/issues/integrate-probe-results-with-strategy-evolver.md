@@ -9,7 +9,7 @@ parent: zapret2-feature-parity-epic
 blocks: []
 blocked_by: [extend-diagnostic-probe-service, add-ripdpi-strategy-registry-crate]
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
 - [ ] #task Integrate Probe Results with Strategy Evolver #repo/RIPDPI #area/engine #status/backlog 🔼
@@ -20,11 +20,11 @@ Feed `StrategyProbeService` results into the UCB1 `StrategyEvolver` bandit as hi
 
 ## Context
 
-The existing `StrategyEvolver` in `native/rust/crates/ripdpi-runtime-strategy/src/strategy_evolver.rs` uses UCB1 multi-armed bandit with a `StrategyCombo` (5 adaptive dimensions) and supports loading Ed25519-signed shared priors. After a strategy probe, the app has direct empirical evidence: "strategy X succeeded for domain Y with latency Z ms" — this is more valuable than the shared priors because it's measured on the current network. The integration: after probe completes, convert `ProbeReport` into UCB1 prior observations (arm = strategy_id, reward = 1.0 for success or 0.0 for failure) and inject them via a new `StrategyEvolver::inject_probe_results(results: &[ProbeResult])` method.
+The existing `StrategyEvolver` in `native/rust/crates/ripdpi-runtime-strategy/src/strategy_evolver/` (module directory; see `lifecycle/`, `selection.rs`, `prior_store.rs`, `thompson_sampling.rs`) uses UCB1 multi-armed bandit by default with a `StrategyCombo` (5 adaptive dimensions) and supports loading Ed25519-signed shared priors. After a strategy probe, the app has direct empirical evidence: "strategy X succeeded for domain Y with latency Z ms" — this is more valuable than the shared priors because it's measured on the current network. The integration: after probe completes, convert `ProbeReport` into UCB1 prior observations (arm = strategy_id, reward = 1.0 for success or 0.0 for failure) and inject them via a new `StrategyEvolver::inject_probe_results(results: &[ProbeResult])` method.
 
 **Integration design:**
 ```rust
-// In strategy_evolver.rs — new method:
+// In strategy_evolver/ module (e.g. lifecycle.rs) — new method:
 pub fn inject_probe_results(&mut self, results: &[ProbeResult]) {
     for result in results {
         let reward = if result.success { 1.0 } else { 0.0 };
@@ -51,7 +51,7 @@ The Kotlin side calls `StrategyEngine.injectProbeResults(results)` via JNI after
 
 ## Source references
 
-- RIPDPI UCB1 evolver: `native/rust/crates/ripdpi-runtime-strategy/src/strategy_evolver.rs` — UCB1 bandit implementation, `record_outcome()`, `suggest_hints()`, shared priors loading
+- RIPDPI UCB1 evolver: `native/rust/crates/ripdpi-runtime-strategy/src/strategy_evolver/` — UCB1 bandit module; `feedback.rs` for `record_outcome()`, `selection.rs` for arm ranking, `prior_store.rs` for shared priors loading
 - RIPDPI evolver JNI: the adapter that exposes StrategyEvolver to Kotlin — find in `ripdpi-android` crate
 - zapret2 equivalent: zapret2 has no adaptive learning — this is a RIPDPI-original enhancement
 - UCB1 algorithm: the existing implementation's arm update formula to extend
