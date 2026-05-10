@@ -84,6 +84,5 @@ Fresh install on emulator: `LuaAssetManager.ensureExtracted()` runs, both `.lua`
 - Added Robolectric coverage for first extraction, manifest version reading, and user-modified script backup.
 - Verification:
   - `./gradlew :app:ktlintCheck -Pripdpi.skipNativeBuild=true`
-- Blocked verification:
-  - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.lua.LuaAssetManagerTest -Pripdpi.skipNativeBuild=true` did not reach the new tests because `:core:data:model:generateProtoLiteSources` failed first: `Field number 214 has already been used in "AppSettings" by field "strategy_chain_yaml"`.
-- Remaining review gaps: the Robolectric test still needs to be run after the unrelated proto schema conflict is fixed, and bundled scripts still need runtime/device verification with `LuaStrategyEngine` because upstream zapret scripts expect zapret-specific Lua globals.
+  - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.lua.LuaAssetManagerTest -Pripdpi.skipNativeBuild=true`
+- Remaining review gap: bundled scripts still need runtime/device verification with `LuaStrategyEngine` because upstream zapret scripts expect zapret-specific Lua globals.
