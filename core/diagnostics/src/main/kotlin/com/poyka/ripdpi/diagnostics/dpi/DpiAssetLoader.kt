@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import android.content.Context
+import com.poyka.ripdpi.diagnostics.rkn.RknTarget
+import com.poyka.ripdpi.diagnostics.rkn.RknTargetListParser
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -40,6 +42,8 @@ class DpiAssetLoader(
     private var cachedTcp16Targets: List<Tcp16Target>? = null
     private var cachedDomains: List<String>? = null
     private var cachedWhitelistSni: List<String>? = null
+    private var cachedRknWhitelistControl: List<RknTarget>? = null
+    private var cachedRknBlacklistTest: List<RknTarget>? = null
 
     fun loadTcp16Targets(): List<Tcp16Target> =
         cachedTcp16Targets ?: loadText(Tcp16TargetsPath)
@@ -55,6 +59,16 @@ class DpiAssetLoader(
         cachedWhitelistSni ?: loadText(WhitelistSniPath)
             .parseLineList()
             .also { cachedWhitelistSni = it }
+
+    fun loadRknWhitelistControl(): List<RknTarget> =
+        cachedRknWhitelistControl ?: loadText(RknWhitelistControlPath)
+            .let(RknTargetListParser::parse)
+            .also { cachedRknWhitelistControl = it }
+
+    fun loadRknBlacklistTest(): List<RknTarget> =
+        cachedRknBlacklistTest ?: loadText(RknBlacklistTestPath)
+            .let(RknTargetListParser::parse)
+            .also { cachedRknBlacklistTest = it }
 
     private fun loadText(relativePath: String): String {
         val override = fileProvider.overrideFile(relativePath)
@@ -100,6 +114,8 @@ class DpiAssetLoader(
         private const val Tcp16TargetsPath = "dpi/tcp16.json"
         private const val DomainsPath = "dpi/domains.txt"
         private const val WhitelistSniPath = "dpi/whitelist_sni.txt"
+        private const val RknWhitelistControlPath = "rkn/rkn_whitelist_control.txt"
+        private const val RknBlacklistTestPath = "rkn/rkn_blacklist_test.txt"
         private const val LegacyTypoPortField = ",port"
         private const val CommentPrefix = "#"
     }
