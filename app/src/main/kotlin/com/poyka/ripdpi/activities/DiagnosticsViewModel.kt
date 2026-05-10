@@ -93,6 +93,8 @@ class DiagnosticsViewModel
             dpiToolsController.compressionProbeTool
         val tcp16FatHeaderTool: StateFlow<DiagnosticsTcp16FatHeaderToolUiModel> =
             dpiToolsController.tcp16FatHeaderTool
+        val allowlistSniTool: StateFlow<DiagnosticsAllowlistSniToolUiModel> =
+            dpiToolsController.allowlistSniTool
 
         private val mutations =
             DiagnosticsMutationRunner(
@@ -242,6 +244,8 @@ class DiagnosticsViewModel
         fun runCompressionProbe() = dpiToolsController.runCompressionProbe()
 
         fun runTcp16FatHeaderProbe() = dpiToolsController.runTcp16FatHeaderProbe()
+
+        fun runAllowlistSniFinder() = dpiToolsController.runAllowlistSniFinder()
 
         fun runRknBlockDiagnosis() = dpiToolsController.runRknBlockDiagnosis()
 

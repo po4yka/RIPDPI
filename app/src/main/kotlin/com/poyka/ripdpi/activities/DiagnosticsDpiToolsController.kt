@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniFinder
 import com.poyka.ripdpi.diagnostics.dpi.AttemptResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
@@ -82,7 +83,12 @@ internal class DiagnosticsDpiToolsController(
     val tcp16FatHeaderTool: StateFlow<DiagnosticsTcp16FatHeaderToolUiModel> =
         _tcp16FatHeaderTool.asStateFlow()
 
+    private val _allowlistSniTool = MutableStateFlow(DiagnosticsAllowlistSniToolUiModel())
+    val allowlistSniTool: StateFlow<DiagnosticsAllowlistSniToolUiModel> =
+        _allowlistSniTool.asStateFlow()
+
     private var latestDnsStubIps: Set<String> = emptySet()
+    private var latestTcp16DetectedResults: List<Tcp16ProbeResult> = emptyList()
 
     init {
         scope.launch {
@@ -243,7 +249,18 @@ internal class DiagnosticsDpiToolsController(
                 check(targets.isNotEmpty()) { "No bundled TCP16 targets are available." }
                 tcp16FatHeaderProbe.run(targets)
             }.onSuccess { results ->
+                latestTcp16DetectedResults = results.filter { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
                 _tcp16FatHeaderTool.value = results.toTcp16UiModel()
+                _allowlistSniTool.value =
+                    _allowlistSniTool.value.copy(
+                        enabled = latestTcp16DetectedResults.isNotEmpty(),
+                        summary =
+                            if (latestTcp16DetectedResults.isEmpty()) {
+                                "Run after TCP16 finds flagged ASNs."
+                            } else {
+                                "Ready for ${latestTcp16DetectedResults.size} TCP16-flagged targets."
+                            },
+                    )
             }.onFailure { error ->
                 if (error is CancellationException) throw error
                 _tcp16FatHeaderTool.value =
@@ -251,6 +268,48 @@ internal class DiagnosticsDpiToolsController(
                         state = DiagnosticsTcp16FatHeaderState.Failed,
                         summary = "TCP16 fat-header probe failed.",
                         errorMessage = error.message ?: error.javaClass.simpleName,
+                    )
+            }
+        }
+    }
+
+    fun runAllowlistSniFinder() {
+        if (_allowlistSniTool.value.state == DiagnosticsAllowlistSniState.Running) {
+            return
+        }
+        val detectedResults = latestTcp16DetectedResults
+        if (detectedResults.isEmpty()) {
+            _allowlistSniTool.value =
+                DiagnosticsAllowlistSniToolUiModel(
+                    summary = "Run TCP16 first; no flagged ASNs are available yet.",
+                    enabled = false,
+                )
+            return
+        }
+        _allowlistSniTool.value =
+            DiagnosticsAllowlistSniToolUiModel(
+                state = DiagnosticsAllowlistSniState.Running,
+                summary = "Testing SNI compatibility for TCP16-flagged ASNs...",
+                enabled = true,
+            )
+        scope.launch {
+            runCatching {
+                val sniList = loadWhitelistSni()
+                check(sniList.isNotEmpty()) { "No bundled SNI compatibility entries are available." }
+                AllowlistSniFinder(
+                    probe = tcp16FatHeaderProbe,
+                    sniList = sniList,
+                ).find(detectedResults)
+            }.onSuccess { results ->
+                _allowlistSniTool.value = results.values.toList().toAllowlistSniUiModel()
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+                _allowlistSniTool.value =
+                    DiagnosticsAllowlistSniToolUiModel(
+                        state = DiagnosticsAllowlistSniState.Failed,
+                        summary = "SNI compatibility finder failed.",
+                        errorMessage = error.message ?: error.javaClass.simpleName,
+                        enabled = true,
                     )
             }
         }
@@ -355,6 +414,11 @@ internal class DiagnosticsDpiToolsController(
     private suspend fun loadTcp16Targets(): List<Tcp16Target> =
         withContext(Dispatchers.IO) {
             DpiAssetLoader(appContext).loadTcp16Targets()
+        }
+
+    private suspend fun loadWhitelistSni(): List<String> =
+        withContext(Dispatchers.IO) {
+            DpiAssetLoader(appContext).loadWhitelistSni()
         }
 }
 
@@ -512,6 +576,16 @@ private fun List<Tcp16ProbeResult>.toTcp16UiModel(): DiagnosticsTcp16FatHeaderTo
                 .sortedWith(compareByDescending<Tcp16AsnSummary> { summary -> summary.detected }.thenBy { it.asn })
                 .map { summary -> summary.toUiModel() }
                 .toPersistentList(),
+        detectedResults =
+            filter { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
+                .map { result ->
+                    DiagnosticsTcp16DetectedTargetUiModel(
+                        targetId = result.targetId,
+                        asn = result.asn,
+                        provider = result.provider,
+                        ip = result.ip,
+                    )
+                }.toPersistentList(),
     )
 }
 

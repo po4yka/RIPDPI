@@ -54,6 +54,7 @@ fun DiagnosticsRoute(
     val rknBlockDiagnosisTool by viewModel.rknBlockDiagnosisTool.collectAsStateWithLifecycle()
     val compressionProbeTool by viewModel.compressionProbeTool.collectAsStateWithLifecycle()
     val tcp16FatHeaderTool by viewModel.tcp16FatHeaderTool.collectAsStateWithLifecycle()
+    val allowlistSniTool by viewModel.allowlistSniTool.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { DiagnosticsSection.entries.size }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -212,6 +213,7 @@ fun DiagnosticsRoute(
                 onRunDomainReachabilityScan = remember(viewModel) { viewModel::runDomainReachabilityScan },
                 onRunCompressionProbe = remember(viewModel) { viewModel::runCompressionProbe },
                 onRunTcp16FatHeaderProbe = remember(viewModel) { viewModel::runTcp16FatHeaderProbe },
+                onRunAllowlistSniFinder = remember(viewModel) { viewModel::runAllowlistSniFinder },
                 onRunRknBlockDiagnosis = remember(viewModel) { viewModel::runRknBlockDiagnosis },
                 onRknSelfInfoEnabledChange = remember(viewModel) { viewModel::setRknSelfInfoEnabled },
                 onCompressionProbeZstdEnabledChange =
@@ -225,6 +227,7 @@ fun DiagnosticsRoute(
                 rknBlockDiagnosis = rknBlockDiagnosisTool,
                 compressionProbe = compressionProbeTool,
                 tcp16FatHeader = tcp16FatHeaderTool,
+                allowlistSni = allowlistSniTool,
             ),
         pcapRecording = pcapRecording,
         modifier = modifier,

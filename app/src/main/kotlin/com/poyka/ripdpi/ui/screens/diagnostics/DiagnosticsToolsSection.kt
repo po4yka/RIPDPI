@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,17 +12,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.DiagnosticsAllowlistSniState
+import com.poyka.ripdpi.activities.DiagnosticsAllowlistSniToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsApproachRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
+import com.poyka.ripdpi.activities.DiagnosticsCompatibleSniUiModel
 import com.poyka.ripdpi.activities.DiagnosticsCompressionProbeState
 import com.poyka.ripdpi.activities.DiagnosticsCompressionProbeToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDnsAvailabilityState
@@ -56,6 +64,7 @@ internal data class DiagnosticsDpiToolActions(
     val onRunDomainReachabilityScan: () -> Unit = {},
     val onRunCompressionProbe: () -> Unit = {},
     val onRunTcp16FatHeaderProbe: () -> Unit = {},
+    val onRunAllowlistSniFinder: () -> Unit = {},
     val onRunRknBlockDiagnosis: () -> Unit = {},
     val onRknSelfInfoEnabledChange: (Boolean) -> Unit = {},
     val onCompressionProbeZstdEnabledChange: (Boolean) -> Unit = {},
@@ -236,6 +245,12 @@ private fun LazyListScope.dpiToolItems(
         )
     }
     item {
+        AllowlistSniFinderCard(
+            tool = dpiTools.allowlistSni,
+            onRun = actions.onRunAllowlistSniFinder,
+        )
+    }
+    item {
         RknBlockDiagnosisScreen(
             tool = dpiTools.rknBlockDiagnosis,
             onRun = actions.onRunRknBlockDiagnosis,
@@ -297,6 +312,103 @@ private fun Tcp16FatHeaderProbeCard(
             variant = RipDpiButtonVariant.Outline,
             modifier = Modifier.fillMaxWidth(),
         )
+    }
+}
+
+@Composable
+private fun AllowlistSniFinderCard(
+    tool: DiagnosticsAllowlistSniToolUiModel,
+    onRun: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val context = LocalContext.current
+    val clipboardManager =
+        remember(context) {
+            context.getSystemService(ClipboardManager::class.java)
+        }
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        StatusIndicator(
+            label = tool.state.name.lowercase(Locale.US),
+            tone = statusTone(tool.state.tone()),
+        )
+        androidx.compose.material3.Text(
+            text = "SNI compatibility",
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        androidx.compose.material3.Text(
+            text = tool.errorMessage ?: tool.summary,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = if (tool.errorMessage == null) colors.mutedForeground else colors.destructive,
+        )
+        MetricsRow(metrics = tool.metrics)
+        if (tool.rows.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                tool.rows.forEach { row ->
+                    StatusIndicator(
+                        label = "${row.asn}: ${row.compatibleSnis.size} compatible",
+                        tone = statusTone(row.tone),
+                    )
+                    androidx.compose.material3.Text(
+                        text = "${row.provider} · ${row.ip} · tried ${row.triedCount}",
+                        style = RipDpiThemeTokens.type.monoSmall,
+                        color = colors.mutedForeground,
+                    )
+                    CompatibleSniValues(row.compatibleSnis, clipboardManager)
+                }
+            }
+        }
+        RipDpiButton(
+            text =
+                if (tool.state == DiagnosticsAllowlistSniState.Running) {
+                    "Checking..."
+                } else {
+                    "Run SNI compatibility"
+                },
+            enabled = tool.enabled && tool.state != DiagnosticsAllowlistSniState.Running,
+            onClick = onRun,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun CompatibleSniValues(
+    compatibleSnis: List<DiagnosticsCompatibleSniUiModel>,
+    clipboardManager: ClipboardManager?,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    if (compatibleSnis.isEmpty()) {
+        androidx.compose.material3.Text(
+            text = "No compatible entries found.",
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+    } else {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            compatibleSnis.forEach { sni ->
+                RipDpiChip(
+                    text = sni.label,
+                    onClick = {
+                        clipboardManager?.setPrimaryClip(
+                            ClipData.newPlainText("Compatible SNI", sni.value),
+                        )
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -767,4 +879,12 @@ private fun DiagnosticsTcp16FatHeaderState.tone(): com.poyka.ripdpi.activities.D
         DiagnosticsTcp16FatHeaderState.Running -> com.poyka.ripdpi.activities.DiagnosticsTone.Info
         DiagnosticsTcp16FatHeaderState.Complete -> com.poyka.ripdpi.activities.DiagnosticsTone.Positive
         DiagnosticsTcp16FatHeaderState.Failed -> com.poyka.ripdpi.activities.DiagnosticsTone.Negative
+    }
+
+private fun DiagnosticsAllowlistSniState.tone(): com.poyka.ripdpi.activities.DiagnosticsTone =
+    when (this) {
+        DiagnosticsAllowlistSniState.Idle -> com.poyka.ripdpi.activities.DiagnosticsTone.Neutral
+        DiagnosticsAllowlistSniState.Running -> com.poyka.ripdpi.activities.DiagnosticsTone.Info
+        DiagnosticsAllowlistSniState.Complete -> com.poyka.ripdpi.activities.DiagnosticsTone.Positive
+        DiagnosticsAllowlistSniState.Failed -> com.poyka.ripdpi.activities.DiagnosticsTone.Negative
     }

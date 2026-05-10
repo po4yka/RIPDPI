@@ -37,7 +37,7 @@ class Tcp16FatHeaderProbe(
     private val requestRunner: Tcp16RequestRunner = OkHttpTcp16RequestRunner(),
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val concurrency: Int = DefaultConcurrency,
-) {
+) : Tcp16Probe {
     suspend fun run(
         targets: List<Tcp16Target>,
         rttHints: Map<String, Long> = emptyMap(),
@@ -54,9 +54,11 @@ class Tcp16FatHeaderProbe(
                 }.awaitAll()
         }
 
-    suspend fun runWithRttHint(
+    suspend fun runWithRttHint(target: Tcp16Target): Tcp16ProbeResult = runWithRttHint(target, hintRttMs = null)
+
+    override suspend fun runWithRttHint(
         target: Tcp16Target,
-        hintRttMs: Long? = null,
+        hintRttMs: Long?,
     ): Tcp16ProbeResult =
         withContext(dispatcher) {
             val tracker = Tcp16ConnectionTracker()
@@ -157,6 +159,13 @@ class Tcp16FatHeaderProbe(
     }
 }
 
+interface Tcp16Probe {
+    suspend fun runWithRttHint(
+        target: Tcp16Target,
+        hintRttMs: Long?,
+    ): Tcp16ProbeResult
+}
+
 data class Tcp16FatHeaderRequest(
     val requestIndex: Int,
     val padding: String?,
@@ -238,14 +247,7 @@ class OkHttpTcp16RequestRunner : Tcp16RequestRunner {
         return "$scheme://${sni ?: ip}:$port/"
     }
 
-    private fun Tcp16Target.dns(): Dns =
-        Dns { hostname ->
-            if (sni != null && hostname.equals(sni, ignoreCase = true)) {
-                listOf(InetAddress.getByName(ip))
-            } else {
-                Dns.SYSTEM.lookup(hostname)
-            }
-        }
+    private fun Tcp16Target.dns(): Dns = TargetDns(ip = ip, sni = sni)
 
     private companion object {
         private const val HttpsPort = 443
@@ -280,6 +282,18 @@ class OkHttpTcp16RequestRunner : Tcp16RequestRunner {
                 .hostnameVerifier { _, _ -> true }
                 .build()
     }
+}
+
+private data class TargetDns(
+    private val ip: String,
+    private val sni: String?,
+) : Dns {
+    override fun lookup(hostname: String): List<InetAddress> =
+        if (sni != null && hostname.equals(sni, ignoreCase = true)) {
+            listOf(InetAddress.getByName(ip))
+        } else {
+            Dns.SYSTEM.lookup(hostname)
+        }
 }
 
 private fun Tcp16Target.result(

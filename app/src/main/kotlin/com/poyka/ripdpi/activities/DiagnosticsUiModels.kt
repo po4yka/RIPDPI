@@ -105,6 +105,13 @@ enum class DiagnosticsTcp16FatHeaderState {
     Failed,
 }
 
+enum class DiagnosticsAllowlistSniState {
+    Idle,
+    Running,
+    Complete,
+    Failed,
+}
+
 @Immutable
 data class DiagnosticsDnsIntegrityDomainUiModel(
     val domain: String,
@@ -239,7 +246,42 @@ data class DiagnosticsTcp16FatHeaderToolUiModel(
     val summary: String = "Probe TCP16 fat-header behavior across bundled network targets.",
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsTcp16AsnUiModel> = persistentListOf(),
+    val detectedResults: ImmutableList<DiagnosticsTcp16DetectedTargetUiModel> = persistentListOf(),
     val errorMessage: String? = null,
+)
+
+@Immutable
+data class DiagnosticsTcp16DetectedTargetUiModel(
+    val targetId: String,
+    val asn: String,
+    val provider: String,
+    val ip: String,
+)
+
+@Immutable
+data class DiagnosticsCompatibleSniUiModel(
+    val label: String,
+    val value: String,
+)
+
+@Immutable
+data class DiagnosticsAllowlistSniAsnUiModel(
+    val asn: String,
+    val provider: String,
+    val ip: String,
+    val triedCount: String,
+    val compatibleSnis: ImmutableList<DiagnosticsCompatibleSniUiModel>,
+    val tone: DiagnosticsTone,
+)
+
+@Stable
+data class DiagnosticsAllowlistSniToolUiModel(
+    val state: DiagnosticsAllowlistSniState = DiagnosticsAllowlistSniState.Idle,
+    val summary: String = "Run SNI compatibility checks for TCP16-flagged ASNs.",
+    val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
+    val rows: ImmutableList<DiagnosticsAllowlistSniAsnUiModel> = persistentListOf(),
+    val errorMessage: String? = null,
+    val enabled: Boolean = false,
 )
 
 @Stable
@@ -250,6 +292,7 @@ data class DiagnosticsDpiToolsUiModel(
     val rknBlockDiagnosis: DiagnosticsRknBlockDiagnosisToolUiModel = DiagnosticsRknBlockDiagnosisToolUiModel(),
     val compressionProbe: DiagnosticsCompressionProbeToolUiModel = DiagnosticsCompressionProbeToolUiModel(),
     val tcp16FatHeader: DiagnosticsTcp16FatHeaderToolUiModel = DiagnosticsTcp16FatHeaderToolUiModel(),
+    val allowlistSni: DiagnosticsAllowlistSniToolUiModel = DiagnosticsAllowlistSniToolUiModel(),
 )
 
 @Immutable
