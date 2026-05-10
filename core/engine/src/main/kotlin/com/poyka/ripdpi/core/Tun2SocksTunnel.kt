@@ -212,6 +212,8 @@ data class Tun2SocksConfig(
     val dnsQueryTimeoutMs: Int? = null,
     val resolverFallbackActive: Boolean? = null,
     val resolverFallbackReason: String? = null,
+    val strategyChainYaml: String? = null,
+    val protectPath: String? = null,
     val taskStackSize: Int = 81_920,
     val tcpBufferSize: Int? = null,
     val udpRecvBufferSize: Int? = null,

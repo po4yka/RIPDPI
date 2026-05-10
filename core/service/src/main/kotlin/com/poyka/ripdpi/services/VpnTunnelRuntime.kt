@@ -13,6 +13,7 @@ internal class VpnTunnelRuntime(
     private val appSettingsRepository: AppSettingsRepository,
     private val tun2SocksBridgeFactory: Tun2SocksBridgeFactory,
     private val vpnTunnelSessionProvider: VpnTunnelSessionProvider,
+    private val protectPath: String? = null,
 ) {
     private companion object {
         private const val MapDnsAddress = "198.18.0.53"
@@ -50,6 +51,8 @@ internal class VpnTunnelRuntime(
                 localProxyEndpoint = localProxyEndpoint,
                 ipv6Enabled = ipv6,
                 logContext = logContext,
+                strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() },
+                protectPath = protectPath,
             )
 
         val tunnelSession = vpnTunnelSessionProvider.establish(vpnHost, dns, ipv6)

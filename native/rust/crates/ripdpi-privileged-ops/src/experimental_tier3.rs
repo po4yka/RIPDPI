@@ -141,6 +141,19 @@ pub fn send_icmp_wrapped_udp(spec: &IcmpWrappedUdpSpec, protect_path: Option<&st
     }
 }
 
+pub fn send_raw_ip_packet(target: SocketAddr, packet: &[u8], protect_path: Option<&str>) -> io::Result<()> {
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    {
+        linux::send_ip_packet(target, packet, protect_path)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    {
+        let _ = (target, packet, protect_path);
+        Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    }
+}
+
 pub fn recv_icmp_wrapped_udp(
     filter: IcmpWrappedUdpRecvFilter,
     protect_path: Option<&str>,

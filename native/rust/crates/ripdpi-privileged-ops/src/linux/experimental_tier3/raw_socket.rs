@@ -6,7 +6,7 @@ use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use crate::linux::socket_options::setsockopt_raw;
 
-pub(super) fn send_ip_packet(target: SocketAddr, packet: &[u8], protect_path: Option<&str>) -> io::Result<()> {
+pub(crate) fn send_ip_packet(target: SocketAddr, packet: &[u8], protect_path: Option<&str>) -> io::Result<()> {
     let socket = match target {
         SocketAddr::V4(_) => {
             let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;

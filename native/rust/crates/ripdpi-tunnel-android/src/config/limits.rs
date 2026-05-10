@@ -80,5 +80,7 @@ pub(crate) fn misc_config_from_payload(payload: &TunnelConfigPayload) -> MiscCon
     if let Some(value) = payload.filter_injected_resets {
         misc.filter_injected_resets = value;
     }
+    misc.strategy_chain_yaml = payload.strategy_chain_yaml.clone().filter(|value| !value.trim().is_empty());
+    misc.protect_path = payload.protect_path.clone().filter(|value| !value.trim().is_empty());
     misc
 }

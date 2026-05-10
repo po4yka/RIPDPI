@@ -71,4 +71,4 @@ Integration test with a controlled TUN loopback: send a SYN-ACK packet in, verif
 ## Work log
 
 - 2026-05-10: Added the tunnel-core ingress component and inserted it in the TUN read path with default disabled/no-op behavior, IPv4/IPv6 SYN-ACK detection tests, low-TTL packet mutation tests, split fake+real packet emission tests, and strategy YAML/registry IDs for `synack` and `synack_split`.
-- 2026-05-10: Remaining work before review: wire runtime strategy selection and a real VPN-protected raw packet injector, then add an end-to-end Mode.VPN forwarding/handshake regression test.
+- 2026-05-10: Wired runtime strategy YAML into the tunnel config, passed the VPN protect socket path through the Android bridge, and added a raw packet injector that degrades to passthrough when protection is unavailable. Remaining work before review: add an end-to-end Mode.VPN forwarding/handshake regression test and packet-forwarding benchmark check.

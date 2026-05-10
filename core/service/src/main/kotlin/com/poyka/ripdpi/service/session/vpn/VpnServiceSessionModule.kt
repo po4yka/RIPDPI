@@ -53,12 +53,14 @@ internal object VpnServiceSessionModule {
     fun provideVpnTunnelRuntime(
         host: VpnCoordinatorHost,
         dependencies: VpnServiceRuntimeRuntimeDependencies,
+        protectSocketServer: VpnProtectSocketServer,
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
             vpnHost = host,
             appSettingsRepository = dependencies.appSettingsRepository,
             tun2SocksBridgeFactory = dependencies.tun2SocksBridgeFactory,
             vpnTunnelSessionProvider = dependencies.vpnTunnelSessionProvider,
+            protectPath = protectSocketServer.socketPath,
         )
 
     @Provides

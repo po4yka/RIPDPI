@@ -1,7 +1,9 @@
 use std::io;
+use std::net::{IpAddr, SocketAddr};
 
 use etherparse::{NetSlice, TcpHeaderSlice};
-use tracing::debug;
+use ripdpi_strategy_config::{parse_yaml_str, StepType};
+use tracing::{debug, warn};
 
 use super::packet::parse_tcp_slices;
 
@@ -10,23 +12,37 @@ const IPV4_CHECKSUM_OFFSET: usize = 10;
 const IPV6_HOP_LIMIT_OFFSET: usize = 7;
 const TCP_SEQUENCE_OFFSET: usize = 4;
 const TCP_CHECKSUM_OFFSET: usize = 16;
-#[allow(dead_code)]
 const DEFAULT_SYNACK_SPLIT_SEQUENCE_DELTA: u32 = 0x4000_0000;
 
 pub(in crate::io_loop) trait SynAckPacketInjector {
     fn inject_packet(&mut self, packet: &[u8]) -> io::Result<()>;
 }
 
-pub(in crate::io_loop) struct NoopSynAckPacketInjector;
+pub(in crate::io_loop) struct RawSynAckPacketInjector {
+    protect_path: Option<String>,
+}
 
-impl SynAckPacketInjector for NoopSynAckPacketInjector {
-    fn inject_packet(&mut self, _packet: &[u8]) -> io::Result<()> {
-        Ok(())
+impl RawSynAckPacketInjector {
+    pub(in crate::io_loop) fn new(protect_path: Option<String>) -> Self {
+        Self { protect_path }
+    }
+}
+
+impl SynAckPacketInjector for RawSynAckPacketInjector {
+    fn inject_packet(&mut self, packet: &[u8]) -> io::Result<()> {
+        let Some(protect_path) = self.protect_path.as_deref() else {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "SYN-ACK raw injection requires VPN socket protection",
+            ));
+        };
+        let target = packet_destination(packet)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "SYN-ACK packet has no TCP destination"))?;
+        ripdpi_privileged_ops::send_raw_ip_packet(target, packet, Some(protect_path))
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[allow(dead_code)]
 pub(in crate::io_loop) enum SynAckStrategy {
     LowTtl { ttl: u8 },
     Split { sequence_delta: u32 },
@@ -38,6 +54,7 @@ pub(in crate::io_loop) struct TunIngressInterceptor<I> {
 }
 
 impl<I: SynAckPacketInjector> TunIngressInterceptor<I> {
+    #[cfg(test)]
     pub(in crate::io_loop) fn disabled(injector: I) -> Self {
         Self { strategy: None, injector }
     }
@@ -45,6 +62,10 @@ impl<I: SynAckPacketInjector> TunIngressInterceptor<I> {
     #[cfg(test)]
     fn with_strategy(strategy: SynAckStrategy, injector: I) -> Self {
         Self { strategy: Some(strategy), injector }
+    }
+
+    pub(in crate::io_loop) fn new(strategy: Option<SynAckStrategy>, injector: I) -> Self {
+        Self { strategy, injector }
     }
 
     pub(in crate::io_loop) fn handle_packet(&mut self, packet: &[u8]) {
@@ -78,6 +99,25 @@ impl SynAckStrategy {
         Self::Split { sequence_delta: DEFAULT_SYNACK_SPLIT_SEQUENCE_DELTA }
     }
 
+    pub(in crate::io_loop) fn from_yaml(yaml: Option<&str>) -> Option<Self> {
+        let yaml = yaml?.trim();
+        if yaml.is_empty() {
+            return None;
+        }
+        let parsed = match parse_yaml_str(yaml, ".") {
+            Ok(parsed) => parsed,
+            Err(error) => {
+                warn!("failed to parse strategy YAML for SYN-ACK TUN interception: {error}");
+                return None;
+            }
+        };
+        parsed.strategies.iter().flat_map(|strategy| strategy.steps.iter()).find_map(|step| match step.kind {
+            StepType::SynAck => Some(Self::LowTtl { ttl: step.ttl.unwrap_or(5).max(1) }),
+            StepType::SynAckSplit => Some(Self::Split { sequence_delta: DEFAULT_SYNACK_SPLIT_SEQUENCE_DELTA }),
+            _ => None,
+        })
+    }
+
     fn injection_packets(self, packet: &[u8]) -> Option<Vec<Vec<u8>>> {
         match self {
             Self::LowTtl { ttl } => Some(vec![with_low_ttl(packet, ttl)?]),
@@ -94,6 +134,16 @@ fn is_synack(packet: &[u8]) -> bool {
         return false;
     };
     tcp.syn() && tcp.ack() && !tcp.fin() && !tcp.rst()
+}
+
+fn packet_destination(packet: &[u8]) -> Option<SocketAddr> {
+    let (net, tcp) = parse_tcp_slices(packet)?;
+    let ip = match net {
+        NetSlice::Ipv4(ipv4) => IpAddr::V4(ipv4.header().destination_addr()),
+        NetSlice::Ipv6(ipv6) => IpAddr::V6(ipv6.header().destination_addr()),
+        NetSlice::Arp(_) => return None,
+    };
+    Some(SocketAddr::new(ip, tcp.destination_port()))
 }
 
 fn with_low_ttl(packet: &[u8], ttl: u8) -> Option<Vec<u8>> {
@@ -322,6 +372,29 @@ mod tests {
         );
         assert_eq!(ipv4_tcp_sequence(&interceptor.injector.packets[1]), 100);
         assert_ne!(interceptor.injector.packets[0], interceptor.injector.packets[1]);
+    }
+
+    #[test]
+    fn strategy_loads_from_yaml_chain() {
+        let yaml = "version: 1\nstrategies:\n  - id: handshake\n    steps:\n      - type: synack\n        ttl: 7\n";
+
+        assert_eq!(SynAckStrategy::from_yaml(Some(yaml)), Some(SynAckStrategy::LowTtl { ttl: 7 }));
+    }
+
+    #[test]
+    fn raw_injector_without_protect_path_reports_unsupported() {
+        let packet = build_ipv4_tcp_packet(TcpPacketSpec {
+            src_ip: Ipv4Addr::new(203, 0, 113, 10),
+            dst_ip: Ipv4Addr::new(10, 0, 0, 2),
+            flags: 0x12,
+            sequence: 100,
+            acknowledgment: 1,
+        });
+        let mut injector = RawSynAckPacketInjector::new(None);
+
+        let error = injector.inject_packet(&packet).expect_err("missing protect path should fail");
+
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
     }
 
     struct TcpPacketSpec {

@@ -207,6 +207,8 @@ class RipDpiVpnService :
             localProxyEndpoint: LocalProxyEndpoint,
             ipv6Enabled: Boolean,
             logContext: RipDpiLogContext? = null,
+            strategyChainYaml: String? = null,
+            protectPath: String? = null,
         ): Tun2SocksConfig =
             Tun2SocksConfig(
                 tunnelMtu = defaultTun2SocksTunnelMtu,
@@ -257,6 +259,8 @@ class RipDpiVpnService :
                 dnsQueryTimeoutMs = if (activeDns.mode == DnsModeEncrypted) DNS_QUERY_TIMEOUT_MS else null,
                 resolverFallbackActive = overrideReason != null,
                 resolverFallbackReason = overrideReason,
+                strategyChainYaml = strategyChainYaml,
+                protectPath = protectPath,
                 logContext = logContext,
                 username = localProxyEndpoint.username,
                 password = localProxyEndpoint.password,

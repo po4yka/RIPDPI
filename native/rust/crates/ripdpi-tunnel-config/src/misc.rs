@@ -27,6 +27,8 @@ pub struct MiscConfig {
     pub limit_nofile: u32,
     #[serde(default)]
     pub filter_injected_resets: bool,
+    pub strategy_chain_yaml: Option<String>,
+    pub protect_path: Option<String>,
 }
 
 impl Default for MiscConfig {
@@ -45,6 +47,8 @@ impl Default for MiscConfig {
             pid_file: None,
             limit_nofile: default_limit_nofile(),
             filter_injected_resets: false,
+            strategy_chain_yaml: None,
+            protect_path: None,
         }
     }
 }

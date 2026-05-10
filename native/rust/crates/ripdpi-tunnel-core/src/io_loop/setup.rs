@@ -57,8 +57,9 @@ pub(in crate::io_loop) fn setup_io_loop(
         mapdns_runtime,
         mapdns_classify,
         filter_injected_resets: config.misc.filter_injected_resets,
-        tun_ingress_interceptor: super::tun_ingress_interceptor::TunIngressInterceptor::disabled(
-            super::tun_ingress_interceptor::NoopSynAckPacketInjector,
+        tun_ingress_interceptor: super::tun_ingress_interceptor::TunIngressInterceptor::new(
+            super::tun_ingress_interceptor::SynAckStrategy::from_yaml(config.misc.strategy_chain_yaml.as_deref()),
+            super::tun_ingress_interceptor::RawSynAckPacketInjector::new(config.misc.protect_path.clone()),
         ),
         udp_idle_timeout: Duration::from_millis(u64::from(config.misc.udp_read_write_timeout)),
     };

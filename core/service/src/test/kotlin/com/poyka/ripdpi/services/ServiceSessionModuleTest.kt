@@ -87,10 +87,17 @@ class ServiceSessionModuleTest {
                     proxyFactory = proxyFactory,
                 )
             val statusDependencies = createVpnStatusDependencies(statusFactory)
+            val protectSocketServer =
+                VpnProtectSocketServer(
+                    socketPath = "/tmp/ripdpi-test-protect.sock",
+                    protectFailureMonitor = InMemoryVpnProtectFailureMonitor(),
+                    fdProtector = { true },
+                )
             val vpnTunnelRuntime =
                 VpnServiceSessionModule.provideVpnTunnelRuntime(
                     host = host,
                     dependencies = runtimeDependencies,
+                    protectSocketServer = protectSocketServer,
                 )
             val encryptedDnsFailoverController =
                 VpnServiceSessionModule.provideVpnEncryptedDnsFailoverController(

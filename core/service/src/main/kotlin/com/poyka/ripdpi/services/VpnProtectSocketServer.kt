@@ -24,7 +24,7 @@ import java.io.IOException
  * to [LocalServerSocket(FileDescriptor)].
  */
 internal class VpnProtectSocketServer(
-    private val socketPath: String,
+    val socketPath: String,
     private val protectFailureMonitor: VpnProtectFailureMonitor,
     private val fdProtector: (Int) -> Boolean,
     private val clock: () -> Long = System::currentTimeMillis,
