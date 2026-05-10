@@ -64,6 +64,7 @@ The dynamic-host approach also matters for **TCP 16-20** parity. dpi-detector us
 | `add-tls-keylog-path-for-pcap-debug` | Pre-master-secret keylog export for Wireshark debugging | low |
 | `add-tls-cert-sni-discoverer` | Extracts hostnames from TLS cert SAN/CN of any IP for realistic-target selection | medium |
 | `add-diagnostic-result-share-link-encoder` | Compact URL-encoded share link for diagnostic results (paired with deep-link decoder) | low |
+| `add-pluggable-transport-reachability-probe` | obfs4 / Snowflake / meek reachability probe — bypass-fingerprint signal for which obfuscation classes survive locally | medium |
 
 ## Ship definition
 
@@ -99,6 +100,7 @@ The dynamic-host approach also matters for **TCP 16-20** parity. dpi-detector us
 - [[add-tls-keylog-path-for-pcap-debug]]
 - [[add-tls-cert-sni-discoverer]]
 - [[add-diagnostic-result-share-link-encoder]]
+- [[add-pluggable-transport-reachability-probe]]
 
 ## TDD policy
 

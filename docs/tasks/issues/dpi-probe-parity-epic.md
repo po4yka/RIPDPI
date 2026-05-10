@@ -58,6 +58,14 @@ dpi-detector is the most technically complete open-source tool for detecting Rus
 |---|---|---|
 | `add-dpi-probe-suite-runner` | Suite controller: probe-selection UI, sequencing (DNS → reachability stub-IP handoff), aggregate verdict, custom-domain override | high |
 
+### Modern signals (beyond dpi-detector v3.3.0)
+
+| Task | What | Priority |
+|---|---|---|
+| `add-ech-encrypted-client-hello-probe` | RFC 9737 ECH readiness + handshake-acceptance probe; flags networks where ECH bypasses local SNI-DPI | high |
+| `add-doq-dns-over-quic-integrity-probe` | RFC 9250 DoQ resolution + DoH cross-check to detect UDP/853 censorship invisible to TCP-based DNS probes | high |
+| `add-quic-h3-fingerprint-probe` | Chrome/Firefox/generic QUIC Initial fingerprint probes to detect selective UDP DPI and fingerprint-aware blocking | high |
+
 ## Ship definition
 
 - [ ] `DpiErrorClassifier` sealed hierarchy covers all labels from dpi-detector's `error_classifier.py`
@@ -90,6 +98,11 @@ dpi-detector is the most technically complete open-source tool for detecting Rus
 
 ### Orchestration
 - [[add-dpi-probe-suite-runner]]
+
+### Modern signals (beyond dpi-detector v3.3.0)
+- [[add-ech-encrypted-client-hello-probe]]
+- [[add-doq-dns-over-quic-integrity-probe]]
+- [[add-quic-h3-fingerprint-probe]]
 
 ## TDD policy
 
