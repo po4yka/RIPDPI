@@ -42,4 +42,4 @@ style:
   MaxLineLength:
     maxLineLength: 120
   UnusedPrivateMember:
-    allowedNames: "(_|ignored|expected|preview.*)"
+    allowedNames: "(_|ignored|expected|preview.*|.*Preview)"

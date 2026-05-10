@@ -219,7 +219,6 @@ private fun RipDpiButtonIcon(
     )
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiButtonLightPreview() {
@@ -239,7 +238,6 @@ private fun RipDpiButtonLightPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiButtonDarkPreview() {

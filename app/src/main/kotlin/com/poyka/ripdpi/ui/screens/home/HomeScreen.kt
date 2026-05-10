@@ -240,7 +240,6 @@ private fun HomeModeCardList(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeScreenAllInactivePreview() {
@@ -256,7 +255,6 @@ private fun HomeScreenAllInactivePreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeScreenBypassActivePreview() {
@@ -272,7 +270,6 @@ private fun HomeScreenBypassActivePreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeScreenVpnActivePreview() {
@@ -288,7 +285,6 @@ private fun HomeScreenVpnActivePreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeScreenDiagnosticRunningPreview() {
@@ -304,7 +300,6 @@ private fun HomeScreenDiagnosticRunningPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeScreenErrorPreview() {

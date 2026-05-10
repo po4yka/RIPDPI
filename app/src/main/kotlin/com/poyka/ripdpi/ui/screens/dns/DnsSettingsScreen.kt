@@ -87,7 +87,6 @@ private fun DnsProxyModeWarning(uiState: SettingsUiState) {
 
 @Preview(showBackground = true)
 @Composable
-@Suppress("UnusedPrivateMember")
 private fun DnsSettingsEncryptedPreview() {
     RipDpiTheme {
         DnsSettingsScreen(
@@ -123,7 +122,6 @@ private fun DnsSettingsEncryptedPreview() {
 
 @Preview(showBackground = true)
 @Composable
-@Suppress("UnusedPrivateMember")
 private fun DnsSettingsPlainPreview() {
     RipDpiTheme {
         DnsSettingsScreen(

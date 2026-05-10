@@ -157,7 +157,6 @@ fun RipDpiChip(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiChipPreview() {
@@ -170,7 +169,6 @@ private fun RipDpiChipPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiChipDarkPreview() {

@@ -228,7 +228,6 @@ private fun RowScope.BottomNavItem(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun BottomNavBarLightPreview() {
@@ -240,7 +239,6 @@ private fun BottomNavBarLightPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun BottomNavBarDarkPreview() {

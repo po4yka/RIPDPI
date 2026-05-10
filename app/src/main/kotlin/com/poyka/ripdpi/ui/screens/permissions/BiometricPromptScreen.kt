@@ -416,7 +416,6 @@ private fun BiometricPromptPinInput(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 private fun BiometricPromptScreenPreview() {
@@ -439,7 +438,6 @@ private fun BiometricPromptScreenPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 private fun BiometricPromptPinDarkPreview() {

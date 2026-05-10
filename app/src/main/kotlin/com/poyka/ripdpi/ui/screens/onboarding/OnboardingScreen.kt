@@ -743,7 +743,6 @@ private fun OnboardingIllustrationBox(
 
 private fun PagerState.onboardingPageOffset(page: Int): Float = (currentPage - page) + currentPageOffsetFraction
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 private fun OnboardingScreenPreview() {
@@ -764,7 +763,6 @@ private fun OnboardingScreenPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 private fun OnboardingScreenSetupPreview() {
@@ -789,7 +787,6 @@ private fun OnboardingScreenSetupPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 private fun OnboardingScreenDarkPreview() {

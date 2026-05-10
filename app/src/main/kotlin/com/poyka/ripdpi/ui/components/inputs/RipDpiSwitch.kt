@@ -286,7 +286,6 @@ private data class SwitchDimensions(
     val thumbSize: androidx.compose.ui.unit.Dp,
 )
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiSwitchPreview() {
@@ -326,7 +325,6 @@ private fun RipDpiSwitchPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiSwitchDarkPreview() {

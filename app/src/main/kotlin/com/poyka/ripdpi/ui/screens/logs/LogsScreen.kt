@@ -653,7 +653,6 @@ private val previewLogs =
         ),
     )
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun LogsScreenPreview() {
@@ -672,7 +671,6 @@ private fun LogsScreenPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun LogsScreenDarkPreview() {

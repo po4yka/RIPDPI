@@ -401,54 +401,7 @@ class StrategyPackServiceTest {
     fun `state publisher resolves selected pack without mutating refresh state`() {
         val stateStore = InMemoryStrategyPackStateStore()
         val publisher = StrategyPackStatePublisher(stateStore = stateStore, clock = StrategyPackClock { 42L })
-        val snapshot =
-            StrategyPackSnapshot(
-                catalog =
-                    StrategyPackCatalog(
-                        channel = "stable",
-                        sequence = 11L,
-                        packs =
-                            listOf(
-                                StrategyPackDefinition(
-                                    id = "baseline",
-                                    version = "2026.04.0",
-                                    title = "Baseline",
-                                    description = "Baseline pack",
-                                ),
-                                StrategyPackDefinition(
-                                    id = "mobile",
-                                    version = "2026.04.1",
-                                    title = "Mobile",
-                                    description = "Mobile pack",
-                                    tlsProfileSetId = "tls-modern",
-                                    morphPolicyId = "morph-light",
-                                    transportModuleIds = listOf("relay-ws"),
-                                    featureFlagIds = listOf("finalmask"),
-                                ),
-                            ),
-                        tlsProfiles =
-                            listOf(
-                                StrategyPackTlsProfileSet(
-                                    id = "tls-modern",
-                                    title = "Modern TLS",
-                                    catalogVersion = "v2",
-                                    allowedProfileIds = listOf("chrome_124"),
-                                    rotationEnabled = true,
-                                    echPolicy = "prefer",
-                                    proxyModeNotice = "proxy-mode",
-                                    acceptanceCorpusRef = "corpus://tls",
-                                ),
-                            ),
-                        morphPolicies = listOf(StrategyPackMorphPolicy(id = "morph-light", title = "Light")),
-                        transportModules =
-                            listOf(
-                                StrategyPackTransportModule(id = "relay-ws", kind = "relay", title = "WS"),
-                            ),
-                        featureFlags = listOf(StrategyPackFeatureFlag(id = "finalmask", enabled = true)),
-                    ),
-                source = StrategyPackCatalogSourceDownloaded,
-                lastFetchedAtEpochMillis = 7L,
-            )
+        val snapshot = mobileStrategyPackSnapshot()
 
         publisher.publishSelectionForSnapshot(
             snapshot = snapshot,
@@ -528,6 +481,57 @@ class StrategyPackServiceTest {
                 ),
             source = StrategyPackCatalogSourceDownloaded,
             lastFetchedAtEpochMillis = fetchedAt,
+        )
+
+    private fun mobileStrategyPackSnapshot(): StrategyPackSnapshot =
+        StrategyPackSnapshot(
+            catalog =
+                StrategyPackCatalog(
+                    channel = "stable",
+                    sequence = 11L,
+                    packs = listOf(baselineStrategyPack(), mobileStrategyPack()),
+                    tlsProfiles = listOf(modernTlsProfileSet()),
+                    morphPolicies = listOf(StrategyPackMorphPolicy(id = "morph-light", title = "Light")),
+                    transportModules =
+                        listOf(
+                            StrategyPackTransportModule(id = "relay-ws", kind = "relay", title = "WS"),
+                        ),
+                    featureFlags = listOf(StrategyPackFeatureFlag(id = "finalmask", enabled = true)),
+                ),
+            source = StrategyPackCatalogSourceDownloaded,
+            lastFetchedAtEpochMillis = 7L,
+        )
+
+    private fun baselineStrategyPack(): StrategyPackDefinition =
+        StrategyPackDefinition(
+            id = "baseline",
+            version = "2026.04.0",
+            title = "Baseline",
+            description = "Baseline pack",
+        )
+
+    private fun mobileStrategyPack(): StrategyPackDefinition =
+        StrategyPackDefinition(
+            id = "mobile",
+            version = "2026.04.1",
+            title = "Mobile",
+            description = "Mobile pack",
+            tlsProfileSetId = "tls-modern",
+            morphPolicyId = "morph-light",
+            transportModuleIds = listOf("relay-ws"),
+            featureFlagIds = listOf("finalmask"),
+        )
+
+    private fun modernTlsProfileSet(): StrategyPackTlsProfileSet =
+        StrategyPackTlsProfileSet(
+            id = "tls-modern",
+            title = "Modern TLS",
+            catalogVersion = "v2",
+            allowedProfileIds = listOf("chrome_124"),
+            rotationEnabled = true,
+            echPolicy = "prefer",
+            proxyModeNotice = "proxy-mode",
+            acceptanceCorpusRef = "corpus://tls",
         )
 }
 

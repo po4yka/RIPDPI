@@ -176,7 +176,6 @@ fun StatusIndicator(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun StatusIndicatorPreview() {

@@ -202,7 +202,6 @@ internal fun AppCustomizationScreen(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun AppCustomizationScreenPreview() {
@@ -220,7 +219,6 @@ private fun AppCustomizationScreenPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun AppCustomizationScreenDarkPreview() {

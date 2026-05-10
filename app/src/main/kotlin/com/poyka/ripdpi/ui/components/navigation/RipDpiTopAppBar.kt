@@ -79,7 +79,6 @@ fun RipDpiTopAppBar(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiTopAppBarPreview() {
@@ -104,7 +103,6 @@ private fun RipDpiTopAppBarPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiTopAppBarDarkPreview() {

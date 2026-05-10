@@ -283,7 +283,6 @@ private fun defaultSnackbarIcon(tone: RipDpiSnackbarTone) =
         RipDpiSnackbarTone.Restricted -> RipDpiIcons.Lock
     }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiSnackbarPreview() {
@@ -312,7 +311,6 @@ private fun RipDpiSnackbarPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiSnackbarDarkPreview() {

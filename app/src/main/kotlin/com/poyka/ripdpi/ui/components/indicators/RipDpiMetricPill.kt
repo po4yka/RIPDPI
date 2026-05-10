@@ -169,7 +169,6 @@ fun RipDpiMetricPill(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiMetricPillPreview() {

@@ -318,7 +318,6 @@ private fun defaultDialogIcon(tone: RipDpiDialogTone): ImageVector? =
         RipDpiDialogTone.Info -> RipDpiIcons.Info
     }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiConfirmationDialogPreview() {
@@ -335,7 +334,6 @@ private fun RipDpiConfirmationDialogPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiDestructiveDialogPreview() {
@@ -353,7 +351,6 @@ private fun RipDpiDestructiveDialogPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiInfoDialogPreview() {

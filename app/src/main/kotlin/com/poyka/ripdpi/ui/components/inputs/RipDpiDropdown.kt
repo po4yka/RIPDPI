@@ -264,7 +264,6 @@ private fun dropdownHorizontalPadding(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiDropdownPreview() {

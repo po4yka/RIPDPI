@@ -19,7 +19,6 @@ import com.poyka.ripdpi.ui.screens.settings.previewHostPackCatalog
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun AdvancedSettingsScreenPreview() {
@@ -88,7 +87,6 @@ private fun AdvancedSettingsScreenPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun AdvancedSettingsScreenDarkPreview() {

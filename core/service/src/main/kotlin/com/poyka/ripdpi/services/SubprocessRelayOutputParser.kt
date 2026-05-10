@@ -4,6 +4,14 @@ import java.net.InetSocketAddress
 
 private const val StructuredReadyPrefix = "RIPDPI-READY|"
 private const val StructuredErrorPrefix = "RIPDPI-ERROR|"
+private const val ReadyEventPartLimit = 3
+private const val ErrorEventPartLimit = 4
+private const val StructuredRuntimeKindIndex = 1
+private const val StructuredReadyVersionIndex = 2
+private const val StructuredErrorFailureClassIndex = 2
+private const val StructuredErrorMessageIndex = 3
+
+private val PlainErrorPrefixes = listOf("ENV-ERROR", "VERSION-ERROR", "PROXY-ERROR", "CMETHOD-ERROR", "SMETHOD-ERROR")
 
 internal sealed interface SubprocessRelayOutputEvent {
     data class ManagedClientListener(
@@ -32,51 +40,54 @@ internal class SubprocessRelayOutputParser {
         spec: SubprocessSocksRelayLaunchSpec,
     ): SubprocessRelayOutputEvent? {
         val trimmed = redactSensitive(line.trim(), spec)
-        if (trimmed.isBlank()) {
-            return null
+        val managedClientListener =
+            spec.managedClientBridge
+                ?.let { bridgeSpec ->
+                    parseManagedClientListenerLine(trimmed, bridgeSpec.methodName)
+                }
+
+        return when {
+            trimmed.isBlank() -> null
+            managedClientListener != null -> SubprocessRelayOutputEvent.ManagedClientListener(managedClientListener)
+            else -> parseStructuredEvent(trimmed) ?: parsePlainError(trimmed)
         }
-        spec.managedClientBridge
-            ?.let { bridgeSpec ->
-                parseManagedClientListenerLine(trimmed, bridgeSpec.methodName)
-            }?.let { listener ->
-                return SubprocessRelayOutputEvent.ManagedClientListener(listener)
-            }
-        return parseStructuredEvent(trimmed) ?: parsePlainError(trimmed)
     }
 
-    private fun parseStructuredEvent(line: String): SubprocessRelayOutputEvent? {
-        if (line.startsWith(StructuredReadyPrefix)) {
-            val parts = line.split('|', limit = 3)
-            return SubprocessRelayOutputEvent.Ready(
-                runtimeKind = parts.getOrNull(1).orEmpty(),
-                version = parts.getOrNull(2)?.takeIf(String::isNotBlank),
-            )
+    private fun parseStructuredEvent(line: String): SubprocessRelayOutputEvent? =
+        when {
+            line.startsWith(StructuredReadyPrefix) -> {
+                val parts = line.split('|', limit = ReadyEventPartLimit)
+                SubprocessRelayOutputEvent.Ready(
+                    runtimeKind = parts.getOrNull(StructuredRuntimeKindIndex).orEmpty(),
+                    version = parts.getOrNull(StructuredReadyVersionIndex)?.takeIf(String::isNotBlank),
+                )
+            }
+
+            line.startsWith(StructuredErrorPrefix) -> {
+                val parts = line.split('|', limit = ErrorEventPartLimit)
+                SubprocessRelayOutputEvent.Error(
+                    runtimeKind = parts.getOrNull(StructuredRuntimeKindIndex).orEmpty(),
+                    failureClass = parts.getOrNull(StructuredErrorFailureClassIndex).orEmpty(),
+                    message = parts.getOrNull(StructuredErrorMessageIndex).orEmpty(),
+                )
+            }
+
+            else -> {
+                null
+            }
         }
-        if (line.startsWith(StructuredErrorPrefix)) {
-            val parts = line.split('|', limit = 4)
-            return SubprocessRelayOutputEvent.Error(
-                runtimeKind = parts.getOrNull(1).orEmpty(),
-                failureClass = parts.getOrNull(2).orEmpty(),
-                message = parts.getOrNull(3).orEmpty(),
-            )
-        }
-        return null
-    }
 
     private fun parsePlainError(trimmed: String): SubprocessRelayOutputEvent.PlainError? =
-        if (
-            trimmed.startsWith("ENV-ERROR") ||
-            trimmed.startsWith("VERSION-ERROR") ||
-            trimmed.startsWith("PROXY-ERROR") ||
-            trimmed.startsWith("CMETHOD-ERROR") ||
-            trimmed.startsWith("SMETHOD-ERROR") ||
-            trimmed.contains("[ERROR]") ||
-            trimmed.contains(" error", ignoreCase = true)
-        ) {
+        if (isPlainError(trimmed)) {
             SubprocessRelayOutputEvent.PlainError(trimmed)
         } else {
             null
         }
+
+    private fun isPlainError(trimmed: String): Boolean =
+        PlainErrorPrefixes.any(trimmed::startsWith) ||
+            trimmed.contains("[ERROR]") ||
+            trimmed.contains(" error", ignoreCase = true)
 
     private fun redactSensitive(
         raw: String,

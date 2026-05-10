@@ -218,42 +218,36 @@ private fun homeModeStatusTone(uiState: HomeModeCardUiState): StatusIndicatorTon
         else -> StatusIndicatorTone.Idle
     }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeModeCardLocalActivePreview() {
     HomeModeCardPreviewContent(card = previewCard(HomeMode.LocalDpiBypass, active = true))
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeModeCardLocalInactivePreview() {
     HomeModeCardPreviewContent(card = previewCard(HomeMode.LocalDpiBypass))
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeModeCardVpnActivePreview() {
     HomeModeCardPreviewContent(card = previewCard(HomeMode.RemoteVpn, active = true))
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeModeCardVpnInactivePreview() {
     HomeModeCardPreviewContent(card = previewCard(HomeMode.RemoteVpn))
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeModeCardDiagnosticActivePreview() {
     HomeModeCardPreviewContent(card = previewCard(HomeMode.Diagnostic, active = true))
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HomeModeCardDiagnosticInactivePreview() {

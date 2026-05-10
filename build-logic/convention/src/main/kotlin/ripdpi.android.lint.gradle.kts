@@ -8,5 +8,4 @@ the<CommonExtension>().lint.apply {
     htmlReport = true
     xmlReport = true
     lintConfig = rootProject.file("lint.xml")
-    baseline = project.file("lint-baseline.xml")
 }

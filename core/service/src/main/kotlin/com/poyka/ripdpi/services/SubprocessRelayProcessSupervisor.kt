@@ -4,6 +4,8 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
+private const val RelayProcessStopTimeoutMs = 1_500L
+
 internal class SubprocessRelayProcessSupervisor(
     private val outputParser: SubprocessRelayOutputParser,
 ) {
@@ -32,9 +34,9 @@ internal class SubprocessRelayProcessSupervisor(
         }
         return try {
             activeProcess.destroy()
-            if (!activeProcess.waitFor(1_500, TimeUnit.MILLISECONDS)) {
+            if (!activeProcess.waitFor(RelayProcessStopTimeoutMs, TimeUnit.MILLISECONDS)) {
                 activeProcess.destroyForcibly()
-                activeProcess.waitFor(1_500, TimeUnit.MILLISECONDS)
+                activeProcess.waitFor(RelayProcessStopTimeoutMs, TimeUnit.MILLISECONDS)
             }
             null
         } catch (error: IOException) {

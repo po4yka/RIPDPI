@@ -8,6 +8,11 @@ import java.net.Socket
 
 private const val RelayReadyPollIntervalMs = 100L
 private const val RelayReadyTimeoutMs = 5_000L
+private const val SocksReadinessConnectTimeoutMs = 250
+private const val SocksVersion5: Byte = 0x05
+private const val SocksNoAuthMethod: Byte = 0x00
+private const val SocksMethodCount: Byte = 0x01
+private const val SocksReadinessResponseLength = 2
 
 internal fun interface SocksReadinessConnector {
     fun canConnect(
@@ -23,11 +28,11 @@ internal class SocketSocksReadinessConnector : SocksReadinessConnector {
     ): Boolean =
         runCatching {
             Socket().use { socket ->
-                socket.connect(InetSocketAddress(host, port), 250)
-                socket.soTimeout = 250
-                socket.getOutputStream().write(byteArrayOf(0x05, 0x01, 0x00))
-                val response = socket.getInputStream().readFully(2)
-                if (!response.contentEquals(byteArrayOf(0x05, 0x00))) {
+                socket.connect(InetSocketAddress(host, port), SocksReadinessConnectTimeoutMs)
+                socket.soTimeout = SocksReadinessConnectTimeoutMs
+                socket.getOutputStream().write(byteArrayOf(SocksVersion5, SocksMethodCount, SocksNoAuthMethod))
+                val response = socket.getInputStream().readFully(SocksReadinessResponseLength)
+                if (!response.contentEquals(byteArrayOf(SocksVersion5, SocksNoAuthMethod))) {
                     error("unexpected SOCKS5 readiness response")
                 }
             }

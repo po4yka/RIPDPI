@@ -30,7 +30,6 @@ internal fun ModeEditorScreenWithNoOpCallbacks(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun ModeEditorScreenPreview() {
@@ -54,7 +53,6 @@ private fun ModeEditorScreenPreview() {
     )
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun ModeEditorScreenDarkPreview() {

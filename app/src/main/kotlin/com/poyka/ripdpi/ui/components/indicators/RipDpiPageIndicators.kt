@@ -64,7 +64,6 @@ fun RipDpiPageIndicators(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiPageIndicatorsPreview() {
@@ -73,7 +72,6 @@ private fun RipDpiPageIndicatorsPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiPageIndicatorsDarkPreview() {

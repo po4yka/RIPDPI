@@ -181,7 +181,6 @@ private fun presetCardBadgePalette(selected: Boolean): PresetCardBadgePalette {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun PresetCardPreview() {

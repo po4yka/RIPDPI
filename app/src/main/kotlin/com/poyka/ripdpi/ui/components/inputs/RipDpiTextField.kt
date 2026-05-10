@@ -224,7 +224,6 @@ private fun RipDpiTextFieldShell(
     )
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiTextFieldLightPreview() {
@@ -259,7 +258,6 @@ private fun RipDpiTextFieldLightPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiTextFieldDarkPreview() {

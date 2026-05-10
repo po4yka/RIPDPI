@@ -554,7 +554,6 @@ private val RouteStackNodeMinWidth = 48.dp
 private val RouteStackNodeMaxWidth = 74.dp
 private const val RouteDisabledAlpha = 0.72f
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiRouteComponentsPreview() {

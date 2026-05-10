@@ -162,7 +162,6 @@ private data class StageSummaryPart(
     val color: Color,
 )
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun StageProgressIndicatorPreview() {

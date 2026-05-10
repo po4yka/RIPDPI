@@ -147,7 +147,6 @@ private fun IconOptionCell(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun IconPickerGridPreview() {
@@ -160,7 +159,6 @@ private fun IconPickerGridPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun IconPickerGridDarkPreview() {

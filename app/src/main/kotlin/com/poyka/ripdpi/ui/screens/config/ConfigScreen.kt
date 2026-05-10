@@ -317,7 +317,6 @@ private fun configModeSectionTitleRes(section: ConfigModeSection): Int =
         ConfigModeSection.Vpn -> R.string.home_mode_remote_vpn
     }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun ConfigScreenPreview() {
@@ -338,7 +337,6 @@ private fun ConfigScreenPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun ConfigScreenDarkPreview() {

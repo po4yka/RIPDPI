@@ -345,7 +345,6 @@ private fun PipelineSegment(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun AnalysisProgressIndicatorPreview() {

@@ -288,7 +288,6 @@ fun RipDpiAdaptiveColumns(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiScreenScaffoldPreview() {
@@ -303,7 +302,6 @@ private fun RipDpiScreenScaffoldPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiSettingsScaffoldPreview() {
@@ -318,7 +316,6 @@ private fun RipDpiSettingsScaffoldPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiDashboardScaffoldPreview() {
@@ -333,7 +330,6 @@ private fun RipDpiDashboardScaffoldPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiContentScreenScaffoldPreview() {

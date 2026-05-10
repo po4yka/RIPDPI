@@ -233,7 +233,6 @@ internal fun HistoryScreen(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HistoryScreenConnectionsPreview() {
@@ -265,7 +264,6 @@ private fun HistoryScreenConnectionsPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun HistoryScreenEventsPreview() {

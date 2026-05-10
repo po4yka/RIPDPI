@@ -217,7 +217,6 @@ private fun credentialsValue(uiState: ConfigUiState): String =
         }
     }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun VpnConfigScreenPreview() {

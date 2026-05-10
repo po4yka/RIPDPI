@@ -161,7 +161,6 @@ private fun defaultWarningBannerIcon(tone: WarningBannerTone): ImageVector =
         WarningBannerTone.Restricted -> RipDpiIcons.Lock
     }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun WarningBannerPreview() {
@@ -191,7 +190,6 @@ private fun WarningBannerPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun WarningBannerWithDismissPreview() {
@@ -213,7 +211,6 @@ private fun WarningBannerWithDismissPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun WarningBannerDarkPreview() {

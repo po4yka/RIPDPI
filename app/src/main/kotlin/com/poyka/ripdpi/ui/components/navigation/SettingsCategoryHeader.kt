@@ -19,7 +19,6 @@ fun SettingsCategoryHeader(
     )
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun SettingsCategoryHeaderPreview() {

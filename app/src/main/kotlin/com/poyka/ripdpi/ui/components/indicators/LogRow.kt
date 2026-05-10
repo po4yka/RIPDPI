@@ -161,7 +161,6 @@ private fun logRowPalette(tone: LogRowTone): LogRowPalette {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun LogRowPreview() {

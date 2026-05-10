@@ -164,7 +164,6 @@ private fun LocalBypassActionRow(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
 private fun LocalBypassConfigScreenPreview() {

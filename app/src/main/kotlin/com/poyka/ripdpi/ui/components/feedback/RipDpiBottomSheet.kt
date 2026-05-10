@@ -275,14 +275,12 @@ private fun BottomSheetActionColumn(
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true, heightDp = 640)
 @Composable
 private fun RipDpiBottomSheetLightPreview() {
     RipDpiBottomSheetPreview(themePreference = "light")
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true, heightDp = 640)
 @Composable
 private fun RipDpiBottomSheetDarkPreview() {
