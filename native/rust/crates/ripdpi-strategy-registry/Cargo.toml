@@ -1,0 +1,15 @@
+[package]
+name = "ripdpi-strategy-registry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-desync = { workspace = true }
+ripdpi-strategy-trait = { workspace = true }
+
+[dev-dependencies]
+static_assertions = "1"

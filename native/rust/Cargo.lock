@@ -3967,6 +3967,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-strategy-registry"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-desync",
+ "ripdpi-strategy-trait",
+ "static_assertions",
+]
+
+[[package]]
 name = "ripdpi-strategy-trait"
 version = "0.1.0"
 dependencies = [

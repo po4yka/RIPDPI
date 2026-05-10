@@ -1,7 +1,7 @@
 ---
 title: Create ripdpi-strategy-registry crate with chain executor and UCB1 integration
 type: task
-status: backlog
+status: doing
 area: rust-native
 priority: high
 owner: unassigned
@@ -13,7 +13,7 @@ created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Create ripdpi-strategy-registry crate with chain executor and UCB1 integration #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [ ] #task Create ripdpi-strategy-registry crate with chain executor and UCB1 integration #repo/RIPDPI #area/rust-native #status/doing 🔼
 
 ## Objective / Goal
 
