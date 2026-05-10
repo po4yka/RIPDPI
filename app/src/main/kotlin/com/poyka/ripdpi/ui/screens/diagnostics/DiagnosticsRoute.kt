@@ -207,6 +207,7 @@ fun DiagnosticsRoute(
                 onRunDnsIntegrityCheck = remember(viewModel) { viewModel::runDnsIntegrityCheck },
                 onRunDomainReachabilityScan = remember(viewModel) { viewModel::runDomainReachabilityScan },
                 onRunRknBlockDiagnosis = remember(viewModel) { viewModel::runRknBlockDiagnosis },
+                onRknSelfInfoEnabledChange = remember(viewModel) { viewModel::setRknSelfInfoEnabled },
             ),
         dpiTools =
             DiagnosticsDpiToolsUiModel(

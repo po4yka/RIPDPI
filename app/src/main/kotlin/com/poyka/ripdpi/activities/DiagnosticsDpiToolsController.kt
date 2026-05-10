@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Context
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.diagnostics.dpi.AttemptResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
@@ -18,6 +19,8 @@ import com.poyka.ripdpi.diagnostics.rkn.RknTarget
 import com.poyka.ripdpi.diagnostics.rkn.RknVerdict
 import com.poyka.ripdpi.diagnostics.rkn.RknVerdictColorToken
 import com.poyka.ripdpi.diagnostics.rkn.RknVerdictLabel
+import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
+import com.poyka.ripdpi.diagnostics.rkn.SelfInfoResult
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -35,9 +38,11 @@ private const val DnsIntegrityPreviewDomainLimit = 5
 internal class DiagnosticsDpiToolsController(
     private val scope: CoroutineScope,
     private val appContext: Context,
+    private val appSettingsRepository: AppSettingsRepository,
     private val dnsIntegrityChecker: DnsIntegrityChecker = DnsIntegrityChecker(),
     private val domainReachabilityScanner: DomainReachabilityScanner = DomainReachabilityScanner(),
     private val rknLayeredProbePipeline: RknLayeredProbePipeline = RknLayeredProbePipeline(),
+    private val selfInfoFetcher: SelfInfoFetcher,
 ) {
     private val _dnsIntegrityTool = MutableStateFlow(DiagnosticsDnsIntegrityToolUiModel())
     val dnsIntegrityTool: StateFlow<DiagnosticsDnsIntegrityToolUiModel> = _dnsIntegrityTool.asStateFlow()
@@ -51,6 +56,19 @@ internal class DiagnosticsDpiToolsController(
         _rknBlockDiagnosisTool.asStateFlow()
 
     private var latestDnsStubIps: Set<String> = emptySet()
+
+    init {
+        scope.launch {
+            appSettingsRepository.settings.collect { settings ->
+                val current = _rknBlockDiagnosisTool.value
+                _rknBlockDiagnosisTool.value =
+                    current.copy(
+                        fetchSelfInfoEnabled = settings.rknDiagnosticsFetchSelfInfoEnabled,
+                        selfInfoPrivacyOverridden = settings.detectionCheckPrivacyModeEnabled,
+                    )
+            }
+        }
+    }
 
     fun runDnsIntegrityCheck() {
         if (_dnsIntegrityTool.value.state == DiagnosticsDnsIntegrityState.Running) {
@@ -114,30 +132,56 @@ internal class DiagnosticsDpiToolsController(
         if (_rknBlockDiagnosisTool.value.state == DiagnosticsRknBlockDiagnosisState.Running) {
             return
         }
+        val current = _rknBlockDiagnosisTool.value
         _rknBlockDiagnosisTool.value =
             DiagnosticsRknBlockDiagnosisToolUiModel(
                 state = DiagnosticsRknBlockDiagnosisState.Running,
                 summary = "Running RKN control and blacklist probes...",
+                fetchSelfInfoEnabled = current.fetchSelfInfoEnabled,
+                selfInfoPrivacyOverridden = current.selfInfoPrivacyOverridden,
             )
         scope.launch {
             runCatching {
+                val settings = appSettingsRepository.snapshot()
+                val selfInfo =
+                    selfInfoFetcher.fetch(
+                        enabled = settings.rknDiagnosticsFetchSelfInfoEnabled,
+                        privacyModeEnabled = settings.detectionCheckPrivacyModeEnabled,
+                    )
                 val controlTargets = loadRknWhitelistControl()
                 val testTargets = loadRknBlacklistTest()
                 check(controlTargets.isNotEmpty()) { "No bundled RKN control targets are available." }
                 check(testTargets.isNotEmpty()) { "No bundled RKN test targets are available." }
                 val controlResults = rknLayeredProbePipeline.iterCheckUrls(controlTargets.toProbeTargets()).toList()
                 val testResults = rknLayeredProbePipeline.iterCheckUrls(testTargets.toProbeTargets()).toList()
-                controlResults to testResults
-            }.onSuccess { (controlResults, testResults) ->
-                _rknBlockDiagnosisTool.value = buildRknBlockDiagnosisUiModel(controlResults, testResults)
+                RknDiagnosisRunResult(
+                    controlResults = controlResults,
+                    testResults = testResults,
+                    selfInfo = selfInfo,
+                    fetchSelfInfoEnabled = settings.rknDiagnosticsFetchSelfInfoEnabled,
+                    selfInfoPrivacyOverridden = settings.detectionCheckPrivacyModeEnabled,
+                )
+            }.onSuccess { result ->
+                _rknBlockDiagnosisTool.value = buildRknBlockDiagnosisUiModel(result)
             }.onFailure { error ->
                 if (error is CancellationException) throw error
+                val latest = _rknBlockDiagnosisTool.value
                 _rknBlockDiagnosisTool.value =
                     DiagnosticsRknBlockDiagnosisToolUiModel(
                         state = DiagnosticsRknBlockDiagnosisState.Failed,
                         summary = "RKN block diagnosis failed.",
                         errorMessage = error.message ?: error.javaClass.simpleName,
+                        fetchSelfInfoEnabled = latest.fetchSelfInfoEnabled,
+                        selfInfoPrivacyOverridden = latest.selfInfoPrivacyOverridden,
                     )
+            }
+        }
+    }
+
+    fun setRknSelfInfoEnabled(enabled: Boolean) {
+        scope.launch {
+            appSettingsRepository.update {
+                rknDiagnosticsFetchSelfInfoEnabled = enabled
             }
         }
     }
@@ -162,6 +206,14 @@ internal class DiagnosticsDpiToolsController(
             DpiAssetLoader(appContext).loadRknBlacklistTest()
         }
 }
+
+private data class RknDiagnosisRunResult(
+    val controlResults: List<RknCheckResult>,
+    val testResults: List<RknCheckResult>,
+    val selfInfo: SelfInfoResult?,
+    val fetchSelfInfoEnabled: Boolean,
+    val selfInfoPrivacyOverridden: Boolean,
+)
 
 private fun DnsIntegrityResult.toUiModel(): DiagnosticsDnsIntegrityToolUiModel {
     val flagged = domains.count { result -> result.verdict != DnsIntegrityVerdict.DNS_OK }
@@ -227,10 +279,9 @@ private fun List<DomainReachabilityResult>.toUiModel(stubIpCount: Int): Diagnost
     )
 }
 
-private fun buildRknBlockDiagnosisUiModel(
-    controlResults: List<RknCheckResult>,
-    testResults: List<RknCheckResult>,
-): DiagnosticsRknBlockDiagnosisToolUiModel {
+private fun buildRknBlockDiagnosisUiModel(result: RknDiagnosisRunResult): DiagnosticsRknBlockDiagnosisToolUiModel {
+    val controlResults = result.controlResults
+    val testResults = result.testResults
     val aggregate = RknAggregateVerdictEngine.aggregate(controlResults, testResults)
     val blockTypes = RknAggregateVerdictEngine.blockTypes(testResults)
     val flagged = testResults.count { result -> result.verdict != RknVerdict.OK }
@@ -242,6 +293,9 @@ private fun buildRknBlockDiagnosisUiModel(
         headline = aggregate.headline,
         confidenceNote = aggregate.confidenceNote,
         summary = "Checked ${controlResults.size} control targets and ${testResults.size} blacklist targets.",
+        fetchSelfInfoEnabled = result.fetchSelfInfoEnabled,
+        selfInfoPrivacyOverridden = result.selfInfoPrivacyOverridden,
+        selfInfo = result.selfInfo?.toUiModel(),
         metrics =
             listOf(
                 DiagnosticsMetricUiModel("control", controlResults.size.toString(), DiagnosticsTone.Info),
@@ -261,6 +315,16 @@ private fun buildRknBlockDiagnosisUiModel(
         rows = rows.toPersistentList(),
     )
 }
+
+private fun SelfInfoResult.toUiModel(): DiagnosticsRknSelfInfoUiModel =
+    DiagnosticsRknSelfInfoUiModel(
+        maskedIp = SelfInfoFetcher.maskIpForDisplay(ip),
+        provider = listOfNotNull(asn, org).joinToString(" ").ifBlank { "Unknown ISP" },
+        asn = asn,
+        org = org,
+        location = listOfNotNull(city, region, country).joinToString(", ").ifBlank { null },
+        source = source,
+    )
 
 private fun DnsIntegrityVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
 

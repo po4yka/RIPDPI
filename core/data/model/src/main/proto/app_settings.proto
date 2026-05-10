@@ -324,6 +324,7 @@ message AppSettings {
   bool detection_check_include_location = 208; // Include PLMN/BSSID checks (default true)
   bool detection_check_rtt_triangulation_enabled = 261; // Enable RTT triangulation check (default false)
   bool detection_check_privacy_mode_enabled = 262; // Mask public IPs in detection UI/export output
+  bool rkn_diagnostics_fetch_self_info_enabled = 263; // Opt-in public IP/ASN context for RKN diagnosis
 
   // Community comparison (anonymous opt-in)
   bool community_comparison_enabled = 209;

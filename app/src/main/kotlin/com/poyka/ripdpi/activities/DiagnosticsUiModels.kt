@@ -138,12 +138,25 @@ data class DiagnosticsRknTargetUiModel(
     val tone: DiagnosticsTone,
 )
 
+@Immutable
+data class DiagnosticsRknSelfInfoUiModel(
+    val maskedIp: String,
+    val provider: String,
+    val asn: String?,
+    val org: String?,
+    val location: String?,
+    val source: String,
+)
+
 @Stable
 data class DiagnosticsRknBlockDiagnosisToolUiModel(
     val state: DiagnosticsRknBlockDiagnosisState = DiagnosticsRknBlockDiagnosisState.Idle,
     val headline: String = "RKN block diagnosis",
     val confidenceNote: String = "Compare control and test target groups before claiming a block.",
     val summary: String = "Run the bundled control and blacklist probes with aggregate verdict safeguards.",
+    val fetchSelfInfoEnabled: Boolean = false,
+    val selfInfoPrivacyOverridden: Boolean = false,
+    val selfInfo: DiagnosticsRknSelfInfoUiModel? = null,
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val blockTypes: ImmutableList<DiagnosticsRknBlockTypeUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsRknTargetUiModel> = persistentListOf(),

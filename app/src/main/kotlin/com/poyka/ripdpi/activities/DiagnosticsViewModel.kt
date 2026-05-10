@@ -3,9 +3,11 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
+import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -24,9 +26,11 @@ class DiagnosticsViewModel
         private val diagnosticsInteractionDependencies: DiagnosticsInteractionDependencies,
         private val diagnosticsContextDependencies: DiagnosticsContextDependencies,
         private val diagnosticsViewModelBootstrapper: DiagnosticsViewModelBootstrapper,
+        appSettingsRepository: AppSettingsRepository,
         dnsIntegrityChecker: DnsIntegrityChecker,
         domainReachabilityScanner: DomainReachabilityScanner,
         rknLayeredProbePipeline: RknLayeredProbePipeline,
+        selfInfoFetcher: SelfInfoFetcher,
         diagnosticsUiStateAssembler: DiagnosticsUiStateAssembler,
         uiStateFactory: DiagnosticsUiStateFactory,
     ) : ViewModel() {
@@ -49,9 +53,11 @@ class DiagnosticsViewModel
             DiagnosticsDpiToolsController(
                 scope = viewModelScope,
                 appContext = diagnosticsContextDependencies.appContext,
+                appSettingsRepository = appSettingsRepository,
                 dnsIntegrityChecker = dnsIntegrityChecker,
                 domainReachabilityScanner = domainReachabilityScanner,
                 rknLayeredProbePipeline = rknLayeredProbePipeline,
+                selfInfoFetcher = selfInfoFetcher,
             )
 
         val uiState: StateFlow<DiagnosticsUiState> =
@@ -217,6 +223,8 @@ class DiagnosticsViewModel
         fun runDomainReachabilityScan() = dpiToolsController.runDomainReachabilityScan()
 
         fun runRknBlockDiagnosis() = dpiToolsController.runRknBlockDiagnosis()
+
+        fun setRknSelfInfoEnabled(enabled: Boolean) = dpiToolsController.setRknSelfInfoEnabled(enabled)
     }
 
 private fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =

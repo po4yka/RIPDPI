@@ -140,6 +140,7 @@ data class DiagnosticsScreenActions(
     val onRunDnsIntegrityCheck: () -> Unit = {},
     val onRunDomainReachabilityScan: () -> Unit = {},
     val onRunRknBlockDiagnosis: () -> Unit = {},
+    val onRknSelfInfoEnabledChange: (Boolean) -> Unit = {},
 )
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -320,6 +321,7 @@ private fun DiagnosticsScreenPager(
                     onRunDnsIntegrityCheck = actions.onRunDnsIntegrityCheck,
                     onRunDomainReachabilityScan = actions.onRunDomainReachabilityScan,
                     onRunRknBlockDiagnosis = actions.onRunRknBlockDiagnosis,
+                    onRknSelfInfoEnabledChange = actions.onRknSelfInfoEnabledChange,
                     onOpenDetectionCheck = actions.onOpenDetectionCheck,
                     pcapRecording = pcapRecording,
                     onTogglePcapRecording = actions.onTogglePcapRecording,

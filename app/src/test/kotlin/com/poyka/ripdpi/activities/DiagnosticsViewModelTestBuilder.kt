@@ -19,6 +19,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
+import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +40,7 @@ internal fun createDiagnosticsViewModel(
     dnsIntegrityChecker: DnsIntegrityChecker = DnsIntegrityChecker(),
     domainReachabilityScanner: DomainReachabilityScanner = DomainReachabilityScanner(),
     rknLayeredProbePipeline: RknLayeredProbePipeline = RknLayeredProbePipeline(),
+    selfInfoFetcher: SelfInfoFetcher = SelfInfoFetcher(),
     autoStartScan: Boolean = false,
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
@@ -79,9 +81,11 @@ internal fun createDiagnosticsViewModel(
                     serviceStateStore = serviceStateStore,
                 ),
             diagnosticsViewModelBootstrapper = DiagnosticsViewModelBootstrapper(diagnosticsBootstrapper),
+            appSettingsRepository = appSettingsRepository,
             dnsIntegrityChecker = dnsIntegrityChecker,
             domainReachabilityScanner = domainReachabilityScanner,
             rknLayeredProbePipeline = rknLayeredProbePipeline,
+            selfInfoFetcher = selfInfoFetcher,
             diagnosticsUiStateAssembler =
                 DiagnosticsUiStateAssembler(
                     uiStateFactory = uiStateFactory,

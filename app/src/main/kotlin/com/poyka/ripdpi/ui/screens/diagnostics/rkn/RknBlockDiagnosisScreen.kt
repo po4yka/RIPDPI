@@ -14,6 +14,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.screens.diagnostics.statusTone
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -23,6 +24,7 @@ import java.util.Locale
 internal fun RknBlockDiagnosisScreen(
     tool: DiagnosticsRknBlockDiagnosisToolUiModel,
     onRun: () -> Unit,
+    onSelfInfoEnabledChange: (Boolean) -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -46,6 +48,21 @@ internal fun RknBlockDiagnosisScreen(
             style = RipDpiThemeTokens.type.secondaryBody,
             color = colors.mutedForeground,
         )
+        SettingsRow(
+            title = "Fetch public IP and ASN for diagnostic context",
+            subtitle =
+                if (tool.selfInfoPrivacyOverridden) {
+                    "Privacy Mode is on; ipinfo.io/ifconfig.co context is suppressed."
+                } else {
+                    "Uses ipinfo.io with ifconfig.co fallback; disabled by default."
+                },
+            checked = tool.fetchSelfInfoEnabled,
+            onCheckedChange = onSelfInfoEnabledChange,
+            enabled = tool.state != DiagnosticsRknBlockDiagnosisState.Running && !tool.selfInfoPrivacyOverridden,
+        )
+        tool.selfInfo?.let { info ->
+            SelfInfoCard(info = info)
+        }
         RknMetricsRow(metrics = tool.metrics)
         if (tool.blockTypes.isNotEmpty()) {
             Column(

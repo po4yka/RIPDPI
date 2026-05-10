@@ -57,6 +57,7 @@ internal fun ToolsSection(
     onRunDnsIntegrityCheck: () -> Unit = {},
     onRunDomainReachabilityScan: () -> Unit = {},
     onRunRknBlockDiagnosis: () -> Unit = {},
+    onRknSelfInfoEnabledChange: (Boolean) -> Unit = {},
     onOpenDetectionCheck: () -> Unit = {},
     pcapRecording: Boolean = false,
     onTogglePcapRecording: () -> Unit = {},
@@ -76,7 +77,13 @@ internal fun ToolsSection(
         approachItems(approaches, onSelectApproachMode, onSelectApproach)
         captureItem(pcapRecording, onTogglePcapRecording)
         shareItems(share, onShareSummary, onShareArchive, onSaveArchive, onSaveLogs)
-        dpiToolItems(dpiTools, onRunDnsIntegrityCheck, onRunDomainReachabilityScan, onRunRknBlockDiagnosis)
+        dpiToolItems(
+            dpiTools = dpiTools,
+            onRunDnsIntegrityCheck = onRunDnsIntegrityCheck,
+            onRunDomainReachabilityScan = onRunDomainReachabilityScan,
+            onRunRknBlockDiagnosis = onRunRknBlockDiagnosis,
+            onRknSelfInfoEnabledChange = onRknSelfInfoEnabledChange,
+        )
         detectionCheckItem(onOpenDetectionCheck)
     }
 }
@@ -186,6 +193,7 @@ private fun LazyListScope.dpiToolItems(
     onRunDnsIntegrityCheck: () -> Unit,
     onRunDomainReachabilityScan: () -> Unit,
     onRunRknBlockDiagnosis: () -> Unit,
+    onRknSelfInfoEnabledChange: (Boolean) -> Unit,
 ) {
     item {
         DnsIntegrityToolCard(
@@ -203,6 +211,7 @@ private fun LazyListScope.dpiToolItems(
         RknBlockDiagnosisScreen(
             tool = dpiTools.rknBlockDiagnosis,
             onRun = onRunRknBlockDiagnosis,
+            onSelfInfoEnabledChange = onRknSelfInfoEnabledChange,
         )
     }
 }
