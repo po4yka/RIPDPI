@@ -357,8 +357,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Socks5Datagram<S> {
     /// # Examples
     /// ```no_run
     /// # use tokio::net::TcpStream;
-    /// # use fast_socks5::client;
-    /// # #[tokio::main]
+    /// # use ripdpi_socks5_core::client;
+    /// # #[tokio::main(flavor = "current_thread")]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>>{
     ///     let backing_socket = TcpStream::connect("127.0.0.1:1080").await?;
     ///     let tunnel = client::Socks5Datagram::bind(backing_socket, "[::]:0").await?;
