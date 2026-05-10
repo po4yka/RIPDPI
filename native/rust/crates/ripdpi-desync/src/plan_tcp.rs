@@ -18,6 +18,94 @@ use crate::types::{
 };
 use ripdpi_config::{DesyncGroup, TcpChainStepKind};
 use ripdpi_packets::OracleRng;
+use ripdpi_strategy_trait::{
+    DesyncAction as StrategyAction, DesyncPlan as StrategyPlan, DesyncStrategy, HttpDissect, L7Protocol, QuicDissect,
+    StrategyContext, StrategyDescriptor, StrategyError, StrategyVerdict, TlsDissect,
+};
+
+#[derive(Clone, Copy, Debug)]
+pub struct TcpDesyncStrategy<'a> {
+    group: &'a DesyncGroup,
+    seed: u32,
+    default_ttl: u8,
+    context: ActivationContext,
+}
+
+impl<'a> TcpDesyncStrategy<'a> {
+    pub fn new(group: &'a DesyncGroup, seed: u32, default_ttl: u8, context: ActivationContext) -> Self {
+        Self { group, seed, default_ttl, context }
+    }
+
+    pub fn plan(&self, input: &[u8]) -> Result<DesyncPlan, DesyncError> {
+        plan_tcp(self.group, input, self.seed, self.default_ttl, self.context)
+    }
+}
+
+impl DesyncStrategy for TcpDesyncStrategy<'_> {
+    fn id(&self) -> &str {
+        "tcp_desync"
+    }
+
+    fn matches(&self, _ctx: &StrategyContext<'_>) -> bool {
+        activation_filter_matches(self.group.activation_filter(), self.context)
+    }
+
+    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut StrategyPlan) -> Result<(), StrategyError> {
+        let native_plan = self
+            .plan(ctx.payload)
+            .map_err(|_error| StrategyError::Execution("tcp desync planning failed".to_owned()))?;
+        plan.actions.extend(native_plan.actions.into_iter().map(strategy_action_from_native));
+        plan.verdict = StrategyVerdict::Apply;
+        Ok(())
+    }
+
+    fn describe(&self) -> StrategyDescriptor {
+        StrategyDescriptor {
+            id: "tcp_desync".to_owned(),
+            label: "TCP desync planner".to_owned(),
+            supported_protocols: vec![
+                L7Protocol::Http(HttpDissect::default()),
+                L7Protocol::Tls(TlsDissect::default()),
+                L7Protocol::Quic(QuicDissect::default()),
+                L7Protocol::Unknown,
+            ],
+            ..StrategyDescriptor::default()
+        }
+    }
+}
+
+fn strategy_action_from_native(action: DesyncAction) -> StrategyAction {
+    match action {
+        DesyncAction::Write(bytes) => StrategyAction::Write(bytes),
+        DesyncAction::WriteIpFragmentedTcp { bytes, split_offset: _, disorder: _, ipv6_ext: _ }
+        | DesyncAction::WriteIpFragmentedUdp { bytes, split_offset: _, disorder: _, ipv6_ext: _ } => {
+            StrategyAction::RawSend(bytes)
+        }
+        DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
+            let mut bytes = fake_prefix;
+            bytes.extend(real_chunk);
+            bytes.extend(remainder);
+            StrategyAction::Write(bytes)
+        }
+        DesyncAction::WriteUrgent { prefix, urgent_byte } => {
+            let mut bytes = prefix;
+            bytes.push(urgent_byte);
+            StrategyAction::Write(bytes)
+        }
+        DesyncAction::SetTtl(ttl) => StrategyAction::SetTtl(ttl),
+        DesyncAction::RestoreDefaultTtl => StrategyAction::RestoreDefaultTtl,
+        DesyncAction::SetMd5Sig { key_len: _ }
+        | DesyncAction::AttachDropSack
+        | DesyncAction::DetachDropSack
+        | DesyncAction::AwaitWritable => StrategyAction::RawSend(Vec::new()),
+        DesyncAction::SetWindowClamp(value) | DesyncAction::SetWsize { window: value } => {
+            StrategyAction::SetWindowClamp(value)
+        }
+        DesyncAction::RestoreWindowClamp | DesyncAction::RestoreWsize => StrategyAction::SetWindowClamp(0),
+        DesyncAction::SendFakeRst => StrategyAction::RawSend(Vec::new()),
+        DesyncAction::Delay(_delay_ms) => StrategyAction::RawSend(Vec::new()),
+    }
+}
 
 pub fn plan_tcp(
     group: &DesyncGroup,

@@ -2,7 +2,7 @@ use std::net::TcpStream;
 use std::time::Duration;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind};
-use ripdpi_desync::{activation_filter_matches, plan_tcp, ActivationContext};
+use ripdpi_desync::{activation_filter_matches, ActivationContext, TcpDesyncStrategy};
 use ripdpi_session::OutboundProgress;
 
 use crate::activation::apply_entropy_padding;
@@ -37,7 +37,8 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
         let strategy_family = strategy_family_override.or_else(|| primary_tcp_strategy_family(group));
         if should_desync_tcp(group, context) {
             let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
-            match plan_tcp(group, &effective_payload, seed, config.network.default_ttl, context) {
+            let strategy = TcpDesyncStrategy::new(group, seed, config.network.default_ttl, context);
+            match strategy.plan(&effective_payload) {
                 Ok(plan) if requires_special_tcp_execution(group, &plan, platform_ops.supports_fake_retransmit()) => {
                     let bytes_committed = execute_tcp_plan(
                         writer,
