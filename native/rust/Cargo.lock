@@ -3846,8 +3846,6 @@ dependencies = [
 name = "ripdpi-runtime-decision-ports"
 version = "0.1.0"
 dependencies = [
- "ripdpi-config",
- "ripdpi-desync",
  "ripdpi-proxy-config",
  "ripdpi-runtime-adaptive",
  "ripdpi-runtime-policy",

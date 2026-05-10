@@ -8,8 +8,6 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-ripdpi-config = { workspace = true }
-ripdpi-desync = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime-adaptive = { workspace = true }
 ripdpi-runtime-policy = { workspace = true }

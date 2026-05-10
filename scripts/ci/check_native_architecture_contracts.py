@@ -67,6 +67,17 @@ RUNTIME_DECISION_PORTS_FORBIDDEN_PATTERNS = {
     ),
     "runtime policy engine type export": re.compile(r"\bRuntimePolicy\b"),
     "direct-path learning state export": re.compile(r"\bDirectPathLearningState\b"),
+    "policy/adaptive helper export": re.compile(
+        r"\b(?:"
+        r"apply_udp_morph_policy_to_hints|apply_tcp_morph_policy_to_group|"
+        r"tcp_morph_hint_family|udp_morph_hint_family|"
+        r"direct_path_capability_for_route|merge_udp_hints_with_capability|network_scope_key|"
+        r"classify_response_failure|response_requires_dns_tampering_evidence|"
+        r"extract_host|extract_host_info|group_requires_payload|"
+        r"is_tls_client_hello_payload|route_matches_payload"
+        r")\b",
+        re.MULTILINE,
+    ),
 }
 DIAGNOSTICS_LANE_BROAD_REEXPORT_RE = re.compile(
     r"^\s*pub\s+use\s+ripdpi_diagnostics_[A-Za-z0-9_]+::[A-Za-z0-9_:]+::\*\s*;",

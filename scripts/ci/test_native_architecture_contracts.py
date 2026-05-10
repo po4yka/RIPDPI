@@ -85,9 +85,7 @@ pub fn data_from_str() {}
 class RuntimeDecisionPortsTests(unittest.TestCase):
     def test_explicit_port_exports_pass(self) -> None:
         source = """
-pub use ripdpi_runtime_adaptive::morph_policy::{
-    apply_tcp_morph_policy_to_group, apply_udp_morph_policy_to_hints,
-};
+pub use ripdpi_runtime_adaptive::{AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort};
 pub use ripdpi_runtime_policy::{
     ConnectionRoute, DirectPathLearningObserver, DirectPathLearningPort, PolicyPort,
 };
@@ -117,6 +115,19 @@ pub use ripdpi_runtime_policy::{DirectPathLearningState, RuntimePolicy};
         messages = [violation.message for violation in violations]
         self.assertTrue(any("runtime policy engine type export" in message for message in messages))
         self.assertTrue(any("direct-path learning state export" in message for message in messages))
+
+    def test_policy_and_adaptive_helper_exports_fail(self) -> None:
+        source = """
+pub use ripdpi_runtime_adaptive::strategy_context::{
+    direct_path_capability_for_route, merge_udp_hints_with_capability, network_scope_key,
+};
+pub use ripdpi_runtime_policy::{extract_host, route_matches_payload};
+
+pub fn apply_udp_morph_policy_to_hints() {}
+"""
+        violations = sut.runtime_decision_ports_violations(sut.RUNTIME_DECISION_PORTS_PATH, source)
+        messages = [violation.message for violation in violations]
+        self.assertTrue(any("policy/adaptive helper export" in message for message in messages))
 
 
 class DiagnosticsLaneContractTests(unittest.TestCase):

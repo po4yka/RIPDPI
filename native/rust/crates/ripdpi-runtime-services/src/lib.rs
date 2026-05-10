@@ -1,5 +1,6 @@
 mod adaptive_port_impl;
 mod background_probes_impl;
+pub mod decision_helpers;
 mod policy_port_impl;
 mod services_state;
 mod strategy_evolution;
