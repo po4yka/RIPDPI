@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.detection.probe.IfconfigClient
 import com.poyka.ripdpi.core.detection.probe.KnownLocalServices
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.ProxyScanner
+import com.poyka.ripdpi.core.detection.probe.ProxyType
 import com.poyka.ripdpi.core.detection.probe.ScanMode
 import com.poyka.ripdpi.core.detection.probe.ScanPhase
 import com.poyka.ripdpi.core.detection.probe.XrayApiScanResult
@@ -29,6 +30,12 @@ object BypassChecker {
         dispatchers: AppCoroutineDispatchers,
         excludePorts: Set<Int> = emptySet(),
         onProgress: (suspend (Progress) -> Unit)? = null,
+        proxyEndpointProvider: (suspend () -> ProxyEndpoint?)? = null,
+        xrayApiScanProvider: (suspend () -> XrayApiScanResult?)? = null,
+        directIpProvider: (suspend () -> String?)? = null,
+        proxyIpProvider: (suspend (ProxyEndpoint) -> String?)? = null,
+        mtProtoProber: MtProtoProber = Socks5MtProtoProber(dispatchers),
+        stunClient: Socks5StunClient = Socks5UdpAssociateStunClient(dispatchers),
     ): BypassResult =
         coroutineScope {
             val findings = mutableListOf<Finding>()
@@ -43,31 +50,38 @@ object BypassChecker {
 
             val proxyDeferred =
                 async {
-                    onProgress?.invoke(Progress("Port scanning", "Searching for open proxies on localhost..."))
-                    scanner.findOpenProxyEndpoint(
-                        mode = ScanMode.AUTO,
-                        manualPort = null,
-                        onProgress = { progress ->
-                            val phaseText =
-                                when (progress.phase) {
-                                    ScanPhase.POPULAR_PORTS -> "Popular ports"
-                                    ScanPhase.FULL_RANGE -> "Full range scan"
-                                }
-                            val percent = if (progress.total > 0) (progress.scanned * 100 / progress.total) else 0
-                            onProgress?.invoke(Progress(phaseText, "Port ${progress.currentPort} ($percent%)"))
-                        },
-                    )
+                    proxyEndpointProvider?.invoke()
+                        ?: run {
+                            onProgress?.invoke(Progress("Port scanning", "Searching for open proxies on localhost..."))
+                            scanner.findOpenProxyEndpoint(
+                                mode = ScanMode.AUTO,
+                                manualPort = null,
+                                onProgress = { progress ->
+                                    val phaseText =
+                                        when (progress.phase) {
+                                            ScanPhase.POPULAR_PORTS -> "Popular ports"
+                                            ScanPhase.FULL_RANGE -> "Full range scan"
+                                        }
+                                    val percent =
+                                        if (progress.total > 0) (progress.scanned * 100 / progress.total) else 0
+                                    onProgress?.invoke(Progress(phaseText, "Port ${progress.currentPort} ($percent%)"))
+                                },
+                            )
+                        }
                 }
 
             val xrayDeferred =
                 async {
-                    onProgress?.invoke(Progress("Xray API", "Searching for gRPC API on localhost..."))
-                    xrayScanner.findXrayApi { progress ->
-                        val percent = if (progress.total > 0) (progress.scanned * 100 / progress.total) else 0
-                        onProgress?.invoke(
-                            Progress("Xray API", "${progress.host}:${progress.currentPort} ($percent%)"),
-                        )
-                    }
+                    xrayApiScanProvider?.invoke()
+                        ?: run {
+                            onProgress?.invoke(Progress("Xray API", "Searching for gRPC API on localhost..."))
+                            xrayScanner.findXrayApi { progress ->
+                                val percent = if (progress.total > 0) (progress.scanned * 100 / progress.total) else 0
+                                onProgress?.invoke(
+                                    Progress("Xray API", "${progress.host}:${progress.currentPort} ($percent%)"),
+                                )
+                            }
+                        }
                 }
 
             val proxyEndpoint = proxyDeferred.await()
@@ -83,15 +97,49 @@ object BypassChecker {
             if (proxyEndpoint != null) {
                 onProgress?.invoke(Progress("IP check", "Fetching direct IP and IP via proxy..."))
 
-                val directDeferred = async { IfconfigClient.fetchDirectIp(dispatchers = dispatchers) }
+                val directDeferred =
+                    async {
+                        directIpProvider?.invoke() ?: run {
+                            val result = IfconfigClient.fetchDirectIp(dispatchers = dispatchers)
+                            result.getOrNull()
+                        }
+                    }
                 val proxyIpDeferred =
-                    async { IfconfigClient.fetchIpViaProxy(dispatchers = dispatchers, endpoint = proxyEndpoint) }
+                    async {
+                        proxyIpProvider?.invoke(proxyEndpoint) ?: run {
+                            val result =
+                                IfconfigClient.fetchIpViaProxy(
+                                    dispatchers = dispatchers,
+                                    endpoint = proxyEndpoint,
+                                )
+                            result.getOrNull()
+                        }
+                    }
+                val mtProtoDeferred =
+                    async {
+                        if (proxyEndpoint.type == ProxyType.SOCKS5) {
+                            runCatching { mtProtoProber.canReach(proxyEndpoint) }.getOrDefault(false)
+                        } else {
+                            false
+                        }
+                    }
+                val stunDeferred =
+                    async {
+                        if (proxyEndpoint.type == ProxyType.SOCKS5) {
+                            runCatching { stunClient.reflexiveAddress(proxyEndpoint) }.getOrNull()
+                        } else {
+                            null
+                        }
+                    }
 
-                directIp = directDeferred.await().getOrNull()
-                proxyIp = proxyIpDeferred.await().getOrNull()
+                directIp = directDeferred.await()
+                proxyIp = proxyIpDeferred.await()
+                val mtProtoReachable = mtProtoDeferred.await()
+                val stunReflexiveAddresses = listOfNotNull(stunDeferred.await()).distinct()
 
                 findings.add(Finding("Direct IP: ${directIp ?: "failed to fetch"}"))
                 findings.add(Finding("IP via proxy: ${proxyIp ?: "failed to fetch"}"))
+                reportProxyTransportProbes(mtProtoReachable, stunReflexiveAddresses, findings, evidence)
 
                 if (directIp != null && proxyIp != null && directIp != proxyIp) {
                     confirmedBypass = true
@@ -114,10 +162,23 @@ object BypassChecker {
                 } else if (directIp != null && proxyIp != null) {
                     findings.add(Finding("Per-app split disabled: IPs match"))
                 }
+
+                val detected = confirmedBypass || xrayApiScanResult != null
+                return@coroutineScope BypassResult(
+                    proxyEndpoint = proxyEndpoint,
+                    directIp = directIp,
+                    proxyIp = proxyIp,
+                    xrayApiScanResult = xrayApiScanResult,
+                    mtProtoReachable = mtProtoReachable,
+                    stunReflexiveAddresses = stunReflexiveAddresses,
+                    findings = findings,
+                    detected = detected,
+                    needsReview = !detected,
+                    evidence = evidence,
+                )
             }
 
             val detected = confirmedBypass || xrayApiScanResult != null
-            val needsReview = !detected && proxyEndpoint != null
 
             BypassResult(
                 proxyEndpoint = proxyEndpoint,
@@ -126,10 +187,40 @@ object BypassChecker {
                 xrayApiScanResult = xrayApiScanResult,
                 findings = findings,
                 detected = detected,
-                needsReview = needsReview,
+                needsReview = false,
                 evidence = evidence,
             )
         }
+
+    private fun reportProxyTransportProbes(
+        mtProtoReachable: Boolean,
+        stunReflexiveAddresses: List<String>,
+        findings: MutableList<Finding>,
+        evidence: MutableList<EvidenceItem>,
+    ) {
+        if (mtProtoReachable) {
+            findings.add(
+                Finding(
+                    description = "MTProto reachable via SOCKS5 proxy",
+                    detected = true,
+                    needsReview = true,
+                    source = EvidenceSource.SPLIT_TUNNEL_BYPASS,
+                    confidence = EvidenceConfidence.MEDIUM,
+                ),
+            )
+            evidence.add(
+                EvidenceItem(
+                    source = EvidenceSource.SPLIT_TUNNEL_BYPASS,
+                    detected = true,
+                    confidence = EvidenceConfidence.MEDIUM,
+                    description = "MTProto DC2 accepts a connection through the local SOCKS5 proxy",
+                ),
+            )
+        }
+        for (address in stunReflexiveAddresses) {
+            findings.add(Finding("STUN reflexive address via SOCKS5: $address"))
+        }
+    }
 
     private fun reportProxyResult(
         proxyEndpoint: ProxyEndpoint?,

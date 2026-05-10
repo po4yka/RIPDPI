@@ -183,6 +183,8 @@ data class BypassResult(
     val directIp: String?,
     val proxyIp: String?,
     val xrayApiScanResult: XrayApiScanResult?,
+    val mtProtoReachable: Boolean = false,
+    val stunReflexiveAddresses: List<String> = emptyList(),
     val findings: List<Finding>,
     val detected: Boolean,
     val needsReview: Boolean = false,
