@@ -39,10 +39,19 @@ internal fun AppSettings.toUdpChainSnapshots(): List<AppSettingsUdpChainSnapshot
         )
     }
 
+internal fun AppSettingsSnapshot.withChainSnapshot(settings: AppSettings): AppSettingsSnapshot =
+    copy(
+        chains =
+            AppSettingsChainSnapshot(
+                tcpChainSteps = settings.toTcpChainSnapshots(),
+                udpChainSteps = settings.toUdpChainSnapshots(),
+            ),
+    )
+
 internal fun AppSettings.Builder.applyChainSnapshots(snapshot: AppSettingsSnapshot): AppSettings.Builder =
     also { builder ->
-        snapshot.tcpChainSteps.forEach { step -> builder.addTcpChainStepSnapshot(step) }
-        snapshot.udpChainSteps.forEach { step -> builder.addUdpChainStepSnapshot(step) }
+        snapshot.chains.tcpChainSteps.forEach { step -> builder.addTcpChainStepSnapshot(step) }
+        snapshot.chains.udpChainSteps.forEach { step -> builder.addUdpChainStepSnapshot(step) }
     }
 
 private fun AppSettings.Builder.addTcpChainStepSnapshot(step: AppSettingsTcpChainSnapshot) {

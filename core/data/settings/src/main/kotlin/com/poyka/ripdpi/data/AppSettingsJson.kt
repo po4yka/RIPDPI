@@ -1,11 +1,12 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.proto.AppSettings
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 
-private val appSettingsJson =
+internal val appSettingsJson =
     Json {
         encodeDefaults = true
         explicitNulls = false
@@ -13,7 +14,11 @@ private val appSettingsJson =
         prettyPrint = true
     }
 
-fun AppSettings.toJson(): String = appSettingsJson.encodeToString(toSnapshot())
+fun AppSettings.toJson(): String = appSettingsJson.encodeToString(JsonObject.serializer(), toSnapshot().toJsonObject())
 
 fun appSettingsFromJson(payload: String): AppSettings =
-    appSettingsJson.decodeFromString<AppSettingsSnapshot>(payload).toAppSettings()
+    appSettingsJson
+        .parseToJsonElement(payload)
+        .jsonObject
+        .toAppSettingsSnapshot()
+        .toAppSettings()

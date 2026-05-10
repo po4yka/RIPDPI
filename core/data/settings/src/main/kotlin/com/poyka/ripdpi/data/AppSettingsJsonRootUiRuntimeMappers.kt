@@ -4,21 +4,24 @@ import com.poyka.ripdpi.proto.AppSettings
 
 internal fun AppSettingsSnapshot.withUiRuntimeSnapshot(settings: AppSettings): AppSettingsSnapshot =
     copy(
-        onboardingComplete = settings.onboardingComplete,
-        webrtcProtectionEnabled = settings.webrtcProtectionEnabled,
-        biometricEnabled = settings.biometricEnabled,
-        appIconVariant = settings.appIconVariant,
-        appIconStyle = settings.appIconStyle,
+        rootUiRuntime =
+            rootUiRuntime.copy(
+                onboardingComplete = settings.onboardingComplete,
+                webrtcProtectionEnabled = settings.webrtcProtectionEnabled,
+                biometricEnabled = settings.biometricEnabled,
+                appIconVariant = settings.appIconVariant,
+                appIconStyle = settings.appIconStyle,
+            ),
     )
 
 internal fun AppSettings.Builder.applyRootUiRuntimeSnapshot(snapshot: AppSettingsSnapshot): AppSettings.Builder =
-    setAppTheme(snapshot.appTheme)
-        .setRipdpiMode(snapshot.mode.preferenceValue)
-        .setIpv6Enable(snapshot.ipv6Enabled)
-        .setEnableCmdSettings(snapshot.enableCommandLineSettings)
-        .setCmdArgs(snapshot.commandLineArgs)
-        .setOnboardingComplete(snapshot.onboardingComplete)
-        .setWebrtcProtectionEnabled(snapshot.webrtcProtectionEnabled)
-        .setBiometricEnabled(snapshot.biometricEnabled)
-        .setAppIconVariant(snapshot.appIconVariant)
-        .setAppIconStyle(snapshot.appIconStyle)
+    setAppTheme(snapshot.rootUiRuntime.appTheme)
+        .setRipdpiMode(snapshot.rootUiRuntime.mode.preferenceValue)
+        .setIpv6Enable(snapshot.dns.ipv6Enabled)
+        .setEnableCmdSettings(snapshot.proxyDesync.enableCommandLineSettings)
+        .setCmdArgs(snapshot.proxyDesync.commandLineArgs)
+        .setOnboardingComplete(snapshot.rootUiRuntime.onboardingComplete)
+        .setWebrtcProtectionEnabled(snapshot.rootUiRuntime.webrtcProtectionEnabled)
+        .setBiometricEnabled(snapshot.rootUiRuntime.biometricEnabled)
+        .setAppIconVariant(snapshot.rootUiRuntime.appIconVariant)
+        .setAppIconStyle(snapshot.rootUiRuntime.appIconStyle)
