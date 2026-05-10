@@ -11,6 +11,8 @@ use thiserror::Error;
 pub enum StrategyConfigError {
     #[error("failed to parse strategy YAML: {0}")]
     Parse(#[from] serde_yaml_ng::Error),
+    #[error("failed to parse strategy TOML: {0}")]
+    TomlParse(#[from] toml::de::Error),
     #[error("failed to read host list {path}: {source}")]
     HostListRead { path: PathBuf, source: std::io::Error },
     #[error("strategy config file {path} could not be read: {source}")]
@@ -189,6 +191,27 @@ pub fn load_yaml_file(path: impl AsRef<Path>) -> Result<LoadedStrategyConfig, St
     parse_yaml_str(&input, base_dir)
 }
 
+pub fn parse_toml_str(input: &str, base_dir: impl AsRef<Path>) -> Result<LoadedStrategyConfig, StrategyConfigError> {
+    let raw: RawConfig = toml::from_str(input)?;
+    load_raw(raw, base_dir.as_ref())
+}
+
+pub fn load_toml_file(path: impl AsRef<Path>) -> Result<LoadedStrategyConfig, StrategyConfigError> {
+    let path = path.as_ref();
+    let input = fs::read_to_string(path)
+        .map_err(|source| StrategyConfigError::ConfigRead { path: path.to_path_buf(), source })?;
+    let base_dir = path.parent().unwrap_or_else(|| Path::new("."));
+    parse_toml_str(&input, base_dir)
+}
+
+pub fn load_config_file(path: impl AsRef<Path>) -> Result<LoadedStrategyConfig, StrategyConfigError> {
+    let path = path.as_ref();
+    match path.extension().and_then(|extension| extension.to_str()).map(str::to_ascii_lowercase).as_deref() {
+        Some("toml") => load_toml_file(path),
+        _ => load_yaml_file(path),
+    }
+}
+
 fn load_raw(raw: RawConfig, base_dir: &Path) -> Result<LoadedStrategyConfig, StrategyConfigError> {
     let strategies = raw
         .strategies
@@ -236,7 +259,7 @@ pub struct StrategyConfigReloader {
 impl StrategyConfigReloader {
     pub fn load(path: impl AsRef<Path>) -> Result<Self, StrategyConfigError> {
         let path = path.as_ref().to_path_buf();
-        let config = load_yaml_file(&path)?;
+        let config = load_config_file(&path)?;
         let modified = file_modified(&path)?;
         Ok(Self { path, modified, config })
     }
@@ -250,7 +273,7 @@ impl StrategyConfigReloader {
         if modified == self.modified {
             return Ok(false);
         }
-        self.config = load_yaml_file(&self.path)?;
+        self.config = load_config_file(&self.path)?;
         self.modified = modified;
         Ok(true)
     }
