@@ -6,7 +6,7 @@ extern crate ripdpi_strategy_udp as _;
 extern crate ripdpi_strategy_window as _;
 
 use ripdpi_desync::AdaptivePlannerHints;
-use ripdpi_strategy_config::{LoadedStrategyConfig, OnFail as ConfigOnFail};
+use ripdpi_strategy_config::{LoadedStrategyConfig, OnFail as ConfigOnFail, StepType, StrategyStep};
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
     StrategyError, StrategyFactory, StrategyVerdict, STRATEGY_DESCRIPTOR_REGISTRATIONS, STRATEGY_FACTORIES,
@@ -97,7 +97,11 @@ impl StrategyRegistry {
         for strategy in &config.strategies {
             let on_fail = on_fail_from_config(strategy.on_fail);
             for step in &strategy.steps {
-                self.register_builtin_technique_with_policy(step.kind.registry_id(), on_fail)?;
+                if let Some(strategy) = configured_strategy_from_step(step) {
+                    self.register_with_policy(strategy, on_fail);
+                } else {
+                    self.register_builtin_technique_with_policy(step.kind.registry_id(), on_fail)?;
+                }
             }
         }
         Ok(())
@@ -428,6 +432,21 @@ fn builtin_technique(id: &str) -> Result<&'static BuiltinTechniqueDefinition, St
         .iter()
         .find(|definition| definition.id == id)
         .ok_or_else(|| StrategyRegistryError::UnknownType(id.to_owned()))
+}
+
+fn configured_strategy_from_step(step: &StrategyStep) -> Option<Box<dyn DesyncStrategy>> {
+    match step.kind {
+        StepType::Udplen => {
+            let delta = step.delta.unwrap_or(4).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16;
+            Some(Box::new(ripdpi_strategy_udp::UdpLenStrategy::new(delta)))
+        }
+        StepType::Ipv6Ext => {
+            let ext_type =
+                step.ext_type.as_deref().and_then(ripdpi_strategy_ipv6::Ipv6ExtType::parse).unwrap_or_default();
+            Some(Box::new(ripdpi_strategy_ipv6::Ipv6ExtHdrStrategy::new(ext_type)))
+        }
+        _ => None,
+    }
 }
 
 fn linked_strategy_factory(id: &str) -> Option<&'static StrategyFactory> {

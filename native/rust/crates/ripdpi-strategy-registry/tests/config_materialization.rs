@@ -1,8 +1,8 @@
 use ripdpi_strategy_config::parse_yaml_str;
 use ripdpi_strategy_registry::StrategyRegistry;
 use ripdpi_strategy_trait::{
-    Capabilities, ConnectionState, DesyncAction, DesyncPlan, Dissect, FlowDirection, FlowId, HttpDissect, L7Protocol,
-    StrategyContext, StrategyVerdict,
+    Capabilities, CapabilityTier, ConnectionState, DesyncAction, DesyncPlan, Dissect, FlowDirection, FlowId,
+    HttpDissect, L7Protocol, QuicDissect, RuntimeCapability, StrategyContext, StrategyVerdict,
 };
 
 #[test]
@@ -109,4 +109,118 @@ strategies:
 
     assert_eq!(verdict, StrategyVerdict::Apply);
     assert_eq!(plan.actions, vec![DesyncAction::WriteFake { ttl: None, sni_mode: None, payload_file: None }]);
+}
+
+#[test]
+fn parsed_yaml_udplen_strategy_uses_configured_delta() {
+    let config = parse_yaml_str(
+        r#"
+version: 1
+strategies:
+  - id: udp-chain
+    steps:
+      - type: udplen
+        delta: 6
+"#,
+        ".",
+    )
+    .expect("YAML config should parse");
+    let registry = StrategyRegistry::from_loaded_config(&config).expect("config should materialize");
+    let packet = ipv4_udp_packet(443, 443, b"abc");
+    let dissect =
+        Dissect { proto: L7Protocol::Quic(QuicDissect::default()), src_port: 443, dst_port: 443, ..Dissect::default() };
+    let conn = ConnectionState::default();
+    let caps = vpn_caps();
+    let ctx = StrategyContext {
+        dissect: &dissect,
+        conn: &conn,
+        caps: &caps,
+        flow_id: FlowId(10),
+        payload: &packet,
+        direction: FlowDirection::Outbound,
+    };
+    let mut plan = DesyncPlan::default();
+
+    let verdict = registry.execute(&ctx, &mut plan);
+
+    assert_eq!(verdict, StrategyVerdict::Apply);
+    let [DesyncAction::RawSend(output)] = plan.actions.as_slice() else {
+        panic!("expected a single RawSend action, got {:?}", plan.actions);
+    };
+    let udp_len_offset = 20 + 4;
+    assert_eq!(u16::from_be_bytes([output[udp_len_offset], output[udp_len_offset + 1]]), 17);
+}
+
+#[test]
+fn parsed_yaml_ipv6_ext_strategy_uses_configured_extension_type() {
+    let config = parse_yaml_str(
+        r#"
+version: 1
+strategies:
+  - id: ipv6-chain
+    steps:
+      - type: ipv6Ext
+        ext_type: hopbyhop
+"#,
+        ".",
+    )
+    .expect("YAML config should parse");
+    let registry = StrategyRegistry::from_loaded_config(&config).expect("config should materialize");
+    let packet = ipv6_tcp_packet();
+    let dissect = Dissect { is_ipv6: true, ..Dissect::default() };
+    let conn = ConnectionState::default();
+    let caps = vpn_caps();
+    let ctx = StrategyContext {
+        dissect: &dissect,
+        conn: &conn,
+        caps: &caps,
+        flow_id: FlowId(11),
+        payload: &packet,
+        direction: FlowDirection::Outbound,
+    };
+    let mut plan = DesyncPlan::default();
+
+    let verdict = registry.execute(&ctx, &mut plan);
+
+    assert_eq!(verdict, StrategyVerdict::Apply);
+    let [DesyncAction::RawSend(output)] = plan.actions.as_slice() else {
+        panic!("expected a single RawSend action, got {:?}", plan.actions);
+    };
+    assert_eq!(output[6], 0, "hop-by-hop extension must be the outer next-header");
+}
+
+fn vpn_caps() -> Capabilities {
+    Capabilities { tier: CapabilityTier::Tier3, available: vec![RuntimeCapability::VpnMode] }
+}
+
+fn ipv4_udp_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
+    let total_len = 20 + 8 + payload.len();
+    let mut packet = vec![0u8; total_len];
+    packet[0] = 0x45;
+    packet[2..4].copy_from_slice(&(total_len as u16).to_be_bytes());
+    packet[8] = 64;
+    packet[9] = 17;
+    packet[12..16].copy_from_slice(&[10, 0, 0, 2]);
+    packet[16..20].copy_from_slice(&[93, 184, 216, 34]);
+    packet[20..22].copy_from_slice(&src_port.to_be_bytes());
+    packet[22..24].copy_from_slice(&dst_port.to_be_bytes());
+    packet[24..26].copy_from_slice(&((8 + payload.len()) as u16).to_be_bytes());
+    packet[28..].copy_from_slice(payload);
+    packet
+}
+
+fn ipv6_tcp_packet() -> Vec<u8> {
+    let mut packet = vec![0u8; 60];
+    packet[0] = 0x60;
+    packet[4..6].copy_from_slice(&20u16.to_be_bytes());
+    packet[6] = 6;
+    packet[7] = 64;
+    packet[8..24].copy_from_slice(&std::net::Ipv6Addr::LOCALHOST.octets());
+    packet[24..40].copy_from_slice(&std::net::Ipv6Addr::LOCALHOST.octets());
+    packet[40..42].copy_from_slice(&49152u16.to_be_bytes());
+    packet[42..44].copy_from_slice(&443u16.to_be_bytes());
+    packet[52] = 0x50;
+    packet[53] = 0x18;
+    packet[54..56].copy_from_slice(&65535u16.to_be_bytes());
+    packet
 }
