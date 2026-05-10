@@ -79,9 +79,9 @@ Manual test: import the zapret2 example config, press Reload, confirm no error b
 
 - `./gradlew :app:ktlintCheck :core:service:ktlintCheck -Pripdpi.skipNativeBuild=true`
 - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.screens.settings.StrategyConfigImportTest -Pripdpi.skipNativeBuild=true`
+- `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.screenshot.RipDpiScreenCatalogScreenshotTest.strategyConfigScreen -Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true`
 
 ## Remaining Gaps
 
-- Roborazzi golden coverage for the new screen was not added in this slice.
 - Manual zapret2 import/reload validation was not run on device or emulator.
 - The UI currently persists the existing strategy-chain DSL path; full YAML persistence depends on the strategy YAML loader/settings schema work.

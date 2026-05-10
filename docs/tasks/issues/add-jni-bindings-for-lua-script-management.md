@@ -94,8 +94,8 @@ Validation:
 - `cargo clippy -p ripdpi-strategy-lua --all-targets --features lua-strategies --locked -- -D warnings` — passed.
 - `cargo clippy -p ripdpi-android --all-targets --locked -- -D warnings` — passed.
 - `./gradlew :core:engine:ktlintCheck -Pripdpi.skipNativeBuild=true` — passed.
-- `./gradlew :core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.StrategyEngineBindingsTest -Pripdpi.skipNativeBuild=true` — blocked before test execution by existing proto error in `core/data/model/src/main/proto/app_settings.proto`: field number `214` is already used by `strategy_chain_yaml`.
+- `./gradlew :core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.StrategyEngineBindingsTest -Pripdpi.skipNativeBuild=true` — passed.
 
 Remaining validation gap:
 
-- Emulator/instrumented JNI validation was not run in this slice. The Rust symbol/linkage test and Kotlin interface contract are in place; real-device loading can be covered once the unrelated proto generation blocker is cleared.
+- Emulator/instrumented JNI validation was not run in this slice. The Rust symbol/linkage test and Kotlin interface contract are in place; real-device loading still needs an attached emulator or device.
