@@ -5,9 +5,11 @@ import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
+import com.poyka.ripdpi.core.detection.consensus.IpAsnInfo
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
 import com.poyka.ripdpi.data.diagnostics.DetectionResolverNetworkStack
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -65,6 +67,27 @@ object GeoIpChecker {
             } catch (e: Exception) {
                 currentCoroutineContext().ensureActive()
                 errorResult("Failed to fetch GeoIP data: ${e.message}")
+            }
+        }
+
+    internal suspend fun resolveAsnInfo(
+        ip: String,
+        client: GeoIpProviderClient = DefaultGeoIpProviderClient(),
+    ): IpAsnInfo? =
+        withContext(Dispatchers.IO) {
+            try {
+                val snapshots = fetchProviderSnapshots(client, ip)
+                if (snapshots.isEmpty()) return@withContext null
+                val snapshot = mergeSnapshots(snapshots)
+                IpAsnInfo(
+                    ip = ip,
+                    asn = snapshot.asn.takeUnless { it == "N/A" },
+                    countryCode = snapshot.countryCode.takeIf(String::isNotBlank),
+                    org = snapshot.org.takeUnless { it == "N/A" },
+                )
+            } catch (e: Exception) {
+                currentCoroutineContext().ensureActive()
+                null
             }
         }
 

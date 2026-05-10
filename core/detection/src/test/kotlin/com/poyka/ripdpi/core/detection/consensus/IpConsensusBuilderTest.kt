@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.core.detection.consensus
 
+import com.poyka.ripdpi.core.detection.BypassResult
+import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
+import com.poyka.ripdpi.core.detection.Finding
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -94,6 +98,40 @@ class IpConsensusBuilderTest {
         assertEquals(listOf("5.5.5.5"), result.foreignIps)
         assertFalse("77.88.8.8" in result.foreignIps)
     }
+
+    @Test
+    fun resolvedBuildResolvesEveryDistinctObservedIp() =
+        runTest {
+            val resolvedIps = mutableListOf<String>()
+            val result =
+                IpConsensusBuilder.buildResolved(
+                    geoIp =
+                        CategoryResult(
+                            name = "GeoIP",
+                            detected = false,
+                            findings = listOf(Finding("IP: 1.1.1.1")),
+                        ),
+                    bypassResult =
+                        BypassResult(
+                            proxyEndpoint = null,
+                            directIp = "2.2.2.2",
+                            proxyIp = "3.3.3.3",
+                            xrayApiScanResult = null,
+                            findings = emptyList(),
+                            detected = false,
+                        ),
+                    ipComparison = null,
+                    cdnPulling = null,
+                    asnResolver =
+                        SuspendingIpAsnResolver { ip ->
+                            resolvedIps += ip
+                            IpAsnInfo(ip = ip, asn = "64512", countryCode = "US", org = "Test")
+                        },
+                )
+
+            assertEquals(listOf("1.1.1.1", "2.2.2.2", "3.3.3.3"), resolvedIps.sorted())
+            assertEquals(setOf("1.1.1.1", "2.2.2.2", "3.3.3.3"), result.asnByIp.keys)
+        }
 
     private fun fakeResolver(vararg entries: Pair<String, IpAsnInfo>): IpAsnResolver {
         val byIp = entries.toMap()

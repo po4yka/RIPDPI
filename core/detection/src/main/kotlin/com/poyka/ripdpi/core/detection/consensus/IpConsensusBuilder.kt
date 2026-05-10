@@ -42,6 +42,10 @@ fun interface IpAsnResolver {
     fun resolve(ip: String): IpAsnInfo?
 }
 
+fun interface SuspendingIpAsnResolver {
+    suspend fun resolve(ip: String): IpAsnInfo?
+}
+
 data class ChannelConflict(
     val channel: IpConsensusChannel,
     val ips: List<String>,
@@ -144,26 +148,23 @@ object IpConsensusBuilder {
         ipComparison: IpComparisonResult?,
         cdnPulling: CdnPullingResult?,
     ): IpConsensusResult {
+        val observations = observationsFrom(geoIp, bypassResult, ipComparison, cdnPulling)
         val geoIpInfo = geoIp.asnInfoFromFindings()
-        val observations =
-            buildList {
-                geoIpInfo?.ip?.let { add(IpObservation(IpConsensusChannel.GEO_IP, it)) }
-                ipComparison?.ruReflectedIps?.forEach { add(IpObservation(IpConsensusChannel.IP_COMPARISON_RU, it)) }
-                ipComparison?.nonRuReflectedIps?.forEach {
-                    add(IpObservation(IpConsensusChannel.IP_COMPARISON_NON_RU, it))
-                }
-                cdnPulling
-                    ?.endpoints
-                    .orEmpty()
-                    .filter { it.status == CdnPullingEndpointStatus.OK && it.reflectedIp != null }
-                    .forEach { add(IpObservation(IpConsensusChannel.CDN_PULLING, it.reflectedIp.orEmpty())) }
-                bypassResult.directIp?.let { add(IpObservation(IpConsensusChannel.BYPASS_DIRECT, it)) }
-                bypassResult.proxyIp?.let { add(IpObservation(IpConsensusChannel.BYPASS_PROXY, it)) }
-                bypassResult.stunReflexiveAddresses.forEach { add(IpObservation(IpConsensusChannel.BYPASS_STUN, it)) }
-            }
         val knownInfo = geoIpInfo?.let { mapOf(it.ip to it) }.orEmpty()
         return build(observations = observations, asnResolver = MapBackedIpAsnResolver(knownInfo))
     }
+
+    suspend fun buildResolved(
+        geoIp: CategoryResult,
+        bypassResult: BypassResult,
+        ipComparison: IpComparisonResult?,
+        cdnPulling: CdnPullingResult?,
+        asnResolver: SuspendingIpAsnResolver,
+    ): IpConsensusResult =
+        buildResolved(
+            observations = observationsFrom(geoIp, bypassResult, ipComparison, cdnPulling),
+            asnResolver = asnResolver,
+        )
 
     fun build(
         observations: List<IpObservation>,
@@ -189,6 +190,56 @@ object IpConsensusBuilder {
             warpIndicator = warpIndicator(observedIps, asnByIp),
             asnByIp = asnByIp,
         )
+    }
+
+    suspend fun buildResolved(
+        observations: List<IpObservation>,
+        asnResolver: SuspendingIpAsnResolver,
+    ): IpConsensusResult {
+        val observedIps =
+            observations
+                .groupBy(IpObservation::channel, IpObservation::ip)
+                .mapValues { (_, ips) -> ips.distinct().sorted() }
+                .filterValues { it.isNotEmpty() }
+        val asnByIp =
+            observedIps
+                .values
+                .flatten()
+                .distinct()
+                .associateWith { ip -> asnResolver.resolve(ip) ?: IpAsnInfo(ip, null, null) }
+
+        return IpConsensusResult(
+            observedIps = observedIps,
+            channelConflicts = channelConflicts(observedIps),
+            crossChannelMismatches = crossChannelMismatches(observedIps),
+            foreignIps = foreignIps(asnByIp),
+            warpIndicator = warpIndicator(observedIps, asnByIp),
+            asnByIp = asnByIp,
+        )
+    }
+
+    private fun observationsFrom(
+        geoIp: CategoryResult,
+        bypassResult: BypassResult,
+        ipComparison: IpComparisonResult?,
+        cdnPulling: CdnPullingResult?,
+    ): List<IpObservation> {
+        val geoIpInfo = geoIp.asnInfoFromFindings()
+        return buildList {
+            geoIpInfo?.ip?.let { add(IpObservation(IpConsensusChannel.GEO_IP, it)) }
+            ipComparison?.ruReflectedIps?.forEach { add(IpObservation(IpConsensusChannel.IP_COMPARISON_RU, it)) }
+            ipComparison?.nonRuReflectedIps?.forEach {
+                add(IpObservation(IpConsensusChannel.IP_COMPARISON_NON_RU, it))
+            }
+            cdnPulling
+                ?.endpoints
+                .orEmpty()
+                .filter { it.status == CdnPullingEndpointStatus.OK && it.reflectedIp != null }
+                .forEach { add(IpObservation(IpConsensusChannel.CDN_PULLING, it.reflectedIp.orEmpty())) }
+            bypassResult.directIp?.let { add(IpObservation(IpConsensusChannel.BYPASS_DIRECT, it)) }
+            bypassResult.proxyIp?.let { add(IpObservation(IpConsensusChannel.BYPASS_PROXY, it)) }
+            bypassResult.stunReflexiveAddresses.forEach { add(IpObservation(IpConsensusChannel.BYPASS_STUN, it)) }
+        }
     }
 
     private fun channelConflicts(observedIps: Map<IpConsensusChannel, List<String>>): List<ChannelConflict> =

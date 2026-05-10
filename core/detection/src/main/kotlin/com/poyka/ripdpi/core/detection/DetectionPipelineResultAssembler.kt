@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.core.detection
 
+import com.poyka.ripdpi.core.detection.checker.GeoIpChecker
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusBuilder
+import com.poyka.ripdpi.core.detection.consensus.SuspendingIpAsnResolver
 
 internal data class DetectionPipelineOutputs(
     val geoIp: CategoryResult,
@@ -21,16 +23,18 @@ internal data class DetectionPipelineOutputs(
 
 internal class DetectionPipelineResultAssembler(
     private val verdictEvaluator: DetectionVerdictEvaluator,
+    private val asnResolver: SuspendingIpAsnResolver = DEFAULT_ASN_RESOLVER,
 ) {
-    fun assemble(outputs: DetectionPipelineOutputs): DetectionCheckResult {
+    suspend fun assemble(outputs: DetectionPipelineOutputs): DetectionCheckResult {
         val locationSignals = outputs.locationSignals ?: DetectionDisabledResults.locationSignals()
         val bypassResult = outputs.bypassResult ?: DetectionDisabledResults.bypass()
         val ipConsensus =
-            IpConsensusBuilder.build(
+            IpConsensusBuilder.buildResolved(
                 geoIp = outputs.geoIp,
                 bypassResult = bypassResult,
                 ipComparison = outputs.ipComparison,
                 cdnPulling = outputs.cdnPulling,
+                asnResolver = asnResolver,
             )
         val verdict =
             verdictEvaluator.evaluate(
@@ -65,6 +69,11 @@ internal class DetectionPipelineResultAssembler(
         )
     }
 }
+
+private val DEFAULT_ASN_RESOLVER =
+    SuspendingIpAsnResolver { ip ->
+        GeoIpChecker.resolveAsnInfo(ip)
+    }
 
 internal object DetectionDisabledResults {
     fun locationSignals(): CategoryResult =
