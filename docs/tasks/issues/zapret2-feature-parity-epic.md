@@ -79,3 +79,4 @@ None (greenfield epic)
 
 - 2026-05-10: All 19 child tasks are either closed through prior commits or in review with implementation commits. Parent epic moved to review pending final board closure.
 - 2026-05-10: Added attached-emulator evidence for the Lua asset/JNI path: `StrategyEngineJniInstrumentedTest` passed on `Pixel_10_Pro(AVD) - 17` via `am instrument`, `OK (2 tests)`.
+- 2026-05-10: Extended attached-emulator JNI evidence to native strategy YAML validation; `StrategyEngineJniInstrumentedTest` passed with `OK (4 tests)` including `fake`, `udplen`, and `ipv6Ext` registry YAML.

@@ -80,8 +80,8 @@ Manual test: import the zapret2 example config, press Reload, confirm no error b
 - `./gradlew :app:ktlintCheck :core:service:ktlintCheck -Pripdpi.skipNativeBuild=true`
 - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.screens.settings.StrategyConfigImportTest -Pripdpi.skipNativeBuild=true`
 - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.screenshot.RipDpiScreenCatalogScreenshotTest.strategyConfigScreen -Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true`
+- Clean detached worktree: `ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ./gradlew :app:ktlintCheck :app:assembleDebugAndroidTest -Pripdpi.skipNativeBuild=true`; direct `am instrument` run of `StrategyEngineJniInstrumentedTest` passed with `OK (4 tests)`, covering native validation of imported YAML registry entries and reloadable Lua assets.
 
 ## Remaining Gaps
 
 - Manual zapret2 import/reload validation was not run on device or emulator.
-- The UI currently persists the existing strategy-chain DSL path; full YAML persistence depends on the strategy YAML loader/settings schema work.

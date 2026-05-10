@@ -33,4 +33,35 @@ class StrategyEngineJniInstrumentedTest {
 
         assertNotNull(StrategyEngineNativeBindings().luaLoadScript(missingPath))
     }
+
+    @Test
+    fun strategyConfigValidationAcceptsRegistryYaml() {
+        val yaml =
+            """
+            version: 1
+            strategies:
+              - id: fake_chain
+                steps:
+                  - type: fake
+              - id: quic_udplen
+                match:
+                  proto: [quic]
+                steps:
+                  - type: udplen
+                    delta: 4
+              - id: tcp_ipv6_ext
+                match:
+                  proto: [tls]
+                steps:
+                  - type: ipv6Ext
+                    ext_type: destopts
+            """.trimIndent()
+
+        assertNull(StrategyEngineNativeBindings().validateStrategyConfigText(yaml))
+    }
+
+    @Test
+    fun strategyConfigValidationRejectsInvalidYaml() {
+        assertNotNull(StrategyEngineNativeBindings().validateStrategyConfigText("version: ["))
+    }
 }
