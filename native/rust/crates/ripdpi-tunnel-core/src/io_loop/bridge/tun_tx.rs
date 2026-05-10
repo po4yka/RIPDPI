@@ -7,6 +7,8 @@ use tun_rs::AsyncDevice;
 
 use crate::{Stats, TunDevice};
 
+use super::super::tun_ingress_interceptor::{SynAckPacketInjector, TunIngressInterceptor};
+
 pub(in crate::io_loop) fn enqueue_tun_packet(device: &mut TunDevice, raw: Vec<u8>, context: &str) {
     if raw.is_empty() {
         return;
@@ -19,8 +21,10 @@ pub(in crate::io_loop) async fn flush_device_tx_queue(
     tun: &AsyncDevice,
     stats: &Arc<Stats>,
     device: &mut TunDevice,
+    synack_interceptor: &mut TunIngressInterceptor<impl SynAckPacketInjector>,
 ) -> io::Result<()> {
     while let Some(pkt) = device.tx_queue.pop_front() {
+        synack_interceptor.handle_packet(&pkt);
         loop {
             match tun.try_send(&pkt) {
                 Ok(_) => {

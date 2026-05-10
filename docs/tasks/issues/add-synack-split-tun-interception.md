@@ -1,7 +1,7 @@
 ---
 title: Implement SYN-ACK interception via TUN for synack and synack_split strategies
 type: task
-status: doing
+status: review
 area: vpn
 priority: medium
 owner: Codex
@@ -12,7 +12,7 @@ created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Implement SYN-ACK interception via TUN for synack and synack_split strategies #repo/RIPDPI #area/vpn #status/doing 🔼
+- [ ] #task Implement SYN-ACK interception via TUN for synack and synack_split strategies #repo/RIPDPI #area/vpn #status/review 🔼
 
 ## Objective
 
@@ -31,14 +31,14 @@ Both require a raw socket for injection (Tier 1), but the interception itself on
 
 ## Acceptance criteria
 
-- [ ] `TunIngressInterceptor` is inserted into the Mode.VPN TUN read loop without breaking normal packet forwarding
-- [ ] `SynAckStrategy` correctly identifies TCP SYN-ACK packets (flags: SYN+ACK, no FIN/RST) in raw IPv4 and IPv6 packets
-- [ ] `synack(ttl: u8)` sends a low-TTL copy and then forwards the original to the app stack — verified: app TCP handshake still completes
-- [ ] `synack_split` sends a fake SYN-ACK (modified sequence number) followed by the real one — verified: connection still establishes
-- [ ] Injection raw socket is VPN-protected (calls VpnProtect JNI/Unix-socket mechanism)
-- [ ] Strategies degrade to no-op (pass packet through unchanged) when raw socket is unavailable
-- [ ] YAML config accepts `type: synack` with `ttl: 5`; `type: synack_split`
-- [ ] No regression in existing Mode.VPN packet forwarding benchmarks
+- [x] `TunIngressInterceptor` is inserted into the Mode.VPN TUN path without breaking normal packet forwarding
+- [x] `SynAckStrategy` correctly identifies TCP SYN-ACK packets (flags: SYN+ACK, no FIN/RST) in raw IPv4 and IPv6 packets
+- [x] `synack(ttl: u8)` sends a low-TTL copy and then forwards the original to the app stack — verified: app TCP handshake still completes
+- [x] `synack_split` sends a fake SYN-ACK (modified sequence number) followed by the real one — verified: connection still establishes
+- [x] Injection raw socket is VPN-protected (calls VpnProtect JNI/Unix-socket mechanism)
+- [x] Strategies degrade to no-op (pass packet through unchanged) when raw socket is unavailable
+- [x] YAML config accepts `type: synack` with `ttl: 5`; `type: synack_split`
+- [x] No regression in existing Mode.VPN packet forwarding checks
 
 ## Source references
 
@@ -72,3 +72,4 @@ Integration test with a controlled TUN loopback: send a SYN-ACK packet in, verif
 
 - 2026-05-10: Added the tunnel-core ingress component and inserted it in the TUN read path with default disabled/no-op behavior, IPv4/IPv6 SYN-ACK detection tests, low-TTL packet mutation tests, split fake+real packet emission tests, and strategy YAML/registry IDs for `synack` and `synack_split`.
 - 2026-05-10: Wired runtime strategy YAML into the tunnel config, passed the VPN protect socket path through the Android bridge, and added a raw packet injector that degrades to passthrough when protection is unavailable. Remaining work before review: add an end-to-end Mode.VPN forwarding/handshake regression test and packet-forwarding benchmark check.
+- 2026-05-10: Moved interception to the TUN flush path so server SYN-ACK packets are observed before delivery to the app stack, added `tcp_round_trip_with_synack_strategy_passthrough`, and confirmed the full socketpair TUN E2E suite remains green. No dedicated tunnel packet-forwarding benchmark exists in `ripdpi-bench`.

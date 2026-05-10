@@ -10,6 +10,22 @@ use ripdpi_tunnel_config::{Config, MiscConfig, Socks5Config, TunnelConfig};
 /// The tunnel is configured with a private IPv4 address and the SOCKS5 proxy
 /// is pointed at the given `socks5_addr` (typically a local-network-fixture).
 pub fn test_tunnel_config(socks5_addr: SocketAddr) -> Arc<Config> {
+    test_tunnel_config_with_misc(socks5_addr, |_| {})
+}
+
+pub fn test_tunnel_config_with_misc(
+    socks5_addr: SocketAddr,
+    configure_misc: impl FnOnce(&mut MiscConfig),
+) -> Arc<Config> {
+    let mut misc = MiscConfig {
+        connect_timeout: 5000,
+        tcp_read_write_timeout: 10000,
+        udp_read_write_timeout: 10000,
+        filter_injected_resets: false,
+        ..MiscConfig::default()
+    };
+    configure_misc(&mut misc);
+
     Arc::new(Config {
         tunnel: TunnelConfig {
             name: "test-tun".to_string(),
@@ -31,12 +47,6 @@ pub fn test_tunnel_config(socks5_addr: SocketAddr) -> Arc<Config> {
             mark: None,
         },
         mapdns: None,
-        misc: MiscConfig {
-            connect_timeout: 5000,
-            tcp_read_write_timeout: 10000,
-            udp_read_write_timeout: 10000,
-            filter_injected_resets: false,
-            ..MiscConfig::default()
-        },
+        misc,
     })
 }

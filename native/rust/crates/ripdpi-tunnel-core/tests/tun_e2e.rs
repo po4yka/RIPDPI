@@ -16,7 +16,7 @@ use ripdpi_tunnel_core::{run_tunnel, Stats};
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
-use support::config::test_tunnel_config;
+use support::config::{test_tunnel_config, test_tunnel_config_with_misc};
 use support::fake_tun::socketpair_tun;
 use support::packets::*;
 
@@ -198,6 +198,74 @@ fn tcp_round_trip_through_tunnel() {
     assert!(stats.tx_packets.load(Ordering::Relaxed) > 0, "tx_packets must be non-zero after traffic");
 
     // Shutdown
+    cancel.cancel();
+    let result = tunnel_thread.join().expect("tunnel thread panicked");
+    assert!(result.is_ok(), "run_tunnel should return Ok after cancel: {result:?}");
+}
+
+/// E2E-01b: SYN-ACK strategy enabled without a raw-protected injector still
+/// forwards the original packet, so the app TCP handshake and data path remain
+/// intact on devices where raw injection is unavailable.
+#[test]
+fn tcp_round_trip_with_synack_strategy_passthrough() {
+    let _guard = test_guard();
+    init_test_tracing();
+
+    let fixture = FixtureStack::start(tun_fixture_config()).expect("start fixture");
+    let manifest = fixture.manifest();
+    let socks5_addr = format!("{}:{}", manifest.bind_host, manifest.socks5_port).parse().expect("parse socks5 addr");
+
+    let (tunnel_fd, harness) = socketpair_tun().expect("create socketpair");
+    let config = test_tunnel_config_with_misc(socks5_addr, |misc| {
+        misc.strategy_chain_yaml = Some(
+            "version: 1\nstrategies:\n  - id: vpn-synack\n    steps:\n      - type: synack\n        ttl: 5\n"
+                .to_string(),
+        );
+    });
+    let cancel = CancellationToken::new();
+    let stats = Arc::new(Stats::new());
+
+    let cancel_clone = cancel.clone();
+    let stats_clone = stats.clone();
+
+    let tunnel_thread = std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("build tokio runtime");
+        rt.block_on(run_tunnel(config, tunnel_fd, cancel_clone, stats_clone))
+    });
+
+    std::thread::sleep(Duration::from_millis(100));
+
+    let dst_ip = manifest.fixture_ipv4.parse::<std::net::Ipv4Addr>().expect("fixture ipv4").octets();
+    let dst_port = manifest.tcp_echo_port;
+    let syn = build_tcp_syn(CLIENT_IP, dst_ip, CLIENT_PORT, dst_port);
+    harness.inject_packet(&syn).expect("inject SYN");
+
+    let syn_ack =
+        recv_tcp_with_flags(&harness, TCP_SYN | TCP_ACK, Duration::from_secs(3)).expect("expected SYN-ACK from tunnel");
+    let (server_seq, _) = tcp_seq_ack(&syn_ack);
+
+    let ack = build_tcp_ack(CLIENT_IP, dst_ip, CLIENT_PORT, dst_port, 1, server_seq + 1);
+    harness.inject_packet(&ack).expect("inject ACK");
+    std::thread::sleep(Duration::from_millis(500));
+
+    let payload = b"synack strategy passthrough";
+    let psh = build_tcp_psh(CLIENT_IP, dst_ip, CLIENT_PORT, dst_port, 1, server_seq + 1, payload);
+    harness.inject_packet(&psh).expect("inject PSH");
+
+    let mut echoed_data = Vec::new();
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while echoed_data.len() < payload.len() && std::time::Instant::now() < deadline {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if let Ok(pkt) = harness.recv_packet(remaining.min(Duration::from_millis(200))) {
+            let data = tcp_payload(&pkt);
+            if !data.is_empty() {
+                echoed_data.extend_from_slice(data);
+            }
+        }
+    }
+
+    assert_eq!(echoed_data, payload, "SYN-ACK strategy passthrough must not break tunnel TCP data");
+
     cancel.cancel();
     let result = tunnel_thread.join().expect("tunnel thread panicked");
     assert!(result.is_ok(), "run_tunnel should return Ok after cancel: {result:?}");

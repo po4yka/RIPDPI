@@ -82,7 +82,7 @@ pub(in crate::io_loop) async fn pump_bridges(state: &mut LoopState) {
 }
 
 pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopState) -> io::Result<()> {
-    flush_device_tx_queue(tun, &state.stats, &mut state.device)
+    flush_device_tx_queue(tun, &state.stats, &mut state.device, &mut state.runtime.tun_ingress_interceptor)
         .await
         .map_err(|e| io::Error::other(format!("flush TUN tx queue: {e}")))
 }
@@ -131,7 +131,6 @@ fn route_tcp_or_other_packet(packet: &[u8], state: &mut LoopState) {
         return;
     }
 
-    state.runtime.tun_ingress_interceptor.handle_packet(packet);
     ensure_pending_listen_for_syn(packet, &mut state.pending_listens, &mut state.socket_set);
     state.device.push_rx(packet.to_vec());
 }
