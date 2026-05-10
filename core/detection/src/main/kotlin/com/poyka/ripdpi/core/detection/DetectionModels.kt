@@ -11,6 +11,7 @@ enum class EvidenceConfidence {
 
 enum class EvidenceSource {
     GEO_IP,
+    IP_COMPARISON,
     NETWORK_CAPABILITIES,
     SYSTEM_PROXY,
     INSTALLED_APP,
@@ -94,6 +95,49 @@ data class CategoryResult(
     val activeApps: List<ActiveVpnApp> = emptyList(),
 )
 
+enum class IpComparisonEndpointGroup {
+    RU,
+    NON_RU,
+}
+
+enum class IpComparisonAddressFamily {
+    IPV4,
+    IPV6,
+}
+
+enum class IpComparisonEndpointStatus {
+    OK,
+    ERROR,
+    SKIPPED,
+}
+
+data class IpComparisonEndpointDescriptor(
+    val label: String,
+    val url: String,
+    val group: IpComparisonEndpointGroup,
+    val addressFamily: IpComparisonAddressFamily? = null,
+)
+
+data class IpComparisonDnsRecords(
+    val aRecords: List<String> = emptyList(),
+    val aaaaRecords: List<String> = emptyList(),
+)
+
+data class IpComparisonEndpointResult(
+    val descriptor: IpComparisonEndpointDescriptor,
+    val dnsRecords: IpComparisonDnsRecords,
+    val reflectedIp: String?,
+    val status: IpComparisonEndpointStatus,
+    val errorMessage: String? = null,
+)
+
+data class IpComparisonResult(
+    val category: CategoryResult,
+    val endpoints: List<IpComparisonEndpointResult>,
+    val ruReflectedIps: Set<String>,
+    val nonRuReflectedIps: Set<String>,
+)
+
 enum class Verdict {
     NOT_DETECTED,
     NEEDS_REVIEW,
@@ -137,6 +181,7 @@ data class DetectionCheckResult(
     val tlsFingerprint: CategoryResult? = null,
     val timingAnalysis: CategoryResult? = null,
     val icmpSpoofing: IcmpSpoofingResult? = null,
+    val ipComparison: IpComparisonResult? = null,
     val verdict: Verdict,
     val methodologyVersion: String = MethodologyVersion.CURRENT,
 )

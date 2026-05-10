@@ -11,6 +11,7 @@ internal data class DetectionPipelineOutputs(
     val tlsFingerprint: CategoryResult?,
     val timingAnalysis: CategoryResult?,
     val icmpSpoofing: IcmpSpoofingResult?,
+    val ipComparison: IpComparisonResult?,
 )
 
 internal class DetectionPipelineResultAssembler(
@@ -26,6 +27,7 @@ internal class DetectionPipelineResultAssembler(
                 indirectSigns = outputs.indirectSigns,
                 locationSignals = locationSignals,
                 bypassResult = bypassResult,
+                ipComparison = outputs.ipComparison,
             )
 
         return DetectionCheckResult(
@@ -39,6 +41,7 @@ internal class DetectionPipelineResultAssembler(
             tlsFingerprint = outputs.tlsFingerprint,
             timingAnalysis = outputs.timingAnalysis,
             icmpSpoofing = outputs.icmpSpoofing,
+            ipComparison = outputs.ipComparison,
             verdict = verdict,
         )
     }

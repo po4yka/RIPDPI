@@ -307,6 +307,12 @@ private fun detectionCategoryEntries(result: DetectionCheckResult): List<Categor
             "icmp",
             RipDpiIcons.NetworkCheck,
         )
+        addOptionalCategory(
+            result.ipComparison?.category,
+            stringResource(R.string.detection_check_category_ip_comparison),
+            "ip_comparison",
+            RipDpiIcons.Public,
+        )
     }
 
 private fun MutableList<CategoryEntry>.addOptionalCategory(

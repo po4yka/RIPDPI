@@ -91,5 +91,9 @@ private object DetectionStageProgressMessages {
             DetectionStage.ICMP_SPOOFING -> {
                 DetectionStageProgressMessage("ICMP Spoofing", "Checking ICMP spoofing signals...")
             }
+
+            DetectionStage.IP_COMPARISON -> {
+                DetectionStageProgressMessage("IP Comparison", "Comparing public IP reflection endpoints...")
+            }
         }
 }

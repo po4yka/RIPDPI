@@ -7,6 +7,7 @@ import com.poyka.ripdpi.core.detection.checker.DnsLeakChecker
 import com.poyka.ripdpi.core.detection.checker.GeoIpChecker
 import com.poyka.ripdpi.core.detection.checker.IcmpSpoofingChecker
 import com.poyka.ripdpi.core.detection.checker.IndirectSignsChecker
+import com.poyka.ripdpi.core.detection.checker.IpComparisonChecker
 import com.poyka.ripdpi.core.detection.checker.LocationSignalsChecker
 import com.poyka.ripdpi.core.detection.checker.SystemPingProber
 import com.poyka.ripdpi.core.detection.checker.TimingAnalysisChecker
@@ -115,6 +116,14 @@ class DefaultIcmpSpoofingCheckerPort
             )
     }
 
+class DefaultIpComparisonCheckerPort
+    @Inject
+    constructor(
+        private val dispatchers: AppCoroutineDispatchers,
+    ) : IpComparisonCheckerPort {
+        override suspend fun check(): IpComparisonResult = IpComparisonChecker.check(dispatchers)
+    }
+
 class DefaultDetectionVerdictEvaluator
     @Inject
     constructor() : DetectionVerdictEvaluator {
@@ -124,6 +133,7 @@ class DefaultDetectionVerdictEvaluator
             indirectSigns: CategoryResult,
             locationSignals: CategoryResult,
             bypassResult: BypassResult,
+            ipComparison: IpComparisonResult?,
         ): Verdict =
             VerdictEngine.evaluate(
                 geoIp = geoIp,
@@ -131,5 +141,6 @@ class DefaultDetectionVerdictEvaluator
                 indirectSigns = indirectSigns,
                 locationSignals = locationSignals,
                 bypassResult = bypassResult,
+                ipComparison = ipComparison,
             )
     }

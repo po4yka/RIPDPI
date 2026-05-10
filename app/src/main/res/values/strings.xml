@@ -2337,6 +2337,7 @@ Source: %2$s</string>
     <string name="detection_check_category_tls">TLS Fingerprint</string>
     <string name="detection_check_category_timing">Timing Analysis</string>
     <string name="detection_check_category_icmp_spoofing">ICMP Spoofing</string>
+    <string name="detection_check_category_ip_comparison">IP Comparison</string>
     <string name="detection_community_title">Community</string>
     <string name="detection_community_local_title">Your Statistics</string>
     <string name="detection_community_reports">%d checks recorded</string>

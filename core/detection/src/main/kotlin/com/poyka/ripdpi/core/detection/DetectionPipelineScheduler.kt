@@ -16,6 +16,7 @@ internal class DetectionPipelineScheduler(
     private val tlsFingerprintChecker: TlsFingerprintCheckerPort,
     private val timingAnalysisChecker: TimingAnalysisCheckerPort,
     private val icmpSpoofingChecker: IcmpSpoofingCheckerPort,
+    private val ipComparisonChecker: IpComparisonCheckerPort,
 ) {
     suspend fun runChecks(
         context: Context,
@@ -103,6 +104,17 @@ internal class DetectionPipelineScheduler(
                 } else {
                     null
                 }
+            val ipComparisonDeferred =
+                if (config.includeIpComparisonCheck) {
+                    async {
+                        reporter.started(DetectionStage.IP_COMPARISON)
+                        ipComparisonChecker.check().also {
+                            reporter.completed(DetectionStage.IP_COMPARISON)
+                        }
+                    }
+                } else {
+                    null
+                }
 
             val geoIp = geoIpDeferred.await()
             val directSigns = directSignsDeferred.await()
@@ -143,6 +155,7 @@ internal class DetectionPipelineScheduler(
                 tlsFingerprint = tlsFingerprintDeferred?.await(),
                 timingAnalysis = timingDeferred?.await(),
                 icmpSpoofing = icmpSpoofing,
+                ipComparison = ipComparisonDeferred?.await(),
             )
         }
 

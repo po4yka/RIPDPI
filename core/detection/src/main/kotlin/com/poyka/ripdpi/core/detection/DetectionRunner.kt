@@ -20,6 +20,7 @@ class DefaultDetectionCheckRunner
         tlsFingerprintChecker: TlsFingerprintCheckerPort,
         timingAnalysisChecker: TimingAnalysisCheckerPort,
         icmpSpoofingChecker: IcmpSpoofingCheckerPort,
+        ipComparisonChecker: IpComparisonCheckerPort,
         verdictEvaluator: DetectionVerdictEvaluator,
     ) : DetectionCheckRunner {
         private val scheduler =
@@ -34,6 +35,7 @@ class DefaultDetectionCheckRunner
                 tlsFingerprintChecker = tlsFingerprintChecker,
                 timingAnalysisChecker = timingAnalysisChecker,
                 icmpSpoofingChecker = icmpSpoofingChecker,
+                ipComparisonChecker = ipComparisonChecker,
             )
         private val resultAssembler = DetectionPipelineResultAssembler(verdictEvaluator)
 
@@ -64,6 +66,7 @@ object DetectionRunner {
             tlsFingerprintChecker = DefaultTlsFingerprintCheckerPort(dispatchers),
             timingAnalysisChecker = DefaultTimingAnalysisCheckerPort(dispatchers),
             icmpSpoofingChecker = DefaultIcmpSpoofingCheckerPort(dispatchers),
+            ipComparisonChecker = DefaultIpComparisonCheckerPort(dispatchers),
             verdictEvaluator = DefaultDetectionVerdictEvaluator(),
         )
 

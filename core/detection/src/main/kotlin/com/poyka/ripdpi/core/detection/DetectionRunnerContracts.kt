@@ -13,6 +13,7 @@ data class DetectionRunnerConfig(
     val includeTlsFingerprintCheck: Boolean = true,
     val includeTimingAnalysis: Boolean = true,
     val includeIcmpSpoofingCheck: Boolean = false,
+    val includeIpComparisonCheck: Boolean = true,
     val encryptedDnsEnabled: Boolean = false,
     val webRtcProtectionEnabled: Boolean = false,
     val tlsFingerprintProfile: String = "chrome_stable",
@@ -29,6 +30,7 @@ enum class DetectionStage {
     TLS_FINGERPRINT,
     TIMING_ANALYSIS,
     ICMP_SPOOFING,
+    IP_COMPARISON,
 }
 
 data class DetectionProgress(
@@ -87,6 +89,10 @@ interface IcmpSpoofingCheckerPort {
     suspend fun check(homeRoutedRoaming: Boolean): IcmpSpoofingResult
 }
 
+interface IpComparisonCheckerPort {
+    suspend fun check(): IpComparisonResult
+}
+
 interface DetectionVerdictEvaluator {
     fun evaluate(
         geoIp: CategoryResult,
@@ -94,6 +100,7 @@ interface DetectionVerdictEvaluator {
         indirectSigns: CategoryResult,
         locationSignals: CategoryResult,
         bypassResult: BypassResult,
+        ipComparison: IpComparisonResult?,
     ): Verdict
 }
 

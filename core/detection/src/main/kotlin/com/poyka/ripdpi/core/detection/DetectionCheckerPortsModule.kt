@@ -44,5 +44,8 @@ abstract class DetectionCheckerPortsModule {
     abstract fun bindIcmpSpoofingCheckerPort(checker: DefaultIcmpSpoofingCheckerPort): IcmpSpoofingCheckerPort
 
     @Binds
+    abstract fun bindIpComparisonCheckerPort(checker: DefaultIpComparisonCheckerPort): IpComparisonCheckerPort
+
+    @Binds
     abstract fun bindDetectionVerdictEvaluator(evaluator: DefaultDetectionVerdictEvaluator): DetectionVerdictEvaluator
 }

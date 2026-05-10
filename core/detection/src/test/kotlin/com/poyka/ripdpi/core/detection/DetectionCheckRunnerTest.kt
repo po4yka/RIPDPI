@@ -47,6 +47,7 @@ class DetectionCheckRunnerTest {
             assertEquals("tls", result.tlsFingerprint?.name)
             assertEquals("timing", result.timingAnalysis?.name)
             assertEquals("icmp", result.icmpSpoofing?.category?.name)
+            assertEquals("ip comparison", result.ipComparison?.category?.name)
             assertEquals(setOf(1080), ports.bypass.excludePorts)
             assertEquals("com.example.proxy", ports.direct.excludePackage)
             assertEquals(true, ports.dns.encryptedDnsEnabled)
@@ -55,6 +56,7 @@ class DetectionCheckRunnerTest {
             assertEquals(false, ports.icmp.homeRoutedRoaming)
             assertSame(ports.geo.result, ports.verdict.geoIp)
             assertSame(ports.bypass.result, ports.verdict.bypassResult)
+            assertSame(ports.ipComparison.result, ports.verdict.ipComparison)
             assertTrue(progress.any { it.stage == DetectionStage.GEO_IP && it.detail == "Done" })
             assertTrue(progress.any { it.stage == DetectionStage.BYPASS && it.label == "Bypass: scan" })
         }
@@ -77,6 +79,7 @@ class DetectionCheckRunnerTest {
                             includeTlsFingerprintCheck = false,
                             includeTimingAnalysis = false,
                             includeIcmpSpoofingCheck = false,
+                            includeIpComparisonCheck = false,
                         ),
                 )
 
@@ -98,6 +101,7 @@ class DetectionCheckRunnerTest {
             assertNull(result.tlsFingerprint)
             assertNull(result.timingAnalysis)
             assertNull(result.icmpSpoofing)
+            assertNull(result.ipComparison)
             assertEquals(0, ports.location.calls)
             assertEquals(0, ports.bypass.calls)
             assertEquals(0, ports.dns.calls)
@@ -105,6 +109,7 @@ class DetectionCheckRunnerTest {
             assertEquals(0, ports.tls.calls)
             assertEquals(0, ports.timing.calls)
             assertEquals(0, ports.icmp.calls)
+            assertEquals(0, ports.ipComparison.calls)
             assertNotNull(ports.verdict.locationSignals)
             assertNotNull(ports.verdict.bypassResult)
         }
@@ -144,6 +149,7 @@ class DetectionCheckRunnerTest {
         val tls = FakeTlsFingerprintCheckerPort()
         val timing = FakeTimingAnalysisCheckerPort()
         val icmp = FakeIcmpSpoofingCheckerPort()
+        val ipComparison = FakeIpComparisonCheckerPort()
         val verdict = FakeDetectionVerdictEvaluator()
 
         fun newRunner(): DefaultDetectionCheckRunner =
@@ -158,6 +164,7 @@ class DetectionCheckRunnerTest {
                 tlsFingerprintChecker = tls,
                 timingAnalysisChecker = timing,
                 icmpSpoofingChecker = icmp,
+                ipComparisonChecker = ipComparison,
                 verdictEvaluator = verdict,
             )
     }
@@ -278,10 +285,27 @@ class DetectionCheckRunnerTest {
         }
     }
 
+    private class FakeIpComparisonCheckerPort : IpComparisonCheckerPort {
+        val result =
+            IpComparisonResult(
+                category = category("ip comparison"),
+                endpoints = emptyList(),
+                ruReflectedIps = emptySet(),
+                nonRuReflectedIps = emptySet(),
+            )
+        var calls = 0
+
+        override suspend fun check(): IpComparisonResult {
+            calls += 1
+            return result
+        }
+    }
+
     private class FakeDetectionVerdictEvaluator : DetectionVerdictEvaluator {
         var geoIp: CategoryResult? = null
         var locationSignals: CategoryResult? = null
         var bypassResult: BypassResult? = null
+        var ipComparison: IpComparisonResult? = null
 
         override fun evaluate(
             geoIp: CategoryResult,
@@ -289,10 +313,12 @@ class DetectionCheckRunnerTest {
             indirectSigns: CategoryResult,
             locationSignals: CategoryResult,
             bypassResult: BypassResult,
+            ipComparison: IpComparisonResult?,
         ): Verdict {
             this.geoIp = geoIp
             this.locationSignals = locationSignals
             this.bypassResult = bypassResult
+            this.ipComparison = ipComparison
             return Verdict.NEEDS_REVIEW
         }
     }

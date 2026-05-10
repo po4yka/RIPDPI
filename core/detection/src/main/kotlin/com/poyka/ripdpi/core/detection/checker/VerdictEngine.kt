@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
+import com.poyka.ripdpi.core.detection.IpComparisonResult
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.VpnAppKind
 
@@ -16,6 +17,7 @@ object VerdictEngine {
         indirectSigns: CategoryResult,
         locationSignals: CategoryResult,
         bypassResult: BypassResult,
+        ipComparison: IpComparisonResult? = null,
     ): Verdict {
         val evidence =
             buildList {
@@ -24,6 +26,7 @@ object VerdictEngine {
                 addAll(indirectSigns.evidence)
                 addAll(locationSignals.evidence)
                 addAll(bypassResult.evidence)
+                ipComparison?.category?.evidence?.let(::addAll)
             }
 
         if (evidence.any { it.source == EvidenceSource.SPLIT_TUNNEL_BYPASS && it.detected }) {
@@ -80,7 +83,11 @@ object VerdictEngine {
                 Verdict.DETECTED
             }
 
-            hasGenericActive || score >= 4 || directSigns.needsReview || indirectSigns.needsReview -> {
+            hasGenericActive ||
+                score >= 4 ||
+                directSigns.needsReview ||
+                indirectSigns.needsReview ||
+                ipComparison?.category?.needsReview == true -> {
                 Verdict.NEEDS_REVIEW
             }
 
@@ -109,6 +116,7 @@ object VerdictEngine {
                 EvidenceSource.LOCAL_PROXY -> 2
                 EvidenceSource.XRAY_API -> 4
                 EvidenceSource.SPLIT_TUNNEL_BYPASS -> 5
+                EvidenceSource.IP_COMPARISON -> 3
                 else -> 0
             }
         return confidenceWeight + kindWeight + sourceWeight
