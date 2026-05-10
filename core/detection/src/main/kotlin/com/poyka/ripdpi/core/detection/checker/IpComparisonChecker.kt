@@ -108,7 +108,8 @@ object IpComparisonChecker {
 
     suspend fun check(
         dispatchers: AppCoroutineDispatchers,
-        endpointClient: IpComparisonEndpointClient = DefaultIpComparisonEndpointClient(),
+        resolverConfig: DetectionResolverConfig = DetectionResolverConfig(),
+        endpointClient: IpComparisonEndpointClient = DefaultIpComparisonEndpointClient(resolverConfig),
         dnsResolver: IpComparisonDnsResolver = SystemIpComparisonDnsResolver(),
         endpoints: List<IpComparisonEndpointDescriptor> = DEFAULT_ENDPOINTS,
     ): IpComparisonResult =
@@ -326,6 +327,7 @@ object IpComparisonChecker {
 }
 
 class DefaultIpComparisonEndpointClient(
+    private val resolverConfig: DetectionResolverConfig = DetectionResolverConfig(),
     private val networkStack: DetectionResolverNetworkStack = DetectionResolverNetworkStack(),
 ) : IpComparisonEndpointClient {
     private val baseClient =
@@ -347,7 +349,7 @@ class DefaultIpComparisonEndpointClient(
         val client =
             networkStack
                 .clientFor(
-                    DetectionResolverConfig(
+                    resolverConfig.copy(
                         addressFamily = endpoint.addressFamily.toDetectionAddressFamily(),
                         connectTimeoutMillis = TIMEOUT_MS.toLong(),
                         readTimeoutMillis = TIMEOUT_MS.toLong(),

@@ -3,6 +3,8 @@ package com.poyka.ripdpi.core.detection
 import android.content.Context
 import com.poyka.ripdpi.core.detection.checker.BypassChecker
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
+import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
+import com.poyka.ripdpi.data.diagnostics.DetectionResolverMode
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -156,6 +158,33 @@ class DetectionCheckRunnerTest {
             assertEquals(true, ports.icmp.homeRoutedRoaming)
         }
 
+    @Test
+    fun `runner passes resolver config to network-backed checkers`() =
+        runTest {
+            val ports = FakeDetectionPorts()
+            val resolverConfig =
+                DetectionResolverConfig(
+                    resolverMode = DetectionResolverMode.DOH,
+                    directDnsServers = listOf("9.9.9.9"),
+                    dohBootstrapIps = listOf("1.1.1.1"),
+                )
+
+            ports
+                .newRunner()
+                .run(
+                    context = RuntimeEnvironment.getApplication(),
+                    config =
+                        DetectionRunnerConfig(
+                            includeCdnPullingCheck = true,
+                            resolverConfig = resolverConfig,
+                        ),
+                )
+
+            assertEquals(resolverConfig, ports.geo.resolverConfig)
+            assertEquals(resolverConfig, ports.ipComparison.resolverConfig)
+            assertEquals(resolverConfig, ports.cdnPulling.resolverConfig)
+        }
+
     private class FakeDetectionPorts {
         val geo = FakeGeoIpCheckerPort()
         val direct = FakeDirectSignsCheckerPort()
@@ -195,8 +224,12 @@ class DetectionCheckRunnerTest {
 
     private class FakeGeoIpCheckerPort : GeoIpCheckerPort {
         val result = category("geo")
+        var resolverConfig: DetectionResolverConfig? = null
 
-        override suspend fun check(): CategoryResult = result
+        override suspend fun check(resolverConfig: DetectionResolverConfig): CategoryResult {
+            this.resolverConfig = resolverConfig
+            return result
+        }
     }
 
     private class FakeDirectSignsCheckerPort : DirectSignsCheckerPort {
@@ -319,9 +352,11 @@ class DetectionCheckRunnerTest {
                 nonRuReflectedIps = emptySet(),
             )
         var calls = 0
+        var resolverConfig: DetectionResolverConfig? = null
 
-        override suspend fun check(): IpComparisonResult {
+        override suspend fun check(resolverConfig: DetectionResolverConfig): IpComparisonResult {
             calls += 1
+            this.resolverConfig = resolverConfig
             return result
         }
     }
@@ -349,9 +384,14 @@ class DetectionCheckRunnerTest {
                 endpoints = emptyList(),
             )
         var calls = 0
+        var resolverConfig: DetectionResolverConfig? = null
 
-        override suspend fun check(enabled: Boolean): CdnPullingResult {
+        override suspend fun check(
+            enabled: Boolean,
+            resolverConfig: DetectionResolverConfig,
+        ): CdnPullingResult {
             calls += 1
+            this.resolverConfig = resolverConfig
             return result
         }
     }

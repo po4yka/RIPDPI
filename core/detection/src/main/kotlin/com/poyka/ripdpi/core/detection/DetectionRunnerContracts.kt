@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core.detection
 import android.content.Context
 import com.poyka.ripdpi.core.detection.checker.BypassChecker
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
+import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
 
 data class DetectionRunnerConfig(
     val ownProxyPort: Int? = null,
@@ -19,6 +20,7 @@ data class DetectionRunnerConfig(
     val includeCdnPullingCheck: Boolean = false,
     val includeNativeSignsCheck: Boolean = true,
     val bypassScanOptions: BypassScanOptions = BypassScanOptions(),
+    val resolverConfig: DetectionResolverConfig = DetectionResolverConfig(),
     val encryptedDnsEnabled: Boolean = false,
     val webRtcProtectionEnabled: Boolean = false,
     val tlsFingerprintProfile: String = "chrome_stable",
@@ -69,7 +71,7 @@ data class DetectionProgress(
 )
 
 interface GeoIpCheckerPort {
-    suspend fun check(): CategoryResult
+    suspend fun check(resolverConfig: DetectionResolverConfig = DetectionResolverConfig()): CategoryResult
 }
 
 interface DirectSignsCheckerPort {
@@ -119,7 +121,7 @@ interface IcmpSpoofingCheckerPort {
 }
 
 interface IpComparisonCheckerPort {
-    suspend fun check(): IpComparisonResult
+    suspend fun check(resolverConfig: DetectionResolverConfig = DetectionResolverConfig()): IpComparisonResult
 }
 
 interface RttTriangulationCheckerPort {
@@ -127,7 +129,10 @@ interface RttTriangulationCheckerPort {
 }
 
 interface CdnPullingCheckerPort {
-    suspend fun check(enabled: Boolean): CdnPullingResult
+    suspend fun check(
+        enabled: Boolean,
+        resolverConfig: DetectionResolverConfig = DetectionResolverConfig(),
+    ): CdnPullingResult
 }
 
 interface NativeSignsCheckerPort {

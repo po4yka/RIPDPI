@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.detection
 
+import com.poyka.ripdpi.data.diagnostics.DetectionResolverMode
+import com.poyka.ripdpi.data.diagnostics.DnsPreset
 import com.poyka.ripdpi.proto.AppSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -67,5 +69,54 @@ class DetectionSettingsUiModelTest {
         assertEquals(DetectionPortRangeMode.CUSTOM, state.portRangeMode)
         assertEquals(3, state.customPortCount)
         assertTrue(state.customPortRangeValid)
+    }
+
+    @Test
+    fun directResolverConfigUsesCustomServers() {
+        val config =
+            AppSettings
+                .newBuilder()
+                .setDetectionCheckDnsResolverMode("direct")
+                .setDetectionCheckDnsPreset("custom")
+                .setDetectionCheckDnsDirectServers("9.9.9.9, 149.112.112.112")
+                .build()
+                .toDetectionResolverConfig()
+
+        assertEquals(DetectionResolverMode.DIRECT, config.resolverMode)
+        assertEquals(listOf("9.9.9.9", "149.112.112.112"), config.directDnsServers)
+    }
+
+    @Test
+    fun dohResolverConfigUsesPresetUrlAndBootstrapServers() {
+        val config =
+            AppSettings
+                .newBuilder()
+                .setDetectionCheckDnsResolverMode("doh")
+                .setDetectionCheckDnsPreset("google")
+                .build()
+                .toDetectionResolverConfig()
+
+        assertEquals(DetectionResolverMode.DOH, config.resolverMode)
+        assertEquals(DnsPreset.GOOGLE, config.dohPreset)
+        assertEquals(DnsPreset.GOOGLE.servers, config.dohBootstrapIps)
+    }
+
+    @Test
+    fun customDohResolverConfigUsesConfiguredEndpointHost() {
+        val config =
+            AppSettings
+                .newBuilder()
+                .setDetectionCheckDnsResolverMode("doh")
+                .setDetectionCheckDnsPreset("custom")
+                .setDetectionCheckDnsDirectServers("9.9.9.9")
+                .setDetectionCheckDnsDohUrl("https://dns.quad9.net/dns-query")
+                .build()
+                .toDetectionResolverConfig()
+
+        assertEquals(DetectionResolverMode.DOH, config.resolverMode)
+        assertEquals("custom", config.dohPreset.id)
+        assertEquals("https://dns.quad9.net/dns-query", config.dohPreset.dohUrl)
+        assertEquals("dns.quad9.net", config.dohPreset.dohHost)
+        assertEquals(listOf("9.9.9.9"), config.dohBootstrapIps)
     }
 }

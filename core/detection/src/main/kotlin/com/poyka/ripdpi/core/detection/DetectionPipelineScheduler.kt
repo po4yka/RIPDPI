@@ -34,7 +34,7 @@ internal class DetectionPipelineScheduler(
             val geoIpDeferred =
                 async {
                     reporter.started(DetectionStage.GEO_IP)
-                    geoIpChecker.check().also {
+                    geoIpChecker.check(config.resolverConfig).also {
                         reporter.completed(DetectionStage.GEO_IP)
                     }
                 }
@@ -112,7 +112,7 @@ internal class DetectionPipelineScheduler(
                 if (config.includeIpComparisonCheck) {
                     async {
                         reporter.started(DetectionStage.IP_COMPARISON)
-                        ipComparisonChecker.check().also {
+                        ipComparisonChecker.check(config.resolverConfig).also {
                             reporter.completed(DetectionStage.IP_COMPARISON)
                         }
                     }
@@ -123,9 +123,13 @@ internal class DetectionPipelineScheduler(
                 if (config.includeCdnPullingCheck) {
                     async {
                         reporter.started(DetectionStage.CDN_PULLING)
-                        cdnPullingChecker.check(enabled = true).also {
-                            reporter.completed(DetectionStage.CDN_PULLING)
-                        }
+                        cdnPullingChecker
+                            .check(
+                                enabled = true,
+                                resolverConfig = config.resolverConfig,
+                            ).also {
+                                reporter.completed(DetectionStage.CDN_PULLING)
+                            }
                     }
                 } else {
                     null

@@ -19,6 +19,7 @@ import com.poyka.ripdpi.core.detection.checker.VerdictEngine
 import com.poyka.ripdpi.core.detection.checker.WebRtcLeakChecker
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
 import javax.inject.Inject
 
 class DefaultGeoIpCheckerPort
@@ -26,7 +27,11 @@ class DefaultGeoIpCheckerPort
     constructor(
         private val dispatchers: AppCoroutineDispatchers,
     ) : GeoIpCheckerPort {
-        override suspend fun check(): CategoryResult = GeoIpChecker.check(dispatchers)
+        override suspend fun check(resolverConfig: DetectionResolverConfig): CategoryResult =
+            GeoIpChecker.check(
+                dispatchers = dispatchers,
+                resolverConfig = resolverConfig,
+            )
     }
 
 class DefaultDirectSignsCheckerPort
@@ -127,7 +132,11 @@ class DefaultIpComparisonCheckerPort
     constructor(
         private val dispatchers: AppCoroutineDispatchers,
     ) : IpComparisonCheckerPort {
-        override suspend fun check(): IpComparisonResult = IpComparisonChecker.check(dispatchers)
+        override suspend fun check(resolverConfig: DetectionResolverConfig): IpComparisonResult =
+            IpComparisonChecker.check(
+                dispatchers = dispatchers,
+                resolverConfig = resolverConfig,
+            )
     }
 
 class DefaultRttTriangulationCheckerPort
@@ -152,10 +161,14 @@ class DefaultCdnPullingCheckerPort
     constructor(
         private val dispatchers: AppCoroutineDispatchers,
     ) : CdnPullingCheckerPort {
-        override suspend fun check(enabled: Boolean): CdnPullingResult =
+        override suspend fun check(
+            enabled: Boolean,
+            resolverConfig: DetectionResolverConfig,
+        ): CdnPullingResult =
             CdnPullingChecker.check(
                 dispatchers = dispatchers,
                 enabled = enabled,
+                resolverConfig = resolverConfig,
             )
     }
 

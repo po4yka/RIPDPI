@@ -54,7 +54,8 @@ object GeoIpChecker {
 
     internal suspend fun check(
         dispatchers: AppCoroutineDispatchers,
-        client: GeoIpProviderClient = DefaultGeoIpProviderClient(),
+        resolverConfig: DetectionResolverConfig = DetectionResolverConfig(),
+        client: GeoIpProviderClient = DefaultGeoIpProviderClient(resolverConfig),
     ): CategoryResult =
         withContext(dispatchers.io) {
             try {
@@ -72,7 +73,8 @@ object GeoIpChecker {
 
     internal suspend fun resolveAsnInfo(
         ip: String,
-        client: GeoIpProviderClient = DefaultGeoIpProviderClient(),
+        resolverConfig: DetectionResolverConfig = DetectionResolverConfig(),
+        client: GeoIpProviderClient = DefaultGeoIpProviderClient(resolverConfig),
     ): IpAsnInfo? =
         withContext(Dispatchers.IO) {
             try {
@@ -111,7 +113,10 @@ object GeoIpChecker {
                 .filterNotNull()
         }
 
-    private fun fetchJson(url: String): JSONObject {
+    private fun fetchJson(
+        url: String,
+        resolverConfig: DetectionResolverConfig,
+    ): JSONObject {
         val request =
             Request
                 .Builder()
@@ -123,7 +128,7 @@ object GeoIpChecker {
             DEFAULT_NETWORK_STACK.execute(
                 request = request,
                 config =
-                    DetectionResolverConfig(
+                    resolverConfig.copy(
                         connectTimeoutMillis = GEO_IP_TIMEOUT_MS,
                         readTimeoutMillis = GEO_IP_TIMEOUT_MS,
                         callTimeoutMillis = GEO_IP_TIMEOUT_MS,
@@ -429,9 +434,11 @@ object GeoIpChecker {
             else -> false
         }
 
-    private class DefaultGeoIpProviderClient : GeoIpProviderClient {
+    private class DefaultGeoIpProviderClient(
+        private val resolverConfig: DetectionResolverConfig,
+    ) : GeoIpProviderClient {
         override suspend fun fetchSeedIp(): String {
-            val json = fetchJson(SEED_URL)
+            val json = fetchJson(SEED_URL, resolverConfig)
             ensureProviderSuccess(json)
             return snapshotFrom(json).ip
         }
@@ -440,7 +447,7 @@ object GeoIpChecker {
             provider: GeoIpProvider,
             ip: String,
         ): GeoIpSnapshot {
-            val json = fetchJson(provider.urlForIp(ip))
+            val json = fetchJson(provider.urlForIp(ip), resolverConfig)
             ensureProviderSuccess(json)
             return provider.parse(json, 0)
         }

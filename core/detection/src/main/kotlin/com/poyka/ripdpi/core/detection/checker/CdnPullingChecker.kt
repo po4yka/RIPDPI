@@ -98,7 +98,8 @@ object CdnPullingChecker {
     suspend fun check(
         dispatchers: AppCoroutineDispatchers,
         enabled: Boolean,
-        endpointClient: CdnTraceClient = DefaultCdnTraceClient(),
+        resolverConfig: DetectionResolverConfig = DetectionResolverConfig(),
+        endpointClient: CdnTraceClient = DefaultCdnTraceClient(resolverConfig),
         endpoints: List<CdnPullingEndpointDescriptor> = DEFAULT_ENDPOINTS,
     ): CdnPullingResult =
         withContext(dispatchers.io) {
@@ -298,6 +299,7 @@ object CdnPullingChecker {
 }
 
 class DefaultCdnTraceClient(
+    private val resolverConfig: DetectionResolverConfig = DetectionResolverConfig(),
     private val networkStack: DetectionResolverNetworkStack = DetectionResolverNetworkStack(),
 ) : CdnTraceClient {
     override suspend fun fetchTrace(endpoint: CdnPullingEndpointDescriptor): String {
@@ -310,7 +312,7 @@ class DefaultCdnTraceClient(
                 .build()
         val client =
             networkStack.clientFor(
-                DetectionResolverConfig(
+                resolverConfig.copy(
                     addressFamily = endpoint.addressFamily.toDetectionAddressFamily(),
                     connectTimeoutMillis = TIMEOUT_MS.toLong(),
                     readTimeoutMillis = TIMEOUT_MS.toLong(),

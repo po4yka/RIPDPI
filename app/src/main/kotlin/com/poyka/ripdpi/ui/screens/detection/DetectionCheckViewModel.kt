@@ -348,6 +348,7 @@ class DetectionCheckViewModel
                                 detectionCheckCallTransportProbeEnabled,
                         portRange = toBypassPortRange(),
                     ),
+                resolverConfig = toDetectionResolverConfig(),
                 encryptedDnsEnabled = dnsMode == "encrypted" || detectionCheckDnsResolverMode == "doh",
                 webRtcProtectionEnabled = webrtcProtectionEnabled,
                 tlsFingerprintProfile = tlsFingerprintProfile.ifEmpty { "chrome_stable" },
