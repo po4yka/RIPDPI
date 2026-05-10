@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.core.detection.checker
 
+import com.poyka.ripdpi.core.detection.BypassPortRange
 import com.poyka.ripdpi.core.detection.BypassResult
+import com.poyka.ripdpi.core.detection.BypassScanOptions
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -29,6 +31,7 @@ object BypassChecker {
     suspend fun check(
         dispatchers: AppCoroutineDispatchers,
         excludePorts: Set<Int> = emptySet(),
+        options: BypassScanOptions = BypassScanOptions(),
         onProgress: (suspend (Progress) -> Unit)? = null,
         proxyEndpointProvider: (suspend () -> ProxyEndpoint?)? = null,
         xrayApiScanProvider: (suspend () -> XrayApiScanResult?)? = null,
@@ -45,13 +48,23 @@ object BypassChecker {
                 ProxyScanner(
                     dispatchers = dispatchers,
                     excludePorts = KnownLocalServices.excludedPorts + excludePorts,
+                    scanRange = options.portRange.toScanRange(),
+                    fullRangeEnabled = options.portRange !is BypassPortRange.Popular,
                 )
             val xrayScanner = XrayApiScanner(dispatchers = dispatchers)
 
             val proxyDeferred =
                 async {
-                    proxyEndpointProvider?.invoke()
-                        ?: run {
+                    when {
+                        !options.proxyScanEnabled -> {
+                            null
+                        }
+
+                        proxyEndpointProvider != null -> {
+                            proxyEndpointProvider.invoke()
+                        }
+
+                        else -> {
                             onProgress?.invoke(Progress("Port scanning", "Searching for open proxies on localhost..."))
                             scanner.findOpenProxyEndpoint(
                                 mode = ScanMode.AUTO,
@@ -68,12 +81,21 @@ object BypassChecker {
                                 },
                             )
                         }
+                    }
                 }
 
             val xrayDeferred =
                 async {
-                    xrayApiScanProvider?.invoke()
-                        ?: run {
+                    when {
+                        !options.xrayApiScanEnabled -> {
+                            null
+                        }
+
+                        xrayApiScanProvider != null -> {
+                            xrayApiScanProvider.invoke()
+                        }
+
+                        else -> {
                             onProgress?.invoke(Progress("Xray API", "Searching for gRPC API on localhost..."))
                             xrayScanner.findXrayApi { progress ->
                                 val percent = if (progress.total > 0) (progress.scanned * 100 / progress.total) else 0
@@ -82,6 +104,7 @@ object BypassChecker {
                                 )
                             }
                         }
+                    }
                 }
 
             val proxyEndpoint = proxyDeferred.await()
@@ -117,7 +140,7 @@ object BypassChecker {
                     }
                 val mtProtoDeferred =
                     async {
-                        if (proxyEndpoint.type == ProxyType.SOCKS5) {
+                        if (options.callTransportProbeEnabled && proxyEndpoint.type == ProxyType.SOCKS5) {
                             runCatching { mtProtoProber.canReach(proxyEndpoint) }.getOrDefault(false)
                         } else {
                             false
@@ -125,7 +148,7 @@ object BypassChecker {
                     }
                 val stunDeferred =
                     async {
-                        if (proxyEndpoint.type == ProxyType.SOCKS5) {
+                        if (options.callTransportProbeEnabled && proxyEndpoint.type == ProxyType.SOCKS5) {
                             runCatching { stunClient.reflexiveAddress(proxyEndpoint) }.getOrNull()
                         } else {
                             null
@@ -190,6 +213,14 @@ object BypassChecker {
                 needsReview = false,
                 evidence = evidence,
             )
+        }
+
+    private fun BypassPortRange.toScanRange(): IntRange =
+        when (this) {
+            BypassPortRange.Popular -> 1024..65535
+            BypassPortRange.Extended -> 1024..49151
+            BypassPortRange.Full -> 1..65535
+            is BypassPortRange.Custom -> start.coerceIn(1, 65535)..end.coerceIn(1, 65535)
         }
 
     private fun reportProxyTransportProbes(

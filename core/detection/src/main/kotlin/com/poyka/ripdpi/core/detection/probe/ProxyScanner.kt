@@ -21,6 +21,7 @@ class ProxyScanner(
             VpnAppCatalog.localhostProxyPorts + listOf(1081, 7890, 7891)
         ).distinct().sorted(),
     private val scanRange: IntRange = 1024..65535,
+    private val fullRangeEnabled: Boolean = true,
     private val connectTimeoutMs: Int = 15,
     private val readTimeoutMs: Int = 30,
     private val maxConcurrency: Int = 512,
@@ -49,6 +50,7 @@ class ProxyScanner(
             ScanMode.AUTO -> {
                 val foundOnPopular = scanPopularPorts(onProgress)
                 if (foundOnPopular != null) return foundOnPopular
+                if (!fullRangeEnabled) return null
                 scanFullRange(onProgress)
             }
         }

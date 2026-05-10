@@ -4,8 +4,8 @@ import android.Manifest
 import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.poyka.ripdpi.core.detection.AutoTuneFix
-import com.poyka.ripdpi.core.detection.DetectionAutoTuner
+import com.poyka.ripdpi.core.detection.BypassPortRange
+import com.poyka.ripdpi.core.detection.BypassScanOptions
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionCheckRunner
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
@@ -45,7 +45,7 @@ data class DetectionCheckUiState(
     val stealthScore: Int? = null,
     val stealthLabel: String? = null,
     val recommendations: List<Recommendation> = emptyList(),
-    val autoTuneFixes: List<AutoTuneFix> = emptyList(),
+    val suggestedFixes: List<DetectionSuggestedFix> = emptyList(),
     val reportText: String? = null,
     val debugReportText: String? = null,
     val error: String? = null,
@@ -60,13 +60,8 @@ data class DetectionCheckUiState(
     val cdnPullingEnabled: Boolean = false,
     val debugModeEnabled: Boolean = false,
     val colorVisionMode: DetectionColorVisionMode = DetectionColorVisionMode.OFF,
-    val protanopiaVariantUnlocked: Boolean = false,
+    val redGreenAltEnabled: Boolean = false,
 )
-
-private const val entropyModeBalanced = 3
-private const val entropyPaddingTargetPermilValue = 3400
-private const val shannonEntropyTargetPermilValue = 7920
-private const val strategyEvolutionRecommendedEpsilon = 0.1
 
 @HiltViewModel
 class DetectionCheckViewModel
@@ -113,7 +108,7 @@ class DetectionCheckViewModel
                             cdnPullingEnabled = settings.detectionCheckCdnPullingEnabled,
                             debugModeEnabled = debugModeEnabled,
                             colorVisionMode = colorVisionMode,
-                            protanopiaVariantUnlocked = settings.detectionCheckProtanopiaVariantUnlocked,
+                            redGreenAltEnabled = settings.redGreenStatusAltEnabled,
                             reportText =
                                 _uiState.value.result?.let { result ->
                                     DetectionReportFormatter.format(
@@ -266,15 +261,7 @@ class DetectionCheckViewModel
                                             privacyModeEnabled = privacyModeEnabled,
                                         )
                                     }
-                            val fixes =
-                                DetectionAutoTuner.suggestFixes(
-                                    result = result,
-                                    tlsFingerprintEnabled = true,
-                                    entropyPaddingEnabled = settings.entropyMode != 0,
-                                    encryptedDnsEnabled = settings.dnsMode == "encrypted",
-                                    fullTunnelEnabled = settings.fullTunnelMode,
-                                    strategyEvolutionEnabled = settings.strategyEvolution,
-                                )
+                            val fixes = settings.suggestDetectionFixes(result)
 
                             saveToHistory(result, score)
                             refreshCommunityStats()
@@ -314,7 +301,7 @@ class DetectionCheckViewModel
                 stealthScore = null,
                 stealthLabel = null,
                 recommendations = emptyList(),
-                autoTuneFixes = emptyList(),
+                suggestedFixes = emptyList(),
                 reportText = null,
                 debugReportText = null,
                 error = null,
@@ -325,7 +312,7 @@ class DetectionCheckViewModel
             score: Int,
             label: String,
             recommendations: List<Recommendation>,
-            fixes: List<AutoTuneFix>,
+            fixes: List<DetectionSuggestedFix>,
             reportText: String,
             debugReportText: String?,
         ): DetectionCheckUiState =
@@ -337,7 +324,7 @@ class DetectionCheckViewModel
                 stealthScore = score,
                 stealthLabel = label,
                 recommendations = recommendations,
-                autoTuneFixes = fixes,
+                suggestedFixes = fixes,
                 reportText = reportText,
                 debugReportText = debugReportText,
             )
@@ -346,52 +333,62 @@ class DetectionCheckViewModel
             DetectionRunnerConfig(
                 ownProxyPort = proxyPort.takeIf { it > 0 },
                 ownPackageName = packageName,
-                encryptedDnsEnabled = dnsMode == "encrypted",
+                includeBypassCheck = detectionCheckIncludeBypass,
+                includeLocationCheck = detectionCheckIncludeLocation,
+                includeRttTriangulationCheck =
+                    detectionCheckNetworkRequestsEnabled && detectionCheckRttTriangulationEnabled,
+                includeCdnPullingCheck =
+                    detectionCheckNetworkRequestsEnabled && detectionCheckCdnPullingEnabled,
+                bypassScanOptions =
+                    BypassScanOptions(
+                        proxyScanEnabled = detectionCheckIncludeBypass,
+                        xrayApiScanEnabled = detectionCheckXrayApiScanEnabled,
+                        callTransportProbeEnabled =
+                            detectionCheckNetworkRequestsEnabled &&
+                                detectionCheckCallTransportProbeEnabled,
+                        portRange = toBypassPortRange(),
+                    ),
+                encryptedDnsEnabled = dnsMode == "encrypted" || detectionCheckDnsResolverMode == "doh",
                 webRtcProtectionEnabled = webrtcProtectionEnabled,
                 tlsFingerprintProfile = tlsFingerprintProfile.ifEmpty { "chrome_stable" },
-                includeRttTriangulationCheck = detectionCheckRttTriangulationEnabled,
-                includeCdnPullingCheck = detectionCheckCdnPullingEnabled,
             )
 
         private fun AppSettings.toDetectionDebugSettings(): DetectionDebugSettings =
             DetectionDebugSettings(
                 cdnPullingEnabled = detectionCheckCdnPullingEnabled,
-                dnsResolverMode = dnsMode,
-                portRange = proxyPort.takeIf { it > 0 }?.toString() ?: "default",
+                dnsResolverMode = detectionCheckDnsResolverMode.ifEmpty { dnsMode },
+                portRange = detectionCheckPortRangeMode.ifEmpty { "popular" },
                 debugModeEnabled = detectionCheckDebugModeEnabled,
             )
+
+        private fun AppSettings.toBypassPortRange(): BypassPortRange =
+            when (DetectionPortRangeMode.fromWire(detectionCheckPortRangeMode)) {
+                DetectionPortRangeMode.POPULAR -> {
+                    BypassPortRange.Popular
+                }
+
+                DetectionPortRangeMode.EXTENDED -> {
+                    BypassPortRange.Extended
+                }
+
+                DetectionPortRangeMode.FULL -> {
+                    BypassPortRange.Full
+                }
+
+                DetectionPortRangeMode.CUSTOM -> {
+                    BypassPortRange.Custom(
+                        start = detectionCheckCustomPortStart.takeIf { it > 0 } ?: 1080,
+                        end = detectionCheckCustomPortEnd.takeIf { it > 0 } ?: 1090,
+                    )
+                }
+            }
 
         fun applyAllFixes() {
             viewModelScope.launch {
                 appSettingsRepository.update {
-                    for (fix in _uiState.value.autoTuneFixes) {
-                        when (fix.id) {
-                            "tls_fingerprint" -> {
-                                tlsFingerprintProfile = "chrome_stable"
-                            }
-
-                            "entropy_padding" -> {
-                                entropyMode = entropyModeBalanced
-                                entropyPaddingTargetPermil = entropyPaddingTargetPermilValue
-                                shannonEntropyTargetPermil = shannonEntropyTargetPermilValue
-                            }
-
-                            "encrypted_dns" -> {
-                                dnsMode = "encrypted"
-                            }
-
-                            "full_tunnel" -> {
-                                fullTunnelMode = true
-                            }
-
-                            "strategy_evolution" -> {
-                                strategyEvolution = true
-                                evolutionEpsilon = strategyEvolutionRecommendedEpsilon
-                            }
-                        }
-                    }
+                    applyDetectionFixes(_uiState.value.suggestedFixes)
                 }
-                _uiState.value = _uiState.value.copy(autoTuneFixes = emptyList())
+                _uiState.value = _uiState.value.copy(suggestedFixes = emptyList())
             }
         }
 
@@ -430,8 +427,7 @@ class DetectionCheckViewModel
         fun unlockProtanopiaVariant() {
             viewModelScope.launch {
                 appSettingsRepository.update {
-                    detectionCheckProtanopiaVariantUnlocked = true
-                    detectionCheckColorVisionMode = DetectionColorVisionMode.RED_GREEN.wireValue
+                    enableRedGreenStatusAlt()
                 }
             }
         }

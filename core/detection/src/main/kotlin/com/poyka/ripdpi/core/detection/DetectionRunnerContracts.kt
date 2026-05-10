@@ -18,10 +18,31 @@ data class DetectionRunnerConfig(
     val includeRttTriangulationCheck: Boolean = false,
     val includeCdnPullingCheck: Boolean = false,
     val includeNativeSignsCheck: Boolean = true,
+    val bypassScanOptions: BypassScanOptions = BypassScanOptions(),
     val encryptedDnsEnabled: Boolean = false,
     val webRtcProtectionEnabled: Boolean = false,
     val tlsFingerprintProfile: String = "chrome_stable",
 )
+
+data class BypassScanOptions(
+    val proxyScanEnabled: Boolean = true,
+    val xrayApiScanEnabled: Boolean = true,
+    val callTransportProbeEnabled: Boolean = true,
+    val portRange: BypassPortRange = BypassPortRange.Popular,
+)
+
+sealed interface BypassPortRange {
+    data object Popular : BypassPortRange
+
+    data object Extended : BypassPortRange
+
+    data object Full : BypassPortRange
+
+    data class Custom(
+        val start: Int,
+        val end: Int,
+    ) : BypassPortRange
+}
 
 enum class DetectionStage {
     GEO_IP,
@@ -69,6 +90,7 @@ interface LocationSignalsCheckerPort {
 interface BypassCheckerPort {
     suspend fun check(
         excludePorts: Set<Int>,
+        options: BypassScanOptions = BypassScanOptions(),
         onProgress: (suspend (BypassChecker.Progress) -> Unit)?,
     ): BypassResult
 }

@@ -330,6 +330,18 @@ message AppSettings {
   bool detection_check_debug_mode_enabled = 266; // Enable verbose detection debug diagnostics copy action
   string detection_check_color_vision_mode = 267; // "off" | "red_green" | "blue_yellow" | "achromatopsia"
   bool detection_check_protanopia_variant_unlocked = 268; // Hidden RED_GREEN palette sub-variant unlock
+  bool detection_check_network_requests_enabled = 269; // Master switch for active network detection requests (default true)
+  bool detection_check_cdn_pulling_meduza_enabled = 270; // Include Meduza CDN cohort in CDN pulling (default true)
+  bool detection_check_call_transport_probe_enabled = 271; // Probe MTProto/STUN through detected proxy (default false)
+  bool detection_check_xray_api_scan_enabled = 272; // Include localhost Xray API scan (default true)
+  string detection_check_tun_probe_mode = 273; // "auto" | "strict_same_path" | "curl_compatible"
+  string detection_check_port_range_mode = 274; // "popular" | "extended" | "full" | "custom"
+  int32 detection_check_custom_port_start = 275;
+  int32 detection_check_custom_port_end = 276;
+  string detection_check_dns_resolver_mode = 277; // "system" | "direct" | "doh"
+  string detection_check_dns_preset = 278; // "custom" | "cloudflare" | "google" | "yandex"
+  string detection_check_dns_direct_servers = 279;
+  string detection_check_dns_doh_url = 280;
 
   // Community comparison (anonymous opt-in)
   bool community_comparison_enabled = 209;

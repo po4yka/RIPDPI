@@ -39,6 +39,7 @@ import com.poyka.ripdpi.ui.screens.config.ModeEditorRoute
 import com.poyka.ripdpi.ui.screens.customization.AboutRoute
 import com.poyka.ripdpi.ui.screens.customization.AppCustomizationRoute
 import com.poyka.ripdpi.ui.screens.detection.DetectionCheckRoute
+import com.poyka.ripdpi.ui.screens.detection.DetectionSettingsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.share.SharedResultRenderRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
@@ -469,7 +470,13 @@ private fun NavGraphBuilder.addSettingsRoutes(
             DataTransparencyRoute(onBack = { navController.popBackStack() })
         }
         composable<Route.DetectionCheck> {
-            DetectionCheckRoute(onBack = { navController.popBackStack() })
+            DetectionCheckRoute(
+                onBack = { navController.popBackStack() },
+                onOpenSettings = { navController.navigate(Route.DetectionSettings) },
+            )
+        }
+        composable<Route.DetectionSettings> {
+            DetectionSettingsRoute(onBack = { navController.popBackStack() })
         }
         composable<Route.OwnedStackBrowser> { backStackEntry ->
             val route = backStackEntry.toRoute<Route.OwnedStackBrowser>()
@@ -550,6 +557,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.About.stableRoute to { hasRoute<Route.About>() },
         Route.DataTransparency.stableRoute to { hasRoute<Route.DataTransparency>() },
         Route.DetectionCheck.stableRoute to { hasRoute<Route.DetectionCheck>() },
+        Route.DetectionSettings.stableRoute to { hasRoute<Route.DetectionSettings>() },
         Route.OwnedStackBrowser().stableRoute to { hasRoute<Route.OwnedStackBrowser>() },
         Route.SharedDiagnosticResult().stableRoute to { hasRoute<Route.SharedDiagnosticResult>() },
     )

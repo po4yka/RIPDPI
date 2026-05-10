@@ -235,6 +235,7 @@ class DetectionCheckRunnerTest {
 
         override suspend fun check(
             excludePorts: Set<Int>,
+            options: BypassScanOptions,
             onProgress: (suspend (BypassChecker.Progress) -> Unit)?,
         ): BypassResult {
             calls += 1

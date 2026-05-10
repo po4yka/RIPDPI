@@ -57,11 +57,13 @@ class DefaultBypassCheckerPort
     ) : BypassCheckerPort {
         override suspend fun check(
             excludePorts: Set<Int>,
+            options: BypassScanOptions,
             onProgress: (suspend (BypassChecker.Progress) -> Unit)?,
         ): BypassResult =
             BypassChecker.check(
                 dispatchers = dispatchers,
                 excludePorts = excludePorts,
+                options = options,
                 onProgress = onProgress,
             )
     }

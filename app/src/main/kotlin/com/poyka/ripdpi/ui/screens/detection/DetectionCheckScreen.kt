@@ -86,6 +86,7 @@ private const val ProtanopiaUnlockTapCount = 10
 @Composable
 internal fun DetectionCheckRoute(
     onBack: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     viewModel: DetectionCheckViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -98,6 +99,7 @@ internal fun DetectionCheckRoute(
             onStart = remember(viewModel) { viewModel::startCheck },
             onStop = remember(viewModel) { viewModel::stopCheck },
             onBack = onBack,
+            onOpenSettings = onOpenSettings,
             onDismissOnboarding = remember(viewModel) { viewModel::dismissOnboarding },
             onApplyFixes = remember(viewModel) { viewModel::applyAllFixes },
             onPrivacyModeChange = remember(viewModel) { viewModel::setPrivacyModeEnabled },
@@ -151,6 +153,7 @@ internal fun DetectionCheckScreen(
     onStart: () -> Unit,
     onStop: () -> Unit,
     onBack: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     onDismissOnboarding: () -> Unit,
     onApplyFixes: () -> Unit,
     onPrivacyModeChange: (Boolean) -> Unit,
@@ -181,6 +184,11 @@ internal fun DetectionCheckScreen(
                 onNavigationClick = onBack,
                 navigationContentDescription = stringResource(R.string.navigation_back),
                 actions = {
+                    RipDpiIconButton(
+                        icon = RipDpiIcons.Settings,
+                        contentDescription = "Detection settings",
+                        onClick = onOpenSettings,
+                    )
                     RipDpiIconButton(
                         icon = RipDpiIcons.Info,
                         contentDescription = stringResource(R.string.detection_methodology_info),
@@ -264,7 +272,7 @@ private fun DetectionCheckScreenContent(
         )
         DetectionColorVisionControls(
             selectedMode = uiState.colorVisionMode,
-            protanopiaVariantUnlocked = uiState.protanopiaVariantUnlocked,
+            protanopiaVariantUnlocked = uiState.redGreenAltEnabled,
             onModeChange = onColorVisionModeChange,
             controlEnabled = !uiState.isRunning,
         )
@@ -286,13 +294,13 @@ private fun DetectionCheckScreenContent(
             narrative = uiState.narrative,
             stealthScore = uiState.stealthScore,
             stealthLabel = uiState.stealthLabel,
-            autoTuneFixes = uiState.autoTuneFixes,
+            autoTuneFixes = uiState.suggestedFixes,
             recommendations = uiState.recommendations,
             reportText = uiState.reportText,
             debugReportText = uiState.debugReportText,
             privacyModeEnabled = uiState.privacyModeEnabled,
             colorVisionMode = uiState.colorVisionMode,
-            protanopiaVariantUnlocked = uiState.protanopiaVariantUnlocked,
+            protanopiaVariantUnlocked = uiState.redGreenAltEnabled,
             onApplyFixes = onApplyFixes,
             onUnlockProtanopiaVariant = onUnlockProtanopiaVariant,
             performHaptic = performHaptic,

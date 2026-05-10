@@ -168,6 +168,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object DetectionSettings : Route() {
+        override val stableRoute = "detection_settings"
+        override val titleRes = R.string.title_detection_check
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class SharedDiagnosticResult(
         val fragment: String = "",
     ) : Route() {
@@ -221,6 +228,7 @@ sealed class Route {
                     About,
                     DataTransparency,
                     DetectionCheck,
+                    DetectionSettings,
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),
                 )

@@ -69,6 +69,7 @@ internal class DetectionPipelineScheduler(
                         bypassChecker
                             .check(
                                 excludePorts = excludePorts,
+                                options = config.bypassScanOptions,
                                 onProgress = reporter::bypassProgress,
                             ).also {
                                 reporter.completed(DetectionStage.BYPASS)
