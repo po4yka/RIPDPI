@@ -2,7 +2,7 @@ use std::os::fd::RawFd;
 
 use ripdpi_privileged_ops as platform;
 use ripdpi_privileged_ops::{IcmpWrappedUdpRecvFilter, IcmpWrappedUdpSpec, SynHideTcpSpec};
-use ripdpi_root_helper_protocol::HelperResponse;
+use ripdpi_root_helper_protocol::{HelperResponse, RawIpPacketParams};
 use tracing::{debug, error};
 
 pub fn handle_send_syn_hide_tcp(params: SynHideTcpSpec) -> (HelperResponse, Option<RawFd>) {
@@ -51,6 +51,21 @@ pub fn handle_recv_icmp_wrapped_udp(params: IcmpWrappedUdpRecvFilter) -> (Helper
         },
         Err(error) => {
             error!(%error, "recv_icmp_wrapped_udp failed");
+            (HelperResponse::error(error.to_string()), None)
+        }
+    }
+}
+
+pub fn handle_send_raw_ip_packet(params: RawIpPacketParams) -> (HelperResponse, Option<RawFd>) {
+    let target: std::net::SocketAddr = match params.target_addr.parse() {
+        Ok(addr) => addr,
+        Err(error) => return (HelperResponse::error(format!("invalid target_addr: {error}")), None),
+    };
+    debug!(target = %target, len = params.packet.len(), "send_raw_ip_packet");
+    match platform::send_raw_ip_packet(target, &params.packet, None) {
+        Ok(()) => (HelperResponse::success(serde_json::Value::Null), None),
+        Err(error) => {
+            error!(%error, "send_raw_ip_packet failed");
             (HelperResponse::error(error.to_string()), None)
         }
     }

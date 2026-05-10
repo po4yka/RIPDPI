@@ -31,6 +31,7 @@ class RipDpiVpnServiceConfigTest {
                 overrideReason = null,
                 localProxyEndpoint = localProxyEndpoint,
                 ipv6Enabled = true,
+                rootHelperSocketPath = "/data/user/0/com.poyka.ripdpi/files/root_helper.sock",
             )
 
         assertEquals("10.10.10.10/32", config.tunnelIpv4)
@@ -41,6 +42,7 @@ class RipDpiVpnServiceConfigTest {
         assertEquals("127.0.0.1", config.socks5Address)
         assertEquals(VpnLocalProxyUsername, config.username)
         assertEquals(TestLocalProxyAuth, config.password)
+        assertEquals("/data/user/0/com.poyka.ripdpi/files/root_helper.sock", config.rootHelperSocketPath)
         assertNull(config.mapdnsAddress)
     }
 

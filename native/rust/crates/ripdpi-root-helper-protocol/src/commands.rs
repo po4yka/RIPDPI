@@ -21,4 +21,5 @@ pub const CMD_SEND_IP_FRAGMENTED_UDP: &str = "send_ip_fragmented_udp";
 pub const CMD_SEND_SYN_HIDE_TCP: &str = "send_syn_hide_tcp";
 pub const CMD_SEND_ICMP_WRAPPED_UDP: &str = "send_icmp_wrapped_udp";
 pub const CMD_RECV_ICMP_WRAPPED_UDP: &str = "recv_icmp_wrapped_udp";
+pub const CMD_SEND_RAW_IP_PACKET: &str = "send_raw_ip_packet";
 pub const CMD_SHUTDOWN: &str = "shutdown";

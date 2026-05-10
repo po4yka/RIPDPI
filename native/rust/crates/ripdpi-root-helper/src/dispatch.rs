@@ -10,7 +10,7 @@ use ripdpi_root_helper_protocol as protocol;
 use ripdpi_root_helper_protocol::{
     HelperRequest, CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FLAGGED_TCP_PAYLOAD,
     CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP,
-    CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
+    CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
 };
 
 pub(crate) struct DispatchOutcome {
@@ -42,6 +42,7 @@ pub(crate) fn dispatch_command(request: &HelperRequest, received_fd: Option<RawF
         CMD_SEND_SYN_HIDE_TCP => experimental::dispatch_send_syn_hide_tcp(request),
         CMD_SEND_ICMP_WRAPPED_UDP => experimental::dispatch_send_icmp_wrapped_udp(request),
         CMD_RECV_ICMP_WRAPPED_UDP => experimental::dispatch_recv_icmp_wrapped_udp(request),
+        CMD_SEND_RAW_IP_PACKET => experimental::dispatch_send_raw_ip_packet(request),
         CMD_SHUTDOWN => shutdown::dispatch_shutdown(),
         other => DispatchOutcome::command(protocol::HelperResponse::error(format!("unknown command: {other}")), None),
     }

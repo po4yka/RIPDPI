@@ -32,7 +32,7 @@ impl TunPacketInjector for RawTunPacketInjector {
     fn inject_packet(&mut self, packet: &[u8]) -> io::Result<()> {
         let target = packet_destination(packet)
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "packet has no transport destination"))?;
-        ripdpi_privileged_ops::send_raw_ip_packet(target, packet, self.protect_path.as_deref())
+        ripdpi_runtime_platform::experimental::send_raw_ip_packet(target, packet, self.protect_path.as_deref())
     }
 }
 

@@ -22,6 +22,7 @@ pub(crate) fn launch_tunnel_worker(launch: WorkerLaunch) -> std::io::Result<std:
 
 fn run_worker(launch: WorkerLaunch) {
     let WorkerLaunch { runtime, config, owned_fd, cancel, stats, telemetry, last_error } = launch;
+    let root_helper_registered = register_root_helper_for_worker(&config);
     let worker_cancel = cancel.clone();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         runtime.block_on(ripdpi_tunnel_core::run_tunnel(
@@ -47,8 +48,38 @@ fn run_worker(launch: WorkerLaunch) {
             );
         }
     }
+    if root_helper_registered {
+        unregister_root_helper_for_worker();
+    }
     telemetry.mark_stopped();
 }
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn register_root_helper_for_worker(config: &ripdpi_tunnel_config::Config) -> bool {
+    let Some(path) = config.misc.root_helper_socket_path.as_deref() else {
+        ripdpi_runtime_platform::root_helper::unregister_root_helper();
+        return false;
+    };
+    if path.trim().is_empty() {
+        ripdpi_runtime_platform::root_helper::unregister_root_helper();
+        return false;
+    }
+    ripdpi_runtime_platform::root_helper::register_root_helper(path.to_owned());
+    true
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+fn register_root_helper_for_worker(_config: &ripdpi_tunnel_config::Config) -> bool {
+    false
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn unregister_root_helper_for_worker() {
+    ripdpi_runtime_platform::root_helper::unregister_root_helper();
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+fn unregister_root_helper_for_worker() {}
 
 fn record_worker_error(
     telemetry: &TunnelTelemetryState,

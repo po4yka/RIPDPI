@@ -27,7 +27,7 @@ ripdpi-socks5-core = { workspace = true }
 ripdpi-strategy-config = { workspace = true }
 ripdpi-strategy-ipv6 = { workspace = true }
 ripdpi-strategy-udp = { workspace = true }
-ripdpi-privileged-ops = { workspace = true }
+ripdpi-runtime-platform = { workspace = true }
 ripdpi-io-uring = { workspace = true, optional = true }
 
 [features]

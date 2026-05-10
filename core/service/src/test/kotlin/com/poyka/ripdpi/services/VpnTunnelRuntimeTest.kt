@@ -92,6 +92,42 @@ class VpnTunnelRuntimeTest {
         }
 
     @Test
+    fun rootModeAddsRootHelperSocketToTunnelConfig() =
+        runTest {
+            val events = mutableListOf<String>()
+            val bridge = TestTun2SocksBridge(events)
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setRootModeEnabled(true)
+                    .build()
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(settings),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider =
+                        TestVpnTunnelSessionProvider(
+                            events = events,
+                            session = TestVpnTunnelSession(events = events),
+                        ),
+                    rootHelperSocketPath = "/data/user/0/com.poyka.ripdpi/files/root_helper.sock",
+                )
+
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+
+            assertEquals(
+                "/data/user/0/com.poyka.ripdpi/files/root_helper.sock",
+                bridge.startedConfig?.rootHelperSocketPath,
+            )
+        }
+
+    @Test
     fun tunnelStartFailureClosesEstablishedSession() =
         runTest {
             val events = mutableListOf<String>()

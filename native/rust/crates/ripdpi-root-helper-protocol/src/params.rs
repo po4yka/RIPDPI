@@ -119,3 +119,9 @@ pub struct IpFragUdpParams {
     #[serde(default)]
     pub ipv4_identification: Option<u16>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RawIpPacketParams {
+    pub target_addr: String,
+    pub packet: Vec<u8>,
+}

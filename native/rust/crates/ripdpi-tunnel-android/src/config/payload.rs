@@ -46,6 +46,7 @@ pub(crate) struct TunnelConfigPayload {
     pub(crate) resolver_fallback_reason: Option<String>,
     pub(crate) strategy_chain_yaml: Option<String>,
     pub(crate) protect_path: Option<String>,
+    pub(crate) root_helper_socket_path: Option<String>,
     #[serde(default = "default_task_stack_size")]
     pub(crate) task_stack_size: u32,
     pub(crate) tcp_buffer_size: Option<u32>,
@@ -102,6 +103,7 @@ pub(crate) fn sample_payload() -> TunnelConfigPayload {
         resolver_fallback_reason: None,
         strategy_chain_yaml: None,
         protect_path: None,
+        root_helper_socket_path: None,
         task_stack_size: default_task_stack_size(),
         tcp_buffer_size: None,
         udp_recv_buffer_size: None,

@@ -29,6 +29,7 @@
   "protectPath",
   "resolverFallbackActive",
   "resolverFallbackReason",
+  "rootHelperSocketPath",
   "socks5Address",
   "socks5Pipeline",
   "socks5Port",

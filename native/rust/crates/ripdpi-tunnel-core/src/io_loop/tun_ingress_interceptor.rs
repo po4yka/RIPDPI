@@ -38,7 +38,7 @@ impl SynAckPacketInjector for RawSynAckPacketInjector {
         };
         let target = packet_destination(packet)
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "SYN-ACK packet has no TCP destination"))?;
-        ripdpi_privileged_ops::send_raw_ip_packet(target, packet, Some(protect_path))
+        ripdpi_runtime_platform::experimental::send_raw_ip_packet(target, packet, Some(protect_path))
     }
 }
 

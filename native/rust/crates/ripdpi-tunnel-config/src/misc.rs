@@ -29,6 +29,7 @@ pub struct MiscConfig {
     pub filter_injected_resets: bool,
     pub strategy_chain_yaml: Option<String>,
     pub protect_path: Option<String>,
+    pub root_helper_socket_path: Option<String>,
 }
 
 impl Default for MiscConfig {
@@ -49,6 +50,7 @@ impl Default for MiscConfig {
             filter_injected_resets: false,
             strategy_chain_yaml: None,
             protect_path: None,
+            root_helper_socket_path: None,
         }
     }
 }

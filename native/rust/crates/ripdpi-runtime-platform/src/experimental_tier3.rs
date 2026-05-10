@@ -1,6 +1,7 @@
 //! Runtime facade for tier-3 privileged platform primitives.
 
 use std::io;
+use std::net::SocketAddr;
 
 pub use ripdpi_privileged_ops::{
     IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole, IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp, SynHideMarkerKind,
@@ -60,6 +61,23 @@ pub fn recv_icmp_wrapped_udp(
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     {
         let _ = (filter, protect_path);
+        Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    }
+}
+
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+pub fn send_raw_ip_packet(target: SocketAddr, packet: &[u8], protect_path: Option<&str>) -> io::Result<()> {
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    {
+        if let Some(result) = root_helper::with_root_helper(|helper| helper.send_raw_ip_packet(target, packet)) {
+            return result;
+        }
+        ripdpi_privileged_ops::send_raw_ip_packet(target, packet, protect_path)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    {
+        let _ = (target, packet, protect_path);
         Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
     }
 }

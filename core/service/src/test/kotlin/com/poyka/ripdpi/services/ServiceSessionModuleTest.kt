@@ -98,6 +98,7 @@ class ServiceSessionModuleTest {
                     host = host,
                     dependencies = runtimeDependencies,
                     protectSocketServer = protectSocketServer,
+                    rootHelperManager = RootHelperManager(),
                 )
             val encryptedDnsFailoverController =
                 VpnServiceSessionModule.provideVpnEncryptedDnsFailoverController(

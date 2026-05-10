@@ -15,6 +15,7 @@ android-support = { workspace = true }
 arc-swap = { workspace = true }
 ripdpi-tunnel-config = { workspace = true }
 ripdpi-tunnel-core = { workspace = true }
+ripdpi-runtime-platform = { workspace = true }
 jni = { workspace = true }
 log = { workspace = true }
 loom = { workspace = true, optional = true }

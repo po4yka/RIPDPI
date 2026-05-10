@@ -11,6 +11,7 @@ import com.poyka.ripdpi.services.InMemoryVpnProtectFailureMonitor
 import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
+import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ServiceSessionScope
 import com.poyka.ripdpi.services.ServiceStatusReporter
 import com.poyka.ripdpi.services.UpstreamRelaySupervisor
@@ -54,6 +55,7 @@ internal object VpnServiceSessionModule {
         host: VpnCoordinatorHost,
         dependencies: VpnServiceRuntimeRuntimeDependencies,
         protectSocketServer: VpnProtectSocketServer,
+        rootHelperManager: RootHelperManager,
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
             vpnHost = host,
@@ -61,6 +63,7 @@ internal object VpnServiceSessionModule {
             tun2SocksBridgeFactory = dependencies.tun2SocksBridgeFactory,
             vpnTunnelSessionProvider = dependencies.vpnTunnelSessionProvider,
             protectPath = protectSocketServer.socketPath,
+            rootHelperSocketPath = rootHelperManager.socketPath,
         )
 
     @Provides

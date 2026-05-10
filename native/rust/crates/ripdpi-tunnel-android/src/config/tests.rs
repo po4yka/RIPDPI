@@ -118,6 +118,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 resolver_fallback_reason: None,
                 strategy_chain_yaml: None,
                 protect_path: None,
+                root_helper_socket_path: None,
                 task_stack_size,
                 tcp_buffer_size,
                 udp_recv_buffer_size,
@@ -237,6 +238,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 resolver_fallback_reason: None,
                 strategy_chain_yaml: None,
                 protect_path: None,
+                root_helper_socket_path: None,
                 task_stack_size,
                 tcp_buffer_size,
                 udp_recv_buffer_size,
@@ -266,11 +268,13 @@ fn maps_synack_runtime_fields_to_misc_config() {
     let mut payload = sample_payload();
     payload.strategy_chain_yaml = Some(chain_yaml.to_string());
     payload.protect_path = Some("/tmp/ripdpi-protect.sock".to_string());
+    payload.root_helper_socket_path = Some("/tmp/ripdpi-root-helper.sock".to_string());
 
     let config = config_from_payload(payload).expect("config");
 
     assert_eq!(config.misc.strategy_chain_yaml.as_deref(), Some(chain_yaml));
     assert_eq!(config.misc.protect_path.as_deref(), Some("/tmp/ripdpi-protect.sock"),);
+    assert_eq!(config.misc.root_helper_socket_path.as_deref(), Some("/tmp/ripdpi-root-helper.sock"));
 }
 
 #[test]
@@ -278,11 +282,13 @@ fn drops_blank_synack_runtime_fields() {
     let mut payload = sample_payload();
     payload.strategy_chain_yaml = Some(" \n\t ".to_string());
     payload.protect_path = Some("  ".to_string());
+    payload.root_helper_socket_path = Some("  ".to_string());
 
     let config = config_from_payload(payload).expect("config");
 
     assert_eq!(config.misc.strategy_chain_yaml, None);
     assert_eq!(config.misc.protect_path, None);
+    assert_eq!(config.misc.root_helper_socket_path, None);
 }
 
 #[test]
@@ -496,6 +502,7 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
         "resolverFallbackReason": "timeout",
         "strategyChainYaml": "version: 1\nchains:\n  - id: vpn-synack",
         "protectPath": "/data/user/0/com.poyka.ripdpi/files/protect_path",
+        "rootHelperSocketPath": "/data/user/0/com.poyka.ripdpi/files/root_helper.sock",
         "taskStackSize": 81920,
         "tcpBufferSize": 32768,
         "udpRecvBufferSize": 16384,

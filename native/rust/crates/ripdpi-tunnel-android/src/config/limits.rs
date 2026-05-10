@@ -82,5 +82,6 @@ pub(crate) fn misc_config_from_payload(payload: &TunnelConfigPayload) -> MiscCon
     }
     misc.strategy_chain_yaml = payload.strategy_chain_yaml.clone().filter(|value| !value.trim().is_empty());
     misc.protect_path = payload.protect_path.clone().filter(|value| !value.trim().is_empty());
+    misc.root_helper_socket_path = payload.root_helper_socket_path.clone().filter(|value| !value.trim().is_empty());
     misc
 }

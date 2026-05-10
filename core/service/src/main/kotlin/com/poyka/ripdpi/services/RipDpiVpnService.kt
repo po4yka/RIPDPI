@@ -209,6 +209,7 @@ class RipDpiVpnService :
             logContext: RipDpiLogContext? = null,
             strategyChainYaml: String? = null,
             protectPath: String? = null,
+            rootHelperSocketPath: String? = null,
         ): Tun2SocksConfig =
             Tun2SocksConfig(
                 tunnelMtu = defaultTun2SocksTunnelMtu,
@@ -261,6 +262,7 @@ class RipDpiVpnService :
                 resolverFallbackReason = overrideReason,
                 strategyChainYaml = strategyChainYaml,
                 protectPath = protectPath,
+                rootHelperSocketPath = rootHelperSocketPath,
                 logContext = logContext,
                 username = localProxyEndpoint.username,
                 password = localProxyEndpoint.password,
