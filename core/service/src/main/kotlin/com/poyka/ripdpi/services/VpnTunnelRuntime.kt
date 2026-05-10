@@ -14,7 +14,7 @@ internal class VpnTunnelRuntime(
     private val tun2SocksBridgeFactory: Tun2SocksBridgeFactory,
     private val vpnTunnelSessionProvider: VpnTunnelSessionProvider,
     private val protectPath: String? = null,
-    private val rootHelperSocketPath: String? = null,
+    private val rootHelperSocketPathProvider: () -> String? = { null },
 ) {
     private companion object {
         private const val MapDnsAddress = "198.18.0.53"
@@ -54,7 +54,7 @@ internal class VpnTunnelRuntime(
                 logContext = logContext,
                 strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() },
                 protectPath = protectPath,
-                rootHelperSocketPath = rootHelperSocketPath.takeIf { settings.rootModeEnabled },
+                rootHelperSocketPath = rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
             )
 
         val tunnelSession = vpnTunnelSessionProvider.establish(vpnHost, dns, ipv6)

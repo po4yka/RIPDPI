@@ -101,6 +101,7 @@ class VpnTunnelRuntimeTest {
                     .toBuilder()
                     .setRootModeEnabled(true)
                     .build()
+            var rootHelperSocketPath: String? = null
             val runtime =
                 VpnTunnelRuntime(
                     vpnHost = TestVpnServiceHost(backgroundScope),
@@ -111,8 +112,9 @@ class VpnTunnelRuntimeTest {
                             events = events,
                             session = TestVpnTunnelSession(events = events),
                         ),
-                    rootHelperSocketPath = "/data/user/0/com.poyka.ripdpi/files/root_helper.sock",
+                    rootHelperSocketPathProvider = { rootHelperSocketPath },
                 )
+            rootHelperSocketPath = "/data/user/0/com.poyka.ripdpi/files/root_helper.sock"
 
             runtime.start(
                 AppSettingsSerializer.defaultValue.activeDnsSettings(),

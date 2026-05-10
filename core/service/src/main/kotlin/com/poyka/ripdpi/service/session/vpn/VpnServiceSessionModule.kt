@@ -63,7 +63,7 @@ internal object VpnServiceSessionModule {
             tun2SocksBridgeFactory = dependencies.tun2SocksBridgeFactory,
             vpnTunnelSessionProvider = dependencies.vpnTunnelSessionProvider,
             protectPath = protectSocketServer.socketPath,
-            rootHelperSocketPath = rootHelperManager.socketPath,
+            rootHelperSocketPathProvider = { rootHelperManager.socketPath },
         )
 
     @Provides
