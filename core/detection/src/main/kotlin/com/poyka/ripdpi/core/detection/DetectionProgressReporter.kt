@@ -87,5 +87,9 @@ private object DetectionStageProgressMessages {
             DetectionStage.TIMING_ANALYSIS -> {
                 DetectionStageProgressMessage("Timing Analysis", "Checking timing side channels...")
             }
+
+            DetectionStage.ICMP_SPOOFING -> {
+                DetectionStageProgressMessage("ICMP Spoofing", "Checking ICMP spoofing signals...")
+            }
         }
 }

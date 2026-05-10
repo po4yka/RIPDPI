@@ -32,6 +32,7 @@ class DetectionCheckRunnerTest {
                             encryptedDnsEnabled = true,
                             webRtcProtectionEnabled = true,
                             tlsFingerprintProfile = "firefox",
+                            includeIcmpSpoofingCheck = true,
                         ),
                     onProgress = { progress += it },
                 )
@@ -45,11 +46,13 @@ class DetectionCheckRunnerTest {
             assertEquals("webrtc", result.webRtcLeak?.name)
             assertEquals("tls", result.tlsFingerprint?.name)
             assertEquals("timing", result.timingAnalysis?.name)
+            assertEquals("icmp", result.icmpSpoofing?.category?.name)
             assertEquals(setOf(1080), ports.bypass.excludePorts)
             assertEquals("com.example.proxy", ports.direct.excludePackage)
             assertEquals(true, ports.dns.encryptedDnsEnabled)
             assertEquals(true, ports.webRtc.webRtcProtectionEnabled)
             assertEquals("firefox", ports.tls.tlsFingerprintProfile)
+            assertEquals(false, ports.icmp.homeRoutedRoaming)
             assertSame(ports.geo.result, ports.verdict.geoIp)
             assertSame(ports.bypass.result, ports.verdict.bypassResult)
             assertTrue(progress.any { it.stage == DetectionStage.GEO_IP && it.detail == "Done" })
@@ -73,6 +76,7 @@ class DetectionCheckRunnerTest {
                             includeWebRtcCheck = false,
                             includeTlsFingerprintCheck = false,
                             includeTimingAnalysis = false,
+                            includeIcmpSpoofingCheck = false,
                         ),
                 )
 
@@ -93,14 +97,40 @@ class DetectionCheckRunnerTest {
             assertNull(result.webRtcLeak)
             assertNull(result.tlsFingerprint)
             assertNull(result.timingAnalysis)
+            assertNull(result.icmpSpoofing)
             assertEquals(0, ports.location.calls)
             assertEquals(0, ports.bypass.calls)
             assertEquals(0, ports.dns.calls)
             assertEquals(0, ports.webRtc.calls)
             assertEquals(0, ports.tls.calls)
             assertEquals(0, ports.timing.calls)
+            assertEquals(0, ports.icmp.calls)
             assertNotNull(ports.verdict.locationSignals)
             assertNotNull(ports.verdict.bypassResult)
+        }
+
+    @Test
+    fun `runner passes home routed roaming to icmp checker from location findings`() =
+        runTest {
+            val ports = FakeDetectionPorts()
+            ports.location.result =
+                category("location").copy(
+                    findings =
+                        listOf(
+                            Finding("network_mcc_ru:true"),
+                            Finding("SIM MCC: 262 (DE)"),
+                            Finding("Roaming: yes"),
+                        ),
+                )
+
+            ports
+                .newRunner()
+                .run(
+                    context = RuntimeEnvironment.getApplication(),
+                    config = DetectionRunnerConfig(includeIcmpSpoofingCheck = true),
+                )
+
+            assertEquals(true, ports.icmp.homeRoutedRoaming)
         }
 
     private class FakeDetectionPorts {
@@ -113,6 +143,7 @@ class DetectionCheckRunnerTest {
         val webRtc = FakeWebRtcLeakCheckerPort()
         val tls = FakeTlsFingerprintCheckerPort()
         val timing = FakeTimingAnalysisCheckerPort()
+        val icmp = FakeIcmpSpoofingCheckerPort()
         val verdict = FakeDetectionVerdictEvaluator()
 
         fun newRunner(): DefaultDetectionCheckRunner =
@@ -126,6 +157,7 @@ class DetectionCheckRunnerTest {
                 webRtcLeakChecker = webRtc,
                 tlsFingerprintChecker = tls,
                 timingAnalysisChecker = timing,
+                icmpSpoofingChecker = icmp,
                 verdictEvaluator = verdict,
             )
     }
@@ -156,7 +188,7 @@ class DetectionCheckRunnerTest {
     }
 
     private class FakeLocationSignalsCheckerPort : LocationSignalsCheckerPort {
-        val result = category("location")
+        var result = category("location")
         var calls = 0
 
         override fun check(context: Context): CategoryResult {
@@ -226,6 +258,22 @@ class DetectionCheckRunnerTest {
 
         override suspend fun check(): CategoryResult {
             calls += 1
+            return result
+        }
+    }
+
+    private class FakeIcmpSpoofingCheckerPort : IcmpSpoofingCheckerPort {
+        val result =
+            IcmpSpoofingResult(
+                state = IcmpSpoofingState.OK,
+                category = category("icmp"),
+            )
+        var calls = 0
+        var homeRoutedRoaming: Boolean? = null
+
+        override suspend fun check(homeRoutedRoaming: Boolean): IcmpSpoofingResult {
+            calls += 1
+            this.homeRoutedRoaming = homeRoutedRoaming
             return result
         }
     }

@@ -1927,6 +1927,7 @@ fakeddisorder endhost</string>
     <string name="detection_check_category_webrtc">Утечка WebRTC</string>
     <string name="detection_check_category_tls">TLS отпечаток</string>
     <string name="detection_check_category_timing">Анализ таймингов</string>
+    <string name="detection_check_category_icmp_spoofing">ICMP-подмена</string>
     <string name="detection_community_title">Сообщество</string>
     <string name="detection_community_local_title">Ваша статистика</string>
     <string name="detection_community_reports">%d проверок записано</string>

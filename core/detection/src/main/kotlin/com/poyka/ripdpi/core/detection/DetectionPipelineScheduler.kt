@@ -15,6 +15,7 @@ internal class DetectionPipelineScheduler(
     private val webRtcLeakChecker: WebRtcLeakCheckerPort,
     private val tlsFingerprintChecker: TlsFingerprintCheckerPort,
     private val timingAnalysisChecker: TimingAnalysisCheckerPort,
+    private val icmpSpoofingChecker: IcmpSpoofingCheckerPort,
 ) {
     suspend fun runChecks(
         context: Context,
@@ -108,6 +109,17 @@ internal class DetectionPipelineScheduler(
             val indirectSigns = indirectSignsDeferred.await()
             val locationSignals = locationSignalsDeferred?.await()
             val bypassResult = bypassDeferred?.await()
+            val icmpSpoofing =
+                if (config.includeIcmpSpoofingCheck) {
+                    reporter.started(DetectionStage.ICMP_SPOOFING)
+                    icmpSpoofingChecker
+                        .check(homeRoutedRoaming = locationSignals.isHomeRoutedRoaming())
+                        .also {
+                            reporter.completed(DetectionStage.ICMP_SPOOFING)
+                        }
+                } else {
+                    null
+                }
 
             val timingDeferred =
                 if (config.includeTimingAnalysis) {
@@ -130,6 +142,23 @@ internal class DetectionPipelineScheduler(
                 webRtcLeak = webRtcDeferred?.await(),
                 tlsFingerprint = tlsFingerprintDeferred?.await(),
                 timingAnalysis = timingDeferred?.await(),
+                icmpSpoofing = icmpSpoofing,
             )
         }
+
+    private fun CategoryResult?.isHomeRoutedRoaming(): Boolean {
+        if (this == null) return false
+        val hasRussianNetwork = findings.any { it.description == "network_mcc_ru:true" }
+        val hasRoaming = findings.any { it.description == "Roaming: yes" }
+        val simMcc =
+            findings.firstNotNullOfOrNull { finding ->
+                SIM_MCC_REGEX.find(finding.description)?.groupValues?.get(1)
+            }
+        return hasRussianNetwork && hasRoaming && simMcc != null && simMcc != RUSSIA_MCC
+    }
+
+    private companion object {
+        private const val RUSSIA_MCC = "250"
+        private val SIM_MCC_REGEX = Regex("""SIM MCC: (\d{3})""")
+    }
 }

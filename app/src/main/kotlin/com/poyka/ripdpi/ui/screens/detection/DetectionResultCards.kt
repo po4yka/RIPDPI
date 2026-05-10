@@ -301,6 +301,12 @@ private fun detectionCategoryEntries(result: DetectionCheckResult): List<Categor
             "timing",
             RipDpiIcons.Timer,
         )
+        addOptionalCategory(
+            result.icmpSpoofing?.category,
+            stringResource(R.string.detection_check_category_icmp_spoofing),
+            "icmp",
+            RipDpiIcons.NetworkCheck,
+        )
     }
 
 private fun MutableList<CategoryEntry>.addOptionalCategory(

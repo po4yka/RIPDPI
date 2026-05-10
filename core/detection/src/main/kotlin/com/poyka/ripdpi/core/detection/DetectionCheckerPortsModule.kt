@@ -41,5 +41,8 @@ abstract class DetectionCheckerPortsModule {
     abstract fun bindTimingAnalysisCheckerPort(checker: DefaultTimingAnalysisCheckerPort): TimingAnalysisCheckerPort
 
     @Binds
+    abstract fun bindIcmpSpoofingCheckerPort(checker: DefaultIcmpSpoofingCheckerPort): IcmpSpoofingCheckerPort
+
+    @Binds
     abstract fun bindDetectionVerdictEvaluator(evaluator: DefaultDetectionVerdictEvaluator): DetectionVerdictEvaluator
 }

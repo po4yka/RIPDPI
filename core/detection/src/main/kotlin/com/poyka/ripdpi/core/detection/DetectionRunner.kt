@@ -19,6 +19,7 @@ class DefaultDetectionCheckRunner
         webRtcLeakChecker: WebRtcLeakCheckerPort,
         tlsFingerprintChecker: TlsFingerprintCheckerPort,
         timingAnalysisChecker: TimingAnalysisCheckerPort,
+        icmpSpoofingChecker: IcmpSpoofingCheckerPort,
         verdictEvaluator: DetectionVerdictEvaluator,
     ) : DetectionCheckRunner {
         private val scheduler =
@@ -32,6 +33,7 @@ class DefaultDetectionCheckRunner
                 webRtcLeakChecker = webRtcLeakChecker,
                 tlsFingerprintChecker = tlsFingerprintChecker,
                 timingAnalysisChecker = timingAnalysisChecker,
+                icmpSpoofingChecker = icmpSpoofingChecker,
             )
         private val resultAssembler = DetectionPipelineResultAssembler(verdictEvaluator)
 
@@ -61,6 +63,7 @@ object DetectionRunner {
             webRtcLeakChecker = DefaultWebRtcLeakCheckerPort(dispatchers),
             tlsFingerprintChecker = DefaultTlsFingerprintCheckerPort(dispatchers),
             timingAnalysisChecker = DefaultTimingAnalysisCheckerPort(dispatchers),
+            icmpSpoofingChecker = DefaultIcmpSpoofingCheckerPort(dispatchers),
             verdictEvaluator = DefaultDetectionVerdictEvaluator(),
         )
 

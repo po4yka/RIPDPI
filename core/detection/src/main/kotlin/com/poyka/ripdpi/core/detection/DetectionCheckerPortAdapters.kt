@@ -5,8 +5,10 @@ import com.poyka.ripdpi.core.detection.checker.BypassChecker
 import com.poyka.ripdpi.core.detection.checker.DirectSignsChecker
 import com.poyka.ripdpi.core.detection.checker.DnsLeakChecker
 import com.poyka.ripdpi.core.detection.checker.GeoIpChecker
+import com.poyka.ripdpi.core.detection.checker.IcmpSpoofingChecker
 import com.poyka.ripdpi.core.detection.checker.IndirectSignsChecker
 import com.poyka.ripdpi.core.detection.checker.LocationSignalsChecker
+import com.poyka.ripdpi.core.detection.checker.SystemPingProber
 import com.poyka.ripdpi.core.detection.checker.TimingAnalysisChecker
 import com.poyka.ripdpi.core.detection.checker.TlsFingerprintChecker
 import com.poyka.ripdpi.core.detection.checker.VerdictEngine
@@ -99,6 +101,18 @@ class DefaultTimingAnalysisCheckerPort
         private val dispatchers: AppCoroutineDispatchers,
     ) : TimingAnalysisCheckerPort {
         override suspend fun check(): CategoryResult = TimingAnalysisChecker.check(dispatchers)
+    }
+
+class DefaultIcmpSpoofingCheckerPort
+    @Inject
+    constructor(
+        private val dispatchers: AppCoroutineDispatchers,
+    ) : IcmpSpoofingCheckerPort {
+        override suspend fun check(homeRoutedRoaming: Boolean): IcmpSpoofingResult =
+            IcmpSpoofingChecker.check(
+                prober = SystemPingProber(dispatchers),
+                homeRoutedRoaming = homeRoutedRoaming,
+            )
     }
 
 class DefaultDetectionVerdictEvaluator

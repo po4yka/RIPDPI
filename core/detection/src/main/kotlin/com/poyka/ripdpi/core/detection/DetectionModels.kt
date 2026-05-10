@@ -24,6 +24,7 @@ enum class EvidenceSource {
     DNS,
     DUMPSYS,
     LOCATION_SIGNALS,
+    ICMP_SPOOFING,
 }
 
 enum class VpnAppKind {
@@ -110,6 +111,21 @@ data class BypassResult(
     val evidence: List<EvidenceItem> = emptyList(),
 )
 
+enum class IcmpSpoofingState {
+    OK,
+    NEEDS_REVIEW,
+    SKIPPED,
+}
+
+data class IcmpSpoofingResult(
+    val state: IcmpSpoofingState,
+    val category: CategoryResult,
+    val blockedTargetAddress: String? = null,
+    val blockedTargetRttMs: Double? = null,
+    val controlTargetAddress: String? = null,
+    val controlTargetRttMs: Double? = null,
+)
+
 data class DetectionCheckResult(
     val geoIp: CategoryResult,
     val directSigns: CategoryResult,
@@ -120,6 +136,7 @@ data class DetectionCheckResult(
     val webRtcLeak: CategoryResult? = null,
     val tlsFingerprint: CategoryResult? = null,
     val timingAnalysis: CategoryResult? = null,
+    val icmpSpoofing: IcmpSpoofingResult? = null,
     val verdict: Verdict,
     val methodologyVersion: String = MethodologyVersion.CURRENT,
 )

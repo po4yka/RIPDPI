@@ -12,6 +12,7 @@ data class DetectionRunnerConfig(
     val includeWebRtcCheck: Boolean = true,
     val includeTlsFingerprintCheck: Boolean = true,
     val includeTimingAnalysis: Boolean = true,
+    val includeIcmpSpoofingCheck: Boolean = false,
     val encryptedDnsEnabled: Boolean = false,
     val webRtcProtectionEnabled: Boolean = false,
     val tlsFingerprintProfile: String = "chrome_stable",
@@ -27,6 +28,7 @@ enum class DetectionStage {
     WEBRTC_LEAK,
     TLS_FINGERPRINT,
     TIMING_ANALYSIS,
+    ICMP_SPOOFING,
 }
 
 data class DetectionProgress(
@@ -79,6 +81,10 @@ interface TlsFingerprintCheckerPort {
 
 interface TimingAnalysisCheckerPort {
     suspend fun check(): CategoryResult
+}
+
+interface IcmpSpoofingCheckerPort {
+    suspend fun check(homeRoutedRoaming: Boolean): IcmpSpoofingResult
 }
 
 interface DetectionVerdictEvaluator {

@@ -10,6 +10,7 @@ internal data class DetectionPipelineOutputs(
     val webRtcLeak: CategoryResult?,
     val tlsFingerprint: CategoryResult?,
     val timingAnalysis: CategoryResult?,
+    val icmpSpoofing: IcmpSpoofingResult?,
 )
 
 internal class DetectionPipelineResultAssembler(
@@ -37,6 +38,7 @@ internal class DetectionPipelineResultAssembler(
             webRtcLeak = outputs.webRtcLeak,
             tlsFingerprint = outputs.tlsFingerprint,
             timingAnalysis = outputs.timingAnalysis,
+            icmpSpoofing = outputs.icmpSpoofing,
             verdict = verdict,
         )
     }
