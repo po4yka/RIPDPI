@@ -17,6 +17,8 @@ fn built_in_technique_ids_resolve() {
         "udplen",
         "http_domcase",
         "http_hostcase",
+        "http_methodeol",
+        "http_unixeol",
         "wsize",
         "wssize",
     ] {

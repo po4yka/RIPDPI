@@ -1,7 +1,7 @@
 ---
 title: Add HTTP header manipulation strategies
 type: task
-status: backlog
+status: review
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: zapret2-feature-parity-epic
 blocks: []
 blocked_by: [expose-existing-techniques-as-config-addressable]
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Add HTTP header manipulation strategies #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [ ] #task Add HTTP header manipulation strategies #repo/RIPDPI #area/rust-native #status/review 🔼
 
 ## Objective
 
@@ -67,3 +67,11 @@ Each function takes `&mut [u8]` (raw payload), finds the `Host:` header boundary
 ## Definition of done
 
 `cargo test -p ripdpi-strategy-http` green; `domcase` registered and selectable from YAML config. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+- Added `ripdpi-strategy-http` with `domcase`, deterministic `hostcase`, `methodeol`, and `unixeol` payload transforms plus `DesyncStrategy` wrappers for all four Tier 0 techniques.
+- Registered `http_domcase`, `http_hostcase`, `http_methodeol`, and `http_unixeol` through `StrategyRegistry::with_builtin_techniques()`.
+- Extended YAML `StepType` registry IDs for `http_methodeol` and `http_unixeol`.
+- Verification: `CARGO_TARGET_DIR=target/codex-http cargo test -p ripdpi-strategy-http -p ripdpi-strategy-registry -p ripdpi-strategy-config --locked`; `CARGO_TARGET_DIR=target/codex-http cargo clippy -p ripdpi-strategy-http -p ripdpi-strategy-registry -p ripdpi-strategy-config --all-targets --locked -- -D warnings`.
+- Remaining review evidence: runtime strategy-chain execution path proving YAML-selected HTTP strategies run before the outbound write path.

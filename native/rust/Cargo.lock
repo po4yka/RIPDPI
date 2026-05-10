@@ -3984,11 +3984,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-strategy-http"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-strategy-trait",
+]
+
+[[package]]
 name = "ripdpi-strategy-registry"
 version = "0.1.0"
 dependencies = [
  "ripdpi-desync",
  "ripdpi-strategy-config",
+ "ripdpi-strategy-http",
  "ripdpi-strategy-trait",
  "static_assertions",
  "thiserror 2.0.18",

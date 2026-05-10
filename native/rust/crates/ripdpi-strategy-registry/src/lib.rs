@@ -55,14 +55,18 @@ impl StrategyRegistry {
     /// Registers the built-in RIPDPI desync techniques.
     pub fn register_builtin_techniques(&mut self) {
         for technique in BUILTIN_TECHNIQUES {
-            self.register(Box::new(BuiltinTechnique { definition: technique }));
+            self.register_builtin_technique(technique.id).expect("built-in technique IDs must resolve");
         }
     }
 
     /// Registers one built-in RIPDPI desync technique by stable ID.
     pub fn register_builtin_technique(&mut self, id: &str) -> Result<(), StrategyRegistryError> {
         let definition = builtin_technique(id)?;
-        self.register(Box::new(BuiltinTechnique { definition }));
+        if let Some(strategy) = ripdpi_strategy_http::strategy_by_id(id) {
+            self.register(strategy);
+        } else {
+            self.register(Box::new(BuiltinTechnique { definition }));
+        }
         Ok(())
     }
 
@@ -262,6 +266,18 @@ const BUILTIN_TECHNIQUES: &[BuiltinTechniqueDefinition] = &[
     BuiltinTechniqueDefinition {
         id: "http_hostcase",
         label: "HTTP host case",
+        required_tier: CapabilityTier::Tier0,
+        required_capabilities: &[],
+    },
+    BuiltinTechniqueDefinition {
+        id: "http_methodeol",
+        label: "HTTP method EOL",
+        required_tier: CapabilityTier::Tier0,
+        required_capabilities: &[],
+    },
+    BuiltinTechniqueDefinition {
+        id: "http_unixeol",
+        label: "HTTP Unix EOL",
         required_tier: CapabilityTier::Tier0,
         required_capabilities: &[],
     },

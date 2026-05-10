@@ -100,6 +100,8 @@ pub enum StepType {
     Udplen,
     HttpDomcase,
     HttpHostcase,
+    HttpMethodeol,
+    HttpUnixeol,
     Wsize,
     Wssize,
 }
@@ -118,6 +120,8 @@ impl StepType {
             Self::Udplen => "udplen",
             Self::HttpDomcase => "http_domcase",
             Self::HttpHostcase => "http_hostcase",
+            Self::HttpMethodeol => "http_methodeol",
+            Self::HttpUnixeol => "http_unixeol",
             Self::Wsize => "wsize",
             Self::Wssize => "wssize",
         }
