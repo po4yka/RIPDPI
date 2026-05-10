@@ -81,7 +81,8 @@ Manual test: import the zapret2 example config, press Reload, confirm no error b
 - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.screens.settings.StrategyConfigImportTest -Pripdpi.skipNativeBuild=true`
 - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.screenshot.RipDpiScreenCatalogScreenshotTest.strategyConfigScreen -Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true`
 - Clean detached worktree: `ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ./gradlew :app:ktlintCheck :app:assembleDebugAndroidTest -Pripdpi.skipNativeBuild=true`; direct `am instrument` run of `StrategyEngineJniInstrumentedTest` passed with `OK (4 tests)`, covering native validation of imported YAML registry entries and reloadable Lua assets.
+- 2026-05-10 current checkout: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest -Pripdpi.localNativeAbis=arm64-v8a` passed on `emulator-5554` (`Pixel_10_Pro(AVD) - 17`) after wiping the AVD data partition to restore install space. The run executed 4 tests and covered JNI validation for YAML entries including `fake`, `udplen`, and `ipv6Ext`, invalid YAML error surfacing, bundled `zapret-lib.lua` / `zapret-antidpi.lua` extraction, Lua validation, Lua load, and strategy listing.
 
 ## Remaining Gaps
 
-- Manual zapret2 import/reload validation was not run on device or emulator.
+- Manual UI file-picker import/export validation with a zapret2 config was not run. The current device evidence covers the native validation/load path, not the full user-driven picker/share-sheet flow or live application of a changed YAML config to an already-running VPN tunnel.
