@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,6 +22,9 @@ import com.poyka.ripdpi.activities.DiagnosticsApproachRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityState
 import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityToolUiModel
+import com.poyka.ripdpi.activities.DiagnosticsDomainReachabilityState
+import com.poyka.ripdpi.activities.DiagnosticsDomainReachabilityToolUiModel
+import com.poyka.ripdpi.activities.DiagnosticsDpiToolsUiModel
 import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
@@ -48,8 +52,9 @@ internal fun ToolsSection(
     onShareArchive: (String?) -> Unit,
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
-    dnsIntegrityTool: DiagnosticsDnsIntegrityToolUiModel = DiagnosticsDnsIntegrityToolUiModel(),
+    dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
     onRunDnsIntegrityCheck: () -> Unit = {},
+    onRunDomainReachabilityScan: () -> Unit = {},
     onOpenDetectionCheck: () -> Unit = {},
     pcapRecording: Boolean = false,
     onTogglePcapRecording: () -> Unit = {},
@@ -66,100 +71,143 @@ internal fun ToolsSection(
             ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        item {
-            ApproachModeCard(
-                selectedMode = approaches.selectedMode,
-                onSelectApproachMode = onSelectApproachMode,
-            )
-        }
-        items(items = approaches.rows, key = { it.id }, contentType = { "approach" }) { row ->
-            ApproachRowCard(
-                row = row,
-                focused = row.id == approaches.focusedApproachId,
-                onSelectApproach = onSelectApproach,
-            )
-        }
-        item {
-            PcapCaptureCard(
-                pcapRecording = pcapRecording,
-                onTogglePcapRecording = onTogglePcapRecording,
-            )
-        }
-        item {
-            DiagnosticsPreviewCard(
-                title = share.previewTitle,
-                body = share.previewBody,
-                metrics = share.metrics,
-                archiveStateMessage = share.archiveStateMessage,
-                archiveStateTone = share.archiveStateTone,
-            )
-        }
-        item {
-            ShareActionCard(
-                title = stringResource(R.string.diagnostics_share_archive_title),
-                body = stringResource(R.string.diagnostics_share_archive_body),
-                buttonLabel = stringResource(R.string.diagnostics_share_archive_action),
-                onClick = { onShareArchive(share.targetSessionId) },
-                iconTint = RipDpiThemeTokens.colors.foreground,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareArchive),
-                variant = RipDpiButtonVariant.Primary,
-                enabled = !share.isArchiveBusy,
-            )
-        }
-        item {
-            ShareActionCard(
-                title = stringResource(R.string.diagnostics_save_archive_title),
-                body =
-                    stringResource(
-                        R.string.diagnostics_save_archive_body,
-                        share.latestArchiveFileName ?: "latest archive",
-                    ),
-                buttonLabel = stringResource(R.string.diagnostics_save_archive_action),
-                onClick = { onSaveArchive(share.targetSessionId) },
-                iconTint = RipDpiThemeTokens.colors.info,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveArchive),
-                variant = RipDpiButtonVariant.Outline,
-                enabled = !share.isArchiveBusy,
-            )
-        }
-        item {
-            ShareActionCard(
-                title = stringResource(R.string.diagnostics_share_summary_title),
-                body = stringResource(R.string.diagnostics_share_summary_body),
-                buttonLabel = stringResource(R.string.diagnostics_share_summary_action),
-                onClick = { onShareSummary(share.targetSessionId) },
-                iconTint = RipDpiThemeTokens.colors.info,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareSummary),
-                variant = RipDpiButtonVariant.Outline,
-            )
-        }
-        item {
-            ShareActionCard(
-                title = stringResource(R.string.diagnostics_save_logs_title),
-                body = stringResource(R.string.diagnostics_save_logs_body),
-                buttonLabel = stringResource(R.string.save_logs),
-                onClick = onSaveLogs,
-                iconTint = RipDpiThemeTokens.colors.warning,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveLogs),
-                variant = RipDpiButtonVariant.Outline,
-            )
-        }
-        item {
-            DnsIntegrityToolCard(
-                tool = dnsIntegrityTool,
-                onRun = onRunDnsIntegrityCheck,
-            )
-        }
-        item {
-            ShareActionCard(
-                title = stringResource(R.string.title_detection_check),
-                body = stringResource(R.string.detection_check_subtitle),
-                buttonLabel = stringResource(R.string.detection_check_start),
-                onClick = onOpenDetectionCheck,
-                iconTint = RipDpiThemeTokens.colors.foreground,
-                variant = RipDpiButtonVariant.Outline,
-            )
-        }
+        approachItems(approaches, onSelectApproachMode, onSelectApproach)
+        captureItem(pcapRecording, onTogglePcapRecording)
+        shareItems(share, onShareSummary, onShareArchive, onSaveArchive, onSaveLogs)
+        dpiToolItems(dpiTools, onRunDnsIntegrityCheck, onRunDomainReachabilityScan)
+        detectionCheckItem(onOpenDetectionCheck)
+    }
+}
+
+private fun LazyListScope.approachItems(
+    approaches: DiagnosticsApproachesUiModel,
+    onSelectApproachMode: (DiagnosticsApproachMode) -> Unit,
+    onSelectApproach: (String) -> Unit,
+) {
+    item {
+        ApproachModeCard(
+            selectedMode = approaches.selectedMode,
+            onSelectApproachMode = onSelectApproachMode,
+        )
+    }
+    items(items = approaches.rows, key = { it.id }, contentType = { "approach" }) { row ->
+        ApproachRowCard(
+            row = row,
+            focused = row.id == approaches.focusedApproachId,
+            onSelectApproach = onSelectApproach,
+        )
+    }
+}
+
+private fun LazyListScope.captureItem(
+    pcapRecording: Boolean,
+    onTogglePcapRecording: () -> Unit,
+) {
+    item {
+        PcapCaptureCard(
+            pcapRecording = pcapRecording,
+            onTogglePcapRecording = onTogglePcapRecording,
+        )
+    }
+}
+
+private fun LazyListScope.shareItems(
+    share: DiagnosticsShareUiModel,
+    onShareSummary: (String?) -> Unit,
+    onShareArchive: (String?) -> Unit,
+    onSaveArchive: (String?) -> Unit,
+    onSaveLogs: () -> Unit,
+) {
+    item {
+        DiagnosticsPreviewCard(
+            title = share.previewTitle,
+            body = share.previewBody,
+            metrics = share.metrics,
+            archiveStateMessage = share.archiveStateMessage,
+            archiveStateTone = share.archiveStateTone,
+        )
+    }
+    item {
+        ShareActionCard(
+            title = stringResource(R.string.diagnostics_share_archive_title),
+            body = stringResource(R.string.diagnostics_share_archive_body),
+            buttonLabel = stringResource(R.string.diagnostics_share_archive_action),
+            onClick = { onShareArchive(share.targetSessionId) },
+            iconTint = RipDpiThemeTokens.colors.foreground,
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareArchive),
+            variant = RipDpiButtonVariant.Primary,
+            enabled = !share.isArchiveBusy,
+        )
+    }
+    item {
+        ShareActionCard(
+            title = stringResource(R.string.diagnostics_save_archive_title),
+            body =
+                stringResource(
+                    R.string.diagnostics_save_archive_body,
+                    share.latestArchiveFileName ?: "latest archive",
+                ),
+            buttonLabel = stringResource(R.string.diagnostics_save_archive_action),
+            onClick = { onSaveArchive(share.targetSessionId) },
+            iconTint = RipDpiThemeTokens.colors.info,
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveArchive),
+            variant = RipDpiButtonVariant.Outline,
+            enabled = !share.isArchiveBusy,
+        )
+    }
+    item {
+        ShareActionCard(
+            title = stringResource(R.string.diagnostics_share_summary_title),
+            body = stringResource(R.string.diagnostics_share_summary_body),
+            buttonLabel = stringResource(R.string.diagnostics_share_summary_action),
+            onClick = { onShareSummary(share.targetSessionId) },
+            iconTint = RipDpiThemeTokens.colors.info,
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareSummary),
+            variant = RipDpiButtonVariant.Outline,
+        )
+    }
+    item {
+        ShareActionCard(
+            title = stringResource(R.string.diagnostics_save_logs_title),
+            body = stringResource(R.string.diagnostics_save_logs_body),
+            buttonLabel = stringResource(R.string.save_logs),
+            onClick = onSaveLogs,
+            iconTint = RipDpiThemeTokens.colors.warning,
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveLogs),
+            variant = RipDpiButtonVariant.Outline,
+        )
+    }
+}
+
+private fun LazyListScope.dpiToolItems(
+    dpiTools: DiagnosticsDpiToolsUiModel,
+    onRunDnsIntegrityCheck: () -> Unit,
+    onRunDomainReachabilityScan: () -> Unit,
+) {
+    item {
+        DnsIntegrityToolCard(
+            tool = dpiTools.dnsIntegrity,
+            onRun = onRunDnsIntegrityCheck,
+        )
+    }
+    item {
+        DomainReachabilityToolCard(
+            tool = dpiTools.domainReachability,
+            onRun = onRunDomainReachabilityScan,
+        )
+    }
+}
+
+private fun LazyListScope.detectionCheckItem(onOpenDetectionCheck: () -> Unit) {
+    item {
+        ShareActionCard(
+            title = stringResource(R.string.title_detection_check),
+            body = stringResource(R.string.detection_check_subtitle),
+            buttonLabel = stringResource(R.string.detection_check_start),
+            onClick = onOpenDetectionCheck,
+            iconTint = RipDpiThemeTokens.colors.foreground,
+            variant = RipDpiButtonVariant.Outline,
+        )
     }
 }
 
@@ -320,6 +368,67 @@ private fun DnsIntegrityToolCard(
 }
 
 @Composable
+private fun DomainReachabilityToolCard(
+    tool: DiagnosticsDomainReachabilityToolUiModel,
+    onRun: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        StatusIndicator(
+            label = tool.state.name.lowercase(Locale.US),
+            tone = statusTone(tool.state.tone()),
+        )
+        androidx.compose.material3.Text(
+            text = "Domain reachability",
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        androidx.compose.material3.Text(
+            text = tool.errorMessage ?: tool.summary,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = if (tool.errorMessage == null) colors.mutedForeground else colors.destructive,
+        )
+        MetricsRow(metrics = tool.metrics)
+        if (tool.rows.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                tool.rows.forEach { row ->
+                    StatusIndicator(
+                        label = "${row.domain}: ${row.verdict}",
+                        tone = statusTone(row.tone),
+                    )
+                    androidx.compose.material3.Text(
+                        text = "TLS1.3 ${row.tls13} · TLS1.2 ${row.tls12} · HTTP ${row.http}",
+                        style = RipDpiThemeTokens.type.monoSmall,
+                        color = colors.mutedForeground,
+                    )
+                    androidx.compose.material3.Text(
+                        text = "A ${row.resolvedIps}",
+                        style = RipDpiThemeTokens.type.monoSmall,
+                        color = colors.mutedForeground,
+                    )
+                }
+            }
+        }
+        RipDpiButton(
+            text =
+                if (tool.state == DiagnosticsDomainReachabilityState.Running) {
+                    "Scanning..."
+                } else {
+                    "Run reachability scan"
+                },
+            enabled = tool.state != DiagnosticsDomainReachabilityState.Running,
+            onClick = onRun,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
 internal fun DiagnosticsPerformanceCard(
     performance: DiagnosticsPerformanceUiModel,
     selectedSection: DiagnosticsSection,
@@ -405,4 +514,12 @@ private fun DiagnosticsDnsIntegrityState.tone(): com.poyka.ripdpi.activities.Dia
         DiagnosticsDnsIntegrityState.Running -> com.poyka.ripdpi.activities.DiagnosticsTone.Info
         DiagnosticsDnsIntegrityState.Complete -> com.poyka.ripdpi.activities.DiagnosticsTone.Positive
         DiagnosticsDnsIntegrityState.Failed -> com.poyka.ripdpi.activities.DiagnosticsTone.Negative
+    }
+
+private fun DiagnosticsDomainReachabilityState.tone(): com.poyka.ripdpi.activities.DiagnosticsTone =
+    when (this) {
+        DiagnosticsDomainReachabilityState.Idle -> com.poyka.ripdpi.activities.DiagnosticsTone.Neutral
+        DiagnosticsDomainReachabilityState.Running -> com.poyka.ripdpi.activities.DiagnosticsTone.Info
+        DiagnosticsDomainReachabilityState.Complete -> com.poyka.ripdpi.activities.DiagnosticsTone.Positive
+        DiagnosticsDomainReachabilityState.Failed -> com.poyka.ripdpi.activities.DiagnosticsTone.Negative
     }

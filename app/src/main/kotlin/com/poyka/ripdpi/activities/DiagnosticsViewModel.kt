@@ -3,27 +3,14 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
-import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
-import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityVerdict
-import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.collections.immutable.toPersistentList
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.Locale
 import javax.inject.Inject
-
-private const val DnsIntegrityPreviewDomainLimit = 5
 
 @Suppress("TooManyFunctions")
 @HiltViewModel
@@ -52,6 +39,11 @@ class DiagnosticsViewModel
             )
 
         val effects: SharedFlow<DiagnosticsEffect> = _effects.asSharedFlow()
+        private val dpiToolsController =
+            DiagnosticsDpiToolsController(
+                scope = viewModelScope,
+                appContext = diagnosticsContextDependencies.appContext,
+            )
 
         val uiState: StateFlow<DiagnosticsUiState> =
             diagnosticsUiStateAssembler.assemble(
@@ -65,10 +57,10 @@ class DiagnosticsViewModel
             )
 
         private val _pcapRecording = MutableStateFlow(false)
-        val pcapRecording: StateFlow<Boolean> = _pcapRecording.asStateFlow()
-        private val _dnsIntegrityTool = MutableStateFlow(DiagnosticsDnsIntegrityToolUiModel())
-        val dnsIntegrityTool: StateFlow<DiagnosticsDnsIntegrityToolUiModel> = _dnsIntegrityTool.asStateFlow()
-        private val dnsIntegrityChecker = DnsIntegrityChecker()
+        val pcapRecording: StateFlow<Boolean> = _pcapRecording
+        val dnsIntegrityTool: StateFlow<DiagnosticsDnsIntegrityToolUiModel> = dpiToolsController.dnsIntegrityTool
+        val domainReachabilityTool: StateFlow<DiagnosticsDomainReachabilityToolUiModel> =
+            dpiToolsController.domainReachabilityTool
 
         private val mutations =
             DiagnosticsMutationRunner(
@@ -209,45 +201,9 @@ class DiagnosticsViewModel
             _pcapRecording.value = !_pcapRecording.value
         }
 
-        fun runDnsIntegrityCheck() {
-            if (_dnsIntegrityTool.value.state == DiagnosticsDnsIntegrityState.Running) {
-                return
-            }
-            _dnsIntegrityTool.value =
-                DiagnosticsDnsIntegrityToolUiModel(
-                    state = DiagnosticsDnsIntegrityState.Running,
-                    summary = "Checking UDP/53 answers against DoH controls...",
-                )
-            viewModelScope.launch {
-                try {
-                    val domains =
-                        withContext(Dispatchers.IO) {
-                            DpiAssetLoader(diagnosticsContextDependencies.appContext)
-                                .loadDomains()
-                                .take(DnsIntegrityPreviewDomainLimit)
-                        }
-                    if (domains.isEmpty()) {
-                        _dnsIntegrityTool.value =
-                            DiagnosticsDnsIntegrityToolUiModel(
-                                state = DiagnosticsDnsIntegrityState.Failed,
-                                summary = "DNS integrity check could not start.",
-                                errorMessage = "No bundled DPI domains are available.",
-                            )
-                        return@launch
-                    }
-                    _dnsIntegrityTool.value = dnsIntegrityChecker.check(domains).toUiModel()
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    _dnsIntegrityTool.value =
-                        DiagnosticsDnsIntegrityToolUiModel(
-                            state = DiagnosticsDnsIntegrityState.Failed,
-                            summary = "DNS integrity check failed.",
-                            errorMessage = error.message ?: error.javaClass.simpleName,
-                        )
-                }
-            }
-        }
+        fun runDnsIntegrityCheck() = dpiToolsController.runDnsIntegrityCheck()
+
+        fun runDomainReachabilityScan() = dpiToolsController.runDomainReachabilityScan()
     }
 
 private fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =
@@ -255,68 +211,3 @@ private fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =
         metrics.firstOrNull { it.label.contains("confidence", ignoreCase = true) }?.value ?: status,
         startedAtLabel,
     ).joinToString(" · ")
-
-private fun DnsIntegrityResult.toUiModel(): DiagnosticsDnsIntegrityToolUiModel {
-    val flagged = domains.count { result -> result.verdict != DnsIntegrityVerdict.DNS_OK }
-    val checked = domains.size
-    val flaggedTone = countTone(flagged)
-    val dohBlockedTone = countTone(dohBlocked)
-    return DiagnosticsDnsIntegrityToolUiModel(
-        state = DiagnosticsDnsIntegrityState.Complete,
-        summary =
-            if (flagged == 0) {
-                "No DNS substitution detected across $checked bundled domains."
-            } else {
-                "$flagged of $checked domains showed DNS integrity warnings."
-            },
-        metrics =
-            listOf(
-                DiagnosticsMetricUiModel("checked", checked.toString(), DiagnosticsTone.Info),
-                DiagnosticsMetricUiModel(
-                    "flagged",
-                    flagged.toString(),
-                    flaggedTone,
-                ),
-                DiagnosticsMetricUiModel("stub IPs", stubIps.size.toString(), DiagnosticsTone.Neutral),
-                DiagnosticsMetricUiModel(
-                    "DoH blocked",
-                    dohBlocked.toString(),
-                    dohBlockedTone,
-                ),
-            ).toPersistentList(),
-        rows =
-            domains
-                .map { result ->
-                    DiagnosticsDnsIntegrityDomainUiModel(
-                        domain = result.domain,
-                        verdict = result.verdict.displayLabel(),
-                        udpAnswer = result.udpRecords.joinToString().ifBlank { "timeout" },
-                        dohAnswer = result.dohIps.joinToString().ifBlank { "unavailable" },
-                        tone = result.verdict.tone(),
-                    )
-                }.toPersistentList(),
-    )
-}
-
-private fun DnsIntegrityVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
-
-private fun countTone(count: Int): DiagnosticsTone =
-    if (count == 0) {
-        DiagnosticsTone.Positive
-    } else {
-        DiagnosticsTone.Warning
-    }
-
-private fun DnsIntegrityVerdict.tone(): DiagnosticsTone =
-    when (this) {
-        DnsIntegrityVerdict.DNS_OK -> DiagnosticsTone.Positive
-
-        DnsIntegrityVerdict.DOH_BLOCKED,
-        DnsIntegrityVerdict.DNS_SUBSTITUTION,
-        DnsIntegrityVerdict.DNS_INTERCEPTION,
-        DnsIntegrityVerdict.FAKE_NXDOMAIN,
-        DnsIntegrityVerdict.FAKE_IP,
-        -> DiagnosticsTone.Warning
-
-        DnsIntegrityVerdict.UNKNOWN -> DiagnosticsTone.Neutral
-    }

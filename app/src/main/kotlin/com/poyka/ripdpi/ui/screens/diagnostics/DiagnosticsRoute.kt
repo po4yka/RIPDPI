@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.poyka.ripdpi.activities.DiagnosticsDpiToolsUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEffect
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsTone
@@ -48,6 +49,7 @@ fun DiagnosticsRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pcapRecording by viewModel.pcapRecording.collectAsStateWithLifecycle()
     val dnsIntegrityTool by viewModel.dnsIntegrityTool.collectAsStateWithLifecycle()
+    val domainReachabilityTool by viewModel.domainReachabilityTool.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { DiagnosticsSection.entries.size }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -202,8 +204,13 @@ fun DiagnosticsRoute(
                 onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
                 onTogglePcapRecording = remember(viewModel) { viewModel::togglePcapRecording },
                 onRunDnsIntegrityCheck = remember(viewModel) { viewModel::runDnsIntegrityCheck },
+                onRunDomainReachabilityScan = remember(viewModel) { viewModel::runDomainReachabilityScan },
             ),
-        dnsIntegrityTool = dnsIntegrityTool,
+        dpiTools =
+            DiagnosticsDpiToolsUiModel(
+                dnsIntegrity = dnsIntegrityTool,
+                domainReachability = domainReachabilityTool,
+            ),
         pcapRecording = pcapRecording,
         modifier = modifier,
     )

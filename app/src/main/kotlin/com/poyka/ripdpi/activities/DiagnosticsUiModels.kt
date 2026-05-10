@@ -70,6 +70,13 @@ enum class DiagnosticsDnsIntegrityState {
     Failed,
 }
 
+enum class DiagnosticsDomainReachabilityState {
+    Idle,
+    Running,
+    Complete,
+    Failed,
+}
+
 @Immutable
 data class DiagnosticsDnsIntegrityDomainUiModel(
     val domain: String,
@@ -86,6 +93,32 @@ data class DiagnosticsDnsIntegrityToolUiModel(
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsDnsIntegrityDomainUiModel> = persistentListOf(),
     val errorMessage: String? = null,
+)
+
+@Immutable
+data class DiagnosticsDomainReachabilityDomainUiModel(
+    val domain: String,
+    val verdict: String,
+    val resolvedIps: String,
+    val tls13: String,
+    val tls12: String,
+    val http: String,
+    val tone: DiagnosticsTone,
+)
+
+@Stable
+data class DiagnosticsDomainReachabilityToolUiModel(
+    val state: DiagnosticsDomainReachabilityState = DiagnosticsDomainReachabilityState.Idle,
+    val summary: String = "Probe TLS 1.3, TLS 1.2, and HTTP reachability for bundled DPI domains.",
+    val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
+    val rows: ImmutableList<DiagnosticsDomainReachabilityDomainUiModel> = persistentListOf(),
+    val errorMessage: String? = null,
+)
+
+@Stable
+data class DiagnosticsDpiToolsUiModel(
+    val dnsIntegrity: DiagnosticsDnsIntegrityToolUiModel = DiagnosticsDnsIntegrityToolUiModel(),
+    val domainReachability: DiagnosticsDomainReachabilityToolUiModel = DiagnosticsDomainReachabilityToolUiModel(),
 )
 
 @Immutable
