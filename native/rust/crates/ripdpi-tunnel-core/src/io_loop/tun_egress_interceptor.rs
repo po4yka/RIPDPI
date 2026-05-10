@@ -62,7 +62,8 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
                 continue;
             }
             match self.injector.inject_packet(&transformed) {
-                Ok(()) => return true,
+                Ok(()) if rule.action.consumes_original() => return true,
+                Ok(()) => continue,
                 Err(error) => debug!("TUN egress strategy injection failed; forwarding original packet: {error}"),
             }
         }
@@ -99,6 +100,7 @@ struct EgressRule {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum EgressAction {
+    Fake { ttl: u8 },
     UdpLen { delta: i16 },
     Ipv6Ext { ext_type: Ipv6ExtType },
 }
@@ -106,6 +108,10 @@ enum EgressAction {
 impl EgressAction {
     fn from_step(step: &StrategyStep) -> Option<Self> {
         match step.kind {
+            StepType::Fake => {
+                let ttl = step.ttl.unwrap_or(5).max(1);
+                Some(Self::Fake { ttl })
+            }
             StepType::Udplen => {
                 let delta = step.delta.unwrap_or(4).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16;
                 Some(Self::UdpLen { delta })
@@ -118,8 +124,13 @@ impl EgressAction {
         }
     }
 
+    fn consumes_original(self) -> bool {
+        !matches!(self, Self::Fake { .. })
+    }
+
     fn apply(self, packet: &[u8]) -> Option<Vec<u8>> {
         match self {
+            Self::Fake { ttl } => low_ttl_tcp_copy(packet, ttl),
             Self::UdpLen { delta } => ripdpi_strategy_udp::apply_udplen(packet, delta),
             Self::Ipv6Ext { ext_type } => apply_ipv6_ext_header(packet, ext_type),
         }
@@ -249,6 +260,62 @@ fn ipv6_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
     })
 }
 
+fn low_ttl_tcp_copy(packet: &[u8], ttl: u8) -> Option<Vec<u8>> {
+    let version = packet.first()? >> 4;
+    match version {
+        4 => low_ttl_ipv4_tcp_copy(packet, ttl),
+        6 => low_ttl_ipv6_tcp_copy(packet, ttl),
+        _ => None,
+    }
+}
+
+fn low_ttl_ipv4_tcp_copy(packet: &[u8], ttl: u8) -> Option<Vec<u8>> {
+    if packet.len() < IPV4_MIN_HEADER_LEN || packet[9] != TCP_PROTO {
+        return None;
+    }
+    let ihl = usize::from(packet[0] & 0x0f) * 4;
+    if ihl < IPV4_MIN_HEADER_LEN || packet.len() < ihl {
+        return None;
+    }
+
+    let mut modified = packet.to_vec();
+    modified[8] = ttl.max(1);
+    recompute_ipv4_header_checksum(&mut modified[..ihl]);
+    Some(modified)
+}
+
+fn low_ttl_ipv6_tcp_copy(packet: &[u8], ttl: u8) -> Option<Vec<u8>> {
+    if packet.len() < IPV6_HEADER_LEN || packet[6] != TCP_PROTO {
+        return None;
+    }
+
+    let mut modified = packet.to_vec();
+    modified[7] = ttl.max(1);
+    Some(modified)
+}
+
+fn recompute_ipv4_header_checksum(header: &mut [u8]) {
+    header[10] = 0;
+    header[11] = 0;
+    let checksum = ipv4_checksum(header);
+    header[10..12].copy_from_slice(&checksum.to_be_bytes());
+}
+
+fn ipv4_checksum(bytes: &[u8]) -> u16 {
+    let mut sum = 0u32;
+    let mut chunks = bytes.chunks_exact(2);
+    for chunk in &mut chunks {
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
+    }
+    if let Some(last) = chunks.remainder().first() {
+        sum += u32::from(*last) << 8;
+    }
+    while sum >> 16 != 0 {
+        sum = (sum & 0xffff) + (sum >> 16);
+    }
+    !(sum as u16)
+}
+
 #[cfg(test)]
 mod tests {
     use std::io;
@@ -277,6 +344,30 @@ strategies:
         let udp_len_offset = IPV4_MIN_HEADER_LEN + 4;
         assert_eq!(u16::from_be_bytes([injected[udp_len_offset], injected[udp_len_offset + 1]]), 15);
         assert_eq!(&injected[2..4], &packet[2..4], "IP total length must stay unchanged");
+    }
+
+    #[test]
+    fn fake_rule_injects_low_ttl_tcp_copy_and_forwards_original() {
+        let packet = ipv4_tcp_packet(49152, 443, b"GET / HTTP/1.1\r\nHost: example.org\r\n\r\n");
+        let yaml = r#"
+version: 1
+strategies:
+  - id: fake-tcp
+    match:
+      proto: [tls]
+      port: [443]
+    steps:
+      - type: fake
+        ttl: 5
+"#;
+        let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+
+        assert!(!interceptor.handle_packet(&packet));
+
+        let injected = &interceptor.injector.packets[0];
+        assert_eq!(injected[8], 5);
+        assert_eq!(packet[8], 64, "original packet must remain untouched for normal TUN forwarding");
+        assert_ne!(&injected[10..12], &packet[10..12], "IPv4 checksum should be refreshed after TTL change");
     }
 
     #[test]
@@ -350,6 +441,25 @@ strategies:
         packet[22..24].copy_from_slice(&dst_port.to_be_bytes());
         packet[24..26].copy_from_slice(&((8 + payload.len()) as u16).to_be_bytes());
         packet[28..].copy_from_slice(payload);
+        packet
+    }
+
+    fn ipv4_tcp_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
+        let total_len = IPV4_MIN_HEADER_LEN + 20 + payload.len();
+        let mut packet = vec![0u8; total_len];
+        packet[0] = 0x45;
+        packet[2..4].copy_from_slice(&(total_len as u16).to_be_bytes());
+        packet[8] = 64;
+        packet[9] = TCP_PROTO;
+        packet[12..16].copy_from_slice(&[10, 0, 0, 2]);
+        packet[16..20].copy_from_slice(&[93, 184, 216, 34]);
+        packet[20..22].copy_from_slice(&src_port.to_be_bytes());
+        packet[22..24].copy_from_slice(&dst_port.to_be_bytes());
+        packet[32] = 0x50;
+        packet[33] = 0x18;
+        packet[34..36].copy_from_slice(&65535u16.to_be_bytes());
+        packet[40..].copy_from_slice(payload);
+        recompute_ipv4_header_checksum(&mut packet[..IPV4_MIN_HEADER_LEN]);
         packet
     }
 
