@@ -26,12 +26,26 @@ class VpnAppCatalogTest {
         val families = VpnAppCatalog.familiesForPort(1080)
         assertTrue(families.isNotEmpty())
         assertTrue(families.contains(VpnAppCatalog.FAMILY_XRAY))
+        assertTrue(families.contains(VpnAppCatalog.FAMILY_SHADOWSOCKS))
     }
 
     @Test
     fun `localhost proxy ports are sorted`() {
         val ports = VpnAppCatalog.localhostProxyPorts
         assertEquals(ports, ports.sorted())
+        assertTrue(ports.contains(1080))
+        assertTrue(ports.contains(10808))
+        assertTrue(ports.contains(10809))
+    }
+
+    @Test
+    fun `catalog covers RKNHardering family set`() {
+        val families = VpnAppCatalog.signatures.mapTo(linkedSetOf()) { it.family }
+
+        assertEquals(27, families.size)
+        assertTrue(families.contains(VpnAppCatalog.FAMILY_TG_WS_PROXY))
+        assertTrue(families.contains(VpnAppCatalog.FAMILY_TERMUX))
+        assertTrue(families.contains(VpnAppCatalog.FAMILY_KARING))
     }
 
     @Test
