@@ -24,6 +24,8 @@ interface StrategyEngineBindings {
 
     fun luaValidateScript(path: String): String?
 
+    fun validateStrategyConfigText(configText: String): String?
+
     fun injectProbeResults(results: Array<StrategyProbeResultDto>): String?
 }
 
@@ -39,6 +41,8 @@ class StrategyEngineNativeBindings : StrategyEngineBindings {
     external override fun luaListStrategies(): Array<String>
 
     external override fun luaValidateScript(path: String): String?
+
+    external override fun validateStrategyConfigText(configText: String): String?
 
     override fun injectProbeResults(results: Array<StrategyProbeResultDto>): String? =
         injectProbeResultsJson(StrategyProbeResultJson.encodeToString(results.toList()))

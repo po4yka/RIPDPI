@@ -104,6 +104,15 @@ fun StrategyConfigRoute(
                     luaPath = luaPath,
                     runtime = runtime,
                     saveChain = { value -> binder.onTextConfirmed(AdvancedTextSetting.ChainDsl, value, uiState) },
+                    saveRawStrategyConfig = { value ->
+                        viewModel.updateSetting("strategyChainYaml", value) {
+                            if (value.isBlank()) {
+                                clearStrategyChainYaml()
+                            } else {
+                                setStrategyChainYaml(value)
+                            }
+                        }
+                    },
                     uiState = uiState,
                 )
         },
@@ -161,12 +170,11 @@ private fun saveStrategyConfig(
     luaPath: String,
     runtime: StrategyConfigRuntime?,
     saveChain: (String) -> Unit,
+    saveRawStrategyConfig: (String) -> Unit,
     uiState: SettingsUiState,
 ): StrategyConfigBanner =
     when (source) {
-        StrategyConfigSource.BuiltIn,
-        StrategyConfigSource.CustomYaml,
-        -> {
+        StrategyConfigSource.BuiltIn -> {
             val validation = validateStrategyConfigText(configText, uiState)
             if (validation.isSuccess) {
                 saveChain(configText)
@@ -195,6 +203,38 @@ private fun saveStrategyConfig(
                     message =
                         validation.exceptionOrNull()?.localizedMessage
                             ?: context.getString(R.string.config_error_invalid_chain),
+                    tone = WarningBannerTone.Error,
+                )
+            }
+        }
+
+        StrategyConfigSource.CustomYaml -> {
+            val validationError =
+                if (runtime == null) {
+                    context.getString(R.string.strategy_config_native_unavailable)
+                } else {
+                    runtime.validateStrategyConfigText(configText)
+                }
+            if (validationError == null) {
+                saveRawStrategyConfig(configText)
+                val reloadError = runtime?.reloadConfig()
+                if (reloadError == null) {
+                    StrategyConfigBanner(
+                        title = context.getString(R.string.strategy_config_saved_title),
+                        message = context.getString(R.string.strategy_config_saved_body),
+                        tone = WarningBannerTone.Info,
+                    )
+                } else {
+                    StrategyConfigBanner(
+                        title = context.getString(R.string.strategy_config_reload_failed_title),
+                        message = reloadError,
+                        tone = WarningBannerTone.Error,
+                    )
+                }
+            } else {
+                StrategyConfigBanner(
+                    title = context.getString(R.string.strategy_config_invalid_title),
+                    message = validationError,
                     tone = WarningBannerTone.Error,
                 )
             }

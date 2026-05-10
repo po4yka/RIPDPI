@@ -24,6 +24,7 @@ ripdpi-android-platform-adapter = { workspace = true }
 ripdpi-android-proxy-adapter = { workspace = true }
 ripdpi-android-telemetry-adapter = { workspace = true }
 ripdpi-android-vpn-protect-adapter = { workspace = true }
+ripdpi-strategy-config = { workspace = true }
 ripdpi-strategy-lua = { workspace = true, features = ["lua-strategies"] }
 thiserror = { workspace = true }
 

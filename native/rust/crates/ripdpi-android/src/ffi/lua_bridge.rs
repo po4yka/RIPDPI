@@ -70,6 +70,34 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_l
     nullable_error_entry(env, path, |path| LuaStrategyEngine::validate_script(path).map_err(Into::into))
 }
 
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_validateStrategyConfigText(
+    mut env: EnvUnowned<'_>,
+    _thiz: JObject<'_>,
+    config_text: JString<'_>,
+) -> jstring {
+    match env
+        .with_env(move |env| -> jni::errors::Result<jstring> {
+            let config_text = config_text.mutf8_chars(env)?.to_str().into_owned();
+            error_to_nullable_jstring(env, validate_strategy_config_text(&config_text))
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value,
+        _ => std::ptr::null_mut(),
+    }
+}
+
+fn validate_strategy_config_text(config_text: &str) -> Result<(), String> {
+    match ripdpi_strategy_config::parse_yaml_str(config_text, ".") {
+        Ok(_) => Ok(()),
+        Err(yaml_error) => match ripdpi_strategy_config::parse_toml_str(config_text, ".") {
+            Ok(_) => Ok(()),
+            Err(toml_error) => Err(format!("YAML parse failed: {yaml_error}; TOML parse failed: {toml_error}")),
+        },
+    }
+}
+
 fn nullable_error_entry(
     mut env: EnvUnowned<'_>,
     path: JString<'_>,

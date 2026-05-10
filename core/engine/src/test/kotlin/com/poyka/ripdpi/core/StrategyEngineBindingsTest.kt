@@ -17,6 +17,7 @@ class StrategyEngineBindingsTest {
 
         assertEquals("missing script", bindings.luaLoadScript("/missing.lua"))
         assertNull(bindings.luaValidateScript("/valid.lua"))
+        assertNull(bindings.validateStrategyConfigText("version: 1\nstrategies: []"))
         assertNull(bindings.luaReloadConfig())
         assertArrayEquals(arrayOf("split_host", "pass"), bindings.luaListStrategies())
         assertNull(
@@ -39,6 +40,8 @@ private class FakeStrategyEngineBindings(
     override fun luaListStrategies(): Array<String> = strategies
 
     override fun luaValidateScript(path: String): String? = validateResult
+
+    override fun validateStrategyConfigText(configText: String): String? = validateResult
 
     override fun injectProbeResults(results: Array<StrategyProbeResultDto>): String? = null
 }
