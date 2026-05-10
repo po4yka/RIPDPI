@@ -82,8 +82,10 @@ Fresh install on emulator: `LuaAssetManager.ensureExtracted()` runs, both `.lua`
 - Bundled `zapret-antidpi.lua`, `zapret-lib.lua`, `lua-manifest.json`, and `LICENSE.zapret2.txt` under `app/src/main/assets/lua/` from zapret2 commit `fd4716da5426550a3354b1b179f3dda446811a13`.
 - Added `LuaAssetManager` with `ensureExtracted()`, `currentManifestVersion()`, and `extractIfOutdated()`; outdated extraction backs up existing user script files with `.user.bak` before overwrite.
 - Added Robolectric coverage for first extraction, manifest version reading, and user-modified script backup.
+- Added instrumented JNI coverage for fresh extraction followed by bundled zapret script loading.
 - Verification:
   - `./gradlew :app:ktlintCheck -Pripdpi.skipNativeBuild=true`
   - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.lua.LuaAssetManagerTest -Pripdpi.skipNativeBuild=true`
+  - `./gradlew :app:ktlintCheck :app:compileDebugAndroidTestKotlin -Pripdpi.skipNativeBuild=true`
   - `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-lua-review cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-strategy-lua --features lua-strategies`
 - Remaining review gap: fresh-install asset extraction plus JNI/device loading still needs an attached emulator or device.

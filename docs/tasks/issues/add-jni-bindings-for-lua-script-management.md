@@ -86,6 +86,7 @@ The JNI layer acquires the `LuaStrategyEngine` from the global singleton (alread
 - Added Rust JNI exports in `ripdpi-android` for load, reload, list, and parse-only validation, with nullable error strings for load/reload/validate and an empty array fallback for list failures.
 - Extended `LuaStrategyEngine` with parse-only validation, automatic global function registration, sorted strategy listing, and reload-safe replacement of already registered Lua functions.
 - Added Kotlin contract coverage for the binding interface and Rust coverage for Lua parse-only validation, auto-registration, and reload replacement behavior.
+- Added `app/src/androidTest/kotlin/com/poyka/ripdpi/jni/StrategyEngineJniInstrumentedTest.kt` covering extracted bundled script loading and missing-path JNI error handling on an attached Android target.
 
 Validation:
 
@@ -95,7 +96,8 @@ Validation:
 - `cargo clippy -p ripdpi-android --all-targets --locked -- -D warnings` — passed.
 - `./gradlew :core:engine:ktlintCheck -Pripdpi.skipNativeBuild=true` — passed.
 - `./gradlew :core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.StrategyEngineBindingsTest -Pripdpi.skipNativeBuild=true` — passed.
+- `./gradlew :app:ktlintCheck :app:compileDebugAndroidTestKotlin -Pripdpi.skipNativeBuild=true` — passed.
 
 Remaining validation gap:
 
-- Emulator/instrumented JNI validation was not run in this slice. The Rust symbol/linkage test and Kotlin interface contract are in place; real-device loading still needs an attached emulator or device.
+- Emulator/instrumented JNI validation still needs an attached emulator or device.
