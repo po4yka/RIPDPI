@@ -1,7 +1,7 @@
 ---
 title: Add UDP length falsification strategy
 type: task
-status: backlog
+status: review
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: zapret2-feature-parity-epic
 blocks: []
 blocked_by: [expose-existing-techniques-as-config-addressable]
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Add UDP length falsification strategy #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [ ] #task Add UDP length falsification strategy #repo/RIPDPI #area/rust-native #status/review 🔼
 
 ## Objective
 
@@ -73,3 +73,10 @@ Parameters:
 ## Definition of done
 
 `cargo test -p ripdpi-strategy-udp` green including golden byte test; `udplen` registered and selectable from YAML. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+- Added `ripdpi-strategy-udp` with `UdpLenStrategy`, raw IPv4/IPv6 UDP length-field mutation, IPv4 checksum clearing, and IPv6 UDP checksum recalculation.
+- Registered `udplen` through `StrategyRegistry::with_builtin_techniques()` and covered YAML `type: udplen` with `delta`.
+- Verification: `CARGO_TARGET_DIR=target/codex-udp cargo test -p ripdpi-strategy-udp -p ripdpi-strategy-registry -p ripdpi-strategy-config --locked`; `CARGO_TARGET_DIR=target/codex-udp cargo clippy -p ripdpi-strategy-udp -p ripdpi-strategy-registry -p ripdpi-strategy-config --all-targets --locked -- -D warnings`.
+- Remaining review evidence: Mode.VPN packet-loop integration proving the transformed packet is selected and emitted on live outgoing UDP/QUIC traffic.

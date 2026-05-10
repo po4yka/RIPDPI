@@ -3998,6 +3998,7 @@ dependencies = [
  "ripdpi-strategy-config",
  "ripdpi-strategy-http",
  "ripdpi-strategy-trait",
+ "ripdpi-strategy-udp",
  "static_assertions",
  "thiserror 2.0.18",
 ]
@@ -4007,6 +4008,13 @@ name = "ripdpi-strategy-trait"
 version = "0.1.0"
 dependencies = [
  "static_assertions",
+]
+
+[[package]]
+name = "ripdpi-strategy-udp"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-strategy-trait",
 ]
 
 [[package]]

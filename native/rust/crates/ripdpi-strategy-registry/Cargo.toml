@@ -11,6 +11,7 @@ workspace = true
 ripdpi-desync = { workspace = true }
 ripdpi-strategy-http = { workspace = true }
 ripdpi-strategy-trait = { workspace = true }
+ripdpi-strategy-udp = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

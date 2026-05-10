@@ -80,6 +80,7 @@ members = [
     "crates/ripdpi-strategy-http",
     "crates/ripdpi-strategy-registry",
     "crates/ripdpi-strategy-trait",
+    "crates/ripdpi-strategy-udp",
     "crates/ripdpi-vless",
     "crates/ripdpi-shadowtls",
     "crates/ripdpi-masque",
@@ -166,6 +167,7 @@ ripdpi-strategy-config = { path = "crates/ripdpi-strategy-config" }
 ripdpi-strategy-http = { path = "crates/ripdpi-strategy-http" }
 ripdpi-strategy-registry = { path = "crates/ripdpi-strategy-registry" }
 ripdpi-strategy-trait = { path = "crates/ripdpi-strategy-trait" }
+ripdpi-strategy-udp = { path = "crates/ripdpi-strategy-udp" }
 ripdpi-vless = { path = "crates/ripdpi-vless" }
 ripdpi-shadowtls = { path = "crates/ripdpi-shadowtls" }
 ripdpi-masque = { path = "crates/ripdpi-masque" }
