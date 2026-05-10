@@ -88,6 +88,10 @@ pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopSta
 }
 
 async fn route_tun_packet(packet: &[u8], state: &mut LoopState) {
+    if state.runtime.tun_egress_interceptor.handle_packet(packet) {
+        return;
+    }
+
     match classify_ip_packet(packet, state.runtime.mapdns_classify) {
         IpClass::TcpOrOther => route_tcp_or_other_packet(packet, state),
         IpClass::UdpDns { src, payload } => {

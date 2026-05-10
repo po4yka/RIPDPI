@@ -14,6 +14,7 @@ use crate::{ActiveSessions, Stats, TunDevice};
 
 use super::dns_intercept::{DnsRequest, DnsResponse, MapDnsRuntime};
 use super::packet::TcpFlowKey;
+use super::tun_egress_interceptor::{RawTunPacketInjector, TunEgressInterceptor};
 use super::tun_ingress_interceptor::{RawSynAckPacketInjector, TunIngressInterceptor};
 use super::udp_assoc::{shutdown_udp_associations, UdpAssociation, UdpEvent, UdpEvictionEntry};
 
@@ -24,6 +25,7 @@ pub(in crate::io_loop) struct LoopRuntime {
     pub(in crate::io_loop) mapdns_classify: Option<(u32, u32, u16)>,
     pub(in crate::io_loop) filter_injected_resets: bool,
     pub(in crate::io_loop) tun_ingress_interceptor: TunIngressInterceptor<RawSynAckPacketInjector>,
+    pub(in crate::io_loop) tun_egress_interceptor: TunEgressInterceptor<RawTunPacketInjector>,
     pub(in crate::io_loop) udp_idle_timeout: Duration,
 }
 

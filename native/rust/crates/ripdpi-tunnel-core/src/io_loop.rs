@@ -25,6 +25,7 @@ mod phases;
 mod setup;
 mod state;
 mod tcp_accept;
+mod tun_egress_interceptor;
 mod tun_ingress_interceptor;
 mod udp_assoc;
 mod wait;

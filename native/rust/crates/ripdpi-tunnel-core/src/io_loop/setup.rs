@@ -61,6 +61,10 @@ pub(in crate::io_loop) fn setup_io_loop(
             super::tun_ingress_interceptor::SynAckStrategy::from_yaml(config.misc.strategy_chain_yaml.as_deref()),
             super::tun_ingress_interceptor::RawSynAckPacketInjector::new(config.misc.protect_path.clone()),
         ),
+        tun_egress_interceptor: super::tun_egress_interceptor::TunEgressInterceptor::new(
+            config.misc.strategy_chain_yaml.as_deref(),
+            super::tun_egress_interceptor::RawTunPacketInjector::new(config.misc.protect_path.clone()),
+        ),
         udp_idle_timeout: Duration::from_millis(u64::from(config.misc.udp_read_write_timeout)),
     };
 
