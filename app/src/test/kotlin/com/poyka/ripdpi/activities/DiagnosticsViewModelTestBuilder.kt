@@ -19,6 +19,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
+import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
@@ -92,6 +93,7 @@ internal fun createDiagnosticsViewModel(
             rknLayeredProbePipeline = rknLayeredProbePipeline,
             selfInfoFetcher = selfInfoFetcher,
             httpCompressionProber = httpCompressionProber,
+            tcp16FatHeaderProbe = Tcp16FatHeaderProbe(),
             diagnosticsUiStateAssembler =
                 DiagnosticsUiStateAssembler(
                     uiStateFactory = uiStateFactory,

@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
+import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
@@ -32,6 +33,7 @@ class DiagnosticsViewModel
         dnsIntegrityChecker: DnsIntegrityChecker,
         dnsAvailabilitySurvey: DnsAvailabilitySurvey,
         domainReachabilityScanner: DomainReachabilityScanner,
+        tcp16FatHeaderProbe: Tcp16FatHeaderProbe,
         httpCompressionProber: HttpCompressionProber,
         rknLayeredProbePipeline: RknLayeredProbePipeline,
         selfInfoFetcher: SelfInfoFetcher,
@@ -61,6 +63,7 @@ class DiagnosticsViewModel
                 dnsIntegrityChecker = dnsIntegrityChecker,
                 dnsAvailabilitySurvey = dnsAvailabilitySurvey,
                 domainReachabilityScanner = domainReachabilityScanner,
+                tcp16FatHeaderProbe = tcp16FatHeaderProbe,
                 httpCompressionProber = httpCompressionProber,
                 rknLayeredProbePipeline = rknLayeredProbePipeline,
                 selfInfoFetcher = selfInfoFetcher,
@@ -88,6 +91,8 @@ class DiagnosticsViewModel
             dpiToolsController.rknBlockDiagnosisTool
         val compressionProbeTool: StateFlow<DiagnosticsCompressionProbeToolUiModel> =
             dpiToolsController.compressionProbeTool
+        val tcp16FatHeaderTool: StateFlow<DiagnosticsTcp16FatHeaderToolUiModel> =
+            dpiToolsController.tcp16FatHeaderTool
 
         private val mutations =
             DiagnosticsMutationRunner(
@@ -235,6 +240,8 @@ class DiagnosticsViewModel
         fun runDomainReachabilityScan() = dpiToolsController.runDomainReachabilityScan()
 
         fun runCompressionProbe() = dpiToolsController.runCompressionProbe()
+
+        fun runTcp16FatHeaderProbe() = dpiToolsController.runTcp16FatHeaderProbe()
 
         fun runRknBlockDiagnosis() = dpiToolsController.runRknBlockDiagnosis()
 

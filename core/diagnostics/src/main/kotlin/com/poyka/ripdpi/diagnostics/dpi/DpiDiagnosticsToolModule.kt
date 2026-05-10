@@ -22,6 +22,9 @@ object DpiDiagnosticsToolModule {
     fun provideDomainReachabilityScanner(): DomainReachabilityScanner = DomainReachabilityScanner()
 
     @Provides
+    fun provideTcp16FatHeaderProbe(): Tcp16FatHeaderProbe = Tcp16FatHeaderProbe()
+
+    @Provides
     fun provideRknLayeredProbePipeline(): RknLayeredProbePipeline = RknLayeredProbePipeline()
 
     @Provides

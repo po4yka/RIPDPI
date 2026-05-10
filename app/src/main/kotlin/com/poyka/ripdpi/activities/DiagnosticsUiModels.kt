@@ -98,6 +98,13 @@ enum class DiagnosticsCompressionProbeState {
     Failed,
 }
 
+enum class DiagnosticsTcp16FatHeaderState {
+    Idle,
+    Running,
+    Complete,
+    Failed,
+}
+
 @Immutable
 data class DiagnosticsDnsIntegrityDomainUiModel(
     val domain: String,
@@ -215,6 +222,26 @@ data class DiagnosticsCompressionProbeToolUiModel(
     val errorMessage: String? = null,
 )
 
+@Immutable
+data class DiagnosticsTcp16AsnUiModel(
+    val asn: String,
+    val providers: String,
+    val checked: String,
+    val detected: String,
+    val dead: String,
+    val errors: String,
+    val tone: DiagnosticsTone,
+)
+
+@Stable
+data class DiagnosticsTcp16FatHeaderToolUiModel(
+    val state: DiagnosticsTcp16FatHeaderState = DiagnosticsTcp16FatHeaderState.Idle,
+    val summary: String = "Probe TCP16 fat-header behavior across bundled network targets.",
+    val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
+    val rows: ImmutableList<DiagnosticsTcp16AsnUiModel> = persistentListOf(),
+    val errorMessage: String? = null,
+)
+
 @Stable
 data class DiagnosticsDpiToolsUiModel(
     val dnsIntegrity: DiagnosticsDnsIntegrityToolUiModel = DiagnosticsDnsIntegrityToolUiModel(),
@@ -222,6 +249,7 @@ data class DiagnosticsDpiToolsUiModel(
     val domainReachability: DiagnosticsDomainReachabilityToolUiModel = DiagnosticsDomainReachabilityToolUiModel(),
     val rknBlockDiagnosis: DiagnosticsRknBlockDiagnosisToolUiModel = DiagnosticsRknBlockDiagnosisToolUiModel(),
     val compressionProbe: DiagnosticsCompressionProbeToolUiModel = DiagnosticsCompressionProbeToolUiModel(),
+    val tcp16FatHeader: DiagnosticsTcp16FatHeaderToolUiModel = DiagnosticsTcp16FatHeaderToolUiModel(),
 )
 
 @Immutable

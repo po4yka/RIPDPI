@@ -32,6 +32,8 @@ import com.poyka.ripdpi.activities.DiagnosticsDpiToolsUiModel
 import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
+import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderState
+import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderToolUiModel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -48,6 +50,17 @@ import java.util.Locale
 
 private const val timingBreakdownDisplayCount = 4
 
+internal data class DiagnosticsDpiToolActions(
+    val onRunDnsIntegrityCheck: () -> Unit = {},
+    val onRunDnsAvailabilitySurvey: () -> Unit = {},
+    val onRunDomainReachabilityScan: () -> Unit = {},
+    val onRunCompressionProbe: () -> Unit = {},
+    val onRunTcp16FatHeaderProbe: () -> Unit = {},
+    val onRunRknBlockDiagnosis: () -> Unit = {},
+    val onRknSelfInfoEnabledChange: (Boolean) -> Unit = {},
+    val onCompressionProbeZstdEnabledChange: (Boolean) -> Unit = {},
+)
+
 @Composable
 internal fun ToolsSection(
     approaches: DiagnosticsApproachesUiModel,
@@ -59,13 +72,7 @@ internal fun ToolsSection(
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
     dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
-    onRunDnsIntegrityCheck: () -> Unit = {},
-    onRunDnsAvailabilitySurvey: () -> Unit = {},
-    onRunDomainReachabilityScan: () -> Unit = {},
-    onRunCompressionProbe: () -> Unit = {},
-    onRunRknBlockDiagnosis: () -> Unit = {},
-    onRknSelfInfoEnabledChange: (Boolean) -> Unit = {},
-    onCompressionProbeZstdEnabledChange: (Boolean) -> Unit = {},
+    dpiToolActions: DiagnosticsDpiToolActions = DiagnosticsDpiToolActions(),
     onOpenDetectionCheck: () -> Unit = {},
     pcapRecording: Boolean = false,
     onTogglePcapRecording: () -> Unit = {},
@@ -87,13 +94,7 @@ internal fun ToolsSection(
         shareItems(share, onShareSummary, onShareArchive, onSaveArchive, onSaveLogs)
         dpiToolItems(
             dpiTools = dpiTools,
-            onRunDnsIntegrityCheck = onRunDnsIntegrityCheck,
-            onRunDnsAvailabilitySurvey = onRunDnsAvailabilitySurvey,
-            onRunDomainReachabilityScan = onRunDomainReachabilityScan,
-            onRunCompressionProbe = onRunCompressionProbe,
-            onRunRknBlockDiagnosis = onRunRknBlockDiagnosis,
-            onRknSelfInfoEnabledChange = onRknSelfInfoEnabledChange,
-            onCompressionProbeZstdEnabledChange = onCompressionProbeZstdEnabledChange,
+            actions = dpiToolActions,
         )
         detectionCheckItem(onOpenDetectionCheck)
     }
@@ -201,44 +202,100 @@ private fun LazyListScope.shareItems(
 
 private fun LazyListScope.dpiToolItems(
     dpiTools: DiagnosticsDpiToolsUiModel,
-    onRunDnsIntegrityCheck: () -> Unit,
-    onRunDnsAvailabilitySurvey: () -> Unit,
-    onRunDomainReachabilityScan: () -> Unit,
-    onRunCompressionProbe: () -> Unit,
-    onRunRknBlockDiagnosis: () -> Unit,
-    onRknSelfInfoEnabledChange: (Boolean) -> Unit,
-    onCompressionProbeZstdEnabledChange: (Boolean) -> Unit,
+    actions: DiagnosticsDpiToolActions,
 ) {
     item {
         DnsIntegrityToolCard(
             tool = dpiTools.dnsIntegrity,
-            onRun = onRunDnsIntegrityCheck,
+            onRun = actions.onRunDnsIntegrityCheck,
         )
     }
     item {
         DnsAvailabilitySurveyCard(
             tool = dpiTools.dnsAvailability,
-            onRun = onRunDnsAvailabilitySurvey,
+            onRun = actions.onRunDnsAvailabilitySurvey,
         )
     }
     item {
         DomainReachabilityToolCard(
             tool = dpiTools.domainReachability,
-            onRun = onRunDomainReachabilityScan,
+            onRun = actions.onRunDomainReachabilityScan,
         )
     }
     item {
         HttpCompressionProbeCard(
             tool = dpiTools.compressionProbe,
-            onRun = onRunCompressionProbe,
-            onZstdEnabledChange = onCompressionProbeZstdEnabledChange,
+            onRun = actions.onRunCompressionProbe,
+            onZstdEnabledChange = actions.onCompressionProbeZstdEnabledChange,
+        )
+    }
+    item {
+        Tcp16FatHeaderProbeCard(
+            tool = dpiTools.tcp16FatHeader,
+            onRun = actions.onRunTcp16FatHeaderProbe,
         )
     }
     item {
         RknBlockDiagnosisScreen(
             tool = dpiTools.rknBlockDiagnosis,
-            onRun = onRunRknBlockDiagnosis,
-            onSelfInfoEnabledChange = onRknSelfInfoEnabledChange,
+            onRun = actions.onRunRknBlockDiagnosis,
+            onSelfInfoEnabledChange = actions.onRknSelfInfoEnabledChange,
+        )
+    }
+}
+
+@Composable
+private fun Tcp16FatHeaderProbeCard(
+    tool: DiagnosticsTcp16FatHeaderToolUiModel,
+    onRun: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        StatusIndicator(
+            label = tool.state.name.lowercase(Locale.US),
+            tone = statusTone(tool.state.tone()),
+        )
+        androidx.compose.material3.Text(
+            text = "TCP16 fat-header",
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        androidx.compose.material3.Text(
+            text = tool.errorMessage ?: tool.summary,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = if (tool.errorMessage == null) colors.mutedForeground else colors.destructive,
+        )
+        MetricsRow(metrics = tool.metrics)
+        if (tool.rows.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                tool.rows.forEach { row ->
+                    StatusIndicator(
+                        label = "${row.asn}: ${row.detected}/${row.checked} detected",
+                        tone = statusTone(row.tone),
+                    )
+                    androidx.compose.material3.Text(
+                        text = "${row.providers} · dead ${row.dead} · errors ${row.errors}",
+                        style = RipDpiThemeTokens.type.monoSmall,
+                        color = colors.mutedForeground,
+                    )
+                }
+            }
+        }
+        RipDpiButton(
+            text =
+                if (tool.state == DiagnosticsTcp16FatHeaderState.Running) {
+                    "Probing..."
+                } else {
+                    "Run TCP16 probe"
+                },
+            enabled = tool.state != DiagnosticsTcp16FatHeaderState.Running,
+            onClick = onRun,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
@@ -702,4 +759,12 @@ private fun DiagnosticsCompressionProbeState.tone(): com.poyka.ripdpi.activities
         DiagnosticsCompressionProbeState.Running -> com.poyka.ripdpi.activities.DiagnosticsTone.Info
         DiagnosticsCompressionProbeState.Complete -> com.poyka.ripdpi.activities.DiagnosticsTone.Positive
         DiagnosticsCompressionProbeState.Failed -> com.poyka.ripdpi.activities.DiagnosticsTone.Negative
+    }
+
+private fun DiagnosticsTcp16FatHeaderState.tone(): com.poyka.ripdpi.activities.DiagnosticsTone =
+    when (this) {
+        DiagnosticsTcp16FatHeaderState.Idle -> com.poyka.ripdpi.activities.DiagnosticsTone.Neutral
+        DiagnosticsTcp16FatHeaderState.Running -> com.poyka.ripdpi.activities.DiagnosticsTone.Info
+        DiagnosticsTcp16FatHeaderState.Complete -> com.poyka.ripdpi.activities.DiagnosticsTone.Positive
+        DiagnosticsTcp16FatHeaderState.Failed -> com.poyka.ripdpi.activities.DiagnosticsTone.Negative
     }

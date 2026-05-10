@@ -12,6 +12,12 @@ import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
+import com.poyka.ripdpi.diagnostics.dpi.Tcp16AsnSummary
+import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
+import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
+import com.poyka.ripdpi.diagnostics.dpi.Tcp16Target
+import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
+import com.poyka.ripdpi.diagnostics.dpi.byAsn
 import com.poyka.ripdpi.diagnostics.dpich.CompressionCodec
 import com.poyka.ripdpi.diagnostics.dpich.CompressionProbeResult
 import com.poyka.ripdpi.diagnostics.dpich.CompressionProbeVerdict
@@ -48,6 +54,7 @@ internal class DiagnosticsDpiToolsController(
     private val dnsIntegrityChecker: DnsIntegrityChecker = DnsIntegrityChecker(),
     private val dnsAvailabilitySurvey: DnsAvailabilitySurvey = DnsAvailabilitySurvey(),
     private val domainReachabilityScanner: DomainReachabilityScanner = DomainReachabilityScanner(),
+    private val tcp16FatHeaderProbe: Tcp16FatHeaderProbe = Tcp16FatHeaderProbe(),
     private val httpCompressionProber: HttpCompressionProber = HttpCompressionProber(),
     private val rknLayeredProbePipeline: RknLayeredProbePipeline = RknLayeredProbePipeline(),
     private val selfInfoFetcher: SelfInfoFetcher,
@@ -70,6 +77,10 @@ internal class DiagnosticsDpiToolsController(
     private val _compressionProbeTool = MutableStateFlow(DiagnosticsCompressionProbeToolUiModel())
     val compressionProbeTool: StateFlow<DiagnosticsCompressionProbeToolUiModel> =
         _compressionProbeTool.asStateFlow()
+
+    private val _tcp16FatHeaderTool = MutableStateFlow(DiagnosticsTcp16FatHeaderToolUiModel())
+    val tcp16FatHeaderTool: StateFlow<DiagnosticsTcp16FatHeaderToolUiModel> =
+        _tcp16FatHeaderTool.asStateFlow()
 
     private var latestDnsStubIps: Set<String> = emptySet()
 
@@ -217,6 +228,34 @@ internal class DiagnosticsDpiToolsController(
         }
     }
 
+    fun runTcp16FatHeaderProbe() {
+        if (_tcp16FatHeaderTool.value.state == DiagnosticsTcp16FatHeaderState.Running) {
+            return
+        }
+        _tcp16FatHeaderTool.value =
+            DiagnosticsTcp16FatHeaderToolUiModel(
+                state = DiagnosticsTcp16FatHeaderState.Running,
+                summary = "Running TCP16 fat-header probe across bundled targets...",
+            )
+        scope.launch {
+            runCatching {
+                val targets = loadTcp16Targets()
+                check(targets.isNotEmpty()) { "No bundled TCP16 targets are available." }
+                tcp16FatHeaderProbe.run(targets)
+            }.onSuccess { results ->
+                _tcp16FatHeaderTool.value = results.toTcp16UiModel()
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+                _tcp16FatHeaderTool.value =
+                    DiagnosticsTcp16FatHeaderToolUiModel(
+                        state = DiagnosticsTcp16FatHeaderState.Failed,
+                        summary = "TCP16 fat-header probe failed.",
+                        errorMessage = error.message ?: error.javaClass.simpleName,
+                    )
+            }
+        }
+    }
+
     fun runRknBlockDiagnosis() {
         if (_rknBlockDiagnosisTool.value.state == DiagnosticsRknBlockDiagnosisState.Running) {
             return
@@ -311,6 +350,11 @@ internal class DiagnosticsDpiToolsController(
                     .firstOrNull()
                     ?: error("No bundled DPI domains are available.")
             "https://$domain/"
+        }
+
+    private suspend fun loadTcp16Targets(): List<Tcp16Target> =
+        withContext(Dispatchers.IO) {
+            DpiAssetLoader(appContext).loadTcp16Targets()
         }
 }
 
@@ -440,6 +484,47 @@ private fun CompressionProbeRunResult.toUiModel(): DiagnosticsCompressionProbeTo
                         tone = result.verdict.tone(),
                     )
                 }.toPersistentList(),
+    )
+}
+
+private fun List<Tcp16ProbeResult>.toTcp16UiModel(): DiagnosticsTcp16FatHeaderToolUiModel {
+    val detected = count { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
+    val invalid = count { result -> result.verdict == Tcp16Verdict.INVALID_RECONNECTED }
+    val unavailable = count { result -> result.verdict == Tcp16Verdict.DEAD || result.verdict == Tcp16Verdict.ERROR }
+    return DiagnosticsTcp16FatHeaderToolUiModel(
+        state = DiagnosticsTcp16FatHeaderState.Complete,
+        summary =
+            if (detected == 0 && invalid == 0) {
+                "No TCP16 fat-header closure pattern detected across $size targets."
+            } else {
+                "$detected targets showed TCP16 closure patterns; $invalid reconnect validations failed."
+            },
+        metrics =
+            listOf(
+                DiagnosticsMetricUiModel("targets", size.toString(), DiagnosticsTone.Info),
+                DiagnosticsMetricUiModel("detected", detected.toString(), countTone(detected)),
+                DiagnosticsMetricUiModel("unavailable", unavailable.toString(), DiagnosticsTone.Neutral),
+                DiagnosticsMetricUiModel("single-socket invalid", invalid.toString(), countTone(invalid)),
+            ).toPersistentList(),
+        rows =
+            byAsn()
+                .values
+                .sortedWith(compareByDescending<Tcp16AsnSummary> { summary -> summary.detected }.thenBy { it.asn })
+                .map { summary -> summary.toUiModel() }
+                .toPersistentList(),
+    )
+}
+
+private fun Tcp16AsnSummary.toUiModel(): DiagnosticsTcp16AsnUiModel {
+    val warningCount = detected + errors + invalidReconnected
+    return DiagnosticsTcp16AsnUiModel(
+        asn = asn,
+        providers = providers.joinToString(),
+        checked = checked.toString(),
+        detected = detected.toString(),
+        dead = dead.toString(),
+        errors = (errors + invalidReconnected).toString(),
+        tone = countTone(warningCount),
     )
 }
 
