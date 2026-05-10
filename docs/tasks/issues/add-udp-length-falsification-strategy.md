@@ -79,4 +79,6 @@ Parameters:
 - Added `ripdpi-strategy-udp` with `UdpLenStrategy`, raw IPv4/IPv6 UDP length-field mutation, IPv4 checksum clearing, and IPv6 UDP checksum recalculation.
 - Registered `udplen` through `StrategyRegistry::with_builtin_techniques()` and covered YAML `type: udplen` with `delta`.
 - Verification: `CARGO_TARGET_DIR=target/codex-udp cargo test -p ripdpi-strategy-udp -p ripdpi-strategy-registry -p ripdpi-strategy-config --locked`; `CARGO_TARGET_DIR=target/codex-udp cargo clippy -p ripdpi-strategy-udp -p ripdpi-strategy-registry -p ripdpi-strategy-config --all-targets --locked -- -D warnings`.
+- Added Android tunnel JNI evidence that `Tun2SocksConfig.strategyChainYaml` accepts `type: udplen` with `delta: 4` alongside zapret egress entries.
+- Verification: clean detached worktree `ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.NativeBridgeInstrumentedTest#rawBindingsAcceptZapretEgressStrategyTunnelConfig -Pripdpi.localNativeAbis=arm64-v8a` passed on `Pixel_10_Pro(AVD) - 17` with 1 test.
 - Remaining review evidence: Mode.VPN packet-loop integration proving the transformed packet is selected and emitted on live outgoing UDP/QUIC traffic.

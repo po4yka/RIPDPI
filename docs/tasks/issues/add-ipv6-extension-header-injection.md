@@ -90,4 +90,6 @@ Extension headers to support:
   - `CARGO_TARGET_DIR=target/codex-ipv6 cargo test -p ripdpi-strategy-ipv6 --locked`
   - `CARGO_TARGET_DIR=target/codex-ipv6 cargo clippy -p ripdpi-strategy-ipv6 -p ripdpi-strategy-config -p ripdpi-strategy-registry --all-targets --locked -- -D warnings`
   - `CARGO_TARGET_DIR=target/codex-ipv6 cargo test -p ripdpi-strategy-config -p ripdpi-strategy-registry --locked`
+- Added Android tunnel JNI evidence that `Tun2SocksConfig.strategyChainYaml` accepts `type: ipv6Ext` with `ext_type: destopts` alongside zapret egress entries.
+- Verification: clean detached worktree `ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.NativeBridgeInstrumentedTest#rawBindingsAcceptZapretEgressStrategyTunnelConfig -Pripdpi.localNativeAbis=arm64-v8a` passed on `Pixel_10_Pro(AVD) - 17` with 1 test.
 - Remaining review gap: this slice proves packet construction and strategy planning into `DesyncAction::RawSend`; device/runtime validation that TUN reinjection is accepted by Android is still pending.

@@ -15,6 +15,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -212,6 +214,52 @@ class NativeBridgeInstrumentedTest {
                   "logLevel":"warn"
                 }
                 """.trimIndent(),
+            )
+
+        assertTrue(tunnelHandle > 0)
+
+        tunnelBindings.destroy(tunnelHandle)
+    }
+
+    @Test
+    fun rawBindingsAcceptZapretEgressStrategyTunnelConfig() {
+        val tunnelBindings = Tun2SocksNativeBindings()
+        val strategyChainYaml =
+            """
+            version: 1
+            strategies:
+              - id: fake_tls
+                match:
+                  proto: [tls]
+                  port: [443]
+                steps:
+                  - type: fake
+                    ttl: 5
+              - id: quic_udplen
+                match:
+                  proto: [quic]
+                  port: [443]
+                steps:
+                  - type: udplen
+                    delta: 4
+              - id: tcp_ipv6_ext
+                match:
+                  proto: [tls]
+                steps:
+                  - type: ipv6Ext
+                    ext_type: destopts
+            """.trimIndent()
+
+        val tunnelHandle =
+            tunnelBindings.create(
+                Json.encodeToString(
+                    Tun2SocksConfig(
+                        socks5Port = 1080,
+                        strategyChainYaml = strategyChainYaml,
+                        protectPath = "/data/user/0/com.poyka.ripdpi/files/protect.sock",
+                        logLevel = "warn",
+                    ),
+                ),
             )
 
         assertTrue(tunnelHandle > 0)
