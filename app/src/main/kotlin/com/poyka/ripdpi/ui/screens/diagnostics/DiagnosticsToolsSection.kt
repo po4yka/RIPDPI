@@ -22,6 +22,8 @@ import com.poyka.ripdpi.activities.DiagnosticsApproachRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.activities.DiagnosticsCompressionProbeState
 import com.poyka.ripdpi.activities.DiagnosticsCompressionProbeToolUiModel
+import com.poyka.ripdpi.activities.DiagnosticsDnsAvailabilityState
+import com.poyka.ripdpi.activities.DiagnosticsDnsAvailabilityToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityState
 import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDomainReachabilityState
@@ -58,6 +60,7 @@ internal fun ToolsSection(
     onSaveLogs: () -> Unit,
     dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
     onRunDnsIntegrityCheck: () -> Unit = {},
+    onRunDnsAvailabilitySurvey: () -> Unit = {},
     onRunDomainReachabilityScan: () -> Unit = {},
     onRunCompressionProbe: () -> Unit = {},
     onRunRknBlockDiagnosis: () -> Unit = {},
@@ -85,6 +88,7 @@ internal fun ToolsSection(
         dpiToolItems(
             dpiTools = dpiTools,
             onRunDnsIntegrityCheck = onRunDnsIntegrityCheck,
+            onRunDnsAvailabilitySurvey = onRunDnsAvailabilitySurvey,
             onRunDomainReachabilityScan = onRunDomainReachabilityScan,
             onRunCompressionProbe = onRunCompressionProbe,
             onRunRknBlockDiagnosis = onRunRknBlockDiagnosis,
@@ -198,6 +202,7 @@ private fun LazyListScope.shareItems(
 private fun LazyListScope.dpiToolItems(
     dpiTools: DiagnosticsDpiToolsUiModel,
     onRunDnsIntegrityCheck: () -> Unit,
+    onRunDnsAvailabilitySurvey: () -> Unit,
     onRunDomainReachabilityScan: () -> Unit,
     onRunCompressionProbe: () -> Unit,
     onRunRknBlockDiagnosis: () -> Unit,
@@ -208,6 +213,12 @@ private fun LazyListScope.dpiToolItems(
         DnsIntegrityToolCard(
             tool = dpiTools.dnsIntegrity,
             onRun = onRunDnsIntegrityCheck,
+        )
+    }
+    item {
+        DnsAvailabilitySurveyCard(
+            tool = dpiTools.dnsAvailability,
+            onRun = onRunDnsAvailabilitySurvey,
         )
     }
     item {
@@ -228,6 +239,62 @@ private fun LazyListScope.dpiToolItems(
             tool = dpiTools.rknBlockDiagnosis,
             onRun = onRunRknBlockDiagnosis,
             onSelfInfoEnabledChange = onRknSelfInfoEnabledChange,
+        )
+    }
+}
+
+@Composable
+private fun DnsAvailabilitySurveyCard(
+    tool: DiagnosticsDnsAvailabilityToolUiModel,
+    onRun: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        StatusIndicator(
+            label = tool.state.name.lowercase(Locale.US),
+            tone = statusTone(tool.state.tone()),
+        )
+        androidx.compose.material3.Text(
+            text = "DNS availability",
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        androidx.compose.material3.Text(
+            text = tool.errorMessage ?: tool.summary,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = if (tool.errorMessage == null) colors.mutedForeground else colors.destructive,
+        )
+        MetricsRow(metrics = tool.metrics)
+        if (tool.rows.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                tool.rows.forEach { row ->
+                    StatusIndicator(
+                        label = "${row.name}: ${row.availability}",
+                        tone = statusTone(row.tone),
+                    )
+                    androidx.compose.material3.Text(
+                        text = "${row.type} · ${row.latency}",
+                        style = RipDpiThemeTokens.type.monoSmall,
+                        color = colors.mutedForeground,
+                    )
+                }
+            }
+        }
+        RipDpiButton(
+            text =
+                if (tool.state == DiagnosticsDnsAvailabilityState.Running) {
+                    "Surveying..."
+                } else {
+                    "Run DNS survey"
+                },
+            enabled = tool.state != DiagnosticsDnsAvailabilityState.Running,
+            onClick = onRun,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
@@ -611,6 +678,14 @@ private fun DiagnosticsDnsIntegrityState.tone(): com.poyka.ripdpi.activities.Dia
         DiagnosticsDnsIntegrityState.Running -> com.poyka.ripdpi.activities.DiagnosticsTone.Info
         DiagnosticsDnsIntegrityState.Complete -> com.poyka.ripdpi.activities.DiagnosticsTone.Positive
         DiagnosticsDnsIntegrityState.Failed -> com.poyka.ripdpi.activities.DiagnosticsTone.Negative
+    }
+
+private fun DiagnosticsDnsAvailabilityState.tone(): com.poyka.ripdpi.activities.DiagnosticsTone =
+    when (this) {
+        DiagnosticsDnsAvailabilityState.Idle -> com.poyka.ripdpi.activities.DiagnosticsTone.Neutral
+        DiagnosticsDnsAvailabilityState.Running -> com.poyka.ripdpi.activities.DiagnosticsTone.Info
+        DiagnosticsDnsAvailabilityState.Complete -> com.poyka.ripdpi.activities.DiagnosticsTone.Positive
+        DiagnosticsDnsAvailabilityState.Failed -> com.poyka.ripdpi.activities.DiagnosticsTone.Negative
     }
 
 private fun DiagnosticsDomainReachabilityState.tone(): com.poyka.ripdpi.activities.DiagnosticsTone =

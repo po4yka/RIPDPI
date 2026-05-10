@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
@@ -29,6 +30,7 @@ class DiagnosticsViewModel
         private val diagnosticsViewModelBootstrapper: DiagnosticsViewModelBootstrapper,
         appSettingsRepository: AppSettingsRepository,
         dnsIntegrityChecker: DnsIntegrityChecker,
+        dnsAvailabilitySurvey: DnsAvailabilitySurvey,
         domainReachabilityScanner: DomainReachabilityScanner,
         httpCompressionProber: HttpCompressionProber,
         rknLayeredProbePipeline: RknLayeredProbePipeline,
@@ -57,6 +59,7 @@ class DiagnosticsViewModel
                 appContext = diagnosticsContextDependencies.appContext,
                 appSettingsRepository = appSettingsRepository,
                 dnsIntegrityChecker = dnsIntegrityChecker,
+                dnsAvailabilitySurvey = dnsAvailabilitySurvey,
                 domainReachabilityScanner = domainReachabilityScanner,
                 httpCompressionProber = httpCompressionProber,
                 rknLayeredProbePipeline = rknLayeredProbePipeline,
@@ -77,6 +80,8 @@ class DiagnosticsViewModel
         private val _pcapRecording = MutableStateFlow(false)
         val pcapRecording: StateFlow<Boolean> = _pcapRecording
         val dnsIntegrityTool: StateFlow<DiagnosticsDnsIntegrityToolUiModel> = dpiToolsController.dnsIntegrityTool
+        val dnsAvailabilityTool: StateFlow<DiagnosticsDnsAvailabilityToolUiModel> =
+            dpiToolsController.dnsAvailabilityTool
         val domainReachabilityTool: StateFlow<DiagnosticsDomainReachabilityToolUiModel> =
             dpiToolsController.domainReachabilityTool
         val rknBlockDiagnosisTool: StateFlow<DiagnosticsRknBlockDiagnosisToolUiModel> =
@@ -224,6 +229,8 @@ class DiagnosticsViewModel
         }
 
         fun runDnsIntegrityCheck() = dpiToolsController.runDnsIntegrityCheck()
+
+        fun runDnsAvailabilitySurvey() = dpiToolsController.runDnsAvailabilitySurvey()
 
         fun runDomainReachabilityScan() = dpiToolsController.runDomainReachabilityScan()
 

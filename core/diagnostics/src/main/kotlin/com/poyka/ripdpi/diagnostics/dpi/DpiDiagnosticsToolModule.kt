@@ -16,6 +16,9 @@ object DpiDiagnosticsToolModule {
     fun provideDnsIntegrityChecker(): DnsIntegrityChecker = DnsIntegrityChecker()
 
     @Provides
+    fun provideDnsAvailabilitySurvey(): DnsAvailabilitySurvey = DnsAvailabilitySurvey()
+
+    @Provides
     fun provideDomainReachabilityScanner(): DomainReachabilityScanner = DomainReachabilityScanner()
 
     @Provides

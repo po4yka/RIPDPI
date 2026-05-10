@@ -70,6 +70,13 @@ enum class DiagnosticsDnsIntegrityState {
     Failed,
 }
 
+enum class DiagnosticsDnsAvailabilityState {
+    Idle,
+    Running,
+    Complete,
+    Failed,
+}
+
 enum class DiagnosticsDomainReachabilityState {
     Idle,
     Running,
@@ -106,6 +113,24 @@ data class DiagnosticsDnsIntegrityToolUiModel(
     val summary: String = "Compare direct UDP/53 answers against DoH controls for the bundled DPI domains.",
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsDnsIntegrityDomainUiModel> = persistentListOf(),
+    val errorMessage: String? = null,
+)
+
+@Immutable
+data class DiagnosticsDnsAvailabilityServerUiModel(
+    val name: String,
+    val type: String,
+    val availability: String,
+    val latency: String,
+    val tone: DiagnosticsTone,
+)
+
+@Stable
+data class DiagnosticsDnsAvailabilityToolUiModel(
+    val state: DiagnosticsDnsAvailabilityState = DiagnosticsDnsAvailabilityState.Idle,
+    val summary: String = "Survey public UDP and DoH resolvers for reachability and latency.",
+    val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
+    val rows: ImmutableList<DiagnosticsDnsAvailabilityServerUiModel> = persistentListOf(),
     val errorMessage: String? = null,
 )
 
@@ -193,6 +218,7 @@ data class DiagnosticsCompressionProbeToolUiModel(
 @Stable
 data class DiagnosticsDpiToolsUiModel(
     val dnsIntegrity: DiagnosticsDnsIntegrityToolUiModel = DiagnosticsDnsIntegrityToolUiModel(),
+    val dnsAvailability: DiagnosticsDnsAvailabilityToolUiModel = DiagnosticsDnsAvailabilityToolUiModel(),
     val domainReachability: DiagnosticsDomainReachabilityToolUiModel = DiagnosticsDomainReachabilityToolUiModel(),
     val rknBlockDiagnosis: DiagnosticsRknBlockDiagnosisToolUiModel = DiagnosticsRknBlockDiagnosisToolUiModel(),
     val compressionProbe: DiagnosticsCompressionProbeToolUiModel = DiagnosticsCompressionProbeToolUiModel(),

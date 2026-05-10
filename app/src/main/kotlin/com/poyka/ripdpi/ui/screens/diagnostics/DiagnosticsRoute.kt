@@ -49,6 +49,7 @@ fun DiagnosticsRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pcapRecording by viewModel.pcapRecording.collectAsStateWithLifecycle()
     val dnsIntegrityTool by viewModel.dnsIntegrityTool.collectAsStateWithLifecycle()
+    val dnsAvailabilityTool by viewModel.dnsAvailabilityTool.collectAsStateWithLifecycle()
     val domainReachabilityTool by viewModel.domainReachabilityTool.collectAsStateWithLifecycle()
     val rknBlockDiagnosisTool by viewModel.rknBlockDiagnosisTool.collectAsStateWithLifecycle()
     val compressionProbeTool by viewModel.compressionProbeTool.collectAsStateWithLifecycle()
@@ -206,6 +207,7 @@ fun DiagnosticsRoute(
                 onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
                 onTogglePcapRecording = remember(viewModel) { viewModel::togglePcapRecording },
                 onRunDnsIntegrityCheck = remember(viewModel) { viewModel::runDnsIntegrityCheck },
+                onRunDnsAvailabilitySurvey = remember(viewModel) { viewModel::runDnsAvailabilitySurvey },
                 onRunDomainReachabilityScan = remember(viewModel) { viewModel::runDomainReachabilityScan },
                 onRunCompressionProbe = remember(viewModel) { viewModel::runCompressionProbe },
                 onRunRknBlockDiagnosis = remember(viewModel) { viewModel::runRknBlockDiagnosis },
@@ -216,6 +218,7 @@ fun DiagnosticsRoute(
         dpiTools =
             DiagnosticsDpiToolsUiModel(
                 dnsIntegrity = dnsIntegrityTool,
+                dnsAvailability = dnsAvailabilityTool,
                 domainReachability = domainReachabilityTool,
                 rknBlockDiagnosis = rknBlockDiagnosisTool,
                 compressionProbe = compressionProbeTool,

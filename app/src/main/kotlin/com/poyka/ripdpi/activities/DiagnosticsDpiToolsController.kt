@@ -3,9 +3,11 @@ package com.poyka.ripdpi.activities
 import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.diagnostics.dpi.AttemptResult
+import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityVerdict
+import com.poyka.ripdpi.diagnostics.dpi.DnsServerResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
@@ -44,6 +46,7 @@ internal class DiagnosticsDpiToolsController(
     private val appContext: Context,
     private val appSettingsRepository: AppSettingsRepository,
     private val dnsIntegrityChecker: DnsIntegrityChecker = DnsIntegrityChecker(),
+    private val dnsAvailabilitySurvey: DnsAvailabilitySurvey = DnsAvailabilitySurvey(),
     private val domainReachabilityScanner: DomainReachabilityScanner = DomainReachabilityScanner(),
     private val httpCompressionProber: HttpCompressionProber = HttpCompressionProber(),
     private val rknLayeredProbePipeline: RknLayeredProbePipeline = RknLayeredProbePipeline(),
@@ -51,6 +54,10 @@ internal class DiagnosticsDpiToolsController(
 ) {
     private val _dnsIntegrityTool = MutableStateFlow(DiagnosticsDnsIntegrityToolUiModel())
     val dnsIntegrityTool: StateFlow<DiagnosticsDnsIntegrityToolUiModel> = _dnsIntegrityTool.asStateFlow()
+
+    private val _dnsAvailabilityTool = MutableStateFlow(DiagnosticsDnsAvailabilityToolUiModel())
+    val dnsAvailabilityTool: StateFlow<DiagnosticsDnsAvailabilityToolUiModel> =
+        _dnsAvailabilityTool.asStateFlow()
 
     private val _domainReachabilityTool = MutableStateFlow(DiagnosticsDomainReachabilityToolUiModel())
     val domainReachabilityTool: StateFlow<DiagnosticsDomainReachabilityToolUiModel> =
@@ -106,6 +113,32 @@ internal class DiagnosticsDpiToolsController(
                     DiagnosticsDnsIntegrityToolUiModel(
                         state = DiagnosticsDnsIntegrityState.Failed,
                         summary = "DNS integrity check failed.",
+                        errorMessage = error.message ?: error.javaClass.simpleName,
+                    )
+            }
+        }
+    }
+
+    fun runDnsAvailabilitySurvey() {
+        if (_dnsAvailabilityTool.value.state == DiagnosticsDnsAvailabilityState.Running) {
+            return
+        }
+        _dnsAvailabilityTool.value =
+            DiagnosticsDnsAvailabilityToolUiModel(
+                state = DiagnosticsDnsAvailabilityState.Running,
+                summary = "Surveying public DNS resolvers...",
+            )
+        scope.launch {
+            runCatching {
+                dnsAvailabilitySurvey.run()
+            }.onSuccess { results ->
+                _dnsAvailabilityTool.value = results.toDnsAvailabilityUiModel()
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+                _dnsAvailabilityTool.value =
+                    DiagnosticsDnsAvailabilityToolUiModel(
+                        state = DiagnosticsDnsAvailabilityState.Failed,
+                        summary = "DNS availability survey failed.",
                         errorMessage = error.message ?: error.javaClass.simpleName,
                     )
             }
@@ -324,6 +357,29 @@ private fun DnsIntegrityResult.toUiModel(): DiagnosticsDnsIntegrityToolUiModel {
                         tone = result.verdict.tone(),
                     )
                 }.toPersistentList(),
+    )
+}
+
+private fun List<DnsServerResult>.toDnsAvailabilityUiModel(): DiagnosticsDnsAvailabilityToolUiModel {
+    val available = count { result -> result.availableDomains > 0 }
+    return DiagnosticsDnsAvailabilityToolUiModel(
+        state = DiagnosticsDnsAvailabilityState.Complete,
+        summary = "$available of $size public DNS resolvers responded.",
+        metrics =
+            listOf(
+                DiagnosticsMetricUiModel("servers", size.toString(), DiagnosticsTone.Info),
+                DiagnosticsMetricUiModel("available", available.toString(), countTone(size - available)),
+            ).toPersistentList(),
+        rows =
+            map { result ->
+                DiagnosticsDnsAvailabilityServerUiModel(
+                    name = result.name,
+                    type = result.type.name.lowercase(Locale.US),
+                    availability = "${result.availableDomains}/${result.totalDomains}",
+                    latency = result.avgLatencyMs?.let { "$it ms" } ?: "timeout",
+                    tone = if (result.availableDomains > 0) DiagnosticsTone.Positive else DiagnosticsTone.Warning,
+                )
+            }.toPersistentList(),
     )
 }
 
