@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.services
 
 import android.content.Context
+import android.net.LocalSocket
+import android.net.LocalSocketAddress
 import android.os.Build
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.Dispatchers
@@ -8,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 /**
@@ -19,8 +22,33 @@ import javax.inject.Inject
 open class RootHelperManager
     @Inject
     constructor() {
+        internal constructor(
+            binaryExtractor: (Context) -> File,
+            processLauncher: (File, File) -> Process,
+            readinessProbe: suspend (File, Long, Long) -> Boolean,
+        ) : this() {
+            this.binaryExtractor = binaryExtractor
+            this.processLauncher = processLauncher
+            this.readinessProbe = readinessProbe
+        }
+
         private var helperProcess: Process? = null
         private var activeSocketPath: String? = null
+        private var binaryExtractor: (Context) -> File = { context -> extractBinary(context) }
+        private var processLauncher: (File, File) -> Process = { binary, socket ->
+            Runtime
+                .getRuntime()
+                .exec(
+                    arrayOf(
+                        "su",
+                        "-c",
+                        "${binary.absolutePath} --socket ${socket.absolutePath}",
+                    ),
+                )
+        }
+        private var readinessProbe: suspend (File, Long, Long) -> Boolean = { socket, timeoutMs, pollIntervalMs ->
+            awaitSocketReady(socket, timeoutMs, pollIntervalMs)
+        }
 
         private companion object {
             private val log = Logger.withTag("RootHelperManager")
@@ -28,6 +56,7 @@ open class RootHelperManager
             private const val SOCKET_NAME = "root_helper.sock"
             private const val READY_POLL_INTERVAL_MS = 100L
             private const val READY_TIMEOUT_MS = 3000L
+            private const val STOP_TIMEOUT_MS = 1000L
         }
 
         open val socketPath: String?
@@ -61,7 +90,7 @@ open class RootHelperManager
         open suspend fun start(context: Context): String? =
             withContext(Dispatchers.IO) {
                 try {
-                    val binary = extractBinary(context)
+                    val binary = binaryExtractor(context)
                     val socket = File(context.filesDir, SOCKET_NAME)
 
                     // Remove stale socket.
@@ -69,24 +98,12 @@ open class RootHelperManager
                         socket.delete()
                     }
 
-                    val cmd =
-                        arrayOf(
-                            "su",
-                            "-c",
-                            "${binary.absolutePath} --socket ${socket.absolutePath}",
-                        )
-                    log.i { "starting root helper: ${cmd.joinToString(" ")}" }
-                    val process = Runtime.getRuntime().exec(cmd)
+                    log.i { "starting root helper: ${binary.absolutePath} --socket ${socket.absolutePath}" }
+                    val process = processLauncher(binary, socket)
                     helperProcess = process
 
-                    // Wait for the socket to appear.
-                    val deadline = System.currentTimeMillis() + READY_TIMEOUT_MS
-                    while (!socket.exists() && System.currentTimeMillis() < deadline) {
-                        delay(READY_POLL_INTERVAL_MS)
-                    }
-
-                    if (!socket.exists()) {
-                        log.e { "root helper socket did not appear within ${READY_TIMEOUT_MS}ms" }
+                    if (!readinessProbe(socket, READY_TIMEOUT_MS, READY_POLL_INTERVAL_MS)) {
+                        log.e { "root helper socket was not connectable within ${READY_TIMEOUT_MS}ms" }
                         stop()
                         return@withContext null
                     }
@@ -112,8 +129,7 @@ open class RootHelperManager
                 process.destroy()
                 val exited =
                     runCatching {
-                        process.waitFor()
-                        true
+                        process.waitFor(STOP_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                     }.getOrDefault(false)
 
                 if (!exited) {
@@ -148,5 +164,37 @@ open class RootHelperManager
             targetFile.setExecutable(true, true)
             log.d { "extracted root helper binary: $assetPath -> ${targetFile.absolutePath}" }
             return targetFile
+        }
+
+        private suspend fun awaitSocketReady(
+            socket: File,
+            timeoutMs: Long,
+            pollIntervalMs: Long,
+        ): Boolean {
+            val deadline = System.currentTimeMillis() + timeoutMs
+            while (System.currentTimeMillis() < deadline) {
+                if (socket.exists() && canConnect(socket)) {
+                    return true
+                }
+                delay(pollIntervalMs)
+            }
+            return socket.exists() && canConnect(socket)
+        }
+
+        private fun canConnect(socket: File): Boolean {
+            val localSocket = LocalSocket()
+            return try {
+                localSocket.connect(
+                    LocalSocketAddress(
+                        socket.absolutePath,
+                        LocalSocketAddress.Namespace.FILESYSTEM,
+                    ),
+                )
+                true
+            } catch (_: IOException) {
+                false
+            } finally {
+                runCatching { localSocket.close() }
+            }
         }
     }
