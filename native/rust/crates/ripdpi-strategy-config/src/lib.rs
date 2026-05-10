@@ -84,6 +84,8 @@ pub struct StrategyStep {
     pub size: Option<u32>,
     #[serde(default)]
     pub scale: Option<u8>,
+    #[serde(default)]
+    pub ext_type: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
@@ -104,6 +106,7 @@ pub enum StepType {
     HttpUnixeol,
     Wsize,
     Wssize,
+    Ipv6Ext,
 }
 
 impl StepType {
@@ -124,6 +127,7 @@ impl StepType {
             Self::HttpUnixeol => "http_unixeol",
             Self::Wsize => "wsize",
             Self::Wssize => "wssize",
+            Self::Ipv6Ext => "ipv6_ext",
         }
     }
 }

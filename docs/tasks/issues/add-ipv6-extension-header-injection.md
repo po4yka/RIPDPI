@@ -1,7 +1,7 @@
 ---
 title: Implement IPv6 extension header injection in ripdpi-strategy-ipv6 crate
 type: task
-status: backlog
+status: review
 area: rust-native
 priority: low
 owner: unassigned
@@ -9,10 +9,10 @@ parent: zapret2-feature-parity-epic
 blocks: []
 blocked_by: [expose-existing-techniques-as-config-addressable]
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Implement IPv6 extension header injection in ripdpi-strategy-ipv6 crate #repo/RIPDPI #area/rust-native #status/backlog
+- [ ] #task Implement IPv6 extension header injection in ripdpi-strategy-ipv6 crate #repo/RIPDPI #area/rust-native #status/review
 
 ## Objective
 
@@ -76,3 +76,18 @@ Extension headers to support:
 ## Definition of done
 
 `cargo test -p ripdpi-strategy-ipv6` green including packet byte golden test. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+2026-05-10:
+
+- Added `ripdpi-strategy-ipv6` with `Ipv6ExtHdrStrategy`, configurable `Ipv6ExtType` (`hopbyhop`, `destopts`, `routing`), raw IPv6 TCP extension-header insertion, and IPv6 TCP checksum recalculation.
+- Registered `ipv6_ext` as a built-in strategy and exposed `type: ipv6Ext` plus `ext_type` parsing in the strategy YAML model.
+- Added golden tests for Destination Options, Hop-by-Hop, and Routing insertion, TCP checksum validation, IPv4 no-op behavior, strategy capability/match behavior, and YAML/registry resolution.
+- Confirmed red first with `CARGO_TARGET_DIR=target/codex-ipv6-red cargo test -p ripdpi-strategy-ipv6 --offline`; the initial stub failed on missing YAML fields and test-helper lifetime errors.
+- Verification:
+  - `cargo fmt --all`
+  - `CARGO_TARGET_DIR=target/codex-ipv6 cargo test -p ripdpi-strategy-ipv6 --locked`
+  - `CARGO_TARGET_DIR=target/codex-ipv6 cargo clippy -p ripdpi-strategy-ipv6 -p ripdpi-strategy-config -p ripdpi-strategy-registry --all-targets --locked -- -D warnings`
+  - `CARGO_TARGET_DIR=target/codex-ipv6 cargo test -p ripdpi-strategy-config -p ripdpi-strategy-registry --locked`
+- Remaining review gap: this slice proves packet construction and strategy planning into `DesyncAction::RawSend`; device/runtime validation that TUN reinjection is accepted by Android is still pending.

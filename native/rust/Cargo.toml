@@ -78,6 +78,7 @@ members = [
     "crates/ripdpi-relay-mux",
     "crates/ripdpi-strategy-config",
     "crates/ripdpi-strategy-http",
+    "crates/ripdpi-strategy-ipv6",
     "crates/ripdpi-strategy-lua",
     "crates/ripdpi-strategy-registry",
     "crates/ripdpi-strategy-trait",
@@ -167,6 +168,7 @@ ripdpi-protocol-detect = { path = "crates/ripdpi-protocol-detect" }
 ripdpi-root-helper-protocol = { path = "crates/ripdpi-root-helper-protocol" }
 ripdpi-strategy-config = { path = "crates/ripdpi-strategy-config" }
 ripdpi-strategy-http = { path = "crates/ripdpi-strategy-http" }
+ripdpi-strategy-ipv6 = { path = "crates/ripdpi-strategy-ipv6" }
 ripdpi-strategy-lua = { path = "crates/ripdpi-strategy-lua" }
 ripdpi-strategy-registry = { path = "crates/ripdpi-strategy-registry" }
 ripdpi-strategy-trait = { path = "crates/ripdpi-strategy-trait" }

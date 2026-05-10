@@ -1,0 +1,12 @@
+[package]
+name = "ripdpi-strategy-ipv6"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+ripdpi-strategy-trait = { workspace = true }
+
+[dev-dependencies]
+ripdpi-strategy-config = { workspace = true }
+ripdpi-strategy-registry = { workspace = true }

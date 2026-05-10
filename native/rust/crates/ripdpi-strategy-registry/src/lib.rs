@@ -64,6 +64,8 @@ impl StrategyRegistry {
         let definition = builtin_technique(id)?;
         if let Some(strategy) = ripdpi_strategy_http::strategy_by_id(id) {
             self.register(strategy);
+        } else if let Some(strategy) = ripdpi_strategy_ipv6::strategy_by_id(id) {
+            self.register(strategy);
         } else if let Some(strategy) = ripdpi_strategy_udp::strategy_by_id(id) {
             self.register(strategy);
         } else if let Some(strategy) = ripdpi_strategy_window::strategy_by_id(id) {
@@ -163,7 +165,7 @@ impl DesyncStrategy for BuiltinTechnique {
                 plan.actions.push(DesyncAction::RawSend(Vec::new()));
             }
             "seq_overlap" | "tls_rec" | "tls_rand_rec" => plan.actions.push(DesyncAction::Write(Vec::new())),
-            "udplen" | "http_domcase" | "http_hostcase" | "wsize" | "wssize" => {}
+            "udplen" | "ipv6_ext" | "http_domcase" | "http_hostcase" | "wsize" | "wssize" => {}
             _ => {
                 return Err(StrategyError::InvalidConfig(format!("unknown built-in technique {}", self.definition.id)))
             }
@@ -258,6 +260,12 @@ const BUILTIN_TECHNIQUES: &[BuiltinTechniqueDefinition] = &[
     BuiltinTechniqueDefinition {
         id: "udplen",
         label: "UDP length falsification",
+        required_tier: CapabilityTier::Tier3,
+        required_capabilities: VPN_CAPS,
+    },
+    BuiltinTechniqueDefinition {
+        id: "ipv6_ext",
+        label: "IPv6 extension header injection",
         required_tier: CapabilityTier::Tier3,
         required_capabilities: VPN_CAPS,
     },

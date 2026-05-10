@@ -4050,6 +4050,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-strategy-ipv6"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-strategy-config",
+ "ripdpi-strategy-registry",
+ "ripdpi-strategy-trait",
+]
+
+[[package]]
 name = "ripdpi-strategy-lua"
 version = "0.1.0"
 dependencies = [
@@ -4066,6 +4075,7 @@ dependencies = [
  "ripdpi-desync",
  "ripdpi-strategy-config",
  "ripdpi-strategy-http",
+ "ripdpi-strategy-ipv6",
  "ripdpi-strategy-lua",
  "ripdpi-strategy-trait",
  "ripdpi-strategy-udp",
