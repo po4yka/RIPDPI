@@ -1,7 +1,7 @@
 ---
 title: Add ripdpi-strategy-lua crate with mlua integration
 type: task
-status: backlog
+status: review
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: zapret2-feature-parity-epic
 blocks: []
 blocked_by: [add-ripdpi-strategy-registry-crate, add-ripdpi-strategy-trait-crate]
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Add ripdpi-strategy-lua crate with mlua integration #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [ ] #task Add ripdpi-strategy-lua crate with mlua integration #repo/RIPDPI #area/rust-native #status/review 🔼
 
 ## Objective
 
@@ -89,3 +89,11 @@ impl LuaStrategyEngine {
 ## Definition of done
 
 `cargo test -p ripdpi-strategy-lua --features lua-strategies` green; `LuaStrategyEngine` instantiates without error in a unit test. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+- Added feature-gated `ripdpi-strategy-lua` with optional `mlua` Lua 5.4 vendored backend and no-feature stubs.
+- Implemented `LuaStrategyEngine` VM initialization, script loading, function registration, `DesyncStrategy` wrapping, and per-`FlowId` Lua connection state cleanup.
+- Added `ripdpi-strategy-registry` feature wiring so `lua-strategies` links the Lua crate only when explicitly enabled.
+- Verification: `CARGO_TARGET_DIR=target/codex-lua-registry cargo check -p ripdpi-strategy-registry --features lua-strategies --locked`; `CARGO_TARGET_DIR=target/codex-lua cargo test -p ripdpi-strategy-lua --features lua-strategies --locked`; `CARGO_TARGET_DIR=target/codex-lua-no-feature cargo check -p ripdpi-strategy-lua --no-default-features --locked`; `CARGO_TARGET_DIR=target/codex-lua cargo clippy -p ripdpi-strategy-lua --all-targets --features lua-strategies --locked -- -D warnings`.
+- Remaining review evidence: full zapret2 compatibility shim and public Lua API surface, covered by the linked `implement-lua-api-surface` task.

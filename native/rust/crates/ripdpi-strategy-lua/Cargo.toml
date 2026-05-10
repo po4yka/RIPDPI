@@ -1,0 +1,17 @@
+[package]
+name = "ripdpi-strategy-lua"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+lua-strategies = ["dep:mlua"]
+
+[dependencies]
+mlua = { workspace = true, features = ["lua54", "vendored", "send"], optional = true }
+ripdpi-strategy-trait = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+static_assertions = "1"

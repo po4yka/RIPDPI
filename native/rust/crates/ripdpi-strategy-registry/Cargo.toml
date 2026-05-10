@@ -7,9 +7,14 @@ license.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = []
+lua-strategies = ["dep:ripdpi-strategy-lua", "ripdpi-strategy-lua/lua-strategies"]
+
 [dependencies]
 ripdpi-desync = { workspace = true }
 ripdpi-strategy-http = { workspace = true }
+ripdpi-strategy-lua = { workspace = true, optional = true }
 ripdpi-strategy-trait = { workspace = true }
 ripdpi-strategy-udp = { workspace = true }
 ripdpi-strategy-window = { workspace = true }
