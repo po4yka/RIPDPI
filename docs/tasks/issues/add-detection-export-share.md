@@ -7,7 +7,7 @@ priority: medium
 owner: unassigned
 parent: detection-feature-parity-epic
 blocks: []
-blocked_by: [add-ip-consensus-synthesis, upgrade-verdict-engine-rules-matrix]
+blocked_by: []
 created: 2026-05-10
 updated: 2026-05-10
 ---
