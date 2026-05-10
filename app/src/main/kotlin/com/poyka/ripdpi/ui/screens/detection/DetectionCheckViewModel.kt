@@ -18,6 +18,7 @@ import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
 import com.poyka.ripdpi.core.detection.MethodologyVersion
 import com.poyka.ripdpi.core.detection.Recommendation
 import com.poyka.ripdpi.core.detection.StealthScore
+import com.poyka.ripdpi.core.detection.VerdictNarrative
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.core.detection.community.CommunityStatsRepository
 import com.poyka.ripdpi.core.detection.debug.DetectionDebugFormatter
@@ -39,6 +40,7 @@ data class DetectionCheckUiState(
     val isRunning: Boolean = false,
     val progress: DetectionProgress? = null,
     val result: DetectionCheckResult? = null,
+    val narrative: VerdictNarrative? = null,
     val stealthScore: Int? = null,
     val stealthLabel: String? = null,
     val recommendations: List<Recommendation> = emptyList(),
@@ -301,6 +303,7 @@ class DetectionCheckViewModel
                 isRunning = true,
                 progress = null,
                 result = null,
+                narrative = null,
                 stealthScore = null,
                 stealthLabel = null,
                 recommendations = emptyList(),
@@ -323,6 +326,7 @@ class DetectionCheckViewModel
                 isRunning = false,
                 progress = null,
                 result = result,
+                narrative = result.verdictNarrative,
                 stealthScore = score,
                 stealthLabel = label,
                 recommendations = recommendations,

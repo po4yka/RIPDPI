@@ -264,6 +264,7 @@ private fun DetectionCheckScreenContent(
         DetectionErrorCard(error = uiState.error, onRetry = onStart)
         DetectionResultSummary(
             result = uiState.result,
+            narrative = uiState.narrative,
             stealthScore = uiState.stealthScore,
             stealthLabel = uiState.stealthLabel,
             autoTuneFixes = uiState.autoTuneFixes,
@@ -464,6 +465,7 @@ private fun DetectionErrorCard(
 @Composable
 private fun DetectionResultSummary(
     result: DetectionCheckResult?,
+    narrative: com.poyka.ripdpi.core.detection.VerdictNarrative?,
     stealthScore: Int?,
     stealthLabel: String?,
     autoTuneFixes: List<AutoTuneFix>,
@@ -474,8 +476,6 @@ private fun DetectionResultSummary(
     onApplyFixes: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
 ) {
-    val context = LocalContext.current
-    val spacing = RipDpiThemeTokens.spacing
     result?.let {
         LaunchedEffect(it.verdict) {
             when (it.verdict) {
@@ -485,7 +485,13 @@ private fun DetectionResultSummary(
             }
         }
 
-        VerdictScoreCard(it.verdict, stealthScore, stealthLabel, it.verdictExplanation)
+        DetectionNarrativeSummary(
+            result = it,
+            narrative = narrative,
+            stealthScore = stealthScore,
+            stealthLabel = stealthLabel,
+            privacyModeEnabled = privacyModeEnabled,
+        )
 
         if (autoTuneFixes.isNotEmpty()) {
             AutoTuneCard(
@@ -502,58 +508,121 @@ private fun DetectionResultSummary(
             DetectionRecommendations(recommendations)
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            RipDpiButton(
-                text = stringResource(R.string.detection_check_copy),
-                onClick = {
-                    performHaptic(RipDpiHapticFeedback.Acknowledge)
-                    reportText?.let { text ->
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Detection Report", text))
-                    }
-                },
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.DetectionCopy),
-                variant = RipDpiButtonVariant.Outline,
-            )
-            RipDpiButton(
-                text = stringResource(R.string.detection_check_share),
-                onClick = {
-                    performHaptic(RipDpiHapticFeedback.Acknowledge)
-                    reportText?.let { text ->
-                        val intent =
-                            Intent(Intent.ACTION_SEND)
-                                .setType("text/plain")
-                                .putExtra(Intent.EXTRA_TEXT, text)
-                        context.startActivity(Intent.createChooser(intent, null))
-                    }
-                },
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.DetectionShare),
-                variant = RipDpiButtonVariant.Outline,
-            )
-        }
-        debugReportText?.let { text ->
-            RipDpiButton(
-                text = "Copy diagnostics",
-                onClick = {
-                    performHaptic(RipDpiHapticFeedback.Acknowledge)
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Detection Diagnostics", text))
-                },
-                modifier = Modifier.fillMaxWidth(),
-                variant = RipDpiButtonVariant.Outline,
-            )
-        }
+        DetectionReportActions(
+            reportText = reportText,
+            debugReportText = debugReportText,
+            performHaptic = performHaptic,
+        )
 
         DetectionCategoryCards(it, privacyModeEnabled = privacyModeEnabled)
+    }
+}
+
+@Composable
+private fun DetectionReportActions(
+    reportText: String?,
+    debugReportText: String?,
+    performHaptic: (RipDpiHapticFeedback) -> Unit,
+) {
+    val context = LocalContext.current
+    val spacing = RipDpiThemeTokens.spacing
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        DetectionCopyReportButton(
+            reportText = reportText,
+            context = context,
+            performHaptic = performHaptic,
+            modifier = Modifier.weight(1f),
+        )
+        DetectionShareReportButton(
+            reportText = reportText,
+            context = context,
+            performHaptic = performHaptic,
+            modifier = Modifier.weight(1f),
+        )
+    }
+    debugReportText?.let { text ->
+        RipDpiButton(
+            text = "Copy diagnostics",
+            onClick = {
+                performHaptic(RipDpiHapticFeedback.Acknowledge)
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Detection Diagnostics", text))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            variant = RipDpiButtonVariant.Outline,
+        )
+    }
+}
+
+@Composable
+private fun DetectionCopyReportButton(
+    reportText: String?,
+    context: Context,
+    performHaptic: (RipDpiHapticFeedback) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    RipDpiButton(
+        text = stringResource(R.string.detection_check_copy),
+        onClick = {
+            performHaptic(RipDpiHapticFeedback.Acknowledge)
+            reportText?.let { text ->
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Detection Report", text))
+            }
+        },
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.DetectionCopy),
+        variant = RipDpiButtonVariant.Outline,
+    )
+}
+
+@Composable
+private fun DetectionShareReportButton(
+    reportText: String?,
+    context: Context,
+    performHaptic: (RipDpiHapticFeedback) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    RipDpiButton(
+        text = stringResource(R.string.detection_check_share),
+        onClick = {
+            performHaptic(RipDpiHapticFeedback.Acknowledge)
+            reportText?.let { text ->
+                val intent =
+                    Intent(Intent.ACTION_SEND)
+                        .setType("text/plain")
+                        .putExtra(Intent.EXTRA_TEXT, text)
+                context.startActivity(Intent.createChooser(intent, null))
+            }
+        },
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.DetectionShare),
+        variant = RipDpiButtonVariant.Outline,
+    )
+}
+
+@Composable
+private fun DetectionNarrativeSummary(
+    result: DetectionCheckResult,
+    narrative: com.poyka.ripdpi.core.detection.VerdictNarrative?,
+    stealthScore: Int?,
+    stealthLabel: String?,
+    privacyModeEnabled: Boolean,
+) {
+    val verdictNarrative = narrative ?: result.verdictNarrative
+    VerdictScoreCard(
+        verdict = result.verdict,
+        score = stealthScore,
+        label = stealthLabel,
+        explanation = result.verdictExplanation,
+        narrative = verdictNarrative,
+    )
+    verdictNarrative?.let {
+        VerdictNarrativeCard(
+            narrative = it,
+            privacyModeEnabled = privacyModeEnabled,
+        )
     }
 }
 

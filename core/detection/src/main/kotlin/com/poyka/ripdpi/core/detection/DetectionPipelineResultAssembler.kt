@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core.detection
 
 import com.poyka.ripdpi.core.detection.checker.GeoIpChecker
+import com.poyka.ripdpi.core.detection.checker.VerdictEngine
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusBuilder
 import com.poyka.ripdpi.core.detection.consensus.SuspendingIpAsnResolver
 
@@ -51,25 +52,27 @@ internal class DetectionPipelineResultAssembler(
                 nativeSigns = outputs.nativeSigns,
             )
 
-        return DetectionCheckResult(
-            geoIp = outputs.geoIp,
-            directSigns = outputs.directSigns,
-            indirectSigns = outputs.indirectSigns,
-            locationSignals = locationSignals,
-            bypassResult = bypassResult,
-            dnsLeak = outputs.dnsLeak,
-            webRtcLeak = outputs.webRtcLeak,
-            tlsFingerprint = outputs.tlsFingerprint,
-            timingAnalysis = outputs.timingAnalysis,
-            icmpSpoofing = outputs.icmpSpoofing,
-            ipComparison = outputs.ipComparison,
-            rttTriangulation = outputs.rttTriangulation,
-            cdnPulling = outputs.cdnPulling,
-            nativeSigns = outputs.nativeSigns,
-            verdict = verdictExplanation.verdict,
-            ipConsensus = ipConsensus,
-            verdictExplanation = verdictExplanation,
-        )
+        val result =
+            DetectionCheckResult(
+                geoIp = outputs.geoIp,
+                directSigns = outputs.directSigns,
+                indirectSigns = outputs.indirectSigns,
+                locationSignals = locationSignals,
+                bypassResult = bypassResult,
+                dnsLeak = outputs.dnsLeak,
+                webRtcLeak = outputs.webRtcLeak,
+                tlsFingerprint = outputs.tlsFingerprint,
+                timingAnalysis = outputs.timingAnalysis,
+                icmpSpoofing = outputs.icmpSpoofing,
+                ipComparison = outputs.ipComparison,
+                rttTriangulation = outputs.rttTriangulation,
+                cdnPulling = outputs.cdnPulling,
+                nativeSigns = outputs.nativeSigns,
+                verdict = verdictExplanation.verdict,
+                ipConsensus = ipConsensus,
+                verdictExplanation = verdictExplanation,
+            )
+        return result.copy(verdictNarrative = VerdictEngine.narrative(result))
     }
 }
 

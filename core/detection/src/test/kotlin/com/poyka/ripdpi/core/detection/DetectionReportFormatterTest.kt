@@ -79,4 +79,21 @@ class DetectionReportFormatterTest {
         assertTrue(report.contains("IP: 1.2.3.4"))
         assertTrue(report.contains("! IP belongs to hosting provider: yes"))
     }
+
+    @Test
+    fun `report includes verdict narrative`() {
+        val result =
+            DetectionCheckResult(
+                geoIp = emptyCategory("GeoIP").copy(detected = true),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+                verdict = Verdict.DETECTED,
+            )
+        val report = DetectionReportFormatter.format(result)
+        assertTrue(report.contains("--- Verdict Narrative ---"))
+        assertTrue(report.contains("Exposure: Public IP only"))
+        assertTrue(report.contains("Reasons:"))
+    }
 }

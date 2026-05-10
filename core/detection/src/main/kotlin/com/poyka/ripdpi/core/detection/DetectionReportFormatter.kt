@@ -13,6 +13,7 @@ object DetectionReportFormatter {
                 appendLine()
                 appendLine("Verdict: ${result.verdict}")
                 appendLine()
+                appendNarrative(result.verdictNarrative ?: VerdictNarrativeBuilder.build(result))
 
                 appendCategory("GeoIP", result.geoIp)
                 appendCategory("Direct Signs", result.directSigns)
@@ -67,6 +68,23 @@ object DetectionReportFormatter {
         appendLine()
     }
 
+    private fun StringBuilder.appendNarrative(narrative: VerdictNarrative) {
+        appendLine("--- Verdict Narrative ---")
+        appendLine("Exposure: ${narrative.exposureStatus.reportLabel()}")
+        appendLine("Discovered:")
+        for (row in narrative.discoveredRows) {
+            appendLine("  - ${row.label}: ${row.value}")
+        }
+        appendLine("Reasons:")
+        for (row in narrative.reasonRows) {
+            appendLine("  - ${row.label}: ${row.value}")
+        }
+        narrative.homeRoutedRoamingNote?.let { note ->
+            appendLine("Roaming note: $note")
+        }
+        appendLine()
+    }
+
     private fun StringBuilder.appendBypass(bypass: BypassResult) {
         appendLine("--- Bypass ---")
         val status =
@@ -87,4 +105,13 @@ object DetectionReportFormatter {
         }
         appendLine()
     }
+
+    private fun ExposureStatus.reportLabel(): String =
+        when (this) {
+            ExposureStatus.REMOTE_ENDPOINT_DISCOVERED -> "Remote endpoint discovered"
+            ExposureStatus.PUBLIC_IP_ONLY -> "Public IP only"
+            ExposureStatus.LOCAL_PROXY_OR_API_ONLY -> "Local proxy or API only"
+            ExposureStatus.TECHNICAL_SIGNAL_ONLY -> "Technical signal only"
+            ExposureStatus.INSUFFICIENT_DATA -> "Insufficient data"
+        }
 }

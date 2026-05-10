@@ -271,4 +271,5 @@ data class DetectionCheckResult(
     val methodologyVersion: String = MethodologyVersion.CURRENT,
     val ipConsensus: IpConsensusResult? = null,
     val verdictExplanation: VerdictExplanation? = null,
+    val verdictNarrative: VerdictNarrative? = null,
 )

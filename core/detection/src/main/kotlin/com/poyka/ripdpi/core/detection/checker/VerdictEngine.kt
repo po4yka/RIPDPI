@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core.detection.checker
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CdnPullingResult
+import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -12,10 +13,14 @@ import com.poyka.ripdpi.core.detection.NativeSignsResult
 import com.poyka.ripdpi.core.detection.RttTriangulationResult
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.VerdictExplanation
+import com.poyka.ripdpi.core.detection.VerdictNarrative
+import com.poyka.ripdpi.core.detection.VerdictNarrativeBuilder
 import com.poyka.ripdpi.core.detection.VpnAppKind
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
 
 object VerdictEngine {
+    fun narrative(result: DetectionCheckResult): VerdictNarrative = VerdictNarrativeBuilder.build(result)
+
     fun evaluate(
         geoIp: CategoryResult,
         directSigns: CategoryResult,

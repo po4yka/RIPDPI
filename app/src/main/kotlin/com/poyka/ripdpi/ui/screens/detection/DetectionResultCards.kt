@@ -8,7 +8,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -33,11 +36,14 @@ import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionProgress
 import com.poyka.ripdpi.core.detection.DetectionStage
+import com.poyka.ripdpi.core.detection.ExposureStatus
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.Recommendation
 import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.VerdictExplanation
+import com.poyka.ripdpi.core.detection.VerdictNarrative
+import com.poyka.ripdpi.core.detection.VerdictNarrativeRow
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -91,6 +97,7 @@ internal fun VerdictScoreCard(
     score: Int?,
     label: String?,
     explanation: VerdictExplanation? = null,
+    narrative: VerdictNarrative? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
@@ -135,7 +142,11 @@ internal fun VerdictScoreCard(
                 .semantics { liveRegion = LiveRegionMode.Polite }
                 .ripDpiTestTag(RipDpiTestTags.DetectionVerdict),
     ) {
-        StatusIndicator(label = verdictLabel, tone = indicatorTone)
+        VerdictScoreHeader(
+            verdictLabel = verdictLabel,
+            indicatorTone = indicatorTone,
+            narrative = narrative,
+        )
         explanation?.let {
             Text(
                 text = "${it.ruleApplied}: ${it.summary}",
@@ -170,6 +181,135 @@ internal fun VerdictScoreCard(
                 modifier = Modifier.fillMaxWidth(),
                 color = scoreColor,
                 trackColor = scoreColor.copy(alpha = 0.2f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun VerdictScoreHeader(
+    verdictLabel: String,
+    indicatorTone: StatusIndicatorTone,
+    narrative: VerdictNarrative?,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StatusIndicator(label = verdictLabel, tone = indicatorTone)
+        narrative?.let {
+            StatusIndicator(
+                label = it.exposureStatus.displayLabel(),
+                tone = it.exposureStatus.indicatorTone(),
+            )
+        }
+    }
+}
+
+@Composable
+internal fun VerdictNarrativeCard(
+    narrative: VerdictNarrative,
+    privacyModeEnabled: Boolean,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "VERDICT NARRATIVE",
+                style = type.sectionTitle,
+                color = colors.mutedForeground,
+            )
+            StatusIndicator(
+                label = narrative.exposureStatus.displayLabel(),
+                tone = narrative.exposureStatus.indicatorTone(),
+            )
+        }
+        Text(
+            text = "What was discovered",
+            style = type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 220.dp)
+                    .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            narrative.discoveredRows.forEach { row ->
+                NarrativeRow(
+                    row = row,
+                    privacyModeEnabled = privacyModeEnabled,
+                    icon = RipDpiIcons.Public,
+                )
+            }
+        }
+        Text(
+            text = "Why this verdict",
+            style = type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            narrative.reasonRows.forEach { row ->
+                NarrativeRow(
+                    row = row,
+                    privacyModeEnabled = privacyModeEnabled,
+                    icon = row.exposureStatus.icon(),
+                )
+            }
+        }
+        narrative.homeRoutedRoamingNote?.let { note ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = RipDpiIcons.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = colors.warning,
+                )
+                Text(text = note, style = type.caption, color = colors.warning)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NarrativeRow(
+    row: VerdictNarrativeRow,
+    privacyModeEnabled: Boolean,
+    icon: ImageVector,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val spacing = RipDpiThemeTokens.spacing
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = row.exposureStatus.contentColor(),
+        )
+        Column {
+            Text(text = row.label, style = type.caption, color = colors.mutedForeground)
+            Text(
+                text = DetectionPrivacyMask.maskIpsInText(row.value, enabled = privacyModeEnabled),
+                style = type.body,
+                color = row.exposureStatus.contentColor(),
             )
         }
     }
@@ -476,3 +616,40 @@ private fun FindingRow(
         )
     }
 }
+
+private fun ExposureStatus.displayLabel(): String =
+    when (this) {
+        ExposureStatus.REMOTE_ENDPOINT_DISCOVERED -> "Remote endpoint"
+        ExposureStatus.PUBLIC_IP_ONLY -> "Public IP"
+        ExposureStatus.LOCAL_PROXY_OR_API_ONLY -> "Local proxy/API"
+        ExposureStatus.TECHNICAL_SIGNAL_ONLY -> "Technical signal"
+        ExposureStatus.INSUFFICIENT_DATA -> "Insufficient data"
+    }
+
+private fun ExposureStatus.indicatorTone(): StatusIndicatorTone =
+    when (this) {
+        ExposureStatus.REMOTE_ENDPOINT_DISCOVERED -> StatusIndicatorTone.Error
+        ExposureStatus.PUBLIC_IP_ONLY -> StatusIndicatorTone.Warning
+        ExposureStatus.LOCAL_PROXY_OR_API_ONLY -> StatusIndicatorTone.Warning
+        ExposureStatus.TECHNICAL_SIGNAL_ONLY -> StatusIndicatorTone.Idle
+        ExposureStatus.INSUFFICIENT_DATA -> StatusIndicatorTone.Active
+    }
+
+private fun ExposureStatus.icon(): ImageVector =
+    when (this) {
+        ExposureStatus.REMOTE_ENDPOINT_DISCOVERED -> RipDpiIcons.Public
+        ExposureStatus.PUBLIC_IP_ONLY -> RipDpiIcons.Visibility
+        ExposureStatus.LOCAL_PROXY_OR_API_ONLY -> RipDpiIcons.NetworkCheck
+        ExposureStatus.TECHNICAL_SIGNAL_ONLY -> RipDpiIcons.Info
+        ExposureStatus.INSUFFICIENT_DATA -> RipDpiIcons.Check
+    }
+
+@Composable
+private fun ExposureStatus.contentColor() =
+    when (this) {
+        ExposureStatus.REMOTE_ENDPOINT_DISCOVERED -> RipDpiThemeTokens.colors.destructive
+        ExposureStatus.PUBLIC_IP_ONLY -> RipDpiThemeTokens.colors.warning
+        ExposureStatus.LOCAL_PROXY_OR_API_ONLY -> RipDpiThemeTokens.colors.warning
+        ExposureStatus.TECHNICAL_SIGNAL_ONLY -> RipDpiThemeTokens.colors.accent
+        ExposureStatus.INSUFFICIENT_DATA -> RipDpiThemeTokens.colors.success
+    }
