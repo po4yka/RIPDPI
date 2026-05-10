@@ -77,6 +77,13 @@ enum class DiagnosticsDomainReachabilityState {
     Failed,
 }
 
+enum class DiagnosticsRknBlockDiagnosisState {
+    Idle,
+    Running,
+    Complete,
+    Failed,
+}
+
 @Immutable
 data class DiagnosticsDnsIntegrityDomainUiModel(
     val domain: String,
@@ -115,10 +122,39 @@ data class DiagnosticsDomainReachabilityToolUiModel(
     val errorMessage: String? = null,
 )
 
+@Immutable
+data class DiagnosticsRknBlockTypeUiModel(
+    val label: String,
+    val count: Int,
+    val tone: DiagnosticsTone,
+)
+
+@Immutable
+data class DiagnosticsRknTargetUiModel(
+    val group: String,
+    val name: String,
+    val verdict: String,
+    val notes: String,
+    val tone: DiagnosticsTone,
+)
+
+@Stable
+data class DiagnosticsRknBlockDiagnosisToolUiModel(
+    val state: DiagnosticsRknBlockDiagnosisState = DiagnosticsRknBlockDiagnosisState.Idle,
+    val headline: String = "RKN block diagnosis",
+    val confidenceNote: String = "Compare control and test target groups before claiming a block.",
+    val summary: String = "Run the bundled control and blacklist probes with aggregate verdict safeguards.",
+    val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
+    val blockTypes: ImmutableList<DiagnosticsRknBlockTypeUiModel> = persistentListOf(),
+    val rows: ImmutableList<DiagnosticsRknTargetUiModel> = persistentListOf(),
+    val errorMessage: String? = null,
+)
+
 @Stable
 data class DiagnosticsDpiToolsUiModel(
     val dnsIntegrity: DiagnosticsDnsIntegrityToolUiModel = DiagnosticsDnsIntegrityToolUiModel(),
     val domainReachability: DiagnosticsDomainReachabilityToolUiModel = DiagnosticsDomainReachabilityToolUiModel(),
+    val rknBlockDiagnosis: DiagnosticsRknBlockDiagnosisToolUiModel = DiagnosticsRknBlockDiagnosisToolUiModel(),
 )
 
 @Immutable

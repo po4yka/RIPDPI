@@ -9,6 +9,15 @@ import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
+import com.poyka.ripdpi.diagnostics.rkn.RknAggregateVerdictEngine
+import com.poyka.ripdpi.diagnostics.rkn.RknCheckResult
+import com.poyka.ripdpi.diagnostics.rkn.RknConfidence
+import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
+import com.poyka.ripdpi.diagnostics.rkn.RknProbeTarget
+import com.poyka.ripdpi.diagnostics.rkn.RknTarget
+import com.poyka.ripdpi.diagnostics.rkn.RknVerdict
+import com.poyka.ripdpi.diagnostics.rkn.RknVerdictColorToken
+import com.poyka.ripdpi.diagnostics.rkn.RknVerdictLabel
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -16,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -27,6 +37,7 @@ internal class DiagnosticsDpiToolsController(
     private val appContext: Context,
     private val dnsIntegrityChecker: DnsIntegrityChecker = DnsIntegrityChecker(),
     private val domainReachabilityScanner: DomainReachabilityScanner = DomainReachabilityScanner(),
+    private val rknLayeredProbePipeline: RknLayeredProbePipeline = RknLayeredProbePipeline(),
 ) {
     private val _dnsIntegrityTool = MutableStateFlow(DiagnosticsDnsIntegrityToolUiModel())
     val dnsIntegrityTool: StateFlow<DiagnosticsDnsIntegrityToolUiModel> = _dnsIntegrityTool.asStateFlow()
@@ -34,6 +45,10 @@ internal class DiagnosticsDpiToolsController(
     private val _domainReachabilityTool = MutableStateFlow(DiagnosticsDomainReachabilityToolUiModel())
     val domainReachabilityTool: StateFlow<DiagnosticsDomainReachabilityToolUiModel> =
         _domainReachabilityTool.asStateFlow()
+
+    private val _rknBlockDiagnosisTool = MutableStateFlow(DiagnosticsRknBlockDiagnosisToolUiModel())
+    val rknBlockDiagnosisTool: StateFlow<DiagnosticsRknBlockDiagnosisToolUiModel> =
+        _rknBlockDiagnosisTool.asStateFlow()
 
     private var latestDnsStubIps: Set<String> = emptySet()
 
@@ -95,6 +110,38 @@ internal class DiagnosticsDpiToolsController(
         }
     }
 
+    fun runRknBlockDiagnosis() {
+        if (_rknBlockDiagnosisTool.value.state == DiagnosticsRknBlockDiagnosisState.Running) {
+            return
+        }
+        _rknBlockDiagnosisTool.value =
+            DiagnosticsRknBlockDiagnosisToolUiModel(
+                state = DiagnosticsRknBlockDiagnosisState.Running,
+                summary = "Running RKN control and blacklist probes...",
+            )
+        scope.launch {
+            runCatching {
+                val controlTargets = loadRknWhitelistControl()
+                val testTargets = loadRknBlacklistTest()
+                check(controlTargets.isNotEmpty()) { "No bundled RKN control targets are available." }
+                check(testTargets.isNotEmpty()) { "No bundled RKN test targets are available." }
+                val controlResults = rknLayeredProbePipeline.iterCheckUrls(controlTargets.toProbeTargets()).toList()
+                val testResults = rknLayeredProbePipeline.iterCheckUrls(testTargets.toProbeTargets()).toList()
+                controlResults to testResults
+            }.onSuccess { (controlResults, testResults) ->
+                _rknBlockDiagnosisTool.value = buildRknBlockDiagnosisUiModel(controlResults, testResults)
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+                _rknBlockDiagnosisTool.value =
+                    DiagnosticsRknBlockDiagnosisToolUiModel(
+                        state = DiagnosticsRknBlockDiagnosisState.Failed,
+                        summary = "RKN block diagnosis failed.",
+                        errorMessage = error.message ?: error.javaClass.simpleName,
+                    )
+            }
+        }
+    }
+
     private suspend fun loadDomains(limit: Int?): List<String> =
         withContext(Dispatchers.IO) {
             val domains = DpiAssetLoader(appContext).loadDomains()
@@ -103,6 +150,16 @@ internal class DiagnosticsDpiToolsController(
             } else {
                 domains.take(limit)
             }
+        }
+
+    private suspend fun loadRknWhitelistControl(): List<RknTarget> =
+        withContext(Dispatchers.IO) {
+            DpiAssetLoader(appContext).loadRknWhitelistControl()
+        }
+
+    private suspend fun loadRknBlacklistTest(): List<RknTarget> =
+        withContext(Dispatchers.IO) {
+            DpiAssetLoader(appContext).loadRknBlacklistTest()
         }
 }
 
@@ -170,6 +227,41 @@ private fun List<DomainReachabilityResult>.toUiModel(stubIpCount: Int): Diagnost
     )
 }
 
+private fun buildRknBlockDiagnosisUiModel(
+    controlResults: List<RknCheckResult>,
+    testResults: List<RknCheckResult>,
+): DiagnosticsRknBlockDiagnosisToolUiModel {
+    val aggregate = RknAggregateVerdictEngine.aggregate(controlResults, testResults)
+    val blockTypes = RknAggregateVerdictEngine.blockTypes(testResults)
+    val flagged = testResults.count { result -> result.verdict != RknVerdict.OK }
+    val rows =
+        controlResults.map { result -> result.toUiModel("control") } +
+            testResults.map { result -> result.toUiModel("test") }
+    return DiagnosticsRknBlockDiagnosisToolUiModel(
+        state = DiagnosticsRknBlockDiagnosisState.Complete,
+        headline = aggregate.headline,
+        confidenceNote = aggregate.confidenceNote,
+        summary = "Checked ${controlResults.size} control targets and ${testResults.size} blacklist targets.",
+        metrics =
+            listOf(
+                DiagnosticsMetricUiModel("control", controlResults.size.toString(), DiagnosticsTone.Info),
+                DiagnosticsMetricUiModel("test", testResults.size.toString(), DiagnosticsTone.Info),
+                DiagnosticsMetricUiModel("flagged", flagged.toString(), countTone(flagged)),
+            ).toPersistentList(),
+        blockTypes =
+            blockTypes
+                .map { (verdict, count) ->
+                    val label = RknVerdictLabel.format(verdict, RknConfidence.HIGH)
+                    DiagnosticsRknBlockTypeUiModel(
+                        label = "${label.symbol} ${label.text}",
+                        count = count,
+                        tone = label.color.toDiagnosticsTone(),
+                    )
+                }.toPersistentList(),
+        rows = rows.toPersistentList(),
+    )
+}
+
 private fun DnsIntegrityVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
 
 private fun DomainVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
@@ -180,6 +272,28 @@ private fun AttemptResult.displayLabel(): String =
         statusCode?.let { code -> add(code.toString()) }
         error?.let { error -> add(error.label.lowercase(Locale.US).replace('_', ' ')) }
     }.joinToString(" · ")
+
+private fun List<RknTarget>.toProbeTargets(): List<RknProbeTarget> =
+    map { target -> RknProbeTarget(name = target.name, url = target.url) }
+
+private fun RknCheckResult.toUiModel(group: String): DiagnosticsRknTargetUiModel {
+    val label = RknVerdictLabel.format(verdict, confidence)
+    return DiagnosticsRknTargetUiModel(
+        group = group,
+        name = name,
+        verdict = "${label.symbol} ${label.text}",
+        notes = notes.ifEmpty { listOfNotNull(dnsError, tcpError, tlsError, httpError) }.joinToString("; "),
+        tone = label.color.toDiagnosticsTone(),
+    )
+}
+
+private fun RknVerdictColorToken.toDiagnosticsTone(): DiagnosticsTone =
+    when (this) {
+        RknVerdictColorToken.POSITIVE -> DiagnosticsTone.Positive
+        RknVerdictColorToken.WARNING -> DiagnosticsTone.Warning
+        RknVerdictColorToken.ERROR -> DiagnosticsTone.Negative
+        RknVerdictColorToken.MUTED -> DiagnosticsTone.Neutral
+    }
 
 private fun countTone(count: Int): DiagnosticsTone =
     if (count == 0) {

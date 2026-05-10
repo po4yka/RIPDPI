@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
+import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -25,6 +26,7 @@ class DiagnosticsViewModel
         private val diagnosticsViewModelBootstrapper: DiagnosticsViewModelBootstrapper,
         dnsIntegrityChecker: DnsIntegrityChecker,
         domainReachabilityScanner: DomainReachabilityScanner,
+        rknLayeredProbePipeline: RknLayeredProbePipeline,
         diagnosticsUiStateAssembler: DiagnosticsUiStateAssembler,
         uiStateFactory: DiagnosticsUiStateFactory,
     ) : ViewModel() {
@@ -49,6 +51,7 @@ class DiagnosticsViewModel
                 appContext = diagnosticsContextDependencies.appContext,
                 dnsIntegrityChecker = dnsIntegrityChecker,
                 domainReachabilityScanner = domainReachabilityScanner,
+                rknLayeredProbePipeline = rknLayeredProbePipeline,
             )
 
         val uiState: StateFlow<DiagnosticsUiState> =
@@ -67,6 +70,8 @@ class DiagnosticsViewModel
         val dnsIntegrityTool: StateFlow<DiagnosticsDnsIntegrityToolUiModel> = dpiToolsController.dnsIntegrityTool
         val domainReachabilityTool: StateFlow<DiagnosticsDomainReachabilityToolUiModel> =
             dpiToolsController.domainReachabilityTool
+        val rknBlockDiagnosisTool: StateFlow<DiagnosticsRknBlockDiagnosisToolUiModel> =
+            dpiToolsController.rknBlockDiagnosisTool
 
         private val mutations =
             DiagnosticsMutationRunner(
@@ -210,6 +215,8 @@ class DiagnosticsViewModel
         fun runDnsIntegrityCheck() = dpiToolsController.runDnsIntegrityCheck()
 
         fun runDomainReachabilityScan() = dpiToolsController.runDomainReachabilityScan()
+
+        fun runRknBlockDiagnosis() = dpiToolsController.runRknBlockDiagnosis()
     }
 
 private fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =

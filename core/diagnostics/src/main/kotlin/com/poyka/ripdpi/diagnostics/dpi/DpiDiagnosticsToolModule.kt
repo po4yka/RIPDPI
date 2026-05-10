@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -13,4 +14,7 @@ object DpiDiagnosticsToolModule {
 
     @Provides
     fun provideDomainReachabilityScanner(): DomainReachabilityScanner = DomainReachabilityScanner()
+
+    @Provides
+    fun provideRknLayeredProbePipeline(): RknLayeredProbePipeline = RknLayeredProbePipeline()
 }

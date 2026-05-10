@@ -35,6 +35,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
+import com.poyka.ripdpi.ui.screens.diagnostics.rkn.RknBlockDiagnosisScreen
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -55,6 +56,7 @@ internal fun ToolsSection(
     dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
     onRunDnsIntegrityCheck: () -> Unit = {},
     onRunDomainReachabilityScan: () -> Unit = {},
+    onRunRknBlockDiagnosis: () -> Unit = {},
     onOpenDetectionCheck: () -> Unit = {},
     pcapRecording: Boolean = false,
     onTogglePcapRecording: () -> Unit = {},
@@ -74,7 +76,7 @@ internal fun ToolsSection(
         approachItems(approaches, onSelectApproachMode, onSelectApproach)
         captureItem(pcapRecording, onTogglePcapRecording)
         shareItems(share, onShareSummary, onShareArchive, onSaveArchive, onSaveLogs)
-        dpiToolItems(dpiTools, onRunDnsIntegrityCheck, onRunDomainReachabilityScan)
+        dpiToolItems(dpiTools, onRunDnsIntegrityCheck, onRunDomainReachabilityScan, onRunRknBlockDiagnosis)
         detectionCheckItem(onOpenDetectionCheck)
     }
 }
@@ -183,6 +185,7 @@ private fun LazyListScope.dpiToolItems(
     dpiTools: DiagnosticsDpiToolsUiModel,
     onRunDnsIntegrityCheck: () -> Unit,
     onRunDomainReachabilityScan: () -> Unit,
+    onRunRknBlockDiagnosis: () -> Unit,
 ) {
     item {
         DnsIntegrityToolCard(
@@ -194,6 +197,12 @@ private fun LazyListScope.dpiToolItems(
         DomainReachabilityToolCard(
             tool = dpiTools.domainReachability,
             onRun = onRunDomainReachabilityScan,
+        )
+    }
+    item {
+        RknBlockDiagnosisScreen(
+            tool = dpiTools.rknBlockDiagnosis,
+            onRun = onRunRknBlockDiagnosis,
         )
     }
 }

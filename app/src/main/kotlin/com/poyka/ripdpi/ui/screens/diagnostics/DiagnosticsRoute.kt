@@ -50,6 +50,7 @@ fun DiagnosticsRoute(
     val pcapRecording by viewModel.pcapRecording.collectAsStateWithLifecycle()
     val dnsIntegrityTool by viewModel.dnsIntegrityTool.collectAsStateWithLifecycle()
     val domainReachabilityTool by viewModel.domainReachabilityTool.collectAsStateWithLifecycle()
+    val rknBlockDiagnosisTool by viewModel.rknBlockDiagnosisTool.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { DiagnosticsSection.entries.size }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -205,11 +206,13 @@ fun DiagnosticsRoute(
                 onTogglePcapRecording = remember(viewModel) { viewModel::togglePcapRecording },
                 onRunDnsIntegrityCheck = remember(viewModel) { viewModel::runDnsIntegrityCheck },
                 onRunDomainReachabilityScan = remember(viewModel) { viewModel::runDomainReachabilityScan },
+                onRunRknBlockDiagnosis = remember(viewModel) { viewModel::runRknBlockDiagnosis },
             ),
         dpiTools =
             DiagnosticsDpiToolsUiModel(
                 dnsIntegrity = dnsIntegrityTool,
                 domainReachability = domainReachabilityTool,
+                rknBlockDiagnosis = rknBlockDiagnosisTool,
             ),
         pcapRecording = pcapRecording,
         modifier = modifier,
