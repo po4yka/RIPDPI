@@ -283,6 +283,7 @@ class AdvancedSettingsScreenCharacterizationTest {
                         AdvancedSettingsActions(
                             onBack = {},
                             onOpenStrategyConfig = {},
+                            onOpenBlockcheck = {},
                             onToggleChanged = onToggleChanged,
                             onTextConfirmed = onTextConfirmed,
                             onOptionSelected = onOptionSelected,

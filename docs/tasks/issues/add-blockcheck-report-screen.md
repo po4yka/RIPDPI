@@ -1,18 +1,18 @@
 ---
 title: Add Blockcheck Report Screen
 type: task
-status: backlog
+status: review
 area: ui
 priority: medium
-owner: unassigned
+owner: Codex
 parent: zapret2-feature-parity-epic
 blocks: []
-blocked_by: [extend-diagnostic-probe-service, integrate-probe-results-with-strategy-evolver]
+blocked_by: []
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Add Blockcheck Report Screen #repo/RIPDPI #area/ui #status/backlog 🔼
+- [ ] #task Add Blockcheck Report Screen #repo/RIPDPI #area/ui #status/review 🔼
 
 ## Objective
 
@@ -90,3 +90,16 @@ class BlockcheckViewModel : ViewModel() {
 ## Definition of done
 
 Manual test: run probe against 3 domains, observe real-time row updates, press Apply Best, confirm the strategy changes in Settings → Strategy Config. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work Log
+
+- 2026-05-10: Added the Compose screen, route, Advanced Settings entry point, ViewModel, JSON export, apply/reload flow, DNS warning row, empty-candidate state, and Toast status feedback.
+- 2026-05-10: Added focused ViewModel tests for ranking, cancellation with partial results, empty registry handling, apply/reload, and export JSON.
+- 2026-05-10: Added Roborazzi coverage and recorded goldens for idle, running/partial, and complete states.
+
+## Validation
+
+- `./gradlew :app:ktlintMainSourceSetCheck :app:ktlintTestSourceSetCheck --rerun-tasks -Pripdpi.skipNativeBuild=true` — passed.
+- Clean verification worktree: `./gradlew :app:ktlintMainSourceSetCheck :app:ktlintTestSourceSetCheck :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckViewModelTest :app:verifyRoborazziDebug --tests com.poyka.ripdpi.ui.screenshot.BlockcheckScreenScreenshotTest -Pripdpi.skipNativeBuild=true` — passed.
+- `./gradlew :app:recordRoborazziDebug --tests com.poyka.ripdpi.ui.screenshot.BlockcheckScreenScreenshotTest -Pripdpi.skipNativeBuild=true` — passed and wrote the three Blockcheck PNG baselines.
+- Main worktree reruns that compile `:core:detection` are currently blocked by unrelated RTT-triangulation edits in `core/detection`.

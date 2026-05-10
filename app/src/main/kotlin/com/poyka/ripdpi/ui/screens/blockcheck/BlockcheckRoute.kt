@@ -1,0 +1,239 @@
+package com.poyka.ripdpi.ui.screens.blockcheck
+
+import android.content.Intent
+import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.RankedStrategyProbeResult
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+@Composable
+fun BlockcheckRoute(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: BlockcheckViewModel = hiltViewModel(),
+) {
+    val context = LocalContext.current
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(state.message) {
+        state.message?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+    BlockcheckScreen(
+        state = state,
+        onBack = onBack,
+        onDomainsChanged = viewModel::updateDomainsText,
+        onRun = viewModel::startProbe,
+        onCancel = viewModel::cancelProbe,
+        onApplyBest = viewModel::applyBestStrategy,
+        onExport = {
+            val report = viewModel.exportReport()
+            val intent =
+                Intent(Intent.ACTION_SEND)
+                    .setType("application/json")
+                    .putExtra(Intent.EXTRA_TEXT, report)
+                    .putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.title_blockcheck))
+            context.startActivity(Intent.createChooser(intent, context.getString(R.string.blockcheck_export_title)))
+        },
+        modifier = modifier,
+    )
+}
+
+@Composable
+internal fun BlockcheckScreen(
+    state: BlockcheckUiState,
+    onBack: () -> Unit,
+    onDomainsChanged: (String) -> Unit,
+    onRun: () -> Unit,
+    onCancel: () -> Unit,
+    onApplyBest: () -> Unit,
+    onExport: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiContentScreenScaffold(
+        title = stringResource(R.string.title_blockcheck),
+        navigationIcon = RipDpiIcons.Back,
+        onNavigationClick = onBack,
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.Blockcheck)),
+    ) {
+        RipDpiCard {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                BlockcheckHeader(state = state, onRun = onRun, onCancel = onCancel)
+                RipDpiTextField(
+                    value = state.domains.joinToString("\n"),
+                    onValueChange = onDomainsChanged,
+                    decoration =
+                        RipDpiTextFieldDecoration(
+                            label = stringResource(R.string.blockcheck_domains_label),
+                        ),
+                    behavior = RipDpiTextFieldBehavior(singleLine = false, minHeight = 96.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (state.isRunning) {
+                    LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
+                }
+                state.message?.let {
+                    Text(text = it, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+        if (state.noStrategiesRegistered) {
+            RipDpiCard {
+                Text(
+                    text = stringResource(R.string.blockcheck_no_strategies),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+        }
+        if (state.dnsTamperDetected) {
+            RipDpiCard {
+                Text(
+                    text = stringResource(R.string.blockcheck_dns_warning),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+        BlockcheckResultsCard(state = state)
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm), modifier = Modifier.fillMaxWidth()) {
+            RipDpiButton(
+                text = stringResource(R.string.blockcheck_apply_best),
+                onClick = onApplyBest,
+                enabled = state.bestStrategy != null && !state.isRunning,
+                modifier = Modifier.weight(1f),
+            )
+            RipDpiButton(
+                text = stringResource(R.string.blockcheck_export),
+                onClick = onExport,
+                enabled = state.results.isNotEmpty(),
+                variant = RipDpiButtonVariant.Secondary,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun BlockcheckHeader(
+    state: BlockcheckUiState,
+    onRun: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = stringResource(R.string.blockcheck_status_format, state.results.size, state.totalExpectedResults),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f),
+        )
+        RipDpiButton(
+            text =
+                if (state.isRunning) {
+                    stringResource(R.string.blockcheck_cancel)
+                } else {
+                    stringResource(R.string.blockcheck_run)
+                },
+            onClick = if (state.isRunning) onCancel else onRun,
+            variant = if (state.isRunning) RipDpiButtonVariant.Outline else RipDpiButtonVariant.Primary,
+        )
+    }
+}
+
+@Composable
+private fun BlockcheckResultsCard(state: BlockcheckUiState) {
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Text(
+                text = stringResource(R.string.blockcheck_results_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            if (state.rankedStrategies.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.blockcheck_empty_results),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                state.rankedStrategies.forEachIndexed { index, result ->
+                    BlockcheckRankedRow(result = result, isBest = index == 0)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BlockcheckRankedRow(
+    result: RankedStrategyProbeResult,
+    isBest: Boolean,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = spacing.xs),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = result.strategyLabel, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text =
+                    stringResource(
+                        R.string.blockcheck_result_detail_format,
+                        result.successes,
+                        result.total,
+                        result.averageLatencyMs,
+                    ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        AssistChip(
+            onClick = {},
+            label = {
+                Text(
+                    text =
+                        if (isBest) {
+                            stringResource(R.string.blockcheck_best_badge)
+                        } else {
+                            "${(result.successRate * 100).toInt()}%"
+                        },
+                )
+            },
+        )
+    }
+}

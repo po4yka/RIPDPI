@@ -32,6 +32,7 @@ internal data class AdvancedNotice(
 internal data class AdvancedSettingsActions(
     val onBack: () -> Unit,
     val onOpenStrategyConfig: () -> Unit,
+    val onOpenBlockcheck: () -> Unit,
     val onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     val onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
     val onOptionSelected: (AdvancedOptionSetting, String) -> Unit,

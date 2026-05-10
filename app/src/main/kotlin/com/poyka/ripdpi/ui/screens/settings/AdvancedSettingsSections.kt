@@ -87,6 +87,26 @@ internal fun LazyListScope.strategyConfigSection(onOpenStrategyConfig: () -> Uni
     }
 }
 
+internal fun LazyListScope.blockcheckSection(onOpenBlockcheck: () -> Unit) {
+    item(key = "advanced_blockcheck") {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.blockcheck_section_title),
+            testTag = RipDpiTestTags.advancedSection("blockcheck"),
+        ) {
+            RipDpiCard {
+                SettingsRow(
+                    title = stringResource(R.string.blockcheck_entry_title),
+                    subtitle = stringResource(R.string.blockcheck_entry_body),
+                    onClick = onOpenBlockcheck,
+                    leadingIcon = RipDpiIcons.Logs,
+                    showChevron = true,
+                    testTag = RipDpiTestTags.SettingsBlockcheck,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun DiagnosticsHistorySettingsContent(
     uiState: SettingsUiState,

@@ -92,6 +92,7 @@ internal object RipDpiTestTags {
     const val SettingsDataTransparency = "settings-data-transparency"
     const val SettingsAbout = "settings-about"
     const val SettingsStrategyConfig = "settings-strategy-config"
+    const val SettingsBlockcheck = "settings-blockcheck"
     const val StrategyConfigSource = "strategy-config-source"
     const val StrategyConfigEditor = "strategy-config-editor"
     const val StrategyConfigLuaPath = "strategy-config-lua-path"

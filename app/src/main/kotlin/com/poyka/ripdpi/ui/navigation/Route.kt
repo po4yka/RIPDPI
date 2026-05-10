@@ -126,6 +126,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object Blockcheck : Route() {
+        override val stableRoute = "blockcheck"
+        override val titleRes = R.string.title_blockcheck
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object BiometricPrompt : Route() {
         override val stableRoute = "biometric_prompt"
         override val titleRes = R.string.title_biometric_prompt
@@ -194,6 +201,7 @@ sealed class Route {
                     DnsSettings,
                     AdvancedSettings,
                     StrategyConfig,
+                    Blockcheck,
                     BiometricPrompt,
                     AppCustomization,
                     About,

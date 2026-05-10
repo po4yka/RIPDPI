@@ -31,6 +31,7 @@ import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
+import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckRoute
 import com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserRoute
 import com.poyka.ripdpi.ui.screens.config.ConfigModeSection
 import com.poyka.ripdpi.ui.screens.config.ConfigRoute
@@ -429,6 +430,7 @@ private fun NavGraphBuilder.addSettingsRoutes(
             AdvancedSettingsRoute(
                 onBack = { navController.popBackStack() },
                 onOpenStrategyConfig = { navController.navigate(Route.StrategyConfig) },
+                onOpenBlockcheck = { navController.navigate(Route.Blockcheck) },
                 viewModel = settingsViewModel,
             )
         }
@@ -436,6 +438,9 @@ private fun NavGraphBuilder.addSettingsRoutes(
             val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
             val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
             StrategyConfigRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
+        }
+        composable<Route.Blockcheck> {
+            BlockcheckRoute(onBack = { navController.popBackStack() })
         }
         composable<Route.AppCustomization> {
             val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
