@@ -43,6 +43,15 @@ private data class AdaptiveSplitStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+private data class AdaptiveSplitSummaryLines(
+    val profile: String,
+    val target: String,
+    val focus: String,
+    val protocols: String,
+    val scope: String,
+    val dsl: String,
+)
+
 @Composable
 internal fun rememberAdaptiveSplitPresetOptions(
     uiState: SettingsUiState,
@@ -101,7 +110,6 @@ internal fun rememberAdaptiveSplitPresetOptions(
         }
     }.toImmutableList()
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun AdaptiveSplitProfileCard(
     uiState: SettingsUiState,
@@ -112,92 +120,8 @@ internal fun AdaptiveSplitProfileCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberAdaptiveSplitStatus(uiState)
-    val profileSummary =
-        when (uiState.desync.adaptiveSplitPreset) {
-            AdaptiveSplitPresetManual -> {
-                stringResource(R.string.adaptive_split_profile_manual)
-            }
-
-            AdaptiveSplitPresetCustom -> {
-                stringResource(
-                    R.string.adaptive_split_profile_custom,
-                    formatOffsetExpressionLabel(uiState.desync.splitMarker),
-                )
-            }
-
-            else -> {
-                formatOffsetExpressionLabel(uiState.desync.splitMarker)
-            }
-        }
-    val targetSummary =
-        if (uiState.settings.tcpChainStepsCount > 0 && primaryTcpChainStep(uiState.desync.tcpChainSteps) != null) {
-            stringResource(R.string.adaptive_split_target_chain_step)
-        } else {
-            stringResource(R.string.adaptive_split_target_legacy)
-        }
-    val focusSummary =
-        when (uiState.desync.adaptiveSplitPreset) {
-            AdaptiveSplitPresetManual -> stringResource(R.string.adaptive_split_focus_manual)
-            AdaptiveSplitPresetCustom -> stringResource(R.string.adaptive_split_focus_custom)
-            AdaptiveMarkerBalanced -> stringResource(R.string.adaptive_split_focus_balanced)
-            AdaptiveMarkerHost -> stringResource(R.string.adaptive_split_focus_host)
-            AdaptiveMarkerEndHost -> stringResource(R.string.adaptive_split_focus_endhost)
-            AdaptiveMarkerSniExt -> stringResource(R.string.adaptive_split_focus_sniext)
-            else -> stringResource(R.string.adaptive_split_focus_custom)
-        }
-    val scopeSummary =
-        when {
-            uiState.enableCmdSettings -> stringResource(R.string.adaptive_split_scope_cli)
-            !uiState.desyncEnabled -> stringResource(R.string.adaptive_split_scope_disabled)
-            !uiState.desync.adaptiveSplitVisualEditorSupported -> stringResource(R.string.adaptive_split_scope_hostfake)
-            uiState.desync.hasAdaptiveSplitPreset -> stringResource(R.string.adaptive_split_scope_active)
-            else -> stringResource(R.string.adaptive_split_scope_manual)
-        }
-    val protocolSummary =
-        when {
-            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled -> {
-                stringResource(R.string.adaptive_split_protocol_http_https)
-            }
-
-            uiState.desyncHttpEnabled -> {
-                stringResource(R.string.adaptive_split_protocol_http)
-            }
-
-            uiState.desyncHttpsEnabled -> {
-                stringResource(R.string.adaptive_split_protocol_https)
-            }
-
-            else -> {
-                stringResource(R.string.adaptive_split_protocol_none)
-            }
-        }
-    val dslSummary = stringResource(R.string.adaptive_split_dsl_only_summary)
-    val badges =
-        buildList {
-            add(
-                (
-                    if (uiState.desync.hasAdaptiveSplitPreset) {
-                        stringResource(R.string.adaptive_split_badge_adaptive)
-                    } else {
-                        stringResource(R.string.adaptive_split_badge_manual)
-                    }
-                ) to
-                    if (uiState.desync.hasAdaptiveSplitPreset) {
-                        SummaryCapsuleTone.Active
-                    } else {
-                        SummaryCapsuleTone.Neutral
-                    },
-            )
-            if (uiState.desync.hasCustomAdaptiveSplitPreset) {
-                add(stringResource(R.string.adaptive_split_badge_custom) to SummaryCapsuleTone.Info)
-            }
-            if (uiState.desyncHttpsEnabled) {
-                add(stringResource(R.string.adaptive_split_badge_https) to SummaryCapsuleTone.Info)
-            }
-            if (uiState.desyncHttpEnabled) {
-                add(stringResource(R.string.adaptive_split_badge_http) to SummaryCapsuleTone.Info)
-            }
-        }
+    val summary = adaptiveSplitSummaryLines(uiState)
+    val badges = adaptiveSplitBadges(uiState)
 
     RipDpiCard(
         modifier = modifier,
@@ -216,27 +140,27 @@ internal fun AdaptiveSplitProfileCard(
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             ProfileSummaryLine(
                 label = stringResource(R.string.adaptive_split_summary_label_profile),
-                value = profileSummary,
+                value = summary.profile,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.adaptive_split_summary_label_target),
-                value = targetSummary,
+                value = summary.target,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.adaptive_split_summary_label_focus),
-                value = focusSummary,
+                value = summary.focus,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.adaptive_split_summary_label_protocols),
-                value = protocolSummary,
+                value = summary.protocols,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.adaptive_split_summary_label_scope),
-                value = scopeSummary,
+                value = summary.scope,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.adaptive_split_summary_label_dsl),
-                value = dslSummary,
+                value = summary.dsl,
             )
         }
         Text(
@@ -245,41 +169,166 @@ internal fun AdaptiveSplitProfileCard(
             color = colors.mutedForeground,
         )
         if (uiState.canResetAdaptiveSplitPreset) {
-            var showResetDialog by remember { mutableStateOf(false) }
-
-            if (showResetDialog) {
-                RipDpiDialog(
-                    onDismissRequest = { showResetDialog = false },
-                    title = stringResource(R.string.confirm_reset_adaptive_split_title),
-                    dismissAction =
-                        RipDpiDialogAction(
-                            label = stringResource(R.string.confirm_reset_adaptive_split_dismiss),
-                            onClick = { showResetDialog = false },
-                        ),
-                    confirmAction =
-                        RipDpiDialogAction(
-                            label = stringResource(R.string.confirm_reset_adaptive_split_confirm),
-                            onClick = {
-                                showResetDialog = false
-                                onResetAdaptiveSplit()
-                            },
-                        ),
-                    visuals =
-                        RipDpiDialogVisuals(
-                            message = stringResource(R.string.confirm_reset_adaptive_split_body),
-                            tone = RipDpiDialogTone.Destructive,
-                        ),
-                )
-            }
-
-            RipDpiButton(
-                text = stringResource(R.string.adaptive_split_reset_action),
-                onClick = { showResetDialog = true },
-                variant = RipDpiButtonVariant.Outline,
+            AdaptiveSplitResetAction(
+                onResetAdaptiveSplit = onResetAdaptiveSplit,
                 modifier = Modifier.align(Alignment.End),
             )
         }
     }
+}
+
+@Composable
+private fun adaptiveSplitSummaryLines(uiState: SettingsUiState): AdaptiveSplitSummaryLines =
+    AdaptiveSplitSummaryLines(
+        profile = adaptiveSplitProfileSummary(uiState),
+        target = adaptiveSplitTargetSummary(uiState),
+        focus = adaptiveSplitFocusSummary(uiState),
+        protocols = adaptiveSplitProtocolSummary(uiState),
+        scope = adaptiveSplitScopeSummary(uiState),
+        dsl = stringResource(R.string.adaptive_split_dsl_only_summary),
+    )
+
+@Composable
+private fun adaptiveSplitProfileSummary(uiState: SettingsUiState): String =
+    when (uiState.desync.adaptiveSplitPreset) {
+        AdaptiveSplitPresetManual -> {
+            stringResource(R.string.adaptive_split_profile_manual)
+        }
+
+        AdaptiveSplitPresetCustom -> {
+            stringResource(
+                R.string.adaptive_split_profile_custom,
+                formatOffsetExpressionLabel(uiState.desync.splitMarker),
+            )
+        }
+
+        else -> {
+            formatOffsetExpressionLabel(uiState.desync.splitMarker)
+        }
+    }
+
+@Composable
+private fun adaptiveSplitTargetSummary(uiState: SettingsUiState): String =
+    if (uiState.settings.tcpChainStepsCount > 0 && primaryTcpChainStep(uiState.desync.tcpChainSteps) != null) {
+        stringResource(R.string.adaptive_split_target_chain_step)
+    } else {
+        stringResource(R.string.adaptive_split_target_legacy)
+    }
+
+@Composable
+private fun adaptiveSplitFocusSummary(uiState: SettingsUiState): String =
+    when (uiState.desync.adaptiveSplitPreset) {
+        AdaptiveSplitPresetManual -> stringResource(R.string.adaptive_split_focus_manual)
+        AdaptiveSplitPresetCustom -> stringResource(R.string.adaptive_split_focus_custom)
+        AdaptiveMarkerBalanced -> stringResource(R.string.adaptive_split_focus_balanced)
+        AdaptiveMarkerHost -> stringResource(R.string.adaptive_split_focus_host)
+        AdaptiveMarkerEndHost -> stringResource(R.string.adaptive_split_focus_endhost)
+        AdaptiveMarkerSniExt -> stringResource(R.string.adaptive_split_focus_sniext)
+        else -> stringResource(R.string.adaptive_split_focus_custom)
+    }
+
+@Composable
+private fun adaptiveSplitProtocolSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled -> {
+            stringResource(R.string.adaptive_split_protocol_http_https)
+        }
+
+        uiState.desyncHttpEnabled -> {
+            stringResource(R.string.adaptive_split_protocol_http)
+        }
+
+        uiState.desyncHttpsEnabled -> {
+            stringResource(R.string.adaptive_split_protocol_https)
+        }
+
+        else -> {
+            stringResource(R.string.adaptive_split_protocol_none)
+        }
+    }
+
+@Composable
+private fun adaptiveSplitScopeSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.enableCmdSettings -> stringResource(R.string.adaptive_split_scope_cli)
+        !uiState.desyncEnabled -> stringResource(R.string.adaptive_split_scope_disabled)
+        !uiState.desync.adaptiveSplitVisualEditorSupported -> stringResource(R.string.adaptive_split_scope_hostfake)
+        uiState.desync.hasAdaptiveSplitPreset -> stringResource(R.string.adaptive_split_scope_active)
+        else -> stringResource(R.string.adaptive_split_scope_manual)
+    }
+
+@Composable
+private fun adaptiveSplitBadges(uiState: SettingsUiState): List<Pair<String, SummaryCapsuleTone>> =
+    buildList {
+        add(adaptiveSplitModeBadge(uiState))
+        if (uiState.desync.hasCustomAdaptiveSplitPreset) {
+            add(stringResource(R.string.adaptive_split_badge_custom) to SummaryCapsuleTone.Info)
+        }
+        if (uiState.desyncHttpsEnabled) {
+            add(stringResource(R.string.adaptive_split_badge_https) to SummaryCapsuleTone.Info)
+        }
+        if (uiState.desyncHttpEnabled) {
+            add(stringResource(R.string.adaptive_split_badge_http) to SummaryCapsuleTone.Info)
+        }
+    }
+
+@Composable
+private fun adaptiveSplitModeBadge(uiState: SettingsUiState): Pair<String, SummaryCapsuleTone> =
+    if (uiState.desync.hasAdaptiveSplitPreset) {
+        stringResource(R.string.adaptive_split_badge_adaptive) to SummaryCapsuleTone.Active
+    } else {
+        stringResource(R.string.adaptive_split_badge_manual) to SummaryCapsuleTone.Neutral
+    }
+
+@Composable
+private fun AdaptiveSplitResetAction(
+    onResetAdaptiveSplit: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var showResetDialog by remember { mutableStateOf(false) }
+
+    if (showResetDialog) {
+        AdaptiveSplitResetDialog(
+            onDismiss = { showResetDialog = false },
+            onConfirm = {
+                showResetDialog = false
+                onResetAdaptiveSplit()
+            },
+        )
+    }
+
+    RipDpiButton(
+        text = stringResource(R.string.adaptive_split_reset_action),
+        onClick = { showResetDialog = true },
+        variant = RipDpiButtonVariant.Outline,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun AdaptiveSplitResetDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.confirm_reset_adaptive_split_title),
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_reset_adaptive_split_dismiss),
+                onClick = onDismiss,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_reset_adaptive_split_confirm),
+                onClick = onConfirm,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.confirm_reset_adaptive_split_body),
+                tone = RipDpiDialogTone.Destructive,
+            ),
+    )
 }
 
 @Composable

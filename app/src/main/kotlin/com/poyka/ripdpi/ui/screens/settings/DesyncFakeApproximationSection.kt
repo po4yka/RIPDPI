@@ -21,7 +21,6 @@ private data class FakeApproximationStatusContent(
     val tone: StatusIndicatorTone,
 )
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun FakeApproximationProfileCard(
     uiState: SettingsUiState,
@@ -31,89 +30,6 @@ internal fun FakeApproximationProfileCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberFakeApproximationStatus(uiState)
-    val primaryStep = uiState.desync.primaryFakeApproximationStep
-    val profileSummary =
-        when (uiState.desync.fakeApproximationStepCount) {
-            0 -> {
-                stringResource(R.string.ripdpi_fake_approx_summary_profile_none)
-            }
-
-            1 -> {
-                stringResource(R.string.ripdpi_fake_approx_summary_profile_single)
-            }
-
-            else -> {
-                stringResource(
-                    R.string.ripdpi_fake_approx_summary_profile_multiple,
-                    uiState.desync.fakeApproximationStepCount,
-                )
-            }
-        }
-    val scopeSummary =
-        when {
-            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled -> {
-                stringResource(R.string.ripdpi_fake_approx_summary_scope_http_https)
-            }
-
-            uiState.desyncHttpEnabled -> {
-                stringResource(R.string.ripdpi_fake_approx_summary_scope_http)
-            }
-
-            uiState.desyncHttpsEnabled -> {
-                stringResource(R.string.ripdpi_fake_approx_summary_scope_https)
-            }
-
-            else -> {
-                stringResource(R.string.ripdpi_fake_approx_summary_scope_none)
-            }
-        }
-    val modeSummary =
-        when (primaryStep?.kind) {
-            TcpChainStepKind.FakeSplit -> stringResource(R.string.ripdpi_fake_approx_summary_mode_fakedsplit)
-            TcpChainStepKind.FakeDisorder -> stringResource(R.string.ripdpi_fake_approx_summary_mode_fakeddisorder)
-            else -> stringResource(R.string.ripdpi_fake_approx_summary_mode_none)
-        }
-    val markerSummary =
-        primaryStep
-            ?.marker
-            ?.takeIf { it.isNotBlank() }
-            ?: stringResource(R.string.ripdpi_fake_approx_summary_marker_none)
-    val transportSummary =
-        when (primaryStep?.kind) {
-            TcpChainStepKind.FakeSplit -> stringResource(R.string.ripdpi_fake_approx_summary_transport_fakedsplit)
-            TcpChainStepKind.FakeDisorder -> stringResource(R.string.ripdpi_fake_approx_summary_transport_fakeddisorder)
-            else -> stringResource(R.string.ripdpi_fake_approx_summary_transport_none)
-        }
-    val badges =
-        buildList {
-            add(
-                (
-                    if (uiState.desync.hasFakeApproximation) {
-                        stringResource(R.string.ripdpi_fake_approx_badge_configured)
-                    } else {
-                        stringResource(R.string.ripdpi_fake_approx_badge_available)
-                    }
-                ) to
-                    if (uiState.desync.hasFakeApproximation) {
-                        SummaryCapsuleTone.Active
-                    } else {
-                        SummaryCapsuleTone.Neutral
-                    },
-            )
-            add(stringResource(R.string.ripdpi_fake_approx_badge_linux_android) to SummaryCapsuleTone.Info)
-            if (uiState.desyncHttpEnabled) {
-                add(stringResource(R.string.ripdpi_fake_approx_badge_http) to SummaryCapsuleTone.Info)
-            }
-            if (uiState.desyncHttpsEnabled) {
-                add(stringResource(R.string.ripdpi_fake_approx_badge_https) to SummaryCapsuleTone.Info)
-            }
-            if (uiState.desync.hasFakeSplitApproximation) {
-                add(stringResource(R.string.ripdpi_fake_approx_badge_fakedsplit) to SummaryCapsuleTone.Active)
-            }
-            if (uiState.desync.hasFakeDisorderApproximation) {
-                add(stringResource(R.string.ripdpi_fake_approx_badge_fakeddisorder) to SummaryCapsuleTone.Warning)
-            }
-        }
 
     RipDpiCard(
         modifier = modifier,
@@ -128,40 +44,9 @@ internal fun FakeApproximationProfileCard(
             style = type.secondaryBody,
             color = colors.foreground,
         )
-        SummaryCapsuleFlow(items = badges)
+        SummaryCapsuleFlow(items = fakeApproximationBadges(uiState))
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_approx_summary_label_profile),
-                value = profileSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_approx_summary_label_scope),
-                value = scopeSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_approx_summary_label_mode),
-                value = modeSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_approx_summary_label_marker),
-                value = markerSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_approx_summary_label_shared),
-                value = stringResource(R.string.ripdpi_fake_approx_summary_shared),
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_approx_summary_label_transport),
-                value = transportSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_approx_summary_label_http_example),
-                value = stringResource(R.string.ripdpi_fake_approx_example_http),
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_approx_summary_label_tls_example),
-                value = stringResource(R.string.ripdpi_fake_approx_example_tls),
-            )
+            FakeApproximationSummaryLines(uiState)
         }
         Text(
             text = stringResource(R.string.ripdpi_fake_approx_scope_note),
@@ -170,6 +55,131 @@ internal fun FakeApproximationProfileCard(
         )
     }
 }
+
+@Composable
+private fun fakeApproximationBadges(uiState: SettingsUiState): List<Pair<String, SummaryCapsuleTone>> =
+    buildList {
+        add(
+            fakeApproximationConfiguredBadge(uiState) to
+                if (uiState.desync.hasFakeApproximation) SummaryCapsuleTone.Active else SummaryCapsuleTone.Neutral,
+        )
+        add(stringResource(R.string.ripdpi_fake_approx_badge_linux_android) to SummaryCapsuleTone.Info)
+        if (uiState.desyncHttpEnabled) {
+            add(stringResource(R.string.ripdpi_fake_approx_badge_http) to SummaryCapsuleTone.Info)
+        }
+        if (uiState.desyncHttpsEnabled) {
+            add(stringResource(R.string.ripdpi_fake_approx_badge_https) to SummaryCapsuleTone.Info)
+        }
+        if (uiState.desync.hasFakeSplitApproximation) {
+            add(stringResource(R.string.ripdpi_fake_approx_badge_fakedsplit) to SummaryCapsuleTone.Active)
+        }
+        if (uiState.desync.hasFakeDisorderApproximation) {
+            add(stringResource(R.string.ripdpi_fake_approx_badge_fakeddisorder) to SummaryCapsuleTone.Warning)
+        }
+    }
+
+@Composable
+private fun fakeApproximationConfiguredBadge(uiState: SettingsUiState): String =
+    if (uiState.desync.hasFakeApproximation) {
+        stringResource(R.string.ripdpi_fake_approx_badge_configured)
+    } else {
+        stringResource(R.string.ripdpi_fake_approx_badge_available)
+    }
+
+@Composable
+private fun FakeApproximationSummaryLines(uiState: SettingsUiState) {
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_approx_summary_label_profile),
+        value = fakeApproximationProfileSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_approx_summary_label_scope),
+        value = fakeApproximationScopeSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_approx_summary_label_mode),
+        value = fakeApproximationModeSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_approx_summary_label_marker),
+        value =
+            uiState.desync.primaryFakeApproximationStep
+                ?.marker
+                ?.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.ripdpi_fake_approx_summary_marker_none),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_approx_summary_label_shared),
+        value = stringResource(R.string.ripdpi_fake_approx_summary_shared),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_approx_summary_label_transport),
+        value = fakeApproximationTransportSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_approx_summary_label_http_example),
+        value = stringResource(R.string.ripdpi_fake_approx_example_http),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_approx_summary_label_tls_example),
+        value = stringResource(R.string.ripdpi_fake_approx_example_tls),
+    )
+}
+
+@Composable
+private fun fakeApproximationProfileSummary(uiState: SettingsUiState): String =
+    when (uiState.desync.fakeApproximationStepCount) {
+        0 -> {
+            stringResource(R.string.ripdpi_fake_approx_summary_profile_none)
+        }
+
+        1 -> {
+            stringResource(R.string.ripdpi_fake_approx_summary_profile_single)
+        }
+
+        else -> {
+            stringResource(
+                R.string.ripdpi_fake_approx_summary_profile_multiple,
+                uiState.desync.fakeApproximationStepCount,
+            )
+        }
+    }
+
+@Composable
+private fun fakeApproximationScopeSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled -> {
+            stringResource(R.string.ripdpi_fake_approx_summary_scope_http_https)
+        }
+
+        uiState.desyncHttpEnabled -> {
+            stringResource(R.string.ripdpi_fake_approx_summary_scope_http)
+        }
+
+        uiState.desyncHttpsEnabled -> {
+            stringResource(R.string.ripdpi_fake_approx_summary_scope_https)
+        }
+
+        else -> {
+            stringResource(R.string.ripdpi_fake_approx_summary_scope_none)
+        }
+    }
+
+@Composable
+private fun fakeApproximationModeSummary(uiState: SettingsUiState): String =
+    when (uiState.desync.primaryFakeApproximationStep?.kind) {
+        TcpChainStepKind.FakeSplit -> stringResource(R.string.ripdpi_fake_approx_summary_mode_fakedsplit)
+        TcpChainStepKind.FakeDisorder -> stringResource(R.string.ripdpi_fake_approx_summary_mode_fakeddisorder)
+        else -> stringResource(R.string.ripdpi_fake_approx_summary_mode_none)
+    }
+
+@Composable
+private fun fakeApproximationTransportSummary(uiState: SettingsUiState): String =
+    when (uiState.desync.primaryFakeApproximationStep?.kind) {
+        TcpChainStepKind.FakeSplit -> stringResource(R.string.ripdpi_fake_approx_summary_transport_fakedsplit)
+        TcpChainStepKind.FakeDisorder -> stringResource(R.string.ripdpi_fake_approx_summary_transport_fakeddisorder)
+        else -> stringResource(R.string.ripdpi_fake_approx_summary_transport_none)
+    }
 
 @Composable
 private fun rememberFakeApproximationStatus(uiState: SettingsUiState): FakeApproximationStatusContent =

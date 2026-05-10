@@ -20,7 +20,6 @@ private data class HostFakeStatusContent(
     val tone: StatusIndicatorTone,
 )
 
-@Suppress("LongMethod")
 @Composable
 internal fun HostFakeProfileCard(
     uiState: SettingsUiState,
@@ -30,47 +29,6 @@ internal fun HostFakeProfileCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberHostFakeStatus(uiState)
-    val primaryStep = uiState.desync.primaryHostFakeStep
-    val profileSummary =
-        when (uiState.desync.hostFakeStepCount) {
-            0 -> stringResource(R.string.ripdpi_hostfake_summary_profile_none)
-            1 -> stringResource(R.string.ripdpi_hostfake_summary_profile_single)
-            else -> stringResource(R.string.ripdpi_hostfake_summary_profile_multiple, uiState.desync.hostFakeStepCount)
-        }
-    val scopeSummary =
-        when {
-            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled -> {
-                stringResource(R.string.ripdpi_hostfake_summary_scope_http_https)
-            }
-
-            uiState.desyncHttpEnabled -> {
-                stringResource(R.string.ripdpi_hostfake_summary_scope_http)
-            }
-
-            uiState.desyncHttpsEnabled -> {
-                stringResource(R.string.ripdpi_hostfake_summary_scope_https)
-            }
-
-            else -> {
-                stringResource(R.string.ripdpi_hostfake_summary_scope_none)
-            }
-        }
-    val templateSummary =
-        primaryStep
-            ?.fakeHostTemplate
-            ?.takeIf { it.isNotBlank() }
-            ?: stringResource(R.string.ripdpi_hostfake_summary_template_random)
-    val midhostSummary =
-        primaryStep
-            ?.midhostMarker
-            ?.takeIf { it.isNotBlank() }
-            ?.let { stringResource(R.string.ripdpi_hostfake_summary_midhost_marker, it) }
-            ?: stringResource(R.string.ripdpi_hostfake_summary_midhost_whole)
-    val endMarkerSummary =
-        primaryStep
-            ?.marker
-            ?.takeIf { it.isNotBlank() }
-            ?: stringResource(R.string.ripdpi_hostfake_summary_end_marker_none)
 
     RipDpiCard(
         modifier = modifier,
@@ -86,38 +44,7 @@ internal fun HostFakeProfileCard(
             color = colors.foreground,
         )
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_hostfake_summary_label_profile),
-                value = profileSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_hostfake_summary_label_scope),
-                value = scopeSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_hostfake_summary_label_template),
-                value = templateSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_hostfake_summary_label_midhost),
-                value = midhostSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_hostfake_summary_label_end_marker),
-                value = endMarkerSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_hostfake_summary_label_transport),
-                value = stringResource(R.string.ripdpi_hostfake_summary_transport, uiState.fake.fakeTtl),
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_hostfake_summary_label_http_example),
-                value = stringResource(R.string.ripdpi_hostfake_example_http),
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_hostfake_summary_label_tls_example),
-                value = stringResource(R.string.ripdpi_hostfake_example_tls),
-            )
+            HostFakeSummaryLines(uiState)
         }
         Text(
             text = stringResource(R.string.ripdpi_hostfake_scope_note),
@@ -126,6 +53,80 @@ internal fun HostFakeProfileCard(
         )
     }
 }
+
+@Composable
+private fun HostFakeSummaryLines(uiState: SettingsUiState) {
+    val primaryStep = uiState.desync.primaryHostFakeStep
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_hostfake_summary_label_profile),
+        value = hostFakeProfileSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_hostfake_summary_label_scope),
+        value = hostFakeScopeSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_hostfake_summary_label_template),
+        value =
+            primaryStep?.fakeHostTemplate?.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.ripdpi_hostfake_summary_template_random),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_hostfake_summary_label_midhost),
+        value =
+            primaryStep
+                ?.midhostMarker
+                ?.takeIf { it.isNotBlank() }
+                ?.let { stringResource(R.string.ripdpi_hostfake_summary_midhost_marker, it) }
+                ?: stringResource(R.string.ripdpi_hostfake_summary_midhost_whole),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_hostfake_summary_label_end_marker),
+        value =
+            primaryStep?.marker?.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.ripdpi_hostfake_summary_end_marker_none),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_hostfake_summary_label_transport),
+        value = stringResource(R.string.ripdpi_hostfake_summary_transport, uiState.fake.fakeTtl),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_hostfake_summary_label_http_example),
+        value = stringResource(R.string.ripdpi_hostfake_example_http),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_hostfake_summary_label_tls_example),
+        value = stringResource(R.string.ripdpi_hostfake_example_tls),
+    )
+}
+
+@Composable
+private fun hostFakeProfileSummary(uiState: SettingsUiState): String =
+    when (uiState.desync.hostFakeStepCount) {
+        0 -> stringResource(R.string.ripdpi_hostfake_summary_profile_none)
+        1 -> stringResource(R.string.ripdpi_hostfake_summary_profile_single)
+        else -> stringResource(R.string.ripdpi_hostfake_summary_profile_multiple, uiState.desync.hostFakeStepCount)
+    }
+
+@Composable
+private fun hostFakeScopeSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled -> {
+            stringResource(R.string.ripdpi_hostfake_summary_scope_http_https)
+        }
+
+        uiState.desyncHttpEnabled -> {
+            stringResource(R.string.ripdpi_hostfake_summary_scope_http)
+        }
+
+        uiState.desyncHttpsEnabled -> {
+            stringResource(R.string.ripdpi_hostfake_summary_scope_https)
+        }
+
+        else -> {
+            stringResource(R.string.ripdpi_hostfake_summary_scope_none)
+        }
+    }
 
 @Composable
 private fun rememberHostFakeStatus(uiState: SettingsUiState): HostFakeStatusContent =

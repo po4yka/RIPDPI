@@ -22,7 +22,6 @@ internal data class StrategyPackCatalogStatusSpec(
     val tone: StatusIndicatorTone,
 )
 
-@Suppress("CyclomaticComplexMethod")
 internal fun strategyPackCatalogStatusSpec(
     strategyPackCatalog: StrategyPackCatalogUiState,
 ): StrategyPackCatalogStatusSpec =

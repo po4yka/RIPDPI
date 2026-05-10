@@ -159,11 +159,11 @@ private fun MainActivityDialogs(
         CrashReportDialog(
             report = report,
             onShare = {
-                val (title, body) = viewModel.buildCrashReportShareText(report)
+                val (title, body) = viewModel.crashReports.buildShareText(report)
                 controller.requestShareDiagnosticsSummary(title, body)
-                viewModel.dismissCrashReport()
+                viewModel.crashReports.dismiss()
             },
-            onDismiss = { viewModel.dismissCrashReport() },
+            onDismiss = { viewModel.crashReports.dismiss() },
         )
     }
 }

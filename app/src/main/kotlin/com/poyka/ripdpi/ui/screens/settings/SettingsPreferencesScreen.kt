@@ -149,10 +149,9 @@ private fun previewActions(): SettingsScreenActions =
         onSaveBackupPin = {},
     )
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
-private fun SettingsScreenPreview() {
+private fun previewSettingsScreen() {
     RipDpiTheme {
         SettingsScreen(
             uiState =
@@ -167,10 +166,9 @@ private fun SettingsScreenPreview() {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
-private fun SettingsScreenDarkPreview() {
+private fun previewSettingsScreenDark() {
     RipDpiTheme(themePreference = "dark") {
         SettingsScreen(
             uiState =

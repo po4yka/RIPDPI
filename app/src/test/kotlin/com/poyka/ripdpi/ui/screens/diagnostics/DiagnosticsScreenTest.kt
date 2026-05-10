@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -14,6 +16,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
 import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
@@ -69,6 +72,95 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+
+@Suppress("LongParameterList")
+@Composable
+private fun DiagnosticsScreen(
+    uiState: DiagnosticsUiState,
+    pagerState: PagerState,
+    onSelectSection: (DiagnosticsSection) -> Unit = {},
+    onSelectProfile: (String) -> Unit = {},
+    onRunRawScan: () -> Unit = {},
+    onRunInPathScan: () -> Unit = {},
+    onWaitForHiddenProbeAndRun: () -> Unit = {},
+    onCancelHiddenProbeAndRun: () -> Unit = {},
+    onDismissHiddenProbeConflictDialog: () -> Unit = {},
+    onCancelScan: () -> Unit = {},
+    onKeepResolverRecommendation: (String?) -> Unit = {},
+    onSaveResolverRecommendation: (String?) -> Unit = {},
+    onSelectSession: (String) -> Unit = {},
+    onDismissSessionDetail: () -> Unit = {},
+    onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit = {},
+    onDismissStrategyProbeCandidate: () -> Unit = {},
+    onSelectApproachMode: (DiagnosticsApproachMode) -> Unit = {},
+    onSelectApproach: (String) -> Unit = {},
+    onDismissApproachDetail: () -> Unit = {},
+    onSelectEvent: (String) -> Unit = {},
+    onDismissEventDetail: () -> Unit = {},
+    onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit = {},
+    onDismissProbeDetail: () -> Unit = {},
+    onToggleSensitiveSessionDetails: () -> Unit = {},
+    onSessionPathFilter: (String?) -> Unit = {},
+    onSessionStatusFilter: (String?) -> Unit = {},
+    onSessionSearch: (String) -> Unit = {},
+    onToggleEventFilter: (String?, String?) -> Unit = { _, _ -> },
+    onEventSearch: (String) -> Unit = {},
+    onEventAutoScroll: (Boolean) -> Unit = {},
+    onShareSummary: (String?) -> Unit = {},
+    onShareArchive: (String?) -> Unit = {},
+    onSaveArchive: (String?) -> Unit = {},
+    onSaveLogs: () -> Unit = {},
+    onOpenAdvancedSettings: () -> Unit = {},
+    onOpenDnsSettings: () -> Unit = {},
+    onRequestVpnPermission: () -> Unit = {},
+    onOpenHistory: () -> Unit = {},
+    onOpenModeEditor: () -> Unit = {},
+) {
+    DiagnosticsScreen(
+        uiState = uiState,
+        pagerState = pagerState,
+        actions =
+            DiagnosticsScreenActions(
+                onSelectSection = onSelectSection,
+                onSelectProfile = onSelectProfile,
+                onRunRawScan = onRunRawScan,
+                onRunInPathScan = onRunInPathScan,
+                onWaitForHiddenProbeAndRun = onWaitForHiddenProbeAndRun,
+                onCancelHiddenProbeAndRun = onCancelHiddenProbeAndRun,
+                onDismissHiddenProbeConflictDialog = onDismissHiddenProbeConflictDialog,
+                onCancelScan = onCancelScan,
+                onKeepResolverRecommendation = onKeepResolverRecommendation,
+                onSaveResolverRecommendation = onSaveResolverRecommendation,
+                onSelectSession = onSelectSession,
+                onDismissSessionDetail = onDismissSessionDetail,
+                onSelectStrategyProbeCandidate = onSelectStrategyProbeCandidate,
+                onDismissStrategyProbeCandidate = onDismissStrategyProbeCandidate,
+                onSelectApproachMode = onSelectApproachMode,
+                onSelectApproach = onSelectApproach,
+                onDismissApproachDetail = onDismissApproachDetail,
+                onSelectEvent = onSelectEvent,
+                onDismissEventDetail = onDismissEventDetail,
+                onSelectProbe = onSelectProbe,
+                onDismissProbeDetail = onDismissProbeDetail,
+                onToggleSensitiveSessionDetails = onToggleSensitiveSessionDetails,
+                onSessionPathFilter = onSessionPathFilter,
+                onSessionStatusFilter = onSessionStatusFilter,
+                onSessionSearch = onSessionSearch,
+                onToggleEventFilter = onToggleEventFilter,
+                onEventSearch = onEventSearch,
+                onEventAutoScroll = onEventAutoScroll,
+                onShareSummary = onShareSummary,
+                onShareArchive = onShareArchive,
+                onSaveArchive = onSaveArchive,
+                onSaveLogs = onSaveLogs,
+                onOpenAdvancedSettings = onOpenAdvancedSettings,
+                onOpenDnsSettings = onOpenDnsSettings,
+                onRequestVpnPermission = onRequestVpnPermission,
+                onOpenHistory = onOpenHistory,
+                onOpenModeEditor = onOpenModeEditor,
+            ),
+    )
+}
 
 @Suppress("LargeClass")
 @RunWith(RobolectricTestRunner::class)

@@ -77,7 +77,6 @@ internal fun rememberAdaptiveFakeTtlModeOptions(
         }
     }.toImmutableList()
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun AdaptiveFakeTtlProfileCard(
     uiState: SettingsUiState,
@@ -88,91 +87,6 @@ internal fun AdaptiveFakeTtlProfileCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberAdaptiveFakeTtlStatus(uiState)
-    val modeSummary =
-        when (uiState.fake.adaptiveFakeTtlMode) {
-            AdaptiveFakeTtlModeAdaptive -> {
-                stringResource(R.string.adaptive_fake_ttl_summary_mode_adaptive)
-            }
-
-            AdaptiveFakeTtlModeCustom -> {
-                stringResource(R.string.adaptive_fake_ttl_summary_mode_custom, uiState.fake.adaptiveFakeTtlDelta)
-            }
-
-            else -> {
-                stringResource(R.string.adaptive_fake_ttl_summary_mode_fixed)
-            }
-        }
-    val windowSummary =
-        if (uiState.fake.hasAdaptiveFakeTtl) {
-            stringResource(
-                R.string.adaptive_fake_ttl_summary_window_value,
-                uiState.fake.adaptiveFakeTtlMin,
-                uiState.fake.adaptiveFakeTtlMax,
-            )
-        } else {
-            stringResource(R.string.adaptive_fake_ttl_summary_window_fixed)
-        }
-    val fallbackSummary =
-        if (uiState.fake.hasAdaptiveFakeTtl) {
-            stringResource(R.string.adaptive_fake_ttl_summary_fallback_value, uiState.fake.adaptiveFakeTtlFallback)
-        } else {
-            stringResource(R.string.adaptive_fake_ttl_summary_fallback_fixed, uiState.fake.fakeTtl)
-        }
-    val scopeSummary =
-        when {
-            uiState.enableCmdSettings -> stringResource(R.string.adaptive_fake_ttl_scope_cli)
-            !uiState.fakeTtlControlsRelevant -> stringResource(R.string.adaptive_fake_ttl_scope_idle)
-            uiState.fake.hasAdaptiveFakeTtl -> stringResource(R.string.adaptive_fake_ttl_scope_adaptive)
-            else -> stringResource(R.string.adaptive_fake_ttl_scope_fixed)
-        }
-    val targetLabels =
-        buildList {
-            if (uiState.isFake) add(stringResource(R.string.adaptive_fake_ttl_targets_fake))
-            if (uiState.hasHostFake) add(stringResource(R.string.adaptive_fake_ttl_targets_hostfake))
-            if (uiState.hasDisoob) add(stringResource(R.string.adaptive_fake_ttl_targets_disoob))
-        }
-    val targetSummary =
-        if (targetLabels.isEmpty()) {
-            stringResource(R.string.adaptive_fake_ttl_targets_none)
-        } else {
-            targetLabels.joinToString()
-        }
-    val learningSummary =
-        if (uiState.fake.hasAdaptiveFakeTtl) {
-            stringResource(R.string.adaptive_fake_ttl_learning_runtime)
-        } else {
-            stringResource(R.string.adaptive_fake_ttl_learning_fixed)
-        }
-    val badges =
-        buildList {
-            add(
-                (
-                    when (uiState.fake.adaptiveFakeTtlMode) {
-                        AdaptiveFakeTtlModeAdaptive -> stringResource(R.string.adaptive_fake_ttl_badge_adaptive)
-                        AdaptiveFakeTtlModeCustom -> stringResource(R.string.adaptive_fake_ttl_badge_custom)
-                        else -> stringResource(R.string.adaptive_fake_ttl_badge_fixed)
-                    }
-                ) to
-                    when (uiState.fake.adaptiveFakeTtlMode) {
-                        AdaptiveFakeTtlModeAdaptive -> SummaryCapsuleTone.Active
-                        AdaptiveFakeTtlModeCustom -> SummaryCapsuleTone.Info
-                        else -> SummaryCapsuleTone.Neutral
-                    },
-            )
-            add(stringResource(R.string.adaptive_fake_ttl_badge_tcp_only) to SummaryCapsuleTone.Info)
-            if (uiState.fake.hasAdaptiveFakeTtl) {
-                add(stringResource(R.string.adaptive_fake_ttl_badge_runtime_learned) to SummaryCapsuleTone.Active)
-            }
-            if (uiState.isFake) {
-                add(stringResource(R.string.adaptive_fake_ttl_badge_fake) to SummaryCapsuleTone.Active)
-            }
-            if (uiState.hasHostFake) {
-                add(stringResource(R.string.adaptive_fake_ttl_badge_hostfake) to SummaryCapsuleTone.Info)
-            }
-            if (uiState.hasDisoob) {
-                add(stringResource(R.string.adaptive_fake_ttl_badge_disoob) to SummaryCapsuleTone.Warning)
-            }
-        }
 
     RipDpiCard(
         modifier = modifier,
@@ -187,69 +101,189 @@ internal fun AdaptiveFakeTtlProfileCard(
             style = type.secondaryBody,
             color = colors.foreground,
         )
-        SummaryCapsuleFlow(items = badges)
+        SummaryCapsuleFlow(items = adaptiveFakeTtlBadges(uiState))
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            ProfileSummaryLine(
-                label = stringResource(R.string.adaptive_fake_ttl_summary_label_mode),
-                value = modeSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.adaptive_fake_ttl_summary_label_window),
-                value = windowSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.adaptive_fake_ttl_summary_label_fallback),
-                value = fallbackSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.adaptive_fake_ttl_summary_label_scope),
-                value = scopeSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.adaptive_fake_ttl_summary_label_targets),
-                value = targetSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.adaptive_fake_ttl_summary_label_learning),
-                value = learningSummary,
-            )
+            AdaptiveFakeTtlSummaryLines(uiState)
         }
-        if (uiState.canResetAdaptiveFakeTtlProfile) {
-            var showResetDialog by remember { mutableStateOf(false) }
+        AdaptiveFakeTtlResetAction(uiState, onResetAdaptiveFakeTtlProfile)
+    }
+}
 
-            if (showResetDialog) {
-                RipDpiDialog(
-                    onDismissRequest = { showResetDialog = false },
-                    title = stringResource(R.string.confirm_reset_adaptive_fake_ttl_title),
-                    dismissAction =
-                        RipDpiDialogAction(
-                            label = stringResource(R.string.confirm_reset_adaptive_fake_ttl_dismiss),
-                            onClick = { showResetDialog = false },
-                        ),
-                    confirmAction =
-                        RipDpiDialogAction(
-                            label = stringResource(R.string.confirm_reset_adaptive_fake_ttl_confirm),
-                            onClick = {
-                                showResetDialog = false
-                                onResetAdaptiveFakeTtlProfile()
-                            },
-                        ),
-                    visuals =
-                        RipDpiDialogVisuals(
-                            message = stringResource(R.string.confirm_reset_adaptive_fake_ttl_body),
-                            tone = RipDpiDialogTone.Destructive,
-                        ),
-                )
-            }
+@Composable
+private fun AdaptiveFakeTtlSummaryLines(uiState: SettingsUiState) {
+    ProfileSummaryLine(
+        label = stringResource(R.string.adaptive_fake_ttl_summary_label_mode),
+        value = adaptiveFakeTtlModeSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.adaptive_fake_ttl_summary_label_window),
+        value = adaptiveFakeTtlWindowSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.adaptive_fake_ttl_summary_label_fallback),
+        value = adaptiveFakeTtlFallbackSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.adaptive_fake_ttl_summary_label_scope),
+        value = adaptiveFakeTtlScopeSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.adaptive_fake_ttl_summary_label_targets),
+        value = adaptiveFakeTtlTargetSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.adaptive_fake_ttl_summary_label_learning),
+        value = adaptiveFakeTtlLearningSummary(uiState),
+    )
+}
 
-            RipDpiButton(
-                text = stringResource(R.string.adaptive_fake_ttl_reset_action),
-                onClick = { showResetDialog = true },
-                variant = RipDpiButtonVariant.Outline,
-                modifier = Modifier.align(Alignment.End),
-            )
+@Composable
+private fun adaptiveFakeTtlModeSummary(uiState: SettingsUiState): String =
+    when (uiState.fake.adaptiveFakeTtlMode) {
+        AdaptiveFakeTtlModeAdaptive -> {
+            stringResource(R.string.adaptive_fake_ttl_summary_mode_adaptive)
+        }
+
+        AdaptiveFakeTtlModeCustom -> {
+            stringResource(R.string.adaptive_fake_ttl_summary_mode_custom, uiState.fake.adaptiveFakeTtlDelta)
+        }
+
+        else -> {
+            stringResource(R.string.adaptive_fake_ttl_summary_mode_fixed)
         }
     }
+
+@Composable
+private fun adaptiveFakeTtlWindowSummary(uiState: SettingsUiState): String =
+    if (uiState.fake.hasAdaptiveFakeTtl) {
+        stringResource(
+            R.string.adaptive_fake_ttl_summary_window_value,
+            uiState.fake.adaptiveFakeTtlMin,
+            uiState.fake.adaptiveFakeTtlMax,
+        )
+    } else {
+        stringResource(R.string.adaptive_fake_ttl_summary_window_fixed)
+    }
+
+@Composable
+private fun adaptiveFakeTtlFallbackSummary(uiState: SettingsUiState): String =
+    if (uiState.fake.hasAdaptiveFakeTtl) {
+        stringResource(R.string.adaptive_fake_ttl_summary_fallback_value, uiState.fake.adaptiveFakeTtlFallback)
+    } else {
+        stringResource(R.string.adaptive_fake_ttl_summary_fallback_fixed, uiState.fake.fakeTtl)
+    }
+
+@Composable
+private fun adaptiveFakeTtlScopeSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.enableCmdSettings -> stringResource(R.string.adaptive_fake_ttl_scope_cli)
+        !uiState.fakeTtlControlsRelevant -> stringResource(R.string.adaptive_fake_ttl_scope_idle)
+        uiState.fake.hasAdaptiveFakeTtl -> stringResource(R.string.adaptive_fake_ttl_scope_adaptive)
+        else -> stringResource(R.string.adaptive_fake_ttl_scope_fixed)
+    }
+
+@Composable
+private fun adaptiveFakeTtlTargetSummary(uiState: SettingsUiState): String {
+    val targetLabels =
+        buildList {
+            if (uiState.isFake) add(stringResource(R.string.adaptive_fake_ttl_targets_fake))
+            if (uiState.hasHostFake) add(stringResource(R.string.adaptive_fake_ttl_targets_hostfake))
+            if (uiState.hasDisoob) add(stringResource(R.string.adaptive_fake_ttl_targets_disoob))
+        }
+    return targetLabels.ifEmpty { listOf(stringResource(R.string.adaptive_fake_ttl_targets_none)) }.joinToString()
+}
+
+@Composable
+private fun adaptiveFakeTtlLearningSummary(uiState: SettingsUiState): String =
+    if (uiState.fake.hasAdaptiveFakeTtl) {
+        stringResource(R.string.adaptive_fake_ttl_learning_runtime)
+    } else {
+        stringResource(R.string.adaptive_fake_ttl_learning_fixed)
+    }
+
+@Composable
+private fun adaptiveFakeTtlBadges(uiState: SettingsUiState): List<Pair<String, SummaryCapsuleTone>> =
+    buildList {
+        add(adaptiveFakeTtlModeBadge(uiState))
+        add(stringResource(R.string.adaptive_fake_ttl_badge_tcp_only) to SummaryCapsuleTone.Info)
+        if (uiState.fake.hasAdaptiveFakeTtl) {
+            add(stringResource(R.string.adaptive_fake_ttl_badge_runtime_learned) to SummaryCapsuleTone.Active)
+        }
+        if (uiState.isFake) {
+            add(stringResource(R.string.adaptive_fake_ttl_badge_fake) to SummaryCapsuleTone.Active)
+        }
+        if (uiState.hasHostFake) {
+            add(stringResource(R.string.adaptive_fake_ttl_badge_hostfake) to SummaryCapsuleTone.Info)
+        }
+        if (uiState.hasDisoob) {
+            add(stringResource(R.string.adaptive_fake_ttl_badge_disoob) to SummaryCapsuleTone.Warning)
+        }
+    }
+
+@Composable
+private fun adaptiveFakeTtlModeBadge(uiState: SettingsUiState): Pair<String, SummaryCapsuleTone> =
+    when (uiState.fake.adaptiveFakeTtlMode) {
+        AdaptiveFakeTtlModeAdaptive -> {
+            stringResource(R.string.adaptive_fake_ttl_badge_adaptive) to SummaryCapsuleTone.Active
+        }
+
+        AdaptiveFakeTtlModeCustom -> {
+            stringResource(R.string.adaptive_fake_ttl_badge_custom) to SummaryCapsuleTone.Info
+        }
+
+        else -> {
+            stringResource(R.string.adaptive_fake_ttl_badge_fixed) to SummaryCapsuleTone.Neutral
+        }
+    }
+
+@Composable
+private fun AdaptiveFakeTtlResetAction(
+    uiState: SettingsUiState,
+    onResetAdaptiveFakeTtlProfile: () -> Unit,
+) {
+    if (!uiState.canResetAdaptiveFakeTtlProfile) return
+    var showResetDialog by remember { mutableStateOf(false) }
+    if (showResetDialog) {
+        AdaptiveFakeTtlResetDialog(
+            onDismiss = { showResetDialog = false },
+            onConfirm = {
+                showResetDialog = false
+                onResetAdaptiveFakeTtlProfile()
+            },
+        )
+    }
+    RipDpiButton(
+        text = stringResource(R.string.adaptive_fake_ttl_reset_action),
+        onClick = { showResetDialog = true },
+        variant = RipDpiButtonVariant.Outline,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun AdaptiveFakeTtlResetDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.confirm_reset_adaptive_fake_ttl_title),
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_reset_adaptive_fake_ttl_dismiss),
+                onClick = onDismiss,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_reset_adaptive_fake_ttl_confirm),
+                onClick = onConfirm,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.confirm_reset_adaptive_fake_ttl_body),
+                tone = RipDpiDialogTone.Destructive,
+            ),
+    )
 }
 
 @Composable

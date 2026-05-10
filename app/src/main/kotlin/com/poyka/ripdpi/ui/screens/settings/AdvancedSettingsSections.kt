@@ -260,7 +260,6 @@ internal fun LazyListScope.commandLineOverridesSection(
     }
 }
 
-@Suppress("LongMethod")
 internal fun LazyListScope.proxySection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -272,91 +271,143 @@ internal fun LazyListScope.proxySection(
             title = stringResource(R.string.ripdpi_proxy),
             testTag = RipDpiTestTags.advancedSection("proxy"),
         ) {
-            RipDpiCard {
-                AdvancedTextSetting(
-                    title = stringResource(R.string.bye_dpi_proxy_ip_setting),
-                    description = stringResource(R.string.config_proxy_helper),
-                    value = uiState.proxy.proxyIp,
-                    placeholder = stringResource(R.string.config_placeholder_proxy_ip),
-                    enabled = visualEditorEnabled,
-                    validator = ::checkIp,
-                    invalidMessage = stringResource(R.string.config_error_invalid_proxy_ip),
-                    disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                    setting = AdvancedTextSetting.ProxyIp,
-                    onConfirm = onTextConfirmed,
-                    showDivider = true,
-                )
-                AdvancedTextSetting(
-                    title = stringResource(R.string.ripdpi_proxy_port_setting),
-                    description = stringResource(R.string.config_port_helper),
-                    value = uiState.proxy.proxyPort.toString(),
-                    placeholder = stringResource(R.string.config_placeholder_proxy_port),
-                    enabled = visualEditorEnabled,
-                    validator = ::validatePort,
-                    invalidMessage = stringResource(R.string.config_error_invalid_port),
-                    disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                    keyboardOptions =
-                        KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done,
-                        ),
-                    setting = AdvancedTextSetting.ProxyPort,
-                    onConfirm = onTextConfirmed,
-                    showDivider = true,
-                )
-                AdvancedTextSetting(
-                    title = stringResource(R.string.ripdpi_max_connections_setting),
-                    description = stringResource(R.string.config_max_connections_helper),
-                    value = uiState.proxy.maxConnections.toString(),
-                    enabled = visualEditorEnabled,
-                    validator = { validateIntRange(it, 1, Short.MAX_VALUE.toInt()) },
-                    invalidMessage = stringResource(R.string.config_error_out_of_range),
-                    disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                    keyboardOptions =
-                        KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done,
-                        ),
-                    setting = AdvancedTextSetting.MaxConnections,
-                    onConfirm = onTextConfirmed,
-                    showDivider = true,
-                )
-                AdvancedTextSetting(
-                    title = stringResource(R.string.ripdpi_buffer_size_setting),
-                    description = stringResource(R.string.config_buffer_helper),
-                    value = uiState.proxy.bufferSize.toString(),
-                    enabled = visualEditorEnabled,
-                    validator = { validateIntRange(it, 1, Int.MAX_VALUE / bufferSizeDiv) },
-                    invalidMessage = stringResource(R.string.config_error_out_of_range),
-                    disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                    keyboardOptions =
-                        KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done,
-                        ),
-                    setting = AdvancedTextSetting.BufferSize,
-                    onConfirm = onTextConfirmed,
-                    showDivider = true,
-                )
-                SettingsRow(
-                    title = stringResource(R.string.ripdpi_no_domain_setting),
-                    checked = uiState.proxy.noDomain,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NoDomain, it) },
-                    enabled = visualEditorEnabled,
-                    showDivider = true,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NoDomain),
-                )
-                SettingsRow(
-                    title = stringResource(R.string.ripdpi_tcp_fast_open_setting),
-                    checked = uiState.proxy.tcpFastOpen,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TcpFastOpen, it) },
-                    enabled = visualEditorEnabled,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.TcpFastOpen),
-                )
-            }
+            ProxySectionCard(
+                uiState = uiState,
+                visualEditorEnabled = visualEditorEnabled,
+                onToggleChanged = onToggleChanged,
+                onTextConfirmed = onTextConfirmed,
+            )
         }
     }
 }
+
+@Composable
+private fun ProxySectionCard(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+    onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
+) {
+    RipDpiCard {
+        AdvancedTextSetting(
+            title = stringResource(R.string.bye_dpi_proxy_ip_setting),
+            description = stringResource(R.string.config_proxy_helper),
+            value = uiState.proxy.proxyIp,
+            placeholder = stringResource(R.string.config_placeholder_proxy_ip),
+            enabled = visualEditorEnabled,
+            validator = ::checkIp,
+            invalidMessage = stringResource(R.string.config_error_invalid_proxy_ip),
+            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+            setting = AdvancedTextSetting.ProxyIp,
+            onConfirm = onTextConfirmed,
+            showDivider = true,
+        )
+        ProxyPortSetting(
+            uiState = uiState,
+            visualEditorEnabled = visualEditorEnabled,
+            onTextConfirmed = onTextConfirmed,
+        )
+        ProxyCapacitySettings(
+            uiState = uiState,
+            visualEditorEnabled = visualEditorEnabled,
+            onTextConfirmed = onTextConfirmed,
+        )
+        ProxyToggleSettings(
+            uiState = uiState,
+            visualEditorEnabled = visualEditorEnabled,
+            onToggleChanged = onToggleChanged,
+        )
+    }
+}
+
+@Composable
+private fun ProxyPortSetting(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
+) {
+    AdvancedTextSetting(
+        title = stringResource(R.string.ripdpi_proxy_port_setting),
+        description = stringResource(R.string.config_port_helper),
+        value = uiState.proxy.proxyPort.toString(),
+        placeholder = stringResource(R.string.config_placeholder_proxy_port),
+        enabled = visualEditorEnabled,
+        validator = ::validatePort,
+        invalidMessage = stringResource(R.string.config_error_invalid_port),
+        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+        keyboardOptions =
+            KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done,
+            ),
+        setting = AdvancedTextSetting.ProxyPort,
+        onConfirm = onTextConfirmed,
+        showDivider = true,
+    )
+}
+
+@Composable
+private fun ProxyCapacitySettings(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
+) {
+    AdvancedTextSetting(
+        title = stringResource(R.string.ripdpi_max_connections_setting),
+        description = stringResource(R.string.config_max_connections_helper),
+        value = uiState.proxy.maxConnections.toString(),
+        enabled = visualEditorEnabled,
+        validator = { validateIntRange(it, 1, Short.MAX_VALUE.toInt()) },
+        invalidMessage = stringResource(R.string.config_error_out_of_range),
+        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+        keyboardOptions = numberKeyboardOptions(),
+        setting = AdvancedTextSetting.MaxConnections,
+        onConfirm = onTextConfirmed,
+        showDivider = true,
+    )
+    AdvancedTextSetting(
+        title = stringResource(R.string.ripdpi_buffer_size_setting),
+        description = stringResource(R.string.config_buffer_helper),
+        value = uiState.proxy.bufferSize.toString(),
+        enabled = visualEditorEnabled,
+        validator = { validateIntRange(it, 1, Int.MAX_VALUE / bufferSizeDiv) },
+        invalidMessage = stringResource(R.string.config_error_out_of_range),
+        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+        keyboardOptions = numberKeyboardOptions(),
+        setting = AdvancedTextSetting.BufferSize,
+        onConfirm = onTextConfirmed,
+        showDivider = true,
+    )
+}
+
+@Composable
+private fun ProxyToggleSettings(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+) {
+    SettingsRow(
+        title = stringResource(R.string.ripdpi_no_domain_setting),
+        checked = uiState.proxy.noDomain,
+        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NoDomain, it) },
+        enabled = visualEditorEnabled,
+        showDivider = true,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NoDomain),
+    )
+    SettingsRow(
+        title = stringResource(R.string.ripdpi_tcp_fast_open_setting),
+        checked = uiState.proxy.tcpFastOpen,
+        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TcpFastOpen, it) },
+        enabled = visualEditorEnabled,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.TcpFastOpen),
+    )
+}
+
+private fun numberKeyboardOptions(): KeyboardOptions =
+    KeyboardOptions(
+        keyboardType = KeyboardType.Number,
+        imeAction = ImeAction.Done,
+    )
 
 internal fun LazyListScope.protocolsSection(
     uiState: SettingsUiState,

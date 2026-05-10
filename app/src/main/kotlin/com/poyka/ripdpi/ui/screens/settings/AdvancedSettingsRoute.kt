@@ -18,7 +18,6 @@ import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 
-@Suppress("LongMethod")
 @Composable
 fun AdvancedSettingsRoute(
     onBack: () -> Unit,
@@ -29,22 +28,40 @@ fun AdvancedSettingsRoute(
     val hostPackCatalog by viewModel.hostPackCatalog.collectAsStateWithLifecycle()
     val strategyPackCatalog by viewModel.strategyPackCatalog.collectAsStateWithLifecycle()
     val binder = remember(viewModel) { AdvancedSettingsBinder(viewModel::updateSetting) }
-    var notice by rememberSaveable(
+    var notice by rememberAdvancedNoticeState()
+    ObserveSettingsEffects(
+        viewModel = viewModel,
+        onNotice = { notice = it },
+    )
+
+    AdvancedSettingsScreen(
+        uiState = uiState,
+        hostPackCatalog = hostPackCatalog,
+        strategyPackCatalog = strategyPackCatalog,
+        notice = notice,
+        actions = rememberAdvancedSettingsActions(onBack, viewModel, binder, uiState),
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun rememberAdvancedNoticeState() =
+    rememberSaveable(
         stateSaver =
             mapSaver(
-                save = { n ->
-                    if (n != null) {
-                        mapOf("t" to n.title, "m" to n.message, "tone" to n.tone.name)
+                save = { notice ->
+                    if (notice != null) {
+                        mapOf("t" to notice.title, "m" to notice.message, "tone" to notice.tone.name)
                     } else {
                         emptyMap()
                     }
                 },
-                restore = { m ->
-                    if (m.isNotEmpty()) {
+                restore = { values ->
+                    if (values.isNotEmpty()) {
                         AdvancedNotice(
-                            title = m["t"] as String,
-                            message = m["m"] as String,
-                            tone = WarningBannerTone.valueOf(m["tone"] as String),
+                            title = values["t"] as String,
+                            message = values["m"] as String,
+                            tone = WarningBannerTone.valueOf(values["tone"] as String),
                         )
                     } else {
                         null
@@ -53,77 +70,61 @@ fun AdvancedSettingsRoute(
             ),
     ) { mutableStateOf<AdvancedNotice?>(null) }
 
+@Composable
+private fun ObserveSettingsEffects(
+    viewModel: SettingsViewModel,
+    onNotice: (AdvancedNotice) -> Unit,
+) {
     val performHaptic = rememberRipDpiHapticPerformer()
 
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             if (effect is SettingsEffect.Notice) {
-                performHaptic(
-                    when (effect.tone) {
-                        SettingsNoticeTone.Error -> RipDpiHapticFeedback.Error
-                        SettingsNoticeTone.Info, SettingsNoticeTone.Warning -> RipDpiHapticFeedback.Acknowledge
-                    },
-                )
-                notice = mapNoticeEffect(effect)
+                performHaptic(settingsNoticeHaptic(effect))
+                onNotice(mapNoticeEffect(effect))
             }
         }
     }
-
-    AdvancedSettingsScreen(
-        uiState = uiState,
-        hostPackCatalog = hostPackCatalog,
-        strategyPackCatalog = strategyPackCatalog,
-        notice = notice,
-        actions =
-            AdvancedSettingsActions(
-                onBack = onBack,
-                onToggleChanged = binder::onToggleChanged,
-                onTextConfirmed = { setting, value ->
-                    binder.onTextConfirmed(
-                        setting = setting,
-                        value = value,
-                        uiState = uiState,
-                    )
-                },
-                onOptionSelected = { setting, value ->
-                    binder.onOptionSelected(
-                        setting = setting,
-                        value = value,
-                        uiState = uiState,
-                    )
-                },
-                onApplyHostPackPreset = remember(viewModel) { viewModel::applyHostPackPreset },
-                onRefreshHostPackCatalog = remember(viewModel) { viewModel::refreshHostPackCatalog },
-                onRefreshStrategyPackCatalog = remember(viewModel) { viewModel::refreshStrategyPackCatalog },
-                onForgetLearnedHosts = remember(viewModel) { viewModel::forgetLearnedHosts },
-                onClearRememberedNetworks = remember(viewModel) { viewModel::clearRememberedNetworks },
-                onWsTunnelModeChanged = binder::onWsTunnelModeChanged,
-                onRotateSalt = remember(viewModel) { viewModel::rotateTelemetrySalt },
-                onSaveActivationRange = { dimension, start, end ->
-                    binder.onSaveActivationRange(
-                        dimension = dimension,
-                        start = start,
-                        end = end,
-                        uiState = uiState,
-                    )
-                },
-                onResetAdaptiveSplit = { binder.onResetAdaptiveSplit(uiState) },
-                onResetAdaptiveFakeTtlProfile = remember(viewModel) { viewModel::resetAdaptiveFakeTtlProfile },
-                onResetActivationWindow = remember(viewModel) { viewModel::resetActivationWindow },
-                onResetHttpParserEvasions = remember(viewModel) { viewModel::resetHttpParserEvasions },
-                onResetFakePayloadLibrary = remember(viewModel) { viewModel::resetFakePayloadLibrary },
-                onResetFakeTlsProfile = remember(viewModel) { viewModel::resetFakeTlsProfile },
-                onRoutingPolicyModeSelected = binder::onRoutingPolicyModeSelected,
-                onDhtMitigationModeSelected = binder::onDhtMitigationModeSelected,
-                onAntiCorrelationEnabledChanged = binder::onAntiCorrelationEnabledChanged,
-                onAppRoutingPresetEnabledChanged = { presetId, enabled ->
-                    binder.onAppRoutingPresetEnabledChanged(
-                        presetId = presetId,
-                        enabled = enabled,
-                        uiState = uiState,
-                    )
-                },
-            ),
-        modifier = modifier,
-    )
 }
+
+private fun settingsNoticeHaptic(effect: SettingsEffect.Notice): RipDpiHapticFeedback =
+    when (effect.tone) {
+        SettingsNoticeTone.Error -> RipDpiHapticFeedback.Error
+        SettingsNoticeTone.Info, SettingsNoticeTone.Warning -> RipDpiHapticFeedback.Acknowledge
+    }
+
+@Composable
+private fun rememberAdvancedSettingsActions(
+    onBack: () -> Unit,
+    viewModel: SettingsViewModel,
+    binder: AdvancedSettingsBinder,
+    uiState: com.poyka.ripdpi.ui.state.SettingsUiState,
+): AdvancedSettingsActions =
+    AdvancedSettingsActions(
+        onBack = onBack,
+        onToggleChanged = binder::onToggleChanged,
+        onTextConfirmed = { setting, value -> binder.onTextConfirmed(setting, value, uiState) },
+        onOptionSelected = { setting, value -> binder.onOptionSelected(setting, value, uiState) },
+        onApplyHostPackPreset = remember(viewModel) { viewModel::applyHostPackPreset },
+        onRefreshHostPackCatalog = remember(viewModel) { viewModel::refreshHostPackCatalog },
+        onRefreshStrategyPackCatalog = remember(viewModel) { viewModel::refreshStrategyPackCatalog },
+        onForgetLearnedHosts = remember(viewModel) { viewModel::forgetLearnedHosts },
+        onClearRememberedNetworks = remember(viewModel) { viewModel::clearRememberedNetworks },
+        onWsTunnelModeChanged = binder::onWsTunnelModeChanged,
+        onRotateSalt = remember(viewModel) { viewModel::rotateTelemetrySalt },
+        onSaveActivationRange = { dimension, start, end ->
+            binder.onSaveActivationRange(dimension, start, end, uiState)
+        },
+        onResetAdaptiveSplit = { binder.onResetAdaptiveSplit(uiState) },
+        onResetAdaptiveFakeTtlProfile = remember(viewModel) { viewModel::resetAdaptiveFakeTtlProfile },
+        onResetActivationWindow = remember(viewModel) { viewModel::resetActivationWindow },
+        onResetHttpParserEvasions = remember(viewModel) { viewModel::resetHttpParserEvasions },
+        onResetFakePayloadLibrary = remember(viewModel) { viewModel::resetFakePayloadLibrary },
+        onResetFakeTlsProfile = remember(viewModel) { viewModel::resetFakeTlsProfile },
+        onRoutingPolicyModeSelected = binder::onRoutingPolicyModeSelected,
+        onDhtMitigationModeSelected = binder::onDhtMitigationModeSelected,
+        onAntiCorrelationEnabledChanged = binder::onAntiCorrelationEnabledChanged,
+        onAppRoutingPresetEnabledChanged = { presetId, enabled ->
+            binder.onAppRoutingPresetEnabledChanged(presetId, enabled, uiState)
+        },
+    )

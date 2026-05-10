@@ -403,6 +403,7 @@ internal class DiagnosticsScanActions(
                         handleStartedScan(
                             sessionId = result.sessionId,
                             request = request,
+                            scanLifecycle = scanLifecycle,
                         )
                     }
 
@@ -431,46 +432,13 @@ internal class DiagnosticsScanActions(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
-                handleStartFailure(error)
+                handleScanStartFailure(
+                    error = error,
+                    scanLifecycle = scanLifecycle,
+                    appContext = appContext,
+                )
             }
         }
-    }
-
-    private suspend fun DiagnosticsMutationRunner.handleStartFailure(error: Throwable) {
-        scanLifecycle.update {
-            it.copy(
-                scanStartedAt = null,
-                activeScanPathMode = null,
-                activeScanKind = null,
-                pendingAutoOpenAuditSessionId = null,
-                accumulatedProbes = persistentListOf(),
-                hiddenProbeConflictDialog = null,
-                sensitiveProfileConsentDialog = null,
-                queuedManualScanRequest = null,
-            )
-        }
-        emit(
-            DiagnosticsEffect.ScanStartFailed(
-                message =
-                    when ((error as? DiagnosticsScanStartRejectedException)?.reason) {
-                        DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning -> {
-                            appContext.getString(R.string.diagnostics_error_hidden_probe_running)
-                        }
-
-                        DiagnosticsScanStartRejectionReason.SensitiveProfileConsentRequired -> {
-                            appContext.getString(R.string.diagnostics_error_sensitive_profile_consent_required)
-                        }
-
-                        DiagnosticsScanStartRejectionReason.BlockedByLegalSafetyPolicy -> {
-                            appContext.getString(R.string.diagnostics_error_profile_blocked_by_policy)
-                        }
-
-                        else -> {
-                            appContext.getString(R.string.diagnostics_error_start_failed)
-                        }
-                    },
-            ),
-        )
     }
 
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
@@ -484,6 +452,7 @@ internal class DiagnosticsScanActions(
                     handleStartedScan(
                         sessionId = resolution.sessionId,
                         request = request.toManualScanUiRequest(),
+                        scanLifecycle = scanLifecycle,
                     )
                 }
 
@@ -527,24 +496,66 @@ internal class DiagnosticsScanActions(
             )
         }
     }
+}
 
-    private suspend fun DiagnosticsMutationRunner.handleStartedScan(
-        sessionId: String,
-        request: ManualScanUiRequest,
-    ) {
-        scanLifecycle.update {
-            it.copy(
-                scanStartedAt = System.currentTimeMillis(),
-                activeScanPathMode = request.pathMode,
-                activeScanKind = request.scanKind,
-                pendingAutoOpenAuditSessionId = if (request.isFullAudit) sessionId else null,
-                hiddenProbeConflictDialog = null,
-                sensitiveProfileConsentDialog = null,
-                queuedManualScanRequest = null,
-            )
-        }
-        emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = request.profileName))
+private suspend fun DiagnosticsMutationRunner.handleStartedScan(
+    sessionId: String,
+    request: ManualScanUiRequest,
+    scanLifecycle: MutableStateFlow<ScanLifecycleState>,
+) {
+    scanLifecycle.update {
+        it.copy(
+            scanStartedAt = System.currentTimeMillis(),
+            activeScanPathMode = request.pathMode,
+            activeScanKind = request.scanKind,
+            pendingAutoOpenAuditSessionId = if (request.isFullAudit) sessionId else null,
+            hiddenProbeConflictDialog = null,
+            sensitiveProfileConsentDialog = null,
+            queuedManualScanRequest = null,
+        )
     }
+    emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = request.profileName))
+}
+
+private suspend fun DiagnosticsMutationRunner.handleScanStartFailure(
+    error: Throwable,
+    scanLifecycle: MutableStateFlow<ScanLifecycleState>,
+    appContext: Context,
+) {
+    scanLifecycle.update {
+        it.copy(
+            scanStartedAt = null,
+            activeScanPathMode = null,
+            activeScanKind = null,
+            pendingAutoOpenAuditSessionId = null,
+            accumulatedProbes = persistentListOf(),
+            hiddenProbeConflictDialog = null,
+            sensitiveProfileConsentDialog = null,
+            queuedManualScanRequest = null,
+        )
+    }
+    emit(
+        DiagnosticsEffect.ScanStartFailed(
+            message =
+                when ((error as? DiagnosticsScanStartRejectedException)?.reason) {
+                    DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning -> {
+                        appContext.getString(R.string.diagnostics_error_hidden_probe_running)
+                    }
+
+                    DiagnosticsScanStartRejectionReason.SensitiveProfileConsentRequired -> {
+                        appContext.getString(R.string.diagnostics_error_sensitive_profile_consent_required)
+                    }
+
+                    DiagnosticsScanStartRejectionReason.BlockedByLegalSafetyPolicy -> {
+                        appContext.getString(R.string.diagnostics_error_profile_blocked_by_policy)
+                    }
+
+                    else -> {
+                        appContext.getString(R.string.diagnostics_error_start_failed)
+                    }
+                },
+        ),
+    )
 }
 
 private data class ManualScanUiRequest(

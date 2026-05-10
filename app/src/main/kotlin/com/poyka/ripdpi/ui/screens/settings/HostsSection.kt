@@ -136,7 +136,12 @@ private data class HostPackCatalogStatusContent(
     val tone: StatusIndicatorTone,
 )
 
-@Suppress("LongMethod")
+private data class HostPackCatalogMetadata(
+    val generatedAt: String?,
+    val lastFetchedAt: String?,
+    val lastRefreshAttempt: String?,
+)
+
 @Composable
 internal fun HostPackCatalogStatusCard(
     hostPackCatalog: HostPackCatalogUiState,
@@ -147,52 +152,8 @@ internal fun HostPackCatalogStatusCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberHostPackCatalogStatus(hostPackCatalog)
-    val generatedAt =
-        remember(hostPackCatalog.snapshot.catalog.generatedAt) {
-            formatHostPackGeneratedAt(hostPackCatalog.snapshot.catalog.generatedAt)
-        }
-    val lastFetchedAt =
-        remember(hostPackCatalog.snapshot.lastFetchedAtEpochMillis) {
-            hostPackCatalog.snapshot.lastFetchedAtEpochMillis?.let(::formatHostPackFetchedAt)
-        }
-    val lastRefreshAttempt =
-        remember(hostPackCatalog.lastRefreshAttemptAtEpochMillis) {
-            hostPackCatalog.lastRefreshAttemptAtEpochMillis?.let(::formatHostPackFetchedAt)
-        }
-    val downloadedBadge = stringResource(R.string.host_pack_badge_downloaded)
-    val bundledBadge = stringResource(R.string.host_pack_badge_bundled)
-    val packCountBadge = stringResource(R.string.host_pack_packs_badge, hostPackCatalog.snapshot.packs.size)
-    val verifiedBadge = stringResource(R.string.host_pack_badge_checksum_verified)
-    val offlineBadge = stringResource(R.string.host_pack_badge_offline_snapshot)
-    val badges =
-        remember(
-            hostPackCatalog.snapshot.source,
-            hostPackCatalog.snapshot.packs.size,
-            hostPackCatalog.snapshot.lastFetchedAtEpochMillis,
-            downloadedBadge,
-            bundledBadge,
-            packCountBadge,
-            verifiedBadge,
-            offlineBadge,
-        ) {
-            buildList {
-                add(
-                    if (hostPackCatalog.snapshot.source == HostPackCatalogSourceDownloaded) {
-                        downloadedBadge to SummaryCapsuleTone.Active
-                    } else {
-                        bundledBadge to SummaryCapsuleTone.Info
-                    },
-                )
-                add(packCountBadge to SummaryCapsuleTone.Neutral)
-                add(
-                    if (hostPackCatalog.snapshot.lastFetchedAtEpochMillis != null) {
-                        verifiedBadge to SummaryCapsuleTone.Active
-                    } else {
-                        offlineBadge to SummaryCapsuleTone.Neutral
-                    },
-                )
-            }
-        }
+    val metadata = rememberHostPackCatalogMetadata(hostPackCatalog)
+    val badges = hostPackCatalogBadges(hostPackCatalog)
 
     RipDpiCard(
         modifier = modifier,
@@ -208,7 +169,7 @@ internal fun HostPackCatalogStatusCard(
             color = colors.foreground,
         )
         SummaryCapsuleFlow(items = badges)
-        generatedAt?.let {
+        metadata.generatedAt?.let {
             ProfileSummaryLine(
                 label = stringResource(R.string.host_pack_snapshot_built_label),
                 value = it,
@@ -216,11 +177,11 @@ internal fun HostPackCatalogStatusCard(
         }
         ProfileSummaryLine(
             label = stringResource(R.string.host_pack_last_fetch_label),
-            value = lastFetchedAt ?: stringResource(R.string.host_pack_last_fetch_never),
+            value = metadata.lastFetchedAt ?: stringResource(R.string.host_pack_last_fetch_never),
         )
         ProfileSummaryLine(
             label = stringResource(R.string.host_pack_last_refresh_attempt_label),
-            value = lastRefreshAttempt ?: stringResource(R.string.host_pack_last_refresh_attempt_never),
+            value = metadata.lastRefreshAttempt ?: stringResource(R.string.host_pack_last_refresh_attempt_never),
         )
         hostPackCatalog.lastRefreshFailureMessage
             ?.takeIf { hostPackCatalog.lastRefreshFailureCode != null }
@@ -236,23 +197,80 @@ internal fun HostPackCatalogStatusCard(
             style = type.caption,
             color = colors.mutedForeground,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            RipDpiButton(
-                text =
-                    if (hostPackCatalog.isRefreshing) {
-                        stringResource(R.string.host_pack_refresh_in_progress)
-                    } else {
-                        stringResource(R.string.host_pack_refresh_action)
-                    },
-                onClick = onRefreshCatalog,
-                enabled = hostPackRefreshEnabled(hostPackCatalog),
-                loading = hostPackCatalog.isRefreshing,
-                variant = RipDpiButtonVariant.Outline,
-            )
+        HostPackRefreshButton(
+            hostPackCatalog = hostPackCatalog,
+            onRefreshCatalog = onRefreshCatalog,
+        )
+    }
+}
+
+@Composable
+private fun rememberHostPackCatalogMetadata(hostPackCatalog: HostPackCatalogUiState): HostPackCatalogMetadata {
+    val generatedAt =
+        remember(hostPackCatalog.snapshot.catalog.generatedAt) {
+            formatHostPackGeneratedAt(hostPackCatalog.snapshot.catalog.generatedAt)
         }
+    val lastFetchedAt =
+        remember(hostPackCatalog.snapshot.lastFetchedAtEpochMillis) {
+            hostPackCatalog.snapshot.lastFetchedAtEpochMillis?.let(::formatHostPackFetchedAt)
+        }
+    val lastRefreshAttempt =
+        remember(hostPackCatalog.lastRefreshAttemptAtEpochMillis) {
+            hostPackCatalog.lastRefreshAttemptAtEpochMillis?.let(::formatHostPackFetchedAt)
+        }
+    return HostPackCatalogMetadata(
+        generatedAt = generatedAt,
+        lastFetchedAt = lastFetchedAt,
+        lastRefreshAttempt = lastRefreshAttempt,
+    )
+}
+
+@Composable
+private fun hostPackCatalogBadges(hostPackCatalog: HostPackCatalogUiState): List<Pair<String, SummaryCapsuleTone>> =
+    listOf(
+        hostPackCatalogSourceBadge(hostPackCatalog),
+        stringResource(R.string.host_pack_packs_badge, hostPackCatalog.snapshot.packs.size) to
+            SummaryCapsuleTone.Neutral,
+        hostPackCatalogFreshnessBadge(hostPackCatalog),
+    )
+
+@Composable
+private fun hostPackCatalogSourceBadge(hostPackCatalog: HostPackCatalogUiState): Pair<String, SummaryCapsuleTone> =
+    if (hostPackCatalog.snapshot.source == HostPackCatalogSourceDownloaded) {
+        stringResource(R.string.host_pack_badge_downloaded) to SummaryCapsuleTone.Active
+    } else {
+        stringResource(R.string.host_pack_badge_bundled) to SummaryCapsuleTone.Info
+    }
+
+@Composable
+private fun hostPackCatalogFreshnessBadge(hostPackCatalog: HostPackCatalogUiState): Pair<String, SummaryCapsuleTone> =
+    if (hostPackCatalog.snapshot.lastFetchedAtEpochMillis != null) {
+        stringResource(R.string.host_pack_badge_checksum_verified) to SummaryCapsuleTone.Active
+    } else {
+        stringResource(R.string.host_pack_badge_offline_snapshot) to SummaryCapsuleTone.Neutral
+    }
+
+@Composable
+private fun HostPackRefreshButton(
+    hostPackCatalog: HostPackCatalogUiState,
+    onRefreshCatalog: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+    ) {
+        RipDpiButton(
+            text =
+                if (hostPackCatalog.isRefreshing) {
+                    stringResource(R.string.host_pack_refresh_in_progress)
+                } else {
+                    stringResource(R.string.host_pack_refresh_action)
+                },
+            onClick = onRefreshCatalog,
+            enabled = hostPackRefreshEnabled(hostPackCatalog),
+            loading = hostPackCatalog.isRefreshing,
+            variant = RipDpiButtonVariant.Outline,
+        )
     }
 }
 

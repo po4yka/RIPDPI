@@ -27,6 +27,14 @@ private const val MaxTtl = 255
 private const val AdaptiveTtlDeltaSentinel = -1
 private const val MaxOobDataLength = 1
 
+private sealed interface PrimaryDesyncMethodChoice {
+    data class Selected(
+        val kind: TcpChainStepKind?,
+    ) : PrimaryDesyncMethodChoice
+
+    data object Unsupported : PrimaryDesyncMethodChoice
+}
+
 internal class DesyncSettingsMutationWriter(
     update: (String, String, SettingsMutation) -> Unit,
 ) : AdvancedSettingsMutationWriter(update) {
@@ -306,7 +314,6 @@ internal class DesyncSettingsMutationWriter(
         }
     }
 
-    @Suppress("ReturnCount")
     fun updatePrimaryDesyncMethod(
         value: String,
         uiState: SettingsUiState,
@@ -316,46 +323,17 @@ internal class DesyncSettingsMutationWriter(
         }
 
         val primaryIndex = uiState.desync.tcpChainSteps.indexOfFirst { !it.kind.isTlsPrelude }
-        val replacementKind =
-            when (value) {
-                "none" -> {
-                    null
-                }
+        val choice =
+            resolvePrimaryDesyncMethod(
+                value = value,
+                currentKind =
+                    uiState.desync.tcpChainSteps
+                        .getOrNull(primaryIndex)
+                        ?.kind,
+            )
+        if (choice is PrimaryDesyncMethodChoice.Unsupported) return
 
-                "split" -> {
-                    TcpChainStepKind.Split
-                }
-
-                TcpChainStepKind.SeqOverlap.wireName -> {
-                    uiState.desync.tcpChainSteps.getOrNull(primaryIndex)?.kind?.takeIf {
-                        it == TcpChainStepKind.SeqOverlap
-                    } ?: return
-                }
-
-                "disorder" -> {
-                    TcpChainStepKind.Disorder
-                }
-
-                TcpChainStepKind.MultiDisorder.wireName -> {
-                    return
-                }
-
-                "fake" -> {
-                    TcpChainStepKind.Fake
-                }
-
-                "oob" -> {
-                    TcpChainStepKind.Oob
-                }
-
-                "disoob" -> {
-                    TcpChainStepKind.Disoob
-                }
-
-                else -> {
-                    return
-                }
-            }
+        val replacementKind = (choice as PrimaryDesyncMethodChoice.Selected).kind
         val updatedTcpSteps =
             when {
                 primaryIndex >= 0 && replacementKind != null -> {
@@ -389,3 +367,45 @@ internal class DesyncSettingsMutationWriter(
         }
     }
 }
+
+private fun resolvePrimaryDesyncMethod(
+    value: String,
+    currentKind: TcpChainStepKind?,
+): PrimaryDesyncMethodChoice =
+    when (value) {
+        "none" -> {
+            PrimaryDesyncMethodChoice.Selected(null)
+        }
+
+        "split" -> {
+            PrimaryDesyncMethodChoice.Selected(TcpChainStepKind.Split)
+        }
+
+        TcpChainStepKind.SeqOverlap.wireName -> {
+            if (currentKind == TcpChainStepKind.SeqOverlap) {
+                PrimaryDesyncMethodChoice.Selected(TcpChainStepKind.SeqOverlap)
+            } else {
+                PrimaryDesyncMethodChoice.Unsupported
+            }
+        }
+
+        "disorder" -> {
+            PrimaryDesyncMethodChoice.Selected(TcpChainStepKind.Disorder)
+        }
+
+        "fake" -> {
+            PrimaryDesyncMethodChoice.Selected(TcpChainStepKind.Fake)
+        }
+
+        "oob" -> {
+            PrimaryDesyncMethodChoice.Selected(TcpChainStepKind.Oob)
+        }
+
+        "disoob" -> {
+            PrimaryDesyncMethodChoice.Selected(TcpChainStepKind.Disoob)
+        }
+
+        else -> {
+            PrimaryDesyncMethodChoice.Unsupported
+        }
+    }

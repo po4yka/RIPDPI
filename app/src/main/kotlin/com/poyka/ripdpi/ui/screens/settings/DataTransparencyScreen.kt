@@ -139,19 +139,17 @@ private fun BulletItem(text: String) {
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
-private fun DataTransparencyScreenPreview() {
+private fun previewDataTransparencyScreen() {
     RipDpiTheme(themePreference = "light") {
         DataTransparencyScreen(onBack = {})
     }
 }
 
-@Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
-private fun DataTransparencyScreenDarkPreview() {
+private fun previewDataTransparencyScreenDark() {
     RipDpiTheme(themePreference = "dark") {
         DataTransparencyScreen(onBack = {})
     }

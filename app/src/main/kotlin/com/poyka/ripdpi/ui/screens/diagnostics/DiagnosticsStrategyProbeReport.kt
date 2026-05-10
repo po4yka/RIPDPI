@@ -88,7 +88,6 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun StrategyProbeReportCard(
     report: DiagnosticsStrategyProbeReportUiModel,
@@ -109,194 +108,267 @@ internal fun StrategyProbeReportCard(
     RipDpiCard(
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyProbeReport),
     ) {
-        StatusIndicator(
-            label = presentation.statusLabel,
-            tone = statusTone(presentation.statusTone),
+        StrategyReportHeader(report = report, presentation = presentation)
+        StrategyReportWinningPath(
+            report = report,
+            presentation = presentation,
+            showFullMatrix = showFullMatrix,
+            onToggleFullMatrix = { showFullMatrix = !showFullMatrix },
+            onSelectCandidate = onSelectCandidate,
         )
-        Text(
-            text = presentation.matrixTitle.uppercase(),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = colors.foreground,
+        StrategyReportAuditAssessment(report = report, presentation = presentation)
+        StrategyReportBadges(suiteLabel = report.suiteLabel, manualApplyBadge = presentation.manualApplyBadge)
+        StrategyReportSummary(
+            report = report,
+            presentation = presentation,
+            showFullMatrix = showFullMatrix,
         )
+        StrategyReportRecommendation(report = report)
+        StrategyReportFamilyMatrix(
+            report = report,
+            showFullMatrix = showFullMatrix,
+            onSelectCandidate = onSelectCandidate,
+        )
+    }
+}
+
+@Composable
+private fun StrategyReportHeader(
+    report: DiagnosticsStrategyProbeReportUiModel,
+    presentation: DiagnosticsStrategyProbeReportPresentationUiModel,
+) {
+    val colors = RipDpiThemeTokens.colors
+    StatusIndicator(
+        label = presentation.statusLabel,
+        tone = statusTone(presentation.statusTone),
+    )
+    Text(
+        text = presentation.matrixTitle.uppercase(),
+        style = RipDpiThemeTokens.type.sectionTitle,
+        color = colors.foreground,
+    )
+    Text(
+        text = report.recommendation.headline,
+        style = RipDpiThemeTokens.type.bodyEmphasis,
+        color = colors.foreground,
+    )
+    Text(
+        text = report.recommendation.rationale,
+        style = RipDpiThemeTokens.type.secondaryBody,
+        color = colors.mutedForeground,
+    )
+}
+
+@Composable
+private fun StrategyReportWinningPath(
+    report: DiagnosticsStrategyProbeReportUiModel,
+    presentation: DiagnosticsStrategyProbeReportPresentationUiModel,
+    showFullMatrix: Boolean,
+    onToggleFullMatrix: () -> Unit,
+    onSelectCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
+) {
+    val winningPath = report.winningPath?.takeIf { presentation.supportsWinningPath } ?: return
+    HorizontalDivider()
+    WinningPathSection(
+        winningPath = winningPath,
+        onSelectTcpWinner =
+            report.candidateDetails[winningPath.tcpWinner.id]?.let { detail ->
+                { onSelectCandidate(detail) }
+            },
+        onSelectQuicWinner =
+            report.candidateDetails[winningPath.quicWinner.id]?.let { detail ->
+                { onSelectCandidate(detail) }
+            },
+    )
+    RipDpiButton(
+        text =
+            if (showFullMatrix) {
+                stringResource(R.string.diagnostics_audit_hide_full_matrix)
+            } else {
+                stringResource(R.string.diagnostics_audit_show_full_matrix)
+            },
+        onClick = onToggleFullMatrix,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyFullMatrixToggle),
+        variant = RipDpiButtonVariant.Outline,
+    )
+}
+
+@Composable
+private fun StrategyReportAuditAssessment(
+    report: DiagnosticsStrategyProbeReportUiModel,
+    presentation: DiagnosticsStrategyProbeReportPresentationUiModel,
+) {
+    val assessment = report.auditAssessment ?: return
+    val colors = RipDpiThemeTokens.colors
+    HorizontalDivider()
+    RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyAuditAssessment),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.diagnostics_audit_confidence_title),
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            StatusIndicator(
+                label = presentation.auditConfidenceLabel.orEmpty(),
+                tone = statusTone(presentation.auditConfidenceTone ?: DiagnosticsTone.Neutral),
+            )
+        }
         Text(
-            text = report.recommendation.headline,
+            text = assessment.confidence.rationale,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        MetricsRow(metrics = presentation.auditAssessmentMetrics)
+        StrategyReportConfidenceWarnings(assessment = assessment)
+    }
+}
+
+@Composable
+private fun StrategyReportConfidenceWarnings(assessment: StrategyProbeAuditAssessment) {
+    val colors = RipDpiThemeTokens.colors
+    if (assessment.confidence.level == StrategyProbeAuditConfidenceLevel.MEDIUM) {
+        Text(
+            text = stringResource(R.string.diagnostics_audit_medium_confidence_note),
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyAuditMediumConfidenceNote),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.warning,
+        )
+    }
+    assessment.confidence.warnings.forEach { warning ->
+        Text(
+            text = "- $warning",
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+    }
+}
+
+@Composable
+private fun StrategyReportBadges(
+    suiteLabel: String,
+    manualApplyBadge: String,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        items(
+            listOf(
+                suiteLabel to DiagnosticsTone.Info,
+                manualApplyBadge to DiagnosticsTone.Positive,
+            ),
+            key = { it.first },
+            contentType = { "strategy_report_badge" },
+        ) { badge ->
+            EventBadge(text = badge.first, tone = badge.second)
+        }
+    }
+}
+
+@Composable
+private fun StrategyReportSummary(
+    report: DiagnosticsStrategyProbeReportUiModel,
+    presentation: DiagnosticsStrategyProbeReportPresentationUiModel,
+    showFullMatrix: Boolean,
+) {
+    if (report.summaryMetrics.isEmpty()) return
+    HorizontalDivider()
+    Text(
+        text = stringResource(R.string.diagnostics_audit_summary_title),
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyProbeSummary),
+        style = RipDpiThemeTokens.type.bodyEmphasis,
+        color = RipDpiThemeTokens.colors.foreground,
+    )
+    MetricsRow(metrics = report.summaryMetrics)
+    if (!presentation.supportsWinningPath || showFullMatrix) {
+        Text(
+            text = stringResource(R.string.diagnostics_audit_candidate_open_hint),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+    }
+    if (report.auditAssessment?.confidence?.level == StrategyProbeAuditConfidenceLevel.LOW) {
+        WarningBanner(
+            title = stringResource(R.string.diagnostics_audit_low_confidence_title),
+            message = stringResource(R.string.diagnostics_audit_low_confidence_body),
+            testTag = RipDpiTestTags.DiagnosticsStrategyAuditLowConfidenceBanner,
+            tone = WarningBannerTone.Warning,
+        )
+    }
+}
+
+@Composable
+private fun StrategyReportRecommendation(report: DiagnosticsStrategyProbeReportUiModel) {
+    val colors = RipDpiThemeTokens.colors
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+        Text(
+            text = stringResource(R.string.diagnostics_probe_manual_apply_title),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
         Text(
-            text = report.recommendation.rationale,
+            text = stringResource(R.string.diagnostics_probe_manual_apply_body),
             style = RipDpiThemeTokens.type.secondaryBody,
             color = colors.mutedForeground,
         )
-        report.winningPath?.takeIf { presentation.supportsWinningPath }?.let { winningPath ->
-            HorizontalDivider()
-            WinningPathSection(
-                winningPath = winningPath,
-                onSelectTcpWinner =
-                    report.candidateDetails[winningPath.tcpWinner.id]?.let { detail ->
-                        { onSelectCandidate(detail) }
-                    },
-                onSelectQuicWinner =
-                    report.candidateDetails[winningPath.quicWinner.id]?.let { detail ->
-                        { onSelectCandidate(detail) }
-                    },
-            )
-            RipDpiButton(
-                text =
-                    if (showFullMatrix) {
-                        stringResource(R.string.diagnostics_audit_hide_full_matrix)
-                    } else {
-                        stringResource(R.string.diagnostics_audit_show_full_matrix)
-                    },
-                onClick = { showFullMatrix = !showFullMatrix },
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyFullMatrixToggle),
-                variant = RipDpiButtonVariant.Outline,
-            )
-        }
-        report.auditAssessment?.let { assessment ->
-            HorizontalDivider()
-            RipDpiCard(
-                variant = RipDpiCardVariant.Tonal,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyAuditAssessment),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.diagnostics_audit_confidence_title),
-                        style = RipDpiThemeTokens.type.bodyEmphasis,
-                        color = colors.foreground,
-                    )
-                    StatusIndicator(
-                        label = presentation.auditConfidenceLabel.orEmpty(),
-                        tone = statusTone(presentation.auditConfidenceTone ?: DiagnosticsTone.Neutral),
-                    )
-                }
-                Text(
-                    text = assessment.confidence.rationale,
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = colors.mutedForeground,
+    }
+    report.recommendation.fields.forEach { field ->
+        SettingsRow(title = field.label, value = field.value)
+    }
+    StrategyReportSignature(report = report)
+}
+
+@Composable
+private fun StrategyReportSignature(report: DiagnosticsStrategyProbeReportUiModel) {
+    if (report.recommendation.signature.isEmpty()) return
+    HorizontalDivider()
+    Text(
+        text = stringResource(R.string.diagnostics_probe_signature_title),
+        style = RipDpiThemeTokens.type.bodyEmphasis,
+        color = RipDpiThemeTokens.colors.foreground,
+    )
+    report.recommendation.signature.forEach { field ->
+        SettingsRow(title = field.label, value = field.value)
+    }
+}
+
+@Composable
+private fun StrategyReportFamilyMatrix(
+    report: DiagnosticsStrategyProbeReportUiModel,
+    showFullMatrix: Boolean,
+    onSelectCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
+) {
+    if (!showFullMatrix) return
+    val spacing = RipDpiThemeTokens.spacing
+    report.families.forEach { family ->
+        HorizontalDivider()
+        Text(
+            text = family.title,
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            family.candidates.forEach { candidate ->
+                StrategyProbeCandidateRow(
+                    candidate = candidate,
+                    onClick =
+                        report.candidateDetails[candidate.id]?.let { detail ->
+                            { onSelectCandidate(detail) }
+                        },
                 )
-                MetricsRow(metrics = presentation.auditAssessmentMetrics)
-                if (assessment.confidence.level == StrategyProbeAuditConfidenceLevel.MEDIUM) {
-                    Text(
-                        text = stringResource(R.string.diagnostics_audit_medium_confidence_note),
-                        modifier =
-                            Modifier.ripDpiTestTag(
-                                RipDpiTestTags.DiagnosticsStrategyAuditMediumConfidenceNote,
-                            ),
-                        style = RipDpiThemeTokens.type.secondaryBody,
-                        color = colors.warning,
-                    )
-                }
-                assessment.confidence.warnings.forEach { warning ->
-                    Text(
-                        text = "- $warning",
-                        style = RipDpiThemeTokens.type.secondaryBody,
-                        color = colors.mutedForeground,
-                    )
-                }
-            }
-        }
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            items(
-                listOf(
-                    report.suiteLabel to DiagnosticsTone.Info,
-                    presentation.manualApplyBadge to DiagnosticsTone.Positive,
-                ),
-                key = { it.first },
-                contentType = { "strategy_report_badge" },
-            ) { badge ->
-                EventBadge(text = badge.first, tone = badge.second)
-            }
-        }
-        if (report.summaryMetrics.isNotEmpty()) {
-            HorizontalDivider()
-            Text(
-                text = stringResource(R.string.diagnostics_audit_summary_title),
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyProbeSummary),
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = colors.foreground,
-            )
-            MetricsRow(metrics = report.summaryMetrics)
-            if (!presentation.supportsWinningPath || showFullMatrix) {
-                Text(
-                    text = stringResource(R.string.diagnostics_audit_candidate_open_hint),
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = colors.mutedForeground,
-                )
-            }
-        }
-        if (report.auditAssessment?.confidence?.level == StrategyProbeAuditConfidenceLevel.LOW) {
-            WarningBanner(
-                title = stringResource(R.string.diagnostics_audit_low_confidence_title),
-                message = stringResource(R.string.diagnostics_audit_low_confidence_body),
-                testTag = RipDpiTestTags.DiagnosticsStrategyAuditLowConfidenceBanner,
-                tone = WarningBannerTone.Warning,
-            )
-        }
-        RipDpiCard(variant = RipDpiCardVariant.Tonal) {
-            Text(
-                text = stringResource(R.string.diagnostics_probe_manual_apply_title),
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = colors.foreground,
-            )
-            Text(
-                text = stringResource(R.string.diagnostics_probe_manual_apply_body),
-                style = RipDpiThemeTokens.type.secondaryBody,
-                color = colors.mutedForeground,
-            )
-        }
-        report.recommendation.fields.forEach { field ->
-            SettingsRow(
-                title = field.label,
-                value = field.value,
-            )
-        }
-        if (report.recommendation.signature.isNotEmpty()) {
-            HorizontalDivider()
-            Text(
-                text = stringResource(R.string.diagnostics_probe_signature_title),
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = colors.foreground,
-            )
-            report.recommendation.signature.forEach { field ->
-                SettingsRow(
-                    title = field.label,
-                    value = field.value,
-                )
-            }
-        }
-        if (showFullMatrix) {
-            report.families.forEach { family ->
-                HorizontalDivider()
-                Text(
-                    text = family.title,
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = colors.foreground,
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    family.candidates.forEach { candidate ->
-                        StrategyProbeCandidateRow(
-                            candidate = candidate,
-                            onClick =
-                                report.candidateDetails[candidate.id]?.let { detail ->
-                                    { onSelectCandidate(detail) }
-                                },
-                        )
-                    }
-                }
             }
         }
     }
 }
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 private fun reportPresentationFallback(
     report: DiagnosticsStrategyProbeReportUiModel,
@@ -321,37 +393,20 @@ private fun reportPresentationFallback(
             ?.let(::auditConfidenceTone)
     return DiagnosticsStrategyProbeReportPresentationUiModel(
         statusLabel =
-            when {
-                isDnsShortCircuited && isFullAudit -> stringResource(R.string.diagnostics_audit_short_circuit_title)
-                isDnsShortCircuited -> stringResource(R.string.diagnostics_probe_short_circuit_title)
-                isPartialResults && isFullAudit -> stringResource(R.string.diagnostics_audit_partial_results_title)
-                isPartialResults -> stringResource(R.string.diagnostics_probe_partial_results_title)
-                isFullAudit -> stringResource(R.string.diagnostics_audit_ready_title)
-                else -> stringResource(R.string.diagnostics_probe_ready_title)
-            },
+            reportFallbackStatusLabel(
+                isDnsShortCircuited = isDnsShortCircuited,
+                isPartialResults = isPartialResults,
+                isFullAudit = isFullAudit,
+            ),
         statusTone = if (isIncomplete) DiagnosticsTone.Warning else DiagnosticsTone.Positive,
         matrixTitle =
-            when {
-                isDnsShortCircuited && isFullAudit -> {
-                    stringResource(R.string.diagnostics_audit_short_circuit_matrix_title)
-                }
-
-                isDnsShortCircuited -> {
-                    stringResource(R.string.diagnostics_probe_short_circuit_recommendation_title)
-                }
-
-                isPartialResults -> {
-                    stringResource(R.string.diagnostics_partial_results_matrix_title, executed, planned)
-                }
-
-                isFullAudit -> {
-                    stringResource(R.string.diagnostics_audit_matrix_title)
-                }
-
-                else -> {
-                    stringResource(R.string.diagnostics_probe_recommendation_title)
-                }
-            },
+            reportFallbackMatrixTitle(
+                isDnsShortCircuited = isDnsShortCircuited,
+                isPartialResults = isPartialResults,
+                isFullAudit = isFullAudit,
+                executed = executed,
+                planned = planned,
+            ),
         manualApplyBadge = stringResource(R.string.diagnostics_profile_badge_manual_apply),
         supportsWinningPath = supportsWinningPath,
         isIncomplete = isIncomplete,
@@ -364,6 +419,37 @@ private fun reportPresentationFallback(
                 ?: kotlinx.collections.immutable.persistentListOf(),
     )
 }
+
+@Composable
+private fun reportFallbackStatusLabel(
+    isDnsShortCircuited: Boolean,
+    isPartialResults: Boolean,
+    isFullAudit: Boolean,
+): String =
+    when {
+        isDnsShortCircuited && isFullAudit -> stringResource(R.string.diagnostics_audit_short_circuit_title)
+        isDnsShortCircuited -> stringResource(R.string.diagnostics_probe_short_circuit_title)
+        isPartialResults && isFullAudit -> stringResource(R.string.diagnostics_audit_partial_results_title)
+        isPartialResults -> stringResource(R.string.diagnostics_probe_partial_results_title)
+        isFullAudit -> stringResource(R.string.diagnostics_audit_ready_title)
+        else -> stringResource(R.string.diagnostics_probe_ready_title)
+    }
+
+@Composable
+private fun reportFallbackMatrixTitle(
+    isDnsShortCircuited: Boolean,
+    isPartialResults: Boolean,
+    isFullAudit: Boolean,
+    executed: Int,
+    planned: Int,
+): String =
+    when {
+        isDnsShortCircuited && isFullAudit -> stringResource(R.string.diagnostics_audit_short_circuit_matrix_title)
+        isDnsShortCircuited -> stringResource(R.string.diagnostics_probe_short_circuit_recommendation_title)
+        isPartialResults -> stringResource(R.string.diagnostics_partial_results_matrix_title, executed, planned)
+        isFullAudit -> stringResource(R.string.diagnostics_audit_matrix_title)
+        else -> stringResource(R.string.diagnostics_probe_recommendation_title)
+    }
 
 @Composable
 private fun WinningPathSection(

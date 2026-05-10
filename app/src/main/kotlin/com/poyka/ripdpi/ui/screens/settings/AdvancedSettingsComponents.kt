@@ -124,14 +124,12 @@ internal fun AdvancedDropdownSetting(
     }
 }
 
-@Suppress("LongParameterList")
 @Composable
 internal fun AdvancedTextSetting(
     title: String,
     value: String,
     setting: AdvancedTextSetting,
     onConfirm: (AdvancedTextSetting, String) -> Unit,
-    modifier: Modifier = Modifier,
     description: String? = null,
     descriptionContent: @Composable (() -> Unit)? = null,
     placeholder: String? = null,
@@ -163,7 +161,7 @@ internal fun AdvancedTextSetting(
         }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         Text(

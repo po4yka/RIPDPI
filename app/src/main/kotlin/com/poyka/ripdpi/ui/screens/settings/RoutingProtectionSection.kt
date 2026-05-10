@@ -23,7 +23,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
-@Suppress("LongMethod")
 internal fun LazyListScope.routingProtectionSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,

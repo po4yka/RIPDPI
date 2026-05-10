@@ -20,7 +20,6 @@ private data class SeqOverlapStatusContent(
     val tone: StatusIndicatorTone,
 )
 
-@Suppress("LongMethod")
 @Composable
 internal fun SeqOverlapProfileCard(
     uiState: SettingsUiState,
@@ -30,25 +29,6 @@ internal fun SeqOverlapProfileCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberSeqOverlapStatus(uiState)
-    val primaryStep = uiState.desync.primarySeqOverlapStep
-    val scopeSummary =
-        when {
-            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled -> {
-                stringResource(R.string.ripdpi_seqovl_summary_scope_http_https)
-            }
-
-            uiState.desyncHttpEnabled -> {
-                stringResource(R.string.ripdpi_seqovl_summary_scope_http)
-            }
-
-            uiState.desyncHttpsEnabled -> {
-                stringResource(R.string.ripdpi_seqovl_summary_scope_https)
-            }
-
-            else -> {
-                stringResource(R.string.ripdpi_seqovl_summary_scope_none)
-            }
-        }
 
     RipDpiCard(
         modifier = modifier,
@@ -64,44 +44,7 @@ internal fun SeqOverlapProfileCard(
             color = colors.foreground,
         )
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_seqovl_summary_label_profile),
-                value =
-                    if (uiState.desync.hasSeqOverlap) {
-                        stringResource(R.string.ripdpi_seqovl_summary_profile_configured)
-                    } else {
-                        stringResource(R.string.ripdpi_seqovl_summary_profile_inactive)
-                    },
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_seqovl_summary_label_scope),
-                value = scopeSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_seqovl_summary_label_marker),
-                value =
-                    primaryStep?.marker?.takeIf { it.isNotBlank() }
-                        ?: stringResource(R.string.ripdpi_seqovl_summary_marker_none),
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_seqovl_summary_label_overlap),
-                value = uiState.desync.seqOverlapEffectiveSize.toString(),
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_seqovl_summary_label_fake_mode),
-                value =
-                    primaryStep?.fakeMode?.takeIf { it.isNotBlank() }
-                        ?: stringResource(R.string.ripdpi_seqovl_summary_fake_mode_profile),
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_seqovl_summary_label_runtime),
-                value =
-                    if (uiState.seqovlSupported) {
-                        stringResource(R.string.ripdpi_seqovl_summary_runtime_supported)
-                    } else {
-                        stringResource(R.string.ripdpi_seqovl_summary_runtime_fallback)
-                    },
-            )
+            SeqOverlapSummaryLines(uiState)
         }
         Text(
             text = stringResource(R.string.ripdpi_seqovl_scope_note),
@@ -117,6 +60,69 @@ internal fun SeqOverlapProfileCard(
         }
     }
 }
+
+@Composable
+private fun SeqOverlapSummaryLines(uiState: SettingsUiState) {
+    val primaryStep = uiState.desync.primarySeqOverlapStep
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_seqovl_summary_label_profile),
+        value =
+            if (uiState.desync.hasSeqOverlap) {
+                stringResource(R.string.ripdpi_seqovl_summary_profile_configured)
+            } else {
+                stringResource(R.string.ripdpi_seqovl_summary_profile_inactive)
+            },
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_seqovl_summary_label_scope),
+        value = seqOverlapScopeSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_seqovl_summary_label_marker),
+        value =
+            primaryStep?.marker?.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.ripdpi_seqovl_summary_marker_none),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_seqovl_summary_label_overlap),
+        value = uiState.desync.seqOverlapEffectiveSize.toString(),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_seqovl_summary_label_fake_mode),
+        value =
+            primaryStep?.fakeMode?.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.ripdpi_seqovl_summary_fake_mode_profile),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_seqovl_summary_label_runtime),
+        value =
+            if (uiState.seqovlSupported) {
+                stringResource(R.string.ripdpi_seqovl_summary_runtime_supported)
+            } else {
+                stringResource(R.string.ripdpi_seqovl_summary_runtime_fallback)
+            },
+    )
+}
+
+@Composable
+private fun seqOverlapScopeSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled -> {
+            stringResource(R.string.ripdpi_seqovl_summary_scope_http_https)
+        }
+
+        uiState.desyncHttpEnabled -> {
+            stringResource(R.string.ripdpi_seqovl_summary_scope_http)
+        }
+
+        uiState.desyncHttpsEnabled -> {
+            stringResource(R.string.ripdpi_seqovl_summary_scope_https)
+        }
+
+        else -> {
+            stringResource(R.string.ripdpi_seqovl_summary_scope_none)
+        }
+    }
 
 @Composable
 private fun rememberSeqOverlapStatus(uiState: SettingsUiState): SeqOverlapStatusContent =

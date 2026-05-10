@@ -35,7 +35,13 @@ private data class FakePayloadLibraryStatusContent(
     val tone: StatusIndicatorTone,
 )
 
-@Suppress("LongMethod")
+private data class FakePayloadLibrarySummary(
+    val http: String,
+    val tls: String,
+    val udp: String,
+    val scope: String,
+)
+
 @Composable
 internal fun FakePayloadLibraryCard(
     uiState: SettingsUiState,
@@ -46,58 +52,8 @@ internal fun FakePayloadLibraryCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberFakePayloadLibraryStatus(uiState)
-    val scopeSummary =
-        when {
-            uiState.enableCmdSettings -> {
-                stringResource(R.string.fake_payload_library_scope_cli)
-            }
-
-            !uiState.fakePayloadLibraryControlsRelevant -> {
-                stringResource(R.string.fake_payload_library_scope_protocols_disabled)
-            }
-
-            uiState.httpFakeProfileActiveInStrategy && uiState.udpFakeProfileActiveInStrategy -> {
-                stringResource(R.string.fake_payload_library_scope_tcp_and_udp_live)
-            }
-
-            uiState.httpFakeProfileActiveInStrategy || uiState.tlsFakeProfileActiveInStrategy -> {
-                stringResource(R.string.fake_payload_library_scope_tcp_live)
-            }
-
-            uiState.udpFakeProfileActiveInStrategy -> {
-                stringResource(R.string.fake_payload_library_scope_udp_live)
-            }
-
-            uiState.hasHostFake -> {
-                stringResource(R.string.fake_payload_library_scope_hostfake_only)
-            }
-
-            else -> {
-                stringResource(R.string.fake_payload_library_scope_active)
-            }
-        }
-    val badges =
-        buildList {
-            if (uiState.fake.hasCustomFakePayloadProfiles) {
-                add(stringResource(R.string.fake_payload_library_badge_custom) to SummaryCapsuleTone.Active)
-            } else {
-                add(stringResource(R.string.fake_payload_library_badge_default) to SummaryCapsuleTone.Neutral)
-            }
-            if (uiState.isFake) {
-                add(stringResource(R.string.fake_payload_library_badge_tcp_fake_live) to SummaryCapsuleTone.Active)
-            } else if (uiState.hasHostFake) {
-                add(stringResource(R.string.fake_payload_library_badge_hostfake_only) to SummaryCapsuleTone.Info)
-            }
-            if (uiState.desync.hasUdpFakeBurst) {
-                add(
-                    stringResource(R.string.fake_payload_library_badge_udp_burst, uiState.desync.udpFakeCount) to
-                        SummaryCapsuleTone.Active,
-                )
-            }
-            if (uiState.quic.quicFakeProfileActive) {
-                add(stringResource(R.string.fake_payload_library_badge_quic_separate) to SummaryCapsuleTone.Info)
-            }
-        }
+    val summary = fakePayloadLibrarySummary(uiState)
+    val badges = fakePayloadLibraryBadges(uiState)
 
     RipDpiCard(
         modifier = modifier,
@@ -116,57 +72,148 @@ internal fun FakePayloadLibraryCard(
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             ProfileSummaryLine(
                 label = stringResource(R.string.fake_payload_library_summary_label_http),
-                value = formatHttpFakeProfileLabel(uiState.fake.httpFakeProfile),
+                value = summary.http,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.fake_payload_library_summary_label_tls),
-                value = formatTlsFakeProfileLabel(uiState.fake.tlsFakeProfile),
+                value = summary.tls,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.fake_payload_library_summary_label_udp),
-                value = formatUdpFakeProfileLabel(uiState.fake.udpFakeProfile),
+                value = summary.udp,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.fake_payload_library_summary_label_scope),
-                value = scopeSummary,
+                value = summary.scope,
             )
         }
         if (uiState.canResetFakePayloadLibrary) {
-            var showResetDialog by remember { mutableStateOf(false) }
-
-            if (showResetDialog) {
-                RipDpiDialog(
-                    onDismissRequest = { showResetDialog = false },
-                    title = stringResource(R.string.confirm_reset_fake_payload_library_title),
-                    dismissAction =
-                        RipDpiDialogAction(
-                            label = stringResource(R.string.confirm_reset_fake_payload_library_dismiss),
-                            onClick = { showResetDialog = false },
-                        ),
-                    confirmAction =
-                        RipDpiDialogAction(
-                            label = stringResource(R.string.confirm_reset_fake_payload_library_confirm),
-                            onClick = {
-                                showResetDialog = false
-                                onResetFakePayloadLibrary()
-                            },
-                        ),
-                    visuals =
-                        RipDpiDialogVisuals(
-                            message = stringResource(R.string.confirm_reset_fake_payload_library_body),
-                            tone = RipDpiDialogTone.Destructive,
-                        ),
-                )
-            }
-
-            RipDpiButton(
-                text = stringResource(R.string.fake_payload_library_reset_action),
-                onClick = { showResetDialog = true },
-                variant = RipDpiButtonVariant.Outline,
+            FakePayloadLibraryResetAction(
+                onResetFakePayloadLibrary = onResetFakePayloadLibrary,
                 modifier = Modifier.align(Alignment.End),
             )
         }
     }
+}
+
+@Composable
+private fun fakePayloadLibrarySummary(uiState: SettingsUiState): FakePayloadLibrarySummary =
+    FakePayloadLibrarySummary(
+        http = formatHttpFakeProfileLabel(uiState.fake.httpFakeProfile),
+        tls = formatTlsFakeProfileLabel(uiState.fake.tlsFakeProfile),
+        udp = formatUdpFakeProfileLabel(uiState.fake.udpFakeProfile),
+        scope = fakePayloadLibraryScopeSummary(uiState),
+    )
+
+@Composable
+private fun fakePayloadLibraryScopeSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.enableCmdSettings -> {
+            stringResource(R.string.fake_payload_library_scope_cli)
+        }
+
+        !uiState.fakePayloadLibraryControlsRelevant -> {
+            stringResource(R.string.fake_payload_library_scope_protocols_disabled)
+        }
+
+        uiState.httpFakeProfileActiveInStrategy && uiState.udpFakeProfileActiveInStrategy -> {
+            stringResource(R.string.fake_payload_library_scope_tcp_and_udp_live)
+        }
+
+        uiState.httpFakeProfileActiveInStrategy || uiState.tlsFakeProfileActiveInStrategy -> {
+            stringResource(R.string.fake_payload_library_scope_tcp_live)
+        }
+
+        uiState.udpFakeProfileActiveInStrategy -> {
+            stringResource(R.string.fake_payload_library_scope_udp_live)
+        }
+
+        uiState.hasHostFake -> {
+            stringResource(R.string.fake_payload_library_scope_hostfake_only)
+        }
+
+        else -> {
+            stringResource(R.string.fake_payload_library_scope_active)
+        }
+    }
+
+@Composable
+private fun fakePayloadLibraryBadges(uiState: SettingsUiState): List<Pair<String, SummaryCapsuleTone>> =
+    buildList {
+        add(fakePayloadLibraryProfileBadge(uiState))
+        if (uiState.isFake) {
+            add(stringResource(R.string.fake_payload_library_badge_tcp_fake_live) to SummaryCapsuleTone.Active)
+        } else if (uiState.hasHostFake) {
+            add(stringResource(R.string.fake_payload_library_badge_hostfake_only) to SummaryCapsuleTone.Info)
+        }
+        if (uiState.desync.hasUdpFakeBurst) {
+            add(
+                stringResource(R.string.fake_payload_library_badge_udp_burst, uiState.desync.udpFakeCount) to
+                    SummaryCapsuleTone.Active,
+            )
+        }
+        if (uiState.quic.quicFakeProfileActive) {
+            add(stringResource(R.string.fake_payload_library_badge_quic_separate) to SummaryCapsuleTone.Info)
+        }
+    }
+
+@Composable
+private fun fakePayloadLibraryProfileBadge(uiState: SettingsUiState): Pair<String, SummaryCapsuleTone> =
+    if (uiState.fake.hasCustomFakePayloadProfiles) {
+        stringResource(R.string.fake_payload_library_badge_custom) to SummaryCapsuleTone.Active
+    } else {
+        stringResource(R.string.fake_payload_library_badge_default) to SummaryCapsuleTone.Neutral
+    }
+
+@Composable
+private fun FakePayloadLibraryResetAction(
+    onResetFakePayloadLibrary: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var showResetDialog by remember { mutableStateOf(false) }
+
+    if (showResetDialog) {
+        FakePayloadLibraryResetDialog(
+            onDismiss = { showResetDialog = false },
+            onConfirm = {
+                showResetDialog = false
+                onResetFakePayloadLibrary()
+            },
+        )
+    }
+
+    RipDpiButton(
+        text = stringResource(R.string.fake_payload_library_reset_action),
+        onClick = { showResetDialog = true },
+        variant = RipDpiButtonVariant.Outline,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun FakePayloadLibraryResetDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.confirm_reset_fake_payload_library_title),
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_reset_fake_payload_library_dismiss),
+                onClick = onDismiss,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_reset_fake_payload_library_confirm),
+                onClick = onConfirm,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.confirm_reset_fake_payload_library_body),
+                tone = RipDpiDialogTone.Destructive,
+            ),
+    )
 }
 
 @Composable

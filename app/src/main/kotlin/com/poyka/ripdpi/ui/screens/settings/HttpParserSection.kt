@@ -31,7 +31,6 @@ import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
-@Suppress("LongMethod")
 internal fun LazyListScope.httpParserSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -50,146 +49,17 @@ internal fun LazyListScope.httpParserSection(
                 onResetHttpParserEvasions = onResetHttpParserEvasions,
                 modifier = Modifier.padding(bottom = spacing.sm),
             )
-            HttpParserToggleGroupCard(
-                title = stringResource(R.string.ripdpi_http_parser_safe_group_title),
-                description = stringResource(R.string.ripdpi_http_parser_safe_group_body),
-                summary = formatHttpParserSafeSummary(uiState),
-                statusLabel =
-                    stringResource(
-                        if (uiState.httpParser.hasSafeHttpParserTweaks) {
-                            R.string.ripdpi_http_parser_group_status_active
-                        } else {
-                            R.string.ripdpi_http_parser_group_status_off
-                        },
-                    ),
-                statusTone =
-                    if (uiState.httpParser.hasSafeHttpParserTweaks) {
-                        StatusIndicatorTone.Active
-                    } else {
-                        StatusIndicatorTone.Idle
-                    },
-                badges =
-                    buildList {
-                        add(stringResource(R.string.ripdpi_http_parser_badge_http_only) to SummaryCapsuleTone.Info)
-                        if (uiState.httpParser.httpParserSafeCount > 0) {
-                            add(
-                                stringResource(
-                                    R.string.ripdpi_http_parser_badge_safe_count,
-                                    uiState.httpParser.httpParserSafeCount,
-                                ) to SummaryCapsuleTone.Active,
-                            )
-                        }
-                    },
-            ) {
-                SettingsRow(
-                    title = stringResource(R.string.ripdpi_host_mixed_case_setting),
-                    checked = uiState.httpParser.hostMixedCase,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostMixedCase, it) },
-                    enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
-                    showDivider = true,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HostMixedCase),
-                )
-                SettingsRow(
-                    title = stringResource(R.string.ripdpi_domain_mixed_case_setting),
-                    checked = uiState.httpParser.domainMixedCase,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DomainMixedCase, it) },
-                    enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
-                    showDivider = true,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DomainMixedCase),
-                )
-                SettingsRow(
-                    title = stringResource(R.string.ripdpi_host_remove_spaces_setting),
-                    checked = uiState.httpParser.hostRemoveSpaces,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostRemoveSpaces, it) },
-                    enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
-                    showDivider = true,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HostRemoveSpaces),
-                )
-                SettingsRow(
-                    title = stringResource(R.string.ripdpi_http_host_pad_setting),
-                    checked = uiState.httpParser.httpHostPad,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpHostPad, it) },
-                    enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
-                    showDivider = true,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HttpHostPad),
-                )
-                SettingsRow(
-                    title = stringResource(R.string.ripdpi_http_host_tab_setting),
-                    checked = uiState.httpParser.httpHostTab,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpHostTab, it) },
-                    enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HttpHostTab),
-                )
-            }
-            HttpParserToggleGroupCard(
+            HttpParserSafeToggleGroup(
+                uiState = uiState,
+                visualEditorEnabled = visualEditorEnabled,
+                onToggleChanged = onToggleChanged,
+            )
+            HttpParserAggressiveToggleGroup(
+                uiState = uiState,
+                visualEditorEnabled = visualEditorEnabled,
+                onToggleChanged = onToggleChanged,
                 modifier = Modifier.padding(top = spacing.sm),
-                title = stringResource(R.string.ripdpi_http_parser_aggressive_group_title),
-                description = stringResource(R.string.ripdpi_http_parser_aggressive_group_body),
-                summary = formatHttpParserAggressiveSummary(uiState),
-                statusLabel =
-                    stringResource(
-                        if (uiState.httpParser.hasAggressiveHttpParserEvasions) {
-                            R.string.ripdpi_http_parser_group_status_warning
-                        } else {
-                            R.string.ripdpi_http_parser_group_status_off
-                        },
-                    ),
-                statusTone =
-                    if (uiState.httpParser.hasAggressiveHttpParserEvasions) {
-                        StatusIndicatorTone.Warning
-                    } else {
-                        StatusIndicatorTone.Idle
-                    },
-                badges =
-                    buildList {
-                        add(stringResource(R.string.ripdpi_http_parser_badge_http_only) to SummaryCapsuleTone.Info)
-                        add(
-                            stringResource(
-                                R.string.ripdpi_http_parser_badge_nginx_biased,
-                            ) to SummaryCapsuleTone.Warning,
-                        )
-                        if (uiState.httpParser.httpParserAggressiveCount > 0) {
-                            add(
-                                stringResource(
-                                    R.string.ripdpi_http_parser_badge_aggressive_count,
-                                    uiState.httpParser.httpParserAggressiveCount,
-                                ) to SummaryCapsuleTone.Warning,
-                            )
-                        }
-                    },
-            ) {
-                SettingsRow(
-                    title = stringResource(R.string.ripdpi_http_method_eol_setting),
-                    checked = uiState.httpParser.httpMethodEol,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpMethodEol, it) },
-                    enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
-                    showDivider = true,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HttpMethodEol),
-                )
-                SettingsRow(
-                    title = stringResource(R.string.ripdpi_http_unix_eol_setting),
-                    checked = uiState.httpParser.httpUnixEol,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpUnixEol, it) },
-                    enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
-                    showDivider = true,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HttpUnixEol),
-                )
-                SettingsRow(
-                    title = stringResource(R.string.ripdpi_http_method_space_setting),
-                    checked = uiState.httpParser.httpMethodSpace,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpMethodSpace, it) },
-                    enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
-                    showDivider = true,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HttpMethodSpace),
-                )
-                SettingsRow(
-                    title = stringResource(R.string.ripdpi_http_host_extra_space_setting),
-                    checked = uiState.httpParser.httpHostExtraSpace,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpHostExtraSpace, it) },
-                    enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HttpHostExtraSpace),
-                )
-            }
+            )
         }
     }
 }
@@ -200,7 +70,14 @@ private data class HttpParserEvasionStatusContent(
     val tone: StatusIndicatorTone,
 )
 
-@Suppress("LongMethod")
+private data class HttpParserSummaryLines(
+    val profile: String,
+    val scope: String,
+    val safe: String,
+    val aggressive: String,
+    val probing: String,
+)
+
 @Composable
 private fun HttpParserEvasionsProfileCard(
     uiState: SettingsUiState,
@@ -211,76 +88,8 @@ private fun HttpParserEvasionsProfileCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberHttpParserEvasionStatus(uiState)
-    val profileSummary =
-        when {
-            uiState.httpParser.hasSafeHttpParserTweaks && uiState.httpParser.hasAggressiveHttpParserEvasions -> {
-                stringResource(R.string.ripdpi_http_parser_profile_safe_and_aggressive)
-            }
-
-            uiState.httpParser.hasAggressiveHttpParserEvasions -> {
-                stringResource(R.string.ripdpi_http_parser_profile_aggressive_only)
-            }
-
-            uiState.httpParser.hasSafeHttpParserTweaks -> {
-                stringResource(R.string.ripdpi_http_parser_profile_safe)
-            }
-
-            else -> {
-                stringResource(R.string.ripdpi_http_parser_profile_default)
-            }
-        }
-    val scopeSummary =
-        when {
-            uiState.enableCmdSettings -> {
-                stringResource(R.string.ripdpi_http_parser_scope_cli)
-            }
-
-            !uiState.httpParserControlsRelevant -> {
-                stringResource(R.string.ripdpi_http_parser_scope_http_off)
-            }
-
-            uiState.isServiceRunning && uiState.httpParser.hasCustomHttpParserEvasions -> {
-                stringResource(R.string.ripdpi_http_parser_scope_restart)
-            }
-
-            else -> {
-                stringResource(R.string.ripdpi_http_parser_scope_active)
-            }
-        }
-    val badges =
-        buildList {
-            add(
-                (
-                    if (uiState.httpParser.hasCustomHttpParserEvasions) {
-                        stringResource(R.string.ripdpi_http_parser_badge_custom)
-                    } else {
-                        stringResource(R.string.ripdpi_http_parser_badge_default)
-                    }
-                ) to
-                    if (uiState.httpParser.hasCustomHttpParserEvasions) {
-                        SummaryCapsuleTone.Active
-                    } else {
-                        SummaryCapsuleTone.Neutral
-                    },
-            )
-            add(stringResource(R.string.ripdpi_http_parser_badge_http_only) to SummaryCapsuleTone.Info)
-            if (uiState.httpParser.httpParserSafeCount > 0) {
-                add(
-                    stringResource(
-                        R.string.ripdpi_http_parser_badge_safe_count,
-                        uiState.httpParser.httpParserSafeCount,
-                    ) to SummaryCapsuleTone.Active,
-                )
-            }
-            if (uiState.httpParser.httpParserAggressiveCount > 0) {
-                add(
-                    stringResource(
-                        R.string.ripdpi_http_parser_badge_aggressive_count,
-                        uiState.httpParser.httpParserAggressiveCount,
-                    ) to SummaryCapsuleTone.Warning,
-                )
-            }
-        }
+    val summary = httpParserSummaryLines(uiState)
+    val badges = httpParserProfileBadges(uiState)
 
     RipDpiCard(
         modifier = modifier,
@@ -299,23 +108,23 @@ private fun HttpParserEvasionsProfileCard(
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             ProfileSummaryLine(
                 label = stringResource(R.string.ripdpi_http_parser_summary_label_profile),
-                value = profileSummary,
+                value = summary.profile,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.ripdpi_http_parser_summary_label_scope),
-                value = scopeSummary,
+                value = summary.scope,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.ripdpi_http_parser_summary_label_safe),
-                value = formatHttpParserSafeSummary(uiState),
+                value = summary.safe,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.ripdpi_http_parser_summary_label_aggressive),
-                value = formatHttpParserAggressiveSummary(uiState),
+                value = summary.aggressive,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.ripdpi_http_parser_summary_label_probing),
-                value = stringResource(R.string.ripdpi_http_parser_probing_summary),
+                value = summary.probing,
             )
         }
         Text(
@@ -324,41 +133,356 @@ private fun HttpParserEvasionsProfileCard(
             color = colors.mutedForeground,
         )
         if (uiState.canResetHttpParserEvasions) {
-            var showResetDialog by remember { mutableStateOf(false) }
-
-            if (showResetDialog) {
-                RipDpiDialog(
-                    onDismissRequest = { showResetDialog = false },
-                    title = stringResource(R.string.confirm_reset_http_parser_evasions_title),
-                    dismissAction =
-                        RipDpiDialogAction(
-                            label = stringResource(R.string.confirm_reset_http_parser_evasions_dismiss),
-                            onClick = { showResetDialog = false },
-                        ),
-                    confirmAction =
-                        RipDpiDialogAction(
-                            label = stringResource(R.string.confirm_reset_http_parser_evasions_confirm),
-                            onClick = {
-                                showResetDialog = false
-                                onResetHttpParserEvasions()
-                            },
-                        ),
-                    visuals =
-                        RipDpiDialogVisuals(
-                            message = stringResource(R.string.confirm_reset_http_parser_evasions_body),
-                            tone = RipDpiDialogTone.Destructive,
-                        ),
-                )
-            }
-
-            RipDpiButton(
-                text = stringResource(R.string.ripdpi_http_parser_reset_action),
-                onClick = { showResetDialog = true },
-                variant = RipDpiButtonVariant.Outline,
+            HttpParserResetAction(
+                onResetHttpParserEvasions = onResetHttpParserEvasions,
                 modifier = Modifier.align(Alignment.End),
             )
         }
     }
+}
+
+@Composable
+private fun HttpParserSafeToggleGroup(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+) {
+    HttpParserToggleGroupCard(
+        title = stringResource(R.string.ripdpi_http_parser_safe_group_title),
+        description = stringResource(R.string.ripdpi_http_parser_safe_group_body),
+        summary = formatHttpParserSafeSummary(uiState),
+        statusLabel = httpParserSafeStatusLabel(uiState),
+        statusTone = httpParserSafeStatusTone(uiState),
+        badges = httpParserSafeBadges(uiState),
+    ) {
+        HttpParserSafeToggles(uiState, visualEditorEnabled, onToggleChanged)
+    }
+}
+
+@Composable
+private fun ColumnScope.HttpParserSafeToggles(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+) {
+    HttpParserToggleRow(
+        title = stringResource(R.string.ripdpi_host_mixed_case_setting),
+        checked = uiState.httpParser.hostMixedCase,
+        setting = AdvancedToggleSetting.HostMixedCase,
+        showDivider = true,
+        uiState = uiState,
+        visualEditorEnabled = visualEditorEnabled,
+        onToggleChanged = onToggleChanged,
+    )
+    HttpParserToggleRow(
+        title = stringResource(R.string.ripdpi_domain_mixed_case_setting),
+        checked = uiState.httpParser.domainMixedCase,
+        setting = AdvancedToggleSetting.DomainMixedCase,
+        showDivider = true,
+        uiState = uiState,
+        visualEditorEnabled = visualEditorEnabled,
+        onToggleChanged = onToggleChanged,
+    )
+    HttpParserToggleRow(
+        title = stringResource(R.string.ripdpi_host_remove_spaces_setting),
+        checked = uiState.httpParser.hostRemoveSpaces,
+        setting = AdvancedToggleSetting.HostRemoveSpaces,
+        showDivider = true,
+        uiState = uiState,
+        visualEditorEnabled = visualEditorEnabled,
+        onToggleChanged = onToggleChanged,
+    )
+    HttpParserToggleRow(
+        title = stringResource(R.string.ripdpi_http_host_pad_setting),
+        checked = uiState.httpParser.httpHostPad,
+        setting = AdvancedToggleSetting.HttpHostPad,
+        showDivider = true,
+        uiState = uiState,
+        visualEditorEnabled = visualEditorEnabled,
+        onToggleChanged = onToggleChanged,
+    )
+    HttpParserToggleRow(
+        title = stringResource(R.string.ripdpi_http_host_tab_setting),
+        checked = uiState.httpParser.httpHostTab,
+        setting = AdvancedToggleSetting.HttpHostTab,
+        uiState = uiState,
+        visualEditorEnabled = visualEditorEnabled,
+        onToggleChanged = onToggleChanged,
+    )
+}
+
+@Composable
+private fun HttpParserAggressiveToggleGroup(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    HttpParserToggleGroupCard(
+        modifier = modifier,
+        title = stringResource(R.string.ripdpi_http_parser_aggressive_group_title),
+        description = stringResource(R.string.ripdpi_http_parser_aggressive_group_body),
+        summary = formatHttpParserAggressiveSummary(uiState),
+        statusLabel = httpParserAggressiveStatusLabel(uiState),
+        statusTone = httpParserAggressiveStatusTone(uiState),
+        badges = httpParserAggressiveBadges(uiState),
+    ) {
+        HttpParserAggressiveToggles(uiState, visualEditorEnabled, onToggleChanged)
+    }
+}
+
+@Composable
+private fun ColumnScope.HttpParserAggressiveToggles(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+) {
+    HttpParserToggleRow(
+        title = stringResource(R.string.ripdpi_http_method_eol_setting),
+        checked = uiState.httpParser.httpMethodEol,
+        setting = AdvancedToggleSetting.HttpMethodEol,
+        showDivider = true,
+        uiState = uiState,
+        visualEditorEnabled = visualEditorEnabled,
+        onToggleChanged = onToggleChanged,
+    )
+    HttpParserToggleRow(
+        title = stringResource(R.string.ripdpi_http_unix_eol_setting),
+        checked = uiState.httpParser.httpUnixEol,
+        setting = AdvancedToggleSetting.HttpUnixEol,
+        showDivider = true,
+        uiState = uiState,
+        visualEditorEnabled = visualEditorEnabled,
+        onToggleChanged = onToggleChanged,
+    )
+    HttpParserToggleRow(
+        title = stringResource(R.string.ripdpi_http_method_space_setting),
+        checked = uiState.httpParser.httpMethodSpace,
+        setting = AdvancedToggleSetting.HttpMethodSpace,
+        showDivider = true,
+        uiState = uiState,
+        visualEditorEnabled = visualEditorEnabled,
+        onToggleChanged = onToggleChanged,
+    )
+    HttpParserToggleRow(
+        title = stringResource(R.string.ripdpi_http_host_extra_space_setting),
+        checked = uiState.httpParser.httpHostExtraSpace,
+        setting = AdvancedToggleSetting.HttpHostExtraSpace,
+        uiState = uiState,
+        visualEditorEnabled = visualEditorEnabled,
+        onToggleChanged = onToggleChanged,
+    )
+}
+
+@Composable
+private fun HttpParserToggleRow(
+    title: String,
+    checked: Boolean,
+    setting: AdvancedToggleSetting,
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+    showDivider: Boolean = false,
+) {
+    SettingsRow(
+        title = title,
+        checked = checked,
+        onCheckedChange = { onToggleChanged(setting, it) },
+        enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
+        showDivider = showDivider,
+        testTag = RipDpiTestTags.advancedToggle(setting),
+    )
+}
+
+@Composable
+private fun httpParserSafeStatusLabel(uiState: SettingsUiState): String =
+    stringResource(
+        if (uiState.httpParser.hasSafeHttpParserTweaks) {
+            R.string.ripdpi_http_parser_group_status_active
+        } else {
+            R.string.ripdpi_http_parser_group_status_off
+        },
+    )
+
+private fun httpParserSafeStatusTone(uiState: SettingsUiState): StatusIndicatorTone =
+    if (uiState.httpParser.hasSafeHttpParserTweaks) StatusIndicatorTone.Active else StatusIndicatorTone.Idle
+
+@Composable
+private fun httpParserSafeBadges(uiState: SettingsUiState): List<Pair<String, SummaryCapsuleTone>> =
+    buildList {
+        add(stringResource(R.string.ripdpi_http_parser_badge_http_only) to SummaryCapsuleTone.Info)
+        if (uiState.httpParser.httpParserSafeCount > 0) {
+            add(
+                stringResource(
+                    R.string.ripdpi_http_parser_badge_safe_count,
+                    uiState.httpParser.httpParserSafeCount,
+                ) to SummaryCapsuleTone.Active,
+            )
+        }
+    }
+
+@Composable
+private fun httpParserAggressiveStatusLabel(uiState: SettingsUiState): String =
+    stringResource(
+        if (uiState.httpParser.hasAggressiveHttpParserEvasions) {
+            R.string.ripdpi_http_parser_group_status_warning
+        } else {
+            R.string.ripdpi_http_parser_group_status_off
+        },
+    )
+
+private fun httpParserAggressiveStatusTone(uiState: SettingsUiState): StatusIndicatorTone =
+    if (uiState.httpParser.hasAggressiveHttpParserEvasions) {
+        StatusIndicatorTone.Warning
+    } else {
+        StatusIndicatorTone.Idle
+    }
+
+@Composable
+private fun httpParserAggressiveBadges(uiState: SettingsUiState): List<Pair<String, SummaryCapsuleTone>> =
+    buildList {
+        add(stringResource(R.string.ripdpi_http_parser_badge_http_only) to SummaryCapsuleTone.Info)
+        add(stringResource(R.string.ripdpi_http_parser_badge_nginx_biased) to SummaryCapsuleTone.Warning)
+        if (uiState.httpParser.httpParserAggressiveCount > 0) {
+            add(
+                stringResource(
+                    R.string.ripdpi_http_parser_badge_aggressive_count,
+                    uiState.httpParser.httpParserAggressiveCount,
+                ) to SummaryCapsuleTone.Warning,
+            )
+        }
+    }
+
+@Composable
+private fun httpParserSummaryLines(uiState: SettingsUiState): HttpParserSummaryLines =
+    HttpParserSummaryLines(
+        profile = httpParserProfileSummary(uiState),
+        scope = httpParserScopeSummary(uiState),
+        safe = formatHttpParserSafeSummary(uiState),
+        aggressive = formatHttpParserAggressiveSummary(uiState),
+        probing = stringResource(R.string.ripdpi_http_parser_probing_summary),
+    )
+
+@Composable
+private fun httpParserProfileSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.httpParser.hasSafeHttpParserTweaks && uiState.httpParser.hasAggressiveHttpParserEvasions -> {
+            stringResource(R.string.ripdpi_http_parser_profile_safe_and_aggressive)
+        }
+
+        uiState.httpParser.hasAggressiveHttpParserEvasions -> {
+            stringResource(R.string.ripdpi_http_parser_profile_aggressive_only)
+        }
+
+        uiState.httpParser.hasSafeHttpParserTweaks -> {
+            stringResource(R.string.ripdpi_http_parser_profile_safe)
+        }
+
+        else -> {
+            stringResource(R.string.ripdpi_http_parser_profile_default)
+        }
+    }
+
+@Composable
+private fun httpParserScopeSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.enableCmdSettings -> {
+            stringResource(R.string.ripdpi_http_parser_scope_cli)
+        }
+
+        !uiState.httpParserControlsRelevant -> {
+            stringResource(R.string.ripdpi_http_parser_scope_http_off)
+        }
+
+        uiState.isServiceRunning && uiState.httpParser.hasCustomHttpParserEvasions -> {
+            stringResource(R.string.ripdpi_http_parser_scope_restart)
+        }
+
+        else -> {
+            stringResource(R.string.ripdpi_http_parser_scope_active)
+        }
+    }
+
+@Composable
+private fun httpParserProfileBadges(uiState: SettingsUiState): List<Pair<String, SummaryCapsuleTone>> =
+    buildList {
+        add(httpParserModeBadge(uiState))
+        add(stringResource(R.string.ripdpi_http_parser_badge_http_only) to SummaryCapsuleTone.Info)
+        if (uiState.httpParser.httpParserSafeCount > 0) {
+            add(
+                stringResource(
+                    R.string.ripdpi_http_parser_badge_safe_count,
+                    uiState.httpParser.httpParserSafeCount,
+                ) to SummaryCapsuleTone.Active,
+            )
+        }
+        if (uiState.httpParser.httpParserAggressiveCount > 0) {
+            add(
+                stringResource(
+                    R.string.ripdpi_http_parser_badge_aggressive_count,
+                    uiState.httpParser.httpParserAggressiveCount,
+                ) to SummaryCapsuleTone.Warning,
+            )
+        }
+    }
+
+@Composable
+private fun httpParserModeBadge(uiState: SettingsUiState): Pair<String, SummaryCapsuleTone> =
+    if (uiState.httpParser.hasCustomHttpParserEvasions) {
+        stringResource(R.string.ripdpi_http_parser_badge_custom) to SummaryCapsuleTone.Active
+    } else {
+        stringResource(R.string.ripdpi_http_parser_badge_default) to SummaryCapsuleTone.Neutral
+    }
+
+@Composable
+private fun HttpParserResetAction(
+    onResetHttpParserEvasions: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var showResetDialog by remember { mutableStateOf(false) }
+
+    if (showResetDialog) {
+        HttpParserResetDialog(
+            onDismiss = { showResetDialog = false },
+            onConfirm = {
+                showResetDialog = false
+                onResetHttpParserEvasions()
+            },
+        )
+    }
+
+    RipDpiButton(
+        text = stringResource(R.string.ripdpi_http_parser_reset_action),
+        onClick = { showResetDialog = true },
+        variant = RipDpiButtonVariant.Outline,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun HttpParserResetDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.confirm_reset_http_parser_evasions_title),
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_reset_http_parser_evasions_dismiss),
+                onClick = onDismiss,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_reset_http_parser_evasions_confirm),
+                onClick = onConfirm,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.confirm_reset_http_parser_evasions_body),
+                tone = RipDpiDialogTone.Destructive,
+            ),
+    )
 }
 
 @Composable

@@ -94,7 +94,12 @@ private data class ActivationWindowStatusContent(
     val tone: StatusIndicatorTone,
 )
 
-@Suppress("LongMethod")
+private data class ActivationWindowSummaryLines(
+    val window: String,
+    val scope: String,
+    val stepFilters: String,
+)
+
 @Composable
 private fun ActivationWindowProfileCard(
     uiState: SettingsUiState,
@@ -105,67 +110,8 @@ private fun ActivationWindowProfileCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberActivationWindowStatus(uiState)
-    val scopeSummary =
-        when {
-            uiState.enableCmdSettings -> {
-                stringResource(R.string.activation_window_scope_cli)
-            }
-
-            !uiState.activationWindowControlsRelevant -> {
-                stringResource(R.string.activation_window_scope_inactive)
-            }
-
-            uiState.desync.hasCustomActivationWindow -> {
-                stringResource(R.string.activation_window_scope_filtered)
-            }
-
-            else -> {
-                stringResource(R.string.activation_window_scope_open)
-            }
-        }
-    val stepFilterSummary =
-        if (uiState.desync.hasStepActivationFilters) {
-            stringResource(
-                R.string.activation_window_step_filters_present,
-                uiState.desync.stepActivationFilterCount,
-            )
-        } else {
-            stringResource(R.string.activation_window_step_filters_none)
-        }
-    val badges =
-        buildList {
-            add(
-                (
-                    if (uiState.desync.hasCustomActivationWindow) {
-                        stringResource(R.string.activation_window_badge_custom)
-                    } else {
-                        stringResource(R.string.activation_window_badge_default)
-                    }
-                ) to
-                    if (uiState.desync.hasCustomActivationWindow) {
-                        SummaryCapsuleTone.Active
-                    } else {
-                        SummaryCapsuleTone.Neutral
-                    },
-            )
-            if (!uiState.desync.groupActivationFilter.round.isEmpty) {
-                add(stringResource(R.string.activation_window_badge_round) to SummaryCapsuleTone.Active)
-            }
-            if (!uiState.desync.groupActivationFilter.payloadSize.isEmpty) {
-                add(stringResource(R.string.activation_window_badge_payload) to SummaryCapsuleTone.Active)
-            }
-            if (!uiState.desync.groupActivationFilter.streamBytes.isEmpty) {
-                add(stringResource(R.string.activation_window_badge_stream) to SummaryCapsuleTone.Active)
-            }
-            if (uiState.desync.hasStepActivationFilters) {
-                add(
-                    stringResource(
-                        R.string.activation_window_badge_step_filters,
-                        uiState.desync.stepActivationFilterCount,
-                    ) to SummaryCapsuleTone.Info,
-                )
-            }
-        }
+    val summary = activationWindowSummaryLines(uiState)
+    val badges = activationWindowBadges(uiState)
 
     RipDpiCard(
         modifier = modifier,
@@ -184,15 +130,15 @@ private fun ActivationWindowProfileCard(
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             ProfileSummaryLine(
                 label = stringResource(R.string.activation_window_summary_label),
-                value = uiState.desync.activationWindowSummary,
+                value = summary.window,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.activation_window_scope_label),
-                value = scopeSummary,
+                value = summary.scope,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.activation_window_step_filters_label),
-                value = stepFilterSummary,
+                value = summary.stepFilters,
             )
         }
         Text(
@@ -201,41 +147,122 @@ private fun ActivationWindowProfileCard(
             color = colors.mutedForeground,
         )
         if (uiState.canResetActivationWindow) {
-            var showResetDialog by remember { mutableStateOf(false) }
-
-            if (showResetDialog) {
-                RipDpiDialog(
-                    onDismissRequest = { showResetDialog = false },
-                    title = stringResource(R.string.confirm_reset_activation_window_title),
-                    dismissAction =
-                        RipDpiDialogAction(
-                            label = stringResource(R.string.confirm_reset_activation_window_dismiss),
-                            onClick = { showResetDialog = false },
-                        ),
-                    confirmAction =
-                        RipDpiDialogAction(
-                            label = stringResource(R.string.confirm_reset_activation_window_confirm),
-                            onClick = {
-                                showResetDialog = false
-                                onResetActivationWindow()
-                            },
-                        ),
-                    visuals =
-                        RipDpiDialogVisuals(
-                            message = stringResource(R.string.confirm_reset_activation_window_body),
-                            tone = RipDpiDialogTone.Destructive,
-                        ),
-                )
-            }
-
-            RipDpiButton(
-                text = stringResource(R.string.activation_window_reset_action),
-                onClick = { showResetDialog = true },
-                variant = RipDpiButtonVariant.Outline,
+            ActivationWindowResetAction(
+                onResetActivationWindow = onResetActivationWindow,
                 modifier = Modifier.align(Alignment.End),
             )
         }
     }
+}
+
+@Composable
+private fun activationWindowSummaryLines(uiState: SettingsUiState): ActivationWindowSummaryLines =
+    ActivationWindowSummaryLines(
+        window = uiState.desync.activationWindowSummary,
+        scope = activationWindowScopeSummary(uiState),
+        stepFilters = activationWindowStepFilterSummary(uiState),
+    )
+
+@Composable
+private fun activationWindowScopeSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.enableCmdSettings -> stringResource(R.string.activation_window_scope_cli)
+        !uiState.activationWindowControlsRelevant -> stringResource(R.string.activation_window_scope_inactive)
+        uiState.desync.hasCustomActivationWindow -> stringResource(R.string.activation_window_scope_filtered)
+        else -> stringResource(R.string.activation_window_scope_open)
+    }
+
+@Composable
+private fun activationWindowStepFilterSummary(uiState: SettingsUiState): String =
+    if (uiState.desync.hasStepActivationFilters) {
+        stringResource(
+            R.string.activation_window_step_filters_present,
+            uiState.desync.stepActivationFilterCount,
+        )
+    } else {
+        stringResource(R.string.activation_window_step_filters_none)
+    }
+
+@Composable
+private fun activationWindowBadges(uiState: SettingsUiState): List<Pair<String, SummaryCapsuleTone>> =
+    buildList {
+        add(activationWindowModeBadge(uiState))
+        if (!uiState.desync.groupActivationFilter.round.isEmpty) {
+            add(stringResource(R.string.activation_window_badge_round) to SummaryCapsuleTone.Active)
+        }
+        if (!uiState.desync.groupActivationFilter.payloadSize.isEmpty) {
+            add(stringResource(R.string.activation_window_badge_payload) to SummaryCapsuleTone.Active)
+        }
+        if (!uiState.desync.groupActivationFilter.streamBytes.isEmpty) {
+            add(stringResource(R.string.activation_window_badge_stream) to SummaryCapsuleTone.Active)
+        }
+        if (uiState.desync.hasStepActivationFilters) {
+            add(
+                stringResource(
+                    R.string.activation_window_badge_step_filters,
+                    uiState.desync.stepActivationFilterCount,
+                ) to SummaryCapsuleTone.Info,
+            )
+        }
+    }
+
+@Composable
+private fun activationWindowModeBadge(uiState: SettingsUiState): Pair<String, SummaryCapsuleTone> =
+    if (uiState.desync.hasCustomActivationWindow) {
+        stringResource(R.string.activation_window_badge_custom) to SummaryCapsuleTone.Active
+    } else {
+        stringResource(R.string.activation_window_badge_default) to SummaryCapsuleTone.Neutral
+    }
+
+@Composable
+private fun ActivationWindowResetAction(
+    onResetActivationWindow: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var showResetDialog by remember { mutableStateOf(false) }
+
+    if (showResetDialog) {
+        ActivationWindowResetDialog(
+            onDismiss = { showResetDialog = false },
+            onConfirm = {
+                showResetDialog = false
+                onResetActivationWindow()
+            },
+        )
+    }
+
+    RipDpiButton(
+        text = stringResource(R.string.activation_window_reset_action),
+        onClick = { showResetDialog = true },
+        variant = RipDpiButtonVariant.Outline,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun ActivationWindowResetDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.confirm_reset_activation_window_title),
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_reset_activation_window_dismiss),
+                onClick = onDismiss,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_reset_activation_window_confirm),
+                onClick = onConfirm,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.confirm_reset_activation_window_body),
+                tone = RipDpiDialogTone.Destructive,
+            ),
+    )
 }
 
 @Composable

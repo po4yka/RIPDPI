@@ -40,7 +40,6 @@ private const val hostAutolearnPenaltyTtlMaxHours = 24 * 30
 private const val hostAutolearnMaxHosts = 50_000
 private const val hostAutolearnShortAcronymMaxLength = 4
 
-@Suppress("LongMethod")
 internal fun LazyListScope.hostAutolearnSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -49,32 +48,15 @@ internal fun LazyListScope.hostAutolearnSection(
     onForgetLearnedHosts: () -> Unit,
 ) {
     item(key = "advanced_host_autolearn") {
-        val colors = RipDpiThemeTokens.colors
-        val spacing = RipDpiThemeTokens.spacing
         var showForgetDialog by remember { mutableStateOf(false) }
 
         if (showForgetDialog) {
-            RipDpiDialog(
-                onDismissRequest = { showForgetDialog = false },
-                title = stringResource(R.string.confirm_forget_learned_hosts_title),
-                dismissAction =
-                    RipDpiDialogAction(
-                        label = stringResource(R.string.confirm_forget_learned_hosts_dismiss),
-                        onClick = { showForgetDialog = false },
-                    ),
-                confirmAction =
-                    RipDpiDialogAction(
-                        label = stringResource(R.string.confirm_forget_learned_hosts_confirm),
-                        onClick = {
-                            showForgetDialog = false
-                            onForgetLearnedHosts()
-                        },
-                    ),
-                visuals =
-                    RipDpiDialogVisuals(
-                        message = stringResource(R.string.confirm_forget_learned_hosts_body),
-                        tone = RipDpiDialogTone.Destructive,
-                    ),
+            HostAutolearnForgetDialog(
+                onDismiss = { showForgetDialog = false },
+                onConfirm = {
+                    showForgetDialog = false
+                    onForgetLearnedHosts()
+                },
             )
         }
 
@@ -82,82 +64,13 @@ internal fun LazyListScope.hostAutolearnSection(
             title = stringResource(R.string.host_autolearn_section_title),
             testTag = RipDpiTestTags.advancedSection("host_autolearn"),
         ) {
-            RipDpiCard {
-                SettingsRow(
-                    title = stringResource(R.string.host_autolearn_enabled_title),
-                    subtitle = stringResource(R.string.host_autolearn_enabled_body),
-                    checked = uiState.autolearn.hostAutolearnEnabled,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostAutolearnEnabled, it) },
-                    enabled = visualEditorEnabled,
-                    showDivider = uiState.autolearn.hostAutolearnEnabled,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HostAutolearnEnabled),
-                )
-                HostAutolearnStatusCard(
-                    uiState = uiState,
-                    modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
-                )
-                if (uiState.autolearn.hostAutolearnEnabled) {
-                    HorizontalDivider(color = colors.divider)
-                }
-                if (uiState.autolearn.hostAutolearnEnabled) {
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.host_autolearn_penalty_ttl_title),
-                        description = stringResource(R.string.host_autolearn_penalty_ttl_body),
-                        value = uiState.autolearn.hostAutolearnPenaltyTtlHours.toString(),
-                        enabled = visualEditorEnabled,
-                        validator = { validateIntRange(it, 1, hostAutolearnPenaltyTtlMaxHours) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
-                        setting = AdvancedTextSetting.HostAutolearnPenaltyTtlHours,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.host_autolearn_max_hosts_title),
-                        description = stringResource(R.string.host_autolearn_max_hosts_body),
-                        value = uiState.autolearn.hostAutolearnMaxHosts.toString(),
-                        enabled = visualEditorEnabled,
-                        validator = { validateIntRange(it, 1, hostAutolearnMaxHosts) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
-                        setting = AdvancedTextSetting.HostAutolearnMaxHosts,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                }
-                Text(
-                    text = stringResource(R.string.host_autolearn_helper),
-                    style = RipDpiThemeTokens.type.caption,
-                    color = colors.mutedForeground,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    RipDpiButton(
-                        text = stringResource(R.string.host_autolearn_forget_action),
-                        onClick = { showForgetDialog = true },
-                        enabled = uiState.canForgetLearnedHosts,
-                        variant = RipDpiButtonVariant.Outline,
-                        trailingIcon = RipDpiIcons.Close,
-                    )
-                }
-                Text(
-                    text = hostAutolearnResetHint(uiState),
-                    style = RipDpiThemeTokens.type.caption,
-                    color = colors.mutedForeground,
-                )
-            }
+            HostAutolearnSettingsCard(
+                uiState = uiState,
+                visualEditorEnabled = visualEditorEnabled,
+                onToggleChanged = onToggleChanged,
+                onTextConfirmed = onTextConfirmed,
+                onForgetClick = { showForgetDialog = true },
+            )
         }
     }
 }
@@ -168,7 +81,162 @@ private data class HostAutolearnStatusContent(
     val tone: StatusIndicatorTone,
 )
 
-@Suppress("LongMethod")
+private data class HostAutolearnSummaryText(
+    val limits: String?,
+    val runtime: String?,
+    val storePresent: String?,
+    val lastUpdate: String?,
+)
+
+@Composable
+private fun HostAutolearnSettingsCard(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+    onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
+    onForgetClick: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+
+    RipDpiCard {
+        HostAutolearnEnabledRow(
+            uiState = uiState,
+            visualEditorEnabled = visualEditorEnabled,
+            onToggleChanged = onToggleChanged,
+        )
+        HostAutolearnStatusCard(
+            uiState = uiState,
+            modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
+        )
+        if (uiState.autolearn.hostAutolearnEnabled) {
+            HorizontalDivider(color = colors.divider)
+            HostAutolearnTextSettings(
+                uiState = uiState,
+                visualEditorEnabled = visualEditorEnabled,
+                onTextConfirmed = onTextConfirmed,
+            )
+        }
+        HostAutolearnFooter(
+            uiState = uiState,
+            onForgetClick = onForgetClick,
+        )
+    }
+}
+
+@Composable
+private fun HostAutolearnEnabledRow(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+) {
+    SettingsRow(
+        title = stringResource(R.string.host_autolearn_enabled_title),
+        subtitle = stringResource(R.string.host_autolearn_enabled_body),
+        checked = uiState.autolearn.hostAutolearnEnabled,
+        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostAutolearnEnabled, it) },
+        enabled = visualEditorEnabled,
+        showDivider = uiState.autolearn.hostAutolearnEnabled,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HostAutolearnEnabled),
+    )
+}
+
+@Composable
+private fun HostAutolearnTextSettings(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
+) {
+    val numericKeyboard =
+        KeyboardOptions(
+            keyboardType = KeyboardType.Number,
+            imeAction = ImeAction.Done,
+        )
+    AdvancedTextSetting(
+        title = stringResource(R.string.host_autolearn_penalty_ttl_title),
+        description = stringResource(R.string.host_autolearn_penalty_ttl_body),
+        value = uiState.autolearn.hostAutolearnPenaltyTtlHours.toString(),
+        enabled = visualEditorEnabled,
+        validator = { validateIntRange(it, 1, hostAutolearnPenaltyTtlMaxHours) },
+        invalidMessage = stringResource(R.string.config_error_out_of_range),
+        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+        keyboardOptions = numericKeyboard,
+        setting = AdvancedTextSetting.HostAutolearnPenaltyTtlHours,
+        onConfirm = onTextConfirmed,
+        showDivider = true,
+    )
+    AdvancedTextSetting(
+        title = stringResource(R.string.host_autolearn_max_hosts_title),
+        description = stringResource(R.string.host_autolearn_max_hosts_body),
+        value = uiState.autolearn.hostAutolearnMaxHosts.toString(),
+        enabled = visualEditorEnabled,
+        validator = { validateIntRange(it, 1, hostAutolearnMaxHosts) },
+        invalidMessage = stringResource(R.string.config_error_out_of_range),
+        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+        keyboardOptions = numericKeyboard,
+        setting = AdvancedTextSetting.HostAutolearnMaxHosts,
+        onConfirm = onTextConfirmed,
+        showDivider = true,
+    )
+}
+
+@Composable
+private fun HostAutolearnFooter(
+    uiState: SettingsUiState,
+    onForgetClick: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+
+    Text(
+        text = stringResource(R.string.host_autolearn_helper),
+        style = RipDpiThemeTokens.type.caption,
+        color = colors.mutedForeground,
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+    ) {
+        RipDpiButton(
+            text = stringResource(R.string.host_autolearn_forget_action),
+            onClick = onForgetClick,
+            enabled = uiState.canForgetLearnedHosts,
+            variant = RipDpiButtonVariant.Outline,
+            trailingIcon = RipDpiIcons.Close,
+        )
+    }
+    Text(
+        text = hostAutolearnResetHint(uiState),
+        style = RipDpiThemeTokens.type.caption,
+        color = colors.mutedForeground,
+    )
+}
+
+@Composable
+private fun HostAutolearnForgetDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.confirm_forget_learned_hosts_title),
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_forget_learned_hosts_dismiss),
+                onClick = onDismiss,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_forget_learned_hosts_confirm),
+                onClick = onConfirm,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.confirm_forget_learned_hosts_body),
+                tone = RipDpiDialogTone.Destructive,
+            ),
+    )
+}
+
 @Composable
 private fun HostAutolearnStatusCard(
     uiState: SettingsUiState,
@@ -178,35 +246,7 @@ private fun HostAutolearnStatusCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberHostAutolearnStatus(uiState)
-    val hasRuntimeActivity =
-        uiState.isServiceRunning &&
-            (
-                uiState.autolearn.hostAutolearnRuntimeEnabled ||
-                    uiState.autolearn.hostAutolearnLearnedHostCount > 0 ||
-                    uiState.autolearn.hostAutolearnBlockedHostCount > 0
-            )
-    val runtimeSummary =
-        if (hasRuntimeActivity) {
-            stringResource(
-                R.string.host_autolearn_runtime_summary,
-                uiState.autolearn.hostAutolearnLearnedHostCount,
-                uiState.autolearn.hostAutolearnPenalizedHostCount,
-                uiState.autolearn.hostAutolearnBlockedHostCount,
-            )
-        } else {
-            null
-        }
-    val limitsSummary =
-        if (uiState.enableCmdSettings) {
-            null
-        } else {
-            stringResource(
-                R.string.host_autolearn_limits_summary,
-                uiState.autolearn.hostAutolearnPenaltyTtlHours,
-                uiState.autolearn.hostAutolearnMaxHosts,
-            )
-        }
-    val lastUpdate = hostAutolearnLastUpdate(uiState)
+    val summary = hostAutolearnSummaryText(uiState)
 
     RipDpiCard(
         modifier = modifier,
@@ -221,27 +261,27 @@ private fun HostAutolearnStatusCard(
             style = type.secondaryBody,
             color = colors.foreground,
         )
-        limitsSummary?.let {
+        summary.limits?.let {
             Text(
                 text = it,
                 style = type.caption,
                 color = colors.mutedForeground,
             )
         }
-        if (runtimeSummary != null) {
+        if (summary.runtime != null) {
             Text(
-                text = runtimeSummary,
+                text = summary.runtime,
                 style = type.caption,
                 color = colors.foreground,
             )
-        } else if (uiState.autolearn.hostAutolearnStorePresent && !uiState.enableCmdSettings) {
+        } else if (summary.storePresent != null) {
             Text(
-                text = stringResource(R.string.host_autolearn_store_present_summary),
+                text = summary.storePresent,
                 style = type.caption,
                 color = colors.foreground,
             )
         }
-        lastUpdate?.let {
+        summary.lastUpdate?.let {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 Text(
                     text = stringResource(R.string.host_autolearn_last_update_label),
@@ -257,6 +297,56 @@ private fun HostAutolearnStatusCard(
         }
     }
 }
+
+@Composable
+private fun hostAutolearnSummaryText(uiState: SettingsUiState): HostAutolearnSummaryText =
+    HostAutolearnSummaryText(
+        limits = hostAutolearnLimitsSummary(uiState),
+        runtime = hostAutolearnRuntimeSummary(uiState),
+        storePresent = hostAutolearnStorePresentSummary(uiState),
+        lastUpdate = hostAutolearnLastUpdate(uiState),
+    )
+
+@Composable
+private fun hostAutolearnRuntimeSummary(uiState: SettingsUiState): String? =
+    if (hostAutolearnHasRuntimeActivity(uiState)) {
+        stringResource(
+            R.string.host_autolearn_runtime_summary,
+            uiState.autolearn.hostAutolearnLearnedHostCount,
+            uiState.autolearn.hostAutolearnPenalizedHostCount,
+            uiState.autolearn.hostAutolearnBlockedHostCount,
+        )
+    } else {
+        null
+    }
+
+private fun hostAutolearnHasRuntimeActivity(uiState: SettingsUiState): Boolean =
+    uiState.isServiceRunning &&
+        (
+            uiState.autolearn.hostAutolearnRuntimeEnabled ||
+                uiState.autolearn.hostAutolearnLearnedHostCount > 0 ||
+                uiState.autolearn.hostAutolearnBlockedHostCount > 0
+        )
+
+@Composable
+private fun hostAutolearnLimitsSummary(uiState: SettingsUiState): String? =
+    if (uiState.enableCmdSettings) {
+        null
+    } else {
+        stringResource(
+            R.string.host_autolearn_limits_summary,
+            uiState.autolearn.hostAutolearnPenaltyTtlHours,
+            uiState.autolearn.hostAutolearnMaxHosts,
+        )
+    }
+
+@Composable
+private fun hostAutolearnStorePresentSummary(uiState: SettingsUiState): String? =
+    if (uiState.autolearn.hostAutolearnStorePresent && !uiState.enableCmdSettings) {
+        stringResource(R.string.host_autolearn_store_present_summary)
+    } else {
+        null
+    }
 
 @Composable
 private fun rememberHostAutolearnStatus(uiState: SettingsUiState): HostAutolearnStatusContent =
@@ -409,22 +499,27 @@ private fun hostAutolearnBlockSignalLabel(signal: String): String =
         else -> signal.replace('_', ' ')
     }
 
-@Suppress("ReturnCount")
 private fun hostAutolearnBlockProviderLabel(provider: String): String {
     val normalized = provider.trim()
-    if (normalized.isEmpty()) {
-        return provider
-    }
     val isShortAcronym =
         normalized.none { it == '_' || it == '-' || it == ' ' } &&
             normalized.length <= hostAutolearnShortAcronymMaxLength
-    if (isShortAcronym) {
-        return normalized.uppercase()
-    }
-    return normalized
-        .split('_', '-', ' ')
-        .filter { it.isNotBlank() }
-        .joinToString(" ") { token ->
-            token.lowercase().replaceFirstChar { char -> char.uppercase() }
+    return when {
+        normalized.isEmpty() -> {
+            provider
         }
+
+        isShortAcronym -> {
+            normalized.uppercase()
+        }
+
+        else -> {
+            normalized
+                .split('_', '-', ' ')
+                .filter { it.isNotBlank() }
+                .joinToString(" ") { token ->
+                    token.lowercase().replaceFirstChar { char -> char.uppercase() }
+                }
+        }
+    }
 }

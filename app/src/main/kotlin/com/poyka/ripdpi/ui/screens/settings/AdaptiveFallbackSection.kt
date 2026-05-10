@@ -25,6 +25,19 @@ import com.poyka.ripdpi.utility.validateIntRange
 private const val cacheTtlMaxSeconds = 3600
 private const val cachePrefixMaxV4 = 32
 
+private data class AdaptiveFallbackStatusContent(
+    val label: String,
+    val body: String,
+    val tone: StatusIndicatorTone,
+)
+
+private data class AdaptiveFallbackSummaryLines(
+    val scope: String,
+    val triggers: String,
+    val cache: String,
+    val runtimeOverride: String?,
+)
+
 internal fun LazyListScope.adaptiveFallbackSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -102,7 +115,6 @@ internal fun LazyListScope.adaptiveFallbackSection(
     }
 }
 
-@Suppress("LongMethod")
 @Composable
 private fun AdaptiveFallbackSummaryCard(
     uiState: SettingsUiState,
@@ -111,77 +123,17 @@ private fun AdaptiveFallbackSummaryCard(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
-    val status =
-        when {
-            uiState.enableCmdSettings -> {
-                Triple(
-                    stringResource(R.string.adaptive_fallback_cli_title),
-                    stringResource(R.string.adaptive_fallback_cli_body),
-                    StatusIndicatorTone.Warning,
-                )
-            }
-
-            !uiState.adaptiveFallback.enabled -> {
-                Triple(
-                    stringResource(R.string.adaptive_fallback_disabled_title),
-                    stringResource(R.string.adaptive_fallback_disabled_body),
-                    StatusIndicatorTone.Idle,
-                )
-            }
-
-            !uiState.adaptiveFallback.hasAnyTrigger -> {
-                Triple(
-                    stringResource(R.string.adaptive_fallback_no_triggers_title),
-                    stringResource(R.string.adaptive_fallback_no_triggers_body),
-                    StatusIndicatorTone.Warning,
-                )
-            }
-
-            uiState.isServiceRunning -> {
-                Triple(
-                    stringResource(R.string.adaptive_fallback_restart_title),
-                    stringResource(R.string.adaptive_fallback_restart_body),
-                    StatusIndicatorTone.Warning,
-                )
-            }
-
-            else -> {
-                Triple(
-                    stringResource(R.string.adaptive_fallback_ready_title),
-                    stringResource(R.string.adaptive_fallback_ready_body),
-                    StatusIndicatorTone.Active,
-                )
-            }
-        }
-    val badges =
-        buildList {
-            add(
-                (
-                    if (uiState.adaptiveFallback.enabled) {
-                        stringResource(R.string.adaptive_fallback_badge_enabled)
-                    } else {
-                        stringResource(R.string.adaptive_fallback_badge_disabled)
-                    }
-                ) to if (uiState.adaptiveFallback.enabled) SummaryCapsuleTone.Active else SummaryCapsuleTone.Neutral,
-            )
-            add(
-                stringResource(
-                    R.string.adaptive_fallback_badge_triggers,
-                    uiState.adaptiveFallback.triggerCount,
-                ) to SummaryCapsuleTone.Info,
-            )
-            if (uiState.adaptiveFallback.autoSort) {
-                add(stringResource(R.string.adaptive_fallback_badge_auto_sort) to SummaryCapsuleTone.Active)
-            }
-        }
+    val status = adaptiveFallbackStatus(uiState)
+    val badges = adaptiveFallbackBadges(uiState)
+    val summary = adaptiveFallbackSummaryLines(uiState)
 
     RipDpiCard(
         modifier = modifier,
         variant = RipDpiCardVariant.Elevated,
     ) {
-        StatusIndicator(label = status.first, tone = status.third)
+        StatusIndicator(label = status.label, tone = status.tone)
         Text(
-            text = status.second,
+            text = status.body,
             style = type.secondaryBody,
             color = colors.foreground,
         )
@@ -189,37 +141,20 @@ private fun AdaptiveFallbackSummaryCard(
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             ProfileSummaryLine(
                 label = stringResource(R.string.adaptive_fallback_summary_label_scope),
-                value =
-                    if (uiState.enableCmdSettings) {
-                        stringResource(R.string.adaptive_fallback_scope_cli)
-                    } else if (uiState.adaptiveFallbackControlsRelevant) {
-                        stringResource(R.string.adaptive_fallback_scope_active)
-                    } else {
-                        stringResource(R.string.adaptive_fallback_scope_idle)
-                    },
+                value = summary.scope,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.adaptive_fallback_summary_label_triggers),
-                value = adaptiveFallbackTriggerSummary(uiState),
+                value = summary.triggers,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.adaptive_fallback_summary_label_cache),
-                value =
-                    stringResource(
-                        R.string.adaptive_fallback_cache_summary,
-                        uiState.adaptiveFallback.cacheTtlSeconds,
-                        uiState.adaptiveFallback.cachePrefixV4,
-                    ),
+                value = summary.cache,
             )
-            uiState.adaptiveFallback.runtimeOverrideSummary?.let { summary ->
+            summary.runtimeOverride?.let { runtimeOverride ->
                 ProfileSummaryLine(
                     label = stringResource(R.string.adaptive_fallback_summary_label_runtime_override),
-                    value =
-                        if (uiState.adaptiveFallback.runtimeOverrideRememberedPolicy) {
-                            stringResource(R.string.adaptive_fallback_runtime_override_remembered, summary)
-                        } else {
-                            summary
-                        },
+                    value = runtimeOverride,
                 )
             }
         }
@@ -230,6 +165,105 @@ private fun AdaptiveFallbackSummaryCard(
         )
     }
 }
+
+@Composable
+private fun adaptiveFallbackStatus(uiState: SettingsUiState): AdaptiveFallbackStatusContent =
+    when {
+        uiState.enableCmdSettings -> {
+            AdaptiveFallbackStatusContent(
+                label = stringResource(R.string.adaptive_fallback_cli_title),
+                body = stringResource(R.string.adaptive_fallback_cli_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+        }
+
+        !uiState.adaptiveFallback.enabled -> {
+            AdaptiveFallbackStatusContent(
+                label = stringResource(R.string.adaptive_fallback_disabled_title),
+                body = stringResource(R.string.adaptive_fallback_disabled_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+        }
+
+        !uiState.adaptiveFallback.hasAnyTrigger -> {
+            AdaptiveFallbackStatusContent(
+                label = stringResource(R.string.adaptive_fallback_no_triggers_title),
+                body = stringResource(R.string.adaptive_fallback_no_triggers_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+        }
+
+        uiState.isServiceRunning -> {
+            AdaptiveFallbackStatusContent(
+                label = stringResource(R.string.adaptive_fallback_restart_title),
+                body = stringResource(R.string.adaptive_fallback_restart_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+        }
+
+        else -> {
+            AdaptiveFallbackStatusContent(
+                label = stringResource(R.string.adaptive_fallback_ready_title),
+                body = stringResource(R.string.adaptive_fallback_ready_body),
+                tone = StatusIndicatorTone.Active,
+            )
+        }
+    }
+
+@Composable
+private fun adaptiveFallbackBadges(uiState: SettingsUiState): List<Pair<String, SummaryCapsuleTone>> =
+    buildList {
+        add(adaptiveFallbackEnabledBadge(uiState))
+        add(
+            stringResource(
+                R.string.adaptive_fallback_badge_triggers,
+                uiState.adaptiveFallback.triggerCount,
+            ) to SummaryCapsuleTone.Info,
+        )
+        if (uiState.adaptiveFallback.autoSort) {
+            add(stringResource(R.string.adaptive_fallback_badge_auto_sort) to SummaryCapsuleTone.Active)
+        }
+    }
+
+@Composable
+private fun adaptiveFallbackEnabledBadge(uiState: SettingsUiState): Pair<String, SummaryCapsuleTone> =
+    if (uiState.adaptiveFallback.enabled) {
+        stringResource(R.string.adaptive_fallback_badge_enabled) to SummaryCapsuleTone.Active
+    } else {
+        stringResource(R.string.adaptive_fallback_badge_disabled) to SummaryCapsuleTone.Neutral
+    }
+
+@Composable
+private fun adaptiveFallbackSummaryLines(uiState: SettingsUiState): AdaptiveFallbackSummaryLines =
+    AdaptiveFallbackSummaryLines(
+        scope = adaptiveFallbackScopeSummary(uiState),
+        triggers = adaptiveFallbackTriggerSummary(uiState),
+        cache =
+            stringResource(
+                R.string.adaptive_fallback_cache_summary,
+                uiState.adaptiveFallback.cacheTtlSeconds,
+                uiState.adaptiveFallback.cachePrefixV4,
+            ),
+        runtimeOverride = adaptiveFallbackRuntimeOverrideSummary(uiState),
+    )
+
+@Composable
+private fun adaptiveFallbackScopeSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.enableCmdSettings -> stringResource(R.string.adaptive_fallback_scope_cli)
+        uiState.adaptiveFallbackControlsRelevant -> stringResource(R.string.adaptive_fallback_scope_active)
+        else -> stringResource(R.string.adaptive_fallback_scope_idle)
+    }
+
+@Composable
+private fun adaptiveFallbackRuntimeOverrideSummary(uiState: SettingsUiState): String? =
+    uiState.adaptiveFallback.runtimeOverrideSummary?.let { summary ->
+        if (uiState.adaptiveFallback.runtimeOverrideRememberedPolicy) {
+            stringResource(R.string.adaptive_fallback_runtime_override_remembered, summary)
+        } else {
+            summary
+        }
+    }
 
 @Composable
 private fun AdaptiveFallbackNumericFields(

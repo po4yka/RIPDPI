@@ -311,7 +311,6 @@ internal fun resolveStartupDestination(settings: AppSettings): Route =
     }
 
 @HiltViewModel
-@Suppress("TooManyFunctions")
 class MainViewModel
     @Inject
     constructor(
@@ -350,6 +349,16 @@ class MainViewModel
                 scope = viewModelScope,
                 effects = _effects,
                 currentUiState = { uiState.value },
+            )
+        val crashReports =
+            MainCrashReportActions(
+                coordinator = mainLifecycleDependencies.crashReportCoordinator,
+                scope = viewModelScope,
+                pendingCrashReport = _pendingCrashReport,
+            )
+        val appLock =
+            MainAppLockActions(
+                coordinator = mainLifecycleDependencies.appLockLifecycleCoordinator,
             )
 
         private val connectionActions: MainConnectionActions by lazy {
@@ -569,17 +578,26 @@ class MainViewModel
         fun dismissHomeAnalysisSheet() = homeDiagnosticsActions.dismissAnalysisSheet()
 
         fun dismissHomeVerificationSheet() = homeDiagnosticsActions.dismissVerificationSheet()
+    }
 
-        fun buildCrashReportShareText(report: CrashReport): Pair<String, String> =
-            mainLifecycleDependencies.crashReportCoordinator.buildShareText(report)
+class MainCrashReportActions(
+    private val coordinator: MainCrashReportCoordinator,
+    private val scope: kotlinx.coroutines.CoroutineScope,
+    private val pendingCrashReport: MutableStateFlow<CrashReport?>,
+) {
+    fun buildShareText(report: CrashReport): Pair<String, String> = coordinator.buildShareText(report)
 
-        fun dismissCrashReport() {
-            mainLifecycleDependencies.crashReportCoordinator.dismiss(viewModelScope) {
-                _pendingCrashReport.value = null
-            }
-        }
-
-        fun onAuthenticated() {
-            mainLifecycleDependencies.appLockLifecycleCoordinator.onAuthenticated()
+    fun dismiss() {
+        coordinator.dismiss(scope) {
+            pendingCrashReport.value = null
         }
     }
+}
+
+class MainAppLockActions(
+    private val coordinator: MainAppLockLifecycleCoordinator,
+) {
+    fun onAuthenticated() {
+        coordinator.onAuthenticated()
+    }
+}

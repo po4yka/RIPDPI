@@ -139,7 +139,6 @@ private data class QuicFakePresetUiModel(
     val isRecommended: Boolean = false,
 )
 
-@Suppress("LongMethod")
 @Composable
 private fun QuicFakeProfileCard(
     uiState: SettingsUiState,
@@ -149,73 +148,6 @@ private fun QuicFakeProfileCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberQuicFakeStatus(uiState)
-    val presetSummary =
-        stringResource(
-            when (uiState.quic.quicFakeProfile) {
-                QuicFakeProfileCompatDefault -> R.string.quic_fake_profile_summary_compat
-                QuicFakeProfileRealisticInitial -> R.string.quic_fake_profile_summary_realistic
-                else -> R.string.quic_fake_profile_summary_off
-            },
-        )
-    val hostSummary =
-        when (uiState.quic.quicFakeProfile) {
-            QuicFakeProfileRealisticInitial -> {
-                uiState.quic.quicFakeHost.ifBlank { DefaultQuicFakeHost }
-            }
-
-            else -> {
-                stringResource(R.string.quic_fake_profile_host_unused)
-            }
-        }
-    val scopeSummary =
-        when {
-            !uiState.desyncUdpEnabled -> stringResource(R.string.quic_fake_profile_scope_udp_disabled)
-            !uiState.desync.hasUdpFakeBurst -> stringResource(R.string.quic_fake_profile_scope_needs_burst)
-            else -> stringResource(R.string.quic_fake_profile_scope_active)
-        }
-    val burstSummary =
-        if (uiState.desync.hasUdpFakeBurst) {
-            stringResource(R.string.quic_fake_profile_burst_configured, uiState.desync.udpFakeCount)
-        } else {
-            stringResource(R.string.quic_fake_profile_burst_missing)
-        }
-    val badges =
-        buildList {
-            add(
-                stringResource(R.string.quic_fake_profile_badge_initial_only) to SummaryCapsuleTone.Info,
-            )
-            add(
-                if (uiState.desync.hasUdpFakeBurst) {
-                    stringResource(
-                        R.string.quic_fake_profile_badge_burst_ready,
-                        uiState.desync.udpFakeCount,
-                    ) to SummaryCapsuleTone.Active
-                } else {
-                    stringResource(R.string.quic_fake_profile_badge_burst_missing) to SummaryCapsuleTone.Warning
-                },
-            )
-            when (uiState.quic.quicFakeProfile) {
-                QuicFakeProfileCompatDefault -> {
-                    add(
-                        stringResource(R.string.quic_fake_profile_badge_compat_blob) to SummaryCapsuleTone.Neutral,
-                    )
-                }
-
-                QuicFakeProfileRealisticInitial -> {
-                    add(
-                        if (uiState.quic.quicFakeUsesCustomHost) {
-                            stringResource(R.string.quic_fake_profile_badge_host_custom)
-                        } else {
-                            stringResource(R.string.quic_fake_profile_badge_host_builtin)
-                        } to SummaryCapsuleTone.Active,
-                    )
-                }
-
-                else -> {
-                    Unit
-                }
-            }
-        }
 
     RipDpiCard(
         modifier = modifier,
@@ -230,27 +162,106 @@ private fun QuicFakeProfileCard(
             style = type.secondaryBody,
             color = colors.foreground,
         )
-        SummaryCapsuleFlow(items = badges)
+        SummaryCapsuleFlow(items = quicFakeProfileBadges(uiState))
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            ProfileSummaryLine(
-                label = stringResource(R.string.quic_fake_profile_summary_label_preset),
-                value = presetSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.quic_fake_profile_summary_label_host),
-                value = hostSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.quic_fake_profile_summary_label_scope),
-                value = scopeSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.quic_fake_profile_summary_label_burst),
-                value = burstSummary,
-            )
+            QuicFakeProfileSummaryLines(uiState)
         }
     }
 }
+
+@Composable
+private fun QuicFakeProfileSummaryLines(uiState: SettingsUiState) {
+    ProfileSummaryLine(
+        label = stringResource(R.string.quic_fake_profile_summary_label_preset),
+        value = quicFakePresetSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.quic_fake_profile_summary_label_host),
+        value = quicFakeHostSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.quic_fake_profile_summary_label_scope),
+        value = quicFakeScopeSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.quic_fake_profile_summary_label_burst),
+        value = quicFakeBurstSummary(uiState),
+    )
+}
+
+@Composable
+private fun quicFakePresetSummary(uiState: SettingsUiState): String =
+    stringResource(
+        when (uiState.quic.quicFakeProfile) {
+            QuicFakeProfileCompatDefault -> R.string.quic_fake_profile_summary_compat
+            QuicFakeProfileRealisticInitial -> R.string.quic_fake_profile_summary_realistic
+            else -> R.string.quic_fake_profile_summary_off
+        },
+    )
+
+@Composable
+private fun quicFakeHostSummary(uiState: SettingsUiState): String =
+    when (uiState.quic.quicFakeProfile) {
+        QuicFakeProfileRealisticInitial -> uiState.quic.quicFakeHost.ifBlank { DefaultQuicFakeHost }
+        else -> stringResource(R.string.quic_fake_profile_host_unused)
+    }
+
+@Composable
+private fun quicFakeScopeSummary(uiState: SettingsUiState): String =
+    when {
+        !uiState.desyncUdpEnabled -> stringResource(R.string.quic_fake_profile_scope_udp_disabled)
+        !uiState.desync.hasUdpFakeBurst -> stringResource(R.string.quic_fake_profile_scope_needs_burst)
+        else -> stringResource(R.string.quic_fake_profile_scope_active)
+    }
+
+@Composable
+private fun quicFakeBurstSummary(uiState: SettingsUiState): String =
+    if (uiState.desync.hasUdpFakeBurst) {
+        stringResource(R.string.quic_fake_profile_burst_configured, uiState.desync.udpFakeCount)
+    } else {
+        stringResource(R.string.quic_fake_profile_burst_missing)
+    }
+
+@Composable
+private fun quicFakeProfileBadges(uiState: SettingsUiState): List<Pair<String, SummaryCapsuleTone>> =
+    buildList {
+        add(stringResource(R.string.quic_fake_profile_badge_initial_only) to SummaryCapsuleTone.Info)
+        add(quicFakeBurstBadge(uiState))
+        quicFakeProfileBadge(uiState)?.let(::add)
+    }
+
+@Composable
+private fun quicFakeBurstBadge(uiState: SettingsUiState): Pair<String, SummaryCapsuleTone> =
+    if (uiState.desync.hasUdpFakeBurst) {
+        stringResource(R.string.quic_fake_profile_badge_burst_ready, uiState.desync.udpFakeCount) to
+            SummaryCapsuleTone.Active
+    } else {
+        stringResource(R.string.quic_fake_profile_badge_burst_missing) to SummaryCapsuleTone.Warning
+    }
+
+@Composable
+private fun quicFakeProfileBadge(uiState: SettingsUiState): Pair<String, SummaryCapsuleTone>? =
+    when (uiState.quic.quicFakeProfile) {
+        QuicFakeProfileCompatDefault -> {
+            stringResource(R.string.quic_fake_profile_badge_compat_blob) to SummaryCapsuleTone.Neutral
+        }
+
+        QuicFakeProfileRealisticInitial -> {
+            quicRealisticFakeHostBadge(uiState)
+        }
+
+        else -> {
+            null
+        }
+    }
+
+@Composable
+private fun quicRealisticFakeHostBadge(uiState: SettingsUiState): Pair<String, SummaryCapsuleTone> =
+    if (uiState.quic.quicFakeUsesCustomHost) {
+        stringResource(R.string.quic_fake_profile_badge_host_custom)
+    } else {
+        stringResource(R.string.quic_fake_profile_badge_host_builtin)
+    } to SummaryCapsuleTone.Active
 
 @Composable
 private fun QuicFakePresetSelector(

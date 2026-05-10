@@ -35,7 +35,6 @@ private data class FakeTlsStatusContent(
     val tone: StatusIndicatorTone,
 )
 
-@Suppress("LongMethod")
 @Composable
 internal fun FakeTlsProfileCard(
     uiState: SettingsUiState,
@@ -46,53 +45,6 @@ internal fun FakeTlsProfileCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberFakeTlsStatus(uiState)
-    val baseSummary =
-        stringResource(
-            if (uiState.fake.fakeTlsUseOriginal) {
-                R.string.ripdpi_fake_tls_summary_base_original
-            } else {
-                R.string.ripdpi_fake_tls_summary_base_default
-            },
-        )
-    val sniSummary =
-        if (uiState.fake.fakeTlsSniMode == FakeTlsSniModeFixed) {
-            stringResource(
-                R.string.ripdpi_fake_tls_summary_sni_fixed,
-                uiState.fake.fakeSni.ifBlank { DefaultFakeSni },
-            )
-        } else {
-            stringResource(R.string.ripdpi_fake_tls_summary_sni_randomized)
-        }
-    val mutationSummary =
-        buildList {
-            if (uiState.fake.fakeTlsRandomize) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_randomize))
-            if (uiState.fake.fakeTlsDupSessionId) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_dup_sid))
-            if (uiState.fake.fakeTlsPadEncap) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_pad_encap))
-        }.ifEmpty {
-            listOf(stringResource(R.string.ripdpi_fake_tls_summary_mutation_none))
-        }.joinToString(", ")
-    val sizeSummary =
-        when {
-            uiState.fake.fakeTlsSize > 0 -> {
-                stringResource(R.string.ripdpi_fake_tls_summary_size_exact, uiState.fake.fakeTlsSize)
-            }
-
-            uiState.fake.fakeTlsSize < 0 -> {
-                stringResource(R.string.ripdpi_fake_tls_summary_size_minus, -uiState.fake.fakeTlsSize)
-            }
-
-            else -> {
-                stringResource(R.string.ripdpi_fake_tls_summary_size_input)
-            }
-        }
-    val scopeSummary =
-        when {
-            uiState.enableCmdSettings -> stringResource(R.string.ripdpi_fake_tls_scope_cli)
-            !uiState.desyncHttpsEnabled -> stringResource(R.string.ripdpi_fake_tls_scope_https_disabled)
-            !uiState.isFake -> stringResource(R.string.ripdpi_fake_tls_scope_needs_fake)
-            uiState.isServiceRunning -> stringResource(R.string.ripdpi_fake_tls_scope_restart)
-            else -> stringResource(R.string.ripdpi_fake_tls_scope_applies)
-        }
 
     RipDpiCard(
         modifier = modifier,
@@ -108,73 +60,153 @@ internal fun FakeTlsProfileCard(
             color = colors.foreground,
         )
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_tls_summary_label_base),
-                value = baseSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_tls_summary_label_sni),
-                value = sniSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_tls_summary_label_mutations),
-                value = mutationSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_tls_summary_label_size),
-                value = sizeSummary,
-            )
-            ProfileSummaryLine(
-                label = stringResource(R.string.ripdpi_fake_tls_summary_label_scope),
-                value = scopeSummary,
-            )
+            FakeTlsSummaryLines(uiState)
         }
-        if (uiState.canResetFakeTlsProfile) {
-            var showResetDialog by remember { mutableStateOf(false) }
+        FakeTlsResetSection(uiState, onResetFakeTlsProfile, type.caption, colors.mutedForeground)
+    }
+}
 
-            if (showResetDialog) {
-                RipDpiDialog(
-                    onDismissRequest = { showResetDialog = false },
-                    title = stringResource(R.string.confirm_reset_fake_tls_profile_title),
-                    dismissAction =
-                        RipDpiDialogAction(
-                            label = stringResource(R.string.confirm_reset_fake_tls_profile_dismiss),
-                            onClick = { showResetDialog = false },
-                        ),
-                    confirmAction =
-                        RipDpiDialogAction(
-                            label = stringResource(R.string.confirm_reset_fake_tls_profile_confirm),
-                            onClick = {
-                                showResetDialog = false
-                                onResetFakeTlsProfile()
-                            },
-                        ),
-                    visuals =
-                        RipDpiDialogVisuals(
-                            message = stringResource(R.string.confirm_reset_fake_tls_profile_body),
-                            tone = RipDpiDialogTone.Destructive,
-                        ),
-                )
-            }
+@Composable
+private fun FakeTlsSummaryLines(uiState: SettingsUiState) {
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_tls_summary_label_base),
+        value = fakeTlsBaseSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_tls_summary_label_sni),
+        value = fakeTlsSniSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_tls_summary_label_mutations),
+        value = fakeTlsMutationSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_tls_summary_label_size),
+        value = fakeTlsSizeSummary(uiState),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.ripdpi_fake_tls_summary_label_scope),
+        value = fakeTlsScopeSummary(uiState),
+    )
+}
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                RipDpiButton(
-                    text = stringResource(R.string.ripdpi_fake_tls_reset_action),
-                    onClick = { showResetDialog = true },
-                    variant = RipDpiButtonVariant.Outline,
-                    trailingIcon = RipDpiIcons.Close,
-                )
-            }
-            Text(
-                text = stringResource(R.string.ripdpi_fake_tls_reset_hint),
-                style = type.caption,
-                color = colors.mutedForeground,
-            )
+@Composable
+private fun fakeTlsBaseSummary(uiState: SettingsUiState): String =
+    stringResource(
+        if (uiState.fake.fakeTlsUseOriginal) {
+            R.string.ripdpi_fake_tls_summary_base_original
+        } else {
+            R.string.ripdpi_fake_tls_summary_base_default
+        },
+    )
+
+@Composable
+private fun fakeTlsSniSummary(uiState: SettingsUiState): String =
+    if (uiState.fake.fakeTlsSniMode == FakeTlsSniModeFixed) {
+        stringResource(
+            R.string.ripdpi_fake_tls_summary_sni_fixed,
+            uiState.fake.fakeSni.ifBlank { DefaultFakeSni },
+        )
+    } else {
+        stringResource(R.string.ripdpi_fake_tls_summary_sni_randomized)
+    }
+
+@Composable
+private fun fakeTlsMutationSummary(uiState: SettingsUiState): String =
+    buildList {
+        if (uiState.fake.fakeTlsRandomize) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_randomize))
+        if (uiState.fake.fakeTlsDupSessionId) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_dup_sid))
+        if (uiState.fake.fakeTlsPadEncap) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_pad_encap))
+    }.ifEmpty {
+        listOf(stringResource(R.string.ripdpi_fake_tls_summary_mutation_none))
+    }.joinToString(", ")
+
+@Composable
+private fun fakeTlsSizeSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.fake.fakeTlsSize > 0 -> {
+            stringResource(R.string.ripdpi_fake_tls_summary_size_exact, uiState.fake.fakeTlsSize)
+        }
+
+        uiState.fake.fakeTlsSize < 0 -> {
+            stringResource(R.string.ripdpi_fake_tls_summary_size_minus, -uiState.fake.fakeTlsSize)
+        }
+
+        else -> {
+            stringResource(R.string.ripdpi_fake_tls_summary_size_input)
         }
     }
+
+@Composable
+private fun fakeTlsScopeSummary(uiState: SettingsUiState): String =
+    when {
+        uiState.enableCmdSettings -> stringResource(R.string.ripdpi_fake_tls_scope_cli)
+        !uiState.desyncHttpsEnabled -> stringResource(R.string.ripdpi_fake_tls_scope_https_disabled)
+        !uiState.isFake -> stringResource(R.string.ripdpi_fake_tls_scope_needs_fake)
+        uiState.isServiceRunning -> stringResource(R.string.ripdpi_fake_tls_scope_restart)
+        else -> stringResource(R.string.ripdpi_fake_tls_scope_applies)
+    }
+
+@Composable
+private fun FakeTlsResetSection(
+    uiState: SettingsUiState,
+    onResetFakeTlsProfile: () -> Unit,
+    captionStyle: androidx.compose.ui.text.TextStyle,
+    mutedColor: androidx.compose.ui.graphics.Color,
+) {
+    if (!uiState.canResetFakeTlsProfile) return
+    var showResetDialog by remember { mutableStateOf(false) }
+    if (showResetDialog) {
+        FakeTlsResetDialog(
+            onDismiss = { showResetDialog = false },
+            onConfirm = {
+                showResetDialog = false
+                onResetFakeTlsProfile()
+            },
+        )
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+    ) {
+        RipDpiButton(
+            text = stringResource(R.string.ripdpi_fake_tls_reset_action),
+            onClick = { showResetDialog = true },
+            variant = RipDpiButtonVariant.Outline,
+            trailingIcon = RipDpiIcons.Close,
+        )
+    }
+    Text(
+        text = stringResource(R.string.ripdpi_fake_tls_reset_hint),
+        style = captionStyle,
+        color = mutedColor,
+    )
+}
+
+@Composable
+private fun FakeTlsResetDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.confirm_reset_fake_tls_profile_title),
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_reset_fake_tls_profile_dismiss),
+                onClick = onDismiss,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_reset_fake_tls_profile_confirm),
+                onClick = onConfirm,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.confirm_reset_fake_tls_profile_body),
+                tone = RipDpiDialogTone.Destructive,
+            ),
+    )
 }
 
 @Composable

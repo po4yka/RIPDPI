@@ -333,7 +333,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
     composable<Route.BiometricPrompt> {
         BiometricPromptRoute(
             onAuthenticated = {
-                mainViewModel.onAuthenticated()
+                mainViewModel.appLock.onAuthenticated()
                 navController.navigate(Route.Home) {
                     popUpTo<Route.BiometricPrompt> { inclusive = true }
                     launchSingleTop = true
