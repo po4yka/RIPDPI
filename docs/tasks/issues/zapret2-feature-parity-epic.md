@@ -1,10 +1,10 @@
 ---
 title: Port zapret2 DPI-bypass technique set into RIPDPI Rust+Android framework
 type: epic
-status: backlog
+status: review
 area: epic
 priority: high
-owner: unassigned
+owner: Codex
 parent: null
 blocks: []
 blocked_by: []
@@ -12,7 +12,7 @@ created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Port zapret2 DPI-bypass technique set into RIPDPI Rust+Android framework #repo/RIPDPI #area/epic #status/backlog 🔼
+- [ ] #task Port zapret2 DPI-bypass technique set into RIPDPI Rust+Android framework #repo/RIPDPI #area/epic #status/review 🔼
 
 ## Goal
 
@@ -74,3 +74,7 @@ None (greenfield epic)
 - mlua adds ~2MB to APK
 - Lua 5.4 vendored build may conflict with Android NDK version
 - TCP_REPAIR (Tier 2) unavailable on stock Android
+
+## Work log
+
+- 2026-05-10: All 19 child tasks are either closed through prior commits or in review with implementation commits. Parent epic moved to review pending final board closure.
