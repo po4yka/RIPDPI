@@ -20,6 +20,8 @@ import com.poyka.ripdpi.core.detection.Recommendation
 import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.core.detection.community.CommunityStatsRepository
+import com.poyka.ripdpi.core.detection.debug.DetectionDebugFormatter
+import com.poyka.ripdpi.core.detection.debug.DetectionDebugSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
@@ -42,6 +44,7 @@ data class DetectionCheckUiState(
     val recommendations: List<Recommendation> = emptyList(),
     val autoTuneFixes: List<AutoTuneFix> = emptyList(),
     val reportText: String? = null,
+    val debugReportText: String? = null,
     val error: String? = null,
     val showOnboarding: Boolean = false,
     val permissionAction: DetectionPermissionPlanner.Action = DetectionPermissionPlanner.Action.NONE,
@@ -52,6 +55,7 @@ data class DetectionCheckUiState(
     val communityStatsError: String? = null,
     val privacyModeEnabled: Boolean = false,
     val cdnPullingEnabled: Boolean = false,
+    val debugModeEnabled: Boolean = false,
 )
 
 private const val entropyModeBalanced = 3
@@ -95,10 +99,12 @@ class DetectionCheckViewModel
             viewModelScope.launch {
                 appSettingsRepository.settings.collect { settings ->
                     val privacyModeEnabled = settings.detectionCheckPrivacyModeEnabled
+                    val debugModeEnabled = settings.detectionCheckDebugModeEnabled
                     _uiState.value =
                         _uiState.value.copy(
                             privacyModeEnabled = privacyModeEnabled,
                             cdnPullingEnabled = settings.detectionCheckCdnPullingEnabled,
+                            debugModeEnabled = debugModeEnabled,
                             reportText =
                                 _uiState.value.result?.let { result ->
                                     DetectionReportFormatter.format(
@@ -106,6 +112,16 @@ class DetectionCheckViewModel
                                         privacyModeEnabled = privacyModeEnabled,
                                     )
                                 } ?: _uiState.value.reportText,
+                            debugReportText =
+                                _uiState.value.result
+                                    ?.takeIf { debugModeEnabled }
+                                    ?.let { result ->
+                                        DetectionDebugFormatter.format(
+                                            result = result,
+                                            settings = settings.toDetectionDebugSettings(),
+                                            privacyModeEnabled = privacyModeEnabled,
+                                        )
+                                    },
                         )
                 }
             }
@@ -231,6 +247,16 @@ class DetectionCheckViewModel
                                     result = result,
                                     privacyModeEnabled = privacyModeEnabled,
                                 )
+                            val debugReportText =
+                                result
+                                    .takeIf { settings.detectionCheckDebugModeEnabled }
+                                    ?.let {
+                                        DetectionDebugFormatter.format(
+                                            result = it,
+                                            settings = settings.toDetectionDebugSettings(),
+                                            privacyModeEnabled = privacyModeEnabled,
+                                        )
+                                    }
                             val fixes =
                                 DetectionAutoTuner.suggestFixes(
                                     result = result,
@@ -252,6 +278,7 @@ class DetectionCheckViewModel
                                     recommendations = recommendations,
                                     fixes = fixes,
                                     reportText = reportText,
+                                    debugReportText = debugReportText,
                                 )
                         }
 
@@ -279,6 +306,7 @@ class DetectionCheckViewModel
                 recommendations = emptyList(),
                 autoTuneFixes = emptyList(),
                 reportText = null,
+                debugReportText = null,
                 error = null,
             )
 
@@ -289,6 +317,7 @@ class DetectionCheckViewModel
             recommendations: List<Recommendation>,
             fixes: List<AutoTuneFix>,
             reportText: String,
+            debugReportText: String?,
         ): DetectionCheckUiState =
             copy(
                 isRunning = false,
@@ -299,6 +328,7 @@ class DetectionCheckViewModel
                 recommendations = recommendations,
                 autoTuneFixes = fixes,
                 reportText = reportText,
+                debugReportText = debugReportText,
             )
 
         private fun AppSettings.toDetectionRunnerConfig(packageName: String): DetectionRunnerConfig =
@@ -310,6 +340,14 @@ class DetectionCheckViewModel
                 tlsFingerprintProfile = tlsFingerprintProfile.ifEmpty { "chrome_stable" },
                 includeRttTriangulationCheck = detectionCheckRttTriangulationEnabled,
                 includeCdnPullingCheck = detectionCheckCdnPullingEnabled,
+            )
+
+        private fun AppSettings.toDetectionDebugSettings(): DetectionDebugSettings =
+            DetectionDebugSettings(
+                cdnPullingEnabled = detectionCheckCdnPullingEnabled,
+                dnsResolverMode = dnsMode,
+                portRange = proxyPort.takeIf { it > 0 }?.toString() ?: "default",
+                debugModeEnabled = detectionCheckDebugModeEnabled,
             )
 
         fun applyAllFixes() {
@@ -358,6 +396,14 @@ class DetectionCheckViewModel
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckCdnPullingEnabled = enabled
+                }
+            }
+        }
+
+        fun setDebugModeEnabled(enabled: Boolean) {
+            viewModelScope.launch {
+                appSettingsRepository.update {
+                    detectionCheckDebugModeEnabled = enabled
                 }
             }
         }

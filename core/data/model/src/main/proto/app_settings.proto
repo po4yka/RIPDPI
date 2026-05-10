@@ -327,6 +327,7 @@ message AppSettings {
   bool rkn_diagnostics_fetch_self_info_enabled = 263; // Opt-in public IP/ASN context for RKN diagnosis
   bool detection_check_cdn_pulling_enabled = 264; // Enable CDN trace pulling/MITM check (default false)
   bool compression_probe_include_zstd = 265; // Enable native Zstd HTTP compression probe (default false)
+  bool detection_check_debug_mode_enabled = 266; // Enable verbose detection debug diagnostics copy action
 
   // Community comparison (anonymous opt-in)
   bool community_comparison_enabled = 209;

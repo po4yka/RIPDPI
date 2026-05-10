@@ -97,6 +97,7 @@ internal fun DetectionCheckRoute(
             onApplyFixes = remember(viewModel) { viewModel::applyAllFixes },
             onPrivacyModeChange = remember(viewModel) { viewModel::setPrivacyModeEnabled },
             onCdnPullingChange = remember(viewModel) { viewModel::setCdnPullingEnabled },
+            onDebugModeChange = remember(viewModel) { viewModel::setDebugModeEnabled },
             onReloadCommunityStats = remember(viewModel) { viewModel::reloadCommunityStats },
             onRequestPermissions = onRequestPermissions,
         )
@@ -147,6 +148,7 @@ internal fun DetectionCheckScreen(
     onApplyFixes: () -> Unit,
     onPrivacyModeChange: (Boolean) -> Unit,
     onCdnPullingChange: (Boolean) -> Unit = {},
+    onDebugModeChange: (Boolean) -> Unit = {},
     onReloadCommunityStats: () -> Unit,
     onRequestPermissions: () -> Unit,
 ) {
@@ -194,6 +196,7 @@ internal fun DetectionCheckScreen(
                 onApplyFixes = onApplyFixes,
                 onPrivacyModeChange = onPrivacyModeChange,
                 onCdnPullingChange = onCdnPullingChange,
+                onDebugModeChange = onDebugModeChange,
                 onReloadCommunityStats = onReloadCommunityStats,
                 onRequestPermissions = onRequestPermissions,
                 performHaptic = performHaptic,
@@ -210,6 +213,7 @@ private fun DetectionCheckScreenContent(
     onApplyFixes: () -> Unit,
     onPrivacyModeChange: (Boolean) -> Unit,
     onCdnPullingChange: (Boolean) -> Unit,
+    onDebugModeChange: (Boolean) -> Unit,
     onReloadCommunityStats: () -> Unit,
     onRequestPermissions: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
@@ -240,6 +244,11 @@ private fun DetectionCheckScreenContent(
             onEnabledChange = onCdnPullingChange,
             controlEnabled = !uiState.isRunning,
         )
+        DetectionDebugModeToggle(
+            enabled = uiState.debugModeEnabled,
+            onEnabledChange = onDebugModeChange,
+            controlEnabled = !uiState.isRunning,
+        )
         DetectionPermissionWarning(
             missingPermissions = uiState.missingPermissions,
             permissionAction = uiState.permissionAction,
@@ -260,6 +269,7 @@ private fun DetectionCheckScreenContent(
             autoTuneFixes = uiState.autoTuneFixes,
             recommendations = uiState.recommendations,
             reportText = uiState.reportText,
+            debugReportText = uiState.debugReportText,
             privacyModeEnabled = uiState.privacyModeEnabled,
             onApplyFixes = onApplyFixes,
             performHaptic = performHaptic,
@@ -300,6 +310,20 @@ private fun DetectionCdnPullingToggle(
         onCheckedChange = onEnabledChange,
         enabled = controlEnabled,
         label = "CDN trace and TLS MITM check",
+    )
+}
+
+@Composable
+private fun DetectionDebugModeToggle(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    controlEnabled: Boolean,
+) {
+    RipDpiSwitch(
+        checked = enabled,
+        onCheckedChange = onEnabledChange,
+        enabled = controlEnabled,
+        label = "Debug diagnostics",
     )
 }
 
@@ -445,6 +469,7 @@ private fun DetectionResultSummary(
     autoTuneFixes: List<AutoTuneFix>,
     recommendations: List<Recommendation>,
     reportText: String?,
+    debugReportText: String?,
     privacyModeEnabled: Boolean,
     onApplyFixes: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
@@ -512,6 +537,18 @@ private fun DetectionResultSummary(
                     Modifier
                         .weight(1f)
                         .ripDpiTestTag(RipDpiTestTags.DetectionShare),
+                variant = RipDpiButtonVariant.Outline,
+            )
+        }
+        debugReportText?.let { text ->
+            RipDpiButton(
+                text = "Copy diagnostics",
+                onClick = {
+                    performHaptic(RipDpiHapticFeedback.Acknowledge)
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Detection Diagnostics", text))
+                },
+                modifier = Modifier.fillMaxWidth(),
                 variant = RipDpiButtonVariant.Outline,
             )
         }
