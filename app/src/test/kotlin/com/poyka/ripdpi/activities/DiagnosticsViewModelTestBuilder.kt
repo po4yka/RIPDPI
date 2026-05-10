@@ -16,6 +16,9 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
+import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
+import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
+import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +36,9 @@ internal fun createDiagnosticsViewModel(
     rememberedPolicySource: DiagnosticsRememberedPolicySource = EmptyRememberedNetworkPolicySource(),
     activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource = EmptyActiveConnectionPolicySource(),
     serviceStateStore: ServiceStateStore = DefaultServiceStateStore(),
+    dnsIntegrityChecker: DnsIntegrityChecker = DnsIntegrityChecker(),
+    domainReachabilityScanner: DomainReachabilityScanner = DomainReachabilityScanner(),
+    rknLayeredProbePipeline: RknLayeredProbePipeline = RknLayeredProbePipeline(),
     autoStartScan: Boolean = false,
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
@@ -73,6 +79,9 @@ internal fun createDiagnosticsViewModel(
                     serviceStateStore = serviceStateStore,
                 ),
             diagnosticsViewModelBootstrapper = DiagnosticsViewModelBootstrapper(diagnosticsBootstrapper),
+            dnsIntegrityChecker = dnsIntegrityChecker,
+            domainReachabilityScanner = domainReachabilityScanner,
+            rknLayeredProbePipeline = rknLayeredProbePipeline,
             diagnosticsUiStateAssembler =
                 DiagnosticsUiStateAssembler(
                     uiStateFactory = uiStateFactory,
