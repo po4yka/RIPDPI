@@ -60,7 +60,7 @@ pub fn apply_udp_morph_policy_to_hints(
     policy: Option<&ProxyMorphPolicy>,
     hints: super::desync::AdaptivePlannerHints,
 ) -> super::desync::AdaptivePlannerHints {
-    ripdpi_runtime_decision_ports::apply_udp_morph_policy_to_hints(policy, hints)
+    ripdpi_runtime_adaptive::morph_policy::apply_udp_morph_policy_to_hints(policy, hints)
 }
 
 pub fn apply_tcp_morph_policy_to_group(
@@ -69,7 +69,7 @@ pub fn apply_tcp_morph_policy_to_group(
     payload: &[u8],
     hints: super::desync::AdaptivePlannerHints,
 ) -> super::config::DesyncGroup {
-    ripdpi_runtime_decision_ports::apply_tcp_morph_policy_to_group(policy, group, payload, hints)
+    ripdpi_runtime_adaptive::morph_policy::apply_tcp_morph_policy_to_group(policy, group, payload, hints)
 }
 
 pub fn tcp_morph_hint_family(
@@ -77,14 +77,14 @@ pub fn tcp_morph_hint_family(
     payload: &[u8],
     hints: super::desync::AdaptivePlannerHints,
 ) -> Option<String> {
-    ripdpi_runtime_decision_ports::tcp_morph_hint_family(policy, payload, hints)
+    ripdpi_runtime_adaptive::morph_policy::tcp_morph_hint_family(policy, payload, hints)
 }
 
 pub fn udp_morph_hint_family(
     policy: Option<&ProxyMorphPolicy>,
     hints: super::desync::AdaptivePlannerHints,
 ) -> Option<String> {
-    ripdpi_runtime_decision_ports::udp_morph_hint_family(policy, hints)
+    ripdpi_runtime_adaptive::morph_policy::udp_morph_hint_family(policy, hints)
 }
 
 pub fn emit_morph_hint_applied(
