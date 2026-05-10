@@ -1,7 +1,7 @@
 ---
 title: Add ripdpi-strategy-config YAML loader crate
 type: task
-status: backlog
+status: review
 area: rust-native
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: zapret2-feature-parity-epic
 blocks: []
 blocked_by: [add-ripdpi-strategy-registry-crate]
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Add ripdpi-strategy-config YAML loader crate #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [ ] #task Add ripdpi-strategy-config YAML loader crate #repo/RIPDPI #area/rust-native #status/review 🔼
 
 ## Objective
 
@@ -86,3 +86,10 @@ strategies:
 ## Definition of done
 
 `cargo test -p ripdpi-strategy-config` green; example YAML from acceptance criteria loads and produces a registered strategy chain. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+- Added `ripdpi-strategy-config` parser/reloader crate with strict YAML parsing, protocol/step enums, inline and `@file` host lists, default `on_fail`, and mtime-based reload.
+- Added `strategy_chain_yaml = 214` to `AppSettings` proto for verbatim YAML persistence.
+- Verification: `CARGO_TARGET_DIR=target/codex-strategy-config cargo test -p ripdpi-strategy-config --locked`; `CARGO_TARGET_DIR=target/codex-strategy-config cargo clippy -p ripdpi-strategy-config --all-targets --locked -- -D warnings`.
+- Remaining review evidence: instantiate parsed YAML into concrete registry strategies.

@@ -1,0 +1,13 @@
+[package]
+name = "ripdpi-strategy-config"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_yaml_ng = { workspace = true }
+thiserror = { workspace = true }

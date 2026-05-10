@@ -76,6 +76,7 @@ members = [
     "crates/ripdpi-root-helper-protocol",
     "crates/ripdpi-root-helper",
     "crates/ripdpi-relay-mux",
+    "crates/ripdpi-strategy-config",
     "crates/ripdpi-strategy-registry",
     "crates/ripdpi-strategy-trait",
     "crates/ripdpi-vless",
@@ -160,6 +161,7 @@ ripdpi-capabilities = { path = "crates/ripdpi-capabilities" }
 ripdpi-privileged-ops = { path = "crates/ripdpi-privileged-ops" }
 ripdpi-protocol-detect = { path = "crates/ripdpi-protocol-detect" }
 ripdpi-root-helper-protocol = { path = "crates/ripdpi-root-helper-protocol" }
+ripdpi-strategy-config = { path = "crates/ripdpi-strategy-config" }
 ripdpi-strategy-registry = { path = "crates/ripdpi-strategy-registry" }
 ripdpi-strategy-trait = { path = "crates/ripdpi-strategy-trait" }
 ripdpi-vless = { path = "crates/ripdpi-vless" }

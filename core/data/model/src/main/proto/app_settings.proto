@@ -226,6 +226,7 @@ message AppSettings {
   int32 warp_amnezia_s3 = 158;
   int32 warp_amnezia_s4 = 159;
   string warp_amnezia_preset = 213; // "off" | "balanced" | "aggressive" | "custom"
+  string strategy_chain_yaml = 214; // Raw YAML strategy chain config for advanced strategy compositor
 
   // Tier 2 adaptive fallback
   bool adaptive_fallback_enabled = 160;

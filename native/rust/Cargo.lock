@@ -3975,6 +3975,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-strategy-config"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_yaml_ng",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ripdpi-strategy-registry"
 version = "0.1.0"
 dependencies = [
