@@ -1,7 +1,7 @@
 ---
 title: Create ripdpi-strategy-registry crate with chain executor and UCB1 integration
 type: task
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: unassigned
@@ -13,7 +13,7 @@ created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Create ripdpi-strategy-registry crate with chain executor and UCB1 integration #repo/RIPDPI #area/rust-native #status/doing 🔼
+- [ ] #task Create ripdpi-strategy-registry crate with chain executor and UCB1 integration #repo/RIPDPI #area/rust-native #status/review 🔼
 
 ## Objective / Goal
 
@@ -67,3 +67,10 @@ Source files:
 
 Registry compiles, tests pass, and `TcpDesyncStrategy` is registered via the inventory pattern.
 Tests were written and confirmed red before implementation began; `cargo test -p ripdpi-strategy-registry` is green with no regressions.
+
+## Work log
+
+- Added `ripdpi-strategy-registry` with strategy registration, descriptor listing, chain execution, `NEXT` / `FALLBACK_PLAIN` / `DROP` failure policies, and UCB1 hint ordering.
+- Added built-in technique registration and descriptor lookup for config-addressable strategy IDs.
+- Verification: `CARGO_TARGET_DIR=target/codex-builtins cargo test -p ripdpi-strategy-registry -p ripdpi-strategy-config --locked`; `CARGO_TARGET_DIR=target/codex-builtins cargo clippy -p ripdpi-strategy-registry -p ripdpi-strategy-config --all-targets --locked -- -D warnings`.
+- Remaining review evidence: automatic inventory/linker registration for `TcpDesyncStrategy` rather than explicit registry construction.

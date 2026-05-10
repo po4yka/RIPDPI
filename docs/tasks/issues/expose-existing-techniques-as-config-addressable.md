@@ -1,7 +1,7 @@
 ---
 title: Expose existing desync techniques as config-addressable registry entries
 type: task
-status: backlog
+status: review
 area: rust-native
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: zapret2-feature-parity-epic
 blocks: []
 blocked_by: [add-ripdpi-strategy-config-yaml-loader, refactor-plan-tcp-to-desynpstrategy-trait]
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Expose existing desync techniques as config-addressable registry entries #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [ ] #task Expose existing desync techniques as config-addressable registry entries #repo/RIPDPI #area/rust-native #status/review 🔼
 
 ## Objective
 
@@ -69,3 +69,11 @@ Techniques to decompose (reference their implementations):
 ## Definition of done
 
 Running RIPDPI on a device and loading a YAML with `type: fake` produces a fake packet injection without modifying any Rust strategy logic. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+- Added the built-in technique catalog to `ripdpi-strategy-registry` with stable IDs, descriptors, capability tiers, and single-technique registration errors for unknown IDs.
+- Added `StepType::registry_id()` so parsed YAML step types resolve to registry technique IDs without changing the YAML schema.
+- Added registry tests for all built-in IDs, unknown types, capability tiers, YAML type resolution, and graceful tier skipping.
+- Verification: `CARGO_TARGET_DIR=target/codex-builtins cargo test -p ripdpi-strategy-registry -p ripdpi-strategy-config --locked`; `CARGO_TARGET_DIR=target/codex-builtins cargo clippy -p ripdpi-strategy-registry -p ripdpi-strategy-config --all-targets --locked -- -D warnings`.
+- Remaining review evidence: device/runtime path proving a loaded YAML `type: fake` reaches the existing packet injection implementation.

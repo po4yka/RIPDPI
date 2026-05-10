@@ -104,6 +104,26 @@ pub enum StepType {
     Wssize,
 }
 
+impl StepType {
+    pub const fn registry_id(self) -> &'static str {
+        match self {
+            Self::Split => "split",
+            Self::Disorder => "disorder",
+            Self::Fake => "fake",
+            Self::Oob => "oob",
+            Self::FakeRst => "fake_rst",
+            Self::SeqOverlap => "seq_overlap",
+            Self::IpFrag => "ip_frag",
+            Self::MultiDisorder => "multi_disorder",
+            Self::Udplen => "udplen",
+            Self::HttpDomcase => "http_domcase",
+            Self::HttpHostcase => "http_hostcase",
+            Self::Wsize => "wsize",
+            Self::Wssize => "wssize",
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawConfig {

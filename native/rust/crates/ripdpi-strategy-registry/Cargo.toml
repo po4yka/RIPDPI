@@ -10,6 +10,8 @@ workspace = true
 [dependencies]
 ripdpi-desync = { workspace = true }
 ripdpi-strategy-trait = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
+ripdpi-strategy-config = { workspace = true }
 static_assertions = "1"

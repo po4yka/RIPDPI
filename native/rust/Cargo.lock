@@ -3988,8 +3988,10 @@ name = "ripdpi-strategy-registry"
 version = "0.1.0"
 dependencies = [
  "ripdpi-desync",
+ "ripdpi-strategy-config",
  "ripdpi-strategy-trait",
  "static_assertions",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
