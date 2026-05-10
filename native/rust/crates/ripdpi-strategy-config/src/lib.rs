@@ -97,17 +97,30 @@ pub enum StepType {
     Disorder,
     Fake,
     Oob,
+    #[serde(alias = "fake_rst")]
     FakeRst,
+    #[serde(alias = "seq_overlap")]
     SeqOverlap,
+    #[serde(alias = "ip_frag")]
     IpFrag,
+    #[serde(alias = "multi_disorder")]
     MultiDisorder,
+    #[serde(rename = "tls_rec", alias = "tlsRec")]
+    TlsRec,
+    #[serde(rename = "tls_rand_rec", alias = "tlsRandRec")]
+    TlsRandRec,
     Udplen,
+    #[serde(alias = "http_domcase")]
     HttpDomcase,
+    #[serde(alias = "http_hostcase")]
     HttpHostcase,
+    #[serde(alias = "http_methodeol")]
     HttpMethodeol,
+    #[serde(alias = "http_unixeol")]
     HttpUnixeol,
     Wsize,
     Wssize,
+    #[serde(alias = "ipv6_ext")]
     Ipv6Ext,
     #[serde(rename = "synack")]
     SynAck,
@@ -126,6 +139,8 @@ impl StepType {
             Self::SeqOverlap => "seq_overlap",
             Self::IpFrag => "ip_frag",
             Self::MultiDisorder => "multi_disorder",
+            Self::TlsRec => "tls_rec",
+            Self::TlsRandRec => "tls_rand_rec",
             Self::Udplen => "udplen",
             Self::HttpDomcase => "http_domcase",
             Self::HttpHostcase => "http_hostcase",
