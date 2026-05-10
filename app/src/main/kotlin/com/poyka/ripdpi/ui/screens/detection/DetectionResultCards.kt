@@ -417,99 +417,120 @@ internal fun DetectionCategoryCards(
 @Composable
 private fun detectionCategoryEntries(result: DetectionCheckResult): List<CategoryEntry> =
     buildList {
-        add(
-            CategoryEntry(
-                stringResource(R.string.detection_check_category_geoip),
-                result.geoIp,
-                "geoip",
-                RipDpiIcons.Public,
-            ),
-        )
-        add(
-            CategoryEntry(
-                stringResource(R.string.detection_check_category_direct),
-                result.directSigns,
-                "direct",
-                RipDpiIcons.Visibility,
-            ),
-        )
-        add(
-            CategoryEntry(
-                stringResource(R.string.detection_check_category_indirect),
-                result.indirectSigns,
-                "indirect",
-                RipDpiIcons.NetworkCheck,
-            ),
-        )
-        add(
-            CategoryEntry(
-                stringResource(R.string.detection_check_category_location),
-                result.locationSignals,
-                "location",
-                RipDpiIcons.LocationOn,
-            ),
-        )
-        addOptionalCategory(
-            result.dnsLeak,
-            stringResource(R.string.detection_check_category_dns_leak),
-            "dns",
-            RipDpiIcons.Dns,
-        )
-        addOptionalCategory(
-            result.webRtcLeak,
-            stringResource(R.string.detection_check_category_webrtc),
-            "webrtc",
-            RipDpiIcons.Videocam,
-        )
-        addOptionalCategory(
-            result.tlsFingerprint,
-            stringResource(R.string.detection_check_category_tls),
-            "tls",
-            RipDpiIcons.Lock,
-        )
-        addOptionalCategory(
-            result.timingAnalysis,
-            stringResource(R.string.detection_check_category_timing),
-            "timing",
-            RipDpiIcons.Timer,
-        )
-        addOptionalCategory(
-            result.icmpSpoofing?.category,
-            stringResource(R.string.detection_check_category_icmp_spoofing),
-            "icmp",
-            RipDpiIcons.NetworkCheck,
-        )
-        addOptionalCategory(
-            result.ipComparison?.category,
-            stringResource(R.string.detection_check_category_ip_comparison),
-            "ip_comparison",
-            RipDpiIcons.Public,
-        )
-        addOptionalCategory(
-            result.rttTriangulation?.category,
-            stringResource(R.string.detection_check_category_rtt_triangulation),
-            "rtt_triangulation",
-            RipDpiIcons.Timer,
-        )
-        addOptionalCategory(
-            result.cdnPulling?.category,
-            "CDN pulling",
-            "cdn_pulling",
-            RipDpiIcons.Public,
-        )
-        addOptionalCategory(
-            result.ipConsensus?.toCategoryResult(),
-            "IP consensus",
-            "ip_consensus",
-            RipDpiIcons.Public,
-        )
-        addOptionalCategory(
-            result.nativeSigns?.category,
-            "Native signs",
-            "native_signs",
-            RipDpiIcons.NetworkCheck,
-        )
+        addPrimaryCategoryEntries(result)
+        addOptionalCategoryEntries(result)
     }
+
+@Composable
+private fun MutableList<CategoryEntry>.addPrimaryCategoryEntries(result: DetectionCheckResult) {
+    add(
+        CategoryEntry(
+            stringResource(R.string.detection_check_category_geoip),
+            result.geoIp,
+            "geoip",
+            RipDpiIcons.Public,
+        ),
+    )
+    add(
+        CategoryEntry(
+            stringResource(R.string.detection_check_category_direct),
+            result.directSigns,
+            "direct",
+            RipDpiIcons.Visibility,
+        ),
+    )
+    add(
+        CategoryEntry(
+            stringResource(R.string.detection_check_category_indirect),
+            result.indirectSigns,
+            "indirect",
+            RipDpiIcons.NetworkCheck,
+        ),
+    )
+    add(
+        CategoryEntry(
+            stringResource(R.string.detection_check_category_location),
+            result.locationSignals,
+            "location",
+            RipDpiIcons.LocationOn,
+        ),
+    )
+}
+
+@Composable
+private fun MutableList<CategoryEntry>.addOptionalCategoryEntries(result: DetectionCheckResult) {
+    addOptionalCategory(
+        result.dnsLeak,
+        stringResource(R.string.detection_check_category_dns_leak),
+        "dns",
+        RipDpiIcons.Dns,
+    )
+    addOptionalCategory(
+        result.webRtcLeak,
+        stringResource(R.string.detection_check_category_webrtc),
+        "webrtc",
+        RipDpiIcons.Videocam,
+    )
+    addOptionalCategory(
+        result.tlsFingerprint,
+        stringResource(R.string.detection_check_category_tls),
+        "tls",
+        RipDpiIcons.Lock,
+    )
+    addOptionalCategory(
+        result.timingAnalysis,
+        stringResource(R.string.detection_check_category_timing),
+        "timing",
+        RipDpiIcons.Timer,
+    )
+    addAdvancedCategoryEntries(result)
+}
+
+@Composable
+private fun MutableList<CategoryEntry>.addAdvancedCategoryEntries(result: DetectionCheckResult) {
+    addOptionalCategory(
+        result.icmpSpoofing?.category,
+        stringResource(R.string.detection_check_category_icmp_spoofing),
+        "icmp",
+        RipDpiIcons.NetworkCheck,
+    )
+    addOptionalCategory(
+        result.ipComparison?.category,
+        stringResource(R.string.detection_check_category_ip_comparison),
+        "ip_comparison",
+        RipDpiIcons.Public,
+    )
+    addOptionalCategory(
+        result.rttTriangulation?.category,
+        stringResource(R.string.detection_check_category_rtt_triangulation),
+        "rtt_triangulation",
+        RipDpiIcons.Timer,
+    )
+    addOptionalCategory(
+        result.cdnPulling?.category,
+        "CDN pulling",
+        "cdn_pulling",
+        RipDpiIcons.Public,
+    )
+    addOptionalCategory(
+        result.callTransport?.category,
+        "Call transport",
+        "call_transport",
+        RipDpiIcons.Videocam,
+    )
+    addOptionalCategory(
+        result.ipConsensus?.toCategoryResult(),
+        "IP consensus",
+        "ip_consensus",
+        RipDpiIcons.Public,
+    )
+    addOptionalCategory(
+        result.nativeSigns?.category,
+        "Native signs",
+        "native_signs",
+        RipDpiIcons.NetworkCheck,
+    )
+}
 
 private fun MutableList<CategoryEntry>.addOptionalCategory(
     category: CategoryResult?,

@@ -20,6 +20,7 @@ internal class DetectionPipelineScheduler(
     private val rttTriangulationChecker: RttTriangulationCheckerPort,
     private val cdnPullingChecker: CdnPullingCheckerPort,
     private val nativeSignsChecker: NativeSignsCheckerPort,
+    private val callTransportChecker: CallTransportCheckerPort,
 ) {
     suspend fun runChecks(
         context: Context,
@@ -173,6 +174,17 @@ internal class DetectionPipelineScheduler(
                 } else {
                     null
                 }
+            val callTransport =
+                if (config.includeCallTransportCheck) {
+                    reporter.started(DetectionStage.CALL_TRANSPORT)
+                    callTransportChecker
+                        .check(proxyEndpoint = bypassResult?.proxyEndpoint)
+                        .also {
+                            reporter.completed(DetectionStage.CALL_TRANSPORT)
+                        }
+                } else {
+                    null
+                }
 
             val timingDeferred =
                 if (config.includeTimingAnalysis) {
@@ -200,6 +212,7 @@ internal class DetectionPipelineScheduler(
                 rttTriangulation = rttTriangulation,
                 cdnPulling = cdnPullingDeferred?.await(),
                 nativeSigns = nativeSignsDeferred?.await(),
+                callTransport = callTransport,
             )
         }
 

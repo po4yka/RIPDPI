@@ -41,6 +41,7 @@ class DetectionCheckRunnerTest {
                             tlsFingerprintProfile = "firefox",
                             includeIcmpSpoofingCheck = true,
                             includeRttTriangulationCheck = true,
+                            includeCallTransportCheck = true,
                         ),
                     onProgress = { progress += it },
                 )
@@ -58,6 +59,7 @@ class DetectionCheckRunnerTest {
             assertEquals("ip comparison", result.ipComparison?.category?.name)
             assertEquals("rtt", result.rttTriangulation?.category?.name)
             assertEquals("native signs", result.nativeSigns?.category?.name)
+            assertEquals("call transport", result.callTransport?.category?.name)
             assertEquals(setOf(1080), ports.bypass.excludePorts)
             assertEquals("com.example.proxy", ports.direct.excludePackage)
             assertEquals(true, ports.dns.encryptedDnsEnabled)
@@ -69,6 +71,7 @@ class DetectionCheckRunnerTest {
             assertSame(ports.bypass.result, ports.verdict.bypassResult)
             assertSame(ports.ipComparison.result, ports.verdict.ipComparison)
             assertSame(ports.nativeSigns.result, ports.verdict.nativeSigns)
+            assertEquals(1, ports.callTransport.calls)
             assertNotNull(result.ipConsensus)
             assertSame(result.ipConsensus, ports.verdict.ipConsensus)
             assertTrue(progress.any { it.stage == DetectionStage.GEO_IP && it.detail == "Done" })
@@ -96,6 +99,7 @@ class DetectionCheckRunnerTest {
                             includeIpComparisonCheck = false,
                             includeRttTriangulationCheck = false,
                             includeNativeSignsCheck = false,
+                            includeCallTransportCheck = false,
                         ),
                 )
 
@@ -120,6 +124,7 @@ class DetectionCheckRunnerTest {
             assertNull(result.ipComparison)
             assertNull(result.rttTriangulation)
             assertNull(result.nativeSigns)
+            assertNull(result.callTransport)
             assertEquals(0, ports.location.calls)
             assertEquals(0, ports.bypass.calls)
             assertEquals(0, ports.dns.calls)
@@ -130,6 +135,7 @@ class DetectionCheckRunnerTest {
             assertEquals(0, ports.ipComparison.calls)
             assertEquals(0, ports.rtt.calls)
             assertEquals(0, ports.nativeSigns.calls)
+            assertEquals(0, ports.callTransport.calls)
             assertNotNull(ports.verdict.locationSignals)
             assertNotNull(ports.verdict.bypassResult)
         }
@@ -200,6 +206,7 @@ class DetectionCheckRunnerTest {
         val rtt = FakeRttTriangulationCheckerPort()
         val cdnPulling = FakeCdnPullingCheckerPort()
         val nativeSigns = FakeNativeSignsCheckerPort()
+        val callTransport = FakeCallTransportCheckerPort()
         val verdict = FakeDetectionVerdictEvaluator()
 
         fun newRunner(): DefaultDetectionCheckRunner =
@@ -218,6 +225,7 @@ class DetectionCheckRunnerTest {
                 rttTriangulationChecker = rtt,
                 cdnPullingChecker = cdnPulling,
                 nativeSignsChecker = nativeSigns,
+                callTransportChecker = callTransport,
                 verdictEvaluator = verdict,
             )
     }
@@ -404,6 +412,21 @@ class DetectionCheckRunnerTest {
         var calls = 0
 
         override fun check(enabled: Boolean): NativeSignsResult {
+            calls += 1
+            return result
+        }
+    }
+
+    private class FakeCallTransportCheckerPort : CallTransportCheckerPort {
+        val result =
+            CallTransportResult(
+                category = category("call transport"),
+            )
+        var calls = 0
+
+        override suspend fun check(
+            proxyEndpoint: com.poyka.ripdpi.core.detection.probe.ProxyEndpoint?,
+        ): CallTransportResult {
             calls += 1
             return result
         }

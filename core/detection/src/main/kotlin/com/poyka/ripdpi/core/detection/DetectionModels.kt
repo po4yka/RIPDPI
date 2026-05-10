@@ -303,10 +303,10 @@ data class DetectionCheckResult(
     val rttTriangulation: RttTriangulationResult? = null,
     val cdnPulling: CdnPullingResult? = null,
     val nativeSigns: NativeSignsResult? = null,
-    val callTransport: CallTransportResult? = null,
     val verdict: Verdict,
     val methodologyVersion: String = MethodologyVersion.CURRENT,
     val ipConsensus: IpConsensusResult? = null,
     val verdictExplanation: VerdictExplanation? = null,
     val verdictNarrative: VerdictNarrative? = null,
+    val callTransport: CallTransportResult? = null,
 )

@@ -76,6 +76,7 @@ object DetectionDebugFormatter {
             },
         )
         result.nativeSigns?.category?.let { appendCategory("nativeSigns", it) }
+        result.callTransport?.category?.let { appendCategory("callTransport", it) }
         result.ipConsensus?.toCategoryResult()?.let { appendCategory("ipConsensus", it) }
     }
 

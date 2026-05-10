@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.detection
 
 import android.content.Context
 import com.poyka.ripdpi.core.detection.checker.BypassChecker
+import com.poyka.ripdpi.core.detection.checker.CallTransportLeakChecker
 import com.poyka.ripdpi.core.detection.checker.CdnPullingChecker
 import com.poyka.ripdpi.core.detection.checker.DirectSignsChecker
 import com.poyka.ripdpi.core.detection.checker.DnsLeakChecker
@@ -12,12 +13,15 @@ import com.poyka.ripdpi.core.detection.checker.IpComparisonChecker
 import com.poyka.ripdpi.core.detection.checker.LocationSignalsChecker
 import com.poyka.ripdpi.core.detection.checker.NativeSignsChecker
 import com.poyka.ripdpi.core.detection.checker.RttTriangulationChecker
+import com.poyka.ripdpi.core.detection.checker.Socks5MtProtoProber
+import com.poyka.ripdpi.core.detection.checker.Socks5UdpAssociateStunClient
 import com.poyka.ripdpi.core.detection.checker.SystemPingProber
 import com.poyka.ripdpi.core.detection.checker.TimingAnalysisChecker
 import com.poyka.ripdpi.core.detection.checker.TlsFingerprintChecker
 import com.poyka.ripdpi.core.detection.checker.VerdictEngine
 import com.poyka.ripdpi.core.detection.checker.WebRtcLeakChecker
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
+import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
 import javax.inject.Inject
@@ -188,6 +192,22 @@ class DefaultNativeSignsCheckerPort
                         ),
                 )
             }
+    }
+
+class DefaultCallTransportCheckerPort
+    @Inject
+    constructor(
+        private val dispatchers: AppCoroutineDispatchers,
+    ) : CallTransportCheckerPort {
+        override suspend fun check(proxyEndpoint: ProxyEndpoint?): CallTransportResult =
+            CallTransportLeakChecker.check(
+                enabled = true,
+                stunClient = CallTransportLeakChecker.defaultStunClient(dispatchers),
+                mtProtoProber = CallTransportLeakChecker.defaultMtProtoProber(dispatchers),
+                proxyEndpoint = proxyEndpoint,
+                socks5StunClient = Socks5UdpAssociateStunClient(dispatchers),
+                socks5MtProtoProber = Socks5MtProtoProber(dispatchers),
+            )
     }
 
 class DefaultDetectionVerdictEvaluator

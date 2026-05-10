@@ -94,6 +94,7 @@ object DetectionJsonExportFormatter {
                 "nativeSigns" to category(result.nativeSigns?.category, context),
                 "icmpSpoofing" to category(result.icmpSpoofing?.category, context),
                 "rttTriangulation" to category(result.rttTriangulation?.category, context),
+                "callTransport" to category(result.callTransport?.category, context),
                 "locationSignals" to category(result.locationSignals, context),
                 "dnsLeak" to category(result.dnsLeak, context),
                 "webRtcLeak" to category(result.webRtcLeak, context),

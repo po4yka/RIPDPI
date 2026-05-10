@@ -339,13 +339,13 @@ class DetectionCheckViewModel
                     detectionCheckNetworkRequestsEnabled && detectionCheckRttTriangulationEnabled,
                 includeCdnPullingCheck =
                     detectionCheckNetworkRequestsEnabled && detectionCheckCdnPullingEnabled,
+                includeCallTransportCheck =
+                    detectionCheckNetworkRequestsEnabled && detectionCheckCallTransportProbeEnabled,
                 bypassScanOptions =
                     BypassScanOptions(
                         proxyScanEnabled = detectionCheckIncludeBypass,
                         xrayApiScanEnabled = detectionCheckXrayApiScanEnabled,
-                        callTransportProbeEnabled =
-                            detectionCheckNetworkRequestsEnabled &&
-                                detectionCheckCallTransportProbeEnabled,
+                        callTransportProbeEnabled = false,
                         portRange = toBypassPortRange(),
                     ),
                 resolverConfig = toDetectionResolverConfig(),

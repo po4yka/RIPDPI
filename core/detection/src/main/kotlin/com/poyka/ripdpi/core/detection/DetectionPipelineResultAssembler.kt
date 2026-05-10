@@ -20,6 +20,7 @@ internal data class DetectionPipelineOutputs(
     val rttTriangulation: RttTriangulationResult?,
     val cdnPulling: CdnPullingResult?,
     val nativeSigns: NativeSignsResult?,
+    val callTransport: CallTransportResult?,
 )
 
 internal class DetectionPipelineResultAssembler(
@@ -35,6 +36,7 @@ internal class DetectionPipelineResultAssembler(
                 bypassResult = bypassResult,
                 ipComparison = outputs.ipComparison,
                 cdnPulling = outputs.cdnPulling,
+                callTransport = outputs.callTransport,
                 asnResolver = asnResolver,
             )
         val verdictExplanation =
@@ -68,6 +70,7 @@ internal class DetectionPipelineResultAssembler(
                 rttTriangulation = outputs.rttTriangulation,
                 cdnPulling = outputs.cdnPulling,
                 nativeSigns = outputs.nativeSigns,
+                callTransport = outputs.callTransport,
                 verdict = verdictExplanation.verdict,
                 ipConsensus = ipConsensus,
                 verdictExplanation = verdictExplanation,

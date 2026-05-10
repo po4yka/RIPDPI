@@ -107,5 +107,9 @@ private object DetectionStageProgressMessages {
             DetectionStage.NATIVE_SIGNS -> {
                 DetectionStageProgressMessage("Native Signs", "Checking native interface and process signals...")
             }
+
+            DetectionStage.CALL_TRANSPORT -> {
+                DetectionStageProgressMessage("Call Transport", "Checking STUN and MTProto call transport paths...")
+            }
         }
 }

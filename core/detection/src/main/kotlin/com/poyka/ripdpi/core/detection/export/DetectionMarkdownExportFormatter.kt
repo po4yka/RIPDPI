@@ -33,6 +33,7 @@ object DetectionMarkdownExportFormatter {
                 appendCategory("NativeSigns", result.nativeSigns?.category)
                 appendCategory("IcmpSpoofing", result.icmpSpoofing?.category)
                 appendCategory("RttTriangulation", result.rttTriangulation?.category)
+                appendCategory("CallTransport", result.callTransport?.category)
                 appendCategory("LocationSignals", result.locationSignals)
                 appendIpChannels(result)
                 appendLine("## TunProbeDiagnostics")
@@ -226,6 +227,11 @@ object DetectionMarkdownExportFormatter {
                 "RttTriangulation",
                 result.rttTriangulation?.category.statusTag(),
                 result.rttTriangulation?.category.summary(),
+            ),
+            SectionRow(
+                "CallTransport",
+                result.callTransport?.category.statusTag(),
+                result.callTransport?.category.summary(),
             ),
             SectionRow("LocationSignals", result.locationSignals.statusTag(), result.locationSignals.summary()),
             SectionRow(

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core.detection
 import android.content.Context
 import com.poyka.ripdpi.core.detection.checker.BypassChecker
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
+import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
 
 data class DetectionRunnerConfig(
@@ -19,6 +20,7 @@ data class DetectionRunnerConfig(
     val includeRttTriangulationCheck: Boolean = false,
     val includeCdnPullingCheck: Boolean = false,
     val includeNativeSignsCheck: Boolean = true,
+    val includeCallTransportCheck: Boolean = false,
     val bypassScanOptions: BypassScanOptions = BypassScanOptions(),
     val resolverConfig: DetectionResolverConfig = DetectionResolverConfig(),
     val encryptedDnsEnabled: Boolean = false,
@@ -61,6 +63,7 @@ enum class DetectionStage {
     RTT_TRIANGULATION,
     CDN_PULLING,
     NATIVE_SIGNS,
+    CALL_TRANSPORT,
 }
 
 data class DetectionProgress(
@@ -137,6 +140,10 @@ interface CdnPullingCheckerPort {
 
 interface NativeSignsCheckerPort {
     fun check(enabled: Boolean): NativeSignsResult
+}
+
+interface CallTransportCheckerPort {
+    suspend fun check(proxyEndpoint: ProxyEndpoint?): CallTransportResult
 }
 
 interface DetectionVerdictEvaluator {

@@ -26,6 +26,7 @@ object DetectionReportFormatter {
                 result.timingAnalysis?.let { appendCategory("Timing Analysis", it) }
                 result.icmpSpoofing?.let { appendCategory("ICMP Spoofing", it.category) }
                 result.rttTriangulation?.let { appendCategory("RTT Triangulation", it.category) }
+                result.callTransport?.let { appendCategory("Call Transport", it.category) }
 
                 appendLine("Methodology: ${result.methodologyVersion}")
 
