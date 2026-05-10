@@ -111,11 +111,12 @@ Load `zapret-antidpi.lua`, call `fake({ttl=5})`, verify `DesyncPlan` contains `D
 2026-05-10:
 
 - Added Lua VM verdict globals (`VERDICT_PASS`, `VERDICT_MODIFY`, `VERDICT_DROP`) and per-call `desync` table construction for `dis`, `dis.pos`, `conn`, `caps`, `payload`, `detect()`, and `pos()`.
-- Exposed action functions for `pass`, `drop`, `split`, `set_ttl`, `rawsend`, `wsize`, `fake`, `oob`, `fake_rst`, and `udplen` through `ripdpi-strategy-trait::DesyncAction` where the current trait has matching action types.
+- Exposed action functions for `pass`, `drop`, `split`, `set_ttl`, `rawsend`, `wsize`, `fake`, `oob`, `fake_rst`, and `udplen` through typed `ripdpi-strategy-trait::DesyncAction` variants.
 - Added focused Lua API coverage in `native/rust/crates/ripdpi-strategy-lua/tests/api_*.rs` for dissect fields, marker lookup, actions, drop verdict, and Lua type-error mapping.
+- Added bundled zapret2 compatibility coverage in `native/rust/crates/ripdpi-strategy-lua/tests/zapret_assets.rs`; `zapret-antidpi.lua` loads unmodified and `multisplit` executes through the compatibility layer.
 - Verification:
   - `cargo fmt --all`
-  - `CARGO_TARGET_DIR=target/codex-lua-api cargo test -p ripdpi-strategy-lua --features lua-strategies --locked`
-  - `CARGO_TARGET_DIR=target/codex-lua-api-no-feature cargo check -p ripdpi-strategy-lua --no-default-features --locked`
-  - `CARGO_TARGET_DIR=target/codex-lua-api cargo clippy -p ripdpi-strategy-lua --all-targets --features lua-strategies --locked -- -D warnings`
-- Remaining review gaps: full `zapret-antidpi.lua` compatibility is not proven, and placeholder mappings for `fake`, `fake_rst`, `oob`, and `udplen` cannot yet produce exact zapret-equivalent action variants because `ripdpi-strategy-trait::DesyncAction` does not expose dedicated `WriteFake`, urgent/OOB, fake-RST, or UDP-length action types. `rawsend` currently appends a `RawSend` action for the runtime to execute; this unit slice does not prove VpnProtect-backed socket execution.
+  - `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-lua-review cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-strategy-lua --features lua-strategies`
+  - `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-lua-review cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-strategy-lua --no-default-features`
+  - `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-lua-review cargo clippy --manifest-path native/rust/Cargo.toml -p ripdpi-strategy-lua --all-targets --features lua-strategies -- -D warnings`
+- Remaining review gap: `rawsend` appends a `RawSend` action; VpnProtect-backed socket execution is covered by the runtime injector path and still needs device/runtime validation for an end-to-end Lua-originated raw send.

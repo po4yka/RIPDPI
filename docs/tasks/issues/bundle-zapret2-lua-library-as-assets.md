@@ -85,4 +85,5 @@ Fresh install on emulator: `LuaAssetManager.ensureExtracted()` runs, both `.lua`
 - Verification:
   - `./gradlew :app:ktlintCheck -Pripdpi.skipNativeBuild=true`
   - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.lua.LuaAssetManagerTest -Pripdpi.skipNativeBuild=true`
-- Remaining review gap: bundled scripts still need runtime/device verification with `LuaStrategyEngine` because upstream zapret scripts expect zapret-specific Lua globals.
+  - `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-lua-review cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-strategy-lua --features lua-strategies`
+- Remaining review gap: fresh-install asset extraction plus JNI/device loading still needs an attached emulator or device.
