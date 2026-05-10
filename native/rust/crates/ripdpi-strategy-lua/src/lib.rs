@@ -254,6 +254,25 @@ mod enabled {
     fn install_zapret_compat_globals(lua: &Lua) -> Result<(), LuaError> {
         let globals = lua.globals();
         globals.set("NFQWS2_COMPAT_VER", 5).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+        globals.set("TH_FIN", 0x01).map_err(to_load)?;
+        globals.set("TH_SYN", 0x02).map_err(to_load)?;
+        globals.set("TH_RST", 0x04).map_err(to_load)?;
+        globals.set("TH_PUSH", 0x08).map_err(to_load)?;
+        globals.set("TH_ACK", 0x10).map_err(to_load)?;
+        globals.set("TH_URG", 0x20).map_err(to_load)?;
+        globals.set("TH_ECE", 0x40).map_err(to_load)?;
+        globals.set("TH_CWR", 0x80).map_err(to_load)?;
+        globals.set("IP_BASE_LEN", 20).map_err(to_load)?;
+        globals.set("IP6_BASE_LEN", 40).map_err(to_load)?;
+        globals.set("TCP_BASE_LEN", 20).map_err(to_load)?;
+        globals.set("UDP_BASE_LEN", 8).map_err(to_load)?;
+        globals.set("ICMP_BASE_LEN", 8).map_err(to_load)?;
+        globals.set("IPPROTO_AH", 51).map_err(to_load)?;
+        globals.set("TCP_KIND_END", 0).map_err(to_load)?;
+        globals.set("TCP_KIND_NOOP", 1).map_err(to_load)?;
+        globals.set("TCP_KIND_TS", 8).map_err(to_load)?;
+        globals.set("TCP_KIND_MD5", 19).map_err(to_load)?;
+        globals.set("TCP_KIND_SCALE", 3).map_err(to_load)?;
         globals
             .set("bitand", lua.create_function(|_, (left, right): (i64, i64)| Ok(left & right)).map_err(to_load)?)
             .map_err(to_load)?;
@@ -421,11 +440,28 @@ mod enabled {
     ) -> Result<Table, LuaError> {
         let desync = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
         desync.set("conn", conn).map_err(|error| LuaError::Call(error.to_string()))?;
+        let arg = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("arg", arg).map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("func_instance", "ripdpi_lua_strategy").map_err(|error| LuaError::Call(error.to_string()))?;
+        desync
+            .set("outgoing", ctx.direction == ripdpi_strategy_trait::FlowDirection::Outbound)
+            .map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("l7payload", proto_name(&ctx.dissect.proto)).map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("replay", false).map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("replay_piece", 1).map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("replay_piece_last", true).map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("tcp_mss", 1460).map_err(|error| LuaError::Call(error.to_string()))?;
+        let track = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
+        track
+            .set("lua_state", lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?)
+            .map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("track", track).map_err(|error| LuaError::Call(error.to_string()))?;
         desync
             .set("payload", lua.create_string(ctx.payload).map_err(|error| LuaError::Call(error.to_string()))?)
             .map_err(|error| LuaError::Call(error.to_string()))?;
         desync.set("dis", create_dis_table(lua, ctx)?).map_err(|error| LuaError::Call(error.to_string()))?;
         desync.set("caps", create_caps_table(lua, ctx)?).map_err(|error| LuaError::Call(error.to_string()))?;
+        install_zapret_call_globals(lua, ctx, Arc::clone(&call_plan))?;
         attach_action_functions(lua, &desync, ctx, call_plan)?;
         Ok(desync)
     }
@@ -433,10 +469,17 @@ mod enabled {
     fn create_dis_table(lua: &Lua, ctx: &StrategyContext<'_>) -> Result<Table, LuaError> {
         let dis = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
         dis.set("proto", proto_name(&ctx.dissect.proto)).map_err(|error| LuaError::Call(error.to_string()))?;
+        dis.set("payload", lua.create_string(ctx.payload).map_err(|error| LuaError::Call(error.to_string()))?)
+            .map_err(|error| LuaError::Call(error.to_string()))?;
         set_optional_string(lua, &dis, "hostname", hostname(&ctx.dissect.proto))?;
         dis.set("src_port", ctx.dissect.src_port).map_err(|error| LuaError::Call(error.to_string()))?;
         dis.set("dst_port", ctx.dissect.dst_port).map_err(|error| LuaError::Call(error.to_string()))?;
         dis.set("is_ipv6", ctx.dissect.is_ipv6).map_err(|error| LuaError::Call(error.to_string()))?;
+        let tcp = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
+        tcp.set("th_flags", 0x10).map_err(|error| LuaError::Call(error.to_string()))?;
+        tcp.set("th_seq", 0).map_err(|error| LuaError::Call(error.to_string()))?;
+        tcp.set("th_urp", 0).map_err(|error| LuaError::Call(error.to_string()))?;
+        dis.set("tcp", tcp).map_err(|error| LuaError::Call(error.to_string()))?;
 
         let pos = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
         for (marker, name) in MARKER_NAMES {
@@ -446,6 +489,56 @@ mod enabled {
         }
         dis.set("pos", pos).map_err(|error| LuaError::Call(error.to_string()))?;
         Ok(dis)
+    }
+
+    fn install_zapret_call_globals(
+        lua: &Lua,
+        ctx: &StrategyContext<'_>,
+        call_plan: Arc<Mutex<LuaCallPlan>>,
+    ) -> Result<(), LuaError> {
+        let rawsend_plan = Arc::clone(&call_plan);
+        let rawsend_dissect = lua
+            .create_function(move |_, args: Variadic<Value>| {
+                let Some(Value::Table(dis)) = args.first() else {
+                    return Ok(false);
+                };
+                let payload = dis.get::<Option<LuaString>>("payload")?;
+                if let Some(payload) = payload {
+                    let mut plan = lock_lua_call_plan(&rawsend_plan)?;
+                    plan.actions.push(DesyncAction::RawSend(payload.as_bytes().to_vec()));
+                    plan.verdict = Some(StrategyVerdict::Apply);
+                }
+                Ok(true)
+            })
+            .map_err(to_call)?;
+        lua.globals().set("rawsend_dissect", rawsend_dissect).map_err(to_call)?;
+
+        let markers = ctx.dissect.markers.clone();
+        let resolve_multi_pos = lua
+            .create_function(move |lua, (_data, _l7payload, spec): (Value, Value, String)| {
+                let positions = lua.create_table()?;
+                let mut index = 1;
+                for token in spec.split(',') {
+                    if let Some(position) = resolve_zapret_position_token(token.trim(), &markers) {
+                        positions.raw_set(index, position)?;
+                        index += 1;
+                    }
+                }
+                Ok(positions)
+            })
+            .map_err(to_call)?;
+        lua.globals().set("resolve_multi_pos", resolve_multi_pos).map_err(to_call)?;
+        Ok(())
+    }
+
+    fn resolve_zapret_position_token(token: &str, markers: &HashMap<MarkerName, usize>) -> Option<usize> {
+        if token.is_empty() {
+            return None;
+        }
+        if let Ok(position) = token.parse::<usize>() {
+            return Some(position);
+        }
+        marker_by_name(token).and_then(|marker| markers.get(&marker).map(|offset| offset.saturating_add(1)))
     }
 
     fn create_caps_table(lua: &Lua, ctx: &StrategyContext<'_>) -> Result<Table, LuaError> {
