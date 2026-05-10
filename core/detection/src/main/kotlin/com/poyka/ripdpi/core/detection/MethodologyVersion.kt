@@ -12,7 +12,7 @@ object MethodologyVersion {
         buildString {
             appendLine("Methodology: $CURRENT")
             appendLine("Checkers: $CHECKER_COUNT")
-            appendLine("  - GeoIP (ip-api.com)")
+            appendLine("  - GeoIP (5-provider consensus)")
             appendLine("  - Direct Signs (TRANSPORT_VPN, system proxy, installed apps)")
             appendLine("  - Indirect Signs (interfaces, MTU, routing, DNS, dumpsys)")
             appendLine("  - Location Signals (PLMN MCC, SIM MCC, BSSID)")
