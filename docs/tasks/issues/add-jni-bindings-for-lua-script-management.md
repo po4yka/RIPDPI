@@ -97,7 +97,5 @@ Validation:
 - `./gradlew :core:engine:ktlintCheck -Pripdpi.skipNativeBuild=true` — passed.
 - `./gradlew :core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.StrategyEngineBindingsTest -Pripdpi.skipNativeBuild=true` — passed.
 - `./gradlew :app:ktlintCheck :app:compileDebugAndroidTestKotlin -Pripdpi.skipNativeBuild=true` — passed.
-
-Remaining validation gap:
-
-- Emulator/instrumented JNI validation still needs an attached emulator or device.
+- `ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ./gradlew :app:ktlintCheck :app:compileDebugAndroidTestKotlin -Pripdpi.skipNativeBuild=true` — passed in a clean detached worktree with the diagnostics test binding fix applied.
+- Attached emulator validation on `Pixel_10_Pro(AVD) - 17`: manually installed `app-arm64-v8a-debug.apk` and `app-debug-androidTest.apk`, then ran `$HOME/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell am instrument -w -r -e class com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner` — passed, `OK (2 tests)`.

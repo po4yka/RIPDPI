@@ -88,4 +88,4 @@ Fresh install on emulator: `LuaAssetManager.ensureExtracted()` runs, both `.lua`
   - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.lua.LuaAssetManagerTest -Pripdpi.skipNativeBuild=true`
   - `./gradlew :app:ktlintCheck :app:compileDebugAndroidTestKotlin -Pripdpi.skipNativeBuild=true`
   - `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-lua-review cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-strategy-lua --features lua-strategies`
-- Remaining review gap: fresh-install asset extraction plus JNI/device loading still needs an attached emulator or device.
+- Attached emulator validation on `Pixel_10_Pro(AVD) - 17`: manually installed `app-arm64-v8a-debug.apk` and `app-debug-androidTest.apk`, then ran `$HOME/Library/Android/sdk/platform-tools/adb -s emulator-5554 shell am instrument -w -r -e class com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner` — passed, `OK (2 tests)`, covering fresh `LuaAssetManager.ensureExtracted()` followed by bundled zapret script loading through JNI.
