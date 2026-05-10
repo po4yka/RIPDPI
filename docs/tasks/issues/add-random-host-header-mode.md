@@ -1,7 +1,7 @@
 ---
 title: Add Random Host Header Mode for Diagnostic Probes
 type: task
-status: backlog
+status: blocked
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-10
 ---
 
-- [ ] #task Add Random Host Header Mode for Diagnostic Probes #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [ ] #task Add Random Host Header Mode for Diagnostic Probes #repo/RIPDPI #area/diagnostics #status/blocked #blocked 🔼
 
 ## Objective
 
@@ -66,3 +66,11 @@ Critical: the random hostname goes in the **HTTP `Host` header** (and TLS SNI wh
 ## Definition of done
 
 All 7 unit tests green. Setting toggle in detection settings. Per-probe `randomHostname` flag overridable from suite runner.
+
+## Blocking reason
+
+Probe wiring remains blocked by `add-tcp16-fat-header-dpi-probe`, `add-webhost-farm-dynamic-host-discovery`, and `add-domain-reachability-scanner`; those probe APIs do not exist yet.
+
+## Work log
+
+- 2026-05-10: Added `RandomHostHeaderGenerator.next()` and JVM tests for format, uniqueness, and concurrent calls. Verified with `./gradlew --no-configuration-cache :core:detection:test :core:diagnostics:test`.
