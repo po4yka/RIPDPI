@@ -24,6 +24,10 @@ The architecture checker writes:
 
 - Dependency hubs: Android/native bridge crates, proxy runtime, monitor engine,
   and other orchestrators with broad internal crate fan-out.
+- Native composition fan-out: `ripdpi-proxy-runtime-adapter`,
+  `ripdpi-diagnostics-runner`, `ripdpi-runtime-services`, and
+  `ripdpi-relay-core` are capped at their reduced production dependency counts.
+  Dev fixtures do not count toward this metric.
 - Discouraged dependency edges: concrete diagnostics lanes, policy engines, and
   platform/runtime implementation crates pulled directly into orchestration
   crates.
@@ -53,6 +57,8 @@ indicator is known and must not get worse.
   dependency to the coordinator.
 - Move protocol or transport implementation details behind lane-specific
   adapters instead of importing concrete lanes into orchestration crates.
+- Keep composition crates as wiring points only; do not add public facade
+  shortcuts to absorb a new dependency edge.
 - Keep JNI, binary, and crate roots as loader/facade layers; place feature logic
   in focused modules or adapter crates.
 - Split UI field bags into feature-owned models and keep screen state as a small

@@ -30,6 +30,10 @@ DEPENDENCY_HUB_LIMITS = {
     "ripdpi-android": (14, 2),
     "ripdpi-proxy-runtime": (16, 2),
     "ripdpi-monitor-engine": (12, 3),
+    "ripdpi-proxy-runtime-adapter": (13, 3),
+    "ripdpi-diagnostics-runner": (8, 3),
+    "ripdpi-runtime-services": (8, 3),
+    "ripdpi-relay-core": (7, 3),
 }
 
 DISCOURAGED_EDGES = {
@@ -151,14 +155,15 @@ def dependency_names(table: object) -> set[str]:
     return {key for key in table if key.startswith(INTERNAL_CRATE_PREFIXES)}
 
 
-def manifest_dependencies(manifest: Path) -> set[str]:
+def manifest_dependencies(manifest: Path, *, production_only: bool = False) -> set[str]:
     data = read_toml(manifest)
     deps: set[str] = set()
-    for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+    dependency_sections = ("dependencies",) if production_only else ("dependencies", "dev-dependencies", "build-dependencies")
+    for key in dependency_sections:
         deps.update(dependency_names(data.get(key)))
     for target in data.get("target", {}).values():
         if isinstance(target, dict):
-            for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+            for key in dependency_sections:
                 deps.update(dependency_names(target.get(key)))
     return deps
 
@@ -212,7 +217,7 @@ def collect_dependency_indicators(repo_root: Path, tracked_paths: Sequence[str] 
     for manifest in iter_crate_manifests(repo_root, tracked_paths):
         rel_path = manifest.relative_to(repo_root).as_posix()
         name = crate_name(manifest)
-        deps = sorted(manifest_dependencies(manifest))
+        deps = sorted(manifest_dependencies(manifest, production_only=True))
 
         if name in DEPENDENCY_HUB_LIMITS:
             limit, priority = DEPENDENCY_HUB_LIMITS[name]

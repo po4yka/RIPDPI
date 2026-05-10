@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use ripdpi_tls_profiles::profile_catalog_version;
-
 use super::RelayRuntime;
 use crate::config::{RelayKind, ResolvedRelayRuntimeConfig};
 use crate::runtime_validation::{
@@ -39,7 +37,7 @@ pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
         strategy_pack_id: None,
         strategy_pack_version: None,
         tls_profile_id: Some(runtime.config.common.tls_fingerprint_profile.clone()),
-        tls_profile_catalog_version: Some(profile_catalog_version().to_string()),
+        tls_profile_catalog_version: Some(ripdpi_xhttp::tls_profile_catalog_version().to_string()),
         morph_policy_id: None,
         quic_migration_status,
         quic_migration_reason,

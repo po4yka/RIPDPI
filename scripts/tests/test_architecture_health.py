@@ -52,6 +52,48 @@ ripdpi-j = { path = "../ripdpi-j" }
         self.assertIn("discouraged-dependency-edge", rules)
         self.assertTrue(any("ripdpi-runtime-adaptive" in indicator.id for indicator in indicators))
 
+    def test_native_composition_caps_count_production_dependencies_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            manifest = repo / "native/rust/crates/ripdpi-runtime-services/Cargo.toml"
+            base_manifest = """
+[package]
+name = "ripdpi-runtime-services"
+version = "0.1.0"
+
+[dependencies]
+ripdpi-a = { path = "../ripdpi-a" }
+ripdpi-b = { path = "../ripdpi-b" }
+ripdpi-c = { path = "../ripdpi-c" }
+ripdpi-d = { path = "../ripdpi-d" }
+ripdpi-e = { path = "../ripdpi-e" }
+ripdpi-f = { path = "../ripdpi-f" }
+ripdpi-g = { path = "../ripdpi-g" }
+ripdpi-h = { path = "../ripdpi-h" }
+
+[dev-dependencies]
+ripdpi-test-fixture = { path = "../ripdpi-test-fixture" }
+local-network-fixture = { path = "../local-network-fixture" }
+"""
+            self._write(
+                manifest,
+                base_manifest,
+            )
+
+            at_limit = sut.collect_dependency_indicators(repo, None)
+
+            self._write(
+                manifest,
+                base_manifest.replace(
+                    "\n[dev-dependencies]",
+                    '\nripdpi-i = { path = "../ripdpi-i" }\n\n[dev-dependencies]',
+                ),
+            )
+            over_limit = sut.collect_dependency_indicators(repo, None)
+
+        self.assertFalse(any(indicator.rule == "dependency-hub" for indicator in at_limit))
+        self.assertTrue(any(indicator.rule == "dependency-hub" for indicator in over_limit))
+
     def test_kotlin_feature_spread_and_suppression_are_reported(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo = Path(temp_dir)

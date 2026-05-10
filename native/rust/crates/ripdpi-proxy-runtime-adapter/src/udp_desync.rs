@@ -98,7 +98,7 @@ fn resolve_udp_hints_for_runtime(
         );
     }
 
-    let scope_key = ripdpi_runtime_adaptive::strategy_context::network_scope_key(config);
+    let scope_key = ripdpi_runtime_decision_ports::network_scope_key(config);
     let hints = context.adaptive_hints.resolve_udp_hints(
         scope_key,
         request.group_index,
@@ -107,12 +107,12 @@ fn resolve_udp_hints_for_runtime(
         group,
         request.payload,
     )?;
-    let capability = ripdpi_runtime_adaptive::strategy_context::direct_path_capability_for_route(
+    let capability = ripdpi_runtime_decision_ports::direct_path_capability_for_route(
         context.runtime_context,
         request.host,
         request.target,
     );
-    let merged = ripdpi_runtime_adaptive::strategy_context::merge_udp_hints_with_capability(hints, capability);
+    let merged = ripdpi_runtime_decision_ports::merge_udp_hints_with_capability(hints, capability);
     if hints.udp_burst_profile != merged.udp_burst_profile || hints.quic_fake_profile != merged.quic_fake_profile {
         crate::model::proxy_config::emit_morph_rollback(
             context.telemetry,

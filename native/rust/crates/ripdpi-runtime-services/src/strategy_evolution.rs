@@ -3,10 +3,9 @@ use std::net::SocketAddr;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_desync::AdaptivePlannerHints;
 use ripdpi_failure_classifier::FailureClass;
-use ripdpi_packets::{is_quic_initial, parse_quic_initial, tls_marker_info};
 use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
-use ripdpi_runtime_adaptive::strategy_context::direct_path_capability_for_route;
-use ripdpi_runtime_policy::runtime_policy::is_tls_client_hello_payload;
+use ripdpi_runtime_adaptive::strategy_context::{classify_learning_payload, direct_path_capability_for_route};
+use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
 use ripdpi_runtime_strategy::strategy_evolver::{
     CapabilityContext, LearningAlpnClass, LearningContext, LearningHostingFamily, LearningReachabilitySet,
     LearningTargetBucket, LearningTransportKind, ResolverHealthClass, StrategyEvolver,
@@ -85,7 +84,7 @@ fn tcp_learning_context(
     payload: &[u8],
 ) -> LearningContext {
     let capability = direct_path_capability_for_route(runtime_context, host, target);
-    let classification = classify_tcp_payload(payload);
+    let classification = classify_learning_payload(TransportProtocol::Tcp, payload);
     LearningContext {
         network_identity: network_scope_key(config).map(ToOwned::to_owned),
         target_bucket: if host == Some("control") {
@@ -117,7 +116,7 @@ fn udp_learning_context(
     payload: &[u8],
 ) -> LearningContext {
     let capability = direct_path_capability_for_route(runtime_context, host, target);
-    let classification = classify_udp_payload(payload);
+    let classification = classify_learning_payload(TransportProtocol::Udp, payload);
     LearningContext {
         network_identity: network_scope_key(config).map(ToOwned::to_owned),
         target_bucket: if classification.is_quic {
@@ -139,29 +138,6 @@ fn udp_learning_context(
         capability_context: capability_context(capability),
         environment: config.process.environment_kind,
     }
-}
-
-struct TcpPayloadClassification {
-    is_tls: bool,
-    has_ech: bool,
-}
-
-struct UdpPayloadClassification {
-    is_quic: bool,
-    has_ech: bool,
-}
-
-fn classify_tcp_payload(payload: &[u8]) -> TcpPayloadClassification {
-    let is_tls = is_tls_client_hello_payload(payload);
-    let has_ech = is_tls && tls_marker_info(payload).and_then(|markers| markers.ech_ext_start).is_some();
-    TcpPayloadClassification { is_tls, has_ech }
-}
-
-fn classify_udp_payload(payload: &[u8]) -> UdpPayloadClassification {
-    let parsed_quic = parse_quic_initial(payload);
-    let has_ech = parsed_quic.as_ref().and_then(|info| info.tls_info.ech_ext_start).is_some();
-    let is_quic = is_quic_initial(payload);
-    UdpPayloadClassification { is_quic, has_ech }
 }
 
 fn capability_context(capability: Option<&ProxyDirectPathCapability>) -> CapabilityContext {

@@ -3397,10 +3397,13 @@ version = "0.1.0"
 name = "ripdpi-diagnostics-protocols"
 version = "0.1.0"
 dependencies = [
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-dns",
  "ripdpi-diagnostics-fat-header",
  "ripdpi-diagnostics-http",
  "ripdpi-diagnostics-telegram",
  "ripdpi-diagnostics-tls",
+ "ripdpi-diagnostics-transport",
 ]
 
 [[package]]
@@ -3413,12 +3416,7 @@ dependencies = [
  "ripdpi-diagnostics-candidates",
  "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-dns",
- "ripdpi-diagnostics-fat-header",
- "ripdpi-diagnostics-http",
- "ripdpi-diagnostics-telegram",
- "ripdpi-diagnostics-tls",
- "ripdpi-diagnostics-transport",
+ "ripdpi-diagnostics-protocols",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
@@ -3738,11 +3736,9 @@ dependencies = [
  "ripdpi-ipfrag",
  "ripdpi-packets",
  "ripdpi-proxy-config",
- "ripdpi-runtime-adaptive",
  "ripdpi-runtime-api",
  "ripdpi-runtime-decision-ports",
  "ripdpi-runtime-platform",
- "ripdpi-runtime-policy",
  "ripdpi-runtime-services",
  "ripdpi-session",
  "ripdpi-ws-bootstrap",
@@ -3776,7 +3772,6 @@ dependencies = [
  "ripdpi-masque",
  "ripdpi-relay-mux",
  "ripdpi-shadowtls",
- "ripdpi-tls-profiles",
  "ripdpi-tuic",
  "ripdpi-vless",
  "ripdpi-xhttp",
@@ -3851,6 +3846,9 @@ dependencies = [
 name = "ripdpi-runtime-decision-ports"
 version = "0.1.0"
 dependencies = [
+ "ripdpi-config",
+ "ripdpi-desync",
+ "ripdpi-proxy-config",
  "ripdpi-runtime-adaptive",
  "ripdpi-runtime-policy",
 ]
@@ -3906,7 +3904,6 @@ dependencies = [
  "ripdpi-config",
  "ripdpi-desync",
  "ripdpi-failure-classifier",
- "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-runtime-adaptive",
  "ripdpi-runtime-api",

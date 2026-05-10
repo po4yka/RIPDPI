@@ -1,8 +1,6 @@
 use std::io;
 use std::time::Duration;
 
-use ripdpi_tls_profiles::profile_catalog_version;
-
 use crate::backend::{build_backend, RelayBackend};
 use crate::config::{
     ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig, MasqueRelayConfig,
@@ -266,7 +264,7 @@ fn relay_telemetry_reports_tls_catalog_version() {
     let telemetry = runtime.telemetry();
 
     assert_eq!(Some("chrome_stable"), telemetry.tls_profile_id.as_deref());
-    assert_eq!(Some(profile_catalog_version()), telemetry.tls_profile_catalog_version.as_deref());
+    assert_eq!(Some(ripdpi_xhttp::tls_profile_catalog_version()), telemetry.tls_profile_catalog_version.as_deref());
 }
 
 #[test]

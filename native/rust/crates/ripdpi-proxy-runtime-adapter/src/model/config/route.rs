@@ -8,7 +8,7 @@ pub fn selected_desync_group(config: &RuntimeConfig, group_index: usize) -> Opti
 }
 
 pub fn route_requires_delay_payload(config: &RuntimeConfig, group_index: usize) -> Option<bool> {
-    selected_desync_group(config, group_index).map(ripdpi_runtime_policy::group_requires_payload)
+    selected_desync_group(config, group_index).map(ripdpi_runtime_decision_ports::group_requires_payload)
 }
 
 pub fn route_matches_transport_payload(
@@ -18,7 +18,7 @@ pub fn route_matches_transport_payload(
     payload: &[u8],
     transport: TransportProtocol,
 ) -> bool {
-    ripdpi_runtime_policy::route_matches_payload(config, group_index, target, payload, transport)
+    ripdpi_runtime_decision_ports::route_matches_payload(config, group_index, target, payload, transport)
 }
 
 #[derive(Clone)]
