@@ -351,3 +351,35 @@ pub trait DesyncStrategy: Send + Sync {
     /// Returns public strategy metadata.
     fn describe(&self) -> StrategyDescriptor;
 }
+
+/// Link-time factory for stateless strategy implementations.
+///
+/// Configured strategies that need per-profile parameters can still be
+/// materialized through their config loader. This registry is for stable,
+/// zero-argument defaults that can advertise themselves without central wiring.
+#[derive(Clone, Copy)]
+pub struct StrategyFactory {
+    /// Stable strategy identifier.
+    pub id: &'static str,
+    /// Builds a fresh strategy instance.
+    pub make: fn() -> Box<dyn DesyncStrategy>,
+}
+
+/// Link-time descriptor for strategies that cannot be built without runtime
+/// configuration, but should still be visible to diagnostics and inventory
+/// checks.
+#[derive(Clone, Copy)]
+pub struct StrategyDescriptorRegistration {
+    /// Stable strategy identifier.
+    pub id: &'static str,
+    /// Builds public metadata for the strategy family.
+    pub describe: fn() -> StrategyDescriptor,
+}
+
+/// Factories contributed by linked strategy crates.
+#[linkme::distributed_slice]
+pub static STRATEGY_FACTORIES: [StrategyFactory] = [..];
+
+/// Descriptor-only registrations contributed by linked strategy crates.
+#[linkme::distributed_slice]
+pub static STRATEGY_DESCRIPTOR_REGISTRATIONS: [StrategyDescriptorRegistration] = [..];

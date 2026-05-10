@@ -20,7 +20,7 @@ use ripdpi_config::{DesyncGroup, TcpChainStepKind};
 use ripdpi_packets::OracleRng;
 use ripdpi_strategy_trait::{
     DesyncAction as StrategyAction, DesyncPlan as StrategyPlan, DesyncStrategy, HttpDissect, L7Protocol, QuicDissect,
-    StrategyContext, StrategyDescriptor, StrategyError, StrategyVerdict, TlsDissect,
+    StrategyContext, StrategyDescriptor, StrategyDescriptorRegistration, StrategyError, StrategyVerdict, TlsDissect,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -60,19 +60,27 @@ impl DesyncStrategy for TcpDesyncStrategy<'_> {
     }
 
     fn describe(&self) -> StrategyDescriptor {
-        StrategyDescriptor {
-            id: "tcp_desync".to_owned(),
-            label: "TCP desync planner".to_owned(),
-            supported_protocols: vec![
-                L7Protocol::Http(HttpDissect::default()),
-                L7Protocol::Tls(TlsDissect::default()),
-                L7Protocol::Quic(QuicDissect::default()),
-                L7Protocol::Unknown,
-            ],
-            ..StrategyDescriptor::default()
-        }
+        tcp_desync_descriptor()
     }
 }
+
+fn tcp_desync_descriptor() -> StrategyDescriptor {
+    StrategyDescriptor {
+        id: "tcp_desync".to_owned(),
+        label: "TCP desync planner".to_owned(),
+        supported_protocols: vec![
+            L7Protocol::Http(HttpDissect::default()),
+            L7Protocol::Tls(TlsDissect::default()),
+            L7Protocol::Quic(QuicDissect::default()),
+            L7Protocol::Unknown,
+        ],
+        ..StrategyDescriptor::default()
+    }
+}
+
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_DESCRIPTOR_REGISTRATIONS)]
+static TCP_DESYNC_DESCRIPTOR: StrategyDescriptorRegistration =
+    StrategyDescriptorRegistration { id: "tcp_desync", describe: tcp_desync_descriptor };
 
 fn strategy_action_from_native(action: DesyncAction) -> StrategyAction {
     match action {

@@ -2,7 +2,7 @@
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyVerdict,
+    StrategyError, StrategyFactory, StrategyVerdict,
 };
 
 const IPV6_HEADER_LEN: usize = 40;
@@ -138,6 +138,13 @@ pub fn strategy_by_id(id: &str) -> Option<Box<dyn DesyncStrategy>> {
         _ => None,
     }
 }
+
+fn make_ipv6_ext_strategy() -> Box<dyn DesyncStrategy> {
+    Box::new(Ipv6ExtHdrStrategy::default())
+}
+
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
+static IPV6_EXT_FACTORY: StrategyFactory = StrategyFactory { id: "ipv6_ext", make: make_ipv6_ext_strategy };
 
 impl Ipv6ExtType {
     /// Parses the YAML `ext_type` value used by strategy packs.

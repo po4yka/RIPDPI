@@ -2,7 +2,7 @@
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyVerdict,
+    StrategyError, StrategyFactory, StrategyVerdict,
 };
 
 /// TCP window clamp strategy using a direct byte value.
@@ -93,6 +93,20 @@ pub fn strategy_by_id(id: &str) -> Option<Box<dyn DesyncStrategy>> {
         _ => None,
     }
 }
+
+fn make_wsize_strategy() -> Box<dyn DesyncStrategy> {
+    Box::new(WsizeStrategy::default())
+}
+
+fn make_wssize_strategy() -> Box<dyn DesyncStrategy> {
+    Box::new(WssizeStrategy::default())
+}
+
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
+static WSIZE_FACTORY: StrategyFactory = StrategyFactory { id: "wsize", make: make_wsize_strategy };
+
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
+static WSSIZE_FACTORY: StrategyFactory = StrategyFactory { id: "wssize", make: make_wssize_strategy };
 
 fn plan_window_clamp(ctx: &StrategyContext<'_>, plan: &mut DesyncPlan, window: u32) -> Result<(), StrategyError> {
     if !ctx.caps.has(RuntimeCapability::TcpWindowClamp) {

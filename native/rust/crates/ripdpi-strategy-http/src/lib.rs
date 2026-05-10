@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, FlowId, L7Protocol, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyVerdict,
+    StrategyError, StrategyFactory, StrategyVerdict,
 };
 
 /// Alternates HTTP Host value casing using the zapret2 `domcase` pattern.
@@ -161,6 +161,35 @@ pub fn strategy_by_id(id: &str) -> Option<Box<dyn DesyncStrategy>> {
         _ => None,
     }
 }
+
+fn make_domcase_strategy() -> Box<dyn DesyncStrategy> {
+    Box::new(DomcaseStrategy)
+}
+
+fn make_hostcase_strategy() -> Box<dyn DesyncStrategy> {
+    Box::new(HostcaseStrategy)
+}
+
+fn make_methodeol_strategy() -> Box<dyn DesyncStrategy> {
+    Box::new(MethodeolStrategy)
+}
+
+fn make_unixeol_strategy() -> Box<dyn DesyncStrategy> {
+    Box::new(UnixeolStrategy)
+}
+
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
+static HTTP_DOMCASE_FACTORY: StrategyFactory = StrategyFactory { id: "http_domcase", make: make_domcase_strategy };
+
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
+static HTTP_HOSTCASE_FACTORY: StrategyFactory = StrategyFactory { id: "http_hostcase", make: make_hostcase_strategy };
+
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
+static HTTP_METHODEOL_FACTORY: StrategyFactory =
+    StrategyFactory { id: "http_methodeol", make: make_methodeol_strategy };
+
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
+static HTTP_UNIXEOL_FACTORY: StrategyFactory = StrategyFactory { id: "http_unixeol", make: make_unixeol_strategy };
 
 fn find_host_value(input: &[u8]) -> Option<Range<usize>> {
     let (header_end, _) = header_body_separator(input)?;

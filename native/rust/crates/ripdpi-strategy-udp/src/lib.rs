@@ -2,7 +2,7 @@
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, L7Protocol, RuntimeCapability, StrategyContext,
-    StrategyDescriptor, StrategyError, StrategyVerdict,
+    StrategyDescriptor, StrategyError, StrategyFactory, StrategyVerdict,
 };
 
 const IPV4_HEADER_MIN_LEN: usize = 20;
@@ -98,6 +98,13 @@ pub fn strategy_by_id(id: &str) -> Option<Box<dyn DesyncStrategy>> {
         _ => None,
     }
 }
+
+fn make_udplen_strategy() -> Box<dyn DesyncStrategy> {
+    Box::new(UdpLenStrategy::default())
+}
+
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
+static UDPLEN_FACTORY: StrategyFactory = StrategyFactory { id: "udplen", make: make_udplen_strategy };
 
 fn apply_udplen_ipv4(packet: &[u8], delta: i16) -> Option<Vec<u8>> {
     if packet.len() < IPV4_HEADER_MIN_LEN || packet[9] != UDP_NEXT_HEADER {

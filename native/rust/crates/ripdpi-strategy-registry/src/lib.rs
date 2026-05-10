@@ -1,10 +1,15 @@
 //! Strategy registry and chain executor for desync backends.
 
+extern crate ripdpi_strategy_http as _;
+extern crate ripdpi_strategy_ipv6 as _;
+extern crate ripdpi_strategy_udp as _;
+extern crate ripdpi_strategy_window as _;
+
 use ripdpi_desync::AdaptivePlannerHints;
 use ripdpi_strategy_config::{LoadedStrategyConfig, OnFail as ConfigOnFail};
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyVerdict,
+    StrategyError, StrategyFactory, StrategyVerdict, STRATEGY_DESCRIPTOR_REGISTRATIONS, STRATEGY_FACTORIES,
 };
 use thiserror::Error;
 
@@ -71,16 +76,10 @@ impl StrategyRegistry {
         id: &str,
         on_fail: OnFail,
     ) -> Result<(), StrategyRegistryError> {
-        let definition = builtin_technique(id)?;
-        if let Some(strategy) = ripdpi_strategy_http::strategy_by_id(id) {
-            self.register_with_policy(strategy, on_fail);
-        } else if let Some(strategy) = ripdpi_strategy_ipv6::strategy_by_id(id) {
-            self.register_with_policy(strategy, on_fail);
-        } else if let Some(strategy) = ripdpi_strategy_udp::strategy_by_id(id) {
-            self.register_with_policy(strategy, on_fail);
-        } else if let Some(strategy) = ripdpi_strategy_window::strategy_by_id(id) {
-            self.register_with_policy(strategy, on_fail);
+        if let Some(factory) = linked_strategy_factory(id) {
+            self.register_with_policy((factory.make)(), on_fail);
         } else {
+            let definition = builtin_technique(id)?;
             self.register_with_policy(Box::new(BuiltinTechnique { definition }), on_fail);
         }
         Ok(())
@@ -168,6 +167,21 @@ impl StrategyRegistry {
 
         scored.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.2.cmp(&right.2)));
         scored.into_iter().map(|(id, _score, _index)| id).collect()
+    }
+
+    /// Returns strategy IDs contributed through link-time factory registration.
+    pub fn linked_strategy_ids() -> impl Iterator<Item = &'static str> {
+        STRATEGY_FACTORIES.iter().map(|factory| factory.id)
+    }
+
+    /// Returns descriptor-only IDs contributed through link-time registration.
+    pub fn linked_descriptor_ids() -> impl Iterator<Item = &'static str> {
+        STRATEGY_DESCRIPTOR_REGISTRATIONS.iter().map(|registration| registration.id)
+    }
+
+    /// Returns descriptors contributed through link-time registration.
+    pub fn linked_descriptors() -> impl Iterator<Item = StrategyDescriptor> {
+        STRATEGY_DESCRIPTOR_REGISTRATIONS.iter().map(|registration| (registration.describe)())
     }
 }
 
@@ -414,4 +428,8 @@ fn builtin_technique(id: &str) -> Result<&'static BuiltinTechniqueDefinition, St
         .iter()
         .find(|definition| definition.id == id)
         .ok_or_else(|| StrategyRegistryError::UnknownType(id.to_owned()))
+}
+
+fn linked_strategy_factory(id: &str) -> Option<&'static StrategyFactory> {
+    STRATEGY_FACTORIES.iter().find(|factory| factory.id == id)
 }
