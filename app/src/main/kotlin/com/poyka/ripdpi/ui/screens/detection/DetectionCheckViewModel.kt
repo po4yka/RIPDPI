@@ -280,6 +280,7 @@ class DetectionCheckViewModel
                 encryptedDnsEnabled = dnsMode == "encrypted",
                 webRtcProtectionEnabled = webrtcProtectionEnabled,
                 tlsFingerprintProfile = tlsFingerprintProfile.ifEmpty { "chrome_stable" },
+                includeRttTriangulationCheck = detectionCheckRttTriangulationEnabled,
             )
 
         fun applyAllFixes() {

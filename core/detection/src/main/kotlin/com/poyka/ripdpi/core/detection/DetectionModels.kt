@@ -26,6 +26,7 @@ enum class EvidenceSource {
     DUMPSYS,
     LOCATION_SIGNALS,
     ICMP_SPOOFING,
+    RTT_TRIANGULATION,
 }
 
 enum class VpnAppKind {
@@ -170,6 +171,34 @@ data class IcmpSpoofingResult(
     val controlTargetRttMs: Double? = null,
 )
 
+enum class RttTriangulationState {
+    OK,
+    NEEDS_REVIEW,
+    SKIPPED,
+}
+
+enum class RttTargetGroup {
+    RU,
+    FOREIGN,
+}
+
+data class RttTargetProbeResult(
+    val host: String,
+    val group: RttTargetGroup,
+    val resolvedIpv4: String?,
+    val rttMs: Double?,
+    val jitterMs: Double?,
+    val replied: Boolean,
+)
+
+data class RttTriangulationResult(
+    val state: RttTriangulationState,
+    val category: CategoryResult,
+    val targetResults: List<RttTargetProbeResult> = emptyList(),
+    val ruMedianRttMs: Double? = null,
+    val foreignMedianRttMs: Double? = null,
+)
+
 data class DetectionCheckResult(
     val geoIp: CategoryResult,
     val directSigns: CategoryResult,
@@ -182,6 +211,7 @@ data class DetectionCheckResult(
     val timingAnalysis: CategoryResult? = null,
     val icmpSpoofing: IcmpSpoofingResult? = null,
     val ipComparison: IpComparisonResult? = null,
+    val rttTriangulation: RttTriangulationResult? = null,
     val verdict: Verdict,
     val methodologyVersion: String = MethodologyVersion.CURRENT,
 )

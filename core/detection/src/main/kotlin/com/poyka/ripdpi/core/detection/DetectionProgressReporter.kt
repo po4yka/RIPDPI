@@ -95,5 +95,9 @@ private object DetectionStageProgressMessages {
             DetectionStage.IP_COMPARISON -> {
                 DetectionStageProgressMessage("IP Comparison", "Comparing public IP reflection endpoints...")
             }
+
+            DetectionStage.RTT_TRIANGULATION -> {
+                DetectionStageProgressMessage("RTT Triangulation", "Measuring RTT to Russian and foreign targets...")
+            }
         }
 }

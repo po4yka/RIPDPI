@@ -23,6 +23,7 @@ data class PingProbeResult(
     val resolvedIpv4: String?,
     val replied: Boolean,
     val rttMs: Double?,
+    val jitterMs: Double? = null,
     val rawOutput: String? = null,
 ) {
     companion object {
@@ -30,6 +31,7 @@ data class PingProbeResult(
             host: String,
             resolvedIpv4: String,
             rttMs: Double,
+            jitterMs: Double? = null,
             rawOutput: String? = null,
         ): PingProbeResult =
             PingProbeResult(
@@ -37,6 +39,7 @@ data class PingProbeResult(
                 resolvedIpv4 = resolvedIpv4,
                 replied = true,
                 rttMs = rttMs,
+                jitterMs = jitterMs,
                 rawOutput = rawOutput,
             )
 
@@ -57,6 +60,8 @@ data class PingProbeResult(
 
 class SystemPingProber(
     private val dispatchers: AppCoroutineDispatchers,
+    private val sampleCount: Int = 1,
+    private val timeoutSeconds: Int = PING_TIMEOUT_SECONDS,
 ) : PingProber {
     override suspend fun ping(host: String): PingProbeResult =
         withContext(dispatchers.io) {
@@ -85,17 +90,17 @@ class SystemPingProber(
     ): PingProbeResult =
         try {
             val process =
-                ProcessBuilder("ping", "-c", "1", "-W", PING_TIMEOUT_SECONDS.toString(), address)
+                ProcessBuilder("ping", "-c", sampleCount.toString(), "-W", timeoutSeconds.toString(), address)
                     .redirectErrorStream(true)
                     .start()
-            val finished = process.waitFor(PING_TIMEOUT_SECONDS.toLong(), TimeUnit.SECONDS)
+            val finished = process.waitFor((timeoutSeconds * sampleCount).toLong(), TimeUnit.SECONDS)
             if (!finished) {
                 process.destroyForcibly()
             }
             val output = process.inputStream.bufferedReader().use { it.readText() }
             val rtt = parseRttMs(output)
             if (finished && process.exitValue() == 0 && rtt != null) {
-                PingProbeResult.replied(host, address, rtt, output)
+                PingProbeResult.replied(host, address, rtt, jitterMs = parseJitterMs(output), rawOutput = output)
             } else {
                 PingProbeResult.unreachable(host, address, output)
             }
@@ -113,10 +118,17 @@ class SystemPingProber(
         return null
     }
 
+    internal fun parseJitterMs(output: String): Double? =
+        summaryRttRegex
+            .find(output)
+            ?.groupValues
+            ?.getOrNull(2)
+            ?.toDoubleOrNull()
+
     private companion object {
         private const val PING_TIMEOUT_SECONDS = 3
         private val singleReplyRttRegex = Regex("""time[=<]\s*([0-9]+(?:\.[0-9]+)?)\s*ms""")
-        private val summaryRttRegex = Regex("""=\s*[0-9.]+/([0-9.]+)/[0-9.]+(?:/[0-9.]+)?\s*ms""")
+        private val summaryRttRegex = Regex("""=\s*[0-9.]+/([0-9.]+)/[0-9.]+(?:/([0-9.]+))?\s*ms""")
     }
 }
 

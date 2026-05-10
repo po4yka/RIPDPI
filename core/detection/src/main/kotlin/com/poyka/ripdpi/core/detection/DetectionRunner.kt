@@ -21,6 +21,7 @@ class DefaultDetectionCheckRunner
         timingAnalysisChecker: TimingAnalysisCheckerPort,
         icmpSpoofingChecker: IcmpSpoofingCheckerPort,
         ipComparisonChecker: IpComparisonCheckerPort,
+        rttTriangulationChecker: RttTriangulationCheckerPort,
         verdictEvaluator: DetectionVerdictEvaluator,
     ) : DetectionCheckRunner {
         private val scheduler =
@@ -36,6 +37,7 @@ class DefaultDetectionCheckRunner
                 timingAnalysisChecker = timingAnalysisChecker,
                 icmpSpoofingChecker = icmpSpoofingChecker,
                 ipComparisonChecker = ipComparisonChecker,
+                rttTriangulationChecker = rttTriangulationChecker,
             )
         private val resultAssembler = DetectionPipelineResultAssembler(verdictEvaluator)
 
@@ -67,6 +69,7 @@ object DetectionRunner {
             timingAnalysisChecker = DefaultTimingAnalysisCheckerPort(dispatchers),
             icmpSpoofingChecker = DefaultIcmpSpoofingCheckerPort(dispatchers),
             ipComparisonChecker = DefaultIpComparisonCheckerPort(dispatchers),
+            rttTriangulationChecker = DefaultRttTriangulationCheckerPort(dispatchers),
             verdictEvaluator = DefaultDetectionVerdictEvaluator(),
         )
 

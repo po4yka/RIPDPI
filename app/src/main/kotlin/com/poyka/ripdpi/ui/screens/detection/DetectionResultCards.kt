@@ -313,6 +313,12 @@ private fun detectionCategoryEntries(result: DetectionCheckResult): List<Categor
             "ip_comparison",
             RipDpiIcons.Public,
         )
+        addOptionalCategory(
+            result.rttTriangulation?.category,
+            stringResource(R.string.detection_check_category_rtt_triangulation),
+            "rtt_triangulation",
+            RipDpiIcons.Timer,
+        )
     }
 
 private fun MutableList<CategoryEntry>.addOptionalCategory(

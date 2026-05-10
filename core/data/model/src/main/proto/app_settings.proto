@@ -322,6 +322,7 @@ message AppSettings {
   // Detection check settings
   bool detection_check_include_bypass = 207;   // Include localhost proxy scanning (default true)
   bool detection_check_include_location = 208; // Include PLMN/BSSID checks (default true)
+  bool detection_check_rtt_triangulation_enabled = 261; // Enable RTT triangulation check (default false)
 
   // Community comparison (anonymous opt-in)
   bool community_comparison_enabled = 209;

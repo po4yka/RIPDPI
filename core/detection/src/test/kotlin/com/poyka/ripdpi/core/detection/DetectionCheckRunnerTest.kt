@@ -19,6 +19,10 @@ class DetectionCheckRunnerTest {
     fun `runner schedules enabled checks reports progress and assembles verdict`() =
         runTest {
             val ports = FakeDetectionPorts()
+            ports.location.result =
+                category("location").copy(
+                    findings = listOf(Finding("Network MCC: 250"), Finding("network_mcc_ru:true")),
+                )
             val runner = ports.newRunner()
             val progress = mutableListOf<DetectionProgress>()
 
@@ -33,6 +37,7 @@ class DetectionCheckRunnerTest {
                             webRtcProtectionEnabled = true,
                             tlsFingerprintProfile = "firefox",
                             includeIcmpSpoofingCheck = true,
+                            includeRttTriangulationCheck = true,
                         ),
                     onProgress = { progress += it },
                 )
@@ -48,12 +53,14 @@ class DetectionCheckRunnerTest {
             assertEquals("timing", result.timingAnalysis?.name)
             assertEquals("icmp", result.icmpSpoofing?.category?.name)
             assertEquals("ip comparison", result.ipComparison?.category?.name)
+            assertEquals("rtt", result.rttTriangulation?.category?.name)
             assertEquals(setOf(1080), ports.bypass.excludePorts)
             assertEquals("com.example.proxy", ports.direct.excludePackage)
             assertEquals(true, ports.dns.encryptedDnsEnabled)
             assertEquals(true, ports.webRtc.webRtcProtectionEnabled)
             assertEquals("firefox", ports.tls.tlsFingerprintProfile)
             assertEquals(false, ports.icmp.homeRoutedRoaming)
+            assertEquals("RU", ports.rtt.homeCountryIso)
             assertSame(ports.geo.result, ports.verdict.geoIp)
             assertSame(ports.bypass.result, ports.verdict.bypassResult)
             assertSame(ports.ipComparison.result, ports.verdict.ipComparison)
@@ -80,6 +87,7 @@ class DetectionCheckRunnerTest {
                             includeTimingAnalysis = false,
                             includeIcmpSpoofingCheck = false,
                             includeIpComparisonCheck = false,
+                            includeRttTriangulationCheck = false,
                         ),
                 )
 
@@ -102,6 +110,7 @@ class DetectionCheckRunnerTest {
             assertNull(result.timingAnalysis)
             assertNull(result.icmpSpoofing)
             assertNull(result.ipComparison)
+            assertNull(result.rttTriangulation)
             assertEquals(0, ports.location.calls)
             assertEquals(0, ports.bypass.calls)
             assertEquals(0, ports.dns.calls)
@@ -110,6 +119,7 @@ class DetectionCheckRunnerTest {
             assertEquals(0, ports.timing.calls)
             assertEquals(0, ports.icmp.calls)
             assertEquals(0, ports.ipComparison.calls)
+            assertEquals(0, ports.rtt.calls)
             assertNotNull(ports.verdict.locationSignals)
             assertNotNull(ports.verdict.bypassResult)
         }
@@ -150,6 +160,7 @@ class DetectionCheckRunnerTest {
         val timing = FakeTimingAnalysisCheckerPort()
         val icmp = FakeIcmpSpoofingCheckerPort()
         val ipComparison = FakeIpComparisonCheckerPort()
+        val rtt = FakeRttTriangulationCheckerPort()
         val verdict = FakeDetectionVerdictEvaluator()
 
         fun newRunner(): DefaultDetectionCheckRunner =
@@ -165,6 +176,7 @@ class DetectionCheckRunnerTest {
                 timingAnalysisChecker = timing,
                 icmpSpoofingChecker = icmp,
                 ipComparisonChecker = ipComparison,
+                rttTriangulationChecker = rtt,
                 verdictEvaluator = verdict,
             )
     }
@@ -297,6 +309,22 @@ class DetectionCheckRunnerTest {
 
         override suspend fun check(): IpComparisonResult {
             calls += 1
+            return result
+        }
+    }
+
+    private class FakeRttTriangulationCheckerPort : RttTriangulationCheckerPort {
+        val result =
+            RttTriangulationResult(
+                state = RttTriangulationState.OK,
+                category = category("rtt"),
+            )
+        var calls = 0
+        var homeCountryIso: String? = null
+
+        override suspend fun check(homeCountryIso: String?): RttTriangulationResult {
+            calls += 1
+            this.homeCountryIso = homeCountryIso
             return result
         }
     }

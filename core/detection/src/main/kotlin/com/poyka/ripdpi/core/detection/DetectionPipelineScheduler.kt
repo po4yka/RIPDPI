@@ -17,6 +17,7 @@ internal class DetectionPipelineScheduler(
     private val timingAnalysisChecker: TimingAnalysisCheckerPort,
     private val icmpSpoofingChecker: IcmpSpoofingCheckerPort,
     private val ipComparisonChecker: IpComparisonCheckerPort,
+    private val rttTriangulationChecker: RttTriangulationCheckerPort,
 ) {
     suspend fun runChecks(
         context: Context,
@@ -132,6 +133,17 @@ internal class DetectionPipelineScheduler(
                 } else {
                     null
                 }
+            val rttTriangulation =
+                if (config.includeRttTriangulationCheck) {
+                    reporter.started(DetectionStage.RTT_TRIANGULATION)
+                    rttTriangulationChecker
+                        .check(homeCountryIso = locationSignals.homeCountryIso())
+                        .also {
+                            reporter.completed(DetectionStage.RTT_TRIANGULATION)
+                        }
+                } else {
+                    null
+                }
 
             val timingDeferred =
                 if (config.includeTimingAnalysis) {
@@ -156,6 +168,7 @@ internal class DetectionPipelineScheduler(
                 timingAnalysis = timingDeferred?.await(),
                 icmpSpoofing = icmpSpoofing,
                 ipComparison = ipComparisonDeferred?.await(),
+                rttTriangulation = rttTriangulation,
             )
         }
 
@@ -170,8 +183,23 @@ internal class DetectionPipelineScheduler(
         return hasRussianNetwork && hasRoaming && simMcc != null && simMcc != RUSSIA_MCC
     }
 
+    private fun CategoryResult?.homeCountryIso(): String? {
+        if (this == null) return null
+        if (findings.any { it.description == "network_mcc_ru:true" }) return "RU"
+        val mcc =
+            findings.firstNotNullOfOrNull { finding ->
+                NETWORK_MCC_REGEX.find(finding.description)?.groupValues?.get(1)
+            }
+        return when (mcc) {
+            RUSSIA_MCC -> "RU"
+            null -> null
+            else -> "OTHER"
+        }
+    }
+
     private companion object {
         private const val RUSSIA_MCC = "250"
         private val SIM_MCC_REGEX = Regex("""SIM MCC: (\d{3})""")
+        private val NETWORK_MCC_REGEX = Regex("""Network MCC: (\d{3})""")
     }
 }

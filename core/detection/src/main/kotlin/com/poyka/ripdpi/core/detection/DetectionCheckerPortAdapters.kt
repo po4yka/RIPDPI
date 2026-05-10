@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.detection.checker.IcmpSpoofingChecker
 import com.poyka.ripdpi.core.detection.checker.IndirectSignsChecker
 import com.poyka.ripdpi.core.detection.checker.IpComparisonChecker
 import com.poyka.ripdpi.core.detection.checker.LocationSignalsChecker
+import com.poyka.ripdpi.core.detection.checker.RttTriangulationChecker
 import com.poyka.ripdpi.core.detection.checker.SystemPingProber
 import com.poyka.ripdpi.core.detection.checker.TimingAnalysisChecker
 import com.poyka.ripdpi.core.detection.checker.TlsFingerprintChecker
@@ -122,6 +123,23 @@ class DefaultIpComparisonCheckerPort
         private val dispatchers: AppCoroutineDispatchers,
     ) : IpComparisonCheckerPort {
         override suspend fun check(): IpComparisonResult = IpComparisonChecker.check(dispatchers)
+    }
+
+class DefaultRttTriangulationCheckerPort
+    @Inject
+    constructor(
+        private val dispatchers: AppCoroutineDispatchers,
+    ) : RttTriangulationCheckerPort {
+        override suspend fun check(homeCountryIso: String?): RttTriangulationResult =
+            RttTriangulationChecker.check(
+                prober = SystemPingProber(dispatchers, sampleCount = RTT_SAMPLE_COUNT),
+                enabled = true,
+                homeCountryIso = homeCountryIso,
+            )
+
+        private companion object {
+            private const val RTT_SAMPLE_COUNT = 4
+        }
     }
 
 class DefaultDetectionVerdictEvaluator

@@ -47,5 +47,10 @@ abstract class DetectionCheckerPortsModule {
     abstract fun bindIpComparisonCheckerPort(checker: DefaultIpComparisonCheckerPort): IpComparisonCheckerPort
 
     @Binds
+    abstract fun bindRttTriangulationCheckerPort(
+        checker: DefaultRttTriangulationCheckerPort,
+    ): RttTriangulationCheckerPort
+
+    @Binds
     abstract fun bindDetectionVerdictEvaluator(evaluator: DefaultDetectionVerdictEvaluator): DetectionVerdictEvaluator
 }

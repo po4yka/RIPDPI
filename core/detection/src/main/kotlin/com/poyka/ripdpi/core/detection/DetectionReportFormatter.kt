@@ -18,6 +18,7 @@ object DetectionReportFormatter {
             result.tlsFingerprint?.let { appendCategory("TLS Fingerprint", it) }
             result.timingAnalysis?.let { appendCategory("Timing Analysis", it) }
             result.icmpSpoofing?.let { appendCategory("ICMP Spoofing", it.category) }
+            result.rttTriangulation?.let { appendCategory("RTT Triangulation", it.category) }
 
             appendLine("Methodology: ${result.methodologyVersion}")
 

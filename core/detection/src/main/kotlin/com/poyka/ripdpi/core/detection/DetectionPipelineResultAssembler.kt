@@ -12,6 +12,7 @@ internal data class DetectionPipelineOutputs(
     val timingAnalysis: CategoryResult?,
     val icmpSpoofing: IcmpSpoofingResult?,
     val ipComparison: IpComparisonResult?,
+    val rttTriangulation: RttTriangulationResult?,
 )
 
 internal class DetectionPipelineResultAssembler(
@@ -42,6 +43,7 @@ internal class DetectionPipelineResultAssembler(
             timingAnalysis = outputs.timingAnalysis,
             icmpSpoofing = outputs.icmpSpoofing,
             ipComparison = outputs.ipComparison,
+            rttTriangulation = outputs.rttTriangulation,
             verdict = verdict,
         )
     }
