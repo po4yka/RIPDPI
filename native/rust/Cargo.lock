@@ -3181,6 +3181,7 @@ dependencies = [
  "jni 0.22.4",
  "ripdpi-diagnostics-dns",
  "ripdpi-runtime-platform",
+ "ripdpi-runtime-strategy",
  "ripdpi-shared-priors",
  "serde_json",
 ]

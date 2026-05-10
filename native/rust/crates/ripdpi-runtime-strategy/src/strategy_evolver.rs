@@ -65,6 +65,7 @@
 mod feedback;
 mod lifecycle;
 mod prior_store;
+mod probe_results;
 mod selection;
 mod shared_priors;
 #[cfg(test)]
@@ -78,6 +79,10 @@ pub use thompson_sampling::{sample_beta, BetaParams, ThompsonSampling};
 
 // Re-exported so callers (including the JNI bridge) can verify and apply
 // signed shared-priors bundles without reaching into sub-modules.
+pub use probe_results::{
+    apply_global_probe_results, clear_global_probe_results_for_tests, latest_global_probe_results,
+    probe_combo_for_strategy_id, ProbeResult, ProbeResultsError, PROBE_OBSERVATION_WEIGHT,
+};
 pub use shared_priors::{
     apply_global_shared_priors, apply_global_shared_priors_with_embedded_key, apply_priors,
     apply_priors_with_embedded_key, canonical_combo_hash, global_shared_priors_len, is_production_key_set,

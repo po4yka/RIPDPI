@@ -50,6 +50,8 @@ class StrategyProbeServiceTest {
             )
             assertTrue(results.all { it.success })
             assertEquals(listOf("split", "fake"), service.activator.activatedIds)
+            val injectedResults = service.injector.injectedResults.single()
+            assertEquals(4, injectedResults.size)
             assertTrue(service.activator.restored)
         }
 
@@ -77,6 +79,7 @@ class StrategyProbeServiceTest {
             assertFalse(result.success)
             assertEquals("timeout", result.error)
             assertEquals(StrategyProbeFailureKind.Timeout, result.failureKind)
+            assertEquals(listOf(listOf(result)), service.injector.injectedResults)
             assertTrue(service.activator.restored)
         }
 
@@ -105,6 +108,7 @@ class StrategyProbeServiceTest {
                 }
 
             assertTrue(transport.cancelled)
+            assertTrue(service.injector.injectedResults.isEmpty())
             assertTrue(service.activator.restored)
         }
 
@@ -160,14 +164,16 @@ class StrategyProbeServiceTest {
         dnsComparator: StrategyProbeDnsComparator = FakeDnsComparator(StrategyProbeDnsComparison.NoDifference),
     ): TestStrategyProbeService {
         val activator = FakeStrategyProbeActivator()
+        val injector = FakeStrategyProbeResultInjector()
         val service =
             DefaultStrategyProbeService(
                 candidateProvider = FakeStrategyProbeCandidateProvider(candidates),
                 activator = activator,
                 transport = transport,
                 dnsComparator = dnsComparator,
+                resultInjector = injector,
             )
-        return TestStrategyProbeService(service = service, activator = activator)
+        return TestStrategyProbeService(service = service, activator = activator, injector = injector)
     }
 
     private fun result(
@@ -187,6 +193,7 @@ class StrategyProbeServiceTest {
 private data class TestStrategyProbeService(
     val service: StrategyProbeService,
     val activator: FakeStrategyProbeActivator,
+    val injector: FakeStrategyProbeResultInjector,
 ) : StrategyProbeService by service
 
 private class FakeStrategyProbeCandidateProvider(
@@ -229,4 +236,12 @@ private class FakeDnsComparator(
     private val comparison: StrategyProbeDnsComparison,
 ) : StrategyProbeDnsComparator {
     override suspend fun compare(domain: String): StrategyProbeDnsComparison = comparison
+}
+
+private class FakeStrategyProbeResultInjector : StrategyProbeResultInjector {
+    val injectedResults = mutableListOf<List<StrategyProbeResult>>()
+
+    override suspend fun inject(results: List<StrategyProbeResult>) {
+        injectedResults += results
+    }
 }

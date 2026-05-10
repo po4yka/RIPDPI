@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::net::SocketAddr;
 
 use ripdpi_config::RuntimeConfig;
@@ -7,12 +8,13 @@ use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
 use ripdpi_runtime_adaptive::strategy_context::{classify_learning_payload, direct_path_capability_for_route};
 use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
 use ripdpi_runtime_strategy::strategy_evolver::{
-    CapabilityContext, LearningAlpnClass, LearningContext, LearningHostingFamily, LearningReachabilitySet,
-    LearningTargetBucket, LearningTransportKind, ResolverHealthClass, StrategyEvolver,
+    latest_global_probe_results, CapabilityContext, LearningAlpnClass, LearningContext, LearningHostingFamily,
+    LearningReachabilitySet, LearningTargetBucket, LearningTransportKind, ResolverHealthClass, StrategyEvolver,
 };
 
 pub(crate) struct StrategyEvolutionResolver {
     evolver: StrategyEvolver,
+    applied_probe_generations: HashMap<LearningTargetBucket, u64>,
 }
 
 impl StrategyEvolutionResolver {
@@ -26,6 +28,7 @@ impl StrategyEvolutionResolver {
                 config.adaptive.evolution_cooldown_after_failures,
                 config.adaptive.evolution_cooldown_ms,
             ),
+            applied_probe_generations: HashMap::new(),
         }
     }
 
@@ -40,7 +43,10 @@ impl StrategyEvolutionResolver {
         if !config.adaptive.strategy_evolution {
             return None;
         }
-        self.evolver.set_learning_context(tcp_learning_context(config, runtime_context, target, host, payload));
+        let context = tcp_learning_context(config, runtime_context, target, host, payload);
+        let bucket = context.target_bucket;
+        self.evolver.set_learning_context(context);
+        self.apply_latest_probe_results(bucket);
         self.evolver.peek_hints().or_else(|| self.evolver.suggest_hints())
     }
 
@@ -55,7 +61,10 @@ impl StrategyEvolutionResolver {
         if !config.adaptive.strategy_evolution {
             return None;
         }
-        self.evolver.set_learning_context(udp_learning_context(config, runtime_context, target, host, payload));
+        let context = udp_learning_context(config, runtime_context, target, host, payload);
+        let bucket = context.target_bucket;
+        self.evolver.set_learning_context(context);
+        self.apply_latest_probe_results(bucket);
         self.evolver.peek_hints().or_else(|| self.evolver.suggest_hints())
     }
 
@@ -69,6 +78,19 @@ impl StrategyEvolutionResolver {
 
     pub(crate) fn reset(&mut self) {
         self.evolver = StrategyEvolver::new(self.evolver.is_enabled(), self.evolver.epsilon());
+        self.applied_probe_generations.clear();
+    }
+
+    fn apply_latest_probe_results(&mut self, bucket: LearningTargetBucket) {
+        let (generation, results) = latest_global_probe_results();
+        if generation == 0 || results.is_empty() {
+            return;
+        }
+        if self.applied_probe_generations.get(&bucket).copied() == Some(generation) {
+            return;
+        }
+        self.evolver.inject_probe_results(&results);
+        self.applied_probe_generations.insert(bucket, generation);
     }
 }
 
@@ -220,6 +242,9 @@ fn reachability_set_context(host: Option<&str>) -> LearningReachabilitySet {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ripdpi_runtime_strategy::strategy_evolver::{
+        apply_global_probe_results, clear_global_probe_results_for_tests, ProbeResult,
+    };
 
     #[test]
     fn hosting_family_context_identifies_known_cdn_buckets() {
@@ -236,5 +261,27 @@ mod tests {
         assert_eq!(reachability_set_context(Some("service.gov.ru")), LearningReachabilitySet::Domestic);
         assert_eq!(reachability_set_context(Some("example.com")), LearningReachabilitySet::Foreign);
         assert_eq!(reachability_set_context(None), LearningReachabilitySet::Unknown);
+    }
+
+    #[test]
+    fn tcp_hints_apply_injected_probe_results() {
+        clear_global_probe_results_for_tests();
+        apply_global_probe_results(&[ProbeResult::success("tls_rec_split", "youtube.com", 40)]);
+        let mut config = RuntimeConfig::default();
+        config.adaptive.strategy_evolution = true;
+        let mut resolver = StrategyEvolutionResolver::from_config(&config);
+
+        let hints = resolver
+            .tcp_hints(
+                &config,
+                None,
+                "203.0.113.10:443".parse().expect("target socket"),
+                Some("youtube.com"),
+                &[0x16, 0x03, 0x01, 0x00, 0x01, 0x01],
+            )
+            .expect("strategy hints");
+
+        assert_eq!(hints.tls_record_offset_base, Some(ripdpi_config::OffsetBase::AutoHost));
+        clear_global_probe_results_for_tests();
     }
 }

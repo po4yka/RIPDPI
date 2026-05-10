@@ -4,6 +4,7 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.StrategyEngineBindings
 import com.poyka.ripdpi.core.StrategyEngineNativeBindings
+import com.poyka.ripdpi.core.StrategyProbeResultDto
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.setRawStrategyChainDsl
 import com.poyka.ripdpi.proto.AppSettings
@@ -178,6 +179,10 @@ interface StrategyProbeDnsComparator {
     suspend fun compare(domain: String): StrategyProbeDnsComparison
 }
 
+interface StrategyProbeResultInjector {
+    suspend fun inject(results: List<StrategyProbeResult>)
+}
+
 @Singleton
 class DefaultStrategyProbeService
     @Inject
@@ -186,10 +191,12 @@ class DefaultStrategyProbeService
         private val activator: StrategyProbeActivator,
         private val transport: StrategyProbeTransport,
         private val dnsComparator: StrategyProbeDnsComparator,
+        private val resultInjector: StrategyProbeResultInjector,
     ) : StrategyProbeService {
         override fun run(config: StrategyProbeConfig): Flow<StrategyProbeResult> =
             flow {
                 val snapshot = activator.capture()
+                val emittedResults = mutableListOf<StrategyProbeResult>()
                 try {
                     val candidates = candidateProvider.listCandidates().normalized(config.maxStrategies)
                     val domains = config.testDomains.normalizedDomains()
@@ -212,9 +219,11 @@ class DefaultStrategyProbeService
                                             timeoutMs = config.timeoutMs,
                                         ),
                                     ).toProbeResult(candidate, domain, dnsComparison)
+                            emittedResults += result
                             emit(result)
                         }
                     }
+                    resultInjector.inject(emittedResults)
                 } finally {
                     withContext(NonCancellable) {
                         activator.restore(snapshot)
@@ -374,6 +383,33 @@ class DefaultStrategyProbeDnsComparator
                         doh.exceptionOrNull()?.message,
                     ).joinToString("; ").ifBlank { null },
             )
+        }
+    }
+
+class NativeStrategyProbeResultInjector
+    @Inject
+    constructor(
+        private val bindings: StrategyEngineBindings,
+    ) : StrategyProbeResultInjector {
+        override suspend fun inject(results: List<StrategyProbeResult>) {
+            if (results.isEmpty()) {
+                return
+            }
+            val injectionError =
+                bindings.injectProbeResults(
+                    results
+                        .map {
+                            StrategyProbeResultDto(
+                                strategyId = it.strategyId,
+                                domain = it.domain,
+                                success = it.success,
+                                latencyMs = it.latencyMs,
+                            )
+                        }.toTypedArray(),
+                )
+            if (injectionError != null) {
+                error(injectionError)
+            }
         }
     }
 
@@ -591,6 +627,12 @@ abstract class StrategyProbeModule {
     abstract fun bindStrategyProbeDnsComparator(
         comparator: DefaultStrategyProbeDnsComparator,
     ): StrategyProbeDnsComparator
+
+    @Binds
+    @Singleton
+    abstract fun bindStrategyProbeResultInjector(
+        injector: NativeStrategyProbeResultInjector,
+    ): StrategyProbeResultInjector
 
     companion object {
         @Provides

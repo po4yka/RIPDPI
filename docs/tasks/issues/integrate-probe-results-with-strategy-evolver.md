@@ -1,18 +1,18 @@
 ---
 title: Integrate Probe Results with Strategy Evolver
 type: task
-status: backlog
+status: review
 area: engine
 priority: medium
-owner: unassigned
+owner: Codex
 parent: zapret2-feature-parity-epic
 blocks: []
-blocked_by: [extend-diagnostic-probe-service, add-ripdpi-strategy-registry-crate]
+blocked_by: []
 created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Integrate Probe Results with Strategy Evolver #repo/RIPDPI #area/engine #status/backlog 🔼
+- [ ] #task Integrate Probe Results with Strategy Evolver #repo/RIPDPI #area/engine #status/review 🔼
 
 ## Objective
 
@@ -41,13 +41,13 @@ The Kotlin side calls `StrategyEngine.injectProbeResults(results)` via JNI after
 
 ## Acceptance criteria
 
-- [ ] `StrategyEvolver::inject_probe_results()` is implemented in Rust and accepts `&[ProbeResult]`
-- [ ] Injected probe results weight 3x a normal live observation (configurable constant `PROBE_OBSERVATION_WEIGHT`)
-- [ ] After injection, `suggest_hints()` returns the probe-winning strategy as the top suggestion for the matching domain
-- [ ] `recompute_ucb1_scores()` is called after injection to update rankings immediately (not deferred to next connection)
-- [ ] JNI method `StrategyEngine.injectProbeResults(results: Array<ProbeResultDto>)` is added and calls through to Rust
-- [ ] Probe results are persisted across app restarts as part of the local priors (written to the same file as shared priors but in a separate `local_priors` section)
-- [ ] Unit test: inject 10 success results for strategy "fake" and 0 for "split"; verify `suggest_hints()` ranks "fake" first
+- [x] `StrategyEvolver::inject_probe_results()` is implemented in Rust and accepts `&[ProbeResult]`
+- [x] Injected probe results weight 3x a normal live observation (configurable constant `PROBE_OBSERVATION_WEIGHT`)
+- [x] After injection, `suggest_hints()` returns the probe-winning strategy as the top suggestion for the matching domain
+- [x] `recompute_ucb1_scores()` is called after injection to update rankings immediately (not deferred to next connection)
+- [x] JNI method `StrategyEngine.injectProbeResults(results: Array<ProbeResultDto>)` is added and calls through to Rust
+- [x] Probe results are persisted across app restarts as part of the local priors (written to the same file as shared priors but in a separate `local_priors` section)
+- [x] Unit test: inject 10 success results for strategy "fake" and 0 for "split"; verify `suggest_hints()` ranks "fake" first
 
 ## Source references
 
@@ -74,3 +74,21 @@ The Kotlin side calls `StrategyEngine.injectProbeResults(results)` via JNI after
 ## Definition of done
 
 After running a probe and injecting results, the first live connection to a probed domain uses the probe-winning strategy without any UCB1 exploration overhead. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+- Added `StrategyEvolver::inject_probe_results()`, `ProbeResult`, `PROBE_OBSERVATION_WEIGHT`, local-priors save/load APIs, and a process-wide probe-result registry consumed by `StrategyEvolutionResolver` before live hint selection.
+- Added JNI and Kotlin binding support via `StrategyProbeResultDto` and `StrategyEngineBindings.injectProbeResults()`.
+- Wired `StrategyProbeService` to inject naturally completed probe results and avoid injection on cancellation.
+- Added focused tests for weighted probe observations, immediate hint recomputation, local-priors persistence with a separate `local_priors` section, JNI facade export coverage, diagnostics injection behavior, and live runtime hint consumption.
+
+Validation:
+
+- `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-probe-evolver cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-runtime-strategy --test inject_probe_results --locked`
+- `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-probe-evolver cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-runtime-services strategy_evolution::tests::tcp_hints_apply_injected_probe_results --locked`
+- `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-probe-evolver cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-android --locked`
+- `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-probe-evolver cargo clippy --manifest-path native/rust/Cargo.toml -p ripdpi-runtime-strategy --test inject_probe_results --locked -- -D warnings`
+- `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-probe-evolver cargo clippy --manifest-path native/rust/Cargo.toml -p ripdpi-runtime-services --locked -- -D warnings`
+- `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-probe-evolver cargo clippy --manifest-path native/rust/Cargo.toml -p ripdpi-android --locked -- -D warnings`
+- `./gradlew :core:engine:ktlintCheck :core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.StrategyEngineBindingsTest -Pripdpi.skipNativeBuild=true`
+- `./gradlew :core:diagnostics:ktlintCheck :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.StrategyProbeServiceTest -Pripdpi.skipNativeBuild=true`

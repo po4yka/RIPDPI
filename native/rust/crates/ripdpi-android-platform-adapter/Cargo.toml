@@ -12,5 +12,6 @@ base64 = { workspace = true }
 jni = { workspace = true }
 ripdpi-diagnostics-dns = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
+ripdpi-runtime-strategy = { workspace = true }
 ripdpi-shared-priors = { workspace = true }
 serde_json = { workspace = true }
