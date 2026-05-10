@@ -2,6 +2,14 @@ use ripdpi_protocol_detect::classify_l7;
 use ripdpi_strategy_trait::L7Protocol;
 
 #[test]
+fn detects_wireguard_initiation_sample_payload() {
+    let initiation = include_bytes!("../../ripdpi-packets/src/fake_profiles/wireguard_initiation.bin");
+
+    assert_eq!(initiation.len(), 148);
+    assert!(matches!(classify_l7(initiation, 47522, 51820, true), L7Protocol::WireGuard(_)));
+}
+
+#[test]
 fn detects_wireguard_handshake_messages() {
     let mut initiation = [0_u8; 148];
     initiation[0] = 0x01;
