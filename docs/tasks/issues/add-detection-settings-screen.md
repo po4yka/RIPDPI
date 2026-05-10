@@ -1,7 +1,7 @@
 ---
 title: Add Detection Settings Screen with Full Feature Toggle and DNS Config
 type: task
-status: backlog
+status: doing
 area: ui
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-10
 ---
 
-- [ ] #task Add Detection Settings Screen with Full Feature Toggle and DNS Config #repo/RIPDPI #area/ui #status/backlog ⏫
+- [ ] #task Add Detection Settings Screen with Full Feature Toggle and DNS Config #repo/RIPDPI #area/ui #status/doing ⏫
 
 ## Objective
 
