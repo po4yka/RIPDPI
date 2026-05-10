@@ -1,6 +1,7 @@
 //! Strategy registry and chain executor for desync backends.
 
 use ripdpi_desync::AdaptivePlannerHints;
+use ripdpi_strategy_config::{LoadedStrategyConfig, OnFail as ConfigOnFail};
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
     StrategyError, StrategyVerdict,
@@ -61,17 +62,44 @@ impl StrategyRegistry {
 
     /// Registers one built-in RIPDPI desync technique by stable ID.
     pub fn register_builtin_technique(&mut self, id: &str) -> Result<(), StrategyRegistryError> {
+        self.register_builtin_technique_with_policy(id, OnFail::Next)
+    }
+
+    /// Registers one built-in RIPDPI desync technique by stable ID and failure policy.
+    pub fn register_builtin_technique_with_policy(
+        &mut self,
+        id: &str,
+        on_fail: OnFail,
+    ) -> Result<(), StrategyRegistryError> {
         let definition = builtin_technique(id)?;
         if let Some(strategy) = ripdpi_strategy_http::strategy_by_id(id) {
-            self.register(strategy);
+            self.register_with_policy(strategy, on_fail);
         } else if let Some(strategy) = ripdpi_strategy_ipv6::strategy_by_id(id) {
-            self.register(strategy);
+            self.register_with_policy(strategy, on_fail);
         } else if let Some(strategy) = ripdpi_strategy_udp::strategy_by_id(id) {
-            self.register(strategy);
+            self.register_with_policy(strategy, on_fail);
         } else if let Some(strategy) = ripdpi_strategy_window::strategy_by_id(id) {
-            self.register(strategy);
+            self.register_with_policy(strategy, on_fail);
         } else {
-            self.register(Box::new(BuiltinTechnique { definition }));
+            self.register_with_policy(Box::new(BuiltinTechnique { definition }), on_fail);
+        }
+        Ok(())
+    }
+
+    /// Builds a registry from a parsed YAML/TOML strategy config.
+    pub fn from_loaded_config(config: &LoadedStrategyConfig) -> Result<Self, StrategyRegistryError> {
+        let mut registry = Self::new();
+        registry.register_loaded_config(config)?;
+        Ok(registry)
+    }
+
+    /// Registers all strategy steps from a parsed YAML/TOML strategy config.
+    pub fn register_loaded_config(&mut self, config: &LoadedStrategyConfig) -> Result<(), StrategyRegistryError> {
+        for strategy in &config.strategies {
+            let on_fail = on_fail_from_config(strategy.on_fail);
+            for step in &strategy.steps {
+                self.register_builtin_technique_with_policy(step.kind.registry_id(), on_fail)?;
+            }
         }
         Ok(())
     }
@@ -368,6 +396,14 @@ fn score_if(id: &str, needles: &[&str], score: u8) -> u8 {
         score
     } else {
         0
+    }
+}
+
+fn on_fail_from_config(on_fail: ConfigOnFail) -> OnFail {
+    match on_fail {
+        ConfigOnFail::NextStrategy => OnFail::Next,
+        ConfigOnFail::FallbackPlain => OnFail::FallbackPlain,
+        ConfigOnFail::Drop => OnFail::Drop,
     }
 }
 
