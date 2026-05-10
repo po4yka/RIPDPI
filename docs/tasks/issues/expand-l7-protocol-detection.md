@@ -77,4 +77,6 @@ Output: `classify_l7(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool)
 
 - Added `ripdpi-protocol-detect` with allocation-free `classify_l7()` coverage for TLS, QUIC, WireGuard, DTLS, STUN, DHT, DNS, MTProto, and Unknown.
 - Verification: `CARGO_TARGET_DIR=target/codex-protocol-detect cargo test -p ripdpi-protocol-detect --locked`; `CARGO_TARGET_DIR=target/codex-protocol-detect cargo clippy -p ripdpi-protocol-detect --all-targets -- -D warnings`.
-- Remaining review evidence: real WireGuard/DTLS capture samples and explicit branch-coverage report.
+- Added branch-complete regression coverage for WireGuard cookie/data and invalid lengths, invalid TLS/DTLS prefixes, and TCP DNS length-prefix rejection.
+- Verification: `cargo fmt --manifest-path native/rust/Cargo.toml --all --check`; `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-protocol-detect cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-protocol-detect`; `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-protocol-detect cargo clippy --manifest-path native/rust/Cargo.toml -p ripdpi-protocol-detect --all-targets -- -D warnings`; `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-protocol-llvmcov cargo +nightly llvm-cov test --manifest-path native/rust/Cargo.toml -p ripdpi-protocol-detect --branch --summary-only` (`Branches: 58/58, 100.00%`).
+- Remaining review evidence: real WireGuard/DTLS capture samples.

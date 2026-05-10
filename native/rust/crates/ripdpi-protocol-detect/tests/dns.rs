@@ -22,3 +22,13 @@ fn tcp_dns_response_uses_inner_message_flags() {
 
     assert!(!dissect.is_query);
 }
+
+#[test]
+fn rejects_tcp_dns_when_length_prefix_does_not_match_payload() {
+    let bad_length = [0x00, 0x10, 0x12, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0];
+
+    assert!(matches!(classify_l7(&bad_length, 53000, 53, false), L7Protocol::Unknown));
+
+    let too_short = [0x00, 0x0C, 0x12, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0];
+    assert!(matches!(classify_l7(&too_short, 53000, 53, false), L7Protocol::Unknown));
+}
