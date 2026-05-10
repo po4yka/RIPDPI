@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.detection
 
 import android.content.Context
 import com.poyka.ripdpi.core.detection.checker.BypassChecker
+import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
 
 data class DetectionRunnerConfig(
     val ownProxyPort: Int? = null,
@@ -114,6 +115,7 @@ interface DetectionVerdictEvaluator {
         bypassResult: BypassResult,
         ipComparison: IpComparisonResult?,
         cdnPulling: CdnPullingResult?,
+        ipConsensus: IpConsensusResult?,
     ): Verdict
 }
 

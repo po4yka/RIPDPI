@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.IpComparisonResult
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.VpnAppKind
+import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
 
 object VerdictEngine {
     @Suppress("CyclomaticComplexMethod")
@@ -20,6 +21,7 @@ object VerdictEngine {
         bypassResult: BypassResult,
         ipComparison: IpComparisonResult? = null,
         cdnPulling: CdnPullingResult? = null,
+        ipConsensus: IpConsensusResult? = null,
     ): Verdict {
         val evidence =
             buildList {
@@ -39,6 +41,9 @@ object VerdictEngine {
             return Verdict.DETECTED
         }
         if (evidence.any { it.source == EvidenceSource.CDN_PULLING && it.detected }) {
+            return Verdict.DETECTED
+        }
+        if (ipConsensus?.warpIndicator == true) {
             return Verdict.DETECTED
         }
 
@@ -93,7 +98,9 @@ object VerdictEngine {
                 score >= 4 ||
                 directSigns.needsReview ||
                 indirectSigns.needsReview ||
-                ipComparison?.category?.needsReview == true -> {
+                ipComparison?.category?.needsReview == true ||
+                ipConsensus?.channelConflicts?.isNotEmpty() == true ||
+                ipConsensus?.crossChannelMismatches?.isNotEmpty() == true -> {
                 Verdict.NEEDS_REVIEW
             }
 

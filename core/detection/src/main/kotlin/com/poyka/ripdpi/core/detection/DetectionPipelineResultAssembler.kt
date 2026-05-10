@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.core.detection
 
+import com.poyka.ripdpi.core.detection.consensus.IpConsensusBuilder
+
 internal data class DetectionPipelineOutputs(
     val geoIp: CategoryResult,
     val directSigns: CategoryResult,
@@ -22,6 +24,13 @@ internal class DetectionPipelineResultAssembler(
     fun assemble(outputs: DetectionPipelineOutputs): DetectionCheckResult {
         val locationSignals = outputs.locationSignals ?: DetectionDisabledResults.locationSignals()
         val bypassResult = outputs.bypassResult ?: DetectionDisabledResults.bypass()
+        val ipConsensus =
+            IpConsensusBuilder.build(
+                geoIp = outputs.geoIp,
+                bypassResult = bypassResult,
+                ipComparison = outputs.ipComparison,
+                cdnPulling = outputs.cdnPulling,
+            )
         val verdict =
             verdictEvaluator.evaluate(
                 geoIp = outputs.geoIp,
@@ -31,6 +40,7 @@ internal class DetectionPipelineResultAssembler(
                 bypassResult = bypassResult,
                 ipComparison = outputs.ipComparison,
                 cdnPulling = outputs.cdnPulling,
+                ipConsensus = ipConsensus,
             )
 
         return DetectionCheckResult(
@@ -48,6 +58,7 @@ internal class DetectionPipelineResultAssembler(
             rttTriangulation = outputs.rttTriangulation,
             cdnPulling = outputs.cdnPulling,
             verdict = verdict,
+            ipConsensus = ipConsensus,
         )
     }
 }

@@ -331,6 +331,12 @@ private fun detectionCategoryEntries(result: DetectionCheckResult): List<Categor
             "cdn_pulling",
             RipDpiIcons.Public,
         )
+        addOptionalCategory(
+            result.ipConsensus?.toCategoryResult(),
+            "IP consensus",
+            "ip_consensus",
+            RipDpiIcons.Public,
+        )
     }
 
 private fun MutableList<CategoryEntry>.addOptionalCategory(

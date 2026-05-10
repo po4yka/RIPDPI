@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.detection
 
 import android.content.Context
 import com.poyka.ripdpi.core.detection.checker.BypassChecker
+import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -64,6 +65,8 @@ class DetectionCheckRunnerTest {
             assertSame(ports.geo.result, ports.verdict.geoIp)
             assertSame(ports.bypass.result, ports.verdict.bypassResult)
             assertSame(ports.ipComparison.result, ports.verdict.ipComparison)
+            assertNotNull(result.ipConsensus)
+            assertSame(result.ipConsensus, ports.verdict.ipConsensus)
             assertTrue(progress.any { it.stage == DetectionStage.GEO_IP && it.detail == "Done" })
             assertTrue(progress.any { it.stage == DetectionStage.BYPASS && it.label == "Bypass: scan" })
         }
@@ -351,6 +354,7 @@ class DetectionCheckRunnerTest {
         var bypassResult: BypassResult? = null
         var ipComparison: IpComparisonResult? = null
         var cdnPulling: CdnPullingResult? = null
+        var ipConsensus: IpConsensusResult? = null
 
         override fun evaluate(
             geoIp: CategoryResult,
@@ -360,12 +364,14 @@ class DetectionCheckRunnerTest {
             bypassResult: BypassResult,
             ipComparison: IpComparisonResult?,
             cdnPulling: CdnPullingResult?,
+            ipConsensus: IpConsensusResult?,
         ): Verdict {
             this.geoIp = geoIp
             this.locationSignals = locationSignals
             this.bypassResult = bypassResult
             this.ipComparison = ipComparison
             this.cdnPulling = cdnPulling
+            this.ipConsensus = ipConsensus
             return Verdict.NEEDS_REVIEW
         }
     }

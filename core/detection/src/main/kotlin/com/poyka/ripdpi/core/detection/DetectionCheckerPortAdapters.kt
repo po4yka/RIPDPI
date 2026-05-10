@@ -16,6 +16,7 @@ import com.poyka.ripdpi.core.detection.checker.TimingAnalysisChecker
 import com.poyka.ripdpi.core.detection.checker.TlsFingerprintChecker
 import com.poyka.ripdpi.core.detection.checker.VerdictEngine
 import com.poyka.ripdpi.core.detection.checker.WebRtcLeakChecker
+import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import javax.inject.Inject
 
@@ -166,6 +167,7 @@ class DefaultDetectionVerdictEvaluator
             bypassResult: BypassResult,
             ipComparison: IpComparisonResult?,
             cdnPulling: CdnPullingResult?,
+            ipConsensus: IpConsensusResult?,
         ): Verdict =
             VerdictEngine.evaluate(
                 geoIp = geoIp,
@@ -175,5 +177,6 @@ class DefaultDetectionVerdictEvaluator
                 bypassResult = bypassResult,
                 ipComparison = ipComparison,
                 cdnPulling = cdnPulling,
+                ipConsensus = ipConsensus,
             )
     }

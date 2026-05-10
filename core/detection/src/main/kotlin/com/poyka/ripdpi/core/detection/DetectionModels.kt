@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.detection
 
+import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.XrayApiScanResult
 
@@ -28,6 +29,7 @@ enum class EvidenceSource {
     ICMP_SPOOFING,
     RTT_TRIANGULATION,
     CDN_PULLING,
+    IP_CONSENSUS,
 }
 
 enum class VpnAppKind {
@@ -250,4 +252,5 @@ data class DetectionCheckResult(
     val cdnPulling: CdnPullingResult? = null,
     val verdict: Verdict,
     val methodologyVersion: String = MethodologyVersion.CURRENT,
+    val ipConsensus: IpConsensusResult? = null,
 )
