@@ -7,7 +7,10 @@ pub enum RuntimeCapability {
     RawUdpFragmentation,
     ReplacementSocket,
     RootHelperAvailable,
+    VpnProtect,
     VpnProtectCallback,
+    VpnMode,
+    TcpWindowClamp,
     NetworkBinding,
 }
 
@@ -19,7 +22,10 @@ impl RuntimeCapability {
             Self::RawUdpFragmentation => "raw_udp_fragmentation",
             Self::ReplacementSocket => "replacement_socket",
             Self::RootHelperAvailable => "root_helper_available",
+            Self::VpnProtect => "vpn_protect",
             Self::VpnProtectCallback => "vpn_protect_callback",
+            Self::VpnMode => "vpn_mode",
+            Self::TcpWindowClamp => "tcp_window_clamp",
             Self::NetworkBinding => "network_binding",
         }
     }
@@ -71,8 +77,37 @@ mod tests {
         assert_eq!(RuntimeCapability::RawUdpFragmentation.as_str(), "raw_udp_fragmentation");
         assert_eq!(RuntimeCapability::ReplacementSocket.as_str(), "replacement_socket");
         assert_eq!(RuntimeCapability::RootHelperAvailable.as_str(), "root_helper_available");
+        assert_eq!(RuntimeCapability::VpnProtect.as_str(), "vpn_protect");
         assert_eq!(RuntimeCapability::VpnProtectCallback.as_str(), "vpn_protect_callback");
+        assert_eq!(RuntimeCapability::VpnMode.as_str(), "vpn_mode");
+        assert_eq!(RuntimeCapability::TcpWindowClamp.as_str(), "tcp_window_clamp");
         assert_eq!(RuntimeCapability::NetworkBinding.as_str(), "network_binding");
+    }
+
+    #[test]
+    fn zapret2_strategy_capability_requirements_are_named() {
+        let required = [
+            RuntimeCapability::ReplacementSocket,
+            RuntimeCapability::RawTcpFakeSend,
+            RuntimeCapability::RawUdpFragmentation,
+            RuntimeCapability::VpnProtect,
+            RuntimeCapability::VpnMode,
+            RuntimeCapability::TcpWindowClamp,
+        ];
+
+        let names: Vec<&str> = required.iter().map(|capability| capability.as_str()).collect();
+
+        assert_eq!(
+            names,
+            [
+                "replacement_socket",
+                "raw_tcp_fake_send",
+                "raw_udp_fragmentation",
+                "vpn_protect",
+                "vpn_mode",
+                "tcp_window_clamp",
+            ],
+        );
     }
 
     #[test]

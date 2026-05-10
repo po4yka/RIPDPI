@@ -17,7 +17,11 @@ pub(in crate::engine::runners::strategy) fn capability_available(
         RuntimeCapability::RawTcpFakeSend => ipfrag_caps.raw_ipv4,
         RuntimeCapability::RawUdpFragmentation => crate::candidates::supports_udp_ip_fragmentation_for(ipfrag_caps),
         RuntimeCapability::ReplacementSocket | RuntimeCapability::RootHelperAvailable => ipfrag_caps.tcp_repair,
-        RuntimeCapability::VpnProtectCallback | RuntimeCapability::NetworkBinding => true,
+        RuntimeCapability::VpnProtect | RuntimeCapability::VpnProtectCallback | RuntimeCapability::NetworkBinding => {
+            true
+        }
+        RuntimeCapability::VpnMode => true,
+        RuntimeCapability::TcpWindowClamp => true,
     }
 }
 
@@ -81,7 +85,31 @@ pub(in crate::engine::runners::strategy) fn capability_suffix(capability: Runtim
         RuntimeCapability::RawUdpFragmentation => " — raw_udp_fragmentation unavailable",
         RuntimeCapability::ReplacementSocket => " — replacement_socket unavailable",
         RuntimeCapability::RootHelperAvailable => " — root_helper_available unavailable",
+        RuntimeCapability::VpnProtect => " — vpn_protect unavailable",
         RuntimeCapability::VpnProtectCallback => " — vpn_protect_callback unavailable",
+        RuntimeCapability::VpnMode => " — vpn_mode unavailable",
+        RuntimeCapability::TcpWindowClamp => " — tcp_window_clamp unavailable",
         RuntimeCapability::NetworkBinding => " — network_binding unavailable",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ripdpi_runtime_platform::capability::RuntimeCapability;
+
+    use super::{capability_available, capability_suffix};
+
+    #[test]
+    fn zapret2_strategy_capabilities_are_handled_by_probe_gating() {
+        let caps = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default();
+
+        for capability in [RuntimeCapability::VpnProtect, RuntimeCapability::VpnMode, RuntimeCapability::TcpWindowClamp]
+        {
+            assert!(
+                capability_available(capability, false, caps),
+                "{capability:?} should not be filtered before strategy execution"
+            );
+            assert!(capability_suffix(capability).contains(capability.as_str()));
+        }
     }
 }
