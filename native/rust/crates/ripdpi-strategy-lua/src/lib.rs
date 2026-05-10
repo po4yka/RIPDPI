@@ -2,7 +2,7 @@
 
 #[cfg(feature = "lua-strategies")]
 mod enabled {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
@@ -76,10 +76,60 @@ mod enabled {
             self.load_bytes(&path.to_string_lossy(), &bytes)
         }
 
+        /// Loads a Lua file and registers new global functions defined by it.
+        pub fn load_script_registering_globals(&self, path: impl AsRef<Path>) -> Result<Vec<String>, LuaError> {
+            let path = path.as_ref();
+            let bytes = fs::read(path).map_err(|source| LuaError::ScriptRead { path: path.to_path_buf(), source })?;
+            self.load_bytes_registering_globals(&path.to_string_lossy(), &bytes)
+        }
+
         /// Loads and executes Lua source bytes.
         pub fn load_bytes(&self, name: &str, bytes: &[u8]) -> Result<(), LuaError> {
             let inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
             inner.lua.load(bytes).set_name(name).exec().map_err(|error| LuaError::ScriptLoad(error.to_string()))
+        }
+
+        /// Loads Lua bytes and registers new global functions defined by the chunk.
+        pub fn load_bytes_registering_globals(&self, name: &str, bytes: &[u8]) -> Result<Vec<String>, LuaError> {
+            let mut inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
+            let before = global_function_names(&inner.lua)?;
+            inner.lua.load(bytes).set_name(name).exec().map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+            let after = global_function_names(&inner.lua)?;
+            let mut names = after.difference(&before).cloned().collect::<HashSet<_>>();
+            names.extend(inner.registered.keys().filter(|name| after.contains(*name)).cloned());
+            let mut names = names.into_iter().collect::<Vec<_>>();
+            names.sort();
+
+            for function_name in &names {
+                let function = inner
+                    .lua
+                    .globals()
+                    .get::<Function>(function_name.as_str())
+                    .map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+                let key = inner
+                    .lua
+                    .create_registry_value(function)
+                    .map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+                inner.registered.insert(function_name.clone(), key);
+            }
+            Ok(names)
+        }
+
+        /// Validates that a Lua file parses without executing it.
+        pub fn validate_script(path: impl AsRef<Path>) -> Result<(), LuaError> {
+            let path = path.as_ref();
+            let bytes = fs::read(path).map_err(|source| LuaError::ScriptRead { path: path.to_path_buf(), source })?;
+            Self::validate_bytes(&path.to_string_lossy(), &bytes)
+        }
+
+        /// Validates that Lua source bytes parse without executing them.
+        pub fn validate_bytes(name: &str, bytes: &[u8]) -> Result<(), LuaError> {
+            let lua = Lua::new();
+            lua.load(bytes)
+                .set_name(name)
+                .into_function()
+                .map(|_| ())
+                .map_err(|error| LuaError::ScriptLoad(error.to_string()))
         }
 
         /// Registers a global Lua function for later strategy calls.
@@ -100,6 +150,14 @@ mod enabled {
                 return Err(LuaError::FunctionNotRegistered(func_name.to_owned()));
             }
             Ok(Box::new(LuaFunctionStrategy { engine: self.clone(), func_name: func_name.to_owned() }))
+        }
+
+        /// Lists registered strategy function names.
+        pub fn list_registered_functions(&self) -> Result<Vec<String>, LuaError> {
+            let inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
+            let mut names = inner.registered.keys().cloned().collect::<Vec<_>>();
+            names.sort();
+            Ok(names)
         }
 
         /// Calls a no-arg Lua function and returns an integer, used by tests and probes.
@@ -177,6 +235,118 @@ mod enabled {
                 }
                 other => Err(LuaError::Call(format!("unsupported Lua strategy return type: {}", other.type_name()))),
             }
+        }
+    }
+
+    fn global_function_names(lua: &Lua) -> Result<HashSet<String>, LuaError> {
+        let globals = lua.globals();
+        let mut names = HashSet::new();
+        for pair in globals.pairs::<Value, Value>() {
+            let (key, value) = pair.map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+            if let (Value::String(name), Value::Function(_)) = (key, value) {
+                names.insert(name.to_string_lossy().to_string());
+            }
+        }
+        Ok(names)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::{LuaError, LuaStrategyEngine};
+        use ripdpi_strategy_trait::{
+            Capabilities, ConnectionState, DesyncAction, DesyncPlan, Dissect, FlowDirection, FlowId, StrategyContext,
+            StrategyVerdict,
+        };
+
+        #[test]
+        fn validate_bytes_parses_without_executing_script() {
+            let script = br#"
+                executed = true
+
+                function candidate()
+                    return VERDICT_PASS
+                end
+            "#;
+
+            LuaStrategyEngine::validate_bytes("candidate.lua", script).expect("script should parse");
+            let engine = LuaStrategyEngine::new().expect("Lua VM should initialize");
+
+            assert!(engine.register_function("candidate").is_err());
+        }
+
+        #[test]
+        fn validate_bytes_reports_parse_errors() {
+            let error = LuaStrategyEngine::validate_bytes("broken.lua", b"function broken(").unwrap_err();
+
+            assert!(matches!(error, LuaError::ScriptLoad(_)));
+        }
+
+        #[test]
+        fn load_bytes_registering_globals_returns_sorted_strategy_names() {
+            let engine = LuaStrategyEngine::new().expect("Lua VM should initialize");
+
+            let names = engine
+                .load_bytes_registering_globals(
+                    "strategies.lua",
+                    br#"
+                        function z_strategy()
+                            return VERDICT_PASS
+                        end
+
+                        function a_strategy()
+                            return VERDICT_MODIFY
+                        end
+                    "#,
+                )
+                .expect("script should load");
+
+            assert_eq!(names, vec!["a_strategy", "z_strategy"]);
+            assert_eq!(engine.list_registered_functions().unwrap(), vec!["a_strategy", "z_strategy"]);
+        }
+
+        #[test]
+        fn load_bytes_registering_globals_updates_existing_registered_functions() {
+            let engine = LuaStrategyEngine::new().expect("Lua VM should initialize");
+            engine
+                .load_bytes_registering_globals(
+                    "strategy.lua",
+                    br#"
+                        function candidate()
+                            return "old"
+                        end
+                    "#,
+                )
+                .expect("initial script should load");
+
+            engine
+                .load_bytes_registering_globals(
+                    "strategy.lua",
+                    br#"
+                        function candidate()
+                            return "new"
+                        end
+                    "#,
+                )
+                .expect("updated script should load");
+
+            let strategy = engine.make_strategy("candidate").expect("strategy should be registered");
+            let dissect = Dissect::default();
+            let conn = ConnectionState::default();
+            let caps = Capabilities::default();
+            let ctx = StrategyContext {
+                dissect: &dissect,
+                conn: &conn,
+                caps: &caps,
+                flow_id: FlowId(7),
+                payload: b"payload",
+                direction: FlowDirection::Outbound,
+            };
+            let mut plan = DesyncPlan::default();
+
+            strategy.plan(&ctx, &mut plan).expect("strategy should execute");
+
+            assert_eq!(plan.verdict, StrategyVerdict::Apply);
+            assert_eq!(plan.actions, vec![DesyncAction::Write(b"new".to_vec())]);
         }
     }
 
@@ -552,6 +722,26 @@ mod disabled {
 
         /// Returns an error because Lua support is feature-gated.
         pub fn load_bytes(&self, _name: &str, _bytes: &[u8]) -> Result<(), LuaError> {
+            Err(LuaError::FeatureDisabled)
+        }
+
+        /// Returns an error because Lua support is feature-gated.
+        pub fn load_script_registering_globals(&self, _path: impl AsRef<Path>) -> Result<Vec<String>, LuaError> {
+            Err(LuaError::FeatureDisabled)
+        }
+
+        /// Returns an error because Lua support is feature-gated.
+        pub fn validate_script(_path: impl AsRef<Path>) -> Result<(), LuaError> {
+            Err(LuaError::FeatureDisabled)
+        }
+
+        /// Returns an error because Lua support is feature-gated.
+        pub fn validate_bytes(_name: &str, _bytes: &[u8]) -> Result<(), LuaError> {
+            Err(LuaError::FeatureDisabled)
+        }
+
+        /// Returns an error because Lua support is feature-gated.
+        pub fn list_registered_functions(&self) -> Result<Vec<String>, LuaError> {
             Err(LuaError::FeatureDisabled)
         }
     }

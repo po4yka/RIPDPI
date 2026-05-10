@@ -3119,6 +3119,8 @@ dependencies = [
  "ripdpi-android-proxy-adapter",
  "ripdpi-android-telemetry-adapter",
  "ripdpi-android-vpn-protect-adapter",
+ "ripdpi-strategy-lua",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

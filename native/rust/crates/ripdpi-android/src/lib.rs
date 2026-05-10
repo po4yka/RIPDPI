@@ -95,6 +95,14 @@ mod tests {
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>, jlong) -> jstring,
             Java_com_poyka_ripdpi_core_RipDpiSharedPriorsNativeBindings_jniApplySharedPriors
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>, JString<'_>) -> jstring,
+            Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaLoadScript
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>) -> jstring,
+            Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaReloadConfig
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jstring,
+            Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaListStrategies
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jni::sys::jobjectArray,
+            Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaValidateScript
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>) -> jstring,
         );
     }
 }

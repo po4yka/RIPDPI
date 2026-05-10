@@ -1,18 +1,18 @@
 ---
 title: Add JNI bindings for Lua script management
 type: task
-status: backlog
+status: review
 area: android
 priority: medium
 owner: unassigned
 parent: zapret2-feature-parity-epic
 blocks: []
-blocked_by: [add-ripdpi-strategy-lua-crate, bundle-zapret2-lua-library-as-assets]
+blocked_by: []
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Add JNI bindings for Lua script management #repo/RIPDPI #area/android #status/backlog 🔼
+- [ ] #task Add JNI bindings for Lua script management #repo/RIPDPI #area/android #status/review 🔼
 
 ## Objective
 
@@ -77,3 +77,25 @@ The JNI layer acquires the `LuaStrategyEngine` from the global singleton (alread
 ## Definition of done
 
 `StrategyConfigScreen` can call `luaLoadScript()` and display the result; no JNI crash on error path. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+2026-05-10:
+
+- Added `StrategyEngineBindings` and `StrategyEngineNativeBindings` in `:core:engine` with the four Lua script-management declarations.
+- Added Rust JNI exports in `ripdpi-android` for load, reload, list, and parse-only validation, with nullable error strings for load/reload/validate and an empty array fallback for list failures.
+- Extended `LuaStrategyEngine` with parse-only validation, automatic global function registration, sorted strategy listing, and reload-safe replacement of already registered Lua functions.
+- Added Kotlin contract coverage for the binding interface and Rust coverage for Lua parse-only validation, auto-registration, and reload replacement behavior.
+
+Validation:
+
+- `cargo test -p ripdpi-strategy-lua --features lua-strategies --locked` — passed.
+- `cargo test -p ripdpi-android --locked` — passed; `jni_facade_exports_stable_native_entrypoints` covers the four new JNI symbols.
+- `cargo clippy -p ripdpi-strategy-lua --all-targets --features lua-strategies --locked -- -D warnings` — passed.
+- `cargo clippy -p ripdpi-android --all-targets --locked -- -D warnings` — passed.
+- `./gradlew :core:engine:ktlintCheck -Pripdpi.skipNativeBuild=true` — passed.
+- `./gradlew :core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.StrategyEngineBindingsTest -Pripdpi.skipNativeBuild=true` — blocked before test execution by existing proto error in `core/data/model/src/main/proto/app_settings.proto`: field number `214` is already used by `strategy_chain_yaml`.
+
+Remaining validation gap:
+
+- Emulator/instrumented JNI validation was not run in this slice. The Rust symbol/linkage test and Kotlin interface contract are in place; real-device loading can be covered once the unrelated proto generation blocker is cleared.
