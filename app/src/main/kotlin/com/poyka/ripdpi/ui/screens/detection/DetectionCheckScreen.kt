@@ -460,7 +460,7 @@ private fun DetectionResultSummary(
             }
         }
 
-        VerdictScoreCard(it.verdict, stealthScore, stealthLabel)
+        VerdictScoreCard(it.verdict, stealthScore, stealthLabel, it.verdictExplanation)
 
         if (autoTuneFixes.isNotEmpty()) {
             AutoTuneCard(

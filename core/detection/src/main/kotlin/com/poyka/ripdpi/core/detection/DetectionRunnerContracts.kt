@@ -119,11 +119,45 @@ interface DetectionVerdictEvaluator {
         indirectSigns: CategoryResult,
         locationSignals: CategoryResult,
         bypassResult: BypassResult,
+        icmpSpoofing: IcmpSpoofingResult?,
         ipComparison: IpComparisonResult?,
+        rttTriangulation: RttTriangulationResult?,
         cdnPulling: CdnPullingResult?,
         ipConsensus: IpConsensusResult?,
         nativeSigns: NativeSignsResult?,
     ): Verdict
+
+    fun explain(
+        geoIp: CategoryResult,
+        directSigns: CategoryResult,
+        indirectSigns: CategoryResult,
+        locationSignals: CategoryResult,
+        bypassResult: BypassResult,
+        icmpSpoofing: IcmpSpoofingResult?,
+        ipComparison: IpComparisonResult?,
+        rttTriangulation: RttTriangulationResult?,
+        cdnPulling: CdnPullingResult?,
+        ipConsensus: IpConsensusResult?,
+        nativeSigns: NativeSignsResult?,
+    ): VerdictExplanation =
+        VerdictExplanation(
+            verdict =
+                evaluate(
+                    geoIp = geoIp,
+                    directSigns = directSigns,
+                    indirectSigns = indirectSigns,
+                    locationSignals = locationSignals,
+                    bypassResult = bypassResult,
+                    icmpSpoofing = icmpSpoofing,
+                    ipComparison = ipComparison,
+                    rttTriangulation = rttTriangulation,
+                    cdnPulling = cdnPulling,
+                    ipConsensus = ipConsensus,
+                    nativeSigns = nativeSigns,
+                ),
+            ruleApplied = "legacy",
+            summary = "Legacy verdict evaluator",
+        )
 }
 
 interface DetectionCheckRunner {

@@ -37,6 +37,7 @@ import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.Recommendation
 import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.core.detection.Verdict
+import com.poyka.ripdpi.core.detection.VerdictExplanation
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -89,6 +90,7 @@ internal fun VerdictScoreCard(
     verdict: Verdict,
     score: Int?,
     label: String?,
+    explanation: VerdictExplanation? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
@@ -134,6 +136,13 @@ internal fun VerdictScoreCard(
                 .ripDpiTestTag(RipDpiTestTags.DetectionVerdict),
     ) {
         StatusIndicator(label = verdictLabel, tone = indicatorTone)
+        explanation?.let {
+            Text(
+                text = "${it.ruleApplied}: ${it.summary}",
+                style = type.caption,
+                color = colors.mutedForeground,
+            )
+        }
         if (score != null) {
             Row(
                 modifier = Modifier.fillMaxWidth(),

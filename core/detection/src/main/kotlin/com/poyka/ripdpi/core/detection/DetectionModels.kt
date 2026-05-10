@@ -190,6 +190,12 @@ enum class Verdict {
     DETECTED,
 }
 
+data class VerdictExplanation(
+    val verdict: Verdict,
+    val ruleApplied: String,
+    val summary: String,
+)
+
 data class BypassResult(
     val proxyEndpoint: ProxyEndpoint?,
     val directIp: String?,
@@ -264,4 +270,5 @@ data class DetectionCheckResult(
     val verdict: Verdict,
     val methodologyVersion: String = MethodologyVersion.CURRENT,
     val ipConsensus: IpConsensusResult? = null,
+    val verdictExplanation: VerdictExplanation? = null,
 )

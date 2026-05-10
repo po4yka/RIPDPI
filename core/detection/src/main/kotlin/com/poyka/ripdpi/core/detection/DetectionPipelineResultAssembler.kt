@@ -36,14 +36,16 @@ internal class DetectionPipelineResultAssembler(
                 cdnPulling = outputs.cdnPulling,
                 asnResolver = asnResolver,
             )
-        val verdict =
-            verdictEvaluator.evaluate(
+        val verdictExplanation =
+            verdictEvaluator.explain(
                 geoIp = outputs.geoIp,
                 directSigns = outputs.directSigns,
                 indirectSigns = outputs.indirectSigns,
                 locationSignals = locationSignals,
                 bypassResult = bypassResult,
+                icmpSpoofing = outputs.icmpSpoofing,
                 ipComparison = outputs.ipComparison,
+                rttTriangulation = outputs.rttTriangulation,
                 cdnPulling = outputs.cdnPulling,
                 ipConsensus = ipConsensus,
                 nativeSigns = outputs.nativeSigns,
@@ -64,8 +66,9 @@ internal class DetectionPipelineResultAssembler(
             rttTriangulation = outputs.rttTriangulation,
             cdnPulling = outputs.cdnPulling,
             nativeSigns = outputs.nativeSigns,
-            verdict = verdict,
+            verdict = verdictExplanation.verdict,
             ipConsensus = ipConsensus,
+            verdictExplanation = verdictExplanation,
         )
     }
 }

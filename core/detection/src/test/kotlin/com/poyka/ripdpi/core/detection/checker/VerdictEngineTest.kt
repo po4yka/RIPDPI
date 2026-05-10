@@ -6,8 +6,14 @@ import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
+import com.poyka.ripdpi.core.detection.IcmpSpoofingResult
+import com.poyka.ripdpi.core.detection.IcmpSpoofingState
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.VpnAppKind
+import com.poyka.ripdpi.core.detection.consensus.ChannelConflict
+import com.poyka.ripdpi.core.detection.consensus.CrossChannelMismatch
+import com.poyka.ripdpi.core.detection.consensus.IpConsensusChannel
+import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -93,6 +99,79 @@ class VerdictEngineTest {
     }
 
     @Test
+    fun `R1 split tunnel bypass short circuits consensus mismatch`() {
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult =
+                    emptyBypass().copy(
+                        evidence =
+                            listOf(
+                                EvidenceItem(
+                                    source = EvidenceSource.SPLIT_TUNNEL_BYPASS,
+                                    detected = true,
+                                    confidence = EvidenceConfidence.HIGH,
+                                    description = "IPs differ",
+                                ),
+                            ),
+                    ),
+                ipConsensus = crossChannelMismatchConsensus(),
+            )
+
+        assertEquals(Verdict.DETECTED, explanation.verdict)
+        assertEquals("R1", explanation.ruleApplied)
+    }
+
+    @Test
+    fun `R3 cross channel mismatch produces DETECTED`() {
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+                ipConsensus = crossChannelMismatchConsensus(),
+            )
+
+        assertEquals(Verdict.DETECTED, explanation.verdict)
+        assertEquals("R3", explanation.ruleApplied)
+    }
+
+    @Test
+    fun `R3 single channel conflict produces NEEDS_REVIEW`() {
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+                ipConsensus =
+                    IpConsensusResult(
+                        observedIps = mapOf(IpConsensusChannel.GEO_IP to listOf("1.1.1.1", "2.2.2.2")),
+                        channelConflicts =
+                            listOf(
+                                ChannelConflict(
+                                    channel = IpConsensusChannel.GEO_IP,
+                                    ips = listOf("1.1.1.1", "2.2.2.2"),
+                                    confidence = EvidenceConfidence.HIGH,
+                                ),
+                            ),
+                        crossChannelMismatches = emptyList(),
+                        foreignIps = emptyList(),
+                        warpIndicator = false,
+                    ),
+            )
+
+        assertEquals(Verdict.NEEDS_REVIEW, explanation.verdict)
+        assertEquals("R3", explanation.ruleApplied)
+    }
+
+    @Test
     fun `generic VPN active returns NEEDS_REVIEW`() {
         val indirect =
             emptyCategory("Indirect").copy(
@@ -134,6 +213,104 @@ class VerdictEngineTest {
                 bypassResult = emptyBypass(),
             )
         assertEquals(Verdict.DETECTED, verdict)
+    }
+
+    @Test
+    fun `R5 all three detection axes produce DETECTED`() {
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP").copy(needsReview = true),
+                directSigns =
+                    emptyCategory("Direct").copy(
+                        evidence =
+                            listOf(
+                                EvidenceItem(
+                                    source = EvidenceSource.SYSTEM_PROXY,
+                                    detected = true,
+                                    confidence = EvidenceConfidence.MEDIUM,
+                                    description = "HTTP proxy configured",
+                                ),
+                            ),
+                    ),
+                indirectSigns =
+                    emptyCategory("Indirect").copy(
+                        evidence =
+                            listOf(
+                                EvidenceItem(
+                                    source = EvidenceSource.ACTIVE_VPN,
+                                    detected = true,
+                                    confidence = EvidenceConfidence.HIGH,
+                                    description = "Targeted app active",
+                                    kind = VpnAppKind.TARGETED_BYPASS,
+                                ),
+                            ),
+                    ),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+            )
+
+        assertEquals(Verdict.DETECTED, explanation.verdict)
+        assertEquals("R5", explanation.ruleApplied)
+    }
+
+    @Test
+    fun `R6 icmp alone produces NEEDS_REVIEW`() {
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+                icmpSpoofing =
+                    IcmpSpoofingResult(
+                        state = IcmpSpoofingState.NEEDS_REVIEW,
+                        category = emptyCategory("ICMP").copy(needsReview = true),
+                    ),
+            )
+
+        assertEquals(Verdict.NEEDS_REVIEW, explanation.verdict)
+        assertEquals("R6", explanation.ruleApplied)
+    }
+
+    @Test
+    fun `roaming relaxation ignores CDN before rule evaluation`() {
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals =
+                    emptyCategory("Location").copy(
+                        findings =
+                            listOf(
+                                Finding("network_mcc_ru:true"),
+                                Finding("Roaming: yes"),
+                                Finding("SIM MCC: 262"),
+                            ),
+                    ),
+                bypassResult = emptyBypass(),
+                cdnPulling =
+                    com.poyka.ripdpi.core.detection.CdnPullingResult(
+                        category =
+                            emptyCategory("CDN").copy(
+                                detected = true,
+                                evidence =
+                                    listOf(
+                                        EvidenceItem(
+                                            source = EvidenceSource.CDN_PULLING,
+                                            detected = true,
+                                            confidence = EvidenceConfidence.HIGH,
+                                            description = "CDN mismatch",
+                                        ),
+                                    ),
+                            ),
+                        endpoints = emptyList(),
+                    ),
+            )
+
+        assertEquals(Verdict.NOT_DETECTED, explanation.verdict)
+        assertEquals("R0", explanation.ruleApplied)
     }
 
     @Test
@@ -205,4 +382,26 @@ class VerdictEngineTest {
             )
         assertEquals(Verdict.NEEDS_REVIEW, verdict)
     }
+
+    private fun crossChannelMismatchConsensus() =
+        IpConsensusResult(
+            observedIps =
+                mapOf(
+                    IpConsensusChannel.IP_COMPARISON_RU to listOf("1.2.3.4"),
+                    IpConsensusChannel.IP_COMPARISON_NON_RU to listOf("5.6.7.8"),
+                ),
+            channelConflicts = emptyList(),
+            crossChannelMismatches =
+                listOf(
+                    CrossChannelMismatch(
+                        leftChannel = IpConsensusChannel.IP_COMPARISON_RU,
+                        leftIps = listOf("1.2.3.4"),
+                        rightChannel = IpConsensusChannel.IP_COMPARISON_NON_RU,
+                        rightIps = listOf("5.6.7.8"),
+                        confidence = EvidenceConfidence.HIGH,
+                    ),
+                ),
+            foreignIps = emptyList(),
+            warpIndicator = false,
+        )
 }

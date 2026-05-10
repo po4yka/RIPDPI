@@ -6,25 +6,58 @@ import com.poyka.ripdpi.core.detection.CdnPullingResult
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
+import com.poyka.ripdpi.core.detection.IcmpSpoofingResult
 import com.poyka.ripdpi.core.detection.IpComparisonResult
 import com.poyka.ripdpi.core.detection.NativeSignsResult
+import com.poyka.ripdpi.core.detection.RttTriangulationResult
 import com.poyka.ripdpi.core.detection.Verdict
+import com.poyka.ripdpi.core.detection.VerdictExplanation
 import com.poyka.ripdpi.core.detection.VpnAppKind
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
 
 object VerdictEngine {
-    @Suppress("CyclomaticComplexMethod")
     fun evaluate(
         geoIp: CategoryResult,
         directSigns: CategoryResult,
         indirectSigns: CategoryResult,
         locationSignals: CategoryResult,
         bypassResult: BypassResult,
+        icmpSpoofing: IcmpSpoofingResult? = null,
         ipComparison: IpComparisonResult? = null,
+        rttTriangulation: RttTriangulationResult? = null,
         cdnPulling: CdnPullingResult? = null,
         ipConsensus: IpConsensusResult? = null,
         nativeSigns: NativeSignsResult? = null,
-    ): Verdict {
+    ): Verdict =
+        evaluateDetailed(
+            geoIp = geoIp,
+            directSigns = directSigns,
+            indirectSigns = indirectSigns,
+            locationSignals = locationSignals,
+            bypassResult = bypassResult,
+            icmpSpoofing = icmpSpoofing,
+            ipComparison = ipComparison,
+            rttTriangulation = rttTriangulation,
+            cdnPulling = cdnPulling,
+            ipConsensus = ipConsensus,
+            nativeSigns = nativeSigns,
+        ).verdict
+
+    @Suppress("CyclomaticComplexMethod")
+    fun evaluateDetailed(
+        geoIp: CategoryResult,
+        directSigns: CategoryResult,
+        indirectSigns: CategoryResult,
+        locationSignals: CategoryResult,
+        bypassResult: BypassResult,
+        icmpSpoofing: IcmpSpoofingResult? = null,
+        ipComparison: IpComparisonResult? = null,
+        rttTriangulation: RttTriangulationResult? = null,
+        cdnPulling: CdnPullingResult? = null,
+        ipConsensus: IpConsensusResult? = null,
+        nativeSigns: NativeSignsResult? = null,
+    ): VerdictExplanation {
+        val homeRoutedRoaming = locationSignals.isHomeRoutedRoaming()
         val evidence =
             buildList {
                 addAll(geoIp.evidence)
@@ -33,23 +66,22 @@ object VerdictEngine {
                 addAll(locationSignals.evidence)
                 addAll(bypassResult.evidence)
                 ipComparison?.category?.evidence?.let(::addAll)
-                cdnPulling?.category?.evidence?.let(::addAll)
+                if (!homeRoutedRoaming) {
+                    cdnPulling?.category?.evidence?.let(::addAll)
+                    icmpSpoofing?.category?.evidence?.let(::addAll)
+                }
+                rttTriangulation?.category?.evidence?.let(::addAll)
             }
 
-        if (evidence.any { it.source == EvidenceSource.SPLIT_TUNNEL_BYPASS && it.detected }) {
-            return Verdict.DETECTED
+        if (evidence.any { it.isDetected(EvidenceSource.SPLIT_TUNNEL_BYPASS, EvidenceSource.XRAY_API) }) {
+            return explanation(Verdict.DETECTED, "R1", "Hard bypass evidence detected")
         }
-        if (evidence.any { it.source == EvidenceSource.XRAY_API && it.detected }) {
-            return Verdict.DETECTED
+
+        if (ipConsensus?.crossChannelMismatches?.isNotEmpty() == true || ipConsensus?.warpIndicator == true) {
+            return explanation(Verdict.DETECTED, "R3", "IP consensus found cross-channel divergence")
         }
-        if (evidence.any { it.source == EvidenceSource.CDN_PULLING && it.detected }) {
-            return Verdict.DETECTED
-        }
-        if (ipConsensus?.warpIndicator == true) {
-            return Verdict.DETECTED
-        }
-        if (nativeSigns?.category?.detected == true) {
-            return Verdict.DETECTED
+        if (ipConsensus?.channelConflicts?.isNotEmpty() == true) {
+            return explanation(Verdict.NEEDS_REVIEW, "R3", "IP consensus found a single-channel conflict")
         }
 
         val networkMccIsRu =
@@ -62,14 +94,24 @@ object VerdictEngine {
                     it.source == EvidenceSource.GEO_IP && it.detected
                 }
         if (networkMccIsRu && hasGeoSignal) {
-            return Verdict.DETECTED
+            return explanation(Verdict.DETECTED, "R4", "Russian network context conflicts with GeoIP signal")
         }
 
         val hasStrongTransport =
             evidence.any {
                 it.source == EvidenceSource.NETWORK_CAPABILITIES && it.confidence == EvidenceConfidence.HIGH
             }
-        val hasLocalProxy = evidence.any { it.source == EvidenceSource.LOCAL_PROXY && it.detected }
+        val hasDirectHit =
+            directSigns.detected ||
+                directSigns.needsReview ||
+                bypassResult.detected ||
+                evidence.any {
+                    it.isDetected(
+                        EvidenceSource.LOCAL_PROXY,
+                        EvidenceSource.SYSTEM_PROXY,
+                        EvidenceSource.NETWORK_CAPABILITIES,
+                    )
+                }
         val hasTargetedInstalled =
             evidence.any {
                 it.source == EvidenceSource.INSTALLED_APP && it.kind == VpnAppKind.TARGETED_BYPASS
@@ -82,63 +124,95 @@ object VerdictEngine {
             evidence.any {
                 it.source == EvidenceSource.ACTIVE_VPN && it.kind == VpnAppKind.GENERIC_VPN
             }
+        val hasIndirectHit =
+            indirectSigns.detected ||
+                indirectSigns.needsReview ||
+                hasTargetedInstalled ||
+                hasTargetedActive
 
-        if (hasTargetedActive &&
-            (hasLocalProxy || hasStrongTransport || hasGeoSignal || hasTargetedInstalled)
-        ) {
-            return Verdict.DETECTED
-        }
-
-        if (hasGeoSignal && (hasStrongTransport || hasLocalProxy || hasTargetedActive)) {
-            return Verdict.DETECTED
-        }
-
-        val score = evidence.sumOf(::weight)
         return when {
-            score >= 11 && (hasTargetedInstalled || hasTargetedActive || hasLocalProxy) -> {
-                Verdict.DETECTED
+            hasGeoSignal && hasDirectHit && hasIndirectHit -> {
+                explanation(Verdict.DETECTED, "R5", "Geo, direct, and indirect detection axes are all set")
             }
 
-            hasGenericActive ||
-                score >= 4 ||
-                directSigns.needsReview ||
-                indirectSigns.needsReview ||
-                ipComparison?.category?.needsReview == true ||
-                ipConsensus?.channelConflicts?.isNotEmpty() == true ||
-                ipConsensus?.crossChannelMismatches?.isNotEmpty() == true ||
-                nativeSigns?.category?.needsReview == true -> {
-                Verdict.NEEDS_REVIEW
+            hasDirectHit && hasIndirectHit -> {
+                explanation(Verdict.DETECTED, "R5", "Direct and indirect detection axes are both set")
+            }
+
+            hasGeoSignal && (hasStrongTransport || hasDirectHit || hasIndirectHit) -> {
+                explanation(Verdict.DETECTED, "R5", "Geo axis and one additional detection axis are set")
+            }
+
+            hasNeedsReviewFallback(
+                hasDirectHit = hasDirectHit,
+                hasIndirectHit = hasIndirectHit,
+                hasGenericActive = hasGenericActive,
+                ipComparison = ipComparison,
+                cdnPulling = cdnPulling,
+                icmpSpoofing = icmpSpoofing,
+                rttTriangulation = rttTriangulation,
+                nativeSigns = nativeSigns,
+                bypassResult = bypassResult,
+                homeRoutedRoaming = homeRoutedRoaming,
+            ) -> {
+                explanation(Verdict.NEEDS_REVIEW, "R6", "Review-only diagnostic signal present")
             }
 
             else -> {
-                Verdict.NOT_DETECTED
+                explanation(Verdict.NOT_DETECTED, "R0", "No detection rule matched")
             }
         }
     }
 
-    private fun weight(item: EvidenceItem): Int {
-        val confidenceWeight =
-            when (item.confidence) {
-                EvidenceConfidence.HIGH -> 5
-                EvidenceConfidence.MEDIUM -> 3
-                EvidenceConfidence.LOW -> 1
+    private fun hasNeedsReviewFallback(
+        hasDirectHit: Boolean,
+        hasIndirectHit: Boolean,
+        hasGenericActive: Boolean,
+        ipComparison: IpComparisonResult?,
+        cdnPulling: CdnPullingResult?,
+        icmpSpoofing: IcmpSpoofingResult?,
+        rttTriangulation: RttTriangulationResult?,
+        nativeSigns: NativeSignsResult?,
+        bypassResult: BypassResult,
+        homeRoutedRoaming: Boolean,
+    ): Boolean =
+        hasDirectHit ||
+            hasIndirectHit ||
+            hasGenericActive ||
+            ipComparison?.category?.needsReview == true ||
+            (!homeRoutedRoaming && cdnPulling?.category.hasReviewSignal()) ||
+            (!homeRoutedRoaming && icmpSpoofing?.category.hasReviewSignal()) ||
+            rttTriangulation?.category.hasReviewSignal() ||
+            nativeSigns?.category.hasReviewSignal() ||
+            bypassResult.mtProtoReachable ||
+            bypassResult.stunReflexiveAddresses.isNotEmpty()
+
+    private fun CategoryResult?.hasReviewSignal(): Boolean =
+        this?.detected == true || this?.needsReview == true || this?.evidence?.any(EvidenceItem::detected) == true
+
+    private fun CategoryResult.isHomeRoutedRoaming(): Boolean {
+        val hasRussianNetwork = findings.any { it.description == "network_mcc_ru:true" }
+        val hasRoaming = findings.any { it.description == "Roaming: yes" }
+        val simMcc =
+            findings.firstNotNullOfOrNull { finding ->
+                SIM_MCC_REGEX.find(finding.description)?.groupValues?.get(1)
             }
-        val kindWeight =
-            when (item.kind) {
-                VpnAppKind.TARGETED_BYPASS -> 2
-                VpnAppKind.GENERIC_VPN -> 0
-                null -> 0
-            }
-        val sourceWeight =
-            when (item.source) {
-                EvidenceSource.ACTIVE_VPN -> 2
-                EvidenceSource.LOCAL_PROXY -> 2
-                EvidenceSource.XRAY_API -> 4
-                EvidenceSource.SPLIT_TUNNEL_BYPASS -> 5
-                EvidenceSource.IP_COMPARISON -> 3
-                EvidenceSource.CDN_PULLING -> 3
-                else -> 0
-            }
-        return confidenceWeight + kindWeight + sourceWeight
+        return hasRussianNetwork && hasRoaming && simMcc != null && simMcc != RUSSIA_MCC
     }
+
+    private fun EvidenceItem.isDetected(vararg sources: EvidenceSource): Boolean = detected && source in sources
+
+    private fun explanation(
+        verdict: Verdict,
+        ruleApplied: String,
+        summary: String,
+    ): VerdictExplanation =
+        VerdictExplanation(
+            verdict = verdict,
+            ruleApplied = ruleApplied,
+            summary = summary,
+        )
+
+    private const val RUSSIA_MCC = "250"
+    private val SIM_MCC_REGEX = Regex("""SIM MCC:\s*(\d+)""")
 }

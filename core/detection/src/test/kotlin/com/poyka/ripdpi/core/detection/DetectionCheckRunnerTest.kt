@@ -372,7 +372,9 @@ class DetectionCheckRunnerTest {
         var geoIp: CategoryResult? = null
         var locationSignals: CategoryResult? = null
         var bypassResult: BypassResult? = null
+        var icmpSpoofing: IcmpSpoofingResult? = null
         var ipComparison: IpComparisonResult? = null
+        var rttTriangulation: RttTriangulationResult? = null
         var cdnPulling: CdnPullingResult? = null
         var ipConsensus: IpConsensusResult? = null
         var nativeSigns: NativeSignsResult? = null
@@ -383,7 +385,9 @@ class DetectionCheckRunnerTest {
             indirectSigns: CategoryResult,
             locationSignals: CategoryResult,
             bypassResult: BypassResult,
+            icmpSpoofing: IcmpSpoofingResult?,
             ipComparison: IpComparisonResult?,
+            rttTriangulation: RttTriangulationResult?,
             cdnPulling: CdnPullingResult?,
             ipConsensus: IpConsensusResult?,
             nativeSigns: NativeSignsResult?,
@@ -391,7 +395,9 @@ class DetectionCheckRunnerTest {
             this.geoIp = geoIp
             this.locationSignals = locationSignals
             this.bypassResult = bypassResult
+            this.icmpSpoofing = icmpSpoofing
             this.ipComparison = ipComparison
+            this.rttTriangulation = rttTriangulation
             this.cdnPulling = cdnPulling
             this.ipConsensus = ipConsensus
             this.nativeSigns = nativeSigns
