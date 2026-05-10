@@ -61,6 +61,7 @@ internal fun DetectionSettingsRoute(
                 onDnsPresetChange = remember(viewModel) { viewModel::selectDnsPreset },
                 onDnsDirectServersChange = remember(viewModel) { viewModel::setDnsDirectServers },
                 onDnsDohUrlChange = remember(viewModel) { viewModel::setDnsDohUrl },
+                onDnsDohBootstrapIpsChange = remember(viewModel) { viewModel::setDnsDohBootstrapIps },
                 onPrivacyModeChange = remember(viewModel) { viewModel::setPrivacyModeEnabled },
                 onDebugModeChange = remember(viewModel) { viewModel::setDebugModeEnabled },
                 onColorVisionModeChange = remember(viewModel) { viewModel::setColorVisionMode },
@@ -84,6 +85,7 @@ internal data class DetectionSettingsActions(
     val onDnsPresetChange: (DetectionDnsPreset) -> Unit = {},
     val onDnsDirectServersChange: (String) -> Unit = {},
     val onDnsDohUrlChange: (String) -> Unit = {},
+    val onDnsDohBootstrapIpsChange: (String) -> Unit = {},
     val onPrivacyModeChange: (Boolean) -> Unit = {},
     val onDebugModeChange: (Boolean) -> Unit = {},
     val onColorVisionModeChange: (com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode) -> Unit = {},
@@ -161,6 +163,7 @@ internal fun DetectionSettingsScreen(
                 onDnsPresetChange = actions.onDnsPresetChange,
                 onDnsDirectServersChange = actions.onDnsDirectServersChange,
                 onDnsDohUrlChange = actions.onDnsDohUrlChange,
+                onDnsDohBootstrapIpsChange = actions.onDnsDohBootstrapIpsChange,
             )
         }
         item {
@@ -295,6 +298,7 @@ private fun DetectionDnsSettingsSection(
     onDnsPresetChange: (DetectionDnsPreset) -> Unit,
     onDnsDirectServersChange: (String) -> Unit,
     onDnsDohUrlChange: (String) -> Unit,
+    onDnsDohBootstrapIpsChange: (String) -> Unit,
 ) {
     SettingsSection(title = "DNS resolver") {
         ChipSelector(
@@ -327,6 +331,13 @@ private fun DetectionDnsSettingsSection(
                     enabled = state.dnsFieldsEditable,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 ),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        RipDpiTextField(
+            value = state.dnsDohBootstrapIps,
+            onValueChange = onDnsDohBootstrapIpsChange,
+            decoration = RipDpiTextFieldDecoration(label = "DoH bootstrap IPs"),
+            behavior = RipDpiTextFieldBehavior(enabled = state.dnsFieldsEditable),
             modifier = Modifier.fillMaxWidth(),
         )
     }

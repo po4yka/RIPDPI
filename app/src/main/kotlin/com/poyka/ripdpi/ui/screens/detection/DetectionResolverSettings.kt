@@ -9,8 +9,10 @@ import java.net.URI
 internal fun AppSettings.toDetectionResolverConfig(): DetectionResolverConfig {
     val selectedPreset = DetectionDnsPreset.fromWire(detectionCheckDnsPreset)
     val configuredServers = detectionCheckDnsDirectServers.toDnsServerList()
+    val configuredBootstrapIps = detectionCheckDnsDohBootstrapIps.toDnsServerList()
     val dnsPreset = selectedPreset.toDataDnsPreset(configuredServers, detectionCheckDnsDohUrl)
     val fallbackServers = configuredServers.ifEmpty { dnsPreset.servers }
+    val dohBootstrapIps = configuredBootstrapIps.ifEmpty { fallbackServers }
 
     return when (DetectionDnsResolverMode.fromWire(detectionCheckDnsResolverMode)) {
         DetectionDnsResolverMode.SYSTEM -> {
@@ -29,7 +31,7 @@ internal fun AppSettings.toDetectionResolverConfig(): DetectionResolverConfig {
                 resolverMode = DetectionResolverMode.DOH,
                 directDnsServers = fallbackServers,
                 dohPreset = dnsPreset,
-                dohBootstrapIps = fallbackServers,
+                dohBootstrapIps = dohBootstrapIps,
             )
         }
     }

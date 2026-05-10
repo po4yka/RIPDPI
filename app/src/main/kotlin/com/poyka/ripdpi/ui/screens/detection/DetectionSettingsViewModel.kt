@@ -135,6 +135,7 @@ internal class DetectionSettingsViewModel
                     if (preset != DetectionDnsPreset.CUSTOM) {
                         detectionCheckDnsDirectServers = preset.directServers
                         detectionCheckDnsDohUrl = preset.dohUrl
+                        detectionCheckDnsDohBootstrapIps = preset.directServers
                     }
                 }
             }
@@ -154,6 +155,15 @@ internal class DetectionSettingsViewModel
                 appSettingsRepository.update {
                     detectionCheckDnsPreset = DetectionDnsPreset.CUSTOM.wireValue
                     detectionCheckDnsDohUrl = value
+                }
+            }
+        }
+
+        fun setDnsDohBootstrapIps(value: String) {
+            viewModelScope.launch {
+                appSettingsRepository.update {
+                    detectionCheckDnsPreset = DetectionDnsPreset.CUSTOM.wireValue
+                    detectionCheckDnsDohBootstrapIps = value
                 }
             }
         }

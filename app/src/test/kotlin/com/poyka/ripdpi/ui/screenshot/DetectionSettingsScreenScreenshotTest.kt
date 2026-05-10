@@ -37,6 +37,7 @@ class DetectionSettingsScreenScreenshotTest {
                 dnsPreset = DetectionDnsPreset.CLOUDFLARE,
                 dnsDirectServers = DetectionDnsPreset.CLOUDFLARE.directServers,
                 dnsDohUrl = DetectionDnsPreset.CLOUDFLARE.dohUrl,
+                dnsDohBootstrapIps = DetectionDnsPreset.CLOUDFLARE.directServers,
                 privacyModeEnabled = true,
                 debugModeEnabled = true,
                 colorVisionMode = DetectionColorVisionMode.BLUE_YELLOW,

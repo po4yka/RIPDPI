@@ -138,6 +138,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setDetectionCheckDnsPreset("custom")
             .setDetectionCheckDnsDirectServers("")
             .setDetectionCheckDnsDohUrl("")
+            .setDetectionCheckDnsDohBootstrapIps("")
             .setExcludeRussianAppsEnabled(true)
             .setAppRoutingPolicyMode(AppRoutingPolicyModePrompt)
             .addAppRoutingEnabledPresetIds(DefaultAppRoutingRussianPresetId)

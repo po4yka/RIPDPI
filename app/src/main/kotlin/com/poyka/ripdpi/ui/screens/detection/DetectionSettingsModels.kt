@@ -87,6 +87,7 @@ data class DetectionSettingsUiState(
     val dnsPreset: DetectionDnsPreset = DetectionDnsPreset.CUSTOM,
     val dnsDirectServers: String = "",
     val dnsDohUrl: String = "",
+    val dnsDohBootstrapIps: String = "",
     val privacyModeEnabled: Boolean = false,
     val debugModeEnabled: Boolean = false,
     val colorVisionMode: DetectionColorVisionMode = DetectionColorVisionMode.OFF,
@@ -127,6 +128,7 @@ data class DetectionSettingsUiState(
                 dnsPreset = preset,
                 dnsDirectServers = preset.directServers,
                 dnsDohUrl = preset.dohUrl,
+                dnsDohBootstrapIps = preset.directServers,
             )
         }
 
@@ -153,6 +155,7 @@ data class DetectionSettingsUiState(
                 dnsPreset = preset,
                 dnsDirectServers = settings.detectionCheckDnsDirectServers,
                 dnsDohUrl = settings.detectionCheckDnsDohUrl,
+                dnsDohBootstrapIps = settings.detectionCheckDnsDohBootstrapIps,
                 privacyModeEnabled = settings.detectionCheckPrivacyModeEnabled,
                 debugModeEnabled = settings.detectionCheckDebugModeEnabled,
                 colorVisionMode = DetectionColorVisionMode.fromWire(settings.detectionCheckColorVisionMode),

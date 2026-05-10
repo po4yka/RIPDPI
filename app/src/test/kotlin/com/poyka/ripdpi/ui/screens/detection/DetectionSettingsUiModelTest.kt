@@ -110,6 +110,7 @@ class DetectionSettingsUiModelTest {
                 .setDetectionCheckDnsPreset("custom")
                 .setDetectionCheckDnsDirectServers("9.9.9.9")
                 .setDetectionCheckDnsDohUrl("https://dns.quad9.net/dns-query")
+                .setDetectionCheckDnsDohBootstrapIps("149.112.112.112, 2620:fe::fe")
                 .build()
                 .toDetectionResolverConfig()
 
@@ -117,6 +118,20 @@ class DetectionSettingsUiModelTest {
         assertEquals("custom", config.dohPreset.id)
         assertEquals("https://dns.quad9.net/dns-query", config.dohPreset.dohUrl)
         assertEquals("dns.quad9.net", config.dohPreset.dohHost)
-        assertEquals(listOf("9.9.9.9"), config.dohBootstrapIps)
+        assertEquals(listOf("149.112.112.112", "2620:fe::fe"), config.dohBootstrapIps)
+    }
+
+    @Test
+    fun customDnsPresetExposesDohBootstrapField() {
+        val state =
+            DetectionSettingsUiState.from(
+                AppSettings
+                    .newBuilder()
+                    .setDetectionCheckDnsPreset("custom")
+                    .setDetectionCheckDnsDohBootstrapIps("149.112.112.112")
+                    .build(),
+            )
+
+        assertEquals("149.112.112.112", state.dnsDohBootstrapIps)
     }
 }
