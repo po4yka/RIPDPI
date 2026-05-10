@@ -24,6 +24,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kermit)
     implementation(libs.okhttp)
+    implementation(libs.brotli.dec)
+    implementation(libs.zstd.jni)
 
     testImplementation(libs.bundles.unit.test)
     testImplementation(libs.okhttp.mockwebserver)

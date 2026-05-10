@@ -42,6 +42,8 @@ profileinstaller = "1.4.1"
 work = "2.11.2"
 androidx-hilt = "1.3.0"
 security-crypto = "1.1.0"
+brotli = "0.1.2"
+zstd-jni = "1.5.7-6"
 
 [libraries]
 androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
@@ -109,6 +111,8 @@ androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version
 androidx-hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "androidx-hilt" }
 androidx-hilt-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "androidx-hilt" }
 androidx-security-crypto = { module = "androidx.security:security-crypto-ktx", version.ref = "security-crypto" }
+brotli-dec = { module = "org.brotli:dec", version.ref = "brotli" }
+zstd-jni = { module = "com.github.luben:zstd-jni", version.ref = "zstd-jni" }
 
 [bundles]
 lifecycle-app = [

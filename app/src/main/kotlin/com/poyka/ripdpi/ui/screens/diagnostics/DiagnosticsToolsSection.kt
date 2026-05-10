@@ -20,6 +20,8 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsApproachRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
+import com.poyka.ripdpi.activities.DiagnosticsCompressionProbeState
+import com.poyka.ripdpi.activities.DiagnosticsCompressionProbeToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityState
 import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDomainReachabilityState
@@ -34,6 +36,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.screens.diagnostics.rkn.RknBlockDiagnosisScreen
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -56,8 +59,10 @@ internal fun ToolsSection(
     dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
     onRunDnsIntegrityCheck: () -> Unit = {},
     onRunDomainReachabilityScan: () -> Unit = {},
+    onRunCompressionProbe: () -> Unit = {},
     onRunRknBlockDiagnosis: () -> Unit = {},
     onRknSelfInfoEnabledChange: (Boolean) -> Unit = {},
+    onCompressionProbeZstdEnabledChange: (Boolean) -> Unit = {},
     onOpenDetectionCheck: () -> Unit = {},
     pcapRecording: Boolean = false,
     onTogglePcapRecording: () -> Unit = {},
@@ -81,8 +86,10 @@ internal fun ToolsSection(
             dpiTools = dpiTools,
             onRunDnsIntegrityCheck = onRunDnsIntegrityCheck,
             onRunDomainReachabilityScan = onRunDomainReachabilityScan,
+            onRunCompressionProbe = onRunCompressionProbe,
             onRunRknBlockDiagnosis = onRunRknBlockDiagnosis,
             onRknSelfInfoEnabledChange = onRknSelfInfoEnabledChange,
+            onCompressionProbeZstdEnabledChange = onCompressionProbeZstdEnabledChange,
         )
         detectionCheckItem(onOpenDetectionCheck)
     }
@@ -192,8 +199,10 @@ private fun LazyListScope.dpiToolItems(
     dpiTools: DiagnosticsDpiToolsUiModel,
     onRunDnsIntegrityCheck: () -> Unit,
     onRunDomainReachabilityScan: () -> Unit,
+    onRunCompressionProbe: () -> Unit,
     onRunRknBlockDiagnosis: () -> Unit,
     onRknSelfInfoEnabledChange: (Boolean) -> Unit,
+    onCompressionProbeZstdEnabledChange: (Boolean) -> Unit,
 ) {
     item {
         DnsIntegrityToolCard(
@@ -208,10 +217,80 @@ private fun LazyListScope.dpiToolItems(
         )
     }
     item {
+        HttpCompressionProbeCard(
+            tool = dpiTools.compressionProbe,
+            onRun = onRunCompressionProbe,
+            onZstdEnabledChange = onCompressionProbeZstdEnabledChange,
+        )
+    }
+    item {
         RknBlockDiagnosisScreen(
             tool = dpiTools.rknBlockDiagnosis,
             onRun = onRunRknBlockDiagnosis,
             onSelfInfoEnabledChange = onRknSelfInfoEnabledChange,
+        )
+    }
+}
+
+@Composable
+private fun HttpCompressionProbeCard(
+    tool: DiagnosticsCompressionProbeToolUiModel,
+    onRun: () -> Unit,
+    onZstdEnabledChange: (Boolean) -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        StatusIndicator(
+            label = tool.state.name.lowercase(Locale.US),
+            tone = statusTone(tool.state.tone()),
+        )
+        androidx.compose.material3.Text(
+            text = "HTTP compression",
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        androidx.compose.material3.Text(
+            text = tool.errorMessage ?: tool.summary,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = if (tool.errorMessage == null) colors.mutedForeground else colors.destructive,
+        )
+        MetricsRow(metrics = tool.metrics)
+        RipDpiSwitch(
+            checked = tool.includeZstd,
+            onCheckedChange = onZstdEnabledChange,
+            enabled = tool.state != DiagnosticsCompressionProbeState.Running,
+            label = "Zstd codec",
+        )
+        if (tool.rows.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                tool.rows.forEach { row ->
+                    StatusIndicator(
+                        label = "${row.codec}: ${row.verdict}",
+                        tone = statusTone(row.tone),
+                    )
+                    androidx.compose.material3.Text(
+                        text = "${row.compressedBytes} B compressed · ${row.decompressedBytes} B decoded",
+                        style = RipDpiThemeTokens.type.monoSmall,
+                        color = colors.mutedForeground,
+                    )
+                }
+            }
+        }
+        RipDpiButton(
+            text =
+                if (tool.state == DiagnosticsCompressionProbeState.Running) {
+                    "Checking..."
+                } else {
+                    "Run compression probe"
+                },
+            enabled = tool.state != DiagnosticsCompressionProbeState.Running,
+            onClick = onRun,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
@@ -540,4 +619,12 @@ private fun DiagnosticsDomainReachabilityState.tone(): com.poyka.ripdpi.activiti
         DiagnosticsDomainReachabilityState.Running -> com.poyka.ripdpi.activities.DiagnosticsTone.Info
         DiagnosticsDomainReachabilityState.Complete -> com.poyka.ripdpi.activities.DiagnosticsTone.Positive
         DiagnosticsDomainReachabilityState.Failed -> com.poyka.ripdpi.activities.DiagnosticsTone.Negative
+    }
+
+private fun DiagnosticsCompressionProbeState.tone(): com.poyka.ripdpi.activities.DiagnosticsTone =
+    when (this) {
+        DiagnosticsCompressionProbeState.Idle -> com.poyka.ripdpi.activities.DiagnosticsTone.Neutral
+        DiagnosticsCompressionProbeState.Running -> com.poyka.ripdpi.activities.DiagnosticsTone.Info
+        DiagnosticsCompressionProbeState.Complete -> com.poyka.ripdpi.activities.DiagnosticsTone.Positive
+        DiagnosticsCompressionProbeState.Failed -> com.poyka.ripdpi.activities.DiagnosticsTone.Negative
     }

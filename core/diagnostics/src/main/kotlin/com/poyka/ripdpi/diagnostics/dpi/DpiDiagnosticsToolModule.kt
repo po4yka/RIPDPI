@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
+import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
 import dagger.Module
@@ -19,6 +20,10 @@ object DpiDiagnosticsToolModule {
 
     @Provides
     fun provideRknLayeredProbePipeline(): RknLayeredProbePipeline = RknLayeredProbePipeline()
+
+    @Provides
+    fun provideHttpCompressionProber(tlsClientFactory: DiagnosticsHttpClientFactory): HttpCompressionProber =
+        HttpCompressionProber(clientBuilder = tlsClientFactory::createClient)
 
     @Provides
     fun provideSelfInfoFetcher(tlsClientFactory: DiagnosticsHttpClientFactory): SelfInfoFetcher =

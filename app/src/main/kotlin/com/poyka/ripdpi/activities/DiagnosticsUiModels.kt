@@ -84,6 +84,13 @@ enum class DiagnosticsRknBlockDiagnosisState {
     Failed,
 }
 
+enum class DiagnosticsCompressionProbeState {
+    Idle,
+    Running,
+    Complete,
+    Failed,
+}
+
 @Immutable
 data class DiagnosticsDnsIntegrityDomainUiModel(
     val domain: String,
@@ -163,11 +170,32 @@ data class DiagnosticsRknBlockDiagnosisToolUiModel(
     val errorMessage: String? = null,
 )
 
+@Immutable
+data class DiagnosticsCompressionCodecUiModel(
+    val codec: String,
+    val verdict: String,
+    val compressedBytes: String,
+    val decompressedBytes: String,
+    val tone: DiagnosticsTone,
+)
+
+@Stable
+data class DiagnosticsCompressionProbeToolUiModel(
+    val state: DiagnosticsCompressionProbeState = DiagnosticsCompressionProbeState.Idle,
+    val targetUrl: String? = null,
+    val summary: String = "Probe HTTP gzip, deflate, Brotli, and optional Zstd support for a bundled target.",
+    val includeZstd: Boolean = false,
+    val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
+    val rows: ImmutableList<DiagnosticsCompressionCodecUiModel> = persistentListOf(),
+    val errorMessage: String? = null,
+)
+
 @Stable
 data class DiagnosticsDpiToolsUiModel(
     val dnsIntegrity: DiagnosticsDnsIntegrityToolUiModel = DiagnosticsDnsIntegrityToolUiModel(),
     val domainReachability: DiagnosticsDomainReachabilityToolUiModel = DiagnosticsDomainReachabilityToolUiModel(),
     val rknBlockDiagnosis: DiagnosticsRknBlockDiagnosisToolUiModel = DiagnosticsRknBlockDiagnosisToolUiModel(),
+    val compressionProbe: DiagnosticsCompressionProbeToolUiModel = DiagnosticsCompressionProbeToolUiModel(),
 )
 
 @Immutable

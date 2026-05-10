@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
+import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,6 +30,7 @@ class DiagnosticsViewModel
         appSettingsRepository: AppSettingsRepository,
         dnsIntegrityChecker: DnsIntegrityChecker,
         domainReachabilityScanner: DomainReachabilityScanner,
+        httpCompressionProber: HttpCompressionProber,
         rknLayeredProbePipeline: RknLayeredProbePipeline,
         selfInfoFetcher: SelfInfoFetcher,
         diagnosticsUiStateAssembler: DiagnosticsUiStateAssembler,
@@ -56,6 +58,7 @@ class DiagnosticsViewModel
                 appSettingsRepository = appSettingsRepository,
                 dnsIntegrityChecker = dnsIntegrityChecker,
                 domainReachabilityScanner = domainReachabilityScanner,
+                httpCompressionProber = httpCompressionProber,
                 rknLayeredProbePipeline = rknLayeredProbePipeline,
                 selfInfoFetcher = selfInfoFetcher,
             )
@@ -78,6 +81,8 @@ class DiagnosticsViewModel
             dpiToolsController.domainReachabilityTool
         val rknBlockDiagnosisTool: StateFlow<DiagnosticsRknBlockDiagnosisToolUiModel> =
             dpiToolsController.rknBlockDiagnosisTool
+        val compressionProbeTool: StateFlow<DiagnosticsCompressionProbeToolUiModel> =
+            dpiToolsController.compressionProbeTool
 
         private val mutations =
             DiagnosticsMutationRunner(
@@ -222,9 +227,14 @@ class DiagnosticsViewModel
 
         fun runDomainReachabilityScan() = dpiToolsController.runDomainReachabilityScan()
 
+        fun runCompressionProbe() = dpiToolsController.runCompressionProbe()
+
         fun runRknBlockDiagnosis() = dpiToolsController.runRknBlockDiagnosis()
 
         fun setRknSelfInfoEnabled(enabled: Boolean) = dpiToolsController.setRknSelfInfoEnabled(enabled)
+
+        fun setCompressionProbeZstdEnabled(enabled: Boolean) =
+            dpiToolsController.setCompressionProbeZstdEnabled(enabled)
     }
 
 private fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =

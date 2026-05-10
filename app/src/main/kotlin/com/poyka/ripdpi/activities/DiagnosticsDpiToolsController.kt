@@ -10,6 +10,10 @@ import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
+import com.poyka.ripdpi.diagnostics.dpich.CompressionCodec
+import com.poyka.ripdpi.diagnostics.dpich.CompressionProbeResult
+import com.poyka.ripdpi.diagnostics.dpich.CompressionProbeVerdict
+import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.rkn.RknAggregateVerdictEngine
 import com.poyka.ripdpi.diagnostics.rkn.RknCheckResult
 import com.poyka.ripdpi.diagnostics.rkn.RknConfidence
@@ -41,6 +45,7 @@ internal class DiagnosticsDpiToolsController(
     private val appSettingsRepository: AppSettingsRepository,
     private val dnsIntegrityChecker: DnsIntegrityChecker = DnsIntegrityChecker(),
     private val domainReachabilityScanner: DomainReachabilityScanner = DomainReachabilityScanner(),
+    private val httpCompressionProber: HttpCompressionProber = HttpCompressionProber(),
     private val rknLayeredProbePipeline: RknLayeredProbePipeline = RknLayeredProbePipeline(),
     private val selfInfoFetcher: SelfInfoFetcher,
 ) {
@@ -55,6 +60,10 @@ internal class DiagnosticsDpiToolsController(
     val rknBlockDiagnosisTool: StateFlow<DiagnosticsRknBlockDiagnosisToolUiModel> =
         _rknBlockDiagnosisTool.asStateFlow()
 
+    private val _compressionProbeTool = MutableStateFlow(DiagnosticsCompressionProbeToolUiModel())
+    val compressionProbeTool: StateFlow<DiagnosticsCompressionProbeToolUiModel> =
+        _compressionProbeTool.asStateFlow()
+
     private var latestDnsStubIps: Set<String> = emptySet()
 
     init {
@@ -65,6 +74,10 @@ internal class DiagnosticsDpiToolsController(
                     current.copy(
                         fetchSelfInfoEnabled = settings.rknDiagnosticsFetchSelfInfoEnabled,
                         selfInfoPrivacyOverridden = settings.detectionCheckPrivacyModeEnabled,
+                    )
+                _compressionProbeTool.value =
+                    _compressionProbeTool.value.copy(
+                        includeZstd = settings.compressionProbeIncludeZstd,
                     )
             }
         }
@@ -122,6 +135,49 @@ internal class DiagnosticsDpiToolsController(
                     DiagnosticsDomainReachabilityToolUiModel(
                         state = DiagnosticsDomainReachabilityState.Failed,
                         summary = "Domain reachability scan failed.",
+                        errorMessage = error.message ?: error.javaClass.simpleName,
+                    )
+            }
+        }
+    }
+
+    fun runCompressionProbe() {
+        if (_compressionProbeTool.value.state == DiagnosticsCompressionProbeState.Running) {
+            return
+        }
+        val current = _compressionProbeTool.value
+        _compressionProbeTool.value =
+            DiagnosticsCompressionProbeToolUiModel(
+                state = DiagnosticsCompressionProbeState.Running,
+                targetUrl = current.targetUrl,
+                summary = "Checking HTTP compression support...",
+                includeZstd = current.includeZstd,
+            )
+        scope.launch {
+            runCatching {
+                val settings = appSettingsRepository.snapshot()
+                val targetUrl = loadCompressionProbeTarget()
+                val results =
+                    httpCompressionProber.probeAll(
+                        url = targetUrl,
+                        includeZstd = settings.compressionProbeIncludeZstd,
+                    )
+                CompressionProbeRunResult(
+                    targetUrl = targetUrl,
+                    includeZstd = settings.compressionProbeIncludeZstd,
+                    results = results,
+                )
+            }.onSuccess { result ->
+                _compressionProbeTool.value = result.toUiModel()
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+                val latest = _compressionProbeTool.value
+                _compressionProbeTool.value =
+                    DiagnosticsCompressionProbeToolUiModel(
+                        state = DiagnosticsCompressionProbeState.Failed,
+                        targetUrl = latest.targetUrl,
+                        summary = "HTTP compression probe failed.",
+                        includeZstd = latest.includeZstd,
                         errorMessage = error.message ?: error.javaClass.simpleName,
                     )
             }
@@ -186,6 +242,14 @@ internal class DiagnosticsDpiToolsController(
         }
     }
 
+    fun setCompressionProbeZstdEnabled(enabled: Boolean) {
+        scope.launch {
+            appSettingsRepository.update {
+                compressionProbeIncludeZstd = enabled
+            }
+        }
+    }
+
     private suspend fun loadDomains(limit: Int?): List<String> =
         withContext(Dispatchers.IO) {
             val domains = DpiAssetLoader(appContext).loadDomains()
@@ -205,6 +269,16 @@ internal class DiagnosticsDpiToolsController(
         withContext(Dispatchers.IO) {
             DpiAssetLoader(appContext).loadRknBlacklistTest()
         }
+
+    private suspend fun loadCompressionProbeTarget(): String =
+        withContext(Dispatchers.IO) {
+            val domain =
+                DpiAssetLoader(appContext)
+                    .loadDomains()
+                    .firstOrNull()
+                    ?: error("No bundled DPI domains are available.")
+            "https://$domain/"
+        }
 }
 
 private data class RknDiagnosisRunResult(
@@ -213,6 +287,12 @@ private data class RknDiagnosisRunResult(
     val selfInfo: SelfInfoResult?,
     val fetchSelfInfoEnabled: Boolean,
     val selfInfoPrivacyOverridden: Boolean,
+)
+
+private data class CompressionProbeRunResult(
+    val targetUrl: String,
+    val includeZstd: Boolean,
+    val results: Map<CompressionCodec, CompressionProbeResult>,
 )
 
 private fun DnsIntegrityResult.toUiModel(): DiagnosticsDnsIntegrityToolUiModel {
@@ -279,6 +359,34 @@ private fun List<DomainReachabilityResult>.toUiModel(stubIpCount: Int): Diagnost
     )
 }
 
+private fun CompressionProbeRunResult.toUiModel(): DiagnosticsCompressionProbeToolUiModel {
+    val okCount = results.values.count { result -> result.verdict == CompressionProbeVerdict.OK }
+    return DiagnosticsCompressionProbeToolUiModel(
+        state = DiagnosticsCompressionProbeState.Complete,
+        targetUrl = targetUrl,
+        summary = "$okCount of ${results.size} compression codecs are usable for $targetUrl.",
+        includeZstd = includeZstd,
+        metrics =
+            listOf(
+                DiagnosticsMetricUiModel("target", targetUrl, DiagnosticsTone.Info),
+                DiagnosticsMetricUiModel("usable", okCount.toString(), countTone(results.size - okCount)),
+                DiagnosticsMetricUiModel("zstd", if (includeZstd) "enabled" else "off", DiagnosticsTone.Neutral),
+            ).toPersistentList(),
+        rows =
+            CompressionCodec.entries
+                .map { codec ->
+                    val result = results.getValue(codec)
+                    DiagnosticsCompressionCodecUiModel(
+                        codec = codec.name.lowercase(Locale.US),
+                        verdict = result.verdict.displayLabel(),
+                        compressedBytes = result.compressedBytes?.toString() ?: "n/a",
+                        decompressedBytes = result.decompressedBytes?.toString() ?: "n/a",
+                        tone = result.verdict.tone(),
+                    )
+                }.toPersistentList(),
+    )
+}
+
 private fun buildRknBlockDiagnosisUiModel(result: RknDiagnosisRunResult): DiagnosticsRknBlockDiagnosisToolUiModel {
     val controlResults = result.controlResults
     val testResults = result.testResults
@@ -329,6 +437,8 @@ private fun SelfInfoResult.toUiModel(): DiagnosticsRknSelfInfoUiModel =
 private fun DnsIntegrityVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
 
 private fun DomainVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
+
+private fun CompressionProbeVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
 
 private fun AttemptResult.displayLabel(): String =
     buildList {
@@ -393,5 +503,18 @@ private fun DomainVerdict.tone(): DiagnosticsTone =
         DomainVerdict.ISP_PAGE,
         DomainVerdict.TCP16_BAND,
         DomainVerdict.UNREACHABLE,
+        -> DiagnosticsTone.Warning
+    }
+
+private fun CompressionProbeVerdict.tone(): DiagnosticsTone =
+    when (this) {
+        CompressionProbeVerdict.OK -> DiagnosticsTone.Positive
+
+        CompressionProbeVerdict.NOT_SUPPORTED -> DiagnosticsTone.Neutral
+
+        CompressionProbeVerdict.EOF_BEFORE_MIN,
+        CompressionProbeVerdict.TIMEOUT,
+        CompressionProbeVerdict.CONN_ERR,
+        CompressionProbeVerdict.INTERNAL_ERR,
         -> DiagnosticsTone.Warning
     }

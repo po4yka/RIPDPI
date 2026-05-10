@@ -139,8 +139,10 @@ data class DiagnosticsScreenActions(
     val onTogglePcapRecording: () -> Unit = {},
     val onRunDnsIntegrityCheck: () -> Unit = {},
     val onRunDomainReachabilityScan: () -> Unit = {},
+    val onRunCompressionProbe: () -> Unit = {},
     val onRunRknBlockDiagnosis: () -> Unit = {},
     val onRknSelfInfoEnabledChange: (Boolean) -> Unit = {},
+    val onCompressionProbeZstdEnabledChange: (Boolean) -> Unit = {},
 )
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -320,8 +322,10 @@ private fun DiagnosticsScreenPager(
                     dpiTools = dpiTools,
                     onRunDnsIntegrityCheck = actions.onRunDnsIntegrityCheck,
                     onRunDomainReachabilityScan = actions.onRunDomainReachabilityScan,
+                    onRunCompressionProbe = actions.onRunCompressionProbe,
                     onRunRknBlockDiagnosis = actions.onRunRknBlockDiagnosis,
                     onRknSelfInfoEnabledChange = actions.onRknSelfInfoEnabledChange,
+                    onCompressionProbeZstdEnabledChange = actions.onCompressionProbeZstdEnabledChange,
                     onOpenDetectionCheck = actions.onOpenDetectionCheck,
                     pcapRecording = pcapRecording,
                     onTogglePcapRecording = actions.onTogglePcapRecording,
