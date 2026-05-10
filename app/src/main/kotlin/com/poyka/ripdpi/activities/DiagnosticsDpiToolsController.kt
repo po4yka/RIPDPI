@@ -21,7 +21,6 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 
 private const val DnsIntegrityPreviewDomainLimit = 5
-private const val DomainReachabilityPreviewDomainLimit = 5
 
 internal class DiagnosticsDpiToolsController(
     private val scope: CoroutineScope,
@@ -79,7 +78,7 @@ internal class DiagnosticsDpiToolsController(
             )
         scope.launch {
             runCatching {
-                val domains = loadDomains(DomainReachabilityPreviewDomainLimit)
+                val domains = loadDomains(limit = null)
                 check(domains.isNotEmpty()) { "No bundled DPI domains are available." }
                 domainReachabilityScanner.scan(domains, stubIps)
             }.onSuccess { results ->
@@ -96,11 +95,14 @@ internal class DiagnosticsDpiToolsController(
         }
     }
 
-    private suspend fun loadDomains(limit: Int): List<String> =
+    private suspend fun loadDomains(limit: Int?): List<String> =
         withContext(Dispatchers.IO) {
-            DpiAssetLoader(appContext)
-                .loadDomains()
-                .take(limit)
+            val domains = DpiAssetLoader(appContext).loadDomains()
+            if (limit == null) {
+                domains
+            } else {
+                domains.take(limit)
+            }
         }
 }
 
@@ -176,7 +178,7 @@ private fun AttemptResult.displayLabel(): String =
     buildList {
         add(status.name.lowercase(Locale.US).replace('_', ' '))
         statusCode?.let { code -> add(code.toString()) }
-        error?.let { error -> add(error.name.lowercase(Locale.US).replace('_', ' ')) }
+        error?.let { error -> add(error.label.lowercase(Locale.US).replace('_', ' ')) }
     }.joinToString(" · ")
 
 private fun countTone(count: Int): DiagnosticsTone =

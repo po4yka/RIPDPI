@@ -1,5 +1,10 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.core.detection.dpi.DpiErrorClassifier
+import com.poyka.ripdpi.core.detection.dpi.DpiProbeError
+import com.poyka.ripdpi.core.detection.dpi.IpAddressClassifier
+import com.poyka.ripdpi.core.detection.dpi.IpAddressType
+import com.poyka.ripdpi.core.detection.dpi.ProbeStage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -9,15 +14,27 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.ConnectionSpec
+import okhttp3.EventListener
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.TlsVersion
+import java.io.ByteArrayOutputStream
 import java.net.Inet4Address
 import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.net.SocketTimeoutException
+import java.nio.charset.StandardCharsets
+import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509TrustManager
 import kotlin.system.measureTimeMillis
 
 enum class DomainVerdict {
@@ -48,29 +65,13 @@ enum class ReachabilityProbeKind {
     HTTP,
 }
 
-enum class ProbeStage {
-    TCP_CONNECT,
-    TLS_HANDSHAKE,
-    SENDING_DATA,
-    READING_DATA,
-}
-
-enum class ReachabilityProbeError {
-    DNS_FAIL,
-    TIMEOUT,
-    TLS_RST,
-    TCP_RST,
-    REFUSED,
-    UNKNOWN,
-}
-
 data class AttemptResult(
     val status: AttemptStatus,
     val detail: String = "",
     val bytesRead: Int = 0,
     val latencyMs: Long = 0,
     val stage: ProbeStage = ProbeStage.TCP_CONNECT,
-    val error: ReachabilityProbeError? = null,
+    val error: DpiProbeError? = null,
     val statusCode: Int? = null,
 )
 
@@ -83,20 +84,23 @@ data class DomainReachabilityResult(
     val verdict: DomainVerdict,
 )
 
-fun interface DomainAddressResolver {
-    suspend fun resolveA(domain: String): List<String>
-}
+data class ReachabilityProbeEndpoint(
+    val connectHost: String,
+    val port: Int,
+    val hostHeader: String,
+)
 
-fun interface DomainReachabilityAttemptRunner {
-    suspend fun run(
-        domain: String,
-        kind: ReachabilityProbeKind,
-    ): AttemptResult
-}
+typealias DomainAddressResolver = suspend (domain: String) -> List<String>
+
+typealias DomainReachabilityAttemptRunner = suspend (
+    domain: String,
+    kind: ReachabilityProbeKind,
+    stubIps: Set<String>,
+) -> AttemptResult
 
 class DomainReachabilityScanner(
-    private val resolver: DomainAddressResolver = SystemDomainAddressResolver(),
-    private val attemptRunner: DomainReachabilityAttemptRunner = OkHttpDomainReachabilityAttemptRunner(),
+    private val resolver: DomainAddressResolver = SystemDomainAddressResolver()::resolveA,
+    private val attemptRunner: DomainReachabilityAttemptRunner = OkHttpDomainReachabilityAttemptRunner()::invoke,
     maxConcurrent: Int = DefaultMaxConcurrent,
 ) {
     private val semaphore = Semaphore(maxConcurrent)
@@ -121,7 +125,7 @@ class DomainReachabilityScanner(
         stubIps: Set<String>,
     ): DomainReachabilityResult {
         val resolvedIps =
-            runCatching { resolver.resolveA(domain) }
+            runCatching { resolver(domain) }
                 .getOrElse { error ->
                     if (error is CancellationException) throw error
                     return shortCircuit(domain, emptyList(), AttemptStatus.ERROR, DomainVerdict.DNS_FAIL)
@@ -130,13 +134,13 @@ class DomainReachabilityScanner(
         if (resolvedIps.any { ip -> ip in stubIps }) {
             return shortCircuit(domain, resolvedIps, AttemptStatus.ISP_PAGE, DomainVerdict.ISP_PAGE)
         }
-        if (resolvedIps.any(::isFakeIp)) {
+        if (resolvedIps.any { ip -> IpAddressClassifier.classify(ip) == IpAddressType.FAKE_IP }) {
             return shortCircuit(domain, resolvedIps, AttemptStatus.FAKE_IP, DomainVerdict.FAKE_IP)
         }
 
-        val tls13 = runAttempt(domain, ReachabilityProbeKind.TLS13)
-        val tls12 = runAttempt(domain, ReachabilityProbeKind.TLS12)
-        val http = runAttempt(domain, ReachabilityProbeKind.HTTP)
+        val tls13 = runAttempt(domain, ReachabilityProbeKind.TLS13, stubIps)
+        val tls12 = runAttempt(domain, ReachabilityProbeKind.TLS12, stubIps)
+        val http = runAttempt(domain, ReachabilityProbeKind.HTTP, stubIps)
         return DomainReachabilityResult(
             domain = domain,
             resolvedIps = resolvedIps,
@@ -150,14 +154,27 @@ class DomainReachabilityScanner(
     private suspend fun runAttempt(
         domain: String,
         kind: ReachabilityProbeKind,
+        stubIps: Set<String>,
     ): AttemptResult =
         try {
-            attemptRunner.run(domain, kind)
+            attemptRunner(domain, kind, stubIps).classifyStubRedirect(stubIps)
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
             classifyException(error, ProbeStage.TCP_CONNECT, bytesRead = 0)
         }
+
+    private fun AttemptResult.classifyStubRedirect(stubIps: Set<String>): AttemptResult {
+        if (status != AttemptStatus.REDIR_SUSPICIOUS) {
+            return this
+        }
+        val redirectedHost = runCatching { detail.toHttpUrl().host }.getOrNull()
+        return if (redirectedHost in stubIps || stubIps.any { ip -> detail.contains(ip) }) {
+            copy(status = AttemptStatus.ISP_PAGE)
+        } else {
+            this
+        }
+    }
 
     private fun shortCircuit(
         domain: String,
@@ -183,6 +200,7 @@ class DomainReachabilityScanner(
     ): DomainVerdict {
         val attempts = listOf(tls13, tls12, http)
         val hasTcp16Band = attempts.any { it.status == AttemptStatus.TCP16_BAND_TIMEOUT }
+        val hasIspPage = attempts.any { it.status == AttemptStatus.ISP_PAGE }
         val hasHttpBlock = http.status == AttemptStatus.BLOCKED || http.status == AttemptStatus.REDIR_SUSPICIOUS
         val hasTlsBlock = listOf(tls13, tls12).any { it.status == AttemptStatus.BLOCKED }
         val tls13OnlyWorks = tls13.status == AttemptStatus.OK && tls12.status == AttemptStatus.ERROR
@@ -190,6 +208,9 @@ class DomainReachabilityScanner(
 
         if (hasTcp16Band) {
             return DomainVerdict.TCP16_BAND
+        }
+        if (hasIspPage) {
+            return DomainVerdict.ISP_PAGE
         }
         if (hasHttpBlock || hasTlsBlock) {
             return DomainVerdict.BLOCKED
@@ -215,7 +236,7 @@ class DomainReachabilityScanner(
                     detail = "TCP16 band timeout after $bytesRead bytes",
                     bytesRead = bytesRead,
                     stage = stage,
-                    error = ReachabilityProbeError.TIMEOUT,
+                    error = DpiProbeError.Unknown,
                 )
             }
             return AttemptResult(
@@ -223,28 +244,16 @@ class DomainReachabilityScanner(
                 detail = error.message.orEmpty(),
                 bytesRead = bytesRead,
                 stage = stage,
-                error = classifyError(error),
+                error = DpiErrorClassifier.classify(error, stage),
             )
-        }
-
-        private fun classifyError(error: Throwable): ReachabilityProbeError {
-            val text = "${error::class.java.simpleName}: ${error.message.orEmpty()}".lowercase()
-            return when {
-                "unknownhost" in text || "dns" in text -> ReachabilityProbeError.DNS_FAIL
-                "timeout" in text || "timed out" in text -> ReachabilityProbeError.TIMEOUT
-                "reset" in text && "ssl" in text -> ReachabilityProbeError.TLS_RST
-                "reset" in text -> ReachabilityProbeError.TCP_RST
-                "refused" in text -> ReachabilityProbeError.REFUSED
-                else -> ReachabilityProbeError.UNKNOWN
-            }
         }
     }
 }
 
 class SystemDomainAddressResolver(
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
-) : DomainAddressResolver {
-    override suspend fun resolveA(domain: String): List<String> =
+) {
+    suspend fun resolveA(domain: String): List<String> =
         withContext(dispatcher) {
             InetAddress
                 .getAllByName(domain)
@@ -258,54 +267,190 @@ class SystemDomainAddressResolver(
 class OkHttpDomainReachabilityAttemptRunner(
     private val timeoutMs: Long = DefaultAttemptTimeoutMs,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
-) : DomainReachabilityAttemptRunner {
-    override suspend fun run(
+    private val endpointResolver: ReachabilityProbeEndpointResolver = DefaultReachabilityProbeEndpointResolver,
+) {
+    suspend operator fun invoke(
         domain: String,
         kind: ReachabilityProbeKind,
+        stubIps: Set<String>,
     ): AttemptResult =
         withContext(dispatcher) {
-            val client = clientFor(kind)
-            val url = if (kind == ReachabilityProbeKind.HTTP) "http://$domain/" else "https://$domain/"
-            val request =
-                Request
-                    .Builder()
-                    .url(url)
-                    .method(if (kind == ReachabilityProbeKind.HTTP) "HEAD" else "GET", null)
-                    .header("Host", domain)
-                    .header("Accept-Encoding", "identity")
-                    .header("Connection", "close")
-                    .build()
-            var bytesRead = 0
-            val elapsed =
-                measureTimeMillis {
-                    try {
-                        client.newCall(request).execute().use { response ->
-                            bytesRead = response.body.bytes().size
-                            return@withContext response.toAttemptResult(domain, kind, bytesRead, 0)
-                        }
-                    } catch (error: Exception) {
-                        return@withContext DomainReachabilityScanner.classifyException(
-                            error = error,
-                            stage = ProbeStage.READING_DATA,
-                            bytesRead = bytesRead,
-                        )
-                    }
-                }
-            AttemptResult(status = AttemptStatus.ERROR, latencyMs = elapsed)
+            when (kind) {
+                ReachabilityProbeKind.HTTP -> runHttpHead(domain, stubIps)
+
+                ReachabilityProbeKind.TLS13,
+                ReachabilityProbeKind.TLS12,
+                -> runTls(domain, kind, stubIps)
+            }
         }
 
-    private fun clientFor(kind: ReachabilityProbeKind): OkHttpClient {
+    private fun runTls(
+        domain: String,
+        kind: ReachabilityProbeKind,
+        stubIps: Set<String>,
+    ): AttemptResult {
+        val stage = AtomicReference(ProbeStage.TCP_CONNECT)
+        val endpoint = endpointResolver.endpointFor(domain, kind)
+        val client = clientFor(kind, stage)
+        val request = tlsRequest(endpoint)
+        var bytesRead = 0
+        val elapsed =
+            measureTimeMillis {
+                try {
+                    client.newCall(request).execute().use { response ->
+                        stage.set(ProbeStage.READING_DATA)
+                        bytesRead = response.body.bytes().size
+                        return response.toAttemptResult(domain, kind, bytesRead, 0, stubIps)
+                    }
+                } catch (error: Exception) {
+                    return DomainReachabilityScanner.classifyException(
+                        error = error,
+                        stage = stage.get(),
+                        bytesRead = bytesRead,
+                    )
+                }
+            }
+        return AttemptResult(status = AttemptStatus.ERROR, latencyMs = elapsed)
+    }
+
+    private fun tlsRequest(endpoint: ReachabilityProbeEndpoint): Request =
+        Request
+            .Builder()
+            .url("https://${endpoint.connectHost}:${endpoint.port}/")
+            .method("GET", null)
+            .header("Host", endpoint.hostHeader)
+            .header("Accept-Encoding", "identity")
+            .header("Connection", "close")
+            .build()
+
+    private fun runHttpHead(
+        domain: String,
+        stubIps: Set<String>,
+    ): AttemptResult {
+        var stage = ProbeStage.TCP_CONNECT
+        var bytesRead = 0
+        val startedAt = System.nanoTime()
+        val endpoint = endpointResolver.endpointFor(domain, ReachabilityProbeKind.HTTP)
+        val response = ByteArrayOutputStream()
+        return try {
+            Socket().use { socket ->
+                socket.soTimeout = timeoutMs.toInt()
+                socket.connect(InetSocketAddress(endpoint.connectHost, endpoint.port), timeoutMs.toInt())
+                stage = ProbeStage.SENDING_DATA
+                socket.getOutputStream().write(httpHeadRequest(endpoint.hostHeader))
+                socket.getOutputStream().flush()
+                stage = ProbeStage.READING_DATA
+                val buffer = ByteArray(HttpReadBufferSize)
+                while (true) {
+                    val read = socket.getInputStream().read(buffer)
+                    if (read == -1) break
+                    response.write(buffer, 0, read)
+                    bytesRead += read
+                    if (bytesRead >= HttpResponseReadLimit) break
+                }
+                parsePartialHttpResponse(
+                    domain = domain,
+                    response = response,
+                    bytesRead = bytesRead,
+                    stubIps = stubIps,
+                ).copy(latencyMs = elapsedMillis(startedAt), stage = ProbeStage.READING_DATA)
+            }
+        } catch (error: Exception) {
+            val hasPartialNonTcp16Response =
+                stage == ProbeStage.READING_DATA &&
+                    response.size() > 0 &&
+                    bytesRead !in Tcp16MinBytes..Tcp16MaxBytes
+            if (hasPartialNonTcp16Response) {
+                return parsePartialHttpResponse(
+                    domain = domain,
+                    response = response,
+                    bytesRead = bytesRead,
+                    stubIps = stubIps,
+                ).copy(latencyMs = elapsedMillis(startedAt), stage = ProbeStage.READING_DATA)
+            }
+            DomainReachabilityScanner
+                .classifyException(error, stage, bytesRead)
+                .copy(latencyMs = elapsedMillis(startedAt))
+        }
+    }
+
+    private fun httpHeadRequest(domain: String): ByteArray =
+        "HEAD / HTTP/1.1\r\nHost: $domain\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n"
+            .toByteArray(StandardCharsets.US_ASCII)
+
+    private fun parseHttpResponse(
+        domain: String,
+        response: String,
+        bytesRead: Int,
+        stubIps: Set<String>,
+    ): AttemptResult {
+        val lines = response.lineSequence().toList()
+        val statusCode =
+            lines
+                .firstOrNull()
+                ?.split(' ')
+                ?.getOrNull(1)
+                ?.toIntOrNull()
+        val location =
+            lines.firstNotNullOfOrNull { line ->
+                line
+                    .substringAfter("Location:", missingDelimiterValue = "")
+                    .trim()
+                    .takeIf { it.isNotBlank() }
+            }
+        return when {
+            statusCode == 451 -> {
+                AttemptResult(AttemptStatus.BLOCKED, statusCode = statusCode, bytesRead = bytesRead)
+            }
+
+            statusCode != null && statusCode in 300..399 && location != null -> {
+                redirectAttempt(domain, location, statusCode, bytesRead, 0, stubIps)
+            }
+
+            statusCode != null && statusCode in 200..499 -> {
+                AttemptResult(AttemptStatus.OK, statusCode = statusCode, bytesRead = bytesRead)
+            }
+
+            else -> {
+                AttemptResult(
+                    status = AttemptStatus.ERROR,
+                    detail = response.lineSequence().firstOrNull().orEmpty(),
+                    bytesRead = bytesRead,
+                )
+            }
+        }
+    }
+
+    private fun parsePartialHttpResponse(
+        domain: String,
+        response: ByteArrayOutputStream,
+        bytesRead: Int,
+        stubIps: Set<String>,
+    ): AttemptResult =
+        parseHttpResponse(
+            domain = domain,
+            response = String(response.toByteArray(), StandardCharsets.ISO_8859_1),
+            bytesRead = bytesRead,
+            stubIps = stubIps,
+        )
+
+    private fun clientFor(
+        kind: ReachabilityProbeKind,
+        stage: AtomicReference<ProbeStage>,
+    ): OkHttpClient {
         val builder =
             OkHttpClient
                 .Builder()
+                .eventListenerFactory(ProbeEventListenerFactory(stage))
+                .addNetworkInterceptor(StageTrackingInterceptor(stage))
                 .followRedirects(false)
                 .followSslRedirects(false)
                 .connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
                 .readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
                 .callTimeout(timeoutMs, TimeUnit.MILLISECONDS)
         return when (kind) {
-            ReachabilityProbeKind.TLS13 -> builder.connectionSpecs(listOf(TlsVersionPinner.tls13Spec())).build()
-            ReachabilityProbeKind.TLS12 -> builder.connectionSpecs(listOf(TlsVersionPinner.tls12Spec())).build()
+            ReachabilityProbeKind.TLS13 -> builder.withPinnedTls(TlsVersion.TLS_1_3).build()
+            ReachabilityProbeKind.TLS12 -> builder.withPinnedTls(TlsVersion.TLS_1_2).build()
             ReachabilityProbeKind.HTTP -> builder.build()
         }
     }
@@ -315,6 +460,7 @@ class OkHttpDomainReachabilityAttemptRunner(
         kind: ReachabilityProbeKind,
         bytesRead: Int,
         latencyMs: Long,
+        stubIps: Set<String>,
     ): AttemptResult {
         val location = header("Location")
         return when {
@@ -323,7 +469,7 @@ class OkHttpDomainReachabilityAttemptRunner(
             }
 
             code in 300..399 && location != null -> {
-                redirectAttempt(domain, location, code, bytesRead, latencyMs)
+                redirectAttempt(domain, location, code, bytesRead, latencyMs, stubIps)
             }
 
             code in 200..499 -> {
@@ -348,9 +494,20 @@ class OkHttpDomainReachabilityAttemptRunner(
         code: Int,
         bytesRead: Int,
         latencyMs: Long,
+        stubIps: Set<String>,
     ): AttemptResult {
         val redirectedHost = runCatching { location.toHttpUrl().host }.getOrNull()
         val sameDomain = redirectedHost == domain || redirectedHost?.endsWith(".$domain") == true
+        if (redirectedHost in stubIps) {
+            return AttemptResult(
+                status = AttemptStatus.ISP_PAGE,
+                detail = location,
+                statusCode = code,
+                bytesRead = bytesRead,
+                latencyMs = latencyMs,
+                stage = ProbeStage.READING_DATA,
+            )
+        }
         return AttemptResult(
             status = if (sameDomain) AttemptStatus.REDIR_OK else AttemptStatus.REDIR_SUSPICIOUS,
             detail = location,
@@ -359,6 +516,32 @@ class OkHttpDomainReachabilityAttemptRunner(
             latencyMs = latencyMs,
         )
     }
+}
+
+fun interface ReachabilityProbeEndpointResolver {
+    fun endpointFor(
+        domain: String,
+        kind: ReachabilityProbeKind,
+    ): ReachabilityProbeEndpoint
+}
+
+private object DefaultReachabilityProbeEndpointResolver : ReachabilityProbeEndpointResolver {
+    override fun endpointFor(
+        domain: String,
+        kind: ReachabilityProbeKind,
+    ): ReachabilityProbeEndpoint =
+        ReachabilityProbeEndpoint(
+            connectHost = domain,
+            port =
+                when (kind) {
+                    ReachabilityProbeKind.HTTP -> HttpPort
+
+                    ReachabilityProbeKind.TLS13,
+                    ReachabilityProbeKind.TLS12,
+                    -> HttpsPort
+                },
+            hostHeader = domain,
+        )
 }
 
 object TlsVersionPinner {
@@ -376,21 +559,140 @@ object TlsVersionPinner {
                 },
             ).apply { init(null, null, null) }
 
-    private fun tlsSpec(version: TlsVersion): ConnectionSpec =
+    fun socketFactoryFor(version: TlsVersion): Pair<SSLSocketFactory, X509TrustManager> {
+        val trustManager = defaultTrustManager()
+        val context =
+            SSLContext
+                .getInstance(protocolName(version))
+                .apply { init(null, arrayOf(trustManager), SecureRandom()) }
+        return ProtocolPinnedSocketFactory(context.socketFactory, version) to trustManager
+    }
+
+    fun tlsSpec(version: TlsVersion): ConnectionSpec =
         ConnectionSpec
             .Builder(ConnectionSpec.MODERN_TLS)
             .tlsVersions(version)
             .build()
+
+    private fun defaultTrustManager(): X509TrustManager {
+        val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+        factory.init(null as java.security.KeyStore?)
+        return factory.trustManagers.filterIsInstance<X509TrustManager>().single()
+    }
+
+    fun protocolName(version: TlsVersion): String =
+        when (version) {
+            TlsVersion.TLS_1_3 -> "TLSv1.3"
+            TlsVersion.TLS_1_2 -> "TLSv1.2"
+            else -> "TLS"
+        }
 }
 
-private fun isFakeIp(ip: String): Boolean {
-    val parts = ip.split('.').mapNotNull(String::toIntOrNull)
-    if (parts.size != Ipv4PartCount) return false
-    return parts[0] == 198 && parts[1] in 18..19
+private fun OkHttpClient.Builder.withPinnedTls(version: TlsVersion): OkHttpClient.Builder {
+    val (factory, trustManager) = TlsVersionPinner.socketFactoryFor(version)
+    return sslSocketFactory(factory, trustManager)
+        .connectionSpecs(listOf(TlsVersionPinner.tlsSpec(version)))
+}
+
+private fun elapsedMillis(startedAt: Long): Long = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+
+private class ProbeEventListenerFactory(
+    private val stage: AtomicReference<ProbeStage>,
+) : EventListener.Factory {
+    override fun create(call: okhttp3.Call): EventListener = OkHttpProbeEventListener(stage)
+}
+
+private class OkHttpProbeEventListener(
+    private val stage: AtomicReference<ProbeStage>,
+) : EventListener() {
+    override fun connectStart(
+        call: okhttp3.Call,
+        inetSocketAddress: java.net.InetSocketAddress,
+        proxy: java.net.Proxy,
+    ) {
+        stage.set(ProbeStage.TCP_CONNECT)
+    }
+
+    override fun secureConnectStart(call: okhttp3.Call) {
+        stage.set(ProbeStage.TLS_HANDSHAKE)
+    }
+
+    override fun requestHeadersStart(call: okhttp3.Call) {
+        stage.set(ProbeStage.SENDING_DATA)
+    }
+
+    override fun responseHeadersStart(call: okhttp3.Call) {
+        stage.set(ProbeStage.READING_DATA)
+    }
+}
+
+private class StageTrackingInterceptor(
+    private val stage: AtomicReference<ProbeStage>,
+) : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): okhttp3.Response {
+        stage.set(ProbeStage.SENDING_DATA)
+        val response = chain.proceed(chain.request())
+        stage.set(ProbeStage.READING_DATA)
+        return response
+    }
+}
+
+private class ProtocolPinnedSocketFactory(
+    private val delegate: SSLSocketFactory,
+    private val version: TlsVersion,
+) : SSLSocketFactory() {
+    override fun getDefaultCipherSuites(): Array<String> = delegate.defaultCipherSuites
+
+    override fun getSupportedCipherSuites(): Array<String> = delegate.supportedCipherSuites
+
+    override fun createSocket(
+        socket: Socket,
+        host: String,
+        port: Int,
+        autoClose: Boolean,
+    ): Socket = delegate.createSocket(socket, host, port, autoClose).pinProtocol()
+
+    override fun createSocket(
+        host: String,
+        port: Int,
+    ): Socket = delegate.createSocket(host, port).pinProtocol()
+
+    override fun createSocket(
+        host: String,
+        port: Int,
+        localHost: InetAddress,
+        localPort: Int,
+    ): Socket = delegate.createSocket(host, port, localHost, localPort).pinProtocol()
+
+    override fun createSocket(
+        host: InetAddress,
+        port: Int,
+    ): Socket = delegate.createSocket(host, port).pinProtocol()
+
+    override fun createSocket(
+        address: InetAddress,
+        port: Int,
+        localAddress: InetAddress,
+        localPort: Int,
+    ): Socket = delegate.createSocket(address, port, localAddress, localPort).pinProtocol()
+
+    private fun Socket.pinProtocol(): Socket =
+        apply {
+            if (this is SSLSocket) {
+                enabledProtocols = arrayOf(TlsVersionPinner.protocolName(version))
+                sslParameters =
+                    sslParameters.apply {
+                        protocols = arrayOf(TlsVersionPinner.protocolName(version))
+                    }
+            }
+        }
 }
 
 private const val DefaultMaxConcurrent = 8
 private const val DefaultAttemptTimeoutMs = 5_000L
+private const val HttpPort = 80
+private const val HttpsPort = 443
+private const val HttpReadBufferSize = 2_048
+private const val HttpResponseReadLimit = 64 * 1_024
 private const val Tcp16MinBytes = 16_384
 private const val Tcp16MaxBytes = 20_480
-private const val Ipv4PartCount = 4

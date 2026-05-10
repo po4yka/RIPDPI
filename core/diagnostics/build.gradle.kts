@@ -15,6 +15,7 @@ extensions.configure<LibraryExtension> {
 
 dependencies {
     implementation(project(":core:data"))
+    implementation(project(":core:detection"))
     implementation(project(":core:diagnostics-data"))
     implementation(project(":core:engine"))
     implementation(libs.androidx.core.ktx)
@@ -25,4 +26,5 @@ dependencies {
     implementation(libs.okhttp)
 
     testImplementation(libs.bundles.unit.test)
+    testImplementation(libs.okhttp.mockwebserver)
 }

@@ -3,6 +3,8 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
+import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -21,6 +23,8 @@ class DiagnosticsViewModel
         private val diagnosticsInteractionDependencies: DiagnosticsInteractionDependencies,
         private val diagnosticsContextDependencies: DiagnosticsContextDependencies,
         private val diagnosticsViewModelBootstrapper: DiagnosticsViewModelBootstrapper,
+        dnsIntegrityChecker: DnsIntegrityChecker,
+        domainReachabilityScanner: DomainReachabilityScanner,
         diagnosticsUiStateAssembler: DiagnosticsUiStateAssembler,
         uiStateFactory: DiagnosticsUiStateFactory,
     ) : ViewModel() {
@@ -43,6 +47,8 @@ class DiagnosticsViewModel
             DiagnosticsDpiToolsController(
                 scope = viewModelScope,
                 appContext = diagnosticsContextDependencies.appContext,
+                dnsIntegrityChecker = dnsIntegrityChecker,
+                domainReachabilityScanner = domainReachabilityScanner,
             )
 
         val uiState: StateFlow<DiagnosticsUiState> =
