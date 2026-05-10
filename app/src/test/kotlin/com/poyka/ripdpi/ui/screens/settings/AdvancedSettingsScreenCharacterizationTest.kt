@@ -97,6 +97,17 @@ class AdvancedSettingsScreenCharacterizationTest {
         composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("strategy_packs")).assertExists()
     }
 
+    @Test
+    fun `strategy config entry is reachable from advanced settings`() {
+        var opened = false
+        setScreen(onOpenStrategyConfig = { opened = true })
+
+        scrollToKey("advanced_strategy_config")
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsStrategyConfig).assertExists().performClick()
+
+        assertTrue(opened)
+    }
+
     // -- Command-line override banner --
 
     @Test
@@ -271,6 +282,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit = { _, _ -> },
         onTextConfirmed: (AdvancedTextSetting, String) -> Unit = { _, _ -> },
         onOptionSelected: (AdvancedOptionSetting, String) -> Unit = { _, _ -> },
+        onOpenStrategyConfig: () -> Unit = {},
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -282,7 +294,7 @@ class AdvancedSettingsScreenCharacterizationTest {
                     actions =
                         AdvancedSettingsActions(
                             onBack = {},
-                            onOpenStrategyConfig = {},
+                            onOpenStrategyConfig = onOpenStrategyConfig,
                             onOpenBlockcheck = {},
                             onToggleChanged = onToggleChanged,
                             onTextConfirmed = onTextConfirmed,
