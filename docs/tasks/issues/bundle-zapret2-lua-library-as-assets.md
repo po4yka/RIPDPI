@@ -1,7 +1,7 @@
 ---
 title: Bundle zapret2 Lua library as Android assets
 type: task
-status: backlog
+status: review
 area: android
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: zapret2-feature-parity-epic
 blocks: []
 blocked_by: [implement-lua-api-surface]
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Bundle zapret2 Lua library as Android assets #repo/RIPDPI #area/android #status/backlog 🔼
+- [ ] #task Bundle zapret2 Lua library as Android assets #repo/RIPDPI #area/android #status/review 🔼
 
 ## Objective
 
@@ -74,3 +74,16 @@ On upgrade, compare `lua-manifest.json` version in assets vs internal storage; r
 ## Definition of done
 
 Fresh install on emulator: `LuaAssetManager.ensureExtracted()` runs, both `.lua` files appear in internal storage, `LuaStrategyEngine` loads them without error. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+2026-05-10:
+
+- Bundled `zapret-antidpi.lua`, `zapret-lib.lua`, `lua-manifest.json`, and `LICENSE.zapret2.txt` under `app/src/main/assets/lua/` from zapret2 commit `fd4716da5426550a3354b1b179f3dda446811a13`.
+- Added `LuaAssetManager` with `ensureExtracted()`, `currentManifestVersion()`, and `extractIfOutdated()`; outdated extraction backs up existing user script files with `.user.bak` before overwrite.
+- Added Robolectric coverage for first extraction, manifest version reading, and user-modified script backup.
+- Verification:
+  - `./gradlew :app:ktlintCheck -Pripdpi.skipNativeBuild=true`
+- Blocked verification:
+  - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.lua.LuaAssetManagerTest -Pripdpi.skipNativeBuild=true` did not reach the new tests because `:core:data:model:generateProtoLiteSources` failed first: `Field number 214 has already been used in "AppSettings" by field "strategy_chain_yaml"`.
+- Remaining review gaps: the Robolectric test still needs to be run after the unrelated proto schema conflict is fixed, and bundled scripts still need runtime/device verification with `LuaStrategyEngine` because upstream zapret scripts expect zapret-specific Lua globals.

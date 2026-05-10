@@ -1,0 +1,9 @@
+{
+  "version": "zapret2-fd4716da5426550a3354b1b179f3dda446811a13",
+  "files": [
+    "zapret-antidpi.lua",
+    "zapret-lib.lua"
+  ],
+  "zapret2_commit": "fd4716da5426550a3354b1b179f3dda446811a13",
+  "license_file": "LICENSE.zapret2.txt"
+}
