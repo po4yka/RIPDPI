@@ -37,3 +37,25 @@ strategies:
     assert_eq!(parsed.strategies[0].on_fail, OnFail::NextStrategy);
     assert_eq!(parsed.strategies[1].steps[0].kind, StepType::Udplen);
 }
+
+#[test]
+fn parses_synack_strategy_steps() {
+    let yaml = r#"
+version: 1
+strategies:
+  - id: synack_handshake
+    steps:
+      - type: synack
+        ttl: 5
+      - type: synack_split
+"#;
+
+    let parsed = parse_yaml_str(yaml, ".").expect("parse yaml");
+    let steps = &parsed.strategies[0].steps;
+
+    assert_eq!(steps[0].kind, StepType::SynAck);
+    assert_eq!(steps[0].ttl, Some(5));
+    assert_eq!(steps[0].kind.registry_id(), "synack");
+    assert_eq!(steps[1].kind, StepType::SynAckSplit);
+    assert_eq!(steps[1].kind.registry_id(), "synack_split");
+}

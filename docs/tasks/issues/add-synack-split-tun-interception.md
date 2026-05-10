@@ -1,18 +1,18 @@
 ---
 title: Implement SYN-ACK interception via TUN for synack and synack_split strategies
 type: task
-status: backlog
+status: doing
 area: vpn
 priority: medium
-owner: unassigned
+owner: Codex
 parent: zapret2-feature-parity-epic
 blocks: []
-blocked_by: [add-ripdpi-strategy-trait-crate]
+blocked_by: []
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Implement SYN-ACK interception via TUN for synack and synack_split strategies #repo/RIPDPI #area/vpn #status/backlog 🔼
+- [ ] #task Implement SYN-ACK interception via TUN for synack and synack_split strategies #repo/RIPDPI #area/vpn #status/doing 🔼
 
 ## Objective
 
@@ -67,3 +67,8 @@ Both require a raw socket for injection (Tier 1), but the interception itself on
 ## Definition of done
 
 Integration test with a controlled TUN loopback: send a SYN-ACK packet in, verify `synack` emits two packets (modified + original) on the raw socket path. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+- 2026-05-10: Added the tunnel-core ingress component and inserted it in the TUN read path with default disabled/no-op behavior, IPv4/IPv6 SYN-ACK detection tests, low-TTL packet mutation tests, split fake+real packet emission tests, and strategy YAML/registry IDs for `synack` and `synack_split`.
+- 2026-05-10: Remaining work before review: wire runtime strategy selection and a real VPN-protected raw packet injector, then add an end-to-end Mode.VPN forwarding/handshake regression test.

@@ -107,6 +107,10 @@ pub enum StepType {
     Wsize,
     Wssize,
     Ipv6Ext,
+    #[serde(rename = "synack")]
+    SynAck,
+    #[serde(rename = "synack_split")]
+    SynAckSplit,
 }
 
 impl StepType {
@@ -128,6 +132,8 @@ impl StepType {
             Self::Wsize => "wsize",
             Self::Wssize => "wssize",
             Self::Ipv6Ext => "ipv6_ext",
+            Self::SynAck => "synack",
+            Self::SynAckSplit => "synack_split",
         }
     }
 }

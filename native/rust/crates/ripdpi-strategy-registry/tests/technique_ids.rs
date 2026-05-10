@@ -21,6 +21,8 @@ fn built_in_technique_ids_resolve() {
         "http_unixeol",
         "wsize",
         "wssize",
+        "synack",
+        "synack_split",
     ] {
         assert!(registry.get(id).is_some(), "{id} did not resolve");
     }

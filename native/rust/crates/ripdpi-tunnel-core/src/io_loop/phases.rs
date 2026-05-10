@@ -131,6 +131,7 @@ fn route_tcp_or_other_packet(packet: &[u8], state: &mut LoopState) {
         return;
     }
 
+    state.runtime.tun_ingress_interceptor.handle_packet(packet);
     ensure_pending_listen_for_syn(packet, &mut state.pending_listens, &mut state.socket_set);
     state.device.push_rx(packet.to_vec());
 }

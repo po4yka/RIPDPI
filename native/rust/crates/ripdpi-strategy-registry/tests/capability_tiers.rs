@@ -12,4 +12,13 @@ fn built_in_techniques_report_required_tiers() {
         assert_eq!(descriptor.required_tier, CapabilityTier::Tier2);
         assert_eq!(descriptor.required_capabilities, [RuntimeCapability::ReplacementSocket]);
     }
+
+    for id in ["synack", "synack_split"] {
+        let descriptor = registry.get(id).unwrap_or_else(|| panic!("{id} descriptor"));
+        assert_eq!(descriptor.required_tier, CapabilityTier::Tier3);
+        assert_eq!(
+            descriptor.required_capabilities,
+            [RuntimeCapability::VpnMode, RuntimeCapability::RawTcpFakeSend, RuntimeCapability::VpnProtect]
+        );
+    }
 }

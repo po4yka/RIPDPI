@@ -195,6 +195,8 @@ struct BuiltinTechniqueDefinition {
 const TCP_REPAIR_CAPS: &[RuntimeCapability] = &[RuntimeCapability::ReplacementSocket];
 const VPN_CAPS: &[RuntimeCapability] = &[RuntimeCapability::VpnMode];
 const WINDOW_CLAMP_CAPS: &[RuntimeCapability] = &[RuntimeCapability::TcpWindowClamp];
+const SYNACK_CAPS: &[RuntimeCapability] =
+    &[RuntimeCapability::VpnMode, RuntimeCapability::RawTcpFakeSend, RuntimeCapability::VpnProtect];
 
 const BUILTIN_TECHNIQUES: &[BuiltinTechniqueDefinition] = &[
     BuiltinTechniqueDefinition {
@@ -304,6 +306,18 @@ const BUILTIN_TECHNIQUES: &[BuiltinTechniqueDefinition] = &[
         label: "TCP window scale size",
         required_tier: CapabilityTier::Tier1,
         required_capabilities: WINDOW_CLAMP_CAPS,
+    },
+    BuiltinTechniqueDefinition {
+        id: "synack",
+        label: "SYN-ACK low TTL",
+        required_tier: CapabilityTier::Tier3,
+        required_capabilities: SYNACK_CAPS,
+    },
+    BuiltinTechniqueDefinition {
+        id: "synack_split",
+        label: "SYN-ACK split",
+        required_tier: CapabilityTier::Tier3,
+        required_capabilities: SYNACK_CAPS,
     },
 ];
 

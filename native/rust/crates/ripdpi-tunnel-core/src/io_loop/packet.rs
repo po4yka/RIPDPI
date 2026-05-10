@@ -13,6 +13,7 @@ mod tests;
 pub(crate) use endpoint::endpoint_to_socketaddr;
 #[cfg(test)]
 pub(crate) use icmp::build_udp_port_unreachable;
+pub(in crate::io_loop) use parse::parse_tcp_slices;
 #[cfg(test)]
 pub(crate) use parse::tcp_dst_port;
 #[cfg(test)]
