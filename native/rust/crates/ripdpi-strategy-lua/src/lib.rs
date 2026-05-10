@@ -7,12 +7,16 @@ mod enabled {
     use std::path::{Path, PathBuf};
     use std::sync::{Arc, Mutex};
 
-    use mlua::{Function, Lua, RegistryKey, Table, Value};
+    use mlua::{Function, Lua, RegistryKey, String as LuaString, Table, Value};
     use ripdpi_strategy_trait::{
-        DesyncAction, DesyncPlan, DesyncStrategy, FlowId, StrategyContext, StrategyDescriptor, StrategyError,
-        StrategyVerdict,
+        DesyncAction, DesyncPlan, DesyncStrategy, FlowId, L7Protocol, MarkerName, RuntimeCapability, StrategyContext,
+        StrategyDescriptor, StrategyError, StrategyVerdict,
     };
     use thiserror::Error;
+
+    const VERDICT_PASS: i64 = 0;
+    const VERDICT_MODIFY: i64 = 1;
+    const VERDICT_DROP: i64 = 2;
 
     /// Lua backend errors.
     #[derive(Debug, Error)]
@@ -49,9 +53,16 @@ mod enabled {
     impl LuaStrategyEngine {
         /// Initializes a Lua 5.4 VM.
         pub fn new() -> Result<Self, LuaError> {
+            let lua = Lua::new();
+            let globals = lua.globals();
+            globals.set("VERDICT_PASS", VERDICT_PASS).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+            globals.set("VERDICT_MODIFY", VERDICT_MODIFY).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+            globals.set("VERDICT_DROP", VERDICT_DROP).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+            drop(globals);
+
             Ok(Self {
                 inner: Arc::new(Mutex::new(LuaEngineInner {
-                    lua: Lua::new(),
+                    lua,
                     registered: HashMap::new(),
                     conn_states: HashMap::new(),
                 })),
@@ -118,7 +129,7 @@ mod enabled {
             Ok(())
         }
 
-        fn call_strategy(&self, func_name: &str, ctx: &StrategyContext<'_>) -> Result<Option<Vec<u8>>, LuaError> {
+        fn call_strategy(&self, func_name: &str, ctx: &StrategyContext<'_>) -> Result<LuaCallOutcome, LuaError> {
             let mut inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
             if !inner.conn_states.contains_key(&ctx.flow_id) {
                 let table = inner.lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
@@ -138,17 +149,331 @@ mod enabled {
                 .ok_or_else(|| LuaError::FunctionNotRegistered(func_name.to_owned()))?;
             let conn =
                 inner.lua.registry_value::<Table>(conn_key).map_err(|error| LuaError::Call(error.to_string()))?;
-            let desync = inner.lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
-            desync.set("conn", conn).map_err(|error| LuaError::Call(error.to_string()))?;
-            let payload = inner.lua.create_string(ctx.payload).map_err(|error| LuaError::Call(error.to_string()))?;
-            desync.set("payload", payload).map_err(|error| LuaError::Call(error.to_string()))?;
+            let call_plan = Arc::new(Mutex::new(LuaCallPlan::default()));
+            let desync = create_desync_table(&inner.lua, ctx, conn, Arc::clone(&call_plan))?;
 
             match function.call::<Value>(desync).map_err(|error| LuaError::Call(error.to_string()))? {
-                Value::String(output) => Ok(Some(output.as_bytes().to_vec())),
-                Value::Nil | Value::Boolean(_) | Value::Integer(_) | Value::Number(_) => Ok(None),
+                Value::String(output) => {
+                    let call_plan = take_call_plan(call_plan)?;
+                    Ok(LuaCallOutcome {
+                        output: Some(output.as_bytes().to_vec()),
+                        actions: call_plan.actions,
+                        verdict: call_plan.verdict,
+                    })
+                }
+                Value::Integer(verdict) => {
+                    let mut call_plan = take_call_plan(call_plan)?;
+                    call_plan.verdict = verdict_from_lua(verdict).or(call_plan.verdict);
+                    Ok(LuaCallOutcome { output: None, actions: call_plan.actions, verdict: call_plan.verdict })
+                }
+                Value::Number(verdict) => {
+                    let mut call_plan = take_call_plan(call_plan)?;
+                    call_plan.verdict = verdict_from_lua(verdict as i64).or(call_plan.verdict);
+                    Ok(LuaCallOutcome { output: None, actions: call_plan.actions, verdict: call_plan.verdict })
+                }
+                Value::Nil | Value::Boolean(_) => {
+                    let call_plan = take_call_plan(call_plan)?;
+                    Ok(LuaCallOutcome { output: None, actions: call_plan.actions, verdict: call_plan.verdict })
+                }
                 other => Err(LuaError::Call(format!("unsupported Lua strategy return type: {}", other.type_name()))),
             }
         }
+    }
+
+    #[derive(Default)]
+    struct LuaCallPlan {
+        actions: Vec<DesyncAction>,
+        verdict: Option<StrategyVerdict>,
+    }
+
+    struct LuaCallOutcome {
+        output: Option<Vec<u8>>,
+        actions: Vec<DesyncAction>,
+        verdict: Option<StrategyVerdict>,
+    }
+
+    fn take_call_plan(call_plan: Arc<Mutex<LuaCallPlan>>) -> Result<LuaCallPlan, LuaError> {
+        let mut call_plan = call_plan.lock().map_err(|_| LuaError::LockPoisoned)?;
+        Ok(std::mem::take(&mut *call_plan))
+    }
+
+    fn lock_lua_call_plan(call_plan: &Arc<Mutex<LuaCallPlan>>) -> mlua::Result<std::sync::MutexGuard<'_, LuaCallPlan>> {
+        call_plan.lock().map_err(|_| mlua::Error::external("lua call plan lock poisoned"))
+    }
+
+    fn create_desync_table(
+        lua: &Lua,
+        ctx: &StrategyContext<'_>,
+        conn: Table,
+        call_plan: Arc<Mutex<LuaCallPlan>>,
+    ) -> Result<Table, LuaError> {
+        let desync = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("conn", conn).map_err(|error| LuaError::Call(error.to_string()))?;
+        desync
+            .set("payload", lua.create_string(ctx.payload).map_err(|error| LuaError::Call(error.to_string()))?)
+            .map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("dis", create_dis_table(lua, ctx)?).map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("caps", create_caps_table(lua, ctx)?).map_err(|error| LuaError::Call(error.to_string()))?;
+        attach_action_functions(lua, &desync, ctx, call_plan)?;
+        Ok(desync)
+    }
+
+    fn create_dis_table(lua: &Lua, ctx: &StrategyContext<'_>) -> Result<Table, LuaError> {
+        let dis = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
+        dis.set("proto", proto_name(&ctx.dissect.proto)).map_err(|error| LuaError::Call(error.to_string()))?;
+        set_optional_string(lua, &dis, "hostname", hostname(&ctx.dissect.proto))?;
+        dis.set("src_port", ctx.dissect.src_port).map_err(|error| LuaError::Call(error.to_string()))?;
+        dis.set("dst_port", ctx.dissect.dst_port).map_err(|error| LuaError::Call(error.to_string()))?;
+        dis.set("is_ipv6", ctx.dissect.is_ipv6).map_err(|error| LuaError::Call(error.to_string()))?;
+
+        let pos = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
+        for (marker, name) in MARKER_NAMES {
+            if let Some(offset) = ctx.dissect.markers.get(marker) {
+                pos.set(*name, *offset).map_err(|error| LuaError::Call(error.to_string()))?;
+            }
+        }
+        dis.set("pos", pos).map_err(|error| LuaError::Call(error.to_string()))?;
+        Ok(dis)
+    }
+
+    fn create_caps_table(lua: &Lua, ctx: &StrategyContext<'_>) -> Result<Table, LuaError> {
+        let caps = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
+        let raw_socket =
+            ctx.caps.has(RuntimeCapability::RawTcpFakeSend) || ctx.caps.has(RuntimeCapability::RawUdpFragmentation);
+        caps.set("raw_socket", raw_socket).map_err(|error| LuaError::Call(error.to_string()))?;
+        caps.set("tcp_repair", ctx.caps.has(RuntimeCapability::ReplacementSocket))
+            .map_err(|error| LuaError::Call(error.to_string()))?;
+        caps.set("vpn_mode", ctx.caps.has(RuntimeCapability::VpnMode))
+            .map_err(|error| LuaError::Call(error.to_string()))?;
+        Ok(caps)
+    }
+
+    fn attach_action_functions(
+        lua: &Lua,
+        desync: &Table,
+        ctx: &StrategyContext<'_>,
+        call_plan: Arc<Mutex<LuaCallPlan>>,
+    ) -> Result<(), LuaError> {
+        let detect_proto = proto_name(&ctx.dissect.proto).to_owned();
+        let detect = lua
+            .create_function(move |_, proto: String| Ok(proto.eq_ignore_ascii_case(&detect_proto)))
+            .map_err(to_call)?;
+        desync.set("detect", detect).map_err(to_call)?;
+
+        let markers = ctx.dissect.markers.clone();
+        let pos = lua
+            .create_function(move |_, marker: String| {
+                Ok(marker_by_name(&marker).and_then(|name| markers.get(&name).copied()))
+            })
+            .map_err(to_call)?;
+        desync.set("pos", pos).map_err(to_call)?;
+
+        let pass_plan = Arc::clone(&call_plan);
+        let pass = lua
+            .create_function(move |_, ()| {
+                lock_lua_call_plan(&pass_plan)?.verdict = Some(StrategyVerdict::FallbackPlain);
+                Ok(VERDICT_PASS)
+            })
+            .map_err(to_call)?;
+        desync.set("pass", pass).map_err(to_call)?;
+
+        let drop_plan = Arc::clone(&call_plan);
+        let drop_fn = lua
+            .create_function(move |_, ()| {
+                lock_lua_call_plan(&drop_plan)?.verdict = Some(StrategyVerdict::Drop);
+                Ok(VERDICT_DROP)
+            })
+            .map_err(to_call)?;
+        desync.set("drop", drop_fn).map_err(to_call)?;
+
+        let split_plan = Arc::clone(&call_plan);
+        let split = lua
+            .create_function(move |_, (offset, disorder, ttl): (usize, bool, Option<u8>)| {
+                let mut plan = lock_lua_call_plan(&split_plan)?;
+                if let Some(ttl) = ttl {
+                    if plan.actions.last() != Some(&DesyncAction::SetTtl(ttl)) {
+                        plan.actions.push(DesyncAction::SetTtl(ttl));
+                    }
+                }
+                plan.actions.push(DesyncAction::Split { offset, disorder });
+                plan.verdict = Some(StrategyVerdict::Apply);
+                Ok(VERDICT_MODIFY)
+            })
+            .map_err(to_call)?;
+        desync.set("split", split).map_err(to_call)?;
+
+        let rawsend_plan = Arc::clone(&call_plan);
+        let rawsend = lua
+            .create_function(move |_, bytes: LuaString| {
+                let mut plan = lock_lua_call_plan(&rawsend_plan)?;
+                plan.actions.push(DesyncAction::RawSend(bytes.as_bytes().to_vec()));
+                plan.verdict = Some(StrategyVerdict::Apply);
+                Ok(VERDICT_MODIFY)
+            })
+            .map_err(to_call)?;
+        desync.set("rawsend", rawsend).map_err(to_call)?;
+
+        let wsize_plan = Arc::clone(&call_plan);
+        let wsize = lua
+            .create_function(move |_, window: u32| {
+                let mut plan = lock_lua_call_plan(&wsize_plan)?;
+                plan.actions.push(DesyncAction::SetWindowClamp(window));
+                plan.verdict = Some(StrategyVerdict::Apply);
+                Ok(VERDICT_MODIFY)
+            })
+            .map_err(to_call)?;
+        desync.set("wsize", wsize).map_err(to_call)?;
+
+        let set_ttl_plan = Arc::clone(&call_plan);
+        let set_ttl = lua
+            .create_function(move |_, ttl: u8| {
+                lock_lua_call_plan(&set_ttl_plan)?.actions.push(DesyncAction::SetTtl(ttl));
+                Ok(VERDICT_MODIFY)
+            })
+            .map_err(to_call)?;
+        desync.set("set_ttl", set_ttl).map_err(to_call)?;
+
+        attach_compatibility_placeholders(lua, desync, call_plan)?;
+        Ok(())
+    }
+
+    fn attach_compatibility_placeholders(
+        lua: &Lua,
+        desync: &Table,
+        call_plan: Arc<Mutex<LuaCallPlan>>,
+    ) -> Result<(), LuaError> {
+        let fake_plan = Arc::clone(&call_plan);
+        let fake = lua
+            .create_function(move |_, (ttl, _sni_mode, _payload_file): (Option<u8>, Option<String>, Option<String>)| {
+                let mut plan = lock_lua_call_plan(&fake_plan)?;
+                if let Some(ttl) = ttl {
+                    plan.actions.push(DesyncAction::SetTtl(ttl));
+                }
+                plan.actions.push(DesyncAction::RawSend(Vec::new()));
+                plan.verdict = Some(StrategyVerdict::Apply);
+                Ok(VERDICT_MODIFY)
+            })
+            .map_err(to_call)?;
+        desync.set("fake", fake).map_err(to_call)?;
+
+        let oob_plan = Arc::clone(&call_plan);
+        let oob = lua
+            .create_function(move |_, (_offset, byte): (usize, u8)| {
+                let mut plan = lock_lua_call_plan(&oob_plan)?;
+                plan.actions.push(DesyncAction::Write(vec![byte]));
+                plan.verdict = Some(StrategyVerdict::Apply);
+                Ok(VERDICT_MODIFY)
+            })
+            .map_err(to_call)?;
+        desync.set("oob", oob).map_err(to_call)?;
+
+        let fake_rst_plan = Arc::clone(&call_plan);
+        let fake_rst = lua
+            .create_function(move |_, ttl: Option<u8>| {
+                let mut plan = lock_lua_call_plan(&fake_rst_plan)?;
+                if let Some(ttl) = ttl {
+                    plan.actions.push(DesyncAction::SetTtl(ttl));
+                }
+                plan.actions.push(DesyncAction::RawSend(Vec::new()));
+                plan.verdict = Some(StrategyVerdict::Apply);
+                Ok(VERDICT_MODIFY)
+            })
+            .map_err(to_call)?;
+        desync.set("fake_rst", fake_rst).map_err(to_call)?;
+
+        let udplen_plan = Arc::clone(&call_plan);
+        let udplen = lua
+            .create_function(move |_, delta: i16| {
+                let mut plan = lock_lua_call_plan(&udplen_plan)?;
+                plan.actions.push(DesyncAction::RawSend(delta.to_be_bytes().to_vec()));
+                plan.verdict = Some(StrategyVerdict::Apply);
+                Ok(VERDICT_MODIFY)
+            })
+            .map_err(to_call)?;
+        desync.set("udplen", udplen).map_err(to_call)?;
+        Ok(())
+    }
+
+    fn set_optional_string(lua: &Lua, table: &Table, key: &str, value: Option<&str>) -> Result<(), LuaError> {
+        match value {
+            Some(value) => table
+                .set(key, lua.create_string(value).map_err(|error| LuaError::Call(error.to_string()))?)
+                .map_err(|error| LuaError::Call(error.to_string())),
+            None => table.set(key, Value::Nil).map_err(|error| LuaError::Call(error.to_string())),
+        }
+    }
+
+    fn proto_name(proto: &L7Protocol) -> &'static str {
+        match proto {
+            L7Protocol::Any => "any",
+            L7Protocol::Unknown => "unknown",
+            L7Protocol::Known => "known",
+            L7Protocol::Http(_) => "http",
+            L7Protocol::Tls(_) => "tls",
+            L7Protocol::Dtls(_) => "dtls",
+            L7Protocol::Quic(_) => "quic",
+            L7Protocol::WireGuard(_) => "wireguard",
+            L7Protocol::Dht(_) => "dht",
+            L7Protocol::Discord(_) => "discord_ip_discovery",
+            L7Protocol::Stun(_) => "stun",
+            L7Protocol::Xmpp(_) => "xmpp",
+            L7Protocol::Dns(_) => "dns",
+            L7Protocol::Mtproto(_) => "mtproto",
+            L7Protocol::BitTorrent(_) => "bittorrent",
+            L7Protocol::UtpBitTorrent(_) => "utp_bittorrent",
+        }
+    }
+
+    fn hostname(proto: &L7Protocol) -> Option<&str> {
+        match proto {
+            L7Protocol::Http(dissect) => dissect.host.as_deref(),
+            L7Protocol::Tls(dissect) => dissect.sni.as_deref(),
+            _ => None,
+        }
+    }
+
+    fn verdict_from_lua(verdict: i64) -> Option<StrategyVerdict> {
+        match verdict {
+            VERDICT_PASS => Some(StrategyVerdict::FallbackPlain),
+            VERDICT_MODIFY => Some(StrategyVerdict::Apply),
+            VERDICT_DROP => Some(StrategyVerdict::Drop),
+            _ => None,
+        }
+    }
+
+    const MARKER_NAMES: &[(MarkerName, &str)] = &[
+        (MarkerName::Absolute, "absolute"),
+        (MarkerName::Host, "host"),
+        (MarkerName::HostEnd, "endhost"),
+        (MarkerName::HostSld, "sld"),
+        (MarkerName::HostMidSld, "midsld"),
+        (MarkerName::HostEndSld, "endsld"),
+        (MarkerName::HttpMethod, "http_method"),
+        (MarkerName::ExtLen, "ext_len"),
+        (MarkerName::SniExt, "sni_ext"),
+        (MarkerName::Data, "data"),
+        (MarkerName::End, "end"),
+    ];
+
+    fn marker_by_name(name: &str) -> Option<MarkerName> {
+        match name {
+            "absolute" | "abs" => Some(MarkerName::Absolute),
+            "host" => Some(MarkerName::Host),
+            "endhost" | "host_end" => Some(MarkerName::HostEnd),
+            "sld" | "host_sld" => Some(MarkerName::HostSld),
+            "midsld" | "host_mid_sld" => Some(MarkerName::HostMidSld),
+            "endsld" | "host_end_sld" => Some(MarkerName::HostEndSld),
+            "http_method" => Some(MarkerName::HttpMethod),
+            "ext_len" => Some(MarkerName::ExtLen),
+            "sni_ext" => Some(MarkerName::SniExt),
+            "data" => Some(MarkerName::Data),
+            "end" => Some(MarkerName::End),
+            _ => None,
+        }
+    }
+
+    fn to_call(error: mlua::Error) -> LuaError {
+        LuaError::Call(error.to_string())
     }
 
     struct LuaFunctionStrategy {
@@ -167,13 +492,21 @@ mod enabled {
 
         fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<(), StrategyError> {
             match self.engine.call_strategy(&self.func_name, ctx) {
-                Ok(Some(output)) => {
-                    plan.actions.push(DesyncAction::Write(output));
-                    plan.verdict = StrategyVerdict::Apply;
+                Ok(outcome) => {
+                    let had_actions = !outcome.actions.is_empty() || outcome.output.is_some();
+                    plan.actions.extend(outcome.actions);
+                    if let Some(output) = outcome.output {
+                        plan.actions.push(DesyncAction::Write(output));
+                    }
+                    if let Some(verdict) = outcome.verdict {
+                        plan.verdict = verdict;
+                    } else if had_actions {
+                        plan.verdict = StrategyVerdict::Apply;
+                    }
                     Ok(())
                 }
-                Ok(None) => Ok(()),
                 Err(LuaError::ScriptLoad(error)) => Err(StrategyError::ScriptLoad(error)),
+                Err(LuaError::Call(error)) => Err(StrategyError::LuaTypeError(error)),
                 Err(error) => Err(StrategyError::Execution(error.to_string())),
             }
         }

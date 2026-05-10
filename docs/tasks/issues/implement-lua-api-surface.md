@@ -1,7 +1,7 @@
 ---
 title: Implement Lua API surface for strategy scripts
 type: task
-status: backlog
+status: review
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: zapret2-feature-parity-epic
 blocks: []
 blocked_by: [add-ripdpi-strategy-lua-crate, expand-l7-protocol-detection]
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Implement Lua API surface for strategy scripts #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [ ] #task Implement Lua API surface for strategy scripts #repo/RIPDPI #area/rust-native #status/review 🔼
 
 ## Objective
 
@@ -105,3 +105,17 @@ desync.pos(marker_name)                   -- returns integer offset or nil
 ## Definition of done
 
 Load `zapret-antidpi.lua`, call `fake({ttl=5})`, verify `DesyncPlan` contains `DesyncAction::WriteFake` with TTL=5. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Work log
+
+2026-05-10:
+
+- Added Lua VM verdict globals (`VERDICT_PASS`, `VERDICT_MODIFY`, `VERDICT_DROP`) and per-call `desync` table construction for `dis`, `dis.pos`, `conn`, `caps`, `payload`, `detect()`, and `pos()`.
+- Exposed action functions for `pass`, `drop`, `split`, `set_ttl`, `rawsend`, `wsize`, `fake`, `oob`, `fake_rst`, and `udplen` through `ripdpi-strategy-trait::DesyncAction` where the current trait has matching action types.
+- Added focused Lua API coverage in `native/rust/crates/ripdpi-strategy-lua/tests/api_*.rs` for dissect fields, marker lookup, actions, drop verdict, and Lua type-error mapping.
+- Verification:
+  - `cargo fmt --all`
+  - `CARGO_TARGET_DIR=target/codex-lua-api cargo test -p ripdpi-strategy-lua --features lua-strategies --locked`
+  - `CARGO_TARGET_DIR=target/codex-lua-api-no-feature cargo check -p ripdpi-strategy-lua --no-default-features --locked`
+  - `CARGO_TARGET_DIR=target/codex-lua-api cargo clippy -p ripdpi-strategy-lua --all-targets --features lua-strategies --locked -- -D warnings`
+- Remaining review gaps: full `zapret-antidpi.lua` compatibility is not proven, and placeholder mappings for `fake`, `fake_rst`, `oob`, and `udplen` cannot yet produce exact zapret-equivalent action variants because `ripdpi-strategy-trait::DesyncAction` does not expose dedicated `WriteFake`, urgent/OOB, fake-RST, or UDP-length action types. `rawsend` currently appends a `RawSend` action for the runtime to execute; this unit slice does not prove VpnProtect-backed socket execution.
