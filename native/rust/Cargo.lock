@@ -3141,6 +3141,7 @@ dependencies = [
  "ripdpi-android-vpn-protect-adapter",
  "ripdpi-strategy-config",
  "ripdpi-strategy-lua",
+ "serde_json",
  "thiserror 2.0.18",
 ]
 

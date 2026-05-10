@@ -17,6 +17,7 @@ data class DetectionRunnerConfig(
     val includeIpComparisonCheck: Boolean = true,
     val includeRttTriangulationCheck: Boolean = false,
     val includeCdnPullingCheck: Boolean = false,
+    val includeNativeSignsCheck: Boolean = true,
     val encryptedDnsEnabled: Boolean = false,
     val webRtcProtectionEnabled: Boolean = false,
     val tlsFingerprintProfile: String = "chrome_stable",
@@ -36,6 +37,7 @@ enum class DetectionStage {
     IP_COMPARISON,
     RTT_TRIANGULATION,
     CDN_PULLING,
+    NATIVE_SIGNS,
 }
 
 data class DetectionProgress(
@@ -106,6 +108,10 @@ interface CdnPullingCheckerPort {
     suspend fun check(enabled: Boolean): CdnPullingResult
 }
 
+interface NativeSignsCheckerPort {
+    fun check(enabled: Boolean): NativeSignsResult
+}
+
 interface DetectionVerdictEvaluator {
     fun evaluate(
         geoIp: CategoryResult,
@@ -116,6 +122,7 @@ interface DetectionVerdictEvaluator {
         ipComparison: IpComparisonResult?,
         cdnPulling: CdnPullingResult?,
         ipConsensus: IpConsensusResult?,
+        nativeSigns: NativeSignsResult?,
     ): Verdict
 }
 

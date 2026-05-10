@@ -10,6 +10,7 @@ import com.poyka.ripdpi.core.detection.checker.IcmpSpoofingChecker
 import com.poyka.ripdpi.core.detection.checker.IndirectSignsChecker
 import com.poyka.ripdpi.core.detection.checker.IpComparisonChecker
 import com.poyka.ripdpi.core.detection.checker.LocationSignalsChecker
+import com.poyka.ripdpi.core.detection.checker.NativeSignsChecker
 import com.poyka.ripdpi.core.detection.checker.RttTriangulationChecker
 import com.poyka.ripdpi.core.detection.checker.SystemPingProber
 import com.poyka.ripdpi.core.detection.checker.TimingAnalysisChecker
@@ -156,6 +157,24 @@ class DefaultCdnPullingCheckerPort
             )
     }
 
+class DefaultNativeSignsCheckerPort
+    @Inject
+    constructor() : NativeSignsCheckerPort {
+        override fun check(enabled: Boolean): NativeSignsResult =
+            if (enabled) {
+                NativeSignsChecker.check()
+            } else {
+                NativeSignsResult(
+                    category =
+                        CategoryResult(
+                            name = "Native signs",
+                            detected = false,
+                            findings = listOf(Finding("Native signs check disabled")),
+                        ),
+                )
+            }
+    }
+
 class DefaultDetectionVerdictEvaluator
     @Inject
     constructor() : DetectionVerdictEvaluator {
@@ -168,6 +187,7 @@ class DefaultDetectionVerdictEvaluator
             ipComparison: IpComparisonResult?,
             cdnPulling: CdnPullingResult?,
             ipConsensus: IpConsensusResult?,
+            nativeSigns: NativeSignsResult?,
         ): Verdict =
             VerdictEngine.evaluate(
                 geoIp = geoIp,
@@ -178,5 +198,6 @@ class DefaultDetectionVerdictEvaluator
                 ipComparison = ipComparison,
                 cdnPulling = cdnPulling,
                 ipConsensus = ipConsensus,
+                nativeSigns = nativeSigns,
             )
     }

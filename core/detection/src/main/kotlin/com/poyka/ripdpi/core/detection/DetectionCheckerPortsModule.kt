@@ -55,5 +55,8 @@ abstract class DetectionCheckerPortsModule {
     abstract fun bindCdnPullingCheckerPort(checker: DefaultCdnPullingCheckerPort): CdnPullingCheckerPort
 
     @Binds
+    abstract fun bindNativeSignsCheckerPort(checker: DefaultNativeSignsCheckerPort): NativeSignsCheckerPort
+
+    @Binds
     abstract fun bindDetectionVerdictEvaluator(evaluator: DefaultDetectionVerdictEvaluator): DetectionVerdictEvaluator
 }

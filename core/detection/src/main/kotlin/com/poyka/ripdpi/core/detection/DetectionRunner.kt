@@ -23,6 +23,7 @@ class DefaultDetectionCheckRunner
         ipComparisonChecker: IpComparisonCheckerPort,
         rttTriangulationChecker: RttTriangulationCheckerPort,
         cdnPullingChecker: CdnPullingCheckerPort,
+        nativeSignsChecker: NativeSignsCheckerPort,
         verdictEvaluator: DetectionVerdictEvaluator,
     ) : DetectionCheckRunner {
         private val scheduler =
@@ -40,6 +41,7 @@ class DefaultDetectionCheckRunner
                 ipComparisonChecker = ipComparisonChecker,
                 rttTriangulationChecker = rttTriangulationChecker,
                 cdnPullingChecker = cdnPullingChecker,
+                nativeSignsChecker = nativeSignsChecker,
             )
         private val resultAssembler = DetectionPipelineResultAssembler(verdictEvaluator)
 
@@ -73,6 +75,7 @@ object DetectionRunner {
             ipComparisonChecker = DefaultIpComparisonCheckerPort(dispatchers),
             rttTriangulationChecker = DefaultRttTriangulationCheckerPort(dispatchers),
             cdnPullingChecker = DefaultCdnPullingCheckerPort(dispatchers),
+            nativeSignsChecker = DefaultNativeSignsCheckerPort(),
             verdictEvaluator = DefaultDetectionVerdictEvaluator(),
         )
 

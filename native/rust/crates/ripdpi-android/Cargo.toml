@@ -26,6 +26,7 @@ ripdpi-android-telemetry-adapter = { workspace = true }
 ripdpi-android-vpn-protect-adapter = { workspace = true }
 ripdpi-strategy-config = { workspace = true }
 ripdpi-strategy-lua = { workspace = true, features = ["lua-strategies"] }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

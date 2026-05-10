@@ -7,6 +7,7 @@ import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.IpComparisonResult
+import com.poyka.ripdpi.core.detection.NativeSignsResult
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.VpnAppKind
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
@@ -22,6 +23,7 @@ object VerdictEngine {
         ipComparison: IpComparisonResult? = null,
         cdnPulling: CdnPullingResult? = null,
         ipConsensus: IpConsensusResult? = null,
+        nativeSigns: NativeSignsResult? = null,
     ): Verdict {
         val evidence =
             buildList {
@@ -44,6 +46,9 @@ object VerdictEngine {
             return Verdict.DETECTED
         }
         if (ipConsensus?.warpIndicator == true) {
+            return Verdict.DETECTED
+        }
+        if (nativeSigns?.category?.detected == true) {
             return Verdict.DETECTED
         }
 
@@ -100,7 +105,8 @@ object VerdictEngine {
                 indirectSigns.needsReview ||
                 ipComparison?.category?.needsReview == true ||
                 ipConsensus?.channelConflicts?.isNotEmpty() == true ||
-                ipConsensus?.crossChannelMismatches?.isNotEmpty() == true -> {
+                ipConsensus?.crossChannelMismatches?.isNotEmpty() == true ||
+                nativeSigns?.category?.needsReview == true -> {
                 Verdict.NEEDS_REVIEW
             }
 

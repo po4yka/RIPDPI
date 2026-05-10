@@ -55,6 +55,7 @@ class DetectionCheckRunnerTest {
             assertEquals("icmp", result.icmpSpoofing?.category?.name)
             assertEquals("ip comparison", result.ipComparison?.category?.name)
             assertEquals("rtt", result.rttTriangulation?.category?.name)
+            assertEquals("native signs", result.nativeSigns?.category?.name)
             assertEquals(setOf(1080), ports.bypass.excludePorts)
             assertEquals("com.example.proxy", ports.direct.excludePackage)
             assertEquals(true, ports.dns.encryptedDnsEnabled)
@@ -65,6 +66,7 @@ class DetectionCheckRunnerTest {
             assertSame(ports.geo.result, ports.verdict.geoIp)
             assertSame(ports.bypass.result, ports.verdict.bypassResult)
             assertSame(ports.ipComparison.result, ports.verdict.ipComparison)
+            assertSame(ports.nativeSigns.result, ports.verdict.nativeSigns)
             assertNotNull(result.ipConsensus)
             assertSame(result.ipConsensus, ports.verdict.ipConsensus)
             assertTrue(progress.any { it.stage == DetectionStage.GEO_IP && it.detail == "Done" })
@@ -91,6 +93,7 @@ class DetectionCheckRunnerTest {
                             includeIcmpSpoofingCheck = false,
                             includeIpComparisonCheck = false,
                             includeRttTriangulationCheck = false,
+                            includeNativeSignsCheck = false,
                         ),
                 )
 
@@ -114,6 +117,7 @@ class DetectionCheckRunnerTest {
             assertNull(result.icmpSpoofing)
             assertNull(result.ipComparison)
             assertNull(result.rttTriangulation)
+            assertNull(result.nativeSigns)
             assertEquals(0, ports.location.calls)
             assertEquals(0, ports.bypass.calls)
             assertEquals(0, ports.dns.calls)
@@ -123,6 +127,7 @@ class DetectionCheckRunnerTest {
             assertEquals(0, ports.icmp.calls)
             assertEquals(0, ports.ipComparison.calls)
             assertEquals(0, ports.rtt.calls)
+            assertEquals(0, ports.nativeSigns.calls)
             assertNotNull(ports.verdict.locationSignals)
             assertNotNull(ports.verdict.bypassResult)
         }
@@ -165,6 +170,7 @@ class DetectionCheckRunnerTest {
         val ipComparison = FakeIpComparisonCheckerPort()
         val rtt = FakeRttTriangulationCheckerPort()
         val cdnPulling = FakeCdnPullingCheckerPort()
+        val nativeSigns = FakeNativeSignsCheckerPort()
         val verdict = FakeDetectionVerdictEvaluator()
 
         fun newRunner(): DefaultDetectionCheckRunner =
@@ -182,6 +188,7 @@ class DetectionCheckRunnerTest {
                 ipComparisonChecker = ipComparison,
                 rttTriangulationChecker = rtt,
                 cdnPullingChecker = cdnPulling,
+                nativeSignsChecker = nativeSigns,
                 verdictEvaluator = verdict,
             )
     }
@@ -348,6 +355,19 @@ class DetectionCheckRunnerTest {
         }
     }
 
+    private class FakeNativeSignsCheckerPort : NativeSignsCheckerPort {
+        val result =
+            NativeSignsResult(
+                category = category("native signs"),
+            )
+        var calls = 0
+
+        override fun check(enabled: Boolean): NativeSignsResult {
+            calls += 1
+            return result
+        }
+    }
+
     private class FakeDetectionVerdictEvaluator : DetectionVerdictEvaluator {
         var geoIp: CategoryResult? = null
         var locationSignals: CategoryResult? = null
@@ -355,6 +375,7 @@ class DetectionCheckRunnerTest {
         var ipComparison: IpComparisonResult? = null
         var cdnPulling: CdnPullingResult? = null
         var ipConsensus: IpConsensusResult? = null
+        var nativeSigns: NativeSignsResult? = null
 
         override fun evaluate(
             geoIp: CategoryResult,
@@ -365,6 +386,7 @@ class DetectionCheckRunnerTest {
             ipComparison: IpComparisonResult?,
             cdnPulling: CdnPullingResult?,
             ipConsensus: IpConsensusResult?,
+            nativeSigns: NativeSignsResult?,
         ): Verdict {
             this.geoIp = geoIp
             this.locationSignals = locationSignals
@@ -372,6 +394,7 @@ class DetectionCheckRunnerTest {
             this.ipComparison = ipComparison
             this.cdnPulling = cdnPulling
             this.ipConsensus = ipConsensus
+            this.nativeSigns = nativeSigns
             return Verdict.NEEDS_REVIEW
         }
     }

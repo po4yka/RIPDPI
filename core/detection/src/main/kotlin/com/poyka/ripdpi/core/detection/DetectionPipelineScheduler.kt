@@ -19,6 +19,7 @@ internal class DetectionPipelineScheduler(
     private val ipComparisonChecker: IpComparisonCheckerPort,
     private val rttTriangulationChecker: RttTriangulationCheckerPort,
     private val cdnPullingChecker: CdnPullingCheckerPort,
+    private val nativeSignsChecker: NativeSignsCheckerPort,
 ) {
     suspend fun runChecks(
         context: Context,
@@ -128,6 +129,17 @@ internal class DetectionPipelineScheduler(
                 } else {
                     null
                 }
+            val nativeSignsDeferred =
+                if (config.includeNativeSignsCheck) {
+                    async {
+                        reporter.started(DetectionStage.NATIVE_SIGNS)
+                        nativeSignsChecker.check(enabled = true).also {
+                            reporter.completed(DetectionStage.NATIVE_SIGNS)
+                        }
+                    }
+                } else {
+                    null
+                }
 
             val geoIp = geoIpDeferred.await()
             val directSigns = directSignsDeferred.await()
@@ -182,6 +194,7 @@ internal class DetectionPipelineScheduler(
                 ipComparison = ipComparisonDeferred?.await(),
                 rttTriangulation = rttTriangulation,
                 cdnPulling = cdnPullingDeferred?.await(),
+                nativeSigns = nativeSignsDeferred?.await(),
             )
         }
 

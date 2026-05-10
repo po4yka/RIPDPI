@@ -30,6 +30,7 @@ enum class EvidenceSource {
     RTT_TRIANGULATION,
     CDN_PULLING,
     IP_CONSENSUS,
+    NATIVE_SIGNS,
 }
 
 enum class VpnAppKind {
@@ -174,6 +175,15 @@ data class CdnPullingResult(
     val actionableTargets: List<String> = emptyList(),
 )
 
+data class NativeSignsResult(
+    val category: CategoryResult,
+    val hiddenInterfaces: List<String> = emptyList(),
+    val hookMarkers: List<String> = emptyList(),
+    val rwxRegions: List<String> = emptyList(),
+    val rootArtifacts: List<String> = emptyList(),
+    val hasError: Boolean = false,
+)
+
 enum class Verdict {
     NOT_DETECTED,
     NEEDS_REVIEW,
@@ -250,6 +260,7 @@ data class DetectionCheckResult(
     val ipComparison: IpComparisonResult? = null,
     val rttTriangulation: RttTriangulationResult? = null,
     val cdnPulling: CdnPullingResult? = null,
+    val nativeSigns: NativeSignsResult? = null,
     val verdict: Verdict,
     val methodologyVersion: String = MethodologyVersion.CURRENT,
     val ipConsensus: IpConsensusResult? = null,

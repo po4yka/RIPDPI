@@ -337,6 +337,12 @@ private fun detectionCategoryEntries(result: DetectionCheckResult): List<Categor
             "ip_consensus",
             RipDpiIcons.Public,
         )
+        addOptionalCategory(
+            result.nativeSigns?.category,
+            "Native signs",
+            "native_signs",
+            RipDpiIcons.NetworkCheck,
+        )
     }
 
 private fun MutableList<CategoryEntry>.addOptionalCategory(

@@ -16,6 +16,7 @@ internal data class DetectionPipelineOutputs(
     val ipComparison: IpComparisonResult?,
     val rttTriangulation: RttTriangulationResult?,
     val cdnPulling: CdnPullingResult?,
+    val nativeSigns: NativeSignsResult?,
 )
 
 internal class DetectionPipelineResultAssembler(
@@ -41,6 +42,7 @@ internal class DetectionPipelineResultAssembler(
                 ipComparison = outputs.ipComparison,
                 cdnPulling = outputs.cdnPulling,
                 ipConsensus = ipConsensus,
+                nativeSigns = outputs.nativeSigns,
             )
 
         return DetectionCheckResult(
@@ -57,6 +59,7 @@ internal class DetectionPipelineResultAssembler(
             ipComparison = outputs.ipComparison,
             rttTriangulation = outputs.rttTriangulation,
             cdnPulling = outputs.cdnPulling,
+            nativeSigns = outputs.nativeSigns,
             verdict = verdict,
             ipConsensus = ipConsensus,
         )

@@ -103,5 +103,9 @@ private object DetectionStageProgressMessages {
             DetectionStage.CDN_PULLING -> {
                 DetectionStageProgressMessage("CDN Pulling", "Checking CDN trace endpoints...")
             }
+
+            DetectionStage.NATIVE_SIGNS -> {
+                DetectionStageProgressMessage("Native Signs", "Checking native interface and process signals...")
+            }
         }
 }
