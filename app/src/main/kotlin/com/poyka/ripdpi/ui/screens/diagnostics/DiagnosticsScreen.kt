@@ -46,6 +46,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
+import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEffect
 import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel
@@ -136,6 +137,7 @@ data class DiagnosticsScreenActions(
     val onOpenModeEditor: () -> Unit = {},
     val onOpenOwnedStackBrowser: (String) -> Unit = {},
     val onTogglePcapRecording: () -> Unit = {},
+    val onRunDnsIntegrityCheck: () -> Unit = {},
 )
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -146,6 +148,7 @@ fun DiagnosticsScreen(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     actions: DiagnosticsScreenActions = DiagnosticsScreenActions(),
+    dnsIntegrityTool: DiagnosticsDnsIntegrityToolUiModel = DiagnosticsDnsIntegrityToolUiModel(),
     pcapRecording: Boolean = false,
 ) {
     TrackRecomposition("DiagnosticsScreen")
@@ -158,6 +161,7 @@ fun DiagnosticsScreen(
         actions = actions,
         showDebugInfo = showDebugInfo,
         onToggleDebugInfo = { if (BuildConfig.DEBUG) showDebugInfo = !showDebugInfo },
+        dnsIntegrityTool = dnsIntegrityTool,
         pcapRecording = pcapRecording,
         modifier = modifier,
     )
@@ -173,6 +177,7 @@ private fun DiagnosticsScreenFrame(
     actions: DiagnosticsScreenActions,
     showDebugInfo: Boolean,
     onToggleDebugInfo: () -> Unit,
+    dnsIntegrityTool: DiagnosticsDnsIntegrityToolUiModel,
     pcapRecording: Boolean,
     modifier: Modifier,
 ) {
@@ -243,6 +248,7 @@ private fun DiagnosticsScreenFrame(
                     uiState = uiState,
                     pagerState = pagerState,
                     actions = actions,
+                    dnsIntegrityTool = dnsIntegrityTool,
                     pcapRecording = pcapRecording,
                     modifier = Modifier.weight(1f),
                 )
@@ -256,6 +262,7 @@ private fun DiagnosticsScreenPager(
     uiState: DiagnosticsUiState,
     pagerState: PagerState,
     actions: DiagnosticsScreenActions,
+    dnsIntegrityTool: DiagnosticsDnsIntegrityToolUiModel,
     pcapRecording: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -307,6 +314,8 @@ private fun DiagnosticsScreenPager(
                     onShareArchive = actions.onShareArchive,
                     onSaveArchive = actions.onSaveArchive,
                     onSaveLogs = actions.onSaveLogs,
+                    dnsIntegrityTool = dnsIntegrityTool,
+                    onRunDnsIntegrityCheck = actions.onRunDnsIntegrityCheck,
                     onOpenDetectionCheck = actions.onOpenDetectionCheck,
                     pcapRecording = pcapRecording,
                     onTogglePcapRecording = actions.onTogglePcapRecording,

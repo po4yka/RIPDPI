@@ -2,7 +2,10 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
@@ -14,10 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
+import com.poyka.ripdpi.activities.DiagnosticsApproachRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
+import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityState
+import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
@@ -32,7 +39,6 @@ import java.util.Locale
 private const val timingBreakdownDisplayCount = 4
 
 @Composable
-@Suppress("LongMethod")
 internal fun ToolsSection(
     approaches: DiagnosticsApproachesUiModel,
     share: DiagnosticsShareUiModel,
@@ -42,6 +48,8 @@ internal fun ToolsSection(
     onShareArchive: (String?) -> Unit,
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
+    dnsIntegrityTool: DiagnosticsDnsIntegrityToolUiModel = DiagnosticsDnsIntegrityToolUiModel(),
+    onRunDnsIntegrityCheck: () -> Unit = {},
     onOpenDetectionCheck: () -> Unit = {},
     pcapRecording: Boolean = false,
     onTogglePcapRecording: () -> Unit = {},
@@ -59,81 +67,22 @@ internal fun ToolsSection(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
-            RipDpiCard(variant = RipDpiCardVariant.Elevated) {
-                androidx.compose.material3.Text(
-                    text = stringResource(R.string.diagnostics_approaches_title).uppercase(),
-                    style = RipDpiThemeTokens.type.sectionTitle,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                )
-                androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    RipDpiChip(
-                        text = stringResource(R.string.diagnostics_approaches_profiles),
-                        selected = approaches.selectedMode == DiagnosticsApproachMode.Profiles,
-                        onClick = { onSelectApproachMode(DiagnosticsApproachMode.Profiles) },
-                        modifier =
-                            Modifier.ripDpiTestTag(
-                                RipDpiTestTags.diagnosticsApproachMode(DiagnosticsApproachMode.Profiles),
-                            ),
-                    )
-                    RipDpiChip(
-                        text = stringResource(R.string.diagnostics_approaches_strategies),
-                        selected = approaches.selectedMode == DiagnosticsApproachMode.Strategies,
-                        onClick = { onSelectApproachMode(DiagnosticsApproachMode.Strategies) },
-                        modifier =
-                            Modifier.ripDpiTestTag(
-                                RipDpiTestTags.diagnosticsApproachMode(DiagnosticsApproachMode.Strategies),
-                            ),
-                    )
-                }
-            }
+            ApproachModeCard(
+                selectedMode = approaches.selectedMode,
+                onSelectApproachMode = onSelectApproachMode,
+            )
         }
         items(items = approaches.rows, key = { it.id }, contentType = { "approach" }) { row ->
-            RipDpiCard(
-                onClick = { onSelectApproach(row.id) },
-                variant =
-                    if (row.id == approaches.focusedApproachId) {
-                        RipDpiCardVariant.Elevated
-                    } else {
-                        RipDpiCardVariant.Outlined
-                    },
-            ) {
-                StatusIndicator(label = row.verificationState, tone = statusTone(row.tone))
-                androidx.compose.material3.Text(
-                    text = row.title,
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = RipDpiThemeTokens.colors.foreground,
-                )
-                androidx.compose.material3.Text(
-                    text = row.subtitle,
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                )
-                MetricsRow(metrics = row.metrics)
-                androidx.compose.material3.Text(
-                    text = row.lastValidatedResult,
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = RipDpiThemeTokens.colors.foreground,
-                )
-                androidx.compose.material3.Text(
-                    text = row.dominantFailurePattern,
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                )
-            }
+            ApproachRowCard(
+                row = row,
+                focused = row.id == approaches.focusedApproachId,
+                onSelectApproach = onSelectApproach,
+            )
         }
         item {
-            ShareActionCard(
-                title = "Packet Capture",
-                body =
-                    if (pcapRecording) {
-                        "Recording packets for diagnostics..."
-                    } else {
-                        "Record raw packets to a pcap file for analysis in Wireshark."
-                    },
-                buttonLabel = if (pcapRecording) "Stop Recording" else "Start Recording",
-                onClick = onTogglePcapRecording,
-                iconTint = if (pcapRecording) RipDpiThemeTokens.colors.destructive else RipDpiThemeTokens.colors.info,
-                variant = if (pcapRecording) RipDpiButtonVariant.Destructive else RipDpiButtonVariant.Outline,
+            PcapCaptureCard(
+                pcapRecording = pcapRecording,
+                onTogglePcapRecording = onTogglePcapRecording,
             )
         }
         item {
@@ -196,6 +145,12 @@ internal fun ToolsSection(
             )
         }
         item {
+            DnsIntegrityToolCard(
+                tool = dnsIntegrityTool,
+                onRun = onRunDnsIntegrityCheck,
+            )
+        }
+        item {
             ShareActionCard(
                 title = stringResource(R.string.title_detection_check),
                 body = stringResource(R.string.detection_check_subtitle),
@@ -205,6 +160,162 @@ internal fun ToolsSection(
                 variant = RipDpiButtonVariant.Outline,
             )
         }
+    }
+}
+
+@Composable
+private fun ApproachModeCard(
+    selectedMode: DiagnosticsApproachMode,
+    onSelectApproachMode: (DiagnosticsApproachMode) -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+        androidx.compose.material3.Text(
+            text = stringResource(R.string.diagnostics_approaches_title).uppercase(),
+            style = RipDpiThemeTokens.type.sectionTitle,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            ApproachModeChip(
+                text = stringResource(R.string.diagnostics_approaches_profiles),
+                mode = DiagnosticsApproachMode.Profiles,
+                selectedMode = selectedMode,
+                onSelectApproachMode = onSelectApproachMode,
+            )
+            ApproachModeChip(
+                text = stringResource(R.string.diagnostics_approaches_strategies),
+                mode = DiagnosticsApproachMode.Strategies,
+                selectedMode = selectedMode,
+                onSelectApproachMode = onSelectApproachMode,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ApproachModeChip(
+    text: String,
+    mode: DiagnosticsApproachMode,
+    selectedMode: DiagnosticsApproachMode,
+    onSelectApproachMode: (DiagnosticsApproachMode) -> Unit,
+) {
+    RipDpiChip(
+        text = text,
+        selected = selectedMode == mode,
+        onClick = { onSelectApproachMode(mode) },
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsApproachMode(mode)),
+    )
+}
+
+@Composable
+private fun ApproachRowCard(
+    row: DiagnosticsApproachRowUiModel,
+    focused: Boolean,
+    onSelectApproach: (String) -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    RipDpiCard(
+        onClick = { onSelectApproach(row.id) },
+        variant = if (focused) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined,
+    ) {
+        StatusIndicator(label = row.verificationState, tone = statusTone(row.tone))
+        androidx.compose.material3.Text(
+            text = row.title,
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        androidx.compose.material3.Text(
+            text = row.subtitle,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        MetricsRow(metrics = row.metrics)
+        androidx.compose.material3.Text(
+            text = row.lastValidatedResult,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.foreground,
+        )
+        androidx.compose.material3.Text(
+            text = row.dominantFailurePattern,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+    }
+}
+
+@Composable
+private fun PcapCaptureCard(
+    pcapRecording: Boolean,
+    onTogglePcapRecording: () -> Unit,
+) {
+    ShareActionCard(
+        title = "Packet Capture",
+        body =
+            if (pcapRecording) {
+                "Recording packets for diagnostics..."
+            } else {
+                "Record raw packets to a pcap file for analysis in Wireshark."
+            },
+        buttonLabel = if (pcapRecording) "Stop Recording" else "Start Recording",
+        onClick = onTogglePcapRecording,
+        iconTint = if (pcapRecording) RipDpiThemeTokens.colors.destructive else RipDpiThemeTokens.colors.info,
+        variant = if (pcapRecording) RipDpiButtonVariant.Destructive else RipDpiButtonVariant.Outline,
+    )
+}
+
+@Composable
+private fun DnsIntegrityToolCard(
+    tool: DiagnosticsDnsIntegrityToolUiModel,
+    onRun: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        StatusIndicator(
+            label = tool.state.name.lowercase(Locale.US),
+            tone = statusTone(tool.state.tone()),
+        )
+        androidx.compose.material3.Text(
+            text = "DNS integrity",
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        androidx.compose.material3.Text(
+            text = tool.errorMessage ?: tool.summary,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = if (tool.errorMessage == null) colors.mutedForeground else colors.destructive,
+        )
+        MetricsRow(metrics = tool.metrics)
+        if (tool.rows.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                tool.rows.forEach { row ->
+                    StatusIndicator(
+                        label = "${row.domain}: ${row.verdict}",
+                        tone = statusTone(row.tone),
+                    )
+                    androidx.compose.material3.Text(
+                        text = "UDP ${row.udpAnswer} · DoH ${row.dohAnswer}",
+                        style = RipDpiThemeTokens.type.monoSmall,
+                        color = colors.mutedForeground,
+                    )
+                }
+            }
+        }
+        RipDpiButton(
+            text =
+                if (tool.state == DiagnosticsDnsIntegrityState.Running) {
+                    "Checking..."
+                } else {
+                    "Run DNS integrity"
+                },
+            enabled = tool.state != DiagnosticsDnsIntegrityState.Running,
+            onClick = onRun,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -287,3 +398,11 @@ internal fun DiagnosticsPerformanceCard(
 }
 
 private fun formatDuration(durationMillis: Double): String = String.format(Locale.US, "%.1f ms", durationMillis)
+
+private fun DiagnosticsDnsIntegrityState.tone(): com.poyka.ripdpi.activities.DiagnosticsTone =
+    when (this) {
+        DiagnosticsDnsIntegrityState.Idle -> com.poyka.ripdpi.activities.DiagnosticsTone.Neutral
+        DiagnosticsDnsIntegrityState.Running -> com.poyka.ripdpi.activities.DiagnosticsTone.Info
+        DiagnosticsDnsIntegrityState.Complete -> com.poyka.ripdpi.activities.DiagnosticsTone.Positive
+        DiagnosticsDnsIntegrityState.Failed -> com.poyka.ripdpi.activities.DiagnosticsTone.Negative
+    }

@@ -47,6 +47,7 @@ fun DiagnosticsRoute(
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pcapRecording by viewModel.pcapRecording.collectAsStateWithLifecycle()
+    val dnsIntegrityTool by viewModel.dnsIntegrityTool.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { DiagnosticsSection.entries.size }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -200,7 +201,9 @@ fun DiagnosticsRoute(
                 onOpenModeEditor = onOpenModeEditor,
                 onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
                 onTogglePcapRecording = remember(viewModel) { viewModel::togglePcapRecording },
+                onRunDnsIntegrityCheck = remember(viewModel) { viewModel::runDnsIntegrityCheck },
             ),
+        dnsIntegrityTool = dnsIntegrityTool,
         pcapRecording = pcapRecording,
         modifier = modifier,
     )

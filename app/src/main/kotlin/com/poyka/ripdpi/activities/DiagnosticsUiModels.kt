@@ -63,6 +63,31 @@ enum class DiagnosticsTone {
     Info,
 }
 
+enum class DiagnosticsDnsIntegrityState {
+    Idle,
+    Running,
+    Complete,
+    Failed,
+}
+
+@Immutable
+data class DiagnosticsDnsIntegrityDomainUiModel(
+    val domain: String,
+    val verdict: String,
+    val udpAnswer: String,
+    val dohAnswer: String,
+    val tone: DiagnosticsTone,
+)
+
+@Stable
+data class DiagnosticsDnsIntegrityToolUiModel(
+    val state: DiagnosticsDnsIntegrityState = DiagnosticsDnsIntegrityState.Idle,
+    val summary: String = "Compare direct UDP/53 answers against DoH controls for the bundled DPI domains.",
+    val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
+    val rows: ImmutableList<DiagnosticsDnsIntegrityDomainUiModel> = persistentListOf(),
+    val errorMessage: String? = null,
+)
+
 @Immutable
 data class DiagnosticsExecutionPolicyUiModel(
     val manualOnly: Boolean = false,
