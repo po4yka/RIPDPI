@@ -109,6 +109,14 @@ class SettingsViewModel
             mutations.updateSetting(key = key, value = value, transform = transform)
         }
 
+        suspend fun updateSettingAndAwait(
+            key: String,
+            value: String,
+            transform: SettingsMutation,
+        ) {
+            mutations.updateSettingAndAwait(key = key, value = value, transform = transform)
+        }
+
         fun selectBuiltInDnsProvider(providerId: String) = dnsActions.selectBuiltInDnsProvider(providerId)
 
         fun setEncryptedDnsProtocol(protocol: String) = dnsActions.setEncryptedDnsProtocol(protocol)

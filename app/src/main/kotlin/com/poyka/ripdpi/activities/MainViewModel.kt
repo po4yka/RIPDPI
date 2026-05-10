@@ -34,6 +34,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,13 +44,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
+import kotlin.time.Duration.Companion.seconds
 
 enum class ConnectionState {
     Disconnected,
@@ -336,6 +340,7 @@ class MainViewModel
 
         private val _pendingCrashReport = MutableStateFlow<CrashReport?>(null)
         val pendingCrashReport: StateFlow<CrashReport?> = _pendingCrashReport.asStateFlow()
+        private var strategyConfigRestartJob: Job? = null
 
         private val settingsState: StateFlow<AppSettings> =
             appSettingsRepository.settings.stateIn(
@@ -572,6 +577,30 @@ class MainViewModel
         fun onStartVerifiedVpn() = homeDiagnosticsActions.startVerifiedVpn()
 
         fun onToggleHomePcapRecording() = homeDiagnosticsActions.togglePcapRecording()
+
+        fun applySavedStrategyConfig(): StrategyConfigApplyResult {
+            val (status, mode) = mainServiceDependencies.serviceStateStore.status.value
+            if (status != AppStatus.Running) {
+                return StrategyConfigApplyResult.NextSession
+            }
+            if (strategyConfigRestartJob?.isActive == true) {
+                return StrategyConfigApplyResult.RestartAlreadyPending
+            }
+            strategyConfigRestartJob =
+                viewModelScope.launch {
+                    mainServiceDependencies.serviceController.stop()
+                    if (waitForServiceStatus(AppStatus.Halted)) {
+                        mainServiceDependencies.serviceController.start(mode)
+                    }
+                }
+            return StrategyConfigApplyResult.RestartingActiveService
+        }
+
+        private suspend fun waitForServiceStatus(target: AppStatus): Boolean =
+            withTimeoutOrNull(10.seconds) {
+                mainServiceDependencies.serviceStateStore.status.first { it.first == target }
+                true
+            } == true
 
         fun onShareHomeAnalysis() = homeDiagnosticsActions.shareLatestHomeAnalysis()
 

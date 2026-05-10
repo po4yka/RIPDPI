@@ -1081,6 +1081,51 @@ class MainViewModelTest {
             collector.cancel()
         }
 
+    @Test
+    fun `applySavedStrategyConfig leaves halted service for next start`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val viewModel =
+                createViewModel(
+                    serviceController = serviceController,
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.VPN),
+                    initialize = false,
+                )
+
+            val result = viewModel.applySavedStrategyConfig()
+            runCurrent()
+
+            assertEquals(StrategyConfigApplyResult.NextSession, result)
+            assertEquals(0, serviceController.stopCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+        }
+
+    @Test
+    fun `applySavedStrategyConfig restarts active service after halt`() =
+        runTest {
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            val serviceController = FakeServiceController()
+            val viewModel =
+                createViewModel(
+                    serviceController = serviceController,
+                    serviceStateStore = serviceStateStore,
+                    initialize = false,
+                )
+
+            val result = viewModel.applySavedStrategyConfig()
+            runCurrent()
+
+            assertEquals(StrategyConfigApplyResult.RestartingActiveService, result)
+            assertEquals(1, serviceController.stopCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+            assertEquals(StrategyConfigApplyResult.RestartAlreadyPending, viewModel.applySavedStrategyConfig())
+
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+
+            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
+        }
+
     private fun createViewModel(
         appSettingsRepository: FakeAppSettingsRepository =
             FakeAppSettingsRepository(

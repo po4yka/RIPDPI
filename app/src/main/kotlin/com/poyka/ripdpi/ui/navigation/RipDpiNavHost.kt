@@ -456,7 +456,11 @@ private fun NavGraphBuilder.addSettingsRoutes(
         composable<Route.StrategyConfig> {
             val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
             val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
-            StrategyConfigRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
+            StrategyConfigRoute(
+                onBack = { navController.popBackStack() },
+                viewModel = settingsViewModel,
+                applySavedConfig = mainViewModel::applySavedStrategyConfig,
+            )
         }
         composable<Route.Blockcheck> {
             BlockcheckRoute(onBack = { navController.popBackStack() })

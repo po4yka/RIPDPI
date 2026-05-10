@@ -26,6 +26,15 @@ internal class SettingsMutationRunner(
         )
     }
 
+    suspend fun updateSettingAndAwait(
+        key: String,
+        value: String,
+        transform: SettingsMutation,
+    ) {
+        appSettingsRepository.update(transform)
+        effects.emit(SettingsEffect.SettingChanged(key = key, value = value))
+    }
+
     fun launch(block: suspend SettingsMutationRunner.() -> Unit) {
         scope.launch { block() }
     }

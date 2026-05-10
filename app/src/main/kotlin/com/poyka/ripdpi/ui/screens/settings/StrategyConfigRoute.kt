@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -20,12 +21,16 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.SettingsViewModel
+import com.poyka.ripdpi.activities.StrategyConfigApplyResult
 import com.poyka.ripdpi.data.parseStrategyChainDsl
+import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.validateStrategyChainUsage
 import com.poyka.ripdpi.services.NativeStrategyConfigRuntime
 import com.poyka.ripdpi.services.StrategyConfigRuntime
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.state.SettingsUiState
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 @Composable
 fun StrategyConfigRoute(
@@ -33,11 +38,12 @@ fun StrategyConfigRoute(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
     runtimeFactory: () -> StrategyConfigRuntime = { NativeStrategyConfigRuntime() },
+    applySavedConfig: () -> StrategyConfigApplyResult = { StrategyConfigApplyResult.NextSession },
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val binder = remember(viewModel) { AdvancedSettingsBinder(viewModel::updateSetting) }
     val runtime = remember(runtimeFactory) { runCatching { runtimeFactory() }.getOrNull() }
+    val coroutineScope = rememberCoroutineScope()
     var source by rememberSaveable { mutableStateOf(StrategyConfigSource.BuiltIn) }
     var configText by rememberSaveable { mutableStateOf(uiState.desync.chainDsl) }
     var luaPath by rememberSaveable { mutableStateOf("") }
@@ -96,25 +102,33 @@ fun StrategyConfigRoute(
         onImport = { importLauncher.launch(StrategyConfigDocumentMimeTypes) },
         onExport = { shareStrategyConfig(context, configText) },
         onSave = {
-            banner =
-                saveStrategyConfig(
-                    context = context,
-                    source = source,
-                    configText = configText,
-                    luaPath = luaPath,
-                    runtime = runtime,
-                    saveChain = { value -> binder.onTextConfirmed(AdvancedTextSetting.ChainDsl, value, uiState) },
-                    saveRawStrategyConfig = { value ->
-                        viewModel.updateSetting("strategyChainYaml", value) {
-                            if (value.isBlank()) {
-                                clearStrategyChainYaml()
-                            } else {
-                                setStrategyChainYaml(value)
+            coroutineScope.launch {
+                banner =
+                    saveStrategyConfig(
+                        context = context,
+                        source = source,
+                        configText = configText,
+                        luaPath = luaPath,
+                        runtime = runtime,
+                        saveChain = { value ->
+                            val parsed = parseStrategyChainDsl(value).getOrThrow()
+                            viewModel.updateSettingAndAwait("chainDsl", value) {
+                                setStrategyChains(parsed.tcpSteps, parsed.udpSteps)
                             }
-                        }
-                    },
-                    uiState = uiState,
-                )
+                        },
+                        saveRawStrategyConfig = { value ->
+                            viewModel.updateSettingAndAwait("strategyChainYaml", value) {
+                                if (value.isBlank()) {
+                                    clearStrategyChainYaml()
+                                } else {
+                                    setStrategyChainYaml(value)
+                                }
+                            }
+                        },
+                        applySavedConfig = applySavedConfig,
+                        uiState = uiState,
+                    )
+            }
         },
         onReload = { banner = reloadLuaConfig(context, runtime) },
         onValidateLua = { banner = validateLuaScript(context, runtime, luaPath) },
@@ -163,40 +177,22 @@ private fun activePathLabel(
         }
     }
 
-private fun saveStrategyConfig(
+private suspend fun saveStrategyConfig(
     context: Context,
     source: StrategyConfigSource,
     configText: String,
     luaPath: String,
     runtime: StrategyConfigRuntime?,
-    saveChain: (String) -> Unit,
-    saveRawStrategyConfig: (String) -> Unit,
+    saveChain: suspend (String) -> Unit,
+    saveRawStrategyConfig: suspend (String) -> Unit,
+    applySavedConfig: () -> StrategyConfigApplyResult,
     uiState: SettingsUiState,
 ): StrategyConfigBanner =
     when (source) {
         StrategyConfigSource.BuiltIn -> {
             val validation = validateStrategyConfigText(configText, uiState)
             if (validation.isSuccess) {
-                saveChain(configText)
-                val reloadError =
-                    if (runtime == null) {
-                        context.getString(R.string.strategy_config_native_unavailable)
-                    } else {
-                        runtime.reloadConfig()
-                    }
-                if (reloadError == null) {
-                    StrategyConfigBanner(
-                        title = context.getString(R.string.strategy_config_saved_title),
-                        message = context.getString(R.string.strategy_config_saved_body),
-                        tone = WarningBannerTone.Info,
-                    )
-                } else {
-                    StrategyConfigBanner(
-                        title = context.getString(R.string.strategy_config_reload_failed_title),
-                        message = reloadError,
-                        tone = WarningBannerTone.Error,
-                    )
-                }
+                saveAndApplyStrategyConfig(context, applySavedConfig) { saveChain(configText) }
             } else {
                 StrategyConfigBanner(
                     title = context.getString(R.string.strategy_config_invalid_title),
@@ -216,21 +212,7 @@ private fun saveStrategyConfig(
                     runtime.validateStrategyConfigText(configText)
                 }
             if (validationError == null) {
-                saveRawStrategyConfig(configText)
-                val reloadError = runtime?.reloadConfig()
-                if (reloadError == null) {
-                    StrategyConfigBanner(
-                        title = context.getString(R.string.strategy_config_saved_title),
-                        message = context.getString(R.string.strategy_config_saved_body),
-                        tone = WarningBannerTone.Info,
-                    )
-                } else {
-                    StrategyConfigBanner(
-                        title = context.getString(R.string.strategy_config_reload_failed_title),
-                        message = reloadError,
-                        tone = WarningBannerTone.Error,
-                    )
-                }
+                saveAndApplyStrategyConfig(context, applySavedConfig) { saveRawStrategyConfig(configText) }
             } else {
                 StrategyConfigBanner(
                     title = context.getString(R.string.strategy_config_invalid_title),
@@ -244,6 +226,51 @@ private fun saveStrategyConfig(
             loadLuaScript(context, runtime, luaPath)
         }
     }
+
+private suspend fun saveAndApplyStrategyConfig(
+    context: Context,
+    applySavedConfig: () -> StrategyConfigApplyResult,
+    saveConfig: suspend () -> Unit,
+): StrategyConfigBanner =
+    runCatching {
+        saveConfig()
+        applySavedConfig()
+    }.fold(
+        onSuccess = { result -> savedStrategyConfigBanner(context, result) },
+        onFailure = { error ->
+            if (error is CancellationException) {
+                throw error
+            }
+            StrategyConfigBanner(
+                title = context.getString(R.string.strategy_config_reload_failed_title),
+                message = error.localizedMessage ?: error.toString(),
+                tone = WarningBannerTone.Error,
+            )
+        },
+    )
+
+private fun savedStrategyConfigBanner(
+    context: Context,
+    result: StrategyConfigApplyResult,
+): StrategyConfigBanner =
+    StrategyConfigBanner(
+        title = context.getString(R.string.strategy_config_saved_title),
+        message =
+            when (result) {
+                StrategyConfigApplyResult.NextSession -> {
+                    context.getString(R.string.strategy_config_saved_body)
+                }
+
+                StrategyConfigApplyResult.RestartingActiveService -> {
+                    context.getString(R.string.strategy_config_saved_restarting_body)
+                }
+
+                StrategyConfigApplyResult.RestartAlreadyPending -> {
+                    context.getString(R.string.strategy_config_saved_restart_pending_body)
+                }
+            },
+        tone = WarningBannerTone.Info,
+    )
 
 private fun validateStrategyConfigText(
     configText: String,

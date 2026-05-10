@@ -74,6 +74,7 @@ Manual test: import the zapret2 example config, press Reload, confirm no error b
 - Added `FLAG_SECURE` while the screen is visible so config text is excluded from screenshots and screen recording.
 - Added a `core:service` bridge (`StrategyConfigRuntime`) so `:app` can trigger JNI-backed strategy runtime operations without depending on `:core:engine` directly.
 - Added a 64 KB UTF-8 import helper with unit tests for accepted text, over-limit files, and blank files.
+- Added awaited settings persistence for Strategy Config saves and wired saved YAML/DSL changes to request a controlled restart of an active service. This applies changed YAML to the active tunnel path without requiring an app restart; halted services still pick up the saved config on next start.
 
 ## Validation
 
@@ -82,7 +83,9 @@ Manual test: import the zapret2 example config, press Reload, confirm no error b
 - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.screenshot.RipDpiScreenCatalogScreenshotTest.strategyConfigScreen -Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true`
 - Clean detached worktree: `ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ./gradlew :app:ktlintCheck :app:assembleDebugAndroidTest -Pripdpi.skipNativeBuild=true`; direct `am instrument` run of `StrategyEngineJniInstrumentedTest` passed with `OK (4 tests)`, covering native validation of imported YAML registry entries and reloadable Lua assets.
 - 2026-05-10 current checkout: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest -Pripdpi.localNativeAbis=arm64-v8a` passed on `emulator-5554` (`Pixel_10_Pro(AVD) - 17`) after wiping the AVD data partition to restore install space. The run executed 4 tests and covered JNI validation for YAML entries including `fake`, `udplen`, and `ipv6Ext`, invalid YAML error surfacing, bundled `zapret-lib.lua` / `zapret-antidpi.lua` extraction, Lua validation, Lua load, and strategy listing.
+- 2026-05-10 clean detached worktree: `ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ./gradlew :app:ktlintCheck -Pripdpi.skipNativeBuild=true` passed.
+- 2026-05-10 clean detached worktree: `ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.activities.MainViewModelTest -Pripdpi.skipNativeBuild=true` passed, including active-service Strategy Config restart coverage.
 
 ## Remaining Gaps
 
-- Manual UI file-picker import/export validation with a zapret2 config was not run. The current device evidence covers the native validation/load path, not the full user-driven picker/share-sheet flow or live application of a changed YAML config to an already-running VPN tunnel.
+- Manual UI file-picker import/export validation with a zapret2 config was not run. The current evidence covers native validation/load and active-service restart apply, not the full user-driven picker/share-sheet flow.
