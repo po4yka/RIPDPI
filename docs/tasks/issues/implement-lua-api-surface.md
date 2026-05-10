@@ -1,7 +1,7 @@
 ---
 title: Implement Lua API surface for strategy scripts
 type: task
-status: review
+status: blocked
 area: rust-native
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Implement Lua API surface for strategy scripts #repo/RIPDPI #area/rust-native #status/review 🔼
+- [ ] #task Implement Lua API surface for strategy scripts #repo/RIPDPI #area/rust-native #status/blocked #blocked 🔼
 
 ## Objective
 
@@ -120,4 +120,4 @@ Load `zapret-antidpi.lua`, call `fake({ttl=5})`, verify `DesyncPlan` contains `D
   - `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-lua-review cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-strategy-lua --no-default-features`
   - `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-lua-review cargo clippy --manifest-path native/rust/Cargo.toml -p ripdpi-strategy-lua --all-targets --features lua-strategies -- -D warnings`
 - 2026-05-10 current checkout: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest -Pripdpi.localNativeAbis=arm64-v8a` passed on `emulator-5554` (`Pixel_10_Pro(AVD) - 17`) and validated bundled Lua extraction, `zapret-lib.lua` validation/load, `zapret-antidpi.lua` load, and registered strategy listing containing `multisplit`.
-- Remaining review gap: `rawsend` appends a `RawSend` action; VpnProtect-backed socket execution is covered by the runtime injector path and still needs device/runtime validation for an end-to-end Lua-originated raw send.
+- Blocked validation: `rawsend` appends a `RawSend` action; VpnProtect-backed socket execution is covered by the runtime injector path, but end-to-end Lua-originated raw send cannot be completed on the current stock non-root Android target. The runtime injector opens a `SOCK_RAW` / `IPPROTO_RAW` socket; `VpnService.protect(fd)` prevents VPN routing loops but does not grant `CAP_NET_RAW`.

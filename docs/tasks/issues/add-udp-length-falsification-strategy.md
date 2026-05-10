@@ -1,7 +1,7 @@
 ---
 title: Add UDP length falsification strategy
 type: task
-status: review
+status: blocked
 area: rust-native
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Add UDP length falsification strategy #repo/RIPDPI #area/rust-native #status/review 🔼
+- [ ] #task Add UDP length falsification strategy #repo/RIPDPI #area/rust-native #status/blocked #blocked 🔼
 
 ## Objective
 
@@ -83,4 +83,4 @@ Parameters:
 - Verification: clean detached worktree `ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.NativeBridgeInstrumentedTest#rawBindingsAcceptZapretEgressStrategyTunnelConfig -Pripdpi.localNativeAbis=arm64-v8a` passed on `Pixel_10_Pro(AVD) - 17` with 1 test.
 - Added packet-loop evidence that a consumed egress UDP packet bypasses normal UDP routing, while the existing interceptor test proves `type: udplen` emits the modified packet bytes.
 - Verification: `cargo fmt --manifest-path native/rust/Cargo.toml --all --check`; `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-tunnel-egress-loop cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-core egress --locked` passed 6 tests; `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-tunnel-egress-loop cargo clippy --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-core --all-targets --locked -- -D warnings` passed.
-- Remaining review evidence: live attached-device proof that raw-socket injection succeeds for outgoing UDP/QUIC traffic.
+- Blocked validation: live attached-device proof that raw-socket injection succeeds for outgoing UDP/QUIC traffic cannot be completed on the current stock non-root Android target. The egress path reaches `ripdpi_privileged_ops::send_raw_ip_packet()`, which opens a `SOCK_RAW` / `IPPROTO_RAW` socket; `VpnService.protect(fd)` prevents VPN routing loops but does not grant `CAP_NET_RAW`.

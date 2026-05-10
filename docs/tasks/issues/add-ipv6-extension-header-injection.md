@@ -1,7 +1,7 @@
 ---
 title: Implement IPv6 extension header injection in ripdpi-strategy-ipv6 crate
 type: task
-status: review
+status: blocked
 area: rust-native
 priority: low
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Implement IPv6 extension header injection in ripdpi-strategy-ipv6 crate #repo/RIPDPI #area/rust-native #status/review
+- [ ] #task Implement IPv6 extension header injection in ripdpi-strategy-ipv6 crate #repo/RIPDPI #area/rust-native #status/blocked #blocked
 
 ## Objective
 
@@ -94,4 +94,4 @@ Extension headers to support:
 - Verification: clean detached worktree `ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.NativeBridgeInstrumentedTest#rawBindingsAcceptZapretEgressStrategyTunnelConfig -Pripdpi.localNativeAbis=arm64-v8a` passed on `Pixel_10_Pro(AVD) - 17` with 1 test.
 - Added packet-loop evidence that consumed egress injections bypass normal routing, while the existing interceptor test proves `type: ipv6Ext` emits the modified IPv6 packet bytes.
 - Verification: `cargo fmt --manifest-path native/rust/Cargo.toml --all --check`; `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-tunnel-egress-loop cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-core egress --locked` passed 6 tests; `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-tunnel-egress-loop cargo clippy --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-core --all-targets --locked -- -D warnings` passed.
-- Remaining review gap: live attached-device validation that TUN reinjection/raw IPv6 packet injection is accepted by Android is still pending.
+- Blocked validation: live attached-device validation that TUN reinjection/raw IPv6 packet injection is accepted by Android cannot be completed on the current stock non-root Android target. The egress path reaches `ripdpi_privileged_ops::send_raw_ip_packet()`, which opens a `SOCK_RAW` / `IPPROTO_RAW` socket; `VpnService.protect(fd)` prevents VPN routing loops but does not grant `CAP_NET_RAW`.

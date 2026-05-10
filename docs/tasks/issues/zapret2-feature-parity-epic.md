@@ -1,18 +1,22 @@
 ---
 title: Port zapret2 DPI-bypass technique set into RIPDPI Rust+Android framework
 type: epic
-status: review
+status: blocked
 area: epic
 priority: high
 owner: Codex
 parent: null
 blocks: []
-blocked_by: []
+blocked_by:
+  - expose-existing-techniques-as-config-addressable
+  - add-udp-length-falsification-strategy
+  - add-ipv6-extension-header-injection
+  - implement-lua-api-surface
 created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Port zapret2 DPI-bypass technique set into RIPDPI Rust+Android framework #repo/RIPDPI #area/epic #status/review 🔼
+- [ ] #task Port zapret2 DPI-bypass technique set into RIPDPI Rust+Android framework #repo/RIPDPI #area/epic #status/blocked #blocked 🔼
 
 ## Goal
 
@@ -85,3 +89,4 @@ None (greenfield epic)
 - 2026-05-10: Added host-side packet-loop evidence for VPN egress interception. `ripdpi-tunnel-core egress` tests passed 6/6 and clippy passed, proving consumed egress injections bypass normal routing while non-consuming fake-packet flows preserve normal forwarding. Final closure still needs live Android raw-socket/TUN egress proof.
 - 2026-05-10: Added Strategy Config active-service apply coverage. A clean detached worktree passed `:app:ktlintCheck` and `MainViewModelTest`, including awaited settings persistence plus automatic active-service restart after saving Strategy Config YAML/DSL. Final closure still needs live Android raw-socket/TUN egress proof and manual picker/share-sheet validation.
 - 2026-05-10: Added Strategy Config Import/Export Compose callback coverage. A clean detached worktree passed `StrategyConfigScreenTest`, proving the in-app buttons invoke their callbacks. Final closure still needs Android external picker/share-sheet validation plus live Android raw-socket/TUN egress proof.
+- 2026-05-10: Moved the parent epic to blocked because the remaining raw-socket/TUN egress proof cannot be completed on the current stock non-root Android target. The Android path uses `SOCK_RAW` / `IPPROTO_RAW`; `VpnService.protect(fd)` only prevents VPN routing loops and does not grant `CAP_NET_RAW`.

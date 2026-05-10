@@ -1,7 +1,7 @@
 ---
 title: Expose existing desync techniques as config-addressable registry entries
 type: task
-status: review
+status: blocked
 area: rust-native
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Expose existing desync techniques as config-addressable registry entries #repo/RIPDPI #area/rust-native #status/review 🔼
+- [ ] #task Expose existing desync techniques as config-addressable registry entries #repo/RIPDPI #area/rust-native #status/blocked #blocked 🔼
 
 ## Objective
 
@@ -85,4 +85,4 @@ Running RIPDPI on a device and loading a YAML with `type: fake` produces a fake 
 - Verification: clean detached worktree `ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ./gradlew :app:ktlintCheck :app:assembleDebugAndroidTest -Pripdpi.skipNativeBuild=true` passed; then `ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.NativeBridgeInstrumentedTest#rawBindingsAcceptZapretEgressStrategyTunnelConfig -Pripdpi.localNativeAbis=arm64-v8a` passed on `Pixel_10_Pro(AVD) - 17` with 1 test.
 - Added packet-loop evidence that the TUN loop calls the egress handler before normal routing, consumes transformed UDP/IPv6-style egress injections, and preserves normal forwarding for non-consuming fake-packet flows.
 - Verification: `cargo fmt --manifest-path native/rust/Cargo.toml --all --check`; `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-tunnel-egress-loop cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-core egress --locked` passed 6 tests; `CARGO_TARGET_DIR=/Users/po4yka/GitRep/.codex-targets/ripdpi-tunnel-egress-loop cargo clippy --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-core --all-targets --locked -- -D warnings` passed.
-- Remaining review evidence: attached-device runtime validation proving a loaded YAML `type: fake` reaches Android raw packet injection with VPN socket protection active.
+- Blocked validation: attached-device runtime validation proving loaded YAML `type: fake` reaches Android raw packet injection with VPN socket protection active cannot be completed on the current stock non-root Android target. The egress path reaches `ripdpi_privileged_ops::send_raw_ip_packet()`, which opens a `SOCK_RAW` / `IPPROTO_RAW` socket; `VpnService.protect(fd)` prevents VPN routing loops but does not grant `CAP_NET_RAW`.
