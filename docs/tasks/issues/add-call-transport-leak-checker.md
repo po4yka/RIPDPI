@@ -1,7 +1,7 @@
 ---
 title: Add CallTransportLeakChecker for STUN and MTProto Leak Detection
 type: task
-status: backlog
+status: doing
 area: diagnostics
 priority: low
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-10
 ---
 
-- [ ] #task Add CallTransportLeakChecker for STUN and MTProto Leak Detection #repo/RIPDPI #area/diagnostics #status/backlog 🔽
+- [ ] #task Add CallTransportLeakChecker for STUN and MTProto Leak Detection #repo/RIPDPI #area/diagnostics #status/doing 🔽
 
 ## Objective
 
