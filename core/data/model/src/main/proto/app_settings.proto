@@ -293,9 +293,9 @@ message AppSettings {
   bool relay_apps_script_parallel_relay = 251;
   repeated string relay_apps_script_sni_hosts = 252;
   repeated string relay_apps_script_direct_hosts = 253;
-  string relay_vless_transport = 214; // "reality_tcp" | "xhttp"
-  string relay_xhttp_path = 215;
-  string relay_xhttp_host = 216;
+  string relay_vless_transport = 258; // "reality_tcp" | "xhttp"
+  string relay_xhttp_path = 259;
+  string relay_xhttp_host = 260;
 
   // WARP active profile metadata (non-secret)
   string warp_profile_id = 195;
