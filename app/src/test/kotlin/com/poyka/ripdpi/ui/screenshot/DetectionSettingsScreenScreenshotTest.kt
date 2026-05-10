@@ -6,6 +6,7 @@ import com.poyka.ripdpi.ui.screens.detection.DetectionDnsResolverMode
 import com.poyka.ripdpi.ui.screens.detection.DetectionPortRangeMode
 import com.poyka.ripdpi.ui.screens.detection.DetectionSettingsScreen
 import com.poyka.ripdpi.ui.screens.detection.DetectionSettingsUiState
+import com.poyka.ripdpi.ui.screens.detection.DetectionTunProbeMode
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,6 +42,57 @@ class DetectionSettingsScreenScreenshotTest {
                 privacyModeEnabled = true,
                 debugModeEnabled = true,
                 colorVisionMode = DetectionColorVisionMode.BLUE_YELLOW,
+            ),
+        )
+    }
+
+    @Test
+    fun networkDisabledDetectionSettingsSection() {
+        captureSettingsScreen(
+            DetectionSettingsUiState(
+                networkRequestsEnabled = false,
+                cdnPullingEnabled = true,
+                cdnPullingMeduzaEnabled = true,
+                callTransportProbeEnabled = true,
+                rttTriangulationEnabled = true,
+            ),
+        )
+    }
+
+    @Test
+    fun splitTunnelCustomPortsDetectionSettingsSection() {
+        captureSettingsScreen(
+            DetectionSettingsUiState(
+                proxyScanEnabled = true,
+                xrayApiScanEnabled = true,
+                tunProbeMode = DetectionTunProbeMode.STRICT_SAME_PATH,
+                portRangeMode = DetectionPortRangeMode.CUSTOM,
+                customPortStart = 1024,
+                customPortEnd = 49151,
+            ),
+        )
+    }
+
+    @Test
+    fun dnsDirectDetectionSettingsSection() {
+        captureSettingsScreen(
+            DetectionSettingsUiState(
+                dnsResolverMode = DetectionDnsResolverMode.DIRECT,
+                dnsPreset = DetectionDnsPreset.CUSTOM,
+                dnsDirectServers = "9.9.9.9, 149.112.112.112",
+            ),
+        )
+    }
+
+    @Test
+    fun dnsDohPresetDetectionSettingsSection() {
+        captureSettingsScreen(
+            DetectionSettingsUiState(
+                dnsResolverMode = DetectionDnsResolverMode.DOH,
+                dnsPreset = DetectionDnsPreset.GOOGLE,
+                dnsDirectServers = DetectionDnsPreset.GOOGLE.directServers,
+                dnsDohUrl = DetectionDnsPreset.GOOGLE.dohUrl,
+                dnsDohBootstrapIps = DetectionDnsPreset.GOOGLE.directServers,
             ),
         )
     }
