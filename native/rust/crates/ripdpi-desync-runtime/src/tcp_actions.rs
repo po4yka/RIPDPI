@@ -21,6 +21,8 @@ use crate::tcp_lowering::TcpLoweringCapabilities;
 use crate::transport_io::{await_transport_writable_action, await_writable_action_named, set_stream_ttl};
 use crate::types::{OutboundSendError, PcapHook};
 
+const RESTORE_WINDOW_CLAMP: u32 = 1_000_000;
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn execute_tcp_actions(
     writer: &mut TcpStream,
@@ -143,13 +145,13 @@ pub(crate) fn execute_tcp_actions(
                     let _ = platform::set_tcp_window_clamp(writer, *size);
                 }
                 DesyncAction::RestoreWindowClamp => {
-                    let _ = platform::set_tcp_window_clamp(writer, 0);
+                    let _ = platform::set_tcp_window_clamp(writer, RESTORE_WINDOW_CLAMP);
                 }
                 DesyncAction::SetWsize { window } => {
                     let _ = platform::set_tcp_window_clamp(writer, *window);
                 }
                 DesyncAction::RestoreWsize => {
-                    let _ = platform::set_tcp_window_clamp(writer, 0);
+                    let _ = platform::set_tcp_window_clamp(writer, RESTORE_WINDOW_CLAMP);
                 }
                 DesyncAction::SendFakeRst => {
                     PrivilegedActionExecutor::send_fake_rst(writer, &context);

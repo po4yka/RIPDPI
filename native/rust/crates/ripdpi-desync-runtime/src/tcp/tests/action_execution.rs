@@ -285,6 +285,78 @@ fn actions_window_clamp_ignored_on_unsupported() {
     assert_eq!(result.unwrap(), 1);
 }
 
+#[test]
+#[cfg(target_os = "linux")]
+fn actions_window_clamp_applies_to_socket() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let baseline = tcp_window_clamp(&client).expect("read baseline clamp");
+    let actions = vec![DesyncAction::SetWindowClamp(2)];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        None,
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+
+    assert_eq!(result.unwrap(), 0);
+    let applied = tcp_window_clamp(&client).expect("read applied clamp");
+    assert!(applied > 0, "clamp should be positive after SetWindowClamp, got {applied}");
+    assert!(applied < baseline, "SetWindowClamp should tighten baseline clamp {baseline}, got {applied}",);
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn actions_window_clamp_restore_uses_large_effective_clamp() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::SetWindowClamp(2), DesyncAction::RestoreWindowClamp];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        None,
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+
+    assert_eq!(result.unwrap(), 0);
+    let restored = tcp_window_clamp(&client).expect("read restored clamp");
+    assert!(restored > 256, "RestoreWindowClamp should leave an effectively unclamped socket, got {restored}",);
+}
+
+#[cfg(target_os = "linux")]
+fn tcp_window_clamp(stream: &std::net::TcpStream) -> io::Result<u32> {
+    use std::mem;
+    use std::os::fd::AsRawFd;
+
+    let mut value: libc::c_int = 0;
+    let mut len = mem::size_of_val(&value) as libc::socklen_t;
+    let rc = unsafe {
+        libc::getsockopt(
+            stream.as_raw_fd(),
+            libc::IPPROTO_TCP,
+            libc::TCP_WINDOW_CLAMP,
+            (&mut value as *mut libc::c_int).cast(),
+            &mut len,
+        )
+    };
+    if rc == -1 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(value as u32)
+}
+
 // These operations return Unsupported on macOS but succeed on Linux,
 // so the "errors on unsupported" assertion only holds off-Linux.
 #[test]
