@@ -33,6 +33,9 @@ class RipDpiProxyService :
     lateinit var serviceStateStore: ServiceStateStore
 
     @Inject
+    lateinit var rootHelperManager: RootHelperManager
+
+    @Inject
     internal lateinit var sessionComponentBuilderProvider: Provider<ProxyServiceSessionComponentBuilder>
 
     private var sessionComponent: ProxyServiceSessionComponent? = null
@@ -66,6 +69,7 @@ class RipDpiProxyService :
 
     override fun onDestroy() {
         coordinator.onDestroy()
+        rootHelperManager.stop()
         sessionComponent = null
         super.onDestroy()
     }

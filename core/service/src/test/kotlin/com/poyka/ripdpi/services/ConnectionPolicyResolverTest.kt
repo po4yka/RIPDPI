@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.content.Context
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AsnRoutingMapCatalog
@@ -179,6 +180,39 @@ class ConnectionPolicyResolverTest {
         }
 
     @Test
+    fun `resolver starts root helper before building root mode preferences`() =
+        runTest {
+            val rootHelper = FakeRootHelperManager("/tmp/ripdpi-root-helper.sock")
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository =
+                        TestAppSettingsRepository(
+                            AppSettingsSerializer.defaultValue
+                                .toBuilder()
+                                .setRootModeEnabled(true)
+                                .build(),
+                        ),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = rootHelper,
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                )
+
+            val resolution = resolver.resolve(mode = Mode.Proxy)
+            val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+
+            assertEquals(listOf(true), rootHelper.syncCalls)
+            assertEquals("/tmp/ripdpi-root-helper.sock", rootHelper.socketPath)
+            assertEquals("/tmp/ripdpi-root-helper.sock", uiPreferences?.rootHelperSocketPath)
+        }
+
+    @Test
     fun `resolver derives vpn doh primary path from converged direct path dns hints`() =
         runTest {
             val fingerprint = sampleFingerprint()
@@ -335,4 +369,27 @@ class ConnectionPolicyResolverTest {
                         )
                 },
         )
+
+    private class FakeRootHelperManager(
+        private val startedSocketPath: String,
+    ) : RootHelperManager() {
+        val syncCalls = mutableListOf<Boolean>()
+        private var activePath: String? = null
+
+        override val socketPath: String?
+            get() = activePath
+
+        override suspend fun syncRootMode(
+            context: Context,
+            rootModeEnabled: Boolean,
+        ): String? {
+            syncCalls += rootModeEnabled
+            activePath = startedSocketPath.takeIf { rootModeEnabled }
+            return activePath
+        }
+
+        override fun stop() {
+            activePath = null
+        }
+    }
 }

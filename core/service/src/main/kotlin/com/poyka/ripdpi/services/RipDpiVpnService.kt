@@ -37,6 +37,9 @@ class RipDpiVpnService :
     lateinit var vpnDhtMitigationPolicy: VpnDhtMitigationPolicy
 
     @Inject
+    lateinit var rootHelperManager: RootHelperManager
+
+    @Inject
     internal lateinit var sessionComponentBuilderProvider: Provider<VpnServiceSessionComponentBuilder>
 
     private lateinit var sessionLifecycle: VpnServiceSessionLifecycle
@@ -63,6 +66,7 @@ class RipDpiVpnService :
 
     override fun onDestroy() {
         sessionLifecycle.destroy(revoked)
+        rootHelperManager.stop()
         super.onDestroy()
     }
 

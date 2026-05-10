@@ -131,6 +131,7 @@ internal object VpnServiceSessionModule {
         proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
         statusReporter: ServiceStatusReporter,
         directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
+        rootHelperManager: RootHelperManager,
     ): VpnServiceRuntimeCoordinator =
         VpnServiceRuntimeCoordinator(
             vpnHost = host,
@@ -151,5 +152,6 @@ internal object VpnServiceSessionModule {
             statusReporter = statusReporter,
             screenStateObserver = runtimeDependencies.screenStateObserver,
             directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,
+            rootHelperManager = rootHelperManager,
         )
 }

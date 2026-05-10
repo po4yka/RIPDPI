@@ -29,6 +29,7 @@ import com.poyka.ripdpi.services.PermissionChangeEvent
 import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
+import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceClock
 import com.poyka.ripdpi.services.ServiceRuntimeHandoverHooks
@@ -94,6 +95,7 @@ internal class VpnServiceRuntimeCoordinator(
         DirectPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
+    private val rootHelperManager: RootHelperManager = RootHelperManager(),
 ) : BaseServiceRuntimeCoordinator<VpnRuntimeSession>(
         mode = Mode.VPN,
         host = vpnHost,
@@ -367,6 +369,7 @@ internal class VpnServiceRuntimeCoordinator(
         telemetryCoordinator.stopProtectFailureMonitoring()
         resolverOverrideStore.clear()
         runtimeCompositionCoordinator.resetAfterStop(session)
+        rootHelperManager.stop()
     }
 }
 

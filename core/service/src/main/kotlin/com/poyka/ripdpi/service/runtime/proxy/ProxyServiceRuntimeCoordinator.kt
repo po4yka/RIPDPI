@@ -25,6 +25,7 @@ import com.poyka.ripdpi.services.ProxyRuntimeSession
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxySupervisorExitHandler
 import com.poyka.ripdpi.services.ProxyTelemetryCoordinator
+import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceClock
 import com.poyka.ripdpi.services.ServiceCoordinatorHost
@@ -67,6 +68,7 @@ internal class ProxyServiceRuntimeCoordinator(
         DirectPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
+    private val rootHelperManager: RootHelperManager = RootHelperManager(),
 ) : BaseServiceRuntimeCoordinator<ProxyRuntimeSession>(
         mode = Mode.Proxy,
         host = host,
@@ -201,7 +203,11 @@ internal class ProxyServiceRuntimeCoordinator(
     }
 
     private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
-        proxyRuntimeStack.stop(skipRuntimeShutdown)
+        try {
+            proxyRuntimeStack.stop(skipRuntimeShutdown)
+        } finally {
+            rootHelperManager.stop()
+        }
     }
 
     private fun startModeTelemetryUpdates(replaceTelemetryJob: TelemetryJobReplacer) {

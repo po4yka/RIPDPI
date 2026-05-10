@@ -25,6 +25,7 @@ import com.poyka.ripdpi.core.codec.RelaySectionCodec
 import com.poyka.ripdpi.core.codec.SessionOverrideCodec
 import com.poyka.ripdpi.core.codec.WarpSectionCodec
 import com.poyka.ripdpi.core.codec.WsTunnelSectionCodec
+import com.poyka.ripdpi.data.EnvironmentKind
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -203,6 +204,9 @@ internal object RipDpiProxyJsonCodec {
                 nativeLogLevel = payload.nativeLogLevel,
                 runtimeContext = ProxyRuntimeContextCodec.toModel(payload.runtimeContext),
                 logContext = ProxyLogContextCodec.toModel(payload.logContext),
+                rootMode = payload.rootMode,
+                rootHelperSocketPath = payload.rootHelperSocketPath,
+                environmentKind = decodeEnvironmentKind(payload.environmentKind),
             )
         }.getOrNull()
     }
@@ -273,6 +277,13 @@ internal object RipDpiProxyJsonCodec {
     }
 
     private fun decodeOrNull(configJson: String): NativeProxyConfig? = runCatching { decode(configJson) }.getOrNull()
+
+    private fun decodeEnvironmentKind(value: String): EnvironmentKind {
+        for (kind in enumValues<EnvironmentKind>()) {
+            if (kind.name == value) return kind
+        }
+        return EnvironmentKind.Unknown
+    }
 
     private fun encode(payload: NativeProxyConfig): String =
         payload

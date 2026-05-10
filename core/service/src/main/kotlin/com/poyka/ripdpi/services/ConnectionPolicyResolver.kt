@@ -106,6 +106,7 @@ class DefaultConnectionPolicyResolver
             fingerprint: NetworkFingerprint?,
         ): BaselineConnectionPolicy {
             val settings = appSettingsRepository.snapshot()
+            rootHelperManager.syncRootMode(context, settings.rootModeEnabled)
             val dnsResolution = resolveEffectiveDns(settings, resolverOverride)
             val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
             val networkScopeKey = fingerprintSnapshot?.scopeKey()

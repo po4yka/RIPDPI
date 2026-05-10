@@ -16,6 +16,7 @@ import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.ProxyServiceSessionComponent
+import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceCoordinatorHost
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
@@ -94,6 +95,7 @@ internal object ProxyServiceSessionModule {
         statusReporter: ServiceStatusReporter,
         screenStateObserver: ScreenStateObserver,
         directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
+        rootHelperManager: RootHelperManager,
     ): ProxyServiceRuntimeCoordinator =
         ProxyServiceRuntimeCoordinator(
             host = host,
@@ -112,5 +114,6 @@ internal object ProxyServiceSessionModule {
             statusReporter = statusReporter,
             screenStateObserver = screenStateObserver,
             directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,
+            rootHelperManager = rootHelperManager,
         )
 }

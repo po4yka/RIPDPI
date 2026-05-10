@@ -16,7 +16,7 @@ import javax.inject.Inject
  * When root mode is enabled, extracts the helper binary from APK assets,
  * starts it via `su`, and monitors its Unix socket for readiness.
  */
-class RootHelperManager
+open class RootHelperManager
     @Inject
     constructor() {
         private var helperProcess: Process? = null
@@ -30,15 +30,35 @@ class RootHelperManager
             private const val READY_TIMEOUT_MS = 3000L
         }
 
-        val socketPath: String?
+        open val socketPath: String?
             get() = activeSocketPath
+
+        open suspend fun syncRootMode(
+            context: Context,
+            rootModeEnabled: Boolean,
+        ): String? {
+            if (!rootModeEnabled) {
+                stop()
+                return null
+            }
+            return ensureStarted(context)
+        }
+
+        open suspend fun ensureStarted(context: Context): String? {
+            val currentPath = activeSocketPath
+            if (currentPath != null && isRunning()) {
+                return currentPath
+            }
+            stop()
+            return start(context)
+        }
 
         /**
          * Extract, start, and verify the root helper process.
          *
          * @return the Unix socket path on success, or `null` on failure.
          */
-        suspend fun start(context: Context): String? =
+        open suspend fun start(context: Context): String? =
             withContext(Dispatchers.IO) {
                 try {
                     val binary = extractBinary(context)
@@ -82,10 +102,11 @@ class RootHelperManager
             }
 
         /** Stop the root helper process and clean up. */
-        fun stop() {
-            val process = helperProcess ?: return
+        open fun stop() {
+            val process = helperProcess
             helperProcess = null
             activeSocketPath = null
+            if (process == null) return
 
             try {
                 process.destroy()
@@ -106,7 +127,7 @@ class RootHelperManager
             log.i { "root helper stopped" }
         }
 
-        fun isRunning(): Boolean {
+        open fun isRunning(): Boolean {
             val process = helperProcess ?: return false
             return runCatching {
                 process.exitValue()
