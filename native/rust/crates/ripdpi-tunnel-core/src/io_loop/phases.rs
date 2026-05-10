@@ -138,3 +138,141 @@ fn route_tcp_or_other_packet(packet: &[u8], state: &mut LoopState) {
     ensure_pending_listen_for_syn(packet, &mut state.pending_listens, &mut state.socket_set);
     state.device.push_rx(packet.to_vec());
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::net::SocketAddr;
+    use std::sync::atomic::Ordering;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    use ripdpi_collections::bounded_heap::BoundedHeap;
+    use smoltcp::iface::{Config as IfaceConfig, Interface, SocketSet};
+    use smoltcp::time::Instant;
+    use smoltcp::wire::HardwareAddress;
+    use tokio::sync::mpsc;
+    use tokio_util::sync::CancellationToken;
+
+    use crate::session::Auth;
+    use crate::{ActiveSessions, Stats, TunDevice};
+
+    use super::super::state::{LoopRuntime, LoopState};
+    use super::super::tun_egress_interceptor::TunEgressPacketHandler;
+    use super::super::tun_ingress_interceptor::{RawSynAckPacketInjector, TunIngressInterceptor};
+    use super::super::udp_assoc::{UdpEvictionEntry, DEFAULT_MAX_UDP_ASSOCIATIONS};
+    use super::*;
+
+    #[tokio::test]
+    async fn consumed_egress_udp_packet_bypasses_normal_udp_routing() {
+        let seen_packets = Arc::new(Mutex::new(Vec::new()));
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(true, Arc::clone(&seen_packets))));
+        let packet = ipv4_udp_packet(55000, 443, b"quic");
+
+        route_tun_packet(&packet, &mut state).await;
+
+        assert_eq!(seen_packets.lock().expect("seen packets")[0], packet);
+        assert_eq!(state.stats.dht_trigger_observations.load(Ordering::Relaxed), 0);
+        assert!(state.udp_associations.is_empty());
+    }
+
+    #[tokio::test]
+    async fn non_consuming_egress_tcp_packet_continues_to_smoltcp() {
+        let seen_packets = Arc::new(Mutex::new(Vec::new()));
+        let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
+        let packet = ipv4_tcp_packet(55000, 443);
+
+        route_tun_packet(&packet, &mut state).await;
+
+        assert_eq!(seen_packets.lock().expect("seen packets")[0], packet);
+        assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &packet);
+    }
+
+    struct RecordingEgressHandler {
+        consume: bool,
+        seen_packets: Arc<Mutex<Vec<Vec<u8>>>>,
+    }
+
+    impl RecordingEgressHandler {
+        fn new(consume: bool, seen_packets: Arc<Mutex<Vec<Vec<u8>>>>) -> Self {
+            Self { consume, seen_packets }
+        }
+    }
+
+    impl TunEgressPacketHandler for RecordingEgressHandler {
+        fn handle_packet(&mut self, packet: &[u8]) -> bool {
+            self.seen_packets.lock().expect("seen packets").push(packet.to_vec());
+            self.consume
+        }
+    }
+
+    fn test_loop_state(tun_egress_interceptor: Box<dyn TunEgressPacketHandler>) -> LoopState {
+        let mut device = TunDevice::new(1500);
+        let iface_cfg = IfaceConfig::new(HardwareAddress::Ip);
+        let iface = Interface::new(iface_cfg, &mut device, Instant::now());
+        let (udp_tx, udp_rx) = mpsc::channel(1);
+
+        LoopState {
+            device,
+            iface,
+            socket_set: SocketSet::new(vec![]),
+            sessions: ActiveSessions::new(0),
+            cancel: CancellationToken::new(),
+            stats: Arc::new(Stats::new()),
+            dns_cache: None,
+            runtime: LoopRuntime {
+                proxy_sockaddr: "127.0.0.1:1080".parse::<SocketAddr>().expect("proxy address"),
+                auth: Auth::NoAuth,
+                mapdns_runtime: None,
+                mapdns_classify: None,
+                filter_injected_resets: false,
+                tun_ingress_interceptor: TunIngressInterceptor::new(None, RawSynAckPacketInjector::new(None)),
+                tun_egress_interceptor,
+                udp_idle_timeout: Duration::from_secs(1),
+            },
+            pending_listens: HashMap::new(),
+            loop_iteration: 0,
+            udp_tx,
+            udp_rx,
+            udp_associations: HashMap::new(),
+            udp_eviction_heap: BoundedHeap::<UdpEvictionEntry>::new(DEFAULT_MAX_UDP_ASSOCIATIONS),
+            next_udp_association_id: 1,
+            dns_req_tx: None,
+            dns_resp_rx: None,
+            tun_read_buf: vec![0u8; 1500],
+        }
+    }
+
+    fn ipv4_udp_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
+        let udp_len = 8 + payload.len();
+        let total_len = 20 + udp_len;
+        let mut packet = vec![0u8; total_len];
+        packet[0] = 0x45;
+        packet[2..4].copy_from_slice(&(total_len as u16).to_be_bytes());
+        packet[8] = 64;
+        packet[9] = 17;
+        packet[12..16].copy_from_slice(&[10, 0, 0, 2]);
+        packet[16..20].copy_from_slice(&[93, 184, 216, 34]);
+        packet[20..22].copy_from_slice(&src_port.to_be_bytes());
+        packet[22..24].copy_from_slice(&dst_port.to_be_bytes());
+        packet[24..26].copy_from_slice(&(udp_len as u16).to_be_bytes());
+        packet[28..].copy_from_slice(payload);
+        packet
+    }
+
+    fn ipv4_tcp_packet(src_port: u16, dst_port: u16) -> Vec<u8> {
+        let mut packet = vec![0u8; 40];
+        packet[0] = 0x45;
+        packet[2..4].copy_from_slice(&40u16.to_be_bytes());
+        packet[8] = 64;
+        packet[9] = 6;
+        packet[12..16].copy_from_slice(&[10, 0, 0, 2]);
+        packet[16..20].copy_from_slice(&[93, 184, 216, 34]);
+        packet[20..22].copy_from_slice(&src_port.to_be_bytes());
+        packet[22..24].copy_from_slice(&dst_port.to_be_bytes());
+        packet[32] = 0x50;
+        packet[33] = 0x18;
+        packet[34..36].copy_from_slice(&65535u16.to_be_bytes());
+        packet
+    }
+}

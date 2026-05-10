@@ -14,6 +14,10 @@ pub(in crate::io_loop) trait TunPacketInjector {
     fn inject_packet(&mut self, packet: &[u8]) -> io::Result<()>;
 }
 
+pub(in crate::io_loop) trait TunEgressPacketHandler: Send {
+    fn handle_packet(&mut self, packet: &[u8]) -> bool;
+}
+
 pub(in crate::io_loop) struct RawTunPacketInjector {
     protect_path: Option<String>,
 }
@@ -68,6 +72,12 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
             }
         }
         false
+    }
+}
+
+impl<I: TunPacketInjector + Send> TunEgressPacketHandler for TunEgressInterceptor<I> {
+    fn handle_packet(&mut self, packet: &[u8]) -> bool {
+        TunEgressInterceptor::handle_packet(self, packet)
     }
 }
 
