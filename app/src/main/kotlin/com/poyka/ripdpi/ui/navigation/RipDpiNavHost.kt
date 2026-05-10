@@ -48,6 +48,7 @@ import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
+import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.serialization.Serializable
@@ -425,7 +426,16 @@ private fun NavGraphBuilder.addSettingsRoutes(
         composable<Route.AdvancedSettings> {
             val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
             val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
-            AdvancedSettingsRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
+            AdvancedSettingsRoute(
+                onBack = { navController.popBackStack() },
+                onOpenStrategyConfig = { navController.navigate(Route.StrategyConfig) },
+                viewModel = settingsViewModel,
+            )
+        }
+        composable<Route.StrategyConfig> {
+            val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
+            val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
+            StrategyConfigRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
         }
         composable<Route.AppCustomization> {
             val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }

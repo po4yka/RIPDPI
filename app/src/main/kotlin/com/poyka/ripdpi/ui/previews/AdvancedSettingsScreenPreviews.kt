@@ -163,6 +163,7 @@ private fun previewAdvancedSettingsDarkUiState(): SettingsUiState =
 private fun previewAdvancedSettingsActions(): AdvancedSettingsActions =
     AdvancedSettingsActions(
         onBack = {},
+        onOpenStrategyConfig = {},
         onToggleChanged = { _, _ -> },
         onTextConfirmed = { _, _ -> },
         onOptionSelected = { _, _ -> },

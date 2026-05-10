@@ -21,6 +21,7 @@ import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 @Composable
 fun AdvancedSettingsRoute(
     onBack: () -> Unit,
+    onOpenStrategyConfig: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -39,7 +40,7 @@ fun AdvancedSettingsRoute(
         hostPackCatalog = hostPackCatalog,
         strategyPackCatalog = strategyPackCatalog,
         notice = notice,
-        actions = rememberAdvancedSettingsActions(onBack, viewModel, binder, uiState),
+        actions = rememberAdvancedSettingsActions(onBack, onOpenStrategyConfig, viewModel, binder, uiState),
         modifier = modifier,
     )
 }
@@ -96,12 +97,14 @@ private fun settingsNoticeHaptic(effect: SettingsEffect.Notice): RipDpiHapticFee
 @Composable
 private fun rememberAdvancedSettingsActions(
     onBack: () -> Unit,
+    onOpenStrategyConfig: () -> Unit,
     viewModel: SettingsViewModel,
     binder: AdvancedSettingsBinder,
     uiState: com.poyka.ripdpi.ui.state.SettingsUiState,
 ): AdvancedSettingsActions =
     AdvancedSettingsActions(
         onBack = onBack,
+        onOpenStrategyConfig = onOpenStrategyConfig,
         onToggleChanged = binder::onToggleChanged,
         onTextConfirmed = { setting, value -> binder.onTextConfirmed(setting, value, uiState) },
         onOptionSelected = { setting, value -> binder.onOptionSelected(setting, value, uiState) },

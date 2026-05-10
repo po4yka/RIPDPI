@@ -119,6 +119,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object StrategyConfig : Route() {
+        override val stableRoute = "strategy_config"
+        override val titleRes = R.string.title_strategy_config
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object BiometricPrompt : Route() {
         override val stableRoute = "biometric_prompt"
         override val titleRes = R.string.title_biometric_prompt
@@ -186,6 +193,7 @@ sealed class Route {
                     ModeEditor,
                     DnsSettings,
                     AdvancedSettings,
+                    StrategyConfig,
                     BiometricPrompt,
                     AppCustomization,
                     About,

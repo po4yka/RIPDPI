@@ -67,6 +67,26 @@ internal fun LazyListScope.diagnosticsHistorySection(
     }
 }
 
+internal fun LazyListScope.strategyConfigSection(onOpenStrategyConfig: () -> Unit) {
+    item(key = "advanced_strategy_config") {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.strategy_config_section_title),
+            testTag = RipDpiTestTags.advancedSection("strategy_config"),
+        ) {
+            RipDpiCard {
+                SettingsRow(
+                    title = stringResource(R.string.strategy_config_entry_title),
+                    subtitle = stringResource(R.string.strategy_config_entry_body),
+                    onClick = onOpenStrategyConfig,
+                    leadingIcon = RipDpiIcons.Advanced,
+                    showChevron = true,
+                    testTag = RipDpiTestTags.SettingsStrategyConfig,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun DiagnosticsHistorySettingsContent(
     uiState: SettingsUiState,

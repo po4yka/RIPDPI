@@ -14,6 +14,7 @@ internal fun LazyListScope.advancedSettingsPrimarySections(
         onTextConfirmed = actions.onTextConfirmed,
         onRotateSalt = actions.onRotateSalt,
     )
+    strategyConfigSection(onOpenStrategyConfig = actions.onOpenStrategyConfig)
     commandLineOverridesSection(
         uiState = uiState,
         onToggleChanged = actions.onToggleChanged,

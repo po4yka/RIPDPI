@@ -168,6 +168,7 @@ internal fun RipDpiAdvancedSettingsPreviewScene() {
 private fun noopAdvancedSettingsActions(): AdvancedSettingsActions =
     AdvancedSettingsActions(
         onBack = {},
+        onOpenStrategyConfig = {},
         onToggleChanged = { _, _ -> },
         onTextConfirmed = { _, _ -> },
         onOptionSelected = { _, _ -> },

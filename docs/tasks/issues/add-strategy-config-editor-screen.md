@@ -1,18 +1,18 @@
 ---
 title: Add strategy config editor screen in Settings → Advanced
 type: task
-status: backlog
+status: review
 area: ui
 priority: medium
 owner: unassigned
 parent: zapret2-feature-parity-epic
 blocks: []
-blocked_by: [add-ripdpi-strategy-config-yaml-loader]
+blocked_by: []
 created: 2026-05-09
-updated: 2026-05-09
+updated: 2026-05-10
 ---
 
-- [ ] #task Add strategy config editor screen in Settings → Advanced #repo/RIPDPI #area/ui #status/backlog 🔼
+- [ ] #task Add strategy config editor screen in Settings → Advanced #repo/RIPDPI #area/ui #status/review 🔼
 
 ## Objective
 
@@ -65,3 +65,23 @@ UI layout:
 ## Definition of done
 
 Manual test: import the zapret2 example config, press Reload, confirm no error banner, confirm strategy appears in diagnostics active strategy list. Tests were written and confirmed red before implementation began; the relevant test command is green with no regressions.
+
+## Implementation Notes
+
+- Added `Route.StrategyConfig` and wired it into the Settings graph behind the existing Advanced Settings screen.
+- Added an Advanced Settings entry row, stable test tags, and preview/test no-op actions for the new navigation callback.
+- Added a secure `StrategyConfigScreen` with source selection, current strategy-chain editor, import/export actions, reload/save banners, and Lua script path/function controls.
+- Added `FLAG_SECURE` while the screen is visible so config text is excluded from screenshots and screen recording.
+- Added a `core:service` bridge (`StrategyConfigRuntime`) so `:app` can trigger JNI-backed strategy runtime operations without depending on `:core:engine` directly.
+- Added a 64 KB UTF-8 import helper with unit tests for accepted text, over-limit files, and blank files.
+
+## Validation
+
+- `./gradlew :app:ktlintCheck :core:service:ktlintCheck -Pripdpi.skipNativeBuild=true`
+- `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.screens.settings.StrategyConfigImportTest -Pripdpi.skipNativeBuild=true`
+
+## Remaining Gaps
+
+- Roborazzi golden coverage for the new screen was not added in this slice.
+- Manual zapret2 import/reload validation was not run on device or emulator.
+- The UI currently persists the existing strategy-chain DSL path; full YAML persistence depends on the strategy YAML loader/settings schema work.
