@@ -77,3 +77,36 @@ strategies:
     assert_eq!(verdict, StrategyVerdict::Apply);
     assert_eq!(plan.actions, vec![DesyncAction::Write(b"GET / HTTP/1.1\r\nHost: eXaMpLe.CoM\r\n\r\n".to_vec())]);
 }
+
+#[test]
+fn parsed_yaml_fake_strategy_executes_typed_fake_action() {
+    let config = parse_yaml_str(
+        r#"
+version: 1
+strategies:
+  - id: fake-chain
+    steps:
+      - type: fake
+"#,
+        ".",
+    )
+    .expect("YAML config should parse");
+    let registry = StrategyRegistry::from_loaded_config(&config).expect("config should materialize");
+    let dissect = Dissect::default();
+    let conn = ConnectionState::default();
+    let caps = Capabilities::default();
+    let ctx = StrategyContext {
+        dissect: &dissect,
+        conn: &conn,
+        caps: &caps,
+        flow_id: FlowId(9),
+        payload: b"payload",
+        direction: FlowDirection::Outbound,
+    };
+    let mut plan = DesyncPlan::default();
+
+    let verdict = registry.execute(&ctx, &mut plan);
+
+    assert_eq!(verdict, StrategyVerdict::Apply);
+    assert_eq!(plan.actions, vec![DesyncAction::WriteFake { ttl: None, sni_mode: None, payload_file: None }]);
+}
