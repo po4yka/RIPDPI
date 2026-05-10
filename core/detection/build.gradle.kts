@@ -13,6 +13,7 @@ extensions.configure<LibraryExtension> {
 
 dependencies {
     implementation(project(":core:data"))
+    implementation(project(":core:diagnostics-data"))
     implementation(project(":xray-protos"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)

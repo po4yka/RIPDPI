@@ -13,12 +13,14 @@ import com.poyka.ripdpi.core.detection.IpComparisonEndpointResult
 import com.poyka.ripdpi.core.detection.IpComparisonEndpointStatus
 import com.poyka.ripdpi.core.detection.IpComparisonResult
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.diagnostics.DetectionAddressFamily
+import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
+import com.poyka.ripdpi.data.diagnostics.DetectionResolverNetworkStack
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
-import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
@@ -323,7 +325,9 @@ object IpComparisonChecker {
     private const val CATEGORY_NAME = "IP Comparison"
 }
 
-class DefaultIpComparisonEndpointClient : IpComparisonEndpointClient {
+class DefaultIpComparisonEndpointClient(
+    private val networkStack: DetectionResolverNetworkStack = DetectionResolverNetworkStack(),
+) : IpComparisonEndpointClient {
     private val baseClient =
         OkHttpClient
             .Builder()
@@ -340,7 +344,18 @@ class DefaultIpComparisonEndpointClient : IpComparisonEndpointClient {
                 .header("Accept", "text/plain, application/json, */*")
                 .header("User-Agent", "RIPDPI detection")
                 .build()
-        val client = baseClient.newBuilder().dns(FamilyFilteringDns(endpoint.addressFamily)).build()
+        val client =
+            networkStack
+                .clientFor(
+                    DetectionResolverConfig(
+                        addressFamily = endpoint.addressFamily.toDetectionAddressFamily(),
+                        connectTimeoutMillis = TIMEOUT_MS.toLong(),
+                        readTimeoutMillis = TIMEOUT_MS.toLong(),
+                        callTimeoutMillis = TIMEOUT_MS.toLong(),
+                    ),
+                ).newBuilder()
+                .connectionPool(baseClient.connectionPool)
+                .build()
 
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
@@ -365,20 +380,12 @@ class DefaultIpComparisonEndpointClient : IpComparisonEndpointClient {
             false
         }
 
-    private class FamilyFilteringDns(
-        private val addressFamily: IpComparisonAddressFamily?,
-    ) : Dns {
-        override fun lookup(hostname: String): List<InetAddress> {
-            val addresses = Dns.SYSTEM.lookup(hostname)
-            return when (addressFamily) {
-                IpComparisonAddressFamily.IPV4 -> addresses.filterIsInstance<Inet4Address>()
-                IpComparisonAddressFamily.IPV6 -> addresses.filterIsInstance<Inet6Address>()
-                null -> addresses
-            }.ifEmpty {
-                throw IOException("No $addressFamily DNS records for $hostname")
-            }
+    private fun IpComparisonAddressFamily?.toDetectionAddressFamily(): DetectionAddressFamily =
+        when (this) {
+            IpComparisonAddressFamily.IPV4 -> DetectionAddressFamily.IPV4
+            IpComparisonAddressFamily.IPV6 -> DetectionAddressFamily.IPV6
+            null -> DetectionAddressFamily.ANY
         }
-    }
 
     private companion object {
         private const val TIMEOUT_MS = 5_000

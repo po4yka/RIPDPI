@@ -6,17 +6,18 @@ import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
+import com.poyka.ripdpi.data.diagnostics.DetectionResolverNetworkStack
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import okhttp3.Request
 import org.json.JSONObject
 import java.io.IOException
-import java.net.URL
 import java.util.concurrent.CancellationException
-import javax.net.ssl.HttpsURLConnection
 
 object GeoIpChecker {
     internal data class GeoIpSnapshot(
@@ -88,22 +89,27 @@ object GeoIpChecker {
         }
 
     private fun fetchJson(url: String): JSONObject {
-        val connection = URL(url).openConnection() as HttpsURLConnection
-        connection.connectTimeout = GEO_IP_TIMEOUT_MS.toInt()
-        connection.readTimeout = GEO_IP_TIMEOUT_MS.toInt()
-        connection.requestMethod = "GET"
-        connection.useCaches = false
-        connection.setRequestProperty("Accept", "application/json")
-        try {
-            val statusCode = connection.responseCode
-            if (statusCode !in 200..299) {
-                throw IOException("GeoIP HTTP $statusCode")
-            }
-            val body = connection.inputStream.bufferedReader().use { it.readText() }
-            return JSONObject(body)
-        } finally {
-            connection.disconnect()
+        val request =
+            Request
+                .Builder()
+                .url(url)
+                .header("Accept", "application/json")
+                .header("User-Agent", "RIPDPI detection")
+                .build()
+        val response =
+            DEFAULT_NETWORK_STACK.execute(
+                request = request,
+                config =
+                    DetectionResolverConfig(
+                        connectTimeoutMillis = GEO_IP_TIMEOUT_MS,
+                        readTimeoutMillis = GEO_IP_TIMEOUT_MS,
+                        callTimeoutMillis = GEO_IP_TIMEOUT_MS,
+                    ),
+            )
+        if (response.code !in 200..299) {
+            throw IOException("GeoIP HTTP ${response.code}")
         }
+        return JSONObject(response.body)
     }
 
     internal fun evaluate(json: JSONObject): CategoryResult = evaluate(snapshotFrom(json))
@@ -428,6 +434,7 @@ object GeoIpChecker {
 
     private const val GEO_IP_TIMEOUT_MS = 10_000L
     private const val PROVIDER_MAJORITY = 3
+    private val DEFAULT_NETWORK_STACK = DetectionResolverNetworkStack()
     private const val SEED_URL =
         "https://ipwho.is/?fields=ip,success,message,country,country_code,connection,security"
     private val PROVIDERS =

@@ -25,6 +25,7 @@ dependencies {
     implementation(libs.kermit)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
+    implementation(libs.okhttp.dnsoverhttps)
     ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.bundles.unit.test)
