@@ -9,6 +9,10 @@ const IPV4_MIN_HEADER_LEN: usize = 20;
 const IPV6_HEADER_LEN: usize = 40;
 const TCP_PROTO: u8 = 6;
 const UDP_PROTO: u8 = 17;
+const IPV6_HOP_BY_HOP: u8 = 0;
+const IPV6_ROUTING: u8 = 43;
+const IPV6_FRAGMENT: u8 = 44;
+const IPV6_DESTINATION_OPTIONS: u8 = 60;
 
 pub(in crate::io_loop) trait TunPacketInjector {
     fn inject_packet(&mut self, packet: &[u8]) -> io::Result<()>;
@@ -253,21 +257,46 @@ fn ipv4_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
 }
 
 fn ipv6_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
-    if packet.len() < IPV6_HEADER_LEN + 4 {
+    if packet.len() < IPV6_HEADER_LEN {
         return None;
     }
-    let transport = match packet[6] {
-        TCP_PROTO => Transport::Tcp,
-        UDP_PROTO => Transport::Udp,
-        _ => return None,
-    };
     let dst = Ipv6Addr::from(<[u8; 16]>::try_from(&packet[24..40]).ok()?);
-    Some(TransportEndpoint {
-        transport,
-        dst_ip: IpAddr::V6(dst),
-        src_port: u16::from_be_bytes([packet[IPV6_HEADER_LEN], packet[IPV6_HEADER_LEN + 1]]),
-        dst_port: u16::from_be_bytes([packet[IPV6_HEADER_LEN + 2], packet[IPV6_HEADER_LEN + 3]]),
-    })
+    let mut next_header = packet[6];
+    let mut offset = IPV6_HEADER_LEN;
+    for _ in 0..8 {
+        let transport = match next_header {
+            TCP_PROTO => Transport::Tcp,
+            UDP_PROTO => Transport::Udp,
+            IPV6_HOP_BY_HOP | IPV6_ROUTING | IPV6_DESTINATION_OPTIONS => {
+                if packet.len() < offset + 2 {
+                    return None;
+                }
+                next_header = packet[offset];
+                let header_len = (usize::from(packet[offset + 1]) + 1) * 8;
+                offset = offset.checked_add(header_len)?;
+                continue;
+            }
+            IPV6_FRAGMENT => {
+                if packet.len() < offset + 8 {
+                    return None;
+                }
+                next_header = packet[offset];
+                offset = offset.checked_add(8)?;
+                continue;
+            }
+            _ => return None,
+        };
+        if packet.len() < offset + 4 {
+            return None;
+        }
+        return Some(TransportEndpoint {
+            transport,
+            dst_ip: IpAddr::V6(dst),
+            src_port: u16::from_be_bytes([packet[offset], packet[offset + 1]]),
+            dst_port: u16::from_be_bytes([packet[offset + 2], packet[offset + 3]]),
+        });
+    }
+    None
 }
 
 fn low_ttl_tcp_copy(packet: &[u8], ttl: u8) -> Option<Vec<u8>> {
@@ -401,6 +430,7 @@ strategies:
         let injected = &interceptor.injector.packets[0];
         assert_eq!(injected[6], 60);
         assert_eq!(u16::from_be_bytes([injected[4], injected[5]]), 28);
+        assert_eq!(packet_destination(injected), Some(SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443)));
     }
 
     #[test]

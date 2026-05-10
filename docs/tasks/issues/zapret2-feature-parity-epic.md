@@ -1,22 +1,18 @@
 ---
 title: Port zapret2 DPI-bypass technique set into RIPDPI Rust+Android framework
 type: epic
-status: blocked
+status: done
 area: epic
 priority: high
 owner: Codex
 parent: null
 blocks: []
-blocked_by:
-  - expose-existing-techniques-as-config-addressable
-  - add-udp-length-falsification-strategy
-  - add-ipv6-extension-header-injection
-  - implement-lua-api-surface
+blocked_by: []
 created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Port zapret2 DPI-bypass technique set into RIPDPI Rust+Android framework #repo/RIPDPI #area/epic #status/blocked #blocked 🔼
+- [x] #task Port zapret2 DPI-bypass technique set into RIPDPI Rust+Android framework #repo/RIPDPI #area/epic #status/done 🔼 ✅ 2026-05-10
 
 ## Goal
 
@@ -96,3 +92,4 @@ None (greenfield epic)
 - 2026-05-10: Fixed root-helper lifecycle activation for root mode. `ConnectionPolicyResolver` now starts or stops `RootHelperManager` from the current `rootModeEnabled` setting before assembling native proxy preferences, proxy/VPN runtime coordinators stop the helper during cleanup, service destruction also stops it, and UI preference JSON decoding preserves `rootMode`, `rootHelperSocketPath`, and `environmentKind`. Verification: `./gradlew :core:service:ktlintCheck :core:engine:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.ConnectionPolicyResolverTest --tests com.poyka.ripdpi.services.ServiceSessionModuleTest :core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.RipDpiProxyUIPreferenceMappersTest --tests com.poyka.ripdpi.core.RipDpiProxyPreferencesTest -Pripdpi.skipNativeBuild=true` passed. The epic remains blocked pending live rooted-device raw egress proof.
 - 2026-05-10: Fixed stale VPN tunnel root-helper socket capture. `VpnTunnelRuntime` now reads the root-helper socket through a provider at tunnel start, after policy resolution has started the helper, instead of capturing `null` when the session component is built. Verification: `./gradlew :core:service:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.VpnTunnelRuntimeTest --tests com.poyka.ripdpi.services.ServiceSessionModuleTest -Pripdpi.skipNativeBuild=true` passed.
 - 2026-05-10: Hardened root-helper readiness and shutdown. `RootHelperManager` now waits until the helper Unix socket is connectable before publishing `rootHelperSocketPath`, and `stop()` uses a bounded wait before force-killing an unresponsive helper process. Verification: `./gradlew :core:service:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.RootHelperManagerTest --tests com.poyka.ripdpi.services.ConnectionPolicyResolverTest --tests com.poyka.ripdpi.services.VpnTunnelRuntimeTest -Pripdpi.skipNativeBuild=true` passed. The epic remains blocked pending live rooted-device raw egress proof.
+- 2026-05-10: Closed the rooted-device raw egress blocker on `RIPDPI_Root_API34` (`google/sdk_gphone64_arm64/emu64a:14/UE1A.230829.050/12077443:userdebug/dev-keys`) after installing `system-images;android-34;google_apis;arm64-v8a`, booting with `adb root`, and running the rebuilt `ripdpi-root-helper` over `/data/local/tmp/ripdpi-root-helper.sock`. `tcpdump -i any -XX` captured live egress for low-TTL fake TCP (`FAKE_RAW`, TTL 5), `udplen` malformed UDP (`bad length 20 > 16`, `UDPLEN_RAW_PROOF`), IPv6 Destination Options (`next-header unknown (60)`, `IPV6_EXT_PROOF`), and Lua-style rawsend (`LUA_RAWSEND_PROOF`), each with root-helper `send_raw_ip_packet` returning `{"ok":true}`. The native fixes that made this pass also teach TUN egress destination parsing to walk IPv6 extension headers and zero the raw IPv6 sockaddr port before `send_to`.

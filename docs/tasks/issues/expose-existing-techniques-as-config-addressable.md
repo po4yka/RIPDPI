@@ -1,18 +1,18 @@
 ---
 title: Expose existing desync techniques as config-addressable registry entries
 type: task
-status: blocked
+status: done
 area: rust-native
 priority: high
 owner: unassigned
 parent: zapret2-feature-parity-epic
 blocks: []
-blocked_by: [add-ripdpi-strategy-config-yaml-loader, refactor-plan-tcp-to-desynpstrategy-trait]
+blocked_by: []
 created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Expose existing desync techniques as config-addressable registry entries #repo/RIPDPI #area/rust-native #status/blocked #blocked 🔼
+- [x] #task Expose existing desync techniques as config-addressable registry entries #repo/RIPDPI #area/rust-native #status/done 🔼 ✅ 2026-05-10
 
 ## Objective
 
@@ -91,3 +91,4 @@ Running RIPDPI on a device and loading a YAML with `type: fake` produces a fake 
 - Fixed root-helper lifecycle activation for root-mode registry techniques. Policy resolution now starts the helper before native preferences are built, proxy/VPN runtime cleanup stops it, and preference JSON decode preserves the root-helper socket field for round-trips. Verification: `./gradlew :core:service:ktlintCheck :core:engine:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.ConnectionPolicyResolverTest --tests com.poyka.ripdpi.services.ServiceSessionModuleTest :core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.RipDpiProxyUIPreferenceMappersTest --tests com.poyka.ripdpi.core.RipDpiProxyPreferencesTest -Pripdpi.skipNativeBuild=true`. Still blocked until live rooted-device raw egress is proven.
 - Fixed stale VPN tunnel root-helper socket capture for root-mode registry techniques. `VpnTunnelRuntime` now reads the socket at tunnel start, after policy resolution starts the helper. Verification: `./gradlew :core:service:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.VpnTunnelRuntimeTest --tests com.poyka.ripdpi.services.ServiceSessionModuleTest -Pripdpi.skipNativeBuild=true`. Still blocked until live rooted-device raw egress is proven.
 - Hardened root-helper readiness for registry raw-send techniques. The socket path is now published only after the Unix socket accepts a connection, and shutdown force-kills a helper that does not exit within the bounded stop wait. Verification: `./gradlew :core:service:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.RootHelperManagerTest --tests com.poyka.ripdpi.services.ConnectionPolicyResolverTest --tests com.poyka.ripdpi.services.VpnTunnelRuntimeTest -Pripdpi.skipNativeBuild=true`. Still blocked until live rooted-device raw egress is proven.
+- Rooted-device validation passed on `RIPDPI_Root_API34`: rebuilt `ripdpi-root-helper` accepted `send_raw_ip_packet` and `tcpdump` captured the low-TTL fake TCP egress packet (`FAKE_RAW`, TTL 5, destination port 54322). The remaining registry raw-send blocker is closed.

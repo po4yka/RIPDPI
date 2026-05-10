@@ -1,18 +1,18 @@
 ---
 title: Add UDP length falsification strategy
 type: task
-status: blocked
+status: done
 area: rust-native
 priority: medium
 owner: unassigned
 parent: zapret2-feature-parity-epic
 blocks: []
-blocked_by: [expose-existing-techniques-as-config-addressable]
+blocked_by: []
 created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Add UDP length falsification strategy #repo/RIPDPI #area/rust-native #status/blocked #blocked 🔼
+- [x] #task Add UDP length falsification strategy #repo/RIPDPI #area/rust-native #status/done 🔼 ✅ 2026-05-10
 
 ## Objective
 
@@ -88,3 +88,4 @@ Parameters:
 - Fixed root-helper lifecycle activation so root-mode service starts and publishes a root-helper socket before native proxy/tunnel preferences are assembled and stop it during runtime cleanup. Verification: `./gradlew :core:service:ktlintCheck :core:engine:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.ConnectionPolicyResolverTest --tests com.poyka.ripdpi.services.ServiceSessionModuleTest :core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.RipDpiProxyUIPreferenceMappersTest --tests com.poyka.ripdpi.core.RipDpiProxyPreferencesTest -Pripdpi.skipNativeBuild=true`. Still blocked until live rooted-device raw UDP egress is proven.
 - Fixed stale VPN tunnel root-helper socket capture for `udplen`. `VpnTunnelRuntime` now reads the socket at tunnel start, after policy resolution starts the helper. Verification: `./gradlew :core:service:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.VpnTunnelRuntimeTest --tests com.poyka.ripdpi.services.ServiceSessionModuleTest -Pripdpi.skipNativeBuild=true`. Still blocked until live rooted-device raw UDP egress is proven.
 - Hardened root-helper readiness for `udplen` raw UDP emission. The service now waits for a connectable helper socket before publishing it to native config and uses bounded helper shutdown. Verification: `./gradlew :core:service:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.RootHelperManagerTest --tests com.poyka.ripdpi.services.ConnectionPolicyResolverTest --tests com.poyka.ripdpi.services.VpnTunnelRuntimeTest -Pripdpi.skipNativeBuild=true`. Still blocked until live rooted-device raw UDP egress is proven.
+- Rooted-device validation passed on `RIPDPI_Root_API34`: rebuilt `ripdpi-root-helper` accepted `send_raw_ip_packet` and `tcpdump` captured malformed UDP egress with `bad length 20 > 16` and marker payload `UDPLEN_RAW_PROOF`. The live raw UDP egress blocker is closed.

@@ -1,18 +1,18 @@
 ---
 title: Implement IPv6 extension header injection in ripdpi-strategy-ipv6 crate
 type: task
-status: blocked
+status: done
 area: rust-native
 priority: low
 owner: unassigned
 parent: zapret2-feature-parity-epic
 blocks: []
-blocked_by: [expose-existing-techniques-as-config-addressable]
+blocked_by: []
 created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Implement IPv6 extension header injection in ripdpi-strategy-ipv6 crate #repo/RIPDPI #area/rust-native #status/blocked #blocked
+- [x] #task Implement IPv6 extension header injection in ripdpi-strategy-ipv6 crate #repo/RIPDPI #area/rust-native #status/done ✅ 2026-05-10
 
 ## Objective
 
@@ -99,3 +99,4 @@ Extension headers to support:
 - Fixed root-helper lifecycle activation so root-mode service starts and publishes a root-helper socket before native proxy/tunnel preferences are assembled and stop it during runtime cleanup. Verification: `./gradlew :core:service:ktlintCheck :core:engine:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.ConnectionPolicyResolverTest --tests com.poyka.ripdpi.services.ServiceSessionModuleTest :core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.RipDpiProxyUIPreferenceMappersTest --tests com.poyka.ripdpi.core.RipDpiProxyPreferencesTest -Pripdpi.skipNativeBuild=true`. Still blocked until live rooted-device raw IPv6 egress is proven.
 - Fixed stale VPN tunnel root-helper socket capture for `ipv6Ext`. `VpnTunnelRuntime` now reads the socket at tunnel start, after policy resolution starts the helper. Verification: `./gradlew :core:service:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.VpnTunnelRuntimeTest --tests com.poyka.ripdpi.services.ServiceSessionModuleTest -Pripdpi.skipNativeBuild=true`. Still blocked until live rooted-device raw IPv6 egress is proven.
 - Hardened root-helper readiness for `ipv6Ext` raw IPv6 emission. The service now waits for a connectable helper socket before publishing it to native config and force-kills helpers that ignore graceful shutdown. Verification: `./gradlew :core:service:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.RootHelperManagerTest --tests com.poyka.ripdpi.services.ConnectionPolicyResolverTest --tests com.poyka.ripdpi.services.VpnTunnelRuntimeTest -Pripdpi.skipNativeBuild=true`. Still blocked until live rooted-device raw IPv6 egress is proven.
+- Rooted-device validation passed on `RIPDPI_Root_API34`: after fixing IPv6 extension-header destination parsing and raw IPv6 send target ports, rebuilt `ripdpi-root-helper` accepted `send_raw_ip_packet` and `tcpdump` captured `IP6 ... next-header unknown (60)` / `DSTOPT` egress with marker payload `IPV6_EXT_PROOF`. The live raw IPv6 egress blocker is closed.

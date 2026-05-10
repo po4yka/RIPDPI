@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, SocketAddr, SocketAddrV6};
 use std::os::fd::AsRawFd;
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
@@ -23,8 +23,33 @@ pub(crate) fn send_ip_packet(target: SocketAddr, packet: &[u8], protect_path: Op
             socket
         }
     };
-    socket.send_to(packet, &SockAddr::from(target))?;
+    socket.send_to(packet, &raw_send_target(target))?;
     Ok(())
+}
+
+fn raw_send_target(target: SocketAddr) -> SockAddr {
+    match target {
+        SocketAddr::V4(_) => SockAddr::from(target),
+        SocketAddr::V6(addr) => {
+            let raw_target = SocketAddr::V6(SocketAddrV6::new(*addr.ip(), 0, addr.flowinfo(), addr.scope_id()));
+            SockAddr::from(raw_target)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::SocketAddr;
+
+    use super::raw_send_target;
+
+    #[test]
+    fn ipv6_raw_send_target_zeros_transport_port() {
+        let target: SocketAddr = "[::1]:443".parse().expect("IPv6 target");
+        let raw_target = raw_send_target(target).as_socket().expect("socket address");
+
+        assert_eq!(raw_target.port(), 0);
+    }
 }
 
 pub(super) fn send_icmp_packet(target: IpAddr, ttl: u8, packet: &[u8], protect_path: Option<&str>) -> io::Result<()> {

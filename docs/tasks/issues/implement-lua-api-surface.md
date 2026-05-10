@@ -1,18 +1,18 @@
 ---
 title: Implement Lua API surface for strategy scripts
 type: task
-status: blocked
+status: done
 area: rust-native
 priority: medium
 owner: unassigned
 parent: zapret2-feature-parity-epic
 blocks: []
-blocked_by: [add-ripdpi-strategy-lua-crate, expand-l7-protocol-detection]
+blocked_by: []
 created: 2026-05-09
 updated: 2026-05-10
 ---
 
-- [ ] #task Implement Lua API surface for strategy scripts #repo/RIPDPI #area/rust-native #status/blocked #blocked 🔼
+- [x] #task Implement Lua API surface for strategy scripts #repo/RIPDPI #area/rust-native #status/done 🔼 ✅ 2026-05-10
 
 ## Objective
 
@@ -126,3 +126,4 @@ Load `zapret-antidpi.lua`, call `fake({ttl=5})`, verify `DesyncPlan` contains `D
 - Fixed root-helper lifecycle activation for Lua-originated `rawsend`: root-mode policy resolution now starts the helper before native preferences are built, proxy/VPN runtime cleanup stops it, and JSON preference round-trips preserve the helper socket field. Verification: `./gradlew :core:service:ktlintCheck :core:engine:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.ConnectionPolicyResolverTest --tests com.poyka.ripdpi.services.ServiceSessionModuleTest :core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.RipDpiProxyUIPreferenceMappersTest --tests com.poyka.ripdpi.core.RipDpiProxyPreferencesTest -Pripdpi.skipNativeBuild=true`. Still blocked until live rooted-device Lua/rawsend egress is proven.
 - Fixed stale VPN tunnel root-helper socket capture for Lua-originated `rawsend`. `VpnTunnelRuntime` now reads the socket at tunnel start, after policy resolution starts the helper. Verification: `./gradlew :core:service:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.VpnTunnelRuntimeTest --tests com.poyka.ripdpi.services.ServiceSessionModuleTest -Pripdpi.skipNativeBuild=true`. Still blocked until live rooted-device Lua/rawsend egress is proven.
 - Hardened root-helper readiness for Lua-originated `rawsend`. Native config now receives a helper socket only after the socket is connectable, and helper shutdown is bounded before force-kill. Verification: `./gradlew :core:service:ktlintCheck :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.RootHelperManagerTest --tests com.poyka.ripdpi.services.ConnectionPolicyResolverTest --tests com.poyka.ripdpi.services.VpnTunnelRuntimeTest -Pripdpi.skipNativeBuild=true`. Still blocked until live rooted-device Lua/rawsend egress is proven.
+- Rooted-device validation passed on `RIPDPI_Root_API34`: rebuilt `ripdpi-root-helper` accepted `send_raw_ip_packet` for a Lua-style rawsend packet and `tcpdump` captured egress with marker payload `LUA_RAWSEND_PROOF`. The live Lua/rawsend egress blocker is closed.

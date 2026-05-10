@@ -30,9 +30,13 @@ class RootHelperManagerTest {
             val manager =
                 RootHelperManager(
                     binaryExtractor = { fakeBinary },
-                    processLauncher = { _, socket ->
-                        socket.writeText("stale")
-                        fakeProcess
+                    processLaunchAttempts = { _, _ ->
+                        listOf(
+                            RootHelperLaunchAttempt("test root helper launcher") {
+                                File(context.filesDir, "root_helper.sock").writeText("stale")
+                                fakeProcess
+                            },
+                        )
                     },
                     readinessProbe = { socket, _, _ ->
                         readinessCalls += 1
@@ -58,7 +62,13 @@ class RootHelperManagerTest {
             val manager =
                 RootHelperManager(
                     binaryExtractor = { fakeBinary },
-                    processLauncher = { _, _ -> fakeProcess },
+                    processLaunchAttempts = { _, _ ->
+                        listOf(
+                            RootHelperLaunchAttempt("test root helper launcher") {
+                                fakeProcess
+                            },
+                        )
+                    },
                     readinessProbe = { _, _, _ -> true },
                 )
 
@@ -70,6 +80,41 @@ class RootHelperManagerTest {
             assertTrue(fakeProcess.destroyed)
             assertTrue(fakeProcess.forceDestroyed)
             assertEquals(1, fakeProcess.waitForTimeoutCalls)
+        }
+
+    @Test
+    fun `start tries next root helper launcher when first su form is not ready`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val fakeBinary = File(context.filesDir, "fake-root-helper").apply { writeText("bin") }
+            val firstProcess = RecordingProcess()
+            val secondProcess = RecordingProcess()
+            val launchOrder = mutableListOf<String>()
+            val readinessResults = ArrayDeque(listOf(false, true))
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { fakeBinary },
+                    processLaunchAttempts = { _, _ ->
+                        listOf(
+                            RootHelperLaunchAttempt("magisk su") {
+                                launchOrder += "magisk"
+                                firstProcess
+                            },
+                            RootHelperLaunchAttempt("aosp su") {
+                                launchOrder += "aosp"
+                                secondProcess
+                            },
+                        )
+                    },
+                    readinessProbe = { _, _, _ -> readinessResults.removeFirst() },
+                )
+
+            val result = manager.start(context)
+
+            assertEquals(listOf("magisk", "aosp"), launchOrder)
+            assertTrue(firstProcess.destroyed)
+            assertEquals(File(context.filesDir, "root_helper.sock").absolutePath, result)
+            assertEquals(result, manager.socketPath)
         }
 }
 

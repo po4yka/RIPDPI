@@ -24,28 +24,19 @@ open class RootHelperManager
     constructor() {
         internal constructor(
             binaryExtractor: (Context) -> File,
-            processLauncher: (File, File) -> Process,
+            processLaunchAttempts: (File, File) -> List<RootHelperLaunchAttempt>,
             readinessProbe: suspend (File, Long, Long) -> Boolean,
         ) : this() {
             this.binaryExtractor = binaryExtractor
-            this.processLauncher = processLauncher
+            this.processLaunchAttempts = processLaunchAttempts
             this.readinessProbe = readinessProbe
         }
 
         private var helperProcess: Process? = null
         private var activeSocketPath: String? = null
         private var binaryExtractor: (Context) -> File = { context -> extractBinary(context) }
-        private var processLauncher: (File, File) -> Process = { binary, socket ->
-            Runtime
-                .getRuntime()
-                .exec(
-                    arrayOf(
-                        "su",
-                        "-c",
-                        "${binary.absolutePath} --socket ${socket.absolutePath}",
-                    ),
-                )
-        }
+        private var processLaunchAttempts: (File, File) -> List<RootHelperLaunchAttempt> =
+            { binary, socket -> buildRootHelperLaunchAttempts(binary, socket) }
         private var readinessProbe: suspend (File, Long, Long) -> Boolean = { socket, timeoutMs, pollIntervalMs ->
             awaitSocketReady(socket, timeoutMs, pollIntervalMs)
         }
@@ -98,19 +89,26 @@ open class RootHelperManager
                         socket.delete()
                     }
 
-                    log.i { "starting root helper: ${binary.absolutePath} --socket ${socket.absolutePath}" }
-                    val process = processLauncher(binary, socket)
-                    helperProcess = process
+                    for (attempt in processLaunchAttempts(binary, socket)) {
+                        if (socket.exists()) {
+                            socket.delete()
+                        }
 
-                    if (!readinessProbe(socket, READY_TIMEOUT_MS, READY_POLL_INTERVAL_MS)) {
-                        log.e { "root helper socket was not connectable within ${READY_TIMEOUT_MS}ms" }
+                        log.i { "starting root helper: ${attempt.description}" }
+                        helperProcess = attempt.launch()
+
+                        if (readinessProbe(socket, READY_TIMEOUT_MS, READY_POLL_INTERVAL_MS)) {
+                            activeSocketPath = socket.absolutePath
+                            log.i { "root helper started, socket: ${socket.absolutePath}" }
+                            return@withContext socket.absolutePath
+                        }
+
+                        log.w { "root helper socket was not connectable via ${attempt.description}" }
                         stop()
-                        return@withContext null
                     }
 
-                    activeSocketPath = socket.absolutePath
-                    log.i { "root helper started, socket: ${socket.absolutePath}" }
-                    socket.absolutePath
+                    log.e { "root helper socket was not connectable within ${READY_TIMEOUT_MS}ms" }
+                    null
                 } catch (e: IOException) {
                     log.e(e) { "failed to start root helper" }
                     stop()
@@ -166,6 +164,27 @@ open class RootHelperManager
             return targetFile
         }
 
+        private fun buildRootHelperLaunchAttempts(
+            binary: File,
+            socket: File,
+        ): List<RootHelperLaunchAttempt> {
+            val helperCommand = "${shellQuote(binary.absolutePath)} --socket ${shellQuote(socket.absolutePath)}"
+            return listOf(
+                RootHelperLaunchAttempt("su -c $helperCommand") {
+                    Runtime
+                        .getRuntime()
+                        .exec(arrayOf("su", "-c", helperCommand))
+                },
+                RootHelperLaunchAttempt("su 0 sh -c exec $helperCommand") {
+                    Runtime
+                        .getRuntime()
+                        .exec(arrayOf("su", "0", "sh", "-c", "exec $helperCommand"))
+                },
+            )
+        }
+
+        private fun shellQuote(value: String): String = "'" + value.replace("'", "'\"'\"'") + "'"
+
         private suspend fun awaitSocketReady(
             socket: File,
             timeoutMs: Long,
@@ -198,3 +217,8 @@ open class RootHelperManager
             }
         }
     }
+
+internal class RootHelperLaunchAttempt(
+    val description: String,
+    val launch: () -> Process,
+)
