@@ -96,6 +96,7 @@ internal fun DetectionCheckRoute(
             onDismissOnboarding = remember(viewModel) { viewModel::dismissOnboarding },
             onApplyFixes = remember(viewModel) { viewModel::applyAllFixes },
             onPrivacyModeChange = remember(viewModel) { viewModel::setPrivacyModeEnabled },
+            onCdnPullingChange = remember(viewModel) { viewModel::setCdnPullingEnabled },
             onReloadCommunityStats = remember(viewModel) { viewModel::reloadCommunityStats },
             onRequestPermissions = onRequestPermissions,
         )
@@ -145,6 +146,7 @@ internal fun DetectionCheckScreen(
     onDismissOnboarding: () -> Unit,
     onApplyFixes: () -> Unit,
     onPrivacyModeChange: (Boolean) -> Unit,
+    onCdnPullingChange: (Boolean) -> Unit = {},
     onReloadCommunityStats: () -> Unit,
     onRequestPermissions: () -> Unit,
 ) {
@@ -191,6 +193,7 @@ internal fun DetectionCheckScreen(
                 onStop = onStop,
                 onApplyFixes = onApplyFixes,
                 onPrivacyModeChange = onPrivacyModeChange,
+                onCdnPullingChange = onCdnPullingChange,
                 onReloadCommunityStats = onReloadCommunityStats,
                 onRequestPermissions = onRequestPermissions,
                 performHaptic = performHaptic,
@@ -206,6 +209,7 @@ private fun DetectionCheckScreenContent(
     onStop: () -> Unit,
     onApplyFixes: () -> Unit,
     onPrivacyModeChange: (Boolean) -> Unit,
+    onCdnPullingChange: (Boolean) -> Unit,
     onReloadCommunityStats: () -> Unit,
     onRequestPermissions: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
@@ -230,6 +234,11 @@ private fun DetectionCheckScreenContent(
         DetectionPrivacyModeToggle(
             enabled = uiState.privacyModeEnabled,
             onEnabledChange = onPrivacyModeChange,
+        )
+        DetectionCdnPullingToggle(
+            enabled = uiState.cdnPullingEnabled,
+            onEnabledChange = onCdnPullingChange,
+            controlEnabled = !uiState.isRunning,
         )
         DetectionPermissionWarning(
             missingPermissions = uiState.missingPermissions,
@@ -277,6 +286,20 @@ private fun DetectionPrivacyModeToggle(
         checked = enabled,
         onCheckedChange = onEnabledChange,
         label = stringResource(R.string.detection_privacy_mode),
+    )
+}
+
+@Composable
+private fun DetectionCdnPullingToggle(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    controlEnabled: Boolean,
+) {
+    RipDpiSwitch(
+        checked = enabled,
+        onCheckedChange = onEnabledChange,
+        enabled = controlEnabled,
+        label = "CDN trace and TLS MITM check",
     )
 }
 

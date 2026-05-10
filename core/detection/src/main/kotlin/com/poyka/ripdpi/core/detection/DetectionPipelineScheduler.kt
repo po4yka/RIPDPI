@@ -18,6 +18,7 @@ internal class DetectionPipelineScheduler(
     private val icmpSpoofingChecker: IcmpSpoofingCheckerPort,
     private val ipComparisonChecker: IpComparisonCheckerPort,
     private val rttTriangulationChecker: RttTriangulationCheckerPort,
+    private val cdnPullingChecker: CdnPullingCheckerPort,
 ) {
     suspend fun runChecks(
         context: Context,
@@ -116,6 +117,17 @@ internal class DetectionPipelineScheduler(
                 } else {
                     null
                 }
+            val cdnPullingDeferred =
+                if (config.includeCdnPullingCheck) {
+                    async {
+                        reporter.started(DetectionStage.CDN_PULLING)
+                        cdnPullingChecker.check(enabled = true).also {
+                            reporter.completed(DetectionStage.CDN_PULLING)
+                        }
+                    }
+                } else {
+                    null
+                }
 
             val geoIp = geoIpDeferred.await()
             val directSigns = directSignsDeferred.await()
@@ -169,6 +181,7 @@ internal class DetectionPipelineScheduler(
                 icmpSpoofing = icmpSpoofing,
                 ipComparison = ipComparisonDeferred?.await(),
                 rttTriangulation = rttTriangulation,
+                cdnPulling = cdnPullingDeferred?.await(),
             )
         }
 

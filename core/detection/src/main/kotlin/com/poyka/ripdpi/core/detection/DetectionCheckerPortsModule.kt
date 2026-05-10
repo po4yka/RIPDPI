@@ -52,5 +52,8 @@ abstract class DetectionCheckerPortsModule {
     ): RttTriangulationCheckerPort
 
     @Binds
+    abstract fun bindCdnPullingCheckerPort(checker: DefaultCdnPullingCheckerPort): CdnPullingCheckerPort
+
+    @Binds
     abstract fun bindDetectionVerdictEvaluator(evaluator: DefaultDetectionVerdictEvaluator): DetectionVerdictEvaluator
 }

@@ -325,6 +325,12 @@ private fun detectionCategoryEntries(result: DetectionCheckResult): List<Categor
             "rtt_triangulation",
             RipDpiIcons.Timer,
         )
+        addOptionalCategory(
+            result.cdnPulling?.category,
+            "CDN pulling",
+            "cdn_pulling",
+            RipDpiIcons.Public,
+        )
     }
 
 private fun MutableList<CategoryEntry>.addOptionalCategory(

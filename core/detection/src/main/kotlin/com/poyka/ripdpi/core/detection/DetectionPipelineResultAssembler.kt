@@ -13,6 +13,7 @@ internal data class DetectionPipelineOutputs(
     val icmpSpoofing: IcmpSpoofingResult?,
     val ipComparison: IpComparisonResult?,
     val rttTriangulation: RttTriangulationResult?,
+    val cdnPulling: CdnPullingResult?,
 )
 
 internal class DetectionPipelineResultAssembler(
@@ -29,6 +30,7 @@ internal class DetectionPipelineResultAssembler(
                 locationSignals = locationSignals,
                 bypassResult = bypassResult,
                 ipComparison = outputs.ipComparison,
+                cdnPulling = outputs.cdnPulling,
             )
 
         return DetectionCheckResult(
@@ -44,6 +46,7 @@ internal class DetectionPipelineResultAssembler(
             icmpSpoofing = outputs.icmpSpoofing,
             ipComparison = outputs.ipComparison,
             rttTriangulation = outputs.rttTriangulation,
+            cdnPulling = outputs.cdnPulling,
             verdict = verdict,
         )
     }

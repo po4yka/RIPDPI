@@ -99,5 +99,9 @@ private object DetectionStageProgressMessages {
             DetectionStage.RTT_TRIANGULATION -> {
                 DetectionStageProgressMessage("RTT Triangulation", "Measuring RTT to Russian and foreign targets...")
             }
+
+            DetectionStage.CDN_PULLING -> {
+                DetectionStageProgressMessage("CDN Pulling", "Checking CDN trace endpoints...")
+            }
         }
 }

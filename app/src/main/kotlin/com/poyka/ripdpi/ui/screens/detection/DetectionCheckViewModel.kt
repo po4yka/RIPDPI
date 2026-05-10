@@ -51,6 +51,7 @@ data class DetectionCheckUiState(
     val communityStatsLoading: Boolean = false,
     val communityStatsError: String? = null,
     val privacyModeEnabled: Boolean = false,
+    val cdnPullingEnabled: Boolean = false,
 )
 
 private const val entropyModeBalanced = 3
@@ -85,21 +86,25 @@ class DetectionCheckViewModel
                 _uiState.value = _uiState.value.copy(showOnboarding = true)
             }
             refreshPermissionState()
-            observePrivacyMode()
+            observeDetectionSettings()
             loadHistory()
             loadCommunityState()
         }
 
-        private fun observePrivacyMode() {
+        private fun observeDetectionSettings() {
             viewModelScope.launch {
                 appSettingsRepository.settings.collect { settings ->
-                    val enabled = settings.detectionCheckPrivacyModeEnabled
+                    val privacyModeEnabled = settings.detectionCheckPrivacyModeEnabled
                     _uiState.value =
                         _uiState.value.copy(
-                            privacyModeEnabled = enabled,
+                            privacyModeEnabled = privacyModeEnabled,
+                            cdnPullingEnabled = settings.detectionCheckCdnPullingEnabled,
                             reportText =
                                 _uiState.value.result?.let { result ->
-                                    DetectionReportFormatter.format(result, privacyModeEnabled = enabled)
+                                    DetectionReportFormatter.format(
+                                        result = result,
+                                        privacyModeEnabled = privacyModeEnabled,
+                                    )
                                 } ?: _uiState.value.reportText,
                         )
                 }
@@ -304,6 +309,7 @@ class DetectionCheckViewModel
                 webRtcProtectionEnabled = webrtcProtectionEnabled,
                 tlsFingerprintProfile = tlsFingerprintProfile.ifEmpty { "chrome_stable" },
                 includeRttTriangulationCheck = detectionCheckRttTriangulationEnabled,
+                includeCdnPullingCheck = detectionCheckCdnPullingEnabled,
             )
 
         fun applyAllFixes() {
@@ -344,6 +350,14 @@ class DetectionCheckViewModel
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckPrivacyModeEnabled = enabled
+                }
+            }
+        }
+
+        fun setCdnPullingEnabled(enabled: Boolean) {
+            viewModelScope.launch {
+                appSettingsRepository.update {
+                    detectionCheckCdnPullingEnabled = enabled
                 }
             }
         }

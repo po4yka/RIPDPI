@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.detection
 
 import android.content.Context
 import com.poyka.ripdpi.core.detection.checker.BypassChecker
+import com.poyka.ripdpi.core.detection.checker.CdnPullingChecker
 import com.poyka.ripdpi.core.detection.checker.DirectSignsChecker
 import com.poyka.ripdpi.core.detection.checker.DnsLeakChecker
 import com.poyka.ripdpi.core.detection.checker.GeoIpChecker
@@ -142,6 +143,18 @@ class DefaultRttTriangulationCheckerPort
         }
     }
 
+class DefaultCdnPullingCheckerPort
+    @Inject
+    constructor(
+        private val dispatchers: AppCoroutineDispatchers,
+    ) : CdnPullingCheckerPort {
+        override suspend fun check(enabled: Boolean): CdnPullingResult =
+            CdnPullingChecker.check(
+                dispatchers = dispatchers,
+                enabled = enabled,
+            )
+    }
+
 class DefaultDetectionVerdictEvaluator
     @Inject
     constructor() : DetectionVerdictEvaluator {
@@ -152,6 +165,7 @@ class DefaultDetectionVerdictEvaluator
             locationSignals: CategoryResult,
             bypassResult: BypassResult,
             ipComparison: IpComparisonResult?,
+            cdnPulling: CdnPullingResult?,
         ): Verdict =
             VerdictEngine.evaluate(
                 geoIp = geoIp,
@@ -160,5 +174,6 @@ class DefaultDetectionVerdictEvaluator
                 locationSignals = locationSignals,
                 bypassResult = bypassResult,
                 ipComparison = ipComparison,
+                cdnPulling = cdnPulling,
             )
     }

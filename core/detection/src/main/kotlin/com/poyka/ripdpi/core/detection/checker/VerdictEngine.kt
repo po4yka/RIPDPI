@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CdnPullingResult
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -18,6 +19,7 @@ object VerdictEngine {
         locationSignals: CategoryResult,
         bypassResult: BypassResult,
         ipComparison: IpComparisonResult? = null,
+        cdnPulling: CdnPullingResult? = null,
     ): Verdict {
         val evidence =
             buildList {
@@ -27,12 +29,16 @@ object VerdictEngine {
                 addAll(locationSignals.evidence)
                 addAll(bypassResult.evidence)
                 ipComparison?.category?.evidence?.let(::addAll)
+                cdnPulling?.category?.evidence?.let(::addAll)
             }
 
         if (evidence.any { it.source == EvidenceSource.SPLIT_TUNNEL_BYPASS && it.detected }) {
             return Verdict.DETECTED
         }
         if (evidence.any { it.source == EvidenceSource.XRAY_API && it.detected }) {
+            return Verdict.DETECTED
+        }
+        if (evidence.any { it.source == EvidenceSource.CDN_PULLING && it.detected }) {
             return Verdict.DETECTED
         }
 
@@ -117,6 +123,7 @@ object VerdictEngine {
                 EvidenceSource.XRAY_API -> 4
                 EvidenceSource.SPLIT_TUNNEL_BYPASS -> 5
                 EvidenceSource.IP_COMPARISON -> 3
+                EvidenceSource.CDN_PULLING -> 3
                 else -> 0
             }
         return confidenceWeight + kindWeight + sourceWeight

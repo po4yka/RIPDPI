@@ -27,6 +27,7 @@ enum class EvidenceSource {
     LOCATION_SIGNALS,
     ICMP_SPOOFING,
     RTT_TRIANGULATION,
+    CDN_PULLING,
 }
 
 enum class VpnAppKind {
@@ -139,6 +140,38 @@ data class IpComparisonResult(
     val nonRuReflectedIps: Set<String>,
 )
 
+enum class CdnPullingAddressFamily {
+    IPV4,
+    IPV6,
+}
+
+enum class CdnPullingEndpointStatus {
+    OK,
+    ERROR,
+    SKIPPED,
+}
+
+data class CdnPullingEndpointDescriptor(
+    val label: String,
+    val url: String,
+    val targetHost: String,
+    val addressFamily: CdnPullingAddressFamily,
+)
+
+data class CdnPullingEndpointResult(
+    val descriptor: CdnPullingEndpointDescriptor,
+    val reflectedIp: String?,
+    val status: CdnPullingEndpointStatus,
+    val errorMessage: String? = null,
+    val tlsMitm: Boolean = false,
+)
+
+data class CdnPullingResult(
+    val category: CategoryResult,
+    val endpoints: List<CdnPullingEndpointResult>,
+    val actionableTargets: List<String> = emptyList(),
+)
+
 enum class Verdict {
     NOT_DETECTED,
     NEEDS_REVIEW,
@@ -212,6 +245,7 @@ data class DetectionCheckResult(
     val icmpSpoofing: IcmpSpoofingResult? = null,
     val ipComparison: IpComparisonResult? = null,
     val rttTriangulation: RttTriangulationResult? = null,
+    val cdnPulling: CdnPullingResult? = null,
     val verdict: Verdict,
     val methodologyVersion: String = MethodologyVersion.CURRENT,
 )

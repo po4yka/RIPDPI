@@ -161,6 +161,7 @@ class DetectionCheckRunnerTest {
         val icmp = FakeIcmpSpoofingCheckerPort()
         val ipComparison = FakeIpComparisonCheckerPort()
         val rtt = FakeRttTriangulationCheckerPort()
+        val cdnPulling = FakeCdnPullingCheckerPort()
         val verdict = FakeDetectionVerdictEvaluator()
 
         fun newRunner(): DefaultDetectionCheckRunner =
@@ -177,6 +178,7 @@ class DetectionCheckRunnerTest {
                 icmpSpoofingChecker = icmp,
                 ipComparisonChecker = ipComparison,
                 rttTriangulationChecker = rtt,
+                cdnPullingChecker = cdnPulling,
                 verdictEvaluator = verdict,
             )
     }
@@ -329,11 +331,26 @@ class DetectionCheckRunnerTest {
         }
     }
 
+    private class FakeCdnPullingCheckerPort : CdnPullingCheckerPort {
+        val result =
+            CdnPullingResult(
+                category = category("cdn pulling"),
+                endpoints = emptyList(),
+            )
+        var calls = 0
+
+        override suspend fun check(enabled: Boolean): CdnPullingResult {
+            calls += 1
+            return result
+        }
+    }
+
     private class FakeDetectionVerdictEvaluator : DetectionVerdictEvaluator {
         var geoIp: CategoryResult? = null
         var locationSignals: CategoryResult? = null
         var bypassResult: BypassResult? = null
         var ipComparison: IpComparisonResult? = null
+        var cdnPulling: CdnPullingResult? = null
 
         override fun evaluate(
             geoIp: CategoryResult,
@@ -342,11 +359,13 @@ class DetectionCheckRunnerTest {
             locationSignals: CategoryResult,
             bypassResult: BypassResult,
             ipComparison: IpComparisonResult?,
+            cdnPulling: CdnPullingResult?,
         ): Verdict {
             this.geoIp = geoIp
             this.locationSignals = locationSignals
             this.bypassResult = bypassResult
             this.ipComparison = ipComparison
+            this.cdnPulling = cdnPulling
             return Verdict.NEEDS_REVIEW
         }
     }
