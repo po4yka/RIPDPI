@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.diagnostics.dpich.BootstrapVerdict
+import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapResult
+import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetector
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +24,7 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.SocketTimeoutException
+import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
@@ -171,6 +175,7 @@ data class DnsIntegrityResult(
     val stubIps: Set<String>,
     val dohBlocked: Int,
     val doqResults: List<DoqProbeResult> = emptyList(),
+    val dohBootstrapResults: List<DohBootstrapResult> = emptyList(),
 )
 
 fun interface DnsUdpProbe {
@@ -181,14 +186,24 @@ fun interface DnsAddressProbe {
     suspend fun resolveA(domain: String): Set<String>
 }
 
+interface BootstrapFilterableDnsAddressProbe : DnsAddressProbe {
+    suspend fun resolveA(
+        domain: String,
+        excludedDohHostnames: Set<String>,
+    ): Set<String>
+}
+
 class DnsIntegrityChecker(
     private val udpProbe: DnsUdpProbe = DatagramSocketDnsUdpProbe(),
     private val dohJsonProbe: DnsAddressProbe = DohJsonAddressProbe(),
     private val dohWireProbe: DnsAddressProbe = DohWireAddressProbe(),
     private val doqProbe: DoqIntegrityProbe? = null,
+    private val dohBootstrapDetector: DohBootstrapSpoofingDetector? = null,
 ) {
     suspend fun check(domains: List<String>): DnsIntegrityResult {
-        val results = domains.map { domain -> checkDomain(domain) }
+        val dohBootstrapResults = runDohBootstrapDetector()
+        val excludedDohHostnames = dohBootstrapResults.excludedDohHostnames()
+        val results = domains.map { domain -> checkDomain(domain, excludedDohHostnames) }
         val doqResults = runDoqProbe(domains, results)
         val stubIps =
             results
@@ -203,8 +218,20 @@ class DnsIntegrityChecker(
             stubIps = stubIps,
             dohBlocked = results.count { result -> result.verdict == DnsIntegrityVerdict.DOH_BLOCKED },
             doqResults = doqResults,
+            dohBootstrapResults = dohBootstrapResults,
         )
     }
+
+    private suspend fun runDohBootstrapDetector(): List<DohBootstrapResult> =
+        dohBootstrapDetector
+            ?.checkAll()
+            ?.values
+            ?.toList()
+            .orEmpty()
+
+    private fun List<DohBootstrapResult>.excludedDohHostnames(): Set<String> =
+        filter { result -> result.verdict != BootstrapVerdict.OK }
+            .mapTo(linkedSetOf()) { result -> result.dohHostname }
 
     private suspend fun runDoqProbe(
         domains: List<String>,
@@ -215,11 +242,14 @@ class DnsIntegrityChecker(
         return probe.run(domains, dohResults)
     }
 
-    private suspend fun checkDomain(domain: String): DnsIntegrityDomainResult =
+    private suspend fun checkDomain(
+        domain: String,
+        excludedDohHostnames: Set<String>,
+    ): DnsIntegrityDomainResult =
         coroutineScope {
             val udp = async { runProbe { udpProbe.resolveA(domain) } }
-            val dohJson = async { runProbe { dohJsonProbe.resolveA(domain) } }
-            val dohWire = async { runProbe { dohWireProbe.resolveA(domain) } }
+            val dohJson = async { runProbe { dohJsonProbe.resolveA(domain, excludedDohHostnames) } }
+            val dohWire = async { runProbe { dohWireProbe.resolveA(domain, excludedDohHostnames) } }
 
             val udpRecords = udp.await().getOrDefault(emptyList())
             val dohJsonIps = dohJson.await().getOrDefault(emptySet())
@@ -267,6 +297,16 @@ class DnsIntegrityChecker(
             throw error
         } catch (error: Exception) {
             Result.failure(error)
+        }
+
+    private suspend fun DnsAddressProbe.resolveA(
+        domain: String,
+        excludedDohHostnames: Set<String>,
+    ): Set<String> =
+        if (this is BootstrapFilterableDnsAddressProbe) {
+            resolveA(domain, excludedDohHostnames)
+        } else {
+            resolveA(domain)
         }
 
     private fun DnsIntegrityVerdict.notes(): List<String> =
@@ -334,12 +374,19 @@ class DohJsonAddressProbe(
     private val endpoints: List<String> = DefaultDohJsonEndpoints,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val json: Json = Json { ignoreUnknownKeys = true },
-) : DnsAddressProbe {
-    override suspend fun resolveA(domain: String): Set<String> =
+) : BootstrapFilterableDnsAddressProbe {
+    override suspend fun resolveA(domain: String): Set<String> = resolveA(domain, emptySet())
+
+    override suspend fun resolveA(
+        domain: String,
+        excludedDohHostnames: Set<String>,
+    ): Set<String> =
         withContext(dispatcher) {
-            endpoints.firstNotNullOfOrNull { endpoint ->
-                queryEndpoint(domain, endpoint).takeIf(Set<String>::isNotEmpty)
-            }
+            endpoints
+                .filterNot { endpoint -> endpoint.dohHostname() in excludedDohHostnames }
+                .firstNotNullOfOrNull { endpoint ->
+                    queryEndpoint(domain, endpoint).takeIf(Set<String>::isNotEmpty)
+                }
                 ?: emptySet()
         }
 
@@ -378,13 +425,20 @@ class DohWireAddressProbe(
     private val endpoints: List<String> = DefaultDohWireEndpoints,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val timeoutMs: Long = DefaultDohWireTimeoutMs,
-) : DnsAddressProbe {
-    override suspend fun resolveA(domain: String): Set<String> =
+) : BootstrapFilterableDnsAddressProbe {
+    override suspend fun resolveA(domain: String): Set<String> = resolveA(domain, emptySet())
+
+    override suspend fun resolveA(
+        domain: String,
+        excludedDohHostnames: Set<String>,
+    ): Set<String> =
         withTimeout(timeoutMs) {
             withContext(dispatcher) {
-                endpoints.firstNotNullOfOrNull { endpoint ->
-                    queryEndpoint(domain, endpoint).takeIf(Set<String>::isNotEmpty)
-                }
+                endpoints
+                    .filterNot { endpoint -> endpoint.dohHostname() in excludedDohHostnames }
+                    .firstNotNullOfOrNull { endpoint ->
+                        queryEndpoint(domain, endpoint).takeIf(Set<String>::isNotEmpty)
+                    }
                     ?: emptySet()
             }
         }
@@ -467,6 +521,8 @@ private fun defaultDnsHttpClient(): OkHttpClient =
         .readTimeout(5, TimeUnit.SECONDS)
         .callTimeout(7, TimeUnit.SECONDS)
         .build()
+
+private fun String.dohHostname(): String? = runCatching { URI(this).host }.getOrNull()
 
 private fun isIpv4Literal(value: String): Boolean =
     value

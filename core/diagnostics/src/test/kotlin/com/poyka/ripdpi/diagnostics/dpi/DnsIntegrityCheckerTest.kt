@@ -1,5 +1,11 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.diagnostics.dpich.BootstrapVerdict
+import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetector
+import com.poyka.ripdpi.diagnostics.dpich.DohProviderFilter
+import com.poyka.ripdpi.diagnostics.dpich.FakeSubnetMetadataLookup
+import com.poyka.ripdpi.diagnostics.dpich.IpRange
+import com.poyka.ripdpi.diagnostics.dpich.SubnetMetadata
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -100,11 +106,31 @@ class DnsIntegrityCheckerTest {
             assertEquals(DoqVerdict.DOQ_INTEGRITY_DIVERGENT, result.doqResults.single().verdict)
         }
 
+    @Test
+    fun spoofedBootstrapProvidersAreExcludedFromBootstrapAwareDohProbes() =
+        runTest {
+            val dohJson = RecordingBootstrapAwareProbe(setOf("5.6.7.8"))
+            val dohWire = RecordingBootstrapAwareProbe(setOf("5.6.7.8"))
+
+            val result =
+                DnsIntegrityChecker(
+                    udpProbe = DnsUdpProbe { listOf("5.6.7.8") },
+                    dohJsonProbe = dohJson,
+                    dohWireProbe = dohWire,
+                    dohBootstrapDetector = spoofedGoogleBootstrapDetector(),
+                ).check(listOf("blocked.example"))
+
+            assertEquals(BootstrapVerdict.SPOOFED, result.dohBootstrapResults.single().verdict)
+            assertEquals(setOf("dns.google"), dohJson.excludedHostnames)
+            assertEquals(setOf("dns.google"), dohWire.excludedHostnames)
+        }
+
     private fun checker(
         udp: suspend (String) -> List<String>,
         dohJson: suspend (String) -> Set<String>,
         dohWire: suspend (String) -> Set<String>,
         doqProbe: DoqIntegrityProbe? = null,
+        dohBootstrapDetector: DohBootstrapSpoofingDetector? = null,
     ): DnsIntegrityChecker =
         DnsIntegrityChecker(
             udpProbe =
@@ -120,6 +146,7 @@ class DnsIntegrityCheckerTest {
                     override suspend fun resolveA(domain: String): Set<String> = dohWire(domain)
                 },
             doqProbe = doqProbe,
+            dohBootstrapDetector = dohBootstrapDetector,
         )
 
     private fun probeWithResponse(ip: String): DoqIntegrityProbe =
@@ -144,4 +171,37 @@ class DnsIntegrityCheckerTest {
         transactionId: Int,
         ip: String,
     ): ByteArray = DoqIntegrityProbeTestFixtures.dnsResponse("blocked.example", transactionId, ip)
+
+    private fun spoofedGoogleBootstrapDetector(): DohBootstrapSpoofingDetector =
+        DohBootstrapSpoofingDetector(
+            resolver = { listOf("1.2.3.4") },
+            metadata =
+                FakeSubnetMetadataLookup(
+                    records =
+                        listOf(
+                            SubnetMetadata(IpRange("8.8.8.0/24"), asn = 15169, org = "Google LLC", country = "US"),
+                            SubnetMetadata(IpRange("1.2.3.0/24"), asn = 12389, org = "Rostelecom", country = "RU"),
+                        ),
+                    ipToAsn = mapOf("1.2.3.4" to 12389),
+                    ipToSubnet = mapOf("1.2.3.4" to IpRange("1.2.3.0/24")),
+                ),
+            providers = listOf(DohProviderFilter("Google", "dns.google", "as(15169)")),
+        )
+
+    private class RecordingBootstrapAwareProbe(
+        private val result: Set<String>,
+    ) : BootstrapFilterableDnsAddressProbe {
+        var excludedHostnames: Set<String> = emptySet()
+            private set
+
+        override suspend fun resolveA(
+            domain: String,
+            excludedDohHostnames: Set<String>,
+        ): Set<String> {
+            excludedHostnames = excludedDohHostnames
+            return result
+        }
+
+        override suspend fun resolveA(domain: String): Set<String> = result
+    }
 }
