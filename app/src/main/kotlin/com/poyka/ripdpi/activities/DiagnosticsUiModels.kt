@@ -294,6 +294,7 @@ data class DiagnosticsDpiToolsUiModel(
     val tcp16FatHeader: DiagnosticsTcp16FatHeaderToolUiModel = DiagnosticsTcp16FatHeaderToolUiModel(),
     val allowlistSni: DiagnosticsAllowlistSniToolUiModel = DiagnosticsAllowlistSniToolUiModel(),
     val byohCompatibility: DiagnosticsByohCompatibilityToolUiModel = DiagnosticsByohCompatibilityToolUiModel(),
+    val dpiSuite: DiagnosticsDpiSuiteToolUiModel = DiagnosticsDpiSuiteToolUiModel(),
 )
 
 @Immutable

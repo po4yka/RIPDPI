@@ -42,6 +42,7 @@ import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderState
 import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderToolUiModel
+import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -72,6 +73,11 @@ internal data class DiagnosticsDpiToolActions(
     val onByohDstIpChange: (String) -> Unit = {},
     val onByohUrlPathChange: (String) -> Unit = {},
     val onByohSyntheticFixtureEnabledChange: (Boolean) -> Unit = {},
+    val onDpiSuiteProbeEnabledChange: (DpiProbeKind, Boolean) -> Unit = { _, _ -> },
+    val onDpiSuiteCustomDomainsChange: (String) -> Unit = {},
+    val onDpiSuiteConcurrencyDelta: (Int) -> Unit = {},
+    val onRunDpiProbeSuite: () -> Unit = {},
+    val onCancelDpiProbeSuite: () -> Unit = {},
 )
 
 @Composable
@@ -217,6 +223,16 @@ private fun LazyListScope.dpiToolItems(
     dpiTools: DiagnosticsDpiToolsUiModel,
     actions: DiagnosticsDpiToolActions,
 ) {
+    item {
+        DpiProbeSuiteCard(
+            tool = dpiTools.dpiSuite,
+            onProbeEnabledChange = actions.onDpiSuiteProbeEnabledChange,
+            onCustomDomainsChange = actions.onDpiSuiteCustomDomainsChange,
+            onConcurrencyDelta = actions.onDpiSuiteConcurrencyDelta,
+            onRun = actions.onRunDpiProbeSuite,
+            onCancel = actions.onCancelDpiProbeSuite,
+        )
+    }
     item {
         DnsIntegrityToolCard(
             tool = dpiTools.dnsIntegrity,

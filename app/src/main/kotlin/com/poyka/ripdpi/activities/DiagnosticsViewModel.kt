@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
+import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
@@ -68,6 +69,16 @@ class DiagnosticsViewModel
                 rknLayeredProbePipeline = rknLayeredProbePipeline,
                 selfInfoFetcher = selfInfoFetcher,
             )
+        private val dpiSuiteController =
+            DiagnosticsDpiSuiteController(
+                scope = viewModelScope,
+                appContext = diagnosticsContextDependencies.appContext,
+                appSettingsRepository = appSettingsRepository,
+                dnsIntegrityChecker = dnsIntegrityChecker,
+                dnsAvailabilitySurvey = dnsAvailabilitySurvey,
+                domainReachabilityScanner = domainReachabilityScanner,
+                tcp16FatHeaderProbe = tcp16FatHeaderProbe,
+            )
 
         val uiState: StateFlow<DiagnosticsUiState> =
             diagnosticsUiStateAssembler.assemble(
@@ -97,6 +108,8 @@ class DiagnosticsViewModel
             dpiToolsController.allowlistSniTool
         val byohCompatibilityTool: StateFlow<DiagnosticsByohCompatibilityToolUiModel> =
             dpiToolsController.byohCompatibilityTool
+        val dpiSuiteTool: StateFlow<DiagnosticsDpiSuiteToolUiModel> =
+            dpiSuiteController.tool
 
         private val mutations =
             DiagnosticsMutationRunner(
@@ -264,6 +277,19 @@ class DiagnosticsViewModel
             dpiToolsController.setByohSyntheticFixtureEnabled(enabled)
 
         fun runByohCompatibilityCheck() = dpiToolsController.runByohCompatibilityCheck()
+
+        fun setDpiSuiteProbeEnabled(
+            kind: DpiProbeKind,
+            enabled: Boolean,
+        ) = dpiSuiteController.setProbeEnabled(kind, enabled)
+
+        fun setDpiSuiteCustomDomains(value: String) = dpiSuiteController.setCustomDomains(value)
+
+        fun adjustDpiSuiteConcurrency(delta: Int) = dpiSuiteController.adjustConcurrency(delta)
+
+        fun runDpiProbeSuite() = dpiSuiteController.run()
+
+        fun cancelDpiProbeSuite() = dpiSuiteController.cancel()
     }
 
 private fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =

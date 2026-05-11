@@ -59,6 +59,7 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiMode
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
+import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -150,6 +151,11 @@ data class DiagnosticsScreenActions(
     val onByohDstIpChange: (String) -> Unit = {},
     val onByohUrlPathChange: (String) -> Unit = {},
     val onByohSyntheticFixtureEnabledChange: (Boolean) -> Unit = {},
+    val onDpiSuiteProbeEnabledChange: (DpiProbeKind, Boolean) -> Unit = { _, _ -> },
+    val onDpiSuiteCustomDomainsChange: (String) -> Unit = {},
+    val onDpiSuiteConcurrencyDelta: (Int) -> Unit = {},
+    val onRunDpiProbeSuite: () -> Unit = {},
+    val onCancelDpiProbeSuite: () -> Unit = {},
 )
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -342,6 +348,11 @@ private fun DiagnosticsScreenPager(
                             onByohDstIpChange = actions.onByohDstIpChange,
                             onByohUrlPathChange = actions.onByohUrlPathChange,
                             onByohSyntheticFixtureEnabledChange = actions.onByohSyntheticFixtureEnabledChange,
+                            onDpiSuiteProbeEnabledChange = actions.onDpiSuiteProbeEnabledChange,
+                            onDpiSuiteCustomDomainsChange = actions.onDpiSuiteCustomDomainsChange,
+                            onDpiSuiteConcurrencyDelta = actions.onDpiSuiteConcurrencyDelta,
+                            onRunDpiProbeSuite = actions.onRunDpiProbeSuite,
+                            onCancelDpiProbeSuite = actions.onCancelDpiProbeSuite,
                         ),
                     onOpenDetectionCheck = actions.onOpenDetectionCheck,
                     pcapRecording = pcapRecording,

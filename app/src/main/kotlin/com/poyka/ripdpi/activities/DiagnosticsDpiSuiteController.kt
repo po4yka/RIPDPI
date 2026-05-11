@@ -1,0 +1,460 @@
+package com.poyka.ripdpi.activities
+
+import android.content.Context
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniFinder
+import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
+import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
+import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
+import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityVerdict
+import com.poyka.ripdpi.diagnostics.dpi.DnsServerResult
+import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
+import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
+import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
+import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
+import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
+import com.poyka.ripdpi.diagnostics.dpi.DpiProbeSuiteRunner
+import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteConfig
+import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteDomainsProvider
+import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteEvent
+import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbeResult
+import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbes
+import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteTcp16TargetsProvider
+import com.poyka.ripdpi.diagnostics.dpi.SuiteVerdict
+import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
+import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
+import com.poyka.ripdpi.diagnostics.dpi.Tcp16Target
+import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
+import com.poyka.ripdpi.diagnostics.dpi.TelegramSpeedTest
+import com.poyka.ripdpi.diagnostics.dpi.TelegramTestVerdict
+import kotlinx.collections.immutable.toPersistentList
+import kotlinx.collections.immutable.toPersistentSet
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import java.util.Locale
+
+private const val SuiteDnsIntegrityPreviewDomainLimit = 5
+private const val DpiSuiteMinConcurrency = 1
+private const val DpiSuiteMaxConcurrency = 250
+
+internal class DiagnosticsDpiSuiteController(
+    private val scope: CoroutineScope,
+    private val appContext: Context,
+    private val appSettingsRepository: AppSettingsRepository,
+    private val dnsIntegrityChecker: DnsIntegrityChecker,
+    private val dnsAvailabilitySurvey: DnsAvailabilitySurvey,
+    private val domainReachabilityScanner: DomainReachabilityScanner,
+    private val tcp16FatHeaderProbe: Tcp16FatHeaderProbe,
+) {
+    private val _tool = MutableStateFlow(DiagnosticsDpiSuiteToolUiModel())
+    val tool: StateFlow<DiagnosticsDpiSuiteToolUiModel> = _tool.asStateFlow()
+
+    private var suiteJob: Job? = null
+
+    init {
+        scope.launch {
+            appSettingsRepository.settings.collect { settings ->
+                _tool.value =
+                    _tool.value.copy(
+                        concurrency =
+                            settings.dpiSuiteConcurrency.coerceIn(
+                                DpiSuiteMinConcurrency,
+                                DpiSuiteMaxConcurrency,
+                            ),
+                    )
+            }
+        }
+    }
+
+    fun setProbeEnabled(
+        kind: DpiProbeKind,
+        enabled: Boolean,
+    ) {
+        if (_tool.value.state == DiagnosticsDpiSuiteState.Running) {
+            return
+        }
+        val selected =
+            if (enabled) {
+                _tool.value.selectedKinds + kind
+            } else {
+                _tool.value.selectedKinds - kind
+            }
+        _tool.value = _tool.value.copy(selectedKinds = selected.toPersistentSet())
+    }
+
+    fun setCustomDomains(value: String) {
+        if (_tool.value.state != DiagnosticsDpiSuiteState.Running) {
+            _tool.value = _tool.value.copy(customDomainsInput = value)
+        }
+    }
+
+    fun adjustConcurrency(delta: Int) {
+        val next = (_tool.value.concurrency + delta).coerceIn(DpiSuiteMinConcurrency, DpiSuiteMaxConcurrency)
+        scope.launch {
+            appSettingsRepository.update {
+                dpiSuiteConcurrency = next
+            }
+        }
+        _tool.value = _tool.value.copy(concurrency = next)
+    }
+
+    fun run() {
+        val current = _tool.value
+        if (current.state == DiagnosticsDpiSuiteState.Running || current.selectedKinds.isEmpty()) {
+            return
+        }
+        suiteJob?.cancel()
+        _tool.value =
+            current.copy(
+                state = DiagnosticsDpiSuiteState.Running,
+                summary = "Running ${current.selectedKinds.size} selected DPI probes...",
+                aggregateVerdict = null,
+                metrics = emptyList<DiagnosticsMetricUiModel>().toPersistentList(),
+                rows = emptyList<DiagnosticsDpiSuiteProbeRowUiModel>().toPersistentList(),
+                errorMessage = null,
+            )
+        suiteJob =
+            scope.launch {
+                val rows = mutableListOf<DiagnosticsDpiSuiteProbeRowUiModel>()
+                runCatching {
+                    val config =
+                        DpiSuiteConfig(
+                            selection = current.selectedKinds.toSet(),
+                            customDomains = parseCustomDomains(current.customDomainsInput),
+                            concurrency = current.concurrency,
+                        )
+                    buildRunner().run(config).collect { event ->
+                        handleEvent(event, rows)
+                    }
+                }.onFailure { error ->
+                    _tool.value =
+                        if (error is CancellationException) {
+                            _tool.value.copy(
+                                state = DiagnosticsDpiSuiteState.Cancelled,
+                                summary = "DPI suite cancelled; partial results retained.",
+                            )
+                        } else {
+                            _tool.value.copy(
+                                state = DiagnosticsDpiSuiteState.Failed,
+                                summary = "DPI suite failed.",
+                                errorMessage = error.message ?: error.javaClass.simpleName,
+                            )
+                        }
+                }
+            }
+    }
+
+    fun cancel() {
+        suiteJob?.cancel()
+    }
+
+    private suspend fun loadDomains(): List<String> =
+        withContext(Dispatchers.IO) {
+            DpiAssetLoader(appContext).loadDomains()
+        }
+
+    private suspend fun loadTcp16Targets(): List<Tcp16Target> =
+        withContext(Dispatchers.IO) {
+            DpiAssetLoader(appContext).loadTcp16Targets()
+        }
+
+    private suspend fun loadWhitelistSni(): List<String> =
+        withContext(Dispatchers.IO) {
+            DpiAssetLoader(appContext).loadWhitelistSni()
+        }
+
+    private fun buildRunner(): DpiProbeSuiteRunner =
+        DpiProbeSuiteRunner(
+            domainsProvider = DpiSuiteDomainsProvider { loadDomains() },
+            tcp16TargetsProvider = DpiSuiteTcp16TargetsProvider { loadTcp16Targets() },
+            probes =
+                object : DpiSuiteProbes {
+                    override suspend fun checkDnsIntegrity(domains: List<String>): DnsIntegrityResult =
+                        dnsIntegrityChecker.check(domains)
+
+                    override suspend fun collectStubIpsSilently(
+                        domains: List<String>,
+                        timeoutMs: Long,
+                    ): Set<String> =
+                        withTimeout(timeoutMs) {
+                            dnsIntegrityChecker.check(domains.take(SuiteDnsIntegrityPreviewDomainLimit)).stubIps
+                        }
+
+                    override suspend fun runDnsAvailability(): List<DnsServerResult> = dnsAvailabilitySurvey.run()
+
+                    override suspend fun runDomainReachability(
+                        domains: List<String>,
+                        stubIps: Set<String>,
+                    ): List<DomainReachabilityResult> = domainReachabilityScanner.scan(domains, stubIps)
+
+                    override suspend fun runTcp16(targets: List<Tcp16Target>): List<Tcp16ProbeResult> =
+                        tcp16FatHeaderProbe.run(targets)
+
+                    override suspend fun findAllowlistSni(results: List<Tcp16ProbeResult>) =
+                        AllowlistSniFinder(
+                            probe = tcp16FatHeaderProbe,
+                            sniList = loadWhitelistSni(),
+                        ).find(results)
+
+                    override suspend fun runTelegram() = TelegramSpeedTest().run()
+                },
+        )
+
+    private fun handleEvent(
+        event: DpiSuiteEvent,
+        rows: MutableList<DiagnosticsDpiSuiteProbeRowUiModel>,
+    ) {
+        when (event) {
+            is DpiSuiteEvent.ProbeStarted -> {
+                rows.upsert(event.kind.startedRow())
+                _tool.value = _tool.value.copy(rows = rows.toPersistentList())
+            }
+
+            is DpiSuiteEvent.ProbeProgress -> {
+                Unit
+            }
+
+            is DpiSuiteEvent.ProbeCompleted -> {
+                rows.upsert(event.result.toRow())
+                _tool.value = _tool.value.copy(rows = rows.toPersistentList())
+            }
+
+            is DpiSuiteEvent.SuiteCompleted -> {
+                val verdict =
+                    event.aggregate.verdict.name
+                        .lowercase(Locale.US)
+                val probeCount =
+                    event.aggregate.results.size
+                        .toString()
+                _tool.value =
+                    _tool.value.copy(
+                        state = DiagnosticsDpiSuiteState.Complete,
+                        summary = event.aggregate.verdict.summary(),
+                        aggregateVerdict = event.aggregate.verdict,
+                        metrics =
+                            listOf(
+                                DiagnosticsMetricUiModel(
+                                    "verdict",
+                                    verdict,
+                                ),
+                                DiagnosticsMetricUiModel(
+                                    "probes",
+                                    probeCount,
+                                ),
+                            ).toPersistentList(),
+                        rows = rows.toPersistentList(),
+                    )
+            }
+        }
+    }
+}
+
+private fun parseCustomDomains(input: String): List<String>? =
+    input
+        .lineSequence()
+        .flatMap { line -> line.split(',', ' ', ';').asSequence() }
+        .map { value -> value.trim().trimEnd('/') }
+        .filter { value -> value.isNotBlank() }
+        .toList()
+        .takeIf { domains -> domains.isNotEmpty() }
+
+private fun MutableList<DiagnosticsDpiSuiteProbeRowUiModel>.upsert(row: DiagnosticsDpiSuiteProbeRowUiModel) {
+    val index = indexOfFirst { existing -> existing.kind == row.kind }
+    if (index >= 0) {
+        this[index] = row
+    } else {
+        add(row)
+    }
+}
+
+private fun DpiProbeKind.startedRow(): DiagnosticsDpiSuiteProbeRowUiModel =
+    DiagnosticsDpiSuiteProbeRowUiModel(
+        kind = this,
+        label = displayLabel(),
+        status = "running",
+        detail = "Probe is in progress.",
+        tone = DiagnosticsTone.Info,
+    )
+
+private fun DpiSuiteProbeResult.toRow(): DiagnosticsDpiSuiteProbeRowUiModel =
+    DiagnosticsDpiSuiteProbeRowUiModel(
+        kind = kind,
+        label = kind.displayLabel(),
+        status = statusLabel(),
+        detail = detailLabel(),
+        tone = tone(),
+    )
+
+private fun DpiSuiteProbeResult.statusLabel(): String =
+    when (this) {
+        is DpiSuiteProbeResult.DnsIntegrity -> {
+            val flagged = result.domains.count { domain -> domain.verdict != DnsIntegrityVerdict.DNS_OK }
+            if (flagged == 0) "ok" else "flagged"
+        }
+
+        is DpiSuiteProbeResult.DnsAvailability -> {
+            val available = results.count { server -> server.availableDomains > 0 }
+            if (available == results.size) "ok" else "partial"
+        }
+
+        is DpiSuiteProbeResult.DomainReachability -> {
+            val flagged = results.count { domain -> domain.verdict != DomainVerdict.OK }
+            if (flagged == 0) "ok" else "flagged"
+        }
+
+        is DpiSuiteProbeResult.Tcp16 -> {
+            val detected = results.count { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
+            if (detected == 0) "ok" else "detected"
+        }
+
+        is DpiSuiteProbeResult.AllowlistSni -> {
+            if (results.isEmpty()) "none" else "compatible"
+        }
+
+        is DpiSuiteProbeResult.Telegram -> {
+            result.verdict.name.lowercase(Locale.US)
+        }
+
+        is DpiSuiteProbeResult.Skipped -> {
+            "skipped"
+        }
+
+        is DpiSuiteProbeResult.Failed -> {
+            "failed"
+        }
+    }
+
+private fun DpiSuiteProbeResult.detailLabel(): String =
+    when (this) {
+        is DpiSuiteProbeResult.DnsIntegrity -> {
+            val flagged = result.domains.count { domain -> domain.verdict != DnsIntegrityVerdict.DNS_OK }
+            "$flagged/${result.domains.size} domains flagged; ${result.stubIps.size} stub IPs"
+        }
+
+        is DpiSuiteProbeResult.DnsAvailability -> {
+            val available = results.count { server -> server.availableDomains > 0 }
+            "$available/${results.size} resolvers available"
+        }
+
+        is DpiSuiteProbeResult.DomainReachability -> {
+            val ok = results.count { domain -> domain.verdict == DomainVerdict.OK }
+            "$ok/${results.size} domains reachable"
+        }
+
+        is DpiSuiteProbeResult.Tcp16 -> {
+            val detected = results.count { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
+            "$detected/${results.size} targets matched TCP16 closure pattern"
+        }
+
+        is DpiSuiteProbeResult.AllowlistSni -> {
+            "${results.size} ASN groups checked"
+        }
+
+        is DpiSuiteProbeResult.Telegram -> {
+            val reachable = result.dcResults.count { dc -> dc.reachable }
+            "download ${result.download.status.name.lowercase(Locale.US)}, upload " +
+                "${result.upload.status.name.lowercase(Locale.US)}, DC $reachable/${result.dcResults.size}"
+        }
+
+        is DpiSuiteProbeResult.Skipped -> {
+            reason
+        }
+
+        is DpiSuiteProbeResult.Failed -> {
+            error
+        }
+    }
+
+private fun DpiSuiteProbeResult.tone(): DiagnosticsTone =
+    when (this) {
+        is DpiSuiteProbeResult.Failed -> {
+            DiagnosticsTone.Negative
+        }
+
+        is DpiSuiteProbeResult.Skipped -> {
+            DiagnosticsTone.Neutral
+        }
+
+        is DpiSuiteProbeResult.DnsIntegrity -> {
+            countTone(
+                result.domains.count { domain -> domain.verdict != DnsIntegrityVerdict.DNS_OK },
+            )
+        }
+
+        is DpiSuiteProbeResult.DnsAvailability -> {
+            countTone(
+                results.count { server -> server.availableDomains == 0 },
+            )
+        }
+
+        is DpiSuiteProbeResult.DomainReachability -> {
+            countTone(
+                results.count { domain -> domain.verdict != DomainVerdict.OK },
+            )
+        }
+
+        is DpiSuiteProbeResult.Tcp16 -> {
+            countTone(
+                results.count { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB },
+            )
+        }
+
+        is DpiSuiteProbeResult.AllowlistSni -> {
+            DiagnosticsTone.Neutral
+        }
+
+        is DpiSuiteProbeResult.Telegram -> {
+            when (result.verdict) {
+                TelegramTestVerdict.OK -> {
+                    DiagnosticsTone.Positive
+                }
+
+                TelegramTestVerdict.PARTIAL,
+                TelegramTestVerdict.SLOW,
+                -> {
+                    DiagnosticsTone.Warning
+                }
+
+                TelegramTestVerdict.BLOCKED,
+                TelegramTestVerdict.ERROR,
+                -> {
+                    DiagnosticsTone.Negative
+                }
+            }
+        }
+    }
+
+private fun DpiProbeKind.displayLabel(): String =
+    when (this) {
+        DpiProbeKind.DNS_INTEGRITY -> "DNS integrity"
+        DpiProbeKind.DNS_AVAILABILITY -> "DNS availability"
+        DpiProbeKind.DOMAIN_REACHABILITY -> "Domain reachability"
+        DpiProbeKind.TCP16 -> "TCP16 fat header"
+        DpiProbeKind.WHITELIST_SNI -> "SNI compatibility"
+        DpiProbeKind.TELEGRAM -> "Telegram"
+    }
+
+private fun SuiteVerdict.summary(): String =
+    when (this) {
+        SuiteVerdict.CLEAN -> "No selected DPI probe reported warnings."
+        SuiteVerdict.DPI_DETECTED -> "One or more selected probes reported DPI-like interference."
+        SuiteVerdict.DNS_INTERFERENCE -> "DNS integrity probes reported resolver-path interference."
+        SuiteVerdict.THROTTLING -> "Telegram transfer probes reported throughput degradation."
+        SuiteVerdict.MIXED -> "Multiple interference categories were reported."
+        SuiteVerdict.INCONCLUSIVE -> "Too many selected probes failed to classify the path."
+    }
+
+private fun countTone(count: Int): DiagnosticsTone =
+    if (count == 0) {
+        DiagnosticsTone.Positive
+    } else {
+        DiagnosticsTone.Warning
+    }

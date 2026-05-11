@@ -56,6 +56,7 @@ fun DiagnosticsRoute(
     val tcp16FatHeaderTool by viewModel.tcp16FatHeaderTool.collectAsStateWithLifecycle()
     val allowlistSniTool by viewModel.allowlistSniTool.collectAsStateWithLifecycle()
     val byohCompatibilityTool by viewModel.byohCompatibilityTool.collectAsStateWithLifecycle()
+    val dpiSuiteTool by viewModel.dpiSuiteTool.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { DiagnosticsSection.entries.size }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -224,6 +225,11 @@ fun DiagnosticsRoute(
                 onByohUrlPathChange = remember(viewModel) { viewModel::setByohUrlPath },
                 onByohSyntheticFixtureEnabledChange =
                     remember(viewModel) { viewModel::setByohSyntheticFixtureEnabled },
+                onDpiSuiteProbeEnabledChange = remember(viewModel) { viewModel::setDpiSuiteProbeEnabled },
+                onDpiSuiteCustomDomainsChange = remember(viewModel) { viewModel::setDpiSuiteCustomDomains },
+                onDpiSuiteConcurrencyDelta = remember(viewModel) { viewModel::adjustDpiSuiteConcurrency },
+                onRunDpiProbeSuite = remember(viewModel) { viewModel::runDpiProbeSuite },
+                onCancelDpiProbeSuite = remember(viewModel) { viewModel::cancelDpiProbeSuite },
             ),
         dpiTools =
             DiagnosticsDpiToolsUiModel(
@@ -235,6 +241,7 @@ fun DiagnosticsRoute(
                 tcp16FatHeader = tcp16FatHeaderTool,
                 allowlistSni = allowlistSniTool,
                 byohCompatibility = byohCompatibilityTool,
+                dpiSuite = dpiSuiteTool,
             ),
         pcapRecording = pcapRecording,
         modifier = modifier,
