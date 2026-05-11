@@ -87,6 +87,14 @@ internal class DiagnosticsDpiToolsController(
     val allowlistSniTool: StateFlow<DiagnosticsAllowlistSniToolUiModel> =
         _allowlistSniTool.asStateFlow()
 
+    private val byohCompatibilityController =
+        DiagnosticsByohCompatibilityController(
+            scope = scope,
+            appContext = appContext,
+        )
+    val byohCompatibilityTool: StateFlow<DiagnosticsByohCompatibilityToolUiModel> =
+        byohCompatibilityController.tool
+
     private var latestDnsStubIps: Set<String> = emptySet()
     private var latestTcp16DetectedResults: List<Tcp16ProbeResult> = emptyList()
 
@@ -380,6 +388,15 @@ internal class DiagnosticsDpiToolsController(
             }
         }
     }
+
+    fun setByohDstIp(value: String) = byohCompatibilityController.setDstIp(value)
+
+    fun setByohUrlPath(value: String) = byohCompatibilityController.setUrlPath(value)
+
+    fun setByohSyntheticFixtureEnabled(enabled: Boolean) =
+        byohCompatibilityController.setSyntheticFixtureEnabled(enabled)
+
+    fun runByohCompatibilityCheck() = byohCompatibilityController.run()
 
     private suspend fun loadDomains(limit: Int?): List<String> =
         withContext(Dispatchers.IO) {

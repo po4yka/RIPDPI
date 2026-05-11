@@ -55,6 +55,7 @@ fun DiagnosticsRoute(
     val compressionProbeTool by viewModel.compressionProbeTool.collectAsStateWithLifecycle()
     val tcp16FatHeaderTool by viewModel.tcp16FatHeaderTool.collectAsStateWithLifecycle()
     val allowlistSniTool by viewModel.allowlistSniTool.collectAsStateWithLifecycle()
+    val byohCompatibilityTool by viewModel.byohCompatibilityTool.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { DiagnosticsSection.entries.size }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -214,10 +215,15 @@ fun DiagnosticsRoute(
                 onRunCompressionProbe = remember(viewModel) { viewModel::runCompressionProbe },
                 onRunTcp16FatHeaderProbe = remember(viewModel) { viewModel::runTcp16FatHeaderProbe },
                 onRunAllowlistSniFinder = remember(viewModel) { viewModel::runAllowlistSniFinder },
+                onRunByohCompatibilityCheck = remember(viewModel) { viewModel::runByohCompatibilityCheck },
                 onRunRknBlockDiagnosis = remember(viewModel) { viewModel::runRknBlockDiagnosis },
                 onRknSelfInfoEnabledChange = remember(viewModel) { viewModel::setRknSelfInfoEnabled },
                 onCompressionProbeZstdEnabledChange =
                     remember(viewModel) { viewModel::setCompressionProbeZstdEnabled },
+                onByohDstIpChange = remember(viewModel) { viewModel::setByohDstIp },
+                onByohUrlPathChange = remember(viewModel) { viewModel::setByohUrlPath },
+                onByohSyntheticFixtureEnabledChange =
+                    remember(viewModel) { viewModel::setByohSyntheticFixtureEnabled },
             ),
         dpiTools =
             DiagnosticsDpiToolsUiModel(
@@ -228,6 +234,7 @@ fun DiagnosticsRoute(
                 compressionProbe = compressionProbeTool,
                 tcp16FatHeader = tcp16FatHeaderTool,
                 allowlistSni = allowlistSniTool,
+                byohCompatibility = byohCompatibilityTool,
             ),
         pcapRecording = pcapRecording,
         modifier = modifier,

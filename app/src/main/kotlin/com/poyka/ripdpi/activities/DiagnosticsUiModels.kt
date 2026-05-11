@@ -293,6 +293,7 @@ data class DiagnosticsDpiToolsUiModel(
     val compressionProbe: DiagnosticsCompressionProbeToolUiModel = DiagnosticsCompressionProbeToolUiModel(),
     val tcp16FatHeader: DiagnosticsTcp16FatHeaderToolUiModel = DiagnosticsTcp16FatHeaderToolUiModel(),
     val allowlistSni: DiagnosticsAllowlistSniToolUiModel = DiagnosticsAllowlistSniToolUiModel(),
+    val byohCompatibility: DiagnosticsByohCompatibilityToolUiModel = DiagnosticsByohCompatibilityToolUiModel(),
 )
 
 @Immutable

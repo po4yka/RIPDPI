@@ -95,6 +95,8 @@ class DiagnosticsViewModel
             dpiToolsController.tcp16FatHeaderTool
         val allowlistSniTool: StateFlow<DiagnosticsAllowlistSniToolUiModel> =
             dpiToolsController.allowlistSniTool
+        val byohCompatibilityTool: StateFlow<DiagnosticsByohCompatibilityToolUiModel> =
+            dpiToolsController.byohCompatibilityTool
 
         private val mutations =
             DiagnosticsMutationRunner(
@@ -253,6 +255,15 @@ class DiagnosticsViewModel
 
         fun setCompressionProbeZstdEnabled(enabled: Boolean) =
             dpiToolsController.setCompressionProbeZstdEnabled(enabled)
+
+        fun setByohDstIp(value: String) = dpiToolsController.setByohDstIp(value)
+
+        fun setByohUrlPath(value: String) = dpiToolsController.setByohUrlPath(value)
+
+        fun setByohSyntheticFixtureEnabled(enabled: Boolean) =
+            dpiToolsController.setByohSyntheticFixtureEnabled(enabled)
+
+        fun runByohCompatibilityCheck() = dpiToolsController.runByohCompatibilityCheck()
     }
 
 private fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =

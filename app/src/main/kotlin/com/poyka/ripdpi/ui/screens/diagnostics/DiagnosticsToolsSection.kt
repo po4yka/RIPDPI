@@ -65,9 +65,13 @@ internal data class DiagnosticsDpiToolActions(
     val onRunCompressionProbe: () -> Unit = {},
     val onRunTcp16FatHeaderProbe: () -> Unit = {},
     val onRunAllowlistSniFinder: () -> Unit = {},
+    val onRunByohCompatibilityCheck: () -> Unit = {},
     val onRunRknBlockDiagnosis: () -> Unit = {},
     val onRknSelfInfoEnabledChange: (Boolean) -> Unit = {},
     val onCompressionProbeZstdEnabledChange: (Boolean) -> Unit = {},
+    val onByohDstIpChange: (String) -> Unit = {},
+    val onByohUrlPathChange: (String) -> Unit = {},
+    val onByohSyntheticFixtureEnabledChange: (Boolean) -> Unit = {},
 )
 
 @Composable
@@ -248,6 +252,15 @@ private fun LazyListScope.dpiToolItems(
         AllowlistSniFinderCard(
             tool = dpiTools.allowlistSni,
             onRun = actions.onRunAllowlistSniFinder,
+        )
+    }
+    item {
+        ByohCompatibilityCard(
+            tool = dpiTools.byohCompatibility,
+            onDstIpChange = actions.onByohDstIpChange,
+            onUrlPathChange = actions.onByohUrlPathChange,
+            onSyntheticFixtureEnabledChange = actions.onByohSyntheticFixtureEnabledChange,
+            onRun = actions.onRunByohCompatibilityCheck,
         )
     }
     item {

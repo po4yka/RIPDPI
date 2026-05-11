@@ -143,9 +143,13 @@ data class DiagnosticsScreenActions(
     val onRunCompressionProbe: () -> Unit = {},
     val onRunTcp16FatHeaderProbe: () -> Unit = {},
     val onRunAllowlistSniFinder: () -> Unit = {},
+    val onRunByohCompatibilityCheck: () -> Unit = {},
     val onRunRknBlockDiagnosis: () -> Unit = {},
     val onRknSelfInfoEnabledChange: (Boolean) -> Unit = {},
     val onCompressionProbeZstdEnabledChange: (Boolean) -> Unit = {},
+    val onByohDstIpChange: (String) -> Unit = {},
+    val onByohUrlPathChange: (String) -> Unit = {},
+    val onByohSyntheticFixtureEnabledChange: (Boolean) -> Unit = {},
 )
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -331,9 +335,13 @@ private fun DiagnosticsScreenPager(
                             onRunCompressionProbe = actions.onRunCompressionProbe,
                             onRunTcp16FatHeaderProbe = actions.onRunTcp16FatHeaderProbe,
                             onRunAllowlistSniFinder = actions.onRunAllowlistSniFinder,
+                            onRunByohCompatibilityCheck = actions.onRunByohCompatibilityCheck,
                             onRunRknBlockDiagnosis = actions.onRunRknBlockDiagnosis,
                             onRknSelfInfoEnabledChange = actions.onRknSelfInfoEnabledChange,
                             onCompressionProbeZstdEnabledChange = actions.onCompressionProbeZstdEnabledChange,
+                            onByohDstIpChange = actions.onByohDstIpChange,
+                            onByohUrlPathChange = actions.onByohUrlPathChange,
+                            onByohSyntheticFixtureEnabledChange = actions.onByohSyntheticFixtureEnabledChange,
                         ),
                     onOpenDetectionCheck = actions.onOpenDetectionCheck,
                     pcapRecording = pcapRecording,
