@@ -353,6 +353,8 @@ private fun DetectionPrivacyAppearanceSection(
     SettingsSection(title = "Privacy and status") {
         SettingsRow(
             title = "Privacy mode",
+            subtitle =
+                "Masks exported addresses and disables PT reachability checks that contact brokers and obfs4 bridges.",
             checked = state.privacyModeEnabled,
             onCheckedChange = onPrivacyModeChange,
         )
