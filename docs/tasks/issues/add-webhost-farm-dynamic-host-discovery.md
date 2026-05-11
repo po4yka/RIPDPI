@@ -1,7 +1,7 @@
 ---
 title: Add Webhost-Farm Dynamic Host Discovery from Filtered Subnets
 type: task
-status: backlog
+status: doing
 area: diagnostics
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-11
 ---
 
-- [ ] #task Add Webhost-Farm Dynamic Host Discovery from Filtered Subnets #repo/RIPDPI #area/diagnostics #status/backlog ⏫
+- [ ] #task Add Webhost-Farm Dynamic Host Discovery from Filtered Subnets #repo/RIPDPI #area/diagnostics #status/doing ⏫
 
 ## Objective
 
@@ -85,3 +85,12 @@ output: alive[]: List<DiscoveredHost>
 ## Definition of done
 
 All 8 unit tests green. `WebhostFarm` consumed by `add-cidr-whitelist-detector` and `add-ipv4-whitelisted-subnet-discovery`.
+
+## Work log
+
+- 2026-05-11: Added `WebhostFarm`, `DiscoveredHost`, injectable `WebhostProbe`, CIDR candidate expansion, max-candidate sampling, count-limited discovery, TCP/TLS probe filtering, and reverse ASN/org enrichment with focused unit coverage. The default probe currently uses Android/JVM socket TLS fallback while the native diagnostic TLS contract remains tracked by `add-utls-diagnostic-probe-clienthello-fingerprinting`.
+
+Remaining before close:
+
+- Replace or wrap the default `SocketWebhostProbe` with the finalized diagnostic owned-TLS client once `add-utls-diagnostic-probe-clienthello-fingerprinting` lands its native ClientHello fixture/contract slice.
+- Add optional integration to enrich discovered hosts with certificate hostnames once `add-tls-cert-sni-discoverer` is unblocked.
