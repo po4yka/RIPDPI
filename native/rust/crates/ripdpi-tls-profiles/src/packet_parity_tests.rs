@@ -1,10 +1,13 @@
 use std::collections::BTreeSet;
+use std::fs;
 use std::io::Read;
 use std::net::{Shutdown, TcpListener, TcpStream};
+use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 
 use ripdpi_packets::{parse_tls_client_hello_layout, TlsClientHelloLayout};
+use serde_json::{json, Value};
 
 use crate::{
     apply_record_choreography, build_connector, planned_record_payload_lengths, selected_profile_config,
@@ -18,6 +21,7 @@ const X25519: u16 = 0x001d;
 const SECP256R1: u16 = 0x0017;
 const SECP384R1: u16 = 0x0018;
 const SECP521R1: u16 = 0x0019;
+const CLIENT_HELLO_PACKET_FIXTURE: &str = "contract-fixtures/tls_client_hello_packet_parity.json";
 
 #[derive(Debug)]
 struct CapturedClientHello {
@@ -172,6 +176,140 @@ fn expected_supported_groups(profile: &str) -> &'static [u16] {
         "x25519_p256_p384_p521" => &[X25519, SECP256R1, SECP384R1, SECP521R1],
         other => panic!("unexpected supported-groups profile {other}"),
     }
+}
+
+fn repo_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..").canonicalize().expect("canonical repo root")
+}
+
+fn fixture_path() -> PathBuf {
+    repo_root().join(CLIENT_HELLO_PACKET_FIXTURE)
+}
+
+fn hex_u16(value: u16) -> String {
+    format!("{value:04x}")
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect::<String>()
+}
+
+fn extension_data_lengths_no_grease(capture: &CapturedClientHello) -> Vec<Value> {
+    let mut lengths = capture
+        .layout
+        .extensions
+        .iter()
+        .filter(|extension| !is_grease_value(extension.ext_type))
+        .map(|extension| {
+            json!({
+                "type": hex_u16(extension.ext_type),
+                "dataLen": extension.data_len,
+            })
+        })
+        .collect::<Vec<_>>();
+    lengths.sort_by_key(|entry| entry["type"].as_str().expect("extension type").to_owned());
+    lengths
+}
+
+fn normalized_client_hello_packet_fixture() -> Value {
+    let profiles = AVAILABLE_PROFILES
+        .iter()
+        .map(|profile| {
+            let capture = capture_client_hello(profile);
+            let config = selected_profile_config(profile);
+            let metadata = selected_profile_metadata(profile);
+            let extension_order = extension_order(&capture);
+            let extension_types_no_grease = extension_order
+                .iter()
+                .copied()
+                .filter(|ext_type| !is_grease_value(*ext_type))
+                .map(hex_u16)
+                .collect::<Vec<_>>();
+            let extension_types_no_grease_sorted = extension_order
+                .iter()
+                .copied()
+                .filter(|ext_type| !is_grease_value(*ext_type))
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .map(hex_u16)
+                .collect::<Vec<_>>();
+            let supported_groups = parse_named_group_list(extension_bytes(&capture, EXT_SUPPORTED_GROUPS));
+            let key_share_groups = parse_key_share_groups(extension_bytes(&capture, EXT_KEY_SHARE));
+            let alpn_protocols = parse_alpn_protocols(extension_bytes(&capture, EXT_ALPN))
+                .iter()
+                .map(|protocol| hex_bytes(protocol))
+                .collect::<Vec<_>>();
+            let sni_host =
+                std::str::from_utf8(&capture.bytes[capture.layout.markers.host_start..capture.layout.markers.host_end])
+                    .expect("SNI host utf8");
+
+            json!({
+                "id": profile,
+                "browserFamily": metadata.parity_targets.browser_family,
+                "browserTrack": metadata.parity_targets.browser_track,
+                "contentType": hex_bytes(&capture.bytes[0..1]),
+                "recordLegacyVersion": hex_bytes(&capture.bytes[1..3]),
+                "handshakeType": hex_bytes(&capture.bytes[5..6]),
+                "clientHelloLegacyVersion": hex_bytes(&capture.bytes[9..11]),
+                "recordPayloadLen": capture.layout.record_payload_len,
+                "handshakePayloadLen": capture.layout.handshake_payload_len,
+                "sniHost": sni_host,
+                "alpnProtocols": alpn_protocols,
+                "extensionOrderFamily": metadata.template.extension_order_family,
+                "extensionTypesNoGreaseFixedOrder": if config.permute_extensions {
+                    Value::Null
+                } else {
+                    json!(extension_types_no_grease)
+                },
+                "extensionTypesNoGreaseSorted": extension_types_no_grease_sorted,
+                "extensionDataLengthsNoGrease": extension_data_lengths_no_grease(&capture),
+                "greaseExtensionCount": extension_order.iter().filter(|ext_type| is_grease_value(**ext_type)).count(),
+                "supportedGroupsNoGrease": strip_grease(&supported_groups).into_iter().map(hex_u16).collect::<Vec<_>>(),
+                "greaseSupportedGroupCount": supported_groups.iter().filter(|group| is_grease_value(**group)).count(),
+                "keyShareGroupsNoGrease": strip_grease(&key_share_groups).into_iter().map(hex_u16).collect::<Vec<_>>(),
+                "greaseKeyShareGroupCount": key_share_groups.iter().filter(|group| is_grease_value(**group)).count(),
+                "keyShareProfile": metadata.template.key_share_profile,
+                "recordChoreography": metadata.template.record_choreography,
+                "echCapable": metadata.template.ech_capable,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    json!({
+        "schemaVersion": 1,
+        "corpusId": "tls_client_hello_packet_parity",
+        "catalogVersion": crate::profile_catalog_version(),
+        "normalization": {
+            "greaseValuesComparedByCount": true,
+            "extensionDataComparedByTypeAndLength": true,
+            "fixedExtensionFamiliesCompareExactOrder": true,
+            "permutedExtensionFamiliesCompareSortedSet": true,
+            "randomKeyShareBytesExcluded": true
+        },
+        "profiles": profiles
+    })
+}
+
+#[test]
+fn captured_client_hello_matches_normalized_packet_fixture() {
+    let actual = normalized_client_hello_packet_fixture();
+    let path = fixture_path();
+
+    if std::env::var_os("RIPDPI_REGENERATE_TLS_CLIENT_HELLO_PACKET_FIXTURE").is_some() {
+        let serialized = serde_json::to_string_pretty(&actual).expect("serialize fixture") + "\n";
+        fs::write(&path, serialized).expect("write regenerated ClientHello fixture");
+        return;
+    }
+
+    let fixture = fs::read_to_string(&path).expect("read normalized ClientHello fixture");
+    let expected: Value = serde_json::from_str(&fixture).expect("parse normalized ClientHello fixture");
+    assert_eq!(
+        expected,
+        actual,
+        "normalized ClientHello packet fixture drifted; review intentionally before regenerating with \
+         RIPDPI_REGENERATE_TLS_CLIENT_HELLO_PACKET_FIXTURE=1\n{}",
+        serde_json::to_string_pretty(&actual).expect("format actual fixture")
+    );
 }
 
 #[test]

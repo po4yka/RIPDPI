@@ -79,10 +79,10 @@ All 6 unit tests green. ClientHello byte-equality regression test green. All dia
 - 2026-05-11: Surfaced diagnostic TLS profile/mode metrics in the Domain Reachability, TCP16, and layered block-diagnosis tool UI mappers so fallback-active probe runs are visible in app-side diagnostic cards.
 - 2026-05-11: Surfaced diagnostic TLS profile/mode rows in the aggregate suite Domain Reachability and TCP16 row mappers so fallback-active runs remain visible outside individual tool cards.
 - 2026-05-11: Preserved injected diagnostic TLS clients when the aggregate suite uses a non-default concurrency override by cloning the existing Domain Reachability and TCP16 probes with their injected collaborators intact.
+- 2026-05-11: Added a fixture-backed native ClientHello packet parity regression for `ripdpi-tls-profiles`, covering profile ids, ALPN, SNI, record and handshake lengths, GREASE counts, supported groups, key-share groups, extension data lengths, fixed-family extension order, and permuted-family extension sets.
 
 Remaining before close:
 
 - Add the formal `TlsClient`/`TlsConnection` API or update the acceptance criteria to the existing `DiagnosticsHttpClientFactory`/`NativeOwnedTlsHttpFetcher` contract.
 - Propagate `DiagnosticsTlsClientState` into export rendering, not just on-screen diagnostic rows.
-- Add byte-level ClientHello fixture regression coverage for the native owned TLS profiles.
 - Re-check direct diagnostic `SSLSocket`/`SSLContext` usage and keep only intentionally non-owned-TLS capability checks outside the factory path.

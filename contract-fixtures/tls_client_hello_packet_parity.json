@@ -1,0 +1,602 @@
+{
+  "catalogVersion": "v1",
+  "corpusId": "tls_client_hello_packet_parity",
+  "normalization": {
+    "extensionDataComparedByTypeAndLength": true,
+    "fixedExtensionFamiliesCompareExactOrder": true,
+    "greaseValuesComparedByCount": true,
+    "permutedExtensionFamiliesCompareSortedSet": true,
+    "randomKeyShareBytesExcluded": true
+  },
+  "profiles": [
+    {
+      "alpnProtocols": [
+        "6832",
+        "687474702f312e31"
+      ],
+      "browserFamily": "chrome",
+      "browserTrack": "android-stable",
+      "clientHelloLegacyVersion": "0303",
+      "contentType": "16",
+      "echCapable": false,
+      "extensionDataLengthsNoGrease": [
+        {
+          "dataLen": 29,
+          "type": "0000"
+        },
+        {
+          "dataLen": 10,
+          "type": "000a"
+        },
+        {
+          "dataLen": 2,
+          "type": "000b"
+        },
+        {
+          "dataLen": 18,
+          "type": "000d"
+        },
+        {
+          "dataLen": 14,
+          "type": "0010"
+        },
+        {
+          "dataLen": 232,
+          "type": "0015"
+        },
+        {
+          "dataLen": 0,
+          "type": "0017"
+        },
+        {
+          "dataLen": 0,
+          "type": "0023"
+        },
+        {
+          "dataLen": 7,
+          "type": "002b"
+        },
+        {
+          "dataLen": 2,
+          "type": "002d"
+        },
+        {
+          "dataLen": 43,
+          "type": "0033"
+        },
+        {
+          "dataLen": 1,
+          "type": "ff01"
+        }
+      ],
+      "extensionOrderFamily": "chromium_permuted",
+      "extensionTypesNoGreaseFixedOrder": null,
+      "extensionTypesNoGreaseSorted": [
+        "0000",
+        "000a",
+        "000b",
+        "000d",
+        "0010",
+        "0015",
+        "0017",
+        "0023",
+        "002b",
+        "002d",
+        "0033",
+        "ff01"
+      ],
+      "greaseExtensionCount": 2,
+      "greaseKeyShareGroupCount": 1,
+      "greaseSupportedGroupCount": 1,
+      "handshakePayloadLen": 508,
+      "handshakeType": "01",
+      "id": "chrome_stable",
+      "keyShareGroupsNoGrease": [
+        "001d"
+      ],
+      "keyShareProfile": "x25519_primary",
+      "recordChoreography": "host_tail_two_record",
+      "recordLegacyVersion": "0301",
+      "recordPayloadLen": 512,
+      "sniHost": "template-validation.test",
+      "supportedGroupsNoGrease": [
+        "001d",
+        "0017",
+        "0018"
+      ]
+    },
+    {
+      "alpnProtocols": [
+        "6832",
+        "687474702f312e31"
+      ],
+      "browserFamily": "chrome",
+      "browserTrack": "desktop-stable",
+      "clientHelloLegacyVersion": "0303",
+      "contentType": "16",
+      "echCapable": false,
+      "extensionDataLengthsNoGrease": [
+        {
+          "dataLen": 29,
+          "type": "0000"
+        },
+        {
+          "dataLen": 10,
+          "type": "000a"
+        },
+        {
+          "dataLen": 2,
+          "type": "000b"
+        },
+        {
+          "dataLen": 18,
+          "type": "000d"
+        },
+        {
+          "dataLen": 14,
+          "type": "0010"
+        },
+        {
+          "dataLen": 232,
+          "type": "0015"
+        },
+        {
+          "dataLen": 0,
+          "type": "0017"
+        },
+        {
+          "dataLen": 0,
+          "type": "0023"
+        },
+        {
+          "dataLen": 7,
+          "type": "002b"
+        },
+        {
+          "dataLen": 2,
+          "type": "002d"
+        },
+        {
+          "dataLen": 43,
+          "type": "0033"
+        },
+        {
+          "dataLen": 1,
+          "type": "ff01"
+        }
+      ],
+      "extensionOrderFamily": "chromium_permuted",
+      "extensionTypesNoGreaseFixedOrder": null,
+      "extensionTypesNoGreaseSorted": [
+        "0000",
+        "000a",
+        "000b",
+        "000d",
+        "0010",
+        "0015",
+        "0017",
+        "0023",
+        "002b",
+        "002d",
+        "0033",
+        "ff01"
+      ],
+      "greaseExtensionCount": 2,
+      "greaseKeyShareGroupCount": 1,
+      "greaseSupportedGroupCount": 1,
+      "handshakePayloadLen": 508,
+      "handshakeType": "01",
+      "id": "chrome_desktop_stable",
+      "keyShareGroupsNoGrease": [
+        "001d"
+      ],
+      "keyShareProfile": "x25519_primary",
+      "recordChoreography": "host_tail_two_record",
+      "recordLegacyVersion": "0301",
+      "recordPayloadLen": 512,
+      "sniHost": "template-validation.test",
+      "supportedGroupsNoGrease": [
+        "001d",
+        "0017",
+        "0018"
+      ]
+    },
+    {
+      "alpnProtocols": [
+        "6832",
+        "687474702f312e31"
+      ],
+      "browserFamily": "firefox",
+      "browserTrack": "stable",
+      "clientHelloLegacyVersion": "0303",
+      "contentType": "16",
+      "echCapable": false,
+      "extensionDataLengthsNoGrease": [
+        {
+          "dataLen": 29,
+          "type": "0000"
+        },
+        {
+          "dataLen": 10,
+          "type": "000a"
+        },
+        {
+          "dataLen": 2,
+          "type": "000b"
+        },
+        {
+          "dataLen": 20,
+          "type": "000d"
+        },
+        {
+          "dataLen": 14,
+          "type": "0010"
+        },
+        {
+          "dataLen": 248,
+          "type": "0015"
+        },
+        {
+          "dataLen": 0,
+          "type": "0017"
+        },
+        {
+          "dataLen": 0,
+          "type": "0023"
+        },
+        {
+          "dataLen": 5,
+          "type": "002b"
+        },
+        {
+          "dataLen": 2,
+          "type": "002d"
+        },
+        {
+          "dataLen": 38,
+          "type": "0033"
+        },
+        {
+          "dataLen": 1,
+          "type": "ff01"
+        }
+      ],
+      "extensionOrderFamily": "firefox_fixed",
+      "extensionTypesNoGreaseFixedOrder": [
+        "0000",
+        "0017",
+        "ff01",
+        "000a",
+        "000b",
+        "0023",
+        "0010",
+        "000d",
+        "0033",
+        "002d",
+        "002b",
+        "0015"
+      ],
+      "extensionTypesNoGreaseSorted": [
+        "0000",
+        "000a",
+        "000b",
+        "000d",
+        "0010",
+        "0015",
+        "0017",
+        "0023",
+        "002b",
+        "002d",
+        "0033",
+        "ff01"
+      ],
+      "greaseExtensionCount": 0,
+      "greaseKeyShareGroupCount": 0,
+      "greaseSupportedGroupCount": 0,
+      "handshakePayloadLen": 508,
+      "handshakeType": "01",
+      "id": "firefox_stable",
+      "keyShareGroupsNoGrease": [
+        "001d"
+      ],
+      "keyShareProfile": "x25519_primary",
+      "recordChoreography": "sni_tail_two_record",
+      "recordLegacyVersion": "0301",
+      "recordPayloadLen": 512,
+      "sniHost": "template-validation.test",
+      "supportedGroupsNoGrease": [
+        "001d",
+        "0017",
+        "0018",
+        "0019"
+      ]
+    },
+    {
+      "alpnProtocols": [
+        "6832",
+        "687474702f312e31"
+      ],
+      "browserFamily": "firefox",
+      "browserTrack": "ech-stable",
+      "clientHelloLegacyVersion": "0303",
+      "contentType": "16",
+      "echCapable": true,
+      "extensionDataLengthsNoGrease": [
+        {
+          "dataLen": 29,
+          "type": "0000"
+        },
+        {
+          "dataLen": 12,
+          "type": "000a"
+        },
+        {
+          "dataLen": 20,
+          "type": "000d"
+        },
+        {
+          "dataLen": 14,
+          "type": "0010"
+        },
+        {
+          "dataLen": 5,
+          "type": "002b"
+        },
+        {
+          "dataLen": 2,
+          "type": "002d"
+        },
+        {
+          "dataLen": 43,
+          "type": "0033"
+        }
+      ],
+      "extensionOrderFamily": "firefox_fixed",
+      "extensionTypesNoGreaseFixedOrder": [
+        "0000",
+        "000a",
+        "0010",
+        "000d",
+        "0033",
+        "002d",
+        "002b"
+      ],
+      "extensionTypesNoGreaseSorted": [
+        "0000",
+        "000a",
+        "000d",
+        "0010",
+        "002b",
+        "002d",
+        "0033"
+      ],
+      "greaseExtensionCount": 2,
+      "greaseKeyShareGroupCount": 1,
+      "greaseSupportedGroupCount": 1,
+      "handshakePayloadLen": 243,
+      "handshakeType": "01",
+      "id": "firefox_ech_stable",
+      "keyShareGroupsNoGrease": [
+        "001d"
+      ],
+      "keyShareProfile": "x25519_hybrid_ready",
+      "recordChoreography": "sni_ech_tail_adaptive",
+      "recordLegacyVersion": "0301",
+      "recordPayloadLen": 247,
+      "sniHost": "template-validation.test",
+      "supportedGroupsNoGrease": [
+        "001d",
+        "0017",
+        "0018",
+        "0019"
+      ]
+    },
+    {
+      "alpnProtocols": [
+        "6832",
+        "687474702f312e31"
+      ],
+      "browserFamily": "safari",
+      "browserTrack": "stable",
+      "clientHelloLegacyVersion": "0303",
+      "contentType": "16",
+      "echCapable": false,
+      "extensionDataLengthsNoGrease": [
+        {
+          "dataLen": 29,
+          "type": "0000"
+        },
+        {
+          "dataLen": 10,
+          "type": "000a"
+        },
+        {
+          "dataLen": 2,
+          "type": "000b"
+        },
+        {
+          "dataLen": 18,
+          "type": "000d"
+        },
+        {
+          "dataLen": 14,
+          "type": "0010"
+        },
+        {
+          "dataLen": 250,
+          "type": "0015"
+        },
+        {
+          "dataLen": 0,
+          "type": "0017"
+        },
+        {
+          "dataLen": 0,
+          "type": "0023"
+        },
+        {
+          "dataLen": 5,
+          "type": "002b"
+        },
+        {
+          "dataLen": 2,
+          "type": "002d"
+        },
+        {
+          "dataLen": 38,
+          "type": "0033"
+        },
+        {
+          "dataLen": 1,
+          "type": "ff01"
+        }
+      ],
+      "extensionOrderFamily": "safari_fixed",
+      "extensionTypesNoGreaseFixedOrder": [
+        "0000",
+        "0017",
+        "ff01",
+        "000a",
+        "000b",
+        "0023",
+        "0010",
+        "000d",
+        "0033",
+        "002d",
+        "002b",
+        "0015"
+      ],
+      "extensionTypesNoGreaseSorted": [
+        "0000",
+        "000a",
+        "000b",
+        "000d",
+        "0010",
+        "0015",
+        "0017",
+        "0023",
+        "002b",
+        "002d",
+        "0033",
+        "ff01"
+      ],
+      "greaseExtensionCount": 0,
+      "greaseKeyShareGroupCount": 0,
+      "greaseSupportedGroupCount": 0,
+      "handshakePayloadLen": 508,
+      "handshakeType": "01",
+      "id": "safari_stable",
+      "keyShareGroupsNoGrease": [
+        "001d"
+      ],
+      "keyShareProfile": "x25519_primary",
+      "recordChoreography": "single_record",
+      "recordLegacyVersion": "0301",
+      "recordPayloadLen": 512,
+      "sniHost": "template-validation.test",
+      "supportedGroupsNoGrease": [
+        "001d",
+        "0017",
+        "0018",
+        "0019"
+      ]
+    },
+    {
+      "alpnProtocols": [
+        "6832",
+        "687474702f312e31"
+      ],
+      "browserFamily": "edge",
+      "browserTrack": "stable",
+      "clientHelloLegacyVersion": "0303",
+      "contentType": "16",
+      "echCapable": false,
+      "extensionDataLengthsNoGrease": [
+        {
+          "dataLen": 29,
+          "type": "0000"
+        },
+        {
+          "dataLen": 10,
+          "type": "000a"
+        },
+        {
+          "dataLen": 2,
+          "type": "000b"
+        },
+        {
+          "dataLen": 18,
+          "type": "000d"
+        },
+        {
+          "dataLen": 14,
+          "type": "0010"
+        },
+        {
+          "dataLen": 232,
+          "type": "0015"
+        },
+        {
+          "dataLen": 0,
+          "type": "0017"
+        },
+        {
+          "dataLen": 0,
+          "type": "0023"
+        },
+        {
+          "dataLen": 7,
+          "type": "002b"
+        },
+        {
+          "dataLen": 2,
+          "type": "002d"
+        },
+        {
+          "dataLen": 43,
+          "type": "0033"
+        },
+        {
+          "dataLen": 1,
+          "type": "ff01"
+        }
+      ],
+      "extensionOrderFamily": "chromium_permuted",
+      "extensionTypesNoGreaseFixedOrder": null,
+      "extensionTypesNoGreaseSorted": [
+        "0000",
+        "000a",
+        "000b",
+        "000d",
+        "0010",
+        "0015",
+        "0017",
+        "0023",
+        "002b",
+        "002d",
+        "0033",
+        "ff01"
+      ],
+      "greaseExtensionCount": 2,
+      "greaseKeyShareGroupCount": 1,
+      "greaseSupportedGroupCount": 1,
+      "handshakePayloadLen": 508,
+      "handshakeType": "01",
+      "id": "edge_stable",
+      "keyShareGroupsNoGrease": [
+        "001d"
+      ],
+      "keyShareProfile": "x25519_primary",
+      "recordChoreography": "host_tail_two_record",
+      "recordLegacyVersion": "0301",
+      "recordPayloadLen": 512,
+      "sniHost": "template-validation.test",
+      "supportedGroupsNoGrease": [
+        "001d",
+        "0017",
+        "0018"
+      ]
+    }
+  ],
+  "schemaVersion": 1
+}
