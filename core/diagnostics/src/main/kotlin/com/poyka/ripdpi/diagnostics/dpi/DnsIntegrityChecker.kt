@@ -170,6 +170,7 @@ data class DnsIntegrityResult(
     val domains: List<DnsIntegrityDomainResult>,
     val stubIps: Set<String>,
     val dohBlocked: Int,
+    val doqResults: List<DoqProbeResult> = emptyList(),
 )
 
 fun interface DnsUdpProbe {
@@ -184,9 +185,11 @@ class DnsIntegrityChecker(
     private val udpProbe: DnsUdpProbe = DatagramSocketDnsUdpProbe(),
     private val dohJsonProbe: DnsAddressProbe = DohJsonAddressProbe(),
     private val dohWireProbe: DnsAddressProbe = DohWireAddressProbe(),
+    private val doqProbe: DoqIntegrityProbe? = null,
 ) {
     suspend fun check(domains: List<String>): DnsIntegrityResult {
         val results = domains.map { domain -> checkDomain(domain) }
+        val doqResults = runDoqProbe(domains, results)
         val stubIps =
             results
                 .flatMap { result -> result.udpIps }
@@ -199,7 +202,17 @@ class DnsIntegrityChecker(
             domains = results,
             stubIps = stubIps,
             dohBlocked = results.count { result -> result.verdict == DnsIntegrityVerdict.DOH_BLOCKED },
+            doqResults = doqResults,
         )
+    }
+
+    private suspend fun runDoqProbe(
+        domains: List<String>,
+        results: List<DnsIntegrityDomainResult>,
+    ): List<DoqProbeResult> {
+        val probe = doqProbe ?: return emptyList()
+        val dohResults = results.associate { result -> result.domain to result.dohIps.toList() }
+        return probe.run(domains, dohResults)
     }
 
     private suspend fun checkDomain(domain: String): DnsIntegrityDomainResult =

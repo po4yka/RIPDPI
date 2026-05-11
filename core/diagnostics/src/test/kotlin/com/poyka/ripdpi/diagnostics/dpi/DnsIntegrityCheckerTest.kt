@@ -86,10 +86,25 @@ class DnsIntegrityCheckerTest {
             assertEquals(DnsIntegrityVerdict.DOH_BLOCKED, result.domains.single().verdict)
         }
 
+    @Test
+    fun doqProbeReceivesDohCrossCheckResults() =
+        runTest {
+            val result =
+                checker(
+                    udp = { listOf("1.2.3.4") },
+                    dohJson = { setOf("5.6.7.8") },
+                    dohWire = { setOf("5.6.7.8") },
+                    doqProbe = probeWithResponse("9.9.9.9"),
+                ).check(listOf("blocked.example"))
+
+            assertEquals(DoqVerdict.DOQ_INTEGRITY_DIVERGENT, result.doqResults.single().verdict)
+        }
+
     private fun checker(
         udp: suspend (String) -> List<String>,
         dohJson: suspend (String) -> Set<String>,
         dohWire: suspend (String) -> Set<String>,
+        doqProbe: DoqIntegrityProbe? = null,
     ): DnsIntegrityChecker =
         DnsIntegrityChecker(
             udpProbe =
@@ -104,5 +119,29 @@ class DnsIntegrityCheckerTest {
                 object : DnsAddressProbe {
                     override suspend fun resolveA(domain: String): Set<String> = dohWire(domain)
                 },
+            doqProbe = doqProbe,
         )
+
+    private fun probeWithResponse(ip: String): DoqIntegrityProbe =
+        DoqIntegrityProbe(
+            client =
+                object : DoqQuicClient {
+                    override suspend fun exchange(
+                        endpoint: String,
+                        port: Int,
+                        query: ByteArray,
+                        timeoutMs: Long,
+                    ): ByteArray = dnsResponse(query.transactionId(), ip)
+                },
+            providers = listOf(DoqProvider("test", "doq.test")),
+            timeoutMs = 1_000,
+        )
+
+    private fun ByteArray.transactionId(): Int =
+        ((this[2].toInt() and 0xFF) shl Byte.SIZE_BITS) or (this[3].toInt() and 0xFF)
+
+    private fun dnsResponse(
+        transactionId: Int,
+        ip: String,
+    ): ByteArray = DoqIntegrityProbeTestFixtures.dnsResponse("blocked.example", transactionId, ip)
 }

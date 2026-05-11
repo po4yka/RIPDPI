@@ -121,12 +121,24 @@ data class DiagnosticsDnsIntegrityDomainUiModel(
     val tone: DiagnosticsTone,
 )
 
+@Immutable
+data class DiagnosticsDnsIntegrityDoqUiModel(
+    val provider: String,
+    val domain: String,
+    val verdict: String,
+    val endpoint: String,
+    val resolvedIps: String,
+    val detail: String,
+    val tone: DiagnosticsTone,
+)
+
 @Stable
 data class DiagnosticsDnsIntegrityToolUiModel(
     val state: DiagnosticsDnsIntegrityState = DiagnosticsDnsIntegrityState.Idle,
     val summary: String = "Compare direct UDP/53 answers against DoH controls for the bundled DPI domains.",
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsDnsIntegrityDomainUiModel> = persistentListOf(),
+    val doqRows: ImmutableList<DiagnosticsDnsIntegrityDoqUiModel> = persistentListOf(),
     val errorMessage: String? = null,
 )
 

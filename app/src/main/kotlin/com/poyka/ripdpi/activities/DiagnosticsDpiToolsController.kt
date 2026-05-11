@@ -6,8 +6,6 @@ import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniFinder
 import com.poyka.ripdpi.diagnostics.dpi.AttemptResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
-import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
-import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DnsServerResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
@@ -453,38 +451,6 @@ private data class CompressionProbeRunResult(
     val results: Map<CompressionCodec, CompressionProbeResult>,
 )
 
-private fun DnsIntegrityResult.toUiModel(): DiagnosticsDnsIntegrityToolUiModel {
-    val flagged = domains.count { result -> result.verdict != DnsIntegrityVerdict.DNS_OK }
-    val checked = domains.size
-    return DiagnosticsDnsIntegrityToolUiModel(
-        state = DiagnosticsDnsIntegrityState.Complete,
-        summary =
-            if (flagged == 0) {
-                "No DNS substitution detected across $checked bundled domains."
-            } else {
-                "$flagged of $checked domains showed DNS integrity warnings."
-            },
-        metrics =
-            listOf(
-                DiagnosticsMetricUiModel("checked", checked.toString(), DiagnosticsTone.Info),
-                DiagnosticsMetricUiModel("flagged", flagged.toString(), countTone(flagged)),
-                DiagnosticsMetricUiModel("stub IPs", stubIps.size.toString(), DiagnosticsTone.Neutral),
-                DiagnosticsMetricUiModel("DoH blocked", dohBlocked.toString(), countTone(dohBlocked)),
-            ).toPersistentList(),
-        rows =
-            domains
-                .map { result ->
-                    DiagnosticsDnsIntegrityDomainUiModel(
-                        domain = result.domain,
-                        verdict = result.verdict.displayLabel(),
-                        udpAnswer = result.udpRecords.joinToString().ifBlank { "timeout" },
-                        dohAnswer = result.dohIps.joinToString().ifBlank { "unavailable" },
-                        tone = result.verdict.tone(),
-                    )
-                }.toPersistentList(),
-    )
-}
-
 private fun List<DnsServerResult>.toDnsAvailabilityUiModel(): DiagnosticsDnsAvailabilityToolUiModel {
     val available = count { result -> result.availableDomains > 0 }
     return DiagnosticsDnsAvailabilityToolUiModel(
@@ -666,8 +632,6 @@ private fun SelfInfoResult.toUiModel(): DiagnosticsRknSelfInfoUiModel =
         source = source,
     )
 
-private fun DnsIntegrityVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
-
 private fun DomainVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
 
 private fun CompressionProbeVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
@@ -706,20 +670,6 @@ private fun countTone(count: Int): DiagnosticsTone =
         DiagnosticsTone.Positive
     } else {
         DiagnosticsTone.Warning
-    }
-
-private fun DnsIntegrityVerdict.tone(): DiagnosticsTone =
-    when (this) {
-        DnsIntegrityVerdict.DNS_OK -> DiagnosticsTone.Positive
-
-        DnsIntegrityVerdict.DOH_BLOCKED,
-        DnsIntegrityVerdict.DNS_SUBSTITUTION,
-        DnsIntegrityVerdict.DNS_INTERCEPTION,
-        DnsIntegrityVerdict.FAKE_NXDOMAIN,
-        DnsIntegrityVerdict.FAKE_IP,
-        -> DiagnosticsTone.Warning
-
-        DnsIntegrityVerdict.UNKNOWN -> DiagnosticsTone.Neutral
     }
 
 private fun DomainVerdict.tone(): DiagnosticsTone =
