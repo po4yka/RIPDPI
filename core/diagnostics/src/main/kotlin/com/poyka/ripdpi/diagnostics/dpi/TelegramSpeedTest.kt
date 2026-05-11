@@ -10,7 +10,6 @@ import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.MediaType.Companion.toMediaType
@@ -75,12 +74,14 @@ data class TelegramTestResult(
                     ProbeDetail("downloadAvgBps", download.avgBps.toString()),
                     ProbeDetail("downloadPeakBps", download.peakBps.toString()),
                     ProbeDetail("downloadDropAtSec", download.dropAtSec?.toString() ?: "none"),
+                    ProbeDetail("downloadError", "none"),
                     ProbeDetail("uploadStatus", upload.status.name.lowercase()),
                     ProbeDetail("uploadBytes", upload.bytesTotal.toString()),
                     ProbeDetail("uploadDurationMs", upload.durationMs.toString()),
                     ProbeDetail("uploadAvgBps", upload.avgBps.toString()),
                     ProbeDetail("uploadPeakBps", upload.peakBps.toString()),
                     ProbeDetail("uploadDropAtSec", upload.dropAtSec?.toString() ?: "none"),
+                    ProbeDetail("uploadError", "none"),
                     ProbeDetail("dcReachable", dcResults.count { dc -> dc.reachable }.toString()),
                     ProbeDetail("dcTotal", dcResults.size.toString()),
                     ProbeDetail("dcResults", dcResults.joinToString("|") { dc -> dc.toDetailValue() }),
@@ -88,7 +89,19 @@ data class TelegramTestResult(
         )
 }
 
+enum class TelegramTransferKind {
+    DOWNLOAD,
+    UPLOAD,
+}
+
 sealed interface TelegramTestProgress {
+    data class Transfer(
+        val kind: TelegramTransferKind,
+        val bytesTotal: Long,
+        val elapsedMs: Long,
+        val avgBps: Long,
+    ) : TelegramTestProgress
+
     data class Completed(
         val result: TelegramTestResult,
     ) : TelegramTestProgress
@@ -104,12 +117,28 @@ class TelegramSpeedTest(
     private val dcPinger: TelegramDcPinger = TelegramDcPinger(),
     private val clockMs: () -> Long = System::currentTimeMillis,
 ) {
-    suspend fun run(): TelegramTestResult =
+    suspend fun run(): TelegramTestResult = runInternal(onProgress = null)
+
+    private suspend fun runInternal(onProgress: ((TelegramTestProgress.Transfer) -> Unit)?): TelegramTestResult =
         coroutineScope {
             val results =
                 awaitAll(
-                    async { measureTransfer(DownloadBytes, downloadClient.transfer()) },
-                    async { measureTransfer(UploadBytes, uploadClient.transfer()) },
+                    async {
+                        measureTransfer(
+                            kind = TelegramTransferKind.DOWNLOAD,
+                            expectedBytes = DownloadBytes,
+                            chunks = downloadClient.transfer(),
+                            onProgress = onProgress,
+                        )
+                    },
+                    async {
+                        measureTransfer(
+                            kind = TelegramTransferKind.UPLOAD,
+                            expectedBytes = UploadBytes,
+                            chunks = uploadClient.transfer(),
+                            onProgress = onProgress,
+                        )
+                    },
                     async { dcPinger.pingAll() },
                 )
             val download = results[0] as ProbeStats
@@ -126,14 +155,20 @@ class TelegramSpeedTest(
         }
 
     fun runWithProgress(): Flow<TelegramTestProgress> =
-        flow {
-            emit(TelegramTestProgress.Completed(run()))
+        channelFlow {
+            val result =
+                runInternal { progress ->
+                    trySend(progress)
+                }
+            send(TelegramTestProgress.Completed(result))
         }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private suspend fun measureTransfer(
+        kind: TelegramTransferKind,
         expectedBytes: Long,
         chunks: Flow<Int>,
+        onProgress: ((TelegramTestProgress.Transfer) -> Unit)?,
     ): ProbeStats =
         coroutineScope {
             val startMs = clockMs()
@@ -161,6 +196,14 @@ class TelegramSpeedTest(
                             bytesTotal += chunk
                             peakChunk = maxOf(peakChunk, chunk.toLong())
                             lastDataMs = clockMs()
+                            onProgress?.invoke(
+                                TelegramTestProgress.Transfer(
+                                    kind = kind,
+                                    bytesTotal = bytesTotal,
+                                    elapsedMs = maxOf(1, lastDataMs - startMs),
+                                    avgBps = bytesTotal * 1_000 / maxOf(1, lastDataMs - startMs),
+                                ),
+                            )
                         }
                     }
                     buildStats(

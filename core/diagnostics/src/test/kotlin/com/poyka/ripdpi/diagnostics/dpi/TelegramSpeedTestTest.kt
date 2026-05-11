@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -148,6 +150,22 @@ class TelegramSpeedTestTest {
             assertEquals("5", details["dcReachable"])
             assertEquals("5", details["dcTotal"])
             assertEquals(true, details.getValue("dcResults").contains("DC1:ok:42ms"))
+            assertEquals("none", details["downloadError"])
+            assertEquals("none", details["uploadError"])
+        }
+
+    @Test
+    fun runWithProgressEmitsTransferProgressBeforeCompleted() =
+        runTest {
+            val events = telegramTest().runWithProgress().toList()
+
+            assertEquals(TelegramTestProgress.Completed::class, events.last()::class)
+            assertEquals(
+                true,
+                events
+                    .filterIsInstance<TelegramTestProgress.Transfer>()
+                    .any { event -> event.kind == TelegramTransferKind.DOWNLOAD && event.bytesTotal > 0 },
+            )
         }
 
     private fun telegramTest(
