@@ -7,9 +7,9 @@ priority: high
 owner: unassigned
 parent: dpi-checkers-parity-epic
 blocks: []
-blocked_by: [add-subnet-filter-dsl, add-webhost-farm-dynamic-host-discovery, add-utls-diagnostic-probe-clienthello-fingerprinting]
+blocked_by: [add-webhost-farm-dynamic-host-discovery, add-utls-diagnostic-probe-clienthello-fingerprinting]
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-11
 ---
 
 - [ ] #task Add CIDR-Whitelist Censorship Detector via Control vs Regular URL Group Probe #repo/RIPDPI #area/diagnostics #status/backlog ⏫

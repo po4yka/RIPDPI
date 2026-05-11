@@ -7,9 +7,9 @@ priority: high
 owner: unassigned
 parent: dpi-probe-parity-epic
 blocks: []
-blocked_by: [add-dns-integrity-checker, add-dpi-error-classifier]
+blocked_by: []
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-11
 ---
 
 - [ ] #task Add DNS-over-QUIC (DoQ) Integrity Probe for UDP-853 Censorship Detection #repo/RIPDPI #area/diagnostics #status/backlog ⏫

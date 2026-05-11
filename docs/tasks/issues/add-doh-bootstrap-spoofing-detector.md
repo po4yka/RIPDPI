@@ -7,9 +7,9 @@ priority: medium
 owner: unassigned
 parent: dpi-checkers-parity-epic
 blocks: []
-blocked_by: [add-dns-integrity-checker, add-geoip-db-and-geosite-db-runtime-loader-and-lookup]
+blocked_by: [add-geoip-db-and-geosite-db-runtime-loader-and-lookup]
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-11
 ---
 
 - [ ] #task Add DoH Bootstrap-IP Spoofing Detector via Geoip Cross-Reference #repo/RIPDPI #area/diagnostics #status/backlog 🔼

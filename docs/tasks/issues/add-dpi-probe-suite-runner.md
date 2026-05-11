@@ -7,9 +7,9 @@ priority: high
 owner: unassigned
 parent: dpi-probe-parity-epic
 blocks: []
-blocked_by: [add-dns-integrity-checker, add-dns-server-availability-survey, add-domain-reachability-scanner, add-tcp16-fat-header-dpi-probe, add-whitelist-sni-finder, add-telegram-speed-test]
+blocked_by: []
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-11
 ---
 
 - [ ] #task Add DPI Probe Suite Runner with Selection, Sequencing, and Aggregate Verdict #repo/RIPDPI #area/diagnostics #status/backlog ⏫

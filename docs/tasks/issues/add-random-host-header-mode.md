@@ -7,9 +7,9 @@ priority: medium
 owner: unassigned
 parent: dpi-checkers-parity-epic
 blocks: []
-blocked_by: [add-tcp16-fat-header-dpi-probe]
+blocked_by: [add-webhost-farm-dynamic-host-discovery]
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-11
 ---
 
 - [ ] #task Add Random Host Header Mode for Diagnostic Probes #repo/RIPDPI #area/diagnostics #status/blocked #blocked 🔼
@@ -69,7 +69,7 @@ All 7 unit tests green. Setting toggle in detection settings. Per-probe `randomH
 
 ## Blocking reason
 
-Probe wiring remains blocked by `add-tcp16-fat-header-dpi-probe`, `add-webhost-farm-dynamic-host-discovery`, and `add-domain-reachability-scanner`; those probe APIs do not exist yet.
+Probe wiring remains blocked by `add-webhost-farm-dynamic-host-discovery`; that probe API does not exist yet.
 
 ## Work log
 

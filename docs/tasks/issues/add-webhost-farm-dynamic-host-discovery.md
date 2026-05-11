@@ -7,9 +7,9 @@ priority: high
 owner: unassigned
 parent: dpi-checkers-parity-epic
 blocks: [add-cidr-whitelist-detector, add-ipv4-whitelisted-subnet-discovery]
-blocked_by: [add-subnet-filter-dsl, add-utls-diagnostic-probe-clienthello-fingerprinting]
+blocked_by: [add-utls-diagnostic-probe-clienthello-fingerprinting]
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-11
 ---
 
 - [ ] #task Add Webhost-Farm Dynamic Host Discovery from Filtered Subnets #repo/RIPDPI #area/diagnostics #status/backlog ⏫

@@ -7,9 +7,9 @@ priority: medium
 owner: unassigned
 parent: dpi-checkers-parity-epic
 blocks: []
-blocked_by: [add-dpi-error-classifier]
+blocked_by: []
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-11
 ---
 
 - [ ] #task Add Pluggable Transport (obfs4 / Snowflake / meek) Reachability Probe #repo/RIPDPI #area/diagnostics #status/backlog 🔼

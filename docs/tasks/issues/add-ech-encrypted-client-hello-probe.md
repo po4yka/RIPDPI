@@ -7,9 +7,9 @@ priority: high
 owner: unassigned
 parent: dpi-probe-parity-epic
 blocks: []
-blocked_by: [add-dpi-error-classifier, add-utls-diagnostic-probe-clienthello-fingerprinting]
+blocked_by: [add-utls-diagnostic-probe-clienthello-fingerprinting]
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-11
 ---
 
 - [ ] #task Add Encrypted Client Hello (ECH) Readiness and Acceptance Probe #repo/RIPDPI #area/diagnostics #status/backlog ⏫
