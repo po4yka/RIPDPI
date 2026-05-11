@@ -26,6 +26,7 @@ mod owned_tls_http_bridge;
 mod platform_bridge;
 mod probe_results_bridge;
 mod proxy_bridge;
+mod quic_initial_bridge;
 mod shared_priors_bridge;
 mod vpn_protect_bridge;
 
@@ -38,5 +39,6 @@ pub use owned_tls_http_bridge::*;
 pub use platform_bridge::*;
 pub use probe_results_bridge::*;
 pub use proxy_bridge::*;
+pub use quic_initial_bridge::*;
 pub use shared_priors_bridge::*;
 pub use vpn_protect_bridge::*;

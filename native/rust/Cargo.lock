@@ -3204,6 +3204,7 @@ dependencies = [
  "ripdpi-diagnostics-dns",
  "ripdpi-dns-resolver",
  "ripdpi-native-protect",
+ "ripdpi-packets",
  "ripdpi-runtime-platform",
  "ripdpi-runtime-strategy",
  "ripdpi-shared-priors",

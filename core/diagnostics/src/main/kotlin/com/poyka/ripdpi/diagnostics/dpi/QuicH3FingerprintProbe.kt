@@ -7,11 +7,17 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.SocketTimeoutException
 import java.security.MessageDigest
+import java.util.Base64
 
 enum class QuicFingerprint {
     CHROME_120,
@@ -162,7 +168,21 @@ object QuicFingerprintFactory {
     const val QuicV1Version: Int = 0x00000001
     const val ReservedVersion: Int = 0x1A2A3A4A
 
+    private val nativeFactory = NativeQuicInitialPacketFactory()
+
     fun create(
+        fingerprint: QuicFingerprint,
+        target: String,
+    ): ByteArray =
+        nativeFactory.createOrNull(
+            fingerprint = fingerprint,
+            target = target,
+        ) ?: createSynthetic(
+            fingerprint = fingerprint,
+            target = target,
+        )
+
+    internal fun createSynthetic(
         fingerprint: QuicFingerprint,
         target: String,
     ): ByteArray {
@@ -241,6 +261,73 @@ object QuicFingerprintFactory {
     private const val TwoByteVarIntPrefix = 0x40
     private const val MaxTwoByteVarInt = 16_383
 }
+
+interface QuicInitialPacketNativeBindings {
+    fun create(requestJson: String): String?
+}
+
+class NativeQuicInitialPacketBindings : QuicInitialPacketNativeBindings {
+    override fun create(requestJson: String): String? {
+        System.loadLibrary("ripdpi")
+        return jniCreate(requestJson)
+    }
+
+    private external fun jniCreate(requestJson: String): String?
+}
+
+internal class NativeQuicInitialPacketFactory(
+    private val bindings: QuicInitialPacketNativeBindings = NativeQuicInitialPacketBindings(),
+    private val json: Json = Json { ignoreUnknownKeys = true },
+) {
+    fun createOrNull(
+        fingerprint: QuicFingerprint,
+        target: String,
+    ): ByteArray? =
+        try {
+            val request =
+                NativeQuicInitialRequest(
+                    fingerprint = fingerprint.nativeId,
+                    target = target,
+                )
+            val payload = bindings.create(json.encodeToString(request)) ?: return null
+            val response = json.decodeFromString(NativeQuicInitialResponse.serializer(), payload)
+            if (!response.error.isNullOrBlank()) {
+                null
+            } else {
+                response.packetBase64?.let { encoded -> Base64.getDecoder().decode(encoded) }
+            }
+        } catch (error: UnsatisfiedLinkError) {
+            null
+        } catch (error: SecurityException) {
+            null
+        } catch (error: SerializationException) {
+            null
+        } catch (error: IllegalArgumentException) {
+            null
+        }
+
+    private val QuicFingerprint.nativeId: String
+        get() =
+            when (this) {
+                QuicFingerprint.CHROME_120 -> "chrome120"
+                QuicFingerprint.FIREFOX_121 -> "firefox121"
+                QuicFingerprint.GENERIC_V1 -> "generic_v1"
+                QuicFingerprint.VN_PROBE -> "vn_probe"
+            }
+}
+
+@Serializable
+private data class NativeQuicInitialRequest(
+    val fingerprint: String,
+    val target: String,
+)
+
+@Serializable
+private data class NativeQuicInitialResponse(
+    @SerialName("packetBase64")
+    val packetBase64: String? = null,
+    val error: String? = null,
+)
 
 class DatagramSocketQuicUdpProbe : QuicUdpProbe {
     override suspend fun udpReachable(

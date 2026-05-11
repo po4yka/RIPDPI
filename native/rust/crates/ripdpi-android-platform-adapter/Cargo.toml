@@ -13,6 +13,7 @@ jni = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-diagnostics-dns = { workspace = true }
 ripdpi-native-protect = { workspace = true }
+ripdpi-packets = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-runtime-strategy = { workspace = true }
 ripdpi-shared-priors = { workspace = true }
