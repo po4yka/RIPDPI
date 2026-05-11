@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import kotlin.random.Random
@@ -115,6 +117,47 @@ class Ipv4WhitelistedSubnetDiscovererTest {
                 "provider,cidr,alive_count,whitelisted\nVK,192.0.2.0/29,3,true\n",
                 listOf(result).toWhitelistedSubnetCsv(),
             )
+        }
+
+    @Test
+    fun cancellationKeepsAlreadyEmittedPartialResults() =
+        runTest {
+            temp.create()
+            val cache = SubnetsCache(temp.newFile("cache.json"))
+            cache.save(
+                listOf(
+                    CachedWhitelistSubnet("Yandex", 13238, "203.0.113.0/29"),
+                    CachedWhitelistSubnet("VK", 28709, "192.0.2.0/29"),
+                ),
+            )
+            val discoverer =
+                Ipv4WhitelistedSubnetDiscoverer(
+                    asns = emptyList(),
+                    ripeStat = RecordingRipeStatSource(),
+                    cache = cache,
+                    aliveProbe = FakeSubnetAliveProbe(aliveIps = setOf("203.0.113.1", "192.0.2.1")),
+                    random = Random(1),
+                )
+            val observed = mutableListOf<SubnetCheckProgress>()
+
+            try {
+                discoverer
+                    .checkCachedSubnets(
+                        WhitelistedSubnetConfig(
+                            subnetSampleSize = 6,
+                            subnetAliveMin = 1,
+                        ),
+                    ).collect { progress ->
+                        observed += progress
+                        throw CancellationException("stop after first subnet")
+                    }
+            } catch (_: CancellationException) {
+                // Expected: caller cancellation should not erase already observed progress.
+            }
+
+            assertEquals(1, observed.size)
+            assertEquals("203.0.113.0/29", observed.single().result.cidr)
+            assertTrue(observed.single().result.whitelisted)
         }
 
     private class RecordingRipeStatSource(
