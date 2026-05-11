@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -29,52 +28,43 @@ class AllowlistSniFinder(
 
     private suspend fun findForRepresentative(result: Tcp16ProbeResult): AllowlistSniResult {
         val baseTarget = result.toTarget(sni = null)
-        return try {
-            val baseline = probe.runWithRttHint(baseTarget, hintRttMs = null)
-            val hintRttMs = baseline.measuredRttMs ?: result.measuredRttMs
-            val compatible = mutableListOf<CompatibleSni>()
-            var triedCount = 0
-            for (batch in sniList.withIndex().chunked(batchSize)) {
-                val batchResults =
-                    coroutineScope {
-                        batch
-                            .map { indexed ->
-                                async {
-                                    val sni = indexed.value
-                                    val probeResult =
-                                        probe.runWithRttHint(
-                                            baseTarget.copy(
-                                                id = "${baseTarget.id}:sni:${indexed.index + 1}",
-                                                sni = sni,
-                                            ),
-                                            hintRttMs = hintRttMs,
-                                        )
-                                    indexed to probeResult
-                                }
-                            }.awaitAll()
-                    }
-                triedCount += batchResults.size
-                compatible +=
-                    batchResults
-                        .filter { (_, probeResult) -> probeResult.verdict == Tcp16Verdict.OK }
-                        .map { (indexed, _) -> CompatibleSni(indexed.value, indexed.index + 1) }
-                if (compatible.size >= maxCompatiblePerAsn) {
-                    break
+        val baseline = probe.runWithRttHint(baseTarget, hintRttMs = null)
+        val hintRttMs = baseline.measuredRttMs ?: result.measuredRttMs
+        val compatible = mutableListOf<CompatibleSni>()
+        var triedCount = 0
+        for (batch in sniList.withIndex().chunked(batchSize)) {
+            val batchResults =
+                coroutineScope {
+                    batch
+                        .map { indexed ->
+                            async {
+                                val sni = indexed.value
+                                val probeResult =
+                                    probe.runWithRttHint(
+                                        baseTarget.copy(
+                                            id = "${baseTarget.id}:sni:${indexed.index + 1}",
+                                            sni = sni,
+                                        ),
+                                        hintRttMs = hintRttMs,
+                                    )
+                                indexed to probeResult
+                            }
+                        }.awaitAll()
                 }
+            triedCount += batchResults.size
+            compatible +=
+                batchResults
+                    .filter { (_, probeResult) -> probeResult.verdict == Tcp16Verdict.OK }
+                    .map { (indexed, _) -> CompatibleSni(indexed.value, indexed.index + 1) }
+            if (compatible.size >= maxCompatiblePerAsn) {
+                break
             }
-            result.toAllowlistResult(
-                compatibleSnis = compatible.take(maxCompatiblePerAsn),
-                triedCount = triedCount,
-                aborted = false,
-            )
-        } catch (cancellation: CancellationException) {
-            result.toAllowlistResult(
-                compatibleSnis = emptyList(),
-                triedCount = 0,
-                aborted = true,
-                abortReason = cancellation.message ?: cancellation::class.java.simpleName,
-            )
         }
+        return result.toAllowlistResult(
+            compatibleSnis = compatible.take(maxCompatiblePerAsn),
+            triedCount = triedCount,
+            aborted = false,
+        )
     }
 
     private fun Tcp16ProbeResult.toTarget(sni: String?): Tcp16Target =

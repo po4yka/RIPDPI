@@ -170,10 +170,10 @@ open class RootHelperManager
         ): List<RootHelperLaunchAttempt> {
             val helperCommand = "${shellQuote(binary.absolutePath)} --socket ${shellQuote(socket.absolutePath)}"
             return listOf(
-                RootHelperLaunchAttempt("su -c $helperCommand") {
+                RootHelperLaunchAttempt("su -c exec $helperCommand") {
                     Runtime
                         .getRuntime()
-                        .exec(arrayOf("su", "-c", helperCommand))
+                        .exec(arrayOf("su", "-c", "exec $helperCommand"))
                 },
                 RootHelperLaunchAttempt("su 0 sh -c exec $helperCommand") {
                     Runtime

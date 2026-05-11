@@ -13,6 +13,7 @@ import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.ProxyType
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
@@ -33,6 +34,14 @@ fun interface CallTransportMtProtoProber {
     suspend fun canReach(path: CallTransportPath): Boolean
 }
 
+interface CallTransportPathAwareStunClient : CallTransportStunClient {
+    val supportedPaths: Set<CallTransportPath>
+}
+
+interface CallTransportPathAwareMtProtoProber : CallTransportMtProtoProber {
+    val supportedPaths: Set<CallTransportPath>
+}
+
 object CallTransportLeakChecker {
     suspend fun check(
         enabled: Boolean,
@@ -48,14 +57,15 @@ object CallTransportLeakChecker {
                 return@coroutineScope disabledResult()
             }
 
+            val stunPaths = stunClient.supportedPaths()
             val stunObservations =
                 servers
                     .flatMap { server ->
-                        CallTransportPath.entries.map { path ->
+                        CallTransportPath.entries.filter { path -> path in stunPaths }.map { path ->
                             async {
-                                runCatching {
+                                runNullableProbe {
                                     stunClient.reflexiveAddress(path = path, server = server)
-                                }.getOrNull()?.let { address ->
+                                }?.let { address ->
                                     CallTransportStunObservation(path, server, address)
                                 }
                             }
@@ -63,20 +73,30 @@ object CallTransportLeakChecker {
                     }.mapNotNull { deferred -> deferred.await() }
 
             val mtProtoReachable =
-                runCatching {
-                    mtProtoProber.canReach(CallTransportPath.VPN)
-                }.getOrDefault(false)
+                if (CallTransportPath.VPN in mtProtoProber.supportedPaths()) {
+                    runBooleanProbe {
+                        mtProtoProber.canReach(CallTransportPath.VPN)
+                    }
+                } else {
+                    false
+                }
 
             val proxyStun =
                 if (proxyEndpoint?.type == ProxyType.SOCKS5 && socks5StunClient != null) {
-                    listOfNotNull(runCatching { socks5StunClient.reflexiveAddress(proxyEndpoint) }.getOrNull())
+                    listOfNotNull(
+                        runNullableProbe {
+                            socks5StunClient.reflexiveAddress(proxyEndpoint)
+                        },
+                    )
                 } else {
                     emptyList()
                 }.distinct()
 
             val proxyMtProtoReachable =
                 proxyEndpoint?.takeIf { it.type == ProxyType.SOCKS5 && socks5MtProtoProber != null }?.let { endpoint ->
-                    runCatching { socks5MtProtoProber?.canReach(endpoint) == true }.getOrDefault(false)
+                    runBooleanProbe {
+                        socks5MtProtoProber?.canReach(endpoint) == true
+                    }
                 } ?: false
 
             resultFrom(
@@ -92,6 +112,33 @@ object CallTransportLeakChecker {
 
     fun defaultMtProtoProber(dispatchers: AppCoroutineDispatchers): CallTransportMtProtoProber =
         DefaultCallTransportMtProtoProber(dispatchers)
+
+    private fun CallTransportStunClient.supportedPaths(): Set<CallTransportPath> =
+        (this as? CallTransportPathAwareStunClient)?.supportedPaths.orVpnOnly()
+
+    private fun CallTransportMtProtoProber.supportedPaths(): Set<CallTransportPath> =
+        (this as? CallTransportPathAwareMtProtoProber)?.supportedPaths.orVpnOnly()
+
+    private fun Set<CallTransportPath>?.orVpnOnly(): Set<CallTransportPath> =
+        takeUnless { paths -> paths.isNullOrEmpty() } ?: VpnOnlyCallTransportPaths
+
+    private suspend fun <T> runNullableProbe(block: suspend () -> T?): T? =
+        try {
+            block()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Throwable) {
+            null
+        }
+
+    private suspend fun runBooleanProbe(block: suspend () -> Boolean): Boolean =
+        try {
+            block()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Throwable) {
+            false
+        }
 
     private fun disabledResult(): CallTransportResult =
         CallTransportResult(
@@ -147,7 +194,7 @@ object CallTransportLeakChecker {
         if (mtProtoReachable) {
             findings +=
                 Finding(
-                    description = "MTProto DC2 reachable from call transport path",
+                    description = "MTProto DC2 reachable from VPN call transport path",
                     detected = true,
                     needsReview = true,
                     source = EvidenceSource.CALL_TRANSPORT,
@@ -207,19 +254,28 @@ object CallTransportLeakChecker {
             CallTransportStunServer("global.stun.twilio.com", 3_478, CallTransportStunScope.GLOBAL),
             CallTransportStunServer("stun.nextcloud.com", 3_478, CallTransportStunScope.GLOBAL),
         )
+
+    private val VpnOnlyCallTransportPaths = setOf(CallTransportPath.VPN)
 }
 
 private class DefaultCallTransportMtProtoProber(
     private val dispatchers: AppCoroutineDispatchers,
-) : CallTransportMtProtoProber {
+) : CallTransportPathAwareMtProtoProber {
+    override val supportedPaths: Set<CallTransportPath> = setOf(CallTransportPath.VPN)
+
     override suspend fun canReach(path: CallTransportPath): Boolean =
         withContext(dispatchers.io) {
-            runCatching {
+            if (path != CallTransportPath.VPN) return@withContext false
+            try {
                 java.net.Socket().use { socket ->
                     socket.connect(java.net.InetSocketAddress(TelegramDc2Host, TelegramDcPort), TimeoutMs)
                     true
                 }
-            }.getOrDefault(false)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Throwable) {
+                false
+            }
         }
 
     private companion object {
@@ -233,13 +289,16 @@ private class DefaultCallTransportStunClient(
     private val dispatchers: AppCoroutineDispatchers,
     private val timeoutMs: Int = 3_000,
     private val random: SecureRandom = SecureRandom(),
-) : CallTransportStunClient {
+) : CallTransportPathAwareStunClient {
+    override val supportedPaths: Set<CallTransportPath> = setOf(CallTransportPath.VPN)
+
     override suspend fun reflexiveAddress(
         path: CallTransportPath,
         server: CallTransportStunServer,
     ): String? =
         withContext(dispatchers.io) {
-            runCatching {
+            if (path != CallTransportPath.VPN) return@withContext null
+            try {
                 DatagramSocket().use { socket ->
                     socket.soTimeout = timeoutMs
                     val transactionId = ByteArray(StunTransactionIdBytes).also(random::nextBytes)
@@ -251,7 +310,11 @@ private class DefaultCallTransportStunClient(
                     socket.receive(response)
                     parseStunResponse(buffer.copyOf(response.length), transactionId)
                 }
-            }.getOrNull()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Throwable) {
+                null
+            }
         }
 }
 

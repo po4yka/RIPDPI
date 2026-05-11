@@ -5,7 +5,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
 class AllowlistSniFinderTest {
@@ -73,15 +75,17 @@ class AllowlistSniFinderTest {
         }
 
     @Test
-    fun cancellationReturnsAbortedResult() =
+    fun cancellationIsRethrown() =
         runTest {
             val probe = RecordingTcp16Probe(compatibleSnis = emptySet(), cancelOnSni = "sni-2.test")
             val finder = AllowlistSniFinder(probe = probe, sniList = namedSnis(4))
 
-            val result = finder.find(listOf(detectedResult())).getValue("AS64500")
-
-            assertTrue(result.aborted)
-            assertEquals(emptyList<CompatibleSni>(), result.compatibleSnis)
+            try {
+                finder.find(listOf(detectedResult()))
+                fail("Expected cancellation to be rethrown")
+            } catch (cancellation: CancellationException) {
+                assertEquals("cancelled", cancellation.message)
+            }
         }
 
     private fun detectedResult(): Tcp16ProbeResult =
@@ -108,8 +112,8 @@ class AllowlistSniFinderTest {
     ) : Tcp16Probe {
         val baselineCalls = AtomicInteger()
         val maxConcurrentCalls = AtomicInteger()
-        val probedSnis = mutableListOf<String>()
-        val hintsUsed = mutableListOf<Long>()
+        val probedSnis = CopyOnWriteArrayList<String>()
+        val hintsUsed = CopyOnWriteArrayList<Long>()
         private val activeCalls = AtomicInteger()
 
         override suspend fun runWithRttHint(
@@ -127,12 +131,15 @@ class AllowlistSniFinderTest {
             }
             val active = activeCalls.incrementAndGet()
             maxConcurrentCalls.updateAndGet { current -> maxOf(current, active) }
-            if (delayMs > 0) delay(delayMs)
-            activeCalls.decrementAndGet()
-            return resultFor(
-                target = target,
-                verdict = if (target.sni in compatibleSnis) Tcp16Verdict.OK else Tcp16Verdict.DETECTED_AT_KB,
-            )
+            try {
+                if (delayMs > 0) delay(delayMs)
+                return resultFor(
+                    target = target,
+                    verdict = if (target.sni in compatibleSnis) Tcp16Verdict.OK else Tcp16Verdict.DETECTED_AT_KB,
+                )
+            } finally {
+                activeCalls.decrementAndGet()
+            }
         }
 
         private fun resultFor(

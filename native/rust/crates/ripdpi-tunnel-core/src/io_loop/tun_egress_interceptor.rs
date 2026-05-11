@@ -70,7 +70,6 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
                 continue;
             }
             match self.injector.inject_packet(&transformed) {
-                Ok(()) if rule.action.consumes_original() => return true,
                 Ok(()) => continue,
                 Err(error) => debug!("TUN egress strategy injection failed; forwarding original packet: {error}"),
             }
@@ -136,10 +135,6 @@ impl EgressAction {
             }
             _ => None,
         }
-    }
-
-    fn consumes_original(self) -> bool {
-        !matches!(self, Self::Fake { .. })
     }
 
     fn apply(self, packet: &[u8]) -> Option<Vec<u8>> {
@@ -362,7 +357,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn udplen_rule_injects_modified_udp_packet() {
+    fn udplen_rule_injects_modified_udp_packet_and_forwards_original() {
         let packet = ipv4_udp_packet(443, 443, b"abc");
         let yaml = r#"
 version: 1
@@ -377,7 +372,7 @@ strategies:
 "#;
         let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
 
-        assert!(interceptor.handle_packet(&packet));
+        assert!(!interceptor.handle_packet(&packet));
 
         let injected = &interceptor.injector.packets[0];
         let udp_len_offset = IPV4_MIN_HEADER_LEN + 4;
@@ -410,7 +405,7 @@ strategies:
     }
 
     #[test]
-    fn ipv6_ext_rule_injects_modified_tcp_packet() {
+    fn ipv6_ext_rule_injects_modified_tcp_packet_and_forwards_original() {
         let packet = ipv6_tcp_packet();
         let yaml = r#"
 version: 1
@@ -425,7 +420,7 @@ strategies:
 "#;
         let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
 
-        assert!(interceptor.handle_packet(&packet));
+        assert!(!interceptor.handle_packet(&packet));
 
         let injected = &interceptor.injector.packets[0];
         assert_eq!(injected[6], 60);
