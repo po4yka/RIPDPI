@@ -16,14 +16,8 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketTimeoutException
 import java.net.URL
-import java.security.cert.X509Certificate
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import javax.naming.ldap.LdapName
-import javax.net.ssl.SNIHostName
-import javax.net.ssl.SSLContext
-import javax.net.ssl.SSLException
-import javax.net.ssl.SSLSocket
 import kotlin.system.measureTimeMillis
 
 enum class RknVerdict {
@@ -121,7 +115,7 @@ fun interface RknHttpProbe {
 class RknLayeredProbePipeline(
     private val dnsProbe: RknDnsProbe = RknSystemDohDnsProbe(),
     private val tcpProbe: RknTcpProbe = SocketRknTcpProbe(),
-    private val tlsProbe: RknTlsProbe = SslSocketRknTlsProbe(),
+    private val tlsProbe: RknTlsProbe = HttpClientRknTlsProbe(),
     private val httpProbe: RknHttpProbe = OkHttpRknHttpProbe(),
     private val stubPageDetector: RknStubPageDetector = RknStubPageDetector(DefaultStubMarkers),
     private val tlsClientStateProvider: () -> DiagnosticsTlsClientState? = { null },
@@ -404,48 +398,6 @@ class SocketRknTcpProbe(
             }
             RknTcpProbeResult(ok = true, timeMs = elapsedMs)
         }
-}
-
-class SslSocketRknTlsProbe(
-    private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val socketFactory: javax.net.ssl.SSLSocketFactory = SSLContext.getDefault().socketFactory,
-) : RknTlsProbe {
-    override suspend fun handshake(
-        host: String,
-        port: Int,
-        timeoutMs: Long,
-    ): RknTlsProbeResult =
-        withContext(dispatcher) {
-            lateinit var socket: SSLSocket
-            val elapsedMs =
-                measureTimeMillis {
-                    socket = socketFactory.createSocket(host, port) as SSLSocket
-                    socket.use { sslSocket ->
-                        sslSocket.soTimeout = timeoutMs.toInt()
-                        sslSocket.enabledProtocols = arrayOf("TLSv1.3", "TLSv1.2")
-                        sslSocket.sslParameters =
-                            sslSocket.sslParameters.apply {
-                                serverNames = listOf(SNIHostName(host))
-                            }
-                        sslSocket.startHandshake()
-                    }
-                }
-            val certCn =
-                socket.session
-                    .peerCertificates
-                    .firstOrNull()
-                    ?.let { certificate -> (certificate as? X509Certificate)?.subjectCn() }
-            RknTlsProbeResult(ok = true, timeMs = elapsedMs, certCn = certCn)
-        }
-
-    private fun X509Certificate.subjectCn(): String? =
-        runCatching {
-            LdapName(subjectX500Principal.name)
-                .rdns
-                .firstOrNull { rdn -> rdn.type.equals("CN", ignoreCase = true) }
-                ?.value
-                ?.toString()
-        }.getOrNull()
 }
 
 class HttpClientRknTlsProbe(

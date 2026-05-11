@@ -10,13 +10,14 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import okhttp3.Dns
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
-import java.security.cert.X509Certificate
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import javax.net.ssl.SNIHostName
-import javax.net.ssl.SSLSocket
-import javax.net.ssl.SSLSocketFactory
 import kotlin.math.min
 import kotlin.random.Random
 import kotlin.system.measureTimeMillis
@@ -50,7 +51,7 @@ fun interface WebhostProbe {
 }
 
 class WebhostFarm(
-    private val probe: WebhostProbe = SocketWebhostProbe(),
+    private val probe: WebhostProbe = OkHttpWebhostProbe(),
     private val metadata: SubnetMetadataLookup? = null,
     private val random: Random = Random.Default,
     private val maxCandidates: Int = DefaultMaxCandidates,
@@ -164,9 +165,10 @@ class WebhostFarm(
     }
 }
 
-class SocketWebhostProbe(
+class OkHttpWebhostProbe(
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val sslSocketFactory: SSLSocketFactory = SSLSocketFactory.getDefault() as SSLSocketFactory,
+    private val clientBuilder: (OkHttpClient.Builder.() -> Unit) -> OkHttpClient =
+        { configure -> OkHttpClient.Builder().apply(configure).build() },
 ) : WebhostProbe {
     override suspend fun probe(
         ip: String,
@@ -184,21 +186,12 @@ class SocketWebhostProbe(
                             socket.connect(InetSocketAddress(ip, port), tcpConnectTimeoutMs.toInt())
                         }
                 }
-                lateinit var socket: SSLSocket
                 val tlsTimeMs =
                     measureTimeMillis {
-                        socket = sslSocketFactory.createSocket(ip, port) as SSLSocket
-                        socket.use { sslSocket ->
-                            sslSocket.soTimeout = tlsHandshakeTimeoutMs.toInt()
-                            sni?.let { host ->
-                                sslSocket.sslParameters =
-                                    sslSocket.sslParameters.apply {
-                                        serverNames = listOf(SNIHostName(host))
-                                    }
-                            }
-                            sslSocket.startHandshake()
-                            socket.session.peerCertificates.firstOrNull() as? X509Certificate
-                        }
+                        tlsClient(ip, sni, tcpConnectTimeoutMs, tlsHandshakeTimeoutMs)
+                            .newCall(tlsRequest(ip, port, sni))
+                            .execute()
+                            .close()
                     }
                 WebhostProbeResult(tcpOk = true, tlsOk = true, tcpTimeMs = tcpTimeMs, tlsTimeMs = tlsTimeMs)
             } catch (error: CancellationException) {
@@ -213,6 +206,57 @@ class SocketWebhostProbe(
                 )
             }
         }
+
+    private fun tlsClient(
+        ip: String,
+        sni: String?,
+        tcpConnectTimeoutMs: Long,
+        tlsHandshakeTimeoutMs: Long,
+    ): OkHttpClient =
+        clientBuilder {
+            sni?.let { host -> dns(SingleHostDns(host = host, ip = ip)) }
+            followRedirects(false)
+            followSslRedirects(false)
+            connectTimeout(tcpConnectTimeoutMs, TimeUnit.MILLISECONDS)
+            readTimeout(tlsHandshakeTimeoutMs, TimeUnit.MILLISECONDS)
+            callTimeout(tcpConnectTimeoutMs + tlsHandshakeTimeoutMs, TimeUnit.MILLISECONDS)
+        }
+
+    private fun tlsRequest(
+        ip: String,
+        port: Int,
+        sni: String?,
+    ): Request {
+        val authority = sni ?: ip
+        val url =
+            if (port == HttpsPort) {
+                "https://$authority/"
+            } else {
+                "https://$authority:$port/"
+            }
+        return Request
+            .Builder()
+            .url(url)
+            .head()
+            .header("Host", authority)
+            .build()
+    }
+
+    private data class SingleHostDns(
+        private val host: String,
+        private val ip: String,
+    ) : Dns {
+        override fun lookup(hostname: String): List<InetAddress> =
+            if (hostname.equals(host, ignoreCase = true)) {
+                listOf(InetAddress.getByName(ip))
+            } else {
+                Dns.SYSTEM.lookup(hostname)
+            }
+    }
+
+    private companion object {
+        private const val HttpsPort = 443
+    }
 }
 
 private data class WebhostCandidate(

@@ -22,15 +22,10 @@ import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.SocketException
 import java.net.SocketTimeoutException
-import java.security.SecureRandom
-import java.security.cert.X509Certificate
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLHandshakeException
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 import kotlin.math.roundToLong
 
 class Tcp16FatHeaderProbe(
@@ -290,24 +285,6 @@ class OkHttpTcp16RequestRunner(
     companion object {
         private const val HttpsPort = 443
         private const val NanosPerMillis = 1_000_000L
-        private val trustManager: X509TrustManager =
-            object : X509TrustManager {
-                override fun checkClientTrusted(
-                    chain: Array<out X509Certificate>?,
-                    authType: String?,
-                ) = Unit
-
-                override fun checkServerTrusted(
-                    chain: Array<out X509Certificate>?,
-                    authType: String?,
-                ) = Unit
-
-                override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
-            }
-        private val sslContext: SSLContext =
-            SSLContext.getInstance("TLS").apply {
-                init(null, arrayOf<TrustManager>(trustManager), SecureRandom())
-            }
 
         fun withClientBuilder(clientBuilder: Tcp16OkHttpClientBuilder): OkHttpTcp16RequestRunner =
             OkHttpTcp16RequestRunner(baseClient = defaultBaseClient(clientBuilder))
@@ -319,7 +296,6 @@ class OkHttpTcp16RequestRunner(
                 retryOnConnectionFailure(false)
                 followRedirects(false)
                 followSslRedirects(false)
-                sslSocketFactory(sslContext.socketFactory, trustManager)
                 hostnameVerifier { _, _ -> true }
             }
             return clientBuilder?.invoke(configure) ?: OkHttpClient.Builder().apply(configure).build()

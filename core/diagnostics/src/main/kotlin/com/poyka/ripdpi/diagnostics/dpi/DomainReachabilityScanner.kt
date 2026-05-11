@@ -28,14 +28,8 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
-import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
-import javax.net.ssl.SSLContext
-import javax.net.ssl.SSLSocket
-import javax.net.ssl.SSLSocketFactory
-import javax.net.ssl.TrustManagerFactory
-import javax.net.ssl.X509TrustManager
 import kotlin.system.measureTimeMillis
 
 enum class DomainVerdict {
@@ -562,50 +556,15 @@ object TlsVersionPinner {
 
     fun tls12Spec(): ConnectionSpec = tlsSpec(TlsVersion.TLS_1_2)
 
-    fun contextFor(version: TlsVersion): SSLContext =
-        SSLContext
-            .getInstance(
-                when (version) {
-                    TlsVersion.TLS_1_3 -> "TLSv1.3"
-                    TlsVersion.TLS_1_2 -> "TLSv1.2"
-                    else -> "TLS"
-                },
-            ).apply { init(null, null, null) }
-
-    fun socketFactoryFor(version: TlsVersion): Pair<SSLSocketFactory, X509TrustManager> {
-        val trustManager = defaultTrustManager()
-        val context =
-            SSLContext
-                .getInstance(protocolName(version))
-                .apply { init(null, arrayOf(trustManager), SecureRandom()) }
-        return ProtocolPinnedSocketFactory(context.socketFactory, version) to trustManager
-    }
-
     fun tlsSpec(version: TlsVersion): ConnectionSpec =
         ConnectionSpec
             .Builder(ConnectionSpec.MODERN_TLS)
             .tlsVersions(version)
             .build()
-
-    private fun defaultTrustManager(): X509TrustManager {
-        val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
-        factory.init(null as java.security.KeyStore?)
-        return factory.trustManagers.filterIsInstance<X509TrustManager>().single()
-    }
-
-    fun protocolName(version: TlsVersion): String =
-        when (version) {
-            TlsVersion.TLS_1_3 -> "TLSv1.3"
-            TlsVersion.TLS_1_2 -> "TLSv1.2"
-            else -> "TLS"
-        }
 }
 
-private fun OkHttpClient.Builder.withPinnedTls(version: TlsVersion): OkHttpClient.Builder {
-    val (factory, trustManager) = TlsVersionPinner.socketFactoryFor(version)
-    return sslSocketFactory(factory, trustManager)
-        .connectionSpecs(listOf(TlsVersionPinner.tlsSpec(version)))
-}
+private fun OkHttpClient.Builder.withPinnedTls(version: TlsVersion): OkHttpClient.Builder =
+    connectionSpecs(listOf(TlsVersionPinner.tlsSpec(version)))
 
 private fun elapsedMillis(startedAt: Long): Long = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
 
@@ -648,57 +607,6 @@ private class StageTrackingInterceptor(
         stage.set(ProbeStage.READING_DATA)
         return response
     }
-}
-
-private class ProtocolPinnedSocketFactory(
-    private val delegate: SSLSocketFactory,
-    private val version: TlsVersion,
-) : SSLSocketFactory() {
-    override fun getDefaultCipherSuites(): Array<String> = delegate.defaultCipherSuites
-
-    override fun getSupportedCipherSuites(): Array<String> = delegate.supportedCipherSuites
-
-    override fun createSocket(
-        socket: Socket,
-        host: String,
-        port: Int,
-        autoClose: Boolean,
-    ): Socket = delegate.createSocket(socket, host, port, autoClose).pinProtocol()
-
-    override fun createSocket(
-        host: String,
-        port: Int,
-    ): Socket = delegate.createSocket(host, port).pinProtocol()
-
-    override fun createSocket(
-        host: String,
-        port: Int,
-        localHost: InetAddress,
-        localPort: Int,
-    ): Socket = delegate.createSocket(host, port, localHost, localPort).pinProtocol()
-
-    override fun createSocket(
-        host: InetAddress,
-        port: Int,
-    ): Socket = delegate.createSocket(host, port).pinProtocol()
-
-    override fun createSocket(
-        address: InetAddress,
-        port: Int,
-        localAddress: InetAddress,
-        localPort: Int,
-    ): Socket = delegate.createSocket(address, port, localAddress, localPort).pinProtocol()
-
-    private fun Socket.pinProtocol(): Socket =
-        apply {
-            if (this is SSLSocket) {
-                enabledProtocols = arrayOf(TlsVersionPinner.protocolName(version))
-                sslParameters =
-                    sslParameters.apply {
-                        protocols = arrayOf(TlsVersionPinner.protocolName(version))
-                    }
-            }
-        }
 }
 
 private const val DefaultMaxConcurrent = 8

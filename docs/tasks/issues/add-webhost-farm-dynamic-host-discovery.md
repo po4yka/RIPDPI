@@ -89,8 +89,8 @@ All 8 unit tests green. `WebhostFarm` consumed by `add-cidr-whitelist-detector` 
 ## Work log
 
 - 2026-05-11: Added `WebhostFarm`, `DiscoveredHost`, injectable `WebhostProbe`, CIDR candidate expansion, max-candidate sampling, count-limited discovery, TCP/TLS probe filtering, and reverse ASN/org enrichment with focused unit coverage. The default probe currently uses Android/JVM socket TLS fallback while the native diagnostic TLS contract remains tracked by `add-utls-diagnostic-probe-clienthello-fingerprinting`.
+- 2026-05-11: Replaced the default `SocketWebhostProbe` with an OkHttp-based `OkHttpWebhostProbe` so the farm no longer instantiates JSSE TLS sockets directly; callers can inject the owned diagnostic HTTP client builder when this farm is wired into downstream probes.
 
 Remaining before close:
 
-- Replace or wrap the default `SocketWebhostProbe` with the finalized diagnostic owned-TLS client once `add-utls-diagnostic-probe-clienthello-fingerprinting` lands its native ClientHello fixture/contract slice.
 - Add optional integration to enrich discovered hosts with certificate hostnames once `add-tls-cert-sni-discoverer` is unblocked.
