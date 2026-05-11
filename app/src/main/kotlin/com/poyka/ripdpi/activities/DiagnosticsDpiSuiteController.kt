@@ -30,6 +30,8 @@ import com.poyka.ripdpi.diagnostics.dpi.Tcp16Target
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
 import com.poyka.ripdpi.diagnostics.dpi.TelegramSpeedTest
 import com.poyka.ripdpi.diagnostics.dpi.TelegramTestVerdict
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.CancellationException
@@ -247,7 +249,7 @@ internal class DiagnosticsDpiSuiteController(
             }
 
             is DpiSuiteEvent.ProbeCompleted -> {
-                rows.upsert(event.result.toRow())
+                rows.upsert(event.result.toDpiSuiteProbeRowUiModel())
                 _tool.value = _tool.value.copy(rows = rows.toPersistentList())
             }
 
@@ -317,14 +319,49 @@ private fun DpiSuiteEvent.ProbeProgress.progressRow(): DiagnosticsDpiSuiteProbeR
         tone = DiagnosticsTone.Info,
     )
 
-private fun DpiSuiteProbeResult.toRow(): DiagnosticsDpiSuiteProbeRowUiModel =
+internal fun DpiSuiteProbeResult.toDpiSuiteProbeRowUiModel(): DiagnosticsDpiSuiteProbeRowUiModel =
     DiagnosticsDpiSuiteProbeRowUiModel(
         kind = kind,
         label = kind.displayLabel(),
         status = statusLabel(),
         detail = detailLabel(),
         tone = tone(),
+        detailRows = detailRows(),
     )
+
+private fun DpiSuiteProbeResult.detailRows(): ImmutableList<DiagnosticsDpiSuiteProbeDetailUiModel> =
+    when (this) {
+        is DpiSuiteProbeResult.QuicH3 -> results.map { result -> result.toQuicDetailRow() }.toPersistentList()
+        else -> persistentListOf()
+    }
+
+private fun QuicProbeResult.toQuicDetailRow(): DiagnosticsDpiSuiteProbeDetailUiModel =
+    DiagnosticsDpiSuiteProbeDetailUiModel(
+        label = target,
+        detail =
+            listOf(
+                "Chrome ${chromeOk.okBlockedLabel()}",
+                "Firefox ${firefoxOk.okBlockedLabel()}",
+                "Generic ${genericOk.okBlockedLabel()}",
+                "VN ${vnOk.okBlockedLabel()}",
+                latencyLabel(),
+            ).joinToString(" | "),
+        tone =
+            countTone(
+                if (verdict == QuicProbeVerdict.QUIC_OK) {
+                    0
+                } else {
+                    1
+                },
+            ),
+    )
+
+private fun Boolean.okBlockedLabel(): String = if (this) "ok" else "blocked"
+
+private fun QuicProbeResult.latencyLabel(): String =
+    serverInitialLatencyMs
+        ?.let { latency -> "$latency ms" }
+        ?: "no latency"
 
 private fun DpiSuiteProbeResult.statusLabel(): String =
     when (this) {

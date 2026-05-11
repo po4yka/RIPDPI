@@ -54,6 +54,43 @@ internal fun DpiProbeSuiteCard(
             style = RipDpiThemeTokens.type.secondaryBody,
             color = if (tool.errorMessage == null) colors.mutedForeground else colors.destructive,
         )
+        MetricsRow(metrics = tool.metrics)
+        if (tool.rows.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                tool.rows.forEach { row ->
+                    StatusIndicator(
+                        label = "${row.label}: ${row.status}",
+                        tone = statusTone(row.tone),
+                    )
+                    Text(
+                        text = row.detail,
+                        style = RipDpiThemeTokens.type.monoSmall,
+                        color = colors.mutedForeground,
+                    )
+                    if (row.detailRows.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                        ) {
+                            row.detailRows.forEach { detailRow ->
+                                StatusIndicator(
+                                    label = detailRow.label,
+                                    tone = statusTone(detailRow.tone),
+                                )
+                                Text(
+                                    text = detailRow.detail,
+                                    style = RipDpiThemeTokens.type.monoSmall,
+                                    color = colors.mutedForeground,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(spacing.xs),
@@ -102,25 +139,6 @@ internal fun DpiProbeSuiteCard(
                 variant = RipDpiButtonVariant.Outline,
                 modifier = Modifier.weight(1f),
             )
-        }
-        MetricsRow(metrics = tool.metrics)
-        if (tool.rows.isNotEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                tool.rows.forEach { row ->
-                    StatusIndicator(
-                        label = "${row.label}: ${row.status}",
-                        tone = statusTone(row.tone),
-                    )
-                    Text(
-                        text = row.detail,
-                        style = RipDpiThemeTokens.type.monoSmall,
-                        color = colors.mutedForeground,
-                    )
-                }
-            }
         }
         RipDpiButton(
             text = if (running) "Cancel suite" else "Run suite",

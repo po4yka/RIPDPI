@@ -22,6 +22,13 @@ data class DiagnosticsDpiSuiteProbeRowUiModel(
     val status: String,
     val detail: String,
     val tone: DiagnosticsTone,
+    val detailRows: ImmutableList<DiagnosticsDpiSuiteProbeDetailUiModel> = persistentListOf(),
+)
+
+data class DiagnosticsDpiSuiteProbeDetailUiModel(
+    val label: String,
+    val detail: String,
+    val tone: DiagnosticsTone,
 )
 
 @Stable
