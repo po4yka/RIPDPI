@@ -165,6 +165,25 @@ class DetectionCheckRunnerTest {
         }
 
     @Test
+    fun `runner passes home routed roaming to icmp checker from explicit finding`() =
+        runTest {
+            val ports = FakeDetectionPorts()
+            ports.location.result =
+                category("location").copy(
+                    findings = listOf(Finding("home_routed_roaming:true")),
+                )
+
+            ports
+                .newRunner()
+                .run(
+                    context = RuntimeEnvironment.getApplication(),
+                    config = DetectionRunnerConfig(includeIcmpSpoofingCheck = true),
+                )
+
+            assertEquals(true, ports.icmp.homeRoutedRoaming)
+        }
+
+    @Test
     fun `runner passes resolver config to network-backed checkers`() =
         runTest {
             val ports = FakeDetectionPorts()

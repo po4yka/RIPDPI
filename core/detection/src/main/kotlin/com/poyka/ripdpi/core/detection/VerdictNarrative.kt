@@ -257,6 +257,7 @@ object VerdictNarrativeBuilder {
             this?.evidence?.any(EvidenceItem::detected) == true
 
     private fun CategoryResult.isHomeRoutedRoaming(): Boolean {
+        if (findings.any { it.description == "home_routed_roaming:true" }) return true
         val hasRussianNetwork = findings.any { it.description == "network_mcc_ru:true" }
         val hasRoaming = findings.any { it.description == "Roaming: yes" }
         val simMcc =
