@@ -30,9 +30,13 @@ interface DpiSuiteProbes {
     suspend fun runDomainReachability(
         domains: List<String>,
         stubIps: Set<String>,
+        concurrency: Int,
     ): List<DomainReachabilityResult>
 
-    suspend fun runTcp16(targets: List<Tcp16Target>): List<Tcp16ProbeResult>
+    suspend fun runTcp16(
+        targets: List<Tcp16Target>,
+        concurrency: Int,
+    ): List<Tcp16ProbeResult>
 
     suspend fun findAllowlistSni(results: List<Tcp16ProbeResult>): Map<String, AllowlistSniResult>
 
@@ -65,14 +69,31 @@ class DpiProbeSuiteRunner(
                 block: suspend () -> DpiSuiteProbeResult,
             ): DpiSuiteProbeResult {
                 send(DpiSuiteEvent.ProbeStarted(kind))
+                send(
+                    DpiSuiteEvent.ProbeProgress(
+                        kind = kind,
+                        completed = 0,
+                        total = ProbeProgressTotal,
+                    ),
+                )
                 val result =
                     try {
                         block()
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Exception) {
-                        DpiSuiteProbeResult.Failed(kind = kind, error = error.message ?: error.javaClass.simpleName)
+                        DpiSuiteProbeResult.Failed(
+                            kind = kind,
+                            error = error.message ?: error.javaClass.simpleName,
+                        )
                     }
+                send(
+                    DpiSuiteEvent.ProbeProgress(
+                        kind = kind,
+                        completed = ProbeProgressTotal,
+                        total = ProbeProgressTotal,
+                    ),
+                )
                 record(kind, result)
                 return result
             }
@@ -118,6 +139,7 @@ class DpiProbeSuiteRunner(
                                         selection = config.selection,
                                         domains = domains,
                                         stubIps = stubIps,
+                                        concurrency = config.concurrency.coerceAtLeast(1),
                                         runProbe = ::runProbe,
                                     )
                                 },
@@ -147,11 +169,18 @@ class DpiProbeSuiteRunner(
         selection: Set<DpiProbeKind>,
         domains: List<String>,
         stubIps: Set<String>,
+        concurrency: Int,
         runProbe: suspend (DpiProbeKind, suspend () -> DpiSuiteProbeResult) -> DpiSuiteProbeResult,
     ) {
         if (DpiProbeKind.DOMAIN_REACHABILITY in selection) {
             runProbe(DpiProbeKind.DOMAIN_REACHABILITY) {
-                DpiSuiteProbeResult.DomainReachability(probes.runDomainReachability(domains, stubIps))
+                DpiSuiteProbeResult.DomainReachability(
+                    probes.runDomainReachability(
+                        domains = domains,
+                        stubIps = stubIps,
+                        concurrency = concurrency,
+                    ),
+                )
             }
         }
 
@@ -159,7 +188,12 @@ class DpiProbeSuiteRunner(
         if (DpiProbeKind.TCP16 in selection) {
             val result =
                 runProbe(DpiProbeKind.TCP16) {
-                    DpiSuiteProbeResult.Tcp16(probes.runTcp16(tcp16TargetsProvider.loadTargets()))
+                    DpiSuiteProbeResult.Tcp16(
+                        probes.runTcp16(
+                            targets = tcp16TargetsProvider.loadTargets(),
+                            concurrency = concurrency,
+                        ),
+                    )
                 }
             if (result is DpiSuiteProbeResult.Tcp16) {
                 tcp16Results = result.results
@@ -186,6 +220,7 @@ class DpiProbeSuiteRunner(
         DpiProbeKind.DOMAIN_REACHABILITY in selection || DpiProbeKind.TCP16 in selection
 
     private companion object {
+        private const val ProbeProgressTotal = 1
         private const val SilentStubIpTimeoutMs = 5_000L
         private val SequentialProbeKinds =
             setOf(DpiProbeKind.DOMAIN_REACHABILITY, DpiProbeKind.TCP16, DpiProbeKind.WHITELIST_SNI)

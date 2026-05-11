@@ -193,10 +193,23 @@ internal class DiagnosticsDpiSuiteController(
                     override suspend fun runDomainReachability(
                         domains: List<String>,
                         stubIps: Set<String>,
-                    ): List<DomainReachabilityResult> = domainReachabilityScanner.scan(domains, stubIps)
+                        concurrency: Int,
+                    ): List<DomainReachabilityResult> =
+                        if (concurrency == DpiSuiteConfig.DefaultConcurrency) {
+                            domainReachabilityScanner.scan(domains, stubIps)
+                        } else {
+                            DomainReachabilityScanner(maxConcurrent = concurrency).scan(domains, stubIps)
+                        }
 
-                    override suspend fun runTcp16(targets: List<Tcp16Target>): List<Tcp16ProbeResult> =
-                        tcp16FatHeaderProbe.run(targets)
+                    override suspend fun runTcp16(
+                        targets: List<Tcp16Target>,
+                        concurrency: Int,
+                    ): List<Tcp16ProbeResult> =
+                        if (concurrency == DpiSuiteConfig.DefaultConcurrency) {
+                            tcp16FatHeaderProbe.run(targets)
+                        } else {
+                            Tcp16FatHeaderProbe(concurrency = concurrency).run(targets)
+                        }
 
                     override suspend fun findAllowlistSni(results: List<Tcp16ProbeResult>) =
                         AllowlistSniFinder(
@@ -219,7 +232,8 @@ internal class DiagnosticsDpiSuiteController(
             }
 
             is DpiSuiteEvent.ProbeProgress -> {
-                Unit
+                rows.upsert(event.progressRow())
+                _tool.value = _tool.value.copy(rows = rows.toPersistentList())
             }
 
             is DpiSuiteEvent.ProbeCompleted -> {
@@ -281,6 +295,15 @@ private fun DpiProbeKind.startedRow(): DiagnosticsDpiSuiteProbeRowUiModel =
         label = displayLabel(),
         status = "running",
         detail = "Probe is in progress.",
+        tone = DiagnosticsTone.Info,
+    )
+
+private fun DpiSuiteEvent.ProbeProgress.progressRow(): DiagnosticsDpiSuiteProbeRowUiModel =
+    DiagnosticsDpiSuiteProbeRowUiModel(
+        kind = kind,
+        label = kind.displayLabel(),
+        status = "running",
+        detail = "$completed/$total steps complete.",
         tone = DiagnosticsTone.Info,
     )
 
