@@ -91,9 +91,9 @@ All 8 unit tests green. QUIC probe surfaced in DiagnosticsScreen as "QUIC / HTTP
 - 2026-05-11: Added `QUIC_H3` to the DPI probe suite, including runner/controller/card wiring and aggregate verdict classification.
 - 2026-05-11: Fixed the UDP sanity stage so the VN probe remains independently classified as `QUIC_VN_REJECTED`.
 - 2026-05-11: Wired `QuicFingerprintFactory` to the native `ripdpi-packets` QUIC Initial builder through JNI, with JVM fallback coverage for missing native libraries.
+- 2026-05-11: Added native QUIC Initial wire-image regression coverage and split `generic_v1` from the Chrome-shaped profile.
 
 Remaining before close:
 
-- Add byte-regression tests for the native Chrome/Firefox/generic Initials with deterministic tolerance around per-probe random/SNI fields.
 - Add a gated Android network smoke test for a known HTTP/3 endpoint once the packet factory emits valid QUIC Initials.
 - Re-check the final task acceptance list and delete this note only when all criteria are covered.
