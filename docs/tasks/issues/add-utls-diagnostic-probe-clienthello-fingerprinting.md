@@ -1,18 +1,18 @@
 ---
 title: Wire uTLS Client into Diagnostic Probes for ClientHello Fingerprint Consistency
 type: task
-status: backlog
+status: doing
 area: diagnostics
 priority: medium
 owner: unassigned
 parent: dpi-checkers-parity-epic
 blocks: [add-webhost-farm-dynamic-host-discovery, add-cidr-whitelist-detector]
-blocked_by: [pin-utls-to-v1-8-2-and-add-clienthello-fingerprint-regression-test]
+blocked_by: []
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-11
 ---
 
-- [ ] #task Wire uTLS Client into Diagnostic Probes for ClientHello Fingerprint Consistency #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [ ] #task Wire uTLS Client into Diagnostic Probes for ClientHello Fingerprint Consistency #repo/RIPDPI #area/diagnostics #status/doing 🔼
 
 ## Objective
 
@@ -69,3 +69,15 @@ RIPDPI's transport (VPN tunnel) already pins uTLS to v1.8.2 (existing `pin-utls-
 ## Definition of done
 
 All 6 unit tests green. ClientHello byte-equality regression test green. All diagnostic probes route TLS through `DiagnosticTlsClientFactory`. `usingFallback()` surfaced in diagnostic results UI when active.
+
+## Work log
+
+- 2026-05-11: Confirmed the current repo uses `ripdpi-tls-profiles`/BoringSSL plus `NativeOwnedTlsHttpFetcher` and `DiagnosticsHttpClientFactory` as the owned TLS equivalent; no Go `refraction-networking/utls` dependency is present in the native workspace.
+- 2026-05-11: Routed `DomainReachabilityScanner`, `Tcp16FatHeaderProbe`, and `RknLayeredProbePipeline` ViewModel-provided network probes through `DiagnosticsHttpClientFactory`, with focused tests proving the injected owned TLS client path is used.
+
+Remaining before close:
+
+- Add the formal `TlsClient`/`TlsConnection` API or update the acceptance criteria to the existing `DiagnosticsHttpClientFactory`/`NativeOwnedTlsHttpFetcher` contract.
+- Expose native-vs-fallback state to diagnostic results when the owned TLS bridge is unavailable.
+- Add byte-level ClientHello fixture regression coverage for the native owned TLS profiles.
+- Re-check direct diagnostic `SSLSocket`/`SSLContext` usage and keep only intentionally non-owned-TLS capability checks outside the factory path.
