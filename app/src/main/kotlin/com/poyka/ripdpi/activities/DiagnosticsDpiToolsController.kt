@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniFinder
 import com.poyka.ripdpi.diagnostics.dpi.AttemptResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
@@ -437,7 +438,7 @@ internal class DiagnosticsDpiToolsController(
         }
 }
 
-private data class RknDiagnosisRunResult(
+internal data class RknDiagnosisRunResult(
     val controlResults: List<RknCheckResult>,
     val testResults: List<RknCheckResult>,
     val selfInfo: SelfInfoResult?,
@@ -474,7 +475,7 @@ private fun List<DnsServerResult>.toDnsAvailabilityUiModel(): DiagnosticsDnsAvai
     )
 }
 
-private fun List<DomainReachabilityResult>.toUiModel(stubIpCount: Int): DiagnosticsDomainReachabilityToolUiModel {
+internal fun List<DomainReachabilityResult>.toUiModel(stubIpCount: Int): DiagnosticsDomainReachabilityToolUiModel {
     val blocked = count { result -> result.verdict != DomainVerdict.OK }
     val checked = size
     return DiagnosticsDomainReachabilityToolUiModel(
@@ -486,10 +487,12 @@ private fun List<DomainReachabilityResult>.toUiModel(stubIpCount: Int): Diagnost
                 "$blocked of $checked domains showed reachability warnings."
             },
         metrics =
-            listOf(
-                DiagnosticsMetricUiModel("checked", checked.toString(), DiagnosticsTone.Info),
-                DiagnosticsMetricUiModel("flagged", blocked.toString(), countTone(blocked)),
-                DiagnosticsMetricUiModel("stub IPs", stubIpCount.toString(), DiagnosticsTone.Neutral),
+            (
+                listOf(
+                    DiagnosticsMetricUiModel("checked", checked.toString(), DiagnosticsTone.Info),
+                    DiagnosticsMetricUiModel("flagged", blocked.toString(), countTone(blocked)),
+                    DiagnosticsMetricUiModel("stub IPs", stubIpCount.toString(), DiagnosticsTone.Neutral),
+                ) + mapNotNull { result -> result.tlsClientState }.toDiagnosticsTlsMetrics()
             ).toPersistentList(),
         rows =
             map { result ->
@@ -534,7 +537,7 @@ private fun CompressionProbeRunResult.toUiModel(): DiagnosticsCompressionProbeTo
     )
 }
 
-private fun List<Tcp16ProbeResult>.toTcp16UiModel(): DiagnosticsTcp16FatHeaderToolUiModel {
+internal fun List<Tcp16ProbeResult>.toTcp16UiModel(): DiagnosticsTcp16FatHeaderToolUiModel {
     val detected = count { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
     val invalid = count { result -> result.verdict == Tcp16Verdict.INVALID_RECONNECTED }
     val unavailable = count { result -> result.verdict == Tcp16Verdict.DEAD || result.verdict == Tcp16Verdict.ERROR }
@@ -547,11 +550,13 @@ private fun List<Tcp16ProbeResult>.toTcp16UiModel(): DiagnosticsTcp16FatHeaderTo
                 "$detected targets showed TCP16 closure patterns; $invalid reconnect validations failed."
             },
         metrics =
-            listOf(
-                DiagnosticsMetricUiModel("targets", size.toString(), DiagnosticsTone.Info),
-                DiagnosticsMetricUiModel("detected", detected.toString(), countTone(detected)),
-                DiagnosticsMetricUiModel("unavailable", unavailable.toString(), DiagnosticsTone.Neutral),
-                DiagnosticsMetricUiModel("single-socket invalid", invalid.toString(), countTone(invalid)),
+            (
+                listOf(
+                    DiagnosticsMetricUiModel("targets", size.toString(), DiagnosticsTone.Info),
+                    DiagnosticsMetricUiModel("detected", detected.toString(), countTone(detected)),
+                    DiagnosticsMetricUiModel("unavailable", unavailable.toString(), DiagnosticsTone.Neutral),
+                    DiagnosticsMetricUiModel("single-socket invalid", invalid.toString(), countTone(invalid)),
+                ) + mapNotNull { result -> result.tlsClientState }.toDiagnosticsTlsMetrics()
             ).toPersistentList(),
         rows =
             byAsn()
@@ -585,7 +590,7 @@ private fun Tcp16AsnSummary.toUiModel(): DiagnosticsTcp16AsnUiModel {
     )
 }
 
-private fun buildRknBlockDiagnosisUiModel(result: RknDiagnosisRunResult): DiagnosticsRknBlockDiagnosisToolUiModel {
+internal fun buildRknBlockDiagnosisUiModel(result: RknDiagnosisRunResult): DiagnosticsRknBlockDiagnosisToolUiModel {
     val controlResults = result.controlResults
     val testResults = result.testResults
     val aggregate = RknAggregateVerdictEngine.aggregate(controlResults, testResults)
@@ -603,10 +608,12 @@ private fun buildRknBlockDiagnosisUiModel(result: RknDiagnosisRunResult): Diagno
         selfInfoPrivacyOverridden = result.selfInfoPrivacyOverridden,
         selfInfo = result.selfInfo?.toUiModel(),
         metrics =
-            listOf(
-                DiagnosticsMetricUiModel("control", controlResults.size.toString(), DiagnosticsTone.Info),
-                DiagnosticsMetricUiModel("test", testResults.size.toString(), DiagnosticsTone.Info),
-                DiagnosticsMetricUiModel("flagged", flagged.toString(), countTone(flagged)),
+            (
+                listOf(
+                    DiagnosticsMetricUiModel("control", controlResults.size.toString(), DiagnosticsTone.Info),
+                    DiagnosticsMetricUiModel("test", testResults.size.toString(), DiagnosticsTone.Info),
+                    DiagnosticsMetricUiModel("flagged", flagged.toString(), countTone(flagged)),
+                ) + (controlResults + testResults).mapNotNull { item -> item.tlsClientState }.toDiagnosticsTlsMetrics()
             ).toPersistentList(),
         blockTypes =
             blockTypes
@@ -664,6 +671,28 @@ private fun RknVerdictColorToken.toDiagnosticsTone(): DiagnosticsTone =
         RknVerdictColorToken.ERROR -> DiagnosticsTone.Negative
         RknVerdictColorToken.MUTED -> DiagnosticsTone.Neutral
     }
+
+private fun List<DiagnosticsTlsClientState>.toDiagnosticsTlsMetrics(): List<DiagnosticsMetricUiModel> {
+    val state = firstOrNull() ?: return emptyList()
+    val mode =
+        when {
+            state.nativeOwnedTlsAvailable -> "Native owned TLS"
+            state.fallbackActive -> "Android template fallback"
+            else -> "Default TLS"
+        }
+    val tone =
+        when {
+            state.fallbackActive -> DiagnosticsTone.Warning
+            state.nativeOwnedTlsAvailable -> DiagnosticsTone.Positive
+            else -> DiagnosticsTone.Neutral
+        }
+    return buildList {
+        state.profileId?.let { profile ->
+            add(DiagnosticsMetricUiModel("TLS profile", profile, DiagnosticsTone.Info))
+        }
+        add(DiagnosticsMetricUiModel("TLS mode", mode, tone))
+    }
+}
 
 private fun countTone(count: Int): DiagnosticsTone =
     if (count == 0) {
