@@ -23,6 +23,7 @@ data class DoqProvider(
     val name: String,
     val endpoint: String,
     val port: Int = DoqDefaultPort,
+    val tlsServerName: String = endpoint,
 )
 
 data class DoqProbeResult(
@@ -39,6 +40,7 @@ interface DoqQuicClient {
     suspend fun exchange(
         endpoint: String,
         port: Int,
+        tlsServerName: String,
         query: ByteArray,
         timeoutMs: Long,
     ): ByteArray
@@ -124,6 +126,7 @@ class DoqIntegrityProbe(
                         client.exchange(
                             endpoint = provider.endpoint,
                             port = provider.port,
+                            tlsServerName = provider.tlsServerName,
                             query = query,
                             timeoutMs = timeoutMs,
                         )
@@ -178,7 +181,7 @@ class DoqIntegrityProbe(
         val DefaultDoqProviders =
             listOf(
                 DoqProvider("AdGuard", "dns.adguard-dns.com"),
-                DoqProvider("Cloudflare", "1.1.1.1"),
+                DoqProvider("Cloudflare", "1.1.1.1", tlsServerName = "cloudflare-dns.com"),
                 DoqProvider("Google", "dns.google"),
                 DoqProvider("NextDNS", "dns.nextdns.io"),
             )

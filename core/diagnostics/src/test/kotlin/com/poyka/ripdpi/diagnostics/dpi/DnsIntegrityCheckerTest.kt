@@ -156,6 +156,7 @@ class DnsIntegrityCheckerTest {
                     override suspend fun exchange(
                         endpoint: String,
                         port: Int,
+                        tlsServerName: String,
                         query: ByteArray,
                         timeoutMs: Long,
                     ): ByteArray = dnsResponse(query.transactionId(), ip)

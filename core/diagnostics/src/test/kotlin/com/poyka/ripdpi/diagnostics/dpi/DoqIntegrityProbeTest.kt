@@ -70,6 +70,7 @@ class DoqIntegrityProbeTest {
                             override suspend fun exchange(
                                 endpoint: String,
                                 port: Int,
+                                tlsServerName: String,
                                 query: ByteArray,
                                 timeoutMs: Long,
                             ): ByteArray {
@@ -98,6 +99,7 @@ class DoqIntegrityProbeTest {
                             override suspend fun exchange(
                                 endpoint: String,
                                 port: Int,
+                                tlsServerName: String,
                                 query: ByteArray,
                                 timeoutMs: Long,
                             ): ByteArray {
@@ -119,6 +121,44 @@ class DoqIntegrityProbeTest {
             probe.run(listOf(TestDomain), mapOf(TestDomain to listOf("1.2.3.4")))
 
             assertEquals(8, maxInFlight)
+        }
+
+    @Test
+    fun defaultProvidersPreserveTlsIdentityForIpEndpoints() {
+        val providers = DoqIntegrityProbe.DefaultDoqProviders.associateBy { it.name }
+
+        assertEquals("dns.adguard-dns.com", providers.getValue("AdGuard").tlsServerName)
+        assertEquals("cloudflare-dns.com", providers.getValue("Cloudflare").tlsServerName)
+        assertEquals("dns.google", providers.getValue("Google").tlsServerName)
+        assertEquals("dns.nextdns.io", providers.getValue("NextDNS").tlsServerName)
+    }
+
+    @Test
+    fun probePassesTlsServerNameToClient() =
+        runTest {
+            var observedTlsServerName: String? = null
+            val provider = DoqProvider("cloudflare", "1.1.1.1", tlsServerName = "cloudflare-dns.com")
+            val probe =
+                probe(
+                    providers = listOf(provider),
+                    client =
+                        object : DoqQuicClient {
+                            override suspend fun exchange(
+                                endpoint: String,
+                                port: Int,
+                                tlsServerName: String,
+                                query: ByteArray,
+                                timeoutMs: Long,
+                            ): ByteArray {
+                                observedTlsServerName = tlsServerName
+                                return dnsResponse(query.transactionId(), "1.2.3.4")
+                            }
+                        },
+                )
+
+            probe.run(listOf(TestDomain), mapOf(TestDomain to listOf("1.2.3.4")))
+
+            assertEquals("cloudflare-dns.com", observedTlsServerName)
         }
 
     @Test
@@ -145,6 +185,7 @@ class DoqIntegrityProbeTest {
                     override suspend fun exchange(
                         endpoint: String,
                         port: Int,
+                        tlsServerName: String,
                         query: ByteArray,
                         timeoutMs: Long,
                     ): ByteArray = dnsResponse(query.transactionId(), ip)
@@ -168,6 +209,7 @@ class DoqIntegrityProbeTest {
         override suspend fun exchange(
             endpoint: String,
             port: Int,
+            tlsServerName: String,
             query: ByteArray,
             timeoutMs: Long,
         ): ByteArray = throw error
