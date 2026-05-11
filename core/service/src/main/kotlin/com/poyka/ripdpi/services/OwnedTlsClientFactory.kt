@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxEchStable
 import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import com.poyka.ripdpi.data.TlsFingerprintProfileSafariStable
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import dagger.Binds
 import dagger.Module
@@ -142,6 +143,14 @@ class DefaultOwnedTlsClientFactory
             create(
                 forcedTlsVersions = null,
                 configure = configure,
+            )
+
+        override fun tlsClientState(): DiagnosticsTlsClientState =
+            DiagnosticsTlsClientState(
+                profileId = currentProfile(),
+                nativeOwnedTlsAvailable = false,
+                fallbackActive = true,
+                fallbackReason = "android_okhttp_fingerprint_template",
             )
 
         override fun createForAuthority(

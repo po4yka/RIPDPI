@@ -155,6 +155,23 @@ class OwnedTlsClientFactoryTest {
         assertEquals("not_applicable", selection.tlsTemplateEchOuterExtensionPolicy)
     }
 
+    @Test
+    fun `diagnostic tls state exposes Android template fallback mode`() {
+        val factory =
+            DefaultOwnedTlsClientFactory(
+                profileProvider = FakeOwnedTlsFingerprintProfileProvider(TlsFingerprintProfileChromeStable),
+                strategyPackStateStore = InMemoryStrategyPackStateStore(),
+                sessionSeed = 42L,
+            )
+
+        val state = factory.tlsClientState()
+
+        assertEquals(TlsFingerprintProfileChromeStable, state.profileId)
+        assertFalse(state.nativeOwnedTlsAvailable)
+        assertTrue(state.fallbackActive)
+        assertEquals("android_okhttp_fingerprint_template", state.fallbackReason)
+    }
+
     private class FakeOwnedTlsFingerprintProfileProvider(
         private val profileId: String,
     ) : OwnedTlsFingerprintProfileProvider {
