@@ -9,11 +9,11 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 | `native/rust/crates/ripdpi-cli` | `ripdpi` binary | Desktop development (macOS/Linux) | N/A -- standalone CLI | `ripdpi_config::parse_cli`, `runtime::run_proxy`, `ProcessGuard::prepare`, `install_runtime_telemetry` |
 | `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode, VPN mode, diagnostics | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`, `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | `ripdpi_config::parse_cli`, `ripdpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_embedded_control`, `EmbeddedProxyControl::request_shutdown`, `platform::detect_default_ttl`, `MonitorSession::*`, proxy telemetry polling, `jniRegisterVpnProtect` / `jniUnregisterVpnProtect` for VPN socket protection JNI callback |
 | `native/rust/crates/ripdpi-tunnel-android` | `libripdpi-tunnel.so` | VPN mode only | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `ripdpi_tunnel_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
-| `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, DNS tampering detection (8 anomaly signals + record-level comparison + compression pointer validation), response parser framework (HTTP/TLS/SSH with `FieldObserver` emission), TLS/HTTP reachability probes, TCP fat-header probes, whitelist-SNI retries, strategy-probe progress/report state |
+| `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, DNS tampering detection (8 anomaly signals + record-level comparison + compression pointer validation), response parser framework (HTTP/TLS/SSH with `FieldObserver` emission), TLS/HTTP reachability probes, TCP fat-header probes, allowlist-SNI retries, strategy-probe progress/report state |
 | `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor` and `ripdpi-tunnel-core` for DoH/DoT/DNSCrypt/DoQ exchange, metadata collection, and IP answer extraction |
 | `native/rust/crates/ripdpi-packets` | linked into ripdpi-runtime, ripdpi-monitor, ripdpi-desync | Protocol detection, packet mutation, classification | none directly | `ProtocolClassifier` trait + `ClassifierRegistry` for unified protocol detection, `ProtocolField` + `FieldObserver` for callback-based field extraction, TLS/HTTP/QUIC marker info for desync offset resolution |
-| `native/rust/crates/ripdpi-failure-classifier` | linked into ripdpi-runtime, ripdpi-monitor | Failure analysis, block signal detection | none directly | `classify_from_fields()` uses `FieldCache` for response analysis without re-parsing, blockpage CSV fingerprints, TLS alert classification |
-| `native/rust/crates/ripdpi-root-helper` | `ripdpi-root-helper` binary | Rooted devices only (opt-in) | `core/service/.../RootHelperManager.kt` | Standalone privileged process spawned via `su`; Unix socket IPC with SCM_RIGHTS: `probe_capabilities`, `send_fake_rst`, `send_seqovl_tcp`, `send_multi_disorder_tcp`, `send_ip_fragmented_tcp`, `send_ip_fragmented_udp` |
+| `native/rust/crates/ripdpi-failure-classifier` | linked into ripdpi-runtime, ripdpi-monitor | Failure analysis, block signal detection | none directly | `classify_from_fields()` uses `FieldCache` for response analysis without re-parsing, failure-page CSV fingerprints, TLS alert classification |
+| `native/rust/crates/ripdpi-root-helper` | `ripdpi-root-helper` binary | Rooted devices only (opt-in) | `core/service/.../RootHelperManager.kt` | Standalone privileged process spawned via `su`; Unix socket IPC with SCM_RIGHTS: `probe_capabilities`, `send_fake_rst`, `send_seqovl_tcp`, `send_multi_disorder_tcp`, `send_ip_fragmented_tcp`, `send_ip_fragmented_udp`, `send_raw_ip_packet` |
 | `native/rust/crates/android-support` | linked into ripdpi-android, ripdpi-tunnel-android, ripdpi-tunnel-core, ripdpi-packets | Generic data structures, logging, JNI support | none directly | `BoundedHeap<T>` for bounded session eviction, `EnumMap<K,V>` for O(1) registry dispatch, `HandleRegistry<T>` for JNI handle management |
 
 ## Shared Strategy Bridge
@@ -81,6 +81,7 @@ flowchart LR
   O["ripdpi CLI (desktop)"] --> P["ripdpi-runtime"]
   P --> Q["ripdpi-config"]
   R["Root helper (uid 0)"] -.->|Unix socket IPC| D
+  R -.->|raw packet IPC| F
 ```
 
 ## Owned-Stack Boundary
@@ -161,6 +162,8 @@ flowchart TD
 The in-repo Rust stack currently exposes:
 
 - 13 TCP chain step kinds: `split`, `seqovl`, `disorder`, `multidisorder`, `fake`, `fakesplit`, `fakedisorder`, `hostfake`, `oob`, `disoob`, `tlsrec`, `tlsrandrec`, `ipfrag2`
+- TUN-egress packet actions: low-TTL TCP fake copy, UDP length-field variation (`udplen`), IPv6 extension-header insertion (`ipv6Ext`), and Lua `rawsend`
+- root-helper-backed raw IPv4/IPv6 packet emission through `send_raw_ip_packet` when root mode is enabled
 - semantic marker offsets: `host`, `endhost`, `midsld`, `endsld`, `method`, `extlen`, `sniext`, `echext` (ECH extension, 0xFE0D), `payloadend`, `payloadmid`, `payloadrand`, `hostrand`
 - adaptive `auto(...)` split markers backed by `TCP_INFO` hints (`snd_mss`, `advmss`, `pmtu`)
 - ordered TCP and UDP strategy chains with per-step activation filters
@@ -172,13 +175,13 @@ The in-repo Rust stack currently exposes:
 - MTProto WebSocket tunnel (`ripdpi-ws-tunnel`) for Telegram traffic through official `kws{dc}.web.telegram.org` gateways with Always/Fallback modes, obfuscated2 validation, and DC normalization
 - richer fake TLS mutation controls and built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
 - host-oriented fake steps such as `hostfake` plus partial `fakedsplit` / `fakeddisorder` approximations on Linux/Android
-- automatic block signal detection (8 signal types: HttpBlockpage, HttpRedirect, TlsAlert, SilentDrop, TcpReset, ConnectionFreeze, QuicBreakage, TcpRetransmissions) with 2-confirmation state machine and per-network persistence
+- automatic block signal detection (8 signal types: HTTP failure-page, HttpRedirect, TlsAlert, SilentDrop, TcpReset, ConnectionFreeze, QuicBreakage, TcpRetransmissions) with 2-confirmation state machine and per-network persistence
 - host autolearn segmented per network scope, remembered policy replay, and automatic diagnostics probing/audit with rotating cohorts, confidence scoring, and manual recommendations
 - separate TCP, QUIC, and DNS strategy-family labels used by diagnostics, telemetry, and remembered-policy ranking
 - adaptive tuning beyond fake TTL, including split placement, TLS record sizing, UDP burst behavior, and QUIC fake-profile selection
 - Geneva-style strategy evolution with epsilon-greedy + UCB1 combo exploration across adaptive dimensions
-- TCP window clamping (`TCP_WINDOW_CLAMP`) to force small server segments that DPI cannot reassemble
-- QUIC-level DPI evasion: SNI splitting across CRYPTO frames, source port manipulation, dummy UDP prepend, version negotiation trick, and post-handshake connection migration
+- TCP window clamping (`TCP_WINDOW_CLAMP`) to force small server segments that middleboxes cannot coalesce reliably
+- QUIC-level handshake variation: SNI splitting across CRYPTO frames, source port manipulation, dummy UDP prepend, version negotiation trick, and post-handshake connection migration
 - DNS-over-QUIC (DoQ, RFC 9250) support alongside DoH, DoT, and DNSCrypt
 - 10-second TCP connect timeout to prevent thread exhaustion on unreachable upstream hosts
 - retry-stealth pacing with family cooldowns, exponential backoff (300-3000ms), 35% jitter, and cooldown-aware candidate diversification
@@ -191,14 +194,14 @@ The in-repo Rust stack currently exposes:
 - proxy protocol support: SOCKS5, SOCKS4/4a, HTTP CONNECT, Shadowsocks
 - external SOCKS upstream chaining (`ext_socks`)
 - delayed upstream connection (`delay_conn`), TCP Fast Open (`tfo`), bounded retries (`max_route_retries`)
-- blockpage fingerprint database with ISP/government pattern matching and provider identification
+- failure-page fingerprint database with provider pattern matching and identification
 - VPN tunnel DNS interception with real-to-synthetic IP mapping, LRU cache, and encrypted DNS forwarding
 - adaptive profiles: UDP burst (balanced/conservative/aggressive), TLS random record (balanced/tight/wide)
 - cache prefix scoping and optional file-backed policy cache persistence
 
 `multidisorder` is DSL/manual-chain only in v1. Express it as a contiguous terminal run such as `tlsrec extlen`, `multidisorder sniext`, `multidisorder host`. It relies on raw IPv4/IPv6 sockets plus TCP repair, similar to `ipfrag2`.
 
-See [proxy-engine.md](proxy-engine.md) for the proxy-specific details.
+See [proxy-engine.md](proxy-engine.md) for the proxy-specific details and [../packet-strategy-runtime.md](../packet-strategy-runtime.md) for the TUN-egress and root-helper raw packet flow.
 
 ## Build Integration
 
@@ -272,7 +275,7 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - `native/rust/crates/ripdpi-ws-tunnel` -- MTProto WebSocket tunnel for Telegram traffic through official web gateways
 - `native/rust/crates/ripdpi-ipfrag` -- IP-level packet fragmentation for path optimization (TCP and UDP/QUIC)
 - `native/rust/crates/ripdpi-io-uring` -- io_uring async I/O support (Linux only)
-- `native/rust/crates/ripdpi-desync` -- DPI evasion packet crafting and strategy planning
+- `native/rust/crates/ripdpi-desync` -- packet strategy planning
 - `native/rust/crates/ripdpi-failure-classifier` -- connection failure classification and block signal detection
 - `native/rust/crates/ripdpi-session` -- session state machine and policy store
 - `native/rust/crates/ripdpi-bench` -- benchmarking tools

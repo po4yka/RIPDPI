@@ -17,9 +17,9 @@
 
 <p align="center"><a href="README.md">English</a> | <b>Русский</b></p>
 
-RIPDPI — универсальный Android-инструмент для работы с сетевым подключением. Три основных задачи работают независимо или совместно:
+RIPDPI — Android-инструмент для диагностики и оптимизации сетевого пути. Три основных задачи работают независимо или совместно:
 
-**Обход активного DPI** — применяет настраиваемые мутации пакетов на устройстве для обхода систем глубокой инспекции трафика без выхода за пределы устройства. Root не требуется для основного пути.
+**On-device packet strategies** — применяет настраиваемые packet-level преобразования на устройстве без выхода за пределы локального пути. Root не требуется для основного пути.
 
 **Подключение к VPN-серверу** — туннелирует трафик через зашифрованные relay-протоколы до сервера, который вы контролируете: VLESS Reality и xHTTP, WARP, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, Cloudflare Tunnel и другие.
 
@@ -31,7 +31,7 @@ RIPDPI поставляется с:
 - дополнительные tunneled-outbound протоколы на том же пути: WARP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3 и NaiveProxy
 - local proxy mode и local VPN redirection mode для маршрутизации трафика приложений — с подключённым tunneled outbound или без
 - шифрованным DNS в VPN-режиме через DoH/DoT/DNSCrypt/DoQ
-- расширенной стратегической настройкой: semantic markers, adaptive split placement, разделением TCP/QUIC/DNS strategy lanes, per-network policy memory и automatic probing/audit
+- расширенной стратегической настройкой: semantic markers, adaptive split placement, TUN-egress actions (`fake`, `udplen`, `ipv6Ext`, Lua `rawsend`), разделением TCP/QUIC/DNS strategy lanes, per-network policy memory и automatic probing/audit
 - handover-aware live policy re-evaluation при переходах между Wi-Fi, cellular и roaming
 - strategy-pack и TLS catalog rollout control для feature flags, transport defaults и fingerprint rotation
 - direct-path DNS classification, transport verdicts и transport-specific remediation, которая разветвляется между on-device оптимизацией пути, owned-stack browser, browser-camouflage туннелем, QUIC-heavy туннелем и manual review для каждого authority
@@ -55,11 +55,11 @@ RIPDPI локально запускает SOCKS5-прокси из встрое
 ## Скриншоты
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="Свободный интернет"/>
+  <img src="docs/screenshots/01-hero.png" width="200" alt="Главный экран RIPDPI"/>
   &nbsp;
   <img src="docs/screenshots/02-no-root.png" width="200" alt="Одно нажатие. Без root."/>
   &nbsp;
-  <img src="docs/screenshots/03-privacy.png" width="200" alt="Ваша приватность. Ваши правила."/>
+  <img src="docs/screenshots/03-privacy.png" width="200" alt="Экран приватности RIPDPI"/>
   &nbsp;
   <img src="docs/screenshots/04-controls.png" width="200" alt="Тонкая настройка каждого пакета"/>
 </p>
@@ -131,6 +131,7 @@ flowchart LR
     MON --> PKT
     TC --> DNS
     RT -.->|root IPC| ROOT
+    TC -.->|raw packet IPC| ROOT
 ```
 
 ## Диагностика
@@ -183,6 +184,7 @@ Strategy stack в RIPDPI композируется по уровням TCP, TLS
 - group-wide IPv4 ID control с точным `seqgroup` promotion: смешанные fake/original flows используют один реальный ID-sequence
 - standalone disorder (TTL-based segment reordering), OOB (TCP urgent pointer injection) и disoob (disorder + OOB)
 - host-targeted fake chunks (`hostfake`) и Linux/Android-focused приближения `fakedsplit` / `fakeddisorder`
+- TUN-egress actions для VPN mode: low-TTL TCP fake copy, `udplen`, `ipv6Ext` и Lua `rawsend`; raw IPv4/IPv6 emission проходит через root helper, когда root mode включён
 
 **TLS**
 
@@ -208,7 +210,7 @@ Strategy stack в RIPDPI композируется по уровням TCP, TLS
 
 - VPN-only localhost hardening: telemetry-resolved ephemeral SOCKS5 bind ports и per-session auth rotation, общая для UI-config и command-line-config sessions
 
-Подробности по native call path и текущей strategy surface: [docs/native/proxy-engine.md](docs/native/proxy-engine.md).
+Подробности по native call path и текущей strategy surface: [docs/native/proxy-engine.md](docs/native/proxy-engine.md). Отдельная схема TUN-egress и root-helper raw packet path: [docs/packet-strategy-runtime.md](docs/packet-strategy-runtime.md).
 
 ## Android 17 (API 37)
 
@@ -227,7 +229,7 @@ Strategy stack в RIPDPI композируется по уровням TCP, TLS
 
 ## FAQ
 
-**Приложение требует root?** Нет. На rooted-устройствах opt-in root mode разблокирует дополнительные packet-mutation примитивы (FakeRst, MultiDisorder, IP fragmentation, full SeqOverlap) через привилегированный helper-процесс.
+**Приложение требует root?** Нет. На rooted-устройствах opt-in root mode разблокирует дополнительные packet-mutation примитивы (FakeRst, MultiDisorder, IP fragmentation, full SeqOverlap, raw IPv4/IPv6 packet emission) через привилегированный helper-процесс.
 
 **Это VPN?** RIPDPI использует Android `VpnService` API для системной маршрутизации трафика. При настроенном tunneled outbound трафик шифруется end-to-end до того endpoint, который вы настроили — это стандартная схема туннелированного VPN; выбор endpoint остаётся за вами. Без настроенного tunneled outbound `VpnService` API используется исключительно как локальный traffic-redirector к on-device движку оптимизации пути; в этом режиме RIPDPI не меняет egress IP, и только DNS-запросы при включённом encrypted DNS идут через DoH/DoT/DNSCrypt/DoQ.
 
@@ -260,6 +262,7 @@ scripts/guide/.venv/bin/python scripts/guide/generate_guide.py \
 
 **Native Libraries**
 - [Native integration и модули](docs/native/README.md)
+- [Packet strategy runtime](docs/packet-strategy-runtime.md)
 - [Proxy engine и strategy surface](docs/native/proxy-engine.md)
 - [TUN-to-SOCKS bridge](docs/native/tunnel.md)
 - [Debug a runtime issue](docs/native/debug-runtime-issue.md)
@@ -341,7 +344,7 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 
 **Release** (`.github/workflows/release.yml`) запускается при push тегов `v*`: сборка подписанного APK и создание GitHub Release.
 
-### Необходимые GitHub Secrets
+### GitHub Secrets для релиза
 
 Для подписанных релизных сборок настройте секреты репозитория:
 
@@ -361,7 +364,7 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 - `native/rust/crates/ripdpi-runtime`: общий proxy runtime layer, используемый `libripdpi.so`, реестр protocol classification и реестр VPN socket protection callback
 - `native/rust/crates/ripdpi-packets`: protocol detection, packet mutation, traits протокольной классификации (`ProtocolClassifier`, `ProtocolField`, `FieldObserver`), DTLS ClientHello classifier с JA4-equivalent fingerprint extraction и профили рандомизации fingerprint (WebRTC-Chrome / WebRTC-Firefox / Randomized), интегрированные в strategy evolver как COMBO_POOL slots 33–35
 - `native/rust/crates/ripdpi-failure-classifier`: response failure classification, error-page fingerprinting, field-based classification через `FieldCache` и DTLS-fingerprint block detection
-- `native/rust/crates/ripdpi-root-helper`: привилегированный standalone-helper-бинарник для rooted-устройств, разрешает raw-socket операции (FakeRst, MultiDisorder, IpFrag2, full SeqOverlap) через Unix-socket IPC с SCM_RIGHTS fd passing
+- `native/rust/crates/ripdpi-root-helper`: привилегированный standalone-helper-бинарник для rooted-устройств, разрешает raw-socket операции (FakeRst, MultiDisorder, IpFrag2, full SeqOverlap, raw IPv4/IPv6 packet emission) через Unix-socket IPC с SCM_RIGHTS fd passing
 - `native/rust/crates/android-support`: Android logging, JNI support helpers и обобщённые data structures (`BoundedHeap`, `EnumMap`)
 
 Подробности об интеграции native-библиотек и используемых методах: [docs/native/README.md](docs/native/README.md)

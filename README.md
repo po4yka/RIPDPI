@@ -17,15 +17,15 @@
 
 <p align="center"><a href="README-ru.md">Русский</a> | <b>English</b></p>
 
-RIPDPI is an Android tool for unblocking and accelerating network connections. It bypasses active DPI inspection on-device, connects to VPN relay servers you control, and runs per-connection diagnostics to find out what is blocking or degrading each target. The three capabilities work independently or in combination.
+RIPDPI is an Android network-path diagnostics and optimization toolkit. It applies configurable packet strategies on-device, can connect to relay servers you control, and runs per-connection diagnostics to identify why each target is failing or degrading. The three capabilities work independently or in combination.
 
 ## Three pillars
 
-### DPI bypass
+### On-device packet strategies
 
-Applies configurable packet-level mutations on-device to get past deep packet inspection — without routing traffic to a relay server. No root required for the core path.
+Applies configurable packet-level transformations on-device without routing traffic to a relay server. No root is required for the core path.
 
-Supported techniques: TCP segment splitting and disorder, fake packet injection, OOB (urgent pointer), TLS record fragmentation, fake TLS first-flight, QUIC handshake variation, DTLS fingerprint normalization, and adaptive semantic markers that resolve position against live `TCP_INFO`. Strategy chains are built from Rust crates in this repository with no external strategy binary.
+Supported techniques: TCP segment splitting and disorder, fake packet injection, OOB (urgent pointer), TLS record fragmentation, fake TLS first-flight, QUIC handshake variation, DTLS fingerprint normalization, UDP length-field variation, IPv6 extension-header insertion, Lua-defined raw packet sends, and adaptive semantic markers that resolve position against live `TCP_INFO`. Strategy chains are built from Rust crates in this repository with no external strategy binary.
 
 When no relay is configured, traffic exits the device directly — on-device mutations are the only change to the path.
 
@@ -67,13 +67,13 @@ RIPDPI's design principle: classify each target and each network separately, app
 - **Proxy mode**: local SOCKS5 proxy on the configured localhost port.
 - **VPN mode**: routes Android device traffic through a local TUN-to-SOCKS bridge via `VpnService`.
 - **Encrypted DNS**: DoH, DoT, DNSCrypt, and DoQ resolver support in VPN-related paths.
-- **Strategy controls**: TCP split/disorder/fake families, TLS record fragmentation and fake profiles, QUIC and DTLS handshake variation, per-step activation filters, IPv4 ID control, and OOB injection.
+- **Strategy controls**: TCP split/disorder/fake families, TLS record fragmentation and fake profiles, QUIC and DTLS handshake variation, UDP length-field variation, IPv6 extension headers, Lua `rawsend`, per-step activation filters, IPv4 ID control, and OOB injection.
 - **Per-network policy memory**: validated per-authority verdicts keyed to a network fingerprint; automatically replayed on reconnect.
 - **Adaptive probing**: automatic strategy probing for first-seen networks; background `quick_v1` recheck on network handover.
 - **Handover-aware restart**: live policy re-evaluation on transitions between Wi-Fi, cellular, and roaming.
 - **RIPDPI Browser**: app-owned browser for HTTPS targets that require the owned TLS stack; shared `SecureHttpClient` path for app-originated requests.
 - **Runtime telemetry and logs**: proxy lifecycle, route decisions, DNS failover events, diagnostics progress, and native runtime events — available as in-app history and support export.
-- **Optional root helper**: on rooted devices, unlocks raw-socket operations (FakeRst, MultiDisorder, IP fragmentation, full SeqOverlap) via a privileged helper process.
+- **Optional root helper**: on rooted devices, unlocks raw-socket operations (FakeRst, MultiDisorder, IP fragmentation, full SeqOverlap, raw IPv4/IPv6 packet emission) via a privileged helper process.
 
 ## Runtime modes
 
@@ -141,6 +141,7 @@ Details: [docs/testing.md](docs/testing.md)
 ## Documentation
 
 - [Native integration and modules](docs/native/README.md)
+- [Packet strategy runtime](docs/packet-strategy-runtime.md)
 - [Proxy engine and strategy surface](docs/native/proxy-engine.md)
 - [TUN-to-SOCKS bridge](docs/native/tunnel.md)
 - [Strategy-pack and TLS catalog operations](docs/strategy-pack-operations.md)

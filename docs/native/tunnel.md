@@ -26,6 +26,32 @@ flowchart LR
     J --> K["Upstream server"]
 ```
 
+### TUN egress packet strategies
+
+VPN mode can apply packet strategies before a packet is bridged to the local SOCKS5 session. These actions may emit an additional raw packet while the original flow continues through the ordinary tunnel path.
+
+```mermaid
+flowchart TD
+    A["Android TUN packet"] --> B["ripdpi-tunnel-core\nIP parser"]
+    B --> C["Strategy chain\nfrom Tun2SocksConfig"]
+    C --> D{"TUN action?"}
+    D -- None --> E["SOCKS5 bridge"]
+    D -- fake --> F["Low-TTL TCP copy"]
+    D -- udplen --> G["UDP length-field\nvariation"]
+    D -- ipv6Ext --> H["IPv6 extension\nheader insertion"]
+    D -- rawsend --> I["Lua-requested\nraw packet"]
+    F & G & H & I --> J["send_raw_ip_packet"]
+    J --> K{"Root helper socket\nregistered?"}
+    K -- Yes --> L["ripdpi-root-helper\nUnix socket IPC"]
+    K -- No --> M["Local platform\nraw socket attempt"]
+    L & M --> N["Network interface"]
+    E --> O["libripdpi.so\nlocal SOCKS5 proxy"]
+```
+
+The privileged raw-packet path is passed to native code as `rootHelperSocketPath` in `Tun2SocksConfig`. `RipDpiVpnService` only sets that field after `RootHelperManager` has started the helper and confirmed that the Unix socket accepts connections.
+
+See [../packet-strategy-runtime.md](../packet-strategy-runtime.md) for the action matrix and root-helper lifecycle diagram.
+
 ### DNS interception flow
 
 ```mermaid
@@ -82,6 +108,7 @@ Relevant sources:
 | `CancellationToken::cancel` | `tokio-util` | `jniStop(handle)` | Used | Requests tunnel shutdown from another thread. |
 | `Stats::snapshot` | `native/rust/crates/ripdpi-tunnel-core/src/stats.rs` | `jniGetStats(handle)` | Used | Returns packet and byte counters. |
 | tunnel telemetry snapshot assembly | `native/rust/crates/ripdpi-tunnel-android/src/lib.rs` | `jniGetTelemetry(handle)` | Used | Returns tunnel lifecycle, counters, last error, resolver endpoint/latency/fallback fields, and a bounded drained event ring. |
+| raw packet emission | `native/rust/crates/ripdpi-runtime-platform/src/experimental.rs` | TUN-egress `fake`, `udplen`, `ipv6Ext`, and Lua `rawsend` actions | Used when action applies | Sends crafted IPv4/IPv6 packets through the registered root-helper socket when available. |
 
 ## JNI Surface Exposed to Kotlin
 

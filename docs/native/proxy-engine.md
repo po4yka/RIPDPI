@@ -140,7 +140,7 @@ rotation through `chains.tcpRotation`.
 - Rotation is JSON/config driven only in this slice. There is no new AppSettings
   field or Compose surface.
 - Only TCP chains rotate. The base group's fake-packet settings, QUIC config,
-  parser evasions, activation filters, and route/group selection remain
+  parser variants, activation filters, and route/group selection remain
   inherited.
 - Rotation boundaries are per outbound round on the same socket. RIPDPI does
   not rewrite an in-flight payload mid-send.
@@ -527,26 +527,50 @@ flowchart TD
 
 All markers support delta arithmetic: `sniext+1`, `echext+4`, `host-2`.
 
-#### UDP chain step kinds for QUIC DPI evasion
+#### UDP chain step kinds for QUIC handshake variation
 
-- `DummyPrepend` (aliases: `dummy_prepend`) -- random UDP datagram before QUIC Initial to reset GFW flow state
+- `DummyPrepend` (aliases: `dummy_prepend`) -- random UDP datagram before QUIC Initial to reset middlebox flow state
 - `QuicSniSplit` (aliases: `quic_sni_split`) -- re-encrypt Initial with ClientHello split across CRYPTO frames
-- `QuicFakeVersion` (aliases: `quic_fake_version`) -- replace QUIC version field to prevent DPI decryption
+- `QuicFakeVersion` (aliases: `quic_fake_version`) -- replace QUIC version field to alter parser assumptions on the path
 - `IpFrag2Udp` (aliases: `ip_frag2_udp`) -- IP-level fragmentation of QUIC Initial packet (8-byte aligned)
 
 Config parser accepts both PascalCase and snake_case for all UDP chain step kinds, so `quic_sni_split` and `QuicSniSplit` are equivalent.
+
+#### TUN-egress packet action kinds
+
+The VPN tunnel can apply packet actions before forwarding the original session to the local SOCKS5 bridge:
+
+- `fake` -- optional low-TTL TCP copy emitted from the TUN path
+- `udplen` -- UDP length-field variation with raw IPv4 packet emission
+- `ipv6Ext` -- IPv6 extension-header insertion with raw IPv6 packet emission
+- Lua `rawsend` -- explicit raw packet emission requested by a parsed Lua strategy
+
+```mermaid
+flowchart LR
+    A["TUN packet"] --> B["Strategy chain"]
+    B --> C{"Action"}
+    C -- fake --> D["Low-TTL TCP copy"]
+    C -- udplen --> E["UDP length-field variation"]
+    C -- ipv6Ext --> F["IPv6 extension headers"]
+    C -- rawsend --> G["Lua raw packet"]
+    D & E & F & G --> H["send_raw_ip_packet"]
+    H --> I["root-helper socket\nwhen enabled"]
+    A --> J["Original session\nSOCKS5 bridge"]
+```
+
+See [../packet-strategy-runtime.md](../packet-strategy-runtime.md) for the Android service, root-helper, and tunnel lifecycle details.
 
 ### Packet-owned TCP techniques
 
 #### Sequence overlap (seqovl)
 
-Sends a fake prefix with TCP sequence number shifted backward by `overlap_size` bytes via TCP_REPAIR. The server's TCP stack accepts only bytes at `seq >= original`, discarding the fake prefix. DPI typically processes "first received" and caches the fake data.
+Sends a fake prefix with TCP sequence number shifted backward by `overlap_size` bytes via TCP_REPAIR. The server's TCP stack accepts only bytes at `seq >= original`, discarding the fake prefix. Some middleboxes process "first received" data differently from the server.
 
 Controlled by `overlap_size` (1-32, default 12) and `seqovl_fake_mode` (`profile` reuses the fake payload builder, `rand` fills with random bytes). Requires TCP_REPAIR capability (probed at startup via `seqovl_supported()`). Falls back to `split` when unavailable.
 
 #### IP fragmentation (ipfrag2)
 
-Fragments IP packets so DPI-relevant payload (SNI in TLS, hostname in HTTP) falls into the second fragment. middlebox has limited reassembly timeout (~1-3s).
+Fragments IP packets so inspected payload (SNI in TLS, hostname in HTTP) falls into the second fragment. Middleboxes often have limited reassembly timeout (~1-3s).
 
 - TCP variant: fragments ClientHello at 8-byte aligned offset, clears DF bit, sets MF flag on first fragment
 - UDP variant (`IpFrag2Udp`): fragments QUIC Initial similarly
@@ -559,13 +583,13 @@ Fragments IP packets so DPI-relevant payload (SNI in TLS, hostname in HTTP) fall
 
 #### ECH fragmentation
 
-The `echext` marker targets the Encrypted Client Hello extension (type `0xFE0D`) in TLS ClientHello. middlebox blocks ECH+Cloudflare combinations; splitting at the ECH boundary prevents detection without full TCP reassembly.
+The `echext` marker targets the Encrypted Client Hello extension (type `0xFE0D`) in TLS ClientHello. Some middlebox policies are sensitive to ECH+Cloudflare combinations, so splitting at the ECH boundary changes what is visible without full TCP reassembly.
 
 When ECH is absent, `echext`-based steps are silently skipped (graceful no-op). Combine with `tlsrec` for TLS record-level splitting at the ECH boundary.
 
 #### TCP MD5 signature option (md5sig)
 
-When `md5sig` is enabled, fake packets include a TCP MD5 Signature option (Kind=19, RFC 2385) with 16 random bytes. Some DPI implementations drop packets with unrecognized TCP options from connection tracking.
+When `md5sig` is enabled, fake packets include a TCP MD5 Signature option (Kind=19, RFC 2385) with 16 random bytes. Some middlebox implementations drop packets with unrecognized TCP options from connection tracking.
 
 - Socket-level path (`Write` action): kernel applies MD5 via `setsockopt(TCP_MD5SIG)` during fake send window
 - Raw packet paths (`seqovl`, `multidisorder`, `ipfrag2`): Kind=19 option injected directly into TCP header via `set_options_raw()` in `build_tcp_segment_packet()`
@@ -594,19 +618,19 @@ flowchart LR
 
 #### Drop SACK (`drop_sack`)
 
-When enabled, attaches a kernel-level filter that strips TCP SACK options from outbound segments. Some DPI implementations use SACK negotiation to fingerprint OS and track connections. Toggled per-step via `AttachDropSack` / `DetachDropSack` actions.
+When enabled, attaches a kernel-level filter that strips TCP SACK options from outbound segments. Some middlebox implementations use SACK negotiation to fingerprint OS and track connections. Toggled per-step via `AttachDropSack` / `DetachDropSack` actions.
 
 #### Timestamp stripping (`strip_timestamps`)
 
-Removes TCP timestamp option from outbound packets. Prevents DPI from using timestamp-based RTT estimation and OS fingerprinting.
+Removes TCP timestamp option from outbound packets. Prevents timestamp-based RTT estimation and OS fingerprinting on the path.
 
 #### OOB data (`oob_data`)
 
-Configures the urgent byte value used by `oob` and `disoob` chain steps. The urgent pointer mechanism sends one byte out-of-band, which can desynchronize DPI reassembly state. Default: `'a'` (0x61).
+Configures the urgent byte value used by `oob` and `disoob` chain steps. The urgent pointer mechanism sends one byte out-of-band, which can change middlebox reassembly state. Default: `'a'` (0x61).
 
 #### TLS minor version override (`tlsminor`)
 
-Forces the TLS record layer minor version byte. Value is the minor version: `0x01` = TLS 1.0, `0x02` = TLS 1.1, `0x03` = TLS 1.2, `0x04` = TLS 1.3. Some DPI filters target specific TLS versions.
+Forces the TLS record layer minor version byte. Value is the minor version: `0x01` = TLS 1.0, `0x02` = TLS 1.1, `0x03` = TLS 1.2, `0x04` = TLS 1.3. Some middlebox filters target specific TLS versions.
 
 #### HTTP modifications (`mod_http`)
 
@@ -622,15 +646,15 @@ Adaptive fake TTL derived from the server's response TTL. Configuration:
 | `min_ttl` | `u8` | Floor value (default 3) |
 | `max_ttl` | `u8` | Ceiling value (default 20) |
 
-The runtime infers hop distance from the SYN-ACK TTL (common initial TTLs: 64, 128, 255), then applies `detected_hops + delta` clamped to `[min_ttl, max_ttl]`. This ensures fake packets reach the DPI box but expire before the server.
+The runtime infers hop distance from the SYN-ACK TTL (common initial TTLs: 64, 128, 255), then applies `detected_hops + delta` clamped to `[min_ttl, max_ttl]`. This lets fake packets expire before reaching the server.
 
 ### Entropy padding
 
-Counters entropy-based DPI detection models used by GFW (popcount) and middlebox (Shannon entropy).
+Counters entropy-based middlebox detection models using popcount and Shannon entropy.
 
 | Mode | Detection model | Technique |
 | --- | --- | --- |
-| `popcount` | GFW bitwise popcount | Pads payload with printable ASCII to reach target popcount ratio |
+| `popcount` | Bitwise popcount | Pads payload with printable ASCII to reach target popcount ratio |
 | `shannon` | middlebox Shannon entropy analysis | Adjusts byte distribution to target Shannon entropy |
 | `combined` | Both models simultaneously | Applies both padding strategies |
 | `disabled` | None | No entropy manipulation (default) |
@@ -656,11 +680,11 @@ The fake-transport path now includes:
 - `fake_host_template` for custom SNI in hostfake steps
 - `midhost_offset` for precise host-field split positioning in hostfake
 - TCP window clamping (`TCP_WINDOW_CLAMP`) to force small server response segments
-- QUIC source port binding to evade port-based GFW filtering
+- QUIC source port binding for port-based filtering compatibility tests
 
 `hostfake`, `fakedsplit`, and `fakeddisorder` reuse that same fake-payload and fake-transport pipeline instead of shipping separate blob knobs. `multidisorder` is different: it uses packet-owned TCP repair plus raw IPv4/IPv6 injection to emit the real payload segments in reverse order, then hands the live stream off to a repaired replacement socket.
 
-### QUIC DPI evasion surface
+### QUIC handshake variation surface
 
 Beyond UDP chain steps, the QUIC subsystem exposes:
 
@@ -835,7 +859,7 @@ Eight distinct signal types identify how blocking manifests:
 
 | Signal | Detection method |
 | --- | --- |
-| `HttpBlockpage` | Response body matches built-in blockpage fingerprint database (ISP, government, CDN patterns) |
+| HTTP failure-page | Response body matches built-in failure-page fingerprint database (provider and CDN patterns) |
 | `HttpRedirect` | 3xx redirect to known block/error page |
 | `TlsAlert` | TLS handshake failure or access_denied alert |
 | `SilentDrop` | Connection drops with no response |
@@ -856,13 +880,13 @@ stateDiagram-v2
     Penalized --> Unblocked: Penalty TTL expired\nor success observed
 ```
 
-### Blockpage fingerprint database
+### Failure-page fingerprint database
 
-Built-in CSV database of known blockpage patterns with:
+Built-in CSV database of known failure-page patterns with:
 - Multi-location matching (body, headers)
 - Pattern types: exact, prefix, contains
 - Provider identification (ISP name, government agency)
-- Rate-limit exclusion (HTTP 429 is NOT a blockpage)
+- Rate-limit exclusion (HTTP 429 is NOT a failure page)
 
 ## VPN Tunnel DNS Interception
 
@@ -883,9 +907,9 @@ The diagnostics path linked into `libripdpi.so` currently implements:
 - Candidate-aware progress for strategy-probe runs, including active TCP/QUIC lane plus candidate index/total and label
 - UDP DNS integrity checks against encrypted resolvers (DoH/DoT/DNSCrypt/DoQ)
 - HTTPS reachability checks with TLS 1.3 and TLS 1.2 split probing
-- HTTP block-page classification
+- HTTP failure-page classification
 - TCP 16-20 KB cutoff detection with repeated fat-header `HEAD` requests
-- Whitelist SNI retry search
+- Allowlist-SNI retry search
 - Built-in encrypted resolver sweep and ranking for connectivity scans with diversified DoH/DoT/DNSCrypt path candidates and bootstrap validation
 - Rotating curated target cohorts for `automatic-audit`, with selected cohort provenance persisted into the request/report path
 - Full-matrix audit assessment with confidence, matrix coverage, winner coverage, and stable warnings
