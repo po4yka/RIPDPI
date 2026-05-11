@@ -92,8 +92,10 @@ All 8 unit tests green. QUIC probe surfaced in DiagnosticsScreen as "QUIC / HTTP
 - 2026-05-11: Fixed the UDP sanity stage so the VN probe remains independently classified as `QUIC_VN_REJECTED`.
 - 2026-05-11: Wired `QuicFingerprintFactory` to the native `ripdpi-packets` QUIC Initial builder through JNI, with JVM fallback coverage for missing native libraries.
 - 2026-05-11: Added native QUIC Initial wire-image regression coverage and split `generic_v1` from the Chrome-shaped profile.
+- 2026-05-11: Added a `ripdpi.runNetworkTests`-gated Android smoke test for the QUIC/H3 probe against `cloudflare.com`.
 
 Remaining before close:
 
-- Add a gated Android network smoke test for a known HTTP/3 endpoint once the packet factory emits valid QUIC Initials.
-- Re-check the final task acceptance list and delete this note only when all criteria are covered.
+- Run the gated Android network smoke on a connected device or CI lane with `ripdpi.runNetworkTests=1`.
+- Add the DiagnosticsScreen per-target by per-fingerprint matrix, or adjust the acceptance note if the suite row is the intended product surface.
+- Re-check the final acceptance list and delete this note only when all criteria are covered.
