@@ -93,9 +93,9 @@ All 8 unit tests green. QUIC probe surfaced in DiagnosticsScreen as "QUIC / HTTP
 - 2026-05-11: Wired `QuicFingerprintFactory` to the native `ripdpi-packets` QUIC Initial builder through JNI, with JVM fallback coverage for missing native libraries.
 - 2026-05-11: Added native QUIC Initial wire-image regression coverage and split `generic_v1` from the Chrome-shaped profile.
 - 2026-05-11: Added a `ripdpi.runNetworkTests`-gated Android smoke test for the QUIC/H3 probe against `cloudflare.com`.
+- 2026-05-11: Added DiagnosticsScreen suite rendering for the per-target QUIC/H3 fingerprint matrix and locked the mapper/card behavior with JVM UI tests.
 
 Remaining before close:
 
 - Run the gated Android network smoke on a connected device or CI lane with `ripdpi.runNetworkTests=1`.
-- Add the DiagnosticsScreen per-target by per-fingerprint matrix, or adjust the acceptance note if the suite row is the intended product surface.
 - Re-check the final acceptance list and delete this note only when all criteria are covered.
