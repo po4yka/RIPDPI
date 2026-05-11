@@ -3,6 +3,11 @@ package com.poyka.ripdpi.diagnostics.rkn
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -155,6 +160,41 @@ class RknLayeredProbePipelineTest {
 
             assertEquals("*.example.com", result.tlsCertCn)
             assertEquals(true, result.tlsOk)
+        }
+
+    @Test
+    fun `default tls probe uses injected diagnostics client factory`() =
+        runTest {
+            var factoryCalls = 0
+            var requestedHost = ""
+            val probe =
+                HttpClientRknTlsProbe(
+                    clientBuilder = { configure ->
+                        factoryCalls += 1
+                        OkHttpClient
+                            .Builder()
+                            .addInterceptor(
+                                Interceptor { chain ->
+                                    requestedHost = chain.request().url.host
+                                    Response
+                                        .Builder()
+                                        .request(chain.request())
+                                        .protocol(Protocol.HTTP_1_1)
+                                        .code(204)
+                                        .message("No Content")
+                                        .body(ByteArray(0).toResponseBody())
+                                        .build()
+                                },
+                            ).apply(configure)
+                            .build()
+                    },
+                )
+
+            val result = probe.handshake("tls.example", 443, timeoutMs = 1000)
+
+            assertEquals(true, result.ok)
+            assertEquals(1, factoryCalls)
+            assertEquals("tls.example", requestedHost)
         }
 
     @Test

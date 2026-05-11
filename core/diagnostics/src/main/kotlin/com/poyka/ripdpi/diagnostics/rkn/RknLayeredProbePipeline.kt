@@ -442,6 +442,40 @@ class SslSocketRknTlsProbe(
         }.getOrNull()
 }
 
+class HttpClientRknTlsProbe(
+    private val clientBuilder: (OkHttpClient.Builder.() -> Unit) -> OkHttpClient =
+        { configure -> OkHttpClient.Builder().apply(configure).build() },
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
+) : RknTlsProbe {
+    override suspend fun handshake(
+        host: String,
+        port: Int,
+        timeoutMs: Long,
+    ): RknTlsProbeResult =
+        withContext(dispatcher) {
+            val client =
+                clientBuilder {
+                    followRedirects(false)
+                    followSslRedirects(false)
+                    connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                    readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                    callTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                }
+            val request =
+                Request
+                    .Builder()
+                    .url(host.toHttpsProbeUrl(port))
+                    .head()
+                    .header("Host", host)
+                    .build()
+            val elapsedMs =
+                measureTimeMillis {
+                    client.newCall(request).execute().close()
+                }
+            RknTlsProbeResult(ok = true, timeMs = elapsedMs, certCn = null)
+        }
+}
+
 class OkHttpRknHttpProbe(
     private val baseClient: OkHttpClient = OkHttpClient(),
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -481,6 +515,13 @@ class OkHttpRknHttpProbe(
 }
 
 private fun String.hostOrFallback(): String = URL(this).host
+
+private fun String.toHttpsProbeUrl(port: Int): String =
+    if (port == 443) {
+        "https://$this/"
+    } else {
+        "https://$this:$port/"
+    }
 
 private fun String?.containsReset(): Boolean =
     this

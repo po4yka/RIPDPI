@@ -5,11 +5,13 @@ import com.poyka.ripdpi.core.detection.dpi.ProbeStage
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
+import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class DomainReachabilityScannerTest {
     @Test
@@ -235,6 +237,33 @@ class DomainReachabilityScannerTest {
                 assertEquals(AttemptStatus.REDIR_OK, sameDomain.status)
                 assertEquals(AttemptStatus.REDIR_SUSPICIOUS, foreignDomain.status)
             }
+        }
+
+    @Test
+    fun tlsAttemptUsesInjectedClientBuilder() =
+        runTest {
+            val builderCalls = AtomicInteger()
+            val runner =
+                OkHttpDomainReachabilityAttemptRunner(
+                    timeoutMs = 100,
+                    endpointResolver =
+                        ReachabilityProbeEndpointResolver { domain, _ ->
+                            ReachabilityProbeEndpoint(
+                                connectHost = "127.0.0.1",
+                                port = 9,
+                                hostHeader = domain,
+                            )
+                        },
+                    clientBuilder = { configure ->
+                        builderCalls.incrementAndGet()
+                        OkHttpClient.Builder().apply(configure).build()
+                    },
+                )
+
+            val result = runner("example.com", ReachabilityProbeKind.TLS13, emptySet())
+
+            assertEquals(AttemptStatus.ERROR, result.status)
+            assertEquals(1, builderCalls.get())
         }
 
     private fun scanner(

@@ -6,6 +6,8 @@ import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
 import mockwebserver3.SocketEffect
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -111,6 +113,40 @@ class Tcp16FatHeaderProbeTest {
 
             assertEquals(Tcp16Verdict.INVALID_RECONNECTED, result.verdict)
             assertEquals(2, result.connectionCount)
+        }
+
+    @Test
+    fun okHttpRunnerUsesInjectedBaseClient() =
+        runTest {
+            MockWebServer().use { server ->
+                repeat(16) {
+                    server.enqueue(okHeadResponse())
+                }
+                server.start()
+                val baseClient =
+                    OkHttpClient
+                        .Builder()
+                        .addInterceptor(
+                            Interceptor { chain ->
+                                chain.proceed(
+                                    chain
+                                        .request()
+                                        .newBuilder()
+                                        .header("X-Owned-Tls-Client", "diagnostics")
+                                        .build(),
+                                )
+                            },
+                        ).build()
+                val probe =
+                    Tcp16FatHeaderProbe(
+                        requestRunner = OkHttpTcp16RequestRunner(baseClient = baseClient),
+                    )
+
+                val result = probe.runWithRttHint(mockTarget(server), hintRttMs = 25)
+
+                assertEquals(Tcp16Verdict.OK, result.verdict)
+                assertEquals("diagnostics", server.takeRequest(1, TimeUnit.SECONDS)?.headers?.get("X-Owned-Tls-Client"))
+            }
         }
 
     @Test

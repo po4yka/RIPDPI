@@ -145,7 +145,7 @@ class Tcp16FatHeaderProbe(
         }
     }
 
-    private companion object {
+    companion object {
         private const val RequestCount = 16
         private const val PaddingBytes = 4 * 1024
         private const val PaddingKilobytes = 4
@@ -185,6 +185,8 @@ interface Tcp16RequestRunner {
     ): Tcp16FatHeaderResponse
 }
 
+typealias Tcp16OkHttpClientBuilder = (OkHttpClient.Builder.() -> Unit) -> OkHttpClient
+
 class Tcp16ConnectionTracker {
     private val connectStarts = AtomicInteger()
 
@@ -207,7 +209,9 @@ class Tcp16ConnectionTracker {
         }
 }
 
-class OkHttpTcp16RequestRunner : Tcp16RequestRunner {
+class OkHttpTcp16RequestRunner(
+    private val baseClient: OkHttpClient = defaultBaseClient(),
+) : Tcp16RequestRunner {
     override fun execute(
         target: Tcp16Target,
         request: Tcp16FatHeaderRequest,
@@ -249,7 +253,7 @@ class OkHttpTcp16RequestRunner : Tcp16RequestRunner {
 
     private fun Tcp16Target.dns(): Dns = TargetDns(ip = ip, sni = sni)
 
-    private companion object {
+    companion object {
         private const val HttpsPort = 443
         private const val NanosPerMillis = 1_000_000L
         private val trustManager: X509TrustManager =
@@ -270,17 +274,22 @@ class OkHttpTcp16RequestRunner : Tcp16RequestRunner {
             SSLContext.getInstance("TLS").apply {
                 init(null, arrayOf<TrustManager>(trustManager), SecureRandom())
             }
-        private val baseClient: OkHttpClient =
-            OkHttpClient
-                .Builder()
-                .connectionPool(ConnectionPool(1, Long.MAX_VALUE, TimeUnit.NANOSECONDS))
-                .protocols(listOf(Protocol.HTTP_1_1))
-                .retryOnConnectionFailure(false)
-                .followRedirects(false)
-                .followSslRedirects(false)
-                .sslSocketFactory(sslContext.socketFactory, trustManager)
-                .hostnameVerifier { _, _ -> true }
-                .build()
+
+        fun withClientBuilder(clientBuilder: Tcp16OkHttpClientBuilder): OkHttpTcp16RequestRunner =
+            OkHttpTcp16RequestRunner(baseClient = defaultBaseClient(clientBuilder))
+
+        private fun defaultBaseClient(clientBuilder: Tcp16OkHttpClientBuilder? = null): OkHttpClient {
+            val configure: OkHttpClient.Builder.() -> Unit = {
+                connectionPool(ConnectionPool(1, Long.MAX_VALUE, TimeUnit.NANOSECONDS))
+                protocols(listOf(Protocol.HTTP_1_1))
+                retryOnConnectionFailure(false)
+                followRedirects(false)
+                followSslRedirects(false)
+                sslSocketFactory(sslContext.socketFactory, trustManager)
+                hostnameVerifier { _, _ -> true }
+            }
+            return clientBuilder?.invoke(configure) ?: OkHttpClient.Builder().apply(configure).build()
+        }
     }
 }
 

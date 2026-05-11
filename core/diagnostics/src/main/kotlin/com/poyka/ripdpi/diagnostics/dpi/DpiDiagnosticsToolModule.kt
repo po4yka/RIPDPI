@@ -5,6 +5,8 @@ import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetector
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.dpich.KnownDohProviderSubnetMetadataLookup
 import com.poyka.ripdpi.diagnostics.dpich.loadDohProviderFilters
+import com.poyka.ripdpi.diagnostics.rkn.HttpClientRknTlsProbe
+import com.poyka.ripdpi.diagnostics.rkn.OkHttpRknHttpProbe
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
 import dagger.Module
@@ -39,13 +41,26 @@ object DpiDiagnosticsToolModule {
     fun provideDnsAvailabilitySurvey(): DnsAvailabilitySurvey = DnsAvailabilitySurvey()
 
     @Provides
-    fun provideDomainReachabilityScanner(): DomainReachabilityScanner = DomainReachabilityScanner()
+    fun provideDomainReachabilityScanner(tlsClientFactory: DiagnosticsHttpClientFactory): DomainReachabilityScanner =
+        DomainReachabilityScanner(
+            attemptRunner =
+                OkHttpDomainReachabilityAttemptRunner(
+                    clientBuilder = tlsClientFactory::createClient,
+                )::invoke,
+        )
 
     @Provides
-    fun provideTcp16FatHeaderProbe(): Tcp16FatHeaderProbe = Tcp16FatHeaderProbe()
+    fun provideTcp16FatHeaderProbe(tlsClientFactory: DiagnosticsHttpClientFactory): Tcp16FatHeaderProbe =
+        Tcp16FatHeaderProbe(
+            requestRunner = OkHttpTcp16RequestRunner.withClientBuilder(tlsClientFactory::createClient),
+        )
 
     @Provides
-    fun provideRknLayeredProbePipeline(): RknLayeredProbePipeline = RknLayeredProbePipeline()
+    fun provideRknLayeredProbePipeline(tlsClientFactory: DiagnosticsHttpClientFactory): RknLayeredProbePipeline =
+        RknLayeredProbePipeline(
+            tlsProbe = HttpClientRknTlsProbe(clientBuilder = tlsClientFactory::createClient),
+            httpProbe = OkHttpRknHttpProbe(baseClient = tlsClientFactory.createClient()),
+        )
 
     @Provides
     fun provideHttpCompressionProber(tlsClientFactory: DiagnosticsHttpClientFactory): HttpCompressionProber =

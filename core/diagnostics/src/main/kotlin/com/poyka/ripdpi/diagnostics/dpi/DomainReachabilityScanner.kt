@@ -268,6 +268,8 @@ class OkHttpDomainReachabilityAttemptRunner(
     private val timeoutMs: Long = DefaultAttemptTimeoutMs,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val endpointResolver: ReachabilityProbeEndpointResolver = DefaultReachabilityProbeEndpointResolver,
+    private val clientBuilder: (OkHttpClient.Builder.() -> Unit) -> OkHttpClient =
+        { configure -> OkHttpClient.Builder().apply(configure).build() },
 ) {
     suspend operator fun invoke(
         domain: String,
@@ -437,23 +439,21 @@ class OkHttpDomainReachabilityAttemptRunner(
     private fun clientFor(
         kind: ReachabilityProbeKind,
         stage: AtomicReference<ProbeStage>,
-    ): OkHttpClient {
-        val builder =
-            OkHttpClient
-                .Builder()
-                .eventListenerFactory(ProbeEventListenerFactory(stage))
-                .addNetworkInterceptor(StageTrackingInterceptor(stage))
-                .followRedirects(false)
-                .followSslRedirects(false)
-                .connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-                .readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-                .callTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-        return when (kind) {
-            ReachabilityProbeKind.TLS13 -> builder.withPinnedTls(TlsVersion.TLS_1_3).build()
-            ReachabilityProbeKind.TLS12 -> builder.withPinnedTls(TlsVersion.TLS_1_2).build()
-            ReachabilityProbeKind.HTTP -> builder.build()
+    ): OkHttpClient =
+        clientBuilder {
+            eventListenerFactory(ProbeEventListenerFactory(stage))
+            addNetworkInterceptor(StageTrackingInterceptor(stage))
+            followRedirects(false)
+            followSslRedirects(false)
+            connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+            readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+            callTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+            when (kind) {
+                ReachabilityProbeKind.TLS13 -> withPinnedTls(TlsVersion.TLS_1_3)
+                ReachabilityProbeKind.TLS12 -> withPinnedTls(TlsVersion.TLS_1_2)
+                ReachabilityProbeKind.HTTP -> Unit
+            }
         }
-    }
 
     private fun okhttp3.Response.toAttemptResult(
         domain: String,
