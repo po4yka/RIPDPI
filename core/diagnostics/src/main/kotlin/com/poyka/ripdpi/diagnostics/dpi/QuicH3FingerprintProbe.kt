@@ -251,8 +251,8 @@ class DatagramSocketQuicUdpProbe : QuicUdpProbe {
         sendInitial(
             target = target,
             port = port,
-            fingerprint = QuicFingerprint.VN_PROBE,
-            packet = QuicFingerprintFactory.create(QuicFingerprint.VN_PROBE, target),
+            fingerprint = QuicFingerprint.GENERIC_V1,
+            packet = QuicFingerprintFactory.create(QuicFingerprint.GENERIC_V1, target),
             timeoutMs = timeoutMs,
         ).response != null
 

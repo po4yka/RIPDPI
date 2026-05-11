@@ -34,6 +34,33 @@ class QuicH3FingerprintProbeTest {
         }
 
     @Test
+    fun udpReachabilityDoesNotConsumeVersionNegotiationResult() =
+        runTest {
+            val socket =
+                RecordingQuicUdpProbe(
+                    successes =
+                        setOf(
+                            QuicFingerprint.CHROME_120,
+                            QuicFingerprint.FIREFOX_121,
+                            QuicFingerprint.GENERIC_V1,
+                        ),
+                )
+
+            val result = QuicH3FingerprintProbe(socket = socket).check("example.com")
+
+            assertEquals(QuicProbeVerdict.QUIC_VN_REJECTED, result.verdict)
+            assertEquals(
+                listOf(
+                    QuicFingerprint.CHROME_120,
+                    QuicFingerprint.FIREFOX_121,
+                    QuicFingerprint.GENERIC_V1,
+                    QuicFingerprint.VN_PROBE,
+                ),
+                socket.probedFingerprints,
+            )
+        }
+
+    @Test
     fun chromeFailsOthersSucceedReturnsFingerprintBlock() =
         runTest {
             val result =
