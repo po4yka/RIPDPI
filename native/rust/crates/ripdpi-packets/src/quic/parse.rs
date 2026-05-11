@@ -71,6 +71,10 @@ pub(super) fn parse_quic_initial_header(buffer: &[u8]) -> Option<QuicInitialHead
 }
 
 pub(super) fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHeader<'_>) -> Option<Vec<u8>> {
+    decrypt_quic_initial_payload_with_offset(buffer, header).map(|(payload, _)| payload)
+}
+
+fn decrypt_quic_initial_payload_with_offset(buffer: &[u8], header: QuicInitialHeader<'_>) -> Option<(Vec<u8>, usize)> {
     let secret = quic_derive_client_initial_secret(header.dcid, header.version)?;
     let mut key = [0u8; 16];
     let mut iv = [0u8; 12];
@@ -101,9 +105,10 @@ pub(super) fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHea
     }
     let packet_number = u32::from_be_bytes(packet_number_bytes);
 
+    let ciphertext_payload_offset = header.pn_offset.checked_add(pn_len)?;
     let ciphertext_len = header.payload_len.checked_sub(pn_len + QUIC_TAG_LEN)?;
-    let ciphertext = buffer.get(header.pn_offset + pn_len..header.pn_offset + pn_len + ciphertext_len)?.to_vec();
-    let tag = buffer.get(header.pn_offset + pn_len + ciphertext_len..header.pn_offset + header.payload_len)?;
+    let ciphertext = buffer.get(ciphertext_payload_offset..ciphertext_payload_offset + ciphertext_len)?.to_vec();
+    let tag = buffer.get(ciphertext_payload_offset + ciphertext_len..header.pn_offset + header.payload_len)?;
 
     let mut aad = buffer.get(..header.pn_offset + pn_len)?.to_vec();
     aad[0] = unprotected_first;
@@ -121,7 +126,7 @@ pub(super) fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHea
     let mut in_out = ciphertext;
     in_out.extend_from_slice(tag);
     let plaintext = opening_key.open_in_place(nonce, Aad::from(&aad), &mut in_out).ok()?;
-    Some(plaintext.to_vec())
+    Some((plaintext.to_vec(), ciphertext_payload_offset))
 }
 
 pub fn is_quic_initial(buffer: &[u8]) -> bool {
@@ -141,7 +146,7 @@ pub fn parse_quic_initial(buffer: &[u8]) -> Option<QuicInitialInfo> {
 
 pub fn parse_quic_initial_layout(buffer: &[u8]) -> Option<QuicInitialLayout> {
     let header = parse_quic_initial_header(buffer)?;
-    let payload = decrypt_quic_initial_payload(buffer, header)?;
+    let (payload, ciphertext_payload_offset) = decrypt_quic_initial_payload_with_offset(buffer, header)?;
     let crypto_frames = collect_quic_crypto_frames(&payload)?;
     let (client_hello, is_crypto_complete) = defrag_quic_crypto_frames(&payload)?;
     if !is_crypto_complete {
@@ -149,5 +154,5 @@ pub fn parse_quic_initial_layout(buffer: &[u8]) -> Option<QuicInitialLayout> {
     }
     let tls_info = tls_client_hello_marker_info_in_handshake(&client_hello)?;
     let info = QuicInitialInfo { version: header.version, client_hello, tls_info, is_crypto_complete };
-    Some(QuicInitialLayout { info, crypto_frames })
+    Some(QuicInitialLayout { info, ciphertext_payload_offset, crypto_frames })
 }

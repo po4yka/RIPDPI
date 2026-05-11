@@ -106,6 +106,7 @@ pub struct QuicCryptoFrameInfo {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuicInitialLayout {
     pub info: QuicInitialInfo,
+    pub ciphertext_payload_offset: usize,
     pub crypto_frames: Vec<QuicCryptoFrameInfo>,
 }
 

@@ -2,7 +2,10 @@ use std::collections::HashMap;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use ripdpi_packets::{http_marker_info, parse_quic_initial, parse_tls, second_level_domain_span, tls_marker_info};
+use ripdpi_packets::{
+    http_marker_info, parse_quic_initial, parse_quic_initial_layout, parse_tls, second_level_domain_span,
+    tls_marker_info, QuicInitialLayout,
+};
 use ripdpi_strategy_config::{
     LoadedStrategy, LoadedStrategyConfig, OnFail, ProtocolName, StepType, StrategyMatch, StrategyStep,
 };
@@ -230,11 +233,11 @@ fn execute_registry_action<I: TunPacketInjector>(
     };
     let mut plan = DesyncPlan::default();
     let verdict = registry.execute(&ctx, &mut plan);
-    match verdict {
-        StrategyVerdict::Apply => {}
+    let drop_original = match verdict {
+        StrategyVerdict::Apply => false,
         StrategyVerdict::FallbackPlain => return false,
-        StrategyVerdict::Drop => return true,
-    }
+        StrategyVerdict::Drop => true,
+    };
 
     let mut injected = false;
     let mut sequence_delta = 0u32;
@@ -279,7 +282,7 @@ fn execute_registry_action<I: TunPacketInjector>(
             }
         }
     }
-    injected && !forward_original
+    drop_original || (injected && !forward_original)
 }
 
 fn dissect_packet(meta: PacketMeta, payload: &[u8]) -> Dissect {
@@ -329,15 +332,8 @@ fn populate_markers(dissect: &mut Dissect, payload: &[u8]) {
             }
         }
         L7Protocol::Quic(_) => {
-            if let Some(quic) = parse_quic_initial(payload) {
-                insert_host_markers(
-                    &mut dissect.markers,
-                    &quic.client_hello,
-                    quic.tls_info.host_start,
-                    quic.tls_info.host_end,
-                );
-                dissect.markers.insert(MarkerName::ExtLen, quic.tls_info.ext_len_start);
-                dissect.markers.insert(MarkerName::SniExt, quic.tls_info.sni_ext_start);
+            if let Some(layout) = parse_quic_initial_layout(payload) {
+                insert_quic_markers(&mut dissect.markers, &layout);
             }
         }
         L7Protocol::Any
@@ -354,6 +350,67 @@ fn populate_markers(dissect: &mut Dissect, payload: &[u8]) {
         | L7Protocol::BitTorrent(_)
         | L7Protocol::UtpBitTorrent(_) => {}
     }
+}
+
+fn insert_quic_markers(markers: &mut HashMap<MarkerName, usize>, layout: &QuicInitialLayout) {
+    let tls_info = &layout.info.tls_info;
+    insert_quic_host_markers(markers, layout, tls_info.host_start, tls_info.host_end);
+    if let Some(ext_len) = quic_marker_start_offset(layout, tls_info.ext_len_start) {
+        markers.insert(MarkerName::ExtLen, ext_len);
+    }
+    if let Some(sni_ext) = quic_marker_start_offset(layout, tls_info.sni_ext_start) {
+        markers.insert(MarkerName::SniExt, sni_ext);
+    }
+}
+
+fn insert_quic_host_markers(
+    markers: &mut HashMap<MarkerName, usize>,
+    layout: &QuicInitialLayout,
+    host_start: usize,
+    host_end: usize,
+) {
+    if let Some(host) = layout.info.client_hello.get(host_start..host_end) {
+        if let Some(offset) = quic_marker_start_offset(layout, host_start) {
+            markers.insert(MarkerName::Host, offset);
+        }
+        if let Some(offset) = quic_marker_end_offset(layout, host_end) {
+            markers.insert(MarkerName::HostEnd, offset);
+        }
+        if let Some((sld_start, sld_end)) = second_level_domain_span(host) {
+            let host_sld_start = host_start + sld_start;
+            let host_sld_mid = host_start + sld_start + (sld_end - sld_start) / 2;
+            let host_sld_end = host_start + sld_end;
+            if let Some(offset) = quic_marker_start_offset(layout, host_sld_start) {
+                markers.insert(MarkerName::HostSld, offset);
+            }
+            if let Some(offset) = quic_marker_start_offset(layout, host_sld_mid) {
+                markers.insert(MarkerName::HostMidSld, offset);
+            }
+            if let Some(offset) = quic_marker_end_offset(layout, host_sld_end) {
+                markers.insert(MarkerName::HostEndSld, offset);
+            }
+        }
+    }
+}
+
+fn quic_marker_start_offset(layout: &QuicInitialLayout, crypto_offset: usize) -> Option<usize> {
+    layout.crypto_frames.iter().find_map(|frame| {
+        let frame_end = frame.crypto_offset.checked_add(frame.data_len)?;
+        if crypto_offset < frame.crypto_offset || crypto_offset >= frame_end {
+            return None;
+        }
+        layout
+            .ciphertext_payload_offset
+            .checked_add(frame.data_offset)?
+            .checked_add(crypto_offset - frame.crypto_offset)
+    })
+}
+
+fn quic_marker_end_offset(layout: &QuicInitialLayout, crypto_offset: usize) -> Option<usize> {
+    if crypto_offset == 0 {
+        return quic_marker_start_offset(layout, 0);
+    }
+    quic_marker_start_offset(layout, crypto_offset - 1)?.checked_add(1)
 }
 
 fn insert_host_markers(markers: &mut HashMap<MarkerName, usize>, payload: &[u8], host_start: usize, host_end: usize) {
@@ -826,6 +883,8 @@ fn finalize_checksum(mut sum: u32) -> u16 {
 mod tests {
     use std::io;
 
+    use ripdpi_packets::{build_realistic_quic_initial, parse_quic_initial_layout, QUIC_V1_VERSION};
+
     use super::*;
 
     #[test]
@@ -986,6 +1045,43 @@ strategies:
     }
 
     #[test]
+    fn lua_rawsend_then_drop_injects_packet_and_consumes_original() {
+        let packet = ipv4_udp_packet(443, 443, b"abc");
+        let script = write_lua_script(
+            "lua-egress-drop",
+            r#"
+function candidate(desync)
+    desync.rawsend("lua-drop-raw")
+    return VERDICT_DROP
+end
+"#,
+        );
+        let yaml = format!(
+            r#"
+version: 1
+strategies:
+  - id: lua-egress
+    match:
+      proto: [quic]
+      port: [443]
+    steps:
+      - type: lua
+        function: candidate
+        script_paths:
+          - "{}"
+"#,
+            script.display()
+        );
+        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+
+        assert!(interceptor.handle_packet(&packet));
+        assert_eq!(interceptor.injector.packets.len(), 1);
+        assert_eq!(packet_payload(&interceptor.injector.packets[0]), b"lua-drop-raw");
+        assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
+        let _ = std::fs::remove_file(script);
+    }
+
+    #[test]
     fn lua_context_exposes_http_markers_to_tun_strategy() {
         let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
         let packet = ipv4_tcp_packet(49152, 80, payload);
@@ -1027,6 +1123,75 @@ strategies:
         assert_eq!(interceptor.injector.packets[0][8], 9);
         assert_eq!(packet_payload(&interceptor.injector.packets[0]), payload);
         assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
+        let _ = std::fs::remove_file(script);
+    }
+
+    #[test]
+    fn quic_markers_are_raw_udp_payload_offsets() {
+        let payload =
+            build_realistic_quic_initial(QUIC_V1_VERSION, Some("video.example.test")).expect("build QUIC initial");
+        let layout = parse_quic_initial_layout(&payload).expect("parse QUIC layout");
+        let packet = ipv4_udp_packet(49152, 443, &payload);
+        let meta = PacketMeta::parse(&packet).expect("packet metadata");
+
+        let dissect = dissect_packet(meta, meta.payload(&packet));
+
+        let host = *dissect.markers.get(&MarkerName::Host).expect("host marker");
+        let host_end = *dissect.markers.get(&MarkerName::HostEnd).expect("host end marker");
+        let sni_ext = *dissect.markers.get(&MarkerName::SniExt).expect("sni extension marker");
+        assert_eq!(host, expected_quic_marker_start(&layout, layout.info.tls_info.host_start));
+        assert_eq!(host_end, expected_quic_marker_end(&layout, layout.info.tls_info.host_end));
+        assert_eq!(sni_ext, expected_quic_marker_start(&layout, layout.info.tls_info.sni_ext_start));
+        assert_ne!(host, layout.info.tls_info.host_start, "QUIC markers must not use reassembled TLS offsets");
+        assert!(host < payload.len());
+        assert!(host_end <= payload.len());
+        assert!(sni_ext < payload.len());
+    }
+
+    #[test]
+    fn lua_quic_split_uses_raw_udp_payload_marker_offset() {
+        let payload =
+            build_realistic_quic_initial(QUIC_V1_VERSION, Some("video.example.test")).expect("build QUIC initial");
+        let layout = parse_quic_initial_layout(&payload).expect("parse QUIC layout");
+        let expected_host = expected_quic_marker_start(&layout, layout.info.tls_info.host_start);
+        let packet = ipv4_udp_packet(49152, 443, &payload);
+        let script = write_lua_script(
+            "lua-egress-quic-markers",
+            r#"
+function candidate(desync)
+    local host = desync.pos("host")
+    local endhost = desync.pos("endhost")
+    local sni_ext = desync.pos("sni_ext")
+    if host and endhost and sni_ext then
+        desync.split(host, false)
+        return VERDICT_MODIFY
+    end
+    return VERDICT_PASS
+end
+"#,
+        );
+        let yaml = format!(
+            r#"
+version: 1
+strategies:
+  - id: lua-egress-quic-markers
+    match:
+      proto: [quic]
+      port: [443]
+    steps:
+      - type: lua
+        function: candidate
+        script_paths:
+          - "{}"
+"#,
+            script.display()
+        );
+        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+
+        assert!(interceptor.handle_packet(&packet));
+        assert_eq!(packet_payload(&interceptor.injector.packets[0]), &payload[..expected_host]);
+        assert_eq!(packet_payload(&interceptor.injector.packets[1]), &payload[expected_host..]);
+        assert_ne!(expected_host, layout.info.tls_info.host_start, "test must catch client-hello coordinate reuse");
         let _ = std::fs::remove_file(script);
     }
 
@@ -1128,6 +1293,24 @@ strategies:
         let path = std::env::temp_dir().join(format!("{name}-{}.lua", std::process::id()));
         std::fs::write(&path, contents).expect("write Lua script");
         path
+    }
+
+    fn expected_quic_marker_start(layout: &QuicInitialLayout, crypto_offset: usize) -> usize {
+        layout
+            .crypto_frames
+            .iter()
+            .find_map(|frame| {
+                let frame_end = frame.crypto_offset + frame.data_len;
+                if crypto_offset < frame.crypto_offset || crypto_offset >= frame_end {
+                    return None;
+                }
+                Some(layout.ciphertext_payload_offset + frame.data_offset + crypto_offset - frame.crypto_offset)
+            })
+            .expect("QUIC marker start must map into a CRYPTO frame")
+    }
+
+    fn expected_quic_marker_end(layout: &QuicInitialLayout, crypto_offset: usize) -> usize {
+        expected_quic_marker_start(layout, crypto_offset - 1) + 1
     }
 
     fn packet_payload(packet: &[u8]) -> &[u8] {
