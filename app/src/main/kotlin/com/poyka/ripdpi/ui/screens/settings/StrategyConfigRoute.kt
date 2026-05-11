@@ -109,6 +109,7 @@ fun StrategyConfigRoute(
                         source = source,
                         configText = configText,
                         luaPath = luaPath,
+                        luaFunction = luaFunction,
                         runtime = runtime,
                         saveChain = { value ->
                             val parsed = parseStrategyChainDsl(value).getOrThrow()
@@ -182,6 +183,7 @@ private suspend fun saveStrategyConfig(
     source: StrategyConfigSource,
     configText: String,
     luaPath: String,
+    luaFunction: String,
     runtime: StrategyConfigRuntime?,
     saveChain: suspend (String) -> Unit,
     saveRawStrategyConfig: suspend (String) -> Unit,
@@ -223,7 +225,14 @@ private suspend fun saveStrategyConfig(
         }
 
         StrategyConfigSource.LuaScript -> {
-            loadLuaScript(context, runtime, luaPath)
+            saveLuaStrategyConfig(
+                context = context,
+                runtime = runtime,
+                luaPath = luaPath,
+                luaFunction = luaFunction,
+                saveRawStrategyConfig = saveRawStrategyConfig,
+                applySavedConfig = applySavedConfig,
+            )
         }
     }
 
@@ -315,33 +324,44 @@ private fun validateLuaScript(
     }
 }
 
-private fun loadLuaScript(
+private suspend fun saveLuaStrategyConfig(
     context: Context,
     runtime: StrategyConfigRuntime?,
     luaPath: String,
+    luaFunction: String,
+    saveRawStrategyConfig: suspend (String) -> Unit,
+    applySavedConfig: () -> StrategyConfigApplyResult,
 ): StrategyConfigBanner {
-    if (luaPath.isBlank()) {
+    val path = luaPath.trim()
+    val function = luaFunction.trim()
+    if (path.isBlank()) {
         return luaPathRequiredBanner(context)
+    }
+    if (function.isBlank()) {
+        return luaFunctionRequiredBanner(context)
     }
     val error =
         if (runtime == null) {
             context.getString(R.string.strategy_config_native_unavailable)
         } else {
-            runtime.loadLuaScript(luaPath)
+            runtime.loadLuaScript(path)
         }
-    return if (error == null) {
-        StrategyConfigBanner(
-            title = context.getString(R.string.strategy_config_lua_loaded_title),
-            message = context.getString(R.string.strategy_config_lua_loaded_body),
-            tone = WarningBannerTone.Info,
-        )
-    } else {
-        StrategyConfigBanner(
+    if (error != null) {
+        return StrategyConfigBanner(
             title = context.getString(R.string.strategy_config_import_failed_title),
             message = error,
             tone = WarningBannerTone.Error,
         )
     }
+    if (runtime?.listLuaStrategies()?.none { it == function } != false) {
+        return StrategyConfigBanner(
+            title = context.getString(R.string.strategy_config_invalid_title),
+            message = context.getString(R.string.strategy_config_lua_function_missing, function),
+            tone = WarningBannerTone.Error,
+        )
+    }
+    val yaml = luaStrategyConfigYaml(function = function, scriptPath = path)
+    return saveAndApplyStrategyConfig(context, applySavedConfig) { saveRawStrategyConfig(yaml) }
 }
 
 private fun reloadLuaConfig(
@@ -375,6 +395,33 @@ private fun luaPathRequiredBanner(context: Context): StrategyConfigBanner =
         message = context.getString(R.string.strategy_config_lua_path_required_body),
         tone = WarningBannerTone.Warning,
     )
+
+private fun luaFunctionRequiredBanner(context: Context): StrategyConfigBanner =
+    StrategyConfigBanner(
+        title = context.getString(R.string.strategy_config_lua_function_required_title),
+        message = context.getString(R.string.strategy_config_lua_function_required_body),
+        tone = WarningBannerTone.Warning,
+    )
+
+internal fun luaStrategyConfigYaml(
+    function: String,
+    scriptPath: String,
+): String =
+    """
+    version: 1
+    strategies:
+      - id: "${yamlQuote("lua:$function")}"
+        steps:
+          - type: lua
+            function: "${yamlQuote(function)}"
+            script_paths:
+              - "${yamlQuote(scriptPath)}"
+    """.trimIndent()
+
+private fun yamlQuote(value: String): String =
+    value
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
 
 private fun shareStrategyConfig(
     context: Context,

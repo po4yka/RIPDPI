@@ -1217,6 +1217,9 @@ fakeddisorder endhost</string>
     <string name="strategy_config_reload_failed_title">Reload failed</string>
     <string name="strategy_config_lua_path_required_title">Script path required</string>
     <string name="strategy_config_lua_path_required_body">Select or enter a Lua script path before validating or loading it.</string>
+    <string name="strategy_config_lua_function_required_title">Function name required</string>
+    <string name="strategy_config_lua_function_required_body">Enter the Lua function that should run in the tunnel strategy config.</string>
+    <string name="strategy_config_lua_function_missing">The Lua function %1$s was not registered by the selected script.</string>
     <string name="title_biometric_prompt">Authentication</string>
     <string name="title_app_icon">App Icon</string>
     <string name="dns_active_section_title">Active resolver</string>

@@ -62,6 +62,26 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_l
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaLoadedScriptPaths(
+    mut env: EnvUnowned<'_>,
+    _thiz: JObject<'_>,
+) -> jobjectArray {
+    match env
+        .with_env(|env| -> jni::errors::Result<jobjectArray> {
+            let paths = LOADED_SCRIPT_PATHS
+                .lock()
+                .map(|paths| paths.iter().map(|path| path.to_string_lossy().to_string()).collect::<Vec<_>>())
+                .unwrap_or_default();
+            string_array(env, &paths)
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value,
+        _ => std::ptr::null_mut(),
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaValidateScript(
     env: EnvUnowned<'_>,
     _thiz: JObject<'_>,

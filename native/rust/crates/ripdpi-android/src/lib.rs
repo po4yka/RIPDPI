@@ -103,6 +103,8 @@ mod tests {
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaListStrategies
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jni::sys::jobjectArray,
+            Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaLoadedScriptPaths
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jni::sys::jobjectArray,
             Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaValidateScript
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_validateStrategyConfigText

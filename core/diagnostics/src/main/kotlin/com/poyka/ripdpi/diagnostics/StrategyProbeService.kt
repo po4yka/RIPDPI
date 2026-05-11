@@ -77,6 +77,7 @@ data class StrategyProbeCandidate(
     val id: String,
     val label: String,
     val configDsl: String? = null,
+    val luaScriptPaths: List<String> = emptyList(),
 )
 
 enum class StrategyProbeFailureKind {
@@ -242,13 +243,17 @@ class DefaultStrategyProbeCandidateProvider
 
         private fun luaStrategyProbeCandidates(): List<StrategyProbeCandidate> =
             runCatching {
+                val scriptPaths = bindings.luaLoadedScriptPaths().map(String::trim).filter(String::isNotEmpty)
+                if (scriptPaths.isEmpty()) {
+                    return@runCatching emptyList()
+                }
                 bindings
                     .luaListStrategies()
                     .asSequence()
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
                     .distinct()
-                    .map { StrategyProbeCandidate(id = "lua:$it", label = it) }
+                    .map { StrategyProbeCandidate(id = "lua:$it", label = it, luaScriptPaths = scriptPaths) }
                     .toList()
             }.getOrDefault(emptyList())
     }
@@ -584,11 +589,35 @@ private fun builtInStrategyProbeCandidates(): List<StrategyProbeCandidate> =
     )
 
 private fun StrategyProbeCandidate.toActivationYaml(): String =
-    """
-    strategies:
-      - id: "$id"
-        label: "$label"
-    """.trimIndent()
+    if (id.startsWith(LuaStrategyIdPrefix)) {
+        luaActivationYaml()
+    } else {
+        """
+        strategies:
+          - id: "$id"
+            label: "$label"
+        """.trimIndent()
+    }
+
+private const val LuaStrategyIdPrefix = "lua:"
+
+private fun StrategyProbeCandidate.luaActivationYaml(): String {
+    val function = id.removePrefix(LuaStrategyIdPrefix)
+    return (
+        listOf(
+            "version: 1",
+            "strategies:",
+            "  - id: \"${id.yamlQuote()}\"",
+            "    steps:",
+            "      - type: lua",
+            "        function: \"${function.yamlQuote()}\"",
+            "        script_paths:",
+        ) +
+            luaScriptPaths.map { path -> "          - \"${path.yamlQuote()}\"" }
+    ).joinToString(separator = "\n")
+}
+
+private fun String.yamlQuote(): String = replace("\\", "\\\\").replace("\"", "\\\"")
 
 private fun elapsedMs(startedAt: Long): Long =
     TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt).coerceAtLeast(0L)

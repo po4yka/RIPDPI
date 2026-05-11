@@ -59,3 +59,27 @@ strategies:
     assert_eq!(steps[1].kind, StepType::SynAckSplit);
     assert_eq!(steps[1].kind.registry_id(), "synack_split");
 }
+
+#[test]
+fn parses_lua_strategy_step() {
+    let yaml = r#"
+version: 1
+strategies:
+  - id: lua-candidate
+    steps:
+      - type: lua
+        function: candidate
+        script_paths:
+          - /data/user/0/com.poyka.ripdpi/files/lua/candidate.lua
+        forward_original: true
+"#;
+
+    let parsed = parse_yaml_str(yaml, ".").expect("parse yaml");
+    let step = &parsed.strategies[0].steps[0];
+
+    assert_eq!(step.kind, StepType::Lua);
+    assert_eq!(step.kind.registry_id(), "lua");
+    assert_eq!(step.function.as_deref(), Some("candidate"));
+    assert_eq!(step.script_paths, ["/data/user/0/com.poyka.ripdpi/files/lua/candidate.lua"]);
+    assert_eq!(step.forward_original, Some(true));
+}

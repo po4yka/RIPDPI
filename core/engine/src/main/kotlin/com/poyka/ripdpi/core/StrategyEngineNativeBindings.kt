@@ -22,6 +22,8 @@ interface StrategyEngineBindings {
 
     fun luaListStrategies(): Array<String>
 
+    fun luaLoadedScriptPaths(): Array<String>
+
     fun luaValidateScript(path: String): String?
 
     fun validateStrategyConfigText(configText: String): String?
@@ -39,6 +41,8 @@ class StrategyEngineNativeBindings : StrategyEngineBindings {
     external override fun luaReloadConfig(): String?
 
     external override fun luaListStrategies(): Array<String>
+
+    external override fun luaLoadedScriptPaths(): Array<String>
 
     external override fun luaValidateScript(path: String): String?
 

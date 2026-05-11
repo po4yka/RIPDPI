@@ -4244,6 +4244,8 @@ dependencies = [
  "ripdpi-socks5-core",
  "ripdpi-strategy-config",
  "ripdpi-strategy-ipv6",
+ "ripdpi-strategy-registry",
+ "ripdpi-strategy-trait",
  "ripdpi-strategy-udp",
  "ripdpi-tun-driver",
  "ripdpi-tunnel-config",

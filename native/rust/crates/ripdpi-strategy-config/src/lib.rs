@@ -88,6 +88,12 @@ pub struct StrategyStep {
     pub scale: Option<u8>,
     #[serde(default)]
     pub ext_type: Option<String>,
+    #[serde(default)]
+    pub function: Option<String>,
+    #[serde(default)]
+    pub script_paths: Vec<String>,
+    #[serde(default)]
+    pub forward_original: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
@@ -126,6 +132,7 @@ pub enum StepType {
     SynAck,
     #[serde(rename = "synack_split")]
     SynAckSplit,
+    Lua,
 }
 
 impl StepType {
@@ -151,6 +158,7 @@ impl StepType {
             Self::Ipv6Ext => "ipv6_ext",
             Self::SynAck => "synack",
             Self::SynAckSplit => "synack_split",
+            Self::Lua => "lua",
         }
     }
 }

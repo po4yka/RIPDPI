@@ -1,8 +1,15 @@
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use ripdpi_strategy_config::{LoadedStrategy, ProtocolName, StepType, StrategyStep};
+use ripdpi_strategy_config::{
+    LoadedStrategy, LoadedStrategyConfig, OnFail, ProtocolName, StepType, StrategyMatch, StrategyStep,
+};
 use ripdpi_strategy_ipv6::{apply_ipv6_ext_header, Ipv6ExtType};
+use ripdpi_strategy_registry::StrategyRegistry;
+use ripdpi_strategy_trait::{
+    Capabilities, CapabilityTier, ConnectionState, DesyncAction, DesyncPlan, Dissect, FlowDirection, FlowId,
+    L7Protocol, RuntimeCapability, StrategyContext, StrategyVerdict,
+};
 use tracing::{debug, warn};
 
 const IPV4_MIN_HEADER_LEN: usize = 20;
@@ -63,15 +70,8 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
             if !rule.matcher.matches(meta) {
                 continue;
             }
-            let Some(transformed) = rule.action.apply(packet) else {
-                continue;
-            };
-            if transformed == packet {
-                continue;
-            }
-            match self.injector.inject_packet(&transformed) {
-                Ok(()) => continue,
-                Err(error) => debug!("TUN egress strategy injection failed; forwarding original packet: {error}"),
+            if rule.action.apply(packet, meta, &mut self.injector) {
+                return true;
             }
         }
         false
@@ -99,16 +99,20 @@ fn rules_for_strategy(strategy: &LoadedStrategy) -> Vec<EgressRule> {
         .steps
         .iter()
         .filter_map(|step| {
-            EgressAction::from_step(step)
+            EgressRuleAction::from_step(step)
                 .map(|action| EgressRule { matcher: PacketMatcher::from_strategy(strategy), action })
         })
         .collect()
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
 struct EgressRule {
     matcher: PacketMatcher,
-    action: EgressAction,
+    action: EgressRuleAction,
+}
+
+enum EgressRuleAction {
+    Direct(EgressAction),
+    Strategy { registry: StrategyRegistry, forward_original: bool },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -144,6 +148,104 @@ impl EgressAction {
             Self::Ipv6Ext { ext_type } => apply_ipv6_ext_header(packet, ext_type),
         }
     }
+}
+
+impl EgressRuleAction {
+    fn from_step(step: &StrategyStep) -> Option<Self> {
+        if step.kind == StepType::Lua {
+            return Self::lua_strategy(step);
+        }
+        EgressAction::from_step(step).map(Self::Direct)
+    }
+
+    fn lua_strategy(step: &StrategyStep) -> Option<Self> {
+        let config = LoadedStrategyConfig {
+            version: 1,
+            strategies: vec![LoadedStrategy {
+                id: step.function.clone().unwrap_or_else(|| "lua".to_owned()),
+                matcher: StrategyMatch::default(),
+                steps: vec![step.clone()],
+                on_fail: OnFail::default(),
+            }],
+        };
+        match StrategyRegistry::from_loaded_config(&config) {
+            Ok(registry) => Some(Self::Strategy { registry, forward_original: step.forward_original.unwrap_or(false) }),
+            Err(error) => {
+                warn!("failed to materialize Lua TUN egress strategy: {error}");
+                None
+            }
+        }
+    }
+
+    fn apply<I: TunPacketInjector>(&self, packet: &[u8], meta: PacketMeta, injector: &mut I) -> bool {
+        match self {
+            Self::Direct(action) => inject_direct_action(*action, packet, injector),
+            Self::Strategy { registry, forward_original } => {
+                execute_registry_action(registry, *forward_original, packet, meta, injector)
+            }
+        }
+    }
+}
+
+fn inject_direct_action<I: TunPacketInjector>(action: EgressAction, packet: &[u8], injector: &mut I) -> bool {
+    let Some(transformed) = action.apply(packet) else {
+        return false;
+    };
+    if transformed == packet {
+        return false;
+    }
+    match injector.inject_packet(&transformed) {
+        Ok(()) => false,
+        Err(error) => {
+            debug!("TUN egress strategy injection failed; forwarding original packet: {error}");
+            false
+        }
+    }
+}
+
+fn execute_registry_action<I: TunPacketInjector>(
+    registry: &StrategyRegistry,
+    forward_original: bool,
+    packet: &[u8],
+    meta: PacketMeta,
+    injector: &mut I,
+) -> bool {
+    let dissect = Dissect {
+        proto: L7Protocol::Unknown,
+        src_port: meta.src_port,
+        dst_port: meta.dst_port,
+        is_ipv6: meta.is_ipv6,
+        ..Dissect::default()
+    };
+    let conn = ConnectionState { packet_count: 1 };
+    let caps = Capabilities { tier: CapabilityTier::Tier3, available: vec![RuntimeCapability::VpnMode] };
+    let ctx = StrategyContext {
+        dissect: &dissect,
+        conn: &conn,
+        caps: &caps,
+        flow_id: FlowId(meta.flow_id()),
+        payload: packet,
+        direction: FlowDirection::Outbound,
+    };
+    let mut plan = DesyncPlan::default();
+    let verdict = registry.execute(&ctx, &mut plan);
+    if verdict == StrategyVerdict::Drop {
+        return true;
+    }
+
+    let mut injected = false;
+    for action in plan.actions {
+        if let DesyncAction::RawSend(output) = action {
+            if output.is_empty() || output == packet {
+                continue;
+            }
+            match injector.inject_packet(&output) {
+                Ok(()) => injected = true,
+                Err(error) => debug!("Lua TUN egress rawsend failed; forwarding original packet: {error}"),
+            }
+        }
+    }
+    injected && !forward_original
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -188,6 +290,9 @@ impl PacketMatcher {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct PacketMeta {
     transport: Transport,
+    is_ipv6: bool,
+    src_ip: IpAddr,
+    dst_ip: IpAddr,
     src_port: u16,
     dst_port: u16,
 }
@@ -196,9 +301,17 @@ impl PacketMeta {
     fn parse(packet: &[u8]) -> Option<Self> {
         transport_endpoint(packet).map(|endpoint| Self {
             transport: endpoint.transport,
+            is_ipv6: endpoint.is_ipv6,
+            src_ip: endpoint.src_ip,
+            dst_ip: endpoint.dst_ip,
             src_port: endpoint.src_port,
             dst_port: endpoint.dst_port,
         })
+    }
+
+    fn flow_id(self) -> u64 {
+        let ports = (u64::from(self.src_port) << 16) | u64::from(self.dst_port);
+        ports ^ ip_hash(self.src_ip).rotate_left(13) ^ ip_hash(self.dst_ip).rotate_left(29)
     }
 }
 
@@ -211,9 +324,22 @@ enum Transport {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct TransportEndpoint {
     transport: Transport,
+    is_ipv6: bool,
+    src_ip: IpAddr,
     dst_ip: IpAddr,
     src_port: u16,
     dst_port: u16,
+}
+
+fn ip_hash(ip: IpAddr) -> u64 {
+    match ip {
+        IpAddr::V4(value) => u64::from(u32::from(value)),
+        IpAddr::V6(value) => {
+            let octets = value.octets();
+            u64::from_be_bytes(octets[..8].try_into().unwrap_or([0; 8]))
+                ^ u64::from_be_bytes(octets[8..].try_into().unwrap_or([0; 8]))
+        }
+    }
 }
 
 fn packet_destination(packet: &[u8]) -> Option<SocketAddr> {
@@ -245,6 +371,8 @@ fn ipv4_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
     };
     Some(TransportEndpoint {
         transport,
+        is_ipv6: false,
+        src_ip: IpAddr::V4(Ipv4Addr::new(packet[12], packet[13], packet[14], packet[15])),
         dst_ip: IpAddr::V4(Ipv4Addr::new(packet[16], packet[17], packet[18], packet[19])),
         src_port: u16::from_be_bytes([packet[ihl], packet[ihl + 1]]),
         dst_port: u16::from_be_bytes([packet[ihl + 2], packet[ihl + 3]]),
@@ -255,6 +383,7 @@ fn ipv6_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
     if packet.len() < IPV6_HEADER_LEN {
         return None;
     }
+    let src = Ipv6Addr::from(<[u8; 16]>::try_from(&packet[8..24]).ok()?);
     let dst = Ipv6Addr::from(<[u8; 16]>::try_from(&packet[24..40]).ok()?);
     let mut next_header = packet[6];
     let mut offset = IPV6_HEADER_LEN;
@@ -286,6 +415,8 @@ fn ipv6_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
         }
         return Some(TransportEndpoint {
             transport,
+            is_ipv6: true,
+            src_ip: IpAddr::V6(src),
             dst_ip: IpAddr::V6(dst),
             src_port: u16::from_be_bytes([packet[offset], packet[offset + 1]]),
             dst_port: u16::from_be_bytes([packet[offset + 2], packet[offset + 3]]),
@@ -443,6 +574,74 @@ strategies:
         assert!(!interceptor.handle_packet(&packet));
     }
 
+    #[test]
+    fn lua_rawsend_injects_packet_and_consumes_original_by_default() {
+        let packet = ipv4_udp_packet(443, 443, b"abc");
+        let script = write_lua_script(
+            "lua-egress-consume",
+            r#"
+function candidate(desync)
+    desync.rawsend("lua-raw")
+    return VERDICT_MODIFY
+end
+"#,
+        );
+        let yaml = format!(
+            r#"
+version: 1
+strategies:
+  - id: lua-egress
+    match:
+      proto: [quic]
+      port: [443]
+    steps:
+      - type: lua
+        function: candidate
+        script_paths:
+          - "{}"
+"#,
+            script.display()
+        );
+        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+
+        assert!(interceptor.handle_packet(&packet));
+        assert_eq!(interceptor.injector.packets, [b"lua-raw".to_vec()]);
+        let _ = std::fs::remove_file(script);
+    }
+
+    #[test]
+    fn lua_rawsend_can_forward_original() {
+        let packet = ipv4_udp_packet(443, 443, b"abc");
+        let script = write_lua_script(
+            "lua-egress-forward",
+            r#"
+function candidate(desync)
+    desync.rawsend("lua-sidecar")
+    return VERDICT_MODIFY
+end
+"#,
+        );
+        let yaml = format!(
+            r#"
+version: 1
+strategies:
+  - id: lua-egress
+    steps:
+      - type: lua
+        function: candidate
+        script_paths:
+          - "{}"
+        forward_original: true
+"#,
+            script.display()
+        );
+        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+
+        assert!(!interceptor.handle_packet(&packet));
+        assert_eq!(interceptor.injector.packets, [b"lua-sidecar".to_vec()]);
+        let _ = std::fs::remove_file(script);
+    }
+
     #[derive(Default)]
     struct RecordingInjector {
         packets: Vec<Vec<u8>>,
@@ -461,6 +660,12 @@ strategies:
         fn inject_packet(&mut self, _packet: &[u8]) -> io::Result<()> {
             Err(io::Error::other("boom"))
         }
+    }
+
+    fn write_lua_script(name: &str, contents: &str) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!("{name}-{}.lua", std::process::id()));
+        std::fs::write(&path, contents).expect("write Lua script");
+        path
     }
 
     fn ipv4_udp_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {

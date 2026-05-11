@@ -31,6 +31,9 @@ pub enum StrategyRegistryError {
     /// No built-in strategy exists for the requested ID.
     #[error("unknown strategy type: {0}")]
     UnknownType(String),
+    /// Lua strategy configuration was invalid or failed to load.
+    #[error("Lua strategy {function} failed: {error}")]
+    Lua { function: String, error: String },
 }
 
 struct RegistryEntry {
@@ -97,7 +100,7 @@ impl StrategyRegistry {
         for strategy in &config.strategies {
             let on_fail = on_fail_from_config(strategy.on_fail);
             for step in &strategy.steps {
-                if let Some(strategy) = configured_strategy_from_step(step) {
+                if let Some(strategy) = configured_strategy_from_step(step)? {
                     self.register_with_policy(strategy, on_fail);
                 } else {
                     self.register_builtin_technique_with_policy(step.kind.registry_id(), on_fail)?;
@@ -434,19 +437,67 @@ fn builtin_technique(id: &str) -> Result<&'static BuiltinTechniqueDefinition, St
         .ok_or_else(|| StrategyRegistryError::UnknownType(id.to_owned()))
 }
 
-fn configured_strategy_from_step(step: &StrategyStep) -> Option<Box<dyn DesyncStrategy>> {
+fn configured_strategy_from_step(
+    step: &StrategyStep,
+) -> Result<Option<Box<dyn DesyncStrategy>>, StrategyRegistryError> {
     match step.kind {
         StepType::Udplen => {
             let delta = step.delta.unwrap_or(4).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16;
-            Some(Box::new(ripdpi_strategy_udp::UdpLenStrategy::new(delta)))
+            Ok(Some(Box::new(ripdpi_strategy_udp::UdpLenStrategy::new(delta))))
         }
         StepType::Ipv6Ext => {
             let ext_type =
                 step.ext_type.as_deref().and_then(ripdpi_strategy_ipv6::Ipv6ExtType::parse).unwrap_or_default();
-            Some(Box::new(ripdpi_strategy_ipv6::Ipv6ExtHdrStrategy::new(ext_type)))
+            Ok(Some(Box::new(ripdpi_strategy_ipv6::Ipv6ExtHdrStrategy::new(ext_type))))
         }
-        _ => None,
+        StepType::Lua => configured_lua_strategy_from_step(step),
+        _ => Ok(None),
     }
+}
+
+#[cfg(feature = "lua-strategies")]
+fn configured_lua_strategy_from_step(
+    step: &StrategyStep,
+) -> Result<Option<Box<dyn DesyncStrategy>>, StrategyRegistryError> {
+    let function = step.function.as_deref().map(str::trim).filter(|value| !value.is_empty()).ok_or_else(|| {
+        StrategyRegistryError::Lua { function: "<missing>".to_owned(), error: "missing Lua function name".to_owned() }
+    })?;
+    if step.script_paths.is_empty() {
+        return Err(StrategyRegistryError::Lua {
+            function: function.to_owned(),
+            error: "missing Lua script_paths".to_owned(),
+        });
+    }
+
+    let engine = ripdpi_strategy_lua::LuaStrategyEngine::new()
+        .map_err(|error| StrategyRegistryError::Lua { function: function.to_owned(), error: error.to_string() })?;
+    for path in &step.script_paths {
+        let path = path.trim();
+        if path.is_empty() {
+            return Err(StrategyRegistryError::Lua {
+                function: function.to_owned(),
+                error: "blank Lua script path".to_owned(),
+            });
+        }
+        engine
+            .load_script_registering_globals(path)
+            .map_err(|error| StrategyRegistryError::Lua { function: function.to_owned(), error: error.to_string() })?;
+    }
+    engine
+        .make_strategy(function)
+        .map(Some)
+        .map_err(|error| StrategyRegistryError::Lua { function: function.to_owned(), error: error.to_string() })
+}
+
+#[cfg(not(feature = "lua-strategies"))]
+fn configured_lua_strategy_from_step(
+    step: &StrategyStep,
+) -> Result<Option<Box<dyn DesyncStrategy>>, StrategyRegistryError> {
+    let function = step.function.as_deref().unwrap_or("<missing>");
+    Err(StrategyRegistryError::Lua {
+        function: function.to_owned(),
+        error: "lua-strategies feature is disabled".to_owned(),
+    })
 }
 
 fn linked_strategy_factory(id: &str) -> Option<&'static StrategyFactory> {

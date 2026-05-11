@@ -8,6 +8,8 @@ interface StrategyConfigRuntime {
 
     fun loadLuaScript(path: String): String?
 
+    fun listLuaStrategies(): Array<String>
+
     fun validateStrategyConfigText(configText: String): String?
 
     fun reloadConfig(): String?
@@ -19,6 +21,8 @@ class NativeStrategyConfigRuntime(
     override fun validateLuaScript(path: String): String? = bindings.luaValidateScript(path)
 
     override fun loadLuaScript(path: String): String? = bindings.luaLoadScript(path)
+
+    override fun listLuaStrategies(): Array<String> = bindings.luaListStrategies()
 
     override fun validateStrategyConfigText(configText: String): String? =
         bindings.validateStrategyConfigText(configText)

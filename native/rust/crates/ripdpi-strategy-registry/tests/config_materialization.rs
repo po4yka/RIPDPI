@@ -189,6 +189,57 @@ strategies:
     assert_eq!(output[6], 0, "hop-by-hop extension must be the outer next-header");
 }
 
+#[cfg(feature = "lua-strategies")]
+#[test]
+fn parsed_yaml_lua_strategy_materializes_rawsend_action() {
+    let dir = std::env::temp_dir().join(format!("ripdpi-lua-strategy-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let script_path = dir.join("candidate.lua");
+    std::fs::write(
+        &script_path,
+        r#"
+function candidate(desync)
+    desync.rawsend("lua-raw")
+    return VERDICT_MODIFY
+end
+"#,
+    )
+    .expect("write Lua script");
+    let yaml = format!(
+        r#"
+version: 1
+strategies:
+  - id: lua-candidate
+    steps:
+      - type: lua
+        function: candidate
+        script_paths:
+          - "{}"
+"#,
+        script_path.display()
+    );
+    let config = parse_yaml_str(&yaml, ".").expect("YAML config should parse");
+    let registry = StrategyRegistry::from_loaded_config(&config).expect("config should materialize");
+    let dissect = Dissect::default();
+    let conn = ConnectionState::default();
+    let caps = vpn_caps();
+    let ctx = StrategyContext {
+        dissect: &dissect,
+        conn: &conn,
+        caps: &caps,
+        flow_id: FlowId(12),
+        payload: b"payload",
+        direction: FlowDirection::Outbound,
+    };
+    let mut plan = DesyncPlan::default();
+
+    let verdict = registry.execute(&ctx, &mut plan);
+
+    assert_eq!(verdict, StrategyVerdict::Apply);
+    assert_eq!(plan.actions, vec![DesyncAction::RawSend(b"lua-raw".to_vec())]);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 fn vpn_caps() -> Capabilities {
     Capabilities { tier: CapabilityTier::Tier3, available: vec![RuntimeCapability::VpnMode] }
 }

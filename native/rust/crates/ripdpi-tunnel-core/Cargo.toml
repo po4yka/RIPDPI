@@ -26,6 +26,8 @@ etherparse = { workspace = true }
 ripdpi-socks5-core = { workspace = true }
 ripdpi-strategy-config = { workspace = true }
 ripdpi-strategy-ipv6 = { workspace = true }
+ripdpi-strategy-registry = { workspace = true, features = ["lua-strategies"] }
+ripdpi-strategy-trait = { workspace = true }
 ripdpi-strategy-udp = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-io-uring = { workspace = true, optional = true }

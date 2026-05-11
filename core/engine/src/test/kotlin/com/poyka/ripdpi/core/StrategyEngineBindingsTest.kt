@@ -20,6 +20,7 @@ class StrategyEngineBindingsTest {
         assertNull(bindings.validateStrategyConfigText("version: 1\nstrategies: []"))
         assertNull(bindings.luaReloadConfig())
         assertArrayEquals(arrayOf("split_host", "pass"), bindings.luaListStrategies())
+        assertArrayEquals(arrayOf("/tmp/strategy.lua"), bindings.luaLoadedScriptPaths())
         assertNull(
             bindings.injectProbeResults(
                 arrayOf(StrategyProbeResultDto("fake", "youtube.com", success = true, latencyMs = 80)),
@@ -38,6 +39,8 @@ private class FakeStrategyEngineBindings(
     override fun luaReloadConfig(): String? = null
 
     override fun luaListStrategies(): Array<String> = strategies
+
+    override fun luaLoadedScriptPaths(): Array<String> = arrayOf("/tmp/strategy.lua")
 
     override fun luaValidateScript(path: String): String? = validateResult
 
