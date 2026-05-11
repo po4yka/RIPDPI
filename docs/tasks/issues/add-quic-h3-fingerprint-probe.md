@@ -1,18 +1,18 @@
 ---
 title: Add QUIC and HTTP/3 Fingerprint Probe for Selective UDP DPI Detection
 type: task
-status: backlog
+status: doing
 area: diagnostics
 priority: high
 owner: unassigned
 parent: dpi-probe-parity-epic
 blocks: []
-blocked_by: [add-dpi-error-classifier, add-doq-dns-over-quic-integrity-probe]
+blocked_by: []
 created: 2026-05-10
 updated: 2026-05-10
 ---
 
-- [ ] #task Add QUIC and HTTP/3 Fingerprint Probe for Selective UDP DPI Detection #repo/RIPDPI #area/diagnostics #status/backlog ⏫
+- [ ] #task Add QUIC and HTTP/3 Fingerprint Probe for Selective UDP DPI Detection #repo/RIPDPI #area/diagnostics #status/doing ⏫
 
 ## Objective
 
@@ -20,7 +20,7 @@ Add `QuicH3FingerprintProbe` that emits a Chrome-shaped QUIC Initial+0-RTT to ea
 
 ## Context
 
-Russian TSPU has been observed degrading QUIC traffic since 2024 — selective drop of QUIC Initial packets, forced fallback to TCP, and (more recently) fingerprint-aware blocking that drops only Chrome-shaped Initials while letting Firefox-shaped or generic Initials through. None of dpi-detector, rkn-block-checker, or dpi-checkers v3.x measures this layer; they all stop at TLS-over-TCP.
+Active L7 middleboxes have been observed degrading QUIC traffic since 2024 — selective drop of QUIC Initial packets, forced fallback to TCP, and fingerprint-aware handling that drops only Chrome-shaped Initials while letting Firefox-shaped or generic Initials through. None of the reference diagnostic tools measures this layer; they all stop at TLS-over-TCP.
 
 This probe sits between `add-tcp16-fat-header-dpi-probe` (TCP-side byte-counting) and `add-domain-reachability-scanner` (TLS-over-TCP layered cascade) in the diagnostic suite. It answers: *"is the censor differentiating QUIC from TCP, and if so, by raw drop or by fingerprint?"*
 
@@ -40,7 +40,7 @@ This probe sits between `add-tcp16-fat-header-dpi-probe` (TCP-side byte-counting
 
 **Implementation reuses** the netty QUIC stack from `add-doq-dns-over-quic-integrity-probe`. The fingerprint variation comes from controlling: TLS extension order, ALPN list ordering, TLS version offered, cipher suite list, transport-parameter ordering, padding pattern. Pre-recorded byte fixtures from real Chrome 120 / Firefox 121 captures are bundled and mutated per probe to add the right CRYPTO frame contents.
 
-**Targets:** the same set as `DomainReachabilityScanner` (40 RKN-blocked + 21 control). Probe runs in parallel with the TCP-layer scan to provide a clear "QUIC vs TCP" comparison.
+**Targets:** the same target cohorts as `DomainReachabilityScanner`. Probe runs in parallel with the TCP-layer scan to provide a clear "QUIC vs TCP" comparison.
 
 **Reference:** RFC 9000 (QUIC), RFC 9001 (QUIC-TLS), Chrome's `tools/quic/cert_compressor` for fingerprint examples; see also Tor Project's "QUIC censorship" 2025 incident reports.
 
@@ -84,3 +84,15 @@ This probe sits between `add-tcp16-fat-header-dpi-probe` (TCP-side byte-counting
 ## Definition of done
 
 All 8 unit tests green. QUIC probe surfaced in DiagnosticsScreen as "QUIC / HTTP-3 Fingerprint" card with per-target × per-fingerprint matrix. Fingerprint fixtures auditable in `assets/`. Documentation note in PR explaining how to update fixtures when Chrome ClientHello drifts.
+
+## Work log
+
+- 2026-05-11: Added core QUIC/H3 result model, fingerprint enum, packet factory, UDP socket abstraction, verdict ladder, and deterministic unit tests in `core/diagnostics`.
+- 2026-05-11: Added `QUIC_H3` to the DPI probe suite, including runner/controller/card wiring and aggregate verdict classification.
+- 2026-05-11: Fixed the UDP sanity stage so the VN probe remains independently classified as `QUIC_VN_REJECTED`.
+
+Remaining before close:
+
+- Replace synthetic QUIC Initial payloads with auditable Chrome/Firefox/generic fixtures or a real fixture-backed ClientHello/CRYPTO generator.
+- Add a gated Android network smoke test for a known HTTP/3 endpoint once the packet factory emits valid QUIC Initials.
+- Re-check the final task acceptance list and delete this note only when all criteria are covered.
