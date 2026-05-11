@@ -410,6 +410,50 @@ fn browser_like_quic_initial_supports_firefox_profile() {
 }
 
 #[test]
+fn browser_like_quic_initial_wire_images_are_stable() {
+    let cases = [
+        (
+            "chrome120",
+            build_browser_like_quic_initial(
+                QUIC_V1_VERSION,
+                Some("fixture.example.test"),
+                QuicInitialBrowserProfile::ChromeAndroid,
+            )
+            .expect("build chrome-like packet"),
+            9_608_150_740_566_105_141,
+        ),
+        (
+            "firefox121",
+            build_browser_like_quic_initial(
+                QUIC_V1_VERSION,
+                Some("fixture.example.test"),
+                QuicInitialBrowserProfile::FirefoxAndroid,
+            )
+            .expect("build firefox-like packet"),
+            11_472_675_710_253_673_189,
+        ),
+        (
+            "generic_v1",
+            build_generic_quic_initial(QUIC_V1_VERSION, Some("fixture.example.test")).expect("build generic packet"),
+            2_193_023_961_024_112_642,
+        ),
+    ];
+
+    let fingerprints: Vec<_> = cases.iter().map(|(_, packet, _)| stable_wire_fingerprint(packet)).collect();
+    assert_ne!(fingerprints[0], fingerprints[1]);
+    assert_ne!(fingerprints[0], fingerprints[2]);
+    assert_ne!(fingerprints[1], fingerprints[2]);
+
+    for (name, packet, expected_fingerprint) in cases {
+        let parsed = parse_quic_initial(&packet).unwrap_or_else(|| panic!("parse {name} packet"));
+        assert_eq!(parsed.version, QUIC_V1_VERSION, "{name}");
+        assert_eq!(parsed.host(), b"fixture.example.test", "{name}");
+        assert_eq!(packet.len(), QUIC_FAKE_INITIAL_TARGET_LEN, "{name}");
+        assert_eq!(stable_wire_fingerprint(&packet), expected_fingerprint, "{name}");
+    }
+}
+
+#[test]
 fn packetize_quic_initial_split_layout_rewrites_crypto_frame_boundaries() {
     let packet = build_realistic_quic_initial(QUIC_V2_VERSION, Some("layout.example.test")).expect("build packet");
     let seed = parse_quic_initial_seed(&packet).expect("seed");
@@ -545,4 +589,8 @@ fn parse_quic_initial_header_rejects_oversized_dcid() {
     packet.push(21); // dcid_len = 21 > QUIC_MAX_CID_LEN
     packet.resize(QUIC_INITIAL_MIN_LEN, 0);
     assert!(parse_quic_initial_header(&packet).is_none());
+}
+
+fn stable_wire_fingerprint(packet: &[u8]) -> u64 {
+    packet.iter().fold(0xcbf2_9ce4_8422_2325, |acc, byte| (acc ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3))
 }

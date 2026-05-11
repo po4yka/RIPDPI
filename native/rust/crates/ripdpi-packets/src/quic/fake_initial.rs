@@ -40,7 +40,15 @@ pub fn build_browser_like_quic_initial_seed(
     host_override: Option<&str>,
     profile: QuicInitialBrowserProfile,
 ) -> Option<QuicInitialSeed> {
-    let mut client_hello = padded_tls_client_hello(tls_fake_profile_bytes(tls_profile_for_quic_browser(profile)));
+    build_quic_initial_seed_for_tls_profile(version, host_override, tls_profile_for_quic_browser(profile))
+}
+
+fn build_quic_initial_seed_for_tls_profile(
+    version: u32,
+    host_override: Option<&str>,
+    profile: TlsFakeProfile,
+) -> Option<QuicInitialSeed> {
+    let mut client_hello = padded_tls_client_hello(tls_fake_profile_bytes(profile));
     if let Some(host) = host_override {
         let capacity = client_hello.len().saturating_add(host.len()).saturating_add(64);
         let mutation = change_tls_sni_seeded_like_c(&client_hello, host.as_bytes(), capacity, 7);
@@ -101,6 +109,11 @@ pub fn build_browser_like_quic_initial(
     profile: QuicInitialBrowserProfile,
 ) -> Option<Vec<u8>> {
     let seed = build_browser_like_quic_initial_seed(version, host_override, profile)?;
+    packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(QUIC_FAKE_INITIAL_TARGET_LEN))
+}
+
+pub fn build_generic_quic_initial(version: u32, host_override: Option<&str>) -> Option<Vec<u8>> {
+    let seed = build_quic_initial_seed_for_tls_profile(version, host_override, TlsFakeProfile::CompatDefault)?;
     packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(QUIC_FAKE_INITIAL_TARGET_LEN))
 }
 

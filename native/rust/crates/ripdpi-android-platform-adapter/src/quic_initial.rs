@@ -4,8 +4,8 @@ use jni::objects::JString;
 use jni::sys::jstring;
 use jni::{EnvUnowned, Outcome};
 use ripdpi_packets::{
-    build_browser_like_quic_initial, build_realistic_quic_initial, tamper_quic_version, QuicInitialBrowserProfile,
-    QUIC_V1_VERSION,
+    build_browser_like_quic_initial, build_generic_quic_initial, build_realistic_quic_initial, tamper_quic_version,
+    QuicInitialBrowserProfile, QUIC_V1_VERSION,
 };
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +45,7 @@ fn build_packet(request: &QuicInitialRequest) -> Option<Vec<u8>> {
         "firefox121" => {
             build_browser_like_quic_initial(QUIC_V1_VERSION, host, QuicInitialBrowserProfile::FirefoxAndroid)
         }
-        "generic_v1" => build_realistic_quic_initial(QUIC_V1_VERSION, host),
+        "generic_v1" => build_generic_quic_initial(QUIC_V1_VERSION, host),
         "vn_probe" => build_realistic_quic_initial(QUIC_V1_VERSION, host)
             .and_then(|packet| tamper_quic_version(&packet, RESERVED_VERSION)),
         _ => None,
@@ -92,6 +92,17 @@ mod tests {
         assert_eq!(value.get("error").and_then(Value::as_str), None);
         let packet = decode_packet(&value);
         assert_eq!(&packet[1..5], &QUIC_V1_VERSION.to_be_bytes());
+    }
+
+    #[test]
+    fn generic_request_returns_distinct_v1_initial() {
+        let chrome = create(r#"{"fingerprint":"chrome120","target":"cloudflare.com"}"#);
+        let generic = create(r#"{"fingerprint":"generic_v1","target":"cloudflare.com"}"#);
+        let chrome_packet = decode_packet(&serde_json::from_str(&chrome).expect("chrome response json"));
+        let generic_packet = decode_packet(&serde_json::from_str(&generic).expect("generic response json"));
+
+        assert_eq!(&generic_packet[1..5], &QUIC_V1_VERSION.to_be_bytes());
+        assert_ne!(chrome_packet, generic_packet);
     }
 
     #[test]

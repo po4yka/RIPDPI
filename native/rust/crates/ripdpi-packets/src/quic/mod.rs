@@ -7,8 +7,8 @@ mod tamper;
 
 pub use build::{build_quic_initial_from_tls, default_fake_quic_compat};
 pub use fake_initial::{
-    build_browser_like_quic_initial, build_browser_like_quic_initial_seed, build_realistic_quic_initial,
-    packetize_quic_initial, parse_quic_initial_seed,
+    build_browser_like_quic_initial, build_browser_like_quic_initial_seed, build_generic_quic_initial,
+    build_realistic_quic_initial, packetize_quic_initial, parse_quic_initial_seed,
 };
 pub use parse::{is_quic_initial, parse_quic_initial, parse_quic_initial_layout};
 pub use tamper::{tamper_quic_initial_split_crypto, tamper_quic_initial_split_sni, tamper_quic_version};
