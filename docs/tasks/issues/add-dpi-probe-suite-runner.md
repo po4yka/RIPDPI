@@ -1,7 +1,7 @@
 ---
 title: Add DPI Probe Suite Runner with Selection, Sequencing, and Aggregate Verdict
 type: task
-status: backlog
+status: doing
 area: diagnostics
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-11
 ---
 
-- [ ] #task Add DPI Probe Suite Runner with Selection, Sequencing, and Aggregate Verdict #repo/RIPDPI #area/diagnostics #status/backlog ⏫
+- [ ] #task Add DPI Probe Suite Runner with Selection, Sequencing, and Aggregate Verdict #repo/RIPDPI #area/diagnostics #status/doing ⏫
 
 ## Objective
 
