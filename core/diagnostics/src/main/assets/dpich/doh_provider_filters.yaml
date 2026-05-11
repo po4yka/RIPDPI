@@ -1,0 +1,18 @@
+- name: Google
+  dohHostname: dns.google
+  expectedFilter: as(15169) || org("google")
+- name: Cloudflare
+  dohHostname: cloudflare-dns.com
+  expectedFilter: as(13335) || org("cloudflare")
+- name: AdGuard
+  dohHostname: dns.adguard-dns.com
+  expectedFilter: as(212772) || org("adguard")
+- name: Quad9
+  dohHostname: dns.quad9.net
+  expectedFilter: as(19281) || org("quad9")
+- name: OpenDNS
+  dohHostname: doh.opendns.com
+  expectedFilter: as(36692) || org("opendns") || org("cisco")
+- name: NextDNS
+  dohHostname: dns.nextdns.io
+  expectedFilter: as(34939) || org("nextdns")

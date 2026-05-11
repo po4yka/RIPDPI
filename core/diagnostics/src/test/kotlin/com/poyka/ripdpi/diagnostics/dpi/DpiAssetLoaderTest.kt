@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.diagnostics.dpich.PtEndpoint
+import com.poyka.ripdpi.diagnostics.dpich.loadDohProviderFilters
 import com.poyka.ripdpi.diagnostics.dpich.loadObfs4BridgeEndpoints
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -18,6 +19,7 @@ class DpiAssetLoaderTest {
         assertEquals(108, loader.loadTcp16Targets().size)
         assertEquals(40, loader.loadDomains().size)
         assertEquals(188, loader.loadWhitelistSni().size)
+        assertEquals(6, loader.loadDohProviderFilters().size)
         assertEquals(10, loader.loadObfs4Bridges().size)
         assertEquals(3, loader.loadMeekFronts().size)
     }
@@ -143,6 +145,28 @@ class DpiAssetLoaderTest {
             )
 
         assertEquals(listOf(PtEndpoint("203.0.113.1", 443)), loader.loadObfs4BridgeEndpoints())
+    }
+
+    @Test
+    fun dohProviderFilterAssetParsesYamlEntries() {
+        val loader =
+            DpiAssetLoader(
+                fileProvider =
+                    FakeDpiAssetFileProvider(
+                        assets =
+                            mapOf(
+                                "dpich/doh_provider_filters.yaml" to
+                                    """
+                                    - name: Google
+                                      dohHostname: dns.google
+                                      expectedFilter: as(15169) || org("google")
+                                    """.trimIndent(),
+                            ),
+                    ),
+            )
+
+        assertEquals("Google", loader.loadDohProviderFilters().single().providerName)
+        assertEquals("dns.google", loader.loadDohProviderFilters().single().dohHostname)
     }
 
     @Test
