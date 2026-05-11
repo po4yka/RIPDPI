@@ -10,6 +10,8 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsHighlight
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummaryDocument
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummarySection
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,6 +23,8 @@ class DiagnosticsSummaryProjector
             const val ResultPreviewLimit = 5
             const val WarningPreviewLimit = 3
             const val DiagnosisHighlightLimit = 3
+            val probeDetailListSerializer = ListSerializer(ProbeDetail.serializer())
+            val probeDetailJson = Json { ignoreUnknownKeys = true }
         }
 
         fun project(
@@ -225,9 +229,49 @@ class DiagnosticsSummaryProjector
                     add("results=${selectedResults.size}")
                     selectedResults.take(ResultPreviewLimit).forEach { result ->
                         add("${result.probeType}:${result.target}=${result.outcome}")
+                        addAll(result.buildDiagnosticTlsPreviewLines())
                     }
                 }
             }
+
+        private fun ProbeResultEntity.buildDiagnosticTlsPreviewLines(): List<String> {
+            val detailsByKey =
+                runCatching {
+                    probeDetailJson.decodeFromString(probeDetailListSerializer, detailJson)
+                }.getOrNull()
+                    ?.associate { detail -> detail.key to detail.value }
+                    ?: return emptyList()
+            val prefix = "$probeType:$target"
+            val profile =
+                detailsByKey
+                    .firstValue(
+                        "diagnosticTlsProfile",
+                        "tlsProfile",
+                        "tlsProfileId",
+                    )
+            val mode =
+                detailsByKey
+                    .firstValue(
+                        "diagnosticTlsMode",
+                        "tlsMode",
+                        "tlsClientMode",
+                    )
+            val fallbackReason =
+                detailsByKey
+                    .firstValue(
+                        "diagnosticTlsFallbackReason",
+                        "tlsFallbackReason",
+                        "fallbackReason",
+                    )
+            return buildList {
+                profile?.let { add("$prefix:tlsProfile=$it") }
+                mode?.let { add("$prefix:tlsMode=$it") }
+                fallbackReason?.let { add("$prefix:tlsFallbackReason=$it") }
+            }
+        }
+
+        private fun Map<String, String>.firstValue(vararg keys: String): String? =
+            keys.firstNotNullOfOrNull { key -> this[key]?.takeIf(String::isNotBlank) }
 
         private fun buildWarningLines(warnings: List<NativeSessionEventEntity>): List<String> =
             warnings.take(WarningPreviewLimit).map { warning ->

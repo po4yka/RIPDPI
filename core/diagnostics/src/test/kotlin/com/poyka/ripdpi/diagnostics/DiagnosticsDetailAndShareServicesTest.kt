@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -150,6 +151,64 @@ class DiagnosticsDetailAndShareServicesTest {
             assertSame(expectedArchive, archive)
             assertEquals(session.id, archiveExporter.requestedRequest?.requestedSessionId)
             assertEquals(DiagnosticsArchiveReason.SHARE_ARCHIVE, archiveExporter.requestedRequest?.reason)
+        }
+
+    @Test
+    fun `share summary renders diagnostic tls state from probe details`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-tls",
+                    profileId = "default",
+                    pathMode = ScanPathMode.RAW_PATH.name,
+                    summary = "TLS state",
+                )
+            stores.sessionsState.value = listOf(session)
+            stores.replaceProbeResults(
+                sessionId = session.id,
+                results =
+                    listOf(
+                        ProbeResultEntity(
+                            id = "probe-tls",
+                            sessionId = session.id,
+                            probeType = "domain_reachability",
+                            target = "blocked.example",
+                            outcome = "tls_ok",
+                            detailJson =
+                                json.encodeToString(
+                                    ListSerializer(ProbeDetail.serializer()),
+                                    listOf(
+                                        ProbeDetail("diagnosticTlsProfile", "chrome_stable"),
+                                        ProbeDetail("diagnosticTlsMode", "Android template fallback"),
+                                        ProbeDetail(
+                                            "diagnosticTlsFallbackReason",
+                                            "android_okhttp_fingerprint_template",
+                                        ),
+                                    ),
+                                ),
+                            createdAt = 20L,
+                        ),
+                    ),
+            )
+            val shareService =
+                DefaultDiagnosticsShareService(
+                    scanRecordStore = stores,
+                    artifactReadStore = stores,
+                    artifactQueryStore = stores,
+                    archiveExporter = RecordingDiagnosticsArchiveExporter(unusedArchive(session.id)),
+                    json = json,
+                )
+
+            val summary = shareService.buildShareSummary(session.id)
+
+            assertTrue(summary.body.contains("domain_reachability:blocked.example:tlsProfile=chrome_stable"))
+            assertTrue(summary.body.contains("domain_reachability:blocked.example:tlsMode=Android template fallback"))
+            assertTrue(
+                summary.body.contains(
+                    "domain_reachability:blocked.example:tlsFallbackReason=android_okhttp_fingerprint_template",
+                ),
+            )
         }
 
     private fun buildBlockedDnsSession() =
