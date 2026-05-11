@@ -1,0 +1,11 @@
+# Placeholder PT reachability endpoints. Users can override this file at filesDir/dpich/obfs4_bridges.txt.
+192.0.2.10:443
+192.0.2.11:443
+192.0.2.12:443
+192.0.2.13:443
+192.0.2.14:443
+192.0.2.15:443
+192.0.2.16:443
+192.0.2.17:443
+192.0.2.18:443
+192.0.2.19:443

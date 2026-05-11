@@ -43,6 +43,8 @@ class DpiAssetLoader(
     private var cachedDomains: List<String>? = null
     private var cachedWhitelistSni: List<String>? = null
     private var cachedByohSyntheticDomains: List<String>? = null
+    private var cachedObfs4Bridges: List<String>? = null
+    private var cachedMeekFronts: List<String>? = null
     private var cachedRknWhitelistControl: List<RknTarget>? = null
     private var cachedRknBlacklistTest: List<RknTarget>? = null
 
@@ -65,6 +67,16 @@ class DpiAssetLoader(
         cachedByohSyntheticDomains ?: loadText(ByohSyntheticDomainsPath)
             .parseLineList()
             .also { cachedByohSyntheticDomains = it }
+
+    fun loadObfs4Bridges(): List<String> =
+        cachedObfs4Bridges ?: loadText(Obfs4BridgesPath)
+            .parseLineList()
+            .also { cachedObfs4Bridges = it }
+
+    fun loadMeekFronts(): List<String> =
+        cachedMeekFronts ?: loadText(MeekFrontsPath)
+            .parseLineList()
+            .also { cachedMeekFronts = it }
 
     fun loadRknWhitelistControl(): List<RknTarget> =
         cachedRknWhitelistControl ?: loadText(RknWhitelistControlPath)
@@ -121,6 +133,8 @@ class DpiAssetLoader(
         private const val DomainsPath = "dpi/domains.txt"
         private const val WhitelistSniPath = "dpi/whitelist_sni.txt"
         private const val ByohSyntheticDomainsPath = "dpich/byoh_synthetic_domains.txt"
+        private const val Obfs4BridgesPath = "dpich/obfs4_bridges.txt"
+        private const val MeekFrontsPath = "dpich/meek_fronts.txt"
         private const val RknWhitelistControlPath = "rkn/rkn_whitelist_control.txt"
         private const val RknBlacklistTestPath = "rkn/rkn_blacklist_test.txt"
         private const val LegacyTypoPortField = ",port"

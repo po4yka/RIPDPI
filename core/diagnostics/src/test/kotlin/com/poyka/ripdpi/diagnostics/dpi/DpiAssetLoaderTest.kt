@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.diagnostics.dpich.PtEndpoint
+import com.poyka.ripdpi.diagnostics.dpich.loadObfs4BridgeEndpoints
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Test
@@ -16,6 +18,8 @@ class DpiAssetLoaderTest {
         assertEquals(108, loader.loadTcp16Targets().size)
         assertEquals(40, loader.loadDomains().size)
         assertEquals(188, loader.loadWhitelistSni().size)
+        assertEquals(10, loader.loadObfs4Bridges().size)
+        assertEquals(3, loader.loadMeekFronts().size)
     }
 
     @Test
@@ -107,6 +111,38 @@ class DpiAssetLoaderTest {
             )
 
         assertEquals(listOf("override.example"), loader.loadDomains())
+    }
+
+    @Test
+    fun ptAssetUserOverrideTakesPrecedenceOverBundledAsset() {
+        val filesDir = createTempDirectory().toFile()
+        File(filesDir, "dpich/obfs4_bridges.txt").also { file ->
+            file.parentFile?.mkdirs()
+            file.writeText("203.0.113.1:443\n")
+        }
+        val loader =
+            DpiAssetLoader(
+                fileProvider =
+                    FakeDpiAssetFileProvider(
+                        filesDir = filesDir,
+                        assets = mapOf("dpich/obfs4_bridges.txt" to "192.0.2.1:443\n"),
+                    ),
+            )
+
+        assertEquals(listOf("203.0.113.1:443"), loader.loadObfs4Bridges())
+    }
+
+    @Test
+    fun obfs4BridgeAssetsMapToEndpoints() {
+        val loader =
+            DpiAssetLoader(
+                fileProvider =
+                    FakeDpiAssetFileProvider(
+                        assets = mapOf("dpich/obfs4_bridges.txt" to "203.0.113.1:443\ninvalid\n"),
+                    ),
+            )
+
+        assertEquals(listOf(PtEndpoint("203.0.113.1", 443)), loader.loadObfs4BridgeEndpoints())
     }
 
     @Test
