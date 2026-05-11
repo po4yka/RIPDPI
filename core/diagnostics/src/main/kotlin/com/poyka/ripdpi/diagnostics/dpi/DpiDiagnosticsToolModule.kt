@@ -1,7 +1,10 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
+import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetector
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
+import com.poyka.ripdpi.diagnostics.dpich.KnownDohProviderSubnetMetadataLookup
+import com.poyka.ripdpi.diagnostics.dpich.loadDohProviderFilters
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
 import dagger.Module
@@ -13,9 +16,17 @@ import dagger.hilt.android.components.ViewModelComponent
 @InstallIn(ViewModelComponent::class)
 object DpiDiagnosticsToolModule {
     @Provides
-    fun provideDnsIntegrityChecker(client: DoqQuicClient): DnsIntegrityChecker =
+    fun provideDnsIntegrityChecker(
+        client: DoqQuicClient,
+        assetLoader: DpiAssetLoader,
+    ): DnsIntegrityChecker =
         DnsIntegrityChecker(
             doqProbe = if (DpiDiagnosticsRuntimeFlags.includeQuic) DoqIntegrityProbe(client) else null,
+            dohBootstrapDetector =
+                DohBootstrapSpoofingDetector(
+                    metadata = KnownDohProviderSubnetMetadataLookup(),
+                    providers = assetLoader.loadDohProviderFilters(),
+                ),
         )
 
     @Provides
