@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniFinder
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
@@ -331,9 +332,57 @@ internal fun DpiSuiteProbeResult.toDpiSuiteProbeRowUiModel(): DiagnosticsDpiSuit
 
 private fun DpiSuiteProbeResult.detailRows(): ImmutableList<DiagnosticsDpiSuiteProbeDetailUiModel> =
     when (this) {
-        is DpiSuiteProbeResult.QuicH3 -> results.map { result -> result.toQuicDetailRow() }.toPersistentList()
-        else -> persistentListOf()
+        is DpiSuiteProbeResult.DomainReachability -> {
+            results.mapNotNull { result -> result.tlsClientState }.toDiagnosticsTlsDetailRows()
+        }
+
+        is DpiSuiteProbeResult.Tcp16 -> {
+            results.mapNotNull { result -> result.tlsClientState }.toDiagnosticsTlsDetailRows()
+        }
+
+        is DpiSuiteProbeResult.QuicH3 -> {
+            results.map { result -> result.toQuicDetailRow() }.toPersistentList()
+        }
+
+        else -> {
+            persistentListOf()
+        }
     }
+
+private fun List<DiagnosticsTlsClientState>.toDiagnosticsTlsDetailRows():
+    ImmutableList<DiagnosticsDpiSuiteProbeDetailUiModel> {
+    val state = firstOrNull() ?: return persistentListOf()
+    val mode =
+        when {
+            state.nativeOwnedTlsAvailable -> "Native owned TLS"
+            state.fallbackActive -> "Android template fallback"
+            else -> "Default TLS"
+        }
+    val tone =
+        when {
+            state.fallbackActive -> DiagnosticsTone.Warning
+            state.nativeOwnedTlsAvailable -> DiagnosticsTone.Positive
+            else -> DiagnosticsTone.Neutral
+        }
+    return buildList {
+        state.profileId?.let { profile ->
+            add(
+                DiagnosticsDpiSuiteProbeDetailUiModel(
+                    label = "TLS profile",
+                    detail = profile,
+                    tone = DiagnosticsTone.Info,
+                ),
+            )
+        }
+        add(
+            DiagnosticsDpiSuiteProbeDetailUiModel(
+                label = "TLS mode",
+                detail = mode,
+                tone = tone,
+            ),
+        )
+    }.toPersistentList()
+}
 
 private fun QuicProbeResult.toQuicDetailRow(): DiagnosticsDpiSuiteProbeDetailUiModel =
     DiagnosticsDpiSuiteProbeDetailUiModel(

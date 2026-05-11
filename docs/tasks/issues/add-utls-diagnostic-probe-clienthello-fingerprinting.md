@@ -77,10 +77,11 @@ All 6 unit tests green. ClientHello byte-equality regression test green. All dia
 - 2026-05-11: Added `DiagnosticsTlsClientState` on `DiagnosticsHttpClientFactory` and exposed the current Android OkHttp fingerprint-template fallback state from `DefaultOwnedTlsClientFactory`, with focused service coverage for the fallback reason.
 - 2026-05-11: Threaded `DiagnosticsTlsClientState` into `DomainReachabilityResult`, `Tcp16ProbeResult`, and `RknCheckResult`, with focused tests proving fallback-active probe runs carry the state from their injected diagnostic TLS factory.
 - 2026-05-11: Surfaced diagnostic TLS profile/mode metrics in the Domain Reachability, TCP16, and layered block-diagnosis tool UI mappers so fallback-active probe runs are visible in app-side diagnostic cards.
+- 2026-05-11: Surfaced diagnostic TLS profile/mode rows in the aggregate suite Domain Reachability and TCP16 row mappers so fallback-active runs remain visible outside individual tool cards.
 
 Remaining before close:
 
 - Add the formal `TlsClient`/`TlsConnection` API or update the acceptance criteria to the existing `DiagnosticsHttpClientFactory`/`NativeOwnedTlsHttpFetcher` contract.
-- Propagate `DiagnosticsTlsClientState` into suite-row/export rendering, not just the individual tool cards.
+- Propagate `DiagnosticsTlsClientState` into export rendering, not just on-screen diagnostic rows.
 - Add byte-level ClientHello fixture regression coverage for the native owned TLS profiles.
 - Re-check direct diagnostic `SSLSocket`/`SSLContext` usage and keep only intentionally non-owned-TLS capability checks outside the factory path.
