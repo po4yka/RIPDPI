@@ -46,6 +46,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
+import com.poyka.ripdpi.activities.DiagnosticsCidrWhitelistToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDpiToolsUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEffect
 import com.poyka.ripdpi.activities.DiagnosticsHealth
@@ -143,6 +144,7 @@ data class DiagnosticsScreenActions(
     val onRunDnsAvailabilitySurvey: () -> Unit = {},
     val onRunDomainReachabilityScan: () -> Unit = {},
     val onRunCompressionProbe: () -> Unit = {},
+    val onRunCidrWhitelistDetection: () -> Unit = {},
     val onRunTcp16FatHeaderProbe: () -> Unit = {},
     val onRunAllowlistSniFinder: () -> Unit = {},
     val onRunPluggableTransportProbe: () -> Unit = {},
@@ -169,6 +171,7 @@ fun DiagnosticsScreen(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     actions: DiagnosticsScreenActions = DiagnosticsScreenActions(),
     dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
+    cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel = DiagnosticsCidrWhitelistToolUiModel(),
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     pcapRecording: Boolean = false,
 ) {
@@ -183,6 +186,7 @@ fun DiagnosticsScreen(
         showDebugInfo = showDebugInfo,
         onToggleDebugInfo = { if (BuildConfig.DEBUG) showDebugInfo = !showDebugInfo },
         dpiTools = dpiTools,
+        cidrWhitelistTool = cidrWhitelistTool,
         pluggableTransportTool = pluggableTransportTool,
         pcapRecording = pcapRecording,
         modifier = modifier,
@@ -200,6 +204,7 @@ private fun DiagnosticsScreenFrame(
     showDebugInfo: Boolean,
     onToggleDebugInfo: () -> Unit,
     dpiTools: DiagnosticsDpiToolsUiModel,
+    cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
     pcapRecording: Boolean,
     modifier: Modifier,
@@ -272,6 +277,7 @@ private fun DiagnosticsScreenFrame(
                     pagerState = pagerState,
                     actions = actions,
                     dpiTools = dpiTools,
+                    cidrWhitelistTool = cidrWhitelistTool,
                     pluggableTransportTool = pluggableTransportTool,
                     pcapRecording = pcapRecording,
                     modifier = Modifier.weight(1f),
@@ -287,6 +293,7 @@ private fun DiagnosticsScreenPager(
     pagerState: PagerState,
     actions: DiagnosticsScreenActions,
     dpiTools: DiagnosticsDpiToolsUiModel,
+    cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
     pcapRecording: Boolean,
     modifier: Modifier = Modifier,
@@ -340,6 +347,7 @@ private fun DiagnosticsScreenPager(
                     onSaveArchive = actions.onSaveArchive,
                     onSaveLogs = actions.onSaveLogs,
                     dpiTools = dpiTools,
+                    cidrWhitelistTool = cidrWhitelistTool,
                     pluggableTransportTool = pluggableTransportTool,
                     dpiToolActions =
                         DiagnosticsDpiToolActions(
@@ -347,6 +355,7 @@ private fun DiagnosticsScreenPager(
                             onRunDnsAvailabilitySurvey = actions.onRunDnsAvailabilitySurvey,
                             onRunDomainReachabilityScan = actions.onRunDomainReachabilityScan,
                             onRunCompressionProbe = actions.onRunCompressionProbe,
+                            onRunCidrWhitelistDetection = actions.onRunCidrWhitelistDetection,
                             onRunTcp16FatHeaderProbe = actions.onRunTcp16FatHeaderProbe,
                             onRunAllowlistSniFinder = actions.onRunAllowlistSniFinder,
                             onRunPluggableTransportProbe = actions.onRunPluggableTransportProbe,

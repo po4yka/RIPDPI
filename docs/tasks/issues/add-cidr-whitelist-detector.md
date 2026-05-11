@@ -1,7 +1,7 @@
 ---
 title: Add CIDR-Whitelist Censorship Detector via Control vs Regular URL Group Probe
 type: task
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-11
 ---
 
-- [ ] #task Add CIDR-Whitelist Censorship Detector via Control vs Regular URL Group Probe #repo/RIPDPI #area/diagnostics #status/doing ⏫
+- [ ] #task Add CIDR-Whitelist Censorship Detector via Control vs Regular URL Group Probe #repo/RIPDPI #area/diagnostics #status/review ⏫
 
 ## Objective
 
@@ -50,7 +50,7 @@ dpi-ch's `cidrwhitelist.go` runs both groups in parallel with `context.WithTimeo
 - [x] Concurrency: all URLs in both groups probed in parallel via `coroutineScope { async { ... } }`
 - [x] Early-cancel: as soon as **any** regular-group URL succeeds, cancel all in-flight probes (verdict is `OK` regardless of whitelisted-group results) — matches dpi-ch's `regCancel(); wlCancel()` pattern
 - [x] Verdict logic: `regularOk > 0 → OK`; `regularOk == 0 && whitelistedOk > 0 → CIDR_WHITELIST_DETECTED`; both zero → `NO_INTERNET`
-- [ ] Surfaced in DiagnosticsScreen as "CIDR Whitelist Detection" card with verdict + per-URL trace expandable
+- [x] Surfaced in DiagnosticsScreen as "CIDR Whitelist Detection" card with verdict + per-URL trace expandable
 - [x] Unit tests: all 3 verdict branches; cancel-on-first-regular-success behavior
 
 ## TDD workflow
@@ -76,7 +76,8 @@ All 7 unit tests green. Card visible in DiagnosticsScreen Tools section. Per-URL
 ## Work log
 
 - 2026-05-11: Added `CidrWhitelistDetector`, URL group/result/trace models, `OkHttpCidrWhitelistUrlProbe`, bundled URL group assets with override-aware `DpiAssetLoader` methods, Hilt provider wiring through `DiagnosticsHttpClientFactory`, and focused tests for all verdict branches, early cancellation, traces, and asset overrides.
+- 2026-05-11: Exposed the detector in the Diagnostics tools UI via `DiagnosticsViewModel`, `DiagnosticsCidrWhitelistController`, a CIDR whitelist card, expandable URL traces, and a mapper regression covering verdict metrics and trace rows.
 
 Remaining before close:
 
-- Surface the detector in the DiagnosticsScreen tools section with an expandable per-URL trace.
+- Run or bless visual coverage for the updated diagnostics tools section before deleting the task note.

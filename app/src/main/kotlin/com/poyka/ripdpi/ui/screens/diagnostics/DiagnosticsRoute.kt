@@ -53,6 +53,7 @@ fun DiagnosticsRoute(
     val domainReachabilityTool by viewModel.domainReachabilityTool.collectAsStateWithLifecycle()
     val rknBlockDiagnosisTool by viewModel.rknBlockDiagnosisTool.collectAsStateWithLifecycle()
     val compressionProbeTool by viewModel.compressionProbeTool.collectAsStateWithLifecycle()
+    val cidrWhitelistTool by viewModel.cidrWhitelistTool.collectAsStateWithLifecycle()
     val tcp16FatHeaderTool by viewModel.tcp16FatHeaderTool.collectAsStateWithLifecycle()
     val allowlistSniTool by viewModel.allowlistSniTool.collectAsStateWithLifecycle()
     val pluggableTransportTool by viewModel.pluggableTransportTool.collectAsStateWithLifecycle()
@@ -215,6 +216,7 @@ fun DiagnosticsRoute(
                 onRunDnsAvailabilitySurvey = remember(viewModel) { viewModel::runDnsAvailabilitySurvey },
                 onRunDomainReachabilityScan = remember(viewModel) { viewModel::runDomainReachabilityScan },
                 onRunCompressionProbe = remember(viewModel) { viewModel::runCompressionProbe },
+                onRunCidrWhitelistDetection = remember(viewModel) { viewModel::runCidrWhitelistDetection },
                 onRunTcp16FatHeaderProbe = remember(viewModel) { viewModel::runTcp16FatHeaderProbe },
                 onRunAllowlistSniFinder = remember(viewModel) { viewModel::runAllowlistSniFinder },
                 onRunPluggableTransportProbe = remember(viewModel) { viewModel::runPluggableTransportProbe },
@@ -245,6 +247,7 @@ fun DiagnosticsRoute(
                 byohCompatibility = byohCompatibilityTool,
                 dpiSuite = dpiSuiteTool,
             ),
+        cidrWhitelistTool = cidrWhitelistTool,
         pluggableTransportTool = pluggableTransportTool,
         pcapRecording = pcapRecording,
         modifier = modifier,

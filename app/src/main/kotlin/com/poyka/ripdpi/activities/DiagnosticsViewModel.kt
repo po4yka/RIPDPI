@@ -9,6 +9,7 @@ import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
+import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
@@ -36,6 +37,7 @@ class DiagnosticsViewModel
         domainReachabilityScanner: DomainReachabilityScanner,
         tcp16FatHeaderProbe: Tcp16FatHeaderProbe,
         httpCompressionProber: HttpCompressionProber,
+        cidrWhitelistDetector: CidrWhitelistDetector,
         rknLayeredProbePipeline: RknLayeredProbePipeline,
         selfInfoFetcher: SelfInfoFetcher,
         diagnosticsUiStateAssembler: DiagnosticsUiStateAssembler,
@@ -68,6 +70,11 @@ class DiagnosticsViewModel
                 httpCompressionProber = httpCompressionProber,
                 rknLayeredProbePipeline = rknLayeredProbePipeline,
                 selfInfoFetcher = selfInfoFetcher,
+            )
+        private val cidrWhitelistController =
+            DiagnosticsCidrWhitelistController(
+                scope = viewModelScope,
+                detector = cidrWhitelistDetector,
             )
         private val dpiSuiteController =
             DiagnosticsDpiSuiteController(
@@ -108,6 +115,8 @@ class DiagnosticsViewModel
             dpiToolsController.rknBlockDiagnosisTool
         val compressionProbeTool: StateFlow<DiagnosticsCompressionProbeToolUiModel> =
             dpiToolsController.compressionProbeTool
+        val cidrWhitelistTool: StateFlow<DiagnosticsCidrWhitelistToolUiModel> =
+            cidrWhitelistController.tool
         val tcp16FatHeaderTool: StateFlow<DiagnosticsTcp16FatHeaderToolUiModel> =
             dpiToolsController.tcp16FatHeaderTool
         val allowlistSniTool: StateFlow<DiagnosticsAllowlistSniToolUiModel> =
@@ -265,6 +274,8 @@ class DiagnosticsViewModel
         fun runDomainReachabilityScan() = dpiToolsController.runDomainReachabilityScan()
 
         fun runCompressionProbe() = dpiToolsController.runCompressionProbe()
+
+        fun runCidrWhitelistDetection() = cidrWhitelistController.run()
 
         fun runTcp16FatHeaderProbe() = dpiToolsController.runTcp16FatHeaderProbe()
 

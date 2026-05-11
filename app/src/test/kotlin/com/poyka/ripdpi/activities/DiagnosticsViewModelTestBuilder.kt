@@ -20,6 +20,7 @@ import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
+import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
@@ -46,6 +47,7 @@ internal fun createDiagnosticsViewModel(
     rknLayeredProbePipeline: RknLayeredProbePipeline = RknLayeredProbePipeline(),
     selfInfoFetcher: SelfInfoFetcher = SelfInfoFetcher(),
     httpCompressionProber: HttpCompressionProber = HttpCompressionProber(),
+    cidrWhitelistDetector: CidrWhitelistDetector = CidrWhitelistDetector(emptyList(), emptyList()),
     autoStartScan: Boolean = false,
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
@@ -93,6 +95,7 @@ internal fun createDiagnosticsViewModel(
             rknLayeredProbePipeline = rknLayeredProbePipeline,
             selfInfoFetcher = selfInfoFetcher,
             httpCompressionProber = httpCompressionProber,
+            cidrWhitelistDetector = cidrWhitelistDetector,
             tcp16FatHeaderProbe = Tcp16FatHeaderProbe(),
             diagnosticsUiStateAssembler =
                 DiagnosticsUiStateAssembler(

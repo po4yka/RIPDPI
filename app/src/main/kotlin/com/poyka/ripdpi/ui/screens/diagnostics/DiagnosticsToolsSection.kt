@@ -27,6 +27,7 @@ import com.poyka.ripdpi.activities.DiagnosticsAllowlistSniToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsApproachRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
+import com.poyka.ripdpi.activities.DiagnosticsCidrWhitelistToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsCompatibleSniUiModel
 import com.poyka.ripdpi.activities.DiagnosticsCompressionProbeState
 import com.poyka.ripdpi.activities.DiagnosticsCompressionProbeToolUiModel
@@ -65,6 +66,7 @@ internal data class DiagnosticsDpiToolActions(
     val onRunDnsAvailabilitySurvey: () -> Unit = {},
     val onRunDomainReachabilityScan: () -> Unit = {},
     val onRunCompressionProbe: () -> Unit = {},
+    val onRunCidrWhitelistDetection: () -> Unit = {},
     val onRunTcp16FatHeaderProbe: () -> Unit = {},
     val onRunAllowlistSniFinder: () -> Unit = {},
     val onRunPluggableTransportProbe: () -> Unit = {},
@@ -93,6 +95,7 @@ internal fun ToolsSection(
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
     dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
+    cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel = DiagnosticsCidrWhitelistToolUiModel(),
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     dpiToolActions: DiagnosticsDpiToolActions = DiagnosticsDpiToolActions(),
     onOpenDetectionCheck: () -> Unit = {},
@@ -116,6 +119,7 @@ internal fun ToolsSection(
         shareItems(share, onShareSummary, onShareArchive, onSaveArchive, onSaveLogs)
         dpiToolItems(
             dpiTools = dpiTools,
+            cidrWhitelistTool = cidrWhitelistTool,
             pluggableTransportTool = pluggableTransportTool,
             actions = dpiToolActions,
         )
@@ -225,6 +229,7 @@ private fun LazyListScope.shareItems(
 
 private fun LazyListScope.dpiToolItems(
     dpiTools: DiagnosticsDpiToolsUiModel,
+    cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
     actions: DiagnosticsDpiToolActions,
 ) {
@@ -261,6 +266,12 @@ private fun LazyListScope.dpiToolItems(
             tool = dpiTools.compressionProbe,
             onRun = actions.onRunCompressionProbe,
             onZstdEnabledChange = actions.onCompressionProbeZstdEnabledChange,
+        )
+    }
+    item {
+        CidrWhitelistDetectionCard(
+            tool = cidrWhitelistTool,
+            onRun = actions.onRunCidrWhitelistDetection,
         )
     }
     item {
