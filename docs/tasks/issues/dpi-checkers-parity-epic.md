@@ -110,7 +110,7 @@ Same as prior epics: write tests first, confirm red, implement, confirm green, r
 
 - `add-subnet-filter-dsl` blocks `add-webhost-farm-dynamic-host-discovery` and `add-cidr-whitelist-detector`
 - `add-webhost-farm-dynamic-host-discovery` blocks `add-cidr-whitelist-detector` and `add-ipv4-whitelisted-subnet-discovery`
-- `add-utls-diagnostic-probe-clienthello-fingerprinting` blocks `add-webhost-farm-dynamic-host-discovery` and `add-cidr-whitelist-detector`
+- `add-utls-diagnostic-probe-clienthello-fingerprinting` no longer blocks `add-webhost-farm-dynamic-host-discovery` or `add-cidr-whitelist-detector`; ECH/keylog follow-up work still needs dedicated native APIs beyond the shared diagnostic HTTP client path.
 - `add-byoh-domain-whitelist-checker` requires `add-tcp16-fat-header-dpi-probe` (reuses TCP 16-20 logic)
 - All probes require `add-geoip-db-and-geosite-db-runtime-loader-and-lookup` for filter evaluation
 

@@ -7,7 +7,7 @@ priority: high
 owner: unassigned
 parent: dpi-checkers-parity-epic
 blocks: []
-blocked_by: [add-webhost-farm-dynamic-host-discovery, add-utls-diagnostic-probe-clienthello-fingerprinting]
+blocked_by: [add-webhost-farm-dynamic-host-discovery]
 created: 2026-05-10
 updated: 2026-05-11
 ---
@@ -46,7 +46,7 @@ dpi-ch's `cidrwhitelist.go` runs both groups in parallel with `context.WithTimeo
 - [ ] Both URL groups loaded from bundled assets via extended `DpiAssetLoader`; user-override supported per the existing override mechanism
 - [ ] Default whitelisted group (5 URLs): gosuslugi.ru, mos.ru, sberbank.ru, vk.com, yandex.ru
 - [ ] Default regular group (5 URLs): github.com, cloudflare.com, example.com, mozilla.org, wikipedia.org
-- [ ] Per-URL probe: HTTP HEAD via `OkHttpClient` (using `add-utls-diagnostic-probe-clienthello-fingerprinting` for TLS); ignores body; timeout configurable
+- [ ] Per-URL probe: HTTP HEAD via `DiagnosticsHttpClientFactory`/`OkHttpClient`; ignores body; timeout configurable
 - [ ] Concurrency: all URLs in both groups probed in parallel via `coroutineScope { async { ... } }`
 - [ ] Early-cancel: as soon as **any** regular-group URL succeeds, cancel all in-flight probes (verdict is `OK` regardless of whitelisted-group results) — matches dpi-ch's `regCancel(); wlCancel()` pattern
 - [ ] Verdict logic: `regularOk > 0 → OK`; `regularOk == 0 && whitelistedOk > 0 → CIDR_WHITELIST_DETECTED`; both zero → `NO_INTERNET`

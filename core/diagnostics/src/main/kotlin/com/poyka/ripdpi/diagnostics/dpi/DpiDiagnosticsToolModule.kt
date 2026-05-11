@@ -4,6 +4,8 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetector
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.dpich.KnownDohProviderSubnetMetadataLookup
+import com.poyka.ripdpi.diagnostics.dpich.OkHttpWebhostProbe
+import com.poyka.ripdpi.diagnostics.dpich.WebhostFarm
 import com.poyka.ripdpi.diagnostics.dpich.loadDohProviderFilters
 import com.poyka.ripdpi.diagnostics.rkn.HttpClientRknTlsProbe
 import com.poyka.ripdpi.diagnostics.rkn.OkHttpRknHttpProbe
@@ -68,6 +70,10 @@ object DpiDiagnosticsToolModule {
     @Provides
     fun provideHttpCompressionProber(tlsClientFactory: DiagnosticsHttpClientFactory): HttpCompressionProber =
         HttpCompressionProber(clientBuilder = tlsClientFactory::createClient)
+
+    @Provides
+    fun provideWebhostFarm(tlsClientFactory: DiagnosticsHttpClientFactory): WebhostFarm =
+        WebhostFarm(probe = OkHttpWebhostProbe(clientBuilder = tlsClientFactory::createClient))
 
     @Provides
     fun provideSelfInfoFetcher(tlsClientFactory: DiagnosticsHttpClientFactory): SelfInfoFetcher =

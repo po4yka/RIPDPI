@@ -7,7 +7,7 @@ priority: high
 owner: unassigned
 parent: dpi-checkers-parity-epic
 blocks: [add-cidr-whitelist-detector, add-ipv4-whitelisted-subnet-discovery]
-blocked_by: [add-utls-diagnostic-probe-clienthello-fingerprinting]
+blocked_by: []
 created: 2026-05-10
 updated: 2026-05-11
 ---
@@ -57,7 +57,7 @@ output: alive[]: List<DiscoveredHost>
 - [ ] `DiscoveredHost`: `ip: String`, `port: Int`, `sourceSubnet: IpRange`, `asn: Int?`, `org: String?`, `tcpTimeMs: Long`, `tlsTimeMs: Long`
 - [ ] Candidate sampling: if total IPs in `subnets` > `MAX_CANDIDATES (default 10_000)`, sample uniformly without replacement to that cap to bound memory
 - [ ] Random shuffle seeded with per-run nonce so results are reproducible per run but distinct across runs
-- [ ] TCP+TLS probe via `add-utls-diagnostic-probe-clienthello-fingerprinting` client; falls back to system SSLSocket if uTLS-equivalent unavailable (with note in result)
+- [x] TCP+TLS probe uses the injected diagnostic owned-TLS HTTP client path and reports failures without constructing probe-local JSSE TLS sockets.
 - [ ] Configurable timeouts via constructor: `tcpConnectTimeout (default 3s)`, `tlsHandshakeTimeout (default 5s)`
 - [ ] Worker pool via coroutine `Semaphore(workers)`
 - [ ] Early stop when `alive.size == count` — pending probes cancelled
@@ -88,8 +88,9 @@ All 8 unit tests green. `WebhostFarm` consumed by `add-cidr-whitelist-detector` 
 
 ## Work log
 
-- 2026-05-11: Added `WebhostFarm`, `DiscoveredHost`, injectable `WebhostProbe`, CIDR candidate expansion, max-candidate sampling, count-limited discovery, TCP/TLS probe filtering, and reverse ASN/org enrichment with focused unit coverage. The default probe currently uses Android/JVM socket TLS fallback while the native diagnostic TLS contract remains tracked by `add-utls-diagnostic-probe-clienthello-fingerprinting`.
+- 2026-05-11: Added `WebhostFarm`, `DiscoveredHost`, injectable `WebhostProbe`, CIDR candidate expansion, max-candidate sampling, count-limited discovery, TCP/TLS probe filtering, and reverse ASN/org enrichment with focused unit coverage.
 - 2026-05-11: Replaced the default `SocketWebhostProbe` with an OkHttp-based `OkHttpWebhostProbe` so the farm no longer instantiates JSSE TLS sockets directly; callers can inject the owned diagnostic HTTP client builder when this farm is wired into downstream probes.
+- 2026-05-11: Wired `WebhostFarm` through `DpiDiagnosticsToolModule` with `DiagnosticsHttpClientFactory`, and added a regression proving `OkHttpWebhostProbe` consumes the injected diagnostic client builder.
 
 Remaining before close:
 

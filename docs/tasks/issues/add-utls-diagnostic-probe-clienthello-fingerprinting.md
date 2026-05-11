@@ -6,7 +6,7 @@ area: diagnostics
 priority: medium
 owner: unassigned
 parent: dpi-checkers-parity-epic
-blocks: [add-webhost-farm-dynamic-host-discovery, add-cidr-whitelist-detector]
+blocks: [add-tls-cert-sni-discoverer, add-ech-encrypted-client-hello-probe, add-tls-keylog-path-for-pcap-debug]
 blocked_by: []
 created: 2026-05-10
 updated: 2026-05-11
@@ -51,7 +51,7 @@ OkHttp template fallback, so diagnostic verdicts do not silently describe a diff
 - [x] Probe results carry `DiagnosticsTlsClientState` and UI mappers render profile/mode indicators.
 - [x] Share/archive summary rendering includes persisted diagnostic TLS profile/mode/fallback details.
 - [x] Native ClientHello fixture regression covers the owned profile packet surface.
-- [ ] Final audit confirms any remaining direct `SSLSocket`/`SSLContext` usage is intentionally non-owned-TLS capability code.
+- [x] Final audit confirms any remaining direct `SSLSocket`/`SSLContext` usage is intentionally non-owned-TLS capability code.
 
 ## TDD workflow
 
@@ -78,6 +78,7 @@ summaries, and the final direct TLS usage audit has no unowned diagnostic probe 
 - 2026-05-11: Added a fixture-backed native ClientHello packet parity regression for `ripdpi-tls-profiles`, covering profile ids, ALPN, SNI, record and handshake lengths, GREASE counts, supported groups, key-share groups, extension data lengths, fixed-family extension order, and permuted-family extension sets.
 - 2026-05-11: Rendered persisted diagnostic TLS profile/mode/fallback fields from probe details into share/archive summary raw previews so the TLS path state is export-visible as well as UI-visible.
 - 2026-05-11: Reconciled the task contract with RIPDPI's actual `DiagnosticsHttpClientFactory`/`DefaultOwnedTlsClientFactory`/`NativeOwnedTlsHttpFetcher` owned-TLS API, then removed probe-local JSSE socket/context construction from Domain Reachability, TCP16, layered block-diagnosis TLS defaults, and WebhostFarm. Added a source regression that blocks reintroducing direct JSSE socket/context construction in those diagnostic probes.
+- 2026-05-11: Unblocked WebhostFarm and CIDR-whitelist detector from the owned-TLS client task after wiring WebhostFarm through `DpiDiagnosticsToolModule` with `DiagnosticsHttpClientFactory`; ECH and keylog remain blocked because they require dedicated native APIs beyond the shared diagnostic HTTP client path.
 
 Remaining before close:
 

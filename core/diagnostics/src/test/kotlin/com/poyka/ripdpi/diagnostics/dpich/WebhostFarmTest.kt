@@ -1,9 +1,17 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
 import kotlinx.coroutines.test.runTest
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.ServerSocket
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.thread
 import kotlin.random.Random
 
 class WebhostFarmTest {
@@ -130,6 +138,60 @@ class WebhostFarmTest {
                 }.exceptionOrNull()
 
             assertTrue(error is IllegalArgumentException)
+        }
+
+    @Test
+    fun okHttpProbeUsesInjectedDiagnosticsClientFactory() =
+        runTest {
+            ServerSocket(0).use { server ->
+                val tcpAccepted = AtomicBoolean(false)
+                val acceptThread =
+                    thread(start = true) {
+                        server.accept().use {
+                            tcpAccepted.set(true)
+                        }
+                    }
+                var factoryCalls = 0
+                var requestedHost = ""
+                val probe =
+                    OkHttpWebhostProbe(
+                        clientBuilder = { configure ->
+                            factoryCalls += 1
+                            OkHttpClient
+                                .Builder()
+                                .addInterceptor(
+                                    Interceptor { chain ->
+                                        requestedHost = chain.request().url.host
+                                        Response
+                                            .Builder()
+                                            .request(chain.request())
+                                            .protocol(Protocol.HTTP_1_1)
+                                            .code(204)
+                                            .message("No Content")
+                                            .body(ByteArray(0).toResponseBody())
+                                            .build()
+                                    },
+                                ).apply(configure)
+                                .build()
+                        },
+                    )
+
+                val result =
+                    probe.probe(
+                        ip = "127.0.0.1",
+                        port = server.localPort,
+                        sni = "probe.example",
+                        tcpConnectTimeoutMs = 1_000,
+                        tlsHandshakeTimeoutMs = 1_000,
+                    )
+                acceptThread.join(1_000)
+
+                assertEquals(true, result.tcpOk)
+                assertEquals(true, result.tlsOk)
+                assertEquals(1, factoryCalls)
+                assertEquals("probe.example", requestedHost)
+                assertTrue(tcpAccepted.get())
+            }
         }
 
     private class FakeWebhostProbe(
