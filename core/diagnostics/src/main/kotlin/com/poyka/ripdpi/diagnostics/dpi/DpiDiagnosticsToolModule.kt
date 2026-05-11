@@ -13,7 +13,17 @@ import dagger.hilt.android.components.ViewModelComponent
 @InstallIn(ViewModelComponent::class)
 object DpiDiagnosticsToolModule {
     @Provides
-    fun provideDnsIntegrityChecker(): DnsIntegrityChecker = DnsIntegrityChecker()
+    fun provideDnsIntegrityChecker(doqProbe: DoqIntegrityProbe): DnsIntegrityChecker =
+        DnsIntegrityChecker(doqProbe = doqProbe)
+
+    @Provides
+    fun provideDoqIntegrityProbe(client: DoqQuicClient): DoqIntegrityProbe = DoqIntegrityProbe(client)
+
+    @Provides
+    fun provideDoqQuicClient(bindings: NativeDoqQuicClientBindings): DoqQuicClient = NativeDoqQuicClient(bindings)
+
+    @Provides
+    fun provideNativeDoqQuicClientBindings(): NativeDoqQuicClientBindings = NativeDoqQuicClientNativeBindings()
 
     @Provides
     fun provideDnsAvailabilitySurvey(): DnsAvailabilitySurvey = DnsAvailabilitySurvey()

@@ -86,6 +86,8 @@ mod tests {
             Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniDestroy as VoidHandle,
             Java_com_poyka_ripdpi_core_NativeOwnedTlsHttpFetcherNativeBindings_jniExecute
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>) -> jstring,
+            Java_com_poyka_ripdpi_diagnostics_dpi_NativeDoqQuicClientNativeBindings_jniExchange
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_detection_checker_JniNativeSignsBridge_jniSnapshot
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_jniSeqovlSupported as Bool,

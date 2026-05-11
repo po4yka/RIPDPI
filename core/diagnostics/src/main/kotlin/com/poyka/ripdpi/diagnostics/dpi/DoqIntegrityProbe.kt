@@ -142,6 +142,8 @@ class DoqIntegrityProbe(
             provider.result(domain, verdict, ips, startedAt)
         } catch (error: TimeoutCancellationException) {
             provider.result(domain, DoqVerdict.DOQ_TIMEOUT, emptyList(), startedAt, "timeout")
+        } catch (error: DoqTimeoutException) {
+            provider.result(domain, DoqVerdict.DOQ_TIMEOUT, emptyList(), startedAt, error.message)
         } catch (error: DoqTlsRejectException) {
             provider.result(domain, DoqVerdict.DOQ_DPI_REJECT, emptyList(), startedAt, error.message)
         } catch (error: CancellationException) {

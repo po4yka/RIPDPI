@@ -19,6 +19,7 @@ macro_rules! export_jni {
 
 mod cdn_ech_bridge;
 mod diagnostics_bridge;
+mod doq_bridge;
 mod lua_bridge;
 mod native_signs_bridge;
 mod owned_tls_http_bridge;
@@ -30,6 +31,7 @@ mod vpn_protect_bridge;
 
 pub use cdn_ech_bridge::*;
 pub use diagnostics_bridge::*;
+pub use doq_bridge::*;
 pub use lua_bridge::*;
 pub use native_signs_bridge::*;
 pub use owned_tls_http_bridge::*;
