@@ -1,7 +1,7 @@
 ---
-title: Add DNS-over-QUIC (DoQ) Integrity Probe for UDP-853 Censorship Detection
+title: Add DNS-over-QUIC (DoQ) Integrity Probe for UDP-853 Path Filtering Detection
 type: task
-status: backlog
+status: doing
 area: diagnostics
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-11
 ---
 
-- [ ] #task Add DNS-over-QUIC (DoQ) Integrity Probe for UDP-853 Censorship Detection #repo/RIPDPI #area/diagnostics #status/backlog ⏫
+- [ ] #task Add DNS-over-QUIC (DoQ) Integrity Probe for UDP-853 Path Filtering Detection #repo/RIPDPI #area/diagnostics #status/doing ⏫
 
 ## Objective
 
@@ -20,13 +20,13 @@ Add `DoqIntegrityProbe` that resolves test domains via DNS-over-QUIC (RFC 9250) 
 
 ## Context
 
-dpi-detector and rkn-block-checker measure DNS at three layers (UDP/53 wire, DoH JSON, DoH Wire). None probe DoQ. This is a meaningful gap: Russian TSPU has been observed selectively blocking QUIC traffic (UDP) since late 2024 — a probe that succeeds via DoH but fails via DoQ uniquely identifies UDP/QUIC censorship that's invisible to TCP-based DNS checks.
+dpi-detector and rkn-block-checker measure DNS at three layers (UDP/53 wire, DoH JSON, DoH Wire). None probe DoQ. This is a meaningful gap: active L7 middleboxes have been observed selectively filtering QUIC traffic (UDP) since late 2024; a probe that succeeds via DoH but fails via DoQ uniquely identifies UDP/QUIC path filtering that's invisible to TCP-based DNS checks.
 
 DoQ uses QUIC as the transport for DNS messages encoded per RFC 8484 wire format. Default port is **853 over UDP**, the same number as DoT but UDP not TCP.
 
 **Verdict matrix (for each test domain × each DoQ provider):**
 - DoQ resolves AND result matches DoH → `DOQ_OK`
-- DoQ handshake fails at QUIC layer (Initial packet dropped, version negotiation failure) → `DOQ_BLOCKED_QUIC` (UDP/853 censorship)
+- DoQ handshake fails at QUIC layer (Initial packet dropped, version negotiation failure) → `DOQ_BLOCKED_QUIC` (UDP/853 path filtering)
 - DoQ handshake fails at TLS layer (ALPN rejection, cert mismatch) → `DOQ_DPI_REJECT` (QUIC permitted but DoQ specifically rejected)
 - DoQ resolves AND result diverges from DoH → `DOQ_INTEGRITY_DIVERGENT` (provider compromised — unlikely, but worth flagging)
 - DoQ times out → `DOQ_TIMEOUT` (could be QUIC block, could be flake)
