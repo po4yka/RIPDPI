@@ -24,6 +24,7 @@ hickory-proto = { workspace = true }
 lru = { workspace = true }
 etherparse = { workspace = true }
 ripdpi-socks5-core = { workspace = true }
+ripdpi-packets = { workspace = true }
 ripdpi-strategy-config = { workspace = true }
 ripdpi-strategy-ipv6 = { workspace = true }
 ripdpi-strategy-registry = { workspace = true, features = ["lua-strategies"] }

@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
 import app.cash.turbine.test
+import com.poyka.ripdpi.core.StrategyEngineBindings
+import com.poyka.ripdpi.core.StrategyProbeResultDto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
@@ -155,6 +157,26 @@ class StrategyProbeServiceTest {
         assertEquals(listOf("a", "c", "b"), report.rankedStrategies.map { it.strategyId })
     }
 
+    @Test
+    fun `candidate provider does not expose lua strategies without tun egress support metadata`() =
+        runTest {
+            val provider =
+                DefaultStrategyProbeCandidateProvider(
+                    FakeStrategyEngineBindings(
+                        luaStrategies = arrayOf("multisplit", "helper"),
+                        luaScriptPaths = arrayOf("/data/user/0/com.poyka.ripdpi/files/lua/zapret.lua"),
+                    ),
+                )
+
+            val candidates = provider.listCandidates()
+
+            assertEquals(
+                listOf("split", "fake", "oob", "tls_rec_split", "seq_overlap", "udp_fake_burst"),
+                candidates.map(StrategyProbeCandidate::id),
+            )
+            assertFalse(candidates.any { it.id.startsWith("lua:") })
+        }
+
     private fun testService(
         candidates: List<StrategyProbeCandidate> = listOf(StrategyProbeCandidate("split", "Split")),
         transport: StrategyProbeTransport =
@@ -244,4 +266,23 @@ private class FakeStrategyProbeResultInjector : StrategyProbeResultInjector {
     override suspend fun inject(results: List<StrategyProbeResult>) {
         injectedResults += results
     }
+}
+
+private class FakeStrategyEngineBindings(
+    private val luaStrategies: Array<String>,
+    private val luaScriptPaths: Array<String>,
+) : StrategyEngineBindings {
+    override fun luaLoadScript(path: String): String? = null
+
+    override fun luaReloadConfig(): String? = null
+
+    override fun luaListStrategies(): Array<String> = luaStrategies
+
+    override fun luaLoadedScriptPaths(): Array<String> = luaScriptPaths
+
+    override fun luaValidateScript(path: String): String? = null
+
+    override fun validateStrategyConfigText(configText: String): String? = null
+
+    override fun injectProbeResults(results: Array<StrategyProbeResultDto>): String? = null
 }

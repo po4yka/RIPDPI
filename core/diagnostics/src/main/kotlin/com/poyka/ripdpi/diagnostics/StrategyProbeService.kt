@@ -78,6 +78,7 @@ data class StrategyProbeCandidate(
     val label: String,
     val configDsl: String? = null,
     val luaScriptPaths: List<String> = emptyList(),
+    val supportsTunEgressProbe: Boolean = true,
 )
 
 enum class StrategyProbeFailureKind {
@@ -239,7 +240,8 @@ class DefaultStrategyProbeCandidateProvider
         private val bindings: StrategyEngineBindings,
     ) : StrategyProbeCandidateProvider {
         override suspend fun listCandidates(): List<StrategyProbeCandidate> =
-            builtInStrategyProbeCandidates() + luaStrategyProbeCandidates()
+            (builtInStrategyProbeCandidates() + luaStrategyProbeCandidates())
+                .filter(StrategyProbeCandidate::supportsTunEgressProbe)
 
         private fun luaStrategyProbeCandidates(): List<StrategyProbeCandidate> =
             runCatching {
@@ -253,8 +255,14 @@ class DefaultStrategyProbeCandidateProvider
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
                     .distinct()
-                    .map { StrategyProbeCandidate(id = "lua:$it", label = it, luaScriptPaths = scriptPaths) }
-                    .toList()
+                    .mapTo(mutableListOf()) { function ->
+                        StrategyProbeCandidate(
+                            id = "lua:$function",
+                            label = function,
+                            luaScriptPaths = scriptPaths,
+                            supportsTunEgressProbe = false,
+                        )
+                    }
             }.getOrDefault(emptyList())
     }
 

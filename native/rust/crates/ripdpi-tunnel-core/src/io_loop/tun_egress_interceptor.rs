@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
+use ripdpi_packets::{http_marker_info, parse_quic_initial, parse_tls, second_level_domain_span, tls_marker_info};
 use ripdpi_strategy_config::{
     LoadedStrategy, LoadedStrategyConfig, OnFail, ProtocolName, StepType, StrategyMatch, StrategyStep,
 };
@@ -8,7 +10,7 @@ use ripdpi_strategy_ipv6::{apply_ipv6_ext_header, Ipv6ExtType};
 use ripdpi_strategy_registry::StrategyRegistry;
 use ripdpi_strategy_trait::{
     Capabilities, CapabilityTier, ConnectionState, DesyncAction, DesyncPlan, Dissect, FlowDirection, FlowId,
-    L7Protocol, RuntimeCapability, StrategyContext, StrategyVerdict,
+    HttpDissect, L7Protocol, MarkerName, QuicDissect, RuntimeCapability, StrategyContext, StrategyVerdict, TlsDissect,
 };
 use tracing::{debug, warn};
 
@@ -20,6 +22,10 @@ const IPV6_HOP_BY_HOP: u8 = 0;
 const IPV6_ROUTING: u8 = 43;
 const IPV6_FRAGMENT: u8 = 44;
 const IPV6_DESTINATION_OPTIONS: u8 = 60;
+const TCP_SEQUENCE_OFFSET: usize = 4;
+const TCP_CHECKSUM_OFFSET: usize = 16;
+const UDP_LEN_OFFSET: usize = 4;
+const UDP_CHECKSUM_OFFSET: usize = 6;
 
 pub(in crate::io_loop) trait TunPacketInjector {
     fn inject_packet(&mut self, packet: &[u8]) -> io::Result<()>;
@@ -210,13 +216,8 @@ fn execute_registry_action<I: TunPacketInjector>(
     meta: PacketMeta,
     injector: &mut I,
 ) -> bool {
-    let dissect = Dissect {
-        proto: L7Protocol::Unknown,
-        src_port: meta.src_port,
-        dst_port: meta.dst_port,
-        is_ipv6: meta.is_ipv6,
-        ..Dissect::default()
-    };
+    let payload = meta.payload(packet);
+    let dissect = dissect_packet(meta, payload);
     let conn = ConnectionState { packet_count: 1 };
     let caps = Capabilities { tier: CapabilityTier::Tier3, available: vec![RuntimeCapability::VpnMode] };
     let ctx = StrategyContext {
@@ -224,28 +225,186 @@ fn execute_registry_action<I: TunPacketInjector>(
         conn: &conn,
         caps: &caps,
         flow_id: FlowId(meta.flow_id()),
-        payload: packet,
+        payload,
         direction: FlowDirection::Outbound,
     };
     let mut plan = DesyncPlan::default();
     let verdict = registry.execute(&ctx, &mut plan);
-    if verdict == StrategyVerdict::Drop {
-        return true;
+    match verdict {
+        StrategyVerdict::Apply => {}
+        StrategyVerdict::FallbackPlain => return false,
+        StrategyVerdict::Drop => return true,
     }
 
     let mut injected = false;
+    let mut sequence_delta = 0u32;
+    let mut ttl = None;
     for action in plan.actions {
-        if let DesyncAction::RawSend(output) = action {
-            if output.is_empty() || output == packet {
-                continue;
+        match action {
+            DesyncAction::RawSend(output) | DesyncAction::Write(output) => {
+                if inject_strategy_output(packet, meta, &output, sequence_delta, ttl, injector) {
+                    injected = true;
+                    sequence_delta = sequence_delta.wrapping_add(output.len() as u32);
+                }
+                ttl = None;
             }
-            match injector.inject_packet(&output) {
-                Ok(()) => injected = true,
-                Err(error) => debug!("Lua TUN egress rawsend failed; forwarding original packet: {error}"),
+            DesyncAction::Split { offset, disorder } => {
+                if let Some((first, second)) = split_payload(payload, offset) {
+                    if disorder {
+                        injected |= inject_strategy_output(packet, meta, second, first.len() as u32, ttl, injector);
+                        injected |= inject_strategy_output(packet, meta, first, 0, ttl, injector);
+                    } else {
+                        injected |= inject_strategy_output(packet, meta, first, 0, ttl, injector);
+                        injected |= inject_strategy_output(packet, meta, second, first.len() as u32, ttl, injector);
+                    }
+                }
+                ttl = None;
+            }
+            DesyncAction::SetTtl(next_ttl) => ttl = Some(next_ttl),
+            DesyncAction::RestoreDefaultTtl => ttl = None,
+            DesyncAction::WriteFake { ttl: fake_ttl, .. } => {
+                if let Some(output) = low_ttl_tcp_copy(packet, fake_ttl.or(ttl).unwrap_or(5)) {
+                    injected |= inject_strategy_output(packet, meta, &output, 0, None, injector);
+                }
+                ttl = None;
+            }
+            DesyncAction::UdpLen { delta } => {
+                if let Some(output) = ripdpi_strategy_udp::apply_udplen(packet, delta) {
+                    injected |= inject_strategy_output(packet, meta, &output, 0, None, injector);
+                }
+                ttl = None;
+            }
+            DesyncAction::SetWindowClamp(_) | DesyncAction::WriteUrgent { .. } | DesyncAction::SendFakeRst { .. } => {
+                debug!("Lua TUN egress action is unsupported on raw TUN path; forwarding original packet");
             }
         }
     }
     injected && !forward_original
+}
+
+fn dissect_packet(meta: PacketMeta, payload: &[u8]) -> Dissect {
+    let mut dissect = Dissect {
+        proto: classify_l7(meta.transport, payload),
+        src_port: meta.src_port,
+        dst_port: meta.dst_port,
+        is_ipv6: meta.is_ipv6,
+        markers: HashMap::new(),
+    };
+    populate_markers(&mut dissect, payload);
+    dissect
+}
+
+fn classify_l7(transport: Transport, payload: &[u8]) -> L7Protocol {
+    match transport {
+        Transport::Tcp => {
+            if let Some(host) = parse_tls(payload).map(|host| String::from_utf8_lossy(host).into_owned()) {
+                L7Protocol::Tls(TlsDissect { sni: Some(host), is_client_hello: true })
+            } else if let Some(markers) = http_marker_info(payload) {
+                let host = String::from_utf8_lossy(&payload[markers.host_start..markers.host_end]).into_owned();
+                L7Protocol::Http(HttpDissect { host: Some(host), is_request: true })
+            } else {
+                L7Protocol::Unknown
+            }
+        }
+        Transport::Udp => parse_quic_initial(payload)
+            .map_or(L7Protocol::Unknown, |quic| L7Protocol::Quic(QuicDissect { version: Some(quic.version) })),
+    }
+}
+
+fn populate_markers(dissect: &mut Dissect, payload: &[u8]) {
+    dissect.markers.insert(MarkerName::Data, 0);
+    dissect.markers.insert(MarkerName::End, payload.len());
+    match &dissect.proto {
+        L7Protocol::Tls(_) => {
+            if let Some(markers) = tls_marker_info(payload) {
+                insert_host_markers(&mut dissect.markers, payload, markers.host_start, markers.host_end);
+                dissect.markers.insert(MarkerName::ExtLen, markers.ext_len_start);
+                dissect.markers.insert(MarkerName::SniExt, markers.sni_ext_start);
+            }
+        }
+        L7Protocol::Http(_) => {
+            if let Some(markers) = http_marker_info(payload) {
+                dissect.markers.insert(MarkerName::HttpMethod, markers.method_start);
+                insert_host_markers(&mut dissect.markers, payload, markers.host_start, markers.host_end);
+            }
+        }
+        L7Protocol::Quic(_) => {
+            if let Some(quic) = parse_quic_initial(payload) {
+                insert_host_markers(
+                    &mut dissect.markers,
+                    &quic.client_hello,
+                    quic.tls_info.host_start,
+                    quic.tls_info.host_end,
+                );
+                dissect.markers.insert(MarkerName::ExtLen, quic.tls_info.ext_len_start);
+                dissect.markers.insert(MarkerName::SniExt, quic.tls_info.sni_ext_start);
+            }
+        }
+        L7Protocol::Any
+        | L7Protocol::Unknown
+        | L7Protocol::Known
+        | L7Protocol::Dtls(_)
+        | L7Protocol::WireGuard(_)
+        | L7Protocol::Dht(_)
+        | L7Protocol::Discord(_)
+        | L7Protocol::Stun(_)
+        | L7Protocol::Xmpp(_)
+        | L7Protocol::Dns(_)
+        | L7Protocol::Mtproto(_)
+        | L7Protocol::BitTorrent(_)
+        | L7Protocol::UtpBitTorrent(_) => {}
+    }
+}
+
+fn insert_host_markers(markers: &mut HashMap<MarkerName, usize>, payload: &[u8], host_start: usize, host_end: usize) {
+    markers.insert(MarkerName::Host, host_start);
+    markers.insert(MarkerName::HostEnd, host_end);
+    if let Some((sld_start, sld_end)) = payload.get(host_start..host_end).and_then(second_level_domain_span) {
+        markers.insert(MarkerName::HostSld, host_start + sld_start);
+        markers.insert(MarkerName::HostMidSld, host_start + sld_start + (sld_end - sld_start) / 2);
+        markers.insert(MarkerName::HostEndSld, host_start + sld_end);
+    }
+}
+
+fn split_payload(payload: &[u8], offset: usize) -> Option<(&[u8], &[u8])> {
+    if offset == 0 || offset >= payload.len() {
+        return None;
+    }
+    Some(payload.split_at(offset))
+}
+
+fn inject_strategy_output<I: TunPacketInjector>(
+    packet: &[u8],
+    meta: PacketMeta,
+    output: &[u8],
+    sequence_delta: u32,
+    ttl: Option<u8>,
+    injector: &mut I,
+) -> bool {
+    if output.is_empty() {
+        return false;
+    }
+    let injection = if transport_endpoint(output).is_some() {
+        let mut packet = output.to_vec();
+        if let Some(ttl) = ttl {
+            if set_packet_hop_limit(&mut packet, ttl).is_none() {
+                return false;
+            }
+        }
+        packet
+    } else {
+        match packet_with_payload(packet, meta, output, sequence_delta, ttl) {
+            Some(packet) => packet,
+            None => return false,
+        }
+    };
+    match injector.inject_packet(&injection) {
+        Ok(()) => true,
+        Err(error) => {
+            debug!("Lua TUN egress injection failed; forwarding original packet: {error}");
+            false
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -293,6 +452,8 @@ struct PacketMeta {
     is_ipv6: bool,
     src_ip: IpAddr,
     dst_ip: IpAddr,
+    transport_offset: usize,
+    payload_offset: usize,
     src_port: u16,
     dst_port: u16,
 }
@@ -304,6 +465,8 @@ impl PacketMeta {
             is_ipv6: endpoint.is_ipv6,
             src_ip: endpoint.src_ip,
             dst_ip: endpoint.dst_ip,
+            transport_offset: endpoint.transport_offset,
+            payload_offset: endpoint.payload_offset,
             src_port: endpoint.src_port,
             dst_port: endpoint.dst_port,
         })
@@ -312,6 +475,10 @@ impl PacketMeta {
     fn flow_id(self) -> u64 {
         let ports = (u64::from(self.src_port) << 16) | u64::from(self.dst_port);
         ports ^ ip_hash(self.src_ip).rotate_left(13) ^ ip_hash(self.dst_ip).rotate_left(29)
+    }
+
+    fn payload(self, packet: &[u8]) -> &[u8] {
+        packet.get(self.payload_offset..).unwrap_or_default()
     }
 }
 
@@ -327,6 +494,8 @@ struct TransportEndpoint {
     is_ipv6: bool,
     src_ip: IpAddr,
     dst_ip: IpAddr,
+    transport_offset: usize,
+    payload_offset: usize,
     src_port: u16,
     dst_port: u16,
 }
@@ -345,6 +514,136 @@ fn ip_hash(ip: IpAddr) -> u64 {
 fn packet_destination(packet: &[u8]) -> Option<SocketAddr> {
     let endpoint = transport_endpoint(packet)?;
     Some(SocketAddr::new(endpoint.dst_ip, endpoint.dst_port))
+}
+
+fn packet_with_payload(
+    packet: &[u8],
+    meta: PacketMeta,
+    payload: &[u8],
+    sequence_delta: u32,
+    ttl: Option<u8>,
+) -> Option<Vec<u8>> {
+    if packet.len() < meta.payload_offset {
+        return None;
+    }
+    let mut output = Vec::with_capacity(meta.payload_offset + payload.len());
+    output.extend_from_slice(&packet[..meta.payload_offset]);
+    output.extend_from_slice(payload);
+    update_ip_lengths_and_ttl(&mut output, meta, ttl)?;
+    update_transport_header(&mut output, meta, sequence_delta)?;
+    Some(output)
+}
+
+fn update_ip_lengths_and_ttl(packet: &mut [u8], meta: PacketMeta, ttl: Option<u8>) -> Option<()> {
+    if meta.is_ipv6 {
+        if packet.len() < IPV6_HEADER_LEN {
+            return None;
+        }
+        let payload_len = packet.len().checked_sub(IPV6_HEADER_LEN)?;
+        packet[4..6].copy_from_slice(&(payload_len as u16).to_be_bytes());
+        if let Some(ttl) = ttl {
+            packet[7] = ttl.max(1);
+        }
+    } else {
+        if packet.len() < IPV4_MIN_HEADER_LEN || packet.len() > usize::from(u16::MAX) {
+            return None;
+        }
+        let packet_len = packet.len() as u16;
+        packet[2..4].copy_from_slice(&packet_len.to_be_bytes());
+        if let Some(ttl) = ttl {
+            packet[8] = ttl.max(1);
+        }
+        let ihl = usize::from(packet[0] & 0x0f) * 4;
+        recompute_ipv4_header_checksum(&mut packet[..ihl]);
+    }
+    Some(())
+}
+
+fn set_packet_hop_limit(packet: &mut [u8], ttl: u8) -> Option<()> {
+    match packet.first()? >> 4 {
+        4 => {
+            if packet.len() < IPV4_MIN_HEADER_LEN {
+                return None;
+            }
+            let ihl = usize::from(packet[0] & 0x0f) * 4;
+            if ihl < IPV4_MIN_HEADER_LEN || packet.len() < ihl {
+                return None;
+            }
+            packet[8] = ttl.max(1);
+            recompute_ipv4_header_checksum(&mut packet[..ihl]);
+        }
+        6 => {
+            if packet.len() < IPV6_HEADER_LEN {
+                return None;
+            }
+            packet[7] = ttl.max(1);
+        }
+        _ => return None,
+    }
+    Some(())
+}
+
+fn update_transport_header(packet: &mut [u8], meta: PacketMeta, sequence_delta: u32) -> Option<()> {
+    match meta.transport {
+        Transport::Tcp => {
+            if sequence_delta != 0 {
+                let sequence_offset = meta.transport_offset.checked_add(TCP_SEQUENCE_OFFSET)?;
+                let sequence_end = sequence_offset.checked_add(4)?;
+                let sequence = u32::from_be_bytes(packet.get(sequence_offset..sequence_end)?.try_into().ok()?);
+                packet[sequence_offset..sequence_end]
+                    .copy_from_slice(&sequence.wrapping_add(sequence_delta).to_be_bytes());
+            }
+            recompute_transport_checksum(packet, meta, TCP_PROTO)
+        }
+        Transport::Udp => {
+            let udp_len = packet.len().checked_sub(meta.transport_offset)?;
+            if udp_len > usize::from(u16::MAX) {
+                return None;
+            }
+            let len_offset = meta.transport_offset.checked_add(UDP_LEN_OFFSET)?;
+            packet[len_offset..len_offset + 2].copy_from_slice(&(udp_len as u16).to_be_bytes());
+            recompute_transport_checksum(packet, meta, UDP_PROTO)
+        }
+    }
+}
+
+fn recompute_transport_checksum(packet: &mut [u8], meta: PacketMeta, next_header: u8) -> Option<()> {
+    let checksum_offset = match meta.transport {
+        Transport::Tcp => meta.transport_offset.checked_add(TCP_CHECKSUM_OFFSET)?,
+        Transport::Udp => meta.transport_offset.checked_add(UDP_CHECKSUM_OFFSET)?,
+    };
+    let checksum_end = checksum_offset.checked_add(2)?;
+    if packet.len() < checksum_end || packet.len() < meta.transport_offset {
+        return None;
+    }
+    packet[checksum_offset..checksum_end].fill(0);
+    if !meta.is_ipv6 && meta.transport == Transport::Udp {
+        // IPv4 UDP checksum is optional; keeping it disabled avoids emitting
+        // stale checksums when the protected app supplied checksum zero.
+        return Some(());
+    }
+
+    let transport_len = packet.len().checked_sub(meta.transport_offset)?;
+    let mut sum = 0u32;
+    match (meta.src_ip, meta.dst_ip) {
+        (IpAddr::V4(src), IpAddr::V4(dst)) => {
+            sum += checksum_sum(&src.octets());
+            sum += checksum_sum(&dst.octets());
+            sum += u32::from(next_header);
+            sum += checksum_sum(&(transport_len as u16).to_be_bytes());
+        }
+        (IpAddr::V6(src), IpAddr::V6(dst)) => {
+            sum += checksum_sum(&src.octets());
+            sum += checksum_sum(&dst.octets());
+            sum += checksum_sum(&(transport_len as u32).to_be_bytes());
+            sum += u32::from(next_header);
+        }
+        _ => return None,
+    }
+    sum += checksum_sum(&packet[meta.transport_offset..]);
+    let checksum = finalize_checksum(sum);
+    packet[checksum_offset..checksum_end].copy_from_slice(&if checksum == 0 { 0xffff } else { checksum }.to_be_bytes());
+    Some(())
 }
 
 fn transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
@@ -369,11 +668,28 @@ fn ipv4_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
         UDP_PROTO => Transport::Udp,
         _ => return None,
     };
+    let payload_offset = match transport {
+        Transport::Tcp => {
+            let tcp_header_len = usize::from(packet[ihl + 12] >> 4) * 4;
+            if tcp_header_len < 20 || packet.len() < ihl + tcp_header_len {
+                return None;
+            }
+            ihl + tcp_header_len
+        }
+        Transport::Udp => {
+            if packet.len() < ihl + 8 {
+                return None;
+            }
+            ihl + 8
+        }
+    };
     Some(TransportEndpoint {
         transport,
         is_ipv6: false,
         src_ip: IpAddr::V4(Ipv4Addr::new(packet[12], packet[13], packet[14], packet[15])),
         dst_ip: IpAddr::V4(Ipv4Addr::new(packet[16], packet[17], packet[18], packet[19])),
+        transport_offset: ihl,
+        payload_offset,
         src_port: u16::from_be_bytes([packet[ihl], packet[ihl + 1]]),
         dst_port: u16::from_be_bytes([packet[ihl + 2], packet[ihl + 3]]),
     })
@@ -413,11 +729,28 @@ fn ipv6_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
         if packet.len() < offset + 4 {
             return None;
         }
+        let payload_offset = match transport {
+            Transport::Tcp => {
+                let tcp_header_len = usize::from(packet[offset + 12] >> 4) * 4;
+                if tcp_header_len < 20 || packet.len() < offset + tcp_header_len {
+                    return None;
+                }
+                offset + tcp_header_len
+            }
+            Transport::Udp => {
+                if packet.len() < offset + 8 {
+                    return None;
+                }
+                offset + 8
+            }
+        };
         return Some(TransportEndpoint {
             transport,
             is_ipv6: true,
             src_ip: IpAddr::V6(src),
             dst_ip: IpAddr::V6(dst),
+            transport_offset: offset,
+            payload_offset,
             src_port: u16::from_be_bytes([packet[offset], packet[offset + 1]]),
             dst_port: u16::from_be_bytes([packet[offset + 2], packet[offset + 3]]),
         });
@@ -467,6 +800,10 @@ fn recompute_ipv4_header_checksum(header: &mut [u8]) {
 }
 
 fn ipv4_checksum(bytes: &[u8]) -> u16 {
+    finalize_checksum(checksum_sum(bytes))
+}
+
+fn checksum_sum(bytes: &[u8]) -> u32 {
     let mut sum = 0u32;
     let mut chunks = bytes.chunks_exact(2);
     for chunk in &mut chunks {
@@ -475,6 +812,10 @@ fn ipv4_checksum(bytes: &[u8]) -> u16 {
     if let Some(last) = chunks.remainder().first() {
         sum += u32::from(*last) << 8;
     }
+    sum
+}
+
+fn finalize_checksum(mut sum: u32) -> u16 {
     while sum >> 16 != 0 {
         sum = (sum & 0xffff) + (sum >> 16);
     }
@@ -605,7 +946,8 @@ strategies:
         let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
 
         assert!(interceptor.handle_packet(&packet));
-        assert_eq!(interceptor.injector.packets, [b"lua-raw".to_vec()]);
+        assert_eq!(packet_payload(&interceptor.injector.packets[0]), b"lua-raw");
+        assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
         let _ = std::fs::remove_file(script);
     }
 
@@ -638,7 +980,127 @@ strategies:
         let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
 
         assert!(!interceptor.handle_packet(&packet));
-        assert_eq!(interceptor.injector.packets, [b"lua-sidecar".to_vec()]);
+        assert_eq!(packet_payload(&interceptor.injector.packets[0]), b"lua-sidecar");
+        assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
+        let _ = std::fs::remove_file(script);
+    }
+
+    #[test]
+    fn lua_context_exposes_http_markers_to_tun_strategy() {
+        let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let packet = ipv4_tcp_packet(49152, 80, payload);
+        let script = write_lua_script(
+            "lua-egress-http-markers",
+            r#"
+function candidate(desync)
+    if desync.detect("http")
+        and desync.dis.hostname == "example.com"
+        and desync.pos("host")
+        and desync.pos("endhost") then
+        desync.set_ttl(9)
+        desync.rawsend(desync.payload)
+        return VERDICT_MODIFY
+    end
+    return VERDICT_PASS
+end
+"#,
+        );
+        let yaml = format!(
+            r#"
+version: 1
+strategies:
+  - id: lua-egress
+    match:
+      proto: [http]
+      port: [80]
+    steps:
+      - type: lua
+        function: candidate
+        script_paths:
+          - "{}"
+"#,
+            script.display()
+        );
+        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+
+        assert!(interceptor.handle_packet(&packet));
+        assert_eq!(interceptor.injector.packets[0][8], 9);
+        assert_eq!(packet_payload(&interceptor.injector.packets[0]), payload);
+        assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
+        let _ = std::fs::remove_file(script);
+    }
+
+    #[test]
+    fn lua_udplen_action_injects_valid_packet_before_consuming_original() {
+        let packet = ipv4_udp_packet(443, 443, b"abc");
+        let script = write_lua_script(
+            "lua-egress-udplen",
+            r#"
+function candidate(desync)
+    desync.udplen(4)
+    return VERDICT_MODIFY
+end
+"#,
+        );
+        let yaml = format!(
+            r#"
+version: 1
+strategies:
+  - id: lua-egress
+    match:
+      proto: [quic]
+      port: [443]
+    steps:
+      - type: lua
+        function: candidate
+        script_paths:
+          - "{}"
+"#,
+            script.display()
+        );
+        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+
+        assert!(interceptor.handle_packet(&packet));
+
+        let injected = &interceptor.injector.packets[0];
+        let udp_len_offset = IPV4_MIN_HEADER_LEN + 4;
+        assert_eq!(u16::from_be_bytes([injected[udp_len_offset], injected[udp_len_offset + 1]]), 15);
+        assert!(packet_destination(injected).is_some());
+        let _ = std::fs::remove_file(script);
+    }
+
+    #[test]
+    fn lua_split_action_injects_valid_payload_packets_before_consuming_original() {
+        let packet = ipv4_tcp_packet(49152, 443, b"abcdef");
+        let script = write_lua_script(
+            "lua-egress-split",
+            r#"
+function candidate(desync)
+    desync.split(2, false)
+    return VERDICT_MODIFY
+end
+"#,
+        );
+        let yaml = format!(
+            r#"
+version: 1
+strategies:
+  - id: lua-egress
+    steps:
+      - type: lua
+        function: candidate
+        script_paths:
+          - "{}"
+"#,
+            script.display()
+        );
+        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+
+        assert!(interceptor.handle_packet(&packet));
+        assert_eq!(packet_payload(&interceptor.injector.packets[0]), b"ab");
+        assert_eq!(packet_payload(&interceptor.injector.packets[1]), b"cdef");
+        assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
+        assert!(packet_destination(&interceptor.injector.packets[1]).is_some());
         let _ = std::fs::remove_file(script);
     }
 
@@ -666,6 +1128,11 @@ strategies:
         let path = std::env::temp_dir().join(format!("{name}-{}.lua", std::process::id()));
         std::fs::write(&path, contents).expect("write Lua script");
         path
+    }
+
+    fn packet_payload(packet: &[u8]) -> &[u8] {
+        let meta = PacketMeta::parse(packet).expect("packet metadata");
+        meta.payload(packet)
     }
 
     fn ipv4_udp_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {

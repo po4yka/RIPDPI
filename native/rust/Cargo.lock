@@ -4240,6 +4240,7 @@ dependencies = [
  "ripdpi-collections",
  "ripdpi-dns-resolver",
  "ripdpi-io-uring",
+ "ripdpi-packets",
  "ripdpi-runtime-platform",
  "ripdpi-socks5-core",
  "ripdpi-strategy-config",
