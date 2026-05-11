@@ -94,8 +94,8 @@ All 10 unit tests green. Discovery surfaced in DiagnosticsScreen with Cache/Chec
 ## Work log
 
 - 2026-05-12: Added the core IPv4 whitelist subnet discoverer, RIPE Stat client, persisted subnet cache, sampled alive checking, CSV formatter, bundled Yandex/VK/EdgeCenter ASN asset, and focused unit coverage. Verified with `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscovererTest --tests com.poyka.ripdpi.diagnostics.dpich.RipeStatClientTest --tests com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderTest -Pripdpi.skipNativeBuild=true --rerun-tasks`.
+- 2026-05-12: Surfaced discovery in Diagnostics tools with Cache subnets, Check cached, and Save CSV actions. CSV export now uses the existing diagnostics share effect. Verified the mapper with `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.activities.DiagnosticsIpv4WhitelistUiMapperTest -Pripdpi.skipNativeBuild=true`, Kotlin compile with `./gradlew :app:compileDebugKotlin :app:compileDebugUnitTestKotlin -Pripdpi.skipNativeBuild=true`, and style with `./gradlew :app:ktlintCheck :core:diagnostics:ktlintCheck -Pripdpi.skipNativeBuild=true`.
 
 Remaining before close:
 
-- Surface discovery in DiagnosticsScreen with Cache/Check/Save actions.
-- Integrate CSV export with the existing diagnostics share flow.
+- Add or document explicit cancellation coverage for partial result retention before marking the task done.

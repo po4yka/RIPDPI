@@ -11,6 +11,7 @@ import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
+import com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,6 +39,7 @@ class DiagnosticsViewModel
         tcp16FatHeaderProbe: Tcp16FatHeaderProbe,
         httpCompressionProber: HttpCompressionProber,
         cidrWhitelistDetector: CidrWhitelistDetector,
+        ipv4WhitelistedSubnetDiscoverer: Ipv4WhitelistedSubnetDiscoverer,
         rknLayeredProbePipeline: RknLayeredProbePipeline,
         selfInfoFetcher: SelfInfoFetcher,
         diagnosticsUiStateAssembler: DiagnosticsUiStateAssembler,
@@ -75,6 +77,19 @@ class DiagnosticsViewModel
             DiagnosticsCidrWhitelistController(
                 scope = viewModelScope,
                 detector = cidrWhitelistDetector,
+            )
+        private val ipv4WhitelistController =
+            DiagnosticsIpv4WhitelistController(
+                scope = viewModelScope,
+                discoverer = ipv4WhitelistedSubnetDiscoverer,
+                shareCsv = { csv ->
+                    _effects.tryEmit(
+                        DiagnosticsEffect.ShareSummaryRequested(
+                            title = "IPv4 whitelist subnets.csv",
+                            body = csv,
+                        ),
+                    )
+                },
             )
         private val dpiSuiteController =
             DiagnosticsDpiSuiteController(
@@ -117,6 +132,8 @@ class DiagnosticsViewModel
             dpiToolsController.compressionProbeTool
         val cidrWhitelistTool: StateFlow<DiagnosticsCidrWhitelistToolUiModel> =
             cidrWhitelistController.tool
+        val ipv4WhitelistTool: StateFlow<DiagnosticsIpv4WhitelistToolUiModel> =
+            ipv4WhitelistController.tool
         val tcp16FatHeaderTool: StateFlow<DiagnosticsTcp16FatHeaderToolUiModel> =
             dpiToolsController.tcp16FatHeaderTool
         val allowlistSniTool: StateFlow<DiagnosticsAllowlistSniToolUiModel> =
@@ -276,6 +293,12 @@ class DiagnosticsViewModel
         fun runCompressionProbe() = dpiToolsController.runCompressionProbe()
 
         fun runCidrWhitelistDetection() = cidrWhitelistController.run()
+
+        fun cacheIpv4WhitelistSubnets() = ipv4WhitelistController.cacheSubnets()
+
+        fun checkIpv4WhitelistSubnets() = ipv4WhitelistController.checkSubnets()
+
+        fun saveIpv4WhitelistCsv() = ipv4WhitelistController.saveCsv()
 
         fun runTcp16FatHeaderProbe() = dpiToolsController.runTcp16FatHeaderProbe()
 

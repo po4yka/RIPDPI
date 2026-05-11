@@ -1,12 +1,17 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import android.content.Context
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetector
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
+import com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer
 import com.poyka.ripdpi.diagnostics.dpich.KnownDohProviderSubnetMetadataLookup
 import com.poyka.ripdpi.diagnostics.dpich.OkHttpCidrWhitelistUrlProbe
+import com.poyka.ripdpi.diagnostics.dpich.OkHttpSubnetAliveProbe
 import com.poyka.ripdpi.diagnostics.dpich.OkHttpWebhostProbe
+import com.poyka.ripdpi.diagnostics.dpich.RipeStatClient
+import com.poyka.ripdpi.diagnostics.dpich.SubnetsCache
 import com.poyka.ripdpi.diagnostics.dpich.WebhostFarm
 import com.poyka.ripdpi.diagnostics.dpich.loadDohProviderFilters
 import com.poyka.ripdpi.diagnostics.rkn.HttpClientRknTlsProbe
@@ -17,6 +22,8 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 
 @Module
 @InstallIn(ViewModelComponent::class)
@@ -82,6 +89,19 @@ object DpiDiagnosticsToolModule {
             whitelistedUrls = assetLoader.loadCidrWhitelistedUrls(),
             regularUrls = assetLoader.loadCidrRegularUrls(),
             urlProbe = OkHttpCidrWhitelistUrlProbe(clientBuilder = tlsClientFactory::createClient),
+        )
+
+    @Provides
+    fun provideIpv4WhitelistedSubnetDiscoverer(
+        @ApplicationContext context: Context,
+        assetLoader: DpiAssetLoader,
+        tlsClientFactory: DiagnosticsHttpClientFactory,
+    ): Ipv4WhitelistedSubnetDiscoverer =
+        Ipv4WhitelistedSubnetDiscoverer(
+            asns = assetLoader.loadIpv4WhitelistAsns(),
+            ripeStat = RipeStatClient(httpClient = tlsClientFactory.createClient()),
+            cache = SubnetsCache(File(context.filesDir, "dpich/whitelisted_subnets_cache.json")),
+            aliveProbe = OkHttpSubnetAliveProbe(httpClient = tlsClientFactory.createClient()),
         )
 
     @Provides

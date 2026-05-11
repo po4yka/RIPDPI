@@ -50,6 +50,7 @@ import com.poyka.ripdpi.activities.DiagnosticsCidrWhitelistToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDpiToolsUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEffect
 import com.poyka.ripdpi.activities.DiagnosticsHealth
+import com.poyka.ripdpi.activities.DiagnosticsIpv4WhitelistToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel
 import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
 import com.poyka.ripdpi.activities.DiagnosticsPluggableTransportToolUiModel
@@ -145,6 +146,9 @@ data class DiagnosticsScreenActions(
     val onRunDomainReachabilityScan: () -> Unit = {},
     val onRunCompressionProbe: () -> Unit = {},
     val onRunCidrWhitelistDetection: () -> Unit = {},
+    val onCacheIpv4WhitelistSubnets: () -> Unit = {},
+    val onCheckIpv4WhitelistSubnets: () -> Unit = {},
+    val onSaveIpv4WhitelistCsv: () -> Unit = {},
     val onRunTcp16FatHeaderProbe: () -> Unit = {},
     val onRunAllowlistSniFinder: () -> Unit = {},
     val onRunPluggableTransportProbe: () -> Unit = {},
@@ -172,6 +176,7 @@ fun DiagnosticsScreen(
     actions: DiagnosticsScreenActions = DiagnosticsScreenActions(),
     dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
     cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel = DiagnosticsCidrWhitelistToolUiModel(),
+    ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     pcapRecording: Boolean = false,
 ) {
@@ -187,6 +192,7 @@ fun DiagnosticsScreen(
         onToggleDebugInfo = { if (BuildConfig.DEBUG) showDebugInfo = !showDebugInfo },
         dpiTools = dpiTools,
         cidrWhitelistTool = cidrWhitelistTool,
+        ipv4WhitelistTool = ipv4WhitelistTool,
         pluggableTransportTool = pluggableTransportTool,
         pcapRecording = pcapRecording,
         modifier = modifier,
@@ -205,6 +211,7 @@ private fun DiagnosticsScreenFrame(
     onToggleDebugInfo: () -> Unit,
     dpiTools: DiagnosticsDpiToolsUiModel,
     cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
+    ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel,
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
     pcapRecording: Boolean,
     modifier: Modifier,
@@ -278,6 +285,7 @@ private fun DiagnosticsScreenFrame(
                     actions = actions,
                     dpiTools = dpiTools,
                     cidrWhitelistTool = cidrWhitelistTool,
+                    ipv4WhitelistTool = ipv4WhitelistTool,
                     pluggableTransportTool = pluggableTransportTool,
                     pcapRecording = pcapRecording,
                     modifier = Modifier.weight(1f),
@@ -294,6 +302,7 @@ private fun DiagnosticsScreenPager(
     actions: DiagnosticsScreenActions,
     dpiTools: DiagnosticsDpiToolsUiModel,
     cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
+    ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel,
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
     pcapRecording: Boolean,
     modifier: Modifier = Modifier,
@@ -348,6 +357,7 @@ private fun DiagnosticsScreenPager(
                     onSaveLogs = actions.onSaveLogs,
                     dpiTools = dpiTools,
                     cidrWhitelistTool = cidrWhitelistTool,
+                    ipv4WhitelistTool = ipv4WhitelistTool,
                     pluggableTransportTool = pluggableTransportTool,
                     dpiToolActions =
                         DiagnosticsDpiToolActions(
@@ -356,6 +366,9 @@ private fun DiagnosticsScreenPager(
                             onRunDomainReachabilityScan = actions.onRunDomainReachabilityScan,
                             onRunCompressionProbe = actions.onRunCompressionProbe,
                             onRunCidrWhitelistDetection = actions.onRunCidrWhitelistDetection,
+                            onCacheIpv4WhitelistSubnets = actions.onCacheIpv4WhitelistSubnets,
+                            onCheckIpv4WhitelistSubnets = actions.onCheckIpv4WhitelistSubnets,
+                            onSaveIpv4WhitelistCsv = actions.onSaveIpv4WhitelistCsv,
                             onRunTcp16FatHeaderProbe = actions.onRunTcp16FatHeaderProbe,
                             onRunAllowlistSniFinder = actions.onRunAllowlistSniFinder,
                             onRunPluggableTransportProbe = actions.onRunPluggableTransportProbe,

@@ -22,12 +22,18 @@ import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
+import com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer
+import com.poyka.ripdpi.diagnostics.dpich.RipeStatPrefixSource
+import com.poyka.ripdpi.diagnostics.dpich.SubnetAliveProbe
+import com.poyka.ripdpi.diagnostics.dpich.SubnetAliveProbeResult
+import com.poyka.ripdpi.diagnostics.dpich.SubnetsCache
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.robolectric.RuntimeEnvironment
+import java.io.File
 
 internal fun createDiagnosticsViewModel(
     appContext: Context = RuntimeEnvironment.getApplication(),
@@ -48,6 +54,7 @@ internal fun createDiagnosticsViewModel(
     selfInfoFetcher: SelfInfoFetcher = SelfInfoFetcher(),
     httpCompressionProber: HttpCompressionProber = HttpCompressionProber(),
     cidrWhitelistDetector: CidrWhitelistDetector = CidrWhitelistDetector(emptyList(), emptyList()),
+    ipv4WhitelistedSubnetDiscoverer: Ipv4WhitelistedSubnetDiscoverer = emptyIpv4WhitelistedSubnetDiscoverer(),
     autoStartScan: Boolean = false,
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
@@ -96,6 +103,7 @@ internal fun createDiagnosticsViewModel(
             selfInfoFetcher = selfInfoFetcher,
             httpCompressionProber = httpCompressionProber,
             cidrWhitelistDetector = cidrWhitelistDetector,
+            ipv4WhitelistedSubnetDiscoverer = ipv4WhitelistedSubnetDiscoverer,
             tcp16FatHeaderProbe = Tcp16FatHeaderProbe(),
             diagnosticsUiStateAssembler =
                 DiagnosticsUiStateAssembler(
@@ -149,3 +157,22 @@ private class EmptyActiveConnectionPolicySource : DiagnosticsActiveConnectionPol
     override val activePolicies: StateFlow<Map<Mode, DiagnosticActiveConnectionPolicy>> =
         MutableStateFlow(emptyMap())
 }
+
+private fun emptyIpv4WhitelistedSubnetDiscoverer(): Ipv4WhitelistedSubnetDiscoverer =
+    Ipv4WhitelistedSubnetDiscoverer(
+        asns = emptyList(),
+        ripeStat = RipeStatPrefixSource { emptyList() },
+        cache =
+            SubnetsCache(
+                File
+                    .createTempFile("ipv4-whitelist", ".json")
+                    .also(File::delete),
+            ),
+        aliveProbe =
+            object : SubnetAliveProbe {
+                override suspend fun probe(
+                    ip: String,
+                    timeoutMs: Long,
+                ): SubnetAliveProbeResult = SubnetAliveProbeResult.Unreachable
+            },
+    )

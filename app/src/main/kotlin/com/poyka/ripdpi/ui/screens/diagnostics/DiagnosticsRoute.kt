@@ -54,6 +54,7 @@ fun DiagnosticsRoute(
     val rknBlockDiagnosisTool by viewModel.rknBlockDiagnosisTool.collectAsStateWithLifecycle()
     val compressionProbeTool by viewModel.compressionProbeTool.collectAsStateWithLifecycle()
     val cidrWhitelistTool by viewModel.cidrWhitelistTool.collectAsStateWithLifecycle()
+    val ipv4WhitelistTool by viewModel.ipv4WhitelistTool.collectAsStateWithLifecycle()
     val tcp16FatHeaderTool by viewModel.tcp16FatHeaderTool.collectAsStateWithLifecycle()
     val allowlistSniTool by viewModel.allowlistSniTool.collectAsStateWithLifecycle()
     val pluggableTransportTool by viewModel.pluggableTransportTool.collectAsStateWithLifecycle()
@@ -217,6 +218,9 @@ fun DiagnosticsRoute(
                 onRunDomainReachabilityScan = remember(viewModel) { viewModel::runDomainReachabilityScan },
                 onRunCompressionProbe = remember(viewModel) { viewModel::runCompressionProbe },
                 onRunCidrWhitelistDetection = remember(viewModel) { viewModel::runCidrWhitelistDetection },
+                onCacheIpv4WhitelistSubnets = remember(viewModel) { viewModel::cacheIpv4WhitelistSubnets },
+                onCheckIpv4WhitelistSubnets = remember(viewModel) { viewModel::checkIpv4WhitelistSubnets },
+                onSaveIpv4WhitelistCsv = remember(viewModel) { viewModel::saveIpv4WhitelistCsv },
                 onRunTcp16FatHeaderProbe = remember(viewModel) { viewModel::runTcp16FatHeaderProbe },
                 onRunAllowlistSniFinder = remember(viewModel) { viewModel::runAllowlistSniFinder },
                 onRunPluggableTransportProbe = remember(viewModel) { viewModel::runPluggableTransportProbe },
@@ -248,6 +252,7 @@ fun DiagnosticsRoute(
                 dpiSuite = dpiSuiteTool,
             ),
         cidrWhitelistTool = cidrWhitelistTool,
+        ipv4WhitelistTool = ipv4WhitelistTool,
         pluggableTransportTool = pluggableTransportTool,
         pcapRecording = pcapRecording,
         modifier = modifier,

@@ -38,6 +38,7 @@ import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDomainReachabilityState
 import com.poyka.ripdpi.activities.DiagnosticsDomainReachabilityToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDpiToolsUiModel
+import com.poyka.ripdpi.activities.DiagnosticsIpv4WhitelistToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
 import com.poyka.ripdpi.activities.DiagnosticsPluggableTransportToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
@@ -67,6 +68,9 @@ internal data class DiagnosticsDpiToolActions(
     val onRunDomainReachabilityScan: () -> Unit = {},
     val onRunCompressionProbe: () -> Unit = {},
     val onRunCidrWhitelistDetection: () -> Unit = {},
+    val onCacheIpv4WhitelistSubnets: () -> Unit = {},
+    val onCheckIpv4WhitelistSubnets: () -> Unit = {},
+    val onSaveIpv4WhitelistCsv: () -> Unit = {},
     val onRunTcp16FatHeaderProbe: () -> Unit = {},
     val onRunAllowlistSniFinder: () -> Unit = {},
     val onRunPluggableTransportProbe: () -> Unit = {},
@@ -96,6 +100,7 @@ internal fun ToolsSection(
     onSaveLogs: () -> Unit,
     dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
     cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel = DiagnosticsCidrWhitelistToolUiModel(),
+    ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     dpiToolActions: DiagnosticsDpiToolActions = DiagnosticsDpiToolActions(),
     onOpenDetectionCheck: () -> Unit = {},
@@ -120,6 +125,7 @@ internal fun ToolsSection(
         dpiToolItems(
             dpiTools = dpiTools,
             cidrWhitelistTool = cidrWhitelistTool,
+            ipv4WhitelistTool = ipv4WhitelistTool,
             pluggableTransportTool = pluggableTransportTool,
             actions = dpiToolActions,
         )
@@ -230,6 +236,7 @@ private fun LazyListScope.shareItems(
 private fun LazyListScope.dpiToolItems(
     dpiTools: DiagnosticsDpiToolsUiModel,
     cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
+    ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel,
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
     actions: DiagnosticsDpiToolActions,
 ) {
@@ -272,6 +279,14 @@ private fun LazyListScope.dpiToolItems(
         CidrWhitelistDetectionCard(
             tool = cidrWhitelistTool,
             onRun = actions.onRunCidrWhitelistDetection,
+        )
+    }
+    item {
+        Ipv4WhitelistSubnetDiscoveryCard(
+            tool = ipv4WhitelistTool,
+            onCache = actions.onCacheIpv4WhitelistSubnets,
+            onCheck = actions.onCheckIpv4WhitelistSubnets,
+            onSaveCsv = actions.onSaveIpv4WhitelistCsv,
         )
     }
     item {
