@@ -1,18 +1,18 @@
 ---
 title: Add Telegram Throughput and DC Reachability Speed Test
 type: task
-status: backlog
+status: doing
 area: diagnostics
 priority: medium
 owner: unassigned
 parent: dpi-probe-parity-epic
 blocks: []
-blocked_by: [add-dpi-error-classifier]
+blocked_by: []
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-11
 ---
 
-- [ ] #task Add Telegram Throughput and DC Reachability Speed Test #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [ ] #task Add Telegram Throughput and DC Reachability Speed Test #repo/RIPDPI #area/diagnostics #status/doing 🔼
 
 ## Objective
 
@@ -20,7 +20,7 @@ Add `TelegramSpeedTest` that runs three concurrent probes — a 30.97 MB media d
 
 ## Context
 
-Android port of dpi-detector's Test 6 (`run_telegram_test`). Russian ISPs frequently throttle (not block) Telegram traffic: the connection succeeds but data transfer stalls partway. Pure reachability checks miss this; the test needs to measure actual throughput over a realistic payload size and detect mid-stream stalls.
+Android port of dpi-detector's Test 6 (`run_telegram_test`). Some network paths allow a connection but stall partway through a transfer. Pure reachability checks miss this; the test needs to measure actual throughput over a realistic payload size and detect mid-stream stalls.
 
 **Three concurrent probes:**
 
