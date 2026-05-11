@@ -4,20 +4,23 @@ import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DoqProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.DoqVerdict
+import com.poyka.ripdpi.diagnostics.dpich.BootstrapVerdict
+import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapResult
 import kotlinx.collections.immutable.toPersistentList
 import java.util.Locale
 
 internal fun DnsIntegrityResult.toUiModel(): DiagnosticsDnsIntegrityToolUiModel {
     val flagged = domains.count { result -> result.verdict != DnsIntegrityVerdict.DNS_OK }
     val doqFlagged = doqResults.count { result -> result.verdict != DoqVerdict.DOQ_OK }
+    val bootstrapFlagged = dohBootstrapResults.count { result -> result.verdict != BootstrapVerdict.OK }
     val checked = domains.size
     return DiagnosticsDnsIntegrityToolUiModel(
         state = DiagnosticsDnsIntegrityState.Complete,
         summary =
-            if (flagged == 0 && doqFlagged == 0) {
+            if (flagged == 0 && doqFlagged == 0 && bootstrapFlagged == 0) {
                 "No DNS substitution detected across $checked bundled domains."
             } else {
-                "$flagged of $checked domains and $doqFlagged DoQ checks showed DNS integrity warnings."
+                "$flagged of $checked domains, $doqFlagged DoQ checks, and $bootstrapFlagged DoH bootstrap checks showed DNS integrity warnings."
             },
         metrics =
             buildList {
@@ -28,6 +31,22 @@ internal fun DnsIntegrityResult.toUiModel(): DiagnosticsDnsIntegrityToolUiModel 
                 if (doqResults.isNotEmpty()) {
                     add(DiagnosticsMetricUiModel("DoQ checks", doqResults.size.toString(), DiagnosticsTone.Info))
                     add(DiagnosticsMetricUiModel("DoQ flagged", doqFlagged.toString(), countTone(doqFlagged)))
+                }
+                if (dohBootstrapResults.isNotEmpty()) {
+                    add(
+                        DiagnosticsMetricUiModel(
+                            "DoH bootstrap",
+                            dohBootstrapResults.size.toString(),
+                            DiagnosticsTone.Info,
+                        ),
+                    )
+                    add(
+                        DiagnosticsMetricUiModel(
+                            "bootstrap flagged",
+                            bootstrapFlagged.toString(),
+                            countTone(bootstrapFlagged),
+                        ),
+                    )
                 }
             }.toPersistentList(),
         rows =
@@ -45,8 +64,21 @@ internal fun DnsIntegrityResult.toUiModel(): DiagnosticsDnsIntegrityToolUiModel 
             doqResults
                 .map(DoqProbeResult::toUiModel)
                 .toPersistentList(),
+        dohBootstrapRows =
+            dohBootstrapResults
+                .map(DohBootstrapResult::toUiModel)
+                .toPersistentList(),
     )
 }
+
+private fun DohBootstrapResult.toUiModel(): DiagnosticsDohBootstrapUiModel =
+    DiagnosticsDohBootstrapUiModel(
+        provider = providerName,
+        hostname = dohHostname,
+        verdict = verdict.displayLabel(),
+        detail = bootstrapDetail(),
+        tone = verdict.tone(),
+    )
 
 private fun DoqProbeResult.toUiModel(): DiagnosticsDnsIntegrityDoqUiModel =
     DiagnosticsDnsIntegrityDoqUiModel(
@@ -62,6 +94,15 @@ private fun DoqProbeResult.toUiModel(): DiagnosticsDnsIntegrityDoqUiModel =
 private fun DnsIntegrityVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
 
 private fun DoqVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
+
+private fun BootstrapVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
+
+private fun DohBootstrapResult.bootstrapDetail(): String =
+    buildList {
+        bootstrapIp?.let(::add)
+        discoveredAsn?.let { asn -> add("AS$asn") }
+        discoveredOrg?.let(::add)
+    }.joinToString(" · ").ifBlank { expectedFilter }
 
 private fun DnsIntegrityVerdict.tone(): DiagnosticsTone =
     when (this) {
@@ -87,6 +128,13 @@ private fun DoqVerdict.tone(): DiagnosticsTone =
         DoqVerdict.DOQ_DPI_REJECT,
         DoqVerdict.DOQ_INTEGRITY_DIVERGENT,
         -> DiagnosticsTone.Warning
+    }
+
+private fun BootstrapVerdict.tone(): DiagnosticsTone =
+    when (this) {
+        BootstrapVerdict.OK -> DiagnosticsTone.Positive
+        BootstrapVerdict.SPOOFED -> DiagnosticsTone.Warning
+        BootstrapVerdict.RESOLVE_FAILED -> DiagnosticsTone.Neutral
     }
 
 private fun countTone(count: Int): DiagnosticsTone =

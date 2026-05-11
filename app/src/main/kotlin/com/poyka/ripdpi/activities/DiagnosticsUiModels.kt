@@ -132,6 +132,15 @@ data class DiagnosticsDnsIntegrityDoqUiModel(
     val tone: DiagnosticsTone,
 )
 
+@Immutable
+data class DiagnosticsDohBootstrapUiModel(
+    val provider: String,
+    val hostname: String,
+    val verdict: String,
+    val detail: String,
+    val tone: DiagnosticsTone,
+)
+
 @Stable
 data class DiagnosticsDnsIntegrityToolUiModel(
     val state: DiagnosticsDnsIntegrityState = DiagnosticsDnsIntegrityState.Idle,
@@ -139,6 +148,7 @@ data class DiagnosticsDnsIntegrityToolUiModel(
     val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
     val rows: ImmutableList<DiagnosticsDnsIntegrityDomainUiModel> = persistentListOf(),
     val doqRows: ImmutableList<DiagnosticsDnsIntegrityDoqUiModel> = persistentListOf(),
+    val dohBootstrapRows: ImmutableList<DiagnosticsDohBootstrapUiModel> = persistentListOf(),
     val errorMessage: String? = null,
 )
 

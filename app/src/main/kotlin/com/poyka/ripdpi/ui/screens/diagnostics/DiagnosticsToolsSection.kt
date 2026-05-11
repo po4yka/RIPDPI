@@ -743,6 +743,24 @@ private fun DnsIntegrityToolCard(
                 }
             }
         }
+        if (tool.dohBootstrapRows.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                tool.dohBootstrapRows.forEach { row ->
+                    StatusIndicator(
+                        label = "DoH bootstrap ${row.provider}: ${row.verdict}",
+                        tone = statusTone(row.tone),
+                    )
+                    androidx.compose.material3.Text(
+                        text = "${row.hostname} · ${row.detail}",
+                        style = RipDpiThemeTokens.type.monoSmall,
+                        color = colors.mutedForeground,
+                    )
+                }
+            }
+        }
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsDnsIntegrityState.Running) {
