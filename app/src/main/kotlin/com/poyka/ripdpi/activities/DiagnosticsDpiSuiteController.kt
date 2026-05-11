@@ -204,7 +204,9 @@ internal class DiagnosticsDpiSuiteController(
                         if (concurrency == DpiSuiteConfig.DefaultConcurrency) {
                             domainReachabilityScanner.scan(domains, stubIps)
                         } else {
-                            DomainReachabilityScanner(maxConcurrent = concurrency).scan(domains, stubIps)
+                            domainReachabilityScanner
+                                .withMaxConcurrent(concurrency)
+                                .scan(domains, stubIps)
                         }
 
                     override suspend fun runTcp16(
@@ -214,7 +216,9 @@ internal class DiagnosticsDpiSuiteController(
                         if (concurrency == DpiSuiteConfig.DefaultConcurrency) {
                             tcp16FatHeaderProbe.run(targets)
                         } else {
-                            Tcp16FatHeaderProbe(concurrency = concurrency).run(targets)
+                            tcp16FatHeaderProbe
+                                .withConcurrency(concurrency)
+                                .run(targets)
                         }
 
                     override suspend fun findAllowlistSni(results: List<Tcp16ProbeResult>) =

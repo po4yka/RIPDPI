@@ -104,9 +104,17 @@ class DomainReachabilityScanner(
     private val resolver: DomainAddressResolver = SystemDomainAddressResolver()::resolveA,
     private val attemptRunner: DomainReachabilityAttemptRunner = OkHttpDomainReachabilityAttemptRunner()::invoke,
     private val tlsClientStateProvider: () -> DiagnosticsTlsClientState? = { null },
-    maxConcurrent: Int = DefaultMaxConcurrent,
+    private val maxConcurrent: Int = DefaultMaxConcurrent,
 ) {
     private val semaphore = Semaphore(maxConcurrent)
+
+    fun withMaxConcurrent(maxConcurrent: Int): DomainReachabilityScanner =
+        DomainReachabilityScanner(
+            resolver = resolver,
+            attemptRunner = attemptRunner,
+            tlsClientStateProvider = tlsClientStateProvider,
+            maxConcurrent = maxConcurrent,
+        )
 
     suspend fun scan(
         domains: List<String>,

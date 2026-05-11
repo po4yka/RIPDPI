@@ -78,6 +78,7 @@ All 6 unit tests green. ClientHello byte-equality regression test green. All dia
 - 2026-05-11: Threaded `DiagnosticsTlsClientState` into `DomainReachabilityResult`, `Tcp16ProbeResult`, and `RknCheckResult`, with focused tests proving fallback-active probe runs carry the state from their injected diagnostic TLS factory.
 - 2026-05-11: Surfaced diagnostic TLS profile/mode metrics in the Domain Reachability, TCP16, and layered block-diagnosis tool UI mappers so fallback-active probe runs are visible in app-side diagnostic cards.
 - 2026-05-11: Surfaced diagnostic TLS profile/mode rows in the aggregate suite Domain Reachability and TCP16 row mappers so fallback-active runs remain visible outside individual tool cards.
+- 2026-05-11: Preserved injected diagnostic TLS clients when the aggregate suite uses a non-default concurrency override by cloning the existing Domain Reachability and TCP16 probes with their injected collaborators intact.
 
 Remaining before close:
 

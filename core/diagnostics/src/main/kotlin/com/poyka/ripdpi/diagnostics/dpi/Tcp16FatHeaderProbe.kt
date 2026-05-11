@@ -40,6 +40,15 @@ class Tcp16FatHeaderProbe(
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val concurrency: Int = DefaultConcurrency,
 ) : Tcp16Probe {
+    fun withConcurrency(concurrency: Int): Tcp16FatHeaderProbe =
+        Tcp16FatHeaderProbe(
+            paddingPool = paddingPool,
+            requestRunner = requestRunner,
+            tlsClientStateProvider = tlsClientStateProvider,
+            dispatcher = dispatcher,
+            concurrency = concurrency,
+        )
+
     suspend fun run(
         targets: List<Tcp16Target>,
         rttHints: Map<String, Long> = emptyMap(),

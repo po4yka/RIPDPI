@@ -184,6 +184,39 @@ class Tcp16FatHeaderProbeTest {
         }
 
     @Test
+    fun withConcurrencyPreservesDiagnosticsTlsClientStateProvider() =
+        runTest {
+            val tlsState =
+                DiagnosticsTlsClientState(
+                    profileId = "chrome_stable",
+                    nativeOwnedTlsAvailable = false,
+                    fallbackActive = true,
+                    fallbackReason = "android_okhttp_fingerprint_template",
+                )
+            val probe =
+                Tcp16FatHeaderProbe(
+                    requestRunner =
+                        object : Tcp16RequestRunner {
+                            override fun execute(
+                                target: Tcp16Target,
+                                request: Tcp16FatHeaderRequest,
+                                tracker: Tcp16ConnectionTracker,
+                            ): Tcp16FatHeaderResponse {
+                                if (request.requestIndex == 0) {
+                                    tracker.recordConnectStart()
+                                }
+                                return Tcp16FatHeaderResponse(statusCode = 200, elapsedMs = 10)
+                            }
+                        },
+                    tlsClientStateProvider = { tlsState },
+                ).withConcurrency(2)
+
+            val result = probe.runWithRttHint(mockTarget(port = 443), hintRttMs = 25)
+
+            assertEquals(tlsState, result.tlsClientState)
+        }
+
+    @Test
     fun byAsnAggregatesProviderAndVerdictCounts() {
         val results =
             listOf(

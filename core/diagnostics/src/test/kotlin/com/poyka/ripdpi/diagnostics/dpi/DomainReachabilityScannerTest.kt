@@ -288,6 +288,29 @@ class DomainReachabilityScannerTest {
             assertEquals(tlsState, result.tlsClientState)
         }
 
+    @Test
+    fun withMaxConcurrentPreservesDiagnosticsTlsClientStateProvider() =
+        runTest {
+            val tlsState =
+                DiagnosticsTlsClientState(
+                    profileId = "chrome_stable",
+                    nativeOwnedTlsAvailable = false,
+                    fallbackActive = true,
+                    fallbackReason = "android_okhttp_fingerprint_template",
+                )
+
+            val result =
+                DomainReachabilityScanner(
+                    resolver = { listOf("93.184.216.34") },
+                    attemptRunner = { _, _, _ -> AttemptResult(AttemptStatus.OK) },
+                    tlsClientStateProvider = { tlsState },
+                ).withMaxConcurrent(2)
+                    .scan(listOf("example.com"), stubIps = emptySet())
+                    .single()
+
+            assertEquals(tlsState, result.tlsClientState)
+        }
+
     private fun scanner(
         resolver: suspend (String) -> List<String> = { listOf("93.184.216.34") },
         attempts: suspend (
