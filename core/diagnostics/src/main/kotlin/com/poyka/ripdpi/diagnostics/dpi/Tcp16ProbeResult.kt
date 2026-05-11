@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
+
 enum class Tcp16Verdict {
     OK,
     DETECTED_AT_KB,
@@ -20,6 +22,7 @@ data class Tcp16ProbeResult(
     val measuredRttMs: Long?,
     val errorDetail: String?,
     val connectionCount: Int,
+    val tlsClientState: DiagnosticsTlsClientState? = null,
 )
 
 data class Tcp16AsnSummary(

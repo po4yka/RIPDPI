@@ -43,6 +43,7 @@ object DpiDiagnosticsToolModule {
     @Provides
     fun provideDomainReachabilityScanner(tlsClientFactory: DiagnosticsHttpClientFactory): DomainReachabilityScanner =
         DomainReachabilityScanner(
+            tlsClientStateProvider = tlsClientFactory::tlsClientState,
             attemptRunner =
                 OkHttpDomainReachabilityAttemptRunner(
                     clientBuilder = tlsClientFactory::createClient,
@@ -53,6 +54,7 @@ object DpiDiagnosticsToolModule {
     fun provideTcp16FatHeaderProbe(tlsClientFactory: DiagnosticsHttpClientFactory): Tcp16FatHeaderProbe =
         Tcp16FatHeaderProbe(
             requestRunner = OkHttpTcp16RequestRunner.withClientBuilder(tlsClientFactory::createClient),
+            tlsClientStateProvider = tlsClientFactory::tlsClientState,
         )
 
     @Provides
@@ -60,6 +62,7 @@ object DpiDiagnosticsToolModule {
         RknLayeredProbePipeline(
             tlsProbe = HttpClientRknTlsProbe(clientBuilder = tlsClientFactory::createClient),
             httpProbe = OkHttpRknHttpProbe(baseClient = tlsClientFactory.createClient()),
+            tlsClientStateProvider = tlsClientFactory::tlsClientState,
         )
 
     @Provides

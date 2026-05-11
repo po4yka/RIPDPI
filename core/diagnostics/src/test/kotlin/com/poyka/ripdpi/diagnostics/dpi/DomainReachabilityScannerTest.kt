@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.core.detection.dpi.DpiProbeError
 import com.poyka.ripdpi.core.detection.dpi.ProbeStage
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -264,6 +265,27 @@ class DomainReachabilityScannerTest {
 
             assertEquals(AttemptStatus.ERROR, result.status)
             assertEquals(1, builderCalls.get())
+        }
+
+    @Test
+    fun scanResultsCarryDiagnosticsTlsClientState() =
+        runTest {
+            val tlsState =
+                DiagnosticsTlsClientState(
+                    profileId = "chrome_stable",
+                    nativeOwnedTlsAvailable = false,
+                    fallbackActive = true,
+                    fallbackReason = "android_okhttp_fingerprint_template",
+                )
+
+            val result =
+                DomainReachabilityScanner(
+                    resolver = { listOf("93.184.216.34") },
+                    attemptRunner = { _, _, _ -> AttemptResult(AttemptStatus.OK) },
+                    tlsClientStateProvider = { tlsState },
+                ).scan(listOf("example.com"), stubIps = emptySet()).single()
+
+            assertEquals(tlsState, result.tlsClientState)
         }
 
     private fun scanner(

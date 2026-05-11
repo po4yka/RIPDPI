@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -35,6 +36,7 @@ import kotlin.math.roundToLong
 class Tcp16FatHeaderProbe(
     private val paddingPool: RandomPaddingPool = RandomPaddingPool(),
     private val requestRunner: Tcp16RequestRunner = OkHttpTcp16RequestRunner(),
+    private val tlsClientStateProvider: () -> DiagnosticsTlsClientState? = { null },
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val concurrency: Int = DefaultConcurrency,
 ) : Tcp16Probe {
@@ -144,6 +146,29 @@ class Tcp16FatHeaderProbe(
             )
         }
     }
+
+    private fun Tcp16Target.result(
+        alive: Boolean,
+        verdict: Tcp16Verdict,
+        detectedAtKb: Int? = null,
+        measuredRttMs: Long?,
+        errorDetail: String? = null,
+        connectionCount: Int,
+    ): Tcp16ProbeResult =
+        Tcp16ProbeResult(
+            targetId = id,
+            asn = asn,
+            provider = provider,
+            ip = ip,
+            port = port,
+            alive = alive,
+            verdict = verdict,
+            detectedAtKb = detectedAtKb,
+            measuredRttMs = measuredRttMs,
+            errorDetail = errorDetail,
+            connectionCount = connectionCount,
+            tlsClientState = tlsClientStateProvider(),
+        )
 
     companion object {
         private const val RequestCount = 16
@@ -304,28 +329,6 @@ private data class TargetDns(
             Dns.SYSTEM.lookup(hostname)
         }
 }
-
-private fun Tcp16Target.result(
-    alive: Boolean,
-    verdict: Tcp16Verdict,
-    detectedAtKb: Int? = null,
-    measuredRttMs: Long?,
-    errorDetail: String? = null,
-    connectionCount: Int,
-): Tcp16ProbeResult =
-    Tcp16ProbeResult(
-        targetId = id,
-        asn = asn,
-        provider = provider,
-        ip = ip,
-        port = port,
-        alive = alive,
-        verdict = verdict,
-        detectedAtKb = detectedAtKb,
-        measuredRttMs = measuredRttMs,
-        errorDetail = errorDetail,
-        connectionCount = connectionCount,
-    )
 
 private fun List<Long>.averageMillis(): Long? =
     if (isEmpty()) {

@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.detection.dpi.DpiProbeError
 import com.poyka.ripdpi.core.detection.dpi.IpAddressClassifier
 import com.poyka.ripdpi.core.detection.dpi.IpAddressType
 import com.poyka.ripdpi.core.detection.dpi.ProbeStage
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -82,6 +83,7 @@ data class DomainReachabilityResult(
     val tls12: AttemptResult,
     val http: AttemptResult,
     val verdict: DomainVerdict,
+    val tlsClientState: DiagnosticsTlsClientState? = null,
 )
 
 data class ReachabilityProbeEndpoint(
@@ -101,6 +103,7 @@ typealias DomainReachabilityAttemptRunner = suspend (
 class DomainReachabilityScanner(
     private val resolver: DomainAddressResolver = SystemDomainAddressResolver()::resolveA,
     private val attemptRunner: DomainReachabilityAttemptRunner = OkHttpDomainReachabilityAttemptRunner()::invoke,
+    private val tlsClientStateProvider: () -> DiagnosticsTlsClientState? = { null },
     maxConcurrent: Int = DefaultMaxConcurrent,
 ) {
     private val semaphore = Semaphore(maxConcurrent)
@@ -148,6 +151,7 @@ class DomainReachabilityScanner(
             tls12 = tls12,
             http = http,
             verdict = aggregateVerdict(tls13, tls12, http),
+            tlsClientState = tlsClientStateProvider(),
         )
     }
 
@@ -190,6 +194,7 @@ class DomainReachabilityScanner(
             tls12 = attempt,
             http = attempt,
             verdict = verdict,
+            tlsClientState = tlsClientStateProvider(),
         )
     }
 

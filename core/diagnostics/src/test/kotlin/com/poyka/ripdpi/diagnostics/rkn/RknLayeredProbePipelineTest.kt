@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.rkn
 
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -163,6 +164,25 @@ class RknLayeredProbePipelineTest {
         }
 
     @Test
+    fun `check result carries diagnostics tls client state`() =
+        runTest {
+            val tlsState =
+                DiagnosticsTlsClientState(
+                    profileId = "chrome_stable",
+                    nativeOwnedTlsAvailable = false,
+                    fallbackActive = true,
+                    fallbackReason = "android_okhttp_fingerprint_template",
+                )
+
+            val result =
+                pipeline(
+                    tlsClientStateProvider = { tlsState },
+                ).checkUrl(target("ok", "https://ok.example/"))
+
+            assertEquals(tlsState, result.tlsClientState)
+        }
+
+    @Test
     fun `default tls probe uses injected diagnostics client factory`() =
         runTest {
             var factoryCalls = 0
@@ -229,12 +249,14 @@ class RknLayeredProbePipelineTest {
         tcp: RknTcpProbe = FakeTcpProbe(),
         tls: RknTlsProbe = FakeTlsProbe(),
         http: RknHttpProbe = FakeHttpProbe(RknHttpProbeResult(statusCode = 200, bodyPreview = "ok")),
+        tlsClientStateProvider: () -> DiagnosticsTlsClientState? = { null },
     ): RknLayeredProbePipeline =
         RknLayeredProbePipeline(
             dnsProbe = dns,
             tcpProbe = tcp,
             tlsProbe = tls,
             httpProbe = http,
+            tlsClientStateProvider = tlsClientStateProvider,
             stubPageDetector = RknStubPageDetector(DefaultStubMarkers),
         )
 

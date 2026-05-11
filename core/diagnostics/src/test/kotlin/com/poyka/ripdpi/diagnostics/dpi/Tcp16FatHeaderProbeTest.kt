@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -147,6 +148,39 @@ class Tcp16FatHeaderProbeTest {
                 assertEquals(Tcp16Verdict.OK, result.verdict)
                 assertEquals("diagnostics", server.takeRequest(1, TimeUnit.SECONDS)?.headers?.get("X-Owned-Tls-Client"))
             }
+        }
+
+    @Test
+    fun resultsCarryDiagnosticsTlsClientState() =
+        runTest {
+            val tlsState =
+                DiagnosticsTlsClientState(
+                    profileId = "chrome_stable",
+                    nativeOwnedTlsAvailable = false,
+                    fallbackActive = true,
+                    fallbackReason = "android_okhttp_fingerprint_template",
+                )
+            val probe =
+                Tcp16FatHeaderProbe(
+                    requestRunner =
+                        object : Tcp16RequestRunner {
+                            override fun execute(
+                                target: Tcp16Target,
+                                request: Tcp16FatHeaderRequest,
+                                tracker: Tcp16ConnectionTracker,
+                            ): Tcp16FatHeaderResponse {
+                                if (request.requestIndex == 0) {
+                                    tracker.recordConnectStart()
+                                }
+                                return Tcp16FatHeaderResponse(statusCode = 200, elapsedMs = 10)
+                            }
+                        },
+                    tlsClientStateProvider = { tlsState },
+                )
+
+            val result = probe.runWithRttHint(mockTarget(port = 443), hintRttMs = 25)
+
+            assertEquals(tlsState, result.tlsClientState)
         }
 
     @Test

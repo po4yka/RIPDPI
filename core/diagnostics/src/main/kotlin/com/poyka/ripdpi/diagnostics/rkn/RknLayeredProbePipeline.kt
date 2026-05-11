@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.rkn
 
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -69,6 +70,7 @@ data class RknCheckResult(
     val statusCode: Int? = null,
     val pltMs: Long? = null,
     val httpError: String? = null,
+    val tlsClientState: DiagnosticsTlsClientState? = null,
 )
 
 data class RknTcpProbeResult(
@@ -122,6 +124,7 @@ class RknLayeredProbePipeline(
     private val tlsProbe: RknTlsProbe = SslSocketRknTlsProbe(),
     private val httpProbe: RknHttpProbe = OkHttpRknHttpProbe(),
     private val stubPageDetector: RknStubPageDetector = RknStubPageDetector(DefaultStubMarkers),
+    private val tlsClientStateProvider: () -> DiagnosticsTlsClientState? = { null },
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val timeoutMs: Long = DefaultTimeoutMs,
     private val identifyProbeHeaders: Boolean = false,
@@ -132,6 +135,7 @@ class RknLayeredProbePipeline(
             RknResultBuilder(
                 name = target.name,
                 url = target.url,
+                tlsClientState = tlsClientStateProvider(),
             )
 
         val dns =
@@ -258,6 +262,7 @@ class RknLayeredProbePipeline(
         val statusCode: Int? = null,
         val pltMs: Long? = null,
         val httpError: String? = null,
+        val tlsClientState: DiagnosticsTlsClientState? = null,
     ) {
         fun withDns(result: DnsComparisonResult): RknResultBuilder =
             copy(
@@ -364,6 +369,7 @@ class RknLayeredProbePipeline(
                 statusCode = statusCode,
                 pltMs = pltMs,
                 httpError = httpError,
+                tlsClientState = tlsClientState,
             )
     }
 
