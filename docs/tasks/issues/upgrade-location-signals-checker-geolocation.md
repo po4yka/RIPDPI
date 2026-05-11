@@ -1,7 +1,7 @@
 ---
 title: Upgrade LocationSignalsChecker with BeaconDB Cell Tower and Wi-Fi Geolocation
 type: task
-status: backlog
+status: doing
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: detection-feature-parity-epic
 blocks: []
 blocked_by: []
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-11
 ---
 
-- [ ] #task Upgrade LocationSignalsChecker with BeaconDB Cell Tower and Wi-Fi Geolocation #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [ ] #task Upgrade LocationSignalsChecker with BeaconDB Cell Tower and Wi-Fi Geolocation #repo/RIPDPI #area/diagnostics #status/doing 🔼
 
 ## Objective
 
