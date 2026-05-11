@@ -1,0 +1,5 @@
+# Synthetic fixture domains for the user-controlled host compatibility checker.
+# These names are reserved for local/manual fixtures and are not a public target list.
+alpha.example.test
+beta.example.test
+gamma.example.test

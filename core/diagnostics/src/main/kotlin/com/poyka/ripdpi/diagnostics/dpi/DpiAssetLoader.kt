@@ -42,6 +42,7 @@ class DpiAssetLoader(
     private var cachedTcp16Targets: List<Tcp16Target>? = null
     private var cachedDomains: List<String>? = null
     private var cachedWhitelistSni: List<String>? = null
+    private var cachedByohSyntheticDomains: List<String>? = null
     private var cachedRknWhitelistControl: List<RknTarget>? = null
     private var cachedRknBlacklistTest: List<RknTarget>? = null
 
@@ -59,6 +60,11 @@ class DpiAssetLoader(
         cachedWhitelistSni ?: loadText(WhitelistSniPath)
             .parseLineList()
             .also { cachedWhitelistSni = it }
+
+    fun loadByohSyntheticDomains(): List<String> =
+        cachedByohSyntheticDomains ?: loadText(ByohSyntheticDomainsPath)
+            .parseLineList()
+            .also { cachedByohSyntheticDomains = it }
 
     fun loadRknWhitelistControl(): List<RknTarget> =
         cachedRknWhitelistControl ?: loadText(RknWhitelistControlPath)
@@ -114,6 +120,7 @@ class DpiAssetLoader(
         private const val Tcp16TargetsPath = "dpi/tcp16.json"
         private const val DomainsPath = "dpi/domains.txt"
         private const val WhitelistSniPath = "dpi/whitelist_sni.txt"
+        private const val ByohSyntheticDomainsPath = "dpich/byoh_synthetic_domains.txt"
         private const val RknWhitelistControlPath = "rkn/rkn_whitelist_control.txt"
         private const val RknBlacklistTestPath = "rkn/rkn_blacklist_test.txt"
         private const val LegacyTypoPortField = ",port"
