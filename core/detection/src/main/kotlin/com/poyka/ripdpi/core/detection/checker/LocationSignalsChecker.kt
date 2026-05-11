@@ -13,6 +13,7 @@ import android.telephony.CellInfo
 import android.telephony.CellInfoGsm
 import android.telephony.CellInfoLte
 import android.telephony.CellInfoWcdma
+import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import android.telephony.gsm.GsmCellLocation
 import androidx.core.content.ContextCompat
@@ -109,7 +110,12 @@ object LocationSignalsChecker {
                 bssid = getBssid(context)
                 if (phoneGranted) {
                     val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-                    cellTowers = collectCellTowers(context, tm)
+                    cellTowers =
+                        collectTelephonyManagers(context, tm)
+                            .flatMap { manager -> collectCellTowers(context, manager) }
+                            .distinctBy { tower ->
+                                listOf(tower.radio, tower.mcc, tower.mnc, tower.areaCode, tower.cellId)
+                            }.take(MAX_CELL_TOWERS)
                 }
                 wifiAccessPoints = collectWifiAccessPoints(context)
             } catch (_: Exception) {
@@ -264,6 +270,31 @@ object LocationSignalsChecker {
             needsReview = needsReview,
             evidence = evidence,
         )
+    }
+
+    @Suppress("MissingPermission")
+    private fun collectTelephonyManagers(
+        context: Context,
+        defaultManager: TelephonyManager,
+    ): List<TelephonyManager> {
+        val subscriptionManager =
+            context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? SubscriptionManager
+                ?: return listOf(defaultManager)
+        val subscriptionManagers =
+            runCatching {
+                subscriptionManager.activeSubscriptionInfoList
+                    .orEmpty()
+                    .mapNotNull { info ->
+                        runCatching { defaultManager.createForSubscriptionId(info.subscriptionId) }.getOrNull()
+                    }
+            }.getOrDefault(emptyList())
+        return (listOf(defaultManager) + subscriptionManagers).distinctBy { manager ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                manager.subscriptionId
+            } else {
+                manager.hashCode()
+            }
+        }
     }
 
     @Suppress("DEPRECATION", "MissingPermission")
