@@ -167,3 +167,53 @@ impl From<EncryptedDnsError> for NativeDoqError {
         Self::new(kind, error.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::Value;
+
+    use super::*;
+
+    #[test]
+    fn cloudflare_doq_exchange_is_available_when_network_tests_enabled() {
+        if std::env::var("RIPDPI_RUN_NETWORK_TESTS").as_deref() != Ok("1") {
+            return;
+        }
+        let query = build_dns_query("example.com", 0x1234);
+        let request = serde_json::json!({
+            "endpoint": "1.1.1.1",
+            "port": 853,
+            "tlsServerName": "cloudflare-dns.com",
+            "queryBase64": STANDARD.encode(query),
+            "timeoutMs": 6_000,
+        });
+
+        let payload = exchange(&request.to_string());
+        let response: Value = serde_json::from_str(&payload).expect("native DoQ response JSON");
+
+        assert_eq!(response.get("error").and_then(Value::as_str), None);
+        let response_bytes = STANDARD
+            .decode(response.get("responseBase64").and_then(Value::as_str).expect("DoQ response body"))
+            .expect("base64 response");
+        assert_eq!(response_bytes[0], 0x12);
+        assert_eq!(response_bytes[1], 0x34);
+    }
+
+    fn build_dns_query(domain: &str, query_id: u16) -> Vec<u8> {
+        let mut packet = Vec::with_capacity(512);
+        packet.extend(query_id.to_be_bytes());
+        packet.extend(0x0100u16.to_be_bytes());
+        packet.extend(1u16.to_be_bytes());
+        packet.extend(0u16.to_be_bytes());
+        packet.extend(0u16.to_be_bytes());
+        packet.extend(0u16.to_be_bytes());
+        for label in domain.trim_end_matches('.').split('.') {
+            packet.push(label.len() as u8);
+            packet.extend(label.as_bytes());
+        }
+        packet.push(0);
+        packet.extend(1u16.to_be_bytes());
+        packet.extend(1u16.to_be_bytes());
+        packet
+    }
+}
