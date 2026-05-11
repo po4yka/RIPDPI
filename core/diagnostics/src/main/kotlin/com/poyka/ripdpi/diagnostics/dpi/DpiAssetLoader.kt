@@ -46,6 +46,8 @@ class DpiAssetLoader(
     private var cachedDohProviderFilters: String? = null
     private var cachedObfs4Bridges: List<String>? = null
     private var cachedMeekFronts: List<String>? = null
+    private var cachedCidrWhitelistedUrls: List<String>? = null
+    private var cachedCidrRegularUrls: List<String>? = null
     private var cachedRknWhitelistControl: List<RknTarget>? = null
     private var cachedRknBlacklistTest: List<RknTarget>? = null
 
@@ -82,6 +84,16 @@ class DpiAssetLoader(
         cachedMeekFronts ?: loadText(MeekFrontsPath)
             .parseLineList()
             .also { cachedMeekFronts = it }
+
+    fun loadCidrWhitelistedUrls(): List<String> =
+        cachedCidrWhitelistedUrls ?: loadText(CidrWhitelistedUrlsPath)
+            .parseLineList()
+            .also { cachedCidrWhitelistedUrls = it }
+
+    fun loadCidrRegularUrls(): List<String> =
+        cachedCidrRegularUrls ?: loadText(CidrRegularUrlsPath)
+            .parseLineList()
+            .also { cachedCidrRegularUrls = it }
 
     fun loadRknWhitelistControl(): List<RknTarget> =
         cachedRknWhitelistControl ?: loadText(RknWhitelistControlPath)
@@ -141,6 +153,8 @@ class DpiAssetLoader(
         private const val DohProviderFiltersPath = "dpich/doh_provider_filters.yaml"
         private const val Obfs4BridgesPath = "dpich/obfs4_bridges.txt"
         private const val MeekFrontsPath = "dpich/meek_fronts.txt"
+        private const val CidrWhitelistedUrlsPath = "dpich/cidr_whitelisted_urls.txt"
+        private const val CidrRegularUrlsPath = "dpich/cidr_regular_urls.txt"
         private const val RknWhitelistControlPath = "rkn/rkn_whitelist_control.txt"
         private const val RknBlacklistTestPath = "rkn/rkn_blacklist_test.txt"
         private const val LegacyTypoPortField = ",port"

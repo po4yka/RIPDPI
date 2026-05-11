@@ -1,0 +1,6 @@
+# Default control URLs for CIDR whitelist diagnostics. Users can override this file at filesDir/dpich/cidr_whitelisted_urls.txt.
+https://gosuslugi.ru/
+https://mos.ru/
+https://sberbank.ru/
+https://vk.com/
+https://yandex.ru/

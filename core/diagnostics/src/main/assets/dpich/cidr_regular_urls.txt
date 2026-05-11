@@ -1,0 +1,6 @@
+# Default regular URLs for CIDR whitelist diagnostics. Users can override this file at filesDir/dpich/cidr_regular_urls.txt.
+https://github.com/
+https://cloudflare.com/
+https://example.com/
+https://mozilla.org/
+https://wikipedia.org/

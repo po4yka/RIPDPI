@@ -1,7 +1,7 @@
 ---
 title: Add CIDR-Whitelist Censorship Detector via Control vs Regular URL Group Probe
 type: task
-status: backlog
+status: doing
 area: diagnostics
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-11
 ---
 
-- [ ] #task Add CIDR-Whitelist Censorship Detector via Control vs Regular URL Group Probe #repo/RIPDPI #area/diagnostics #status/backlog ⏫
+- [ ] #task Add CIDR-Whitelist Censorship Detector via Control vs Regular URL Group Probe #repo/RIPDPI #area/diagnostics #status/doing ⏫
 
 ## Objective
 
@@ -41,17 +41,17 @@ dpi-ch's `cidrwhitelist.go` runs both groups in parallel with `context.WithTimeo
 
 ## Acceptance criteria
 
-- [ ] `CidrWhitelistResult` enum: `OK`, `CIDR_WHITELIST_DETECTED`, `NO_INTERNET`
-- [ ] `CidrWhitelistDetector.detect(timeoutMs: Long = 8000): CidrWhitelistDetectionResult` returning the verdict + per-URL probe traces (URL, group, status, latency, error if any)
-- [ ] Both URL groups loaded from bundled assets via extended `DpiAssetLoader`; user-override supported per the existing override mechanism
-- [ ] Default whitelisted group (5 URLs): gosuslugi.ru, mos.ru, sberbank.ru, vk.com, yandex.ru
-- [ ] Default regular group (5 URLs): github.com, cloudflare.com, example.com, mozilla.org, wikipedia.org
-- [ ] Per-URL probe: HTTP HEAD via `DiagnosticsHttpClientFactory`/`OkHttpClient`; ignores body; timeout configurable
-- [ ] Concurrency: all URLs in both groups probed in parallel via `coroutineScope { async { ... } }`
-- [ ] Early-cancel: as soon as **any** regular-group URL succeeds, cancel all in-flight probes (verdict is `OK` regardless of whitelisted-group results) — matches dpi-ch's `regCancel(); wlCancel()` pattern
-- [ ] Verdict logic: `regularOk > 0 → OK`; `regularOk == 0 && whitelistedOk > 0 → CIDR_WHITELIST_DETECTED`; both zero → `NO_INTERNET`
+- [x] `CidrWhitelistVerdict` enum: `OK`, `CIDR_WHITELIST_DETECTED`, `NO_INTERNET`
+- [x] `CidrWhitelistDetector.detect(timeoutMs: Long = 8000): CidrWhitelistDetectionResult` returning the verdict + per-URL probe traces (URL, group, status, latency, error if any)
+- [x] Both URL groups loaded from bundled assets via extended `DpiAssetLoader`; user-override supported per the existing override mechanism
+- [x] Default whitelisted group (5 URLs): gosuslugi.ru, mos.ru, sberbank.ru, vk.com, yandex.ru
+- [x] Default regular group (5 URLs): github.com, cloudflare.com, example.com, mozilla.org, wikipedia.org
+- [x] Per-URL probe: HTTP HEAD via `DiagnosticsHttpClientFactory`/`OkHttpClient`; ignores body; timeout configurable
+- [x] Concurrency: all URLs in both groups probed in parallel via `coroutineScope { async { ... } }`
+- [x] Early-cancel: as soon as **any** regular-group URL succeeds, cancel all in-flight probes (verdict is `OK` regardless of whitelisted-group results) — matches dpi-ch's `regCancel(); wlCancel()` pattern
+- [x] Verdict logic: `regularOk > 0 → OK`; `regularOk == 0 && whitelistedOk > 0 → CIDR_WHITELIST_DETECTED`; both zero → `NO_INTERNET`
 - [ ] Surfaced in DiagnosticsScreen as "CIDR Whitelist Detection" card with verdict + per-URL trace expandable
-- [ ] Unit tests: all 3 verdict branches; cancel-on-first-regular-success behavior
+- [x] Unit tests: all 3 verdict branches; cancel-on-first-regular-success behavior
 
 ## TDD workflow
 
@@ -72,3 +72,11 @@ dpi-ch's `cidrwhitelist.go` runs both groups in parallel with `context.WithTimeo
 ## Definition of done
 
 All 7 unit tests green. Card visible in DiagnosticsScreen Tools section. Per-URL trace expandable in UI. Verdict semantics match dpi-ch's three-state logic exactly.
+
+## Work log
+
+- 2026-05-11: Added `CidrWhitelistDetector`, URL group/result/trace models, `OkHttpCidrWhitelistUrlProbe`, bundled URL group assets with override-aware `DpiAssetLoader` methods, Hilt provider wiring through `DiagnosticsHttpClientFactory`, and focused tests for all verdict branches, early cancellation, traces, and asset overrides.
+
+Remaining before close:
+
+- Surface the detector in the DiagnosticsScreen tools section with an expandable per-URL trace.

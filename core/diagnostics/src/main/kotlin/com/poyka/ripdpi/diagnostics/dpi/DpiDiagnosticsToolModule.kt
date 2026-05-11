@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
+import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetector
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.dpich.KnownDohProviderSubnetMetadataLookup
+import com.poyka.ripdpi.diagnostics.dpich.OkHttpCidrWhitelistUrlProbe
 import com.poyka.ripdpi.diagnostics.dpich.OkHttpWebhostProbe
 import com.poyka.ripdpi.diagnostics.dpich.WebhostFarm
 import com.poyka.ripdpi.diagnostics.dpich.loadDohProviderFilters
@@ -70,6 +72,17 @@ object DpiDiagnosticsToolModule {
     @Provides
     fun provideHttpCompressionProber(tlsClientFactory: DiagnosticsHttpClientFactory): HttpCompressionProber =
         HttpCompressionProber(clientBuilder = tlsClientFactory::createClient)
+
+    @Provides
+    fun provideCidrWhitelistDetector(
+        assetLoader: DpiAssetLoader,
+        tlsClientFactory: DiagnosticsHttpClientFactory,
+    ): CidrWhitelistDetector =
+        CidrWhitelistDetector(
+            whitelistedUrls = assetLoader.loadCidrWhitelistedUrls(),
+            regularUrls = assetLoader.loadCidrRegularUrls(),
+            urlProbe = OkHttpCidrWhitelistUrlProbe(clientBuilder = tlsClientFactory::createClient),
+        )
 
     @Provides
     fun provideWebhostFarm(tlsClientFactory: DiagnosticsHttpClientFactory): WebhostFarm =

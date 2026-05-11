@@ -22,6 +22,8 @@ class DpiAssetLoaderTest {
         assertEquals(6, loader.loadDohProviderFilters().size)
         assertEquals(10, loader.loadObfs4Bridges().size)
         assertEquals(3, loader.loadMeekFronts().size)
+        assertEquals(5, loader.loadCidrWhitelistedUrls().size)
+        assertEquals(5, loader.loadCidrRegularUrls().size)
     }
 
     @Test
@@ -132,6 +134,25 @@ class DpiAssetLoaderTest {
             )
 
         assertEquals(listOf("203.0.113.1:443"), loader.loadObfs4Bridges())
+    }
+
+    @Test
+    fun cidrUrlGroupUserOverrideTakesPrecedenceOverBundledAsset() {
+        val filesDir = createTempDirectory().toFile()
+        File(filesDir, "dpich/cidr_regular_urls.txt").also { file ->
+            file.parentFile?.mkdirs()
+            file.writeText("https://override.example/\n")
+        }
+        val loader =
+            DpiAssetLoader(
+                fileProvider =
+                    FakeDpiAssetFileProvider(
+                        filesDir = filesDir,
+                        assets = mapOf("dpich/cidr_regular_urls.txt" to "https://bundled.example/\n"),
+                    ),
+            )
+
+        assertEquals(listOf("https://override.example/"), loader.loadCidrRegularUrls())
     }
 
     @Test
