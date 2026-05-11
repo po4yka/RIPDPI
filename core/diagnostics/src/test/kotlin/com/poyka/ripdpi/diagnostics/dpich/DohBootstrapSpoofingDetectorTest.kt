@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics.dpich
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.io.IOException
 import java.net.UnknownHostException
 
 class DohBootstrapSpoofingDetectorTest {
@@ -69,6 +70,26 @@ class DohBootstrapSpoofingDetectorTest {
                         object : DohBootstrapResolver {
                             override suspend fun resolve(hostname: String): List<String> =
                                 throw UnknownHostException(hostname)
+                        },
+                    metadata = metadata(),
+                    providers = listOf(DohProviderFilter("Google", "dns.google", """as(15169)""")),
+                )
+
+            val result = detector.checkAll().getValue("Google")
+
+            assertEquals(BootstrapVerdict.RESOLVE_FAILED, result.verdict)
+            assertEquals(null, result.bootstrapIp)
+        }
+
+    @Test
+    fun resolverIoFailureReturnsResolveFailedNotSpoofed() =
+        runTest {
+            val detector =
+                detector(
+                    resolver =
+                        object : DohBootstrapResolver {
+                            override suspend fun resolve(hostname: String): List<String> =
+                                throw IOException("network unavailable")
                         },
                     metadata = metadata(),
                     providers = listOf(DohProviderFilter("Google", "dns.google", """as(15169)""")),

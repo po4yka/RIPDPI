@@ -5,8 +5,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import java.io.IOException
 import java.net.InetAddress
-import java.net.UnknownHostException
 
 enum class BootstrapVerdict {
     OK,
@@ -62,10 +62,10 @@ class DohBootstrapSpoofingDetector(
             } else {
                 provider.classify(bootstrapIp)
             }
-        } catch (error: UnknownHostException) {
-            provider.result(BootstrapVerdict.RESOLVE_FAILED)
         } catch (error: CancellationException) {
             throw error
+        } catch (error: IOException) {
+            provider.result(BootstrapVerdict.RESOLVE_FAILED)
         }
 
     private suspend fun DohProviderFilter.classify(bootstrapIp: String): DohBootstrapResult {

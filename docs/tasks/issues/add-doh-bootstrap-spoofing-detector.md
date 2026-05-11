@@ -1,7 +1,7 @@
 ---
 title: Add DoH Bootstrap-IP Spoofing Detector via Geoip Cross-Reference
 type: task
-status: backlog
+status: doing
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-11
 ---
 
-- [ ] #task Add DoH Bootstrap-IP Spoofing Detector via Geoip Cross-Reference #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [ ] #task Add DoH Bootstrap-IP Spoofing Detector via Geoip Cross-Reference #repo/RIPDPI #area/diagnostics #status/doing 🔼
 
 ## Objective
 
@@ -81,3 +81,12 @@ dpi-ch's `dns.go` `DnsDohProvider.Filter` field encodes the expected provider ge
 ## Definition of done
 
 All 6 unit tests green. Bootstrap status surfaced in DNS integrity card with per-provider trust badges. Spoofed providers excluded from integrity-check control set automatically.
+
+## Work log
+
+### 2026-05-11
+
+- Confirmed the detector, bundled provider YAML, DNS-integrity exclusion path, and UI mapping already exist in the current checkout.
+- Added regression coverage for resolver I/O failures such as no-network errors and changed `DohBootstrapSpoofingDetector` to classify `IOException` as `RESOLVE_FAILED` while still rethrowing coroutine cancellation.
+- Verified with `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetectorTest -Pripdpi.skipNativeBuild=true --rerun-tasks`.
+- Remaining before close: replace `KnownDohProviderSubnetMetadataLookup` with the runtime GeoIP lookup once `add-geoip-db-and-geosite-db-runtime-loader-and-lookup` is available, then run the full DNS integrity suite and confirm the user-facing trust badges.
