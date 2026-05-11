@@ -1,18 +1,18 @@
 ---
 title: Add IPv4 Whitelisted Subnet Discovery via RIPE Stat API
 type: task
-status: backlog
+status: doing
 area: diagnostics
 priority: high
 owner: unassigned
 parent: dpi-checkers-parity-epic
 blocks: []
-blocked_by: [add-webhost-farm-dynamic-host-discovery]
+blocked_by: []
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-12
 ---
 
-- [ ] #task Add IPv4 Whitelisted Subnet Discovery via RIPE Stat API #repo/RIPDPI #area/diagnostics #status/backlog ⏫
+- [ ] #task Add IPv4 Whitelisted Subnet Discovery via RIPE Stat API #repo/RIPDPI #area/diagnostics #status/doing ⏫
 
 ## Objective
 
@@ -54,18 +54,18 @@ This is the Android port of the `ipv4-whitelisted-subnets/main.js` web checker. 
 
 ## Acceptance criteria
 
-- [ ] `Ipv4WhitelistedSubnetDiscoverer.cacheSubnets(): Flow<CacheProgress>` — fetches RIPE Stat for all configured ASNs; emits per-ASN progress; writes to `filesDir/dpich/whitelisted_subnets_cache.json`
-- [ ] `Ipv4WhitelistedSubnetDiscoverer.checkCachedSubnets(config): Flow<SubnetCheckProgress>` — runs alive sampling against cached subnets; emits per-subnet progress
-- [ ] `WhitelistedSubnetResult`: `provider: String`, `cidr: String`, `aliveCount: Int`, `aliveSampled: Int`, `whitelisted: Boolean`
-- [ ] Config: `timeoutMs (default 5000)`, `subnetSampleSize (default 25)`, `subnetAliveMin (default 3)`, `only24Prefix (default true)`
-- [ ] RIPE Stat: HTTP GET to `https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS<asn>`; parses `data.prefixes[].prefix`
-- [ ] Sample IP generation: random `Int` in subnet range, masked to /24; uniform distribution; no duplicates within a single subnet's sample
-- [ ] HEAD probe via `OkHttpClient` with `redirect = MANUAL`; "alive" = any response (incl. TLS error post-handshake-start) counts
-- [ ] Cache persisted; subsequent `checkCachedSubnets()` calls do not refetch RIPE Stat
-- [ ] CSV export: `provider,cidr,alive_count,whitelisted` rows; persisted via `add-detection-export-share` if available
-- [ ] Default ASN suite bundled at `assets/dpich/ipv4_whitelist_asns.json` matching the 3-provider list above
+- [x] `Ipv4WhitelistedSubnetDiscoverer.cacheSubnets(): Flow<CacheProgress>` — fetches RIPE Stat for all configured ASNs; emits per-ASN progress; writes to `filesDir/dpich/whitelisted_subnets_cache.json`
+- [x] `Ipv4WhitelistedSubnetDiscoverer.checkCachedSubnets(config): Flow<SubnetCheckProgress>` — runs alive sampling against cached subnets; emits per-subnet progress
+- [x] `WhitelistedSubnetResult`: `provider: String`, `cidr: String`, `aliveCount: Int`, `aliveSampled: Int`, `whitelisted: Boolean`
+- [x] Config: `timeoutMs (default 5000)`, `subnetSampleSize (default 25)`, `subnetAliveMin (default 3)`, `only24Prefix (default true)`
+- [x] RIPE Stat: HTTP GET to `https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS<asn>`; parses `data.prefixes[].prefix`
+- [x] Sample IP generation: random `Int` in subnet range, masked to /24; uniform distribution; no duplicates within a single subnet's sample
+- [x] HEAD probe via `OkHttpClient` with `redirect = MANUAL`; "alive" = any response (incl. TLS error post-handshake-start) counts
+- [x] Cache persisted; subsequent `checkCachedSubnets()` calls do not refetch RIPE Stat
+- [x] CSV export: `provider,cidr,alive_count,whitelisted` rows; persisted via `add-detection-export-share` if available
+- [x] Default ASN suite bundled at `assets/dpich/ipv4_whitelist_asns.json` matching the 3-provider list above
 - [ ] Cancellable: `Flow` consumer can cancel mid-run; partial results retained
-- [ ] Unit tests: RIPE Stat parsing; sample IP generation in /24; alive threshold logic; cache read/write
+- [x] Unit tests: RIPE Stat parsing; sample IP generation in /24; alive threshold logic; cache read/write
 
 ## TDD workflow
 
@@ -90,3 +90,12 @@ This is the Android port of the `ipv4-whitelisted-subnets/main.js` web checker. 
 ## Definition of done
 
 All 10 unit tests green. Discovery surfaced in DiagnosticsScreen with Cache/Check/Save actions matching the web checker UX. CSV export integrated with existing share flow.
+
+## Work log
+
+- 2026-05-12: Added the core IPv4 whitelist subnet discoverer, RIPE Stat client, persisted subnet cache, sampled alive checking, CSV formatter, bundled Yandex/VK/EdgeCenter ASN asset, and focused unit coverage. Verified with `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscovererTest --tests com.poyka.ripdpi.diagnostics.dpich.RipeStatClientTest --tests com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderTest -Pripdpi.skipNativeBuild=true --rerun-tasks`.
+
+Remaining before close:
+
+- Surface discovery in DiagnosticsScreen with Cache/Check/Save actions.
+- Integrate CSV export with the existing diagnostics share flow.

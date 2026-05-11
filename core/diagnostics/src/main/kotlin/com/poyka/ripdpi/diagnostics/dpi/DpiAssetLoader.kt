@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import android.content.Context
+import com.poyka.ripdpi.diagnostics.dpich.WhitelistAsn
 import com.poyka.ripdpi.diagnostics.rkn.RknTarget
 import com.poyka.ripdpi.diagnostics.rkn.RknTargetListParser
 import dagger.Module
@@ -48,6 +49,7 @@ class DpiAssetLoader(
     private var cachedMeekFronts: List<String>? = null
     private var cachedCidrWhitelistedUrls: List<String>? = null
     private var cachedCidrRegularUrls: List<String>? = null
+    private var cachedIpv4WhitelistAsns: List<WhitelistAsn>? = null
     private var cachedRknWhitelistControl: List<RknTarget>? = null
     private var cachedRknBlacklistTest: List<RknTarget>? = null
 
@@ -95,6 +97,11 @@ class DpiAssetLoader(
             .parseLineList()
             .also { cachedCidrRegularUrls = it }
 
+    fun loadIpv4WhitelistAsns(): List<WhitelistAsn> =
+        cachedIpv4WhitelistAsns ?: loadText(Ipv4WhitelistAsnsPath)
+            .let(::parseIpv4WhitelistAsns)
+            .also { cachedIpv4WhitelistAsns = it }
+
     fun loadRknWhitelistControl(): List<RknTarget> =
         cachedRknWhitelistControl ?: loadText(RknWhitelistControlPath)
             .let(RknTargetListParser::parse)
@@ -116,6 +123,21 @@ class DpiAssetLoader(
             .parseToJsonElement(payload)
             .jsonArray
             .map { element -> element.jsonObject.toTcp16Target() }
+
+    private fun parseIpv4WhitelistAsns(payload: String): List<WhitelistAsn> =
+        json
+            .parseToJsonElement(payload)
+            .jsonArray
+            .map { element ->
+                val item = element.jsonObject
+                WhitelistAsn(
+                    provider = item.requireString("provider"),
+                    asn =
+                        requireNotNull(item["asn"]) { "Missing required IPv4 whitelist ASN field 'asn'" }
+                            .jsonPrimitive
+                            .int,
+                )
+            }
 
     private fun JsonObject.toTcp16Target(): Tcp16Target =
         Tcp16Target(
@@ -155,6 +177,7 @@ class DpiAssetLoader(
         private const val MeekFrontsPath = "dpich/meek_fronts.txt"
         private const val CidrWhitelistedUrlsPath = "dpich/cidr_whitelisted_urls.txt"
         private const val CidrRegularUrlsPath = "dpich/cidr_regular_urls.txt"
+        private const val Ipv4WhitelistAsnsPath = "dpich/ipv4_whitelist_asns.json"
         private const val RknWhitelistControlPath = "rkn/rkn_whitelist_control.txt"
         private const val RknBlacklistTestPath = "rkn/rkn_blacklist_test.txt"
         private const val LegacyTypoPortField = ",port"

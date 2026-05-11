@@ -24,6 +24,7 @@ class DpiAssetLoaderTest {
         assertEquals(3, loader.loadMeekFronts().size)
         assertEquals(5, loader.loadCidrWhitelistedUrls().size)
         assertEquals(5, loader.loadCidrRegularUrls().size)
+        assertEquals(21, loader.loadIpv4WhitelistAsns().size)
     }
 
     @Test
@@ -153,6 +154,29 @@ class DpiAssetLoaderTest {
             )
 
         assertEquals(listOf("https://override.example/"), loader.loadCidrRegularUrls())
+    }
+
+    @Test
+    fun ipv4WhitelistAsnAssetParsesProviderGroups() {
+        val loader =
+            DpiAssetLoader(
+                fileProvider =
+                    FakeDpiAssetFileProvider(
+                        assets =
+                            mapOf(
+                                "dpich/ipv4_whitelist_asns.json" to
+                                    """
+                                    [
+                                      {"provider":"Yandex","asn":13238},
+                                      {"provider":"VK","asn":28709}
+                                    ]
+                                    """.trimIndent(),
+                            ),
+                    ),
+            )
+
+        assertEquals("Yandex", loader.loadIpv4WhitelistAsns().first().provider)
+        assertEquals(28709, loader.loadIpv4WhitelistAsns().last().asn)
     }
 
     @Test

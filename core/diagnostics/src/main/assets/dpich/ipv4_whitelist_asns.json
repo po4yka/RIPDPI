@@ -1,0 +1,23 @@
+[
+  {"provider": "Yandex", "asn": 13238},
+  {"provider": "Yandex", "asn": 44534},
+  {"provider": "Yandex", "asn": 200350},
+  {"provider": "Yandex", "asn": 202611},
+  {"provider": "Yandex", "asn": 208398},
+  {"provider": "Yandex", "asn": 208795},
+  {"provider": "Yandex", "asn": 210656},
+  {"provider": "Yandex", "asn": 212066},
+  {"provider": "Yandex", "asn": 215013},
+  {"provider": "Yandex", "asn": 215109},
+  {"provider": "VK", "asn": 28709},
+  {"provider": "VK", "asn": 47541},
+  {"provider": "VK", "asn": 47542},
+  {"provider": "VK", "asn": 47764},
+  {"provider": "VK", "asn": 60863},
+  {"provider": "VK", "asn": 62243},
+  {"provider": "VK", "asn": 199295},
+  {"provider": "VK", "asn": 207581},
+  {"provider": "EdgeCenter", "asn": 201589},
+  {"provider": "EdgeCenter", "asn": 207059},
+  {"provider": "EdgeCenter", "asn": 210756}
+]
