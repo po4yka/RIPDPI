@@ -55,6 +55,7 @@ fun DiagnosticsRoute(
     val compressionProbeTool by viewModel.compressionProbeTool.collectAsStateWithLifecycle()
     val tcp16FatHeaderTool by viewModel.tcp16FatHeaderTool.collectAsStateWithLifecycle()
     val allowlistSniTool by viewModel.allowlistSniTool.collectAsStateWithLifecycle()
+    val pluggableTransportTool by viewModel.pluggableTransportTool.collectAsStateWithLifecycle()
     val byohCompatibilityTool by viewModel.byohCompatibilityTool.collectAsStateWithLifecycle()
     val dpiSuiteTool by viewModel.dpiSuiteTool.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { DiagnosticsSection.entries.size }
@@ -216,6 +217,7 @@ fun DiagnosticsRoute(
                 onRunCompressionProbe = remember(viewModel) { viewModel::runCompressionProbe },
                 onRunTcp16FatHeaderProbe = remember(viewModel) { viewModel::runTcp16FatHeaderProbe },
                 onRunAllowlistSniFinder = remember(viewModel) { viewModel::runAllowlistSniFinder },
+                onRunPluggableTransportProbe = remember(viewModel) { viewModel::runPluggableTransportProbe },
                 onRunByohCompatibilityCheck = remember(viewModel) { viewModel::runByohCompatibilityCheck },
                 onRunRknBlockDiagnosis = remember(viewModel) { viewModel::runRknBlockDiagnosis },
                 onRknSelfInfoEnabledChange = remember(viewModel) { viewModel::setRknSelfInfoEnabled },
@@ -243,6 +245,7 @@ fun DiagnosticsRoute(
                 byohCompatibility = byohCompatibilityTool,
                 dpiSuite = dpiSuiteTool,
             ),
+        pluggableTransportTool = pluggableTransportTool,
         pcapRecording = pcapRecording,
         modifier = modifier,
     )

@@ -38,6 +38,7 @@ import com.poyka.ripdpi.activities.DiagnosticsDomainReachabilityState
 import com.poyka.ripdpi.activities.DiagnosticsDomainReachabilityToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDpiToolsUiModel
 import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
+import com.poyka.ripdpi.activities.DiagnosticsPluggableTransportToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderState
@@ -66,6 +67,7 @@ internal data class DiagnosticsDpiToolActions(
     val onRunCompressionProbe: () -> Unit = {},
     val onRunTcp16FatHeaderProbe: () -> Unit = {},
     val onRunAllowlistSniFinder: () -> Unit = {},
+    val onRunPluggableTransportProbe: () -> Unit = {},
     val onRunByohCompatibilityCheck: () -> Unit = {},
     val onRunRknBlockDiagnosis: () -> Unit = {},
     val onRknSelfInfoEnabledChange: (Boolean) -> Unit = {},
@@ -91,6 +93,7 @@ internal fun ToolsSection(
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
     dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
+    pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     dpiToolActions: DiagnosticsDpiToolActions = DiagnosticsDpiToolActions(),
     onOpenDetectionCheck: () -> Unit = {},
     pcapRecording: Boolean = false,
@@ -113,6 +116,7 @@ internal fun ToolsSection(
         shareItems(share, onShareSummary, onShareArchive, onSaveArchive, onSaveLogs)
         dpiToolItems(
             dpiTools = dpiTools,
+            pluggableTransportTool = pluggableTransportTool,
             actions = dpiToolActions,
         )
         detectionCheckItem(onOpenDetectionCheck)
@@ -221,6 +225,7 @@ private fun LazyListScope.shareItems(
 
 private fun LazyListScope.dpiToolItems(
     dpiTools: DiagnosticsDpiToolsUiModel,
+    pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
     actions: DiagnosticsDpiToolActions,
 ) {
     item {
@@ -256,6 +261,12 @@ private fun LazyListScope.dpiToolItems(
             tool = dpiTools.compressionProbe,
             onRun = actions.onRunCompressionProbe,
             onZstdEnabledChange = actions.onCompressionProbeZstdEnabledChange,
+        )
+    }
+    item {
+        PluggableTransportProbeCard(
+            tool = pluggableTransportTool,
+            onRun = actions.onRunPluggableTransportProbe,
         )
     }
     item {

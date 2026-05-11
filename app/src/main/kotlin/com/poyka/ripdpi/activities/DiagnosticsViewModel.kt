@@ -79,6 +79,12 @@ class DiagnosticsViewModel
                 domainReachabilityScanner = domainReachabilityScanner,
                 tcp16FatHeaderProbe = tcp16FatHeaderProbe,
             )
+        private val pluggableTransportController =
+            DiagnosticsPluggableTransportController(
+                scope = viewModelScope,
+                appContext = diagnosticsContextDependencies.appContext,
+                appSettingsRepository = appSettingsRepository,
+            )
 
         val uiState: StateFlow<DiagnosticsUiState> =
             diagnosticsUiStateAssembler.assemble(
@@ -106,6 +112,8 @@ class DiagnosticsViewModel
             dpiToolsController.tcp16FatHeaderTool
         val allowlistSniTool: StateFlow<DiagnosticsAllowlistSniToolUiModel> =
             dpiToolsController.allowlistSniTool
+        val pluggableTransportTool: StateFlow<DiagnosticsPluggableTransportToolUiModel> =
+            pluggableTransportController.tool
         val byohCompatibilityTool: StateFlow<DiagnosticsByohCompatibilityToolUiModel> =
             dpiToolsController.byohCompatibilityTool
         val dpiSuiteTool: StateFlow<DiagnosticsDpiSuiteToolUiModel> =
@@ -261,6 +269,8 @@ class DiagnosticsViewModel
         fun runTcp16FatHeaderProbe() = dpiToolsController.runTcp16FatHeaderProbe()
 
         fun runAllowlistSniFinder() = dpiToolsController.runAllowlistSniFinder()
+
+        fun runPluggableTransportProbe() = pluggableTransportController.run()
 
         fun runRknBlockDiagnosis() = dpiToolsController.runRknBlockDiagnosis()
 

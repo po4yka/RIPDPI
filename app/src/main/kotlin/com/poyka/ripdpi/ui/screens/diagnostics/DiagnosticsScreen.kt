@@ -51,6 +51,7 @@ import com.poyka.ripdpi.activities.DiagnosticsEffect
 import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel
 import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
+import com.poyka.ripdpi.activities.DiagnosticsPluggableTransportToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRememberedNetworkUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
@@ -144,6 +145,7 @@ data class DiagnosticsScreenActions(
     val onRunCompressionProbe: () -> Unit = {},
     val onRunTcp16FatHeaderProbe: () -> Unit = {},
     val onRunAllowlistSniFinder: () -> Unit = {},
+    val onRunPluggableTransportProbe: () -> Unit = {},
     val onRunByohCompatibilityCheck: () -> Unit = {},
     val onRunRknBlockDiagnosis: () -> Unit = {},
     val onRknSelfInfoEnabledChange: (Boolean) -> Unit = {},
@@ -167,6 +169,7 @@ fun DiagnosticsScreen(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     actions: DiagnosticsScreenActions = DiagnosticsScreenActions(),
     dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
+    pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     pcapRecording: Boolean = false,
 ) {
     TrackRecomposition("DiagnosticsScreen")
@@ -180,6 +183,7 @@ fun DiagnosticsScreen(
         showDebugInfo = showDebugInfo,
         onToggleDebugInfo = { if (BuildConfig.DEBUG) showDebugInfo = !showDebugInfo },
         dpiTools = dpiTools,
+        pluggableTransportTool = pluggableTransportTool,
         pcapRecording = pcapRecording,
         modifier = modifier,
     )
@@ -196,6 +200,7 @@ private fun DiagnosticsScreenFrame(
     showDebugInfo: Boolean,
     onToggleDebugInfo: () -> Unit,
     dpiTools: DiagnosticsDpiToolsUiModel,
+    pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
     pcapRecording: Boolean,
     modifier: Modifier,
 ) {
@@ -267,6 +272,7 @@ private fun DiagnosticsScreenFrame(
                     pagerState = pagerState,
                     actions = actions,
                     dpiTools = dpiTools,
+                    pluggableTransportTool = pluggableTransportTool,
                     pcapRecording = pcapRecording,
                     modifier = Modifier.weight(1f),
                 )
@@ -281,6 +287,7 @@ private fun DiagnosticsScreenPager(
     pagerState: PagerState,
     actions: DiagnosticsScreenActions,
     dpiTools: DiagnosticsDpiToolsUiModel,
+    pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
     pcapRecording: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -333,6 +340,7 @@ private fun DiagnosticsScreenPager(
                     onSaveArchive = actions.onSaveArchive,
                     onSaveLogs = actions.onSaveLogs,
                     dpiTools = dpiTools,
+                    pluggableTransportTool = pluggableTransportTool,
                     dpiToolActions =
                         DiagnosticsDpiToolActions(
                             onRunDnsIntegrityCheck = actions.onRunDnsIntegrityCheck,
@@ -341,6 +349,7 @@ private fun DiagnosticsScreenPager(
                             onRunCompressionProbe = actions.onRunCompressionProbe,
                             onRunTcp16FatHeaderProbe = actions.onRunTcp16FatHeaderProbe,
                             onRunAllowlistSniFinder = actions.onRunAllowlistSniFinder,
+                            onRunPluggableTransportProbe = actions.onRunPluggableTransportProbe,
                             onRunByohCompatibilityCheck = actions.onRunByohCompatibilityCheck,
                             onRunRknBlockDiagnosis = actions.onRunRknBlockDiagnosis,
                             onRknSelfInfoEnabledChange = actions.onRknSelfInfoEnabledChange,
