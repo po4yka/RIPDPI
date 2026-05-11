@@ -87,6 +87,7 @@ val forwardedInstrumentationArguments =
         "ripdpi.fixtureControlHost",
         "ripdpi.fixtureControlPort",
         "ripdpi.packetSmokeDeviceProfile",
+        "ripdpi.runNetworkTests",
     )
 
 extensions.configure<ApplicationExtension> {
