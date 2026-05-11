@@ -7,6 +7,7 @@ enum class DpiProbeKind {
     TCP16,
     WHITELIST_SNI,
     TELEGRAM,
+    QUIC_H3,
 }
 
 data class DpiSuiteConfig(
@@ -77,6 +78,12 @@ sealed interface DpiSuiteProbeResult {
         val result: TelegramTestResult,
     ) : DpiSuiteProbeResult {
         override val kind: DpiProbeKind = DpiProbeKind.TELEGRAM
+    }
+
+    data class QuicH3(
+        val results: List<QuicProbeResult>,
+    ) : DpiSuiteProbeResult {
+        override val kind: DpiProbeKind = DpiProbeKind.QUIC_H3
     }
 
     data class Skipped(

@@ -20,6 +20,9 @@ import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteEvent
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbes
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteTcp16TargetsProvider
+import com.poyka.ripdpi.diagnostics.dpi.QuicH3FingerprintProbe
+import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
+import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.SuiteVerdict
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
@@ -218,6 +221,13 @@ internal class DiagnosticsDpiSuiteController(
                         ).find(results)
 
                     override suspend fun runTelegram() = TelegramSpeedTest().run()
+
+                    override suspend fun runQuicH3(
+                        targets: List<String>,
+                        concurrency: Int,
+                    ): List<QuicProbeResult> =
+                        QuicH3FingerprintProbe(concurrency = concurrency)
+                            .checkAll(targets)
                 },
         )
 
@@ -346,6 +356,11 @@ private fun DpiSuiteProbeResult.statusLabel(): String =
             result.verdict.name.lowercase(Locale.US)
         }
 
+        is DpiSuiteProbeResult.QuicH3 -> {
+            val flagged = results.count { result -> result.verdict != QuicProbeVerdict.QUIC_OK }
+            if (flagged == 0) "ok" else "flagged"
+        }
+
         is DpiSuiteProbeResult.Skipped -> {
             "skipped"
         }
@@ -385,6 +400,11 @@ private fun DpiSuiteProbeResult.detailLabel(): String =
             val reachable = result.dcResults.count { dc -> dc.reachable }
             "download ${result.download.status.name.lowercase(Locale.US)}, upload " +
                 "${result.upload.status.name.lowercase(Locale.US)}, DC $reachable/${result.dcResults.size}"
+        }
+
+        is DpiSuiteProbeResult.QuicH3 -> {
+            val ok = results.count { result -> result.verdict == QuicProbeVerdict.QUIC_OK }
+            "$ok/${results.size} targets passed QUIC/H3 fingerprint checks"
         }
 
         is DpiSuiteProbeResult.Skipped -> {
@@ -453,6 +473,11 @@ private fun DpiSuiteProbeResult.tone(): DiagnosticsTone =
                 }
             }
         }
+
+        is DpiSuiteProbeResult.QuicH3 -> {
+            val flagged = results.count { result -> result.verdict != QuicProbeVerdict.QUIC_OK }
+            countTone(flagged)
+        }
     }
 
 private fun DpiProbeKind.displayLabel(): String =
@@ -463,6 +488,7 @@ private fun DpiProbeKind.displayLabel(): String =
         DpiProbeKind.TCP16 -> "TCP16 fat header"
         DpiProbeKind.WHITELIST_SNI -> "SNI compatibility"
         DpiProbeKind.TELEGRAM -> "Telegram"
+        DpiProbeKind.QUIC_H3 -> "QUIC/H3 fingerprint"
     }
 
 private fun SuiteVerdict.summary(): String =

@@ -51,6 +51,12 @@ object DpiSuiteVerdictAggregator {
                 result.results.any { tcp -> tcp.verdict == Tcp16Verdict.DETECTED_AT_KB }
             }
 
+            is DpiSuiteProbeResult.QuicH3 -> {
+                result.results.any { quic ->
+                    quic.verdict != QuicProbeVerdict.QUIC_OK && quic.verdict != QuicProbeVerdict.QUIC_TIMEOUT
+                }
+            }
+
             else -> {
                 false
             }
@@ -91,6 +97,12 @@ object DpiSuiteVerdictAggregator {
             is DpiSuiteProbeResult.Telegram -> {
                 val reachable = result.result.dcResults.count { dc -> dc.reachable }
                 "Telegram: ${result.result.verdict.name} · DC $reachable/${result.result.dcResults.size}"
+            }
+
+            is DpiSuiteProbeResult.QuicH3 -> {
+                val ok = result.results.count { quic -> quic.verdict == QuicProbeVerdict.QUIC_OK }
+                val flagged = result.results.count { quic -> quic.verdict != QuicProbeVerdict.QUIC_OK }
+                "QUIC/H3: $ok/${result.results.size} OK, $flagged flagged"
             }
 
             is DpiSuiteProbeResult.Skipped -> {

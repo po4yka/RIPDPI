@@ -192,6 +192,28 @@ class DpiProbeSuiteRunnerTest {
             assertEquals(listOf(7, 7), observedConcurrency)
         }
 
+    @Test
+    fun quicH3ProbeUsesSelectedDomainsAndConcurrency() =
+        runTest {
+            val probes =
+                FakeSuiteProbes().copy(
+                    onQuicH3 = { domains, concurrency ->
+                        assertEquals(listOf("h3.example"), domains)
+                        assertEquals(8, concurrency)
+                        emptyList()
+                    },
+                )
+
+            runner(probes = probes)
+                .run(
+                    DpiSuiteConfig(
+                        selection = setOf(DpiProbeKind.QUIC_H3),
+                        customDomains = listOf("h3.example"),
+                        concurrency = 8,
+                    ),
+                ).toList()
+        }
+
     private fun runner(
         probes: FakeSuiteProbes = FakeSuiteProbes(),
         domains: List<String> = listOf("example.com"),
@@ -213,6 +235,7 @@ class DpiProbeSuiteRunnerTest {
         private val onTcp16: suspend (List<Tcp16Target>, Int) -> List<Tcp16ProbeResult> = { _, _ -> emptyList() },
         private val onAllowlist: suspend (List<Tcp16ProbeResult>) -> Map<String, AllowlistSniResult> = { emptyMap() },
         private val onTelegram: suspend () -> TelegramTestResult = { telegramResult() },
+        private val onQuicH3: suspend (List<String>, Int) -> List<QuicProbeResult> = { _, _ -> emptyList() },
     ) : DpiSuiteProbes {
         var collectStubIpsCalls = 0
         var allowlistCalls = 0
@@ -248,6 +271,11 @@ class DpiProbeSuiteRunnerTest {
 
         override suspend fun runTelegram(): TelegramTestResult = onTelegram()
 
+        override suspend fun runQuicH3(
+            targets: List<String>,
+            concurrency: Int,
+        ): List<QuicProbeResult> = onQuicH3(targets, concurrency)
+
         fun copy(
             onDnsIntegrity: suspend (List<String>) -> DnsIntegrityResult = this.onDnsIntegrity,
             onCollectStubIps: suspend (List<String>, Long) -> Set<String> = this.onCollectStubIps,
@@ -257,6 +285,7 @@ class DpiProbeSuiteRunnerTest {
             onTcp16: suspend (List<Tcp16Target>, Int) -> List<Tcp16ProbeResult> = this.onTcp16,
             onAllowlist: suspend (List<Tcp16ProbeResult>) -> Map<String, AllowlistSniResult> = this.onAllowlist,
             onTelegram: suspend () -> TelegramTestResult = this.onTelegram,
+            onQuicH3: suspend (List<String>, Int) -> List<QuicProbeResult> = this.onQuicH3,
         ): FakeSuiteProbes =
             FakeSuiteProbes(
                 calls = calls,
@@ -267,6 +296,7 @@ class DpiProbeSuiteRunnerTest {
                 onTcp16 = onTcp16,
                 onAllowlist = onAllowlist,
                 onTelegram = onTelegram,
+                onQuicH3 = onQuicH3,
             )
     }
 

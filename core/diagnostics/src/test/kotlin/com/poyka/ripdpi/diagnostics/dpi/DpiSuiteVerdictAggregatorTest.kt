@@ -35,6 +35,16 @@ class DpiSuiteVerdictAggregatorTest {
     }
 
     @Test
+    fun dpiDetectedWhenQuicFingerprintIsBlocked() {
+        val aggregate =
+            DpiSuiteVerdictAggregator.aggregate(
+                results = listOf(quicH3(verdict = QuicProbeVerdict.QUIC_DPI_FINGERPRINT_BLOCK)),
+            )
+
+        assertEquals(SuiteVerdict.DPI_DETECTED, aggregate.verdict)
+    }
+
+    @Test
     fun dnsInterferenceWhenSubstitutionDetected() {
         val aggregate =
             DpiSuiteVerdictAggregator.aggregate(
@@ -144,6 +154,22 @@ class DpiSuiteVerdictAggregatorTest {
                 download = ProbeStats(TelegramProbeStatus.OK, 100, 10, 10_000, 100),
                 upload = ProbeStats(TelegramProbeStatus.OK, 100, 10, 10_000, 100),
                 dcResults = listOf(DcReachability("DC1", "1.1.1.1", true, 10)),
+            ),
+        )
+
+    private fun quicH3(verdict: QuicProbeVerdict): DpiSuiteProbeResult.QuicH3 =
+        DpiSuiteProbeResult.QuicH3(
+            listOf(
+                QuicProbeResult(
+                    target = "example.com",
+                    verdict = verdict,
+                    chromeOk = verdict == QuicProbeVerdict.QUIC_OK,
+                    firefoxOk = true,
+                    genericOk = true,
+                    vnOk = true,
+                    udpReachable = true,
+                    serverInitialLatencyMs = 12,
+                ),
             ),
         )
 }

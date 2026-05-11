@@ -140,6 +140,7 @@ private fun DpiProbeKind.label(): String =
         DpiProbeKind.TCP16 -> "TCP16 fat header"
         DpiProbeKind.WHITELIST_SNI -> "SNI compatibility"
         DpiProbeKind.TELEGRAM -> "Telegram"
+        DpiProbeKind.QUIC_H3 -> "QUIC/H3 fingerprint"
     }
 
 private fun DiagnosticsDpiSuiteState.tone(): DiagnosticsTone =

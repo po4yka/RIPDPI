@@ -41,6 +41,11 @@ interface DpiSuiteProbes {
     suspend fun findAllowlistSni(results: List<Tcp16ProbeResult>): Map<String, AllowlistSniResult>
 
     suspend fun runTelegram(): TelegramTestResult
+
+    suspend fun runQuicH3(
+        targets: List<String>,
+        concurrency: Int,
+    ): List<QuicProbeResult>
 }
 
 class DpiProbeSuiteRunner(
@@ -128,6 +133,20 @@ class DpiProbeSuiteRunner(
                                 async {
                                     runProbe(DpiProbeKind.TELEGRAM) {
                                         DpiSuiteProbeResult.Telegram(probes.runTelegram())
+                                    }
+                                },
+                            )
+                        }
+                        if (DpiProbeKind.QUIC_H3 in config.selection) {
+                            add(
+                                async {
+                                    runProbe(DpiProbeKind.QUIC_H3) {
+                                        DpiSuiteProbeResult.QuicH3(
+                                            probes.runQuicH3(
+                                                targets = domains,
+                                                concurrency = config.concurrency.coerceAtLeast(1),
+                                            ),
+                                        )
                                     }
                                 },
                             )
