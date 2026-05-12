@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import android.content.Context
+import com.poyka.ripdpi.core.RipDpiProxyBindings
+import com.poyka.ripdpi.core.resolveGeoDatabasePaths
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector
 import com.poyka.ripdpi.diagnostics.dpich.CompositeSubnetMetadataLookup
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetector
+import com.poyka.ripdpi.diagnostics.dpich.EngineGeoIpSubnetMetadataLookup
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer
 import com.poyka.ripdpi.diagnostics.dpich.KnownDohProviderSubnetMetadataLookup
@@ -32,8 +35,10 @@ import java.io.File
 object DpiDiagnosticsToolModule {
     @Provides
     fun provideDnsIntegrityChecker(
+        @ApplicationContext context: Context,
         client: DoqQuicClient,
         assetLoader: DpiAssetLoader,
+        proxyBindings: RipDpiProxyBindings,
     ): DnsIntegrityChecker =
         DnsIntegrityChecker(
             doqProbe = if (DpiDiagnosticsRuntimeFlags.includeQuic) DoqIntegrityProbe(client) else null,
@@ -42,6 +47,10 @@ object DpiDiagnosticsToolModule {
                     metadata =
                         CompositeSubnetMetadataLookup(
                             listOf(
+                                EngineGeoIpSubnetMetadataLookup(
+                                    bindings = proxyBindings,
+                                    paths = resolveGeoDatabasePaths(context),
+                                ),
                                 RuntimeSubnetMetadataLookup(assetLoader.loadDohBootstrapSubnetMetadata()),
                                 KnownDohProviderSubnetMetadataLookup(),
                             ),
