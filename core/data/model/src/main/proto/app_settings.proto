@@ -345,6 +345,7 @@ message AppSettings {
   string detection_check_dns_doh_bootstrap_ips = 281;
   int32 dpi_suite_concurrency = 282; // Max concurrent requests for manual DPI probe suite (default 100)
   bool detection_diagnostic_random_hostnames_enabled = 283; // Randomize Host/SNI in manual diagnostic probes
+  string detection_diagnostic_tls_keylog_path = 284; // Hidden diagnostic TLS keylog path; empty disables
 
   // Community comparison (anonymous opt-in)
   bool community_comparison_enabled = 209;

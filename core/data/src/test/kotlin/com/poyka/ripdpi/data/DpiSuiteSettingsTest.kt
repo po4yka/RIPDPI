@@ -18,6 +18,11 @@ class DpiSuiteSettingsTest {
     }
 
     @Test
+    fun `tls keylog path defaults empty`() {
+        assertEquals("", AppSettingsSerializer.defaultValue.detectionDiagnosticTlsKeylogPath)
+    }
+
+    @Test
     fun `dpi suite concurrency round trips through app settings serializer`() =
         runTest {
             val settings =
@@ -47,5 +52,21 @@ class DpiSuiteSettingsTest {
             val decoded = AppSettingsSerializer.readFrom(ByteArrayInputStream(output.toByteArray()))
 
             assertEquals(true, decoded.detectionDiagnosticRandomHostnamesEnabled)
+        }
+
+    @Test
+    fun `tls keylog path round trips through app settings serializer`() =
+        runTest {
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setDetectionDiagnosticTlsKeylogPath("/app/files/diagnostics/tls.keys")
+                    .build()
+            val output = ByteArrayOutputStream()
+
+            AppSettingsSerializer.writeTo(settings, output)
+            val decoded = AppSettingsSerializer.readFrom(ByteArrayInputStream(output.toByteArray()))
+
+            assertEquals("/app/files/diagnostics/tls.keys", decoded.detectionDiagnosticTlsKeylogPath)
         }
 }

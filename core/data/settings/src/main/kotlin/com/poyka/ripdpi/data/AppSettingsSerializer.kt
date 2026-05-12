@@ -141,6 +141,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setDetectionCheckDnsDohBootstrapIps("")
             .setDpiSuiteConcurrency(100)
             .setDetectionDiagnosticRandomHostnamesEnabled(false)
+            .setDetectionDiagnosticTlsKeylogPath("")
             .setExcludeRussianAppsEnabled(true)
             .setAppRoutingPolicyMode(AppRoutingPolicyModePrompt)
             .addAppRoutingEnabledPresetIds(DefaultAppRoutingRussianPresetId)

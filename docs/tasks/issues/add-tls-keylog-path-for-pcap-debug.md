@@ -90,3 +90,14 @@ All 8 unit tests green. Setting visible in debug mode only. Banner in UI when ac
   - `python scripts/ci/check_architecture_health.py --check --paths core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/dpich/TlsKeylogWriter.kt core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/dpich/TlsKeylogWriterTest.kt core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/dpich/TlsKeylogSettingsTest.kt`
   - `git diff --check`
 - Remaining before close: DataStore field, debug-only settings UI, diagnostic-result warning banner, TLS engine callback wiring, suite-end rotate/purge integration, and manual Wireshark decrypt proof.
+
+### 2026-05-12 - DataStore key foundation
+
+- Added `detection_diagnostic_tls_keylog_path` to `AppSettings` field 284 with an empty-string disabled default.
+- Added focused serializer tests for the default value and persisted round-trip.
+- Verification:
+  - `./gradlew :core:data:testDebugUnitTest --tests com.poyka.ripdpi.data.DpiSuiteSettingsTest -Pripdpi.skipNativeBuild=true`
+  - `./gradlew :core:data:ktlintCheck -Pripdpi.skipNativeBuild=true`
+  - `python scripts/ci/check_architecture_health.py --check --paths core/data/model/src/main/proto/app_settings.proto core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/AppSettingsSerializer.kt core/data/src/test/kotlin/com/poyka/ripdpi/data/DpiSuiteSettingsTest.kt`
+  - `git diff --check`
+- Remaining before close: debug-only settings UI, diagnostic-result warning banner, TLS engine callback wiring, suite-end rotate/purge integration, and manual Wireshark decrypt proof.
