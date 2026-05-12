@@ -5,6 +5,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::run_service_probe;
 use crate::engine::runtime::{CollectedStep, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
+use crate::tls::tls_key_log_callback_for_path;
 use crate::types::{ProbeResult, ServiceTarget};
 
 use super::support::{collect_family_steps, target_count, ConnectivityProbeFamily};
@@ -32,7 +33,8 @@ impl ConnectivityProbeFamily for ServiceFamily {
         plan: &ExecutionPlan,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> ProbeResult {
-        run_service_probe(target, &plan.transport, tls_verifier)
+        let key_log = plan.request.diagnostic_tls_keylog_path.as_deref().map(tls_key_log_callback_for_path);
+        run_service_probe(target, &plan.transport, tls_verifier, key_log.as_ref())
     }
 }
 

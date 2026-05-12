@@ -154,3 +154,11 @@ All 8 unit tests green. Setting visible in debug mode only. Banner in UI when ac
   - `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.DiagnosticsScanRequestFactoryTest -Pripdpi.skipNativeBuild=true`
   - `cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-contracts -p ripdpi-diagnostics-protocols -p ripdpi-diagnostics-runner -p ripdpi-monitor-engine --locked`
 - Remaining before close: keylog selection for non-domain TLS helpers (service bootstrap, throughput, Telegram WSS, and fat-header TLS streams) and manual Wireshark decrypt proof.
+
+### 2026-05-12 - Native helper keylog selection
+
+- Extended native HTTP, endpoint, throughput, Telegram transfer, Telegram WSS, and fat-header TLS helpers with optional keylog callback variants while preserving existing no-keylog APIs.
+- Passed the scan request keylog path into service, constrained-tool, throughput, Telegram, and TCP fat-header runners.
+- Verification:
+  - `cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-http -p ripdpi-diagnostics-transport -p ripdpi-diagnostics-telegram -p ripdpi-diagnostics-fat-header -p ripdpi-diagnostics-protocols -p ripdpi-diagnostics-runner -p ripdpi-monitor-engine --locked`
+- Remaining before close: manual Wireshark decrypt proof on a captured pcap.

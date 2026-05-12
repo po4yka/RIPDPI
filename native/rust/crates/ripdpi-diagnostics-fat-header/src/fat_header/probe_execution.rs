@@ -1,6 +1,7 @@
 use std::net::IpAddr;
 
 use crate::tls::ProbeStreamResult;
+use crate::tls::TlsKeyLogCallback;
 use crate::transport::{TargetAddress, TransportConfig};
 use crate::types::TcpTarget;
 use crate::util::FAT_HEADER_REQUESTS;
@@ -19,6 +20,16 @@ pub fn run_fat_header_attempt(
     sni: &str,
     host_header: &str,
 ) -> FatHeaderObservation {
+    run_fat_header_attempt_with_key_log(target, transport, sni, host_header, None)
+}
+
+pub fn run_fat_header_attempt_with_key_log(
+    target: &TcpTarget,
+    transport: &TransportConfig,
+    sni: &str,
+    host_header: &str,
+    key_log: Option<&TlsKeyLogCallback>,
+) -> FatHeaderObservation {
     let connect_target = match parse_connect_target(target) {
         Ok(target) => target,
         Err(err) => return FatHeaderObservation::connect_failed(err),
@@ -26,7 +37,7 @@ pub fn run_fat_header_attempt(
 
     let tls_sni = if !sni.is_empty() { Some(sni) } else { None };
     let uses_tls = tls_sni.is_some();
-    let probe_result = match open_fat_header_probe_stream(&connect_target, target.port, transport, tls_sni) {
+    let probe_result = match open_fat_header_probe_stream(&connect_target, target.port, transport, tls_sni, key_log) {
         Ok(result) => result,
         Err(err) => {
             let status = if uses_tls { FatHeaderStatus::HandshakeFailed } else { FatHeaderStatus::ConnectFailed };

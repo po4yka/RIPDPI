@@ -9,13 +9,18 @@ use std::sync::Arc;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::adapters::http::HttpObservation;
+use crate::connectivity::adapters::tls::TlsKeyLogCallback;
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::ThroughputTarget;
 
 pub(super) use types::{EndpointProbeObservation, ThroughputSample};
 
-pub(super) fn measure_throughput_window(target: &ThroughputTarget, transport: &TransportConfig) -> ThroughputSample {
-    throughput::measure_throughput_window(target, transport)
+pub(super) fn measure_throughput_window(
+    target: &ThroughputTarget,
+    transport: &TransportConfig,
+    key_log: Option<&TlsKeyLogCallback>,
+) -> ThroughputSample {
+    throughput::measure_throughput_window(target, transport, key_log)
 }
 
 pub(super) fn probe_http_url(
@@ -24,8 +29,9 @@ pub(super) fn probe_http_url(
     connect_ips: &[String],
     port_override: Option<u16>,
     transport: &TransportConfig,
+    key_log: Option<&TlsKeyLogCallback>,
 ) -> HttpObservation {
-    throughput::probe_http_url(url, connect_ip, connect_ips, port_override, transport)
+    throughput::probe_http_url(url, connect_ip, connect_ips, port_override, transport, key_log)
 }
 
 pub(super) fn run_endpoint_probe(
@@ -35,8 +41,9 @@ pub(super) fn run_endpoint_probe(
     tls_name: Option<&str>,
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
 ) -> EndpointProbeObservation {
-    tcp_tls_endpoint::run_endpoint_probe(host, connect_ip, port, tls_name, transport, tls_verifier)
+    tcp_tls_endpoint::run_endpoint_probe(host, connect_ip, port, tls_name, transport, tls_verifier, key_log)
 }
 
 pub(super) fn run_quic_endpoint_probe(

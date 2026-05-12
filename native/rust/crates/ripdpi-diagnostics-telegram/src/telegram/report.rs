@@ -1,3 +1,4 @@
+use crate::tls::TlsKeyLogCallback;
 use crate::transport::TransportConfig;
 use crate::types::{ProbeDetail, ProbeResult, TelegramTarget};
 
@@ -6,11 +7,15 @@ use super::scoring::{classify_telegram_verdict, compute_telegram_quality_score};
 use super::transfer::{telegram_download_probe, telegram_upload_probe, TelegramTransferResult};
 use super::ws_tunnel::{telegram_ws_tunnel_probe, TelegramWsProbeResult};
 
-pub fn run_telegram_probe(target: &TelegramTarget, transport: &TransportConfig) -> ProbeResult {
-    let dl = telegram_download_probe(target, transport);
-    let ul = telegram_upload_probe(target, transport);
+pub fn run_telegram_probe(
+    target: &TelegramTarget,
+    transport: &TransportConfig,
+    key_log: Option<&TlsKeyLogCallback>,
+) -> ProbeResult {
+    let dl = telegram_download_probe(target, transport, key_log);
+    let ul = telegram_upload_probe(target, transport, key_log);
     let dc = telegram_dc_probe(target);
-    let ws = telegram_ws_tunnel_probe();
+    let ws = telegram_ws_tunnel_probe(key_log);
 
     let verdict = classify_telegram_verdict(&dl.status, &ul.status, dc.reachable, dc.total);
     let quality_score = compute_telegram_quality_score(&dl, &ul, &dc, &ws);

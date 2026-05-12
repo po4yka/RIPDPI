@@ -3,6 +3,8 @@ use std::net::{SocketAddr, ToSocketAddrs};
 
 use ripdpi_diagnostics_transport::ws_tls::{WsOverTlsConnector, WsOverTlsTarget};
 
+use crate::tls::TlsKeyLogCallback;
+
 const TELEGRAM_WS_HOST: &str = "kws2.web.telegram.org";
 const TELEGRAM_WS_PATH: &str = "/apiws";
 const TELEGRAM_WS_PORT: u16 = 443;
@@ -18,9 +20,9 @@ pub(crate) struct TelegramWsProbeResult {
 /// Attempts a TLS + WebSocket handshake to `wss://kws2.web.telegram.org/apiws`
 /// (DC2 is the default/most common). Does not send any MTProto data -- only
 /// verifies that the WSS endpoint accepts connections.
-pub(crate) fn telegram_ws_tunnel_probe() -> TelegramWsProbeResult {
+pub(crate) fn telegram_ws_tunnel_probe(key_log: Option<&TlsKeyLogCallback>) -> TelegramWsProbeResult {
     telegram_ws_tunnel_probe_with(resolve_telegram_ws_addr, |resolved_addr| {
-        WsOverTlsConnector.probe(&telegram_ws_target(resolved_addr))
+        WsOverTlsConnector.probe_with_key_log(&telegram_ws_target(resolved_addr), key_log.cloned())
     })
 }
 

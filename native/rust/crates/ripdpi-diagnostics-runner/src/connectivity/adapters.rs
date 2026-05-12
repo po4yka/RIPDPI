@@ -21,22 +21,22 @@ pub(crate) mod dns_oracle {
 pub(crate) mod fat_header {
     pub use ripdpi_diagnostics_protocols::fat_header::{
         classify_fat_header_outcome, classify_rst_origin, classify_tcp_block_method, fat_status_label,
-        run_fat_header_attempt, FatHeaderStatus,
+        run_fat_header_attempt_with_key_log, FatHeaderStatus,
     };
 }
 
 pub(crate) mod http {
     pub use ripdpi_diagnostics_protocols::http::{
         classify_http_response, describe_http_observation, is_blockpage, parse_http_response, read_http_headers,
-        read_http_response, try_http_request, try_http_request_targets, HttpObservation,
+        read_http_response, try_http_request, try_http_request_targets_with_key_log, HttpObservation,
     };
 }
 
 pub(crate) mod tls {
     pub use ripdpi_diagnostics_protocols::tls::{
-        classify_tls_signal, is_server_tls_version_rejection, open_probe_stream_targets, preferred_tls_observation,
-        tls_key_log_callback_for_path, try_tls_handshake, try_tls_handshake_with_key_log, TlsClientProfile,
-        TlsKeyLogCallback, TlsObservation,
+        classify_tls_signal, is_server_tls_version_rejection, open_probe_stream_targets,
+        open_probe_stream_targets_with_key_log, preferred_tls_observation, tls_key_log_callback_for_path,
+        try_tls_handshake, try_tls_handshake_with_key_log, TlsClientProfile, TlsKeyLogCallback, TlsObservation,
     };
 }
 

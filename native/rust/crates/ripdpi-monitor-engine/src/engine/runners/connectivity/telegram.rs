@@ -6,6 +6,7 @@ use crate::engine::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
 };
 use crate::telegram::run_telegram_probe;
+use crate::tls::tls_key_log_callback_for_path;
 
 pub(in crate::engine::runners) struct TelegramRunner;
 
@@ -34,7 +35,8 @@ impl ExecutionStageRunner for TelegramRunner {
         if runtime.is_cancelled() {
             return RunnerOutcome::Cancelled;
         }
-        let probe = run_telegram_probe(target, &plan.transport);
+        let key_log = plan.request.diagnostic_tls_keylog_path.as_deref().map(tls_key_log_callback_for_path);
+        let probe = run_telegram_probe(target, &plan.transport, key_log.as_ref());
         let outcome = probe.outcome.clone();
         let artifacts = RunnerArtifacts::from_probe(probe, "telegram", &plan.request.path_mode);
         runtime.record_step(

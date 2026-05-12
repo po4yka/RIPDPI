@@ -10,7 +10,7 @@ mod tls_setup;
 pub use classification::{
     classify_fat_error_message, classify_fat_io_error, classify_rst_origin, classify_tcp_block_method, fat_status_label,
 };
-pub use probe_execution::run_fat_header_attempt;
+pub use probe_execution::{run_fat_header_attempt, run_fat_header_attempt_with_key_log};
 pub use status_types::{FatHeaderObservation, FatHeaderStatus};
 
 pub fn classify_fat_header_outcome(status: &FatHeaderStatus) -> &'static str {

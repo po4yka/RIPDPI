@@ -1,10 +1,16 @@
+use crate::connectivity::adapters::tls::TlsKeyLogCallback;
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::{ProbeDetail, ProbeResult, ThroughputTarget};
 
 use super::super::endpoint::measure_throughput_window;
 
-pub fn run_throughput_probe(target: &ThroughputTarget, transport: &TransportConfig) -> ProbeResult {
-    let samples = (0..target.runs.max(1)).map(|_| measure_throughput_window(target, transport)).collect::<Vec<_>>();
+pub fn run_throughput_probe(
+    target: &ThroughputTarget,
+    transport: &TransportConfig,
+    key_log: Option<&TlsKeyLogCallback>,
+) -> ProbeResult {
+    let samples =
+        (0..target.runs.max(1)).map(|_| measure_throughput_window(target, transport, key_log)).collect::<Vec<_>>();
     let mut bps_values = samples.iter().map(|sample| sample.bps).filter(|bps| *bps > 0).collect::<Vec<_>>();
     bps_values.sort_unstable();
     let median_bps = if bps_values.is_empty() { 0 } else { bps_values[bps_values.len() / 2] };

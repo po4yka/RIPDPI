@@ -3,6 +3,7 @@ use std::sync::Arc;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::adapters::http::describe_http_observation;
+use crate::connectivity::adapters::tls::TlsKeyLogCallback;
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::{CircumventionTarget, ProbeDetail, ProbeResult, ServiceTarget};
 
@@ -15,9 +16,10 @@ pub fn run_service_probe(
     target: &ServiceTarget,
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
 ) -> ProbeResult {
-    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport));
-    let media = target.media_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport));
+    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport, key_log));
+    let media = target.media_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport, key_log));
     let gateway = run_endpoint_probe(
         target.tcp_endpoint_host.as_deref(),
         target.tcp_endpoint_ip.as_deref(),
@@ -25,6 +27,7 @@ pub fn run_service_probe(
         target.tls_server_name.as_deref().or(target.tcp_endpoint_host.as_deref()),
         transport,
         tls_verifier,
+        key_log,
     );
     let quic = run_quic_endpoint_probe(
         target.quic_host.as_deref(),
@@ -84,8 +87,9 @@ pub fn run_circumvention_probe(
     target: &CircumventionTarget,
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
 ) -> ProbeResult {
-    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport));
+    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport, key_log));
     let handshake = run_endpoint_probe(
         target.handshake_host.as_deref(),
         target.handshake_ip.as_deref(),
@@ -93,6 +97,7 @@ pub fn run_circumvention_probe(
         target.tls_server_name.as_deref().or(target.handshake_host.as_deref()),
         transport,
         tls_verifier,
+        key_log,
     );
     let initial_bootstrap_status =
         bootstrap.as_ref().map_or_else(|| "not_run".to_string(), |observation| observation.status.clone());
@@ -102,7 +107,7 @@ pub fn run_circumvention_probe(
     let (bootstrap_status, circumvention_retry_count) = if is_probe_failure(&initial_bootstrap_status)
         && initial_bootstrap_status != "not_run"
     {
-        let retry = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport));
+        let retry = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport, key_log));
         let retry_status = retry.as_ref().map_or_else(|| initial_bootstrap_status.clone(), |obs| obs.status.clone());
         (retry_status, 1usize)
     } else {

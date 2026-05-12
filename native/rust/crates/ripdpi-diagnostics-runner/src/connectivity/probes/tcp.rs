@@ -1,17 +1,24 @@
 use crate::connectivity::adapters::fat_header::{
     classify_fat_header_outcome, classify_rst_origin, classify_tcp_block_method, fat_status_label,
-    run_fat_header_attempt, FatHeaderStatus,
+    run_fat_header_attempt_with_key_log, FatHeaderStatus,
 };
+use crate::connectivity::adapters::tls::TlsKeyLogCallback;
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::{ProbeDetail, ProbeResult, TcpTarget};
 
-pub fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transport: &TransportConfig) -> ProbeResult {
+pub fn run_tcp_probe(
+    target: &TcpTarget,
+    whitelist_sni: &[String],
+    transport: &TransportConfig,
+    key_log: Option<&TlsKeyLogCallback>,
+) -> ProbeResult {
     let base_host_header =
         target.host_header.clone().or_else(|| target.sni.clone()).unwrap_or_else(|| target.provider.clone());
     let mut attempted_candidates = Vec::new();
 
     let initial_candidate = target.sni.clone().unwrap_or_default();
-    let initial = run_fat_header_attempt(target, transport, &initial_candidate, &base_host_header);
+    let initial =
+        run_fat_header_attempt_with_key_log(target, transport, &initial_candidate, &base_host_header, key_log);
     attempted_candidates.push(format!(
         "{}:{}",
         if initial_candidate.is_empty() { "<empty>" } else { initial_candidate.as_str() },
@@ -22,7 +29,8 @@ pub fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transport: &T
     let mut probe_retry_count: usize = 0;
     let effective_initial = if initial.status == FatHeaderStatus::ConnectFailed {
         probe_retry_count = 1;
-        let retry = run_fat_header_attempt(target, transport, &initial_candidate, &base_host_header);
+        let retry =
+            run_fat_header_attempt_with_key_log(target, transport, &initial_candidate, &base_host_header, key_log);
         attempted_candidates.push(format!(
             "{}:retry:{}",
             if initial_candidate.is_empty() { "<empty>" } else { initial_candidate.as_str() },
@@ -41,7 +49,8 @@ pub fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transport: &T
         effective_initial.status != FatHeaderStatus::Success && target.sni.is_some() && !whitelist_sni.is_empty();
     if tried_whitelist_candidates {
         for candidate in whitelist_sni {
-            let candidate_result = run_fat_header_attempt(target, transport, candidate, candidate);
+            let candidate_result =
+                run_fat_header_attempt_with_key_log(target, transport, candidate, candidate, key_log);
             attempted_candidates.push(format!("{}:{}", candidate, fat_status_label(&candidate_result.status)));
             final_observation = candidate_result.clone();
             if candidate_result.status == FatHeaderStatus::Success || candidate_result.responses_seen > 0 {
@@ -122,7 +131,7 @@ pub fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transport: &T
             let alt_target = TcpTarget { port: alt_port, alt_port: None, ..target.clone() };
             let alt_host = target.host_header.as_deref().or(target.sni.as_deref()).unwrap_or("localhost");
             let alt_sni = target.sni.as_deref().unwrap_or("");
-            let alt_obs = run_fat_header_attempt(&alt_target, transport, alt_sni, alt_host);
+            let alt_obs = run_fat_header_attempt_with_key_log(&alt_target, transport, alt_sni, alt_host, key_log);
             details.push(ProbeDetail { key: "altPort".to_string(), value: alt_port.to_string() });
             details.push(ProbeDetail {
                 key: "altPortStatus".to_string(),

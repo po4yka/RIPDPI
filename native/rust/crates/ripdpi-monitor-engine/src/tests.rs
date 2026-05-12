@@ -471,7 +471,7 @@ fn tcp_probe_reports_threshold_cutoff() {
         alt_port: None,
     };
 
-    let result = run_tcp_probe(&target, &[], &direct_transport());
+    let result = run_tcp_probe(&target, &[], &direct_transport(), None);
     assert!(
         matches!(result.outcome.as_str(), "tcp_16kb_blocked" | "tcp_reset"),
         "unexpected cutoff outcome: {}",
@@ -496,7 +496,7 @@ fn tcp_probe_reports_whitelist_sni_success() {
     };
 
     let result =
-        run_tcp_probe(&target, &["allow.example".to_string(), "other.example".to_string()], &direct_transport());
+        run_tcp_probe(&target, &["allow.example".to_string(), "other.example".to_string()], &direct_transport(), None);
     assert_eq!(result.outcome, "whitelist_sni_ok");
 }
 
@@ -516,7 +516,7 @@ fn tcp_probe_reports_whitelist_sni_failure() {
         alt_port: None,
     };
 
-    let result = run_tcp_probe(&target, &["missing.example".to_string()], &direct_transport());
+    let result = run_tcp_probe(&target, &["missing.example".to_string()], &direct_transport(), None);
     assert_eq!(result.outcome, "whitelist_sni_failed");
 }
 
@@ -537,7 +537,7 @@ fn tcp_probe_skips_whitelist_when_sni_is_none() {
     };
 
     let result =
-        run_tcp_probe(&target, &["allow.example".to_string(), "other.example".to_string()], &direct_transport());
+        run_tcp_probe(&target, &["allow.example".to_string(), "other.example".to_string()], &direct_transport(), None);
     assert!(!result.outcome.starts_with("whitelist_sni_"), "expected non-whitelist outcome, got: {}", result.outcome);
 }
 

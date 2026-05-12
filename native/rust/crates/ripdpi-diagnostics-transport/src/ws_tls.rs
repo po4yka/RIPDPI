@@ -4,11 +4,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use rustls::pki_types::ServerName;
+use rustls::KeyLog;
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use tungstenite::client::IntoClientRequest;
 use tungstenite::WebSocket;
 
 pub type WsOverTlsStream = WebSocket<StreamOwned<ClientConnection, TcpStream>>;
+pub type WsTlsKeyLogCallback = Arc<dyn KeyLog>;
 
 #[derive(Clone, Debug)]
 pub struct WsOverTlsTarget {
@@ -35,14 +37,26 @@ pub struct WsOverTlsConnector;
 
 impl WsOverTlsConnector {
     pub fn probe(&self, target: &WsOverTlsTarget) -> io::Result<()> {
-        let _stream = self.connect(target)?;
+        self.probe_with_key_log(target, None)
+    }
+
+    pub fn probe_with_key_log(&self, target: &WsOverTlsTarget, key_log: Option<WsTlsKeyLogCallback>) -> io::Result<()> {
+        let _stream = self.connect_with_key_log(target, key_log)?;
         Ok(())
     }
 
     pub fn connect(&self, target: &WsOverTlsTarget) -> io::Result<WsOverTlsStream> {
+        self.connect_with_key_log(target, None)
+    }
+
+    pub fn connect_with_key_log(
+        &self,
+        target: &WsOverTlsTarget,
+        key_log: Option<WsTlsKeyLogCallback>,
+    ) -> io::Result<WsOverTlsStream> {
         let socket_addr = resolve_target_addr(target)?;
         let tcp = connect_tcp(socket_addr, target.connect_timeout)?;
-        let tls = connect_tls(tcp, target.host.as_str())?;
+        let tls = connect_tls(tcp, target.host.as_str(), key_log)?;
         let request = build_ws_request(target)?;
         let (ws, _response) = tungstenite::client(request, tls)
             .map_err(|err| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {err}")))?;
@@ -72,10 +86,14 @@ fn connect_tcp(addr: SocketAddr, timeout: Option<Duration>) -> io::Result<TcpStr
     Ok(stream)
 }
 
-fn connect_tls(tcp: TcpStream, host: &str) -> io::Result<StreamOwned<ClientConnection, TcpStream>> {
+fn connect_tls(
+    tcp: TcpStream,
+    host: &str,
+    key_log: Option<WsTlsKeyLogCallback>,
+) -> io::Result<StreamOwned<ClientConnection, TcpStream>> {
     let server_name = ServerName::try_from(host.to_string())
         .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err.to_string()))?;
-    let connection = ClientConnection::new(default_tls_config(), server_name)
+    let connection = ClientConnection::new(default_tls_config(key_log), server_name)
         .map_err(|err| io::Error::new(io::ErrorKind::ConnectionRefused, format!("TLS setup: {err}")))?;
     let mut tls = StreamOwned::new(connection, tcp);
     while tls.conn.is_handshaking() {
@@ -86,16 +104,18 @@ fn connect_tls(tcp: TcpStream, host: &str) -> io::Result<StreamOwned<ClientConne
     Ok(tls)
 }
 
-fn default_tls_config() -> Arc<ClientConfig> {
+fn default_tls_config(key_log: Option<WsTlsKeyLogCallback>) -> Arc<ClientConfig> {
     let mut roots = RootCertStore::empty();
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    Arc::new(
-        ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-            .with_safe_default_protocol_versions()
-            .expect("ring provider supports default TLS versions")
-            .with_root_certificates(roots)
-            .with_no_client_auth(),
-    )
+    let mut config = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        .with_safe_default_protocol_versions()
+        .expect("ring provider supports default TLS versions")
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+    if let Some(key_log) = key_log {
+        config.key_log = key_log;
+    }
+    Arc::new(config)
 }
 
 fn build_ws_request(target: &WsOverTlsTarget) -> io::Result<tungstenite::http::Request<()>> {

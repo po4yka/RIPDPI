@@ -1,9 +1,12 @@
 use std::io::{ErrorKind, Read, Write};
 
 use crate::connectivity::adapters::http::{
-    classify_http_response, parse_http_response, read_http_headers, try_http_request_targets, HttpObservation,
+    classify_http_response, parse_http_response, read_http_headers, try_http_request_targets_with_key_log,
+    HttpObservation,
 };
-use crate::connectivity::adapters::tls::{open_probe_stream_targets, TlsClientProfile};
+use crate::connectivity::adapters::tls::{
+    open_probe_stream_targets, open_probe_stream_targets_with_key_log, TlsClientProfile, TlsKeyLogCallback,
+};
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::connectivity::adapters::util::{find_headers_end, MAX_HTTP_BYTES};
 use crate::types::ThroughputTarget;
@@ -11,7 +14,11 @@ use crate::types::ThroughputTarget;
 use super::target_parse::parse_http_target;
 use super::types::ThroughputSample;
 
-pub(super) fn measure_throughput_window(target: &ThroughputTarget, transport: &TransportConfig) -> ThroughputSample {
+pub(super) fn measure_throughput_window(
+    target: &ThroughputTarget,
+    transport: &TransportConfig,
+    key_log: Option<&TlsKeyLogCallback>,
+) -> ThroughputSample {
     let parsed = match parse_http_target(&target.url, target.connect_ip.as_deref(), &target.connect_ips, target.port) {
         Ok(parsed) => parsed,
         Err(err) => {
@@ -19,15 +26,29 @@ pub(super) fn measure_throughput_window(target: &ThroughputTarget, transport: &T
         }
     };
     let started = std::time::Instant::now();
-    let mut stream = match open_probe_stream_targets(
-        &parsed.connect_targets,
-        parsed.port,
-        transport,
-        if parsed.secure { Some(parsed.host.as_str()) } else { None },
-        parsed.secure,
-        TlsClientProfile::Auto,
-        None,
-    ) {
+    let tls_name = if parsed.secure { Some(parsed.host.as_str()) } else { None };
+    let stream_result = match key_log {
+        Some(key_log) => open_probe_stream_targets_with_key_log(
+            &parsed.connect_targets,
+            parsed.port,
+            transport,
+            tls_name,
+            parsed.secure,
+            TlsClientProfile::Auto,
+            None,
+            Some(key_log),
+        ),
+        None => open_probe_stream_targets(
+            &parsed.connect_targets,
+            parsed.port,
+            transport,
+            tls_name,
+            parsed.secure,
+            TlsClientProfile::Auto,
+            None,
+        ),
+    };
+    let mut stream = match stream_result {
         Ok(result) => result.stream,
         Err(err) => {
             return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err }
@@ -100,15 +121,17 @@ pub(super) fn probe_http_url(
     connect_ips: &[String],
     port_override: Option<u16>,
     transport: &TransportConfig,
+    key_log: Option<&TlsKeyLogCallback>,
 ) -> HttpObservation {
     match parse_http_target(url, connect_ip, connect_ips, port_override) {
-        Ok(parsed) => try_http_request_targets(
+        Ok(parsed) => try_http_request_targets_with_key_log(
             &parsed.connect_targets,
             parsed.port,
             transport,
             &parsed.host,
             &parsed.path,
             parsed.secure,
+            key_log,
         ),
         Err(err) => HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err) },
     }
