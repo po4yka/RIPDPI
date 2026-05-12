@@ -36,7 +36,7 @@ class EchReadinessProbeTest {
             assertEquals(EchProbeVerdict.ECH_OK, result.verdict)
             assertEquals(true, result.httpsRrFetched)
             assertEquals(true, result.negotiatedEch)
-            assertEquals(true, result.bypassedDpi)
+            assertEquals(true, result.echSucceededWhenBaselineTlsFailed)
             assertEquals(42L, result.tlsLatencyMs)
         }
 

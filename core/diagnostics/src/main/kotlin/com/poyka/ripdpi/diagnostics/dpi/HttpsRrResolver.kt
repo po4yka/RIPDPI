@@ -254,7 +254,7 @@ data class EchProbeResult(
     val errorDetail: String?,
     val vanillaTlsOk: Boolean? = null,
 ) {
-    val bypassedDpi: Boolean = vanillaTlsOk == false && verdict == EchProbeVerdict.ECH_OK
+    val echSucceededWhenBaselineTlsFailed: Boolean = vanillaTlsOk == false && verdict == EchProbeVerdict.ECH_OK
 }
 
 data class EchTlsHandshakeResult(

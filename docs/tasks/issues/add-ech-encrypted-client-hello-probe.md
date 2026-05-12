@@ -16,19 +16,19 @@ updated: 2026-05-12
 
 ## Objective
 
-Add `EchReadinessProbe` that, for each ECH-eligible target (Cloudflare, Fastly, Mozilla CDN), fetches the server's ECH config via HTTPS RR DNS (RFC 9460), attempts an ECH-protected TLS handshake (RFC 9737), and reports per-target `ECH_OK | ECH_REJECTED | ECH_NO_CONFIG | ECH_UNKNOWN_KEY | ECH_NETWORK_BLOCK`. Establishes whether the user's network permits the strongest current counter to SNI-based DPI.
+Add `EchReadinessProbe` that, for each ECH-eligible target (Cloudflare, Fastly, Mozilla CDN), fetches the server's ECH config via HTTPS RR DNS (RFC 9460), attempts an ECH-protected TLS handshake (RFC 9737), and reports per-target `ECH_OK | ECH_REJECTED | ECH_NO_CONFIG | ECH_UNKNOWN_KEY | ECH_NETWORK_BLOCK`. Establishes whether the user's network permits the current privacy-preserving TLS mode for reducing SNI visibility.
 
 ## Context
 
-ECH is the first deployable mechanism that defeats SNI-based DPI without requiring an outbound proxy. The TLS ClientHello carries an encrypted "inner" ClientHello (with the real SNI), wrapped in an "outer" ClientHello using a per-server public key fetched via HTTPS RR DNS. A DPI middlebox sees only a generic-looking TLS handshake to e.g. `cloudflare-ech.com` — it cannot read the real SNI to decide whether to block.
+ECH is a deployable TLS privacy mechanism that reduces SNI exposure on constrained TLS paths without requiring an outbound proxy. The TLS ClientHello carries an encrypted "inner" ClientHello (with the real SNI), wrapped in an "outer" ClientHello using a per-server public key fetched via HTTPS RR DNS. A network middlebox sees only the outer TLS handshake to e.g. `cloudflare-ech.com`.
 
-Cloudflare, Fastly, and Mozilla CDN have all enabled ECH on their fronts; Chrome 117+ negotiates ECH automatically when the client has the config. RIPDPI users in censored networks need to know:
+Cloudflare, Fastly, and Mozilla CDN have all enabled ECH on their fronts; Chrome 117+ negotiates ECH automatically when the client has the config. RIPDPI users on networks with active L7 fingerprinting need to know:
 1. Is the HTTPS RR DNS lookup itself reachable, or does the ISP block / strip the record? → `ECH_NO_CONFIG`
 2. When ECH config is available, does the TLS handshake succeed? → `ECH_OK`
-3. Does the network specifically reject ECH'd handshakes (selective DPI)? → `ECH_REJECTED`
+3. Does the network specifically reject ECH'd handshakes (selective middlebox handling)? → `ECH_REJECTED`
 4. Does the server reject the offered key (out-of-date config)? → `ECH_UNKNOWN_KEY`
 
-Detection ordering: this probe must be run **after** `add-domain-reachability-scanner` for the same target so we know whether vanilla TLS works at all. ECH-success on a network where vanilla TLS to the same target is blocked is the headline win — proves ECH bypasses the local DPI.
+Detection ordering: this probe must be run **after** `add-domain-reachability-scanner` for the same target so we know whether vanilla TLS works at all. ECH success on a network where vanilla TLS to the same target fails is a diagnostic signal indicating ECH succeeds where baseline TLS fails.
 
 **Implementation:** uses `add-utls-diagnostic-probe-clienthello-fingerprinting` for the ECH'd handshake (uTLS supports ECH per `refraction-networking/utls` 1.6+; the existing transport-side pin must satisfy this). HTTPS RR DNS via `DnsWireBuilder` from `add-dns-integrity-checker` extended for type-65 records (RFC 9460).
 
@@ -51,13 +51,13 @@ Detection ordering: this probe must be run **after** `add-domain-reachability-sc
 - [ ] ECH'd TLS handshake via `add-utls-diagnostic-probe-clienthello-fingerprinting` with `setEchConfig(bytes)` API on the uTLS bridge
 - [ ] Verdict logic:
   - HTTPS RR lookup fails → `ECH_NO_CONFIG`
-  - ECH config present but TLS handshake fails with "encrypted_client_hello" alert → `ECH_REJECTED` (DPI rejecting ECH specifically)
+  - ECH config present but TLS handshake fails with "encrypted_client_hello" alert → `ECH_REJECTED` (middlebox rejecting ECH specifically)
   - TLS handshake fails with "ech_required" alert → `ECH_UNKNOWN_KEY` (server config rotated; client retry-config flow not implemented in this task)
   - TLS connect fails at TCP layer → `ECH_NETWORK_BLOCK`
   - TLS handshake succeeds AND `ssock.getEchAccepted() == true` → `ECH_OK`
 - [ ] Default target list: `cloudflare.com`, `fastly.com`, `mozilla.org`, `cloudflare-ech.com` (Cloudflare's public ECH test domain)
 - [ ] User-override at `filesDir/dpi/ech_targets.txt`
-- [ ] Cross-reference with reachability: probe attaches `vanillaTlsOk: Boolean?` from a recent `DomainReachabilityScanner` result (when available) — UI highlights "ECH works where vanilla TLS doesn't"
+- [ ] Cross-reference with reachability: probe attaches `vanillaTlsOk: Boolean?` from a recent `DomainReachabilityScanner` result (when available) — UI highlights "ECH succeeds when baseline TLS does not"
 - [ ] Concurrency: max 4 simultaneous probes (ECH adds ~50ms vs vanilla TLS; don't blast)
 - [ ] Unit tests: HTTPS RR parsing fixture; ECH alert classification; vanilla-vs-ECH cross-reference
 
@@ -70,7 +70,7 @@ Detection ordering: this probe must be run **after** `add-domain-reachability-sc
      - `ech_alert_returns_rejected()` — TLS handshake throws with alert "encrypted_client_hello"; assert `ECH_REJECTED`
      - `ech_required_alert_returns_unknown_key()` — alert "ech_required"; assert `ECH_UNKNOWN_KEY`
      - `tcp_layer_failure_returns_network_block()` — TCP connect throws timeout; assert `ECH_NETWORK_BLOCK`
-     - `vanilla_tls_blocked_but_ech_ok_flagged_in_ui_signal()` — pass `vanillaTlsOk = false`; assert result carries `bypassedDpi = true`
+     - `vanilla_tls_blocked_but_ech_ok_flagged_in_ui_signal()` — pass `vanillaTlsOk = false`; assert result carries `echSucceededWhenBaselineTlsFailed = true`
    - `core/diagnostics/src/test/kotlin/com/poyka/ripdpi/core/diagnostics/dpi/HttpsRrResolverTest.kt`:
      - `parses_ech_svcparam_from_rr_record()` — feed RFC 9460 fixture with `ech` SvcParam; assert correct ECHConfigList bytes returned
      - `multiple_priorities_picks_highest()` — multiple HTTPS RRs at different priorities; assert priority-1 (highest) selected
@@ -92,4 +92,5 @@ All 8 unit tests green. ECH probe surfaced in DiagnosticsScreen Tools as "ECH Re
 - Verified with `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpi.DpiProbeSuiteRunnerTest :app:testDebugUnitTest --tests com.poyka.ripdpi.activities.DiagnosticsDpiSuiteUiMapperTest -Pripdpi.skipNativeBuild=true`.
 - 2026-05-12: Added the native ECH TLS handshake bridge: Kotlin diagnostics now call a `core:engine` JNI bridge, the Rust adapter builds a Rustls ECH client config from the HTTPS RR ECHConfigList bytes supplied by the probe, protects the native socket when the VPN callback is registered, and returns `negotiatedEch` plus handshake latency.
 - Verified with `cargo test -p ripdpi-android-fetch-adapter malformed_ech_config_serializes_error_payload`, `cargo check -p ripdpi-android`, and `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpi.NativeEchTlsHandshakeTest --tests com.poyka.ripdpi.diagnostics.dpi.EchReadinessProbeTest :app:testDebugUnitTest --tests com.poyka.ripdpi.activities.DiagnosticsDpiSuiteUiMapperTest -Pripdpi.skipNativeBuild=true`.
+- 2026-05-12: Added a `ripdpi.runNetworkTests`-gated Android smoke test for the native ECH readiness probe against `cloudflare-ech.com`. No device was attached in the current workspace, so the live gate still needs a connected device or CI lane.
 - Remaining close gate: run real ECH validation on device or CI with live ECH-capable targets and confirm negotiated-ECH behavior outside fake JVM handshakes.
