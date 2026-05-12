@@ -208,7 +208,7 @@ log = "0.4"
 loom = "0.7"
 metrics = "0.24"
 lru = "0.18"
-mlua = "0.10"
+mlua = "0.11"
 mio = { version = "1.2", features = ["net", "os-poll"] }
 nix = { version = "0.31", features = ["net", "ioctl", "fs", "mman", "signal", "process", "uio", "zerocopy"] }
 once_cell = "1"
