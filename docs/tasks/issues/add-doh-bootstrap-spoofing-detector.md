@@ -1,7 +1,7 @@
 ---
 title: Add DoH Bootstrap-IP Spoofing Detector via Geoip Cross-Reference
 type: task
-status: doing
+status: blocked
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-12
 ---
 
-- [ ] #task Add DoH Bootstrap-IP Spoofing Detector via Geoip Cross-Reference #repo/RIPDPI #area/diagnostics #status/doing 🔼
+- [ ] #task Add DoH Bootstrap-IP Spoofing Detector via Geoip Cross-Reference #repo/RIPDPI #area/diagnostics #status/blocked #blocked 🔼
 
 ## Objective
 
@@ -20,7 +20,7 @@ Add `DohBootstrapSpoofingDetector` that, before trusting any DoH endpoint's resp
 
 ## Context
 
-DoH (DNS-over-HTTPS) is widely trusted as a control channel for DNS censorship detection because the *transport* (TLS over HTTPS) can't be inspected by a middlebox without breaking the cert. But there's a subtler attack: **the bootstrap IP for the DoH endpoint is itself resolved via plain DNS**. If the user types `https://dns.google/dns-query`, their stub resolver asks plain DNS for `dns.google`'s IP; the ISP can substitute its own IP at this step, intercept the entire DoH session, and return censored answers — and the user sees what looks like trusted DoH traffic.
+DoH (DNS-over-HTTPS) is widely trusted as a control channel for DNS integrity diagnostics because the *transport* (TLS over HTTPS) can't be inspected by a middlebox without breaking the cert. But there's a subtler attack: **the bootstrap IP for the DoH endpoint is itself resolved via plain DNS**. If the user types `https://dns.google/dns-query`, their stub resolver asks plain DNS for `dns.google`'s IP; the ISP can substitute its own IP at this step, intercept the entire DoH session, and return altered answers — and the user sees what looks like trusted DoH traffic.
 
 dpi-ch's `dns.go` `DnsDohProvider.Filter` field encodes the expected provider geoip via a subnetfilter expression: e.g. `org("google") || as(15169)` for Google DNS. The bootstrap IP is checked against this filter; if the IP doesn't match, the DoH response is flagged as `BOOTSTRAP_SPOOFED` and not used as a control.
 
@@ -53,7 +53,7 @@ dpi-ch's `dns.go` `DnsDohProvider.Filter` field encodes the expected provider ge
 
 - [ ] `DohBootstrapSpoofingDetector.checkAll(): Map<String, DohBootstrapResult>` — checks every configured DoH provider in parallel
 - [ ] `DohBootstrapResult`: `providerName: String`, `dohHostname: String`, `bootstrapIp: String?`, `discoveredAsn: Int?`, `discoveredOrg: String?`, `verdict: BootstrapVerdict (OK | SPOOFED | RESOLVE_FAILED)`, `expectedFilter: String`
-- [ ] Bootstrap resolution via system `InetAddress.getAllByName(host)` (NOT via DoH — that defeats the test)
+- [ ] Bootstrap resolution via system `InetAddress.getAllByName(host)` (NOT via DoH — that invalidates the test)
 - [ ] Geoip lookup via existing `add-geoip-db-and-geosite-db-runtime-loader-and-lookup` infrastructure
 - [ ] Filter evaluation via `add-subnet-filter-dsl`
 - [ ] `OK` only when `discoveredAsn / discoveredOrg` matches the provider's filter
@@ -83,6 +83,10 @@ dpi-ch's `dns.go` `DnsDohProvider.Filter` field encodes the expected provider ge
 All 6 unit tests green. Bootstrap status surfaced in DNS integrity card with per-provider trust badges. Spoofed providers excluded from integrity-check control set automatically.
 
 ## Work log
+
+## Blocked
+
+This task is blocked on `add-geoip-db-and-geosite-db-runtime-loader-and-lookup`. The detector is implemented with test metadata and a known-provider fallback, but it cannot satisfy the runtime GeoIP acceptance criterion until the shared runtime lookup API lands.
 
 ### 2026-05-11
 
