@@ -1,7 +1,7 @@
 ---
 title: Add Encrypted Client Hello (ECH) Readiness and Acceptance Probe
 type: task
-status: todo
+status: doing
 area: diagnostics
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-12
 ---
 
-- [ ] #task Add Encrypted Client Hello (ECH) Readiness and Acceptance Probe #repo/RIPDPI #area/diagnostics #status/todo ⏫
+- [ ] #task Add Encrypted Client Hello (ECH) Readiness and Acceptance Probe #repo/RIPDPI #area/diagnostics #status/doing ⏫
 
 ## Objective
 
@@ -82,3 +82,7 @@ Detection ordering: this probe must be run **after** `add-domain-reachability-sc
 ## Definition of done
 
 All 8 unit tests green. ECH probe surfaced in DiagnosticsScreen Tools as "ECH Readiness" card. Per-target verdict + side-by-side comparison against vanilla TLS reachability. uTLS bridge extended with ECH support and gated behind native-availability check.
+
+## Work log
+
+- 2026-05-12: Added the local JVM-testable DNS/ECH foundation: DNS type-65 HTTPS query support, RFC 9460 HTTPS RR `ech` SvcParam parsing, a DoH wire HTTPS RR resolver, and injectable ECH readiness verdict classification for `ECH_NO_CONFIG`, `ECH_OK`, `ECH_REJECTED`, `ECH_UNKNOWN_KEY`, and `ECH_NETWORK_BLOCK`. Remaining close gates: native ECH handshake bridge, default target/user override wiring, suite/tool UI surfacing, and real ECH validation beyond fake JVM handshakes.
