@@ -206,6 +206,11 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
         }
         updateFailure?.let { throw it }
     }
+
+    override fun geoDatabaseVersions(
+        geoipDbPath: String,
+        geositeDbPath: String,
+    ): RipDpiGeoDatabaseVersions? = RipDpiGeoDatabaseVersions()
 }
 
 class FakeTun2SocksBridge : Tun2SocksBridge {

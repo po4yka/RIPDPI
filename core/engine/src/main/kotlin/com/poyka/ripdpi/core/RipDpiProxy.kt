@@ -14,6 +14,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
@@ -32,6 +33,7 @@ interface RipDpiProxyRuntime {
 
 internal const val defaultProxyReadyTimeoutMs = 5_000L
 private const val readyLogPollInterval = 20L
+private val geoDatabaseVersionsJson = Json { ignoreUnknownKeys = true }
 
 interface RipDpiProxyBindings {
     fun create(configJson: String): Long
@@ -48,7 +50,18 @@ interface RipDpiProxyBindings {
         handle: Long,
         snapshotJson: String,
     )
+
+    fun geoDatabaseVersions(
+        geoipDbPath: String,
+        geositeDbPath: String,
+    ): RipDpiGeoDatabaseVersions?
 }
+
+@Serializable
+data class RipDpiGeoDatabaseVersions(
+    val geoipVersion: String? = null,
+    val geositeVersion: String? = null,
+)
 
 class RipDpiProxyNativeBindings
     @Inject
@@ -92,6 +105,17 @@ class RipDpiProxyNativeBindings
             jniUpdateNetworkSnapshot(handle, snapshotJson)
         }
 
+        override fun geoDatabaseVersions(
+            geoipDbPath: String,
+            geositeDbPath: String,
+        ): RipDpiGeoDatabaseVersions? =
+            jniGeoDatabaseVersions(geoipDbPath, geositeDbPath)
+                ?.let { payload ->
+                    runCatching {
+                        geoDatabaseVersionsJson.decodeFromString<RipDpiGeoDatabaseVersions>(payload)
+                    }.getOrNull()
+                }
+
         external fun jniStartPcapRecording(
             handle: Long,
             dirPath: String,
@@ -116,6 +140,11 @@ class RipDpiProxyNativeBindings
             handle: Long,
             snapshotJson: String,
         )
+
+        private external fun jniGeoDatabaseVersions(
+            geoipDbPath: String,
+            geositeDbPath: String,
+        ): String?
     }
 
 class RipDpiProxy(

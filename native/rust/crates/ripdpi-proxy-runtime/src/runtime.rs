@@ -26,6 +26,7 @@ use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
 use self::state::RuntimeState;
+pub use geo::{load_geo_database_versions, RuntimeGeoDatabaseVersions};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 
 pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {

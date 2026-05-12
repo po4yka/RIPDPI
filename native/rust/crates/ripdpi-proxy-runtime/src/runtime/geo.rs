@@ -49,6 +49,21 @@ pub(super) fn load_runtime_geo_matcher(config: &RuntimeConfig) -> Option<Arc<dyn
     .map(|matcher| matcher as Arc<dyn GeoMatcher + Send + Sync>)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeGeoDatabaseVersions {
+    pub geoip: Option<String>,
+    pub geosite: Option<String>,
+}
+
+pub fn load_geo_database_versions(
+    geoip_db: PathBuf,
+    geosite_db: PathBuf,
+) -> Result<RuntimeGeoDatabaseVersions, ripdpi_geo::GeoRuntimeError> {
+    let load = GeoRuntime::load(GeoRuntimePaths { geoip_db, geosite_db })?;
+    let versions = load.runtime.versions();
+    Ok(RuntimeGeoDatabaseVersions { geoip: versions.geoip, geosite: versions.geosite })
+}
+
 fn log_warning(warning: GeoRuntimeWarning) {
     match warning {
         GeoRuntimeWarning::MissingGeoip(path) => {

@@ -145,6 +145,24 @@ fn exported_jni_rejects_malformed_config_and_snapshot_json() {
 }
 
 #[test]
+fn exported_jni_geo_database_versions_reports_missing_databases() {
+    let _serial = lock_jni_tests();
+
+    with_env(|env| {
+        let versions = jni_geo_database_versions(env, "/tmp/ripdpi-missing-geoip.db", "/tmp/ripdpi-missing-geosite.db");
+        let versions_json = decode_jstring(env, versions).expect("versions json");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&versions_json).expect("versions payload"),
+            serde_json::json!({
+                "geoipVersion": null,
+                "geositeVersion": null,
+            }),
+        );
+        assert_no_exception(env);
+    });
+}
+
+#[test]
 fn exported_jni_invalid_handles_throw_and_reference_calls_return_null() {
     let _serial = lock_jni_tests();
     let snapshot_json = serde_json::to_string(&NetworkSnapshot::default()).expect("snapshot json");
@@ -375,6 +393,12 @@ fn jni_destroy(env: &mut Env<'_>, handle: jlong) {
 fn jni_update_network_snapshot(env: &mut Env<'_>, handle: jlong, snapshot_json: &str) {
     let snapshot_json = env.new_string(snapshot_json).expect("create snapshot json");
     crate::proxy_update_network_snapshot_entry(env_to_unowned(env), handle, snapshot_json);
+}
+
+fn jni_geo_database_versions(env: &mut Env<'_>, geoip_db_path: &str, geosite_db_path: &str) -> jstring {
+    let geoip_db_path = env.new_string(geoip_db_path).expect("create geoip path");
+    let geosite_db_path = env.new_string(geosite_db_path).expect("create geosite path");
+    crate::proxy_geo_database_versions_entry(env_to_unowned(env), geoip_db_path, geosite_db_path)
 }
 
 proptest! {

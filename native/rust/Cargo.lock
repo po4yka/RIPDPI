@@ -3258,6 +3258,7 @@ dependencies = [
  "ripdpi-proxy-config",
  "ripdpi-proxy-runtime",
  "ripdpi-runtime-api",
+ "serde",
  "serde_json",
 ]
 
