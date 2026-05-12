@@ -134,3 +134,12 @@ All 8 unit tests green. Setting visible in debug mode only. Banner in UI when ac
   - `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizerTest -Pripdpi.skipNativeBuild=true`
   - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.activities.DiagnosticsTlsKeylogPathTest -Pripdpi.skipNativeBuild=true`
 - Remaining before close: TLS engine callback wiring and manual Wireshark decrypt proof.
+
+### 2026-05-12 - Native rustls keylog callback foundation
+
+- Added an explicit native diagnostics TLS keylog callback API backed by rustls `ClientConfig.key_log`.
+- Added a file-backed SSLKEYLOGFILE writer for native diagnostics TLS and keylog-enabled probe entry points that preserve the existing no-keylog path for current callers.
+- Verification:
+  - `cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-tls tls_key_log --locked`
+  - `cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-tls --locked`
+- Remaining before close: Android/JNI selection of the native keylog callback path and manual Wireshark decrypt proof.

@@ -1,6 +1,7 @@
 mod certs;
 mod classification;
 mod config;
+mod key_log;
 mod probe;
 mod types;
 mod verifier;
@@ -10,7 +11,12 @@ pub use classification::{
     preferred_tls_observation, tls_version_label,
 };
 pub use config::{default_root_store, make_server_name, planned_tls_template_metadata, planned_tls_template_profile};
-pub use probe::{open_probe_stream, open_probe_stream_targets, try_tls_handshake, try_tls_handshake_targets};
+pub use key_log::{tls_key_log_callback_for_path, TlsKeyLogCallback, TlsKeyLogFile};
+pub use probe::{
+    open_probe_stream, open_probe_stream_targets, open_probe_stream_targets_with_key_log,
+    open_probe_stream_with_key_log, try_tls_handshake, try_tls_handshake_targets,
+    try_tls_handshake_targets_with_key_log, try_tls_handshake_with_key_log,
+};
 pub use types::{ProbeStreamResult, TlsClientProfile, TlsObservation};
 pub use verifier::NoCertificateVerification;
 

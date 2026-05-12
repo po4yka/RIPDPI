@@ -11,8 +11,10 @@ use crate::transport::{ConnectionStream, TargetAddress, TransportConfig};
 
 use super::super::certs::extract_cert_info;
 use super::super::config::{
-    build_ech_client_config, build_standard_client_config, make_server_name, planned_tls_template_profile,
+    build_ech_client_config, build_standard_client_config, build_standard_client_config_with_key_log, make_server_name,
+    planned_tls_template_profile,
 };
+use super::super::key_log::TlsKeyLogCallback;
 use super::super::types::TlsClientProfile;
 
 pub(crate) struct CapturedTlsHandshake {
@@ -31,12 +33,16 @@ pub(crate) fn capture_tls_handshake(
     tls_name: &str,
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
 ) -> Result<CapturedTlsHandshake, String> {
     let target = targets.first().ok_or_else(|| "no_tls_targets".to_string())?;
     let template_profile = planned_tls_template_profile(profile);
     let config = match profile {
-        TlsClientProfile::Tls13WithEch => build_ech_client_config(tls_name, target, transport, tls_verifier)?,
-        _ => build_standard_client_config(profile, tls_verifier),
+        TlsClientProfile::Tls13WithEch => build_ech_client_config(tls_name, target, transport, tls_verifier, key_log)?,
+        _ => match key_log {
+            Some(key_log) => build_standard_client_config_with_key_log(profile, tls_verifier, Some(key_log)),
+            None => build_standard_client_config(profile, tls_verifier),
+        },
     };
     let server_name = make_server_name(tls_name, target)?;
     let mut connection = ClientConnection::new(config, server_name).map_err(|err| err.to_string())?;

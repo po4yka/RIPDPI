@@ -3,6 +3,7 @@ use std::time::Instant;
 
 use rustls::client::danger::ServerCertVerifier;
 
+use super::super::key_log::TlsKeyLogCallback;
 use super::super::types::{ProbeStreamResult, TlsClientProfile};
 use super::capture::capture_tls_handshake;
 use crate::cdn_ech::opportunistic_ech_provider_for_ip;
@@ -19,13 +20,36 @@ pub(crate) fn open_probe_stream_targets(
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<ProbeStreamResult, String> {
+    open_probe_stream_targets_with_key_log(
+        targets,
+        port,
+        transport,
+        tls_name,
+        verify_certificates,
+        profile,
+        tls_verifier,
+        None,
+    )
+}
+
+pub(crate) fn open_probe_stream_targets_with_key_log(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    tls_name: Option<&str>,
+    verify_certificates: bool,
+    profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
+) -> Result<ProbeStreamResult, String> {
     let opened = open_transport_stream(targets, port, transport)?;
     opened.stream.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     opened.stream.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
 
     match tls_name {
         Some(name) if should_run_tls_handshake(verify_certificates, port, profile) => {
-            let captured = capture_tls_handshake(opened.stream, targets, transport, name, profile, tls_verifier)?;
+            let captured =
+                capture_tls_handshake(opened.stream, targets, transport, name, profile, tls_verifier, key_log)?;
             let observed_server_ttl = match &captured.stream {
                 ConnectionStream::Tls(stream) => platform_ttl::get_observed_ttl(&stream.sock),
                 ConnectionStream::Plain(_) => unreachable!(),

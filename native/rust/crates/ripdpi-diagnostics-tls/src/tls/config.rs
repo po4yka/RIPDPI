@@ -6,6 +6,7 @@ use rustls::client::{EchConfig, EchMode};
 use rustls::pki_types::{EchConfigListBytes, ServerName};
 use rustls::{ClientConfig, RootCertStore};
 
+use super::key_log::TlsKeyLogCallback;
 use super::types::TlsClientProfile;
 use crate::cdn_ech::opportunistic_ech_config_for_ip;
 use crate::dns::{
@@ -19,6 +20,14 @@ pub(super) const ECH_CONFIG_UNAVAILABLE_ERROR: &str = "ech_config_unavailable";
 pub(super) fn build_standard_client_config(
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> Arc<ClientConfig> {
+    build_standard_client_config_with_key_log(profile, tls_verifier, None)
+}
+
+pub(super) fn build_standard_client_config_with_key_log(
+    profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
 ) -> Arc<ClientConfig> {
     let template_profile = planned_tls_template_profile(profile);
     let builder = match profile {
@@ -41,6 +50,9 @@ pub(super) fn build_standard_client_config(
     } else {
         builder.with_root_certificates(default_root_store()).with_no_client_auth()
     };
+    if let Some(key_log) = key_log {
+        config.key_log = key_log.clone();
+    }
     apply_template_alpn(&mut config, template_profile);
     Arc::new(config)
 }
@@ -50,6 +62,7 @@ pub(super) fn build_ech_client_config(
     target: &TargetAddress,
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
 ) -> Result<Arc<ClientConfig>, String> {
     let template_metadata = planned_tls_template_metadata(TlsClientProfile::Tls13WithEch);
     let bootstrap_endpoint = template_metadata
@@ -93,6 +106,9 @@ pub(super) fn build_ech_client_config(
     } else {
         builder.with_root_certificates(default_root_store()).with_no_client_auth()
     };
+    if let Some(key_log) = key_log {
+        config.key_log = key_log.clone();
+    }
     apply_template_alpn(&mut config, template_profile);
     Ok(Arc::new(config))
 }
