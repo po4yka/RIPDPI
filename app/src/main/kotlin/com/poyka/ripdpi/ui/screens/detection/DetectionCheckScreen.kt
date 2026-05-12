@@ -270,6 +270,7 @@ private fun DetectionCheckScreenContent(
             onEnabledChange = onDebugModeChange,
             controlEnabled = !uiState.isRunning,
         )
+        DetectionTlsKeylogWarning(path = uiState.tlsKeylogWarningPath)
         DetectionColorVisionControls(
             selectedMode = uiState.colorVisionMode,
             protanopiaVariantUnlocked = uiState.redGreenAltEnabled,
@@ -316,6 +317,17 @@ private fun DetectionCheckScreenContent(
         )
         Spacer(modifier = Modifier.height(spacing.lg))
     }
+}
+
+@Composable
+private fun DetectionTlsKeylogWarning(path: String?) {
+    if (path.isNullOrBlank()) return
+
+    WarningBanner(
+        title = "TLS keylog enabled",
+        message = "Secrets written to $path. Disable when done debugging.",
+        tone = WarningBannerTone.Restricted,
+    )
 }
 
 @Composable

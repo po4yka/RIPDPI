@@ -113,3 +113,14 @@ All 8 unit tests green. Setting visible in debug mode only. Banner in UI when ac
   - `python scripts/ci/check_architecture_health.py --check --paths app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionSettingsModels.kt app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionSettingsScreen.kt app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionSettingsViewModel.kt app/src/test/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionSettingsUiModelTest.kt`
   - `git diff --check`
 - Remaining before close: diagnostic-result warning banner, TLS engine callback wiring, suite-end rotate/purge integration, and manual Wireshark decrypt proof.
+
+### 2026-05-12 - Detection result warning banner
+
+- Added `DetectionCheckUiState.tlsKeylogWarningPath`, which is only effective when debug mode is enabled, Privacy Mode is off, and a non-blank path is stored.
+- Added the detection-screen warning banner: "TLS keylog enabled" with the active path and disable reminder.
+- Verification:
+  - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.screens.detection.DetectionCheckUiStateTest -Pripdpi.skipNativeBuild=true`
+  - `./gradlew :app:ktlintCheck -Pripdpi.skipNativeBuild=true`
+  - `python scripts/ci/check_architecture_health.py --check --paths app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckViewModel.kt app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckScreen.kt app/src/test/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckUiStateTest.kt`
+  - `git diff --check`
+- Remaining before close: TLS engine callback wiring, suite-end rotate/purge integration, and manual Wireshark decrypt proof.

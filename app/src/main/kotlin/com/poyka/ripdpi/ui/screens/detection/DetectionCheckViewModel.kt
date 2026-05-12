@@ -59,9 +59,13 @@ data class DetectionCheckUiState(
     val privacyModeEnabled: Boolean = false,
     val cdnPullingEnabled: Boolean = false,
     val debugModeEnabled: Boolean = false,
+    val tlsKeylogPath: String = "",
     val colorVisionMode: DetectionColorVisionMode = DetectionColorVisionMode.OFF,
     val redGreenAltEnabled: Boolean = false,
-)
+) {
+    val tlsKeylogWarningPath: String?
+        get() = tlsKeylogPath.takeUnless { !debugModeEnabled || privacyModeEnabled || it.isBlank() }
+}
 
 @HiltViewModel
 class DetectionCheckViewModel
@@ -107,6 +111,7 @@ class DetectionCheckViewModel
                             privacyModeEnabled = privacyModeEnabled,
                             cdnPullingEnabled = settings.detectionCheckCdnPullingEnabled,
                             debugModeEnabled = debugModeEnabled,
+                            tlsKeylogPath = settings.detectionDiagnosticTlsKeylogPath,
                             colorVisionMode = colorVisionMode,
                             redGreenAltEnabled = settings.redGreenStatusAltEnabled,
                             reportText =
