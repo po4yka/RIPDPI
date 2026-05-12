@@ -64,6 +64,7 @@ internal fun DetectionSettingsRoute(
                 onDnsDohBootstrapIpsChange = remember(viewModel) { viewModel::setDnsDohBootstrapIps },
                 onDiagnosticRandomHostnamesChange =
                     remember(viewModel) { viewModel::setDiagnosticRandomHostnamesEnabled },
+                onTlsKeylogPathChange = remember(viewModel) { viewModel::setTlsKeylogPath },
                 onPrivacyModeChange = remember(viewModel) { viewModel::setPrivacyModeEnabled },
                 onDebugModeChange = remember(viewModel) { viewModel::setDebugModeEnabled },
                 onColorVisionModeChange = remember(viewModel) { viewModel::setColorVisionMode },
@@ -89,6 +90,7 @@ internal data class DetectionSettingsActions(
     val onDnsDohUrlChange: (String) -> Unit = {},
     val onDnsDohBootstrapIpsChange: (String) -> Unit = {},
     val onDiagnosticRandomHostnamesChange: (Boolean) -> Unit = {},
+    val onTlsKeylogPathChange: (String) -> Unit = {},
     val onPrivacyModeChange: (Boolean) -> Unit = {},
     val onDebugModeChange: (Boolean) -> Unit = {},
     val onColorVisionModeChange: (com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode) -> Unit = {},
@@ -173,6 +175,7 @@ internal fun DetectionSettingsScreen(
             DetectionDiagnosticProbeSettingsSection(
                 state = state,
                 onDiagnosticRandomHostnamesChange = actions.onDiagnosticRandomHostnamesChange,
+                onTlsKeylogPathChange = actions.onTlsKeylogPathChange,
             )
         }
         item {
@@ -356,6 +359,7 @@ private fun DetectionDnsSettingsSection(
 private fun DetectionDiagnosticProbeSettingsSection(
     state: DetectionSettingsUiState,
     onDiagnosticRandomHostnamesChange: (Boolean) -> Unit,
+    onTlsKeylogPathChange: (String) -> Unit,
 ) {
     SettingsSection(title = "Diagnostic probes") {
         SettingsRow(
@@ -365,6 +369,26 @@ private fun DetectionDiagnosticProbeSettingsSection(
             enabled = state.networkDependentEnabled,
             onCheckedChange = onDiagnosticRandomHostnamesChange,
         )
+        if (state.tlsKeylogPathVisible) {
+            RipDpiTextField(
+                value = state.tlsKeylogPath,
+                onValueChange = onTlsKeylogPathChange,
+                decoration = RipDpiTextFieldDecoration(label = "TLS keylog path"),
+                behavior =
+                    RipDpiTextFieldBehavior(
+                        enabled = !state.privacyModeEnabled,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (state.privacyModeEnabled) {
+                Text(
+                    text = "Privacy mode suppresses TLS key logging.",
+                    style = RipDpiThemeTokens.type.caption,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
+        }
     }
 }
 

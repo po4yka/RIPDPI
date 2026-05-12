@@ -176,6 +176,14 @@ internal class DetectionSettingsViewModel
             }
         }
 
+        fun setTlsKeylogPath(path: String) {
+            viewModelScope.launch {
+                appSettingsRepository.update {
+                    detectionDiagnosticTlsKeylogPath = path
+                }
+            }
+        }
+
         fun setPrivacyModeEnabled(enabled: Boolean) {
             viewModelScope.launch {
                 appSettingsRepository.update {

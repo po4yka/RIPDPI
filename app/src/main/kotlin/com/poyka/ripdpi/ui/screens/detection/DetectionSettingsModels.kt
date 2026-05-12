@@ -89,6 +89,7 @@ data class DetectionSettingsUiState(
     val dnsDohUrl: String = "",
     val dnsDohBootstrapIps: String = "",
     val diagnosticRandomHostnamesEnabled: Boolean = false,
+    val tlsKeylogPath: String = "",
     val privacyModeEnabled: Boolean = false,
     val debugModeEnabled: Boolean = false,
     val colorVisionMode: DetectionColorVisionMode = DetectionColorVisionMode.OFF,
@@ -102,6 +103,12 @@ data class DetectionSettingsUiState(
 
     val dnsFieldsEditable: Boolean
         get() = dnsPreset == DetectionDnsPreset.CUSTOM
+
+    val tlsKeylogPathVisible: Boolean
+        get() = debugModeEnabled
+
+    val effectiveTlsKeylogPath: String?
+        get() = tlsKeylogPath.takeUnless { !debugModeEnabled || privacyModeEnabled || it.isBlank() }
 
     val customPortRangeValid: Boolean
         get() =
@@ -158,6 +165,7 @@ data class DetectionSettingsUiState(
                 dnsDohUrl = settings.detectionCheckDnsDohUrl,
                 dnsDohBootstrapIps = settings.detectionCheckDnsDohBootstrapIps,
                 diagnosticRandomHostnamesEnabled = settings.detectionDiagnosticRandomHostnamesEnabled,
+                tlsKeylogPath = settings.detectionDiagnosticTlsKeylogPath,
                 privacyModeEnabled = settings.detectionCheckPrivacyModeEnabled,
                 debugModeEnabled = settings.detectionCheckDebugModeEnabled,
                 colorVisionMode = DetectionColorVisionMode.fromWire(settings.detectionCheckColorVisionMode),

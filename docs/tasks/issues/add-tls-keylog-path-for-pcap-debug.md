@@ -101,3 +101,15 @@ All 8 unit tests green. Setting visible in debug mode only. Banner in UI when ac
   - `python scripts/ci/check_architecture_health.py --check --paths core/data/model/src/main/proto/app_settings.proto core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/AppSettingsSerializer.kt core/data/src/test/kotlin/com/poyka/ripdpi/data/DpiSuiteSettingsTest.kt`
   - `git diff --check`
 - Remaining before close: debug-only settings UI, diagnostic-result warning banner, TLS engine callback wiring, suite-end rotate/purge integration, and manual Wireshark decrypt proof.
+
+### 2026-05-12 - Debug settings UI foundation
+
+- Mapped the stored TLS keylog path into `DetectionSettingsUiState` with debug-mode visibility and Privacy Mode suppression.
+- Added a hidden `TLS keylog path` field under Detection settings > Diagnostic probes, disabled while Privacy Mode is on.
+- Added `DetectionSettingsViewModel.setTlsKeylogPath()` for persisted UI updates.
+- Verification:
+  - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.screens.detection.DetectionSettingsUiModelTest -Pripdpi.skipNativeBuild=true`
+  - `./gradlew :app:ktlintCheck -Pripdpi.skipNativeBuild=true`
+  - `python scripts/ci/check_architecture_health.py --check --paths app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionSettingsModels.kt app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionSettingsScreen.kt app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionSettingsViewModel.kt app/src/test/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionSettingsUiModelTest.kt`
+  - `git diff --check`
+- Remaining before close: diagnostic-result warning banner, TLS engine callback wiring, suite-end rotate/purge integration, and manual Wireshark decrypt proof.

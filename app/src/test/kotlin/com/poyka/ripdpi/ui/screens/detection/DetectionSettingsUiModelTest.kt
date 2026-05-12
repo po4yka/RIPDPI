@@ -68,6 +68,53 @@ class DetectionSettingsUiModelTest {
     }
 
     @Test
+    fun tlsKeylogPathMapsFromAppSettingsWhenDebugModeEnabled() {
+        val state =
+            DetectionSettingsUiState.from(
+                AppSettings
+                    .newBuilder()
+                    .setDetectionCheckDebugModeEnabled(true)
+                    .setDetectionDiagnosticTlsKeylogPath("/app/files/diagnostics/tls.keys")
+                    .build(),
+            )
+
+        assertTrue(state.tlsKeylogPathVisible)
+        assertEquals("/app/files/diagnostics/tls.keys", state.tlsKeylogPath)
+        assertEquals("/app/files/diagnostics/tls.keys", state.effectiveTlsKeylogPath)
+    }
+
+    @Test
+    fun tlsKeylogPathIsHiddenWhenDebugModeDisabled() {
+        val state =
+            DetectionSettingsUiState.from(
+                AppSettings
+                    .newBuilder()
+                    .setDetectionCheckDebugModeEnabled(false)
+                    .setDetectionDiagnosticTlsKeylogPath("/app/files/diagnostics/tls.keys")
+                    .build(),
+            )
+
+        assertFalse(state.tlsKeylogPathVisible)
+        assertEquals(null, state.effectiveTlsKeylogPath)
+    }
+
+    @Test
+    fun privacyModeSuppressesEffectiveTlsKeylogPath() {
+        val state =
+            DetectionSettingsUiState.from(
+                AppSettings
+                    .newBuilder()
+                    .setDetectionCheckDebugModeEnabled(true)
+                    .setDetectionCheckPrivacyModeEnabled(true)
+                    .setDetectionDiagnosticTlsKeylogPath("/app/files/diagnostics/tls.keys")
+                    .build(),
+            )
+
+        assertTrue(state.tlsKeylogPathVisible)
+        assertEquals(null, state.effectiveTlsKeylogPath)
+    }
+
+    @Test
     fun customPortRangeCountsInclusiveValidPorts() {
         val state =
             DetectionSettingsUiState.from(
