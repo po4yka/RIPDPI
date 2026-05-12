@@ -55,12 +55,25 @@ interface RipDpiProxyBindings {
         geoipDbPath: String,
         geositeDbPath: String,
     ): RipDpiGeoDatabaseVersions?
+
+    fun geoIpMetadata(
+        geoipDbPath: String,
+        geositeDbPath: String,
+        ip: String,
+    ): RipDpiGeoIpMetadata?
 }
 
 @Serializable
 data class RipDpiGeoDatabaseVersions(
     val geoipVersion: String? = null,
     val geositeVersion: String? = null,
+)
+
+@Serializable
+data class RipDpiGeoIpMetadata(
+    val countryCode: String? = null,
+    val asn: Int? = null,
+    val organization: String? = null,
 )
 
 class RipDpiProxyNativeBindings
@@ -116,6 +129,18 @@ class RipDpiProxyNativeBindings
                     }.getOrNull()
                 }
 
+        override fun geoIpMetadata(
+            geoipDbPath: String,
+            geositeDbPath: String,
+            ip: String,
+        ): RipDpiGeoIpMetadata? =
+            jniGeoIpMetadata(geoipDbPath, geositeDbPath, ip)
+                ?.let { payload ->
+                    runCatching {
+                        geoDatabaseVersionsJson.decodeFromString<RipDpiGeoIpMetadata>(payload)
+                    }.getOrNull()
+                }
+
         external fun jniStartPcapRecording(
             handle: Long,
             dirPath: String,
@@ -144,6 +169,12 @@ class RipDpiProxyNativeBindings
         private external fun jniGeoDatabaseVersions(
             geoipDbPath: String,
             geositeDbPath: String,
+        ): String?
+
+        private external fun jniGeoIpMetadata(
+            geoipDbPath: String,
+            geositeDbPath: String,
+            ip: String,
         ): String?
     }
 

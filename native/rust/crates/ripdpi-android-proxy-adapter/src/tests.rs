@@ -1,5 +1,8 @@
+use std::fs;
 use std::net::{IpAddr, Ipv4Addr, TcpListener};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use android_support::describe_exception;
 use jni::sys::jlong;
@@ -21,6 +24,8 @@ use super::registry::{
     control_for_proxy_stop, ensure_proxy_destroyable, lookup_proxy_session, remove_proxy_session,
     try_mark_proxy_running, ProxySession, ProxySessionState, SESSIONS,
 };
+
+const GEOIP_ASN_FIXTURE: &[u8] = include_bytes!("../../ripdpi-geo/tests/fixtures/GeoLite2-ASN-Test.mmdb");
 
 #[test]
 fn open_proxy_listener_records_telemetry_when_bind_fails() {
@@ -156,6 +161,27 @@ fn exported_jni_geo_database_versions_reports_missing_databases() {
             serde_json::json!({
                 "geoipVersion": null,
                 "geositeVersion": null,
+            }),
+        );
+        assert_no_exception(env);
+    });
+}
+
+#[test]
+fn exported_jni_geoip_metadata_reports_asn_database_record() {
+    let _serial = lock_jni_tests();
+    let dir = temp_dir();
+    fs::write(dir.join("geoip.db"), GEOIP_ASN_FIXTURE).expect("write geoip asn fixture");
+
+    with_env(|env| {
+        let metadata = jni_geoip_metadata(env, &dir.join("geoip.db"), &dir.join("geosite.db"), "1.128.0.123");
+        let metadata_json = decode_jstring(env, metadata).expect("metadata json");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&metadata_json).expect("metadata payload"),
+            serde_json::json!({
+                "countryCode": null,
+                "asn": 1221,
+                "organization": "Telstra Pty Ltd",
             }),
         );
         assert_no_exception(env);
@@ -399,6 +425,20 @@ fn jni_geo_database_versions(env: &mut Env<'_>, geoip_db_path: &str, geosite_db_
     let geoip_db_path = env.new_string(geoip_db_path).expect("create geoip path");
     let geosite_db_path = env.new_string(geosite_db_path).expect("create geosite path");
     crate::proxy_geo_database_versions_entry(env_to_unowned(env), geoip_db_path, geosite_db_path)
+}
+
+fn jni_geoip_metadata(env: &mut Env<'_>, geoip_db_path: &Path, geosite_db_path: &Path, ip: &str) -> jstring {
+    let geoip_db_path = env.new_string(geoip_db_path.to_string_lossy()).expect("create geoip path");
+    let geosite_db_path = env.new_string(geosite_db_path.to_string_lossy()).expect("create geosite path");
+    let ip = env.new_string(ip).expect("create ip");
+    crate::proxy_geoip_metadata_entry(env_to_unowned(env), geoip_db_path, geosite_db_path, ip)
+}
+
+fn temp_dir() -> PathBuf {
+    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).expect("clock").as_nanos();
+    let dir = std::env::temp_dir().join(format!("ripdpi-android-proxy-adapter-{nanos}"));
+    fs::create_dir_all(&dir).expect("create temp dir");
+    dir
 }
 
 proptest! {

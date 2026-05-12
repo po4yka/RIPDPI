@@ -19,7 +19,7 @@ use jni::{EnvUnowned, Outcome};
 use ripdpi_android_bridge_support::extract_panic_message;
 
 use entry_error::log_and_throw;
-use geo_versions::geo_database_versions;
+use geo_versions::{geo_database_versions, geoip_metadata};
 use lifecycle::{create_session, destroy_session, start_session, stop_session, update_network_snapshot};
 pub use pcap::{pcap_is_recording_entry, pcap_start_entry, pcap_stop_entry};
 use telemetry::poll_proxy_telemetry;
@@ -143,6 +143,31 @@ pub fn proxy_geo_database_versions_entry(
         }
         Outcome::Panic(payload) => {
             log_and_throw(&mut env, "Proxy geo database version lookup panicked", &extract_panic_message(payload));
+            std::ptr::null_mut()
+        }
+    }
+}
+
+pub fn proxy_geoip_metadata_entry(
+    mut env: EnvUnowned<'_>,
+    geoip_db_path: JString,
+    geosite_db_path: JString,
+    ip: JString,
+) -> jstring {
+    init_android_logging("ripdpi-native");
+    match env
+        .with_env(move |env| -> jni::errors::Result<jstring> {
+            Ok(geoip_metadata(env, geoip_db_path, geosite_db_path, ip))
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value,
+        Outcome::Err(err) => {
+            log_and_throw(&mut env, "Proxy geoip metadata lookup failed", &err.to_string());
+            std::ptr::null_mut()
+        }
+        Outcome::Panic(payload) => {
+            log_and_throw(&mut env, "Proxy geoip metadata lookup panicked", &extract_panic_message(payload));
             std::ptr::null_mut()
         }
     }

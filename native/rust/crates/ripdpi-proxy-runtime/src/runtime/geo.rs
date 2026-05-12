@@ -55,6 +55,13 @@ pub struct RuntimeGeoDatabaseVersions {
     pub geosite: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeGeoIpMetadata {
+    pub country_code: Option<String>,
+    pub asn: Option<u32>,
+    pub organization: Option<String>,
+}
+
 pub fn load_geo_database_versions(
     geoip_db: PathBuf,
     geosite_db: PathBuf,
@@ -62,6 +69,19 @@ pub fn load_geo_database_versions(
     let load = GeoRuntime::load(GeoRuntimePaths { geoip_db, geosite_db })?;
     let versions = load.runtime.versions();
     Ok(RuntimeGeoDatabaseVersions { geoip: versions.geoip, geosite: versions.geosite })
+}
+
+pub fn load_geoip_metadata(
+    geoip_db: PathBuf,
+    geosite_db: PathBuf,
+    ip: IpAddr,
+) -> Result<Option<RuntimeGeoIpMetadata>, ripdpi_geo::GeoRuntimeError> {
+    let load = GeoRuntime::load(GeoRuntimePaths { geoip_db, geosite_db })?;
+    Ok(load.runtime.ip_metadata(ip).map(|metadata| RuntimeGeoIpMetadata {
+        country_code: metadata.country_code,
+        asn: metadata.asn,
+        organization: metadata.organization,
+    }))
 }
 
 fn log_warning(warning: GeoRuntimeWarning) {

@@ -75,6 +75,8 @@ mod tests {
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong) -> jboolean,
             Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniGeoDatabaseVersions
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>, JString<'_>) -> jstring,
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniGeoIpMetadata
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>, JString<'_>, JString<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniRegisterVpnProtect
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JObject<'_>),
             Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUnregisterVpnProtect as Void,

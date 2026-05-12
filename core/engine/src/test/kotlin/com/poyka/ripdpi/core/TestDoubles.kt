@@ -211,6 +211,12 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
         geoipDbPath: String,
         geositeDbPath: String,
     ): RipDpiGeoDatabaseVersions? = RipDpiGeoDatabaseVersions()
+
+    override fun geoIpMetadata(
+        geoipDbPath: String,
+        geositeDbPath: String,
+        ip: String,
+    ): RipDpiGeoIpMetadata? = null
 }
 
 class FakeTun2SocksBridge : Tun2SocksBridge {
