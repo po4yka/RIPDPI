@@ -181,9 +181,14 @@ internal class DiagnosticsDpiToolsController(
             )
         scope.launch {
             runCatching {
+                val settings = appSettingsRepository.snapshot()
                 val domains = loadDomains(limit = null)
                 check(domains.isNotEmpty()) { "No bundled DPI domains are available." }
-                domainReachabilityScanner.scan(domains, stubIps)
+                domainReachabilityScanner.scan(
+                    domains = domains,
+                    stubIps = stubIps,
+                    randomHostname = settings.detectionDiagnosticRandomHostnamesEnabled,
+                )
             }.onSuccess { results ->
                 _domainReachabilityTool.value = results.toUiModel(stubIps.size)
             }.onFailure { error ->
@@ -252,9 +257,13 @@ internal class DiagnosticsDpiToolsController(
             )
         scope.launch {
             runCatching {
+                val settings = appSettingsRepository.snapshot()
                 val targets = loadTcp16Targets()
                 check(targets.isNotEmpty()) { "No bundled TCP16 targets are available." }
-                tcp16FatHeaderProbe.run(targets)
+                tcp16FatHeaderProbe.run(
+                    targets = targets,
+                    randomHostname = settings.detectionDiagnosticRandomHostnamesEnabled,
+                )
             }.onSuccess { results ->
                 latestTcp16DetectedResults = results.filter { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
                 _tcp16FatHeaderTool.value = results.toTcp16UiModel()

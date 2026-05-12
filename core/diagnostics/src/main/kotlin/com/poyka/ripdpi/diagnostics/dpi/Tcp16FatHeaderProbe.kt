@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
+import com.poyka.ripdpi.diagnostics.dpich.RandomHostHeaderGenerator
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -47,6 +48,7 @@ class Tcp16FatHeaderProbe(
     suspend fun run(
         targets: List<Tcp16Target>,
         rttHints: Map<String, Long> = emptyMap(),
+        randomHostname: Boolean = false,
     ): List<Tcp16ProbeResult> =
         coroutineScope {
             val semaphore = Semaphore(concurrency)
@@ -54,7 +56,7 @@ class Tcp16FatHeaderProbe(
                 .map { target ->
                     async {
                         semaphore.withPermit {
-                            runWithRttHint(target, rttHints[target.id])
+                            runWithRttHint(target, rttHints[target.id], randomHostname = randomHostname)
                         }
                     }
                 }.awaitAll()
@@ -65,28 +67,44 @@ class Tcp16FatHeaderProbe(
     override suspend fun runWithRttHint(
         target: Tcp16Target,
         hintRttMs: Long?,
+    ): Tcp16ProbeResult = runWithRttHint(target, hintRttMs, randomHostname = false)
+
+    suspend fun runWithRttHint(
+        target: Tcp16Target,
+        hintRttMs: Long?,
+        randomHostname: Boolean = false,
     ): Tcp16ProbeResult =
         withContext(dispatcher) {
             val tracker = Tcp16ConnectionTracker()
             val rttSamples = mutableListOf<Long>()
+            val requestedHosts = mutableListOf<String>()
             for (requestIndex in 0 until RequestCount) {
+                val requestedHost =
+                    if (randomHostname) {
+                        RandomHostHeaderGenerator.next()
+                    } else {
+                        target.sni ?: target.ip
+                    }
+                requestedHosts += requestedHost
                 val request =
                     Tcp16FatHeaderRequest(
                         requestIndex = requestIndex,
                         padding = if (requestIndex == 0) null else paddingPool.slice(PaddingBytes),
                         timeoutMs = timeoutFor(hintRttMs ?: rttSamples.averageMillis()),
+                        hostHeader = requestedHost,
                     )
                 val outcome =
                     runCatching {
                         requestRunner.execute(target, request, tracker)
                     }
-                if (tracker.connectionCount > 1) {
+                if (tracker.connectionCount > 1 && !randomHostname) {
                     return@withContext target.result(
                         alive = true,
                         verdict = Tcp16Verdict.INVALID_RECONNECTED,
                         measuredRttMs = rttSamples.averageMillis(),
                         errorDetail = "probe opened more than one socket",
                         connectionCount = tracker.connectionCount,
+                        requestedHosts = requestedHosts.takeIf { randomHostname },
                     )
                 }
                 outcome
@@ -98,6 +116,7 @@ class Tcp16FatHeaderProbe(
                             error = error,
                             measuredRttMs = rttSamples.averageMillis(),
                             connectionCount = tracker.connectionCount,
+                            requestedHosts = requestedHosts.takeIf { randomHostname },
                         )
                     }
             }
@@ -106,6 +125,7 @@ class Tcp16FatHeaderProbe(
                 verdict = Tcp16Verdict.OK,
                 measuredRttMs = rttSamples.averageMillis(),
                 connectionCount = tracker.connectionCount,
+                requestedHosts = requestedHosts.takeIf { randomHostname },
             )
         }
 
@@ -120,6 +140,7 @@ class Tcp16FatHeaderProbe(
         error: Throwable,
         measuredRttMs: Long?,
         connectionCount: Int,
+        requestedHosts: List<String>?,
     ): Tcp16ProbeResult {
         val errorLabel = error.tcp16ErrorLabel()
         if (requestIndex == 0) {
@@ -129,6 +150,7 @@ class Tcp16FatHeaderProbe(
                 measuredRttMs = measuredRttMs,
                 errorDetail = errorLabel,
                 connectionCount = connectionCount,
+                requestedHosts = requestedHosts,
             )
         }
         return if (error.isTcp16ResetLike()) {
@@ -139,6 +161,7 @@ class Tcp16FatHeaderProbe(
                 measuredRttMs = measuredRttMs,
                 errorDetail = "connection closed during padded header train",
                 connectionCount = connectionCount,
+                requestedHosts = requestedHosts,
             )
         } else {
             result(
@@ -147,6 +170,7 @@ class Tcp16FatHeaderProbe(
                 measuredRttMs = measuredRttMs,
                 errorDetail = errorLabel,
                 connectionCount = connectionCount,
+                requestedHosts = requestedHosts,
             )
         }
     }
@@ -158,6 +182,7 @@ class Tcp16FatHeaderProbe(
         measuredRttMs: Long?,
         errorDetail: String? = null,
         connectionCount: Int,
+        requestedHosts: List<String>? = null,
     ): Tcp16ProbeResult =
         Tcp16ProbeResult(
             targetId = id,
@@ -172,6 +197,7 @@ class Tcp16FatHeaderProbe(
             errorDetail = errorDetail,
             connectionCount = connectionCount,
             tlsClientState = tlsClientStateProvider(),
+            requestedHosts = requestedHosts,
         )
 
     companion object {
@@ -199,6 +225,7 @@ data class Tcp16FatHeaderRequest(
     val requestIndex: Int,
     val padding: String?,
     val timeoutMs: Long,
+    val hostHeader: String,
 )
 
 data class Tcp16FatHeaderResponse(
@@ -249,16 +276,16 @@ class OkHttpTcp16RequestRunner(
         val client =
             baseClient
                 .newBuilder()
-                .dns(target.dns())
+                .dns(target.dns(request.hostHeader))
                 .eventListenerFactory { tracker.eventListener() }
                 .build()
         val call =
             client.newCall(
                 Request
                     .Builder()
-                    .url(target.url())
+                    .url(target.url(request.hostHeader))
                     .head()
-                    .header("Host", target.sni ?: target.ip)
+                    .header("Host", request.hostHeader)
                     .header("Connection", "keep-alive")
                     .apply {
                         request.padding?.let { padding -> header("X-Pad", padding) }
@@ -275,12 +302,12 @@ class OkHttpTcp16RequestRunner(
         }
     }
 
-    private fun Tcp16Target.url(): String {
+    private fun Tcp16Target.url(hostHeader: String): String {
         val scheme = if (port == HttpsPort) "https" else "http"
-        return "$scheme://${sni ?: ip}:$port/"
+        return "$scheme://$hostHeader:$port/"
     }
 
-    private fun Tcp16Target.dns(): Dns = TargetDns(ip = ip, sni = sni)
+    private fun Tcp16Target.dns(hostHeader: String): Dns = TargetDns(ip = ip, hostHeader = hostHeader)
 
     companion object {
         private const val HttpsPort = 443
@@ -305,10 +332,10 @@ class OkHttpTcp16RequestRunner(
 
 private data class TargetDns(
     private val ip: String,
-    private val sni: String?,
+    private val hostHeader: String,
 ) : Dns {
     override fun lookup(hostname: String): List<InetAddress> =
-        if (sni != null && hostname.equals(sni, ignoreCase = true)) {
+        if (hostname.equals(hostHeader, ignoreCase = true)) {
             listOf(InetAddress.getByName(ip))
         } else {
             Dns.SYSTEM.lookup(hostname)

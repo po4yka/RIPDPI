@@ -128,6 +128,33 @@ class WebhostFarmTest {
         }
 
     @Test
+    fun discoverUsesRandomHostnameForProbeWithoutChangingTargetIp() =
+        runTest {
+            val probe = RecordingWebhostProbe()
+            val farm =
+                WebhostFarm(
+                    probe = probe,
+                    random = Random(1),
+                )
+
+            val hosts =
+                farm
+                    .discover(
+                        subnets = setOf(IpRange("192.0.2.0/30")),
+                        count = 1,
+                        sni = "fixed.example",
+                        workers = 1,
+                        randomHostname = true,
+                    )
+            val host = hosts.single()
+
+            val call = probe.calls.single()
+            assertTrue(call.ip.startsWith("192.0.2."))
+            assertTrue(call.sni != "fixed.example")
+            assertEquals(call.sni, host.requestedHost)
+        }
+
+    @Test
     fun discoverRejectsInvalidRanges() =
         runTest {
             val farm = WebhostFarm(probe = FakeWebhostProbe(emptyMap()))
@@ -216,6 +243,26 @@ class WebhostFarmTest {
             probedIps += ip
             return responses[ip] ?: default
         }
+    }
+
+    private class RecordingWebhostProbe : WebhostProbe {
+        val calls = mutableListOf<Call>()
+
+        override suspend fun probe(
+            ip: String,
+            port: Int,
+            sni: String?,
+            tcpConnectTimeoutMs: Long,
+            tlsHandshakeTimeoutMs: Long,
+        ): WebhostProbeResult {
+            calls += Call(ip = ip, sni = sni)
+            return WebhostProbeResult(tcpOk = true, tlsOk = true, tcpTimeMs = 1, tlsTimeMs = 1)
+        }
+
+        data class Call(
+            val ip: String,
+            val sni: String?,
+        )
     }
 
     private object FakeMetadata : SubnetMetadataLookup {

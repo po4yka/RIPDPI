@@ -30,6 +30,7 @@ data class DiscoveredHost(
     val org: String?,
     val tcpTimeMs: Long,
     val tlsTimeMs: Long,
+    val requestedHost: String? = null,
 )
 
 data class WebhostProbeResult(
@@ -64,6 +65,7 @@ class WebhostFarm(
         port: Int = HttpsPort,
         sni: String? = null,
         workers: Int = DefaultWorkers,
+        randomHostname: Boolean = false,
     ): List<DiscoveredHost> {
         require(count >= 0) { "count must be non-negative" }
         require(maxCandidates > 0) { "maxCandidates must be positive" }
@@ -79,6 +81,7 @@ class WebhostFarm(
                     async {
                         while (isActive) {
                             val candidate = candidates.getOrNull(nextCandidate.getAndIncrement()) ?: return@async
+                            val requestedHost = if (randomHostname) RandomHostHeaderGenerator.next() else sni
                             resultsMutex.withLock {
                                 if (results.size >= count) {
                                     return@async
@@ -89,7 +92,7 @@ class WebhostFarm(
                                     probe.probe(
                                         ip = candidate.ip,
                                         port = port,
-                                        sni = sni,
+                                        sni = requestedHost,
                                         tcpConnectTimeoutMs = tcpConnectTimeoutMs,
                                         tlsHandshakeTimeoutMs = tlsHandshakeTimeoutMs,
                                     )
@@ -101,7 +104,7 @@ class WebhostFarm(
                             if (probeResult.tcpOk && probeResult.tlsOk) {
                                 resultsMutex.withLock {
                                     if (results.size < count) {
-                                        results += candidate.toDiscoveredHost(port, probeResult)
+                                        results += candidate.toDiscoveredHost(port, probeResult, requestedHost)
                                     }
                                 }
                             }
@@ -145,6 +148,7 @@ class WebhostFarm(
     private fun WebhostCandidate.toDiscoveredHost(
         port: Int,
         probeResult: WebhostProbeResult,
+        requestedHost: String?,
     ): DiscoveredHost =
         DiscoveredHost(
             ip = ip,
@@ -154,6 +158,7 @@ class WebhostFarm(
             org = metadata?.orgTermsForIp(ip)?.firstOrNull(),
             tcpTimeMs = probeResult.tcpTimeMs,
             tlsTimeMs = probeResult.tlsTimeMs,
+            requestedHost = requestedHost,
         )
 
     companion object {

@@ -23,6 +23,7 @@ data class Tcp16ProbeResult(
     val errorDetail: String?,
     val connectionCount: Int,
     val tlsClientState: DiagnosticsTlsClientState? = null,
+    val requestedHosts: List<String>? = null,
 )
 
 data class Tcp16AsnSummary(

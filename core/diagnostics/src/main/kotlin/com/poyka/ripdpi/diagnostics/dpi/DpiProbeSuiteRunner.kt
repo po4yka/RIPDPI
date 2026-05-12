@@ -31,11 +31,13 @@ interface DpiSuiteProbes {
         domains: List<String>,
         stubIps: Set<String>,
         concurrency: Int,
+        randomHostname: Boolean,
     ): List<DomainReachabilityResult>
 
     suspend fun runTcp16(
         targets: List<Tcp16Target>,
         concurrency: Int,
+        randomHostname: Boolean,
     ): List<Tcp16ProbeResult>
 
     suspend fun findAllowlistSni(results: List<Tcp16ProbeResult>): Map<String, AllowlistSniResult>
@@ -159,6 +161,7 @@ class DpiProbeSuiteRunner(
                                         domains = domains,
                                         stubIps = stubIps,
                                         concurrency = config.concurrency.coerceAtLeast(1),
+                                        randomHostname = config.randomHostname,
                                         runProbe = ::runProbe,
                                     )
                                 },
@@ -189,6 +192,7 @@ class DpiProbeSuiteRunner(
         domains: List<String>,
         stubIps: Set<String>,
         concurrency: Int,
+        randomHostname: Boolean,
         runProbe: suspend (DpiProbeKind, suspend () -> DpiSuiteProbeResult) -> DpiSuiteProbeResult,
     ) {
         if (DpiProbeKind.DOMAIN_REACHABILITY in selection) {
@@ -198,6 +202,7 @@ class DpiProbeSuiteRunner(
                         domains = domains,
                         stubIps = stubIps,
                         concurrency = concurrency,
+                        randomHostname = randomHostname,
                     ),
                 )
             }
@@ -211,6 +216,7 @@ class DpiProbeSuiteRunner(
                         probes.runTcp16(
                             targets = tcp16TargetsProvider.loadTargets(),
                             concurrency = concurrency,
+                            randomHostname = randomHostname,
                         ),
                     )
                 }

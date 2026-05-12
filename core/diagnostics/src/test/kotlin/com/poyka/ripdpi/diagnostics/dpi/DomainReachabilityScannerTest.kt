@@ -281,11 +281,31 @@ class DomainReachabilityScannerTest {
             val result =
                 DomainReachabilityScanner(
                     resolver = { listOf("93.184.216.34") },
-                    attemptRunner = { _, _, _ -> AttemptResult(AttemptStatus.OK) },
+                    attemptRunner = { _, _, _, _ -> AttemptResult(AttemptStatus.OK) },
                     tlsClientStateProvider = { tlsState },
                 ).scan(listOf("example.com"), stubIps = emptySet()).single()
 
             assertEquals(tlsState, result.tlsClientState)
+        }
+
+    @Test
+    fun randomHostnameUsesFreshHostPerAttemptAndRecordsHosts() =
+        runTest {
+            val requestedHosts = mutableListOf<String?>()
+
+            val result =
+                DomainReachabilityScanner(
+                    resolver = { listOf("93.184.216.34") },
+                    attemptRunner = { _, _, _, requestedHost ->
+                        requestedHosts += requestedHost
+                        AttemptResult(AttemptStatus.OK, statusCode = 200)
+                    },
+                ).scan(listOf("example.com"), stubIps = emptySet(), randomHostname = true).single()
+
+            val concreteHosts = requestedHosts.filterNotNull()
+            assertEquals(3, concreteHosts.size)
+            assertEquals(3, concreteHosts.toSet().size)
+            assertEquals(concreteHosts, result.requestedHosts)
         }
 
     @Test
@@ -302,7 +322,7 @@ class DomainReachabilityScannerTest {
             val result =
                 DomainReachabilityScanner(
                     resolver = { listOf("93.184.216.34") },
-                    attemptRunner = { _, _, _ -> AttemptResult(AttemptStatus.OK) },
+                    attemptRunner = { _, _, _, _ -> AttemptResult(AttemptStatus.OK) },
                     tlsClientStateProvider = { tlsState },
                 ).withMaxConcurrent(2)
                     .scan(listOf("example.com"), stubIps = emptySet())
@@ -320,7 +340,7 @@ class DomainReachabilityScannerTest {
         DomainReachabilityScanner(
             resolver = resolver,
             attemptRunner =
-                { _, kind, _ -> attempts(kind) },
+                { _, kind, _, _ -> attempts(kind) },
         )
 
     private fun mockHttpRunner(server: MockWebServer): OkHttpDomainReachabilityAttemptRunner =

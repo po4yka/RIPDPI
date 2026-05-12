@@ -151,6 +151,29 @@ class Tcp16FatHeaderProbeTest {
         }
 
     @Test
+    fun randomHostnameUsesFreshHostHeaderPerRequestAndRecordsHosts() =
+        runTest {
+            MockWebServer().use { server ->
+                repeat(16) {
+                    server.enqueue(okHeadResponse())
+                }
+                server.start()
+
+                val result = probe().runWithRttHint(mockTarget(server), hintRttMs = 25, randomHostname = true)
+
+                val hostHeaders =
+                    (0 until 16).mapNotNull {
+                        val request = server.takeRequest(1, TimeUnit.SECONDS)
+                        request?.headers?.get("Host")?.substringBefore(':')
+                    }
+                assertEquals(Tcp16Verdict.OK, result.verdict)
+                assertEquals(16, hostHeaders.size)
+                assertEquals(16, hostHeaders.toSet().size)
+                assertEquals(hostHeaders, result.requestedHosts)
+            }
+        }
+
+    @Test
     fun resultsCarryDiagnosticsTlsClientState() =
         runTest {
             val tlsState =

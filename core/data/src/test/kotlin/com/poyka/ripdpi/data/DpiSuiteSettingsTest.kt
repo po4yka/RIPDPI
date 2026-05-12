@@ -13,6 +13,11 @@ class DpiSuiteSettingsTest {
     }
 
     @Test
+    fun `random diagnostic hostname mode defaults off`() {
+        assertEquals(false, AppSettingsSerializer.defaultValue.detectionDiagnosticRandomHostnamesEnabled)
+    }
+
+    @Test
     fun `dpi suite concurrency round trips through app settings serializer`() =
         runTest {
             val settings =
@@ -26,5 +31,21 @@ class DpiSuiteSettingsTest {
             val decoded = AppSettingsSerializer.readFrom(ByteArrayInputStream(output.toByteArray()))
 
             assertEquals(42, decoded.dpiSuiteConcurrency)
+        }
+
+    @Test
+    fun `random diagnostic hostname mode round trips through app settings serializer`() =
+        runTest {
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setDetectionDiagnosticRandomHostnamesEnabled(true)
+                    .build()
+            val output = ByteArrayOutputStream()
+
+            AppSettingsSerializer.writeTo(settings, output)
+            val decoded = AppSettingsSerializer.readFrom(ByteArrayInputStream(output.toByteArray()))
+
+            assertEquals(true, decoded.detectionDiagnosticRandomHostnamesEnabled)
         }
 }

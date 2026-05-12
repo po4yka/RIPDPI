@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.detection.dpi.IpAddressClassifier
 import com.poyka.ripdpi.core.detection.dpi.IpAddressType
 import com.poyka.ripdpi.core.detection.dpi.ProbeStage
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
+import com.poyka.ripdpi.diagnostics.dpich.RandomHostHeaderGenerator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -78,6 +79,7 @@ data class DomainReachabilityResult(
     val http: AttemptResult,
     val verdict: DomainVerdict,
     val tlsClientState: DiagnosticsTlsClientState? = null,
+    val requestedHosts: List<String>? = null,
 )
 
 data class ReachabilityProbeEndpoint(
@@ -92,6 +94,7 @@ typealias DomainReachabilityAttemptRunner = suspend (
     domain: String,
     kind: ReachabilityProbeKind,
     stubIps: Set<String>,
+    requestedHost: String?,
 ) -> AttemptResult
 
 class DomainReachabilityScanner(
@@ -113,13 +116,14 @@ class DomainReachabilityScanner(
     suspend fun scan(
         domains: List<String>,
         stubIps: Set<String>,
+        randomHostname: Boolean = false,
     ): List<DomainReachabilityResult> =
         coroutineScope {
             domains
                 .map { domain ->
                     async {
                         semaphore.withPermit {
-                            scanDomain(domain, stubIps)
+                            scanDomain(domain, stubIps, randomHostname = randomHostname)
                         }
                     }
                 }.map { deferred -> deferred.await() }
@@ -128,6 +132,7 @@ class DomainReachabilityScanner(
     private suspend fun scanDomain(
         domain: String,
         stubIps: Set<String>,
+        randomHostname: Boolean,
     ): DomainReachabilityResult {
         val resolvedIps =
             runCatching { resolver(domain) }
@@ -143,9 +148,10 @@ class DomainReachabilityScanner(
             return shortCircuit(domain, resolvedIps, AttemptStatus.FAKE_IP, DomainVerdict.FAKE_IP)
         }
 
-        val tls13 = runAttempt(domain, ReachabilityProbeKind.TLS13, stubIps)
-        val tls12 = runAttempt(domain, ReachabilityProbeKind.TLS12, stubIps)
-        val http = runAttempt(domain, ReachabilityProbeKind.HTTP, stubIps)
+        val requestedHosts = mutableListOf<String>()
+        val tls13 = runAttempt(domain, ReachabilityProbeKind.TLS13, stubIps, randomHostname, requestedHosts)
+        val tls12 = runAttempt(domain, ReachabilityProbeKind.TLS12, stubIps, randomHostname, requestedHosts)
+        val http = runAttempt(domain, ReachabilityProbeKind.HTTP, stubIps, randomHostname, requestedHosts)
         return DomainReachabilityResult(
             domain = domain,
             resolvedIps = resolvedIps,
@@ -154,6 +160,7 @@ class DomainReachabilityScanner(
             http = http,
             verdict = aggregateVerdict(tls13, tls12, http),
             tlsClientState = tlsClientStateProvider(),
+            requestedHosts = requestedHosts.takeIf { randomHostname },
         )
     }
 
@@ -161,9 +168,17 @@ class DomainReachabilityScanner(
         domain: String,
         kind: ReachabilityProbeKind,
         stubIps: Set<String>,
+        randomHostname: Boolean,
+        requestedHosts: MutableList<String>,
     ): AttemptResult =
         try {
-            attemptRunner(domain, kind, stubIps).classifyStubRedirect(stubIps)
+            val requestedHost =
+                if (randomHostname) {
+                    RandomHostHeaderGenerator.next().also(requestedHosts::add)
+                } else {
+                    null
+                }
+            attemptRunner(domain, kind, stubIps, requestedHost).classifyStubRedirect(stubIps)
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
@@ -282,14 +297,15 @@ class OkHttpDomainReachabilityAttemptRunner(
         domain: String,
         kind: ReachabilityProbeKind,
         stubIps: Set<String>,
+        requestedHost: String? = null,
     ): AttemptResult =
         withContext(dispatcher) {
             when (kind) {
-                ReachabilityProbeKind.HTTP -> runHttpHead(domain, stubIps)
+                ReachabilityProbeKind.HTTP -> runHttpHead(domain, stubIps, requestedHost)
 
                 ReachabilityProbeKind.TLS13,
                 ReachabilityProbeKind.TLS12,
-                -> runTls(domain, kind, stubIps)
+                -> runTls(domain, kind, stubIps, requestedHost)
             }
         }
 
@@ -297,9 +313,10 @@ class OkHttpDomainReachabilityAttemptRunner(
         domain: String,
         kind: ReachabilityProbeKind,
         stubIps: Set<String>,
+        requestedHost: String?,
     ): AttemptResult {
         val stage = AtomicReference(ProbeStage.TCP_CONNECT)
-        val endpoint = endpointResolver.endpointFor(domain, kind)
+        val endpoint = endpointResolver.endpointFor(domain, kind).withHostHeader(requestedHost)
         val client = clientFor(kind, stage)
         val request = tlsRequest(endpoint)
         var bytesRead = 0
@@ -335,11 +352,12 @@ class OkHttpDomainReachabilityAttemptRunner(
     private fun runHttpHead(
         domain: String,
         stubIps: Set<String>,
+        requestedHost: String?,
     ): AttemptResult {
         var stage = ProbeStage.TCP_CONNECT
         var bytesRead = 0
         val startedAt = System.nanoTime()
-        val endpoint = endpointResolver.endpointFor(domain, ReachabilityProbeKind.HTTP)
+        val endpoint = endpointResolver.endpointFor(domain, ReachabilityProbeKind.HTTP).withHostHeader(requestedHost)
         val response = ByteArrayOutputStream()
         return try {
             Socket().use { socket ->
@@ -382,6 +400,13 @@ class OkHttpDomainReachabilityAttemptRunner(
                 .copy(latencyMs = elapsedMillis(startedAt))
         }
     }
+
+    private fun ReachabilityProbeEndpoint.withHostHeader(requestedHost: String?): ReachabilityProbeEndpoint =
+        if (requestedHost == null) {
+            this
+        } else {
+            copy(hostHeader = requestedHost)
+        }
 
     private fun httpHeadRequest(domain: String): ByteArray =
         "HEAD / HTTP/1.1\r\nHost: $domain\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n"

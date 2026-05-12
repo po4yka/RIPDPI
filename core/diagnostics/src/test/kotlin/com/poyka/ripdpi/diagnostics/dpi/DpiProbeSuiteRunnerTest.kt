@@ -23,7 +23,7 @@ class DpiProbeSuiteRunnerTest {
                                 calls += "dns"
                                 dnsIntegrityResult(stubIps = setOf("198.18.0.1"))
                             },
-                            onDomainReachability = { _, stubIps, _ ->
+                            onDomainReachability = { _, stubIps, _, _ ->
                                 calls += "domain:${stubIps.single()}"
                                 emptyList()
                             },
@@ -53,7 +53,7 @@ class DpiProbeSuiteRunnerTest {
                         assertEquals(5_000L, timeoutMs)
                         setOf("198.18.0.2")
                     },
-                    onDomainReachability = { _, stubIps, _ ->
+                    onDomainReachability = { _, stubIps, _, _ ->
                         assertEquals(setOf("198.18.0.2"), stubIps)
                         emptyList()
                     },
@@ -71,7 +71,7 @@ class DpiProbeSuiteRunnerTest {
         runTest {
             val probes =
                 FakeSuiteProbes().copy(
-                    onTcp16 = { _, _ -> emptyList() },
+                    onTcp16 = { _, _, _ -> emptyList() },
                 )
 
             val events =
@@ -171,11 +171,11 @@ class DpiProbeSuiteRunnerTest {
             val observedConcurrency = mutableListOf<Int>()
             val probes =
                 FakeSuiteProbes().copy(
-                    onDomainReachability = { _, _, concurrency ->
+                    onDomainReachability = { _, _, concurrency, _ ->
                         observedConcurrency += concurrency
                         emptyList()
                     },
-                    onTcp16 = { _, concurrency ->
+                    onTcp16 = { _, concurrency, _ ->
                         observedConcurrency += concurrency
                         emptyList()
                     },
@@ -190,6 +190,33 @@ class DpiProbeSuiteRunnerTest {
                 ).toList()
 
             assertEquals(listOf(7, 7), observedConcurrency)
+        }
+
+    @Test
+    fun passesRandomHostnameFlagToReachabilityAndTcp16Probes() =
+        runTest {
+            val observed = mutableListOf<Boolean>()
+            val probes =
+                FakeSuiteProbes().copy(
+                    onDomainReachability = { _, _, _, randomHostname ->
+                        observed += randomHostname
+                        emptyList()
+                    },
+                    onTcp16 = { _, _, randomHostname ->
+                        observed += randomHostname
+                        emptyList()
+                    },
+                )
+
+            runner(probes = probes)
+                .run(
+                    DpiSuiteConfig(
+                        selection = setOf(DpiProbeKind.DOMAIN_REACHABILITY, DpiProbeKind.TCP16),
+                        randomHostname = true,
+                    ),
+                ).toList()
+
+            assertEquals(listOf(true, true), observed)
         }
 
     @Test
@@ -230,9 +257,17 @@ class DpiProbeSuiteRunnerTest {
         private val onDnsIntegrity: suspend (List<String>) -> DnsIntegrityResult = { dnsIntegrityResult() },
         private val onCollectStubIps: suspend (List<String>, Long) -> Set<String> = { _, _ -> emptySet() },
         private val onDnsAvailability: suspend () -> List<DnsServerResult> = { emptyList() },
-        private val onDomainReachability:
-            suspend (List<String>, Set<String>, Int) -> List<DomainReachabilityResult> = { _, _, _ -> emptyList() },
-        private val onTcp16: suspend (List<Tcp16Target>, Int) -> List<Tcp16ProbeResult> = { _, _ -> emptyList() },
+        private val onDomainReachability: suspend (
+            List<String>,
+            Set<String>,
+            Int,
+            Boolean,
+        ) -> List<DomainReachabilityResult> = { _, _, _, _ -> emptyList() },
+        private val onTcp16: suspend (
+            List<Tcp16Target>,
+            Int,
+            Boolean,
+        ) -> List<Tcp16ProbeResult> = { _, _, _ -> emptyList() },
         private val onAllowlist: suspend (List<Tcp16ProbeResult>) -> Map<String, AllowlistSniResult> = { emptyMap() },
         private val onTelegram: suspend () -> TelegramTestResult = { telegramResult() },
         private val onQuicH3: suspend (List<String>, Int) -> List<QuicProbeResult> = { _, _ -> emptyList() },
@@ -256,12 +291,14 @@ class DpiProbeSuiteRunnerTest {
             domains: List<String>,
             stubIps: Set<String>,
             concurrency: Int,
-        ): List<DomainReachabilityResult> = onDomainReachability(domains, stubIps, concurrency)
+            randomHostname: Boolean,
+        ): List<DomainReachabilityResult> = onDomainReachability(domains, stubIps, concurrency, randomHostname)
 
         override suspend fun runTcp16(
             targets: List<Tcp16Target>,
             concurrency: Int,
-        ): List<Tcp16ProbeResult> = onTcp16(targets, concurrency)
+            randomHostname: Boolean,
+        ): List<Tcp16ProbeResult> = onTcp16(targets, concurrency, randomHostname)
 
         override suspend fun findAllowlistSni(results: List<Tcp16ProbeResult>): Map<String, AllowlistSniResult> {
             allowlistCalls += 1
@@ -280,9 +317,9 @@ class DpiProbeSuiteRunnerTest {
             onDnsIntegrity: suspend (List<String>) -> DnsIntegrityResult = this.onDnsIntegrity,
             onCollectStubIps: suspend (List<String>, Long) -> Set<String> = this.onCollectStubIps,
             onDnsAvailability: suspend () -> List<DnsServerResult> = this.onDnsAvailability,
-            onDomainReachability: suspend (List<String>, Set<String>, Int) -> List<DomainReachabilityResult> =
+            onDomainReachability: suspend (List<String>, Set<String>, Int, Boolean) -> List<DomainReachabilityResult> =
                 this.onDomainReachability,
-            onTcp16: suspend (List<Tcp16Target>, Int) -> List<Tcp16ProbeResult> = this.onTcp16,
+            onTcp16: suspend (List<Tcp16Target>, Int, Boolean) -> List<Tcp16ProbeResult> = this.onTcp16,
             onAllowlist: suspend (List<Tcp16ProbeResult>) -> Map<String, AllowlistSniResult> = this.onAllowlist,
             onTelegram: suspend () -> TelegramTestResult = this.onTelegram,
             onQuicH3: suspend (List<String>, Int) -> List<QuicProbeResult> = this.onQuicH3,

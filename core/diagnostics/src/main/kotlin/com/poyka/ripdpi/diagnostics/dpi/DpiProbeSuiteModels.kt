@@ -14,6 +14,7 @@ data class DpiSuiteConfig(
     val selection: Set<DpiProbeKind>,
     val customDomains: List<String>? = null,
     val concurrency: Int = DefaultConcurrency,
+    val randomHostname: Boolean = false,
 ) {
     companion object {
         const val DefaultConcurrency = 100

@@ -55,6 +55,19 @@ class DetectionSettingsUiModelTest {
     }
 
     @Test
+    fun randomDiagnosticHostnamesSettingMapsFromAppSettings() {
+        val state =
+            DetectionSettingsUiState.from(
+                AppSettings
+                    .newBuilder()
+                    .setDetectionDiagnosticRandomHostnamesEnabled(true)
+                    .build(),
+            )
+
+        assertTrue(state.diagnosticRandomHostnamesEnabled)
+    }
+
+    @Test
     fun customPortRangeCountsInclusiveValidPorts() {
         val state =
             DetectionSettingsUiState.from(

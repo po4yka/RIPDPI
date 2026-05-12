@@ -131,11 +131,13 @@ internal class DiagnosticsDpiSuiteController(
             scope.launch {
                 val rows = mutableListOf<DiagnosticsDpiSuiteProbeRowUiModel>()
                 runCatching {
+                    val settings = appSettingsRepository.snapshot()
                     val config =
                         DpiSuiteConfig(
                             selection = current.selectedKinds.toSet(),
                             customDomains = parseCustomDomains(current.customDomainsInput),
                             concurrency = current.concurrency,
+                            randomHostname = settings.detectionDiagnosticRandomHostnamesEnabled,
                         )
                     buildRunner().run(config).collect { event ->
                         handleEvent(event, rows)
@@ -200,25 +202,27 @@ internal class DiagnosticsDpiSuiteController(
                         domains: List<String>,
                         stubIps: Set<String>,
                         concurrency: Int,
+                        randomHostname: Boolean,
                     ): List<DomainReachabilityResult> =
                         if (concurrency == DpiSuiteConfig.DefaultConcurrency) {
-                            domainReachabilityScanner.scan(domains, stubIps)
+                            domainReachabilityScanner.scan(domains, stubIps, randomHostname = randomHostname)
                         } else {
                             domainReachabilityScanner
                                 .withMaxConcurrent(concurrency)
-                                .scan(domains, stubIps)
+                                .scan(domains, stubIps, randomHostname = randomHostname)
                         }
 
                     override suspend fun runTcp16(
                         targets: List<Tcp16Target>,
                         concurrency: Int,
+                        randomHostname: Boolean,
                     ): List<Tcp16ProbeResult> =
                         if (concurrency == DpiSuiteConfig.DefaultConcurrency) {
-                            tcp16FatHeaderProbe.run(targets)
+                            tcp16FatHeaderProbe.run(targets, randomHostname = randomHostname)
                         } else {
                             tcp16FatHeaderProbe
                                 .withConcurrency(concurrency)
-                                .run(targets)
+                                .run(targets, randomHostname = randomHostname)
                         }
 
                     override suspend fun findAllowlistSni(results: List<Tcp16ProbeResult>) =

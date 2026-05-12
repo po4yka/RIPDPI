@@ -62,6 +62,8 @@ internal fun DetectionSettingsRoute(
                 onDnsDirectServersChange = remember(viewModel) { viewModel::setDnsDirectServers },
                 onDnsDohUrlChange = remember(viewModel) { viewModel::setDnsDohUrl },
                 onDnsDohBootstrapIpsChange = remember(viewModel) { viewModel::setDnsDohBootstrapIps },
+                onDiagnosticRandomHostnamesChange =
+                    remember(viewModel) { viewModel::setDiagnosticRandomHostnamesEnabled },
                 onPrivacyModeChange = remember(viewModel) { viewModel::setPrivacyModeEnabled },
                 onDebugModeChange = remember(viewModel) { viewModel::setDebugModeEnabled },
                 onColorVisionModeChange = remember(viewModel) { viewModel::setColorVisionMode },
@@ -86,6 +88,7 @@ internal data class DetectionSettingsActions(
     val onDnsDirectServersChange: (String) -> Unit = {},
     val onDnsDohUrlChange: (String) -> Unit = {},
     val onDnsDohBootstrapIpsChange: (String) -> Unit = {},
+    val onDiagnosticRandomHostnamesChange: (Boolean) -> Unit = {},
     val onPrivacyModeChange: (Boolean) -> Unit = {},
     val onDebugModeChange: (Boolean) -> Unit = {},
     val onColorVisionModeChange: (com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode) -> Unit = {},
@@ -164,6 +167,12 @@ internal fun DetectionSettingsScreen(
                 onDnsDirectServersChange = actions.onDnsDirectServersChange,
                 onDnsDohUrlChange = actions.onDnsDohUrlChange,
                 onDnsDohBootstrapIpsChange = actions.onDnsDohBootstrapIpsChange,
+            )
+        }
+        item {
+            DetectionDiagnosticProbeSettingsSection(
+                state = state,
+                onDiagnosticRandomHostnamesChange = actions.onDiagnosticRandomHostnamesChange,
             )
         }
         item {
@@ -339,6 +348,22 @@ private fun DetectionDnsSettingsSection(
             decoration = RipDpiTextFieldDecoration(label = "DoH bootstrap IPs"),
             behavior = RipDpiTextFieldBehavior(enabled = state.dnsFieldsEditable),
             modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun DetectionDiagnosticProbeSettingsSection(
+    state: DetectionSettingsUiState,
+    onDiagnosticRandomHostnamesChange: (Boolean) -> Unit,
+) {
+    SettingsSection(title = "Diagnostic probes") {
+        SettingsRow(
+            title = "Use random hostnames in diagnostic probes",
+            subtitle = "Avoid fixed test-domain allowlists by sending fresh Host/SNI values.",
+            checked = state.diagnosticRandomHostnamesEnabled,
+            enabled = state.networkDependentEnabled,
+            onCheckedChange = onDiagnosticRandomHostnamesChange,
         )
     }
 }

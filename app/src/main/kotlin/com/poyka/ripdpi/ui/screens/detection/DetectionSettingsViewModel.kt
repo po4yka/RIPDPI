@@ -168,6 +168,14 @@ internal class DetectionSettingsViewModel
             }
         }
 
+        fun setDiagnosticRandomHostnamesEnabled(enabled: Boolean) {
+            viewModelScope.launch {
+                appSettingsRepository.update {
+                    detectionDiagnosticRandomHostnamesEnabled = enabled
+                }
+            }
+        }
+
         fun setPrivacyModeEnabled(enabled: Boolean) {
             viewModelScope.launch {
                 appSettingsRepository.update {
