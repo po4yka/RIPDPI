@@ -17,6 +17,10 @@ fun interface DpiSuiteTcp16TargetsProvider {
     suspend fun loadTargets(): List<Tcp16Target>
 }
 
+fun interface DpiSuiteEchTargetsProvider {
+    suspend fun loadTargets(): List<String>
+}
+
 interface DpiSuiteProbes {
     suspend fun checkDnsIntegrity(domains: List<String>): DnsIntegrityResult
 
@@ -48,11 +52,18 @@ interface DpiSuiteProbes {
         targets: List<String>,
         concurrency: Int,
     ): List<QuicProbeResult>
+
+    suspend fun runEchReadiness(
+        targets: List<String>,
+        vanillaTlsByTarget: Map<String, Boolean>,
+        concurrency: Int,
+    ): List<EchProbeResult>
 }
 
 class DpiProbeSuiteRunner(
     private val domainsProvider: DpiSuiteDomainsProvider,
     private val tcp16TargetsProvider: DpiSuiteTcp16TargetsProvider,
+    private val echTargetsProvider: DpiSuiteEchTargetsProvider,
     private val probes: DpiSuiteProbes,
 ) {
     fun run(config: DpiSuiteConfig): Flow<DpiSuiteEvent> =
@@ -199,14 +210,31 @@ class DpiProbeSuiteRunner(
         randomHostname: Boolean,
         runProbe: suspend (DpiProbeKind, suspend () -> DpiSuiteProbeResult) -> DpiSuiteProbeResult,
     ) {
+        var domainReachabilityResults = emptyList<DomainReachabilityResult>()
         if (DpiProbeKind.DOMAIN_REACHABILITY in selection) {
-            runProbe(DpiProbeKind.DOMAIN_REACHABILITY) {
-                DpiSuiteProbeResult.DomainReachability(
-                    probes.runDomainReachability(
-                        domains = domains,
-                        stubIps = stubIps,
-                        concurrency = concurrency,
-                        randomHostname = randomHostname,
+            val result =
+                runProbe(DpiProbeKind.DOMAIN_REACHABILITY) {
+                    DpiSuiteProbeResult.DomainReachability(
+                        probes.runDomainReachability(
+                            domains = domains,
+                            stubIps = stubIps,
+                            concurrency = concurrency,
+                            randomHostname = randomHostname,
+                        ),
+                    )
+                }
+            if (result is DpiSuiteProbeResult.DomainReachability) {
+                domainReachabilityResults = result.results
+            }
+        }
+
+        if (DpiProbeKind.ECH_READINESS in selection) {
+            runProbe(DpiProbeKind.ECH_READINESS) {
+                DpiSuiteProbeResult.EchReadiness(
+                    probes.runEchReadiness(
+                        targets = echTargetsProvider.loadTargets(),
+                        vanillaTlsByTarget = domainReachabilityResults.vanillaTlsByTarget(),
+                        concurrency = concurrency.coerceIn(MinProbeConcurrency, EchReadinessMaxConcurrency),
                     ),
                 )
             }
@@ -248,12 +276,23 @@ class DpiProbeSuiteRunner(
     private fun DpiSuiteConfig.needsStubIps(): Boolean =
         DpiProbeKind.DOMAIN_REACHABILITY in selection || DpiProbeKind.TCP16 in selection
 
+    private fun List<DomainReachabilityResult>.vanillaTlsByTarget(): Map<String, Boolean> =
+        associate { result ->
+            result.domain to (result.tls13.status == AttemptStatus.OK || result.tls12.status == AttemptStatus.OK)
+        }
+
     private companion object {
         private const val ProbeProgressTotal = 1
         private const val MinProbeConcurrency = 1
         private const val QuicH3MaxConcurrency = 8
+        private const val EchReadinessMaxConcurrency = 4
         private const val SilentStubIpTimeoutMs = 5_000L
         private val SequentialProbeKinds =
-            setOf(DpiProbeKind.DOMAIN_REACHABILITY, DpiProbeKind.TCP16, DpiProbeKind.WHITELIST_SNI)
+            setOf(
+                DpiProbeKind.DOMAIN_REACHABILITY,
+                DpiProbeKind.ECH_READINESS,
+                DpiProbeKind.TCP16,
+                DpiProbeKind.WHITELIST_SNI,
+            )
     }
 }

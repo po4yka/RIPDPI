@@ -17,10 +17,14 @@ import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeSuiteRunner
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteConfig
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteDomainsProvider
+import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteEchTargetsProvider
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteEvent
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbes
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteTcp16TargetsProvider
+import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
+import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
+import com.poyka.ripdpi.diagnostics.dpi.EchReadinessProbe
 import com.poyka.ripdpi.diagnostics.dpi.QuicH3FingerprintProbe
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
@@ -187,6 +191,11 @@ internal class DiagnosticsDpiSuiteController(
             DpiAssetLoader(appContext).loadWhitelistSni()
         }
 
+    private suspend fun loadEchTargets(): List<String> =
+        withContext(Dispatchers.IO) {
+            DpiAssetLoader(appContext).loadEchTargets()
+        }
+
     private suspend fun finalizeTlsKeylogRun(settings: AppSettings) {
         val path = settings.effectiveDiagnosticTlsKeylogPath(appFilesDir = appContext.filesDir) ?: return
         withContext(NonCancellable + Dispatchers.IO) {
@@ -198,6 +207,7 @@ internal class DiagnosticsDpiSuiteController(
         DpiProbeSuiteRunner(
             domainsProvider = DpiSuiteDomainsProvider { loadDomains() },
             tcp16TargetsProvider = DpiSuiteTcp16TargetsProvider { loadTcp16Targets() },
+            echTargetsProvider = DpiSuiteEchTargetsProvider { loadEchTargets() },
             probes =
                 object : DpiSuiteProbes {
                     override suspend fun checkDnsIntegrity(domains: List<String>): DnsIntegrityResult =
@@ -254,6 +264,14 @@ internal class DiagnosticsDpiSuiteController(
                     ): List<QuicProbeResult> =
                         QuicH3FingerprintProbe(concurrency = concurrency)
                             .checkAll(targets)
+
+                    override suspend fun runEchReadiness(
+                        targets: List<String>,
+                        vanillaTlsByTarget: Map<String, Boolean>,
+                        concurrency: Int,
+                    ): List<EchProbeResult> =
+                        EchReadinessProbe(concurrency = concurrency)
+                            .checkAll(targets, vanillaTlsByTarget)
                 },
         )
 
@@ -367,6 +385,10 @@ private fun DpiSuiteProbeResult.detailRows(): ImmutableList<DiagnosticsDpiSuiteP
             results.map { result -> result.toQuicDetailRow() }.toPersistentList()
         }
 
+        is DpiSuiteProbeResult.EchReadiness -> {
+            results.map { result -> result.toEchDetailRow() }.toPersistentList()
+        }
+
         else -> {
             persistentListOf()
         }
@@ -435,6 +457,55 @@ private fun QuicProbeResult.latencyLabel(): String =
         ?.let { latency -> "$latency ms" }
         ?: "no latency"
 
+private fun EchProbeResult.toEchDetailRow(): DiagnosticsDpiSuiteProbeDetailUiModel =
+    DiagnosticsDpiSuiteProbeDetailUiModel(
+        label = target,
+        detail =
+            listOf(
+                verdictLabel(),
+                "HTTPS RR ${httpsRrFetched.yesNoLabel()}",
+                "negotiated ${negotiatedEch.yesNoLabel()}",
+                vanillaTlsLabel(),
+                latencyLabel(),
+            ).joinToString(" | "),
+        tone = echTone(),
+    )
+
+private fun EchProbeResult.verdictLabel(): String =
+    when (verdict) {
+        EchProbeVerdict.ECH_OK -> "ECH ok"
+        EchProbeVerdict.ECH_REJECTED -> "ECH rejected"
+        EchProbeVerdict.ECH_NO_CONFIG -> "no ECH config"
+        EchProbeVerdict.ECH_UNKNOWN_KEY -> "unknown ECH key"
+        EchProbeVerdict.ECH_NETWORK_BLOCK -> "network blocked"
+    }
+
+private fun Boolean.yesNoLabel(): String = if (this) "yes" else "no"
+
+private fun EchProbeResult.vanillaTlsLabel(): String =
+    when (vanillaTlsOk) {
+        true -> "vanilla ok"
+        false -> "vanilla blocked"
+        null -> "vanilla unknown"
+    }
+
+private fun EchProbeResult.latencyLabel(): String =
+    tlsLatencyMs
+        ?.let { latency -> "$latency ms" }
+        ?: "no latency"
+
+private fun EchProbeResult.echTone(): DiagnosticsTone =
+    when (verdict) {
+        EchProbeVerdict.ECH_OK -> DiagnosticsTone.Positive
+
+        EchProbeVerdict.ECH_NO_CONFIG -> DiagnosticsTone.Neutral
+
+        EchProbeVerdict.ECH_REJECTED,
+        EchProbeVerdict.ECH_UNKNOWN_KEY,
+        EchProbeVerdict.ECH_NETWORK_BLOCK,
+        -> DiagnosticsTone.Warning
+    }
+
 private fun DpiSuiteProbeResult.statusLabel(): String =
     when (this) {
         is DpiSuiteProbeResult.DnsIntegrity -> {
@@ -467,6 +538,14 @@ private fun DpiSuiteProbeResult.statusLabel(): String =
 
         is DpiSuiteProbeResult.QuicH3 -> {
             val flagged = results.count { result -> result.verdict != QuicProbeVerdict.QUIC_OK }
+            if (flagged == 0) "ok" else "flagged"
+        }
+
+        is DpiSuiteProbeResult.EchReadiness -> {
+            val flagged =
+                results.count { result ->
+                    result.verdict != EchProbeVerdict.ECH_OK && result.verdict != EchProbeVerdict.ECH_NO_CONFIG
+                }
             if (flagged == 0) "ok" else "flagged"
         }
 
@@ -514,6 +593,11 @@ private fun DpiSuiteProbeResult.detailLabel(): String =
         is DpiSuiteProbeResult.QuicH3 -> {
             val ok = results.count { result -> result.verdict == QuicProbeVerdict.QUIC_OK }
             "$ok/${results.size} targets passed QUIC/H3 fingerprint checks"
+        }
+
+        is DpiSuiteProbeResult.EchReadiness -> {
+            val ok = results.count { result -> result.verdict == EchProbeVerdict.ECH_OK }
+            "$ok/${results.size} targets accepted ECH"
         }
 
         is DpiSuiteProbeResult.Skipped -> {
@@ -587,6 +671,14 @@ private fun DpiSuiteProbeResult.tone(): DiagnosticsTone =
             val flagged = results.count { result -> result.verdict != QuicProbeVerdict.QUIC_OK }
             countTone(flagged)
         }
+
+        is DpiSuiteProbeResult.EchReadiness -> {
+            val flagged =
+                results.count { result ->
+                    result.verdict != EchProbeVerdict.ECH_OK && result.verdict != EchProbeVerdict.ECH_NO_CONFIG
+                }
+            countTone(flagged)
+        }
     }
 
 private fun DpiProbeKind.displayLabel(): String =
@@ -598,6 +690,7 @@ private fun DpiProbeKind.displayLabel(): String =
         DpiProbeKind.WHITELIST_SNI -> "SNI compatibility"
         DpiProbeKind.TELEGRAM -> "Telegram"
         DpiProbeKind.QUIC_H3 -> "QUIC/H3 fingerprint"
+        DpiProbeKind.ECH_READINESS -> "ECH readiness"
     }
 
 private fun SuiteVerdict.summary(): String =

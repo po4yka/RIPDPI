@@ -57,6 +57,12 @@ object DpiSuiteVerdictAggregator {
                 }
             }
 
+            is DpiSuiteProbeResult.EchReadiness -> {
+                result.results.any { ech ->
+                    ech.verdict != EchProbeVerdict.ECH_OK && ech.verdict != EchProbeVerdict.ECH_NO_CONFIG
+                }
+            }
+
             else -> {
                 false
             }
@@ -103,6 +109,15 @@ object DpiSuiteVerdictAggregator {
                 val ok = result.results.count { quic -> quic.verdict == QuicProbeVerdict.QUIC_OK }
                 val flagged = result.results.count { quic -> quic.verdict != QuicProbeVerdict.QUIC_OK }
                 "QUIC/H3: $ok/${result.results.size} OK, $flagged flagged"
+            }
+
+            is DpiSuiteProbeResult.EchReadiness -> {
+                val ok = result.results.count { ech -> ech.verdict == EchProbeVerdict.ECH_OK }
+                val flagged =
+                    result.results.count { ech ->
+                        ech.verdict != EchProbeVerdict.ECH_OK && ech.verdict != EchProbeVerdict.ECH_NO_CONFIG
+                    }
+                "ECH readiness: $ok/${result.results.size} OK, $flagged flagged"
             }
 
             is DpiSuiteProbeResult.Skipped -> {

@@ -35,7 +35,10 @@ data class DiagnosticsDpiSuiteProbeDetailUiModel(
 data class DiagnosticsDpiSuiteToolUiModel(
     val state: DiagnosticsDpiSuiteState = DiagnosticsDpiSuiteState.Idle,
     val summary: String = "Run selected DPI probes as one aggregate suite.",
-    val selectedKinds: ImmutableSet<DpiProbeKind> = DpiProbeKind.entries.toImmutableSet(),
+    val selectedKinds: ImmutableSet<DpiProbeKind> =
+        DpiProbeKind.entries
+            .filterNot { kind -> kind == DpiProbeKind.ECH_READINESS }
+            .toImmutableSet(),
     val customDomainsInput: String = "",
     val concurrency: Int = 100,
     val aggregateVerdict: SuiteVerdict? = null,

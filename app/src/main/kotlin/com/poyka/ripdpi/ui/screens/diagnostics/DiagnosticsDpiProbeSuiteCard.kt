@@ -159,6 +159,7 @@ private fun DpiProbeKind.label(): String =
         DpiProbeKind.WHITELIST_SNI -> "SNI compatibility"
         DpiProbeKind.TELEGRAM -> "Telegram"
         DpiProbeKind.QUIC_H3 -> "QUIC/H3 fingerprint"
+        DpiProbeKind.ECH_READINESS -> "ECH readiness"
     }
 
 private fun DiagnosticsDpiSuiteState.tone(): DiagnosticsTone =

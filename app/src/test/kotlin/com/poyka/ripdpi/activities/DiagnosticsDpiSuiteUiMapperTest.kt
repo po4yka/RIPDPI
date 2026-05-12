@@ -7,6 +7,8 @@ import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbeResult
+import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
+import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
@@ -97,6 +99,35 @@ class DiagnosticsDpiSuiteUiMapperTest {
         assertEquals("cloudflare.com", row.detailRows.single().label)
         assertEquals("Chrome blocked | Firefox ok | Generic ok | VN ok | 42 ms", row.detailRows.single().detail)
         assertEquals(DiagnosticsTone.Warning, row.detailRows.single().tone)
+    }
+
+    @Test
+    fun echReadinessRowIncludesPerTargetHandshakeState() {
+        val row =
+            DpiSuiteProbeResult
+                .EchReadiness(
+                    listOf(
+                        EchProbeResult(
+                            target = "cloudflare.com",
+                            verdict = EchProbeVerdict.ECH_OK,
+                            httpsRrFetched = true,
+                            echConfigBytesB64 = "AQID",
+                            tlsLatencyMs = 42,
+                            negotiatedEch = true,
+                            errorDetail = null,
+                            vanillaTlsOk = false,
+                        ),
+                    ),
+                ).toDpiSuiteProbeRowUiModel()
+
+        assertEquals(DpiProbeKind.ECH_READINESS, row.kind)
+        assertEquals("ECH readiness", row.label)
+        assertEquals("ok", row.status)
+        assertEquals("1/1 targets accepted ECH", row.detail)
+        assertEquals(1, row.detailRows.size)
+        assertEquals("cloudflare.com", row.detailRows.single().label)
+        assertEquals("ECH ok | HTTPS RR yes | negotiated yes | vanilla blocked | 42 ms", row.detailRows.single().detail)
+        assertEquals(DiagnosticsTone.Positive, row.detailRows.single().tone)
     }
 
     private fun fallbackTlsState(): DiagnosticsTlsClientState =

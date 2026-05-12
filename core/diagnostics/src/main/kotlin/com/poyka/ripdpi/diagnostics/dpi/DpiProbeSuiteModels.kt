@@ -8,6 +8,7 @@ enum class DpiProbeKind {
     WHITELIST_SNI,
     TELEGRAM,
     QUIC_H3,
+    ECH_READINESS,
 }
 
 data class DpiSuiteConfig(
@@ -85,6 +86,12 @@ sealed interface DpiSuiteProbeResult {
         val results: List<QuicProbeResult>,
     ) : DpiSuiteProbeResult {
         override val kind: DpiProbeKind = DpiProbeKind.QUIC_H3
+    }
+
+    data class EchReadiness(
+        val results: List<EchProbeResult>,
+    ) : DpiSuiteProbeResult {
+        override val kind: DpiProbeKind = DpiProbeKind.ECH_READINESS
     }
 
     data class Skipped(
