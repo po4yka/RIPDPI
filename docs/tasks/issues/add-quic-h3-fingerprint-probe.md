@@ -1,7 +1,7 @@
 ---
-title: Add QUIC and HTTP/3 Fingerprint Probe for Selective UDP DPI Detection
+title: Add QUIC and HTTP/3 Fingerprint Probe for Selective UDP Path Diagnostics
 type: task
-status: doing
+status: blocked
 area: diagnostics
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: dpi-probe-parity-epic
 blocks: []
 blocked_by: []
 created: 2026-05-10
-updated: 2026-05-11
+updated: 2026-05-12
 ---
 
-- [ ] #task Add QUIC and HTTP/3 Fingerprint Probe for Selective UDP DPI Detection #repo/RIPDPI #area/diagnostics #status/doing ⏫
+- [ ] #task Add QUIC and HTTP/3 Fingerprint Probe for Selective UDP Path Diagnostics #repo/RIPDPI #area/diagnostics #status/blocked #blocked ⏫
 
 ## Objective
 
@@ -22,7 +22,7 @@ Add `QuicH3FingerprintProbe` that emits a Chrome-shaped QUIC Initial+0-RTT to ea
 
 Active L7 middleboxes have been observed degrading QUIC traffic since 2024 — selective drop of QUIC Initial packets, forced fallback to TCP, and fingerprint-aware handling that drops only Chrome-shaped Initials while letting Firefox-shaped or generic Initials through. None of the reference diagnostic tools measures this layer; they all stop at TLS-over-TCP.
 
-This probe sits between `add-tcp16-fat-header-dpi-probe` (TCP-side byte-counting) and `add-domain-reachability-scanner` (TLS-over-TCP layered cascade) in the diagnostic suite. It answers: *"is the censor differentiating QUIC from TCP, and if so, by raw drop or by fingerprint?"*
+This probe sits between `add-tcp16-fat-header-dpi-probe` (TCP-side byte-counting) and `add-domain-reachability-scanner` (TLS-over-TCP layered cascade) in the diagnostic suite. It answers: *"is the network path differentiating QUIC from TCP, and if so, by raw drop or by fingerprint?"*
 
 **Detection ladder (per target):**
 1. **Sanity probe** — generic UDP send/receive to `<target>:443` to confirm UDP path works at all
@@ -35,14 +35,14 @@ This probe sits between `add-tcp16-fat-header-dpi-probe` (TCP-side byte-counting
 - All 4 succeed → `QUIC_OK`
 - All 4 fail at packet-drop level (no Server Initial) → `QUIC_DROPPED` (path drops UDP/443 indiscriminately)
 - VN probe fails but valid-version probes succeed → `QUIC_VN_REJECTED` (rare; path-fingerprint-aware)
-- Chrome fails but Firefox or generic succeeds → `QUIC_DPI_FINGERPRINT_BLOCK` (the headline finding — censor doing fingerprint-aware QUIC blocking)
+- Chrome fails but Firefox or generic succeeds → `QUIC_DPI_FINGERPRINT_BLOCK` (primary diagnostic signal: fingerprint-aware QUIC handling)
 - Mixed → `QUIC_DEGRADED` with detail breakdown
 
 **Implementation reuses** the netty QUIC stack from `add-doq-dns-over-quic-integrity-probe`. The fingerprint variation comes from controlling: TLS extension order, ALPN list ordering, TLS version offered, cipher suite list, transport-parameter ordering, padding pattern. Pre-recorded byte fixtures from real Chrome 120 / Firefox 121 captures are bundled and mutated per probe to add the right CRYPTO frame contents.
 
 **Targets:** the same target cohorts as `DomainReachabilityScanner`. Probe runs in parallel with the TCP-layer scan to provide a clear "QUIC vs TCP" comparison.
 
-**Reference:** RFC 9000 (QUIC), RFC 9001 (QUIC-TLS), Chrome's `tools/quic/cert_compressor` for fingerprint examples; see also Tor Project's "QUIC censorship" 2025 incident reports.
+**Reference:** RFC 9000 (QUIC), RFC 9001 (QUIC-TLS), Chrome's `tools/quic/cert_compressor` for fingerprint examples; see also public QUIC network-interference incident reports.
 
 **RIPDPI placement:**
 - Probe: `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/core/diagnostics/dpi/QuicH3FingerprintProbe.kt`
@@ -58,7 +58,7 @@ This probe sits between `add-tcp16-fat-header-dpi-probe` (TCP-side byte-counting
 - [ ] Sanity UDP-reachability probe runs first — if `udpReachable == false`, skip QUIC probes and return `QUIC_DROPPED`
 - [ ] Per-fingerprint probe: send Initial via `DatagramSocket`; wait up to 3s for Server Initial; classify success by detecting QUIC long-header version 0x00000001 in response
 - [ ] VN probe: Initial with `version = 0x1a2a3a4a`; valid response = QUIC long-header with `version = 0x00000000` (VN packet); detect properly
-- [ ] Verdict aggregation per the rules above; `QUIC_DPI_FINGERPRINT_BLOCK` is the headline finding (rare and politically interesting)
+- [ ] Verdict aggregation per the rules above; `QUIC_DPI_FINGERPRINT_BLOCK` is the fingerprint-aware handling signal
 - [ ] Concurrency: per-target sequential (4 fingerprint probes); across targets max 8 in parallel
 - [ ] Unit tests: fingerprint-byte regression (assert generated Initials byte-equal to fixtures within version/SNI/random tolerance); per-verdict path
 - [ ] Instrumented test: real probe against `cloudflare.com:443` UDP from CI device; `chromeOk == true` expected
@@ -101,3 +101,9 @@ Remaining before close:
 
 - Run the gated Android network smoke on a connected device or CI lane with `ripdpi.runNetworkTests=1`.
 - Re-check the final acceptance list and delete this note only when all criteria are covered.
+
+## Blocked
+
+This task is blocked on the live Android network validation gate. The current workspace has no attached ADB
+device and no Android SDK command-line tools in `PATH`, so the `ripdpi.runNetworkTests=1` instrumented smoke
+cannot run locally.

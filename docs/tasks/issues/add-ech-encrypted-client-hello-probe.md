@@ -1,7 +1,7 @@
 ---
 title: Add Encrypted Client Hello (ECH) Readiness and Acceptance Probe
 type: task
-status: doing
+status: blocked
 area: diagnostics
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-12
 ---
 
-- [ ] #task Add Encrypted Client Hello (ECH) Readiness and Acceptance Probe #repo/RIPDPI #area/diagnostics #status/doing ⏫
+- [ ] #task Add Encrypted Client Hello (ECH) Readiness and Acceptance Probe #repo/RIPDPI #area/diagnostics #status/blocked #blocked ⏫
 
 ## Objective
 
@@ -94,3 +94,9 @@ All 8 unit tests green. ECH probe surfaced in DiagnosticsScreen Tools as "ECH Re
 - Verified with `cargo test -p ripdpi-android-fetch-adapter malformed_ech_config_serializes_error_payload`, `cargo check -p ripdpi-android`, and `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpi.NativeEchTlsHandshakeTest --tests com.poyka.ripdpi.diagnostics.dpi.EchReadinessProbeTest :app:testDebugUnitTest --tests com.poyka.ripdpi.activities.DiagnosticsDpiSuiteUiMapperTest -Pripdpi.skipNativeBuild=true`.
 - 2026-05-12: Added a `ripdpi.runNetworkTests`-gated Android smoke test for the native ECH readiness probe against `cloudflare-ech.com`. No device was attached in the current workspace, so the live gate still needs a connected device or CI lane.
 - Remaining close gate: run real ECH validation on device or CI with live ECH-capable targets and confirm negotiated-ECH behavior outside fake JVM handshakes.
+
+## Blocked
+
+This task is blocked on the live Android network validation gate. The current workspace has no attached ADB
+device and no Android SDK command-line tools in `PATH`, so the `ripdpi.runNetworkTests=1` instrumented smoke
+cannot run locally.
