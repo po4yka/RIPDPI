@@ -257,7 +257,7 @@ blake2 = "0.10"
 futures = "0.3"
 h3-datagram = "0.0.2"
 rand = "0.10"
-ringbuf = { version = "0.4", features = ["alloc"] }
+ringbuf = { version = "0.5", features = ["alloc"] }
 sha2 = "0.11"
 flate2 = "1"
 time = "0.3"
