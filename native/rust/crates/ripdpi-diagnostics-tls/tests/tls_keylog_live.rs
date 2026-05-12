@@ -36,6 +36,9 @@ fn tls_keylog_file_receives_live_handshake_secrets_when_network_tests_enabled() 
 }
 
 fn temp_keylog_path() -> std::path::PathBuf {
+    if let Some(path) = std::env::var_os("RIPDPI_TLS_KEYLOG_TEST_PATH") {
+        return path.into();
+    }
     let nanos = SystemTime::now().duration_since(UNIX_EPOCH).expect("system time").as_nanos();
     std::env::temp_dir().join(format!("ripdpi-live-keylog-{nanos}.keys"))
 }
