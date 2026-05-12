@@ -124,3 +124,13 @@ All 8 unit tests green. Setting visible in debug mode only. Banner in UI when ac
   - `python scripts/ci/check_architecture_health.py --check --paths app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckViewModel.kt app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckScreen.kt app/src/test/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckUiStateTest.kt`
   - `git diff --check`
 - Remaining before close: TLS engine callback wiring, suite-end rotate/purge integration, and manual Wireshark decrypt proof.
+
+### 2026-05-12 - Suite run finalizer
+
+- Added `TlsKeylogRunFinalizer` to rotate the active keylog file and purge expired rotations after a run.
+- Wired the manual DPI suite controller to run the finalizer with the effective validated keylog path when debug mode is enabled and Privacy Mode is off.
+- Added focused JVM tests for finalizer rotate/purge behavior and app-side effective path validation.
+- Verification:
+  - `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizerTest -Pripdpi.skipNativeBuild=true`
+  - `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.activities.DiagnosticsTlsKeylogPathTest -Pripdpi.skipNativeBuild=true`
+- Remaining before close: TLS engine callback wiring and manual Wireshark decrypt proof.

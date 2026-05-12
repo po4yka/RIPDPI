@@ -31,6 +31,8 @@ import com.poyka.ripdpi.diagnostics.dpi.Tcp16Target
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
 import com.poyka.ripdpi.diagnostics.dpi.TelegramSpeedTest
 import com.poyka.ripdpi.diagnostics.dpi.TelegramTestVerdict
+import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
+import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
@@ -39,6 +41,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -59,6 +62,7 @@ internal class DiagnosticsDpiSuiteController(
     private val dnsAvailabilitySurvey: DnsAvailabilitySurvey,
     private val domainReachabilityScanner: DomainReachabilityScanner,
     private val tcp16FatHeaderProbe: Tcp16FatHeaderProbe,
+    private val tlsKeylogRunFinalizer: TlsKeylogRunFinalizer = TlsKeylogRunFinalizer(),
 ) {
     private val _tool = MutableStateFlow(DiagnosticsDpiSuiteToolUiModel())
     val tool: StateFlow<DiagnosticsDpiSuiteToolUiModel> = _tool.asStateFlow()
@@ -139,8 +143,12 @@ internal class DiagnosticsDpiSuiteController(
                             concurrency = current.concurrency,
                             randomHostname = settings.detectionDiagnosticRandomHostnamesEnabled,
                         )
-                    buildRunner().run(config).collect { event ->
-                        handleEvent(event, rows)
+                    try {
+                        buildRunner().run(config).collect { event ->
+                            handleEvent(event, rows)
+                        }
+                    } finally {
+                        finalizeTlsKeylogRun(settings)
                     }
                 }.onFailure { error ->
                     _tool.value =
@@ -178,6 +186,13 @@ internal class DiagnosticsDpiSuiteController(
         withContext(Dispatchers.IO) {
             DpiAssetLoader(appContext).loadWhitelistSni()
         }
+
+    private suspend fun finalizeTlsKeylogRun(settings: AppSettings) {
+        val path = settings.effectiveDiagnosticTlsKeylogPath(appFilesDir = appContext.filesDir) ?: return
+        withContext(NonCancellable + Dispatchers.IO) {
+            tlsKeylogRunFinalizer.finishRun(path)
+        }
+    }
 
     private fun buildRunner(): DpiProbeSuiteRunner =
         DpiProbeSuiteRunner(

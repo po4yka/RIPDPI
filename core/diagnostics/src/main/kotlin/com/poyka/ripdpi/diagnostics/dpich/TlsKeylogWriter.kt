@@ -88,3 +88,23 @@ class TlsKeylogPathValidator(
     private fun File.isUnder(root: File): Boolean =
         generateSequence(this) { file -> file.parentFile }.any { file -> file == root }
 }
+
+data class TlsKeylogFinalizationResult(
+    val rotatedFile: File,
+    val purgedFiles: List<File>,
+)
+
+class TlsKeylogRunFinalizer(
+    private val nowSeconds: () -> Long = { System.currentTimeMillis() / 1_000L },
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
+    private val retention: KeylogRetentionPolicy = KeylogRetentionPolicy(),
+) {
+    suspend fun finishRun(path: String): TlsKeylogFinalizationResult? {
+        if (path.isBlank()) return null
+
+        val writer = TlsKeylogWriter(File(path))
+        val rotated = writer.rotate(timestampSeconds = nowSeconds())
+        val purged = writer.purgeOld(nowMs = nowMs(), retention = retention)
+        return TlsKeylogFinalizationResult(rotatedFile = rotated, purgedFiles = purged)
+    }
+}
