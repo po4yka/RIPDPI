@@ -3606,6 +3606,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-geo"
+version = "0.1.0"
+dependencies = [
+ "arc-swap",
+ "libc",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ripdpi-hysteria2"
 version = "0.1.0"
 dependencies = [

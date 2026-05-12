@@ -1,7 +1,7 @@
 ---
 title: Add geoip.db and geosite.db runtime loader and lookup
 type: task
-status: backlog
+status: doing
 area: routing
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-advanced-routing-rules-and-geoip-enforcement
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-12
 ---
 
-- [ ] #task Add geoip.db and geosite.db runtime loader and lookup #repo/RIPDPI #area/routing #status/backlog ⏫
+- [ ] #task Add geoip.db and geosite.db runtime loader and lookup #repo/RIPDPI #area/routing #status/doing ⏫
 
 ## Summary
 
@@ -60,3 +60,13 @@ without reboot (reload signal).
 
 - [[Epic - Advanced routing rules and geoip enforcement]]
 - [[Add Rust rule matcher with domain ip port process matchers]]
+
+## Work log
+
+### 2026-05-12
+
+- Added the native `ripdpi-geo` crate as the runtime boundary for mapped `geoip.db` and `geosite.db` files.
+- Added mmap-backed file loading, typed missing-file warnings, atomic reload via `ArcSwap`, version reporting for loaded files, and a parser for the existing `GeositeCatalog` protobuf schema.
+- Added unit coverage for valid geosite lookup, missing database files, version reporting, and reload swapping.
+- Verified with `cargo test -p ripdpi-geo --locked` and `cargo clippy -p ripdpi-geo --all-targets --locked -- -D warnings`.
+- Remaining before close: add MaxMind `geoip.db` country lookup, expose versions/lookups through JNI, and integrate `geoip:<code>` / `geosite:<category>` into the Rust rule matcher.

@@ -1,0 +1,13 @@
+[package]
+name = "ripdpi-geo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+arc-swap = { workspace = true }
+libc = { workspace = true }
+thiserror = { workspace = true }
