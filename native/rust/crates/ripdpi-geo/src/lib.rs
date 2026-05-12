@@ -26,6 +26,13 @@ pub struct GeoRuntimeVersions {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GeoIpMetadata {
+    pub country_code: Option<String>,
+    pub asn: Option<u32>,
+    pub organization: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GeoRuntimeWarning {
     MissingGeoip(PathBuf),
     MissingGeosite(PathBuf),
@@ -70,6 +77,10 @@ impl GeoRuntime {
     pub fn country_contains_ip(&self, country_code: &str, ip: IpAddr) -> bool {
         self.databases.load().country_contains_ip(country_code, ip)
     }
+
+    pub fn ip_metadata(&self, ip: IpAddr) -> Option<GeoIpMetadata> {
+        self.databases.load().ip_metadata(ip)
+    }
 }
 
 #[derive(Debug)]
@@ -103,6 +114,10 @@ impl GeoDatabases {
     fn country_contains_ip(&self, country_code: &str, ip: IpAddr) -> bool {
         self.geoip.as_ref().is_some_and(|database| database.country_contains_ip(country_code, ip))
     }
+
+    fn ip_metadata(&self, ip: IpAddr) -> Option<GeoIpMetadata> {
+        self.geoip.as_ref().and_then(|database| database.ip_metadata(ip))
+    }
 }
 
 #[derive(Debug)]
@@ -120,6 +135,23 @@ impl GeoipDatabase {
         let lookup = self.reader.lookup(ip).ok()?;
         let country = lookup.decode::<geoip2::Country>().ok()??;
         country.country.iso_code
+    }
+
+    fn ip_metadata(&self, ip: IpAddr) -> Option<GeoIpMetadata> {
+        let lookup = self.reader.lookup(ip).ok()?;
+        let country_code = lookup
+            .decode::<geoip2::Country>()
+            .ok()
+            .flatten()
+            .and_then(|country| country.country.iso_code.map(ToOwned::to_owned));
+        let asn = lookup.decode::<geoip2::Asn>().ok().flatten();
+        let asn_number = asn.as_ref().and_then(|record| record.autonomous_system_number);
+        let organization = asn.and_then(|record| record.autonomous_system_organization.map(ToOwned::to_owned));
+        (country_code.is_some() || asn_number.is_some() || organization.is_some()).then_some(GeoIpMetadata {
+            country_code,
+            asn: asn_number,
+            organization,
+        })
     }
 }
 
@@ -379,6 +411,7 @@ mod tests {
     use super::*;
 
     const GEOIP_COUNTRY_FIXTURE: &[u8] = include_bytes!("../tests/fixtures/GeoIP2-Country-Test.mmdb");
+    const GEOIP_ASN_FIXTURE: &[u8] = include_bytes!("../tests/fixtures/GeoLite2-ASN-Test.mmdb");
 
     #[test]
     fn missing_databases_return_typed_warnings_without_panic() {
@@ -430,6 +463,33 @@ mod tests {
     }
 
     #[test]
+    fn geoip_metadata_reads_asn_and_organization_from_mapped_database() {
+        let dir = temp_dir();
+        write_geoip_asn_fixture(&dir);
+
+        let result = GeoRuntime::load(paths(&dir)).expect("runtime loads geoip asn database");
+        let metadata = result.runtime.ip_metadata(ip("1.128.0.123")).expect("metadata");
+
+        assert_eq!(None, metadata.country_code);
+        assert_eq!(Some(1221), metadata.asn);
+        assert_eq!(Some("Telstra Pty Ltd".to_string()), metadata.organization);
+        assert_eq!(None, result.runtime.ip_metadata(ip("10.0.0.1")));
+    }
+
+    #[test]
+    fn geoip_metadata_reads_country_from_country_database_without_asn() {
+        let dir = temp_dir();
+        write_geoip_fixture(&dir);
+
+        let result = GeoRuntime::load(paths(&dir)).expect("runtime loads geoip country database");
+        let metadata = result.runtime.ip_metadata(ip("89.160.20.112")).expect("metadata");
+
+        assert_eq!(Some("SE".to_string()), metadata.country_code);
+        assert_eq!(None, metadata.asn);
+        assert_eq!(None, metadata.organization);
+    }
+
+    #[test]
     fn versions_report_loaded_mapped_files() {
         let dir = temp_dir();
         write_geoip_fixture(&dir);
@@ -477,6 +537,10 @@ mod tests {
 
     fn write_geoip_fixture(dir: &Path) {
         fs::write(dir.join("geoip.db"), GEOIP_COUNTRY_FIXTURE).expect("write geoip fixture");
+    }
+
+    fn write_geoip_asn_fixture(dir: &Path) {
+        fs::write(dir.join("geoip.db"), GEOIP_ASN_FIXTURE).expect("write geoip asn fixture");
     }
 
     fn ip(input: &str) -> IpAddr {
