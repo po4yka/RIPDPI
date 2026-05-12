@@ -25,6 +25,8 @@ import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteTcp16TargetsProvider
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.EchReadinessProbe
+import com.poyka.ripdpi.diagnostics.dpi.EchTlsHandshake
+import com.poyka.ripdpi.diagnostics.dpi.NativeEchTlsHandshake
 import com.poyka.ripdpi.diagnostics.dpi.QuicH3FingerprintProbe
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
@@ -67,6 +69,7 @@ internal class DiagnosticsDpiSuiteController(
     private val domainReachabilityScanner: DomainReachabilityScanner,
     private val tcp16FatHeaderProbe: Tcp16FatHeaderProbe,
     private val tlsKeylogRunFinalizer: TlsKeylogRunFinalizer = TlsKeylogRunFinalizer(),
+    private val echTlsHandshake: EchTlsHandshake = NativeEchTlsHandshake(),
 ) {
     private val _tool = MutableStateFlow(DiagnosticsDpiSuiteToolUiModel())
     val tool: StateFlow<DiagnosticsDpiSuiteToolUiModel> = _tool.asStateFlow()
@@ -269,9 +272,14 @@ internal class DiagnosticsDpiSuiteController(
                         targets: List<String>,
                         vanillaTlsByTarget: Map<String, Boolean>,
                         concurrency: Int,
-                    ): List<EchProbeResult> =
-                        EchReadinessProbe(concurrency = concurrency)
-                            .checkAll(targets, vanillaTlsByTarget)
+                    ): List<EchProbeResult> {
+                        val probe =
+                            EchReadinessProbe(
+                                tlsHandshake = echTlsHandshake,
+                                concurrency = concurrency,
+                            )
+                        return probe.checkAll(targets, vanillaTlsByTarget)
+                    }
                 },
         )
 

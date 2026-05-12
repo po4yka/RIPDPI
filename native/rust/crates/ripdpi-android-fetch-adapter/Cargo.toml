@@ -18,9 +18,12 @@ jni = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-native-protect = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
+rustls = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 socket2 = { workspace = true }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "net", "time"] }
 tokio-boring = { workspace = true }
+tokio-rustls = { workspace = true }
 url = { workspace = true }
+webpki-roots = { workspace = true }

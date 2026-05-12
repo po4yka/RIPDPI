@@ -3192,12 +3192,15 @@ dependencies = [
  "ripdpi-dns-resolver",
  "ripdpi-native-protect",
  "ripdpi-tls-profiles",
+ "rustls",
  "serde",
  "serde_json",
  "socket2",
  "tokio",
  "tokio-boring",
+ "tokio-rustls",
  "url",
+ "webpki-roots",
 ]
 
 [[package]]
