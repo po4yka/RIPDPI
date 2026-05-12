@@ -45,7 +45,7 @@ internal fun DpiProbeSuiteCard(
             tone = statusTone(tool.state.tone()),
         )
         Text(
-            text = "DPI probe suite",
+            text = "DPI-CH Comprehensive",
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )

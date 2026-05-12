@@ -14,6 +14,11 @@ import java.util.concurrent.atomic.AtomicReference
 
 class ByohDomainCompatibilityCheckerTest {
     @Test
+    fun defaultConfigRequiresAtLeast128KiBBody() {
+        assertEquals(128 * 1024L, ByohConfig(dstIp = "127.0.0.1").rangeTo)
+    }
+
+    @Test
     fun fullTransferClassifiedCompatible() =
         runTest {
             MockWebServer().use { server ->

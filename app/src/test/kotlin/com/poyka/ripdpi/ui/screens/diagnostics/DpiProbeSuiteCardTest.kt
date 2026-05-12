@@ -25,6 +25,24 @@ class DpiProbeSuiteCardTest {
     val composeRule = createComposeRule()
 
     @Test
+    fun titleNamesDpiChComprehensiveSurface() {
+        composeRule.setContent {
+            RipDpiTheme {
+                DpiProbeSuiteCard(
+                    tool = DiagnosticsDpiSuiteToolUiModel(),
+                    onProbeEnabledChange = { _, _ -> },
+                    onCustomDomainsChange = {},
+                    onConcurrencyDelta = {},
+                    onRun = {},
+                    onCancel = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("DPI-CH Comprehensive").assertIsDisplayed()
+    }
+
+    @Test
     fun quicMatrixRowsAreDisplayed() {
         composeRule.setContent {
             RipDpiTheme {

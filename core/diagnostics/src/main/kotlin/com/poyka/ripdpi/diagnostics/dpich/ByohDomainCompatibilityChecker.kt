@@ -313,4 +313,4 @@ private fun java.io.InputStream.countUntil(limit: Long): Long {
 private const val DefaultScheme = "https"
 private const val DefaultUrlPath = "/1MB.bin"
 private const val DefaultTimeoutMs = 5_000L
-private const val DefaultRangeTo = 65_535L
+private const val DefaultRangeTo = 128 * 1024L
