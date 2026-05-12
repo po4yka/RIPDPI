@@ -208,7 +208,7 @@ log = "0.4"
 loom = "0.7"
 metrics = "0.24"
 lru = "0.18"
-mlua = "0.10"
+mlua = "0.11"
 mio = { version = "1.2", features = ["net", "os-poll"] }
 nix = { version = "0.31", features = ["net", "ioctl", "fs", "mman", "signal", "process", "uio", "zerocopy"] }
 once_cell = "1"
@@ -219,7 +219,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 similar = "3"
 serde_yaml_ng = "0.10"
-toml = "0.8"
+toml = "1.1"
 socket2 = "0.6"
 proptest = "1"
 rcgen = "0.14"
@@ -257,7 +257,7 @@ blake2 = "0.10"
 futures = "0.3"
 h3-datagram = "0.0.2"
 rand = "0.10"
-ringbuf = { version = "0.4", features = ["alloc"] }
+ringbuf = { version = "0.5", features = ["alloc"] }
 sha2 = "0.11"
 flate2 = "1"
 time = "0.3"
