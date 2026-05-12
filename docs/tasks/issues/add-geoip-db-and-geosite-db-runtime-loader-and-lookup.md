@@ -73,3 +73,6 @@ without reboot (reload signal).
 - Added native config/rule-matcher support for `geoip:<code>` and `geosite:<category>` filters through a trait-based `GeoMatcher` port, without coupling `ripdpi-runtime-policy` directly to the loader crate.
 - Verified with `cargo test -p ripdpi-config parse_host_filter_spec_extracts_geo_rules --locked`, `cargo test -p ripdpi-runtime-policy route_matches_payload_with_geo --locked`, and `cargo clippy -p ripdpi-config -p ripdpi-runtime-policy --all-targets --locked -- -D warnings`.
 - Remaining before close: connect `ripdpi-geo` to the matcher port at runtime, add MaxMind country lookup, and expose database versions/lookups through JNI.
+- Added real MaxMind `geoip.db` parsing in `ripdpi-geo` through the Rust `maxminddb` reader over the existing mmap backing store, plus country-code lookup coverage using the official MaxMind country test database fixture.
+- Verified with `cargo test -p ripdpi-geo --locked` and `cargo clippy -p ripdpi-geo --all-targets --locked -- -D warnings`.
+- Remaining before close: connect `ripdpi-geo` to the matcher port at runtime and expose database versions/lookups through JNI.

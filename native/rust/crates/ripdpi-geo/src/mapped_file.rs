@@ -47,6 +47,12 @@ impl MappedFile {
     }
 }
 
+impl AsRef<[u8]> for MappedFile {
+    fn as_ref(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+
 impl Drop for MappedFile {
     fn drop(&mut self) {
         unsafe {

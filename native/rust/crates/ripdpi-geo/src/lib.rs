@@ -1,10 +1,12 @@
 mod mapped_file;
 
 use std::collections::HashMap;
+use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
+use maxminddb::{geoip2, Reader};
 use thiserror::Error;
 
 pub use crate::mapped_file::MappedFileError;
@@ -64,6 +66,10 @@ impl GeoRuntime {
     pub fn geosite_category(&self, category: &str) -> Option<Vec<GeositeDomainRule>> {
         self.databases.load().geosite_category(category)
     }
+
+    pub fn country_contains_ip(&self, country_code: &str, ip: IpAddr) -> bool {
+        self.databases.load().country_contains_ip(country_code, ip)
+    }
 }
 
 #[derive(Debug)]
@@ -93,13 +99,28 @@ impl GeoDatabases {
     fn geosite_category(&self, category: &str) -> Option<Vec<GeositeDomainRule>> {
         self.geosite.as_ref().and_then(|database| database.category(category)).map(<[GeositeDomainRule]>::to_vec)
     }
+
+    fn country_contains_ip(&self, country_code: &str, ip: IpAddr) -> bool {
+        self.geoip.as_ref().is_some_and(|database| database.country_contains_ip(country_code, ip))
+    }
 }
 
 #[derive(Debug)]
 struct GeoipDatabase {
-    #[allow(dead_code)]
-    mapping: MappedFile,
+    reader: Reader<MappedFile>,
     version: String,
+}
+
+impl GeoipDatabase {
+    fn country_contains_ip(&self, country_code: &str, ip: IpAddr) -> bool {
+        self.country_code(ip).is_some_and(|candidate| candidate.eq_ignore_ascii_case(country_code.trim()))
+    }
+
+    fn country_code(&self, ip: IpAddr) -> Option<&str> {
+        let lookup = self.reader.lookup(ip).ok()?;
+        let country = lookup.decode::<geoip2::Country>().ok()??;
+        country.country.iso_code
+    }
 }
 
 #[derive(Debug)]
@@ -151,6 +172,8 @@ pub enum GeositeDomainKind {
 pub enum GeoRuntimeError {
     #[error("failed to map {path}: {source}")]
     Map { path: PathBuf, source: MappedFileError },
+    #[error("failed to parse geoip database {path}: {source}")]
+    GeoipParse { path: PathBuf, source: maxminddb::MaxMindDbError },
     #[error("failed to parse geosite database {path}: {source}")]
     GeositeParse { path: PathBuf, source: GeositeParseError },
 }
@@ -180,8 +203,11 @@ fn load_geoip(path: &Path, warnings: &mut Vec<GeoRuntimeWarning>) -> Result<Opti
         return Ok(None);
     }
     let mapping = MappedFile::open(path).map_err(|source| GeoRuntimeError::Map { path: path.to_path_buf(), source })?;
-    let version = mapped_version(path, mapping.len());
-    Ok(Some(GeoipDatabase { mapping, version }))
+    let mapped_version = mapped_version(path, mapping.len());
+    let reader = Reader::from_source(mapping)
+        .map_err(|source| GeoRuntimeError::GeoipParse { path: path.to_path_buf(), source })?;
+    let version = format!("{mapped_version}:{}:{}", reader.metadata.database_type, reader.metadata.build_epoch);
+    Ok(Some(GeoipDatabase { reader, version }))
 }
 
 fn load_geosite(
@@ -347,9 +373,12 @@ const VARINT_CONTINUATION_MASK: u8 = 0x80;
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::net::IpAddr;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
+
+    const GEOIP_COUNTRY_FIXTURE: &[u8] = include_bytes!("../tests/fixtures/GeoIP2-Country-Test.mmdb");
 
     #[test]
     fn missing_databases_return_typed_warnings_without_panic() {
@@ -365,6 +394,7 @@ mod tests {
         );
         assert_eq!(GeoRuntimeVersions { geoip: None, geosite: None }, result.runtime.versions());
         assert!(!result.runtime.geosite_contains("ru", "example.ru"));
+        assert!(!result.runtime.country_contains_ip("se", ip("89.160.20.112")));
     }
 
     #[test]
@@ -386,16 +416,32 @@ mod tests {
     }
 
     #[test]
+    fn geoip_lookup_matches_country_from_mapped_database() {
+        let dir = temp_dir();
+        write_geoip_fixture(&dir);
+
+        let result = GeoRuntime::load(paths(&dir)).expect("runtime loads geoip database");
+
+        assert_eq!(vec![GeoRuntimeWarning::MissingGeosite(dir.join("geosite.db"))], result.warnings);
+        assert!(result.runtime.country_contains_ip("se", ip("89.160.20.112")));
+        assert!(result.runtime.country_contains_ip("SE", ip("89.160.20.112")));
+        assert!(!result.runtime.country_contains_ip("ru", ip("89.160.20.112")));
+        assert!(!result.runtime.country_contains_ip("se", ip("10.0.0.1")));
+    }
+
+    #[test]
     fn versions_report_loaded_mapped_files() {
         let dir = temp_dir();
-        fs::write(dir.join("geoip.db"), b"fake-mmdb").expect("write geoip fixture");
+        write_geoip_fixture(&dir);
         fs::write(dir.join("geosite.db"), geosite_catalog("ru", &[domain(2, "example.ru")]))
             .expect("write geosite fixture");
 
         let result = GeoRuntime::load(paths(&dir)).expect("runtime loads database files");
         let versions = result.runtime.versions();
 
-        assert_eq!(Some("geoip.db:9".to_owned()), versions.geoip);
+        let geoip_version = versions.geoip.expect("geoip version");
+        assert!(geoip_version.starts_with("geoip.db:"));
+        assert!(geoip_version.contains(":GeoIP2-Country:"));
         assert!(versions.geosite.is_some_and(|version| version.starts_with("geosite.db:")));
     }
 
@@ -407,7 +453,7 @@ mod tests {
         let result = GeoRuntime::load(paths(&dir)).expect("runtime loads initial database");
         assert!(result.runtime.geosite_contains("ru", "example.ru"));
 
-        fs::write(dir.join("geoip.db"), b"fake-mmdb").expect("write geoip fixture");
+        write_geoip_fixture(&dir);
         fs::write(dir.join("geosite.db"), geosite_catalog("cn", &[domain(2, "example.cn")]))
             .expect("write replacement geosite fixture");
         let warnings = result.runtime.reload().expect("reload succeeds");
@@ -415,6 +461,7 @@ mod tests {
         assert!(warnings.is_empty());
         assert!(!result.runtime.geosite_contains("ru", "example.ru"));
         assert!(result.runtime.geosite_contains("cn", "www.example.cn"));
+        assert!(result.runtime.country_contains_ip("se", ip("89.160.20.112")));
     }
 
     fn paths(dir: &Path) -> GeoRuntimePaths {
@@ -426,6 +473,14 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("ripdpi-geo-{nanos}"));
         fs::create_dir_all(&dir).expect("create temp dir");
         dir
+    }
+
+    fn write_geoip_fixture(dir: &Path) {
+        fs::write(dir.join("geoip.db"), GEOIP_COUNTRY_FIXTURE).expect("write geoip fixture");
+    }
+
+    fn ip(input: &str) -> IpAddr {
+        input.parse().expect("valid IP")
     }
 
     fn geosite_catalog(country_code: &str, domains: &[Vec<u8>]) -> Vec<u8> {
