@@ -133,6 +133,57 @@ class SubnetFilterEvaluatorTest {
             assertEquals(emptySet<IpRange>(), evaluator().evaluate(SubnetFilterDsl.parse("")))
         }
 
+    @Test
+    fun ip_metadata_match_accepts_asn_without_subnet_membership() {
+        val metadata =
+            FakeSubnetMetadataLookup(
+                records =
+                    listOf(
+                        SubnetMetadata(range("8.8.8.0/24"), asn = 15169, org = "Google LLC", country = "US"),
+                    ),
+                ipToAsn = mapOf("8.8.8.8" to 15169),
+            )
+
+        assertEquals(
+            true,
+            metadata.matchesFilterForIp("8.8.8.8", SubnetFilterDsl.parse("as(15169)")),
+        )
+    }
+
+    @Test
+    fun ip_metadata_match_accepts_org_without_subnet_membership() {
+        val metadata =
+            FakeSubnetMetadataLookup(
+                records =
+                    listOf(
+                        SubnetMetadata(range("8.8.8.0/24"), asn = 15169, org = "Google LLC", country = "US"),
+                    ),
+                ipToAsn = mapOf("8.8.8.8" to 15169),
+            )
+
+        assertEquals(
+            true,
+            metadata.matchesFilterForIp("8.8.8.8", SubnetFilterDsl.parse("""org("google")""")),
+        )
+    }
+
+    @Test
+    fun ip_metadata_match_rejects_unmatched_asn_without_subnet_membership() {
+        val metadata =
+            FakeSubnetMetadataLookup(
+                records =
+                    listOf(
+                        SubnetMetadata(range("1.2.3.0/24"), asn = 12389, org = "Rostelecom", country = "RU"),
+                    ),
+                ipToAsn = mapOf("1.2.3.4" to 12389),
+            )
+
+        assertEquals(
+            false,
+            metadata.matchesFilterForIp("1.2.3.4", SubnetFilterDsl.parse("as(15169)")),
+        )
+    }
+
     private fun evaluator(dns: SubnetFilterDnsResolver = EmptyDnsResolver) =
         SubnetFilterEvaluator(
             geoipDb = fakeGeoipDb(),

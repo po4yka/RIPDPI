@@ -71,10 +71,12 @@ class DohBootstrapSpoofingDetector(
     private suspend fun DohProviderFilter.classify(bootstrapIp: String): DohBootstrapResult {
         val discoveredAsn = metadata.asnForIp(bootstrapIp)
         val discoveredOrg = metadata.orgTermsForIp(bootstrapIp).firstOrNull()
-        val expectedRanges = SubnetFilterEvaluator(metadata).evaluate(SubnetFilterDsl.parse(expectedFilter))
+        val expectedFilterAst = SubnetFilterDsl.parse(expectedFilter)
         val discoveredRange = metadata.subnetForIp(bootstrapIp)
+        val matchesIpMetadata = metadata.matchesFilterForIp(bootstrapIp, expectedFilterAst)
+        val expectedRanges = SubnetFilterEvaluator(metadata).evaluate(expectedFilterAst)
         val verdict =
-            if (discoveredRange != null && discoveredRange in expectedRanges) {
+            if (matchesIpMetadata || (discoveredRange != null && discoveredRange in expectedRanges)) {
                 BootstrapVerdict.OK
             } else {
                 BootstrapVerdict.SPOOFED

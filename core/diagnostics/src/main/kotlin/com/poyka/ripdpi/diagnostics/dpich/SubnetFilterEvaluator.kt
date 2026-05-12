@@ -14,6 +14,8 @@ data class SubnetMetadata(
 interface SubnetMetadataLookup {
     fun subnetsForCountry(countryCode: String): Set<IpRange>
 
+    fun countryForIp(ip: String): String? = null
+
     fun subnetsForOrgTerm(term: String): Set<IpRange>
 
     fun orgTermsForAsn(asn: Int): Set<String>
@@ -123,6 +125,117 @@ class SubnetFilterEvaluator(
     }
 }
 
+fun SubnetMetadataLookup.matchesFilterForIp(
+    ip: String,
+    ast: SubnetFilterAst,
+): Boolean =
+    when (ast) {
+        SubnetFilterAst.Empty -> {
+            false
+        }
+
+        is SubnetFilterAst.Org -> {
+            ast.args.any { arg -> ipMatchesOrg(arg, ip) }
+        }
+
+        is SubnetFilterAst.As -> {
+            ast.args.any { arg -> ipMatchesAs(arg, ip) }
+        }
+
+        is SubnetFilterAst.Country -> {
+            ast.args.any { country ->
+                country.equals(countryForIp(ip), ignoreCase = true)
+            }
+        }
+
+        is SubnetFilterAst.Subnet -> {
+            ast.args.any { arg -> ipMatchesSubnet(arg, ip) }
+        }
+
+        is SubnetFilterAst.Host -> {
+            false
+        }
+
+        is SubnetFilterAst.And -> {
+            matchesFilterForIp(ip, ast.left) && matchesFilterForIp(ip, ast.right)
+        }
+
+        is SubnetFilterAst.Or -> {
+            matchesFilterForIp(ip, ast.left) || matchesFilterForIp(ip, ast.right)
+        }
+    }
+
+private fun SubnetMetadataLookup.ipMatchesOrg(
+    arg: String,
+    ip: String,
+): Boolean {
+    val orgTerms = orgTermsForIp(ip).mapTo(linkedSetOf()) { term -> term.lowercase() }
+    return when (inferArgType(arg)) {
+        ArgType.Asn -> {
+            arg.toIntOrNull()?.let { asn ->
+                orgTerms.any { term ->
+                    term in orgTermsForAsn(asn).lowercaseSet()
+                }
+            } == true
+        }
+
+        ArgType.Ip -> {
+            orgTerms.any { term ->
+                term in orgTermsForIp(arg).lowercaseSet()
+            }
+        }
+
+        ArgType.Cidr,
+        ArgType.Term,
+        -> {
+            orgTerms.any { term -> term.contains(arg.trim().lowercase()) }
+        }
+    }
+}
+
+private fun SubnetMetadataLookup.ipMatchesAs(
+    arg: String,
+    ip: String,
+): Boolean =
+    when (inferArgType(arg)) {
+        ArgType.Asn -> {
+            arg.toIntOrNull()?.let { asn -> asnForIp(ip) == asn } == true
+        }
+
+        ArgType.Ip -> {
+            val expectedAsn = asnForIp(arg)
+            expectedAsn != null && asnForIp(ip) == expectedAsn
+        }
+
+        ArgType.Cidr,
+        ArgType.Term,
+        -> {
+            false
+        }
+    }
+
+private fun SubnetMetadataLookup.ipMatchesSubnet(
+    arg: String,
+    ip: String,
+): Boolean =
+    when (inferArgType(arg)) {
+        ArgType.Cidr -> {
+            IpRange(arg).contains(ip)
+        }
+
+        ArgType.Ip -> {
+            subnetForIp(ip) == subnetForIp(arg)
+        }
+
+        ArgType.Asn,
+        ArgType.Term,
+        -> {
+            false
+        }
+    }
+
+private fun Set<String>.lowercaseSet(): Set<String> = mapTo(linkedSetOf()) { value -> value.lowercase() }
+
 enum class ArgType {
     Asn,
     Cidr,
@@ -154,3 +267,26 @@ private fun isIpv4Address(value: String): Boolean {
                 octet.toIntOrNull()?.let { it in 0..255 } == true
         }
 }
+
+fun IpRange.contains(ip: String): Boolean {
+    val (network, prefixText) = cidr.split('/').takeIf { parts -> parts.size == 2 } ?: return false
+    val prefix = prefixText.toIntOrNull()?.takeIf { value -> value in Ipv4PrefixRange } ?: return false
+    val networkBits = network.toIpv4Bits() ?: return false
+    val ipBits = ip.toIpv4Bits() ?: return false
+    val mask = if (prefix == 0) 0 else -1 shl (Ipv4BitCount - prefix)
+    return networkBits and mask == ipBits and mask
+}
+
+private fun String.toIpv4Bits(): Int? {
+    val octets = split('.')
+    if (octets.size != Ipv4OctetCount) return null
+    return octets.fold(0) { acc, octet ->
+        val value = octet.toIntOrNull()?.takeIf { parsed -> parsed in Ipv4OctetRange } ?: return null
+        (acc shl Byte.SIZE_BITS) or value
+    }
+}
+
+private const val Ipv4BitCount = 32
+private const val Ipv4OctetCount = 4
+private val Ipv4PrefixRange = 0..32
+private val Ipv4OctetRange = 0..255

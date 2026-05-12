@@ -62,6 +62,35 @@ class DohBootstrapSpoofingDetectorTest {
         }
 
     @Test
+    fun bootstrapIpMatchesProviderByAsnEvenWhenSubnetRangeIsUnavailable() =
+        runTest {
+            val detector =
+                detector(
+                    resolver = mapResolver("dns.google" to listOf("8.8.8.8")),
+                    metadata =
+                        FakeSubnetMetadataLookup(
+                            records =
+                                listOf(
+                                    SubnetMetadata(
+                                        IpRange("8.8.8.0/24"),
+                                        asn = 15169,
+                                        org = "Google LLC",
+                                        country = "US",
+                                    ),
+                                ),
+                            ipToAsn = mapOf("8.8.8.8" to 15169),
+                        ),
+                    providers = listOf(DohProviderFilter("Google", "dns.google", """as(15169)""")),
+                )
+
+            val result = detector.checkAll().getValue("Google")
+
+            assertEquals(BootstrapVerdict.OK, result.verdict)
+            assertEquals(15169, result.discoveredAsn)
+            assertEquals("Google LLC", result.discoveredOrg)
+        }
+
+    @Test
     fun resolveFailureReturnsResolveFailedNotSpoofed() =
         runTest {
             val detector =

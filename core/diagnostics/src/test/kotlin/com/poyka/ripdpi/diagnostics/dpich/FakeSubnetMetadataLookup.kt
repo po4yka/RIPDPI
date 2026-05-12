@@ -10,6 +10,9 @@ class FakeSubnetMetadataLookup(
             .filter { record -> record.country.equals(countryCode, ignoreCase = true) }
             .mapTo(mutableSetOf()) { record -> record.range }
 
+    override fun countryForIp(ip: String): String? =
+        subnetForIp(ip)?.let { subnet -> records.firstOrNull { record -> record.range == subnet }?.country }
+
     override fun subnetsForOrgTerm(term: String): Set<IpRange> {
         val normalizedTerm = term.lowercase()
         return records

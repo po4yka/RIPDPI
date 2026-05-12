@@ -9,7 +9,7 @@ parent: dpi-checkers-parity-epic
 blocks: []
 blocked_by: [add-geoip-db-and-geosite-db-runtime-loader-and-lookup]
 created: 2026-05-10
-updated: 2026-05-11
+updated: 2026-05-12
 ---
 
 - [ ] #task Add DoH Bootstrap-IP Spoofing Detector via Geoip Cross-Reference #repo/RIPDPI #area/diagnostics #status/doing 🔼
@@ -90,3 +90,11 @@ All 6 unit tests green. Bootstrap status surfaced in DNS integrity card with per
 - Added regression coverage for resolver I/O failures such as no-network errors and changed `DohBootstrapSpoofingDetector` to classify `IOException` as `RESOLVE_FAILED` while still rethrowing coroutine cancellation.
 - Verified with `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetectorTest -Pripdpi.skipNativeBuild=true --rerun-tasks`.
 - Remaining before close: replace `KnownDohProviderSubnetMetadataLookup` with the runtime GeoIP lookup once `add-geoip-db-and-geosite-db-runtime-loader-and-lookup` is available, then run the full DNS integrity suite and confirm the user-facing trust badges.
+
+### 2026-05-12
+
+- Added direct bootstrap-IP filter matching for runtime GeoIP metadata so `as(...)` and `org(...)` filters can pass from the resolved IP's ASN/org without requiring a precomputed provider subnet range.
+- Updated the detector to prefer that per-IP metadata match, while keeping the existing subnet-set evaluation fallback for filters that still resolve to ranges.
+- Added regressions for ASN/org matches with no `subnetForIp` result and for the DoH bootstrap detector's Google ASN path in that runtime-lookup shape.
+- Verified with `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpich.SubnetFilterEvaluatorTest --tests com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetectorTest -Pripdpi.skipNativeBuild=true`.
+- Remaining before close: wire the detector to the real runtime GeoIP database once `add-geoip-db-and-geosite-db-runtime-loader-and-lookup` lands, then run the full DNS integrity suite and confirm the user-facing trust badges.

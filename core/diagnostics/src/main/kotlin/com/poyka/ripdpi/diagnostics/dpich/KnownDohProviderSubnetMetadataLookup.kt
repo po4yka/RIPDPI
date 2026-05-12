@@ -8,6 +8,11 @@ class KnownDohProviderSubnetMetadataLookup : SubnetMetadataLookup {
             .filter { record -> record.country.equals(countryCode, ignoreCase = true) }
             .mapTo(linkedSetOf(), SubnetMetadata::range)
 
+    override fun countryForIp(ip: String): String? =
+        records
+            .firstOrNull { record -> record.range.contains(ip) }
+            ?.country
+
     override fun subnetsForOrgTerm(term: String): Set<IpRange> {
         val normalized = term.trim().lowercase()
         return records
@@ -35,24 +40,6 @@ class KnownDohProviderSubnetMetadataLookup : SubnetMetadataLookup {
     override fun subnetForIp(ip: String): IpRange? = records.firstOrNull { record -> record.range.contains(ip) }?.range
 }
 
-private fun IpRange.contains(ip: String): Boolean {
-    val (network, prefixText) = cidr.split('/').takeIf { parts -> parts.size == 2 } ?: return false
-    val prefix = prefixText.toIntOrNull()?.takeIf { value -> value in Ipv4PrefixRange } ?: return false
-    val networkBits = network.toIpv4Bits() ?: return false
-    val ipBits = ip.toIpv4Bits() ?: return false
-    val mask = if (prefix == 0) 0 else -1 shl (Ipv4BitCount - prefix)
-    return networkBits and mask == ipBits and mask
-}
-
-private fun String.toIpv4Bits(): Int? {
-    val octets = split('.')
-    if (octets.size != Ipv4OctetCount) return null
-    return octets.fold(0) { acc, octet ->
-        val value = octet.toIntOrNull()?.takeIf { parsed -> parsed in Ipv4OctetRange } ?: return null
-        (acc shl Byte.SIZE_BITS) or value
-    }
-}
-
 private val KnownDohProviderSubnets =
     listOf(
         SubnetMetadata(IpRange("8.8.8.0/24"), asn = 15169, org = "Google LLC", country = "US"),
@@ -68,8 +55,3 @@ private val KnownDohProviderSubnets =
         SubnetMetadata(IpRange("45.90.28.0/24"), asn = 34939, org = "NextDNS", country = "US"),
         SubnetMetadata(IpRange("45.90.30.0/24"), asn = 34939, org = "NextDNS", country = "US"),
     )
-
-private const val Ipv4BitCount = 32
-private const val Ipv4OctetCount = 4
-private val Ipv4PrefixRange = 0..32
-private val Ipv4OctetRange = 0..255
