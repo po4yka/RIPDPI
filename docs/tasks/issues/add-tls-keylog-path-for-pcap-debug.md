@@ -162,3 +162,11 @@ All 8 unit tests green. Setting visible in debug mode only. Banner in UI when ac
 - Verification:
   - `cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-http -p ripdpi-diagnostics-transport -p ripdpi-diagnostics-telegram -p ripdpi-diagnostics-fat-header -p ripdpi-diagnostics-protocols -p ripdpi-diagnostics-runner -p ripdpi-monitor-engine --locked`
 - Remaining before close: manual Wireshark decrypt proof on a captured pcap.
+
+### 2026-05-12 - Live keylog smoke gate
+
+- Added a `RIPDPI_RUN_NETWORK_TESTS=1`-gated Rust integration test that performs a live TLS 1.3 handshake through `ripdpi-diagnostics-tls` with the project keylog callback enabled and asserts that SSLKEYLOGFILE handshake secrets are written.
+- Verification:
+  - `cargo test -p ripdpi-diagnostics-tls tls_keylog_file_receives_live_handshake_secrets_when_network_tests_enabled --locked`
+  - `RIPDPI_RUN_NETWORK_TESTS=1 cargo test -p ripdpi-diagnostics-tls tls_keylog_file_receives_live_handshake_secrets_when_network_tests_enabled --locked`
+- Remaining before close: manual Wireshark or tshark decrypt proof on a captured pcap using the emitted keylog file.
