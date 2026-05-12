@@ -52,12 +52,6 @@ data class QuicProbeSample(
 )
 
 interface QuicUdpProbe {
-    suspend fun udpReachable(
-        target: String,
-        port: Int,
-        timeoutMs: Int,
-    ): Boolean
-
     suspend fun sendInitial(
         target: String,
         port: Int,
@@ -88,13 +82,14 @@ class QuicH3FingerprintProbe(
         val v1OkCount = listOf(chromeOk, firefoxOk, genericOk).count { value -> value }
         val latencyMs = listOf(chrome, firefox, generic).firstOrNull(QuicProbeOutcome::ok)?.latencyMs
         val udpReachable = outcomes.any { outcome -> !outcome.timedOut }
+        val allTimedOut = outcomes.all(QuicProbeOutcome::timedOut)
         val verdict =
             when {
                 chromeOk && firefoxOk && genericOk && vnOk -> QuicProbeVerdict.QUIC_OK
+                allTimedOut -> QuicProbeVerdict.QUIC_TIMEOUT
                 v1OkCount == 0 && !vnOk -> QuicProbeVerdict.QUIC_DROPPED
                 chromeOk && firefoxOk && genericOk && !vnOk -> QuicProbeVerdict.QUIC_VN_REJECTED
                 !chromeOk && (firefoxOk || genericOk) -> QuicProbeVerdict.QUIC_DPI_FINGERPRINT_BLOCK
-                listOf(chrome, firefox, generic, vn).all(QuicProbeOutcome::timedOut) -> QuicProbeVerdict.QUIC_TIMEOUT
                 else -> QuicProbeVerdict.QUIC_DEGRADED
             }
         return QuicProbeResult(
@@ -338,19 +333,6 @@ private data class NativeQuicInitialResponse(
 )
 
 class DatagramSocketQuicUdpProbe : QuicUdpProbe {
-    override suspend fun udpReachable(
-        target: String,
-        port: Int,
-        timeoutMs: Int,
-    ): Boolean =
-        sendInitial(
-            target = target,
-            port = port,
-            fingerprint = QuicFingerprint.GENERIC_V1,
-            packet = QuicFingerprintFactory.create(QuicFingerprint.GENERIC_V1, target),
-            timeoutMs = timeoutMs,
-        ).response != null
-
     override suspend fun sendInitial(
         target: String,
         port: Int,

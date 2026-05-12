@@ -22,13 +22,13 @@ class QuicH3FingerprintProbeTest {
         }
 
     @Test
-    fun udpUnreachableShortCircuitsToDropped() =
+    fun allFingerprintTimeoutsReturnTimeout() =
         runTest {
-            val socket = RecordingQuicUdpProbe(udpReachable = false, successes = emptySet())
+            val socket = RecordingQuicUdpProbe(successes = emptySet())
 
             val result = QuicH3FingerprintProbe(socket = socket).check("blocked.example")
 
-            assertEquals(QuicProbeVerdict.QUIC_DROPPED, result.verdict)
+            assertEquals(QuicProbeVerdict.QUIC_TIMEOUT, result.verdict)
             assertFalse(result.udpReachable)
             assertEquals(
                 listOf(
@@ -42,7 +42,7 @@ class QuicH3FingerprintProbeTest {
         }
 
     @Test
-    fun udpReachabilityDoesNotConsumeVersionNegotiationResult() =
+    fun versionNegotiationResultIsProbedAfterV1Fingerprints() =
         runTest {
             val socket =
                 RecordingQuicUdpProbe(
@@ -69,11 +69,10 @@ class QuicH3FingerprintProbeTest {
         }
 
     @Test
-    fun genericPreflightFailureStillRunsFingerprintMatrix() =
+    fun genericFingerprintFailureStillRunsFullFingerprintMatrix() =
         runTest {
             val socket =
                 RecordingQuicUdpProbe(
-                    udpReachable = false,
                     successes =
                         setOf(
                             QuicFingerprint.CHROME_120,
@@ -134,12 +133,19 @@ class QuicH3FingerprintProbeTest {
         }
 
     @Test
-    fun allFingerprintsDropReturnsDropped() =
+    fun allFingerprintsReturnNonQuicResponsesReturnsDropped() =
         runTest {
-            val result = probe(successes = emptySet()).check("example.com")
+            val result =
+                QuicH3FingerprintProbe(
+                    socket =
+                        RecordingQuicUdpProbe(
+                            successes = emptySet(),
+                            nonQuicResponses = QuicFingerprint.entries.toSet(),
+                        ),
+                ).check("example.com")
 
             assertEquals(QuicProbeVerdict.QUIC_DROPPED, result.verdict)
-            assertFalse(result.udpReachable)
+            assertTrue(result.udpReachable)
         }
 
     @Test
@@ -167,16 +173,10 @@ class QuicH3FingerprintProbeTest {
 }
 
 private class RecordingQuicUdpProbe(
-    private val udpReachable: Boolean = true,
     private val successes: Set<QuicFingerprint>,
+    private val nonQuicResponses: Set<QuicFingerprint> = emptySet(),
 ) : QuicUdpProbe {
     val probedFingerprints = mutableListOf<QuicFingerprint>()
-
-    override suspend fun udpReachable(
-        target: String,
-        port: Int,
-        timeoutMs: Int,
-    ): Boolean = udpReachable
 
     override suspend fun sendInitial(
         target: String,
@@ -186,17 +186,28 @@ private class RecordingQuicUdpProbe(
         timeoutMs: Int,
     ): QuicProbeSample {
         probedFingerprints += fingerprint
-        return if (fingerprint in successes) {
-            QuicProbeSample(
-                response =
-                    when (fingerprint) {
-                        QuicFingerprint.VN_PROBE -> quicLongHeader(version = 0)
-                        else -> quicLongHeader(version = QuicFingerprintFactory.QuicV1Version)
-                    },
-                latencyMs = if (fingerprint == QuicFingerprint.CHROME_120) 14L else 20L,
-            )
-        } else {
-            QuicProbeSample(response = null, latencyMs = null)
+        return when {
+            fingerprint in successes -> {
+                QuicProbeSample(
+                    response =
+                        when (fingerprint) {
+                            QuicFingerprint.VN_PROBE -> quicLongHeader(version = 0)
+                            else -> quicLongHeader(version = QuicFingerprintFactory.QuicV1Version)
+                        },
+                    latencyMs = if (fingerprint == QuicFingerprint.CHROME_120) 14L else 20L,
+                )
+            }
+
+            fingerprint in nonQuicResponses -> {
+                QuicProbeSample(
+                    response = byteArrayOf(0x01, 0x02, 0x03),
+                    latencyMs = 25L,
+                )
+            }
+
+            else -> {
+                QuicProbeSample(response = null, latencyMs = null)
+            }
         }
     }
 

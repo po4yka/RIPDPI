@@ -19,7 +19,8 @@ class DpiAssetLoaderTest {
         val loader = DpiAssetLoader(fileProvider = RepoDpiAssetFileProvider())
 
         assertEquals(108, loader.loadTcp16Targets().size)
-        assertEquals(40, loader.loadDomains().size)
+        assertEquals(41, loader.loadDomains().size)
+        assertEquals("cloudflare.com", loader.loadDomains().first())
         assertEquals(188, loader.loadWhitelistSni().size)
         assertEquals(6, loader.loadDohProviderFilters().size)
         assertEquals(10, loader.loadObfs4Bridges().size)
