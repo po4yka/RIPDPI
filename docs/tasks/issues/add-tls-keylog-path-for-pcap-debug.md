@@ -1,7 +1,7 @@
 ---
 title: Add TLS Keylog Path Setting for Pcap Debugging
 type: task
-status: todo
+status: doing
 area: diagnostics
 priority: low
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-10
 updated: 2026-05-12
 ---
 
-- [ ] #task Add TLS Keylog Path Setting for Pcap Debugging #repo/RIPDPI #area/diagnostics #status/todo 🔽
+- [ ] #task Add TLS Keylog Path Setting for Pcap Debugging #repo/RIPDPI #area/diagnostics #status/doing 🔽
 
 ## Objective
 
@@ -20,7 +20,7 @@ Add a hidden setting `dpi.diagnostics.tlsKeylogPath: String?` that, when non-nul
 
 ## Context
 
-dpi-ch's config exposes `key-log-path` as an "expert warn" option — the use case is when a probe verdict doesn't match expectations and the user wants to inspect the actual TLS bytes on the wire. With pcaps + the keylog file, Wireshark decrypts and renders the entire TLS handshake including the encrypted ClientHello extensions, ServerHello selections, alerts, etc. This is irreplaceable for diagnosing weird TSPU behaviors that don't match any documented pattern.
+dpi-ch's config exposes `key-log-path` as an "expert warn" option — the use case is when a probe verdict doesn't match expectations and the user wants to inspect the actual TLS bytes on the wire. With pcaps + the keylog file, Wireshark decrypts and renders the entire TLS handshake including the encrypted ClientHello extensions, ServerHello selections, alerts, etc. This is irreplaceable for diagnosing middlebox-induced TLS handshake aborts that don't match any documented pattern.
 
 The feature is dangerous: writing pre-master secrets to disk creates an exfiltratable copy of every TLS session's plaintext. So:
 - **Default:** disabled (`tlsKeylogPath = null`)
@@ -39,7 +39,7 @@ Where Label = `CLIENT_RANDOM` (TLS 1.2) or `CLIENT_HANDSHAKE_TRAFFIC_SECRET` / `
 **Reference:** `/Users/po4yka/GitRep/dpi-checkers/ru/dpi-ch/docs/README.md` (`key-log-path`) + Mozilla NSS Key Log Format.
 
 **RIPDPI placement:**
-- Setting integration: `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/core/diagnostics/dpich/TlsKeylogWriter.kt`
+- Setting integration: `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/dpich/TlsKeylogWriter.kt`
 - Settings UI: extends `add-detection-debug-mode` with the keylog path entry
 
 ## Acceptance criteria
@@ -59,12 +59,12 @@ Where Label = `CLIENT_RANDOM` (TLS 1.2) or `CLIENT_HANDSHAKE_TRAFFIC_SECRET` / `
 ## TDD workflow
 
 1. **Write tests first**:
-   - `core/diagnostics/src/test/kotlin/com/poyka/ripdpi/core/diagnostics/dpich/TlsKeylogWriterTest.kt`:
+   - `core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/dpich/TlsKeylogWriterTest.kt`:
      - `append_writes_correct_format_line()` — `append("CLIENT_RANDOM", "abc123", "def456")`; assert file contains `"CLIENT_RANDOM abc123 def456\n"`; fails until writer exists
      - `concurrent_appends_serialised()` — 100 concurrent appends; assert 100 lines, no truncation
      - `rotate_renames_with_timestamp()` — call `rotate()`; assert `<path>.<unix_timestamp>` created, new empty `<path>` exists
      - `purge_deletes_files_older_than_retention()` — fake 3 rotated files dated -48h, -12h, -1h, retention 24h; call `purgeOld()`; assert -48h deleted, others retained
-   - `core/diagnostics/src/test/kotlin/com/poyka/ripdpi/core/diagnostics/dpich/TlsKeylogSettingTest.kt`:
+   - `core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/dpich/TlsKeylogSettingsTest.kt`:
      - `setting_disabled_by_default()` — fresh DataStore; assert `tlsKeylogPath == null`
      - `path_outside_filesdir_rejected()` — set `/etc/passwd`; assert validation throws with message
      - `privacy_mode_overrides_setting()` — set valid path AND Privacy Mode ON; assert `effectiveTlsKeylogPath() == null`
@@ -77,3 +77,16 @@ Where Label = `CLIENT_RANDOM` (TLS 1.2) or `CLIENT_HANDSHAKE_TRAFFIC_SECRET` / `
 ## Definition of done
 
 All 8 unit tests green. Setting visible in debug mode only. Banner in UI when active. Wireshark successfully decrypts a captured pcap using the emitted keylog file (manual verification step).
+
+## Work log
+
+### 2026-05-12 - Local writer/settings foundation
+
+- Added `TlsKeylogWriter`, `TlsKeylogSettings`, `TlsKeylogPathValidator`, and `KeylogRetentionPolicy` under `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/dpich/`.
+- Added focused JVM tests for SSLKEYLOGFILE line writing, concurrent append serialization, rotate/create-fresh behavior, rotated-file purge, path validation, debug visibility, and Privacy Mode override.
+- Verification:
+  - `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpich.TlsKeylogWriterTest --tests com.poyka.ripdpi.diagnostics.dpich.TlsKeylogSettingsTest -Pripdpi.skipNativeBuild=true`
+  - `./gradlew :core:diagnostics:ktlintCheck -Pripdpi.skipNativeBuild=true`
+  - `python scripts/ci/check_architecture_health.py --check --paths core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/dpich/TlsKeylogWriter.kt core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/dpich/TlsKeylogWriterTest.kt core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/dpich/TlsKeylogSettingsTest.kt`
+  - `git diff --check`
+- Remaining before close: DataStore field, debug-only settings UI, diagnostic-result warning banner, TLS engine callback wiring, suite-end rotate/purge integration, and manual Wireshark decrypt proof.
