@@ -53,4 +53,6 @@ pub struct EngineScanRequestWire {
     pub native_log_level: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_context: Option<ripdpi_proxy_config::ProxyLogContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagnostic_tls_keylog_path: Option<String>,
 }

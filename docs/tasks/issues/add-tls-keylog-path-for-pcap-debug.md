@@ -143,3 +143,14 @@ All 8 unit tests green. Setting visible in debug mode only. Banner in UI when ac
   - `cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-tls tls_key_log --locked`
   - `cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-tls --locked`
 - Remaining before close: Android/JNI selection of the native keylog callback path and manual Wireshark decrypt proof.
+
+### 2026-05-12 - Native scan request keylog selection
+
+- Added `diagnosticTlsKeylogPath` to the diagnostics scan request wire/native contract and request-factory path validation.
+- Passed the validated path into native domain reachability probes and strategy HTTPS probes, including TLS 1.3, TLS 1.2, ECH, retry, and adaptive warmup handshakes.
+- Added focused Kotlin and Rust contract tests for debug/privacy selection and wire conversion.
+- Verification:
+  - `cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-contracts diagnostic_tls_keylog --locked`
+  - `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.DiagnosticsScanRequestFactoryTest -Pripdpi.skipNativeBuild=true`
+  - `cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-contracts -p ripdpi-diagnostics-protocols -p ripdpi-diagnostics-runner -p ripdpi-monitor-engine --locked`
+- Remaining before close: keylog selection for non-domain TLS helpers (service bootstrap, throughput, Telegram WSS, and fat-header TLS streams) and manual Wireshark decrypt proof.

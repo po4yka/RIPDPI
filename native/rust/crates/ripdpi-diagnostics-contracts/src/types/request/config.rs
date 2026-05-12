@@ -65,6 +65,10 @@ pub struct ScanRequest {
     /// the scan at this deadline. Defaults to 270 000 ms (270 s) when absent.
     #[serde(default)]
     pub scan_deadline_ms: Option<u64>,
+    /// Optional SSLKEYLOGFILE-compatible path for diagnostics TLS probes.
+    /// Only trusted Android callers should populate this with an app-private path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagnostic_tls_keylog_path: Option<String>,
 }
 
 fn default_route_probe_stable_flow_attempts() -> usize {

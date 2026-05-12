@@ -4,7 +4,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::{CandidateWarmup, StrategyCandidateSpec};
 use crate::http::try_http_request;
-use crate::tls::{try_tls_handshake, TlsClientProfile};
+use crate::tls::{try_tls_handshake, try_tls_handshake_with_key_log, TlsClientProfile, TlsKeyLogCallback};
 use crate::transport::{domain_connect_target, TransportConfig};
 use crate::types::DomainTarget;
 
@@ -13,6 +13,7 @@ pub fn run_candidate_warmup(
     transport: &TransportConfig,
     targets: &[DomainTarget],
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
 ) {
     if spec.warmup != CandidateWarmup::AdaptiveFakeTtl {
         return;
@@ -28,14 +29,26 @@ pub fn run_candidate_warmup(
             &target.http_path,
             false,
         );
-        let _ = try_tls_handshake(
-            &domain_connect_target(target),
-            https_port,
-            transport,
-            &target.host,
-            true,
-            TlsClientProfile::Tls13Only,
-            tls_verifier,
-        );
+        let _ = match key_log {
+            Some(key_log) => try_tls_handshake_with_key_log(
+                &domain_connect_target(target),
+                https_port,
+                transport,
+                &target.host,
+                true,
+                TlsClientProfile::Tls13Only,
+                tls_verifier,
+                Some(key_log),
+            ),
+            None => try_tls_handshake(
+                &domain_connect_target(target),
+                https_port,
+                transport,
+                &target.host,
+                true,
+                TlsClientProfile::Tls13Only,
+                tls_verifier,
+            ),
+        };
     }
 }

@@ -35,6 +35,7 @@ import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
+import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogPathValidator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -123,7 +124,7 @@ internal class DiagnosticsScanRequestFactory
                         preferredDnsPath = effectivePreferredDnsPath,
                         preferredEdges = scanContext.preferredEdges,
                         protectPath = resolveProtectPath(context),
-                    )
+                    ).withDiagnosticTlsKeylogPath(original.settings, context.filesDir)
             val now = System.currentTimeMillis()
             return PreparedDiagnosticsScan(
                 sessionId = sessionId,
@@ -240,7 +241,8 @@ internal class DiagnosticsScanRequestFactory
                         preferredDnsPath = scanContext.preferredDnsPath,
                         preferredEdges = scanContext.preferredEdges,
                         protectPath = resolveProtectPath(context),
-                    ).copy(scanDeadlineMs = scanDeadlineMs)
+                    ).withDiagnosticTlsKeylogPath(settings, context.filesDir)
+                    .copy(scanDeadlineMs = scanDeadlineMs)
                     .let { request ->
                         if (maxCandidates != null && request.strategyProbe != null) {
                             request.copy(
@@ -391,6 +393,27 @@ private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
                 baseProxyConfigJson = baseProxyConfigJson,
             ),
     )
+}
+
+private fun EngineScanRequestWire.withDiagnosticTlsKeylogPath(
+    settings: com.poyka.ripdpi.proto.AppSettings,
+    appFilesDir: File,
+): EngineScanRequestWire {
+    val configuredPath =
+        settings.detectionDiagnosticTlsKeylogPath
+            .takeUnless { path ->
+                !settings.detectionCheckDebugModeEnabled ||
+                    settings.detectionCheckPrivacyModeEnabled ||
+                    path.isBlank()
+            } ?: return this
+    val validatedPath =
+        runCatching {
+            TlsKeylogPathValidator(appFilesDir).validate(configuredPath)
+        }.getOrElse { error ->
+            RequestFactoryLog.w(error) { "Rejected diagnostics TLS keylog path outside app storage" }
+            return this
+        }
+    return copy(diagnosticTlsKeylogPath = validatedPath)
 }
 
 private fun resolveStrategyProbeRuntimeContext(

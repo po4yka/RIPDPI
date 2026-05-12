@@ -129,6 +129,7 @@ fn strategy_probe_request_with_runtime_context(
         network_snapshot: None,
         route_probe: None,
         scan_deadline_ms: None,
+        diagnostic_tls_keylog_path: None,
     }
 }
 
@@ -1215,6 +1216,7 @@ fn monitor_session_drains_passive_events_with_probe_details() {
         network_snapshot: None,
         route_probe: None,
         scan_deadline_ms: None,
+        diagnostic_tls_keylog_path: None,
     };
     let session = MonitorSession::new();
     session.start_scan("session-1".to_string(), request.into()).expect("start scan");
@@ -1258,6 +1260,7 @@ fn monitor_session_allows_restart_after_finished_scan_without_report_cleanup() {
         network_snapshot: None,
         route_probe: None,
         scan_deadline_ms: None,
+        diagnostic_tls_keylog_path: None,
     };
     let session = MonitorSession::new();
     session.start_scan("session-finished-1".to_string(), request().into()).expect("start first scan");
@@ -1335,6 +1338,7 @@ fn monitor_json_contracts_match_goldens() {
         network_snapshot: None,
         route_probe: None,
         scan_deadline_ms: None,
+        diagnostic_tls_keylog_path: None,
     };
     let session = MonitorSession::new();
     session.start_scan("session-golden".to_string(), request.into()).expect("start scan");

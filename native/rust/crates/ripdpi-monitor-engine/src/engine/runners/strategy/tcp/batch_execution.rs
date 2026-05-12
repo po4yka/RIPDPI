@@ -51,6 +51,7 @@ pub(super) fn execute_candidate_batch(
                         strategy_plan.runtime_context.as_ref(),
                         strategy_plan.probe_seed,
                         tls_verifier,
+                        plan.request.diagnostic_tls_keylog_path.as_deref(),
                         cancel_token,
                     );
                     (candidate_index, spec, execution)

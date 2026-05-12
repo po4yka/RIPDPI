@@ -4,6 +4,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyCandidateSpec;
 use crate::execution::scoring::ProbeSample;
+use crate::tls::TlsKeyLogCallback;
 use crate::transport::TransportConfig;
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
 
@@ -17,13 +18,21 @@ pub(super) fn build_https_probe_sample(
     target: &DomainTarget,
     candidate: &StrategyCandidateSpec,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
 ) -> ProbeSample {
-    let observations = collect_https_observations(transport, target, tls_verifier);
+    let observations = collect_https_observations(transport, target, tls_verifier, key_log);
     let outcome = classify_https_outcome(&observations);
     let mut details = build_https_probe_details(candidate, &observations, &outcome);
 
-    let retry =
-        apply_https_retry_policy(transport, target, tls_verifier, observations.https_port, &outcome, &mut details);
+    let retry = apply_https_retry_policy(
+        transport,
+        target,
+        tls_verifier,
+        key_log,
+        observations.https_port,
+        &outcome,
+        &mut details,
+    );
     details.push(ProbeDetail { key: "probeRetryCount".to_string(), value: retry.retry_count.to_string() });
 
     ProbeSample {

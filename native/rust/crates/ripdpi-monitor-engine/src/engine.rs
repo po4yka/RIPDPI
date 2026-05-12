@@ -311,6 +311,7 @@ mod tests {
             network_snapshot: None,
             route_probe: None,
             scan_deadline_ms: None,
+            diagnostic_tls_keylog_path: None,
         }
     }
 }

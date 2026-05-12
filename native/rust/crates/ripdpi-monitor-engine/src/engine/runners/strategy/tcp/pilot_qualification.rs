@@ -76,6 +76,7 @@ pub(super) fn qualify_pilot_candidates(
                             strategy_plan.runtime_context.as_ref(),
                             strategy_plan.probe_seed,
                             tls_verifier,
+                            plan.request.diagnostic_tls_keylog_path.as_deref(),
                             cancel_token,
                         );
                         (spec_clone, Some(execution))

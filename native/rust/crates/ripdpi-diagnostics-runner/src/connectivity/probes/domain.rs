@@ -4,8 +4,8 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::adapters::http::{describe_http_observation, is_blockpage, try_http_request};
 use crate::connectivity::adapters::tls::{
-    classify_tls_signal, is_server_tls_version_rejection, preferred_tls_observation, try_tls_handshake,
-    TlsClientProfile,
+    classify_tls_signal, is_server_tls_version_rejection, preferred_tls_observation, tls_key_log_callback_for_path,
+    try_tls_handshake, try_tls_handshake_with_key_log, TlsClientProfile, TlsKeyLogCallback,
 };
 use crate::connectivity::adapters::transport::{domain_connect_target, resolve_addresses, TransportConfig};
 use crate::connectivity::adapters::util::format_socket_result;
@@ -19,11 +19,21 @@ pub fn run_domain_probe(
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> ProbeResult {
+    run_domain_probe_with_key_log(target, transport, tls_verifier, None)
+}
+
+pub fn run_domain_probe_with_key_log(
+    target: &DomainTarget,
+    transport: &TransportConfig,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    keylog_path: Option<&str>,
+) -> ProbeResult {
+    let key_log = keylog_path.map(tls_key_log_callback_for_path);
     let https_port = target.https_port.unwrap_or(443);
     let http_port = target.http_port.unwrap_or(80);
     let connect_target = domain_connect_target(target);
     let resolved = resolve_addresses(&connect_target, https_port);
-    let tls13 = try_tls_handshake(
+    let tls13 = try_tls_handshake_with_optional_key_log(
         &connect_target,
         https_port,
         transport,
@@ -31,8 +41,9 @@ pub fn run_domain_probe(
         true,
         TlsClientProfile::Tls13Only,
         tls_verifier,
+        key_log.as_ref(),
     );
-    let tls12 = try_tls_handshake(
+    let tls12 = try_tls_handshake_with_optional_key_log(
         &connect_target,
         https_port,
         transport,
@@ -40,8 +51,9 @@ pub fn run_domain_probe(
         true,
         TlsClientProfile::Tls12Only,
         tls_verifier,
+        key_log.as_ref(),
     );
-    let tls_ech = try_tls_handshake(
+    let tls_ech = try_tls_handshake_with_optional_key_log(
         &connect_target,
         https_port,
         transport,
@@ -49,6 +61,7 @@ pub fn run_domain_probe(
         true,
         TlsClientProfile::Tls13WithEch,
         tls_verifier,
+        key_log.as_ref(),
     );
     let http = try_http_request(&connect_target, http_port, transport, &target.host, &target.http_path, false);
     let alt_svc_value = http.response.as_ref().and_then(|r| r.headers.get("alt-svc")).cloned();
@@ -78,7 +91,7 @@ pub fn run_domain_probe(
 
     // Single retry on total failure to distinguish transient from consistent blocking
     let (outcome, probe_retry_count) = if outcome == "unreachable" {
-        let retry = try_tls_handshake(
+        let retry = try_tls_handshake_with_optional_key_log(
             &connect_target,
             https_port,
             transport,
@@ -86,6 +99,7 @@ pub fn run_domain_probe(
             true,
             TlsClientProfile::Tls13Only,
             tls_verifier,
+            key_log.as_ref(),
         );
         if retry.status == "tls_ok" {
             ("tls_ok".to_string(), 1usize)
@@ -174,4 +188,29 @@ pub fn run_domain_probe(
         append_tls_trigger_fuzzing_details(&mut result.details, target, transport, preferred_tls.status.as_str());
     }
     result
+}
+
+fn try_tls_handshake_with_optional_key_log(
+    target: &crate::connectivity::adapters::transport::TargetAddress,
+    port: u16,
+    transport: &TransportConfig,
+    server_name: &str,
+    verify_certificates: bool,
+    profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
+) -> crate::connectivity::adapters::tls::TlsObservation {
+    match key_log {
+        Some(key_log) => try_tls_handshake_with_key_log(
+            target,
+            port,
+            transport,
+            server_name,
+            verify_certificates,
+            profile,
+            tls_verifier,
+            Some(key_log),
+        ),
+        None => try_tls_handshake(target, port, transport, server_name, verify_certificates, profile, tls_verifier),
+    }
 }

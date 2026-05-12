@@ -7,6 +7,7 @@ use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::{target_probe_pause_ms, StrategyCandidateSpec};
+use crate::tls::tls_key_log_callback_for_path;
 use crate::types::DomainTarget;
 use crate::util::stable_probe_hash;
 
@@ -25,6 +26,7 @@ pub fn execute_tcp_candidate(
     runtime_context: Option<&ProxyRuntimeContext>,
     probe_seed: u64,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    keylog_path: Option<&str>,
     cancel: &AtomicBool,
 ) -> CandidateExecution {
     if targets.is_empty() {
@@ -34,7 +36,8 @@ pub fn execute_tcp_candidate(
     match probe_runtime_transport(runtime_launcher, spec, runtime_context) {
         Ok(runtime) => {
             let transport = runtime.transport();
-            run_candidate_warmup(spec, &transport, targets, tls_verifier);
+            let key_log = keylog_path.map(tls_key_log_callback_for_path);
+            run_candidate_warmup(spec, &transport, targets, tls_verifier, key_log.as_ref());
             if cancel.load(Ordering::Acquire) {
                 drop(runtime);
                 return cancelled_candidate_execution(spec, CandidateScore::default(), 3);
@@ -64,10 +67,11 @@ pub fn execute_tcp_candidate(
                         .iter()
                         .map(|target| {
                             let transport = transport.clone();
+                            let key_log = key_log.clone();
                             s.spawn(move || {
                                 let samples = vec![
                                     run_http_strategy_probe(&transport, target, spec),
-                                    run_https_strategy_probe(&transport, target, spec, tls_verifier),
+                                    run_https_strategy_probe(&transport, target, spec, tls_verifier, key_log.as_ref()),
                                 ];
                                 samples
                             })

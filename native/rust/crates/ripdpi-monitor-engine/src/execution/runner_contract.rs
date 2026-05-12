@@ -17,6 +17,7 @@ pub(crate) trait StrategyLaneExecutor: Send + Sync {
         runtime_context: Option<&ProxyRuntimeContext>,
         probe_seed: u64,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+        keylog_path: Option<&str>,
         cancel: &AtomicBool,
     ) -> CandidateExecution;
 

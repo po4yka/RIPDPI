@@ -267,6 +267,7 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
         network_snapshot: None,
         route_probe: None,
         scan_deadline_ms: None,
+        diagnostic_tls_keylog_path: None,
     }
 }
 

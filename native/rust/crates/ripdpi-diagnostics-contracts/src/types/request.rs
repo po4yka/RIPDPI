@@ -40,6 +40,7 @@ mod tests {
         assert!(request.telegram_target.is_none());
         assert!(request.strategy_probe.is_none());
         assert!(request.route_probe.is_none());
+        assert!(request.diagnostic_tls_keylog_path.is_none());
     }
 
     #[test]
@@ -57,6 +58,29 @@ mod tests {
         }"#;
         let request: ScanRequest = serde_json::from_str(json).expect("deserialize");
         assert!(request.network_snapshot.is_none());
+    }
+
+    #[test]
+    fn scan_request_preserves_diagnostic_tls_keylog_path_through_wire_conversion() {
+        let json = r#"{
+            "profileId": "test",
+            "displayName": "Test",
+            "pathMode": "RAW_PATH",
+            "proxyHost": null,
+            "proxyPort": null,
+            "domainTargets": [],
+            "dnsTargets": [],
+            "tcpTargets": [],
+            "whitelistSni": [],
+            "diagnosticTlsKeylogPath": "/app/files/diagnostics/tls.keys"
+        }"#;
+        let wire: crate::wire::EngineScanRequestWire = serde_json::from_str(json).expect("deserialize wire");
+        let request: ScanRequest = wire.into();
+
+        assert_eq!(request.diagnostic_tls_keylog_path.as_deref(), Some("/app/files/diagnostics/tls.keys"),);
+
+        let encoded: crate::wire::EngineScanRequestWire = request.into();
+        assert_eq!(encoded.diagnostic_tls_keylog_path.as_deref(), Some("/app/files/diagnostics/tls.keys"),);
     }
 
     #[test]

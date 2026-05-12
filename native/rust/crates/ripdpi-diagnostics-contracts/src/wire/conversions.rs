@@ -32,6 +32,7 @@ impl From<EngineScanRequestWire> for ScanRequest {
             network_snapshot: value.network_snapshot,
             route_probe: value.route_probe,
             scan_deadline_ms: value.scan_deadline_ms,
+            diagnostic_tls_keylog_path: value.diagnostic_tls_keylog_path,
         }
     }
 }
@@ -65,6 +66,7 @@ impl From<ScanRequest> for EngineScanRequestWire {
             scan_deadline_ms: value.scan_deadline_ms,
             native_log_level: None,
             log_context: None,
+            diagnostic_tls_keylog_path: value.diagnostic_tls_keylog_path,
         }
     }
 }

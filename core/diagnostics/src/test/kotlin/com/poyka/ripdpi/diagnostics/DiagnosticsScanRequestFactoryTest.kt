@@ -27,6 +27,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.io.File
 
 class DiagnosticsScanRequestFactoryTest {
     private val json = diagnosticsTestJson()
@@ -333,6 +334,42 @@ class DiagnosticsScanRequestFactoryTest {
             assertNull(prepared.initialSession.triggerCurrentFingerprintHash)
         }
 
+    @Test
+    fun `prepare scan includes validated diagnostics tls keylog path when debug export is enabled`() =
+        runTest {
+            val context = TestContext()
+            val keylogPath = File(context.filesDir, "diagnostics/tls.keys")
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDetectionCheckDebugModeEnabled(true)
+                    .setDetectionCheckPrivacyModeEnabled(false)
+                    .setDetectionDiagnosticTlsKeylogPath(keylogPath.path)
+                    .build()
+
+            val request = prepareStrategyProbeRequest(settings = settings, testContext = context)
+
+            assertEquals(keylogPath.canonicalPath, request.diagnosticTlsKeylogPath)
+        }
+
+    @Test
+    fun `prepare scan omits diagnostics tls keylog path while privacy mode is enabled`() =
+        runTest {
+            val context = TestContext()
+            val keylogPath = File(context.filesDir, "diagnostics/tls.keys")
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDetectionCheckDebugModeEnabled(true)
+                    .setDetectionCheckPrivacyModeEnabled(true)
+                    .setDetectionDiagnosticTlsKeylogPath(keylogPath.path)
+                    .build()
+
+            val request = prepareStrategyProbeRequest(settings = settings, testContext = context)
+
+            assertNull(request.diagnosticTlsKeylogPath)
+        }
+
     @Suppress("LongMethod")
     @Test
     fun `prepare reprobe prefers explicit dns path override over collected preference`() =
@@ -438,6 +475,7 @@ class DiagnosticsScanRequestFactoryTest {
         quicTargets: List<QuicTarget> = listOf(QuicTarget(host = "example.org")),
         strategyProbeTargetCohorts: List<StrategyProbeTargetCohortSpec> = emptyList(),
         scanOrigin: DiagnosticsScanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
+        testContext: TestContext = TestContext(),
     ): EngineScanRequestWire {
         val intent =
             strategyProbeIntent(
@@ -453,7 +491,7 @@ class DiagnosticsScanRequestFactoryTest {
         val context = strategyProbeContext(settings = settings, preferredDnsPath = preferredDnsPath)
         val factory =
             DiagnosticsScanRequestFactory(
-                context = TestContext(),
+                context = testContext,
                 networkMetadataProvider = FakeNetworkMetadataProvider(),
                 intentResolver =
                     object : DiagnosticsIntentResolver {

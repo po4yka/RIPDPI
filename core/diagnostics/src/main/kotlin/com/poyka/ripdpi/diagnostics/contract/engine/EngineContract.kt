@@ -74,6 +74,7 @@ data class EngineScanRequestWire(
     val nativeLogLevel: String? = null,
     val logContext: RipDpiLogContext? = null,
     val scanDeadlineMs: Long? = null,
+    val diagnosticTlsKeylogPath: String? = null,
 )
 
 @Serializable

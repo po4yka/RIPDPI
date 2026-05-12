@@ -38,6 +38,7 @@ impl StrategyLaneExecutor for DefaultStrategyLaneExecutor {
         runtime_context: Option<&ProxyRuntimeContext>,
         probe_seed: u64,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+        keylog_path: Option<&str>,
         cancel: &AtomicBool,
     ) -> CandidateExecution {
         execute_tcp_candidate(
@@ -47,6 +48,7 @@ impl StrategyLaneExecutor for DefaultStrategyLaneExecutor {
             runtime_context,
             probe_seed,
             tls_verifier,
+            keylog_path,
             cancel,
         )
     }
@@ -115,7 +117,7 @@ mod tests {
         }];
         let cancel = AtomicBool::new(false);
 
-        let execution = execute_tcp_candidate(&launcher, &spec, &targets, None, 0, None, &cancel);
+        let execution = execute_tcp_candidate(&launcher, &spec, &targets, None, 0, None, None, &cancel);
 
         assert_eq!(launcher.starts(), 1);
         assert_eq!(execution.summary.outcome, "failed");
