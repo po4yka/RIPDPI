@@ -76,6 +76,9 @@ without reboot (reload signal).
 - Added real MaxMind `geoip.db` parsing in `ripdpi-geo` through the Rust `maxminddb` reader over the existing mmap backing store, plus country-code lookup coverage using the official MaxMind country test database fixture.
 - Verified with `cargo test -p ripdpi-geo --locked` and `cargo clippy -p ripdpi-geo --all-targets --locked -- -D warnings`.
 - Remaining before close: connect `ripdpi-geo` to the matcher port at runtime and expose database versions/lookups through JNI.
-- Connected `ripdpi-geo` to route selection and delayed payload matching through a `GeoMatcherHandle` in runtime services, plus CLI/config paths for `--geoip-db` and `--geosite-db`.
+- Connected `ripdpi-geo` to route selection and delayed payload matching through a proxy-runtime-owned matcher passed into the policy and route matcher ports, plus CLI/config paths for `--geoip-db` and `--geosite-db`.
 - Verified with focused geo route/CLI tests, `cargo test -p ripdpi-config -p ripdpi-runtime-policy -p ripdpi-runtime-services -p ripdpi-proxy-runtime-adapter -p ripdpi-proxy-runtime --locked`, and `cargo clippy -p ripdpi-config -p ripdpi-runtime-policy -p ripdpi-runtime-services -p ripdpi-proxy-runtime-adapter -p ripdpi-proxy-runtime --all-targets --locked -- -D warnings`.
 - Remaining before close: expose database versions/lookups through JNI and wire Android external-files database paths into the native config bridge.
+- Wired Android UI config JSON and Rust UI config conversion to carry `geoipDbPath` / `geositeDbPath`, resolving app external-files database paths before starting the native proxy.
+- Verified with `cargo test -p ripdpi-proxy-config --locked`, `cargo clippy -p ripdpi-proxy-config --all-targets --locked -- -D warnings`, `./gradlew :core:engine:testDebugUnitTest --tests '*RipDpiProxyJsonCodecTest*' --tests '*RipDpiProxyUIPreferenceMappersTest*' -Pripdpi.skipNativeBuild=true --rerun-tasks`, and `./gradlew :core:engine:ktlintCheck -Pripdpi.skipNativeBuild=true --rerun-tasks --no-configuration-cache`.
+- Remaining before close: expose database versions/lookups through JNI for UI surfacing.

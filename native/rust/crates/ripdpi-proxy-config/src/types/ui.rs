@@ -45,6 +45,10 @@ pub struct ProxyUiConfig {
     pub root_mode: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root_helper_socket_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub geoip_db_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub geosite_db_path: Option<String>,
     /// Coarse environment classification supplied by the platform-side
     /// `EnvironmentDetector`. Wire form is one of
     /// `"Unknown"` / `"Field"` / `"Emulator"`; an absent or unrecognised

@@ -155,6 +155,8 @@ internal object RipDpiProxyJsonCodec {
         strategyPreset: String? = null,
         rootMode: Boolean = false,
         rootHelperSocketPath: String? = null,
+        geoipDbPath: String? = null,
+        geositeDbPath: String? = null,
         listenAuthToken: String? = null,
         localListenPortOverride: Int? = null,
         localAuthToken: String? = null,
@@ -178,6 +180,8 @@ internal object RipDpiProxyJsonCodec {
                 nativeLogLevel = preferences.nativeLogLevel,
                 rootMode = rootMode,
                 rootHelperSocketPath = rootHelperSocketPath,
+                geoipDbPath = geoipDbPath,
+                geositeDbPath = geositeDbPath,
                 environmentKind = environmentKind.name,
                 runtimeContext = ProxyRuntimeContextCodec.toNative(preferences.runtimeContext),
                 logContext = ProxyLogContextCodec.toNative(preferences.logContext),
@@ -206,6 +210,8 @@ internal object RipDpiProxyJsonCodec {
                 logContext = ProxyLogContextCodec.toModel(payload.logContext),
                 rootMode = payload.rootMode,
                 rootHelperSocketPath = payload.rootHelperSocketPath,
+                geoipDbPath = payload.geoipDbPath,
+                geositeDbPath = payload.geositeDbPath,
                 environmentKind = decodeEnvironmentKind(payload.environmentKind),
             )
         }.getOrNull()
@@ -225,6 +231,8 @@ internal object RipDpiProxyJsonCodec {
         logContext: RipDpiLogContext?,
         rootMode: Boolean = false,
         rootHelperSocketPath: String? = null,
+        geoipDbPath: String? = null,
+        geositeDbPath: String? = null,
         localListenPortOverride: Int? = null,
         localAuthToken: String? = null,
         environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
@@ -259,7 +267,9 @@ internal object RipDpiProxyJsonCodec {
                     preferences,
                     strategyPreset = payload.strategyPreset,
                     rootMode = rootMode,
-                    rootHelperSocketPath = rootHelperSocketPath,
+                    rootHelperSocketPath = rootHelperSocketPath ?: payload.rootHelperSocketPath,
+                    geoipDbPath = geoipDbPath ?: payload.geoipDbPath,
+                    geositeDbPath = geositeDbPath ?: payload.geositeDbPath,
                     listenAuthToken = payload.listen.authToken,
                     localListenPortOverride = localListenPortOverride ?: payload.sessionOverrides?.listenPortOverride,
                     localAuthToken = localAuthToken ?: payload.sessionOverrides?.authToken,
@@ -352,6 +362,10 @@ internal object RipDpiProxyJsonCodec {
             val rootMode: Boolean = false,
             @EncodeDefault(EncodeDefault.Mode.NEVER)
             val rootHelperSocketPath: String? = null,
+            @EncodeDefault(EncodeDefault.Mode.NEVER)
+            val geoipDbPath: String? = null,
+            @EncodeDefault(EncodeDefault.Mode.NEVER)
+            val geositeDbPath: String? = null,
             // Environment classification supplied by the platform-side
             // EnvironmentDetector. Wire form is the
             // EnvironmentKind variant name ("Field" / "Emulator" /

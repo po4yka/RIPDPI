@@ -34,10 +34,13 @@ class DefaultProxyPreferencesResolver
             return if (settings.enableCmdSettings) {
                 RipDpiProxyCmdPreferences(settings.cmdArgs, hostAutolearnStorePath, runtimeContext = null)
             } else {
+                val geoDatabasePaths = resolveGeoDatabasePaths(context)
                 RipDpiProxyUIPreferences.fromSettings(
                     settings,
                     hostAutolearnStorePath,
                     runtimeContext = RipDpiRuntimeContext(morphPolicy = morphPolicy),
+                    geoipDbPath = geoDatabasePaths.geoipDbPath,
+                    geositeDbPath = geoDatabasePaths.geositeDbPath,
                 )
             }
         }

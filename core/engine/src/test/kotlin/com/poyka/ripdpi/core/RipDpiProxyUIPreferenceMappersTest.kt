@@ -84,6 +84,8 @@ class RipDpiProxyUIPreferenceMappersTest {
                 logContext = logContext,
                 rootMode = true,
                 rootHelperSocketPath = "/tmp/root-helper.sock",
+                geoipDbPath = " /tmp/geo/geoip.db ",
+                geositeDbPath = "/tmp/geo/geosite.db",
                 environmentKind = EnvironmentKind.Emulator,
             )
 
@@ -93,6 +95,8 @@ class RipDpiProxyUIPreferenceMappersTest {
         assertEquals("vpn", preferences.logContext?.mode)
         assertTrue(preferences.rootMode)
         assertEquals("/tmp/root-helper.sock", preferences.rootHelperSocketPath)
+        assertEquals("/tmp/geo/geoip.db", preferences.geoipDbPath)
+        assertEquals("/tmp/geo/geosite.db", preferences.geositeDbPath)
         assertEquals(EnvironmentKind.Emulator, preferences.environmentKind)
     }
 }

@@ -66,6 +66,33 @@ class RipDpiProxyJsonCodecTest {
     }
 
     @Test
+    fun `ui preferences encode and decode geo database paths`() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                geoipDbPath = " /storage/emulated/0/Android/data/app/files/geo/geoip.db ",
+                geositeDbPath = "/storage/emulated/0/Android/data/app/files/geo/geosite.db",
+            )
+
+        val payload = preferences.toNativeConfigJson()
+        val objectValue =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(payload)
+                .jsonObject
+        val decoded = decodeRipDpiProxyUiPreferences(payload)
+
+        assertEquals(
+            "/storage/emulated/0/Android/data/app/files/geo/geoip.db",
+            objectValue["geoipDbPath"]?.jsonPrimitive?.content,
+        )
+        assertEquals(
+            "/storage/emulated/0/Android/data/app/files/geo/geosite.db",
+            objectValue["geositeDbPath"]?.jsonPrimitive?.content,
+        )
+        assertEquals("/storage/emulated/0/Android/data/app/files/geo/geoip.db", decoded?.geoipDbPath)
+        assertEquals("/storage/emulated/0/Android/data/app/files/geo/geosite.db", decoded?.geositeDbPath)
+    }
+
+    @Test
     fun `command line preferences encode session local proxy overrides`() {
         val payload =
             RipDpiProxyJsonCodec.encodeCommandLinePreferences(

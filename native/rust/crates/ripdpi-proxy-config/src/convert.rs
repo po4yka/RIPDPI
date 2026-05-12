@@ -104,10 +104,14 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         native_log_level: _,
         root_mode,
         root_helper_socket_path,
+        geoip_db_path,
+        geosite_db_path,
         environment_kind,
     } = payload;
 
     let mut config = RuntimeConfig::default();
+    config.process.geoip_db_path = normalized_optional_path(geoip_db_path);
+    config.process.geosite_db_path = normalized_optional_path(geosite_db_path);
     listen::apply_listen_section(&mut config, &listen)?;
     protocol::apply_protocol_section(&mut config, &protocols, &quic)?;
     adaptive_runtime_context::apply_runtime_section(&mut config, &adaptive_fallback, &host_autolearn, &ws_tunnel);
@@ -146,4 +150,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         root_helper_socket_path,
         environment_kind.as_deref(),
     )
+}
+
+fn normalized_optional_path(path: Option<String>) -> Option<String> {
+    path.as_deref().map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned)
 }

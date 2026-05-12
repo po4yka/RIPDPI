@@ -26,6 +26,8 @@ class RipDpiProxyUIPreferences(
     logContext: RipDpiLogContext? = null,
     val rootMode: Boolean = false,
     val rootHelperSocketPath: String? = null,
+    geoipDbPath: String? = null,
+    geositeDbPath: String? = null,
     val environmentKind: EnvironmentKind = EnvironmentKind.Unknown,
 ) : RipDpiProxyPreferences {
     val listen: RipDpiListenConfig = normalizeListenConfig(listen)
@@ -40,6 +42,8 @@ class RipDpiProxyUIPreferences(
     val nativeLogLevel: String? = nativeLogLevel?.trim()?.takeIf { it.isNotEmpty() }
     val runtimeContext: RipDpiRuntimeContext? = normalizeRuntimeContext(runtimeContext)
     val logContext: RipDpiLogContext? = normalizeLogContext(logContext)
+    val geoipDbPath: String? = geoipDbPath?.trim()?.takeIf { it.isNotEmpty() }
+    val geositeDbPath: String? = geositeDbPath?.trim()?.takeIf { it.isNotEmpty() }
     val chainSummary: String = formatChainSummary(this.chains.tcpSteps, this.chains.udpSteps)
 
     override fun toNativeConfigJson(): String =
@@ -47,6 +51,8 @@ class RipDpiProxyUIPreferences(
             this,
             rootMode = rootMode,
             rootHelperSocketPath = rootHelperSocketPath,
+            geoipDbPath = geoipDbPath,
+            geositeDbPath = geositeDbPath,
             environmentKind = environmentKind,
         )
 
@@ -78,6 +84,8 @@ class RipDpiProxyUIPreferences(
             logContext = logContext ?: this.logContext,
             rootMode = rootMode,
             rootHelperSocketPath = rootHelperSocketPath,
+            geoipDbPath = geoipDbPath,
+            geositeDbPath = geositeDbPath,
             environmentKind = environmentKind,
         )
 
@@ -90,6 +98,8 @@ class RipDpiProxyUIPreferences(
             logContext: RipDpiLogContext? = null,
             rootMode: Boolean = false,
             rootHelperSocketPath: String? = null,
+            geoipDbPath: String? = null,
+            geositeDbPath: String? = null,
             environmentKind: EnvironmentKind = EnvironmentKind.Unknown,
         ): RipDpiProxyUIPreferences =
             RipDpiProxyUIPreferences(
@@ -109,6 +119,8 @@ class RipDpiProxyUIPreferences(
                 logContext = logContext,
                 rootMode = rootMode,
                 rootHelperSocketPath = rootHelperSocketPath,
+                geoipDbPath = geoipDbPath,
+                geositeDbPath = geositeDbPath,
                 environmentKind = environmentKind,
             )
     }

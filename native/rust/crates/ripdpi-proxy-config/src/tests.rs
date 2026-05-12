@@ -19,6 +19,18 @@ fn minimal_ui() -> ProxyUiConfig {
     config
 }
 
+#[test]
+fn ui_config_maps_geo_database_paths() {
+    let mut ui = minimal_ui();
+    ui.geoip_db_path = Some(" /data/user/0/app/files/geo/geoip.db ".to_string());
+    ui.geosite_db_path = Some("/data/user/0/app/files/geo/geosite.db".to_string());
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+
+    assert_eq!(config.process.geoip_db_path.as_deref(), Some("/data/user/0/app/files/geo/geoip.db"));
+    assert_eq!(config.process.geosite_db_path.as_deref(), Some("/data/user/0/app/files/geo/geosite.db"));
+}
+
 fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
     ProxyUiTcpChainStep {
         kind: kind.to_string(),
