@@ -1,18 +1,18 @@
 ---
 title: Add TLS Certificate SAN/CN Hostname Discoverer for Test-Target Selection
 type: task
-status: backlog
+status: todo
 area: diagnostics
 priority: medium
 owner: unassigned
 parent: dpi-checkers-parity-epic
 blocks: []
-blocked_by: [add-utls-diagnostic-probe-clienthello-fingerprinting, add-webhost-farm-dynamic-host-discovery]
+blocked_by: []
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-12
 ---
 
-- [ ] #task Add TLS Certificate SAN/CN Hostname Discoverer for Test-Target Selection #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [ ] #task Add TLS Certificate SAN/CN Hostname Discoverer for Test-Target Selection #repo/RIPDPI #area/diagnostics #status/todo 🔼
 
 ## Objective
 

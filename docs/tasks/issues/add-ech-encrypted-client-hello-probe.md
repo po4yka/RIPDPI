@@ -1,18 +1,18 @@
 ---
 title: Add Encrypted Client Hello (ECH) Readiness and Acceptance Probe
 type: task
-status: backlog
+status: todo
 area: diagnostics
 priority: high
 owner: unassigned
 parent: dpi-probe-parity-epic
 blocks: []
-blocked_by: [add-utls-diagnostic-probe-clienthello-fingerprinting]
+blocked_by: []
 created: 2026-05-10
-updated: 2026-05-11
+updated: 2026-05-12
 ---
 
-- [ ] #task Add Encrypted Client Hello (ECH) Readiness and Acceptance Probe #repo/RIPDPI #area/diagnostics #status/backlog ⏫
+- [ ] #task Add Encrypted Client Hello (ECH) Readiness and Acceptance Probe #repo/RIPDPI #area/diagnostics #status/todo ⏫
 
 ## Objective
 

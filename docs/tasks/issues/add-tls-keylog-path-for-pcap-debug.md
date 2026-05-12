@@ -1,18 +1,18 @@
 ---
 title: Add TLS Keylog Path Setting for Pcap Debugging
 type: task
-status: backlog
+status: todo
 area: diagnostics
 priority: low
 owner: unassigned
 parent: dpi-checkers-parity-epic
 blocks: []
-blocked_by: [add-utls-diagnostic-probe-clienthello-fingerprinting]
+blocked_by: []
 created: 2026-05-10
-updated: 2026-05-10
+updated: 2026-05-12
 ---
 
-- [ ] #task Add TLS Keylog Path Setting for Pcap Debugging #repo/RIPDPI #area/diagnostics #status/backlog 🔽
+- [ ] #task Add TLS Keylog Path Setting for Pcap Debugging #repo/RIPDPI #area/diagnostics #status/todo 🔽
 
 ## Objective
 
