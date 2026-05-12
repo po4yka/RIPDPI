@@ -42,6 +42,7 @@ class DpiAssetLoader(
 
     private var cachedTcp16Targets: List<Tcp16Target>? = null
     private var cachedDomains: List<String>? = null
+    private var cachedEchTargets: List<String>? = null
     private var cachedWhitelistSni: List<String>? = null
     private var cachedByohSyntheticDomains: List<String>? = null
     private var cachedDohProviderFilters: String? = null
@@ -62,6 +63,11 @@ class DpiAssetLoader(
         cachedDomains ?: loadText(DomainsPath)
             .parseLineList()
             .also { cachedDomains = it }
+
+    fun loadEchTargets(): List<String> =
+        cachedEchTargets ?: loadText(EchTargetsPath)
+            .parseLineList()
+            .also { cachedEchTargets = it }
 
     fun loadWhitelistSni(): List<String> =
         cachedWhitelistSni ?: loadText(WhitelistSniPath)
@@ -170,6 +176,7 @@ class DpiAssetLoader(
     private companion object {
         private const val Tcp16TargetsPath = "dpi/tcp16.json"
         private const val DomainsPath = "dpi/domains.txt"
+        private const val EchTargetsPath = "dpi/ech_targets.txt"
         private const val WhitelistSniPath = "dpi/whitelist_sni.txt"
         private const val ByohSyntheticDomainsPath = "dpich/byoh_synthetic_domains.txt"
         private const val DohProviderFiltersPath = "dpich/doh_provider_filters.yaml"

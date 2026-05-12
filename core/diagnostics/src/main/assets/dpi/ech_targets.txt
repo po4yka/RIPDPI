@@ -1,0 +1,5 @@
+# Default ECH readiness probe targets. Users can override this file at filesDir/dpi/ech_targets.txt.
+cloudflare.com
+fastly.com
+mozilla.org
+cloudflare-ech.com

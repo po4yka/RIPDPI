@@ -25,6 +25,10 @@ class DpiAssetLoaderTest {
         assertEquals(5, loader.loadCidrWhitelistedUrls().size)
         assertEquals(5, loader.loadCidrRegularUrls().size)
         assertEquals(21, loader.loadIpv4WhitelistAsns().size)
+        assertEquals(
+            listOf("cloudflare.com", "fastly.com", "mozilla.org", "cloudflare-ech.com"),
+            loader.loadEchTargets(),
+        )
     }
 
     @Test
@@ -116,6 +120,25 @@ class DpiAssetLoaderTest {
             )
 
         assertEquals(listOf("override.example"), loader.loadDomains())
+    }
+
+    @Test
+    fun echTargetsUserOverrideTakesPrecedenceOverBundledAsset() {
+        val filesDir = createTempDirectory().toFile()
+        File(filesDir, "dpi/ech_targets.txt").also { file ->
+            file.parentFile?.mkdirs()
+            file.writeText("override-ech.example\n")
+        }
+        val loader =
+            DpiAssetLoader(
+                fileProvider =
+                    FakeDpiAssetFileProvider(
+                        filesDir = filesDir,
+                        assets = mapOf("dpi/ech_targets.txt" to "cloudflare.com\n"),
+                    ),
+            )
+
+        assertEquals(listOf("override-ech.example"), loader.loadEchTargets())
     }
 
     @Test

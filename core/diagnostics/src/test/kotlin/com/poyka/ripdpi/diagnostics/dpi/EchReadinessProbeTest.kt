@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicInteger
 
 class EchReadinessProbeTest {
     @Test
@@ -78,6 +80,36 @@ class EchReadinessProbeTest {
             val result = probe.check("cloudflare-ech.com")
 
             assertEquals(EchProbeVerdict.ECH_NETWORK_BLOCK, result.verdict)
+        }
+
+    @Test
+    fun checkAllLimitsConcurrentEchHandshakesToFour() =
+        runTest {
+            val active = AtomicInteger(0)
+            val maxActive = AtomicInteger(0)
+            val probe =
+                EchReadinessProbe(
+                    resolver = resolverWithConfig(byteArrayOf(1, 2, 3)),
+                    tlsHandshake =
+                        object : EchTlsHandshake {
+                            override suspend fun connect(
+                                target: String,
+                                echConfig: ByteArray,
+                            ): EchTlsHandshakeResult {
+                                val nowActive = active.incrementAndGet()
+                                maxActive.updateAndGet { previous -> maxOf(previous, nowActive) }
+                                delay(10)
+                                active.decrementAndGet()
+                                return EchTlsHandshakeResult(negotiatedEch = true, latencyMs = 10)
+                            }
+                        },
+                )
+
+            val results = probe.checkAll((1..10).map { index -> "target-$index.example" })
+
+            assertEquals(10, results.size)
+            assertEquals(4, maxActive.get())
+            assertEquals(results.map { result -> EchProbeVerdict.ECH_OK }.toSet(), results.map { it.verdict }.toSet())
         }
 
     private fun resolverWithConfig(config: ByteArray): HttpsRrResolver =

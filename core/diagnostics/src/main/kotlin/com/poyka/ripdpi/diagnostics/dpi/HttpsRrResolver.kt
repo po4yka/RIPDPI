@@ -1,6 +1,11 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -267,6 +272,7 @@ interface EchTlsHandshake {
 class EchReadinessProbe(
     private val resolver: HttpsRrResolver = HttpsRrResolver(),
     private val tlsHandshake: EchTlsHandshake = UnsupportedEchTlsHandshake,
+    private val concurrency: Int = DefaultConcurrency,
 ) {
     suspend fun check(
         target: String,
@@ -320,6 +326,26 @@ class EchReadinessProbe(
         }
     }
 
+    suspend fun checkAll(
+        targets: List<String>,
+        vanillaTlsByTarget: Map<String, Boolean> = emptyMap(),
+    ): List<EchProbeResult> =
+        coroutineScope {
+            val permits = Semaphore(concurrency.coerceIn(MinConcurrency, DefaultConcurrency))
+            val checks =
+                targets.map { target ->
+                    async {
+                        permits.withPermit {
+                            check(
+                                target = target,
+                                vanillaTlsOk = vanillaTlsByTarget[target],
+                            )
+                        }
+                    }
+                }
+            checks.awaitAll()
+        }
+
     private fun classifyEchFailure(error: Exception): EchProbeVerdict {
         val message = (error.message ?: "").lowercase()
         return when {
@@ -339,6 +365,11 @@ class EchReadinessProbe(
                 EchProbeVerdict.ECH_REJECTED
             }
         }
+    }
+
+    private companion object {
+        private const val MinConcurrency = 1
+        private const val DefaultConcurrency = 4
     }
 }
 

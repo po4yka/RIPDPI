@@ -86,3 +86,6 @@ All 8 unit tests green. ECH probe surfaced in DiagnosticsScreen Tools as "ECH Re
 ## Work log
 
 - 2026-05-12: Added the local JVM-testable DNS/ECH foundation: DNS type-65 HTTPS query support, RFC 9460 HTTPS RR `ech` SvcParam parsing, a DoH wire HTTPS RR resolver, and injectable ECH readiness verdict classification for `ECH_NO_CONFIG`, `ECH_OK`, `ECH_REJECTED`, `ECH_UNKNOWN_KEY`, and `ECH_NETWORK_BLOCK`. Remaining close gates: native ECH handshake bridge, default target/user override wiring, suite/tool UI surfacing, and real ECH validation beyond fake JVM handshakes.
+- 2026-05-12: Added bundled ECH target loading for `cloudflare.com`, `fastly.com`, `mozilla.org`, and `cloudflare-ech.com`, including `filesDir/dpi/ech_targets.txt` override support. Added `EchReadinessProbe.checkAll()` with the required max-4 concurrency cap and regression coverage for the cap.
+- Verified with `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpi.EchReadinessProbeTest --tests com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoaderTest -Pripdpi.skipNativeBuild=true`.
+- Remaining close gates: native ECH handshake bridge, suite/tool UI surfacing, cross-reference wiring from recent domain reachability results, and real ECH validation beyond fake JVM handshakes.
