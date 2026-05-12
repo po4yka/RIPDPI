@@ -11,6 +11,12 @@ use predicates::{
 mod facts;
 mod predicates;
 
+pub trait GeoMatcher {
+    fn country_matches_ip(&self, country_code: &str, ip: std::net::IpAddr) -> bool;
+
+    fn geosite_matches_host(&self, category: &str, host: &str) -> bool;
+}
+
 pub fn extract_host_info(config: &RuntimeConfig, payload: &[u8]) -> Option<ExtractedHost> {
     extract_host_info_from_payload(config, payload)
 }
@@ -40,6 +46,19 @@ pub fn route_matches_payload(
         .is_some_and(|group| group_matches(config, group, dest, Some(payload), false, transport))
 }
 
+pub fn route_matches_payload_with_geo(
+    config: &RuntimeConfig,
+    group_index: usize,
+    dest: SocketAddr,
+    payload: &[u8],
+    transport: TransportProtocol,
+    geo: &dyn GeoMatcher,
+) -> bool {
+    config.groups.get(group_index).is_some_and(|group| {
+        predicates::group_matches_with_geo(config, group, dest, Some(payload), false, transport, Some(geo))
+    })
+}
+
 pub(super) fn group_matches(
     config: &RuntimeConfig,
     group: &DesyncGroup,
@@ -53,7 +72,7 @@ pub(super) fn group_matches(
 
 #[cfg(test)]
 mod tests {
-    use std::net::SocketAddr;
+    use std::net::{IpAddr, SocketAddr};
 
     use super::*;
     use crate::runtime_policy::test_support::{config_with_groups, rust_packet_seeds, sample_dest};
@@ -144,6 +163,30 @@ mod tests {
     }
 
     #[test]
+    fn route_matches_payload_with_geo_checks_geosite_filters() {
+        let mut group = DesyncGroup::new(0);
+        group.matches.filters.geosite_categories.push("video".to_string());
+        let config = config_with_groups(vec![group]);
+        let payload = b"GET / HTTP/1.1\r\nHost: cdn.example.test\r\n\r\n";
+        let geo = FakeGeoMatcher::default().with_geosite("video", "example.test");
+
+        assert!(route_matches_payload_with_geo(&config, 0, sample_dest(443), payload, TransportProtocol::Tcp, &geo));
+        assert!(!route_matches_payload(&config, 0, sample_dest(443), payload, TransportProtocol::Tcp));
+    }
+
+    #[test]
+    fn route_matches_payload_with_geo_checks_geoip_filters() {
+        let mut group = DesyncGroup::new(0);
+        group.matches.filters.geoip_countries.push("ru".to_string());
+        let config = config_with_groups(vec![group]);
+        let payload = b"opaque";
+        let geo = FakeGeoMatcher::default().with_country(sample_dest(443).ip(), "ru");
+
+        assert!(route_matches_payload_with_geo(&config, 0, sample_dest(443), payload, TransportProtocol::Tcp, &geo));
+        assert!(!route_matches_payload(&config, 0, sample_dest(443), payload, TransportProtocol::Tcp));
+    }
+
+    #[test]
     fn extract_host_reads_quic_initial_sni() {
         let packet = rust_packet_seeds::quic_initial_v1();
 
@@ -227,5 +270,35 @@ mod tests {
         payload.extend_from_slice(&((handshake.len() - split) as u16).to_be_bytes());
         payload.extend_from_slice(&handshake[split..]);
         payload
+    }
+
+    #[derive(Default)]
+    struct FakeGeoMatcher {
+        countries: Vec<(IpAddr, String)>,
+        geosites: Vec<(String, String)>,
+    }
+
+    impl FakeGeoMatcher {
+        fn with_country(mut self, ip: IpAddr, country: &str) -> Self {
+            self.countries.push((ip, country.to_string()));
+            self
+        }
+
+        fn with_geosite(mut self, category: &str, root_domain: &str) -> Self {
+            self.geosites.push((category.to_string(), root_domain.to_string()));
+            self
+        }
+    }
+
+    impl GeoMatcher for FakeGeoMatcher {
+        fn country_matches_ip(&self, country_code: &str, ip: IpAddr) -> bool {
+            self.countries.iter().any(|(candidate_ip, country)| *candidate_ip == ip && country == country_code)
+        }
+
+        fn geosite_matches_host(&self, category: &str, host: &str) -> bool {
+            self.geosites.iter().any(|(candidate_category, root_domain)| {
+                candidate_category == category && (host == root_domain || host.ends_with(&format!(".{root_domain}")))
+            })
+        }
     }
 }

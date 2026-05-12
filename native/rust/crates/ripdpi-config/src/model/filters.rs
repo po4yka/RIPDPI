@@ -10,6 +10,8 @@ pub struct Cidr {
 pub struct FilterSet {
     pub hosts: Vec<String>,
     pub ipset: Vec<Cidr>,
+    pub geoip_countries: Vec<String>,
+    pub geosite_categories: Vec<String>,
 }
 
 pub(crate) fn common_suffix_match(host: &str, rule: &str) -> bool {
@@ -21,8 +23,16 @@ impl FilterSet {
         self.hosts.iter().any(|rule| common_suffix_match(host, rule))
     }
 
+    pub fn host_filters_empty(&self) -> bool {
+        self.hosts.is_empty() && self.geosite_categories.is_empty()
+    }
+
     pub fn ipset_match(&self, ip: IpAddr) -> bool {
         self.ipset.iter().any(|rule| rule.matches(ip))
+    }
+
+    pub fn ip_filters_empty(&self) -> bool {
+        self.ipset.is_empty() && self.geoip_countries.is_empty()
     }
 }
 

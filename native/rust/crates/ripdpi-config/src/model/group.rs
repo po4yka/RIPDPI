@@ -179,8 +179,8 @@ impl DesyncGroup {
             || !self.actions.fake_sni_list.is_empty()
             || self.actions.fake_offset.is_some()
             || self.matches.detect != 0
-            || !self.matches.filters.hosts.is_empty()
-            || !self.matches.filters.ipset.is_empty()
+            || !self.matches.filters.host_filters_empty()
+            || !self.matches.filters.ip_filters_empty()
             || self.matches.port_filter.is_some()
             || self.policy.ext_socks.is_some()
     }

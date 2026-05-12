@@ -239,6 +239,7 @@ fn desync_group_nested_buckets_round_trip() {
         filters: FilterSet {
             hosts: vec!["video.example.test".to_string()],
             ipset: vec![Cidr { addr: IpAddr::from_str("203.0.113.10").expect("ip"), bits: 24 }],
+            ..Default::default()
         },
         port_filter: Some((443, 8443)),
         activation_filter: Some(ActivationFilter {
@@ -582,7 +583,7 @@ fn cidr_rejects_cross_family() {
 
 #[test]
 fn filter_set_hosts_match_suffix_and_exact() {
-    let fs = FilterSet { hosts: vec!["example.com".to_string()], ipset: vec![] };
+    let fs = FilterSet { hosts: vec!["example.com".to_string()], ..Default::default() };
     assert!(fs.hosts_match("example.com"));
     assert!(fs.hosts_match("sub.example.com"));
     assert!(!fs.hosts_match("notexample.com"));
@@ -591,7 +592,8 @@ fn filter_set_hosts_match_suffix_and_exact() {
 
 #[test]
 fn filter_set_ipset_match() {
-    let fs = FilterSet { hosts: vec![], ipset: vec![Cidr { addr: IpAddr::from_str("10.0.0.0").unwrap(), bits: 8 }] };
+    let fs =
+        FilterSet { ipset: vec![Cidr { addr: IpAddr::from_str("10.0.0.0").unwrap(), bits: 8 }], ..Default::default() };
     assert!(fs.ipset_match(IpAddr::from_str("10.255.255.255").unwrap()));
     assert!(!fs.ipset_match(IpAddr::from_str("11.0.0.1").unwrap()));
 }

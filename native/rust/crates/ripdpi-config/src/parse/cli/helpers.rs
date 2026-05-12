@@ -2,8 +2,8 @@ use std::net::IpAddr;
 use std::str::FromStr;
 
 use crate::{
-    Cidr, ConfigError, DesyncGroup, RuntimeConfig, TcpChainStep, TcpChainStepKind, WsizeConfig, DETECT_CONNECT,
-    DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_QUIC_BREAKAGE, DETECT_RECONN,
+    Cidr, ConfigError, DesyncGroup, FilterSet, RuntimeConfig, TcpChainStep, TcpChainStepKind, WsizeConfig,
+    DETECT_CONNECT, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_QUIC_BREAKAGE, DETECT_RECONN,
     DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_ERR, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
 };
 
@@ -29,24 +29,49 @@ pub(super) fn parse_auto_detect_token(token: &str) -> Option<u32> {
 }
 
 pub fn parse_hosts_spec(spec: &str) -> Result<Vec<String>, ConfigError> {
-    let mut out = Vec::new();
+    Ok(parse_host_filter_spec(spec)?.hosts)
+}
+
+pub fn parse_host_filter_spec(spec: &str) -> Result<FilterSet, ConfigError> {
+    let mut filters = FilterSet::default();
     for token in spec.split_whitespace() {
-        let mut normalized = String::with_capacity(token.len());
-        let mut valid = true;
-        for ch in token.chars() {
-            match lower_host_char(ch) {
-                Some(lower) => normalized.push(lower),
-                None => {
-                    valid = false;
-                    break;
-                }
-            }
+        if let Some(country) = token.strip_prefix("geoip:") {
+            filters.geoip_countries.push(normalize_geo_token(country, "geoip")?);
+            continue;
         }
-        if valid && !normalized.is_empty() {
-            out.push(normalized);
+        if let Some(category) = token.strip_prefix("geosite:") {
+            filters.geosite_categories.push(normalize_geo_token(category, "geosite")?);
+            continue;
+        }
+        if let Some(host) = normalize_host_token(token) {
+            filters.hosts.push(host);
         }
     }
-    Ok(out)
+    Ok(filters)
+}
+
+fn normalize_host_token(token: &str) -> Option<String> {
+    let mut normalized = String::with_capacity(token.len());
+    for ch in token.chars() {
+        match lower_host_char(ch) {
+            Some(lower) => normalized.push(lower),
+            None => return None,
+        }
+    }
+    if normalized.is_empty() {
+        return None;
+    }
+    Some(normalized)
+}
+
+fn normalize_geo_token(token: &str, prefix: &str) -> Result<String, ConfigError> {
+    let normalized = token.trim().to_ascii_lowercase();
+    if normalized.is_empty()
+        || !normalized.chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || matches!(ch, '-' | '_'))
+    {
+        return Err(ConfigError::invalid("--hosts", Some(format!("{prefix}:{token}"))));
+    }
+    Ok(normalized)
 }
 
 fn parse_ip_token(token: &str) -> Result<Cidr, ConfigError> {

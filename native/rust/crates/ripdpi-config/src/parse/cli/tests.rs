@@ -1,4 +1,4 @@
-use super::helpers::{parse_numeric_addr, seconds_to_millis};
+use super::helpers::{parse_host_filter_spec, parse_numeric_addr, seconds_to_millis};
 use super::*;
 use crate::{
     AutoTtlConfig, Cidr, EntropyMode, NumericRange, OffsetBase, OffsetExpr, ParseResult, QuicFakeProfile,
@@ -20,6 +20,15 @@ fn parse_hosts_spec_normalizes_and_skips_invalid_tokens() {
 fn parse_hosts_spec_trims_whitespace() {
     let hosts = parse_hosts_spec("  example.com  ").unwrap();
     assert_eq!(hosts, vec!["example.com"]);
+}
+
+#[test]
+fn parse_host_filter_spec_extracts_geo_rules() {
+    let filters = parse_host_filter_spec("Example.COM geoip:RU geosite:YouTube bad^host").expect("parse host filters");
+
+    assert_eq!(filters.hosts, vec!["example.com"]);
+    assert_eq!(filters.geoip_countries, vec!["ru"]);
+    assert_eq!(filters.geosite_categories, vec!["youtube"]);
 }
 
 #[test]

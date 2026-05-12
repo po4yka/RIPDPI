@@ -2,7 +2,7 @@ use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP};
 
 use crate::{ConfigError, AUTO_NOPOST, AUTO_RECONN, AUTO_SORT};
 
-use super::super::helpers::{next_value, parse_auto_detect_token, parse_hosts_spec, parse_ipset_spec};
+use super::super::helpers::{next_value, parse_auto_detect_token, parse_host_filter_spec, parse_ipset_spec};
 use super::super::state::CliState;
 use crate::parse::fake_profiles::file_or_inline_bytes;
 use crate::parse::offsets::{parse_payload_size_range_spec, parse_round_range_spec, parse_stream_byte_range_spec};
@@ -32,11 +32,11 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
         "-A" | "--auto" => {
             let value = next_value(args, idx, arg)?;
             let current = state.config.groups.get(state.current_group_index).expect("group");
-            if current.matches.filters.hosts.is_empty()
+            if current.matches.filters.host_filters_empty()
                 && current.matches.proto == 0
                 && current.matches.port_filter.is_none()
                 && current.matches.detect == 0
-                && current.matches.filters.ipset.is_empty()
+                && current.matches.filters.ip_filters_empty()
             {
                 state.all_limited = false;
             }
@@ -94,7 +94,10 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
             let value = next_value(args, idx, arg)?;
             let data = file_or_inline_bytes(value)?;
             let text = String::from_utf8_lossy(&data);
-            state.group().matches.filters.hosts.extend(parse_hosts_spec(&text)?);
+            let parsed = parse_host_filter_spec(&text)?;
+            state.group().matches.filters.hosts.extend(parsed.hosts);
+            state.group().matches.filters.geoip_countries.extend(parsed.geoip_countries);
+            state.group().matches.filters.geosite_categories.extend(parsed.geosite_categories);
         }
         "-j" | "--ipset" => {
             let value = next_value(args, idx, arg)?;

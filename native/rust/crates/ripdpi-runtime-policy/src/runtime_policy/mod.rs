@@ -24,6 +24,7 @@ pub use types::{
 #[doc(hidden)]
 pub use matching::{
     extract_host, extract_host_info, group_requires_payload, is_tls_client_hello_payload, route_matches_payload,
+    route_matches_payload_with_geo, GeoMatcher,
 };
 
 const HOST_AUTOLEARN_STORE_VERSION: u32 = 1;
