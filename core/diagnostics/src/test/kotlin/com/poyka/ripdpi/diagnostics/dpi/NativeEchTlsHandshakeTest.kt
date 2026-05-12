@@ -31,6 +31,7 @@ class NativeEchTlsHandshakeTest {
                     """"echConfigBytesB64":"${Base64.getEncoder().encodeToString(byteArrayOf(1, 2, 3))}"""",
                 ),
             )
+            assertTrue(bindings.lastRequestJson.contains(""""connectTimeoutMs":10000"""))
         }
 
     @Test

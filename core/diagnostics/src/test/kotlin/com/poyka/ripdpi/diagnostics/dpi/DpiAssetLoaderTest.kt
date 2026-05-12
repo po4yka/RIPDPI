@@ -28,6 +28,7 @@ class DpiAssetLoaderTest {
         assertEquals(5, loader.loadCidrRegularUrls().size)
         assertEquals(21, loader.loadIpv4WhitelistAsns().size)
         assertEquals(12, loader.loadDohBootstrapSubnetMetadata().size)
+        assertEquals(3, loader.loadQuicFingerprintFixtures().size)
         assertEquals(
             listOf("cloudflare.com", "fastly.com", "mozilla.org", "cloudflare-ech.com"),
             loader.loadEchTargets(),
@@ -142,6 +143,33 @@ class DpiAssetLoaderTest {
             )
 
         assertEquals(listOf("override-ech.example"), loader.loadEchTargets())
+    }
+
+    @Test
+    fun quicFingerprintFixtureUserOverrideTakesPrecedenceOverBundledAsset() {
+        val filesDir = createTempDirectory().toFile()
+        File(filesDir, "dpi/quic_fingerprints/chrome120.bin").also { file ->
+            file.parentFile?.mkdirs()
+            file.writeText("010203")
+        }
+        val loader =
+            DpiAssetLoader(
+                fileProvider =
+                    FakeDpiAssetFileProvider(
+                        filesDir = filesDir,
+                        assets =
+                            mapOf(
+                                "dpi/quic_fingerprints/chrome120.bin" to "aa",
+                                "dpi/quic_fingerprints/firefox121.bin" to "bb",
+                                "dpi/quic_fingerprints/generic_v1.bin" to "cc",
+                            ),
+                    ),
+            )
+
+        assertEquals(
+            listOf(1.toByte(), 2.toByte(), 3.toByte()),
+            loader.loadQuicFingerprintFixtures().getValue(QuicFingerprint.CHROME_120).toList(),
+        )
     }
 
     @Test
@@ -297,15 +325,15 @@ class DpiAssetLoaderTest {
         override fun openAsset(relativePath: String): InputStream =
             ByteArrayInputStream(requireNotNull(assets[relativePath]).toByteArray())
     }
+}
 
-    private class RepoDpiAssetFileProvider : DpiAssetFileProvider {
-        private val filesDir = createTempDirectory().toFile()
+class RepoDpiAssetFileProvider : DpiAssetFileProvider {
+    private val filesDir = createTempDirectory().toFile()
 
-        override fun overrideFile(relativePath: String): File = File(filesDir, relativePath)
+    override fun overrideFile(relativePath: String): File = File(filesDir, relativePath)
 
-        override fun openAsset(relativePath: String): InputStream =
-            repoFixture("core/diagnostics/src/main/assets/$relativePath").inputStream()
-    }
+    override fun openAsset(relativePath: String): InputStream =
+        repoFixture("core/diagnostics/src/main/assets/$relativePath").inputStream()
 }
 
 private fun repoFixture(path: String): File {

@@ -1,9 +1,13 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import android.net.DnsResolver
+import android.net.Network
+import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -14,7 +18,10 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.Base64
+import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 data class HttpsRrRecord(
     val priority: Int,
@@ -36,12 +43,19 @@ fun interface HttpsRrQuery {
 
 class HttpsRrResolver(
     private val query: HttpsRrQuery = DohWireHttpsRrQuery(),
+    private val fallbackQuery: HttpsRrQuery? = AndroidSystemHttpsRrQuery(),
 ) {
-    suspend fun fetch(host: String): HttpsRrRecord? =
-        query
-            .query(host)
-            .filter { record -> !record.echConfig.isNullOrEmptyBytes() }
-            .minByOrNull { record -> record.priority }
+    suspend fun fetch(host: String): HttpsRrRecord? {
+        val primary =
+            runCatching {
+                query.query(host).selectEchRecord()
+            }.getOrNull()
+        if (primary != null) return primary
+        return fallbackQuery?.query(host)?.selectEchRecord()
+    }
+
+    private fun List<HttpsRrRecord>.selectEchRecord(): HttpsRrRecord? =
+        filter { record -> !record.echConfig.isNullOrEmptyBytes() }.minByOrNull { record -> record.priority }
 }
 
 object Rfc9460HttpsRecordCodec {
@@ -131,14 +145,53 @@ class DohWireHttpsRrQuery(
     }
 }
 
+class AndroidSystemHttpsRrQuery(
+    private val network: Network? = null,
+    private val resolverProvider: () -> DnsResolver = DnsResolver::getInstance,
+    private val executor: Executor = Executor { command -> command.run() },
+) : HttpsRrQuery {
+    override suspend fun query(host: String): List<HttpsRrRecord> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return emptyList()
+        val bytes =
+            suspendCancellableCoroutine { continuation ->
+                resolverProvider().rawQuery(
+                    network,
+                    host,
+                    DnsResolver.CLASS_IN,
+                    HttpsDnsWireBuilder.HttpsRecordType,
+                    DnsResolver.FLAG_EMPTY,
+                    executor,
+                    null,
+                    object : DnsResolver.Callback<ByteArray> {
+                        override fun onAnswer(
+                            answer: ByteArray,
+                            rcode: Int,
+                        ) {
+                            if (rcode == 0) {
+                                continuation.resume(answer)
+                            } else {
+                                continuation.resume(ByteArray(0))
+                            }
+                        }
+
+                        override fun onError(error: DnsResolver.DnsException) {
+                            continuation.resumeWithException(error)
+                        }
+                    },
+                )
+            }
+        return HttpsDnsWireParser.parseResponse(bytes)
+    }
+}
+
 private object HttpsDnsWireParser {
     fun parseResponse(
         bytes: ByteArray,
-        transactionId: Int,
+        transactionId: Int? = null,
     ): List<HttpsRrRecord> =
         runCatching {
             if (bytes.size < DnsHeaderLength) return emptyList()
-            if (bytes.readU16(0) != transactionId) return emptyList()
+            if (transactionId != null && bytes.readU16(0) != transactionId) return emptyList()
             val flags = bytes.readU16(2)
             if (flags and ResponseFlag == 0) return emptyList()
             if (flags and RcodeMask != 0) return emptyList()

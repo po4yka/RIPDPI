@@ -22,7 +22,11 @@ class NativeEchTlsHandshakeNativeBindings : NativeEchTlsHandshakeBindings {
 class NativeEchTlsHandshake(
     private val bindings: NativeEchTlsHandshakeBindings = NativeEchTlsHandshakeNativeBindings(),
 ) : EchTlsHandshake {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
 
     override suspend fun connect(
         target: String,

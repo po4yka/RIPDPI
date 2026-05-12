@@ -56,6 +56,7 @@ class DpiAssetLoader(
     private var cachedDohBootstrapSubnetMetadata: List<SubnetMetadata>? = null
     private var cachedRknWhitelistControl: List<RknTarget>? = null
     private var cachedRknBlacklistTest: List<RknTarget>? = null
+    private var cachedQuicFingerprintFixtures: Map<QuicFingerprint, ByteArray>? = null
 
     fun loadTcp16Targets(): List<Tcp16Target> =
         cachedTcp16Targets ?: loadText(Tcp16TargetsPath)
@@ -125,6 +126,11 @@ class DpiAssetLoader(
         cachedRknBlacklistTest ?: loadText(RknBlacklistTestPath)
             .let(RknTargetListParser::parse)
             .also { cachedRknBlacklistTest = it }
+
+    fun loadQuicFingerprintFixtures(): Map<QuicFingerprint, ByteArray> =
+        cachedQuicFingerprintFixtures ?: QuicFingerprintFixturePaths
+            .mapValues { (_, path) -> loadText(path).decodeHexBytes() }
+            .also { cachedQuicFingerprintFixtures = it }
 
     private fun loadText(relativePath: String): String {
         val override = fileProvider.overrideFile(relativePath)
@@ -198,6 +204,17 @@ class DpiAssetLoader(
             .filter { line -> line.isNotEmpty() && !line.startsWith(CommentPrefix) }
             .toList()
 
+    private fun String.decodeHexBytes(): ByteArray {
+        val normalized = lineSequence().map(String::trim).filter(String::isNotBlank).joinToString(separator = "")
+        require(normalized.length % 2 == 0) { "Hex asset must contain an even number of digits" }
+        return ByteArray(normalized.length / 2) { index ->
+            normalized
+                .substring(index * 2, index * 2 + 2)
+                .toInt(radix = HexRadix)
+                .toByte()
+        }
+    }
+
     private companion object {
         private const val Tcp16TargetsPath = "dpi/tcp16.json"
         private const val DomainsPath = "dpi/domains.txt"
@@ -215,6 +232,13 @@ class DpiAssetLoader(
         private const val RknBlacklistTestPath = "rkn/rkn_blacklist_test.txt"
         private const val LegacyTypoPortField = ",port"
         private const val CommentPrefix = "#"
+        private const val HexRadix = 16
+        private val QuicFingerprintFixturePaths =
+            mapOf(
+                QuicFingerprint.CHROME_120 to "dpi/quic_fingerprints/chrome120.bin",
+                QuicFingerprint.FIREFOX_121 to "dpi/quic_fingerprints/firefox121.bin",
+                QuicFingerprint.GENERIC_V1 to "dpi/quic_fingerprints/generic_v1.bin",
+            )
     }
 }
 

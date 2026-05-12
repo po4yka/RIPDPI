@@ -69,6 +69,24 @@ class QuicFingerprintFactoryTest {
         assertNull(packet)
     }
 
+    @Test
+    fun bundledFingerprintFixturesMatchDeterministicInitialsForCloudflare() {
+        val fixtures = DpiAssetLoader(fileProvider = RepoDpiAssetFileProvider()).loadQuicFingerprintFixtures()
+
+        assertArrayEquals(
+            fixtures.getValue(QuicFingerprint.CHROME_120),
+            QuicFingerprintFactory.createSynthetic(QuicFingerprint.CHROME_120, "cloudflare.com"),
+        )
+        assertArrayEquals(
+            fixtures.getValue(QuicFingerprint.FIREFOX_121),
+            QuicFingerprintFactory.createSynthetic(QuicFingerprint.FIREFOX_121, "cloudflare.com"),
+        )
+        assertArrayEquals(
+            fixtures.getValue(QuicFingerprint.GENERIC_V1),
+            QuicFingerprintFactory.createSynthetic(QuicFingerprint.GENERIC_V1, "cloudflare.com"),
+        )
+    }
+
     private fun ByteArray.version(): Int =
         ((this[1].toInt() and 0xFF) shl 24) or
             ((this[2].toInt() and 0xFF) shl 16) or
