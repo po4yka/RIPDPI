@@ -3844,6 +3844,7 @@ dependencies = [
  "loom",
  "native-soak-support",
  "ring",
+ "ripdpi-geo",
  "ripdpi-io-uring",
  "ripdpi-packets",
  "ripdpi-proxy-runtime-adapter",

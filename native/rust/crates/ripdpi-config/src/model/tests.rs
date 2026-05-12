@@ -387,6 +387,8 @@ fn runtime_config_adapter_views_round_trip() {
     let process = RuntimeProcessSettings {
         debug: 3,
         protect_path: Some("protect.sock".to_string()),
+        geoip_db_path: Some("geoip.db".to_string()),
+        geosite_db_path: Some("geosite.db".to_string()),
         daemonize: true,
         pid_file: Some("ripdpi.pid".to_string()),
         root_mode: false,

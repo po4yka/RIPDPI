@@ -128,6 +128,12 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
         "-P" | "--protect-path" => {
             state.config.process.protect_path = Some(next_value(args, idx, arg)?.to_owned());
         }
+        "--geoip-db" => {
+            state.config.process.geoip_db_path = Some(next_value(args, idx, arg)?.to_owned());
+        }
+        "--geosite-db" => {
+            state.config.process.geosite_db_path = Some(next_value(args, idx, arg)?.to_owned());
+        }
         "--ws-tunnel-fake-sni" => {
             state.config.adaptive.ws_tunnel_fake_sni = Some(next_value(args, idx, arg)?.to_string());
         }

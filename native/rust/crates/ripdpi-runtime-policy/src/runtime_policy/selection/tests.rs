@@ -1,11 +1,14 @@
 use std::collections::BTreeMap;
+use std::net::IpAddr;
 
 use ripdpi_config::{DesyncGroup, DETECT_RECONN};
 use ripdpi_failure_classifier::BlockSignal;
 
 use crate::runtime_policy::test_support::{autolearn_config, config_with_groups, sample_dest};
 use crate::runtime_policy::types::LearnedGroupStats;
-use crate::runtime_policy::{now_millis, ConnectionRoute, RetrySelectionPenalty, RuntimePolicy, TransportProtocol};
+use crate::runtime_policy::{
+    now_millis, ConnectionRoute, GeoMatcher, RetrySelectionPenalty, RuntimePolicy, TransportProtocol,
+};
 
 #[test]
 fn select_initial_group_skips_detect_only_groups() {
@@ -121,6 +124,46 @@ fn select_next_group_uses_diversification_rank_as_tiebreaker() {
 }
 
 #[test]
+fn select_initial_with_geo_matches_geoip_group() {
+    let mut geo_group = DesyncGroup::new(0);
+    geo_group.matches.filters.geoip_countries.push("se".to_string());
+    let fallback = DesyncGroup::new(1);
+    let config = config_with_groups(vec![geo_group, fallback]);
+    let mut policy = RuntimePolicy::load(&config);
+    let geo = FakeGeoMatcher { country: Some((sample_dest(443).ip(), "se")), geosite: None };
+
+    let route = policy
+        .select_initial_with_geo(sample_dest(443), None, None, true, TransportProtocol::Tcp, &config, Some(&geo))
+        .expect("geoip route");
+
+    assert_eq!(route.group_index, 0);
+}
+
+#[test]
+fn select_initial_with_geo_matches_geosite_group() {
+    let mut geosite_group = DesyncGroup::new(0);
+    geosite_group.matches.filters.geosite_categories.push("video".to_string());
+    let fallback = DesyncGroup::new(1);
+    let config = config_with_groups(vec![geosite_group, fallback]);
+    let mut policy = RuntimePolicy::load(&config);
+    let geo = FakeGeoMatcher { country: None, geosite: Some(("video", "example.test")) };
+
+    let route = policy
+        .select_initial_with_geo(
+            sample_dest(443),
+            Some(b"GET / HTTP/1.1\r\nHost: media.example.test\r\n\r\n"),
+            None,
+            false,
+            TransportProtocol::Tcp,
+            &config,
+            Some(&geo),
+        )
+        .expect("geosite route");
+
+    assert_eq!(route.group_index, 0);
+}
+
+#[test]
 fn host_preference_outranks_destination_cache() {
     let config = autolearn_config(2, 32);
     let dest = sample_dest(443);
@@ -136,6 +179,24 @@ fn host_preference_outranks_destination_cache() {
         .expect("host-aware route");
 
     assert_eq!(route.group_index, 1);
+}
+
+struct FakeGeoMatcher {
+    country: Option<(IpAddr, &'static str)>,
+    geosite: Option<(&'static str, &'static str)>,
+}
+
+impl GeoMatcher for FakeGeoMatcher {
+    fn country_matches_ip(&self, country_code: &str, ip: IpAddr) -> bool {
+        self.country
+            .is_some_and(|(candidate_ip, candidate_country)| candidate_ip == ip && candidate_country == country_code)
+    }
+
+    fn geosite_matches_host(&self, category: &str, host: &str) -> bool {
+        self.geosite.is_some_and(|(candidate_category, root_domain)| {
+            candidate_category == category && (host == root_domain || host.ends_with(&format!(".{root_domain}")))
+        })
+    }
 }
 
 #[test]

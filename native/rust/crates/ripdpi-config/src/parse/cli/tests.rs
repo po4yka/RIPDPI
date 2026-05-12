@@ -264,6 +264,23 @@ fn parse_cli_uses_shadowsocks_startup_port_and_protect_path() {
 }
 
 #[test]
+fn parse_cli_reads_geo_database_paths() {
+    let args = vec![
+        "--geoip-db".to_string(),
+        "/tmp/geoip.db".to_string(),
+        "--geosite-db".to_string(),
+        "/tmp/geosite.db".to_string(),
+    ];
+
+    let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+        panic!("expected run config");
+    };
+
+    assert_eq!(config.process.geoip_db_path.as_deref(), Some("/tmp/geoip.db"));
+    assert_eq!(config.process.geosite_db_path.as_deref(), Some("/tmp/geosite.db"));
+}
+
+#[test]
 fn parse_cli_prefers_ss_plugin_options_over_explicit_args() {
     let startup = StartupEnv {
         ss_local_port: None,

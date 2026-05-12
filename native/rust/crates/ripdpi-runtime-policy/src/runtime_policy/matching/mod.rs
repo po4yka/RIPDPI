@@ -70,6 +70,18 @@ pub(super) fn group_matches(
     group_matches_predicate(config, group, dest, payload, allow_unknown_payload, transport)
 }
 
+pub(super) fn group_matches_with_geo(
+    config: &RuntimeConfig,
+    group: &DesyncGroup,
+    dest: SocketAddr,
+    payload: Option<&[u8]>,
+    allow_unknown_payload: bool,
+    transport: TransportProtocol,
+    geo: Option<&dyn GeoMatcher>,
+) -> bool {
+    predicates::group_matches_with_geo(config, group, dest, payload, allow_unknown_payload, transport, geo)
+}
+
 #[cfg(test)]
 mod tests {
     use std::net::{IpAddr, SocketAddr};

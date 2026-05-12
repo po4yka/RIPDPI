@@ -5,7 +5,7 @@ use super::ports::AdaptiveFeedbackPort;
 use super::proxy_config::ProxyRuntimeContext;
 use super::runtime_api::RuntimeTelemetrySink;
 
-pub use ripdpi_runtime_services::{ServicesState, ServicesStateHandle};
+pub use ripdpi_runtime_services::{GeoMatcher, ServicesState, ServicesStateHandle};
 
 pub fn new_services_handle(
     config: RuntimeConfig,

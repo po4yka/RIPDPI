@@ -56,7 +56,15 @@ impl RuntimeState {
         allow_unknown_payload: bool,
         transport: RuntimeTransportProtocol,
     ) -> Option<RuntimeConnectionRoute> {
-        PolicyPort::select_initial(&self.services, target, payload, host, allow_unknown_payload, transport)
+        PolicyPort::select_initial(
+            &self.services,
+            target,
+            payload,
+            host,
+            allow_unknown_payload,
+            transport,
+            self.geo_matcher.as_deref().map(|matcher| matcher as &dyn GeoMatcher),
+        )
     }
     #[allow(clippy::too_many_arguments)]
     pub(in crate::runtime) fn select_next_route(
@@ -80,6 +88,7 @@ impl RuntimeState {
             trigger,
             can_reconnect,
             retry_penalties,
+            self.geo_matcher.as_deref().map(|matcher| matcher as &dyn GeoMatcher),
         )
     }
     pub(in crate::runtime) fn note_route_success(

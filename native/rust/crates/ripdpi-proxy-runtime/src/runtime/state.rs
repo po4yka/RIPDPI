@@ -8,7 +8,7 @@ use super::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_route_matches_payload_with, ensure_default_ttl,
     first_response_timeout, first_response_timeout_count_limit, listener_settings, primary_tcp_strategy_family_with,
     relay_group_settings_with, route_matches_transport_payload_with, route_requires_delay_payload_with,
-    runtime_config_projection, should_rebind_udp_source_port_with, tcp_rotation_seed_with,
+    runtime_config_projection_with_geo, should_rebind_udp_source_port_with, tcp_rotation_seed_with,
     tcp_route_connect_settings_with, udp_flow_at_capacity, udp_group_settings_with, DelayedConnectSettings,
     FirstResponseSettings, ListenerSettings, NetworkReprobeSettings, ProxyHandshakeSettings, ProxyProtocolMode,
     RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RoutePayloadMatcher, RuntimeConfig,
@@ -77,6 +77,7 @@ use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, N
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{
     current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink,
 };
+use ripdpi_proxy_runtime_adapter::model::services::GeoMatcher;
 use ripdpi_proxy_runtime_adapter::model::services::{
     new_services_handle, reprobe_reset_handle, ReprobeResetHandle, ServicesStateHandle,
 };
@@ -111,6 +112,7 @@ pub(super) struct RuntimeState {
     first_outbound_payload_policy: FirstOutboundPayloadPolicy,
     first_response_exchange_policy: RuntimeFirstResponseExchangePolicy,
     response_failure_evidence_settings: ResponseFailureEvidenceSettings,
+    geo_matcher: Option<std::sync::Arc<dyn GeoMatcher + Send + Sync>>,
     services: ServicesStateHandle,
     active_clients: Arc<AtomicUsize>,
     telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
@@ -178,6 +180,7 @@ impl RuntimeState {
         let runtime_context = control.as_ref().and_then(|c| c.runtime_context());
 
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
+        let geo_matcher = super::geo::load_runtime_geo_matcher(&config);
 
         let RuntimeConfigProjection {
             listener_settings,
@@ -195,7 +198,7 @@ impl RuntimeState {
             relay_group_settings,
             relay_first_response,
             response_failure_evidence_settings,
-        } = runtime_config_projection(&config);
+        } = runtime_config_projection_with_geo(&config, geo_matcher.clone());
         let RuntimeSessionProjection {
             udp_packet_parser,
             udp_payload_classifier,
@@ -228,6 +231,7 @@ impl RuntimeState {
             first_outbound_payload_policy,
             first_response_exchange_policy,
             response_failure_evidence_settings,
+            geo_matcher,
             services: handle,
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry,

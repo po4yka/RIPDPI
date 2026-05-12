@@ -4,7 +4,7 @@ use ripdpi_config::{DesyncGroup, RuntimeConfig};
 use ripdpi_desync::AdaptivePlannerHints;
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyMorphPolicy, ProxyRuntimeContext};
-use ripdpi_runtime_policy::{DnsTamperingEvidence, ExtractedHost, TransportProtocol};
+use ripdpi_runtime_policy::{DnsTamperingEvidence, ExtractedHost, GeoMatcher, TransportProtocol};
 
 pub fn direct_path_capability_for_route<'a>(
     context: Option<&'a ProxyRuntimeContext>,
@@ -65,6 +65,22 @@ pub fn route_matches_payload(
     transport: TransportProtocol,
 ) -> bool {
     ripdpi_runtime_policy::route_matches_payload(config, group_index, dest, payload, transport)
+}
+
+pub fn route_matches_payload_with_geo(
+    config: &RuntimeConfig,
+    group_index: usize,
+    dest: SocketAddr,
+    payload: &[u8],
+    transport: TransportProtocol,
+    geo: Option<&dyn GeoMatcher>,
+) -> bool {
+    match geo {
+        Some(geo) => {
+            ripdpi_runtime_policy::route_matches_payload_with_geo(config, group_index, dest, payload, transport, geo)
+        }
+        None => ripdpi_runtime_policy::route_matches_payload(config, group_index, dest, payload, transport),
+    }
 }
 
 pub fn extract_host(config: &RuntimeConfig, payload: &[u8]) -> Option<String> {

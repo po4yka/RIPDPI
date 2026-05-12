@@ -13,12 +13,14 @@ pub(super) use ripdpi_proxy_runtime_adapter::model::config::{
 pub(super) use ripdpi_proxy_runtime_adapter::model::config::{
     first_response_settings, WsTunnelMode, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
 };
+use ripdpi_proxy_runtime_adapter::model::services::GeoMatcher;
+use std::sync::Arc;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
     delayed_connect_settings, first_response_settings as projected_first_response_settings, network_reprobe_settings,
-    proxy_handshake_settings, relay_group_settings_table, response_failure_evidence_settings, route_payload_matcher,
-    tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit, udp_group_settings_table,
-    warmup_probe_settings, ws_tunnel_settings,
+    proxy_handshake_settings, relay_group_settings_table, response_failure_evidence_settings,
+    route_payload_matcher_with_geo, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit,
+    udp_group_settings_table, warmup_probe_settings, ws_tunnel_settings,
 };
 
 pub(super) struct RuntimeConfigProjection {
@@ -39,7 +41,10 @@ pub(super) struct RuntimeConfigProjection {
     pub(super) response_failure_evidence_settings: ResponseFailureEvidenceSettings,
 }
 
-pub(super) fn runtime_config_projection(config: &RuntimeConfig) -> RuntimeConfigProjection {
+pub(super) fn runtime_config_projection_with_geo(
+    config: &RuntimeConfig,
+    geo: Option<Arc<dyn GeoMatcher + Send + Sync>>,
+) -> RuntimeConfigProjection {
     RuntimeConfigProjection {
         listener_settings: listener_settings(config),
         handshake_settings: proxy_handshake_settings(config),
@@ -51,7 +56,7 @@ pub(super) fn runtime_config_projection(config: &RuntimeConfig) -> RuntimeConfig
         route_syn_data_settings: tcp_route_syn_data_settings(config),
         route_connect_settings: tcp_route_connect_settings_table(config),
         udp_group_settings: udp_group_settings_table(config),
-        route_payload_matcher: route_payload_matcher(config),
+        route_payload_matcher: route_payload_matcher_with_geo(config, geo),
         udp_flow_limit: udp_flow_limit(config),
         relay_group_settings: relay_group_settings_table(config),
         relay_first_response: projected_first_response_settings(config),

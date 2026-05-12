@@ -6,10 +6,12 @@ use ripdpi_config::{RuntimeConfig, DETECT_RECONN};
 use crate::runtime_policy::autolearn::{
     host_has_active_block, host_penalty_active_for_group, record_has_learned_winner,
 };
-use crate::runtime_policy::matching::group_matches;
+use crate::runtime_policy::matching::group_matches_with_geo;
 use crate::runtime_policy::selection::retry_penalty::select_best_candidate;
 use crate::runtime_policy::types::LearnedHostRecord;
-use crate::runtime_policy::{now_millis, ConnectionRoute, RetrySelectionPenalty, RuntimePolicy, TransportProtocol};
+use crate::runtime_policy::{
+    now_millis, ConnectionRoute, GeoMatcher, RetrySelectionPenalty, RuntimePolicy, TransportProtocol,
+};
 
 pub(crate) fn select_host_route(
     policy: &RuntimePolicy,
@@ -19,11 +21,12 @@ pub(crate) fn select_host_route(
     payload: Option<&[u8]>,
     allow_unknown_payload: bool,
     transport: TransportProtocol,
+    geo: Option<&dyn GeoMatcher>,
 ) -> Option<ConnectionRoute> {
     let record = policy.learned_hosts(config).get(host)?;
     if host_has_active_block(record, now_millis()) && !record_has_learned_winner(record) {
         if let Some(route) =
-            select_blocked_host_route(policy, config, record, dest, payload, allow_unknown_payload, transport)
+            select_blocked_host_route(policy, config, record, dest, payload, allow_unknown_payload, transport, geo)
         {
             return Some(route);
         }
@@ -40,6 +43,7 @@ pub(crate) fn select_host_route(
         true,
         false,
         None,
+        geo,
     ) {
         return Some(route);
     }
@@ -55,7 +59,7 @@ pub(crate) fn select_host_route(
         if rejected_mask & group.bit != 0 || policy.detect_for(config, idx) != 0 {
             continue;
         }
-        if group_matches(config, group, dest, payload, allow_unknown_payload, transport) {
+        if group_matches_with_geo(config, group, dest, payload, allow_unknown_payload, transport, geo) {
             eligible.push(idx);
         } else {
             rejected_mask |= group.bit;
@@ -77,6 +81,7 @@ pub(crate) fn select_host_route(
         true,
         true,
         None,
+        geo,
     )
 }
 
@@ -92,6 +97,7 @@ pub(crate) fn select_host_route_after(
     trigger: u32,
     can_reconnect: bool,
     retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
+    geo: Option<&dyn GeoMatcher>,
 ) -> Option<ConnectionRoute> {
     let record = policy.learned_hosts(config).get(host)?;
     let mut attempted_mask = route.attempted_mask | config.groups[route.group_index].bit;
@@ -107,6 +113,7 @@ pub(crate) fn select_host_route_after(
         can_reconnect,
         false,
         retry_penalties,
+        geo,
     ) {
         return Some(route);
     }
@@ -131,7 +138,7 @@ pub(crate) fn select_host_route_after(
             rejected_mask |= group.bit;
             continue;
         }
-        if group_matches(config, group, dest, payload, false, transport) {
+        if group_matches_with_geo(config, group, dest, payload, false, transport, geo) {
             eligible.push(idx);
         } else {
             rejected_mask |= group.bit;
@@ -153,6 +160,7 @@ pub(crate) fn select_host_route_after(
         can_reconnect,
         true,
         retry_penalties,
+        geo,
     )
 }
 
@@ -164,6 +172,7 @@ fn select_blocked_host_route(
     payload: Option<&[u8]>,
     allow_unknown_payload: bool,
     transport: TransportProtocol,
+    geo: Option<&dyn GeoMatcher>,
 ) -> Option<ConnectionRoute> {
     let now_ms = now_millis();
     let mut attempted_mask = 0u64;
@@ -173,7 +182,7 @@ fn select_blocked_host_route(
         if policy.detect_for(config, idx) != 0 {
             continue;
         }
-        if group_matches(config, group, dest, payload, allow_unknown_payload, transport) {
+        if group_matches_with_geo(config, group, dest, payload, allow_unknown_payload, transport, geo) {
             eligible.push(idx);
         } else {
             attempted_mask |= group.bit;
@@ -195,6 +204,7 @@ fn preferred_host_candidate(
     can_reconnect: bool,
     penalized: bool,
     retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
+    geo: Option<&dyn GeoMatcher>,
 ) -> Option<ConnectionRoute> {
     let now_ms = now_millis();
     let mut next_mask = attempted_mask;
@@ -213,7 +223,7 @@ fn preferred_host_candidate(
             next_mask |= group.bit;
             continue;
         }
-        if group_matches(config, group, dest, payload, allow_unknown_payload, transport) {
+        if group_matches_with_geo(config, group, dest, payload, allow_unknown_payload, transport, geo) {
             eligible.push(idx);
         } else {
             next_mask |= group.bit;

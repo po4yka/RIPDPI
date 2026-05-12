@@ -4,6 +4,7 @@ use std::net::SocketAddr;
 use ripdpi_failure_classifier::BlockSignal;
 
 use crate::direct_path_learning::DirectPathLearningObserver;
+use crate::runtime_policy::GeoMatcher;
 use crate::runtime_policy::{
     ConnectionRoute, HostAutolearnEvent, HostAutolearnState, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
 };
@@ -68,6 +69,7 @@ pub trait PolicyPort: Send + Sync {
         host: Option<&str>,
         allow_unknown_payload: bool,
         transport: TransportProtocol,
+        geo: Option<&dyn GeoMatcher>,
     ) -> Option<ConnectionRoute>;
 
     fn note_success(
@@ -101,6 +103,7 @@ pub trait PolicyPort: Send + Sync {
         trigger: u32,
         can_reconnect: bool,
         retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
+        geo: Option<&dyn GeoMatcher>,
     ) -> Option<ConnectionRoute>;
 
     /// Persist a confirmed route for a destination (UDP hint caching).

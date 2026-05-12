@@ -1,7 +1,9 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
 use ripdpi_runtime_decision_ports::TransportProtocol;
+use ripdpi_runtime_services::GeoMatcher;
 
 pub fn selected_desync_group(config: &RuntimeConfig, group_index: usize) -> Option<&DesyncGroup> {
     config.groups.get(group_index)
@@ -24,10 +26,18 @@ pub fn route_matches_transport_payload(
 #[derive(Clone)]
 pub struct RoutePayloadMatcher {
     config: RuntimeConfig,
+    geo: Option<Arc<dyn GeoMatcher + Send + Sync>>,
 }
 
 pub fn route_payload_matcher(config: &RuntimeConfig) -> RoutePayloadMatcher {
-    RoutePayloadMatcher { config: config.clone() }
+    route_payload_matcher_with_geo(config, None)
+}
+
+pub fn route_payload_matcher_with_geo(
+    config: &RuntimeConfig,
+    geo: Option<Arc<dyn GeoMatcher + Send + Sync>>,
+) -> RoutePayloadMatcher {
+    RoutePayloadMatcher { config: config.clone(), geo }
 }
 
 pub fn route_matches_transport_payload_with(
@@ -37,7 +47,14 @@ pub fn route_matches_transport_payload_with(
     payload: &[u8],
     transport: TransportProtocol,
 ) -> bool {
-    route_matches_transport_payload(&matcher.config, group_index, target, payload, transport)
+    ripdpi_runtime_services::decision_helpers::route_matches_payload_with_geo(
+        &matcher.config,
+        group_index,
+        target,
+        payload,
+        transport,
+        matcher.geo.as_deref().map(|geo| geo as &dyn GeoMatcher),
+    )
 }
 
 pub fn route_requires_delay_payload_with(matcher: &RoutePayloadMatcher, group_index: usize) -> Option<bool> {

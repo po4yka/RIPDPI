@@ -7,6 +7,7 @@ mod strategy_evolution;
 
 use std::sync::Arc;
 
+pub use ripdpi_runtime_policy::GeoMatcher;
 pub use services_state::ServicesState;
 
 /// A cheaply-cloneable handle to [`ServicesState`] that implements the

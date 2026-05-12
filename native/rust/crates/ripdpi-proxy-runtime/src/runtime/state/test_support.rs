@@ -26,6 +26,7 @@ impl RuntimeState {
         runtime_context: Option<ProxyRuntimeContext>,
     ) -> Self {
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
+        let geo_matcher = super::super::geo::load_runtime_geo_matcher(&config);
         let RuntimeConfigProjection {
             listener_settings,
             handshake_settings,
@@ -42,7 +43,7 @@ impl RuntimeState {
             relay_group_settings,
             relay_first_response,
             response_failure_evidence_settings,
-        } = runtime_config_projection(&config);
+        } = runtime_config_projection_with_geo(&config, geo_matcher.clone());
         let RuntimeSessionProjection {
             udp_packet_parser,
             udp_payload_classifier,
@@ -75,6 +76,7 @@ impl RuntimeState {
             first_outbound_payload_policy,
             first_response_exchange_policy,
             response_failure_evidence_settings,
+            geo_matcher,
             services: handle,
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry,

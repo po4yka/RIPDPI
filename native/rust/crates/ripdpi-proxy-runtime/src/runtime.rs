@@ -2,6 +2,7 @@ mod adaptive;
 mod config;
 mod desync;
 mod failure;
+mod geo;
 mod handshake;
 mod listeners;
 mod payload;

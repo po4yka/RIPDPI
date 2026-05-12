@@ -78,6 +78,8 @@ pub enum EnvironmentKind {
 pub struct RuntimeProcessSettings {
     pub debug: i32,
     pub protect_path: Option<String>,
+    pub geoip_db_path: Option<String>,
+    pub geosite_db_path: Option<String>,
     pub daemonize: bool,
     pub pid_file: Option<String>,
     pub root_mode: bool,

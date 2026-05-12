@@ -8,6 +8,7 @@ use ripdpi_runtime_policy::runtime_policy::{
     ConnectionRoute, HostAutolearnEvent, HostAutolearnState, RetrySelectionPenalty, RouteAdvance, RuntimePolicy,
     TransportProtocol,
 };
+use ripdpi_runtime_policy::GeoMatcher;
 use ripdpi_runtime_policy::{DirectPathLearningPort, PolicyPort};
 
 use crate::services_state::ServicesState;
@@ -21,9 +22,11 @@ impl PolicyPort for ServicesStateHandle {
         host: Option<&str>,
         allow_unknown_payload: bool,
         transport: TransportProtocol,
+        geo: Option<&dyn GeoMatcher>,
     ) -> Option<ConnectionRoute> {
         let mut cache = self.0.policy.cache.write().ok()?;
-        let result = cache.select_initial(target, payload, host, allow_unknown_payload, transport, &self.0.config);
+        let result =
+            cache.select_initial_with_geo(target, payload, host, allow_unknown_payload, transport, &self.0.config, geo);
         self.0.flush_autolearn(&mut cache);
         result
     }
@@ -73,9 +76,10 @@ impl PolicyPort for ServicesStateHandle {
         trigger: u32,
         can_reconnect: bool,
         retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
+        geo: Option<&dyn GeoMatcher>,
     ) -> Option<ConnectionRoute> {
         let cache = self.0.policy.cache.read().ok()?;
-        cache.select_next(
+        cache.select_next_with_geo(
             &self.0.config,
             route,
             dest,
@@ -85,6 +89,7 @@ impl PolicyPort for ServicesStateHandle {
             trigger,
             can_reconnect,
             retry_penalties,
+            geo,
         )
     }
 
