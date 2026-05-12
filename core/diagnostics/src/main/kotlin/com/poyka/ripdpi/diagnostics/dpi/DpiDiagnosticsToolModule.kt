@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics.dpi
 import android.content.Context
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector
+import com.poyka.ripdpi.diagnostics.dpich.CompositeSubnetMetadataLookup
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetector
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer
@@ -11,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.dpich.OkHttpCidrWhitelistUrlProbe
 import com.poyka.ripdpi.diagnostics.dpich.OkHttpSubnetAliveProbe
 import com.poyka.ripdpi.diagnostics.dpich.OkHttpWebhostProbe
 import com.poyka.ripdpi.diagnostics.dpich.RipeStatClient
+import com.poyka.ripdpi.diagnostics.dpich.RuntimeSubnetMetadataLookup
 import com.poyka.ripdpi.diagnostics.dpich.SubnetsCache
 import com.poyka.ripdpi.diagnostics.dpich.WebhostFarm
 import com.poyka.ripdpi.diagnostics.dpich.loadDohProviderFilters
@@ -37,7 +39,13 @@ object DpiDiagnosticsToolModule {
             doqProbe = if (DpiDiagnosticsRuntimeFlags.includeQuic) DoqIntegrityProbe(client) else null,
             dohBootstrapDetector =
                 DohBootstrapSpoofingDetector(
-                    metadata = KnownDohProviderSubnetMetadataLookup(),
+                    metadata =
+                        CompositeSubnetMetadataLookup(
+                            listOf(
+                                RuntimeSubnetMetadataLookup(assetLoader.loadDohBootstrapSubnetMetadata()),
+                                KnownDohProviderSubnetMetadataLookup(),
+                            ),
+                        ),
                     providers = assetLoader.loadDohProviderFilters(),
                 ),
         )

@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import android.content.Context
+import com.poyka.ripdpi.diagnostics.dpich.IpRange
+import com.poyka.ripdpi.diagnostics.dpich.SubnetMetadata
 import com.poyka.ripdpi.diagnostics.dpich.WhitelistAsn
 import com.poyka.ripdpi.diagnostics.rkn.RknTarget
 import com.poyka.ripdpi.diagnostics.rkn.RknTargetListParser
@@ -51,6 +53,7 @@ class DpiAssetLoader(
     private var cachedCidrWhitelistedUrls: List<String>? = null
     private var cachedCidrRegularUrls: List<String>? = null
     private var cachedIpv4WhitelistAsns: List<WhitelistAsn>? = null
+    private var cachedDohBootstrapSubnetMetadata: List<SubnetMetadata>? = null
     private var cachedRknWhitelistControl: List<RknTarget>? = null
     private var cachedRknBlacklistTest: List<RknTarget>? = null
 
@@ -108,6 +111,11 @@ class DpiAssetLoader(
             .let(::parseIpv4WhitelistAsns)
             .also { cachedIpv4WhitelistAsns = it }
 
+    fun loadDohBootstrapSubnetMetadata(): List<SubnetMetadata> =
+        cachedDohBootstrapSubnetMetadata ?: loadText(DohBootstrapSubnetMetadataPath)
+            .let(::parseDohBootstrapSubnetMetadata)
+            .also { cachedDohBootstrapSubnetMetadata = it }
+
     fun loadRknWhitelistControl(): List<RknTarget> =
         cachedRknWhitelistControl ?: loadText(RknWhitelistControlPath)
             .let(RknTargetListParser::parse)
@@ -142,6 +150,23 @@ class DpiAssetLoader(
                         requireNotNull(item["asn"]) { "Missing required IPv4 whitelist ASN field 'asn'" }
                             .jsonPrimitive
                             .int,
+                )
+            }
+
+    private fun parseDohBootstrapSubnetMetadata(payload: String): List<SubnetMetadata> =
+        json
+            .parseToJsonElement(payload)
+            .jsonArray
+            .map { element ->
+                val item = element.jsonObject
+                SubnetMetadata(
+                    range = IpRange(item.requireString("cidr")),
+                    asn =
+                        requireNotNull(item["asn"]) { "Missing required DoH bootstrap metadata field 'asn'" }
+                            .jsonPrimitive
+                            .int,
+                    org = item.requireString("org"),
+                    country = item.requireString("country"),
                 )
             }
 
@@ -185,6 +210,7 @@ class DpiAssetLoader(
         private const val CidrWhitelistedUrlsPath = "dpich/cidr_whitelisted_urls.txt"
         private const val CidrRegularUrlsPath = "dpich/cidr_regular_urls.txt"
         private const val Ipv4WhitelistAsnsPath = "dpich/ipv4_whitelist_asns.json"
+        private const val DohBootstrapSubnetMetadataPath = "dpich/doh_bootstrap_subnet_metadata.json"
         private const val RknWhitelistControlPath = "rkn/rkn_whitelist_control.txt"
         private const val RknBlacklistTestPath = "rkn/rkn_blacklist_test.txt"
         private const val LegacyTypoPortField = ",port"

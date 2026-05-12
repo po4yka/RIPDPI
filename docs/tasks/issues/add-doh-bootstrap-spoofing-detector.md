@@ -102,3 +102,9 @@ This task is blocked on `add-geoip-db-and-geosite-db-runtime-loader-and-lookup`.
 - Added regressions for ASN/org matches with no `subnetForIp` result and for the DoH bootstrap detector's Google ASN path in that runtime-lookup shape.
 - Verified with `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpich.SubnetFilterEvaluatorTest --tests com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetectorTest -Pripdpi.skipNativeBuild=true`.
 - Remaining before close: wire the detector to the real runtime GeoIP database once `add-geoip-db-and-geosite-db-runtime-loader-and-lookup` lands, then run the full DNS integrity suite and confirm the user-facing trust badges.
+
+### 2026-05-12 Runtime Metadata Slice
+
+- Added a runtime-loadable DoH bootstrap subnet metadata JSON asset and wired the detector through a composite lookup that checks runtime records before the built-in provider fallback.
+- Added focused coverage for runtime record lookups, composite fallback behavior, and asset parsing.
+- This narrows the metadata source gap for provider bootstrap checks, but it does not replace the required shared `geoip.db`/`geosite.db` runtime loader.

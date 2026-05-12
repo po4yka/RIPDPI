@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.diagnostics.dpich.IpRange
 import com.poyka.ripdpi.diagnostics.dpich.PtEndpoint
+import com.poyka.ripdpi.diagnostics.dpich.SubnetMetadata
 import com.poyka.ripdpi.diagnostics.dpich.loadDohProviderFilters
 import com.poyka.ripdpi.diagnostics.dpich.loadObfs4BridgeEndpoints
 import org.junit.Assert.assertEquals
@@ -25,6 +27,7 @@ class DpiAssetLoaderTest {
         assertEquals(5, loader.loadCidrWhitelistedUrls().size)
         assertEquals(5, loader.loadCidrRegularUrls().size)
         assertEquals(21, loader.loadIpv4WhitelistAsns().size)
+        assertEquals(12, loader.loadDohBootstrapSubnetMetadata().size)
         assertEquals(
             listOf("cloudflare.com", "fastly.com", "mozilla.org", "cloudflare-ech.com"),
             loader.loadEchTargets(),
@@ -235,6 +238,42 @@ class DpiAssetLoaderTest {
 
         assertEquals("Google", loader.loadDohProviderFilters().single().providerName)
         assertEquals("dns.google", loader.loadDohProviderFilters().single().dohHostname)
+    }
+
+    @Test
+    fun dohBootstrapSubnetMetadataAssetParsesRuntimeRecords() {
+        val loader =
+            DpiAssetLoader(
+                fileProvider =
+                    FakeDpiAssetFileProvider(
+                        assets =
+                            mapOf(
+                                "dpich/doh_bootstrap_subnet_metadata.json" to
+                                    """
+                                    [
+                                      {
+                                        "cidr": "203.0.113.0/24",
+                                        "asn": 64500,
+                                        "org": "Example Net",
+                                        "country": "ZZ"
+                                      }
+                                    ]
+                                    """.trimIndent(),
+                            ),
+                    ),
+            )
+
+        assertEquals(
+            listOf(
+                SubnetMetadata(
+                    range = IpRange("203.0.113.0/24"),
+                    asn = 64500,
+                    org = "Example Net",
+                    country = "ZZ",
+                ),
+            ),
+            loader.loadDohBootstrapSubnetMetadata(),
+        )
     }
 
     @Test
