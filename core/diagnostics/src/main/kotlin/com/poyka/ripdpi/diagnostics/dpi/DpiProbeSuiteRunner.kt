@@ -146,7 +146,11 @@ class DpiProbeSuiteRunner(
                                         DpiSuiteProbeResult.QuicH3(
                                             probes.runQuicH3(
                                                 targets = domains,
-                                                concurrency = config.concurrency.coerceAtLeast(1),
+                                                concurrency =
+                                                    config.concurrency.coerceIn(
+                                                        MinProbeConcurrency,
+                                                        QuicH3MaxConcurrency,
+                                                    ),
                                             ),
                                         )
                                     }
@@ -246,6 +250,8 @@ class DpiProbeSuiteRunner(
 
     private companion object {
         private const val ProbeProgressTotal = 1
+        private const val MinProbeConcurrency = 1
+        private const val QuicH3MaxConcurrency = 8
         private const val SilentStubIpTimeoutMs = 5_000L
         private val SequentialProbeKinds =
             setOf(DpiProbeKind.DOMAIN_REACHABILITY, DpiProbeKind.TCP16, DpiProbeKind.WHITELIST_SNI)

@@ -241,6 +241,29 @@ class DpiProbeSuiteRunnerTest {
                 ).toList()
         }
 
+    @Test
+    fun quicH3ProbeCapsSuiteConcurrencyAtEight() =
+        runTest {
+            val observedConcurrency = mutableListOf<Int>()
+            val probes =
+                FakeSuiteProbes().copy(
+                    onQuicH3 = { _, concurrency ->
+                        observedConcurrency += concurrency
+                        emptyList()
+                    },
+                )
+
+            runner(probes = probes)
+                .run(
+                    DpiSuiteConfig(
+                        selection = setOf(DpiProbeKind.QUIC_H3),
+                        concurrency = 100,
+                    ),
+                ).toList()
+
+            assertEquals(listOf(8), observedConcurrency)
+        }
+
     private fun runner(
         probes: FakeSuiteProbes = FakeSuiteProbes(),
         domains: List<String> = listOf("example.com"),

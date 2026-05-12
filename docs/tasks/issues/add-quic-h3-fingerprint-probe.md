@@ -94,6 +94,8 @@ All 8 unit tests green. QUIC probe surfaced in DiagnosticsScreen as "QUIC / HTTP
 - 2026-05-11: Added native QUIC Initial wire-image regression coverage and split `generic_v1` from the Chrome-shaped profile.
 - 2026-05-11: Added a `ripdpi.runNetworkTests`-gated Android smoke test for the QUIC/H3 probe against `cloudflare.com`.
 - 2026-05-11: Added DiagnosticsScreen suite rendering for the per-target QUIC/H3 fingerprint matrix and locked the mapper/card behavior with JVM UI tests.
+- 2026-05-12: Added a DPI suite runner regression for the QUIC/H3 max-8 concurrency rule and capped the suite-to-probe concurrency handoff at 8 while preserving the configured concurrency for the TCP-side probes.
+- Verified with `./gradlew :core:diagnostics:testDebugUnitTest --tests com.poyka.ripdpi.diagnostics.dpi.DpiProbeSuiteRunnerTest -Pripdpi.skipNativeBuild=true`.
 
 Remaining before close:
 
