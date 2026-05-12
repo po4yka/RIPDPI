@@ -31,6 +31,7 @@ data class DiscoveredHost(
     val tcpTimeMs: Long,
     val tlsTimeMs: Long,
     val requestedHost: String? = null,
+    val certHostnames: List<String> = emptyList(),
 )
 
 data class WebhostProbeResult(
@@ -114,6 +115,38 @@ class WebhostFarm(
             jobs.awaitAll()
         }
         return results
+    }
+
+    suspend fun discoverWithCertHostnames(
+        subnets: Set<IpRange>,
+        count: Int,
+        port: Int = HttpsPort,
+        sni: String? = null,
+        workers: Int = DefaultWorkers,
+        randomHostname: Boolean = false,
+        certDiscoverer: TlsCertSniDiscoverer = TlsCertSniDiscoverer(),
+    ): List<DiscoveredHost> {
+        val hosts =
+            discover(
+                subnets = subnets,
+                count = count,
+                port = port,
+                sni = sni,
+                workers = workers,
+                randomHostname = randomHostname,
+            )
+        if (hosts.isEmpty()) return emptyList()
+        val discoveries =
+            certDiscoverer
+                .discoverBatch(
+                    ips = hosts.map { host -> host.ip },
+                    workers = workers,
+                    port = port,
+                ).associateBy { discovery -> discovery.ip }
+        return hosts.map { host ->
+            val discovery = discoveries[host.ip]
+            host.copy(certHostnames = discovery?.hostnames.orEmpty())
+        }
     }
 
     private fun sampleCandidates(subnets: Set<IpRange>): List<WebhostCandidate> {
