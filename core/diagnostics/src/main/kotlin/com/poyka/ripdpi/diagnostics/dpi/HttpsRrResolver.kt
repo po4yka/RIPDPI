@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics.dpi
 import android.net.DnsResolver
 import android.net.Network
 import android.os.Build
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -47,11 +48,21 @@ class HttpsRrResolver(
 ) {
     suspend fun fetch(host: String): HttpsRrRecord? {
         val primary =
-            runCatching {
+            try {
                 query.query(host).selectEchRecord()
-            }.getOrNull()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                null
+            }
         if (primary != null) return primary
-        return fallbackQuery?.query(host)?.selectEchRecord()
+        return try {
+            fallbackQuery?.query(host)?.selectEchRecord()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            null
+        }
     }
 
     private fun List<HttpsRrRecord>.selectEchRecord(): HttpsRrRecord? =
@@ -334,6 +345,8 @@ class EchReadinessProbe(
         val record =
             try {
                 resolver.fetch(target)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 null
             }
@@ -365,6 +378,7 @@ class EchReadinessProbe(
                 vanillaTlsOk = vanillaTlsOk,
             )
         } catch (error: Exception) {
+            if (error is CancellationException) throw error
             val verdict = classifyEchFailure(error)
             EchProbeResult(
                 target = target,

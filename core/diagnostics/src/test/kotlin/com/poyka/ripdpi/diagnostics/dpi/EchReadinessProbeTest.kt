@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -80,6 +82,38 @@ class EchReadinessProbeTest {
             val result = probe.check("cloudflare-ech.com")
 
             assertEquals(EchProbeVerdict.ECH_NETWORK_BLOCK, result.verdict)
+        }
+
+    @Test
+    fun resolverCancellationIsPropagated() =
+        runTest {
+            val probe =
+                EchReadinessProbe(
+                    resolver =
+                        HttpsRrResolver(
+                            query = HttpsRrQuery { throw CancellationException("cancelled") },
+                            fallbackQuery = null,
+                        ),
+                    tlsHandshake = FakeEchTlsHandshake(EchTlsHandshakeResult(negotiatedEch = true, latencyMs = 10)),
+                )
+
+            val error = runCatching { probe.check("cloudflare-ech.com") }.exceptionOrNull()
+
+            assertTrue(error is CancellationException)
+        }
+
+    @Test
+    fun handshakeCancellationIsPropagated() =
+        runTest {
+            val probe =
+                EchReadinessProbe(
+                    resolver = resolverWithConfig(byteArrayOf(1)),
+                    tlsHandshake = FakeEchTlsHandshake(error = CancellationException("cancelled")),
+                )
+
+            val error = runCatching { probe.check("cloudflare-ech.com") }.exceptionOrNull()
+
+            assertTrue(error is CancellationException)
         }
 
     @Test

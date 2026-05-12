@@ -69,28 +69,25 @@ interface QuicUdpProbe {
 
 class QuicH3FingerprintProbe(
     private val socket: QuicUdpProbe = DatagramSocketQuicUdpProbe(),
-    private val packetFactory: QuicFingerprintFactory = QuicFingerprintFactory,
+    private val packetFactory: QuicInitialPacketFactory = QuicFingerprintFactory,
     private val port: Int = DefaultQuicPort,
     private val timeoutMs: Int = DefaultTimeoutMs,
     private val concurrency: Int = DefaultConcurrency,
 ) {
     suspend fun check(target: String): QuicProbeResult {
-        val udpReachable = socket.udpReachable(target = target, port = port, timeoutMs = timeoutMs)
-        if (!udpReachable) {
-            return dropped(target = target, udpReachable = false)
-        }
-
         val chrome = probeFingerprint(target, QuicFingerprint.CHROME_120, ::isQuicV1LongHeader)
         val firefox = probeFingerprint(target, QuicFingerprint.FIREFOX_121, ::isQuicV1LongHeader)
         val generic = probeFingerprint(target, QuicFingerprint.GENERIC_V1, ::isQuicV1LongHeader)
         val vn = probeFingerprint(target, QuicFingerprint.VN_PROBE, ::isVersionNegotiationPacket)
 
+        val outcomes = listOf(chrome, firefox, generic, vn)
         val chromeOk = chrome.ok
         val firefoxOk = firefox.ok
         val genericOk = generic.ok
         val vnOk = vn.ok
         val v1OkCount = listOf(chromeOk, firefoxOk, genericOk).count { value -> value }
         val latencyMs = listOf(chrome, firefox, generic).firstOrNull(QuicProbeOutcome::ok)?.latencyMs
+        val udpReachable = outcomes.any { outcome -> !outcome.timedOut }
         val verdict =
             when {
                 chromeOk && firefoxOk && genericOk && vnOk -> QuicProbeVerdict.QUIC_OK
@@ -107,7 +104,7 @@ class QuicH3FingerprintProbe(
             firefoxOk = firefoxOk,
             genericOk = genericOk,
             vnOk = vnOk,
-            udpReachable = true,
+            udpReachable = udpReachable,
             serverInitialLatencyMs = latencyMs,
         )
     }
@@ -142,21 +139,6 @@ class QuicH3FingerprintProbe(
         return QuicProbeOutcome(ok = classify(response), timedOut = false, latencyMs = sample.latencyMs)
     }
 
-    private fun dropped(
-        target: String,
-        udpReachable: Boolean,
-    ): QuicProbeResult =
-        QuicProbeResult(
-            target = target,
-            verdict = QuicProbeVerdict.QUIC_DROPPED,
-            chromeOk = false,
-            firefoxOk = false,
-            genericOk = false,
-            vnOk = false,
-            udpReachable = udpReachable,
-            serverInitialLatencyMs = null,
-        )
-
     private companion object {
         private const val DefaultQuicPort = 443
         private const val DefaultTimeoutMs = 3_000
@@ -164,13 +146,39 @@ class QuicH3FingerprintProbe(
     }
 }
 
-object QuicFingerprintFactory {
+fun interface QuicInitialPacketFactory {
+    fun create(
+        fingerprint: QuicFingerprint,
+        target: String,
+    ): ByteArray
+}
+
+class FixtureBackedQuicFingerprintFactory(
+    private val fixtures: Map<QuicFingerprint, ByteArray>,
+    private val delegate: QuicInitialPacketFactory = QuicFingerprintFactory,
+) : QuicInitialPacketFactory {
+    override fun create(
+        fingerprint: QuicFingerprint,
+        target: String,
+    ): ByteArray =
+        if (target.equals(FixtureTarget, ignoreCase = true)) {
+            fixtures[fingerprint] ?: delegate.create(fingerprint = fingerprint, target = target)
+        } else {
+            delegate.create(fingerprint = fingerprint, target = target)
+        }
+
+    private companion object {
+        private const val FixtureTarget = "cloudflare.com"
+    }
+}
+
+object QuicFingerprintFactory : QuicInitialPacketFactory {
     const val QuicV1Version: Int = 0x00000001
     const val ReservedVersion: Int = 0x1A2A3A4A
 
     private val nativeFactory = NativeQuicInitialPacketFactory()
 
-    fun create(
+    override fun create(
         fingerprint: QuicFingerprint,
         target: String,
     ): ByteArray =

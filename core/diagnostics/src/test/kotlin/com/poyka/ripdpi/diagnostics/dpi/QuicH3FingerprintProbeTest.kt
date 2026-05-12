@@ -30,7 +30,15 @@ class QuicH3FingerprintProbeTest {
 
             assertEquals(QuicProbeVerdict.QUIC_DROPPED, result.verdict)
             assertFalse(result.udpReachable)
-            assertEquals(emptyList<QuicFingerprint>(), socket.probedFingerprints)
+            assertEquals(
+                listOf(
+                    QuicFingerprint.CHROME_120,
+                    QuicFingerprint.FIREFOX_121,
+                    QuicFingerprint.GENERIC_V1,
+                    QuicFingerprint.VN_PROBE,
+                ),
+                socket.probedFingerprints,
+            )
         }
 
     @Test
@@ -49,6 +57,35 @@ class QuicH3FingerprintProbeTest {
             val result = QuicH3FingerprintProbe(socket = socket).check("example.com")
 
             assertEquals(QuicProbeVerdict.QUIC_VN_REJECTED, result.verdict)
+            assertEquals(
+                listOf(
+                    QuicFingerprint.CHROME_120,
+                    QuicFingerprint.FIREFOX_121,
+                    QuicFingerprint.GENERIC_V1,
+                    QuicFingerprint.VN_PROBE,
+                ),
+                socket.probedFingerprints,
+            )
+        }
+
+    @Test
+    fun genericPreflightFailureStillRunsFingerprintMatrix() =
+        runTest {
+            val socket =
+                RecordingQuicUdpProbe(
+                    udpReachable = false,
+                    successes =
+                        setOf(
+                            QuicFingerprint.CHROME_120,
+                            QuicFingerprint.FIREFOX_121,
+                            QuicFingerprint.VN_PROBE,
+                        ),
+                )
+
+            val result = QuicH3FingerprintProbe(socket = socket).check("example.com")
+
+            assertEquals(QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
+            assertTrue(result.udpReachable)
             assertEquals(
                 listOf(
                     QuicFingerprint.CHROME_120,
@@ -102,7 +139,7 @@ class QuicH3FingerprintProbeTest {
             val result = probe(successes = emptySet()).check("example.com")
 
             assertEquals(QuicProbeVerdict.QUIC_DROPPED, result.verdict)
-            assertTrue(result.udpReachable)
+            assertFalse(result.udpReachable)
         }
 
     @Test

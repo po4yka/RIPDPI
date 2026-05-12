@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HttpsRrResolverTest {
@@ -76,6 +78,37 @@ class HttpsRrResolverTest {
             val selected = resolver.fetch("cloudflare-ech.com")
 
             assertEquals(fallback, selected)
+        }
+
+    @Test
+    fun primaryQueryCancellationIsPropagated() =
+        runTest {
+            val resolver =
+                HttpsRrResolver(
+                    query = HttpsRrQuery { throw CancellationException("cancelled") },
+                    fallbackQuery =
+                        HttpsRrQuery {
+                            listOf(HttpsRrRecord(priority = 1, targetName = ".", echConfig = byteArrayOf(9)))
+                        },
+                )
+
+            val error = runCatching { resolver.fetch("cloudflare-ech.com") }.exceptionOrNull()
+
+            assertTrue(error is CancellationException)
+        }
+
+    @Test
+    fun fallbackQueryCancellationIsPropagated() =
+        runTest {
+            val resolver =
+                HttpsRrResolver(
+                    query = HttpsRrQuery { emptyList() },
+                    fallbackQuery = HttpsRrQuery { throw CancellationException("cancelled") },
+                )
+
+            val error = runCatching { resolver.fetch("cloudflare-ech.com") }.exceptionOrNull()
+
+            assertTrue(error is CancellationException)
         }
 
     @Test

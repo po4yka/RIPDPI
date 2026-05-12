@@ -70,6 +70,38 @@ class QuicFingerprintFactoryTest {
     }
 
     @Test
+    fun fixtureBackedFactoryUsesBundledFixtureForCloudflareTarget() {
+        val fixture = byteArrayOf(1, 2, 3)
+        val factory =
+            FixtureBackedQuicFingerprintFactory(
+                fixtures = mapOf(QuicFingerprint.CHROME_120 to fixture),
+                delegate = FailingPacketFactory,
+            )
+
+        val packet = factory.create(QuicFingerprint.CHROME_120, "cloudflare.com")
+
+        assertArrayEquals(fixture, packet)
+    }
+
+    @Test
+    fun fixtureBackedFactoryFallsBackForNonFixtureTarget() {
+        val fixture = byteArrayOf(1, 2, 3)
+        val delegatePacket = byteArrayOf(9, 8, 7)
+        val factory =
+            FixtureBackedQuicFingerprintFactory(
+                fixtures = mapOf(QuicFingerprint.CHROME_120 to fixture),
+                delegate =
+                    QuicInitialPacketFactory { _, _ ->
+                        delegatePacket
+                    },
+            )
+
+        val packet = factory.create(QuicFingerprint.CHROME_120, "example.com")
+
+        assertArrayEquals(delegatePacket, packet)
+    }
+
+    @Test
     fun bundledFingerprintFixturesMatchDeterministicInitialsForCloudflare() {
         val fixtures = DpiAssetLoader(fileProvider = RepoDpiAssetFileProvider()).loadQuicFingerprintFixtures()
 
@@ -97,5 +129,12 @@ class QuicFingerprintFactoryTest {
         private val response: () -> String?,
     ) : QuicInitialPacketNativeBindings {
         override fun create(requestJson: String): String? = response()
+    }
+
+    private object FailingPacketFactory : QuicInitialPacketFactory {
+        override fun create(
+            fingerprint: QuicFingerprint,
+            target: String,
+        ): ByteArray = error("delegate should not be used")
     }
 }

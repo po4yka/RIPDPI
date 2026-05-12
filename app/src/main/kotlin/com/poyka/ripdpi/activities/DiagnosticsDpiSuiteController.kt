@@ -26,7 +26,9 @@ import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.EchReadinessProbe
 import com.poyka.ripdpi.diagnostics.dpi.EchTlsHandshake
+import com.poyka.ripdpi.diagnostics.dpi.FixtureBackedQuicFingerprintFactory
 import com.poyka.ripdpi.diagnostics.dpi.NativeEchTlsHandshake
+import com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint
 import com.poyka.ripdpi.diagnostics.dpi.QuicH3FingerprintProbe
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
@@ -199,6 +201,11 @@ internal class DiagnosticsDpiSuiteController(
             DpiAssetLoader(appContext).loadEchTargets()
         }
 
+    private suspend fun loadQuicFingerprintFixtures(): Map<QuicFingerprint, ByteArray> =
+        withContext(Dispatchers.IO) {
+            DpiAssetLoader(appContext).loadQuicFingerprintFixtures()
+        }
+
     private suspend fun finalizeTlsKeylogRun(settings: AppSettings) {
         val path = settings.effectiveDiagnosticTlsKeylogPath(appFilesDir = appContext.filesDir) ?: return
         withContext(NonCancellable + Dispatchers.IO) {
@@ -265,8 +272,10 @@ internal class DiagnosticsDpiSuiteController(
                         targets: List<String>,
                         concurrency: Int,
                     ): List<QuicProbeResult> =
-                        QuicH3FingerprintProbe(concurrency = concurrency)
-                            .checkAll(targets)
+                        QuicH3FingerprintProbe(
+                            packetFactory = FixtureBackedQuicFingerprintFactory(loadQuicFingerprintFixtures()),
+                            concurrency = concurrency,
+                        ).checkAll(targets)
 
                     override suspend fun runEchReadiness(
                         targets: List<String>,
