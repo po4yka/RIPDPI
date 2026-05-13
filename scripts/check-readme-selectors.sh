@@ -8,7 +8,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Map: README file path -> expected native locale name + link target basename
+# Map: README file path -> expected native locale name.
+# The link assertion uses basename($key); the bold-tag assertion uses the value.
 declare -A NATIVE_NAME=(
   ["README.md"]="English"
   ["README-ru.md"]="Русский"
@@ -17,16 +18,6 @@ declare -A NATIVE_NAME=(
   ["README-fr.md"]="Français"
   ["README-zh-CN.md"]="简体中文"
   ["docs/fa/README.md"]="فارسی"
-)
-
-declare -A LINK_TARGET=(
-  ["README.md"]="README.md"
-  ["README-ru.md"]="README-ru.md"
-  ["README-es.md"]="README-es.md"
-  ["README-de.md"]="README-de.md"
-  ["README-fr.md"]="README-fr.md"
-  ["README-zh-CN.md"]="README-zh-CN.md"
-  ["docs/fa/README.md"]="docs/fa/README.md"
 )
 
 errors=0
@@ -40,14 +31,12 @@ for self in "${!NATIVE_NAME[@]}"; do
     continue
   fi
 
-  # (a) Link assertions: this file must reference the basename of each OTHER file
-  for other in "${!LINK_TARGET[@]}"; do
+  # (a) Link assertions: this file must reference the basename of each OTHER file.
+  # Links use basename for top-level files and ../../basename from docs/fa/.
+  for other in "${!NATIVE_NAME[@]}"; do
     [[ "$other" == "$self" ]] && continue
-    target="${LINK_TARGET[$other]}"
-    target_basename=$(basename "$target")
-    # The link inside selector blocks uses either basename (for top-level) or ../../basename (from docs/fa/)
-    if ! echo "$block" | grep -qF "$target_basename"; then
-      echo "FAIL: $self selector block missing link to $target_basename"
+    if ! echo "$block" | grep -qF "$(basename "$other")"; then
+      echo "FAIL: $self selector block missing link to $(basename "$other")"
       errors=$((errors + 1))
     fi
   done
@@ -59,7 +48,7 @@ for self in "${!NATIVE_NAME[@]}"; do
     errors=$((errors + 1))
     continue
   fi
-  bold_actual=$(echo "$block" | grep -oE '<b>[^<]+</b>' | head -1)
+  bold_actual=$(echo "$block" | grep -oE '<b>[^<]+</b>')
   expected="<b>${NATIVE_NAME[$self]}</b>"
   if [[ "$bold_actual" != "$expected" ]]; then
     echo "FAIL: $self selector bolded '$bold_actual', expected '$expected'"
