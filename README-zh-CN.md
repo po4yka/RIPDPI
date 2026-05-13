@@ -1,0 +1,150 @@
+<p align="center">
+  <img src="app/src/main/ic_launcher-playstore.png" width="120" alt="RIPDPI 徽标"/>
+</p>
+
+<h1 align="center">RIPDPI</h1>
+<p align="center"><b>路由与互联网性能诊断平台界面</b></p>
+
+<p align="center">
+  <a href="https://github.com/po4yka/RIPDPI/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/po4yka/RIPDPI/ci.yml?style=flat-square&label=CI" alt="CI"/></a>
+  <a href="https://github.com/po4yka/RIPDPI/releases/latest"><img src="https://img.shields.io/github/v/release/po4yka/RIPDPI?style=flat-square" alt="发布"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/po4yka?style=flat-square" alt="许可证"/></a>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Android-8.1%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8.1+"/>
+  <img src="https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin"/>
+  <img src="https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust"/>
+</p>
+
+<p align="center"><a href="README.md">English</a> | <a href="README-ru.md">Русский</a> | <a href="README-es.md">Español</a> | <a href="README-de.md">Deutsch</a> | <a href="README-fr.md">Français</a> | <a href="docs/fa/README.md">فارسی</a> | <b>简体中文</b></p>
+
+RIPDPI 是一款适用于 Android 的网络路径诊断与优化工具包。它可以在设备端应用可配置的数据包策略，可以连接到您自己控制的中继服务器，并且对每个连接运行诊断，识别每个目标失败或退化的原因。这三种能力可以独立工作，也可以组合使用。
+
+## 三大支柱
+
+### 设备端数据包策略
+
+在设备端应用可配置的数据包级转换，无需将流量路由到中继服务器。核心路径不需要 root 权限。
+
+支持的技术：TCP 段分裂与乱序、伪造数据包注入、OOB（紧急指针）、TLS 记录分片、伪造 TLS 首次发送、QUIC 握手变种、DTLS 指纹归一化、UDP 长度字段变种、IPv6 扩展头注入、Lua 定义的原始数据包发送，以及自适应语义标记（根据实时 `TCP_INFO` 解析位置）。策略链由本仓库中的 Rust crate 构建，无需外部策略二进制文件。
+
+未配置中继时，流量直接从设备出口——设备端变换是路径上唯一的更改。
+
+### VPN 中继
+
+通过加密中继协议将本地代理或 VPN 流量链接到您配置的服务器：
+
+- **VLESS Reality 和 xHTTP** — 原生 Rust 实现，无需 Go 运行时
+- **WARP、Cloudflare Tunnel、MASQUE**
+- **Hysteria2、TUIC v5、ShadowTLS v3、NaiveProxy**
+- **WebTunnel、obfs4、Snowflake、Google Apps Script 路径**
+
+本地代理模式和 Android VPN 重定向模式都可在配置或未配置中继时工作。
+
+### 诊断
+
+独立扫描每个连接目标，并生成类型化的判定结果：
+
+- `TRANSPARENT_WORKS` — 原始路径有效，无需干预
+- `OWNED_STACK_ONLY` — 仅通过应用的自有 TLS 堆栈工作
+- `NO_DIRECT_SOLUTION` — 设备端变换无法恢复此目标；需要中继
+- `IP_BLOCK_SUSPECT` — 检测到 IP 级阻塞
+
+判定结果按网络指纹存储，当再次见到同一网络时自动重放。诊断屏幕添加了跨 24 个 TCP + 6 个 QUIC 候选项的 TCP 和 QUIC 策略探测、DNS 篡改检测、DoH/DoT/DNSCrypt/DoQ 解析器建议，以及可导出的诊断存档。
+
+## 为什么选择 RIPDPI
+
+现代 Android 网络经常应用 L7 指纹识别（TLS JA3/JA4、QUIC）、对蜂窝和公共 Wi-Fi 进行激进的 QoS、MTU 和 ECN 失调，以及中间盒导致的 TLS 握手中止——导致某些目标失败而同一网络上的其他目标却能正常工作。单一的全局设置无法解决所有情况。
+
+RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应用最轻量级的有效修复，并将其记住。
+
+1. **每目标、每网络的答案** — 而非一个全局策略。诊断对每个权威进行分类并存储与网络指纹哈希关联的判定结果。
+2. **当网络是问题时，改变本地路径。** 语义标记、自适应分裂位置、伪造负载链、OOB/乱序、随机化 TLS 记录、QUIC 和 DTLS 指纹变种——由仓库内 Rust crate 组装。
+3. **当直接路径退化时，退回到隧道中继。** 原生 Rust VLESS Reality/xHTTP，加上 WARP、MASQUE、Hysteria2、TUIC v5、ShadowTLS v3、NaiveProxy 和 Cloudflare Tunnel 处理设备端无法恢复的目标。
+4. **诚实的报告。** 判定结果是类型化的并显示出来；故障分类器的结果是显示而非抑制；诊断导出包会编辑机密信息。
+
+## 功能
+
+- **代理模式**：在配置的本地主机端口上运行本地 SOCKS5 代理。
+- **VPN 模式**：通过 `VpnService` 经由本地 TUN-到-SOCKS 桥接路由 Android 设备流量。
+- **加密 DNS**：在 VPN 相关路径中支持 DoH、DoT、DNSCrypt 和 DoQ 解析器。
+- **策略控制**：TCP split/disorder/fake 系列、TLS 记录分片和伪造配置文件、QUIC 和 DTLS 握手变种、UDP 长度字段变种、IPv6 扩展头、Lua `rawsend`、每步骤激活过滤器、IPv4 ID 控制以及 OOB 注入。
+- **每网络策略记忆**：经过验证的、按权威的判定结果以网络指纹为键；重新连接时自动重放。
+- **自适应探测**：首次见到的网络的自动策略探测；网络切换时的后台 `quick_v1` 重新检查。
+- **切换感知重启**：在 Wi-Fi、蜂窝和漫游之间过渡时进行实时策略重新评估。
+- **RIPDPI 浏览器**：为需要自有 TLS 堆栈的 HTTPS 目标提供应用自有浏览器；为应用发起的请求提供共享 `SecureHttpClient` 路径。
+- **运行时遥测和日志**：代理生命周期、路由决策、DNS 故障转移事件、诊断进度和原生运行时事件——作为应用内历史和支持导出可用。
+- **可选的 root 助手**：在已 root 的设备上，通过特权助手进程解锁原始套接字操作（FakeRst、MultiDisorder、IP 分片、完整 SeqOverlap、原始 IPv4/IPv6 数据包发送）。
+
+## 运行时模式
+
+### 代理
+
+在配置的本地主机端口上运行 SOCKS5 代理。适用于支持代理配置的应用。策略变换和中继链接适用于通过代理进入的所有流量。
+
+### VPN
+
+使用 Android `VpnService` 通过 RIPDPI 的本地引擎重定向设备流量。未配置中继时，VPN 模式应用设备端变换而不更改出口 IP。配置中继时，流量被加密转发到配置的端点。
+
+## 隐私
+
+RIPDPI 记录用于诊断和故障排除的操作元数据：网络快照、解析器状态、路由决策、扫描结果、服务状态和原生运行时事件。
+
+RIPDPI **不**记录：
+- 完整数据包捕获
+- 流量负载
+- TLS 机密
+
+中继流量隐私取决于您配置的中继端点和配置文件。
+
+## 截图
+
+<p align="center">
+  <img src="docs/screenshots/01-hero.png" width="200" alt="RIPDPI 主屏幕"/>
+  &nbsp;
+  <img src="docs/screenshots/02-no-root.png" width="200" alt="无需 root 的 RIPDPI"/>
+  &nbsp;
+  <img src="docs/screenshots/03-privacy.png" width="200" alt="RIPDPI 隐私屏幕"/>
+  &nbsp;
+  <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI 控件"/>
+</p>
+<p align="center">
+  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="RIPDPI 诊断"/>
+  &nbsp;
+  <img src="docs/screenshots/06-more-features.png" width="200" alt="RIPDPI 功能概述"/>
+</p>
+
+## 构建
+
+要求：JDK 17、Android SDK、Android NDK `29.0.14206865`、Rust 工具链 `1.94.0`、所需 ABI 的 Android Rust 目标。
+
+```bash
+git clone https://github.com/po4yka/RIPDPI.git
+cd RIPDPI
+./gradlew assembleDebug
+```
+
+本地构建默认为 `arm64-v8a`（`ripdpi.localNativeAbisDefault`）。模拟器：`./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`。
+
+APK 输出：`app/build/outputs/apk/debug/` 和 `app/build/outputs/apk/release/`。
+
+## 测试
+
+```bash
+./gradlew testDebugUnitTest
+bash scripts/ci/run-rust-native-checks.sh
+bash scripts/ci/run-rust-network-e2e.sh
+python3 -m unittest scripts.tests.test_offline_analytics_pipeline
+```
+
+详情：[docs/testing.md](docs/testing.md)
+
+## 文档
+
+- [原生集成与模块](docs/native/README.md)
+- [数据包策略运行时](docs/packet-strategy-runtime.md)
+- [代理引擎与策略表面](docs/native/proxy-engine.md)
+- [TUN-到-SOCKS 桥接](docs/native/tunnel.md)
+- [策略包与 TLS 目录操作](docs/strategy-pack-operations.md)
+- [中继配置文件示例](docs/relay-profile-examples.md)
+- [架构说明](docs/architecture/README.md)
+- [路线图](ROADMAP.md)

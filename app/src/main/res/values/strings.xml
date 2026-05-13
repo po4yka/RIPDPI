@@ -2461,4 +2461,22 @@ Source: %2$s</string>
     <string name="semantic_state_collapsed">Collapsed</string>
     <string name="semantic_action_expand">Expand</string>
     <string name="semantic_action_collapse">Collapse</string>
+
+    <!-- Language picker (per plan i18n-es-de-fr v3.1 § H.3.1).
+         language_name_* keys carry NATIVE display names of each locale;
+         these are byte-identical across all locale files because pickers
+         show the locale's own native name regardless of current UI locale.
+         Note: Android resource keys forbid hyphens, so BCP-47 zh-CN maps
+         to language_name_zh_cn. -->
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_body">Choose the language used by the RIPDPI app</string>
+    <string name="language_picker_sheet_title">Choose language</string>
+    <string name="language_picker_native_format">%1$s</string>
+    <string name="language_name_en">English</string>
+    <string name="language_name_ru">Русский</string>
+    <string name="language_name_es">Español</string>
+    <string name="language_name_de">Deutsch</string>
+    <string name="language_name_fr">Français</string>
+    <string name="language_name_fa">فارسی</string>
+    <string name="language_name_zh_cn">简体中文</string>
 </resources>

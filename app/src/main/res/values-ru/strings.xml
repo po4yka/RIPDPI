@@ -1954,4 +1954,579 @@ fakeddisorder endhost</string>
     <string name="detection_score_improved">Оценка улучшилась</string>
     <string name="detection_score_degraded">Оценка ухудшилась</string>
 
+    <!-- gap-fill: adaptive_fallback_* -->
+    <string name="adaptive_fallback_auto_sort_body">Если поздняя группа продолжает побеждать для одних и тех же назначений, переместите её раньше в адаптивном порядке для более быстрого восстановления.</string>
+    <string name="adaptive_fallback_auto_sort_title">Продвигать лучшие маршруты резерва</string>
+    <string name="adaptive_fallback_badge_auto_sort">Авто-сортировка</string>
+    <string name="adaptive_fallback_badge_disabled">Отключено</string>
+    <string name="adaptive_fallback_badge_enabled">Включено</string>
+    <string name="adaptive_fallback_badge_triggers">%1$d триггеров</string>
+    <string name="adaptive_fallback_cache_prefix_body">Ширина подсети, используемая при сопоставлении кешированных победителей IPv4. /24 — баланс по умолчанию между повторным использованием и избыточностью.</string>
+    <string name="adaptive_fallback_cache_prefix_title">Префикс кеша IPv4</string>
+    <string name="adaptive_fallback_cache_summary">%1$d секунд · IPv4 /%2$d</string>
+    <string name="adaptive_fallback_cache_ttl_body">Сколько времени одно изученное сопоставление «назначение — группа» остаётся пригодным для повторного использования на текущем сетевом отпечатке.</string>
+    <string name="adaptive_fallback_cache_ttl_title">TTL адаптивного кеша (секунды)</string>
+    <string name="adaptive_fallback_cli_body">Адаптивный резерв приостановлен, пока активны сырые аргументы RIPDPI. Группы командной строки и флаги политики времени выполнения определяют активное поведение резерва.</string>
+    <string name="adaptive_fallback_cli_title">Управляется командной строкой</string>
+    <string name="adaptive_fallback_connect_failure_title">Сбой подключения</string>
+    <string name="adaptive_fallback_disabled_body">RIPDPI будет использовать только сохранённый порядок групп. Сбои по конкретным назначениям не будут автоматически продвигать поздние группы.</string>
+    <string name="adaptive_fallback_disabled_title">Адаптивный резерв отключён</string>
+    <string name="adaptive_fallback_enabled_body">Разрешить RIPDPI повторять то же назначение в поздних группах и кешировать рабочий маршрут для похожих подсетей IPv4 в этой сети.</string>
+    <string name="adaptive_fallback_enabled_title">Включить адаптивный резерв по назначениям</string>
+    <string name="adaptive_fallback_http_redirect_title">HTTP-редирект</string>
+    <string name="adaptive_fallback_no_triggers_body">Адаптивный резерв включён, но все триггеры выключены, поэтому маршрутизация времени выполнения никогда не перейдёт к поздней группе.</string>
+    <string name="adaptive_fallback_no_triggers_summary">Триггеры не выбраны.</string>
+    <string name="adaptive_fallback_no_triggers_title">Не выбраны триггеры резерва</string>
+    <string name="adaptive_fallback_ready_body">RIPDPI будет отслеживать выбранные сигналы сбоя, повторять поздние группы для подходящих назначений и кешировать успешных победителей в этой сети.</string>
+    <string name="adaptive_fallback_ready_title">Адаптивный резерв готов</string>
+    <string name="adaptive_fallback_restart_body">Текущий сеанс RIPDPI был запущен до этого изменения адаптивного резерва. Перезапустите или переподключитесь, чтобы применить сохранённые триггеры и правила кеша.</string>
+    <string name="adaptive_fallback_restart_title">Перезапуск для применения адаптивного резерва</string>
+    <string name="adaptive_fallback_runtime_override_remembered">%1$s, пока активна маршрутизация запомненных сетей.</string>
+    <string name="adaptive_fallback_scope_active">Используется, когда текущая цепочка десинхронизации, управляемая интерфейсом, наталкивается на настроенный триггер сбоя.</string>
+    <string name="adaptive_fallback_scope_cli">Настройки командной строки выбирают активное поведение резерва.</string>
+    <string name="adaptive_fallback_scope_idle">Сохранено для следующего сеанса, управляемого интерфейсом. Сейчас ни одна активная цепочка десинхронизации не использует адаптивный резерв.</string>
+    <string name="adaptive_fallback_section_body">Адаптивный резерв сохраняет политику сети как отправную точку, затем смещает отдельные назначения в поздние группы, когда настроенные сигналы сбоя указывают на вмешательство DPI.</string>
+    <string name="adaptive_fallback_section_title">Адаптивный резерв</string>
+    <string name="adaptive_fallback_summary_label_cache">Кеш</string>
+    <string name="adaptive_fallback_summary_label_runtime_override">Переопределение времени выполнения</string>
+    <string name="adaptive_fallback_summary_label_scope">Область</string>
+    <string name="adaptive_fallback_summary_label_triggers">Триггеры</string>
+    <string name="adaptive_fallback_tls_err_title">Ошибка TLS</string>
+    <string name="adaptive_fallback_torst_title">Сброс TCP / TORST</string>
+
+    <!-- gap-fill: blockcheck_* -->
+    <string name="blockcheck_apply_best">Применить лучшую</string>
+    <string name="blockcheck_best_badge">Лучшая</string>
+    <string name="blockcheck_cancel">Отмена</string>
+    <string name="blockcheck_dns_warning">Сравнение DNS обнаружило признак подмены хотя бы для одного домена.</string>
+    <string name="blockcheck_domains_label">Тестовые домены</string>
+    <string name="blockcheck_empty_results">Пока нет результатов</string>
+    <string name="blockcheck_entry_body">Запустите зондирование стратегий, просмотрите ранжированные результаты и примените самую сильную стратегию для этой сети.</string>
+    <string name="blockcheck_entry_title">Зондирование стратегий</string>
+    <string name="blockcheck_export_title">Экспорт отчёта зондирования стратегий</string>
+    <string name="blockcheck_export">Экспорт</string>
+    <string name="blockcheck_no_strategies">Стратегии не зарегистрированы</string>
+    <string name="blockcheck_result_detail_format">%1$d/%2$d доменов OK • в среднем %3$d мс</string>
+    <string name="blockcheck_results_title">Ранжированные результаты</string>
+    <string name="blockcheck_run">Запустить</string>
+    <string name="blockcheck_section_title">Зондирование стратегий</string>
+    <string name="blockcheck_status_format">%1$d/%2$d проверок</string>
+
+    <!-- gap-fill: config_* -->
+    <string name="config_error_required">Это поле обязательно.</string>
+    <string name="config_error_unsupported">Эта опция не поддерживается в текущей сборке.</string>
+    <string name="config_local_bypass_section_body">Настройте локальный путь прокси, DNS и параметры стратегии пакетов на устройстве.</string>
+    <string name="config_mode_sections_title">Область конфигурации</string>
+    <string name="config_relay_body">Направлять прокси-трафик через локальную среду выполнения реле. Секреты остаются в защищённом хранилище, поддерживаемом keystore.</string>
+    <string name="config_relay_chain_entry_port">Порт входного узла</string>
+    <string name="config_relay_chain_entry_public_key">Публичный ключ входного узла</string>
+    <string name="config_relay_chain_entry_server">Сервер входного узла</string>
+    <string name="config_relay_chain_entry_short_id">Короткий ID входного узла</string>
+    <string name="config_relay_chain_entry_sni">Имя сервера входного узла</string>
+    <string name="config_relay_chain_entry_uuid">UUID входного узла</string>
+    <string name="config_relay_chain_exit_port">Порт выходного узла</string>
+    <string name="config_relay_chain_exit_public_key">Публичный ключ выходного узла</string>
+    <string name="config_relay_chain_exit_server">Сервер выходного узла</string>
+    <string name="config_relay_chain_exit_short_id">Короткий ID выходного узла</string>
+    <string name="config_relay_chain_exit_sni">Имя сервера выходного узла</string>
+    <string name="config_relay_chain_exit_uuid">UUID выходного узла</string>
+    <string name="config_relay_cloudflare_tunnel_note">Используйте здесь имя хоста Cloudflare Tunnel под вашим управлением. P0 ожидает, что это имя хоста ведёт к вашему собственному xHTTP/VLESS-источнику; RIPDPI не управляет токенами cloudflared или настройкой TryCloudflare.</string>
+    <string name="config_relay_credentials_body">Этому профилю нужны защищённые учётные данные, прежде чем он сможет запуститься.</string>
+    <string name="config_relay_credentials_title">Отсутствуют учётные данные реле</string>
+    <string name="config_relay_enable">Включить восходящее реле</string>
+    <string name="config_relay_hysteria_password">Пароль Hysteria</string>
+    <string name="config_relay_hysteria_salamander">Ключ Salamander</string>
+    <string name="config_relay_import">Импорт</string>
+    <string name="config_relay_kind_chain">Цепное реле</string>
+    <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
+    <string name="config_relay_kind_hysteria2">Hysteria2</string>
+    <string name="config_relay_kind_masque">MASQUE</string>
+    <string name="config_relay_kind_vless">VLESS</string>
+    <string name="config_relay_local_port_helper">Основной прокси RIPDPI подключается к этому слушателю loopback.</string>
+    <string name="config_relay_local_port">Локальный SOCKS-порт реле</string>
+    <string name="config_relay_masque_auth_bearer">Bearer</string>
+    <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare Direct</string>
+    <string name="config_relay_masque_auth_preshared">Предварительный ключ</string>
+    <string name="config_relay_masque_auth_privacy_pass">Privacy Pass</string>
+    <string name="config_relay_masque_client_certificate_chain_helper">Вставьте PEM-цепочку или импортируйте файл сертификата.</string>
+    <string name="config_relay_masque_client_certificate_chain">Цепочка клиентских сертификатов (PEM)</string>
+    <string name="config_relay_masque_client_private_key_helper">Вставьте PEM-приватный ключ или импортируйте файл ключа.</string>
+    <string name="config_relay_masque_client_private_key">Клиентский приватный ключ (PEM)</string>
+    <string name="config_relay_masque_cloudflare_geohash_enabled">Включить подсказки выхода Cloudflare</string>
+    <string name="config_relay_masque_cloudflare_geohash_helper">Грубая локация по принципу best-effort добавляет необязательный заголовок sec-ch-geohash «страна + регион» для прямой маршрутизации Cloudflare.</string>
+    <string name="config_relay_masque_http2">Разрешить откат на HTTP/2 TCP</string>
+    <string name="config_relay_masque_import_certificate_chain">Импорт сертификата</string>
+    <string name="config_relay_masque_import_pkcs12">Импорт пакета PKCS#12</string>
+    <string name="config_relay_masque_import_private_key">Импорт приватного ключа</string>
+    <string name="config_relay_masque_pkcs12_dialog_title">Импорт идентификации PKCS#12</string>
+    <string name="config_relay_masque_pkcs12_password_helper">Оставьте пустым, если пакет PKCS#12 без пароля.</string>
+    <string name="config_relay_masque_pkcs12_password">Пароль пакета</string>
+    <string name="config_relay_masque_privacy_pass_available">Провайдер Privacy Pass настроен для этой сборки.</string>
+    <string name="config_relay_masque_privacy_pass_invalid_provider">Privacy Pass отключён, потому что URL настроенного провайдера недействителен.</string>
+    <string name="config_relay_masque_privacy_pass_missing_provider">Privacy Pass недоступен, потому что в этой сборке не настроен URL провайдера.</string>
+    <string name="config_relay_masque_token">Токен авторизации MASQUE</string>
+    <string name="config_relay_masque_url">URL MASQUE</string>
+    <string name="config_relay_presets_title">Пресеты реле</string>
+    <string name="config_relay_profile_id_helper">Используется для привязки защищённых учётных данных к сохранённому профилю реле.</string>
+    <string name="config_relay_profile_id">ID профиля</string>
+    <string name="config_relay_reality_public_key">Публичный ключ Reality</string>
+    <string name="config_relay_reality_short_id">Короткий ID Reality</string>
+    <string name="config_relay_section">Реле</string>
+    <string name="config_relay_server_name">Имя TLS-сервера</string>
+    <string name="config_relay_server_port">Порт реле</string>
+    <string name="config_relay_server">Сервер реле</string>
+    <string name="config_relay_title">Протокол исходящего реле</string>
+    <string name="config_relay_udp">Включить UDP-реле</string>
+    <string name="config_relay_vless_transport_reality_tcp">Reality TCP</string>
+    <string name="config_relay_vless_transport_xhttp">xHTTP</string>
+    <string name="config_relay_vless_transport">Транспорт VLESS</string>
+    <string name="config_relay_vless_uuid">VLESS UUID</string>
+    <string name="config_relay_xhttp_host">Переопределение хоста xHTTP</string>
+    <string name="config_relay_xhttp_path">Путь xHTTP</string>
+    <string name="config_vpn_credentials_required">Нужны учётные данные</string>
+    <string name="config_vpn_credentials_summary">Ссылка профиля для защищённых учётных данных</string>
+    <string name="config_vpn_credentials_title">Учётные данные реле</string>
+    <string name="config_vpn_protocol_summary">Транспорт, выбранный в текущем профиле реле</string>
+    <string name="config_vpn_protocol_title">Протокол реле</string>
+    <string name="config_vpn_relay_server_summary">Конечная точка удалённого сервера, используемая профилем реле</string>
+    <string name="config_vpn_section_body">Настройте параметры пути VPN, транспорт реле и поведение DNS.</string>
+
+    <!-- gap-fill: customization_icon_* -->
+    <string name="customization_icon_clean">Чистый</string>
+    <string name="customization_icon_cracked">Треснувший</string>
+    <string name="customization_icon_disintegrate">Распад</string>
+    <string name="customization_icon_glitch">Глитч</string>
+    <string name="customization_icon_rubble">Обломки</string>
+    <string name="customization_icon_stitch">Сшитый</string>
+
+    <!-- gap-fill: detection_resistance_* -->
+    <string name="detection_resistance_active_title">Сопротивление обнаружению настроено</string>
+    <string name="detection_resistance_badge_default">По умолчанию</string>
+    <string name="detection_resistance_badge_evolution">Эволюция стратегии</string>
+    <string name="detection_resistance_badge_low_port">QUIC на низких портах</string>
+    <string name="detection_resistance_badge_quic_migrate">Переподвязка UDP</string>
+    <string name="detection_resistance_cli_title">Этими настройками владеет режим командной строки</string>
+    <string name="detection_resistance_entropy_mode_body">Выберите модель статистики полезной нагрузки, которой должен противодействовать путь поддельных пакетов.</string>
+    <string name="detection_resistance_entropy_mode_title">Режим формирования энтропии</string>
+    <string name="detection_resistance_entropy_padding_body">Меньшие целевые значения дают более ASCII-подобное заполнение и полезны в основном против классификаторов по количеству бит.</string>
+    <string name="detection_resistance_entropy_padding_max_body">Максимум дополнительных байт, которые среда выполнения может добавить при формировании поддельных пакетов.</string>
+    <string name="detection_resistance_entropy_padding_max_title">Бюджет заполнения (байты)</string>
+    <string name="detection_resistance_entropy_padding_title">Цель Popcount (промилле)</string>
+    <string name="detection_resistance_evolution_cooldown_failures_body">Количество последовательных сбоев до того, как комбо помещается в кулдаун. По умолчанию: 3.</string>
+    <string name="detection_resistance_evolution_cooldown_failures_title">Порог сбоев для кулдауна</string>
+    <string name="detection_resistance_evolution_cooldown_ms_body">Сколько времени (миллисекунды) сбойное комбо пропускается, пока находится в кулдауне. По умолчанию: 300 000.</string>
+    <string name="detection_resistance_evolution_cooldown_ms_title">Продолжительность кулдауна (мс)</string>
+    <string name="detection_resistance_evolution_decay_half_life_body">Период полураспада для экспоненциального затухания статистики по комбо. Большие значения заставляют эволюционер забывать медленнее. По умолчанию: 3 600 000.</string>
+    <string name="detection_resistance_evolution_decay_half_life_title">Период полураспада статистики (мс)</string>
+    <string name="detection_resistance_evolution_epsilon_body">Шанс от 0,0 до 1,0, что среда выполнения исследует, а не использует текущую лучшую подсказку.</string>
+    <string name="detection_resistance_evolution_epsilon_title">Эпсилон исследования</string>
+    <string name="detection_resistance_evolution_experiment_ttl_body">Сколько времени (миллисекунды) живёт один эксперимент стратегии до оценки. По умолчанию: 30 000.</string>
+    <string name="detection_resistance_evolution_experiment_ttl_title">Окно эксперимента (мс)</string>
+    <string name="detection_resistance_idle_title">Профиль обнаружения по умолчанию</string>
+    <string name="detection_resistance_proxy_notice_body">Профили TLS-отпечатков и формирование с учётом ECH по-прежнему применяются к трафику, который приложение порождает само, но TLS, ECH и владение UDP в браузере остаются за браузером и ОС в режиме прокси. Используйте режим VPN, когда нужно, чтобы RIPDPI контролировал весь транспортный путь.</string>
+    <string name="detection_resistance_proxy_notice_title">Режим прокси ограничивает формирование TLS в браузере</string>
+    <string name="detection_resistance_quic_low_port_body">Делает исходные порты UDP более похожими на общие системные сервисы, когда активно уклонение от QUIC Initial.</string>
+    <string name="detection_resistance_quic_low_port_title">Привязать QUIC к низким портам</string>
+    <string name="detection_resistance_quic_migrate_body">Только VPN. Сейчас используется существующий путь переподвязки UDP после рукопожатия для общих потоков QUIC; проверенная миграция RFC 9000 доступна только в собственных транспортах QUIC.</string>
+    <string name="detection_resistance_quic_migrate_title">Переподвязка UDP-пути QUIC после рукопожатия</string>
+    <string name="detection_resistance_quic_migrate_vpn_only">Доступно только в режиме VPN, потому что путь переподвязки UDP после рукопожатия зависит от контролируемого владения транспортом.</string>
+    <string name="detection_resistance_restart_body">Эти настройки влияют на эвристики времени выполнения и могут потребовать переподключения, прежде чем активный сеанс их отразит.</string>
+    <string name="detection_resistance_section_body">Настройте формирование энтропии, адаптивное исследование и поведение пути QUIC, чтобы снизить уверенность отпечатков и классификаторов во враждебных сетях.</string>
+    <string name="detection_resistance_section_title">Сопротивление обнаружению</string>
+    <string name="detection_resistance_shannon_body">Используйте значения около 7920, чтобы приблизить зашифрованный трафик без пика на максимальной энтропии.</string>
+    <string name="detection_resistance_shannon_title">Цель Шеннона (промилле)</string>
+    <string name="detection_resistance_strategy_evolution_body">Разрешить нативной среде выполнения исследовать альтернативные комбинации энтропии и сохранять более эффективные подсказки в этой сети.</string>
+    <string name="detection_resistance_strategy_evolution_title">Эволюция стратегии</string>
+    <string name="detection_resistance_summary_entropy_value">Popcount %1$d, Шеннон %2$d</string>
+    <string name="detection_resistance_summary_entropy">Морфинг трафика</string>
+    <string name="detection_resistance_summary_epsilon_value">Эпсилон %1$.2f</string>
+    <string name="detection_resistance_summary_exploration">Адаптивное исследование</string>
+    <string name="detection_resistance_summary_off">Выкл</string>
+    <string name="detection_resistance_summary_quic_low_port">Привязка низких исходных портов</string>
+    <string name="detection_resistance_summary_quic_migrate">Переподвязка после рукопожатия</string>
+    <string name="detection_resistance_summary_quic">Транспорт QUIC</string>
+    <string name="detection_resistance_summary_tls">Профиль рукопожатия TLS</string>
+    <string name="detection_resistance_tls_fingerprint_body">Применяется к HTTPS- и TLS-соединениям, которые приложение порождает само, включая провижининг, обновление каталога, проверки онбординга, поиски метаданных диагностики и встроенный браузер RIPDPI. Для платформенного ECH в этом пути с собственным стеком требуется Android 17 или новее.</string>
+    <string name="detection_resistance_tls_fingerprint_title">Профиль TLS-отпечатка</string>
+
+    <!-- gap-fill: diagnostics_* (additional) -->
+    <string name="diagnostics_capability_evidence_title">Доказательства возможностей</string>
+    <string name="diagnostics_error_profile_blocked_by_policy">Этот профиль диагностики недоступен в рамках местной политики правовой безопасности.</string>
+    <string name="diagnostics_error_sensitive_profile_consent_required">Проверьте и подтвердите этот чувствительный профиль диагностики перед запуском.</string>
+    <string name="diagnostics_live_handover_state_format">Состояние передачи сети: %1$s</string>
+    <string name="diagnostics_live_telemetry_error_format">Проблема опроса телеметрии: %1$s</string>
+    <string name="diagnostics_metric_handover_state">Состояние передачи</string>
+    <string name="diagnostics_metric_telemetry_error">Ошибка телеметрии</string>
+    <string name="diagnostics_profile_badge_consent">Согласие</string>
+    <string name="diagnostics_profile_explicit_consent_required">В этом регионе требуется явное согласие.</string>
+    <string name="diagnostics_scan_policy_notice">Некоторые цели исключены из-за местной политики правовой безопасности.</string>
+    <string name="diagnostics_sensitive_profile_consent_body_format">%1$s включает чувствительные проверки для этого региона. Подтвердите перед запуском в RIPDPI.</string>
+    <string name="diagnostics_sensitive_profile_consent_confirm">Запустить чувствительную диагностику</string>
+    <string name="diagnostics_sensitive_profile_consent_dismiss">Не сейчас</string>
+    <string name="diagnostics_sensitive_profile_consent_title">Проверка чувствительной диагностики</string>
+
+    <!-- gap-fill: fake_order_card_* -->
+    <string name="fake_order_card_body">Управляйте чередованием поддельных и подлинных диапазонов на основном шаге семейства fake без редактирования полного DSL цепочки.</string>
+    <string name="fake_order_card_dsl_only">Эта форма цепочки не редактируется карточкой порядка fake основного шага. Используйте DSL цепочки для изменения altorder или seqmode.</string>
+    <string name="fake_order_card_hostfake_order_locked">Нестандартный порядок hostfake требует маркера разделения midhost. Добавьте `midhost=` в DSL цепочки, чтобы разблокировать изменения altorder.</string>
+    <string name="fake_order_card_order_body">Выберите, как чередуются поддельные и подлинные диапазоны для этого шага отправки.</string>
+    <string name="fake_order_card_order_title">Порядок эмиссии</string>
+    <string name="fake_order_card_runtime_custom">Пользовательский порядок</string>
+    <string name="fake_order_card_runtime_default">Порядок по умолчанию</string>
+    <string name="fake_order_card_runtime_label">Текущий профиль</string>
+    <string name="fake_order_card_seqmode_body">Duplicate повторно использует исходную последовательность потока. Sequential продвигает поздние поддельные пакеты в порядке эмиссии.</string>
+    <string name="fake_order_card_seqmode_title">Режим последовательности fake</string>
+    <string name="fake_order_card_step_label">Основной шаг</string>
+    <string name="fake_order_card_title">Порядок fake</string>
+
+    <!-- gap-fill: home_connection_actuator_* -->
+    <string name="home_connection_actuator_action_activate">Замкнуть защищённую линию</string>
+    <string name="home_connection_actuator_action_deactivate">Разомкнуть защищённую линию</string>
+    <string name="home_connection_actuator_action_wait">Защищённая линия замыкается</string>
+    <string name="home_connection_actuator_open">Открыто</string>
+    <string name="home_connection_actuator_secure">Защищено</string>
+    <string name="home_connection_actuator_state_degraded">Защищённая линия заблокирована, предупреждение в %1$s</string>
+    <string name="home_connection_actuator_state_engaging">Защищённая линия замыкается</string>
+    <string name="home_connection_actuator_state_fault">Сбой защищённой линии в %1$s</string>
+    <string name="home_connection_actuator_state_locked">Защищённая линия заблокирована</string>
+    <string name="home_connection_actuator_state_open">Защищённая линия открыта</string>
+
+    <!-- gap-fill: home_connection_stage_* -->
+    <string name="home_connection_stage_dns">DNS</string>
+    <string name="home_connection_stage_handshake">Рукопожатие</string>
+    <string name="home_connection_stage_network">Сеть</string>
+    <string name="home_connection_stage_route">Маршрут</string>
+    <string name="home_connection_stage_tunnel">Туннель</string>
+
+    <!-- gap-fill: home_diagnostics_* (additional) -->
+    <string name="home_diagnostics_actionable_section">Что делать дальше</string>
+    <string name="home_diagnostics_bufferbloat_section">Bufferbloat</string>
+    <string name="home_diagnostics_bufferbloat_summary">Оценка %1$s · в простое %2$s · под нагрузкой %3$s</string>
+    <string name="home_diagnostics_capability_evidence_label">Наблюдаемые доказательства возможностей</string>
+    <string name="home_diagnostics_detection_detected">VPN, вероятно, обнаружим в этой сети</string>
+    <string name="home_diagnostics_detection_needs_review">Результаты обнаружения требуют просмотра</string>
+    <string name="home_diagnostics_detection_not_detected">Сигналы обнаружения не наблюдались</string>
+    <string name="home_diagnostics_detection_permission_required">Некоторые проверки обнаружения требуют разрешений местоположения/телефона.</string>
+    <string name="home_diagnostics_detection_section_label">Сигналы обнаружения</string>
+    <string name="home_diagnostics_dns_resolver_doh_preferred">Доступен зашифрованный DNS; предпочитайте DoH.</string>
+    <string name="home_diagnostics_dns_resolver_doh_unreachable">Конечные точки DoH недоступны; путь DNS может быть перехвачен.</string>
+    <string name="home_diagnostics_dns_resolver_ok">Системный резолвер соответствует базовой истине DoH.</string>
+    <string name="home_diagnostics_dns_resolver_poisoning">Возможно обнаружено отравление DNS.</string>
+    <string name="home_diagnostics_dns_resolver_transparent_proxy">Возможно обнаружен прозрачный DNS-прокси.</string>
+    <string name="home_diagnostics_dns_resolver_unknown">Характеристика DNS неопределённая.</string>
+    <string name="home_diagnostics_dns_section">DNS-резолвер</string>
+    <string name="home_diagnostics_effectiveness_row_value">%1$d успешно / %2$d неудачно</string>
+    <string name="home_diagnostics_effectiveness_section">Эффективность стратегии в этой сети</string>
+    <string name="home_diagnostics_network_asn">ASN / ISP</string>
+    <string name="home_diagnostics_network_captive_portal">Captive-портал</string>
+    <string name="home_diagnostics_network_ipv6">IPv6</string>
+    <string name="home_diagnostics_network_mtu">MTU</string>
+    <string name="home_diagnostics_network_operator">Оператор / сеть</string>
+    <string name="home_diagnostics_network_public_ip">Публичный IP</string>
+    <string name="home_diagnostics_network_section">В этой сети</string>
+    <string name="home_diagnostics_network_transparent_proxy">Прозрачный прокси</string>
+    <string name="home_diagnostics_network_transport">Транспорт</string>
+    <string name="home_diagnostics_pcap_helper">Требуется root. Сохраняет PCAP для этого запуска.</string>
+    <string name="home_diagnostics_pcap_toggle">Захват пакетов (расширенно)</string>
+    <string name="home_diagnostics_quick_scan_body">Только зондирование стратегии, ~90 секунд</string>
+    <string name="home_diagnostics_quick_scan">Быстрое сканирование</string>
+    <string name="home_diagnostics_regression_failed_label">Новые сбои</string>
+    <string name="home_diagnostics_regression_recovered_label">Новые восстановления</string>
+    <string name="home_diagnostics_regression_section">Регрессия относительно предыдущего запуска</string>
+    <string name="home_diagnostics_regression_summary">%1$d новых сбоев, %2$d новых восстановлений, %3$d без изменений.</string>
+    <string name="home_diagnostics_routing_sanity_section">Здравомыслие маршрутизации приложений</string>
+    <string name="home_diagnostics_routing_sanity_summary">Настроено %1$d известных приложений-детекторов VPN из %2$d записей всего.</string>
+    <string name="home_diagnostics_vpn_detectors_summary">%1$d установленных приложений известны как детекторы VPN.</string>
+    <string name="home_diagnostics_vpn_detectors_title">Приложения, обнаруживающие VPN</string>
+
+    <!-- gap-fill: home_mode_card_* and home_mode_* -->
+    <string name="home_mode_card_configure">Настроить</string>
+    <string name="home_mode_card_connected_format">Подключено %1$s</string>
+    <string name="home_mode_card_connecting">Запуск...</string>
+    <string name="home_mode_card_diagnostic_empty">Анализа пока нет</string>
+    <string name="home_mode_card_diagnostic_status_actionable">Рекомендация готова</string>
+    <string name="home_mode_card_diagnostic_status_complete_format">%1$d/%2$d этапов завершено</string>
+    <string name="home_mode_card_diagnostic_status_review_format">Проверить %1$d/%2$d этапов</string>
+    <string name="home_mode_card_diagnostic_status_review">Проверить последний аудит</string>
+    <string name="home_mode_card_diagnostic_status_stale">Сеть изменилась — перезапустите сканирование</string>
+    <string name="home_mode_card_disable">Отключить</string>
+    <string name="home_mode_card_enable">Включить</string>
+    <string name="home_mode_card_remote_relay_disabled">Реле отключено</string>
+    <string name="home_mode_card_remote_server_unknown">Сервер не настроен</string>
+    <string name="home_mode_card_run_scan">Запустить сканирование</string>
+    <string name="home_mode_card_status_active">Активно</string>
+    <string name="home_mode_card_status_busy">Занято</string>
+    <string name="home_mode_card_status_inactive">Неактивно</string>
+    <string name="home_mode_diagnostic_scan">Диагностическое сканирование</string>
+    <string name="home_mode_local_dpi_bypass">Локальный обход DPI</string>
+    <string name="home_mode_remote_vpn">VPN с удалённым сервером</string>
+
+    <!-- gap-fill: home_quality_* and home_stat_quality -->
+    <string name="home_quality_connecting">Подключение</string>
+    <string name="home_quality_excellent">Отлично</string>
+    <string name="home_quality_good">Хорошо</string>
+    <string name="home_quality_offline">Офлайн</string>
+    <string name="home_stat_quality">Качество</string>
+
+    <!-- gap-fill: onboarding_* -->
+    <string name="onboarding_diagnostics_body">Обнаруживайте вмешательство DPI и анализируйте состояние сети, не покидая приложение.</string>
+    <string name="onboarding_diagnostics_title">Встроенная диагностика</string>
+    <string name="onboarding_setup_test_failed">Подключение не удалось: %1$s</string>
+    <string name="onboarding_setup_test_hint">Проверьте интернет-соединение перед началом работы.</string>
+    <string name="onboarding_setup_test_run">Запустить тест</string>
+    <string name="onboarding_setup_test_running">Проверка соединения…</string>
+    <string name="onboarding_setup_test_success">Подключено за %1$d мс</string>
+    <string name="onboarding_setup_test_title">Проверить соединение</string>
+
+    <!-- gap-fill: qs_tile_* -->
+    <string name="qs_tile_label_connected">RIPDPI: Подключено</string>
+    <string name="qs_tile_label_disconnected">RIPDPI</string>
+    <string name="qs_tile_subtitle_tap_connect">Нажмите для подключения</string>
+    <string name="qs_tile_subtitle_tap_disconnect">Нажмите для отключения</string>
+
+    <!-- gap-fill: ripdpi_http_* and ripdpi_ip_id_* -->
+    <string name="ripdpi_http_host_extra_space_setting">Дополнительный пробел в Host</string>
+    <string name="ripdpi_http_host_pad_setting">Заголовок Pad для Host</string>
+    <string name="ripdpi_http_host_tab_setting">Разделитель табуляции в Host</string>
+    <string name="ripdpi_http_method_space_setting">Дополнительный пробел в методе</string>
+    <string name="ripdpi_ip_id_mode_body">Управляет значениями идентификации IPv4 для путей сырых fake и фрагментов. Seqgroup также продвигает смешанные fake/оригинальные TCP-отправки на путь сырой замены, чтобы ID оставались точными.</string>
+    <string name="ripdpi_ip_id_mode_title">Режим IPv4 ID</string>
+
+    <!-- gap-fill: ripdpi_seqovl_* -->
+    <string name="ripdpi_seqovl_available_body">Используйте seqovl, когда устройство поддерживает бэкенд packet-owned. До этого сохранённые шаги seqovl остаются обратимыми, но во время выполнения откатываются к split.</string>
+    <string name="ripdpi_seqovl_available_title">Доступно перекрытие последовательностей</string>
+    <string name="ripdpi_seqovl_cli_body">Визуальные подсказки seqovl остаются видны здесь, но активная цепочка приходит из сырых аргументов RIPDPI, пока активны настройки командной строки.</string>
+    <string name="ripdpi_seqovl_cli_title">Управляется командной строкой</string>
+    <string name="ripdpi_seqovl_ready_body">Сохранённая цепочка стратегий уже содержит seqovl и сохранит свой маркер, размер перекрытия и режим fake между правками настроек.</string>
+    <string name="ripdpi_seqovl_ready_title">Перекрытие последовательностей настроено</string>
+    <string name="ripdpi_seqovl_restart_body">Текущий сеанс RIPDPI запущен до этого изменения цепочки, поэтому seqovl не вступит в силу, пока RIPDPI не переподключится или не перезапустится.</string>
+    <string name="ripdpi_seqovl_restart_title">Перезапуск для повторного применения seqovl</string>
+    <string name="ripdpi_seqovl_scope_note">Seqovl жёстко ограничен раундом 1 и байтами потока 0..1500. В фазе 1 устройства без поддержки сохраняют конфигурацию, но отправляют тот же трафик, что split.</string>
+    <string name="ripdpi_seqovl_summary_fake_mode_profile">профиль</string>
+    <string name="ripdpi_seqovl_summary_label_fake_mode">Режим fake</string>
+    <string name="ripdpi_seqovl_summary_label_marker">Маркер разделения</string>
+    <string name="ripdpi_seqovl_summary_label_overlap">Байты перекрытия</string>
+    <string name="ripdpi_seqovl_summary_label_profile">Профиль цепочки</string>
+    <string name="ripdpi_seqovl_summary_label_runtime">Путь времени выполнения</string>
+    <string name="ripdpi_seqovl_summary_label_scope">Область трафика</string>
+    <string name="ripdpi_seqovl_summary_marker_none">Использовать маркер шага из DSL цепочки</string>
+    <string name="ripdpi_seqovl_summary_profile_configured">1 шаг seqovl</string>
+    <string name="ripdpi_seqovl_summary_profile_inactive">Нет в текущей цепочке</string>
+    <string name="ripdpi_seqovl_summary_runtime_fallback">На этом устройстве откатывается к split</string>
+    <string name="ripdpi_seqovl_summary_runtime_supported">Бэкенд packet-owned доступен</string>
+    <string name="ripdpi_seqovl_summary_scope_http_https">HTTP-запросы и TLS ClientHello</string>
+    <string name="ripdpi_seqovl_summary_scope_http">Только HTTP-запросы</string>
+    <string name="ripdpi_seqovl_summary_scope_https">Только TLS ClientHello</string>
+    <string name="ripdpi_seqovl_summary_scope_none">Ни один подходящий протокол не включён</string>
+    <string name="ripdpi_seqovl_unsupported_body">Это устройство не предоставляет восходящий TCP-бэкенд packet-owned, который нужен seqovl. Новые элементы управления seqovl остаются отключёнными, а сохранённые шаги seqovl деградируют до split.</string>
+    <string name="ripdpi_seqovl_unsupported_title">Перекрытие последовательностей недоступно</string>
+
+    <!-- gap-fill: routing_protection_* -->
+    <string name="routing_protection_anti_correlation_body">Предназначен для давления мобильного whitelist. Сохраняет внутренние назначения прямыми, направляя пути с большим CDN-трафиком через VPN или реле.</string>
+    <string name="routing_protection_anti_correlation_title">Режим антикорреляции</string>
+    <string name="routing_protection_detected_packages">Обнаруженные пакеты: %1$s</string>
+    <string name="routing_protection_dht_body">Управляет обработкой известных триггерных CIDR при активной раздельной маршрутизации.</string>
+    <string name="routing_protection_dht_bypass_title">Прямой обход</string>
+    <string name="routing_protection_dht_drop_warn_title">Отбросить и предупредить</string>
+    <string name="routing_protection_dht_off_title">Выкл</string>
+    <string name="routing_protection_dht_title">Смягчение триггера DHT</string>
+    <string name="routing_protection_full_tunnel_active">Активен режим полного туннеля, поэтому исключения приложений и подсказки антикорреляции сейчас подавлены.</string>
+    <string name="routing_protection_policy_body">Предложения никогда не применяются автоматически. Режим запроса оставляет советы по маршрутизации видимыми, когда установлены рискованные приложения.</string>
+    <string name="routing_protection_policy_off_body">Скрыть предложения по маршрутизации и оставить политику без изменений.</string>
+    <string name="routing_protection_policy_off_title">Выкл</string>
+    <string name="routing_protection_policy_prompt_body">Показывать предложения по маршрутизации, когда присутствуют рискованные приложения.</string>
+    <string name="routing_protection_policy_prompt_title">Запрос</string>
+    <string name="routing_protection_policy_title">Режим предложений</string>
+    <string name="routing_protection_section_title">Защита маршрутизации приложений</string>
+    <string name="routing_protection_summary_body">%1$d рискованных приложений обнаружено в %2$d включённых пресетах.</string>
+    <string name="routing_protection_summary_title">Предложения по маршрутизации используют только сопоставления установленных приложений</string>
+
+    <!-- gap-fill: semantic_action_* and semantic_state_* -->
+    <string name="semantic_action_collapse">Свернуть</string>
+    <string name="semantic_action_expand">Развернуть</string>
+    <string name="semantic_state_collapsed">Свёрнуто</string>
+    <string name="semantic_state_expanded">Развёрнуто</string>
+    <string name="semantic_state_off">Выкл</string>
+    <string name="semantic_state_on">Вкл</string>
+
+    <!-- gap-fill: settings_* -->
+    <string name="settings_danger_section">Опасная зона</string>
+    <string name="settings_exclude_russian_apps_body">Банковские приложения, доставка и государственные сервисы обходят VPN, чтобы избежать проблем с обнаружением</string>
+    <string name="settings_exclude_russian_apps_title">Исключить российские приложения</string>
+    <string name="settings_full_tunnel_body">Направлять весь трафик через VPN без исключений приложений. Предотвращает прямую отправку трафика модулями шпионского ПО, но российские приложения могут обнаружить VPN</string>
+    <string name="settings_full_tunnel_title">Режим полного туннеля</string>
+    <string name="settings_reset_action">Сбросить</string>
+    <string name="settings_reset_body">Восстановить все настройки в значения по умолчанию</string>
+    <string name="settings_reset_confirm">Сбросить</string>
+    <string name="settings_reset_dialog_body">Это восстановит все настройки в значения по умолчанию. Ваше соединение будет остановлено, а все настройки утеряны.</string>
+    <string name="settings_reset_dialog_title">Сбросить все настройки?</string>
+    <string name="settings_reset_title">Сбросить все настройки</string>
+    <string name="settings_strategy_pack_allow_rollback_override_body">Только для отладки. Разрешить загружаемые последовательности strategy-pack равного или более низкого уровня для локальной проверки. Подпись, совместимость и проверки свежести по-прежнему применяются.</string>
+    <string name="settings_strategy_pack_allow_rollback_override_title">Разрешить откат strategy-pack</string>
+    <string name="settings_tethering_dns_warning_body">Когда модем активен, Android запускает локальный DNS-сервер, который обходит VPN. Приложения могут использовать это для отправки маячков отслеживания вне туннеля</string>
+    <string name="settings_tethering_dns_warning_title">Риск утечки DNS при модеме</string>
+    <string name="settings_vpn_flag_warning_body">Приложения во всех профилях Android (включая Рабочий профиль и Knox) могут обнаружить, что VPN активен. Для полной изоляции используйте отдельное устройство для российских приложений</string>
+    <string name="settings_vpn_flag_warning_title">Флаг VPN виден</string>
+
+    <!-- gap-fill: shortcut_* -->
+    <string name="shortcut_diagnostics_disabled">Диагностика недоступна</string>
+    <string name="shortcut_diagnostics_short">Диагностика</string>
+    <string name="shortcut_diagnostics">Запустить диагностику</string>
+    <string name="shortcut_quick_connect_disabled">Соединение недоступно</string>
+    <string name="shortcut_quick_connect_short">Подключить</string>
+    <string name="shortcut_quick_connect">Быстрое подключение</string>
+
+    <!-- gap-fill: stage plurals -->
+    <plurals name="stage_failed_count">
+        <item quantity="one">, %d сбой</item>
+        <item quantity="few">, %d сбоя</item>
+        <item quantity="many">, %d сбоев</item>
+        <item quantity="other">, %d сбоев</item>
+    </plurals>
+    <plurals name="stage_passed_count">
+        <item quantity="one">%d успешный</item>
+        <item quantity="few">%d успешных</item>
+        <item quantity="many">%d успешных</item>
+        <item quantity="other">%d успешных</item>
+    </plurals>
+    <plurals name="stage_pending_count">
+        <item quantity="one">, %d в ожидании</item>
+        <item quantity="few">, %d в ожидании</item>
+        <item quantity="many">, %d в ожидании</item>
+        <item quantity="other">, %d в ожидании</item>
+    </plurals>
+
+    <!-- gap-fill: strategy_config_* -->
+    <string name="strategy_config_active_path_label">Активный источник</string>
+    <string name="strategy_config_editor_label">Цепочка стратегий</string>
+    <string name="strategy_config_entry_body">Просмотрите активную цепочку стратегий, импортируйте локальную конфигурацию, экспортируйте текст или загрузите Lua-скрипт стратегии.</string>
+    <string name="strategy_config_entry_title">Конфигурация стратегии</string>
+    <string name="strategy_config_export_action">Экспорт</string>
+    <string name="strategy_config_export_title">Экспорт конфигурации стратегии</string>
+    <string name="strategy_config_import_empty">Выбранный файл пуст.</string>
+    <string name="strategy_config_import_failed_title">Импорт не удался</string>
+    <string name="strategy_config_import_too_large">Выберите файл не больше %1$d КБ.</string>
+    <string name="strategy_config_import_unreadable">Выбранный файл не удалось прочитать.</string>
+    <string name="strategy_config_imported_body">Импортированный текст готов к просмотру.</string>
+    <string name="strategy_config_imported_title">Конфигурация импортирована</string>
+    <string name="strategy_config_invalid_title">Конфигурация не прошла валидацию</string>
+    <string name="strategy_config_load_action">Загрузить</string>
+    <string name="strategy_config_lua_function_label">Имя функции</string>
+    <string name="strategy_config_lua_function_missing">Lua-функция %1$s не была зарегистрирована выбранным скриптом.</string>
+    <string name="strategy_config_lua_function_placeholder">определяется автоматически после загрузки</string>
+    <string name="strategy_config_lua_function_required_body">Введите Lua-функцию, которая должна выполняться в конфигурации стратегии туннеля.</string>
+    <string name="strategy_config_lua_function_required_title">Требуется имя функции</string>
+    <string name="strategy_config_lua_loaded_body">Зарегистрированные функции доступны нативному движку стратегии.</string>
+    <string name="strategy_config_lua_loaded_title">Lua-скрипт загружен</string>
+    <string name="strategy_config_lua_path_label">Путь Lua-скрипта</string>
+    <string name="strategy_config_lua_path_placeholder">/data/user/0/.../lua/zapret-antidpi.lua</string>
+    <string name="strategy_config_lua_path_required_body">Выберите или введите путь Lua-скрипта перед валидацией или загрузкой.</string>
+    <string name="strategy_config_lua_path_required_title">Требуется путь скрипта</string>
+    <string name="strategy_config_lua_valid_body">Скрипт успешно разобран без выполнения.</string>
+    <string name="strategy_config_lua_valid_title">Lua-скрипт корректен</string>
+    <string name="strategy_config_native_unavailable">Нативные привязки стратегии недоступны в этом процессе.</string>
+    <string name="strategy_config_path_datastore">DataStore настроек / цепочка стратегий</string>
+    <string name="strategy_config_path_imported">Импортированный текстовый буфер</string>
+    <string name="strategy_config_path_not_selected">Скрипт не выбран</string>
+    <string name="strategy_config_reload_action">Перезагрузить</string>
+    <string name="strategy_config_reload_failed_title">Перезагрузка не удалась</string>
+    <string name="strategy_config_reloaded_body">Загруженные Lua-скрипты обновлены.</string>
+    <string name="strategy_config_reloaded_title">Конфигурация стратегии перезагружена</string>
+    <string name="strategy_config_saved_body">Сохранённая цепочка применится в следующем сеансе, управляемом интерфейсом.</string>
+    <string name="strategy_config_saved_restart_pending_body">Перезапуск сервиса уже применяет сохранённую конфигурацию стратегии.</string>
+    <string name="strategy_config_saved_restarting_body">Текущий сервис перезапускается, чтобы сохранённая конфигурация стратегии была загружена в активный путь туннеля.</string>
+    <string name="strategy_config_saved_title">Конфигурация стратегии сохранена</string>
+    <string name="strategy_config_section_title">Конфигурация стратегии</string>
+    <string name="strategy_config_source_builtin">Встроенная</string>
+    <string name="strategy_config_source_lua">Lua-скрипт</string>
+    <string name="strategy_config_source_yaml">Пользовательский YAML</string>
+    <string name="strategy_config_validate_action">Проверить</string>
+
+    <!-- gap-fill: tcp_flag_card_* and tcp_flag_* -->
+    <string name="tcp_flag_card_body">Настройте флаги fake и оригинальных TCP-пакетов на основном шаге отправки без перехода в DSL цепочки.</string>
+    <string name="tcp_flag_card_dsl_only">Эта форма цепочки не редактируется карточкой TCP-флагов основного шага. Используйте DSL цепочки для изменения масок флагов.</string>
+    <string name="tcp_flag_card_runtime_custom">Пользовательские TCP-флаги</string>
+    <string name="tcp_flag_card_runtime_default">Значения ядра по умолчанию</string>
+    <string name="tcp_flag_card_runtime_label">Текущий профиль</string>
+    <string name="tcp_flag_card_step_label">Основной шаг</string>
+    <string name="tcp_flag_card_title">Создание TCP-флагов</string>
+    <string name="tcp_flag_fake_clear_title">Поддельный пакет: очистить флаги</string>
+    <string name="tcp_flag_fake_set_title">Поддельный пакет: установить флаги</string>
+    <string name="tcp_flag_orig_clear_title">Оригинальный пакет: очистить флаги</string>
+    <string name="tcp_flag_orig_set_title">Оригинальный пакет: установить флаги</string>
+
+    <!-- gap-fill: title_* -->
+    <string name="title_blockcheck">Зондирование стратегий</string>
+    <string name="title_local_bypass_config">Конфигурация локального обхода DPI</string>
+    <string name="title_shared_diagnostic_result">Общая диагностика</string>
+    <string name="title_strategy_config">Конфигурация стратегии</string>
+    <string name="title_vpn_config">Конфигурация VPN</string>
+
+    <!-- gap-fill: warp_* -->
+    <string name="warp_account_kind_body">Тип активной идентификации WARP. Consumer Free, WARP+ и Zero Trust используют разные пути регистрации.</string>
+    <string name="warp_account_kind_title">Тип аккаунта</string>
+    <string name="warp_amnezia_h1_title">Amnezia H1</string>
+    <string name="warp_amnezia_h2_title">Amnezia H2</string>
+    <string name="warp_amnezia_h3_title">Amnezia H3</string>
+    <string name="warp_amnezia_h4_title">Amnezia H4</string>
+    <string name="warp_amnezia_jc_title">Amnezia JC</string>
+    <string name="warp_amnezia_jmax_title">Amnezia Jmax</string>
+    <string name="warp_amnezia_jmin_title">Amnezia Jmin</string>
+    <string name="warp_amnezia_preset_body">Выберите пресет обфускации WARP на основе PayloadGen или переключитесь на пользовательский для редактирования сырых значений AmneziaWG.</string>
+    <string name="warp_amnezia_preset_custom_summary">Пользовательский профиль. JC %1$d, Jmin %2$d, Jmax %3$d.</string>
+    <string name="warp_amnezia_preset_off_summary">Формирование AmneziaWG отключено для WARP.</string>
+    <string name="warp_amnezia_preset_profile_summary">Встроенный профиль. JC %1$d, Jmin %2$d, Jmax %3$d.</string>
+    <string name="warp_amnezia_preset_title">Профиль формирования AmneziaWG</string>
+    <string name="warp_amnezia_profile_title">Применённый профиль AmneziaWG</string>
+    <string name="warp_amnezia_s1_title">Amnezia S1</string>
+    <string name="warp_amnezia_s2_title">Amnezia S2</string>
+    <string name="warp_amnezia_s3_title">Amnezia S3</string>
+    <string name="warp_amnezia_s4_title">Amnezia S4</string>
+    <string name="warp_amnezia_suggested_preset">%1$s рекомендуется для текущей подсказки оператора. Подсказка носит только информационный характер.</string>
+    <string name="warp_builtin_rules_body">Сохранять домены управляющей плоскости Cloudflare WARP на пути bootstrap/direct, а не зацикливать их обратно в WARP.</string>
+    <string name="warp_builtin_rules_title">Встроенные правила Cloudflare</string>
+    <string name="warp_enabled_body">Запустить отдельный локальный восходящий канал WARP и позволить RIPDPI направлять выбранный трафик в него.</string>
+    <string name="warp_enabled_title">Включить среду выполнения WARP</string>
+    <string name="warp_endpoint_mode_body">«Автоматически» использует подготовленную или кешированную конечную точку. «Вручную» закрепляет транспорт WARP на значениях ниже.</string>
+    <string name="warp_endpoint_mode_title">Выбор конечной точки</string>
+    <string name="warp_last_scanner_mode_body">Как был получен текущий выбор конечной точки последний раз.</string>
+    <string name="warp_last_scanner_mode_title">Режим последнего сканера</string>
+    <string name="warp_manual_host_body">Опциональное имя хоста для закреплённой конечной точки WARP.</string>
+    <string name="warp_manual_host_title">Хост ручной конечной точки</string>
+    <string name="warp_manual_ipv4_body">Опциональный IPv4-адрес для закреплённой конечной точки.</string>
+    <string name="warp_manual_ipv4_title">IPv4 ручной конечной точки</string>
+    <string name="warp_manual_ipv6_body">Опциональный IPv6-адрес для закреплённой конечной точки.</string>
+    <string name="warp_manual_ipv6_title">IPv6 ручной конечной точки</string>
+    <string name="warp_manual_port_body">UDP-порт для закреплённой конечной точки WARP.</string>
+    <string name="warp_manual_port_title">Порт ручной конечной точки</string>
+    <string name="warp_profile_id_body">Выбранная несекретная ссылка профиля WARP, используемая для привязки защищённых учётных данных и записей кеша конечных точек.</string>
+    <string name="warp_profile_id_title">Активный профиль</string>
+    <string name="warp_route_hosts_body">По одному имени хоста на строку. Только эти назначения будут отправлены в локальный SOCKS-канал WARP.</string>
+    <string name="warp_route_hosts_title">Список хостов маршрута WARP</string>
+    <string name="warp_route_mode_body">Режим правил направляет через WARP только перечисленные хосты. «Выкл» оставляет WARP отключённым для пользовательского трафика.</string>
+    <string name="warp_route_mode_title">Режим маршрутизации WARP</string>
+    <string name="warp_scanner_enabled_body">Зондировать кандидатов конечных точек WARP и повторно использовать лучший результат при каждой передаче сети.</string>
+    <string name="warp_scanner_enabled_title">Включить сканер конечных точек</string>
+    <string name="warp_scanner_parallelism_body">Максимальное число одновременных зондирований конечных точек.</string>
+    <string name="warp_scanner_parallelism_title">Параллелизм сканера</string>
+    <string name="warp_scanner_rtt_body">Отбрасывать кандидатов сканера, измеренная задержка которых превышает этот бюджет в миллисекундах.</string>
+    <string name="warp_scanner_rtt_title">Максимальный RTT конечной точки</string>
+    <string name="warp_section_title">Cloudflare WARP</string>
+    <string name="warp_setup_state_body">Текущее состояние регистрации/провижининга для активного профиля WARP.</string>
+    <string name="warp_setup_state_title">Состояние настройки</string>
+    <string name="warp_zero_trust_org_body">Показывается, когда активный профиль принадлежит регистрации Zero Trust.</string>
+    <string name="warp_zero_trust_org_title">Организация Zero Trust</string>
+
+    <!-- Language picker -->
+    <string name="settings_language_title">Язык</string>
+    <string name="settings_language_body">Выберите язык, используемый приложением RIPDPI</string>
+    <string name="language_picker_sheet_title">Выберите язык</string>
+    <string name="language_picker_native_format">%1$s</string>
+    <string name="language_name_en">English</string>
+    <string name="language_name_ru">Русский</string>
+    <string name="language_name_es">Español</string>
+    <string name="language_name_de">Deutsch</string>
+    <string name="language_name_fr">Français</string>
+    <string name="language_name_fa">فارسی</string>
+    <string name="language_name_zh_cn">简体中文</string>
 </resources>

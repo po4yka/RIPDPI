@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust"/>
 </p>
 
-<p align="center"><a href="README-ru.md">Русский</a> | <b>English</b></p>
+<p align="center"><b>English</b> | <a href="README-ru.md">Русский</a> | <a href="README-es.md">Español</a> | <a href="README-de.md">Deutsch</a> | <a href="README-fr.md">Français</a> | <a href="docs/fa/README.md">فارسی</a> | <a href="README-zh-CN.md">简体中文</a></p>
 
 RIPDPI is an Android network-path diagnostics and optimization toolkit. It applies configurable packet strategies on-device, can connect to relay servers you control, and runs per-connection diagnostics to identify why each target is failing or degrading. The three capabilities work independently or in combination.
 

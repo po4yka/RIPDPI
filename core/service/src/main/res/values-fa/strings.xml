@@ -1,0 +1,9 @@
+<resources>
+    <string name="vpn_channel_name">VPN</string>
+    <string name="proxy_channel_name">پراکسی</string>
+    <string name="notification_title">RIPDPI</string>
+    <string name="vpn_notification_content">VPN در حال اجراست</string>
+    <string name="proxy_notification_content">پراکسی در حال اجراست</string>
+    <string name="notification_stop">توقف</string>
+
+</resources>
