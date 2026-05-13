@@ -96,7 +96,11 @@ object DpiDiagnosticsToolModule {
     @Provides
     fun provideHttpCompressionProber(tlsClientFactory: DiagnosticsHttpClientFactory): HttpCompressionProber =
         HttpCompressionProber(clientBuilder = tlsClientFactory::createClient)
+}
 
+@Module
+@InstallIn(ViewModelComponent::class)
+object DpichDiagnosticsToolModule {
     @Provides
     fun provideCidrWhitelistDetector(
         assetLoader: DpiAssetLoader,

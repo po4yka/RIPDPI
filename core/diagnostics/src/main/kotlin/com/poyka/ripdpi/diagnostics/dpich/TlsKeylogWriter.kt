@@ -5,6 +5,8 @@ import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.FileOutputStream
 
+private const val MillisPerSecond = 1_000L
+
 data class KeylogRetentionPolicy(
     val hoursToKeep: Int = DefaultHoursToKeep,
 ) {
@@ -40,9 +42,7 @@ class TlsKeylogWriter(
             if (!path.exists()) path.writeText("")
             val rotated = File("${path.absolutePath}.$timestampSeconds")
             if (rotated.exists()) rotated.delete()
-            if (!path.renameTo(rotated)) {
-                throw IllegalStateException("Failed to rotate TLS keylog file")
-            }
+            check(path.renameTo(rotated)) { "Failed to rotate TLS keylog file" }
             path.writeText("")
             rotated
         }
@@ -95,7 +95,7 @@ data class TlsKeylogFinalizationResult(
 )
 
 class TlsKeylogRunFinalizer(
-    private val nowSeconds: () -> Long = { System.currentTimeMillis() / 1_000L },
+    private val nowSeconds: () -> Long = { System.currentTimeMillis() / MillisPerSecond },
     private val nowMs: () -> Long = { System.currentTimeMillis() },
     private val retention: KeylogRetentionPolicy = KeylogRetentionPolicy(),
 ) {
