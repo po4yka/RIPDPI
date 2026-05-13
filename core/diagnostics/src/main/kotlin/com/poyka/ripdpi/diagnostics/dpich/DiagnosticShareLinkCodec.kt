@@ -35,18 +35,9 @@ object DiagnosticShareLinkCodec {
     }
 
     fun decode(fragment: String): ShareLinkPayload {
-        if (fragment.length > DiagnosticShareLinkMaxFragmentChars) {
-            throw ShareLinkDecodeError("Share-link fragment is too large")
-        }
-        val encodedBytes =
-            try {
-                Base64.getUrlDecoder().decode(fragment)
-            } catch (error: IllegalArgumentException) {
-                throw ShareLinkDecodeError("Malformed share-link fragment", error)
-            }
-        if (encodedBytes.size < HeaderSizeBytes) {
-            throw ShareLinkDecodeError("Share-link payload is truncated")
-        }
+        validateFragmentLength(fragment)
+        val encodedBytes = decodeBase64Fragment(fragment)
+        validateHeaderSize(encodedBytes)
         val payloadBytes = encodedBytes.copyOf()
         xorPayloadTail(payloadBytes)
         return decodePayload(payloadBytes)
@@ -104,6 +95,25 @@ object DiagnosticShareLinkCodec {
             asn = readU24(bytes, offset = AsnOffset),
             items = items,
         )
+    }
+}
+
+private fun validateFragmentLength(fragment: String) {
+    if (fragment.length > DiagnosticShareLinkMaxFragmentChars) {
+        throw ShareLinkDecodeError("Share-link fragment is too large")
+    }
+}
+
+private fun decodeBase64Fragment(fragment: String): ByteArray =
+    try {
+        Base64.getUrlDecoder().decode(fragment)
+    } catch (error: IllegalArgumentException) {
+        throw ShareLinkDecodeError("Malformed share-link fragment", error)
+    }
+
+private fun validateHeaderSize(encodedBytes: ByteArray) {
+    if (encodedBytes.size < HeaderSizeBytes) {
+        throw ShareLinkDecodeError("Share-link payload is truncated")
     }
 }
 

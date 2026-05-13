@@ -187,7 +187,7 @@ val coverageModulePaths =
     )
 
 val qualityModulePaths = listOf(":app") + coverageModulePaths
-val lintModulePaths = qualityModulePaths
+val lintTaskPaths = listOf(":app:lintGithubDebug") + coverageModulePaths.map { "$it:lintDebug" }
 
 fun moduleRelativePath(modulePath: String): String = modulePath.removePrefix(":").replace(':', '/')
 
@@ -320,7 +320,7 @@ tasks.register("staticAnalysis") {
         tasks.named("verifyAppEngineBoundary"),
         ":app:verifyEngineBoundaryClasspath",
         qualityModulePaths.map { "$it:detekt" },
-        lintModulePaths.map { "$it:lintDebug" },
+        lintTaskPaths,
         qualityModulePaths.map { "$it:ktlintCheck" },
     )
 }

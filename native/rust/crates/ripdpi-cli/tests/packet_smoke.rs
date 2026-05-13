@@ -40,10 +40,14 @@ fn cli_packet_smoke_tcp_split_family() {
         "cli_packet_smoke_tcp_split_family",
         |_paths| vec!["-s", "host+1"].into_iter().map(str::to_string).collect(),
         |manifest| format!("tcp and port {}", manifest.tcp_echo_port),
-        |proxy_port, fixture| drive_http_echo_strict(proxy_port, fixture, "split"),
+        drive_http_echo_split,
         |run| {
             assert_tcp_payload_split(run, run.manifest.tcp_echo_port)?;
-            assert_fixture_event(run, "tcp_echo")?;
+            if supports_await_writable_split() {
+                assert_fixture_event(run, "tcp_echo")?;
+            } else {
+                assert_stderr_contains(run, "only supported on Linux/Android")?;
+            }
             Ok(())
         },
     );
@@ -292,6 +296,14 @@ fn drive_http_echo_strict(proxy_port: u16, fixture: &FixtureStack, path_token: &
     Ok(())
 }
 
+fn drive_http_echo_split(proxy_port: u16, fixture: &FixtureStack) -> Result<(), String> {
+    if supports_await_writable_split() {
+        drive_http_echo_strict(proxy_port, fixture, "split")
+    } else {
+        drive_http_echo_best_effort(proxy_port, fixture, "split")
+    }
+}
+
 fn drive_http_echo_best_effort(proxy_port: u16, fixture: &FixtureStack, path_token: &str) -> Result<(), String> {
     let payload = http_echo_payload(fixture, path_token);
     let _ =
@@ -537,6 +549,10 @@ fn assert_stderr_contains(run: &ScenarioRun, needle: &str) -> Result<(), String>
     } else {
         Err(format!("expected CLI stderr to contain {needle:?}, got:\n{}", run.stderr))
     }
+}
+
+fn supports_await_writable_split() -> bool {
+    cfg!(any(target_os = "android", target_os = "linux"))
 }
 
 fn assert_tcp_payload_split(run: &ScenarioRun, port: u16) -> Result<(), String> {
