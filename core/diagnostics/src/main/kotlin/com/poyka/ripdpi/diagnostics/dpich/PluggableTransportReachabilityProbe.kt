@@ -89,11 +89,10 @@ class PluggableTransportReachabilityProbe(
         }
 
     private suspend fun runLeg(block: suspend () -> PtProbeTrace): PtProbeTrace =
-        try {
+        runCatching {
             block()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
+        }.getOrElse { error ->
+            error.throwIfCancellation()
             PtProbeTrace(
                 leg = "unknown",
                 target = "unknown",
@@ -235,7 +234,7 @@ class SnowflakeBrokerReachabilityProbe(
 }
 
 class SnowflakeStunReachabilityProbe(
-    private val endpoint: PtEndpoint = PtEndpoint("stun.l.google.com", 19302),
+    private val endpoint: PtEndpoint = PtEndpoint(DefaultSnowflakeStunHost, DefaultSnowflakeStunPort),
     private val socketFactory: () -> DatagramSocket = { DatagramSocket() },
     private val transactionId: () -> ByteArray = { Random.nextBytes(StunTransactionIdBytes) },
 ) : PtSubprobe {
@@ -255,7 +254,7 @@ class SnowflakeStunReachabilityProbe(
                     latencyMs = System.currentTimeMillis() - startedAt,
                 )
             }
-        } catch (error: SocketTimeoutException) {
+        } catch (_: SocketTimeoutException) {
             PtProbeTrace(
                 SnowflakeStunLeg,
                 endpoint.toString(),
@@ -274,23 +273,24 @@ class SnowflakeStunReachabilityProbe(
         }
     }
 
-    private fun stunBindingRequest(id: ByteArray): ByteArray =
-        byteArrayOf(
-            0x00,
-            0x01,
-            0x00,
-            0x00,
-            0x21,
-            0x12,
-            0xA4.toByte(),
-            0x42,
-        ) + id
+    private fun stunBindingRequest(id: ByteArray): ByteArray = StunBindingRequestPrefix + id
 
     private companion object {
         private const val SnowflakeStunLeg = "snowflake_stun"
         private const val StunHeaderBytes = 20
         private const val StunResponseBytes = 512
         private const val StunTransactionIdBytes = 12
+        private val StunBindingRequestPrefix =
+            byteArrayOf(
+                0x00,
+                0x01,
+                0x00,
+                0x00,
+                0x21,
+                0x12,
+                0xA4.toByte(),
+                0x42,
+            )
     }
 }
 
@@ -362,6 +362,15 @@ data class PtEndpoint(
 ) {
     override fun toString(): String = "$host:$port"
 }
+
+private fun Throwable.throwIfCancellation() {
+    if (this is CancellationException) {
+        throw this
+    }
+}
+
+private const val DefaultSnowflakeStunHost = "stun.l.google.com"
+private const val DefaultSnowflakeStunPort = 19302
 
 private val DefaultObfs4Bridges =
     listOf(
