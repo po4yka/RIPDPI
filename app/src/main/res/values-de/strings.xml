@@ -1080,7 +1080,7 @@ fake_burst 3</string>
     <string name="detection_community_reports">%d Prüfungen erfasst</string>
     <string name="detection_finding_detected">Erkannt</string>
     <string name="detection_onboarding_allow">Zulassen</string>
-    <string name="detection_permission_rationale">Zusätzliche Berechtigungen verbessern die Genauigkeit der Prüfungen. Erteilen Sie sie für bessere Ergebnisse.</string>
+    <string name="detection_permission_rationale">Android stuft diese Berechtigungen als Standort ein, weil Wi-Fi- und Mobilfunkidentität verraten können, wo Sie sind. RIPDPI nutzt sie nicht zum Tracking; Prüfungen nutzen sie nur, um Netzwerkverhalten zu unterscheiden, Rohkennungen werden nicht gespeichert und Diagnoseexporte redigieren sensible Kennungen.</string>
     <string name="detection_resistance_badge_default">Standard</string>
     <string name="detection_resistance_entropy_mode_body">Wählen Sie, welches Modell der Nutzlast-Statistik vom Fake-Paket-Pfad konterkariert werden soll.</string>
     <string name="detection_resistance_entropy_padding_title">Popcount-Ziel (Promille)</string>
@@ -1526,7 +1526,7 @@ Quelle: %2$s</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_local_port_helper">Der Haupt-RIPDPI-Proxy verkettet sich mit diesem Loopback-Listener.</string>
     <string name="config_relay_masque_client_certificate_chain">Client-Zertifikatskette (PEM)</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">Grobe Standortermittlung fügt einen optionalen Header sec-ch-geohash mit Land und Region für das Cloudflare-Direct-Routing hinzu.</string>
+    <string name="config_relay_masque_cloudflare_geohash_helper">Android kann nach grobem Standort fragen, weil dieser optionale Cloudflare-Egress-Hinweis ungefähres Land und Region liest. Er wird nicht zum Tracking verwendet, und rohe Standort- oder Netzwerkkennungen werden nicht gespeichert.</string>
     <string name="config_relay_masque_pkcs12_dialog_title">PKCS#12-Identität importieren</string>
     <string name="config_relay_masque_privacy_pass_missing_provider">Privacy Pass ist nicht verfügbar, da dieser Build keine konfigurierte Provider-URL hat.</string>
     <string name="config_relay_profile_id_helper">Wird verwendet, um sichere Anmeldedaten an das gespeicherte Relay-Profil zu binden.</string>
@@ -1562,7 +1562,7 @@ Quelle: %2$s</string>
     <string name="detection_community_retry">Erneut versuchen</string>
     <string name="detection_finding_ok">OK</string>
     <string name="detection_onboarding_body">Zusätzliche Berechtigungen verbessern die Prüfgenauigkeit. Erteilen Sie sie für bessere Ergebnisse.</string>
-    <string name="detection_permission_settings">Berechtigungen wurden verweigert. Öffnen Sie die Einstellungen, um sie manuell zu erteilen.</string>
+    <string name="detection_permission_settings">Berechtigungen wurden verweigert. Öffnen Sie die Einstellungen nur, wenn die Prüfungen Wi-Fi- oder Mobilfunkidentität lesen sollen; Rohkennungen werden nicht gespeichert und Diagnoseexporte redigieren sie.</string>
     <string name="detection_resistance_badge_evolution">Strategie-Evolution</string>
     <string name="detection_resistance_entropy_mode_title">Entropie-Shaping-Modus</string>
     <string name="detection_resistance_evolution_cooldown_failures_body">Anzahl aufeinanderfolgender Fehlschläge, bevor eine Kombination in Cooldown versetzt wird. Standard: 3.</string>
@@ -1711,7 +1711,7 @@ Quelle: %2$s</string>
     <string name="home_diagnostics_analysis_running">Vollständige Netzwerkanalyse läuft…</string>
     <string name="home_diagnostics_bufferbloat_summary">Note %1$s · Leerlauf %2$s · Last %3$s</string>
     <string name="home_diagnostics_confidence_label">Zuverlässigkeit</string>
-    <string name="home_diagnostics_detection_permission_required">Einige Erkennungsprüfungen benötigen Standort-/Telefonberechtigungen.</string>
+    <string name="home_diagnostics_detection_permission_required">Einige Prüfungen benötigen Android-Standort- oder Telefonberechtigungen, um Wi-Fi- oder Mobilfunkidentität zu lesen. RIPDPI nutzt dies nur, um Netzwerkverhalten zu vergleichen; Rohkennungen werden nicht gespeichert und Diagnoseexporte redigieren sie.</string>
     <string name="home_diagnostics_dns_resolver_ok">Der System-Resolver stimmt mit der DoH-Ground-Truth überein.</string>
     <string name="home_diagnostics_effectiveness_row_value">%1$d bestanden / %2$d fehlgeschlagen</string>
     <string name="home_diagnostics_network_ipv6">IPv6</string>
