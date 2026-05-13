@@ -169,10 +169,15 @@ Do not expand this lane to JNI or syscall-heavy paths unless they gain explicit 
 Packaged native size checks:
 
 ```bash
-./gradlew :app:assembleDebug
-python3 scripts/ci/verify_native_sizes.py
 python3 scripts/ci/verify_native_bloat.py
 ```
+
+`verify_native_sizes.py` is a CI-packaging check. It must run only after the
+CI-style debug APK has been assembled from the full stripped ABI set staged via
+`ripdpi.prebuiltJniLibsDir`; a default local debug build may contain only the
+local ABI and unstripped native outputs, so it is not valid input for that
+verifier. Use the `native-size` CI artifact, or refresh a full baseline through
+`scripts/ci/run-phase0-baseline.sh`.
 
 Tracked native-size baselines live in:
 
