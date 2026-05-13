@@ -382,7 +382,7 @@ Combination checks:
 - [ ] Mock relay can force deterministic failure.
 - [ ] Toxiproxy delay scenario applies and clears.
 - [ ] Toxiproxy reset scenario applies and clears.
-- [ ] Toxiproxy packet-loss scenario applies and clears.
+- [ ] Linux netem packet-loss scenario applies and clears in a routed VM lab.
 - [ ] VPN E2E runner verifies DNS, HTTP, HTTPS, TCP, UDP, and optional QUIC.
 - [ ] E2E runner distinguishes passed, degraded, failed, and skipped evidence.
 - [ ] Archive script collects logs, command output, scenario config, and device
