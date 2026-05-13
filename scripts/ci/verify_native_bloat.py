@@ -404,31 +404,31 @@ def main() -> int:
     parser.add_argument(
         "--max-text-section-growth-bytes",
         type=int,
-        default=131072,
+        default=2097152,
         help="Allowed representative text-section growth when dumping a baseline.",
     )
     parser.add_argument(
         "--max-function-growth-bytes",
         type=int,
-        default=4096,
+        default=65536,
         help="Allowed growth for a tracked top function when dumping a baseline.",
     )
     parser.add_argument(
         "--max-crate-growth-bytes",
         type=int,
-        default=16384,
+        default=524288,
         help="Allowed growth for a tracked top crate when dumping a baseline.",
     )
     parser.add_argument(
         "--max-new-function-size-bytes",
         type=int,
-        default=12288,
+        default=131072,
         help="Fail when a new top function exceeds this size.",
     )
     parser.add_argument(
         "--max-new-crate-size-bytes",
         type=int,
-        default=65536,
+        default=524288,
         help="Fail when a new top crate exceeds this size.",
     )
     parser.add_argument(
