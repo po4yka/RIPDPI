@@ -73,6 +73,22 @@ class VerifyNativeElfsTest(unittest.TestCase):
             with patch("scripts.ci.verify_native_elfs.inspect_elf", side_effect=fake_inspect_elf):
                 verify_native_elfs.verify(lib_dir, {"arm64-v8a"}, "objdump")
 
+    def test_discover_default_lib_dirs_finds_flavored_debug_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            github_dir = (
+                repo_root
+                / "app/build/intermediates/merged_native_libs/githubDebug/mergeGithubDebugNativeLibs/out/lib"
+            )
+            play_dir = repo_root / "app/build/intermediates/merged_native_libs/playDebug/mergePlayDebugNativeLibs/out/lib"
+            github_dir.mkdir(parents=True)
+            play_dir.mkdir(parents=True)
+
+            expected = [github_dir, play_dir]
+            actual = verify_native_elfs.discover_default_lib_dirs(repo_root)
+
+            self.assertEqual(expected, actual)
+
 
 if __name__ == "__main__":
     unittest.main()

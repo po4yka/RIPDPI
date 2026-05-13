@@ -301,7 +301,9 @@ jobs:
       - name: Run JVM unit tests
         run: >-
           ./gradlew testDebugUnitTest
-          -x :app:testDebugUnitTest
+          -x :app:testFdroidDebugUnitTest
+          -x :app:testGithubDebugUnitTest
+          -x :app:testPlayDebugUnitTest
           -Pripdpi.skipNativeBuild=true
 
       - name: Compile app unit tests

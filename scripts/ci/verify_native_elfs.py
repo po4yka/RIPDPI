@@ -15,6 +15,7 @@ EXPECTED_NEEDED = {
     "libripdpi-tunnel.so": {"libc.so", "libm.so", "libdl.so", "liblog.so"},
 }
 REQUIRED_PAGE_ALIGNMENT = 16 * 1024
+DEFAULT_LIB_DIR = "app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib"
 
 
 def read_gradle_property(repo_root: Path, name: str) -> str:
@@ -122,11 +123,28 @@ def verify(lib_dir: Path, expected_abis: set[str], objdump_path: str) -> None:
                 )
 
 
+def discover_default_lib_dirs(repo_root: Path) -> list[Path]:
+    merged_native_libs = repo_root / "app/build/intermediates/merged_native_libs"
+    if not merged_native_libs.is_dir():
+        return []
+
+    lib_dirs = [
+        path
+        for path in merged_native_libs.glob("*/merge*DebugNativeLibs/out/lib")
+        if path.is_dir()
+    ]
+    legacy_debug_dir = repo_root / DEFAULT_LIB_DIR
+    if legacy_debug_dir.is_dir():
+        lib_dirs.append(legacy_debug_dir)
+
+    return sorted(set(lib_dirs))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify ABI set and ELF metadata for packaged native libraries.")
     parser.add_argument(
         "--lib-dir",
-        default="app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib",
+        default=DEFAULT_LIB_DIR,
         help="Directory containing ABI subdirectories with packaged .so files.",
     )
     parser.add_argument(
@@ -140,16 +158,23 @@ def main() -> int:
 
     repo_root = Path(__file__).resolve().parents[2]
     lib_dir = (repo_root / args.lib_dir).resolve()
-    if not lib_dir.is_dir():
+    if lib_dir.is_dir():
+        lib_dirs = [lib_dir]
+    elif args.lib_dir == DEFAULT_LIB_DIR:
+        lib_dirs = discover_default_lib_dirs(repo_root)
+    else:
+        raise ValueError(f"Native library directory not found: {lib_dir}")
+    if not lib_dirs:
         raise ValueError(f"Native library directory not found: {lib_dir}")
 
     objdump_path = shutil.which("objdump")
     if not objdump_path:
         raise RuntimeError("objdump is required for ELF inspection")
 
-    expected_abis = resolved_expected_abis(repo_root, lib_dir, args.abis)
-    verify(lib_dir, expected_abis, objdump_path)
-    print(f"Verified native ELF outputs in {lib_dir}")
+    for candidate_lib_dir in lib_dirs:
+        expected_abis = resolved_expected_abis(repo_root, candidate_lib_dir, args.abis)
+        verify(candidate_lib_dir, expected_abis, objdump_path)
+        print(f"Verified native ELF outputs in {candidate_lib_dir}")
     return 0
 
 
