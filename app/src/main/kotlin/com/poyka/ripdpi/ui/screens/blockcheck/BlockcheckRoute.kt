@@ -43,6 +43,8 @@ fun BlockcheckRoute(
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val exportSubject = stringResource(R.string.title_blockcheck)
+    val exportTitle = stringResource(R.string.blockcheck_export_title)
     LaunchedEffect(state.message) {
         state.message?.let { message ->
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -61,8 +63,8 @@ fun BlockcheckRoute(
                 Intent(Intent.ACTION_SEND)
                     .setType("application/json")
                     .putExtra(Intent.EXTRA_TEXT, report)
-                    .putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.title_blockcheck))
-            context.startActivity(Intent.createChooser(intent, context.getString(R.string.blockcheck_export_title)))
+                    .putExtra(Intent.EXTRA_SUBJECT, exportSubject)
+            context.startActivity(Intent.createChooser(intent, exportTitle))
         },
         modifier = modifier,
     )
