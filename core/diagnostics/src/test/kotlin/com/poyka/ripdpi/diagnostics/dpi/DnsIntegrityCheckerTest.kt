@@ -6,6 +6,11 @@ import com.poyka.ripdpi.diagnostics.dpich.DohProviderFilter
 import com.poyka.ripdpi.diagnostics.dpich.FakeSubnetMetadataLookup
 import com.poyka.ripdpi.diagnostics.dpich.IpRange
 import com.poyka.ripdpi.diagnostics.dpich.SubnetMetadata
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -123,6 +128,26 @@ class DnsIntegrityCheckerTest {
             assertEquals(BootstrapVerdict.SPOOFED, result.dohBootstrapResults.single().verdict)
             assertEquals(setOf("dns.google"), dohJson.excludedHostnames)
             assertEquals(setOf("dns.google"), dohWire.excludedHostnames)
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun udpRetryDelayCanBeCancelled() =
+        runTest {
+            val probe =
+                DatagramSocketDnsUdpProbe(
+                    servers = listOf("300.300.300.300"),
+                    retries = 1,
+                    retryDelayMs = 60_000,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                )
+            val job = launch { probe.resolveA("blocked.example") }
+
+            runCurrent()
+
+            assertTrue(job.isActive)
+            job.cancelAndJoin()
+            assertTrue(job.isCancelled)
         }
 
     private fun checker(

@@ -104,21 +104,26 @@ class DiagnosticsTimelineSourceTest {
     @Test
     fun `active scan progress is managed independently from repository flows`() {
         val stores = FakeDiagnosticsHistoryStores()
-        val timelineSource = timelineSource(stores)
-        val progress =
-            ScanProgress(
-                sessionId = "scan-1",
-                phase = "probing",
-                completedSteps = 1,
-                totalSteps = 3,
-                message = "probing blocked.example",
-            )
+        val timelineScope = timelineScope()
+        try {
+            val timelineSource = timelineSource(stores, timelineScope)
+            val progress =
+                ScanProgress(
+                    sessionId = "scan-1",
+                    phase = "probing",
+                    completedSteps = 1,
+                    totalSteps = 3,
+                    message = "probing blocked.example",
+                )
 
-        timelineSource.updateActiveScanProgress(progress)
-        assertEquals(progress, timelineSource.activeScanProgress.value)
+            timelineSource.updateActiveScanProgress(progress)
+            assertEquals(progress, timelineSource.activeScanProgress.value)
 
-        timelineSource.updateActiveScanProgress(null)
-        assertNull(timelineSource.activeScanProgress.value)
+            timelineSource.updateActiveScanProgress(null)
+            assertNull(timelineSource.activeScanProgress.value)
+        } finally {
+            timelineScope.cancel()
+        }
     }
 
     @Test
@@ -426,21 +431,17 @@ class DiagnosticsTimelineSourceTest {
 
     private fun timelineSource(
         stores: FakeDiagnosticsHistoryStores,
-        scope: CoroutineScope? = null,
+        scope: CoroutineScope,
     ): DefaultDiagnosticsTimelineSource =
-        if (scope == null) {
-            DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
-        } else {
-            DefaultDiagnosticsTimelineSource(
-                profileCatalog = stores,
-                scanRecordStore = stores,
-                artifactReadStore = stores,
-                bypassUsageHistoryStore = stores,
-                mapper = DiagnosticsBoundaryMapper(json),
-                scope = scope,
-                json = json,
-            )
-        }
+        DefaultDiagnosticsTimelineSource(
+            profileCatalog = stores,
+            scanRecordStore = stores,
+            artifactReadStore = stores,
+            bypassUsageHistoryStore = stores,
+            mapper = DiagnosticsBoundaryMapper(json),
+            scope = scope,
+            json = json,
+        )
 
     private fun timelineScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
 }

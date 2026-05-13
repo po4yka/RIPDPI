@@ -25,8 +25,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.permissions.PermissionKind
-import com.poyka.ripdpi.ui.components.LanguagePickerSheet
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
+import com.poyka.ripdpi.ui.components.LanguagePickerSheet
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard

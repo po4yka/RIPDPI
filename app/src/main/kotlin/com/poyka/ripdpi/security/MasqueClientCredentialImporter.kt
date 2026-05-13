@@ -2,12 +2,12 @@ package com.poyka.ripdpi.security
 
 import android.content.Context
 import android.net.Uri
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.security.KeyStore
@@ -43,14 +43,15 @@ class AndroidMasqueClientCredentialImporter
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        private val dispatchers: AppCoroutineDispatchers,
     ) : MasqueClientCredentialImporter {
         override suspend fun importCertificateChainPem(uri: Uri): String =
-            withContext(Dispatchers.IO) {
+            withContext(dispatchers.io) {
                 normalizeCertificatePem(readDocument(uri))
             }
 
         override suspend fun importPrivateKeyPem(uri: Uri): String =
-            withContext(Dispatchers.IO) {
+            withContext(dispatchers.io) {
                 normalizePrivateKeyPem(readDocument(uri))
             }
 
@@ -58,7 +59,7 @@ class AndroidMasqueClientCredentialImporter
             uri: Uri,
             password: String?,
         ): ImportedMasqueClientIdentity =
-            withContext(Dispatchers.IO) {
+            withContext(dispatchers.io) {
                 val keyStore = KeyStore.getInstance("PKCS12")
                 keyStore.load(ByteArrayInputStream(readDocument(uri)), password?.toCharArray())
                 val alias =

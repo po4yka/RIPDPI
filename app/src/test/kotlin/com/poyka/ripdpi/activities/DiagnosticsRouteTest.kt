@@ -49,11 +49,6 @@ class DiagnosticsRouteTest {
             recomposeTrigger.intValue
             RipDpiTheme {
                 DiagnosticsRoute(
-                    onShareArchive = { _, _ -> },
-                    onSaveArchive = { _, _ -> },
-                    onShareSummary = { _, _ -> },
-                    onSaveLogs = {},
-                    onOpenHistory = {},
                     viewModel = viewModel,
                 )
             }
@@ -93,11 +88,6 @@ class DiagnosticsRouteTest {
             recomposeTrigger.intValue
             RipDpiTheme {
                 DiagnosticsRoute(
-                    onShareArchive = { _, _ -> },
-                    onSaveArchive = { _, _ -> },
-                    onShareSummary = { _, _ -> },
-                    onSaveLogs = {},
-                    onOpenHistory = {},
                     viewModel = viewModel,
                 )
             }
@@ -131,11 +121,6 @@ class DiagnosticsRouteTest {
         composeRule.setContent {
             RipDpiTheme {
                 DiagnosticsRoute(
-                    onShareArchive = { _, _ -> },
-                    onSaveArchive = { _, _ -> },
-                    onShareSummary = { _, _ -> },
-                    onSaveLogs = {},
-                    onOpenHistory = {},
                     viewModel = viewModel,
                 )
             }
@@ -169,11 +154,6 @@ class DiagnosticsRouteTest {
         composeRule.setContent {
             RipDpiTheme {
                 DiagnosticsRoute(
-                    onShareArchive = { _, _ -> },
-                    onSaveArchive = { _, _ -> },
-                    onShareSummary = { _, _ -> },
-                    onSaveLogs = {},
-                    onOpenHistory = {},
                     viewModel = viewModel,
                 )
             }
@@ -214,11 +194,6 @@ class DiagnosticsRouteTest {
         composeRule.setContent {
             RipDpiTheme {
                 DiagnosticsRoute(
-                    onShareArchive = { _, _ -> },
-                    onSaveArchive = { _, _ -> },
-                    onShareSummary = { _, _ -> },
-                    onSaveLogs = {},
-                    onOpenHistory = {},
                     viewModel = viewModel,
                 )
             }
@@ -264,11 +239,6 @@ class DiagnosticsRouteTest {
         composeRule.setContent {
             RipDpiTheme {
                 DiagnosticsRoute(
-                    onShareArchive = { _, _ -> },
-                    onSaveArchive = { _, _ -> },
-                    onShareSummary = { _, _ -> },
-                    onSaveLogs = {},
-                    onOpenHistory = {},
                     viewModel = viewModel,
                 )
             }

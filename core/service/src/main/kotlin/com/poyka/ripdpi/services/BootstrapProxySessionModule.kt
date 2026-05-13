@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.Dispatchers
 
 @Module
 @InstallIn(BootstrapProxySessionComponent::class)
@@ -16,10 +16,11 @@ internal object BootstrapProxySessionModule {
         sessionScope: kotlinx.coroutines.CoroutineScope,
         factory: ProxyRuntimeSupervisorFactory,
         networkSnapshotProvider: com.poyka.ripdpi.data.NativeNetworkSnapshotProvider,
+        dispatchers: AppCoroutineDispatchers,
     ): ProxyRuntimeSupervisor =
         factory.create(
             scope = sessionScope,
-            dispatcher = Dispatchers.IO,
+            dispatcher = dispatchers.io,
             networkSnapshotProvider = networkSnapshotProvider,
         )
 }

@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.SerializationException
@@ -25,7 +26,6 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.net.SocketTimeoutException
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -335,6 +335,7 @@ class DatagramSocketDnsUdpProbe(
     private val servers: List<String> = DefaultUdpDnsServers,
     private val timeoutMs: Int = DefaultUdpTimeoutMs,
     private val retries: Int = DefaultUdpRetries,
+    private val retryDelayMs: Long = DefaultRetryDelayMs,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : DnsUdpProbe {
     override suspend fun resolveA(domain: String): List<String> =
@@ -343,7 +344,7 @@ class DatagramSocketDnsUdpProbe(
                 repeat(retries + 1) { attempt ->
                     val records = runCatching { queryServer(domain, server) }.getOrNull()
                     if (!records.isNullOrEmpty() && DnsWireBuilder.PARSE_ERR !in records) return@withContext records
-                    if (attempt < retries) Thread.sleep(RetryDelayMs)
+                    if (attempt < retries) delay(retryDelayMs)
                 }
             }
             emptyList()
@@ -371,7 +372,7 @@ class DatagramSocketDnsUdpProbe(
         private const val MaxDnsPayloadBytes = 4096
         private const val DefaultUdpTimeoutMs = 3_000
         private const val DefaultUdpRetries = 2
-        private const val RetryDelayMs = 500L
+        private const val DefaultRetryDelayMs = 500L
     }
 }
 

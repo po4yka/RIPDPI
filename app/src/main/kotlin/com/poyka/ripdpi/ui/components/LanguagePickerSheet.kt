@@ -79,12 +79,19 @@ private fun LanguageRow(
 private fun languageNameResource(tag: String): Int =
     when (tag) {
         "en" -> R.string.language_name_en
+
         "ru" -> R.string.language_name_ru
+
         "es" -> R.string.language_name_es
+
         "de" -> R.string.language_name_de
+
         "fr" -> R.string.language_name_fr
+
         "fa" -> R.string.language_name_fa
+
         // Android resource keys forbid hyphens; BCP-47 zh-CN maps to language_name_zh_cn.
         "zh-CN" -> R.string.language_name_zh_cn
+
         else -> R.string.language_name_en
     }

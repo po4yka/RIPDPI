@@ -54,8 +54,13 @@ class QuickTileService :
 
     override fun onStopListening() {
         controller.onStopListening()
-        scope?.cancel()
-        scope = null
+        clearScope()
+    }
+
+    override fun onDestroy() {
+        controller.onStopListening()
+        clearScope()
+        super.onDestroy()
     }
 
     @SuppressLint("WrongConstant") // FLAG_IMMUTABLE is valid for PendingIntent but not in the compat wrapper's @IntDef
@@ -125,4 +130,9 @@ class QuickTileService :
             ) == PackageManager.PERMISSION_GRANTED
 
     override fun vpnPermissionRequired(): Boolean = VpnService.prepare(this) != null
+
+    private fun clearScope() {
+        scope?.cancel()
+        scope = null
+    }
 }

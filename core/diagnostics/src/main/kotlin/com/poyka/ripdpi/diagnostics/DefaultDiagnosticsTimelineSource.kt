@@ -6,9 +6,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -40,22 +38,6 @@ class DefaultDiagnosticsTimelineSource
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) : DiagnosticsTimelineSource {
-        constructor(
-            profileCatalog: DiagnosticsProfileCatalog,
-            scanRecordStore: DiagnosticsScanRecordStore,
-            artifactReadStore: DiagnosticsArtifactReadStore,
-            bypassUsageHistoryStore: BypassUsageHistoryStore,
-            json: Json,
-        ) : this(
-            profileCatalog = profileCatalog,
-            scanRecordStore = scanRecordStore,
-            artifactReadStore = artifactReadStore,
-            bypassUsageHistoryStore = bypassUsageHistoryStore,
-            mapper = DiagnosticsBoundaryMapper(json),
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            json = json,
-        )
-
         private val activeProgressState = MutableStateFlow<ScanProgress?>(null)
 
         override val activeScanProgress: StateFlow<ScanProgress?> = activeProgressState.asStateFlow()

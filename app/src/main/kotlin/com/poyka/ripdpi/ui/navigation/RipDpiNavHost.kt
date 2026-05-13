@@ -42,6 +42,7 @@ import com.poyka.ripdpi.ui.screens.customization.AppCustomizationRoute
 import com.poyka.ripdpi.ui.screens.detection.DetectionCheckRoute
 import com.poyka.ripdpi.ui.screens.detection.DetectionSettingsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
+import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRouteCallbacks
 import com.poyka.ripdpi.ui.screens.diagnostics.share.SharedResultRenderRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
@@ -327,19 +328,14 @@ private fun NavGraphBuilder.addPrimaryRoutes(
         val route = backStackEntry.toRoute<Route.Diagnostics>()
         val diagnosticsViewModel: DiagnosticsViewModel = hiltViewModel()
         DiagnosticsRoute(
-            onShareArchive = actions.onShareDiagnosticsArchive,
-            onSaveArchive = actions.onSaveDiagnosticsArchive,
-            onShareSummary = actions.onShareDiagnosticsSummary,
-            onSaveLogs = actions.onSaveLogs,
-            onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
-            onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
-            onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
-            onRequestVpnPermission = mainViewModel::onOpenVpnPermissionRequested,
-            onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
-            onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
-            onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
+            callbacks =
+                diagnosticsRouteCallbacks(
+                    navController = navController,
+                    actions = actions,
+                    mainViewModel = mainViewModel,
+                    onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
+                ),
             initialSection = diagnosticsInitialSection ?: DiagnosticsSection.Scan.takeIf { route.autoStartScan },
-            onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },
             viewModel = diagnosticsViewModel,
         )
     }
@@ -364,6 +360,27 @@ private fun NavGraphBuilder.addPrimaryRoutes(
         )
     }
 }
+
+private fun diagnosticsRouteCallbacks(
+    navController: NavHostController,
+    actions: RipDpiNavHostActions,
+    mainViewModel: MainViewModel,
+    onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
+): DiagnosticsRouteCallbacks =
+    DiagnosticsRouteCallbacks(
+        onShareArchive = actions.onShareDiagnosticsArchive,
+        onSaveArchive = actions.onSaveDiagnosticsArchive,
+        onShareSummary = actions.onShareDiagnosticsSummary,
+        onSaveLogs = actions.onSaveLogs,
+        onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
+        onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+        onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
+        onRequestVpnPermission = mainViewModel::onOpenVpnPermissionRequested,
+        onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
+        onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+        onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
+        onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },
+    )
 
 private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
     navigation<ConfigGraph>(

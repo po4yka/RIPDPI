@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiProxyFactory
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
@@ -14,9 +15,11 @@ import com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule
 import com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 class ServiceSessionModuleTest {
@@ -28,13 +31,17 @@ class ServiceSessionModuleTest {
             val proxyFactory = RecordingProxyRuntimeSupervisorFactory()
             val statusFactory = RecordingServiceStatusReporterFactory()
             val host = TestProxyServiceHost(backgroundScope)
-            val upstreamRelaySupervisor = ProxyServiceSessionModule.provideUpstreamRelaySupervisor(host, relayFactory)
-            val warpRuntimeSupervisor = ProxyServiceSessionModule.provideWarpRuntimeSupervisor(host, warpFactory)
+            val dispatchers = testDispatchers()
+            val upstreamRelaySupervisor =
+                ProxyServiceSessionModule.provideUpstreamRelaySupervisor(host, relayFactory, dispatchers)
+            val warpRuntimeSupervisor =
+                ProxyServiceSessionModule.provideWarpRuntimeSupervisor(host, warpFactory, dispatchers)
             val proxyRuntimeSupervisor =
                 ProxyServiceSessionModule.provideProxyRuntimeSupervisor(
                     host = host,
                     factory = proxyFactory,
                     networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    dispatchers = dispatchers,
                 )
             val statusReporter =
                 ProxyServiceSessionModule.provideProxyStatusReporter(
@@ -64,9 +71,31 @@ class ServiceSessionModuleTest {
             assertEquals(1, proxyFactory.createCalls)
             assertEquals(1, relayFactory.createCalls)
             assertEquals(1, warpFactory.createCalls)
+            assertSame(dispatchers.io, proxyFactory.createdDispatchers.single())
+            assertSame(dispatchers.io, relayFactory.createdDispatchers.single())
+            assertSame(dispatchers.io, warpFactory.createdDispatchers.single())
             assertEquals(Mode.Proxy, statusFactory.createdModes.single())
             assertEquals(Sender.Proxy, statusFactory.createdSenders.single())
             assertNotNull(coordinator)
+        }
+
+    @Test
+    fun bootstrapProxySessionModuleUsesInjectedDispatcher() =
+        runTest {
+            val proxyFactory = RecordingProxyRuntimeSupervisorFactory()
+            val dispatchers = testDispatchers()
+
+            val supervisor =
+                BootstrapProxySessionModule.provideBootstrapProxyRuntimeSupervisor(
+                    sessionScope = backgroundScope,
+                    factory = proxyFactory,
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    dispatchers = dispatchers,
+                )
+
+            assertEquals(1, proxyFactory.createCalls)
+            assertSame(dispatchers.io, proxyFactory.createdDispatchers.single())
+            assertNotNull(supervisor)
         }
 
     @Test
@@ -79,6 +108,7 @@ class ServiceSessionModuleTest {
             val overrides = TestResolverOverrideStore()
             val resolver = TestConnectionPolicyResolver(sampleResolution(mode = Mode.VPN))
             val host = TestVpnServiceHost(backgroundScope)
+            val dispatchers = testDispatchers()
             val runtimeDependencies =
                 createVpnRuntimeDependencies(
                     resolver = resolver,
@@ -107,14 +137,15 @@ class ServiceSessionModuleTest {
                     statusDependencies = statusDependencies,
                 )
             val upstreamRelaySupervisor =
-                VpnServiceSessionModule.provideVpnUpstreamRelaySupervisor(host, relayFactory)
+                VpnServiceSessionModule.provideVpnUpstreamRelaySupervisor(host, relayFactory, dispatchers)
             val warpRuntimeSupervisor =
-                VpnServiceSessionModule.provideVpnWarpRuntimeSupervisor(host, warpFactory)
+                VpnServiceSessionModule.provideVpnWarpRuntimeSupervisor(host, warpFactory, dispatchers)
             val proxyRuntimeSupervisor =
                 VpnServiceSessionModule.provideVpnProxyRuntimeSupervisor(
                     host = host,
                     factory = proxyFactory,
                     dependencies = runtimeDependencies,
+                    dispatchers = dispatchers,
                 )
             val statusReporter =
                 VpnServiceSessionModule.provideVpnStatusReporter(statusDependencies)
@@ -138,10 +169,22 @@ class ServiceSessionModuleTest {
             assertEquals(1, proxyFactory.createCalls)
             assertEquals(1, relayFactory.createCalls)
             assertEquals(1, warpFactory.createCalls)
+            assertSame(dispatchers.io, proxyFactory.createdDispatchers.single())
+            assertSame(dispatchers.io, relayFactory.createdDispatchers.single())
+            assertSame(dispatchers.io, warpFactory.createdDispatchers.single())
             assertEquals(Mode.VPN, statusFactory.createdModes.single())
             assertEquals(Sender.VPN, statusFactory.createdSenders.single())
             assertNotNull(coordinator)
         }
+
+    private fun testDispatchers(): AppCoroutineDispatchers {
+        val dispatcher = StandardTestDispatcher()
+        return AppCoroutineDispatchers(
+            default = dispatcher,
+            io = dispatcher,
+            main = dispatcher,
+        )
+    }
 
     private fun createVpnRuntimeDependencies(
         resolver: TestConnectionPolicyResolver,
@@ -199,12 +242,14 @@ class ServiceSessionModuleTest {
             TestRelayCredentialStore(),
         ) {
         var createCalls: Int = 0
+        val createdDispatchers = mutableListOf<CoroutineDispatcher>()
 
         override fun create(
             scope: CoroutineScope,
             dispatcher: CoroutineDispatcher,
         ): UpstreamRelaySupervisor {
             createCalls += 1
+            createdDispatchers += dispatcher
             return UpstreamRelaySupervisor(
                 scope = scope,
                 dispatcher = dispatcher,
@@ -222,12 +267,14 @@ class ServiceSessionModuleTest {
             TestWarpRuntimeConfigResolver(),
         ) {
         var createCalls: Int = 0
+        val createdDispatchers = mutableListOf<CoroutineDispatcher>()
 
         override fun create(
             scope: CoroutineScope,
             dispatcher: CoroutineDispatcher,
         ): WarpRuntimeSupervisor {
             createCalls += 1
+            createdDispatchers += dispatcher
             return WarpRuntimeSupervisor(
                 scope = scope,
                 dispatcher = dispatcher,
@@ -239,6 +286,7 @@ class ServiceSessionModuleTest {
 
     private class RecordingProxyRuntimeSupervisorFactory : ProxyRuntimeSupervisorFactory {
         var createCalls: Int = 0
+        val createdDispatchers = mutableListOf<CoroutineDispatcher>()
 
         override fun create(
             scope: CoroutineScope,
@@ -246,6 +294,7 @@ class ServiceSessionModuleTest {
             networkSnapshotProvider: NativeNetworkSnapshotProvider,
         ): ProxyRuntimeSupervisor {
             createCalls += 1
+            createdDispatchers += dispatcher
             return ProxyRuntimeSupervisor(
                 scope = scope,
                 dispatcher = dispatcher,
