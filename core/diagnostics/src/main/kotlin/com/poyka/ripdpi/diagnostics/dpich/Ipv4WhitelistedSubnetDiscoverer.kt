@@ -84,13 +84,13 @@ class OkHttpSubnetAliveProbe(
                 httpClient.newCall(request).execute().use {
                     SubnetAliveProbeResult.Alive
                 }
-            } catch (error: javax.net.ssl.SSLProtocolException) {
+            } catch (_: javax.net.ssl.SSLProtocolException) {
                 SubnetAliveProbeResult.TlsPostHandshakeFailure
-            } catch (error: javax.net.ssl.SSLPeerUnverifiedException) {
+            } catch (_: javax.net.ssl.SSLPeerUnverifiedException) {
                 SubnetAliveProbeResult.TlsPostHandshakeFailure
-            } catch (error: javax.net.ssl.SSLHandshakeException) {
+            } catch (_: javax.net.ssl.SSLHandshakeException) {
                 SubnetAliveProbeResult.TlsPostHandshakeFailure
-            } catch (error: IOException) {
+            } catch (_: IOException) {
                 SubnetAliveProbeResult.Unreachable
             }
         }
@@ -162,7 +162,7 @@ class Ipv4WhitelistedSubnetDiscoverer(
         mapNotNull { cidr ->
             runCatching { Ipv4Cidr.parse(cidr) }.getOrNull()
         }.filter { cidr ->
-            !config.only24Prefix || cidr.prefixLength == 24
+            !config.only24Prefix || cidr.prefixLength == Ipv4SubnetPrefix24
         }.map { cidr -> cidr.value }
 
     private fun sampleIps(
@@ -245,7 +245,7 @@ private data class Ipv4Cidr(
             val parts = cidr.split("/")
             require(parts.size == 2) { "invalid IPv4 CIDR: $cidr" }
             val prefix = parts[1].toInt()
-            require(prefix in 0..32) { "invalid IPv4 prefix length: $cidr" }
+            require(prefix in MinIpv4PrefixLength..Ipv4Bits) { "invalid IPv4 prefix length: $cidr" }
             val rawAddress = parts[0].toIpv4Long()
             val mask =
                 if (prefix == 0) {
@@ -265,22 +265,30 @@ private data class Ipv4Cidr(
 
 private fun String.toIpv4Long(): Long {
     val octets = split(".")
-    require(octets.size == 4) { "invalid IPv4 address: $this" }
+    require(octets.size == Ipv4OctetCount) { "invalid IPv4 address: $this" }
     return octets.fold(0L) { acc, octet ->
         val value = octet.toInt()
-        require(value in 0..255) { "invalid IPv4 octet: $this" }
-        (acc shl 8) or value.toLong()
+        require(value in MinIpv4OctetValue..MaxIpv4OctetValue) { "invalid IPv4 octet: $this" }
+        (acc shl BitsPerOctet) or value.toLong()
     }
 }
 
 private fun Long.toIpv4String(): String =
     listOf(
-        (this ushr 24) and OctetMask,
-        (this ushr 16) and OctetMask,
-        (this ushr 8) and OctetMask,
+        (this ushr ThreeOctetShift) and OctetMask,
+        (this ushr TwoOctetShift) and OctetMask,
+        (this ushr BitsPerOctet) and OctetMask,
         this and OctetMask,
     ).joinToString(".")
 
+private const val MinIpv4PrefixLength = 0
 private const val Ipv4Bits = 32
+private const val Ipv4SubnetPrefix24 = 24
+private const val Ipv4OctetCount = 4
+private const val MinIpv4OctetValue = 0
+private const val MaxIpv4OctetValue = 255
+private const val BitsPerOctet = 8
+private const val TwoOctetShift = 16
+private const val ThreeOctetShift = 24
 private const val MaxIpv4 = 0xFFFF_FFFFL
 private const val OctetMask = 0xFFL
