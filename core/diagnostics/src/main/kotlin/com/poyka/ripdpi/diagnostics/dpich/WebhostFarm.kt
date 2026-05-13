@@ -153,13 +153,22 @@ class WebhostFarm(
         val ranges = subnets.map { subnet -> ParsedIpv4Cidr.parse(subnet) }
         val totalHosts = ranges.sumOf { range -> range.hostCount }
         val targetCount = min(maxCandidates.toLong(), totalHosts).toInt()
-        if (targetCount == 0) return emptyList()
-        if (totalHosts <= maxCandidates) {
-            return ranges
+        return if (targetCount == 0) {
+            emptyList()
+        } else if (totalHosts <= maxCandidates) {
+            ranges
                 .flatMap { range -> range.hosts() }
                 .shuffled(random)
+        } else {
+            sampleHosts(ranges = ranges, totalHosts = totalHosts, targetCount = targetCount)
         }
+    }
 
+    private fun sampleHosts(
+        ranges: List<ParsedIpv4Cidr>,
+        totalHosts: Long,
+        targetCount: Int,
+    ): List<WebhostCandidate> {
         val sampled = LinkedHashSet<WebhostCandidate>()
         while (sampled.size < targetCount) {
             val globalOffset = random.nextLong(totalHosts)
@@ -217,7 +226,7 @@ class OkHttpWebhostProbe(
     ): WebhostProbeResult =
         withContext(dispatcher) {
             var tcpTimeMs = 0L
-            try {
+            runCatching {
                 Socket().use { socket ->
                     tcpTimeMs =
                         measureTimeMillis {
@@ -232,9 +241,8 @@ class OkHttpWebhostProbe(
                             .close()
                     }
                 WebhostProbeResult(tcpOk = true, tlsOk = true, tcpTimeMs = tcpTimeMs, tlsTimeMs = tlsTimeMs)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
+            }.getOrElse { error ->
+                error.throwIfCancellation()
                 WebhostProbeResult(
                     tcpOk = false,
                     tlsOk = false,
@@ -318,22 +326,22 @@ private data class ParsedIpv4Cidr(
     companion object {
         fun parse(range: IpRange): ParsedIpv4Cidr {
             val parts = range.cidr.split("/")
-            require(parts.size == 2) { "Invalid IPv4 CIDR: ${range.cidr}" }
+            require(parts.size == CidrPartCount) { "Invalid IPv4 CIDR: ${range.cidr}" }
             val address = ipv4ToLong(parts[0])
             val prefix = parts[1].toIntOrNull()
-            require(prefix != null && prefix in 0..32) { "Invalid IPv4 CIDR prefix: ${range.cidr}" }
-            val mask = if (prefix == 0) 0L else FullIpv4Mask shl (32 - prefix) and FullIpv4Mask
+            require(prefix != null && prefix in Ipv4PrefixRange) { "Invalid IPv4 CIDR prefix: ${range.cidr}" }
+            val mask = if (prefix == MinIpv4PrefixLength) 0L else FullIpv4Mask shl (Ipv4Bits - prefix) and FullIpv4Mask
             val network = address and mask
-            val size = 1L shl (32 - prefix)
+            val size = 1L shl (Ipv4Bits - prefix)
             val firstHost =
                 when {
-                    prefix >= 31 -> network
+                    prefix >= HostlessPrefixLength -> network
                     else -> network + 1
                 }
             val hostCount =
                 when {
-                    prefix >= 31 -> size
-                    else -> (size - 2).coerceAtLeast(0)
+                    prefix >= HostlessPrefixLength -> size
+                    else -> (size - NetworkBoundaryAddressCount).coerceAtLeast(0)
                 }
             return ParsedIpv4Cidr(source = range, firstHost = firstHost, hostCount = hostCount)
         }
@@ -344,29 +352,51 @@ private const val FullIpv4Mask = 0xffff_ffffL
 
 private fun ipv4ToLong(value: String): Long {
     val octets = value.split(".")
-    require(octets.size == 4) { "Invalid IPv4 address: $value" }
+    require(octets.size == Ipv4OctetCount) { "Invalid IPv4 address: $value" }
     return octets.fold(0L) { acc, octet ->
         val number = octet.toIntOrNull()
-        require(number != null && number in 0..255) { "Invalid IPv4 address: $value" }
-        (acc shl 8) or number.toLong()
+        require(number != null && number in Ipv4OctetRange) { "Invalid IPv4 address: $value" }
+        (acc shl BitsPerOctet) or number.toLong()
     }
 }
 
 private fun longToIpv4(value: Long): String =
     listOf(
-        value shr 24,
-        value shr 16,
-        value shr 8,
+        value shr ThreeOctetShift,
+        value shr TwoOctetShift,
+        value shr BitsPerOctet,
         value,
-    ).joinToString(".") { octet -> (octet and 0xff).toString() }
+    ).joinToString(".") { octet -> (octet and OctetMask).toString() }
 
 private fun Random.nextLong(bound: Long): Long {
     require(bound > 0) { "bound must be positive" }
     var bits: Long
     var value: Long
     do {
-        bits = nextLong().ushr(1)
+        bits = nextLong().ushr(RandomSignBitShift)
         value = bits % bound
     } while (bits - value + (bound - 1) < 0)
     return value
 }
+
+private fun Throwable.throwIfCancellation() {
+    if (this is CancellationException) {
+        throw this
+    }
+}
+
+private const val CidrPartCount = 2
+private const val MinIpv4PrefixLength = 0
+private const val Ipv4Bits = 32
+private const val HostlessPrefixLength = 31
+private const val NetworkBoundaryAddressCount = 2
+private const val Ipv4OctetCount = 4
+private const val MinIpv4Octet = 0
+private const val MaxIpv4Octet = 255
+private const val BitsPerOctet = 8
+private const val TwoOctetShift = 16
+private const val ThreeOctetShift = 24
+private const val OctetMask = 0xffL
+private const val RandomSignBitShift = 1
+private val Ipv4PrefixRange = MinIpv4PrefixLength..Ipv4Bits
+private val Ipv4OctetRange = MinIpv4Octet..MaxIpv4Octet
