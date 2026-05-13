@@ -12,6 +12,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.HttpURLConnection
@@ -32,7 +33,7 @@ import javax.net.ssl.X509TrustManager
 private const val EmulatorHost = "10.0.2.2"
 private const val DefaultTimeoutMs = 5_000L
 private const val DefaultProxyPort = 1080
-private const val DnsPort = 53
+private const val DefaultDnsPort = 53
 private const val TcpProbePayload = "ripdpi-tcp-probe-v1"
 private const val UdpProbePayload = "ripdpi-udp-probe-v1"
 
@@ -76,6 +77,7 @@ data class NetworkProbeConfig(
     val profile: LabProfile,
     val mode: ProbeMode,
     val dnsServer: String,
+    val dnsPort: Int,
     val httpUrl: String,
     val httpsUrl: String,
     val tcpHost: String,
@@ -124,6 +126,7 @@ data class NetworkProbeConfig(
                     intent.getStringExtra("dnsServer")
                         ?: intent.getStringExtra("dns_server")
                         ?: labHost,
+                dnsPort = intent.getIntExtra("dnsPort", intent.getIntExtra("dns_port", DefaultDnsPort)),
                 httpUrl =
                     intent.getStringExtra("httpUrl")
                         ?: intent.getStringExtra("http_url")
@@ -405,14 +408,7 @@ class DebugLocalNetworkProbeRunner(
             errors += ProbeError("quic", quic.errorCode ?: "QUIC_FAILED", "QUIC probe failed", recoverable = true)
         }
 
-        val hardFailure = errors.any { it.stage in setOf("vpn", "proxy", "dns", "http", "tcp") }
-        val degraded = errors.isNotEmpty() || udp.errorCode != null || quic?.errorCode != null
-        val verdict =
-            when {
-                hardFailure -> ProbeVerdict.Fail
-                degraded -> ProbeVerdict.Degraded
-                else -> ProbeVerdict.Pass
-            }
+        val verdict = resolveProbeVerdict(errors = errors, udp = udp, quic = quic)
 
         return NetworkProbeResult(
             runId =
@@ -459,12 +455,24 @@ class DebugLocalNetworkProbeRunner(
 
     private fun runDnsProbe(config: NetworkProbeConfig): DnsProbeResult {
         val startMs = SystemClock.elapsedRealtime()
-        return runCatching {
+        val udpResult = runDnsUdpProbe(config, startMs)
+        if (udpResult.ok) return udpResult
+
+        return runDnsTcpProbe(config, startMs).getOrElse {
+            udpResult
+        }
+    }
+
+    private fun runDnsUdpProbe(
+        config: NetworkProbeConfig,
+        startMs: Long,
+    ): DnsProbeResult =
+        runCatching {
             val requestId = (System.nanoTime() and 0xffff).toInt()
             val query = DebugDnsPacketCodec.buildQuery(config.dnsHostname, requestId)
             DatagramSocket().use { socket ->
                 socket.soTimeout = config.timeoutMs.toInt()
-                socket.connect(InetSocketAddress(config.dnsServer, DnsPort))
+                socket.connect(InetSocketAddress(config.dnsServer, config.dnsPort))
                 socket.send(DatagramPacket(query, query.size))
                 val response = ByteArray(1500)
                 val packet = DatagramPacket(response, response.size)
@@ -474,15 +482,7 @@ class DebugLocalNetworkProbeRunner(
                         packet = response.copyOf(packet.length),
                         expectedRequestId = requestId,
                     )
-                DnsProbeResult(
-                    attempted = true,
-                    ok = decoded.rcode == 0 && decoded.answers.isNotEmpty(),
-                    server = config.dnsServer,
-                    hostname = config.dnsHostname,
-                    addresses = decoded.answers,
-                    latencyMs = SystemClock.elapsedRealtime() - startMs,
-                    errorCode = if (decoded.rcode == 0) null else "DNS_RCODE_${decoded.rcode}",
-                )
+                decoded.toDnsProbeResult(config, startMs)
             }
         }.getOrElse { error ->
             DnsProbeResult(
@@ -495,7 +495,50 @@ class DebugLocalNetworkProbeRunner(
                 error.errorCode(),
             )
         }
-    }
+
+    private fun runDnsTcpProbe(
+        config: NetworkProbeConfig,
+        startMs: Long,
+    ): Result<DnsProbeResult> =
+        runCatching {
+            val requestId = (System.nanoTime() and 0xffff).toInt()
+            val query = DebugDnsPacketCodec.buildQuery(config.dnsHostname, requestId)
+            Socket().use { socket ->
+                socket.connect(InetSocketAddress(config.dnsServer, config.dnsPort), config.timeoutMs.toInt())
+                socket.soTimeout = config.timeoutMs.toInt()
+                val output = socket.getOutputStream()
+                output.write((query.size ushr 8) and 0xff)
+                output.write(query.size and 0xff)
+                output.write(query)
+                output.flush()
+
+                val input = socket.getInputStream()
+                val lengthPrefix = input.readExactly(2)
+                val responseLength =
+                    ((lengthPrefix[0].toInt() and 0xff) shl 8) or (lengthPrefix[1].toInt() and 0xff)
+                val response = input.readExactly(responseLength)
+                val decoded =
+                    DebugDnsPacketCodec.decodeResponse(
+                        packet = response,
+                        expectedRequestId = requestId,
+                    )
+                decoded.toDnsProbeResult(config, startMs)
+            }
+        }
+
+    private fun DebugDnsProbeDecodedResponse.toDnsProbeResult(
+        config: NetworkProbeConfig,
+        startMs: Long,
+    ): DnsProbeResult =
+        DnsProbeResult(
+            attempted = true,
+            ok = rcode == 0 && answers.isNotEmpty(),
+            server = config.dnsServer,
+            hostname = config.dnsHostname,
+            addresses = answers,
+            latencyMs = elapsedSince(startMs),
+            errorCode = if (rcode == 0) null else "DNS_RCODE_$rcode",
+        )
 
     private fun runHttpProbe(config: NetworkProbeConfig): HttpProbeResult =
         runUrlProbe(config.httpUrl, config.timeoutMs, trustLabCertificate = false).toHttpProbeResult(config.httpUrl)
@@ -568,6 +611,20 @@ class DebugLocalNetworkProbeRunner(
                 errorCode = "QUIC_UNSUPPORTED_ANDROID_DEBUG_PROBE",
             )
         }
+}
+
+internal fun resolveProbeVerdict(
+    errors: List<ProbeError>,
+    udp: UdpProbeResult,
+    quic: QuicProbeResult?,
+): ProbeVerdict {
+    val hardFailure = errors.any { it.stage in setOf("vpn", "proxy", "dns", "http", "tcp") }
+    val degraded = errors.isNotEmpty() || udp.errorCode != null || quic?.errorCode != null
+    return when {
+        hardFailure -> ProbeVerdict.Fail
+        degraded -> ProbeVerdict.Degraded
+        else -> ProbeVerdict.Pass
+    }
 }
 
 fun NetworkProbeResult.writeToOutput(
@@ -695,6 +752,17 @@ private fun Throwable.errorCode(): String =
         .uppercase()
 
 private fun elapsedSince(startMs: Long): Long = SystemClock.elapsedRealtime() - startMs
+
+private fun InputStream.readExactly(byteCount: Int): ByteArray {
+    val output = ByteArray(byteCount)
+    var offset = 0
+    while (offset < byteCount) {
+        val read = read(output, offset, byteCount - offset)
+        require(read > 0) { "Stream ended before $byteCount bytes were read" }
+        offset += read
+    }
+    return output
+}
 
 private fun redactUrl(value: String): String =
     runCatching {

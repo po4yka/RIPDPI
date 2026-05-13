@@ -15,6 +15,13 @@ import java.io.File
 @RunWith(RobolectricTestRunner::class)
 class DebugLocalNetworkProbeTest {
     private val debugProbeAction = "com.poyka.ripdpi.DEBUG_PROBE"
+    private val debugProbeReceiver = "DebugNetworkProbeReceiver"
+    private val debugProbeActions =
+        listOf(
+            debugProbeAction,
+            "com.poyka.ripdpi.debug.PROBE_TCP",
+            "com.poyka.ripdpi.debug.PROBE_DNS",
+        )
 
     @Test
     fun `emulator profile resolves default lab endpoints`() {
@@ -28,6 +35,7 @@ class DebugLocalNetworkProbeTest {
         assertEquals(LabProfile.Emulator, config.profile)
         assertEquals(ProbeMode.Vpn, config.mode)
         assertEquals("10.0.2.2", config.dnsServer)
+        assertEquals(53, config.dnsPort)
         assertEquals("http://10.0.2.2:8080/get", config.httpUrl)
         assertEquals("https://10.0.2.2:8443/", config.httpsUrl)
         assertEquals("10.0.2.2", config.tcpHost)
@@ -117,22 +125,67 @@ class DebugLocalNetworkProbeTest {
     }
 
     @Test
-    fun `debug probe controls are not present in production source set`() {
-        val mainManifest = sourceFile("src/main/AndroidManifest.xml", "app/src/main/AndroidManifest.xml").readText()
-        val mainSources =
-            sourceFile("src/main/kotlin", "app/src/main/kotlin")
-                .walkTopDown()
-                .filter { it.isFile && it.extension == "kt" }
-                .joinToString(separator = "\n") { it.readText() }
+    fun `quic unsupported marks otherwise healthy probe as degraded`() {
+        val verdict =
+            resolveProbeVerdict(
+                errors = emptyList(),
+                udp = UdpProbeResult(true, true, "10.0.2.2", 9001, true, 10, null),
+                quic =
+                    QuicProbeResult(
+                        attempted = false,
+                        ok = false,
+                        url = "https://10.0.2.2:9443/h3/ok",
+                        httpStatus = null,
+                        fallbackUsed = false,
+                        latencyMs = null,
+                        errorCode = "QUIC_UNSUPPORTED_ANDROID_DEBUG_PROBE",
+                    ),
+            )
 
-        assertFalse(mainManifest.contains(debugProbeAction))
-        assertFalse(mainManifest.contains("DebugNetworkProbeReceiver"))
-        assertFalse(mainSources.contains(debugProbeAction))
+        assertEquals(ProbeVerdict.Degraded, verdict)
+    }
+
+    @Test
+    fun `debug probe controls are not present in production source sets`() {
+        val productionFiles = productionSourceSetFiles()
+        assertTrue(productionFiles.isNotEmpty())
+        val productionText = productionFiles.joinToString(separator = "\n") { it.readText() }
+
+        debugProbeActions.forEach { action ->
+            assertFalse(productionText.contains(action))
+        }
+        assertFalse(productionText.contains(debugProbeReceiver))
         assertTrue(
             sourceFile("src/debug/AndroidManifest.xml", "app/src/debug/AndroidManifest.xml")
                 .readText()
-                .contains("DebugNetworkProbeReceiver"),
+                .contains(debugProbeReceiver),
         )
+    }
+
+    @Test
+    fun `lab-only defaults and permissive tls stay out of production source sets`() {
+        val productionFiles = productionSourceSetFiles()
+        assertTrue(productionFiles.isNotEmpty())
+        val productionText = productionFiles.joinToString(separator = "\n") { it.readText() }
+        val forbiddenTokens =
+            listOf(
+                "10.0.2.2",
+                "ok.test",
+                "test-lab/",
+                "adb-run-probe",
+                "lab.crt",
+                "lab.key",
+                "/certs/lab.crt",
+                "/certs/lab.key",
+                "local_certs",
+                "TrustAllManager",
+                "HostnameVerifier { _, _ -> true }",
+                "QUIC_UNSUPPORTED_ANDROID_DEBUG_PROBE",
+            )
+
+        forbiddenTokens.forEach { token ->
+            assertFalse("Production source sets contain lab-only token: $token", productionText.contains(token))
+        }
     }
 
     private fun sourceFile(
@@ -143,4 +196,26 @@ class DebugLocalNetworkProbeTest {
             File(appRelativePath),
             File(repoRelativePath),
         ).first { it.exists() }
+
+    private fun productionSourceSetFiles(): List<File> =
+        listOf(
+            "src/main",
+            "src/release",
+            "src/benchmark",
+        ).mapNotNull(::sourceDirectoryOrNull)
+            .flatMap { directory ->
+                directory
+                    .walkTopDown()
+                    .filter { it.isFile && it.isGuardedProductionFile() }
+                    .toList()
+            }
+
+    private fun sourceDirectoryOrNull(appRelativePath: String): File? =
+        listOf(
+            File(appRelativePath),
+            File("app/$appRelativePath"),
+        ).firstOrNull { it.exists() && it.isDirectory }
+
+    private fun File.isGuardedProductionFile(): Boolean =
+        extension in setOf("kt", "java", "xml", "json", "properties", "txt", "md")
 }
