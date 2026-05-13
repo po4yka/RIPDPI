@@ -424,7 +424,7 @@
     <string name="home_diagnostics_vpn_detectors_summary">%1$d installed apps are known VPN detectors.</string>
     <string name="home_diagnostics_pcap_toggle">Capture packets (advanced)</string>
     <string name="home_diagnostics_pcap_helper">Root required. Saves a PCAP for this run.</string>
-    <string name="home_diagnostics_detection_permission_required">Some detection checks need location/phone permissions.</string>
+    <string name="home_diagnostics_detection_permission_required">Some detection checks need Android location or phone permissions to read Wi-Fi or cellular network identity. RIPDPI uses this only to compare network policy behavior; raw identifiers are not persisted and diagnostics exports redact them.</string>
     <string name="home_diagnostics_actionable_section">What to do next</string>
     <string name="home_diagnostics_network_section">On this network</string>
     <string name="home_diagnostics_network_transport">Transport</string>
@@ -593,7 +593,7 @@
     <string name="config_relay_masque_import_private_key">Import private key</string>
     <string name="config_relay_masque_import_pkcs12">Import PKCS#12 bundle</string>
     <string name="config_relay_masque_cloudflare_geohash_enabled">Enable Cloudflare egress hints</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">Best-effort coarse location adds an optional country-plus-region sec-ch-geohash header for Cloudflare direct routing.</string>
+    <string name="config_relay_masque_cloudflare_geohash_helper">Android may ask for coarse location because this optional Cloudflare egress hint reads an approximate country and region. It is not used for tracking, and raw location or network identifiers are not persisted.</string>
     <string name="config_relay_masque_pkcs12_dialog_title">Import PKCS#12 identity</string>
     <string name="config_relay_masque_pkcs12_password">Bundle password</string>
     <string name="config_relay_masque_pkcs12_password_helper">Leave empty if the PKCS#12 bundle has no password.</string>
@@ -2348,8 +2348,8 @@ Source: %2$s</string>
     <string name="owned_stack_browser_trace_native_platform_failure">Android platform stack failed, so RIPDPI used native owned TLS.</string>
     <string name="owned_stack_browser_trace_native_platform_unavailable">Android platform stack is unavailable on this device, so RIPDPI used native owned TLS.</string>
     <string name="owned_stack_browser_empty_body">No response body.</string>
-    <string name="detection_permission_rationale">Additional permissions improve check accuracy. Grant them for better results.</string>
-    <string name="detection_permission_settings">Permissions were denied. Open settings to grant them manually.</string>
+    <string name="detection_permission_rationale">Android labels these as location permissions because Wi-Fi and cellular identity can imply where you are. RIPDPI does not use them for tracking; checks use them only to distinguish network behavior, raw identifiers are not stored, and diagnostics exports redact sensitive identifiers.</string>
+    <string name="detection_permission_settings">Permissions were denied. Open settings only if you want detection checks to read Wi-Fi or cellular identity; raw identifiers are not persisted and diagnostics exports redact them.</string>
     <string name="detection_permission_open_settings">Open Settings</string>
     <string name="detection_stealth_score">Stealth Score</string>
     <string name="detection_auto_tune_title">Recommended Fixes</string>

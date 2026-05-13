@@ -1916,8 +1916,8 @@ fakeddisorder endhost</string>
     <string name="detection_onboarding_body">Для повышения точности проверке нужны дополнительные разрешения:\n\n\u2022 Состояние телефона \u2014 определяет страну сотового оператора для сравнения с IP-геолокацией.\n\n\u2022 Местоположение \u2014 считывает идентификатор Wi-Fi точки доступа (BSSID) для уточнения местоположения.\n\nБез этих разрешений проверка работает, но с меньшей точностью.</string>
     <string name="detection_onboarding_allow">Разрешить</string>
     <string name="detection_onboarding_skip">Пропустить</string>
-    <string name="detection_permission_rationale">Дополнительные разрешения повышают точность проверки. Выдайте их для лучших результатов.</string>
-    <string name="detection_permission_settings">Разрешения были отклонены. Откройте настройки, чтобы выдать их вручную.</string>
+    <string name="detection_permission_rationale">Android относит эти разрешения к местоположению, потому что идентификаторы Wi-Fi и сотовой сети могут указывать, где вы находитесь. RIPDPI не использует их для отслеживания; проверки используют их только для различения поведения сети, сырые идентификаторы не сохраняются, а экспорт диагностики их редактирует.</string>
+    <string name="detection_permission_settings">Разрешения были отклонены. Откройте настройки только если хотите, чтобы проверки читали идентификаторы Wi-Fi или сотовой сети; сырые идентификаторы не сохраняются, а экспорт диагностики их редактирует.</string>
     <string name="detection_permission_open_settings">Открыть настройки</string>
     <string name="detection_stealth_score">Оценка скрытности</string>
     <string name="detection_auto_tune_title">Рекомендуемые исправления</string>
@@ -2053,7 +2053,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_masque_client_private_key_helper">Вставьте PEM-приватный ключ или импортируйте файл ключа.</string>
     <string name="config_relay_masque_client_private_key">Клиентский приватный ключ (PEM)</string>
     <string name="config_relay_masque_cloudflare_geohash_enabled">Включить подсказки выхода Cloudflare</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">Грубая локация по принципу best-effort добавляет необязательный заголовок sec-ch-geohash «страна + регион» для прямой маршрутизации Cloudflare.</string>
+    <string name="config_relay_masque_cloudflare_geohash_helper">Android может запросить грубое местоположение, потому что эта необязательная подсказка выхода Cloudflare читает примерные страну и регион. Это не используется для отслеживания, а сырые идентификаторы местоположения или сети не сохраняются.</string>
     <string name="config_relay_masque_http2">Разрешить откат на HTTP/2 TCP</string>
     <string name="config_relay_masque_import_certificate_chain">Импорт сертификата</string>
     <string name="config_relay_masque_import_pkcs12">Импорт пакета PKCS#12</string>
@@ -2206,7 +2206,7 @@ fakeddisorder endhost</string>
     <string name="home_diagnostics_detection_detected">VPN, вероятно, обнаружим в этой сети</string>
     <string name="home_diagnostics_detection_needs_review">Результаты обнаружения требуют просмотра</string>
     <string name="home_diagnostics_detection_not_detected">Сигналы обнаружения не наблюдались</string>
-    <string name="home_diagnostics_detection_permission_required">Некоторые проверки обнаружения требуют разрешений местоположения/телефона.</string>
+    <string name="home_diagnostics_detection_permission_required">Некоторым проверкам нужны разрешения Android на местоположение или телефон, чтобы читать идентификаторы Wi-Fi или сотовой сети. RIPDPI использует это только для сравнения сетевых политик; сырые идентификаторы не сохраняются, а экспорт диагностики их редактирует.</string>
     <string name="home_diagnostics_detection_section_label">Сигналы обнаружения</string>
     <string name="home_diagnostics_dns_resolver_doh_preferred">Доступен зашифрованный DNS; предпочитайте DoH.</string>
     <string name="home_diagnostics_dns_resolver_doh_unreachable">Конечные точки DoH недоступны; путь DNS может быть перехвачен.</string>
