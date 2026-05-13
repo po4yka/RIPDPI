@@ -131,14 +131,43 @@ class DiagnosticsArchiveRedactor
 
 internal fun redactDiagnosticsFreeText(value: String): String =
     value
-        .replace(AuthorizationHeaderRegex, "$1 redacted")
-        .replace(CredentialUrlRegex, "$1//redacted@")
-        .replace(SensitiveQueryRegex, "$1=redacted")
-        .replace(BssidRegex, "redacted-bssid")
-        .replace(QuotedNetworkNameRegex, "$1=\"redacted\"")
+        .replaceWhenContainsAny(AuthorizationHeaderRegex, "$1 redacted", "authorization:")
+        .replaceWhenContainsAny(CredentialUrlRegex, "$1//redacted@", "://")
+        .replaceWhenContainsAny(SensitiveQueryRegex, "$1=redacted", "=")
+        .replaceWhenContainsAny(BssidRegex, "redacted-bssid", ":")
+        .replaceWhenContainsAny(QuotedNetworkNameRegex, "$1=\"redacted\"", "ssid=", "operator=", "carrier=")
+
+internal fun redactDiagnosticsLogcat(value: String): String =
+    redactDiagnosticsFreeText(value)
+        .replaceWhenContainsAny(UrlRegex, "<url-redacted>", "http://", "https://")
+        .replaceWhenContainsAny(
+            EndpointFieldRegex,
+            "$1=<redacted>",
+            "host=",
+            "hostname=",
+            "target=",
+            "server=",
+            "endpoint=",
+            "addr=",
+            "address=",
+        )
+
+private fun String.replaceWhenContainsAny(
+    regex: Regex,
+    replacement: String,
+    vararg needles: String,
+): String =
+    if (needles.any { needle -> contains(needle, ignoreCase = true) }) {
+        replace(regex, replacement)
+    } else {
+        this
+    }
 
 private val AuthorizationHeaderRegex = Regex("(?i)\\b(Proxy-Authorization:|Authorization:)\\s*(?:Basic|Bearer)\\s+\\S+")
 private val CredentialUrlRegex = Regex("([a-z][a-z0-9+.-]*:)//[^\\s/@:]+:[^\\s/@]+@", RegexOption.IGNORE_CASE)
 private val SensitiveQueryRegex = Regex("(?i)\\b(token|auth|password|secret|key)=([^\\s&]+)")
 private val BssidRegex = Regex("\\b[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}\\b")
 private val QuotedNetworkNameRegex = Regex("(?i)\\b(ssid|operator|carrier)=([\"']).*?\\2")
+private val UrlRegex = Regex("https?://\\S+", RegexOption.IGNORE_CASE)
+private val EndpointFieldRegex =
+    Regex("(?i)\\b(host|hostname|target|server|endpoint|addr|address)=([^\\s,;]+)")

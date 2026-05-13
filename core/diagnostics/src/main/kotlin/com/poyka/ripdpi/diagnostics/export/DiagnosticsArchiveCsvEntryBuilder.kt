@@ -22,7 +22,12 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
             )
             add(textEntry(name = "telemetry.csv", content = buildTelemetryCsv(selection)))
             selection.logcatSnapshot?.let { snapshot ->
-                add(DiagnosticsArchiveEntry(name = "logcat.txt", bytes = snapshot.content.toByteArray()))
+                add(
+                    DiagnosticsArchiveEntry(
+                        name = "logcat.txt",
+                        bytes = redactDiagnosticsLogcat(snapshot.content).toByteArray(),
+                    ),
+                )
             }
             selection.fileLogSnapshot?.let { content ->
                 add(DiagnosticsArchiveEntry(name = "app-log.txt", bytes = content.toByteArray()))

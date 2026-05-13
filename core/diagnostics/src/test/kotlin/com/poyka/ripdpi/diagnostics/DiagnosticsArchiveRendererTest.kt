@@ -49,6 +49,38 @@ class DiagnosticsArchiveRendererTest {
     }
 
     @Test
+    fun `renderer redacts endpoint fields from logcat entry`() {
+        val selection =
+            buildFullRendererSelection().copy(
+                logcatSnapshot =
+                    LogcatSnapshot(
+                        content =
+                            "03-12 10:00:00.010 I/ripdpi-native: route selected " +
+                                "host=private.example target=203.0.113.9:443 " +
+                                "url=https://user:pass@private.example/path?token=abc\n",
+                        captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
+                        byteCount = 144,
+                    ),
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-render", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-logcat.zip",
+                createdAt = 44L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val logcatText = entries.getValue("logcat.txt").bytes.decodeToString()
+
+        assertTrue(logcatText.contains("host=<redacted>"))
+        assertTrue(logcatText.contains("target=<redacted>"))
+        assertTrue(logcatText.contains("<url-redacted>"))
+        assertFalse(logcatText.contains("private.example"))
+        assertFalse(logcatText.contains("203.0.113.9:443"))
+        assertFalse(logcatText.contains("token=abc"))
+    }
+
+    @Test
     fun `renderer marks truncated collections and decode failures in completeness metadata`() {
         val selection = buildTruncationRendererSelection()
         val target =
