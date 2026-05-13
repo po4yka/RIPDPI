@@ -214,7 +214,7 @@ class RknLayeredProbePipeline(
 
     private fun httpConfidence(
         afterTls: RknResultBuilder,
-        stub: RknStubDetection,
+        stub: StubDetection,
     ): RknConfidence =
         when {
             stub.isStub -> RknConfidence.HIGH
@@ -222,7 +222,7 @@ class RknLayeredProbePipeline(
             else -> RknConfidence.HIGH
         }
 
-    private fun RknStubDetection.notes(): List<String> =
+    private fun StubDetection.notes(): List<String> =
         if (isStub) {
             listOfNotNull(
                 "HTTP stub page detected".takeIf { !via451 },
