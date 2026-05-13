@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { toPng } from "html-to-image";
+import { getCopy, LOCALES, DEFAULT_LOCALE, type Locale, type SlideCopy } from "@/copy";
 
 // ── Constants ──────────────────────────────────────────────────────────
 const PHONE_W = 1080;
@@ -34,6 +35,17 @@ const BRAND_LIGHT = {
   success: "#047857",      // success
   info: "#1D4ED8",         // info
 } as const;
+
+// ── Helpers ────────────────────────────────────────────────────────────
+/** Render an array of headline lines as JSX, separated by <br />. */
+function renderHeadline(lines: readonly string[]): React.ReactNode {
+  return lines.map((line, i) => (
+    <span key={i}>
+      {line}
+      {i < lines.length - 1 && <br />}
+    </span>
+  ));
+}
 
 // ── Screenshot (Frameless) ─────────────────────────────────────────────
 function Screenshot({
@@ -214,12 +226,15 @@ function Pill({
 function Slide({
   children,
   bg,
+  dir,
 }: {
   children: React.ReactNode;
   bg: string;
+  dir?: "ltr" | "rtl";
 }) {
   return (
     <div
+      dir={dir ?? "ltr"}
       style={{
         width: PHONE_W,
         height: PHONE_H,
@@ -238,23 +253,15 @@ function Slide({
 // SLIDE 1: Hero -- "Browse without borders"
 // Dark bg, centered phone (home screen, light 1080x2400)
 // ══════════════════════════════════════════════════════════════════════
-function Slide1() {
+function Slide1({ copy }: { copy: SlideCopy }) {
   return (
-    <Slide bg={`linear-gradient(170deg, ${BRAND.bg} 0%, #0a1628 50%, ${BRAND.bg} 100%)`}>
+    <Slide bg={`linear-gradient(170deg, ${BRAND.bg} 0%, #0a1628 50%, ${BRAND.bg} 100%)`} dir={copy.dir}>
       <Glow x="10%" y="5%" size={450} color={BRAND.info} opacity={0.12} />
       <Glow x="55%" y="70%" size={350} color={BRAND.success} opacity={0.08} />
       <Grid opacity={0.03} />
       <Caption
-        label="Internet Freedom"
-        headline={
-          <>
-            Browse
-            <br />
-            without
-            <br />
-            borders
-          </>
-        }
+        label={copy.slide1.label}
+        headline={renderHeadline(copy.slide1.headline)}
       />
       <Screenshot
         src="/screenshots/home-light.png"
@@ -276,9 +283,9 @@ function Slide1() {
 // SLIDE 2: Differentiator -- "One tap. No root."
 // Dark bg, text-focused, app icon, no phone
 // ══════════════════════════════════════════════════════════════════════
-function Slide2() {
+function Slide2({ copy }: { copy: SlideCopy }) {
   return (
-    <Slide bg={`linear-gradient(165deg, #0f172a 0%, ${BRAND.bg} 100%)`}>
+    <Slide bg={`linear-gradient(165deg, #0f172a 0%, ${BRAND.bg} 100%)`} dir={copy.dir}>
       <Glow x="60%" y="15%" size={400} color={BRAND.info} opacity={0.1} />
       <Glow x="10%" y="55%" size={300} color={BRAND.success} opacity={0.1} />
       <Grid opacity={0.025} />
@@ -324,7 +331,7 @@ function Slide2() {
             marginBottom: 16,
           }}
         >
-          No Root Required
+          {copy.slide2.eyebrow}
         </div>
         <div
           style={{
@@ -335,9 +342,7 @@ function Slide2() {
             letterSpacing: "-0.025em",
           }}
         >
-          One tap.
-          <br />
-          No root.
+          {renderHeadline(copy.slide2.headline)}
         </div>
       </div>
 
@@ -353,11 +358,7 @@ function Slide2() {
           gap: 20,
         }}
       >
-        {[
-          { icon: "shield", title: "Works on any Android", desc: "No unlocking, no hacks" },
-          { icon: "zap", title: "Connect in one tap", desc: "Instant protection" },
-          { icon: "lock", title: "Local VPN or Proxy", desc: "Traffic never leaves your device" },
-        ].map((item) => (
+        {copy.slide2.cards.map((item) => (
           <div
             key={item.title}
             style={{
@@ -397,7 +398,7 @@ function Slide2() {
           fontFamily: "var(--font-geist-mono)",
         }}
       >
-        Works on any device
+        {copy.slide2.bottomBadge}
       </div>
     </Slide>
   );
@@ -407,19 +408,13 @@ function Slide2() {
 // SLIDE 3: Core Feature -- "Your privacy. Your rules."
 // Light contrast slide, settings screenshot (1080x2400), right-offset
 // ══════════════════════════════════════════════════════════════════════
-function Slide3() {
+function Slide3({ copy }: { copy: SlideCopy }) {
   return (
-    <Slide bg={`linear-gradient(170deg, ${BRAND_LIGHT.bg} 0%, ${BRAND_LIGHT.border} 100%)`}>
+    <Slide bg={`linear-gradient(170deg, ${BRAND_LIGHT.bg} 0%, ${BRAND_LIGHT.border} 100%)`} dir={copy.dir}>
       <Glow x="5%" y="55%" size={400} color={BRAND_LIGHT.info} opacity={0.1} />
       <Caption
-        label="Privacy & Security"
-        headline={
-          <>
-            Your privacy.
-            <br />
-            Your rules.
-          </>
-        }
+        label={copy.slide3.label}
+        headline={renderHeadline(copy.slide3.headline)}
         dark={false}
       />
 
@@ -435,7 +430,7 @@ function Slide3() {
           zIndex: 10,
         }}
       >
-        {["Encrypted DNS", "WebRTC block", "Bio lock"].map((f) => (
+        {copy.slide3.pills.map((f) => (
           <div
             key={f}
             style={{
@@ -473,22 +468,16 @@ function Slide3() {
 // SLIDE 4: Core Feature -- "Fine-tune every packet"
 // Dark bg, text-focused with protocol pills, no phone
 // ══════════════════════════════════════════════════════════════════════
-function Slide4() {
+function Slide4({ copy }: { copy: SlideCopy }) {
   return (
-    <Slide bg={`linear-gradient(160deg, #071a12 0%, ${BRAND.bg} 50%, #0a1628 100%)`}>
+    <Slide bg={`linear-gradient(160deg, #071a12 0%, ${BRAND.bg} 50%, #0a1628 100%)`} dir={copy.dir}>
       <Glow x="55%" y="5%" size={400} color={BRAND.success} opacity={0.15} />
       <Glow x="-5%" y="65%" size={350} color={BRAND.info} opacity={0.08} />
       <Grid opacity={0.03} />
 
       <Caption
-        label="Advanced Controls"
-        headline={
-          <>
-            Fine-tune
-            <br />
-            every packet
-          </>
-        }
+        label={copy.slide4.label}
+        headline={renderHeadline(copy.slide4.headline)}
       />
 
       {/* Protocol section */}
@@ -512,7 +501,7 @@ function Slide4() {
               marginBottom: 16,
             }}
           >
-            Encrypted DNS
+            {copy.slide4.sectionEncryptedDns}
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             {["DoH", "DoT", "DNSCrypt"].map((proto) => (
@@ -540,7 +529,7 @@ function Slide4() {
               marginBottom: 16,
             }}
           >
-            DPI Bypass
+            {copy.slide4.sectionDpiBypass}
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             {["TCP desync", "QUIC", "TLS tricks", "HTTP split"].map((proto) => (
@@ -568,13 +557,13 @@ function Slide4() {
               marginBottom: 16,
             }}
           >
-            Connection Modes
+            {copy.slide4.sectionModes}
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             <Pill color="#fff" bg={BRAND.info} border={BRAND.info}>
-              Local VPN
+              {copy.slide4.modeVpn}
             </Pill>
-            <Pill>Local Proxy</Pill>
+            <Pill>{copy.slide4.modeProxy}</Pill>
           </div>
         </div>
       </div>
@@ -596,7 +585,7 @@ function Slide4() {
             lineHeight: 1.5,
           }}
         >
-          Presets for beginners. Full control for experts.
+          {copy.slide4.footer}
         </div>
       </div>
     </Slide>
@@ -607,22 +596,14 @@ function Slide4() {
 // SLIDE 5: Core Feature -- "See what's really happening"
 // Dark bg, diagnostics screenshot (1080x2400), left-offset
 // ══════════════════════════════════════════════════════════════════════
-function Slide5() {
+function Slide5({ copy }: { copy: SlideCopy }) {
   return (
-    <Slide bg={`linear-gradient(175deg, #0f172a 0%, ${BRAND.bg} 60%, #0a1020 100%)`}>
+    <Slide bg={`linear-gradient(175deg, #0f172a 0%, ${BRAND.bg} 60%, #0a1020 100%)`} dir={copy.dir}>
       <Glow x="60%" y="10%" size={350} color={BRAND.info} opacity={0.12} />
       <Grid opacity={0.025} />
       <Caption
-        label="Built-in Diagnostics"
-        headline={
-          <>
-            See what&apos;s
-            <br />
-            really
-            <br />
-            happening
-          </>
-        }
+        label={copy.slide5.label}
+        headline={renderHeadline(copy.slide5.headline)}
         style={{ right: 200 }}
       />
 
@@ -677,21 +658,12 @@ function Slide5() {
 // SLIDE 6: More Features -- "And so much more."
 // Dark bg, app icon + feature pills, no phone screenshot
 // ══════════════════════════════════════════════════════════════════════
-function Slide6() {
-  const features = [
-    "Per-network policies",
-    "AdGuard compatible",
-    "Session telemetry",
-    "WebRTC protection",
-    "Biometric lock",
-    "Connection history",
-    "Tethering support",
-    "Data export",
-  ];
-  const comingSoon = ["Host packs", "Community stats"];
+function Slide6({ copy }: { copy: SlideCopy }) {
+  const features = copy.slide6.features;
+  const comingSoon = copy.slide6.comingSoon;
 
   return (
-    <Slide bg={`linear-gradient(175deg, ${BRAND.bg} 0%, #0f172a 50%, ${BRAND.bg} 100%)`}>
+    <Slide bg={`linear-gradient(175deg, ${BRAND.bg} 0%, #0f172a 50%, ${BRAND.bg} 100%)`} dir={copy.dir}>
       <Glow x="30%" y="8%" size={500} color={BRAND.info} opacity={0.08} />
       <Glow x="50%" y="55%" size={400} color={BRAND.success} opacity={0.06} />
       <Grid opacity={0.03} />
@@ -736,9 +708,7 @@ function Slide6() {
             letterSpacing: "-0.025em",
           }}
         >
-          And so
-          <br />
-          much more.
+          {renderHeadline(copy.slide6.headline)}
         </div>
       </div>
 
@@ -782,7 +752,7 @@ function Slide6() {
             marginBottom: 16,
           }}
         >
-          Coming Soon
+          {copy.slide6.comingSoonLabel}
         </div>
         <div style={{ display: "flex", gap: 14, justifyContent: "center" }}>
           {comingSoon.map((f) => (
@@ -826,9 +796,10 @@ function Slide6() {
 // ══════════════════════════════════════════════════════════════════════
 // Feature Graphic (1024x500)
 // ══════════════════════════════════════════════════════════════════════
-function FeatureGraphicSlide() {
+function FeatureGraphicSlide({ copy }: { copy: SlideCopy }) {
   return (
     <div
+      dir={copy.dir}
       style={{
         width: FEATURE_GRAPHIC.w,
         height: FEATURE_GRAPHIC.h,
@@ -880,14 +851,16 @@ function FeatureGraphicSlide() {
           zIndex: 1,
         }}
       >
-        Browse without borders
+        {copy.featureGraphic.tagline}
       </div>
     </div>
   );
 }
 
 // ── Slide registry ─────────────────────────────────────────────────────
-const SLIDES = [
+type SlideComponent = React.ComponentType<{ copy: SlideCopy }>;
+
+const SLIDES: ReadonlyArray<{ id: string; label: string; component: SlideComponent }> = [
   { id: "hero", label: "Hero", component: Slide1 },
   { id: "no-root", label: "No Root", component: Slide2 },
   { id: "privacy", label: "Privacy", component: Slide3 },
@@ -982,20 +955,26 @@ export default function Page() {
 function ScreenshotsPage() {
   const searchParams = useSearchParams();
   const slideParam = searchParams.get("slide");
+  const langParam = searchParams.get("lang");
+  const copy = getCopy(langParam);
 
   // Single slide full-resolution mode: ?slide=1 through ?slide=6, or ?slide=fg
   if (slideParam) {
     if (slideParam === "fg") {
-      return <FeatureGraphicSlide />;
+      return <FeatureGraphicSlide copy={copy} />;
     }
     const idx = parseInt(slideParam) - 1;
     const slide = SLIDES[idx];
     if (slide) {
       const C = slide.component;
-      return <C />;
+      return <C copy={copy} />;
     }
   }
 
+  return <ScreenshotsGrid copy={copy} />;
+}
+
+function ScreenshotsGrid({ copy }: { copy: SlideCopy }) {
   const [exporting, setExporting] = useState<string | null>(null);
 
   const exportSingle = useCallback(
@@ -1103,26 +1082,29 @@ function ScreenshotsPage() {
               fontFamily: "var(--font-geist-mono)",
             }}
           >
-            {SLIDES.length} phone slides + feature graphic | {PHONE_W}x{PHONE_H}px | Click to
-            export
+            {SLIDES.length} phone slides + feature graphic | {PHONE_W}x{PHONE_H}px | Locale:{" "}
+            {copy.locale} | Click to export
           </p>
         </div>
-        <button
-          onClick={exportAll}
-          disabled={!!exporting}
-          style={{
-            background: exporting ? "#333" : BRAND.info,
-            color: "#fff",
-            border: "none",
-            padding: "12px 28px",
-            borderRadius: 10,
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: exporting ? "wait" : "pointer",
-          }}
-        >
-          {exporting ? `Exporting ${exporting}...` : "Export All"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <LocaleSwitcher current={copy.locale} />
+          <button
+            onClick={exportAll}
+            disabled={!!exporting}
+            style={{
+              background: exporting ? "#333" : BRAND.info,
+              color: "#fff",
+              border: "none",
+              padding: "12px 28px",
+              borderRadius: 10,
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: exporting ? "wait" : "pointer",
+            }}
+          >
+            {exporting ? `Exporting ${exporting}...` : "Export All"}
+          </button>
+        </div>
       </div>
 
       {/* Phone slides grid */}
@@ -1140,7 +1122,7 @@ function ScreenshotsPage() {
           return (
             <ScreenshotPreview key={slide.id} index={i} label={slide.label} onExport={exportSingle} w={PHONE_W} h={PHONE_H}>
               <div data-slide-export={slide.id} data-slide-w={PHONE_W} data-slide-h={PHONE_H}>
-                <C />
+                <C copy={copy} />
               </div>
             </ScreenshotPreview>
           );
@@ -1161,7 +1143,7 @@ function ScreenshotsPage() {
             h={FEATURE_GRAPHIC.h}
           >
             <div data-slide-export="feature-graphic" data-slide-w={FEATURE_GRAPHIC.w} data-slide-h={FEATURE_GRAPHIC.h}>
-              <FeatureGraphicSlide />
+              <FeatureGraphicSlide copy={copy} />
             </div>
           </ScreenshotPreview>
         </div>
@@ -1169,3 +1151,35 @@ function ScreenshotsPage() {
     </div>
   );
 }
+
+// ── Locale switcher (agent-facing) ─────────────────────────────────────
+function LocaleSwitcher({ current }: { current: string }) {
+  return (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+      {LOCALES.map((loc) => {
+        const isCurrent = loc === current || (loc === DEFAULT_LOCALE && current === DEFAULT_LOCALE);
+        return (
+          <a
+            key={loc}
+            href={loc === DEFAULT_LOCALE ? "?" : `?lang=${loc}`}
+            style={{
+              fontSize: 12,
+              color: isCurrent ? BRAND.info : "#888",
+              fontFamily: "var(--font-geist-mono)",
+              textDecoration: isCurrent ? "underline" : "none",
+              padding: "4px 8px",
+              border: `1px solid ${isCurrent ? BRAND.info : "transparent"}`,
+              borderRadius: 6,
+            }}
+          >
+            {loc}
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+// Keep imports referenced even when types are otherwise unused inline.
+// (No-op type aliases discourage tree-shaking from dropping the re-exports.)
+export type { Locale };
