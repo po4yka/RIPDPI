@@ -30,9 +30,11 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeFalse
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestName
 import javax.inject.Inject
 
 @HiltAndroidTest
@@ -43,6 +45,21 @@ class PacketSmokeInstrumentedTest {
         private const val PhysicalTrafficHost = "example.com"
         private const val PhysicalTrafficPort = 443
         private const val PhysicalDnsProbeHost = "example.com"
+        private val PhasedPhysicalVpnSmokeTests =
+            setOf(
+                "vpnTunnelBaselineSmokeFamilyRoutesShellTraffic",
+                "vpnDohSmokeFamilyResolvesHostnameTraffic",
+                "vpnDotSmokeFamilyResolvesHostnameTraffic",
+                "vpnDnscryptSmokeFamilyResolvesHostnameTraffic",
+                "vpnDoqSmokeFamilyResolvesHostnameTraffic",
+                "vpnDohFaultSmokeFamilySurfacesDnsFailure",
+                "vpnDotFaultSmokeFamilySurfacesDnsFailure",
+                "vpnDnscryptFaultSmokeFamilySurfacesDnsFailure",
+                "vpnDoqFaultSmokeFamilySurfacesDnsFailure",
+                "vpnHostAutolearnSmokeFamilyKeepsServiceStable",
+                "vpnRememberedPolicySmokeFamilyKeepsServiceStable",
+                "vpnWsTunnelFallbackSmokeFamilyKeepsServiceStable",
+            )
     }
 
     @get:Rule(order = 0)
@@ -54,6 +71,9 @@ class PacketSmokeInstrumentedTest {
     @get:Rule(order = 2)
     val notificationPermissionRule: GrantPermissionRule =
         GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
+
+    @get:Rule(order = 3)
+    val testName = TestName()
 
     @Inject
     lateinit var appSettingsRepository: AppSettingsRepository
@@ -67,9 +87,13 @@ class PacketSmokeInstrumentedTest {
     private var hiltInjected = false
     private lateinit var fixtureClient: LocalFixtureClient
     private lateinit var fixture: FixtureManifestDto
+    private var serviceStarted = false
 
     @Before
     fun setUp() {
+        if (currentTestRequiresPhasedPhysicalRunner()) {
+            assumePhasedPhysicalRunnerForVpnSmoke()
+        }
         if (!packetSmokeUsesPhasedPhysicalRunner() || packetSmokePhase() != PacketSmokePhase.ASSERT) {
             assumeE2eFixtureConfigured()
         }
@@ -108,8 +132,10 @@ class PacketSmokeInstrumentedTest {
         }
         if (hiltInjected) {
             runBlocking {
-                stopService(RipDpiProxyService::class.java)
-                stopService(RipDpiVpnService::class.java)
+                if (serviceStarted) {
+                    stopService(RipDpiProxyService::class.java)
+                    stopService(RipDpiVpnService::class.java)
+                }
             }
         }
         if (this::fixtureClient.isInitialized) {
@@ -416,6 +442,7 @@ class PacketSmokeInstrumentedTest {
         chainDsl: String,
         expectedScenario: String,
     ) {
+        assumeProxyFixtureCanValidateTlsHandshake(expectedScenario)
         val listenPort = reserveLoopbackPort()
         runBlocking {
             appSettingsRepository.update {
@@ -652,6 +679,7 @@ class PacketSmokeInstrumentedTest {
             }
 
             PacketSmokePhase.SINGLE -> {
+                assumePhasedPhysicalRunnerForVpnSmoke()
                 ensureVpnConsentGranted(appContext)
                 val listenPort = reserveLoopbackPort()
                 val preset = packetSmokeEncryptedDnsPreset(protocol)
@@ -738,6 +766,7 @@ class PacketSmokeInstrumentedTest {
             }
 
             PacketSmokePhase.SINGLE -> {
+                assumePhasedPhysicalRunnerForVpnSmoke()
                 ensureVpnConsentGranted(appContext)
                 val listenPort = reserveLoopbackPort()
                 val preset = packetSmokeEncryptedDnsFaultPreset(protocol)
@@ -817,6 +846,7 @@ class PacketSmokeInstrumentedTest {
             }
 
             PacketSmokePhase.SINGLE -> {
+                assumePhasedPhysicalRunnerForVpnSmoke()
                 ensureVpnConsentGranted(appContext)
                 val listenPort = reserveLoopbackPort()
                 runBlocking {
@@ -892,6 +922,7 @@ class PacketSmokeInstrumentedTest {
             }
 
             PacketSmokePhase.SINGLE -> {
+                assumePhasedPhysicalRunnerForVpnSmoke()
                 ensureVpnConsentGranted(appContext)
                 val listenPort = reserveLoopbackPort()
                 runBlocking {
@@ -963,6 +994,7 @@ class PacketSmokeInstrumentedTest {
             }
 
             PacketSmokePhase.SINGLE -> {
+                assumePhasedPhysicalRunnerForVpnSmoke()
                 ensureVpnConsentGranted(appContext)
                 val listenPort = reserveLoopbackPort()
                 runBlocking {
@@ -998,6 +1030,28 @@ class PacketSmokeInstrumentedTest {
             }
         }
     }
+
+    private fun assumeProxyFixtureCanValidateTlsHandshake(expectedScenario: String) {
+        val lowTtlFakeScenario = expectedScenario == "fakedsplit" || expectedScenario == "fakeddisorder"
+        assumeFalse(
+            "Physical loopback packet-smoke cannot validate $expectedScenario with a TLS fixture handshake; " +
+                "the low-TTL fake segment can reach the adb-reversed fixture endpoint.",
+            lowTtlFakeScenario && !isLikelyEmulator() && fixture.androidHost == "127.0.0.1",
+        )
+    }
+
+    private fun assumePhasedPhysicalRunnerForVpnSmoke() {
+        assumeFalse(
+            "Physical-indirect VPN packet-smoke requires the prepare/runner/assert script; app-process SINGLE " +
+                "probes are excluded from the VPN.",
+            packetSmokeUsesPhysicalIndirectContract() && packetSmokePhase() == PacketSmokePhase.SINGLE,
+        )
+    }
+
+    private fun currentTestRequiresPhasedPhysicalRunner(): Boolean =
+        packetSmokeUsesPhysicalIndirectContract() &&
+            packetSmokePhase() == PacketSmokePhase.SINGLE &&
+            testName.methodName in PhasedPhysicalVpnSmokeTests
 
     private fun preparePhysicalIndirectPlainDnsScenario(
         scenarioId: String,
@@ -1124,6 +1178,7 @@ class PacketSmokeInstrumentedTest {
     }
 
     private fun startService(serviceClass: Class<*>) {
+        serviceStarted = true
         ContextCompat.startForegroundService(
             appContext,
             Intent(appContext, serviceClass).setAction(startAction),
