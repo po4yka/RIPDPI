@@ -269,6 +269,7 @@ mod tests {
         apply_global_probe_results(&[ProbeResult::success("tls_rec_split", "youtube.com", 40)]);
         let mut config = RuntimeConfig::default();
         config.adaptive.strategy_evolution = true;
+        config.adaptive.evolution_epsilon_permil = 0;
         let mut resolver = StrategyEvolutionResolver::from_config(&config);
 
         let hints = resolver

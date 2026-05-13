@@ -406,12 +406,14 @@ const VARINT_CONTINUATION_MASK: u8 = 0x80;
 mod tests {
     use std::fs;
     use std::net::IpAddr;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
 
     const GEOIP_COUNTRY_FIXTURE: &[u8] = include_bytes!("../tests/fixtures/GeoIP2-Country-Test.mmdb");
     const GEOIP_ASN_FIXTURE: &[u8] = include_bytes!("../tests/fixtures/GeoLite2-ASN-Test.mmdb");
+    static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     #[test]
     fn missing_databases_return_typed_warnings_without_panic() {
@@ -529,10 +531,18 @@ mod tests {
     }
 
     fn temp_dir() -> PathBuf {
-        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).expect("clock").as_nanos();
-        let dir = std::env::temp_dir().join(format!("ripdpi-geo-{nanos}"));
-        fs::create_dir_all(&dir).expect("create temp dir");
-        dir
+        let base = std::env::temp_dir();
+        for _ in 0..1024 {
+            let nanos = SystemTime::now().duration_since(UNIX_EPOCH).expect("clock").as_nanos();
+            let sequence = TEMP_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let dir = base.join(format!("ripdpi-geo-{}-{nanos}-{sequence}", std::process::id()));
+            match fs::create_dir(&dir) {
+                Ok(()) => return dir,
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(error) => panic!("create temp dir {dir:?}: {error}"),
+            }
+        }
+        panic!("failed to allocate unique ripdpi-geo temp dir");
     }
 
     fn write_geoip_fixture(dir: &Path) {
