@@ -15,7 +15,7 @@ open checklist work.
 | Physical device | Pixel 8 Pro, Android 16 / API 36, non-rooted |
 | Emulator smoke | API 34 AVD fresh-start UI smoke |
 | Release APK inspected | `app/build/outputs/apk/github/release/app-github-arm64-v8a-release.apk` |
-| Lab artifacts | `test-lab/artifacts/vpn-e2e-20260514-013348/probe-device-vpn.json`, `test-lab/artifacts/probe-device-diagnostics.json`, `test-lab/artifacts/proxy-smoke-20260514-030750/probe-device-proxy.json`, `test-lab/artifacts/test-lab-artifacts-20260513T221424Z.tar.gz` |
+| Lab artifacts | `test-lab/artifacts/vpn-e2e-20260514-013348/probe-device-vpn.json`, `test-lab/artifacts/probe-device-diagnostics.json`, `test-lab/artifacts/proxy-smoke-20260514-030750/probe-device-proxy.json`, `test-lab/artifacts/api27-proxy-smoke-20260514-033259/probe-emulator-proxy.json`, `test-lab/artifacts/api31-proxy-smoke-20260514-033411/probe-emulator-proxy.json`, `test-lab/artifacts/api35-proxy-smoke-20260514-033526/probe-emulator-proxy.json`, `test-lab/artifacts/test-lab-artifacts-20260513T221424Z.tar.gz` |
 
 ## Command Evidence
 
@@ -43,16 +43,17 @@ open checklist work.
 | Kotlin strategy unit tests | `./gradlew :app:testGithubDebugUnitTest :core:diagnostics:testDebugUnitTest :core:service:testDebugUnitTest --tests ... -Pripdpi.skipNativeBuild=true --no-daemon` | 91 focused tests, 0 failures across strategy config UI, import/route flows, strategy pack logic, host-pack presets, packet-smoke network support, diagnostics strategy probe presenters/coordinator/service, recommendation invariants, and strategy pack repository/service logic |
 | Native strategy and desync tests | `cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-strategy-config -p ripdpi-strategy-http -p ripdpi-strategy-ipv6 -p ripdpi-strategy-lua -p ripdpi-strategy-registry -p ripdpi-strategy-trait -p ripdpi-strategy-udp -p ripdpi-strategy-window -p ripdpi-desync -p ripdpi-desync-runtime -- --nocapture` | 300 tests, 0 failures across TCP desync planning/runtime, TTL/OOB/fake ordering/fallbacks, config reload and YAML/TOML parsing, HTTP header transforms, IPv6 extension injection, Lua VM/script compile coverage, registry materialization, strategy trait contracts, UDP length mutation, and window clamp planning |
 | Physical proxy smoke and host SOCKS curl | `test-lab/scripts/adb-run-probe.sh --profile device --mode proxy --timeout-ms 10000 --out-dir test-lab/artifacts/proxy-smoke-20260514-030750`; `adb forward tcp:11080 tcp:1080`; `curl --socks5-hostname 127.0.0.1:11080 http://192.168.1.9:8080/get` | Debug app launched via automation UI, local proxy service started from the Home screen, probe verdict `Degraded` only because QUIC is unsupported by the Android debug probe; proxy ready, DNS/HTTP/HTTPS/TCP/UDP pass, errors empty; host curl returned HTTP 200 through forwarded SOCKS5 |
+| API 27, 31, and 35 emulator proxy smokes | `sdkmanager --install system-images;android-27;google_apis;arm64-v8a`; repaired API 31 and API 35 images with `sdkmanager --uninstall/--install`; created `RIPDPI_API27`, `RIPDPI_API31`, and `RIPDPI_API35`; ran `adb-run-probe.sh --profile emulator --mode proxy --timeout-ms 10000` on each | API 27 / Android 8.1, API 31 / Android 12, and API 35 / Android 15 each booted from a clean emulator image, installed the debug APK, launched Home through automation, started local proxy from the UI, and passed proxy readiness plus DNS/HTTP/HTTPS/TCP/UDP; each verdict was `Degraded` only because QUIC is unsupported by the Android debug probe |
 
 ## Checklist Section Coverage
 
 | Checklist section | Status | Evidence | Remaining work |
 | --- | --- | --- | --- |
 | How to use | Partial | Changed areas identified as test-lab, root detection, diagnostics archive redaction, Android build packaging, native test stability | Full release-candidate matrix is not complete |
-| Test dimensions | Partial | Debug, release verification build, physical arm64, API 36, API 34 emulator, VPN, diagnostics-only, local dual-stack lab service set | API 27, API 31, API 35 emulator/device runs; rooted physical device; cellular, handover, private DNS, IPv4-only, IPv6-only, captive or limited network |
-| Core smoke matrix | Partial | Physical VPN E2E, physical proxy smoke with host SOCKS curl, diagnostics probe, connected tests, release APK inspection, static analysis, Roborazzi and unit gates from this pass | Full relay matrix and GitHub Actions confirmation after push |
+| Test dimensions | Partial | Debug, release verification build, physical arm64, API 27 emulator, API 31 emulator, API 34 emulator, API 35 emulator, API 36 physical, VPN, proxy, diagnostics-only, local dual-stack lab service set | Rooted physical device; cellular, handover, private DNS, IPv4-only, IPv6-only, captive or limited network |
+| Core smoke matrix | Partial | Physical VPN E2E, API 27/31/35 emulator proxy smokes, physical proxy smoke with host SOCKS curl, diagnostics probe, connected tests, release APK inspection, static analysis, Roborazzi and unit gates from this pass | Full relay matrix and GitHub Actions confirmation after push |
 | App shell, navigation, and settings | Partial | API 34 fresh-start UI smoke reached onboarding, Home, and Settings; connected UI tests passed with no failures; focused Home, Settings, Onboarding, shell-controller, and settings-state unit tests passed | Manual TalkBack, RTL, large font, dynamic-color contrast, process-kill and migrated-install checks |
-| Proxy service | Partial | Service lifecycle connected tests passed; physical proxy smoke proved local SOCKS5 readiness plus DNS/HTTP/HTTPS/TCP/UDP through the lab; host `curl --socks5-hostname` returned HTTP 200 through `adb forward`; focused proxy supervisor, startup-failure, runtime-coordinator, auto-apply, JSON, and preference tests passed | Port conflict on device, command-line strategy mode, relay-on proxy combinations |
+| Proxy service | Partial | Service lifecycle connected tests passed; physical proxy smoke proved local SOCKS5 readiness plus DNS/HTTP/HTTPS/TCP/UDP through the lab; host `curl --socks5-hostname` returned HTTP 200 through `adb forward`; API 27/31/35 emulator proxy smokes passed the same lab probes; focused proxy supervisor, startup-failure, runtime-coordinator, auto-apply, JSON, and preference tests passed | Port conflict on device, command-line strategy mode, relay-on proxy combinations |
 | VPN service | Partial | Physical VPN probe established TUN, proxy readiness, protected egress, IPv4 route, DNS/HTTP/HTTPS/TCP/UDP success; notification and permission flow instrumentation passed | Cellular handover, private DNS, IPv4-only, IPv6-only, always-on/lockdown, relay-on VPN, Unix socket protection fallback runtime path |
 | DNS and resolver resilience | Partial | Diagnostics and VPN probes resolved local DNS; focused native tests cover resolver metadata, encrypted-DNS endpoint selection, DNS anomaly signals, malformed pointers, CNAME redirects, TTL divergence, and oracle quorum behavior | DoH, DoT, DNSCrypt, DoQ provider success on device; handover behavior; OS private DNS runtime validation |
 | Packet strategy features | Partial | Packet-smoke instrumentation report present with 0 failures; Kotlin strategy UI/probe/service tests passed; native desync, registry, config, HTTP, IPv6, Lua, UDP, and window strategy tests passed; native packet and root-helper crates passed targeted tests; release APK inspected for debug-only test strings | Full per-family runtime matrix across IPv4, IPv6, TCP, UDP, QUIC, DTLS, Lua rawsend, and rooted privileged strategies |
@@ -85,9 +86,6 @@ open checklist work.
 These are not product pass/fail findings yet; they are missing environments or
 unexecuted manual rows from `docs/feature-test-checklist.md`.
 
-- Android API 27, API 31, and API 35 runtime coverage. Local SDK metadata did
-  not expose usable API 31 or API 35 system images, and no API 27 image was
-  installed.
 - Rooted physical device coverage for helper extraction, helper startup,
   privileged packet operations, readiness timeout, and cleanup.
 - Physical cellular, Wi-Fi-to-cellular, cellular-to-Wi-Fi, private DNS,
@@ -103,13 +101,11 @@ unexecuted manual rows from `docs/feature-test-checklist.md`.
 
 ## Next Concrete Runs
 
-1. Install or repair emulator system images for API 27, API 31, and API 35,
-   then repeat fresh-start UI, foreground-service, and VPN permission smoke.
-2. Run a rooted physical-device pass for root-helper startup and privileged
+1. Run a rooted physical-device pass for root-helper startup and privileged
    operations.
-3. Run a manual network pass for cellular, handover, private DNS, IPv4-only, and
+2. Run a manual network pass for cellular, handover, private DNS, IPv4-only, and
    IPv6-only.
-4. Execute the provider-backed relay matrix, starting with mock relay parity in
+3. Execute the provider-backed relay matrix, starting with mock relay parity in
    proxy and VPN mode, then one production relay at a time.
-5. Push or dispatch the branch and verify remote CI, CodeQL, offline analytics,
+4. Push or dispatch the branch and verify remote CI, CodeQL, offline analytics,
    and mutation workflows.
