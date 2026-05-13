@@ -47,6 +47,29 @@ class VerifyNativeBloatTest(unittest.TestCase):
 
             self.assertEqual(Path("/tmp/android-sdk").resolve(), resolved)
 
+    def test_cargo_environment_exports_android_ndk_home(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            sdk_dir = repo_root / "android-sdk"
+            ndk_dir = sdk_dir / "ndk" / "29.0.14206865"
+            bin_dir = ndk_dir / "toolchains" / "llvm" / "prebuilt" / "darwin-arm64" / "bin"
+            bin_dir.mkdir(parents=True)
+            for tool in ("x86_64-linux-android27-clang", "x86_64-linux-android27-clang++", "llvm-ar"):
+                (bin_dir / tool).write_text("#!/bin/sh\n", encoding="utf-8")
+            (repo_root / "local.properties").write_text(f"sdk.dir={sdk_dir}\n", encoding="utf-8")
+            (repo_root / "gradle.properties").write_text(
+                "ripdpi.nativeNdkVersion=29.0.14206865\nripdpi.minSdk=27\n",
+                encoding="utf-8",
+            )
+            (repo_root / "native/rust/target").mkdir(parents=True)
+
+            with patch.dict("os.environ", {}, clear=True):
+                env = verify_native_bloat.cargo_environment(repo_root, "x86_64-linux-android")
+
+            self.assertEqual(str(sdk_dir.resolve()), env["ANDROID_HOME"])
+            self.assertEqual(str(sdk_dir.resolve()), env["ANDROID_SDK_ROOT"])
+            self.assertEqual(str(ndk_dir.resolve()), env["ANDROID_NDK_HOME"])
+
     def test_diff_named_items_tracks_growth_and_new_entries(self) -> None:
         diff = verify_native_bloat.diff_named_items(
             baseline_items=[{"name": "foo", "size": 1000, "crate": "a"}],

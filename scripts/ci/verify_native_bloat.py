@@ -46,13 +46,22 @@ def resolve_sdk_dir(repo_root: Path) -> Path:
     raise ValueError("Android SDK directory was not found. Set ANDROID_SDK_ROOT or define sdk.dir in local.properties.")
 
 
-def resolve_ndk_bin_dir(repo_root: Path, sdk_dir: Path) -> Path:
+def resolve_ndk_dir(repo_root: Path, sdk_dir: Path) -> Path:
     gradle_properties = read_properties(repo_root / "gradle.properties")
     ndk_version = gradle_properties.get("ripdpi.nativeNdkVersion")
     if not ndk_version:
         raise ValueError("ripdpi.nativeNdkVersion is missing from gradle.properties")
 
-    toolchains_dir = sdk_dir / "ndk" / ndk_version / "toolchains" / "llvm" / "prebuilt"
+    ndk_dir = sdk_dir / "ndk" / ndk_version
+    if not ndk_dir.is_dir():
+        raise ValueError(f"Android NDK directory not found: {ndk_dir}")
+
+    return ndk_dir
+
+
+def resolve_ndk_bin_dir(repo_root: Path, sdk_dir: Path) -> Path:
+    ndk_dir = resolve_ndk_dir(repo_root, sdk_dir)
+    toolchains_dir = ndk_dir / "toolchains" / "llvm" / "prebuilt"
     for host_tag in HOST_TAGS:
         bin_dir = toolchains_dir / host_tag / "bin"
         if bin_dir.is_dir():
@@ -71,6 +80,7 @@ def resolve_min_sdk(repo_root: Path) -> int:
 
 def cargo_environment(repo_root: Path, target: str) -> dict[str, str]:
     sdk_dir = resolve_sdk_dir(repo_root)
+    ndk_dir = resolve_ndk_dir(repo_root, sdk_dir)
     ndk_bin_dir = resolve_ndk_bin_dir(repo_root, sdk_dir)
     min_sdk = resolve_min_sdk(repo_root)
     clang_target = CLANG_TARGETS.get(target)
@@ -96,6 +106,9 @@ def cargo_environment(repo_root: Path, target: str) -> dict[str, str]:
             f"AR_{target_env}": str(ar),
             f"CARGO_TARGET_{target_env.upper()}_LINKER": str(linker),
             f"CARGO_TARGET_{target_env.upper()}_AR": str(ar),
+            "ANDROID_HOME": str(sdk_dir),
+            "ANDROID_SDK_ROOT": str(sdk_dir),
+            "ANDROID_NDK_HOME": str(ndk_dir),
             "CARGO_TARGET_DIR": str((repo_root / "native/rust/target/cargo-bloat-ci").resolve()),
         },
     )

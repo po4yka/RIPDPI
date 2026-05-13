@@ -33,6 +33,9 @@ open checklist work.
 | Diagnostics-only probe | `test-lab/artifacts/probe-device-diagnostics.json` | DNS, HTTP, HTTPS, TCP, UDP pass; QUIC marked unsupported by debug probe |
 | Test-lab archive redaction | `test-lab/artifacts/test-lab-artifacts-20260513T221424Z.tar.gz` | Archive contains redacted logcat, dumpsys, lab env, probe artifact |
 | Release APK leak check | `zipinfo`, `apkanalyzer`, `dexdump` string scans | No test-lab, generated lab data, debug probe asset, instrumentation, or packet-smoke strings found |
+| Offline analytics unit tests | `python3 -m unittest scripts.tests.test_offline_analytics_pipeline` | 7 tests, OK |
+| Offline analytics sample corpus | `python3 -m scripts.analytics.pipeline run-all --manifest scripts/analytics/sample-corpus.json --output-dir /tmp/ripdpi-offline-analytics-20260514` | Pass |
+| Native bloat check | `python3 scripts/ci/verify_native_bloat.py --report-json /tmp/ripdpi-native-bloat-20260514.json --report-md /tmp/ripdpi-native-bloat-20260514.md` | Pass against checked-in baseline |
 
 ## Checklist Section Coverage
 
@@ -54,7 +57,7 @@ open checklist work.
 | Logging, history, export, and privacy | Partial | Diagnostics archive redaction was fixed and verified; release APK omits lab/test artifacts; archive contains redacted logcat | Diagnostics history clear/retention, export failure path, release log verbosity on installed release build |
 | UI, Compose, localization, and accessibility | Partial | Roborazzi gates passed earlier in this pass; locale key diff and README selector checks passed; API 34 UI smoke had no fatal logcat markers | TalkBack, RTL Persian runtime, large font runtime, Chinese/German/Spanish compact text fit, all state permutations on Home/Diagnostics/History |
 | Test-lab and automation tooling | Partial | `doctor.sh`, `start.sh`, `stop.sh`, UDP echo, mock relay, toxiproxy delay/reset, archive redaction, shell/YAML/Compose validation all passed | Linux netem routed VM packet-loss scenario and GitHub Actions run remain unverified locally |
-| CI, release, and supply chain | Partial | Local static analysis, release assemble, build logic check, cargo-deny, packet smoke, coverage, Roborazzi, Rust workspace tests, and release APK inspection passed in this pass | Remote CodeQL, remote CI matrix, native bloat job, offline analytics workflow, mutation-testing scope confirmation |
+| CI, release, and supply chain | Partial | Local static analysis, release assemble, build logic check, native bloat check, offline analytics unit/sample pipeline, cargo-deny, packet smoke, coverage, Roborazzi, Rust workspace tests, and release APK inspection passed in this pass | Remote CodeQL, remote CI matrix, remote offline analytics workflow, mutation-testing scope confirmation |
 | Runtime mode by DNS by relay | Partial | VPN with local DNS and relay-off path covered; diagnostics-only with local DNS covered; test-lab mock relay readiness covered | Proxy mode matrix, plain override, encrypted DNS, relay-on device runs |
 | Runtime mode by packet strategy | Partial | Instrumented packet-smoke and native packet tests passed; QUIC unsupported is reported as degraded by Android debug probe | Runtime matrix across proxy, VPN, diagnostics, and rooted strategies |
 | Relay by runtime mode | Partial | Mock relay readiness only | All production relay paths remain open |
@@ -88,8 +91,8 @@ unexecuted manual rows from `docs/feature-test-checklist.md`.
 - Manual accessibility and layout coverage for TalkBack, large font, RTL
   Persian, compact Chinese text, and wider German/Spanish labels.
 - Linux routed VM netem packet-loss scenario.
-- Remote GitHub Actions, CodeQL, native bloat, offline analytics, and mutation
-  workflow confirmation for the local commits ahead of `origin/main`.
+- Remote GitHub Actions, CodeQL, offline analytics, and mutation workflow
+  confirmation for the local commits ahead of `origin/main`.
 
 ## Next Concrete Runs
 
@@ -101,5 +104,5 @@ unexecuted manual rows from `docs/feature-test-checklist.md`.
    IPv6-only.
 4. Execute the provider-backed relay matrix, starting with mock relay parity in
    proxy and VPN mode, then one production relay at a time.
-5. Push or dispatch the branch and verify remote CI, CodeQL, native bloat,
-   offline analytics, and mutation workflows.
+5. Push or dispatch the branch and verify remote CI, CodeQL, offline analytics,
+   and mutation workflows.
