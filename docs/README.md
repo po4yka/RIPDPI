@@ -28,6 +28,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 
 ## Testing & CI
 
+- [Feature test checklist](feature-test-checklist.md)
 - [Testing, E2E, golden contracts, and soak coverage](testing.md)
 - [Local network test lab](../test-lab/README.md)
 - [Local network lab coverage](../test-lab/SPEC.md)

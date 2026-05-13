@@ -4,6 +4,10 @@ This document describes the current test stack for RIPDPI after the migration to
 
 ## Coverage Layers
 
+Use the [feature test checklist](feature-test-checklist.md) as the canonical
+feature and combination inventory when selecting release, nightly, or manual QA
+coverage.
+
 ### Kotlin/JVM tests
 
 These run through Gradle on the host JVM and cover the Android-facing logic without starting an emulator.
