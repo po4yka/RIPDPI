@@ -288,13 +288,6 @@ internal object RipDpiProxyJsonCodec {
 
     private fun decodeOrNull(configJson: String): NativeProxyConfig? = runCatching { decode(configJson) }.getOrNull()
 
-    private fun decodeEnvironmentKind(value: String): EnvironmentKind {
-        for (kind in enumValues<EnvironmentKind>()) {
-            if (kind.name == value) return kind
-        }
-        return EnvironmentKind.Unknown
-    }
-
     private fun encode(payload: NativeProxyConfig): String =
         payload
             .also(::validateSupportedPayload)
@@ -376,4 +369,11 @@ internal object RipDpiProxyJsonCodec {
             val sessionOverrides: NativeSessionLocalProxyOverrides? = null,
         ) : NativeProxyConfig
     }
+}
+
+private fun decodeEnvironmentKind(value: String): EnvironmentKind {
+    for (kind in enumValues<EnvironmentKind>()) {
+        if (kind.name == value) return kind
+    }
+    return EnvironmentKind.Unknown
 }
