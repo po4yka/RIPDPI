@@ -2,11 +2,9 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::engine::runtime::{
-    ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
-};
-use crate::telegram::run_telegram_probe;
-use crate::tls::tls_key_log_callback_for_path;
+use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerOutcome};
+
+use super::telegram_record::record_telegram_probe;
 
 pub(in crate::engine::runners) struct TelegramRunner;
 
@@ -35,19 +33,7 @@ impl ExecutionStageRunner for TelegramRunner {
         if runtime.is_cancelled() {
             return RunnerOutcome::Cancelled;
         }
-        let key_log = plan.request.diagnostic_tls_keylog_path.as_deref().map(tls_key_log_callback_for_path);
-        let probe = run_telegram_probe(target, &plan.transport, key_log.as_ref());
-        let outcome = probe.outcome.clone();
-        let artifacts = RunnerArtifacts::from_probe(probe, "telegram", &plan.request.path_mode);
-        runtime.record_step(
-            plan,
-            self.phase(),
-            "Telegram availability checked".to_string(),
-            Some("telegram.org".to_string()),
-            Some(outcome),
-            None,
-            artifacts,
-        );
+        record_telegram_probe(plan, runtime, target, self.phase());
         RunnerOutcome::Completed
     }
 }

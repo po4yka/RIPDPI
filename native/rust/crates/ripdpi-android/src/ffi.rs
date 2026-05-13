@@ -17,30 +17,6 @@ macro_rules! export_jni {
     };
 }
 
-mod cdn_ech_bridge;
-mod diagnostics_bridge;
-mod doq_bridge;
-mod lua_bridge;
-mod native_ech_tls_bridge;
-mod native_signs_bridge;
-mod owned_tls_http_bridge;
-mod platform_bridge;
-mod probe_results_bridge;
-mod proxy_bridge;
-mod quic_initial_bridge;
-mod shared_priors_bridge;
-mod vpn_protect_bridge;
+mod bridges;
 
-pub use cdn_ech_bridge::*;
-pub use diagnostics_bridge::*;
-pub use doq_bridge::*;
-pub use lua_bridge::*;
-pub use native_ech_tls_bridge::*;
-pub use native_signs_bridge::*;
-pub use owned_tls_http_bridge::*;
-pub use platform_bridge::*;
-pub use probe_results_bridge::*;
-pub use proxy_bridge::*;
-pub use quic_initial_bridge::*;
-pub use shared_priors_bridge::*;
-pub use vpn_protect_bridge::*;
+pub use bridges::*;

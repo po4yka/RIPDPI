@@ -13,8 +13,6 @@ use super::super::support::stratified_pilot_targets;
 use super::capability_gating::{candidate_passes_pilot_without_execution, TcpCapabilities};
 use super::StrategyTcpRunner;
 
-const QUALIFIER_PARALLELISM: usize = 3;
-
 pub(super) fn qualify_pilot_candidates(
     runner: &StrategyTcpRunner,
     plan: &ExecutionPlan,
@@ -52,7 +50,7 @@ pub(super) fn qualify_pilot_candidates(
 
     // Test in parallel batches of up to 3, grouped by family so each
     // family gets at least one representative tested early.
-    for batch in testable_specs.chunks(QUALIFIER_PARALLELISM) {
+    for batch in testable_specs.chunks(3) {
         if runtime.is_cancelled() || runtime.is_past_deadline() {
             // Don't eliminate untested candidates on cancellation/deadline.
             for spec in batch {

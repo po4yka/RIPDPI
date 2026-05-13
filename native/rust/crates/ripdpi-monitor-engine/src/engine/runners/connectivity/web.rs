@@ -1,13 +1,12 @@
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::run_domain_probe_with_key_log;
-use crate::engine::runtime::{CollectedStep, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
+use crate::engine::runtime::ExecutionPlan;
 use crate::types::{DomainTarget, ProbeResult};
 
-use super::support::{collect_family_steps, target_count, ConnectivityProbeFamily};
+use super::support::ConnectivityProbeFamily;
 
 pub(in crate::engine::runners) struct WebRunner;
 
@@ -41,25 +40,4 @@ impl ConnectivityProbeFamily for WebFamily {
     }
 }
 
-impl ExecutionStageRunner for WebRunner {
-    fn id(&self) -> ExecutionStageId {
-        ExecutionStageId::Web
-    }
-
-    fn phase(&self) -> &'static str {
-        WebFamily::PHASE
-    }
-
-    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
-        target_count::<WebFamily>(plan)
-    }
-
-    fn run_collecting(
-        &self,
-        plan: &ExecutionPlan,
-        cancel: &AtomicBool,
-        tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    ) -> Option<Vec<CollectedStep>> {
-        collect_family_steps::<WebFamily>(plan, cancel, tls_verifier)
-    }
-}
+impl_connectivity_runner!(WebRunner, WebFamily, Web);

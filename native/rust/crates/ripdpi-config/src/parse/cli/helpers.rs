@@ -1,13 +1,14 @@
-use std::net::IpAddr;
-use std::str::FromStr;
-
 use crate::{
-    Cidr, ConfigError, DesyncGroup, FilterSet, RuntimeConfig, TcpChainStep, TcpChainStepKind, WsizeConfig,
-    DETECT_CONNECT, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_QUIC_BREAKAGE, DETECT_RECONN,
+    ConfigError, DesyncGroup, RuntimeConfig, TcpChainStep, TcpChainStepKind, WsizeConfig, DETECT_CONNECT,
+    DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_QUIC_BREAKAGE, DETECT_RECONN,
     DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_ERR, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
 };
 
-use super::super::fake_profiles::lower_host_char;
+mod address;
+mod filters;
+
+pub(crate) use address::parse_numeric_addr;
+pub use filters::{parse_host_filter_spec, parse_hosts_spec, parse_ipset_spec};
 
 pub(super) fn parse_auto_detect_token(token: &str) -> Option<u32> {
     match token.trim().to_ascii_lowercase().as_str() {
@@ -26,111 +27,6 @@ pub(super) fn parse_auto_detect_token(token: &str) -> Option<u32> {
         "n" | "none" => Some(0),
         _ => None,
     }
-}
-
-pub fn parse_hosts_spec(spec: &str) -> Result<Vec<String>, ConfigError> {
-    Ok(parse_host_filter_spec(spec)?.hosts)
-}
-
-pub fn parse_host_filter_spec(spec: &str) -> Result<FilterSet, ConfigError> {
-    let mut filters = FilterSet::default();
-    for token in spec.split_whitespace() {
-        if let Some(country) = token.strip_prefix("geoip:") {
-            filters.geoip_countries.push(normalize_geo_token(country, "geoip")?);
-            continue;
-        }
-        if let Some(category) = token.strip_prefix("geosite:") {
-            filters.geosite_categories.push(normalize_geo_token(category, "geosite")?);
-            continue;
-        }
-        if let Some(host) = normalize_host_token(token) {
-            filters.hosts.push(host);
-        }
-    }
-    Ok(filters)
-}
-
-fn normalize_host_token(token: &str) -> Option<String> {
-    let mut normalized = String::with_capacity(token.len());
-    for ch in token.chars() {
-        match lower_host_char(ch) {
-            Some(lower) => normalized.push(lower),
-            None => return None,
-        }
-    }
-    if normalized.is_empty() {
-        return None;
-    }
-    Some(normalized)
-}
-
-fn normalize_geo_token(token: &str, prefix: &str) -> Result<String, ConfigError> {
-    let normalized = token.trim().to_ascii_lowercase();
-    if normalized.is_empty()
-        || !normalized.chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || matches!(ch, '-' | '_'))
-    {
-        return Err(ConfigError::invalid("--hosts", Some(format!("{prefix}:{token}"))));
-    }
-    Ok(normalized)
-}
-
-fn parse_ip_token(token: &str) -> Result<Cidr, ConfigError> {
-    let (addr_str, bits) = match token.split_once('/') {
-        Some((addr, bits_str)) => {
-            let bits = bits_str.parse::<u16>().map_err(|_| ConfigError::invalid("--ipset", Some(token)))?;
-            if bits == 0 {
-                return Err(ConfigError::invalid("--ipset", Some(token)));
-            }
-            (addr, bits)
-        }
-        None => (token, 0),
-    };
-    let addr = IpAddr::from_str(addr_str).map_err(|_| ConfigError::invalid("--ipset", Some(token)))?;
-    let max_bits = match addr {
-        IpAddr::V4(_) => 32,
-        IpAddr::V6(_) => 128,
-    };
-    let bits = if bits == 0 || bits > max_bits { max_bits } else { bits };
-    Ok(Cidr { addr, bits: bits as u8 })
-}
-
-pub fn parse_ipset_spec(spec: &str) -> Result<Vec<Cidr>, ConfigError> {
-    let mut out = Vec::new();
-    for token in spec.split_whitespace() {
-        out.push(parse_ip_token(token)?);
-    }
-    Ok(out)
-}
-
-pub(crate) fn parse_numeric_addr(spec: &str) -> Result<(IpAddr, Option<u16>), ConfigError> {
-    let (host, port) = if let Some(rest) = spec.strip_prefix('[') {
-        let end = rest.find(']').ok_or_else(|| ConfigError::invalid("address", Some(spec)))?;
-        let host = &rest[..end];
-        let suffix = &rest[end + 1..];
-        let port = if let Some(port_str) = suffix.strip_prefix(':') {
-            Some(port_str.parse::<u16>().map_err(|_| ConfigError::invalid("address", Some(spec)))?)
-        } else if suffix.is_empty() {
-            None
-        } else {
-            return Err(ConfigError::invalid("address", Some(spec)));
-        };
-        (host, port)
-    } else {
-        let colon_count = spec.bytes().filter(|&byte| byte == b':').count();
-        if colon_count == 1 {
-            match spec.rsplit_once(':') {
-                Some((host, port_str)) if !port_str.is_empty() && port_str.as_bytes()[0].is_ascii_digit() => {
-                    let port = port_str.parse::<u16>().map_err(|_| ConfigError::invalid("address", Some(spec)))?;
-                    (host, Some(port))
-                }
-                _ => (spec, None),
-            }
-        } else {
-            (spec, None)
-        }
-    };
-    let ip = IpAddr::from_str(host).map_err(|_| ConfigError::invalid("address", Some(spec)))?;
-    Ok((ip, port))
 }
 
 pub(super) fn parse_timeout(spec: &str, config: &mut RuntimeConfig) -> Result<(), ConfigError> {

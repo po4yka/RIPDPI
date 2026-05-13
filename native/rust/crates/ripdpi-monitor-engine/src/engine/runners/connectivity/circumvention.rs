@@ -1,14 +1,13 @@
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::run_circumvention_probe;
-use crate::engine::runtime::{CollectedStep, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
+use crate::engine::runtime::ExecutionPlan;
 use crate::tls::tls_key_log_callback_for_path;
 use crate::types::{CircumventionTarget, ProbeResult};
 
-use super::support::{collect_family_steps, target_count, ConnectivityProbeFamily};
+use super::support::ConnectivityProbeFamily;
 
 pub(in crate::engine::runners) struct CircumventionRunner;
 
@@ -38,25 +37,4 @@ impl ConnectivityProbeFamily for CircumventionFamily {
     }
 }
 
-impl ExecutionStageRunner for CircumventionRunner {
-    fn id(&self) -> ExecutionStageId {
-        ExecutionStageId::Circumvention
-    }
-
-    fn phase(&self) -> &'static str {
-        CircumventionFamily::PHASE
-    }
-
-    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
-        target_count::<CircumventionFamily>(plan)
-    }
-
-    fn run_collecting(
-        &self,
-        plan: &ExecutionPlan,
-        cancel: &AtomicBool,
-        tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    ) -> Option<Vec<CollectedStep>> {
-        collect_family_steps::<CircumventionFamily>(plan, cancel, tls_verifier)
-    }
-}
+impl_connectivity_runner!(CircumventionRunner, CircumventionFamily, Circumvention);

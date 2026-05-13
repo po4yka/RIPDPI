@@ -21,12 +21,7 @@ pub(super) fn run_https_strategy_probe(
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> ProbeSample {
-    let sample = sample_builder::build_https_probe_sample(transport, target, candidate, tls_verifier, key_log);
-    debug_assert!(matches!(
-        sample.result.outcome.as_str(),
-        "tls_cert_invalid" | "tls_ok" | "tls_version_split" | "tls_ech_only" | "tls_handshake_failed"
-    ));
-    sample
+    sample_builder::build_https_probe_sample(transport, target, candidate, tls_verifier, key_log)
 }
 
 #[cfg(test)]

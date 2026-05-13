@@ -4,8 +4,7 @@ mod quic;
 mod support;
 mod tcp;
 
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 
 use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
 use rustls::client::danger::ServerCertVerifier;
@@ -16,9 +15,6 @@ use crate::types::{DomainTarget, QuicTarget};
 use super::runner_contract::StrategyLaneExecutor;
 use super::runtime::CandidateRuntimeLauncher;
 use super::scoring::CandidateExecution;
-
-pub(crate) use quic::execute_quic_candidate;
-pub(crate) use tcp::execute_tcp_candidate;
 
 pub(crate) struct DefaultStrategyLaneExecutor {
     runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
@@ -41,7 +37,7 @@ impl StrategyLaneExecutor for DefaultStrategyLaneExecutor {
         keylog_path: Option<&str>,
         cancel: &AtomicBool,
     ) -> CandidateExecution {
-        execute_tcp_candidate(
+        tcp::execute_tcp_candidate(
             self.runtime_launcher.as_ref(),
             spec,
             targets,
@@ -61,7 +57,7 @@ impl StrategyLaneExecutor for DefaultStrategyLaneExecutor {
         probe_seed: u64,
         cancel: &AtomicBool,
     ) -> CandidateExecution {
-        execute_quic_candidate(self.runtime_launcher.as_ref(), spec, targets, runtime_context, probe_seed, cancel)
+        quic::execute_quic_candidate(self.runtime_launcher.as_ref(), spec, targets, runtime_context, probe_seed, cancel)
     }
 }
 
@@ -117,7 +113,7 @@ mod tests {
         }];
         let cancel = AtomicBool::new(false);
 
-        let execution = execute_tcp_candidate(&launcher, &spec, &targets, None, 0, None, None, &cancel);
+        let execution = tcp::execute_tcp_candidate(&launcher, &spec, &targets, None, 0, None, None, &cancel);
 
         assert_eq!(launcher.starts(), 1);
         assert_eq!(execution.summary.outcome, "failed");
@@ -136,7 +132,7 @@ mod tests {
         );
         let cancel = AtomicBool::new(false);
 
-        let execution = execute_quic_candidate(&launcher, &spec, &[], None, 0, &cancel);
+        let execution = quic::execute_quic_candidate(&launcher, &spec, &[], None, 0, &cancel);
 
         assert_eq!(launcher.starts(), 0);
         assert_eq!(execution.summary.outcome, "not_applicable");

@@ -27,14 +27,13 @@ pub(super) fn run_baseline_candidate<'a>(
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Option<BaselineRun<'a>> {
     let strategy_plan = plan.strategy.as_ref().expect("strategy plan");
-    let tcp_candidate_total = tcp_specs.len();
     let baseline_spec = tcp_specs.first().expect("tcp candidate");
     runtime.publish_strategy_probe_candidate_started(
         plan,
         runner.phase(),
         StrategyProbeProgressLane::Tcp,
         1,
-        tcp_candidate_total,
+        tcp_specs.len(),
         baseline_spec.id,
         baseline_spec.label,
         format!("Testing TCP candidate {}", baseline_spec.label),
@@ -77,7 +76,7 @@ pub(super) fn run_baseline_candidate<'a>(
         Some(strategy_probe_live_progress_with_targets(
             StrategyProbeProgressLane::Tcp,
             1,
-            tcp_candidate_total,
+            tcp_specs.len(),
             baseline_spec.id,
             baseline_spec.label,
             baseline_execution.summary.succeeded_targets,

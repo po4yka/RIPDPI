@@ -1,6 +1,7 @@
 mod dns_bootstrap;
 mod dto;
 mod entry;
+mod entry_dispatch;
 mod executor;
 mod native_ech;
 mod redirect;

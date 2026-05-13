@@ -1,11 +1,14 @@
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP};
 
-use crate::{ConfigError, AUTO_NOPOST, AUTO_RECONN, AUTO_SORT};
+use crate::ConfigError;
 
-use super::super::helpers::{next_value, parse_auto_detect_token, parse_host_filter_spec, parse_ipset_spec};
+mod auto;
+
+use super::super::helpers::{next_value, parse_host_filter_spec, parse_ipset_spec};
 use super::super::state::CliState;
 use crate::parse::fake_profiles::file_or_inline_bytes;
 use crate::parse::offsets::{parse_payload_size_range_spec, parse_round_range_spec, parse_stream_byte_range_spec};
+use auto::{handle_auto, handle_auto_mode};
 
 pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut CliState) -> Result<bool, ConfigError> {
     match arg {
@@ -13,51 +16,10 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
             state.group().policy.cache_file = Some(next_value(args, idx, arg)?.to_owned());
         }
         "-L" | "--auto-mode" => {
-            let value = next_value(args, idx, arg)?;
-            for token in value.split(',') {
-                match token.chars().next() {
-                    Some('0' | '2') => {
-                        state.config.adaptive.auto_level |= AUTO_NOPOST;
-                        if token.starts_with('2') {
-                            state.config.adaptive.auto_level |= AUTO_SORT;
-                        }
-                    }
-                    Some('1') => {}
-                    Some('3' | 's') => state.config.adaptive.auto_level |= AUTO_SORT,
-                    Some('r') => state.config.adaptive.auto_level = 0,
-                    _ => return Err(ConfigError::invalid(arg, Some(value))),
-                }
-            }
+            handle_auto_mode(arg, args, idx, state)?;
         }
         "-A" | "--auto" => {
-            let value = next_value(args, idx, arg)?;
-            let current = state.config.groups.get(state.current_group_index).expect("group");
-            if current.matches.filters.host_filters_empty()
-                && current.matches.proto == 0
-                && current.matches.port_filter.is_none()
-                && current.matches.detect == 0
-                && current.matches.filters.ip_filters_empty()
-            {
-                state.all_limited = false;
-            }
-            state.add_current_group()?;
-            for token in value.split(',') {
-                if token.starts_with("p=") {
-                    let (_, pri) = token.split_once('=').ok_or_else(|| ConfigError::invalid("--auto", Some(token)))?;
-                    let pri = pri.parse::<f32>().map_err(|_| ConfigError::invalid("--auto", Some(token)))?;
-                    if let Some(prev) = state.config.groups.get_mut(state.current_group_index - 1) {
-                        prev.policy.pri = pri as i32;
-                    }
-                    continue;
-                }
-                match parse_auto_detect_token(token) {
-                    Some(bits) => state.group().matches.detect |= bits,
-                    None => return Err(ConfigError::invalid("--auto", Some(token))),
-                }
-            }
-            if state.group().matches.detect != 0 {
-                state.config.adaptive.auto_level |= AUTO_RECONN;
-            }
+            handle_auto(arg, args, idx, state)?;
         }
         "-u" | "--cache-ttl" => {
             let value = next_value(args, idx, arg)?;

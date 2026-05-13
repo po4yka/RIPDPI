@@ -6,6 +6,12 @@ use tokio_util::sync::CancellationToken;
 
 use crate::telemetry::TunnelTelemetryState;
 
+mod root_helper;
+mod worker_error;
+
+use self::root_helper::{register_for_worker, unregister_for_worker};
+use self::worker_error::record_worker_result;
+
 pub(crate) struct WorkerLaunch {
     pub(crate) runtime: Arc<tokio::runtime::Runtime>,
     pub(crate) config: Arc<ripdpi_tunnel_config::Config>,
@@ -22,7 +28,7 @@ pub(crate) fn launch_tunnel_worker(launch: WorkerLaunch) -> std::io::Result<std:
 
 fn run_worker(launch: WorkerLaunch) {
     let WorkerLaunch { runtime, config, owned_fd, cancel, stats, telemetry, last_error } = launch;
-    let root_helper_registered = register_root_helper_for_worker(&config);
+    let root_helper_registered = register_for_worker(&config);
     let worker_cancel = cancel.clone();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         runtime.block_on(ripdpi_tunnel_core::run_tunnel(
@@ -33,73 +39,9 @@ fn run_worker(launch: WorkerLaunch) {
         ))
     }));
 
-    match result {
-        Ok(Ok(())) => {}
-        Ok(Err(err)) => {
-            record_worker_error(&telemetry, &last_error, format!("worker exited with error: {err}"), err.to_string());
-        }
-        Err(panic) => {
-            let msg = panic_message(&panic);
-            record_worker_error(
-                &telemetry,
-                &last_error,
-                format!("worker panicked: {msg}"),
-                format!("Tunnel worker panicked: {msg}"),
-            );
-        }
-    }
+    record_worker_result(result, &telemetry, &last_error);
     if root_helper_registered {
-        unregister_root_helper_for_worker();
+        unregister_for_worker();
     }
     telemetry.mark_stopped();
-}
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
-fn register_root_helper_for_worker(config: &ripdpi_tunnel_config::Config) -> bool {
-    let Some(path) = config.misc.root_helper_socket_path.as_deref() else {
-        ripdpi_runtime_platform::root_helper::unregister_root_helper();
-        return false;
-    };
-    if path.trim().is_empty() {
-        ripdpi_runtime_platform::root_helper::unregister_root_helper();
-        return false;
-    }
-    ripdpi_runtime_platform::root_helper::register_root_helper(path.to_owned());
-    true
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-fn register_root_helper_for_worker(_config: &ripdpi_tunnel_config::Config) -> bool {
-    false
-}
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
-fn unregister_root_helper_for_worker() {
-    ripdpi_runtime_platform::root_helper::unregister_root_helper();
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-fn unregister_root_helper_for_worker() {}
-
-fn record_worker_error(
-    telemetry: &TunnelTelemetryState,
-    last_error: &Mutex<Option<String>>,
-    log_message: String,
-    stored_message: String,
-) {
-    telemetry.log_line("worker", "error", &log_message);
-    let mut guard = last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    *guard = Some(stored_message.clone());
-    drop(guard);
-    telemetry.record_error(stored_message);
-}
-
-fn panic_message(panic: &(dyn std::any::Any + Send)) -> String {
-    if let Some(s) = panic.downcast_ref::<&str>() {
-        s.to_string()
-    } else if let Some(s) = panic.downcast_ref::<String>() {
-        s.clone()
-    } else {
-        "unknown panic".to_string()
-    }
 }

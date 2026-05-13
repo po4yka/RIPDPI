@@ -1,14 +1,13 @@
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::run_tcp_probe;
-use crate::engine::runtime::{CollectedStep, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
+use crate::engine::runtime::ExecutionPlan;
 use crate::tls::tls_key_log_callback_for_path;
 use crate::types::{ProbeResult, TcpTarget};
 
-use super::support::{collect_family_steps, target_count, ConnectivityProbeFamily};
+use super::support::ConnectivityProbeFamily;
 
 pub(in crate::engine::runners) struct TcpRunner;
 
@@ -38,25 +37,4 @@ impl ConnectivityProbeFamily for TcpFamily {
     }
 }
 
-impl ExecutionStageRunner for TcpRunner {
-    fn id(&self) -> ExecutionStageId {
-        ExecutionStageId::Tcp
-    }
-
-    fn phase(&self) -> &'static str {
-        TcpFamily::PHASE
-    }
-
-    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
-        target_count::<TcpFamily>(plan)
-    }
-
-    fn run_collecting(
-        &self,
-        plan: &ExecutionPlan,
-        cancel: &AtomicBool,
-        tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    ) -> Option<Vec<CollectedStep>> {
-        collect_family_steps::<TcpFamily>(plan, cancel, tls_verifier)
-    }
-}
+impl_connectivity_runner!(TcpRunner, TcpFamily, Tcp);

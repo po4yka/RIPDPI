@@ -16,7 +16,7 @@ use super::dns_intercept::{DnsRequest, DnsResponse, MapDnsRuntime};
 use super::packet::TcpFlowKey;
 use super::tun_egress_interceptor::TunEgressPacketHandler;
 use super::tun_ingress_interceptor::{RawSynAckPacketInjector, TunIngressInterceptor};
-use super::udp_assoc::{shutdown_udp_associations, UdpAssociation, UdpEvent, UdpEvictionEntry};
+use super::udp_assoc::{UdpAssociation, UdpEvent, UdpEvictionEntry};
 
 pub(in crate::io_loop) struct LoopRuntime {
     pub(in crate::io_loop) proxy_sockaddr: SocketAddr,
@@ -48,11 +48,4 @@ pub(in crate::io_loop) struct LoopState {
     pub(in crate::io_loop) dns_req_tx: Option<Sender<DnsRequest>>,
     pub(in crate::io_loop) dns_resp_rx: Option<Receiver<DnsResponse>>,
     pub(in crate::io_loop) tun_read_buf: Vec<u8>,
-}
-
-impl LoopState {
-    pub(in crate::io_loop) async fn shutdown(&mut self) {
-        super::bridge::shutdown_active_sessions(&mut self.sessions, &mut self.socket_set, &mut self.dns_cache).await;
-        shutdown_udp_associations(&mut self.udp_associations).await;
-    }
 }

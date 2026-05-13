@@ -1,5 +1,9 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+mod domain_probe;
+
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::thread;
 use std::time::Duration;
 
@@ -11,13 +15,13 @@ use crate::tls::tls_key_log_callback_for_path;
 use crate::types::DomainTarget;
 use crate::util::stable_probe_hash;
 
-use super::http::run_http_strategy_probe;
-use super::https::run_https_strategy_probe;
 use crate::execution::runtime::{probe_runtime_transport, run_candidate_warmup, CandidateRuntimeLauncher};
 use crate::execution::scoring::{
     build_candidate_execution, cancelled_candidate_execution, failed_candidate_execution,
-    not_applicable_candidate_execution, CandidateExecution, CandidateScore, ProbeSample,
+    not_applicable_candidate_execution, CandidateExecution, CandidateScore,
 };
+
+use self::domain_probe::probe_domain_chunk;
 
 pub fn execute_tcp_candidate(
     runtime_launcher: &dyn CandidateRuntimeLauncher,
@@ -51,8 +55,7 @@ pub fn execute_tcp_candidate(
             // Batch size of 3 keeps concurrency safe (different destinations, no DPI
             // state collision) while cutting wall-clock time from ~15-20s to ~6-8s.
             const PARALLEL_DOMAIN_BATCH_SIZE: usize = 3;
-            let chunks: Vec<&[DomainTarget]> = ordered_targets.chunks(PARALLEL_DOMAIN_BATCH_SIZE).collect();
-            for (chunk_index, chunk) in chunks.iter().enumerate() {
+            for (chunk_index, chunk) in ordered_targets.chunks(PARALLEL_DOMAIN_BATCH_SIZE).enumerate() {
                 if cancel.load(Ordering::Acquire) {
                     drop(runtime);
                     return cancelled_candidate_execution(spec, score, 3);
@@ -61,26 +64,7 @@ pub fn execute_tcp_candidate(
                     // Inter-chunk pause: use the first target in the chunk as the key.
                     thread::sleep(Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &chunk[0].host)));
                 }
-                // Run HTTP + HTTPS for each domain in this chunk concurrently.
-                let chunk_results: Vec<Vec<ProbeSample>> = thread::scope(|s| {
-                    chunk
-                        .iter()
-                        .map(|target| {
-                            let transport = transport.clone();
-                            let key_log = key_log.clone();
-                            s.spawn(move || {
-                                let samples = vec![
-                                    run_http_strategy_probe(&transport, target, spec),
-                                    run_https_strategy_probe(&transport, target, spec, tls_verifier, key_log.as_ref()),
-                                ];
-                                samples
-                            })
-                        })
-                        .collect::<Vec<_>>()
-                        .into_iter()
-                        .map(|handle| handle.join().unwrap_or_default())
-                        .collect()
-                });
+                let chunk_results = probe_domain_chunk(chunk, &transport, spec, tls_verifier, key_log.as_ref());
                 for samples in chunk_results {
                     for sample in samples {
                         score.add(sample);

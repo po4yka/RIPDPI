@@ -2,20 +2,12 @@ use std::io;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-use tracing::{debug, warn};
+use tracing::warn;
 use tun_rs::AsyncDevice;
 
 use crate::{Stats, TunDevice};
 
 use super::super::tun_ingress_interceptor::{SynAckPacketInjector, TunIngressInterceptor};
-
-pub(in crate::io_loop) fn enqueue_tun_packet(device: &mut TunDevice, raw: Vec<u8>, context: &str) {
-    if raw.is_empty() {
-        return;
-    }
-    debug!(bytes = raw.len(), "{context} response queued for tun flush");
-    device.tx_queue.push_back(raw);
-}
 
 pub(in crate::io_loop) async fn flush_device_tx_queue(
     tun: &AsyncDevice,

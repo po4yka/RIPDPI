@@ -3,9 +3,8 @@ use std::sync::{Arc, Mutex};
 
 use super::{ExecutionPlan, ExecutionRuntime, ExecutionStageId};
 use crate::transport::direct_transport;
-use crate::types::{
-    DiagnosticProfileFamily, ScanKind, ScanPathMode, ScanRequest, SharedState, StrategyProbeProgressLane,
-};
+use crate::types::{DiagnosticProfileFamily, ScanKind, ScanPathMode, ScanRequest, SharedState};
+use crate::types::StrategyProbeProgressLane;
 
 #[test]
 fn parallel_group_contains_expected_stages() {

@@ -15,7 +15,8 @@ use ripdpi_tunnel_config::Config;
 use crate::dns_cache::DnsCache;
 use crate::{ActiveSessions, Stats, TunDevice};
 
-use super::dns_intercept::{build_encrypted_dns_resolver, parse_dns_cache, parse_mapdns_runtime, spawn_dns_worker};
+use super::dns_intercept::{parse_dns_cache, parse_mapdns_runtime};
+use super::setup_dns::{build_dns_worker, configure_resolver_fallback};
 use super::state::{LoopRuntime, LoopState};
 use super::tcp_accept::{make_auth, proxy_addr};
 use super::udp_assoc::DEFAULT_MAX_UDP_ASSOCIATIONS;
@@ -94,27 +95,4 @@ pub(in crate::io_loop) fn setup_io_loop(
         dns_resp_rx,
         tun_read_buf: vec![0u8; mtu + 64],
     })
-}
-
-fn configure_resolver_fallback(config: &Config, stats: &Arc<Stats>) {
-    if let Some(mapdns) = config.mapdns.as_ref() {
-        stats.configure_resolver_fallback(mapdns.resolver_fallback_active, mapdns.resolver_fallback_reason.as_deref());
-    }
-}
-
-fn build_dns_worker(
-    config: &Config,
-    cancel: &CancellationToken,
-) -> io::Result<(
-    Option<tokio::sync::mpsc::Sender<super::dns_intercept::DnsRequest>>,
-    Option<tokio::sync::mpsc::Receiver<super::dns_intercept::DnsResponse>>,
-)> {
-    let Some(resolver) = build_encrypted_dns_resolver(config)
-        .map_err(|e| io::Error::other(format!("build encrypted DNS resolver: {e}")))?
-    else {
-        return Ok((None, None));
-    };
-
-    let (tx, rx) = spawn_dns_worker(resolver, cancel.child_token());
-    Ok((Some(tx), Some(rx)))
 }

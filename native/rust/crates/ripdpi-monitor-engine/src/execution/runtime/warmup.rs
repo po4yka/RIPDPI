@@ -1,12 +1,16 @@
+mod tls;
+
 use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::{CandidateWarmup, StrategyCandidateSpec};
 use crate::http::try_http_request;
-use crate::tls::{try_tls_handshake, try_tls_handshake_with_key_log, TlsClientProfile, TlsKeyLogCallback};
+use crate::tls::TlsKeyLogCallback;
 use crate::transport::{domain_connect_target, TransportConfig};
 use crate::types::DomainTarget;
+
+use self::tls::warmup_tls13;
 
 pub fn run_candidate_warmup(
     spec: &StrategyCandidateSpec,
@@ -29,26 +33,6 @@ pub fn run_candidate_warmup(
             &target.http_path,
             false,
         );
-        let _ = match key_log {
-            Some(key_log) => try_tls_handshake_with_key_log(
-                &domain_connect_target(target),
-                https_port,
-                transport,
-                &target.host,
-                true,
-                TlsClientProfile::Tls13Only,
-                tls_verifier,
-                Some(key_log),
-            ),
-            None => try_tls_handshake(
-                &domain_connect_target(target),
-                https_port,
-                transport,
-                &target.host,
-                true,
-                TlsClientProfile::Tls13Only,
-                tls_verifier,
-            ),
-        };
+        let _ = warmup_tls13(transport, target, tls_verifier, key_log, https_port);
     }
 }

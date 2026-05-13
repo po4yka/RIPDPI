@@ -6,6 +6,12 @@ use crate::config::defaults::{
 };
 use crate::config::log_context::TunnelLogContext;
 
+#[cfg(test)]
+mod sample;
+
+#[cfg(test)]
+pub(crate) use sample::sample_payload;
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TunnelConfigPayload {
@@ -67,54 +73,4 @@ pub(crate) struct TunnelConfigPayload {
 
 pub(crate) fn parse_tunnel_config_json(json: &str) -> Result<TunnelConfigPayload, String> {
     serde_json::from_str::<TunnelConfigPayload>(json).map_err(|err| format!("Invalid tunnel config JSON: {err}"))
-}
-
-#[cfg(test)]
-pub(crate) fn sample_payload() -> TunnelConfigPayload {
-    TunnelConfigPayload {
-        tunnel_name: "tun0".to_string(),
-        tunnel_mtu: 1500,
-        multi_queue: false,
-        tunnel_ipv4: None,
-        tunnel_ipv6: None,
-        socks5_address: "127.0.0.1".to_string(),
-        socks5_port: 1080,
-        socks5_udp: Some("udp".to_string()),
-        socks5_udp_address: None,
-        socks5_pipeline: None,
-        username: None,
-        password: None,
-        mapdns_address: None,
-        mapdns_port: None,
-        mapdns_network: None,
-        mapdns_netmask: None,
-        mapdns_cache_size: None,
-        encrypted_dns_resolver_id: None,
-        encrypted_dns_protocol: None,
-        encrypted_dns_host: None,
-        encrypted_dns_port: None,
-        encrypted_dns_tls_server_name: None,
-        encrypted_dns_doh_url: None,
-        encrypted_dns_dnscrypt_provider_name: None,
-        encrypted_dns_dnscrypt_public_key: None,
-        encrypted_dns_bootstrap_ips: Vec::new(),
-        dns_query_timeout_ms: None,
-        resolver_fallback_active: None,
-        resolver_fallback_reason: None,
-        strategy_chain_yaml: None,
-        protect_path: None,
-        root_helper_socket_path: None,
-        task_stack_size: default_task_stack_size(),
-        tcp_buffer_size: None,
-        udp_recv_buffer_size: None,
-        udp_copy_buffer_nums: None,
-        max_session_count: None,
-        connect_timeout_ms: None,
-        tcp_read_write_timeout_ms: None,
-        udp_read_write_timeout_ms: None,
-        log_level: default_log_level(),
-        limit_nofile: None,
-        filter_injected_resets: None,
-        log_context: None,
-    }
 }
