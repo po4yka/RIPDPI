@@ -12,7 +12,7 @@ Renders Google Play Store marketing assets for the RIPDPI Android app: six 1080x
 
 - **Current logo (2026-05):** brutalist black silhouette ("bag-in-arch" motif) on white. `app/src/main/ic_launcher-playstore.png` is canonical; copy it to `public/app-icon.png` after any change.
 - **Previous logo:** dove rising from barbed wire on navy — no longer in use.
-- **DESIGN.md** is monochrome-first **light** (`#FAFAFA` bg, `#1A1A1A` fg). `page.tsx` keeps both `BRAND` (dark) and `BRAND_LIGHT` token sets because Play Store screenshots are marketing surfaces — dark slides remain striking on the listing grid. Use light tokens for "on-brand" slides; dark tokens for contrast/advertisement override.
+- **DESIGN.md** is monochrome-first **light** (`#FAFAFA` bg, `#1A1A1A` fg). Marketing slides honor DESIGN.md: light, monochrome-first, restrained status color, no decorative gradients. `page.tsx` keeps both `BRAND` (dark) and `BRAND_LIGHT` token sets; `BRAND_LIGHT` is the canonical default, and `BRAND` is reserved for at most 1-2 rhythm-break slides as a strict inversion of the same role mapping (not a separate visual identity).
 - **7 launcher variants** ship in-app via the icon picker: `clean` (default), `cracked`, `disintegrate`, `glitch`, `rubble`, `stitch`, plus monochrome. Variants live as XML adaptive icons in `app/src/main/res/drawable/ic_launcher_foreground_ripdpi_*.xml`; there are no rasterized PNG copies in the repo. Showcasing the picker in a slide requires capturing each variant from a device home screen.
 
 ## File Layout
@@ -87,7 +87,7 @@ First install on a fresh machine needs `bun pm trust puppeteer` so Chromium down
 
 - **Production build mandatory for Puppeteer.** Dev-server HMR websocket causes Puppeteer to hang. Use `next build && next start` for batch capture.
 - **Next.js 16 `useSearchParams` requires Suspense.** `page.tsx` already wraps `ScreenshotsPage` in `<Suspense>` — keep it that way.
-- **No alpha in output PNGs.** Google Play rejects RGBA. The `backgroundColor: "#121212"` in the `toPng` options and the Puppeteer `clip` settings flatten alpha — do not remove either.
+- **No alpha in output PNGs.** Google Play rejects RGBA. The `backgroundColor: "#FAFAFA"` in the `toPng` options and the Puppeteer `clip` settings flatten alpha — do not remove either.
 - **Use `top:` positioning for the Screenshot component**, not `bottom + translateY`. Source captures are 1080x2400 (taller than the 1920 canvas), so percentage math from the bottom gets messy.
 - **`bun pm trust puppeteer`** is required for Chromium to download on first install.
 - **Output goes to `../docs/screenshots/`**, not `./out/`. That sibling path is what the README link selectors expect; do not relocate without updating consumers.
