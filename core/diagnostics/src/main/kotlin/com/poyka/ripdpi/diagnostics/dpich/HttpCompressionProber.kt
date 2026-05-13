@@ -148,14 +148,7 @@ class HttpCompressionProber(
     ): CompressionProbeResult {
         var decompressedBytes = 0L
         return try {
-            codec.decoder(raw).use { decoded ->
-                val buffer = ByteArray(DecodeChunkBytes)
-                while (true) {
-                    val read = decoded.read(buffer)
-                    if (read < 0) break
-                    decompressedBytes += read.toLong()
-                }
-            }
+            decompressedBytes = countDecodedBytes(codec, raw)
             CompressionProbeResult(
                 verdict =
                     if (decompressedBytes >= comprMin) {
@@ -184,6 +177,22 @@ class HttpCompressionProber(
                 error = e.message,
             )
         }
+    }
+
+    private fun countDecodedBytes(
+        codec: CompressionCodec,
+        raw: CountingInputStream,
+    ): Long {
+        var decompressedBytes = 0L
+        codec.decoder(raw).use { decoded ->
+            val buffer = ByteArray(DecodeChunkBytes)
+            while (true) {
+                val read = decoded.read(buffer)
+                if (read < 0) break
+                decompressedBytes += read.toLong()
+            }
+        }
+        return decompressedBytes
     }
 
     private fun CompressionCodec.decoder(raw: InputStream): InputStream =

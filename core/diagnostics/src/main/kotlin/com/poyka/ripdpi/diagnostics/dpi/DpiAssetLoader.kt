@@ -22,6 +22,31 @@ import java.io.File
 import java.io.InputStream
 import javax.inject.Singleton
 
+private const val Tcp16TargetsPath = "dpi/tcp16.json"
+private const val DomainsPath = "dpi/domains.txt"
+private const val EchTargetsPath = "dpi/ech_targets.txt"
+private const val WhitelistSniPath = "dpi/whitelist_sni.txt"
+private const val ByohSyntheticDomainsPath = "dpich/byoh_synthetic_domains.txt"
+private const val DohProviderFiltersPath = "dpich/doh_provider_filters.yaml"
+private const val Obfs4BridgesPath = "dpich/obfs4_bridges.txt"
+private const val MeekFrontsPath = "dpich/meek_fronts.txt"
+private const val CidrWhitelistedUrlsPath = "dpich/cidr_whitelisted_urls.txt"
+private const val CidrRegularUrlsPath = "dpich/cidr_regular_urls.txt"
+private const val Ipv4WhitelistAsnsPath = "dpich/ipv4_whitelist_asns.json"
+private const val DohBootstrapSubnetMetadataPath = "dpich/doh_bootstrap_subnet_metadata.json"
+private const val RknWhitelistControlPath = "rkn/rkn_whitelist_control.txt"
+private const val RknBlacklistTestPath = "rkn/rkn_blacklist_test.txt"
+private const val LegacyTypoPortField = ",port"
+private const val CommentPrefix = "#"
+private const val HexRadix = 16
+
+private val QuicFingerprintFixturePaths =
+    mapOf(
+        QuicFingerprint.CHROME_120 to "dpi/quic_fingerprints/chrome120.bin",
+        QuicFingerprint.FIREFOX_121 to "dpi/quic_fingerprints/firefox121.bin",
+        QuicFingerprint.GENERIC_V1 to "dpi/quic_fingerprints/generic_v1.bin",
+    )
+
 interface DpiAssetFileProvider {
     fun overrideFile(relativePath: String): File
 
@@ -60,7 +85,7 @@ class DpiAssetLoader(
 
     fun loadTcp16Targets(): List<Tcp16Target> =
         cachedTcp16Targets ?: loadText(Tcp16TargetsPath)
-            .let(::parseTcp16Targets)
+            .let(json::parseTcp16Targets)
             .also { cachedTcp16Targets = it }
 
     fun loadDomains(): List<String> =
@@ -109,12 +134,12 @@ class DpiAssetLoader(
 
     fun loadIpv4WhitelistAsns(): List<WhitelistAsn> =
         cachedIpv4WhitelistAsns ?: loadText(Ipv4WhitelistAsnsPath)
-            .let(::parseIpv4WhitelistAsns)
+            .let(json::parseIpv4WhitelistAsns)
             .also { cachedIpv4WhitelistAsns = it }
 
     fun loadDohBootstrapSubnetMetadata(): List<SubnetMetadata> =
         cachedDohBootstrapSubnetMetadata ?: loadText(DohBootstrapSubnetMetadataPath)
-            .let(::parseDohBootstrapSubnetMetadata)
+            .let(json::parseDohBootstrapSubnetMetadata)
             .also { cachedDohBootstrapSubnetMetadata = it }
 
     fun loadRknWhitelistControl(): List<RknTarget> =
@@ -138,66 +163,6 @@ class DpiAssetLoader(
         return fileProvider.openAsset(relativePath).bufferedReader().use { reader -> reader.readText() }
     }
 
-    private fun parseTcp16Targets(payload: String): List<Tcp16Target> =
-        json
-            .parseToJsonElement(payload)
-            .jsonArray
-            .map { element -> element.jsonObject.toTcp16Target() }
-
-    private fun parseIpv4WhitelistAsns(payload: String): List<WhitelistAsn> =
-        json
-            .parseToJsonElement(payload)
-            .jsonArray
-            .map { element ->
-                val item = element.jsonObject
-                WhitelistAsn(
-                    provider = item.requireString("provider"),
-                    asn =
-                        requireNotNull(item["asn"]) { "Missing required IPv4 whitelist ASN field 'asn'" }
-                            .jsonPrimitive
-                            .int,
-                )
-            }
-
-    private fun parseDohBootstrapSubnetMetadata(payload: String): List<SubnetMetadata> =
-        json
-            .parseToJsonElement(payload)
-            .jsonArray
-            .map { element ->
-                val item = element.jsonObject
-                SubnetMetadata(
-                    range = IpRange(item.requireString("cidr")),
-                    asn =
-                        requireNotNull(item["asn"]) { "Missing required DoH bootstrap metadata field 'asn'" }
-                            .jsonPrimitive
-                            .int,
-                    org = item.requireString("org"),
-                    country = item.requireString("country"),
-                )
-            }
-
-    private fun JsonObject.toTcp16Target(): Tcp16Target =
-        Tcp16Target(
-            id = requireString("id"),
-            asn = requireString("asn"),
-            provider = requireString("provider"),
-            ip = requireString("ip"),
-            port = requirePort(),
-            sni = this["sni"]?.jsonPrimitive?.contentOrNull,
-        )
-
-    private fun JsonObject.requireString(name: String): String =
-        requireNotNull(this[name]?.jsonPrimitive?.contentOrNull) {
-            "Missing required tcp16 target field '$name'"
-        }
-
-    private fun JsonObject.requirePort(): Int {
-        val portElement = this["port"] ?: this[LegacyTypoPortField]
-        return requireNotNull(portElement) {
-            "Missing required tcp16 target field 'port'"
-        }.jsonPrimitive.int
-    }
-
     private fun String.parseLineList(): List<String> =
         lineSequence()
             .map { line -> line.trim() }
@@ -214,32 +179,63 @@ class DpiAssetLoader(
                 .toByte()
         }
     }
+}
 
-    private companion object {
-        private const val Tcp16TargetsPath = "dpi/tcp16.json"
-        private const val DomainsPath = "dpi/domains.txt"
-        private const val EchTargetsPath = "dpi/ech_targets.txt"
-        private const val WhitelistSniPath = "dpi/whitelist_sni.txt"
-        private const val ByohSyntheticDomainsPath = "dpich/byoh_synthetic_domains.txt"
-        private const val DohProviderFiltersPath = "dpich/doh_provider_filters.yaml"
-        private const val Obfs4BridgesPath = "dpich/obfs4_bridges.txt"
-        private const val MeekFrontsPath = "dpich/meek_fronts.txt"
-        private const val CidrWhitelistedUrlsPath = "dpich/cidr_whitelisted_urls.txt"
-        private const val CidrRegularUrlsPath = "dpich/cidr_regular_urls.txt"
-        private const val Ipv4WhitelistAsnsPath = "dpich/ipv4_whitelist_asns.json"
-        private const val DohBootstrapSubnetMetadataPath = "dpich/doh_bootstrap_subnet_metadata.json"
-        private const val RknWhitelistControlPath = "rkn/rkn_whitelist_control.txt"
-        private const val RknBlacklistTestPath = "rkn/rkn_blacklist_test.txt"
-        private const val LegacyTypoPortField = ",port"
-        private const val CommentPrefix = "#"
-        private const val HexRadix = 16
-        private val QuicFingerprintFixturePaths =
-            mapOf(
-                QuicFingerprint.CHROME_120 to "dpi/quic_fingerprints/chrome120.bin",
-                QuicFingerprint.FIREFOX_121 to "dpi/quic_fingerprints/firefox121.bin",
-                QuicFingerprint.GENERIC_V1 to "dpi/quic_fingerprints/generic_v1.bin",
+private fun Json.parseTcp16Targets(payload: String): List<Tcp16Target> =
+    parseToJsonElement(payload)
+        .jsonArray
+        .map { element -> element.jsonObject.toTcp16Target() }
+
+private fun Json.parseIpv4WhitelistAsns(payload: String): List<WhitelistAsn> =
+    parseToJsonElement(payload)
+        .jsonArray
+        .map { element ->
+            val item = element.jsonObject
+            WhitelistAsn(
+                provider = item.requireString("provider"),
+                asn =
+                    requireNotNull(item["asn"]) { "Missing required IPv4 whitelist ASN field 'asn'" }
+                        .jsonPrimitive
+                        .int,
             )
+        }
+
+private fun Json.parseDohBootstrapSubnetMetadata(payload: String): List<SubnetMetadata> =
+    parseToJsonElement(payload)
+        .jsonArray
+        .map { element ->
+            val item = element.jsonObject
+            SubnetMetadata(
+                range = IpRange(item.requireString("cidr")),
+                asn =
+                    requireNotNull(item["asn"]) { "Missing required DoH bootstrap metadata field 'asn'" }
+                        .jsonPrimitive
+                        .int,
+                org = item.requireString("org"),
+                country = item.requireString("country"),
+            )
+        }
+
+private fun JsonObject.toTcp16Target(): Tcp16Target =
+    Tcp16Target(
+        id = requireString("id"),
+        asn = requireString("asn"),
+        provider = requireString("provider"),
+        ip = requireString("ip"),
+        port = requirePort(),
+        sni = this["sni"]?.jsonPrimitive?.contentOrNull,
+    )
+
+private fun JsonObject.requireString(name: String): String =
+    requireNotNull(this[name]?.jsonPrimitive?.contentOrNull) {
+        "Missing required tcp16 target field '$name'"
     }
+
+private fun JsonObject.requirePort(): Int {
+    val portElement = this["port"] ?: this[LegacyTypoPortField]
+    return requireNotNull(portElement) {
+        "Missing required tcp16 target field 'port'"
+    }.jsonPrimitive.int
 }
 
 @Module

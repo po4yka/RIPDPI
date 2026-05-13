@@ -73,18 +73,24 @@ object DoqWireCodec {
     fun parseResponse(
         response: ByteArray,
         transactionId: Int,
-    ): List<String> {
-        if (response.size < DoqLengthPrefixBytes) {
-            return listOf(DnsWireBuilder.PARSE_ERR)
+    ): List<String> =
+        when (val length = response.doqPayloadLengthOrNull()) {
+            null -> {
+                listOf(DnsWireBuilder.PARSE_ERR)
+            }
+
+            else -> {
+                DnsWireBuilder.parseResponse(
+                    response.copyOfRange(DoqLengthPrefixBytes, DoqLengthPrefixBytes + length),
+                    transactionId,
+                )
+            }
         }
-        val length = ((response[0].toInt() and ByteMask) shl Byte.SIZE_BITS) or (response[1].toInt() and ByteMask)
-        if (length <= 0 || response.size < DoqLengthPrefixBytes + length) {
-            return listOf(DnsWireBuilder.PARSE_ERR)
-        }
-        return DnsWireBuilder.parseResponse(
-            response.copyOfRange(DoqLengthPrefixBytes, DoqLengthPrefixBytes + length),
-            transactionId,
-        )
+
+    private fun ByteArray.doqPayloadLengthOrNull(): Int? {
+        if (size < DoqLengthPrefixBytes) return null
+        val length = ((this[0].toInt() and ByteMask) shl Byte.SIZE_BITS) or (this[1].toInt() and ByteMask)
+        return length.takeIf { it > 0 && size >= DoqLengthPrefixBytes + it }
     }
 
     private const val DoqLengthPrefixBytes = 2
