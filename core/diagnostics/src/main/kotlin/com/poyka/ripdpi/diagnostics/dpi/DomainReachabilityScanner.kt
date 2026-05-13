@@ -23,15 +23,16 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.TlsVersion
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.system.measureTimeMillis
 
 enum class DomainVerdict {
     OK,
@@ -134,20 +135,51 @@ class DomainReachabilityScanner(
         stubIps: Set<String>,
         randomHostname: Boolean,
     ): DomainReachabilityResult {
-        val resolvedIps =
-            runCatching { resolver(domain) }
-                .getOrElse { error ->
-                    if (error is CancellationException) throw error
-                    return shortCircuit(domain, emptyList(), AttemptStatus.ERROR, DomainVerdict.DNS_FAIL)
-                }
+        val resolvedIps = resolveDomainIps(domain)
+        return preflightShortCircuit(domain, resolvedIps, stubIps)
+            ?: runFullScan(domain, resolvedIps.orEmpty(), stubIps, randomHostname)
+    }
 
-        if (resolvedIps.any { ip -> ip in stubIps }) {
-            return shortCircuit(domain, resolvedIps, AttemptStatus.ISP_PAGE, DomainVerdict.ISP_PAGE)
-        }
-        if (resolvedIps.any { ip -> IpAddressClassifier.classify(ip) == IpAddressType.FAKE_IP }) {
-            return shortCircuit(domain, resolvedIps, AttemptStatus.FAKE_IP, DomainVerdict.FAKE_IP)
+    private suspend fun resolveDomainIps(domain: String): List<String>? =
+        try {
+            resolver(domain)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: UnknownHostException) {
+            null
+        } catch (_: IOException) {
+            null
         }
 
+    private fun preflightShortCircuit(
+        domain: String,
+        resolvedIps: List<String>?,
+        stubIps: Set<String>,
+    ): DomainReachabilityResult? =
+        when {
+            resolvedIps == null -> {
+                shortCircuit(domain, emptyList(), AttemptStatus.ERROR, DomainVerdict.DNS_FAIL)
+            }
+
+            resolvedIps.any { ip -> ip in stubIps } -> {
+                shortCircuit(domain, resolvedIps, AttemptStatus.ISP_PAGE, DomainVerdict.ISP_PAGE)
+            }
+
+            resolvedIps.any { ip -> IpAddressClassifier.classify(ip) == IpAddressType.FAKE_IP } -> {
+                shortCircuit(domain, resolvedIps, AttemptStatus.FAKE_IP, DomainVerdict.FAKE_IP)
+            }
+
+            else -> {
+                null
+            }
+        }
+
+    private suspend fun runFullScan(
+        domain: String,
+        resolvedIps: List<String>,
+        stubIps: Set<String>,
+        randomHostname: Boolean,
+    ): DomainReachabilityResult {
         val requestedHosts = mutableListOf<String>()
         val tls13 = runAttempt(domain, ReachabilityProbeKind.TLS13, stubIps, randomHostname, requestedHosts)
         val tls12 = runAttempt(domain, ReachabilityProbeKind.TLS12, stubIps, randomHostname, requestedHosts)
@@ -181,7 +213,7 @@ class DomainReachabilityScanner(
             attemptRunner(domain, kind, stubIps, requestedHost).classifyStubRedirect(stubIps)
         } catch (error: CancellationException) {
             throw error
-        } catch (error: Exception) {
+        } catch (error: IOException) {
             classifyException(error, ProbeStage.TCP_CONNECT, bytesRead = 0)
         }
 
@@ -228,22 +260,14 @@ class DomainReachabilityScanner(
         val tls13OnlyWorks = tls13.status == AttemptStatus.OK && tls12.status == AttemptStatus.ERROR
         val tls12OnlyWorks = tls12.status == AttemptStatus.OK && tls13.status == AttemptStatus.ERROR
 
-        if (hasTcp16Band) {
-            return DomainVerdict.TCP16_BAND
+        return when {
+            hasTcp16Band -> DomainVerdict.TCP16_BAND
+            hasIspPage -> DomainVerdict.ISP_PAGE
+            hasHttpBlock || hasTlsBlock -> DomainVerdict.BLOCKED
+            tls13OnlyWorks || tls12OnlyWorks -> DomainVerdict.TLS_VERSION_BLOCK
+            attempts.all { it.status == AttemptStatus.ERROR } -> DomainVerdict.UNREACHABLE
+            else -> DomainVerdict.OK
         }
-        if (hasIspPage) {
-            return DomainVerdict.ISP_PAGE
-        }
-        if (hasHttpBlock || hasTlsBlock) {
-            return DomainVerdict.BLOCKED
-        }
-        if (tls13OnlyWorks || tls12OnlyWorks) {
-            return DomainVerdict.TLS_VERSION_BLOCK
-        }
-        if (attempts.all { it.status == AttemptStatus.ERROR }) {
-            return DomainVerdict.UNREACHABLE
-        }
-        return DomainVerdict.OK
     }
 
     companion object {
@@ -320,23 +344,21 @@ class OkHttpDomainReachabilityAttemptRunner(
         val client = clientFor(kind, stage)
         val request = tlsRequest(endpoint)
         var bytesRead = 0
-        val elapsed =
-            measureTimeMillis {
-                try {
-                    client.newCall(request).execute().use { response ->
-                        stage.set(ProbeStage.READING_DATA)
-                        bytesRead = response.body.bytes().size
-                        return response.toAttemptResult(domain, kind, bytesRead, 0, stubIps)
-                    }
-                } catch (error: Exception) {
-                    return DomainReachabilityScanner.classifyException(
-                        error = error,
-                        stage = stage.get(),
-                        bytesRead = bytesRead,
-                    )
-                }
+        val startedAt = System.nanoTime()
+        return try {
+            client.newCall(request).execute().use { response ->
+                stage.set(ProbeStage.READING_DATA)
+                bytesRead = response.body.bytes().size
+                response.toAttemptResult(domain, kind, bytesRead, elapsedMillis(startedAt), stubIps)
             }
-        return AttemptResult(status = AttemptStatus.ERROR, latencyMs = elapsed)
+        } catch (error: IOException) {
+            DomainReachabilityScanner
+                .classifyException(
+                    error = error,
+                    stage = stage.get(),
+                    bytesRead = bytesRead,
+                ).copy(latencyMs = elapsedMillis(startedAt))
+        }
     }
 
     private fun tlsRequest(endpoint: ReachabilityProbeEndpoint): Request =
@@ -367,14 +389,7 @@ class OkHttpDomainReachabilityAttemptRunner(
                 socket.getOutputStream().write(httpHeadRequest(endpoint.hostHeader))
                 socket.getOutputStream().flush()
                 stage = ProbeStage.READING_DATA
-                val buffer = ByteArray(HttpReadBufferSize)
-                while (true) {
-                    val read = socket.getInputStream().read(buffer)
-                    if (read == -1) break
-                    response.write(buffer, 0, read)
-                    bytesRead += read
-                    if (bytesRead >= HttpResponseReadLimit) break
-                }
+                bytesRead = readHttpResponse(socket, response)
                 parsePartialHttpResponse(
                     domain = domain,
                     response = response,
@@ -382,24 +397,60 @@ class OkHttpDomainReachabilityAttemptRunner(
                     stubIps = stubIps,
                 ).copy(latencyMs = elapsedMillis(startedAt), stage = ProbeStage.READING_DATA)
             }
-        } catch (error: Exception) {
-            val hasPartialNonTcp16Response =
-                stage == ProbeStage.READING_DATA &&
-                    response.size() > 0 &&
-                    bytesRead !in Tcp16MinBytes..Tcp16MaxBytes
-            if (hasPartialNonTcp16Response) {
-                return parsePartialHttpResponse(
-                    domain = domain,
-                    response = response,
-                    bytesRead = bytesRead,
-                    stubIps = stubIps,
-                ).copy(latencyMs = elapsedMillis(startedAt), stage = ProbeStage.READING_DATA)
+        } catch (error: IOException) {
+            recoverHttpFailure(
+                domain = domain,
+                stubIps = stubIps,
+                response = response,
+                stage = stage,
+                bytesRead = bytesRead,
+                startedAt = startedAt,
+                error = error,
+            )
+        }
+    }
+
+    private fun readHttpResponse(
+        socket: Socket,
+        response: ByteArrayOutputStream,
+    ): Int {
+        val buffer = ByteArray(HttpReadBufferSize)
+        var bytesRead = 0
+        var shouldRead = true
+        while (shouldRead) {
+            val read = socket.getInputStream().read(buffer)
+            if (read < 0) {
+                shouldRead = false
+            } else {
+                response.write(buffer, 0, read)
+                bytesRead += read
+                shouldRead = bytesRead < HttpResponseReadLimit
             }
+        }
+        return bytesRead
+    }
+
+    private fun recoverHttpFailure(
+        domain: String,
+        stubIps: Set<String>,
+        response: ByteArrayOutputStream,
+        stage: ProbeStage,
+        bytesRead: Int,
+        startedAt: Long,
+        error: IOException,
+    ): AttemptResult =
+        if (stage == ProbeStage.READING_DATA && response.size() > 0 && bytesRead !in Tcp16MinBytes..Tcp16MaxBytes) {
+            parsePartialHttpResponse(
+                domain = domain,
+                response = response,
+                bytesRead = bytesRead,
+                stubIps = stubIps,
+            ).copy(latencyMs = elapsedMillis(startedAt), stage = ProbeStage.READING_DATA)
+        } else {
             DomainReachabilityScanner
                 .classifyException(error, stage, bytesRead)
                 .copy(latencyMs = elapsedMillis(startedAt))
         }
-    }
 
     private fun ReachabilityProbeEndpoint.withHostHeader(requestedHost: String?): ReachabilityProbeEndpoint =
         if (requestedHost == null) {
@@ -433,15 +484,15 @@ class OkHttpDomainReachabilityAttemptRunner(
                     .takeIf { it.isNotBlank() }
             }
         return when {
-            statusCode == 451 -> {
+            statusCode == HttpStatusUnavailableForLegalReasons -> {
                 AttemptResult(AttemptStatus.BLOCKED, statusCode = statusCode, bytesRead = bytesRead)
             }
 
-            statusCode != null && statusCode in 300..399 && location != null -> {
+            statusCode != null && statusCode in HttpRedirectStatusRange && location != null -> {
                 redirectAttempt(domain, location, statusCode, bytesRead, 0, stubIps)
             }
 
-            statusCode != null && statusCode in 200..499 -> {
+            statusCode != null && statusCode in HttpOkToClientErrorStatusRange -> {
                 AttemptResult(AttemptStatus.OK, statusCode = statusCode, bytesRead = bytesRead)
             }
 
@@ -496,15 +547,15 @@ class OkHttpDomainReachabilityAttemptRunner(
     ): AttemptResult {
         val location = header("Location")
         return when {
-            code == 451 -> {
+            code == HttpStatusUnavailableForLegalReasons -> {
                 AttemptResult(AttemptStatus.BLOCKED, statusCode = code, bytesRead = bytesRead, latencyMs = latencyMs)
             }
 
-            code in 300..399 && location != null -> {
+            code in HttpRedirectStatusRange && location != null -> {
                 redirectAttempt(domain, location, code, bytesRead, latencyMs, stubIps)
             }
 
-            code in 200..499 -> {
+            code in HttpOkToClientErrorStatusRange -> {
                 AttemptResult(AttemptStatus.OK, statusCode = code, bytesRead = bytesRead, latencyMs = latencyMs)
             }
 
@@ -638,7 +689,10 @@ private const val DefaultMaxConcurrent = 8
 private const val DefaultAttemptTimeoutMs = 5_000L
 private const val HttpPort = 80
 private const val HttpsPort = 443
+private const val HttpStatusUnavailableForLegalReasons = 451
 private const val HttpReadBufferSize = 2_048
 private const val HttpResponseReadLimit = 64 * 1_024
 private const val Tcp16MinBytes = 16_384
 private const val Tcp16MaxBytes = 20_480
+private val HttpRedirectStatusRange = 300..399
+private val HttpOkToClientErrorStatusRange = 200..499
