@@ -2403,4 +2403,16 @@ fakeddisorder endhost</string>
     <string name="warp_section_title">Cloudflare WARP</string>
     <string name="warp_zero_trust_org_body">هنگامی نمایش داده می‌شود که پروفایل فعال متعلق به ثبت‌نام Zero Trust باشد.</string>
 
+    <!-- Language picker -->
+    <string name="settings_language_title">زبان</string>
+    <string name="settings_language_body">زبان مورد استفادهٔ برنامهٔ RIPDPI را انتخاب کنید</string>
+    <string name="language_picker_sheet_title">انتخاب زبان</string>
+    <string name="language_picker_native_format">%1$s</string>
+    <string name="language_name_en">English</string>
+    <string name="language_name_ru">Русский</string>
+    <string name="language_name_es">Español</string>
+    <string name="language_name_de">Deutsch</string>
+    <string name="language_name_fr">Français</string>
+    <string name="language_name_fa">فارسی</string>
+    <string name="language_name_zh_cn">简体中文</string>
 </resources>

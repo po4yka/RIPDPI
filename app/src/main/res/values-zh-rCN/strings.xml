@@ -2399,4 +2399,16 @@ fake_burst 3</string>
     <string name="ws_tunnel_mode_fallback">回退(最后手段)</string>
     <string name="ws_tunnel_section_title">WebSocket 隧道</string>
 
+    <!-- Language picker -->
+    <string name="settings_language_title">语言</string>
+    <string name="settings_language_body">选择 RIPDPI 应用使用的语言</string>
+    <string name="language_picker_sheet_title">选择语言</string>
+    <string name="language_picker_native_format">%1$s</string>
+    <string name="language_name_en">English</string>
+    <string name="language_name_ru">Русский</string>
+    <string name="language_name_es">Español</string>
+    <string name="language_name_de">Deutsch</string>
+    <string name="language_name_fr">Français</string>
+    <string name="language_name_fa">فارسی</string>
+    <string name="language_name_zh_cn">简体中文</string>
 </resources>
