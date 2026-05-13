@@ -258,7 +258,7 @@ class OkHttpByohDomainProbe(
     private fun ByohConfig.portSuffix(): String = if (usesDefaultPort()) "" else ":$dstPort"
 
     private fun ByohConfig.usesDefaultPort(): Boolean =
-        (scheme == "https" && dstPort == 443) || (scheme == "http" && dstPort == 80)
+        (scheme == "https" && dstPort == DefaultHttpsPort) || (scheme == "http" && dstPort == DefaultHttpPort)
 }
 
 fun interface ByohDns {
@@ -291,16 +291,19 @@ object ByohCsvExporter {
         }.trimEnd()
 
     private fun String.csvCell(): String =
-        if (any { char -> char == ',' || char == '"' || char == '\n' || char == '\r' }) {
+        if (requiresCsvQuotes()) {
             "\"" + replace("\"", "\"\"") + "\""
         } else {
             this
         }
+
+    private fun String.requiresCsvQuotes(): Boolean =
+        any { char -> char == ',' || char == '"' || char == '\n' || char == '\r' }
 }
 
 private fun java.io.InputStream.countUntil(limit: Long): Long {
     var total = 0L
-    val buffer = ByteArray(8 * 1024)
+    val buffer = ByteArray(StreamBufferSizeBytes)
     while (total < limit) {
         val maxRead = minOf(buffer.size.toLong(), limit - total).toInt()
         val read = read(buffer, 0, maxRead)
@@ -314,3 +317,6 @@ private const val DefaultScheme = "https"
 private const val DefaultUrlPath = "/1MB.bin"
 private const val DefaultTimeoutMs = 5_000L
 private const val DefaultRangeTo = 128 * 1024L
+private const val DefaultHttpsPort = 443
+private const val DefaultHttpPort = 80
+private const val StreamBufferSizeBytes = 8 * 1024
