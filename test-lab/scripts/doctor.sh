@@ -98,7 +98,7 @@ check_http() {
     echo "curl is not installed"
     return 1
   fi
-  curl -fsS --max-time 3 "http://127.0.0.1:8080/get" >/dev/null
+  curl -fsS --max-time 3 "http://127.0.0.1:8080/get" >/dev/null || return 1
   echo "httpbin responded"
 }
 
@@ -107,7 +107,7 @@ check_wiremock() {
     echo "curl is not installed"
     return 1
   fi
-  curl -fsS --max-time 3 "http://127.0.0.1:8082/ripdpi/ok" >/dev/null
+  curl -fsS --max-time 3 "http://127.0.0.1:8082/ripdpi/ok" >/dev/null || return 1
   echo "wiremock responded"
 }
 
@@ -116,7 +116,7 @@ check_caddy_https() {
     echo "curl is not installed"
     return 1
   fi
-  curl -fsSk --max-time 3 "https://127.0.0.1:8443/" >/dev/null
+  curl -fsSk --max-time 3 "https://127.0.0.1:8443/" >/dev/null || return 1
   echo "caddy https responded"
 }
 
@@ -165,12 +165,12 @@ check_tcp_echo() {
         end
       end
       abort("echo mismatch: #{data.inspect}") unless data == payload
-    ' "$payload"
+    ' "$payload" || return 1
     echo "tcp echo matched"
     return 0
   fi
   if command -v python3 >/dev/null 2>&1; then
-    python3 - "$payload" <<'PY'
+    if ! python3 - "$payload" <<'PY'
 import socket
 import sys
 
@@ -182,6 +182,9 @@ with socket.create_connection(("127.0.0.1", 9000), timeout=3) as sock:
 if data != payload:
     raise SystemExit(f"echo mismatch: {data!r}")
 PY
+    then
+      return 1
+    fi
     echo "tcp echo matched"
     return 0
   fi
@@ -205,12 +208,12 @@ check_udp_echo() {
         end
       end
       abort("echo mismatch: #{data.inspect}") unless data == payload
-    ' "$payload"
+    ' "$payload" || return 1
     echo "udp echo matched"
     return 0
   fi
   if command -v python3 >/dev/null 2>&1; then
-    python3 - "$payload" <<'PY'
+    if ! python3 - "$payload" <<'PY'
 import socket
 import sys
 
@@ -225,6 +228,9 @@ finally:
 if data != payload:
     raise SystemExit(f"echo mismatch: {data!r}")
 PY
+    then
+      return 1
+    fi
     echo "udp echo matched"
     return 0
   fi
@@ -248,12 +254,12 @@ check_mock_relay() {
       end
       parsed = JSON.parse(response)
       abort("relay not ready: #{response.inspect}") unless parsed["ok"] == true && parsed["code"] == "READY"
-    ' "$handshake"
+    ' "$handshake" || return 1
     echo "mock relay ready"
     return 0
   fi
   if command -v python3 >/dev/null 2>&1; then
-    python3 - "$handshake" <<'PY'
+    if ! python3 - "$handshake" <<'PY'
 import json
 import socket
 import sys
@@ -266,6 +272,9 @@ parsed = json.loads(data.decode())
 if parsed.get("ok") is not True or parsed.get("code") != "READY":
     raise SystemExit(f"relay not ready: {parsed!r}")
 PY
+    then
+      return 1
+    fi
     echo "mock relay ready"
     return 0
   fi
