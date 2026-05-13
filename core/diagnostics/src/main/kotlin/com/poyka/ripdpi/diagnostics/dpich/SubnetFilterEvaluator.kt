@@ -253,40 +253,56 @@ fun inferArgType(value: String): ArgType =
 
 private fun isIpv4Cidr(value: String): Boolean {
     val parts = value.split("/")
-    if (parts.size != 2) return false
-    val prefix = parts[1].toIntOrNull() ?: return false
-    return prefix in 0..32 && isIpv4Address(parts[0])
+    val prefix = parts.getOrNull(1)?.toIntOrNull()
+    return parts.size == CidrPartCount && prefix in Ipv4PrefixRange && isIpv4Address(parts[0])
 }
 
 private fun isIpv4Address(value: String): Boolean {
     val octets = value.split(".")
-    return octets.size == 4 &&
+    return octets.size == Ipv4OctetCount &&
         octets.all { octet ->
             octet.isNotEmpty() &&
                 octet.all(Char::isDigit) &&
-                octet.toIntOrNull()?.let { it in 0..255 } == true
+                octet.toIntOrNull()?.let { it in Ipv4OctetRange } == true
         }
 }
 
 fun IpRange.contains(ip: String): Boolean {
-    val (network, prefixText) = cidr.split('/').takeIf { parts -> parts.size == 2 } ?: return false
-    val prefix = prefixText.toIntOrNull()?.takeIf { value -> value in Ipv4PrefixRange } ?: return false
-    val networkBits = network.toIpv4Bits() ?: return false
-    val ipBits = ip.toIpv4Bits() ?: return false
-    val mask = if (prefix == 0) 0 else -1 shl (Ipv4BitCount - prefix)
-    return networkBits and mask == ipBits and mask
+    val parts = cidr.split('/')
+    val prefix = parts.getOrNull(1)?.toIntOrNull()
+    val networkBits = parts.getOrNull(0)?.toIpv4Bits()
+    val ipBits = ip.toIpv4Bits()
+    val parsedCidr = parts.size == CidrPartCount && prefix in Ipv4PrefixRange
+    val parsedAddresses = networkBits != null && ipBits != null
+    return if (parsedCidr && parsedAddresses) {
+        val mask = if (prefix == Ipv4PrefixMin) 0 else -1 shl (Ipv4BitCount - requireNotNull(prefix))
+        networkBits and mask == ipBits and mask
+    } else {
+        false
+    }
 }
 
 private fun String.toIpv4Bits(): Int? {
     val octets = split('.')
-    if (octets.size != Ipv4OctetCount) return null
-    return octets.fold(0) { acc, octet ->
-        val value = octet.toIntOrNull()?.takeIf { parsed -> parsed in Ipv4OctetRange } ?: return null
-        (acc shl Byte.SIZE_BITS) or value
+    return if (octets.size == Ipv4OctetCount) {
+        octets.fold(0 as Int?) { acc, octet ->
+            val value = octet.toIntOrNull()?.takeIf { parsed -> parsed in Ipv4OctetRange }
+            if (acc != null && value != null) {
+                (acc shl Byte.SIZE_BITS) or value
+            } else {
+                null
+            }
+        }
+    } else {
+        null
     }
 }
 
 private const val Ipv4BitCount = 32
 private const val Ipv4OctetCount = 4
-private val Ipv4PrefixRange = 0..32
-private val Ipv4OctetRange = 0..255
+private const val CidrPartCount = 2
+private const val Ipv4PrefixMin = 0
+private const val Ipv4OctetMin = 0
+private const val Ipv4OctetMax = 255
+private val Ipv4PrefixRange = Ipv4PrefixMin..Ipv4BitCount
+private val Ipv4OctetRange = Ipv4OctetMin..Ipv4OctetMax
