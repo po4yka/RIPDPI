@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Geocoder
@@ -9,6 +10,9 @@ import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
+import android.telephony.CellIdentityGsm
+import android.telephony.CellIdentityLte
+import android.telephony.CellIdentityWcdma
 import android.telephony.CellInfo
 import android.telephony.CellInfoGsm
 import android.telephony.CellInfoLte
@@ -353,6 +357,7 @@ object LocationSignalsChecker {
     }
 
     @Suppress("DEPRECATION")
+    @SuppressLint("MissingPermission")
     private fun legacyGsmCellTower(tm: TelephonyManager): CellTowerSignal? {
         val operator = tm.networkOperator?.takeIf { it.length >= 4 && it.all(Char::isDigit) } ?: return null
         val location = runCatching { tm.cellLocation as? GsmCellLocation }.getOrNull() ?: return null
@@ -373,8 +378,8 @@ object LocationSignalsChecker {
                 val identity = info.cellIdentity
                 CellTowerSignal(
                     radio = "gsm",
-                    mcc = cellMcc(identity.mccString, identity.mcc),
-                    mnc = cellMnc(identity.mncString, identity.mnc),
+                    mcc = cellMcc(identity.mccStringCompat(), identity.mcc),
+                    mnc = cellMnc(identity.mncStringCompat(), identity.mnc),
                     areaCode = identity.lac.toValidLong() ?: return null,
                     cellId = identity.cid.toValidLong() ?: return null,
                     signalStrength = info.cellSignalStrength.dbm.toSignalStrength(),
@@ -385,8 +390,8 @@ object LocationSignalsChecker {
                 val identity = info.cellIdentity
                 CellTowerSignal(
                     radio = "lte",
-                    mcc = cellMcc(identity.mccString, identity.mcc),
-                    mnc = cellMnc(identity.mncString, identity.mnc),
+                    mcc = cellMcc(identity.mccStringCompat(), identity.mcc),
+                    mnc = cellMnc(identity.mncStringCompat(), identity.mnc),
                     areaCode = identity.tac.toValidLong() ?: return null,
                     cellId = identity.ci.toValidLong() ?: return null,
                     signalStrength = info.cellSignalStrength.dbm.toSignalStrength(),
@@ -397,8 +402,8 @@ object LocationSignalsChecker {
                 val identity = info.cellIdentity
                 CellTowerSignal(
                     radio = "wcdma",
-                    mcc = cellMcc(identity.mccString, identity.mcc),
-                    mnc = cellMnc(identity.mncString, identity.mnc),
+                    mcc = cellMcc(identity.mccStringCompat(), identity.mcc),
+                    mnc = cellMnc(identity.mncStringCompat(), identity.mnc),
                     areaCode = identity.lac.toValidLong() ?: return null,
                     cellId = identity.cid.toValidLong() ?: return null,
                     signalStrength = info.cellSignalStrength.dbm.toSignalStrength(),
@@ -436,6 +441,24 @@ object LocationSignalsChecker {
         mncString: String?,
         legacyMnc: Int,
     ): String = mncString?.takeIf { it.isDigitString() } ?: legacyMnc.toString()
+
+    private fun CellIdentityGsm.mccStringCompat(): String? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) mccString else null
+
+    private fun CellIdentityGsm.mncStringCompat(): String? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) mncString else null
+
+    private fun CellIdentityLte.mccStringCompat(): String? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) mccString else null
+
+    private fun CellIdentityLte.mncStringCompat(): String? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) mncString else null
+
+    private fun CellIdentityWcdma.mccStringCompat(): String? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) mccString else null
+
+    private fun CellIdentityWcdma.mncStringCompat(): String? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) mncString else null
 
     @Suppress("MissingPermission", "DEPRECATION")
     private fun collectWifiAccessPoints(context: Context): List<WifiAccessPointSignal> {

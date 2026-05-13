@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import android.annotation.SuppressLint
 import android.net.DnsResolver
 import android.net.Network
 import android.os.Build
@@ -201,14 +202,16 @@ class DohWireHttpsRrQuery(
 
 class AndroidSystemHttpsRrQuery(
     private val network: Network? = null,
-    private val resolverProvider: () -> DnsResolver = DnsResolver::getInstance,
+    private val resolverProvider: (() -> DnsResolver)? = null,
     private val executor: Executor = Executor { command -> command.run() },
 ) : HttpsRrQuery {
+    @SuppressLint("NewApi", "WrongConstant")
     override suspend fun query(host: String): List<HttpsRrRecord> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return emptyList()
+        val resolver = resolverProvider?.invoke() ?: DnsResolver.getInstance()
         val bytes =
             suspendCancellableCoroutine { continuation ->
-                resolverProvider().rawQuery(
+                resolver.rawQuery(
                     network,
                     host,
                     DnsResolver.CLASS_IN,
