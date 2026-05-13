@@ -103,22 +103,28 @@ class SelfInfoFetcher(
 
     companion object {
         private val AsnOrgPattern = Regex("""^(AS\d+)\s+(.+)$""", RegexOption.IGNORE_CASE)
+        private const val Ipv4PartCount = 4
 
-        fun parseOrg(org: String?): SelfInfoOrg {
-            val value = org?.trim()?.takeIf { it.isNotBlank() } ?: return SelfInfoOrg(asn = null, org = null)
-            val match = AsnOrgPattern.matchEntire(value)
-            if (match != null) {
-                return SelfInfoOrg(
-                    asn = match.groupValues[1].uppercase(Locale.US),
-                    org = match.groupValues[2].trim(),
-                )
-            }
-            return SelfInfoOrg(asn = null, org = value)
-        }
+        fun parseOrg(org: String?): SelfInfoOrg =
+            org
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?.let { value ->
+                    val match = AsnOrgPattern.matchEntire(value)
+                    if (match != null) {
+                        SelfInfoOrg(
+                            asn = match.groupValues[1].uppercase(Locale.US),
+                            org = match.groupValues[2].trim(),
+                        )
+                    } else {
+                        SelfInfoOrg(asn = null, org = value)
+                    }
+                }
+                ?: SelfInfoOrg(asn = null, org = null)
 
         fun maskIpForDisplay(ip: String): String {
             val parts = ip.split('.')
-            return if (parts.size == 4 && parts.all { it.isNotBlank() }) {
+            return if (parts.size == Ipv4PartCount && parts.all { it.isNotBlank() }) {
                 "${parts[0]}.${parts[1]}.xxx.xxx"
             } else {
                 "redacted"

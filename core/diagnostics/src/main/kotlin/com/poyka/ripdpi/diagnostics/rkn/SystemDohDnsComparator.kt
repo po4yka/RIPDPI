@@ -163,7 +163,7 @@ class CloudflareDohJsonResolver(
             connection.useCaches = false
             connection.setRequestProperty("Accept", "application/dns-json")
             try {
-                if (connection.responseCode !in 200..299) return@withContext emptySet()
+                if (connection.responseCode !in HttpSuccessStatusRange) return@withContext emptySet()
                 val body = connection.inputStream.bufferedReader().use { reader -> reader.readText() }
                 JSONObject(body)
                     .optJSONArray("Answer")
@@ -194,6 +194,7 @@ class CloudflareDohJsonResolver(
         private const val HttpTimeoutMs = 5_000
         private const val ARecordType = 1
         private const val Ipv4PartCount = 4
+        private val HttpSuccessStatusRange = 200..299
         private val Ipv4ByteRange = 0..255
     }
 }

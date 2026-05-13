@@ -143,28 +143,26 @@ object RknAggregateVerdictEngine {
         whitelist: List<RknCheckResult>,
         blacklist: List<RknCheckResult>,
     ): RknAggregateVerdict {
-        if (whitelist.isNotEmpty()) {
-            val whiteOk = whitelist.count { it.verdict == RknVerdict.OK }
-            if (whiteOk.toDouble() / whitelist.size < CONTROL_HEALTH_MIN) {
-                return RknAggregateVerdict.InconclusiveControlDown
-            }
-        }
-
+        val controlDown = whitelist.isNotEmpty() && whitelist.okRatio() < CONTROL_HEALTH_MIN
         val effectiveBlacklist = blacklist.filterNot { it.verdict == RknVerdict.TIMEOUT }
-        if (effectiveBlacklist.isEmpty()) {
-            return RknAggregateVerdict.InconclusiveAllTimeout
-        }
-
-        if (effectiveBlacklist.all { it.verdict == RknVerdict.OK }) {
-            return RknAggregateVerdict.NotBlockedOrVpn
-        }
-
         val blocked = effectiveBlacklist.filter { it.verdict.isBlockedVerdict() }
-        val blockedRatio = blocked.size.toDouble() / effectiveBlacklist.size
+        val blockedRatio = blocked.size.toDouble() / effectiveBlacklist.size.coerceAtLeast(1)
         val highConfidenceBlocked = blocked.count { it.confidence == RknConfidence.HIGH }
-        val highConfidenceRatio = highConfidenceBlocked.toDouble() / effectiveBlacklist.size
+        val highConfidenceRatio = highConfidenceBlocked.toDouble() / effectiveBlacklist.size.coerceAtLeast(1)
 
         return when {
+            controlDown -> {
+                RknAggregateVerdict.InconclusiveControlDown
+            }
+
+            effectiveBlacklist.isEmpty() -> {
+                RknAggregateVerdict.InconclusiveAllTimeout
+            }
+
+            effectiveBlacklist.all { it.verdict == RknVerdict.OK } -> {
+                RknAggregateVerdict.NotBlockedOrVpn
+            }
+
             blockedRatio >= BLOCKED_THRESHOLD && highConfidenceRatio >= HIGH_CONFIDENCE_THRESHOLD -> {
                 RknAggregateVerdict.InBlockedZoneHigh(
                     highConfidenceBlocked = highConfidenceBlocked,
@@ -185,6 +183,8 @@ object RknAggregateVerdictEngine {
             }
         }
     }
+
+    private fun List<RknCheckResult>.okRatio(): Double = count { it.verdict == RknVerdict.OK }.toDouble() / size
 
     fun blockTypes(blacklist: List<RknCheckResult>): Map<RknVerdict, Int> =
         blacklist

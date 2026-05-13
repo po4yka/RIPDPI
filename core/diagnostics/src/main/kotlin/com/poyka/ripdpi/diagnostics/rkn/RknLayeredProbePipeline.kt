@@ -131,93 +131,109 @@ class RknLayeredProbePipeline(
                 url = target.url,
                 tlsClientState = tlsClientStateProvider(),
             )
+        val dnsStage = runDnsStage(host, base)
+        return dnsStage.result ?: checkReachability(target = target, host = host, afterDns = dnsStage.builder)
+    }
 
-        val dns =
-            runCatching { dnsProbe.compare(host) }
-                .getOrElse { error ->
-                    return base
-                        .copy(
-                            verdict = RknVerdict.DOWN,
-                            confidence = RknConfidence.LOW,
-                            dnsError = error.message,
-                        ).build()
-                }
-        val afterDns = base.withDns(dns)
-        when (dns.verdict) {
+    private suspend fun runDnsStage(
+        host: String,
+        base: RknResultBuilder,
+    ): RknStageResult {
+        val dns = runCatching { dnsProbe.compare(host) }
+        val result =
+            dns.fold(
+                onSuccess = { comparison -> comparison.toTerminalDnsResult(base) },
+                onFailure = { error -> base.copy(verdict = RknVerdict.DOWN, dnsError = error.message).build() },
+            )
+        return RknStageResult(
+            builder = dns.getOrNull()?.let(base::withDns) ?: base,
+            result = result,
+        )
+    }
+
+    private fun DnsComparisonResult.toTerminalDnsResult(base: RknResultBuilder): RknCheckResult? {
+        val afterDns = base.withDns(this)
+        return when (verdict) {
             DnsComparisonVerdict.DNS_BLOCK -> {
-                return afterDns
-                    .copy(
-                        verdict = RknVerdict.DNS_BLOCK,
-                        confidence = RknConfidence.HIGH,
-                    ).build()
+                afterDns.copy(verdict = RknVerdict.DNS_BLOCK, confidence = RknConfidence.HIGH).build()
             }
 
             DnsComparisonVerdict.DOWN -> {
-                return afterDns
-                    .copy(
-                        verdict = RknVerdict.DOWN,
-                        confidence = RknConfidence.LOW,
-                    ).build()
+                afterDns.copy(verdict = RknVerdict.DOWN, confidence = RknConfidence.LOW).build()
             }
 
             DnsComparisonVerdict.DNS_REWRITE,
             DnsComparisonVerdict.OK,
             -> {
-                Unit
+                null
             }
-        }
-
-        val tcp =
-            runCatching { tcpProbe.connect(host, HttpsPort, timeoutMs) }
-                .getOrElse { error ->
-                    return afterDns.withTcpError(error).build()
-                }
-        val afterTcp = afterDns.withTcp(tcp)
-
-        val tls =
-            runCatching { tlsProbe.handshake(host, HttpsPort, timeoutMs) }
-                .getOrElse { error ->
-                    return afterTcp.withTlsError(error).build()
-                }
-        val afterTls = afterTcp.withTls(tls)
-
-        val http =
-            runCatching {
-                httpProbe.get(
-                    url = target.url,
-                    headers = RknProbeHeaders.build(identify = identifyProbeHeaders),
-                    timeoutMs = timeoutMs,
-                )
-            }.getOrElse { error ->
-                return afterTls.withHttpError(error).build()
-            }
-
-        val stub = stubPageDetector.detect(body = http.bodyPreview, statusCode = http.statusCode)
-        return if (stub.isStub) {
-            afterTls
-                .copy(
-                    verdict = RknVerdict.HTTP_STUB,
-                    confidence = RknConfidence.HIGH,
-                    statusCode = http.statusCode,
-                    pltMs = http.timeMs,
-                    notes =
-                        afterTls.notes +
-                            listOfNotNull(
-                                "HTTP stub page detected".takeIf { !stub.via451 },
-                                "HTTP 451 unavailable for legal reasons".takeIf { stub.via451 },
-                                stub.matchedMarker?.let { "Matched stub marker: $it" },
-                            ),
-                ).build()
-        } else {
-            afterTls
-                .copy(
-                    verdict = RknVerdict.OK,
-                    confidence = if (afterTls.dnsMismatch) RknConfidence.MEDIUM else RknConfidence.HIGH,
-                    statusCode = http.statusCode,
-                    pltMs = http.timeMs,
-                ).build()
         }
     }
+
+    private suspend fun checkReachability(
+        target: RknProbeTarget,
+        host: String,
+        afterDns: RknResultBuilder,
+    ): RknCheckResult {
+        val tcp = runCatching { tcpProbe.connect(host, HttpsPort, timeoutMs) }
+        val afterTcp = tcp.getOrNull()?.let(afterDns::withTcp)
+        val tls = afterTcp?.let { runCatching { tlsProbe.handshake(host, HttpsPort, timeoutMs) } }
+        val afterTls = tls?.getOrNull()?.let { result -> afterTcp.withTls(result) }
+        val http = afterTls?.let { runHttpProbe(target) }
+        return when {
+            tcp.isFailure -> afterDns.withTcpError(tcp.requireFailure()).build()
+            tls?.isFailure == true -> afterTcp.withTlsError(tls.requireFailure()).build()
+            http?.isFailure == true -> afterTls.withHttpError(http.requireFailure()).build()
+            else -> buildHttpResult(requireNotNull(afterTls), requireNotNull(http?.getOrNull()))
+        }
+    }
+
+    private suspend fun runHttpProbe(target: RknProbeTarget): Result<RknHttpProbeResult> =
+        runCatching {
+            httpProbe.get(
+                url = target.url,
+                headers = RknProbeHeaders.build(identify = identifyProbeHeaders),
+                timeoutMs = timeoutMs,
+            )
+        }
+
+    private fun buildHttpResult(
+        afterTls: RknResultBuilder,
+        http: RknHttpProbeResult,
+    ): RknCheckResult {
+        val stub = stubPageDetector.detect(body = http.bodyPreview, statusCode = http.statusCode)
+        return afterTls
+            .copy(
+                verdict = if (stub.isStub) RknVerdict.HTTP_STUB else RknVerdict.OK,
+                confidence = httpConfidence(afterTls, stub),
+                statusCode = http.statusCode,
+                pltMs = http.timeMs,
+                notes = afterTls.notes + stub.notes(),
+            ).build()
+    }
+
+    private fun httpConfidence(
+        afterTls: RknResultBuilder,
+        stub: RknStubDetection,
+    ): RknConfidence =
+        when {
+            stub.isStub -> RknConfidence.HIGH
+            afterTls.dnsMismatch -> RknConfidence.MEDIUM
+            else -> RknConfidence.HIGH
+        }
+
+    private fun RknStubDetection.notes(): List<String> =
+        if (isStub) {
+            listOfNotNull(
+                "HTTP stub page detected".takeIf { !via451 },
+                "HTTP 451 unavailable for legal reasons".takeIf { via451 },
+                matchedMarker?.let { "Matched stub marker: $it" },
+            )
+        } else {
+            emptyList()
+        }
+
+    private fun <T> Result<T>.requireFailure(): Throwable = requireNotNull(exceptionOrNull())
 
     fun iterCheckUrls(
         targets: List<RknProbeTarget>,
@@ -233,6 +249,11 @@ class RknLayeredProbePipeline(
                 }
             }
         }
+
+    private data class RknStageResult(
+        val builder: RknResultBuilder,
+        val result: RknCheckResult?,
+    )
 
     private data class RknResultBuilder(
         val name: String,
@@ -475,7 +496,7 @@ class OkHttpRknHttpProbe(
 private fun String.hostOrFallback(): String = URL(this).host
 
 private fun String.toHttpsProbeUrl(port: Int): String =
-    if (port == 443) {
+    if (port == StandardHttpsPort) {
         "https://$this/"
     } else {
         "https://$this:$port/"
@@ -485,3 +506,5 @@ private fun String?.containsReset(): Boolean =
     this
         ?.lowercase(Locale.ROOT)
         ?.contains("reset") == true
+
+private const val StandardHttpsPort = 443
