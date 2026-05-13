@@ -23,7 +23,7 @@ run_target() {
   echo "$target" | tee "$TARGET_FILE"
   echo "Running Android instrumentation target: $target"
 
-  ./gradlew :app:connectedDebugAndroidTest \
+  ./gradlew :app:connectedGithubDebugAndroidTest \
     "$GRADLE_ABI" \
     "$@"
 }
@@ -47,7 +47,7 @@ if ! run_target \
   exit 1
 fi
 
-./gradlew :app:createDebugAndroidTestCoverageReport "$GRADLE_ABI"
+./gradlew :app:createGithubDebugAndroidTestCoverageReport "$GRADLE_ABI"
 
 if [ "$event_name" = "workflow_dispatch" ] && [ "$run_maestro" = "true" ]; then
   mkdir -p "$RUNNER_TEMP/maestro"

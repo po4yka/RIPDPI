@@ -216,7 +216,7 @@ install_physical_indirect_builds() {
     install_log="$(mktemp)"
     set +e
     ANDROID_SERIAL="$android_serial" \
-    ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:installDebug :app:installDebugAndroidTest \
+    ./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest :app:installGithubDebug :app:installGithubDebugAndroidTest \
         "-Pripdpi.localNativeAbis=${gradle_abi}" >"$install_log" 2>&1
     status=$?
     set -e
@@ -488,7 +488,7 @@ if [[ "$device_profile" == "physical_indirect" ]]; then
     require_run_as
 else
     ANDROID_SERIAL="$android_serial" \
-    ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest "-Pripdpi.localNativeAbis=${gradle_abi}" >/dev/null
+    ./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest "-Pripdpi.localNativeAbis=${gradle_abi}" >/dev/null
 fi
 
 jq_selector='.[] | select(.lane == "android_proxy" or .lane == "android_vpn")'
@@ -539,7 +539,7 @@ for row in "${scenarios[@]}"; do
     else
         set +e
         ANDROID_SERIAL="$android_serial" \
-        ./gradlew :app:connectedDebugAndroidTest \
+        ./gradlew :app:connectedGithubDebugAndroidTest \
             "-Pripdpi.localNativeAbis=${gradle_abi}" \
             "-Pandroid.testInstrumentationRunnerArguments.class=${test_selector}" \
             "-Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=${fixture_android_host}" \

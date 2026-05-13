@@ -384,7 +384,7 @@ run_android_mode() {
     for class_name in "${android_test_classes[@]}"; do
         run_step \
             "connected test $class_name" \
-            env ANDROID_SERIAL="$android_serial" "$gradlew" :app:connectedDebugAndroidTest \
+            env ANDROID_SERIAL="$android_serial" "$gradlew" :app:connectedGithubDebugAndroidTest \
             "${android_gradle_args[@]}" \
             "-Pripdpi.localNativeAbis=$android_native_abi" \
             "-Pandroid.testInstrumentationRunnerArguments.class=$class_name" \

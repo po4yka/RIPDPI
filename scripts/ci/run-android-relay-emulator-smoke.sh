@@ -6,6 +6,6 @@ TARGET_CLASSES="com.poyka.ripdpi.integration.NativeBridgeInstrumentedTest,com.po
 
 bash scripts/ci/wait-for-android-package-manager.sh
 
-./gradlew :app:connectedDebugAndroidTest \
+./gradlew :app:connectedGithubDebugAndroidTest \
   "$GRADLE_ABI" \
   "-Pandroid.testInstrumentationRunnerArguments.class=$TARGET_CLASSES"

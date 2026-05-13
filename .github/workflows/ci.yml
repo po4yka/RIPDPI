@@ -1083,7 +1083,7 @@ jobs:
         env:
           RUSTC_WRAPPER: sccache
         run: |
-          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest \
+          ./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest \
             -Pripdpi.localNativeAbis=x86_64
 
       - name: Wait for emulator
