@@ -64,7 +64,7 @@ class DohBootstrapSpoofingDetector(
             }
         } catch (error: CancellationException) {
             throw error
-        } catch (error: IOException) {
+        } catch (_: IOException) {
             provider.result(BootstrapVerdict.RESOLVE_FAILED)
         }
 

@@ -37,7 +37,7 @@ class TlsCertSniDiscoverer(
         timeoutMs: Long = DefaultTimeoutMs,
     ): CertHostnameDiscovery =
         withContext(dispatcher) {
-            try {
+            runCatching {
                 val certificate = fetcher.fetch(ip, port, timeoutMs)
                 CertHostnameDiscovery(
                     ip = ip,
@@ -45,9 +45,8 @@ class TlsCertSniDiscoverer(
                     commonName = certificate.extractCommonName(),
                     subjectAltNames = certificate.extractDnsSubjectAltNames(),
                 )
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
+            }.getOrElse { error ->
+                error.throwIfCancellation()
                 CertHostnameDiscovery(
                     ip = ip,
                     port = port,
@@ -116,11 +115,10 @@ private fun X509Certificate.extractDnsSubjectAltNames(): List<String> =
         .distinctBy { hostname -> hostname.lowercase() }
         .toList()
 
-private fun List<*>.toDnsNameOrNull(): String? {
-    val type = getOrNull(0) as? Int ?: return null
-    if (type != GeneralNameDns) return null
-    return getOrNull(1) as? String
-}
+private fun List<*>.toDnsNameOrNull(): String? =
+    (getOrNull(0) as? Int)
+        ?.takeIf { type -> type == GeneralNameDns }
+        ?.let { getOrNull(1) as? String }
 
 private fun X509Certificate.extractCommonName(): String? =
     subjectX500Principal
@@ -129,33 +127,65 @@ private fun X509Certificate.extractCommonName(): String? =
 
 private fun extractCommonNameFromRfc2253(subject: String): String? {
     var index = 0
-    while (index < subject.length) {
-        val attributeStart = index
-        while (index < subject.length && subject[index] != '=') index += 1
-        if (index >= subject.length) return null
-        val key = subject.substring(attributeStart, index).trim()
+    var commonName: String? = null
+    while (index < subject.length && commonName == null) {
+        val attribute = subject.readRfc2253Attribute(index)
+        if (attribute == null) {
+            index = subject.length
+        } else {
+            commonName = attribute.commonNameValue()
+            index = attribute.nextIndex
+        }
+    }
+    return commonName
+}
+
+private fun String.readRfc2253Attribute(startIndex: Int): Rfc2253Attribute? {
+    var index = startIndex
+    while (index < length && this[index] != '=') index += 1
+    return if (index >= length) {
+        null
+    } else {
+        val key = substring(startIndex, index).trim()
         index += 1
         val valueStart = index
-        var escaped = false
-        while (index < subject.length) {
-            val char = subject[index]
-            when {
-                escaped -> escaped = false
-                char == '\\' -> escaped = true
-                char == ',' -> break
-            }
-            index += 1
-        }
-        if (key.equals("CN", ignoreCase = true)) {
-            return subject
-                .substring(valueStart, index)
-                .replace("\\,", ",")
-                .trim()
-                .ifBlank { null }
-        }
-        if (index < subject.length && subject[index] == ',') index += 1
+        index = findRfc2253ValueEnd(index)
+        val nextIndex = if (index < length && this[index] == ',') index + 1 else index
+        Rfc2253Attribute(
+            key = key,
+            value =
+                substring(valueStart, index)
+                    .replace("\\,", ",")
+                    .trim(),
+            nextIndex = nextIndex,
+        )
     }
-    return null
+}
+
+private fun String.findRfc2253ValueEnd(startIndex: Int): Int {
+    var index = startIndex
+    var escaped = false
+    while (index < length) {
+        val char = this[index]
+        when {
+            escaped -> escaped = false
+            char == '\\' -> escaped = true
+            char == ',' -> break
+        }
+        index += 1
+    }
+    return index
+}
+
+private data class Rfc2253Attribute(
+    val key: String,
+    val value: String,
+    val nextIndex: Int,
+) {
+    fun commonNameValue(): String? =
+        value
+            .takeIf { key.equals("CN", ignoreCase = true) }
+            ?.ifBlank { null }
 }
 
 private fun trustAllSocketFactory(): SSLSocketFactory {
@@ -176,6 +206,12 @@ private object TrustAllManager : X509TrustManager {
     ) = Unit
 
     override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+}
+
+private fun Throwable.throwIfCancellation() {
+    if (this is CancellationException) {
+        throw this
+    }
 }
 
 private const val GeneralNameDns = 2

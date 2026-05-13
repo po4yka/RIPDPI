@@ -95,11 +95,10 @@ class DpiProbeSuiteRunner(
                     ),
                 )
                 val result =
-                    try {
+                    runCatching {
                         block()
-                    } catch (error: CancellationException) {
-                        throw error
-                    } catch (error: Exception) {
+                    }.getOrElse { error ->
+                        error.throwIfCancellation()
                         DpiSuiteProbeResult.Failed(
                             kind = kind,
                             error = error.message ?: error.javaClass.simpleName,
@@ -194,11 +193,10 @@ class DpiProbeSuiteRunner(
         }
 
     private suspend fun collectStubIpsSilently(domains: List<String>): Set<String> =
-        try {
+        runCatching {
             probes.collectStubIpsSilently(domains, SilentStubIpTimeoutMs)
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
+        }.getOrElse { error ->
+            error.throwIfCancellation()
             emptySet()
         }
 
@@ -294,5 +292,11 @@ class DpiProbeSuiteRunner(
                 DpiProbeKind.TCP16,
                 DpiProbeKind.WHITELIST_SNI,
             )
+    }
+}
+
+private fun Throwable.throwIfCancellation() {
+    if (this is CancellationException) {
+        throw this
     }
 }
