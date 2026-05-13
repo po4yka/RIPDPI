@@ -377,7 +377,7 @@ class OkHttpTelegramDownloadClient(
                         .build()
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) throw IOException("download http ${response.code}")
-                    val buffer = ByteArray(64 * 1024)
+                    val buffer = ByteArray(DownloadBufferBytes)
                     response.body.byteStream().use { input ->
                         while (true) {
                             val read = input.read(buffer)
@@ -400,7 +400,7 @@ class OkHttpTelegramUploadClient(
                 val body =
                     CountingZeroRequestBody(
                         totalBytes = TelegramSpeedTest.UploadBytes,
-                        chunkBytes = 16 * 1024,
+                        chunkBytes = UploadChunkBytes,
                         onChunk = { bytes -> trySend(bytes) },
                     )
                 val request =
@@ -436,6 +436,9 @@ private class CountingZeroRequestBody(
         }
     }
 }
+
+private const val DownloadBufferBytes = 64 * 1_024
+private const val UploadChunkBytes = 16 * 1_024
 
 private fun defaultClient(): OkHttpClient =
     OkHttpClient

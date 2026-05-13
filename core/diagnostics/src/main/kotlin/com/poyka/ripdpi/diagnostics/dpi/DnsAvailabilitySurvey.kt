@@ -303,5 +303,8 @@ class OkHttpDohWireAvailabilityProbe(
 
 private fun isIpv4Literal(value: String): Boolean {
     val parts = value.split('.')
-    return parts.size == 4 && parts.all { part -> part.toIntOrNull() in 0..255 }
+    return parts.size == Ipv4PartCount && parts.all { part -> part.toIntOrNull() in Ipv4ByteRange }
 }
+
+private const val Ipv4PartCount = 4
+private val Ipv4ByteRange = 0..255

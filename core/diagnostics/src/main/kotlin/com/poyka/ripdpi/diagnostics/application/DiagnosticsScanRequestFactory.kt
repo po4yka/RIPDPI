@@ -405,15 +405,17 @@ private fun EngineScanRequestWire.withDiagnosticTlsKeylogPath(
                 !settings.detectionCheckDebugModeEnabled ||
                     settings.detectionCheckPrivacyModeEnabled ||
                     path.isBlank()
-            } ?: return this
+            }
     val validatedPath =
-        runCatching {
-            TlsKeylogPathValidator(appFilesDir).validate(configuredPath)
-        }.getOrElse { error ->
-            RequestFactoryLog.w(error) { "Rejected diagnostics TLS keylog path outside app storage" }
-            return this
+        configuredPath?.let { path ->
+            runCatching {
+                TlsKeylogPathValidator(appFilesDir).validate(path)
+            }.getOrElse { error ->
+                RequestFactoryLog.w(error) { "Rejected diagnostics TLS keylog path outside app storage" }
+                null
+            }
         }
-    return copy(diagnosticTlsKeylogPath = validatedPath)
+    return validatedPath?.let { path -> copy(diagnosticTlsKeylogPath = path) } ?: this
 }
 
 private fun resolveStrategyProbeRuntimeContext(
