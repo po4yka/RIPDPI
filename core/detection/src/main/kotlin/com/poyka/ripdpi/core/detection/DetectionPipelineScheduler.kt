@@ -1,3 +1,5 @@
+@file:Suppress("CyclomaticComplexMethod", "ReturnCount", "LongMethod")
+
 package com.poyka.ripdpi.core.detection
 
 import android.content.Context

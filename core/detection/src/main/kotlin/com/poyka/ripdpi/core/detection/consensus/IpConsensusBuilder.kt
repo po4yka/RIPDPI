@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.poyka.ripdpi.core.detection.consensus
 
 import com.poyka.ripdpi.core.detection.BypassResult

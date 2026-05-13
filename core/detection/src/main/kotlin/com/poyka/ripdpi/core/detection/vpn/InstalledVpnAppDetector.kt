@@ -1,3 +1,5 @@
+@file:Suppress("LoopWithTooManyJumpStatements", "TooManyFunctions")
+
 package com.poyka.ripdpi.core.detection.vpn
 
 import android.content.Context

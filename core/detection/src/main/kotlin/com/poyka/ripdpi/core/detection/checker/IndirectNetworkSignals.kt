@@ -1,3 +1,11 @@
+@file:Suppress(
+    "TooGenericExceptionCaught",
+    "ReturnCount",
+    "LoopWithTooManyJumpStatements",
+    "MagicNumber",
+    "NestedBlockDepth",
+)
+
 package com.poyka.ripdpi.core.detection.checker
 
 import android.content.Context

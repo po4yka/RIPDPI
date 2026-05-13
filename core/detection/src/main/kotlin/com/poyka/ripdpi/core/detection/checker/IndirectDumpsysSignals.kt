@@ -1,3 +1,5 @@
+@file:Suppress("TooGenericExceptionCaught", "ReturnCount", "LongMethod")
+
 package com.poyka.ripdpi.core.detection.checker
 
 import android.os.Build

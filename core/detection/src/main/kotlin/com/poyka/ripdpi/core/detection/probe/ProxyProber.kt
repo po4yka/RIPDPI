@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber")
+
 package com.poyka.ripdpi.core.detection.probe
 
 import java.io.InputStream

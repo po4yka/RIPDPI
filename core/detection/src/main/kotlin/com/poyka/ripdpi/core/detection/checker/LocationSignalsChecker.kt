@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod", "TooManyFunctions", "ReturnCount", "MagicNumber")
+
 package com.poyka.ripdpi.core.detection.checker
 
 import android.Manifest

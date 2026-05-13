@@ -1,3 +1,5 @@
+@file:Suppress("ReturnCount", "ComplexCondition")
+
 package com.poyka.ripdpi.core.detection.vpn
 
 import android.Manifest

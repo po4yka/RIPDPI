@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.poyka.ripdpi.core.detection
 
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusChannel

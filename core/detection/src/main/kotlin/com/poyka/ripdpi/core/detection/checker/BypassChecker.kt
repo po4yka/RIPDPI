@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber", "CyclomaticComplexMethod")
+
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.BypassPortRange

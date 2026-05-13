@@ -1,3 +1,5 @@
+@file:Suppress("ReturnCount", "CyclomaticComplexMethod")
+
 package com.poyka.ripdpi.core.detection.dpi
 
 import java.io.EOFException

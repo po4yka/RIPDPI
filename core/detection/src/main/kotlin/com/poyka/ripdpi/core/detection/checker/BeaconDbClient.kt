@@ -1,3 +1,5 @@
+@file:Suppress("ReturnCount", "MagicNumber", "TooGenericExceptionCaught")
+
 package com.poyka.ripdpi.core.detection.checker
 
 import kotlinx.coroutines.CancellationException

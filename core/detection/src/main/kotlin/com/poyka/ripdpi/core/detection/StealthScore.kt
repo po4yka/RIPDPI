@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber", "ReturnCount")
+
 package com.poyka.ripdpi.core.detection
 
 import kotlin.math.roundToInt

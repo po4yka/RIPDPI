@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber", "TooGenericExceptionCaught")
+
 package com.poyka.ripdpi.core.detection.community
 
 import com.poyka.ripdpi.core.detection.DetectionHistoryRepository

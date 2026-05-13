@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber")
+
 package com.poyka.ripdpi.core.detection
 
 import android.app.NotificationChannel

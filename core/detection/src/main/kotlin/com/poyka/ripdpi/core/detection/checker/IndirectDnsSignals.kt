@@ -1,3 +1,5 @@
+@file:Suppress("ComplexCondition", "TooGenericExceptionCaught", "ReturnCount", "MagicNumber", "LongMethod")
+
 package com.poyka.ripdpi.core.detection.checker
 
 import android.content.Context

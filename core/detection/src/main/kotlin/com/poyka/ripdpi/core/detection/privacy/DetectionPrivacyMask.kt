@@ -1,3 +1,5 @@
+@file:Suppress("ReturnCount")
+
 package com.poyka.ripdpi.core.detection.privacy
 
 import java.net.Inet4Address

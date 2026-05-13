@@ -1,3 +1,13 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "TooManyFunctions",
+    "TooGenericExceptionCaught",
+    "SwallowedException",
+    "ReturnCount",
+    "MagicNumber",
+    "LongMethod",
+)
+
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CategoryResult

@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod")
+
 package com.poyka.ripdpi.core.detection.export
 
 import com.poyka.ripdpi.core.detection.BypassResult

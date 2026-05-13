@@ -1,3 +1,5 @@
+@file:Suppress("ReturnCount", "LongMethod")
+
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.BypassResult

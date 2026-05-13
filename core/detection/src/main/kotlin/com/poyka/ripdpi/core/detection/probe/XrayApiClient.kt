@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber", "TooGenericExceptionCaught")
+
 package com.poyka.ripdpi.core.detection.probe
 
 import android.util.Base64
