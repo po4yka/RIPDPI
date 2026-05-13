@@ -83,4 +83,39 @@ class HiltViewModelApplicationContextTest {
 
         assertEquals(0, findings.size)
     }
+
+    @Test
+    fun `reports application context on dependency groups`() {
+        val findings =
+            subject.compileAndLint(
+                """
+                import android.content.Context
+                import dagger.hilt.android.qualifiers.ApplicationContext
+                import javax.inject.Inject
+
+                class SampleDependencies @Inject constructor(
+                    @ApplicationContext private val context: Context,
+                )
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+    }
+
+    @Test
+    fun `reports application on dependency groups`() {
+        val findings =
+            subject.compileAndLint(
+                """
+                import android.app.Application
+                import javax.inject.Inject
+
+                class SampleDependencies @Inject constructor(
+                    private val application: Application,
+                )
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+    }
 }

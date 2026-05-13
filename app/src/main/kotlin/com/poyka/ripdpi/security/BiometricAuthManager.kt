@@ -5,7 +5,9 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.suspendCancellableCoroutine
+import javax.inject.Inject
 import kotlin.coroutines.resume
 
 sealed interface BiometricAuthResult {
@@ -82,3 +84,19 @@ class BiometricAuthManager {
         const val AUTHENTICATORS = BiometricManager.Authenticators.BIOMETRIC_STRONG
     }
 }
+
+interface BiometricCapabilityChecker {
+    fun canAuthenticate(): Int
+}
+
+class AndroidBiometricCapabilityChecker
+    @Inject
+    constructor(
+        @param:ApplicationContext private val context: Context,
+    ) : BiometricCapabilityChecker {
+        override fun canAuthenticate(): Int = BiometricManager.from(context).canAuthenticate(AUTHENTICATORS)
+
+        private companion object {
+            const val AUTHENTICATORS = BiometricManager.Authenticators.BIOMETRIC_STRONG
+        }
+    }

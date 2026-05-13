@@ -11,6 +11,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 import javax.inject.Inject
 
 class DiagnosticsInteractionDependencies
@@ -27,8 +28,16 @@ class DiagnosticsContextDependencies
     @Inject
     constructor(
         val appSettingsRepository: AppSettingsRepository,
-        @param:ApplicationContext val appContext: Context,
         val rememberedPolicySource: DiagnosticsRememberedPolicySource,
         val activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource,
         val serviceStateStore: ServiceStateStore,
     )
+
+internal class DiagnosticsFiles
+    @Inject
+    constructor(
+        @param:ApplicationContext private val context: Context,
+    ) {
+        val appFilesDir: File
+            get() = context.filesDir
+    }

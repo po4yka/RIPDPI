@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -11,32 +12,33 @@ import org.robolectric.RuntimeEnvironment
 @RunWith(RobolectricTestRunner::class)
 class DiagnosticsUiCommonSupportTest {
     private val context = RuntimeEnvironment.getApplication()
+    private val stringResolver = AndroidStringResolver(context)
 
     @Test
     fun `remembered policy source labels cover full taxonomy`() {
         assertEquals(
             context.getString(R.string.diagnostics_source_manual_session),
-            RememberedNetworkPolicySource.MANUAL_SESSION.displaySourceLabel(context),
+            RememberedNetworkPolicySource.MANUAL_SESSION.displaySourceLabel(stringResolver),
         )
         assertEquals(
             context.getString(R.string.diagnostics_source_automatic_probing_background),
-            RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND.displaySourceLabel(context),
+            RememberedNetworkPolicySource.AUTOMATIC_PROBING_BACKGROUND.displaySourceLabel(stringResolver),
         )
         assertEquals(
             context.getString(R.string.diagnostics_source_automatic_probing_manual),
-            RememberedNetworkPolicySource.AUTOMATIC_PROBING_MANUAL.displaySourceLabel(context),
+            RememberedNetworkPolicySource.AUTOMATIC_PROBING_MANUAL.displaySourceLabel(stringResolver),
         )
         assertEquals(
             context.getString(R.string.diagnostics_source_automatic_audit_manual),
-            RememberedNetworkPolicySource.AUTOMATIC_AUDIT_MANUAL.displaySourceLabel(context),
+            RememberedNetworkPolicySource.AUTOMATIC_AUDIT_MANUAL.displaySourceLabel(stringResolver),
         )
         assertEquals(
             context.getString(R.string.diagnostics_source_strategy_probe_manual),
-            RememberedNetworkPolicySource.STRATEGY_PROBE_MANUAL.displaySourceLabel(context),
+            RememberedNetworkPolicySource.STRATEGY_PROBE_MANUAL.displaySourceLabel(stringResolver),
         )
         assertEquals(
             context.getString(R.string.diagnostics_source_unknown),
-            RememberedNetworkPolicySource.UNKNOWN.displaySourceLabel(context),
+            RememberedNetworkPolicySource.UNKNOWN.displaySourceLabel(stringResolver),
         )
     }
 }

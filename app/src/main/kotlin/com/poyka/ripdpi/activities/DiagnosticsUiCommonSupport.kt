@@ -2,7 +2,6 @@
 
 package com.poyka.ripdpi.activities
 
-import android.content.Context
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
@@ -18,6 +17,7 @@ import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
 import com.poyka.ripdpi.diagnostics.resolveLegalSafetyPolicy
+import com.poyka.ripdpi.platform.StringResolver
 import java.util.Locale
 import com.poyka.ripdpi.data.displayLabel as displayNetworkLabel
 import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
@@ -160,7 +160,7 @@ private val connectivityPhaseOrder =
     listOf("dns", "reachability", "quic", "tcp", "service", "circumvention", "telegram", "throughput")
 private val strategyProbePhaseOrder = listOf("tcp", "quic")
 
-private fun String.toPhaseLabel(ctx: Context): String =
+private fun String.toPhaseLabel(ctx: StringResolver): String =
     when (this) {
         "dns" -> ctx.getString(R.string.diagnostics_phase_dns)
         "reachability" -> ctx.getString(R.string.diagnostics_phase_reach)
@@ -267,7 +267,7 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
 internal fun scanCompletedTone(latestSession: DiagnosticsSessionRowUiModel?): DiagnosticsTone =
     latestSession?.tone ?: DiagnosticsTone.Neutral
 
-internal fun String.displayStatusLabel(ctx: Context): String =
+internal fun String.displayStatusLabel(ctx: StringResolver): String =
     when (lowercase(Locale.US)) {
         "validated" -> ctx.getString(R.string.diagnostics_status_validated)
         "suppressed" -> ctx.getString(R.string.diagnostics_status_suppressed)
@@ -281,7 +281,7 @@ internal fun String.statusTone(): DiagnosticsTone =
         else -> DiagnosticsTone.Info
     }
 
-internal fun RememberedNetworkPolicySource.displaySourceLabel(ctx: Context): String =
+internal fun RememberedNetworkPolicySource.displaySourceLabel(ctx: StringResolver): String =
     when (this) {
         RememberedNetworkPolicySource.MANUAL_SESSION -> {
             ctx.getString(R.string.diagnostics_source_manual_session)
@@ -308,7 +308,7 @@ internal fun RememberedNetworkPolicySource.displaySourceLabel(ctx: Context): Str
         }
     }
 
-internal fun DiagnosticsScanLaunchOrigin.displayLabel(ctx: Context): String =
+internal fun DiagnosticsScanLaunchOrigin.displayLabel(ctx: StringResolver): String =
     when (this) {
         DiagnosticsScanLaunchOrigin.USER_INITIATED -> {
             ctx.getString(R.string.diagnostics_scan_launch_user_initiated)
@@ -327,13 +327,13 @@ internal fun DiagnosticsScanLaunchOrigin.displayLabel(ctx: Context): String =
         }
     }
 
-internal fun DiagnosticsScanTriggerType.displayLabel(ctx: Context): String =
+internal fun DiagnosticsScanTriggerType.displayLabel(ctx: StringResolver): String =
     when (this) {
         DiagnosticsScanTriggerType.POLICY_HANDOVER -> ctx.getString(R.string.diagnostics_scan_trigger_policy_handover)
         DiagnosticsScanTriggerType.UNKNOWN -> ctx.getString(R.string.diagnostics_scan_trigger_unknown)
     }
 
-internal fun DiagnosticsScanLaunchTrigger.displaySummaryLabel(ctx: Context): String? {
+internal fun DiagnosticsScanLaunchTrigger.displaySummaryLabel(ctx: StringResolver): String? {
     val classificationLabel = classification?.displayTriggerClassification()
     return when (type) {
         DiagnosticsScanTriggerType.POLICY_HANDOVER -> {

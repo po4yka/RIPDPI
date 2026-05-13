@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Context
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpich.ByohConfig
 import com.poyka.ripdpi.diagnostics.dpich.ByohCsvExporter
@@ -22,7 +21,7 @@ import kotlinx.coroutines.withContext
 
 internal class DiagnosticsByohCompatibilityController(
     private val scope: CoroutineScope,
-    private val appContext: Context,
+    private val assetLoader: DpiAssetLoader,
     private val checker: ByohDomainCompatibilityChecker = ByohDomainCompatibilityChecker(),
 ) {
     private val _tool = MutableStateFlow(DiagnosticsByohCompatibilityToolUiModel())
@@ -145,11 +144,10 @@ internal class DiagnosticsByohCompatibilityController(
 
     private suspend fun loadDomains(useSyntheticFixture: Boolean): List<String> =
         withContext(Dispatchers.IO) {
-            val loader = DpiAssetLoader(appContext)
             if (useSyntheticFixture) {
-                loader.loadByohSyntheticDomains()
+                assetLoader.loadByohSyntheticDomains()
             } else {
-                loader.loadDomains()
+                assetLoader.loadDomains()
             }
         }
 

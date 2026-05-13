@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -22,6 +23,7 @@ class HistoryViewModelTest {
     private val connectionDetailUiFactory =
         HistoryConnectionDetailUiFactory(
             context = ApplicationProvider.getApplicationContext(),
+            stringResolver = AndroidStringResolver(ApplicationProvider.getApplicationContext()),
             coreSupport = coreSupport,
         )
     private val uiStateFactory =

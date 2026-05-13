@@ -12,4 +12,8 @@ abstract class SecurityModule {
     @Binds
     @Singleton
     abstract fun bindPinVerifier(impl: KeystorePinVerifier): PinVerifier
+
+    @Binds
+    @Singleton
+    abstract fun bindBiometricCapabilityChecker(impl: AndroidBiometricCapabilityChecker): BiometricCapabilityChecker
 }

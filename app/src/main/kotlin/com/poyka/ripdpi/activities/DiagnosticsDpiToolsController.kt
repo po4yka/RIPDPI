@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniFinder
@@ -49,7 +48,6 @@ private const val DnsIntegrityPreviewDomainLimit = 5
 
 internal class DiagnosticsDpiToolsController(
     private val scope: CoroutineScope,
-    private val appContext: Context,
     private val appSettingsRepository: AppSettingsRepository,
     private val dnsIntegrityChecker: DnsIntegrityChecker = DnsIntegrityChecker(),
     private val dnsAvailabilitySurvey: DnsAvailabilitySurvey = DnsAvailabilitySurvey(),
@@ -58,6 +56,7 @@ internal class DiagnosticsDpiToolsController(
     private val httpCompressionProber: HttpCompressionProber = HttpCompressionProber(),
     private val rknLayeredProbePipeline: RknLayeredProbePipeline = RknLayeredProbePipeline(),
     private val selfInfoFetcher: SelfInfoFetcher,
+    private val assetLoader: DpiAssetLoader,
 ) {
     private val _dnsIntegrityTool = MutableStateFlow(DiagnosticsDnsIntegrityToolUiModel())
     val dnsIntegrityTool: StateFlow<DiagnosticsDnsIntegrityToolUiModel> = _dnsIntegrityTool.asStateFlow()
@@ -89,7 +88,7 @@ internal class DiagnosticsDpiToolsController(
     private val byohCompatibilityController =
         DiagnosticsByohCompatibilityController(
             scope = scope,
-            appContext = appContext,
+            assetLoader = assetLoader,
         )
     val byohCompatibilityTool: StateFlow<DiagnosticsByohCompatibilityToolUiModel> =
         byohCompatibilityController.tool
@@ -408,7 +407,7 @@ internal class DiagnosticsDpiToolsController(
 
     private suspend fun loadDomains(limit: Int?): List<String> =
         withContext(Dispatchers.IO) {
-            val domains = DpiAssetLoader(appContext).loadDomains()
+            val domains = assetLoader.loadDomains()
             if (limit == null) {
                 domains
             } else {
@@ -418,18 +417,18 @@ internal class DiagnosticsDpiToolsController(
 
     private suspend fun loadRknWhitelistControl(): List<RknTarget> =
         withContext(Dispatchers.IO) {
-            DpiAssetLoader(appContext).loadRknWhitelistControl()
+            assetLoader.loadRknWhitelistControl()
         }
 
     private suspend fun loadRknBlacklistTest(): List<RknTarget> =
         withContext(Dispatchers.IO) {
-            DpiAssetLoader(appContext).loadRknBlacklistTest()
+            assetLoader.loadRknBlacklistTest()
         }
 
     private suspend fun loadCompressionProbeTarget(): String =
         withContext(Dispatchers.IO) {
             val domain =
-                DpiAssetLoader(appContext)
+                assetLoader
                     .loadDomains()
                     .firstOrNull()
                     ?: error("No bundled DPI domains are available.")
@@ -438,12 +437,12 @@ internal class DiagnosticsDpiToolsController(
 
     private suspend fun loadTcp16Targets(): List<Tcp16Target> =
         withContext(Dispatchers.IO) {
-            DpiAssetLoader(appContext).loadTcp16Targets()
+            assetLoader.loadTcp16Targets()
         }
 
     private suspend fun loadWhitelistSni(): List<String> =
         withContext(Dispatchers.IO) {
-            DpiAssetLoader(appContext).loadWhitelistSni()
+            assetLoader.loadWhitelistSni()
         }
 }
 

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -64,6 +65,10 @@ class HistoryRouteTest {
                     connectionDetailUiFactory =
                         HistoryConnectionDetailUiFactory(
                             context = ApplicationProvider.getApplicationContext(),
+                            stringResolver =
+                                AndroidStringResolver(
+                                    ApplicationProvider.getApplicationContext(),
+                                ),
                             coreSupport = coreSupport,
                         ),
                 ),

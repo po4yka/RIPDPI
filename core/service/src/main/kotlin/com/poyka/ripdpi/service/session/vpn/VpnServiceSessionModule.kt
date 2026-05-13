@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.service.session.vpn
 
 import android.net.VpnService
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
@@ -27,7 +28,6 @@ import com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import kotlinx.coroutines.Dispatchers
 import java.io.File
 
 @Module
@@ -84,14 +84,16 @@ internal object VpnServiceSessionModule {
     fun provideVpnUpstreamRelaySupervisor(
         host: VpnCoordinatorHost,
         factory: UpstreamRelaySupervisorFactory,
-    ): UpstreamRelaySupervisor = factory.create(scope = host.serviceScope, dispatcher = Dispatchers.IO)
+        dispatchers: AppCoroutineDispatchers,
+    ): UpstreamRelaySupervisor = factory.create(scope = host.serviceScope, dispatcher = dispatchers.io)
 
     @Provides
     @ServiceSessionScope
     fun provideVpnWarpRuntimeSupervisor(
         host: VpnCoordinatorHost,
         factory: WarpRuntimeSupervisorFactory,
-    ): WarpRuntimeSupervisor = factory.create(scope = host.serviceScope, dispatcher = Dispatchers.IO)
+        dispatchers: AppCoroutineDispatchers,
+    ): WarpRuntimeSupervisor = factory.create(scope = host.serviceScope, dispatcher = dispatchers.io)
 
     @Provides
     @ServiceSessionScope
@@ -99,10 +101,11 @@ internal object VpnServiceSessionModule {
         host: VpnCoordinatorHost,
         factory: ProxyRuntimeSupervisorFactory,
         dependencies: VpnServiceRuntimeRuntimeDependencies,
+        dispatchers: AppCoroutineDispatchers,
     ): ProxyRuntimeSupervisor =
         factory.create(
             scope = host.serviceScope,
-            dispatcher = Dispatchers.IO,
+            dispatcher = dispatchers.io,
             networkSnapshotProvider = dependencies.networkSnapshotProvider,
         )
 

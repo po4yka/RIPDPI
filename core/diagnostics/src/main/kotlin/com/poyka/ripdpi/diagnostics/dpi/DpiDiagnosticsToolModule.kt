@@ -17,6 +17,7 @@ import com.poyka.ripdpi.diagnostics.dpich.OkHttpWebhostProbe
 import com.poyka.ripdpi.diagnostics.dpich.RipeStatClient
 import com.poyka.ripdpi.diagnostics.dpich.RuntimeSubnetMetadataLookup
 import com.poyka.ripdpi.diagnostics.dpich.SubnetsCache
+import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
 import com.poyka.ripdpi.diagnostics.dpich.WebhostFarm
 import com.poyka.ripdpi.diagnostics.dpich.loadDohProviderFilters
 import com.poyka.ripdpi.diagnostics.rkn.HttpClientRknTlsProbe
@@ -132,4 +133,10 @@ object DpichDiagnosticsToolModule {
     @Provides
     fun provideSelfInfoFetcher(tlsClientFactory: DiagnosticsHttpClientFactory): SelfInfoFetcher =
         SelfInfoFetcher(clientBuilder = tlsClientFactory::createClient)
+
+    @Provides
+    fun provideTlsKeylogRunFinalizer(): TlsKeylogRunFinalizer = TlsKeylogRunFinalizer()
+
+    @Provides
+    fun provideEchTlsHandshake(): EchTlsHandshake = NativeEchTlsHandshake()
 }

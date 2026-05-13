@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -14,6 +15,7 @@ class HistoryDetailLoaderTest {
     private val connectionDetailUiFactory =
         HistoryConnectionDetailUiFactory(
             context = ApplicationProvider.getApplicationContext(),
+            stringResolver = AndroidStringResolver(ApplicationProvider.getApplicationContext()),
             coreSupport = DiagnosticsUiCoreSupport(),
         )
 

@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniFinder
@@ -27,7 +26,6 @@ import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.EchReadinessProbe
 import com.poyka.ripdpi.diagnostics.dpi.EchTlsHandshake
 import com.poyka.ripdpi.diagnostics.dpi.FixtureBackedQuicFingerprintFactory
-import com.poyka.ripdpi.diagnostics.dpi.NativeEchTlsHandshake
 import com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint
 import com.poyka.ripdpi.diagnostics.dpi.QuicH3FingerprintProbe
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
@@ -64,14 +62,15 @@ private const val DpiSuiteMaxConcurrency = 250
 
 internal class DiagnosticsDpiSuiteController(
     private val scope: CoroutineScope,
-    private val appContext: Context,
     private val appSettingsRepository: AppSettingsRepository,
     private val dnsIntegrityChecker: DnsIntegrityChecker,
     private val dnsAvailabilitySurvey: DnsAvailabilitySurvey,
     private val domainReachabilityScanner: DomainReachabilityScanner,
     private val tcp16FatHeaderProbe: Tcp16FatHeaderProbe,
-    private val tlsKeylogRunFinalizer: TlsKeylogRunFinalizer = TlsKeylogRunFinalizer(),
-    private val echTlsHandshake: EchTlsHandshake = NativeEchTlsHandshake(),
+    private val assetLoader: DpiAssetLoader,
+    private val diagnosticsFiles: DiagnosticsFiles,
+    private val tlsKeylogRunFinalizer: TlsKeylogRunFinalizer,
+    private val echTlsHandshake: EchTlsHandshake,
 ) {
     private val _tool = MutableStateFlow(DiagnosticsDpiSuiteToolUiModel())
     val tool: StateFlow<DiagnosticsDpiSuiteToolUiModel> = _tool.asStateFlow()
@@ -183,31 +182,31 @@ internal class DiagnosticsDpiSuiteController(
 
     private suspend fun loadDomains(): List<String> =
         withContext(Dispatchers.IO) {
-            DpiAssetLoader(appContext).loadDomains()
+            assetLoader.loadDomains()
         }
 
     private suspend fun loadTcp16Targets(): List<Tcp16Target> =
         withContext(Dispatchers.IO) {
-            DpiAssetLoader(appContext).loadTcp16Targets()
+            assetLoader.loadTcp16Targets()
         }
 
     private suspend fun loadWhitelistSni(): List<String> =
         withContext(Dispatchers.IO) {
-            DpiAssetLoader(appContext).loadWhitelistSni()
+            assetLoader.loadWhitelistSni()
         }
 
     private suspend fun loadEchTargets(): List<String> =
         withContext(Dispatchers.IO) {
-            DpiAssetLoader(appContext).loadEchTargets()
+            assetLoader.loadEchTargets()
         }
 
     private suspend fun loadQuicFingerprintFixtures(): Map<QuicFingerprint, ByteArray> =
         withContext(Dispatchers.IO) {
-            DpiAssetLoader(appContext).loadQuicFingerprintFixtures()
+            assetLoader.loadQuicFingerprintFixtures()
         }
 
     private suspend fun finalizeTlsKeylogRun(settings: AppSettings) {
-        val path = settings.effectiveDiagnosticTlsKeylogPath(appFilesDir = appContext.filesDir) ?: return
+        val path = settings.effectiveDiagnosticTlsKeylogPath(appFilesDir = diagnosticsFiles.appFilesDir) ?: return
         withContext(NonCancellable + Dispatchers.IO) {
             tlsKeylogRunFinalizer.finishRun(path)
         }

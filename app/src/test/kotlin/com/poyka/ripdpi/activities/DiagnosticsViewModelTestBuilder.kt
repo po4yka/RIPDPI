@@ -19,6 +19,9 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
+import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
+import com.poyka.ripdpi.diagnostics.dpi.EchTlsHandshake
+import com.poyka.ripdpi.diagnostics.dpi.EchTlsHandshakeResult
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
@@ -27,8 +30,10 @@ import com.poyka.ripdpi.diagnostics.dpich.RipeStatPrefixSource
 import com.poyka.ripdpi.diagnostics.dpich.SubnetAliveProbe
 import com.poyka.ripdpi.diagnostics.dpich.SubnetAliveProbeResult
 import com.poyka.ripdpi.diagnostics.dpich.SubnetsCache
+import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,7 +52,7 @@ internal fun createDiagnosticsViewModel(
     rememberedPolicySource: DiagnosticsRememberedPolicySource = EmptyRememberedNetworkPolicySource(),
     activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource = EmptyActiveConnectionPolicySource(),
     serviceStateStore: ServiceStateStore = DefaultServiceStateStore(),
-    probeDependencies: DiagnosticsProbeDependencies = defaultDiagnosticsProbeDependencies(),
+    probeDependencies: DiagnosticsProbeDependencies = defaultDiagnosticsProbeDependencies(appContext),
     autoStartScan: Boolean = false,
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
@@ -82,7 +87,6 @@ internal fun createDiagnosticsViewModel(
             diagnosticsContextDependencies =
                 DiagnosticsContextDependencies(
                     appSettingsRepository = appSettingsRepository,
-                    appContext = appContext,
                     rememberedPolicySource = rememberedPolicySource,
                     activeConnectionPolicySource = activeConnectionPolicySource,
                     serviceStateStore = serviceStateStore,
@@ -90,6 +94,8 @@ internal fun createDiagnosticsViewModel(
             diagnosticsViewModelBootstrapper = DiagnosticsViewModelBootstrapper(diagnosticsBootstrapper),
             appSettingsRepository = appSettingsRepository,
             probeDependencies = probeDependencies,
+            diagnosticsFiles = DiagnosticsFiles(appContext),
+            stringResolver = AndroidStringResolver(appContext),
             diagnosticsUiStateAssembler =
                 DiagnosticsUiStateAssembler(
                     uiStateFactory = uiStateFactory,
@@ -128,7 +134,7 @@ internal fun createDiagnosticsViewModel(
         initialize = initialize,
     )
 
-private fun defaultDiagnosticsProbeDependencies(): DiagnosticsProbeDependencies =
+private fun defaultDiagnosticsProbeDependencies(appContext: Context): DiagnosticsProbeDependencies =
     DiagnosticsProbeDependencies(
         dnsIntegrityChecker = DnsIntegrityChecker(),
         domainReachabilityScanner = DomainReachabilityScanner(),
@@ -139,7 +145,17 @@ private fun defaultDiagnosticsProbeDependencies(): DiagnosticsProbeDependencies 
         cidrWhitelistDetector = CidrWhitelistDetector(emptyList(), emptyList()),
         ipv4WhitelistedSubnetDiscoverer = emptyIpv4WhitelistedSubnetDiscoverer(),
         tcp16FatHeaderProbe = Tcp16FatHeaderProbe(),
+        assetLoader = DpiAssetLoader(appContext),
+        tlsKeylogRunFinalizer = TlsKeylogRunFinalizer(),
+        echTlsHandshake = StubEchTlsHandshake,
     )
+
+private object StubEchTlsHandshake : EchTlsHandshake {
+    override suspend fun connect(
+        target: String,
+        echConfig: ByteArray,
+    ): EchTlsHandshakeResult = EchTlsHandshakeResult(negotiatedEch = false, latencyMs = null)
+}
 
 private class EmptyRememberedNetworkPolicySource : DiagnosticsRememberedPolicySource {
     private val policies = MutableStateFlow<List<DiagnosticsRememberedPolicy>>(emptyList())

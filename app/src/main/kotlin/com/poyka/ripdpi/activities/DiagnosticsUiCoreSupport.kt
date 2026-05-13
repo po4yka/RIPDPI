@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Context
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.diagnostics.BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary
@@ -13,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.ownedStackBrowserLaunchUrl
 import kotlinx.collections.immutable.toImmutableList
 import java.time.Instant
@@ -124,7 +124,7 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
 }
 
 internal fun DiagnosticsUiCoreSupport.displaySessionSummary(
-    context: Context?,
+    context: StringResolver?,
     session: DiagnosticScanSession,
 ): String =
     if (session.summary == BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary && context != null) {

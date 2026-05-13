@@ -52,6 +52,7 @@ import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineStart
@@ -1778,7 +1779,7 @@ class DiagnosticsViewModelTest {
                                     persistable = true,
                                 ),
                         ),
-                    context = appContext,
+                    stringResolver = AndroidStringResolver(appContext),
                 )
             assertEquals(
                 "DNS replies looked different on this network. Switch DNS to Cloudflare.",

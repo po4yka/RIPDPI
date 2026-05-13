@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.app.Application
 import com.poyka.ripdpi.core.detection.community.CommunityComparisonStore
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
@@ -32,7 +31,6 @@ class SettingsUiDependencies
         val warpPayloadGenCatalog: WarpPayloadGenCatalog,
         val networkSnapshotProvider: NativeNetworkSnapshotProvider,
         val enginePlatformCapabilities: EnginePlatformCapabilities,
-        val application: Application,
     )
 
 class SettingsActionDependencies

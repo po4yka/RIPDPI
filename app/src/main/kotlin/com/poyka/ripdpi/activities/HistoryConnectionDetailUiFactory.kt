@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.rttBand
 import com.poyka.ripdpi.diagnostics.winningStrategyFamily
+import com.poyka.ripdpi.platform.StringResolver
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Locale
 import javax.inject.Inject
@@ -18,6 +19,7 @@ internal class HistoryConnectionDetailUiFactory
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        private val stringResolver: StringResolver,
         private val coreSupport: DiagnosticsUiCoreSupport,
     ) {
         fun toConnectionRowUiModel(session: DiagnosticConnectionSession): HistoryConnectionRowUiModel {
@@ -237,7 +239,7 @@ internal class HistoryConnectionDetailUiFactory
                     add(
                         DiagnosticsFieldUiModel(
                             context.getString(R.string.history_connection_remembered_policy_source),
-                            audit.source.displaySourceLabel(context),
+                            audit.source.displaySourceLabel(stringResolver),
                         ),
                     )
                     if (audit.appliedByExactMatch) {

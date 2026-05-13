@@ -3,7 +3,7 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.WarpPayloadGenSuggestion
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.security.BiometricAuthManager
+import com.poyka.ripdpi.security.BiometricCapabilityChecker
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 import com.poyka.ripdpi.settings.state.toUiState
 import com.poyka.ripdpi.ui.state.SettingsUiState
@@ -30,9 +30,9 @@ internal data class SettingsUiStateAssemblySnapshot(
 
 internal class SettingsUiStateAssembler
     @Inject
-    constructor() {
-        private val biometricAuthManager = BiometricAuthManager()
-
+    constructor(
+        private val biometricCapabilityChecker: BiometricCapabilityChecker,
+    ) {
         fun assemble(
             scope: CoroutineScope,
             settingsUiDependencies: SettingsUiDependencies,
@@ -69,8 +69,7 @@ internal class SettingsUiStateAssembler
                 serviceTelemetry = serviceTelemetry,
                 rememberedNetworkCount = rememberedNetworkCount,
                 hostAutolearnStorePresent = settingsUiDependencies.hostAutolearnStoreController.hasStore(),
-                biometricAvailability =
-                    biometricAuthManager.canAuthenticate(settingsUiDependencies.application),
+                biometricAvailability = biometricCapabilityChecker.canAuthenticate(),
                 routingProtectionSnapshot =
                     settingsUiDependencies.routingProtectionCatalogService.snapshot(),
                 warpSuggestion =

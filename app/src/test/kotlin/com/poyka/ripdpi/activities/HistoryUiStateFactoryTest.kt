@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -15,6 +16,7 @@ class HistoryUiStateFactoryTest {
             connectionDetailUiFactory =
                 HistoryConnectionDetailUiFactory(
                     context = ApplicationProvider.getApplicationContext(),
+                    stringResolver = AndroidStringResolver(ApplicationProvider.getApplicationContext()),
                     coreSupport = DiagnosticsUiCoreSupport(),
                 ),
         )

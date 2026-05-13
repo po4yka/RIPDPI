@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import androidx.biometric.BiometricManager
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.NativeCellularSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
@@ -8,6 +9,7 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.WarpPayloadGenCatalog
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
+import com.poyka.ripdpi.security.BiometricCapabilityChecker
 import com.poyka.ripdpi.services.EnginePlatformCapabilities
 import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
@@ -64,9 +66,8 @@ class SettingsUiStateAssemblerTest {
                             ),
                         ),
                     enginePlatformCapabilities = FakeEnginePlatformCapabilities(),
-                    application = ApplicationProvider.getApplicationContext(),
                 )
-            val assembler = SettingsUiStateAssembler()
+            val assembler = SettingsUiStateAssembler(FakeBiometricCapabilityChecker())
             val assemblySnapshot =
                 assembler.buildAssemblySnapshot(
                     settings = settingsUiDependencies.appSettingsRepository.snapshot(),
@@ -103,6 +104,10 @@ private class FakeHostAutolearnStoreController(
 
 private class FakeEnginePlatformCapabilities : EnginePlatformCapabilities {
     override fun seqovlSupported(): Boolean = true
+}
+
+private class FakeBiometricCapabilityChecker : BiometricCapabilityChecker {
+    override fun canAuthenticate(): Int = BiometricManager.BIOMETRIC_SUCCESS
 }
 
 private class SnapshotRoutingProtectionCatalogService : RoutingProtectionCatalogService {

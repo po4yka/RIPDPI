@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Context
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
@@ -9,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.update
 internal class DiagnosticsScanActions(
     private val mutations: DiagnosticsMutationRunner,
     private val scanLifecycle: MutableStateFlow<ScanLifecycleState>,
-    private val appContext: Context,
+    private val stringResolver: StringResolver,
     private val loadSessionDetail: suspend (sessionId: String, showSensitiveDetails: Boolean) -> Unit,
 ) {
     fun initialize() {
@@ -38,7 +38,7 @@ internal class DiagnosticsScanActions(
             var prevProgress: com.poyka.ripdpi.diagnostics.ScanProgress? = null
             diagnosticsTimelineSource.activeScanProgress.collect { progress ->
                 if (progress == null && prevProgress != null && scanLifecycle.value.scanStartedAt != null) {
-                    emit(buildScanCompletionEffect(currentUiState().scan, appContext))
+                    emit(buildScanCompletionEffect(currentUiState().scan, stringResolver))
                     scanLifecycle.update {
                         it.copy(
                             scanStartedAt = null,
@@ -250,7 +250,7 @@ internal class DiagnosticsScanActions(
                 }
                 emit(
                     DiagnosticsEffect.ScanQueued(
-                        appContext.getString(
+                        stringResolver.getString(
                             R.string.diagnostics_hidden_probe_wait_queued_format,
                             queuedRequest.profileName,
                         ),
@@ -349,9 +349,9 @@ internal class DiagnosticsScanActions(
             diagnosticsResolverActions.saveResolverRecommendation(targetSessionId)
             emit(
                 DiagnosticsEffect.ScanCompleted(
-                    summary = appContext.getString(R.string.diagnostics_snackbar_dns_setting_saved),
+                    summary = stringResolver.getString(R.string.diagnostics_snackbar_dns_setting_saved),
                     tone = DiagnosticsTone.Positive,
-                    actionLabel = appContext.getString(R.string.title_dns_settings),
+                    actionLabel = stringResolver.getString(R.string.title_dns_settings),
                     action = DiagnosticsEffect.SnackbarAction.OpenDnsSettings,
                 ),
             )
@@ -435,7 +435,7 @@ internal class DiagnosticsScanActions(
                 handleScanStartFailure(
                     error = error,
                     scanLifecycle = scanLifecycle,
-                    appContext = appContext,
+                    stringResolver = stringResolver,
                 )
             }
         }
@@ -470,7 +470,7 @@ internal class DiagnosticsScanActions(
                     }
                     emit(
                         DiagnosticsEffect.ScanStartFailed(
-                            appContext.getString(R.string.diagnostics_hidden_probe_takeover_failed),
+                            stringResolver.getString(R.string.diagnostics_hidden_probe_takeover_failed),
                         ),
                     )
                 }
@@ -491,7 +491,7 @@ internal class DiagnosticsScanActions(
             }
             emit(
                 DiagnosticsEffect.ScanStartFailed(
-                    appContext.getString(R.string.diagnostics_hidden_probe_takeover_failed),
+                    stringResolver.getString(R.string.diagnostics_hidden_probe_takeover_failed),
                 ),
             )
         }
@@ -520,7 +520,7 @@ private suspend fun DiagnosticsMutationRunner.handleStartedScan(
 private suspend fun DiagnosticsMutationRunner.handleScanStartFailure(
     error: Throwable,
     scanLifecycle: MutableStateFlow<ScanLifecycleState>,
-    appContext: Context,
+    stringResolver: StringResolver,
 ) {
     scanLifecycle.update {
         it.copy(
@@ -539,19 +539,19 @@ private suspend fun DiagnosticsMutationRunner.handleScanStartFailure(
             message =
                 when ((error as? DiagnosticsScanStartRejectedException)?.reason) {
                     DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning -> {
-                        appContext.getString(R.string.diagnostics_error_hidden_probe_running)
+                        stringResolver.getString(R.string.diagnostics_error_hidden_probe_running)
                     }
 
                     DiagnosticsScanStartRejectionReason.SensitiveProfileConsentRequired -> {
-                        appContext.getString(R.string.diagnostics_error_sensitive_profile_consent_required)
+                        stringResolver.getString(R.string.diagnostics_error_sensitive_profile_consent_required)
                     }
 
                     DiagnosticsScanStartRejectionReason.BlockedByLegalSafetyPolicy -> {
-                        appContext.getString(R.string.diagnostics_error_profile_blocked_by_policy)
+                        stringResolver.getString(R.string.diagnostics_error_profile_blocked_by_policy)
                     }
 
                     else -> {
-                        appContext.getString(R.string.diagnostics_error_start_failed)
+                        stringResolver.getString(R.string.diagnostics_error_start_failed)
                     }
                 },
         ),
@@ -584,20 +584,22 @@ private fun QueuedManualScanRequest.toManualScanUiRequest(): ManualScanUiRequest
 
 internal fun buildScanCompletionEffect(
     scan: DiagnosticsScanUiModel,
-    context: Context,
+    stringResolver: StringResolver,
 ): DiagnosticsEffect.ScanCompleted {
-    val latestSummary = scan.latestSession?.summary ?: context.getString(R.string.diagnostics_snackbar_scan_complete)
+    val latestSummary =
+        scan.latestSession?.summary
+            ?: stringResolver.getString(R.string.diagnostics_snackbar_scan_complete)
     val resolverMessage =
         when {
             scan.resolverRecommendation != null -> {
-                context.getString(
+                stringResolver.getString(
                     R.string.diagnostics_snackbar_dns_recommendation_format,
                     scan.resolverRecommendation.headline,
                 )
             }
 
             latestSummary.contains("resolver override recommended", ignoreCase = true) -> {
-                context.getString(R.string.diagnostics_snackbar_dns_recommendation_generic)
+                stringResolver.getString(R.string.diagnostics_snackbar_dns_recommendation_generic)
             }
 
             else -> {
@@ -607,7 +609,7 @@ internal fun buildScanCompletionEffect(
     return DiagnosticsEffect.ScanCompleted(
         summary = resolverMessage ?: latestSummary,
         tone = if (resolverMessage != null) DiagnosticsTone.Warning else scanCompletedTone(scan.latestSession),
-        actionLabel = scan.resolverRecommendation?.let { context.getString(R.string.title_dns_settings) },
+        actionLabel = scan.resolverRecommendation?.let { stringResolver.getString(R.string.title_dns_settings) },
         action = scan.resolverRecommendation?.let { DiagnosticsEffect.SnackbarAction.OpenDnsSettings },
     )
 }

@@ -4,6 +4,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.diagnostics.RememberedPolicyApplicationAudit
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,6 +18,7 @@ class HistoryConnectionDetailUiFactoryTest {
     private val factory =
         HistoryConnectionDetailUiFactory(
             context = ApplicationProvider.getApplicationContext(),
+            stringResolver = AndroidStringResolver(ApplicationProvider.getApplicationContext()),
             coreSupport = DiagnosticsUiCoreSupport(),
         )
 

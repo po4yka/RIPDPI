@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpich.MeekReachabilityProbe
@@ -19,8 +18,8 @@ import kotlinx.coroutines.withContext
 
 internal class DiagnosticsPluggableTransportController(
     private val scope: CoroutineScope,
-    private val appContext: Context,
     appSettingsRepository: AppSettingsRepository,
+    private val assetLoader: DpiAssetLoader,
 ) {
     private val _tool = MutableStateFlow(DiagnosticsPluggableTransportToolUiModel())
     val tool: StateFlow<DiagnosticsPluggableTransportToolUiModel> = _tool.asStateFlow()
@@ -96,10 +95,9 @@ internal class DiagnosticsPluggableTransportController(
 
     private suspend fun loadProbe(): PluggableTransportReachabilityProbe =
         withContext(Dispatchers.IO) {
-            val loader = DpiAssetLoader(appContext)
             PluggableTransportReachabilityProbe(
-                obfs4Probe = Obfs4ReachabilityProbe(bridges = loader.loadObfs4BridgeEndpoints()),
-                meekProbe = MeekReachabilityProbe(fronts = loader.loadMeekFrontUrls()),
+                obfs4Probe = Obfs4ReachabilityProbe(bridges = assetLoader.loadObfs4BridgeEndpoints()),
+                meekProbe = MeekReachabilityProbe(fronts = assetLoader.loadMeekFrontUrls()),
             )
         }
 

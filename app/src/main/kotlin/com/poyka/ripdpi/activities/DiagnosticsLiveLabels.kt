@@ -50,18 +50,24 @@ internal fun DiagnosticsUiFactorySupport.buildLiveBody(
         events.firstOrNull { it.level.equals("error", ignoreCase = true) }
             ?: events.firstOrNull { it.level.equals("warn", ignoreCase = true) }
     return when {
-        surfacedEvent != null -> {
-            surfacedEvent.message
-        }
+        surfacedEvent != null -> surfacedEvent.message
+        telemetry == null -> context.getString(R.string.diagnostics_live_body_waiting)
+        else -> buildTelemetryBody(telemetry)
+    }
+}
 
-        telemetry == null -> {
-            context.getString(R.string.diagnostics_live_body_waiting)
-        }
-
-        telemetry.telemetryErrorSummary() != null -> {
+private fun DiagnosticsUiFactorySupport.buildTelemetryBody(telemetry: DiagnosticTelemetrySample): String {
+    val telemetryErrorSummary = telemetry.telemetryErrorSummary()
+    val failureClass = telemetry.failureClass
+    val resolverFallbackReason = telemetry.resolverFallbackReason
+    val networkHandoverState = telemetry.networkHandoverState
+    val networkHandoverClass = telemetry.networkHandoverClass
+    val winningStrategyFamily = telemetry.winningStrategyFamily()
+    return when {
+        telemetryErrorSummary != null -> {
             context.getString(
                 R.string.diagnostics_live_telemetry_error_format,
-                telemetry.telemetryErrorSummary(),
+                telemetryErrorSummary,
             )
         }
 
@@ -69,26 +75,26 @@ internal fun DiagnosticsUiFactorySupport.buildLiveBody(
             listOfNotNull(telemetry.lastFailureClass, telemetry.lastFallbackAction).joinToString(" · ")
         }
 
-        telemetry.failureClass != null -> {
-            context.getString(R.string.diagnostics_live_failure_class_format, telemetry.failureClass)
+        failureClass != null -> {
+            context.getString(R.string.diagnostics_live_failure_class_format, failureClass)
         }
 
-        telemetry.resolverFallbackReason != null -> {
-            context.getString(R.string.diagnostics_live_dns_override_format, telemetry.resolverFallbackReason)
+        resolverFallbackReason != null -> {
+            context.getString(R.string.diagnostics_live_dns_override_format, resolverFallbackReason)
         }
 
-        telemetry.networkHandoverState != null -> {
-            context.getString(R.string.diagnostics_live_handover_state_format, telemetry.networkHandoverState)
+        networkHandoverState != null -> {
+            context.getString(R.string.diagnostics_live_handover_state_format, networkHandoverState)
         }
 
-        telemetry.networkHandoverClass != null -> {
-            context.getString(R.string.diagnostics_live_handover_format, telemetry.networkHandoverClass)
+        networkHandoverClass != null -> {
+            context.getString(R.string.diagnostics_live_handover_format, networkHandoverClass)
         }
 
-        telemetry.winningStrategyFamily() != null -> {
+        winningStrategyFamily != null -> {
             context.getString(
                 R.string.diagnostics_live_winning_strategy_format,
-                telemetry.winningStrategyFamily(),
+                winningStrategyFamily,
             )
         }
 

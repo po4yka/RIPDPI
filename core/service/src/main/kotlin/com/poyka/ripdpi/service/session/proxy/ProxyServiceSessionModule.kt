@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.service.session.proxy
 
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -31,7 +32,6 @@ import com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import kotlinx.coroutines.Dispatchers
 
 @Module
 @InstallIn(ProxyServiceSessionComponent::class)
@@ -41,14 +41,16 @@ internal object ProxyServiceSessionModule {
     fun provideUpstreamRelaySupervisor(
         host: ServiceCoordinatorHost,
         factory: UpstreamRelaySupervisorFactory,
-    ): UpstreamRelaySupervisor = factory.create(scope = host.serviceScope, dispatcher = Dispatchers.IO)
+        dispatchers: AppCoroutineDispatchers,
+    ): UpstreamRelaySupervisor = factory.create(scope = host.serviceScope, dispatcher = dispatchers.io)
 
     @Provides
     @ServiceSessionScope
     fun provideWarpRuntimeSupervisor(
         host: ServiceCoordinatorHost,
         factory: WarpRuntimeSupervisorFactory,
-    ): WarpRuntimeSupervisor = factory.create(scope = host.serviceScope, dispatcher = Dispatchers.IO)
+        dispatchers: AppCoroutineDispatchers,
+    ): WarpRuntimeSupervisor = factory.create(scope = host.serviceScope, dispatcher = dispatchers.io)
 
     @Provides
     @ServiceSessionScope
@@ -56,10 +58,11 @@ internal object ProxyServiceSessionModule {
         host: ServiceCoordinatorHost,
         factory: ProxyRuntimeSupervisorFactory,
         networkSnapshotProvider: NativeNetworkSnapshotProvider,
+        dispatchers: AppCoroutineDispatchers,
     ): ProxyRuntimeSupervisor =
         factory.create(
             scope = host.serviceScope,
-            dispatcher = Dispatchers.IO,
+            dispatcher = dispatchers.io,
             networkSnapshotProvider = networkSnapshotProvider,
         )
 

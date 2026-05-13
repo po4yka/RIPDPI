@@ -7,13 +7,17 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
+import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
+import com.poyka.ripdpi.diagnostics.dpi.EchTlsHandshake
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer
+import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
+import com.poyka.ripdpi.platform.StringResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -35,6 +39,9 @@ internal class DiagnosticsProbeDependencies
         val ipv4WhitelistedSubnetDiscoverer: Ipv4WhitelistedSubnetDiscoverer,
         val rknLayeredProbePipeline: RknLayeredProbePipeline,
         val selfInfoFetcher: SelfInfoFetcher,
+        val assetLoader: DpiAssetLoader,
+        val tlsKeylogRunFinalizer: TlsKeylogRunFinalizer,
+        val echTlsHandshake: EchTlsHandshake,
     )
 
 @Suppress("TooManyFunctions")
@@ -46,6 +53,8 @@ class DiagnosticsViewModel
         private val diagnosticsInteractionDependencies: DiagnosticsInteractionDependencies,
         private val diagnosticsContextDependencies: DiagnosticsContextDependencies,
         private val diagnosticsViewModelBootstrapper: DiagnosticsViewModelBootstrapper,
+        private val diagnosticsFiles: DiagnosticsFiles,
+        private val stringResolver: StringResolver,
         appSettingsRepository: AppSettingsRepository,
         probeDependencies: DiagnosticsProbeDependencies,
         diagnosticsUiStateAssembler: DiagnosticsUiStateAssembler,
@@ -69,7 +78,6 @@ class DiagnosticsViewModel
         private val dpiToolsController =
             DiagnosticsDpiToolsController(
                 scope = viewModelScope,
-                appContext = diagnosticsContextDependencies.appContext,
                 appSettingsRepository = appSettingsRepository,
                 dnsIntegrityChecker = probeDependencies.dnsIntegrityChecker,
                 dnsAvailabilitySurvey = probeDependencies.dnsAvailabilitySurvey,
@@ -78,6 +86,7 @@ class DiagnosticsViewModel
                 httpCompressionProber = probeDependencies.httpCompressionProber,
                 rknLayeredProbePipeline = probeDependencies.rknLayeredProbePipeline,
                 selfInfoFetcher = probeDependencies.selfInfoFetcher,
+                assetLoader = probeDependencies.assetLoader,
             )
         private val cidrWhitelistController =
             DiagnosticsCidrWhitelistController(
@@ -100,18 +109,21 @@ class DiagnosticsViewModel
         private val dpiSuiteController =
             DiagnosticsDpiSuiteController(
                 scope = viewModelScope,
-                appContext = diagnosticsContextDependencies.appContext,
                 appSettingsRepository = appSettingsRepository,
                 dnsIntegrityChecker = probeDependencies.dnsIntegrityChecker,
                 dnsAvailabilitySurvey = probeDependencies.dnsAvailabilitySurvey,
                 domainReachabilityScanner = probeDependencies.domainReachabilityScanner,
                 tcp16FatHeaderProbe = probeDependencies.tcp16FatHeaderProbe,
+                assetLoader = probeDependencies.assetLoader,
+                diagnosticsFiles = diagnosticsFiles,
+                tlsKeylogRunFinalizer = probeDependencies.tlsKeylogRunFinalizer,
+                echTlsHandshake = probeDependencies.echTlsHandshake,
             )
         private val pluggableTransportController =
             DiagnosticsPluggableTransportController(
                 scope = viewModelScope,
-                appContext = diagnosticsContextDependencies.appContext,
                 appSettingsRepository = appSettingsRepository,
+                assetLoader = probeDependencies.assetLoader,
             )
 
         val uiState: StateFlow<DiagnosticsUiState> =
@@ -173,7 +185,7 @@ class DiagnosticsViewModel
             DiagnosticsScanActions(
                 mutations = mutations,
                 scanLifecycle = scanLifecycleState,
-                appContext = diagnosticsContextDependencies.appContext,
+                stringResolver = stringResolver,
                 loadSessionDetail = { sessionId, showSensitive ->
                     mutations.loadSessionDetail(
                         sessionId = sessionId,
