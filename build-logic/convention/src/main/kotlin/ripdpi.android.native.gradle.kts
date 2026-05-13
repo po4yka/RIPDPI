@@ -17,6 +17,9 @@ fun ApplicationExtension.configureNativePolicy() {
     }
 
     packaging {
+        resources {
+            excludes += "DebugProbesKt.bin"
+        }
         jniLibs {
             useLegacyPackaging = nativeUseLegacyPackaging.get()
             keepDebugSymbols += "**/*.so"
@@ -35,6 +38,9 @@ fun LibraryExtension.configureNativePolicy() {
     }
 
     packaging {
+        resources {
+            excludes += "DebugProbesKt.bin"
+        }
         jniLibs {
             useLegacyPackaging = nativeUseLegacyPackaging.get()
             keepDebugSymbols += "**/*.so"

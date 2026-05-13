@@ -151,7 +151,7 @@ class DiagnosticsCatalogLegalSafetyTest {
         }
 
         val messagingProfile = profiles.single { it.id == "ru-messaging" }
-        assertEquals(3, messagingProfile.version)
+        assertEquals(4, messagingProfile.version)
         messagingProfile.serviceTargets.forEach { target ->
             assertNull(target.bootstrapUrl, "Profile target ${target.id} should not ship a bootstrap URL")
             assertNotNull(target.tcpEndpointHost, "Profile target ${target.id} still needs a TCP endpoint host")
