@@ -10,6 +10,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.security.SecureRandom
+import java.util.Base64
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -24,7 +26,7 @@ open class RootHelperManager
     constructor() {
         internal constructor(
             binaryExtractor: (Context) -> File,
-            processLaunchAttempts: (File, File) -> List<RootHelperLaunchAttempt>,
+            processLaunchAttempts: (File, File, File) -> List<RootHelperLaunchAttempt>,
             readinessProbe: suspend (File, Long, Long) -> Boolean,
         ) : this() {
             this.binaryExtractor = binaryExtractor
@@ -34,9 +36,10 @@ open class RootHelperManager
 
         private var helperProcess: Process? = null
         private var activeSocketPath: String? = null
+        private var activeNoncePath: String? = null
         private var binaryExtractor: (Context) -> File = { context -> extractBinary(context) }
-        private var processLaunchAttempts: (File, File) -> List<RootHelperLaunchAttempt> =
-            { binary, socket -> buildRootHelperLaunchAttempts(binary, socket) }
+        private var processLaunchAttempts: (File, File, File) -> List<RootHelperLaunchAttempt> =
+            { binary, socket, nonceFile -> buildRootHelperLaunchAttempts(binary, socket, nonceFile) }
         private var readinessProbe: suspend (File, Long, Long) -> Boolean = { socket, timeoutMs, pollIntervalMs ->
             awaitSocketReady(socket, timeoutMs, pollIntervalMs)
         }
@@ -45,9 +48,12 @@ open class RootHelperManager
             private val log = Logger.withTag("RootHelperManager")
             private const val HELPER_BINARY_NAME = "ripdpi-root-helper"
             private const val SOCKET_NAME = "root_helper.sock"
+            private const val NONCE_FILE_NAME = "$SOCKET_NAME.nonce"
+            private const val SESSION_NONCE_BYTES = 32
             private const val READY_POLL_INTERVAL_MS = 100L
             private const val READY_TIMEOUT_MS = 3000L
             private const val STOP_TIMEOUT_MS = 1000L
+            private val secureRandom = SecureRandom()
         }
 
         open val socketPath: String?
@@ -83,22 +89,20 @@ open class RootHelperManager
                 try {
                     val binary = binaryExtractor(context)
                     val socket = File(context.filesDir, SOCKET_NAME)
+                    val nonceFile = File(context.filesDir, NONCE_FILE_NAME)
 
-                    // Remove stale socket.
-                    if (socket.exists()) {
-                        socket.delete()
-                    }
+                    removeStaleIpcFiles(socket, nonceFile)
+                    writeSessionNonce(nonceFile, generateSessionNonce())
 
-                    for (attempt in processLaunchAttempts(binary, socket)) {
-                        if (socket.exists()) {
-                            socket.delete()
-                        }
+                    for (attempt in processLaunchAttempts(binary, socket, nonceFile)) {
+                        removeStaleSocket(socket)
 
                         log.i { "starting root helper: ${attempt.description}" }
                         helperProcess = attempt.launch()
 
                         if (readinessProbe(socket, READY_TIMEOUT_MS, READY_POLL_INTERVAL_MS)) {
                             activeSocketPath = socket.absolutePath
+                            activeNoncePath = nonceFile.absolutePath
                             log.i { "root helper started, socket: ${socket.absolutePath}" }
                             return@withContext socket.absolutePath
                         }
@@ -108,6 +112,7 @@ open class RootHelperManager
                     }
 
                     log.e { "root helper socket was not connectable within ${READY_TIMEOUT_MS}ms" }
+                    removeStaleIpcFiles(socket, nonceFile)
                     null
                 } catch (e: IOException) {
                     log.e(e) { "failed to start root helper" }
@@ -119,9 +124,15 @@ open class RootHelperManager
         /** Stop the root helper process and clean up. */
         open fun stop() {
             val process = helperProcess
+            val socketPath = activeSocketPath
+            val noncePath = activeNoncePath
             helperProcess = null
             activeSocketPath = null
-            if (process == null) return
+            activeNoncePath = null
+            if (process == null) {
+                removeIpcFiles(socketPath, noncePath)
+                return
+            }
 
             try {
                 process.destroy()
@@ -137,6 +148,8 @@ open class RootHelperManager
                 log.w(e) { "error stopping root helper" }
             } catch (e: SecurityException) {
                 log.w(e) { "error stopping root helper" }
+            } finally {
+                removeIpcFiles(socketPath, noncePath)
             }
             log.i { "root helper stopped" }
         }
@@ -167,8 +180,11 @@ open class RootHelperManager
         private fun buildRootHelperLaunchAttempts(
             binary: File,
             socket: File,
+            nonceFile: File,
         ): List<RootHelperLaunchAttempt> {
-            val helperCommand = "${shellQuote(binary.absolutePath)} --socket ${shellQuote(socket.absolutePath)}"
+            val helperCommand =
+                "${shellQuote(binary.absolutePath)} --socket ${shellQuote(socket.absolutePath)} " +
+                    "--session-nonce-file ${shellQuote(nonceFile.absolutePath)}"
             return listOf(
                 RootHelperLaunchAttempt("su -c exec $helperCommand") {
                     Runtime
@@ -184,6 +200,47 @@ open class RootHelperManager
         }
 
         private fun shellQuote(value: String): String = "'" + value.replace("'", "'\"'\"'") + "'"
+
+        private fun generateSessionNonce(): String {
+            val bytes = ByteArray(SESSION_NONCE_BYTES)
+            secureRandom.nextBytes(bytes)
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        }
+
+        private fun writeSessionNonce(
+            nonceFile: File,
+            nonce: String,
+        ) {
+            nonceFile.writeText(nonce, Charsets.US_ASCII)
+            nonceFile.setReadable(false, false)
+            nonceFile.setWritable(false, false)
+            nonceFile.setReadable(true, true)
+            nonceFile.setWritable(true, true)
+        }
+
+        private fun removeStaleIpcFiles(
+            socket: File,
+            nonceFile: File,
+        ) {
+            removeStaleSocket(socket)
+            if (nonceFile.exists()) {
+                nonceFile.delete()
+            }
+        }
+
+        private fun removeStaleSocket(socket: File) {
+            if (socket.exists()) {
+                socket.delete()
+            }
+        }
+
+        private fun removeIpcFiles(
+            socketPath: String?,
+            noncePath: String?,
+        ) {
+            socketPath?.let { runCatching { File(it).delete() } }
+            noncePath?.let { runCatching { File(it).delete() } }
+        }
 
         private suspend fun awaitSocketReady(
             socket: File,

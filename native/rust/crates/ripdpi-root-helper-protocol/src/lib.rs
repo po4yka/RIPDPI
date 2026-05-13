@@ -15,4 +15,4 @@ pub use params::{
     OrderedTcpSegmentParams, OrderedTcpSegmentsParams, RawIpPacketParams, SegmentSpec, SeqOvlParams,
 };
 pub use scm_rights::{recv_message, send_message};
-pub use wire::{HelperRequest, HelperResponse};
+pub use wire::{valid_session_nonce, HelperRequest, HelperResponse, MAX_SESSION_NONCE_BYTES, MIN_SESSION_NONCE_BYTES};

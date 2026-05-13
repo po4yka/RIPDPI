@@ -27,12 +27,15 @@ class RootHelperManagerTest {
             val fakeBinary = File(context.filesDir, "fake-root-helper").apply { writeText("bin") }
             val fakeProcess = RecordingProcess()
             var readinessCalls = 0
+            lateinit var nonceFile: File
             val manager =
                 RootHelperManager(
                     binaryExtractor = { fakeBinary },
-                    processLaunchAttempts = { _, _ ->
+                    processLaunchAttempts = { _, _, file ->
+                        nonceFile = file
                         listOf(
                             RootHelperLaunchAttempt("test root helper launcher") {
+                                assertValidNonceFile(nonceFile)
                                 File(context.filesDir, "root_helper.sock").writeText("stale")
                                 fakeProcess
                             },
@@ -51,6 +54,7 @@ class RootHelperManagerTest {
             assertNull(manager.socketPath)
             assertEquals(1, readinessCalls)
             assertTrue(fakeProcess.destroyed)
+            assertTrue(!nonceFile.exists())
         }
 
     @Test
@@ -62,9 +66,10 @@ class RootHelperManagerTest {
             val manager =
                 RootHelperManager(
                     binaryExtractor = { fakeBinary },
-                    processLaunchAttempts = { _, _ ->
+                    processLaunchAttempts = { _, _, nonceFile ->
                         listOf(
                             RootHelperLaunchAttempt("test root helper launcher") {
+                                assertValidNonceFile(nonceFile)
                                 fakeProcess
                             },
                         )
@@ -94,13 +99,15 @@ class RootHelperManagerTest {
             val manager =
                 RootHelperManager(
                     binaryExtractor = { fakeBinary },
-                    processLaunchAttempts = { _, _ ->
+                    processLaunchAttempts = { _, _, nonceFile ->
                         listOf(
                             RootHelperLaunchAttempt("magisk su") {
+                                assertValidNonceFile(nonceFile)
                                 launchOrder += "magisk"
                                 firstProcess
                             },
                             RootHelperLaunchAttempt("aosp su") {
+                                assertValidNonceFile(nonceFile)
                                 launchOrder += "aosp"
                                 secondProcess
                             },
@@ -116,6 +123,43 @@ class RootHelperManagerTest {
             assertEquals(File(context.filesDir, "root_helper.sock").absolutePath, result)
             assertEquals(result, manager.socketPath)
         }
+
+    @Test
+    fun `stop removes root helper session nonce file`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val fakeBinary = File(context.filesDir, "fake-root-helper").apply { writeText("bin") }
+            lateinit var nonceFile: File
+            val fakeProcess = RecordingProcess()
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { fakeBinary },
+                    processLaunchAttempts = { _, _, file ->
+                        nonceFile = file
+                        listOf(RootHelperLaunchAttempt("test root helper launcher") { fakeProcess })
+                    },
+                    readinessProbe = { _, _, _ -> true },
+                )
+
+            val result = manager.start(context)
+
+            assertNotNull(result)
+            assertTrue(nonceFile.exists())
+            assertValidNonceFile(nonceFile)
+
+            manager.stop()
+
+            assertNull(manager.socketPath)
+            assertTrue(fakeProcess.destroyed)
+            assertTrue(!nonceFile.exists())
+        }
+}
+
+private fun assertValidNonceFile(nonceFile: File) {
+    assertTrue(nonceFile.exists())
+    val nonce = nonceFile.readText(Charsets.US_ASCII)
+    assertTrue(nonce.length >= 32)
+    assertTrue(nonce.all { it.isLetterOrDigit() || it == '-' || it == '_' })
 }
 
 private class RecordingProcess(

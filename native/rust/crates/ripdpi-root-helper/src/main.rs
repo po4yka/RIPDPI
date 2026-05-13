@@ -3,7 +3,8 @@ mod handlers;
 
 use std::fs;
 use std::io;
-use std::os::unix::net::UnixListener;
+use std::os::fd::RawFd;
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -11,7 +12,12 @@ use std::sync::Arc;
 use tracing::{error, info, warn};
 
 use ripdpi_root_helper_protocol as protocol;
-use ripdpi_root_helper_protocol::HelperRequest;
+use ripdpi_root_helper_protocol::{valid_session_nonce, HelperRequest, HelperResponse};
+
+struct RootHelperConfig {
+    socket_path: PathBuf,
+    session_nonce: String,
+}
 
 fn main() {
     tracing_subscriber::fmt()
@@ -21,18 +27,20 @@ fn main() {
         .with_writer(std::io::stderr)
         .init();
 
-    let socket_path = parse_args();
-    info!(path = %socket_path, "ripdpi-root-helper starting");
+    let config = parse_args();
+    let socket_path = config.socket_path;
+    let session_nonce = config.session_nonce;
+    info!(path = %socket_path.display(), "ripdpi-root-helper starting");
 
     // Remove stale socket file.
-    if Path::new(&socket_path).exists() {
+    if socket_path.exists() {
         let _ = fs::remove_file(&socket_path);
     }
 
     let listener = match UnixListener::bind(&socket_path) {
         Ok(l) => l,
         Err(e) => {
-            error!(path = %socket_path, %e, "failed to bind Unix socket");
+            error!(path = %socket_path.display(), %e, "failed to bind Unix socket");
             std::process::exit(1);
         }
     };
@@ -52,7 +60,7 @@ fn main() {
     }
     RUNNING.store(true, Ordering::SeqCst);
 
-    info!(path = %socket_path, "listening for connections");
+    info!(path = %socket_path.display(), "listening for connections");
 
     while running.load(Ordering::Relaxed) && RUNNING.load(Ordering::SeqCst) {
         // Use a short accept timeout so we can check the shutdown flag.
@@ -60,7 +68,7 @@ fn main() {
 
         match listener.accept() {
             Ok((stream, _addr)) => {
-                if let Err(e) = handle_connection(&stream) {
+                if let Err(e) = handle_connection(&stream, &session_nonce) {
                     warn!(%e, "connection handler error");
                 }
             }
@@ -79,7 +87,7 @@ fn main() {
     let _ = fs::remove_file(&socket_path);
 }
 
-fn handle_connection(stream: &std::os::unix::net::UnixStream) -> io::Result<()> {
+fn handle_connection(stream: &UnixStream, session_nonce: &str) -> io::Result<()> {
     use std::time::Duration;
 
     stream.set_read_timeout(Some(Duration::from_secs(30)))?;
@@ -87,8 +95,17 @@ fn handle_connection(stream: &std::os::unix::net::UnixStream) -> io::Result<()> 
 
     let (data, received_fd) = protocol::recv_message(stream, "peer closed connection")?;
 
-    let request: HelperRequest = serde_json::from_slice(&data)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("invalid request JSON: {e}")))?;
+    let request: HelperRequest = serde_json::from_slice(&data).map_err(|e| {
+        close_received_fd(received_fd);
+        io::Error::new(io::ErrorKind::InvalidData, format!("invalid request JSON: {e}"))
+    })?;
+
+    if !session_nonce_matches(session_nonce, request.session_nonce.as_deref()) {
+        close_received_fd(received_fd);
+        warn!(command = %request.command, "rejected command with invalid root-helper session nonce");
+        send_response(stream, &HelperResponse::error("invalid root-helper session nonce"), None)?;
+        return Ok(());
+    }
 
     info!(command = %request.command, "received command");
 
@@ -107,38 +124,74 @@ fn handle_connection(stream: &std::os::unix::net::UnixStream) -> io::Result<()> 
         }
     }
 
-    let json =
-        serde_json::to_vec(&response).map_err(|e| io::Error::other(format!("failed to serialize response: {e}")))?;
-
-    protocol::send_message(stream, &json, reply_fd)?;
+    send_response(stream, &response, reply_fd)?;
 
     Ok(())
+}
+
+fn send_response(stream: &UnixStream, response: &HelperResponse, reply_fd: Option<RawFd>) -> io::Result<()> {
+    let json =
+        serde_json::to_vec(response).map_err(|e| io::Error::other(format!("failed to serialize response: {e}")))?;
+    protocol::send_message(stream, &json, reply_fd)
+}
+
+fn close_received_fd(fd: Option<RawFd>) {
+    if let Some(fd) = fd {
+        // SAFETY: fd ownership was transferred to this process via SCM_RIGHTS and
+        // command dispatch has not consumed it on this error path.
+        unsafe {
+            libc::close(fd);
+        }
+    }
+}
+
+fn session_nonce_matches(expected: &str, actual: Option<&str>) -> bool {
+    let Some(actual) = actual else {
+        return false;
+    };
+    if expected.len() != actual.len() {
+        return false;
+    }
+    expected.bytes().zip(actual.bytes()).fold(0u8, |acc, (left, right)| acc | (left ^ right)) == 0
 }
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
 // ---------------------------------------------------------------------------
 
-fn parse_args() -> String {
+fn parse_args() -> RootHelperConfig {
     match parse_args_from_env() {
-        Ok(socket_path) => socket_path.display().to_string(),
+        Ok(config) => config,
         Err(error) => {
-            eprintln!("Usage: ripdpi-root-helper --socket <path>");
+            eprintln!("Usage: ripdpi-root-helper --socket <path> --session-nonce-file <path>");
             eprintln!("{error}");
             std::process::exit(1);
         }
     }
 }
 
-fn parse_args_from_env() -> io::Result<PathBuf> {
+fn parse_args_from_env() -> io::Result<RootHelperConfig> {
     let mut args = pico_args::Arguments::from_env();
     let socket_path =
         args.value_from_str("--socket").map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    let nonce_path: PathBuf = args
+        .value_from_str("--session-nonce-file")
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     let remaining = args.finish();
     if !remaining.is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unexpected arguments: {remaining:?}")));
     }
-    Ok(socket_path)
+    let session_nonce = read_session_nonce_file(&nonce_path)?;
+    Ok(RootHelperConfig { socket_path, session_nonce })
+}
+
+fn read_session_nonce_file(path: &Path) -> io::Result<String> {
+    let nonce = fs::read_to_string(path)?;
+    let nonce = nonce.trim().to_owned();
+    if !valid_session_nonce(&nonce) {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "invalid root-helper session nonce"));
+    }
+    Ok(nonce)
 }
 
 // ---------------------------------------------------------------------------
@@ -149,4 +202,90 @@ static RUNNING: AtomicBool = AtomicBool::new(false);
 
 extern "C" fn signal_handler(_sig: libc::c_int) {
     RUNNING.store(false, Ordering::SeqCst);
+}
+
+#[cfg(test)]
+mod tests {
+    use std::os::unix::net::UnixStream;
+    use std::sync::Mutex;
+    use std::thread;
+
+    use ripdpi_root_helper_protocol::{recv_message, send_message, HelperRequest, HelperResponse, CMD_SHUTDOWN};
+
+    use super::{handle_connection, read_session_nonce_file, session_nonce_matches, RUNNING};
+
+    const TEST_NONCE: &str = "abcdefghijklmnopqrstuvwxyzABCDEF";
+    static RUNNING_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn session_nonce_match_requires_exact_value() {
+        assert!(session_nonce_matches(TEST_NONCE, Some(TEST_NONCE)));
+        assert!(!session_nonce_matches(TEST_NONCE, None));
+        assert!(!session_nonce_matches(TEST_NONCE, Some("abcdefghijklmnopqrstuvwxyzABCDEG")));
+        assert!(!session_nonce_matches(TEST_NONCE, Some("short")));
+    }
+
+    #[test]
+    fn rejects_command_with_wrong_session_nonce_before_dispatch() {
+        let _lock = RUNNING_TEST_LOCK.lock().expect("running test lock");
+        RUNNING.store(true, std::sync::atomic::Ordering::SeqCst);
+        let (client, server) = UnixStream::pair().expect("socket pair");
+        let server = thread::spawn(move || handle_connection(&server, TEST_NONCE).expect("handle connection"));
+        let request = HelperRequest {
+            command: CMD_SHUTDOWN.to_string(),
+            params: serde_json::Value::Null,
+            session_nonce: Some("abcdefghijklmnopqrstuvwxyzABCDEG".to_string()),
+        };
+        send_message(&client, &serde_json::to_vec(&request).expect("request JSON"), None).expect("send request");
+
+        let (payload, fd) = recv_message(&client, "server closed").expect("response");
+        assert!(fd.is_none());
+        let response: HelperResponse = serde_json::from_slice(&payload).expect("response JSON");
+        assert!(!response.ok);
+        assert_eq!(response.error.as_deref(), Some("invalid root-helper session nonce"));
+        server.join().expect("server thread");
+        assert!(RUNNING.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[test]
+    fn accepts_command_with_matching_session_nonce() {
+        let _lock = RUNNING_TEST_LOCK.lock().expect("running test lock");
+        RUNNING.store(true, std::sync::atomic::Ordering::SeqCst);
+        let (client, server) = UnixStream::pair().expect("socket pair");
+        let server = thread::spawn(move || handle_connection(&server, TEST_NONCE).expect("handle connection"));
+        let request = HelperRequest {
+            command: CMD_SHUTDOWN.to_string(),
+            params: serde_json::Value::Null,
+            session_nonce: Some(TEST_NONCE.to_string()),
+        };
+        send_message(&client, &serde_json::to_vec(&request).expect("request JSON"), None).expect("send request");
+
+        let (payload, fd) = recv_message(&client, "server closed").expect("response");
+        assert!(fd.is_none());
+        let response: HelperResponse = serde_json::from_slice(&payload).expect("response JSON");
+        assert!(response.ok);
+        server.join().expect("server thread");
+        assert!(!RUNNING.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[test]
+    fn reads_only_valid_session_nonce_files() {
+        let path =
+            std::env::temp_dir().join(format!("ripdpi-root-helper-nonce-{}-{}", std::process::id(), unique_suffix()));
+
+        std::fs::write(&path, format!("{TEST_NONCE}\n")).expect("write nonce");
+        assert_eq!(read_session_nonce_file(&path).expect("read nonce"), TEST_NONCE);
+
+        std::fs::write(&path, "short").expect("write malformed nonce");
+        assert_eq!(
+            read_session_nonce_file(&path).expect_err("malformed nonce").kind(),
+            std::io::ErrorKind::PermissionDenied
+        );
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    fn unique_suffix() -> u128 {
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("clock").as_nanos()
+    }
 }

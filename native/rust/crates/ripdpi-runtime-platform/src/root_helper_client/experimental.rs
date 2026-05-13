@@ -62,6 +62,8 @@ mod tests {
             unique_suffix()
         ));
         let _ = std::fs::remove_file(&socket_path);
+        let nonce_path = format!("{}.nonce", socket_path.to_string_lossy());
+        std::fs::write(&nonce_path, test_session_nonce()).expect("write nonce");
         let listener = UnixListener::bind(&socket_path).expect("bind helper socket");
         let server = thread::spawn(move || {
             let (stream, _) = listener.accept().expect("accept helper client");
@@ -69,6 +71,7 @@ mod tests {
             assert!(fd.is_none());
             let request: HelperRequest = serde_json::from_slice(&payload).expect("request JSON");
             assert_eq!(request.command, CMD_SEND_RAW_IP_PACKET);
+            assert_eq!(request.session_nonce.as_deref(), Some(test_session_nonce()));
             assert_eq!(request.params["target_addr"], "203.0.113.10:443");
             assert_eq!(request.params["packet"], serde_json::json!([69, 0, 0, 20]));
             let response =
@@ -83,9 +86,14 @@ mod tests {
 
         server.join().expect("server thread");
         let _ = std::fs::remove_file(socket_path);
+        let _ = std::fs::remove_file(nonce_path);
     }
 
     fn unique_suffix() -> u128 {
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("clock").as_nanos()
+    }
+
+    fn test_session_nonce() -> &'static str {
+        "abcdefghijklmnopqrstuvwxyzABCDEF"
     }
 }
