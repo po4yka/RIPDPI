@@ -24,6 +24,7 @@ private const val OutcomeDnsMatch = "dns_match"
 private const val OutcomeDnsSubstitution = "dns_substitution"
 private const val OutcomeDnsNxdomain = "dns_nxdomain"
 private const val OutcomeUdpBlocked = "udp_blocked"
+private const val OutcomeUdpSkippedOrBlocked = "udp_skipped_or_blocked"
 private const val SchemeHttp = "http://"
 private const val SchemeHttps = "https://"
 private const val DefaultPortHttp = 80
@@ -216,7 +217,8 @@ private fun List<ProbeResult>.firstTriggerOutcome(): String? =
     firstOrNull {
         it.outcome == OutcomeDnsSubstitution ||
             it.outcome == OutcomeDnsNxdomain ||
-            it.outcome == OutcomeUdpBlocked
+            it.outcome == OutcomeUdpBlocked ||
+            it.outcome == OutcomeUdpSkippedOrBlocked
     }?.outcome
 
 private fun List<CandidateObservation>.toCandidate(): Candidate? {

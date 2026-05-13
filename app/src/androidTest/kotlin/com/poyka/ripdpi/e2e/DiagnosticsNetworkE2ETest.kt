@@ -51,6 +51,8 @@ import org.junit.Rule
 import org.junit.Test
 import javax.inject.Inject
 
+private const val FixtureDnsTimeoutFaultDelayMs = 2_500L
+
 @HiltAndroidTest
 class DiagnosticsNetworkE2ETest {
     @get:Rule(order = 0)
@@ -227,6 +229,8 @@ class DiagnosticsNetworkE2ETest {
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.DNS_HTTP,
                 outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+                scope = FixtureFaultScopeDto.PERSISTENT,
+                delayMs = FixtureDnsTimeoutFaultDelayMs,
             ),
         )
 
@@ -234,6 +238,7 @@ class DiagnosticsNetworkE2ETest {
         val detail = awaitCompletedSession(sessionId)
 
         assertTrue(
+            diagnosticOutcomes(detail),
             detail.results.any { result ->
                 result.probeType == "dns_integrity" && result.outcome in rawPathDnsFaultOutcomes()
             },
@@ -257,6 +262,8 @@ class DiagnosticsNetworkE2ETest {
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.DNS_HTTP,
                 outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+                scope = FixtureFaultScopeDto.PERSISTENT,
+                delayMs = FixtureDnsTimeoutFaultDelayMs,
             ),
         )
 
@@ -264,6 +271,7 @@ class DiagnosticsNetworkE2ETest {
         val detail = awaitCompletedSession(sessionId)
 
         assertTrue(
+            diagnosticOutcomes(detail),
             detail.results.any { result ->
                 result.probeType == "dns_integrity" && result.outcome in inPathDnsFaultOutcomes()
             },
@@ -303,7 +311,10 @@ class DiagnosticsNetworkE2ETest {
                 runBlocking { scanRecordStore.getScanSession(sessionId)?.reportJson }.orEmpty(),
             )
 
-        assertTrue(detail.results.any { it.probeType == "dns_integrity" && it.outcome == "udp_blocked" })
+        assertTrue(
+            diagnosticOutcomes(detail),
+            detail.results.any { it.probeType == "dns_integrity" && it.outcome == "udp_skipped_or_blocked" },
+        )
         assertEquals("cloudflare", persisted.resolverRecommendation?.selectedResolverId)
         assertTrue(persisted.resolverRecommendation?.appliedTemporarily == true)
         assertEquals("cloudflare", resolverOverrideStore.override.value?.resolverId)
@@ -538,9 +549,16 @@ class DiagnosticsNetworkE2ETest {
 
     private fun inPathDnsSuccessOutcomes(): Set<String> = setOf("dns_match", "udp_skipped_or_blocked")
 
-    private fun rawPathDnsFaultOutcomes(): Set<String> = setOf("encrypted_dns_blocked", "dns_unavailable")
+    private fun rawPathDnsFaultOutcomes(): Set<String> =
+        setOf("encrypted_dns_blocked", "dns_unavailable", "udp_blocked")
 
-    private fun inPathDnsFaultOutcomes(): Set<String> = setOf("encrypted_dns_blocked", "dns_unavailable")
+    private fun inPathDnsFaultOutcomes(): Set<String> =
+        setOf("encrypted_dns_blocked", "dns_unavailable", "udp_skipped_or_blocked")
+
+    private fun diagnosticOutcomes(detail: com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail): String =
+        detail.results.joinToString(prefix = "Diagnostic outcomes: ") { result ->
+            "${result.probeType}:${result.target}=${result.outcome}"
+        }
 
     private fun startService(serviceClass: Class<*>) {
         ContextCompat.startForegroundService(

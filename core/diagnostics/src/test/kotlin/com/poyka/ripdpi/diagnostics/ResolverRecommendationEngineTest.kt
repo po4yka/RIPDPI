@@ -318,6 +318,49 @@ class ResolverRecommendationEngineTest {
     }
 
     @Test
+    fun `compute recommends resolver for in path skipped udp block`() {
+        val report =
+            ScanReport(
+                sessionId = "s1",
+                profileId = "p1",
+                pathMode = ScanPathMode.IN_PATH,
+                startedAt = 0,
+                finishedAt = 100,
+                summary = "",
+                results =
+                    listOf(
+                        ProbeResult(
+                            probeType = "dns_integrity",
+                            target = "example.com",
+                            outcome = "udp_skipped_or_blocked",
+                        ),
+                        ProbeResult(
+                            probeType = "dns_integrity",
+                            target = "example.com",
+                            outcome = "dns_match",
+                            details =
+                                listOf(
+                                    ProbeDetail("encryptedResolverId", DnsProviderCloudflare),
+                                    ProbeDetail("encryptedProtocol", EncryptedDnsProtocolDoh),
+                                    ProbeDetail("encryptedAddresses", "1.2.3.4"),
+                                ),
+                        ),
+                    ),
+            )
+        val result =
+            ResolverRecommendationEngine.compute(
+                report = report,
+                settings =
+                    com.poyka.ripdpi.proto.AppSettings
+                        .getDefaultInstance(),
+                preferredPath = null,
+            )
+        assertNotNull(result)
+        assertEquals(DnsProviderCloudflare, result!!.selectedResolverId)
+        assertEquals("udp_skipped_or_blocked", result.triggerOutcome)
+    }
+
+    @Test
     fun `compute selects best candidate by match count`() {
         val report =
             ScanReport(

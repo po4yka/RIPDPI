@@ -44,6 +44,19 @@ internal object DiagnosticsReportPersister {
                 }
                 null
             }
+        val resultEntities =
+            normalizedReport.results.map { result ->
+                ProbeResultEntity(
+                    id = UUID.randomUUID().toString(),
+                    sessionId = normalizedReport.sessionId,
+                    probeType = result.probeType,
+                    target = result.target,
+                    outcome = result.outcome,
+                    detailJson = json.encodeToString(ListSerializer(ProbeDetail.serializer()), result.details),
+                    createdAt = normalizedReport.finishedAt,
+                )
+            }
+        scanRecordStore.replaceProbeResults(normalizedReport.sessionId, resultEntities)
         scanRecordStore.upsertScanSession(
             ScanSessionEntity(
                 id = normalizedReport.sessionId,
@@ -67,20 +80,6 @@ internal object DiagnosticsReportPersister {
                 triggerPreviousFingerprintHash = existing?.triggerPreviousFingerprintHash,
                 triggerCurrentFingerprintHash = existing?.triggerCurrentFingerprintHash,
             ),
-        )
-        scanRecordStore.replaceProbeResults(
-            normalizedReport.sessionId,
-            normalizedReport.results.map { result ->
-                ProbeResultEntity(
-                    id = UUID.randomUUID().toString(),
-                    sessionId = normalizedReport.sessionId,
-                    probeType = result.probeType,
-                    target = result.target,
-                    outcome = result.outcome,
-                    detailJson = json.encodeToString(ListSerializer(ProbeDetail.serializer()), result.details),
-                    createdAt = normalizedReport.finishedAt,
-                )
-            },
         )
         bridgeEventsToHistory(normalizedReport, artifactWriteStore)
     }

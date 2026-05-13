@@ -36,7 +36,6 @@ pub(super) fn connect_via_socks5_observed(
 
 pub fn negotiate_socks5(proxy: TcpStream, target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
     proxy.set_nonblocking(true).map_err(|err| err.to_string())?;
-    let proxy = tokio::net::TcpStream::from_std(proxy).map_err(|err| err.to_string())?;
     let target = socks5_target(target, port);
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_io()
@@ -44,6 +43,7 @@ pub fn negotiate_socks5(proxy: TcpStream, target: &TargetAddress, port: u16) -> 
         .build()
         .map_err(|err| err.to_string())?;
     let proxy = runtime.block_on(async move {
+        let proxy = tokio::net::TcpStream::from_std(proxy).map_err(|err| err.to_string())?;
         let operation = async move {
             let mut socks = Socks5Stream::use_stream(proxy, None, Socks5Config::default()).await?;
             socks.request(Socks5Command::TCPConnect, target).await?;
