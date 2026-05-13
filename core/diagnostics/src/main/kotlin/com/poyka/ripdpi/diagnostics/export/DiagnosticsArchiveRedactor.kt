@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
@@ -106,6 +107,13 @@ class DiagnosticsArchiveRedactor
             )
         }
 
+        fun redact(entity: NativeSessionEventEntity): NativeSessionEventEntity =
+            entity.copy(
+                message = redactDiagnosticsFreeText(entity.message),
+                runtimeId = entity.runtimeId?.let(::redactDiagnosticsFreeText),
+                policySignature = entity.policySignature?.let(::redactDiagnosticsFreeText),
+            )
+
         fun decodeNetworkSnapshot(entity: NetworkSnapshotEntity?): NetworkSnapshotModel? =
             entity?.payloadJson?.let { payloadJson ->
                 runCatching {
@@ -120,3 +128,17 @@ class DiagnosticsArchiveRedactor
                 }.getOrNull()
             }
     }
+
+internal fun redactDiagnosticsFreeText(value: String): String =
+    value
+        .replace(AuthorizationHeaderRegex, "$1 redacted")
+        .replace(CredentialUrlRegex, "$1//redacted@")
+        .replace(SensitiveQueryRegex, "$1=redacted")
+        .replace(BssidRegex, "redacted-bssid")
+        .replace(QuotedNetworkNameRegex, "$1=\"redacted\"")
+
+private val AuthorizationHeaderRegex = Regex("(?i)\\b(Proxy-Authorization:|Authorization:)\\s*(?:Basic|Bearer)\\s+\\S+")
+private val CredentialUrlRegex = Regex("([a-z][a-z0-9+.-]*:)//[^\\s/@:]+:[^\\s/@]+@", RegexOption.IGNORE_CASE)
+private val SensitiveQueryRegex = Regex("(?i)\\b(token|auth|password|secret|key)=([^\\s&]+)")
+private val BssidRegex = Regex("\\b[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}\\b")
+private val QuotedNetworkNameRegex = Regex("(?i)\\b(ssid|operator|carrier)=([\"']).*?\\2")

@@ -87,6 +87,9 @@ abstract class BuildRustNativeLibsTask
         abstract val artifactSpecs: ListProperty<String>
 
         @get:Input
+        abstract val abiParallelism: Property<Int>
+
+        @get:Input
         abstract val pruneUnknownArtifacts: Property<Boolean>
 
         // When set (e.g. by CI's build-android-debug job after a per-ABI matrix
@@ -125,6 +128,10 @@ abstract class BuildRustNativeLibsTask
             val cargoExecutablePath = cargoExecutable.get()
             val cargoProfileName = cargoProfile.get()
             val abiList = abis.get()
+            val configuredAbiParallelism = abiParallelism.get()
+            if (configuredAbiParallelism < 1) {
+                throw GradleException("ripdpi.nativeAbiParallelism must be at least 1.")
+            }
 
             // Resolve the Android SDK cmake binary on the Gradle task thread.  Gradle lazy
             // property access (sdkDir.get()) is not safe from background threads, and the
@@ -179,8 +186,8 @@ abstract class BuildRustNativeLibsTask
             // Build all ABIs in parallel (each ABI has its own CARGO_TARGET_DIR).
             // Cap thread count to available processors to avoid CPU contention.
             val availableCpus = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
-            val threadCount = abiConfigs.size.coerceAtMost(availableCpus)
-            val cargoJobs = (availableCpus / abiConfigs.size).coerceAtLeast(1)
+            val threadCount = abiConfigs.size.coerceAtMost(availableCpus).coerceAtMost(configuredAbiParallelism)
+            val cargoJobs = (availableCpus / threadCount).coerceAtLeast(1)
             val executor = Executors.newFixedThreadPool(threadCount)
             try {
                 val futures: List<Future<*>> =
@@ -991,6 +998,11 @@ abstract class BuildPluggableTransportAssetsTask
 
 val rustNativeAbis = resolvedNativeAbis()
 val rustNativeCargoProfile = resolvedNativeCargoProfile()
+val rustNativeAbiParallelism =
+    providers
+        .gradleProperty("ripdpi.nativeAbiParallelism")
+        .map(String::toInt)
+        .orElse(Int.MAX_VALUE)
 val pluggableTransportAssetsMode = resolvedPluggableTransportAssetsMode()
 val pluggableTransportAssetsStrictFailures = resolvedPluggableTransportAssetsStrictFailures()
 val rustNativeArtifactSpecs =
@@ -1110,6 +1122,7 @@ val buildRustNativeLibs =
         cargoProfile.set(rustNativeCargoProfile)
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
+        abiParallelism.set(rustNativeAbiParallelism)
         artifactSpecs.set(rustNativeArtifactSpecs)
         cargoTargetDir.set(rustNativeLibsBuildDir)
         outputDir.set(generatedJniLibsDir)
@@ -1162,6 +1175,7 @@ val buildRustRootHelper =
         cargoProfile.set(rustNativeCargoProfile)
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
+        abiParallelism.set(rustNativeAbiParallelism)
         artifactSpecs.set(rustRootHelperArtifactSpecs)
         pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(rustRootHelperBuildDir)
@@ -1210,6 +1224,7 @@ val buildRustNaiveProxy =
         cargoProfile.set(rustNativeCargoProfile)
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
+        abiParallelism.set(rustNativeAbiParallelism)
         artifactSpecs.set(rustNaiveProxyArtifactSpecs)
         pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-naiveproxy"))
@@ -1257,6 +1272,7 @@ val buildRustCloudflareOrigin =
         cargoProfile.set(rustNativeCargoProfile)
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
+        abiParallelism.set(rustNativeAbiParallelism)
         artifactSpecs.set(rustCloudflareOriginArtifactSpecs)
         pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-cloudflare-origin"))

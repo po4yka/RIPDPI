@@ -26,4 +26,11 @@ class StrategyConfigImportTest {
             readLimitedUtf8Text(ByteArrayInputStream("  \n".toByteArray()), maxBytes = 32)
         }
     }
+
+    @Test
+    fun readLimitedUtf8TextRejectsMalformedUtf8() {
+        assertThrows(StrategyConfigImportException.InvalidUtf8::class.java) {
+            readLimitedUtf8Text(ByteArrayInputStream(byteArrayOf(0x43, 0x3a, 0x28, 0xc3.toByte())), maxBytes = 32)
+        }
+    }
 }

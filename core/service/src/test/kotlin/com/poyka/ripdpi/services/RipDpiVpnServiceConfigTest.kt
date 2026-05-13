@@ -44,6 +44,16 @@ class RipDpiVpnServiceConfigTest {
         assertEquals(TestLocalProxyAuth, config.password)
         assertEquals("/data/user/0/com.poyka.ripdpi/files/root_helper.sock", config.rootHelperSocketPath)
         assertNull(config.mapdnsAddress)
+        assertTrue(
+            RipDpiVpnService.vpnTunnelRoutePlan(ipv6Enabled = true).addresses.any {
+                it.address == "fd00::1" && it.prefixLength == 128
+            },
+        )
+        assertTrue(
+            RipDpiVpnService.vpnTunnelRoutePlan(ipv6Enabled = true).routes.any {
+                it.address == "::" && it.prefixLength == 0
+            },
+        )
     }
 
     @Test
@@ -70,6 +80,37 @@ class RipDpiVpnServiceConfigTest {
         assertTrue(config.resolverFallbackActive == true)
         assertEquals("dns_probe_failed", config.resolverFallbackReason)
         assertEquals(TestRotatedLocalProxyAuth, config.password)
+        val routePlan = RipDpiVpnService.vpnTunnelRoutePlan(ipv6Enabled = false)
+        assertTrue(routePlan.addresses.none { it.address.contains(":") })
+        assertTrue(routePlan.routes.none { it.address == "::" })
+    }
+
+    @Test
+    fun vpnTunnelRoutePlanKeepsIpv4DefaultsWhenIpv6IsDisabled() {
+        val routePlan = RipDpiVpnService.vpnTunnelRoutePlan(ipv6Enabled = false)
+
+        assertEquals(listOf(VpnTunnelRouteEntry("10.10.10.10", 32)), routePlan.addresses)
+        assertEquals(listOf(VpnTunnelRouteEntry("0.0.0.0", 0)), routePlan.routes)
+    }
+
+    @Test
+    fun vpnTunnelRoutePlanAddsIpv6AddressAndDefaultRouteWhenIpv6IsEnabled() {
+        val routePlan = RipDpiVpnService.vpnTunnelRoutePlan(ipv6Enabled = true)
+
+        assertEquals(
+            listOf(
+                VpnTunnelRouteEntry("10.10.10.10", 32),
+                VpnTunnelRouteEntry("fd00::1", 128),
+            ),
+            routePlan.addresses,
+        )
+        assertEquals(
+            listOf(
+                VpnTunnelRouteEntry("0.0.0.0", 0),
+                VpnTunnelRouteEntry("::", 0),
+            ),
+            routePlan.routes,
+        )
     }
 
     private fun plainDns(dnsIp: String): ActiveDnsSettings =

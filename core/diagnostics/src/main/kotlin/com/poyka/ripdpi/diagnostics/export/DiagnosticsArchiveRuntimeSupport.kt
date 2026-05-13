@@ -298,7 +298,7 @@ internal fun List<NativeSessionEventEntity>.lifecycleMilestones(limit: Int = 6):
                         message.contains("listener stopped")
                 )
         }.take(limit)
-        .map { event -> "${event.subsystem ?: event.source}: ${event.message}" }
+        .map { event -> "${event.subsystem ?: event.source}: ${redactDiagnosticsFreeText(event.message)}" }
         .toList()
 
 internal fun List<NativeSessionEventEntity>.recentWarningPreview(limit: Int = 5): List<String> =
@@ -307,7 +307,7 @@ internal fun List<NativeSessionEventEntity>.recentWarningPreview(limit: Int = 5)
         .filter { event ->
             event.level.equals("warn", ignoreCase = true) || event.level.equals("error", ignoreCase = true)
         }.take(limit)
-        .map { event -> "${event.subsystem ?: event.source}: ${event.message}" }
+        .map { event -> "${event.subsystem ?: event.source}: ${redactDiagnosticsFreeText(event.message)}" }
         .toList()
 
 internal fun BypassApproachSummary.successRateLabel(): String =

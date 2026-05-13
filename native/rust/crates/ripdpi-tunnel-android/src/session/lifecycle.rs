@@ -104,6 +104,10 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong, tun_fd: jint) {
     }
     mark_session_started(&session.telemetry, &session.config);
 
+    // JNI lifecycle contract: start_session performs validation, adopts the
+    // TUN fd, transitions Ready -> Starting -> Running, and spawns the tunnel
+    // worker. It must not run packet IO on the JNI caller thread; long-running
+    // tunnel work belongs exclusively to the worker returned here.
     let worker = match launch_tunnel_worker(WorkerLaunch {
         runtime: session.runtime.clone(),
         config: session.config.clone(),

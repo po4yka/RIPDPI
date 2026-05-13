@@ -516,6 +516,12 @@ private fun importErrorMessage(
             context.getString(R.string.strategy_config_import_empty)
         }
 
+        StrategyConfigImportException.InvalidUtf8,
+        StrategyConfigImportException.UnreadableFile,
+        -> {
+            context.getString(R.string.strategy_config_import_unreadable)
+        }
+
         else -> {
             error.localizedMessage ?: context.getString(R.string.strategy_config_import_unreadable)
         }

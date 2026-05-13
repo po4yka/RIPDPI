@@ -79,6 +79,31 @@ class DiagnosticShareLinkCodecTest {
     }
 
     @Test
+    fun `decode rejects oversized fragment before decoding`() {
+        assertThrowsShareLinkDecodeError {
+            DiagnosticShareLinkCodec.decode("A".repeat(DiagnosticShareLinkMaxFragmentChars + 1))
+        }
+    }
+
+    @Test
+    fun `decode rejects trailing binary payload data`() {
+        val payload =
+            ShareLinkPayload(
+                commitHash = 0x7a,
+                timestampMinutes = 1,
+                asn = 1,
+                items = listOf(ShareLinkItem(AliveState.YES, DpiState.DETECTED)),
+            )
+        val encodedBytes = Base64.getUrlDecoder().decode(DiagnosticShareLinkCodec.encode(payload))
+        val withTrailingData = encodedBytes + byteArrayOf(0x01)
+        val fragment = Base64.getUrlEncoder().withoutPadding().encodeToString(withTrailingData)
+
+        assertThrowsShareLinkDecodeError {
+            DiagnosticShareLinkCodec.decode(fragment)
+        }
+    }
+
+    @Test
     fun `commit hash byte is not xor obfuscated`() {
         val payload =
             ShareLinkPayload(

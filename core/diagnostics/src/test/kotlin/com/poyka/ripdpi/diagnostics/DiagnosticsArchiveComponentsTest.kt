@@ -88,6 +88,34 @@ class DiagnosticsArchiveComponentsTest {
     }
 
     @Test
+    fun `redactor removes credentials and raw network ids from native events`() {
+        val event =
+            NativeSessionEventEntity(
+                id = "event-sensitive",
+                sessionId = "session-1",
+                source = "proxy",
+                level = "warn",
+                message =
+                    "Proxy-Authorization: Basic secret ssid=\"Cafe Wifi\" bssid=00:11:22:33:44:55 " +
+                        "url=https://user:pass@example.test/path?token=abc123",
+                createdAt = 22L,
+                runtimeId = "runtime-token=abc123",
+                policySignature = "policy-secret=relay-password",
+            )
+
+        val redacted = redactor.redact(event)
+        val encoded = json.encodeToString(NativeSessionEventEntity.serializer(), redacted)
+
+        assertFalse(encoded.contains("Basic secret"))
+        assertFalse(encoded.contains("Cafe Wifi"))
+        assertFalse(encoded.contains("00:11:22:33:44:55"))
+        assertFalse(encoded.contains("user:pass"))
+        assertFalse(encoded.contains("abc123"))
+        assertFalse(encoded.contains("relay-password"))
+        assertTrue(encoded.contains("redacted"))
+    }
+
+    @Test
     fun `selector chooses latest completed session and partitions passive data`() =
         runTest {
             val latestCompleted =

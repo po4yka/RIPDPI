@@ -120,12 +120,14 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             primaryReport = selection.primaryReport,
             sessionSnapshots = selection.payload.sessionSnapshots.map(redactor::redact),
             sessionContexts = selection.payload.sessionContexts.map(redactor::redact),
+            sessionEvents = selection.payload.sessionEvents.map(redactor::redact),
             latestPassiveSnapshot = selection.payload.latestPassiveSnapshot?.let(redactor::redact),
             latestPassiveContext = selection.payload.latestPassiveContext?.let(redactor::redact),
             telemetry =
                 selection.payload.telemetry.map { sample ->
                     sample.copy(publicIp = if (sample.publicIp != null) "redacted" else null)
                 },
+            globalEvents = selection.payload.globalEvents.map(redactor::redact),
         )
 
     internal fun buildSnapshotPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveSnapshotPayload =

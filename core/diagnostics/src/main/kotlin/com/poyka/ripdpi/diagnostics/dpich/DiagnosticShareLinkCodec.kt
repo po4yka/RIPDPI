@@ -14,6 +14,7 @@ private const val CommitHashOffset = 0
 private const val TimestampOffset = 1
 private const val AsnOffset = 4
 private const val ItemCountOffset = 7
+const val DiagnosticShareLinkMaxFragmentChars = 600
 
 private val XorKey = byteArrayOf(0x72, 0x69, 0x70, 0x64, 0x70, 0x69)
 
@@ -34,6 +35,9 @@ object DiagnosticShareLinkCodec {
     }
 
     fun decode(fragment: String): ShareLinkPayload {
+        if (fragment.length > DiagnosticShareLinkMaxFragmentChars) {
+            throw ShareLinkDecodeError("Share-link fragment is too large")
+        }
         val encodedBytes =
             try {
                 Base64.getUrlDecoder().decode(fragment)
@@ -78,6 +82,9 @@ object DiagnosticShareLinkCodec {
         val requiredSize = HeaderSizeBytes + itemCount.packedItemByteCount()
         if (bytes.size < requiredSize) {
             throw ShareLinkDecodeError("Share-link item payload is truncated")
+        }
+        if (bytes.size > requiredSize) {
+            throw ShareLinkDecodeError("Share-link payload has trailing data")
         }
         val items =
             List(itemCount) { index ->

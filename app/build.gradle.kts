@@ -30,6 +30,33 @@ abstract class VerifyEngineBoundaryClasspathTask : DefaultTask() {
     }
 }
 
+abstract class VerifyReleaseVersionTask : DefaultTask() {
+    @get:Input
+    abstract val versionName: Property<String>
+
+    @get:Input
+    abstract val versionCode: Property<Int>
+
+    @get:Input
+    abstract val refName: Property<String>
+
+    @TaskAction
+    fun verify() {
+        val currentRef = refName.get()
+        if (!currentRef.startsWith("v")) {
+            logger.lifecycle("Skipping release tag/version check for ref '$currentRef'")
+            return
+        }
+        val expectedVersion = currentRef.removePrefix("v")
+        if (expectedVersion != versionName.get()) {
+            throw GradleException(
+                "Release tag $currentRef does not match app versionName ${versionName.get()} " +
+                    "(versionCode ${versionCode.get()}).",
+            )
+        }
+    }
+}
+
 plugins {
     id("ripdpi.android.application")
     id("ripdpi.android.coverage")
@@ -76,6 +103,8 @@ val releaseStoreFilePath = localOrEnv("signing.storeFile", "RIPDPI_SIGNING_STORE
 val releaseStorePassword = localOrEnv("signing.storePassword", "RIPDPI_SIGNING_STORE_PASSWORD")
 val releaseKeyAlias = localOrEnv("signing.keyAlias", "RIPDPI_SIGNING_KEY_ALIAS")
 val releaseKeyPassword = localOrEnv("signing.keyPassword", "RIPDPI_SIGNING_KEY_PASSWORD")
+val ripdpiVersionCode = 7
+val ripdpiVersionName = "0.0.7"
 
 val forwardedInstrumentationArguments =
     listOf(
@@ -95,8 +124,8 @@ extensions.configure<ApplicationExtension> {
 
     defaultConfig {
         applicationId = "com.poyka.ripdpi"
-        versionCode = 7
-        versionName = "0.0.7"
+        versionCode = ripdpiVersionCode
+        versionName = ripdpiVersionName
 
         testInstrumentationRunner = "com.poyka.ripdpi.HiltTestRunner"
         testInstrumentationRunnerArguments["clearPackageData"] =
@@ -124,6 +153,28 @@ extensions.configure<ApplicationExtension> {
 
     buildFeatures {
         buildConfig = true
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"play\"")
+            buildConfigField("String", "GITHUB_UPDATE_OWNER", "\"\"")
+            buildConfigField("String", "GITHUB_UPDATE_REPO", "\"\"")
+        }
+        create("fdroid") {
+            dimension = "distribution"
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"fdroid\"")
+            buildConfigField("String", "GITHUB_UPDATE_OWNER", "\"\"")
+            buildConfigField("String", "GITHUB_UPDATE_REPO", "\"\"")
+        }
+        create("github") {
+            dimension = "distribution"
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"github\"")
+            buildConfigField("String", "GITHUB_UPDATE_OWNER", "\"po4yka\"")
+            buildConfigField("String", "GITHUB_UPDATE_REPO", "\"RIPDPI\"")
+        }
     }
 
     testOptions {
@@ -254,12 +305,14 @@ tasks.register<VerifyEngineBoundaryClasspathTask>("verifyEngineBoundaryClasspath
     description = "Fails if :core:engine leaks onto :app compile classpaths."
     forbiddenProjectPath.set(":core:engine")
 
-    listOf(
-        "debugCompileClasspath",
-        "releaseCompileClasspath",
-        "benchmarkCompileClasspath",
-    ).forEach { configurationName ->
-        configurations.findByName(configurationName)?.let { configuration ->
+    configurations
+        .matching { configuration ->
+            configuration.name.endsWith("CompileClasspath") &&
+                !configuration.name.startsWith("androidTest") &&
+                !configuration.name.startsWith("test") &&
+                !configuration.name.contains("AndroidTest") &&
+                !configuration.name.contains("UnitTest")
+        }.forEach { configuration ->
             forbiddenArtifacts.from(
                 configuration.incoming
                     .artifactView {
@@ -270,5 +323,19 @@ tasks.register<VerifyEngineBoundaryClasspathTask>("verifyEngineBoundaryClasspath
                     }.files,
             )
         }
+}
+
+plugins.withId("com.android.application") {
+    tasks.register<VerifyReleaseVersionTask>("verifyReleaseVersion") {
+        group = "verification"
+        description = "Fails release builds when refs/tags/v* does not match :app versionName."
+        versionName.set(ripdpiVersionName)
+        versionCode.set(ripdpiVersionCode)
+        refName.set(
+            providers
+                .environmentVariable("GITHUB_REF_NAME")
+                .orElse(providers.gradleProperty("ripdpi.releaseRefName"))
+                .orElse(""),
+        )
     }
 }

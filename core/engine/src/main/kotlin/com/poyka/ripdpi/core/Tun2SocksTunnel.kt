@@ -15,8 +15,24 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 
 interface Tun2SocksBindings {
+    /**
+     * Creates a native tunnel session in Ready state.
+     *
+     * Lifecycle-sensitive JNI calls on this binding have a bounded contract:
+     * create/start/getStats/getTelemetry/destroy must not run the tunnel event loop
+     * on the caller thread. start may perform validation and worker-thread spawn
+     * setup, then returns after the native session is Running or failed. stop may
+     * wait for that worker to exit after cancellation, so callers keep it on the
+     * IO dispatcher and must treat it as the only potentially blocking lifecycle
+     * call.
+     */
     fun create(configJson: String): Long
 
+    /**
+     * Starts the native session by adopting the TUN fd and spawning the tunnel
+     * worker. The native FFI contract is non-blocking with respect to packet IO:
+     * this call returns after worker launch, not after tunnel termination.
+     */
     fun start(
         handle: Long,
         tunFd: Int,
@@ -108,23 +124,25 @@ class Tun2SocksTunnel(
             }
             Logger.d { "Tunnel native session created: handle=$createdHandle" }
 
+            handle = createdHandle
             try {
                 withContext(Dispatchers.IO) {
                     nativeBindings.start(createdHandle, tunFd)
                 }
                 Logger.d { "Tunnel native start completed: tunFd=$tunFd" }
-                handle = createdHandle
             } catch (e: CancellationException) {
                 withContext(NonCancellable) {
                     withContext(Dispatchers.IO) {
                         nativeBindings.destroy(createdHandle)
                     }
                 }
+                handle = 0L
                 throw e
             } catch (e: Exception) {
                 withContext(Dispatchers.IO) {
                     nativeBindings.destroy(createdHandle)
                 }
+                handle = 0L
                 throw e
             }
         }

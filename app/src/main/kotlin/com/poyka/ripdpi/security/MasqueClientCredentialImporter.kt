@@ -10,6 +10,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.CodingErrorAction
 import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.cert.Certificate
@@ -20,6 +24,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val PemLineWidth = 64
+private const val MasqueCredentialMaxImportBytes = 256 * 1024
 private val PemLineSeparator = "\n".toByteArray()
 
 data class ImportedMasqueClientIdentity(
@@ -84,11 +89,25 @@ class AndroidMasqueClientCredentialImporter
 
         private fun readDocument(uri: Uri): ByteArray =
             context.contentResolver.openInputStream(uri)?.use { stream ->
-                stream.readBytes()
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                var total = 0
+                while (true) {
+                    val read = stream.read(buffer)
+                    if (read == -1) {
+                        break
+                    }
+                    total += read
+                    require(total <= MasqueCredentialMaxImportBytes) {
+                        "The selected credential file is too large."
+                    }
+                    output.write(buffer, 0, read)
+                }
+                output.toByteArray()
             } ?: throw IllegalArgumentException("Unable to read the selected document.")
 
         private fun normalizeCertificatePem(bytes: ByteArray): String {
-            val text = bytes.toString(Charsets.UTF_8)
+            val text = bytes.decodeStrictUtf8()
             val pemBlocks = CertificatePemRegex.findAll(text).map { it.groupValues[1] }.toList()
             if (pemBlocks.isNotEmpty()) {
                 return pemBlocks.joinToString(separator = "\n") { block ->
@@ -108,7 +127,7 @@ class AndroidMasqueClientCredentialImporter
         }
 
         private fun normalizePrivateKeyPem(bytes: ByteArray): String {
-            val text = bytes.toString(Charsets.UTF_8)
+            val text = bytes.decodeStrictUtf8()
             val match =
                 PrivateKeyPemRegex.find(text)
                     ?: throw IllegalArgumentException("The selected key file must be a PEM private key.")
@@ -171,6 +190,18 @@ class AndroidMasqueClientCredentialImporter
                 while (aliases.hasMoreElements()) {
                     yield(aliases.nextElement())
                 }
+            }
+
+        private fun ByteArray.decodeStrictUtf8(): String =
+            try {
+                Charsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(this))
+                    .toString()
+            } catch (_: CharacterCodingException) {
+                throw IllegalArgumentException("The selected credential file is not valid UTF-8 PEM text.")
             }
     }
 

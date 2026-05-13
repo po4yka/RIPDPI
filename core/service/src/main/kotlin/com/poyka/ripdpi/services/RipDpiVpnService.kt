@@ -105,7 +105,6 @@ class RipDpiVpnService :
         }
     }
 
-    @Suppress("UnusedParameter")
     override suspend fun createTunnelBuilder(
         dns: String,
         ipv6: Boolean,
@@ -117,7 +116,6 @@ class RipDpiVpnService :
     @android.annotation.SuppressLint("MissingPermission")
     override fun syncUnderlyingNetworksFromActiveNetwork() = underlyingNetworkBinder.syncFromActiveNetwork()
 
-    @Suppress("UnusedParameter")
     internal suspend fun createBuilder(
         dns: String,
         ipv6: Boolean,
@@ -135,11 +133,7 @@ class RipDpiVpnService :
             ),
         )
 
-        builder
-            .addAddress(TUNNEL_IPV4_ADDRESS, TunnelIpv4PrefixLen)
-            .addRoute("0.0.0.0", 0)
-            .addAddress(TUNNEL_IPV6_ADDRESS, TunnelIpv6PrefixLen)
-            .addRoute("::", 0)
+        builder.applyTunnelRoutePlan(vpnTunnelRoutePlan(ipv6))
 
         if (dns.isNotBlank()) {
             builder.addDnsServer(dns)
@@ -271,5 +265,42 @@ class RipDpiVpnService :
                 username = localProxyEndpoint.username,
                 password = localProxyEndpoint.password,
             )
+
+        internal fun vpnTunnelRoutePlan(ipv6Enabled: Boolean): VpnTunnelRoutePlan =
+            VpnTunnelRoutePlan(
+                addresses =
+                    buildList {
+                        add(VpnTunnelRouteEntry(TUNNEL_IPV4_ADDRESS, TunnelIpv4PrefixLen))
+                        if (ipv6Enabled) {
+                            add(VpnTunnelRouteEntry(TUNNEL_IPV6_ADDRESS, TunnelIpv6PrefixLen))
+                        }
+                    },
+                routes =
+                    buildList {
+                        add(VpnTunnelRouteEntry("0.0.0.0", 0))
+                        if (ipv6Enabled) {
+                            add(VpnTunnelRouteEntry("::", 0))
+                        }
+                    },
+            )
+    }
+}
+
+internal data class VpnTunnelRouteEntry(
+    val address: String,
+    val prefixLength: Int,
+)
+
+internal data class VpnTunnelRoutePlan(
+    val addresses: List<VpnTunnelRouteEntry>,
+    val routes: List<VpnTunnelRouteEntry>,
+)
+
+private fun android.net.VpnService.Builder.applyTunnelRoutePlan(plan: VpnTunnelRoutePlan) {
+    plan.addresses.forEach { address ->
+        addAddress(address.address, address.prefixLength)
+    }
+    plan.routes.forEach { route ->
+        addRoute(route.address, route.prefixLength)
     }
 }

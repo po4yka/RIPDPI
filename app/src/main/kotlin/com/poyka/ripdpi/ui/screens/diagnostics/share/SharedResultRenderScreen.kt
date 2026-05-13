@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.poyka.ripdpi.diagnostics.dpich.AliveState
 import com.poyka.ripdpi.diagnostics.dpich.DiagnosticShareLinkCodec
+import com.poyka.ripdpi.diagnostics.dpich.DiagnosticShareLinkMaxFragmentChars
 import com.poyka.ripdpi.diagnostics.dpich.DpiState
 import com.poyka.ripdpi.diagnostics.dpich.ShareLinkDecodeError
 import com.poyka.ripdpi.diagnostics.dpich.ShareLinkItem
@@ -42,6 +43,7 @@ private const val CommitHashMinWidth = 2
 private const val CommitHashPadChar = '0'
 private val ShareEpoch = Instant.parse("2024-01-01T00:00:00Z")
 private val ShareTimestampFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'", Locale.US)
+private val ShareFragmentPattern = Regex("[A-Za-z0-9_-]+")
 
 internal object DiagnosticShareLinkDeepLink {
     fun fragmentFrom(intent: Intent?): String? {
@@ -51,9 +53,15 @@ internal object DiagnosticShareLinkDeepLink {
                 uri.host == ShareLinkHost &&
                 uri.path == ShareLinkPath &&
                 uri.getQueryParameter("v") == ShareLinkVersion
-        return uri?.fragment?.takeIf { matchesShareLink }?.takeIf(String::isNotBlank)
+        return uri
+            ?.encodedFragment
+            ?.takeIf { matchesShareLink }
+            ?.takeIf(String::isValidShareFragment)
     }
 }
+
+private fun String.isValidShareFragment(): Boolean =
+    isNotBlank() && length <= DiagnosticShareLinkMaxFragmentChars && ShareFragmentPattern.matches(this)
 
 internal object DiagnosticShareLinkUrl {
     fun build(

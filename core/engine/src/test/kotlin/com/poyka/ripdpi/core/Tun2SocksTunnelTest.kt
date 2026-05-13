@@ -1,12 +1,16 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 class Tun2SocksTunnelTest {
     @Test
@@ -65,4 +69,46 @@ class Tun2SocksTunnelTest {
         assertEquals("true", payload.getValue("resolverFallbackActive").jsonPrimitive.content)
         assertEquals("UDP DNS showed udp_blocked", payload.getValue("resolverFallbackReason").jsonPrimitive.content)
     }
+
+    @Test
+    fun failedStartDestroysNativeHandleAndReturnsIdleSnapshots() =
+        runTest {
+            val bindings =
+                FakeTun2SocksBindings().apply {
+                    startFailure = IOException("native start failed")
+                    nativeStats = longArrayOf(1L, 2L, 3L, 4L)
+                    telemetryJson =
+                        Json.encodeToString(
+                            NativeRuntimeSnapshot.serializer(),
+                            NativeRuntimeSnapshot(source = "tunnel", state = "running"),
+                        )
+                }
+            val tunnel = Tun2SocksTunnel(bindings)
+
+            val error = runCatching { tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 42) }.exceptionOrNull()
+
+            assertTrue(error is IOException)
+            assertEquals(listOf(1L), bindings.destroyedHandles)
+            assertEquals(TunnelStats(), tunnel.stats())
+            assertEquals("idle", tunnel.telemetry().state)
+            assertTrue(bindings.statsHandles.isEmpty())
+            assertTrue(bindings.telemetryHandles.isEmpty())
+        }
+
+    @Test
+    fun repeatedStartStopDoesNotReuseStaleHandle() =
+        runTest {
+            val bindings = FakeTun2SocksBindings()
+            val tunnel = Tun2SocksTunnel(bindings)
+
+            tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 42)
+            tunnel.stop()
+            bindings.createdHandle = 2L
+            tunnel.start(Tun2SocksConfig(socks5Port = 1081), tunFd = 43)
+            tunnel.stop()
+
+            assertEquals(listOf(1L, 2L), bindings.startedHandles)
+            assertEquals(listOf(1L, 2L), bindings.stoppedHandles)
+            assertEquals(listOf(1L, 2L), bindings.destroyedHandles)
+        }
 }
