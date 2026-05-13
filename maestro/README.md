@@ -29,3 +29,7 @@ maestro test maestro/01-cold-launch-home.yaml
 - `02-settings-navigation.yaml`
 - `03-advanced-settings-edit-save.yaml`
 - `04-start-stop-configured-mode.yaml`
+
+Additional local network lab flow skeletons live under `test-lab/maestro/`.
+Use them together with `test-lab/scripts/start-lab.sh` and the debug probe
+scripts when validating lab-backed diagnostics or VPN start/stop behavior.

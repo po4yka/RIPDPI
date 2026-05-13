@@ -9,7 +9,7 @@ runs through the MacBook LAN IP.
 ```bash
 ./test-lab/scripts/start-lab.sh --profile emulator
 ./test-lab/scripts/adb-install-debug.sh
-./test-lab/scripts/adb-run-probe-emulator.sh --mode vpn
+./test-lab/scripts/adb-run-probe-emulator.sh --mode diagnostics
 ./test-lab/scripts/stop-lab.sh
 ```
 
@@ -17,7 +17,19 @@ For a physical device:
 
 ```bash
 ./test-lab/scripts/start-lab.sh --profile device
-./test-lab/scripts/adb-run-probe-device.sh --mode vpn
+./test-lab/scripts/adb-install-debug.sh
+./test-lab/scripts/adb-run-probe-device.sh --mode diagnostics
+./test-lab/scripts/stop-lab.sh
+```
+
+For the full VPN-mode smoke on a prepared emulator or attached device, use the
+orchestrator. It restarts the lab, installs the debug APK unless skipped, uses
+Maestro connect/disconnect flows when `maestro` is on `PATH`, runs the debug
+probe in VPN mode, and archives failure artifacts:
+
+```bash
+./test-lab/scripts/run-vpn-e2e.sh --profile emulator
+./test-lab/scripts/run-vpn-e2e.sh --profile device --keep-lab
 ```
 
 The debug probe writes JSON to:
@@ -29,11 +41,17 @@ The debug probe writes JSON to:
 Production builds do not include the probe receiver or the debug TLS trust
 behavior because both live under `app/src/debug`.
 
+`start-lab.sh` writes the resolved host IP, DNS port, and profile to
+`test-lab/artifacts/lab-env.sh`; the ADB probe scripts source that file
+automatically. The host DNS port defaults to `1053` because macOS often already
+owns port `53`. Set `RIPDPI_DNS_PORT=53` before starting the lab only when that
+port is free.
+
 ## Services
 
 | Service | Port |
 |---|---:|
-| CoreDNS | 53 TCP/UDP |
+| CoreDNS | 1053 TCP/UDP on host, 53 TCP/UDP in container |
 | httpbin | 8080 |
 | WireMock | 8082 |
 | Caddy HTTP | 8081 |
@@ -41,6 +59,7 @@ behavior because both live under `app/src/debug`.
 | TCP echo | 9000 |
 | UDP echo | 9001 UDP |
 | QUIC / HTTP/3 | 9443 TCP/UDP |
+| Mock relay | 10080 |
 | Toxiproxy | 8474 API, 18080, 18443 |
 | mitmproxy | 8088, 8089 with `--profile inspect` |
 
@@ -68,9 +87,10 @@ toxics with:
 ```bash
 adb shell am broadcast \
   -a com.poyka.ripdpi.DEBUG_PROBE \
+  -n com.poyka.ripdpi/.debug.DebugNetworkProbeReceiver \
   --es profile emulator \
   --es mode vpn \
-  --es output /sdcard/Android/data/com.poyka.ripdpi/files/probe-result.json
+  --ei dns_port 1053
 ```
 
 For device profile, pass the MacBook host explicitly:
@@ -78,8 +98,10 @@ For device profile, pass the MacBook host explicitly:
 ```bash
 adb shell am broadcast \
   -a com.poyka.ripdpi.DEBUG_PROBE \
+  -n com.poyka.ripdpi/.debug.DebugNetworkProbeReceiver \
   --es profile device \
   --es lab_host "$(ipconfig getifaddr en0)" \
+  --ei dns_port 1053 \
   --es mode vpn
 ```
 
@@ -88,9 +110,19 @@ transport, and local proxy readiness. QUIC is represented in the JSON result as
 `QUIC_UNSUPPORTED_ANDROID_DEBUG_PROBE` until an Android-side HTTP/3 client is
 added; the Docker QUIC server is available for host and future app probes.
 
+The mock relay on port `10080` exposes a minimal JSON handshake for readiness,
+auth-failure, and malformed-response tests. It is not a production relay
+protocol implementation.
+
+Use `--mode diagnostics` for a lab reachability smoke without requiring an
+active RIPDPI service. Use `--mode vpn` after VPN mode is running; that mode
+requires Android VPN transport plus local proxy readiness and returns `Fail`
+when either precondition is absent.
+
 ## Artifacts
 
 - Probe JSON: `test-lab/artifacts/probe-<profile>-<mode>.json`
+- VPN E2E run directories: `test-lab/artifacts/vpn-e2e-*`
 - Collected device logs: `test-lab/artifacts/logs-*`
 - Packet captures: `test-lab/capture/*.pcap`
 

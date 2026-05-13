@@ -133,6 +133,10 @@ APK output: `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`.
 ./gradlew testDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
+./test-lab/scripts/start-lab.sh --profile emulator
+./test-lab/scripts/adb-install-debug.sh
+./test-lab/scripts/adb-run-probe-emulator.sh --mode diagnostics
+./test-lab/scripts/stop-lab.sh
 python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 ```
 
@@ -146,5 +150,7 @@ Details: [docs/testing.md](docs/testing.md)
 - [TUN-to-SOCKS bridge](docs/native/tunnel.md)
 - [Strategy-pack and TLS catalog operations](docs/strategy-pack-operations.md)
 - [Relay profile examples](docs/relay-profile-examples.md)
+- [Local network test lab](test-lab/README.md)
+- [External UI automation](docs/automation/README.md)
 - [Architecture notes](docs/architecture/README.md)
 - [Roadmap](ROADMAP.md)

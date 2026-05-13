@@ -2,3 +2,4 @@ dns/Corefile.active
 capture/*.pcap
 capture/*.log
 artifacts/
+tls/certs/lab.crt

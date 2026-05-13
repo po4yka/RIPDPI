@@ -29,6 +29,8 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 ## Testing & CI
 
 - [Testing, E2E, golden contracts, and soak coverage](testing.md)
+- [Local network test lab](../test-lab/README.md)
+- [Local network lab coverage](../test-lab/SPEC.md)
 - [Android logcat filtering](android-logcat-filtering.md)
 
 ## Architecture Hardening
@@ -51,6 +53,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 - [External UI automation](automation/README.md)
 - [Selector contract](automation/selector-contract.md)
 - [Appium readiness](automation/appium-readiness.md)
+- [Maestro smoke flows](../maestro/README.md)
 
 ## User Manuals
 

@@ -3,19 +3,15 @@
 }
 
 :80 {
+    header Content-Type application/json
     respond /health "ok" 200
-    respond /ripdpi/ok `{"ok":true,"service":"caddy","scheme":"http"}` 200 {
-        header Content-Type application/json
-    }
+    respond /ripdpi/ok `{"ok":true,"service":"caddy","scheme":"http"}` 200
 }
 
 :443 {
-    tls internal
-    respond / `{"ok":true,"service":"caddy","scheme":"https"}` 200 {
-        header Content-Type application/json
-    }
-    respond /delay `{"ok":true,"delayed":true}` 200 {
-        header Content-Type application/json
-    }
-    respond /large "{file./certs/large-response.txt}" 200
+    tls /certs/lab.crt /certs/lab.key
+    header Content-Type application/json
+    respond / `{"ok":true,"service":"caddy","scheme":"https"}` 200
+    respond /delay `{"ok":true,"delayed":true}` 200
+    respond /large `{"ok":true,"bytes":1048576}` 200
 }

@@ -85,7 +85,7 @@ The Rust workspace contains several test styles:
 
 - unit tests for JNI adapters and helpers
 - property-based and fuzz-style parsing coverage with `proptest`
-- config and planner coverage for semantic markers, adaptive `auto(...)` markers, activation filters, fake payload profile selection, QUIC fake Initial profiles, and HTTP parser evasions
+- config and planner coverage for semantic markers, adaptive `auto(...)` markers, activation filters, fake payload profile selection, QUIC fake Initial profiles, and HTTP parser variants
 - relay transport coverage for MASQUE path and auth handling, xHTTP Finalmask mutation, Cloudflare publish-origin helper behavior, and NaiveProxy helper contracts
 - relay interoperability CI matrix now also exercises `ripdpi-xhttp` and `ripdpi-cloudflare-origin` alongside MASQUE, NaiveProxy, and the other relay crates through `scripts/ci/run-rust-relay-interoperability.sh`
 - runtime policy coverage for host autolearn scoping, route advancement, adaptive fake TTL learning, retry-stealth pacing, and candidate diversification
@@ -266,6 +266,47 @@ python3 scripts/ci/phase16_pcap_summary.py --artifact-root build/phase16-matrix/
 - `scripts/ci/phase16_pcap_summary.py` understands both host
   `capture.pcap`/`capture.tshark.json` artifacts and Android
   `device-capture.pcap`/`device-capture.tshark.json` artifacts.
+
+## Docker Local Network Test Lab
+
+The Docker-backed lab in [`test-lab/`](../test-lab/README.md) provides a
+MacBook-hosted network target set for debug Android builds:
+
+- CoreDNS with emulator and physical-device profiles
+- httpbin and deterministic WireMock HTTP targets
+- Caddy HTTPS with a generated local debug certificate
+- TCP and UDP echo endpoints
+- QUIC/HTTP3 server for host validation and future Android HTTP/3 probes
+- Toxiproxy and optional netem scripts for fault scenarios
+- debug-only ADB probe output as app-private JSON
+
+Start the lab for emulator work:
+
+```bash
+./test-lab/scripts/start-lab.sh --profile emulator
+./test-lab/scripts/adb-install-debug.sh
+./test-lab/scripts/adb-run-probe-emulator.sh --mode diagnostics
+./test-lab/scripts/stop-lab.sh
+```
+
+Start the lab for a physical device on the same Wi-Fi network:
+
+```bash
+./test-lab/scripts/start-lab.sh --profile device
+./test-lab/scripts/adb-install-debug.sh
+./test-lab/scripts/adb-run-probe-device.sh --mode diagnostics
+./test-lab/scripts/stop-lab.sh
+```
+
+Use `--mode diagnostics` for a transport reachability smoke that does not
+require RIPDPI's foreground service to be active. Use `--mode vpn` only after
+the app has started VPN mode; the probe will then require Android to report an
+active VPN transport and the local proxy port to accept connections.
+
+The probe JSON is pulled into `test-lab/artifacts/probe-<profile>-<mode>.json`.
+`verdict=Fail` exits non-zero; typed recoverable failures such as UDP timeout
+or Android QUIC probe unsupported return `Degraded` so they remain observable
+without masking DNS, HTTP, HTTPS, or TCP success.
 
 ## Offline Analytics CI
 

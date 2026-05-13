@@ -64,7 +64,7 @@ compose_command() {
 redact_file() {
   local input="$1"
   local output="$2"
-  perl -pe 's/(token|password|auth|secret|private_key|ssid|bssid|imsi|operator|subscription)=\S+/$1=<redacted>/ig' \
+  perl -pe 's/\b(token|password|auth|secret|private_key|ssid|bssid|imsi|operator|subscription)\b(\s*[:=]\s*)\S*/$1$2<redacted>/ig; s#https?://\S+#<url-redacted>#g' \
     "$input" > "$output"
 }
 
@@ -107,8 +107,16 @@ if command -v "$adb_bin" >/dev/null 2>&1; then
       redact_file "$adb_dir/logcat.raw.txt" "$adb_dir/logcat.redacted.txt"
       rm -f "$adb_dir/logcat.raw.txt"
     fi
-    "$adb_bin" shell dumpsys connectivity > "$adb_dir/dumpsys-connectivity.txt" 2>&1 || true
-    "$adb_bin" shell dumpsys vpn > "$adb_dir/dumpsys-vpn.txt" 2>&1 || true
+    "$adb_bin" shell dumpsys connectivity > "$adb_dir/dumpsys-connectivity.raw.txt" 2>&1 || true
+    "$adb_bin" shell dumpsys vpn > "$adb_dir/dumpsys-vpn.raw.txt" 2>&1 || true
+    if [[ -f "$adb_dir/dumpsys-connectivity.raw.txt" ]]; then
+      redact_file "$adb_dir/dumpsys-connectivity.raw.txt" "$adb_dir/dumpsys-connectivity.txt"
+      rm -f "$adb_dir/dumpsys-connectivity.raw.txt"
+    fi
+    if [[ -f "$adb_dir/dumpsys-vpn.raw.txt" ]]; then
+      redact_file "$adb_dir/dumpsys-vpn.raw.txt" "$adb_dir/dumpsys-vpn.txt"
+      rm -f "$adb_dir/dumpsys-vpn.raw.txt"
+    fi
   else
     echo "adb is installed, but no device is connected." > "$adb_dir/skipped.txt"
   fi
@@ -127,3 +135,4 @@ archive_path="$archive_dir/$bundle_name.tar.gz"
 tar -C "$work_dir" -czf "$archive_path" "$bundle_name"
 
 echo "Created artifact archive: $archive_path"
+"$lab_root/scripts/check-artifact-redaction.sh" "$archive_path"

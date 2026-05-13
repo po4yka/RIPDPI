@@ -15,6 +15,7 @@ live VPN/native services.
 
 - [Selector Contract](./selector-contract.md)
 - [Appium Readiness](./appium-readiness.md)
+- [Local Network Test Lab](../../test-lab/README.md)
 
 ## Launch Contract
 
@@ -57,6 +58,23 @@ contract as Maestro but provide programmatic page-object-driven assertions.
 cd appium
 pytest tests/ -v
 ```
+
+## Debug Network Probe
+
+Debug builds also expose a machine-readable network probe receiver for lab and
+device smoke checks. Prefer the wrapper scripts because they choose the current
+host profile, DNS port, package name, and output path:
+
+```bash
+./test-lab/scripts/start-lab.sh --profile emulator
+./test-lab/scripts/adb-install-debug.sh
+./test-lab/scripts/adb-run-probe-emulator.sh --mode diagnostics
+./test-lab/scripts/stop-lab.sh
+```
+
+The underlying action is `com.poyka.ripdpi.DEBUG_PROBE`. It is declared only in
+`app/src/debug/AndroidManifest.xml`, and the receiver writes JSON to the app's
+external files directory before the script pulls it into `test-lab/artifacts/`.
 
 ## CI
 

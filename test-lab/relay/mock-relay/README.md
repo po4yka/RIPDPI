@@ -1,14 +1,25 @@
 # Mock Relay
 
-This directory is reserved for malformed-handshake, auth-failure, timeout, and
-reset scenarios. The MVP lab starts without a relay container because the client
-protocol contract should be tested against the repository-owned reference relay
-once that surface is stable.
+This directory contains the Dockerized mock relay used by the local network
+lab. It implements a deliberately small newline-delimited JSON handshake on
+port `10080`:
 
-Expected mock modes:
+```json
+{"auth":"ok"}
+```
 
-- valid handshake
-- invalid credentials
-- malformed handshake
-- target unavailable
-- connection reset
+Successful response:
+
+```json
+{"ok":true,"code":"READY","message":"mock relay ready"}
+```
+
+Set `MOCK_RELAY_MODE` to exercise failure surfaces:
+
+- `ok` - valid handshake response
+- `auth_fail` - typed auth failure response
+- `malformed` - invalid JSON response
+
+This is not a production relay protocol implementation. It exists so lab and
+automation checks can distinguish relay readiness, auth failure, and malformed
+response handling before the reference relay contract is wired into the app.

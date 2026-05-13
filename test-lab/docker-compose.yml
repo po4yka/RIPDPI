@@ -5,8 +5,8 @@ services:
     volumes:
       - ./dns/Corefile.active:/Corefile:ro
     ports:
-      - "53:53/udp"
-      - "53:53/tcp"
+      - "${RIPDPI_DNS_PORT:-1053}:53/udp"
+      - "${RIPDPI_DNS_PORT:-1053}:53/tcp"
     restart: unless-stopped
 
   httpbin:
@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
 
   toxiproxy:
-    image: ghcr.io/shopify/toxiproxy
+    image: shopify/toxiproxy:latest
     ports:
       - "8474:8474"
       - "18080:18080"
@@ -59,6 +59,13 @@ services:
     volumes:
       - ./chaos/toxiproxy/toxiproxy.json:/config/toxiproxy.json:ro
     command: -host 0.0.0.0 -config /config/toxiproxy.json
+    restart: unless-stopped
+
+  mock_relay:
+    build:
+      context: ./relay/mock-relay
+    ports:
+      - "10080:10080"
     restart: unless-stopped
 
   mitmproxy:

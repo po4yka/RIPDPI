@@ -1,9 +1,10 @@
 # TLS Certificates
 
-Caddy is configured with `tls internal`, which creates a local CA inside this
-directory at runtime. RIPDPI debug probes trust the lab endpoint only from
-debug-only source code; production builds do not include this trust behavior.
+Caddy is configured to use generated `lab.crt` / `lab.key` files. The files are
+created by `test-lab/scripts/start-lab.sh` when missing and are ignored by git.
+RIPDPI debug probes trust the lab endpoint only from debug-only source code;
+production builds do not include this trust behavior.
 
-For browser/manual tests, import Caddy's generated root certificate from the
-container data if you need a trusted desktop session. Automated debug probes do
-not require a system trust-store change.
+For browser/manual tests, temporarily trust `lab.crt` if you need a clean
+desktop session. Automated debug probes do not require a system trust-store
+change.

@@ -1,0 +1,86 @@
+name: Local Network Lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_vpn_emulator_lane:
+        description: Document the full VPN-mode emulator lane in this run
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "30 4 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-network-lab-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  lab-doctor:
+    name: Lab script and Docker doctor
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Validate shell scripts
+        run: |
+          set -euo pipefail
+          find test-lab/scripts test-lab/chaos -type f -name '*.sh' -print0 |
+            xargs -0 -n1 bash -n
+
+      - name: Validate workflow YAML
+        run: ruby -e 'require "yaml"; YAML.load_file(".github/workflows/local-network-lab.yml")'
+
+      - name: Validate Docker Compose model
+        run: docker compose -f test-lab/docker-compose.yml config
+
+      - name: Start emulator-profile lab
+        run: ./test-lab/scripts/start-lab.sh --profile emulator
+
+      - name: Run host lab doctor checks
+        run: |
+          set -euo pipefail
+          ./test-lab/scripts/doctor.sh
+          ./test-lab/scripts/archive-artifacts.sh
+
+      - name: Stop lab
+        if: always()
+        run: ./test-lab/scripts/stop-lab.sh
+
+      - name: Upload test-lab artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: local-network-lab-artifacts
+          path: test-lab/artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  vpn-emulator-lane:
+    name: VPN-mode emulator lane
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_vpn_emulator_lane }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Validate VPN E2E orchestrator
+        run: bash -n test-lab/scripts/run-vpn-e2e.sh
+
+      - name: Document manual execution
+        run: |
+          cat <<'MSG'
+          Full VPN-mode E2E requires an Android emulator or attached device,
+          ADB install access, and Maestro UI automation. Run it on a prepared
+          host with:
+
+            ./test-lab/scripts/run-vpn-e2e.sh --profile emulator
+
+          The hosted nightly lane validates the Docker lab and script syntax;
+          this workflow input records the heavier VPN lane as intentionally
+          host-dependent rather than silently pretending to run it.
+          MSG

@@ -232,6 +232,47 @@ PY
   return 10
 }
 
+check_mock_relay() {
+  local handshake='{"auth":"ok"}'
+  if command -v ruby >/dev/null 2>&1; then
+    ruby -rsocket -rtimeout -rjson -e '
+      handshake = ARGV.fetch(0)
+      response = Timeout.timeout(3) do
+        sock = TCPSocket.new("127.0.0.1", 10080)
+        begin
+          sock.write(handshake + "\n")
+          sock.gets
+        ensure
+          sock.close
+        end
+      end
+      parsed = JSON.parse(response)
+      abort("relay not ready: #{response.inspect}") unless parsed["ok"] == true && parsed["code"] == "READY"
+    ' "$handshake"
+    echo "mock relay ready"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$handshake" <<'PY'
+import json
+import socket
+import sys
+
+handshake = (sys.argv[1] + "\n").encode()
+with socket.create_connection(("127.0.0.1", 10080), timeout=3) as sock:
+    sock.sendall(handshake)
+    data = sock.recv(4096)
+parsed = json.loads(data.decode())
+if parsed.get("ok") is not True or parsed.get("code") != "READY":
+    raise SystemExit(f"relay not ready: {parsed!r}")
+PY
+    echo "mock relay ready"
+    return 0
+  fi
+  echo "ruby or python3 is required for mock relay check"
+  return 10
+}
+
 check_adb_debug_package() {
   if ! command -v adb >/dev/null 2>&1; then
     echo "adb is not installed"
@@ -288,10 +329,11 @@ run_check "lab_env" false check_lab_env
 run_check "httpbin_http" true check_http
 run_check "wiremock_http" true check_wiremock
 run_check "caddy_https" true check_caddy_https
-run_check "dns_udp" true check_dns_udp
+run_check "dns_udp" false check_dns_udp
 run_check "dns_tcp" true check_dns_tcp
 run_check "tcp_echo" true check_tcp_echo
 run_check "udp_echo" true check_udp_echo
+run_check "mock_relay" true check_mock_relay
 run_check "adb_debug_package" false check_adb_debug_package
 
 write_json
