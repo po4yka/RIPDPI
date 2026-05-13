@@ -5,9 +5,9 @@ import com.poyka.ripdpi.proto.AppSettings
 import java.io.File
 
 internal fun AppSettings.effectiveDiagnosticTlsKeylogPath(appFilesDir: File): String? {
-    if (!detectionCheckDebugModeEnabled || detectionCheckPrivacyModeEnabled) {
-        return null
-    }
-    val configuredPath = detectionDiagnosticTlsKeylogPath.takeUnless { path -> path.isBlank() } ?: return null
-    return TlsKeylogPathValidator(appFilesDir).validate(configuredPath)
+    val configuredPath =
+        detectionDiagnosticTlsKeylogPath
+            .takeIf { detectionCheckDebugModeEnabled && !detectionCheckPrivacyModeEnabled }
+            ?.takeUnless { path -> path.isBlank() }
+    return configuredPath?.let { path -> TlsKeylogPathValidator(appFilesDir).validate(path) }
 }

@@ -578,23 +578,28 @@ class MainViewModel
 
         fun onToggleHomePcapRecording() = homeDiagnosticsActions.togglePcapRecording()
 
-        fun applySavedStrategyConfig(): StrategyConfigApplyResult {
-            val (status, mode) = mainServiceDependencies.serviceStateStore.status.value
-            if (status != AppStatus.Running) {
-                return StrategyConfigApplyResult.NextSession
-            }
-            if (strategyConfigRestartJob?.isActive == true) {
-                return StrategyConfigApplyResult.RestartAlreadyPending
-            }
-            strategyConfigRestartJob =
-                viewModelScope.launch {
-                    mainServiceDependencies.serviceController.stop()
-                    if (waitForServiceStatus(AppStatus.Halted)) {
-                        mainServiceDependencies.serviceController.start(mode)
-                    }
+        fun applySavedStrategyConfig(): StrategyConfigApplyResult =
+            when {
+                mainServiceDependencies.serviceStateStore.status.value.first != AppStatus.Running -> {
+                    StrategyConfigApplyResult.NextSession
                 }
-            return StrategyConfigApplyResult.RestartingActiveService
-        }
+
+                strategyConfigRestartJob?.isActive == true -> {
+                    StrategyConfigApplyResult.RestartAlreadyPending
+                }
+
+                else -> {
+                    val mode = mainServiceDependencies.serviceStateStore.status.value.second
+                    strategyConfigRestartJob =
+                        viewModelScope.launch {
+                            mainServiceDependencies.serviceController.stop()
+                            if (waitForServiceStatus(AppStatus.Halted)) {
+                                mainServiceDependencies.serviceController.start(mode)
+                            }
+                        }
+                    StrategyConfigApplyResult.RestartingActiveService
+                }
+            }
 
         private suspend fun waitForServiceStatus(target: AppStatus): Boolean =
             withTimeoutOrNull(10.seconds) {
@@ -602,11 +607,17 @@ class MainViewModel
                 true
             } == true
 
-        fun onShareHomeAnalysis() = homeDiagnosticsActions.shareLatestHomeAnalysis()
+        val onShareHomeAnalysis: () -> Unit = {
+            homeDiagnosticsActions.shareLatestHomeAnalysis()
+        }
 
-        fun dismissHomeAnalysisSheet() = homeDiagnosticsActions.dismissAnalysisSheet()
+        val dismissHomeAnalysisSheet: () -> Unit = {
+            homeDiagnosticsActions.dismissAnalysisSheet()
+        }
 
-        fun dismissHomeVerificationSheet() = homeDiagnosticsActions.dismissVerificationSheet()
+        val dismissHomeVerificationSheet: () -> Unit = {
+            homeDiagnosticsActions.dismissVerificationSheet()
+        }
     }
 
 class MainCrashReportActions(

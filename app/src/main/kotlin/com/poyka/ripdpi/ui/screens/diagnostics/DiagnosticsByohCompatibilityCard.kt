@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.poyka.ripdpi.activities.DiagnosticsByohCompatibilityState
 import com.poyka.ripdpi.activities.DiagnosticsByohCompatibilityToolUiModel
+import com.poyka.ripdpi.activities.DiagnosticsByohDomainUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -87,36 +88,8 @@ internal fun ByohCompatibilityCard(
             label = "Synthetic fixture",
         )
         MetricsRow(metrics = tool.metrics)
-        if (tool.rows.isNotEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                tool.rows.forEach { row ->
-                    StatusIndicator(
-                        label = "${row.domain}: ${row.verdict}",
-                        tone = statusTone(row.tone),
-                    )
-                    Text(
-                        text = "${row.bytesReceived} B received",
-                        style = RipDpiThemeTokens.type.monoSmall,
-                        color = colors.mutedForeground,
-                    )
-                }
-            }
-        }
-        if (tool.csvExport.isNotBlank()) {
-            RipDpiButton(
-                text = "Copy CSV",
-                onClick = {
-                    clipboardManager?.setPrimaryClip(
-                        ClipData.newPlainText("BYOH compatibility CSV", tool.csvExport),
-                    )
-                },
-                variant = RipDpiButtonVariant.Outline,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        ByohCompatibilityRows(rows = tool.rows)
+        ByohCopyCsvButton(csvExport = tool.csvExport, clipboardManager = clipboardManager)
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsByohCompatibilityState.Running) {
@@ -126,6 +99,46 @@ internal fun ByohCompatibilityCard(
                 },
             enabled = tool.state != DiagnosticsByohCompatibilityState.Running && tool.dstIp.isNotBlank(),
             onClick = onRun,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun ByohCompatibilityRows(rows: List<DiagnosticsByohDomainUiModel>) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    if (rows.isNotEmpty()) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            rows.forEach { row ->
+                StatusIndicator(label = "${row.domain}: ${row.verdict}", tone = statusTone(row.tone))
+                Text(
+                    text = "${row.bytesReceived} B received",
+                    style = RipDpiThemeTokens.type.monoSmall,
+                    color = colors.mutedForeground,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ByohCopyCsvButton(
+    csvExport: String,
+    clipboardManager: ClipboardManager?,
+) {
+    if (csvExport.isNotBlank()) {
+        RipDpiButton(
+            text = "Copy CSV",
+            onClick = {
+                clipboardManager?.setPrimaryClip(
+                    ClipData.newPlainText("BYOH compatibility CSV", csvExport),
+                )
+            },
             variant = RipDpiButtonVariant.Outline,
             modifier = Modifier.fillMaxWidth(),
         )

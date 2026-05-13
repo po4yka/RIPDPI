@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraphBuilder
@@ -421,81 +422,106 @@ private fun NavGraphBuilder.addSettingsRoutes(
         composable<Route.Settings>(
             deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://settings" }),
         ) {
-            val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
-            val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
-            SettingsRoute(
-                onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
-                onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
-                onOpenCustomization = { navController.navigate(Route.AppCustomization) },
-                onOpenAbout = { navController.navigate(Route.About) },
-                onOpenDataTransparency = { navController.navigate(Route.DataTransparency) },
-                onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
-                onShareDebugBundle = actions.onShareDebugBundle,
-                permissionSummary = mainUiState.permissionSummary,
-                onRepairPermission = actions.onRepairPermission,
-                onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
-                onDismissBackgroundGuidance = mainViewModel::onDismissBackgroundGuidance,
-                viewModel = settingsViewModel,
-            )
+            SettingsHomeRoute(navController, it, actions, mainViewModel, mainUiState)
         }
-        composable<Route.DnsSettings> {
-            val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
-            val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
-            DnsSettingsRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
+        addAdvancedSettingsRoutes(navController, mainViewModel)
+        addDetectionSettingsRoutes(navController)
+    }
+}
+
+@Composable
+private fun SettingsHomeRoute(
+    navController: NavHostController,
+    backStackEntry: NavBackStackEntry,
+    actions: RipDpiNavHostActions,
+    mainViewModel: MainViewModel,
+    mainUiState: MainUiState,
+) {
+    val settingsGraphEntry =
+        remember(navController, backStackEntry) {
+            navController.getBackStackEntry<SettingsGraph>()
         }
-        composable<Route.AdvancedSettings> {
-            val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
-            val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
-            AdvancedSettingsRoute(
-                onBack = { navController.popBackStack() },
-                onOpenStrategyConfig = { navController.navigate(Route.StrategyConfig) },
-                onOpenBlockcheck = { navController.navigate(Route.Blockcheck) },
-                viewModel = settingsViewModel,
-            )
-        }
-        composable<Route.StrategyConfig> {
-            val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
-            val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
-            StrategyConfigRoute(
-                onBack = { navController.popBackStack() },
-                viewModel = settingsViewModel,
-                applySavedConfig = mainViewModel::applySavedStrategyConfig,
-            )
-        }
-        composable<Route.Blockcheck> {
-            BlockcheckRoute(onBack = { navController.popBackStack() })
-        }
-        composable<Route.AppCustomization> {
-            val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
-            val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
-            AppCustomizationRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
-        }
-        composable<Route.DataTransparency> {
-            DataTransparencyRoute(onBack = { navController.popBackStack() })
-        }
-        composable<Route.DetectionCheck> {
-            DetectionCheckRoute(
-                onBack = { navController.popBackStack() },
-                onOpenSettings = { navController.navigate(Route.DetectionSettings) },
-            )
-        }
-        composable<Route.DetectionSettings> {
-            DetectionSettingsRoute(onBack = { navController.popBackStack() })
-        }
-        composable<Route.OwnedStackBrowser> { backStackEntry ->
-            val route = backStackEntry.toRoute<Route.OwnedStackBrowser>()
-            OwnedStackBrowserRoute(
-                initialUrl = route.initialUrl,
-                onBack = { navController.popBackStack() },
-            )
-        }
-        composable<Route.SharedDiagnosticResult> { backStackEntry ->
-            val route = backStackEntry.toRoute<Route.SharedDiagnosticResult>()
-            SharedResultRenderRoute(
-                fragment = route.fragment,
-                onBack = { navController.popBackStack() },
-            )
-        }
+    val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
+    SettingsRoute(
+        onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+        onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
+        onOpenCustomization = { navController.navigate(Route.AppCustomization) },
+        onOpenAbout = { navController.navigate(Route.About) },
+        onOpenDataTransparency = { navController.navigate(Route.DataTransparency) },
+        onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
+        onShareDebugBundle = actions.onShareDebugBundle,
+        permissionSummary = mainUiState.permissionSummary,
+        onRepairPermission = actions.onRepairPermission,
+        onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
+        onDismissBackgroundGuidance = mainViewModel::onDismissBackgroundGuidance,
+        viewModel = settingsViewModel,
+    )
+}
+
+private fun NavGraphBuilder.addAdvancedSettingsRoutes(
+    navController: NavHostController,
+    mainViewModel: MainViewModel,
+) {
+    composable<Route.DnsSettings> {
+        val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
+        val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
+        DnsSettingsRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
+    }
+    composable<Route.AdvancedSettings> {
+        val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
+        val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
+        AdvancedSettingsRoute(
+            onBack = { navController.popBackStack() },
+            onOpenStrategyConfig = { navController.navigate(Route.StrategyConfig) },
+            onOpenBlockcheck = { navController.navigate(Route.Blockcheck) },
+            viewModel = settingsViewModel,
+        )
+    }
+    composable<Route.StrategyConfig> {
+        val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
+        val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
+        StrategyConfigRoute(
+            onBack = { navController.popBackStack() },
+            viewModel = settingsViewModel,
+            applySavedConfig = mainViewModel::applySavedStrategyConfig,
+        )
+    }
+    composable<Route.Blockcheck> {
+        BlockcheckRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.AppCustomization> {
+        val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
+        val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
+        AppCustomizationRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
+    }
+}
+
+private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostController) {
+    composable<Route.DataTransparency> {
+        DataTransparencyRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.DetectionCheck> {
+        DetectionCheckRoute(
+            onBack = { navController.popBackStack() },
+            onOpenSettings = { navController.navigate(Route.DetectionSettings) },
+        )
+    }
+    composable<Route.DetectionSettings> {
+        DetectionSettingsRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.OwnedStackBrowser> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.OwnedStackBrowser>()
+        OwnedStackBrowserRoute(
+            initialUrl = route.initialUrl,
+            onBack = { navController.popBackStack() },
+        )
+    }
+    composable<Route.SharedDiagnosticResult> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.SharedDiagnosticResult>()
+        SharedResultRenderRoute(
+            fragment = route.fragment,
+            onBack = { navController.popBackStack() },
+        )
     }
 }
 

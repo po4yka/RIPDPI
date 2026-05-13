@@ -23,6 +23,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import javax.inject.Inject
 
+internal class DiagnosticsProbeDependencies
+    @Inject
+    constructor(
+        val dnsIntegrityChecker: DnsIntegrityChecker,
+        val dnsAvailabilitySurvey: DnsAvailabilitySurvey,
+        val domainReachabilityScanner: DomainReachabilityScanner,
+        val tcp16FatHeaderProbe: Tcp16FatHeaderProbe,
+        val httpCompressionProber: HttpCompressionProber,
+        val cidrWhitelistDetector: CidrWhitelistDetector,
+        val ipv4WhitelistedSubnetDiscoverer: Ipv4WhitelistedSubnetDiscoverer,
+        val rknLayeredProbePipeline: RknLayeredProbePipeline,
+        val selfInfoFetcher: SelfInfoFetcher,
+    )
+
 @Suppress("TooManyFunctions")
 @HiltViewModel
 class DiagnosticsViewModel
@@ -33,15 +47,7 @@ class DiagnosticsViewModel
         private val diagnosticsContextDependencies: DiagnosticsContextDependencies,
         private val diagnosticsViewModelBootstrapper: DiagnosticsViewModelBootstrapper,
         appSettingsRepository: AppSettingsRepository,
-        dnsIntegrityChecker: DnsIntegrityChecker,
-        dnsAvailabilitySurvey: DnsAvailabilitySurvey,
-        domainReachabilityScanner: DomainReachabilityScanner,
-        tcp16FatHeaderProbe: Tcp16FatHeaderProbe,
-        httpCompressionProber: HttpCompressionProber,
-        cidrWhitelistDetector: CidrWhitelistDetector,
-        ipv4WhitelistedSubnetDiscoverer: Ipv4WhitelistedSubnetDiscoverer,
-        rknLayeredProbePipeline: RknLayeredProbePipeline,
-        selfInfoFetcher: SelfInfoFetcher,
+        probeDependencies: DiagnosticsProbeDependencies,
         diagnosticsUiStateAssembler: DiagnosticsUiStateAssembler,
         uiStateFactory: DiagnosticsUiStateFactory,
     ) : ViewModel() {
@@ -65,23 +71,23 @@ class DiagnosticsViewModel
                 scope = viewModelScope,
                 appContext = diagnosticsContextDependencies.appContext,
                 appSettingsRepository = appSettingsRepository,
-                dnsIntegrityChecker = dnsIntegrityChecker,
-                dnsAvailabilitySurvey = dnsAvailabilitySurvey,
-                domainReachabilityScanner = domainReachabilityScanner,
-                tcp16FatHeaderProbe = tcp16FatHeaderProbe,
-                httpCompressionProber = httpCompressionProber,
-                rknLayeredProbePipeline = rknLayeredProbePipeline,
-                selfInfoFetcher = selfInfoFetcher,
+                dnsIntegrityChecker = probeDependencies.dnsIntegrityChecker,
+                dnsAvailabilitySurvey = probeDependencies.dnsAvailabilitySurvey,
+                domainReachabilityScanner = probeDependencies.domainReachabilityScanner,
+                tcp16FatHeaderProbe = probeDependencies.tcp16FatHeaderProbe,
+                httpCompressionProber = probeDependencies.httpCompressionProber,
+                rknLayeredProbePipeline = probeDependencies.rknLayeredProbePipeline,
+                selfInfoFetcher = probeDependencies.selfInfoFetcher,
             )
         private val cidrWhitelistController =
             DiagnosticsCidrWhitelistController(
                 scope = viewModelScope,
-                detector = cidrWhitelistDetector,
+                detector = probeDependencies.cidrWhitelistDetector,
             )
         private val ipv4WhitelistController =
             DiagnosticsIpv4WhitelistController(
                 scope = viewModelScope,
-                discoverer = ipv4WhitelistedSubnetDiscoverer,
+                discoverer = probeDependencies.ipv4WhitelistedSubnetDiscoverer,
                 shareCsv = { csv ->
                     _effects.tryEmit(
                         DiagnosticsEffect.ShareSummaryRequested(
@@ -96,10 +102,10 @@ class DiagnosticsViewModel
                 scope = viewModelScope,
                 appContext = diagnosticsContextDependencies.appContext,
                 appSettingsRepository = appSettingsRepository,
-                dnsIntegrityChecker = dnsIntegrityChecker,
-                dnsAvailabilitySurvey = dnsAvailabilitySurvey,
-                domainReachabilityScanner = domainReachabilityScanner,
-                tcp16FatHeaderProbe = tcp16FatHeaderProbe,
+                dnsIntegrityChecker = probeDependencies.dnsIntegrityChecker,
+                dnsAvailabilitySurvey = probeDependencies.dnsAvailabilitySurvey,
+                domainReachabilityScanner = probeDependencies.domainReachabilityScanner,
+                tcp16FatHeaderProbe = probeDependencies.tcp16FatHeaderProbe,
             )
         private val pluggableTransportController =
             DiagnosticsPluggableTransportController(

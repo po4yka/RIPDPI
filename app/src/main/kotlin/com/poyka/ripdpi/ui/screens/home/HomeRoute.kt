@@ -38,8 +38,8 @@ fun HomeRoute(
         onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
         onDismissBatteryBanner = remember(viewModel) { viewModel::onDismissBatteryBanner },
         onDismissBackgroundGuidance = remember(viewModel) { viewModel::onDismissBackgroundGuidance },
-        onShareAnalysis = remember(viewModel) { viewModel::onShareHomeAnalysis },
-        onDismissAnalysisSheet = remember(viewModel) { viewModel::dismissHomeAnalysisSheet },
-        onDismissVerificationSheet = remember(viewModel) { viewModel::dismissHomeVerificationSheet },
+        onShareAnalysis = remember(viewModel) { viewModel.onShareHomeAnalysis },
+        onDismissAnalysisSheet = remember(viewModel) { viewModel.dismissHomeAnalysisSheet },
+        onDismissVerificationSheet = remember(viewModel) { viewModel.dismissHomeVerificationSheet },
     )
 }

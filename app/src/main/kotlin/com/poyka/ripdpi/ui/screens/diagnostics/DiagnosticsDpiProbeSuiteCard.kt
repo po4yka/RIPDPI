@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.poyka.ripdpi.activities.DiagnosticsDpiSuiteProbeDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDpiSuiteState
 import com.poyka.ripdpi.activities.DiagnosticsDpiSuiteToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
@@ -36,7 +37,6 @@ internal fun DpiProbeSuiteCard(
     onCancel: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
     val running = tool.state == DiagnosticsDpiSuiteState.Running
 
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
@@ -55,55 +55,8 @@ internal fun DpiProbeSuiteCard(
             color = if (tool.errorMessage == null) colors.mutedForeground else colors.destructive,
         )
         MetricsRow(metrics = tool.metrics)
-        if (tool.rows.isNotEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                tool.rows.forEach { row ->
-                    StatusIndicator(
-                        label = "${row.label}: ${row.status}",
-                        tone = statusTone(row.tone),
-                    )
-                    Text(
-                        text = row.detail,
-                        style = RipDpiThemeTokens.type.monoSmall,
-                        color = colors.mutedForeground,
-                    )
-                    if (row.detailRows.isNotEmpty()) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(spacing.xs),
-                        ) {
-                            row.detailRows.forEach { detailRow ->
-                                StatusIndicator(
-                                    label = detailRow.label,
-                                    tone = statusTone(detailRow.tone),
-                                )
-                                Text(
-                                    text = detailRow.detail,
-                                    style = RipDpiThemeTokens.type.monoSmall,
-                                    color = colors.mutedForeground,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(spacing.xs),
-        ) {
-            DpiProbeKind.entries.forEach { kind ->
-                RipDpiSwitch(
-                    checked = kind in tool.selectedKinds,
-                    onCheckedChange = { checked -> onProbeEnabledChange(kind, checked) },
-                    enabled = !running,
-                    label = kind.label(),
-                )
-            }
-        }
+        DpiProbeSuiteRows(tool = tool)
+        DpiProbeSuiteKindToggles(tool = tool, running = running, onProbeEnabledChange = onProbeEnabledChange)
         RipDpiTextField(
             value = tool.customDomainsInput,
             onValueChange = onCustomDomainsChange,
@@ -114,38 +67,106 @@ internal fun DpiProbeSuiteCard(
                 ),
             behavior = RipDpiTextFieldBehavior(enabled = !running),
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            RipDpiButton(
-                text = "-",
-                onClick = { onConcurrencyDelta(-ConcurrencyStep) },
-                enabled = !running,
-                variant = RipDpiButtonVariant.Outline,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = "Concurrency ${tool.concurrency}",
-                style = RipDpiThemeTokens.type.secondaryBody,
-                color = colors.foreground,
-                modifier = Modifier.weight(2f),
-            )
-            RipDpiButton(
-                text = "+",
-                onClick = { onConcurrencyDelta(ConcurrencyStep) },
-                enabled = !running,
-                variant = RipDpiButtonVariant.Outline,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        DpiProbeSuiteConcurrencyRow(tool = tool, running = running, onConcurrencyDelta = onConcurrencyDelta)
         RipDpiButton(
             text = if (running) "Cancel suite" else "Run suite",
             enabled = tool.selectedKinds.isNotEmpty(),
             onClick = if (running) onCancel else onRun,
             variant = if (running) RipDpiButtonVariant.Outline else RipDpiButtonVariant.Primary,
             modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun DpiProbeSuiteRows(tool: DiagnosticsDpiSuiteToolUiModel) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    if (tool.rows.isNotEmpty()) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            tool.rows.forEach { row ->
+                StatusIndicator(label = "${row.label}: ${row.status}", tone = statusTone(row.tone))
+                Text(text = row.detail, style = RipDpiThemeTokens.type.monoSmall, color = colors.mutedForeground)
+                DpiProbeSuiteDetailRows(row.detailRows)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DpiProbeSuiteDetailRows(detailRows: List<DiagnosticsDpiSuiteProbeDetailUiModel>) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    if (detailRows.isNotEmpty()) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            detailRows.forEach { detailRow ->
+                StatusIndicator(label = detailRow.label, tone = statusTone(detailRow.tone))
+                Text(text = detailRow.detail, style = RipDpiThemeTokens.type.monoSmall, color = colors.mutedForeground)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DpiProbeSuiteKindToggles(
+    tool: DiagnosticsDpiSuiteToolUiModel,
+    running: Boolean,
+    onProbeEnabledChange: (DpiProbeKind, Boolean) -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        DpiProbeKind.entries.forEach { kind ->
+            RipDpiSwitch(
+                checked = kind in tool.selectedKinds,
+                onCheckedChange = { checked -> onProbeEnabledChange(kind, checked) },
+                enabled = !running,
+                label = kind.label(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DpiProbeSuiteConcurrencyRow(
+    tool: DiagnosticsDpiSuiteToolUiModel,
+    running: Boolean,
+    onConcurrencyDelta: (Int) -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RipDpiButton(
+            text = "-",
+            onClick = { onConcurrencyDelta(-ConcurrencyStep) },
+            enabled = !running,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = "Concurrency ${tool.concurrency}",
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.foreground,
+            modifier = Modifier.weight(2f),
+        )
+        RipDpiButton(
+            text = "+",
+            onClick = { onConcurrencyDelta(ConcurrencyStep) },
+            enabled = !running,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.weight(1f),
         )
     }
 }

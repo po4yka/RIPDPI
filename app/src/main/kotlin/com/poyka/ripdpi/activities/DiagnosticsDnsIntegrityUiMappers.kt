@@ -20,7 +20,8 @@ internal fun DnsIntegrityResult.toUiModel(): DiagnosticsDnsIntegrityToolUiModel 
             if (flagged == 0 && doqFlagged == 0 && bootstrapFlagged == 0) {
                 "No DNS substitution detected across $checked bundled domains."
             } else {
-                "$flagged of $checked domains, $doqFlagged DoQ checks, and $bootstrapFlagged DoH bootstrap checks showed DNS integrity warnings."
+                "$flagged of $checked domains, $doqFlagged DoQ checks, " +
+                    "and $bootstrapFlagged DoH bootstrap checks showed DNS integrity warnings."
             },
         metrics =
             buildList {

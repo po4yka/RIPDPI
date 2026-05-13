@@ -88,16 +88,20 @@ internal data class DiagnosticsDpiToolActions(
     val onCancelDpiProbeSuite: () -> Unit = {},
 )
 
+internal data class DiagnosticsShareActions(
+    val onShareSummary: (String?) -> Unit,
+    val onShareArchive: (String?) -> Unit,
+    val onSaveArchive: (String?) -> Unit,
+    val onSaveLogs: () -> Unit,
+)
+
 @Composable
 internal fun ToolsSection(
     approaches: DiagnosticsApproachesUiModel,
     share: DiagnosticsShareUiModel,
     onSelectApproachMode: (DiagnosticsApproachMode) -> Unit,
     onSelectApproach: (String) -> Unit,
-    onShareSummary: (String?) -> Unit,
-    onShareArchive: (String?) -> Unit,
-    onSaveArchive: (String?) -> Unit,
-    onSaveLogs: () -> Unit,
+    shareActions: DiagnosticsShareActions,
     dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
     cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel = DiagnosticsCidrWhitelistToolUiModel(),
     ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),
@@ -121,7 +125,13 @@ internal fun ToolsSection(
     ) {
         approachItems(approaches, onSelectApproachMode, onSelectApproach)
         captureItem(pcapRecording, onTogglePcapRecording)
-        shareItems(share, onShareSummary, onShareArchive, onSaveArchive, onSaveLogs)
+        shareItems(
+            share = share,
+            onShareSummary = shareActions.onShareSummary,
+            onShareArchive = shareActions.onShareArchive,
+            onSaveArchive = shareActions.onSaveArchive,
+            onSaveLogs = shareActions.onSaveLogs,
+        )
         dpiToolItems(
             dpiTools = dpiTools,
             cidrWhitelistTool = cidrWhitelistTool,
@@ -275,6 +285,23 @@ private fun LazyListScope.dpiToolItems(
             onZstdEnabledChange = actions.onCompressionProbeZstdEnabledChange,
         )
     }
+    whitelistToolItems(
+        cidrWhitelistTool = cidrWhitelistTool,
+        ipv4WhitelistTool = ipv4WhitelistTool,
+        actions = actions,
+    )
+    transportProbeItems(
+        dpiTools = dpiTools,
+        pluggableTransportTool = pluggableTransportTool,
+        actions = actions,
+    )
+}
+
+private fun LazyListScope.whitelistToolItems(
+    cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
+    ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel,
+    actions: DiagnosticsDpiToolActions,
+) {
     item {
         CidrWhitelistDetectionCard(
             tool = cidrWhitelistTool,
@@ -289,6 +316,13 @@ private fun LazyListScope.dpiToolItems(
             onSaveCsv = actions.onSaveIpv4WhitelistCsv,
         )
     }
+}
+
+private fun LazyListScope.transportProbeItems(
+    dpiTools: DiagnosticsDpiToolsUiModel,
+    pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
+    actions: DiagnosticsDpiToolActions,
+) {
     item {
         PluggableTransportProbeCard(
             tool = pluggableTransportTool,
@@ -733,60 +767,9 @@ private fun DnsIntegrityToolCard(
             color = if (tool.errorMessage == null) colors.mutedForeground else colors.destructive,
         )
         MetricsRow(metrics = tool.metrics)
-        if (tool.rows.isNotEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                tool.rows.forEach { row ->
-                    StatusIndicator(
-                        label = "${row.domain}: ${row.verdict}",
-                        tone = statusTone(row.tone),
-                    )
-                    androidx.compose.material3.Text(
-                        text = "UDP ${row.udpAnswer} · DoH ${row.dohAnswer}",
-                        style = RipDpiThemeTokens.type.monoSmall,
-                        color = colors.mutedForeground,
-                    )
-                }
-            }
-        }
-        if (tool.doqRows.isNotEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                tool.doqRows.forEach { row ->
-                    StatusIndicator(
-                        label = "DoQ ${row.provider} ${row.domain}: ${row.verdict}",
-                        tone = statusTone(row.tone),
-                    )
-                    androidx.compose.material3.Text(
-                        text = "${row.endpoint} · ${row.resolvedIps} · ${row.detail}",
-                        style = RipDpiThemeTokens.type.monoSmall,
-                        color = colors.mutedForeground,
-                    )
-                }
-            }
-        }
-        if (tool.dohBootstrapRows.isNotEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                tool.dohBootstrapRows.forEach { row ->
-                    StatusIndicator(
-                        label = "DoH bootstrap ${row.provider}: ${row.verdict}",
-                        tone = statusTone(row.tone),
-                    )
-                    androidx.compose.material3.Text(
-                        text = "${row.hostname} · ${row.detail}",
-                        style = RipDpiThemeTokens.type.monoSmall,
-                        color = colors.mutedForeground,
-                    )
-                }
-            }
-        }
+        DnsIntegrityDomainRows(rows = tool.rows)
+        DnsIntegrityDoqRows(rows = tool.doqRows)
+        DnsIntegrityDohBootstrapRows(rows = tool.dohBootstrapRows)
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsDnsIntegrityState.Running) {

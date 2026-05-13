@@ -102,10 +102,6 @@ internal fun VerdictScoreCard(
     colorVisionMode: DetectionColorVisionMode = DetectionColorVisionMode.OFF,
     onHeroTap: (() -> Unit)? = null,
 ) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
-    val motion = RipDpiThemeTokens.motion
-
     val (verdictLabel, indicatorTone) =
         when (verdict) {
             Verdict.NOT_DETECTED -> {
@@ -120,23 +116,6 @@ internal fun VerdictScoreCard(
                 stringResource(R.string.detection_check_verdict_detected) to StatusIndicatorTone.Error
             }
         }
-
-    val scoreColor by animateColorAsState(
-        targetValue =
-            when {
-                score == null -> colors.mutedForeground
-                score >= 70 -> colors.success
-                score >= 40 -> colors.warning
-                else -> colors.destructive
-            },
-        animationSpec = motion.stateTween(),
-        label = "scoreColor",
-    )
-    val animatedScore by animateIntAsState(
-        targetValue = score ?: 0,
-        animationSpec = motion.emphasizedTween(),
-        label = "score",
-    )
 
     RipDpiCard(
         variant = RipDpiCardVariant.Elevated,
@@ -156,41 +135,69 @@ internal fun VerdictScoreCard(
         explanation?.let {
             Text(
                 text = "${it.ruleApplied}: ${it.summary}",
-                style = type.caption,
-                color = colors.mutedForeground,
+                style = RipDpiThemeTokens.type.caption,
+                color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
-        if (score != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.detection_stealth_score),
-                        style = type.caption,
-                        color = colors.mutedForeground,
-                    )
-                    Text(
-                        text = "$animatedScore",
-                        style = type.screenTitle,
-                        color = scoreColor,
-                    )
-                }
-                label?.let {
-                    Text(text = it, style = type.bodyEmphasis, color = scoreColor)
-                }
-            }
-            LinearProgressIndicator(
-                progress = { StealthScore.normalizedProgress(score) },
-                modifier = Modifier.fillMaxWidth(),
-                color = scoreColor,
-                trackColor = scoreColor.copy(alpha = 0.2f),
-            )
-        }
+        VerdictStealthScore(score = score, label = label)
     }
 }
+
+@Composable
+private fun VerdictStealthScore(
+    score: Int?,
+    label: String?,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val motion = RipDpiThemeTokens.motion
+    val scoreColor by animateColorAsState(
+        targetValue = scoreColor(score),
+        animationSpec = motion.stateTween(),
+        label = "scoreColor",
+    )
+    val animatedScore by animateIntAsState(
+        targetValue = score ?: 0,
+        animationSpec = motion.emphasizedTween(),
+        label = "score",
+    )
+    if (score != null) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Column {
+                Text(
+                    text = stringResource(R.string.detection_stealth_score),
+                    style = type.caption,
+                    color = colors.mutedForeground,
+                )
+                Text(text = "$animatedScore", style = type.screenTitle, color = scoreColor)
+            }
+            label?.let { Text(text = it, style = type.bodyEmphasis, color = scoreColor) }
+        }
+        LinearProgressIndicator(
+            progress = { StealthScore.normalizedProgress(score) },
+            modifier = Modifier.fillMaxWidth(),
+            color = scoreColor,
+            trackColor = scoreColor.copy(alpha = ScoreTrackAlpha),
+        )
+    }
+}
+
+private const val ScoreStrongThreshold = 70
+private const val ScoreReviewThreshold = 40
+private const val ScoreTrackAlpha = 0.2f
+
+@Composable
+private fun scoreColor(score: Int?) =
+    when {
+        score == null -> RipDpiThemeTokens.colors.mutedForeground
+        score >= ScoreStrongThreshold -> RipDpiThemeTokens.colors.success
+        score >= ScoreReviewThreshold -> RipDpiThemeTokens.colors.warning
+        else -> RipDpiThemeTokens.colors.destructive
+    }
 
 @Composable
 private fun VerdictScoreHeader(

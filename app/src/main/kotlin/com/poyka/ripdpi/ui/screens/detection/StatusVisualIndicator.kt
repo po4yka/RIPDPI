@@ -27,6 +27,11 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.math.max
 import kotlin.math.min
 
+private const val SquareCornerRadiusDivisor = 8f
+private const val MinLineHeightPx = 2f
+private const val LineHeightDivisor = 3f
+private const val HalfDivisor = 2f
+
 @Composable
 internal fun StatusVisualIndicator(
     state: DetectionVisualState,
@@ -90,17 +95,17 @@ internal fun StatusVisualIndicator(
                     color = color,
                     topLeft = Offset(left, top),
                     size = Size(side, side),
-                    cornerRadius = CornerRadius(side / 8f, side / 8f),
+                    cornerRadius = CornerRadius(side / SquareCornerRadiusDivisor, side / SquareCornerRadiusDivisor),
                 )
             }
 
             StatusShapeVariant.LINE -> {
-                val lineHeight = max(2f, side / 3f)
+                val lineHeight = max(MinLineHeightPx, side / LineHeightDivisor)
                 drawRoundRect(
                     color = color,
-                    topLeft = Offset(left, centerY - lineHeight / 2f),
+                    topLeft = Offset(left, centerY - lineHeight / HalfDivisor),
                     size = Size(side, lineHeight),
-                    cornerRadius = CornerRadius(lineHeight / 2f, lineHeight / 2f),
+                    cornerRadius = CornerRadius(lineHeight / HalfDivisor, lineHeight / HalfDivisor),
                 )
             }
         }

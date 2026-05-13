@@ -35,22 +35,23 @@ import java.util.Locale
 private const val ShareLinkScheme = "https"
 private const val ShareLinkHost = "po4yka.github.io"
 private const val ShareLinkPath = "/RIPDPI/share"
+private const val ShareLinkVersion = "1"
+private const val CommitHashRadix = 16
+private const val SecondsPerMinute = 60L
+private const val CommitHashMinWidth = 2
+private const val CommitHashPadChar = '0'
 private val ShareEpoch = Instant.parse("2024-01-01T00:00:00Z")
 private val ShareTimestampFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'", Locale.US)
 
 internal object DiagnosticShareLinkDeepLink {
     fun fragmentFrom(intent: Intent?): String? {
-        if (intent?.action != Intent.ACTION_VIEW) {
-            return null
-        }
-        val uri = intent.data ?: return null
-        if (uri.scheme != ShareLinkScheme || uri.host != ShareLinkHost || uri.path != ShareLinkPath) {
-            return null
-        }
-        if (uri.getQueryParameter("v") != "1") {
-            return null
-        }
-        return uri.fragment?.takeIf(String::isNotBlank)
+        val uri = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.data
+        val matchesShareLink =
+            uri?.scheme == ShareLinkScheme &&
+                uri.host == ShareLinkHost &&
+                uri.path == ShareLinkPath &&
+                uri.getQueryParameter("v") == ShareLinkVersion
+        return uri?.fragment?.takeIf { matchesShareLink }?.takeIf(String::isNotBlank)
     }
 }
 
@@ -77,7 +78,7 @@ internal object SharedResultRenderFormatter {
 
     fun timestampLabel(payload: ShareLinkPayload): String =
         ShareTimestampFormatter.format(
-            ShareEpoch.plusSeconds(payload.timestampMinutes.toLong() * 60).atZone(ZoneOffset.UTC),
+            ShareEpoch.plusSeconds(payload.timestampMinutes.toLong() * SecondsPerMinute).atZone(ZoneOffset.UTC),
         )
 }
 
@@ -132,7 +133,12 @@ private fun SharedResultPayload(payload: ShareLinkPayload) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Bundle ${payload.commitHash.toString(16).padStart(2, '0')}",
+                    text =
+                        "Bundle ${
+                            payload.commitHash
+                                .toString(CommitHashRadix)
+                                .padStart(CommitHashMinWidth, CommitHashPadChar)
+                        }",
                     style = RipDpiThemeTokens.type.smallLabel,
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )

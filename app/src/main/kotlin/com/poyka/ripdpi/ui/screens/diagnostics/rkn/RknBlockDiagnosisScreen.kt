@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRknBlockDiagnosisState
 import com.poyka.ripdpi.activities.DiagnosticsRknBlockDiagnosisToolUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRknBlockTypeUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRknTargetUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -64,39 +66,8 @@ internal fun RknBlockDiagnosisScreen(
             SelfInfoCard(info = info)
         }
         RknMetricsRow(metrics = tool.metrics)
-        if (tool.blockTypes.isNotEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                tool.blockTypes.forEach { blockType ->
-                    StatusIndicator(
-                        label = "${blockType.label}: ${blockType.count}",
-                        tone = statusTone(blockType.tone),
-                    )
-                }
-            }
-        }
-        if (tool.rows.isNotEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                tool.rows.forEach { row ->
-                    StatusIndicator(
-                        label = "${row.group} · ${row.name}: ${row.verdict}",
-                        tone = statusTone(row.tone),
-                    )
-                    if (row.notes.isNotBlank()) {
-                        androidx.compose.material3.Text(
-                            text = row.notes,
-                            style = RipDpiThemeTokens.type.monoSmall,
-                            color = colors.mutedForeground,
-                        )
-                    }
-                }
-            }
-        }
+        RknBlockTypeRows(blockTypes = tool.blockTypes)
+        RknDiagnosisRows(rows = tool.rows)
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsRknBlockDiagnosisState.Running) {
@@ -109,6 +80,44 @@ internal fun RknBlockDiagnosisScreen(
             variant = RipDpiButtonVariant.Outline,
             modifier = Modifier.fillMaxWidth(),
         )
+    }
+}
+
+@Composable
+private fun RknBlockTypeRows(blockTypes: List<DiagnosticsRknBlockTypeUiModel>) {
+    val spacing = RipDpiThemeTokens.spacing
+    if (blockTypes.isNotEmpty()) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            blockTypes.forEach { blockType ->
+                StatusIndicator(label = "${blockType.label}: ${blockType.count}", tone = statusTone(blockType.tone))
+            }
+        }
+    }
+}
+
+@Composable
+private fun RknDiagnosisRows(rows: List<DiagnosticsRknTargetUiModel>) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    if (rows.isNotEmpty()) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            rows.forEach { row ->
+                StatusIndicator(label = "${row.group} · ${row.name}: ${row.verdict}", tone = statusTone(row.tone))
+                if (row.notes.isNotBlank()) {
+                    androidx.compose.material3.Text(
+                        text = row.notes,
+                        style = RipDpiThemeTokens.type.monoSmall,
+                        color = colors.mutedForeground,
+                    )
+                }
+            }
+        }
     }
 }
 

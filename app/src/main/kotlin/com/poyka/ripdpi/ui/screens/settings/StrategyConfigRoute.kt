@@ -59,26 +59,15 @@ fun StrategyConfigRoute(
 
     val importLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri != null) {
-                readStrategyConfigText(context, uri)
-                    .onSuccess { imported ->
-                        configText = imported
-                        source = StrategyConfigSource.CustomYaml
-                        banner =
-                            StrategyConfigBanner(
-                                title = context.getString(R.string.strategy_config_imported_title),
-                                message = context.getString(R.string.strategy_config_imported_body),
-                                tone = WarningBannerTone.Info,
-                            )
-                    }.onFailure { error ->
-                        banner =
-                            StrategyConfigBanner(
-                                title = context.getString(R.string.strategy_config_import_failed_title),
-                                message = importErrorMessage(context, error),
-                                tone = WarningBannerTone.Error,
-                            )
-                    }
-            }
+            handleStrategyConfigImport(
+                context = context,
+                uri = uri,
+                onImported = { imported ->
+                    configText = imported
+                    source = StrategyConfigSource.CustomYaml
+                },
+                onBanner = { banner = it },
+            )
         }
 
     StrategyConfigScreen(
@@ -104,28 +93,14 @@ fun StrategyConfigRoute(
         onSave = {
             coroutineScope.launch {
                 banner =
-                    saveStrategyConfig(
+                    saveStrategyConfigFromRoute(
                         context = context,
                         source = source,
                         configText = configText,
                         luaPath = luaPath,
                         luaFunction = luaFunction,
                         runtime = runtime,
-                        saveChain = { value ->
-                            val parsed = parseStrategyChainDsl(value).getOrThrow()
-                            viewModel.updateSettingAndAwait("chainDsl", value) {
-                                setStrategyChains(parsed.tcpSteps, parsed.udpSteps)
-                            }
-                        },
-                        saveRawStrategyConfig = { value ->
-                            viewModel.updateSettingAndAwait("strategyChainYaml", value) {
-                                if (value.isBlank()) {
-                                    clearStrategyChainYaml()
-                                } else {
-                                    setStrategyChainYaml(value)
-                                }
-                            }
-                        },
+                        viewModel = viewModel,
                         applySavedConfig = applySavedConfig,
                         uiState = uiState,
                     )
@@ -144,6 +119,74 @@ private val StrategyConfigDocumentMimeTypes =
         "application/yaml",
         "application/toml",
         "application/octet-stream",
+    )
+
+private const val BytesPerKib = 1024
+
+private fun handleStrategyConfigImport(
+    context: Context,
+    uri: android.net.Uri?,
+    onImported: (String) -> Unit,
+    onBanner: (StrategyConfigBanner) -> Unit,
+) {
+    uri?.let { selectedUri ->
+        readStrategyConfigText(context, selectedUri)
+            .onSuccess { imported ->
+                onImported(imported)
+                onBanner(
+                    StrategyConfigBanner(
+                        title = context.getString(R.string.strategy_config_imported_title),
+                        message = context.getString(R.string.strategy_config_imported_body),
+                        tone = WarningBannerTone.Info,
+                    ),
+                )
+            }.onFailure { error ->
+                onBanner(
+                    StrategyConfigBanner(
+                        title = context.getString(R.string.strategy_config_import_failed_title),
+                        message = importErrorMessage(context, error),
+                        tone = WarningBannerTone.Error,
+                    ),
+                )
+            }
+    }
+}
+
+private suspend fun saveStrategyConfigFromRoute(
+    context: Context,
+    source: StrategyConfigSource,
+    configText: String,
+    luaPath: String,
+    luaFunction: String,
+    runtime: StrategyConfigRuntime?,
+    viewModel: SettingsViewModel,
+    applySavedConfig: () -> StrategyConfigApplyResult,
+    uiState: SettingsUiState,
+): StrategyConfigBanner =
+    saveStrategyConfig(
+        context = context,
+        source = source,
+        configText = configText,
+        luaPath = luaPath,
+        luaFunction = luaFunction,
+        runtime = runtime,
+        saveChain = { value ->
+            val parsed = parseStrategyChainDsl(value).getOrThrow()
+            viewModel.updateSettingAndAwait("chainDsl", value) {
+                setStrategyChains(parsed.tcpSteps, parsed.udpSteps)
+            }
+        },
+        saveRawStrategyConfig = { value ->
+            viewModel.updateSettingAndAwait("strategyChainYaml", value) {
+                if (value.isBlank()) {
+                    clearStrategyChainYaml()
+                } else {
+                    setStrategyChainYaml(value)
+                }
+            }
+        },
+        applySavedConfig = applySavedConfig,
+        uiState = uiState,
     )
 
 @Composable
@@ -334,34 +377,56 @@ private suspend fun saveLuaStrategyConfig(
 ): StrategyConfigBanner {
     val path = luaPath.trim()
     val function = luaFunction.trim()
-    if (path.isBlank()) {
-        return luaPathRequiredBanner(context)
+    val yaml = luaStrategyConfigYaml(function = function, scriptPath = path)
+    return luaInputValidationBanner(context, path, function)
+        ?: luaRuntimeValidationBanner(context, runtime, path, function)
+        ?: saveAndApplyStrategyConfig(context, applySavedConfig) { saveRawStrategyConfig(yaml) }
+}
+
+private fun luaInputValidationBanner(
+    context: Context,
+    path: String,
+    function: String,
+): StrategyConfigBanner? =
+    when {
+        path.isBlank() -> luaPathRequiredBanner(context)
+        function.isBlank() -> luaFunctionRequiredBanner(context)
+        else -> null
     }
-    if (function.isBlank()) {
-        return luaFunctionRequiredBanner(context)
-    }
+
+private fun luaRuntimeValidationBanner(
+    context: Context,
+    runtime: StrategyConfigRuntime?,
+    path: String,
+    function: String,
+): StrategyConfigBanner? {
     val error =
         if (runtime == null) {
             context.getString(R.string.strategy_config_native_unavailable)
         } else {
             runtime.loadLuaScript(path)
         }
-    if (error != null) {
-        return StrategyConfigBanner(
-            title = context.getString(R.string.strategy_config_import_failed_title),
-            message = error,
-            tone = WarningBannerTone.Error,
-        )
+    return when {
+        error != null -> {
+            StrategyConfigBanner(
+                title = context.getString(R.string.strategy_config_import_failed_title),
+                message = error,
+                tone = WarningBannerTone.Error,
+            )
+        }
+
+        runtime?.listLuaStrategies()?.none { it == function } != false -> {
+            StrategyConfigBanner(
+                title = context.getString(R.string.strategy_config_invalid_title),
+                message = context.getString(R.string.strategy_config_lua_function_missing, function),
+                tone = WarningBannerTone.Error,
+            )
+        }
+
+        else -> {
+            null
+        }
     }
-    if (runtime?.listLuaStrategies()?.none { it == function } != false) {
-        return StrategyConfigBanner(
-            title = context.getString(R.string.strategy_config_invalid_title),
-            message = context.getString(R.string.strategy_config_lua_function_missing, function),
-            tone = WarningBannerTone.Error,
-        )
-    }
-    val yaml = luaStrategyConfigYaml(function = function, scriptPath = path)
-    return saveAndApplyStrategyConfig(context, applySavedConfig) { saveRawStrategyConfig(yaml) }
 }
 
 private fun reloadLuaConfig(
@@ -443,7 +508,7 @@ private fun importErrorMessage(
         StrategyConfigImportException.FileTooLarge -> {
             context.getString(
                 R.string.strategy_config_import_too_large,
-                StrategyConfigMaxImportBytes / 1024,
+                StrategyConfigMaxImportBytes / BytesPerKib,
             )
         }
 

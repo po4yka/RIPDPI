@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private const val MinCustomPort = 0
+private const val MaxCustomPort = 65535
+
 @HiltViewModel
 internal class DetectionSettingsViewModel
     @Inject
@@ -107,7 +110,8 @@ internal class DetectionSettingsViewModel
         fun setCustomPortStart(value: String) {
             viewModelScope.launch {
                 appSettingsRepository.update {
-                    detectionCheckCustomPortStart = value.toIntOrNull()?.coerceIn(0, 65535) ?: 0
+                    detectionCheckCustomPortStart =
+                        value.toIntOrNull()?.coerceIn(MinCustomPort, MaxCustomPort) ?: MinCustomPort
                 }
             }
         }
@@ -115,7 +119,8 @@ internal class DetectionSettingsViewModel
         fun setCustomPortEnd(value: String) {
             viewModelScope.launch {
                 appSettingsRepository.update {
-                    detectionCheckCustomPortEnd = value.toIntOrNull()?.coerceIn(0, 65535) ?: 0
+                    detectionCheckCustomPortEnd =
+                        value.toIntOrNull()?.coerceIn(MinCustomPort, MaxCustomPort) ?: MinCustomPort
                 }
             }
         }
@@ -184,7 +189,7 @@ internal class DetectionSettingsViewModel
             }
         }
 
-        fun setPrivacyModeEnabled(enabled: Boolean) {
+        val setPrivacyModeEnabled: (Boolean) -> Unit = { enabled ->
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckPrivacyModeEnabled = enabled
@@ -192,7 +197,7 @@ internal class DetectionSettingsViewModel
             }
         }
 
-        fun setDebugModeEnabled(enabled: Boolean) {
+        val setDebugModeEnabled: (Boolean) -> Unit = { enabled ->
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckDebugModeEnabled = enabled
@@ -200,7 +205,7 @@ internal class DetectionSettingsViewModel
             }
         }
 
-        fun setColorVisionMode(mode: DetectionColorVisionMode) {
+        val setColorVisionMode: (DetectionColorVisionMode) -> Unit = { mode ->
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckColorVisionMode = mode.wireValue

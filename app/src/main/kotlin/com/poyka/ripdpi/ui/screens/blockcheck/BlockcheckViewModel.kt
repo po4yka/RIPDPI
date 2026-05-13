@@ -19,6 +19,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -167,9 +168,17 @@ class BlockcheckViewModel
                     domains = domains,
                     totalExpectedResults = candidates.size * domains.size,
                 )
-            try {
-                val config = StrategyProbeConfig(testDomains = domains, maxStrategies = candidates.size)
-                probeService.run(config).collect { result ->
+            val config = StrategyProbeConfig(testDomains = domains, maxStrategies = candidates.size)
+            probeService
+                .run(config)
+                .catch { error ->
+                    if (error is CancellationException) {
+                        throw error
+                    }
+                    mutableUiState.update { state ->
+                        state.copy(runState = BlockcheckRunState.Error, message = error.userMessage())
+                    }
+                }.collect { result ->
                     collected += result
                     mutableUiState.update { state ->
                         state.copy(
@@ -178,14 +187,7 @@ class BlockcheckViewModel
                         )
                     }
                 }
-                mutableUiState.update { it.copy(runState = BlockcheckRunState.Complete, message = "Probe complete") }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Throwable) {
-                mutableUiState.update { state ->
-                    state.copy(runState = BlockcheckRunState.Error, message = error.userMessage())
-                }
-            }
+            mutableUiState.update { it.copy(runState = BlockcheckRunState.Complete, message = "Probe complete") }
         }
     }
 

@@ -47,14 +47,7 @@ internal fun createDiagnosticsViewModel(
     rememberedPolicySource: DiagnosticsRememberedPolicySource = EmptyRememberedNetworkPolicySource(),
     activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource = EmptyActiveConnectionPolicySource(),
     serviceStateStore: ServiceStateStore = DefaultServiceStateStore(),
-    dnsIntegrityChecker: DnsIntegrityChecker = DnsIntegrityChecker(),
-    domainReachabilityScanner: DomainReachabilityScanner = DomainReachabilityScanner(),
-    dnsAvailabilitySurvey: DnsAvailabilitySurvey = DnsAvailabilitySurvey(),
-    rknLayeredProbePipeline: RknLayeredProbePipeline = RknLayeredProbePipeline(),
-    selfInfoFetcher: SelfInfoFetcher = SelfInfoFetcher(),
-    httpCompressionProber: HttpCompressionProber = HttpCompressionProber(),
-    cidrWhitelistDetector: CidrWhitelistDetector = CidrWhitelistDetector(emptyList(), emptyList()),
-    ipv4WhitelistedSubnetDiscoverer: Ipv4WhitelistedSubnetDiscoverer = emptyIpv4WhitelistedSubnetDiscoverer(),
+    probeDependencies: DiagnosticsProbeDependencies = defaultDiagnosticsProbeDependencies(),
     autoStartScan: Boolean = false,
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
@@ -96,15 +89,7 @@ internal fun createDiagnosticsViewModel(
                 ),
             diagnosticsViewModelBootstrapper = DiagnosticsViewModelBootstrapper(diagnosticsBootstrapper),
             appSettingsRepository = appSettingsRepository,
-            dnsIntegrityChecker = dnsIntegrityChecker,
-            domainReachabilityScanner = domainReachabilityScanner,
-            dnsAvailabilitySurvey = dnsAvailabilitySurvey,
-            rknLayeredProbePipeline = rknLayeredProbePipeline,
-            selfInfoFetcher = selfInfoFetcher,
-            httpCompressionProber = httpCompressionProber,
-            cidrWhitelistDetector = cidrWhitelistDetector,
-            ipv4WhitelistedSubnetDiscoverer = ipv4WhitelistedSubnetDiscoverer,
-            tcp16FatHeaderProbe = Tcp16FatHeaderProbe(),
+            probeDependencies = probeDependencies,
             diagnosticsUiStateAssembler =
                 DiagnosticsUiStateAssembler(
                     uiStateFactory = uiStateFactory,
@@ -141,6 +126,19 @@ internal fun createDiagnosticsViewModel(
         serviceStateStore = serviceStateStore,
         autoStartScan = autoStartScan,
         initialize = initialize,
+    )
+
+private fun defaultDiagnosticsProbeDependencies(): DiagnosticsProbeDependencies =
+    DiagnosticsProbeDependencies(
+        dnsIntegrityChecker = DnsIntegrityChecker(),
+        domainReachabilityScanner = DomainReachabilityScanner(),
+        dnsAvailabilitySurvey = DnsAvailabilitySurvey(),
+        rknLayeredProbePipeline = RknLayeredProbePipeline(),
+        selfInfoFetcher = SelfInfoFetcher(),
+        httpCompressionProber = HttpCompressionProber(),
+        cidrWhitelistDetector = CidrWhitelistDetector(emptyList(), emptyList()),
+        ipv4WhitelistedSubnetDiscoverer = emptyIpv4WhitelistedSubnetDiscoverer(),
+        tcp16FatHeaderProbe = Tcp16FatHeaderProbe(),
     )
 
 private class EmptyRememberedNetworkPolicySource : DiagnosticsRememberedPolicySource {

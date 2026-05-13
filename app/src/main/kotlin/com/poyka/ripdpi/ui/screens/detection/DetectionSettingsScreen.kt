@@ -65,9 +65,9 @@ internal fun DetectionSettingsRoute(
                 onDiagnosticRandomHostnamesChange =
                     remember(viewModel) { viewModel::setDiagnosticRandomHostnamesEnabled },
                 onTlsKeylogPathChange = remember(viewModel) { viewModel::setTlsKeylogPath },
-                onPrivacyModeChange = remember(viewModel) { viewModel::setPrivacyModeEnabled },
-                onDebugModeChange = remember(viewModel) { viewModel::setDebugModeEnabled },
-                onColorVisionModeChange = remember(viewModel) { viewModel::setColorVisionMode },
+                onPrivacyModeChange = remember(viewModel) { viewModel.setPrivacyModeEnabled },
+                onDebugModeChange = remember(viewModel) { viewModel.setDebugModeEnabled },
+                onColorVisionModeChange = remember(viewModel) { viewModel.setColorVisionMode },
             ),
     )
 }
@@ -105,26 +105,12 @@ internal fun DetectionSettingsScreen(
     var showCdnConfirmation by rememberSaveable { mutableStateOf(false) }
 
     if (showCdnConfirmation) {
-        RipDpiDialog(
+        CdnPullingConfirmationDialog(
             onDismissRequest = { showCdnConfirmation = false },
-            title = "Enable CDN pulling",
-            dismissAction =
-                RipDpiDialogAction(
-                    label = "Cancel",
-                    onClick = { showCdnConfirmation = false },
-                ),
-            confirmAction =
-                RipDpiDialogAction(
-                    label = "Enable",
-                    onClick = {
-                        showCdnConfirmation = false
-                        actions.onCdnPullingChange(true)
-                    },
-                ),
-            visuals =
-                RipDpiDialogVisuals(
-                    message = "This sends active test requests to selected public targets.",
-                ),
+            onConfirm = {
+                showCdnConfirmation = false
+                actions.onCdnPullingChange(true)
+            },
         )
     }
 
@@ -187,6 +173,31 @@ internal fun DetectionSettingsScreen(
             )
         }
     }
+}
+
+@Composable
+private fun CdnPullingConfirmationDialog(
+    onDismissRequest: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismissRequest,
+        title = "Enable CDN pulling",
+        dismissAction =
+            RipDpiDialogAction(
+                label = "Cancel",
+                onClick = onDismissRequest,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = "Enable",
+                onClick = onConfirm,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = "This sends active test requests to selected public targets.",
+            ),
+    )
 }
 
 @Composable

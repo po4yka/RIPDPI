@@ -10,6 +10,8 @@ private const val ExtendedPortStart = 1024
 private const val ExtendedPortEnd = 49151
 private const val FullPortStart = 1
 private const val FullPortEnd = 65535
+private const val DefaultCustomPortStart = 1080
+private const val DefaultCustomPortEnd = 1090
 
 enum class DetectionTunProbeMode(
     val wireValue: String,
@@ -157,8 +159,8 @@ data class DetectionSettingsUiState(
                 xrayApiScanEnabled = settings.detectionCheckXrayApiScanEnabled,
                 tunProbeMode = DetectionTunProbeMode.fromWire(settings.detectionCheckTunProbeMode),
                 portRangeMode = DetectionPortRangeMode.fromWire(settings.detectionCheckPortRangeMode),
-                customPortStart = settings.detectionCheckCustomPortStart.nonZeroOr(1080),
-                customPortEnd = settings.detectionCheckCustomPortEnd.nonZeroOr(1090),
+                customPortStart = settings.detectionCheckCustomPortStart.nonZeroOr(DefaultCustomPortStart),
+                customPortEnd = settings.detectionCheckCustomPortEnd.nonZeroOr(DefaultCustomPortEnd),
                 dnsResolverMode = DetectionDnsResolverMode.fromWire(settings.detectionCheckDnsResolverMode),
                 dnsPreset = preset,
                 dnsDirectServers = settings.detectionCheckDnsDirectServers,

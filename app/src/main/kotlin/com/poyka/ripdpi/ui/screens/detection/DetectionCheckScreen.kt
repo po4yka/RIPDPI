@@ -102,11 +102,11 @@ internal fun DetectionCheckRoute(
             onOpenSettings = onOpenSettings,
             onDismissOnboarding = remember(viewModel) { viewModel::dismissOnboarding },
             onApplyFixes = remember(viewModel) { viewModel::applyAllFixes },
-            onPrivacyModeChange = remember(viewModel) { viewModel::setPrivacyModeEnabled },
-            onCdnPullingChange = remember(viewModel) { viewModel::setCdnPullingEnabled },
-            onDebugModeChange = remember(viewModel) { viewModel::setDebugModeEnabled },
-            onColorVisionModeChange = remember(viewModel) { viewModel::setColorVisionMode },
-            onUnlockProtanopiaVariant = remember(viewModel) { viewModel::unlockProtanopiaVariant },
+            onPrivacyModeChange = remember(viewModel) { viewModel.setPrivacyModeEnabled },
+            onCdnPullingChange = remember(viewModel) { viewModel.setCdnPullingEnabled },
+            onDebugModeChange = remember(viewModel) { viewModel.setDebugModeEnabled },
+            onColorVisionModeChange = remember(viewModel) { viewModel.setColorVisionMode },
+            onUnlockProtanopiaVariant = remember(viewModel) { viewModel.unlockProtanopiaVariant },
             onReloadCommunityStats = remember(viewModel) { viewModel::reloadCommunityStats },
             onRequestPermissions = onRequestPermissions,
         )
@@ -256,26 +256,12 @@ private fun DetectionCheckScreenContent(
             style = type.secondaryBody,
             color = colors.mutedForeground,
         )
-        DetectionPrivacyModeToggle(
-            enabled = uiState.privacyModeEnabled,
-            onEnabledChange = onPrivacyModeChange,
-        )
-        DetectionCdnPullingToggle(
-            enabled = uiState.cdnPullingEnabled,
-            onEnabledChange = onCdnPullingChange,
-            controlEnabled = !uiState.isRunning,
-        )
-        DetectionDebugModeToggle(
-            enabled = uiState.debugModeEnabled,
-            onEnabledChange = onDebugModeChange,
-            controlEnabled = !uiState.isRunning,
-        )
-        DetectionTlsKeylogWarning(path = uiState.tlsKeylogWarningPath)
-        DetectionColorVisionControls(
-            selectedMode = uiState.colorVisionMode,
-            protanopiaVariantUnlocked = uiState.redGreenAltEnabled,
-            onModeChange = onColorVisionModeChange,
-            controlEnabled = !uiState.isRunning,
+        DetectionCheckSettingsControls(
+            uiState = uiState,
+            onPrivacyModeChange = onPrivacyModeChange,
+            onCdnPullingChange = onCdnPullingChange,
+            onDebugModeChange = onDebugModeChange,
+            onColorVisionModeChange = onColorVisionModeChange,
         )
         DetectionPermissionWarning(
             missingPermissions = uiState.missingPermissions,
@@ -317,6 +303,37 @@ private fun DetectionCheckScreenContent(
         )
         Spacer(modifier = Modifier.height(spacing.lg))
     }
+}
+
+@Composable
+private fun DetectionCheckSettingsControls(
+    uiState: DetectionCheckUiState,
+    onPrivacyModeChange: (Boolean) -> Unit,
+    onCdnPullingChange: (Boolean) -> Unit,
+    onDebugModeChange: (Boolean) -> Unit,
+    onColorVisionModeChange: (DetectionColorVisionMode) -> Unit,
+) {
+    DetectionPrivacyModeToggle(
+        enabled = uiState.privacyModeEnabled,
+        onEnabledChange = onPrivacyModeChange,
+    )
+    DetectionCdnPullingToggle(
+        enabled = uiState.cdnPullingEnabled,
+        onEnabledChange = onCdnPullingChange,
+        controlEnabled = !uiState.isRunning,
+    )
+    DetectionDebugModeToggle(
+        enabled = uiState.debugModeEnabled,
+        onEnabledChange = onDebugModeChange,
+        controlEnabled = !uiState.isRunning,
+    )
+    DetectionTlsKeylogWarning(path = uiState.tlsKeylogWarningPath)
+    DetectionColorVisionControls(
+        selectedMode = uiState.colorVisionMode,
+        protanopiaVariantUnlocked = uiState.redGreenAltEnabled,
+        onModeChange = onColorVisionModeChange,
+        controlEnabled = !uiState.isRunning,
+    )
 }
 
 @Composable

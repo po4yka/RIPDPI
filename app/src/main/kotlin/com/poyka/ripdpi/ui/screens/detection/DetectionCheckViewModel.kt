@@ -398,7 +398,7 @@ class DetectionCheckViewModel
             }
         }
 
-        fun setPrivacyModeEnabled(enabled: Boolean) {
+        val setPrivacyModeEnabled: (Boolean) -> Unit = { enabled ->
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckPrivacyModeEnabled = enabled
@@ -406,7 +406,7 @@ class DetectionCheckViewModel
             }
         }
 
-        fun setCdnPullingEnabled(enabled: Boolean) {
+        val setCdnPullingEnabled: (Boolean) -> Unit = { enabled ->
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckCdnPullingEnabled = enabled
@@ -414,7 +414,7 @@ class DetectionCheckViewModel
             }
         }
 
-        fun setDebugModeEnabled(enabled: Boolean) {
+        val setDebugModeEnabled: (Boolean) -> Unit = { enabled ->
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckDebugModeEnabled = enabled
@@ -422,7 +422,7 @@ class DetectionCheckViewModel
             }
         }
 
-        fun setColorVisionMode(mode: DetectionColorVisionMode) {
+        val setColorVisionMode: (DetectionColorVisionMode) -> Unit = { mode ->
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckColorVisionMode = mode.wireValue
@@ -430,7 +430,7 @@ class DetectionCheckViewModel
             }
         }
 
-        fun unlockProtanopiaVariant() {
+        val unlockProtanopiaVariant: () -> Unit = {
             viewModelScope.launch {
                 appSettingsRepository.update {
                     enableRedGreenStatusAlt()

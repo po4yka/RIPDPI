@@ -346,53 +346,81 @@ private fun DiagnosticsScreenPager(
             }
 
             DiagnosticsSection.Tools -> {
-                ToolsSection(
-                    approaches = uiState.approaches,
-                    share = uiState.share,
-                    onSelectApproachMode = actions.onSelectApproachMode,
-                    onSelectApproach = actions.onSelectApproach,
-                    onShareSummary = actions.onShareSummary,
-                    onShareArchive = actions.onShareArchive,
-                    onSaveArchive = actions.onSaveArchive,
-                    onSaveLogs = actions.onSaveLogs,
+                DiagnosticsToolsPagerPage(
+                    uiState = uiState,
+                    actions = actions,
                     dpiTools = dpiTools,
                     cidrWhitelistTool = cidrWhitelistTool,
                     ipv4WhitelistTool = ipv4WhitelistTool,
                     pluggableTransportTool = pluggableTransportTool,
-                    dpiToolActions =
-                        DiagnosticsDpiToolActions(
-                            onRunDnsIntegrityCheck = actions.onRunDnsIntegrityCheck,
-                            onRunDnsAvailabilitySurvey = actions.onRunDnsAvailabilitySurvey,
-                            onRunDomainReachabilityScan = actions.onRunDomainReachabilityScan,
-                            onRunCompressionProbe = actions.onRunCompressionProbe,
-                            onRunCidrWhitelistDetection = actions.onRunCidrWhitelistDetection,
-                            onCacheIpv4WhitelistSubnets = actions.onCacheIpv4WhitelistSubnets,
-                            onCheckIpv4WhitelistSubnets = actions.onCheckIpv4WhitelistSubnets,
-                            onSaveIpv4WhitelistCsv = actions.onSaveIpv4WhitelistCsv,
-                            onRunTcp16FatHeaderProbe = actions.onRunTcp16FatHeaderProbe,
-                            onRunAllowlistSniFinder = actions.onRunAllowlistSniFinder,
-                            onRunPluggableTransportProbe = actions.onRunPluggableTransportProbe,
-                            onRunByohCompatibilityCheck = actions.onRunByohCompatibilityCheck,
-                            onRunRknBlockDiagnosis = actions.onRunRknBlockDiagnosis,
-                            onRknSelfInfoEnabledChange = actions.onRknSelfInfoEnabledChange,
-                            onCompressionProbeZstdEnabledChange = actions.onCompressionProbeZstdEnabledChange,
-                            onByohDstIpChange = actions.onByohDstIpChange,
-                            onByohUrlPathChange = actions.onByohUrlPathChange,
-                            onByohSyntheticFixtureEnabledChange = actions.onByohSyntheticFixtureEnabledChange,
-                            onDpiSuiteProbeEnabledChange = actions.onDpiSuiteProbeEnabledChange,
-                            onDpiSuiteCustomDomainsChange = actions.onDpiSuiteCustomDomainsChange,
-                            onDpiSuiteConcurrencyDelta = actions.onDpiSuiteConcurrencyDelta,
-                            onRunDpiProbeSuite = actions.onRunDpiProbeSuite,
-                            onCancelDpiProbeSuite = actions.onCancelDpiProbeSuite,
-                        ),
-                    onOpenDetectionCheck = actions.onOpenDetectionCheck,
                     pcapRecording = pcapRecording,
-                    onTogglePcapRecording = actions.onTogglePcapRecording,
                 )
             }
         }
     }
 }
+
+@Composable
+private fun DiagnosticsToolsPagerPage(
+    uiState: DiagnosticsUiState,
+    actions: DiagnosticsScreenActions,
+    dpiTools: DiagnosticsDpiToolsUiModel,
+    cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
+    ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel,
+    pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
+    pcapRecording: Boolean,
+) {
+    ToolsSection(
+        approaches = uiState.approaches,
+        share = uiState.share,
+        onSelectApproachMode = actions.onSelectApproachMode,
+        onSelectApproach = actions.onSelectApproach,
+        shareActions = actions.toDiagnosticsShareActions(),
+        dpiTools = dpiTools,
+        cidrWhitelistTool = cidrWhitelistTool,
+        ipv4WhitelistTool = ipv4WhitelistTool,
+        pluggableTransportTool = pluggableTransportTool,
+        dpiToolActions = actions.toDiagnosticsDpiToolActions(),
+        onOpenDetectionCheck = actions.onOpenDetectionCheck,
+        pcapRecording = pcapRecording,
+        onTogglePcapRecording = actions.onTogglePcapRecording,
+    )
+}
+
+private fun DiagnosticsScreenActions.toDiagnosticsShareActions(): DiagnosticsShareActions =
+    DiagnosticsShareActions(
+        onShareSummary = onShareSummary,
+        onShareArchive = onShareArchive,
+        onSaveArchive = onSaveArchive,
+        onSaveLogs = onSaveLogs,
+    )
+
+private fun DiagnosticsScreenActions.toDiagnosticsDpiToolActions(): DiagnosticsDpiToolActions =
+    DiagnosticsDpiToolActions(
+        onRunDnsIntegrityCheck = onRunDnsIntegrityCheck,
+        onRunDnsAvailabilitySurvey = onRunDnsAvailabilitySurvey,
+        onRunDomainReachabilityScan = onRunDomainReachabilityScan,
+        onRunCompressionProbe = onRunCompressionProbe,
+        onRunCidrWhitelistDetection = onRunCidrWhitelistDetection,
+        onCacheIpv4WhitelistSubnets = onCacheIpv4WhitelistSubnets,
+        onCheckIpv4WhitelistSubnets = onCheckIpv4WhitelistSubnets,
+        onSaveIpv4WhitelistCsv = onSaveIpv4WhitelistCsv,
+        onRunTcp16FatHeaderProbe = onRunTcp16FatHeaderProbe,
+        onRunAllowlistSniFinder = onRunAllowlistSniFinder,
+        onRunPluggableTransportProbe = onRunPluggableTransportProbe,
+        onRunByohCompatibilityCheck = onRunByohCompatibilityCheck,
+        onRunRknBlockDiagnosis = onRunRknBlockDiagnosis,
+        onRknSelfInfoEnabledChange = onRknSelfInfoEnabledChange,
+        onCompressionProbeZstdEnabledChange = onCompressionProbeZstdEnabledChange,
+        onByohDstIpChange = onByohDstIpChange,
+        onByohUrlPathChange = onByohUrlPathChange,
+        onByohSyntheticFixtureEnabledChange = onByohSyntheticFixtureEnabledChange,
+        onDpiSuiteProbeEnabledChange = onDpiSuiteProbeEnabledChange,
+        onDpiSuiteCustomDomainsChange = onDpiSuiteCustomDomainsChange,
+        onDpiSuiteConcurrencyDelta = onDpiSuiteConcurrencyDelta,
+        onRunDpiProbeSuite = onRunDpiProbeSuite,
+        onCancelDpiProbeSuite = onCancelDpiProbeSuite,
+    )
 
 @Composable
 private fun DiagnosticsScreenDialogs(
