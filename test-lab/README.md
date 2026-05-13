@@ -44,6 +44,25 @@ behavior because both live under `app/src/debug`.
 | Toxiproxy | 8474 API, 18080, 18443 |
 | mitmproxy | 8088, 8089 with `--profile inspect` |
 
+## Fault Scenarios
+
+Start the lab, then apply a Toxiproxy scenario by name:
+
+```bash
+./test-lab/scripts/apply-toxiproxy-scenario.sh latency
+./test-lab/scripts/apply-toxiproxy-scenario.sh timeout
+./test-lab/scripts/apply-toxiproxy-scenario.sh reset
+```
+
+The helper targets `http://127.0.0.1:8474` by default. Set
+`TOXIPROXY_API_URL` or pass `--api-url` when the API is exposed elsewhere.
+Each apply is idempotent for the named toxics in that scenario. Clear all active
+toxics with:
+
+```bash
+./test-lab/scripts/clear-toxiproxy.sh
+```
+
 ## Debug Probe
 
 ```bash
@@ -74,3 +93,12 @@ added; the Docker QUIC server is available for host and future app probes.
 - Probe JSON: `test-lab/artifacts/probe-<profile>-<mode>.json`
 - Collected device logs: `test-lab/artifacts/logs-*`
 - Packet captures: `test-lab/capture/*.pcap`
+
+Bundle the current lab state for handoff or CI triage:
+
+```bash
+./test-lab/scripts/archive-artifacts.sh
+```
+
+The archive is written to `test-lab/artifacts/test-lab-artifacts-*.tar.gz` and
+excludes generated TLS private keys.

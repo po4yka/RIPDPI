@@ -5,6 +5,7 @@
       "name": "latency_500ms",
       "type": "latency",
       "stream": "downstream",
+      "toxicity": 1.0,
       "attributes": {
         "latency": 500,
         "jitter": 100

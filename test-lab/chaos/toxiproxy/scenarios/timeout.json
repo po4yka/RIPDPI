@@ -5,6 +5,7 @@
       "name": "timeout",
       "type": "timeout",
       "stream": "downstream",
+      "toxicity": 1.0,
       "attributes": {
         "timeout": 1000
       }
