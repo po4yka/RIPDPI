@@ -36,7 +36,8 @@ class DiagnosticsOwnedTlsSourceRulesTest {
             }
 
         assertTrue(
-            "Diagnostic probes must route TLS through DiagnosticsHttpClientFactory or injected WebhostProbe: $offenders",
+            "Diagnostic probes must route TLS through DiagnosticsHttpClientFactory or injected WebhostProbe: " +
+                offenders,
             offenders.isEmpty(),
         )
     }

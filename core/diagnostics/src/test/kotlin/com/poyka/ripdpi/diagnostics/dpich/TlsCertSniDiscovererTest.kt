@@ -217,36 +217,40 @@ class TlsCertSniDiscovererTest {
             assertEquals(listOf("${hosts.single().ip}.example"), hosts.single().certHostnames)
         }
 
-    private fun clientHelloContainsServerNameExtension(bytes: ByteArray): Boolean {
-        if (bytes.size < 5 || bytes[0] != 0x16.toByte()) return false
-        val recordLength = bytes.readU16(3)
-        val recordEnd = (5 + recordLength).coerceAtMost(bytes.size)
+    private fun clientHelloContainsServerNameExtension(bytes: ByteArray): Boolean =
+        runCatching { bytes.hasServerNameExtension() }.getOrDefault(false)
+
+    private fun ByteArray.hasServerNameExtension(): Boolean {
+        require(size >= 5 && this[0] == 0x16.toByte())
+        val recordLength = this.readU16(3)
+        val recordEnd = (5 + recordLength).coerceAtMost(size)
         var index = 5
-        if (index + 4 > recordEnd || bytes[index] != 0x01.toByte()) return false
-        val handshakeLength = bytes.readU24(index + 1)
+        require(index + 4 <= recordEnd && this[index] == 0x01.toByte())
+        val handshakeLength = this.readU24(index + 1)
         index += 4
         val handshakeEnd = (index + handshakeLength).coerceAtMost(recordEnd)
         index += 2 // legacy_version
         index += 32 // random
-        if (index + 1 > handshakeEnd) return false
-        val sessionIdLength = bytes[index].toInt() and 0xff
+        require(index + 1 <= handshakeEnd)
+        val sessionIdLength = this[index].toInt() and 0xff
         index += 1 + sessionIdLength
-        if (index + 2 > handshakeEnd) return false
-        val cipherSuitesLength = bytes.readU16(index)
+        require(index + 2 <= handshakeEnd)
+        val cipherSuitesLength = this.readU16(index)
         index += 2 + cipherSuitesLength
-        if (index + 1 > handshakeEnd) return false
-        val compressionMethodsLength = bytes[index].toInt() and 0xff
+        require(index + 1 <= handshakeEnd)
+        val compressionMethodsLength = this[index].toInt() and 0xff
         index += 1 + compressionMethodsLength
-        if (index + 2 > handshakeEnd) return false
-        val extensionsEnd = (index + 2 + bytes.readU16(index)).coerceAtMost(handshakeEnd)
+        require(index + 2 <= handshakeEnd)
+        val extensionsEnd = (index + 2 + this.readU16(index)).coerceAtMost(handshakeEnd)
         index += 2
-        while (index + 4 <= extensionsEnd) {
-            val extensionType = bytes.readU16(index)
-            val extensionLength = bytes.readU16(index + 2)
-            if (extensionType == 0) return true
+        var containsServerName = false
+        while (!containsServerName && index + 4 <= extensionsEnd) {
+            val extensionType = this.readU16(index)
+            val extensionLength = this.readU16(index + 2)
+            containsServerName = extensionType == 0
             index += 4 + extensionLength
         }
-        return false
+        return containsServerName
     }
 
     private fun ByteArray.readU16(offset: Int): Int =

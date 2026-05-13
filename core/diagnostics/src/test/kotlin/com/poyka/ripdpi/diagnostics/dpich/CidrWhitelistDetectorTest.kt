@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -119,11 +118,7 @@ class CidrWhitelistDetectorTest {
             timeoutMs: Long,
         ): CidrWhitelistProbeTrace {
             if (url in delayedUrls) {
-                try {
-                    delay(timeoutMs)
-                } catch (error: CancellationException) {
-                    throw error
-                }
+                delay(timeoutMs)
             }
             val ok = url in successUrls
             return CidrWhitelistProbeTrace(
