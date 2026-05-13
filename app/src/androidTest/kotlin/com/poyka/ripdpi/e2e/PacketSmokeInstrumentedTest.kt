@@ -87,7 +87,7 @@ class PacketSmokeInstrumentedTest {
     private var hiltInjected = false
     private lateinit var fixtureClient: LocalFixtureClient
     private lateinit var fixture: FixtureManifestDto
-    private var serviceStarted = false
+    private val startedServices = mutableSetOf<Class<*>>()
 
     @Before
     fun setUp() {
@@ -132,7 +132,7 @@ class PacketSmokeInstrumentedTest {
         }
         if (hiltInjected) {
             runBlocking {
-                if (serviceStarted) {
+                if (startedServices.isNotEmpty()) {
                     stopService(RipDpiProxyService::class.java)
                     stopService(RipDpiVpnService::class.java)
                 }
@@ -1178,7 +1178,7 @@ class PacketSmokeInstrumentedTest {
     }
 
     private fun startService(serviceClass: Class<*>) {
-        serviceStarted = true
+        startedServices += serviceClass
         ContextCompat.startForegroundService(
             appContext,
             Intent(appContext, serviceClass).setAction(startAction),
@@ -1186,7 +1186,11 @@ class PacketSmokeInstrumentedTest {
     }
 
     private fun stopService(serviceClass: Class<*>) {
-        appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
+        if (startedServices.remove(serviceClass)) {
+            appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
+        } else {
+            appContext.stopService(Intent(appContext, serviceClass))
+        }
     }
 
     private fun awaitServiceStatus(
