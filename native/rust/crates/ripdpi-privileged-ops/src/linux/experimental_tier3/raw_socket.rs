@@ -37,21 +37,6 @@ fn raw_send_target(target: SocketAddr) -> SockAddr {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::net::SocketAddr;
-
-    use super::raw_send_target;
-
-    #[test]
-    fn ipv6_raw_send_target_zeros_transport_port() {
-        let target: SocketAddr = "[::1]:443".parse().expect("IPv6 target");
-        let raw_target = raw_send_target(target).as_socket().expect("socket address");
-
-        assert_eq!(raw_target.port(), 0);
-    }
-}
-
 pub(super) fn send_icmp_packet(target: IpAddr, ttl: u8, packet: &[u8], protect_path: Option<&str>) -> io::Result<()> {
     let socket = match target {
         IpAddr::V4(_) => {
@@ -82,4 +67,19 @@ pub(super) fn open_icmp_recv_socket(bind_ip: IpAddr) -> io::Result<Socket> {
 
 pub(super) fn sock_addr_ip(addr: &SockAddr) -> Option<IpAddr> {
     addr.as_socket().map(|socket| socket.ip())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::SocketAddr;
+
+    use super::raw_send_target;
+
+    #[test]
+    fn ipv6_raw_send_target_zeros_transport_port() {
+        let target: SocketAddr = "[::1]:443".parse().expect("IPv6 target");
+        let raw_target = raw_send_target(target).as_socket().expect("socket address");
+
+        assert_eq!(raw_target.port(), 0);
+    }
 }

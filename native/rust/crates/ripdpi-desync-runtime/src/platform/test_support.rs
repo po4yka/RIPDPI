@@ -1,6 +1,8 @@
 use std::io;
 use std::io::Write;
 use std::net::TcpStream;
+#[cfg(any(target_os = "android", target_os = "linux"))]
+use std::os::fd::AsRawFd;
 use std::time::Duration;
 
 use ripdpi_desync::TcpSegmentHint;
@@ -40,6 +42,25 @@ impl TcpSocketOptions for TestTcpDesyncPlatform {
     }
 
     fn set_tcp_window_clamp(&self, _stream: &TcpStream, _size: u32) -> io::Result<()> {
+        #[cfg(any(target_os = "android", target_os = "linux"))]
+        {
+            let value = _size as libc::c_int;
+            let rc = unsafe {
+                libc::setsockopt(
+                    _stream.as_raw_fd(),
+                    libc::IPPROTO_TCP,
+                    libc::TCP_WINDOW_CLAMP,
+                    (&value as *const libc::c_int).cast(),
+                    std::mem::size_of_val(&value) as libc::socklen_t,
+                )
+            };
+            if rc == -1 {
+                return Err(io::Error::last_os_error());
+            }
+            return Ok(());
+        }
+
+        #[cfg(not(any(target_os = "android", target_os = "linux")))]
         Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
     }
 

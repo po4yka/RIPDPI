@@ -288,17 +288,6 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-detection-detectioncheckviewmodel.kt:adaptive-desync-dns-routing-telemetry-tunnel",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckViewModel.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckViewModel.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
       "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-advancedsettingsroute.kt:adaptive-desync-dns-routing-telemetry-tunnel",
       "rule": "kotlin-feature-spread",
       "priority": 3,

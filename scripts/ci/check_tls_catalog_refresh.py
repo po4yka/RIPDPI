@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-CATALOG_PATH = ROOT / "app/src/main/assets/strategy-packs/catalog.json"
+CATALOG_PATH = ROOT / "core/service/src/main/assets/strategy-packs/catalog.json"
 REFRESH_LOG_PATH = ROOT / "docs/strategy-pack-tls-refresh-log.json"
 ACCEPTANCE_CORPUS_PATH = ROOT / "contract-fixtures/phase11_tls_template_acceptance.json"
 ACCEPTANCE_REPORT_PATH = ROOT / "docs/tls-template-acceptance-report.json"

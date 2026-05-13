@@ -30,8 +30,10 @@ class NativeDoqQuicClientNativeBindings
 class NativeDoqQuicClient
     @Inject
     constructor(
-        private val bindings: NativeDoqQuicClientBindings = NativeDoqQuicClientNativeBindings(),
+        private val bindings: NativeDoqQuicClientBindings,
     ) : DoqQuicClient {
+        constructor() : this(NativeDoqQuicClientNativeBindings())
+
         private val json = Json { ignoreUnknownKeys = true }
 
         override suspend fun exchange(
@@ -60,6 +62,7 @@ class NativeDoqQuicClient
                     } catch (error: SerializationException) {
                         throw DoqQuicUnavailableException(
                             "native DoQ bridge returned malformed response: ${error.message}",
+                            error,
                         )
                     }
                 response.error?.takeIf(String::isNotBlank)?.let { message ->
@@ -70,7 +73,10 @@ class NativeDoqQuicClient
                         try {
                             Base64.getDecoder().decode(encoded)
                         } catch (error: IllegalArgumentException) {
-                            throw DoqQuicUnavailableException("native DoQ bridge returned invalid response encoding")
+                            throw DoqQuicUnavailableException(
+                                "native DoQ bridge returned invalid response encoding",
+                                error,
+                            )
                         }
                     } ?: throw DoqQuicUnavailableException("native DoQ bridge missing response body")
                 body.frameDoqMessage()
@@ -79,7 +85,8 @@ class NativeDoqQuicClient
 
 class DoqTimeoutException(
     message: String,
-) : IOException(message)
+    cause: Throwable? = null,
+) : IOException(message, cause)
 
 @Serializable
 private data class NativeDoqExchangeRequest(

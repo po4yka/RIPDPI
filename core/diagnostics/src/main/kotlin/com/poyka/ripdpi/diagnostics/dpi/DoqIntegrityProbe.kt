@@ -48,11 +48,13 @@ interface DoqQuicClient {
 
 class DoqQuicUnavailableException(
     message: String,
-) : IOException(message)
+    cause: Throwable? = null,
+) : IOException(message, cause)
 
 class DoqTlsRejectException(
     message: String,
-) : IOException(message)
+    cause: Throwable? = null,
+) : IOException(message, cause)
 
 object DoqWireCodec {
     fun buildQuery(domain: String): Pair<Int, ByteArray> {
@@ -141,14 +143,14 @@ class DoqIntegrityProbe(
                 }
             provider.result(domain, verdict, ips, startedAt)
         } catch (error: TimeoutCancellationException) {
-            provider.result(domain, DoqVerdict.DOQ_TIMEOUT, emptyList(), startedAt, "timeout")
+            provider.result(domain, DoqVerdict.DOQ_TIMEOUT, emptyList(), startedAt, error.message ?: "timeout")
         } catch (error: DoqTimeoutException) {
             provider.result(domain, DoqVerdict.DOQ_TIMEOUT, emptyList(), startedAt, error.message)
         } catch (error: DoqTlsRejectException) {
             provider.result(domain, DoqVerdict.DOQ_DPI_REJECT, emptyList(), startedAt, error.message)
         } catch (error: CancellationException) {
             throw error
-        } catch (error: Exception) {
+        } catch (error: IOException) {
             provider.result(
                 domain = domain,
                 verdict = DoqVerdict.DOQ_BLOCKED_QUIC,
