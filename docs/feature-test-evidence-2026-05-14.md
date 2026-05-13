@@ -1,9 +1,8 @@
 # Feature Test Evidence - 2026-05-14
 
-This is the current evidence ledger for `docs/feature-test-checklist.md` at
-commit `ce7e4cc6`. It records what was verified in the local application test
-pass and what still requires a dedicated device, network, relay, or remote CI
-environment.
+This is the current evidence ledger for `docs/feature-test-checklist.md`. It
+records what was verified in the local application test pass and what still
+requires a dedicated device, network, relay, or remote CI environment.
 
 This file is not a release sign-off. Rows marked `Gap` or `Partial` are still
 open checklist work.
@@ -12,7 +11,7 @@ open checklist work.
 
 | Item | Evidence |
 | --- | --- |
-| Git head | `ce7e4cc6 fix(build): exclude coroutine debug probe asset` |
+| Git head before this evidence update | `1af04ec6 docs(testing): record autolearn evidence` |
 | Physical device | Pixel 8 Pro, Android 16 / API 36, non-rooted |
 | Emulator smoke | API 34 AVD fresh-start UI smoke |
 | Release APK inspected | `app/build/outputs/apk/github/release/app-github-arm64-v8a-release.apk` |
@@ -37,6 +36,7 @@ open checklist work.
 | Offline analytics sample corpus | `python3 -m scripts.analytics.pipeline run-all --manifest scripts/analytics/sample-corpus.json --output-dir /tmp/ripdpi-offline-analytics-20260514` | Pass |
 | Native bloat check | `python3 scripts/ci/verify_native_bloat.py --report-json /tmp/ripdpi-native-bloat-20260514.json --report-md /tmp/ripdpi-native-bloat-20260514.md` | Pass against checked-in baseline |
 | Autolearn and remembered-network unit tests | `./gradlew :core:data:testDebugUnitTest :core:diagnostics-data:testDebugUnitTest :core:diagnostics:testDebugUnitTest --tests ... -Pripdpi.skipNativeBuild=true --no-daemon` | `HostAutolearnSettingsTest` 4 tests, `RememberedNetworkPolicyStoreTest` 7 tests, `DiagnosticsStrategyProbeRecommendationPersistenceTest` 3 tests; all pass |
+| Proxy and relay unit tests | `./gradlew :core:service:testDebugUnitTest :core:engine:testDebugUnitTest :app:testGithubDebugUnitTest --tests ... -Pripdpi.skipNativeBuild=true --no-daemon` | 127 focused tests, 0 failures across proxy supervisors, relay runtime config, relay UI validation, MASQUE credentials, Cloudflare publish/geohash, NaiveProxy policy, and proxy JSON/preference mapping |
 
 ## Checklist Section Coverage
 
@@ -46,11 +46,11 @@ open checklist work.
 | Test dimensions | Partial | Debug, release verification build, physical arm64, API 36, API 34 emulator, VPN, diagnostics-only, local dual-stack lab service set | API 27, API 31, API 35 emulator/device runs; rooted physical device; cellular, handover, private DNS, IPv4-only, IPv6-only, captive or limited network |
 | Core smoke matrix | Partial | Physical VPN E2E, diagnostics probe, connected tests, release APK inspection, static analysis, Roborazzi and unit gates from this pass | Proxy curl smoke outside instrumentation, full relay matrix, GitHub Actions confirmation after push |
 | App shell, navigation, and settings | Partial | API 34 fresh-start UI smoke reached onboarding, Home, and Settings; connected UI tests passed with no failures | Manual TalkBack, RTL, large font, dynamic-color contrast, process-kill and migrated-install checks |
-| Proxy service | Partial | Service lifecycle connected tests passed; lab services and probes cover local TCP/UDP endpoints | Direct SOCKS5 curl, port conflict, command-line strategy mode, relay-on proxy combinations |
+| Proxy service | Partial | Service lifecycle connected tests passed; lab services and probes cover local TCP/UDP endpoints; focused proxy supervisor, startup-failure, runtime-coordinator, auto-apply, JSON, and preference tests passed | Direct SOCKS5 curl, port conflict on device, command-line strategy mode, relay-on proxy combinations |
 | VPN service | Partial | Physical VPN probe established TUN, proxy readiness, protected egress, IPv4 route, DNS/HTTP/HTTPS/TCP/UDP success; notification and permission flow instrumentation passed | Cellular handover, private DNS, IPv4-only, IPv6-only, always-on/lockdown, relay-on VPN, Unix socket protection fallback runtime path |
 | DNS and resolver resilience | Partial | Diagnostics and VPN probes resolved local DNS; DNS anomaly and failover behavior covered by existing unit and native tests in this pass scope | DoH, DoT, DNSCrypt, DoQ provider success on device; handover behavior; OS private DNS runtime validation |
 | Packet strategy features | Partial | Packet-smoke instrumentation report present with 0 failures; native packet and root-helper crates passed targeted tests; release APK inspected for debug-only test strings | Full per-family runtime matrix across IPv4, IPv6, TCP, UDP, QUIC, DTLS, Lua rawsend, and rooted privileged strategies |
-| Relay and tunneling paths | Partial | Mock relay readiness verified by test-lab doctor; archive includes deterministic lab state | Production relay paths still need provider-specific validation: VLESS Reality, VLESS xHTTP, WARP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, WebTunnel, obfs4, Snowflake, Google Apps Script path |
+| Relay and tunneling paths | Partial | Mock relay readiness verified by test-lab doctor; archive includes deterministic lab state; focused relay unit tests cover runtime config resolution, subprocess supervision, UI validation, MASQUE credentials, Cloudflare publish/geohash, and NaiveProxy policy | Production relay paths still need provider-backed runtime validation: VLESS Reality, VLESS xHTTP, WARP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, WebTunnel, obfs4, Snowflake, Google Apps Script path |
 | Diagnostics workflows | Partial | Physical diagnostics-only probe passed DNS/HTTP/HTTPS/TCP/UDP; connected diagnostics tests passed; archive redaction covered | Full matrix audit, home composite stage ordering, cancellation UI busy-state, command-line settings gating, RAW_PATH with VPN stop behavior |
 | Autolearn and remembered networks | Partial | Focused unit tests cover host filtering settings, remembered-network policy storage, and recommendation persistence invariants | Runtime handover trigger, matching network identity on a real network, reset flow, capacity pressure, schema migration, and export/import behavior |
 | Browser and HTTP stack | Partial | Connected tests and parser tests present in the physical Android test report; secure HTTPS probe succeeded | Browser route handoff after service restart, HTTP/2 retry eligibility, ECH platform gating, parser fault isolation matrix |
