@@ -22,6 +22,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -165,6 +166,7 @@ class NetworkPathE2ETest {
 
     @Test
     fun vpnServiceRoutesShellTrafficThroughTunnelAndUpdatesTelemetry() {
+        assumeEmulatorLocalVpnFixture()
         ensureVpnConsentGranted(appContext)
 
         val listenPort = reserveLoopbackPort()
@@ -201,6 +203,7 @@ class NetworkPathE2ETest {
 
     @Test
     fun vpnServiceRoutesHostnameTrafficThroughEncryptedDnsWithoutRestartLoop() {
+        assumeEmulatorLocalVpnFixture()
         ensureVpnConsentGranted(appContext)
 
         val listenPort = reserveLoopbackPort()
@@ -274,6 +277,7 @@ class NetworkPathE2ETest {
 
     @Test
     fun vpnServiceEncryptedDnsFaultBreaksHostnameShellRoundTrip() {
+        assumeEmulatorLocalVpnFixture()
         ensureVpnConsentGranted(appContext)
 
         val listenPort = reserveLoopbackPort()
@@ -380,6 +384,7 @@ class NetworkPathE2ETest {
 
     @Test
     fun vpnServiceSurfacedFixtureFaultBreaksShellRoundTrip() {
+        assumeEmulatorLocalVpnFixture()
         ensureVpnConsentGranted(appContext)
 
         val listenPort = reserveLoopbackPort()
@@ -420,6 +425,14 @@ class NetworkPathE2ETest {
 
     private fun stopService(serviceClass: Class<*>) {
         appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
+    }
+
+    private fun assumeEmulatorLocalVpnFixture() {
+        assumeTrue(
+            "Local fixture VPN round-trips require emulator loopback routing; physical devices use packet-smoke " +
+                "physical-indirect VPN coverage.",
+            isLikelyEmulator(),
+        )
     }
 
     private fun shellTcpRoundTrip(
