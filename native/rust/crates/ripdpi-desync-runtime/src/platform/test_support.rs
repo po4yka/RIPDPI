@@ -55,9 +55,10 @@ impl TcpSocketOptions for TestTcpDesyncPlatform {
                 )
             };
             if rc == -1 {
-                return Err(io::Error::last_os_error());
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(())
             }
-            return Ok(());
         }
 
         #[cfg(not(any(target_os = "android", target_os = "linux")))]
