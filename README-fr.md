@@ -62,6 +62,23 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 3. **Repliez-vous sur un relais tunnelé lorsque le chemin direct est dégradé.** VLESS Reality/xHTTP en Rust natif, plus WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy et Cloudflare Tunnel prennent en charge les cibles qui ne peuvent pas être récupérées sur l'appareil.
 4. **Rapports honnêtes.** Les verdicts sont typés et affichés ; les résultats du classifieur d'échec sont mis en évidence plutôt que supprimés ; les paquets d'export de diagnostic masquent les secrets.
 
+## Captures d'écran
+
+<p align="center">
+  <img src="docs/screenshots/01-hero.png" width="200" alt="Écran d'accueil RIPDPI"/>
+  &nbsp;
+  <img src="docs/screenshots/02-no-root.png" width="200" alt="RIPDPI sans root"/>
+  &nbsp;
+  <img src="docs/screenshots/03-privacy.png" width="200" alt="Écran de confidentialité RIPDPI"/>
+  &nbsp;
+  <img src="docs/screenshots/04-controls.png" width="200" alt="Contrôles RIPDPI"/>
+</p>
+<p align="center">
+  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Diagnostics RIPDPI"/>
+  &nbsp;
+  <img src="docs/screenshots/06-more-features.png" width="200" alt="Vue d'ensemble des fonctionnalités RIPDPI"/>
+</p>
+
 ## Fonctionnalités
 
 - **Mode proxy** : proxy SOCKS5 local sur le port localhost configuré.
@@ -95,23 +112,6 @@ RIPDPI n'enregistre pas :
 - Les secrets TLS
 
 La confidentialité du trafic de relais dépend du point de terminaison et du profil de relais que vous configurez.
-
-## Captures d'écran
-
-<p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="Écran d'accueil RIPDPI"/>
-  &nbsp;
-  <img src="docs/screenshots/02-no-root.png" width="200" alt="RIPDPI sans root"/>
-  &nbsp;
-  <img src="docs/screenshots/03-privacy.png" width="200" alt="Écran de confidentialité RIPDPI"/>
-  &nbsp;
-  <img src="docs/screenshots/04-controls.png" width="200" alt="Contrôles RIPDPI"/>
-</p>
-<p align="center">
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Diagnostics RIPDPI"/>
-  &nbsp;
-  <img src="docs/screenshots/06-more-features.png" width="200" alt="Vue d'ensemble des fonctionnalités RIPDPI"/>
-</p>
 
 ## Compilation
 

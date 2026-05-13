@@ -62,6 +62,23 @@ RIPDPI's design principle: classify each target and each network separately, app
 3. **Fall back to a tunneled relay when the direct path is degraded.** Native-Rust VLESS Reality/xHTTP, plus WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, and Cloudflare Tunnel handle targets that cannot be recovered on-device.
 4. **Honest reporting.** Verdicts are typed and displayed; failure classifier results are surfaced rather than suppressed; diagnostic export bundles redact secrets.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/01-hero.png" width="200" alt="RIPDPI home screen"/>
+  &nbsp;
+  <img src="docs/screenshots/02-no-root.png" width="200" alt="RIPDPI without root"/>
+  &nbsp;
+  <img src="docs/screenshots/03-privacy.png" width="200" alt="RIPDPI privacy screen"/>
+  &nbsp;
+  <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI controls"/>
+</p>
+<p align="center">
+  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="RIPDPI diagnostics"/>
+  &nbsp;
+  <img src="docs/screenshots/06-more-features.png" width="200" alt="RIPDPI feature overview"/>
+</p>
+
 ## Features
 
 - **Proxy mode**: local SOCKS5 proxy on the configured localhost port.
@@ -95,23 +112,6 @@ RIPDPI does not record:
 - TLS secrets
 
 Relay traffic privacy depends on the relay endpoint and profile you configure.
-
-## Screenshots
-
-<p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="RIPDPI home screen"/>
-  &nbsp;
-  <img src="docs/screenshots/02-no-root.png" width="200" alt="RIPDPI without root"/>
-  &nbsp;
-  <img src="docs/screenshots/03-privacy.png" width="200" alt="RIPDPI privacy screen"/>
-  &nbsp;
-  <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI controls"/>
-</p>
-<p align="center">
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="RIPDPI diagnostics"/>
-  &nbsp;
-  <img src="docs/screenshots/06-more-features.png" width="200" alt="RIPDPI feature overview"/>
-</p>
 
 ## Build
 

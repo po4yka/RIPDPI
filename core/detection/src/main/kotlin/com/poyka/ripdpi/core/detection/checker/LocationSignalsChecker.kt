@@ -21,7 +21,6 @@ import android.telephony.CellInfoLte
 import android.telephony.CellInfoWcdma
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
-import android.telephony.gsm.GsmCellLocation
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
@@ -362,7 +361,8 @@ object LocationSignalsChecker {
     @SuppressLint("MissingPermission")
     private fun legacyGsmCellTower(tm: TelephonyManager): CellTowerSignal? {
         val operator = tm.networkOperator?.takeIf { it.length >= 4 && it.all(Char::isDigit) } ?: return null
-        val location = runCatching { tm.cellLocation as? GsmCellLocation }.getOrNull() ?: return null
+        val location =
+            runCatching { tm.cellLocation as? android.telephony.gsm.GsmCellLocation }.getOrNull() ?: return null
         val lac = location.lac.takeIf { it >= 0 }?.toLong() ?: return null
         val cid = location.cid.takeIf { it >= 0 }?.toLong() ?: return null
         return CellTowerSignal(
@@ -374,6 +374,7 @@ object LocationSignalsChecker {
         )
     }
 
+    @Suppress("DEPRECATION")
     private fun toCellTowerSignal(info: CellInfo): CellTowerSignal? =
         when (info) {
             is CellInfoGsm -> {

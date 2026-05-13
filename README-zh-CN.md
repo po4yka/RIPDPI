@@ -62,6 +62,23 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 3. **当直接路径退化时，退回到隧道中继。** 原生 Rust VLESS Reality/xHTTP，加上 WARP、MASQUE、Hysteria2、TUIC v5、ShadowTLS v3、NaiveProxy 和 Cloudflare Tunnel 处理设备端无法恢复的目标。
 4. **诚实的报告。** 判定结果是类型化的并显示出来；故障分类器的结果是显示而非抑制；诊断导出包会编辑机密信息。
 
+## 截图
+
+<p align="center">
+  <img src="docs/screenshots/01-hero.png" width="200" alt="RIPDPI 主屏幕"/>
+  &nbsp;
+  <img src="docs/screenshots/02-no-root.png" width="200" alt="无需 root 的 RIPDPI"/>
+  &nbsp;
+  <img src="docs/screenshots/03-privacy.png" width="200" alt="RIPDPI 隐私屏幕"/>
+  &nbsp;
+  <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI 控件"/>
+</p>
+<p align="center">
+  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="RIPDPI 诊断"/>
+  &nbsp;
+  <img src="docs/screenshots/06-more-features.png" width="200" alt="RIPDPI 功能概述"/>
+</p>
+
 ## 功能
 
 - **代理模式**：在配置的本地主机端口上运行本地 SOCKS5 代理。
@@ -95,23 +112,6 @@ RIPDPI **不**记录：
 - TLS 机密
 
 中继流量隐私取决于您配置的中继端点和配置文件。
-
-## 截图
-
-<p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="RIPDPI 主屏幕"/>
-  &nbsp;
-  <img src="docs/screenshots/02-no-root.png" width="200" alt="无需 root 的 RIPDPI"/>
-  &nbsp;
-  <img src="docs/screenshots/03-privacy.png" width="200" alt="RIPDPI 隐私屏幕"/>
-  &nbsp;
-  <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI 控件"/>
-</p>
-<p align="center">
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="RIPDPI 诊断"/>
-  &nbsp;
-  <img src="docs/screenshots/06-more-features.png" width="200" alt="RIPDPI 功能概述"/>
-</p>
 
 ## 构建
 

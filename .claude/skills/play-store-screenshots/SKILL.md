@@ -44,11 +44,16 @@ play-store-screenshots/
 
 | Asset | Source | Resolution |
 |-------|--------|-----------|
-| App icon | `app/src/main/ic_launcher-playstore.png` | 512x512 |
+| App icon (current) | `app/src/main/ic_launcher-playstore.png` -- brutalist black silhouette (bag-in-arch motif) on white | 512x512 |
+| Launcher variants (7) | `app/src/main/res/drawable/ic_launcher_foreground_ripdpi_{clean,cracked,disintegrate,glitch,rubble,stitch}.xml` + `ic_launcher_monochrome_ripdpi.xml` | adaptive XML |
 | High-res screenshots | `docs/screenshots/*.png` | 1080x2400 |
 | Low-res test screenshots | `app/src/test/screenshots/com.poyka.ripdpi.ui.screenshot.*.png` | 420x900 to 720x920 |
 
+**Brand shift note (2026-05):** The previous logo (dove rising from barbed wire on navy) was replaced with a brutalist black silhouette on white. The app now also ships 7 user-selectable launcher icon variants via the in-app icon picker (`customization_icon_*` strings). The marketing screenshots use the **default `clean` variant** at the top-level `ic_launcher-playstore.png`. If you want a slide that shows the customization feature, capture each variant from a real device (the variants are XML adaptive icons; there are no PNG rasters in the repo).
+
 **Use only high-res screenshots (1080x2400) from `docs/screenshots/`.** The Roborazzi test screenshots are too low-resolution for Play Store quality. If a screen is only available as a test screenshot, use text-focused slides instead.
+
+**Refreshing the cached icon:** After any logo change, run `cp app/src/main/ic_launcher-playstore.png play-store-screenshots/public/app-icon.png` and rerun `bun run capture:prod`. The cached copy is the icon the screenshot generator reads.
 
 ## Step 1: Confirm RIPDPI Defaults with the User
 
@@ -56,31 +61,15 @@ play-store-screenshots/
 
 All colors come from the project's design system (`DESIGN.md` / `RipDpiExtendedColors`). The Play Store screenshots use these tokens for brand consistency.
 
+**Brand-palette note:** `DESIGN.md` (alpha) is monochrome-first **light** (`#FAFAFA` background, `#1A1A1A` foreground). Marketing slides honor the design system: light, monochrome-first, restrained semantic color, no decorative gradients. `BRAND_LIGHT` is the **canonical default**; `BRAND` (the strict dark inversion) is kept for at most 1-2 rhythm-break slides per set and uses the same role mapping, not a separate visual identity.
+
 | Item | Default |
 |------|---------|
 | App name | RIPDPI |
 | Design philosophy | Monochrome-first, semantic color for status only. Technical, precise, utilitarian. |
 | Font families | Geist Sans (UI text), Geist Mono (values/configs), Geist Pixel Circle (brand mark only) |
 
-#### Dark Theme Tokens (primary for screenshots)
-
-```typescript
-const BRAND = {
-  bg: "#121212",           // background
-  card: "#1A1A1A",         // card
-  text: "#E8E8E8",         // foreground
-  muted: "#1E1E1E",        // muted
-  mutedFg: "#A3A3A3",      // mutedForeground
-  accent: "#2A2A2A",       // accent
-  border: "#2A2A2A",       // border
-  success: "#34D399",      // success (connected, healthy)
-  warning: "#FBBF24",      // warning
-  error: "#F87171",        // destructive
-  info: "#60A5FA",         // info
-} as const;
-```
-
-#### Light Theme Tokens (for contrast slides)
+#### Light Theme Tokens (canonical default)
 
 ```typescript
 const BRAND_LIGHT = {
@@ -89,11 +78,35 @@ const BRAND_LIGHT = {
   text: "#1A1A1A",         // foreground
   muted: "#F5F5F5",        // muted
   mutedFg: "#575757",      // mutedForeground
+  accent: "#E8E8E8",       // accent
   border: "#E0E0E0",       // border
   success: "#047857",      // success
   warning: "#B45309",      // warning
   error: "#B91C1C",        // destructive
   info: "#1D4ED8",         // info
+  restricted: "#6B7280",   // restricted
+} as const;
+```
+
+#### Dark Theme Tokens (strict inversion — same role mapping)
+
+Use sparingly for at most 1-2 rhythm-break slides. Status colors are slightly
+lighter than light-theme variants for dark-surface contrast — never bright.
+
+```typescript
+const BRAND = {
+  bg: "#1A1A1A",           // background
+  card: "#1F1F1F",         // card
+  text: "#FAFAFA",         // foreground
+  muted: "#262626",        // muted
+  mutedFg: "#A3A3A3",      // mutedForeground
+  accent: "#2A2A2A",       // accent
+  border: "#2A2A2A",       // border
+  success: "#10B981",      // success
+  warning: "#D97706",      // warning
+  error: "#DC2626",        // destructive
+  info: "#3B82F6",         // info
+  restricted: "#6B7280",   // restricted
 } as const;
 ```
 
@@ -120,7 +133,7 @@ Use these for screenshot frame corners (40px = ~3.7% of 1080px width) and UI ele
 **M3 Expressive principle**: Prefer weight promotion (400->500->700) over size increase for emphasis.
 
 | Feature list | 1. path optimization (proxy + VPN modes) 2. No root required 3. Advanced strategy controls (TCP, QUIC, DNS) 4. Encrypted DNS (DoH/DoT/DNSCrypt) 5. Integrated diagnostics & monitoring 6. Per-network policies 7. Works with AdGuard 8. Session telemetry & export |
-| Style direction | Dark/technical, monochrome-first with semantic color accents. Marketing slides may use subtle gradients for depth (the app UI itself forbids decorative gradients, but Play Store screenshots are advertisements). |
+| Style direction | Light, monochrome-first. Restrained semantic color (use info/success/warning only when the state itself matters). No decorative gradients on any slide — DESIGN.md forbids them in-app and the marketing surface honors the same rule. |
 
 ### Ask the User
 
@@ -133,9 +146,9 @@ Use these for screenshot frame corners (40px = ~3.7% of 1080px width) and UI ele
 
 ### Derived (do NOT ask)
 
-- **Background style**: subtle gradients for depth on dark slides, flat light backgrounds for contrast slides
-- **Decorative elements**: radial glow orbs with brand colors, subtle grid patterns -- never circuit-board or shield motifs (too literal for a utilitarian tool)
-- **Dark vs light slides**: majority dark (matches app default), 1-2 light contrast slides for visual rhythm
+- **Background style**: flat solid backgrounds only (no gradients). `BRAND_LIGHT.bg` (`#FAFAFA`) for the canonical light slides; `BRAND.bg` (`#1A1A1A`) for the rare rhythm-break dark slide.
+- **Decorative elements**: subtle low-opacity monochrome `Grid` pattern is the only allowed decoration. No radial glow orbs, no circuit-board, no shield motifs — these read as consumer-dashboard flourish and violate the design system.
+- **Light vs dark slides**: light-first (matches DESIGN.md). At most 1-2 of 6 slides may use the dark inversion for visual rhythm; never more.
 - **Screenshot placement**: use `top` positioning (not `bottom + translateY`) to precisely control where screenshots start below headlines
 
 ## Step 2: Set Up / Update the Project
@@ -194,17 +207,17 @@ Use `var(--font-geist-sans)` and `var(--font-geist-mono)` in slide styles.
 
 | Slot | Purpose | RIPDPI Suggestion |
 |------|---------|-------------------|
-| #1 | **Hero / Main Benefit** | Home screen on dark bg. "Browse without borders" |
-| #2 | **Differentiator** | Text-focused, app icon. "One tap. No root." |
+| #1 | **Hero / Main Benefit** | Home screen on light bg. "Browse without borders" |
+| #2 | **Differentiator** | Brutalist black silhouette logo on light, text-focused. "One tap. No root." |
 | #3 | **Core Feature** | Settings screenshot on light bg. "Your privacy. Your rules." |
-| #4 | **Core Feature** | Protocol pills, text-focused. "Fine-tune every packet" |
-| #5 | **Core Feature** | Diagnostics screenshot on dark bg. "See what's really happening" |
-| #6 | **More Features** | Feature pills + icon. "And so much more." |
+| #4 | **Core Feature** | Protocol pills, text-focused, light. "Fine-tune every packet" |
+| #5 | **Core Feature** | Diagnostics screenshot on light bg; info accent legitimately marks active probes. "See what's really happening" |
+| #6 | **More Features** | Feature pills + icon, dark inversion for rhythm. "And so much more." |
 
 **Rules:**
 - Each slide sells ONE idea
 - Vary layouts -- never repeat the same template structure in adjacent slides
-- Include 1-2 light contrast slides for visual rhythm
+- Light-first: at most 1-2 of 6 slides may be the dark inversion, for rhythm only
 - Text overlay must not exceed 20% of the screenshot area
 - Slides with no high-res screenshot available should be text-focused (feature cards, protocol pills, etc.)
 
@@ -332,7 +345,7 @@ function ScreenshotsPage() {
 
 ```typescript
 import { toPng } from "html-to-image";
-const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true, backgroundColor: "#121212" };
+const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true, backgroundColor: "#FAFAFA" };
 await toPng(el, opts);  // warm-up call
 const dataUrl = await toPng(el, opts);  // actual capture
 ```
@@ -392,7 +405,7 @@ Captured images go to `docs/screenshots/` for README usage.
 
 ### Design System Alignment
 
-- [ ] Colors match DESIGN.md tokens (dark: `#121212` bg, `#E8E8E8` text, `#60A5FA` info; light: `#FAFAFA` bg, `#1A1A1A` text, `#1D4ED8` info)
+- [ ] Colors match DESIGN.md tokens (light canonical: `#FAFAFA` bg, `#1A1A1A` text, `#1D4ED8` info; dark inversion: `#1A1A1A` bg, `#FAFAFA` text, `#3B82F6` info)
 - [ ] Font families are Geist Sans (headlines, labels) and Geist Mono (pills, badges, values)
 - [ ] Weight emphasis follows M3 Expressive principle (400->500->700, not size increase)
 - [ ] Pill/badge corners use design system radii (12-16px range)
@@ -406,6 +419,7 @@ Captured images go to `docs/screenshots/` for README usage.
 | Blank Puppeteer captures | Must use production build (`bun run build && bun run start`) |
 | useSearchParams build error | Wrap component in `<Suspense>` |
 | Low-res screenshots look bad | Only use 1080x2400 from `docs/screenshots/`; text-focused slides for others |
-| Decorative gradients feel wrong | DESIGN.md forbids decorative gradients in app UI but Play Store screenshots are marketing -- subtle gradients OK |
+| Decorative gradients on slides | DESIGN.md forbids them in the app and they also break the marketing brand. Use solid backgrounds plus the `Grid` utility for subtle texture. No `linear-gradient(...)` or radial-glow orbs anywhere. |
+| Bright saturated status accents | Use restrained DESIGN.md tokens (`#1D4ED8` info, `#047857` success, `#B45309` warning), never bubblegum-bright variants. Reserve status color for slides where the state itself matters. |
 | All slides look the same | Vary: centered phone, right-offset, left-offset, text-only, pills-only |
 | Copy too complex | "One second at arm's length" test; 3-5 words per line |

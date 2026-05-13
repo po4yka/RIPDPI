@@ -3,37 +3,57 @@
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { toPng } from "html-to-image";
+import { getCopy, LOCALES, DEFAULT_LOCALE, type Locale, type SlideCopy } from "@/copy";
 
 // ── Constants ──────────────────────────────────────────────────────────
 const PHONE_W = 1080;
 const PHONE_H = 1920;
 const FEATURE_GRAPHIC = { w: 1024, h: 500 };
 
-// Dark theme tokens from DESIGN.md / RipDpiExtendedColors
-const BRAND = {
-  bg: "#121212",           // background
-  card: "#1A1A1A",         // card
-  text: "#E8E8E8",         // foreground
-  muted: "#1E1E1E",        // muted
-  mutedFg: "#A3A3A3",      // mutedForeground
-  accent: "#2A2A2A",       // accent
-  border: "#2A2A2A",       // border
-  success: "#34D399",      // success
-  warning: "#FBBF24",      // warning
-  error: "#F87171",        // destructive
-  info: "#60A5FA",         // info
-} as const;
-
-// Light theme tokens for contrast slides
+// Light theme tokens — canonical brand palette (DESIGN.md monochrome-first).
 const BRAND_LIGHT = {
   bg: "#FAFAFA",           // background
   card: "#FFFFFF",         // card
   text: "#1A1A1A",         // foreground
+  muted: "#F5F5F5",        // muted
   mutedFg: "#575757",      // mutedForeground
+  accent: "#E8E8E8",       // accent
   border: "#E0E0E0",       // border
   success: "#047857",      // success
+  warning: "#B45309",      // warning
+  error: "#B91C1C",        // destructive
   info: "#1D4ED8",         // info
+  restricted: "#6B7280",   // restricted
 } as const;
+
+// Dark theme tokens — strict inversion of BRAND_LIGHT, same role mapping.
+// Status colors are restrained (slightly lighter than light-theme variants for
+// contrast on dark surfaces) — never bubblegum-bright.
+const BRAND = {
+  bg: "#1A1A1A",           // background
+  card: "#1F1F1F",         // card
+  text: "#FAFAFA",         // foreground
+  muted: "#262626",        // muted
+  mutedFg: "#A3A3A3",      // mutedForeground
+  accent: "#2A2A2A",       // accent
+  border: "#2A2A2A",       // border
+  success: "#10B981",      // success
+  warning: "#D97706",      // warning
+  error: "#DC2626",        // destructive
+  info: "#3B82F6",         // info
+  restricted: "#6B7280",   // restricted
+} as const;
+
+// ── Helpers ────────────────────────────────────────────────────────────
+/** Render an array of headline lines as JSX, separated by <br />. */
+function renderHeadline(lines: readonly string[]): React.ReactNode {
+  return lines.map((line, i) => (
+    <span key={i}>
+      {line}
+      {i < lines.length - 1 && <br />}
+    </span>
+  ));
+}
 
 // ── Screenshot (Frameless) ─────────────────────────────────────────────
 function Screenshot({
@@ -55,7 +75,7 @@ function Screenshot({
           height: "100%",
           borderRadius: 40,
           overflow: "hidden",
-          boxShadow: "0 12px 60px rgba(0,0,0,0.5)",
+          boxShadow: "0 12px 60px rgba(0,0,0,0.18)",
           background: bgColor,
         }}
       >
@@ -80,14 +100,22 @@ function Screenshot({
 function Caption({
   label,
   headline,
-  dark = true,
+  dark = false,
+  /**
+   * Whether this slide is the one diagnostic/info slide that justifies using
+   * the info accent on the eyebrow. Defaults to false: eyebrows should use
+   * the foreground color, not a saturated accent.
+   */
+  accent = false,
   style,
 }: {
   label: string;
   headline: React.ReactNode;
   dark?: boolean;
+  accent?: boolean;
   style?: React.CSSProperties;
 }) {
+  const palette = dark ? BRAND : BRAND_LIGHT;
   return (
     <div
       style={{
@@ -103,7 +131,7 @@ function Caption({
         style={{
           fontSize: 35,
           fontWeight: 600,
-          color: dark ? BRAND.info : BRAND_LIGHT.info,
+          color: accent ? palette.info : palette.mutedFg,
           letterSpacing: "0.08em",
           textTransform: "uppercase",
           marginBottom: 12,
@@ -116,7 +144,7 @@ function Caption({
         style={{
           fontSize: 108,
           fontWeight: 700,
-          color: dark ? BRAND.text : BRAND_LIGHT.text,
+          color: palette.text,
           lineHeight: 1.0,
           letterSpacing: "-0.025em",
           fontFamily: "var(--font-geist-sans)",
@@ -128,39 +156,15 @@ function Caption({
   );
 }
 
-// ── Decorative: Glow ───────────────────────────────────────────────────
-function Glow({
-  x,
-  y,
-  size,
-  color,
-  opacity = 0.15,
+// ── Decorative: Grid (monochrome, subtle) ──────────────────────────────
+function Grid({
+  opacity = 0.04,
+  dark = false,
 }: {
-  x: string;
-  y: string;
-  size: number;
-  color: string;
   opacity?: number;
+  dark?: boolean;
 }) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: x,
-        top: y,
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
-        opacity,
-        pointerEvents: "none",
-      }}
-    />
-  );
-}
-
-// ── Decorative: Grid ───────────────────────────────────────────────────
-function Grid({ opacity = 0.04 }: { opacity?: number }) {
+  const stroke = dark ? "rgba(255,255,255,0.18)" : "rgba(26,26,26,0.18)";
   return (
     <div
       style={{
@@ -169,8 +173,8 @@ function Grid({ opacity = 0.04 }: { opacity?: number }) {
         opacity,
         pointerEvents: "none",
         backgroundImage: `
-          linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)
+          linear-gradient(${stroke} 1px, transparent 1px),
+          linear-gradient(90deg, ${stroke} 1px, transparent 1px)
         `,
         backgroundSize: "60px 60px",
       }}
@@ -181,9 +185,9 @@ function Grid({ opacity = 0.04 }: { opacity?: number }) {
 // ── Pill badge ─────────────────────────────────────────────────────────
 function Pill({
   children,
-  color = BRAND.text,
-  bg = "rgba(255,255,255,0.08)",
-  border = BRAND.border,
+  color = BRAND_LIGHT.text,
+  bg = BRAND_LIGHT.muted,
+  border = BRAND_LIGHT.border,
   fontSize = 30,
 }: {
   children: React.ReactNode;
@@ -214,12 +218,15 @@ function Pill({
 function Slide({
   children,
   bg,
+  dir,
 }: {
   children: React.ReactNode;
   bg: string;
+  dir?: "ltr" | "rtl";
 }) {
   return (
     <div
+      dir={dir ?? "ltr"}
       style={{
         width: PHONE_W,
         height: PHONE_H,
@@ -236,25 +243,15 @@ function Slide({
 
 // ══════════════════════════════════════════════════════════════════════
 // SLIDE 1: Hero -- "Browse without borders"
-// Dark bg, centered phone (home screen, light 1080x2400)
+// Light bg, centered phone (home screen, light 1080x2400)
 // ══════════════════════════════════════════════════════════════════════
-function Slide1() {
+function Slide1({ copy }: { copy: SlideCopy }) {
   return (
-    <Slide bg={`linear-gradient(170deg, ${BRAND.bg} 0%, #0a1628 50%, ${BRAND.bg} 100%)`}>
-      <Glow x="10%" y="5%" size={450} color={BRAND.info} opacity={0.12} />
-      <Glow x="55%" y="70%" size={350} color={BRAND.success} opacity={0.08} />
-      <Grid opacity={0.03} />
+    <Slide bg={BRAND_LIGHT.bg} dir={copy.dir}>
+      <Grid opacity={0.05} />
       <Caption
-        label="Internet Freedom"
-        headline={
-          <>
-            Browse
-            <br />
-            without
-            <br />
-            borders
-          </>
-        }
+        label={copy.slide1.label}
+        headline={renderHeadline(copy.slide1.headline)}
       />
       <Screenshot
         src="/screenshots/home-light.png"
@@ -274,16 +271,14 @@ function Slide1() {
 
 // ══════════════════════════════════════════════════════════════════════
 // SLIDE 2: Differentiator -- "One tap. No root."
-// Dark bg, text-focused, app icon, no phone
+// Light bg, brutalist logo on white, text-focused, no phone
 // ══════════════════════════════════════════════════════════════════════
-function Slide2() {
+function Slide2({ copy }: { copy: SlideCopy }) {
   return (
-    <Slide bg={`linear-gradient(165deg, #0f172a 0%, ${BRAND.bg} 100%)`}>
-      <Glow x="60%" y="15%" size={400} color={BRAND.info} opacity={0.1} />
-      <Glow x="10%" y="55%" size={300} color={BRAND.success} opacity={0.1} />
-      <Grid opacity={0.025} />
+    <Slide bg={BRAND_LIGHT.bg} dir={copy.dir}>
+      <Grid opacity={0.04} />
 
-      {/* App icon */}
+      {/* App icon — brutalist black silhouette on white card */}
       <div
         style={{
           position: "absolute",
@@ -294,7 +289,8 @@ function Slide2() {
           height: 180,
           borderRadius: 42,
           overflow: "hidden",
-          boxShadow: "0 8px 40px rgba(96,165,250,0.3)",
+          background: BRAND_LIGHT.card,
+          border: `1px solid ${BRAND_LIGHT.border}`,
         }}
       >
         <img
@@ -318,26 +314,24 @@ function Slide2() {
           style={{
             fontSize: 35,
             fontWeight: 600,
-            color: BRAND.info,
+            color: BRAND_LIGHT.mutedFg,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
             marginBottom: 16,
           }}
         >
-          No Root Required
+          {copy.slide2.eyebrow}
         </div>
         <div
           style={{
             fontSize: 120,
             fontWeight: 700,
-            color: BRAND.text,
+            color: BRAND_LIGHT.text,
             lineHeight: 0.95,
             letterSpacing: "-0.025em",
           }}
         >
-          One tap.
-          <br />
-          No root.
+          {renderHeadline(copy.slide2.headline)}
         </div>
       </div>
 
@@ -353,16 +347,12 @@ function Slide2() {
           gap: 20,
         }}
       >
-        {[
-          { icon: "shield", title: "Works on any Android", desc: "No unlocking, no hacks" },
-          { icon: "zap", title: "Connect in one tap", desc: "Instant protection" },
-          { icon: "lock", title: "Local VPN or Proxy", desc: "Traffic never leaves your device" },
-        ].map((item) => (
+        {copy.slide2.cards.map((item) => (
           <div
             key={item.title}
             style={{
-              background: "rgba(255,255,255,0.05)",
-              border: `1px solid ${BRAND.border}`,
+              background: BRAND_LIGHT.card,
+              border: `1px solid ${BRAND_LIGHT.border}`,
               borderRadius: 20,
               padding: "28px 32px",
               display: "flex",
@@ -370,34 +360,33 @@ function Slide2() {
               gap: 6,
             }}
           >
-            <div style={{ fontSize: 32, fontWeight: 600, color: BRAND.text }}>
+            <div style={{ fontSize: 32, fontWeight: 600, color: BRAND_LIGHT.text }}>
               {item.title}
             </div>
-            <div style={{ fontSize: 26, color: "rgba(255,255,255,0.5)" }}>
+            <div style={{ fontSize: 26, color: BRAND_LIGHT.mutedFg }}>
               {item.desc}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Bottom badge */}
+      {/* Bottom badge — restrained success badge (matches DESIGN.md successBadge) */}
       <div
         style={{
           position: "absolute",
           bottom: 100,
           left: "50%",
           transform: "translateX(-50%)",
-          background: BRAND.success,
-          color: "#fff",
+          background: BRAND_LIGHT.success,
+          color: BRAND_LIGHT.bg,
           fontSize: 28,
           fontWeight: 700,
           padding: "16px 36px",
           borderRadius: 16,
-          boxShadow: "0 4px 20px rgba(52,211,153,0.3)",
           fontFamily: "var(--font-geist-mono)",
         }}
       >
-        Works on any device
+        {copy.slide2.bottomBadge}
       </div>
     </Slide>
   );
@@ -405,25 +394,18 @@ function Slide2() {
 
 // ══════════════════════════════════════════════════════════════════════
 // SLIDE 3: Core Feature -- "Your privacy. Your rules."
-// Light contrast slide, settings screenshot (1080x2400), right-offset
+// Light slide, settings screenshot (1080x2400), right-offset
 // ══════════════════════════════════════════════════════════════════════
-function Slide3() {
+function Slide3({ copy }: { copy: SlideCopy }) {
   return (
-    <Slide bg={`linear-gradient(170deg, ${BRAND_LIGHT.bg} 0%, ${BRAND_LIGHT.border} 100%)`}>
-      <Glow x="5%" y="55%" size={400} color={BRAND_LIGHT.info} opacity={0.1} />
+    <Slide bg={BRAND_LIGHT.bg} dir={copy.dir}>
+      <Grid opacity={0.04} />
       <Caption
-        label="Privacy & Security"
-        headline={
-          <>
-            Your privacy.
-            <br />
-            Your rules.
-          </>
-        }
-        dark={false}
+        label={copy.slide3.label}
+        headline={renderHeadline(copy.slide3.headline)}
       />
 
-      {/* Feature badges on the left */}
+      {/* Feature badges on the left — restrained chip-default (muted bg, fg text) */}
       <div
         style={{
           position: "absolute",
@@ -435,17 +417,17 @@ function Slide3() {
           zIndex: 10,
         }}
       >
-        {["Encrypted DNS", "WebRTC block", "Bio lock"].map((f) => (
+        {copy.slide3.pills.map((f) => (
           <div
             key={f}
             style={{
-              background: BRAND_LIGHT.info,
-              color: "#fff",
+              background: BRAND_LIGHT.muted,
+              color: BRAND_LIGHT.text,
               fontSize: 24,
               fontWeight: 600,
               padding: "10px 20px",
               borderRadius: 12,
-              boxShadow: "0 4px 16px rgba(29,78,216,0.25)",
+              border: `1px solid ${BRAND_LIGHT.border}`,
               fontFamily: "var(--font-geist-mono)",
             }}
           >
@@ -471,24 +453,16 @@ function Slide3() {
 
 // ══════════════════════════════════════════════════════════════════════
 // SLIDE 4: Core Feature -- "Fine-tune every packet"
-// Dark bg, text-focused with protocol pills, no phone
+// Light bg, text-focused with protocol pills, no phone
 // ══════════════════════════════════════════════════════════════════════
-function Slide4() {
+function Slide4({ copy }: { copy: SlideCopy }) {
   return (
-    <Slide bg={`linear-gradient(160deg, #071a12 0%, ${BRAND.bg} 50%, #0a1628 100%)`}>
-      <Glow x="55%" y="5%" size={400} color={BRAND.success} opacity={0.15} />
-      <Glow x="-5%" y="65%" size={350} color={BRAND.info} opacity={0.08} />
-      <Grid opacity={0.03} />
+    <Slide bg={BRAND_LIGHT.bg} dir={copy.dir}>
+      <Grid opacity={0.04} />
 
       <Caption
-        label="Advanced Controls"
-        headline={
-          <>
-            Fine-tune
-            <br />
-            every packet
-          </>
-        }
+        label={copy.slide4.label}
+        headline={renderHeadline(copy.slide4.headline)}
       />
 
       {/* Protocol section */}
@@ -506,24 +480,17 @@ function Slide4() {
             style={{
               fontSize: 28,
               fontWeight: 600,
-              color: "rgba(255,255,255,0.5)",
+              color: BRAND_LIGHT.mutedFg,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               marginBottom: 16,
             }}
           >
-            Encrypted DNS
+            {copy.slide4.sectionEncryptedDns}
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             {["DoH", "DoT", "DNSCrypt"].map((proto) => (
-              <Pill
-                key={proto}
-                color={BRAND.success}
-                bg="rgba(52,211,153,0.12)"
-                border="rgba(52,211,153,0.3)"
-              >
-                {proto}
-              </Pill>
+              <Pill key={proto}>{proto}</Pill>
             ))}
           </div>
         </div>
@@ -534,47 +501,44 @@ function Slide4() {
             style={{
               fontSize: 28,
               fontWeight: 600,
-              color: "rgba(255,255,255,0.5)",
+              color: BRAND_LIGHT.mutedFg,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               marginBottom: 16,
             }}
           >
-            DPI Bypass
+            {copy.slide4.sectionDpiBypass}
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             {["TCP desync", "QUIC", "TLS tricks", "HTTP split"].map((proto) => (
-              <Pill
-                key={proto}
-                color={BRAND.info}
-                bg="rgba(96,165,250,0.12)"
-                border="rgba(96,165,250,0.3)"
-              >
-                {proto}
-              </Pill>
+              <Pill key={proto}>{proto}</Pill>
             ))}
           </div>
         </div>
 
-        {/* Modes */}
+        {/* Modes — selected chip uses foreground-on-background pattern from DESIGN.md chipSelected */}
         <div>
           <div
             style={{
               fontSize: 28,
               fontWeight: 600,
-              color: "rgba(255,255,255,0.5)",
+              color: BRAND_LIGHT.mutedFg,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               marginBottom: 16,
             }}
           >
-            Connection Modes
+            {copy.slide4.sectionModes}
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            <Pill color="#fff" bg={BRAND.info} border={BRAND.info}>
-              Local VPN
+            <Pill
+              color={BRAND_LIGHT.bg}
+              bg={BRAND_LIGHT.text}
+              border={BRAND_LIGHT.text}
+            >
+              {copy.slide4.modeVpn}
             </Pill>
-            <Pill>Local Proxy</Pill>
+            <Pill>{copy.slide4.modeProxy}</Pill>
           </div>
         </div>
       </div>
@@ -592,11 +556,11 @@ function Slide4() {
         <div
           style={{
             fontSize: 28,
-            color: "rgba(255,255,255,0.35)",
+            color: BRAND_LIGHT.mutedFg,
             lineHeight: 1.5,
           }}
         >
-          Presets for beginners. Full control for experts.
+          {copy.slide4.footer}
         </div>
       </div>
     </Slide>
@@ -605,28 +569,22 @@ function Slide4() {
 
 // ══════════════════════════════════════════════════════════════════════
 // SLIDE 5: Core Feature -- "See what's really happening"
-// Dark bg, diagnostics screenshot (1080x2400), left-offset
+// Light bg, diagnostics screenshot (1080x2400), left-offset
+// This is the one slide where info accent is legitimate: it shows the
+// active diagnostic scan state ("DNS / HTTP / TLS / TCP / QUIC" probes).
 // ══════════════════════════════════════════════════════════════════════
-function Slide5() {
+function Slide5({ copy }: { copy: SlideCopy }) {
   return (
-    <Slide bg={`linear-gradient(175deg, #0f172a 0%, ${BRAND.bg} 60%, #0a1020 100%)`}>
-      <Glow x="60%" y="10%" size={350} color={BRAND.info} opacity={0.12} />
-      <Grid opacity={0.025} />
+    <Slide bg={BRAND_LIGHT.bg} dir={copy.dir}>
+      <Grid opacity={0.04} />
       <Caption
-        label="Built-in Diagnostics"
-        headline={
-          <>
-            See what&apos;s
-            <br />
-            really
-            <br />
-            happening
-          </>
-        }
+        label={copy.slide5.label}
+        headline={renderHeadline(copy.slide5.headline)}
+        accent
         style={{ right: 200 }}
       />
 
-      {/* Scan badge */}
+      {/* Active-probe column — info badge style from DESIGN.md infoBadge */}
       <div
         style={{
           position: "absolute",
@@ -642,15 +600,14 @@ function Slide5() {
           <div
             key={p}
             style={{
-              background: BRAND.info,
-              color: "#fff",
+              background: BRAND_LIGHT.info,
+              color: "#FFFFFF",
               fontSize: 24,
               fontWeight: 700,
               padding: "10px 22px",
               borderRadius: 12,
               textAlign: "center",
               fontFamily: "var(--font-geist-mono)",
-              boxShadow: "0 4px 16px rgba(96,165,250,0.2)",
             }}
           >
             {p}
@@ -675,28 +632,19 @@ function Slide5() {
 
 // ══════════════════════════════════════════════════════════════════════
 // SLIDE 6: More Features -- "And so much more."
-// Dark bg, app icon + feature pills, no phone screenshot
+// Dark bg (rhythm break — 1 of 6 stays dark), app icon + feature pills,
+// no phone screenshot. Dark surface keeps the role mapping inverted, not
+// recolored.
 // ══════════════════════════════════════════════════════════════════════
-function Slide6() {
-  const features = [
-    "Per-network policies",
-    "AdGuard compatible",
-    "Session telemetry",
-    "WebRTC protection",
-    "Biometric lock",
-    "Connection history",
-    "Tethering support",
-    "Data export",
-  ];
-  const comingSoon = ["Host packs", "Community stats"];
+function Slide6({ copy }: { copy: SlideCopy }) {
+  const features = copy.slide6.features;
+  const comingSoon = copy.slide6.comingSoon;
 
   return (
-    <Slide bg={`linear-gradient(175deg, ${BRAND.bg} 0%, #0f172a 50%, ${BRAND.bg} 100%)`}>
-      <Glow x="30%" y="8%" size={500} color={BRAND.info} opacity={0.08} />
-      <Glow x="50%" y="55%" size={400} color={BRAND.success} opacity={0.06} />
-      <Grid opacity={0.03} />
+    <Slide bg={BRAND.bg} dir={copy.dir}>
+      <Grid opacity={0.05} dark />
 
-      {/* App icon */}
+      {/* App icon — invert: white card holds the brutalist black silhouette */}
       <div
         style={{
           position: "absolute",
@@ -707,7 +655,8 @@ function Slide6() {
           height: 160,
           borderRadius: 36,
           overflow: "hidden",
-          boxShadow: "0 8px 40px rgba(96,165,250,0.25)",
+          background: "#FFFFFF",
+          border: `1px solid ${BRAND.border}`,
         }}
       >
         <img
@@ -736,13 +685,11 @@ function Slide6() {
             letterSpacing: "-0.025em",
           }}
         >
-          And so
-          <br />
-          much more.
+          {renderHeadline(copy.slide6.headline)}
         </div>
       </div>
 
-      {/* Feature pills */}
+      {/* Feature pills — dark-inversion of chipDefault (muted bg, fg text). */}
       <div
         style={{
           position: "absolute",
@@ -756,7 +703,13 @@ function Slide6() {
         }}
       >
         {features.map((f) => (
-          <Pill key={f} fontSize={28}>
+          <Pill
+            key={f}
+            fontSize={28}
+            color={BRAND.text}
+            bg={BRAND.muted}
+            border={BRAND.border}
+          >
             {f}
           </Pill>
         ))}
@@ -776,26 +729,26 @@ function Slide6() {
           style={{
             fontSize: 26,
             fontWeight: 600,
-            color: "rgba(255,255,255,0.35)",
+            color: BRAND.mutedFg,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
             marginBottom: 16,
           }}
         >
-          Coming Soon
+          {copy.slide6.comingSoonLabel}
         </div>
         <div style={{ display: "flex", gap: 14, justifyContent: "center" }}>
           {comingSoon.map((f) => (
             <div
               key={f}
               style={{
-                background: "rgba(255,255,255,0.04)",
-                color: "rgba(255,255,255,0.3)",
+                background: BRAND.bg,
+                color: BRAND.mutedFg,
                 fontSize: 26,
                 fontWeight: 500,
                 padding: "12px 24px",
                 borderRadius: 14,
-                border: "1px solid rgba(255,255,255,0.08)",
+                border: `1px solid ${BRAND.border}`,
                 fontFamily: "var(--font-geist-mono)",
               }}
             >
@@ -805,7 +758,7 @@ function Slide6() {
         </div>
       </div>
 
-      {/* Bottom tagline */}
+      {/* Bottom tagline — foreground, not info accent */}
       <div
         style={{
           position: "absolute",
@@ -815,7 +768,7 @@ function Slide6() {
           textAlign: "center",
         }}
       >
-        <div style={{ fontSize: 32, fontWeight: 400, color: BRAND.info }}>
+        <div style={{ fontSize: 32, fontWeight: 400, color: BRAND.text }}>
           RIPDPI
         </div>
       </div>
@@ -824,15 +777,16 @@ function Slide6() {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// Feature Graphic (1024x500)
+// Feature Graphic (1024x500) — light, monochrome-first
 // ══════════════════════════════════════════════════════════════════════
-function FeatureGraphicSlide() {
+function FeatureGraphicSlide({ copy }: { copy: SlideCopy }) {
   return (
     <div
+      dir={copy.dir}
       style={{
         width: FEATURE_GRAPHIC.w,
         height: FEATURE_GRAPHIC.h,
-        background: `linear-gradient(135deg, ${BRAND.bg} 0%, #0f172a 50%, ${BRAND.card} 100%)`,
+        background: BRAND_LIGHT.bg,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -843,25 +797,34 @@ function FeatureGraphicSlide() {
         fontFamily: "var(--font-geist-sans)",
       }}
     >
-      <Grid opacity={0.03} />
-      <Glow x="5%" y="10%" size={300} color={BRAND.info} opacity={0.12} />
-      <Glow x="70%" y="40%" size={250} color={BRAND.success} opacity={0.08} />
+      <Grid opacity={0.04} />
 
-      <img
-        src="/app-icon.png"
-        alt=""
+      <div
         style={{
           width: 120,
           height: 120,
           borderRadius: 28,
-          boxShadow: "0 8px 30px rgba(96,165,250,0.2)",
+          overflow: "hidden",
+          background: BRAND_LIGHT.card,
+          border: `1px solid ${BRAND_LIGHT.border}`,
           position: "relative",
           zIndex: 1,
         }}
-      />
+      >
+        <img
+          src="/app-icon.png"
+          alt=""
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+      </div>
       <div
         style={{
-          color: BRAND.text,
+          color: BRAND_LIGHT.text,
           fontSize: 52,
           fontWeight: 700,
           letterSpacing: "-0.02em",
@@ -873,21 +836,23 @@ function FeatureGraphicSlide() {
       </div>
       <div
         style={{
-          color: BRAND.info,
+          color: BRAND_LIGHT.mutedFg,
           fontSize: 22,
           fontWeight: 400,
           position: "relative",
           zIndex: 1,
         }}
       >
-        Browse without borders
+        {copy.featureGraphic.tagline}
       </div>
     </div>
   );
 }
 
 // ── Slide registry ─────────────────────────────────────────────────────
-const SLIDES = [
+type SlideComponent = React.ComponentType<{ copy: SlideCopy }>;
+
+const SLIDES: ReadonlyArray<{ id: string; label: string; component: SlideComponent }> = [
   { id: "hero", label: "Hero", component: Slide1 },
   { id: "no-root", label: "No Root", component: Slide2 },
   { id: "privacy", label: "Privacy", component: Slide3 },
@@ -936,7 +901,7 @@ function ScreenshotPreview({
           aspectRatio: `${w}/${h}`,
           overflow: "hidden",
           borderRadius: 12,
-          border: `1px solid ${BRAND.border}`,
+          border: `1px solid ${BRAND_LIGHT.border}`,
           cursor: "pointer",
           position: "relative",
         }}
@@ -959,7 +924,7 @@ function ScreenshotPreview({
       <div
         style={{
           fontSize: 13,
-          color: "#888",
+          color: BRAND_LIGHT.mutedFg,
           textAlign: "center",
           fontFamily: "var(--font-geist-mono)",
         }}
@@ -973,7 +938,9 @@ function ScreenshotPreview({
 // ── Main Page ──────────────────────────────────────────────────────────
 export default function Page() {
   return (
-    <Suspense fallback={<div style={{ background: "#0a0a0a", minHeight: "100vh" }} />}>
+    <Suspense
+      fallback={<div style={{ background: BRAND_LIGHT.bg, minHeight: "100vh" }} />}
+    >
       <ScreenshotsPage />
     </Suspense>
   );
@@ -982,20 +949,26 @@ export default function Page() {
 function ScreenshotsPage() {
   const searchParams = useSearchParams();
   const slideParam = searchParams.get("slide");
+  const langParam = searchParams.get("lang");
+  const copy = getCopy(langParam);
 
   // Single slide full-resolution mode: ?slide=1 through ?slide=6, or ?slide=fg
   if (slideParam) {
     if (slideParam === "fg") {
-      return <FeatureGraphicSlide />;
+      return <FeatureGraphicSlide copy={copy} />;
     }
     const idx = parseInt(slideParam) - 1;
     const slide = SLIDES[idx];
     if (slide) {
       const C = slide.component;
-      return <C />;
+      return <C copy={copy} />;
     }
   }
 
+  return <ScreenshotsGrid copy={copy} />;
+}
+
+function ScreenshotsGrid({ copy }: { copy: SlideCopy }) {
   const [exporting, setExporting] = useState<string | null>(null);
 
   const exportSingle = useCallback(
@@ -1008,7 +981,7 @@ function ScreenshotsPage() {
         el.style.zIndex = "-1";
         el.style.opacity = "1";
 
-        const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true, backgroundColor: "#121212" };
+        const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true, backgroundColor: "#FAFAFA" };
         await toPng(el, opts);
         const dataUrl = await toPng(el, opts);
 
@@ -1046,7 +1019,7 @@ function ScreenshotsPage() {
       el.style.zIndex = "-1";
       el.style.opacity = "1";
 
-      const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true, backgroundColor: "#121212" };
+      const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true, backgroundColor: "#FAFAFA" };
       try {
         await toPng(el, opts);
         const dataUrl = await toPng(el, opts);
@@ -1073,8 +1046,8 @@ function ScreenshotsPage() {
     <div
       style={{
         minHeight: "100vh",
-        background: "#0a0a0a",
-        color: BRAND.text,
+        background: BRAND_LIGHT.bg,
+        color: BRAND_LIGHT.text,
         padding: "32px 24px",
         fontFamily: "var(--font-geist-sans)",
       }}
@@ -1098,31 +1071,34 @@ function ScreenshotsPage() {
           <p
             style={{
               fontSize: 14,
-              color: "#666",
+              color: BRAND_LIGHT.mutedFg,
               margin: "4px 0 0",
               fontFamily: "var(--font-geist-mono)",
             }}
           >
-            {SLIDES.length} phone slides + feature graphic | {PHONE_W}x{PHONE_H}px | Click to
-            export
+            {SLIDES.length} phone slides + feature graphic | {PHONE_W}x{PHONE_H}px | Locale:{" "}
+            {copy.locale} | Click to export
           </p>
         </div>
-        <button
-          onClick={exportAll}
-          disabled={!!exporting}
-          style={{
-            background: exporting ? "#333" : BRAND.info,
-            color: "#fff",
-            border: "none",
-            padding: "12px 28px",
-            borderRadius: 10,
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: exporting ? "wait" : "pointer",
-          }}
-        >
-          {exporting ? `Exporting ${exporting}...` : "Export All"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <LocaleSwitcher current={copy.locale} />
+          <button
+            onClick={exportAll}
+            disabled={!!exporting}
+            style={{
+              background: exporting ? BRAND_LIGHT.muted : BRAND_LIGHT.text,
+              color: exporting ? BRAND_LIGHT.mutedFg : BRAND_LIGHT.bg,
+              border: "none",
+              padding: "12px 28px",
+              borderRadius: 10,
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: exporting ? "wait" : "pointer",
+            }}
+          >
+            {exporting ? `Exporting ${exporting}...` : "Export All"}
+          </button>
+        </div>
       </div>
 
       {/* Phone slides grid */}
@@ -1140,7 +1116,7 @@ function ScreenshotsPage() {
           return (
             <ScreenshotPreview key={slide.id} index={i} label={slide.label} onExport={exportSingle} w={PHONE_W} h={PHONE_H}>
               <div data-slide-export={slide.id} data-slide-w={PHONE_W} data-slide-h={PHONE_H}>
-                <C />
+                <C copy={copy} />
               </div>
             </ScreenshotPreview>
           );
@@ -1161,7 +1137,7 @@ function ScreenshotsPage() {
             h={FEATURE_GRAPHIC.h}
           >
             <div data-slide-export="feature-graphic" data-slide-w={FEATURE_GRAPHIC.w} data-slide-h={FEATURE_GRAPHIC.h}>
-              <FeatureGraphicSlide />
+              <FeatureGraphicSlide copy={copy} />
             </div>
           </ScreenshotPreview>
         </div>
@@ -1169,3 +1145,35 @@ function ScreenshotsPage() {
     </div>
   );
 }
+
+// ── Locale switcher (agent-facing) ─────────────────────────────────────
+function LocaleSwitcher({ current }: { current: string }) {
+  return (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+      {LOCALES.map((loc) => {
+        const isCurrent = loc === current || (loc === DEFAULT_LOCALE && current === DEFAULT_LOCALE);
+        return (
+          <a
+            key={loc}
+            href={loc === DEFAULT_LOCALE ? "?" : `?lang=${loc}`}
+            style={{
+              fontSize: 12,
+              color: isCurrent ? BRAND_LIGHT.text : BRAND_LIGHT.mutedFg,
+              fontFamily: "var(--font-geist-mono)",
+              textDecoration: isCurrent ? "underline" : "none",
+              padding: "4px 8px",
+              border: `1px solid ${isCurrent ? BRAND_LIGHT.text : "transparent"}`,
+              borderRadius: 6,
+            }}
+          >
+            {loc}
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+// Keep imports referenced even when types are otherwise unused inline.
+// (No-op type aliases discourage tree-shaking from dropping the re-exports.)
+export type { Locale };
