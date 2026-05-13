@@ -397,6 +397,8 @@ class ServiceLifecycleIntegrationTest {
 
             awaitFailure(Sender.VPN)
             awaitStatus(AppStatus.Halted, Mode.VPN)
+            awaitVpnSessionClosed()
+
             assertTrue(IntegrationTestOverrides.vpnTunnelSessionProvider.session.isClosed)
             assertTrue(
                 IntegrationTestOverrides.orderSnapshot().containsAll(
