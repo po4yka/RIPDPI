@@ -8,6 +8,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Renders Google Play Store marketing assets for the RIPDPI Android app: six 1080x1920 phone screenshots plus a 1024x500 feature graphic. The full design and constraints reference lives in `.claude/skills/play-store-screenshots/SKILL.md`; this file is the entry-point cheat sheet.
 
+## Brand
+
+- **Current logo (2026-05):** brutalist black silhouette ("bag-in-arch" motif) on white. `app/src/main/ic_launcher-playstore.png` is canonical; copy it to `public/app-icon.png` after any change.
+- **Previous logo:** dove rising from barbed wire on navy — no longer in use.
+- **DESIGN.md** is monochrome-first **light** (`#FAFAFA` bg, `#1A1A1A` fg). `page.tsx` keeps both `BRAND` (dark) and `BRAND_LIGHT` token sets because Play Store screenshots are marketing surfaces — dark slides remain striking on the listing grid. Use light tokens for "on-brand" slides; dark tokens for contrast/advertisement override.
+- **7 launcher variants** ship in-app via the icon picker: `clean` (default), `cracked`, `disintegrate`, `glitch`, `rubble`, `stitch`, plus monochrome. Variants live as XML adaptive icons in `app/src/main/res/drawable/ic_launcher_foreground_ripdpi_*.xml`; there are no rasterized PNG copies in the repo. Showcasing the picker in a slide requires capturing each variant from a device home screen.
+
 ## File Layout
 
 | Path | Role |
@@ -17,7 +24,7 @@ Renders Google Play Store marketing assets for the RIPDPI Android app: six 1080x
 | `src/app/globals.css` | Minimal global styles |
 | `capture.mjs` | Puppeteer headless batch driver |
 | `public/screenshots/` | RAW 1080x2400 app captures (INPUT, manually produced — see Stage 1) |
-| `public/app-icon.png` | Copied from `app/src/main/ic_launcher-playstore.png` |
+| `public/app-icon.png` | Copied from `app/src/main/ic_launcher-playstore.png` (brutalist black silhouette; refresh with `cp` after any brand change) |
 | `../docs/screenshots/` | Puppeteer OUTPUT, checked into git, referenced by READMEs |
 | `package.json` | Next.js 16.2.6, React 19.2.4, Puppeteer 24, Tailwind 4 |
 

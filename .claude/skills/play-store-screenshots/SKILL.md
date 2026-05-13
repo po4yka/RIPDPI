@@ -44,17 +44,24 @@ play-store-screenshots/
 
 | Asset | Source | Resolution |
 |-------|--------|-----------|
-| App icon | `app/src/main/ic_launcher-playstore.png` | 512x512 |
+| App icon (current) | `app/src/main/ic_launcher-playstore.png` -- brutalist black silhouette (bag-in-arch motif) on white | 512x512 |
+| Launcher variants (7) | `app/src/main/res/drawable/ic_launcher_foreground_ripdpi_{clean,cracked,disintegrate,glitch,rubble,stitch}.xml` + `ic_launcher_monochrome_ripdpi.xml` | adaptive XML |
 | High-res screenshots | `docs/screenshots/*.png` | 1080x2400 |
 | Low-res test screenshots | `app/src/test/screenshots/com.poyka.ripdpi.ui.screenshot.*.png` | 420x900 to 720x920 |
 
+**Brand shift note (2026-05):** The previous logo (dove rising from barbed wire on navy) was replaced with a brutalist black silhouette on white. The app now also ships 7 user-selectable launcher icon variants via the in-app icon picker (`customization_icon_*` strings). The marketing screenshots use the **default `clean` variant** at the top-level `ic_launcher-playstore.png`. If you want a slide that shows the customization feature, capture each variant from a real device (the variants are XML adaptive icons; there are no PNG rasters in the repo).
+
 **Use only high-res screenshots (1080x2400) from `docs/screenshots/`.** The Roborazzi test screenshots are too low-resolution for Play Store quality. If a screen is only available as a test screenshot, use text-focused slides instead.
+
+**Refreshing the cached icon:** After any logo change, run `cp app/src/main/ic_launcher-playstore.png play-store-screenshots/public/app-icon.png` and rerun `bun run capture:prod`. The cached copy is the icon the screenshot generator reads.
 
 ## Step 1: Confirm RIPDPI Defaults with the User
 
 ### Pre-Filled from DESIGN.md (confirm, don't ask from scratch)
 
 All colors come from the project's design system (`DESIGN.md` / `RipDpiExtendedColors`). The Play Store screenshots use these tokens for brand consistency.
+
+**Brand-palette note:** `DESIGN.md` (alpha) is now monochrome-first **light** (`#FAFAFA` background, `#1A1A1A` foreground). The previous dark-first guidance below is kept because Play Store screenshots are **marketing surfaces**, and dark slides remain striking on the Play Store grid where most listings are light. Marketing may break from app-default theme; the in-app UI itself is light-first. Use the `BRAND_LIGHT` tokens as the canonical brand palette when designing slides that should feel "on-brand"; keep the dark `BRAND` tokens for advertisement contrast slides.
 
 | Item | Default |
 |------|---------|
