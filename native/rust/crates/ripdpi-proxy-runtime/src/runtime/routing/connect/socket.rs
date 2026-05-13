@@ -32,7 +32,7 @@ pub(in crate::runtime::routing::connect) fn connect_socket_detailed(
         })
 }
 
-#[cfg(any(test, target_os = "android"))]
+#[cfg(test)]
 pub(super) fn should_ignore_android_tfo_error(err: &io::Error) -> bool {
     connect_platform::should_ignore_android_tfo_error(err)
 }
