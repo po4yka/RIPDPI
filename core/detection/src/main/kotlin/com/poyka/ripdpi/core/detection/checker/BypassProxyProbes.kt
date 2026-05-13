@@ -105,6 +105,19 @@ private const val StunXorMappedAddress = 0x0020
 private const val StunMagicCookie = 0x2112A442
 private const val StunHeaderBytes = 20
 private const val StunTransactionIdBytes = 12
+private const val SocksHeaderBytes = 4
+private const val SocksAddressTypeIndex = 3
+private const val SocksUdpAddressStartBytes = 4
+private const val SocksPortBytes = 2
+private const val Ipv4AddressBytes = 4
+private const val StunAttributeHeaderBytes = 4
+private const val StunAttributeAlignmentBytes = 4
+private const val StunIpv4AddressAttributeBytes = 8
+private const val StunAddressFamilyOffset = 1
+private const val StunAddressValueOffset = 4
+private const val UnsignedByteMask = 0xFF
+private const val UnsignedShortMask = 0xFFFF
+private const val ByteBits = 8
 
 private fun OutputStream.writeSocks5Greeting() {
     write(byteArrayOf(SocksVersion.toByte(), 0x01, SocksNoAuth.toByte()))
@@ -113,8 +126,8 @@ private fun OutputStream.writeSocks5Greeting() {
 
 private fun InputStream.expectSocks5NoAuth() {
     val response = readFully(2)
-    check((response[0].toInt() and 0xFF) == SocksVersion)
-    check((response[1].toInt() and 0xFF) == SocksNoAuth)
+    check(response[0].unsigned() == SocksVersion)
+    check(response[1].unsigned() == SocksNoAuth)
 }
 
 private fun OutputStream.writeSocks5Connect(
@@ -146,32 +159,32 @@ private fun OutputStream.writeSocks5TargetRequest(
 }
 
 private fun InputStream.readSocks5Reply(): Boolean {
-    val header = readFully(4)
-    if ((header[0].toInt() and 0xFF) != SocksVersion || (header[1].toInt() and 0xFF) != SocksSuccess) {
+    val header = readFully(SocksHeaderBytes)
+    if (header[0].unsigned() != SocksVersion || header[1].unsigned() != SocksSuccess) {
         return false
     }
-    skipSocks5Address(header[3].toInt() and 0xFF)
-    readFully(2)
+    skipSocks5Address(header[SocksAddressTypeIndex].unsigned())
+    readFully(SocksPortBytes)
     return true
 }
 
 private fun InputStream.readSocks5UdpRelay(proxyHost: String): InetSocketAddress {
-    val header = readFully(4)
-    check((header[0].toInt() and 0xFF) == SocksVersion)
-    check((header[1].toInt() and 0xFF) == SocksSuccess)
+    val header = readFully(SocksHeaderBytes)
+    check(header[0].unsigned() == SocksVersion)
+    check(header[1].unsigned() == SocksSuccess)
     val address =
-        when (header[3].toInt() and 0xFF) {
-            SocksAddressIpv4 -> InetAddress.getByAddress(readFully(4)).hostAddress
+        when (header[SocksAddressTypeIndex].unsigned()) {
+            SocksAddressIpv4 -> InetAddress.getByAddress(readFully(Ipv4AddressBytes)).hostAddress
             SocksAddressDomain -> readFully(read()).decodeToString()
             else -> error("unsupported SOCKS5 UDP relay address type")
         }.takeUnless { it == "0.0.0.0" } ?: proxyHost
-    val port = readFully(2).toUShortInt()
+    val port = readFully(SocksPortBytes).toUShortInt()
     return InetSocketAddress(address, port)
 }
 
 private fun InputStream.skipSocks5Address(addressType: Int) {
     when (addressType) {
-        SocksAddressIpv4 -> readFully(4)
+        SocksAddressIpv4 -> readFully(Ipv4AddressBytes)
         SocksAddressDomain -> readFully(read())
         else -> error("unsupported SOCKS5 address type")
     }
@@ -213,35 +226,54 @@ private fun parseSocks5UdpStunResponse(
     packet: ByteArray,
     transactionId: ByteArray,
 ): String? {
-    if (packet.size < 4 || packet[2].toInt() != 0) return null
-    var offset =
-        when (packet[3].toInt() and 0xFF) {
-            SocksAddressIpv4 -> 4 + 4 + 2
-            SocksAddressDomain -> 4 + 1 + (packet[4].toInt() and 0xFF) + 2
-            else -> return null
-        }
-    if (packet.size < offset + StunHeaderBytes) return null
-    val stun = packet.copyOfRange(offset, packet.size)
+    val stunOffset = packet.socks5UdpPayloadOffset() ?: return null
+    if (packet.size < stunOffset + StunHeaderBytes) return null
+    val stun = packet.copyOfRange(stunOffset, packet.size)
     val buffer = ByteBuffer.wrap(stun)
-    val type = buffer.short.toInt() and 0xFFFF
-    val length = buffer.short.toInt() and 0xFFFF
+    val type = buffer.short.toInt() and UnsignedShortMask
+    val length = buffer.short.toInt() and UnsignedShortMask
     val cookie = buffer.int
     val tx = ByteArray(StunTransactionIdBytes).also(buffer::get)
     if (type != StunBindingResponse || cookie != StunMagicCookie || !tx.contentEquals(transactionId)) return null
 
-    offset = StunHeaderBytes
-    while (offset + 4 <= StunHeaderBytes + length && offset + 4 <= stun.size) {
-        val attrType = ByteBuffer.wrap(stun, offset, 2).short.toInt() and 0xFFFF
-        val attrLength = ByteBuffer.wrap(stun, offset + 2, 2).short.toInt() and 0xFFFF
-        val valueOffset = offset + 4
+    var attributeOffset = StunHeaderBytes
+    while (
+        attributeOffset + StunAttributeHeaderBytes <= StunHeaderBytes + length &&
+        attributeOffset + StunAttributeHeaderBytes <= stun.size
+    ) {
+        val attrType = ByteBuffer.wrap(stun, attributeOffset, SocksPortBytes).short.toInt() and UnsignedShortMask
+        val attrLength =
+            ByteBuffer.wrap(stun, attributeOffset + SocksPortBytes, SocksPortBytes).short.toInt() and
+                UnsignedShortMask
+        val valueOffset = attributeOffset + StunAttributeHeaderBytes
         if (valueOffset + attrLength > stun.size) return null
         when (attrType) {
             StunXorMappedAddress -> return parseXorMappedIpv4(stun, valueOffset, attrLength)
             StunMappedAddress -> return parseMappedIpv4(stun, valueOffset, attrLength)
         }
-        offset = valueOffset + attrLength + ((4 - (attrLength % 4)) % 4)
+        attributeOffset =
+            valueOffset + attrLength +
+            ((StunAttributeAlignmentBytes - (attrLength % StunAttributeAlignmentBytes)) % StunAttributeAlignmentBytes)
     }
     return null
+}
+
+private fun ByteArray.socks5UdpPayloadOffset(): Int? {
+    if (size < SocksHeaderBytes || this[2].toInt() != 0) return null
+    return when (this[SocksAddressTypeIndex].unsigned()) {
+        SocksAddressIpv4 -> {
+            SocksUdpAddressStartBytes + Ipv4AddressBytes + SocksPortBytes
+        }
+
+        SocksAddressDomain -> {
+            SocksUdpAddressStartBytes + 1 + this[SocksUdpAddressStartBytes].unsigned() +
+                SocksPortBytes
+        }
+
+        else -> {
+            null
+        }
+    }
 }
 
 private fun parseXorMappedIpv4(
@@ -249,11 +281,15 @@ private fun parseXorMappedIpv4(
     offset: Int,
     length: Int,
 ): String? {
-    if (length < 8 || (bytes[offset + 1].toInt() and 0xFF) != SocksAddressIpv4) return null
-    val cookieBytes = ByteBuffer.allocate(4).putInt(StunMagicCookie).array()
+    if (length < StunIpv4AddressAttributeBytes ||
+        bytes[offset + StunAddressFamilyOffset].unsigned() != SocksAddressIpv4
+    ) {
+        return null
+    }
+    val cookieBytes = ByteBuffer.allocate(Ipv4AddressBytes).putInt(StunMagicCookie).array()
     val address =
-        ByteArray(4) { index ->
-            (bytes[offset + 4 + index].toInt() xor cookieBytes[index].toInt()).toByte()
+        ByteArray(Ipv4AddressBytes) { index ->
+            (bytes[offset + StunAddressValueOffset + index].toInt() xor cookieBytes[index].toInt()).toByte()
         }
     return InetAddress.getByAddress(address).hostAddress
 }
@@ -263,14 +299,23 @@ private fun parseMappedIpv4(
     offset: Int,
     length: Int,
 ): String? {
-    if (length < 8 || (bytes[offset + 1].toInt() and 0xFF) != SocksAddressIpv4) return null
-    return InetAddress.getByAddress(bytes.copyOfRange(offset + 4, offset + 8)).hostAddress
+    if (length < StunIpv4AddressAttributeBytes ||
+        bytes[offset + StunAddressFamilyOffset].unsigned() != SocksAddressIpv4
+    ) {
+        return null
+    }
+    return InetAddress
+        .getByAddress(bytes.copyOfRange(offset + StunAddressValueOffset, offset + StunIpv4AddressAttributeBytes))
+        .hostAddress
 }
 
 private fun Int.toUShortBytes(): ByteArray =
     byteArrayOf(
-        ((this ushr 8) and 0xFF).toByte(),
-        (this and 0xFF).toByte(),
+        ((this ushr ByteBits) and UnsignedByteMask).toByte(),
+        (this and UnsignedByteMask).toByte(),
     )
 
-private fun ByteArray.toUShortInt(): Int = ((this[0].toInt() and 0xFF) shl 8) or (this[1].toInt() and 0xFF)
+private fun ByteArray.toUShortInt(): Int =
+    ((this[0].toInt() and UnsignedByteMask) shl ByteBits) or (this[1].toInt() and UnsignedByteMask)
+
+private fun Byte.unsigned(): Int = toInt() and UnsignedByteMask
