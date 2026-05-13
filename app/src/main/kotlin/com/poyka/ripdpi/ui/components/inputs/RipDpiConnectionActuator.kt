@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -50,6 +51,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
@@ -160,9 +162,11 @@ private fun rememberActuatorInteractionModifier(
     var dragDeltaPx by remember(state.status) { mutableFloatStateOf(0f) }
     var railWidthPx by remember { mutableFloatStateOf(0f) }
     val dragEnabled = state.isActivationAvailable || state.isDeactivationAvailable
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val draggableState =
         rememberDraggableState { delta ->
-            dragDeltaPx = (dragDeltaPx + delta).coerceIn(-railWidthPx, railWidthPx)
+            val orientedDelta = if (isRtl) -delta else delta
+            dragDeltaPx = (dragDeltaPx + orientedDelta).coerceIn(-railWidthPx, railWidthPx)
         }
     val modifier =
         Modifier
