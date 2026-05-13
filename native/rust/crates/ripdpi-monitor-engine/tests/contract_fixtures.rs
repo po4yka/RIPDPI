@@ -83,7 +83,10 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
             "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/dns/classification/outcome.rs",
             "pub(super) fn classify_dns_probe_outcome",
         ),
-        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/domain.rs", "pub fn run_domain_probe"),
+        (
+            "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/domain.rs",
+            "pub fn run_domain_probe_with_key_log",
+        ),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/tcp.rs", "pub fn run_tcp_probe"),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/quic.rs", "pub fn run_quic_probe"),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/service.rs", "pub fn run_service_probe"),
