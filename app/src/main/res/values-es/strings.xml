@@ -1080,7 +1080,7 @@ fake_burst 3</string>
     <string name="detection_community_reports">%d comprobaciones registradas</string>
     <string name="detection_finding_detected">Detectado</string>
     <string name="detection_onboarding_allow">Permitir</string>
-    <string name="detection_permission_rationale">Permisos adicionales mejoran la precisión de las comprobaciones. Concédelos para obtener mejores resultados.</string>
+    <string name="detection_permission_rationale">Android clasifica estos permisos como ubicación porque la identidad de Wi-Fi y red celular puede indicar dónde estás. RIPDPI no los usa para seguimiento; las comprobaciones solo los usan para distinguir el comportamiento de la red, los identificadores sin procesar no se guardan y las exportaciones de diagnóstico los redactan.</string>
     <string name="detection_resistance_badge_default">Por defecto</string>
     <string name="detection_resistance_entropy_mode_body">Elige qué modelo de estadísticas de payload debe contrarrestar la ruta de paquetes fake.</string>
     <string name="detection_resistance_entropy_padding_title">Objetivo de popcount (por mil)</string>
@@ -1526,7 +1526,7 @@ Origen: %2$s</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_local_port_helper">El proxy principal de RIPDPI se encadena a este receptor de loopback.</string>
     <string name="config_relay_masque_client_certificate_chain">Cadena de certificados de cliente (PEM)</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">La ubicación aproximada de mejor esfuerzo añade un encabezado opcional sec-ch-geohash de país más región para el enrutamiento directo de Cloudflare.</string>
+    <string name="config_relay_masque_cloudflare_geohash_helper">Android puede pedir ubicación aproximada porque esta pista opcional de salida de Cloudflare lee un país y región aproximados. No se usa para seguimiento, y los identificadores sin procesar de ubicación o red no se guardan.</string>
     <string name="config_relay_masque_pkcs12_dialog_title">Importar identidad PKCS#12</string>
     <string name="config_relay_masque_privacy_pass_missing_provider">Privacy Pass no está disponible porque esta compilación no tiene una URL de proveedor configurada.</string>
     <string name="config_relay_profile_id_helper">Se utiliza para vincular credenciales seguras al perfil de relé guardado.</string>
@@ -1562,7 +1562,7 @@ Origen: %2$s</string>
     <string name="detection_community_retry">Reintentar</string>
     <string name="detection_finding_ok">OK</string>
     <string name="detection_onboarding_body">Los permisos adicionales mejoran la precisión de las comprobaciones. Concédelos para obtener mejores resultados.</string>
-    <string name="detection_permission_settings">Se denegaron los permisos. Abre la configuración para concederlos manualmente.</string>
+    <string name="detection_permission_settings">Se denegaron los permisos. Abre la configuración solo si quieres que las comprobaciones lean la identidad de Wi-Fi o red celular; los identificadores sin procesar no se guardan y las exportaciones de diagnóstico los redactan.</string>
     <string name="detection_resistance_badge_evolution">Evolución de estrategia</string>
     <string name="detection_resistance_entropy_mode_title">Modo de modelado de entropía</string>
     <string name="detection_resistance_evolution_cooldown_failures_body">Número de fallos consecutivos antes de poner una combinación en enfriamiento. Predeterminado: 3.</string>
@@ -1711,7 +1711,7 @@ Origen: %2$s</string>
     <string name="home_diagnostics_analysis_running">Ejecutando análisis completo de red…</string>
     <string name="home_diagnostics_bufferbloat_summary">Calificación %1$s · inactivo %2$s · cargado %3$s</string>
     <string name="home_diagnostics_confidence_label">Confianza</string>
-    <string name="home_diagnostics_detection_permission_required">Algunas comprobaciones de detección necesitan permisos de ubicación/teléfono.</string>
+    <string name="home_diagnostics_detection_permission_required">Algunas comprobaciones necesitan permisos de ubicación o teléfono de Android para leer la identidad de Wi-Fi o red celular. RIPDPI lo usa solo para comparar el comportamiento de políticas de red; los identificadores sin procesar no se guardan y las exportaciones de diagnóstico los redactan.</string>
     <string name="home_diagnostics_dns_resolver_ok">El resolvedor del sistema coincide con la verdad fundamental DoH.</string>
     <string name="home_diagnostics_effectiveness_row_value">%1$d aciertos / %2$d fallos</string>
     <string name="home_diagnostics_network_ipv6">IPv6</string>
