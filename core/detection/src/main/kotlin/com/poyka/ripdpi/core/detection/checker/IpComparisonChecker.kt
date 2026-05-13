@@ -398,7 +398,7 @@ class DefaultIpComparisonEndpointClient(
                 """(?<![\d.])(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)""" +
                     """(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}(?![\d.])""",
             )
-        private val IP_TOKEN_DELIMITER = Regex("""[\s,"'<>()[\]{}]+""")
+        private val IP_TOKEN_DELIMITER = Regex("""[\s,"'<>()\[\]{}]+""")
     }
 }
 

@@ -11,6 +11,8 @@ import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -150,6 +152,26 @@ class IpComparisonCheckerTest {
             assertEquals(0, result.endpoints.count { it.status == IpComparisonEndpointStatus.ERROR })
             assertFalse(result.category.findings.any { it.description.contains("[ERROR]") })
             assertFalse(result.category.needsReview)
+        }
+
+    @Test
+    fun `default endpoint client extracts ipv6 from delimited body`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.start()
+                server.enqueue(MockResponse(body = """{"ip":"2001:db8::42"}"""))
+                val endpoint =
+                    IpComparisonEndpointDescriptor(
+                        label = "local ipv6 reflector",
+                        url = server.url("/ip").toString(),
+                        group = IpComparisonEndpointGroup.NON_RU,
+                        addressFamily = IpComparisonAddressFamily.IPV4,
+                    )
+
+                val reflectedIp = DefaultIpComparisonEndpointClient().fetchReflectedIp(endpoint)
+
+                assertEquals("2001:db8::42", reflectedIp)
+            }
         }
 
     private class FakeIpComparisonEndpointClient(

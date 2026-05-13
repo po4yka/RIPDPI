@@ -146,6 +146,26 @@ class DebugLocalNetworkProbeTest {
     }
 
     @Test
+    fun `vpn active check accepts vpn transport outside active network`() {
+        assertTrue(
+            hasVpnTransportStatus(
+                activeNetworkHasVpnTransport = false,
+                allNetworkVpnStatuses = listOf(false, true),
+            ),
+        )
+    }
+
+    @Test
+    fun `vpn active check rejects non-vpn transports`() {
+        assertFalse(
+            hasVpnTransportStatus(
+                activeNetworkHasVpnTransport = false,
+                allNetworkVpnStatuses = listOf(false, false),
+            ),
+        )
+    }
+
+    @Test
     fun `debug probe controls are not present in production source sets`() {
         val productionFiles = productionSourceSetFiles()
         assertTrue(productionFiles.isNotEmpty())

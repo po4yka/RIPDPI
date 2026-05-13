@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.onboarding
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.OnboardingValidationState
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import okhttp3.Request
 import java.io.IOException
@@ -73,6 +75,7 @@ class DefaultOnboardingModeValidationRunner
         private val serviceStateStore: ServiceStateStore,
         private val tlsClientFactory: OwnedTlsClientFactory,
         private val stringResolver: StringResolver,
+        private val dispatchers: AppCoroutineDispatchers,
     ) : OnboardingModeValidationRunner {
         private var ownedValidationMode: Mode? = null
 
@@ -172,7 +175,12 @@ class DefaultOnboardingModeValidationRunner
             }
         }
 
-        private suspend fun runConnectivityProbe(mode: Mode): Long {
+        private suspend fun runConnectivityProbe(mode: Mode): Long =
+            withContext(dispatchers.io) {
+                runConnectivityProbeBlocking(mode)
+            }
+
+        private suspend fun runConnectivityProbeBlocking(mode: Mode): Long {
             val settings = appSettingsRepository.snapshot()
             val request =
                 Request

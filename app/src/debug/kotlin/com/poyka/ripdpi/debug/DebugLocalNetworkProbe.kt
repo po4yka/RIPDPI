@@ -438,11 +438,16 @@ class DebugLocalNetworkProbeRunner(
         )
     }
 
+    @Suppress("DEPRECATION")
     private fun isVpnActive(): Boolean {
         val connectivityManager = context.getSystemService(ConnectivityManager::class.java) ?: return false
-        val activeNetwork = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
-        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+        val activeCapabilities =
+            connectivityManager.activeNetwork?.let(connectivityManager::getNetworkCapabilities)
+        val allNetworkVpnStatuses =
+            connectivityManager.allNetworks
+                .map(connectivityManager::getNetworkCapabilities)
+                .map { it.hasVpnTransport() }
+        return hasVpnTransportStatus(activeCapabilities.hasVpnTransport(), allNetworkVpnStatuses)
     }
 
     private fun checkProxyReady(config: NetworkProbeConfig): Boolean =
@@ -752,6 +757,14 @@ private fun Throwable.errorCode(): String =
         .uppercase()
 
 private fun elapsedSince(startMs: Long): Long = SystemClock.elapsedRealtime() - startMs
+
+internal fun hasVpnTransportStatus(
+    activeNetworkHasVpnTransport: Boolean,
+    allNetworkVpnStatuses: Iterable<Boolean>,
+): Boolean = activeNetworkHasVpnTransport || allNetworkVpnStatuses.any { it }
+
+private fun NetworkCapabilities?.hasVpnTransport(): Boolean =
+    this?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
 
 private fun InputStream.readExactly(byteCount: Int): ByteArray {
     val output = ByteArray(byteCount)
