@@ -44,8 +44,8 @@ services:
     restart: unless-stopped
 
   udp_echo:
-    image: alpine/socat
-    command: udp-l:9001,fork,reuseaddr exec:/bin/cat
+    build:
+      context: ./udp-echo
     ports:
       - "9001:9001/udp"
     restart: unless-stopped
