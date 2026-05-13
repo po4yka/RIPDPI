@@ -13,7 +13,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
@@ -22,6 +25,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.permissions.PermissionKind
+import com.poyka.ripdpi.ui.components.LanguagePickerSheet
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -46,6 +50,7 @@ internal fun SettingsConnectivitySection(
     uiState: SettingsUiState,
     actions: SettingsScreenActions,
 ) {
+    var showLanguagePicker by remember { mutableStateOf(false) }
     SettingsSection(title = stringResource(R.string.settings_connectivity_section)) {
         SettingsRow(
             title = stringResource(R.string.title_dns_settings),
@@ -67,8 +72,18 @@ internal fun SettingsConnectivitySection(
             subtitle = stringResource(R.string.settings_advanced_body),
             value = stringResource(R.string.settings_manage_action),
             onClick = actions.onOpenAdvancedSettings,
+            showDivider = true,
             testTag = RipDpiTestTags.SettingsAdvancedSettings,
         )
+        SettingsRow(
+            title = stringResource(R.string.settings_language_title),
+            subtitle = stringResource(R.string.settings_language_body),
+            value = stringResource(R.string.settings_manage_action),
+            onClick = { showLanguagePicker = true },
+        )
+    }
+    if (showLanguagePicker) {
+        LanguagePickerSheet(onDismissRequest = { showLanguagePicker = false })
     }
 }
 
