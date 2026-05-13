@@ -64,6 +64,23 @@ RIPDPI یک جعبه‌ابزار اندرویدی برای تشخیص و بهی
 ۳. **اگر مسیر مستقیم تنزل یافت، به رلهٔ تونل‌شده برگرد.** VLESS Reality/xHTTP بومی Rust، به‌علاوهٔ WARP، MASQUE، Hysteria2، TUIC v5، ShadowTLS v3، NaiveProxy و Cloudflare Tunnel، اهدافی را که روی دستگاه قابل احیا نیستند مدیریت می‌کنند.
 ۴. **گزارش‌دهی صادقانه.** نتایج نوع‌دار و قابل‌نمایش‌اند؛ نتایج طبقه‌بند شکست سرکوب نمی‌شوند، بلکه به‌وضوح نشان داده می‌شوند؛ بسته‌های صادرات تشخیصی اطلاعات حساس را ویرایش می‌کنند.
 
+## تصاویر صفحه
+
+<p align="center">
+  <img src="../../docs/screenshots/01-hero.png" width="200" alt="صفحهٔ خانهٔ RIPDPI"/>
+  &nbsp;
+  <img src="../../docs/screenshots/02-no-root.png" width="200" alt="RIPDPI بدون روت"/>
+  &nbsp;
+  <img src="../../docs/screenshots/03-privacy.png" width="200" alt="صفحهٔ حریم خصوصی RIPDPI"/>
+  &nbsp;
+  <img src="../../docs/screenshots/04-controls.png" width="200" alt="کنترل‌های RIPDPI"/>
+</p>
+<p align="center">
+  <img src="../../docs/screenshots/05-diagnostics.png" width="200" alt="تشخیص RIPDPI"/>
+  &nbsp;
+  <img src="../../docs/screenshots/06-more-features.png" width="200" alt="نمای کلی ویژگی‌های RIPDPI"/>
+</p>
+
 ## ویژگی‌ها
 
 - **حالت پراکسی**: پراکسی SOCKS5 محلی روی پورت localhost پیکربندی‌شده.
@@ -97,23 +114,6 @@ RIPDPI این موارد را ذخیره **نمی‌کند**:
 - اسرار TLS
 
 حریم خصوصی ترافیک رله به نقطهٔ پایانی رله و پروفایلی که شما پیکربندی می‌کنید بستگی دارد.
-
-## تصاویر صفحه
-
-<p align="center">
-  <img src="../../docs/screenshots/01-hero.png" width="200" alt="صفحهٔ خانهٔ RIPDPI"/>
-  &nbsp;
-  <img src="../../docs/screenshots/02-no-root.png" width="200" alt="RIPDPI بدون روت"/>
-  &nbsp;
-  <img src="../../docs/screenshots/03-privacy.png" width="200" alt="صفحهٔ حریم خصوصی RIPDPI"/>
-  &nbsp;
-  <img src="../../docs/screenshots/04-controls.png" width="200" alt="کنترل‌های RIPDPI"/>
-</p>
-<p align="center">
-  <img src="../../docs/screenshots/05-diagnostics.png" width="200" alt="تشخیص RIPDPI"/>
-  &nbsp;
-  <img src="../../docs/screenshots/06-more-features.png" width="200" alt="نمای کلی ویژگی‌های RIPDPI"/>
-</p>
 
 ## ساخت
 
