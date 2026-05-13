@@ -2,12 +2,12 @@
   "proxy": "caddy_tls",
   "toxics": [
     {
-      "name": "reset_peer",
-      "type": "reset_peer",
+      "name": "reset_limit_data",
+      "type": "limit_data",
       "stream": "downstream",
       "toxicity": 1.0,
       "attributes": {
-        "timeout": 0
+        "bytes": 0
       }
     }
   ]
