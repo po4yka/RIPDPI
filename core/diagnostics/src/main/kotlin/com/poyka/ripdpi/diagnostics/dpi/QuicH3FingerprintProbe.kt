@@ -236,15 +236,15 @@ object QuicFingerprintFactory : QuicInitialPacketFactory {
     }
 
     private fun MutableList<Byte>.addVersion(version: Int) {
-        add(((version ushr 24) and ByteMask).toByte())
-        add(((version ushr 16) and ByteMask).toByte())
-        add(((version ushr 8) and ByteMask).toByte())
+        add(((version ushr VersionByte3Shift) and ByteMask).toByte())
+        add(((version ushr VersionByte2Shift) and ByteMask).toByte())
+        add(((version ushr VersionByte1Shift) and ByteMask).toByte())
         add((version and ByteMask).toByte())
     }
 
     private fun MutableList<Byte>.addVarInt(value: Int) {
         require(value in 0..MaxTwoByteVarInt)
-        add(((value ushr 8) or TwoByteVarIntPrefix).toByte())
+        add(((value ushr VersionByte1Shift) or TwoByteVarIntPrefix).toByte())
         add((value and ByteMask).toByte())
     }
 
@@ -263,6 +263,9 @@ object QuicFingerprintFactory : QuicInitialPacketFactory {
     private const val ByteMask = 0xFF
     private const val TwoByteVarIntPrefix = 0x40
     private const val MaxTwoByteVarInt = 16_383
+    private const val VersionByte3Shift = 24
+    private const val VersionByte2Shift = 16
+    private const val VersionByte1Shift = 8
 }
 
 interface QuicInitialPacketNativeBindings {
@@ -299,13 +302,13 @@ internal class NativeQuicInitialPacketFactory(
             } else {
                 response.packetBase64?.let { encoded -> Base64.getDecoder().decode(encoded) }
             }
-        } catch (error: UnsatisfiedLinkError) {
+        } catch (_: UnsatisfiedLinkError) {
             null
-        } catch (error: SecurityException) {
+        } catch (_: SecurityException) {
             null
-        } catch (error: SerializationException) {
+        } catch (_: SerializationException) {
             null
-        } catch (error: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             null
         }
 
@@ -354,7 +357,7 @@ class DatagramSocketQuicUdpProbe : QuicUdpProbe {
                     response = buffer.copyOf(response.length),
                     latencyMs = (System.nanoTime() - startedAt) / NanosPerMillis,
                 )
-            } catch (error: SocketTimeoutException) {
+            } catch (_: SocketTimeoutException) {
                 QuicProbeSample(response = null, latencyMs = null)
             } finally {
                 socket.close()
@@ -376,7 +379,8 @@ private data class QuicProbeOutcome(
 private fun isQuicV1LongHeader(packet: ByteArray): Boolean =
     packet.hasLongHeaderVersion(QuicFingerprintFactory.QuicV1Version)
 
-private fun isVersionNegotiationPacket(packet: ByteArray): Boolean = packet.hasLongHeaderVersion(0)
+private fun isVersionNegotiationPacket(packet: ByteArray): Boolean =
+    packet.hasLongHeaderVersion(QuicVersionNegotiationVersion)
 
 private fun ByteArray.hasLongHeaderVersion(version: Int): Boolean =
     size >= QuicVersionEndIndex &&
@@ -384,11 +388,19 @@ private fun ByteArray.hasLongHeaderVersion(version: Int): Boolean =
         quicVersion() == version
 
 private fun ByteArray.quicVersion(): Int =
-    ((this[1].toInt() and ByteMask) shl 24) or
-        ((this[2].toInt() and ByteMask) shl 16) or
-        ((this[3].toInt() and ByteMask) shl 8) or
-        (this[4].toInt() and ByteMask)
+    ((this[VersionByte0Index].toInt() and ByteMask) shl VersionByte3Shift) or
+        ((this[VersionByte1Index].toInt() and ByteMask) shl VersionByte2Shift) or
+        ((this[VersionByte2Index].toInt() and ByteMask) shl VersionByte1Shift) or
+        (this[VersionByte3Index].toInt() and ByteMask)
 
+private const val QuicVersionNegotiationVersion = 0
 private const val ByteMask = 0xFF
 private const val LongHeaderMask = 0x80
 private const val QuicVersionEndIndex = 5
+private const val VersionByte3Shift = 24
+private const val VersionByte2Shift = 16
+private const val VersionByte1Shift = 8
+private const val VersionByte0Index = 1
+private const val VersionByte1Index = 2
+private const val VersionByte2Index = 3
+private const val VersionByte3Index = 4
