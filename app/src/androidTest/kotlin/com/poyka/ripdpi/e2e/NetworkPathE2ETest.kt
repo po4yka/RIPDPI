@@ -50,6 +50,7 @@ class NetworkPathE2ETest {
         get() = ApplicationProvider.getApplicationContext()
 
     private var hiltInjected = false
+    private val startedServices = mutableSetOf<Class<*>>()
     private lateinit var fixtureClient: LocalFixtureClient
     private lateinit var fixture: FixtureManifestDto
 
@@ -417,6 +418,7 @@ class NetworkPathE2ETest {
     }
 
     private fun startService(serviceClass: Class<*>) {
+        startedServices += serviceClass
         ContextCompat.startForegroundService(
             appContext,
             Intent(appContext, serviceClass).setAction(startAction),
@@ -424,7 +426,11 @@ class NetworkPathE2ETest {
     }
 
     private fun stopService(serviceClass: Class<*>) {
-        appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
+        if (startedServices.remove(serviceClass)) {
+            appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
+        } else {
+            appContext.stopService(Intent(appContext, serviceClass))
+        }
     }
 
     private fun assumeEmulatorLocalVpnFixture() {
