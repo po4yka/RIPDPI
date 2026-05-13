@@ -10,6 +10,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -19,6 +20,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -84,8 +86,8 @@ object DnsWireBuilder {
             if (rcode == NxdomainRcode) return listOf(NXDOMAIN)
             if (rcode != 0) return listOf(PARSE_ERR)
 
-            val questionCount = bytes.readU16(4)
-            val answerCount = bytes.readU16(6)
+            val questionCount = bytes.readU16(QuestionCountOffset)
+            val answerCount = bytes.readU16(AnswerCountOffset)
             var offset = DnsHeaderLength
             repeat(questionCount) {
                 offset = bytes.skipName(offset)
@@ -97,8 +99,8 @@ object DnsWireBuilder {
                 offset = bytes.skipName(offset)
                 if (offset + AnswerHeaderLength > bytes.size) return listOf(PARSE_ERR)
                 val type = bytes.readU16(offset)
-                val recordClass = bytes.readU16(offset + 2)
-                val rdLength = bytes.readU16(offset + 8)
+                val recordClass = bytes.readU16(offset + RecordClassOffset)
+                val rdLength = bytes.readU16(offset + RDataLengthOffset)
                 offset += AnswerHeaderLength
                 if (offset + rdLength > bytes.size) return listOf(PARSE_ERR)
                 if (type == ARecordType && recordClass == InClass && rdLength == Ipv4ByteCount) {
@@ -118,25 +120,40 @@ object DnsWireBuilder {
     private fun ByteArray.skipName(startOffset: Int): Int {
         var offset = startOffset
         var jumps = 0
-        while (offset < size) {
+        var resolvedOffset = size + 1
+        var scanning = true
+        while (scanning && offset < size) {
             val length = this[offset].toInt() and ByteMask
-            if (length == 0) return offset + 1
-            if (length and CompressionPointerMask == CompressionPointerMask) {
-                if (offset + 1 >= size) return size + 1
-                return offset + 2
+            when {
+                length == 0 -> {
+                    resolvedOffset = offset + 1
+                    scanning = false
+                }
+
+                length and CompressionPointerMask == CompressionPointerMask -> {
+                    resolvedOffset = if (offset + 1 >= size) size + 1 else offset + 2
+                    scanning = false
+                }
+
+                else -> {
+                    offset += 1 + length
+                    jumps += 1
+                    if (jumps > MaxDnsNameLabels) scanning = false
+                }
             }
-            offset += 1 + length
-            jumps += 1
-            if (jumps > MaxDnsNameLabels) return size + 1
         }
-        return size + 1
+        return resolvedOffset
     }
 
     private const val TransactionIdBound = 0x1_0000
     private const val ByteMask = 0xFF
     private const val DnsHeaderLength = 12
+    private const val QuestionCountOffset = 4
+    private const val AnswerCountOffset = 6
     private const val QuestionTrailerLength = 4
     private const val AnswerHeaderLength = 10
+    private const val RecordClassOffset = 2
+    private const val RDataLengthOffset = 8
     private const val ResponseFlag = 0x8000
     private const val RcodeMask = 0x000F
     private const val NxdomainRcode = 3
@@ -177,21 +194,6 @@ data class DnsIntegrityResult(
     val doqResults: List<DoqProbeResult> = emptyList(),
     val dohBootstrapResults: List<DohBootstrapResult> = emptyList(),
 )
-
-fun interface DnsUdpProbe {
-    suspend fun resolveA(domain: String): List<String>
-}
-
-fun interface DnsAddressProbe {
-    suspend fun resolveA(domain: String): Set<String>
-}
-
-interface BootstrapFilterableDnsAddressProbe : DnsAddressProbe {
-    suspend fun resolveA(
-        domain: String,
-        excludedDohHostnames: Set<String>,
-    ): Set<String>
-}
 
 class DnsIntegrityChecker(
     private val udpProbe: DnsUdpProbe = DatagramSocketDnsUdpProbe(),
@@ -295,7 +297,11 @@ class DnsIntegrityChecker(
             Result.success(block())
         } catch (error: CancellationException) {
             throw error
-        } catch (error: Exception) {
+        } catch (error: IOException) {
+            Result.failure(error)
+        } catch (error: SerializationException) {
+            Result.failure(error)
+        } catch (error: IllegalArgumentException) {
             Result.failure(error)
         }
 
@@ -380,15 +386,18 @@ class DohJsonAddressProbe(
     override suspend fun resolveA(
         domain: String,
         excludedDohHostnames: Set<String>,
+    ): Set<String> = withContext(dispatcher) { queryFirstEndpoint(domain, excludedDohHostnames) }
+
+    private fun queryFirstEndpoint(
+        domain: String,
+        excludedDohHostnames: Set<String>,
     ): Set<String> =
-        withContext(dispatcher) {
-            endpoints
-                .filterNot { endpoint -> endpoint.dohHostname() in excludedDohHostnames }
-                .firstNotNullOfOrNull { endpoint ->
-                    queryEndpoint(domain, endpoint).takeIf(Set<String>::isNotEmpty)
-                }
-                ?: emptySet()
-        }
+        endpoints
+            .filterNot { endpoint -> endpoint.dohHostname() in excludedDohHostnames }
+            .firstNotNullOfOrNull { endpoint ->
+                queryEndpoint(domain, endpoint).takeIf(Set<String>::isNotEmpty)
+            }
+            ?: emptySet()
 
     private fun queryEndpoint(
         domain: String,
@@ -402,22 +411,25 @@ class DohJsonAddressProbe(
                 .get()
                 .header("Accept", "application/dns-json")
                 .build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return emptySet()
-            val payload = response.body.string()
-            val answers =
-                json
-                    .parseToJsonElement(payload)
-                    .jsonObject["Answer"]
-                    ?.jsonArray
-                    ?: return emptySet()
-            return answers
-                .mapNotNull { answer ->
-                    val item = answer.jsonObject
-                    item["data"]?.jsonPrimitive?.content?.takeIf(::isIpv4Literal)
-                }.toCollection(linkedSetOf())
+        return client.newCall(request).execute().use { response ->
+            if (response.isSuccessful) {
+                parseJsonAnswers(response.body.string())
+            } else {
+                emptySet()
+            }
         }
     }
+
+    private fun parseJsonAnswers(payload: String): Set<String> =
+        json
+            .parseToJsonElement(payload)
+            .jsonObject["Answer"]
+            ?.jsonArray
+            ?.mapNotNull { answer ->
+                val item = answer.jsonObject
+                item["data"]?.jsonPrimitive?.content?.takeIf(::isIpv4Literal)
+            }?.toCollection(linkedSetOf())
+            ?: emptySet()
 }
 
 class DohWireAddressProbe(
@@ -432,16 +444,18 @@ class DohWireAddressProbe(
         domain: String,
         excludedDohHostnames: Set<String>,
     ): Set<String> =
-        withTimeout(timeoutMs) {
-            withContext(dispatcher) {
-                endpoints
-                    .filterNot { endpoint -> endpoint.dohHostname() in excludedDohHostnames }
-                    .firstNotNullOfOrNull { endpoint ->
-                        queryEndpoint(domain, endpoint).takeIf(Set<String>::isNotEmpty)
-                    }
-                    ?: emptySet()
+        withTimeout(timeoutMs) { withContext(dispatcher) { queryFirstEndpoint(domain, excludedDohHostnames) } }
+
+    private fun queryFirstEndpoint(
+        domain: String,
+        excludedDohHostnames: Set<String>,
+    ): Set<String> =
+        endpoints
+            .filterNot { endpoint -> endpoint.dohHostname() in excludedDohHostnames }
+            .firstNotNullOfOrNull { endpoint ->
+                queryEndpoint(domain, endpoint).takeIf(Set<String>::isNotEmpty)
             }
-        }
+            ?: emptySet()
 
     private fun queryEndpoint(
         domain: String,
@@ -517,9 +531,9 @@ private val DnsMessageMediaType = DnsMessageContentType.toMediaType()
 private fun defaultDnsHttpClient(): OkHttpClient =
     OkHttpClient
         .Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.SECONDS)
-        .callTimeout(7, TimeUnit.SECONDS)
+        .connectTimeout(DefaultConnectTimeoutSeconds, TimeUnit.SECONDS)
+        .readTimeout(DefaultReadTimeoutSeconds, TimeUnit.SECONDS)
+        .callTimeout(DefaultCallTimeoutSeconds, TimeUnit.SECONDS)
         .build()
 
 private fun String.dohHostname(): String? = runCatching { URI(this).host }.getOrNull()
@@ -531,11 +545,18 @@ private fun isIpv4Literal(value: String): Boolean =
         ?.all { part -> part.toIntOrNull() in Ipv4ByteRange }
         ?: false
 
-private fun isFakeIp(ip: String): Boolean {
-    val parts = ip.split('.').mapNotNull(String::toIntOrNull)
-    if (parts.size != Ipv4PartCount) return false
-    return parts[0] == 198 && parts[1] in 18..19
-}
+private fun isFakeIp(ip: String): Boolean =
+    ip
+        .split('.')
+        .mapNotNull(String::toIntOrNull)
+        .takeIf { parts -> parts.size == Ipv4PartCount }
+        ?.let { parts -> parts[0] == FakeIpFirstOctet && parts[1] in FakeIpSecondOctetRange }
+        ?: false
 
 private const val Ipv4PartCount = 4
+private const val DefaultConnectTimeoutSeconds = 5L
+private const val DefaultReadTimeoutSeconds = 5L
+private const val DefaultCallTimeoutSeconds = 7L
+private const val FakeIpFirstOctet = 198
 private val Ipv4ByteRange = 0..255
+private val FakeIpSecondOctetRange = 18..19
