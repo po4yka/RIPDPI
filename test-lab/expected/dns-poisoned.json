@@ -1,0 +1,12 @@
+{
+  "profile": "Emulator",
+  "mode": "Diagnostics",
+  "dns": {
+    "attempted": true,
+    "hostname": "poisoned.test",
+    "addresses": [
+      "198.51.100.20"
+    ]
+  },
+  "verdict": "Degraded"
+}

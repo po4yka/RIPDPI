@@ -1,0 +1,7 @@
+appId: com.poyka.ripdpi
+---
+- launchApp
+- tapOn: "Diagnostics"
+- tapOn: "Run"
+- assertVisible:
+    text: "Transparent works|Owned stack only|No direct solution|Degraded"

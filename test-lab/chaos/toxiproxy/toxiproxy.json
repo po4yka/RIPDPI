@@ -1,0 +1,14 @@
+[
+  {
+    "name": "httpbin",
+    "listen": "0.0.0.0:18080",
+    "upstream": "httpbin:80",
+    "enabled": true
+  },
+  {
+    "name": "caddy_tls",
+    "listen": "0.0.0.0:18443",
+    "upstream": "caddy:443",
+    "enabled": true
+  }
+]

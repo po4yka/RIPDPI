@@ -1,0 +1,22 @@
+test. {
+    hosts {
+        ${MACBOOK_LAN_IP} ok.test
+        ${MACBOOK_LAN_IP} http.test
+        ${MACBOOK_LAN_IP} tls.test
+        ${MACBOOK_LAN_IP} tcp.test
+        ${MACBOOK_LAN_IP} udp.test
+        ${MACBOOK_LAN_IP} quic.test
+        ${MACBOOK_LAN_IP} relay.test
+        203.0.113.10 blocked.test
+        198.51.100.20 poisoned.test
+        fallthrough
+    }
+    log
+    errors
+}
+
+. {
+    forward . 1.1.1.1 8.8.8.8
+    log
+    errors
+}

@@ -2325,7 +2325,7 @@ Source: %2$s</string>
     <string name="detection_check_copy">Copy</string>
     <string name="detection_check_share">Share</string>
     <string name="detection_onboarding_title">Detection Check</string>
-    <string name="detection_onboarding_body">Additional permissions improve check accuracy. Grant them for better results.</string>
+    <string name="detection_onboarding_body">Detection can ask Android for phone and location permissions because Wi-Fi and cellular identity help distinguish network behavior. RIPDPI does not use them for tracking, raw identifiers are not persisted, and diagnostics exports redact sensitive identifiers.</string>
     <string name="detection_onboarding_allow">Allow</string>
     <string name="detection_onboarding_skip">Skip</string>
     <string name="title_owned_stack_browser">RIPDPI Browser</string>

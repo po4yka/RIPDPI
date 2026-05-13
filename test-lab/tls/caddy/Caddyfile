@@ -1,0 +1,21 @@
+{
+    local_certs
+}
+
+:80 {
+    respond /health "ok" 200
+    respond /ripdpi/ok `{"ok":true,"service":"caddy","scheme":"http"}` 200 {
+        header Content-Type application/json
+    }
+}
+
+:443 {
+    tls internal
+    respond / `{"ok":true,"service":"caddy","scheme":"https"}` 200 {
+        header Content-Type application/json
+    }
+    respond /delay `{"ok":true,"delayed":true}` 200 {
+        header Content-Type application/json
+    }
+    respond /large "{file./certs/large-response.txt}" 200
+}

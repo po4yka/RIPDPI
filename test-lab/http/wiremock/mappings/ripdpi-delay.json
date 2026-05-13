@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/ripdpi/delay"
+  },
+  "response": {
+    "status": 200,
+    "fixedDelayMilliseconds": 3000,
+    "jsonBody": {
+      "ok": true,
+      "delayed": true
+    }
+  }
+}

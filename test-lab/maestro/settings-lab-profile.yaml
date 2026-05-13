@@ -1,0 +1,7 @@
+appId: com.poyka.ripdpi
+---
+- launchApp
+- tapOn: "Settings"
+- tapOn: "Diagnostics"
+- assertVisible:
+    text: "Diagnostics|Network"

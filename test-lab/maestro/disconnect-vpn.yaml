@@ -1,0 +1,5 @@
+appId: com.poyka.ripdpi
+---
+- launchApp
+- tapOn: "Disconnect"
+- assertVisible: "Disconnected"

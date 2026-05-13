@@ -1,0 +1,14 @@
+{
+  "proxy": "httpbin",
+  "toxics": [
+    {
+      "name": "latency_500ms",
+      "type": "latency",
+      "stream": "downstream",
+      "attributes": {
+        "latency": 500,
+        "jitter": 100
+      }
+    }
+  ]
+}

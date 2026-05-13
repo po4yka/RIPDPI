@@ -1010,8 +1010,8 @@ fakeddisorder endhost</string>
     <string name="detection_community_local_title">您的统计数据</string>
     <string name="detection_empty_history">尚无检查记录</string>
     <string name="detection_finding_review">需要审查</string>
-    <string name="detection_onboarding_body">额外权限可提高检查准确性。授予后可获得更好的结果。</string>
-    <string name="detection_permission_rationale">额外权限可提高检查准确性。授予后可获得更好的结果。</string>
+    <string name="detection_onboarding_body">检测可能会向 Android 请求电话和位置权限，因为 Wi-Fi 和蜂窝网络身份有助于区分网络行为。RIPDPI 不会将其用于跟踪，原始标识符不会被保存，诊断导出也会将敏感标识符脱敏。</string>
+    <string name="detection_permission_rationale">Android 将这些权限归类为位置权限，因为 Wi-Fi 和蜂窝网络身份可能透露你所在的位置。RIPDPI 不会将其用于跟踪；检查仅用它区分网络行为，原始标识符不会被保存，诊断导出也会将敏感标识符脱敏。</string>
     <string name="detection_resistance_active_title">检测抗性已调优</string>
     <string name="detection_resistance_badge_quic_migrate">UDP 重绑定</string>
     <string name="detection_resistance_entropy_padding_body">较低的目标值产生更接近 ASCII 的填充,主要用于对抗位计数分类器。</string>
@@ -1117,7 +1117,7 @@ fakeddisorder endhost</string>
     <string name="fake_payload_profile_summary_label_when_used">适用条件</string>
     <string name="home_diagnostics_bufferbloat_section">缓冲膨胀</string>
     <string name="home_diagnostics_coverage_label">覆盖范围</string>
-    <string name="home_diagnostics_detection_permission_required">部分检测检查需要位置/电话权限。</string>
+    <string name="home_diagnostics_detection_permission_required">部分检查需要 Android 位置或电话权限来读取 Wi-Fi 或蜂窝网络身份。RIPDPI 仅用它比较网络策略行为；原始标识符不会被保存，诊断导出也会将其脱敏。</string>
     <string name="home_diagnostics_dns_resolver_ok">系统解析器与 DoH 基准事实匹配。</string>
     <string name="home_diagnostics_dns_section">DNS 解析器</string>
     <string name="home_diagnostics_network_captive_portal">强制门户</string>
@@ -1479,7 +1479,7 @@ fake_burst 3</string>
     <string name="config_relay_kind_vless">VLESS</string>
     <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare Direct</string>
     <string name="config_relay_masque_client_certificate_chain">客户端证书链 (PEM)</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">尽力获取的粗略位置会为 Cloudflare 直连路由添加一个可选的「国家+地区」sec-ch-geohash 头部。</string>
+    <string name="config_relay_masque_cloudflare_geohash_helper">Android 可能会请求粗略位置，因为这个可选的 Cloudflare 出口提示会读取大致国家和地区。它不会用于跟踪，原始位置或网络标识符也不会被保存。</string>
     <string name="config_relay_masque_import_private_key">导入私钥</string>
     <string name="config_relay_masque_privacy_pass_available">此构建已配置 Privacy Pass 提供方。</string>
     <string name="config_relay_masque_url">MASQUE URL</string>
@@ -1524,7 +1524,7 @@ fake_burst 3</string>
     <string name="detection_error_retry">重试</string>
     <string name="detection_history_title">历史记录</string>
     <string name="detection_onboarding_skip">跳过</string>
-    <string name="detection_permission_settings">权限被拒绝。请打开设置以手动授予。</string>
+    <string name="detection_permission_settings">权限已被拒绝。只有当你希望检测检查读取 Wi-Fi 或蜂窝网络身份时才打开设置；原始标识符不会被保存，诊断导出也会将其脱敏。</string>
     <string name="detection_resistance_badge_default">默认</string>
     <string name="detection_resistance_cli_title">命令行模式控制这些设置</string>
     <string name="detection_resistance_entropy_padding_max_body">运行时在塑造 fake 数据包时可添加的最大额外字节数。</string>

@@ -1,0 +1,79 @@
+services:
+  coredns:
+    image: coredns/coredns:latest
+    command: -conf /Corefile
+    volumes:
+      - ./dns/Corefile.active:/Corefile:ro
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    restart: unless-stopped
+
+  httpbin:
+    image: kennethreitz/httpbin
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  wiremock:
+    image: wiremock/wiremock:latest
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./http/wiremock/mappings:/home/wiremock/mappings:ro
+      - ./http/wiremock/__files:/home/wiremock/__files:ro
+    command:
+      - --verbose
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:latest
+    ports:
+      - "8081:80"
+      - "8443:443"
+    volumes:
+      - ./tls/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./tls/certs:/certs
+    restart: unless-stopped
+
+  tcp_echo:
+    image: alpine/socat
+    command: tcp-l:9000,fork,reuseaddr exec:/bin/cat
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+
+  udp_echo:
+    image: alpine/socat
+    command: udp-l:9001,fork,reuseaddr exec:/bin/cat
+    ports:
+      - "9001:9001/udp"
+    restart: unless-stopped
+
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy
+    ports:
+      - "8474:8474"
+      - "18080:18080"
+      - "18443:18443"
+    volumes:
+      - ./chaos/toxiproxy/toxiproxy.json:/config/toxiproxy.json:ro
+    command: -host 0.0.0.0 -config /config/toxiproxy.json
+    restart: unless-stopped
+
+  mitmproxy:
+    image: mitmproxy/mitmproxy:latest
+    command: mitmweb --web-host 0.0.0.0 --listen-host 0.0.0.0 --listen-port 8088
+    ports:
+      - "8088:8088"
+      - "8089:8081"
+    profiles:
+      - inspect
+
+  quic_server:
+    build:
+      context: ./quic/quic-go-server
+    ports:
+      - "9443:9443/tcp"
+      - "9443:9443/udp"
+    restart: unless-stopped

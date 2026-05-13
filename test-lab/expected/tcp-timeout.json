@@ -1,0 +1,10 @@
+{
+  "profile": "Emulator",
+  "mode": "Vpn",
+  "tcp": {
+    "attempted": true,
+    "ok": false,
+    "errorCode": "SOCKETTIMEOUTEXCEPTION"
+  },
+  "verdict": "Fail"
+}

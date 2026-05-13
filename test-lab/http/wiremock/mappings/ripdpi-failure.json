@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/ripdpi/failure"
+  },
+  "response": {
+    "status": 500,
+    "jsonBody": {
+      "ok": false,
+      "scenario": "server-error"
+    }
+  }
+}

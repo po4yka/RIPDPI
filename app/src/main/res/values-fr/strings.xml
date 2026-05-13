@@ -1080,7 +1080,7 @@ fake_burst 3</string>
     <string name="detection_community_reports">%d vérifications enregistrées</string>
     <string name="detection_finding_detected">Détecté</string>
     <string name="detection_onboarding_allow">Autoriser</string>
-    <string name="detection_permission_rationale">Des autorisations supplémentaires améliorent la précision des vérifications. Accordez-les pour de meilleurs résultats.</string>
+    <string name="detection_permission_rationale">Android classe ces autorisations comme localisation, car l identité Wi-Fi et cellulaire peut indiquer où vous êtes. RIPDPI ne les utilise pas pour le suivi; les vérifications les utilisent seulement pour distinguer le comportement réseau, les identifiants bruts ne sont pas stockés et les exports de diagnostic les masquent.</string>
     <string name="detection_resistance_badge_default">Par défaut</string>
     <string name="detection_resistance_entropy_mode_body">Choisissez le modèle de statistiques de charge utile que le chemin des faux paquets doit contrer.</string>
     <string name="detection_resistance_entropy_padding_title">Cible popcount (pour mille)</string>
@@ -1526,7 +1526,7 @@ Source : %2$s</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_local_port_helper">Le proxy RIPDPI principal s\'enchaîne à cet écouteur en bouclage local.</string>
     <string name="config_relay_masque_client_certificate_chain">Chaîne de certificats client (PEM)</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">La localisation grossière, au mieux possible, ajoute un en-tête sec-ch-geohash facultatif pays plus région pour le routage direct Cloudflare.</string>
+    <string name="config_relay_masque_cloudflare_geohash_helper">Android peut demander la localisation approximative, car cet indice de sortie Cloudflare facultatif lit un pays et une région approximatifs. Il n est pas utilisé pour le suivi, et les identifiants bruts de localisation ou de réseau ne sont pas stockés.</string>
     <string name="config_relay_masque_pkcs12_dialog_title">Importer une identité PKCS#12</string>
     <string name="config_relay_masque_privacy_pass_missing_provider">Privacy Pass est indisponible car cette version n\'a pas d\'URL de fournisseur configurée.</string>
     <string name="config_relay_profile_id_helper">Utilisé pour lier les identifiants sécurisés au profil de relais enregistré.</string>
@@ -1561,8 +1561,8 @@ Source : %2$s</string>
     <string name="detection_community_detected_pct">%d %% des vérifications détectées</string>
     <string name="detection_community_retry">Réessayer</string>
     <string name="detection_finding_ok">OK</string>
-    <string name="detection_onboarding_body">Des autorisations supplémentaires améliorent la précision des vérifications. Accordez-les pour de meilleurs résultats.</string>
-    <string name="detection_permission_settings">Les autorisations ont été refusées. Ouvrez les paramètres pour les accorder manuellement.</string>
+    <string name="detection_onboarding_body">La détection peut demander à Android les autorisations téléphone et localisation, car l identité Wi-Fi et cellulaire aide à distinguer le comportement réseau. RIPDPI ne les utilise pas pour le suivi, les identifiants bruts ne sont pas stockés et les exports de diagnostic masquent les identifiants sensibles.</string>
+    <string name="detection_permission_settings">Les autorisations ont été refusées. Ouvrez les paramètres seulement si vous voulez que les vérifications lisent l identité Wi-Fi ou cellulaire; les identifiants bruts ne sont pas stockés et les exports de diagnostic les masquent.</string>
     <string name="detection_resistance_badge_evolution">Évolution de stratégie</string>
     <string name="detection_resistance_entropy_mode_title">Mode de mise en forme d\'entropie</string>
     <string name="detection_resistance_evolution_cooldown_failures_body">Nombre d\'échecs consécutifs avant qu\'une combinaison soit mise en pause. Par défaut : 3.</string>
@@ -1711,7 +1711,7 @@ Source : %2$s</string>
     <string name="home_diagnostics_analysis_running">Analyse réseau complète en cours…</string>
     <string name="home_diagnostics_bufferbloat_summary">Note %1$s · au repos %2$s · en charge %3$s</string>
     <string name="home_diagnostics_confidence_label">Confiance</string>
-    <string name="home_diagnostics_detection_permission_required">Certaines vérifications de détection requièrent les autorisations de localisation/téléphone.</string>
+    <string name="home_diagnostics_detection_permission_required">Certaines vérifications nécessitent les autorisations Android de localisation ou de téléphone pour lire l identité Wi-Fi ou cellulaire. RIPDPI les utilise seulement pour comparer le comportement des politiques réseau; les identifiants bruts ne sont pas stockés et les exports de diagnostic les masquent.</string>
     <string name="home_diagnostics_dns_resolver_ok">Le résolveur système correspond à la vérité terrain DoH.</string>
     <string name="home_diagnostics_effectiveness_row_value">%1$d réussis / %2$d échoués</string>
     <string name="home_diagnostics_network_ipv6">IPv6</string>

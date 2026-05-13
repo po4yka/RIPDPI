@@ -424,7 +424,7 @@
     <string name="home_diagnostics_vpn_detectors_summary">%1$d برنامهٔ نصب‌شده شناخته‌شده به‌عنوان تشخیص‌دهندهٔ VPN.</string>
     <string name="home_diagnostics_pcap_toggle">ضبط بسته‌ها (پیشرفته)</string>
     <string name="home_diagnostics_pcap_helper">روت لازم است. یک PCAP برای این اجرا ذخیره می‌کند.</string>
-    <string name="home_diagnostics_detection_permission_required">برخی بررسی‌های تشخیص به مجوز مکان/تلفن نیاز دارند.</string>
+    <string name="home_diagnostics_detection_permission_required">برخی بررسی‌ها برای خواندن هویت Wi-Fi یا شبکهٔ سلولی به مجوز مکان یا تلفن Android نیاز دارند. RIPDPI فقط برای مقایسهٔ رفتار سیاست شبکه از آن استفاده می‌کند؛ شناسه‌های خام ذخیره نمی‌شوند و خروجی‌های تشخیصی آن‌ها را حذف می‌کنند.</string>
     <string name="home_diagnostics_actionable_section">گام بعدی چیست</string>
     <string name="home_diagnostics_network_section">در این شبکه</string>
     <string name="home_diagnostics_network_transport">حمل‌و‌نقل</string>
@@ -593,7 +593,7 @@
     <string name="config_relay_masque_import_private_key">وارد کردن کلید خصوصی</string>
     <string name="config_relay_masque_import_pkcs12">وارد کردن بسته PKCS#12</string>
     <string name="config_relay_masque_cloudflare_geohash_enabled">فعال‌سازی راهنمایی‌های خروج Cloudflare</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">یک مکان درشت تلاش‌شدهٔ بهینه، یک هدر sec-ch-geohash اختیاری کشور به‌علاوهٔ منطقه برای مسیریابی مستقیم Cloudflare اضافه می‌کند.</string>
+    <string name="config_relay_masque_cloudflare_geohash_helper">Android ممکن است مکان تقریبی را درخواست کند، چون این راهنمای اختیاری خروج Cloudflare کشور و منطقهٔ تقریبی را می‌خواند. برای ردیابی استفاده نمی‌شود و شناسه‌های خام مکان یا شبکه ذخیره نمی‌شوند.</string>
     <string name="config_relay_masque_pkcs12_dialog_title">وارد کردن هویت PKCS#12</string>
     <string name="config_relay_masque_pkcs12_password">رمز عبور بسته</string>
     <string name="config_relay_masque_pkcs12_password_helper">اگر بستهٔ PKCS#12 رمز عبور ندارد، خالی بگذارید.</string>
@@ -1256,7 +1256,7 @@ fakeddisorder endhost</string>
     <string name="detection_finding_ok">مناسب</string>
     <string name="detection_methodology_info">اطلاعات روش‌شناسی</string>
     <string name="detection_onboarding_skip">رد کردن</string>
-    <string name="detection_permission_rationale">مجوزهای بیشتر دقت بررسی را افزایش می‌دهند. برای نتایج بهتر آن‌ها را اعطا کنید.</string>
+    <string name="detection_permission_rationale">Android این مجوزها را مکان می‌نامد، چون هویت Wi-Fi و شبکهٔ سلولی می‌تواند نشان دهد کجا هستید. RIPDPI از آن‌ها برای ردیابی استفاده نمی‌کند؛ بررسی‌ها فقط برای تمایز رفتار شبکه از آن‌ها استفاده می‌کنند، شناسه‌های خام ذخیره نمی‌شوند و خروجی‌های تشخیصی آن‌ها را حذف می‌کنند.</string>
     <string name="detection_privacy_mode">حالت حریم خصوصی</string>
     <string name="detection_resistance_badge_evolution">تکامل راهبرد</string>
     <string name="detection_resistance_cli_title">حالت خط فرمان مالک این تنظیمات است</string>
@@ -1664,7 +1664,7 @@ fakeddisorder endhost</string>
     <string name="detection_finding_review">نیاز به بررسی دارد</string>
     <string name="detection_onboarding_allow">اجازه دادن</string>
     <string name="detection_onboarding_title">بررسی شناسایی</string>
-    <string name="detection_permission_settings">دسترسی‌ها رد شدند. تنظیمات را باز کنید تا به‌صورت دستی اعطا شوند.</string>
+    <string name="detection_permission_settings">دسترسی‌ها رد شدند. فقط اگر می‌خواهید بررسی‌ها هویت Wi-Fi یا شبکهٔ سلولی را بخوانند تنظیمات را باز کنید؛ شناسه‌های خام ذخیره نمی‌شوند و خروجی‌های تشخیصی آن‌ها را حذف می‌کنند.</string>
     <string name="detection_resistance_active_title">مقاومت در برابر شناسایی تنظیم شد</string>
     <string name="detection_resistance_badge_low_port">QUIC پورت پایین</string>
     <string name="detection_resistance_entropy_mode_body">انتخاب کنید مدل آماری payload که مسیر fake-packet باید با آن مقابله کند کدام باشد.</string>
@@ -2069,7 +2069,7 @@ fakeddisorder endhost</string>
     <string name="detection_community_title">انجمن</string>
     <string name="detection_finding_detected">شناسایی شد</string>
     <string name="detection_history_title">تاریخچه</string>
-    <string name="detection_onboarding_body">مجوزهای اضافی دقت بررسی را بهبود می‌بخشند. برای نتایج بهتر آن‌ها را اعطا کنید.</string>
+    <string name="detection_onboarding_body">تشخیص ممکن است از Android مجوزهای تلفن و مکان بخواهد، چون هویت Wi-Fi و شبکهٔ سلولی به تمایز رفتار شبکه کمک می‌کند. RIPDPI از آن‌ها برای ردیابی استفاده نمی‌کند، شناسه‌های خام ذخیره نمی‌شوند و خروجی‌های تشخیصی شناسه‌های حساس را حذف می‌کنند.</string>
     <string name="detection_permission_open_settings">باز کردن تنظیمات</string>
     <string name="detection_permission_title">مجوزها</string>
     <string name="detection_resistance_badge_default">پیش‌فرض</string>

@@ -1,0 +1,26 @@
+{
+  "profile": "Emulator",
+  "mode": "Vpn",
+  "vpnEstablished": true,
+  "tunActive": true,
+  "proxyReady": true,
+  "dns": {
+    "attempted": true,
+    "ok": true,
+    "server": "10.0.2.2",
+    "hostname": "ok.test"
+  },
+  "http": {
+    "attempted": true,
+    "ok": true,
+    "url": "http://10.0.2.2:8080/get"
+  },
+  "tcp": {
+    "attempted": true,
+    "ok": true,
+    "host": "10.0.2.2",
+    "port": 9000,
+    "echoed": true
+  },
+  "verdict": "Pass-or-Degraded-if-QUIC-unsupported"
+}

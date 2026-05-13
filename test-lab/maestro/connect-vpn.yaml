@@ -1,0 +1,8 @@
+appId: com.poyka.ripdpi
+---
+- launchApp
+- tapOn: "Connect"
+- tapOn:
+    text: "OK|Allow"
+    optional: true
+- assertVisible: "Connected"

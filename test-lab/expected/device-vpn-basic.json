@@ -1,0 +1,26 @@
+{
+  "profile": "PhysicalDevice",
+  "mode": "Vpn",
+  "vpnEstablished": true,
+  "tunActive": true,
+  "proxyReady": true,
+  "dns": {
+    "attempted": true,
+    "ok": true,
+    "server": "${MACBOOK_LAN_IP}",
+    "hostname": "ok.test"
+  },
+  "http": {
+    "attempted": true,
+    "ok": true,
+    "url": "http://${MACBOOK_LAN_IP}:8080/get"
+  },
+  "tcp": {
+    "attempted": true,
+    "ok": true,
+    "host": "${MACBOOK_LAN_IP}",
+    "port": 9000,
+    "echoed": true
+  },
+  "verdict": "Pass-or-Degraded-if-QUIC-unsupported"
+}

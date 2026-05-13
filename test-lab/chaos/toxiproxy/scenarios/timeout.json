@@ -1,0 +1,13 @@
+{
+  "proxy": "httpbin",
+  "toxics": [
+    {
+      "name": "timeout",
+      "type": "timeout",
+      "stream": "downstream",
+      "attributes": {
+        "timeout": 1000
+      }
+    }
+  ]
+}

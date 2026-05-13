@@ -1561,7 +1561,7 @@ Quelle: %2$s</string>
     <string name="detection_community_detected_pct">%d %% der Prüfungen erkannt</string>
     <string name="detection_community_retry">Erneut versuchen</string>
     <string name="detection_finding_ok">OK</string>
-    <string name="detection_onboarding_body">Zusätzliche Berechtigungen verbessern die Prüfgenauigkeit. Erteilen Sie sie für bessere Ergebnisse.</string>
+    <string name="detection_onboarding_body">Die Erkennung kann Android nach Telefon- und Standortberechtigungen fragen, weil Wi-Fi- und Mobilfunkidentität helfen, Netzwerkverhalten zu unterscheiden. RIPDPI nutzt sie nicht zum Tracking, Rohkennungen werden nicht gespeichert und Diagnoseexporte redigieren sensible Kennungen.</string>
     <string name="detection_permission_settings">Berechtigungen wurden verweigert. Öffnen Sie die Einstellungen nur, wenn die Prüfungen Wi-Fi- oder Mobilfunkidentität lesen sollen; Rohkennungen werden nicht gespeichert und Diagnoseexporte redigieren sie.</string>
     <string name="detection_resistance_badge_evolution">Strategie-Evolution</string>
     <string name="detection_resistance_entropy_mode_title">Entropie-Shaping-Modus</string>

@@ -1561,7 +1561,7 @@ Origen: %2$s</string>
     <string name="detection_community_detected_pct">%d%% de las comprobaciones detectadas</string>
     <string name="detection_community_retry">Reintentar</string>
     <string name="detection_finding_ok">OK</string>
-    <string name="detection_onboarding_body">Los permisos adicionales mejoran la precisión de las comprobaciones. Concédelos para obtener mejores resultados.</string>
+    <string name="detection_onboarding_body">La detección puede pedir a Android permisos de teléfono y ubicación porque la identidad de Wi-Fi y red celular ayuda a distinguir el comportamiento de la red. RIPDPI no los usa para seguimiento, los identificadores sin procesar no se guardan y las exportaciones de diagnóstico redactan los identificadores sensibles.</string>
     <string name="detection_permission_settings">Se denegaron los permisos. Abre la configuración solo si quieres que las comprobaciones lean la identidad de Wi-Fi o red celular; los identificadores sin procesar no se guardan y las exportaciones de diagnóstico los redactan.</string>
     <string name="detection_resistance_badge_evolution">Evolución de estrategia</string>
     <string name="detection_resistance_entropy_mode_title">Modo de modelado de entropía</string>

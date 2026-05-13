@@ -21,7 +21,7 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent,
     ) {
-        if (intent.action != ActionProbeTcp && intent.action != ActionProbeDns) {
+        if (intent.action != ActionProbeTcp && intent.action != ActionProbeDns && intent.action != ActionDebugProbe) {
             return
         }
 
@@ -31,15 +31,26 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
             val extras = Bundle()
             val (probeResult, activityResultCode) =
                 runCatching {
-                    when (intent.action) {
-                        ActionProbeDns -> runDnsProbe(intent, extras)
-                        else -> runTcpProbe(intent, extras)
+                    if (intent.action == ActionDebugProbe) {
+                        val config = NetworkProbeConfig.fromIntent(intent)
+                        val result = DebugLocalNetworkProbeRunner(context.applicationContext).run(config)
+                        val output = result.writeToOutput(context, intent.getStringExtra(ExtraOutput))
+                        extras.putString(ExtraOutput, output.absolutePath)
+                        extras.putString(ExtraVerdict, result.verdict.name)
+                        DebugProbeDispatchResult
+                    } else {
+                        when (intent.action) {
+                            ActionProbeDns -> runDnsProbe(intent, extras)
+                            else -> runTcpProbe(intent, extras)
+                        }
                     } to Activity.RESULT_OK
                 }.getOrElse { error ->
                     failureProbeResult(intent, extras, error) to Activity.RESULT_CANCELED
                 }
 
-            persistProbeResult(context, probeResult)
+            if (probeResult is PacketSmokeRunnerProbeResult) {
+                persistProbeResult(context, probeResult)
+            }
 
             pendingResult.resultCode = activityResultCode
             pendingResult.setResultExtras(extras)
@@ -50,11 +61,14 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
     companion object {
         const val ActionProbeTcp = "com.poyka.ripdpi.debug.PROBE_TCP"
         const val ActionProbeDns = "com.poyka.ripdpi.debug.PROBE_DNS"
+        const val ActionDebugProbe = "com.poyka.ripdpi.DEBUG_PROBE"
         const val ExtraHost = "host"
         const val ExtraPort = "port"
         const val ExtraConnectTimeoutMs = "connect_timeout_ms"
         const val ExtraReadTimeoutMs = "read_timeout_ms"
         const val ExtraPayload = "payload"
+        const val ExtraOutput = "output"
+        const val ExtraVerdict = "verdict"
         const val ExtraQueryHost = "query_host"
         const val ExtraRequestId = "request_id"
         const val ExtraScenarioId = "scenario_id"
@@ -189,11 +203,14 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
         intent: Intent,
         extras: Bundle,
         error: Throwable,
-    ): PacketSmokeRunnerProbeResult {
+    ): Any {
         val failure = error.toDebugProbeFailure()
         extras.putBoolean(ExtraOk, false)
         extras.putString(ExtraErrorClass, failure.errorClass)
         extras.putString(ExtraErrorMessage, failure.errorMessage)
+        if (intent.action == ActionDebugProbe) {
+            return DebugProbeDispatchResult
+        }
         return PacketSmokeRunnerProbeResult(
             requestId = intent.getStringExtra(ExtraRequestId).orEmpty(),
             scenarioId = intent.getStringExtra(ExtraScenarioId).orEmpty(),
@@ -219,3 +236,5 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
         File(scenarioDir, PacketSmokeProbeResultFileName).writeText(probeResult.toJson(), Charsets.UTF_8)
     }
 }
+
+private object DebugProbeDispatchResult

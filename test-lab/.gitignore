@@ -1,0 +1,4 @@
+dns/Corefile.active
+capture/*.pcap
+capture/*.log
+artifacts/

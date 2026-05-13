@@ -1,0 +1,11 @@
+{
+  "profile": "Emulator",
+  "mode": "Vpn",
+  "quic": {
+    "attempted": false,
+    "ok": false,
+    "fallbackUsed": false,
+    "errorCode": "QUIC_UNSUPPORTED_ANDROID_DEBUG_PROBE"
+  },
+  "verdict": "Degraded"
+}

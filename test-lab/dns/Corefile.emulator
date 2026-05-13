@@ -1,0 +1,22 @@
+test. {
+    hosts {
+        10.0.2.2 ok.test
+        10.0.2.2 http.test
+        10.0.2.2 tls.test
+        10.0.2.2 tcp.test
+        10.0.2.2 udp.test
+        10.0.2.2 quic.test
+        10.0.2.2 relay.test
+        203.0.113.10 blocked.test
+        198.51.100.20 poisoned.test
+        fallthrough
+    }
+    log
+    errors
+}
+
+. {
+    forward . 1.1.1.1 8.8.8.8
+    log
+    errors
+}

@@ -1,0 +1,10 @@
+{
+  "profile": "Emulator",
+  "mode": "Proxy",
+  "proxyReady": true,
+  "http": {
+    "attempted": true,
+    "ok": true
+  },
+  "verdict": "Pass-or-Degraded-if-QUIC-unsupported"
+}
