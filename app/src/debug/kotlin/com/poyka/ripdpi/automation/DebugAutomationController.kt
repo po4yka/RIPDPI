@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
@@ -70,6 +71,7 @@ class DebugAutomationController
         private val appSettingsRepository: AppSettingsRepository,
         private val serviceStateStore: ServiceStateStore,
         private val scanRecordStore: DiagnosticsScanRecordStore,
+        private val historyResetStore: DiagnosticsHistoryResetStore,
         @param:Named("diagnosticsJson")
         private val diagnosticsJson: Json,
     ) : AutomationController,
@@ -100,6 +102,7 @@ class DebugAutomationController
             runBlocking {
                 if (config.enabled) {
                     if (config.resetState) {
+                        historyResetStore.clearRuntimeHistory()
                         appSettingsRepository.replace(AppSettingsSerializer.defaultValue)
                     }
 

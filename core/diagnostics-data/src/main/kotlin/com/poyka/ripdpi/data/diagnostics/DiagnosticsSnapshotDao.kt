@@ -40,6 +40,9 @@ interface DiagnosticsSnapshotDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertNetworkSnapshot(snapshot: NetworkSnapshotEntity)
 
+    @Query("DELETE FROM network_snapshots")
+    suspend fun deleteAllSnapshots()
+
     @Query("SELECT * FROM diagnostic_context_snapshots ORDER BY capturedAt DESC LIMIT :limit")
     fun observeContextSnapshots(limit: Int = 100): Flow<List<DiagnosticContextEntity>>
 
@@ -71,4 +74,7 @@ interface DiagnosticsSnapshotDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity)
+
+    @Query("DELETE FROM diagnostic_context_snapshots")
+    suspend fun deleteAllContextSnapshots()
 }

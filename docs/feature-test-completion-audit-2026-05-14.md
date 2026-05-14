@@ -24,7 +24,7 @@ available in the current local lab.
 | --- | --- | --- | --- |
 | Use `docs/feature-test-checklist.md` as the source checklist | `docs/feature-test-evidence-2026-05-14.md` maps every major checklist section to `Covered locally` or `Partial` | Partial | Complete the rows that remain `Partial` |
 | Fix all issues found during the local pass | `docs/feature-test-evidence-2026-05-14.md` records fixed findings and commit subjects for test-lab, build packaging, diagnostics archive redaction, Appium, Maestro, onboarding, logs, and UI automation defects | Covered locally | None for the bugs found in the local pass |
-| Verify Appium installation and current app flows | Appium evidence rows in `docs/feature-test-evidence-2026-05-14.md`; Appium 3.4.2 with UiAutomator2 7.3.0 is installed. After merging `origin/main` locally and rebuilding the current debug APK from `89deca61`, the full Appium suite passed on Pixel 8 Pro with `79 passed, 17 skipped, 1 warning` in 1996.23s. After the local Maestro/Appium install was confirmed again on May 15, 2026, the current full Appium suite passed on Pixel 8 Pro with `80 passed, 16 skipped, 1 warning` in 2022.41s. This covers launch/navigation, onboarding/advanced/host-pack, diagnostics/logs/support/theme, diagnostics-tail, deterministic scan report/audit coverage, all 7 workflow journeys, activation-window controls, background guidance, and backup-PIN warning/editor paths. The 16 skips are explicit fixture/environment skips, not unexpected failures | Covered locally | Optional reruns after future UI or Appium page-object changes |
+| Verify Appium installation and current app flows | Appium evidence rows in `docs/feature-test-evidence-2026-05-14.md`; Appium 3.4.2 with UiAutomator2 7.3.0 is installed. After merging `origin/main` locally and rebuilding the current debug APK from `89deca61`, the full Appium suite passed on Pixel 8 Pro with `79 passed, 17 skipped, 1 warning` in 1996.23s. After the local Maestro/Appium install was confirmed again on May 15, 2026, the current full Appium suite passed on Pixel 8 Pro with `80 passed, 16 skipped, 1 warning` in 2022.41s. A later clean-reset Appium subset on the rebuilt APK passed both History empty-state rows and left only the diagnostics empty-state row fixture-skipped (`2 passed, 1 skipped, 1 warning` in 31.83s). This covers launch/navigation, onboarding/advanced/host-pack, diagnostics/logs/support/theme, diagnostics-tail, deterministic scan report/audit coverage, all 7 workflow journeys, activation-window controls, background guidance, backup-PIN warning/editor paths, and clean History empty-state behavior on previously populated devices. Remaining skips are explicit fixture/environment skips, not unexpected failures | Covered locally | Optional reruns after future UI or Appium page-object changes |
 | Verify Maestro installation and current smoke flows | Maestro smoke and default-install fallback rows in `docs/feature-test-evidence-2026-05-14.md`; smoke pack and lab VPN orchestrator passed on Pixel 8 Pro with Maestro resolved from `~/.maestro/bin/maestro` while absent from `PATH`; after merging `origin/main` locally and rebuilding the current debug APK from `89deca61`, the four-flow smoke rerun passed all committed flows; after the local Maestro/Appium install was confirmed again on May 15, 2026, the committed four-flow smoke pack passed again through default `~/.maestro/bin/maestro` fallback resolution | Covered locally | Optional reruns after future Home, Settings, or lab-runner changes |
 | Verify static local quality gates for the current head | `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon`; local `git diff --check`; focused JVM and Appium checks recorded in `docs/feature-test-evidence-2026-05-14.md`; pre-commit hooks passed for the latest local commits | Covered locally | Remote CI for pushed commits |
 | Verify local artifacts referenced by the evidence ledger exist | Local artifact-path audit over `test-lab/artifacts/`; connected-test XML, debug APK, release APK, and `doctor.json` exist | Covered locally | Preserve or archive artifacts before cleanup |
@@ -43,7 +43,8 @@ available in the current local lab.
 - Working tree scope: this audit update reflects the latest native
   monitor-engine hotspot split, Roborazzi Logs golden refresh, Appium long-form
   scroll hardening, Appium launch-timeout retry, merged `origin/main`
-  fleet-compat changes, task-board legal-framing cleanup, and the
+  fleet-compat changes, task-board legal-framing cleanup, the Appium
+  clean-reset diagnostics history cleanup, and the
   `DetectionResolverNetworkStack.kt` architecture-health fix. The routed
   netem runbook now has exact operator steps, but the external Linux routed
   VM evidence remains open. The test-lab README now also gives command-level
@@ -61,7 +62,8 @@ available in the current local lab.
   `CARGO_TARGET_DIR=target/codex-monitor-engine-check cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine`,
   the monitor-engine `connectivity_partial` contract fixture test, focused
   post-fix Appium slice, the current full Appium suite, the four-flow Maestro
-  smoke pack, the May 15 installed-tool Maestro/Appium reruns, the feature sign-off guard self-test, and local-network-lab
+  smoke pack, the May 15 installed-tool Maestro/Appium reruns, the focused
+  clean-reset Appium empty-state rerun, the feature sign-off guard self-test, and local-network-lab
   workflow YAML parsing passed. Commit hooks passed for the latest
   native/Appium/test-lab commits.
 - Remote state: `origin/main` now points at `342a169a`. CI run `25875963396`

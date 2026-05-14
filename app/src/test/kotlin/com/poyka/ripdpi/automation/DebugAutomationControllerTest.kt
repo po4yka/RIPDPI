@@ -5,6 +5,7 @@ import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeServiceStateStore
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
@@ -119,6 +120,21 @@ class DebugAutomationControllerTest {
         }
 
     @Test
+    fun `reset state clears diagnostics runtime history before seeding preset`() =
+        runTest {
+            val resetStore = FakeDiagnosticsHistoryResetStore()
+            val controller = newController(historyResetStore = resetStore)
+
+            controller.prepareLaunch(
+                automationIntent(
+                    dataPreset = AutomationDataPreset.CleanHome,
+                ),
+            )
+
+            assertEquals(1, resetStore.clearCount)
+        }
+
+    @Test
     fun `fake start and stop mutate service state when preset is not live`() {
         val serviceStateStore = FakeServiceStateStore()
         val controller = newController(serviceStateStore = serviceStateStore)
@@ -173,11 +189,13 @@ class DebugAutomationControllerTest {
         appSettingsRepository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
         scanRecordStore: FakeDiagnosticsScanRecordStore = FakeDiagnosticsScanRecordStore(),
+        historyResetStore: FakeDiagnosticsHistoryResetStore = FakeDiagnosticsHistoryResetStore(),
     ): DebugAutomationController =
         DebugAutomationController(
             appSettingsRepository = appSettingsRepository,
             serviceStateStore = serviceStateStore,
             scanRecordStore = scanRecordStore,
+            historyResetStore = historyResetStore,
             diagnosticsJson =
                 Json {
                     ignoreUnknownKeys = true
@@ -185,6 +203,14 @@ class DebugAutomationControllerTest {
                     explicitNulls = false
                 },
         )
+
+    private class FakeDiagnosticsHistoryResetStore : DiagnosticsHistoryResetStore {
+        var clearCount = 0
+
+        override suspend fun clearRuntimeHistory() {
+            clearCount += 1
+        }
+    }
 
     private class FakeDiagnosticsScanRecordStore : DiagnosticsScanRecordStore {
         private val sessions = MutableStateFlow<List<ScanSessionEntity>>(emptyList())

@@ -564,6 +564,84 @@ class DiagnosticsHistoryStoresRoomTest {
         }
 
     @Test
+    @Suppress("LongMethod")
+    fun `history reset store clears runtime history but preserves profiles`() =
+        runTest {
+            val profileCatalog = RoomDiagnosticsProfileCatalog(dao)
+            val scanStore = RoomDiagnosticsScanRecordStore(db, dao)
+            val artifactStore = RoomDiagnosticsArtifactStore(dao)
+            val bypassStore = RoomBypassUsageHistoryStore(dao)
+            val rememberedStore = RoomRememberedNetworkPolicyRecordStore(dao, clock)
+            val dnsStore = RoomNetworkDnsPathPreferenceRecordStore(dao, clock)
+            val edgeStore = RoomNetworkEdgePreferenceRecordStore(dao, clock)
+            val resetStore = RoomDiagnosticsHistoryResetStore(db, dao)
+            val session = scanSession(id = "scan-reset", startedAt = 20L, finishedAt = 30L)
+
+            profileCatalog.upsertProfile(profile(id = "profile-reset", updatedAt = 10L))
+            scanStore.upsertScanSession(session)
+            scanStore.replaceProbeResults(
+                sessionId = session.id,
+                results = listOf(probeResult(id = "probe-reset", sessionId = session.id, createdAt = 21L)),
+            )
+            artifactStore.upsertSnapshot(snapshot(id = "snap-reset", sessionId = session.id, capturedAt = 22L))
+            artifactStore.upsertContextSnapshot(context(id = "ctx-reset", sessionId = session.id, capturedAt = 23L))
+            artifactStore.insertTelemetrySample(telemetry(id = "tel-reset", sessionId = session.id, createdAt = 24L))
+            artifactStore.insertNativeSessionEvent(
+                nativeEvent(id = "evt-reset", sessionId = session.id, createdAt = 25L),
+            )
+            artifactStore.insertExportRecord(exportRecord(id = "exp-reset", sessionId = session.id, createdAt = 26L))
+            bypassStore.upsertBypassUsageSession(
+                bypassUsageSession(id = "usage-reset", startedAt = 27L, finishedAt = 28L),
+            )
+            rememberedStore.upsertRememberedNetworkPolicy(
+                rememberedPolicy(
+                    fingerprintHash = "remembered-reset",
+                    mode = "VPN",
+                    status = RememberedNetworkPolicyStatusObserved,
+                    updatedAt = 29L,
+                ),
+            )
+            dnsStore.upsertNetworkDnsPathPreference(
+                dnsPreference(
+                    fingerprintHash = "dns-reset",
+                    updatedAt = 30L,
+                ),
+            )
+            dao.upsertBlockedPath(
+                NetworkDnsBlockedPathEntity(
+                    fingerprintHash = "dns-reset",
+                    pathKey = "path-reset",
+                    blockReason = "test",
+                    updatedAt = 31L,
+                ),
+            )
+            edgeStore.upsertNetworkEdgePreference(
+                edgePreference(
+                    fingerprintHash = "edge-reset",
+                    host = "example.test",
+                    transportKind = PreferredEdgeTransportTcp,
+                    updatedAt = 32L,
+                ),
+            )
+
+            resetStore.clearRuntimeHistory()
+
+            assertEquals(listOf("profile-reset"), profileCatalog.observeProfiles().first().map { it.id })
+            assertEquals(0, rowCount("scan_sessions"))
+            assertEquals(0, rowCount("probe_results"))
+            assertEquals(0, rowCount("network_snapshots"))
+            assertEquals(0, rowCount("diagnostic_context_snapshots"))
+            assertEquals(0, rowCount("telemetry_samples"))
+            assertEquals(0, rowCount("native_session_events"))
+            assertEquals(0, rowCount("export_records"))
+            assertEquals(0, rowCount("bypass_usage_sessions"))
+            assertEquals(0, rowCount("remembered_network_policies"))
+            assertEquals(0, rowCount("network_dns_path_preferences"))
+            assertEquals(0, rowCount("network_dns_blocked_paths"))
+            assertEquals(0, rowCount("network_edge_preferences"))
+        }
+
+    @Test
     fun `production database builder destructively migrates version 2 diagnostics database`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val databaseName = "diagnostics-legacy-v2-${System.nanoTime()}.db"

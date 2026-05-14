@@ -16,4 +16,7 @@ interface DiagnosticsBypassUsageDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity)
+
+    @Query("DELETE FROM bypass_usage_sessions")
+    suspend fun deleteAllBypassUsageSessions()
 }

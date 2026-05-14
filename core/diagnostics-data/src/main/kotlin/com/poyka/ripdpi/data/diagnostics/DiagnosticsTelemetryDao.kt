@@ -43,6 +43,9 @@ interface DiagnosticsTelemetryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTelemetrySample(sample: TelemetrySampleEntity)
 
+    @Query("DELETE FROM telemetry_samples")
+    suspend fun deleteAllTelemetrySamples()
+
     @Query("SELECT * FROM native_session_events ORDER BY createdAt DESC LIMIT :limit")
     fun observeNativeEvents(limit: Int = 250): Flow<List<NativeSessionEventEntity>>
 
@@ -74,4 +77,7 @@ interface DiagnosticsTelemetryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity)
+
+    @Query("DELETE FROM native_session_events")
+    suspend fun deleteAllNativeEvents()
 }

@@ -13,4 +13,7 @@ interface DiagnosticsExportDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExportRecord(record: ExportRecordEntity)
+
+    @Query("DELETE FROM export_records")
+    suspend fun deleteAllExportRecords()
 }

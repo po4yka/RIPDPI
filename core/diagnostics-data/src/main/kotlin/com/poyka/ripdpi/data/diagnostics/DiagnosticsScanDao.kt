@@ -45,4 +45,10 @@ interface DiagnosticsScanDao {
 
     @Query("DELETE FROM probe_results WHERE sessionId = :sessionId")
     suspend fun deleteProbeResultsForSession(sessionId: String)
+
+    @Query("DELETE FROM probe_results")
+    suspend fun deleteAllProbeResults()
+
+    @Query("DELETE FROM scan_sessions")
+    suspend fun deleteAllScanSessions()
 }

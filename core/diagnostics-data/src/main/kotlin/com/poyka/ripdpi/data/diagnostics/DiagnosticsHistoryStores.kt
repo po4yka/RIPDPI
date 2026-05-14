@@ -200,6 +200,10 @@ interface DiagnosticsHistoryRetentionStore {
     suspend fun trimOldData(retentionDays: Int)
 }
 
+interface DiagnosticsHistoryResetStore {
+    suspend fun clearRuntimeHistory()
+}
+
 @Singleton
 class RoomDiagnosticsProfileCatalog
     @Inject
@@ -536,6 +540,31 @@ class RoomDiagnosticsHistoryRetentionStore
         }
     }
 
+@Singleton
+class RoomDiagnosticsHistoryResetStore
+    @Inject
+    constructor(
+        private val db: DiagnosticsDatabase,
+        private val dao: DiagnosticsDao,
+    ) : DiagnosticsHistoryResetStore {
+        override suspend fun clearRuntimeHistory() {
+            db.withTransaction {
+                dao.deleteAllProbeResults()
+                dao.deleteAllScanSessions()
+                dao.deleteAllSnapshots()
+                dao.deleteAllContextSnapshots()
+                dao.deleteAllTelemetrySamples()
+                dao.deleteAllNativeEvents()
+                dao.deleteAllExportRecords()
+                dao.deleteAllBypassUsageSessions()
+                dao.clearRememberedNetworkPolicies()
+                dao.clearNetworkDnsPathPreferences()
+                dao.clearBlockedPaths()
+                dao.clearNetworkEdgePreferences()
+            }
+        }
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class DiagnosticsHistoryStoresModule {
@@ -590,6 +619,12 @@ abstract class DiagnosticsHistoryStoresModule {
     abstract fun bindDiagnosticsHistoryRetentionStore(
         store: RoomDiagnosticsHistoryRetentionStore,
     ): DiagnosticsHistoryRetentionStore
+
+    @Binds
+    @Singleton
+    abstract fun bindDiagnosticsHistoryResetStore(
+        store: RoomDiagnosticsHistoryResetStore,
+    ): DiagnosticsHistoryResetStore
 
     @Binds
     @Singleton
