@@ -13,6 +13,22 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.ResolverRecommendation
+import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidence
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditCoverage
+import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
+import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
+import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
+import com.poyka.ripdpi.diagnostics.StrategyProbeReport
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.permissions.PermissionSnapshot
@@ -24,12 +40,17 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 private val AutomationIntentAction = "${BuildConfig.APPLICATION_ID}.automation.ACTION"
 private val AutomationIntentKindExtra = "${BuildConfig.APPLICATION_ID}.automation.KIND"
+private const val AutomaticAuditProfileId = "automatic-audit"
+private const val AutomationReportDemoSessionId = "automation-report-demo-session"
 
 private enum class AutomationIntentKind {
     VpnConsent,
@@ -48,6 +69,9 @@ class DebugAutomationController
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
         private val serviceStateStore: ServiceStateStore,
+        private val scanRecordStore: DiagnosticsScanRecordStore,
+        @param:Named("diagnosticsJson")
+        private val diagnosticsJson: Json,
     ) : AutomationController,
         ServiceAutomationController {
         private val state = AtomicReference(AutomationRuntimeState())
@@ -85,6 +109,9 @@ class DebugAutomationController
                         preset = config.servicePreset,
                         configuredMode = Mode.fromString(seededSettings.ripdpiMode),
                     )
+                    if (config.dataPreset == AutomationDataPreset.DiagnosticsReportDemo) {
+                        seedDiagnosticsReportDemo()
+                    }
                 } else if (
                     previousState.config.enabled &&
                     previousState.config.servicePreset != AutomationServicePreset.Live
@@ -250,6 +277,13 @@ class DebugAutomationController
                             setNetworkStrategyMemoryEnabled(true)
                         }
 
+                        AutomationDataPreset.DiagnosticsReportDemo -> {
+                            setRipdpiMode(Mode.VPN.preferenceValue)
+                            setDiagnosticsMonitorEnabled(true)
+                            setDiagnosticsActiveProfileId(AutomaticAuditProfileId)
+                            setNetworkStrategyMemoryEnabled(true)
+                        }
+
                         AutomationDataPreset.BiometricLocked -> {
                             setRipdpiMode(Mode.VPN.preferenceValue)
                             setWebrtcProtectionEnabled(true)
@@ -258,6 +292,205 @@ class DebugAutomationController
                         }
                     }
                 }.build()
+
+        private suspend fun seedDiagnosticsReportDemo() {
+            val finishedAt = System.currentTimeMillis()
+            val startedAt = finishedAt - 12_000
+            val report =
+                EngineScanReportWire(
+                    sessionId = AutomationReportDemoSessionId,
+                    profileId = AutomaticAuditProfileId,
+                    pathMode = ScanPathMode.RAW_PATH,
+                    startedAt = startedAt,
+                    finishedAt = finishedAt,
+                    summary = "Automation diagnostics report ready",
+                    results = automationProbeResults(),
+                    resolverRecommendation = automationResolverRecommendation(),
+                    strategyProbeReport = automationStrategyProbeReport(),
+                    engineAnalysisVersion = "automation-fixture-v1",
+                    classifierVersion = "automation-fixture-v1",
+                )
+            val reportJson = diagnosticsJson.encodeToString(EngineScanReportWire.serializer(), report)
+            scanRecordStore.replaceProbeResults(
+                sessionId = AutomationReportDemoSessionId,
+                results =
+                    report.results.mapIndexed { index, result ->
+                        ProbeResultEntity(
+                            id = "$AutomationReportDemoSessionId-probe-$index",
+                            sessionId = AutomationReportDemoSessionId,
+                            probeType = result.probeType,
+                            target = result.target,
+                            outcome = result.outcome,
+                            detailJson =
+                                diagnosticsJson.encodeToString(
+                                    ListSerializer(ProbeDetail.serializer()),
+                                    result.details,
+                                ),
+                            createdAt = finishedAt,
+                        )
+                    },
+            )
+            scanRecordStore.upsertScanSession(
+                ScanSessionEntity(
+                    id = AutomationReportDemoSessionId,
+                    profileId = AutomaticAuditProfileId,
+                    pathMode = ScanPathMode.RAW_PATH.name,
+                    serviceMode = Mode.VPN.name,
+                    status = "completed",
+                    summary = report.summary,
+                    reportJson = reportJson,
+                    startedAt = startedAt,
+                    finishedAt = finishedAt,
+                    launchOrigin = "user_initiated",
+                    triggerType = "automation_fixture",
+                    triggerClassification = "debug",
+                    triggerOccurredAt = startedAt,
+                ),
+            )
+        }
+
+        private fun automationProbeResults(): List<EngineProbeResultWire> =
+            listOf(
+                EngineProbeResultWire(
+                    probeType = "dns",
+                    target = "example.test",
+                    outcome = "success",
+                    details =
+                        listOf(
+                            ProbeDetail("resolver", "adguard"),
+                            ProbeDetail("protocol", "doh"),
+                            ProbeDetail("latencyMs", "24"),
+                        ),
+                ),
+                EngineProbeResultWire(
+                    probeType = "web",
+                    target = "example.test",
+                    outcome = "success",
+                    details =
+                        listOf(
+                            ProbeDetail("status", "200"),
+                            ProbeDetail("pathMode", ScanPathMode.RAW_PATH.name),
+                        ),
+                ),
+            )
+
+        private fun automationResolverRecommendation(): ResolverRecommendation =
+            ResolverRecommendation(
+                triggerOutcome = "dns_fallback_success",
+                selectedResolverId = "adguard",
+                selectedProtocol = "doh",
+                selectedEndpoint = "https://dns.adguard-dns.com/dns-query",
+                selectedHost = "dns.adguard-dns.com",
+                selectedPort = 443,
+                selectedTlsServerName = "dns.adguard-dns.com",
+                selectedDohUrl = "https://dns.adguard-dns.com/dns-query",
+                rationale = "Automation fixture provides a deterministic encrypted resolver recommendation.",
+                appliedTemporarily = true,
+                persistable = true,
+            )
+
+        private fun automationStrategyProbeReport(): StrategyProbeReport =
+            StrategyProbeReport(
+                suiteId = "full_matrix_v1",
+                tcpCandidates =
+                    listOf(
+                        automationCandidate(
+                            id = "tlsrec_split_host",
+                            label = "TLS record split",
+                            family = "tls_record_split",
+                            outcome = "success",
+                        ),
+                        automationCandidate(
+                            id = "split_host",
+                            label = "Host split",
+                            family = "split",
+                            outcome = "partial",
+                            succeededTargets = 1,
+                        ),
+                    ),
+                quicCandidates =
+                    listOf(
+                        automationCandidate(
+                            id = "quic_sni_split",
+                            label = "QUIC SNI split",
+                            family = "quic_sni_split",
+                            outcome = "success",
+                        ),
+                        automationCandidate(
+                            id = "quic_disabled",
+                            label = "QUIC disabled",
+                            family = "quic_disabled",
+                            outcome = "skipped",
+                            succeededTargets = 0,
+                            skipped = true,
+                        ),
+                    ),
+                recommendation =
+                    StrategyProbeRecommendation(
+                        tcpCandidateId = "tlsrec_split_host",
+                        tcpCandidateLabel = "TLS record split",
+                        tcpCandidateFamily = "tls_record_split",
+                        quicCandidateId = "quic_sni_split",
+                        quicCandidateLabel = "QUIC SNI split",
+                        quicCandidateFamily = "quic_sni_split",
+                        dnsStrategyFamily = "encrypted_dns",
+                        dnsStrategyLabel = "Encrypted DNS",
+                        rationale = "Automation fixture uses successful TCP and QUIC candidates.",
+                        recommendedProxyConfigJson = "{}",
+                    ),
+                completionKind = StrategyProbeCompletionKind.NORMAL,
+                auditAssessment =
+                    StrategyProbeAuditAssessment(
+                        coverage =
+                            StrategyProbeAuditCoverage(
+                                tcpCandidatesPlanned = 2,
+                                tcpCandidatesExecuted = 2,
+                                tcpCandidatesSkipped = 0,
+                                tcpCandidatesNotApplicable = 0,
+                                quicCandidatesPlanned = 2,
+                                quicCandidatesExecuted = 1,
+                                quicCandidatesSkipped = 1,
+                                quicCandidatesNotApplicable = 0,
+                                tcpWinnerSucceededTargets = 2,
+                                tcpWinnerTotalTargets = 2,
+                                quicWinnerSucceededTargets = 2,
+                                quicWinnerTotalTargets = 2,
+                                matrixCoveragePercent = 75,
+                                winnerCoveragePercent = 100,
+                                tcpWinnerCoveragePercent = 100,
+                                quicWinnerCoveragePercent = 100,
+                            ),
+                        confidence =
+                            StrategyProbeAuditConfidence(
+                                level = StrategyProbeAuditConfidenceLevel.MEDIUM,
+                                score = 82,
+                                rationale = "Automation fixture covers the report, audit, and winning-path UI states.",
+                            ),
+                    ),
+            )
+
+        private fun automationCandidate(
+            id: String,
+            label: String,
+            family: String,
+            outcome: String,
+            succeededTargets: Int = 2,
+            skipped: Boolean = false,
+        ): StrategyProbeCandidateSummary =
+            StrategyProbeCandidateSummary(
+                id = id,
+                label = label,
+                family = family,
+                outcome = outcome,
+                rationale = "Automation fixture candidate",
+                succeededTargets = succeededTargets,
+                totalTargets = 2,
+                weightedSuccessScore = succeededTargets * 50,
+                totalWeight = 100,
+                qualityScore = if (skipped) 0 else 80,
+                skipped = skipped,
+                averageLatencyMs = if (skipped) null else 42,
+            )
 
         private fun instrumentationArgs(): Map<String, Any?> =
             runCatching {

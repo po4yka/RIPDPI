@@ -283,7 +283,9 @@ internal class DiagnosticsUiStateAssembler
                 rememberedPolicies = config.rememberedPolicies,
                 activeConnectionPolicy = config.activeConnectionPolicy,
                 selectedSectionRequest = controls.selection.selectedSectionRequest,
-                selectedProfileId = controls.selection.selectedProfileId,
+                selectedProfileId =
+                    controls.selection.selectedProfileId
+                        ?: config.settings.diagnosticsActiveProfileId.takeIf { it.isNotBlank() },
                 selectedApproachMode = controls.selection.selectedApproachMode,
                 selectedProbe = controls.selection.selectedProbe,
                 selectedEventId = controls.selection.selectedEventId,

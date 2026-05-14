@@ -39,7 +39,8 @@ Supported preset values:
 
 - `PERMISSION_PRESET`: `granted`, `notifications_missing`, `vpn_missing`, `battery_review`
 - `SERVICE_PRESET`: `idle`, `connected_proxy`, `connected_vpn`, `live`
-- `DATA_PRESET`: `clean_home`, `settings_ready`, `diagnostics_demo`, `biometric_locked`
+- `DATA_PRESET`: `clean_home`, `settings_ready`, `diagnostics_demo`, `diagnostics_report_demo`,
+  `biometric_locked`
 
 Intent extras take precedence over mirrored instrumentation arguments with the same keys.
 

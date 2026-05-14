@@ -82,7 +82,7 @@ def test_scan_cancel(driver):
 
 @pytest.mark.automation(
     start_route="diagnostics",
-    data_preset="diagnostics_demo",
+    data_preset="diagnostics_report_demo",
     service_preset="connected_vpn",
 )
 def test_strategy_report_and_resolver(driver):
@@ -90,7 +90,8 @@ def test_strategy_report_and_resolver(driver):
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
     diag.swipe_to_scan_section()
-    run_raw_scan_or_skip(diag)
+    if not diag.is_scan_has_content():
+        run_raw_scan_or_skip(diag)
 
     # Wait for scan to complete and produce content.
     try:

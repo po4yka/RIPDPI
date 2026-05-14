@@ -6,13 +6,14 @@ from pages.diagnostics_page import DiagnosticsPage
 
 @pytest.mark.automation(
     start_route="diagnostics",
-    data_preset="diagnostics_demo",
+    data_preset="diagnostics_report_demo",
     service_preset="connected_vpn",
 )
 def test_strategy_winning_path_elements(driver):
     diag = DiagnosticsPage(driver)
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
+    diag.swipe_to_scan_section()
     try:
         diag.wait_until(
             lambda: diag.is_scan_has_content(),
@@ -22,7 +23,6 @@ def test_strategy_winning_path_elements(driver):
     except TimeoutError:
         pytest.skip("Scan did not complete with content in time")
 
-    diag.swipe_to_scan_section()
     diag.scroll_to(DiagnosticsPage.STRATEGY_WINNING_PATH)
 
     assert diag.is_visible(DiagnosticsPage.STRATEGY_WINNING_PATH), (
@@ -38,13 +38,14 @@ def test_strategy_winning_path_elements(driver):
 
 @pytest.mark.automation(
     start_route="diagnostics",
-    data_preset="diagnostics_demo",
+    data_preset="diagnostics_report_demo",
     service_preset="connected_vpn",
 )
 def test_strategy_full_matrix_toggle(driver):
     diag = DiagnosticsPage(driver)
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
+    diag.swipe_to_scan_section()
     try:
         diag.wait_until(
             lambda: diag.is_scan_has_content(),
@@ -54,7 +55,6 @@ def test_strategy_full_matrix_toggle(driver):
     except TimeoutError:
         pytest.skip("Scan did not complete with content in time")
 
-    diag.swipe_to_scan_section()
     diag.scroll_to(DiagnosticsPage.STRATEGY_FULL_MATRIX_TOGGLE)
 
     assert diag.is_visible(DiagnosticsPage.STRATEGY_FULL_MATRIX_TOGGLE), (
@@ -65,13 +65,14 @@ def test_strategy_full_matrix_toggle(driver):
 
 @pytest.mark.automation(
     start_route="diagnostics",
-    data_preset="diagnostics_demo",
+    data_preset="diagnostics_report_demo",
     service_preset="connected_vpn",
 )
 def test_strategy_audit_assessment_visible(driver):
     diag = DiagnosticsPage(driver)
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
+    diag.swipe_to_scan_section()
     try:
         diag.wait_until(
             lambda: diag.is_scan_has_content(),
@@ -81,7 +82,6 @@ def test_strategy_audit_assessment_visible(driver):
     except TimeoutError:
         pytest.skip("Scan did not complete with content in time")
 
-    diag.swipe_to_scan_section()
     diag.scroll_to(DiagnosticsPage.STRATEGY_AUDIT_ASSESSMENT)
 
     assert diag.is_visible(DiagnosticsPage.STRATEGY_AUDIT_ASSESSMENT), (

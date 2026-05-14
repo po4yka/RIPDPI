@@ -5,12 +5,20 @@ import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeServiceStateStore
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,7 +36,7 @@ class DebugAutomationControllerTest {
         runTest {
             val repository = FakeAppSettingsRepository()
             val serviceStateStore = FakeServiceStateStore()
-            val controller = DebugAutomationController(repository, serviceStateStore)
+            val controller = newController(repository, serviceStateStore)
 
             controller.prepareLaunch(
                 automationIntent(
@@ -49,7 +57,7 @@ class DebugAutomationControllerTest {
 
     @Test
     fun `permission preset overrides provider snapshot`() {
-        val controller = DebugAutomationController(FakeAppSettingsRepository(), FakeServiceStateStore())
+        val controller = newController()
 
         controller.prepareLaunch(
             automationIntent(
@@ -67,7 +75,7 @@ class DebugAutomationControllerTest {
     fun `biometric locked preset seeds the app lock gate`() =
         runTest {
             val repository = FakeAppSettingsRepository()
-            val controller = DebugAutomationController(repository, FakeServiceStateStore())
+            val controller = newController(repository)
 
             controller.prepareLaunch(
                 automationIntent(
@@ -84,9 +92,36 @@ class DebugAutomationControllerTest {
         }
 
     @Test
+    fun `diagnostics report preset seeds completed report session`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val scanRecordStore = FakeDiagnosticsScanRecordStore()
+            val controller =
+                newController(
+                    appSettingsRepository = repository,
+                    scanRecordStore = scanRecordStore,
+                )
+
+            controller.prepareLaunch(
+                automationIntent(
+                    dataPreset = AutomationDataPreset.DiagnosticsReportDemo,
+                    servicePreset = AutomationServicePreset.ConnectedVpn,
+                ),
+            )
+
+            val settings = repository.snapshot()
+            val session = scanRecordStore.getScanSession("automation-report-demo-session")
+            assertEquals("automatic-audit", settings.diagnosticsActiveProfileId)
+            assertEquals("automatic-audit", session?.profileId)
+            assertEquals("completed", session?.status)
+            assertNotNull(session?.reportJson)
+            assertEquals(2, scanRecordStore.getProbeResults("automation-report-demo-session").size)
+        }
+
+    @Test
     fun `fake start and stop mutate service state when preset is not live`() {
         val serviceStateStore = FakeServiceStateStore()
-        val controller = DebugAutomationController(FakeAppSettingsRepository(), serviceStateStore)
+        val controller = newController(serviceStateStore = serviceStateStore)
 
         controller.prepareLaunch(
             automationIntent(
@@ -105,7 +140,7 @@ class DebugAutomationControllerTest {
     fun `live service preset preserves real service state`() =
         runTest {
             val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy)
-            val controller = DebugAutomationController(FakeAppSettingsRepository(), serviceStateStore)
+            val controller = newController(serviceStateStore = serviceStateStore)
 
             controller.prepareLaunch(
                 automationIntent(
@@ -133,4 +168,48 @@ class DebugAutomationControllerTest {
             putExtra(AutomationLaunchContract.ServicePreset, servicePreset.wireValue)
             putExtra(AutomationLaunchContract.DataPreset, dataPreset.wireValue)
         }
+
+    private fun newController(
+        appSettingsRepository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+        serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
+        scanRecordStore: FakeDiagnosticsScanRecordStore = FakeDiagnosticsScanRecordStore(),
+    ): DebugAutomationController =
+        DebugAutomationController(
+            appSettingsRepository = appSettingsRepository,
+            serviceStateStore = serviceStateStore,
+            scanRecordStore = scanRecordStore,
+            diagnosticsJson =
+                Json {
+                    ignoreUnknownKeys = true
+                    encodeDefaults = true
+                    explicitNulls = false
+                },
+        )
+
+    private class FakeDiagnosticsScanRecordStore : DiagnosticsScanRecordStore {
+        private val sessions = MutableStateFlow<List<ScanSessionEntity>>(emptyList())
+        private val probeResults = mutableMapOf<String, List<ProbeResultEntity>>()
+
+        override fun observeRecentScanSessions(limit: Int): Flow<List<ScanSessionEntity>> =
+            sessions.map { values -> values.take(limit) }
+
+        override suspend fun getScanSession(sessionId: String): ScanSessionEntity? =
+            sessions.value.firstOrNull { it.id == sessionId }
+
+        override suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> =
+            probeResults[sessionId].orEmpty()
+
+        override suspend fun upsertScanSession(session: ScanSessionEntity) {
+            sessions.value =
+                (sessions.value.filterNot { it.id == session.id } + session)
+                    .sortedByDescending { it.startedAt }
+        }
+
+        override suspend fun replaceProbeResults(
+            sessionId: String,
+            results: List<ProbeResultEntity>,
+        ) {
+            probeResults[sessionId] = results
+        }
+    }
 }

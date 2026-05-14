@@ -64,6 +64,7 @@ enum class AutomationDataPreset(
     CleanHome("clean_home"),
     SettingsReady("settings_ready"),
     DiagnosticsDemo("diagnostics_demo"),
+    DiagnosticsReportDemo("diagnostics_report_demo"),
     BiometricLocked("biometric_locked"),
     ;
 
