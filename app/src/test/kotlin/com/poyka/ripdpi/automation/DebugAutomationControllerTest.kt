@@ -81,6 +81,24 @@ class DebugAutomationControllerTest {
         assertEquals(AppStatus.Halted to Mode.VPN, serviceStateStore.status.value)
     }
 
+    @Test
+    fun `live service preset preserves real service state`() =
+        runTest {
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy)
+            val controller = DebugAutomationController(FakeAppSettingsRepository(), serviceStateStore)
+
+            controller.prepareLaunch(
+                automationIntent(
+                    servicePreset = AutomationServicePreset.Live,
+                ),
+            )
+
+            assertEquals(AppStatus.Running to Mode.Proxy, serviceStateStore.status.value)
+            assertFalse(controller.interceptStart(Mode.VPN))
+            assertFalse(controller.interceptStop(Mode.Proxy))
+            assertEquals(AppStatus.Running to Mode.Proxy, serviceStateStore.status.value)
+        }
+
     private fun automationIntent(
         disableMotion: Boolean = false,
         permissionPreset: AutomationPermissionPreset = AutomationPermissionPreset.Granted,

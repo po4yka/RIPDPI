@@ -411,10 +411,12 @@ class DebugAutomationController
             configuredMode: Mode,
         ) {
             when (preset) {
-                AutomationServicePreset.Idle,
-                AutomationServicePreset.Live,
-                -> {
+                AutomationServicePreset.Idle -> {
                     applyIdleServiceState(configuredMode)
+                }
+
+                AutomationServicePreset.Live -> {
+                    Unit
                 }
 
                 AutomationServicePreset.ConnectedProxy -> {
