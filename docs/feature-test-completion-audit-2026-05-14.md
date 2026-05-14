@@ -42,7 +42,8 @@ available in the current local lab.
 - Working tree scope: this audit update reflects the latest Appium DNS-settings,
   deterministic diagnostics report, activation-window, background-guidance,
   and backup-PIN fixture stabilization plus matching evidence rows.
-- Local post-commit checks: static analysis, focused JVM automation tests,
+- Local post-commit checks: static analysis reran on local HEAD `4d4a0b3c`,
+  focused JVM automation tests,
   Appium/Maestro slices, workflow journeys, and whitespace diff checks passed.
 - Remote state: `origin/main` CI run `25849548946`, CodeQL run
   `25849548925`, and Dependency Graph run `25849550975` are green for
