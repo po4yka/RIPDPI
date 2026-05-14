@@ -5,8 +5,8 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::types::ScanKind;
 
-use super::artifacts::CollectedStageOutcome;
 use super::plan::ExecutionPlan;
+use super::recording::{record_steps, CollectedStageOutcome};
 use super::stage::{ExecutionStageId, ExecutionStageRunner, RunnerOutcome};
 use super::state::ExecutionRuntime;
 
@@ -86,17 +86,7 @@ impl ExecutionCoordinator {
                                 steps
                             }
                         };
-                        for step in steps {
-                            runtime.record_step(
-                                plan,
-                                step.phase,
-                                step.message,
-                                step.latest_probe_target,
-                                step.latest_probe_outcome,
-                                None,
-                                step.artifacts,
-                            );
-                        }
+                        record_steps(plan, runtime, steps);
                     }
                     if cancelled {
                         return RunnerOutcome::Cancelled;

@@ -57,18 +57,3 @@ fn diagnostics_event(source: &str, level: &str, message: String) -> NativeSessio
         subsystem: Some("diagnostics".to_string()),
     }
 }
-
-/// A single recorded step collected outside of `ExecutionRuntime`, used by the
-/// parallel runner path to accumulate results without shared mutable state.
-pub(in crate::engine) struct CollectedStep {
-    pub(in crate::engine) phase: &'static str,
-    pub(in crate::engine) message: String,
-    pub(in crate::engine) latest_probe_target: Option<String>,
-    pub(in crate::engine) latest_probe_outcome: Option<String>,
-    pub(in crate::engine) artifacts: RunnerArtifacts,
-}
-
-pub(in crate::engine) enum CollectedStageOutcome {
-    Completed(Vec<CollectedStep>),
-    Cancelled(Vec<CollectedStep>),
-}

@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use super::artifacts::CollectedStageOutcome;
 use super::plan::ExecutionPlan;
+use super::recording::{record_collected_outcome, CollectedStageOutcome};
 use super::state::ExecutionRuntime;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -43,36 +43,7 @@ pub(in crate::engine) trait ExecutionStageRunner {
         runtime: &mut ExecutionRuntime,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> RunnerOutcome {
-        match self.run_collecting(plan, runtime.cancel_token(), tls_verifier) {
-            CollectedStageOutcome::Completed(steps) => {
-                for step in steps {
-                    runtime.record_step(
-                        plan,
-                        step.phase,
-                        step.message,
-                        step.latest_probe_target,
-                        step.latest_probe_outcome,
-                        None,
-                        step.artifacts,
-                    );
-                }
-                RunnerOutcome::Completed
-            }
-            CollectedStageOutcome::Cancelled(steps) => {
-                for step in steps {
-                    runtime.record_step(
-                        plan,
-                        step.phase,
-                        step.message,
-                        step.latest_probe_target,
-                        step.latest_probe_outcome,
-                        None,
-                        step.artifacts,
-                    );
-                }
-                RunnerOutcome::Cancelled
-            }
-        }
+        record_collected_outcome(plan, runtime, self.run_collecting(plan, runtime.cancel_token(), tls_verifier))
     }
 
     /// Run without touching `runtime`, returning all steps collected independently.

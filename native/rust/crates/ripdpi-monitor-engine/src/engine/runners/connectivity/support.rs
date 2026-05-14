@@ -17,11 +17,8 @@ pub(super) trait ConnectivityProbeFamily {
     fn latest_target(target: &Self::Target) -> String {
         Self::message(target)
     }
-    fn run_probe(
-        target: &Self::Target,
-        plan: &ExecutionPlan,
-        tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    ) -> ProbeResult;
+    #[rustfmt::skip]
+    fn run_probe(target: &Self::Target, plan: &ExecutionPlan, tls_verifier: Option<&Arc<dyn ServerCertVerifier>>) -> ProbeResult;
 }
 
 pub(super) fn target_count<F: ConnectivityProbeFamily>(plan: &ExecutionPlan) -> usize {
