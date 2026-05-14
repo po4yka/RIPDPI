@@ -50,6 +50,31 @@ The debug probe writes JSON to:
 Production builds do not include the probe receiver or the debug TLS trust
 behavior because both live under `app/src/debug`.
 
+Before a release or broad manual pass, record which remaining checklist rows
+the current host and attached device can cover:
+
+```bash
+./test-lab/scripts/check-feature-gap-readiness.sh
+```
+
+The readiness probe writes
+`test-lab/artifacts/feature-gap-readiness.json` and is read-only. It checks for
+an attached Android device, root availability, active TalkBack, visible Wi-Fi
+and cellular transports, routed netem host prerequisites, operator-provided
+relay matrix configuration, and whether local commits still need fresh remote
+workflow confirmation.
+
+Provider-backed relay runs use an operator-owned matrix manifest. Keep live
+endpoints and secrets outside the repository, then validate the manifest before
+running the matrix:
+
+```bash
+cp test-lab/relay/provider-matrix.example.json /path/to/private-relay-matrix.json
+test-lab/scripts/check-relay-matrix-config.sh --config /path/to/private-relay-matrix.json
+RIPDPI_RELAY_MATRIX_CONFIG=/path/to/private-relay-matrix.json \
+  ./test-lab/scripts/check-feature-gap-readiness.sh
+```
+
 `start-lab.sh` writes the resolved host IP, DNS port, and profile to
 `test-lab/artifacts/lab-env.sh`; the ADB probe scripts source that file
 automatically. The host DNS port defaults to `1053` because macOS often already

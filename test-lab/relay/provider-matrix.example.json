@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "description": "Placeholder manifest shape for private provider-backed relay validation. Keep live endpoints and secrets outside the repository.",
+  "relays": [
+    {
+      "id": "mock_relay",
+      "kind": "mock_relay",
+      "endpointRef": "local:test-lab-mock-relay",
+      "credentialRef": "none",
+      "scenarios": [
+        "proxy",
+        "vpn",
+        "diagnostics",
+        "restart",
+        "invalid_credentials",
+        "server_reset",
+        "timeout",
+        "malformed_response",
+        "dns_fallback",
+        "network_handover"
+      ]
+    },
+    {
+      "id": "vless_reality",
+      "kind": "vless_reality",
+      "endpointRef": "env:RELAY_VLESS_REALITY_ENDPOINT",
+      "credentialRef": "env:RELAY_VLESS_REALITY_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    },
+    {
+      "id": "vless_xhttp",
+      "kind": "vless_xhttp",
+      "endpointRef": "env:RELAY_VLESS_XHTTP_ENDPOINT",
+      "credentialRef": "env:RELAY_VLESS_XHTTP_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    },
+    {
+      "id": "warp",
+      "kind": "warp",
+      "endpointRef": "env:RELAY_WARP_ENDPOINT",
+      "credentialRef": "env:RELAY_WARP_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    },
+    {
+      "id": "cloudflare_tunnel",
+      "kind": "cloudflare_tunnel",
+      "endpointRef": "env:RELAY_CLOUDFLARE_TUNNEL_ENDPOINT",
+      "credentialRef": "env:RELAY_CLOUDFLARE_TUNNEL_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    },
+    {
+      "id": "masque",
+      "kind": "masque",
+      "endpointRef": "env:RELAY_MASQUE_ENDPOINT",
+      "credentialRef": "env:RELAY_MASQUE_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    },
+    {
+      "id": "hysteria2",
+      "kind": "hysteria2",
+      "endpointRef": "env:RELAY_HYSTERIA2_ENDPOINT",
+      "credentialRef": "env:RELAY_HYSTERIA2_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    },
+    {
+      "id": "tuic_v5",
+      "kind": "tuic_v5",
+      "endpointRef": "env:RELAY_TUIC_V5_ENDPOINT",
+      "credentialRef": "env:RELAY_TUIC_V5_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    },
+    {
+      "id": "shadowtls_v3",
+      "kind": "shadowtls_v3",
+      "endpointRef": "env:RELAY_SHADOWTLS_V3_ENDPOINT",
+      "credentialRef": "env:RELAY_SHADOWTLS_V3_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    },
+    {
+      "id": "naiveproxy",
+      "kind": "naiveproxy",
+      "endpointRef": "env:RELAY_NAIVEPROXY_ENDPOINT",
+      "credentialRef": "env:RELAY_NAIVEPROXY_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    },
+    {
+      "id": "webtunnel",
+      "kind": "webtunnel",
+      "endpointRef": "env:RELAY_WEBTUNNEL_ENDPOINT",
+      "credentialRef": "env:RELAY_WEBTUNNEL_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    },
+    {
+      "id": "obfs4",
+      "kind": "obfs4",
+      "endpointRef": "env:RELAY_OBFS4_ENDPOINT",
+      "credentialRef": "env:RELAY_OBFS4_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    },
+    {
+      "id": "snowflake",
+      "kind": "snowflake",
+      "endpointRef": "env:RELAY_SNOWFLAKE_ENDPOINT",
+      "credentialRef": "env:RELAY_SNOWFLAKE_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    },
+    {
+      "id": "google_apps_script",
+      "kind": "google_apps_script",
+      "endpointRef": "env:RELAY_GOOGLE_APPS_SCRIPT_ENDPOINT",
+      "credentialRef": "env:RELAY_GOOGLE_APPS_SCRIPT_CREDENTIALS",
+      "scenarios": ["proxy", "vpn", "diagnostics", "restart", "invalid_credentials", "server_reset", "timeout", "malformed_response", "dns_fallback", "network_handover"]
+    }
+  ]
+}

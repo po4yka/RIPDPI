@@ -64,6 +64,29 @@ jobs:
           grep -F -- "--ez require_vpn_active false" <<<"$command"
           grep -F -- "--ez require_proxy_ready false" <<<"$command"
 
+      - name: Validate feature gap readiness preflight
+        run: |
+          set -euo pipefail
+          test-lab/scripts/check-relay-matrix-config.sh \
+            --config test-lab/relay/provider-matrix.example.json
+          invalid_matrix="$RUNNER_TEMP/invalid-relay-matrix.json"
+          printf '{"version":1,"relays":[]}\n' > "$invalid_matrix"
+          if test-lab/scripts/check-relay-matrix-config.sh --config "$invalid_matrix"; then
+            echo "Invalid relay matrix unexpectedly passed validation" >&2
+            exit 1
+          fi
+          ./test-lab/scripts/check-feature-gap-readiness.sh \
+            --output "$RUNNER_TEMP/feature-gap-readiness.json"
+          jq -e '.checks[] | select(.name == "android_device")' \
+            "$RUNNER_TEMP/feature-gap-readiness.json"
+          jq -e '.checks[] | select(.name == "remote_workflow_confirmation")' \
+            "$RUNNER_TEMP/feature-gap-readiness.json"
+          RIPDPI_RELAY_MATRIX_CONFIG=test-lab/relay/provider-matrix.example.json \
+            ./test-lab/scripts/check-feature-gap-readiness.sh \
+              --output "$RUNNER_TEMP/feature-gap-readiness-with-relay.json"
+          jq -e '.checks[] | select(.name == "production_relay_matrix" and .status == "manual")' \
+            "$RUNNER_TEMP/feature-gap-readiness-with-relay.json"
+
       - name: Validate VPN E2E Maestro precondition
         run: |
           set -euo pipefail
