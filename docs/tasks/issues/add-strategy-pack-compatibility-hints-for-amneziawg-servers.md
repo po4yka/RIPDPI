@@ -86,3 +86,19 @@ arms that touch `Jc/Jmin/Jmax/S1–S4/H1–H4/I1–I5`.
 - Verify: `./gradlew :core:data:testDebugUnitTest` — BUILD SUCCESSFUL
   (exit 0). `:core:data:catalog:detekt` and `:core:data:detekt` —
   BUILD SUCCESSFUL (exit 0); `ktlint` clean on all changed files.
+- 2026-05-14 — Native follow-up implemented. Added
+  `native/rust/crates/ripdpi-strategy-registry/src/fixed_config.rs`
+  (`CandidateArm`, `FixedConfigProtocols` with a `Default` of
+  `["amneziawg"]`, `CandidateArmViolation` via `thiserror`,
+  `validate_candidate_arm` / `filter_candidate_arms`) mirroring the Kotlin
+  `StrategyPackCatalog.isFixedConfigProtocol` / `validateCandidateArm`
+  semantics (case/trim-insensitive match, selection-only arm allowed).
+  Re-exported from `src/lib.rs` and exposed thin
+  `StrategyRegistry::validate_candidate_arm` /
+  `filter_candidate_arms` delegates. TDD: new integration test
+  `native/rust/crates/ripdpi-strategy-registry/tests/fixed_config.rs`
+  written first, confirmed RED (fails to compile), then GREEN.
+  Verify: `cargo nextest run --manifest-path native/rust/Cargo.toml -p
+  ripdpi-strategy-registry` — 31 tests passed (exit 0);
+  `cargo clippy ... -p ripdpi-strategy-registry --all-targets -- -D
+  warnings` — clean (exit 0); `cargo fmt -- --check` — clean (exit 0).
