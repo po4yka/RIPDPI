@@ -14,6 +14,16 @@ updated: 2026-04-20
 
 - [ ] #task Decouple JNI handle-lifetime and telemetry locking #repo/RIPDPI #area/service #status/blocked 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `decouple-jni-handle-lifetime-and-telemetry-locking`
+- **Verify:** `just test-module core:engine`
+- **Scope (only modify these + this file + the ledger):** `core/engine/**`
+- **Blocked-by (must be DONE in the ledger first):** `surface-typed-cache-degradation-reasons`
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 `RipDpiProxy` and `RipDpiRelay` serialize all handle-sensitive JNI work

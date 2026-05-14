@@ -22,15 +22,15 @@ def test_settings_preferences(driver):
     # Dismiss by tapping elsewhere (back to settings context).
     settings.driver.back()
 
-    # Biometric toggle should show confirmation dialog.
+    # Biometric unlock requires a local fallback PIN before it can be enabled.
     settings.tap_biometric_toggle()
-    assert settings.is_biometric_confirm_visible(), (
-        "Biometric confirmation dialog should appear"
+    assert settings.is_biometric_pin_required_visible(), (
+        "Backup PIN requirement dialog should appear before biometric enablement"
     )
-    settings.dismiss_biometric_confirm()
+    settings.dismiss_biometric_pin_required()
 
     # Scroll to backup PIN field.
-    settings.scroll_to(settings.BACKUP_PIN_FIELD)
+    settings.scroll_down_to(settings.BACKUP_PIN_FIELD, max_swipes=12)
     assert settings.is_backup_pin_field_visible(), (
         "Backup PIN field should be visible"
     )

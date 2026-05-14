@@ -14,6 +14,16 @@ updated: 2026-05-04
 
 - [ ] #task Adopt HandleReservation primitive in NetworkDiagnostics (cancelScan latency) #repo/RIPDPI #area/service #status/blocked ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `adopt-handlereservation-primitive-in-networkdiagnostics-cancelscan-latency`
+- **Verify:** `just test-module core:engine`
+- **Scope (only modify these + this file + the ledger):** `core/engine/src/**`
+- **Blocked-by (must be DONE in the ledger first):** `decouple-jni-handle-lifetime-and-telemetry-locking`
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Follow-up to POY-175. Replace the single `kotlinx.coroutines.sync.Mutex` in `NetworkDiagnostics` with the `HandleReservation` primitive landed by POY-175. This is the highest-severity sibling because `cancelScan()` is the operator-visible "abort scan" path: today a long-running `pollProgressJson()` JNI call serializes `cancelScan()`, directly affecting perceived responsiveness.

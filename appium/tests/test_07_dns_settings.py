@@ -14,6 +14,7 @@ def test_plain_dns_save(driver):
     dns = DnsSettingsPage(driver)
     assert dns.is_loaded(), "DNS settings screen should be visible"
 
+    dns.select_mode("plain-udp")
     dns.set_plain_address("1.1.1.1")
     assert dns.is_plain_save_visible(), "Plain save button should be visible after entering address"
 

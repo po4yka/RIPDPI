@@ -4,8 +4,9 @@ Python + pytest test suite targeting the RIPDPI debug automation contract via Ap
 
 ## Prerequisites
 
-- Debug APK installed on an emulator or device (`./gradlew assembleDebug`).
-- Appium 2.x with the UiAutomator2 driver:
+- Debug APK installed on an emulator or device (`./gradlew :app:assembleGithubDebug`
+  or `./gradlew assembleDebug`).
+- Appium 2.x/3.x with the UiAutomator2 driver:
   ```bash
   npm install -g appium
   appium driver install uiautomator2
@@ -17,24 +18,31 @@ Python + pytest test suite targeting the RIPDPI debug automation contract via Ap
 
 ## Run
 
-Start Appium server in one terminal:
+Use the repository runner for local and CI smoke checks. It installs the debug
+APK, starts Appium with the required UiAutomator2 `adb_shell` permission,
+exports `ANDROID_HOME`/`ANDROID_SDK_ROOT` from the default local SDK path when
+needed, and runs pytest:
 
 ```bash
-appium
+bash scripts/ci/run-appium-smoke.sh
 ```
 
-Run all tests in another:
+Run selected tests by passing pytest targets:
 
 ```bash
-cd appium
-pytest tests/ -v
+bash scripts/ci/run-appium-smoke.sh \
+  tests/test_01_cold_launch.py \
+  tests/test_02_tab_navigation.py \
+  tests/test_03_settings_navigation.py
 ```
 
-Run a single test:
+Set `PYTHON_BIN` when using a virtual environment, and set `APPIUM_APK_PATH`
+when the debug APK is outside the default Gradle output locations:
 
 ```bash
-cd appium
-pytest tests/test_01_cold_launch.py -v
+PYTHON_BIN=/tmp/ripdpi-appium-venv/bin/python \
+APPIUM_APK_PATH="$PWD/app/build/outputs/apk/github/debug/app-github-universal-debug.apk" \
+bash scripts/ci/run-appium-smoke.sh tests/test_01_cold_launch.py
 ```
 
 Generate an HTML report:

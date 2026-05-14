@@ -15,7 +15,7 @@ class AdvancedSettingsPage(BasePage):
         return self.is_visible(self.SCREEN)
 
     def edit_retention_days(self, value: str) -> None:
-        el = self.scroll_to(self.RETENTION_INPUT)
+        el = self.scroll_down_to(self.RETENTION_INPUT)
         el.clear()
         el.send_keys(value)
 
@@ -24,12 +24,12 @@ class AdvancedSettingsPage(BasePage):
 
     def toggle_setting(self, setting_name: str) -> None:
         tag = f"advanced-toggle-{setting_name}"
-        self.scroll_to(tag)
+        self.scroll_down_to(tag)
         self.tap(tag)
 
     def edit_input(self, setting_name: str, value: str) -> None:
         tag = f"advanced-input-{setting_name}"
-        el = self.scroll_to(tag)
+        el = self.scroll_to(tag, max_swipes=14)
         el.clear()
         el.send_keys(value)
 
@@ -38,20 +38,20 @@ class AdvancedSettingsPage(BasePage):
 
     def tap_option(self, setting_name: str) -> None:
         tag = f"advanced-option-{setting_name}"
-        self.scroll_to(tag)
+        self.scroll_to(tag, max_swipes=14)
         self.tap(tag)
 
     # -- activation window helpers -----------------------------------------------
 
     def edit_activation_start(self, dimension: str, value: str) -> None:
         tag = f"advanced-{dimension}-from"
-        el = self.scroll_to(tag)
+        el = self.scroll_down_to(tag, max_swipes=14)
         el.clear()
         el.send_keys(value)
 
     def edit_activation_end(self, dimension: str, value: str) -> None:
         tag = f"advanced-{dimension}-to"
-        el = self.scroll_to(tag)
+        el = self.scroll_down_to(tag, max_swipes=14)
         el.clear()
         el.send_keys(value)
 

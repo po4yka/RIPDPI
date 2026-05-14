@@ -14,6 +14,16 @@ updated: 2026-05-08
 
 - [ ] #task Redesign Home / Config / Diagnostics tabs for mode-first UX #repo/RIPDPI #area/epic #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `epic-home-config-diagnostics-mode-first-ux`
+- **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
+- **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Goal
 
 Replace the current single-purpose tabs with a mode-first home screen that surfaces three distinct operating modes — local DPI bypass, VPN with remote server, and diagnostic scan — as first-class cards. Each card gives status at a glance and a direct enable/launch action without requiring navigation into Config or Diagnostics first.

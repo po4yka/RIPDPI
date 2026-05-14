@@ -14,6 +14,16 @@ updated: 2026-04-20
 
 - [ ] #task Pin RFC 9849 wording in owned-stack epic and host-pack schema #repo/RIPDPI #area/diagnostics #status/backlog 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `pin-rfc-9849-wording-in-owned-stack-epic-and-host-pack-schema`
+- **Verify:** `just lint`
+- **Scope (only modify these + this file + the ledger):** `core/diagnostics/**`, `core/data/model/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Replace draft-ietf-tls-esni-25 references with RFC 9849 across the owned-

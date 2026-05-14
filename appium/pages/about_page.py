@@ -14,7 +14,9 @@ class AboutPage(BasePage):
         return self.is_visible(self.SCREEN)
 
     def is_source_code_visible(self) -> bool:
+        self.scroll_down_to(self.SOURCE_CODE)
         return self.is_visible(self.SOURCE_CODE)
 
     def is_readme_visible(self) -> bool:
+        self.scroll_down_to(self.README)
         return self.is_visible(self.README)

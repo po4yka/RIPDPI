@@ -51,6 +51,7 @@ ralph.yml
 hats.yml
 PROMPT.md
 /specs/
+/.tmp/
 .worktrees/
 .claude/worktrees/
 .claude/settings.json

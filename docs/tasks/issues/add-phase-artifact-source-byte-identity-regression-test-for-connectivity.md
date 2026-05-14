@@ -14,6 +14,16 @@ updated: 2026-05-04
 
 - [ ] #task Add phase/artifact-source byte-identity regression test for connectivity stage runners #repo/RIPDPI #area/testing #status/doing ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `add-phase-artifact-source-byte-identity-regression-test-for-connectivity`
+- **Verify:** `cargo nextest run -p ripdpi-monitor-engine -E 'test(phase) or test(artifact_source)'`
+- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-monitor-engine/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Objective
 Add a regression test in `ripdpi-monitor-engine` asserting that every `ExecutionStageRunner::phase()` and `ConnectivityProbeFamily::ARTIFACT_SOURCE` constant is byte-identical to the pre-split list. This is gate G1 of POY-12.
 

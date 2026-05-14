@@ -14,6 +14,16 @@ updated: 2026-04-24
 
 - [ ] #task Epic - NekoBox subscription and profile import #repo/RIPDPI #area/outbound #status/backlog 🔺
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `epic-nekobox-subscription-and-profile-import`
+- **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
+- **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Goal
 
 Let users load and keep fresh their proxy nodes from standard censorship-bypass

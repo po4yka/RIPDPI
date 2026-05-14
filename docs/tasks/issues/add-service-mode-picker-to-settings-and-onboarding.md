@@ -14,6 +14,16 @@ updated: 2026-04-24
 
 - [ ] #task Add service-mode picker to Settings and onboarding #repo/RIPDPI #area/proxy #status/backlog 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `add-service-mode-picker-to-settings-and-onboarding`
+- **Verify:** `just test-module core:data:settings`
+- **Scope (only modify these + this file + the ledger):** `app/**`, `core/data/settings/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Surface the TUN VPN vs System Proxy choice in both Settings and the

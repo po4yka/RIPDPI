@@ -349,11 +349,11 @@ tasks.matching { it.name == "prepareKotlinBuildScriptModel" }.configureEach {
 tasks.register("recordScreenshots") {
     group = "verification"
     description = "Records Roborazzi screenshot baselines for the app module"
-    dependsOn(":app:recordRoborazziDebug")
+    dependsOn(":app:recordRoborazziGithubDebug")
 }
 
 tasks.register("verifyScreenshots") {
     group = "verification"
     description = "Verifies Roborazzi screenshot baselines for the app module"
-    dependsOn(":app:verifyRoborazziDebug")
+    dependsOn(":app:verifyRoborazziGithubDebug")
 }

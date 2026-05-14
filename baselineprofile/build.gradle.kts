@@ -10,6 +10,7 @@ android {
         minSdk = 28
         targetSdk = providers.gradleProperty("ripdpi.targetSdk").get().toInt()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        missingDimensionStrategy("distribution", "github")
         testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] =
             "EMULATOR,DEBUGGABLE,NOT-SELF-INSTRUMENTING"
     }

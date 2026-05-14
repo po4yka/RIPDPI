@@ -14,10 +14,10 @@ def test_select_preset(driver):
     config = ConfigPage(driver)
     assert config.is_loaded(), "Config screen should be visible"
 
-    # Tap the "medium" preset chip.
-    config.select_preset("medium")
+    # Tap the proxy preset card in the current Config layout.
+    config.select_preset("proxy")
 
     # The preset should still be visible (selection doesn't navigate away).
-    assert config.is_preset_visible("medium"), (
-        "Medium preset chip should remain visible after selection"
+    assert config.is_preset_visible("proxy"), (
+        "Proxy preset card should remain visible after selection"
     )

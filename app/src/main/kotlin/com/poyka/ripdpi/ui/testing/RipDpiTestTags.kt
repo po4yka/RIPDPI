@@ -81,6 +81,8 @@ internal object RipDpiTestTags {
     const val SettingsBiometricConfirmDialog = "settings-biometric-confirm-dialog"
     const val SettingsBiometricConfirmEnable = "settings-biometric-confirm-enable"
     const val SettingsBiometricConfirmCancel = "settings-biometric-confirm-cancel"
+    const val SettingsBiometricPinRequiredDialog = "settings-biometric-pin-required-dialog"
+    const val SettingsBiometricPinRequiredOk = "settings-biometric-pin-required-ok"
     const val SettingsBackupPinField = "settings-backup-pin-field"
     const val SettingsBackupPinSave = "settings-backup-pin-save"
     const val SettingsBackupPinClear = "settings-backup-pin-clear"
@@ -246,6 +248,10 @@ internal object RipDpiTestTags {
 
     val dnsResolver: (String) -> String = { providerId -> "dns-resolver-${sanitize(providerId)}" }
 
+    val dnsMode: (String) -> String = { modeKey -> "dns-mode-${sanitize(modeKey)}" }
+
+    val dnsProtocol: (String) -> String = { protocolKey -> "dns-protocol-${sanitize(protocolKey)}" }
+
     val customizationIcon: (String) -> String = { key -> "customization-icon-${sanitize(key)}" }
 
     val diagnosticsSection: (DiagnosticsSection) -> String =
@@ -363,6 +369,8 @@ internal object RipDpiTestTags {
 
     val hostPackApplyModeOption: (String) -> String =
         { value -> "host-pack-apply-mode-${sanitize(value)}" }
+
+    val hostPackPreset: (String) -> String = { presetId -> "host-pack-preset-${sanitize(presetId)}" }
 
     fun homeConnectionStage(stage: String): String = "home-connection-stage-${sanitize(stage)}"
 

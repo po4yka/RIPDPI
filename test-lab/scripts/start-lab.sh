@@ -126,7 +126,7 @@ if [[ "$using_temp_docker_config" == "true" ]]; then
     shopify/toxiproxy:latest \
     golang:1.22-alpine \
     alpine:3.20; do
-    docker pull "$image" >/dev/null
+    docker image inspect "$image" >/dev/null 2>&1 || docker pull "$image" >/dev/null
   done
   local_image_specs=(
     "test-lab-quic_server:latest:$lab_root/quic/quic-go-server"

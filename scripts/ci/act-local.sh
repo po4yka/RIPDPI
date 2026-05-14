@@ -146,7 +146,7 @@ run_native_gradle_static_analysis() {
 
 run_native_build() {
   "$REPO_ROOT/gradlew" -p "$REPO_ROOT" assembleDebug testDebugUnitTest
-  "$REPO_ROOT/gradlew" -p "$REPO_ROOT" verifyRoborazziDebug
+  "$REPO_ROOT/gradlew" -p "$REPO_ROOT" :app:verifyRoborazziGithubDebug
   # verify_native_elfs.py and verify_native_sizes.py are skipped locally:
   # local debug builds only produce the host ABI with unstripped symbols,
   # while CI builds all 4 ABIs with stripped symbols. These checks only

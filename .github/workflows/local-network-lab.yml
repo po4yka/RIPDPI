@@ -32,6 +32,23 @@ jobs:
           find test-lab/scripts test-lab/chaos -type f -name '*.sh' -print0 |
             xargs -0 -n1 bash -n
 
+      - name: Validate VPN E2E Maestro precondition
+        run: |
+          set -euo pipefail
+          set +e
+          PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+            ./test-lab/scripts/run-vpn-e2e.sh \
+              --skip-start \
+              --skip-install \
+              --out-dir "$RUNNER_TEMP/ripdpi-missing-maestro-fast-fail" \
+              >"$RUNNER_TEMP/ripdpi-missing-maestro-fast-fail.log" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/ripdpi-missing-maestro-fast-fail.log"
+          test "$status" -eq 2
+          grep -q "maestro is not available; cannot drive the VPN connect flow" \
+            "$RUNNER_TEMP/ripdpi-missing-maestro-fast-fail.log"
+
       - name: Validate workflow YAML
         run: ruby -e 'require "yaml"; YAML.load_file(".github/workflows/local-network-lab.yml")'
 

@@ -9,6 +9,7 @@ DISABLE_MOTION = f"{PREFIX}.DISABLE_MOTION"
 PERMISSION_PRESET = f"{PREFIX}.PERMISSION_PRESET"
 SERVICE_PRESET = f"{PREFIX}.SERVICE_PRESET"
 DATA_PRESET = f"{PREFIX}.DATA_PRESET"
+START_CONFIGURED_MODE = "com.poyka.ripdpi.extra.START_CONFIGURED_MODE"
 
 APP_PACKAGE = "com.poyka.ripdpi"
 MAIN_ACTIVITY = f"{APP_PACKAGE}/.activities.MainActivity"
@@ -38,6 +39,7 @@ def build_launch_args(
     # Intentionally True (test-friendly); Kotlin defaults to false for production.
     reset_state: bool = True,
     disable_motion: bool = True,
+    start_configured_mode: bool = False,
 ) -> list[str]:
     """Build adb am-start argument list for the automation launch contract."""
     if start_route not in VALID_ROUTES:
@@ -61,10 +63,12 @@ def build_launch_args(
         )
     return [
         "start",
+        "-W",
         "-n", MAIN_ACTIVITY,
         "--ez", ENABLED, "true",
         "--ez", RESET_STATE, str(reset_state).lower(),
         "--ez", DISABLE_MOTION, str(disable_motion).lower(),
+        "--ez", START_CONFIGURED_MODE, str(start_configured_mode).lower(),
         "--es", START_ROUTE, start_route,
         "--es", PERMISSION_PRESET, permission_preset,
         "--es", SERVICE_PRESET, service_preset,

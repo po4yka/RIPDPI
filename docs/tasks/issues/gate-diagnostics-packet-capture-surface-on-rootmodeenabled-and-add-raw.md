@@ -14,6 +14,16 @@ updated: 2026-05-04
 
 - [ ] #task Gate Diagnostics packet-capture surface on rootModeEnabled and add raw-packet disclosure #repo/RIPDPI #area/android #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `gate-diagnostics-packet-capture-surface-on-rootmodeenabled-and-add-raw`
+- **Verify:** `just test-module app`
+- **Scope (only modify these + this file + the ledger):** `app/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Objective
 Bring the in-app packet-capture UI into compliance with the AppSec decision on POY-14. Today the Diagnostics-tools "Packet Capture" card is visible and operable on non-rooted devices, uses hardcoded English copy, and does not surface a raw-packet disclosure before recording starts.
 

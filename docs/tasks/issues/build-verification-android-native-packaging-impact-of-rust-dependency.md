@@ -14,6 +14,16 @@ updated: 2026-05-04
 
 - [ ] #task Build verification: Android native packaging impact of Rust dependency-surface changes #repo/RIPDPI #area/android #status/doing 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `build-verification-android-native-packaging-impact-of-rust-dependency`
+- **Verify:** `just build-native`
+- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-android/**`, `core/engine/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Objective
 Verify build and Android native packaging risk from current Rust dependency-surface changes.
 

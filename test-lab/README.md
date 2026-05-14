@@ -25,12 +25,21 @@ For a physical device:
 For the full VPN-mode smoke on a prepared emulator or attached device, use the
 orchestrator. It restarts the lab, installs the debug APK unless skipped, uses
 Maestro connect/disconnect flows when `maestro` is on `PATH`, runs the debug
-probe in VPN mode, and archives failure artifacts:
+probe in VPN mode, and archives failure artifacts. Before Maestro starts the
+real service, the script launches the debug app once with automation extras so
+the persisted test state is deterministic: onboarding complete, mode `vpn`,
+relay disabled, permissions granted, motion disabled, and `SERVICE_PRESET=live`.
 
 ```bash
 ./test-lab/scripts/run-vpn-e2e.sh --profile emulator
 ./test-lab/scripts/run-vpn-e2e.sh --profile device --keep-lab
 ```
+
+`run-vpn-e2e.sh` requires Maestro unless `--skip-maestro` is passed. Use
+`--skip-maestro` only when VPN mode is already connected by a manual or external
+automation flow; otherwise the VPN probe cannot validate Android VPN transport.
+The bundled Maestro VPN flows target stable Compose test-tag resource IDs, not
+localized button labels.
 
 The debug probe writes JSON to:
 

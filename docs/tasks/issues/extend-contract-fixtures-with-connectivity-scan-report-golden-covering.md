@@ -14,6 +14,16 @@ updated: 2026-05-04
 
 - [ ] #task Extend contract_fixtures with connectivity scan-report golden covering cancellation + partial-results #repo/RIPDPI #area/testing #status/doing ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `extend-contract-fixtures-with-connectivity-scan-report-golden-covering`
+- **Verify:** `cargo nextest run -p ripdpi-monitor-engine --test contract_fixtures`
+- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-monitor-engine/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Objective
 Extend `native/rust/crates/ripdpi-monitor-engine/tests/contract_fixtures.rs` with a golden test that exercises a connectivity scan running through the parallel `Dns`/`Tcp`/`Quic` group, cancels mid-`Quic`, and asserts the resulting `ScanReport` JSON shape is byte-identical to a checked-in fixture. This is gate G6 of POY-12.
 

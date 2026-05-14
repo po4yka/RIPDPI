@@ -25,7 +25,8 @@ Use UiAutomator2 against a debug build:
 - Start the app with automation extras before attaching the inspector.
 - Use `DISABLE_MOTION=true` for inspector sessions.
 - Verify resource IDs are visible for:
-  `home-screen`, `settings-screen`, `advanced_settings-screen`, `home-connection-button`
+  `home-screen`, `settings-screen`, `advanced_settings-screen`,
+  `home-mode-primary-local-dpi-bypass`, `home-mode-primary-remote-vpn`
 - Check that bottom nav IDs are present: `bottom-nav-home`, `bottom-nav-settings`
 - Check that form controls expose the same IDs as `RipDpiTestTags`.
 
@@ -61,8 +62,13 @@ Use the raw tag values from `RipDpiTestTags` as your locator contract.
   `home-screen`, `config-screen`, `diagnostics-screen`, `settings-screen`,
   `advanced_settings-screen`, `dns_settings-screen`, `onboarding-screen`
 - Primary actions:
-  `home-connection-button`, `settings-advanced-settings`, `settings-dns-settings`,
-  `mode-editor-save`, `dns-custom-save`
+  `home-mode-primary-local-dpi-bypass`, `home-mode-primary-remote-vpn`,
+  `home-mode-primary-diagnostic`, `settings-advanced-settings`,
+  `settings-dns-settings`, `mode-editor-save`, `dns-custom-save`
+- DNS configuration:
+  `dns-mode-encrypted`, `dns-mode-plain-udp`, `dns-protocol-doh`,
+  `dns-protocol-dot`, `dns-protocol-dnscrypt`, `dns-resolver-cloudflare`,
+  `dns-resolver-google`, `dns-resolver-quad9`, `dns-resolver-adguard`
 - Diagnostics and sharing:
   `diagnostics-top-history-action`, `diagnostics-share-archive`,
   `diagnostics-save-archive`, `diagnostics-share-summary`, `diagnostics-save-logs`

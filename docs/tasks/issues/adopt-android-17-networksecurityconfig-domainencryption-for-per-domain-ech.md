@@ -14,6 +14,16 @@ updated: 2026-04-25
 
 - [ ] #task Adopt Android 17 NetworkSecurityConfig domainEncryption for per-domain ECH policy #repo/RIPDPI #area/diagnostics #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `adopt-android-17-networksecurityconfig-domainencryption-for-per-domain-ech`
+- **Verify:** `just test-module core:diagnostics`
+- **Scope (only modify these + this file + the ledger):** `core/diagnostics/**`, `app/src/main/res/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Wire RIPDPI's NSC (NetworkSecurityConfig) generator and control-plane to emit `<domainEncryption>` per-domain modes (`enabled` / `disabled` / `opportunistic`) per Android 17 (API 37). Couple this to the DnsResolver path that queries HTTPS DNS records carrying ECH configs, so owned-stack endpoints get hard-on ECH while everything else stays opportunistic.

@@ -309,8 +309,8 @@ jobs:
       - name: Compile app unit tests
         run: >-
           ./gradlew
-          :app:compileDebugUnitTestKotlin
-          :app:hiltJavaCompileDebugUnitTest
+          :app:compileGithubDebugUnitTestKotlin
+          :app:hiltJavaCompileGithubDebugUnitTest
           -Pripdpi.skipNativeBuild=true
 
       - name: Verify diagnostics-service boundary
@@ -348,7 +348,7 @@ jobs:
 
       - name: Verify screenshot baselines
         run: >-
-          ./gradlew verifyRoborazziDebug
+          ./gradlew :app:verifyRoborazziGithubDebug
           -Pripdpi.skipNativeBuild=true
           -Pripdpi.includeRoborazziUnitTests=true
           --tests 'com.poyka.ripdpi.ui.screenshot.*'

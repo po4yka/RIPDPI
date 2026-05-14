@@ -14,6 +14,16 @@ updated: 2026-04-25
 
 - [ ] #task Pin uTLS to v1.8.2 and add ClientHello fingerprint regression test #repo/RIPDPI #area/transport #status/backlog 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `pin-utls-to-v1-8-2-and-add-clienthello-fingerprint-regression-test`
+- **Verify:** `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-tls-profiles`
+- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-tls-profiles/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Pin `refraction-networking/utls` to ≥ v1.8.2 to close the Chrome 120 padding-extension regression and the GREASE ECH AES/ChaCha20 mismatch (PR #375). Add a regression test that asserts emitted ClientHello bytes match a Chrome 120 reference fixture, so future uTLS upgrades cannot silently re-introduce fingerprint drift.

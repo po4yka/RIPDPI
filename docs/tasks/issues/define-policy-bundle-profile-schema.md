@@ -14,6 +14,16 @@ updated: 2026-05-01
 
 - [ ] #task Define policy bundle profile schema #repo/RIPDPI #area/vpn #status/backlog 🔺
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `define-policy-bundle-profile-schema`
+- **Verify:** `just test-module core:service`
+- **Scope (only modify these + this file + the ledger):** `core/service/**`, `core/data/model/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Define RIPDPI's internal full-device policy profile schema so URI strings become import/export formats, not the app's runtime source of truth.

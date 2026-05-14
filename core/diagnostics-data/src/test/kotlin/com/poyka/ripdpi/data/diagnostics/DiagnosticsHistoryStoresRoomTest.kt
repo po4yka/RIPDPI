@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -562,11 +563,51 @@ class DiagnosticsHistoryStoresRoomTest {
             assertNull(dnsStore.getNetworkDnsPathPreference("dns-old"))
         }
 
+    @Test
+    fun `production database builder destructively migrates version 2 diagnostics database`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "diagnostics-legacy-v2-${System.nanoTime()}.db"
+        context.deleteDatabase(databaseName)
+
+        context.openOrCreateDatabase(databaseName, Context.MODE_PRIVATE, null).use { legacyDb ->
+            legacyDb.execSQL("CREATE TABLE legacy_marker(id TEXT NOT NULL PRIMARY KEY)")
+            legacyDb.execSQL("PRAGMA user_version = 2")
+        }
+
+        val migratedDb = DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, databaseName)
+        try {
+            migratedDb.openHelper.writableDatabase
+
+            assertTrue(tableExists(migratedDb, "diagnostic_profiles"))
+            assertTrue(tableExists(migratedDb, "network_edge_preferences"))
+            assertFalse(tableExists(migratedDb, "legacy_marker"))
+        } finally {
+            migratedDb.close()
+            context.deleteDatabase(databaseName)
+        }
+    }
+
     private fun rowCount(table: String): Int =
         db.openHelper.writableDatabase.query("SELECT COUNT(*) FROM $table").use { cursor ->
             cursor.moveToFirst()
             cursor.getInt(0)
         }
+
+    private fun tableExists(
+        database: DiagnosticsDatabase,
+        table: String,
+    ): Boolean {
+        val openHelper = database.openHelper
+        val supportDb = openHelper.writableDatabase
+        val cursor =
+            supportDb.query(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = '$table'",
+            )
+        return cursor.use { resultCursor ->
+            resultCursor.moveToFirst()
+            resultCursor.getInt(0) == 1
+        }
+    }
 
     private class MutableDiagnosticsHistoryClock(
         private var now: Long,

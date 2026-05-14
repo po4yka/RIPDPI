@@ -4,21 +4,21 @@
   "maxTotalGrowthBytes": 262144,
   "libraries": {
     "arm64-v8a": {
-      "libripdpi-tunnel.so": 8501368,
-      "libripdpi.so": 11613992
+      "libripdpi-tunnel.so": 8502320,
+      "libripdpi.so": 12156072
     },
     "armeabi-v7a": {
-      "libripdpi-tunnel.so": 5524592,
-      "libripdpi.so": 7689088
+      "libripdpi-tunnel.so": 5269964,
+      "libripdpi.so": 7849228
     },
     "x86": {
-      "libripdpi-tunnel.so": 7605540,
-      "libripdpi.so": 10852444
+      "libripdpi-tunnel.so": 7483328,
+      "libripdpi.so": 11337584
     },
     "x86_64": {
-      "libripdpi-tunnel.so": 9926304,
-      "libripdpi.so": 13385320
+      "libripdpi-tunnel.so": 10039120,
+      "libripdpi.so": 14153968
     }
   },
-  "_comment": "Updated 2026-05-03 after native crate split/package attribution and helper-shard CI fixes; thresholds unchanged."
+  "_comment": "Updated 2026-05-14 from CI native-size report after flavored debug path repair exposed current optimized libripdpi artifacts; thresholds unchanged."
 }

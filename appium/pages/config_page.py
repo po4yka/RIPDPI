@@ -14,7 +14,9 @@ class ConfigPage(BasePage):
         return self.is_visible(self.SCREEN)
 
     def select_preset(self, preset_id: str) -> None:
-        self.tap(f"config-preset-{preset_id}")
+        tag = f"config-preset-{preset_id}"
+        self.scroll_to(tag)
+        self.tap(tag)
 
     def is_preset_visible(self, preset_id: str) -> bool:
         return self.is_visible(f"config-preset-{preset_id}")

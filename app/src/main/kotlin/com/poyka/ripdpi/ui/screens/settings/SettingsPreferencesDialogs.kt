@@ -45,10 +45,12 @@ private fun PinRequiredDialog(
     RipDpiDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.settings_biometric_pin_required_title),
+        dialogTestTag = RipDpiTestTags.SettingsBiometricPinRequiredDialog,
         dismissAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.settings_biometric_pin_required_ok),
                 onClick = onDismiss,
+                testTag = RipDpiTestTags.SettingsBiometricPinRequiredOk,
             ),
         visuals =
             RipDpiDialogVisuals(

@@ -35,6 +35,6 @@ def test_mode_editor_command_line_toggle(driver):
     assert editor.is_loaded(), "Mode editor screen should be visible"
 
     editor.toggle_command_line()
-    assert editor.is_visible(editor.CMD_ARGS), (
+    assert editor.is_command_line_args_visible(), (
         "Command line args field should appear after toggling"
     )

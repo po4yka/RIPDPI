@@ -1,10 +1,14 @@
 appId: com.poyka.ripdpi
 ---
 - launchApp
-- tapOn: "Disconnect"
-- assertVisible: "Disconnected"
-- tapOn: "Connect"
+- tapOn:
+    id: "home-mode-primary-remote-vpn"
+- assertVisible:
+    text: "Inactive"
+- tapOn:
+    id: "home-mode-primary-remote-vpn"
 - tapOn:
     text: "OK|Allow"
     optional: true
-- assertVisible: "Connected"
+- assertVisible:
+    text: "Active"

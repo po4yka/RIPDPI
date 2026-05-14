@@ -32,6 +32,7 @@ def test_history_search_and_filter(driver):
     # Switch to connections section and search.
     history.tap_section("connections")
     history.type_search("connections", "test query")
+    history.tap_connections_mode_filter("vpn")
 
     # Clear all filters.
     history.tap_clear_all_filters()

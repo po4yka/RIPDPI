@@ -14,6 +14,16 @@ updated: 2026-04-25
 
 - [ ] #task Add DoH JSON API resolver path alongside RFC 8484 wire #repo/RIPDPI #area/dns #status/backlog 🔽
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `add-doh-json-api-resolver-path-alongside-rfc-8484-wire`
+- **Verify:** `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-dns`
+- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-diagnostics-dns/**`, `native/rust/crates/ripdpi-monitor-engine/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Add a DoH-JSON probe path (Google `/resolve`, Cloudflare DoH JSON,
