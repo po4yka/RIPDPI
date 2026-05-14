@@ -139,8 +139,9 @@ if [[ "$skip_maestro" != "true" ]]; then
     maestro_ran=true
     maestro test "$lab_root/maestro/connect-vpn.yaml"
   else
-    echo "maestro is not available; continuing without UI connect flow." >&2
-    echo "Ensure RIPDPI VPN mode is already connected before relying on --mode vpn results." >&2
+    echo "maestro is not available; cannot drive the VPN connect flow." >&2
+    echo "Install Maestro or rerun with --skip-maestro only after manually connecting VPN mode." >&2
+    exit 2
   fi
 fi
 

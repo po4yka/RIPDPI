@@ -32,6 +32,10 @@ probe in VPN mode, and archives failure artifacts:
 ./test-lab/scripts/run-vpn-e2e.sh --profile device --keep-lab
 ```
 
+`run-vpn-e2e.sh` requires Maestro unless `--skip-maestro` is passed. Use
+`--skip-maestro` only when VPN mode is already connected by a manual or external
+automation flow; otherwise the VPN probe cannot validate Android VPN transport.
+
 The debug probe writes JSON to:
 
 ```text
