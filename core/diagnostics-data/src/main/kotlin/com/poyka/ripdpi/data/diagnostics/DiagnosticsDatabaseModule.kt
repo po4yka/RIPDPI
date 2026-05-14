@@ -18,14 +18,18 @@ object DiagnosticsDatabaseModule {
     @Singleton
     fun provideDiagnosticsDatabase(
         @ApplicationContext context: Context,
+    ): DiagnosticsDatabase = buildDiagnosticsDatabase(context)
+
+    internal fun buildDiagnosticsDatabase(
+        context: Context,
+        name: String = "diagnostics.db",
     ): DiagnosticsDatabase =
         Room
             .databaseBuilder(
                 context,
                 DiagnosticsDatabase::class.java,
-                "diagnostics.db",
+                name,
             ).fallbackToDestructiveMigration(true)
-            .fallbackToDestructiveMigrationOnDowngrade(true)
             .addCallback(TtlCleanupCallback)
             .build()
 
