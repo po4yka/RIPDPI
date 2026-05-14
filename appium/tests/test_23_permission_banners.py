@@ -8,15 +8,15 @@ from pages.settings_page import SettingsPage
 
 @pytest.mark.automation(
     start_route="home",
-    permission_preset="notifications_missing",
+    permission_preset="battery_review",
     data_preset="clean_home",
     service_preset="idle",
 )
-def test_notifications_missing_banner(driver):
+def test_battery_review_home_recommendation_banner(driver):
     home = HomePage(driver)
     assert home.is_loaded(), "Home screen should be visible"
-    assert home.is_permission_banner_visible(), (
-        "Permission issue banner should appear with notifications_missing preset"
+    assert home.is_permission_recommendation_visible(), (
+        "Permission recommendation banner should appear with battery_review preset"
     )
 
 
@@ -29,6 +29,7 @@ def test_notifications_missing_banner(driver):
 def test_battery_review_permission_card(driver):
     settings = SettingsPage(driver)
     assert settings.is_loaded(), "Settings screen should be visible"
+    settings.scroll_incrementally_to("settings-permission-battery-optimization")
     assert settings.is_visible("settings-permission-battery-optimization"), (
         "Battery optimization permission card should appear with battery_review preset"
     )
@@ -36,16 +37,16 @@ def test_battery_review_permission_card(driver):
 
 @pytest.mark.automation(
     start_route="home",
-    permission_preset="notifications_missing",
+    permission_preset="battery_review",
     data_preset="clean_home",
     service_preset="idle",
 )
 def test_banner_dismiss(driver):
     home = HomePage(driver)
     assert home.is_loaded(), "Home screen should be visible"
-    assert home.is_permission_banner_visible(), "Permission banner should be visible"
+    assert home.is_any_permission_guidance_visible(), "Permission guidance banner should be visible"
 
     home.dismiss_warning_banner()
-    assert not home.is_visible("home-permission-issue-banner", timeout=2), (
-        "Banner should disappear after dismiss"
+    assert not home.is_any_permission_guidance_visible(), (
+        "Permission guidance banner should disappear after dismiss"
     )

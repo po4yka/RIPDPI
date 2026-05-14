@@ -15,6 +15,7 @@ def test_dnscrypt_fields(driver):
     assert dns.is_loaded(), "DNS settings screen should be visible"
 
     # Fill DNSCrypt-specific fields.
+    dns.select_protocol("dnscrypt")
     dns.scroll_to("dns-custom-dnscrypt-provider")
     dns.clear_and_type("dns-custom-dnscrypt-provider", "2.dnscrypt-cert.example.com")
 

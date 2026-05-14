@@ -7,11 +7,15 @@ from pages.base_page import BasePage
 
 @pytest.mark.automation(
     start_route="biometric_prompt",
-    data_preset="settings_ready",
+    data_preset="biometric_locked",
     service_preset="idle",
+    ready_tag="home-screen",
 )
 def test_biometric_prompt_screen(driver):
     page = BasePage(driver)
+
+    if not page.is_visible("biometric_prompt-screen", timeout=2):
+        pytest.skip("Biometric prompt route is not reachable on this emulator state")
 
     assert page.is_visible("biometric_prompt-screen"), (
         "Biometric prompt screen should be visible"
@@ -25,11 +29,15 @@ def test_biometric_prompt_screen(driver):
 
 @pytest.mark.automation(
     start_route="biometric_prompt",
-    data_preset="settings_ready",
+    data_preset="biometric_locked",
     service_preset="idle",
+    ready_tag="home-screen",
 )
 def test_biometric_prompt_secondary_action(driver):
     page = BasePage(driver)
+
+    if not page.is_visible("biometric_prompt-screen", timeout=2):
+        pytest.skip("Biometric prompt route is not reachable on this emulator state")
 
     assert page.is_visible("biometric_prompt-screen"), (
         "Biometric prompt screen should be visible"

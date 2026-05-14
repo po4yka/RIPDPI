@@ -27,7 +27,7 @@ class AutomationLaunchContractTest {
                         AutomationLaunchContract.DisableMotion to true,
                         AutomationLaunchContract.PermissionPreset to AutomationPermissionPreset.VpnMissing.wireValue,
                         AutomationLaunchContract.ServicePreset to AutomationServicePreset.ConnectedVpn.wireValue,
-                        AutomationLaunchContract.DataPreset to AutomationDataPreset.SettingsReady.wireValue,
+                        AutomationLaunchContract.DataPreset to AutomationDataPreset.BiometricLocked.wireValue,
                     ),
             )
 
@@ -38,7 +38,7 @@ class AutomationLaunchContractTest {
                 disableMotion = true,
                 permissionPreset = AutomationPermissionPreset.VpnMissing,
                 servicePreset = AutomationServicePreset.ConnectedVpn,
-                dataPreset = AutomationDataPreset.SettingsReady,
+                dataPreset = AutomationDataPreset.BiometricLocked,
             ),
             config,
         )

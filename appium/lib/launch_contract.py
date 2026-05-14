@@ -22,7 +22,7 @@ VALID_SERVICE_PRESETS = {
     "idle", "connected_proxy", "connected_vpn", "live",
 }
 VALID_DATA_PRESETS = {
-    "clean_home", "settings_ready", "diagnostics_demo",
+    "clean_home", "settings_ready", "diagnostics_demo", "biometric_locked",
 }
 VALID_ROUTES = {
     "onboarding", "home", "config", "diagnostics", "history", "logs",

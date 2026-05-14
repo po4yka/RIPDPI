@@ -40,6 +40,16 @@ class HomePage(BasePage):
     def is_permission_banner_visible(self) -> bool:
         return self.is_visible(self.PERMISSION_ISSUE_BANNER)
 
+    def is_permission_recommendation_visible(self) -> bool:
+        return self.is_visible(self.PERMISSION_REC_BANNER)
+
+    def is_any_permission_guidance_visible(self) -> bool:
+        return (
+            self.is_visible(self.PERMISSION_ISSUE_BANNER)
+            or self.is_visible(self.PERMISSION_REC_BANNER)
+            or self.is_visible(self.BACKGROUND_GUIDANCE_BANNER)
+        )
+
     def dismiss_warning_banner(self) -> None:
         self.tap(self.WARNING_BANNER_DISMISS)
 

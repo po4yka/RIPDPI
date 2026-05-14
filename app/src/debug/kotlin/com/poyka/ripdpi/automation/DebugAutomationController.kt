@@ -249,6 +249,13 @@ class DebugAutomationController
                             setDiagnosticsActiveProfileId("default")
                             setNetworkStrategyMemoryEnabled(true)
                         }
+
+                        AutomationDataPreset.BiometricLocked -> {
+                            setRipdpiMode(Mode.VPN.preferenceValue)
+                            setWebrtcProtectionEnabled(true)
+                            setDnsProviderId("cloudflare")
+                            setBiometricEnabled(true)
+                        }
                     }
                 }.build()
 

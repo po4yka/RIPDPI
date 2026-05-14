@@ -14,14 +14,14 @@ def test_diagnostics_share_save_buttons(driver):
     diag = DiagnosticsPage(driver)
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
-    # Swipe to the share section (last section).
-    for _ in range(4):
-        diag.swipe_to_next_section()
+    diag.swipe_to_tools_section()
+    diag.scroll_to(diag.SHARE_ARCHIVE)
 
-    assert diag.is_visible("diagnostics-share-archive"), (
+    assert diag.is_visible(diag.SHARE_ARCHIVE), (
         "Share archive button should be visible in share section"
     )
-    assert diag.is_visible("diagnostics-save-archive"), (
+    diag.scroll_to(diag.SAVE_ARCHIVE)
+    assert diag.is_visible(diag.SAVE_ARCHIVE), (
         "Save archive button should be visible in share section"
     )
 

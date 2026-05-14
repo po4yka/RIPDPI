@@ -83,6 +83,16 @@ class BasePage:
             message=f"Timed out waiting for text {text!r}",
         ).click()
 
+    def is_text_visible(self, text: str, timeout: int = 3) -> bool:
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda _: self.driver.find_element(AppiumBy.XPATH, f'//*[@text="{text}"]'),
+                message=f"Timed out waiting for text {text!r}",
+            )
+            return True
+        except (TimeoutException, NoSuchElementException):
+            return False
+
     def tap_percent(self, x_percent: float, y_percent: float) -> None:
         size = self.driver.get_window_size()
         x = int(size["width"] * x_percent)

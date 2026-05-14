@@ -15,7 +15,7 @@ def test_chain_dsl_entry(driver):
     assert editor.is_loaded(), "Mode editor screen should be visible"
 
     editor.scroll_to(editor.CHAIN_DSL)
-    editor.clear_and_type(editor.CHAIN_DSL, "fake,disorder")
+    editor.clear_and_type(editor.CHAIN_DSL, "[tcp]\nfake auto(host)\nsplit auto(balanced)")
 
     editor.tap_save()
     assert not editor.is_validation_error_visible(), (

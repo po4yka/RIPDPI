@@ -64,6 +64,26 @@ class DebugAutomationControllerTest {
     }
 
     @Test
+    fun `biometric locked preset seeds the app lock gate`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val controller = DebugAutomationController(repository, FakeServiceStateStore())
+
+            controller.prepareLaunch(
+                automationIntent(
+                    dataPreset = AutomationDataPreset.BiometricLocked,
+                ),
+            )
+
+            val settings = repository.snapshot()
+            assertTrue(settings.onboardingComplete)
+            assertTrue(settings.biometricEnabled)
+            assertEquals("", settings.backupPin)
+            assertEquals("cloudflare", settings.dnsProviderId)
+            assertTrue(settings.webrtcProtectionEnabled)
+        }
+
+    @Test
     fun `fake start and stop mutate service state when preset is not live`() {
         val serviceStateStore = FakeServiceStateStore()
         val controller = DebugAutomationController(FakeAppSettingsRepository(), serviceStateStore)
