@@ -38,15 +38,21 @@ available in the current local lab.
 
 ## Current Local State
 
-- Branch: `main`; after `git fetch --prune origin`, the local branch diverges
-  from `origin/main`. Run `git status --short --branch` for current counts.
+- Branch: `main`; `origin/main` was merged locally, and the local branch is
+  now ahead of `origin/main` by 15 commits with no behind count.
 - Working tree scope: this audit update reflects the latest native
   monitor-engine hotspot split, Roborazzi Logs golden refresh, Appium long-form
-  scroll hardening, and Appium launch-timeout retry.
+  scroll hardening, Appium launch-timeout retry, merged `origin/main`
+  fleet-compat changes, task-board legal-framing cleanup, and the
+  `DetectionResolverNetworkStack.kt` architecture-health fix.
 - Local post-commit checks: `git diff --check`, `cargo fmt --check`,
   `python3 scripts/ci/check_native_hotspot_budgets.py`,
   `python3 scripts/ci/check_architecture_health.py --check`,
   `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon`,
+  `./gradlew :core:diagnostics-data:testDebugUnitTest -Pripdpi.skipNativeBuild=true --no-daemon`,
+  `python3 scripts/ci/check_fleet_fixtures.py`,
+  `python3 scripts/ci/check_fleet_release_gates.py`,
+  `python3 scripts/ci/check_dns_ipv6_killswitch_gates.py`,
   `/tmp/ripdpi-appium-venv/bin/python -m compileall appium`,
   `CARGO_TARGET_DIR=target/codex-monitor-engine-check cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine`,
   the monitor-engine `connectivity_partial` contract fixture test, focused
@@ -60,8 +66,9 @@ available in the current local lab.
 - Latest readiness preflight: attached Pixel 8 Pro is ready; rooted physical
   device, TalkBack manual pass, routed Linux netem VM, production relay matrix,
   and remote workflow confirmation remain blocked; physical handover remains
-  manual. The remote workflow item is blocked because local `HEAD` diverges
-  from `origin/main` and no fresh workflow covers the local commits.
+  manual. The remote workflow item is blocked because local `HEAD` `8807b2c9`
+  is ahead of `origin/main` by 15 commits and no fresh workflow covers the
+  local commits.
 
 ## Stop Rules
 
@@ -78,8 +85,8 @@ direct evidence:
 
 ## Next Concrete Actions
 
-1. Reconcile the local branch with `origin/main`, then push or create a branch
-   and dispatch fresh remote workflows.
+1. Push or create a branch from the locally reconciled head, then dispatch
+   fresh remote workflows.
 2. Run the rooted physical-device pass.
 3. Run the network lab pass with cellular, handover, IPv4-only, IPv6-only,
    captive, and limited-path coverage.
