@@ -19,13 +19,16 @@ RIPDPI debug builds.
   debug automation state seeding, Maestro connect/disconnect, VPN probe
   execution, and failure artifact archiving. `--skip-maestro` is reserved for
   already-connected manual or external automation runs.
+- Proxy-mode E2E orchestration script for the same lab/probe path, Maestro
+  local-card connect/disconnect, mock-relay readiness evidence, and a
+  foreground-service leak assertion after disconnect.
 - Basic typed failure codes derived from the failing exception/stage.
 - Log collection with denylist redaction.
 - Packet capture start/stop helpers.
 - Maestro flows for VPN connect, disconnect, diagnostics, reconnect, and lab
-  profile setup. VPN flows use stable Home mode-card test-tag resource IDs and
-  target the VPN card so the smoke validates Android VPN transport rather than
-  local proxy readiness.
+  profile setup. VPN and proxy flows use stable Home mode-card test-tag
+  resource IDs and target their mode cards directly so the smoke validates the
+  intended runtime mode rather than a generic visible status label.
 - Manual/nightly GitHub Actions lab doctor that validates test-lab scripts,
   checks the Docker Compose model, starts the emulator-profile lab, probes host
   endpoints, and uploads `test-lab/artifacts`.

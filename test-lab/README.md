@@ -42,6 +42,20 @@ automation flow; otherwise the VPN probe cannot validate Android VPN transport.
 The bundled Maestro VPN flows target stable Compose test-tag resource IDs, not
 localized button labels.
 
+For the matching proxy-mode smoke, use `run-proxy-e2e.sh`. It uses the same lab
+startup, install, automation seeding, Maestro, and debug-probe pattern, but it
+drives the local proxy card and checks that no RIPDPI foreground service remains
+after the disconnect flow:
+
+```bash
+./test-lab/scripts/run-proxy-e2e.sh --profile emulator
+./test-lab/scripts/run-proxy-e2e.sh --profile device --keep-lab
+```
+
+`run-proxy-e2e.sh` also requires Maestro unless `--skip-maestro` is passed. Use
+`--skip-maestro` only after a manual or external flow has already connected
+proxy mode.
+
 The debug probe writes JSON to:
 
 ```text
@@ -295,14 +309,16 @@ auth-failure, and malformed-response tests. It is not a production relay
 protocol implementation.
 
 Use `--mode diagnostics` for a lab reachability smoke without requiring an
-active RIPDPI service. Use `--mode vpn` after VPN mode is running; that mode
-requires Android VPN transport plus local proxy readiness and returns `Fail`
-when either precondition is absent.
+active RIPDPI service. Use `--mode proxy` after proxy mode is running; that mode
+requires local proxy readiness. Use `--mode vpn` after VPN mode is running; that
+mode requires Android VPN transport plus local proxy readiness and returns
+`Fail` when either precondition is absent.
 
 ## Artifacts
 
 - Probe JSON: `test-lab/artifacts/probe-<profile>-<mode>.json`
 - VPN E2E run directories: `test-lab/artifacts/vpn-e2e-*`
+- Proxy E2E run directories: `test-lab/artifacts/proxy-e2e-*`
 - Collected device logs: `test-lab/artifacts/logs-*`
 - Packet captures: `test-lab/capture/*.pcap`
 

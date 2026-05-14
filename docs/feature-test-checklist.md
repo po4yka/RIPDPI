@@ -384,6 +384,8 @@ Combination checks:
 - [ ] Toxiproxy reset scenario applies and clears.
 - [ ] Linux netem packet-loss scenario applies and clears in a routed VM lab.
 - [ ] VPN E2E runner verifies DNS, HTTP, HTTPS, TCP, UDP, and optional QUIC.
+- [ ] Proxy E2E runner verifies DNS, HTTP, HTTPS, TCP, UDP, optional QUIC, mock
+      relay readiness, and service cleanup after disconnect.
 - [ ] E2E runner distinguishes passed, degraded, failed, and skipped evidence.
 - [ ] Archive script collects logs, command output, scenario config, and device
       metadata.
@@ -424,6 +426,7 @@ Combination checks:
 | VPN | Required | Required | Required | Required | Required | Device smoke plus debug probe |
 | Diagnostics-only | Required | Required | Required | Not applicable | Where supported | Diagnostics report |
 | Test-lab VPN E2E | Required | Optional | Required | Required | Mock relay required | Lab archive |
+| Test-lab proxy E2E | Required | Optional | Required | Required | Mock relay required | Lab archive plus service-leak check |
 
 ### Runtime Mode by Packet Strategy
 

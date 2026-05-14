@@ -99,10 +99,11 @@ class RipDpiVpnService :
     ) = notificationController.update(this, tunnelStats, proxyTelemetry)
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
-        val stoppedSelf = stopSelfStartId?.let(::stopSelfResult)
-        if (stoppedSelf == null) {
-            stopSelf()
-        }
+        requestStopSelfWithFallback(
+            stopSelfStartId = stopSelfStartId,
+            stopSelfResult = ::stopSelfResult,
+            stopSelf = ::stopSelf,
+        )
     }
 
     override suspend fun createTunnelBuilder(

@@ -129,10 +129,11 @@ class RipDpiProxyService :
     }
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
-        val stoppedSelf = stopSelfStartId?.let(::stopSelfResult)
-        if (stoppedSelf == null) {
-            stopSelf()
-        }
+        requestStopSelfWithFallback(
+            stopSelfStartId = stopSelfStartId,
+            stopSelfResult = ::stopSelfResult,
+            stopSelf = ::stopSelf,
+        )
     }
 
     private fun startForegroundService() {

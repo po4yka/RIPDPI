@@ -1,0 +1,10 @@
+appId: com.poyka.ripdpi
+---
+- assertVisible:
+    id: "home-mode-primary-local-dpi-bypass"
+- assertVisible:
+    text: "Connected .*"
+- tapOn:
+    id: "home-mode-primary-local-dpi-bypass"
+- assertNotVisible:
+    text: "Connected .*"
