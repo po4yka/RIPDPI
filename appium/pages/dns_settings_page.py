@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from .base_page import BasePage
 
 
@@ -19,7 +21,20 @@ class DnsSettingsPage(BasePage):
     def is_loaded(self) -> bool:
         return self.is_visible(self.SCREEN)
 
+    def select_mode(self, mode: str) -> None:
+        tag = f"dns-mode-{mode}"
+        self.scroll_to(tag)
+        self.tap(tag)
+        time.sleep(0.8)
+
+    def select_protocol(self, protocol: str) -> None:
+        tag = f"dns-protocol-{protocol}"
+        self.scroll_to(tag)
+        self.tap(tag)
+        time.sleep(0.8)
+
     def set_plain_address(self, ip: str) -> None:
+        self.scroll_to(self.PLAIN_ADDRESS)
         self.clear_and_type(self.PLAIN_ADDRESS, ip)
 
     def tap_plain_save(self) -> None:
@@ -29,18 +44,24 @@ class DnsSettingsPage(BasePage):
         return self.is_visible(self.PLAIN_SAVE)
 
     def select_doh_resolver(self, provider: str) -> None:
-        self.tap(f"dns-resolver-{provider}")
+        tag = f"dns-resolver-{provider}"
+        self.scroll_to(tag)
+        self.tap(tag)
 
     def set_custom_doh_url(self, url: str) -> None:
+        self.scroll_to(self.CUSTOM_DOH_URL)
         self.clear_and_type(self.CUSTOM_DOH_URL, url)
 
     def set_dot_host(self, host: str) -> None:
+        self.scroll_to(self.CUSTOM_HOST)
         self.clear_and_type(self.CUSTOM_HOST, host)
 
     def set_dot_port(self, port: str) -> None:
+        self.scroll_to(self.CUSTOM_PORT)
         self.clear_and_type(self.CUSTOM_PORT, port)
 
     def set_tls_server_name(self, name: str) -> None:
+        self.scroll_to(self.CUSTOM_TLS_SERVER_NAME)
         self.clear_and_type(self.CUSTOM_TLS_SERVER_NAME, name)
 
     def tap_custom_save(self) -> None:

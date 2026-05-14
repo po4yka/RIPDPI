@@ -246,6 +246,10 @@ internal object RipDpiTestTags {
 
     val dnsResolver: (String) -> String = { providerId -> "dns-resolver-${sanitize(providerId)}" }
 
+    val dnsMode: (String) -> String = { modeKey -> "dns-mode-${sanitize(modeKey)}" }
+
+    val dnsProtocol: (String) -> String = { protocolKey -> "dns-protocol-${sanitize(protocolKey)}" }
+
     val customizationIcon: (String) -> String = { key -> "customization-icon-${sanitize(key)}" }
 
     val diagnosticsSection: (DiagnosticsSection) -> String =

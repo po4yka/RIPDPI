@@ -189,6 +189,7 @@ internal fun DnsOptionCard(
     selected: Boolean,
     badges: List<String>,
     onClick: () -> Unit,
+    testTag: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -203,7 +204,7 @@ internal fun DnsOptionCard(
                 .semantics { contentDescription = title }
                 .animateContentSize(
                     animationSpec = motion.stateTween(),
-                ),
+                ).ripDpiTestTag(testTag),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

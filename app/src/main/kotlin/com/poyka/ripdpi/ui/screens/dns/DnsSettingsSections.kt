@@ -58,6 +58,7 @@ internal fun DnsModeSection(
                 selected = uiState.dns.dnsMode == DnsModeEncrypted,
                 badges = listOf(protocolDisplayName(uiState.dns.encryptedDnsProtocol)),
                 onClick = { onModeSelected(DnsModeEncrypted) },
+                testTag = RipDpiTestTags.dnsMode(DnsModeEncrypted),
             )
             DnsOptionCard(
                 icon = RipDpiIcons.Dns,
@@ -66,6 +67,7 @@ internal fun DnsModeSection(
                 selected = uiState.dns.dnsMode == DnsModePlainUdp,
                 badges = listOf(uiState.dns.dnsIp),
                 onClick = { onModeSelected(DnsModePlainUdp) },
+                testTag = RipDpiTestTags.dnsMode(DnsModePlainUdp),
             )
         }
     }
@@ -213,6 +215,7 @@ private fun DnsProtocolOptionCards(
         selected = uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh,
         badges = listOf(stringResource(R.string.dns_protocol_builtin_and_custom)),
         onClick = { onProtocolSelected(EncryptedDnsProtocolDoh) },
+        testTag = RipDpiTestTags.dnsProtocol(EncryptedDnsProtocolDoh),
     )
     DnsOptionCard(
         icon = RipDpiIcons.Lock,
@@ -221,6 +224,7 @@ private fun DnsProtocolOptionCards(
         selected = uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDot,
         badges = listOf(stringResource(R.string.dns_protocol_custom_only)),
         onClick = { onProtocolSelected(EncryptedDnsProtocolDot) },
+        testTag = RipDpiTestTags.dnsProtocol(EncryptedDnsProtocolDot),
     )
     DnsOptionCard(
         icon = RipDpiIcons.Vpn,
@@ -229,6 +233,7 @@ private fun DnsProtocolOptionCards(
         selected = uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt,
         badges = listOf(stringResource(R.string.dns_protocol_custom_only)),
         onClick = { onProtocolSelected(EncryptedDnsProtocolDnsCrypt) },
+        testTag = RipDpiTestTags.dnsProtocol(EncryptedDnsProtocolDnsCrypt),
     )
 }
 

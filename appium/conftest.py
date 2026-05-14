@@ -7,12 +7,18 @@ import time
 
 import pytest
 from appium.webdriver import Remote as AppiumDriver
+from selenium.common.exceptions import InvalidSessionIdException, WebDriverException
 
 from lib.capabilities import build_options
 from lib.driver_helpers import wait_for_element
 from lib.launch_contract import APP_PACKAGE, build_launch_args
 
 APPIUM_URL = os.environ.get("APPIUM_URL", "http://127.0.0.1:4723")
+EXTERNAL_ACTIVITY_PACKAGES = (
+    "com.google.android.documentsui",
+    "com.android.documentsui",
+    "com.android.settings",
+)
 
 
 # -- session-scoped driver ----------------------------------------------------
@@ -24,7 +30,10 @@ def driver():
     opts = build_options()
     drv = AppiumDriver(command_executor=APPIUM_URL, options=opts)
     yield drv
-    drv.quit()
+    try:
+        drv.quit()
+    except InvalidSessionIdException:
+        pass
 
 
 # -- per-test automation launch -----------------------------------------------
@@ -41,7 +50,17 @@ def launch_app(driver, request):
     marker = request.node.get_closest_marker("automation")
     params = marker.kwargs if marker else {}
 
-    # Force-stop to guarantee a cold start.
+    # Force-stop to guarantee a cold start, including system surfaces opened by
+    # prior tests such as document pickers or settings intents.
+    for package_name in EXTERNAL_ACTIVITY_PACKAGES:
+        try:
+            driver.execute_script("mobile: shell", {
+                "command": "am",
+                "args": ["force-stop", package_name],
+            })
+        except WebDriverException:
+            pass
+
     driver.execute_script("mobile: shell", {
         "command": "am",
         "args": ["force-stop", APP_PACKAGE],
@@ -56,12 +75,16 @@ def launch_app(driver, request):
         data_preset=params.get("data_preset", "clean_home"),
         reset_state=params.get("reset_state", True),
         disable_motion=params.get("disable_motion", True),
+        start_configured_mode=params.get("start_configured_mode", False),
     )
     driver.execute_script("mobile: shell", {"command": "am", "args": args})
 
-    # Wait for the expected screen to render.
+    # Wait for the expected screen or launch-triggered surface to render.
     route = params.get("start_route", "home")
-    wait_for_element(driver, f"{route}-screen", timeout=15)
+    ready_tag = params.get("ready_tag") or (
+        "vpn-permission-dialog" if params.get("start_configured_mode", False) else f"{route}-screen"
+    )
+    wait_for_element(driver, ready_tag, timeout=15)
 
     yield
 

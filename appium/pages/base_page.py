@@ -128,4 +128,16 @@ class BasePage:
             end_y = int(size["height"] * 0.3)
             center_x = int(size["width"] * 0.5)
             self.driver.swipe(center_x, start_y, center_x, end_y, duration=300)
+            time.sleep(0.3)
+            if self.is_visible(tag, timeout=1):
+                return self.find(tag)
+        for _ in range(max_swipes):
+            size = self.driver.get_window_size()
+            start_y = int(size["height"] * 0.3)
+            end_y = int(size["height"] * 0.8)
+            center_x = int(size["width"] * 0.5)
+            self.driver.swipe(center_x, start_y, center_x, end_y, duration=300)
+            time.sleep(0.3)
+            if self.is_visible(tag, timeout=1):
+                return self.find(tag)
         return self.wait_for(tag, timeout=5)

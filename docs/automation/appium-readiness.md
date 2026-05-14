@@ -65,6 +65,10 @@ Use the raw tag values from `RipDpiTestTags` as your locator contract.
   `home-mode-primary-local-dpi-bypass`, `home-mode-primary-remote-vpn`,
   `home-mode-primary-diagnostic`, `settings-advanced-settings`,
   `settings-dns-settings`, `mode-editor-save`, `dns-custom-save`
+- DNS configuration:
+  `dns-mode-encrypted`, `dns-mode-plain-udp`, `dns-protocol-doh`,
+  `dns-protocol-dot`, `dns-protocol-dnscrypt`, `dns-resolver-cloudflare`,
+  `dns-resolver-google`, `dns-resolver-quad9`, `dns-resolver-adguard`
 - Diagnostics and sharing:
   `diagnostics-top-history-action`, `diagnostics-share-archive`,
   `diagnostics-save-archive`, `diagnostics-share-summary`, `diagnostics-save-logs`
