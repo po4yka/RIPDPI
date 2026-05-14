@@ -16,14 +16,8 @@ def test_dnscrypt_fields(driver):
 
     # Fill DNSCrypt-specific fields.
     dns.select_protocol("dnscrypt")
-    dns.scroll_to("dns-custom-dnscrypt-provider")
-    dns.clear_and_type("dns-custom-dnscrypt-provider", "2.dnscrypt-cert.example.com")
-
-    dns.scroll_to("dns-custom-dnscrypt-public-key")
-    dns.clear_and_type(
-        "dns-custom-dnscrypt-public-key",
-        "A" * 64,  # 64-char hex placeholder
-    )
+    dns.set_dnscrypt_provider("2.dnscrypt-cert.example.com")
+    dns.set_dnscrypt_public_key("A" * 64)
 
     assert dns.is_custom_save_visible(), (
         "Save button should be visible after filling DNSCrypt fields"

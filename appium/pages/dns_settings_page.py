@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import time
 
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+
 from .base_page import BasePage
 
 
@@ -16,6 +18,8 @@ class DnsSettingsPage(BasePage):
     CUSTOM_PORT = "dns-custom-port"
     CUSTOM_TLS_SERVER_NAME = "dns-custom-tls-server-name"
     CUSTOM_BOOTSTRAP = "dns-custom-bootstrap"
+    CUSTOM_DNSCRYPT_PROVIDER = "dns-custom-dnscrypt-provider"
+    CUSTOM_DNSCRYPT_PUBLIC_KEY = "dns-custom-dnscrypt-public-key"
     CUSTOM_SAVE = "dns-custom-save"
 
     def is_loaded(self) -> bool:
@@ -28,8 +32,26 @@ class DnsSettingsPage(BasePage):
 
     def select_protocol(self, protocol: str) -> None:
         tag = f"dns-protocol-{protocol}"
-        self.scroll_incrementally_to(tag).click()
+        self.scroll_incrementally_to(tag)
+        if protocol == "dnscrypt":
+            size = self.driver.get_window_size()
+            center_x = int(size["width"] * 0.5)
+            self.driver.swipe(
+                center_x,
+                int(size["height"] * 0.42),
+                center_x,
+                int(size["height"] * 0.62),
+                duration=220,
+            )
+        self.wait_for(tag, timeout=5).click()
         time.sleep(0.8)
+        expected_tag = {
+            "doh": self.CUSTOM_DOH_URL,
+            "dot": self.CUSTOM_HOST,
+            "dnscrypt": self.CUSTOM_DNSCRYPT_PROVIDER,
+        }.get(protocol)
+        if expected_tag:
+            self.scroll_incrementally_to(expected_tag)
 
     def set_plain_address(self, ip: str) -> None:
         self.scroll_incrementally_to(self.PLAIN_ADDRESS)
@@ -65,8 +87,20 @@ class DnsSettingsPage(BasePage):
         self.scroll_incrementally_to(self.CUSTOM_TLS_SERVER_NAME)
         self.clear_and_type(self.CUSTOM_TLS_SERVER_NAME, name)
 
+    def set_dnscrypt_provider(self, provider: str) -> None:
+        self.scroll_incrementally_to(self.CUSTOM_DNSCRYPT_PROVIDER)
+        self.clear_and_type(self.CUSTOM_DNSCRYPT_PROVIDER, provider)
+
+    def set_dnscrypt_public_key(self, public_key: str) -> None:
+        self.scroll_incrementally_to(self.CUSTOM_DNSCRYPT_PUBLIC_KEY)
+        self.clear_and_type(self.CUSTOM_DNSCRYPT_PUBLIC_KEY, public_key)
+
     def tap_custom_save(self) -> None:
         self.tap(self.CUSTOM_SAVE)
 
     def is_custom_save_visible(self) -> bool:
-        return self.is_visible(self.CUSTOM_SAVE)
+        try:
+            self.scroll_incrementally_to(self.CUSTOM_SAVE)
+            return True
+        except (NoSuchElementException, TimeoutException):
+            return False

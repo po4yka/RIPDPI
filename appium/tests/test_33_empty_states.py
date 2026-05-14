@@ -11,6 +11,7 @@ from pages.history_page import HistoryPage
     start_route="diagnostics",
     data_preset="clean_home",
     service_preset="idle",
+    ready_timeout=60,
 )
 def test_diagnostics_empty_state(driver):
     base = BasePage(driver)
