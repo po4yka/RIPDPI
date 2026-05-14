@@ -1,0 +1,62 @@
+name: fleet-fixtures
+
+# Gates the ripdpi-vpn-deploy fleet-compat golden-file suite on every PR that
+# touches the client-side parsers/models it locks (subscription parser, relay
+# model, routing model, AmneziaWG model), the fixtures themselves, or the
+# regenerator + structural-drift tooling. The emitter cannot run in CI (it
+# needs Terraform + SOPS + real infra), so this runs the deployer-independent
+# structural gate plus the JVM golden-file suite.
+
+on:
+  pull_request:
+    paths:
+      - "core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/**"
+      - "core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/routing/**"
+      - "core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/awg/**"
+      - "core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/RelayPresetCatalog.kt"
+      - "core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/RelayStores.kt"
+      - "core/data/src/test/kotlin/com/poyka/ripdpi/data/FleetCompatGoldenFileTest.kt"
+      - "core/data/src/test/kotlin/com/poyka/ripdpi/data/fleet/**"
+      - "core/data/src/test/resources/fleet-fixtures/**"
+      - "scripts/refresh-fleet-fixtures.sh"
+      - "scripts/fleet-fixtures/**"
+      - "scripts/ci/check_fleet_fixtures.py"
+      - "scripts/tests/test_fleet_fixtures.py"
+      - ".github/workflows/fleet-fixtures.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fleet-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Run fleet-fixtures structural drift tests
+        run: python3 -m unittest scripts.tests.test_fleet_fixtures
+
+      - name: Run fleet-fixtures structural drift gate
+        run: python3 scripts/ci/check_fleet_fixtures.py
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          java-version: "21"
+          rust-components: ""
+          rust-targets: ""
+          rust-cache-shared-key: rust-fleet-fixtures
+          rust-cache-save: "false"
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Run fleet-compat golden-file suite
+        run: >-
+          ./gradlew :core:data:testDebugUnitTest
+          --tests "*FleetCompat*"
+          -Pripdpi.skipNativeBuild=true

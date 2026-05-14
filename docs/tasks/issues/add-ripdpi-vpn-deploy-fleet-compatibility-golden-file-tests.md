@@ -248,15 +248,56 @@ turn them green.
   — `BUILD SUCCESSFUL`, exit code 0 (the issue's pinned
   `--tests "*FleetCompat*"` selector is a subset of this run; all 12
   `FleetCompatGoldenFileTest` cases green).
-- **Scope note / deferred (out of this agent's orchestrator scope — `scripts/**`
-  and CI workflow files):** `scripts/refresh-fleet-fixtures.sh` and the CI
-  workflow gate were not created — the fixtures are hand-authored, realistic,
-  and self-contained (the orchestrator's ask was "fixture files + a test
-  harness under `core/data/src/test/`"). The cross-repo AWG-catalog diff is
-  covered by the sibling task's `AwgCohort*` tests rather than duplicated
-  here. Fixtures live under `core/data/src/test/resources/` (not
-  `runtime-state/src/test/resources/`) per the orchestrator's pinned scope.
-- **Residual risk:** fixture staleness — fixtures are hand-authored against
-  the current `emit-singbox.sh` shape; without the `refresh-fleet-fixtures.sh`
-  regenerator + a pinned real deployer SHA, a deployer schema change is
-  caught only when someone manually re-syncs a fixture.
+- **Scope note / deferred (out of the prior agent's scope — now done):** the
+  deferred `scripts/**` + CI workflow follow-up has been completed:
+  - `scripts/refresh-fleet-fixtures.sh` — local developer regenerator. Pins
+    the deployer git SHA on a single clearly-marked
+    `DEPLOYER_GIT_SHA="..."` line, locates the sibling repo via
+    `RIPDPI_VPN_DEPLOY_DIR` (default `../ripdpi-vpn-deploy`), shims `terraform`
+    + `sops` (a temp `PATH` dir; fakes echo the frozen RFC-5737 doc IPs /
+    `-fixture` secrets so the real `emit-singbox.sh` runs with no infra),
+    iterates the 8 scenarios, and refreshes each `meta.json` `deployer_git_sha`
+    to the pin. `--check` (default) regenerates + diffs vs committed, `--write`
+    overwrites in place; mirrors `scripts/ci/refresh_mozilla_ca_bundle.sh`.
+  - `scripts/fleet-fixtures/frozen-secrets.yaml` — checked-in, fully-synthetic
+    SOPS payload (all `-fixture` values, doc IPs); no production tokens.
+  - `scripts/ci/check_fleet_fixtures.py` + `scripts/tests/test_fleet_fixtures.py`
+    — CI-runnable structural drift gate (no deployer, no infra). Validates
+    required files per scenario, JSON shape, that `meta.json.deployer_git_sha`
+    is consistent across scenarios AND matches the script pin (the drift
+    signal), and that no production-token shapes leak. TDD: the unittest file
+    was written first and confirmed RED (`FileNotFoundError:
+    check_fleet_fixtures.py`) before the checker was implemented; 15 tests now
+    green.
+  - `.github/workflows/fleet-fixtures.yml` — standalone PR-triggered workflow
+    (follows the `tls-catalog-refresh.yml` precedent) with `paths:` filters on
+    the subscription parser, routing model, AWG model, relay model, the
+    fixtures dir, and the new scripts; runs the unittest, the structural gate,
+    and `./gradlew :core:data:testDebugUnitTest --tests "*FleetCompat*"`.
+  - **Verification (all exit 0):** `python3 -m unittest
+    scripts.tests.test_fleet_fixtures` (15 tests); `python3
+    scripts/ci/check_fleet_fixtures.py`; `bash -n` + `shellcheck`
+    `scripts/refresh-fleet-fixtures.sh`; `scripts/refresh-fleet-fixtures.sh
+    --check`; `./gradlew :core:data:testDebugUnitTest --tests "*FleetCompat*"`.
+  - **Emitter shims ran end-to-end:** with the sibling repo present, the
+    `--check` run drove the real `emit-singbox.sh` for `p0-only`,
+    `per-app-bypass-and-via-tun`, and `bootstrap-bundle` — all three matched
+    the committed `bundle.json` byte-for-byte (modulo `jq` formatting). The
+    other 5 scenarios fall back to structural-only because they need deployer
+    state the sibling repo does not check in (hysteria-only cohort, port-hop
+    range in `group_vars`, multi-cohort `xray.cohorts`, two-provider Terraform
+    state); the structural gate still guards them.
+  - The pinned deployer SHA remains the `0000…0-fixture` placeholder — the
+    committed fixtures are still hand-authored for the 5 structural-only
+    scenarios, so an operator bumps the pin (and regenerates) when wiring a
+    real deployer checkout. The cross-repo AWG-catalog diff stays covered by
+    the sibling task's `AwgCohort*` tests.
+- **Residual risk:** fixture staleness is now *gated, not eliminated*. The
+  `check_fleet_fixtures.py` CI gate catches structural drift (missing files,
+  malformed JSON, SHA pin vs `meta.json` mismatch, production-token leaks) on
+  every PR touching the parsers/models/fixtures, and `refresh-fleet-fixtures.sh
+  --check` reproduces 3/8 bundles directly from the real emitter. The
+  remaining 5 hand-authored bundles still rely on an operator running
+  `--write` against a real deployer checkout after a deployer schema change;
+  the pin-vs-meta consistency check makes a forgotten regeneration fail CI
+  loudly rather than pass silently.
