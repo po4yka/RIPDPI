@@ -15,9 +15,11 @@ def test_tools_section_actions(driver):
 
     page.swipe_to_tools_section()
 
+    page.scroll_to(DiagnosticsPage.SAVE_LOGS)
     assert page.is_visible(
         DiagnosticsPage.SAVE_LOGS
     ), "Save logs button is not visible on the tools section"
+    page.scroll_to(DiagnosticsPage.SHARE_SUMMARY)
     assert page.is_visible(
         DiagnosticsPage.SHARE_SUMMARY
     ), "Share summary button is not visible on the tools section"

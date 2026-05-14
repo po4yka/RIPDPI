@@ -168,3 +168,12 @@ class DiagnosticsPage(BasePage):
     def swipe_to_dashboard_section(self) -> None:
         """Dashboard is the first section; no swipe needed from start."""
         pass
+
+    def has_profile_card(self, timeout: int = 3) -> bool:
+        return self.is_prefix_visible("diagnostics-profile-", timeout=timeout)
+
+    def has_active_profile_summary(self, timeout: int = 3) -> bool:
+        return self.is_text_visible("ACTIVE PROFILE", timeout=timeout) or self.is_text_visible(
+            "Default diagnostics",
+            timeout=timeout,
+        )

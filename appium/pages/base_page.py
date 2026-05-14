@@ -53,6 +53,16 @@ class BasePage:
                 continue
         return False
 
+    def _find_by_test_tag_prefix(self, prefix: str) -> WebElement | bool:
+        escaped_prefix = prefix.replace('"', '\\"')
+        try:
+            return self.driver.find_element(
+                AppiumBy.XPATH,
+                f'//*[contains(@resource-id, "{escaped_prefix}")]',
+            )
+        except (NoSuchElementException, WebDriverException):
+            return False
+
     def find(self, tag: str) -> WebElement:
         element = self._find_by_test_tag(tag)
         if element:
@@ -72,10 +82,20 @@ class BasePage:
         except (TimeoutException, NoSuchElementException):
             return False
 
+    def is_prefix_visible(self, prefix: str, timeout: int = 3) -> bool:
+        try:
+            self.wait_for_prefix(prefix, timeout=timeout)
+            return True
+        except (TimeoutException, NoSuchElementException):
+            return False
+
     # -- interactions ---------------------------------------------------------
 
     def tap(self, tag: str, timeout: int = 10) -> None:
         self.wait_for(tag, timeout=timeout).click()
+
+    def tap_first_with_prefix(self, prefix: str, timeout: int = 10) -> None:
+        self.wait_for_prefix(prefix, timeout=timeout).click()
 
     def tap_text(self, text: str, timeout: int = 10) -> None:
         WebDriverWait(self.driver, timeout).until(
@@ -148,6 +168,12 @@ class BasePage:
     def wait_for_screen(self, screen_tag: str, timeout: int = 15) -> WebElement:
         """Wait for a screen to appear (named alias for screen transitions)."""
         return self.wait_for(screen_tag, timeout=timeout)
+
+    def wait_for_prefix(self, prefix: str, timeout: int = 10) -> WebElement:
+        return WebDriverWait(self.driver, timeout).until(
+            lambda _: self._find_by_test_tag_prefix(prefix),
+            message=f"Timed out waiting for prefix '{prefix}'",
+        )
 
     def transition_to(
         self, old_screen_tag: str, new_screen_tag: str, timeout: int = 15,

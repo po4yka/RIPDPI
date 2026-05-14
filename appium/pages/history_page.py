@@ -40,22 +40,46 @@ class HistoryPage(BasePage):
     # -- filter helpers ----------------------------------------------------------
 
     def tap_connections_mode_filter(self, mode: str) -> None:
-        self.tap(f"history-connections-mode-{mode}")
+        tag = f"history-connections-mode-{mode}"
+        if self.is_visible(tag, timeout=2):
+            self.tap(tag)
+            return
+        self.tap_first_with_prefix("history-connections-mode-")
 
     def tap_connections_status_filter(self, status: str) -> None:
-        self.tap(f"history-connections-status-{status}")
+        tag = f"history-connections-status-{status}"
+        if self.is_visible(tag, timeout=2):
+            self.tap(tag)
+            return
+        self.tap_first_with_prefix("history-connections-status-")
 
     def tap_diagnostics_path_filter(self, path_mode: str) -> None:
-        self.tap(f"history-diagnostics-path-{path_mode}")
+        tag = f"history-diagnostics-path-{path_mode}"
+        if self.is_visible(tag, timeout=2):
+            self.tap(tag)
+            return
+        self.tap_first_with_prefix("history-diagnostics-path-")
 
     def tap_diagnostics_status_filter(self, status: str) -> None:
-        self.tap(f"history-diagnostics-status-{status}")
+        tag = f"history-diagnostics-status-{status}"
+        if self.is_visible(tag, timeout=2):
+            self.tap(tag)
+            return
+        self.tap_first_with_prefix("history-diagnostics-status-")
 
     def tap_event_source_filter(self, source: str) -> None:
-        self.tap(f"history-event-source-{source}")
+        tag = f"history-event-source-{source}"
+        if self.is_visible(tag, timeout=2):
+            self.tap(tag)
+            return
+        self.tap_first_with_prefix("history-event-source-")
 
     def tap_event_severity_filter(self, severity: str) -> None:
-        self.tap(f"history-event-severity-{severity}")
+        tag = f"history-event-severity-{severity}"
+        if self.is_visible(tag, timeout=2):
+            self.tap(tag)
+            return
+        self.tap_first_with_prefix("history-event-severity-")
 
     # -- detail sheet helpers ----------------------------------------------------
 

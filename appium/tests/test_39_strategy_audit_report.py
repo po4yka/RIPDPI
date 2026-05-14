@@ -131,16 +131,16 @@ def test_overview_automatic_probe_and_history(driver):
     diag = DiagnosticsPage(driver)
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
-    diag.swipe_to_overview_section()
+    diag.swipe_to_dashboard_section()
 
     try:
         diag.wait_until(
             lambda: diag.is_visible(DiagnosticsPage.OVERVIEW_AUTOMATIC_PROBE_CARD),
             timeout=10,
-            message="Automatic probe card should be visible on overview",
+            message="Automatic probe card should be visible on dashboard",
         )
     except TimeoutError:
-        pytest.skip("Automatic probe card not visible on overview section")
+        pytest.skip("Automatic probe card not visible on dashboard section")
 
     assert diag.is_visible(DiagnosticsPage.OVERVIEW_AUTOMATIC_PROBE_CARD), (
         "Automatic probe card should be visible"

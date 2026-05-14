@@ -47,8 +47,8 @@ def test_live_diagnostics_screen(driver):
 
     assert page.is_loaded(), "Diagnostics screen should be loaded with live preset"
     assert page.is_section_visible(
-        "overview"
-    ), "Overview section should be visible on diagnostics screen with live preset"
+        "dashboard"
+    ), "Dashboard section should be visible on diagnostics screen with live preset"
 
 
 @pytest.mark.automation(
