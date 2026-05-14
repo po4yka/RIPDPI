@@ -86,6 +86,9 @@ class HistoryPage(BasePage):
     def tap_connection(self, session_id: str) -> None:
         self.tap(f"history-connection-{session_id}")
 
+    def tap_first_connection(self) -> None:
+        self.tap_first_with_prefix("history-connection-")
+
     def tap_diagnostics_session(self, session_id: str) -> None:
         self.tap(f"history-diagnostics-{session_id}")
 
@@ -112,3 +115,9 @@ class HistoryPage(BasePage):
 
     def is_events_content_visible(self) -> bool:
         return self.is_visible(self.EVENTS_STATE_CONTENT)
+
+    def is_connection_detail_visible(self) -> bool:
+        return self.is_visible(self.CONNECTION_DETAIL_SHEET, timeout=5) or (
+            self.is_text_visible("Network", timeout=2)
+            and self.is_text_visible("Service", timeout=2)
+        )

@@ -75,13 +75,13 @@ def test_history_detail_sheets(driver):
         pytest.skip("No connections content available to test detail sheets")
 
     try:
-        page.tap_connection("0")
+        page.tap_first_connection()
     except Exception:
-        pytest.skip("Could not tap a connection row; dynamic ID not predictable")
+        pytest.skip("Could not tap a connection row")
 
-    if not page.is_visible(HistoryPage.CONNECTION_DETAIL_SHEET, timeout=5):
+    if not page.is_connection_detail_visible():
         pytest.skip("Connection detail sheet did not appear after tap")
 
-    assert page.is_visible(
-        HistoryPage.CONNECTION_DETAIL_SHEET, timeout=5
-    ), "Connection detail sheet is not visible after tapping a connection"
+    assert page.is_connection_detail_visible(), (
+        "Connection detail sheet is not visible after tapping a connection"
+    )
