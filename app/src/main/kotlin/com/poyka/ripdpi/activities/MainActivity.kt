@@ -13,6 +13,10 @@ import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.permissions.PermissionResult
+import com.poyka.ripdpi.proxyimport.ImportHandlerActivity
+import com.poyka.ripdpi.proxyimport.ImportLaunchRoute
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.navigation.decodeImportedProfile
 import com.poyka.ripdpi.ui.screens.diagnostics.share.DiagnosticShareLinkDeepLink
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -56,6 +60,42 @@ class MainActivity : AppCompatActivity() {
 
         internal fun diagnosticShareFragment(intent: Intent?): String? =
             DiagnosticShareLinkDeepLink.fragmentFrom(intent)
+
+        /**
+         * Resolves the import-confirmation [Route] an inbound intent forwarded from
+         * [ImportHandlerActivity] should open, or `null` when the intent carries no
+         * import payload. Never throws — a malformed payload resolves to `null`.
+         */
+        internal fun importRouteFrom(intent: Intent?): Route? {
+            val route = intent?.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE) ?: return null
+            return when (route) {
+                ImportLaunchRoute.PROFILE_CONFIRM -> {
+                    val profileJson =
+                        intent.getStringExtra(ImportHandlerActivity.EXTRA_PROFILE_JSON) ?: return null
+                    // Validate the payload up front so navigation never lands on a broken screen.
+                    if (decodeImportedProfile(profileJson) == null) return null
+                    Route.ProfileImportConfirm(profileJson = profileJson)
+                }
+
+                ImportLaunchRoute.SUBSCRIPTION_CONFIRM -> {
+                    val url =
+                        intent.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_URL) ?: return null
+                    Route.SubscriptionImportConfirm(
+                        url = url,
+                        name = intent.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_NAME).orEmpty(),
+                        bootstrap =
+                            intent.getBooleanExtra(
+                                ImportHandlerActivity.EXTRA_SUBSCRIPTION_BOOTSTRAP,
+                                false,
+                            ),
+                    )
+                }
+
+                else -> {
+                    null
+                }
+            }
+        }
 
         internal fun mapNotificationPermissionResult(
             granted: Boolean,

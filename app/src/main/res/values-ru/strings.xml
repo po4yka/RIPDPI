@@ -2561,4 +2561,30 @@ fakeddisorder endhost</string>
     <string name="update_error_installer_unavailable">Android installer is unavailable</string>
     <string name="update_error_not_available">no checked update is available</string>
     <string name="update_error_unknown">unexpected error</string>
+
+    <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
+    <string name="import_error_unsupported">Неподдерживаемая ссылка импорта.</string>
+    <string name="import_error_missing_url">В ссылке импорта отсутствует URL подписки.</string>
+    <string name="import_error_bad_encoding">Ссылка импорта повреждена.</string>
+    <string name="import_profile_confirm_title">Импорт профиля</string>
+    <string name="import_profile_confirm_empty_title">Нечего импортировать</string>
+    <string name="import_profile_confirm_empty_body">Эта ссылка не содержит пригодного профиля прокси.</string>
+    <string name="import_confirm_add_action">Добавить</string>
+    <string name="import_confirm_done_action">Добавлено</string>
+    <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
+    <string name="import_profile_summary_raw">Импортированная конфигурация</string>
+    <string name="import_subscription_confirm_title">Добавить подписку</string>
+    <string name="import_subscription_bootstrap_title">Одноразовая ссылка инициализации</string>
+    <string name="import_subscription_bootstrap_body">Это одноразовый токен инициализации. Его можно использовать один раз для получения подписки.</string>
+    <string name="import_subscription_unnamed">Подписка без названия</string>
+    <string name="scanner_title">Сканировать QR-код</string>
+    <string name="scanner_permission_rationale_title">Доступ к камере</string>
+    <string name="scanner_permission_rationale_body">RIPDPI использует камеру только для чтения QR-кода прокси. Ничего не записывается и не отправляется.</string>
+    <string name="scanner_scanning_title">Наведите на QR-код</string>
+    <string name="scanner_scanning_body">Удерживайте код в рамке, чтобы импортировать профиль.</string>
+    <string name="scanner_permission_denied_title">Камера недоступна</string>
+    <string name="scanner_permission_denied_body">Доступ к камере запрещён. Вы всё ещё можете импортировать QR-код из сохранённого изображения.</string>
+    <string name="scanner_invalid_qr_title">QR-код не распознан</string>
+    <string name="scanner_invalid_qr_body">Этот QR-код не является поддерживаемой ссылкой прокси (начинается с: %1$s).</string>
+    <string name="scanner_pick_image_action">Импорт из изображения</string>
 </resources>

@@ -2442,4 +2442,30 @@ Origen: %2$s</string>
     <string name="update_error_installer_unavailable">Android installer is unavailable</string>
     <string name="update_error_not_available">no checked update is available</string>
     <string name="update_error_unknown">unexpected error</string>
+
+    <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
+    <string name="import_error_unsupported">Enlace de importación no compatible.</string>
+    <string name="import_error_missing_url">Al enlace de importación le falta la URL de suscripción.</string>
+    <string name="import_error_bad_encoding">El enlace de importación está mal formado.</string>
+    <string name="import_profile_confirm_title">Importar perfil</string>
+    <string name="import_profile_confirm_empty_title">Nada que importar</string>
+    <string name="import_profile_confirm_empty_body">Este enlace no contiene un perfil de proxy utilizable.</string>
+    <string name="import_confirm_add_action">Añadir</string>
+    <string name="import_confirm_done_action">Añadido</string>
+    <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
+    <string name="import_profile_summary_raw">Configuración importada</string>
+    <string name="import_subscription_confirm_title">Añadir suscripción</string>
+    <string name="import_subscription_bootstrap_title">Enlace de arranque de un solo uso</string>
+    <string name="import_subscription_bootstrap_body">Este es un token de arranque de un solo uso. Puede usarse una vez para obtener tu suscripción.</string>
+    <string name="import_subscription_unnamed">Suscripción sin nombre</string>
+    <string name="scanner_title">Escanear código QR</string>
+    <string name="scanner_permission_rationale_title">Acceso a la cámara</string>
+    <string name="scanner_permission_rationale_body">RIPDPI usa la cámara solo para leer un código QR de proxy. No se graba ni se sube nada.</string>
+    <string name="scanner_scanning_title">Apunta a un código QR</string>
+    <string name="scanner_scanning_body">Mantén el código dentro del marco para importar el perfil.</string>
+    <string name="scanner_permission_denied_title">Cámara no disponible</string>
+    <string name="scanner_permission_denied_body">Se denegó el acceso a la cámara. Aún puedes importar un código QR desde una imagen guardada.</string>
+    <string name="scanner_invalid_qr_title">Código QR no reconocido</string>
+    <string name="scanner_invalid_qr_body">Este código QR no es un enlace de proxy compatible (empieza por: %1$s).</string>
+    <string name="scanner_pick_image_action">Importar desde imagen</string>
 </resources>

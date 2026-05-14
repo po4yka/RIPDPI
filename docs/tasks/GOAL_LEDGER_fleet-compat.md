@@ -1,0 +1,57 @@
+# Goal Ledger — epic-ripdpi-vpn-deploy-fleet-compatibility closure
+
+Auto-generated. The transitive dependency closure of
+`epic-ripdpi-vpn-deploy-fleet-compatibility` — every task it needs plus the epic itself — in
+**topological order (feeders first)**. Working top-to-bottom keeps every
+row's Blocked-by satisfied. The `/goal` loop edits only Status and Proof.
+
+- Rows: **45**  ·  global source: `docs/tasks/GOAL_LEDGER.md`
+- Phase size **12** -> **4** phases
+
+| # | Phase | Task (ledger key = slug) | Type | Area | Prio | Status | Proof |
+|---|-------|--------------------------|------|------|------|--------|-------|
+| 1 | P1 | `add-base64-and-plain-uri-list-subscription-parser`<br>Add base64 and plain URI-list subscription parser | task | outbound | 🔺 | DONE | DONE — part of `:core:data:testDebugUnitTest` exit 0 (44 parser tests) |
+| 2 | P1 | `add-clash-and-clash-meta-yaml-subscription-parser`<br>Add Clash and Clash.Meta YAML subscription parser | task | outbound | 🔺 | DONE | DONE — `:core:data:testDebugUnitTest` exit 0 |
+| 3 | P1 | `add-proxygroup-and-subscription-entities-to-ripdpi-data-layer`<br>Add ProxyGroup and Subscription entities to RIPDPI data layer | task | outbound | 🔺 | DONE | DONE — `./gradlew :core:data:testDebugUnitTest` exit 0, BUILD SUCCESSFUL, 13 new tests pass |
+| 4 | P1 | `add-sing-box-json-subscription-parser`<br>Add sing-box JSON subscription parser | task | outbound | 🔺 | DONE | DONE — `:core:data:testDebugUnitTest` exit 0 |
+| 5 | P1 | `add-sing-box-selector-and-urltest-group-import-from-subscription`<br>Add sing-box selector and urltest group import from subscription | task | outbound | 🔺 | DONE | DONE — `:core:data:testDebugUnitTest` exit 0 |
+| 6 | P1 | `add-singbox-uri-deeplink-intent-filter-and-handler`<br>Add sing-box URI deep-link Intent filter and handler | task | android | 🔺 | DONE | DONE — `:app:testDebugUnitTest` + `:app:assembleDebug` exit 0 (52 proxyimport tests) |
+| 7 | P1 | `decouple-vless-xhttp-transport-from-the-reality-relay-kind`<br>Decouple VLESS xHTTP transport from the Reality relay kind | task | relay | 🔺 | DONE | DONE — 3-module verify exit 0; all app flavors compile |
+| 8 | P1 | `add-amneziawg-kotlin-config-model-and-dot-conf-parser-extensions`<br>Add AmneziaWG Kotlin config model and dot-conf parser extensions | task | outbound | ⏫ | DONE | DONE — `:core:data:testDebugUnitTest` exit 0 (16 tests) |
+| 9 | P1 | `add-duplicate-profile-detection-on-subscription-merge`<br>Add duplicate-profile detection on subscription merge | task | outbound | ⏫ | DONE | DONE — `:core:data:testDebugUnitTest` exit 0 (12 tests) |
+| 10 | P1 | `add-grpc-transport-crate-with-tonic-and-xray-compatible-framing`<br>Add gRPC transport crate with tonic and Xray-compatible framing | task | transport | ⏫ | DONE | DONE — `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-xhttp` exit 0, 25 tests pass |
+| 11 | P1 | `add-qr-scanner-screen-with-camerax-and-ml-kit`<br>Add QR scanner screen with CameraX and ML Kit | task | ui | ⏫ | DONE | DONE — `:app:testDebugUnitTest` + `:app:assembleDebug` exit 0 |
+| 12 | P1 | `add-share-sheet-handler-for-proxy-uri-schemes`<br>Add share-sheet handler for proxy URI schemes | task | ui | ⏫ | DONE | DONE — `:app:testDebugUnitTest` + `:app:assembleDebug` exit 0 |
+| 13 | P2 | `add-subscription-auto-update-workmanager-worker`<br>Add subscription auto-update WorkManager worker | task | outbound | ⏫ | TODO | |
+| 14 | P2 | `add-wireguard-ini-subscription-parser`<br>Add WireGuard INI subscription parser | task | outbound | ⏫ | TODO | |
+| 15 | P2 | `fork-boringtun-and-add-amneziawg-handshake-obfuscation`<br>Fork boringtun and add AmneziaWG handshake obfuscation | task | outbound | ⏫ | TODO | |
+| 16 | P2 | `generalize-websocket-transport-for-outbound-composition`<br>Generalize WebSocket transport for outbound composition | task | transport | ⏫ | TODO | |
+| 17 | P2 | `add-dns-ipv6-and-kill-switch-release-gates`<br>Add DNS IPv6 and kill-switch release gates | task | testing | ⏫ | TODO | |
+| 18 | P2 | `add-fleet-release-gating-and-cadence-policy`<br>Add fleet release gating and cadence policy | task | testing | ⏫ | TODO | |
+| 19 | P2 | `add-multi-delivery-subscription-mirror-support`<br>Add multi-delivery subscription mirror support | task | relay | ⏫ | TODO | |
+| 20 | P2 | `add-per-device-subscription-token-ux-and-shared-link-warnings`<br>Add per-device subscription token UX and shared-link warnings | task | vpn | ⏫ | TODO | |
+| 21 | P2 | `add-priority-based-outbound-failover-state-machine`<br>Add priority-based outbound failover state machine | task | vpn | ⏫ | TODO | |
+| 22 | P2 | `add-amneziawg-russian-isp-cohort-preset-catalog`<br>Add AmneziaWG Russian ISP cohort preset catalog | task | data | ⏫ | TODO | |
+| 23 | P2 | `add-bootstrap-one-time-subscription-token-import-flow`<br>Add bootstrap one-time subscription token import flow | task | data | ⏫ | TODO | |
+| 24 | P2 | `add-ripdpi-vpn-deploy-fleet-compatibility-golden-file-tests`<br>Add ripdpi-vpn-deploy fleet compatibility golden-file tests | task | testing | ⏫ | TODO | |
+| 25 | P3 | `add-sing-box-route-rules-android-per-app-routing-import`<br>Add sing-box route.rules Android per-app routing import | task | routing | ⏫ | TODO | |
+| 26 | P3 | `add-amneziawg-profile-editor-screen-with-obfuscation-fields`<br>Add AmneziaWG profile editor screen with obfuscation fields | task | outbound | 🔼 | TODO | |
+| 27 | P3 | `add-amneziawg-uri-codec-for-profile-share-and-import`<br>Add amneziawg URI codec for profile share and import | task | outbound | 🔼 | TODO | |
+| 28 | P3 | `add-clipboard-import-menu-action-with-explicit-user-consent`<br>Add clipboard-import menu action with explicit user consent | task | ui | 🔼 | TODO | |
+| 29 | P3 | `add-force-resolve-dns-and-subscription-userinfo-handling`<br>Add force-resolve DNS and Subscription-Userinfo handling | task | outbound | 🔼 | TODO | |
+| 30 | P3 | `add-httpupgrade-transport-crate`<br>Add HTTPUpgrade transport crate | task | transport | 🔼 | TODO | |
+| 31 | P3 | `add-qr-generation-and-share-for-saved-profiles`<br>Add QR generation and share for saved profiles | task | ui | 🔼 | TODO | |
+| 32 | P3 | `add-selector-outbound-runtime-for-group-based-profile-switching`<br>Add selector outbound runtime for group-based profile switching | task | outbound | 🔼 | TODO | |
+| 33 | P3 | `epic-nekobox-subscription-and-profile-import`<br>Epic - NekoBox subscription and profile import | epic | outbound | 🔺 | TODO | |
+| 34 | P3 | `epic-qr-code-and-clipboard-profile-import`<br>Epic - QR code and clipboard profile import | epic | ui | ⏫ | TODO | |
+| 35 | P3 | `add-sing-mux-and-yamux-wire-multiplexing`<br>Add sing-mux and yamux wire multiplexing | task | transport | 🔼 | TODO | |
+| 36 | P3 | `refactor-quic-and-h3-into-a-composable-transport-crate`<br>Refactor QUIC and H3 into a composable transport crate | task | transport | 🔼 | TODO | |
+| 37 | P4 | `wire-amneziawg-into-the-subscription-wireguard-ini-parser`<br>Wire AmneziaWG into the subscription WireGuard-INI parser | task | outbound | 🔼 | TODO | |
+| 38 | P4 | `add-randomized-port-hopping-window-to-hysteria2-outbound`<br>Add randomized port-hopping window to Hysteria2 outbound | task | transport | 🔼 | TODO | |
+| 39 | P4 | `epic-composable-transport-layer-parity`<br>Epic - Composable transport layer parity | epic | epic | ⏫ | TODO | |
+| 40 | P4 | `add-captive-portal-and-whitelist-mode-test-cases`<br>Add captive portal and whitelist-mode test cases | task | testing | 🔼 | TODO | |
+| 41 | P4 | `add-client-compatibility-regression-matrix-for-fleet-profiles`<br>Add client compatibility regression matrix for fleet profiles | task | testing | 🔼 | TODO | |
+| 42 | P4 | `epic-vpn-fleet-testing-matrix-and-release-gates`<br>Epic - VPN fleet testing matrix and release gates | epic | testing | ⏫ | TODO | |
+| 43 | P4 | `add-strategy-pack-compatibility-hints-for-amneziawg-servers`<br>Add strategy-pack compatibility hints for AmneziaWG servers | task | outbound | 🔽 | TODO | |
+| 44 | P4 | `epic-amneziawg-outbound-support`<br>Epic - AmneziaWG outbound support | epic | epic | 🔼 | TODO | |
+| 45 | P4 | `epic-ripdpi-vpn-deploy-fleet-compatibility`<br>Epic - ripdpi-vpn-deploy fleet compatibility | epic | epic | 🔺 | TODO | |

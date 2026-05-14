@@ -1,7 +1,7 @@
 ---
 title: Decouple VLESS xHTTP transport from the Reality relay kind
 type: task
-status: backlog
+status: done
 area: relay
 priority: critical
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-14
 updated: 2026-05-14
 ---
 
-- [ ] #task Decouple VLESS xHTTP transport from the Reality relay kind #repo/RIPDPI #area/relay #status/backlog 🔺
+- [x] #task Decouple VLESS xHTTP transport from the Reality relay kind #repo/RIPDPI #area/relay #status/done 🔺
 
 ## Goal contract
 
@@ -174,6 +174,66 @@ in the `## Work log`:
     self-approved.
 - [ ] `## Work log` added: model-path decision (A or B), changed
     files, test output, residual risk.
+
+## Work log
+
+### 2026-05-14 — model + normalizer + migration + resolver slice
+
+**Model-path decision: Path A** (distinct `vless` kind alongside
+`vless_reality`). Rationale: Path A has the strictly smaller migration
+surface — `vless_reality` and its `RelayKindVlessReality` constant stay
+untouched, so none of the many existing call sites (`app/` relay editor,
+view models, `RipDpiRelayConfig` projection, chain/shadowtls resolvers,
+golden snapshots) need rewriting. Path B (collapse into `vless` +
+`securityLayer`) is cleaner long-term but would ripple through every
+`kind == RelayKindVlessReality` site. The redundant enum value is an
+acceptable cost; a follow-up can collapse it once the sing-box parser
+lands.
+
+**`securityLayer` default decision:** the `RelayProfileRecord.securityLayer`
+field defaults to `RelaySecurityLayerReality`. A legacy on-disk record
+omits the field entirely, so kotlinx.serialization fills the default —
+and today every VLESS profile is Reality-based, so `reality` is the
+behaviour-preserving safe default. The one-shot migration then *downgrades*
+the specific legacy shape (`kind=vless_reality, vlessTransport=xhttp,
+realityPublicKey=""`) to `kind=vless, securityLayer=tls`.
+
+**Changed files (production):**
+- `core/data/settings/.../RelaySettings.kt` — added `RelayKindVless`,
+  `RelaySecurityLayerTls`, `RelaySecurityLayerReality` constants; extended
+  `normalizeRelayKind()` to accept `vless`; added
+  `normalizeRelaySecurityLayer(value, relayKind?)`.
+- `core/data/runtime-state/.../RelayStores.kt` — added `securityLayer`
+  field to `RelayProfileRecord`; added `RelayProfileMigrationResult` +
+  `migrateRelayProfileRecord()` (deterministic, idempotent one-shot);
+  wired the migration into `SharedPreferencesRelayProfileStore.load()`,
+  which persists the rewritten shape so it runs once per legacy record.
+- `DefaultRelayKindResolver` routing: unchanged — its `supports()` already
+  returns `true` (catch-all), so the new `vless` kind routes to the same
+  native VLESS path as `vless_reality`; covered by a new resolver test.
+
+**Test files (written test-first, RED then GREEN):**
+- `core/data/runtime-state/src/test/.../RelaySecurityLayerTest.kt`
+- `core/data/runtime-state/src/test/.../RelayProfileStoreMigrationTest.kt`
+  (incl. real `SharedPreferencesRelayProfileStore` Robolectric load-path test)
+- `core/data/settings/src/test/.../RelaySecurityLayerNormalizerTest.kt`
+- `core/data/src/test/.../RelayStoresTest.kt` is unchanged and still green.
+- `core/service/src/test/.../DefaultRelayKindResolverTest.kt`
+Bootstrapped the previously-absent `src/test` source sets in
+`core/data/runtime-state` and `core/data/settings`.
+
+**Scope note:** The spec's `SingBoxVlessImportTest` was intentionally
+NOT implemented — it depends on the sing-box JSON parser owned by
+[[Add sing-box JSON subscription parser]], which is out of this slice's
+scope. Adding `securityLayer` as a defaulted field keeps the
+`RelayProfileRecord` constructor source-compatible, so no `app/` call
+site needed editing.
+
+**Residual risk:** Telemetry shape-distinction (P1 plain-TLS xHTTP vs
+Reality handshake) and the relay-editor field visibility toggle are UI
+concerns not in this slice's modules; the model now *carries* the
+distinguishing field, so those are unblocked follow-ups. The redundant
+`vless_reality` enum value remains until a Path-B collapse.
 
 ## Source references
 

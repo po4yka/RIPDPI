@@ -22,6 +22,7 @@ data class RelayProfileRecord(
     val server: String = "",
     val serverPort: Int = 443,
     val serverName: String = "",
+    val securityLayer: String = RelaySecurityLayerReality,
     val realityPublicKey: String = "",
     val realityShortId: String = "",
     val vlessTransport: String = RelayVlessTransportRealityTcp,
@@ -98,6 +99,45 @@ data class RelayCredentialRecord(
     val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
 
+/**
+ * Result of [migrateRelayProfileRecord]: the (possibly rewritten) record plus a
+ * flag indicating whether a migration was actually applied. [changed] is `true`
+ * only when the on-disk shape was rewritten, so callers can emit exactly one
+ * audit entry per rewritten record.
+ */
+data class RelayProfileMigrationResult(
+    val record: RelayProfileRecord,
+    val changed: Boolean,
+)
+
+/**
+ * One-shot, deterministic, idempotent migration for the relay security-layer /
+ * transport decoupling.
+ *
+ * A legacy record stored as `kind=vless_reality, vlessTransport=xhttp` with an
+ * empty [RelayProfileRecord.realityPublicKey] is the deployer's plain-TLS xHTTP
+ * shape that the old model could not express. It is rewritten to the new shape:
+ * `kind=vless, securityLayer=tls`. Every other record (real Reality profiles,
+ * non-VLESS kinds, already-migrated records) is returned unchanged.
+ */
+fun migrateRelayProfileRecord(record: RelayProfileRecord): RelayProfileMigrationResult {
+    val isLegacyPlainTlsXhttp =
+        record.kind == RelayKindVlessReality &&
+            record.vlessTransport == RelayVlessTransportXhttp &&
+            record.realityPublicKey.isEmpty()
+    if (!isLegacyPlainTlsXhttp) {
+        return RelayProfileMigrationResult(record = record, changed = false)
+    }
+    return RelayProfileMigrationResult(
+        record =
+            record.copy(
+                kind = RelayKindVless,
+                securityLayer = RelaySecurityLayerTls,
+            ),
+        changed = true,
+    )
+}
+
 interface RelayProfileStore {
     suspend fun load(profileId: String): RelayProfileRecord?
 
@@ -125,22 +165,35 @@ class SharedPreferencesRelayProfileStore
         private val preferences = context.getSharedPreferences(ProfilePrefsName, Context.MODE_PRIVATE)
         private val json = Json { ignoreUnknownKeys = true }
 
-        override suspend fun load(profileId: String): RelayProfileRecord? =
-            preferences.getString(prefKey(profileId), null)?.let {
-                json.decodeFromString(RelayProfileRecord.serializer(), it)
+        override suspend fun load(profileId: String): RelayProfileRecord? {
+            val stored =
+                preferences.getString(prefKey(profileId), null)?.let {
+                    json.decodeFromString(RelayProfileRecord.serializer(), it)
+                } ?: return null
+            val migration = migrateRelayProfileRecord(stored)
+            if (migration.changed) {
+                // One-shot migration: persist the rewritten shape so it only
+                // runs once per legacy record.
+                persist(migration.record)
             }
+            return migration.record
+        }
 
         override suspend fun save(profile: RelayProfileRecord) {
+            persist(profile)
+        }
+
+        override suspend fun clear(profileId: String) {
+            preferences.edit().remove(prefKey(profileId)).apply()
+        }
+
+        private fun persist(profile: RelayProfileRecord) {
             preferences
                 .edit()
                 .putString(
                     prefKey(profile.id),
                     json.encodeToString(RelayProfileRecord.serializer(), profile),
                 ).apply()
-        }
-
-        override suspend fun clear(profileId: String) {
-            preferences.edit().remove(prefKey(profileId)).apply()
         }
 
         private fun prefKey(profileId: String): String = "relay-profile:$profileId"

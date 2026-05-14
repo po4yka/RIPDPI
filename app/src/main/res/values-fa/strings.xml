@@ -2447,4 +2447,30 @@ fakeddisorder endhost</string>
     <string name="update_error_installer_unavailable">Android installer is unavailable</string>
     <string name="update_error_not_available">no checked update is available</string>
     <string name="update_error_unknown">unexpected error</string>
+
+    <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
+    <string name="import_error_unsupported">پیوند درون‌ریزی پشتیبانی‌نشده.</string>
+    <string name="import_error_missing_url">نشانی اشتراک در پیوند درون‌ریزی موجود نیست.</string>
+    <string name="import_error_bad_encoding">پیوند درون‌ریزی نامعتبر است.</string>
+    <string name="import_profile_confirm_title">درون‌ریزی نمایه</string>
+    <string name="import_profile_confirm_empty_title">چیزی برای درون‌ریزی نیست</string>
+    <string name="import_profile_confirm_empty_body">این پیوند شامل نمایهٔ پراکسی قابل‌استفاده‌ای نیست.</string>
+    <string name="import_confirm_add_action">افزودن</string>
+    <string name="import_confirm_done_action">افزوده شد</string>
+    <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
+    <string name="import_profile_summary_raw">پیکربندی درون‌ریزی‌شده</string>
+    <string name="import_subscription_confirm_title">افزودن اشتراک</string>
+    <string name="import_subscription_bootstrap_title">پیوند راه‌اندازی یک‌بارمصرف</string>
+    <string name="import_subscription_bootstrap_body">این یک توکن راه‌اندازی یک‌بارمصرف است. می‌توان یک بار از آن برای دریافت اشتراک استفاده کرد.</string>
+    <string name="import_subscription_unnamed">اشتراک بدون نام</string>
+    <string name="scanner_title">پویش کد QR</string>
+    <string name="scanner_permission_rationale_title">دسترسی به دوربین</string>
+    <string name="scanner_permission_rationale_body">RIPDPI تنها برای خواندن کد QR پراکسی از دوربین استفاده می‌کند. چیزی ضبط یا بارگذاری نمی‌شود.</string>
+    <string name="scanner_scanning_title">دوربین را روی کد QR بگیرید</string>
+    <string name="scanner_scanning_body">برای درون‌ریزی نمایه، کد را درون کادر نگه دارید.</string>
+    <string name="scanner_permission_denied_title">دوربین در دسترس نیست</string>
+    <string name="scanner_permission_denied_body">دسترسی به دوربین رد شد. هنوز می‌توانید کد QR را از یک تصویر ذخیره‌شده درون‌ریزی کنید.</string>
+    <string name="scanner_invalid_qr_title">کد QR شناخته نشد</string>
+    <string name="scanner_invalid_qr_body">این کد QR یک پیوند پراکسی پشتیبانی‌شده نیست (با %1$s آغاز می‌شود).</string>
+    <string name="scanner_pick_image_action">درون‌ریزی از تصویر</string>
 </resources>

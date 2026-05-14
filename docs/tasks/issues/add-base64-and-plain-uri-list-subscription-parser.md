@@ -1,7 +1,7 @@
 ---
 title: Add base64 and plain URI-list subscription parser
 type: task
-status: backlog
+status: done
 area: outbound
 priority: critical
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Add base64 and plain URI-list subscription parser #repo/RIPDPI #area/outbound #status/backlog 🔺
+- [x] #task Add base64 and plain URI-list subscription parser #repo/RIPDPI #area/outbound #status/done 🔺
 
 ## Goal contract
 

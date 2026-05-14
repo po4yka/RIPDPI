@@ -1,7 +1,7 @@
 ---
 title: Add sing-box selector and urltest group import from subscription
 type: task
-status: backlog
+status: done
 area: outbound
 priority: critical
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-14
 updated: 2026-05-14
 ---
 
-- [ ] #task Add sing-box selector and urltest group import from subscription #repo/RIPDPI #area/outbound #status/backlog 🔺
+- [x] #task Add sing-box selector and urltest group import from subscription #repo/RIPDPI #area/outbound #status/done 🔺
 
 ## Goal contract
 

@@ -1,7 +1,7 @@
 ---
 title: Add AmneziaWG Kotlin config model and dot-conf parser extensions
 type: task
-status: backlog
+status: done
 area: outbound
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Add AmneziaWG Kotlin config model and dot-conf parser extensions #repo/RIPDPI #area/outbound #status/backlog ⏫
+- [x] #task Add AmneziaWG Kotlin config model and dot-conf parser extensions #repo/RIPDPI #area/outbound #status/done ⏫
 
 ## Goal contract
 

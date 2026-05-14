@@ -4,6 +4,7 @@ import com.poyka.ripdpi.proto.AppSettings
 
 const val RelayKindOff = "off"
 const val RelayKindVlessReality = "vless_reality"
+const val RelayKindVless = "vless"
 const val RelayKindHysteria2 = "hysteria2"
 const val RelayKindChainRelay = "chain_relay"
 const val RelayKindMasque = "masque"
@@ -17,6 +18,8 @@ const val RelayKindWebTunnel = "webtunnel"
 const val RelayKindObfs4 = "obfs4"
 const val RelayVlessTransportRealityTcp = "reality_tcp"
 const val RelayVlessTransportXhttp = "xhttp"
+const val RelaySecurityLayerTls = "tls"
+const val RelaySecurityLayerReality = "reality"
 const val RelayMasqueAuthModeBearer = "bearer"
 const val RelayMasqueAuthModePreshared = "preshared"
 const val RelayMasqueAuthModePrivacyPass = "privacy_pass"
@@ -40,6 +43,7 @@ const val DefaultSnowflakeFrontDomain = "cdn.sstatic.net"
 fun normalizeRelayKind(value: String): String =
     when (value.trim().lowercase()) {
         RelayKindVlessReality -> RelayKindVlessReality
+        RelayKindVless -> RelayKindVless
         RelayKindHysteria2 -> RelayKindHysteria2
         RelayKindChainRelay -> RelayKindChainRelay
         RelayKindMasque -> RelayKindMasque
@@ -70,6 +74,37 @@ fun normalizeRelayVlessTransport(
         normalizeRelayKind(relayKind.orEmpty()) == RelayKindCloudflareTunnel -> RelayVlessTransportXhttp
         value.trim().lowercase() == RelayVlessTransportXhttp -> RelayVlessTransportXhttp
         else -> RelayVlessTransportRealityTcp
+    }
+
+/**
+ * Normalizes the relay security layer, orthogonal to the transport.
+ *
+ * The explicit `tls` / `reality` values win when present. Otherwise the kind
+ * hint disambiguates: the plain [RelayKindVless] kind implies [RelaySecurityLayerTls],
+ * every other kind (notably [RelayKindVlessReality]) implies
+ * [RelaySecurityLayerReality]. The fallback is [RelaySecurityLayerReality] so
+ * that records and settings written before this field existed keep today's
+ * Reality-only behaviour.
+ */
+fun normalizeRelaySecurityLayer(
+    value: String,
+    relayKind: String? = null,
+): String =
+    when (value.trim().lowercase()) {
+        RelaySecurityLayerTls -> {
+            RelaySecurityLayerTls
+        }
+
+        RelaySecurityLayerReality -> {
+            RelaySecurityLayerReality
+        }
+
+        else -> {
+            when (normalizeRelayKind(relayKind.orEmpty())) {
+                RelayKindVless -> RelaySecurityLayerTls
+                else -> RelaySecurityLayerReality
+            }
+        }
     }
 
 fun normalizeRelayMasqueAuthMode(value: String?): String? =

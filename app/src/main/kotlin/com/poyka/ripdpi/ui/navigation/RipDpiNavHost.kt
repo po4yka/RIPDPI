@@ -50,6 +50,9 @@ import com.poyka.ripdpi.ui.screens.home.HomeRoute
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
+import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmRoute
+import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmRoute
+import com.poyka.ripdpi.ui.screens.scanner.QrScannerRoute
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
@@ -87,6 +90,8 @@ data class RipDpiNavHostLaunchRequests(
     val onLaunchRouteHandled: () -> Unit = {},
     val sharedDiagnosticFragmentRequested: String? = null,
     val onSharedDiagnosticFragmentHandled: () -> Unit = {},
+    val importRouteRequested: Route? = null,
+    val onImportRouteHandled: () -> Unit = {},
     val relockRequested: Boolean = false,
     val onRelockHandled: () -> Unit = {},
 )
@@ -130,6 +135,11 @@ fun RipDpiNavHost(
         },
         navigateToSharedDiagnostic = { fragment ->
             navController.navigate(Route.SharedDiagnosticResult(fragment = fragment)) {
+                launchSingleTop = true
+            }
+        },
+        navigateToImportRoute = { destination ->
+            navController.navigate(destination) {
                 launchSingleTop = true
             }
         },
@@ -180,6 +190,7 @@ private fun HandleLaunchRequests(
     navigateHome: () -> Unit,
     navigateToRoute: (Route) -> Unit,
     navigateToSharedDiagnostic: (String) -> Unit,
+    navigateToImportRoute: (Route) -> Unit,
     relockToRoute: (Route) -> Unit,
 ) {
     LaunchedEffect(launchRequests.launchHomeRequested, currentStableRoute) {
@@ -217,6 +228,15 @@ private fun HandleLaunchRequests(
         }
         navigateToSharedDiagnostic(fragment)
         launchRequests.onSharedDiagnosticFragmentHandled()
+    }
+
+    LaunchedEffect(launchRequests.importRouteRequested, currentStableRoute) {
+        val destination = launchRequests.importRouteRequested ?: return@LaunchedEffect
+        if (currentStableRoute == null) {
+            return@LaunchedEffect
+        }
+        navigateToImportRoute(destination)
+        launchRequests.onImportRouteHandled()
     }
 
     LaunchedEffect(launchRequests.relockRequested) {
@@ -541,7 +561,70 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
             onBack = { navController.popBackStack() },
         )
     }
+    addImportRoutes(navController)
 }
+
+private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
+    composable<Route.ProfileImportConfirm> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.ProfileImportConfirm>()
+        val profile = remember(route.profileJson) { decodeImportedProfile(route.profileJson) }
+        if (profile == null) {
+            // Defensive: a malformed payload should never have reached navigation, but if
+            // it does, fall back rather than crash.
+            navController.navigateHome()
+        } else {
+            ProfileImportConfirmRoute(
+                profile = profile,
+                onBack = { navController.popBackStack() },
+                onImported = { navController.navigateHome() },
+            )
+        }
+    }
+    composable<Route.SubscriptionImportConfirm> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.SubscriptionImportConfirm>()
+        SubscriptionImportConfirmRoute(
+            url = route.url,
+            name = route.name,
+            bootstrap = route.bootstrap,
+            onBack = { navController.popBackStack() },
+            onImported = { navController.navigateHome() },
+        )
+    }
+    composable<Route.QrScanner> {
+        QrScannerRoute(
+            onBack = { navController.popBackStack() },
+            onProfileScanned = { request ->
+                navController.navigate(
+                    Route.ProfileImportConfirm(profileJson = encodeImportedProfile(request.profile)),
+                ) {
+                    launchSingleTop = true
+                }
+            },
+        )
+    }
+}
+
+private val importProfileJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+internal fun decodeImportedProfile(profileJson: String): com.poyka.ripdpi.data.ProxyProfile? =
+    profileJson
+        .takeIf { it.isNotBlank() }
+        ?.let { json ->
+            runCatching {
+                importProfileJson.decodeFromString(
+                    com.poyka.ripdpi.data.ProxyProfile
+                        .serializer(),
+                    json,
+                )
+            }.getOrNull()
+        }
+
+internal fun encodeImportedProfile(profile: com.poyka.ripdpi.data.ProxyProfile): String =
+    importProfileJson.encodeToString(
+        com.poyka.ripdpi.data.ProxyProfile
+            .serializer(),
+        profile,
+    )
 
 private fun NavHostController.navigateHome() {
     navigateTopLevel(Route.Home)
@@ -608,6 +691,9 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.DetectionSettings.stableRoute to { hasRoute<Route.DetectionSettings>() },
         Route.OwnedStackBrowser().stableRoute to { hasRoute<Route.OwnedStackBrowser>() },
         Route.SharedDiagnosticResult().stableRoute to { hasRoute<Route.SharedDiagnosticResult>() },
+        Route.ProfileImportConfirm().stableRoute to { hasRoute<Route.ProfileImportConfirm>() },
+        Route.SubscriptionImportConfirm().stableRoute to { hasRoute<Route.SubscriptionImportConfirm>() },
+        Route.QrScanner.stableRoute to { hasRoute<Route.QrScanner>() },
     )
 
 internal fun shouldNavigateToHomeFromLaunchRequest(

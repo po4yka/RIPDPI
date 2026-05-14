@@ -2443,4 +2443,30 @@ fake_burst 3</string>
     <string name="update_error_installer_unavailable">Android installer is unavailable</string>
     <string name="update_error_not_available">no checked update is available</string>
     <string name="update_error_unknown">unexpected error</string>
+
+    <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
+    <string name="import_error_unsupported">不支持的导入链接。</string>
+    <string name="import_error_missing_url">导入链接缺少订阅 URL。</string>
+    <string name="import_error_bad_encoding">导入链接格式错误。</string>
+    <string name="import_profile_confirm_title">导入配置文件</string>
+    <string name="import_profile_confirm_empty_title">无可导入内容</string>
+    <string name="import_profile_confirm_empty_body">此链接不包含可用的代理配置文件。</string>
+    <string name="import_confirm_add_action">添加</string>
+    <string name="import_confirm_done_action">已添加</string>
+    <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
+    <string name="import_profile_summary_raw">已导入的配置</string>
+    <string name="import_subscription_confirm_title">添加订阅</string>
+    <string name="import_subscription_bootstrap_title">一次性引导链接</string>
+    <string name="import_subscription_bootstrap_body">这是一次性引导令牌，只能使用一次以获取你的订阅。</string>
+    <string name="import_subscription_unnamed">未命名订阅</string>
+    <string name="scanner_title">扫描二维码</string>
+    <string name="scanner_permission_rationale_title">摄像头访问</string>
+    <string name="scanner_permission_rationale_body">RIPDPI 仅使用摄像头读取代理二维码，不会记录或上传任何内容。</string>
+    <string name="scanner_scanning_title">对准二维码</string>
+    <string name="scanner_scanning_body">将二维码保持在取景框内以导入配置文件。</string>
+    <string name="scanner_permission_denied_title">摄像头不可用</string>
+    <string name="scanner_permission_denied_body">摄像头访问被拒绝。你仍可从已保存的图片中导入二维码。</string>
+    <string name="scanner_invalid_qr_title">无法识别的二维码</string>
+    <string name="scanner_invalid_qr_body">此二维码不是受支持的代理链接（开头为：%1$s）。</string>
+    <string name="scanner_pick_image_action">从图片导入</string>
 </resources>

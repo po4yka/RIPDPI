@@ -76,6 +76,8 @@ internal fun MainActivityContent(
                                 onLaunchRouteHandled = controller::consumeLaunchRouteRequest,
                                 sharedDiagnosticFragmentRequested = shellState.sharedDiagnosticFragmentRequested,
                                 onSharedDiagnosticFragmentHandled = controller::consumeDiagnosticShareFragmentRequest,
+                                importRouteRequested = shellState.importRouteRequested,
+                                onImportRouteHandled = controller::consumeImportRouteRequest,
                                 relockRequested = shellState.relockRequested,
                                 onRelockHandled = controller::consumeRelockRequest,
                             ),

@@ -1,7 +1,7 @@
 ---
 title: Add gRPC transport crate with tonic and Xray-compatible framing
 type: task
-status: backlog
+status: done
 area: transport
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Add gRPC transport crate with tonic and Xray-compatible framing #repo/RIPDPI #area/transport #status/backlog ⏫
+- [x] #task Add gRPC transport crate with tonic and Xray-compatible framing #repo/RIPDPI #area/transport #status/done ⏫
 
 ## Goal contract
 
@@ -23,6 +23,22 @@ updated: 2026-04-24
 - **Blocked-by (must be DONE in the ledger first):** _none_
 - **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
 <!-- /goal-contract:auto -->
+
+## Resolution
+
+The contract inconsistency (task body says new crate `ripdpi-transport-grpc`;
+Verify/Scope target the existing `ripdpi-xhttp` crate) was resolved by
+honoring the Verify/Scope: the gRPC transport is implemented as a new
+`grpc` module **inside the existing `ripdpi-xhttp` crate**
+(`native/rust/crates/ripdpi-xhttp/src/grpc.rs`), exported from `lib.rs`.
+This keeps the HTTP-family transports together and satisfies the
+contract's gate.
+
+`tonic`/`prost` are not workspace dependencies, so the Xray/V2Fly gRPC
+`Hunk` framing is implemented directly over the crate's existing
+`bytes`/`http`/`hyper` machinery (gRPC length-prefixed message framing
+plus the `0x0A <varint> <data>` `Hunk { bytes data = 1 }` protobuf body)
+rather than pulling in the full `tonic` codegen stack.
 
 ## Summary
 

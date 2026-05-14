@@ -1,7 +1,7 @@
 ---
 title: Add Clash and Clash.Meta YAML subscription parser
 type: task
-status: backlog
+status: done
 area: outbound
 priority: critical
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Add Clash and Clash.Meta YAML subscription parser #repo/RIPDPI #area/outbound #status/backlog 🔺
+- [x] #task Add Clash and Clash.Meta YAML subscription parser #repo/RIPDPI #area/outbound #status/done 🔺
 
 ## Goal contract
 

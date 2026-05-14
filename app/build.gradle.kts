@@ -282,6 +282,10 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
 
+    // QR scanner: CameraX preview/analysis + ML Kit on-device barcode scanning.
+    implementation(libs.bundles.camerax)
+    implementation(libs.mlkit.barcode.scanning)
+
     testImplementation(libs.bundles.unit.test)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)

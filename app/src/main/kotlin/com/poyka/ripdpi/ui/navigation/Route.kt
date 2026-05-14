@@ -202,6 +202,43 @@ sealed class Route {
         override val icon: ImageVector? = RipDpiIcons.Public
     }
 
+    @Serializable
+    data class ProfileImportConfirm(
+        val profileJson: String = "",
+    ) : Route() {
+        @kotlinx.serialization.Transient
+        override val stableRoute = "import/profile_confirm"
+
+        @kotlinx.serialization.Transient
+        override val titleRes = R.string.import_profile_confirm_title
+
+        @kotlinx.serialization.Transient
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
+    data class SubscriptionImportConfirm(
+        val url: String = "",
+        val name: String = "",
+        val bootstrap: Boolean = false,
+    ) : Route() {
+        @kotlinx.serialization.Transient
+        override val stableRoute = "import/subscription_confirm"
+
+        @kotlinx.serialization.Transient
+        override val titleRes = R.string.import_subscription_confirm_title
+
+        @kotlinx.serialization.Transient
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
+    data object QrScanner : Route() {
+        override val stableRoute = "scanner"
+        override val titleRes = R.string.scanner_title
+        override val icon: ImageVector? = RipDpiIcons.QrCodeScanner
+    }
+
     companion object {
         val topLevel: List<Route>
             get() = listOf(Home, Config, Diagnostics(), Settings)
@@ -231,6 +268,9 @@ sealed class Route {
                     DetectionSettings,
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),
+                    ProfileImportConfirm(),
+                    SubscriptionImportConfirm(),
+                    QrScanner,
                 )
 
         fun fromStableRoute(route: String?): Route? = route?.let { key -> all.firstOrNull { it.stableRoute == key } }

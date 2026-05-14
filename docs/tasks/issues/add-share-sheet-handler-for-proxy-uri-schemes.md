@@ -1,7 +1,7 @@
 ---
 title: Add share-sheet handler for proxy URI schemes
 type: task
-status: backlog
+status: done
 area: ui
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-qr-code-and-clipboard-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
-- [ ] #task Add share-sheet handler for proxy URI schemes #repo/RIPDPI #area/ui #status/backlog ⏫
+- [x] #task Add share-sheet handler for proxy URI schemes #repo/RIPDPI #area/ui #status/done ⏫
 
 ## Goal contract
 
