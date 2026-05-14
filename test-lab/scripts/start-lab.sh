@@ -125,7 +125,7 @@ if [[ "$using_temp_docker_config" == "true" ]]; then
     alpine/socat:latest \
     shopify/toxiproxy:latest \
     golang:1.22-alpine \
-    golang:1.23-alpine \
+    golang:1.24-alpine \
     alpine:3.20; do
     docker image inspect "$image" >/dev/null 2>&1 || docker pull "$image" >/dev/null
   done
