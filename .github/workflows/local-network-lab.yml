@@ -32,6 +32,9 @@ jobs:
           find test-lab/scripts test-lab/chaos -type f -name '*.sh' -print0 |
             xargs -0 -n1 bash -n
 
+      - name: Validate feature sign-off guard
+        run: test-lab/scripts/test-feature-test-signoff.sh
+
       - name: Validate custom probe broadcast
         run: |
           set -euo pipefail
