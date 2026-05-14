@@ -76,6 +76,110 @@ RIPDPI_RELAY_MATRIX_CONFIG=/path/to/private-relay-matrix.json \
   ./test-lab/scripts/check-feature-gap-readiness.sh
 ```
 
+## External Checklist Runs
+
+Use `docs/feature-test-manual-evidence-template.md` to record these runs. Do
+not paste live endpoints, credentials, SSIDs, BSSIDs, account names, or private
+hostnames into repository docs or committed artifacts.
+
+### Rooted Physical Device
+
+Run this only on a rooted physical device prepared for lab testing:
+
+```bash
+adb shell su 0 id
+adb shell pm path com.poyka.ripdpi
+adb shell pidof ripdpi-root-helper || true
+adb logcat -c
+./test-lab/scripts/adb-install-debug.sh
+```
+
+Then enable `root_mode_enabled` through the app UI or an approved automation
+fixture, start the relevant service mode, and collect:
+
+```bash
+adb logcat -d > test-lab/artifacts/root-helper-logcat.txt
+adb shell pidof ripdpi-root-helper || true
+adb shell ls -la /data/data/com.poyka.ripdpi/files 2>/dev/null || true
+```
+
+The evidence row must include root detection, helper extraction/startup,
+readiness polling, one privileged operation result, negative readiness timeout
+behavior, helper stop cleanup, and a log redaction check.
+
+### Physical Network Matrix
+
+The readiness preflight only confirms that Wi-Fi and cellular transports are
+visible. A human or external harness still has to perform the actual network
+changes.
+
+Capture state before and after each network transition:
+
+```bash
+adb shell dumpsys connectivity > test-lab/artifacts/connectivity-before.txt
+./test-lab/scripts/adb-run-probe.sh \
+  --profile device \
+  --mode vpn \
+  --timeout-ms 7000 \
+  --out-dir test-lab/artifacts/network-vpn-before
+
+# Operator switches Wi-Fi/cellular, IPv4-only, IPv6-only, captive, or
+# limited-path condition here.
+
+adb shell dumpsys connectivity > test-lab/artifacts/connectivity-after.txt
+./test-lab/scripts/adb-run-probe.sh \
+  --profile device \
+  --mode vpn \
+  --timeout-ms 7000 \
+  --out-dir test-lab/artifacts/network-vpn-after
+./test-lab/scripts/adb-run-probe.sh \
+  --profile device \
+  --mode diagnostics \
+  --timeout-ms 7000 \
+  --out-dir test-lab/artifacts/network-diagnostics-after
+```
+
+Repeat the probe for cellular baseline, Wi-Fi-to-cellular handover,
+cellular-to-Wi-Fi handover, IPv4-only, IPv6-only, captive, limited-path, and
+private-DNS-enabled rows. When the MacBook lab host is not reachable from the
+active network, use `adb-run-probe.sh --profile custom` with redacted public or
+routed-lab endpoint labels.
+
+### Provider Relay Matrix
+
+Validate the private manifest before every provider-backed batch:
+
+```bash
+test-lab/scripts/check-relay-matrix-config.sh \
+  --config /path/to/private-relay-matrix.json
+RIPDPI_RELAY_MATRIX_CONFIG=/path/to/private-relay-matrix.json \
+  ./test-lab/scripts/check-feature-gap-readiness.sh
+```
+
+For each relay ID in the private manifest, record proxy, VPN, diagnostics,
+restart, invalid-credential, reset, timeout, malformed-response, DNS fallback,
+and handover outcomes in the manual evidence template. Store provider secrets
+and endpoint material outside the repository; committed docs should reference
+only redacted relay IDs such as `relay-masque-primary`.
+
+### TalkBack Manual Pass
+
+Do not enable or disable accessibility services from repository scripts. The
+operator should enable TalkBack manually, then capture a settings dump and a
+screen recording or transcript:
+
+```bash
+adb shell settings get secure accessibility_enabled
+adb shell settings get secure enabled_accessibility_services
+adb shell screenrecord /sdcard/ripdpi-talkback-pass.mp4
+# Stop recording from another terminal with Ctrl-C, then pull it:
+adb pull /sdcard/ripdpi-talkback-pass.mp4 test-lab/artifacts/
+```
+
+Cover buttons, switches, tabs, progress messages, error messages, and reachability
+of important controls. Summarize timestamps or transcript excerpts in
+`docs/feature-test-manual-evidence-template.md`.
+
 `start-lab.sh` writes the resolved host IP, DNS port, and profile to
 `test-lab/artifacts/lab-env.sh`; the ADB probe scripts source that file
 automatically. The host DNS port defaults to `1053` because macOS often already
