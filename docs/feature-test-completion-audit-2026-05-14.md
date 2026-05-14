@@ -34,7 +34,7 @@ available in the current local lab.
 | Verify relay provider matrix | Mock relay tests and Rust relay interoperability passed for local fixture coverage; `check-relay-matrix-config.sh` validates the private matrix manifest shape and the checked-in example covers all required relay paths/scenarios; readiness preflight confirms no operator-provided provider matrix is configured in the current local environment | Partial | Provider-backed proxy, VPN, diagnostics, restart, invalid credential, reset, timeout, malformed response, DNS fallback, and handover runs for every production relay path |
 | Verify accessibility with TalkBack | Automated label audits and Appium selector coverage passed; readiness preflight confirms TalkBack is installed but is not the active accessibility service | Partial | Manual TalkBack pass for buttons, switches, tabs, progress, and error messages |
 | Verify routed VM packet-loss lab | Netem scripts passed inside a disposable Linux network namespace; readiness preflight confirms the current host is Darwin and not a routed Linux VM | Partial | Linux routed-VM run that carries Android or device traffic through the netem path |
-| Verify remote release gates | Read-only `origin/main` CI and CodeQL are green at `eabedd2a`; local branch has commits ahead of `origin/main` | Partial | Push or dispatch fresh workflows for the local commits, then confirm CI, CodeQL, offline analytics, and mutation workflow status |
+| Verify remote release gates | Read-only GitHub Actions check shows `origin/main` at `eabedd2a` has CI run `25849548946`, CodeQL run `25849548925`, and Dependency Graph run `25849550975` completed successfully; local branch has commits ahead of `origin/main` | Partial | Push or dispatch fresh workflows for the local commits, then confirm CI, CodeQL, offline analytics, and mutation workflow status |
 
 ## Current Local State
 
@@ -42,8 +42,10 @@ available in the current local lab.
 - Working tree: clean at the time of this audit.
 - Local post-commit checks: static analysis, focused JVM automation tests,
   Appium/Maestro slices, workflow journeys, and whitespace diff checks passed.
-- Remote state: `origin/main` CI and CodeQL are green, but those runs do not
-  cover the local commits ahead of `origin/main`.
+- Remote state: `origin/main` CI run `25849548946`, CodeQL run
+  `25849548925`, and Dependency Graph run `25849550975` are green for
+  `eabedd2a`, but those runs do not cover the local commits ahead of
+  `origin/main`.
 - Current local HEAD: `ec2d9216 test(appium): refresh workflow journeys`.
 - Latest readiness preflight: attached Pixel 8 Pro is ready; rooted physical
   device, TalkBack manual pass, routed Linux netem VM, production relay matrix,
