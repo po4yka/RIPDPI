@@ -7,7 +7,7 @@ import time
 
 import pytest
 from appium.webdriver import Remote as AppiumDriver
-from selenium.common.exceptions import InvalidSessionIdException, WebDriverException
+from selenium.common.exceptions import InvalidSessionIdException, TimeoutException, WebDriverException
 
 from lib.capabilities import build_options
 from lib.driver_helpers import wait_for_element
@@ -78,14 +78,24 @@ def launch_app(driver, request):
         disable_motion=params.get("disable_motion", True),
         start_configured_mode=params.get("start_configured_mode", False),
     )
-    driver.execute_script("mobile: shell", {"command": "am", "args": args})
-
     # Wait for the expected screen or launch-triggered surface to render.
     route = params.get("start_route", "home")
     ready_tag = params.get("ready_tag") or (
         "vpn-permission-dialog" if params.get("start_configured_mode", False) else f"{route}-screen"
     )
-    wait_for_element(driver, ready_tag, timeout=params.get("ready_timeout", 30))
+    for attempt in range(2):
+        driver.execute_script("mobile: shell", {"command": "am", "args": args})
+        try:
+            wait_for_element(driver, ready_tag, timeout=params.get("ready_timeout", 30))
+            break
+        except TimeoutException:
+            if attempt == 1:
+                raise
+            driver.execute_script("mobile: shell", {
+                "command": "am",
+                "args": ["force-stop", APP_PACKAGE],
+            })
+            time.sleep(1)
 
     yield
 

@@ -239,12 +239,23 @@ class BasePage:
         if element:
             return element
         for _ in range(max_swipes):
-            if self.is_visible(tag, timeout=0.5):
-                return self.find(tag)
+            element = self._find_by_test_tag(tag)
+            if element:
+                return element
             size = self.driver.get_window_size()
             center_x = int(size["width"] * 0.5)
             start_y = int(size["height"] * 0.66)
             end_y = int(size["height"] * 0.28)
+            self.driver.swipe(center_x, start_y, center_x, end_y, duration=260)
+            time.sleep(0.12)
+        for _ in range(max_swipes // 2):
+            element = self._find_by_test_tag(tag)
+            if element:
+                return element
+            size = self.driver.get_window_size()
+            center_x = int(size["width"] * 0.5)
+            start_y = int(size["height"] * 0.28)
+            end_y = int(size["height"] * 0.66)
             self.driver.swipe(center_x, start_y, center_x, end_y, duration=260)
             time.sleep(0.12)
         return self.wait_for(tag, timeout=5)
