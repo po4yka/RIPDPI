@@ -82,10 +82,18 @@ class SettingsPage(BasePage):
         self.tap(self.BIOMETRIC_CONFIRM_CANCEL)
 
     def is_backup_pin_field_visible(self) -> bool:
-        return self.is_visible(self.BACKUP_PIN_FIELD)
+        try:
+            self.scroll_incrementally_to(self.BACKUP_PIN_FIELD)
+            return True
+        except (TimeoutException, WebDriverException):
+            return False
 
     def is_background_guidance_visible(self) -> bool:
-        return self.is_visible(self.BACKGROUND_GUIDANCE_BANNER)
+        try:
+            self.scroll_incrementally_to(self.BACKGROUND_GUIDANCE_BANNER)
+            return True
+        except (TimeoutException, WebDriverException):
+            return False
 
     def tap_customization(self) -> None:
         self.scroll_incrementally_to(self.CUSTOMIZATION).click()

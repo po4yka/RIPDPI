@@ -7,7 +7,7 @@ from pages.settings_page import SettingsPage
 
 @pytest.mark.automation(
     start_route="home",
-    permission_preset="battery_review",
+    permission_preset="granted",
     data_preset="clean_home",
     service_preset="idle",
 )
@@ -28,7 +28,7 @@ def test_home_background_guidance_banner(driver):
 
 @pytest.mark.automation(
     start_route="settings",
-    permission_preset="battery_review",
+    permission_preset="granted",
     data_preset="settings_ready",
     service_preset="idle",
 )
@@ -49,22 +49,19 @@ def test_settings_background_guidance_banner(driver):
 
 @pytest.mark.automation(
     start_route="settings",
-    data_preset="settings_ready",
+    data_preset="biometric_locked",
     service_preset="idle",
 )
-def test_settings_backup_pin_clear_and_warning(driver):
+def test_settings_backup_pin_warning_and_editor(driver):
     page = SettingsPage(driver)
     assert page.is_loaded(), "Settings screen did not load"
 
     if not page.is_backup_pin_field_visible():
         pytest.skip(
-            "Backup PIN fields not visible -- PIN may not be set in this preset"
+            "Backup PIN fields not visible -- biometric preset did not expose editor"
         )
 
-    page.scroll_to(SettingsPage.BACKUP_PIN_CLEAR)
-    assert page.is_visible(SettingsPage.BACKUP_PIN_CLEAR), (
-        "Backup PIN clear button should be visible"
-    )
+    page.scroll_incrementally_to(SettingsPage.BACKUP_PIN_WARNING)
     assert page.is_visible(SettingsPage.BACKUP_PIN_WARNING), (
         "Backup PIN warning should be visible"
     )

@@ -77,4 +77,8 @@ class HomePage(BasePage):
         self.tap(self.WARNING_BANNER_DISMISS)
 
     def is_background_guidance_visible(self) -> bool:
-        return self.is_visible(self.BACKGROUND_GUIDANCE_BANNER)
+        try:
+            self.scroll_incrementally_to(self.BACKGROUND_GUIDANCE_BANNER, max_swipes=12)
+            return True
+        except (TimeoutException, WebDriverException):
+            return False
