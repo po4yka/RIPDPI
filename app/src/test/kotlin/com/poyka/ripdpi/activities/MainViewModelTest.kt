@@ -4,6 +4,8 @@ import android.os.SystemClock
 import app.cash.turbine.test
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DirectModeReasonCode
+import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -21,6 +23,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
+import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
 import com.poyka.ripdpi.diagnostics.stableId
@@ -1041,6 +1044,81 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `owned stack home remediation survives service restart on same network`() =
+        runTest {
+            val compositeRunService = StubDiagnosticsHomeCompositeRunService()
+            val serviceStateStore = FakeServiceStateStore()
+            val homeWorkflowService =
+                StubDiagnosticsHomeWorkflowService().apply {
+                    currentFingerprint = "fp-1"
+                }
+            val viewModel =
+                createViewModel(
+                    homeDiagnosticsServices =
+                        HomeDiagnosticsServices(
+                            workflowService = homeWorkflowService,
+                            compositeRunService = compositeRunService,
+                        ),
+                    serviceStateStore = serviceStateStore,
+                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.onRunHomeFullAnalysis()
+            compositeRunService.completeRun(
+                outcome =
+                    homeCompositeOutcome(
+                        runId = "home-run",
+                        fingerprintHash = "fp-1",
+                        actionable = true,
+                        recommendedSessionId = "audit-session",
+                        directModeVerdict =
+                            DirectModeVerdict(
+                                result = DirectModeVerdictResult.OWNED_STACK_ONLY,
+                                reasonCode = DirectModeReasonCode.OWNED_STACK_REQUIRED,
+                                authority = "example.org:443",
+                            ),
+                    ),
+            )
+            advanceUntilIdle()
+
+            assertEquals(
+                DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER,
+                viewModel.uiState.value.homeDiagnostics.remediationLadder
+                    ?.primaryAction
+                    ?.kind,
+            )
+
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+
+            assertFalse(
+                viewModel.uiState.value.homeDiagnostics.latestAudit
+                    ?.stale == true,
+            )
+            assertEquals(
+                DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER,
+                viewModel.uiState.value.homeDiagnostics.remediationLadder
+                    ?.primaryAction
+                    ?.kind,
+            )
+            assertEquals(
+                "https://example.org:443/",
+                viewModel.uiState.value.homeDiagnostics.remediationLadder
+                    ?.primaryAction
+                    ?.targetUrl,
+            )
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+            collector.cancel()
+        }
+
+    @Test
     fun `verified vpn action starts vpn mode after actionable audit`() =
         runTest {
             val compositeRunService = StubDiagnosticsHomeCompositeRunService()
@@ -1270,6 +1348,7 @@ class MainViewModelTest {
         actionable: Boolean,
         recommendedSessionId: String,
         bundleSessionIds: List<String> = listOf("audit-session"),
+        directModeVerdict: DirectModeVerdict? = null,
     ): DiagnosticsHomeCompositeOutcome =
         DiagnosticsHomeCompositeOutcome(
             runId = runId,
@@ -1282,6 +1361,7 @@ class MainViewModelTest {
             coverageSummary = "Coverage 92%",
             appliedSettings = listOf(DiagnosticsAppliedSetting("TCP/TLS lane", "Split")),
             recommendedSessionId = recommendedSessionId,
+            directModeVerdict = directModeVerdict,
             stageSummaries =
                 listOf(
                     DiagnosticsHomeCompositeStageSummary(
