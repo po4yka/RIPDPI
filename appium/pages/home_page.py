@@ -11,6 +11,7 @@ class HomePage(BasePage):
     LOCAL_BYPASS_BUTTON = "home-mode-primary-local-dpi-bypass"
     DIAGNOSTIC_BUTTON = "home-mode-primary-diagnostic"
     APPROACH_CARD = "home-mode-card-diagnostic"
+    LOCAL_BYPASS_CARD = "home-mode-card-local-dpi-bypass"
     HISTORY_CARD = "bottom-nav-diagnostics"
     STATS_GRID = "home-mode-card-remote-vpn"
     PERMISSION_ISSUE_BANNER = "home-permission-issue-banner"
@@ -33,6 +34,13 @@ class HomePage(BasePage):
 
     def is_approach_card_visible(self) -> bool:
         return self.is_visible(self.APPROACH_CARD)
+
+    def is_any_mode_card_visible(self) -> bool:
+        return (
+            self.is_visible(self.STATS_GRID)
+            or self.is_visible(self.LOCAL_BYPASS_CARD)
+            or self.is_visible(self.APPROACH_CARD)
+        )
 
     def is_history_card_visible(self) -> bool:
         return self.is_visible(self.HISTORY_CARD)

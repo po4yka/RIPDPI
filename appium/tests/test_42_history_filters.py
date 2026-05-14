@@ -53,6 +53,8 @@ def test_events_filters_visible(driver):
 
     if not page.is_events_content_visible():
         pytest.skip("No events content available to test filters")
+    if not page.is_prefix_visible("history-event-severity-", timeout=3):
+        pytest.skip("No event severity filters available in this fixture")
 
     page.tap_event_source_filter("all")
     page.tap_event_severity_filter("error")

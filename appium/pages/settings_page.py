@@ -80,5 +80,4 @@ class SettingsPage(BasePage):
         return self.is_visible(self.BACKGROUND_GUIDANCE_BANNER)
 
     def tap_customization(self) -> None:
-        self.scroll_down_to(self.CUSTOMIZATION)
-        self.tap(self.CUSTOMIZATION)
+        self.scroll_incrementally_to(self.CUSTOMIZATION).click()

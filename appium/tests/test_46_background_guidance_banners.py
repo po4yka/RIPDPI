@@ -79,7 +79,7 @@ def test_settings_customization_navigation(driver):
     page = SettingsPage(driver)
     assert page.is_loaded(), "Settings screen did not load"
 
-    page.scroll_to(SettingsPage.CUSTOMIZATION)
+    page.scroll_incrementally_to(SettingsPage.CUSTOMIZATION)
     assert page.is_visible(SettingsPage.CUSTOMIZATION), (
         "Customization entry should be visible on Settings screen"
     )

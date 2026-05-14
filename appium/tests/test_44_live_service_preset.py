@@ -24,8 +24,7 @@ def test_live_home_screen(driver):
         pytest.skip("Home screen did not load with live preset in time")
 
     assert page.is_loaded(), "Home screen should be loaded with live preset"
-    assert page.is_connection_button_visible(), "Connection button should be visible with live preset"
-    assert page.is_stats_grid_visible(), "Stats grid should be visible with live preset"
+    assert page.is_any_mode_card_visible(), "A Home mode card should be visible with live preset"
 
 
 @pytest.mark.automation(

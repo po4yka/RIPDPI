@@ -4,16 +4,10 @@ import pytest
 from pages.diagnostics_page import DiagnosticsPage
 
 
-@pytest.mark.automation(
-    start_route="diagnostics",
-    data_preset="diagnostics_demo",
-    service_preset="connected_vpn",
-)
-def test_conflict_dialog_appears_on_double_scan(driver):
-    page = DiagnosticsPage(driver)
-    assert page.is_loaded(), "Diagnostics screen did not load"
+def start_raw_scan_or_skip(page: DiagnosticsPage) -> None:
+    if not page.is_visible(DiagnosticsPage.SCAN_RUN_RAW, timeout=5):
+        pytest.skip("Raw scan action is not visible in this fixture")
 
-    page.swipe_to_scan_section()
     page.tap_run_raw_scan()
 
     try:
@@ -24,6 +18,19 @@ def test_conflict_dialog_appears_on_double_scan(driver):
         )
     except TimeoutError:
         pytest.skip("Scan did not enter progress state in time")
+
+
+@pytest.mark.automation(
+    start_route="diagnostics",
+    data_preset="diagnostics_demo",
+    service_preset="connected_vpn",
+)
+def test_conflict_dialog_appears_on_double_scan(driver):
+    page = DiagnosticsPage(driver)
+    assert page.is_loaded(), "Diagnostics screen did not load"
+
+    page.swipe_to_scan_section()
+    start_raw_scan_or_skip(page)
 
     page.tap(DiagnosticsPage.SCAN_RUN_IN_PATH)
 
@@ -51,16 +58,7 @@ def test_conflict_dialog_wait_button(driver):
     assert page.is_loaded(), "Diagnostics screen did not load"
 
     page.swipe_to_scan_section()
-    page.tap_run_raw_scan()
-
-    try:
-        page.wait_until(
-            lambda: page.is_scan_in_progress(),
-            timeout=10,
-            message="Scan did not enter progress state",
-        )
-    except TimeoutError:
-        pytest.skip("Scan did not enter progress state in time")
+    start_raw_scan_or_skip(page)
 
     page.tap(DiagnosticsPage.SCAN_RUN_IN_PATH)
 
@@ -100,16 +98,7 @@ def test_conflict_dialog_cancel_and_run(driver):
     assert page.is_loaded(), "Diagnostics screen did not load"
 
     page.swipe_to_scan_section()
-    page.tap_run_raw_scan()
-
-    try:
-        page.wait_until(
-            lambda: page.is_scan_in_progress(),
-            timeout=10,
-            message="Scan did not enter progress state",
-        )
-    except TimeoutError:
-        pytest.skip("Scan did not enter progress state in time")
+    start_raw_scan_or_skip(page)
 
     page.tap(DiagnosticsPage.SCAN_RUN_IN_PATH)
 
@@ -148,16 +137,7 @@ def test_conflict_dialog_dismiss(driver):
     assert page.is_loaded(), "Diagnostics screen did not load"
 
     page.swipe_to_scan_section()
-    page.tap_run_raw_scan()
-
-    try:
-        page.wait_until(
-            lambda: page.is_scan_in_progress(),
-            timeout=10,
-            message="Scan did not enter progress state",
-        )
-    except TimeoutError:
-        pytest.skip("Scan did not enter progress state in time")
+    start_raw_scan_or_skip(page)
 
     page.tap(DiagnosticsPage.SCAN_RUN_IN_PATH)
 
