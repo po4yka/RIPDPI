@@ -16,8 +16,9 @@ RIPDPI debug builds.
   UDP replies are not reliable.
 - VPN active-transport and local proxy readiness checks.
 - VPN-mode E2E orchestration script for lab restart, debug APK install,
-  optional Maestro connect/disconnect, VPN probe execution, and failure
-  artifact archiving.
+  Maestro connect/disconnect, VPN probe execution, and failure artifact
+  archiving. `--skip-maestro` is reserved for already-connected manual or
+  external automation runs.
 - Basic typed failure codes derived from the failing exception/stage.
 - Log collection with denylist redaction.
 - Packet capture start/stop helpers.
@@ -43,7 +44,7 @@ RIPDPI debug builds.
 - Hosted CI does not run the full Android VPN-mode smoke by default because it
   requires an emulator/device, ADB install access, and Maestro. The workflow
   keeps that lane as a manual documented step while nightly runs exercise the
-  Docker lab and shell contracts.
+  Docker lab, shell contracts, and the missing-Maestro fast-fail guard.
 
 ## Production Guardrail
 
