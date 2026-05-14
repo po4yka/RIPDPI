@@ -18,7 +18,7 @@ class OnboardingPage(BasePage):
         if self.is_visible(self.SKIP, timeout=2):
             self.tap(self.SKIP)
         else:
-            self.tap_percent(0.88, 0.08)
+            self.tap_percent(0.90, 0.14)
 
     def tap_continue(self) -> None:
         self.tap(self.CONTINUE)

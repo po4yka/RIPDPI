@@ -24,6 +24,7 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,7 +43,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -58,7 +58,6 @@ import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
-import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiIntroScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -288,20 +287,21 @@ fun OnboardingScreen(
                         .height(introLayout.topActionRowHeight),
                 contentAlignment = Alignment.CenterEnd,
             ) {
-                Text(
-                    text = stringResource(R.string.onboarding_skip),
-                    style = type.introAction,
-                    color = colors.mutedForeground,
+                TextButton(
+                    onClick = onSkip,
+                    enabled = !validationBusy,
                     modifier =
-                        (
-                            if (validationBusy) {
-                                Modifier
-                            } else {
-                                Modifier.ripDpiClickable(role = Role.Button, onClick = onSkip)
-                            }
-                        ).ripDpiTestTag(RipDpiTestTags.OnboardingSkip)
+                        Modifier
+                            .ripDpiTestTag(RipDpiTestTags.OnboardingSkip)
+                            .height(introLayout.topActionRowHeight)
                             .padding(horizontal = 12.dp),
-                )
+                ) {
+                    Text(
+                        text = stringResource(R.string.onboarding_skip),
+                        style = type.introAction,
+                        color = colors.mutedForeground,
+                    )
+                }
             }
         },
         footer = {

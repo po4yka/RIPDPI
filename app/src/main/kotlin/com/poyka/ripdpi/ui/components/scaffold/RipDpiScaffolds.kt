@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -25,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.zIndex
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
@@ -226,9 +228,11 @@ fun RipDpiIntroScaffold(
         Box(
             modifier =
                 Modifier
+                    .statusBarsPadding()
                     .fillMaxWidth()
                     .widthIn(max = ripDpiScaffoldMaxWidth(RipDpiScaffoldWidth.Intro))
-                    .align(Alignment.TopCenter),
+                    .align(Alignment.TopCenter)
+                    .zIndex(1f),
             content = topAction,
         )
         Column(
