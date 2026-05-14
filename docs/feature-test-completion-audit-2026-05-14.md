@@ -63,7 +63,8 @@ available in the current local lab.
   the monitor-engine `connectivity_partial` contract fixture test, focused
   post-fix Appium slice, the current full Appium suite, the four-flow Maestro
   smoke pack, the May 15 installed-tool Maestro/Appium reruns, the focused
-  clean-reset Appium empty-state rerun, the feature-gap readiness self-test,
+  clean-reset Appium empty-state rerun, the feature artifact-path self-test,
+  the feature checklist-coverage self-test, the feature-gap readiness self-test,
   the feature sign-off guard self-test, and local-network-lab
   workflow YAML parsing passed. Commit hooks passed for the latest
   native/Appium/test-lab commits.
