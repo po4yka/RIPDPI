@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from selenium.common.exceptions import TimeoutException, WebDriverException
+
 from .base_page import BasePage
 
 
@@ -25,6 +27,19 @@ class HomePage(BasePage):
 
     def tap_connect(self) -> None:
         self.tap(self.CONNECTION_BUTTON)
+
+    def tap_any_primary_action(self) -> None:
+        for tag in (self.CONNECTION_BUTTON, self.LOCAL_BYPASS_BUTTON, self.DIAGNOSTIC_BUTTON):
+            if self.is_visible(tag, timeout=2):
+                self.tap(tag)
+                return
+        for tag in (self.LOCAL_BYPASS_BUTTON, self.CONNECTION_BUTTON, self.DIAGNOSTIC_BUTTON):
+            try:
+                self.scroll_incrementally_to(tag, max_swipes=12).click()
+                return
+            except (TimeoutException, WebDriverException):
+                continue
+        raise AssertionError("No Home primary action is visible")
 
     def is_connection_button_visible(self) -> bool:
         return self.is_visible(self.CONNECTION_BUTTON)

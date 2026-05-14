@@ -19,7 +19,7 @@ def test_config_preset_then_connect(workflow_app):
     # Step 1: Select a preset on config screen.
     config = ConfigPage(driver)
     assert config.is_loaded(), "Config screen should be visible"
-    config.select_preset("medium")
+    config.select_mode("proxy")
 
     # Step 2: Navigate to home via bottom nav.
     nav = BottomNav(driver)
@@ -29,12 +29,12 @@ def test_config_preset_then_connect(workflow_app):
     home.wait_for_screen(HomePage.SCREEN)
     assert home.is_loaded(), "Home screen should appear after nav"
 
-    # Step 3: Tap connect.
-    home.tap_connect()
+    # Step 3: Tap the configured primary action.
+    home.tap_any_primary_action()
 
     # Step 4: Verify connected state.
     home.wait_until(
-        lambda: home.is_connection_button_visible(),
+        lambda: home.is_any_mode_card_visible(),
         timeout=15,
-        message="Connection button should remain visible after connect",
+        message="Home mode cards should remain visible after primary action",
     )

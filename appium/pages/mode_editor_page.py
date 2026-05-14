@@ -22,10 +22,13 @@ class ModeEditorPage(BasePage):
     def is_loaded(self) -> bool:
         return self.is_visible(self.SCREEN)
 
+    def select_mode(self, mode: str) -> None:
+        self.scroll_incrementally_to(f"config-mode-{mode}").click()
+
     def fill_proxy(self, ip: str, port: str) -> None:
-        self.scroll_to(self.PROXY_IP)
+        self.scroll_incrementally_to(self.PROXY_IP)
         self.clear_and_type(self.PROXY_IP, ip)
-        self.scroll_to(self.PROXY_PORT)
+        self.scroll_incrementally_to(self.PROXY_PORT)
         self.clear_and_type(self.PROXY_PORT, port)
 
     def set_max_connections(self, value: str) -> None:
@@ -49,7 +52,7 @@ class ModeEditorPage(BasePage):
         return self.is_visible(self.CMD_ARGS)
 
     def tap_save(self) -> None:
-        self.tap(self.SAVE)
+        self.scroll_to(self.SAVE).click()
 
     def tap_cancel(self) -> None:
         self.tap(self.CANCEL)

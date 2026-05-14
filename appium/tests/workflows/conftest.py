@@ -46,10 +46,14 @@ def workflow_app(driver, request):
         data_preset=params.get("data_preset", "clean_home"),
         reset_state=params.get("reset_state", True),
         disable_motion=params.get("disable_motion", True),
+        start_configured_mode=params.get("start_configured_mode", False),
     )
     driver.execute_script("mobile: shell", {"command": "am", "args": args})
 
     route = params.get("start_route", "home")
-    wait_for_element(driver, f"{route}-screen", timeout=15)
+    ready_tag = params.get("ready_tag") or (
+        "vpn-permission-dialog" if params.get("start_configured_mode", False) else f"{route}-screen"
+    )
+    wait_for_element(driver, ready_tag, timeout=15)
 
     return driver

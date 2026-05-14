@@ -29,6 +29,7 @@ def test_config_edit_validation_roundtrip(workflow_app):
     editor.wait_for_screen(ModeEditorPage.SCREEN)
 
     # Step 3: Enter invalid proxy port and save.
+    editor.select_mode("proxy")
     editor.fill_proxy("127.0.0.1", "999999")
     editor.tap_save()
 
@@ -40,6 +41,7 @@ def test_config_edit_validation_roundtrip(workflow_app):
     )
 
     # Step 5: Fix the port to a valid value and save.
+    editor.select_mode("proxy")
     editor.fill_proxy("127.0.0.1", "8080")
     editor.tap_save()
 

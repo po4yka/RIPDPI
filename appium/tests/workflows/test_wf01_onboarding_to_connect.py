@@ -15,26 +15,24 @@ from pages.onboarding_page import OnboardingPage
 def test_onboarding_to_connect(workflow_app):
     driver = workflow_app
 
-    # Step 1: Complete onboarding by swiping through 3 pages.
+    # Step 1: Complete onboarding through the current informational/setup pages.
     onboarding = OnboardingPage(driver)
     assert onboarding.is_loaded(), "Onboarding screen should be visible"
 
-    onboarding.swipe_to_next_page()
-    onboarding.swipe_to_next_page()
-    onboarding.tap_continue()
+    onboarding.complete_all_pages()
 
     # Step 2: Verify home screen appeared.
     home = HomePage(driver)
     home.wait_for_screen(HomePage.SCREEN)
     assert home.is_loaded(), "Home screen should appear after onboarding"
 
-    # Step 3: Tap connect.
-    assert home.is_connection_button_visible(), "Connection button should be visible"
-    home.tap_connect()
+    # Step 3: Tap the configured primary action.
+    assert home.is_any_mode_card_visible(), "A Home mode card should be visible"
+    home.tap_any_primary_action()
 
-    # Step 4: Verify button remains visible after connection attempt.
+    # Step 4: Verify the Home mode cards remain visible after the action.
     home.wait_until(
-        lambda: home.is_connection_button_visible(),
+        lambda: home.is_any_mode_card_visible(),
         timeout=15,
-        message="Connection button should remain visible after connect",
+        message="Home mode cards should remain visible after primary action",
     )

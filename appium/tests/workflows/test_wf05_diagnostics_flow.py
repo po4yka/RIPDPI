@@ -18,8 +18,8 @@ def test_diagnostics_scan_and_share(workflow_app):
     diag = DiagnosticsPage(driver)
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
-    # Step 2: Verify overview section visible first.
-    assert diag.is_section_visible("overview"), "Overview section should be initial"
+    # Step 2: Verify dashboard section visible first.
+    assert diag.is_section_visible("dashboard"), "Dashboard section should be initial"
 
     # Step 3: Swipe to scan section.
     diag.swipe_to_next_section()
@@ -29,17 +29,17 @@ def test_diagnostics_scan_and_share(workflow_app):
         message="Scan section should be visible after swipe",
     )
 
-    # Step 4: Swipe past live and approaches to share section.
-    diag.swipe_to_next_section()  # live
-    diag.swipe_to_next_section()  # approaches
-    diag.swipe_to_next_section()  # share
+    # Step 4: Swipe to tools section.
+    diag.swipe_to_next_section()
 
     # Step 5: Verify share/save buttons are visible.
+    diag.scroll_incrementally_to(DiagnosticsPage.SHARE_ARCHIVE)
     diag.wait_until(
-        lambda: diag.is_visible("diagnostics-share-archive"),
+        lambda: diag.is_visible(DiagnosticsPage.SHARE_ARCHIVE),
         timeout=5,
-        message="Share archive button should be visible in share section",
+        message="Share archive button should be visible in tools section",
     )
-    assert diag.is_visible("diagnostics-save-archive"), (
+    diag.scroll_incrementally_to(DiagnosticsPage.SAVE_ARCHIVE)
+    assert diag.is_visible(DiagnosticsPage.SAVE_ARCHIVE), (
         "Save archive button should be visible"
     )

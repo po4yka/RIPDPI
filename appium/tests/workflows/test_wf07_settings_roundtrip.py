@@ -25,12 +25,18 @@ def test_settings_persist_across_navigation(workflow_app):
 
     # Step 2: Toggle WebRTC protection.
     settings.tap_webrtc_toggle()
+    nav.navigate_to("home")
+    home = HomePage(driver)
+    home.wait_for_screen(HomePage.SCREEN)
+    nav.navigate_to("settings")
+    settings.wait_for_screen(SettingsPage.SCREEN)
 
     # Step 3: Open DNS settings and set a custom resolver.
     settings.tap_dns_settings()
     dns = DnsSettingsPage(driver)
     dns.wait_for_screen(DnsSettingsPage.SCREEN)
 
+    dns.select_mode("plain-udp")
     dns.set_plain_address("8.8.4.4")
     dns.tap_plain_save()
 
@@ -39,7 +45,6 @@ def test_settings_persist_across_navigation(workflow_app):
     settings.wait_for_screen(SettingsPage.SCREEN)
 
     nav.navigate_to("home")
-    home = HomePage(driver)
     home.wait_for_screen(HomePage.SCREEN)
 
     # Step 5: Navigate back to settings and verify persistence.
@@ -47,15 +52,20 @@ def test_settings_persist_across_navigation(workflow_app):
     settings.wait_for_screen(SettingsPage.SCREEN)
 
     # WebRTC toggle state is visible on the settings screen (visual verification).
-    assert settings.is_visible(SettingsPage.WEBRTC_PROTECTION), (
+    assert settings.is_webrtc_toggle_reachable(), (
         "WebRTC toggle should still be visible"
     )
+    nav.navigate_to("home")
+    home.wait_for_screen(HomePage.SCREEN)
+    nav.navigate_to("settings")
+    settings.wait_for_screen(SettingsPage.SCREEN)
 
     # Step 6: Open DNS settings and verify address persisted.
     settings.tap_dns_settings()
     dns.wait_for_screen(DnsSettingsPage.SCREEN)
 
-    value = dns.get_text(DnsSettingsPage.PLAIN_ADDRESS)
+    dns.select_mode("plain-udp")
+    value = dns.get_plain_address()
     assert "8.8.4.4" in value, (
         f"DNS address should persist as '8.8.4.4', got '{value}'"
     )

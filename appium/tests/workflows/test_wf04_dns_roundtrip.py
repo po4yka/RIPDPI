@@ -29,6 +29,7 @@ def test_dns_settings_persist_across_navigation(workflow_app):
     dns.wait_for_screen(DnsSettingsPage.SCREEN)
 
     # Step 3: Set plain DNS address.
+    dns.select_mode("plain-udp")
     dns.set_plain_address("9.9.9.9")
     dns.tap_plain_save()
 
@@ -48,7 +49,8 @@ def test_dns_settings_persist_across_navigation(workflow_app):
     dns.wait_for_screen(DnsSettingsPage.SCREEN)
 
     # Step 6: Verify the address persisted.
-    value = dns.get_text(DnsSettingsPage.PLAIN_ADDRESS)
+    dns.select_mode("plain-udp")
+    value = dns.get_plain_address()
     assert "9.9.9.9" in value, (
         f"DNS address should persist as '9.9.9.9', got '{value}'"
     )

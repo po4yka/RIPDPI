@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from selenium.common.exceptions import TimeoutException, WebDriverException
+
 from .base_page import BasePage
 
 
@@ -34,11 +36,17 @@ class SettingsPage(BasePage):
         self.tap(self.ADVANCED_SETTINGS)
 
     def tap_dns_settings(self) -> None:
-        self.tap(self.DNS_SETTINGS)
+        self.scroll_to(self.DNS_SETTINGS).click()
 
     def tap_webrtc_toggle(self) -> None:
-        self.scroll_down_to(self.WEBRTC_PROTECTION)
-        self.tap(self.WEBRTC_PROTECTION)
+        self.scroll_incrementally_to(self.WEBRTC_PROTECTION).click()
+
+    def is_webrtc_toggle_reachable(self) -> bool:
+        try:
+            self.scroll_incrementally_to(self.WEBRTC_PROTECTION)
+            return self.is_visible(self.WEBRTC_PROTECTION)
+        except (TimeoutException, WebDriverException):
+            return False
 
     def tap_theme_dropdown(self) -> None:
         self.scroll_down_to(self.THEME_DROPDOWN)
