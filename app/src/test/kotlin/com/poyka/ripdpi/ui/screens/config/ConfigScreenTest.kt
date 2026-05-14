@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.ui.screens.config
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -81,6 +85,20 @@ class ConfigScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
             .assertHasClickAction()
+    }
+
+    @Test
+    fun `local bypass action rows expose accessibility labels`() {
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.LocalBypass,
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync)
+            .assertContentDescription("Desync method")
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
+            .assertContentDescription("DNS settings")
     }
 
     @Test
@@ -185,6 +203,15 @@ class ConfigScreenTest {
             activeMode = draft.mode,
             presets = buildConfigPresets(draft),
             draft = draft,
+        )
+    }
+
+    private fun SemanticsNodeInteraction.assertContentDescription(expected: String) {
+        assert(
+            SemanticsMatcher.expectValue(
+                SemanticsProperties.ContentDescription,
+                listOf(expected),
+            ),
         )
     }
 }

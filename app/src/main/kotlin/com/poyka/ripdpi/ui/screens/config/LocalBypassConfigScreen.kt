@@ -8,6 +8,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigUiState
@@ -21,7 +26,6 @@ import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -98,6 +102,7 @@ private fun LocalBypassDnsRow(
 ) {
     LocalBypassActionRow(
         testTag = RipDpiTestTags.ConfigDnsSettings,
+        accessibilityLabel = stringResource(R.string.title_dns_settings),
         onClick = onOpenDnsSettings,
     ) {
         SettingsRow(
@@ -126,6 +131,7 @@ private fun LocalBypassDesyncRow(
 ) {
     LocalBypassActionRow(
         testTag = RipDpiTestTags.ConfigLocalBypassDesync,
+        accessibilityLabel = stringResource(R.string.ripdpi_desync_method_setting),
         onClick = onOpenDesyncSettings,
     ) {
         SettingsRow(
@@ -151,6 +157,7 @@ private fun LocalBypassDesyncRow(
 @Composable
 private fun LocalBypassActionRow(
     testTag: String,
+    accessibilityLabel: String,
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -158,7 +165,15 @@ private fun LocalBypassActionRow(
         modifier =
             Modifier
                 .ripDpiClickable(role = Role.Button, onClick = onClick)
-                .ripDpiTestTag(testTag),
+                .clearAndSetSemantics {
+                    this.testTag = testTag
+                    contentDescription = accessibilityLabel
+                    role = Role.Button
+                    onClick(action = {
+                        onClick()
+                        true
+                    })
+                },
     ) {
         content()
     }
