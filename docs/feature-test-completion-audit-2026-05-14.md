@@ -34,12 +34,12 @@ available in the current local lab.
 | Verify relay provider matrix | Mock relay tests and Rust relay interoperability passed for local fixture coverage; `check-relay-matrix-config.sh` validates the private matrix manifest shape and the checked-in example covers all required relay paths/scenarios; readiness preflight confirms no operator-provided provider matrix is configured in the current local environment | Partial | Provider-backed proxy, VPN, diagnostics, restart, invalid credential, reset, timeout, malformed response, DNS fallback, and handover runs for every production relay path |
 | Verify accessibility with TalkBack | Automated label audits and Appium selector coverage passed; readiness preflight confirms TalkBack is installed but is not the active accessibility service | Partial | Manual TalkBack pass for buttons, switches, tabs, progress, and error messages |
 | Verify routed VM packet-loss lab | Netem scripts passed inside a disposable Linux network namespace; readiness preflight confirms the current host is Darwin and not a routed Linux VM | Partial | Linux routed-VM run that carries Android or device traffic through the netem path |
-| Verify remote release gates | Read-only GitHub Actions check on May 14, 2026 shows `origin/main` at `342a169a` has CI run `25875963396` still in progress with failed jobs already reported for `architecture-health`, `verify-roborazzi`, and `gradle-static-analysis`; CodeQL run `25875963413` passed for the same remote head. The local branch is ahead 9 and behind 9 after `git fetch --prune origin`, so no remote workflow covers local `HEAD` `7cf8da1f` | Partial | Reconcile the branch, push or dispatch fresh workflows for the local commits, then confirm CI, CodeQL, offline analytics, and mutation workflow status |
+| Verify remote release gates | Read-only GitHub Actions check on May 14, 2026 shows `origin/main` at `342a169a` has CI run `25875963396` still in progress with failed jobs already reported for `architecture-health`, `verify-roborazzi`, and `gradle-static-analysis`; CodeQL run `25875963413` passed for the same remote head. The local branch diverges from `origin/main` after `git fetch --prune origin`, so no remote workflow covers the local commits | Partial | Reconcile the branch, push or dispatch fresh workflows for the local commits, then confirm CI, CodeQL, offline analytics, and mutation workflow status |
 
 ## Current Local State
 
-- Branch: `main`; after `git fetch --prune origin`, local `HEAD` is
-  `7cf8da1f` and the branch is ahead 9 / behind 9 relative to `origin/main`.
+- Branch: `main`; after `git fetch --prune origin`, the local branch diverges
+  from `origin/main`. Run `git status --short --branch` for current counts.
 - Working tree scope: this audit update reflects the latest native
   monitor-engine hotspot split, Roborazzi Logs golden refresh, Appium long-form
   scroll hardening, and Appium launch-timeout retry.
@@ -50,11 +50,11 @@ available in the current local lab.
   `CARGO_TARGET_DIR=target/codex-monitor-engine-check cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine`,
   the monitor-engine `connectivity_partial` contract fixture test, focused
   post-fix Appium slice, and the four-flow Maestro smoke pack passed. Commit
-  hooks passed for `a3424cdf` and `7cf8da1f`.
+  hooks passed for the latest native/Appium commits.
 - Remote state: `origin/main` now points at `342a169a`. CI run `25875963396`
   is not a green sign-off because it is still in progress and already has
   failed jobs; CodeQL run `25875963413` passed for that remote head. No remote
-  run covers local `HEAD` `7cf8da1f`.
+  run covers the local commits.
 - Latest readiness preflight: attached Pixel 8 Pro is ready; rooted physical
   device, TalkBack manual pass, routed Linux netem VM, production relay matrix,
   and remote workflow confirmation remain blocked; physical handover remains
