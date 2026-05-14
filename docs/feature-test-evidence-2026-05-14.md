@@ -24,7 +24,7 @@ open checklist work.
 
 | Checklist area | Command or artifact | Result |
 | --- | --- | --- |
-| Static analysis | `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon` | Pass on current local HEAD `4d4a0b3c` after the Appium evidence commit; 518 actionable tasks, `BUILD SUCCESSFUL in 2m 9s`, no failures |
+| Static analysis | `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon` | Pass on local HEAD `1aa06f7c` after the Appium evidence and audit-state commits; 518 actionable tasks, `BUILD SUCCESSFUL in 2m 35s`, no failures |
 | Release verification build | `./gradlew :app:assembleGithubRelease -Pripdpi.nativeAbisOverride=arm64-v8a -Pripdpi.nativeAbiParallelism=1 --no-daemon` | Pass |
 | Build logic checks | `./gradlew :build-logic:convention:check --no-daemon` | Pass |
 | Physical connected tests | `app/build/outputs/androidTest-results/connected/debug/TEST-Pixel 8 Pro - 16-_app-.xml` | 86 tests, 0 failures, 0 errors, 21 environment skips; includes `ServiceLifecycleIntegrationTest.proxyServiceUsesResolvedCommandLinePreferences` and related proxy/VPN lifecycle tests |
