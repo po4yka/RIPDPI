@@ -74,7 +74,7 @@ available in the current local lab.
 - Latest readiness preflight: attached Pixel 8 Pro is ready; rooted physical
   device, TalkBack manual pass, routed Linux netem VM, production relay matrix,
   and remote workflow confirmation remain blocked; physical handover remains
-  manual. The remote workflow item is blocked because local `HEAD`
+  manual. The remote workflow item is blocked because the local branch
   is ahead of `origin/main` and no fresh workflow covers the
   local commits.
 
