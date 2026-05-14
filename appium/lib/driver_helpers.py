@@ -7,24 +7,36 @@ from typing import Callable
 
 from appium.webdriver import WebElement
 from appium.webdriver.common.appiumby import AppiumBy
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
 from selenium.webdriver.support.ui import WebDriverWait
 
 from .launch_contract import APP_PACKAGE
 
 
-def _resource_id(tag: str) -> str:
+def _resource_ids(tag: str) -> list[str]:
     if ":" in tag:
-        return tag
-    return f"{APP_PACKAGE}:id/{tag}"
+        return [tag]
+    return [tag, f"{APP_PACKAGE}:id/{tag}"]
+
+
+def _find_by_test_tag(driver, tag: str) -> WebElement | bool:
+    for resource_id in _resource_ids(tag):
+        try:
+            return driver.find_element(AppiumBy.ID, resource_id)
+        except (NoSuchElementException, WebDriverException):
+            continue
+    for resource_id in _resource_ids(tag):
+        try:
+            return driver.find_element(AppiumBy.XPATH, f'//*[@resource-id="{resource_id}"]')
+        except NoSuchElementException:
+            continue
+    return False
 
 
 def wait_for_element(driver, tag: str, timeout: int = 10) -> WebElement:
     """Wait until an element with the given test tag is present."""
-    locator = (AppiumBy.ID, _resource_id(tag))
     return WebDriverWait(driver, timeout).until(
-        EC.presence_of_element_located(locator),
+        lambda source: _find_by_test_tag(source, tag),
         message=f"Timed out waiting for element '{tag}'",
     )
 

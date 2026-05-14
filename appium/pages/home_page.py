@@ -7,10 +7,12 @@ from .base_page import BasePage
 
 class HomePage(BasePage):
     SCREEN = "home-screen"
-    CONNECTION_BUTTON = "home-connection-button"
-    APPROACH_CARD = "home-approach-card"
-    HISTORY_CARD = "home-history-card"
-    STATS_GRID = "home-stats-grid"
+    CONNECTION_BUTTON = "home-mode-primary-remote-vpn"
+    LOCAL_BYPASS_BUTTON = "home-mode-primary-local-dpi-bypass"
+    DIAGNOSTIC_BUTTON = "home-mode-primary-diagnostic"
+    APPROACH_CARD = "home-mode-card-diagnostic"
+    HISTORY_CARD = "bottom-nav-diagnostics"
+    STATS_GRID = "home-mode-card-remote-vpn"
     PERMISSION_ISSUE_BANNER = "home-permission-issue-banner"
     PERMISSION_REC_BANNER = "home-permission-recommendation-banner"
     ERROR_BANNER = "home-error-banner"

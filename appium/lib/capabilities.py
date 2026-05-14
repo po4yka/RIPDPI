@@ -1,6 +1,6 @@
 """UiAutomator2 desired capabilities for RIPDPI debug builds."""
 
-from appium.options import UiAutomator2Options
+from appium.options.android import UiAutomator2Options
 
 from .launch_contract import APP_PACKAGE, MAIN_ACTIVITY
 

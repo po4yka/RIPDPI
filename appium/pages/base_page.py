@@ -6,8 +6,7 @@ import time
 from typing import TYPE_CHECKING, Callable
 
 from appium.webdriver.common.appiumby import AppiumBy
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
 from selenium.webdriver.support.ui import WebDriverWait
 
 if TYPE_CHECKING:
@@ -23,18 +22,33 @@ class BasePage:
 
     # -- element lookup -------------------------------------------------------
 
-    def _resource_id(self, tag: str) -> str:
+    def _resource_ids(self, tag: str) -> list[str]:
         if ":" in tag:
-            return tag
-        return f"{APP_PACKAGE}:id/{tag}"
+            return [tag]
+        return [tag, f"{APP_PACKAGE}:id/{tag}"]
+
+    def _find_by_test_tag(self, tag: str) -> WebElement | bool:
+        for resource_id in self._resource_ids(tag):
+            try:
+                return self.driver.find_element(AppiumBy.ID, resource_id)
+            except (NoSuchElementException, WebDriverException):
+                continue
+        for resource_id in self._resource_ids(tag):
+            try:
+                return self.driver.find_element(AppiumBy.XPATH, f'//*[@resource-id="{resource_id}"]')
+            except NoSuchElementException:
+                continue
+        return False
 
     def find(self, tag: str) -> WebElement:
-        return self.driver.find_element(AppiumBy.ID, self._resource_id(tag))
+        element = self._find_by_test_tag(tag)
+        if element:
+            return element
+        raise NoSuchElementException(f"Could not find element with tag {tag!r}")
 
     def wait_for(self, tag: str, timeout: int = 10) -> WebElement:
-        locator = (AppiumBy.ID, self._resource_id(tag))
         return WebDriverWait(self.driver, timeout).until(
-            EC.presence_of_element_located(locator),
+            lambda _: self._find_by_test_tag(tag),
             message=f"Timed out waiting for '{tag}'",
         )
 
@@ -93,9 +107,8 @@ class BasePage:
         self, old_screen_tag: str, new_screen_tag: str, timeout: int = 15,
     ) -> WebElement:
         """Wait for old screen to disappear and new screen to appear."""
-        old_locator = (AppiumBy.ID, self._resource_id(old_screen_tag))
         WebDriverWait(self.driver, timeout).until(
-            EC.invisibility_of_element_located(old_locator),
+            lambda _: not self._find_by_test_tag(old_screen_tag),
             message=f"Old screen '{old_screen_tag}' did not disappear",
         )
         return self.wait_for(new_screen_tag, timeout=timeout)
