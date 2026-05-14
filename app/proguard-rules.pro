@@ -12,3 +12,11 @@
 # Guava references J2ObjC annotations that only exist on iOS/macOS targets.
 # They are compile-time-only and never loaded on Android.
 -dontwarn com.google.j2objc.annotations.**
+
+# WorkManager can emit debug/verbose scheduler chatter before app code starts.
+# Release builds already use WARN in Configuration.Provider; strip any remaining
+# debug/verbose calls from the minified APK so support logs stay low-noise.
+-assumenosideeffects class androidx.work.Logger {
+    public void verbose(...);
+    public void debug(...);
+}

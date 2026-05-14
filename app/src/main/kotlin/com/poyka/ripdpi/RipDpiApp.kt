@@ -1,6 +1,7 @@
 package com.poyka.ripdpi
 
 import android.app.Application
+import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import co.touchlab.kermit.Logger
@@ -35,7 +36,7 @@ class RipDpiApp :
             Configuration
                 .Builder()
                 .setWorkerFactory(workerFactory)
-                .setMinimumLoggingLevel(if (BuildConfig.DEBUG) android.util.Log.VERBOSE else android.util.Log.INFO)
+                .setMinimumLoggingLevel(workManagerMinimumLoggingLevel(BuildConfig.DEBUG))
                 .build()
 
     override fun onCreate() {
@@ -52,3 +53,5 @@ class RipDpiApp :
         startupInitializer.initialize()
     }
 }
+
+internal fun workManagerMinimumLoggingLevel(isDebugBuild: Boolean): Int = if (isDebugBuild) Log.VERBOSE else Log.WARN
