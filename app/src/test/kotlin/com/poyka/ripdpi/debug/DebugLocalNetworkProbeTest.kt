@@ -43,6 +43,7 @@ class DebugLocalNetworkProbeTest {
         assertEquals("10.0.2.2", config.udpHost)
         assertEquals(9001, config.udpPort)
         assertEquals("https://10.0.2.2:9443/h3/ok", config.quicUrl)
+        assertEquals("10.0.2.2:10080", config.relayEndpoint)
         assertTrue(config.requireVpnActive)
         assertTrue(config.requireProxyReady)
     }
@@ -74,7 +75,7 @@ class DebugLocalNetworkProbeTest {
                 vpnEstablished = true,
                 tunActive = true,
                 proxyReady = true,
-                relayReady = null,
+                relayReady = true,
                 dns = DnsProbeResult(true, true, "10.0.2.2", "ok.test", listOf("10.0.2.2"), 12, null),
                 http = HttpProbeResult(true, true, "http://10.0.2.2:8080/get", 200, 512, 35, null),
                 https = TlsProbeResult(true, true, "https://10.0.2.2:8443/", "TLS_AES_128_GCM_SHA256", null, 54, null),
@@ -118,6 +119,7 @@ class DebugLocalNetworkProbeTest {
                 ?.content
 
         assertEquals("10.0.2.2", dnsServer)
+        assertEquals("true", json["relayReady"]?.jsonPrimitive?.content)
         assertEquals(
             "QUIC_UNSUPPORTED_ANDROID_DEBUG_PROBE",
             quicErrorCode,
@@ -143,6 +145,44 @@ class DebugLocalNetworkProbeTest {
             )
 
         assertEquals(ProbeVerdict.Degraded, verdict)
+    }
+
+    @Test
+    fun `relay readiness failure is a hard probe failure`() {
+        val verdict =
+            resolveProbeVerdict(
+                errors =
+                    listOf(
+                        ProbeError(
+                            stage = "relay",
+                            code = "RELAY_NOT_READY",
+                            message = "Relay readiness handshake failed",
+                            recoverable = true,
+                        ),
+                    ),
+                udp = UdpProbeResult(true, true, "10.0.2.2", 9001, true, 10, null),
+                quic = null,
+            )
+
+        assertEquals(ProbeVerdict.Fail, verdict)
+    }
+
+    @Test
+    fun `relay ready parser accepts only ready handshake`() {
+        assertTrue(isRelayReadyResponse("""{"ok":true,"code":"READY","message":"mock relay ready"}"""))
+        assertFalse(isRelayReadyResponse("""{"ok":false,"code":"AUTH_FAILED","message":"mock relay rejected"}"""))
+        assertFalse(isRelayReadyResponse("not-json"))
+    }
+
+    @Test
+    fun `relay endpoint parser requires host and valid port`() {
+        val address = parseRelayEndpoint("10.0.2.2:10080")
+
+        assertEquals("10.0.2.2", address?.hostString)
+        assertEquals(10080, address?.port)
+        assertEquals(null, parseRelayEndpoint("10.0.2.2"))
+        assertEquals(null, parseRelayEndpoint("10.0.2.2:0"))
+        assertEquals(null, parseRelayEndpoint(":10080"))
     }
 
     @Test

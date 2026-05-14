@@ -6,10 +6,15 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.SystemClock
 import com.poyka.ripdpi.BuildConfig
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
@@ -36,6 +41,7 @@ private const val DefaultProxyPort = 1080
 private const val DefaultDnsPort = 53
 private const val TcpProbePayload = "ripdpi-tcp-probe-v1"
 private const val UdpProbePayload = "ripdpi-udp-probe-v1"
+private const val RelayProbePayload = """{"auth":"ok"}"""
 
 enum class LabProfile {
     Emulator,
@@ -407,6 +413,10 @@ class DebugLocalNetworkProbeRunner(
         if (quic != null && !quic.ok && quic.attempted) {
             errors += ProbeError("quic", quic.errorCode ?: "QUIC_FAILED", "QUIC probe failed", recoverable = true)
         }
+        val relayReady = runRelayProbe(config)
+        if (relayReady == false) {
+            errors += ProbeError("relay", "RELAY_NOT_READY", "Relay readiness handshake failed", recoverable = true)
+        }
 
         val verdict = resolveProbeVerdict(errors = errors, udp = udp, quic = quic)
 
@@ -422,7 +432,7 @@ class DebugLocalNetworkProbeRunner(
             vpnEstablished = vpnActive,
             tunActive = vpnActive,
             proxyReady = proxyReady,
-            relayReady = null,
+            relayReady = relayReady,
             dns = dns,
             http = http,
             https = https,
@@ -616,6 +626,21 @@ class DebugLocalNetworkProbeRunner(
                 errorCode = "QUIC_UNSUPPORTED_ANDROID_DEBUG_PROBE",
             )
         }
+
+    private fun runRelayProbe(config: NetworkProbeConfig): Boolean? {
+        val endpoint = config.relayEndpoint?.takeIf { it.isNotBlank() } ?: return null
+        return runCatching {
+            val address = parseRelayEndpoint(endpoint) ?: return@runCatching false
+            Socket().use { socket ->
+                socket.connect(address, config.timeoutMs.toInt())
+                socket.soTimeout = config.timeoutMs.toInt()
+                socket.getOutputStream().write((RelayProbePayload + "\n").toByteArray(StandardCharsets.UTF_8))
+                socket.getOutputStream().flush()
+                val response = socket.getInputStream().readLineUtf8()
+                isRelayReadyResponse(response)
+            }
+        }.getOrDefault(false)
+    }
 }
 
 internal fun resolveProbeVerdict(
@@ -623,7 +648,7 @@ internal fun resolveProbeVerdict(
     udp: UdpProbeResult,
     quic: QuicProbeResult?,
 ): ProbeVerdict {
-    val hardFailure = errors.any { it.stage in setOf("vpn", "proxy", "dns", "http", "tcp") }
+    val hardFailure = errors.any { it.stage in setOf("vpn", "proxy", "dns", "http", "tcp", "relay") }
     val degraded = errors.isNotEmpty() || udp.errorCode != null || quic?.errorCode != null
     return when {
         hardFailure -> ProbeVerdict.Fail
@@ -750,6 +775,38 @@ private fun TcpProbeResult.toError(stage: String): ProbeError =
 
 private fun UdpProbeResult.toError(stage: String): ProbeError =
     ProbeError(stage, errorCode ?: "UDP_FAILED", "UDP probe failed for $host:$port", recoverable = true)
+
+internal fun isRelayReadyResponse(response: String): Boolean =
+    runCatching {
+        val json = Json.parseToJsonElement(response).jsonObject
+        val ok = json["ok"]?.jsonPrimitive?.booleanOrNull == true
+        val code = json["code"]?.jsonPrimitive?.contentOrNull
+        ok && code == "READY"
+    }.getOrDefault(false)
+
+internal fun parseRelayEndpoint(endpoint: String): InetSocketAddress? {
+    val separator = endpoint.lastIndexOf(':')
+    if (separator <= 0 || separator == endpoint.lastIndex) return null
+    val host = endpoint.substring(0, separator).trim().takeIf { it.isNotEmpty() } ?: return null
+    val port =
+        endpoint
+            .substring(separator + 1)
+            .trim()
+            .toIntOrNull()
+            ?.takeIf { it in 1..65_535 }
+            ?: return null
+    return InetSocketAddress(host, port)
+}
+
+private fun InputStream.readLineUtf8(): String {
+    val buffer = ByteArrayOutputStream()
+    while (true) {
+        val next = read()
+        if (next == -1 || next == '\n'.code) break
+        buffer.write(next)
+    }
+    return buffer.toString(StandardCharsets.UTF_8.name())
+}
 
 private fun Throwable.errorCode(): String =
     this::class.java.simpleName
