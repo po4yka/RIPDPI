@@ -2,6 +2,7 @@ appId: com.poyka.ripdpi
 ---
 - launchApp
 - tapOn: "Diagnostics"
-- tapOn: "Run"
+- tapOn:
+    id: "home-mode-primary-diagnostic"
 - assertVisible:
     text: "Transparent works|Owned stack only|No direct solution|Degraded"

@@ -16,14 +16,16 @@ RIPDPI debug builds.
   UDP replies are not reliable.
 - VPN active-transport and local proxy readiness checks.
 - VPN-mode E2E orchestration script for lab restart, debug APK install,
-  Maestro connect/disconnect, VPN probe execution, and failure artifact
-  archiving. `--skip-maestro` is reserved for already-connected manual or
-  external automation runs.
+  debug automation state seeding, Maestro connect/disconnect, VPN probe
+  execution, and failure artifact archiving. `--skip-maestro` is reserved for
+  already-connected manual or external automation runs.
 - Basic typed failure codes derived from the failing exception/stage.
 - Log collection with denylist redaction.
 - Packet capture start/stop helpers.
-- Maestro flow skeletons for VPN connect, disconnect, diagnostics, reconnect,
-  and lab profile setup.
+- Maestro flows for VPN connect, disconnect, diagnostics, reconnect, and lab
+  profile setup. VPN flows use stable Home mode-card test-tag resource IDs and
+  target the VPN card so the smoke validates Android VPN transport rather than
+  local proxy readiness.
 - Manual/nightly GitHub Actions lab doctor that validates test-lab scripts,
   checks the Docker Compose model, starts the emulator-profile lab, probes host
   endpoints, and uploads `test-lab/artifacts`.

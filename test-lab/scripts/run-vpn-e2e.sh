@@ -87,6 +87,17 @@ lab_started=false
 failure=false
 archive_path=""
 
+seed_debug_automation_state() {
+  adb shell am start \
+    -n com.poyka.ripdpi/.activities.MainActivity \
+    --ez com.poyka.ripdpi.automation.ENABLED true \
+    --ez com.poyka.ripdpi.automation.RESET_STATE true \
+    --ez com.poyka.ripdpi.automation.DISABLE_MOTION true \
+    --es com.poyka.ripdpi.automation.PERMISSION_PRESET granted \
+    --es com.poyka.ripdpi.automation.SERVICE_PRESET live \
+    --es com.poyka.ripdpi.automation.DATA_PRESET settings_ready >/dev/null
+}
+
 collect_failure_artifacts() {
   local status="$1"
   local logs_dir="$out_dir/device-logs"
@@ -136,6 +147,7 @@ fi
 
 if [[ "$skip_maestro" != "true" ]]; then
   if command -v maestro >/dev/null 2>&1; then
+    seed_debug_automation_state
     maestro_ran=true
     maestro test "$lab_root/maestro/connect-vpn.yaml"
   else
