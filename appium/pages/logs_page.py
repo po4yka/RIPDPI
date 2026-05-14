@@ -28,4 +28,6 @@ class LogsPage(BasePage):
         self.tap(f"logs-subsystem-{subsystem}")
 
     def select_severity_filter(self, severity: str) -> None:
-        self.tap(f"logs-severity-{severity}")
+        tag = f"logs-severity-{severity}"
+        self.scroll_down_to(tag, max_swipes=14)
+        self.tap(tag)

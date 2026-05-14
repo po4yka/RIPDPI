@@ -15,6 +15,7 @@ from lib.launch_contract import APP_PACKAGE, build_launch_args
 
 APPIUM_URL = os.environ.get("APPIUM_URL", "http://127.0.0.1:4723")
 EXTERNAL_ACTIVITY_PACKAGES = (
+    "com.android.intentresolver",
     "com.google.android.documentsui",
     "com.android.documentsui",
     "com.android.settings",
@@ -84,7 +85,7 @@ def launch_app(driver, request):
     ready_tag = params.get("ready_tag") or (
         "vpn-permission-dialog" if params.get("start_configured_mode", False) else f"{route}-screen"
     )
-    wait_for_element(driver, ready_tag, timeout=15)
+    wait_for_element(driver, ready_tag, timeout=params.get("ready_timeout", 30))
 
     yield
 

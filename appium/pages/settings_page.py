@@ -46,7 +46,16 @@ class SettingsPage(BasePage):
 
     def select_theme_option(self, option: str) -> None:
         """Select a theme from the dropdown (e.g. 'dark', 'light', 'system')."""
-        self.tap(f"settings-theme-dropdown-option-{option}")
+        tag = f"settings-theme-dropdown-option-{option}"
+        if self.is_visible(tag):
+            self.tap(tag)
+            return
+        labels = {
+            "system": "System",
+            "light": "Light",
+            "dark": "Dark",
+        }
+        self.tap_text(labels.get(option, option))
 
     def tap_biometric_toggle(self) -> None:
         self.scroll_down_to(self.BIOMETRIC)

@@ -2,7 +2,6 @@
 
 import pytest
 
-from pages.base_page import BasePage
 from pages.diagnostics_page import DiagnosticsPage
 
 
@@ -15,11 +14,11 @@ def test_diagnostics_overview_hero(driver):
     diag = DiagnosticsPage(driver)
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
-    assert diag.is_section_visible("overview"), (
-        "Overview section should be visible on load"
+    assert diag.is_section_visible("dashboard"), (
+        "Dashboard section should be visible on load"
     )
     assert diag.is_visible("diagnostics-overview-hero"), (
-        "Overview hero card should be visible"
+        "Dashboard hero card should be visible"
     )
 
 
@@ -32,20 +31,15 @@ def test_diagnostics_approach_detail(driver):
     diag = DiagnosticsPage(driver)
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
-    # Swipe to the approaches section (3 swipes from overview).
-    for _ in range(3):
-        diag.swipe_to_next_section()
+    diag.swipe_to_tools_section()
 
-    assert diag.is_section_visible("approaches"), (
-        "Approaches section should be visible after swiping"
+    assert diag.is_section_visible("tools"), (
+        "Tools section should be visible after swiping"
     )
 
-    # Attempt to tap an approach item and verify the detail sheet opens.
-    if diag.is_visible("diagnostics-approach-detail-sheet", timeout=2):
-        assert True, "Approach detail sheet is already visible"
-    else:
-        # The approaches section is confirmed visible; detail sheet may
-        # require a specific item tap that is not yet wired in test tags.
-        assert diag.is_section_visible("approaches"), (
-            "Approaches section should remain visible"
-        )
+    assert diag.is_visible(diag.APPROACH_MODE_PROFILES), (
+        "Profiles approach chip should be visible in tools"
+    )
+    assert diag.is_visible(diag.APPROACH_MODE_STRATEGIES), (
+        "Strategies approach chip should be visible in tools"
+    )
