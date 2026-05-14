@@ -567,3 +567,18 @@ Nightly/manual lanes add:
 - `nightly-rust-coverage` -- coverage including ignored tests
 
 The CI jobs upload test reports, golden diffs, logcat, fixture logs, soak/load artifacts, and coverage reports when available.
+
+For a remote sign-off pass after local commits have been pushed to `main`, use
+the default workflow-dispatch inputs unless a release owner explicitly asks for
+the heavier emulator, soak, load, coverage, benchmark, or private-corpus lanes:
+
+```bash
+gh workflow run ci.yml --ref main
+gh workflow run local-network-lab.yml --ref main -f run_vpn_emulator_lane=false
+gh workflow run offline-analytics.yml --ref main -f private_corpus_path=''
+gh workflow run mutation-testing.yml --ref main -f packages='' -f in_diff=false
+```
+
+`CodeQL` does not expose `workflow_dispatch`; it runs from the push to `main`.
+Record the run IDs and conclusions in
+`docs/feature-test-manual-evidence-template.md` under `Remote Workflows`.
