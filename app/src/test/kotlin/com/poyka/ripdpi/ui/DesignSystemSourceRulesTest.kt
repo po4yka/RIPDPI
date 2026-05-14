@@ -6,6 +6,7 @@ import java.io.File
 
 class DesignSystemSourceRulesTest {
     private val repoRoot = File(".").canonicalFile
+    private val mainAppRoot = File(repoRoot, "app/src/main/kotlin/com/poyka/ripdpi")
     private val mainUiRoot = File(repoRoot, "app/src/main/kotlin/com/poyka/ripdpi/ui")
     private val screenUiRoot = File(mainUiRoot, "screens")
 
@@ -65,6 +66,19 @@ class DesignSystemSourceRulesTest {
         ) { source ->
             animationImport.containsMatchIn(source.text) &&
                 !source.text.contains("RipDpiThemeTokens.motion")
+        }
+    }
+
+    @Test
+    fun `app theme does not opt into platform dynamic color palettes`() {
+        val dynamicPaletteUsage =
+            Regex("\\b(dynamicLightColorScheme|dynamicDarkColorScheme|DynamicColors)\\b")
+
+        assertNoOffendingFiles(
+            files = uiSourceFiles(mainAppRoot),
+            message = "RIPDPI uses governed fixed theme palettes; dynamic color requires contrast coverage first",
+        ) { source ->
+            dynamicPaletteUsage.containsMatchIn(source.text)
         }
     }
 
