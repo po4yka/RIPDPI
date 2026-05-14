@@ -24,8 +24,7 @@ class AdvancedSettingsPage(BasePage):
 
     def toggle_setting(self, setting_name: str) -> None:
         tag = f"advanced-toggle-{setting_name}"
-        self.scroll_down_to(tag)
-        self.tap(tag)
+        self.scroll_incrementally_to(tag).click()
 
     def edit_input(self, setting_name: str, value: str) -> None:
         tag = f"advanced-input-{setting_name}"
