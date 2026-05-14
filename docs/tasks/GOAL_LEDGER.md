@@ -94,7 +94,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 71 | P4 | `add-desync-trait-split-parity-tests-for-tcpdesyncplatform-sub-traits`<br>Add desync trait-split parity tests for TcpDesyncPlatform sub-traits | task | `(no epic)` | rust-native | ⏫ | TODO | |
 | 72 | P4 | `add-phase-artifact-source-byte-identity-regression-test-for-connectivity`<br>Add phase/artifact-source byte-identity regression test for connectivity stage runners | task | `(no epic)` | testing | ⏫ | TODO | |
 | 73 | P5 | `connectivity-runner-behavioral-parity-snapshot-test`<br>Connectivity runner behavioral parity snapshot test | task | `(no epic)` | testing | ⏫ | TODO | |
-| 74 | P5 | `extend-contract-fixtures-with-connectivity-scan-report-golden-covering`<br>Extend contract_fixtures with connectivity scan-report golden covering cancellation + partial-results | task | `(no epic)` | testing | ⏫ | TODO | |
+| 74 | P5 | `extend-contract-fixtures-with-connectivity-scan-report-golden-covering`<br>Extend contract_fixtures with connectivity scan-report golden covering cancellation + partial-results | task | `(no epic)` | testing | ⏫ | DONE | `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine --test contract_fixtures` exit 0; 4 passed |
 | 75 | P5 | `finish-native-rust-verification-for-current-connectivity-platform-diff`<br>Finish native Rust verification for current connectivity/platform diff | task | `(no epic)` | rust-native | ⏫ | TODO | |
 | 76 | P5 | `gate-diagnostics-packet-capture-surface-on-rootmodeenabled-and-add-raw`<br>Gate Diagnostics packet-capture surface on rootModeEnabled and add raw-packet disclosure | task | `(no epic)` | android | ⏫ | TODO | |
 | 77 | P5 | `jni-symbol-diff-guard-for-libripdpi-so`<br>JNI symbol diff guard for libripdpi.so | task | `(no epic)` | rust-native | ⏫ | TODO | |
@@ -234,4 +234,3 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 211 | P12 | `epic-fail-closed-android-vpn-policy-engine`<br>Epic - Fail-closed Android VPN policy engine | epic | `—` | vpn | 🔺 | TODO | |
 | 212 | P12 | `epic-direct-mode-diagnostic-state-machine`<br>Epic - Direct-mode diagnostic state machine | epic | `—` | epic | ⏫ | TODO | |
 | 213 | P12 | `epic-orchestration-test-posture`<br>Epic - Orchestration test posture | epic | `—` | testing | ⏫ | TODO | |
-

@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use super::artifacts::CollectedStep;
+use super::artifacts::CollectedStageOutcome;
 use super::plan::ExecutionPlan;
 use super::state::ExecutionRuntime;
 
@@ -43,32 +43,48 @@ pub(in crate::engine) trait ExecutionStageRunner {
         runtime: &mut ExecutionRuntime,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> RunnerOutcome {
-        let Some(steps) = self.run_collecting(plan, runtime.cancel_token(), tls_verifier) else {
-            return RunnerOutcome::Cancelled;
-        };
-        for step in steps {
-            runtime.record_step(
-                plan,
-                step.phase,
-                step.message,
-                step.latest_probe_target,
-                step.latest_probe_outcome,
-                None,
-                step.artifacts,
-            );
+        match self.run_collecting(plan, runtime.cancel_token(), tls_verifier) {
+            CollectedStageOutcome::Completed(steps) => {
+                for step in steps {
+                    runtime.record_step(
+                        plan,
+                        step.phase,
+                        step.message,
+                        step.latest_probe_target,
+                        step.latest_probe_outcome,
+                        None,
+                        step.artifacts,
+                    );
+                }
+                RunnerOutcome::Completed
+            }
+            CollectedStageOutcome::Cancelled(steps) => {
+                for step in steps {
+                    runtime.record_step(
+                        plan,
+                        step.phase,
+                        step.message,
+                        step.latest_probe_target,
+                        step.latest_probe_outcome,
+                        None,
+                        step.artifacts,
+                    );
+                }
+                RunnerOutcome::Cancelled
+            }
         }
-        RunnerOutcome::Completed
     }
 
     /// Run without touching `runtime`, returning all steps collected independently.
     /// Used by the parallel connectivity runner path.
-    /// Returns `None` if the runner was cancelled mid-way.
+    /// Returns collected partial steps alongside a cancellation marker if the
+    /// runner was cancelled mid-stage.
     fn run_collecting(
         &self,
         _plan: &ExecutionPlan,
         _cancel: &AtomicBool,
         _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    ) -> Option<Vec<CollectedStep>> {
-        None
+    ) -> CollectedStageOutcome {
+        CollectedStageOutcome::Cancelled(Vec::new())
     }
 }

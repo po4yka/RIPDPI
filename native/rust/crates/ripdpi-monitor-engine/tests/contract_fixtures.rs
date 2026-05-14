@@ -2,6 +2,8 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use golden_test_support::{assert_text_golden, canonicalize_json};
+use ripdpi_monitor_engine::contracts::connectivity_partial_report_contract_fixture;
 use ripdpi_monitor_engine::wire::{
     EngineProgressWire, EngineScanReportWire, EngineScanRequestWire, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
 };
@@ -62,6 +64,23 @@ fn outcome_fixture_covers_emitted_native_outcome_tokens() {
     let emitted_tokens = emitted_native_outcome_tokens();
 
     assert_eq!(fixture_tokens, emitted_tokens);
+}
+
+#[test]
+fn connectivity_partial_report_matches_contract_fixture() {
+    let report = connectivity_partial_report_contract_fixture();
+
+    assert_eq!(report.summary, "Scan completed with partial results");
+    assert_eq!(report.results.len(), 4);
+    assert_eq!(report.results[0].probe_type, "network_environment");
+    assert_eq!(report.results[1].probe_type, "dns_integrity");
+    assert_eq!(report.results[2].probe_type, "tcp_fat_header");
+    assert_eq!(report.results[3].probe_type, "quic_reachability");
+
+    let wire = EngineScanReportWire::from(report);
+    let actual = serde_json::to_string(&wire).expect("serialize report");
+    let canonical = canonicalize_json(&actual).expect("canonical report json");
+    assert_text_golden(env!("CARGO_MANIFEST_DIR"), "tests/fixtures/connectivity_report_partial.json", &canonical);
 }
 
 fn outcome_fixture_tokens(path: &str) -> BTreeSet<String> {

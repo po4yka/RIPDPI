@@ -1,0 +1,159 @@
+{
+  "classifierVersion": null,
+  "diagnoses": [],
+  "engineAnalysisVersion": "observations_v1",
+  "finishedAt": 1700000000123,
+  "observations": [
+    {
+      "circumvention": null,
+      "dns": {
+        "domain": "fixture.example.test",
+        "encryptedAddresses": [],
+        "status": "MATCH",
+        "udpAddresses": []
+      },
+      "domain": null,
+      "evidence": [
+        "dns_match"
+      ],
+      "kind": "DNS",
+      "quic": null,
+      "service": null,
+      "strategy": null,
+      "target": "fixture.example.test",
+      "tcp": null,
+      "telegram": null,
+      "throughput": null
+    },
+    {
+      "circumvention": null,
+      "dns": null,
+      "domain": null,
+      "evidence": [
+        "tcp_fat_header_ok",
+        ""
+      ],
+      "kind": "TCP",
+      "quic": null,
+      "service": null,
+      "strategy": null,
+      "target": "127.0.0.1:443 (fixture)",
+      "tcp": {
+        "bytesSent": null,
+        "provider": "127.0.0.1:443 (fixture)",
+        "responsesSeen": null,
+        "selectedSni": null,
+        "status": "ERROR"
+      },
+      "telegram": null,
+      "throughput": null
+    },
+    {
+      "circumvention": null,
+      "dns": null,
+      "domain": null,
+      "evidence": [
+        "quic_initial_response"
+      ],
+      "kind": "QUIC",
+      "quic": {
+        "host": "fixture-quic-one.example.test",
+        "status": "INITIAL_RESPONSE",
+        "transportFailure": "NONE"
+      },
+      "service": null,
+      "strategy": null,
+      "target": "fixture-quic-one.example.test",
+      "tcp": null,
+      "telegram": null,
+      "throughput": null
+    }
+  ],
+  "packVersions": {},
+  "pathMode": "RAW_PATH",
+  "profileId": "connectivity-partial-contract",
+  "resolverRecommendation": null,
+  "results": [
+    {
+      "details": [
+        {
+          "key": "transport",
+          "value": "wifi"
+        },
+        {
+          "key": "validated",
+          "value": "true"
+        },
+        {
+          "key": "captivePortal",
+          "value": "false"
+        },
+        {
+          "key": "metered",
+          "value": "false"
+        },
+        {
+          "key": "privateDnsMode",
+          "value": "system"
+        },
+        {
+          "key": "dnsServerCount",
+          "value": "1"
+        },
+        {
+          "key": "capturedAtMs",
+          "value": "1700000000000"
+        },
+        {
+          "key": "vpnServiceWasActive",
+          "value": "false"
+        }
+      ],
+      "outcome": "network_available",
+      "probeRetryCount": null,
+      "probeType": "network_environment",
+      "target": "wifi"
+    },
+    {
+      "details": [
+        {
+          "key": "fixture",
+          "value": "bundled"
+        }
+      ],
+      "outcome": "dns_match",
+      "probeRetryCount": null,
+      "probeType": "dns_integrity",
+      "target": "fixture.example.test"
+    },
+    {
+      "details": [
+        {
+          "key": "fixture",
+          "value": "bundled"
+        }
+      ],
+      "outcome": "tcp_fat_header_ok",
+      "probeRetryCount": null,
+      "probeType": "tcp_fat_header",
+      "target": "127.0.0.1:443 (fixture)"
+    },
+    {
+      "details": [
+        {
+          "key": "fixture",
+          "value": "bundled"
+        }
+      ],
+      "outcome": "quic_initial_response",
+      "probeRetryCount": null,
+      "probeType": "quic_reachability",
+      "target": "fixture-quic-one.example.test"
+    }
+  ],
+  "schemaVersion": 1,
+  "sessionId": "connectivity-partial-contract",
+  "startedAt": 1700000000000,
+  "strategyProbeReport": null,
+  "summary": "Scan completed with partial results"
+}

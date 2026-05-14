@@ -67,3 +67,8 @@ pub(in crate::engine) struct CollectedStep {
     pub(in crate::engine) latest_probe_outcome: Option<String>,
     pub(in crate::engine) artifacts: RunnerArtifacts,
 }
+
+pub(in crate::engine) enum CollectedStageOutcome {
+    Completed(Vec<CollectedStep>),
+    Cancelled(Vec<CollectedStep>),
+}

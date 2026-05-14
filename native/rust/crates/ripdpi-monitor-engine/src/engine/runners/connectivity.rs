@@ -18,7 +18,7 @@ macro_rules! impl_connectivity_runner {
                 plan: &crate::engine::runtime::ExecutionPlan,
                 cancel: &std::sync::atomic::AtomicBool,
                 tls_verifier: Option<&std::sync::Arc<dyn rustls::client::danger::ServerCertVerifier>>,
-            ) -> Option<Vec<crate::engine::runtime::CollectedStep>> {
+            ) -> crate::engine::runtime::CollectedStageOutcome {
                 super::support::collect_family_steps::<$family>(plan, cancel, tls_verifier)
             }
         }

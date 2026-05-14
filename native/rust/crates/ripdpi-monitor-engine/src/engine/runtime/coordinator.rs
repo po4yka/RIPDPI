@@ -5,7 +5,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::types::ScanKind;
 
-use super::artifacts::CollectedStep;
+use super::artifacts::CollectedStageOutcome;
 use super::plan::ExecutionPlan;
 use super::stage::{ExecutionStageId, ExecutionStageRunner, RunnerOutcome};
 use super::state::ExecutionRuntime;
@@ -44,58 +44,65 @@ impl ExecutionCoordinator {
         let is_connectivity = matches!(plan.request.kind, ScanKind::Connectivity);
         let mut parallel_done = HashSet::new();
 
-        if is_connectivity {
-            let parallel_runners: Vec<&ExecutionStageId> = plan
-                .stage_order
-                .iter()
-                .filter(|stage| {
-                    PARALLEL_GROUP.contains(stage) && self.runners.get(stage).is_some_and(|r| r.total_steps(plan) > 0)
-                })
-                .collect();
-
-            if parallel_runners.len() > 1 {
-                if runtime.is_cancelled() || runtime.is_past_deadline() {
-                    return RunnerOutcome::Cancelled;
-                }
-
-                let mut thread_results: Vec<Option<Vec<CollectedStep>>> =
-                    (0..parallel_runners.len()).map(|_| None).collect();
-
-                std::thread::scope(|s| {
-                    let mut handles = Vec::with_capacity(parallel_runners.len());
-                    for stage in &parallel_runners {
-                        let runner = self.runners.get(stage).expect("runner present");
-                        let cancel = runtime.cancel_token();
-                        handles.push(s.spawn(move || runner.run_collecting(plan, cancel, tls_verifier)));
-                    }
-                    for (i, handle) in handles.into_iter().enumerate() {
-                        thread_results[i] = handle.join().expect("parallel runner thread panicked");
-                    }
-                });
-
-                for (stage, collected_opt) in parallel_runners.iter().zip(thread_results.into_iter()) {
-                    parallel_done.insert(*stage);
-                    let Some(steps) = collected_opt else {
-                        return RunnerOutcome::Cancelled;
-                    };
-                    for step in steps {
-                        runtime.record_step(
-                            plan,
-                            step.phase,
-                            step.message,
-                            step.latest_probe_target,
-                            step.latest_probe_outcome,
-                            None,
-                            step.artifacts,
-                        );
-                    }
-                }
-            }
-        }
-
         for stage in &plan.stage_order {
             if parallel_done.contains(stage) {
                 continue;
+            }
+            if is_connectivity && PARALLEL_GROUP.contains(stage) {
+                let parallel_runners: Vec<&ExecutionStageId> = plan
+                    .stage_order
+                    .iter()
+                    .filter(|candidate| {
+                        PARALLEL_GROUP.contains(candidate)
+                            && self.runners.get(candidate).is_some_and(|r| r.total_steps(plan) > 0)
+                    })
+                    .collect();
+
+                if parallel_runners.len() > 1 {
+                    if runtime.is_cancelled() || runtime.is_past_deadline() {
+                        return RunnerOutcome::Cancelled;
+                    }
+
+                    let thread_results = std::thread::scope(|s| {
+                        let mut handles = Vec::with_capacity(parallel_runners.len());
+                        for parallel_stage in &parallel_runners {
+                            let runner = self.runners.get(parallel_stage).expect("runner present");
+                            let cancel = runtime.cancel_token();
+                            handles.push(s.spawn(move || runner.run_collecting(plan, cancel, tls_verifier)));
+                        }
+                        handles
+                            .into_iter()
+                            .map(|handle| handle.join().expect("parallel runner thread panicked"))
+                            .collect::<Vec<_>>()
+                    });
+
+                    let mut cancelled = false;
+                    for (parallel_stage, collected) in parallel_runners.iter().zip(thread_results.into_iter()) {
+                        parallel_done.insert(*parallel_stage);
+                        let steps = match collected {
+                            CollectedStageOutcome::Completed(steps) => steps,
+                            CollectedStageOutcome::Cancelled(steps) => {
+                                cancelled = true;
+                                steps
+                            }
+                        };
+                        for step in steps {
+                            runtime.record_step(
+                                plan,
+                                step.phase,
+                                step.message,
+                                step.latest_probe_target,
+                                step.latest_probe_outcome,
+                                None,
+                                step.artifacts,
+                            );
+                        }
+                    }
+                    if cancelled {
+                        return RunnerOutcome::Cancelled;
+                    }
+                    continue;
+                }
             }
             let Some(runner) = self.runners.get(stage) else {
                 continue;

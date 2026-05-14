@@ -11,3 +11,8 @@ pub use ripdpi_diagnostics_contracts::{
     TelegramVerdict, ThroughputObservationFact, ThroughputProbeStatus, ThroughputTarget, TlsProbeStatus,
     TransportFailureKind, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
 };
+
+#[doc(hidden)]
+pub fn connectivity_partial_report_contract_fixture() -> ScanReport {
+    crate::engine::connectivity_partial_report_contract_fixture()
+}

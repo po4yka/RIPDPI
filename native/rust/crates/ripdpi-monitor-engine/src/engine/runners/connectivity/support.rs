@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::engine::runtime::{CollectedStep, ExecutionPlan, RunnerArtifacts};
+use crate::engine::runtime::{CollectedStageOutcome, CollectedStep, ExecutionPlan, RunnerArtifacts};
 use crate::types::ProbeResult;
 
 pub(super) trait ConnectivityProbeFamily {
@@ -32,12 +32,12 @@ pub(super) fn collect_family_steps<F: ConnectivityProbeFamily>(
     plan: &ExecutionPlan,
     cancel: &AtomicBool,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-) -> Option<Vec<CollectedStep>> {
+) -> CollectedStageOutcome {
     let targets = F::targets(plan);
     let mut steps = Vec::with_capacity(targets.len());
     for target in targets {
         if cancel.load(Ordering::Acquire) {
-            return None;
+            return CollectedStageOutcome::Cancelled(steps);
         }
         let message = F::message(&target);
         let latest_target = F::latest_target(&target);
@@ -51,6 +51,9 @@ pub(super) fn collect_family_steps<F: ConnectivityProbeFamily>(
             latest_probe_outcome: Some(outcome),
             artifacts,
         });
+        if cancel.load(Ordering::Acquire) {
+            return CollectedStageOutcome::Cancelled(steps);
+        }
     }
-    Some(steps)
+    CollectedStageOutcome::Completed(steps)
 }

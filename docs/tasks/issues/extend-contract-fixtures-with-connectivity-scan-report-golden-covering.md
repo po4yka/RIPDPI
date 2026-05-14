@@ -1,7 +1,7 @@
 ---
 title: Extend contract_fixtures with connectivity scan-report golden covering cancellation + partial-results
 type: task
-status: doing
+status: done
 area: testing
 priority: high
 owner: Test Automation Engineer
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-14
 ---
 
-- [ ] #task Extend contract_fixtures with connectivity scan-report golden covering cancellation + partial-results #repo/RIPDPI #area/testing #status/doing ⏫
+- [x] #task Extend contract_fixtures with connectivity scan-report golden covering cancellation + partial-results #repo/RIPDPI #area/testing #status/done ⏫ ✅ 2026-05-14
 
 ## Goal contract
 
@@ -49,3 +49,13 @@ The connectivity-runner decomposition routes every per-stage runner through the 
 ## Definition of done
 - Test + fixture committed, green locally and in CI.
 - POY-12 gate G6 marked satisfied.
+
+## Work log
+
+- Changed `ripdpi-monitor-engine` parallel connectivity coordination so the
+  environment stage runs before the DNS/TCP/QUIC parallel group and partial
+  collected steps are flushed before cancellation is published.
+- Added `tests/fixtures/connectivity_report_partial.json` and a
+  `contract_fixtures` golden test for the cancelled partial report.
+- Verification: `cargo nextest run --manifest-path native/rust/Cargo.toml -p
+  ripdpi-monitor-engine --test contract_fixtures` exited 0 with 4 passed.

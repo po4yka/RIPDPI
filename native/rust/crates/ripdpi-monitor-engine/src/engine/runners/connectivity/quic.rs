@@ -4,7 +4,7 @@ use std::sync::Arc;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::run_quic_probe;
-use crate::engine::runtime::{CollectedStep, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
+use crate::engine::runtime::{CollectedStageOutcome, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
 use crate::types::{ProbeResult, QuicTarget};
 
 use super::support::{collect_family_steps, target_count, ConnectivityProbeFamily};
@@ -54,7 +54,7 @@ impl ExecutionStageRunner for QuicRunner {
         plan: &ExecutionPlan,
         cancel: &AtomicBool,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    ) -> Option<Vec<CollectedStep>> {
+    ) -> CollectedStageOutcome {
         collect_family_steps::<QuicFamily>(plan, cancel, tls_verifier)
     }
 }

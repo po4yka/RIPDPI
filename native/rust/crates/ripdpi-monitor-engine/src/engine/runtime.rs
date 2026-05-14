@@ -6,7 +6,7 @@ mod progress;
 mod stage;
 mod state;
 
-pub(super) use artifacts::{CollectedStep, RunnerArtifacts};
+pub(super) use artifacts::{CollectedStageOutcome, CollectedStep, RunnerArtifacts};
 #[cfg(test)]
 pub(super) use cancellation::cancelled_run_summary;
 pub(super) use cancellation::publish_cancelled_run;
