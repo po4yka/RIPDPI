@@ -65,6 +65,15 @@ and cellular transports, routed netem host prerequisites, operator-provided
 relay matrix configuration, and whether local commits still need fresh remote
 workflow confirmation.
 
+Before treating the feature-test checklist as complete, run the sign-off guard:
+
+```bash
+./test-lab/scripts/check-feature-test-signoff.sh
+```
+
+It is read-only and expected to fail while the completion audit is not marked
+complete or while required readiness rows are still `blocked`/`manual`.
+
 Provider-backed relay runs use an operator-owned matrix manifest. Keep live
 endpoints and secrets outside the repository, then validate the manifest before
 running the matrix:
