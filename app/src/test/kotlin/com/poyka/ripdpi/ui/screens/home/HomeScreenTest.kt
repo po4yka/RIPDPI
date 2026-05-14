@@ -9,6 +9,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
+import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
@@ -314,6 +318,55 @@ class HomeScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsVerificationSheet).assertIsDisplayed()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsVerificationOpenDiagnosticsAction).performClick()
         assertTrue(openedDiagnostics)
+    }
+
+    @Test
+    fun `analysis sheet owned stack remediation opens browser target`() {
+        var openedBrowserTarget: String? = null
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            modeCards = modeCards(),
+                            homeDiagnostics =
+                                HomeDiagnosticsUiState(
+                                    analysisSheet =
+                                        HomeDiagnosticsAnalysisSheetUiState(
+                                            runId = "home-run",
+                                            headline = "Owned stack required",
+                                            summary = "Open the owned-stack browser.",
+                                            remediationLadder =
+                                                DiagnosticsRemediationLadderUiModel(
+                                                    title = "Owned stack path",
+                                                    summary = "Open the target with RIPDPI browser.",
+                                                    steps = persistentListOf(),
+                                                    primaryAction =
+                                                        DiagnosticsRemediationActionUiModel(
+                                                            label = "Open browser",
+                                                            kind =
+                                                                DiagnosticsRemediationActionKindUiModel
+                                                                    .OPEN_OWNED_STACK_BROWSER,
+                                                            targetUrl = "https://example.org:443/",
+                                                        ),
+                                                    tone = DiagnosticsTone.Warning,
+                                                ),
+                                        ),
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                    onOpenOwnedStackBrowser = { openedBrowserTarget = it },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRemediationAction).performClick()
+
+        assertEquals("https://example.org:443/", openedBrowserTarget)
     }
 
     private fun cardTop(mode: HomeMode): Float =

@@ -316,6 +316,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
             onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
             onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+            onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
             onOpenLocalBypassConfig = { navController.navigateConfigSubRoute(Route.LocalBypassConfig) },
             onOpenVpnConfig = { navController.navigateConfigSubRoute(Route.VpnConfig) },
             onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,

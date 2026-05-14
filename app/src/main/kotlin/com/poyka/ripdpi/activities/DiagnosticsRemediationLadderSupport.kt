@@ -128,8 +128,19 @@ private fun StringResolver.homeTransportRemediationLadder(
             remediationLadder(
                 title = getString(R.string.home_remediation_owned_stack_title),
                 summary = getString(R.string.home_remediation_owned_stack_summary),
-                actionLabel = getString(R.string.home_remediation_open_diagnostics_action),
-                actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS,
+                actionLabel =
+                    if (latestOutcome.ownedStackLaunchUrl != null) {
+                        getString(R.string.diagnostics_remediation_open_owned_stack_action)
+                    } else {
+                        getString(R.string.home_remediation_open_diagnostics_action)
+                    },
+                actionKind =
+                    if (latestOutcome.ownedStackLaunchUrl != null) {
+                        DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER
+                    } else {
+                        DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS
+                    },
+                actionTargetUrl = latestOutcome.ownedStackLaunchUrl,
                 tone = DiagnosticsTone.Warning,
                 getString(R.string.home_remediation_owned_stack_step_open_diagnostics),
                 getString(R.string.home_remediation_owned_stack_step_open_browser),

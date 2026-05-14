@@ -151,4 +151,29 @@ class TransportSpecificRemediationSupportTest {
             ladder?.primaryAction?.kind,
         )
     }
+
+    @Test
+    fun `home remediation ladder opens owned stack browser when target is available`() {
+        val ladder =
+            FakeStringResolver().buildHomeRemediationLadder(
+                commandLineBlocked = false,
+                fingerprintMismatch = false,
+                latestOutcome =
+                    HomeDiagnosticsLatestAuditUiState(
+                        headline = "Owned stack required",
+                        summary = "Direct mode requires owned stack",
+                        actionable = true,
+                        directModeResult = DirectModeVerdictResult.OWNED_STACK_ONLY,
+                        directModeReasonCode = DirectModeReasonCode.OWNED_STACK_REQUIRED,
+                        ownedStackLaunchUrl = "https://example.org:443/",
+                    ),
+            )
+
+        assertNotNull(ladder)
+        assertEquals(
+            DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER,
+            ladder?.primaryAction?.kind,
+        )
+        assertEquals("https://example.org:443/", ladder?.primaryAction?.targetUrl)
+    }
 }

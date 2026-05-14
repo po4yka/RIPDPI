@@ -133,6 +133,7 @@ internal fun HomeDiagnosticsCard(
     onOpenHistory: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
     onOpenModeEditor: () -> Unit,
+    onOpenOwnedStackBrowser: (String) -> Unit,
     onRunFullAnalysis: () -> Unit,
     onRunQuickAnalysis: () -> Unit,
     onStartVerifiedVpn: () -> Unit,
@@ -144,6 +145,7 @@ internal fun HomeDiagnosticsCard(
         onOpenHistory = onOpenHistory,
         onOpenAdvancedSettings = onOpenAdvancedSettings,
         onOpenModeEditor = onOpenModeEditor,
+        onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
         onRunFullAnalysis = onRunFullAnalysis,
         onRunQuickAnalysis = onRunQuickAnalysis,
         onStartVerifiedVpn = onStartVerifiedVpn,
@@ -158,6 +160,7 @@ private fun DiagnosticsSummaryCard(
     onOpenHistory: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
     onOpenModeEditor: () -> Unit,
+    onOpenOwnedStackBrowser: (String) -> Unit,
     onRunFullAnalysis: () -> Unit,
     onRunQuickAnalysis: () -> Unit,
     onStartVerifiedVpn: () -> Unit,
@@ -177,6 +180,7 @@ private fun DiagnosticsSummaryCard(
             onOpenDiagnostics = onOpenDiagnostics,
             onOpenHistory = onOpenHistory,
             onOpenModeEditor = onOpenModeEditor,
+            onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
         )
         Spacer(modifier = Modifier.height(spacing.md))
         HorizontalDivider(color = colors.divider)
@@ -218,6 +222,7 @@ private fun HomeDiagnosticsCardStatusSections(
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenModeEditor: () -> Unit,
+    onOpenOwnedStackBrowser: (String) -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     uiState.controlPlaneHealthSummary?.let { summary ->
@@ -239,6 +244,7 @@ private fun HomeDiagnosticsCardStatusSections(
             onOpenDiagnostics = onOpenDiagnostics,
             onOpenHistory = onOpenHistory,
             onOpenModeEditor = onOpenModeEditor,
+            onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
         )
     }
 }
@@ -309,23 +315,37 @@ private fun HomeRemediationSection(
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenModeEditor: () -> Unit,
+    onOpenOwnedStackBrowser: (String) -> Unit,
 ) {
     DiagnosticsRemediationLadderCard(
         ladder = ladder,
         onAction = { action ->
             when (action.kind) {
-                DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> onOpenAdvancedSettings()
+                DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> {
+                    onOpenAdvancedSettings()
+                }
 
-                DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> onOpenDiagnostics()
+                DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> {
+                    onOpenDiagnostics()
+                }
 
-                DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> onOpenHistory()
+                DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> {
+                    onOpenHistory()
+                }
 
-                DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR -> onOpenModeEditor()
+                DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR -> {
+                    onOpenModeEditor()
+                }
+
+                DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER -> {
+                    action.targetUrl?.let(onOpenOwnedStackBrowser)
+                }
 
                 DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION,
                 DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
-                DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER,
-                -> Unit
+                -> {
+                    Unit
+                }
             }
         },
         cardTestTag = RipDpiTestTags.HomeDiagnosticsRemediationCard,
@@ -512,6 +532,7 @@ internal fun HomeDiagnosticsBottomSheetHost(
     onOpenHistory: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
     onOpenModeEditor: () -> Unit,
+    onOpenOwnedStackBrowser: (String) -> Unit,
     onShareAnalysis: () -> Unit,
     onDismissAnalysisSheet: () -> Unit,
     onDismissVerificationSheet: () -> Unit,
@@ -523,6 +544,7 @@ internal fun HomeDiagnosticsBottomSheetHost(
             onOpenHistory = onOpenHistory,
             onOpenAdvancedSettings = onOpenAdvancedSettings,
             onOpenModeEditor = onOpenModeEditor,
+            onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
             onShareAnalysis = onShareAnalysis,
             onDismissAnalysisSheet = onDismissAnalysisSheet,
         )
@@ -545,6 +567,7 @@ private fun RemediationBottomSheet(
     onOpenHistory: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
     onOpenModeEditor: () -> Unit,
+    onOpenOwnedStackBrowser: (String) -> Unit,
     onShareAnalysis: () -> Unit,
     onDismissAnalysisSheet: () -> Unit,
 ) {
@@ -573,6 +596,7 @@ private fun RemediationBottomSheet(
             onOpenHistory = onOpenHistory,
             onOpenAdvancedSettings = onOpenAdvancedSettings,
             onOpenModeEditor = onOpenModeEditor,
+            onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
             onDismissAnalysisSheet = onDismissAnalysisSheet,
         )
         HomeAnalysisSheetCoreContent(sheet)
@@ -609,6 +633,7 @@ private fun HomeAnalysisSheetLeadContent(
     onOpenHistory: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
     onOpenModeEditor: () -> Unit,
+    onOpenOwnedStackBrowser: (String) -> Unit,
     onDismissAnalysisSheet: () -> Unit,
 ) {
     sheet.remediationLadder?.let { ladder ->
@@ -618,6 +643,7 @@ private fun HomeAnalysisSheetLeadContent(
             onOpenHistory = onOpenHistory,
             onOpenAdvancedSettings = onOpenAdvancedSettings,
             onOpenModeEditor = onOpenModeEditor,
+            onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
             onDismissAnalysisSheet = onDismissAnalysisSheet,
         )
     } ?: sheet.actionableHeadline?.takeIf { it.isNotBlank() }?.let { headline ->
@@ -632,6 +658,7 @@ private fun HomeSheetRemediationLadder(
     onOpenHistory: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
     onOpenModeEditor: () -> Unit,
+    onOpenOwnedStackBrowser: (String) -> Unit,
     onDismissAnalysisSheet: () -> Unit,
 ) {
     DiagnosticsRemediationLadderCard(
@@ -639,18 +666,31 @@ private fun HomeSheetRemediationLadder(
         onAction = { action ->
             onDismissAnalysisSheet()
             when (action.kind) {
-                DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> onOpenAdvancedSettings()
+                DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> {
+                    onOpenAdvancedSettings()
+                }
 
-                DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> onOpenDiagnostics()
+                DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> {
+                    onOpenDiagnostics()
+                }
 
-                DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> onOpenHistory()
+                DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> {
+                    onOpenHistory()
+                }
 
-                DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR -> onOpenModeEditor()
+                DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR -> {
+                    onOpenModeEditor()
+                }
+
+                DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER -> {
+                    action.targetUrl?.let(onOpenOwnedStackBrowser)
+                }
 
                 DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION,
                 DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
-                DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER,
-                -> Unit
+                -> {
+                    Unit
+                }
             }
         },
         cardTestTag = RipDpiTestTags.HomeDiagnosticsRemediationCard,

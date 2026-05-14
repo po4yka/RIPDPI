@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.HomeDnsResolverClass
 import com.poyka.ripdpi.diagnostics.HomeNetworkCharacterSummary
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.ownedStackBrowserLaunchUrl
 import kotlinx.collections.immutable.toImmutableList
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
@@ -115,6 +116,7 @@ internal fun buildHomeDiagnosticsUiState(
                 headline = outcome.headline,
                 summary = outcome.summary,
                 recommendationSummary = outcome.recommendationSummary,
+                ownedStackLaunchUrl = ownedStackBrowserLaunchUrl(outcome.directModeVerdict?.authority),
                 completedStageCount = outcome.completedStageCount,
                 failedStageCount = outcome.failedStageCount,
                 totalStageCount = outcome.stageSummaries.size,

@@ -99,6 +99,7 @@ data class HomeDiagnosticsLatestAuditUiState(
     val headline: String,
     val summary: String,
     val recommendationSummary: String? = null,
+    val ownedStackLaunchUrl: String? = null,
     val completedStageCount: Int = 0,
     val failedStageCount: Int = 0,
     val totalStageCount: Int = 0,
