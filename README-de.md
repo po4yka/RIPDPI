@@ -36,6 +36,7 @@ Leitet lokalen Proxy- oder VPN-Datenverkehr verschlüsselt über Relay-Protokoll
 - **VLESS Reality und xHTTP** – native Rust-Implementierung, keine Go-Laufzeitumgebung
 - **WARP, Cloudflare Tunnel, MASQUE**
 - **Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy**
+- **AmneziaWG** – WireGuard mit Handshake-Verschleierung für stark zensierte Netzwerke
 - **WebTunnel, obfs4, Snowflake, Google-Apps-Script-Pfad**
 
 Sowohl der lokale Proxy-Modus als auch der Android-VPN-Weiterleitungsmodus funktionieren mit oder ohne konfiguriertes Relay.
@@ -59,7 +60,7 @@ Das Designprinzip von RIPDPI: Jedes Ziel und jedes Netzwerk separat klassifizier
 
 1. **Antwort pro Ziel, pro Netzwerk** – keine einheitliche globale Richtlinie. Die Diagnose klassifiziert jede Autorität und speichert das Urteil mit einem Netzwerk-Fingerabdruck-Hash als Schlüssel.
 2. **Den lokalen Pfad mutieren, wenn das Netzwerk das Problem ist.** Semantische Marker, adaptive Split-Platzierung, Fake-Payload-Ketten, OOB/Unordnung, randomisierte TLS-Records, QUIC- und DTLS-Fingerabdruck-Variation – zusammengestellt aus Rust-Crates im Repository.
-3. **Auf ein getunneltes Relay zurückgreifen, wenn der direkte Pfad beeinträchtigt ist.** Natives Rust-VLESS-Reality/xHTTP sowie WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy und Cloudflare Tunnel übernehmen Ziele, die auf dem Gerät nicht wiederhergestellt werden können.
+3. **Auf ein getunneltes Relay zurückgreifen, wenn der direkte Pfad beeinträchtigt ist.** Natives Rust-VLESS-Reality/xHTTP sowie WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, AmneziaWG und Cloudflare Tunnel übernehmen Ziele, die auf dem Gerät nicht wiederhergestellt werden können.
 4. **Ehrliche Berichterstattung.** Urteile sind typisiert und werden angezeigt; Ergebnisse des Fehlerklassifizierers werden offengelegt, statt unterdrückt; exportierte Diagnose-Bundles entfernen Geheimnisse.
 
 ## Screenshots
@@ -83,6 +84,8 @@ Das Designprinzip von RIPDPI: Jedes Ziel und jedes Netzwerk separat klassifizier
 
 - **Proxy-Modus**: lokaler SOCKS5-Proxy auf dem konfigurierten Localhost-Port.
 - **VPN-Modus**: leitet den Android-Datenverkehr des Geräts über eine lokale TUN-zu-SOCKS-Brücke mittels `VpnService` weiter.
+- **Profilimport**: QR-Code-Scan und -Generierung sowie Import von Proxy-URIs über die Zwischenablage und das Teilen-Menü (`vless://`, `hysteria2://`, `ss://`, `amneziawg://` und weitere).
+- **Abonnements**: base64-, Clash / Clash.Meta-YAML-, sing-box-JSON- und WireGuard-INI-Abonnementformate mit automatischer Hintergrundaktualisierung, Erkennung doppelter Profile, Selector-/urltest-Gruppen und Multi-Mirror-Auslieferung.
 - **Verschlüsseltes DNS**: Unterstützung für DoH-, DoT-, DNSCrypt- und DoQ-Resolver in VPN-bezogenen Pfaden.
 - **Strategie-Steuerung**: TCP-Familien für Split/Unordnung/Fake, TLS-Record-Fragmentierung und Fake-Profile, QUIC- und DTLS-Handshake-Variation, Variation des UDP-Längenfelds, IPv6-Erweiterungsheader, Lua-`rawsend`, schrittweise Aktivierungsfilter, IPv4-ID-Steuerung und OOB-Einschleusung.
 - **Netzwerkbezogenes Richtlinien-Gedächtnis**: validierte autoritätsspezifische Urteile, mit einem Netzwerk-Fingerabdruck verschlüsselt; werden bei erneuter Verbindung automatisch wiedergegeben.

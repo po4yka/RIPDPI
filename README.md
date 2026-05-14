@@ -36,6 +36,7 @@ Chains local proxy or VPN traffic through encrypted relay protocols to a server 
 - **VLESS Reality and xHTTP** — native Rust implementation, no Go runtime
 - **WARP, Cloudflare Tunnel, MASQUE**
 - **Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy**
+- **AmneziaWG** — WireGuard with handshake obfuscation for high-censorship networks
 - **WebTunnel, obfs4, Snowflake, Google Apps Script path**
 
 Both local proxy mode and Android VPN redirection mode work with or without a relay configured.
@@ -59,7 +60,7 @@ RIPDPI's design principle: classify each target and each network separately, app
 
 1. **Per-target, per-network answer** — not one global policy. Diagnostics classify each authority and store the verdict keyed to a network fingerprint hash.
 2. **Mutate the local path when the network is the problem.** Semantic markers, adaptive split placement, fake-payload chains, OOB/disorder, randomized TLS records, QUIC and DTLS fingerprint variation — assembled from in-repo Rust crates.
-3. **Fall back to a tunneled relay when the direct path is degraded.** Native-Rust VLESS Reality/xHTTP, plus WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, and Cloudflare Tunnel handle targets that cannot be recovered on-device.
+3. **Fall back to a tunneled relay when the direct path is degraded.** Native-Rust VLESS Reality/xHTTP, plus WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, AmneziaWG, and Cloudflare Tunnel handle targets that cannot be recovered on-device.
 4. **Honest reporting.** Verdicts are typed and displayed; failure classifier results are surfaced rather than suppressed; diagnostic export bundles redact secrets.
 
 ## Screenshots
@@ -83,6 +84,8 @@ RIPDPI's design principle: classify each target and each network separately, app
 
 - **Proxy mode**: local SOCKS5 proxy on the configured localhost port.
 - **VPN mode**: routes Android device traffic through a local TUN-to-SOCKS bridge via `VpnService`.
+- **Profile import**: QR-code scan and generation, plus clipboard and share-sheet import of proxy URIs (`vless://`, `hysteria2://`, `ss://`, `amneziawg://`, and more).
+- **Subscriptions**: base64, Clash / Clash.Meta YAML, sing-box JSON, and WireGuard-INI subscription formats with background auto-update, duplicate-profile detection, selector/urltest groups, and multi-mirror delivery.
 - **Encrypted DNS**: DoH, DoT, DNSCrypt, and DoQ resolver support in VPN-related paths.
 - **Strategy controls**: TCP split/disorder/fake families, TLS record fragmentation and fake profiles, QUIC and DTLS handshake variation, UDP length-field variation, IPv6 extension headers, Lua `rawsend`, per-step activation filters, IPv4 ID control, and OOB injection.
 - **Per-network policy memory**: validated per-authority verdicts keyed to a network fingerprint; automatically replayed on reconnect.

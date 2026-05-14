@@ -264,6 +264,7 @@ All dependency versions are in `gradle/libs.versions.toml`.
 - **`release.yml`** -- Runs on `v*` tags: builds signed release APK, creates GitHub Release
 - **`mutation-testing.yml`** -- Weekly Rust mutation testing via cargo-mutants
 - **`offline-analytics.yml`** -- Weekly/manual offline diagnostics clustering pipeline; runs the checked-in sample corpus, emits analyst reports and candidate device-fingerprint catalogs, and optionally processes a runner-local private corpus
+- **`fleet-fixtures.yml`** -- PR-triggered (paths-filtered on the subscription parser, routing/AWG/relay models, and the fleet fixtures): runs the structural drift gate (`scripts/ci/check_fleet_fixtures.py` + its unittest) and the JVM `*FleetCompat*` golden-file suite that locks RIPDPI against the sibling `ripdpi-vpn-deploy` emitter output
 
 ## Code Quality
 

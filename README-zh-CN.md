@@ -36,6 +36,7 @@ RIPDPI 是一款适用于 Android 的网络路径诊断与优化工具包。它�
 - **VLESS Reality 和 xHTTP** — 原生 Rust 实现，无需 Go 运行时
 - **WARP、Cloudflare Tunnel、MASQUE**
 - **Hysteria2、TUIC v5、ShadowTLS v3、NaiveProxy**
+- **AmneziaWG** — WireGuard 握手混淆，适用于高审查网络
 - **WebTunnel、obfs4、Snowflake、Google Apps Script 路径**
 
 本地代理模式和 Android VPN 重定向模式都可在配置或未配置中继时工作。
@@ -59,7 +60,7 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 
 1. **每目标、每网络的答案** — 而非一个全局策略。诊断对每个权威进行分类并存储与网络指纹哈希关联的判定结果。
 2. **当网络是问题时，改变本地路径。** 语义标记、自适应分裂位置、伪造负载链、OOB/乱序、随机化 TLS 记录、QUIC 和 DTLS 指纹变种——由仓库内 Rust crate 组装。
-3. **当直接路径退化时，退回到隧道中继。** 原生 Rust VLESS Reality/xHTTP，加上 WARP、MASQUE、Hysteria2、TUIC v5、ShadowTLS v3、NaiveProxy 和 Cloudflare Tunnel 处理设备端无法恢复的目标。
+3. **当直接路径退化时，退回到隧道中继。** 原生 Rust VLESS Reality/xHTTP，加上 WARP、MASQUE、Hysteria2、TUIC v5、ShadowTLS v3、NaiveProxy、AmneziaWG 和 Cloudflare Tunnel 处理设备端无法恢复的目标。
 4. **诚实的报告。** 判定结果是类型化的并显示出来；故障分类器的结果是显示而非抑制；诊断导出包会编辑机密信息。
 
 ## 截图
@@ -83,6 +84,8 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 
 - **代理模式**：在配置的本地主机端口上运行本地 SOCKS5 代理。
 - **VPN 模式**：通过 `VpnService` 经由本地 TUN-到-SOCKS 桥接路由 Android 设备流量。
+- **配置文件导入**：QR 码扫描与生成，以及通过剪贴板和分享表单导入代理 URI（`vless://`、`hysteria2://`、`ss://`、`amneziawg://` 等）。
+- **订阅**：支持 base64、Clash / Clash.Meta YAML、sing-box JSON 和 WireGuard-INI 订阅格式，具备后台自动更新、重复配置文件检测、selector/urltest 分组以及多镜像分发。
 - **加密 DNS**：在 VPN 相关路径中支持 DoH、DoT、DNSCrypt 和 DoQ 解析器。
 - **策略控制**：TCP split/disorder/fake 系列、TLS 记录分片和伪造配置文件、QUIC 和 DTLS 握手变种、UDP 长度字段变种、IPv6 扩展头、Lua `rawsend`、每步骤激活过滤器、IPv4 ID 控制以及 OOB 注入。
 - **每网络策略记忆**：经过验证的、按权威的判定结果以网络指纹为键；重新连接时自动重放。

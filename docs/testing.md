@@ -495,6 +495,27 @@ Semantic fields remain strict:
 - per-lane TCP/QUIC/DNS winning-family metadata
 - resolver metadata, fallback state, and handover classification
 
+### Fleet-compat golden fixtures
+
+A separate golden set locks RIPDPI's importers against the sibling
+`ripdpi-vpn-deploy` repo's emitter output. Hand-authored, fully-synthetic
+fixtures (RFC-5737 doc IPs, `-fixture` credentials) live under
+`core/data/src/test/resources/fleet-fixtures/<scenario>/`; the
+`FleetCompatGoldenFileTest` JVM suite parses each `bundle.json` through the
+production subscription parser and asserts the imported profiles, selector
+groups, and per-app routing rules.
+
+The sibling emitter (`emit-singbox.sh`) needs Terraform + SOPS + real infra,
+so it cannot run in CI. Two tools bridge that gap:
+
+- `scripts/refresh-fleet-fixtures.sh` -- local regenerator. Pins the deployer
+  git SHA on a single line, shims `terraform` + `sops` against a checked-in
+  frozen synthetic secret-set, and runs the real emitter. `--check` (default)
+  diffs vs the committed fixtures; `--write` overwrites them.
+- `scripts/ci/check_fleet_fixtures.py` -- deployer-independent structural
+  drift gate (required files, JSON shape, `meta.json` SHA vs the script pin,
+  no production-token leaks). Run on every relevant PR by `fleet-fixtures.yml`.
+
 ## Load/stress tests
 
 Load tests exercise high-concurrency ramp-up profiles, burst spikes, and saturation behavior.
@@ -564,6 +585,7 @@ PR CI runs:
 - `rust-turmoil` -- deterministic fault-injection network tests
 - `rust-loom` -- exhaustive concurrency verification (20 min timeout)
 - `cli-packet-smoke` -- CLI proxy behavioral verification with pcap capture
+- `fleet-fixtures` -- structural drift gate + `*FleetCompat*` golden-file suite, on PRs touching the subscription/routing/AWG/relay models or the fleet fixtures
 
 Nightly/manual lanes add:
 

@@ -36,6 +36,7 @@ Chaîne le trafic du proxy local ou du VPN via des protocoles de relais chiffré
 - **VLESS Reality et xHTTP** — implémentation Rust native, pas de runtime Go
 - **WARP, Cloudflare Tunnel, MASQUE**
 - **Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy**
+- **AmneziaWG** — WireGuard avec obfuscation du handshake pour les réseaux à forte censure
 - **WebTunnel, obfs4, Snowflake, chemin Google Apps Script**
 
 Le mode proxy local et le mode redirection VPN Android fonctionnent tous deux avec ou sans relais configuré.
@@ -59,7 +60,7 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 
 1. **Une réponse par cible et par réseau** — pas une politique globale unique. Les diagnostics classifient chaque autorité et stockent le verdict indexé sur un hash d'empreinte de réseau.
 2. **Mutez le chemin local lorsque le réseau est le problème.** Marqueurs sémantiques, placement adaptatif des découpages, chaînes de faux payloads, OOB/désordre, enregistrements TLS aléatoires, variation d'empreinte QUIC et DTLS — assemblés à partir de crates Rust internes au dépôt.
-3. **Repliez-vous sur un relais tunnelé lorsque le chemin direct est dégradé.** VLESS Reality/xHTTP en Rust natif, plus WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy et Cloudflare Tunnel prennent en charge les cibles qui ne peuvent pas être récupérées sur l'appareil.
+3. **Repliez-vous sur un relais tunnelé lorsque le chemin direct est dégradé.** VLESS Reality/xHTTP en Rust natif, plus WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, AmneziaWG et Cloudflare Tunnel prennent en charge les cibles qui ne peuvent pas être récupérées sur l'appareil.
 4. **Rapports honnêtes.** Les verdicts sont typés et affichés ; les résultats du classifieur d'échec sont mis en évidence plutôt que supprimés ; les paquets d'export de diagnostic masquent les secrets.
 
 ## Captures d'écran
@@ -83,6 +84,8 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 
 - **Mode proxy** : proxy SOCKS5 local sur le port localhost configuré.
 - **Mode VPN** : route le trafic de l'appareil Android via un pont local TUN-vers-SOCKS au moyen de `VpnService`.
+- **Import de profil** : scan et génération de QR code, ainsi qu'import par presse-papiers et feuille de partage d'URI de proxy (`vless://`, `hysteria2://`, `ss://`, `amneziawg://`, et plus).
+- **Abonnements** : formats d'abonnement base64, Clash / Clash.Meta YAML, sing-box JSON et WireGuard-INI avec mise à jour automatique en arrière-plan, détection des profils en double, groupes selector/urltest et livraison multi-miroir.
 - **DNS chiffré** : prise en charge des résolveurs DoH, DoT, DNSCrypt et DoQ dans les chemins liés au VPN.
 - **Contrôles de stratégie** : familles TCP split/disorder/fake, fragmentation d'enregistrements TLS et faux profils, variation de handshake QUIC et DTLS, variation du champ de longueur UDP, en-têtes d'extension IPv6, `rawsend` Lua, filtres d'activation par étape, contrôle de l'ID IPv4 et injection OOB.
 - **Mémoire de politique par réseau** : verdicts validés par autorité indexés sur une empreinte de réseau ; rejoués automatiquement à la reconnexion.

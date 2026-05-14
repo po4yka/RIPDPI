@@ -36,6 +36,7 @@ RIPDPI — это набор инструментов Android для диагн�
 - **VLESS Reality и xHTTP** — нативная реализация на Rust, без Go-runtime
 - **WARP, Cloudflare Tunnel, MASQUE**
 - **Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy**
+- **AmneziaWG** — WireGuard с обфускацией handshake для сетей с высокой цензурой
 - **WebTunnel, obfs4, Snowflake, путь через Google Apps Script**
 
 И режим локального прокси, и режим перенаправления Android VPN работают с настроенным relay или без него.
@@ -59,7 +60,7 @@ RIPDPI — это набор инструментов Android для диагн�
 
 1. **Ответ для каждой цели и каждой сети** — а не единая глобальная политика. Диагностика классифицирует каждый authority и сохраняет вердикт по хешу network fingerprint.
 2. **Мутировать локальный путь, когда проблема в сети.** Семантические маркеры, adaptive split placement, fake-payload chains, OOB/disorder, randomized TLS records, вариация QUIC- и DTLS-fingerprint — собираются из in-repo Rust-крейтов.
-3. **Откатываться на tunneled relay, когда прямой путь деградирован.** Native-Rust VLESS Reality/xHTTP, а также WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy и Cloudflare Tunnel обрабатывают цели, которые невозможно восстановить на устройстве.
+3. **Откатываться на tunneled relay, когда прямой путь деградирован.** Native-Rust VLESS Reality/xHTTP, а также WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, AmneziaWG и Cloudflare Tunnel обрабатывают цели, которые невозможно восстановить на устройстве.
 4. **Честная отчётность.** Вердикты типизированы и отображаются; результаты failure classifier выводятся, а не подавляются; диагностические export bundles редактируют секреты.
 
 ## Скриншоты
@@ -83,6 +84,8 @@ RIPDPI — это набор инструментов Android для диагн�
 
 - **Режим прокси**: локальный SOCKS5-прокси на настроенном localhost-порте.
 - **Режим VPN**: маршрутизирует трафик Android-устройства через локальный TUN-to-SOCKS bridge с использованием `VpnService`.
+- **Импорт профилей**: сканирование и генерация QR-кода, а также импорт прокси-URI через буфер обмена и share-sheet (`vless://`, `hysteria2://`, `ss://`, `amneziawg://` и другие).
+- **Подписки**: форматы подписок base64, Clash / Clash.Meta YAML, sing-box JSON и WireGuard-INI с фоновым автообновлением, обнаружением дублирующихся профилей, группами selector/urltest и доставкой через несколько зеркал.
 - **Зашифрованный DNS**: поддержка DoH, DoT, DNSCrypt и DoQ-резолверов в путях, связанных с VPN.
 - **Управление стратегиями**: семейства TCP split/disorder/fake, фрагментация TLS-записей и fake-профили, вариация QUIC- и DTLS-handshake, вариация UDP length-field, IPv6 extension headers, Lua `rawsend`, per-step activation filters, контроль IPv4 ID и OOB-инъекция.
 - **Память политики по сети**: валидированные per-authority вердикты, индексированные по network fingerprint; автоматически воспроизводятся при переподключении.

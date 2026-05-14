@@ -38,8 +38,16 @@ touches them.
 
 ### Validation
 
-`StrategyPackCatalog.validateCandidateArm` enforces the constraint in the
-pack-validation pass:
+The constraint is enforced on both sides of the JNI boundary:
+
+- **Kotlin** — `StrategyPackCatalog.validateCandidateArm` runs in the
+  pack-validation pass.
+- **Native** — `ripdpi-strategy-registry`'s `fixed_config` module mirrors the
+  same semantics (`FixedConfigProtocols::validate_candidate_arm` /
+  `filter_candidate_arms`), so the strategy learner's candidate generator
+  cannot emit a violating arm even if a pack reaches the registry unvalidated.
+
+Both apply the same rule:
 
 - A `StrategyPackCandidateArm` whose `protocol` is a fixed-config protocol and
   whose `mutatedParams` is non-empty is **rejected**.

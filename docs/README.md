@@ -17,6 +17,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 ## Operations
 
 - [Strategy-pack and TLS catalog operations](strategy-pack-operations.md)
+- [Strategy-pack authoring notes](strategy-packs.md)
 - [Offline analytics pipeline](offline-analytics-pipeline.md)
 - [TLS catalog refresh log](strategy-pack-tls-refresh-log.json)
 - [TLS template acceptance report](tls-template-acceptance-report.json)
@@ -25,6 +26,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 ## Configuration
 
 - [Relay profile examples](relay-profile-examples.md)
+- [AmneziaWG URI scheme](amneziawg-uri-scheme.md)
 
 ## Testing & CI
 
