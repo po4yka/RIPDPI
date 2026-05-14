@@ -65,8 +65,8 @@ available in the current local lab.
   smoke pack, the May 15 installed-tool Maestro/Appium reruns, the focused
   clean-reset Appium empty-state rerun, the feature artifact-path self-test,
   the feature checklist-coverage self-test, the feature-gap readiness self-test,
-  the feature sign-off guard self-test, and local-network-lab
-  workflow YAML parsing passed. Commit hooks passed for the latest
+  the feature sign-off guard self-test, and the local-network-lab
+  validation-only block passed. Commit hooks passed for the latest
   native/Appium/test-lab commits.
 - Remote state: `origin/main` now points at `342a169a`. CI run `25875963396`
   is not a green sign-off because it completed with failed jobs in
