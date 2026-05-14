@@ -24,7 +24,7 @@ available in the current local lab.
 | --- | --- | --- | --- |
 | Use `docs/feature-test-checklist.md` as the source checklist | `docs/feature-test-evidence-2026-05-14.md` maps every major checklist section to `Covered locally` or `Partial` | Partial | Complete the rows that remain `Partial` |
 | Fix all issues found during the local pass | `docs/feature-test-evidence-2026-05-14.md` records fixed findings and commit subjects for test-lab, build packaging, diagnostics archive redaction, Appium, Maestro, onboarding, logs, and UI automation defects | Covered locally | None for the bugs found in the local pass |
-| Verify Appium installation and current app flows | Appium evidence rows in `docs/feature-test-evidence-2026-05-14.md`; current install reruns passed launch/navigation, onboarding/advanced/host-pack, diagnostics/logs/support/theme, diagnostics-tail, deterministic scan report/audit coverage, all 7 workflow journeys, activation-window controls, background guidance, backup-PIN warning/editor, and the full 96-item Appium suite on Pixel 8 Pro with Appium 3.4.2 / UiAutomator2 7.3.0. The current-head full-suite rerun passed 80 tests with 16 explicit fixture/environment skips in 1995.55s after the deterministic diagnostics report preset landed | Covered locally | Optional reruns after future UI or Appium page-object changes |
+| Verify Appium installation and current app flows | Appium evidence rows in `docs/feature-test-evidence-2026-05-14.md`; Appium 3.4.2 with UiAutomator2 7.3.0 is installed. Current install reruns passed launch/navigation, onboarding/advanced/host-pack, diagnostics/logs/support/theme, diagnostics-tail, deterministic scan report/audit coverage, all 7 workflow journeys, activation-window controls, background guidance, backup-PIN warning/editor, and the prior full 96-item suite on Pixel 8 Pro. The latest full-suite rerun exposed two automation hardening findings: long-form Advanced Settings scrolling missed the TLS fingerprint control, then a diagnostics route launch hit a transient setup timeout. Both were fixed locally; the focused post-fix slice passed `3 passed, 2 skipped` for the repaired Advanced Settings, support bundle, diagnostics empty-state, and connection-transition paths | Covered locally for repaired paths | Repeat the full Appium suite after any further Appium page-object or launch-fixture changes |
 | Verify Maestro installation and current smoke flows | Maestro smoke and default-install fallback rows in `docs/feature-test-evidence-2026-05-14.md`; smoke pack and lab VPN orchestrator passed on Pixel 8 Pro with Maestro resolved from `~/.maestro/bin/maestro` while absent from `PATH`; the latest smoke rerun passed after portrait orientation normalization and the post-diagnostics-preset rerun passed all four committed flows | Covered locally | Optional reruns after future Home, Settings, or lab-runner changes |
 | Verify static local quality gates for the current head | `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon`; local `git diff --check`; focused JVM and Appium checks recorded in `docs/feature-test-evidence-2026-05-14.md`; pre-commit hooks passed for the latest local commits | Covered locally | Remote CI for pushed commits |
 | Verify local artifacts referenced by the evidence ledger exist | Local artifact-path audit over `test-lab/artifacts/`; connected-test XML, debug APK, release APK, and `doctor.json` exist | Covered locally | Preserve or archive artifacts before cleanup |
@@ -34,29 +34,32 @@ available in the current local lab.
 | Verify relay provider matrix | Mock relay tests and Rust relay interoperability passed for local fixture coverage; `check-relay-matrix-config.sh` validates the private matrix manifest shape and the checked-in example covers all required relay paths/scenarios; readiness preflight confirms no operator-provided provider matrix is configured in the current local environment | Partial | Provider-backed proxy, VPN, diagnostics, restart, invalid credential, reset, timeout, malformed response, DNS fallback, and handover runs for every production relay path |
 | Verify accessibility with TalkBack | Automated label audits and Appium selector coverage passed; readiness preflight confirms TalkBack is installed but is not the active accessibility service | Partial | Manual TalkBack pass for buttons, switches, tabs, progress, and error messages |
 | Verify routed VM packet-loss lab | Netem scripts passed inside a disposable Linux network namespace; readiness preflight confirms the current host is Darwin and not a routed Linux VM | Partial | Linux routed-VM run that carries Android or device traffic through the netem path |
-| Verify remote release gates | Read-only GitHub Actions check shows `origin/main` at `eabedd2a` has CI run `25849548946`, CodeQL run `25849548925`, and Dependency Graph run `25849550975` completed successfully; local branch has commits ahead of `origin/main` | Partial | Push or dispatch fresh workflows for the local commits, then confirm CI, CodeQL, offline analytics, and mutation workflow status |
+| Verify remote release gates | Read-only GitHub Actions check on May 14, 2026 shows `origin/main` at `342a169a` has CI run `25875963396` still in progress with failed jobs already reported for `architecture-health`, `verify-roborazzi`, and `gradle-static-analysis`; CodeQL run `25875963413` passed for the same remote head. The local branch is ahead 9 and behind 9 after `git fetch --prune origin`, so no remote workflow covers local `HEAD` `7cf8da1f` | Partial | Reconcile the branch, push or dispatch fresh workflows for the local commits, then confirm CI, CodeQL, offline analytics, and mutation workflow status |
 
 ## Current Local State
 
-- Branch: `main`, with local commits still ahead of `origin/main`.
-- Working tree scope: this audit update reflects the latest Appium DNS-settings,
-  deterministic diagnostics report, activation-window, background-guidance,
-  and backup-PIN fixture stabilization plus matching evidence rows.
-- Local post-commit checks: static analysis reran on local HEAD `4d4a0b3c`,
-  focused JVM automation tests,
-  Appium/Maestro slices, workflow journeys, and whitespace diff checks passed.
-- Remote state: `origin/main` CI run `25849548946`, CodeQL run
-  `25849548925`, and Dependency Graph run `25849550975` are green for
-  `eabedd2a`, but those runs do not cover the local commits ahead of
-  `origin/main`.
-- Current local HEAD is intentionally not pinned in this audit because docs-only
-  evidence commits advance it; use `git rev-parse --short HEAD` for the current
-  value.
+- Branch: `main`; after `git fetch --prune origin`, local `HEAD` is
+  `7cf8da1f` and the branch is ahead 9 / behind 9 relative to `origin/main`.
+- Working tree scope: this audit update reflects the latest native
+  monitor-engine hotspot split, Roborazzi Logs golden refresh, Appium long-form
+  scroll hardening, and Appium launch-timeout retry.
+- Local post-commit checks: `git diff --check`, `cargo fmt --check`,
+  `python3 scripts/ci/check_native_hotspot_budgets.py`,
+  `python3 scripts/ci/check_architecture_health.py --check`,
+  `/tmp/ripdpi-appium-venv/bin/python -m compileall appium`,
+  `CARGO_TARGET_DIR=target/codex-monitor-engine-check cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine`,
+  the monitor-engine `connectivity_partial` contract fixture test, focused
+  post-fix Appium slice, and the four-flow Maestro smoke pack passed. Commit
+  hooks passed for `a3424cdf` and `7cf8da1f`.
+- Remote state: `origin/main` now points at `342a169a`. CI run `25875963396`
+  is not a green sign-off because it is still in progress and already has
+  failed jobs; CodeQL run `25875963413` passed for that remote head. No remote
+  run covers local `HEAD` `7cf8da1f`.
 - Latest readiness preflight: attached Pixel 8 Pro is ready; rooted physical
   device, TalkBack manual pass, routed Linux netem VM, production relay matrix,
   and remote workflow confirmation remain blocked; physical handover remains
-  manual. The remote workflow item is blocked because local `HEAD` is ahead of
-  `origin/main` and no fresh workflow covers the local commit.
+  manual. The remote workflow item is blocked because local `HEAD` diverges
+  from `origin/main` and no fresh workflow covers the local commits.
 
 ## Stop Rules
 
@@ -73,7 +76,8 @@ direct evidence:
 
 ## Next Concrete Actions
 
-1. Push the local commits or create a branch and dispatch fresh remote workflows.
+1. Reconcile the local branch with `origin/main`, then push or create a branch
+   and dispatch fresh remote workflows.
 2. Run the rooted physical-device pass.
 3. Run the network lab pass with cellular, handover, IPv4-only, IPv6-only,
    captive, and limited-path coverage.
