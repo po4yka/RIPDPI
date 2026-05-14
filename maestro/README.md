@@ -1,7 +1,9 @@
 # Maestro Smoke Flows
 
-These flows target the debug automation contract instead of relying on `pm clear`, onboarding, OS
-permission prompts, or live VPN consent.
+These flows drive the installed debug app through stable Compose resource IDs.
+They keep the smoke pack close to real user navigation and avoid `pm clear`,
+onboarding, OS permission prompts, or live VPN consent. Use Appium or raw `adb`
+when a test needs launch-contract extras for a deterministic deep route.
 
 ## Prerequisites
 

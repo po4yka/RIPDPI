@@ -418,8 +418,10 @@ CI and release still build the full ABI set from `ripdpi.nativeAbis`.
 
 ## External UI automation
 
-Debug builds now expose a launch contract for deterministic Maestro and Appium sessions. The contract,
-selector policy, and Appium checklist live under `docs/automation/`.
+Debug builds expose a launch contract for deterministic Appium and raw `adb`
+sessions. Maestro uses the same resource-id selector policy while navigating
+through visible UI controls. The contract, selector policy, and Appium
+checklist live under `docs/automation/`.
 
 Run the committed Maestro smoke pack locally with:
 
@@ -427,7 +429,8 @@ Run the committed Maestro smoke pack locally with:
 bash scripts/ci/run-maestro-smoke.sh
 ```
 
-The smoke flows avoid `pm clear` and instead rely on launch extras such as:
+The smoke flows avoid `pm clear` and assert stable resource IDs. Use Appium or
+raw `adb shell am start` for launch extras such as:
 
 - `com.poyka.ripdpi.automation.ENABLED`
 - `com.poyka.ripdpi.automation.RESET_STATE`

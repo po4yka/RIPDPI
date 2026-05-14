@@ -1,8 +1,10 @@
 # External UI Automation
 
-RIPDPI now exposes a debug-only launch contract so Maestro, Appium, and raw `adb` flows can boot the
-app into deterministic UI states without depending on onboarding, biometric gating, OS dialogs, or
-live VPN/native services.
+RIPDPI now exposes a debug-only launch contract so Appium and raw `adb` flows can boot the app into
+deterministic UI states without depending on onboarding, biometric gating, OS dialogs, or live
+VPN/native services. Maestro smoke flows use the same stable selector surface, but drive visible UI
+navigation because Maestro's Android launch argument handling is less suitable for route-specific
+contract assertions.
 
 ## Scope
 
@@ -49,10 +51,14 @@ Smoke flows live in [`maestro/`](../../maestro/README.md).
 maestro test maestro
 ```
 
+The committed Maestro pack starts from the installed app and navigates through
+visible controls by resource ID. Use `adb shell am start` or Appium when a row
+must assert a specific launch-contract route or preset.
+
 ## Appium
 
-Python + pytest smoke tests live in [`appium/`](../../appium/README.md). They use the same launch
-contract as Maestro but provide programmatic page-object-driven assertions.
+Python + pytest smoke tests live in [`appium/`](../../appium/README.md). They use the debug launch
+contract for route and fixture presets, then provide programmatic page-object-driven assertions.
 
 ```bash
 cd appium
