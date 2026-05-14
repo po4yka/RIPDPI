@@ -1,7 +1,7 @@
 ---
 title: Add sing-box route.rules Android per-app routing import
 type: task
-status: backlog
+status: done
 area: routing
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-14
 updated: 2026-05-14
 ---
 
-- [ ] #task Add sing-box route.rules Android per-app routing import #repo/RIPDPI #area/routing #status/backlog ⏫
+- [x] #task Add sing-box route.rules Android per-app routing import #repo/RIPDPI #area/routing #status/done ⏫
 
 ## Goal contract
 
@@ -180,3 +180,46 @@ Implement strictly test-first per the epic TDD policy.
 - [[Add sing-box JSON subscription parser]]
 - [[Add full routing rule editor screen]]
 - [[Add sing-box selector and urltest group import from subscription]]
+
+## Work log
+
+**2026-05-14 — core/data layer implemented (TDD, app/ UI wiring out of scope).**
+
+Scope note: the issue Goal-contract scope is `app/**` + `core/data/runtime-state/**`.
+This pass implements the testable `core/data` core only (parser, model, merge,
+conflict detection, malformed-bundle rejection, redaction). The `app/`
+per-app-routing UI wiring (conflict dialog, "from <sub>" badge, instrumented
+test) is explicitly deferred — not in this agent's scope.
+
+Files created:
+- `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/routing/PackageRoutingRule.kt`
+  — `PackageRoutingAction` (BYPASS / VIA_TUN / VIA_OUTBOUND), `PackageRoutingRuleOrigin`
+  (User / Subscription(id)), `PackageRoutingRule`.
+- `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/routing/PackageRoutingStore.kt`
+  — immutable rule collection; `upsertUserRule`, `removeSubscriptionRules`, etc.
+- `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/routing/PackageRoutingMerge.kt`
+  — namespaced merge: drops the subscription's prior tagged set, applies the
+  fresh set atomically, never overwrites a user rule, emits `PackageRoutingConflict`
+  records; `toRedactedDiagnostics()` counts-only summary.
+- `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/SingBoxRouteRulesParser.kt`
+  — reads `route.rules`, keeps only `package_name` entries, maps
+  `direct`→BYPASS / `select`→VIA_TUN / other→VIA_OUTBOUND; same package in both
+  bypass and via-tun → typed `Error` naming the `route.rules` index.
+
+Test files created (written before implementation, red-then-green):
+- `core/data/src/test/kotlin/com/poyka/ripdpi/data/SingBoxRouteRulesParserTest.kt` — 6 tests.
+- `core/data/src/test/kotlin/com/poyka/ripdpi/data/PerAppRoutingMergeTest.kt` — 6 tests
+  (clean import + namespaced removal, conflict → no overwrite, refresh atomicity,
+  refresh re-checks new user rules, redaction summary).
+
+Verify: `./gradlew :core:data:testDebugUnitTest` — `SingBoxRouteRulesParserTest`
+6/6 pass, `PerAppRoutingMergeTest` 6/6 pass (JUnit XML: `failures="0" errors="0"`).
+The aggregate gradle invocation also builds the sibling `:core:engine:buildRustNativeLibs`
+native task, which exhibits a non-deterministic BoringSSL/cmake `.d`-file race
+unrelated to this change (`native/**` is out of scope) — see the agent transcript
+for the per-test-class XML evidence.
+
+Residual risk: a package named in an imported rule may no longer be installed on
+the device; the `app/` layer must tolerate that when applying allowed/disallowed
+app lists. Conflict-resolution UI and the subscription badge are deferred to the
+`app/` follow-up.

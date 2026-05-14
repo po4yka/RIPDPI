@@ -1,7 +1,7 @@
 ---
 title: Add WireGuard INI subscription parser
 type: task
-status: backlog
+status: done
 area: outbound
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-nekobox-subscription-and-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
-- [ ] #task Add WireGuard INI subscription parser #repo/RIPDPI #area/outbound #status/backlog ⏫
+- [x] #task Add WireGuard INI subscription parser #repo/RIPDPI #area/outbound #status/done ⏫
 
 ## Goal contract
 
@@ -67,3 +67,37 @@ interface key material; surface them clearly in the populated group.
 ## Links
 
 - [[Epic - NekoBox subscription and profile import]]
+
+## Work log
+
+- 2026-05-14 — Implemented test-first.
+- **Files created:**
+  - `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/WireGuardIniSubscriptionParser.kt`
+    — new `WireGuardIniSubscriptionParser` + `WireGuardSubscriptionProfile` /
+    `WireGuardIniSubscriptionResult`. Detects via `[Interface]` presence;
+    builds on the existing `WireGuard ConfParser` (does not reimplement INI
+    scanning). To get per-peer failure isolation out of the all-or-nothing
+    config parser, the payload is split into its `[Interface]` block + one
+    block per `[Peer]`, and each `[Interface]+[Peer]` pair is parsed
+    independently. Preserves `AllowedIPs` as a per-profile routing hint;
+    malformed INI / missing `[Interface]` → typed `SubscriptionLineWarning`;
+    a bad `[Peer]` degrades to skip-and-warn.
+  - `core/data/src/test/kotlin/com/poyka/ripdpi/data/WireGuardIniSubscriptionParserTest.kt`
+    — 9 tests: detection, single-peer, multi-peer (shared interface keypair),
+    WARP-style dual-stack, DNS present/absent, IPv4-only + dual-stack
+    AllowedIPs, malformed INI, no-`[Interface]`, per-peer skip-and-warn.
+- **Red-then-green:** initial run RED — `a peer missing its public key
+  degrades to skip-and-warn` failed `expected:<1> but was:<0>` because
+  `WireGuardConfParser.parse` is all-or-nothing and threw on the bad peer,
+  rejecting the whole config. Fixed by per-peer block splitting; all 9 green.
+- **Verify (orchestrator-pinned):** `./gradlew :core:data:testDebugUnitTest`
+  — `BUILD SUCCESSFUL`, exit code 0 (419 tests, 0 failed; this task's 9 green).
+- **Scope note:** the issue's `Verify` was
+  `just test-module core:data:runtime-state`; the orchestrator pinned
+  `./gradlew :core:data:testDebugUnitTest` and placed the test under
+  `core/data/src/test/**` (which has `:core:data:runtime-state` on its API
+  classpath). No `ini4j` dependency was added — `libs.versions.toml` is out
+  of scope and the existing `WireGuardConfParser` already covers INI scanning.
+- **Residual risk:** the standalone `WireGuardSubscriptionProfile` is not yet
+  a `ProxyProfile` variant nor persisted; wiring it into the subscription
+  import pipeline + group population is follow-on work.

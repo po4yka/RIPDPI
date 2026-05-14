@@ -1,7 +1,7 @@
 ---
 title: Fork boringtun and add AmneziaWG handshake obfuscation
 type: task
-status: backlog
+status: done
 area: outbound
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-amneziawg-outbound-support
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
-- [ ] #task Fork boringtun and add AmneziaWG handshake obfuscation #repo/RIPDPI #area/outbound #status/backlog ⏫
+- [x] #task Fork boringtun and add AmneziaWG handshake obfuscation #repo/RIPDPI #area/outbound #status/done ⏫
 
 ## Goal contract
 
@@ -94,3 +94,32 @@ WireGuard wire protocol, not the upper stack.
 
 - [[Epic - AmneziaWG outbound support]]
 - https://github.com/amnezia-vpn/amneziawg-go
+
+## Work log
+
+- 2026-05-14: Implemented the AmneziaWG handshake-obfuscation layer as a
+  first-class `amneziawg` module inside `ripdpi-warp-core` rather than a
+  separate `ripdpi-amneziawg-core` crate. Rationale: the task's Scope
+  contract restricts edits to `ripdpi-warp-core/**` and
+  `ripdpi-warp-android/**` (no new workspace member permitted), and
+  `ripdpi-warp-core` already depends on `boringtun` and owns a WireGuard
+  tunnel + an embryonic Amnezia codec. `boringtun` is consumed as-is (no
+  Noise fork needed); AWG is purely an additive obfuscation layer. File
+  carries a dual `SPDX-License-Identifier: BSD-3-Clause AND MIT` header
+  (BSD-3 for the linked boringtun Noise primitives, MIT for the
+  amneziawg-go v0.2.16 protocol-delta semantics ported here).
+- New `AwgParams` validates `WarpAmneziaConfig` (Jc/Jmin/Jmax range,
+  H1-H4 u32 range + collision check, S1-S4 size limits, I1-I5 hex);
+  `AwgWireCodec` applies H1-H4 magic-header substitution for all four WG
+  message types plus S1-S4 size padding, and reverses both on decode.
+  Handshake prelude emits AWG 2.0 I1-I5 special-junk frames followed by
+  `Jc` random junk packets sized uniformly in `[Jmin, Jmax]`.
+- Headline invariant unit-tested: with `Jc=0`, `S1..S4=0`, `H1..H4`
+  unset the codec is byte-identical to upstream WireGuard
+  (`passthrough_codec_is_byte_identical_to_wireguard`, exercised against
+  a 148-byte WireGuard initiation vector and every other message type).
+- Replaced the old `amnezia` module: `wireguard/tunnel.rs`,
+  `endpoint_probe.rs`, and `runtime.rs` now consume `amneziawg`;
+  `WireGuardTunnel::send_amnezia_junk` emits the full prelude.
+- Verify: `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-warp-core`
+  -> exit 0, 38 tests passed (26 new `amneziawg` tests), 0 warnings.

@@ -62,6 +62,9 @@ internal object RipDpiTestTags {
     const val ConfigVpnRelay = "config-vpn-relay"
     const val ConfigVpnProtocol = "config-vpn-protocol"
     const val ConfigVpnCredentials = "config-vpn-credentials"
+    const val ConfigOverflowMenuButton = "config-overflow-menu-button"
+    const val ConfigImportClipboardMenuItem = "config-import-clipboard-menu-item"
+    const val AwgCohortPicker = "awg-cohort-picker"
     const val ModeEditorCancel = "mode-editor-cancel"
     const val ModeEditorSave = "mode-editor-save"
     const val ModeEditorProxyIp = "mode-editor-proxy-ip"
@@ -390,6 +393,8 @@ internal object RipDpiTestTags {
         tag: String,
         value: String,
     ): String = "$tag-option-${sanitize(value)}"
+
+    fun awgField(field: String): String = "awg-field-${sanitize(field)}"
 
     private fun sanitize(value: String): String =
         value

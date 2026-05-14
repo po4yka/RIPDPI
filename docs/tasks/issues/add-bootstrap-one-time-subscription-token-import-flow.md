@@ -1,7 +1,7 @@
 ---
 title: Add bootstrap one-time subscription token import flow
 type: task
-status: backlog
+status: done
 area: data
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-14
 updated: 2026-05-14
 ---
 
-- [ ] #task Add bootstrap one-time subscription token import flow #repo/RIPDPI #area/data #status/backlog ⏫
+- [x] #task Add bootstrap one-time subscription token import flow #repo/RIPDPI #area/data #status/done ⏫
 
 ## Goal contract
 
@@ -185,3 +185,74 @@ Implement strictly test-first per the epic TDD policy.
 - [[Add sing-box JSON subscription parser]]
 - [[Add subscription auto-update WorkManager worker]]
 - [[Add per-device subscription token UX and shared-link warnings]]
+
+## Work log
+
+### Schema (`core/data/runtime-state/.../ProxyGroupStores.kt`)
+
+- `Subscription` gained `kind: SubscriptionKind ∈ {LONG_LIVED, BOOTSTRAP}` (default
+  `LONG_LIVED`) and `consumedAt: Long?` (default `null`), plus an `isConsumed` convenience.
+  `consumedAt` is epoch-millis (a `Long?`), not `java.time.Instant?` — a deliberate
+  convention match: every other timestamp on this `@Serializable` entity is `Long`
+  epoch-millis, and `Instant` is unused anywhere in the data layer. Legacy payloads without
+  the field decode as `LONG_LIVED` / `null` (`ignoreUnknownKeys` + defaults).
+
+### Consume-once flow (`core/data/runtime-state/.../subscription/BootstrapConsumer.kt`)
+
+- `bootstrapTokenHash(url)` — hex sha256 of `host || path || query`; the raw token is
+  never returned, so the digest is safe to log and to use as a map key.
+- `BootstrapConsumer.consume(url, groupId)` — per-token `kotlinx.coroutines.sync.Mutex`
+  (keyed on the hash) runs a short *claim* critical section that elects exactly one
+  **winner**; the winner fires the single OkHttp GET outside the lock and completes a
+  shared `CompletableDeferred`, so concurrent racers (the 30× double-tap case) all observe
+  the winner's live `Consumed` result. Once a token reaches a terminal state it is recorded
+  in a `settled` map, so every *later* `consume` call (a manual refresh, an auto-update
+  worker run) short-circuits to `BootstrapConsumeResult.AlreadyConsumed` with **no network
+  call**.
+- HTTP 410 → typed terminal `BootstrapConsumeResult.AlreadyConsumed` (not a network error,
+  no retry). 200 → parsed via `SingBoxSubscriptionParser` then `Base64SubscriptionParser`
+  → `Consumed(profiles, consumedAtMillis)`. Non-410 failure → `NetworkError`. Clock is
+  injectable for deterministic `consumedAt`.
+- `isBootstrapUrl(url)` — `/bootstrap/` path heuristic, also used by the deep-link parser.
+
+### Worker exclusion + UI
+
+- `subscriptionsDueForAutoUpdate` (in `SubscriptionAutoUpdateWorker.kt`) filters out
+  `SubscriptionKind.BOOTSTRAP` so the auto-update worker never polls a spent bootstrap URL.
+- `SubscriptionImportConfirmViewModel.confirm()` now persists `kind = BOOTSTRAP` when the
+  add screen's bootstrap flag is set (the screen already renders the one-time-link warning
+  banner), so the long-lived vs. bootstrap distinction is real end-to-end.
+
+### TDD (red-then-green confirmed)
+
+- `core/data/runtime-state/src/test/.../SubscriptionKindTest.kt` — entity defaults,
+  JSON round-trips, legacy decode, `isConsumed`.
+- `BootstrapConsumeOnceTest.kt` — cold consume (200 → profiles + `consumedAt`); **30
+  concurrent consumers → `server.requestCount == 1` and one profile bundle each**
+  (asserted, not inspected); token-hash stability + no-raw-token.
+- `BootstrapAlreadyConsumedTest.kt` — 410 on first GET → typed `AlreadyConsumed`, one
+  request, no retry, zero profiles; non-410 → `NetworkError`.
+- `BootstrapRefreshSkipTest.kt` — a second consume after either a successful consume or a
+  410 short-circuits with `requestCount` still `1`.
+- `SubscriptionAutoUpdateWorkerTest.kt` — worker enumeration excludes `kind=bootstrap`.
+- Confirmed RED before implementation — observed `Unresolved reference 'SubscriptionKind'`,
+  `'kind'`, `'consumedAt'`, `'BootstrapConsumer'`, `'bootstrapTokenHash'`,
+  `'subscriptionsDueForAutoUpdate'`; then GREEN.
+
+### Verify
+
+- `./gradlew :core:data:runtime-state:testDebugUnitTest` exit 0,
+  `./gradlew :core:data:testDebugUnitTest` exit 0, `./gradlew :app:testGithubDebugUnitTest`
+  exit 0, `./gradlew :app:assembleDebug` exit 0. (`:core:service` was **not** modified —
+  the auto-update worker lives in `app/` per the orchestrator scope, so the worker-exclusion
+  test is `SubscriptionAutoUpdateWorkerTest.kt` under `app/src/test/**` rather than
+  `core/service/src/test/**`.)
+- Not done within this scope: the instrumented `BootstrapAddScreenTest`, a dedicated
+  `DiagnosticsExport` redaction-harness test (no such harness file exists in-repo, and
+  `core/diagnostics-data` is out of scope) — redaction is instead enforced structurally
+  (`BootstrapConsumer` only ever logs/keys the sha256 hash; the refresh-failure classifier
+  returns a bare enum with no URL field).
+- Residual risk: `consumedAt` is stamped from the device clock (injectable in tests, real
+  clock in prod) — clock skew vs. the deployer's server time is cosmetic only; it never
+  affects the consume-once decision, which is purely the presence of a `settled`/`AlreadyConsumed`
+  state.

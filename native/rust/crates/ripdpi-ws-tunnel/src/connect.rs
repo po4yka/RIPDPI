@@ -4,11 +4,11 @@ use std::time::Duration;
 
 use boring::ssl::SslStream;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
-use tungstenite::client::IntoClientRequest;
 use tungstenite::WebSocket;
 
 use crate::dc::{ws_host, ws_url, TelegramDc};
 use crate::protect;
+use crate::transport::WsTransportConfig;
 
 /// A connected WebSocket tunnel to a Telegram DC (BoringSSL TLS backend).
 ///
@@ -114,10 +114,16 @@ fn configure_established_ws_stream(ws: &mut WsStream) -> io::Result<()> {
     configure_relay_socket(ws.get_mut().get_ref())
 }
 
-fn build_ws_request(url: &str) -> io::Result<tungstenite::http::Request<()>> {
-    let mut request = url.into_client_request().map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-    request.headers_mut().insert("Sec-WebSocket-Protocol", tungstenite::http::HeaderValue::from_static("binary"));
-    Ok(request)
+/// Build the Telegram WS upgrade request via the generic composable
+/// transport. The Telegram path is now just another consumer of
+/// [`crate::transport`]: it supplies a `host` + `/apiws` path and the
+/// shared builder applies the `binary` subprotocol. `tokio-tungstenite`
+/// 0.27 and the sync `tungstenite` 0.29 share the same `http` 1.x
+/// `Request` type, so the generic builder's output feeds the sync
+/// `tungstenite::client` call site directly with no conversion.
+fn build_ws_request(host: &str) -> io::Result<tungstenite::http::Request<()>> {
+    let config = WsTransportConfig::new(host, "/apiws");
+    crate::transport::build_ws_request(&config, true).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
 }
 
 /// Open a WebSocket tunnel to the given Telegram DC.
@@ -135,7 +141,9 @@ pub(crate) fn open_ws_tunnel_with_timeout(
     connect_timeout: Option<Duration>,
     fake_sni: Option<&str>,
 ) -> io::Result<WsStream> {
-    let url = ws_url(dc).ok_or_else(|| {
+    // Validate the DC is tunnelable before doing any network work; the
+    // generic transport request is built from `host` + `/apiws` below.
+    ws_url(dc).ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("WS tunnel not supported for Telegram DC class {:?} raw={}", dc.class(), dc.raw()),
@@ -154,7 +162,7 @@ pub(crate) fn open_ws_tunnel_with_timeout(
         .connect(tls_host, tcp)
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("boring TLS: {e}")))?;
 
-    let request = build_ws_request(url.as_str())?;
+    let request = build_ws_request(&host)?;
 
     // WebSocket handshake over the pre-established BoringSSL stream.
     let (mut ws, _response) = tungstenite::client(request, tls_stream)
@@ -185,13 +193,17 @@ mod tests {
 
     #[test]
     fn build_ws_request_includes_binary_subprotocol() {
-        let request = build_ws_request("wss://kws2.web.telegram.org/apiws").expect("build request");
+        // The Telegram path now builds its request through the generic
+        // `transport` module: host + `/apiws` -> `wss://.../apiws` with the
+        // `binary` subprotocol applied by the shared builder.
+        let request = build_ws_request("kws2.web.telegram.org").expect("build request");
 
         assert_eq!(request.uri().to_string(), "wss://kws2.web.telegram.org/apiws");
         assert_eq!(
             request.headers().get("Sec-WebSocket-Protocol").and_then(|value| value.to_str().ok()),
             Some("binary"),
         );
+        assert_eq!(request.headers().get("Host").and_then(|value| value.to_str().ok()), Some("kws2.web.telegram.org"),);
     }
 
     #[test]

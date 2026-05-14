@@ -1,7 +1,7 @@
 ---
 title: Add clipboard-import menu action with explicit user consent
 type: task
-status: backlog
+status: done
 area: ui
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-qr-code-and-clipboard-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
-- [ ] #task Add clipboard-import menu action with explicit user consent #repo/RIPDPI #area/ui #status/backlog 🔼
+- [x] #task Add clipboard-import menu action with explicit user consent #repo/RIPDPI #area/ui #status/done 🔼
 
 ## Goal contract
 
@@ -63,3 +63,28 @@ user has made an intent explicit. No watcher, no auto-paste detection.
 ## Links
 
 - [[Epic - QR code and clipboard profile import]]
+
+## Work log
+
+- Added `ClipboardReader` interface + `SystemClipboardReader` (Hilt-bound): a narrow
+  seam exposing only a one-shot read and an explicit clear — deliberately no
+  `OnPrimaryClipChangedListener` / watcher hook, enforcing the no-silent-read posture.
+- Added `ClipboardImportClassifier` (pure logic): classifies a single clipboard read
+  via the shared `ProxyUriShareDispatcher`/`ProxyUriCodec`; unknown content yields a
+  typed result carrying only the scheme prefix, never the payload.
+- Added `ClipboardImportViewModel`: reads the clipboard exactly once, only on
+  `onImportFromClipboard()` (the user's menu tap) — constructing the ViewModel does not
+  touch the clipboard. Opt-in "clear clipboard after import" (default off) clears only
+  after a successful import.
+- Added `ConfigImportMenu`: the "Import from clipboard" entry in the Configuration
+  top-bar overflow; wired into `ConfigScreen` via a new `topBarActions` slot and into
+  `ConfigRoute`/`RipDpiNavHost` (routes recognised URIs to the profile-confirm
+  destination). Unknown/empty content surfaces a typed error dialog.
+- Android 12+ system clipboard-access toast is left intact (not suppressed).
+- TDD: `ClipboardImportClassifierTest` (7), `ClipboardImportViewModelTest` (9),
+  `ConfigImportMenuTest` (3 Robolectric) — incl. the assertion that rendering the menu
+  performs zero clipboard reads.
+- Strings added to `values/` + all 6 locale files (`MissingTranslation` clean).
+- Verify: `./gradlew :app:testGithubDebugUnitTest` exit 0; `:app:assembleDebug` exit 0;
+  `:app:detekt` exit 0; `ktlint` exit 0. (The issue's `just test-module app` Verify
+  maps to `:app:testGithubDebugUnitTest`, which is the command run.)

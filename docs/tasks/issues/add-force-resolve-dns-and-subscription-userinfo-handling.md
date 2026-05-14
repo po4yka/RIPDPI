@@ -1,7 +1,7 @@
 ---
 title: Add force-resolve DNS and Subscription-Userinfo handling
 type: task
-status: backlog
+status: done
 area: outbound
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Add force-resolve DNS and Subscription-Userinfo handling #repo/RIPDPI #area/outbound #status/backlog 🔼
+- [x] #task Add force-resolve DNS and Subscription-Userinfo handling #repo/RIPDPI #area/outbound #status/done 🔼
 
 ## Goal contract
 
@@ -69,3 +69,49 @@ bypass subscriptions.
 
 - [[Epic - NekoBox subscription and profile import]]
 - [[Add subscription auto-update WorkManager worker]]
+
+## Work log
+
+**2026-05-14 — core/data force-resolve + Subscription-Userinfo parsing
+implemented (TDD; group-detail UI surfacing out of this agent's scope).**
+
+Scope note: the issue scope is `core/data/runtime-state/**` + `core/data/model/**`
++ `app/**`. This pass delivers the testable `core/data` core: the bounded
+parallel resolver, the header parser, and the entity-apply bridge. The per-group
+"Force resolve on update" toggle wiring and the group-detail upload/download/
+expiry surfacing + expired-banner are `app/`-layer and are deferred. The
+`Subscription` entity already carries `forceResolve`, `subscriptionUserinfo`,
+`bytesUsed`, `bytesRemaining`, `expiryDate` fields — no entity edit was needed.
+
+Files created:
+- `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/ForceResolveDns.kt`
+  — `ForceResolveDns.resolveAll(profiles, resolve)`: resolves profile server
+  hostnames concurrently, bounded to 5 in-flight lookups via a coroutine
+  `Semaphore(5)` (NekoBox's `Executors.newFixedThreadPool(5)` ported to
+  coroutines). IP-literal servers (v4/v6) are skipped — not looked up; a failed
+  or empty resolution leaves the host unchanged so a flaky lookup never drops a
+  node; `RawConfig` profiles pass through. `HostResolution` sealed result type.
+- `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/SubscriptionUserinfo.kt`
+  — parses the `Subscription-Userinfo` header
+  (`upload=N; download=N; total=N; expire=UNIX_TS`) into typed `Long?` fields;
+  every field is nullable, malformed values become `null` not exceptions;
+  derived `bytesUsed` / `bytesRemaining`; `isExpired(now)`.
+- `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/SubscriptionUserinfoApply.kt`
+  — `Subscription.withUserinfo(...)` / `withUserinfoHeader(...)` extensions:
+  fold a parsed header onto the existing `Subscription` entity fields.
+
+Test files created (written before implementation, red-then-green):
+- `core/data/src/test/kotlin/com/poyka/ripdpi/data/SubscriptionUserinfoTest.kt` —
+  12 tests (full header, whitespace tolerance, only-`expire`, malformed values →
+  null, empty/blank, unknown keys, derived bytes, expiry detection, entity apply).
+- `core/data/src/test/kotlin/com/poyka/ripdpi/data/ForceResolveDnsTest.kt` — 9
+  tests (resolve+rewrite, failed-resolve passthrough, IPv4/IPv6 literal skip,
+  dual-stack first-address, bounded-concurrency ≤5 under 20 hosts, RawConfig
+  passthrough, empty list, empty-address-list passthrough).
+
+Verify: `./gradlew :core:data:testDebugUnitTest` — `SubscriptionUserinfoTest`
+12/12 pass, `ForceResolveDnsTest` 9/9 pass (JUnit XML: `failures="0" errors="0"`).
+
+Residual risk: actual DNS resolution (the `resolve` lambda) is injected by the
+caller — the live `hickory-resolver` / DoH wiring is the caller's responsibility
+and is not exercised by these unit tests.

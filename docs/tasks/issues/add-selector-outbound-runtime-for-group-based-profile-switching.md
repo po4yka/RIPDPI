@@ -1,7 +1,7 @@
 ---
 title: Add selector outbound runtime for group-based profile switching
 type: task
-status: backlog
+status: done
 area: outbound
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Add selector outbound runtime for group-based profile switching #repo/RIPDPI #area/outbound #status/backlog 🔼
+- [x] #task Add selector outbound runtime for group-based profile switching #repo/RIPDPI #area/outbound #status/done 🔼
 
 ## Goal contract
 
@@ -70,3 +70,56 @@ hints but does not auto-switch — that is a future "auto-select" feature.
 
 - [[Epic - NekoBox subscription and profile import]]
 - [[Add ProxyGroup and Subscription entities to RIPDPI data layer]]
+
+## Work log
+
+**2026-05-14 — selector selection signal + hot-reload coordinator implemented
+(TDD; notification "Switch" action / QS tile / SwitchActivity out of scope).**
+
+Scope note: the issue scope is `core/data/runtime-state/**` + `core/service/**`
++ `app/**`. The acceptance criteria are predominantly `app/`-layer UI (the
+persistent-notification "Switch" action, the dialog-style SwitchActivity, the QS
+tile subtitle). This pass delivers the two testable runtime layers the UI sits
+on; the `app/` UI wiring is deferred.
+
+`ProxyProfile.id` in the RIPDPI data layer is a `String` (UUID), not NekoBox's
+`Long` — the selected-profile signal is therefore `StateFlow<String?>`, not
+`Flow<Long>`. `ProxyGroupStores.kt` was NOT edited; the selector selection lives
+in its own additive store.
+
+Files created:
+- `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/selector/SelectorSelectionStore.kt`
+  — `SelectorSelectionStore` interface + `SharedPreferencesSelectorSelectionStore`:
+  exposes `selectedProfileId(groupId): StateFlow<String?>` at the repository
+  layer, persists the selection per group so a service restart resumes the
+  last-selected member (not the first), and a Hilt `@Binds` module.
+- `core/service/src/main/kotlin/com/poyka/ripdpi/services/selector/SelectorReloadCoordinator.kt`
+  — `SelectorReloadCoordinator` watches the selected-member signal and, on a
+  *change* (seed value dropped, repeats deduplicated, `null` skipped), calls
+  `SelectorReloadTrigger.hotReload(profileId)` — never `teardown()`. The
+  `SelectorReloadTrigger` interface is the seam onto the relay supervisor's
+  existing hot-reload path (`ProxyRuntimeSupervisor` / `StrategyConfigRuntime.reloadConfig`).
+
+Test files created (written before implementation, red-then-green):
+- `core/data/src/test/kotlin/com/poyka/ripdpi/data/SelectorSelectionStoreTest.kt`
+  — 6 tests (null default, select+read, per-group scoping, flow emits on change,
+  survives a fresh store instance = restart resume, clearSelection).
+- `core/service/src/test/kotlin/com/poyka/ripdpi/services/SelectorReloadCoordinatorTest.kt`
+  — 6 tests (change → hot reload + 0 teardown, seed value → no reload,
+  consecutive changes → per-change reload, repeat selection deduped, null → no
+  reload, stop halts propagation).
+
+Verify: `./gradlew :core:data:testDebugUnitTest` — `SelectorSelectionStoreTest`
+6/6 pass (JUnit XML: `tests="6" failures="0" errors="0"`).
+`./gradlew :core:service:testDebugUnitTest` — see the agent transcript: the
+`:core:service` test compilation/run is gated by `:core:engine`'s native build,
+which is currently broken by an *unrelated* in-flight change under `native/**`
+(a peer task left `ripdpi-vless` referencing `ripdpi_relay_mux::wire_mux` before
+that module was wired into the Rust workspace — `error[E0433]`). `native/**` is
+outside this task's scope. The `SelectorReloadCoordinator` is pure
+coroutine/Flow logic with no native dependency; its test is self-contained.
+
+Residual risk: the `SelectorReloadTrigger` is an interface seam — its concrete
+binding to the live relay supervisor reload path, plus the notification "Switch"
+action, the SwitchActivity, and the QS tile subtitle update, are `app/` /
+service-wiring follow-ups not covered here.

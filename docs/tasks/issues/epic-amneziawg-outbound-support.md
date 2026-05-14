@@ -1,7 +1,7 @@
 ---
 title: Epic - AmneziaWG outbound support
 type: epic
-status: backlog
+status: done
 area: epic
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Epic - AmneziaWG outbound support #repo/RIPDPI #area/epic #status/backlog 🔼
+- [x] #task Epic - AmneziaWG outbound support #repo/RIPDPI #area/epic #status/done 🔼
 
 ## Goal contract
 

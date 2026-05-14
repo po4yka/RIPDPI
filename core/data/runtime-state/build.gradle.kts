@@ -19,7 +19,10 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kaml)
+    implementation(libs.okhttp)
 
     testImplementation(libs.bundles.unit.test)
     testImplementation(libs.androidx.test.core.ktx)
+    testImplementation(libs.okhttp.mockwebserver)
 }

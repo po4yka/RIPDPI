@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider paths for the "share profile QR image" flow. The shared QR PNG is written
+    to a dedicated cache subdirectory and granted read access per share intent; the host
+    cleans the file up once the share completes.
+-->
+<paths>
+    <cache-path
+        name="profile_share"
+        path="profile-share/" />
+</paths>

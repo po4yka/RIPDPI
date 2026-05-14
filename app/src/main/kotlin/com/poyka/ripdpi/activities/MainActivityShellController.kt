@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Intent
+import com.poyka.ripdpi.ui.navigation.Route
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +15,7 @@ internal data class MainActivityShellState(
     val launchHomeRequested: Boolean = false,
     val launchRouteRequested: String? = null,
     val sharedDiagnosticFragmentRequested: String? = null,
+    val importRouteRequested: Route? = null,
     val startConfiguredModeRequested: Boolean = false,
     val vpnPermissionDialogVisible: Boolean = false,
     val relockRequested: Boolean = false,
@@ -33,6 +35,7 @@ internal class MainActivityShellController(
             MainActivityShellState(
                 launchHomeRequested = MainActivity.requestsHomeTab(initialIntent),
                 sharedDiagnosticFragmentRequested = MainActivity.diagnosticShareFragment(initialIntent),
+                importRouteRequested = MainActivity.importRouteFrom(initialIntent),
                 startConfiguredModeRequested = MainActivity.requestsConfiguredStart(initialIntent),
             ),
         )
@@ -58,6 +61,8 @@ internal class MainActivityShellController(
                 launchHomeRequested = current.launchHomeRequested || MainActivity.requestsHomeTab(intent),
                 sharedDiagnosticFragmentRequested =
                     MainActivity.diagnosticShareFragment(intent) ?: current.sharedDiagnosticFragmentRequested,
+                importRouteRequested =
+                    MainActivity.importRouteFrom(intent) ?: current.importRouteRequested,
                 startConfiguredModeRequested =
                     current.startConfiguredModeRequested || MainActivity.requestsConfiguredStart(intent),
             )
@@ -125,6 +130,10 @@ internal class MainActivityShellController(
 
     fun consumeDiagnosticShareFragmentRequest() {
         _state.update { it.copy(sharedDiagnosticFragmentRequested = null) }
+    }
+
+    fun consumeImportRouteRequest() {
+        _state.update { it.copy(importRouteRequested = null) }
     }
 
     fun consumeStartConfiguredModeRequest() {

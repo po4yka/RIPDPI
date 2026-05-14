@@ -1,0 +1,7 @@
+{
+  "scenario": "per-app-bypass-and-via-tun",
+  "description": "Both --per-app-bypass and --per-app-via-tun set; route.rules carry package_name",
+  "deployer_git_sha": "0000000000000000000000000000000000000000-fixture",
+  "generated_at": "2026-05-14T00:00:00Z",
+  "frozen_secret_set": "all UUIDs/keys are fixed -fixture test values, never production tokens"
+}

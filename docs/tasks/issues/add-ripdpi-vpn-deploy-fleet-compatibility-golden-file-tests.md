@@ -1,7 +1,7 @@
 ---
 title: Add ripdpi-vpn-deploy fleet compatibility golden-file tests
 type: task
-status: backlog
+status: done
 area: testing
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-14
 updated: 2026-05-14
 ---
 
-- [ ] #task Add ripdpi-vpn-deploy fleet compatibility golden-file tests #repo/RIPDPI #area/testing #status/backlog ⏫
+- [x] #task Add ripdpi-vpn-deploy fleet compatibility golden-file tests #repo/RIPDPI #area/testing #status/done ⏫
 
 ## Goal contract
 
@@ -203,3 +203,101 @@ turn them green.
 - [[Add bootstrap one-time subscription token import flow]]
 - [[Decouple VLESS xHTTP transport from the Reality relay kind]]
 - Sibling repo: `/Users/npochaev/GitHub/ripdpi-vpn-deploy/`
+
+## Work log
+
+- 2026-05-14 — Implemented test-first.
+- **Pinned deployer SHA:** `0000000000000000000000000000000000000000-fixture`
+  — placeholder pin recorded in every `meta.json`; the real pin is set when
+  `scripts/refresh-fleet-fixtures.sh` is wired (see scope note below).
+- **Files created:**
+  - `core/data/src/test/resources/fleet-fixtures/<scenario>/` — 8 scenario
+    dirs, each with `bundle.json` (literal `emit-singbox.sh`-style output),
+    `expected-profiles.json`, `expected-group.json`, and `meta.json` (plus
+    `expected-routing.json` for `per-app-bypass-and-via-tun`):
+    `p0-only`, `p1-only`, `p2a-hysteria-only`, `p2a-hysteria-port-hop`,
+    `multi-cohort-p0-p1-p2a`, `multi-host-failover`,
+    `per-app-bypass-and-via-tun`, `bootstrap-bundle`. All credentials are
+    frozen synthetic test values (`-fixture` / all-zero UUID shapes).
+  - `core/data/src/test/kotlin/com/poyka/ripdpi/data/fleet/FleetCompatHarness.kt`
+    — iterates each scenario, imports `bundle.json` through the **production**
+    phase-1 parsers (`SingBoxSubscriptionParser`,
+    `SelectorUrltestGroupImport`), diffs the in-memory model against the
+    `expected-*.json` with a readable jq-style structural diff, does a
+    round-trip re-export check modulo documented allowed deltas (outbound
+    ordering, the `direct`/`block`/`dns` boilerplate outbounds), greps every
+    bundle for production-token shapes, and runs the bootstrap one-shot path.
+  - `core/data/src/test/kotlin/com/poyka/ripdpi/data/fleet/FakeBootstrapBackend.kt`
+    — faked one-shot `/bootstrap/<token>` HTTP backend (in-memory).
+  - `core/data/src/test/kotlin/com/poyka/ripdpi/data/FleetCompatGoldenFileTest.kt`
+    — 12 tests: each scenario imports to expected profiles/group/routing,
+    fixture-load guard, no-production-token guard, round-trip check, and the
+    regression proof (a deliberately mutated bundle makes the suite go red
+    with a readable diff).
+- **Red-then-green:** initial run RED — the 8 scenario tests failed with a
+  `[profiles] structural mismatch` diff because `SingBoxSubscriptionParser`
+  round-trips the deployer's `direct`/`block`/`dns` boilerplate outbounds as
+  `RawConfig` profiles. Fixed in the harness by excluding boilerplate-type
+  `RawConfig` profiles from the golden comparison (a documented allowed
+  delta). All 12 green.
+- **Regression proof:** `a deliberately broken parser input makes the harness
+  report a readable diff` mutates `"server"` → `"sErVeR_TYPO"` in the
+  `p0-only` bundle and asserts the suite goes red with a non-empty structural
+  diff — green, i.e. the suite correctly detects a contract break.
+- **Verify (orchestrator-pinned):** `./gradlew :core:data:testDebugUnitTest`
+  — `BUILD SUCCESSFUL`, exit code 0 (the issue's pinned
+  `--tests "*FleetCompat*"` selector is a subset of this run; all 12
+  `FleetCompatGoldenFileTest` cases green).
+- **Scope note / deferred (out of the prior agent's scope — now done):** the
+  deferred `scripts/**` + CI workflow follow-up has been completed:
+  - `scripts/refresh-fleet-fixtures.sh` — local developer regenerator. Pins
+    the deployer git SHA on a single clearly-marked
+    `DEPLOYER_GIT_SHA="..."` line, locates the sibling repo via
+    `RIPDPI_VPN_DEPLOY_DIR` (default `../ripdpi-vpn-deploy`), shims `terraform`
+    + `sops` (a temp `PATH` dir; fakes echo the frozen RFC-5737 doc IPs /
+    `-fixture` secrets so the real `emit-singbox.sh` runs with no infra),
+    iterates the 8 scenarios, and refreshes each `meta.json` `deployer_git_sha`
+    to the pin. `--check` (default) regenerates + diffs vs committed, `--write`
+    overwrites in place; mirrors `scripts/ci/refresh_mozilla_ca_bundle.sh`.
+  - `scripts/fleet-fixtures/frozen-secrets.yaml` — checked-in, fully-synthetic
+    SOPS payload (all `-fixture` values, doc IPs); no production tokens.
+  - `scripts/ci/check_fleet_fixtures.py` + `scripts/tests/test_fleet_fixtures.py`
+    — CI-runnable structural drift gate (no deployer, no infra). Validates
+    required files per scenario, JSON shape, that `meta.json.deployer_git_sha`
+    is consistent across scenarios AND matches the script pin (the drift
+    signal), and that no production-token shapes leak. TDD: the unittest file
+    was written first and confirmed RED (`FileNotFoundError:
+    check_fleet_fixtures.py`) before the checker was implemented; 15 tests now
+    green.
+  - `.github/workflows/fleet-fixtures.yml` — standalone PR-triggered workflow
+    (follows the `tls-catalog-refresh.yml` precedent) with `paths:` filters on
+    the subscription parser, routing model, AWG model, relay model, the
+    fixtures dir, and the new scripts; runs the unittest, the structural gate,
+    and `./gradlew :core:data:testDebugUnitTest --tests "*FleetCompat*"`.
+  - **Verification (all exit 0):** `python3 -m unittest
+    scripts.tests.test_fleet_fixtures` (15 tests); `python3
+    scripts/ci/check_fleet_fixtures.py`; `bash -n` + `shellcheck`
+    `scripts/refresh-fleet-fixtures.sh`; `scripts/refresh-fleet-fixtures.sh
+    --check`; `./gradlew :core:data:testDebugUnitTest --tests "*FleetCompat*"`.
+  - **Emitter shims ran end-to-end:** with the sibling repo present, the
+    `--check` run drove the real `emit-singbox.sh` for `p0-only`,
+    `per-app-bypass-and-via-tun`, and `bootstrap-bundle` — all three matched
+    the committed `bundle.json` byte-for-byte (modulo `jq` formatting). The
+    other 5 scenarios fall back to structural-only because they need deployer
+    state the sibling repo does not check in (hysteria-only cohort, port-hop
+    range in `group_vars`, multi-cohort `xray.cohorts`, two-provider Terraform
+    state); the structural gate still guards them.
+  - The pinned deployer SHA remains the `0000…0-fixture` placeholder — the
+    committed fixtures are still hand-authored for the 5 structural-only
+    scenarios, so an operator bumps the pin (and regenerates) when wiring a
+    real deployer checkout. The cross-repo AWG-catalog diff stays covered by
+    the sibling task's `AwgCohort*` tests.
+- **Residual risk:** fixture staleness is now *gated, not eliminated*. The
+  `check_fleet_fixtures.py` CI gate catches structural drift (missing files,
+  malformed JSON, SHA pin vs `meta.json` mismatch, production-token leaks) on
+  every PR touching the parsers/models/fixtures, and `refresh-fleet-fixtures.sh
+  --check` reproduces 3/8 bundles directly from the real emitter. The
+  remaining 5 hand-authored bundles still rely on an operator running
+  `--write` against a real deployer checkout after a deployer schema change;
+  the pin-vs-meta consistency check makes a forgotten regeneration fail CI
+  loudly rather than pass silently.

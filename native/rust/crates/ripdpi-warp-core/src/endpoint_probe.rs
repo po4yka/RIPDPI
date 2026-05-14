@@ -7,11 +7,11 @@ use socket2::{Domain, Protocol, Socket, Type};
 use tokio::net::UdpSocket;
 use tokio::time::{timeout, Instant};
 
-use crate::amnezia::AmneziaCodec;
+use crate::amneziawg::AwgWireCodec;
 use crate::config::{resolve_endpoint, ResolvedWarpRuntimeEndpoint, WarpEndpointProbeRequest, WarpEndpointProbeResult};
 use crate::platform::{protect_socket_if_configured, WarpPlatform};
 use crate::support::MAX_PACKET;
-use crate::wireguard::{apply_reserved_bytes, decode_key, reserved_bytes_from_client_id};
+use crate::wireguard::{apply_reserved_bytes, build_awg_codec, decode_key, reserved_bytes_from_client_id};
 
 pub async fn probe_endpoint(request: WarpEndpointProbeRequest) -> anyhow::Result<WarpEndpointProbeResult> {
     probe_endpoint_with_platform(request, &WarpPlatform::default()).await
@@ -25,7 +25,7 @@ pub async fn probe_endpoint_with_platform(
     let private_key = decode_key(&request.private_key).context("invalid WARP private key")?;
     let peer_public_key = decode_key(&request.peer_public_key).context("invalid WARP peer public key")?;
     let reserved = reserved_bytes_from_client_id(request.client_id.as_deref());
-    let amnezia = request.amnezia.enabled.then(|| AmneziaCodec::new(&request.amnezia));
+    let amnezia = build_awg_codec(&request.amnezia);
     let mut peer = Box::new(Tunn::new(
         boringtun::x25519::StaticSecret::from(private_key),
         boringtun::x25519::PublicKey::from(peer_public_key),
@@ -90,7 +90,7 @@ fn bind_probe_socket(endpoint: SocketAddr, platform: &WarpPlatform) -> anyhow::R
     Ok(UdpSocket::from_std(socket.into())?)
 }
 
-fn encode_probe_packet(packet: &[u8], reserved: [u8; 3], amnezia: Option<&AmneziaCodec>) -> Vec<u8> {
+fn encode_probe_packet(packet: &[u8], reserved: [u8; 3], amnezia: Option<&AwgWireCodec>) -> Vec<u8> {
     let mut payload = packet.to_vec();
     apply_reserved_bytes(&mut payload, reserved);
     match amnezia {
@@ -99,7 +99,7 @@ fn encode_probe_packet(packet: &[u8], reserved: [u8; 3], amnezia: Option<&Amnezi
     }
 }
 
-fn decode_probe_packet(packet: &[u8], amnezia: Option<&AmneziaCodec>) -> Option<Vec<u8>> {
+fn decode_probe_packet(packet: &[u8], amnezia: Option<&AwgWireCodec>) -> Option<Vec<u8>> {
     match amnezia {
         Some(codec) => {
             let (wg_type, tail) = codec.decode(packet)?;

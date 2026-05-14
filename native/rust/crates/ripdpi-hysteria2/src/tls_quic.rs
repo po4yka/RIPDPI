@@ -1,16 +1,12 @@
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
 use http::Request;
 use rand::RngExt;
-use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use rustls::{DigitallySignedStruct, RootCertStore, SignatureScheme};
-use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use crate::config::Config;
 use crate::error::{HysteriaError, Result};
+use crate::quic_transport::{self, QuicTransportConfig};
 use crate::salamander::SalamanderUdpSocket;
 
 const HYSTERIA_AUTH_STATUS: u16 = 233;
@@ -75,32 +71,15 @@ pub(crate) fn build_endpoint(
     Ok((endpoint, socket_clone))
 }
 
+/// Bind a UDP socket for the Hysteria2 QUIC client.
+///
+/// The address-family / low-port binding logic is shared with MASQUE and the
+/// composable QUIC transport: this delegates to
+/// [`quic_transport::build_client_udp_socket`] rather than carrying a private
+/// copy. The `salamander_key` field of [`ClientSocketSpec`] is applied later
+/// by [`build_endpoint`] / [`rebind_endpoint`], not here.
 pub(crate) fn build_client_udp_socket(socket_spec: &ClientSocketSpec) -> io::Result<std::net::UdpSocket> {
-    let bind_addr = if socket_spec.ipv6 {
-        SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0))
-    } else {
-        SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))
-    };
-    let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
-    if socket_spec.ipv6 {
-        let _ = socket.set_only_v6(false);
-    }
-    if socket_spec.bind_low_port {
-        try_bind_low_port(&socket, bind_addr.ip())?;
-    } else {
-        socket.bind(&SockAddr::from(bind_addr))?;
-    }
-    Ok(socket.into())
-}
-
-fn try_bind_low_port(socket: &Socket, bind_ip: IpAddr) -> io::Result<()> {
-    for port in [2048u16, 2053, 2080, 2443, 3000, 3074, 4096] {
-        let addr = SocketAddr::new(bind_ip, port);
-        if socket.bind(&SockAddr::from(addr)).is_ok() {
-            return Ok(());
-        }
-    }
-    socket.bind(&SockAddr::from(SocketAddr::new(bind_ip, 0)))
+    quic_transport::build_client_udp_socket(socket_spec.ipv6, socket_spec.bind_low_port)
 }
 
 pub(crate) fn rebind_endpoint(
@@ -115,19 +94,14 @@ pub(crate) fn rebind_endpoint(
     }
 }
 
+/// Build the QUIC `rustls::ClientConfig` for a Hysteria2 profile.
+///
+/// This delegates to the shared [`QuicTransportConfig`] factory in
+/// `crate::quic_transport` rather than hand-rolling the root-store / ALPN /
+/// insecure-verifier wiring -- Hysteria2 now *consumes* the composable QUIC
+/// transport's config factory instead of maintaining its own copy.
 pub(crate) fn build_tls_config(config: &Config) -> Result<rustls::ClientConfig> {
-    let builder = rustls::ClientConfig::builder();
-    let builder = if config.insecure {
-        builder.dangerous().with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
-    } else {
-        let mut roots = RootCertStore::empty();
-        roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        builder.with_root_certificates(roots)
-    };
-
-    let mut tls_config = builder.with_no_client_auth();
-    tls_config.alpn_protocols = vec![b"h3".to_vec()];
-    Ok(tls_config)
+    QuicTransportConfig::new(config.server_name.clone()).with_insecure(config.insecure).build_rustls_client_config()
 }
 
 fn generate_padding() -> String {
@@ -140,50 +114,4 @@ fn generate_padding() -> String {
         padding.push(PADDING_CHARS[index] as char);
     }
     padding
-}
-
-#[derive(Debug)]
-struct NoCertificateVerification;
-
-impl ServerCertVerifier for NoCertificateVerification {
-    fn verify_server_cert(
-        &self,
-        _end_entity: &CertificateDer<'_>,
-        _intermediates: &[CertificateDer<'_>],
-        _server_name: &ServerName<'_>,
-        _ocsp_response: &[u8],
-        _now: UnixTime,
-    ) -> std::result::Result<ServerCertVerified, rustls::Error> {
-        Ok(ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
-    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
-    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        vec![
-            SignatureScheme::ECDSA_NISTP256_SHA256,
-            SignatureScheme::ECDSA_NISTP384_SHA384,
-            SignatureScheme::RSA_PSS_SHA256,
-            SignatureScheme::RSA_PSS_SHA384,
-            SignatureScheme::RSA_PKCS1_SHA256,
-            SignatureScheme::RSA_PKCS1_SHA384,
-            SignatureScheme::ED25519,
-        ]
-    }
 }

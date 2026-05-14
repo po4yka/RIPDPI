@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""Unit tests for scripts/ci/check_dns_ipv6_killswitch_gates.py."""
+from __future__ import annotations
+
+import copy
+import importlib.util
+import json
+import unittest
+from pathlib import Path
+
+
+def load_module(module_name: str, relative_path: str):
+    root = Path(__file__).resolve().parents[2]
+    module_path = root / relative_path
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+gates = load_module(
+    "check_dns_ipv6_killswitch_gates",
+    "scripts/ci/check_dns_ipv6_killswitch_gates.py",
+)
+
+
+class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.policy = gates.load_json(gates.POLICY_PATH)
+
+    def test_repo_policy_is_valid(self) -> None:
+        summary = gates.validate_policy(self.policy)
+        self.assertEqual(summary["gateCount"], len(self.policy["gates"]))
+        for gate_id in gates.REQUIRED_GATE_IDS:
+            self.assertIn(gate_id, summary["gateIds"])
+        for category in gates.REQUIRED_CATEGORIES:
+            self.assertIn(category, summary["categories"])
+        for classification in gates.REQUIRED_NOSHIP_CLASSIFICATIONS:
+            self.assertIn(classification, summary["noShipClassifications"])
+
+    def test_every_gate_is_noship(self) -> None:
+        for gate in self.policy["gates"]:
+            self.assertTrue(
+                gate.get("noShip") is True,
+                msg=f"gate {gate['id']} must be noShip=true",
+            )
+
+    def test_missing_required_gate_is_rejected(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["gates"] = [
+            g for g in broken["gates"] if g["id"] != "killswitch-core-crash"
+        ]
+        with self.assertRaisesRegex(ValueError, "missing required gates"):
+            gates.validate_policy(broken)
+
+    def test_non_noship_gate_is_rejected(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["gates"][0]["noShip"] = False
+        with self.assertRaisesRegex(ValueError, "not marked noShip"):
+            gates.validate_policy(broken)
+
+    def test_unknown_category_is_rejected(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["gates"][0]["category"] = "totally-unknown"
+        with self.assertRaisesRegex(ValueError, "unknown category"):
+            gates.validate_policy(broken)
+
+    def test_bad_failure_classification_is_rejected(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["gates"][0]["failureClassification"] = "cosmetic"
+        with self.assertRaisesRegex(ValueError, "failureClassification"):
+            gates.validate_policy(broken)
+
+    def test_wrong_version_is_rejected(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["version"] = "dns_ipv6_killswitch_release_gates_v0"
+        with self.assertRaisesRegex(ValueError, "unexpected policy version"):
+            gates.validate_policy(broken)
+
+    def test_noship_policy_missing_classification_is_rejected(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["noShipPolicy"]["failureClassifications"] = ["dns-leak"]
+        with self.assertRaisesRegex(ValueError, "noShipPolicy"):
+            gates.validate_policy(broken)
+
+    def test_results_all_pass(self) -> None:
+        gates.validate_policy(self.policy)
+        results = {g["id"]: "PASS" for g in self.policy["gates"]}
+        evaluation = gates.evaluate_results(self.policy, {"gateResults": results})
+        self.assertEqual(evaluation["violations"], [])
+        self.assertEqual(evaluation["evaluated"], len(self.policy["gates"]))
+
+    def test_results_fail_on_noship_gate_is_violation(self) -> None:
+        gates.validate_policy(self.policy)
+        results = {g["id"]: "PASS" for g in self.policy["gates"]}
+        results["dns-virtual-vpn-resolver"] = "FAIL"
+        evaluation = gates.evaluate_results(self.policy, {"gateResults": results})
+        self.assertEqual(len(evaluation["violations"]), 1)
+        self.assertIn("dns-virtual-vpn-resolver", evaluation["violations"][0])
+
+    def test_results_warn_on_noship_gate_is_violation(self) -> None:
+        gates.validate_policy(self.policy)
+        results = {g["id"]: "PASS" for g in self.policy["gates"]}
+        results["killswitch-forced-disconnect"] = "WARN"
+        evaluation = gates.evaluate_results(self.policy, {"gateResults": results})
+        self.assertEqual(len(evaluation["violations"]), 1)
+        self.assertIn("killswitch-forced-disconnect", evaluation["violations"][0])
+
+    def test_results_missing_gate_is_violation(self) -> None:
+        gates.validate_policy(self.policy)
+        results = {g["id"]: "PASS" for g in self.policy["gates"]}
+        del results["ipv4only-no-direct-ipv6"]
+        evaluation = gates.evaluate_results(self.policy, {"gateResults": results})
+        self.assertEqual(len(evaluation["violations"]), 1)
+        self.assertIn("missing result", evaluation["violations"][0])
+
+    def test_results_na_is_allowed(self) -> None:
+        gates.validate_policy(self.policy)
+        results = {g["id"]: "PASS" for g in self.policy["gates"]}
+        results["killswitch-android-always-on-block"] = "N/A"
+        evaluation = gates.evaluate_results(self.policy, {"gateResults": results})
+        self.assertEqual(evaluation["violations"], [])
+
+    def test_main_validates_repo_policy(self) -> None:
+        self.assertEqual(gates.main([]), 0)
+
+    def test_main_report_mode(self) -> None:
+        self.assertEqual(gates.main(["--report"]), 0)
+
+
+if __name__ == "__main__":
+    unittest.main()

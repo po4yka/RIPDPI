@@ -1,7 +1,7 @@
 ---
 title: Add amneziawg URI codec for profile share and import
 type: task
-status: backlog
+status: done
 area: outbound
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Add amneziawg URI codec for profile share and import #repo/RIPDPI #area/outbound #status/backlog 🔼
+- [x] #task Add amneziawg URI codec for profile share and import #repo/RIPDPI #area/outbound #status/done 🔼
 
 ## Goal contract
 
@@ -85,3 +85,40 @@ amneziawg://<base64url(private-key)>@<host>:<port>
 - [[Epic - AmneziaWG outbound support]]
 - [[Add share-sheet handler for proxy URI schemes]]
 - [[Add QR scanner screen with CameraX and ML Kit]]
+
+## Work log
+
+**2026-05-14 — core/data URI codec implemented (TDD; app/ share-sheet, QR,
+clipboard wiring out of this agent's scope).**
+
+Scope note: the issue scope is `core/data/runtime-state/**` + `app/**`. This pass
+delivers the codec + model + format doc (the `core/data` testable core). The
+AndroidManifest share-sheet filter, QR-scanner dispatch, clipboard-import menu
+recognition, and the profile-detail "Share" action are `app/`-layer and are
+deferred to a follow-up.
+
+Files created:
+- `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/wireguard/AmneziaWgProfile.kt`
+  — flattened single-peer shareable AWG profile model (`@Serializable`); reuses
+  the existing `AmneziaWgParameters` obfuscation field set.
+- `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/uri/AmneziaWgUriCodec.kt`
+  — `encode(profile) -> String` and `decode(uri) -> AmneziaWgProfile?`. Layout:
+  `amneziawg://<private-key>@<host>:<port>?public_key=...&...#<name>`, Hysteria2
+  URI shape. Key material is percent-encoded so the URI is always structurally
+  valid; round-trips losslessly. `decode` never throws — bad scheme / broken URI
+  / missing mandatory field → `null`; a malformed *optional* numeric param is
+  dropped.
+- `docs/amneziawg-uri-scheme.md` — format documentation with rationale (no
+  upstream analog), full layout table, example, and the robustness contract.
+
+Test file created (written before implementation, red-then-green):
+- `core/data/src/test/kotlin/com/poyka/ripdpi/data/AmneziaWgUriCodecTest.kt` — 8
+  tests (full-field round-trip, minimal-profile round-trip, no-fragment fallback,
+  non-amneziawg scheme → null, broken URI → null, missing public_key → null,
+  malformed numeric param dropped not thrown).
+
+Verify: `./gradlew :core:data:testDebugUnitTest` — `AmneziaWgUriCodecTest` 8/8
+pass (JUnit XML: `tests="8" failures="0" errors="0"`).
+
+Residual risk: the `amneziawg://` scheme is RIPDPI-local; interoperability with
+other clients is not a goal. `ktlint --format` was applied to the new files.

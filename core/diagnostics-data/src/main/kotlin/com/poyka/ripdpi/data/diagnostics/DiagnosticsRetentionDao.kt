@@ -3,6 +3,8 @@ package com.poyka.ripdpi.data.diagnostics
 import androidx.room.Dao
 import androidx.room.Query
 
+// A Room DAO with one retention-delete function per table is cohesive; splitting it would be artificial.
+@Suppress("TooManyFunctions")
 @Dao
 interface DiagnosticsRetentionDao {
     @Query("DELETE FROM network_snapshots WHERE capturedAt < :threshold")

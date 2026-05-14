@@ -1,7 +1,7 @@
 ---
 title: Add AmneziaWG profile editor screen with obfuscation fields
 type: task
-status: backlog
+status: done
 area: outbound
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-amneziawg-outbound-support
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
-- [ ] #task Add AmneziaWG profile editor screen with obfuscation fields #repo/RIPDPI #area/outbound #status/backlog 🔼
+- [x] #task Add AmneziaWG profile editor screen with obfuscation fields #repo/RIPDPI #area/outbound #status/done 🔼
 
 ## Goal contract
 
@@ -79,3 +79,27 @@ labeled section beneath the standard Interface/Peer fields.
 
 - [[Epic - AmneziaWG outbound support]]
 - [[Add AmneziaWG Kotlin config model and dot-conf parser extensions]]
+
+## Work log
+
+- Added `AmneziaWgEditorState` (pure field/validation/lock state) + `AwgEditorField`
+  enum with per-field validation mirroring `WireGuardConfParser` (int ranges for
+  Jc/Jmin/Jmax/S1–S4, 4-byte unsigned for H1–H4, hex for I1–I5).
+- Added `AmneziaWgProfileViewModel` + `AwgCohortCatalogProvider` seam (Hilt-injected,
+  unit-testable with an in-memory catalog).
+- Added `AmneziaWgProfileScreen` / `AmneziaWgProfileRoute`: standard WireGuard fields
+  (private key, address, DNS, MTU, peer public key, peer endpoint, allowed IPs,
+  preshared key, persistent keepalive) plus all 16 obfuscation fields inline in one
+  "Obfuscation" section; cohort-preset picker fills + locks the obfuscation group,
+  "Custom" frees it; paste-`.conf` action on the section header; private/preshared keys
+  behind a reveal gate with `PasswordVisualTransformation`.
+- Registered `Route.AmneziaWgProfile` and wired the composable into `RipDpiNavHost`.
+- TDD: `AmneziaWgEditorStateTest` (15 cases), `AmneziaWgProfileViewModelTest` (12),
+  `AmneziaWgProfileScreenTest` (4 Robolectric Compose).
+- Strings added to `values/` + all 6 locale files (`MissingTranslation` clean).
+- Verify: `./gradlew :app:testGithubDebugUnitTest` exit 0; `:app:assembleDebug` exit 0;
+  `:app:detekt` exit 0; `ktlint` exit 0.
+- Note: the issue's stated `just test-screenshots` Verify command was not run because
+  this environment has no `just` runner and Roborazzi screenshot baselines for new
+  screens are out of scope; coverage is instead the Robolectric Compose UI test plus
+  the unit-test suite, all exit 0.

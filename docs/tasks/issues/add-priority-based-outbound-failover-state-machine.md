@@ -1,7 +1,7 @@
 ---
 title: Add priority-based outbound failover state machine
 type: task
-status: backlog
+status: done
 area: vpn
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-14
 ---
 
-- [ ] #task Add priority-based outbound failover state machine #repo/RIPDPI #area/vpn #status/backlog ⏫
+- [x] #task Add priority-based outbound failover state machine #repo/RIPDPI #area/vpn #status/done ⏫
 
 ## Goal contract
 
@@ -58,3 +58,33 @@ This is different from subscription group selection. It is the runtime outbound 
 - [[Epic - Fail-closed Android VPN policy engine]]
 - [[Epic - Xray VPN client mode]]
 - [[Add selector outbound runtime for group-based profile switching]]
+
+## Work log
+
+- 2026-05-14: Implemented the failover state machine as a new
+  `outbound_failover` module in `ripdpi-runtime-strategy` (the crate the
+  Verify command pins). Chosen over `ripdpi-runtime-policy` because the
+  feature is a runtime *strategy* decision -- which outbound role carries
+  traffic given current network + health signals -- a sibling concern to
+  `strategy_evolver`; it is self-contained and pulls nothing from
+  `ripdpi-runtime-policy`.
+- `OutboundFailover` models the five required states: `ConnectedPrimary`,
+  `TryHttpsFallback`, `TryHysteria2`, `WhitelistModeHint`,
+  `BlockedReconnecting`. Auto mode walks `OutboundRole` in strict priority
+  order (Primary REALITY -> HTTPS fallback -> Hysteria2).
+- Hysteria2 is gated behind `UdpViability`: it becomes an auto candidate
+  only when UDP/443 is *confirmed* `Viable`. `Unknown` UDP with both
+  higher roles down yields `WhitelistModeHint` (actionable for the user);
+  confirmed `Blocked` UDP yields a hard `BlockedReconnecting`. UDP turning
+  `Blocked` while Hysteria2 is active re-evaluates immediately.
+- Manual selector override (`set_manual_override` / `clear_manual_override`)
+  pins a role and suspends auto transitions; clearing restarts the
+  priority walk from the primary. Health is still recorded under override.
+- Non-interruption invariant: routine `HealthProbe` triggers only advance
+  state when the *active* role crosses the failure threshold; probing a
+  non-active role is record-only. Only an explicit `EmergencyFailover`
+  trigger may move off a still-healthy role. URL-test EWMA latency scoring
+  and a `min_probe_spacing` gate (`probe_allowed`) keep health checks from
+  forming a recognizable high-frequency pattern.
+- Verify: `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-runtime-strategy`
+  -> exit 0, 107 tests passed (26 new `outbound_failover` tests), 0 warnings.

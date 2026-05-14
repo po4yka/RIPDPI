@@ -10,6 +10,7 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
@@ -17,7 +18,9 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NetworkCheck
+import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.ReportProblem
 import androidx.compose.material.icons.outlined.Search
@@ -74,4 +77,7 @@ object RipDpiIcons {
     val Timer: ImageVector = Icons.Outlined.Timer
     val Videocam: ImageVector = Icons.Outlined.Videocam
     val Visibility: ImageVector = Icons.Outlined.Visibility
+    val QrCodeScanner: ImageVector = Icons.Outlined.QrCodeScanner
+    val PhotoCamera: ImageVector = Icons.Outlined.PhotoCamera
+    val Image: ImageVector = Icons.Outlined.Image
 }

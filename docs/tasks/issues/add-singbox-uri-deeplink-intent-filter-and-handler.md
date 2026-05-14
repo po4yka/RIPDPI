@@ -1,7 +1,7 @@
 ---
 title: Add sing-box URI deep-link Intent filter and handler
 type: task
-status: backlog
+status: done
 area: android
 priority: critical
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-14
 updated: 2026-05-14
 ---
 
-- [ ] #task Add sing-box URI deep-link Intent filter and handler #repo/RIPDPI #area/android #status/backlog 🔺
+- [x] #task Add sing-box URI deep-link Intent filter and handler #repo/RIPDPI #area/android #status/done 🔺
 
 ## Goal contract
 

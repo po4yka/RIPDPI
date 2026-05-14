@@ -4,12 +4,14 @@ import android.content.Context
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.ApplicationScope
+import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.services.CdnEchRefreshWorker
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.services.SharedPriorsRefreshWorker
 import com.poyka.ripdpi.strategy.StrategyPackService
+import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -28,6 +30,7 @@ class AppStartupInitializer
         private val strategyPackService: StrategyPackService,
         private val dnsPathPreferenceInvalidator: DnsPathPreferenceInvalidator,
         private val cdnEchSeedFromCache: CdnEchSeedFromCache,
+        private val proxyGroupRepository: ProxyGroupRepository,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
@@ -71,6 +74,10 @@ class AppStartupInitializer
                 runSubsystem(AppStartupSubsystem.CdnEchRefreshWorkerEnqueue) {
                     CdnEchRefreshWorker.enqueuePeriodic(context)
                 }
+            val subscriptionWorkerEnqueue =
+                runSubsystem(AppStartupSubsystem.SubscriptionAutoUpdateWorkerEnqueue) {
+                    SubscriptionAutoUpdateWorker.enqueuePeriodic(context, proxyGroupRepository.list())
+                }
             return AppStartupReport(
                 compatibilityReset = compatibilityReset,
                 strategyPackInitialization = strategyPackInitialization,
@@ -79,6 +86,7 @@ class AppStartupInitializer
                 sharedPriorsWorkerEnqueue = sharedPriorsWorkerEnqueue,
                 cdnEchSeed = cdnEchSeed,
                 cdnEchWorkerEnqueue = cdnEchWorkerEnqueue,
+                subscriptionWorkerEnqueue = subscriptionWorkerEnqueue,
             )
         }
 
@@ -114,6 +122,7 @@ internal data class AppStartupReport(
     val sharedPriorsWorkerEnqueue: AppStartupSubsystemResult,
     val cdnEchSeed: AppStartupSubsystemResult,
     val cdnEchWorkerEnqueue: AppStartupSubsystemResult,
+    val subscriptionWorkerEnqueue: AppStartupSubsystemResult,
 ) {
     fun toLogMessage(): String =
         "App startup report: " +
@@ -125,6 +134,7 @@ internal data class AppStartupReport(
                 sharedPriorsWorkerEnqueue,
                 cdnEchSeed,
                 cdnEchWorkerEnqueue,
+                subscriptionWorkerEnqueue,
             ).joinToString(separator = ", ") { result ->
                 buildString {
                     append(result.subsystem.logLabel)
@@ -155,6 +165,7 @@ internal enum class AppStartupSubsystem(
     SharedPriorsRefreshWorkerEnqueue("shared_priors_refresh_worker_enqueue"),
     CdnEchSeedFromCache("cdn_ech_seed_from_cache"),
     CdnEchRefreshWorkerEnqueue("cdn_ech_refresh_worker_enqueue"),
+    SubscriptionAutoUpdateWorkerEnqueue("subscription_auto_update_worker_enqueue"),
 }
 
 internal enum class AppStartupSubsystemStatus {

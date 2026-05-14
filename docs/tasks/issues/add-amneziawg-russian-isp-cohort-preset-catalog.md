@@ -1,7 +1,7 @@
 ---
 title: Add AmneziaWG Russian ISP cohort preset catalog
 type: task
-status: backlog
+status: done
 area: data
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-14
 updated: 2026-05-14
 ---
 
-- [ ] #task Add AmneziaWG Russian ISP cohort preset catalog #repo/RIPDPI #area/data #status/backlog ⏫
+- [x] #task Add AmneziaWG Russian ISP cohort preset catalog #repo/RIPDPI #area/data #status/done ⏫
 
 ## Goal contract
 
@@ -188,3 +188,60 @@ Implement strictly test-first per the epic TDD policy.
 - [[Add AmneziaWG Kotlin config model and dot-conf parser extensions]]
 - [[Add strategy-pack compatibility hints for AmneziaWG servers]]
 - [[Add ripdpi-vpn-deploy fleet compatibility golden-file tests]]
+
+## Work log
+
+- 2026-05-14 — Implemented test-first (data-layer portion).
+- **Catalog source date:** values mirror
+  `ripdpi-vpn-deploy/docs/AWG-COHORTS.md` as of 2026-05-14 — RTK South
+  `Jc=4,Jmin=10,Jmax=50,S1=0,S2=0,H1..H4=1,2,3,4`; mobile + home-ISP +
+  default share the broad-rule baseline `Jc=4,Jmin=40,Jmax=70,S1=50,S2=100`
+  with `randomizeHeaders: true`. (The deployer's
+  `ansible/roles/amneziawg/vars/cohorts/` dir does not exist yet, so
+  `AWG-COHORTS.md` is the only canonical source.)
+- **Files created:**
+  - `core/data/runtime-state/src/main/assets/awg-cohorts.json` — 6 presets
+    (`default`, `rtk_south`, `mts`, `beeline`, `megafon`, `home_isp_broad`),
+    each with `id`, `displayNameKey`, `descriptionKey` (string-resource keys,
+    no literal localized text) and the full obfuscation field set. Randomized
+    cohorts ship concrete representative H values plus `randomizeHeaders:true`.
+  - `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/awg/AwgCohortCatalog.kt`
+    — `AwgCohortPreset` model, `decodeAwgCohortCatalog(json)` (degrades to an
+    empty catalog on malformed JSON — no crash), `applyCohortPreset(form,
+    preset)` (rewrites only obfuscation fields + `cohortId`, preserves
+    server/port/keys), `matchCohortForConf(conf, catalog)` (byte-match an
+    imported `.conf`'s AWG params to a preset id, else `"Custom"`, folded
+    onto the existing `WireGuardConfParser` path), `AwgCohortCatalog`
+    (`@Singleton` runtime loader reading the Android asset, with a documented
+    future-remote-refresh hook), and `AwgCohortCatalog.strictValidate(json)`
+    (fails on a missing field or unknown key — the validator logic).
+  - `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/awg/AwgProfileForm.kt`
+    — `AwgProfileForm` split into identity vs obfuscation field groups.
+  - `core/data/src/test/resources/awg-cohorts.json` — test-classpath copy of
+    the asset (Android `src/main/assets` is not on the JVM test classpath).
+  - `core/data/src/test/kotlin/com/poyka/ripdpi/data/AwgCohortCatalogLoadTest.kt`
+    (11), `AwgCohortPresetApplyTest.kt` (3), `AwgCohortMatchOnImportTest.kt`
+    (6) — 20 tests total: six presets load + validate, malformed JSON → empty
+    catalog, per-cohort numeric values, strict-validate rejects unknown key /
+    missing field, apply rewrites only obfuscation fields, byte-match →
+    preset tag / one byte off → Custom.
+- **Red-then-green:** the test files reference `decodeAwgCohortCatalog`,
+  `AwgCohortCatalog.strictValidate`, `applyCohortPreset`, `matchCohortForConf`,
+  `AwgProfileForm` — all unresolved before implementation (compile-RED). After
+  adding the asset + loader + apply + match + strict-validate logic, all 20
+  green on first full run.
+- **Verify (orchestrator-pinned):** `./gradlew :core:data:testDebugUnitTest`
+  — `BUILD SUCCESSFUL`, exit code 0.
+- **Scope note / deferred (out of this agent's orchestrator scope — `app/**`
+  and Gradle build files):** the `validateAwgCohortCatalog` *Gradle task*
+  was not wired (build files out of scope) — its validation **logic** ships
+  as `AwgCohortCatalog.strictValidate` and is exercised by unit tests; the
+  AWG profile-editor UI picker, the instrumented `AwgCohortPickerUiTest`, and
+  the 7-locale `strings.xml` keys (`awg_cohort_*_name` / `*_desc`) are
+  follow-on. The asset references the resource keys so the editor task can
+  land them.
+- **Residual risk:** cohort drift — RU ISPs retune classifiers and the
+  deployer re-tunes cohorts; the asset is hot-updatable by design but the
+  remote-refresh hook is only documented, not implemented. The shipped H
+  values for randomized cohorts are representative placeholders, not
+  per-peer randomised.

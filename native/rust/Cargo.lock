@@ -3580,7 +3580,7 @@ dependencies = [
  "rustls",
  "socket2",
  "tokio",
- "tungstenite",
+ "tungstenite 0.29.0",
  "webpki-roots",
 ]
 
@@ -3646,6 +3646,7 @@ dependencies = [
  "http",
  "quinn",
  "rand 0.10.1",
+ "rcgen",
  "rustls",
  "socket2",
  "thiserror 2.0.18",
@@ -3692,11 +3693,11 @@ dependencies = [
  "quinn",
  "reqwest",
  "ring",
+ "ripdpi-hysteria2",
  "ripdpi-tls-profiles",
  "rustls",
  "serde",
  "serde_json",
- "socket2",
  "thiserror 2.0.18",
  "tokio",
  "tokio-boring",
@@ -3922,6 +3923,8 @@ dependencies = [
 name = "ripdpi-relay-mux"
 version = "0.1.0"
 dependencies = [
+ "rand 0.10.1",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -4315,6 +4318,7 @@ dependencies = [
  "foreign-types-shared",
  "hex",
  "ring",
+ "ripdpi-relay-mux",
  "ripdpi-tls-profiles",
  "thiserror 2.0.18",
  "tokio",
@@ -4388,12 +4392,16 @@ dependencies = [
  "bytes",
  "cipher 0.5.1",
  "ctr",
+ "futures",
  "nix 0.31.3",
  "rcgen",
  "ripdpi-tls-profiles",
  "socket2",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-tungstenite",
  "tracing",
- "tungstenite",
+ "tungstenite 0.29.0",
 ]
 
 [[package]]
@@ -5119,6 +5127,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-tungstenite"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "489a59b6730eda1b0171fcfda8b121f4bee2b35cba8645ca35c5f7ba3eb736c1"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite 0.27.0",
+]
+
+[[package]]
 name = "tokio-util"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5323,6 +5343,23 @@ dependencies = [
 
 [[package]]
 name = "tungstenite"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eadc29d668c91fcc564941132e17b28a7ceb2f3ebf0b9dae3e03fd7a6748eb0d"
+dependencies = [
+ "bytes",
+ "data-encoding",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.9.3",
+ "sha1",
+ "thiserror 2.0.18",
+ "utf-8",
+]
+
+[[package]]
+name = "tungstenite"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c01152af293afb9c7c2a57e4b559c5620b421f6d133261c60dd2d0cdb38e6b8"
@@ -5409,6 +5446,12 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
+
+[[package]]
+name = "utf-8"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 
 [[package]]
 name = "utf8_iter"

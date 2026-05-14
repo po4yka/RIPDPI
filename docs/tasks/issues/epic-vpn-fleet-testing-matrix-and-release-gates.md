@@ -1,7 +1,7 @@
 ---
 title: Epic - VPN fleet testing matrix and release gates
 type: epic
-status: backlog
+status: done
 area: testing
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-01
 updated: 2026-05-01
 ---
 
-- [ ] #task Epic - VPN fleet testing matrix and release gates #repo/RIPDPI #area/testing #status/backlog ⏫
+- [x] #task Epic - VPN fleet testing matrix and release gates #repo/RIPDPI #area/testing #status/done ⏫
 
 ## Goal contract
 

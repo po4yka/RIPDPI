@@ -89,11 +89,10 @@ impl WarpRuntime {
             .map_err(to_io_error)?,
         );
 
-        // AmneziaWG junk packets are sent before the first WireGuard handshake
-        // to defeat protocol fingerprinting.
-        if self.config.amnezia.enabled {
-            tunnel.send_amnezia_junk(&self.config.amnezia).await;
-        }
+        // AmneziaWG handshake prelude (special-junk frames + Jc junk packets)
+        // is sent before the first WireGuard handshake to defeat protocol
+        // fingerprinting. A no-op when AWG obfuscation is disabled.
+        tunnel.send_amnezia_junk().await;
         let bus = Bus::new();
         let mut tasks = Vec::<JoinHandle<()>>::new();
         let tcp_pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp));

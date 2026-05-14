@@ -23,7 +23,6 @@ import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.Socket
-import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import javax.net.SocketFactory
@@ -231,7 +230,10 @@ class DetectionResolverNetworkStack(
                     headers = response.headers.toMultimap(),
                 )
             }
-        } catch (e: Throwable) {
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Throwable,
+        ) {
+            // Resolver fallthrough: any OkHttp failure should be retried via the native curl bridge.
             okHttpError = e
             if (!config.useNativeCurlFallback || !nativeCurlBridge.canExecute()) {
                 throw e
@@ -240,7 +242,10 @@ class DetectionResolverNetworkStack(
 
         return try {
             nativeCurlBridge.execute(request, config)
-        } catch (nativeError: Throwable) {
+        } catch (
+            @Suppress("TooGenericExceptionCaught") nativeError: Throwable,
+        ) {
+            // Resolver fallthrough: combine both transport failures into one diagnostic exception.
             throw CombinedTransportIOException(okHttpError, nativeError)
         }
     }
@@ -361,8 +366,8 @@ internal object DnsWireCodec {
         val output = ByteArrayOutputStream()
         DataOutputStream(output).use { stream ->
             stream.writeShort(transactionId)
-            stream.writeShort(0x0100)
-            stream.writeShort(1)
+            stream.writeShort(DNS_FLAGS_RECURSION_DESIRED)
+            stream.writeShort(DNS_SINGLE_QUESTION_COUNT)
             stream.writeShort(0)
             stream.writeShort(0)
             stream.writeShort(0)
@@ -378,22 +383,24 @@ internal object DnsWireCodec {
         return output.toByteArray()
     }
 
+    // Multiple validation throws are idiomatic for a wire-format parser.
+    @Suppress("ThrowsCount")
     fun parseResponse(
         bytes: ByteArray,
         transactionId: Int,
         recordType: DnsRecordType,
     ): List<InetAddress> {
         if (bytes.size < DNS_HEADER_SIZE) throw IOException("DNS response too short")
-        val responseId = readUnsignedShort(bytes, 0)
+        val responseId = readUnsignedShort(bytes, DNS_ID_OFFSET)
         if (responseId != transactionId) throw IOException("Unexpected DNS response id")
 
-        val flags = readUnsignedShort(bytes, 2)
-        val rcode = flags and 0x000F
-        if (rcode == 3) throw UnknownHostException("NXDOMAIN")
-        if (rcode != 0) throw IOException("DNS server error $rcode")
+        val flags = readUnsignedShort(bytes, DNS_FLAGS_OFFSET)
+        val rcode = flags and DNS_RCODE_MASK
+        if (rcode == DNS_RCODE_NXDOMAIN) throw UnknownHostException("NXDOMAIN")
+        if (rcode != DNS_RCODE_NO_ERROR) throw IOException("DNS server error $rcode")
 
-        val questionCount = readUnsignedShort(bytes, 4)
-        val answerCount = readUnsignedShort(bytes, 6)
+        val questionCount = readUnsignedShort(bytes, DNS_QDCOUNT_OFFSET)
+        val answerCount = readUnsignedShort(bytes, DNS_ANCOUNT_OFFSET)
         var offset = DNS_HEADER_SIZE
 
         repeat(questionCount) {
@@ -406,8 +413,8 @@ internal object DnsWireCodec {
             offset = skipName(bytes, offset)
             if (offset + DNS_ANSWER_HEADER_SIZE > bytes.size) throw IOException("Malformed DNS answer")
             val answerType = readUnsignedShort(bytes, offset)
-            val answerClass = readUnsignedShort(bytes, offset + 2)
-            val rdLength = readUnsignedShort(bytes, offset + 8)
+            val answerClass = readUnsignedShort(bytes, offset + DNS_ANSWER_CLASS_OFFSET)
+            val rdLength = readUnsignedShort(bytes, offset + DNS_ANSWER_RDLENGTH_OFFSET)
             offset += DNS_ANSWER_HEADER_SIZE
             if (offset + rdLength > bytes.size) throw IOException("Malformed DNS payload")
 
@@ -458,11 +465,11 @@ internal object DnsWireCodec {
     ): Int {
         var offset = startOffset
         while (offset < bytes.size) {
-            val length = bytes[offset].toInt() and 0xFF
+            val length = bytes[offset].toInt() and BYTE_MASK
             if (length == 0) return offset + 1
-            if ((length and 0xC0) == 0xC0) {
+            if ((length and DNS_COMPRESSION_POINTER_MASK) == DNS_COMPRESSION_POINTER_MASK) {
                 if (offset + 1 >= bytes.size) throw IOException("Malformed compression pointer")
-                return offset + 2
+                return offset + DNS_COMPRESSION_POINTER_SIZE
             }
             offset += 1 + length
         }
@@ -472,7 +479,9 @@ internal object DnsWireCodec {
     private fun readUnsignedShort(
         bytes: ByteArray,
         offset: Int,
-    ): Int = ((bytes[offset].toInt() and 0xFF) shl 8) or (bytes[offset + 1].toInt() and 0xFF)
+    ): Int =
+        ((bytes[offset].toInt() and BYTE_MASK) shl BYTE_SHIFT) or
+            (bytes[offset + 1].toInt() and BYTE_MASK)
 
     private const val DNS_HEADER_SIZE = 12
     private const val DNS_QUESTION_TRAILER_SIZE = 4
@@ -480,6 +489,22 @@ internal object DnsWireCodec {
     private const val DNS_CLASS_IN = 1
     private const val IPV4_LENGTH = 4
     private const val IPV6_LENGTH = 16
+
+    private const val DNS_ID_OFFSET = 0
+    private const val DNS_FLAGS_OFFSET = 2
+    private const val DNS_QDCOUNT_OFFSET = 4
+    private const val DNS_ANCOUNT_OFFSET = 6
+    private const val DNS_ANSWER_CLASS_OFFSET = 2
+    private const val DNS_ANSWER_RDLENGTH_OFFSET = 8
+    private const val DNS_FLAGS_RECURSION_DESIRED = 0x0100
+    private const val DNS_SINGLE_QUESTION_COUNT = 1
+    private const val DNS_RCODE_MASK = 0x000F
+    private const val DNS_RCODE_NO_ERROR = 0
+    private const val DNS_RCODE_NXDOMAIN = 3
+    private const val DNS_COMPRESSION_POINTER_MASK = 0xC0
+    private const val DNS_COMPRESSION_POINTER_SIZE = 2
+    private const val BYTE_MASK = 0xFF
+    private const val BYTE_SHIFT = 8
 }
 
 internal class DirectDns(
@@ -504,22 +529,39 @@ internal class DirectDns(
         val resolved = linkedMapOf<String, InetAddress>()
         var lastFailure: Exception? = null
         recordTypes().forEach { recordType ->
-            for (server in serverAddresses) {
-                try {
-                    val addresses = query(server, hostname, recordType)
-                    addresses.forEach { address ->
-                        resolved[address.hostAddress ?: return@forEach] = address
-                    }
-                    if (addresses.isNotEmpty()) {
-                        break
-                    }
-                } catch (e: Exception) {
-                    lastFailure = e
-                }
-            }
+            lastFailure = queryAllServers(hostname, recordType, resolved) ?: lastFailure
         }
         if (resolved.isNotEmpty()) return resolved.values.toList()
         throw UnknownHostException(lastFailure?.message ?: "Failed to resolve $hostname")
+    }
+
+    /**
+     * Queries each configured server for [recordType], adding any answers to [resolved].
+     * Returns the last failure encountered, or null if every server query succeeded.
+     */
+    private fun queryAllServers(
+        hostname: String,
+        recordType: DnsRecordType,
+        resolved: MutableMap<String, InetAddress>,
+    ): Exception? {
+        var lastFailure: Exception? = null
+        for (server in serverAddresses) {
+            try {
+                val addresses = query(server, hostname, recordType)
+                addresses.forEach { address ->
+                    resolved[address.hostAddress ?: return@forEach] = address
+                }
+                if (addresses.isNotEmpty()) {
+                    break
+                }
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                // Resolver fallthrough: any failure for this server means try the next one.
+                lastFailure = e
+            }
+        }
+        return lastFailure
     }
 
     private fun recordTypes(): List<DnsRecordType> =
@@ -534,7 +576,7 @@ internal class DirectDns(
         hostname: String,
         recordType: DnsRecordType,
     ): List<InetAddress> {
-        val transactionId = (System.nanoTime().toInt() and 0xFFFF)
+        val transactionId = (System.nanoTime().toInt() and TRANSACTION_ID_MASK)
         val payload = DnsWireCodec.buildQuery(hostname, recordType, transactionId)
         DatagramSocket().use { socket ->
             ResolverSocketBinder.bind(socket, binding)
@@ -544,17 +586,14 @@ internal class DirectDns(
             val responseBuffer = ByteArray(DNS_RESPONSE_BUFFER_SIZE)
             val responsePacket = DatagramPacket(responseBuffer, responseBuffer.size)
             while (true) {
-                try {
-                    socket.receive(responsePacket)
-                    if (responsePacket.address == server && responsePacket.port == port) {
-                        return DnsWireCodec.parseResponse(
-                            bytes = responsePacket.data.copyOf(responsePacket.length),
-                            transactionId = transactionId,
-                            recordType = recordType,
-                        )
-                    }
-                } catch (e: SocketTimeoutException) {
-                    throw e
+                // A SocketTimeoutException from receive() propagates to the caller unchanged.
+                socket.receive(responsePacket)
+                if (responsePacket.address == server && responsePacket.port == port) {
+                    return DnsWireCodec.parseResponse(
+                        bytes = responsePacket.data.copyOf(responsePacket.length),
+                        transactionId = transactionId,
+                        recordType = recordType,
+                    )
                 }
             }
         }
@@ -562,6 +601,7 @@ internal class DirectDns(
 
     private companion object {
         const val DNS_RESPONSE_BUFFER_SIZE = 1500
+        const val TRANSACTION_ID_MASK = 0xFFFF
     }
 }
 

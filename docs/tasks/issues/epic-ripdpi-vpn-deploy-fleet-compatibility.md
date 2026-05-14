@@ -1,7 +1,7 @@
 ---
 title: Epic - ripdpi-vpn-deploy fleet compatibility
 type: epic
-status: backlog
+status: done
 area: epic
 priority: critical
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-14
 updated: 2026-05-14
 ---
 
-- [ ] #task Epic - ripdpi-vpn-deploy fleet compatibility #repo/RIPDPI #area/epic #status/backlog 🔺
+- [x] #task Epic - ripdpi-vpn-deploy fleet compatibility #repo/RIPDPI #area/epic #status/done 🔺
 
 ## Goal contract
 

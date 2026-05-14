@@ -1,7 +1,7 @@
 ---
 title: Add ProxyGroup and Subscription entities to RIPDPI data layer
 type: task
-status: backlog
+status: done
 area: outbound
 priority: critical
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-nekobox-subscription-and-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
-- [ ] #task Add ProxyGroup and Subscription entities to RIPDPI data layer #repo/RIPDPI #area/outbound #status/backlog 🔺
+- [x] #task Add ProxyGroup and Subscription entities to RIPDPI data layer #repo/RIPDPI #area/outbound #status/done 🔺
 
 ## Goal contract
 

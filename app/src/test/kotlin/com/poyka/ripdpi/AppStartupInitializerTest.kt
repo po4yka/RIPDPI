@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.CdnEchPersistedCache
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PersistedEchEntry
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
@@ -60,6 +62,7 @@ class AppStartupInitializerTest {
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.sharedPriorsWorkerEnqueue.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchSeed.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchWorkerEnqueue.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.subscriptionWorkerEnqueue.status)
             assertEquals(1, compatibilityResetter.calls)
             assertEquals(1, strategyPackService.initializeCalls)
             assertEquals(1, diagnosticsBootstrapper.calls)
@@ -68,7 +71,8 @@ class AppStartupInitializerTest {
                     "strategy_pack_initialization=succeeded, diagnostics_bootstrap=succeeded, " +
                     "dns_path_invalidator_registration=succeeded, " +
                     "shared_priors_refresh_worker_enqueue=succeeded, " +
-                    "cdn_ech_seed_from_cache=succeeded, cdn_ech_refresh_worker_enqueue=succeeded",
+                    "cdn_ech_seed_from_cache=succeeded, cdn_ech_refresh_worker_enqueue=succeeded, " +
+                    "subscription_auto_update_worker_enqueue=succeeded",
                 report.toLogMessage(),
             )
         }
@@ -311,8 +315,21 @@ class AppStartupInitializerTest {
             strategyPackService = strategyPackService,
             dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
             cdnEchSeedFromCache = CdnEchSeedFromCache(EmptyCdnEchPersistedCache),
+            proxyGroupRepository = EmptyProxyGroupRepository,
             applicationScope = scope,
         )
+}
+
+private object EmptyProxyGroupRepository : ProxyGroupRepository {
+    override suspend fun add(group: ProxyGroup) = Unit
+
+    override suspend fun update(group: ProxyGroup) = Unit
+
+    override suspend fun delete(id: String) = Unit
+
+    override suspend fun list(): List<ProxyGroup> = emptyList()
+
+    override fun groups(): kotlinx.coroutines.flow.Flow<List<ProxyGroup>> = kotlinx.coroutines.flow.flowOf(emptyList())
 }
 
 private object EmptyCdnEchPersistedCache : CdnEchPersistedCache {

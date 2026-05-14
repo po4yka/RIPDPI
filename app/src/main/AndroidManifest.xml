@@ -9,10 +9,14 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.software.leanback"
         android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen"
-        android:required="false" />    
+        android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any"
+        android:required="false" />
+
 
     <application
         android:name=".RipDpiApp"
@@ -55,6 +59,46 @@
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
+        </activity>
+
+        <!--
+            Import trampoline for inbound proxy share links and subscription deep links.
+            Single-profile proxy URI schemes (vless/vmess/trojan/ss/hysteria/hysteria2/
+            tuic/anytls/ssh) are claimed at the default filter priority. The
+            singbox/ripdpi/sn import-remote-profile deep-link filter sits at a negative
+            priority so sing-box-for-Android stays the user's default subscription
+            handler when installed; RIPDPI is still offered in the chooser. https:// is
+            deliberately never claimed so browser ordering for web links is untouched.
+        -->
+        <activity
+            android:name=".proxyimport.ImportHandlerActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="vless" />
+                <data android:scheme="vmess" />
+                <data android:scheme="trojan" />
+                <data android:scheme="ss" />
+                <data android:scheme="hysteria" />
+                <data android:scheme="hysteria2" />
+                <data android:scheme="tuic" />
+                <data android:scheme="anytls" />
+                <data android:scheme="ssh" />
+            </intent-filter>
+            <intent-filter android:priority="-100">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="singbox" android:host="import-remote-profile" />
+                <data android:scheme="ripdpi" android:host="import-remote-profile" />
+                <data android:scheme="sn" android:host="import-remote-profile" />
+            </intent-filter>
         </activity>
 
         <activity-alias
@@ -257,6 +301,21 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/diagnostics_archive_paths" />
+        </provider>
+
+        <!--
+            FileProvider for the "share profile QR image" flow. Distinct authority from the
+            diagnostics provider so the share-image grant is scoped to the profile-share
+            cache directory only.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.profile.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/profile_share_paths" />
         </provider>
 
         <!--

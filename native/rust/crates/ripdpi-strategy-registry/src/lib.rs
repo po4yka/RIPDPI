@@ -5,6 +5,10 @@ extern crate ripdpi_strategy_ipv6 as _;
 extern crate ripdpi_strategy_udp as _;
 extern crate ripdpi_strategy_window as _;
 
+pub mod fixed_config;
+
+pub use fixed_config::{CandidateArm, CandidateArmViolation, FixedConfigProtocols, FIXED_CONFIG_PROTOCOL_AMNEZIAWG};
+
 use ripdpi_desync::AdaptivePlannerHints;
 use ripdpi_strategy_config::{LoadedStrategyConfig, OnFail as ConfigOnFail, StepType, StrategyStep};
 use ripdpi_strategy_trait::{
@@ -189,6 +193,20 @@ impl StrategyRegistry {
     /// Returns descriptors contributed through link-time registration.
     pub fn linked_descriptors() -> impl Iterator<Item = StrategyDescriptor> {
         STRATEGY_DESCRIPTOR_REGISTRATIONS.iter().map(|registration| (registration.describe)())
+    }
+
+    /// Validates a candidate arm against the default fixed-config protocol hints.
+    ///
+    /// Rejects arms that would mutate a fixed-config protocol's params (e.g. an
+    /// AmneziaWG profile's obfuscation params), which would break its handshake.
+    pub fn validate_candidate_arm(&self, arm: &CandidateArm) -> Result<(), CandidateArmViolation> {
+        FixedConfigProtocols::default().validate_candidate_arm(arm)
+    }
+
+    /// Filters candidate arms through the default fixed-config protocol hints,
+    /// dropping any arm that mutates a fixed-config protocol's params.
+    pub fn filter_candidate_arms(&self, arms: &[CandidateArm]) -> Vec<CandidateArm> {
+        FixedConfigProtocols::default().filter_candidate_arms(arms)
     }
 }
 

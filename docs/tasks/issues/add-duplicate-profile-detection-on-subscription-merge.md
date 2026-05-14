@@ -1,7 +1,7 @@
 ---
 title: Add duplicate-profile detection on subscription merge
 type: task
-status: backlog
+status: done
 area: outbound
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Add duplicate-profile detection on subscription merge #repo/RIPDPI #area/outbound #status/backlog ⏫
+- [x] #task Add duplicate-profile detection on subscription merge #repo/RIPDPI #area/outbound #status/done ⏫
 
 ## Goal contract
 

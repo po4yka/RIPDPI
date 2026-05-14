@@ -1,8 +1,11 @@
 pub mod addons;
 pub mod config;
+pub mod mux;
 pub mod reality;
 pub mod vision;
 pub mod wire;
+
+pub use mux::{MuxConfigError, VlessMuxConfig, VlessMuxProtocol};
 
 use std::io;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};

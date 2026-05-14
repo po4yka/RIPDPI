@@ -1,0 +1,7 @@
+{
+  "scenario": "multi-cohort-p0-p1-p2a",
+  "description": "Three transports (REALITY, xHTTP, Hysteria2) on one host, selector + urltest",
+  "deployer_git_sha": "0000000000000000000000000000000000000000-fixture",
+  "generated_at": "2026-05-14T00:00:00Z",
+  "frozen_secret_set": "all UUIDs/keys/passwords are fixed -fixture test values, never production tokens"
+}

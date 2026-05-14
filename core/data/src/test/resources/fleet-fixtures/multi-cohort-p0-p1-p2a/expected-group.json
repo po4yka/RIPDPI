@@ -1,0 +1,6 @@
+{
+  "name": "select",
+  "isSelector": "true",
+  "memberOrder": "p0-reality-upcloud-prod,p1-xhttp-upcloud-prod,p2-hysteria2-upcloud-prod",
+  "default": "auto"
+}

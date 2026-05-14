@@ -1,7 +1,7 @@
 ---
 title: Wire AmneziaWG into the subscription WireGuard-INI parser
 type: task
-status: backlog
+status: done
 area: outbound
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-amneziawg-outbound-support
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
-- [ ] #task Wire AmneziaWG into the subscription WireGuard-INI parser #repo/RIPDPI #area/outbound #status/backlog 🔼
+- [x] #task Wire AmneziaWG into the subscription WireGuard-INI parser #repo/RIPDPI #area/outbound #status/done 🔼
 
 ## Goal contract
 
@@ -74,3 +74,27 @@ No new subscription format is added.
 
 
 ## boot-autostart-and-session
+
+## Work log
+
+- 2026-05-14 — Extended `WireGuardIniSubscriptionParser` to route an
+  AWG-flavored `[Interface]` block to a new `AmneziaWgSubscriptionProfile`
+  type. Detection reuses the existing `WireGuardConfParser`, which already
+  returns `AmneziaWgConfig` vs `WireGuardConfig` by AWG-key presence — the
+  subscription parser now consumes that distinction per `[Peer]`.
+  `WireGuardIniSubscriptionResult` gained an `amneziaWgProfiles` list so
+  callers see the routing without a cast. Added an explicit interface-block
+  pre-validation so a malformed interface-scope AWG key fails the whole
+  subscription with one typed warning (interface keys are shared by every
+  peer) rather than degrading per-peer. The per-peer loop was extracted into
+  a `SubscriptionAccumulator` to keep `parse` within the method-length limit.
+- New test: `core/data/src/test/kotlin/com/poyka/ripdpi/data/WireGuardIniSubscriptionAmneziaWgTest.kt`
+  (AWG INI, vanilla INI, multi-peer AWG, partial AWG fields, malformed AWG
+  field, mixed payload). TDD: tests written first, confirmed RED, then GREEN.
+- Verify: `./gradlew :core:data:testDebugUnitTest` — BUILD SUCCESSFUL (exit 0).
+  `:core:data:runtime-state:detekt` is pre-existing RED at HEAD (35 weighted
+  violations across 8 files this task did not touch); the only changed file,
+  `WireGuardIniSubscriptionParser.kt`, adds zero new detekt violations
+  (`@Suppress("ReturnCount")` carries the pre-existing `parse` return-count
+  finding; `LongMethod` resolved by the extraction). `ktlint` clean on the
+  changed file.

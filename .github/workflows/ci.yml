@@ -133,6 +133,32 @@ jobs:
             build/reports/file-loc-limits/
           retention-days: 7
 
+  # Enforces the machine-readable release-gate policies under quality/release-gates/:
+  #   - DNS-leak / IPv6-leak / kill-switch no-ship gates for fleet profiles and
+  #     Android client releases.
+  #   - Fleet release-gating + cadence policy (daily/weekly/release cadences,
+  #     staging/production/client-release gate sets, no-ship + warn-only policy).
+  # Each check validates its policy artifact is well-formed and complete, and the
+  # paired unit tests exercise the policy + result-evaluation logic. Wiring the
+  # checks here makes a malformed or incomplete release-gate policy a CI failure.
+  release-gates:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run DNS/IPv6/kill-switch release-gate unit tests
+        run: python3 -m unittest scripts.tests.test_dns_ipv6_killswitch_gates
+
+      - name: Run DNS/IPv6/kill-switch release-gate policy check
+        run: python3 scripts/ci/check_dns_ipv6_killswitch_gates.py
+
+      - name: Run fleet release-gating + cadence unit tests
+        run: python3 -m unittest scripts.tests.test_fleet_release_gates
+
+      - name: Run fleet release-gating + cadence policy check
+        run: python3 scripts/ci/check_fleet_release_gates.py
+
   # Builds Rust native libraries + helper binaries for each ABI × profile combination.
   # debug profile: standard dev build used by the debug APK.
   # release profile (android-jni): optimised build used by release-verification.

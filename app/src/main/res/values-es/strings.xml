@@ -2442,4 +2442,95 @@ Origen: %2$s</string>
     <string name="update_error_installer_unavailable">Android installer is unavailable</string>
     <string name="update_error_not_available">no checked update is available</string>
     <string name="update_error_unknown">unexpected error</string>
+
+    <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
+    <string name="import_error_unsupported">Enlace de importación no compatible.</string>
+    <string name="import_error_missing_url">Al enlace de importación le falta la URL de suscripción.</string>
+    <string name="import_error_bad_encoding">El enlace de importación está mal formado.</string>
+    <string name="import_profile_confirm_title">Importar perfil</string>
+    <string name="import_profile_confirm_empty_title">Nada que importar</string>
+    <string name="import_profile_confirm_empty_body">Este enlace no contiene un perfil de proxy utilizable.</string>
+    <string name="import_confirm_add_action">Añadir</string>
+    <string name="import_confirm_done_action">Añadido</string>
+    <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
+    <string name="import_profile_summary_raw">Configuración importada</string>
+    <string name="import_subscription_confirm_title">Añadir suscripción</string>
+    <string name="import_subscription_bootstrap_title">Enlace de arranque de un solo uso</string>
+    <string name="import_subscription_bootstrap_body">Este es un token de arranque de un solo uso. Puede usarse una vez para obtener tu suscripción.</string>
+    <string name="import_subscription_unnamed">Suscripción sin nombre</string>
+    <string name="scanner_title">Escanear código QR</string>
+    <string name="scanner_permission_rationale_title">Acceso a la cámara</string>
+    <string name="scanner_permission_rationale_body">RIPDPI usa la cámara solo para leer un código QR de proxy. No se graba ni se sube nada.</string>
+    <string name="scanner_scanning_title">Apunta a un código QR</string>
+    <string name="scanner_scanning_body">Mantén el código dentro del marco para importar el perfil.</string>
+    <string name="scanner_permission_denied_title">Cámara no disponible</string>
+    <string name="scanner_permission_denied_body">Se denegó el acceso a la cámara. Aún puedes importar un código QR desde una imagen guardada.</string>
+    <string name="scanner_invalid_qr_title">Código QR no reconocido</string>
+    <string name="scanner_invalid_qr_body">Este código QR no es un enlace de proxy compatible (empieza por: %1$s).</string>
+    <string name="scanner_pick_image_action">Importar desde imagen</string>
+
+    <!-- Clipboard import -->
+    <string name="import_clipboard_action">Importar desde el portapapeles</string>
+    <string name="import_clipboard_unknown_title">El portapapeles no es un enlace de proxy</string>
+    <string name="import_clipboard_unknown_with_scheme">El portapapeles contiene un enlace \"%1$s\", que no es un enlace de proxy compatible.</string>
+    <string name="import_clipboard_unknown_no_scheme">El portapapeles no contiene un enlace de proxy compatible.</string>
+    <string name="import_clipboard_empty_title">El portapapeles está vacío</string>
+    <string name="import_clipboard_empty_body">Copia primero un enlace de proxy y vuelve a intentar la importación.</string>
+    <string name="import_clipboard_clear_after_title">Borrar el portapapeles tras la importación</string>
+    <string name="import_clipboard_clear_after_body">Eliminar el enlace copiado del portapapeles una vez importado.</string>
+
+    <!-- Profile share: QR + URI -->
+    <string name="profile_share_action">Compartir perfil</string>
+    <string name="profile_share_title">Compartir perfil</string>
+    <string name="profile_share_warning_title">Este código QR contiene secretos</string>
+    <string name="profile_share_warning_body">El código QR y el enlace incluyen tus credenciales. Compártelos solo con alguien de confianza y por un canal de confianza.</string>
+    <string name="profile_share_warning_acknowledge">Entendido</string>
+    <string name="profile_share_warning_wait">Lee la advertencia…</string>
+    <string name="profile_share_uri_label">Enlace del perfil</string>
+    <string name="profile_share_copy_uri_action">Copiar enlace</string>
+    <string name="profile_share_share_image_action">Compartir imagen QR</string>
+    <string name="profile_share_unshareable_title">El perfil no se puede compartir</string>
+    <string name="profile_share_unshareable_body">Este perfil no tiene una forma de enlace para compartir.</string>
+    <string name="profile_share_qr_content_description">Código QR del perfil guardado</string>
+
+    <!-- AmneziaWG profile editor -->
+    <string name="awg_editor_title">Perfil de AmneziaWG</string>
+    <string name="awg_section_interface">Interfaz</string>
+    <string name="awg_section_peer">Par</string>
+    <string name="awg_section_obfuscation">Ofuscación</string>
+    <string name="awg_section_obfuscation_body">Valores coordinados con el servidor. Pégalos literalmente de tu proveedor o elige un preajuste de cohorte.</string>
+    <string name="awg_field_server">Servidor</string>
+    <string name="awg_field_server_port">Puerto del servidor</string>
+    <string name="awg_field_private_key">Clave privada</string>
+    <string name="awg_field_address">Dirección</string>
+    <string name="awg_field_dns">DNS</string>
+    <string name="awg_field_mtu">MTU</string>
+    <string name="awg_field_peer_public_key">Clave pública del par</string>
+    <string name="awg_field_peer_endpoint">Extremo del par</string>
+    <string name="awg_field_allowed_ips">IP permitidas</string>
+    <string name="awg_field_preshared_key">Clave precompartida</string>
+    <string name="awg_field_persistent_keepalive">Keepalive persistente</string>
+    <string name="awg_field_jc">Jc</string>
+    <string name="awg_field_jmin">Jmin</string>
+    <string name="awg_field_jmax">Jmax</string>
+    <string name="awg_field_s1">S1</string>
+    <string name="awg_field_s2">S2</string>
+    <string name="awg_field_s3">S3</string>
+    <string name="awg_field_s4">S4</string>
+    <string name="awg_field_h1">H1</string>
+    <string name="awg_field_h2">H2</string>
+    <string name="awg_field_h3">H3</string>
+    <string name="awg_field_h4">H4</string>
+    <string name="awg_field_i1">I1</string>
+    <string name="awg_field_i2">I2</string>
+    <string name="awg_field_i3">I3</string>
+    <string name="awg_field_i4">I4</string>
+    <string name="awg_field_i5">I5</string>
+    <string name="awg_field_invalid">No es un valor válido para este campo.</string>
+    <string name="awg_cohort_picker_label">Preajuste de cohorte</string>
+    <string name="awg_cohort_custom">Personalizado</string>
+    <string name="awg_cohort_locked_hint">Los campos de ofuscación los define la cohorte seleccionada. Elige \"Personalizado\" para editarlos.</string>
+    <string name="awg_paste_conf_action">Pegar .conf</string>
+    <string name="awg_reveal_secret_action">Mostrar</string>
+    <string name="awg_secret_hidden">Oculto: toca mostrar para verlo</string>
 </resources>
