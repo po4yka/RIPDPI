@@ -140,30 +140,29 @@ object WireGuardConfParser {
                             throw IllegalArgumentException("Unknown WireGuard section header: $line")
                         }
                     }
-                continue
-            }
+            } else {
+                val separator = line.indexOf('=')
+                require(separator >= 0) { "Malformed WireGuard config line (no '='): $line" }
+                val key = line.substring(0, separator).trim()
+                val value = line.substring(separator + 1).trim()
+                require(key.isNotEmpty()) { "Malformed WireGuard config line (empty key): $line" }
 
-            val separator = line.indexOf('=')
-            require(separator >= 0) { "Malformed WireGuard config line (no '='): $line" }
-            val key = line.substring(0, separator).trim()
-            val value = line.substring(separator + 1).trim()
-            require(key.isNotEmpty()) { "Malformed WireGuard config line (empty key): $line" }
+                when (section) {
+                    Section.INTERFACE -> {
+                        applyInterfaceKey(interfaceBuilder, key, value)
+                    }
 
-            when (section) {
-                Section.INTERFACE -> {
-                    applyInterfaceKey(interfaceBuilder, key, value)
-                }
+                    Section.PEER -> {
+                        applyPeerKey(
+                            requireNotNull(currentPeer) { "WireGuard [Peer] key '$key' before [Peer] header" },
+                            key,
+                            value,
+                        )
+                    }
 
-                Section.PEER -> {
-                    applyPeerKey(
-                        requireNotNull(currentPeer) { "WireGuard [Peer] key '$key' before [Peer] header" },
-                        key,
-                        value,
-                    )
-                }
-
-                Section.NONE -> {
-                    throw IllegalArgumentException("WireGuard config key '$key' before any section header")
+                    Section.NONE -> {
+                        throw IllegalArgumentException("WireGuard config key '$key' before any section header")
+                    }
                 }
             }
         }
@@ -180,6 +179,9 @@ object WireGuardConfParser {
         }
     }
 
+    // Flat dispatch over the fixed WireGuard + AmneziaWG interface key set; the branch
+    // count is inherent to the format, not accidental complexity.
+    @Suppress("CyclomaticComplexMethod")
     private fun applyInterfaceKey(
         builder: InterfaceBuilder,
         key: String,

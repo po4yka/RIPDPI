@@ -40,6 +40,7 @@ object ClashSubscriptionParser {
     private val yaml = Yaml.default
 
     /** True when [payload] carries a top-level `proxies:` key (the Clash marker). */
+    @Suppress("ReturnCount")
     fun looksLikeClash(payload: String): Boolean {
         val node = runCatching { yaml.parseToYamlNode(payload) }.getOrNull() ?: return false
         val map = node as? YamlMap ?: return false
@@ -52,6 +53,7 @@ object ClashSubscriptionParser {
      * malformed payload comes back as an empty result with a populated
      * [ClashSubscriptionResult.errors] list.
      */
+    @Suppress("ReturnCount")
     fun parse(
         payload: String,
         groupId: String,

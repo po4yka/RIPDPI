@@ -99,6 +99,9 @@ data class WireGuardIniSubscriptionResult(
  *   produce profiles.
  */
 object WireGuardIniSubscriptionParser {
+    /** Inclusive TCP/UDP port range; an Endpoint port outside it is rejected. */
+    private val portRange = 1..65_535
+
     /** Detection marker, mirroring NekoBox's `text.contains("[Interface]")`. */
     fun looksLikeWireGuardIni(payload: String): Boolean = payload.contains("[Interface]")
 
@@ -339,6 +342,7 @@ object WireGuardIniSubscriptionParser {
      * Supports bracketed IPv6 literals. Returns `null` when the endpoint is
      * absent or has no parseable `:port` suffix.
      */
+    @Suppress("ReturnCount")
     private fun splitEndpoint(endpoint: String?): Pair<String, Int>? {
         val value = endpoint?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         val sep = value.lastIndexOf(':')
@@ -349,7 +353,7 @@ object WireGuardIniSubscriptionParser {
                 .removePrefix("[")
                 .removeSuffix("]")
                 .takeIf { it.isNotBlank() } ?: return null
-        val port = value.substring(sep + 1).toIntOrNull()?.takeIf { it in 1..65_535 } ?: return null
+        val port = value.substring(sep + 1).toIntOrNull()?.takeIf { it in portRange } ?: return null
         return host to port
     }
 }

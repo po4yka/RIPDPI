@@ -356,6 +356,7 @@ class SharedPreferencesServerCapabilityStore
 
 private fun String.normalizeCapabilityAuthority(): String = trim().lowercase(Locale.US)
 
+@Suppress("ReturnCount")
 private fun mergeTransportPolicyEnvelope(
     existing: ServerCapabilityRecord?,
     observation: ServerCapabilityObservation,

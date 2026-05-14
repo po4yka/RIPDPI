@@ -13,7 +13,7 @@ import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 
 /** HTTP 410 Gone — the deployer's bootstrap service answers this for a spent token. */
-private const val HTTP_GONE = 410
+private const val HttpGone = 410
 
 /**
  * Outcome of a bootstrap one-time subscription consume attempt.
@@ -99,6 +99,7 @@ class BootstrapConsumer(
      * network call. Callers that race the *same* in-flight consumption all
      * observe the winner's live result. Never throws.
      */
+    @Suppress("ReturnCount")
     suspend fun consume(
         url: String,
         groupId: String,
@@ -176,7 +177,7 @@ class BootstrapConsumer(
             try {
                 httpClient.newCall(request).execute().use { response ->
                     when {
-                        response.code == HTTP_GONE -> {
+                        response.code == HttpGone -> {
                             BootstrapConsumeResult.AlreadyConsumed(clockMillis())
                         }
 
@@ -194,6 +195,7 @@ class BootstrapConsumer(
             }
         }
 
+    @Suppress("ReturnCount")
     private fun parseBody(
         body: String,
         groupId: String,

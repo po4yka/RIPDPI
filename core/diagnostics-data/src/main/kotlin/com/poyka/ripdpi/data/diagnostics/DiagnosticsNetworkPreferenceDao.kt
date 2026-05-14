@@ -5,6 +5,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
+// A Room DAO with one function per query is cohesive; splitting it would be artificial.
+@Suppress("TooManyFunctions")
 @Dao
 interface DiagnosticsNetworkPreferenceDao {
     @Query(

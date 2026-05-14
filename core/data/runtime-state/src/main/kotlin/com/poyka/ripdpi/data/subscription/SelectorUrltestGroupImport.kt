@@ -3,7 +3,6 @@ package com.poyka.ripdpi.data.subscription
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -72,16 +71,14 @@ sealed interface SelectorUrltestImportResult {
  * urltest with no selector is skipped.
  */
 object SelectorUrltestGroupImport {
-    private val json =
-        Json {
-            ignoreUnknownKeys = true
-            isLenient = true
-        }
+    private const val SECONDS_PER_MINUTE = 60
+    private const val SECONDS_PER_HOUR = 60 * 60
 
     /**
      * Imports [payload] into a [SelectorUrltestImportResult]. Concrete profiles
      * and the generated group are stamped with [groupId].
      */
+    @Suppress("ReturnCount")
     fun import(
         payload: String,
         groupId: String,
@@ -174,6 +171,7 @@ object SelectorUrltestGroupImport {
      * Parses a sing-box duration string (`"5m"`, `"30s"`, `"1h"`, or a bare
      * second count) into whole seconds. Unparseable input yields `0`.
      */
+    @Suppress("ReturnCount")
     private fun parseInterval(raw: String?): Int {
         val value = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return 0
         value.toIntOrNull()?.let { return it }
@@ -181,8 +179,8 @@ object SelectorUrltestGroupImport {
         val magnitude = value.dropLast(1).toIntOrNull() ?: return 0
         return when (unit) {
             's', 'S' -> magnitude
-            'm', 'M' -> magnitude * 60
-            'h', 'H' -> magnitude * 60 * 60
+            'm', 'M' -> magnitude * SECONDS_PER_MINUTE
+            'h', 'H' -> magnitude * SECONDS_PER_HOUR
             else -> 0
         }
     }

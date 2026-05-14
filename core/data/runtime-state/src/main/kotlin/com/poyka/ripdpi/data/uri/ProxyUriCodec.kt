@@ -22,8 +22,15 @@ import java.util.UUID
  * Ported from NekoBox's per-protocol `*Fmt.kt` `parseXxx(url)` functions; the
  * Kryo serialization round-trip is intentionally dropped — this codec goes
  * straight to the [ProxyProfile] sealed type.
+ *
+ * `TooManyFunctions` is suppressed: each `parseXxx` handles one share-link
+ * scheme, so the function count tracks the supported-scheme count by design.
  */
+@Suppress("TooManyFunctions")
 object ProxyUriCodec {
+    /** Base64 encodes 3 input bytes per 4 output chars, so encoded length is always a multiple of 4. */
+    private const val BASE64_GROUP_SIZE = 4
+
     private val json =
         Json {
             ignoreUnknownKeys = true
@@ -34,6 +41,7 @@ object ProxyUriCodec {
      * Parses [uri] into a [ProxyProfile], or returns `null` when the scheme is
      * unknown or the URI cannot be interpreted as a proxy node. Never throws.
      */
+    @Suppress("ReturnCount")
     fun parse(uri: String): ProxyProfile? {
         val trimmed = uri.trim()
         if (trimmed.isEmpty()) return null
@@ -53,6 +61,7 @@ object ProxyUriCodec {
         }.getOrNull()
     }
 
+    @Suppress("ReturnCount")
     private fun parseVless(uri: String): ProxyProfile? {
         val parsed = URI(uri)
         val uuid = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
@@ -68,6 +77,7 @@ object ProxyUriCodec {
         )
     }
 
+    @Suppress("ReturnCount")
     private fun parseVmess(uri: String): ProxyProfile? {
         // vmess://<base64 of a JSON object with v/ps/add/port/id/...>
         val body = uri.removePrefix("vmess://").trim()
@@ -87,6 +97,7 @@ object ProxyUriCodec {
         )
     }
 
+    @Suppress("ReturnCount")
     private fun parseShadowsocks(uri: String): ProxyProfile? {
         // SIP002: ss://base64(method:password)@host:port#tag
         //   or    ss://method:password@host:port#tag (plain userinfo)
@@ -122,6 +133,7 @@ object ProxyUriCodec {
         )
     }
 
+    @Suppress("ReturnCount")
     private fun parseTrojan(uri: String): ProxyProfile? {
         val parsed = URI(uri)
         val password = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
@@ -137,6 +149,7 @@ object ProxyUriCodec {
         )
     }
 
+    @Suppress("ReturnCount")
     private fun parseHysteria2(uri: String): ProxyProfile? {
         val parsed = URI(uri)
         val password = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
@@ -152,6 +165,7 @@ object ProxyUriCodec {
         )
     }
 
+    @Suppress("ReturnCount")
     private fun parseTuic(uri: String): ProxyProfile? {
         // TUIC has no first-class ProxyProfile subtype; round-trip as RawConfig
         // while still validating it is a structurally usable node URI.
@@ -167,6 +181,7 @@ object ProxyUriCodec {
         )
     }
 
+    @Suppress("ReturnCount")
     private fun splitHostPort(hostPort: String): Pair<String, Int>? {
         val sep = hostPort.lastIndexOf(':')
         if (sep <= 0) return null
@@ -183,6 +198,7 @@ object ProxyUriCodec {
         return decoded?.takeIf { it.isNotBlank() } ?: host
     }
 
+    @Suppress("ReturnCount")
     private fun decodeBase64(raw: String): String? {
         val cleaned = raw.trim().replace("\n", "").replace("\r", "")
         if (cleaned.isEmpty()) return null
@@ -201,8 +217,12 @@ object ProxyUriCodec {
 
     private fun padBase64(value: String): String {
         val normalized = value.replace('-', '+').replace('_', '/')
-        val remainder = normalized.length % 4
-        return if (remainder == 0) normalized else normalized + "=".repeat(4 - remainder)
+        val remainder = normalized.length % BASE64_GROUP_SIZE
+        return if (remainder == 0) {
+            normalized
+        } else {
+            normalized + "=".repeat(BASE64_GROUP_SIZE - remainder)
+        }
     }
 
     private fun newId(): String = UUID.randomUUID().toString()

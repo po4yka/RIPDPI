@@ -160,6 +160,7 @@ fun applyCohortPreset(
  * `"Custom"`. When several presets share the same numeric params (e.g.
  * `default` and `home_isp_broad`), the first matching catalog entry wins.
  */
+@Suppress("ReturnCount")
 fun matchCohortForConf(
     conf: String,
     catalog: AwgCohortCatalogData,
@@ -226,6 +227,7 @@ class AwgCohortCatalog
              * field or an unknown key. Unlike [decodeAwgCohortCatalog], it does
              * not silently degrade — strict validation is meant to fail loud.
              */
+            @Suppress("ReturnCount")
             fun strictValidate(json: String): List<String> {
                 val errors = mutableListOf<String>()
                 val root =

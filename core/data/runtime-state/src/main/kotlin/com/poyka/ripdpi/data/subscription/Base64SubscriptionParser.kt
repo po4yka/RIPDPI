@@ -32,6 +32,9 @@ data class Base64SubscriptionResult(
  * Unknown schemes produce a [SubscriptionLineWarning] rather than aborting.
  */
 object Base64SubscriptionParser {
+    /** Base64 encodes 3 input bytes per 4 output chars, so encoded length is always a multiple of 4. */
+    private const val BASE64_GROUP_SIZE = 4
+
     /**
      * Parses [payload] into a [Base64SubscriptionResult]. Every produced
      * [ProxyProfile] is stamped with [groupId]. Streaming, line-by-line; never
@@ -71,6 +74,7 @@ object Base64SubscriptionParser {
      * payload. Splits on `\r\n`, `\r`, and `\n` are handled downstream by
      * [lineSequence].
      */
+    @Suppress("ReturnCount")
     private fun decodeBase64OrPlain(payload: String): String {
         val condensed =
             payload
@@ -98,8 +102,12 @@ object Base64SubscriptionParser {
 
     private fun padBase64(value: String): String {
         val normalized = value.replace('-', '+').replace('_', '/')
-        val remainder = normalized.length % 4
-        return if (remainder == 0) normalized else normalized + "=".repeat(4 - remainder)
+        val remainder = normalized.length % BASE64_GROUP_SIZE
+        return if (remainder == 0) {
+            normalized
+        } else {
+            normalized + "=".repeat(BASE64_GROUP_SIZE - remainder)
+        }
     }
 
     private fun withGroupId(
