@@ -8,7 +8,9 @@ when a test needs launch-contract extras for a deterministic deep route.
 ## Prerequisites
 
 - Install a debug build of RIPDPI on an emulator or device.
-- Install the Maestro CLI.
+- Install the Maestro CLI. Repository runners accept `maestro` on `PATH`,
+  `MAESTRO_BIN=/path/to/maestro`, or the default `~/.maestro/bin/maestro`
+  install location.
 - Keep the package name at `com.poyka.ripdpi`.
 
 ## Run

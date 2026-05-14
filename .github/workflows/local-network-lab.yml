@@ -90,8 +90,10 @@ jobs:
       - name: Validate VPN E2E Maestro precondition
         run: |
           set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/no-maestro-home"
           set +e
-          PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+          HOME="$RUNNER_TEMP/no-maestro-home" \
+            PATH=/usr/bin:/bin:/usr/sbin:/sbin \
             ./test-lab/scripts/run-vpn-e2e.sh \
               --skip-start \
               --skip-install \

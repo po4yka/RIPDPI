@@ -51,6 +51,10 @@ Smoke flows live in [`maestro/`](../../maestro/README.md).
 maestro test maestro
 ```
 
+Repository runners also accept `MAESTRO_BIN=/path/to/maestro` and Maestro's
+default `~/.maestro/bin/maestro` install location, which is useful when the CLI
+installer did not modify the shell `PATH`.
+
 The committed Maestro pack starts from the installed app and navigates through
 visible controls by resource ID. Use `adb shell am start` or Appium when a row
 must assert a specific launch-contract route or preset.

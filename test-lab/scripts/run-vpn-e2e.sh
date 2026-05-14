@@ -10,6 +10,7 @@ skip_install=false
 skip_start=false
 keep_lab=false
 skip_maestro=false
+maestro_bin=""
 
 usage() {
   cat <<USAGE
@@ -87,6 +88,29 @@ lab_started=false
 failure=false
 archive_path=""
 
+resolve_maestro() {
+  if [[ -n "${MAESTRO_BIN:-}" ]]; then
+    if [[ -x "$MAESTRO_BIN" ]]; then
+      maestro_bin="$MAESTRO_BIN"
+      return 0
+    fi
+    echo "MAESTRO_BIN is set but is not executable: $MAESTRO_BIN" >&2
+    return 1
+  fi
+
+  if maestro_bin="$(command -v maestro 2>/dev/null)"; then
+    return 0
+  fi
+
+  local default_bin="$HOME/.maestro/bin/maestro"
+  if [[ -x "$default_bin" ]]; then
+    maestro_bin="$default_bin"
+    return 0
+  fi
+
+  return 1
+}
+
 seed_debug_automation_state() {
   adb shell am start \
     -n com.poyka.ripdpi/.activities.MainActivity \
@@ -123,7 +147,7 @@ cleanup() {
   fi
 
   if [[ "$maestro_ran" == "true" ]]; then
-    maestro test "$lab_root/maestro/disconnect-vpn.yaml" >/dev/null 2>&1 || true
+    "$maestro_bin" test "$lab_root/maestro/disconnect-vpn.yaml" >/dev/null 2>&1 || true
   fi
 
   if [[ "$lab_started" == "true" && "$keep_lab" != "true" ]]; then
@@ -146,13 +170,13 @@ if [[ "$skip_install" != "true" ]]; then
 fi
 
 if [[ "$skip_maestro" != "true" ]]; then
-  if command -v maestro >/dev/null 2>&1; then
+  if resolve_maestro; then
     seed_debug_automation_state
     maestro_ran=true
-    maestro test "$lab_root/maestro/connect-vpn.yaml"
+    "$maestro_bin" test "$lab_root/maestro/connect-vpn.yaml"
   else
     echo "maestro is not available; cannot drive the VPN connect flow." >&2
-    echo "Install Maestro or rerun with --skip-maestro only after manually connecting VPN mode." >&2
+    echo "Install Maestro, set MAESTRO_BIN, add it to PATH, or rerun with --skip-maestro only after manually connecting VPN mode." >&2
     exit 2
   fi
 fi
