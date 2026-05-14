@@ -9,11 +9,11 @@ from pages.advanced_settings_page import AdvancedSettingsPage
     data_preset="settings_ready",
     service_preset="idle",
 )
-def test_activation_hour_fields_visible(driver):
+def test_activation_round_fields_visible(driver):
     page = AdvancedSettingsPage(driver)
     assert page.is_loaded(), "Advanced Settings screen did not load"
 
-    dimension = "hour"
+    dimension = "round"
     if not page.is_activation_start_visible(dimension):
         pytest.skip(f"Activation {dimension} fields not visible in this build")
 
@@ -30,11 +30,11 @@ def test_activation_hour_fields_visible(driver):
     data_preset="settings_ready",
     service_preset="idle",
 )
-def test_activation_day_of_week_fields_visible(driver):
+def test_activation_payload_size_fields_visible(driver):
     page = AdvancedSettingsPage(driver)
     assert page.is_loaded(), "Advanced Settings screen did not load"
 
-    dimension = "day-of-week"
+    dimension = "payload-size"
     if not page.is_activation_start_visible(dimension):
         pytest.skip(f"Activation {dimension} fields not visible in this build")
 
@@ -55,11 +55,11 @@ def test_activation_edit_and_save(driver):
     page = AdvancedSettingsPage(driver)
     assert page.is_loaded(), "Advanced Settings screen did not load"
 
-    dimension = "hour"
+    dimension = "round"
     if not page.is_activation_start_visible(dimension):
         pytest.skip(f"Activation {dimension} fields not visible in this build")
 
-    page.edit_activation_start(dimension, "08")
+    page.edit_activation_start(dimension, "2")
     assert page.is_activation_start_visible(dimension), (
         f"Activation {dimension} from field should remain visible after edit"
     )

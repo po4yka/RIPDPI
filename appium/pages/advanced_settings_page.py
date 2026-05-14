@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
+
 from .base_page import BasePage
 
 
@@ -56,10 +58,18 @@ class AdvancedSettingsPage(BasePage):
 
     def tap_activation_save(self, dimension: str) -> None:
         tag = f"advanced-{dimension}-save"
-        self.tap(tag)
+        self.scroll_incrementally_to(tag).click()
 
     def is_activation_start_visible(self, dimension: str) -> bool:
-        return self.is_visible(f"advanced-{dimension}-from")
+        try:
+            self.scroll_incrementally_to(f"advanced-{dimension}-from")
+            return True
+        except (NoSuchElementException, TimeoutException, WebDriverException):
+            return False
 
     def is_activation_end_visible(self, dimension: str) -> bool:
-        return self.is_visible(f"advanced-{dimension}-to")
+        try:
+            self.scroll_incrementally_to(f"advanced-{dimension}-to")
+            return True
+        except (NoSuchElementException, TimeoutException, WebDriverException):
+            return False
