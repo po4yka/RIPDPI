@@ -123,6 +123,29 @@ adb shell am broadcast \
   --es mode vpn
 ```
 
+The wrapper exposes the same endpoint overrides, which is useful when the
+device is on cellular or behind a routed VM lab instead of the MacBook LAN:
+
+```bash
+./test-lab/scripts/adb-run-probe.sh \
+  --profile custom \
+  --mode diagnostics \
+  --host lab.example.test \
+  --dns-server lab.example.test \
+  --dns-port 1053 \
+  --dns-hostname ok.test \
+  --http-url http://lab.example.test:8080/get \
+  --https-url https://lab.example.test:8443/ \
+  --tcp-host lab.example.test \
+  --tcp-port 9000 \
+  --udp-host lab.example.test \
+  --udp-port 9001 \
+  --relay-endpoint lab.example.test:10080
+```
+
+Add `--print-broadcast` to inspect the resolved ADB command without touching a
+device or requiring a live lab.
+
 The probe currently validates DNS, HTTP, HTTPS, TCP echo, UDP echo, active VPN
 transport, and local proxy readiness. QUIC is represented in the JSON result as
 `QUIC_UNSUPPORTED_ANDROID_DEBUG_PROBE` until an Android-side HTTP/3 client is
