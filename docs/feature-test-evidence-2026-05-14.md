@@ -83,6 +83,7 @@ open checklist work.
 | Emulator root detection missed AOSP `su 0 id` behavior | `46c2b1fb fix(service): support emulator su detection` |
 | Diagnostics support archive redaction did not cover endpoint-like logcat fields | `d220cc47 fix(diagnostics): redact logcat archive endpoints` |
 | Release APK included `DebugProbesKt.bin` from coroutine debug probes | `ce7e4cc6 fix(build): exclude coroutine debug probe asset` |
+| Installed release app emitted WorkManager debug scheduler lines in the app-owned log scan | `bfa8cf0d fix(app): suppress release WorkManager debug logs` |
 
 ## Current Open Gaps
 
