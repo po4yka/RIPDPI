@@ -146,11 +146,10 @@ else
 fi
 
 ahead_count="$(git -C "$lab_root/.." rev-list --count origin/main..HEAD 2>/dev/null || printf 'unknown')"
-head_sha="$(git -C "$lab_root/.." rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
 if [[ "$ahead_count" == "0" ]]; then
-  add_check "remote_workflow_confirmation" "manual" "true" "Local HEAD $head_sha is not ahead of origin/main; inspect GitHub workflow status for the pushed commit."
+  add_check "remote_workflow_confirmation" "manual" "true" "Local branch is not ahead of origin/main; inspect GitHub workflow status for the pushed commit."
 else
-  add_check "remote_workflow_confirmation" "blocked" "true" "Local HEAD $head_sha is ahead of origin/main by $ahead_count commit(s); push or dispatch fresh workflows before sign-off."
+  add_check "remote_workflow_confirmation" "blocked" "true" "Local branch is ahead of origin/main; push or dispatch fresh workflows before sign-off."
 fi
 
 mkdir -p "$(dirname "$artifact_path")"
