@@ -1,7 +1,11 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -67,6 +71,40 @@ class AppSettingsJsonFeatureMapperTest {
         assertEquals("always", decoded.wsTunnelMode)
         assertTrue(decoded.onboardingComplete)
         assertEquals("raven", decoded.appIconVariant)
+    }
+
+    @Test
+    fun `host autolearn json exports knobs but excludes learned host store`() {
+        val imported =
+            appSettingsFromJson(
+                """
+                {
+                  "formatVersion": 1,
+                  "hostAutolearnEnabled": true,
+                  "hostAutolearnPenaltyTtlHours": 12,
+                  "hostAutolearnMaxHosts": 512,
+                  "hostAutolearnStorePath": "/data/user/0/example/no_backup/ripdpi/host-autolearn-v2.json",
+                  "learnedHosts": {
+                    "example.org": {
+                      "preferred_groups": [0]
+                    }
+                  }
+                }
+                """.trimIndent(),
+            )
+        val exported = imported.toJson()
+        val exportedRoot = Json.parseToJsonElement(exported).jsonObject
+
+        assertTrue(imported.hostAutolearnEnabled)
+        assertEquals(12, imported.hostAutolearnPenaltyTtlHours)
+        assertEquals(512, imported.hostAutolearnMaxHosts)
+        assertEquals("true", exportedRoot.getValue("hostAutolearnEnabled").jsonPrimitive.content)
+        assertEquals("12", exportedRoot.getValue("hostAutolearnPenaltyTtlHours").jsonPrimitive.content)
+        assertEquals("512", exportedRoot.getValue("hostAutolearnMaxHosts").jsonPrimitive.content)
+        assertFalse(exportedRoot.containsKey("hostAutolearnStorePath"))
+        assertFalse(exportedRoot.containsKey("learnedHosts"))
+        assertFalse(exported.contains("host-autolearn-v2.json"))
+        assertFalse(exported.contains("example.org"))
     }
 
     @Test
