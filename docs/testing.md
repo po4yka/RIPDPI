@@ -6,7 +6,10 @@ This document describes the current test stack for RIPDPI after the migration to
 
 Use the [feature test checklist](feature-test-checklist.md) as the canonical
 feature and combination inventory when selecting release, nightly, or manual QA
-coverage.
+coverage. The current checklist execution state is tracked in the
+[feature test evidence ledger](feature-test-evidence-2026-05-14.md), with the
+[completion audit](feature-test-completion-audit-2026-05-14.md) identifying the
+external lab rows that still block full sign-off.
 
 ### Kotlin/JVM tests
 
