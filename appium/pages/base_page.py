@@ -40,6 +40,19 @@ class BasePage:
                 continue
         return False
 
+    def _scroll_into_view_by_uiautomator(self, tag: str) -> WebElement | bool:
+        for resource_id in self._resource_ids(tag):
+            escaped_id = resource_id.replace('"', '\\"')
+            selector = (
+                'new UiScrollable(new UiSelector().scrollable(true))'
+                f'.scrollIntoView(new UiSelector().resourceId("{escaped_id}"))'
+            )
+            try:
+                return self.driver.find_element(AppiumBy.ANDROID_UIAUTOMATOR, selector)
+            except (NoSuchElementException, WebDriverException):
+                continue
+        return False
+
     def find(self, tag: str) -> WebElement:
         element = self._find_by_test_tag(tag)
         if element:
@@ -69,6 +82,19 @@ class BasePage:
             lambda _: self.driver.find_element(AppiumBy.XPATH, f'//*[@text="{text}"]'),
             message=f"Timed out waiting for text {text!r}",
         ).click()
+
+    def tap_percent(self, x_percent: float, y_percent: float) -> None:
+        size = self.driver.get_window_size()
+        x = int(size["width"] * x_percent)
+        y = int(size["height"] * y_percent)
+        try:
+            self.driver.tap([(x, y)], 120)
+        except (AttributeError, WebDriverException):
+            pass
+        self.driver.execute_script(
+            "mobile: clickGesture",
+            {"x": x, "y": y},
+        )
 
     def clear_and_type(self, tag: str, text: str, timeout: int = 10) -> None:
         el = self.wait_for(tag, timeout=timeout)
@@ -130,6 +156,9 @@ class BasePage:
 
     def scroll_to(self, tag: str, max_swipes: int = 5) -> WebElement:
         """Swipe down until the element is visible, then return it."""
+        element = self._scroll_into_view_by_uiautomator(tag)
+        if element:
+            return element
         for _ in range(max_swipes):
             if self.is_visible(tag, timeout=1):
                 return self.find(tag)
@@ -154,6 +183,9 @@ class BasePage:
 
     def scroll_down_to(self, tag: str, max_swipes: int = 10) -> WebElement:
         """Swipe down through long forms until the element is visible."""
+        element = self._scroll_into_view_by_uiautomator(tag)
+        if element:
+            return element
         for _ in range(max_swipes):
             if self.is_visible(tag, timeout=1):
                 return self.find(tag)
@@ -163,4 +195,20 @@ class BasePage:
             center_x = int(size["width"] * 0.5)
             self.driver.swipe(center_x, start_y, center_x, end_y, duration=350)
             time.sleep(0.3)
+        return self.wait_for(tag, timeout=5)
+
+    def scroll_incrementally_to(self, tag: str, max_swipes: int = 40) -> WebElement:
+        """Use short scroll steps so LazyColumn content is not skipped."""
+        element = self._scroll_into_view_by_uiautomator(tag)
+        if element:
+            return element
+        for _ in range(max_swipes):
+            if self.is_visible(tag, timeout=0.5):
+                return self.find(tag)
+            size = self.driver.get_window_size()
+            center_x = int(size["width"] * 0.5)
+            start_y = int(size["height"] * 0.66)
+            end_y = int(size["height"] * 0.50)
+            self.driver.swipe(center_x, start_y, center_x, end_y, duration=220)
+            time.sleep(0.15)
         return self.wait_for(tag, timeout=5)

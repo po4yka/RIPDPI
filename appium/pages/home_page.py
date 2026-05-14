@@ -20,7 +20,7 @@ class HomePage(BasePage):
     BACKGROUND_GUIDANCE_BANNER = "home-background-guidance-banner"
 
     def is_loaded(self) -> bool:
-        return self.is_visible(self.SCREEN)
+        return self.is_visible(self.SCREEN, timeout=10)
 
     def tap_connect(self) -> None:
         self.tap(self.CONNECTION_BUTTON)

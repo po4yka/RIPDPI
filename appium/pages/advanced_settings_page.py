@@ -29,7 +29,7 @@ class AdvancedSettingsPage(BasePage):
 
     def edit_input(self, setting_name: str, value: str) -> None:
         tag = f"advanced-input-{setting_name}"
-        el = self.scroll_to(tag, max_swipes=14)
+        el = self.scroll_incrementally_to(tag)
         el.clear()
         el.send_keys(value)
 
@@ -38,7 +38,7 @@ class AdvancedSettingsPage(BasePage):
 
     def tap_option(self, setting_name: str) -> None:
         tag = f"advanced-option-{setting_name}"
-        self.scroll_to(tag, max_swipes=14)
+        self.scroll_incrementally_to(tag)
         self.tap(tag)
 
     # -- activation window helpers -----------------------------------------------
