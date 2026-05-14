@@ -33,18 +33,20 @@ available in the current local lab.
 | Verify physical network matrix | Wi-Fi and private DNS VPN/proxy/diagnostics runs on Pixel 8 Pro; `adb-run-probe.sh` now exposes custom endpoint overrides for routed or public lab hosts; readiness preflight confirms Wi-Fi and cellular are visible but handover still needs a manual or external harness run | Partial | Cellular, Wi-Fi-to-cellular, cellular-to-Wi-Fi, IPv4-only, IPv6-only, captive, and limited-path runs |
 | Verify relay provider matrix | Mock relay tests and Rust relay interoperability passed for local fixture coverage; `check-relay-matrix-config.sh` validates the private matrix manifest shape and the checked-in example covers all required relay paths/scenarios; readiness preflight confirms no operator-provided provider matrix is configured in the current local environment | Partial | Provider-backed proxy, VPN, diagnostics, restart, invalid credential, reset, timeout, malformed response, DNS fallback, and handover runs for every production relay path |
 | Verify accessibility with TalkBack | Automated label audits and Appium selector coverage passed; readiness preflight confirms TalkBack is installed but is not the active accessibility service | Partial | Manual TalkBack pass for buttons, switches, tabs, progress, and error messages |
-| Verify routed VM packet-loss lab | Netem scripts passed inside a disposable Linux network namespace; readiness preflight confirms the current host is Darwin and not a routed Linux VM | Partial | Linux routed-VM run that carries Android or device traffic through the netem path |
+| Verify routed VM packet-loss lab | Netem scripts passed inside a disposable Linux network namespace; readiness preflight confirms the current host is Darwin and not a routed Linux VM; `test-lab/chaos/netem/README.md` now documents the routed Linux VM evidence run, VPN/diagnostics probes, QUIC-drop probe, cleanup, and required manual evidence fields | Partial | Linux routed-VM run that carries Android or device traffic through the netem path |
 | Verify remote release gates | Read-only GitHub Actions check on May 14, 2026 shows `origin/main` at `342a169a` has CI run `25875963396` completed with failure in `architecture-health`, `verify-roborazzi`, `rust-workspace-tests`, and `gradle-static-analysis`; CodeQL run `25875963413` passed for the same remote head. The local branch diverges from `origin/main` after `git fetch --prune origin`, so no remote workflow covers the local commits | Partial | Reconcile the branch, push or dispatch fresh workflows for the local commits, then confirm CI, CodeQL, offline analytics, and mutation workflow status |
 
 ## Current Local State
 
 - Branch: `main`; `origin/main` was merged locally, and the local branch is
-  now ahead of `origin/main` by 17 commits with no behind count.
+  ahead of `origin/main` with no behind count.
 - Working tree scope: this audit update reflects the latest native
   monitor-engine hotspot split, Roborazzi Logs golden refresh, Appium long-form
   scroll hardening, Appium launch-timeout retry, merged `origin/main`
   fleet-compat changes, task-board legal-framing cleanup, and the
-  `DetectionResolverNetworkStack.kt` architecture-health fix.
+  `DetectionResolverNetworkStack.kt` architecture-health fix. The routed
+  netem runbook now has exact operator steps, but the external Linux routed
+  VM evidence remains open.
 - Local post-commit checks: `git diff --check`, `cargo fmt --check`,
   `python3 scripts/ci/check_native_hotspot_budgets.py`,
   `python3 scripts/ci/check_architecture_health.py --check`,
@@ -68,7 +70,7 @@ available in the current local lab.
   device, TalkBack manual pass, routed Linux netem VM, production relay matrix,
   and remote workflow confirmation remain blocked; physical handover remains
   manual. The remote workflow item is blocked because local `HEAD`
-  is ahead of `origin/main` by 17 commits and no fresh workflow covers the
+  is ahead of `origin/main` and no fresh workflow covers the
   local commits.
 
 ## Stop Rules
