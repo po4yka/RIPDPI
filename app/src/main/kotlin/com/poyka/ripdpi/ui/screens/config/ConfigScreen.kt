@@ -52,12 +52,14 @@ fun ConfigRoute(
     modifier: Modifier = Modifier,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
     viewModel: ConfigViewModel = hiltViewModel(),
+    onProfileImport: (com.poyka.ripdpi.proxyimport.ProxyImportRequest.Profile) -> Unit = {},
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
 
     ConfigScreen(
         uiState = uiState,
         modifier = modifier,
+        topBarActions = { ConfigImportMenu(onProfileImport = onProfileImport) },
         onModeSelected = remember(viewModel) { viewModel::selectMode },
         onPresetSelected = { preset ->
             when (preset.kind) {
@@ -91,6 +93,7 @@ fun ConfigScreen(
     onOpenDnsSettings: () -> Unit,
     modifier: Modifier = Modifier,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
+    topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -108,6 +111,7 @@ fun ConfigScreen(
                 .background(colors.background),
         title = stringResource(R.string.config),
         contentWidth = RipDpiScaffoldWidth.Content,
+        actions = topBarActions,
     ) {
         if (uiState.draft.useCommandLineSettings) {
             WarningBanner(

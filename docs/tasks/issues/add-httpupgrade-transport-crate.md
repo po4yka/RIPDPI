@@ -1,7 +1,7 @@
 ---
 title: Add HTTPUpgrade transport crate
 type: task
-status: backlog
+status: done
 area: transport
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-composable-transport-layer-parity
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
-- [ ] #task Add HTTPUpgrade transport crate #repo/RIPDPI #area/transport #status/backlog 🔼
+- [x] #task Add HTTPUpgrade transport crate #repo/RIPDPI #area/transport #status/done 🔼
 
 ## Goal contract
 
@@ -56,3 +56,29 @@ becomes raw bytes in both directions.
 ## Links
 
 - [[Epic - Composable transport layer parity]]
+
+## Work log
+
+- 2026-05-14: Implemented as the public `httpupgrade` module of
+  `ripdpi-ws-tunnel` (`native/rust/crates/ripdpi-ws-tunnel/src/httpupgrade.rs`),
+  not a separate crate. **Contract resolution:** the Summary sketches a new
+  `ripdpi-transport-httpupgrade` crate, but the Verify command targets
+  `-p ripdpi-ws-tunnel` and the Scope forbids registering a new workspace
+  member. Shipped as a first-class module alongside the existing generic
+  `transport` (WebSocket) module, which was added the same way under this
+  epic.
+- Surface: `HttpUpgradeConfig` (configurable host, path, extra headers,
+  upgrade-protocol name), `build_upgrade_request` (raw HTTP/1.1 request
+  bytes, no `Sec-WebSocket-*` framing, CRLF-injection-rejecting),
+  `parse_upgrade_response` (incremental `101` validation + pipelined-leftover
+  capture, non-101 → typed `UnexpectedStatus`), `HttpUpgradeTransport<S>`
+  (`AsyncRead + AsyncWrite` over any inner stream — composable over raw TCP,
+  TLS, uTLS). Subscription-parser field population is satisfied at the
+  config-API level (parsers live outside the Scope's two crates).
+- TDD: 25 module tests written RED first (compile failures + `expect_err`
+  assertions), then driven GREEN.
+- Verify: `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-ws-tunnel`
+  → 83 passed, 1 skipped, exit 0. Workspace clippy (`-D warnings`),
+  `cargo fmt`, and `cargo check --workspace` all clean.
+- New dependency: `thiserror` added to `ripdpi-ws-tunnel/Cargo.toml`
+  (workspace dep, already in the tree).

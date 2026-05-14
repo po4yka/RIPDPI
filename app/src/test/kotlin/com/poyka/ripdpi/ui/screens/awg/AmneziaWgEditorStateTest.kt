@@ -1,0 +1,212 @@
+package com.poyka.ripdpi.ui.screens.awg
+
+import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
+import com.poyka.ripdpi.data.awg.AwgCohortPreset
+import com.poyka.ripdpi.data.awg.AwgProfileForm
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * Pure-logic tests for [AmneziaWgEditorState] and its field-validation helpers.
+ *
+ * The editor surfaces every AmneziaWG obfuscation field inline. Selecting a cohort preset
+ * fills and *locks* the obfuscation group; the "Custom" sentinel frees them again. The
+ * identity group (keys, server, port) is always editable and never touched by a preset.
+ */
+class AmneziaWgEditorStateTest {
+    private val rtkSouth =
+        AwgCohortPreset(
+            id = "rtk_south",
+            displayNameKey = "awg_cohort_rtk_south_name",
+            descriptionKey = "awg_cohort_rtk_south_desc",
+            jc = 4,
+            jmin = 40,
+            jmax = 70,
+            s1 = 50,
+            s2 = 100,
+            h1 = 1_000_000_001L,
+            h2 = 1_000_000_002L,
+            h3 = 1_000_000_003L,
+            h4 = 1_000_000_004L,
+            randomizeHeaders = false,
+        )
+    private val catalog = AwgCohortCatalogData(presets = listOf(rtkSouth))
+
+    @Test
+    fun `initial state is custom with an unlocked obfuscation group`() {
+        val state = AmneziaWgEditorState.initial()
+
+        assertEquals(AwgProfileForm.CUSTOM_COHORT_ID, state.form.cohortId)
+        assertFalse(state.obfuscationLocked)
+    }
+
+    @Test
+    fun `selecting a cohort preset fills and locks the obfuscation fields`() {
+        val state = AmneziaWgEditorState.initial().selectCohort(rtkSouth)
+
+        assertTrue(state.obfuscationLocked)
+        assertEquals("rtk_south", state.form.cohortId)
+        assertEquals(4, state.form.jc)
+        assertEquals(70, state.form.jmax)
+        assertEquals(1_000_000_001L, state.form.h1)
+    }
+
+    @Test
+    fun `selecting a preset preserves the identity group`() {
+        val withIdentity =
+            AmneziaWgEditorState
+                .initial()
+                .updateField(
+                    AwgEditorField.SERVER,
+                    "vpn.example.com",
+                ).updateField(AwgEditorField.SERVER_PORT, "51820")
+                .updateField(AwgEditorField.INTERFACE_PRIVATE_KEY, "privkey==")
+
+        val afterPreset = withIdentity.selectCohort(rtkSouth)
+
+        assertEquals("vpn.example.com", afterPreset.form.server)
+        assertEquals(51_820, afterPreset.form.serverPort)
+        assertEquals("privkey==", afterPreset.form.interfacePrivateKey)
+    }
+
+    @Test
+    fun `choosing custom frees the obfuscation fields again`() {
+        val locked = AmneziaWgEditorState.initial().selectCohort(rtkSouth)
+
+        val freed = locked.selectCustom()
+
+        assertFalse(freed.obfuscationLocked)
+        assertEquals(AwgProfileForm.CUSTOM_COHORT_ID, freed.form.cohortId)
+        // The numeric values stay (so the user can tweak from a known-good baseline).
+        assertEquals(4, freed.form.jc)
+    }
+
+    @Test
+    fun `editing an obfuscation field while locked is a no-op`() {
+        val locked = AmneziaWgEditorState.initial().selectCohort(rtkSouth)
+
+        val attempted = locked.updateField(AwgEditorField.JC, "999")
+
+        assertEquals(4, attempted.form.jc)
+    }
+
+    @Test
+    fun `editing an obfuscation field while unlocked applies`() {
+        val state = AmneziaWgEditorState.initial().updateField(AwgEditorField.JC, "7")
+
+        assertEquals(7, state.form.jc)
+    }
+
+    @Test
+    fun `jc field rejects a negative integer`() {
+        assertNull(AwgEditorField.JC.validate("-1"))
+        assertNull(AwgEditorField.JC.validate("not-a-number"))
+        assertEquals(3, AwgEditorField.JC.validate("3"))
+    }
+
+    @Test
+    fun `h-field rejects a value over the 4-byte unsigned ceiling`() {
+        assertNull(AwgEditorField.H1.validate("4294967296"))
+        assertNull(AwgEditorField.H1.validate("-1"))
+        assertEquals(4_294_967_295L, AwgEditorField.H1.validate("4294967295"))
+    }
+
+    @Test
+    fun `i-field accepts only hex strings`() {
+        assertNull(AwgEditorField.I1.validate("zzzz"))
+        assertNull(AwgEditorField.I1.validate(""))
+        assertEquals("deadbeef", AwgEditorField.I1.validate("DEADBEEF"))
+    }
+
+    @Test
+    fun `editing an i-field is reflected in the raw text map`() {
+        val state = AmneziaWgEditorState.initial().updateField(AwgEditorField.I1, "ab12")
+
+        assertEquals("ab12", state.rawText(AwgEditorField.I1))
+    }
+
+    @Test
+    fun `invalid raw text is retained but does not corrupt the form`() {
+        val state = AmneziaWgEditorState.initial().updateField(AwgEditorField.JMIN, "bad")
+
+        assertEquals("bad", state.rawText(AwgEditorField.JMIN))
+        assertEquals(0, state.form.jmin)
+        assertTrue(state.hasFieldError(AwgEditorField.JMIN))
+    }
+
+    @Test
+    fun `populateFromConf fills every field from a parsed awg config`() {
+        val conf =
+            """
+            [Interface]
+            PrivateKey = privkey==
+            Address = 10.0.0.2/32
+            Jc = 4
+            Jmin = 40
+            Jmax = 70
+            S1 = 50
+            S2 = 100
+            H1 = 1000000001
+            H2 = 1000000002
+            H3 = 1000000003
+            H4 = 1000000004
+            I1 = ab12
+
+            [Peer]
+            PublicKey = peerpub==
+            Endpoint = vpn.example.com:51820
+            """.trimIndent()
+
+        val state = AmneziaWgEditorState.initial().populateFromConf(conf, catalog)
+
+        assertEquals("privkey==", state.form.interfacePrivateKey)
+        assertEquals("peerpub==", state.form.peerPublicKey)
+        assertEquals("vpn.example.com", state.form.server)
+        assertEquals(51_820, state.form.serverPort)
+        assertEquals(4, state.form.jc)
+        assertEquals("ab12", state.rawText(AwgEditorField.I1))
+        // The conf's obfuscation params byte-match rtk_south, so the cohort is detected.
+        assertEquals("rtk_south", state.form.cohortId)
+        assertTrue(state.obfuscationLocked)
+    }
+
+    @Test
+    fun `populateFromConf with non-matching params lands on custom and stays unlocked`() {
+        val conf =
+            """
+            [Interface]
+            PrivateKey = privkey==
+            Jc = 9
+            Jmin = 1
+            Jmax = 2
+            S1 = 3
+            S2 = 4
+            H1 = 5
+            H2 = 6
+            H3 = 7
+            H4 = 8
+
+            [Peer]
+            PublicKey = peerpub==
+            Endpoint = host.example.com:443
+            """.trimIndent()
+
+        val state = AmneziaWgEditorState.initial().populateFromConf(conf, catalog)
+
+        assertEquals(AwgProfileForm.CUSTOM_COHORT_ID, state.form.cohortId)
+        assertFalse(state.obfuscationLocked)
+        assertEquals(9, state.form.jc)
+    }
+
+    @Test
+    fun `populateFromConf on malformed input leaves the state unchanged`() {
+        val before = AmneziaWgEditorState.initial().updateField(AwgEditorField.SERVER, "keep.me")
+
+        val after = before.populateFromConf("this is not a wg conf", catalog)
+
+        assertEquals("keep.me", after.form.server)
+    }
+}

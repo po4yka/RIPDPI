@@ -1,5 +1,6 @@
 mod connect;
 pub mod dc;
+pub mod httpupgrade;
 mod mtproto;
 mod protect;
 mod relay;
@@ -10,6 +11,10 @@ use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
 pub use dc::{dc_from_ip, is_telegram_ip, ws_host, ws_url, TelegramDc, TelegramDcClass};
+pub use httpupgrade::{
+    build_upgrade_request, parse_upgrade_response, HttpUpgradeConfig, HttpUpgradeError, HttpUpgradeTransport,
+    UpgradeResponse,
+};
 pub use mtproto::{classify_mtproto_seed, decrypt_init_packet, extract_dc_from_init, MtprotoSeedClassification};
 pub use transport::{build_ws_request, EarlyData, WsTransport, WsTransportConfig, WsTransportError};
 

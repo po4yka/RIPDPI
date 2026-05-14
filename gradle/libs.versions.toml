@@ -47,6 +47,7 @@ brotli = "0.1.2"
 zstd-jni = "1.5.7-8"
 camerax = "1.4.2"
 mlkit-barcode = "17.3.0"
+zxing-core = "3.5.3"
 
 [libraries]
 androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
@@ -122,6 +123,7 @@ androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.r
 androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
 mlkit-barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkit-barcode" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing-core" }
 
 [bundles]
 lifecycle-app = [

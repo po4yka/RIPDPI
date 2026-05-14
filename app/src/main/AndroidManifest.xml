@@ -304,6 +304,21 @@
         </provider>
 
         <!--
+            FileProvider for the "share profile QR image" flow. Distinct authority from the
+            diagnostics provider so the share-image grant is scoped to the profile-share
+            cache directory only.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.profile.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/profile_share_paths" />
+        </provider>
+
+        <!--
             WorkManager auto-initialization is disabled here so the Hilt-aware
             Configuration.Provider on RipDpiApp wires up the HiltWorkerFactory
             before any worker is instantiated. Without this override, the

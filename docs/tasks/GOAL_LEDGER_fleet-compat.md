@@ -34,18 +34,18 @@ row's Blocked-by satisfied. The `/goal` loop edits only Status and Proof.
 | 22 | P2 | `add-amneziawg-russian-isp-cohort-preset-catalog`<br>Add AmneziaWG Russian ISP cohort preset catalog | task | data | ⏫ | DONE | DONE — :core:data:testDebugUnitTest exit 0 (data layer + asset catalog) |
 | 23 | P2 | `add-bootstrap-one-time-subscription-token-import-flow`<br>Add bootstrap one-time subscription token import flow | task | data | ⏫ | DONE | DONE — :core:data + :app:testGithubDebugUnitTest + :app:assembleDebug exit 0 |
 | 24 | P2 | `add-ripdpi-vpn-deploy-fleet-compatibility-golden-file-tests`<br>Add ripdpi-vpn-deploy fleet compatibility golden-file tests | task | testing | ⏫ | DONE | DONE — :core:data:testDebugUnitTest exit 0 (golden-file harness + fixtures) |
-| 25 | P3 | `add-sing-box-route-rules-android-per-app-routing-import`<br>Add sing-box route.rules Android per-app routing import | task | routing | ⏫ | TODO | |
-| 26 | P3 | `add-amneziawg-profile-editor-screen-with-obfuscation-fields`<br>Add AmneziaWG profile editor screen with obfuscation fields | task | outbound | 🔼 | TODO | |
-| 27 | P3 | `add-amneziawg-uri-codec-for-profile-share-and-import`<br>Add amneziawg URI codec for profile share and import | task | outbound | 🔼 | TODO | |
-| 28 | P3 | `add-clipboard-import-menu-action-with-explicit-user-consent`<br>Add clipboard-import menu action with explicit user consent | task | ui | 🔼 | TODO | |
-| 29 | P3 | `add-force-resolve-dns-and-subscription-userinfo-handling`<br>Add force-resolve DNS and Subscription-Userinfo handling | task | outbound | 🔼 | TODO | |
-| 30 | P3 | `add-httpupgrade-transport-crate`<br>Add HTTPUpgrade transport crate | task | transport | 🔼 | TODO | |
-| 31 | P3 | `add-qr-generation-and-share-for-saved-profiles`<br>Add QR generation and share for saved profiles | task | ui | 🔼 | TODO | |
-| 32 | P3 | `add-selector-outbound-runtime-for-group-based-profile-switching`<br>Add selector outbound runtime for group-based profile switching | task | outbound | 🔼 | TODO | |
-| 33 | P3 | `epic-nekobox-subscription-and-profile-import`<br>Epic - NekoBox subscription and profile import | epic | outbound | 🔺 | TODO | |
-| 34 | P3 | `epic-qr-code-and-clipboard-profile-import`<br>Epic - QR code and clipboard profile import | epic | ui | ⏫ | TODO | |
-| 35 | P3 | `add-sing-mux-and-yamux-wire-multiplexing`<br>Add sing-mux and yamux wire multiplexing | task | transport | 🔼 | TODO | |
-| 36 | P3 | `refactor-quic-and-h3-into-a-composable-transport-crate`<br>Refactor QUIC and H3 into a composable transport crate | task | transport | 🔼 | TODO | |
+| 25 | P3 | `add-sing-box-route-rules-android-per-app-routing-import`<br>Add sing-box route.rules Android per-app routing import | task | routing | ⏫ | DONE | DONE — :core:data:testDebugUnitTest exit 0 (route.rules parser + per-app routing model/merge) |
+| 26 | P3 | `add-amneziawg-profile-editor-screen-with-obfuscation-fields`<br>Add AmneziaWG profile editor screen with obfuscation fields | task | outbound | 🔼 | DONE | DONE — :app:testGithubDebugUnitTest + :app:assembleDebug exit 0 |
+| 27 | P3 | `add-amneziawg-uri-codec-for-profile-share-and-import`<br>Add amneziawg URI codec for profile share and import | task | outbound | 🔼 | DONE | DONE — :core:data:testDebugUnitTest exit 0 (amneziawg:// codec) |
+| 28 | P3 | `add-clipboard-import-menu-action-with-explicit-user-consent`<br>Add clipboard-import menu action with explicit user consent | task | ui | 🔼 | DONE | DONE — :app:testGithubDebugUnitTest + :app:assembleDebug exit 0 |
+| 29 | P3 | `add-force-resolve-dns-and-subscription-userinfo-handling`<br>Add force-resolve DNS and Subscription-Userinfo handling | task | outbound | 🔼 | DONE | DONE — :core:data:testDebugUnitTest exit 0 |
+| 30 | P3 | `add-httpupgrade-transport-crate`<br>Add HTTPUpgrade transport crate | task | transport | 🔼 | DONE | DONE — cargo nextest -p ripdpi-ws-tunnel exit 0; workspace 2842 passed; clippy -D warnings clean |
+| 31 | P3 | `add-qr-generation-and-share-for-saved-profiles`<br>Add QR generation and share for saved profiles | task | ui | 🔼 | DONE | DONE — :app:testGithubDebugUnitTest + :app:assembleDebug exit 0 (zxing-core) |
+| 32 | P3 | `add-selector-outbound-runtime-for-group-based-profile-switching`<br>Add selector outbound runtime for group-based profile switching | task | outbound | 🔼 | DONE | DONE — :core:data + :core:service:testDebugUnitTest exit 0 |
+| 33 | P3 | `epic-nekobox-subscription-and-profile-import`<br>Epic - NekoBox subscription and profile import | epic | outbound | 🔺 | DONE | DONE — all child tasks (entities, 4 parsers, dedup, auto-update worker, force-resolve, selector runtime, mirror, token UX) DONE & verified |
+| 34 | P3 | `epic-qr-code-and-clipboard-profile-import`<br>Epic - QR code and clipboard profile import | epic | ui | ⏫ | DONE | DONE — all child tasks (QR scanner, share-sheet handler, clipboard import, QR generation/share) DONE & verified |
+| 35 | P3 | `add-sing-mux-and-yamux-wire-multiplexing`<br>Add sing-mux and yamux wire multiplexing | task | transport | 🔼 | DONE | DONE — cargo nextest --workspace 2842 passed exit 0; clippy clean |
+| 36 | P3 | `refactor-quic-and-h3-into-a-composable-transport-crate`<br>Refactor QUIC and H3 into a composable transport crate | task | transport | 🔼 | DONE | DONE — cargo nextest -p ripdpi-hysteria2 exit 0; workspace 2842 passed; clippy clean |
 | 37 | P4 | `wire-amneziawg-into-the-subscription-wireguard-ini-parser`<br>Wire AmneziaWG into the subscription WireGuard-INI parser | task | outbound | 🔼 | TODO | |
 | 38 | P4 | `add-randomized-port-hopping-window-to-hysteria2-outbound`<br>Add randomized port-hopping window to Hysteria2 outbound | task | transport | 🔼 | TODO | |
 | 39 | P4 | `epic-composable-transport-layer-parity`<br>Epic - Composable transport layer parity | epic | epic | ⏫ | TODO | |

@@ -32,6 +32,7 @@ import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
+import com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileRoute
 import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckRoute
 import com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserRoute
 import com.poyka.ripdpi.ui.screens.config.ConfigModeSection
@@ -415,6 +416,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
                 initialModeSection = ConfigModeSection.LocalBypass,
                 viewModel = configViewModel,
+                onProfileImport = { request -> navController.navigateProfileImport(request) },
             )
         }
         composable<Route.LocalBypassConfig> {
@@ -425,6 +427,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
                 initialModeSection = ConfigModeSection.LocalBypass,
                 viewModel = configViewModel,
+                onProfileImport = { request -> navController.navigateProfileImport(request) },
             )
         }
         composable<Route.VpnConfig> {
@@ -435,6 +438,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
                 initialModeSection = ConfigModeSection.Vpn,
                 viewModel = configViewModel,
+                onProfileImport = { request -> navController.navigateProfileImport(request) },
             )
         }
         composable<Route.ModeEditor> {
@@ -602,6 +606,19 @@ private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
             },
         )
     }
+    composable<Route.AmneziaWgProfile> {
+        AmneziaWgProfileRoute(onBack = { navController.popBackStack() })
+    }
+}
+
+/**
+ * Routes to the single-profile import-confirmation destination for a clipboard- or
+ * scanner-sourced [request], encoding the parsed profile into the type-safe route arg.
+ */
+private fun NavHostController.navigateProfileImport(request: com.poyka.ripdpi.proxyimport.ProxyImportRequest.Profile) {
+    navigate(Route.ProfileImportConfirm(profileJson = encodeImportedProfile(request.profile))) {
+        launchSingleTop = true
+    }
 }
 
 private val importProfileJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
@@ -694,6 +711,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.ProfileImportConfirm().stableRoute to { hasRoute<Route.ProfileImportConfirm>() },
         Route.SubscriptionImportConfirm().stableRoute to { hasRoute<Route.SubscriptionImportConfirm>() },
         Route.QrScanner.stableRoute to { hasRoute<Route.QrScanner>() },
+        Route.AmneziaWgProfile.stableRoute to { hasRoute<Route.AmneziaWgProfile>() },
     )
 
 internal fun shouldNavigateToHomeFromLaunchRequest(

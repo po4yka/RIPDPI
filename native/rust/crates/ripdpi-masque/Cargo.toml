@@ -9,6 +9,7 @@ quinn = { workspace = true }
 h3 = { workspace = true }
 h3-quinn = { workspace = true, features = ["datagram"] }
 h3-datagram = { workspace = true }
+ripdpi-hysteria2 = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 rustls = { workspace = true }
@@ -28,7 +29,6 @@ http-body-util = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
-socket2 = { workspace = true }
 
 [lints]
 workspace = true

@@ -1,5 +1,7 @@
 use base64::prelude::*;
 
+use crate::mux::{MuxConfigError, VlessMuxConfig};
+
 /// Errors that can occur when parsing VLESS+Reality configuration from strings.
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
@@ -11,6 +13,8 @@ pub enum ConfigError {
     InvalidPublicKey(String),
     #[error("invalid reality short ID (hex): {0}")]
     InvalidShortId(String),
+    #[error("invalid mux config: {0}")]
+    InvalidMux(#[from] MuxConfigError),
 }
 
 /// Configuration for a VLESS+Reality connection.
@@ -26,6 +30,9 @@ pub struct VlessRealityConfig {
     pub reality_public_key: [u8; 32],
     /// Decoded short ID (0-8 bytes).
     pub reality_short_id: Vec<u8>,
+    /// Wire-multiplexing config when the subscription requested `mux:
+    /// sing-mux` / `mux: yamux`; `None` for one-connection-per-flow.
+    pub mux: Option<VlessMuxConfig>,
 }
 
 impl VlessRealityConfig {
@@ -70,7 +77,31 @@ impl VlessRealityConfig {
             tls_fingerprint_profile: tls_fingerprint_profile.to_owned(),
             reality_public_key,
             reality_short_id,
+            mux: None,
         })
+    }
+
+    /// Attach a wire-multiplexing config (builder style). NekoBox / sing-box
+    /// subscriptions that carry a `mux` block produce a [`VlessMuxConfig`]
+    /// which is threaded onto the profile here.
+    pub fn with_mux(mut self, mux: VlessMuxConfig) -> Self {
+        self.mux = Some(mux);
+        self
+    }
+
+    /// Parse a `mux` block from its string fields and attach it to this
+    /// config. The field semantics match [`VlessMuxConfig::from_strings`]:
+    /// `0` for the numeric fields means "use the default".
+    pub fn with_mux_strings(
+        self,
+        protocol: &str,
+        max_concurrent_streams: u32,
+        per_connection_kbps: u32,
+        sing_mux_padding_max: u32,
+    ) -> Result<Self, ConfigError> {
+        let mux =
+            VlessMuxConfig::from_strings(protocol, max_concurrent_streams, per_connection_kbps, sing_mux_padding_max)?;
+        Ok(self.with_mux(mux))
     }
 }
 
@@ -119,5 +150,51 @@ mod tests {
         .unwrap();
         assert_eq!(cfg.port, 443);
         assert_eq!(cfg.reality_short_id.len(), 4);
+        // A plain `from_strings` profile carries no mux block by default.
+        assert!(cfg.mux.is_none());
+    }
+
+    fn sample_config() -> VlessRealityConfig {
+        let key = BASE64_STANDARD.encode([0xABu8; 32]);
+        VlessRealityConfig::from_strings(
+            "example.com",
+            443,
+            "550e8400-e29b-41d4-a716-446655440000",
+            "www.example.com",
+            &key,
+            "abcd1234",
+            "chrome_stable",
+        )
+        .expect("valid base config")
+    }
+
+    #[test]
+    fn with_mux_strings_attaches_a_sing_mux_block() {
+        let cfg = sample_config().with_mux_strings("sing-mux", 16, 4096, 256).expect("valid mux block");
+        let mux = cfg.mux.expect("mux block present");
+        assert_eq!(mux.protocol, crate::mux::VlessMuxProtocol::SingMux);
+        assert_eq!(mux.max_concurrent_streams, 16);
+        assert_eq!(mux.per_connection_kbps, Some(4096));
+        assert_eq!(mux.sing_mux_padding_max, Some(256));
+    }
+
+    #[test]
+    fn with_mux_strings_attaches_a_yamux_block() {
+        let cfg = sample_config().with_mux_strings("yamux", 0, 0, 0).expect("valid mux block");
+        let mux = cfg.mux.expect("mux block present");
+        assert_eq!(mux.protocol, crate::mux::VlessMuxProtocol::Yamux);
+    }
+
+    #[test]
+    fn with_mux_strings_rejects_unknown_protocol() {
+        let err = sample_config().with_mux_strings("not-a-mux", 0, 0, 0).expect_err("unknown mux must be rejected");
+        assert!(matches!(err, ConfigError::InvalidMux(_)));
+    }
+
+    #[test]
+    fn with_mux_builder_threads_a_config_through() {
+        let mux = VlessMuxConfig::new(crate::mux::VlessMuxProtocol::SingMux);
+        let cfg = sample_config().with_mux(mux);
+        assert_eq!(cfg.mux, Some(mux));
     }
 }

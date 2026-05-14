@@ -1,7 +1,7 @@
 ---
 title: Add sing-mux and yamux wire multiplexing
 type: task
-status: backlog
+status: done
 area: transport
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-composable-transport-layer-parity
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
-- [ ] #task Add sing-mux and yamux wire multiplexing #repo/RIPDPI #area/transport #status/backlog 🔼
+- [x] #task Add sing-mux and yamux wire multiplexing #repo/RIPDPI #area/transport #status/done 🔼
 
 ## Goal contract
 
@@ -60,3 +60,52 @@ subscriptions demand it.
 ## Links
 
 - [[Epic - Composable transport layer parity]]
+
+## Work log
+
+- 2026-05-14: Implemented as the public `wire_mux` module of
+  `ripdpi-relay-mux` (`native/rust/crates/ripdpi-relay-mux/src/wire_mux/`),
+  not a separate crate. **Contract resolution:** the Summary sketches a new
+  `ripdpi-transport-mux` crate, but the Verify command is `just test-rust`
+  (the whole-workspace nextest) and the Scope forbids registering a new
+  workspace member. `wire_mux` is deliberately distinct from the rest of
+  `ripdpi-relay-mux` (which is session *pooling*, not wire-level
+  multiplexing) — the task description calls that distinction out.
+- `wire_mux::yamux`: full hashicorp yamux frame codec — 12-byte header
+  (version/type/flags/stream-id/length), `Data`/`WindowUpdate`/`Ping`/`GoAway`
+  types, `SYN`/`ACK`/`FIN`/`RST` flags, incremental `YamuxDecoder` with an
+  oversized-frame cap. Cross-checked against a hand-assembled
+  upstream-style wire vector.
+- `wire_mux::sing_mux`: full sing-box sing-mux frame codec — 4-byte stream id
+  + command + u16-length-delimited data, `New`/`Data`/`Close`/`KeepAlive`
+  commands, v1/v2 session version byte, optional v2 padding (encoder emits,
+  decoder transparently strips). `smux` (Trojan-Go) intentionally out of
+  scope per the spec. Cross-checked against a hand-assembled vector.
+- `wire_mux::session`: protocol-agnostic layer — `StreamIdAllocator`
+  (yamux-odd / sing-mux-monotonic, exhaustion-safe), `MuxLimits`
+  (configurable max concurrent streams, per-connection KB/s hint, padding
+  mode), the `MuxTransport` trait outbounds plug a protocol into, and
+  `StreamMailbox` — the bounded per-substream buffer that is the concrete
+  backpressure primitive: `deliver` returns `WouldBlock` immediately rather
+  than blocking, so a slow reader on one substream provably cannot wedge
+  delivery to another (`slow_reader_on_one_stream_does_not_wedge_another`).
+- "100 parallel flows" acceptance criterion: `wire_mux::tests` exercises 100
+  logical flows through a *single* sing-mux codec and a *single* yamux
+  codec, and asserts the structural memory invariant — one codec + one
+  allocator + O(streams) cheap mailboxes, versus O(streams) full
+  connections for the independent-connections alternative.
+- VLESS integration: `ripdpi-vless` gained a `mux` module
+  (`VlessMuxConfig` / `VlessMuxProtocol`, parsing `sing-mux`/`yamux`/`smux`/
+  `h2mux` subscription tokens, `to_limits()` → `ripdpi-relay-mux::MuxLimits`)
+  and a `mux: Option<VlessMuxConfig>` field on `VlessRealityConfig` with
+  `with_mux` / `with_mux_strings` builders. `from_strings` stays
+  backward-compatible (`mux: None`). No `ripdpi-trojan` crate exists in the
+  workspace, so the Trojan half of the criterion is N/A.
+- TDD: codec + session + vless-mux tests written RED first, driven GREEN.
+- Verify: `just test-rust`
+  (`cargo nextest run --manifest-path native/rust/Cargo.toml --workspace`)
+  exit 0 — see the GOAL_LEDGER row for the full count. Workspace clippy
+  (`-D warnings`), `cargo fmt`, `cargo check --workspace` all clean.
+- New dependencies: `rand` + `thiserror` added to
+  `ripdpi-relay-mux/Cargo.toml`; `ripdpi-relay-mux` added to
+  `ripdpi-vless/Cargo.toml` (all workspace deps already in the tree).

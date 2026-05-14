@@ -2537,4 +2537,69 @@ Source: %2$s</string>
     <string name="scanner_invalid_qr_title">Unrecognized QR code</string>
     <string name="scanner_invalid_qr_body">This QR code is not a supported proxy link (starts with: %1$s).</string>
     <string name="scanner_pick_image_action">Import from image</string>
+
+    <!-- Clipboard import -->
+    <string name="import_clipboard_action">Import from clipboard</string>
+    <string name="import_clipboard_unknown_title">Clipboard not a proxy link</string>
+    <string name="import_clipboard_unknown_with_scheme">The clipboard holds a \"%1$s\" link, which is not a supported proxy link.</string>
+    <string name="import_clipboard_unknown_no_scheme">The clipboard does not hold a supported proxy link.</string>
+    <string name="import_clipboard_empty_title">Clipboard is empty</string>
+    <string name="import_clipboard_empty_body">Copy a proxy share link first, then try the import again.</string>
+    <string name="import_clipboard_clear_after_title">Clear clipboard after import</string>
+    <string name="import_clipboard_clear_after_body">Remove the copied link from the clipboard once it has been imported.</string>
+
+    <!-- Profile share: QR + URI -->
+    <string name="profile_share_action">Share profile</string>
+    <string name="profile_share_title">Share profile</string>
+    <string name="profile_share_warning_title">This QR code contains secrets</string>
+    <string name="profile_share_warning_body">The QR code and link embed your credentials. Only share them with someone you trust, over a channel you trust.</string>
+    <string name="profile_share_warning_acknowledge">I understand</string>
+    <string name="profile_share_warning_wait">Read the warning…</string>
+    <string name="profile_share_uri_label">Profile link</string>
+    <string name="profile_share_copy_uri_action">Copy link</string>
+    <string name="profile_share_share_image_action">Share QR image</string>
+    <string name="profile_share_unshareable_title">Profile cannot be shared</string>
+    <string name="profile_share_unshareable_body">This profile has no shareable link form.</string>
+    <string name="profile_share_qr_content_description">QR code for the saved profile</string>
+
+    <!-- AmneziaWG profile editor -->
+    <string name="awg_editor_title">AmneziaWG profile</string>
+    <string name="awg_section_interface">Interface</string>
+    <string name="awg_section_peer">Peer</string>
+    <string name="awg_section_obfuscation">Obfuscation</string>
+    <string name="awg_section_obfuscation_body">Server-coordinated values. Paste them verbatim from your provider, or pick a cohort preset.</string>
+    <string name="awg_field_server">Server</string>
+    <string name="awg_field_server_port">Server port</string>
+    <string name="awg_field_private_key">Private key</string>
+    <string name="awg_field_address">Address</string>
+    <string name="awg_field_dns">DNS</string>
+    <string name="awg_field_mtu">MTU</string>
+    <string name="awg_field_peer_public_key">Peer public key</string>
+    <string name="awg_field_peer_endpoint">Peer endpoint</string>
+    <string name="awg_field_allowed_ips">Allowed IPs</string>
+    <string name="awg_field_preshared_key">Preshared key</string>
+    <string name="awg_field_persistent_keepalive">Persistent keepalive</string>
+    <string name="awg_field_jc">Jc</string>
+    <string name="awg_field_jmin">Jmin</string>
+    <string name="awg_field_jmax">Jmax</string>
+    <string name="awg_field_s1">S1</string>
+    <string name="awg_field_s2">S2</string>
+    <string name="awg_field_s3">S3</string>
+    <string name="awg_field_s4">S4</string>
+    <string name="awg_field_h1">H1</string>
+    <string name="awg_field_h2">H2</string>
+    <string name="awg_field_h3">H3</string>
+    <string name="awg_field_h4">H4</string>
+    <string name="awg_field_i1">I1</string>
+    <string name="awg_field_i2">I2</string>
+    <string name="awg_field_i3">I3</string>
+    <string name="awg_field_i4">I4</string>
+    <string name="awg_field_i5">I5</string>
+    <string name="awg_field_invalid">Not a valid value for this field.</string>
+    <string name="awg_cohort_picker_label">Cohort preset</string>
+    <string name="awg_cohort_custom">Custom</string>
+    <string name="awg_cohort_locked_hint">Obfuscation fields are set by the selected cohort. Choose \"Custom\" to edit them.</string>
+    <string name="awg_paste_conf_action">Paste .conf</string>
+    <string name="awg_reveal_secret_action">Reveal</string>
+    <string name="awg_secret_hidden">Hidden — tap reveal to show</string>
 </resources>

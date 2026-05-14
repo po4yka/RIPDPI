@@ -2473,4 +2473,69 @@ fakeddisorder endhost</string>
     <string name="scanner_invalid_qr_title">کد QR شناخته نشد</string>
     <string name="scanner_invalid_qr_body">این کد QR یک پیوند پراکسی پشتیبانی‌شده نیست (با %1$s آغاز می‌شود).</string>
     <string name="scanner_pick_image_action">درون‌ریزی از تصویر</string>
+
+    <!-- Clipboard import -->
+    <string name="import_clipboard_action">درون‌ریزی از بریده‌دان</string>
+    <string name="import_clipboard_unknown_title">بریده‌دان یک پیوند پراکسی نیست</string>
+    <string name="import_clipboard_unknown_with_scheme">بریده‌دان شامل یک پیوند \"%1$s\" است که پیوند پراکسی پشتیبانی‌شده نیست.</string>
+    <string name="import_clipboard_unknown_no_scheme">بریده‌دان شامل پیوند پراکسی پشتیبانی‌شده‌ای نیست.</string>
+    <string name="import_clipboard_empty_title">بریده‌دان خالی است</string>
+    <string name="import_clipboard_empty_body">ابتدا یک پیوند پراکسی را رونوشت کنید، سپس درون‌ریزی را دوباره امتحان کنید.</string>
+    <string name="import_clipboard_clear_after_title">پاک‌سازی بریده‌دان پس از درون‌ریزی</string>
+    <string name="import_clipboard_clear_after_body">حذف پیوند رونوشت‌شده از بریده‌دان پس از درون‌ریزی آن.</string>
+
+    <!-- Profile share: QR + URI -->
+    <string name="profile_share_action">هم‌رسانی نمایه</string>
+    <string name="profile_share_title">هم‌رسانی نمایه</string>
+    <string name="profile_share_warning_title">این کد QR شامل اطلاعات محرمانه است</string>
+    <string name="profile_share_warning_body">کد QR و پیوند، گواهی‌نامه‌های شما را در بر دارند. آن‌ها را فقط با کسی که به او اعتماد دارید و از مسیری مطمئن هم‌رسانی کنید.</string>
+    <string name="profile_share_warning_acknowledge">متوجه شدم</string>
+    <string name="profile_share_warning_wait">هشدار را بخوانید…</string>
+    <string name="profile_share_uri_label">پیوند نمایه</string>
+    <string name="profile_share_copy_uri_action">رونوشت پیوند</string>
+    <string name="profile_share_share_image_action">هم‌رسانی تصویر QR</string>
+    <string name="profile_share_unshareable_title">نمایه قابل هم‌رسانی نیست</string>
+    <string name="profile_share_unshareable_body">این نمایه شکل پیوند قابل هم‌رسانی ندارد.</string>
+    <string name="profile_share_qr_content_description">کد QR نمایهٔ ذخیره‌شده</string>
+
+    <!-- AmneziaWG profile editor -->
+    <string name="awg_editor_title">نمایهٔ AmneziaWG</string>
+    <string name="awg_section_interface">رابط</string>
+    <string name="awg_section_peer">همتا</string>
+    <string name="awg_section_obfuscation">مبهم‌سازی</string>
+    <string name="awg_section_obfuscation_body">مقادیر هماهنگ‌شده با کارساز. آن‌ها را عیناً از ارائه‌دهندهٔ خود بچسبانید یا یک پیش‌تنظیم گروه را برگزینید.</string>
+    <string name="awg_field_server">کارساز</string>
+    <string name="awg_field_server_port">درگاه کارساز</string>
+    <string name="awg_field_private_key">کلید خصوصی</string>
+    <string name="awg_field_address">نشانی</string>
+    <string name="awg_field_dns">DNS</string>
+    <string name="awg_field_mtu">MTU</string>
+    <string name="awg_field_peer_public_key">کلید عمومی همتا</string>
+    <string name="awg_field_peer_endpoint">نقطهٔ پایانی همتا</string>
+    <string name="awg_field_allowed_ips">IPهای مجاز</string>
+    <string name="awg_field_preshared_key">کلید از پیش‌مشترک</string>
+    <string name="awg_field_persistent_keepalive">keepalive پایدار</string>
+    <string name="awg_field_jc">Jc</string>
+    <string name="awg_field_jmin">Jmin</string>
+    <string name="awg_field_jmax">Jmax</string>
+    <string name="awg_field_s1">S1</string>
+    <string name="awg_field_s2">S2</string>
+    <string name="awg_field_s3">S3</string>
+    <string name="awg_field_s4">S4</string>
+    <string name="awg_field_h1">H1</string>
+    <string name="awg_field_h2">H2</string>
+    <string name="awg_field_h3">H3</string>
+    <string name="awg_field_h4">H4</string>
+    <string name="awg_field_i1">I1</string>
+    <string name="awg_field_i2">I2</string>
+    <string name="awg_field_i3">I3</string>
+    <string name="awg_field_i4">I4</string>
+    <string name="awg_field_i5">I5</string>
+    <string name="awg_field_invalid">مقدار معتبری برای این فیلد نیست.</string>
+    <string name="awg_cohort_picker_label">پیش‌تنظیم گروه</string>
+    <string name="awg_cohort_custom">سفارشی</string>
+    <string name="awg_cohort_locked_hint">فیلدهای مبهم‌سازی توسط گروه برگزیده تعیین می‌شوند. برای ویرایش آن‌ها «سفارشی» را برگزینید.</string>
+    <string name="awg_paste_conf_action">چسباندن ‎.conf</string>
+    <string name="awg_reveal_secret_action">نمایش</string>
+    <string name="awg_secret_hidden">پنهان — برای نمایش، «نمایش» را بزنید</string>
 </resources>

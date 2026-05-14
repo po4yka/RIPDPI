@@ -2587,4 +2587,69 @@ fakeddisorder endhost</string>
     <string name="scanner_invalid_qr_title">QR-код не распознан</string>
     <string name="scanner_invalid_qr_body">Этот QR-код не является поддерживаемой ссылкой прокси (начинается с: %1$s).</string>
     <string name="scanner_pick_image_action">Импорт из изображения</string>
+
+    <!-- Clipboard import -->
+    <string name="import_clipboard_action">Импорт из буфера обмена</string>
+    <string name="import_clipboard_unknown_title">В буфере обмена нет ссылки прокси</string>
+    <string name="import_clipboard_unknown_with_scheme">В буфере обмена ссылка \"%1$s\", которая не является поддерживаемой ссылкой прокси.</string>
+    <string name="import_clipboard_unknown_no_scheme">В буфере обмена нет поддерживаемой ссылки прокси.</string>
+    <string name="import_clipboard_empty_title">Буфер обмена пуст</string>
+    <string name="import_clipboard_empty_body">Сначала скопируйте ссылку прокси, затем повторите импорт.</string>
+    <string name="import_clipboard_clear_after_title">Очистить буфер обмена после импорта</string>
+    <string name="import_clipboard_clear_after_body">Удалять скопированную ссылку из буфера обмена после её импорта.</string>
+
+    <!-- Profile share: QR + URI -->
+    <string name="profile_share_action">Поделиться профилем</string>
+    <string name="profile_share_title">Поделиться профилем</string>
+    <string name="profile_share_warning_title">Этот QR-код содержит секреты</string>
+    <string name="profile_share_warning_body">QR-код и ссылка содержат ваши учётные данные. Делитесь ими только с теми, кому доверяете, и по доверенному каналу.</string>
+    <string name="profile_share_warning_acknowledge">Понятно</string>
+    <string name="profile_share_warning_wait">Прочитайте предупреждение…</string>
+    <string name="profile_share_uri_label">Ссылка профиля</string>
+    <string name="profile_share_copy_uri_action">Копировать ссылку</string>
+    <string name="profile_share_share_image_action">Поделиться изображением QR</string>
+    <string name="profile_share_unshareable_title">Профилем нельзя поделиться</string>
+    <string name="profile_share_unshareable_body">У этого профиля нет формы ссылки для передачи.</string>
+    <string name="profile_share_qr_content_description">QR-код сохранённого профиля</string>
+
+    <!-- AmneziaWG profile editor -->
+    <string name="awg_editor_title">Профиль AmneziaWG</string>
+    <string name="awg_section_interface">Интерфейс</string>
+    <string name="awg_section_peer">Пир</string>
+    <string name="awg_section_obfuscation">Обфускация</string>
+    <string name="awg_section_obfuscation_body">Значения, согласованные с сервером. Вставьте их дословно от провайдера или выберите пресет когорты.</string>
+    <string name="awg_field_server">Сервер</string>
+    <string name="awg_field_server_port">Порт сервера</string>
+    <string name="awg_field_private_key">Приватный ключ</string>
+    <string name="awg_field_address">Адрес</string>
+    <string name="awg_field_dns">DNS</string>
+    <string name="awg_field_mtu">MTU</string>
+    <string name="awg_field_peer_public_key">Публичный ключ пира</string>
+    <string name="awg_field_peer_endpoint">Конечная точка пира</string>
+    <string name="awg_field_allowed_ips">Разрешённые IP</string>
+    <string name="awg_field_preshared_key">Предварительный ключ</string>
+    <string name="awg_field_persistent_keepalive">Постоянный keepalive</string>
+    <string name="awg_field_jc">Jc</string>
+    <string name="awg_field_jmin">Jmin</string>
+    <string name="awg_field_jmax">Jmax</string>
+    <string name="awg_field_s1">S1</string>
+    <string name="awg_field_s2">S2</string>
+    <string name="awg_field_s3">S3</string>
+    <string name="awg_field_s4">S4</string>
+    <string name="awg_field_h1">H1</string>
+    <string name="awg_field_h2">H2</string>
+    <string name="awg_field_h3">H3</string>
+    <string name="awg_field_h4">H4</string>
+    <string name="awg_field_i1">I1</string>
+    <string name="awg_field_i2">I2</string>
+    <string name="awg_field_i3">I3</string>
+    <string name="awg_field_i4">I4</string>
+    <string name="awg_field_i5">I5</string>
+    <string name="awg_field_invalid">Недопустимое значение для этого поля.</string>
+    <string name="awg_cohort_picker_label">Пресет когорты</string>
+    <string name="awg_cohort_custom">Свой</string>
+    <string name="awg_cohort_locked_hint">Поля обфускации заданы выбранной когортой. Выберите \"Свой\", чтобы их изменить.</string>
+    <string name="awg_paste_conf_action">Вставить .conf</string>
+    <string name="awg_reveal_secret_action">Показать</string>
+    <string name="awg_secret_hidden">Скрыто — нажмите «Показать», чтобы отобразить</string>
 </resources>

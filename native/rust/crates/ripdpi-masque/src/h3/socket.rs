@@ -1,33 +1,18 @@
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-
-use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+use std::net::SocketAddr;
 
 use crate::config::MasqueConfig;
 
+/// Bind a UDP socket for the MASQUE QUIC client.
+///
+/// MASQUE used to carry its own byte-for-byte copy of this logic; it now
+/// delegates to the shared `ripdpi-hysteria2::quic_transport` helper so the
+/// `quinn` client-socket setup lives in exactly one place. See the
+/// `refactor-quic-and-h3-into-a-composable-transport-crate` task: the
+/// composable QUIC transport is a module of `ripdpi-hysteria2`, and MASQUE
+/// is one of its consumers.
 pub(super) fn build_client_udp_socket(ipv6: bool, bind_low_port: bool) -> io::Result<std::net::UdpSocket> {
-    let bind_addr =
-        if ipv6 { SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0)) } else { SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)) };
-    let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
-    if ipv6 {
-        let _ = socket.set_only_v6(false);
-    }
-    if bind_low_port {
-        try_bind_low_port(&socket, bind_addr.ip())?;
-    } else {
-        socket.bind(&SockAddr::from(bind_addr))?;
-    }
-    Ok(socket.into())
-}
-
-fn try_bind_low_port(socket: &Socket, bind_ip: IpAddr) -> io::Result<()> {
-    for port in [2048u16, 2053, 2080, 2443, 3000, 3074, 4096] {
-        let addr = SocketAddr::new(bind_ip, port);
-        if socket.bind(&SockAddr::from(addr)).is_ok() {
-            return Ok(());
-        }
-    }
-    socket.bind(&SockAddr::from(SocketAddr::new(bind_ip, 0)))
+    ripdpi_hysteria2::build_client_udp_socket(ipv6, bind_low_port)
 }
 
 pub(super) fn maybe_rebind_quic_endpoint(

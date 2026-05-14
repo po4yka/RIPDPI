@@ -239,6 +239,13 @@ sealed class Route {
         override val icon: ImageVector? = RipDpiIcons.QrCodeScanner
     }
 
+    @Serializable
+    data object AmneziaWgProfile : Route() {
+        override val stableRoute = "profile/amneziawg"
+        override val titleRes = R.string.awg_editor_title
+        override val icon: ImageVector? = null
+    }
+
     companion object {
         val topLevel: List<Route>
             get() = listOf(Home, Config, Diagnostics(), Settings)
@@ -271,6 +278,7 @@ sealed class Route {
                     ProfileImportConfirm(),
                     SubscriptionImportConfirm(),
                     QrScanner,
+                    AmneziaWgProfile,
                 )
 
         fun fromStableRoute(route: String?): Route? = route?.let { key -> all.firstOrNull { it.stableRoute == key } }

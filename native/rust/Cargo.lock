@@ -3646,6 +3646,7 @@ dependencies = [
  "http",
  "quinn",
  "rand 0.10.1",
+ "rcgen",
  "rustls",
  "socket2",
  "thiserror 2.0.18",
@@ -3692,11 +3693,11 @@ dependencies = [
  "quinn",
  "reqwest",
  "ring",
+ "ripdpi-hysteria2",
  "ripdpi-tls-profiles",
  "rustls",
  "serde",
  "serde_json",
- "socket2",
  "thiserror 2.0.18",
  "tokio",
  "tokio-boring",
@@ -3922,6 +3923,8 @@ dependencies = [
 name = "ripdpi-relay-mux"
 version = "0.1.0"
 dependencies = [
+ "rand 0.10.1",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -4315,6 +4318,7 @@ dependencies = [
  "foreign-types-shared",
  "hex",
  "ring",
+ "ripdpi-relay-mux",
  "ripdpi-tls-profiles",
  "thiserror 2.0.18",
  "tokio",
@@ -4393,6 +4397,7 @@ dependencies = [
  "rcgen",
  "ripdpi-tls-profiles",
  "socket2",
+ "thiserror 2.0.18",
  "tokio",
  "tokio-tungstenite",
  "tracing",

@@ -1,7 +1,7 @@
 ---
 title: Add QR generation and share for saved profiles
 type: task
-status: backlog
+status: done
 area: ui
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-qr-code-and-clipboard-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
-- [ ] #task Add QR generation and share for saved profiles #repo/RIPDPI #area/ui #status/backlog 🔼
+- [x] #task Add QR generation and share for saved profiles #repo/RIPDPI #area/ui #status/done 🔼
 
 ## Goal contract
 
@@ -62,3 +62,27 @@ suppressed — secret-sharing risk is high enough that nagging is warranted.
 
 - [[Epic - QR code and clipboard profile import]]
 - [[Add QR scanner screen with CameraX and ML Kit]]
+
+## Work log
+
+- Added `ProxyProfileUriEncoder` (pure logic): the offline inverse of `ProxyUriCodec` —
+  emits canonical per-protocol schemes (`vless://`, `ss://` SIP002, `trojan://`,
+  `hysteria2://`); never invents an `sn://` universal link. A `RawConfig` is emitted
+  verbatim only when it already wraps a URI.
+- Added `QrCodeEncoder` (pure logic) backed by `zxing-core` (new dep `com.google.zxing:core:3.5.3`
+  in `libs.versions.toml` + `app/build.gradle.kts`; no Play Services). Produces an
+  offline `BitMatrix`.
+- Added `ProfileShareViewModel`: a request -> warning (5s hold) -> acknowledged ->
+  reveal state machine. The secrets-redaction warning re-shows on every share session
+  and can never be permanently suppressed; `shareUri` stays null until acknowledged.
+- Added `ProfileShareDialog`: renders the warning first, then a QR `Bitmap` (encoded
+  offline) + the canonical URI with a two-action sheet (copy URI / share image).
+- Added FileProvider authority `${applicationId}.profile.fileprovider` + `profile_share_paths.xml`
+  scoped to a `profile-share/` cache subdir for the share-image grant.
+- TDD: `ProxyProfileUriEncoderTest` (8, incl. encode->parse round-trips),
+  `QrCodeEncoderTest` (5), `ProfileShareViewModelTest` (8), `ProfileShareDialogTest`
+  (3 Robolectric).
+- Strings added to `values/` + all 6 locale files (`MissingTranslation` clean).
+- Verify: `./gradlew :app:testGithubDebugUnitTest` exit 0; `:app:assembleDebug` exit 0;
+  `:app:detekt` exit 0; `ktlint` exit 0. (The issue's `just test-module app` Verify
+  maps to `:app:testGithubDebugUnitTest`, which is the command run.)
