@@ -10,9 +10,12 @@ boring = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 ctr = "0.10"
 cipher = "0.5"
+futures = { workspace = true }
 tracing = { workspace = true }
 socket2 = { workspace = true }
 bytes = "1"
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync"] }
+tokio-tungstenite = { workspace = true }
 tungstenite = { workspace = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
@@ -20,6 +23,7 @@ nix = { workspace = true }
 
 [dev-dependencies]
 rcgen = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync"] }
 
 [lints]
 workspace = true

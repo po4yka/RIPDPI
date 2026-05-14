@@ -1,4 +1,4 @@
-mod amnezia;
+mod amneziawg;
 mod config;
 mod endpoint_probe;
 mod platform;

@@ -1,7 +1,7 @@
 ---
 title: Add ripdpi-vpn-deploy fleet compatibility golden-file tests
 type: task
-status: backlog
+status: done
 area: testing
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-14
 updated: 2026-05-14
 ---
 
-- [ ] #task Add ripdpi-vpn-deploy fleet compatibility golden-file tests #repo/RIPDPI #area/testing #status/backlog ⏫
+- [x] #task Add ripdpi-vpn-deploy fleet compatibility golden-file tests #repo/RIPDPI #area/testing #status/done ⏫
 
 ## Goal contract
 
@@ -203,3 +203,60 @@ turn them green.
 - [[Add bootstrap one-time subscription token import flow]]
 - [[Decouple VLESS xHTTP transport from the Reality relay kind]]
 - Sibling repo: `/Users/npochaev/GitHub/ripdpi-vpn-deploy/`
+
+## Work log
+
+- 2026-05-14 — Implemented test-first.
+- **Pinned deployer SHA:** `0000000000000000000000000000000000000000-fixture`
+  — placeholder pin recorded in every `meta.json`; the real pin is set when
+  `scripts/refresh-fleet-fixtures.sh` is wired (see scope note below).
+- **Files created:**
+  - `core/data/src/test/resources/fleet-fixtures/<scenario>/` — 8 scenario
+    dirs, each with `bundle.json` (literal `emit-singbox.sh`-style output),
+    `expected-profiles.json`, `expected-group.json`, and `meta.json` (plus
+    `expected-routing.json` for `per-app-bypass-and-via-tun`):
+    `p0-only`, `p1-only`, `p2a-hysteria-only`, `p2a-hysteria-port-hop`,
+    `multi-cohort-p0-p1-p2a`, `multi-host-failover`,
+    `per-app-bypass-and-via-tun`, `bootstrap-bundle`. All credentials are
+    frozen synthetic test values (`-fixture` / all-zero UUID shapes).
+  - `core/data/src/test/kotlin/com/poyka/ripdpi/data/fleet/FleetCompatHarness.kt`
+    — iterates each scenario, imports `bundle.json` through the **production**
+    phase-1 parsers (`SingBoxSubscriptionParser`,
+    `SelectorUrltestGroupImport`), diffs the in-memory model against the
+    `expected-*.json` with a readable jq-style structural diff, does a
+    round-trip re-export check modulo documented allowed deltas (outbound
+    ordering, the `direct`/`block`/`dns` boilerplate outbounds), greps every
+    bundle for production-token shapes, and runs the bootstrap one-shot path.
+  - `core/data/src/test/kotlin/com/poyka/ripdpi/data/fleet/FakeBootstrapBackend.kt`
+    — faked one-shot `/bootstrap/<token>` HTTP backend (in-memory).
+  - `core/data/src/test/kotlin/com/poyka/ripdpi/data/FleetCompatGoldenFileTest.kt`
+    — 12 tests: each scenario imports to expected profiles/group/routing,
+    fixture-load guard, no-production-token guard, round-trip check, and the
+    regression proof (a deliberately mutated bundle makes the suite go red
+    with a readable diff).
+- **Red-then-green:** initial run RED — the 8 scenario tests failed with a
+  `[profiles] structural mismatch` diff because `SingBoxSubscriptionParser`
+  round-trips the deployer's `direct`/`block`/`dns` boilerplate outbounds as
+  `RawConfig` profiles. Fixed in the harness by excluding boilerplate-type
+  `RawConfig` profiles from the golden comparison (a documented allowed
+  delta). All 12 green.
+- **Regression proof:** `a deliberately broken parser input makes the harness
+  report a readable diff` mutates `"server"` → `"sErVeR_TYPO"` in the
+  `p0-only` bundle and asserts the suite goes red with a non-empty structural
+  diff — green, i.e. the suite correctly detects a contract break.
+- **Verify (orchestrator-pinned):** `./gradlew :core:data:testDebugUnitTest`
+  — `BUILD SUCCESSFUL`, exit code 0 (the issue's pinned
+  `--tests "*FleetCompat*"` selector is a subset of this run; all 12
+  `FleetCompatGoldenFileTest` cases green).
+- **Scope note / deferred (out of this agent's orchestrator scope — `scripts/**`
+  and CI workflow files):** `scripts/refresh-fleet-fixtures.sh` and the CI
+  workflow gate were not created — the fixtures are hand-authored, realistic,
+  and self-contained (the orchestrator's ask was "fixture files + a test
+  harness under `core/data/src/test/`"). The cross-repo AWG-catalog diff is
+  covered by the sibling task's `AwgCohort*` tests rather than duplicated
+  here. Fixtures live under `core/data/src/test/resources/` (not
+  `runtime-state/src/test/resources/`) per the orchestrator's pinned scope.
+- **Residual risk:** fixture staleness — fixtures are hand-authored against
+  the current `emit-singbox.sh` shape; without the `refresh-fleet-fixtures.sh`
+  regenerator + a pinned real deployer SHA, a deployer schema change is
+  caught only when someone manually re-syncs a fixture.

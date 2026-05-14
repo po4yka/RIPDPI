@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -98,6 +99,50 @@ class ImportConfirmViewModelTest {
             )
 
             assertTrue(viewModel.uiState.value.bootstrap)
+        }
+
+    @Test
+    fun `confirming a bootstrap import persists a bootstrap-kind subscription`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val viewModel = SubscriptionImportConfirmViewModel(repository)
+
+            viewModel.setRequest(
+                url = "https://sub.example.com/bootstrap/tok",
+                name = "Boot",
+                bootstrap = true,
+            )
+            viewModel.confirm()
+            advanceUntilIdle()
+
+            assertEquals(
+                SubscriptionKind.BOOTSTRAP,
+                repository
+                    .list()
+                    .single()
+                    .subscription
+                    ?.kind,
+            )
+        }
+
+    @Test
+    fun `confirming a non-bootstrap import persists a long-lived subscription`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val viewModel = SubscriptionImportConfirmViewModel(repository)
+
+            viewModel.setRequest(url = "https://sub.example.com/sub/x", name = "Fleet", bootstrap = false)
+            viewModel.confirm()
+            advanceUntilIdle()
+
+            assertEquals(
+                SubscriptionKind.LONG_LIVED,
+                repository
+                    .list()
+                    .single()
+                    .subscription
+                    ?.kind,
+            )
         }
 }
 

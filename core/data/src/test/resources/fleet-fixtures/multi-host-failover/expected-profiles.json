@@ -1,0 +1,26 @@
+[
+  {
+    "type": "vless",
+    "name": "p0-reality-upcloud-prod",
+    "server": "203.0.113.10",
+    "port": "443"
+  },
+  {
+    "type": "hysteria2",
+    "name": "p2-hysteria2-upcloud-prod",
+    "server": "203.0.113.30",
+    "port": "443"
+  },
+  {
+    "type": "vless",
+    "name": "p0-reality-hetzner-prod",
+    "server": "198.51.100.10",
+    "port": "443"
+  },
+  {
+    "type": "hysteria2",
+    "name": "p2-hysteria2-hetzner-prod",
+    "server": "198.51.100.30",
+    "port": "443"
+  }
+]

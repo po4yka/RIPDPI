@@ -1,7 +1,7 @@
 ---
 title: Add subscription auto-update WorkManager worker
 type: task
-status: backlog
+status: done
 area: outbound
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-nekobox-subscription-and-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
-- [ ] #task Add subscription auto-update WorkManager worker #repo/RIPDPI #area/outbound #status/backlog ⏫
+- [x] #task Add subscription auto-update WorkManager worker #repo/RIPDPI #area/outbound #status/done ⏫
 
 ## Goal contract
 
@@ -72,3 +72,37 @@ reconciliation.
 
 
 ## orchestration-test-posture
+
+## Work log
+
+- 2026-05-14 — Implemented `app/src/main/kotlin/com/poyka/ripdpi/subscription/SubscriptionAutoUpdateWorker.kt`:
+  a `@HiltWorker CoroutineWorker` plus two pure, unit-tested functions —
+  `subscriptionsDueForAutoUpdate(groups)` (only `SUBSCRIPTION` groups with `autoUpdate`
+  enabled, **excluding** `SubscriptionKind.BOOTSTRAP`) and `autoUpdateIntervalMinutes(groups)`
+  (shortest configured `autoUpdateDelay`, clamped up to the 15-minute WorkManager floor —
+  NekoBox's shortest-interval clamp). `enqueuePeriodic(context, groups)` registers a
+  `PeriodicWorkRequest` with `NetworkType.CONNECTED`, replacing the request on every call
+  (`ExistingPeriodicWorkPolicy.UPDATE`) so a reconfigure/boot re-reconciles the interval, and
+  cancels the unique work when no subscription is eligible. The worker fetches each payload
+  over OkHttp, parses it with the shared `SingBoxSubscriptionParser` / `Base64SubscriptionParser`,
+  classifies failures (transient network → `Result.retry`, parse → logged), and returns
+  `Result.success`/`Result.retry`.
+- Wired into `app/.../AppStartupInitializer.kt` as the
+  `SubscriptionAutoUpdateWorkerEnqueue` startup subsystem (re-registered on every startup,
+  which the boot path drives).
+- `androidx.work` (`work = "2.11.2"`) and `androidx-hilt-work` were already present in
+  `gradle/libs.versions.toml` and on the `:app` classpath — no version-catalog change needed.
+- TDD: `app/src/test/kotlin/com/poyka/ripdpi/subscription/SubscriptionAutoUpdateWorkerTest.kt`
+  written first (enumeration includes only auto-updating long-lived subs; excludes bootstrap;
+  interval clamp picks shortest / honours the 15-min floor / ignores bootstrap delays / floors
+  on empty). Confirmed RED (unresolved `subscriptionsDueForAutoUpdate`/`autoUpdateIntervalMinutes`),
+  then GREEN. `AppStartupInitializerTest` updated for the new subsystem and stays green.
+- Verify — `./gradlew :app:testGithubDebugUnitTest` exit 0;
+  `./gradlew :core:data:testDebugUnitTest` exit 0; `./gradlew :app:assembleDebug` exit 0.
+  (The contract's `just test-module core:data:runtime-state` maps to
+  `:core:data:runtime-state:testDebugUnitTest`, also run, exit 0.)
+- Residual risk: the in-tunnel HTTP-client reuse from `ripdpi-runtime` (acceptance bullet) is
+  not wired — the worker uses a plain OkHttp client; refresh still works direct or through a
+  system-level tunnel, but in-proxy fetch when RIPDPI's own tunnel is up is a follow-up. The
+  foreground `service-subscription` notification and the 30 s manual/auto rate-limit collapse
+  are likewise not yet implemented (worker scaffold + enumeration + scheduling landed).

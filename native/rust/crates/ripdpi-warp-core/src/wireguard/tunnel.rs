@@ -9,11 +9,32 @@ use tokio::net::UdpSocket;
 use super::keys::{apply_reserved_bytes, decode_key};
 use super::routing::route_protocol;
 use super::socket::bind_tunnel_socket;
-use crate::amnezia::{fill_random, rand_u32, AmneziaCodec};
+use crate::amneziawg::{rand_u32, AwgParams, AwgWireCodec};
 use crate::config::WarpAmneziaConfig;
 use crate::platform::WarpPlatform;
 use crate::support::MAX_PACKET;
 use crate::virtual_iface::{Bus, Event};
+
+/// Build the AmneziaWG wire codec for a tunnel from its config.
+///
+/// `WarpAmneziaConfig` does not yet carry the AWG 2.0 `I1..I5` special-junk
+/// hex strings, so they are passed empty here; the handshake prelude still
+/// emits the `Jc` random junk packets. An invalid config (e.g. inverted
+/// junk range, colliding headers) is logged and treated as disabled rather
+/// than failing tunnel construction -- a malformed obfuscation knob must
+/// not take the whole WARP runtime down.
+pub(crate) fn build_awg_codec(cfg: &WarpAmneziaConfig) -> Option<AwgWireCodec> {
+    if !cfg.enabled {
+        return None;
+    }
+    match AwgParams::from_config(cfg, &["", "", "", "", ""]) {
+        Ok(params) => Some(AwgWireCodec::new(params)),
+        Err(error) => {
+            tracing::warn!("invalid AmneziaWG config, obfuscation disabled: {error}");
+            None
+        }
+    }
+}
 
 pub(crate) struct WireGuardTunnel {
     peer: tokio::sync::Mutex<Box<Tunn>>,
@@ -21,7 +42,7 @@ pub(crate) struct WireGuardTunnel {
     endpoint: SocketAddr,
     source_peer_ip: IpAddr,
     reserved: [u8; 3],
-    amnezia: Option<AmneziaCodec>,
+    amnezia: Option<AwgWireCodec>,
 }
 
 impl WireGuardTunnel {
@@ -45,19 +66,21 @@ impl WireGuardTunnel {
             None,
         ));
         let udp = bind_tunnel_socket(endpoint, platform)?;
-        let amnezia = amnezia_cfg.enabled.then(|| AmneziaCodec::new(amnezia_cfg));
+        let amnezia = build_awg_codec(amnezia_cfg);
         Ok(Self { peer: tokio::sync::Mutex::new(peer), udp, endpoint, source_peer_ip, reserved, amnezia })
     }
 
-    pub(crate) async fn send_amnezia_junk(&self, cfg: &WarpAmneziaConfig) {
-        let jc = cfg.jc.max(0) as usize;
-        let jmin = cfg.jmin.max(1) as usize;
-        let jmax = cfg.jmax.max(jmin as i32) as usize;
-        for _ in 0..jc {
-            let range = (jmax - jmin + 1) as u32;
-            let size = jmin + (rand_u32() % range) as usize;
-            let mut junk = vec![0u8; size];
-            fill_random(&mut junk);
+    /// Emit the AmneziaWG handshake prelude -- AWG 2.0 special-junk frames
+    /// (`I1..I5`) followed by `Jc` random junk packets sized uniformly in
+    /// `[Jmin, Jmax]` -- before the first real WireGuard handshake
+    /// initiation, to defeat protocol fingerprinting. No-op when AWG
+    /// obfuscation is disabled or configured for passthrough.
+    pub(crate) async fn send_amnezia_junk(&self) {
+        let Some(codec) = &self.amnezia else {
+            return;
+        };
+        let mut rng = rand_u32;
+        for junk in codec.params().handshake_prelude(&mut rng) {
             let _ = self.udp.send_to(&junk, self.endpoint).await;
         }
     }

@@ -1,0 +1,7 @@
+{
+  "scenario": "p0-only",
+  "description": "REALITY + Vision, single cohort, single host",
+  "deployer_git_sha": "0000000000000000000000000000000000000000-fixture",
+  "generated_at": "2026-05-14T00:00:00Z",
+  "frozen_secret_set": "all UUIDs/shortIds/keys are fixed -fixture test values, never production tokens"
+}

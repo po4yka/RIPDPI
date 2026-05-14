@@ -51,6 +51,7 @@ object SingBoxDeepLinkParser {
      * yields [SingBoxDeepLinkResult.Error.MissingUrl], and any other shape mismatch
      * yields [SingBoxDeepLinkResult.Error.Unsupported].
      */
+    @Suppress("ReturnCount")
     fun parse(deepLink: String): SingBoxDeepLinkResult {
         val trimmed = deepLink.trim()
         val schemeEnd = trimmed.indexOf("://")
@@ -92,6 +93,7 @@ object SingBoxDeepLinkParser {
         data object Failure : QueryParseResult
     }
 
+    @Suppress("ReturnCount")
     private fun parseQuery(query: String): QueryParseResult {
         if (query.isEmpty()) return QueryParseResult.Params(emptyMap())
         val values = mutableMapOf<String, String>()

@@ -1,0 +1,119 @@
+{
+  "version": "fleet_release_cadence_policy_v1",
+  "description": "Fleet release-gating and cadence policy for RIPDPI profile and fleet rollouts. Defines daily, weekly, release/rotation, staging, production, and client-release gate sets, plus the no-ship and warn-only failure policy. This artifact is the machine-readable source of truth enforced by scripts/ci/check_fleet_release_gates.py. The release gate produces a short sanitized report; raw probe logs and live endpoints belong under ops/live-infra/, never here.",
+  "ledgerKey": "add-fleet-release-gating-and-cadence-policy",
+  "resultStates": [
+    "PASS",
+    "WARN",
+    "FAIL",
+    "N/A"
+  ],
+  "cadences": {
+    "daily": {
+      "description": "Daily fleet health cadence.",
+      "checks": [
+        "node-service-health",
+        "external-tcp-443",
+        "reality-non-ru-connect",
+        "https-64kb-payload",
+        "cert-expiry",
+        "backup-age"
+      ]
+    },
+    "weekly": {
+      "description": "Weekly deep fleet cadence.",
+      "checks": [
+        "ru-fixed-tests",
+        "ru-mobile-tests",
+        "dns-leak",
+        "ipv6-leak",
+        "active-probe-simulation",
+        "revoked-credential",
+        "delivery-token-expiry-revocation"
+      ]
+    },
+    "release": {
+      "description": "Every release/rotation predeploy cadence.",
+      "checks": [
+        "full-predeploy-suite",
+        "staging-deploy",
+        "non-ru-smoke",
+        "ru-fixed-smoke",
+        "ru-mobile-smoke",
+        "client-regression",
+        "old-profile-revocation",
+        "fresh-backup-after-deploy"
+      ]
+    }
+  },
+  "gateSets": {
+    "staging": {
+      "description": "Staging deploy gate set; must pass before a production deploy is allowed.",
+      "requires": [
+        "full-predeploy-suite",
+        "staging-deploy",
+        "non-ru-smoke",
+        "ru-fixed-smoke",
+        "ru-mobile-smoke",
+        "client-regression",
+        "old-profile-revocation",
+        "fresh-backup-after-deploy"
+      ]
+    },
+    "production": {
+      "description": "Production deploy gate set; every gate is a no-ship blocker for promoting a profile to a primary production path.",
+      "requires": [
+        "staging-success",
+        "non-ru-smoke",
+        "ru-fixed-pass-min-1",
+        "ru-mobile-pass-min-1",
+        "dns-leak",
+        "ipv6-leak",
+        "android-kill-switch-primary-profile",
+        "old-revoked-credential-fails",
+        "delivery-token-ttl-revocation"
+      ]
+    },
+    "client-release": {
+      "description": "Client (Android app) release gate set.",
+      "requires": [
+        "android-api-matrix",
+        "wifi-lte",
+        "captive-portal",
+        "ipv6-enabled-network",
+        "udp-blocked-network",
+        "app-core-schema-migration",
+        "package-visibility-per-app-routing",
+        "logcat-no-secrets",
+        "crash-reports-no-secrets"
+      ]
+    }
+  },
+  "noShipPolicy": {
+    "description": "A FAIL on any no-ship condition demotes the profile or blocks the client release; it is never shipped as a primary path.",
+    "conditions": [
+      "xray-config-validation",
+      "sing-box-config-validation",
+      "firewall-validation",
+      "dns-leak",
+      "ipv6-leak",
+      "kill-switch-failure",
+      "revoked-credential-still-connecting",
+      "token-or-full-url-in-logs",
+      "public-panel-response",
+      "primary-and-fallback-same-burned-provider-or-asn"
+    ]
+  },
+  "warnOnlyPolicy": {
+    "description": "A FAIL on a warn-only condition is reported as WARN: it does not block the release but is surfaced in the sanitized report so degraded paths are demoted rather than relied on as primary.",
+    "conditions": [
+      "partial-hysteria2-udp-failure",
+      "cloudflare-path-failure-non-cf-paths-healthy",
+      "one-degraded-ru-operator-selector-avoids-it"
+    ]
+  },
+  "report": {
+    "format": "sanitized-summary",
+    "description": "The release gate emits a short sanitized PASS/WARN/FAIL summary per gate set, never raw probe logs or live endpoints."
+  }
+}

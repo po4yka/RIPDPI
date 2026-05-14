@@ -1,0 +1,113 @@
+{
+  "log": { "level": "warn", "timestamp": true },
+  "dns": {
+    "servers": [
+      { "tag": "remote", "address": "https://1.1.1.1/dns-query", "detour": "select" },
+      { "tag": "local", "address": "local", "detour": "direct" }
+    ],
+    "rules": [{ "outbound": ["any"], "server": "local" }]
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun0",
+      "inet4_address": "172.19.0.1/30",
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "system",
+      "sniff": true
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "p0-reality-upcloud-prod",
+      "server": "203.0.113.10",
+      "server_port": 443,
+      "uuid": "00000000-0000-0000-0000-000000000001",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "enabled": true,
+        "server_name": "www.fixture-sni.example",
+        "utls": { "enabled": true, "fingerprint": "chrome" },
+        "reality": {
+          "enabled": true,
+          "public_key": "reality-public-key-fixture-000000000000000",
+          "short_id": "00000000fixture"
+        }
+      }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "p2-hysteria2-upcloud-prod",
+      "server": "203.0.113.30",
+      "server_port": 443,
+      "password": "hysteria2-upcloud-password-fixture",
+      "tls": { "enabled": true, "server_name": "hy.fixture-host.example" }
+    },
+    {
+      "type": "vless",
+      "tag": "p0-reality-hetzner-prod",
+      "server": "198.51.100.10",
+      "server_port": 443,
+      "uuid": "00000000-0000-0000-0000-000000000003",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "enabled": true,
+        "server_name": "www.fixture-sni-2.example",
+        "utls": { "enabled": true, "fingerprint": "chrome" },
+        "reality": {
+          "enabled": true,
+          "public_key": "reality-public-key-fixture-111111111111111",
+          "short_id": "11111111fixture"
+        }
+      }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "p2-hysteria2-hetzner-prod",
+      "server": "198.51.100.30",
+      "server_port": 443,
+      "password": "hysteria2-hetzner-password-fixture",
+      "tls": { "enabled": true, "server_name": "hy2.fixture-host.example" }
+    },
+    {
+      "type": "selector",
+      "tag": "select",
+      "outbounds": [
+        "p0-reality-upcloud-prod",
+        "p2-hysteria2-upcloud-prod",
+        "p0-reality-hetzner-prod",
+        "p2-hysteria2-hetzner-prod",
+        "auto"
+      ],
+      "default": "auto",
+      "interrupt_exist_connections": false
+    },
+    {
+      "type": "urltest",
+      "tag": "auto",
+      "outbounds": [
+        "p0-reality-upcloud-prod",
+        "p2-hysteria2-upcloud-prod",
+        "p0-reality-hetzner-prod",
+        "p2-hysteria2-hetzner-prod"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    { "type": "direct", "tag": "direct" },
+    { "type": "block", "tag": "block" },
+    { "type": "dns", "tag": "dns-out" }
+  ],
+  "route": {
+    "rules": [
+      { "protocol": "dns", "outbound": "dns-out" },
+      { "ip_is_private": true, "outbound": "direct" }
+    ],
+    "final": "select",
+    "auto_detect_interface": true
+  }
+}

@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
          * [ImportHandlerActivity] should open, or `null` when the intent carries no
          * import payload. Never throws — a malformed payload resolves to `null`.
          */
+        @Suppress("ReturnCount")
         internal fun importRouteFrom(intent: Intent?): Route? {
             val route = intent?.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE) ?: return null
             return when (route) {

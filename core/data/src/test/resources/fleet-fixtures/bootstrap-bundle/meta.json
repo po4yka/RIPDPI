@@ -1,0 +1,7 @@
+{
+  "scenario": "bootstrap-bundle",
+  "description": "Same bundle content served one-shot from /bootstrap/<token>; token is single-use",
+  "deployer_git_sha": "0000000000000000000000000000000000000000-fixture",
+  "generated_at": "2026-05-14T00:00:00Z",
+  "frozen_secret_set": "all UUIDs/keys and the bootstrap token are fixed -fixture test values, never production tokens"
+}

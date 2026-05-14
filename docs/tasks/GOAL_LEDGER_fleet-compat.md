@@ -22,18 +22,18 @@ row's Blocked-by satisfied. The `/goal` loop edits only Status and Proof.
 | 10 | P1 | `add-grpc-transport-crate-with-tonic-and-xray-compatible-framing`<br>Add gRPC transport crate with tonic and Xray-compatible framing | task | transport | ⏫ | DONE | DONE — `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-xhttp` exit 0, 25 tests pass |
 | 11 | P1 | `add-qr-scanner-screen-with-camerax-and-ml-kit`<br>Add QR scanner screen with CameraX and ML Kit | task | ui | ⏫ | DONE | DONE — `:app:testDebugUnitTest` + `:app:assembleDebug` exit 0 |
 | 12 | P1 | `add-share-sheet-handler-for-proxy-uri-schemes`<br>Add share-sheet handler for proxy URI schemes | task | ui | ⏫ | DONE | DONE — `:app:testDebugUnitTest` + `:app:assembleDebug` exit 0 |
-| 13 | P2 | `add-subscription-auto-update-workmanager-worker`<br>Add subscription auto-update WorkManager worker | task | outbound | ⏫ | TODO | |
-| 14 | P2 | `add-wireguard-ini-subscription-parser`<br>Add WireGuard INI subscription parser | task | outbound | ⏫ | TODO | |
-| 15 | P2 | `fork-boringtun-and-add-amneziawg-handshake-obfuscation`<br>Fork boringtun and add AmneziaWG handshake obfuscation | task | outbound | ⏫ | TODO | |
-| 16 | P2 | `generalize-websocket-transport-for-outbound-composition`<br>Generalize WebSocket transport for outbound composition | task | transport | ⏫ | TODO | |
-| 17 | P2 | `add-dns-ipv6-and-kill-switch-release-gates`<br>Add DNS IPv6 and kill-switch release gates | task | testing | ⏫ | TODO | |
-| 18 | P2 | `add-fleet-release-gating-and-cadence-policy`<br>Add fleet release gating and cadence policy | task | testing | ⏫ | TODO | |
-| 19 | P2 | `add-multi-delivery-subscription-mirror-support`<br>Add multi-delivery subscription mirror support | task | relay | ⏫ | TODO | |
-| 20 | P2 | `add-per-device-subscription-token-ux-and-shared-link-warnings`<br>Add per-device subscription token UX and shared-link warnings | task | vpn | ⏫ | TODO | |
-| 21 | P2 | `add-priority-based-outbound-failover-state-machine`<br>Add priority-based outbound failover state machine | task | vpn | ⏫ | TODO | |
-| 22 | P2 | `add-amneziawg-russian-isp-cohort-preset-catalog`<br>Add AmneziaWG Russian ISP cohort preset catalog | task | data | ⏫ | TODO | |
-| 23 | P2 | `add-bootstrap-one-time-subscription-token-import-flow`<br>Add bootstrap one-time subscription token import flow | task | data | ⏫ | TODO | |
-| 24 | P2 | `add-ripdpi-vpn-deploy-fleet-compatibility-golden-file-tests`<br>Add ripdpi-vpn-deploy fleet compatibility golden-file tests | task | testing | ⏫ | TODO | |
+| 13 | P2 | `add-subscription-auto-update-workmanager-worker`<br>Add subscription auto-update WorkManager worker | task | outbound | ⏫ | DONE | DONE — :app:testGithubDebugUnitTest + :app:assembleDebug + staticAnalysis exit 0 |
+| 14 | P2 | `add-wireguard-ini-subscription-parser`<br>Add WireGuard INI subscription parser | task | outbound | ⏫ | DONE | DONE — :core:data:testDebugUnitTest + staticAnalysis exit 0 |
+| 15 | P2 | `fork-boringtun-and-add-amneziawg-handshake-obfuscation`<br>Fork boringtun and add AmneziaWG handshake obfuscation | task | outbound | ⏫ | DONE | DONE — cargo nextest --workspace exit 0 (2723), ripdpi-warp-core 38 tests |
+| 16 | P2 | `generalize-websocket-transport-for-outbound-composition`<br>Generalize WebSocket transport for outbound composition | task | transport | ⏫ | DONE | DONE — cargo nextest --workspace exit 0, ripdpi-ws-tunnel 58 tests |
+| 17 | P2 | `add-dns-ipv6-and-kill-switch-release-gates`<br>Add DNS IPv6 and kill-switch release gates | task | testing | ⏫ | DONE | DONE — release-gate scripts + 15 tests; staticAnalysis (just lint) exit 0 |
+| 18 | P2 | `add-fleet-release-gating-and-cadence-policy`<br>Add fleet release gating and cadence policy | task | testing | ⏫ | DONE | DONE — release-gate scripts + 18 tests; staticAnalysis (just lint) exit 0 |
+| 19 | P2 | `add-multi-delivery-subscription-mirror-support`<br>Add multi-delivery subscription mirror support | task | relay | ⏫ | DONE | DONE — :core:data:testDebugUnitTest exit 0 |
+| 20 | P2 | `add-per-device-subscription-token-ux-and-shared-link-warnings`<br>Add per-device subscription token UX and shared-link warnings | task | vpn | ⏫ | DONE | DONE — :app:testGithubDebugUnitTest + :app:assembleDebug exit 0 |
+| 21 | P2 | `add-priority-based-outbound-failover-state-machine`<br>Add priority-based outbound failover state machine | task | vpn | ⏫ | DONE | DONE — cargo nextest --workspace exit 0, ripdpi-runtime-strategy 107 tests |
+| 22 | P2 | `add-amneziawg-russian-isp-cohort-preset-catalog`<br>Add AmneziaWG Russian ISP cohort preset catalog | task | data | ⏫ | DONE | DONE — :core:data:testDebugUnitTest exit 0 (data layer + asset catalog) |
+| 23 | P2 | `add-bootstrap-one-time-subscription-token-import-flow`<br>Add bootstrap one-time subscription token import flow | task | data | ⏫ | DONE | DONE — :core:data + :app:testGithubDebugUnitTest + :app:assembleDebug exit 0 |
+| 24 | P2 | `add-ripdpi-vpn-deploy-fleet-compatibility-golden-file-tests`<br>Add ripdpi-vpn-deploy fleet compatibility golden-file tests | task | testing | ⏫ | DONE | DONE — :core:data:testDebugUnitTest exit 0 (golden-file harness + fixtures) |
 | 25 | P3 | `add-sing-box-route-rules-android-per-app-routing-import`<br>Add sing-box route.rules Android per-app routing import | task | routing | ⏫ | TODO | |
 | 26 | P3 | `add-amneziawg-profile-editor-screen-with-obfuscation-fields`<br>Add AmneziaWG profile editor screen with obfuscation fields | task | outbound | 🔼 | TODO | |
 | 27 | P3 | `add-amneziawg-uri-codec-for-profile-share-and-import`<br>Add amneziawg URI codec for profile share and import | task | outbound | 🔼 | TODO | |

@@ -1,0 +1,67 @@
+{
+  "log": { "level": "warn", "timestamp": true },
+  "dns": {
+    "servers": [
+      { "tag": "remote", "address": "https://1.1.1.1/dns-query", "detour": "select" },
+      { "tag": "local", "address": "local", "detour": "direct" }
+    ],
+    "rules": [{ "outbound": ["any"], "server": "local" }]
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun0",
+      "inet4_address": "172.19.0.1/30",
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "system",
+      "sniff": true
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "p1-xhttp-upcloud-prod",
+      "server": "203.0.113.20",
+      "server_port": 443,
+      "uuid": "00000000-0000-0000-0000-000000000002",
+      "tls": {
+        "enabled": true,
+        "server_name": "cdn.fixture-host.example",
+        "utls": { "enabled": true, "fingerprint": "chrome" }
+      },
+      "transport": {
+        "type": "xhttp",
+        "host": "cdn.fixture-host.example",
+        "path": "/app-sync"
+      }
+    },
+    {
+      "type": "selector",
+      "tag": "select",
+      "outbounds": ["p1-xhttp-upcloud-prod", "auto"],
+      "default": "auto",
+      "interrupt_exist_connections": false
+    },
+    {
+      "type": "urltest",
+      "tag": "auto",
+      "outbounds": ["p1-xhttp-upcloud-prod"],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    { "type": "direct", "tag": "direct" },
+    { "type": "block", "tag": "block" },
+    { "type": "dns", "tag": "dns-out" }
+  ],
+  "route": {
+    "rules": [
+      { "protocol": "dns", "outbound": "dns-out" },
+      { "ip_is_private": true, "outbound": "direct" }
+    ],
+    "final": "select",
+    "auto_detect_interface": true
+  }
+}

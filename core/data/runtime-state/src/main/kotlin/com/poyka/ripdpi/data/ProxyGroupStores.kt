@@ -28,9 +28,33 @@ enum class ProxyGroupType {
 }
 
 /**
+ * Structural flavor of a remote-subscription [link].
+ *
+ * The deployer issues two structurally different subscription URLs:
+ * - [LONG_LIVED] — `/sub/<hash>`: refetchable, supports periodic refresh and
+ *   `Subscription-Userinfo` accounting.
+ * - [BOOTSTRAP] — `/bootstrap/<hash>`: single-use first-boot provisioning. The
+ *   server deletes the on-disk hash file after the first successful GET, so the
+ *   client must consume it exactly once and never re-fetch (subsequent GETs
+ *   answer HTTP 410 Gone). The auto-update worker skips this kind entirely.
+ */
+@Serializable
+enum class SubscriptionKind {
+    LONG_LIVED,
+    BOOTSTRAP,
+}
+
+/**
  * Remote-subscription metadata attached to a [ProxyGroup] whose
  * [ProxyGroup.type] is [ProxyGroupType.SUBSCRIPTION]. Field set is ported from
  * NekoBox's `SubscriptionBean` (link, token, traffic accounting, expiry, etc.).
+ *
+ * [kind] discriminates a refetchable long-lived subscription from a single-use
+ * bootstrap token; [consumedAt] is the epoch-millis stamp set when a
+ * [SubscriptionKind.BOOTSTRAP] token was consumed (it is `null` for an
+ * unconsumed bootstrap and for every long-lived subscription). Epoch-millis is
+ * used rather than `java.time.Instant` to match every other timestamp field on
+ * this `@Serializable` entity.
  */
 @Serializable
 data class Subscription(
@@ -47,7 +71,13 @@ data class Subscription(
     val bytesUsed: Long = 0L,
     val bytesRemaining: Long = 0L,
     val expiryDate: Long = 0L,
-)
+    val kind: SubscriptionKind = SubscriptionKind.LONG_LIVED,
+    val consumedAt: Long? = null,
+) {
+    /** `true` once a [SubscriptionKind.BOOTSTRAP] token has been consumed. */
+    val isConsumed: Boolean
+        get() = consumedAt != null
+}
 
 /**
  * A user-owned group that organizes [ProxyProfile] records. Replaces NekoBox's

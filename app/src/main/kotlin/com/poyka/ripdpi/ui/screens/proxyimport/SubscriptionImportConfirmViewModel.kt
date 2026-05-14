@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.Subscription
+import com.poyka.ripdpi.data.SubscriptionKind
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,6 +61,11 @@ class SubscriptionImportConfirmViewModel
          * network request is made here — the subscription is stored for the existing
          * update pipeline to refresh. No-op when the URL is blank or an import is already
          * in flight.
+         *
+         * The persisted [Subscription.kind] reflects the bootstrap flag: a bootstrap
+         * import is stored as [SubscriptionKind.BOOTSTRAP] so the auto-update worker
+         * skips it and the UI can mark it as a one-time token; everything else is a
+         * refetchable [SubscriptionKind.LONG_LIVED] subscription.
          */
         fun confirm() {
             val state = _uiState.value
@@ -69,6 +75,8 @@ class SubscriptionImportConfirmViewModel
             viewModelScope.launch {
                 val groupId = UUID.randomUUID().toString()
                 val groupName = state.name.takeIf { it.isNotBlank() } ?: hostOf(state.url)
+                val kind =
+                    if (state.bootstrap) SubscriptionKind.BOOTSTRAP else SubscriptionKind.LONG_LIVED
                 repository.add(
                     ProxyGroup(
                         id = groupId,
@@ -76,7 +84,7 @@ class SubscriptionImportConfirmViewModel
                         type = ProxyGroupType.SUBSCRIPTION,
                         order = repository.list().size,
                         isSelector = false,
-                        subscription = Subscription(link = state.url),
+                        subscription = Subscription(link = state.url, kind = kind),
                     ),
                 )
                 _uiState.update { it.copy(importing = false, imported = true) }
