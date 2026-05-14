@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -71,6 +72,7 @@ fun SettingsRow(
             modifier =
                 Modifier.settingsRowModifier(
                     testTag = testTag,
+                    title = title,
                     variant = variant,
                     subtitle = subtitle,
                     enabled = enabled,
@@ -104,6 +106,7 @@ fun SettingsRow(
 @Composable
 private fun Modifier.settingsRowModifier(
     testTag: String?,
+    title: String,
     variant: SettingsRowVariant,
     subtitle: String?,
     enabled: Boolean,
@@ -123,8 +126,9 @@ private fun Modifier.settingsRowModifier(
     val baseModifier =
         this
             .ripDpiTestTag(testTag)
-            .semantics(mergeDescendants = true) {}
-            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                contentDescription = title
+            }.fillMaxWidth()
             .background(state.container, RipDpiThemeTokens.shapes.lg)
             .border(
                 width = if (variant == SettingsRowVariant.Default) 0.dp else 1.dp,

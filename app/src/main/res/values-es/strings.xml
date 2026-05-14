@@ -947,6 +947,7 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_fake_set_title">Paquete fake: establecer banderas</string>
     <string name="title_app_customization">Personalización de la app</string>
     <string name="title_detection_check">Comprobación de detección</string>
+    <string name="title_detection_settings">Ajustes de detección</string>
     <string name="title_owned_stack_browser">Navegador RIPDPI</string>
     <string name="tls_fake_profile_interaction">El SNI TLS fake, la aleatorización, la duplicación de Session ID, el relleno y el ajuste de tamaño se superponen sobre este perfil base.</string>
     <string name="tls_fake_profile_title">Payload TLS fake</string>

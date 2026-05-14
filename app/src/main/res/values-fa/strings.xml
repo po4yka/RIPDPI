@@ -1568,6 +1568,7 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_orig_set_title">بسته اصلی: تنظیم پرچم‌ها</string>
     <string name="title_app_icon">آیکن برنامه</string>
     <string name="title_detection_check">بررسی شناسایی</string>
+    <string name="title_detection_settings">تنظیمات شناسایی</string>
     <string name="use_command_line_settings">استفاده از تنظیمات خط فرمان</string>
     <string name="warp_account_kind_title">نوع حساب</string>
     <string name="warp_amnezia_h3_title">Amnezia H3</string>

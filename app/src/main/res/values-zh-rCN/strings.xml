@@ -854,6 +854,7 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_orig_set_title">原始数据包:设置标志</string>
     <string name="title_app_icon">应用图标</string>
     <string name="title_detection_check">检测检查</string>
+    <string name="title_detection_settings">检测设置</string>
     <string name="title_onboarding">引导</string>
     <string name="title_vpn_config">VPN 配置</string>
     <string name="tls_fake_profile_scope_live">用于当前链上的假 HTTPS ClientHello 数据包。</string>

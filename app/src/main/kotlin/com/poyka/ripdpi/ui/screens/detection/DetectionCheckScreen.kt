@@ -76,6 +76,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
+import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -177,6 +178,7 @@ internal fun DetectionCheckScreen(
     )
 
     RipDpiScreenScaffold(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.DetectionCheck)),
         topBar = {
             com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar(
                 title = stringResource(R.string.title_detection_check),
@@ -186,7 +188,7 @@ internal fun DetectionCheckScreen(
                 actions = {
                     RipDpiIconButton(
                         icon = RipDpiIcons.Settings,
-                        contentDescription = "Detection settings",
+                        contentDescription = stringResource(R.string.title_detection_settings),
                         onClick = onOpenSettings,
                     )
                     RipDpiIconButton(

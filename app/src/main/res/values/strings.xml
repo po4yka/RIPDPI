@@ -2308,6 +2308,7 @@ Source: %2$s</string>
     <string name="settings_clear_community_cache">Clear community cache</string>
 
     <string name="title_detection_check">Detection Check</string>
+    <string name="title_detection_settings">Detection settings</string>
     <string name="title_shared_diagnostic_result">Shared diagnostic</string>
     <string name="detection_check_subtitle">Check how visible your VPN/proxy setup is</string>
     <string name="detection_check_start">Run Check</string>

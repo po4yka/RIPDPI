@@ -87,6 +87,7 @@ private fun ModeEditorRelayHeader(
         RipDpiSwitch(
             checked = draft.relayEnabled,
             onCheckedChange = actions.onRelayEnabledChanged,
+            accessibilityLabel = stringResource(R.string.config_relay_enable),
         )
     }
 }

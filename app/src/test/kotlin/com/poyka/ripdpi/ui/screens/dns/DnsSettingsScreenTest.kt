@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.ui.screens.dns
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -55,7 +58,14 @@ class DnsSettingsScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.dnsResolver("google")).fetchSemanticsNode()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.dnsResolver("google"))
+            .assert(
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.ContentDescription,
+                    listOf("Google Public DNS"),
+                ),
+            )
     }
 
     @Test

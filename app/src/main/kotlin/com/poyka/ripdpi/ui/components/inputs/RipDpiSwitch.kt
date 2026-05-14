@@ -42,6 +42,7 @@ fun RipDpiSwitch(
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
     label: String? = null,
+    accessibilityLabel: String? = label,
     helperText: String? = null,
     errorText: String? = null,
     enabled: Boolean = true,
@@ -55,6 +56,7 @@ fun RipDpiSwitch(
             onCheckedChange = onCheckedChange,
             modifier = modifier,
             label = label,
+            accessibilityLabel = accessibilityLabel,
             helperText = helperText,
             errorText = errorText,
             enabled = enabled,
@@ -69,6 +71,7 @@ fun RipDpiSwitch(
         checked = checked,
         onCheckedChange = onCheckedChange,
         modifier = modifier,
+        accessibilityLabel = accessibilityLabel,
         enabled = enabled,
         readOnly = readOnly,
         interactionSource = interactionSource,
@@ -82,6 +85,7 @@ private fun LabeledRipDpiSwitch(
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier,
     label: String?,
+    accessibilityLabel: String?,
     helperText: String?,
     errorText: String?,
     enabled: Boolean,
@@ -127,6 +131,7 @@ private fun LabeledRipDpiSwitch(
             SwitchToggleControl(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
+                accessibilityLabel = accessibilityLabel,
                 enabled = enabled,
                 readOnly = readOnly,
                 interactionSource = interactionSource,
@@ -134,6 +139,7 @@ private fun LabeledRipDpiSwitch(
                 modifier =
                     Modifier.semantics {
                         label?.let { contentDescription = it }
+                        accessibilityLabel?.let { contentDescription = it }
                         stateDescription = if (checked) onLabel else offLabel
                         errorText?.let { error(it) }
                     },
@@ -154,6 +160,7 @@ private fun SwitchToggleControl(
     checked: Boolean,
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
+    accessibilityLabel: String?,
     enabled: Boolean,
     readOnly: Boolean,
     interactionSource: MutableInteractionSource?,
@@ -197,6 +204,7 @@ private fun SwitchToggleControl(
 
     SwitchLayout(
         modifier = modifier,
+        accessibilityLabel = accessibilityLabel,
         testTag = testTag,
         checked = checked,
         interactive = interactive,
@@ -220,6 +228,7 @@ private fun SwitchToggleControl(
 @Composable
 private fun SwitchLayout(
     modifier: Modifier,
+    accessibilityLabel: String?,
     testTag: String?,
     checked: Boolean,
     interactive: Boolean,
@@ -239,7 +248,9 @@ private fun SwitchLayout(
     Box(
         modifier =
             modifier
-                .ripDpiTestTag(testTag)
+                .semantics {
+                    accessibilityLabel?.let { contentDescription = it }
+                }.ripDpiTestTag(testTag)
                 .size(width = dimensions.width, height = dimensions.height)
                 .then(
                     if (interactive) {

@@ -1897,6 +1897,7 @@ fakeddisorder endhost</string>
     <string name="settings_clear_community_cache">Очистить кеш сообщества</string>
 
     <string name="title_detection_check">Проверка обнаружения</string>
+    <string name="title_detection_settings">Настройки обнаружения</string>
     <string name="detection_check_subtitle">Проверьте, насколько заметна ваша настройка VPN/прокси</string>
     <string name="detection_check_start">Запустить проверку</string>
     <string name="detection_check_stop">Остановить</string>

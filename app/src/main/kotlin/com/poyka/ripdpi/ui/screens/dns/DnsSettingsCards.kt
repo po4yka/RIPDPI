@@ -17,6 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.DnsModeEncrypted
@@ -197,9 +199,11 @@ internal fun DnsOptionCard(
         variant = if (selected) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined,
         onClick = onClick,
         modifier =
-            Modifier.animateContentSize(
-                animationSpec = motion.stateTween(),
-            ),
+            Modifier
+                .semantics { contentDescription = title }
+                .animateContentSize(
+                    animationSpec = motion.stateTween(),
+                ),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -316,11 +320,13 @@ internal fun DnsResolverCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val motion = RipDpiThemeTokens.motion
+    val resolverTitle = stringResource(resolver.titleRes)
     RipDpiCard(
         variant = if (selected) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined,
         onClick = onClick,
         modifier =
             Modifier
+                .semantics { contentDescription = resolverTitle }
                 .animateContentSize(
                     animationSpec = motion.stateTween(),
                 ).ripDpiTestTag(RipDpiTestTags.dnsResolver(resolver.providerId)),
@@ -335,7 +341,7 @@ internal fun DnsResolverCard(
                 verticalArrangement = Arrangement.spacedBy(spacing.xs),
             ) {
                 Text(
-                    text = stringResource(resolver.titleRes),
+                    text = resolverTitle,
                     style = type.bodyEmphasis,
                     color = colors.foreground,
                 )

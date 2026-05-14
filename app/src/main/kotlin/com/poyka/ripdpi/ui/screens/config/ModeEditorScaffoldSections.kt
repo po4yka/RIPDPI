@@ -375,6 +375,7 @@ private fun ModeEditorOverridesSection(
                     RipDpiSwitch(
                         checked = draft.useCommandLineSettings,
                         onCheckedChange = actions.onCommandLineEnabledChanged,
+                        accessibilityLabel = stringResource(R.string.use_command_line_settings),
                         testTag = RipDpiTestTags.ModeEditorCommandLineToggle,
                     )
                 }

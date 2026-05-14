@@ -25,6 +25,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -120,6 +122,7 @@ fun RipDpiChip(
                     scaleY = scale
                 }.background(animatedContainer, chipShape)
                 .border(1.dp, animatedBorderColor, chipShape)
+                .semantics { contentDescription = text }
                 .focusable(enabled = enabled, interactionSource = interactionSource)
                 .ripDpiSelectable(
                     selected = selected,
