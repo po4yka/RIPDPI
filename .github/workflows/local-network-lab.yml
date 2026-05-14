@@ -33,7 +33,10 @@ jobs:
             xargs -0 -n1 bash -n
 
       - name: Validate feature sign-off guard
-        run: test-lab/scripts/test-feature-test-signoff.sh
+        run: |
+          set -euo pipefail
+          test-lab/scripts/test-feature-checklist-coverage.sh
+          test-lab/scripts/test-feature-test-signoff.sh
 
       - name: Validate custom probe broadcast
         run: |
