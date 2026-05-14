@@ -24,9 +24,9 @@ available in the current local lab.
 | --- | --- | --- | --- |
 | Use `docs/feature-test-checklist.md` as the source checklist | `docs/feature-test-evidence-2026-05-14.md` maps every major checklist section to `Covered locally` or `Partial` | Partial | Complete the rows that remain `Partial` |
 | Fix all issues found during the local pass | `docs/feature-test-evidence-2026-05-14.md` records fixed findings and commit subjects for test-lab, build packaging, diagnostics archive redaction, Appium, Maestro, onboarding, logs, and UI automation defects | Covered locally | None for the bugs found in the local pass |
-| Verify Appium installation and current app flows | Appium evidence rows in `docs/feature-test-evidence-2026-05-14.md`; current install rerun passed launch/navigation and onboarding/advanced/host-pack slices on Pixel 8 Pro after fixing the advanced-toggle page-object scroll path | Covered locally | Optional reruns after future UI or Appium page-object changes |
+| Verify Appium installation and current app flows | Appium evidence rows in `docs/feature-test-evidence-2026-05-14.md`; current install reruns passed launch/navigation, onboarding/advanced/host-pack, diagnostics/logs/support/theme, diagnostics-tail, and all 7 workflow journeys on Pixel 8 Pro with Appium 3.4.2 / UiAutomator2 7.3.0 | Covered locally | Optional reruns after future UI or Appium page-object changes |
 | Verify Maestro installation and current smoke flows | Maestro smoke and default-install fallback rows in `docs/feature-test-evidence-2026-05-14.md`; smoke pack and lab VPN orchestrator passed on Pixel 8 Pro with Maestro resolved from `~/.maestro/bin/maestro` while absent from `PATH` | Covered locally | Optional reruns after future Home, Settings, or lab-runner changes |
-| Verify static local quality gates for the rebased head | `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon`; `git diff --check origin/main...HEAD`; focused JVM tests for automation and onboarding | Covered locally | Remote CI for pushed commits |
+| Verify static local quality gates for the current head | `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon`; local `git diff --check`; focused JVM and Appium checks recorded in `docs/feature-test-evidence-2026-05-14.md`; pre-commit hooks passed through `ec2d9216` | Covered locally | Remote CI for pushed commits |
 | Verify local artifacts referenced by the evidence ledger exist | Local artifact-path audit over `test-lab/artifacts/`; connected-test XML, debug APK, release APK, and `doctor.json` exist | Covered locally | Preserve or archive artifacts before cleanup |
 | Verify remaining environment readiness | `test-lab/scripts/check-feature-gap-readiness.sh`; `test-lab/artifacts/feature-gap-readiness.json` | Partial | Resolve every readiness item that is `blocked` or `manual` before sign-off |
 | Verify rooted behavior | Non-rooted physical degradation, root detector tests, root helper manager tests, native IPC tests; readiness preflight confirms current attached device has no root via `su 0 id` | Partial | Rooted physical-device pass for helper extraction, startup, privileged send operations, readiness timeout, and cleanup |
@@ -38,12 +38,17 @@ available in the current local lab.
 
 ## Current Local State
 
-- Branch: `main`, with local commits ahead of `origin/main`.
+- Branch: `main`, with 18 local commits ahead of `origin/main`.
 - Working tree: clean at the time of this audit.
-- Local post-rebase checks: static analysis, focused JVM automation tests, and
-  whitespace diff check passed.
+- Local post-commit checks: static analysis, focused JVM automation tests,
+  Appium/Maestro slices, workflow journeys, and whitespace diff checks passed.
 - Remote state: `origin/main` CI and CodeQL are green, but those runs do not
   cover the local commits ahead of `origin/main`.
+- Current local HEAD: `ec2d9216 test(appium): refresh workflow journeys`.
+- Latest readiness preflight: attached Pixel 8 Pro is ready; rooted physical
+  device, TalkBack manual pass, routed Linux netem VM, production relay matrix,
+  and remote workflow confirmation remain blocked; physical handover remains
+  manual.
 
 ## Stop Rules
 
