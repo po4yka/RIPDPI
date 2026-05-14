@@ -24,7 +24,7 @@ available in the current local lab.
 | --- | --- | --- | --- |
 | Use `docs/feature-test-checklist.md` as the source checklist | `docs/feature-test-evidence-2026-05-14.md` maps every major checklist section to `Covered locally` or `Partial` | Partial | Complete the rows that remain `Partial` |
 | Fix all issues found during the local pass | `docs/feature-test-evidence-2026-05-14.md` records fixed findings and commit subjects for test-lab, build packaging, diagnostics archive redaction, Appium, Maestro, onboarding, logs, and UI automation defects | Covered locally | None for the bugs found in the local pass |
-| Verify Appium installation and current app flows | Appium evidence rows in `docs/feature-test-evidence-2026-05-14.md`; current install reruns passed launch/navigation, onboarding/advanced/host-pack, diagnostics/logs/support/theme, diagnostics-tail, all 7 workflow journeys, and the full 96-item Appium suite on Pixel 8 Pro with Appium 3.4.2 / UiAutomator2 7.3.0. The latest full-suite rerun passed 68 tests with 28 explicit fixture/environment skips in 1963.92s | Covered locally | Optional reruns after future UI or Appium page-object changes |
+| Verify Appium installation and current app flows | Appium evidence rows in `docs/feature-test-evidence-2026-05-14.md`; current install reruns passed launch/navigation, onboarding/advanced/host-pack, diagnostics/logs/support/theme, diagnostics-tail, all 7 workflow journeys, activation-window controls, background guidance, backup-PIN warning/editor, and the full 96-item Appium suite on Pixel 8 Pro with Appium 3.4.2 / UiAutomator2 7.3.0. The latest full-suite rerun passed 68 tests with 28 explicit fixture/environment skips in 1963.92s; focused post-suite reruns reduced stale fixture skips in tests 45 and 46 to all-pass local coverage | Covered locally | Optional reruns after future UI or Appium page-object changes |
 | Verify Maestro installation and current smoke flows | Maestro smoke and default-install fallback rows in `docs/feature-test-evidence-2026-05-14.md`; smoke pack and lab VPN orchestrator passed on Pixel 8 Pro with Maestro resolved from `~/.maestro/bin/maestro` while absent from `PATH`; the latest smoke rerun passed after portrait orientation normalization | Covered locally | Optional reruns after future Home, Settings, or lab-runner changes |
 | Verify static local quality gates for the current head | `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon`; local `git diff --check`; focused JVM and Appium checks recorded in `docs/feature-test-evidence-2026-05-14.md`; pre-commit hooks passed for the latest local commits | Covered locally | Remote CI for pushed commits |
 | Verify local artifacts referenced by the evidence ledger exist | Local artifact-path audit over `test-lab/artifacts/`; connected-test XML, debug APK, release APK, and `doctor.json` exist | Covered locally | Preserve or archive artifacts before cleanup |
@@ -39,8 +39,9 @@ available in the current local lab.
 ## Current Local State
 
 - Branch: `main`, with local commits still ahead of `origin/main`.
-- Working tree scope: this audit update reflects the latest Appium DNS-settings
-  stabilization and matching evidence rows.
+- Working tree scope: this audit update reflects the latest Appium DNS-settings,
+  activation-window, background-guidance, and backup-PIN fixture stabilization
+  plus matching evidence rows.
 - Local post-commit checks: static analysis, focused JVM automation tests,
   Appium/Maestro slices, workflow journeys, and whitespace diff checks passed.
 - Remote state: `origin/main` CI run `25849548946`, CodeQL run
