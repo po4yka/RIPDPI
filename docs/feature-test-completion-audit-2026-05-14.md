@@ -24,8 +24,8 @@ available in the current local lab.
 | --- | --- | --- | --- |
 | Use `docs/feature-test-checklist.md` as the source checklist | `docs/feature-test-evidence-2026-05-14.md` maps every major checklist section to `Covered locally` or `Partial` | Partial | Complete the rows that remain `Partial` |
 | Fix all issues found during the local pass | `docs/feature-test-evidence-2026-05-14.md` records fixed findings and commit subjects for test-lab, build packaging, diagnostics archive redaction, Appium, Maestro, onboarding, logs, and UI automation defects | Covered locally | None for the bugs found in the local pass |
-| Verify Appium installation and current app flows | Appium evidence rows in `docs/feature-test-evidence-2026-05-14.md`; current install reruns passed launch/navigation, onboarding/advanced/host-pack, diagnostics/logs/support/theme, diagnostics-tail, and all 7 workflow journeys on Pixel 8 Pro with Appium 3.4.2 / UiAutomator2 7.3.0 | Covered locally | Optional reruns after future UI or Appium page-object changes |
-| Verify Maestro installation and current smoke flows | Maestro smoke and default-install fallback rows in `docs/feature-test-evidence-2026-05-14.md`; smoke pack and lab VPN orchestrator passed on Pixel 8 Pro with Maestro resolved from `~/.maestro/bin/maestro` while absent from `PATH` | Covered locally | Optional reruns after future Home, Settings, or lab-runner changes |
+| Verify Appium installation and current app flows | Appium evidence rows in `docs/feature-test-evidence-2026-05-14.md`; current install reruns passed launch/navigation, onboarding/advanced/host-pack, diagnostics/logs/support/theme, diagnostics-tail, and all 7 workflow journeys on Pixel 8 Pro with Appium 3.4.2 / UiAutomator2 7.3.0; the latest workflow rerun passed 7 tests in 213.62s | Covered locally | Optional reruns after future UI or Appium page-object changes |
+| Verify Maestro installation and current smoke flows | Maestro smoke and default-install fallback rows in `docs/feature-test-evidence-2026-05-14.md`; smoke pack and lab VPN orchestrator passed on Pixel 8 Pro with Maestro resolved from `~/.maestro/bin/maestro` while absent from `PATH`; the latest smoke rerun passed after portrait orientation normalization | Covered locally | Optional reruns after future Home, Settings, or lab-runner changes |
 | Verify static local quality gates for the current head | `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon`; local `git diff --check`; focused JVM and Appium checks recorded in `docs/feature-test-evidence-2026-05-14.md`; pre-commit hooks passed through `ec2d9216` | Covered locally | Remote CI for pushed commits |
 | Verify local artifacts referenced by the evidence ledger exist | Local artifact-path audit over `test-lab/artifacts/`; connected-test XML, debug APK, release APK, and `doctor.json` exist | Covered locally | Preserve or archive artifacts before cleanup |
 | Verify remaining environment readiness | `test-lab/scripts/check-feature-gap-readiness.sh`; `test-lab/artifacts/feature-gap-readiness.json` | Partial | Resolve every readiness item that is `blocked` or `manual` before sign-off |
@@ -38,15 +38,17 @@ available in the current local lab.
 
 ## Current Local State
 
-- Branch: `main`, with 18 local commits ahead of `origin/main`.
-- Working tree: clean at the time of this audit.
+- Branch: `main`, with local commits still ahead of `origin/main`.
+- Working tree scope: this audit update intentionally covers only Maestro
+  smoke-flow orientation hardening plus the matching Appium/Maestro evidence
+  rows.
 - Local post-commit checks: static analysis, focused JVM automation tests,
   Appium/Maestro slices, workflow journeys, and whitespace diff checks passed.
 - Remote state: `origin/main` CI run `25849548946`, CodeQL run
   `25849548925`, and Dependency Graph run `25849550975` are green for
   `eabedd2a`, but those runs do not cover the local commits ahead of
   `origin/main`.
-- Current local HEAD: `ec2d9216 test(appium): refresh workflow journeys`.
+- Current local HEAD before this Maestro evidence update: `7b7a76c8 docs(testing): record remote run audit`.
 - Latest readiness preflight: attached Pixel 8 Pro is ready; rooted physical
   device, TalkBack manual pass, routed Linux netem VM, production relay matrix,
   and remote workflow confirmation remain blocked; physical handover remains

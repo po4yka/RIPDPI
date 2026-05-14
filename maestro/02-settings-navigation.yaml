@@ -1,5 +1,6 @@
 appId: com.poyka.ripdpi
 ---
+- setOrientation: PORTRAIT
 - launchApp:
     stopApp: true
 - assertVisible:
