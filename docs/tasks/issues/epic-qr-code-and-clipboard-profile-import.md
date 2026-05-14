@@ -1,7 +1,7 @@
 ---
 title: Epic - QR code and clipboard profile import
 type: epic
-status: backlog
+status: done
 area: ui
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Epic - QR code and clipboard profile import #repo/RIPDPI #area/ui #status/backlog ⏫
+- [x] #task Epic - QR code and clipboard profile import #repo/RIPDPI #area/ui #status/done ⏫
 
 ## Goal contract
 

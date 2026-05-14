@@ -34,6 +34,18 @@ const val QuicMigrationStatusValidated = "validated"
 const val QuicMigrationStatusReverted = "reverted"
 const val QuicMigrationStatusFailed = "failed"
 
+/**
+ * Protocol type whose runtime config is server-coordinated fixed config:
+ * AmneziaWG's obfuscation params (`Jc`/`Jmin`/`Jmax`/`S1`-`S4`/`H1`-`H4`/
+ * `I1`-`I5`) are part of the server's configuration and must match it exactly,
+ * so the strategy learner must not vary them.
+ */
+const val StrategyPackFixedConfigProtocolAmneziaWg = "amneziawg"
+
+/** The default set of fixed-config protocol identifiers shipped in the bundled pack. */
+val DefaultStrategyPackFixedConfigProtocols: List<String> =
+    listOf(StrategyPackFixedConfigProtocolAmneziaWg)
+
 @Serializable
 data class StrategyPackCatalog(
     val schemaVersion: Int = StrategyPackCatalogSchemaVersion,
@@ -51,6 +63,11 @@ data class StrategyPackCatalog(
     val transportModules: List<StrategyPackTransportModule> = emptyList(),
     val featureFlags: List<StrategyPackFeatureFlag> = emptyList(),
     val rollout: StrategyPackRolloutMetadata = StrategyPackRolloutMetadata(),
+    // Protocol types whose runtime params are server-coordinated fixed config;
+    // the strategy learner must treat profiles of these protocols as opaque and
+    // never emit a candidate arm that mutates their params. `amneziawg` is in
+    // the default set because its obfuscation params must match the server.
+    val fixedConfigProtocols: List<String> = DefaultStrategyPackFixedConfigProtocols,
 )
 
 @Serializable
@@ -201,6 +218,24 @@ data class StrategyPackCompatibility(
     val reason: String? = null,
 )
 
+/**
+ * A single candidate arm the strategy learner / candidate generator proposes
+ * for a profile. [mutatedParams] names the profile params this arm would
+ * rewrite; an arm that only selects between existing profiles leaves it empty.
+ */
+@Serializable
+data class StrategyPackCandidateArm(
+    val id: String,
+    val protocol: String,
+    val mutatedParams: List<String> = emptyList(),
+)
+
+/** Outcome of validating a [StrategyPackCandidateArm] against the catalog's fixed-config hints. */
+data class StrategyPackCandidateArmValidation(
+    val isValid: Boolean,
+    val reason: String? = null,
+)
+
 private val strategyPackJson =
     Json {
         ignoreUnknownKeys = true
@@ -312,6 +347,43 @@ fun StrategyPackCatalog.checkCompatibility(
         )
     }
     return StrategyPackCompatibility(isCompatible = true)
+}
+
+/**
+ * True when [protocol] is a server-coordinated fixed-config protocol — its
+ * runtime params must match the server exactly and the strategy learner must
+ * not vary them. Matching is case-insensitive and trim-tolerant.
+ */
+fun StrategyPackCatalog.isFixedConfigProtocol(protocol: String): Boolean {
+    val normalized = protocol.trim().lowercase()
+    if (normalized.isEmpty()) {
+        return false
+    }
+    return fixedConfigProtocols.any { it.trim().lowercase() == normalized }
+}
+
+/**
+ * Validates [arm] against the catalog's fixed-config hints. A candidate arm
+ * that mutates a param of a fixed-config protocol (e.g. an AmneziaWG profile's
+ * `Jc`) is rejected; the runtime selector may still pick between profiles of
+ * such a protocol, so an arm with no [StrategyPackCandidateArm.mutatedParams]
+ * is always valid.
+ */
+@Suppress("ReturnCount")
+fun StrategyPackCatalog.validateCandidateArm(arm: StrategyPackCandidateArm): StrategyPackCandidateArmValidation {
+    if (!isFixedConfigProtocol(arm.protocol)) {
+        return StrategyPackCandidateArmValidation(isValid = true)
+    }
+    if (arm.mutatedParams.isEmpty()) {
+        return StrategyPackCandidateArmValidation(isValid = true)
+    }
+    val normalizedProtocol = arm.protocol.trim().lowercase()
+    return StrategyPackCandidateArmValidation(
+        isValid = false,
+        reason =
+            "Candidate arm '${arm.id}' may not mutate params " +
+                "${arm.mutatedParams} of fixed-config protocol '$normalizedProtocol'",
+    )
 }
 
 fun compareVersionStrings(

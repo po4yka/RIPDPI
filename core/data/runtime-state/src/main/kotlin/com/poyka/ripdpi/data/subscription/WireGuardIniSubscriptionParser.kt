@@ -1,6 +1,11 @@
 package com.poyka.ripdpi.data.subscription
 
+import com.poyka.ripdpi.data.wireguard.AmneziaWgConfig
+import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
+import com.poyka.ripdpi.data.wireguard.WireGuardConfModel
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
+import com.poyka.ripdpi.data.wireguard.WireGuardConfig
+import com.poyka.ripdpi.data.wireguard.WireGuardPeer
 
 /**
  * One WireGuard profile produced from a single `[Peer]` of a WireGuard `.conf`
@@ -30,9 +35,44 @@ data class WireGuardSubscriptionProfile(
     val persistentKeepalive: Int?,
 )
 
-/** Outcome of a [WireGuardIniSubscriptionParser] run: profiles plus per-peer warnings. */
+/**
+ * One AmneziaWG profile produced from a single `[Peer]` of a WireGuard-INI
+ * payload whose `[Interface]` block carries AmneziaWG obfuscation keys.
+ *
+ * This mirrors [WireGuardSubscriptionProfile] one-to-one and additionally
+ * carries the interface-scope [AmneziaWgParameters]; the AWG fields are shared
+ * by every peer derived from the same `.conf`, exactly as the interface key
+ * material is. A subscription whose `[Interface]` has zero AWG keys produces a
+ * [WireGuardSubscriptionProfile]; any AWG key produces this type instead.
+ */
+data class AmneziaWgSubscriptionProfile(
+    val displayName: String,
+    val groupId: String,
+    val server: String,
+    val serverPort: Int,
+    val interfacePrivateKey: String,
+    val interfaceAddress: List<String>,
+    val dns: List<String>,
+    val mtu: Int?,
+    val peerPublicKey: String,
+    val peerPresharedKey: String?,
+    val allowedIps: List<String>,
+    val persistentKeepalive: Int?,
+    val awg: AmneziaWgParameters,
+)
+
+/**
+ * Outcome of a [WireGuardIniSubscriptionParser] run: vanilla WireGuard profiles,
+ * AmneziaWG profiles, plus per-peer warnings.
+ *
+ * A single payload yields profiles of one kind per `[Interface]` block: a
+ * vanilla `[Interface]` populates [profiles] and an AmneziaWG-flavored
+ * `[Interface]` populates [amneziaWgProfiles]. Both lists are present on the
+ * result type so the routing decision is visible to callers without a cast.
+ */
 data class WireGuardIniSubscriptionResult(
     val profiles: List<WireGuardSubscriptionProfile>,
+    val amneziaWgProfiles: List<AmneziaWgSubscriptionProfile>,
     val warnings: List<SubscriptionLineWarning>,
 )
 
@@ -66,114 +106,183 @@ object WireGuardIniSubscriptionParser {
      * Parses [payload] into a [WireGuardIniSubscriptionResult]. Every produced
      * profile is stamped with [groupId]. Never throws.
      */
+    @Suppress("ReturnCount")
     fun parse(
         payload: String,
         groupId: String,
     ): WireGuardIniSubscriptionResult {
         if (!looksLikeWireGuardIni(payload)) {
-            return WireGuardIniSubscriptionResult(
-                profiles = emptyList(),
-                warnings =
-                    listOf(
-                        SubscriptionLineWarning(
-                            lineNumber = 0,
-                            line = payload.lineSequence().firstOrNull().orEmpty(),
-                            reason = "payload has no [Interface] header; not a WireGuard INI config",
-                        ),
-                    ),
+            return failure(
+                line = payload.lineSequence().firstOrNull().orEmpty(),
+                reason = "payload has no [Interface] header; not a WireGuard INI config",
             )
         }
 
         val sections = splitSections(payload)
         if (sections.interfaceBlock == null) {
-            return WireGuardIniSubscriptionResult(
-                profiles = emptyList(),
-                warnings =
-                    listOf(
-                        SubscriptionLineWarning(
-                            lineNumber = 0,
-                            line = "[Interface]",
-                            reason = "malformed WireGuard INI config: could not isolate the [Interface] block",
-                        ),
-                    ),
+            return failure(
+                line = "[Interface]",
+                reason = "malformed WireGuard INI config: could not isolate the [Interface] block",
             )
         }
 
         if (sections.peerBlocks.isEmpty()) {
-            return WireGuardIniSubscriptionResult(
-                profiles = emptyList(),
-                warnings =
-                    listOf(
-                        SubscriptionLineWarning(
-                            lineNumber = 0,
-                            line = "[Interface]",
-                            reason = "WireGuard INI config has an [Interface] but no [Peer] section",
-                        ),
-                    ),
+            return failure(
+                line = "[Interface]",
+                reason = "WireGuard INI config has an [Interface] but no [Peer] section",
             )
         }
 
-        val profiles = mutableListOf<WireGuardSubscriptionProfile>()
-        val warnings = mutableListOf<SubscriptionLineWarning>()
+        // The `[Interface]` block — including its AmneziaWG keys — is shared by
+        // every peer. A malformed interface-scope key cannot be salvaged
+        // per-peer, so validate it once up front and fail the whole
+        // subscription with a single typed warning if it does not parse.
+        runCatching { WireGuardConfParser.parse(sections.interfaceBlock + "\n[Peer]\nPublicKey = probe") }
+            .onFailure { error ->
+                return failure(
+                    line = "[Interface]",
+                    reason =
+                        "malformed WireGuard INI config: the [Interface] block could not be parsed: " +
+                            (error.message ?: "unknown error"),
+                )
+            }
 
+        val accumulator = SubscriptionAccumulator()
         sections.peerBlocks.forEachIndexed { index, peerBlock ->
-            // Re-attach the shared [Interface] block to this one [Peer] block
-            // and parse the pair through the existing config parser. A failure
-            // here is isolated to this peer.
-            val singlePeerConf = sections.interfaceBlock + "\n" + peerBlock
+            accumulator.acceptPeerBlock(
+                interfaceBlock = sections.interfaceBlock,
+                peerBlock = peerBlock,
+                peerIndex = index,
+                groupId = groupId,
+            )
+        }
+        return accumulator.toResult()
+    }
+
+    /** Builds an all-profiles-empty [WireGuardIniSubscriptionResult] carrying a single typed warning. */
+    private fun failure(
+        line: String,
+        reason: String,
+    ): WireGuardIniSubscriptionResult =
+        WireGuardIniSubscriptionResult(
+            profiles = emptyList(),
+            amneziaWgProfiles = emptyList(),
+            warnings =
+                listOf(
+                    SubscriptionLineWarning(
+                        lineNumber = 0,
+                        line = line,
+                        reason = reason,
+                    ),
+                ),
+        )
+
+    /**
+     * Mutable per-run accumulator. Each `[Peer]` block is re-attached to the
+     * shared `[Interface]` block and parsed through [WireGuardConfParser]; a
+     * failure is isolated to that one peer as a typed warning, while a parsed
+     * peer is routed to the vanilla or AmneziaWG profile list by the bean type
+     * the config parser returned.
+     */
+    private class SubscriptionAccumulator {
+        private val profiles = mutableListOf<WireGuardSubscriptionProfile>()
+        private val amneziaWgProfiles = mutableListOf<AmneziaWgSubscriptionProfile>()
+        private val warnings = mutableListOf<SubscriptionLineWarning>()
+
+        @Suppress("ReturnCount")
+        fun acceptPeerBlock(
+            interfaceBlock: String,
+            peerBlock: String,
+            peerIndex: Int,
+            groupId: String,
+        ) {
+            val peerLabel = "[Peer] #${peerIndex + 1}"
             val model =
-                runCatching { WireGuardConfParser.parse(singlePeerConf) }
+                runCatching { WireGuardConfParser.parse(interfaceBlock + "\n" + peerBlock) }
                     .getOrElse { error ->
-                        warnings +=
-                            SubscriptionLineWarning(
-                                lineNumber = index + 1,
-                                line = "[Peer] #${index + 1}",
-                                reason =
-                                    "WireGuard [Peer] #${index + 1} skipped: " +
-                                        (error.message ?: "could not be parsed"),
-                            )
-                        return@forEachIndexed
+                        warn(peerIndex, peerLabel, "$peerLabel skipped: ${error.message ?: "could not be parsed"}")
+                        return
                     }
             val peer =
                 model.peers.firstOrNull() ?: run {
-                    warnings +=
-                        SubscriptionLineWarning(
-                            lineNumber = index + 1,
-                            line = "[Peer] #${index + 1}",
-                            reason = "WireGuard [Peer] #${index + 1} skipped: no peer parsed from the block",
-                        )
-                    return@forEachIndexed
+                    warn(peerIndex, peerLabel, "$peerLabel skipped: no peer parsed from the block")
+                    return
                 }
             val hostPort = splitEndpoint(peer.endpoint)
             if (hostPort == null) {
-                warnings +=
-                    SubscriptionLineWarning(
-                        lineNumber = index + 1,
-                        line = peer.endpoint.orEmpty(),
-                        reason = "WireGuard [Peer] #${index + 1} has no usable Endpoint; skipped",
-                    )
-                return@forEachIndexed
+                warn(peerIndex, peer.endpoint.orEmpty(), "$peerLabel has no usable Endpoint; skipped")
+                return
             }
-            val (host, port) = hostPort
+            addProfile(model, peer, hostPort.first, hostPort.second, groupId)
+        }
+
+        private fun addProfile(
+            model: WireGuardConfModel,
+            peer: WireGuardPeer,
+            host: String,
+            port: Int,
+            groupId: String,
+        ) {
             val interfaceSection = model.interfaceSection
-            profiles +=
-                WireGuardSubscriptionProfile(
-                    displayName = "WireGuard $host:$port",
-                    groupId = groupId,
-                    server = host,
-                    serverPort = port,
-                    interfacePrivateKey = interfaceSection.privateKey,
-                    interfaceAddress = interfaceSection.address,
-                    dns = interfaceSection.dns,
-                    mtu = interfaceSection.mtu,
-                    peerPublicKey = peer.publicKey,
-                    peerPresharedKey = peer.presharedKey,
-                    allowedIps = peer.allowedIps,
-                    persistentKeepalive = peer.persistentKeepalive,
+            when (model) {
+                is AmneziaWgConfig -> {
+                    amneziaWgProfiles +=
+                        AmneziaWgSubscriptionProfile(
+                            displayName = "AmneziaWG $host:$port",
+                            groupId = groupId,
+                            server = host,
+                            serverPort = port,
+                            interfacePrivateKey = interfaceSection.privateKey,
+                            interfaceAddress = interfaceSection.address,
+                            dns = interfaceSection.dns,
+                            mtu = interfaceSection.mtu,
+                            peerPublicKey = peer.publicKey,
+                            peerPresharedKey = peer.presharedKey,
+                            allowedIps = peer.allowedIps,
+                            persistentKeepalive = peer.persistentKeepalive,
+                            awg = model.awg,
+                        )
+                }
+
+                is WireGuardConfig -> {
+                    profiles +=
+                        WireGuardSubscriptionProfile(
+                            displayName = "WireGuard $host:$port",
+                            groupId = groupId,
+                            server = host,
+                            serverPort = port,
+                            interfacePrivateKey = interfaceSection.privateKey,
+                            interfaceAddress = interfaceSection.address,
+                            dns = interfaceSection.dns,
+                            mtu = interfaceSection.mtu,
+                            peerPublicKey = peer.publicKey,
+                            peerPresharedKey = peer.presharedKey,
+                            allowedIps = peer.allowedIps,
+                            persistentKeepalive = peer.persistentKeepalive,
+                        )
+                }
+            }
+        }
+
+        private fun warn(
+            peerIndex: Int,
+            line: String,
+            reason: String,
+        ) {
+            warnings +=
+                SubscriptionLineWarning(
+                    lineNumber = peerIndex + 1,
+                    line = line,
+                    reason = reason,
                 )
         }
 
-        return WireGuardIniSubscriptionResult(profiles = profiles, warnings = warnings)
+        fun toResult(): WireGuardIniSubscriptionResult =
+            WireGuardIniSubscriptionResult(
+                profiles = profiles.toList(),
+                amneziaWgProfiles = amneziaWgProfiles.toList(),
+                warnings = warnings.toList(),
+            )
     }
 
     /** The `[Interface]` text block and the per-`[Peer]` text blocks of a `.conf`. */

@@ -185,10 +185,10 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 162 | P9 | `epic-localization-expansion`<br>Epic - Localization expansion | epic | `—` | epic | 🔼 | TODO | |
 | 163 | P10 | `surface-xray-diagnostics-and-telemetry`<br>Surface Xray diagnostics and telemetry | task | `epic-xray-vpn-client-mode` | outbound | 🔼 | TODO | |
 | 164 | P10 | `epic-xray-vpn-client-mode`<br>Epic - Xray VPN client mode | epic | `—` | outbound | ⏫ | TODO | |
-| 165 | P10 | `wire-amneziawg-into-the-subscription-wireguard-ini-parser`<br>Wire AmneziaWG into the subscription WireGuard-INI parser | task | `epic-amneziawg-outbound-support` | outbound | 🔼 | TODO | |
+| 165 | P10 | `wire-amneziawg-into-the-subscription-wireguard-ini-parser`<br>Wire AmneziaWG into the subscription WireGuard-INI parser | task | `epic-amneziawg-outbound-support` | outbound | 🔼 | DONE | `./gradlew :core:data:testDebugUnitTest` exit 0; ktlint clean; changed file adds 0 new detekt findings (`:core:data:runtime-state:detekt` pre-existing RED at HEAD on unrelated files) |
 | 166 | P10 | `add-http-injection-blockpage-diagnostic-probe`<br>Add HTTP injection blockpage diagnostic probe | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | 🔼 | TODO | |
 | 167 | P10 | `add-public-dns-resolver-availability-survey-diagnostic`<br>Add public DNS resolver availability survey diagnostic | task | `(no epic)` | dns | 🔼 | TODO | |
-| 168 | P10 | `add-randomized-port-hopping-window-to-hysteria2-outbound`<br>Add randomized port-hopping window to Hysteria2 outbound | task | `epic-composable-transport-layer-parity` | transport | 🔼 | TODO | |
+| 168 | P10 | `add-randomized-port-hopping-window-to-hysteria2-outbound`<br>Add randomized port-hopping window to Hysteria2 outbound | task | `epic-composable-transport-layer-parity` | transport | 🔼 | DONE | `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-hysteria2` exit 0 |
 | 169 | P10 | `epic-composable-transport-layer-parity`<br>Epic - Composable transport layer parity | epic | `—` | epic | ⏫ | TODO | |
 | 170 | P10 | `add-telegram-mtproto-diagnostic-with-dc-reachability-and-throughput`<br>Add Telegram MTProto diagnostic with DC reachability and throughput | task | `(no epic)` | rust-native | 🔼 | TODO | |
 | 171 | P10 | `adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion`<br>Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | 🔼 | TODO | |
@@ -197,8 +197,8 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 174 | P10 | `pin-utls-to-v1-8-2-and-add-clienthello-fingerprint-regression-test`<br>Pin uTLS to v1.8.2 and add ClientHello fingerprint regression test | task | `(no epic)` | transport | 🔼 | TODO | |
 | 175 | P10 | `add-android-private-dns-conflict-warning`<br>Add Android Private DNS conflict warning | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔼 | TODO | |
 | 176 | P10 | `add-captive-portal-and-whitelist-mode-connection-states`<br>Add captive-portal and whitelist-mode connection states | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔼 | TODO | |
-| 177 | P10 | `add-captive-portal-and-whitelist-mode-test-cases`<br>Add captive portal and whitelist-mode test cases | task | `epic-vpn-fleet-testing-matrix-and-release-gates` | testing | 🔼 | TODO | |
-| 178 | P10 | `add-client-compatibility-regression-matrix-for-fleet-profiles`<br>Add client compatibility regression matrix for fleet profiles | task | `epic-vpn-fleet-testing-matrix-and-release-gates` | testing | 🔼 | TODO | |
+| 177 | P10 | `add-captive-portal-and-whitelist-mode-test-cases`<br>Add captive portal and whitelist-mode test cases | task | `epic-vpn-fleet-testing-matrix-and-release-gates` | testing | 🔼 | DONE | `just test-module core:service` exit 0 |
+| 178 | P10 | `add-client-compatibility-regression-matrix-for-fleet-profiles`<br>Add client compatibility regression matrix for fleet profiles | task | `epic-vpn-fleet-testing-matrix-and-release-gates` | testing | 🔼 | DONE | `just lint` exit 0 (+ `./gradlew :core:service:testDebugUnitTest` exit 0) |
 | 179 | P10 | `epic-vpn-fleet-testing-matrix-and-release-gates`<br>Epic - VPN fleet testing matrix and release gates | epic | `—` | testing | ⏫ | TODO | |
 | 180 | P10 | `adopt-handlereservation-primitive-in-ripdpiwarp`<br>Adopt HandleReservation primitive in RipDpiWarp | task | `epic-runtime-lifecycle-and-supervisors` | service | 🔼 | BLOCKED | |
 | 181 | P11 | `adopt-handlereservation-primitive-in-tun2sockstunnel`<br>Adopt HandleReservation primitive in Tun2SocksTunnel | task | `epic-runtime-lifecycle-and-supervisors` | service | 🔼 | BLOCKED | |
@@ -223,7 +223,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 200 | P12 | `epic-boot-autostart-and-session-persistence`<br>Epic - Boot autostart and session persistence | epic | `—` | service | 🔼 | TODO | |
 | 201 | P12 | `add-share-sheet-intent-for-redacted-share-backups`<br>Add share-sheet intent for redacted SHARE backups | task | `epic-settings-backup-and-restore` | data | 🔽 | TODO | |
 | 202 | P12 | `epic-settings-backup-and-restore`<br>Epic - Settings backup and restore | epic | `—` | epic | 🔼 | TODO | |
-| 203 | P12 | `add-strategy-pack-compatibility-hints-for-amneziawg-servers`<br>Add strategy-pack compatibility hints for AmneziaWG servers | task | `epic-amneziawg-outbound-support` | outbound | 🔽 | TODO | |
+| 203 | P12 | `add-strategy-pack-compatibility-hints-for-amneziawg-servers`<br>Add strategy-pack compatibility hints for AmneziaWG servers | task | `epic-amneziawg-outbound-support` | outbound | 🔽 | DONE | `./gradlew :core:data:testDebugUnitTest` exit 0; `:core:data:catalog:detekt` + `:core:data:detekt` exit 0; ktlint clean. Kotlin schema/validation/docs complete; `native/**` learner enforcement deferred (out of executor scope) |
 | 204 | P12 | `epic-amneziawg-outbound-support`<br>Epic - AmneziaWG outbound support | epic | `—` | epic | 🔼 | TODO | |
 | 205 | P12 | `epic-ripdpi-vpn-deploy-fleet-compatibility`<br>Epic - ripdpi-vpn-deploy fleet compatibility | epic | `—` | epic | 🔺 | TODO | |
 | 206 | P12 | `add-trojan-go-outbound-client-crate-and-profile-editor`<br>Add Trojan-Go outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔽 | TODO | |

@@ -1,7 +1,7 @@
 ---
 title: Epic - NekoBox subscription and profile import
 type: epic
-status: backlog
+status: done
 area: outbound
 priority: critical
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Epic - NekoBox subscription and profile import #repo/RIPDPI #area/outbound #status/backlog 🔺
+- [x] #task Epic - NekoBox subscription and profile import #repo/RIPDPI #area/outbound #status/done 🔺
 
 ## Goal contract
 

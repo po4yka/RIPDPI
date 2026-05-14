@@ -1,7 +1,7 @@
 ---
 title: Add strategy-pack compatibility hints for AmneziaWG servers
 type: task
-status: backlog
+status: done
 area: outbound
 priority: low
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-amneziawg-outbound-support
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
-- [ ] #task Add strategy-pack compatibility hints for AmneziaWG servers #repo/RIPDPI #area/outbound #status/backlog 🔽
+- [x] #task Add strategy-pack compatibility hints for AmneziaWG servers #repo/RIPDPI #area/outbound #status/done 🔽
 
 ## Goal contract
 
@@ -57,3 +57,32 @@ arms that touch `Jc/Jmin/Jmax/S1–S4/H1–H4/I1–I5`.
 ## Links
 
 - [[Epic - AmneziaWG outbound support]]
+
+## Work log
+
+- 2026-05-14 — Added the `fixedConfigProtocols` field to
+  `StrategyPackCatalog` (`core/data/catalog`), defaulting to a list that
+  includes `amneziawg` via `DefaultStrategyPackFixedConfigProtocols`. Because
+  the catalog JSON decoder uses `ignoreUnknownKeys`, older bundled catalogs
+  decode with this default, so the constraint ships without a re-issue. Added
+  `StrategyPackCandidateArm` / `StrategyPackCandidateArmValidation` types plus
+  `StrategyPackCatalog.isFixedConfigProtocol()` and `validateCandidateArm()`:
+  a candidate arm that mutates any param of a fixed-config protocol is
+  rejected in the pack-validation pass, while a selection-only arm (empty
+  `mutatedParams`) is allowed so the runtime selector can still pick between
+  AWG profiles. Documented in `docs/strategy-packs.md` for offline pack
+  authors.
+- Scope note: the issue's goal-contract scope also lists
+  `native/rust/crates/ripdpi-strategy-registry/**`, but the executor's task
+  brief explicitly forbids touching `native/**`. The Rust-side learner /
+  candidate-generator enforcement is therefore left for a native follow-up;
+  the Kotlin catalog schema, validation, default-pack inclusion, and docs are
+  complete and the constraint is expressible and validated on the Kotlin side.
+- New test: `core/data/src/test/kotlin/com/poyka/ripdpi/data/StrategyPackFixedConfigHintTest.kt`
+  (default-pack inclusion, case-insensitive matching, JSON round-trip + back-
+  compat, AWG-param mutation rejection across all `Jc/Jmin/Jmax/S/H/I`
+  families, selection-only arm allowed, non-fixed-config protocol unaffected).
+  TDD: tests written first, confirmed RED, then GREEN.
+- Verify: `./gradlew :core:data:testDebugUnitTest` — BUILD SUCCESSFUL
+  (exit 0). `:core:data:catalog:detekt` and `:core:data:detekt` —
+  BUILD SUCCESSFUL (exit 0); `ktlint` clean on all changed files.
