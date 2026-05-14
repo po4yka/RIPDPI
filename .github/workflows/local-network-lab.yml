@@ -35,6 +35,7 @@ jobs:
       - name: Validate feature sign-off guard
         run: |
           set -euo pipefail
+          test-lab/scripts/test-feature-artifact-paths.sh
           test-lab/scripts/test-feature-checklist-coverage.sh
           test-lab/scripts/test-feature-test-signoff.sh
 
