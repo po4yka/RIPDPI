@@ -9,7 +9,10 @@ feature and combination inventory when selecting release, nightly, or manual QA
 coverage. The current checklist execution state is tracked in the
 [feature test evidence ledger](feature-test-evidence-2026-05-14.md), with the
 [completion audit](feature-test-completion-audit-2026-05-14.md) identifying the
-external lab rows that still block full sign-off.
+external lab rows that still block full sign-off. Use the
+[manual evidence template](feature-test-manual-evidence-template.md) when
+recording rooted-device, physical-network, provider-relay, TalkBack, routed
+netem, or remote-workflow evidence.
 
 ### Kotlin/JVM tests
 

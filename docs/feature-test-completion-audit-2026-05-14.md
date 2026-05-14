@@ -68,3 +68,7 @@ direct evidence:
 5. Run manual TalkBack verification and attach the transcript or screen
    recording reference.
 6. Run the routed Linux VM netem scenario and attach the lab archive.
+
+Use `docs/feature-test-manual-evidence-template.md` when recording those manual
+or external lab runs so each remaining row has a consistent artifact reference,
+result, and retest note.
