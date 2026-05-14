@@ -14,6 +14,16 @@ updated: 2026-05-04
 
 - [ ] #task CI: cargo-tree assertion that monitor-engine no longer pulls ripdpi-runtime-api or ripdpi-diagnostics-pcap #repo/RIPDPI #area/ci #status/doing 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `ci-cargo-tree-assertion-that-monitor-engine-no-longer-pulls-ripdpi-runtime`
+- **Verify:** `just lint-rust`
+- **Scope (only modify these + this file + the ledger):** `.github/**`, `native/rust/crates/ripdpi-monitor-engine/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 Owner: Senior Build/Gradle/CI Engineer.
 
 Context

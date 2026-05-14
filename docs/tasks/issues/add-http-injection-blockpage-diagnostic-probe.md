@@ -14,6 +14,16 @@ updated: 2026-04-25
 
 - [ ] #task Add HTTP injection blockpage diagnostic probe #repo/RIPDPI #area/diagnostics #status/backlog 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `add-http-injection-blockpage-diagnostic-probe`
+- **Verify:** `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-http`
+- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-diagnostics-http/**`, `core/diagnostics/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 A targeted plain-HTTP probe that detects ISP-injected blockpages on

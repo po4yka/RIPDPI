@@ -14,6 +14,16 @@ updated: 2026-05-01
 
 - [ ] #task Add no-secret logging and diagnostics redaction tests #repo/RIPDPI #area/vpn #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `add-no-secret-logging-and-diagnostics-redaction-tests`
+- **Verify:** `just test-module core:service`
+- **Scope (only modify these + this file + the ledger):** `core/service/**`, `core/diagnostics/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Add release-log and diagnostics tests that fail if VPN credentials, subscription URLs, tokens, endpoints, or raw configs appear in logcat, crash reports, or exported bundles.

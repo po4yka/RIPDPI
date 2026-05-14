@@ -14,6 +14,16 @@ updated: 2026-05-01
 
 - [ ] #task Add per-device subscription token UX and shared-link warnings #repo/RIPDPI #area/vpn #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `add-per-device-subscription-token-ux-and-shared-link-warnings`
+- **Verify:** `just test-module app`
+- **Scope (only modify these + this file + the ledger):** `app/**`, `core/data/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Add client UX and storage fields for per-device subscription tokens, expiry, rotation, and warnings when an imported subscription appears shared or unsafe.

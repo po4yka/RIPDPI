@@ -14,6 +14,16 @@ updated: 2026-05-01
 
 - [ ] #task Bind DNS answers to route decisions #repo/RIPDPI #area/vpn #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `bind-dns-answers-to-route-decisions`
+- **Verify:** `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-runtime-dns-cache`
+- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-runtime-dns-cache/**`, `native/rust/crates/ripdpi-dns-resolver/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Store DNS answers with resolver-path and route-decision metadata so direct answers are not accidentally reused for proxy routes or the reverse.

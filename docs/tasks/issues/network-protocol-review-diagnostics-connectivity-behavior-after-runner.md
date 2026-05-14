@@ -14,6 +14,16 @@ updated: 2026-05-04
 
 - [ ] #task Network protocol review: diagnostics connectivity behavior after runner refactor #repo/RIPDPI #area/rust-native #status/doing ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `network-protocol-review-diagnostics-connectivity-behavior-after-runner`
+- **Verify:** `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine`
+- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-monitor-engine/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Objective
 Review the current connectivity runner refactor for DNS/TCP/QUIC/service/circumvention behavior equivalence and diagnostics semantics.
 

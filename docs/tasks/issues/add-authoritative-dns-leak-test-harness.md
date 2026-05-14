@@ -14,6 +14,16 @@ updated: 2026-05-01
 
 - [ ] #task Add authoritative DNS leak-test harness #repo/RIPDPI #area/vpn #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `add-authoritative-dns-leak-test-harness`
+- **Verify:** `just test-module core:service`
+- **Scope (only modify these + this file + the ledger):** `core/service/**`, `native/rust/crates/ripdpi-diagnostics-dns/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Build a DNS leak-test harness using unique random test domains and an authoritative test zone, so QA can verify which resolver path actually saw the query.

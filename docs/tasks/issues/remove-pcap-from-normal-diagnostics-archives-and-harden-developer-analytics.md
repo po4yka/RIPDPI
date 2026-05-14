@@ -14,6 +14,16 @@ updated: 2026-05-04
 
 - [ ] #task Remove PCAP from normal diagnostics archives and harden developer-analytics.json #repo/RIPDPI #area/android #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `remove-pcap-from-normal-diagnostics-archives-and-harden-developer-analytics`
+- **Verify:** `just test-module app`
+- **Scope (only modify these + this file + the ledger):** `app/**`, `core/diagnostics/src/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Objective
 Bring `DefaultDiagnosticsArchiveExporter` and `developer-analytics.json` content into compliance with the AppSec decision on POY-14 (which adopts the CTO boundary in POY-13). PCAP files must not be auto-attached to normal archives, and `developer-analytics.json` must drop fields that have no user-facing disclosure.
 

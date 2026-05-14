@@ -15,6 +15,16 @@ updated: 2026-05-08
 
 - [ ] #task Wire Home diagnostic card Run button and navigate to Diagnostics tab #repo/RIPDPI #area/ui #status/medium #status/backlog 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `wire-home-diagnostic-card-run-action`
+- **Verify:** `just test-module app`
+- **Scope (only modify these + this file + the ledger):** `app/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Connect the Diagnostic card's "Run scan" button on the Home screen to trigger a diagnostics scan, and wire the card body tap to navigate to the Diagnostics tab.

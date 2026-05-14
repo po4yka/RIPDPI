@@ -14,6 +14,16 @@ updated: 2026-04-24
 
 - [ ] #task Add duplicate-profile detection on subscription merge #repo/RIPDPI #area/outbound #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `add-duplicate-profile-detection-on-subscription-merge`
+- **Verify:** `just test-module core:data:runtime-state`
+- **Scope (only modify these + this file + the ledger):** `core/data/runtime-state/**`, `core/data/model/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 On subscription refresh, detect and collapse profiles that are byte-equal

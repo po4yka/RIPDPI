@@ -15,6 +15,16 @@ updated: 2026-05-08
 
 - [ ] #task Build VPN with Remote Server config sub-screen #repo/RIPDPI #area/ui #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `build-vpn-config-sub-screen`
+- **Verify:** `just test-module app`
+- **Scope (only modify these + this file + the ledger):** `app/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Build the dedicated settings screen for the VPN with Remote Server mode, shown in the "VPN" section of the Config tab. Covers outbound relay protocol selection, server credentials, DPI desync settings applied on the VPN path, and DNS.

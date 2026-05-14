@@ -14,6 +14,16 @@ updated: 2026-05-01
 
 - [ ] #task Implement strict tunneled DNS resolver failover #repo/RIPDPI #area/vpn #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `implement-strict-tunneled-dns-resolver-failover`
+- **Verify:** `just test-module core:service`
+- **Scope (only modify these + this file + the ledger):** `core/service/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Add strict encrypted DNS failover for proxied/default domains: retry encrypted resolvers and allowed fallback outbounds, then fail closed with no plaintext local fallback.

@@ -14,6 +14,16 @@ updated: 2026-04-24
 
 - [ ] #task Add HTTP and SOCKS5 outbound proxy clients #repo/RIPDPI #area/outbound #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `add-http-and-socks5-outbound-proxy-clients`
+- **Verify:** `just test-module core:data:runtime-state`
+- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-socks5-core/**`, `core/data/runtime-state/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Add generic HTTP CONNECT and SOCKS5 outbound client adapters so profiles

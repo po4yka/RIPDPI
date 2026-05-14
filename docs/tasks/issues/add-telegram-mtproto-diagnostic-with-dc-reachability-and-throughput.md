@@ -14,6 +14,16 @@ updated: 2026-04-25
 
 - [ ] #task Add Telegram MTProto diagnostic with DC reachability and throughput #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `add-telegram-mtproto-diagnostic-with-dc-reachability-and-throughput`
+- **Verify:** `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-telegram`
+- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-diagnostics-telegram/**`, `native/rust/crates/ripdpi-ws-tunnel/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 A diagnostic profile that probes Telegram MTProto reachability and

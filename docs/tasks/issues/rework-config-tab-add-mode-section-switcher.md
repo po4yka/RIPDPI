@@ -16,6 +16,16 @@ updated: 2026-05-08
 
 - [ ] #task Rework Config tab with Local Bypass / VPN mode section switcher #repo/RIPDPI #area/ui #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `rework-config-tab-add-mode-section-switcher`
+- **Verify:** `just test-module app`
+- **Scope (only modify these + this file + the ledger):** `app/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Replace the Config tab's current flat preset list (Recommended / Proxy / Custom) with a two-section top-level switcher: **Local DPI Bypass** and **VPN with Remote Server**. Each section hosts its own settings screen. The active section matches the mode last selected on the Home screen.
