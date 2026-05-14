@@ -1,5 +1,5 @@
 ---
-title: Wire Home local DPI bypass card toggle and configure navigation
+title: Wire Home local path optimization card toggle and configure navigation
 type: task
 status: backlog
 area: ui
@@ -13,12 +13,12 @@ created: 2026-05-08
 updated: 2026-05-08
 ---
 
-- [ ] #task Wire Home local DPI bypass card toggle and configure navigation #repo/RIPDPI #area/ui #status/backlog ⏫
+- [ ] #task Wire Home local path optimization card toggle and configure navigation #repo/RIPDPI #area/ui #status/backlog ⏫
 
 ## Goal contract
 
 <!-- goal-contract:auto -->
-- **Ledger key:** `wire-home-local-dpi-bypass-card-actions`
+- **Ledger key:** `wire-home-local-path-optimization-card-actions`
 - **Verify:** `just test-module app`
 - **Scope (only modify these + this file + the ledger):** `app/**`
 - **Blocked-by (must be DONE in the ledger first):** _none_
@@ -27,11 +27,11 @@ updated: 2026-05-08
 
 ## Summary
 
-Connect the Local DPI Bypass card toggle on the Home screen to the engine start/stop action, and wire the card body tap to navigate to the Local DPI Bypass config sub-screen in the Config tab.
+Connect the Local Path Optimization card toggle on the Home screen to the engine start/stop action, and wire the card body tap to navigate to the Local Path Optimization config sub-screen in the Config tab.
 
 ## Context
 
-Local DPI bypass operates in `Mode.LOCAL_VPN` or `Mode.PROXY` without a remote relay. The existing `MainViewModel` has `connect()` / `disconnect()` actions that already drive the VPN service; this task ensures that toggling the bypass card calls the right variant (local-only, no relay). The "configure" navigation goes to `Route.Config` with a route argument or scroll target selecting the Local Bypass section.
+Local path optimization operates in `Mode.LOCAL_VPN` or `Mode.PROXY` without a tunneled outbound. The existing `MainViewModel` has `connect()` / `disconnect()` actions that already drive the VPN service; this task ensures that toggling the bypass card calls the right variant (local-only, no relay). The "configure" navigation goes to `Route.Config` with a route argument or scroll target selecting the Local Bypass section.
 
 ## Acceptance criteria
 

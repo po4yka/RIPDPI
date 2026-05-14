@@ -52,9 +52,9 @@ from the power-user rule editor.
 
 ## Source references
 
-**NekoBoxForAndroid** — no direct analog. NekoBox exposes only the full rule editor (`RouteSettingsActivity`). A simple bypass-list is NOT in NekoBox — this is an RIPDPI-original simplification for the common case.
+**Reference implementation notes:** — no direct analog. reference implementation exposes only the full rule editor (`RouteSettingsActivity`). A simple bypass-list is NOT in reference implementation — this is an RIPDPI-original simplification for the common case.
 
-**Adapt:** The domain-string classification prefixes (`domain:`, `domain_suffix:`, `domain_regex:`) from NekoBox's `ConfigBuilder.kt` — see [[Add Rust rule matcher with domain ip port process matchers]] for that reference.
+**Adapt:** The domain-string classification prefixes (`domain:`, `domain_suffix:`, `domain_regex:`) from Reference implementation's `ConfigBuilder.kt` — see [[Add Rust rule matcher with domain ip port process matchers]] for that reference.
 
 **Invent:** The single-rule compile strategy (all entries → one high-priority BYPASS rule), the "move into full rule editor" migration action.
 

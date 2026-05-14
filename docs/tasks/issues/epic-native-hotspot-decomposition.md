@@ -27,7 +27,7 @@ updated: 2026-04-20
 ## Goal
 
 Split the three oversized hot files by responsibility so future protocol
-and evasion work doesn't serialize through the same three modules. Extract
+and packet-behavior work doesn't serialize through the same three modules. Extract
 a first-class internal `ActionPlan` IR in the Rust runtime as a side
 benefit that makes planner, emitter, and fallback logic independently
 testable.

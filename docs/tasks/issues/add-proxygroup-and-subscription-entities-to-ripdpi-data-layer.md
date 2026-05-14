@@ -5,7 +5,7 @@ status: done
 area: outbound
 priority: critical
 owner: unassigned
-parent: epic-nekobox-subscription-and-profile-import
+parent: epic-subscription-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -35,7 +35,7 @@ auto-refreshed from a subscription URL.
 RIPDPI's current data layer has user relays and operator-shipped packs, but
 no user-owned "group" that can hold dynamic subscription-sourced profiles.
 This entity is the prerequisite for every other task in
-[[Epic - NekoBox subscription and profile import]].
+[[Epic - Subscription and profile import]].
 
 ## Acceptance criteria
 
@@ -56,16 +56,16 @@ This entity is the prerequisite for every other task in
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`) — these files are the template for the schema shape:
+**Reference implementation notes:** — these files are the template for the schema shape:
 
 - `app/src/main/java/io/nekohasekai/sagernet/database/ProxyGroup.kt` — `@Entity` fields: `id`, `userOrder`, `ungrouped`, `name`, `type` (`BASIC`/`SUBSCRIPTION`), `subscription` (embedded), `order`, `isSelector`, `frontProxy`, `landingProxy`. Port field-for-field but map to Protobuf DataStore or Room per RIPDPI's existing pattern (`DiagnosticsDatabase`).
 - `app/src/main/java/io/nekohasekai/sagernet/database/SubscriptionBean.java` — field set: `link`, `token`, `customUserAgent`, `autoUpdate`, `autoUpdateDelay`, `lastUpdated`, `updateWhenConnectedOnly`, `forceResolve`, `deduplication`, `subscriptionUserinfo`, `bytesUsed`, `bytesRemaining`, `expiryDate`. Port verbatim.
-- `app/src/main/java/io/nekohasekai/sagernet/database/ProxyEntity.kt` — the flat-bean-per-protocol pattern NekoBox uses (one nullable column per protocol). **Do NOT copy** this pattern; RIPDPI should use a discriminated union (Protobuf `oneof` or Kotlin sealed class) since the ProxyEntity bean-per-column layout is legacy.
+- `app/src/main/java/io/nekohasekai/sagernet/database/ProxyEntity.kt` — the flat-bean-per-protocol pattern reference implementation uses (one nullable column per protocol). **Do NOT copy** this pattern; RIPDPI should use a discriminated union (Protobuf `oneof` or Kotlin sealed class) since the ProxyEntity bean-per-column layout is legacy.
 - `app/src/main/java/io/nekohasekai/sagernet/database/SagerDatabase.kt` — Room database wiring for reference; RIPDPI already has its own DB conventions.
 
 **Adapt:** Field set, semantics. **Skip:** Kryo serialization (RIPDPI uses Protobuf), the bean-per-column ProxyEntity layout, `frontProxy`/`landingProxy` (proxy-chaining excluded per project note).
 
 ## Links
 
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - [[ripdpi-android]]

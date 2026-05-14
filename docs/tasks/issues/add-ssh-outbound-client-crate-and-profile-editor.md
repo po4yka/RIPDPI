@@ -55,15 +55,15 @@ pooling should be left as an extension point.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/ssh/SSHBean.java` — bean fields: `authType` (password/privateKey), `username`, `password`, `privateKey`, `privateKeyPassphrase`, `publicKey` (host key fingerprint).
 - `app/src/main/java/io/nekohasekai/sagernet/ui/profile/SSHSettingsActivity.kt` — editor layout including the trust-on-first-use host-key flow.
-- No `ssh://` URI codec in NekoBox (SSH profiles are editor-only); RIPDPI follows the same pattern.
+- No `ssh://` URI codec in reference implementation (SSH profiles are editor-only); RIPDPI follows the same pattern.
 
-**Outbound engine (NOT from NekoBox):** use [`russh`](https://github.com/Eugeny/russh) (maintained pure-Rust SSH client). NekoBox's SSH outbound is sing-box's Go implementation.
+**Outbound engine (NOT from reference implementation):** use [`russh`](https://github.com/Eugeny/russh) (maintained pure-Rust SSH client). Reference implementation's SSH outbound is sing-box's Go implementation.
 
-**Adapt:** Bean fields, host-key-TOFU UX pattern, passphrase reveal via biometric gate (same pattern RIPDPI uses for WireGuard private keys). **Skip:** No URI codec (consistent with NekoBox); subscription import for SSH is editor-only.
+**Adapt:** Bean fields, host-key-TOFU UX pattern, passphrase reveal via biometric gate (same pattern RIPDPI uses for WireGuard private keys). **Skip:** No URI codec (consistent with reference implementation); subscription import for SSH is editor-only.
 
 ## Links
 

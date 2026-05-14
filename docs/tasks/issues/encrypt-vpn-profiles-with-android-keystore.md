@@ -30,7 +30,7 @@ Store VPN profiles, subscription state, and credential-bearing rule metadata enc
 
 ## Motivation
 
-VPN client profiles contain bearer credentials. They must not live in plaintext SharedPreferences, external storage, logs, screenshots, or crash reports.
+tunneled outbound profile profiles contain bearer credentials. They must not live in plaintext SharedPreferences, external storage, logs, screenshots, or crash reports.
 
 ## Scope
 

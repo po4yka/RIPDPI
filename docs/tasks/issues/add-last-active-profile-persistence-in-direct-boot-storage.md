@@ -52,14 +52,14 @@ is refreshed at that point if anything had to hold.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/database/DataStore.kt` — `selectedProxy: Long` property, persisted in the Room-backed PreferenceDataStore.
-- `app/src/main/java/io/nekohasekai/sagernet/BootReceiver.kt` — on `LOCKED_BOOT_COMPLETED`, reads the last-active profile and starts the service before user unlock. NekoBox does NOT split storage into device-protected vs user-protected — **this is a deviation point** for RIPDPI.
+- `app/src/main/java/io/nekohasekai/sagernet/BootReceiver.kt` — on `LOCKED_BOOT_COMPLETED`, reads the last-active profile and starts the service before user unlock. reference implementation does NOT split storage into device-protected vs user-protected — **this is a deviation point** for RIPDPI.
 
 **Android reference** — for direct-boot storage split, follow Android docs on `createDeviceProtectedStorageContext()`. The profile ID (Long) is non-sensitive; the profile bean (with keys) is sensitive. Split at that boundary.
 
-**Adapt:** The `selectedProxy` pointer concept. **Improve over NekoBox:** split device-protected (ID only) vs credential-protected (full bean). NekoBox stores the full Room DB in user-protected by default but does not surface the boundary.
+**Adapt:** The `selectedProxy` pointer concept. **Improve over reference implementation:** split device-protected (ID only) vs credential-protected (full bean). reference implementation stores the full Room DB in user-protected by default but does not surface the boundary.
 
 ## Links
 

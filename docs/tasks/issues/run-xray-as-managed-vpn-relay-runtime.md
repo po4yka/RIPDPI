@@ -5,7 +5,7 @@ status: backlog
 area: outbound
 priority: high
 owner: unassigned
-parent: epic-xray-vpn-client-mode
+parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -69,7 +69,7 @@ do not rely on it until tested on Android.
 
 ## Links
 
-- [[Epic - Xray VPN client mode]]
+- [[Epic - Xray provider mode]]
 - [[Package libXray for Android ABIs]]
 - [[Render validated Xray client configs]]
-- [[ripdpi-android-xray-vpn-client-plan-2026-04-24]]
+- [[ripdpi-android-xray-provider-plan-2026-04-24]]

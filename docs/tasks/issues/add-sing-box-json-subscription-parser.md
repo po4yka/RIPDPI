@@ -5,7 +5,7 @@ status: done
 area: outbound
 priority: critical
 owner: unassigned
-parent: epic-nekobox-subscription-and-profile-import
+parent: epic-subscription-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -32,7 +32,7 @@ single-outbound config — into RIPDPI profile beans.
 ## Context
 
 sing-box JSON is the canonical subscription format for the modern bypass
-stack (Xray, sing-box, Clash.Meta upstream ecosystem). Per NekoBox's
+stack (Xray, sing-box, Clash.Meta upstream ecosystem). Per Reference implementation's
 `RawUpdater.parseJSON`: detects JSON via JSONTokener, then inspects top-
 level keys. Outbound-array entries become profiles; non-shadowsocks/trojan/
 hysteria entries that cannot be mapped to a native bean fall back to
@@ -54,13 +54,13 @@ hysteria entries that cannot be mapped to a native bean fall back to
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**
 
 - `app/src/main/java/io/nekohasekai/sagernet/group/RawUpdater.kt` — method `parseJSON()`. Detection: `JSONTokener(text).nextValue()` returns a `JSONObject` or `JSONArray`. Dispatch on top-level shape: `outbounds:` array (iterate), single outbound object (wrap), Hysteria1 single-config shape, Shadowsocks single-config shape, TrojanGo single-config shape.
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/ConfigBuilder.kt` — the reverse mapping (ProxyEntity → sing-box outbound JSON) is instructive for understanding which sing-box `type:` values map to which beans.
 
-**Adapt:** The shape-detection dispatch, fall-through-to-ConfigBean for unknown types. **Skip:** sing-box `inbounds`, `route`, `dns`, `experimental` sections (we only want outbounds). Use `kotlinx.serialization` with a permissive JSON config (`ignoreUnknownKeys = true`, `isLenient = true`); NekoBox uses `org.json.JSONObject` which is slower and weaker-typed.
+**Adapt:** The shape-detection dispatch, fall-through-to-ConfigBean for unknown types. **Skip:** sing-box `inbounds`, `route`, `dns`, `experimental` sections (we only want outbounds). Use `kotlinx.serialization` with a permissive JSON config (`ignoreUnknownKeys = true`, `isLenient = true`); reference implementation uses `org.json.JSONObject` which is slower and weaker-typed.
 
 ## Links
 
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]

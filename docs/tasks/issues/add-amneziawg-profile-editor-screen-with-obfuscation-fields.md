@@ -32,7 +32,7 @@ obfuscation parameter.
 
 ## Context
 
-Follow the reference client's UX: obfuscation fields are **inline in
+Follow the Reference implementation's UX: obfuscation fields are **inline in
 the main editor**, not hidden behind an "Advanced" toggle, because
 these values are server-coordinated and the user is expected to paste
 them verbatim from their provider. Group the AWG fields into one
@@ -46,7 +46,7 @@ labeled section beneath the standard Interface/Peer fields.
     peer public key, peer endpoint, allowed IPs, preshared key,
     persistent keepalive) surface and behave identically to the
     existing WireGuard editor.
-- [ ] New "Obfuscation" section with one `OutlinedTextField` per AWG
+- [ ] New "Obfuscation" section with one `TextField` per AWG
     parameter: Jc, Jmin, Jmax, S1, S2, S3, S4, H1, H2, H3, H4, I1,
     I2, I3, I4, I5.
 - [ ] Per-field validation mirrors the parser: integer ranges for

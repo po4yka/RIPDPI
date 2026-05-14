@@ -56,4 +56,4 @@ IR internal to the Rust runtime initially — no JNI exposure required.
 - [[ripdpi-android-audit-2026-04-20]]
 
 
-## nekobox-subscription-and-profile
+## reference-implementation-subscription-and-profile

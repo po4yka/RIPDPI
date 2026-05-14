@@ -33,7 +33,7 @@ scanner dispatcher, and clipboard-import flow.
 ## Context
 
 There is no standardized AmneziaWG share-URI scheme in the upstream
-ecosystem (the reference client uses `.conf` files and QR-of-`.conf`).
+ecosystem (the reference implementation uses `.conf` files and QR-of-`.conf`).
 Define one locally and document it. Structure: scheme + base64url-
 encoded AWG config fragment (or query-param layout). Pick the simpler
 format. Share-sheet registration extends the filter list from the
@@ -59,10 +59,10 @@ subscription/QR epics.
 
 **No direct upstream analog.** Neither amneziawg-android nor amneziawg-go defines a URI scheme; sharing is `.conf`-file or QR-of-`.conf` only. RIPDPI invents `amneziawg://` for ergonomic single-profile sharing.
 
-**Pattern references** (all NekoBox paths rooted at `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Pattern references** (all reference implementation paths rooted at `/Users/po4yka/GitRep/Android reference profile/`):
 
-- NekoBoxForAndroid `app/src/main/java/io/nekohasekai/sagernet/fmt/hysteria/HysteriaFmt.kt` — `hysteria2://` URI codec is a good template (UDP-based protocol with query-param auxiliary fields). Follow the same shape: `amneziawg://<base64-private-key>@<host>:<port>?public_key=...&allowed_ips=...&jc=...&h1=...&s1=...`.
-- NekoBoxForAndroid `app/src/main/java/io/nekohasekai/sagernet/fmt/wireguard/WireGuardFmt.kt` — the WG-URI codec (`wireguard://`) shows how to serialize a WG-shaped profile. Extend with AWG query params.
+- Android reference profile `app/src/main/java/io/nekohasekai/sagernet/fmt/hysteria/HysteriaFmt.kt` — `hysteria2://` URI codec is a good template (UDP-based protocol with query-param auxiliary fields). Follow the same shape: `amneziawg://<base64-private-key>@<host>:<port>?public_key=...&allowed_ips=...&jc=...&h1=...&s1=...`.
+- Android reference profile `app/src/main/java/io/nekohasekai/sagernet/fmt/wireguard/WireGuardFmt.kt` — the WG-URI codec (`wireguard://`) shows how to serialize a WG-shaped profile. Extend with AWG query params.
 
 **Reference URI layout** (proposed, documented in `docs/`):
 ```
@@ -78,7 +78,7 @@ amneziawg://<base64url(private-key)>@<host>:<port>
 #<name>
 ```
 
-**Adapt:** Hysteria2-style URI shape from NekoBox. **Invent:** All AWG-specific query-param names (this task defines them).
+**Adapt:** Hysteria2-style URI shape from reference implementation. **Invent:** All AWG-specific query-param names (this task defines them).
 
 ## Links
 

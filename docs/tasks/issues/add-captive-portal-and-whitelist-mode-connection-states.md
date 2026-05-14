@@ -30,7 +30,7 @@ Add explicit captive-portal assist and whitelist-suspected connection states so 
 
 ## Motivation
 
-During captive portals, mobile restrictions, or whitelist-style shutdowns, a VPN client can look broken even when the correct answer is controlled direct access, relay suggestion, or a blocked/offline state.
+During captive portals, mobile restrictions, or whitelist-style shutdowns, a tunneled outbound profile can look broken even when the correct answer is controlled direct access, relay suggestion, or a blocked/offline state.
 
 ## Scope
 

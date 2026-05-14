@@ -32,7 +32,7 @@ and `MY_PACKAGE_REPLACED`, toggled on only when the user has enabled
 
 ## Context
 
-NekoBox enables the receiver component dynamically via
+reference implementation enables the receiver component dynamically via
 `PackageManager.setComponentEnabledSetting` so the broadcast filter only
 exists while needed. Default state must be `DISABLED`; enabling it without
 user opt-in is both a battery concern and a surprise behavior.
@@ -54,7 +54,7 @@ user opt-in is both a battery concern and a surprise behavior.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/BootReceiver.kt` — the full receiver. Handles `BOOT_COMPLETED`, `LOCKED_BOOT_COMPLETED`, `MY_PACKAGE_REPLACED`. Dynamic enable via `PackageManager.setComponentEnabledSetting(ComponentName, COMPONENT_ENABLED_STATE_{ENABLED,DISABLED}, DONT_KILL_APP)`.
 - `app/src/main/AndroidManifest.xml` — receiver declaration with `android:enabled="false"` initially and the three intent-action filters.
@@ -62,9 +62,9 @@ user opt-in is both a battery concern and a surprise behavior.
 
 **amneziawg-android** ([repo](https://github.com/amnezia-vpn/amneziawg-android), local: `/Users/po4yka/GitRep/amneziawg-android/`) — cross-reference for the WireGuard-ecosystem pattern:
 
-- `ui/src/main/java/org/amnezia/awg/BootShutdownReceiver.kt` — handles both `BOOT_COMPLETED` and `ACTION_SHUTDOWN` (save-state-on-shutdown is a WireGuard pattern absent from NekoBox; consider adopting).
+- `ui/src/main/java/org/amnezia/awg/BootShutdownReceiver.kt` — handles both `BOOT_COMPLETED` and `ACTION_SHUTDOWN` (save-state-on-shutdown is a WireGuard pattern absent from reference implementation; consider adopting).
 
-**Adapt:** Dynamic-enable pattern, three-action filter set. **Consider:** adding `ACTION_SHUTDOWN` handler from AWG pattern to persist clean-shutdown flag. **Skip:** NekoBox's subscription-updater re-registration (handled by WorkManager persistence in RIPDPI).
+**Adapt:** Dynamic-enable pattern, three-action filter set. **Consider:** adding `ACTION_SHUTDOWN` handler from AWG pattern to persist clean-shutdown flag. **Skip:** Reference implementation's subscription-updater re-registration (handled by WorkManager persistence in RIPDPI).
 
 ## Links
 

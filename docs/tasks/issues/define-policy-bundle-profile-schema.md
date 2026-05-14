@@ -47,7 +47,7 @@ Existing clients often lose routing, DNS, IPv6, selector, kill-switch, and crede
 
 ## Design notes
 
-Keep this schema separate from direct-mode strategy packs. It describes the user device VPN profile, while strategy packs describe censorship-bypass decisions and rule catalogs.
+Keep this schema separate from direct-mode strategy packs. It describes the user device VPN profile, while strategy packs describe network-path compatibility decisions and rule catalogs.
 
 ## Risks / open questions
 

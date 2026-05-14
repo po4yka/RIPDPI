@@ -53,12 +53,12 @@ receive path.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
-- `app/src/main/java/io/nekohasekai/sagernet/BootReceiver.kt` — the `MY_PACKAGE_REPLACED` branch is combined with `BOOT_COMPLETED` and re-reads `DataStore.persistAcrossReboot` without distinguishing "was running at update". **Do not copy this behavior.** NekoBox's approach auto-restarts on every update even if the user had deliberately stopped the tunnel — a correctness bug.
-- `app/src/main/java/io/nekohasekai/sagernet/bg/BaseService.kt` — `DataStore.currentProfile` is cleared on explicit stop, so NekoBox does have the signal, but BootReceiver ignores it.
+- `app/src/main/java/io/nekohasekai/sagernet/BootReceiver.kt` — the `MY_PACKAGE_REPLACED` branch is combined with `BOOT_COMPLETED` and re-reads `DataStore.persistAcrossReboot` without distinguishing "was running at update". **Do not copy this behavior.** Reference implementation's approach auto-restarts on every update even if the user had deliberately stopped the tunnel — a correctness bug.
+- `app/src/main/java/io/nekohasekai/sagernet/bg/BaseService.kt` — `DataStore.currentProfile` is cleared on explicit stop, so reference implementation does have the signal, but BootReceiver ignores it.
 
-**Adapt:** The receiver-branch structure. **Improve over NekoBox:** add a `wasRunningAtUpdate: Boolean` flag set when the service is torn down for an update (vs user-initiated stop), and gate the restart on it. This is an explicit correctness improvement documented in the acceptance criteria.
+**Adapt:** The receiver-branch structure. **Improve over reference implementation:** add a `wasRunningAtUpdate: Boolean` flag set when the service is torn down for an update (vs user-initiated stop), and gate the restart on it. This is an explicit correctness improvement documented in the acceptance criteria.
 
 ## Links
 

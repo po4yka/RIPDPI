@@ -53,12 +53,12 @@ user has made an intent explicit. No watcher, no auto-paste detection.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**
 
 - `app/src/main/java/io/nekohasekai/sagernet/ui/ConfigurationFragment.kt` — the "Import from clipboard" menu handler: `SagerNet.clipboard.primaryClip?.getItemAt(0)?.text?.toString()` then dispatches to the same URI parser used by QR scan.
 - `app/src/main/java/io/nekohasekai/sagernet/SagerNet.kt` — `clipboard` accessor (wraps `ClipboardManager` as a typed system-service property). Reference for the accessor pattern only.
 
-**Adapt:** The menu action + one-shot read + dispatch. **Skip:** NekoBox has no consent gate because it reads clipboard only on explicit user menu tap (same posture as this task asks for). NekoBox has no "clear clipboard after import" step — add it in RIPDPI as an opt-in, documented per task acceptance.
+**Adapt:** The menu action + one-shot read + dispatch. **Skip:** reference implementation has no consent gate because it reads clipboard only on explicit user menu tap (same posture as this task asks for). reference implementation has no "clear clipboard after import" step — add it in RIPDPI as an opt-in, documented per task acceptance.
 
 ## Links
 

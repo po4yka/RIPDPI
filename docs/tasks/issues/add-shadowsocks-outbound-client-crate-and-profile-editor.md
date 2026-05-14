@@ -61,19 +61,19 @@ for v1; they are plugin layers and belong to a later task.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/shadowsocks/ShadowsocksBean.java` — bean fields: `method`, `password`, `plugin`, `pluginOptions`. Port field set for RIPDPI's `ShadowsocksBean`.
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/shadowsocks/ShadowsocksFmt.kt` — `ss://` URI parse (SIP002 format with base64 userinfo, plus legacy base64-whole-URI) and emit. **Port verbatim.**
 - `app/src/main/java/io/nekohasekai/sagernet/ui/profile/ShadowsocksSettingsActivity.kt` — the editor's validation rules for method/password/plugin. Reference only; RIPDPI editor will be Compose, not PreferenceFragment.
 
-**Outbound engine (NOT from NekoBox):**
+**Outbound engine (NOT from reference implementation):**
 - [`shadowsocks-rust`](https://github.com/shadowsocks/shadowsocks-rust) — pure-Rust reference implementation. Shadowsocks-rust's `shadowsocks-crypto` crate has the AEAD-2022 and legacy AEAD ciphers. Consume as a dependency or vendored fork.
-- NekoBox's outbound is sing-box's Go implementation; **do not port that**.
+- Reference implementation's outbound is sing-box's Go implementation; **do not port that**.
 
 **Adapt:** Bean fields, URI codec, validation rules. **Skip:** sing-box Go outbound, any "plugin" external-process path (simple-obfs / v2ray-plugin are out of scope for v1).
 
 ## Links
 
 - [[Epic - Extended outbound protocol support]]
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]

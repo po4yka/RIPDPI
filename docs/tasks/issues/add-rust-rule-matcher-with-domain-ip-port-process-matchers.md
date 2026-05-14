@@ -55,7 +55,7 @@ package→UID lookup; package set is pre-hashed.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/ConfigBuilder.kt` — the rule-translation pass (search for `Rule_DefaultOptions` and `makeSingBoxRule`). Shows how domain strings get classified into `domain` / `domain_suffix` / `domain_regex` / `geosite` prefix categories. **Port this classification logic.**
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/ConfigBuilder.kt` — `applyRouteRules()` shows the built-in rule set (DNS hijack on port 53, LAN bypass, multicast block) appended to user rules.

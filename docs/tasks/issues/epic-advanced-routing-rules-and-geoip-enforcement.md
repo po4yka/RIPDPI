@@ -20,7 +20,7 @@ updated: 2026-04-24
 - **Ledger key:** `epic-advanced-routing-rules-and-geoip-enforcement`
 - **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
 - **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
-- **Blocked-by (must be DONE in the ledger first):** `epic-nekobox-subscription-and-profile-import`
+- **Blocked-by (must be DONE in the ledger first):** `epic-subscription-profile-import`
 - **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
 <!-- /goal-contract:auto -->
 
@@ -29,7 +29,7 @@ updated: 2026-04-24
 Finish the routing-rule story end to end. Today RIPDPI has the Protobuf
 schema for geosite and partial enforcement, plus per-app VPN exclusion, but
 no user-editable rule engine, no CIDR rules, no runtime geoip.db/geosite.db
-enforcement, and no configurable asset provider. NekoBox exposes all of
+enforcement, and no configurable asset provider. reference implementation exposes all of
 these.
 
 ## Why now
@@ -43,12 +43,12 @@ style censorship where split-tunneling is the norm.
 
 - **Rule engine lives in Rust (runtime fast path), not Kotlin.** The Kotlin
 layer owns CRUD and serialization; the matcher is native.
-- **Rule types match NekoBox for subscription/config parity:** domain,
+- **Rule types match reference implementation for subscription/config parity:** domain,
 domain_suffix, domain_regex, geosite, ip_cidr, geoip, port, source,
 network (tcp/udp), process, package (per-app).
 - **Outbound actions:** proxy / bypass / block / specific-profile.
 - **Asset provider is configurable** with four built-in options mirroring
-NekoBox: SagerNet, soffchen, Chocolate4U Iran rules, L11R antizapret.
+reference implementation: SagerNet, soffchen, Chocolate4U Iran rules, L11R antizapret.
 Updating is user-triggered, not silent background refresh.
 - **Integrate with the existing strategy learner:** per-domain learned
 app-family routing is a derived rule layer stacked above user rules, not
@@ -104,7 +104,7 @@ generation from strategy learner output (future).
 
 - Feeds: [[Epic - Settings backup and restore]] — rules are part of backup
 schema.
-- Depends on: [[Epic - NekoBox subscription and profile import]] — rule
+- Depends on: [[Epic - Subscription and profile import]] — rule
 outbound actions can target specific profiles or groups.
 
 ## Risks / open questions
@@ -122,6 +122,6 @@ linear scan by a clear margin; benchmark before shipping.
 ## Links
 
 - [[ripdpi-android]]
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - [[Epic - Settings backup and restore]]
 - Child issues: 8

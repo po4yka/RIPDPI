@@ -27,7 +27,7 @@ updated: 2026-04-24
 ## Goal
 
 Close the transport-layer gaps uncovered by the 2026-04-24 audit so every
-outbound protocol in RIPDPI can use every carrier NekoBox ships: plain
+outbound protocol in RIPDPI can use every carrier reference implementation ships: plain
 TCP, TLS, Reality, WebSocket, gRPC, HTTP/2, HTTP/3, QUIC, HTTPUpgrade,
 xHTTP, and wire-level multiplexing. Today transports are protocol-locked
 (H3/QUIC only in Hysteria2/MASQUE; WebSocket only in the Telegram MTProto
@@ -59,7 +59,7 @@ only); ship it if and only if real Trojan-Go subscriptions need it.
 - **QUIC/H3 composable transport reuses the existing `quinn` + `h3`
 stack** from Hysteria2/MASQUE; refactor to a shared crate rather than
 two protocol-locked copies.
-- **uTLS + Reality + ECH are already ahead of NekoBox.** Do NOT
+- **uTLS + Reality + ECH are already ahead of reference implementation.** Do NOT
 regress; transport crates must accept a uTLS-capable TLS connector
 as the composition point.
 
@@ -106,7 +106,7 @@ fragmentation layers beyond finalmask (already present).
 outbound crate in that epic can pick from the composable transport
 set; several subscription shapes (Trojan-WS, VLESS-gRPC,
 VMess-H2-HTTPUpgrade) cannot work without these transports.
-- Feeds: [[Epic - NekoBox subscription and profile import]] — Clash
+- Feeds: [[Epic - Subscription and profile import]] — Clash
 and sing-box subscription parsers can populate
 transport-specific fields once the transports exist.
 

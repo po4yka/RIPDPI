@@ -36,7 +36,7 @@ The VPN path uses `Mode.LOCAL_VPN` with the outbound relay enabled (the relay pr
 ## Acceptance criteria
 
 - [ ] `onVpnToggle(true)` starts the engine in VPN-with-relay mode; `onVpnToggle(false)` disconnects.
-- [ ] Toggle is disabled when Local DPI Bypass is active (no concurrent modes).
+- [ ] Toggle is disabled when Local Path Optimization is active (no concurrent modes).
 - [ ] Toggle is disabled (with a tooltip or subtitle "No server configured") when no outbound relay profile is set up.
 - [ ] Loading state shown on the card while connection is being established.
 - [ ] `HomeModeCardUiState.vpnCard.primaryLabel` shows the remote server hostname / protocol (e.g. `"relay.example.com · VLESS"`), or `"Not configured"` if no relay profile exists.

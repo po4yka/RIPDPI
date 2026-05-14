@@ -5,7 +5,7 @@ status: backlog
 area: outbound
 priority: high
 owner: unassigned
-parent: epic-xray-vpn-client-mode
+parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -27,7 +27,7 @@ updated: 2026-04-24
 ## Summary
 
 Route Android VPN TUN traffic through Xray's local inbound for the first Xray
-VPN client milestone.
+tunneled outbound profile milestone.
 
 ## Motivation
 
@@ -68,6 +68,6 @@ Xray DNS, or a deliberately split model.
 
 ## Links
 
-- [[Epic - Xray VPN client mode]]
+- [[Epic - Xray provider mode]]
 - [[Run Xray as managed VPN relay runtime]]
-- [[ripdpi-android-xray-vpn-client-plan-2026-04-24]]
+- [[ripdpi-android-xray-provider-plan-2026-04-24]]

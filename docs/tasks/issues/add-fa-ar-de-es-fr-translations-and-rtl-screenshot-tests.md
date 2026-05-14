@@ -55,10 +55,10 @@ contributors are easier to recruit).
 
 **Translation corpora — use as reference only, NOT verbatim copy** (string keys and license headers differ):
 
-- **NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`) — 20 locale directories under `app/src/main/res/`. Relevant paths: `values-fa/`, `values-ar/`, `values-de/`, `values-es/`, `values-fr/`. Use for proxy/protocol terminology reference in each language.
+- **Reference implementation notes:** — 20 locale directories under `app/src/main/res/`. Relevant paths: `values-fa/`, `values-ar/`, `values-de/`, `values-es/`, `values-fr/`. Use for proxy/protocol terminology reference in each language.
 - **amneziawg-android** ([repo](https://github.com/amnezia-vpn/amneziawg-android), local: `/Users/po4yka/GitRep/amneziawg-android/`) — 35 locale directories; the richest RTL reference among WireGuard-ecosystem clients. Paths: `ui/src/main/res/values-fa-rIR/`, `values-ar-rSA/`, `values-de/`, `values-es-rES/`, `values-fr/`. RTL layout survey is especially strong here — look at how AWG handles bidirectional text in their `strings.xml` with HTML entities and bidi marks.
 
-**Adapt (glossary alignment):** Consistent terminology for tunnel/peer/interface across WireGuard-ecosystem clients (AWG baseline); for proxy protocol names, NekoBox is the broader reference. **Skip:** verbatim value copy. **License note:** Both upstreams are Apache 2.0 / GPL-3.0; string-value copies would propagate headers — use as terminology reference only.
+**Adapt (glossary alignment):** Consistent terminology for tunnel/peer/interface across WireGuard-ecosystem clients (AWG baseline); for proxy protocol names, reference implementation is the broader reference. **Skip:** verbatim value copy. **License note:** Both upstreams are Apache 2.0 / GPL-3.0; string-value copies would propagate headers — use as terminology reference only.
 
 ## Links
 

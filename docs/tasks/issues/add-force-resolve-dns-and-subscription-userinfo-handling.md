@@ -5,7 +5,7 @@ status: done
 area: outbound
 priority: medium
 owner: unassigned
-parent: epic-nekobox-subscription-and-profile-import
+parent: epic-subscription-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -33,7 +33,7 @@ upload/download/quota/expiry in the group detail screen.
 
 ## Context
 
-Force-resolve is a NekoBox feature that pre-resolves hostnames to avoid
+Force-resolve is a reference implementation feature that pre-resolves hostnames to avoid
 relying on the runtime DNS path for nodes whose DNS is flaky. The existing
 `hickory-resolver` + DoH stack in RIPDPI can back this. The user-info
 header (format:
@@ -57,17 +57,17 @@ bypass subscriptions.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**
 
 - `app/src/main/java/io/nekohasekai/sagernet/group/GroupUpdater.kt` — method `forceResolve()`. 5-thread pool via `Executors.newFixedThreadPool(5)`, per-bean resolve + SNI-field rewrite for HTTP/V2Ray/Trojan/Hysteria. Port the thread-pool pattern; replace the Java executor with Kotlin coroutines bounded by a `Semaphore(5)`.
 - `app/src/main/java/io/nekohasekai/sagernet/group/RawUpdater.kt` — `Subscription-Userinfo` header read path (look for `response.headers["Subscription-Userinfo"]`), value format is semicolon-separated `upload=N; download=N; total=N; expire=UNIX_TS`.
 - `app/src/main/java/io/nekohasekai/sagernet/database/SubscriptionBean.java` — fields `bytesUsed`, `bytesRemaining`, `expiryDate` are populated from the header parse.
 
-**Adapt:** Parallel resolve with bounded concurrency, SNI-field rewrite set, Userinfo header parse. **Skip:** Java `ExecutorService` (use coroutines). **Parser robustness:** NekoBox hard-fails on missing fields; RIPDPI should treat each numeric field as `Long?` so providers that only emit `expire=` don't break the refresh.
+**Adapt:** Parallel resolve with bounded concurrency, SNI-field rewrite set, Userinfo header parse. **Skip:** Java `ExecutorService` (use coroutines). **Parser robustness:** reference implementation hard-fails on missing fields; RIPDPI should treat each numeric field as `Long?` so providers that only emit `expire=` don't break the refresh.
 
 ## Links
 
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - [[Add subscription auto-update WorkManager worker]]
 
 ## Work log
@@ -87,7 +87,7 @@ Files created:
 - `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/ForceResolveDns.kt`
   — `ForceResolveDns.resolveAll(profiles, resolve)`: resolves profile server
   hostnames concurrently, bounded to 5 in-flight lookups via a coroutine
-  `Semaphore(5)` (NekoBox's `Executors.newFixedThreadPool(5)` ported to
+  `Semaphore(5)` (Reference implementation's `Executors.newFixedThreadPool(5)` ported to
   coroutines). IP-literal servers (v4/v6) are skipped — not looked up; a failed
   or empty resolution leaves the host unchanged so a flaky lookup never drops a
   node; `RawConfig` profiles pass through. `HostResolution` sealed result type.

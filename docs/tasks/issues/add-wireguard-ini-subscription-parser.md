@@ -5,7 +5,7 @@ status: done
 area: outbound
 priority: high
 owner: unassigned
-parent: epic-nekobox-subscription-and-profile-import
+parent: epic-subscription-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -52,7 +52,7 @@ interface key material; surface them clearly in the populated group.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**
 
 - `app/src/main/java/io/nekohasekai/sagernet/group/RawUpdater.kt` — method `parseWireGuard(text)`. Detection: `text.contains("[Interface]")`. Uses `org.ini4j.Ini` to parse.
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/wireguard/` — the `WireGuardBean` field set that receives parsed values.
@@ -62,11 +62,11 @@ interface key material; surface them clearly in the populated group.
 - `tunnel/src/main/java/org/amnezia/awg/config/Config.java` (`parse(InputStream)` starting line 50) — section dispatch on `[Interface]` / `[Peer]`.
 - `tunnel/src/main/java/org/amnezia/awg/config/Interface.java:101-184` — the per-key `switch` that parses every AWG extension key. **Port this switch verbatim** for the [[Wire AmneziaWG into the subscription WireGuard-INI parser]] follow-on task.
 
-**Adapt:** Detection marker, per-section header handling, per-peer profile emission. **Skip:** NekoBox's `ini4j` dependency if RIPDPI already has an INI parser; otherwise add it. Use `ini4j` 0.5.4 (same version NekoBox pins) for parity.
+**Adapt:** Detection marker, per-section header handling, per-peer profile emission. **Skip:** Reference implementation's `ini4j` dependency if RIPDPI already has an INI parser; otherwise add it. Use `ini4j` 0.5.4 (same version reference implementation pins) for parity.
 
 ## Links
 
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 
 ## Work log
 

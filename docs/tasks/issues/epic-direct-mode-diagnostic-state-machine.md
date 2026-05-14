@@ -49,7 +49,7 @@ DiagnosticResult = TRANSPARENT_WORKS
 ```
 
 - **Phase 0 passive observation before active probing.** Extract what we
-can from the last failed flow (DNS outcome, fail phase, blockpage
+can from the last failed flow (DNS outcome, fail phase, error-page
 shape) so we don't probe from zero every time.
 - **Six-phase flow** matching the plan: 0 passive obs → 1 DNS class → 2
 transport class → 3 ranked arms → 4 execute with early stop + confirm
@@ -163,7 +163,7 @@ integration tests
 - Phase 4 `confirm_once` semantics: does a 2nd request to the same host
 really confirm, or could a CDN return-to-sender make it look
 successful? Define "stable success" precisely in the orchestrator task.
-- "Known blockpage" response-shape heuristic: starts conservative,
+- "Known error-page" response-shape heuristic: starts conservative,
 tuned from real captures.
 
 ## Links

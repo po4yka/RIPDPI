@@ -29,7 +29,7 @@ updated: 2026-04-23
 Before active probing, extract what we can from the last real failed flow:
 DNS outcome, TCP SYN/SYN-ACK, did failure happen before or after
 ClientHello, did UDP/443 fail while TCP to same host worked, did the
-response look like a blockpage.
+response look like a error-page.
 
 ## Plan reference
 
@@ -55,8 +55,8 @@ probing starts.
 
 - [ ] Passive observer runs when a flow fails; emits a typed
     `PassiveObservation` struct.
-- [ ] Blockpage detection uses a small heuristic set — TLS certificate
-    mismatch, known RKN block HTML shapes, response sizes, common block
+- [ ] Error-page detection uses a small heuristic set — TLS certificate
+    mismatch, known middlebox block HTML shapes, response sizes, common block
     patterns.
 - [ ] Phase 0 observation is consumed by Phase 1/Phase 2 classification
     instead of them probing from zero.

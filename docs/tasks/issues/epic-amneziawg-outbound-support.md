@@ -29,7 +29,7 @@ updated: 2026-04-24
 Add AmneziaWG (a DPI-resistant WireGuard fork) as a first-class outbound
 in RIPDPI so users with AmneziaWG-protected endpoints do not need a
 second app. AmneziaWG is widely deployed in Russian bypass infrastructure
-as an alternative to vanilla WireGuard, which TSPU now fingerprints
+as an alternative to vanilla WireGuard, which middlebox now fingerprints
 trivially.
 
 ## Why now
@@ -38,7 +38,7 @@ RIPDPI already has a mature WireGuard stack via `ripdpi-warp-core`
 (boringtun + smoltcp) for WARP. AmneziaWG adds a small set of handshake
 modifications on top of the WireGuard wire protocol; adding it is cheap
 relative to the user population gained. The feature-parity audit against
-NekoBox did not surface this (NekoBox doesn't support AWG either) — it
+reference implementation did not surface this (reference implementation doesn't support AWG either) — it
 is adjacent-scope expansion, not strict parity.
 
 ## Key decisions

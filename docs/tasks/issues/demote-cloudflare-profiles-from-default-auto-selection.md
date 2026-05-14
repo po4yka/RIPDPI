@@ -56,5 +56,5 @@ This task complements, but does not replace, the broader failover state machine.
 ## Links
 
 - [[Epic - Remove Cloudflare from critical path]]
-- [[Epic - Xray VPN client mode]]
+- [[Epic - Xray provider mode]]
 - [[Add Cloudflare large-payload healthcheck]]

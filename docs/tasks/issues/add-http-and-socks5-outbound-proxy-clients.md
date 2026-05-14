@@ -56,18 +56,18 @@ as legacy; add only if a real subscription sample requires them.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/http/HttpBean.java` — bean fields: `username`, `password`, `tls`, `sni`, `allowInsecure`.
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/http/HttpFmt.kt` — `http://` / `https://` URI parse. Port.
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/socks/SOCKSBean.java` — fields: `protocol` (`PROTOCOL_SOCKS5` / `PROTOCOL_SOCKS4` / `PROTOCOL_SOCKS4A`), `username`, `password`, `tls`, `sni`.
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/socks/SOCKSFmt.kt` — URI codec for the four SOCKS variants.
 
-**Outbound engine (NOT from NekoBox):** build as thin Rust adapters (`hyper` for HTTP CONNECT, `tokio-socks` or hand-rolled for SOCKS5). Total Rust: ~300 lines combined.
+**Outbound engine (NOT from reference implementation):** build as thin Rust adapters (`hyper` for HTTP CONNECT, `tokio-socks` or hand-rolled for SOCKS5). Total Rust: ~300 lines combined.
 
-**Adapt:** Bean field set (drop SOCKS4/4a per task scope), URI codec for `http`/`https`/`socks5`. **Skip:** NekoBox's sing-box delegation; SOCKS4/4a variants.
+**Adapt:** Bean field set (drop SOCKS4/4a per task scope), URI codec for `http`/`https`/`socks5`. **Skip:** Reference implementation's sing-box delegation; SOCKS4/4a variants.
 
 ## Links
 
 - [[Epic - Extended outbound protocol support]]
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]

@@ -43,7 +43,7 @@ parser/model work existing.
 
 The wider client-compat matrix
 ([[Add client compatibility regression matrix for fleet profiles]])
-covers cross-client compatibility (SFA, v2rayNG, NekoBox, husi, …).
+covers cross-client compatibility (SFA, Android reference profile, reference implementation, husi, …).
 This task is **narrower and stricter**: the exact bytes the sibling
 deployer emits for every supported
 `PROVIDER × ENV × COHORT × CLIENT × FLAGS` combination must import

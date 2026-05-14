@@ -52,13 +52,13 @@ starts. One-session-at-a-time guard prevents both from racing.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/bg/ProxyService.kt` — the full class. Extends `Service` (not `VpnService`), implements `BaseService.Interface`. Declared as `foregroundServiceType="systemExempted"` in manifest.
 - `app/src/main/java/io/nekohasekai/sagernet/bg/BaseService.kt` — the shared state machine (`Idle → Connecting → Connected → Stopping → Stopped`) both services implement. **Reference the interface** to understand the contract; RIPDPI's `LifecycleService`-based pattern will fit cleanly.
 - `app/src/main/AndroidManifest.xml` — the full `<service>` declaration including `process=":bg"` (separate process for the service) and notification-channel wiring.
 
-**Adapt:** The state machine contract, the one-session-at-a-time guard pattern (mutually exclusive with VPN), the `:bg` separate-process pattern (if RIPDPI doesn't already split). **Skip:** NekoBox-specific state constants; RIPDPI has its own supervisor state enum.
+**Adapt:** The state machine contract, the one-session-at-a-time guard pattern (mutually exclusive with VPN), the `:bg` separate-process pattern (if RIPDPI doesn't already split). **Skip:** reference implementation-specific state constants; RIPDPI has its own supervisor state enum.
 
 ## Links
 

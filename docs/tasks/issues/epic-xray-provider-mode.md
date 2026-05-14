@@ -1,5 +1,5 @@
 ---
-title: Epic - Xray VPN client mode
+title: Epic - Xray provider mode
 type: epic
 status: backlog
 area: outbound
@@ -12,12 +12,12 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Epic - Xray VPN client mode #repo/RIPDPI #area/outbound #status/backlog ⏫
+- [ ] #task Epic - Xray provider mode #repo/RIPDPI #area/outbound #status/backlog ⏫
 
 ## Goal contract
 
 <!-- goal-contract:auto -->
-- **Ledger key:** `epic-xray-vpn-client-mode`
+- **Ledger key:** `epic-xray-provider-mode`
 - **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
 - **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
 - **Blocked-by (must be DONE in the ledger first):** `recurring-upstream-watch-for-xray-core-reality-ech-xhttp-changes`
@@ -39,7 +39,7 @@ wants to support.
 
 ## Key decisions
 
-- **Provider mode, not direct-mode replacement.** Xray-backed VPN client mode
+- **Provider mode, not direct-mode replacement.** Xray-backed tunneled outbound profile mode
 is a separate remote-relay provider that can be selected when direct-mode is
 unsuitable.
 - **Start with libXray.** Do not reimplement Xray protocol behavior in
@@ -90,7 +90,7 @@ native engine.
 **Product and proof**
 - [[Add Xray profile UX and import flow]]
 - [[Surface Xray diagnostics and telemetry]]
-- [[Add Xray VPN client regression matrix]]
+- [[Add Xray provider regression matrix]]
 
 Child tasks roll up via the TaskNotes relationships view on this note.
 
@@ -118,7 +118,7 @@ expose sensitive configuration if not scoped carefully.
 ## Links
 
 - [[ripdpi-android]]
-- [[ripdpi-android-xray-vpn-client-plan-2026-04-24]]
+- [[ripdpi-android-xray-provider-plan-2026-04-24]]
 - [[vless-reality-stack-research-2026-04-22]]
 - [[Recurring upstream watch for xray-core REALITY ECH XHTTP changes]]
 - Child issues: 8

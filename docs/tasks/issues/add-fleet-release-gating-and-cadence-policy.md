@@ -103,4 +103,4 @@ The release gate should produce a short sanitized report, not raw probe logs.
 - [[Add DNS IPv6 and kill-switch release gates]]
 
 
-## xray-vpn-client-mode
+## xray-provider-mode

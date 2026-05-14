@@ -56,12 +56,12 @@ rather than silently leaking the new field.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/ui/BackupFragment.kt` — the full export/import codepath. Schema is a Gson-serialized `Backup` object with fields: `version`, `profiles`, `groups`, `rules`, `settings` (map). **Reference the field shape**; version starts at `1`.
 - Inside the same file: the `Backup.importBackup()` method shows the reverse — version gate, selective restore per category.
 
-**Adapt:** Top-level schema shape (`version`, `profiles`, `groups`, `rules`, `settings`), category-level selectivity. **Improve over NekoBox:** NekoBox has NO redaction variant; every export contains credentials. RIPDPI must add a SHARE variant with per-protocol field allowlist — a deliberate improvement documented in acceptance criteria. **Skip:** Gson (use `kotlinx.serialization`).
+**Adapt:** Top-level schema shape (`version`, `profiles`, `groups`, `rules`, `settings`), category-level selectivity. **Improve over reference implementation:** reference implementation has NO redaction variant; every export contains credentials. RIPDPI must add a SHARE variant with per-protocol field allowlist — a deliberate improvement documented in acceptance criteria. **Skip:** Gson (use `kotlinx.serialization`).
 
 ## Links
 

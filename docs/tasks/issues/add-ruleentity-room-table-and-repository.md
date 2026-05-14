@@ -32,7 +32,7 @@ proxy / bypass / block / specific-profile outbound actions.
 
 ## Context
 
-Schema should mirror NekoBox's RuleEntity for subscription portability
+Schema should mirror Reference implementation's RuleEntity for subscription portability
 hopes, but without sing-box-only fields (e.g. `network`/`protocol` that
 sing-box uses internally). Store matcher lists as newline-delimited
 strings (Kotlin), parsed on load; matcher semantics live in the Rust
@@ -47,7 +47,7 @@ engine task.
 - [ ] Repository exposes CRUD and a reorder operation; returns rules
     as a `Flow<List<RuleEntity>>`.
 - [ ] Constraint: deletion of a profile/group referenced by any rule
-    either cascades (bypassing the reference) or prompts the user —
+    either cascades (skipping the reference) or prompts the user —
     decide once and document; never silent-corrupt.
 - [ ] Seeded default rules: one "bypass LAN" rule, one "bypass
     loopback" rule; user can delete them.
@@ -55,13 +55,13 @@ engine task.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/database/RuleEntity.kt` — the full `@Entity`. Field-for-field port target: `id`, `name`, `userOrder`, `enabled`, `config` (raw JSON override), `domains`, `ip` (CIDR), `port`, `sourcePort`, `network`, `source`, `protocol`, `outbound` (Long with sentinel values: `0` proxy, `-1` bypass, `-2` block, `>0` specific profile), `packages: Set<String>`.
 - `app/src/main/java/io/nekohasekai/sagernet/database/SagerDatabase.kt` — the DAO: `allRules()`, `enabledRules()`, `checkVpnNeeded()`, CRUD methods. Port the method set.
 - `app/src/main/java/io/nekohasekai/sagernet/database/StringCollectionConverter.java` — Room type converter for `Set<String>` (packages list). Port.
 
-**Adapt:** Entity fields, DAO method set, Set<String> converter. **Skip:** NekoBox's raw-JSON `config` override field (RIPDPI should prefer a stricter typed model; if passthrough is needed, add as a late follow-up).
+**Adapt:** Entity fields, DAO method set, Set<String> converter. **Skip:** Reference implementation's raw-JSON `config` override field (RIPDPI should prefer a stricter typed model; if passthrough is needed, add as a late follow-up).
 
 ## Links
 

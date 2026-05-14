@@ -5,7 +5,7 @@ status: backlog
 area: outbound
 priority: medium
 owner: unassigned
-parent: epic-xray-vpn-client-mode
+parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -31,7 +31,7 @@ initial Xray profiles.
 
 ## Motivation
 
-VPN client support needs to fit the existing Mode Editor, Settings, and
+tunneled outbound profile support needs to fit the existing Mode Editor, Settings, and
 onboarding model without exposing low-level config trivia or secrets.
 
 ## Scope
@@ -64,6 +64,6 @@ prefer typed forms and known share links.
 
 ## Links
 
-- [[Epic - Xray VPN client mode]]
+- [[Epic - Xray provider mode]]
 - [[Render validated Xray client configs]]
-- [[ripdpi-android-xray-vpn-client-plan-2026-04-24]]
+- [[ripdpi-android-xray-provider-plan-2026-04-24]]

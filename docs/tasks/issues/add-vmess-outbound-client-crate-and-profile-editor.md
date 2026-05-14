@@ -55,15 +55,15 @@ h2, grpc) reuse existing transport crates where possible.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/v2ray/VMessBean.java` (+ sibling `VLESSBean.java` via `alterId=-1`) — full field set: `uuid`, `alterId`, `encryption`, `security`, `packetEncoding`, `experiments`, plus transport fields (`type`, `host`, `path`, `headerType`, `mKcpSeed`, `quicSecurity`, `quicKey`, `grpcMode`, `grpcServiceName`, `wsMaxEarlyData`, `earlyDataHeaderName`, `reality*` etc.).
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/v2ray/V2RayFmt.kt` — `vmess://` parse (both base64-JSON and standard URI form) + emit. **Port verbatim.**
 - `app/src/main/java/io/nekohasekai/sagernet/ui/profile/VMessSettingsActivity.kt` — validation rules.
 
-**Outbound engine (NOT from NekoBox):** no mature pure-Rust VMess client exists; most likely path is to port the wire-format pieces from `xray-core` (Go) or `v2fly-core`. Evaluate [`v2ray-rust`](https://github.com/Qv2ray/v2ray-rust) as a starting point; it's unmaintained but has AEAD implementations.
+**Outbound engine (NOT from reference implementation):** no mature pure-Rust VMess client exists; most likely path is to port the wire-format pieces from `xray-core` (Go) or `v2fly-core`. Evaluate [`v2ray-rust`](https://github.com/Qv2ray/v2ray-rust) as a starting point; it's unmaintained but has AEAD implementations.
 
-**Adapt:** Bean fields, URI codec (both forms), legacy-cipher rejection policy. **Skip:** AlterID != 0 (deprecated); `aid` handling for legacy security variants; the NekoBox editor UI (build Compose instead).
+**Adapt:** Bean fields, URI codec (both forms), legacy-cipher rejection policy. **Skip:** AlterID != 0 (deprecated); `aid` handling for legacy security variants; the reference implementation editor UI (build Compose instead).
 
 ## Links
 

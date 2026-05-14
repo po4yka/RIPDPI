@@ -5,7 +5,7 @@ status: done
 area: outbound
 priority: medium
 owner: unassigned
-parent: epic-nekobox-subscription-and-profile-import
+parent: epic-subscription-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -28,7 +28,7 @@ updated: 2026-04-24
 
 Implement the runtime side of ProxyGroup's `isSelector` flag: when a
 group is a selector, the user can hot-switch which member profile is
-active without tearing down the service. Matches NekoBox's sing-box
+active without tearing down the service. Matches Reference implementation's sing-box
 selector outbound + SwitchActivity pattern.
 
 ## Context
@@ -57,7 +57,7 @@ hints but does not auto-switch — that is a future "auto-select" feature.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**
 
 - `app/src/main/java/io/nekohasekai/sagernet/ui/SwitchActivity.kt` — the dialog-style transparent activity launched from the persistent notification's "Switch" action. Shows group member list with latency hints; tap triggers supervisor reload with new selectedProfile. **Port the UX pattern.**
 - `app/src/main/java/io/nekohasekai/sagernet/bg/proto/ProxyInstance.kt` — hot-reload pathway when selectedProfile changes within a selector group. Search for `selectorGroupId` and `cbSelectorUpdate`.
@@ -68,7 +68,7 @@ hints but does not auto-switch — that is a future "auto-select" feature.
 
 ## Links
 
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - [[Add ProxyGroup and Subscription entities to RIPDPI data layer]]
 
 ## Work log
@@ -82,7 +82,7 @@ persistent-notification "Switch" action, the dialog-style SwitchActivity, the QS
 tile subtitle). This pass delivers the two testable runtime layers the UI sits
 on; the `app/` UI wiring is deferred.
 
-`ProxyProfile.id` in the RIPDPI data layer is a `String` (UUID), not NekoBox's
+`ProxyProfile.id` in the RIPDPI data layer is a `String` (UUID), not Reference implementation's
 `Long` — the selected-profile signal is therefore `StateFlow<String?>`, not
 `Flow<Long>`. `ProxyGroupStores.kt` was NOT edited; the selector selection lives
 in its own additive store.

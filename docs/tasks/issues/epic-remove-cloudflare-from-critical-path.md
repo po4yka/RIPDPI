@@ -73,5 +73,5 @@ Keep live hostnames, tokens, and provider details out of this note. Store sensit
 - [[vps-proxy-fleet]]
 - [[ripdpi-android]]
 - [[Epic - Fail-closed Android VPN policy engine]]
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - Child issues: 6

@@ -53,13 +53,13 @@ crate if ever added.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/trojan/TrojanBean.java` — bean fields: `password`, `sni`, `alpn`, plus transport (reuses StandardV2RayBean pattern).
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/trojan/TrojanFmt.kt` — `trojan://` URI parse + emit.
 - `app/src/main/java/io/nekohasekai/sagernet/ui/profile/TrojanSettingsActivity.kt` — editor validation rules.
 
-**Outbound engine (NOT from NekoBox):** Trojan wire format is simple (SHA-224(password) + command byte + target address + CRLF). Hand-roll in Rust; ~100 lines core handshake + reuse RIPDPI's existing TLS + transport layers.
+**Outbound engine (NOT from reference implementation):** Trojan wire format is simple (SHA-224(password) + command byte + target address + CRLF). Hand-roll in Rust; ~100 lines core handshake + reuse RIPDPI's existing TLS + transport layers.
 
 **Adapt:** Bean fields, URI codec, SNI/ALPN validation. **Skip:** Trojan-Go extensions (separate crate, [[Add Trojan-Go outbound client crate and profile editor]]).
 

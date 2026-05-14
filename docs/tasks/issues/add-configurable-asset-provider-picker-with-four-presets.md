@@ -27,7 +27,7 @@ updated: 2026-04-24
 ## Summary
 
 Surface an asset-provider picker that lets users choose the source of
-`geoip.db` / `geosite.db`, mirroring NekoBox's four built-in presets:
+`geoip.db` / `geosite.db`, mirroring Reference implementation's four built-in presets:
 SagerNet, soffchen, Chocolate4U Iran rules, L11R antizapret.
 
 ## Context
@@ -54,19 +54,19 @@ via a button, not background fetch.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/ui/AssetsActivity.kt` — the full provider picker + update-from-GitHub-Releases flow. Four built-in providers (SagerNet, soffchen, Chocolate4U Iran rules, L11R antizapret) listed here verbatim. **Port the provider list** and the "check for updates" logic (compares local tag file to GitHub Releases API `/latest` tag).
 - `app/src/main/java/io/nekohasekai/sagernet/database/DataStore.kt` — `rulesProvider` preference.
 - `app/src/main/res/xml/assets_preferences.xml` — the preference layout for reference.
 
-**Provider URLs** (same four NekoBox ships):
+**Provider URLs** (same four reference implementation ships):
 - `https://github.com/SagerNet/sing-geoip` + `sing-geosite`
 - `https://github.com/soffchen/sing-geoip` + `sing-geosite`
 - `https://github.com/Chocolate4U/Iran-sing-box-rules`
 - `https://github.com/L11R/antizapret-sing-box-geo`
 
-**Adapt:** Provider list verbatim, GitHub Releases `/latest` tag comparison, SAF import path for custom files, swipe-delete + undo. **Skip:** NekoBox's PreferenceFragment XML (use Compose).
+**Adapt:** Provider list verbatim, GitHub Releases `/latest` tag comparison, SAF import path for custom files, swipe-delete + undo. **Skip:** Reference implementation's PreferenceFragment XML (use Compose).
 
 ## Links
 

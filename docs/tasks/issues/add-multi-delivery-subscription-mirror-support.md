@@ -35,7 +35,7 @@ Users need a way to refresh profiles when one delivery plane is unreachable. A s
 ## Scope
 
 - In scope: mirror list model, ordered refresh attempts, mirror health state, token redaction, no-log diagnostics, and UI showing which mirror last succeeded.
-- Out of scope: sharing one token across unrelated devices or bypassing per-device token scope.
+- Out of scope: sharing one token across unrelated devices or skipping per-device token scope.
 
 ## Acceptance criteria
 
@@ -56,7 +56,7 @@ Mirror support must not weaken bearer-token scope. Each mirror can have its own 
 ## Links
 
 - [[Epic - Remove Cloudflare from critical path]]
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - [[Add per-device subscription token UX and shared-link warnings]]
 
 ## Work log

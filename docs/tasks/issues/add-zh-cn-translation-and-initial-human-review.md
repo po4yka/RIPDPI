@@ -53,12 +53,12 @@ main screens in zh-CN to catch layout breakage from longer strings.
 
 **Translation corpora — use as reference only, NOT verbatim copy** (string keys differ):
 
-- **NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`): `app/src/main/res/values-zh-rCN/strings.xml` — 20+ locale comparison baseline, zh-CN is their largest translation. Useful reference for proxy/protocol term translations (e.g. "订阅" for subscription, "节点" for node, "分流" for routing).
+- **Reference implementation notes:**: `app/src/main/res/values-zh-rCN/strings.xml` — 20+ locale comparison baseline, zh-CN is their largest translation. Useful reference for proxy/protocol term translations (e.g. "订阅" for subscription, "节点" for node, "分流" for routing).
 - **amneziawg-android** ([repo](https://github.com/amnezia-vpn/amneziawg-android), local: `/Users/po4yka/GitRep/amneziawg-android/`): `ui/src/main/res/values-zh-rCN/strings.xml` — smaller vocabulary but aligned with WireGuard terminology. Reference for tunnel/peer/interface term translations.
 
 **License note:** both upstreams are Apache 2.0 / GPL-3.0. Do NOT copy string values verbatim without proper attribution — the file headers would propagate. Use as **reference for terminology consistency** only; strings for RIPDPI must be translated independently from its own English source.
 
-**Adapt (glossary alignment):** Match NekoBox's zh-CN term choices for proxy/protocol vocabulary so subscription-importing users see familiar terminology. **Skip:** verbatim value copy.
+**Adapt (glossary alignment):** Match Reference implementation's zh-CN term choices for proxy/protocol vocabulary so subscription-importing users see familiar terminology. **Skip:** verbatim value copy.
 
 ## Links
 

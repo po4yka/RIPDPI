@@ -53,16 +53,16 @@ bottom-sheet with clear risk framing for FULL.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/ui/BackupFragment.kt` — the export flow uses `ActivityResultContracts.CreateDocument("application/json")`. Search for `exportLauncher` registration.
-- Default filename pattern: `nekobox_backup_<timestamp>.json`. RIPDPI should use `ripdpi-backup-<timestamp>.json`.
+- Default filename pattern: `reference-implementation_backup_<timestamp>.json`. RIPDPI should use `ripdpi-backup-<timestamp>.json`.
 
 **amneziawg-android** ([repo](https://github.com/amnezia-vpn/amneziawg-android), local: `/Users/po4yka/GitRep/amneziawg-android/`) — **has a superior gating pattern**:
 
 - `ui/src/main/java/org/amnezia/awg/preference/ZipExporterPreference.kt` — **biometric-gated** export, plus MDM-policy suppression via `AdminKnobs.disable_config_export`. **Adopt both patterns** in RIPDPI: biometric gate for FULL variant, optional MDM suppression.
 
-**Adapt:** SAF contract, filename pattern. **Adopt from AWG:** biometric gate for FULL, MDM suppression knob. **Skip:** NekoBox's zero-gate export (credentials-to-any-picker is a privacy footgun).
+**Adapt:** SAF contract, filename pattern. **Adopt from AWG:** biometric gate for FULL, MDM suppression knob. **Skip:** Reference implementation's zero-gate export (credentials-to-any-picker is a privacy footgun).
 
 ## Links
 

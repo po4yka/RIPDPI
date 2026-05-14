@@ -5,7 +5,7 @@ status: done
 area: outbound
 priority: critical
 owner: unassigned
-parent: epic-nekobox-subscription-and-profile-import
+parent: epic-subscription-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -33,7 +33,7 @@ RIPDPI profile beans.
 
 Clash YAML is the most common subscription format in Chinese and Iranian
 bypass ecosystems. Clash.Meta adds reality-opts, smux, and ech-opts on top.
-NekoBox's `RawUpdater.kt` handles: socks5, http, ss (with obfs and v2ray-
+Reference implementation's `RawUpdater.kt` handles: socks5, http, ss (with obfs and v2ray-
 plugin), vmess, vless (with reality-opts), trojan, anytls, hysteria,
 hysteria2, tuic. Routing rules in the YAML are ignored — only node lists.
 
@@ -53,7 +53,7 @@ hysteria2, tuic. Routing rules in the YAML are ignored — only node lists.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**
 
 - `app/src/main/java/io/nekohasekai/sagernet/group/RawUpdater.kt` — method `parseRaw(text: String)`. The Clash branch is guarded by `text.contains("proxies:")`. Inside, every `proxies:` array entry is dispatched by `type` (`ss`, `vmess`, `vless`, `trojan`, `anytls`, `hysteria`, `hysteria2`, `tuic`, `socks5`, `http`). Port this switch verbatim; replace each branch's bean construction with the RIPDPI equivalent.
 - Per-protocol Clash field mappings: same file, inline within each branch. Handle known quirks:
@@ -62,9 +62,9 @@ hysteria2, tuic. Routing rules in the YAML are ignored — only node lists.
 - `ech-opts` → ECH fields (RIPDPI already has these)
 - `ws-opts` (path, headers, early-data) → WebSocket transport ([[Generalize WebSocket transport for outbound composition]])
 
-**Adapt:** The detection string, switch dispatch, per-field mapping. **Skip:** Clash routing rules (`rules:`, `proxy-groups:` blocks) — NekoBox ignores them too. Use `snakeyaml-engine` (Kotlin-friendly) or event-based `snakeyaml` for streaming; NekoBox uses TypeDescription-driven SnakeYAML which is heavier than needed.
+**Adapt:** The detection string, switch dispatch, per-field mapping. **Skip:** Clash routing rules (`rules:`, `proxy-groups:` blocks) — reference implementation ignores them too. Use `snakeyaml-engine` (Kotlin-friendly) or event-based `snakeyaml` for streaming; reference implementation uses TypeDescription-driven SnakeYAML which is heavier than needed.
 
 ## Links
 
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - [[Add ProxyGroup and Subscription entities to RIPDPI data layer]]

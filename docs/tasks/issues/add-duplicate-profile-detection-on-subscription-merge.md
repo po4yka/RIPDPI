@@ -5,7 +5,7 @@ status: done
 area: outbound
 priority: high
 owner: unassigned
-parent: epic-nekobox-subscription-and-profile-import
+parent: epic-subscription-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -31,7 +31,7 @@ except for display name, so periodic re-fetch does not duplicate the group.
 
 ## Context
 
-NekoBox uses Kryo binary equality (ignoring `name`) to drive dedup. RIPDPI
+reference implementation uses Kryo binary equality (ignoring `name`) to drive dedup. RIPDPI
 needs an equivalent: a canonical byte serialization of the profile bean
 followed by SHA-256 and compare-set. User-edited display names should
 survive refresh; adversary-crafted collisions are out of scope (the
@@ -54,7 +54,7 @@ attacker already controls the subscription content).
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**
 
 - `app/src/main/java/io/nekohasekai/sagernet/group/RawUpdater.kt` — the `doUpdate()` merge pass (`existingByName`, `existingBean.equals(newBean)` calls). Read the delete/add/update/reorder reconciliation flow; port the structure, replace Kryo-equality with a canonical Protobuf encoding + SHA-256.
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/AbstractBean.java` — `equals()` ignores `name` and `finalAddress`/`finalPort`. Mirror that invariant in the canonical serializer: exclude display name and transient resolved-address fields before hashing.
@@ -63,5 +63,5 @@ attacker already controls the subscription content).
 
 ## Links
 
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - [[Add ProxyGroup and Subscription entities to RIPDPI data layer]]

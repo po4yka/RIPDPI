@@ -47,7 +47,7 @@ one-tap button:
 `vpnd/src/pages/recipient.rs:23-31` builds `singbox_deeplink` as
 `singbox://import-remote-profile?url=<urlencoded sub URL>&name=<urlencoded client name>`
 — the de-facto convention shared by sing-box-for-Android and
-NekoBox. Any sing-box-family client the user already has installed
+reference implementation. Any sing-box-family client the user already has installed
 picks it up from the chooser.
 
 ### The gap

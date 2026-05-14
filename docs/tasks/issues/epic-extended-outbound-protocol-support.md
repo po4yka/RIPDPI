@@ -56,7 +56,7 @@ Snowflake via the Lyrebird binary, which covers the Tor-bridge use
 case without pulling in Tor's directory/consensus layer. SOCKS4/4a
 are deliberately excluded as legacy with negligible presence.
 - **SSH is included** because it remains a common relay for hobbyist
-censorship-bypass setups, despite low share-count; the existing `ripdpi-
+network-path compatibility setups, despite low share-count; the existing `ripdpi-
 warp-core` noise primitives are unrelated — SSH needs its own crypto.
 - **VMess is included but marked legacy.** New subscriptions should not rely
 on it; we support decoding/consuming but do not surface it in the
@@ -109,7 +109,7 @@ real subscription samples demand them.
 
 ## Dependencies
 
-- Unblocks: subscription-driven deployment in [[Epic - NekoBox subscription
+- Unblocks: subscription-driven deployment in [[Epic - reference implementation subscription
 and profile import]]; without these crates, VMess/Trojan/Hysteria-v1 nodes
 in imported subscriptions cannot actually connect.
 
@@ -127,5 +127,5 @@ long-tail maintenance.
 ## Links
 
 - [[ripdpi-android]]
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - Child issues: 9

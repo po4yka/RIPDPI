@@ -27,7 +27,7 @@ updated: 2026-04-24
 ## Goal
 
 Reach realistic language coverage for the target user base. Today RIPDPI
-ships English and Russian only; NekoBox ships ~20 locales. Pick the subset
+ships English and Russian only; reference implementation ships ~20 locales. Pick the subset
 that corresponds to the actual bypass-user geographies and get translations
 landed with a pipeline that sustains updates.
 
@@ -62,7 +62,7 @@ marker.
 `values-fa`, `values-ar`, `values-de`, `values-es`, `values-fr` initial
 wave; `translatable="false"` audit on existing strings; right-to-left
 layout verification for Arabic and Persian.
-- **Out of scope:** the full NekoBox locale set (20+). Add additional
+- **Out of scope:** the full reference implementation locale set (20+). Add additional
 languages as Tier 2 when pipeline is live and community interest
 materializes. No in-app language picker — rely on system locale.
 

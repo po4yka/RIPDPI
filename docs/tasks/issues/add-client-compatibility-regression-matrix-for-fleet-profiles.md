@@ -27,7 +27,7 @@ updated: 2026-05-14
 ## Summary
 
 Define a compatibility regression matrix for fleet profiles across custom
-Android, sing-box SFA, v2rayNG, NekoBox, husi, Streisand/V2Box, v2rayN, and
+Android, sing-box SFA, Android reference profile, reference implementation, husi, Streisand/V2Box, v2rayN, and
 sing-box CLI.
 
 ## Context
@@ -44,10 +44,10 @@ core versions.
 - [x] sing-box/SFA tests cover config check, selector/urltest, degraded
     Cloudflare exclusion, strict route, DNS hijack, rule-set update, and
     revoked profile removal.
-- [x] v2rayNG tests cover VLESS+REALITY URI import, per-device subscription,
+- [x] Android reference profile tests cover VLESS+REALITY URI import, per-device subscription,
     VPN mode, Android lockdown, DNS/IPv6 leak checks, core update, and
     Hysteria2 fallback where present.
-- [x] NekoBox/husi tests treat subscriptions as nodes-only unless full policy is
+- [x] reference implementation/husi tests treat subscriptions as nodes-only unless full policy is
     explicitly supported and verify routing/DNS separately.
 - [x] iOS tests cover URI/subscription import, manual fallback, DNS/IPv6 leak,
     sleep/wake, Wi-Fi/LTE, and app update persistence.
@@ -69,17 +69,17 @@ compatibility.
   real, runnable test under `core/service/src/test/**` (in scope for this
   task's `core/service/**`).
   - `fleetcompat/FleetClientCompatMatrix.kt` — the matrix itself: all 8
-    enumerated `FleetClient`s (custom Android, sing-box/SFA, v2rayNG, NekoBox,
+    enumerated `FleetClient`s (custom Android, sing-box/SFA, Android reference profile, reference implementation,
     husi, Streisand/V2Box, v2rayN, sing-box CLI) x the shared 12-dimension
-    cross-client surface plus per-family dimensions (sing-box/SFA, v2rayNG,
+    cross-client surface plus per-family dimensions (sing-box/SFA, Android reference profile,
     nodes-only, iOS, v2rayN-desktop, custom-Android). Pure data + pure
     predicates: `dimensionsFor`, `cellsFor`, `allCells`, `isNodesOnly` /
     `isFullPolicy`, and a `validate()` invariant pass. Every `CompatCell`
     records both app and embedded core versions.
   - `fleetcompat/FleetClientCompatMatrixTest.kt` — the runnable release gate:
     asserts the shared-dimension set, per-family dimension sets (sing-box,
-    v2rayNG, iOS, v2rayN, custom-Android fail-closed invariants), nodes-only
-    vs full-policy classification for NekoBox/husi, no orphan/leaked
+    Android reference profile, iOS, v2rayN, custom-Android fail-closed invariants), nodes-only
+    vs full-policy classification for reference implementation/husi, no orphan/leaked
     dimensions, cell-count consistency, and zero structural validation issues.
   - Builds on the phase-1/2 golden-file harness conceptually: the
     `FleetCompatHarness`/`FleetCompatGoldenFileTest` lock the *bundle-import*
@@ -95,7 +95,7 @@ compatibility.
 
 ## Links
 
-- [[Add Xray VPN client regression matrix]]
+- [[Add Xray provider regression matrix]]
 - [[Add Android VPN leak-test instrumentation matrix]]
 - [[Add per-device subscription token UX and shared-link warnings]]
 - [[Epic - Fail-closed Android VPN policy engine]]

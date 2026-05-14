@@ -28,7 +28,7 @@ updated: 2026-04-24
 
 Offer a no-VPN "system proxy" service mode for devices where the user wants
 a local SOCKS5/HTTP listener plus Android's system HTTP proxy handle, but
-does not want to hand RIPDPI the full TUN file descriptor. Matches NekoBox's
+does not want to hand RIPDPI the full TUN file descriptor. Matches Reference implementation's
 `MODE_PROXY` alternative to `MODE_VPN`.
 
 ## Why now
@@ -44,7 +44,7 @@ traffic without the TUN taking over DNS. Today RIPDPI has only the TUN path.
 front-end (no TUN establish, no `vpn_protect` socket) over the same
 outbound dispatch.
 - **Mixed listener** (SOCKS5 + HTTP CONNECT on one port), same pattern as
-NekoBox `mixedPort`. Default 2080, user-configurable.
+reference implementation `mixedPort`. Default 2080, user-configurable.
 - **System proxy injection is VPN-mode optional,** not a separate mode.
 Android 10+ can both establish the TUN and advertise a system HTTP proxy;
 this feature also benefits VPN mode users.

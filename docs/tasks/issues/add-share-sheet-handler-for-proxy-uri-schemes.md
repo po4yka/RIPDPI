@@ -29,7 +29,7 @@ updated: 2026-05-14
 Register intent filters so RIPDPI appears in the Android share sheet (and
 as a URL opener) for `vless://`, `vmess://`, `trojan://`, `ss://`,
 `hysteria://`, `hysteria2://`, `tuic://`, `anytls://`, `ssh://`, and
-grouped NekoBox `sn://` schemes.
+grouped reference implementation `sn://` schemes.
 
 ## Context
 
@@ -53,7 +53,7 @@ handled by URL import inside the subscription epic.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**
 
 - `app/src/main/AndroidManifest.xml` — the `MainActivity` intent-filter list declares each scheme (`sn://`, `ss://`, `ssr://`, `vmess://`, `trojan://`, `trojan-go://`, `naive+https://`, `naive+quic://`, `hysteria://`, `socks://`, `socks4://`, `socksa://`, `sock5://`, plus `clash://install-config` subscription scheme). Port the filter list shape.
 - `app/src/main/java/io/nekohasekai/sagernet/ui/MainActivity.kt` — `onNewIntent()` routes by scheme to parse-and-open-editor vs parse-and-create-subscription paths.

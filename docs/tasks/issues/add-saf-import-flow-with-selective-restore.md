@@ -54,11 +54,11 @@ newer-than-app rejects, older migrates.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/ui/BackupFragment.kt` — the import flow: `ActivityResultContracts.OpenDocument(arrayOf("application/json"))` → confirmation dialog (no preview) → `Backup.importBackup()` → `ProcessPhoenix.triggerRebirth()`.
 
-**Adapt:** SAF contract, ProcessPhoenix restart pattern (use `com.jakewharton:process-phoenix:2.1.2` — same version). **Improve over NekoBox:** NekoBox confirmation is a plain "yes/no" dialog without preview; RIPDPI's acceptance criteria adds per-category preview counts and opt-in selectivity. **Skip:** NekoBox's all-or-nothing restore pattern.
+**Adapt:** SAF contract, ProcessPhoenix restart pattern (use `com.jakewharton:process-phoenix:2.1.2` — same version). **Improve over reference implementation:** reference implementation confirmation is a plain "yes/no" dialog without preview; RIPDPI's acceptance criteria adds per-category preview counts and opt-in selectivity. **Skip:** Reference implementation's all-or-nothing restore pattern.
 
 ## Links
 

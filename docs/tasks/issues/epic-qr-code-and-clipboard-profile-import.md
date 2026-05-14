@@ -20,7 +20,7 @@ updated: 2026-04-24
 - **Ledger key:** `epic-qr-code-and-clipboard-profile-import`
 - **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
 - **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
-- **Blocked-by (must be DONE in the ledger first):** `epic-nekobox-subscription-and-profile-import`
+- **Blocked-by (must be DONE in the ledger first):** `epic-subscription-profile-import`
 - **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
 <!-- /goal-contract:auto -->
 
@@ -79,7 +79,7 @@ distribution coupling), OCR of non-QR images.
 
 ## Dependencies
 
-- Depends on: [[Epic - NekoBox subscription and profile import]] (shared URI
+- Depends on: [[Epic - Subscription and profile import]] (shared URI
 codec must exist first).
 
 ## Risks / open questions
@@ -95,5 +95,5 @@ priority filter and only claim specific proxy schemes.
 ## Links
 
 - [[ripdpi-android]]
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - Child issues: 4

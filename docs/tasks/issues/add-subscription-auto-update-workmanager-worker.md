@@ -5,7 +5,7 @@ status: done
 area: outbound
 priority: high
 owner: unassigned
-parent: epic-nekobox-subscription-and-profile-import
+parent: epic-subscription-profile-import
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -32,7 +32,7 @@ when connected only" group toggle.
 
 ## Context
 
-NekoBox clamps the WorkManager interval to the shortest configured
+reference implementation clamps the WorkManager interval to the shortest configured
 `autoUpdateDelay` across all auto-updating groups. The worker runs in the
 `:bg` service process via `work-multiprocess` so it shares lifecycle with
 the tunnel supervisor. On boot, the boot receiver re-triggers schedule
@@ -57,17 +57,17 @@ reconciliation.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**
 
 - `app/src/main/java/io/nekohasekai/sagernet/bg/SubscriptionUpdater.kt` — full reference: scheduling via `RemoteWorkManager` (multiprocess), `UpdateTask` as `CoroutineWorker`, min-interval clamp (15 min), shortest-auto-update-delay across all groups, `updateWhenConnectedOnly` gating, `cancelUniqueWork` on reconfigure.
 - `app/src/main/java/io/nekohasekai/sagernet/group/GroupUpdater.kt` — `doUpdate()` orchestration: `updating` lock set, `userInterface.onUpdateSuccess()` callback, error-type classification (network/auth/parse).
 - `app/src/main/AndroidManifest.xml` — `androidx.work:work-multiprocess` service declaration; worker runs in the `:bg` process.
 
-**Adapt:** The multiprocess WorkManager pattern, the shortest-interval-clamp scheduling, typed error telemetry categories. **Skip:** NekoBox's in-proxy HTTP fetch via `Libcore.newHttpClient()` — RIPDPI should use its own in-tunnel HTTP client when the tunnel is up (falls back to direct when not), which is architecturally cleaner than NekoBox's one-path approach.
+**Adapt:** The multiprocess WorkManager pattern, the shortest-interval-clamp scheduling, typed error telemetry categories. **Skip:** Reference implementation's in-proxy HTTP fetch via `Libcore.newHttpClient()` — RIPDPI should use its own in-tunnel HTTP client when the tunnel is up (falls back to direct when not), which is architecturally cleaner than Reference implementation's one-path approach.
 
 ## Links
 
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - [[Epic - Boot autostart and session persistence]]
 
 
@@ -80,7 +80,7 @@ reconciliation.
   `subscriptionsDueForAutoUpdate(groups)` (only `SUBSCRIPTION` groups with `autoUpdate`
   enabled, **excluding** `SubscriptionKind.BOOTSTRAP`) and `autoUpdateIntervalMinutes(groups)`
   (shortest configured `autoUpdateDelay`, clamped up to the 15-minute WorkManager floor —
-  NekoBox's shortest-interval clamp). `enqueuePeriodic(context, groups)` registers a
+  Reference implementation's shortest-interval clamp). `enqueuePeriodic(context, groups)` registers a
   `PeriodicWorkRequest` with `NetworkType.CONNECTED`, replacing the request on every call
   (`ExistingPeriodicWorkPolicy.UPDATE`) so a reconfigure/boot re-reconciles the interval, and
   cancels the unique work when no subscription is eligible. The worker fetches each payload

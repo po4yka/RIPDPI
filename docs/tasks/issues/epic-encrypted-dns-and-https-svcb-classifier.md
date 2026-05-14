@@ -32,7 +32,7 @@ before the diagnostic burns any transport-level attempts.
 
 ## Why now
 
-TSPU blocks by DNS manipulation too, not only by SNI or IP. Without
+middlebox blocks by DNS manipulation too, not only by SNI or IP. Without
 classifying DNS first, the diagnostic will cycle through transport tricks
 against a host it could have reached by simply switching resolvers. Also,
 HTTPS/SVCB records carry ECH config metadata that gates

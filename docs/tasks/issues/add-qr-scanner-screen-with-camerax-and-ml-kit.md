@@ -52,12 +52,12 @@ offer an "import from image" fallback using SAF.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**
 
-- `app/src/main/java/io/nekohasekai/sagernet/ui/ScannerActivity.kt` — entire flow: camera permission gate, `CaptureManager` lifecycle, decoded-text dispatch. Port the flow, not the library (NekoBox uses `zxing-lite`; RIPDPI should use CameraX + ML Kit barcode scanner for smaller APK and no camera-permission hang on vendor ROMs).
+- `app/src/main/java/io/nekohasekai/sagernet/ui/ScannerActivity.kt` — entire flow: camera permission gate, `CaptureManager` lifecycle, decoded-text dispatch. Port the flow, not the library (reference implementation uses `zxing-lite`; RIPDPI should use CameraX + ML Kit barcode scanner for smaller APK and no camera-permission hang on vendor ROMs).
 - `app/src/main/java/io/nekohasekai/sagernet/ui/ConfigurationFragment.kt` — the "scan result received" callback path: `onScanResult(text)` validates, dispatches to per-protocol URI codec, falls back to `UniversalFmt.parseLink` for `sn://` scheme.
 
-**amneziawg-android** ([repo](https://github.com/amnezia-vpn/amneziawg-android), local: `/Users/po4yka/GitRep/amneziawg-android/`) — the image-file QR decode path is cleaner than NekoBox's:
+**amneziawg-android** ([repo](https://github.com/amnezia-vpn/amneziawg-android), local: `/Users/po4yka/GitRep/amneziawg-android/`) — the image-file QR decode path is cleaner than Reference implementation's:
 
 - `ui/src/main/java/org/amnezia/awg/util/QrCodeFromFileScanner.kt` — decodes a QR from a picked image URI via `QRCodeReader` (no camera dependency). **Port this pattern** for the SAF-file-picker fallback path.
 

@@ -30,7 +30,7 @@ Route app DNS through RIPDPI's VPN DNS interceptor and add leak tests proving pr
 
 ## Motivation
 
-DNS leaks are one of the main ways GUI VPN clients fail despite a working transport. The VPN profile must set an internal DNS address and enforce split DNS through policy, not rely on the underlying network defaults.
+DNS leaks are one of the main ways GUI tunneled outbound profiles fail despite a working transport. The VPN profile must set an internal DNS address and enforce split DNS through policy, not rely on the underlying network defaults.
 
 ## Scope
 

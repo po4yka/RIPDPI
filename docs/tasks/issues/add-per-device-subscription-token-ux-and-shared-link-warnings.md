@@ -56,7 +56,7 @@ This task is client-side only. Server-side delivery and token validation belong 
 ## Links
 
 - [[Epic - Fail-closed Android VPN policy engine]]
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - [[Add subscription auto-update WorkManager worker]]
 
 ## Work log

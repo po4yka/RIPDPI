@@ -57,14 +57,14 @@ and not nag on subsequent launches.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
-- `app/src/main/java/io/nekohasekai/sagernet/database/DataStore.kt` — `persistAcrossReboot: Boolean` property (the NekoBox equivalent of "Start on boot").
+- `app/src/main/java/io/nekohasekai/sagernet/database/DataStore.kt` — `persistAcrossReboot: Boolean` property (the reference implementation equivalent of "Start on boot").
 - `app/src/main/java/io/nekohasekai/sagernet/ui/SettingsPreferenceFragment.kt` — the `SwitchPreference` bound to `persistAcrossReboot`. On toggle, calls `BootReceiver.setEnabled()`.
 
 **amneziawg-android** ([repo](https://github.com/amnezia-vpn/amneziawg-android), local: `/Users/po4yka/GitRep/amneziawg-android/`):
 
-- `ui/src/main/java/org/amnezia/awg/activity/SettingsActivity.kt` — simpler toggle model; always-on is driven by the system VPN always-on setting, not an in-app toggle. RIPDPI should follow NekoBox's explicit toggle.
+- `ui/src/main/java/org/amnezia/awg/activity/SettingsActivity.kt` — simpler toggle model; always-on is driven by the system VPN always-on setting, not an in-app toggle. RIPDPI should follow Reference implementation's explicit toggle.
 
 **Adapt:** Named preference, on-toggle call to enable/disable receiver component. **Add (neither project has this):** vendor-ROM redirect intents (MIUI/EMUI/OneUI/ColorOS/FuntouchOS) and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` first-time prompt. These are a frequent support issue for both upstreams.
 

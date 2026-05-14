@@ -1,5 +1,5 @@
 ---
-title: Build Local DPI Bypass config sub-screen with desync and network settings
+title: Build Local Path Optimization config sub-screen with desync and network settings
 type: task
 status: backlog
 area: ui
@@ -13,12 +13,12 @@ created: 2026-05-08
 updated: 2026-05-08
 ---
 
-- [ ] #task Build Local DPI Bypass config sub-screen with desync and network settings #repo/RIPDPI #area/ui #status/backlog ⏫
+- [ ] #task Build Local Path Optimization config sub-screen with desync and network settings #repo/RIPDPI #area/ui #status/backlog ⏫
 
 ## Goal contract
 
 <!-- goal-contract:auto -->
-- **Ledger key:** `build-local-dpi-bypass-config-sub-screen`
+- **Ledger key:** `build-local-path-optimization-config-sub-screen`
 - **Verify:** `just test-module app`
 - **Scope (only modify these + this file + the ledger):** `app/**`
 - **Blocked-by (must be DONE in the ledger first):** _none_
@@ -27,11 +27,11 @@ updated: 2026-05-08
 
 ## Summary
 
-Build the dedicated settings screen for the Local DPI Bypass mode, shown in the "Local Bypass" section of the Config tab. Covers desync method selection, listen address, DNS settings, and mode (Local VPN vs Local Proxy).
+Build the dedicated settings screen for the Local Path Optimization mode, shown in the "Local Bypass" section of the Config tab. Covers desync method selection, listen address, DNS settings, and mode (Local VPN vs Local Proxy).
 
 ## Context
 
-Local DPI bypass uses the existing `ConfigProfile` fields that are already editable through `ModeEditorScreen`. The new sub-screen surfaces these settings directly in the Config tab section rather than requiring navigation to a separate editor. Settings shown in the current "CURRENT VALUES" table (Mode, DNS settings, Listen address, Desync method) map 1:1 to this screen's fields.
+Local path optimization uses the existing `ConfigProfile` fields that are already editable through `ModeEditorScreen`. The new sub-screen surfaces these settings directly in the Config tab section rather than requiring navigation to a separate editor. Settings shown in the current "CURRENT VALUES" table (Mode, DNS settings, Listen address, Desync method) map 1:1 to this screen's fields.
 
 The outbound relay section is deliberately excluded from this screen — it belongs to the VPN sub-screen.
 

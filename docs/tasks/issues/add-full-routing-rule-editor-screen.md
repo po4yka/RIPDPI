@@ -59,14 +59,14 @@ existing profiles and groups.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/ui/RouteSettingsActivity.kt` — the editor Activity: every matcher section (domains, IP CIDR, ports, source, network, protocol, process, packages, outbound). Port the section list and the ordering.
 - `app/src/main/java/io/nekohasekai/sagernet/ui/RouteFragment.kt` — the routing rule list with drag-to-reorder.
 - `app/src/main/res/xml/route_preferences.xml` — reference for the field ordering in the editor.
 - `app/src/main/java/io/nekohasekai/sagernet/ui/AppListActivity.kt` — the package-picker sub-screen. Port the icon+label multi-select pattern.
 
-**Adapt:** Matcher section set, drag-reorder, outbound picker (Proxy/Bypass/Block/specific profile), package multi-select. **Skip:** NekoBox's XML-Preference rendering (build Compose). **Improve over NekoBox:** add outbound-picker option "specific group" in addition to "specific profile" (NekoBox's group-selector outbound already supports this via ProxyGroup.isSelector; surface it explicitly in the rule outbound picker).
+**Adapt:** Matcher section set, drag-reorder, outbound picker (Proxy/Bypass/Block/specific profile), package multi-select. **Skip:** Reference implementation's XML-Preference rendering (build Compose). **Improve over reference implementation:** add outbound-picker option "specific group" in addition to "specific profile" (Reference implementation's group-selector outbound already supports this via ProxyGroup.isSelector; surface it explicitly in the rule outbound picker).
 
 ## Links
 

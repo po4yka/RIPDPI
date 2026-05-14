@@ -1,5 +1,5 @@
 ---
-title: Epic - NekoBox subscription and profile import
+title: Epic - Subscription and profile import
 type: epic
 status: done
 area: outbound
@@ -12,12 +12,12 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [x] #task Epic - NekoBox subscription and profile import #repo/RIPDPI #area/outbound #status/done 🔺
+- [x] #task Epic - Subscription and profile import #repo/RIPDPI #area/outbound #status/done 🔺
 
 ## Goal contract
 
 <!-- goal-contract:auto -->
-- **Ledger key:** `epic-nekobox-subscription-and-profile-import`
+- **Ledger key:** `epic-subscription-profile-import`
 - **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
 - **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
 - **Blocked-by (must be DONE in the ledger first):** _none_
@@ -26,15 +26,15 @@ updated: 2026-04-24
 
 ## Goal
 
-Let users load and keep fresh their proxy nodes from standard censorship-bypass
-subscription providers, the same way NekoBox does. Today RIPDPI only ships
+Let users load and keep fresh their proxy nodes from standard subscription-based network
+subscription providers, the same way reference implementation does. Today RIPDPI only ships
 built-in operator presets and ad-hoc user relays; there is no way to paste a
 subscription URL and get a populated group with periodic refresh.
 
 ## Why now
 
 Subscription management is the single largest feature RIPDPI lacks compared to
-the NekoBox feature surface. Without it, users of third-party providers cannot
+the reference implementation feature surface. Without it, users of third-party providers cannot
 adopt the app without manual per-node entry. This is the gating item for
 real-world adoption.
 
@@ -42,12 +42,12 @@ real-world adoption.
 
 - **Keep the Rust engine; only add parsing/transport layers.** No sing-box
 runtime swap.
-- **Support the subscription formats NekoBox parses,** not a broader set:
+- **Support the subscription formats reference implementation parses,** not a broader set:
 Clash/Clash.Meta YAML, sing-box JSON outbound array, WireGuard INI,
 base64 URI list, plain URI list.
 - **Parse in Kotlin, not Rust,** for iteration speed and to keep the Rust
 engine focused on the runtime fast path.
-- **Refresh via WorkManager with min 15-min cadence,** matching NekoBox.
+- **Refresh via WorkManager with min 15-min cadence,** matching reference implementation.
 - **Redact secrets on every log and diagnostic surface from day one.**
 - **Preserve per-profile custom overrides** (`customOutboundJson`,
 `customConfigJson`) across subscription merges so user tweaks survive.

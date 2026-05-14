@@ -50,7 +50,7 @@ shared via `FileProvider`, and cleaned up after the intent completes.
 
 ## Source references
 
-**NekoBoxForAndroid** — no direct analog. NekoBox's `BackupFragment.kt` has a "share" path but it shares the full-credentials backup, which is the exact footgun this task is designed to prevent.
+**Reference implementation notes:** — no direct analog. Reference implementation's `BackupFragment.kt` has a "share" path but it shares the full-credentials backup, which is the exact footgun this task is designed to prevent.
 
 **amneziawg-android** ([repo](https://github.com/amnezia-vpn/amneziawg-android), local: `/Users/po4yka/GitRep/amneziawg-android/`):
 

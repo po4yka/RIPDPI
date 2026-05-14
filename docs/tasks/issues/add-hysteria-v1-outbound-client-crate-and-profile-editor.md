@@ -55,15 +55,15 @@ crate rather than hacking v1 into v2.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/hysteria/HysteriaBean.java` — shared v1+v2 bean; `protocolVersion` field distinguishes (`1` or `2`). v1-only fields: `protocol` (`udp`/`wechat-video`/`faketcp`), `authPayloadType` (string/base64), `authPayload`, `obfuscation`, `uploadMbps`, `downloadMbps`.
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/hysteria/HysteriaFmt.kt` — `hysteria://` URI codec (v1). v2 is `hysteria2://` / `hy2://`.
 - `app/src/main/java/io/nekohasekai/sagernet/ui/profile/HysteriaSettingsActivity.kt` — editor handles both versions.
 
-**Outbound engine (NOT from NekoBox):** RIPDPI already ships `ripdpi-hysteria2` (v2). For v1, upstream [`HyNetwork/hysteria`](https://github.com/HyNetwork/hysteria) is Go. Hysteria v1 uses a custom framing over QUIC incompatible with v2; a separate Rust crate is needed. NekoBox launches Hysteria v1 as an external process via `hysteria-plugin`.
+**Outbound engine (NOT from reference implementation):** RIPDPI already ships `ripdpi-hysteria2` (v2). For v1, upstream [`HyNetwork/hysteria`](https://github.com/HyNetwork/hysteria) is Go. Hysteria v1 uses a custom framing over QUIC incompatible with v2; a separate Rust crate is needed. reference implementation launches Hysteria v1 as an external process via `hysteria-plugin`.
 
-**Adapt:** Bean fields (v1 subset), URI codec, bandwidth fields (v1 requires them, v2 derives them). **Skip:** NekoBox's external-process plugin path. **Sunset:** commit an explicit removal date in the crate header.
+**Adapt:** Bean fields (v1 subset), URI codec, bandwidth fields (v1 requires them, v2 derives them). **Skip:** Reference implementation's external-process plugin path. **Sunset:** commit an explicit removal date in the crate header.
 
 ## Links
 

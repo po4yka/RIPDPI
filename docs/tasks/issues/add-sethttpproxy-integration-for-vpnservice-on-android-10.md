@@ -52,12 +52,12 @@ without an extra service.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/bg/VpnService.kt` — search for `ProxyInfo.buildDirectProxy`. The VPN builder calls `builder.setHttpProxy(ProxyInfo.buildDirectProxy("127.0.0.1", DataStore.mixedPort))` gated on Android Q (API 29) via `Build.VERSION.SDK_INT >= 29` and `DataStore.appendHttpProxy` toggle.
 - `app/src/main/java/io/nekohasekai/sagernet/database/DataStore.kt` — `appendHttpProxy: Boolean` property (default off).
 
-**Adapt:** The API-29 gate, the default-off toggle, the localhost-loopback proxy config. **Skip:** NekoBox's `mixedPort` coupling — RIPDPI's equivalent is whatever the mixed-inbound task ([[Add mixed SOCKS5 and HTTP CONNECT inbound listener]]) wires up.
+**Adapt:** The API-29 gate, the default-off toggle, the localhost-loopback proxy config. **Skip:** Reference implementation's `mixedPort` coupling — RIPDPI's equivalent is whatever the mixed-inbound task ([[Add mixed SOCKS5 and HTTP CONNECT inbound listener]]) wires up.
 
 ## Links
 

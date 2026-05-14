@@ -60,7 +60,7 @@ No new subscription format is added.
 - `tunnel/src/main/java/org/amnezia/awg/config/Interface.java:101-184` — the INI-key `switch` is already the canonical implementation of routing AWG keys to the right fields. Shared with the `.conf` parser task; this task plugs the same shape into the subscription path.
 - `tunnel/src/main/java/org/amnezia/awg/config/Config.java` — `parse(InputStream)` — section dispatch already ignores whitespace-surrounded keys and is tolerant of blank lines. Port directly.
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**
 
 - `app/src/main/java/io/nekohasekai/sagernet/group/RawUpdater.kt` — `parseWireGuard()` — the existing subscription WG-INI parser. This task extends it with the AWG-key detection branch: if `[Interface]` contains any AWG key, emit an `AmneziaWGBean`; else emit `WireGuardBean`.
 

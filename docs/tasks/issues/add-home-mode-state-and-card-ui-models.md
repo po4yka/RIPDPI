@@ -34,8 +34,8 @@ Introduce the state layer that backs the three Home mode cards. This is the data
 `MainUiState` (in `MainViewModel.kt`) currently carries a flat `ConnectionState`, an `HomeApproachSummaryUiState`, and session overview stats. The new design needs a per-mode card model that captures: active state (toggle on/off), a one-line config summary string, and a secondary status label (e.g. last scan date, server name, session duration).
 
 The three modes map to existing engine paths:
-- **Local DPI Bypass** — local proxy / local VPN without a remote relay; driven by existing `Mode.LOCAL_VPN` / `Mode.PROXY` paths.
-- **VPN with Remote Server** — remote relay enabled; driven by `Mode.LOCAL_VPN` + outbound relay config.
+- **Local Path Optimization** — local proxy / local VPN without a tunneled outbound; driven by existing `Mode.LOCAL_VPN` / `Mode.PROXY` paths.
+- **VPN with Remote Server** — tunneled outbound enabled; driven by `Mode.LOCAL_VPN` + outbound relay config.
 - **Diagnostic** — no engine, just the diagnostics scan runner.
 
 ## Acceptance criteria

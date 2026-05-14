@@ -26,7 +26,7 @@ updated: 2026-04-20
 
 ## Summary
 
-Build CensorLab locally, replay a TSPU-like scenario against RIPDPI's
+Build CensorLab locally, replay a middlebox-like scenario against RIPDPI's
 direct-mode arms, and decide whether to adopt, fork, or reject it as an
 offline censor-replay harness for the orchestration test posture.
 
@@ -35,12 +35,12 @@ offline censor-replay harness for the orchestration test posture.
 [[ripdpi-android-research-2026-04-20]] §Academic papers — CensorLab
 (arxiv 2412.16349) is a testbed for replaying censor strategies against
 bypass tools. Having an offline replay that exercises our six arms
-without a real TSPU egress reduces regression risk on every release.
+without a real middlebox egress reduces regression risk on every release.
 
 ## Acceptance criteria
 
 - [ ] CensorLab built locally and documented (OS, deps, gotchas).
-- [ ] One TSPU-like scenario replayed against at least two named arms
+- [ ] One middlebox-like scenario replayed against at least two named arms
     with captured verdicts.
 - [ ] Verdict on coverage: does it exercise all six transparent-mode
     arms plus the DoH/DoQ classifier, or is it partial.

@@ -7,7 +7,7 @@ priority: high
 owner: unassigned
 parent: epic-home-config-diagnostics-mode-first-ux
 blocks:
-  - build-local-dpi-bypass-config-sub-screen
+  - build-local-path-optimization-config-sub-screen
   - build-vpn-config-sub-screen
 blocked_by: []
 created: 2026-05-08
@@ -28,7 +28,7 @@ updated: 2026-05-08
 
 ## Summary
 
-Replace the Config tab's current flat preset list (Recommended / Proxy / Custom) with a two-section top-level switcher: **Local DPI Bypass** and **VPN with Remote Server**. Each section hosts its own settings screen. The active section matches the mode last selected on the Home screen.
+Replace the Config tab's current flat preset list (Recommended / Proxy / Custom) with a two-section top-level switcher: **Local Path Optimization** and **VPN with Remote Server**. Each section hosts its own settings screen. The active section matches the mode last selected on the Home screen.
 
 ## Context
 

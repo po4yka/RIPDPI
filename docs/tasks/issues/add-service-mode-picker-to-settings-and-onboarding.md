@@ -51,13 +51,13 @@ Proxy mode.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/database/DataStore.kt` — `serviceMode: String` property, constants `MODE_VPN` and `MODE_PROXY` defined in `Key.kt`.
 - `app/src/main/java/io/nekohasekai/sagernet/ui/SettingsPreferenceFragment.kt` — search for `serviceMode`; the picker is a `ListPreference` bound to `DataStore.configurationStore`.
 - `app/src/main/res/xml/global_preferences.xml` — preference XML for the picker.
 
-**Adapt:** The two-mode picker pattern, the mode-change-requires-reconnect UX (NekoBox reloads via broadcast, RIPDPI can do the same via its existing supervisor reload path). **Skip:** NekoBox's PreferenceFragment XML approach (RIPDPI is Compose).
+**Adapt:** The two-mode picker pattern, the mode-change-requires-reconnect UX (reference implementation reloads via broadcast, RIPDPI can do the same via its existing supervisor reload path). **Skip:** Reference implementation's PreferenceFragment XML approach (RIPDPI is Compose).
 
 ## Links
 

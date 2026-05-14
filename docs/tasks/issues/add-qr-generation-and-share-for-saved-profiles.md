@@ -50,7 +50,7 @@ suppressed — secret-sharing risk is high enough that nagging is warranted.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**
 
 - `app/src/main/java/io/nekohasekai/sagernet/ui/QRCodeDialog.kt` — QR bitmap generation via `BarcodeEncoder` from `zxing-lite`. Replace with `zxing-core` directly (lighter) to keep off `zxing-lite`.
 - `app/src/main/java/io/nekohasekai/sagernet/ui/ConfigurationFragment.kt` — the "share profile" menu entry and its intent-build path: emits both QR bitmap and plain URI via share sheet.

@@ -1,23 +1,23 @@
 ---
-title: Add Xray VPN client regression matrix
+title: Add Xray provider regression matrix
 type: task
 status: backlog
 area: outbound
 priority: medium
 owner: unassigned
-parent: epic-xray-vpn-client-mode
+parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
 updated: 2026-04-24
 ---
 
-- [ ] #task Add Xray VPN client regression matrix #repo/RIPDPI #area/outbound #status/backlog 🔼
+- [ ] #task Add Xray provider regression matrix #repo/RIPDPI #area/outbound #status/backlog 🔼
 
 ## Goal contract
 
 <!-- goal-contract:auto -->
-- **Ledger key:** `add-xray-vpn-client-regression-matrix`
+- **Ledger key:** `add-xray-provider-regression-matrix`
 - **Verify:** `./gradlew :core:engine:testDebugUnitTest :core:service:testDebugUnitTest`
 - **Scope (only modify these + this file + the ledger):** `core/engine/**`, `core/service/**`
 - **Blocked-by (must be DONE in the ledger first):** _none_
@@ -26,7 +26,7 @@ updated: 2026-04-24
 
 ## Summary
 
-Add focused automated coverage for the first Xray VPN client integration.
+Add focused automated coverage for the first Xray provider integration.
 
 ## Context
 
@@ -55,7 +55,7 @@ operator-provided private test profiles outside the vault.
 
 ## Links
 
-- [[Epic - Xray VPN client mode]]
+- [[Epic - Xray provider mode]]
 - [[Bridge TUN traffic through Xray local inbound]]
 - [[Surface Xray diagnostics and telemetry]]
-- [[ripdpi-android-xray-vpn-client-plan-2026-04-24]]
+- [[ripdpi-android-xray-provider-plan-2026-04-24]]

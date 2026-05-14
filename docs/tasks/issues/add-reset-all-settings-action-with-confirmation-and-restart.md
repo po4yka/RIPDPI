@@ -53,11 +53,11 @@ and the action must surface telemetry so diagnostics can distinguish
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/ui/BackupFragment.kt` — the "Reset settings" action: clears `DataStore.configurationStore`, `SagerDatabase` tables, then `ProcessPhoenix.triggerRebirth()`. Single-tap with a plain yes/no dialog.
 
-**Adapt:** Wipe-then-restart pattern, ProcessPhoenix usage. **Improve over NekoBox:** add the typed-confirmation input (user must type "RESET") and the pre-wipe telemetry event. NekoBox's single-tap is too easy to trigger accidentally — a real user-pain report in NekoBox issue tracker.
+**Adapt:** Wipe-then-restart pattern, ProcessPhoenix usage. **Improve over reference implementation:** add the typed-confirmation input (user must type "RESET") and the pre-wipe telemetry event. Reference implementation's single-tap is too easy to trigger accidentally — a real user-pain report in reference implementation issue tracker.
 
 ## Links
 

@@ -31,7 +31,7 @@ Connect the Diagnostic card's "Run scan" button on the Home screen to trigger a 
 
 ## Context
 
-The diagnostic card is the read/act surface for the RKN/DPI blocking audit. The "Run scan" button should kick off the same scan that `DiagnosticsViewModel` drives from the Diagnostics tab — either by navigating to the tab and auto-starting, or by posting a shared trigger. The card's `primaryLabel` should display the last scan result summary (e.g. `"HIGH confidence · Apr 19"`) or `"No scan yet"`.
+The diagnostic card is the read/act surface for the middlebox/DPI blocking audit. The "Run scan" button should kick off the same scan that `DiagnosticsViewModel` drives from the Diagnostics tab — either by navigating to the tab and auto-starting, or by posting a shared trigger. The card's `primaryLabel` should display the last scan result summary (e.g. `"HIGH confidence · Apr 19"`) or `"No scan yet"`.
 
 ## Acceptance criteria
 

@@ -5,7 +5,7 @@ status: todo
 area: outbound
 priority: high
 owner: unassigned
-parent: epic-xray-vpn-client-mode
+parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -35,7 +35,7 @@ RIPDPI already has proxy, VPN tunnel, relay, WARP, native readiness, and typed
 telemetry concepts. Xray support should reuse those lifecycle patterns instead
 of adding a one-off service path.
 
-Plan reference: [[ripdpi-android-xray-vpn-client-plan-2026-04-24]].
+Plan reference: [[ripdpi-android-xray-provider-plan-2026-04-24]].
 
 ## Acceptance criteria
 
@@ -56,5 +56,5 @@ Favor an adapter that hides libXray API churn from service and UI code.
 
 ## Links
 
-- [[Epic - Xray VPN client mode]]
-- [[ripdpi-android-xray-vpn-client-plan-2026-04-24]]
+- [[Epic - Xray provider mode]]
+- [[ripdpi-android-xray-provider-plan-2026-04-24]]

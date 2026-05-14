@@ -228,7 +228,7 @@ The epic is `#status/done` only when **all** of the following hold:
 
 **Feeder tasks (other epics, depended on)**
 
-Subscription plumbing — from [[Epic - NekoBox subscription and profile import]]:
+Subscription plumbing — from [[Epic - Subscription and profile import]]:
 
 - [[Add sing-box JSON subscription parser]]
 - [[Add ProxyGroup and Subscription entities to RIPDPI data layer]]
@@ -329,7 +329,7 @@ slugs across repos in commit messages.
 ## Links
 
 - [[ripdpi-android]]
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Subscription and profile import]]
 - [[Epic - AmneziaWG outbound support]]
 - [[Epic - QR code and clipboard profile import]]
 - [[Epic - VPN fleet testing matrix and release gates]]

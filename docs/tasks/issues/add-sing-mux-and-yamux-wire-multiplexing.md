@@ -33,7 +33,7 @@ streams can share a single outbound connection.
 ## Context
 
 The existing `ripdpi-relay-mux` crate is session-pooling, not wire-
-level multiplexing. NekoBox/sing-box subscriptions frequently request
+level multiplexing. reference implementation/sing-box subscriptions frequently request
 `mux: sing-mux` or `mux: yamux` on VLESS/VMess/Trojan outbounds to
 reduce connection-establishment overhead. `smux` (Trojan-Go only) is
 a separate protocol and is out of scope here; add if real Trojan-Go

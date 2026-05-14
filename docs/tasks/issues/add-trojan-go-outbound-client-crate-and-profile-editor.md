@@ -52,15 +52,15 @@ WebSocket-over-TLS + mux transport is.
 
 ## Source references
 
-**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+**Reference implementation notes:**:
 
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/trojan_go/TrojanGoBean.java` — full extended field set: `encryption` (shadowsocks-AEAD inner cipher), `plugin`, `pluginOpts`, `path`, `host`, `type` (ws/h2), `mux`.
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/trojan_go/TrojanGoFmt.kt` — `trojan-go://` URI codec.
 - `app/src/main/java/io/nekohasekai/sagernet/ui/profile/TrojanGoSettingsActivity.kt` — editor.
 
-**Outbound engine (NOT from NekoBox):** upstream [`p4gefau1t/trojan-go`](https://github.com/p4gefau1t/trojan-go) (Go, archived) is the spec reference. No Rust port exists; write one or accept the crate stays legacy-only and is removed per the sunset commitment in the epic.
+**Outbound engine (NOT from reference implementation):** upstream [`p4gefau1t/trojan-go`](https://github.com/p4gefau1t/trojan-go) (Go, archived) is the spec reference. No Rust port exists; write one or accept the crate stays legacy-only and is removed per the sunset commitment in the epic.
 
-**Adapt:** Bean fields, URI codec. **Skip:** NekoBox's external-process path via `trojan-go-plugin` APK (RIPDPI architecture is Rust-only, no external binaries via plugin ecosystem).
+**Adapt:** Bean fields, URI codec. **Skip:** Reference implementation's external-process path via `trojan-go-plugin` APK (RIPDPI architecture is Rust-only, no external binaries via plugin ecosystem).
 
 ## Links
 

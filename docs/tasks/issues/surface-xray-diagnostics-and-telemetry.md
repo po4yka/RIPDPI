@@ -5,7 +5,7 @@ status: backlog
 area: outbound
 priority: medium
 owner: unassigned
-parent: epic-xray-vpn-client-mode
+parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
@@ -67,6 +67,6 @@ user-triggered and tied to the active profile.
 
 ## Links
 
-- [[Epic - Xray VPN client mode]]
+- [[Epic - Xray provider mode]]
 - [[Run Xray as managed VPN relay runtime]]
-- [[ripdpi-android-xray-vpn-client-plan-2026-04-24]]
+- [[ripdpi-android-xray-provider-plan-2026-04-24]]

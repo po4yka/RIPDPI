@@ -26,7 +26,7 @@ updated: 2026-05-01
 
 ## Goal
 
-Make RIPDPI a fail-closed policy-first Android VPN client, not just a GUI for imported proxy links. The app should eliminate the common failure classes in existing clients: incomplete policy bundles, DNS and IPv6 leaks, weak kill-switch UX, shared subscriptions, manual-only failover, unsafe logs, and untested VPN lifecycle behavior.
+Make RIPDPI a fail-closed policy-first Android tunneled outbound profile, not just a GUI for imported proxy links. The app should eliminate the common failure classes in existing clients: incomplete policy bundles, DNS and IPv6 leaks, weak kill-switch UX, shared subscriptions, manual-only failover, unsafe logs, and untested VPN lifecycle behavior.
 
 ## Scope
 
@@ -76,14 +76,14 @@ New cross-cutting hardening epic derived from the client-problem analysis. It co
 
 ## Notes
 
-This epic intentionally removes an entire class of client problems rather than mirroring individual behavior from v2rayNG, NekoBox, Streisand, or sing-box GUI clients.
+This epic intentionally removes an entire class of client problems rather than mirroring individual behavior from reference Android implementation, reference implementation, Streisand, or sing-box GUI clients.
 
 ## Links
 
 - [[ripdpi-android]]
 - [[ripdpi-android-split-strict-dns-architecture-2026-05-01]]
-- [[Epic - Xray VPN client mode]]
-- [[Epic - NekoBox subscription and profile import]]
+- [[Epic - Xray provider mode]]
+- [[Epic - Subscription and profile import]]
 - [[Epic - Advanced routing rules and geoip enforcement]]
 - [[Epic - Runtime lifecycle and supervisors]]
 - https://developer.android.com/develop/connectivity/vpn

@@ -30,7 +30,7 @@ Implement a priority-based outbound failover state machine that prefers primary 
 
 ## Motivation
 
-Manual failover leaves users guessing which profile works. Latency-only auto-selection can choose a fast but fragile UDP path. RIPDPI needs policy-aware failover that understands censorship-bypass priorities.
+Manual failover leaves users guessing which profile works. Latency-only auto-selection can choose a fast but fragile UDP path. RIPDPI needs policy-aware failover that understands subscription-based network priorities.
 
 ## Scope
 
@@ -56,7 +56,7 @@ This is different from subscription group selection. It is the runtime outbound 
 ## Links
 
 - [[Epic - Fail-closed Android VPN policy engine]]
-- [[Epic - Xray VPN client mode]]
+- [[Epic - Xray provider mode]]
 - [[Add selector outbound runtime for group-based profile switching]]
 
 ## Work log

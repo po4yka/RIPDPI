@@ -50,4 +50,4 @@ Start with emulator and fake-network harness coverage, then add real-device smok
 
 - [[Epic - Fail-closed Android VPN policy engine]]
 - [[Epic - Orchestration test posture]]
-- [[Add Xray VPN client regression matrix]]
+- [[Add Xray provider regression matrix]]

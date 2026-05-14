@@ -28,7 +28,7 @@ updated: 2026-04-20
 
 Replay dMAP-style DPI ambiguity probe sequences against all six named
 arms and verify that no rotated family produces a stable ambiguity
-fingerprint that a TSPU-class censor could use to identify RIPDPI.
+fingerprint that a middlebox-class censor could use to identify RIPDPI.
 
 ## Research citation
 
