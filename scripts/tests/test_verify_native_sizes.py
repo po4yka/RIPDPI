@@ -27,6 +27,17 @@ class VerifyNativeSizesTest(unittest.TestCase):
 
             self.assertEqual({"arm64-v8a": {"libripdpi.so": 10}}, sizes)
 
+    def test_discover_default_lib_dir_prefers_github_debug_flavor(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            merged_native_libs = repo_root / "app/build/intermediates/merged_native_libs"
+            fdroid = merged_native_libs / "fdroidDebug/mergeFdroidDebugNativeLibs/out/lib"
+            github = merged_native_libs / "githubDebug/mergeGithubDebugNativeLibs/out/lib"
+            fdroid.mkdir(parents=True)
+            github.mkdir(parents=True)
+
+            self.assertEqual(github, verify_native_sizes.discover_default_lib_dir(repo_root))
+
     def test_verify_enforces_per_library_and_total_thresholds(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             lib_dir = Path(temp_dir)

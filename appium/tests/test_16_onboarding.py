@@ -30,12 +30,7 @@ def test_onboarding_complete(driver):
     onboarding = OnboardingPage(driver)
     assert onboarding.is_loaded(), "Onboarding screen should be visible"
 
-    # Swipe through 3 pages.
-    onboarding.swipe_to_next_page()
-    onboarding.swipe_to_next_page()
-
-    # Tap continue on the last page.
-    onboarding.tap_continue()
+    onboarding.complete_all_pages()
 
     home = HomePage(driver)
     assert home.is_loaded(), "Home screen should appear after completing onboarding"

@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 TRACKED_LIBRARIES = ("libripdpi.so", "libripdpi-tunnel.so")
+DEFAULT_LIB_DIR = "app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib"
 
 
 def read_json(path: Path) -> dict:
@@ -26,6 +27,23 @@ def collect_sizes(lib_dir: Path, libraries: tuple[str, ...] = TRACKED_LIBRARIES)
         if abi_sizes:
             sizes[abi_dir.name] = abi_sizes
     return sizes
+
+
+def discover_default_lib_dir(repo_root: Path) -> Path | None:
+    merged_native_libs = repo_root / "app/build/intermediates/merged_native_libs"
+    if not merged_native_libs.is_dir():
+        return None
+
+    preferred = merged_native_libs / "githubDebug/mergeGithubDebugNativeLibs/out/lib"
+    if preferred.is_dir():
+        return preferred
+
+    candidates = sorted(
+        path
+        for path in merged_native_libs.glob("*/merge*DebugNativeLibs/out/lib")
+        if path.is_dir()
+    )
+    return candidates[0] if candidates else None
 
 
 def allowed_size(expected_size: int, max_growth_percent: float | None, max_growth_bytes: int | None) -> int:
@@ -189,7 +207,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Verify packaged native library sizes against a checked-in baseline.")
     parser.add_argument(
         "--lib-dir",
-        default="app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib",
+        default=DEFAULT_LIB_DIR,
         help="Directory containing ABI subdirectories with packaged .so files.",
     )
     parser.add_argument(
@@ -229,7 +247,14 @@ def main() -> int:
     baseline_path = (repo_root / args.baseline).resolve()
 
     if not lib_dir.is_dir():
-        raise ValueError(f"Native library directory not found: {lib_dir}")
+        if args.lib_dir == DEFAULT_LIB_DIR:
+            discovered = discover_default_lib_dir(repo_root)
+            if discovered is not None:
+                lib_dir = discovered
+            else:
+                raise ValueError(f"Native library directory not found: {lib_dir}")
+        else:
+            raise ValueError(f"Native library directory not found: {lib_dir}")
     if args.dump_current:
         print(
             build_baseline_payload(

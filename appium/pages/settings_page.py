@@ -15,6 +15,8 @@ class SettingsPage(BasePage):
     BIOMETRIC_CONFIRM_DIALOG = "settings-biometric-confirm-dialog"
     BIOMETRIC_CONFIRM_ENABLE = "settings-biometric-confirm-enable"
     BIOMETRIC_CONFIRM_CANCEL = "settings-biometric-confirm-cancel"
+    BIOMETRIC_PIN_REQUIRED_DIALOG = "settings-biometric-pin-required-dialog"
+    BIOMETRIC_PIN_REQUIRED_OK = "settings-biometric-pin-required-ok"
     BACKUP_PIN_FIELD = "settings-backup-pin-field"
     BACKUP_PIN_SAVE = "settings-backup-pin-save"
     ABOUT = "settings-about"
@@ -35,9 +37,11 @@ class SettingsPage(BasePage):
         self.tap(self.DNS_SETTINGS)
 
     def tap_webrtc_toggle(self) -> None:
+        self.scroll_down_to(self.WEBRTC_PROTECTION)
         self.tap(self.WEBRTC_PROTECTION)
 
     def tap_theme_dropdown(self) -> None:
+        self.scroll_down_to(self.THEME_DROPDOWN)
         self.tap(self.THEME_DROPDOWN)
 
     def select_theme_option(self, option: str) -> None:
@@ -45,11 +49,17 @@ class SettingsPage(BasePage):
         self.tap(f"settings-theme-dropdown-option-{option}")
 
     def tap_biometric_toggle(self) -> None:
-        self.scroll_to(self.BIOMETRIC)
+        self.scroll_down_to(self.BIOMETRIC)
         self.tap(self.BIOMETRIC)
 
     def is_biometric_confirm_visible(self) -> bool:
         return self.is_visible(self.BIOMETRIC_CONFIRM_DIALOG)
+
+    def is_biometric_pin_required_visible(self) -> bool:
+        return self.is_visible(self.BIOMETRIC_PIN_REQUIRED_DIALOG)
+
+    def dismiss_biometric_pin_required(self) -> None:
+        self.tap(self.BIOMETRIC_PIN_REQUIRED_OK)
 
     def dismiss_biometric_confirm(self) -> None:
         self.tap(self.BIOMETRIC_CONFIRM_CANCEL)
@@ -61,5 +71,5 @@ class SettingsPage(BasePage):
         return self.is_visible(self.BACKGROUND_GUIDANCE_BANNER)
 
     def tap_customization(self) -> None:
-        self.scroll_to(self.CUSTOMIZATION)
+        self.scroll_down_to(self.CUSTOMIZATION)
         self.tap(self.CUSTOMIZATION)

@@ -7,7 +7,7 @@ source "$script_dir/android-emulator-helpers.sh"
 
 bash scripts/ci/wait-for-android-package-manager.sh
 
-./gradlew :baselineprofile:connectedAndroidTest \
+./gradlew :baselineprofile:connectedDebugAndroidTest \
   -Pripdpi.localNativeAbis=x86_64 \
   -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark || {
   adb_cmd logcat -d > android-logcat.txt || true

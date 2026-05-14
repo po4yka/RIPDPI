@@ -6,6 +6,7 @@ from pages.base_page import BasePage
 
 
 HOST_PACK_DIALOG = "host-pack-apply-dialog"
+HOST_PACK_YOUTUBE = "host-pack-preset-youtube"
 HOST_PACK_TARGET = "host-pack-target-dropdown"
 HOST_PACK_APPLY_MODE = "host-pack-apply-mode-dropdown"
 HOST_PACK_CONFIRM = "host-pack-apply-confirm"
@@ -20,9 +21,9 @@ HOST_PACK_DISMISS = "host-pack-apply-dismiss"
 def test_host_pack_confirm(driver):
     page = BasePage(driver)
 
-    # Scroll to and open the host pack dialog.
-    page.scroll_to(HOST_PACK_DIALOG)
-    page.tap(HOST_PACK_DIALOG)
+    # Select a bundled host pack to open the apply dialog.
+    page.scroll_to(HOST_PACK_YOUTUBE, max_swipes=16)
+    page.tap(HOST_PACK_YOUTUBE)
 
     assert page.is_visible(HOST_PACK_TARGET), "Target dropdown should be visible"
     assert page.is_visible(HOST_PACK_APPLY_MODE), "Apply mode dropdown should be visible"
@@ -41,8 +42,8 @@ def test_host_pack_confirm(driver):
 def test_host_pack_dismiss(driver):
     page = BasePage(driver)
 
-    page.scroll_to(HOST_PACK_DIALOG)
-    page.tap(HOST_PACK_DIALOG)
+    page.scroll_to(HOST_PACK_YOUTUBE, max_swipes=16)
+    page.tap(HOST_PACK_YOUTUBE)
 
     assert page.is_visible(HOST_PACK_TARGET), "Target dropdown should be visible"
 

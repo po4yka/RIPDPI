@@ -33,6 +33,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -340,7 +341,7 @@ private fun HostPackPresetCard(
     PresetCard(
         title = preset.title,
         description = description,
-        modifier = modifier,
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.hostPackPreset(preset.id)),
         badgeText =
             stringResource(
                 R.string.host_pack_hosts_badge,

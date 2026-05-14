@@ -64,10 +64,20 @@ class BasePage:
     def tap(self, tag: str, timeout: int = 10) -> None:
         self.wait_for(tag, timeout=timeout).click()
 
+    def tap_text(self, text: str, timeout: int = 10) -> None:
+        WebDriverWait(self.driver, timeout).until(
+            lambda _: self.driver.find_element(AppiumBy.XPATH, f'//*[@text="{text}"]'),
+            message=f"Timed out waiting for text {text!r}",
+        ).click()
+
     def clear_and_type(self, tag: str, text: str, timeout: int = 10) -> None:
         el = self.wait_for(tag, timeout=timeout)
         el.clear()
         el.send_keys(text)
+        try:
+            self.driver.hide_keyboard()
+        except WebDriverException:
+            pass
 
     def swipe_horizontal(self, direction: str = "left") -> None:
         """Swipe left or right across the center of the screen."""
@@ -140,4 +150,17 @@ class BasePage:
             time.sleep(0.3)
             if self.is_visible(tag, timeout=1):
                 return self.find(tag)
+        return self.wait_for(tag, timeout=5)
+
+    def scroll_down_to(self, tag: str, max_swipes: int = 10) -> WebElement:
+        """Swipe down through long forms until the element is visible."""
+        for _ in range(max_swipes):
+            if self.is_visible(tag, timeout=1):
+                return self.find(tag)
+            size = self.driver.get_window_size()
+            start_y = int(size["height"] * 0.72)
+            end_y = int(size["height"] * 0.22)
+            center_x = int(size["width"] * 0.5)
+            self.driver.swipe(center_x, start_y, center_x, end_y, duration=350)
+            time.sleep(0.3)
         return self.wait_for(tag, timeout=5)
