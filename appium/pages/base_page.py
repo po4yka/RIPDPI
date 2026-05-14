@@ -233,8 +233,8 @@ class BasePage:
             time.sleep(0.3)
         return self.wait_for(tag, timeout=5)
 
-    def scroll_incrementally_to(self, tag: str, max_swipes: int = 40) -> WebElement:
-        """Use short scroll steps so LazyColumn content is not skipped."""
+    def scroll_incrementally_to(self, tag: str, max_swipes: int = 60) -> WebElement:
+        """Use bounded scroll steps so long LazyColumn content remains reachable."""
         element = self._scroll_into_view_by_uiautomator(tag)
         if element:
             return element
@@ -243,8 +243,8 @@ class BasePage:
                 return self.find(tag)
             size = self.driver.get_window_size()
             center_x = int(size["width"] * 0.5)
-            start_y = int(size["height"] * 0.66)
-            end_y = int(size["height"] * 0.50)
-            self.driver.swipe(center_x, start_y, center_x, end_y, duration=220)
-            time.sleep(0.15)
+            start_y = int(size["height"] * 0.74)
+            end_y = int(size["height"] * 0.36)
+            self.driver.swipe(center_x, start_y, center_x, end_y, duration=260)
+            time.sleep(0.12)
         return self.wait_for(tag, timeout=5)
