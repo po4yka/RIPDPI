@@ -74,8 +74,10 @@ available in the current local lab.
   unit test, physical mock-relay VPN/proxy/diagnostics probes, proxy E2E runner syntax, the
   service stop-self fallback unit test, debug/test/main source-set ktlint checks,
   the refreshed architecture-health and native-hotspot gates, and the
-  local-network-lab validation-only block passed. Commit hooks passed for the latest
-  native/Appium/test-lab commits.
+  local-network-lab validation-only block passed. The sign-off runbook now also
+  documents the operator-reviewed readiness JSON input, and the manual evidence
+  template captures that JSON plus the final guard command/result. Commit hooks
+  passed for the latest native/Appium/test-lab/testing-docs commits.
 - Remote state: `origin/main` now points at `342a169a`. CI run `25875963396`
   is not a green sign-off because it completed with failed jobs in
   `architecture-health`, `verify-roborazzi`, `rust-workspace-tests`, and
@@ -90,7 +92,8 @@ available in the current local lab.
   Linux netem VM, production relay matrix, and remote workflow confirmation
   remain blocked; physical handover remains manual. The remote workflow item is
   blocked because the local branch is ahead of `origin/main` and no fresh
-  workflow covers the local commits.
+  workflow covers the local commits. The local branch is now 52 commits ahead
+  of `origin/main`.
 
 ## Stop Rules
 
