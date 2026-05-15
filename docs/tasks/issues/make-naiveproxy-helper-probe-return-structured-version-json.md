@@ -42,9 +42,12 @@ hang.
 
 ## Acceptance criteria
 
-- [ ] Helper emits a single `RIPDPI-PROBE { ... }` JSON line on
-    `--probe` exit with fields `{ "schema_version": u32,
-    "helper_version": semver, "features": [string, ...] }`.
+- [x] (2026-05-15) Helper emits a single `RIPDPI-PROBE { ... }`
+    JSON line on `--probe` exit with fields
+    `{ "schema_version": u32, "helper_version": semver,
+    "features": [string, ...] }`. Hand-formatted JSON (no serde dep
+    for the fast-path) in `ripdpi-naiveproxy/src/main.rs`. Two unit
+    tests assert format and capability-tag stability.
 - [ ] `NaiveProxyManager` invokes `--probe` before `start`, parses the
     JSON, and refuses to start when `schema_version` is outside the
     range it supports, surfacing a recognizable failure class.
