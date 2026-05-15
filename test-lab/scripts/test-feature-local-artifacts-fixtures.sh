@@ -26,6 +26,7 @@ cat > "$valid_evidence" <<'EOF'
 | --- | --- | --- |
 | Debug APK | `$PWD/app/build/outputs/apk/github/debug/app-fixture-debug.apk` | Pass |
 | Connected XML | `app/build/outputs/androidTest-results/connected/debug/TEST-Pixel Fixture - 16-_app-.xml` | Pass |
+| Locale command | `for locale in ru es; do grep app/src/main/res/values-$locale/strings.xml; done` | Not a literal artifact |
 EOF
 
 cat > "$missing_evidence" <<'EOF'

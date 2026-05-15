@@ -22,11 +22,15 @@ text = evidence_path.read_text(encoding="utf-8")
 artifact_paths = set()
 for value in re.findall(r"`([^`]+)`", text):
     normalized = value.removeprefix("$PWD/")
+    if "$" in normalized:
+        continue
     if normalized.startswith(("app/build/", "core/")) and normalized.endswith((".apk", ".xml")):
         artifact_paths.add(normalized)
 
 for match in re.finditer(r"(?:\$PWD/)?((?:app|core)/[^`\s;,)|]+(?:\.apk|\.xml))", text):
-    artifact_paths.add(match.group(1))
+    path = match.group(1)
+    if "$" not in path:
+        artifact_paths.add(path)
 
 missing = []
 empty = []
