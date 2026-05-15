@@ -46,7 +46,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 23 | P2 | `reject-concurrent-cloudflarepublishmanager-sessions`<br>Reject concurrent CloudflarePublishManager sessions | task | `epic-cloudflare-publish-hardening` | relay | ⏫ | DONE | just test-module core:service (exit 0) |
 | 24 | P2 | `spike-ech-end-to-end-on-android-17-beta-4`<br>Spike ECH end-to-end on Android 17 Beta 4 | task | `(no epic)` | diagnostics | ⏫ | TODO | |
 | 25 | P2 | `spike-zapret-quic-desync-taxonomy-for-direct-mode-udp-arms`<br>Spike zapret QUIC desync taxonomy for direct-mode UDP arms | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | ⏫ | TODO | |
-| 26 | P2 | `surface-typed-cache-degradation-reasons`<br>Surface typed cache-degradation reasons | task | `epic-control-plane-hardening` | engine | ⏫ | TODO | |
+| 26 | P2 | `surface-typed-cache-degradation-reasons`<br>Surface typed cache-degradation reasons | task | `epic-control-plane-hardening` | engine | ⏫ | DONE | `just test-module core:engine` (exit 0) |
 | 27 | P2 | `replace-generic-relay-suggestion-with-transport-specific-remediation-ladder`<br>Replace generic relay suggestion with transport-specific remediation ladder | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | ⏫ | TODO | |
 | 28 | P2 | `add-amneziawg-kotlin-config-model-and-dot-conf-parser-extensions`<br>Add AmneziaWG Kotlin config model and dot-conf parser extensions | task | `epic-amneziawg-outbound-support` | outbound | ⏫ | DONE | |
 | 29 | P2 | `add-duplicate-profile-detection-on-subscription-merge`<br>Add duplicate-profile detection on subscription merge | task | `epic-subscription-profile-import` | outbound | ⏫ | DONE | |
