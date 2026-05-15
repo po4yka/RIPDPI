@@ -34,12 +34,12 @@ available in the current local lab.
 | Verify relay provider matrix | Mock relay tests and Rust relay interoperability passed for local fixture coverage; Android debug-probe tests now confirm the client readiness handshake, `relayReady` emission, and hard failure classification; physical proxy, VPN, and diagnostics mock-relay runs emitted `relayReady=true` while the relevant runtime path was active; `check-relay-matrix-config.sh` validates the private matrix manifest shape and emits machine-readable required path/scenario lists, `test-relay-matrix-config.sh` covers duplicate IDs, kind/ID mismatches, duplicate/invalid scenarios, literal endpoint refs, sensitive literal values, and Provider Relay Matrix template parity, and the checked-in example covers all required relay paths/scenarios; readiness preflight confirms no operator-provided provider matrix is configured in the current local environment | Partial | Provider-backed proxy, VPN, diagnostics, restart, invalid credential, reset, timeout, malformed response, DNS fallback, and handover runs for every production relay path |
 | Verify accessibility with TalkBack | Automated label audits and Appium selector coverage passed; readiness preflight confirms TalkBack is installed but is not the active accessibility service | Partial | Manual TalkBack pass for buttons, switches, tabs, progress, and error messages |
 | Verify routed VM packet-loss lab | Netem scripts passed inside a disposable Linux network namespace; readiness preflight confirms the current host is Darwin and not a routed Linux VM; `test-lab/chaos/netem/README.md` now documents the routed Linux VM evidence run, VPN/diagnostics probes, QUIC-drop probe, cleanup, and required manual evidence fields | Partial | Linux routed-VM run that carries Android or device traffic through the netem path |
-| Verify remote release gates | Read-only GitHub Actions refresh on May 15, 2026 showed `origin/main` at `f6df72df`. CodeQL run `25900140424` passed for that head. CI run `25900140413` passed for that head with 32 successful jobs, 10 skipped schedule/manual-only jobs, and no failed, cancelled, or timed-out jobs. Older CI run `25875963396` failed on previous remote head `342a169a`; scheduled Fuzz Nightly run `25897920791` later passed, but it still covers previous remote head `342a169a` rather than the current local commits. The remaining workflow history is not current-head sign-off evidence: latest local-network-lab success `25844203179` is on `d717158e`, latest offline analytics run `25721322098` failed on `3b528850`, and latest mutation-testing run `25655283515` failed on `69defcca`. Failed-step logs show the offline analytics failure was from missing `app/src/main/assets/strategy-packs/catalog.json` on the old head and the mutation-testing failure was `cargo-mutants v27.0.0` rejecting `--jobs auto`; the current local offline analytics rerun passes and the mutation wrapper self-test now covers the fixed `--jobs` behavior. The local refresh reproduced or rechecked the older CI failure classes locally: architecture health, full static analysis, CI-equivalent Roborazzi verification, and the Rust workspace test script now pass locally. A post-commit readiness refresh correctly blocks remote workflow confirmation because the local branch is ahead of `origin/main`; no hosted run covers these local commits until they are published through the review-branch, pull-request, merge, and fresh-workflow path | Partial | CodeQL and CI are green for `f6df72df`; publish the local commits through the review-branch path, then confirm local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly workflow status for the resulting current commit |
+| Verify remote release gates | Read-only GitHub Actions refresh on May 15, 2026 showed `origin/main` at `d0b9347e`. CodeQL run `25900346139` passed for that head. CI run `25900346157` passed for that head. Local Network Lab run `25902662966` passed for that head. Older CI run `25875963396` failed on previous remote head `342a169a`; scheduled Fuzz Nightly run `25897920791` later passed, but it still covers previous remote head `342a169a` rather than the current local commits. The remaining workflow history is not current-head sign-off evidence: latest offline analytics run `25721322098` failed on `3b528850`, and latest mutation-testing run `25655283515` failed on `69defcca`. Failed-step logs show the offline analytics failure was from missing `app/src/main/assets/strategy-packs/catalog.json` on the old head and the mutation-testing failure was `cargo-mutants v27.0.0` rejecting `--jobs auto`; the current local offline analytics rerun passes and the mutation wrapper self-test now covers the fixed `--jobs` behavior. The local refresh reproduced or rechecked the older CI failure classes locally: architecture health, full static analysis, CI-equivalent Roborazzi verification, and the Rust workspace test script now pass locally. A post-commit readiness refresh correctly blocks remote workflow confirmation because the local branch is ahead of `origin/main`; no hosted run covers these local commits until they are published through the review-branch, pull-request, merge, and fresh-workflow path | Partial | CI, CodeQL, and Local Network Lab are green for `d0b9347e`; publish the local commits through the review-branch path, then confirm CI, CodeQL, local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly workflow status for the resulting current commit |
 
 ## Current Local State
 
 - Branch: `main`; local HEAD is ahead of `origin/main`, which remains at
-  `f6df72df`.
+  `d0b9347e`.
 - Working tree scope: this audit update reflects the latest native
   monitor-engine hotspot split, Roborazzi Logs golden refresh, Appium long-form
   scroll hardening, Appium launch-timeout retry, merged `origin/main`
@@ -116,19 +116,17 @@ available in the current local lab.
   branch, pull request, required checks/reviews, readiness JSON, plus the final
   guard command/result. Commit hooks passed for the latest
   native/Appium/test-lab/testing-docs commits.
-- Remote state: `origin/main` now points at `f6df72df`. CodeQL run
-  `25900140424` passed for that head. CI run `25900140413` passed for that
-  head with 32 successful jobs, 10 skipped schedule/manual-only jobs, and no
-  failed, cancelled, or timed-out jobs. Older CI run `25875963396` failed on
-  previous remote head `342a169a`; scheduled Fuzz Nightly run `25897920791`
-  later passed, but it still covers previous remote head `342a169a` and is not
-  current-head sign-off evidence. Latest local-network-lab success
-  `25844203179` is on `d717158e`; latest offline analytics run `25721322098`
-  failed on `3b528850`; latest mutation-testing run `25655283515` failed on
-  `69defcca`. Failed-step logs show offline analytics failed on the old head
-  because `app/src/main/assets/strategy-packs/catalog.json` was absent, while
-  mutation testing failed before starting because `cargo-mutants v27.0.0`
-  rejected `--jobs auto`. The current local refresh reproduced and fixed the
+- Remote state: `origin/main` now points at `d0b9347e`. CodeQL run
+  `25900346139`, CI run `25900346157`, and Local Network Lab run `25902662966`
+  passed for that head. Older CI run `25875963396` failed on previous remote
+  head `342a169a`; scheduled Fuzz Nightly run `25897920791` later passed, but
+  it still covers previous remote head `342a169a` and is not current-head
+  sign-off evidence. Latest offline analytics run `25721322098` failed on
+  `3b528850`; latest mutation-testing run `25655283515` failed on `69defcca`.
+  Failed-step logs show offline analytics failed on the old head because
+  `app/src/main/assets/strategy-packs/catalog.json` was absent, while mutation
+  testing failed before starting because `cargo-mutants v27.0.0` rejected
+  `--jobs auto`. The current local refresh reproduced and fixed the
   architecture-health class of failure; full local `staticAnalysis`,
   CI-equivalent Roborazzi verification, and the Rust workspace test script now
   pass.
@@ -139,9 +137,9 @@ available in the current local lab.
   physical handover remained manual. A later local post-commit refresh written
   to `/tmp/ripdpi-feature-gap-readiness-post-commit.json` blocks remote workflow
   confirmation because the local branch is ahead of `origin/main`; that refresh
-  also reports no attached adb device currently ready. CI/CodeQL are green for
-  `f6df72df`, but the remaining external workflow confirmations are not
-  recorded and no hosted run covers the local commits.
+  also reports no attached adb device currently ready. CI, CodeQL, and Local
+  Network Lab are green for `d0b9347e`, but the remaining external workflow
+  confirmations are not recorded and no hosted run covers the local commits.
 
 ## Stop Rules
 
@@ -160,11 +158,12 @@ direct evidence:
 ## Next Concrete Actions
 
 1. Complete remote workflow confirmation: publish the local commits through the
-   review-branch and pull-request path, keep CI run `25900140413` and CodeQL
-   run `25900140424` recorded as passed for baseline commit `f6df72df`, then
-   dispatch or record fresh local-network-lab, offline analytics,
-   mutation-testing, and Fuzz Nightly workflows for the resulting current commit
-   where manual dispatch is supported.
+   review-branch and pull-request path, keep CI run `25900346157`, CodeQL run
+   `25900346139`, and Local Network Lab run `25902662966` recorded as passed
+   for baseline commit `d0b9347e`, then dispatch or record fresh CI, CodeQL,
+   local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly
+   workflows for the resulting current commit where manual dispatch is
+   supported.
 2. Run the rooted physical-device pass.
 3. Run the network lab pass with cellular, handover, IPv4-only, IPv6-only,
    captive, and limited-path coverage.
