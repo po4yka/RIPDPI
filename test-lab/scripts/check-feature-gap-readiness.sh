@@ -147,9 +147,9 @@ fi
 
 ahead_count="$(git -C "$lab_root/.." rev-list --count origin/main..HEAD 2>/dev/null || printf 'unknown')"
 if [[ "$ahead_count" == "0" ]]; then
-  add_check "remote_workflow_confirmation" "manual" "true" "Local branch is not ahead of origin/main; inspect GitHub workflow status for the pushed commit."
+  add_check "remote_workflow_confirmation" "manual" "true" "Local branch is not ahead of origin/main; inspect GitHub workflow status for the pushed or merged commit."
 else
-  add_check "remote_workflow_confirmation" "blocked" "true" "Local branch is ahead of origin/main; push or dispatch fresh workflows before sign-off."
+  add_check "remote_workflow_confirmation" "blocked" "true" "Local branch is ahead of origin/main; publish a review branch, complete pull request checks/reviews, merge to main, then confirm fresh workflows before sign-off."
 fi
 
 mkdir -p "$(dirname "$artifact_path")"

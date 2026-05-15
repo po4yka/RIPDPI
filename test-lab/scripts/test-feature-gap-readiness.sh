@@ -37,6 +37,8 @@ remote = checks["remote_workflow_confirmation"]
 message = remote.get("message", "")
 if "Local branch" not in message or "origin/main" not in message:
     raise SystemExit(f"remote workflow message lost branch context: {message!r}")
+if remote.get("status") == "blocked" and "review branch" not in message:
+    raise SystemExit(f"remote workflow message lost ruleset path: {message!r}")
 if re.search(r"\b[0-9a-f]{7,40}\b", message) or re.search(r"\bby \d+ commit", message):
     raise SystemExit(f"remote workflow message is commit-specific: {message!r}")
 PY
