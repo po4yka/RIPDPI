@@ -41,9 +41,17 @@ needs a targeted assertion.
 
 ## Acceptance criteria
 
-- [ ] A per-crate test asserts that `tracing` events emitted on a
-    representative happy-path connect do not contain the UUID or
-    credential as a substring of any captured line.
+- [x] (partial, 2026-05-15) Manual Debug impls on `VlessRealityConfig`
+    and `ripdpi-tuic::Config` redact UUID, REALITY public key, and
+    password. Unit tests
+    `redacted_debug_omits_uuid_and_reality_key` (vless) and
+    `redacted_debug_omits_uuid_and_password` (tuic) assert the
+    contract. **Remaining work:** capture tracing events directly via
+    a test subscriber to assert no leak in error-path events, and
+    cover NaiveProxy + MTProto seed paths.
+- [ ] (original) A per-crate test asserts that `tracing` events
+    emitted on a representative happy-path connect do not contain the
+    UUID or credential as a substring of any captured line.
 - [ ] A per-crate test asserts that error events triggered by
     misconfiguration do not echo the credential.
 - [ ] The MTProto seed test asserts that the 64-byte init buffer is

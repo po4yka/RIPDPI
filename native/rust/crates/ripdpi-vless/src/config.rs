@@ -18,7 +18,12 @@ pub enum ConfigError {
 }
 
 /// Configuration for a VLESS+Reality connection.
-#[derive(Debug, Clone)]
+///
+/// `Debug` is implemented manually to redact subscriber credentials
+/// (`uuid`, `reality_public_key`). A derived `Debug` would expose them
+/// to any `tracing::debug!(?config)` call or panic message. See
+/// `redacted_debug_omits_uuid_and_reality_key` test for the contract.
+#[derive(Clone)]
 pub struct VlessRealityConfig {
     pub server: String,
     pub port: u16,
@@ -33,6 +38,21 @@ pub struct VlessRealityConfig {
     /// Wire-multiplexing config when the subscription requested `mux:
     /// sing-mux` / `mux: yamux`; `None` for one-connection-per-flow.
     pub mux: Option<VlessMuxConfig>,
+}
+
+impl std::fmt::Debug for VlessRealityConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VlessRealityConfig")
+            .field("server", &self.server)
+            .field("port", &self.port)
+            .field("uuid", &"<redacted>")
+            .field("server_name", &self.server_name)
+            .field("tls_fingerprint_profile", &self.tls_fingerprint_profile)
+            .field("reality_public_key", &"<redacted>")
+            .field("reality_short_id_len", &self.reality_short_id.len())
+            .field("mux", &self.mux)
+            .finish()
+    }
 }
 
 impl VlessRealityConfig {
@@ -196,5 +216,38 @@ mod tests {
         let mux = VlessMuxConfig::new(crate::mux::VlessMuxProtocol::SingMux);
         let cfg = sample_config().with_mux(mux);
         assert_eq!(cfg.mux, Some(mux));
+    }
+
+    #[test]
+    fn redacted_debug_omits_uuid_and_reality_key() {
+        // Credential-redaction contract: the manual Debug impl on
+        // VlessRealityConfig must not echo the UUID or REALITY public key
+        // bytes. Removing the manual impl (e.g. derive Debug) would expose
+        // both to tracing::debug!(?cfg) and panic messages.
+        let cfg = sample_config();
+
+        let dbg = format!("{cfg:?}");
+
+        // UUID bytes in hex (with or without dashes) must not appear.
+        let uuid_hex_no_dashes = "550e8400e29b41d4a716446655440000";
+        let uuid_hex_dashed = "550e8400-e29b-41d4-a716-446655440000";
+        assert!(
+            !dbg.contains(uuid_hex_no_dashes) && !dbg.contains(uuid_hex_dashed),
+            "Debug output exposes UUID: {dbg}",
+        );
+
+        // REALITY public-key bytes (32 × 0xAB == "AB" repeated) must not
+        // appear as a hex run.
+        let reality_key_hex_run = "AB".repeat(32);
+        assert!(!dbg.contains(&reality_key_hex_run), "Debug output exposes REALITY public key: {dbg}",);
+        // Also reject the array-of-int form `[171, 171, ...]` that a
+        // derived Debug would emit.
+        assert!(!dbg.contains("171, 171, 171, 171"), "Debug output exposes REALITY public key as int array: {dbg}",);
+
+        // Public, non-secret fields should still be visible for log
+        // utility.
+        assert!(dbg.contains("example.com"), "server should be visible in debug");
+        assert!(dbg.contains("443"), "port should be visible in debug");
+        assert!(dbg.contains("<redacted>"), "redaction marker should be present");
     }
 }
