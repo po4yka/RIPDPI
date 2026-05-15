@@ -91,9 +91,13 @@ abstract class CheckNoTrackedJavaSourcesTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val sourceFiles: ConfigurableFileCollection
 
+    @get:Internal
+    abstract val repoRoot: DirectoryProperty
+
     @TaskAction
     fun verify() {
-        val javaSources = sourceFiles.files.sorted().map { it.relativeTo(project.rootDir).path }
+        val rootDir = repoRoot.get().asFile
+        val javaSources = sourceFiles.files.sorted().map { it.relativeTo(rootDir).path }
 
         if (javaSources.isNotEmpty()) {
             throw GradleException(
@@ -291,6 +295,7 @@ tasks.register<CheckFileLocLimitsTask>("checkFileLocLimits") {
 tasks.register<CheckNoTrackedJavaSourcesTask>("checkNoTrackedJavaSources") {
     group = "verification"
     description = "Fails if handwritten Java sources exist in repo-owned source sets."
+    repoRoot.set(layout.projectDirectory)
     sourceFiles.from(handwrittenJavaSources())
 }
 
