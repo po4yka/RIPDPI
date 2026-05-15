@@ -50,11 +50,19 @@ misconfigured, or running an outdated client.
 
 ## Acceptance criteria
 
-- [ ] Each protocol crate exposes a public `ProtocolVersion` enum with
-    one variant per supported wire revision and a `SUPPORTED: &[Self]`
-    constant.
-- [ ] Wire encode/decode paths use the enum (no bare `0x01` / `0x05`
-    literals in encode or decode arms).
+- [x] (partial, 2026-05-15) `ripdpi-vless::wire::ProtocolVersion`
+    enum shipped with `V1` variant, `SUPPORTED` const slice,
+    `wire_byte()` and `from_wire_byte()` accessors. Three unit
+    tests assert round-trip and that unknown bytes are rejected.
+    **TUIC and MTProto enum migrations are deferred** — TUIC has
+    `TUIC_VERSION: u8 = 0x05` and the MTProto module has
+    `ALLOWED_PROTOCOL_TAGS`; both follow the same pattern but each
+    is a separate refactor.
+- [x] (partial, 2026-05-15) Wire encode/decode paths use the enum
+    (no bare `0x01` / `0x05` literals in encode or decode arms) —
+    **in `ripdpi-vless` only**. `encode_request` writes
+    `ProtocolVersion::V1.wire_byte()`; `parse_request_header` uses
+    `ProtocolVersion::from_wire_byte().is_none()` for rejection.
 - [ ] A new `ripdpi-diagnostics-protocols` probe attempts a low-cost
     handshake and classifies failures into `Reachable`,
     `VersionMismatch { offered, server_signaled }`, `AuthFailure`,

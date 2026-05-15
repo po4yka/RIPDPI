@@ -3,6 +3,41 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 use tokio::io::{AsyncRead, AsyncReadExt};
 
+/// VLESS wire version.
+///
+/// xray-core has only ever defined VLESS request version `0x01`. Wrapping
+/// the value in a typed enum lets future variants slot in without
+/// re-validating every literal `0x01` in the codebase. The
+/// `ProtocolVersion::SUPPORTED` slice is the source of truth for
+/// "what does this client speak" and is the hook point for the future
+/// version-mismatch probe diagnostic
+/// (`docs/tasks/issues/introduce-protocol-version-enum-and-version-probe-diagnostic.md`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProtocolVersion {
+    /// Wire byte `0x01`. The only revision xray-core has shipped.
+    V1,
+}
+
+impl ProtocolVersion {
+    /// All wire-version variants this client can encode.
+    pub const SUPPORTED: &'static [Self] = &[Self::V1];
+
+    /// On-wire byte representation.
+    pub const fn wire_byte(self) -> u8 {
+        match self {
+            Self::V1 => 0x01,
+        }
+    }
+
+    /// Decode a wire byte into a known variant, or `None` for unsupported.
+    pub const fn from_wire_byte(byte: u8) -> Option<Self> {
+        match byte {
+            0x01 => Some(Self::V1),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecodedRequestHeader {
     pub uuid: [u8; 16],
@@ -32,7 +67,7 @@ pub fn encode_request(uuid: &[u8; 16], addons: &[u8], target: &str) -> Vec<u8> {
     let mut buf = Vec::with_capacity(1 + 16 + 1 + addons.len() + 1 + 2 + 1 + host.len() + 2);
 
     // Version
-    buf.push(0x01);
+    buf.push(ProtocolVersion::V1.wire_byte());
     // UUID
     buf.extend_from_slice(uuid);
     // Addons length + addons
@@ -80,7 +115,7 @@ pub fn parse_request_header(bytes: &[u8]) -> Result<DecodedRequestHeader, ParseR
     if bytes.len() < VERSION_AND_UUID_LEN + 1 {
         return Err(ParseRequestError::NeedMoreData);
     }
-    if bytes[0] != 0x01 {
+    if ProtocolVersion::from_wire_byte(bytes[0]).is_none() {
         return Err(ParseRequestError::Invalid(format!("unsupported VLESS version {}", bytes[0])));
     }
     let mut uuid = [0u8; 16];
@@ -278,5 +313,29 @@ mod tests {
             Err(ParseRequestError::Invalid("unsupported VLESS command 2".to_string())),
             parse_request_header(&encoded),
         );
+    }
+
+    #[test]
+    fn protocol_version_wire_byte_roundtrip() {
+        for &version in ProtocolVersion::SUPPORTED {
+            let byte = version.wire_byte();
+            assert_eq!(ProtocolVersion::from_wire_byte(byte), Some(version));
+        }
+    }
+
+    #[test]
+    fn protocol_version_from_wire_byte_rejects_unknown() {
+        // Anything outside SUPPORTED must return None so the parser can
+        // emit a typed "unsupported version" error rather than silently
+        // accepting an alien byte.
+        for byte in [0x00u8, 0x02, 0x05, 0xff] {
+            assert_eq!(ProtocolVersion::from_wire_byte(byte), None, "unexpected accept for {byte:#x}");
+        }
+    }
+
+    #[test]
+    fn encoded_request_uses_protocol_version_wire_byte() {
+        let encoded = encode_request(&[0x77; 16], &[], "example.com:443");
+        assert_eq!(encoded[0], ProtocolVersion::V1.wire_byte());
     }
 }
