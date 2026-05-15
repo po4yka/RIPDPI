@@ -2,9 +2,15 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+checklist_path="${1:-$repo_root/docs/feature-test-checklist.md}"
+evidence_path="${2:-$repo_root/docs/feature-test-evidence-2026-05-14.md}"
 
-python3 - "$repo_root/docs/feature-test-checklist.md" \
-  "$repo_root/docs/feature-test-evidence-2026-05-14.md" <<'PY'
+if [[ $# -gt 2 ]]; then
+  echo "Usage: $0 [CHECKLIST_MD EVIDENCE_MD]" >&2
+  exit 2
+fi
+
+python3 - "$checklist_path" "$evidence_path" <<'PY'
 import re
 import sys
 from pathlib import Path

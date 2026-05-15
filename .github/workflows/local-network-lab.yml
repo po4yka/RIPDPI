@@ -37,6 +37,7 @@ jobs:
           set -euo pipefail
           test-lab/scripts/test-feature-artifact-paths.sh
           test-lab/scripts/test-feature-checklist-coverage.sh
+          test-lab/scripts/test-feature-checklist-coverage-fixtures.sh
           test-lab/scripts/test-feature-test-signoff.sh
 
       - name: Validate custom probe broadcast
