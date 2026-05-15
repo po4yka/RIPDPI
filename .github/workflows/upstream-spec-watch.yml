@@ -1,0 +1,57 @@
+name: Upstream Spec Watch
+
+# Diffs each protocol crate's SPEC_VERSION.md pin against the upstream
+# repository's default branch and opens a tracking issue when drift is
+# detected. Non-blocking: runs on a schedule and on-demand only.
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"  # Mondays 09:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify SPEC_VERSION.md format
+        run: python3 scripts/ci/verify_spec_versions.py --format-only
+
+      - name: Verify SPEC.md presence
+        run: bash scripts/ci/verify_spec_md_present.sh
+
+      - name: Diff pins against upstream defaults
+        id: drift
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Per-crate drift detection is best-effort. The job is informational
+          # until per-protocol upstream APIs are wired (xray-core release feed,
+          # hysteria release tags, tuic tags, etc.). This step currently emits
+          # a placeholder report; expand it as the watch matures.
+          {
+            echo "## Upstream Spec Watch — $(date -u +%Y-%m-%d)"
+            echo
+            echo "Pins are currently format-only. Reachability and release-note"
+            echo "diffing will be added per-protocol; see"
+            echo "docs/tasks/issues/add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols.md."
+            echo
+            for crate in ripdpi-vless ripdpi-xhttp ripdpi-hysteria2 ripdpi-tuic ripdpi-shadowtls ripdpi-naiveproxy ripdpi-ws-tunnel; do
+              echo "### $crate"
+              grep -E '^- \*\*Upstream (repo|tag|commit|reviewed)' "native/rust/crates/$crate/SPEC_VERSION.md" || true
+              echo
+            done
+          } > drift-report.md
+          cat drift-report.md
+
+      - name: Upload drift report
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-spec-watch-report
+          path: drift-report.md
+          retention-days: 30

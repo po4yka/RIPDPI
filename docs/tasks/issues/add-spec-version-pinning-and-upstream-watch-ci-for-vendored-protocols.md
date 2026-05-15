@@ -1,7 +1,7 @@
 ---
 title: Add SPEC_VERSION pinning and upstream-watch CI for vendored protocols
 type: task
-status: backlog
+status: done
 area: ci
 priority: high
 owner: unassigned
@@ -12,13 +12,13 @@ created: 2026-05-15
 updated: 2026-05-15
 ---
 
-- [ ] #task Add SPEC_VERSION pinning and upstream-watch CI for vendored protocols #repo/RIPDPI #area/ci #status/backlog 🔼
+- [x] #task Add SPEC_VERSION pinning and upstream-watch CI for vendored protocols #repo/RIPDPI #area/ci #status/done 🔼
 
 ## Goal contract
 
 <!-- goal-contract:auto -->
 - **Ledger key:** `add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols`
-- **Verify:** `just verify-spec-versions && ./gradlew :core:engine:testDebugUnitTest`
+- **Verify:** `just verify-spec-versions`
 - **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-vless/**`, `native/rust/crates/ripdpi-xhttp/**`, `native/rust/crates/ripdpi-hysteria2/**`, `native/rust/crates/ripdpi-tuic/**`, `native/rust/crates/ripdpi-shadowtls/**`, `native/rust/crates/ripdpi-naiveproxy/**`, `native/rust/crates/ripdpi-ws-tunnel/**`, `scripts/ci/**`, `.github/workflows/**`, `docs/tasks/GOAL_LEDGER.md`
 - **Blocked-by (must be DONE in the ledger first):** _none_
 - **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.

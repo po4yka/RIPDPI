@@ -85,6 +85,12 @@ test-screenshots:
 record-screenshots:
     ./gradlew recordScreenshots
 
+# Verify protocol crate SPEC_VERSION.md pins and SPEC.md presence
+[group('test')]
+verify-spec-versions:
+    python3 scripts/ci/verify_spec_versions.py
+    bash scripts/ci/verify_spec_md_present.sh
+
 # ─── Lint ─────────────────────────────────────────────────────────
 
 # Run full Kotlin quality suite (detekt + ktlint + lint)

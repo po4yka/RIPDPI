@@ -1,7 +1,7 @@
 ---
 title: Write SPEC.md per protocol crate with wire-format tables
 type: task
-status: backlog
+status: done
 area: rust-native
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-15
 updated: 2026-05-15
 ---
 
-- [ ] #task Write SPEC.md per protocol crate with wire-format tables #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [x] #task Write SPEC.md per protocol crate with wire-format tables #repo/RIPDPI #area/rust-native #status/done 🔼
 
 ## Goal contract
 
