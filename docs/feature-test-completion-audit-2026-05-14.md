@@ -26,7 +26,7 @@ available in the current local lab.
 | Fix all issues found during the local pass | `docs/feature-test-evidence-2026-05-14.md` records fixed findings and commit subjects for test-lab, build packaging, diagnostics archive redaction, Appium, Maestro, onboarding, logs, UI automation, debug-probe relay readiness, proxy E2E orchestration, and service stop-self fallback defects | Covered locally | None for the bugs found in the local pass |
 | Verify Appium installation and current app flows | Appium evidence rows in `docs/feature-test-evidence-2026-05-14.md`; Appium 3.4.2 with UiAutomator2 7.3.0 is installed. After the local Maestro/Appium install was confirmed again on May 15, 2026, the first current installed full-suite rerun found two harness issues: a reset-state History no-match search assumption and an async support-bundle export chooser leak into the next Diagnostics launch. Both were fixed in the Appium tests. The final current full Appium suite passed on Pixel 8 Pro with `79 passed, 17 skipped, 1 warning` in 1846.96s (0:30:46). This covers launch/navigation, onboarding/advanced/host-pack, diagnostics/logs/support/theme, diagnostics-tail, deterministic scan report/audit coverage, all 7 workflow journeys, activation-window controls, background guidance, backup-PIN warning/editor paths, and clean History empty-state behavior on reset devices. Remaining skips are explicit fixture/environment skips, not unexpected failures | Covered locally | Optional reruns after future UI or Appium page-object changes |
 | Verify Maestro installation and current smoke flows | Maestro smoke and default-install fallback rows in `docs/feature-test-evidence-2026-05-14.md`; smoke pack and lab VPN orchestrator passed on Pixel 8 Pro with Maestro resolved from `~/.maestro/bin/maestro` while absent from `PATH`; after merging `origin/main` locally and rebuilding the current debug APK from `89deca61`, the four-flow smoke rerun passed all committed flows; after the local Maestro/Appium install was confirmed again on May 15, 2026, `PATH="$HOME/.maestro/bin:$PATH" bash scripts/ci/run-maestro-smoke.sh` passed all four committed flows on the attached Pixel 8 Pro; the proxy E2E runner also passed with Maestro-driven connect/disconnect and foreground-service leak assertion | Covered locally | Optional reruns after future Home, Settings, or lab-runner changes |
-| Verify static local quality gates for the current head | `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon`; local `git diff --check`; focused JVM and Appium checks recorded in `docs/feature-test-evidence-2026-05-14.md`; pre-commit hooks passed for the latest local commits | Covered locally | Remote CI for pushed commits |
+| Verify static local quality gates for the current head | `gh run view 25875963396 --json jobs,headSha,conclusion,status,workflowName,url`; `python3 scripts/ci/check_architecture_health.py --check`; `python3 scripts/ci/check_native_hotspot_budgets.py`; `./gradlew :core:diagnostics-data:ktlintMainSourceSetCheck -Pripdpi.skipNativeBuild=true --no-daemon`; `./gradlew :core:diagnostics-data:ktlintDebugSourceSetCheck :core:diagnostics-data:testDebugUnitTest -Pripdpi.skipNativeBuild=true --no-daemon`; `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon`; local `git diff --check`; focused JVM and Appium checks recorded in `docs/feature-test-evidence-2026-05-14.md`; pre-commit hooks passed for the latest local commits | Covered locally | Remote CI for pushed commits |
 | Verify local artifacts referenced by the evidence ledger exist | `test-lab/scripts/test-feature-artifact-paths.sh`; connected-test XML, debug APK, release APK, and `doctor.json` exist | Covered locally | Preserve or archive artifacts before cleanup |
 | Verify remaining environment readiness | `test-lab/scripts/check-feature-gap-readiness.sh`; `test-lab/scripts/test-feature-gap-readiness.sh`; `test-lab/scripts/check-feature-test-signoff.sh`; `test-lab/scripts/test-feature-test-signoff.sh`; `test-lab/artifacts/feature-gap-readiness.json`; `test-lab/README.md` external checklist runbook | Partial | Resolve every readiness item that is `blocked` or `manual` before sign-off |
 | Verify rooted behavior | Non-rooted physical degradation, root detector tests, root helper manager tests, native IPC tests; readiness preflight confirms current attached device has no root via `su 0 id` | Partial | Rooted physical-device pass for helper extraction, startup, privileged send operations, readiness timeout, and cleanup |
@@ -46,7 +46,8 @@ available in the current local lab.
   fleet-compat changes, task-board legal-framing cleanup, the Appium
   clean-reset diagnostics history cleanup, current installed Appium harness
   fixes for reset History search and support-bundle export-surface cleanup,
-  and the `DetectionResolverNetworkStack.kt` architecture-health fix. The routed
+  and the current `DetectionResolverNetworkStack.kt::readUnsignedShort()`
+  architecture-health fix. The routed
   netem runbook now has exact operator steps, but the external Linux routed
   VM evidence remains open. The test-lab README now also gives command-level
   operator steps for rooted physical device, physical network matrix, provider
@@ -69,14 +70,17 @@ available in the current local lab.
   the feature checklist-coverage self-test, the feature-gap readiness self-test,
   the feature sign-off guard self-test, the focused debug-probe relay-readiness
   unit test, physical mock-relay VPN/proxy/diagnostics probes, proxy E2E runner syntax, the
-  service stop-self fallback unit test, debug/test source-set ktlint checks,
-  and the local-network-lab validation-only block passed. Commit hooks passed for the latest
+  service stop-self fallback unit test, debug/test/main source-set ktlint checks,
+  the refreshed architecture-health and native-hotspot gates, and the
+  local-network-lab validation-only block passed. Commit hooks passed for the latest
   native/Appium/test-lab commits.
 - Remote state: `origin/main` now points at `342a169a`. CI run `25875963396`
   is not a green sign-off because it completed with failed jobs in
   `architecture-health`, `verify-roborazzi`, `rust-workspace-tests`, and
   `gradle-static-analysis`; CodeQL run `25875963413` passed for that remote
-  head. No remote run covers the local commits.
+  head. The current local refresh reproduced and fixed the architecture-health
+  class of failure, and full local `staticAnalysis` now passes, but no remote
+  run covers the local commits.
 - Latest readiness preflight: attached Pixel 8 Pro is ready; rooted physical
   device, TalkBack manual pass, routed Linux netem VM, production relay matrix,
   and remote workflow confirmation remain blocked; physical handover remains

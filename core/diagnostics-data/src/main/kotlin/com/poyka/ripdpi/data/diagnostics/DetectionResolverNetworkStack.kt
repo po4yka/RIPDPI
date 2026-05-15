@@ -479,9 +479,11 @@ internal object DnsWireCodec {
     private fun readUnsignedShort(
         bytes: ByteArray,
         offset: Int,
-    ): Int =
-        ((bytes[offset].toInt() and BYTE_MASK) shl BYTE_SHIFT) or
-            (bytes[offset + 1].toInt() and BYTE_MASK)
+    ): Int {
+        val highByte = (bytes[offset].toInt() and BYTE_MASK) shl BYTE_SHIFT
+        val lowByte = bytes[offset + 1].toInt() and BYTE_MASK
+        return highByte or lowByte
+    }
 
     private const val DNS_HEADER_SIZE = 12
     private const val DNS_QUESTION_TRAILER_SIZE = 4
