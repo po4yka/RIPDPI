@@ -203,6 +203,24 @@ Cover buttons, switches, tabs, progress messages, error messages, and reachabili
 of important controls. Summarize timestamps or transcript excerpts in
 `docs/feature-test-manual-evidence-template.md`.
 
+### Remote Workflow Confirmation
+
+When the release owner approves remote verification and the local commits have
+been pushed to `main`, trigger the hosted validation lanes that are not covered
+by the push event:
+
+```bash
+gh workflow run ci.yml --ref main
+gh workflow run local-network-lab.yml --ref main -f run_vpn_emulator_lane=false
+gh workflow run offline-analytics.yml --ref main -f private_corpus_path=''
+gh workflow run mutation-testing.yml --ref main -f packages='' -f in_diff=false
+```
+
+`CodeQL` does not expose manual dispatch; record the push-triggered run for the
+same commit. Capture run IDs, commit SHA, workflow conclusion, and artifact
+links in `docs/feature-test-manual-evidence-template.md` under
+`Remote Workflows`.
+
 `start-lab.sh` writes the resolved host IP, DNS port, and profile to
 `test-lab/artifacts/lab-env.sh`; the ADB probe scripts source that file
 automatically. The host DNS port defaults to `1053` because macOS often already
