@@ -44,7 +44,8 @@ cat > "$blocked_json" <<'EOF'
 {
   "checks": [
     {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
-    {"name": "manual_talkback", "status": "blocked", "required": true, "message": "TalkBack inactive"}
+    {"name": "manual_talkback", "status": "blocked", "required": true, "message": "TalkBack inactive"},
+    {"name": "physical_network_handover", "status": "manual", "required": true, "message": "Handover needs operator run"}
   ]
 }
 EOF
@@ -67,6 +68,7 @@ fi
 grep -F 'completion audit explicitly says not complete' "$tmpdir/blocked.out"
 grep -F 'completion audit still contains Partial rows' "$tmpdir/blocked.out"
 grep -F 'manual_talkback is blocked: TalkBack inactive' "$tmpdir/blocked.out"
+grep -F 'physical_network_handover is manual: Handover needs operator run' "$tmpdir/blocked.out"
 
 set +e
 "$guard" --audit "$complete_audit" --readiness "$tmpdir/missing.json" \
