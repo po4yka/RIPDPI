@@ -11,7 +11,11 @@ use super::fd_adoption::adopt_tcp_stream;
 
 pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, ttl = params.default_ttl, "send_fake_rst");
-    let stream = adopt_tcp_stream(fd);
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
+    // dispatch loop, which guarantees a live TCP socket exclusively owned
+    // by this handler. Every exit path below releases the fd via
+    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    let stream = unsafe { adopt_tcp_stream(fd) };
     match platform::send_fake_rst(
         &stream,
         params.default_ttl,
@@ -34,7 +38,11 @@ pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse
 
 pub fn handle_send_flagged_tcp_payload(fd: RawFd, params: FlaggedTcpPayloadParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, len = params.payload.len(), "send_flagged_tcp_payload");
-    let stream = adopt_tcp_stream(fd);
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
+    // dispatch loop, which guarantees a live TCP socket exclusively owned
+    // by this handler. Every exit path below releases the fd via
+    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    let stream = unsafe { adopt_tcp_stream(fd) };
     match platform::send_flagged_tcp_payload(
         &stream,
         &params.payload,
@@ -58,7 +66,11 @@ pub fn handle_send_flagged_tcp_payload(fd: RawFd, params: FlaggedTcpPayloadParam
 
 pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, "send_seqovl_tcp");
-    let stream = adopt_tcp_stream(fd);
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
+    // dispatch loop, which guarantees a live TCP socket exclusively owned
+    // by this handler. Every exit path below releases the fd via
+    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    let stream = unsafe { adopt_tcp_stream(fd) };
     match platform::send_seqovl_tcp(
         &stream,
         &params.real_chunk,
@@ -85,7 +97,11 @@ pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperRespons
 
 pub fn handle_send_multi_disorder_tcp(fd: RawFd, params: MultiDisorderParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, segments = params.segments.len(), "send_multi_disorder_tcp");
-    let stream = adopt_tcp_stream(fd);
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
+    // dispatch loop, which guarantees a live TCP socket exclusively owned
+    // by this handler. Every exit path below releases the fd via
+    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    let stream = unsafe { adopt_tcp_stream(fd) };
     let segments: Vec<TcpPayloadSegment> =
         params.segments.iter().map(|s| TcpPayloadSegment { start: s.start, end: s.end }).collect();
 
@@ -117,7 +133,11 @@ pub fn handle_send_ordered_tcp_segments(
     params: OrderedTcpSegmentsParams,
 ) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, segments = params.segments.len(), "send_ordered_tcp_segments");
-    let stream = adopt_tcp_stream(fd);
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
+    // dispatch loop, which guarantees a live TCP socket exclusively owned
+    // by this handler. Every exit path below releases the fd via
+    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    let stream = unsafe { adopt_tcp_stream(fd) };
     let segments: Vec<platform::OrderedTcpSegment<'_>> = params
         .segments
         .iter()
