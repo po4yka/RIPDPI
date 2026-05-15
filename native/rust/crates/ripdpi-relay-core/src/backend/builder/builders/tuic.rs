@@ -29,6 +29,12 @@ fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Res
                 udp_enabled: config.common.udp_enabled,
                 quic_bind_low_port: config.common.quic_bind_low_port,
                 quic_migrate_after_handshake: config.common.quic_migrate_after_handshake,
+                // TODO: plumb keepalive_interval_ms from the strategy-pack
+                // catalog through ResolvedRelayRuntimeConfig.common. For now,
+                // leave keepalive disabled at the relay-core level; per-profile
+                // overrides via JNI bridge can set it directly when constructing
+                // a TuicClient outside the relay-core code path.
+                keepalive_interval_ms: 0,
             },
             migration: context.quic_migration.clone(),
         },

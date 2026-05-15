@@ -29,6 +29,9 @@ pub(crate) fn build_endpoint(
     transport.max_concurrent_bidi_streams(VarInt::from_u32(MAX_CONCURRENT_STREAMS));
     transport.max_concurrent_uni_streams(VarInt::from_u32(MAX_CONCURRENT_STREAMS));
     transport.max_idle_timeout(None);
+    if config.keepalive_interval_ms > 0 {
+        transport.keep_alive_interval(Some(std::time::Duration::from_millis(u64::from(config.keepalive_interval_ms))));
+    }
     match config.congestion_control.trim().to_ascii_lowercase().as_str() {
         "cubic" => transport.congestion_controller_factory(Arc::new(CubicConfig::default())),
         "new_reno" | "newreno" => transport.congestion_controller_factory(Arc::new(NewRenoConfig::default())),

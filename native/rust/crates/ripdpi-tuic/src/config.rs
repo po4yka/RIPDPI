@@ -15,6 +15,19 @@ pub struct Config {
     pub udp_enabled: bool,
     pub quic_bind_low_port: bool,
     pub quic_migrate_after_handshake: bool,
+    /// QUIC application-level keepalive interval in milliseconds.
+    ///
+    /// `0` disables keepalive. Mobile NATs aggressively reclaim UDP
+    /// bindings (often <30s), so a non-zero default is recommended on
+    /// any production profile. Carried through to
+    /// `quinn::TransportConfig::keep_alive_interval`.
+    ///
+    /// `#[serde(default)]` keeps profiles written before this field
+    /// existed deserializable; the implicit default is `0` (disabled).
+    /// Set explicitly to ~15000 ms to survive a 60s NAT silence
+    /// window without re-handshaking.
+    #[serde(default)]
+    pub keepalive_interval_ms: u32,
 }
 
 impl std::fmt::Debug for Config {
@@ -30,6 +43,7 @@ impl std::fmt::Debug for Config {
             .field("udp_enabled", &self.udp_enabled)
             .field("quic_bind_low_port", &self.quic_bind_low_port)
             .field("quic_migrate_after_handshake", &self.quic_migrate_after_handshake)
+            .field("keepalive_interval_ms", &self.keepalive_interval_ms)
             .finish()
     }
 }
@@ -50,7 +64,29 @@ mod tests {
             udp_enabled: true,
             quic_bind_low_port: false,
             quic_migrate_after_handshake: true,
+            keepalive_interval_ms: 15_000,
         }
+    }
+
+    #[test]
+    fn legacy_config_without_keepalive_field_deserializes_with_zero() {
+        // Profiles persisted before the keepalive_interval_ms field
+        // existed must still load. `#[serde(default)]` must keep them
+        // deserializable; the implicit default is `0` (disabled).
+        let json = r#"{
+            "server": "example.com",
+            "server_port": 443,
+            "server_name": "www.example.com",
+            "uuid": "550e8400-e29b-41d4-a716-446655440000",
+            "password": "x",
+            "zero_rtt": false,
+            "congestion_control": "bbr",
+            "udp_enabled": true,
+            "quic_bind_low_port": false,
+            "quic_migrate_after_handshake": true
+        }"#;
+        let cfg: Config = serde_json::from_str(json).expect("legacy config should still parse");
+        assert_eq!(cfg.keepalive_interval_ms, 0);
     }
 
     #[test]

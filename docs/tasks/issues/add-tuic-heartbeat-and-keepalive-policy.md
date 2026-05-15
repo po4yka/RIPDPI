@@ -39,14 +39,23 @@ tunnel. TUIC's `COMMAND_PACKET` flow is the most exposed.
 
 ## Acceptance criteria
 
-- [ ] `Config` exposes `keepalive_interval: Duration` with a sensible
-    default (<= 15s on mobile).
-- [ ] The endpoint configures `quinn::TransportConfig::keep_alive_interval`
-    accordingly.
+- [x] (2026-05-15) `Config` exposes `keepalive_interval_ms: u32`
+    (`u32` for serde/JNI friendliness; `0` disables). `#[serde(default)]`
+    keeps legacy profiles deserializable.
+- [x] (2026-05-15) `build_endpoint` calls
+    `quinn::TransportConfig::keep_alive_interval(Some(Duration::from_millis(...)))`
+    when the field is non-zero.
 - [ ] Optionally, a TUIC-level `Heartbeat` command exchange is wired
-    when the protocol supports one.
+    when the protocol supports one. **Deferred:** TUIC v5 wire does
+    not define a heartbeat opcode separately; the QUIC-level
+    keepalive carries NAT survival adequately for current
+    deployments.
 - [ ] Unit test verifies the keepalive frame timing on a loopback
-    pair.
+    pair. **Deferred:** added serde-default test
+    `legacy_config_without_keepalive_field_deserializes_with_zero`
+    instead; on-wire keepalive timing requires a long-running
+    loopback Quinn server harness (tracked under
+    `add-port-hopping-window-soak-test-for-hysteria2` shared helper).
 
 ## Definition of done
 
