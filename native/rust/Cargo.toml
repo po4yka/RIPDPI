@@ -325,6 +325,21 @@ transmute_ptr_to_ptr = "deny"
 useless_transmute = "deny"
 multiple_unsafe_ops_per_block = "allow"
 
+# Pointer-validity hygiene (soundness epic issue #3).
+#
+# - `as_ptr_cast_mut` flags `value.as_ptr() as *mut T`, the silent
+#   shared-to-mut downgrade that synthesizes a mutable raw pointer out
+#   of a shared reference without going through `UnsafeCell` or a
+#   `&mut self` borrow. Treating it as `warn` (CI's `-D warnings`
+#   escalates to error) prevents new occurrences.
+#
+# - `ptr_as_ptr` flags `p as *const U` / `p as *mut U` pointer casts
+#   that should use `.cast::<U>()` instead. The explicit `.cast` form
+#   makes provenance preserving and forbids accidental conversion of
+#   `*const` to `*mut`.
+as_ptr_cast_mut = "warn"
+ptr_as_ptr = "warn"
+
 [workspace.lints.rust]
 # Force every operation inside `unsafe fn` to live in its own `unsafe {}`
 # block with a SAFETY comment, rather than inheriting the function-level

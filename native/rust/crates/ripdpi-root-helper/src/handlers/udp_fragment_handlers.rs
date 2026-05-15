@@ -14,7 +14,11 @@ pub fn handle_send_ip_fragmented_udp(fd: RawFd, params: IpFragUdpParams) -> (Hel
         Err(e) => return (HelperResponse::error(format!("invalid target_addr: {e}")), None),
     };
 
-    let socket = adopt_udp_socket(fd);
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
+    // dispatch loop, which guarantees a live UDP socket exclusively owned
+    // by this handler. Every exit path below releases the fd via
+    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    let socket = unsafe { adopt_udp_socket(fd) };
     match platform::send_ip_fragmented_udp(
         &socket,
         target,

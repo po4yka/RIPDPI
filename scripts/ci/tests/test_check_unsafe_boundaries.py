@@ -27,6 +27,8 @@ def _scan(text: str) -> list[tuple[str, int]]:
         for m in regex.finditer(cleaned):
             line = cleaned.count("\n", 0, m.start()) + 1
             matches.append((pattern_name, line))
+    for line in guard.find_debug_assert_near_unsafe(cleaned):
+        matches.append((guard.DEBUG_ASSERT_PROXIMITY_PATTERN, line))
     return matches
 
 
@@ -89,6 +91,18 @@ class ScanRegressionTests(unittest.TestCase):
         src = "let inner = unsafe { pinned.get_unchecked_mut() };"
         self.assertTrue(_has(_scan(src), "Pin::get_unchecked_mut"))
 
+    def test_nonnull_as_ref_qualified_flagged(self) -> None:
+        for fragment in (
+            "let r = unsafe { NonNull::<u8>::as_ref(p) };",
+            "let r = unsafe { NonNull::as_mut(&mut p) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "NonNull::as_ref/as_mut"), msg=fragment)
+
+    def test_option_as_ref_not_flagged(self) -> None:
+        # The qualified-only pattern intentionally ignores `opt.as_ref()` etc.
+        src = "let r = some_option.as_ref();"
+        self.assertFalse(_has(_scan(src), "NonNull::as_ref/as_mut"))
+
     def test_unsafe_impl_send_sync_flagged(self) -> None:
         for fragment in (
             "unsafe impl Send for Foo {}",
@@ -113,6 +127,121 @@ class ScanRegressionTests(unittest.TestCase):
             "pub fn use_token(token: usize) {}",
         ):
             self.assertTrue(_has(_scan(fragment), "raw usize handle in public fn"), msg=fragment)
+
+    def test_option_nonnull_field_flagged(self) -> None:
+        for fragment in (
+            "struct Slot { ptr: Option<NonNull<u8>> }",
+            "let x: Option<NonNull<MyType>> = None;",
+            "pub fn take(slot: Option<NonNull<u8>>) {}",
+            # whitespace variant: `Option < NonNull <`
+            "struct Slot { ptr: Option  <  NonNull < u8 >> }",
+        ):
+            self.assertTrue(_has(_scan(fragment), "Option<NonNull<T>>"), msg=fragment)
+
+    def test_option_nonnull_mut_slot_flagged(self) -> None:
+        for fragment in (
+            "fn extract(slot: &mut Option<NonNull<u8>>) -> Option<NonNull<u8>> { slot.take() }",
+            "pub fn swap(slot: &mut Option<NonNull<MyType>>) {}",
+        ):
+            self.assertTrue(_has(_scan(fragment), "&mut Option<NonNull<T>>"), msg=fragment)
+            # The narrower pattern is a subset; the broader Option<NonNull<T>>
+            # match must also fire so the policy doc reference is consistent.
+            self.assertTrue(_has(_scan(fragment), "Option<NonNull<T>>"), msg=fragment)
+
+    def test_option_nonnull_not_triggered_by_unrelated_option(self) -> None:
+        # `Option<NonZero...>` and `Option<MyHandle>` must not trigger the rule.
+        for fragment in (
+            "let x: Option<NonZeroU64> = None;",
+            "let x: Option<MyHandle> = None;",
+            "let x: Option<&NonNull<u8>> = None;",  # reference, not by-value slot
+        ):
+            self.assertFalse(_has(_scan(fragment), "Option<NonNull<T>>"), msg=fragment)
+
+    def test_debug_assert_near_unsafe_flagged(self) -> None:
+        src = textwrap.dedent(
+            """\
+            fn write(ptr: *mut u8, len: usize) {
+                debug_assert!(!ptr.is_null());
+                unsafe {
+                    ptr.write(0);
+                }
+            }
+            """
+        )
+        self.assertTrue(_has(_scan(src), guard.DEBUG_ASSERT_PROXIMITY_PATTERN))
+
+    def test_debug_assert_inside_unsafe_fn_flagged(self) -> None:
+        src = textwrap.dedent(
+            """\
+            unsafe fn cast<T>(ptr: *const T) -> &'static T {
+                debug_assert!(!ptr.is_null(), "caller must pass a non-null pointer");
+                &*ptr
+            }
+            """
+        )
+        self.assertTrue(_has(_scan(src), guard.DEBUG_ASSERT_PROXIMITY_PATTERN))
+
+    def test_debug_assert_eq_and_ne_variants_flagged(self) -> None:
+        for fragment in (
+            "fn f() {\n    debug_assert_eq!(len, 4);\n    unsafe { do_thing(); }\n}",
+            "fn f() {\n    debug_assert_ne!(p, std::ptr::null_mut());\n    unsafe { do_thing(); }\n}",
+        ):
+            self.assertTrue(_has(_scan(fragment), guard.DEBUG_ASSERT_PROXIMITY_PATTERN), msg=fragment)
+
+    def test_debug_assert_far_from_unsafe_not_flagged(self) -> None:
+        # 30 blank lines between the debug_assert and the `unsafe` keyword
+        # exceeds the proximity window — must not fire.
+        gap = "\n" * 30
+        src = (
+            "fn f() {\n"
+            "    debug_assert!(x > 0);\n"
+            f"{gap}"
+            "    let _ = unsafe {{ raw() }};\n"
+            "}\n"
+        )
+        self.assertFalse(_has(_scan(src), guard.DEBUG_ASSERT_PROXIMITY_PATTERN))
+
+    def test_debug_assert_without_unsafe_not_flagged(self) -> None:
+        src = "fn f() {\n    debug_assert!(x > 0);\n    return ();\n}\n"
+        self.assertFalse(_has(_scan(src), guard.DEBUG_ASSERT_PROXIMITY_PATTERN))
+
+    def test_debug_assert_in_comment_not_flagged(self) -> None:
+        # A doc-comment mentioning debug_assert next to an unsafe block must
+        # NOT trigger — comments are stripped before scanning.
+        src = textwrap.dedent(
+            """\
+            /// historical: a debug_assert! guarded this unsafe block.
+            fn f() {
+                let _ = unsafe { raw() };
+            }
+            """
+        )
+        self.assertFalse(_has(_scan(src), guard.DEBUG_ASSERT_PROXIMITY_PATTERN))
+
+    def test_cstr_from_ptr_flagged(self) -> None:
+        for fragment in (
+            "let s = unsafe { CStr::from_ptr(ptr) };",
+            "let s = unsafe { std::ffi::CStr::from_ptr(p) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "CStr::from_ptr"), msg=fragment)
+
+    def test_str_from_utf8_unchecked_flagged(self) -> None:
+        for fragment in (
+            "let s = unsafe { str::from_utf8_unchecked(bytes) };",
+            "let s = unsafe { std::str::from_utf8_unchecked(bytes) };",
+            "let s = unsafe { core::str::from_utf8_unchecked(bytes) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "str::from_utf8_unchecked"), msg=fragment)
+
+    def test_from_utf8_safe_variant_not_flagged(self) -> None:
+        # The safe `str::from_utf8` and `String::from_utf8` returning Result
+        # must not trigger.
+        for fragment in (
+            "let s = str::from_utf8(bytes)?;",
+            "let s = std::str::from_utf8(bytes).unwrap();",
+            "let s = String::from_utf8(bytes)?;",
+        ):
+            self.assertFalse(_has(_scan(fragment), "str::from_utf8_unchecked"), msg=fragment)
 
     # --- Negative cases: must NOT trigger the scan -----------------------
 

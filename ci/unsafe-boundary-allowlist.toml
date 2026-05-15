@@ -25,6 +25,35 @@
 #      with a `# Safety` section and propagate it to callers.
 #   3. Only if neither is possible, add an entry here with a SPECIFIC
 #      justification — never with a TODO.
+#
+# Additional rule for the `Option<NonNull<T>>` and `&mut Option<NonNull<T>>`
+# patterns: these are flagged because `Option<NonNull<T>>` is `Copy` and
+# cannot encode ownership. A valid allowlist entry MUST state in its
+# `reason` and `enforcement` fields:
+#   - whether the pointer is owning or non-owning,
+#   - who owns the underlying allocation,
+#   - how liveness is guaranteed for every dereference,
+#   - why `Copy` duplication is harmless in this case,
+#   - whether the pointer ever reaches `destroy` / `free` / `unregister`
+#     (and if so, what makes that path single-shot).
+# In almost every case the correct fix is a private move-only
+# `OwnerHandle<T>` newtype wrapping `NonNull<T>` with no `Copy`/`Clone`,
+# so that `Option<OwnerHandle<T>>` replaces `Option<NonNull<T>>`. See
+# docs/rust-soundness-policy.md § "Option<NonNull<T>> ownership tokens".
+#
+# Additional rule for `debug_assert near unsafe`: the proximity heuristic
+# flags `debug_assert!` / `debug_assert_eq!` / `debug_assert_ne!` placed
+# within ±10 source lines of an `unsafe` keyword. `debug_assert!` is a
+# no-op in release builds; allowlisting an occurrence MUST state:
+#   - which invariant the assertion documents,
+#   - what actually enforces the invariant in release builds
+#     (release-mode `assert!`, type design, RAII, FFI caller contract),
+#   - why release-mode failure of the assertion cannot reach UB,
+#   - the symbol (function/method) whose body contains the assertion.
+# The default fix is to make the safety check a release-mode guard
+# (`assert!`, `Result`, type-level encoding) and keep `debug_assert!`
+# only for diagnostic checks that cannot promote to UB. See
+# docs/rust-soundness-policy.md § "`debug_assert!` as memory-safety guard".
 
 # ---------------------------------------------------------------------------
 # JNI export entry points: `extern "system" fn` is required by the JVM ABI for
@@ -241,4 +270,20 @@ reason = "Materialize the `received`-prefixed window of an `[MaybeUninit<u8>; 81
 preconditions = "`recv_from` initialised exactly the first `received` bytes; `received <= buf.len()`"
 enforcement = "Caller is a private function inside the same module; the buffer is a stack `[MaybeUninit<u8>; 8192]` that outlives the slice"
 owner = "privileged-ops"
+review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# `CStr::from_ptr` adapter over a POSIX `uname(2)` `release` field. The
+# field is a fixed-size `[c_char; N]` inside a local `libc::utsname` that
+# `uname(2)` is contractually required to populate with a NUL-terminated
+# string; the returned `&CStr` is consumed in the same function before the
+# `utsname` goes out of scope.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-io-uring/src/probe.rs"
+pattern = "CStr::from_ptr"
+reason = "Parse the kernel version string from a successfully-populated `libc::utsname.release` field"
+preconditions = "`uname(2)` returned 0 (checked), guaranteeing `utsname.release` is a NUL-terminated byte sequence within the fixed-size array; pointer is aligned and the array outlives the `&CStr`"
+enforcement = "POSIX `uname(2)` contract for NUL termination; lifetime bounded by the enclosing `kernel_version_at_least` function — `release.to_string_lossy()` consumes the borrow before `utsname` drops"
+owner = "io-uring"
 review_date = "2026-11-15"

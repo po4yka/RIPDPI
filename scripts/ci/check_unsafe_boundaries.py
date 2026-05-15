@@ -63,6 +63,13 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     "unwrap_unchecked": re.compile(r"\.unwrap_unchecked\(\)"),
     "Pin::new_unchecked": re.compile(r"\bPin::new_unchecked\b"),
     "Pin::get_unchecked_mut": re.compile(r"\.get_unchecked_mut\(\)"),
+    # NonNull::as_ref / as_mut: the qualified form is the reliable signal.
+    # The unqualified method-call form (`ptr.as_ref()`) collides with the
+    # ubiquitous `Option::as_ref` / `&str::as_ref` family, so we only catch
+    # the explicit `NonNull::...` spelling here. Raw-pointer dereferences
+    # are covered separately by `unsafe_op_in_unsafe_fn = deny` and the
+    # SAFETY-comment policy.
+    "NonNull::as_ref/as_mut": re.compile(r"\bNonNull(::<[^>]*>)?::as_(ref|mut)\b"),
     "unsafe impl Send/Sync": re.compile(r"^\s*unsafe\s+impl(\s*<[^>]+>)?\s+(Send|Sync)\b"),
     "extern \"C\" fn": re.compile(r"\bextern\s+\"C\"\s+fn\b"),
     "extern \"system\" fn": re.compile(r"\bextern\s+\"system\"\s+fn\b"),
@@ -76,6 +83,29 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"^\s*pub(\s*\([^)]*\))?\s+(unsafe\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\b"
         r"(handle|token|raw[_a-z]*)\s*:\s*(u64|i64|usize|isize)\b"
     ),
+    # Option<NonNull<T>> is Copy. Stored in a struct field, returned from a
+    # function, or passed as a parameter, it cannot encode ownership: safe
+    # callers may duplicate the value and produce stale handles, UAF, or
+    # double-free. The fix is a private move-only newtype around `NonNull`
+    # (no Copy/Clone) plus `Option<OwnerHandle<T>>`. See
+    # docs/rust-soundness-policy.md § "Option<NonNull<T>> ownership tokens".
+    "Option<NonNull<T>>": re.compile(r"\bOption\s*<\s*NonNull\s*<"),
+    # The slot-mutating form — `fn extract(slot: &mut Option<NonNull<T>>)`
+    # is the most common UAF/double-free vector: the function can `take()`
+    # the value but safe code already held a copy of the original slot.
+    "&mut Option<NonNull<T>>": re.compile(r"&\s*mut\s+Option\s*<\s*NonNull\s*<"),
+    # CStr::from_ptr materializes a `&CStr` whose bytes are scanned for a
+    # NUL terminator starting at the raw pointer. The pointee must be a
+    # valid NUL-terminated C string in an allocation that lives at least
+    # as long as the returned `&CStr`. New occurrences require an
+    # allowlist entry naming the source of the validity guarantee
+    # (POSIX syscall contract, FFI caller contract, etc.) per
+    # docs/rust-soundness-policy.md § "Creating `&T` from raw pointers".
+    "CStr::from_ptr": re.compile(r"\bCStr(::<[^>]*>)?::from_ptr\b"),
+    # str::from_utf8_unchecked turns `&[u8]` into `&str` without
+    # validating UTF-8. A safe-API regression here invalidates the
+    # `str` invariant and produces UB on any subsequent UTF-8 operation.
+    "str::from_utf8_unchecked": re.compile(r"\b(?:std::|core::)?str::from_utf8_unchecked\b"),
 }
 
 EXCLUDE_DIRS = {"tests", "benches", "examples"}
@@ -87,6 +117,39 @@ EXCLUDE_FILE_RE = [
 # documentation, SAFETY notes, and TODOs don't trigger findings.
 BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
 LINE_COMMENT_RE = re.compile(r"//[^\n]*")
+
+# Proximity detector for `debug_assert!` near `unsafe`. The single-line
+# regex set above cannot express "within N lines of X", so we run a small
+# post-pass that matches the two sentinels independently and emits a
+# finding for every debug-assertion that sits within
+# DEBUG_ASSERT_PROXIMITY_LINES lines of an `unsafe` keyword. The policy
+# in docs/rust-soundness-policy.md (§ Mandatory Invariant #3) is that
+# `debug_assert!` does NOT count as memory-safety enforcement; this scan
+# stops new code from re-introducing the pattern.
+DEBUG_ASSERT_RE = re.compile(r"\bdebug_assert(?:_eq|_ne)?!")
+UNSAFE_KEYWORD_RE = re.compile(r"\bunsafe\b")
+DEBUG_ASSERT_PROXIMITY_LINES = 10
+DEBUG_ASSERT_PROXIMITY_PATTERN = "debug_assert near unsafe"
+
+
+def find_debug_assert_near_unsafe(text: str) -> list[int]:
+    """Return line numbers of `debug_assert*!` within ±N lines of an `unsafe` keyword.
+
+    `text` must already have had comments stripped, so that a SAFETY comment
+    or a historical mention of `debug_assert` in a doc-comment does not
+    fire the rule. Both sentinel sets are computed from the stripped text.
+    """
+    da_lines = sorted({text.count("\n", 0, m.start()) + 1 for m in DEBUG_ASSERT_RE.finditer(text)})
+    if not da_lines:
+        return []
+    unsafe_lines = sorted({text.count("\n", 0, m.start()) + 1 for m in UNSAFE_KEYWORD_RE.finditer(text)})
+    if not unsafe_lines:
+        return []
+    out: list[int] = []
+    for da in da_lines:
+        if any(abs(da - u) <= DEBUG_ASSERT_PROXIMITY_LINES for u in unsafe_lines):
+            out.append(da)
+    return out
 
 
 @dataclass(frozen=True)
@@ -126,6 +189,8 @@ def scan_file(path: Path) -> list[Finding]:
         for match in regex.finditer(cleaned):
             line = cleaned.count("\n", 0, match.start()) + 1
             findings.append(Finding(rel, pattern_name, line))
+    for line in find_debug_assert_near_unsafe(cleaned):
+        findings.append(Finding(rel, DEBUG_ASSERT_PROXIMITY_PATTERN, line))
     return findings
 
 
