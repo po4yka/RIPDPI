@@ -75,6 +75,8 @@ Set at `[workspace.lints]` in `native/rust/Cargo.toml`:
 | `clippy::useless_transmute` | `deny` | Catches transmutes that have a safe alternative. |
 | `clippy::undocumented_unsafe_blocks` | `allow` (target: `deny`) | Every `unsafe { ... }` should have a `// SAFETY:` line. Currently `allow` while the legacy corpus is being annotated; the custom scan + allowlist enforces the high-level boundary contract regardless. Upgrading to `deny` is tracked as the closing step of the soundness epic. |
 | `clippy::multiple_unsafe_ops_per_block` | `allow` (target: `warn`) | Encourages one-unsafe-op-per-block so each SAFETY comment is precise. Same rationale as above. |
+| `clippy::as_ptr_cast_mut` | `warn` (escalates to error under CI's `-D warnings`) | Blocks the silent `value.as_ptr() as *mut T` shared-to-mut downgrade — exactly the pattern that produced soundness issue #3 candidates before the audit. Use `UnsafeCell` or a `&mut self`-anchored helper instead. |
+| `clippy::ptr_as_ptr` | `warn` | Pointer casts must use `.cast::<U>()` so provenance is preserved and `*const → *mut` cannot happen accidentally inside an `as` expression. |
 
 These coexist with two intentional `allow`s for FFI:
 `clippy::missing_safety_doc` and `clippy::not_unsafe_ptr_arg_deref`. Those
