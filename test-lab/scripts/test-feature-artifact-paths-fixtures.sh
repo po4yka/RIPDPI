@@ -9,6 +9,10 @@ trap 'rm -rf "$tmpdir"' EXIT
 valid_evidence="$tmpdir/valid-evidence.md"
 embedded_evidence="$tmpdir/embedded-evidence.md"
 missing_evidence="$tmpdir/missing-evidence.md"
+fixture_dir="$tmpdir/fixture"
+
+mkdir -p "$fixture_dir/test-lab/artifacts"
+printf '{"status":"ok"}\n' > "$fixture_dir/test-lab/artifacts/doctor.json"
 
 cat > "$valid_evidence" <<'EOF'
 # Fixture Evidence
@@ -34,13 +38,14 @@ cat > "$missing_evidence" <<'EOF'
 | Missing artifact | `test-lab/artifacts/fixture-missing-artifact.json` | Should fail |
 EOF
 
-"$checker" "$valid_evidence" \
+RIPDPI_ARTIFACT_ROOT="$fixture_dir" "$checker" "$valid_evidence" \
   | grep -F 'Feature artifact path self-test passed: 1 referenced artifact paths, 0 missing.'
-"$checker" "$embedded_evidence" \
+RIPDPI_ARTIFACT_ROOT="$fixture_dir" "$checker" "$embedded_evidence" \
   | grep -F 'Feature artifact path self-test passed: 1 referenced artifact paths, 0 missing.'
 
 set +e
-"$checker" "$missing_evidence" > "$tmpdir/missing.out" 2>&1
+RIPDPI_ARTIFACT_ROOT="$fixture_dir" "$checker" "$missing_evidence" \
+  > "$tmpdir/missing.out" 2>&1
 missing_status=$?
 set -e
 

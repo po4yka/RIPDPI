@@ -3,13 +3,14 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 evidence_path="${1:-$repo_root/docs/feature-test-evidence-2026-05-14.md}"
+artifact_root="${RIPDPI_ARTIFACT_ROOT:-$repo_root}"
 
 if [[ $# -gt 1 ]]; then
   echo "Usage: $0 [EVIDENCE_MD]" >&2
   exit 2
 fi
 
-python3 - "$repo_root" "$evidence_path" <<'PY'
+python3 - "$artifact_root" "$evidence_path" <<'PY'
 import re
 import sys
 from pathlib import Path
