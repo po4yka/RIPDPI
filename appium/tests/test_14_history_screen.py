@@ -32,6 +32,12 @@ def test_history_search_and_filter(driver):
     # Switch to connections section and search.
     history.tap_section("connections")
     history.type_search("connections", "test query")
+    if not history.is_prefix_visible("history-connections-mode-", timeout=3):
+        assert history.is_visible("history-connections-state-empty"), (
+            "History should show an empty state when no rows match the search"
+        )
+        return
+
     history.tap_connections_mode_filter("vpn")
 
     # Clear all filters.
