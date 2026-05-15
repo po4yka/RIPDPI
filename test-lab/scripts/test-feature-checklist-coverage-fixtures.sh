@@ -7,6 +7,7 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 checklist="$tmpdir/checklist.md"
 evidence="$tmpdir/evidence.md"
+feature_evidence="$tmpdir/feature-test-evidence-fixture.md"
 output="$tmpdir/output.txt"
 
 write_checklist() {
@@ -36,10 +37,11 @@ MD
 
 expect_failure() {
   local expected="$1"
+  local evidence_arg="${2:-$evidence}"
   set +e
   "$repo_root/test-lab/scripts/test-feature-checklist-coverage.sh" \
     "$checklist" \
-    "$evidence" >"$output" 2>&1
+    "$evidence_arg" >"$output" 2>&1
   local status=$?
   set -e
   cat "$output"
@@ -56,6 +58,23 @@ write_evidence
   "$checklist" \
   "$evidence" >"$output"
 grep -F "2 checklist items" "$output"
+
+write_checklist
+cat >"$feature_evidence" <<'MD'
+# Fixture Evidence
+
+| Check | Command or artifact | Result |
+| --- | --- | --- |
+| Checklist section coverage audit | fixture | Pass: 1 checklist items |
+
+| Checklist section | Status | Evidence | Remaining work |
+| --- | --- | --- | --- |
+| Alpha | Covered locally | Unit fixture | None |
+| Beta | Partial | Device fixture | Manual run |
+MD
+expect_failure \
+  "Checklist section coverage audit row does not mention current item baseline: 2 checklist items" \
+  "$feature_evidence"
 
 write_checklist
 write_evidence
