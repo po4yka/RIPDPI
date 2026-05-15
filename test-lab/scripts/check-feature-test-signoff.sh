@@ -5,10 +5,20 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 audit_path="$repo_root/docs/feature-test-completion-audit-2026-05-14.md"
 readiness_path=""
 keep_readiness=false
+list_required_readiness=false
+required_readiness_checks=(
+  android_device
+  rooted_physical_device
+  manual_talkback
+  physical_network_handover
+  routed_netem_vm
+  production_relay_matrix
+  remote_workflow_confirmation
+)
 
 usage() {
   cat <<USAGE
-Usage: $0 [--audit PATH] [--readiness PATH]
+Usage: $0 [--audit PATH] [--readiness PATH] [--list-required-readiness]
 
 Read-only pre-signoff guard for docs/feature-test-checklist.md.
 
@@ -30,6 +40,10 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --list-required-readiness)
+      list_required_readiness=true
+      shift
+      ;;
     --audit)
       audit_path="${2:?missing --audit value}"
       shift 2
@@ -51,6 +65,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "$list_required_readiness" == "true" ]]; then
+  printf '%s\n' "${required_readiness_checks[@]}"
+  exit 0
+fi
+
 if [[ ! -f "$audit_path" ]]; then
   echo "Completion audit not found: $audit_path" >&2
   exit 2
@@ -67,15 +86,6 @@ elif [[ ! -f "$readiness_path" ]]; then
 fi
 
 failures=()
-required_readiness_checks=(
-  android_device
-  rooted_physical_device
-  manual_talkback
-  physical_network_handover
-  routed_netem_vm
-  production_relay_matrix
-  remote_workflow_confirmation
-)
 
 if ! grep -Fq 'Status: **complete**.' "$audit_path"; then
   failures+=("completion audit is not marked complete")

@@ -69,6 +69,10 @@ EOF
 grep -F 'Required readiness rows:' "$tmpdir/help.out"
 grep -F 'rooted_physical_device' "$tmpdir/help.out"
 grep -F 'remote_workflow_confirmation' "$tmpdir/help.out"
+"$guard" --list-required-readiness > "$tmpdir/required-readiness.out"
+grep -Fx 'android_device' "$tmpdir/required-readiness.out"
+grep -Fx 'rooted_physical_device' "$tmpdir/required-readiness.out"
+grep -Fx 'remote_workflow_confirmation' "$tmpdir/required-readiness.out"
 
 "$guard" --audit "$complete_audit" --readiness "$ready_json" \
   | grep -F 'Feature test sign-off guard passed.'

@@ -11,14 +11,18 @@ unknown_json="$tmpdir/feature-gap-readiness-unknown-remote.json"
 
 "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
   --output "$default_json" >/dev/null
+"$repo_root/test-lab/scripts/check-feature-test-signoff.sh" \
+  --list-required-readiness > "$tmpdir/signoff-required-readiness.txt"
 
-python3 - "$default_json" <<'PY'
+python3 - "$default_json" "$tmpdir/signoff-required-readiness.txt" <<'PY'
 import json
 import re
 import sys
 
 with open(sys.argv[1], encoding="utf-8") as handle:
     data = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    signoff_required = {line.strip() for line in handle if line.strip()}
 
 checks = {check["name"]: check for check in data.get("checks", [])}
 required = {
@@ -30,6 +34,11 @@ required = {
     "production_relay_matrix",
     "remote_workflow_confirmation",
 }
+if signoff_required != required:
+    raise SystemExit(
+        "readiness/signoff required row mismatch: "
+        f"readiness={sorted(required)!r} signoff={sorted(signoff_required)!r}"
+    )
 missing = sorted(required.difference(checks))
 if missing:
     raise SystemExit(f"missing readiness checks: {missing}")

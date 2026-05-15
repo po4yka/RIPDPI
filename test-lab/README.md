@@ -105,6 +105,11 @@ The reviewed JSON must keep all canonical required rows:
 `android_device`, `rooted_physical_device`, `manual_talkback`,
 `physical_network_handover`, `routed_netem_vm`, `production_relay_matrix`, and
 `remote_workflow_confirmation`.
+Print the canonical list with:
+
+```bash
+./test-lab/scripts/check-feature-test-signoff.sh --list-required-readiness
+```
 
 Provider-backed relay runs use an operator-owned matrix manifest. Keep live
 endpoints and secrets outside the repository, then validate the manifest before
