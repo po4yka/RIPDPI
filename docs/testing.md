@@ -571,9 +571,12 @@ Nightly/manual lanes add:
 
 The CI jobs upload test reports, golden diffs, logcat, fixture logs, soak/load artifacts, and coverage reports when available.
 
-For a remote sign-off pass after local commits have been pushed to `main`, use
-the default workflow-dispatch inputs unless a release owner explicitly asks for
-the heavier emulator, soak, load, coverage, benchmark, or private-corpus lanes:
+For a remote sign-off pass, follow the repository ruleset first: push local
+commits to a review branch, let the pull request checks run, and merge to
+`main` only after required reviews/checks pass. For final sign-off on the merged
+commit, use the default workflow-dispatch inputs unless a release owner
+explicitly asks for the heavier emulator, soak, load, coverage, benchmark, or
+private-corpus lanes:
 
 ```bash
 gh workflow run ci.yml --ref main

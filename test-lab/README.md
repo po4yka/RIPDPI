@@ -219,9 +219,11 @@ of important controls. Summarize timestamps or transcript excerpts in
 
 ### Remote Workflow Confirmation
 
-When the release owner approves remote verification and the local commits have
-been pushed to `main`, trigger the hosted validation lanes that are not covered
-by the push event:
+When the release owner approves remote verification, follow the repository
+ruleset: push the local commits to a review branch, let the pull request checks
+run, and merge to `main` only after required reviews/checks pass. For final
+sign-off on the merged commit, trigger the hosted validation lanes that are not
+covered by the push event:
 
 ```bash
 gh workflow run ci.yml --ref main
