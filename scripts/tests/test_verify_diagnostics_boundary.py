@@ -13,9 +13,17 @@ class VerifyDiagnosticsBoundaryTest(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
 
+    def write_valid_diagnostics_layout(self, root: Path) -> None:
+        package_root = root / verify_diagnostics_boundary.DIAGNOSTICS_PACKAGE_ROOT
+        for relative_dir in verify_diagnostics_boundary.REQUIRED_DIAGNOSTICS_DIRS:
+            (package_root / relative_dir).mkdir(parents=True, exist_ok=True)
+        for relative_path, package_line in verify_diagnostics_boundary.PACKAGE_EXPECTATIONS.items():
+            self.write_file(root, relative_path, f"{package_line}\n")
+
     def test_collect_violations_rejects_core_service_gradle_dependency(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
+            self.write_valid_diagnostics_layout(repo_root)
             self.write_file(
                 repo_root,
                 "core/diagnostics/build.gradle.kts",
@@ -35,6 +43,7 @@ class VerifyDiagnosticsBoundaryTest(unittest.TestCase):
     def test_collect_violations_rejects_service_package_references(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
+            self.write_valid_diagnostics_layout(repo_root)
             self.write_file(
                 repo_root,
                 "core/diagnostics/build.gradle.kts",
@@ -57,6 +66,7 @@ class VerifyDiagnosticsBoundaryTest(unittest.TestCase):
     def test_collect_violations_accepts_contract_only_boundary(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
+            self.write_valid_diagnostics_layout(repo_root)
             self.write_file(
                 repo_root,
                 "core/diagnostics/build.gradle.kts",
