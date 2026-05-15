@@ -108,18 +108,63 @@ done < <(
 import json
 import sys
 
-with open(sys.argv[1], encoding="utf-8") as handle:
-    data = json.load(handle)
+try:
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        data = json.load(handle)
+except Exception as exc:
+    print(
+        "readiness_artifact",
+        "invalid",
+        f"could not parse readiness JSON: {exc}",
+        sep="\t",
+    )
+    raise SystemExit(0)
+
+if not isinstance(data, dict):
+    print("readiness_artifact", "invalid", "top-level JSON value must be an object", sep="\t")
+    raise SystemExit(0)
+
+checks = data.get("checks")
+if not isinstance(checks, list):
+    print("readiness_artifact", "invalid", "checks must be an array", sep="\t")
+    raise SystemExit(0)
 
 required_names = set(sys.argv[2:])
 seen_required = set()
-for check in data.get("checks", []):
-    if check.get("required") is True:
-        seen_required.add(check.get("name", "unknown"))
+allowed_statuses = {"ready", "manual", "blocked"}
+for index, check in enumerate(checks):
+    if not isinstance(check, dict):
         print(
-            check.get("name", "unknown"),
-            check.get("status", "unknown"),
-            check.get("message", ""),
+            "readiness_artifact",
+            "invalid",
+            f"checks[{index}] must be an object",
+            sep="\t",
+        )
+        continue
+    name = check.get("name", "unknown")
+    status = check.get("status", "unknown")
+    message = check.get("message", "")
+    if not isinstance(name, str) or not name:
+        print("readiness_artifact", "invalid", f"checks[{index}].name must be a non-empty string", sep="\t")
+        continue
+    if status not in allowed_statuses:
+        print(name, "invalid", f"status must be one of {sorted(allowed_statuses)}", sep="\t")
+        continue
+    if check.get("required") is not True and check.get("required") is not False:
+        print(name, "invalid", "required must be a boolean", sep="\t")
+        continue
+    if not isinstance(message, str):
+        print(name, "invalid", "message must be a string", sep="\t")
+        continue
+    if check.get("required") is True:
+        if name in seen_required:
+            print(name, "invalid", "duplicate required readiness check", sep="\t")
+            continue
+        seen_required.add(name)
+        print(
+            name,
+            status,
+            message,
             sep="\t",
         )
 

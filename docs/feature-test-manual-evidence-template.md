@@ -126,6 +126,10 @@ manual evidence above is complete:
 | `production_relay_matrix` | Provider Relay Matrix |
 | `remote_workflow_confirmation` | Remote Workflows |
 
+The sign-off guard rejects malformed readiness JSON, duplicate required rows,
+non-boolean `required` values, non-string messages, and statuses outside
+`ready`, `manual`, or `blocked`.
+
 ## Final Verdict
 
 | Field | Value |

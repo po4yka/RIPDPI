@@ -111,6 +111,10 @@ Print the canonical list with:
 ./test-lab/scripts/check-feature-test-signoff.sh --list-required-readiness
 ```
 
+The guard also validates the reviewed JSON shape before sign-off: required
+rows must not be duplicated, `required` must be boolean, messages must be
+strings, and statuses must be one of `ready`, `manual`, or `blocked`.
+
 Provider-backed relay runs use an operator-owned matrix manifest. Keep live
 endpoints and secrets outside the repository, then validate the manifest before
 running the matrix:

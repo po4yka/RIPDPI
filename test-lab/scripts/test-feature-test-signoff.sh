@@ -10,6 +10,9 @@ complete_audit="$tmpdir/complete-audit.md"
 incomplete_audit="$tmpdir/incomplete-audit.md"
 ready_json="$tmpdir/ready.json"
 missing_required_json="$tmpdir/missing-required.json"
+duplicate_required_json="$tmpdir/duplicate-required.json"
+invalid_status_json="$tmpdir/invalid-status.json"
+malformed_json="$tmpdir/malformed.json"
 blocked_json="$tmpdir/blocked.json"
 
 cat > "$complete_audit" <<'EOF'
@@ -54,6 +57,25 @@ cat > "$missing_required_json" <<'EOF'
   ]
 }
 EOF
+
+cat > "$duplicate_required_json" <<'EOF'
+{
+  "checks": [
+    {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "android_device", "status": "ready", "required": true, "message": "duplicate"}
+  ]
+}
+EOF
+
+cat > "$invalid_status_json" <<'EOF'
+{
+  "checks": [
+    {"name": "android_device", "status": "done", "required": true, "message": "invalid"}
+  ]
+}
+EOF
+
+printf '{"checks": [\n' > "$malformed_json"
 
 cat > "$blocked_json" <<'EOF'
 {
@@ -110,6 +132,50 @@ grep -F 'manual_talkback is missing: required readiness check is absent from the
   "$tmpdir/missing-required.out"
 grep -F 'remote_workflow_confirmation is missing: required readiness check is absent from the artifact' \
   "$tmpdir/missing-required.out"
+
+set +e
+"$guard" --audit "$complete_audit" --readiness "$duplicate_required_json" \
+  > "$tmpdir/duplicate-required.out"
+duplicate_required_status=$?
+set -e
+
+if [[ "$duplicate_required_status" -ne 1 ]]; then
+  echo "Expected duplicate readiness artifact to exit 1, got $duplicate_required_status" >&2
+  cat "$tmpdir/duplicate-required.out" >&2
+  exit 1
+fi
+
+grep -F 'android_device is invalid: duplicate required readiness check' \
+  "$tmpdir/duplicate-required.out"
+
+set +e
+"$guard" --audit "$complete_audit" --readiness "$invalid_status_json" \
+  > "$tmpdir/invalid-status.out"
+invalid_status_status=$?
+set -e
+
+if [[ "$invalid_status_status" -ne 1 ]]; then
+  echo "Expected invalid status readiness artifact to exit 1, got $invalid_status_status" >&2
+  cat "$tmpdir/invalid-status.out" >&2
+  exit 1
+fi
+
+grep -F 'android_device is invalid: status must be one of' "$tmpdir/invalid-status.out"
+
+set +e
+"$guard" --audit "$complete_audit" --readiness "$malformed_json" \
+  > "$tmpdir/malformed.out"
+malformed_status=$?
+set -e
+
+if [[ "$malformed_status" -ne 1 ]]; then
+  echo "Expected malformed readiness artifact to exit 1, got $malformed_status" >&2
+  cat "$tmpdir/malformed.out" >&2
+  exit 1
+fi
+
+grep -F 'readiness_artifact is invalid: could not parse readiness JSON' \
+  "$tmpdir/malformed.out"
 
 set +e
 "$guard" --audit "$complete_audit" --readiness "$tmpdir/missing.json" \

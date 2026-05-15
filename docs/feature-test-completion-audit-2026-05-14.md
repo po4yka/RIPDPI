@@ -73,7 +73,8 @@ available in the current local lab.
   the feature-gap readiness self-test including sign-off required-row parity and
   unknown remote-compare coverage, the feature sign-off guard self-test
   including help text, machine-readable required-row output, required `manual`
-  readiness rows, and missing required readiness rows, the focused debug-probe
+  readiness rows, missing required readiness rows, duplicate required rows,
+  invalid statuses, and malformed readiness JSON, the focused debug-probe
   relay-readiness unit test, physical mock-relay
   VPN/proxy/diagnostics probes, proxy E2E runner syntax, the
   service stop-self fallback unit test, debug/test/main source-set ktlint checks,
