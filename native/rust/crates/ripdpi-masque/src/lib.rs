@@ -2,6 +2,7 @@
 
 pub mod auth;
 pub mod config;
+pub mod provider_adapter;
 
 mod client;
 mod h2;
