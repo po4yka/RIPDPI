@@ -51,7 +51,7 @@ available in the current local lab.
   netem runbook now has exact operator steps, but the external Linux routed
   VM evidence remains open. The test-lab README now also gives command-level
   operator steps for rooted physical device, physical network matrix, provider
-  relay matrix, and TalkBack evidence capture.
+  relay matrix, TalkBack evidence capture, and remote workflow confirmation.
 - Local post-commit checks: `git diff --check`, `cargo fmt --check`,
   `python3 scripts/ci/check_native_hotspot_budgets.py`,
   `python3 scripts/ci/check_architecture_health.py --check`,
