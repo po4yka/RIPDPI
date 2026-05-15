@@ -69,7 +69,8 @@ available in the current local lab.
   smoke pack, the May 15 installed-tool Maestro/Appium reruns, the focused
   support-bundle plus diagnostics-empty-state repro, the final current full
   Appium suite, the feature artifact-path self-test,
-  the feature checklist-coverage self-test, the feature-gap readiness self-test,
+  the feature checklist-coverage self-test, the feature-gap readiness self-test
+  including unknown remote-compare coverage,
   the feature sign-off guard self-test, the focused debug-probe relay-readiness
   unit test, physical mock-relay VPN/proxy/diagnostics probes, proxy E2E runner syntax, the
   service stop-self fallback unit test, debug/test/main source-set ktlint checks,
