@@ -121,6 +121,17 @@ invalid_scenarios="$(
   ' "$config_path"
 )"
 
+duplicate_scenarios="$(
+  jq -r '
+    .relays[]? as $relay
+    | [($relay.scenarios // [])[] | select(type == "string")]
+    | group_by(.)
+    | .[]
+    | select(length > 1)
+    | ($relay.id // "<missing-id>") + "." + .[0]
+  ' "$config_path"
+)"
+
 literal_endpoint_ref_hits="$(
   jq -r '
     .relays[]? as $relay
@@ -164,6 +175,10 @@ if [[ -n "$duplicate_ids" ]]; then
 fi
 if [[ -n "$invalid_scenarios" ]]; then
   printf 'Invalid relay scenarios:\n%s\n' "$invalid_scenarios" >&2
+  exit 1
+fi
+if [[ -n "$duplicate_scenarios" ]]; then
+  printf 'Duplicate relay scenarios:\n%s\n' "$duplicate_scenarios" >&2
   exit 1
 fi
 if [[ -n "$literal_endpoint_ref_hits" ]]; then

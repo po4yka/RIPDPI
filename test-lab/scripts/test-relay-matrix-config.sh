@@ -41,6 +41,11 @@ jq '.relays[0].scenarios += [42]' "$example" > "$non_string_scenario"
 expect_failure "$non_string_scenario" "Invalid relay scenarios:"
 grep -F "mock_relay.42" "$output"
 
+duplicate_scenario="$tmpdir/duplicate-scenario.json"
+jq '.relays[0].scenarios += ["proxy"]' "$example" > "$duplicate_scenario"
+expect_failure "$duplicate_scenario" "Duplicate relay scenarios:"
+grep -F "mock_relay.proxy" "$output"
+
 literal_endpoint="$tmpdir/literal-endpoint.json"
 jq '.relays[1].endpointRef = "https://relay.example.test/path"' "$example" > "$literal_endpoint"
 expect_failure "$literal_endpoint" "Endpoint or credential refs must not contain literal URLs or userinfo:"
