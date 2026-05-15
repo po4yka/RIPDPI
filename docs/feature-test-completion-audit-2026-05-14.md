@@ -74,6 +74,7 @@ available in the current local lab.
   self-test and fixture negative-path self-test,
   the feature checklist-coverage self-test with the 248-item checklist baseline
   and fixture negative-path self-test,
+  the post-rebase README selector parity and locale key-diff checks,
   the feature-gap readiness self-test including generated-artifact schema
   validation across default/unknown-remote/relay-config paths, malformed-row
   rejection, sign-off required-row parity, and
