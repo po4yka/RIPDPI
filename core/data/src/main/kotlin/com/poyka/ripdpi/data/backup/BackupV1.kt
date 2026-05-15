@@ -1,0 +1,295 @@
+package com.poyka.ripdpi.data.backup
+
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.rules.RuleEntity
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
+/** Current schema version for the backup/v1 format. */
+const val BACKUP_SCHEMA_VERSION: Int = 1
+
+/**
+ * Backup export variant.
+ *
+ * - [SHARE]: strips every field classified as [Classification.REDACTED] or
+ *   [Classification.EXCLUDED] from each profile; safe to share publicly.
+ * - [FULL]: retains all fields and sets [BackupV1.containsCredentials] = true.
+ */
+enum class BackupVariant {
+    SHARE,
+    FULL,
+}
+
+/**
+ * Per-field classification used by the backup allowlist.
+ *
+ * - [PUBLIC]: field is non-sensitive; exported in both [BackupVariant.SHARE] and [BackupVariant.FULL].
+ * - [REDACTED]: field contains a credential; nulled-out in [BackupVariant.SHARE], kept in [BackupVariant.FULL].
+ * - [EXCLUDED]: field must never appear in any export (e.g. internal IDs, runtime state).
+ */
+enum class Classification {
+    PUBLIC,
+    REDACTED,
+    EXCLUDED,
+}
+
+/**
+ * Top-level versioned backup document.
+ *
+ * [schemaVersion] must equal [BACKUP_SCHEMA_VERSION] on deserialization.
+ * [containsCredentials] is `true` only for [BackupVariant.FULL] exports.
+ */
+@Serializable
+data class BackupV1(
+    val schemaVersion: Int,
+    val createdAtEpochMillis: Long,
+    val appVersion: String,
+    val profiles: List<JsonObject>,
+    val groups: List<ProxyGroup>,
+    val rules: List<RuleExport>,
+    val settings: Map<String, String>,
+    val containsCredentials: Boolean = false,
+)
+
+/**
+ * Portable, Room-independent representation of a [RuleEntity] for backup.
+ */
+@Serializable
+data class RuleExport(
+    val name: String,
+    val userOrder: Int,
+    val enabled: Boolean,
+    val domains: String,
+    val ipCidrs: String,
+    val ports: String,
+    val sourcePorts: String,
+    val network: String,
+    val processName: String,
+    val packages: Set<String>,
+    val outboundTag: String,
+)
+
+/**
+ * Typed error returned when a backup document carries an unsupported [schemaVersion].
+ */
+class UnsupportedBackupVersion(
+    val found: Int,
+    val supported: Int,
+) : Exception("Unsupported backup version $found (supported: $supported)")
+
+// ---------------------------------------------------------------------------
+// Allowlist
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-protocol field classification map.
+ *
+ * Denial-by-default: every property of every [ProxyProfile] subtype MUST appear
+ * here. Adding a new property without a classification causes
+ * [BackupAllowlist.classificationFor] to throw [IllegalStateException], which
+ * surfaces in the coverage test before any export is attempted.
+ */
+object BackupAllowlist {
+    /**
+     * Shared fields present on every [ProxyProfile] subtype.
+     */
+    private val commonFields: Map<String, Classification> =
+        mapOf(
+            "type" to Classification.PUBLIC,
+            "id" to Classification.EXCLUDED,
+            "displayName" to Classification.PUBLIC,
+            "groupId" to Classification.PUBLIC,
+        )
+
+    private val vlessFields: Map<String, Classification> =
+        commonFields +
+            mapOf(
+                "server" to Classification.PUBLIC,
+                "serverPort" to Classification.PUBLIC,
+                "uuid" to Classification.REDACTED,
+            )
+
+    private val shadowsocksFields: Map<String, Classification> =
+        commonFields +
+            mapOf(
+                "server" to Classification.PUBLIC,
+                "serverPort" to Classification.PUBLIC,
+                "method" to Classification.PUBLIC,
+                "password" to Classification.REDACTED,
+            )
+
+    private val trojanFields: Map<String, Classification> =
+        commonFields +
+            mapOf(
+                "server" to Classification.PUBLIC,
+                "serverPort" to Classification.PUBLIC,
+                "password" to Classification.REDACTED,
+            )
+
+    private val hysteria2Fields: Map<String, Classification> =
+        commonFields +
+            mapOf(
+                "server" to Classification.PUBLIC,
+                "serverPort" to Classification.PUBLIC,
+                "password" to Classification.REDACTED,
+            )
+
+    private val trojanGoFields: Map<String, Classification> =
+        commonFields +
+            mapOf(
+                "server" to Classification.PUBLIC,
+                "serverPort" to Classification.PUBLIC,
+                "password" to Classification.REDACTED,
+            )
+
+    private val rawConfigFields: Map<String, Classification> =
+        commonFields +
+            mapOf(
+                "config" to Classification.REDACTED,
+            )
+
+    private val registry: Map<String, Map<String, Classification>> =
+        mapOf(
+            "vless" to vlessFields,
+            "shadowsocks" to shadowsocksFields,
+            "trojan" to trojanFields,
+            "hysteria2" to hysteria2Fields,
+            "trojan-go" to trojanGoFields,
+            "raw-config" to rawConfigFields,
+        )
+
+    /**
+     * Returns the [Classification] for [fieldName] within [protocolKey].
+     *
+     * [protocolKey] is the `@SerialName` discriminator of the [ProxyProfile] subtype
+     * (e.g. `"vless"`, `"shadowsocks"`).
+     *
+     * Throws [IllegalStateException] (denial-by-default) if the field is not
+     * classified — this surfaces at export time and in the coverage test.
+     */
+    fun classificationFor(
+        protocolKey: String,
+        fieldName: String,
+    ): Classification {
+        val fields =
+            registry[protocolKey]
+                ?: error("BackupAllowlist: unknown protocol '$protocolKey' — add it to the registry")
+        return fields[fieldName]
+            ?: error(
+                "BackupAllowlist: field '$fieldName' of protocol '$protocolKey' is not classified. " +
+                    "Add it as PUBLIC, REDACTED, or EXCLUDED before exporting.",
+            )
+    }
+
+    /** Returns all (protocolKey, fieldName) entries in the registry. */
+    fun allEntries(): Map<String, Map<String, Classification>> = registry
+}
+
+// ---------------------------------------------------------------------------
+// Exporter
+// ---------------------------------------------------------------------------
+
+private val backupJson =
+    Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
+
+/**
+ * Produces a [BackupV1] document from the supplied data.
+ *
+ * For [BackupVariant.SHARE], each profile's JSON object is stripped of every
+ * field classified as [Classification.REDACTED] or [Classification.EXCLUDED].
+ * For [BackupVariant.FULL], all fields are kept and [BackupV1.containsCredentials]
+ * is set to `true`.
+ */
+object BackupExporter {
+    fun export(
+        variant: BackupVariant,
+        profiles: List<ProxyProfile>,
+        groups: List<ProxyGroup>,
+        rules: List<RuleEntity>,
+        settings: Map<String, String>,
+        createdAtEpochMillis: Long,
+        appVersion: String,
+    ): BackupV1 {
+        val profileObjects =
+            profiles.map { profile ->
+                val raw = backupJson.encodeToJsonElement(ProxyProfile.serializer(), profile).jsonObject
+                val protocolKey =
+                    raw["type"]?.jsonPrimitive?.content
+                        ?: error("ProxyProfile JSON is missing 'type' discriminator")
+                when (variant) {
+                    BackupVariant.FULL -> {
+                        raw
+                    }
+
+                    BackupVariant.SHARE -> {
+                        JsonObject(
+                            raw.entries
+                                .filter { (key, _) ->
+                                    val cls = BackupAllowlist.classificationFor(protocolKey, key)
+                                    cls == Classification.PUBLIC
+                                }.associate { (key, value) -> key to value },
+                        )
+                    }
+                }
+            }
+        val ruleExports =
+            rules.map { r ->
+                RuleExport(
+                    name = r.name,
+                    userOrder = r.userOrder,
+                    enabled = r.enabled,
+                    domains = r.domains,
+                    ipCidrs = r.ipCidrs,
+                    ports = r.ports,
+                    sourcePorts = r.sourcePorts,
+                    network = r.network.name,
+                    processName = r.processName,
+                    packages = r.packages,
+                    outboundTag = r.outboundTag.toString(),
+                )
+            }
+        return BackupV1(
+            schemaVersion = BACKUP_SCHEMA_VERSION,
+            createdAtEpochMillis = createdAtEpochMillis,
+            appVersion = appVersion,
+            profiles = profileObjects,
+            groups = groups,
+            rules = ruleExports,
+            settings = settings,
+            containsCredentials = variant == BackupVariant.FULL,
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Importer
+// ---------------------------------------------------------------------------
+
+/**
+ * Deserializes a backup JSON string into a [BackupV1] document.
+ *
+ * Throws [UnsupportedBackupVersion] when [BackupV1.schemaVersion] is not
+ * [BACKUP_SCHEMA_VERSION].
+ */
+object BackupImporter {
+    fun import(json: String): BackupV1 {
+        val raw = backupJson.parseToJsonElement(json).jsonObject
+        val versionElement =
+            raw["schemaVersion"]
+                ?: error("Backup JSON is missing 'schemaVersion'")
+        val version = versionElement.jsonPrimitive.content.toInt()
+        if (version != BACKUP_SCHEMA_VERSION) {
+            throw UnsupportedBackupVersion(found = version, supported = BACKUP_SCHEMA_VERSION)
+        }
+        return backupJson.decodeFromJsonElement(raw)
+    }
+}

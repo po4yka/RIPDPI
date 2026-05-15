@@ -59,7 +59,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 36 | P2 | `add-share-sheet-handler-for-proxy-uri-schemes`<br>Add share-sheet handler for proxy URI schemes | task | `epic-qr-code-and-clipboard-profile-import` | ui | ⏫ | DONE | |
 | 37 | P3 | `add-subscription-auto-update-workmanager-worker`<br>Add subscription auto-update WorkManager worker | task | `epic-subscription-profile-import` | outbound | ⏫ | DONE | |
 | 38 | P3 | `add-trojan-outbound-client-crate-and-profile-editor`<br>Add Trojan outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | ⏫ | TODO | |
-| 39 | P3 | `add-versioned-backup-json-schema-with-redaction-allowlist`<br>Add versioned backup JSON schema with redaction allowlist | task | `epic-settings-backup-and-restore` | data | ⏫ | TODO | |
+| 39 | P3 | `add-versioned-backup-json-schema-with-redaction-allowlist`<br>Add versioned backup JSON schema with redaction allowlist | task | `epic-settings-backup-and-restore` | data | ⏫ | DONE | just test-module core:data (exit 0) |
 | 40 | P3 | `add-wireguard-ini-subscription-parser`<br>Add WireGuard INI subscription parser | task | `epic-subscription-profile-import` | outbound | ⏫ | DONE | |
 | 41 | P3 | `bridge-tun-traffic-through-xray-local-inbound`<br>Bridge TUN traffic through Xray local inbound | task | `epic-xray-provider-mode` | outbound | ⏫ | TODO | |
 | 42 | P3 | `define-xray-vpn-provider-architecture`<br>Define Xray VPN provider architecture | task | `epic-xray-provider-mode` | outbound | ⏫ | TODO | |

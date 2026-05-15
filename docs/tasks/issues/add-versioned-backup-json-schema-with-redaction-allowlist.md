@@ -1,7 +1,7 @@
 ---
 title: Add versioned backup JSON schema with redaction allowlist
 type: task
-status: backlog
+status: done
 area: data
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-settings-backup-and-restore
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-16
 ---
 
-- [ ] #task Add versioned backup JSON schema with redaction allowlist #repo/RIPDPI #area/data #status/backlog ⏫
+- [x] #task Add versioned backup JSON schema with redaction allowlist #repo/RIPDPI #area/data #status/done ⏫
 
 ## Goal contract
 

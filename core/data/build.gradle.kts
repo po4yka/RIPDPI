@@ -6,6 +6,7 @@ plugins {
     id("ripdpi.android.library")
     id("ripdpi.android.hilt")
     id("ripdpi.android.quality")
+    id("ripdpi.android.serialization")
     alias(libs.plugins.ksp)
 }
 
@@ -25,6 +26,7 @@ dependencies {
     api(project(":core:data:runtime-state"))
 
     implementation(libs.bundles.room)
+    implementation(libs.kotlinx.serialization.json)
     ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.bundles.unit.test)
