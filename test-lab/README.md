@@ -245,6 +245,7 @@ gh workflow run ci.yml --ref main
 gh workflow run local-network-lab.yml --ref main -f run_vpn_emulator_lane=false
 gh workflow run offline-analytics.yml --ref main -f private_corpus_path=''
 gh workflow run mutation-testing.yml --ref main -f packages='' -f in_diff=false
+gh workflow run fuzz-nightly.yml --ref main -f fuzz_seconds=1800
 ```
 
 `CodeQL` does not expose manual dispatch; record the push-triggered run for the

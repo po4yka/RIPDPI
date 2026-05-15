@@ -109,6 +109,7 @@ repository and reference only redacted relay IDs here.
 | local-network-lab | | | |
 | offline-analytics | | | |
 | mutation-testing | | | |
+| Fuzz Nightly | | | |
 
 ## Operator-Reviewed Readiness JSON
 

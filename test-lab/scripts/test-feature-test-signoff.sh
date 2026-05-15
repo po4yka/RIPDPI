@@ -255,6 +255,37 @@ if documented != required:
         "manual evidence readiness rows do not match sign-off guard: "
         f"documented={sorted(documented)!r} required={sorted(required)!r}"
     )
+
+workflow_section_match = re.search(
+    r"## Remote Workflows\n(?P<body>.*?)\n## Operator-Reviewed Readiness JSON",
+    template,
+    re.S,
+)
+if workflow_section_match is None:
+    raise SystemExit("manual evidence template is missing the remote workflows section")
+
+required_workflows = {
+    "CI",
+    "CodeQL",
+    "local-network-lab",
+    "offline-analytics",
+    "mutation-testing",
+    "Fuzz Nightly",
+}
+documented_workflows = set()
+for line in workflow_section_match.group("body").splitlines():
+    match = re.match(r"^\|\s*([^|]+?)\s*\|", line)
+    if match:
+        value = match.group(1).strip()
+        if value not in {"Workflow", "---"}:
+            documented_workflows.add(value)
+
+missing_workflows = sorted(required_workflows - documented_workflows)
+if missing_workflows:
+    raise SystemExit(
+        "manual evidence template is missing remote workflow rows: "
+        f"{missing_workflows!r}"
+    )
 PY
 
 python3 - "$repo_root/docs/feature-test-completion-audit-2026-05-14.md" \
