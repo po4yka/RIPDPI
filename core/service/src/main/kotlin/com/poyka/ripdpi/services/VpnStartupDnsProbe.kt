@@ -29,6 +29,10 @@ class VpnStartupDnsProbe
     constructor() {
         companion object {
             private const val CANARY_DOMAIN = "www.google.com"
+
+            // TODO(cloudflare-removal): REFERENCE_DNS_SERVER is Cloudflare 1.1.1.1 (primary probe).
+            // Blocking: DNS tamper-detection at VPN cold start loses its reference if 1.1.1.1 is unreachable.
+            // Plan: replace with a non-CF anycast fallback set (e.g., AdGuard 94.140.14.14, Mullvad 194.242.2.2).
             private const val REFERENCE_DNS_SERVER = "1.1.1.1"
             private const val REFERENCE_DNS_PORT = 53
             private const val PROBE_TIMEOUT_MS = 3_000L

@@ -414,6 +414,9 @@ internal object WarpProvisioningNetworkModule {
     fun provideWarpProvisioningJson(): Json = Json { ignoreUnknownKeys = true }
 }
 
+// TODO(cloudflare-removal): WarpRegistrationBaseUrl is a Cloudflare-only endpoint (primary).
+// Blocking: WARP device registration cannot proceed if this host is unreachable.
+// Plan: expose a self-hosted registration proxy or drop WARP as a supported relay for RU users.
 internal const val WarpRegistrationBaseUrl = "https://api.cloudflareclient.com/v0a4005/reg"
 internal const val WarpProvisioningUserAgent = "okhttp/3.12.1"
 internal const val WarpProvisioningClientVersion = "a-6.30-3596"

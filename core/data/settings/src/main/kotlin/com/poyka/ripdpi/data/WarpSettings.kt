@@ -21,6 +21,10 @@ const val DefaultWarpLocalSocksPort = 11888
 const val DefaultWarpScannerParallelism = 10
 const val DefaultWarpScannerMaxRttMs = 1_500
 const val DefaultWarpManualEndpointPort = 2408
+
+// TODO(cloudflare-removal): All hosts below are Cloudflare-only (cloudflareclient.com).
+// WARP provisioning, scanning, and Zero Trust enrollment all require reachability to this domain.
+// Plan: mirror registration behind own infra or demote WARP for Russian users before CF removal.
 val BuiltInWarpControlPlaneHosts: List<String> =
     listOf(
         "api.cloudflareclient.com",

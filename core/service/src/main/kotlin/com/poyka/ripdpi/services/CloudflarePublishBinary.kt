@@ -19,6 +19,9 @@ internal class CloudflarePublishBinaryExtractor
             val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
             val assetPath = "bin/$abi/$binaryName"
             val assetDirectory = "bin/$abi"
+            // TODO(cloudflare-removal): cloudflare-runtime/ holds ripdpi-cloudflared +
+            // ripdpi-cloudflare-origin (primary, publish mode). Blocks subscription delivery
+            // when publish mode is the active relay. Gate on cloudflare_publish flag.
             val targetDir = File(context.filesDir, "cloudflare-runtime/$abi").apply { mkdirs() }
             val availableAssets =
                 context.assets
