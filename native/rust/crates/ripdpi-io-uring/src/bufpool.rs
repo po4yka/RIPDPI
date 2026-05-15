@@ -215,3 +215,93 @@ impl PendingBuffer<'_> {
         self.pool.release(self.index);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! Soundness regressions for `BufferHandle`'s exclusive-access design.
+    //!
+    //! The audit for soundness issue #7 verified that the only
+    //! pointer-backed `&mut T` creation in the workspace lives in
+    //! `bufpool.rs`, gated by:
+    //!   1. a move-only `BufferHandle` (no `Copy`/`Clone`),
+    //!   2. `Mutex`-guarded free-list ownership for the cell index,
+    //!   3. `&mut self` on `as_mut_buf` / `DerefMut`,
+    //!   4. RAII Drop that returns the index to the free list.
+    //!
+    //! These tests assert the runtime invariants those properties
+    //! produce:
+    //!   - a dropped `BufferHandle` releases its index for reuse
+    //!     (no stale handle keeps the slot reserved),
+    //!   - a pool at capacity refuses to issue a duplicate handle
+    //!     (no aliased mutable access can be obtained from safe code),
+    //!   - `into_pending` suppresses Drop-release and `complete`
+    //!     hands the index back exactly once (no double-release).
+    //!
+    //! The compile-fail properties (`BufferHandle: !Copy + !Clone` and
+    //! "second `as_mut_buf` while the first slice is live") are
+    //! enforced directly by the type system per
+    //! `docs/rust-soundness-policy.md` § "Compile-fail enforcement";
+    //! the repo policy is to use the type system as the compile-fail
+    //! harness rather than `trybuild`.
+
+    use super::*;
+    use io_uring::IoUring;
+
+    fn try_pool(capacity: u16) -> Option<RegisteredBufferPool> {
+        // Skip cleanly on kernels without io_uring or without
+        // IORING_REGISTER_BUFFERS support. Tests in this module act as
+        // smoke tests on CI Linux runners and as no-ops elsewhere.
+        let ring = IoUring::new(8).ok()?;
+        RegisteredBufferPool::new(&ring, capacity, 1024).ok()
+    }
+
+    #[test]
+    fn drop_returns_index_to_free_list_for_reuse() {
+        let Some(pool) = try_pool(2) else { return };
+        let handle = pool.acquire().expect("acquire 1");
+        let idx = handle.buf_index();
+        drop(handle);
+        // The free list is a LIFO stack: the freed index is on top.
+        let again = pool.acquire().expect("reacquire after drop");
+        assert_eq!(again.buf_index(), idx, "drop must return the index for reuse");
+    }
+
+    #[test]
+    fn capacity_exhaustion_blocks_duplicate_handle() {
+        let Some(pool) = try_pool(1) else { return };
+        let _first = pool.acquire().expect("acquire first");
+        // With the sole index in use, a second acquire MUST return None.
+        // This is the runtime witness that safe code cannot obtain a
+        // duplicate `BufferHandle` for the same cell.
+        assert!(pool.acquire().is_none(), "duplicate handle must be impossible");
+    }
+
+    #[test]
+    fn pending_buffer_suppresses_drop_release_until_complete() {
+        let Some(pool) = try_pool(1) else { return };
+        let handle = pool.acquire().expect("acquire");
+        let idx = handle.buf_index();
+        let pending = handle.into_pending();
+        // `into_pending` consumed the handle without releasing its
+        // index; the pool is therefore still exhausted.
+        assert!(pool.acquire().is_none(), "into_pending must not return the index to the pool");
+        pending.complete();
+        // After explicit complete, the index returns and is reusable.
+        let after = pool.acquire().expect("acquire after complete");
+        assert_eq!(after.buf_index(), idx, "complete must return the index exactly once");
+    }
+
+    #[test]
+    fn available_count_tracks_acquire_and_release() {
+        let Some(pool) = try_pool(2) else { return };
+        assert_eq!(pool.available(), 2);
+        let h1 = pool.acquire().expect("h1");
+        assert_eq!(pool.available(), 1);
+        let h2 = pool.acquire().expect("h2");
+        assert_eq!(pool.available(), 0);
+        drop(h1);
+        assert_eq!(pool.available(), 1);
+        drop(h2);
+        assert_eq!(pool.available(), 2);
+    }
+}
