@@ -73,7 +73,8 @@ available in the current local lab.
   the feature checklist-coverage self-test with the 248-item checklist baseline
   and fixture negative-path self-test,
   the feature-gap readiness self-test including generated-artifact schema
-  validation, malformed-row rejection, sign-off required-row parity, and
+  validation across default/unknown-remote/relay-config paths, malformed-row
+  rejection, sign-off required-row parity, and
   unknown remote-compare coverage, the feature sign-off guard self-test
   including help text, machine-readable required readiness/audit-row output,
   manual evidence template row parity, audit/evidence blocker and next-action

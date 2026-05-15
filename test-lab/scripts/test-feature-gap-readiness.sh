@@ -165,6 +165,7 @@ expect_invalid_readiness "$unexpected_json" "unexpected readiness checks: ['unex
 RIPDPI_REMOTE_COMPARE_REF="origin/ripdpi-missing-test-ref" \
   "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
   --output "$unknown_json" >/dev/null
+python3 "$validator" "$unknown_json" "$tmpdir/signoff-required-readiness.txt"
 
 python3 - "$unknown_json" <<'PY'
 import json
@@ -187,6 +188,7 @@ PY
 RIPDPI_RELAY_MATRIX_CONFIG="$repo_root/test-lab/relay/provider-matrix.example.json" \
   "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
   --output "$relay_json" >/dev/null
+python3 "$validator" "$relay_json" "$tmpdir/signoff-required-readiness.txt"
 
 python3 - "$relay_json" <<'PY'
 import json
