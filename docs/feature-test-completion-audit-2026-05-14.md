@@ -69,8 +69,8 @@ available in the current local lab.
   post-fix Appium slice, the current full Appium suite, the four-flow Maestro
   smoke pack, the May 15 installed-tool Maestro/Appium reruns, the focused
   support-bundle plus diagnostics-empty-state repro, the final current full
-  Appium suite, the feature artifact-path self-test and fixture negative-path
-  self-test,
+  Appium suite, the feature artifact-path self-test and fixture coverage for
+  command-embedded plus missing artifact references,
   the feature checklist-coverage self-test with the 248-item checklist baseline
   and fixture negative-path self-test,
   the feature-gap readiness self-test including generated-artifact schema

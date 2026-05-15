@@ -7,6 +7,7 @@ tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-artifact-paths-test.XXXXXX")"
 trap 'rm -rf "$tmpdir"' EXIT
 
 valid_evidence="$tmpdir/valid-evidence.md"
+embedded_evidence="$tmpdir/embedded-evidence.md"
 missing_evidence="$tmpdir/missing-evidence.md"
 
 cat > "$valid_evidence" <<'EOF'
@@ -15,6 +16,14 @@ cat > "$valid_evidence" <<'EOF'
 | Checklist area | Command or artifact | Result |
 | --- | --- | --- |
 | Test-lab doctor | `test-lab/artifacts/doctor.json` | Pass |
+EOF
+
+cat > "$embedded_evidence" <<'EOF'
+# Fixture Evidence
+
+| Checklist area | Command or artifact | Result |
+| --- | --- | --- |
+| Embedded command artifact | `./tool --out-dir test-lab/artifacts/doctor.json` | Pass |
 EOF
 
 cat > "$missing_evidence" <<'EOF'
@@ -26,6 +35,8 @@ cat > "$missing_evidence" <<'EOF'
 EOF
 
 "$checker" "$valid_evidence" \
+  | grep -F 'Feature artifact path self-test passed: 1 referenced artifact paths, 0 missing.'
+"$checker" "$embedded_evidence" \
   | grep -F 'Feature artifact path self-test passed: 1 referenced artifact paths, 0 missing.'
 
 set +e

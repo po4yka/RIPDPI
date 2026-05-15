@@ -18,7 +18,7 @@ repo_root = Path(sys.argv[1])
 evidence_path = Path(sys.argv[2])
 text = evidence_path.read_text(encoding="utf-8")
 
-artifact_paths = sorted(set(re.findall(r"`(test-lab/artifacts/[^`]+)`", text)))
+artifact_paths = sorted(set(re.findall(r"test-lab/artifacts/[^`\s;,)|]+", text)))
 missing = [path for path in artifact_paths if not (repo_root / path).exists()]
 
 if missing:
