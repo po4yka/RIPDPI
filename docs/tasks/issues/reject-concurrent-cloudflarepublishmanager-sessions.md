@@ -1,7 +1,7 @@
 ---
 title: Reject concurrent CloudflarePublishManager sessions
 type: task
-status: backlog
+status: done
 area: relay
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-cloudflare-publish-hardening
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-16
 ---
 
-- [ ] #task Reject concurrent CloudflarePublishManager sessions #repo/RIPDPI #area/relay #status/backlog ⏫
+- [x] #task Reject concurrent CloudflarePublishManager sessions #repo/RIPDPI #area/relay #status/done ⏫
 
 ## Goal contract
 

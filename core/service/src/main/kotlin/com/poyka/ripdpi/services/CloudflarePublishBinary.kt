@@ -10,12 +10,12 @@ import javax.inject.Inject
 internal const val CloudflaredBinaryName = "ripdpi-cloudflared"
 internal const val CloudflareOriginBinaryName = "ripdpi-cloudflare-origin"
 
-internal class CloudflarePublishBinaryExtractor
+internal open class CloudflarePublishBinaryExtractor
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
     ) {
-        fun extract(binaryName: String): File {
+        open fun extract(binaryName: String): File {
             val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
             val assetPath = "bin/$abi/$binaryName"
             val assetDirectory = "bin/$abi"
@@ -43,10 +43,10 @@ internal class CloudflarePublishBinaryExtractor
         }
     }
 
-internal class CloudflarePublishVersionProbe
+internal open class CloudflarePublishVersionProbe
     @Inject
     constructor() {
-        fun probe(
+        open fun probe(
             binary: File,
             versionArguments: List<String>,
         ): String? =

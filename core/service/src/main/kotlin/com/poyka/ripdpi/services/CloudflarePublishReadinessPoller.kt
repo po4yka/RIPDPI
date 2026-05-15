@@ -12,10 +12,10 @@ private const val CloudflarePublishMetricsReadyPath = "/ready"
 private const val CloudflarePublishReadyPollIntervalMs = 100L
 private const val CloudflarePublishReadyTimeoutMs = 7_500L
 
-internal class CloudflarePublishReadinessPoller
+internal open class CloudflarePublishReadinessPoller
     @Inject
     constructor() {
-        suspend fun waitForOriginReady(state: RunningCloudflarePublish) {
+        open suspend fun waitForOriginReady(state: RunningCloudflarePublish) {
             val deadline = System.currentTimeMillis() + CloudflarePublishReadyTimeoutMs
             while (System.currentTimeMillis() < deadline) {
                 if (!isCloudflareProcessAlive(state.originProcess.process)) {
@@ -30,7 +30,7 @@ internal class CloudflarePublishReadinessPoller
             throw IOException("Cloudflare origin helper readiness timed out")
         }
 
-        suspend fun waitForCloudflaredReady(state: RunningCloudflarePublish) {
+        open suspend fun waitForCloudflaredReady(state: RunningCloudflarePublish) {
             val deadline = System.currentTimeMillis() + CloudflarePublishReadyTimeoutMs
             while (System.currentTimeMillis() < deadline) {
                 if (!isCloudflareProcessAlive(state.cloudflaredProcess.process)) {

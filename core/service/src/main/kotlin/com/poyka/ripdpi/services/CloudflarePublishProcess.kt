@@ -34,7 +34,7 @@ internal data class RunningCloudflarePublish(
     @Volatile var originListenerAddress: String? = null,
 )
 
-internal class CloudflarePublishProcessSupervisor
+internal open class CloudflarePublishProcessSupervisor
     @Inject
     constructor(
         private val binaryExtractor: CloudflarePublishBinaryExtractor,
@@ -42,7 +42,7 @@ internal class CloudflarePublishProcessSupervisor
         private val launchPlanBuilder: CloudflaredLaunchPlanBuilder,
         private val outputReader: CloudflarePublishProcessOutputReader,
     ) {
-        fun launchOriginProcess(
+        open fun launchOriginProcess(
             config: ResolvedRipDpiRelayConfig,
             originSpec: CloudflareLocalOriginSpec,
             stateDir: File,
@@ -94,7 +94,7 @@ internal class CloudflarePublishProcessSupervisor
             )
         }
 
-        fun launchCloudflaredProcess(
+        open fun launchCloudflaredProcess(
             config: ResolvedRipDpiRelayConfig,
             originSpec: CloudflareLocalOriginSpec,
             metricsAddress: String,
@@ -140,7 +140,7 @@ internal class CloudflarePublishProcessSupervisor
             )
         }
 
-        fun stop(process: ManagedCloudflareProcess) {
+        open fun stop(process: ManagedCloudflareProcess) {
             process.outputThread.interrupt()
             process.process.destroy()
             if (!process.process.waitFor(CloudflareProcessStopTimeoutMs, TimeUnit.MILLISECONDS)) {

@@ -4,6 +4,7 @@ import android.content.Context
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
+import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import dagger.Binds
 import dagger.Module
@@ -20,6 +21,7 @@ import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,76 +35,86 @@ class CloudflarePublishManager
         private val readinessPoller: CloudflarePublishReadinessPoller,
         private val telemetryProjector: CloudflarePublishTelemetryProjector,
     ) {
+        private val sessionActive = AtomicBoolean(false)
+
         @Volatile private var running: RunningCloudflarePublish? = null
 
         suspend fun start(config: ResolvedRipDpiRelayConfig) {
             require(config.kind == com.poyka.ripdpi.data.RelayKindCloudflareTunnel) {
                 "Cloudflare publish runtime only supports Cloudflare Tunnel profiles"
             }
-            val originSpec = configParser.parseLocalOriginSpec(config.cloudflarePublishLocalOriginUrl)
-            val metricsPort = findLoopbackPort()
-            val metricsAddress = "127.0.0.1:$metricsPort"
-            val stateDir =
-                File(
-                    context.filesDir,
-                    "cloudflare-publish/${sanitizeSegment(config.profileId)}",
-                ).apply { mkdirs() }
-            val originReadySignal = CompletableDeferred<String>()
-            var runningState: RunningCloudflarePublish? = null
-            var pendingLastError: String? = null
-            var pendingFailureClass: String? = null
-            val originProcess =
-                processSupervisor.launchOriginProcess(
-                    config = config,
-                    originSpec = originSpec,
-                    stateDir = stateDir,
-                    readySignal = originReadySignal,
-                    onError = { message, failureClass ->
-                        runningState?.lastError = message
-                        runningState?.lastFailureClass = failureClass
-                        if (runningState == null) {
-                            pendingLastError = message
-                            pendingFailureClass = failureClass
-                        }
-                    },
-                )
-            runningState =
-                RunningCloudflarePublish(
-                    originProcess = originProcess,
-                    cloudflaredProcess =
-                        processSupervisor.launchCloudflaredProcess(
-                            config = config,
-                            originSpec = originSpec,
-                            metricsAddress = metricsAddress,
-                            stateDir = stateDir,
-                            lastErrorSink = { message, failureClass ->
-                                runningState?.lastError = message
-                                runningState?.lastFailureClass = failureClass
-                            },
-                            onRegisteredTunnelConnection = {
-                                running?.cloudflaredReady = true
-                            },
-                        ),
-                    metricsAddress = metricsAddress,
-                    originReadySignal = originReadySignal,
-                    originReady = false,
-                    cloudflaredReady = false,
-                )
-            val state = requireNotNull(runningState)
-            pendingLastError?.let { state.lastError = it }
-            pendingFailureClass?.let { state.lastFailureClass = it }
-            running = state
-            var ready = false
+            if (!sessionActive.compareAndSet(false, true)) {
+                throw NativeError.AlreadyRunning("CloudflarePublishManager")
+            }
             try {
-                readinessPoller.waitForOriginReady(state)
-                state.originReady = true
-                readinessPoller.waitForCloudflaredReady(state)
-                state.cloudflaredReady = true
-                ready = true
-            } finally {
-                if (!ready) {
-                    runCatching { stop() }
+                val originSpec = configParser.parseLocalOriginSpec(config.cloudflarePublishLocalOriginUrl)
+                val metricsPort = findLoopbackPort()
+                val metricsAddress = "127.0.0.1:$metricsPort"
+                val stateDir =
+                    File(
+                        context.filesDir,
+                        "cloudflare-publish/${sanitizeSegment(config.profileId)}",
+                    ).apply { mkdirs() }
+                val originReadySignal = CompletableDeferred<String>()
+                var runningState: RunningCloudflarePublish? = null
+                var pendingLastError: String? = null
+                var pendingFailureClass: String? = null
+                val originProcess =
+                    processSupervisor.launchOriginProcess(
+                        config = config,
+                        originSpec = originSpec,
+                        stateDir = stateDir,
+                        readySignal = originReadySignal,
+                        onError = { message, failureClass ->
+                            runningState?.lastError = message
+                            runningState?.lastFailureClass = failureClass
+                            if (runningState == null) {
+                                pendingLastError = message
+                                pendingFailureClass = failureClass
+                            }
+                        },
+                    )
+                runningState =
+                    RunningCloudflarePublish(
+                        originProcess = originProcess,
+                        cloudflaredProcess =
+                            processSupervisor.launchCloudflaredProcess(
+                                config = config,
+                                originSpec = originSpec,
+                                metricsAddress = metricsAddress,
+                                stateDir = stateDir,
+                                lastErrorSink = { message, failureClass ->
+                                    runningState?.lastError = message
+                                    runningState?.lastFailureClass = failureClass
+                                },
+                                onRegisteredTunnelConnection = {
+                                    running?.cloudflaredReady = true
+                                },
+                            ),
+                        metricsAddress = metricsAddress,
+                        originReadySignal = originReadySignal,
+                        originReady = false,
+                        cloudflaredReady = false,
+                    )
+                val state = requireNotNull(runningState)
+                pendingLastError?.let { state.lastError = it }
+                pendingFailureClass?.let { state.lastFailureClass = it }
+                running = state
+                var ready = false
+                try {
+                    readinessPoller.waitForOriginReady(state)
+                    state.originReady = true
+                    readinessPoller.waitForCloudflaredReady(state)
+                    state.cloudflaredReady = true
+                    ready = true
+                } finally {
+                    if (!ready) {
+                        runCatching { stop() }
+                    }
                 }
+            } catch (e: Exception) {
+                sessionActive.set(false)
+                throw e
             }
         }
 
@@ -130,6 +142,7 @@ class CloudflarePublishManager
             withContext(Dispatchers.IO) {
                 val active = running
                 running = null
+                sessionActive.set(false)
                 if (active == null) {
                     return@withContext
                 }
