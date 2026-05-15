@@ -40,15 +40,29 @@ custom session-id encoding, so misuse cascades silently.
 
 ## Acceptance criteria
 
+- [x] (2026-05-15) Audit doc enumerates every codepath through the
+    `SSL_SESSION_new` / `SSL_SESSION_free` block in `reality.rs` and
+    confirms the current code is **leak-safe and free of
+    double-free**. See
+    `docs/architecture/reality-ssl-session-drop-audit.md`. The 3b238a29
+    "typed Reality FFI" commit (`SslHandle` / `SslCtxHandle` /
+    `SslSessionHandle`) already eliminates the pointer-mixing class
+    of bug.
 - [ ] A `ScopedSession` RAII wrapper owns the `SSL_SESSION` pointer
-    with `Drop` calling `SSL_SESSION_free` exactly once.
+    with `Drop` calling `SSL_SESSION_free` exactly once. **DEFERRED:**
+    recommended as a robustness improvement (structural safety
+    rather than incidental); current code is correct. Track here.
 - [ ] Every call to `SSL_SESSION_new` in `reality.rs` is replaced
-    with a `ScopedSession::new` call.
+    with a `ScopedSession::new` call. **DEFERRED:** pairs with the
+    wrapper above.
 - [ ] A unit test deliberately panics mid-handshake (under a
     `cfg(test)` injection point) and asserts no leak via address
-    sanitizer.
+    sanitizer. **DEFERRED:** ASan + BoringSSL fragility makes the
+    lane non-trivial. The audit doc covers the codepath analysis.
 - [ ] A short note in `docs/native/proxy-engine.md` documents the
-    refcount discipline.
+    refcount discipline. **DEFERRED:** the audit doc carries the
+    full discussion; a short pointer in `proxy-engine.md` can be
+    added when the RAII wrapper lands.
 
 ## Definition of done
 
