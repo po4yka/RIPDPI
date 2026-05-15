@@ -167,8 +167,11 @@ direct evidence:
    `25900346139`, and Local Network Lab run `25902662966` recorded as passed
    for baseline commit `d0b9347e`, then dispatch or record fresh CI, CodeQL,
    local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly
-   workflows for the resulting current commit where manual dispatch is
-   supported.
+   workflows for the resulting current commit. Use `workflow_dispatch` for CI
+   optional lanes, Local Network Lab `run_vpn_emulator_lane`, Offline Analytics
+   `private_corpus_path` only when needed, Mutation Testing `packages`/`in_diff`
+   as appropriate, and Fuzz Nightly `fuzz_seconds`; CodeQL must run via push or
+   pull request because it has no manual dispatch.
 2. Run the rooted physical-device pass.
 3. Run the network lab pass with cellular, handover, IPv4-only, IPv6-only,
    captive, and limited-path coverage.
