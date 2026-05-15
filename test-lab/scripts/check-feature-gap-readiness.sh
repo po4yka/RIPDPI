@@ -5,6 +5,7 @@ lab_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 artifact_path="$lab_root/artifacts/feature-gap-readiness.json"
 adb_bin="${ADB:-adb}"
 relay_matrix_config="${RIPDPI_RELAY_MATRIX_CONFIG:-}"
+remote_compare_ref="${RIPDPI_REMOTE_COMPARE_REF:-origin/main}"
 
 usage() {
   cat <<USAGE
@@ -145,11 +146,13 @@ else
   add_check "production_relay_matrix" "blocked" "true" "Set RIPDPI_RELAY_MATRIX_CONFIG to an operator-provided provider matrix before running production relay checks. Template: test-lab/relay/provider-matrix.example.json."
 fi
 
-ahead_count="$(git -C "$lab_root/.." rev-list --count origin/main..HEAD 2>/dev/null || printf 'unknown')"
+ahead_count="$(git -C "$lab_root/.." rev-list --count "$remote_compare_ref..HEAD" 2>/dev/null || printf 'unknown')"
 if [[ "$ahead_count" == "0" ]]; then
-  add_check "remote_workflow_confirmation" "manual" "true" "Local branch is not ahead of origin/main; inspect GitHub workflow status for the pushed or merged commit."
+  add_check "remote_workflow_confirmation" "manual" "true" "Local branch is not ahead of $remote_compare_ref; inspect GitHub workflow status for the pushed or merged commit."
+elif [[ "$ahead_count" == "unknown" ]]; then
+  add_check "remote_workflow_confirmation" "blocked" "true" "Could not compare the local branch to $remote_compare_ref; fetch the remote ref or run from a git worktree before sign-off."
 else
-  add_check "remote_workflow_confirmation" "blocked" "true" "Local branch is ahead of origin/main; publish a review branch, complete pull request checks/reviews, merge to main, then confirm fresh workflows before sign-off."
+  add_check "remote_workflow_confirmation" "blocked" "true" "Local branch is ahead of $remote_compare_ref; publish a review branch, complete pull request checks/reviews, merge to main, then confirm fresh workflows before sign-off."
 fi
 
 mkdir -p "$(dirname "$artifact_path")"
