@@ -14,6 +14,7 @@ invalid_required_json="$tmpdir/feature-gap-readiness-invalid-required.json"
 unexpected_json="$tmpdir/feature-gap-readiness-unexpected.json"
 relay_json="$tmpdir/feature-gap-readiness-with-relay.json"
 unknown_json="$tmpdir/feature-gap-readiness-unknown-remote.json"
+atomic_json="$tmpdir/feature-gap-readiness-atomic.json"
 validator="$tmpdir/validate-readiness.py"
 
 "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
@@ -92,6 +93,7 @@ if extra:
 PY
 
 python3 "$validator" "$default_json" "$tmpdir/signoff-required-readiness.txt"
+cp "$default_json" "$atomic_json"
 
 python3 - "$default_json" <<'PY'
 import json
@@ -120,6 +122,20 @@ if (
 if re.search(r"\b[0-9a-f]{7,40}\b", message) or re.search(r"\bby \d+ commit", message):
     raise SystemExit(f"remote workflow message is commit-specific: {message!r}")
 PY
+
+pids=()
+for _ in 1 2 3 4 5; do
+  "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
+    --output "$atomic_json" >/dev/null &
+  pids+=("$!")
+done
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  python3 "$validator" "$atomic_json" "$tmpdir/signoff-required-readiness.txt"
+done
+for pid in "${pids[@]}"; do
+  wait "$pid"
+done
+python3 "$validator" "$atomic_json" "$tmpdir/signoff-required-readiness.txt"
 
 make_fixture() {
   local output="$1"

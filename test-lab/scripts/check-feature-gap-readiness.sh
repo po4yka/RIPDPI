@@ -165,7 +165,9 @@ else
   add_check "remote_workflow_confirmation" "blocked" "true" "Local branch is ahead of $remote_compare_ref; publish a review branch, complete pull request checks/reviews, merge to main, then confirm fresh workflows before sign-off."
 fi
 
-mkdir -p "$(dirname "$artifact_path")"
+artifact_dir="$(dirname "$artifact_path")"
+mkdir -p "$artifact_dir"
+artifact_tmp="$(mktemp "$artifact_dir/.feature-gap-readiness.XXXXXX")"
 {
   printf '{\n'
   printf '  "generatedAtEpoch": %s,\n' "$(date +%s)"
@@ -183,6 +185,7 @@ mkdir -p "$(dirname "$artifact_path")"
   done
   printf '\n  ]\n'
   printf '}\n'
-} > "$artifact_path"
+} > "$artifact_tmp"
 
+mv -f "$artifact_tmp" "$artifact_path"
 cat "$artifact_path"
