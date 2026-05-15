@@ -1,7 +1,7 @@
 ---
 title: Refresh Telegram DC IPv4 range table and add quarterly review
 type: task
-status: backlog
+status: done
 area: rust-native
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-15
 updated: 2026-05-15
 ---
 
-- [ ] #task Refresh Telegram DC IPv4 range table and add quarterly review #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [x] #task Refresh Telegram DC IPv4 range table and add quarterly review #repo/RIPDPI #area/rust-native #status/done 🔼
 
 ## Goal contract
 

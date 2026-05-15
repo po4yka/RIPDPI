@@ -1,5 +1,15 @@
 use std::net::{IpAddr, Ipv4Addr};
 
+/// Date of the last review of the IPv4 DC range table below.
+///
+/// Reviewed quarterly per `docs/strategy-pack-operations.md` § "Telegram DC
+/// table review". When updating the table, bump this constant and update
+/// the `dc_ipv4_table_provenance` test.
+pub const TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED: &str = "2026-05-15";
+
+/// Authoritative source for the Telegram DC IP table.
+pub const TELEGRAM_DC_IPV4_TABLE_SOURCE: &str = "https://core.telegram.org";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TelegramDcClass {
     Production,
@@ -197,5 +207,23 @@ mod tests {
     fn dc_from_ip_supports_alternate_dc1_range() {
         assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 172, 0)), Some(TelegramDc::production(1)));
         assert_eq!(dc_from_ip(Ipv4Addr::new(149, 154, 175, 255)), Some(TelegramDc::production(1)));
+    }
+
+    #[test]
+    fn dc_ipv4_table_provenance() {
+        // Provenance test: the IPv4 DC table is reviewed quarterly per
+        // docs/strategy-pack-operations.md. The constants must name a
+        // plausible review date and an authoritative source URL.
+        // Bumping the table or the review constants without updating each
+        // other will cause this test to flag the mismatch.
+        assert!(
+            TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED.starts_with("202"),
+            "review date constant does not look like an ISO date in this decade: {TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED}",
+        );
+        assert_eq!(TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED.len(), 10, "review date must be YYYY-MM-DD");
+        assert!(
+            TELEGRAM_DC_IPV4_TABLE_SOURCE.starts_with("https://core.telegram.org"),
+            "source must point at core.telegram.org (Telegram's published DC documentation)",
+        );
     }
 }

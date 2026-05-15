@@ -14,32 +14,61 @@ use x25519_dalek::{EphemeralSecret, PublicKey};
 
 use crate::config::VlessRealityConfig;
 
+// Opaque newtypes for the BoringSSL handles we touch via FFI.
+//
+// `boring` v5 does not expose the symbols below in its safe API, and
+// `boring-sys` is intentionally not pulled in as a direct dependency to keep
+// this crate decoupled from the vendor bindgen output. We declare the BoringSSL
+// types as zero-sized repr(C) structs so the `extern "C"` signatures are
+// type-checked: an `SSL *` cannot be passed where an `SSL_SESSION *` is
+// expected.
+//
+// `boring::ssl::Ssl::as_ptr()` returns `*mut boring_sys::SSL` which is also a
+// repr(C) opaque type; casting between two opaque types of equal layout is
+// sound, and the cast is performed explicitly at each call site.
+#[repr(C)]
+struct SslHandle {
+    _opaque: [u8; 0],
+}
+
+#[repr(C)]
+struct SslCtxHandle {
+    _opaque: [u8; 0],
+}
+
+#[repr(C)]
+struct SslSessionHandle {
+    _opaque: [u8; 0],
+}
+
 // BoringSSL FFI functions not publicly re-exported by the boring crate.
-// boring-sys uses generated bindings; SSL_set_client_random, SSL_SESSION_new,
-// SSL_SESSION_set1_id are absent from those bindings, and SSL_set_session /
-// SSL_SESSION_free are present but only accessible via boring's private ffi alias.
-// Declaring all five here avoids a boring-sys direct dependency.
-// SAFETY: These are stable BoringSSL ABI with correct signatures per boringssl/ssl.h.
+// SAFETY: These signatures match `boringssl/include/openssl/ssl.h`:
+//   int SSL_set_client_random(SSL *ssl, const uint8_t *random, size_t len);
+//   SSL_SESSION *SSL_SESSION_new(const SSL_CTX *ctx);
+//   int SSL_SESSION_set1_id(SSL_SESSION *session, const uint8_t *sid, unsigned sid_len);
+//   int SSL_set_session(SSL *ssl, SSL_SESSION *session);
+//   void SSL_SESSION_free(SSL_SESSION *session);
+//   SSL_CTX *SSL_get_SSL_CTX(const SSL *ssl);
 extern "C" {
     /// Forces the ClientHello random field to the provided bytes.
     /// Returns 1 on success, 0 on failure.
-    fn SSL_set_client_random(ssl: *mut std::ffi::c_void, random: *const u8, random_len: usize) -> std::ffi::c_int;
+    fn SSL_set_client_random(ssl: *mut SslHandle, random: *const u8, random_len: usize) -> std::ffi::c_int;
 
-    /// Allocates a new SSL_SESSION object. |ctx| must not be null. Returns null on allocation failure.
-    fn SSL_SESSION_new(ctx: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
+    /// Allocates a new SSL_SESSION object. `ctx` must not be null. Returns null on allocation failure.
+    fn SSL_SESSION_new(ctx: *const SslCtxHandle) -> *mut SslSessionHandle;
 
     /// Sets the session ID on an SSL_SESSION. Returns 1 on success, 0 on failure.
-    fn SSL_SESSION_set1_id(session: *mut std::ffi::c_void, sid: *const u8, sid_len: u32) -> std::ffi::c_int;
+    fn SSL_SESSION_set1_id(session: *mut SslSessionHandle, sid: *const u8, sid_len: u32) -> std::ffi::c_int;
 
     /// Associates a session with an SSL object (increments session refcount).
     /// Returns 1 on success, 0 on failure.
-    fn SSL_set_session(ssl: *mut std::ffi::c_void, session: *mut std::ffi::c_void) -> std::ffi::c_int;
+    fn SSL_set_session(ssl: *mut SslHandle, session: *mut SslSessionHandle) -> std::ffi::c_int;
 
     /// Decrements the refcount of a session, freeing it when it reaches zero.
-    fn SSL_SESSION_free(session: *mut std::ffi::c_void);
+    fn SSL_SESSION_free(session: *mut SslSessionHandle);
 
     /// Returns the SSL_CTX associated with the given SSL object.
-    fn SSL_get_SSL_CTX(ssl: *const std::ffi::c_void) -> *mut std::ffi::c_void;
+    fn SSL_get_SSL_CTX(ssl: *const SslHandle) -> *mut SslCtxHandle;
 }
 
 /// Connect to a VLESS+Reality server over TCP, performing the Reality TLS handshake.
@@ -94,9 +123,8 @@ where
     // 5. Inject client_random into the ClientHello random field.
     // SAFETY: ssl.as_ptr() is valid for the lifetime of ssl; SSL_set_client_random
     // copies the bytes internally and does not retain the pointer after return.
-    let ret = unsafe {
-        SSL_set_client_random(ssl.as_ptr().cast::<std::ffi::c_void>(), client_random.as_ptr(), client_random.len())
-    };
+    let ssl_handle = ssl.as_ptr().cast::<SslHandle>();
+    let ret = unsafe { SSL_set_client_random(ssl_handle, client_random.as_ptr(), client_random.len()) };
     if ret != 1 {
         return Err(io::Error::other("SSL_set_client_random failed"));
     }
@@ -105,14 +133,15 @@ where
     // SAFETY: all five FFI functions are called per their documented BoringSSL contract.
     // SSL_SESSION_new returns an owned pointer; SSL_set_session increments its refcount;
     // SSL_SESSION_free decrements it, so the session is freed on the next SSL_free.
+    let sid_len = u32::try_from(session_id.len()).map_err(|_| io::Error::other("session_id too large"))?;
     unsafe {
-        let ssl_ctx = SSL_get_SSL_CTX(ssl.as_ptr().cast::<std::ffi::c_void>());
-        let sess = SSL_SESSION_new(ssl_ctx);
+        let ssl_ctx = SSL_get_SSL_CTX(ssl_handle.cast_const());
+        let sess = SSL_SESSION_new(ssl_ctx.cast_const());
         if sess.is_null() {
             return Err(io::Error::other("SSL_SESSION_new failed"));
         }
-        let id_ret = SSL_SESSION_set1_id(sess, session_id.as_ptr(), session_id.len() as u32);
-        let set_ret = SSL_set_session(ssl.as_ptr().cast::<std::ffi::c_void>(), sess);
+        let id_ret = SSL_SESSION_set1_id(sess, session_id.as_ptr(), sid_len);
+        let set_ret = SSL_set_session(ssl_handle, sess);
         SSL_SESSION_free(sess);
         if id_ret != 1 || set_ret != 1 {
             return Err(io::Error::other("Reality session_id injection failed"));
