@@ -58,13 +58,18 @@ pub enum WsTunnelDecision {
 /// Classify whether a target IP should be tunneled through WebSocket.
 ///
 /// Returns `Tunnel(dc)` for known Telegram DC IPs, `Passthrough` otherwise.
+/// IPv6 dispatch uses `dc::dc_from_ipv6` against Telegram's published
+/// v6 supernets.
 pub fn classify_target(ip: IpAddr) -> WsTunnelDecision {
     match ip {
         IpAddr::V4(v4) => match dc::dc_from_ip(v4) {
             Some(dc) => WsTunnelDecision::Tunnel(dc),
             None => WsTunnelDecision::Passthrough,
         },
-        IpAddr::V6(_) => WsTunnelDecision::Passthrough,
+        IpAddr::V6(v6) => match dc::dc_from_ipv6(v6) {
+            Some(dc) => WsTunnelDecision::Tunnel(dc),
+            None => WsTunnelDecision::Passthrough,
+        },
     }
 }
 
@@ -151,10 +156,36 @@ mod tests {
     }
 
     #[test]
-    fn classify_target_returns_passthrough_for_ipv6() {
-        let decision = classify_target(IpAddr::V6(std::net::Ipv6Addr::LOCALHOST));
+    fn classify_target_returns_passthrough_for_non_telegram_ipv6() {
+        // Localhost and a non-Telegram public IPv6 must passthrough.
+        let cases = [
+            "::1",
+            "2001:4860:4860::8888", // Google Public DNS
+            "2606:4700:4700::1111", // Cloudflare DNS
+        ];
+        for s in cases {
+            let ip: IpAddr = s.parse().expect("parse v6");
+            assert!(matches!(classify_target(ip), WsTunnelDecision::Passthrough), "expected Passthrough for {s}");
+        }
+    }
 
-        assert!(matches!(decision, WsTunnelDecision::Passthrough));
+    #[test]
+    fn classify_target_tunnels_known_telegram_ipv6_supernets() {
+        // 2001:67c:4e8::/48 -> Amsterdam (DC2)
+        let amsterdam: IpAddr = "2001:67c:4e8:0:1::1".parse().expect("parse v6");
+        match classify_target(amsterdam) {
+            WsTunnelDecision::Tunnel(dc) => assert_eq!(dc, TelegramDc::production(2)),
+            WsTunnelDecision::Passthrough => panic!("expected Tunnel for Amsterdam v6"),
+        }
+
+        // 2001:b28:f23c..f23f -> Miami / Singapore (DC3 representative)
+        for prefix in ["2001:b28:f23c::1", "2001:b28:f23d::abc", "2001:b28:f23f::dead:beef"] {
+            let ip: IpAddr = prefix.parse().expect("parse v6");
+            match classify_target(ip) {
+                WsTunnelDecision::Tunnel(dc) => assert_eq!(dc, TelegramDc::production(3), "wrong DC for {prefix}"),
+                WsTunnelDecision::Passthrough => panic!("expected Tunnel for {prefix}"),
+            }
+        }
     }
 
     #[test]

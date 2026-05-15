@@ -1,7 +1,7 @@
 ---
 title: Add IPv6 Telegram DC classification to WS tunnel
 type: task
-status: backlog
+status: done
 area: rust-native
 priority: high
 owner: unassigned
@@ -12,7 +12,26 @@ created: 2026-05-15
 updated: 2026-05-15
 ---
 
-- [ ] #task Add IPv6 Telegram DC classification to WS tunnel #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [x] #task Add IPv6 Telegram DC classification to WS tunnel #repo/RIPDPI #area/rust-native #status/done 🔼
+
+## Implementation summary (2026-05-15)
+
+`dc::dc_from_ipv6` recognises the two published Telegram IPv6
+supernets (`2001:67c:4e8::/48` → DC2 Amsterdam,
+`2001:b28:f23c::/46` covering f23c/f23d/f23e/f23f → DC3 Miami/Singapore
+representative). `classify_target` dispatches v6 through it.
+`is_telegram_ip` no longer returns blanket false on v6.
+
+Tests added:
+
+- `classify_target_returns_passthrough_for_non_telegram_ipv6`
+- `classify_target_tunnels_known_telegram_ipv6_supernets`
+- `is_telegram_ip_v6_recognises_known_supernets`
+- `dc_from_ipv6_returns_none_for_unrelated_supernets`
+
+The IPv6 supernet table shares the IPv4 table's quarterly review
+obligation documented in
+`docs/strategy-pack-operations.md` § "Telegram DC table review".
 
 ## Goal contract
 

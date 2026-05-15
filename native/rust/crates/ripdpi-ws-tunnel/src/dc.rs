@@ -1,4 +1,4 @@
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// Date of the last review of the IPv4 DC range table below.
 ///
@@ -98,11 +98,44 @@ pub fn dc_from_ip(ip: Ipv4Addr) -> Option<TelegramDc> {
     Some(TelegramDc::production(number))
 }
 
+/// Map a known Telegram IPv6 address to its production DC.
+///
+/// The IPv6 supernets recognised here are derived from Telegram's
+/// published infrastructure documentation (`https://core.telegram.org`)
+/// and are stable across the IPv4 → IPv6 dual-stack rollout:
+///
+/// - `2001:67c:4e8::/48` — Amsterdam (DC2 / DC4 primary v6 prefix)
+/// - `2001:b28:f23c::/46` — Miami / Singapore (DC1 / DC3 / DC5 v6 prefix family)
+///
+/// The IPv6 mapping is intentionally conservative: we treat the
+/// supernet as Telegram-owned and dispatch to a representative
+/// production DC (DC2 for Amsterdam-prefix, DC3 for Miami/Singapore
+/// prefix). This mirrors the IPv4 fallback behaviour in `dc_from_ip`
+/// for unmatched sub-prefixes within Telegram-owned ranges.
+///
+/// Provenance is tracked alongside the IPv4 table via
+/// `TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED` and the
+/// `dc_ipv4_table_provenance` test; both v4 and v6 share the same
+/// quarterly review obligation documented in
+/// `docs/strategy-pack-operations.md` § "Telegram DC table review".
+pub fn dc_from_ipv6(ip: Ipv6Addr) -> Option<TelegramDc> {
+    let segments = ip.segments();
+    // 2001:67c:4e8::/48 — Amsterdam (DC2/DC4)
+    if segments[0] == 0x2001 && segments[1] == 0x067c && segments[2] == 0x04e8 {
+        return Some(TelegramDc::production(2));
+    }
+    // 2001:b28:f23c::/46 — Miami / Singapore (covers f23c, f23d, f23e, f23f)
+    if segments[0] == 0x2001 && segments[1] == 0x0b28 && (0xf23c..=0xf23f).contains(&segments[2]) {
+        return Some(TelegramDc::production(3));
+    }
+    None
+}
+
 /// Check whether an IP address belongs to a known Telegram DC range.
 pub fn is_telegram_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => dc_from_ip(v4).is_some(),
-        IpAddr::V6(_) => false,
+        IpAddr::V6(v6) => dc_from_ipv6(v6).is_some(),
     }
 }
 
@@ -179,9 +212,25 @@ mod tests {
     }
 
     #[test]
-    fn is_telegram_ip_v6_returns_false() {
-        let v6: IpAddr = "::1".parse().expect("parse v6");
-        assert!(!is_telegram_ip(v6));
+    fn is_telegram_ip_v6_recognises_known_supernets() {
+        // Telegram-owned supernets must classify as Telegram.
+        for s in ["2001:67c:4e8::1", "2001:b28:f23c::1", "2001:b28:f23f::dead"] {
+            let v6: IpAddr = s.parse().expect("parse v6");
+            assert!(is_telegram_ip(v6), "expected Telegram-owned for {s}");
+        }
+        // Non-Telegram v6 (loopback, public DNS) must classify as non-Telegram.
+        for s in ["::1", "2001:4860:4860::8888", "2606:4700:4700::1111"] {
+            let v6: IpAddr = s.parse().expect("parse v6");
+            assert!(!is_telegram_ip(v6), "expected non-Telegram for {s}");
+        }
+    }
+
+    #[test]
+    fn dc_from_ipv6_returns_none_for_unrelated_supernets() {
+        // A v6 in a Telegram-adjacent block that isn't actually published
+        // by Telegram must not match.
+        let unrelated: Ipv6Addr = "2001:b28:f240::1".parse().expect("parse v6");
+        assert_eq!(dc_from_ipv6(unrelated), None);
     }
 
     #[test]
