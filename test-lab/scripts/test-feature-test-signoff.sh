@@ -9,6 +9,7 @@ trap 'rm -rf "$tmpdir"' EXIT
 complete_audit="$tmpdir/complete-audit.md"
 incomplete_audit="$tmpdir/incomplete-audit.md"
 ready_json="$tmpdir/ready.json"
+missing_required_json="$tmpdir/missing-required.json"
 blocked_json="$tmpdir/blocked.json"
 
 cat > "$complete_audit" <<'EOF'
@@ -35,7 +36,21 @@ cat > "$ready_json" <<'EOF'
 {
   "checks": [
     {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "rooted_physical_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "manual_talkback", "status": "ready", "required": true, "message": "ready"},
+    {"name": "physical_network_handover", "status": "ready", "required": true, "message": "ready"},
+    {"name": "routed_netem_vm", "status": "ready", "required": true, "message": "ready"},
+    {"name": "production_relay_matrix", "status": "ready", "required": true, "message": "ready"},
+    {"name": "remote_workflow_confirmation", "status": "ready", "required": true, "message": "ready"},
     {"name": "optional_note", "status": "blocked", "required": false, "message": "ignored"}
+  ]
+}
+EOF
+
+cat > "$missing_required_json" <<'EOF'
+{
+  "checks": [
+    {"name": "android_device", "status": "ready", "required": true, "message": "ready"}
   ]
 }
 EOF
@@ -69,6 +84,23 @@ grep -F 'completion audit explicitly says not complete' "$tmpdir/blocked.out"
 grep -F 'completion audit still contains Partial rows' "$tmpdir/blocked.out"
 grep -F 'manual_talkback is blocked: TalkBack inactive' "$tmpdir/blocked.out"
 grep -F 'physical_network_handover is manual: Handover needs operator run' "$tmpdir/blocked.out"
+
+set +e
+"$guard" --audit "$complete_audit" --readiness "$missing_required_json" \
+  > "$tmpdir/missing-required.out"
+missing_required_status=$?
+set -e
+
+if [[ "$missing_required_status" -ne 1 ]]; then
+  echo "Expected incomplete readiness artifact to exit 1, got $missing_required_status" >&2
+  cat "$tmpdir/missing-required.out" >&2
+  exit 1
+fi
+
+grep -F 'manual_talkback is missing: required readiness check is absent from the artifact' \
+  "$tmpdir/missing-required.out"
+grep -F 'remote_workflow_confirmation is missing: required readiness check is absent from the artifact' \
+  "$tmpdir/missing-required.out"
 
 set +e
 "$guard" --audit "$complete_audit" --readiness "$tmpdir/missing.json" \

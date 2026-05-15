@@ -58,6 +58,15 @@ elif [[ ! -f "$readiness_path" ]]; then
 fi
 
 failures=()
+required_readiness_checks=(
+  android_device
+  rooted_physical_device
+  manual_talkback
+  physical_network_handover
+  routed_netem_vm
+  production_relay_matrix
+  remote_workflow_confirmation
+)
 
 if ! grep -Fq 'Status: **complete**.' "$audit_path"; then
   failures+=("completion audit is not marked complete")
@@ -76,21 +85,32 @@ while IFS=$'\t' read -r name status message; do
     failures+=("$name is $status: $message")
   fi
 done < <(
-  python3 - "$readiness_path" <<'PY'
+  python3 - "$readiness_path" "${required_readiness_checks[@]}" <<'PY'
 import json
 import sys
 
 with open(sys.argv[1], encoding="utf-8") as handle:
     data = json.load(handle)
 
+required_names = set(sys.argv[2:])
+seen_required = set()
 for check in data.get("checks", []):
     if check.get("required") is True:
+        seen_required.add(check.get("name", "unknown"))
         print(
             check.get("name", "unknown"),
             check.get("status", "unknown"),
             check.get("message", ""),
             sep="\t",
         )
+
+for name in sorted(required_names - seen_required):
+    print(
+        name,
+        "missing",
+        "required readiness check is absent from the artifact",
+        sep="\t",
+    )
 PY
 )
 
