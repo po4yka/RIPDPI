@@ -95,6 +95,13 @@ repository and reference only redacted relay IDs here.
 
 ## Remote Workflows
 
+| Review item | URL / ID | Commit | Result |
+| --- | --- | --- | --- |
+| Review branch | | | |
+| Pull request | | | |
+| Required PR checks | | | |
+| Required reviews / thread resolution | | | |
+
 | Workflow | Run URL / ID | Commit | Result |
 | --- | --- | --- | --- |
 | CI | | | |
