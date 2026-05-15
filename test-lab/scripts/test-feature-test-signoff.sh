@@ -12,6 +12,8 @@ audit_remaining_work="$tmpdir/audit-remaining-work.md"
 incomplete_audit="$tmpdir/incomplete-audit.md"
 ready_json="$tmpdir/ready.json"
 stale_json="$tmpdir/stale.json"
+missing_timestamp_json="$tmpdir/missing-timestamp.json"
+future_json="$tmpdir/future.json"
 missing_required_json="$tmpdir/missing-required.json"
 duplicate_required_json="$tmpdir/duplicate-required.json"
 invalid_status_json="$tmpdir/invalid-status.json"
@@ -96,6 +98,35 @@ EOF
 cat > "$stale_json" <<'EOF'
 {
   "generatedAtEpoch": 1,
+  "checks": [
+    {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "rooted_physical_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "manual_talkback", "status": "ready", "required": true, "message": "ready"},
+    {"name": "physical_network_handover", "status": "ready", "required": true, "message": "ready"},
+    {"name": "routed_netem_vm", "status": "ready", "required": true, "message": "ready"},
+    {"name": "production_relay_matrix", "status": "ready", "required": true, "message": "ready"},
+    {"name": "remote_workflow_confirmation", "status": "ready", "required": true, "message": "ready"}
+  ]
+}
+EOF
+
+cat > "$missing_timestamp_json" <<'EOF'
+{
+  "checks": [
+    {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "rooted_physical_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "manual_talkback", "status": "ready", "required": true, "message": "ready"},
+    {"name": "physical_network_handover", "status": "ready", "required": true, "message": "ready"},
+    {"name": "routed_netem_vm", "status": "ready", "required": true, "message": "ready"},
+    {"name": "production_relay_matrix", "status": "ready", "required": true, "message": "ready"},
+    {"name": "remote_workflow_confirmation", "status": "ready", "required": true, "message": "ready"}
+  ]
+}
+EOF
+
+cat > "$future_json" <<EOF
+{
+  "generatedAtEpoch": $((current_epoch + 600)),
   "checks": [
     {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
     {"name": "rooted_physical_device", "status": "ready", "required": true, "message": "ready"},
@@ -310,6 +341,36 @@ if [[ "$stale_status" -ne 1 ]]; then
 fi
 
 grep -F 'readiness_artifact is stale: generatedAtEpoch is' "$tmpdir/stale.out"
+
+set +e
+"$guard" --audit "$complete_audit" --readiness "$missing_timestamp_json" \
+  > "$tmpdir/missing-timestamp.out"
+missing_timestamp_status=$?
+set -e
+
+if [[ "$missing_timestamp_status" -ne 1 ]]; then
+  echo "Expected missing readiness timestamp to exit 1, got $missing_timestamp_status" >&2
+  cat "$tmpdir/missing-timestamp.out" >&2
+  exit 1
+fi
+
+grep -F 'readiness_artifact is invalid: generatedAtEpoch must be an integer' \
+  "$tmpdir/missing-timestamp.out"
+
+set +e
+"$guard" --audit "$complete_audit" --readiness "$future_json" \
+  > "$tmpdir/future.out"
+future_status=$?
+set -e
+
+if [[ "$future_status" -ne 1 ]]; then
+  echo "Expected future readiness timestamp to exit 1, got $future_status" >&2
+  cat "$tmpdir/future.out" >&2
+  exit 1
+fi
+
+grep -F 'readiness_artifact is invalid: generatedAtEpoch is in the future' \
+  "$tmpdir/future.out"
 
 set +e
 "$guard" --audit "$audit_remaining_work" --readiness "$ready_json" \
