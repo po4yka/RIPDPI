@@ -1,18 +1,36 @@
 ---
 title: Tag protocol contract fixtures by upstream version
 type: task
-status: backlog
+status: blocked
 area: testing
 priority: medium
 owner: unassigned
 parent: null
 blocks: []
-blocked_by: [add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols]
+blocked_by: [add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols, add-hysteria2-salamander-obfuscation-conformance-fixtures, add-vless-mux-conformance-tests-against-xray-core]
 created: 2026-05-15
 updated: 2026-05-15
 ---
 
-- [ ] #task Tag protocol contract fixtures by upstream version #repo/RIPDPI #area/testing #status/backlog 🔼
+## Blocker (2026-05-15)
+
+The `contract-fixtures/` and `diagnostics-contract-fixtures/` trees
+currently hold only schema-level JSON contracts (proxy/diagnostics
+field shapes, TLS template acceptance corpora). There are **no
+per-protocol wire-format fixtures** to tag yet. The fixture-tagging
+work is well-defined but depends on those fixtures existing first:
+
+- [[add-hysteria2-salamander-obfuscation-conformance-fixtures]]
+  produces Salamander wire goldens.
+- [[add-vless-mux-conformance-tests-against-xray-core]] produces
+  VLESS-mux frame goldens.
+
+Once either lands, this task unblocks and the directory layout +
+CI check can be added. The SPEC_VERSION.md pinning prerequisite
+(`add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols`)
+is already complete; tag values come from those files.
+
+- [ ] #task Tag protocol contract fixtures by upstream version #repo/RIPDPI #area/testing #status/blocked 🔼
 
 ## Goal contract
 
