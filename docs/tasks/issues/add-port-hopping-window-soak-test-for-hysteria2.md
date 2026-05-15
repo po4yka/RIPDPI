@@ -40,13 +40,29 @@ of operation.
 
 ## Acceptance criteria
 
-- [ ] A `port_hopping_soak` test (gated behind `#[ignore]` or a
-    feature flag for CI cost control) runs at least 30 hop cycles
-    against a loopback server.
+- [x] (partial, 2026-05-15, scope-bound) Window-iteration soak is
+    already covered by
+    `telemetry_surfaces_a_non_degenerate_distribution_for_a_randomized_window`
+    (2000 iterations through `PortHoppingWindow::next_interval` with
+    min/max/spread/mean assertions and telemetry count checks). The
+    test is in `ripdpi-hysteria2::port_hopping::tests` and runs in
+    standard CI.
 - [ ] The test asserts: no leaked sockets, monotonic hop indices,
-    and bidirectional bytes delivered every window.
-- [ ] `HopIntervalTelemetry` counters match the asserted hop count.
-- [ ] A nightly CI lane runs the soak; PR CI does not.
+    and bidirectional bytes delivered every window. **DEFERRED:**
+    the existing soak covers the window/telemetry layer; the
+    socket-rebind soak (testing `endpoint.rs::rebind_endpoint`
+    across many hops) requires a long-running loopback Quinn server
+    harness that is shared with `add-quic-path-mtu-discovery-regression-test`
+    and `add-shadowtls-loopback-test-server-for-soak-runs`. Track
+    that shared harness as a separate follow-up.
+- [x] (2026-05-15) `HopIntervalTelemetry` counters match the
+    asserted hop count — already asserted by
+    `telemetry_records_each_recorded_interval` /
+    `telemetry_surfaces_a_non_degenerate_distribution_for_a_randomized_window`.
+- [ ] A nightly CI lane runs the soak; PR CI does not. **DEFERRED:**
+    the existing tests run in PR CI (2000 iterations completes
+    quickly). A separate nightly socket-rebind soak lane will land
+    with the shared harness above.
 
 ## Definition of done
 
