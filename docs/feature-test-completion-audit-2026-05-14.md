@@ -76,9 +76,10 @@ available in the current local lab.
   the refreshed architecture-health and native-hotspot gates, and the
   local-network-lab validation-only block passed. The sign-off runbook now also
   documents the operator-reviewed readiness JSON input, requires evidence-backed
-  `ready` status changes, and the manual evidence template captures that JSON
-  plus the final guard command/result. Commit hooks passed for the latest
-  native/Appium/test-lab/testing-docs commits.
+  `ready` status changes, and the manual evidence template captures review
+  branch, pull request, required checks/reviews, readiness JSON, plus the final
+  guard command/result. Commit hooks passed for the latest native/Appium/test-lab/testing-docs
+  commits.
 - Remote state: `origin/main` now points at `342a169a`. CI run `25875963396`
   is not a green sign-off because it completed with failed jobs in
   `architecture-health`, `verify-roborazzi`, `rust-workspace-tests`, and
