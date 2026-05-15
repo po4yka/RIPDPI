@@ -130,6 +130,87 @@ if documented != required:
     )
 PY
 
+python3 - "$repo_root/docs/feature-test-completion-audit-2026-05-14.md" \
+  "$repo_root/docs/feature-test-evidence-2026-05-14.md" \
+  "$tmpdir/required-readiness.out" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+
+def section(markdown, start, end=None):
+    start_pattern = re.escape(start)
+    if end is None:
+        pattern = rf"{start_pattern}\n(?P<body>.*)"
+    else:
+        pattern = rf"{start_pattern}\n(?P<body>.*?)\n{re.escape(end)}"
+    match = re.search(pattern, markdown, re.S)
+    if match is None:
+        raise SystemExit(f"missing required section: {start}")
+    return match.group("body").lower()
+
+
+def missing_labels(body, labels):
+    missing = []
+    for name, terms in labels.items():
+        if not all(term in body for term in terms):
+            missing.append(name)
+    return missing
+
+
+audit = Path(sys.argv[1]).read_text(encoding="utf-8")
+evidence = Path(sys.argv[2]).read_text(encoding="utf-8")
+required = {
+    line.strip()
+    for line in Path(sys.argv[3]).read_text(encoding="utf-8").splitlines()
+    if line.strip()
+}
+remaining = sorted(required - {"android_device"})
+
+labels = {
+    "rooted_physical_device": ("rooted", "physical"),
+    "manual_talkback": ("talkback",),
+    "physical_network_handover": ("cellular", "handover", "ipv4", "ipv6"),
+    "routed_netem_vm": ("routed", "netem"),
+    "production_relay_matrix": ("relay", "provider"),
+    "remote_workflow_confirmation": ("remote", "workflow"),
+}
+missing_label_definitions = sorted(set(remaining) - set(labels))
+if missing_label_definitions:
+    raise SystemExit(
+        "missing doc coverage label definitions for readiness rows: "
+        f"{missing_label_definitions!r}"
+    )
+
+sections = {
+    "completion audit stop rules": section(
+        audit,
+        "## Stop Rules",
+        "## Next Concrete Actions",
+    ),
+    "completion audit next actions": section(
+        audit,
+        "## Next Concrete Actions",
+    ),
+    "evidence current open gaps": section(
+        evidence,
+        "## Current Open Gaps",
+        "## Next Concrete Runs",
+    ),
+    "evidence next concrete runs": section(
+        evidence,
+        "## Next Concrete Runs",
+    ),
+}
+
+for section_name, body in sections.items():
+    missing = missing_labels(body, {name: labels[name] for name in remaining})
+    if missing:
+        raise SystemExit(
+            f"{section_name} does not mention required readiness blockers: {missing!r}"
+        )
+PY
+
 "$guard" --audit "$complete_audit" --readiness "$ready_json" \
   | grep -F 'Feature test sign-off guard passed.'
 
