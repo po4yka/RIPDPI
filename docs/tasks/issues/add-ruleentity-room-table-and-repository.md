@@ -1,7 +1,7 @@
 ---
 title: Add RuleEntity Room table and repository
 type: task
-status: backlog
+status: done
 area: routing
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-advanced-routing-rules-and-geoip-enforcement
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-16
 ---
 
-- [ ] #task Add RuleEntity Room table and repository #repo/RIPDPI #area/routing #status/backlog ⏫
+- [x] #task Add RuleEntity Room table and repository #repo/RIPDPI #area/routing #status/done ⏫
 
 ## Goal contract
 

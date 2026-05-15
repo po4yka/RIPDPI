@@ -54,7 +54,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 31 | P2 | `add-grpc-transport-crate-with-tonic-and-xray-compatible-framing`<br>Add gRPC transport crate with tonic and Xray-compatible framing | task | `epic-composable-transport-layer-parity` | transport | ⏫ | DONE | |
 | 32 | P2 | `add-http-and-socks5-outbound-proxy-clients`<br>Add HTTP and SOCKS5 outbound proxy clients | task | `epic-extended-outbound-protocol-support` | outbound | ⏫ | TODO | |
 | 33 | P2 | `add-qr-scanner-screen-with-camerax-and-ml-kit`<br>Add QR scanner screen with CameraX and ML Kit | task | `epic-qr-code-and-clipboard-profile-import` | ui | ⏫ | DONE | |
-| 34 | P2 | `add-ruleentity-room-table-and-repository`<br>Add RuleEntity Room table and repository | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | ⏫ | TODO | |
+| 34 | P2 | `add-ruleentity-room-table-and-repository`<br>Add RuleEntity Room table and repository | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | ⏫ | DONE | just test-module core:data (exit 0) |
 | 35 | P2 | `add-rust-rule-matcher-with-domain-ip-port-process-matchers`<br>Add Rust rule matcher with domain ip port process matchers | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | ⏫ | TODO | |
 | 36 | P2 | `add-share-sheet-handler-for-proxy-uri-schemes`<br>Add share-sheet handler for proxy URI schemes | task | `epic-qr-code-and-clipboard-profile-import` | ui | ⏫ | DONE | |
 | 37 | P3 | `add-subscription-auto-update-workmanager-worker`<br>Add subscription auto-update WorkManager worker | task | `epic-subscription-profile-import` | outbound | ⏫ | DONE | |
