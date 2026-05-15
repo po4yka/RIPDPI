@@ -90,7 +90,7 @@ available in the current local lab.
   class of failure; full local `staticAnalysis`, CI-equivalent Roborazzi
   verification, and the Rust workspace test script now pass, but no remote run
   covers the local commits.
-- Latest readiness preflight: the May 15, 2026 05:06:27 +04 refresh artifact
+- Latest readiness preflight: the current May 15, 2026 refresh artifact
   `test-lab/artifacts/feature-gap-readiness-refresh.json` confirms the attached
   Pixel 8 Pro is ready; rooted physical device, TalkBack manual pass, routed
   Linux netem VM, production relay matrix, and remote workflow confirmation
