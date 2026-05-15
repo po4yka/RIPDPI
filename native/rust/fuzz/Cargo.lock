@@ -720,6 +720,7 @@ dependencies = [
  "ripdpi-tunnel-config",
  "ripdpi-vless",
  "ripdpi-ws-tunnel",
+ "ripdpi-xhttp",
 ]
 
 [[package]]
@@ -890,6 +891,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 
 [[package]]
+name = "httpdate"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
+
+[[package]]
 name = "hybrid-array"
 version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -912,6 +919,7 @@ dependencies = [
  "http",
  "http-body",
  "httparse",
+ "httpdate",
  "itoa",
  "pin-project-lite",
  "smallvec",
@@ -1875,6 +1883,26 @@ dependencies = [
  "tokio-tungstenite",
  "tracing",
  "tungstenite 0.29.0",
+]
+
+[[package]]
+name = "ripdpi-xhttp"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "hex",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rand 0.10.1",
+ "ripdpi-tls-profiles",
+ "ripdpi-vless",
+ "sha2",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-boring",
+ "tracing",
 ]
 
 [[package]]

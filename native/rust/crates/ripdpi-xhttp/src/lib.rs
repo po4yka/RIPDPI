@@ -11,6 +11,8 @@ mod relay;
 
 pub use client::{connect_reality, connect_tls, XhttpClient};
 pub use config::{AsyncIo, ConfigError, FinalmaskConfig, XhttpRealityConfig, XhttpTlsConfig, XmuxConfig};
+#[doc(hidden)]
+pub use finalmask::__fuzz_parse_finalmask_spec;
 pub use grpc::{
     encode_hunk, encode_hunk_to_bytes, tun_path, GrpcFramingError, GrpcTransport, GrpcTransportConfig, GrpcWireHalves,
     HunkDecoder,

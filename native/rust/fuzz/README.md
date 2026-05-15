@@ -17,6 +17,7 @@ Targets:
 - `monitor_http_response` - HTTP response parsing in `ripdpi-monitor`
 - `config_offset_expr` - offset-expression parsing in `ripdpi-config`
 - `mtproto_init` - Telegram MTProto obfuscated2 init seed classifier in `ripdpi-ws-tunnel` (covers `classify_mtproto_seed`, `decrypt_init_packet`, `extract_dc_from_init`)
+- `finalmask_spec` - xHTTP FinalMask config parser in `ripdpi-xhttp` (covers `FinalmaskSpec::from_config`, including the Sudoku-seed path, header/trailer hex decoders, and rand-range parser)
 
 Run from `native/rust/fuzz`:
 
@@ -34,6 +35,7 @@ cargo fuzz run monitor_dns_response
 cargo fuzz run monitor_http_response
 cargo fuzz run config_offset_expr
 cargo fuzz run mtproto_init
+cargo fuzz run finalmask_spec
 ```
 
 Seed corpora live under `corpus/`. Generated artifacts and coverage output are ignored by git.

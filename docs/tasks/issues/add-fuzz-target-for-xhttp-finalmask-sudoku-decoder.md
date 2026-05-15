@@ -39,7 +39,17 @@ the Sudoku table walk crashes the relay worker.
 
 ## Acceptance criteria
 
-- [ ] A new `finalmask_decoder` fuzz target under
+- [x] (partial, 2026-05-15) A new `finalmask_spec` fuzz target under
+    `native/rust/fuzz/fuzz_targets/finalmask_spec.rs`. Covers
+    `FinalmaskSpec::from_config` through the new
+    `__fuzz_parse_finalmask_spec` entry point in `ripdpi-xhttp`,
+    which includes Sudoku-seed parsing, header/trailer hex
+    decoders, and rand-range parsing. **Remaining work:** the
+    byte-stream decoder path (`TcpInboundMask`) needs its own
+    target that constructs a Sudoku table first and then feeds
+    arbitrary cipher bytes; the spec-side parser is the higher-
+    value entry point and shipped first.
+- [ ] (original) A new `finalmask_decoder` fuzz target under
     `native/rust/fuzz/fuzz_targets/`.
 - [ ] Initial corpus drawn from `finalmask::tests` happy-path bytes
     plus random low-entropy seeds.

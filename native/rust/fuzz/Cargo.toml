@@ -22,6 +22,7 @@ ripdpi-session = { path = "../crates/ripdpi-session" }
 ripdpi-tunnel-config = { path = "../crates/ripdpi-tunnel-config" }
 ripdpi-vless = { path = "../crates/ripdpi-vless" }
 ripdpi-ws-tunnel = { path = "../crates/ripdpi-ws-tunnel" }
+ripdpi-xhttp = { path = "../crates/ripdpi-xhttp" }
 
 [[bin]]
 name = "packets_parse"
@@ -110,5 +111,11 @@ doc = false
 [[bin]]
 name = "mtproto_init"
 path = "fuzz_targets/mtproto_init.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "finalmask_spec"
+path = "fuzz_targets/finalmask_spec.rs"
 test = false
 doc = false
