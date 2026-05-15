@@ -94,6 +94,18 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # is the most common UAF/double-free vector: the function can `take()`
     # the value but safe code already held a copy of the original slot.
     "&mut Option<NonNull<T>>": re.compile(r"&\s*mut\s+Option\s*<\s*NonNull\s*<"),
+    # CStr::from_ptr materializes a `&CStr` whose bytes are scanned for a
+    # NUL terminator starting at the raw pointer. The pointee must be a
+    # valid NUL-terminated C string in an allocation that lives at least
+    # as long as the returned `&CStr`. New occurrences require an
+    # allowlist entry naming the source of the validity guarantee
+    # (POSIX syscall contract, FFI caller contract, etc.) per
+    # docs/rust-soundness-policy.md § "Creating `&T` from raw pointers".
+    "CStr::from_ptr": re.compile(r"\bCStr(::<[^>]*>)?::from_ptr\b"),
+    # str::from_utf8_unchecked turns `&[u8]` into `&str` without
+    # validating UTF-8. A safe-API regression here invalidates the
+    # `str` invariant and produces UB on any subsequent UTF-8 operation.
+    "str::from_utf8_unchecked": re.compile(r"\b(?:std::|core::)?str::from_utf8_unchecked\b"),
 }
 
 EXCLUDE_DIRS = {"tests", "benches", "examples"}

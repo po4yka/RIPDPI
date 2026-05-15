@@ -218,6 +218,31 @@ class ScanRegressionTests(unittest.TestCase):
         )
         self.assertFalse(_has(_scan(src), guard.DEBUG_ASSERT_PROXIMITY_PATTERN))
 
+    def test_cstr_from_ptr_flagged(self) -> None:
+        for fragment in (
+            "let s = unsafe { CStr::from_ptr(ptr) };",
+            "let s = unsafe { std::ffi::CStr::from_ptr(p) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "CStr::from_ptr"), msg=fragment)
+
+    def test_str_from_utf8_unchecked_flagged(self) -> None:
+        for fragment in (
+            "let s = unsafe { str::from_utf8_unchecked(bytes) };",
+            "let s = unsafe { std::str::from_utf8_unchecked(bytes) };",
+            "let s = unsafe { core::str::from_utf8_unchecked(bytes) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "str::from_utf8_unchecked"), msg=fragment)
+
+    def test_from_utf8_safe_variant_not_flagged(self) -> None:
+        # The safe `str::from_utf8` and `String::from_utf8` returning Result
+        # must not trigger.
+        for fragment in (
+            "let s = str::from_utf8(bytes)?;",
+            "let s = std::str::from_utf8(bytes).unwrap();",
+            "let s = String::from_utf8(bytes)?;",
+        ):
+            self.assertFalse(_has(_scan(fragment), "str::from_utf8_unchecked"), msg=fragment)
+
     # --- Negative cases: must NOT trigger the scan -----------------------
 
     def test_comments_are_ignored(self) -> None:

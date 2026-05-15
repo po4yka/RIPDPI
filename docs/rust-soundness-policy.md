@@ -110,6 +110,8 @@ on every PR. It looks for the following risky patterns under
 | `Option<NonNull<T>>` (any position) | `Option<NonNull<T>>` is `Copy`; using it as a safe ownership/liveness/registration handle invites duplication → UAF / double-free / stale pointer. See "Option<NonNull<T>> ownership tokens" below. |
 | `&mut Option<NonNull<T>>` | The slot-extractor form (`fn take(slot: &mut Option<NonNull<T>>) -> Option<NonNull<T>>`) is the most acute UAF/double-free vector: a function can `take()` while a safe-code caller already holds a duplicate of the original slot. |
 | `debug_assert near unsafe` (proximity ≤ 10 lines) | `debug_assert!` is compiled out in release; placing one within 10 source lines of an `unsafe` keyword suggests the debug-only assertion is acting as the safety guard. Per Mandatory Invariant #3, the actual safety check must be a release-mode `assert!` / `Result` / type-level encoding. See "`debug_assert!` as memory-safety guard" below. |
+| `CStr::from_ptr` | Materializes a `&CStr` whose bytes are scanned for a NUL terminator starting at a raw pointer. The pointee must be a valid NUL-terminated C string in an allocation that lives at least as long as the returned `&CStr`. See "Creating `&T` from raw pointers" below. |
+| `str::from_utf8_unchecked` | Asserts the input bytes are valid UTF-8 without checking. A regression here invalidates the `str` invariant and produces UB on any subsequent UTF-8 operation. Prefer `str::from_utf8` (release-mode validation) unless the bytes come from a checked source documented in the SAFETY comment. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -296,6 +298,90 @@ unsafe"` entry in `ci/unsafe-boundary-allowlist.toml` must state:
   to UB,
 - the symbol (function/method) whose body contains the assertion,
 - an owner and a review date as for every other allowlist entry.
+
+## Creating `&T` from raw pointers
+
+Creating a Rust shared reference `&T` (or `&[T]`, `&str`, `&CStr`) from
+a raw pointer is **not** the same as reading a byte through the
+pointer. The reference is required to be:
+
+- non-null and properly aligned for `T`,
+- pointing into an allocation of at least `size_of::<T>()` bytes (or
+  `len * size_of::<T>()` for `&[T]`),
+- pointing to a fully initialised value of `T`,
+- live for the entire returned lifetime — no `Drop` of the owner can
+  run while the reference is held,
+- not concurrently mutated through any other path — Rust's aliasing
+  rules forbid even an unread write through an aliased `*mut T` while
+  a `&T` exists.
+
+If any of these is violated for **even one** byte, the program has UB,
+regardless of whether the bad bytes are observed at runtime.
+
+**Rule.** A safe public function must not turn a raw pointer or
+`NonNull<T>` into a `&T`/`&[T]`/`&str`/`&CStr` unless every invariant
+above is enforced by the function's own preconditions — types,
+lifetimes, visibility, runtime validation, or RAII. If the caller has
+to uphold any pointer-validity obligation, the function must be
+`unsafe fn` with a `# Safety` section.
+
+The repository already enforces this through the following scan
+patterns (see "Custom scan" table above): `slice::from_raw_parts`,
+`NonNull::as_ref/as_mut`, `CStr::from_ptr`, `str::from_utf8_unchecked`,
+`raw pointer in public fn`, `NonNull in public fn`. Any new
+occurrence of one of these patterns either restructures away the raw
+pointer, becomes `unsafe fn`, or earns an allowlist entry whose
+`preconditions` and `enforcement` fields make the validity argument
+concrete.
+
+**Preferred shapes.** In order of preference:
+
+1. **No raw pointer at the API.** Accept `&[u8]` / `&str` / a
+   borrowed handle. Return owned values (`Vec<u8>`, `String`) or
+   references bound to a real owner lifetime (`fn get(&self) -> &T`,
+   `fn slice(&self) -> &[u8]`). This is the shape used by
+   `MappedFile::as_slice(&self) -> &[u8]` and
+   `MmapRegion::as_ptr(&self) -> *const u8` — the former returns a
+   reference whose lifetime is `&self`, the latter returns the raw
+   pointer only for FFI handoff and never materialises a Rust
+   reference from it.
+
+2. **Validate, then convert.** At an FFI boundary, branch on null /
+   length / encoding / alignment before producing the reference.
+   `str::from_utf8` (release-mode validated) is preferred over
+   `str::from_utf8_unchecked` even if the input is "known" valid;
+   the cost is negligible and the safety surface shrinks.
+
+3. **`unsafe fn` + `# Safety`.** When step 1 and step 2 are not
+   possible (genuine FFI shims, low-level kernel helpers), the
+   function becomes `unsafe fn` and documents every precondition. The
+   caller must enter `unsafe { … }` with their own SAFETY comment.
+
+**Anti-patterns.**
+
+- A safe `pub fn` whose body contains `unsafe { std::slice::
+  from_raw_parts(ptr, len) }` for a `ptr` and `len` derived from
+  parameters with no internal validation. The function must either
+  validate (option 2) or be `unsafe fn` (option 3).
+- A `fn get<'a>(&self) -> &'a T` with an unconstrained `'a` — the
+  caller can extend `'a` to `'static` and outlive `&self`. The
+  correct signature is `fn get(&self) -> &T` (sugar for `fn get<'a>
+  (&'a self) -> &'a T`), tying the returned reference to the owner.
+- `debug_assert!(!ptr.is_null()); unsafe { &*ptr }` — covered by the
+  proximity rule above. The null check must be release-mode.
+- `let s = unsafe { str::from_utf8_unchecked(bytes) };` where
+  `bytes` came from an external source. Either validate or accept the
+  `Result` from `str::from_utf8`.
+
+**Existing benign uses.** The audit recorded four raw-pointer →
+reference sites; each is allowlisted with the validity argument:
+
+| File | Conversion | Validity source |
+|---|---|---|
+| `crates/ripdpi-geo/src/mapped_file.rs` | `slice::from_raw_parts` → `&[u8]` | RAII `MappedFile` owns the mmap; slice borrows `&self`. |
+| `crates/ripdpi-privileged-ops/.../icmp_wrapped_udp.rs` | `slice::from_raw_parts` → `&[u8]` | `recv_from` contract initialises the first `received` bytes of a stack `MaybeUninit` buffer; slice is consumed in-scope. |
+| `crates/ripdpi-desync-runtime/src/platform/registry.rs` | `&*pointer` → `&dyn TcpDesyncPlatform` | RAII `Restore` guard scoped to a closure; non-owning observer. |
+| `crates/ripdpi-io-uring/src/probe.rs` | `CStr::from_ptr` → `&CStr` | POSIX `uname(2)` NUL-termination contract; lifetime bounded by the local `utsname`. |
 
 ## Documentation contract
 
