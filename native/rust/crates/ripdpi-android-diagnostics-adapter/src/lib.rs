@@ -132,7 +132,7 @@ pub fn diagnostics_destroy_entry(mut env: EnvUnowned<'_>, handle: jlong) {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use super::*;
 

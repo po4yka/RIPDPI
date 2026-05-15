@@ -1,5 +1,11 @@
 //! Fast SOCKS5 client/server implementation written in Rust async/.await (with tokio).
 //!
+//! This crate is vendored from upstream `fast-socks5`. The two crate-wide
+//! `allow`s below preserve the original source style (RFC-style indented
+//! tables in doc-comments use tabs); editing the docs would diverge from
+//! upstream without changing behavior.
+#![allow(clippy::tabs_in_doc_comments)]
+//!
 //! This library is maintained by [anyip.io](https://anyip.io/) a residential and mobile socks5 proxy provider.
 //!
 //! ## Features

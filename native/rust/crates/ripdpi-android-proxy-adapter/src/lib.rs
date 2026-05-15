@@ -9,7 +9,7 @@ mod telemetry;
 
 #[cfg(all(test, feature = "loom"))]
 mod loom_tests;
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod tests;
 
 pub use entry::{

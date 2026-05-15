@@ -107,6 +107,9 @@ fn throwable_to_string(env: &mut Env<'_>, throwable: JThrowable) -> Option<Strin
         .ok()?
         .l()
         .ok()?;
+    // SAFETY: `text` is a live local JNI reference produced by `call_method`
+    // in the current frame; `JString::from_raw` consumes it once and the
+    // resulting handle stays scoped to this function.
     let text = unsafe { JString::from_raw(env, text.into_raw() as jstring) };
     text.try_to_string(env).ok()
 }

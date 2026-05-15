@@ -82,11 +82,11 @@ pub(crate) fn send_seqovl_tcp(
 
 fn swap_stream_replacement_fd(stream: &TcpStream, replacement_fd: Option<RawFd>) -> io::Result<()> {
     if let Some(replacement_fd) = replacement_fd {
-        swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
+        // SAFETY: `replacement_fd` was just returned by the privileged-ops
+        // root helper as a freshly created socket descriptor; no other code
+        // path retains it. `stream` borrows its descriptor for the duration
+        // of this call.
+        unsafe { ripdpi_privileged_ops::swap_replacement_fd(stream.as_raw_fd(), replacement_fd) }?;
     }
     Ok(())
-}
-
-fn swap_replacement_fd(target_fd: RawFd, replacement_fd: RawFd) -> io::Result<()> {
-    ripdpi_privileged_ops::swap_replacement_fd(target_fd, replacement_fd)
 }

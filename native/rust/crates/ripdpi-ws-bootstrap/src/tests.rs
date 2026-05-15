@@ -1,4 +1,5 @@
 use std::net::{IpAddr, SocketAddr};
+use std::sync::OnceLock;
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyEncryptedDnsContext, ProxyRuntimeContext};
@@ -13,9 +14,19 @@ use crate::resolver::{
 };
 use crate::{resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr};
 
+/// Lazily-started fixture shared across all tests in this binary.
+///
+/// Each test only reads from the fixture (DNS lookups, hostname resolution),
+/// so a single shared stack is safe and avoids the workspace-mode socket
+/// contention seen when every test spawned its own ~10-server stack.
+fn shared_fixture() -> &'static FixtureStack {
+    static SHARED: OnceLock<FixtureStack> = OnceLock::new();
+    SHARED.get_or_init(|| FixtureStack::start(dynamic_fixture_config()).expect("start fixture"))
+}
+
 #[test]
 fn resolve_ws_tunnel_addr_uses_runtime_context_when_present() {
-    let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
+    let stack = shared_fixture();
     let runtime_context = fixture_runtime_context(stack.manifest().dns_http_port);
 
     let addr = resolve_ws_tunnel_addr(TelegramDc::production(3), Some(&runtime_context), None)
@@ -26,7 +37,7 @@ fn resolve_ws_tunnel_addr_uses_runtime_context_when_present() {
 
 #[test]
 fn resolve_ws_tunnel_addr_uses_default_context_when_runtime_context_is_absent() {
-    let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
+    let stack = shared_fixture();
 
     let addr = resolve_ws_tunnel_addr_with_default(TelegramDc::production(2), None, None, || {
         fixture_encrypted_dns_context(stack.manifest().dns_http_port)
@@ -61,7 +72,7 @@ fn build_direct_connect_hooks_only_installs_protected_connectors_when_path_prese
 
 #[test]
 fn resolve_host_via_encrypted_dns_uses_runtime_context_for_regular_runtime_resolution() {
-    let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
+    let stack = shared_fixture();
     let runtime_context = fixture_runtime_context(stack.manifest().dns_http_port);
 
     let addr =
@@ -72,7 +83,7 @@ fn resolve_host_via_encrypted_dns_uses_runtime_context_for_regular_runtime_resol
 
 #[test]
 fn resolve_host_via_encrypted_dns_uses_supplied_default_context_for_fixture_resolution() {
-    let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
+    let stack = shared_fixture();
 
     let addr = resolve_host_via_encrypted_dns_with_default("fixture.test", None, None, false, || {
         fixture_encrypted_dns_context(stack.manifest().dns_http_port)
@@ -84,7 +95,7 @@ fn resolve_host_via_encrypted_dns_uses_supplied_default_context_for_fixture_reso
 
 #[test]
 fn encrypted_dns_ip_answers_return_policy_label_and_parsed_addresses() {
-    let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
+    let stack = shared_fixture();
     let runtime_context = fixture_runtime_context(stack.manifest().dns_http_port);
 
     let answer_set =

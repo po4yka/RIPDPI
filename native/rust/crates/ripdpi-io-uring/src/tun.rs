@@ -99,7 +99,7 @@ pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: RawFd, packets: &[Vec<u8>]
                 let pending = handle.into_pending();
                 let future = uring.write_fixed(tun_fd, buf_index, len as u32);
                 let result = crate::ring::block_on_completion(future);
-                pending.complete(pool);
+                pending.complete();
                 result
             }
             None => {

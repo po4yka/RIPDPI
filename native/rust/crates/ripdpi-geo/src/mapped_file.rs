@@ -11,7 +11,11 @@ pub(crate) struct MappedFile {
     len: usize,
 }
 
+// SAFETY: `MappedFile` owns a `MAP_PRIVATE` read-only mmap region; the only
+// observable operation is `as_slice`, which returns an `&[u8]`. Read-only
+// shared data with no interior mutability is trivially `Send + Sync`.
 unsafe impl Send for MappedFile {}
+// SAFETY: see Send above — read-only data shared across threads is sound.
 unsafe impl Sync for MappedFile {}
 
 impl MappedFile {
@@ -21,6 +25,10 @@ impl MappedFile {
         if len == 0 {
             return Err(MappedFileError::EmptyFile);
         }
+        // SAFETY: `mmap` accepts a null `addr` (any kernel-chosen address),
+        // `len > 0` (checked above), a valid live fd (`&file` is open here),
+        // a zero offset, and a flag set that is a subset of `MAP_PRIVATE` —
+        // all preconditions documented in mmap(2).
         let ptr = unsafe {
             libc::mmap(
                 std::ptr::null_mut(),
@@ -43,6 +51,9 @@ impl MappedFile {
     }
 
     pub(crate) fn as_slice(&self) -> &[u8] {
+        // SAFETY: `self.ptr` was returned by mmap with `self.len` bytes of
+        // PROT_READ memory. The returned slice borrows `&self`, so the
+        // mapping outlives the slice (Drop munmaps after all borrows end).
         unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
 }
@@ -55,6 +66,8 @@ impl AsRef<[u8]> for MappedFile {
 
 impl Drop for MappedFile {
     fn drop(&mut self) {
+        // SAFETY: `self.ptr` was obtained from mmap with `self.len`;
+        // `MappedFile` is the sole owner and Drop runs exactly once per move.
         unsafe {
             libc::munmap(self.ptr.as_ptr().cast(), self.len);
         }

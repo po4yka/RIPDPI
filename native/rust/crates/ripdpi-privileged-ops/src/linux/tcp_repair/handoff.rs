@@ -1,6 +1,6 @@
 use std::io;
 use std::net::TcpStream;
-use std::os::fd::AsRawFd;
+use std::os::fd::AsFd;
 
 use socket2::Socket;
 
@@ -13,10 +13,10 @@ pub(crate) fn swap_stream_to_replacement(
     replacement: &Socket,
     settings: StreamSocketSettings,
 ) -> io::Result<()> {
-    let target_fd = stream.as_raw_fd();
-    let replacement_fd = replacement.as_raw_fd();
-
-    dup2_fd(replacement_fd, target_fd)?;
+    // No unsafe here: both descriptors are typed and `dup2_fd` accepts
+    // `BorrowedFd<'_>`. `replacement`'s fd remains alive (caller still
+    // owns the `Socket`); `stream`'s fd table entry is replaced in place.
+    dup2_fd(replacement.as_fd(), stream.as_fd())?;
     apply_stream_socket_settings(stream, settings);
     Ok(())
 }

@@ -1,0 +1,244 @@
+# Unsafe-Boundary Allowlist
+# =========================
+# Each entry grandfathers an existing (file, pattern) pair detected by
+# `scripts/ci/check_unsafe_boundaries.py`. The allowlist exists so that the
+# baseline does not block builds, but the policy in
+# `docs/rust-soundness-policy.md` forbids adding *new* entries casually:
+# every new entry must include real preconditions and a real enforcement
+# story, and is expected to be reviewed periodically against its
+# `review_date`.
+#
+# Required fields per entry:
+#   file           Path relative to repo root.
+#   pattern        Exact key reported by the scan script.
+#   reason         Short human-readable summary.
+#   preconditions  Concrete invariants the caller must uphold.
+#   enforcement    How those invariants are guaranteed (type, RAII,
+#                  module visibility, runtime check, or human review).
+#   owner          Crate/team responsible for keeping the entry sound.
+#   review_date    ISO date for the next mandatory re-review.
+#
+# When you see a guard failure, the correct fix order is:
+#   1. Restructure the API to remove the boundary entirely
+#      (newtype + private ctor, RAII, BorrowedFd/OwnedFd, typestate, ...).
+#   2. If the unsafe contract is inherent, make the function `unsafe fn`
+#      with a `# Safety` section and propagate it to callers.
+#   3. Only if neither is possible, add an entry here with a SPECIFIC
+#      justification — never with a TODO.
+
+# ---------------------------------------------------------------------------
+# JNI export entry points: `extern "system" fn` is required by the JVM ABI for
+# Java_<Class>_<method> symbols. The body in every case is the same shape:
+#   pub extern "system" fn Java_<...>(env: EnvUnowned<'_>, ...) -> ... {
+#       match env.with_env(|env| { /* safe work */ }).into_outcome() { ... }
+#   }
+# Soundness is delegated to `jni::EnvUnowned::with_env` which owns the
+# JNIEnv* and catches panics. No raw pointer is dereferenced directly in
+# these wrappers. The contract is enforced by the `jni` crate's typed env
+# handshake.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi.rs"
+pattern = 'extern "system" fn'
+reason = "JNI re-export shim"
+preconditions = "JNI symbol is invoked only by the JVM, which guarantees JNIEnv* validity for the call frame"
+enforcement = "jni::EnvUnowned::with_env handshake + panic::catch_unwind in callee"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi/cdn_ech_bridge.rs"
+pattern = 'extern "system" fn'
+reason = "JNI bridge: CDN ECH"
+preconditions = "Invoked from Java; JNIEnv* valid for the call; arguments are typed JObject/JString"
+enforcement = "jni::EnvUnowned::with_env handshake"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi/doq_bridge.rs"
+pattern = 'extern "system" fn'
+reason = "JNI bridge: DoQ"
+preconditions = "Invoked from Java; JNIEnv* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi/lua_bridge.rs"
+pattern = 'extern "system" fn'
+reason = "JNI bridge: Lua strategy engine"
+preconditions = "Invoked from Java; JNIEnv* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake; engine state behind a Mutex"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi/native_ech_tls_bridge.rs"
+pattern = 'extern "system" fn'
+reason = "JNI bridge: native ECH TLS"
+preconditions = "Invoked from Java; JNIEnv* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi/native_signs_bridge.rs"
+pattern = 'extern "system" fn'
+reason = "JNI bridge: native signatures"
+preconditions = "Invoked from Java; JNIEnv* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi/owned_tls_http_bridge.rs"
+pattern = 'extern "system" fn'
+reason = "JNI bridge: owned TLS HTTP transport"
+preconditions = "Invoked from Java; JNIEnv* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi/platform_bridge.rs"
+pattern = 'extern "system" fn'
+reason = "JNI bridge: platform shims"
+preconditions = "Invoked from Java; JNIEnv* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi/probe_results_bridge.rs"
+pattern = 'extern "system" fn'
+reason = "JNI bridge: probe results"
+preconditions = "Invoked from Java; JNIEnv* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi/quic_initial_bridge.rs"
+pattern = 'extern "system" fn'
+reason = "JNI bridge: QUIC initial"
+preconditions = "Invoked from Java; JNIEnv* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi/shared_priors_bridge.rs"
+pattern = 'extern "system" fn'
+reason = "JNI bridge: shared TLS priors"
+preconditions = "Invoked from Java; JNIEnv* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/ffi/vpn_protect_bridge.rs"
+pattern = 'extern "system" fn'
+reason = "JNI bridge: VpnService.protect"
+preconditions = "Invoked from Java; JNIEnv* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android/src/lib.rs"
+pattern = 'extern "system" fn'
+reason = "JNI exports for ripdpi-android crate (JNI_OnLoad and a battery of Java_* entry points)"
+preconditions = "Invoked from Java; JNIEnv*/JavaVM* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake + panic::catch_unwind for JNI_OnLoad"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-relay-android/src/lib.rs"
+pattern = 'extern "system" fn'
+reason = "JNI exports for ripdpi-relay-android crate"
+preconditions = "Invoked from Java; JNIEnv* valid for the call"
+enforcement = "jni::EnvUnowned::with_env handshake"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-tunnel-android/src/lib.rs"
+pattern = 'extern "system" fn'
+reason = "JNI exports for ripdpi-tunnel-android crate (tunnel session lifecycle)"
+preconditions = "Invoked from Java; JNIEnv* valid for the call; jlong handles validated via HandleRegistry"
+enforcement = "jni::EnvUnowned::with_env handshake + HandleRegistry lookup"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-warp-android/src/lib.rs"
+pattern = 'extern "system" fn'
+reason = "JNI exports for ripdpi-warp-android crate"
+preconditions = "Invoked from Java; JNIEnv* valid for the call; jlong handles validated via HandleRegistry"
+enforcement = "jni::EnvUnowned::with_env handshake + HandleRegistry lookup"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# `extern "C" fn`: signal handlers and platform callback shims. These are
+# invoked by the OS/runtime, never directly from Rust code.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-proxy-runtime/src/process.rs"
+pattern = 'extern "C" fn'
+reason = "SIGCHLD/SIGTERM signal handler installed via libc::sigaction"
+preconditions = "Invoked asynchronously by the OS; must remain async-signal-safe (no allocation, no mutex)"
+enforcement = "Body only performs atomic flag stores; reviewed each time it changes"
+owner = "proxy-runtime"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-proxy-runtime-adapter/src/platform.rs"
+pattern = 'extern "C" fn'
+reason = "Connect-hook callback handed to socket2 for platform connect customization"
+preconditions = "Invoked by socket2 with a borrowed SOCKET handle valid for the call"
+enforcement = "Callback delegates to a `Box<dyn Fn>` whose lifetime is owned by the caller"
+owner = "proxy-runtime-adapter"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-root-helper/src/main.rs"
+pattern = 'extern "C" fn'
+reason = "Root-helper SIGCHLD reaper signal handler"
+preconditions = "Invoked asynchronously by the OS; must remain async-signal-safe"
+enforcement = "Body only performs a non-blocking waitpid loop and an atomic flag store"
+owner = "root-helper"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-runtime-platform/src/process.rs"
+pattern = 'extern "C" fn'
+reason = "Signal handler shared with the proxy runtime"
+preconditions = "Async-signal-safe body only"
+enforcement = "Atomic-flag store only; reviewed on change"
+owner = "runtime-platform"
+review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# Targeted `slice::from_raw_parts` uses: each is a thin adapter over an OS
+# syscall result with a small, locally documented unsafe block.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-geo/src/mapped_file.rs"
+pattern = "slice::from_raw_parts"
+reason = "Read-only view over an mmap region owned by `MappedFile`"
+preconditions = "The pointer was returned by mmap with `self.len` bytes; the returned slice's lifetime is tied to `&self`, which Drop munmaps exactly once"
+enforcement = "RAII: `MappedFile` is the sole owner of the mapping; the slice borrows `&self`"
+owner = "geo"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-privileged-ops/src/linux/experimental_tier3/icmp_wrapped_udp.rs"
+pattern = "slice::from_raw_parts"
+reason = "Materialize the `received`-prefixed window of an `[MaybeUninit<u8>; 8192]` after `recv_from` reports `received` bytes"
+preconditions = "`recv_from` initialised exactly the first `received` bytes; `received <= buf.len()`"
+enforcement = "Caller is a private function inside the same module; the buffer is a stack `[MaybeUninit<u8>; 8192]` that outlives the slice"
+owner = "privileged-ops"
+review_date = "2026-11-15"

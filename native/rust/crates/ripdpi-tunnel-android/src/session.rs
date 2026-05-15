@@ -1,10 +1,10 @@
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod jni_tests;
 mod lifecycle;
-#[cfg(feature = "loom")]
+#[cfg(all(test, feature = "loom"))]
 mod loom;
 mod registry;
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod state_machine;
 mod stats;
 mod telemetry;
@@ -18,12 +18,12 @@ use lifecycle::{create_session, destroy_session, start_session, stop_session};
 use stats::stats_session;
 use telemetry::telemetry_session;
 
-#[cfg(any(test, feature = "loom"))]
+#[cfg(test)]
 pub(crate) use lifecycle::{
     ensure_tunnel_destroyable, ensure_tunnel_start_allowed, rollback_failed_tunnel_start, take_running_tunnel,
     validate_tun_fd,
 };
-#[cfg(any(test, feature = "loom"))]
+#[cfg(test)]
 pub(crate) use registry::{
     lookup_tunnel_session, remove_tunnel_session, shared_tunnel_runtime, TunnelSession, TunnelSessionState, SESSIONS,
 };
@@ -161,7 +161,7 @@ pub(crate) fn tunnel_destroy_entry(mut env: EnvUnowned<'_>, handle: jlong) {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};

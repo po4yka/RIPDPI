@@ -1,3 +1,9 @@
+// Under `--features loom`, in-crate `mod tests` modules are gated out so the
+// loom integration tests in `tests/` get a clean runner. Test-only helpers
+// then become dead in that one configuration; quiet the lint instead of
+// annotating each item.
+#![cfg_attr(all(test, feature = "loom"), allow(dead_code, unused_imports))]
+
 mod config;
 mod session;
 mod telemetry;

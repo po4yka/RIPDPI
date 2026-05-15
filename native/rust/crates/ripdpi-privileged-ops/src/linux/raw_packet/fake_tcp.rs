@@ -9,7 +9,7 @@ use std::os::fd::AsRawFd;
 
 use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable};
 
-use crate::linux::mmap_region::{alloc_region, free_region, write_region};
+use crate::linux::mmap_region::MmapRegion;
 use crate::linux::raw_packet::packet_builder::{build_tcp_segment_packet, fragment_identification};
 use crate::linux::raw_packet::raw_socket::send_raw_packets;
 use crate::linux::socket_options::{get_stream_ttl, set_stream_ttl, set_tcp_md5sig, try_set_stream_ttl_with_outcome};
@@ -50,12 +50,12 @@ pub fn send_fake_tcp(
 
     let fd = stream.as_raw_fd();
     let region_len = original_prefix.len().max(fake_prefix.len());
-    let region = alloc_region(region_len)?;
+    let mut region = MmapRegion::new(region_len)?;
 
     let restore_ttl = if default_ttl != 0 { default_ttl } else { get_stream_ttl(stream).unwrap_or(64) };
 
     let result = (|| {
-        write_region(region, fake_prefix, region_len);
+        region.write(fake_prefix);
 
         let (pipe_r, pipe_w) = nix::unistd::pipe().map_err(io::Error::from)?;
 
@@ -83,7 +83,10 @@ pub fn send_fake_tcp(
             set_tcp_md5sig(stream, 5)?;
         }
 
-        let iov = libc::iovec { iov_base: region.cast(), iov_len: original_prefix.len() };
+        let iov = libc::iovec { iov_base: region.as_mut_ptr().cast(), iov_len: original_prefix.len() };
+        // SAFETY: `iov` points into a writable mapping of length
+        // `region_len` >= `original_prefix.len()` owned by `region`, which
+        // is kept alive until after the `vmsplice` call returns.
         let queued = unsafe { libc::vmsplice(pipe_w.as_raw_fd(), &iov, 1, 0) };
         if queued < 0 {
             return Err(io::Error::last_os_error());
@@ -121,7 +124,7 @@ pub fn send_fake_tcp(
         let _ = set_tcp_md5sig(stream, 0);
     }
     let _ = set_stream_ttl(stream, restore_ttl);
-    free_region(region, region_len);
+    drop(region);
     result
 }
 

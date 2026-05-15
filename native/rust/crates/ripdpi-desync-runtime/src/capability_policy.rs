@@ -9,15 +9,15 @@ use ripdpi_proxy_config::ProxyDirectPathCapability;
 use ripdpi_session::OutboundProgress;
 
 use self::transparent_tls::transparent_tls_family_strategy;
-#[cfg(not(test))]
+#[cfg(any(not(test), feature = "loom"))]
 use fallback::apply_tcp_capability_fallback;
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 pub(crate) use fallback::apply_tcp_capability_fallback;
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 pub(crate) use invariant::validate_transparent_tls_family;
-#[cfg(not(test))]
+#[cfg(any(not(test), feature = "loom"))]
 use transparent_tls::apply_transparent_tls_family;
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 pub(crate) use transparent_tls::{
     apply_transparent_tls_family, transparent_tls_variant_with_seed, TransparentTlsFamilyError,
     TWO_PHASE_FIRST_WRITE_MAX, TWO_PHASE_FIRST_WRITE_MIN, TWO_PHASE_GAP_MS_MAX, TWO_PHASE_GAP_MS_MIN,

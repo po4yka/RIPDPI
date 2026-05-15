@@ -37,7 +37,10 @@ pub fn send_ip_fragmented_tcp_reserved(
             ipv4_identification,
         )?;
         if let Some(replacement_fd) = res {
-            swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
+            // SAFETY: `replacement_fd` was just created by
+            // `send_ip_fragmented_tcp` and no other code path retains it;
+            // `stream` continues to own its descriptor across the call.
+            unsafe { swap_replacement_fd(stream.as_raw_fd(), replacement_fd) }?;
         }
         Ok(())
     }) {
@@ -141,7 +144,10 @@ pub fn send_multi_disorder_tcp_reserved(
             ipv4_identifications,
         )?;
         if let Some(replacement_fd) = res {
-            swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
+            // SAFETY: `replacement_fd` was just created by
+            // `send_multi_disorder_tcp` and no other code path retains it;
+            // `stream` continues to own its descriptor across the call.
+            unsafe { swap_replacement_fd(stream.as_raw_fd(), replacement_fd) }?;
         }
         Ok(())
     }) {

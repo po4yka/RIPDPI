@@ -6,7 +6,7 @@ mod error;
 mod relay;
 mod reply;
 mod routes;
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod tests;
 mod ws_fallback;
 mod ws_first;

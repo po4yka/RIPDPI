@@ -101,12 +101,12 @@ impl MessageFieldFormatter {
         self.record_value(field, format!("{value:?}"));
     }
 
-    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    #[cfg_attr(any(not(any(test, target_os = "android")), all(test, feature = "loom")), allow(dead_code))]
     pub(crate) fn record_named_str(&mut self, field: &str, value: &str) {
         self.record_value(field, value.to_string());
     }
 
-    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    #[cfg_attr(any(not(any(test, target_os = "android")), all(test, feature = "loom")), allow(dead_code))]
     pub(crate) fn finish(self, target: &str) -> String {
         let mut parts = Vec::new();
 

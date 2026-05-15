@@ -51,14 +51,12 @@ pub fn run_proxy_with_embedded_control(
     run_proxy_with_listener_internal(config, listener, Some(control))
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod tests {
-    #[cfg(not(feature = "loom"))]
     use super::state::ClientSlotGuard;
     use crate::runtime::desync::DesyncSendRequest;
     use crate::runtime::routing::{advance_route_for_failure, select_route};
     use crate::runtime::state::RuntimeState;
-    #[cfg(not(feature = "loom"))]
     use crate::sync::{Arc, AtomicUsize};
     use ripdpi_proxy_runtime_adapter::model::config::{
         DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT,
@@ -70,13 +68,11 @@ mod tests {
     use ripdpi_proxy_runtime_adapter::protocol_payload::{DEFAULT_FAKE_TLS, IS_HTTPS};
     use std::io::Read;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
-    #[cfg(not(feature = "loom"))]
     use std::sync::atomic::Ordering;
     use std::thread;
 
     use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 
-    #[cfg(not(feature = "loom"))]
     #[test]
     fn client_slot_guard_enforces_limit_and_releases_slot() {
         let active = Arc::new(AtomicUsize::new(0));

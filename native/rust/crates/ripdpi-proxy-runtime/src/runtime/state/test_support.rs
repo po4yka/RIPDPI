@@ -1,25 +1,25 @@
 use super::*;
 
 impl RuntimeState {
-    #[cfg(test)]
+    #[cfg(all(test, not(feature = "loom")))]
     pub(in crate::runtime) fn test(config: RuntimeConfig) -> Self {
         Self::test_with_context(config, None)
     }
-    #[cfg(test)]
+    #[cfg(all(test, not(feature = "loom")))]
     pub(in crate::runtime) fn test_with_context(
         config: RuntimeConfig,
         runtime_context: Option<ProxyRuntimeContext>,
     ) -> Self {
         Self::test_with_telemetry_and_context(config, None, runtime_context)
     }
-    #[cfg(test)]
+    #[cfg(all(test, not(feature = "loom")))]
     pub(in crate::runtime) fn test_with_telemetry(
         config: RuntimeConfig,
         telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     ) -> Self {
         Self::test_with_telemetry_and_context(config, telemetry, None)
     }
-    #[cfg(test)]
+    #[cfg(all(test, not(feature = "loom")))]
     fn test_with_telemetry_and_context(
         config: RuntimeConfig,
         telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,

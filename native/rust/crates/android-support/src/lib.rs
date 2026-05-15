@@ -5,7 +5,7 @@ mod logging;
 mod sync;
 mod tracing_layer;
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod tests;
 
 use jni::sys::jint;

@@ -6,7 +6,7 @@
 use std::io::{self, Read};
 use std::mem::{size_of, zeroed};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
-use std::os::fd::AsRawFd;
+use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd};
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
@@ -15,11 +15,18 @@ use crate::linux::socket_options::getsockopt_raw;
 const SO_ORIGINAL_DST: libc::c_int = 80;
 const IP6T_SO_ORIGINAL_DST: libc::c_int = 80;
 
-/// Safe wrapper around `libc::dup2` for fd handoff and replacement.
-pub fn dup2_fd(source_fd: libc::c_int, target_fd: libc::c_int) -> io::Result<()> {
-    // SAFETY: callers guarantee both fds are live descriptors and accept the
-    // kernel-level replacement semantics of `dup2`.
-    let rc = unsafe { libc::dup2(source_fd, target_fd) };
+/// `dup2(source, target)` — replace `target`'s entry in the fd table with
+/// a clone of `source`. Both ends remain owned by the caller; the original
+/// kernel-level entry for `target` is closed by `dup2` itself.
+///
+/// Typed inputs ensure the descriptors outlive this call (the borrow
+/// checker enforces it); `pub(crate)` because the only legitimate callers
+/// live inside this crate.
+pub(crate) fn dup2_fd(source: BorrowedFd<'_>, target: BorrowedFd<'_>) -> io::Result<()> {
+    // SAFETY: `source` and `target` are live for the duration of this call
+    // (enforced by `BorrowedFd<'_>` lifetimes). `dup2` accepts any pair of
+    // valid descriptor numbers.
+    let rc = unsafe { libc::dup2(source.as_raw_fd(), target.as_raw_fd()) };
     if rc >= 0 {
         Ok(())
     } else {
@@ -27,11 +34,16 @@ pub fn dup2_fd(source_fd: libc::c_int, target_fd: libc::c_int) -> io::Result<()>
     }
 }
 
-/// Safe wrapper around `libc::close` for owned transient descriptors.
-pub fn close_fd(fd: libc::c_int) -> io::Result<()> {
-    // SAFETY: callers guarantee `fd` is an owned live descriptor that should
-    // be closed exactly once by this helper.
-    let rc = unsafe { libc::close(fd) };
+/// Consume an owned descriptor, closing it. Equivalent to `drop(fd)` but
+/// surfaces the close error, which the public `swap_replacement_fd`
+/// contract historically reported.
+pub(crate) fn close_owned_fd(fd: OwnedFd) -> io::Result<()> {
+    let raw = fd.as_raw_fd();
+    std::mem::forget(fd);
+    // SAFETY: `fd` was an `OwnedFd`, i.e. it owned `raw` exclusively and we
+    // have forgotten it without dropping, so no other code path will close
+    // `raw`. This call closes it exactly once.
+    let rc = unsafe { libc::close(raw) };
     if rc == 0 {
         Ok(())
     } else {

@@ -17,6 +17,8 @@ struct JniProtectCallback {
 // Global<JObject<'static>> prevents the JVM from GC-collecting the Java
 // object and is safe to use from any thread via attach_current_thread.
 unsafe impl Send for JniProtectCallback {}
+// SAFETY: see Send impl above — both fields are themselves thread-safe and
+// `protect()` only reads them via Java-side synchronization.
 unsafe impl Sync for JniProtectCallback {}
 
 impl ProtectCallback for JniProtectCallback {

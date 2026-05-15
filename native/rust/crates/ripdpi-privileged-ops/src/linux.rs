@@ -30,7 +30,8 @@ mod tcp_repair;
 pub use bpf::{attach_drop_sack, attach_strip_timestamps, detach_drop_sack};
 pub(crate) use experimental_tier3::send_ip_packet;
 pub use experimental_tier3::{recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_syn_hide_tcp};
-pub use fd::{close_fd, dup2_fd, original_dst, protect_socket};
+pub(crate) use fd::{close_owned_fd, dup2_fd};
+pub use fd::{original_dst, protect_socket};
 pub use fragmentation::{
     probe_ip_fragmentation_capabilities, send_ip_fragmented_tcp, send_ip_fragmented_udp, send_multi_disorder_tcp,
 };

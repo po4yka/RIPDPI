@@ -49,12 +49,12 @@ pub(super) fn copy_inbound_zc(
 
                 if result.result < 0 {
                     let buf_index = pending.buf_index();
-                    pending.complete(pool);
+                    pending.complete();
                     writer.write_all(&pool_buf_slice(pool, buf_index, n))?;
                 } else {
                     // Wait for notification CQE before returning buffer. For this
                     // initial implementation, the buffer is returned immediately.
-                    pending.complete(pool);
+                    pending.complete();
                 }
 
                 detector.record_bytes(n);

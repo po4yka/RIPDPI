@@ -61,7 +61,7 @@ pub(super) fn relay(
     relay_result.map(|_| ())
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use std::time::{Duration, Instant};
 

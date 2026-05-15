@@ -7,7 +7,7 @@ mod session;
 mod sockets;
 mod upstream_pump;
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod tests;
 
 use std::collections::HashMap;

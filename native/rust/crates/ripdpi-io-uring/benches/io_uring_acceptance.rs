@@ -120,7 +120,7 @@ fn bench_registered_buffer_tx(c: &mut Criterion) {
                 let pending = handle.into_pending();
                 let future = driver.write_fixed(fd, buf_index, payload.len() as u32);
                 let result = block_on_completion(future);
-                pending.complete(&pool);
+                pending.complete();
                 black_box(result);
             });
         });

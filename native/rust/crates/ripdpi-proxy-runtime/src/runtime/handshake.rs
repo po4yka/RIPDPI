@@ -1,6 +1,6 @@
 mod connect_relay;
 mod protocol_io;
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod tests;
 mod ws_tunnel;
 

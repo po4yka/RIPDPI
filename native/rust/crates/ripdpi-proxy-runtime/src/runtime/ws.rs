@@ -89,12 +89,12 @@ impl RuntimeTelegramDc {
         Self(dc)
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, not(feature = "loom")))]
     pub(super) fn production(dc: u8) -> Self {
         Self(TelegramDc::production(dc))
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, not(feature = "loom")))]
     pub(super) fn from_raw(raw_dc: i32) -> Option<Self> {
         TelegramDc::from_raw(raw_dc).map(Self)
     }
@@ -102,18 +102,18 @@ impl RuntimeTelegramDc {
 
 pub(super) struct RuntimeWsTunnelConfig {
     inner: WsTunnelConfig,
-    #[cfg(test)]
+    #[cfg(all(test, not(feature = "loom")))]
     pub(super) resolved_addr: Option<SocketAddr>,
-    #[cfg(test)]
+    #[cfg(all(test, not(feature = "loom")))]
     pub(super) connect_timeout: Option<std::time::Duration>,
 }
 
 impl RuntimeWsTunnelConfig {
     fn from_adapter(inner: WsTunnelConfig) -> Self {
         Self {
-            #[cfg(test)]
+            #[cfg(all(test, not(feature = "loom")))]
             resolved_addr: inner.resolved_addr,
-            #[cfg(test)]
+            #[cfg(all(test, not(feature = "loom")))]
             connect_timeout: inner.connect_timeout,
             inner,
         }

@@ -9,7 +9,7 @@ pub(super) use ripdpi_proxy_runtime_adapter::model::config::{
     TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable,
     WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
 };
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 pub(super) use ripdpi_proxy_runtime_adapter::model::config::{
     first_response_settings, WsTunnelMode, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
 };

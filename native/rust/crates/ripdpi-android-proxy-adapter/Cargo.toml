@@ -28,7 +28,7 @@ proptest = { workspace = true }
 ripdpi-android-bridge-support = { workspace = true, features = ["test-support"] }
 
 [features]
-loom = ["dep:loom"]
+loom = ["dep:loom", "android-support/loom", "ripdpi-android-bridge-support/loom"]
 io-uring = ["ripdpi-proxy-runtime/io-uring"]
 
 [dependencies.loom]

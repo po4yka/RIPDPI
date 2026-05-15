@@ -1,4 +1,4 @@
-#[forbid(unsafe_code)]
+#![forbid(unsafe_code)]
 use crate::read_exact;
 use crate::socks4::{consts, ReplyError, Socks4Command};
 use crate::util::target_addr::{TargetAddr, ToTargetAddr};
@@ -216,9 +216,62 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::net::TcpListener;
+
+    /// Canned response written by the SOCKS4 fixture once the proxied
+    /// "connection" is established. The single signature line is what the
+    /// parser in [`get_humans_txt`] picks up.
+    const FIXTURE_HUMANS_TXT_RESPONSE: &[u8] = b"\
+HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n\
+Google is built by a large team of engineers, designers, researchers, robots, \
+and others in many different sites across the globe. It is updated continuously, \
+and built with more tools and technologies than we can shake a stick at. If you'd \
+like to help us out, see careers.google.com.\n";
+
+    /// Spawn an in-process SOCKS4 server that accepts one CONNECT, replies
+    /// success, drains the client's HTTP request, then writes a canned
+    /// humans.txt body containing the signature "Google is built ..." line.
+    /// Returns the bound address. The task exits after the first connection.
+    async fn spawn_socks4_fixture() -> SocketAddr {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind socks4 fixture");
+        let addr = listener.local_addr().expect("fixture addr");
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accept");
+
+            // `Socks4Stream::send_command_request` always writes a fixed
+            // 260-byte buffer (header + USERID slot padded with zeros);
+            // drain the whole buffer before responding.
+            let mut request = vec![0u8; MAX_ADDR_LEN];
+            socket.read_exact(&mut request).await.expect("read socks4 request");
+            assert_eq!(request[0], consts::SOCKS4_VERSION, "VN must be 4");
+            assert_eq!(request[1], consts::SOCKS4_CMD_CONNECT, "CD must be CONNECT");
+
+            // Reply: VN=0, CD=0x5A (succeeded), DSTPORT/DSTIP echo.
+            let reply = [
+                0u8,
+                consts::SOCKS4_REPLY_SUCCEEDED,
+                request[2],
+                request[3],
+                request[4],
+                request[5],
+                request[6],
+                request[7],
+            ];
+            socket.write_all(&reply).await.expect("write reply");
+
+            // Drain the HTTP request the client writes after handshake.
+            let mut scratch = [0u8; 2048];
+            let _ = socket.read(&mut scratch).await.expect("read HTTP request");
+            socket.write_all(FIXTURE_HUMANS_TXT_RESPONSE).await.expect("write canned body");
+            socket.shutdown().await.expect("shutdown fixture connection");
+        });
+        addr
+    }
 
     fn get_domain() -> String {
-        "www.google.com".to_string()
+        // Use a literal v4 address: SOCKS4 has no IPv6 support, and
+        // `localhost` may resolve to `::1` first on dual-stack hosts.
+        "127.0.0.1".to_string()
     }
 
     async fn get_humans_txt(socks: &mut Socks4Stream<TcpStream>) -> Option<String> {
@@ -232,20 +285,12 @@ mod tests {
 
         socks.write_all(headers.as_bytes()).await.expect("should successfully write");
 
-        let response = &mut [0u8; 2048];
-        socks.read(response).await.expect("should successfully read");
+        // Read until EOF so we capture the full canned body in one buffer.
+        let mut response = Vec::with_capacity(2048);
+        socks.read_to_end(&mut response).await.expect("should successfully read");
 
-        // sometimes google returns body on second request
-        if response[0] == 0 {
-            response.copy_from_slice(&[0u8; 2048]);
-            socks.read(response).await.expect("should successfully read");
-        }
-
-        let response_str = String::from_utf8_lossy(response);
-        let response_body =
-            response_str.split("\n").into_iter().filter(|x| x.starts_with("Google")).last().map(|x| x.to_string());
-
-        response_body
+        let response_str = String::from_utf8_lossy(&response);
+        response_str.split('\n').rfind(|x| x.starts_with("Google")).map(|x| x.to_string())
     }
 
     fn assert_response_body(response_body: &String) {
@@ -258,9 +303,8 @@ mod tests {
 
     #[tokio::test]
     pub async fn test_use_stream() {
-        // TODO: replace with local socks4 server
-        //       it requires implementation
-        let tcp = TcpStream::connect("217.17.56.160:4145").await.expect("should connect to remote");
+        let socks_addr = spawn_socks4_fixture().await;
+        let tcp = TcpStream::connect(socks_addr).await.expect("should connect to local socks4 fixture");
 
         let mut socks = Socks4Stream::use_stream(tcp).expect("should wrap to socks stream");
 
@@ -276,7 +320,8 @@ mod tests {
 
     #[tokio::test]
     pub async fn test_use_stream_local_resolve() {
-        let mut socks = Socks4Stream::connect("217.17.56.160:4145", get_domain(), 80, true)
+        let socks_addr = spawn_socks4_fixture().await;
+        let mut socks = Socks4Stream::connect(socks_addr, get_domain(), 80, true)
             .await
             .expect("should connect successfully to socks4 server");
 
@@ -285,8 +330,10 @@ mod tests {
         assert_response_body(&response_body);
     }
 
-    // Need to find socks4a supporting proxy or implement
-    // custom server and test using it
+    // SOCKS4a (server-side resolve) is not supported by this client's
+    // request encoder — the domain bytes are placed in the USERID slot
+    // rather than after a NUL terminator. Adding coverage would require
+    // first fixing the encoder; tracked separately.
     //
     // #[tokio::test]
     // pub async fn test_use_stream_remote_resolve() {

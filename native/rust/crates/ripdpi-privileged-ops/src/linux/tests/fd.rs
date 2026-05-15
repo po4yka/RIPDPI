@@ -1,32 +1,34 @@
 use std::io::{self, Read, Write};
 use std::mem::zeroed;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::os::fd::{AsRawFd, IntoRawFd};
+use std::os::fd::{AsFd, FromRawFd, IntoRawFd, OwnedFd};
 use std::os::unix::net::UnixStream;
 use std::slice;
 
-use crate::linux::fd::storage_to_socket_addr;
-use crate::linux::mmap_region::{alloc_region, free_region, write_region};
-use crate::linux::{close_fd, dup2_fd};
+use crate::linux::fd::{close_owned_fd, dup2_fd, storage_to_socket_addr};
+use crate::linux::mmap_region::MmapRegion;
 
 #[test]
-fn dup2_fd_replaces_target_and_close_fd_releases_transient_source() {
+fn dup2_fd_replaces_target_and_close_owned_fd_releases_transient_source() {
     let (mut target_stream, _target_peer) = UnixStream::pair().expect("create target pair");
     let (source_stream, mut source_peer) = UnixStream::pair().expect("create source pair");
-    let target_fd = target_stream.as_raw_fd();
-    let source_fd = source_stream.into_raw_fd();
+    let source_raw = source_stream.into_raw_fd();
+    // SAFETY: we just produced `source_raw` from `into_raw_fd`; ownership
+    // transfers to this `OwnedFd`, which will close the fd via
+    // `close_owned_fd` below.
+    let source = unsafe { OwnedFd::from_raw_fd(source_raw) };
 
-    dup2_fd(source_fd, target_fd).expect("replace target fd");
-    close_fd(source_fd).expect("close transient source fd");
+    dup2_fd(source.as_fd(), target_stream.as_fd()).expect("replace target fd");
+    close_owned_fd(source).expect("close transient source fd");
 
     source_peer.write_all(b"ok").expect("write through replacement peer");
     let mut buf = [0_u8; 2];
     target_stream.read_exact(&mut buf).expect("read from replaced target");
     assert_eq!(&buf, b"ok");
 
-    // SAFETY: `source_fd` was closed by `close_fd`, so probing it with
-    // `F_GETFD` should now fail with `EBADF`.
-    let rc = unsafe { libc::fcntl(source_fd, libc::F_GETFD) };
+    // SAFETY: `source_raw` was closed by `close_owned_fd`, so probing it
+    // with `F_GETFD` should now fail with `EBADF`.
+    let rc = unsafe { libc::fcntl(source_raw, libc::F_GETFD) };
     assert_eq!(rc, -1);
     assert_eq!(io::Error::last_os_error().raw_os_error(), Some(libc::EBADF));
 }
@@ -66,12 +68,30 @@ fn storage_to_socket_addr_rejects_unknown_families() {
 #[test]
 fn alloc_and_write_region_round_trip_bytes() {
     let len = 8usize;
-    let region = alloc_region(len).expect("allocate region");
-    write_region(region, b"hello", len);
+    let mut region = MmapRegion::new(len).expect("allocate region");
+    region.write(b"hello");
 
-    let bytes = unsafe { slice::from_raw_parts(region, len) };
+    // SAFETY: `region` owns a writable mapping of exactly `len` bytes that
+    // is kept alive for the duration of the borrow below.
+    let bytes = unsafe { slice::from_raw_parts(region.as_ptr(), region.len()) };
     assert_eq!(&bytes[..5], b"hello");
     assert_eq!(&bytes[5..], &[0, 0, 0]);
+    // `region` drops here, unmapping.
+}
 
-    free_region(region, len);
+#[test]
+fn mmap_region_rejects_zero_length() {
+    match MmapRegion::new(0) {
+        Ok(_) => panic!("zero-length must fail"),
+        Err(err) => assert_eq!(err.kind(), io::ErrorKind::InvalidInput),
+    }
+}
+
+#[test]
+fn mmap_region_write_truncates_to_region_length() {
+    let mut region = MmapRegion::new(4).expect("allocate region");
+    region.write(b"abcdefgh");
+    // SAFETY: see `alloc_and_write_region_round_trip_bytes`.
+    let bytes = unsafe { slice::from_raw_parts(region.as_ptr(), region.len()) };
+    assert_eq!(bytes, b"abcd");
 }

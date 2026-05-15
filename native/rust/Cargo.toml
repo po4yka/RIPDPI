@@ -294,12 +294,42 @@ default_trait_access = "warn"
 explicit_into_iter_loop = "warn"
 match_wildcard_for_single_variants = "warn"
 
-# JNI/FFI allowances
+# JNI/FFI allowances. These remain because (a) JNI export symbols are
+# generated as `unsafe fn` by macros and the macro-injected body cannot
+# carry a # Safety section, and (b) raw-pointer argument dereferences in
+# JNI bridges happen inside narrowly-scoped `unsafe` blocks with SAFETY
+# comments. The custom `scripts/ci/check_unsafe_boundaries.py` scan
+# enforces the documentation/contract requirements that these `allow`s
+# bypass at the lint level.
 missing_safety_doc = "allow"
 not_unsafe_ptr_arg_deref = "allow"
 
+# Soundness-focused unsafe boundary lints. Each one catches a concrete
+# class of safe-API-wrapping-unsafe pitfall identified in the soundness
+# policy (see docs/rust-soundness-policy.md).
+#
+# - `mut_from_ref`, `transmute_ptr_to_ptr`, `useless_transmute` are the
+#   pattern-level traps that drove the bufpool + fd refactors. They are
+#   `deny` and currently clean across the workspace.
+#
+# - `undocumented_unsafe_blocks` and `multiple_unsafe_ops_per_block` are
+#   the *documentation* lints. The TARGET state is `warn` (with CI's
+#   `-D warnings`, that escalates them to errors); the CURRENT state is
+#   `allow` while the existing unsafe corpus is being annotated. The
+#   high-level safe-wrapper-of-unsafe boundary policy is enforced by
+#   `scripts/ci/check_unsafe_boundaries.py` regardless of these two
+#   lint levels.
+undocumented_unsafe_blocks = "allow"
+mut_from_ref = "deny"
+transmute_ptr_to_ptr = "deny"
+useless_transmute = "deny"
+multiple_unsafe_ops_per_block = "allow"
+
 [workspace.lints.rust]
-unsafe_op_in_unsafe_fn = "warn"
+# Force every operation inside `unsafe fn` to live in its own `unsafe {}`
+# block with a SAFETY comment, rather than inheriting the function-level
+# unsafe context implicitly.
+unsafe_op_in_unsafe_fn = "deny"
 
 [profile.dev]
 debug = "line-tables-only"

@@ -14,7 +14,7 @@ mod ring;
 pub mod tun;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub use bufpool::{BufferHandle, RegisteredBufferPool};
+pub use bufpool::{BufferHandle, PendingBuffer, RegisteredBufferPool};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub use probe::{io_uring_capabilities, IoUringCapabilities};
 #[cfg(any(target_os = "linux", target_os = "android"))]

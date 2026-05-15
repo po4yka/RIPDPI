@@ -99,10 +99,10 @@ fn has_tcp_actions(group: &DesyncGroup) -> bool {
     !group.effective_tcp_chain().is_empty() || group.actions.mod_http != 0 || group.actions.tlsminor.is_some()
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 pub(crate) use crate::tcp_fake_family::*;
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 pub(crate) use crate::tcp_plan::*;
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod tests;

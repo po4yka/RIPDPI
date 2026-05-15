@@ -185,7 +185,7 @@ pub(crate) fn send_oob_with_android_ttl_fallback(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use super::*;
     use std::net::{TcpListener, TcpStream};

@@ -62,7 +62,7 @@ pub fn to_handle(value: jlong) -> Option<u64> {
     u64::try_from(value).ok().filter(|handle| *handle != 0)
 }
 
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(feature = "test-support")]
 pub mod test_support {
     use super::*;
     use std::sync::MutexGuard;
@@ -126,7 +126,7 @@ pub mod test_support {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-support", not(feature = "loom")))]
 mod tests {
     use super::*;
 

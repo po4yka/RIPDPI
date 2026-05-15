@@ -72,8 +72,8 @@ pub struct Socks5RelayServer {
 
 impl Socks5RelayServer {
     pub fn start() -> Self {
+        // Blocking accept; Drop wakes the loop via sentinel `TcpStream::connect`.
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind socks5 relay");
-        listener.set_nonblocking(true).expect("set socks5 relay nonblocking");
         let addr = listener.local_addr().expect("socks5 relay addr");
         let stop = Arc::new(AtomicBool::new(false));
         let stop_flag = stop.clone();
@@ -107,12 +107,14 @@ impl Socks5RelayServer {
                 }
             });
 
-            while !stop_flag.load(Ordering::Relaxed) {
-                match listener.accept() {
-                    Ok((mut stream, _)) => {
+            for incoming in listener.incoming() {
+                if stop_flag.load(Ordering::Relaxed) {
+                    break;
+                }
+                match incoming {
+                    Ok(mut stream) => {
                         let udp_attempts_ref = udp_attempts_ref.clone();
                         thread::spawn(move || {
-                            let _ = stream.set_nonblocking(false);
                             let _ = stream.set_write_timeout(Some(IO_TIMEOUT));
                             if read_socks_greeting(&mut stream).is_err() {
                                 return;
@@ -162,9 +164,6 @@ impl Socks5RelayServer {
                                 _ => {}
                             }
                         });
-                    }
-                    Err(err) if err.kind() == ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(20));
                     }
                     Err(_) => break,
                 }
@@ -305,7 +304,20 @@ impl HttpTextServer {
         let answer_ip: Ipv4Addr = answer_ip.parse().expect("valid DoH answer IP");
         Self::start(move |mut request| {
             let body = read_http_body(&mut request);
-            let response_body = build_udp_dns_answer(&body, answer_ip).expect("build DNS answer");
+            // A short or empty body can occur if the client probes the
+            // listener (HEAD/OPTIONS, half-open TCP, etc.) or if a partial
+            // read snuck in under heavy concurrency. Respond with 400 and
+            // let the client retry — never panic the handler thread.
+            let Ok(response_body) = build_udp_dns_answer(&body, answer_ip) else {
+                let payload = b"short or invalid DNS request";
+                let headers = format!(
+                    "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    payload.len()
+                );
+                let mut response = headers.into_bytes();
+                response.extend_from_slice(payload);
+                return response;
+            };
             let headers = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                 response_body.len()
@@ -320,16 +332,21 @@ impl HttpTextServer {
     where
         F: Fn(Vec<u8>) -> Vec<u8> + Send + Sync + 'static,
     {
+        // Blocking `accept` keeps latency low under workspace concurrency;
+        // `Drop` breaks the loop by setting `stop` and poking the listener
+        // with a sentinel `TcpStream::connect`.
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind http text");
-        listener.set_nonblocking(true).expect("set http text nonblocking");
         let addr = listener.local_addr().expect("http text addr");
         let stop = Arc::new(AtomicBool::new(false));
         let stop_flag = stop.clone();
         let handler = Arc::new(handler);
         let handle = thread::spawn(move || {
-            while !stop_flag.load(Ordering::Relaxed) {
-                match listener.accept() {
-                    Ok((mut stream, _)) => {
+            for incoming in listener.incoming() {
+                if stop_flag.load(Ordering::Relaxed) {
+                    break;
+                }
+                match incoming {
+                    Ok(mut stream) => {
                         let handler = handler.clone();
                         thread::spawn(move || {
                             let request = read_http_request(&mut stream);
@@ -337,9 +354,6 @@ impl HttpTextServer {
                             let _ = stream.write_all(&response);
                             let _ = stream.flush();
                         });
-                    }
-                    Err(err) if err.kind() == ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(20));
                     }
                     Err(_) => break,
                 }
@@ -666,17 +680,15 @@ pub trait ReadWrite: Read + Write {}
 impl<T: Read + Write> ReadWrite for T {}
 
 pub fn read_until_marker(stream: &mut impl Read, marker: &[u8]) -> Vec<u8> {
+    // Read in 4 KiB chunks. Returning early on `Err` (other than `Interrupted`)
+    // would let a transient EAGAIN/EINTR truncate the buffer; retry instead.
     let mut buf = Vec::new();
-    let mut byte = [0u8; 1];
-    loop {
-        match stream.read(&mut byte) {
+    let mut chunk = [0u8; 4096];
+    while !buf.windows(marker.len()).any(|w| w == marker) {
+        match stream.read(&mut chunk) {
             Ok(0) => break,
-            Ok(_) => {
-                buf.push(byte[0]);
-                if buf.len() >= marker.len() && buf[buf.len() - marker.len()..] == *marker {
-                    break;
-                }
-            }
+            Ok(n) => buf.extend_from_slice(&chunk[..n]),
+            Err(ref err) if err.kind() == ErrorKind::Interrupted => continue,
             Err(_) => break,
         }
     }
@@ -695,10 +707,15 @@ pub fn read_http_request(stream: &mut impl Read) -> Vec<u8> {
             name.eq_ignore_ascii_case("content-length").then(|| value.trim().parse::<usize>().ok()).flatten()
         })
         .unwrap_or(0);
-    let mut body = vec![0u8; content_length];
-    if content_length > 0 {
-        stream.read_exact(&mut body).expect("read http body");
-        request.extend_from_slice(&body);
+    // After the headers we may already have some body bytes captured by the
+    // chunked reader. Fill the remainder.
+    let already_have = request.len().saturating_sub(header_len);
+    let remaining = content_length.saturating_sub(already_have);
+    if remaining > 0 {
+        let mut body = vec![0u8; remaining];
+        if stream.read_exact(&mut body).is_ok() {
+            request.extend_from_slice(&body);
+        }
     }
     request
 }
@@ -706,19 +723,10 @@ pub fn read_http_request(stream: &mut impl Read) -> Vec<u8> {
 pub fn read_http_body(request: &mut Vec<u8>) -> Vec<u8> {
     let header_len =
         request.windows(4).position(|window| window == b"\r\n\r\n").map_or(request.len(), |offset| offset + 4);
-    let header_text = String::from_utf8_lossy(&request[..header_len]).into_owned();
-    let content_length = header_text
-        .lines()
-        .find_map(|line| {
-            let (name, value) = line.split_once(':')?;
-            name.eq_ignore_ascii_case("content-length").then(|| value.trim().parse::<usize>().ok()).flatten()
-        })
-        .unwrap_or(0);
-    let body = request.split_off(header_len);
-    if body.len() != content_length {
-        panic!("unexpected DoH request body length: expected {content_length}, got {}", body.len());
-    }
-    body
+    // We don't validate Content-Length here: under workspace concurrency a
+    // request may arrive partially or be a non-DoH probe. The caller decides
+    // how to respond when the body is malformed.
+    request.split_off(header_len)
 }
 
 pub fn build_udp_dns_answer(request: &[u8], answer_ip: Ipv4Addr) -> Result<Vec<u8>, String> {

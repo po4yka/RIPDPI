@@ -20,3 +20,6 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 ripdpi-android-bridge-support = { workspace = true, features = ["test-support"] }
+
+[features]
+loom = ["android-support/loom", "ripdpi-android-bridge-support/loom"]

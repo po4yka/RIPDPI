@@ -21,3 +21,4 @@ jni = { workspace = true, features = ["invocation"] }
 
 [features]
 test-support = ["dep:once_cell", "jni/invocation"]
+loom = ["android-support/loom"]

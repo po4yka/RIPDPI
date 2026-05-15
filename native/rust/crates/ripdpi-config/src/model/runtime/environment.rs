@@ -3,7 +3,7 @@
 /// Used by the offline learner to distinguish bandit
 /// statistics gathered on real user devices (`Field`) from those gathered
 /// on Android emulators or CI test devices (`Emulator`). Including this in
-/// [`crate::strategy_evolver::LearningContext`] (the bandit's HashMap key)
+/// the strategy evolver's `LearningContext` (the bandit's HashMap key)
 /// segregates the two populations automatically — emulator runs cannot
 /// pollute field priors, and field runs are not biased by simulator-only
 /// network characteristics. `Unknown` is the conservative default for
