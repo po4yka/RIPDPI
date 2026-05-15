@@ -38,7 +38,7 @@ framing. A v2 server today produces an opaque connect or HMAC failure.
 
 ## Acceptance criteria
 
-- [ ] An ADR records the chosen policy.
+- [x] An ADR records the chosen policy. **DONE 2026-05-15:** v3 only; see `docs/architecture/shadowtls-version-policy.md`.
 - [ ] If "v3 only", the failure classifier reports
     `ShadowTlsVersionMismatch` distinctly from auth failures.
 - [ ] If "v2 supported", the config exposes `shadowtls_version: 2 | 3`

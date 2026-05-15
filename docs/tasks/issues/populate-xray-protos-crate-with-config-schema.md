@@ -60,7 +60,10 @@ under `docs/architecture/`:
 
 ## Acceptance criteria
 
-- [ ] ADR note documents the choice and the rationale.
+- [x] ADR note documents the choice and the rationale.
+    **DONE 2026-05-15:** decision is **Option B (hand-rolled serde_json schema)**;
+    see `docs/architecture/xray-protos-schema-choice.md`. Remaining
+    acceptance criteria below cover the actual implementation.
 - [ ] `xray-protos` builds and ships either generated Rust types or a
     hand-rolled schema, with a public API the engine can call.
 - [ ] Round-trip tests parse a known-good Xray client config and

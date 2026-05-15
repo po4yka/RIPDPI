@@ -40,9 +40,12 @@ problem.
 
 ## Acceptance criteria
 
-- [ ] A short ADR under `docs/architecture/` documents the chosen
+- [x] A short ADR under `docs/architecture/` documents the chosen
     policy: "v5 only with deprecation", "v4 fallback on negotiation
     failure", or "explicit user-selected version".
+    **DONE 2026-05-15:** decision is **v5 only**; see
+    `docs/architecture/tuic-v4-policy.md`. Remaining acceptance
+    criteria below cover the classifier wiring + tests.
 - [ ] If "v5 only", the failure classifier maps v4-server responses to
     a distinct `TuicVersionUnsupported` class with remediation text.
 - [ ] If "fallback", the client attempts v5 first and falls back to v4

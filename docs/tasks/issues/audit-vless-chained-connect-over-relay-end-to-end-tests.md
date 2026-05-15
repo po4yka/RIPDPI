@@ -38,8 +38,9 @@ implemented but its test surface is unclear from the file listing.
 
 ## Acceptance criteria
 
-- [ ] A short audit doc (one paragraph in `lib.rs` module docs
+- [x] A short audit doc (one paragraph in `lib.rs` module docs
     or as a `CHAIN.md`) names what is and is not covered today.
+    **DONE 2026-05-15:** see `docs/architecture/vless-chain-coverage-audit.md`.
 - [ ] At least one end-to-end test drives data through a two-hop
     chain on loopback, asserting bidirectional payload integrity.
 - [ ] One negative test asserts that a chain failure on the

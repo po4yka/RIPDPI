@@ -1,7 +1,7 @@
 ---
 title: Audit QUIC-common extraction from MASQUE, Hysteria 2, and TUIC
 type: task
-status: backlog
+status: done
 area: rust-native
 priority: low
 owner: unassigned
@@ -12,7 +12,13 @@ created: 2026-05-15
 updated: 2026-05-15
 ---
 
-- [ ] #task Audit QUIC-common extraction from MASQUE, Hysteria 2, and TUIC #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [x] #task Audit QUIC-common extraction from MASQUE, Hysteria 2, and TUIC #repo/RIPDPI #area/rust-native #status/done 🔼
+
+## Audit outcome
+
+Recommendation: **do not extract a new crate; tighten the existing
+re-export surface instead**. See
+`docs/architecture/quic-common-extraction-audit.md`.
 
 ## Goal contract
 
