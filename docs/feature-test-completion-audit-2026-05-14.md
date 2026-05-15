@@ -118,7 +118,8 @@ available in the current local lab.
   guard command/result. A read-only ruleset refresh confirms `main-protection`
   requires a pull request, review-thread resolution, `build`,
   `static-analysis`, `cli-packet-smoke`, CodeQL Java/Kotlin, CodeQL Actions,
-  and CodeQL code-scanning thresholds before merge. Commit hooks passed for the latest
+  and CodeQL code-scanning thresholds before merge. A read-only code-scanning
+  refresh returned no open alerts and no open CodeQL alerts. Commit hooks passed for the latest
   native/Appium/test-lab/testing-docs commits.
 - Remote state: `origin/main` now points at `d0b9347e`. CodeQL run
   `25900346139`, CI run `25900346157`, and Local Network Lab run `25902662966`
