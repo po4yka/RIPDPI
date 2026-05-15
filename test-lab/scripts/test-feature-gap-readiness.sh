@@ -7,17 +7,20 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 default_json="$tmpdir/feature-gap-readiness.json"
 duplicate_json="$tmpdir/feature-gap-readiness-duplicate.json"
+invalid_status_json="$tmpdir/feature-gap-readiness-invalid-status.json"
+invalid_required_json="$tmpdir/feature-gap-readiness-invalid-required.json"
+unexpected_json="$tmpdir/feature-gap-readiness-unexpected.json"
 relay_json="$tmpdir/feature-gap-readiness-with-relay.json"
 unknown_json="$tmpdir/feature-gap-readiness-unknown-remote.json"
+validator="$tmpdir/validate-readiness.py"
 
 "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
   --output "$default_json" >/dev/null
 "$repo_root/test-lab/scripts/check-feature-test-signoff.sh" \
   --list-required-readiness > "$tmpdir/signoff-required-readiness.txt"
 
-python3 - "$default_json" "$tmpdir/signoff-required-readiness.txt" <<'PY'
+cat > "$validator" <<'PY'
 import json
-import re
 import sys
 
 with open(sys.argv[1], encoding="utf-8") as handle:
@@ -78,6 +81,18 @@ if actual_required != required:
 extra = sorted(set(checks).difference(required))
 if extra:
     raise SystemExit(f"unexpected readiness checks: {extra}")
+PY
+
+python3 "$validator" "$default_json" "$tmpdir/signoff-required-readiness.txt"
+
+python3 - "$default_json" <<'PY'
+import json
+import re
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+checks = {check["name"]: check for check in data.get("checks", [])}
 
 remote = checks["remote_workflow_confirmation"]
 message = remote.get("message", "")
@@ -89,55 +104,63 @@ if re.search(r"\b[0-9a-f]{7,40}\b", message) or re.search(r"\bby \d+ commit", me
     raise SystemExit(f"remote workflow message is commit-specific: {message!r}")
 PY
 
-python3 - "$default_json" "$duplicate_json" <<'PY'
+make_fixture() {
+  local output="$1"
+  local mutation="$2"
+  python3 - "$default_json" "$output" "$mutation" <<'PY'
 import json
 import sys
 
 with open(sys.argv[1], encoding="utf-8") as handle:
     data = json.load(handle)
-data["checks"].append(dict(data["checks"][0]))
+mutation = sys.argv[3]
+if mutation == "duplicate":
+    data["checks"].append(dict(data["checks"][0]))
+elif mutation == "invalid_status":
+    data["checks"][0]["status"] = "done"
+elif mutation == "invalid_required":
+    data["checks"][0]["required"] = "true"
+elif mutation == "unexpected":
+    data["checks"].append(
+        {
+            "name": "unexpected_check",
+            "status": "ready",
+            "required": False,
+            "message": "unexpected",
+        }
+    )
+else:
+    raise SystemExit(f"unknown readiness fixture mutation: {mutation}")
 with open(sys.argv[2], "w", encoding="utf-8") as handle:
     json.dump(data, handle)
 PY
-
-set +e
-python3 - "$duplicate_json" "$tmpdir/signoff-required-readiness.txt" <<'PY' > "$tmpdir/duplicate.out" 2>&1
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as handle:
-    data = json.load(handle)
-with open(sys.argv[2], encoding="utf-8") as handle:
-    signoff_required = {line.strip() for line in handle if line.strip()}
-
-required = {
-    "android_device",
-    "rooted_physical_device",
-    "manual_talkback",
-    "physical_network_handover",
-    "routed_netem_vm",
-    "production_relay_matrix",
-    "remote_workflow_confirmation",
 }
-if signoff_required != required:
-    raise SystemExit("readiness/signoff required row mismatch")
 
-checks = {}
-for index, check in enumerate(data.get("checks", [])):
-    name = check.get("name")
-    if name in checks:
-        raise SystemExit(f"duplicate readiness check: {name}")
-    checks[name] = check
-PY
-duplicate_status=$?
-set -e
+expect_invalid_readiness() {
+  local fixture="$1"
+  local expected="$2"
+  set +e
+  python3 "$validator" "$fixture" "$tmpdir/signoff-required-readiness.txt" \
+    > "$tmpdir/invalid-readiness.out" 2>&1
+  local status=$?
+  set -e
+  cat "$tmpdir/invalid-readiness.out"
+  if [[ "$status" -ne 1 ]]; then
+    echo "Expected invalid readiness fixture to fail, got $status" >&2
+    cat "$tmpdir/invalid-readiness.out" >&2
+    exit 1
+  fi
+  grep -F "$expected" "$tmpdir/invalid-readiness.out"
+}
 
-if [[ "$duplicate_status" -ne 1 ]]; then
-  echo "Expected duplicate readiness fixture to fail, got $duplicate_status" >&2
-  cat "$tmpdir/duplicate.out" >&2
-  exit 1
-fi
-grep -F 'duplicate readiness check: android_device' "$tmpdir/duplicate.out"
+make_fixture "$duplicate_json" "duplicate"
+expect_invalid_readiness "$duplicate_json" "duplicate readiness check: android_device"
+make_fixture "$invalid_status_json" "invalid_status"
+expect_invalid_readiness "$invalid_status_json" "android_device readiness status must be one of"
+make_fixture "$invalid_required_json" "invalid_required"
+expect_invalid_readiness "$invalid_required_json" "android_device readiness required must be a boolean"
+make_fixture "$unexpected_json" "unexpected"
+expect_invalid_readiness "$unexpected_json" "unexpected readiness checks: ['unexpected_check']"
 
 RIPDPI_REMOTE_COMPARE_REF="origin/ripdpi-missing-test-ref" \
   "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
