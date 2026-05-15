@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+checker="$repo_root/test-lab/scripts/test-feature-artifact-paths.sh"
+tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-artifact-paths-test.XXXXXX")"
+trap 'rm -rf "$tmpdir"' EXIT
+
+valid_evidence="$tmpdir/valid-evidence.md"
+missing_evidence="$tmpdir/missing-evidence.md"
+
+cat > "$valid_evidence" <<'EOF'
+# Fixture Evidence
+
+| Checklist area | Command or artifact | Result |
+| --- | --- | --- |
+| Test-lab doctor | `test-lab/artifacts/doctor.json` | Pass |
+EOF
+
+cat > "$missing_evidence" <<'EOF'
+# Fixture Evidence
+
+| Checklist area | Command or artifact | Result |
+| --- | --- | --- |
+| Missing artifact | `test-lab/artifacts/fixture-missing-artifact.json` | Should fail |
+EOF
+
+"$checker" "$valid_evidence" \
+  | grep -F 'Feature artifact path self-test passed: 1 referenced artifact paths, 0 missing.'
+
+set +e
+"$checker" "$missing_evidence" > "$tmpdir/missing.out" 2>&1
+missing_status=$?
+set -e
+
+if [[ "$missing_status" -ne 1 ]]; then
+  echo "Expected missing artifact fixture to exit 1, got $missing_status" >&2
+  cat "$tmpdir/missing.out" >&2
+  exit 1
+fi
+
+grep -F 'Missing referenced test-lab artifact: test-lab/artifacts/fixture-missing-artifact.json' \
+  "$tmpdir/missing.out"
+
+echo "Feature artifact path fixture self-test passed."
