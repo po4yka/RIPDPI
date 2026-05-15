@@ -79,9 +79,10 @@ available in the current local lab.
   including help text, machine-readable required readiness/audit-row output,
   manual evidence template row parity, audit/evidence blocker and next-action
   parity, missing required audit rows, incomplete audit result/remaining-evidence
-  cells, required `manual` readiness rows, missing required readiness rows,
-  duplicate required rows, invalid statuses, and malformed readiness JSON, the
-  relay matrix config self-test including template parity,
+  cells, stale readiness artifacts, required `manual` readiness rows, missing
+  required readiness rows, duplicate required rows, invalid statuses, and
+  malformed readiness JSON, the relay matrix config self-test including template
+  parity,
   the focused debug-probe
   relay-readiness unit test, physical mock-relay
   VPN/proxy/diagnostics probes, proxy E2E runner syntax, the

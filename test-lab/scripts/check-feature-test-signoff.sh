@@ -7,6 +7,7 @@ readiness_path=""
 keep_readiness=false
 list_required_readiness=false
 list_required_audit_rows=false
+readiness_max_age_seconds="${RIPDPI_READINESS_MAX_AGE_SECONDS:-86400}"
 required_audit_rows=(
   "Use docs/feature-test-checklist.md as the source checklist"
   "Fix all issues found during the local pass"
@@ -196,7 +197,8 @@ while IFS=$'\t' read -r name status message; do
     failures+=("$name is $status: $message")
   fi
 done < <(
-  python3 - "$readiness_path" "${required_readiness_checks[@]}" <<'PY'
+  python3 - "$readiness_path" "$readiness_max_age_seconds" "$(date +%s)" \
+    "${required_readiness_checks[@]}" <<'PY'
 import json
 import sys
 
@@ -216,12 +218,41 @@ if not isinstance(data, dict):
     print("readiness_artifact", "invalid", "top-level JSON value must be an object", sep="\t")
     raise SystemExit(0)
 
+try:
+    max_age_seconds = int(sys.argv[2])
+    current_epoch = int(sys.argv[3])
+except ValueError as exc:
+    print("readiness_artifact", "invalid", f"invalid freshness configuration: {exc}", sep="\t")
+    raise SystemExit(0)
+
+generated_at = data.get("generatedAtEpoch")
+if not isinstance(generated_at, int):
+    print("readiness_artifact", "invalid", "generatedAtEpoch must be an integer", sep="\t")
+    raise SystemExit(0)
+if generated_at > current_epoch + 300:
+    print(
+        "readiness_artifact",
+        "invalid",
+        f"generatedAtEpoch is in the future: {generated_at}",
+        sep="\t",
+    )
+    raise SystemExit(0)
+age_seconds = current_epoch - generated_at
+if age_seconds > max_age_seconds:
+    print(
+        "readiness_artifact",
+        "stale",
+        f"generatedAtEpoch is {age_seconds}s old; regenerate readiness within {max_age_seconds}s",
+        sep="\t",
+    )
+    raise SystemExit(0)
+
 checks = data.get("checks")
 if not isinstance(checks, list):
     print("readiness_artifact", "invalid", "checks must be an array", sep="\t")
     raise SystemExit(0)
 
-required_names = set(sys.argv[2:])
+required_names = set(sys.argv[4:])
 seen_required = set()
 allowed_statuses = {"ready", "manual", "blocked"}
 for index, check in enumerate(checks):

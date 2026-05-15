@@ -11,11 +11,13 @@ missing_audit_row="$tmpdir/missing-audit-row.md"
 audit_remaining_work="$tmpdir/audit-remaining-work.md"
 incomplete_audit="$tmpdir/incomplete-audit.md"
 ready_json="$tmpdir/ready.json"
+stale_json="$tmpdir/stale.json"
 missing_required_json="$tmpdir/missing-required.json"
 duplicate_required_json="$tmpdir/duplicate-required.json"
 invalid_status_json="$tmpdir/invalid-status.json"
 malformed_json="$tmpdir/malformed.json"
 blocked_json="$tmpdir/blocked.json"
+current_epoch="$(date +%s)"
 
 cat > "$complete_audit" <<'EOF'
 # Feature Test Completion Audit
@@ -75,8 +77,9 @@ perl -0pi -e \
   's/(\| Verify remote release gates \| Fixture evidence \| Covered locally \| )None \|/${1}Fresh remote workflows |/' \
   "$audit_remaining_work"
 
-cat > "$ready_json" <<'EOF'
+cat > "$ready_json" <<EOF
 {
+  "generatedAtEpoch": $current_epoch,
   "checks": [
     {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
     {"name": "rooted_physical_device", "status": "ready", "required": true, "message": "ready"},
@@ -90,16 +93,33 @@ cat > "$ready_json" <<'EOF'
 }
 EOF
 
-cat > "$missing_required_json" <<'EOF'
+cat > "$stale_json" <<'EOF'
 {
+  "generatedAtEpoch": 1,
+  "checks": [
+    {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "rooted_physical_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "manual_talkback", "status": "ready", "required": true, "message": "ready"},
+    {"name": "physical_network_handover", "status": "ready", "required": true, "message": "ready"},
+    {"name": "routed_netem_vm", "status": "ready", "required": true, "message": "ready"},
+    {"name": "production_relay_matrix", "status": "ready", "required": true, "message": "ready"},
+    {"name": "remote_workflow_confirmation", "status": "ready", "required": true, "message": "ready"}
+  ]
+}
+EOF
+
+cat > "$missing_required_json" <<EOF
+{
+  "generatedAtEpoch": $current_epoch,
   "checks": [
     {"name": "android_device", "status": "ready", "required": true, "message": "ready"}
   ]
 }
 EOF
 
-cat > "$duplicate_required_json" <<'EOF'
+cat > "$duplicate_required_json" <<EOF
 {
+  "generatedAtEpoch": $current_epoch,
   "checks": [
     {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
     {"name": "android_device", "status": "ready", "required": true, "message": "duplicate"}
@@ -107,8 +127,9 @@ cat > "$duplicate_required_json" <<'EOF'
 }
 EOF
 
-cat > "$invalid_status_json" <<'EOF'
+cat > "$invalid_status_json" <<EOF
 {
+  "generatedAtEpoch": $current_epoch,
   "checks": [
     {"name": "android_device", "status": "done", "required": true, "message": "invalid"}
   ]
@@ -117,8 +138,9 @@ EOF
 
 printf '{"checks": [\n' > "$malformed_json"
 
-cat > "$blocked_json" <<'EOF'
+cat > "$blocked_json" <<EOF
 {
+  "generatedAtEpoch": $current_epoch,
   "checks": [
     {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
     {"name": "manual_talkback", "status": "blocked", "required": true, "message": "TalkBack inactive"},
@@ -274,6 +296,20 @@ fi
 
 grep -F 'completion audit is missing required row: Verify remote release gates' \
   "$tmpdir/missing-audit-row.out"
+
+set +e
+"$guard" --audit "$complete_audit" --readiness "$stale_json" \
+  > "$tmpdir/stale.out"
+stale_status=$?
+set -e
+
+if [[ "$stale_status" -ne 1 ]]; then
+  echo "Expected stale readiness artifact to exit 1, got $stale_status" >&2
+  cat "$tmpdir/stale.out" >&2
+  exit 1
+fi
+
+grep -F 'readiness_artifact is stale: generatedAtEpoch is' "$tmpdir/stale.out"
 
 set +e
 "$guard" --audit "$audit_remaining_work" --readiness "$ready_json" \
