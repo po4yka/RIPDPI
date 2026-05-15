@@ -1,3 +1,5 @@
+pub mod outbound;
+
 use crate::read_exact;
 use crate::util::stream::{tcp_connect, tcp_connect_with_timeout};
 use crate::util::target_addr::{read_address, TargetAddr, ToTargetAddr};

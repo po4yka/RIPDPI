@@ -9,6 +9,7 @@ members = [
     "crates/local-network-fixture",
     "crates/native-soak-support",
     "crates/ripdpi-collections",
+    "crates/ripdpi-routing",
     "crates/ripdpi-proxy-config",
     "crates/ripdpi-diagnostics-candidates",
     "crates/ripdpi-diagnostics-classification",

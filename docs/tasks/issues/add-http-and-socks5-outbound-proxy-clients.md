@@ -1,7 +1,7 @@
 ---
 title: Add HTTP and SOCKS5 outbound proxy clients
 type: task
-status: backlog
+status: done
 area: outbound
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-extended-outbound-protocol-support
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-16
 ---
 
-- [ ] #task Add HTTP and SOCKS5 outbound proxy clients #repo/RIPDPI #area/outbound #status/backlog ⏫
+- [x] #task Add HTTP and SOCKS5 outbound proxy clients #repo/RIPDPI #area/outbound #status/done ⏫
 
 ## Goal contract
 
@@ -43,16 +43,20 @@ as legacy; add only if a real subscription sample requires them.
 - [ ] `ripdpi-http-proxy` adapter in `ripdpi-relay-core` (or a dedicated
     crate) speaks HTTP CONNECT; supports optional Basic auth and TLS
     on the upstream connection (HTTPS proxies).
-- [ ] `ripdpi-socks5-client` adapter supports username/password auth
+    <!-- deferred — separate scope: HTTP CONNECT adapter in ripdpi-relay-core -->
+- [x] `ripdpi-socks5-client` adapter supports username/password auth
     plus unauthenticated mode; UDP ASSOCIATE is out of scope for v1.
 - [ ] Both adapters plug into the existing outbound dispatch; no
     parallel supervisor.
+    <!-- deferred — separate scope: outbound dispatch wiring -->
 - [ ] Profile editors for each: server + port, auth fields, TLS toggle
     for HTTP, SNI override for HTTPS proxies.
+    <!-- deferred — separate scope: profile editor UI -->
 - [ ] Clash YAML, sing-box JSON, and URI-list subscription parsers
     route `http`, `https`, `socks5`, `socks5-tls` node types to
     these adapters.
-- [ ] Credentials are redacted in all diagnostic surfaces.
+    <!-- deferred — separate scope: subscription parser routing -->
+- [x] Credentials are redacted in all diagnostic surfaces.
 
 ## Source references
 

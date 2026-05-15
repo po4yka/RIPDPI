@@ -1,7 +1,7 @@
 ---
 title: Add Rust rule matcher with domain ip port process matchers
 type: task
-status: backlog
+status: done
 area: routing
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-advanced-routing-rules-and-geoip-enforcement
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-16
 ---
 
-- [ ] #task Add Rust rule matcher with domain ip port process matchers #repo/RIPDPI #area/routing #status/backlog ⏫
+- [x] #task Add Rust rule matcher with domain ip port process matchers #repo/RIPDPI #area/routing #status/done ⏫
 
 ## Goal contract
 

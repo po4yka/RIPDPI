@@ -3955,6 +3955,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-routing"
+version = "0.1.0"
+dependencies = [
+ "ipnet",
+ "regex",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ripdpi-runtime-adaptive"
 version = "0.1.0"
 dependencies = [
@@ -4218,6 +4227,7 @@ dependencies = [
  "rcgen",
  "rustls",
  "serde",
+ "serde_json",
  "socket2",
  "tokio",
  "tracing",
