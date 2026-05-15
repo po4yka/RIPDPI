@@ -159,6 +159,38 @@ for row in required_rows:
 PY
 )
 
+while IFS=$'\t' read -r requirement reason; do
+  failures+=("completion audit row is incomplete: $requirement: $reason")
+done < <(
+  python3 - "$audit_path" <<'PY'
+import sys
+from pathlib import Path
+
+
+audit = Path(sys.argv[1]).read_text(encoding="utf-8")
+for line in audit.splitlines():
+    if not line.startswith("|"):
+        continue
+    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    if len(cells) != 4 or cells[0] in {"Requirement", "---"}:
+        continue
+    requirement, _evidence, result, remaining = cells
+    if result != "Covered locally":
+        print(
+            requirement,
+            f"result must be Covered locally before sign-off, got {result!r}",
+            sep="\t",
+        )
+        continue
+    if not remaining.lower().startswith("none"):
+        print(
+            requirement,
+            f"remaining evidence must be None before sign-off, got {remaining!r}",
+            sep="\t",
+        )
+PY
+)
+
 while IFS=$'\t' read -r name status message; do
   if [[ "$status" != "ready" ]]; then
     failures+=("$name is $status: $message")

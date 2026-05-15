@@ -8,6 +8,7 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 complete_audit="$tmpdir/complete-audit.md"
 missing_audit_row="$tmpdir/missing-audit-row.md"
+audit_remaining_work="$tmpdir/audit-remaining-work.md"
 incomplete_audit="$tmpdir/incomplete-audit.md"
 ready_json="$tmpdir/ready.json"
 missing_required_json="$tmpdir/missing-required.json"
@@ -68,6 +69,11 @@ Status: **not complete**.
 | --- | --- | --- | --- |
 | Remaining environment readiness | Fixture evidence | Partial | Manual rows |
 EOF
+
+cp "$complete_audit" "$audit_remaining_work"
+perl -0pi -e \
+  's/(\| Verify remote release gates \| Fixture evidence \| Covered locally \| )None \|/${1}Fresh remote workflows |/' \
+  "$audit_remaining_work"
 
 cat > "$ready_json" <<'EOF'
 {
@@ -270,6 +276,21 @@ grep -F 'completion audit is missing required row: Verify remote release gates' 
   "$tmpdir/missing-audit-row.out"
 
 set +e
+"$guard" --audit "$audit_remaining_work" --readiness "$ready_json" \
+  > "$tmpdir/audit-remaining-work.out"
+audit_remaining_work_status=$?
+set -e
+
+if [[ "$audit_remaining_work_status" -ne 1 ]]; then
+  echo "Expected covered audit row with remaining work to exit 1, got $audit_remaining_work_status" >&2
+  cat "$tmpdir/audit-remaining-work.out" >&2
+  exit 1
+fi
+
+grep -F "completion audit row is incomplete: Verify remote release gates: remaining evidence must be None before sign-off" \
+  "$tmpdir/audit-remaining-work.out"
+
+set +e
 "$guard" --audit "$incomplete_audit" --readiness "$blocked_json" \
   > "$tmpdir/blocked.out"
 blocked_status=$?
@@ -283,6 +304,8 @@ fi
 
 grep -F 'completion audit explicitly says not complete' "$tmpdir/blocked.out"
 grep -F 'completion audit still contains Partial rows' "$tmpdir/blocked.out"
+grep -F "completion audit row is incomplete: Remaining environment readiness: result must be Covered locally before sign-off" \
+  "$tmpdir/blocked.out"
 grep -F 'manual_talkback is blocked: TalkBack inactive' "$tmpdir/blocked.out"
 grep -F 'physical_network_handover is manual: Handover needs operator run' "$tmpdir/blocked.out"
 
