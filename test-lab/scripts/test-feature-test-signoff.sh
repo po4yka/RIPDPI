@@ -224,15 +224,19 @@ grep -Fx 'Use docs/feature-test-checklist.md as the source checklist' \
 grep -Fx 'Verify remote release gates' "$tmpdir/required-audit-rows.out"
 
 python3 - "$repo_root/docs/feature-test-manual-evidence-template.md" \
+  "$repo_root/docs/testing.md" \
+  "$repo_root/test-lab/README.md" \
   "$tmpdir/required-readiness.out" <<'PY'
 import re
 import sys
 from pathlib import Path
 
 template = Path(sys.argv[1]).read_text(encoding="utf-8")
+testing_guide = Path(sys.argv[2]).read_text(encoding="utf-8")
+test_lab_readme = Path(sys.argv[3]).read_text(encoding="utf-8")
 required = {
     line.strip()
-    for line in Path(sys.argv[2]).read_text(encoding="utf-8").splitlines()
+    for line in Path(sys.argv[4]).read_text(encoding="utf-8").splitlines()
     if line.strip()
 }
 
@@ -286,6 +290,30 @@ if missing_workflows:
         "manual evidence template is missing remote workflow rows: "
         f"{missing_workflows!r}"
     )
+
+required_dispatch_commands = {
+    "gh workflow run ci.yml --ref main",
+    "gh workflow run local-network-lab.yml --ref main -f run_vpn_emulator_lane=false",
+    "gh workflow run offline-analytics.yml --ref main -f private_corpus_path=''",
+    "gh workflow run mutation-testing.yml --ref main -f packages='' -f in_diff=false",
+    "gh workflow run fuzz-nightly.yml --ref main -f fuzz_seconds=1800",
+}
+for doc_name, doc_text in {
+    "docs/testing.md": testing_guide,
+    "test-lab/README.md": test_lab_readme,
+}.items():
+    missing_commands = sorted(
+        command
+        for command in required_dispatch_commands
+        if command not in doc_text
+    )
+    if missing_commands:
+        raise SystemExit(
+            f"{doc_name} is missing remote workflow dispatch commands: "
+            f"{missing_commands!r}"
+        )
+    if "CodeQL" not in doc_text or "push" not in doc_text:
+        raise SystemExit(f"{doc_name} must document CodeQL as a push-triggered run")
 PY
 
 python3 - "$repo_root/docs/feature-test-completion-audit-2026-05-14.md" \
