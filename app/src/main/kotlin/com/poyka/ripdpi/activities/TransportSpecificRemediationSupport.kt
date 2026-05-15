@@ -10,6 +10,7 @@ internal enum class TransportRemediationKind {
     OWNED_STACK_ACTION,
     BROWSER_FALLBACK,
     QUIC_FALLBACK,
+    DOMESTIC_DIRECT_RELAY_FOREIGN,
     NO_RELIABLE_RELAY_HINT,
 }
 
@@ -41,10 +42,12 @@ internal fun recommendTransportRemediation(
 
                 evidence.supportsQuicFallback() -> TransportRemediationKind.QUIC_FALLBACK
 
-                transportClass == DirectTransportClass.SNI_TLS_SUSPECT ||
-                    transportClass == DirectTransportClass.IP_BLOCK_SUSPECT ||
-                    reasonCode == DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE ||
+                transportClass == DirectTransportClass.IP_BLOCK_SUSPECT ||
                     reasonCode == DirectModeReasonCode.IP_BLOCKED
+                -> TransportRemediationKind.DOMESTIC_DIRECT_RELAY_FOREIGN
+
+                transportClass == DirectTransportClass.SNI_TLS_SUSPECT ||
+                    reasonCode == DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
                 -> TransportRemediationKind.BROWSER_FALLBACK
 
                 else -> TransportRemediationKind.NO_RELIABLE_RELAY_HINT

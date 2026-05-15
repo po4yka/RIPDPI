@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -149,6 +150,52 @@ class TransportSpecificRemediationSupportTest {
         assertEquals(
             DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR,
             ladder?.primaryAction?.kind,
+        )
+    }
+
+    @Test
+    fun `transport remediation returns domestic direct relay foreign when IP is blocked`() {
+        assertEquals(
+            TransportRemediationKind.DOMESTIC_DIRECT_RELAY_FOREIGN,
+            recommendTransportRemediation(
+                result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
+                reasonCode = DirectModeReasonCode.IP_BLOCKED,
+                transportClass = DirectTransportClass.IP_BLOCK_SUSPECT,
+            ),
+        )
+    }
+
+    @Test
+    fun `config relay preset suggestion emits domestic direct relay foreign reason when ip blocked`() {
+        val kind =
+            recommendTransportRemediation(
+                result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
+                reasonCode = DirectModeReasonCode.IP_BLOCKED,
+                transportClass = DirectTransportClass.IP_BLOCK_SUSPECT,
+            )
+        assertEquals(TransportRemediationKind.DOMESTIC_DIRECT_RELAY_FOREIGN, kind)
+
+        val suggestion =
+            com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion(
+                heuristicSuggestion =
+                    com.poyka.ripdpi.data.RelayPresetSuggestion(
+                        preset =
+                            com.poyka.ripdpi.data.RelayPresetDefinition(
+                                id = "ru-mobile-relay",
+                                title = "Russian mobile relay",
+                            ),
+                        reason = "heuristic only",
+                    ),
+                serviceTelemetry =
+                    com.poyka.ripdpi.data
+                        .ServiceTelemetrySnapshot(),
+                capabilityRecords = emptyList(),
+                transportRemediation = kind,
+            )
+        assertTrue(
+            "domestic-relay reason must mention foreign-destination relay",
+            suggestion?.reason?.contains("foreign-destination") == true ||
+                suggestion?.reason?.contains("domestic") == true,
         )
     }
 

@@ -54,6 +54,11 @@ internal fun TransportRemediationKind.toRelayPresetReason(): String =
                 "Use the suggested preset to favour a QUIC-capable relay path."
         }
 
+        TransportRemediationKind.DOMESTIC_DIRECT_RELAY_FOREIGN -> {
+            "Direct-mode diagnostics report foreign-destination IP blocking on this network. " +
+                "Use the suggested preset to route foreign-destination traffic via a domestic-egress relay."
+        }
+
         TransportRemediationKind.NO_RELIABLE_RELAY_HINT -> {
             "Direct-mode diagnostics report no reliable transparent direct path yet. " +
                 "Use the suggested preset until further evidence narrows the relay choice."

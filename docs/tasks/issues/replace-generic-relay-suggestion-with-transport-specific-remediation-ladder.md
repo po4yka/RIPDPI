@@ -1,7 +1,7 @@
 ---
 title: Replace generic relay suggestion with transport-specific remediation ladder
 type: task
-status: todo
+status: done
 area: diagnostics
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-direct-mode-diagnostic-state-machine
 blocks: []
 blocked_by: []
 created: 2026-04-22
-updated: 2026-04-23
+updated: 2026-05-16
 ---
 
-- [ ] #task Replace generic relay suggestion with transport-specific remediation ladder #repo/RIPDPI #area/diagnostics #status/todo ⏫
+- [x] #task Replace generic relay suggestion with transport-specific remediation ladder #repo/RIPDPI #area/diagnostics #status/done ⏫
 
 ## Goal contract
 
