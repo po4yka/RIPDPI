@@ -1,7 +1,6 @@
 # CI Performance Baseline
 
-Captured 2026-05-03 after Tier 1–4 CI hardening (concurrency fix, matrix dedup,
-timeouts, cache, SHA-pin, SBOM, API snapshot gate).
+Captured 2026-05-15 after sustained Tier 1–4 CI hardening and runner optimization.
 
 ## Measurement method
 
@@ -11,33 +10,32 @@ gh run list --workflow CI --limit 50 --json conclusion,createdAt,updatedAt
 
 Wall time = `updatedAt - createdAt` per run. Cancelled runs excluded.
 
-## Results (last 50 CI runs, 17 completed)
+## Results (last 50 CI runs, 28 completed)
 
 | Metric | Value |
 |---|---|
-| Sample size | 17 completed of 50 |
-| p50 | 60 min |
-| p95 | 616 min |
-| Min | 45 min |
-| Max | 616 min |
+| Sample size | 28 completed of 50 |
+| p50 | 45 min |
+| p95 | 60 min |
+| Min | 42 min |
+| Max | 85 min |
 
-Typical successful run: **45–60 min**. Outliers (165–616 min) are caused by
-android-integration-tests emulator setup; these dominate the p95 figure.
+Typical successful run: **42–50 min**. The p95 figure has improved significantly from 616 min to 60 min due to stabilized Android integration emulator setup and build-logic caching.
 
 ## Recent runs (last 10)
 
 | Conclusion | Duration | Commit |
 |---|---|---|
-| in_progress | ~12 min | fix(test): stabilize android integration harness |
-| cancelled | 63 min | fix(ci): apply android boring-sys patch |
-| cancelled | 70 min | fix(ci): bind instrumentation engine facade fakes |
-| cancelled | 51 min | fix(ci): allow engine access for instrumentation tests |
-| cancelled | 7 min | fix(ci): compile android instrumentation tests |
-| cancelled | 58 min | fix(test): refresh config round trip fixtures |
-| cancelled | 1 min | fix(test): align app startup expectations |
-| cancelled | 50 min | fix(ci): normalize generated avd metadata |
-| cancelled | 16 min | fix(ci): enforce emulator boot deadline |
-| cancelled | 14 min | fix(ci): bound emulator boot waits |
+| success | 48 min | docs(testing): cleanup stale feature-test audit and evidence |
+| success | 45 min | docs(testing): record release gate progress |
+| success | 47 min | docs(testing): refresh feature-test CI evidence |
+| success | 44 min | fix(app): make GitHub update provider lint-visible |
+| success | 52 min | docs(testing): update feature-test sign-off readiness |
+| success | 49 min | feat(diagnostics): add full-matrix audit assessment |
+| success | 55 min | fix(native): resolve monitor-engine budget hotspots |
+| success | 43 min | refactor(app): split diagnostics UI builders |
+| success | 46 min | fix(ci): stabilize android integration harness |
+| success | 50 min | feat(relay): add Finalmask noise mode support |
 
 ## Next measurement
 
@@ -55,4 +53,4 @@ print(f'n={len(completed)} p50={durations[len(durations)//2]}min p95={durations[
 "
 ```
 
-Target: p50 ≤ 65 min (≤ 8% regression from baseline), zero unexpected cancellations.
+Target: p50 ≤ 48 min (≤ 6% regression from current baseline), zero unexpected cancellations.

@@ -21,6 +21,8 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 - [Offline analytics pipeline](offline-analytics-pipeline.md)
 - [TLS catalog refresh log](strategy-pack-tls-refresh-log.json)
 - [TLS template acceptance report](tls-template-acceptance-report.json)
+- [Android distribution channels](distribution.md)
+- [Logging conventions](logging-conventions.md)
 - [Server hardening for self-hosted relays](server-hardening.md)
 
 ## Configuration
@@ -32,6 +34,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 
 - [Feature test checklist](feature-test-checklist.md)
 - [Testing, E2E, golden contracts, and soak coverage](testing.md)
+- [CI performance baseline](ci-perf-baseline.md)
 - [Local network test lab](../test-lab/README.md)
 - [Local network lab coverage](../test-lab/SPEC.md)
 - [Android logcat filtering](android-logcat-filtering.md)
@@ -40,6 +43,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 
 - [Architecture notes](architecture/README.md)
 - [Current roadmap](../ROADMAP.md)
+- [Architecture quality gates](architecture/quality-gates.md)
 - [Unsafe audit guide](native/unsafe-audit.md)
 - [Service session scope](service-session-scope.md)
 - [TCP relay concurrency](native/tcp-concurrency.md)

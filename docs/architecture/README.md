@@ -112,3 +112,4 @@ paths across representative payload sizes.
 - [jni-handle-lifetime-telemetry-lock.md](jni-handle-lifetime-telemetry-lock.md)
   — Two-region lock model for `RipDpiProxy` / `RipDpiRelay` JNI wrappers
   (design-only, implementation queued).
+- [quality-gates.md](quality-gates.md) — Architecture quality gates.
