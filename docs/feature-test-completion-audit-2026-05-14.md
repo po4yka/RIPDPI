@@ -90,8 +90,9 @@ available in the current local lab.
   VPN/proxy/diagnostics probes, proxy E2E runner syntax, the
   service stop-self fallback unit test, the full custom debug-probe broadcast
   verifier, debug/test/main source-set ktlint checks,
-  the refreshed architecture-health and native-hotspot gates, and the
-  local-network-lab validation-only block passed. The sign-off runbook now also
+  the refreshed architecture-health and native-hotspot gates, the
+  local-network-lab validation-only block, and the refreshed host lab doctor
+  plus archive-redaction run passed. The sign-off runbook now also
   documents the operator-reviewed readiness JSON input, requires evidence-backed
   `ready` status changes, and the manual evidence template captures review
   branch, pull request, required checks/reviews, readiness JSON, plus the final
