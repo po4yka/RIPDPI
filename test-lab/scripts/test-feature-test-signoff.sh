@@ -96,6 +96,40 @@ grep -Fx 'android_device' "$tmpdir/required-readiness.out"
 grep -Fx 'rooted_physical_device' "$tmpdir/required-readiness.out"
 grep -Fx 'remote_workflow_confirmation' "$tmpdir/required-readiness.out"
 
+python3 - "$repo_root/docs/feature-test-manual-evidence-template.md" \
+  "$tmpdir/required-readiness.out" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+template = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = {
+    line.strip()
+    for line in Path(sys.argv[2]).read_text(encoding="utf-8").splitlines()
+    if line.strip()
+}
+
+section_match = re.search(
+    r"## Operator-Reviewed Readiness JSON\n(?P<body>.*?)\n## Final Verdict",
+    template,
+    re.S,
+)
+if section_match is None:
+    raise SystemExit("manual evidence template is missing the operator-reviewed readiness section")
+
+documented = set()
+for line in section_match.group("body").splitlines():
+    match = re.match(r"^\|\s*`([^`]+)`\s*\|", line)
+    if match:
+        documented.add(match.group(1))
+
+if documented != required:
+    raise SystemExit(
+        "manual evidence readiness rows do not match sign-off guard: "
+        f"documented={sorted(documented)!r} required={sorted(required)!r}"
+    )
+PY
+
 "$guard" --audit "$complete_audit" --readiness "$ready_json" \
   | grep -F 'Feature test sign-off guard passed.'
 
