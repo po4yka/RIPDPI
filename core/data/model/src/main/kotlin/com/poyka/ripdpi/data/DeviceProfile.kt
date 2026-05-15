@@ -188,6 +188,12 @@ enum class Ipv6Policy {
     ALLOW,
     BLOCK,
     PREFER,
+
+    /** AAAA queries are forwarded to the resolver unchanged. */
+    NATIVE,
+
+    /** NAT64/DNS64 synthesis: AAAA is synthesised from A results via a NAT64 prefix. */
+    TRANSLATED,
 }
 
 /** Kill-switch operating mode. */

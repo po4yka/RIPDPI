@@ -31,7 +31,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 8 | P1 | `add-explicit-ipv6-policy-modes-and-leak-tests`<br>Add explicit IPv6 policy modes and leak tests | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔺 | TODO | |
 | 9 | P1 | `audit-cloudflare-only-dependencies`<br>Audit Cloudflare-only dependencies | task | `epic-remove-cloudflare-from-critical-path` | relay | 🔺 | DONE | just lint (exit 0) |
 | 10 | P1 | `define-policy-bundle-profile-schema`<br>Define policy bundle profile schema | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔺 | DONE | just test-module core:service (exit 0) |
-| 11 | P1 | `define-split-strict-dns-policy-model`<br>Define split-strict DNS policy model | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔺 | TODO | |
+| 11 | P1 | `define-split-strict-dns-policy-model`<br>Define split-strict DNS policy model | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔺 | DONE | just test-module core:service (exit 0) |
 | 12 | P1 | `add-sing-box-selector-and-urltest-group-import-from-subscription`<br>Add sing-box selector and urltest group import from subscription | task | `epic-ripdpi-vpn-deploy-fleet-compatibility` | outbound | 🔺 | DONE | |
 | 13 | P1 | `add-singbox-uri-deeplink-intent-filter-and-handler`<br>Add sing-box URI deep-link Intent filter and handler | task | `epic-ripdpi-vpn-deploy-fleet-compatibility` | android | 🔺 | DONE | |
 | 14 | P1 | `decouple-vless-xhttp-transport-from-the-reality-relay-kind`<br>Decouple VLESS xHTTP transport from the Reality relay kind | task | `epic-ripdpi-vpn-deploy-fleet-compatibility` | relay | 🔺 | DONE | |

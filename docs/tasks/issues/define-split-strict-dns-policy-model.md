@@ -1,7 +1,7 @@
 ---
 title: Define split-strict DNS policy model
 type: task
-status: backlog
+status: done
 area: vpn
 priority: critical
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-15
 ---
 
-- [ ] #task Define split-strict DNS policy model #repo/RIPDPI #area/vpn #status/backlog 🔺
+- [x] #task Define split-strict DNS policy model #repo/RIPDPI #area/vpn #status/done 🔺
 
 ## Goal contract
 
