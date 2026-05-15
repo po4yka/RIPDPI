@@ -77,3 +77,55 @@ What remains is limited to staged rollout confidence:
 - additional field validation across representative network conditions
 
 The deployer-supplied `privacy_pass` provider flow remains distinct from the Cloudflare-direct mTLS path.
+
+## QUIC Migration Telemetry Vocabulary
+
+The `record_quic_migration_status(status, reason)` call writes into the
+snapshot that `quic_migration_snapshot()` returns. The status/reason
+strings are stable telemetry fields; rollout decisions branch on them.
+The vocabulary tracked here matches the strings emitted in
+`client.rs`, `udp.rs`, and the validation tests under `tests.rs`.
+
+### Status values
+
+| `status` string | Meaning |
+| --- | --- |
+| `not_attempted` | Initial state; no migration or fallback yet. |
+| `http2_fallback` | Client fell back to HTTP/2 after the H3 attempt failed or timed out. |
+| `failed` | Migration or fallback ultimately failed; cooldown engaged. |
+| `reverted` | Migration attempted, then rolled back; cooldown engaged. |
+| `path_validated_*` | Post-handshake path validation succeeded for a specific event. |
+
+### Fallback reasons (`status == "http2_fallback"`)
+
+| `reason` prefix | Trigger |
+| --- | --- |
+| `http3_connect_failed_<inner>` | H3 CONNECT attempt rejected with an inner-error tag from `classify_attempt_failure`. |
+| `http3_connect_timed_out` | H3 CONNECT attempt exceeded the per-attempt timeout. |
+| `http3_connect_failed` | Generic H3 CONNECT failure when no inner classification is available. |
+
+### Failure reasons (`status == "failed"`)
+
+| `reason` | Trigger |
+| --- | --- |
+| `http3_connect_failed` | Both H3 attempts (initial + fallback path validation) failed without an H2 fallback path. |
+| `<udp-specific tags>` | UDP-session migration failures emitted from `udp.rs` carry their own reason strings; see callsites. |
+
+### Stability and bump policy
+
+These strings are part of the telemetry export schema and should not
+change without bumping the relevant catalog or telemetry consumers.
+A planned typed `H3FallbackReason` enum
+(see `docs/tasks/issues/add-h3-to-h2-fallback-telemetry-rollout-validation.md`)
+will replace the strings with a non-exhaustive Rust enum once
+downstream consumers are wired to dispatch on it.
+
+### Existing test coverage
+
+- `quic_migration_snapshot_records_http2_fallback_reason` exercises the
+  `http2_fallback` + `http3_connect_failed_connect` pair.
+- `new_client_starts_with_not_attempted_quic_snapshot` asserts the
+  initial state.
+
+The remaining work — one dedicated test per status/reason pair plus
+the typed enum migration — is tracked in the task above.

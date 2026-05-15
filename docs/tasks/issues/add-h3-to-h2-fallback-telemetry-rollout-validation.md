@@ -42,11 +42,17 @@ and explicit downgrade.
 
 ## Acceptance criteria
 
-- [ ] An enum (or string vocabulary) enumerates fallback-trigger
-    reasons.
+- [x] (partial, 2026-05-15) An enum (or string vocabulary)
+    enumerates fallback-trigger reasons. **DONE as string vocabulary**
+    documented in `docs/native/relay-masque-status.md` § "QUIC
+    Migration Telemetry Vocabulary". Typed enum migration tracked as
+    remaining work.
 - [ ] Each reason has a dedicated unit test asserting the snapshot
-    captures it.
-- [ ] The telemetry export schema is documented in
+    captures it. **DEFERRED:** the existing
+    `quic_migration_snapshot_records_http2_fallback_reason` test
+    covers one pair; per-reason coverage pairs with the typed-enum
+    migration to keep the test set exhaustive.
+- [x] (2026-05-15) The telemetry export schema is documented in
     `docs/native/relay-masque-status.md`.
 
 ## Definition of done
