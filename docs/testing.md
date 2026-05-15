@@ -12,7 +12,10 @@ coverage. The current checklist execution state is tracked in the
 external lab rows that still block full sign-off. Use the
 [manual evidence template](feature-test-manual-evidence-template.md) when
 recording rooted-device, physical-network, provider-relay, TalkBack, routed
-netem, or remote-workflow evidence.
+netem, or remote-workflow evidence. Final checklist sign-off must run
+`test-lab/scripts/check-feature-test-signoff.sh` with an evidence-backed,
+operator-reviewed readiness JSON whose required `ready` rows are tied to the
+filled manual template.
 
 ### Kotlin/JVM tests
 
@@ -581,4 +584,6 @@ gh workflow run mutation-testing.yml --ref main -f packages='' -f in_diff=false
 
 `CodeQL` does not expose `workflow_dispatch`; it runs from the push to `main`.
 Record the run IDs and conclusions in
-`docs/feature-test-manual-evidence-template.md` under `Remote Workflows`.
+`docs/feature-test-manual-evidence-template.md` under `Remote Workflows`, then
+record the final sign-off guard command/result in the template's final verdict
+section.
