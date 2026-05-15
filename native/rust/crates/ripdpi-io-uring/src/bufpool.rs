@@ -37,6 +37,17 @@ pub struct RegisteredBufferPool {
 unsafe impl Send for RegisteredBufferPool {}
 unsafe impl Sync for RegisteredBufferPool {}
 
+// Compile-fail regression for soundness issue #8: any future change that
+// breaks the Send/Sync claim above fails to compile here. The block is a
+// const-evaluated identity check; `assert_send`/`assert_sync`
+// monomorphisations require the bounds to hold for the concrete type.
+const _: fn() = || {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<RegisteredBufferPool>();
+    assert_sync::<RegisteredBufferPool>();
+};
+
 impl RegisteredBufferPool {
     /// Create a new buffer pool and register buffers with the given io_uring.
     ///

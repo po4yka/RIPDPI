@@ -78,3 +78,35 @@ impl Drop for MmapRegion {
         let _ = unsafe { munmap(self.ptr.cast(), self.len.get()) };
     }
 }
+
+// Compile-fail regression for soundness issue #8: `MmapRegion` is documented
+// as `!Send` / `!Sync` because callers use it from a single thread and the
+// raw pointer field is `NonNull<u8>` which auto-derives `!Send`. The block
+// below uses trait-dispatch ambiguity (stable-Rust equivalent of
+// `static_assertions::assert_not_impl_any!`) so that any future change
+// adding `unsafe impl Send for MmapRegion {}` causes the workspace build
+// to fail: the two `AmbiguousIfSend` impls would both apply, leaving the
+// `_` in `AmbiguousIfSend<_>` ambiguous.
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T: ?Sized>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfSend<A> {
+        fn check() {}
+    }
+    impl<T: ?Sized> AmbiguousIfSend<()> for Check<T> {}
+    impl<T: ?Sized + Send> AmbiguousIfSend<u8> for Check<T> {}
+    <Check<MmapRegion> as AmbiguousIfSend<_>>::check();
+};
+
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T: ?Sized>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfSync<A> {
+        fn check() {}
+    }
+    impl<T: ?Sized> AmbiguousIfSync<()> for Check<T> {}
+    impl<T: ?Sized + Sync> AmbiguousIfSync<u8> for Check<T> {}
+    <Check<MmapRegion> as AmbiguousIfSync<_>>::check();
+};

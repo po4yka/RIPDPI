@@ -18,6 +18,17 @@ unsafe impl Send for MappedFile {}
 // SAFETY: see Send above — read-only data shared across threads is sound.
 unsafe impl Sync for MappedFile {}
 
+// Compile-fail regression for soundness issue #8: any future field change
+// that breaks the Send/Sync claim above fails to compile here. The block
+// is a const-evaluated identity check; the `assert_send` / `assert_sync`
+// monomorphisations require the bounds to hold.
+const _: fn() = || {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<MappedFile>();
+    assert_sync::<MappedFile>();
+};
+
 impl MappedFile {
     pub(crate) fn open(path: &Path) -> Result<Self, MappedFileError> {
         let file = File::open(path)?;

@@ -36,6 +36,15 @@ unsafe impl Send for JniProtectCallback {}
 // `protect()` only reads them via Java-side synchronization.
 unsafe impl Sync for JniProtectCallback {}
 
+// Compile-fail regression for soundness issue #8: any future field change
+// that breaks the Send/Sync claim above fails to compile here.
+const _: fn() = || {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<JniProtectCallback>();
+    assert_sync::<JniProtectCallback>();
+};
+
 impl ProtectCallback for JniProtectCallback {
     fn protect(&self, fd: RawFd) -> io::Result<()> {
         let result: Result<bool, jni::errors::Error> =
