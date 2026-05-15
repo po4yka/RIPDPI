@@ -6,6 +6,8 @@ tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-readiness-test.XXXXXX")"
 trap 'rm -rf "$tmpdir"' EXIT
 
 default_json="$tmpdir/feature-gap-readiness.json"
+invalid_generated_at_json="$tmpdir/feature-gap-readiness-invalid-generated-at.json"
+invalid_host_json="$tmpdir/feature-gap-readiness-invalid-host.json"
 duplicate_json="$tmpdir/feature-gap-readiness-duplicate.json"
 invalid_status_json="$tmpdir/feature-gap-readiness-invalid-status.json"
 invalid_required_json="$tmpdir/feature-gap-readiness-invalid-required.json"
@@ -44,6 +46,12 @@ if signoff_required != required:
     )
 if not isinstance(data, dict):
     raise SystemExit("readiness artifact must be a JSON object")
+generated_at = data.get("generatedAtEpoch")
+if not isinstance(generated_at, int) or generated_at <= 0:
+    raise SystemExit("readiness artifact generatedAtEpoch must be a positive integer")
+host = data.get("host")
+if not isinstance(host, str):
+    raise SystemExit("readiness artifact host must be a string")
 checks_list = data.get("checks")
 if not isinstance(checks_list, list):
     raise SystemExit("readiness artifact checks must be an array")
@@ -114,7 +122,11 @@ import sys
 with open(sys.argv[1], encoding="utf-8") as handle:
     data = json.load(handle)
 mutation = sys.argv[3]
-if mutation == "duplicate":
+if mutation == "invalid_generated_at":
+    data["generatedAtEpoch"] = "now"
+elif mutation == "invalid_host":
+    data["host"] = 42
+elif mutation == "duplicate":
     data["checks"].append(dict(data["checks"][0]))
 elif mutation == "invalid_status":
     data["checks"][0]["status"] = "done"
@@ -153,6 +165,12 @@ expect_invalid_readiness() {
   grep -F "$expected" "$tmpdir/invalid-readiness.out"
 }
 
+make_fixture "$invalid_generated_at_json" "invalid_generated_at"
+expect_invalid_readiness \
+  "$invalid_generated_at_json" \
+  "readiness artifact generatedAtEpoch must be a positive integer"
+make_fixture "$invalid_host_json" "invalid_host"
+expect_invalid_readiness "$invalid_host_json" "readiness artifact host must be a string"
 make_fixture "$duplicate_json" "duplicate"
 expect_invalid_readiness "$duplicate_json" "duplicate readiness check: android_device"
 make_fixture "$invalid_status_json" "invalid_status"
