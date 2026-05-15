@@ -34,7 +34,7 @@ available in the current local lab.
 | Verify relay provider matrix | Mock relay tests and Rust relay interoperability passed for local fixture coverage; Android debug-probe tests now confirm the client readiness handshake, `relayReady` emission, and hard failure classification; physical proxy, VPN, and diagnostics mock-relay runs emitted `relayReady=true` while the relevant runtime path was active; `check-relay-matrix-config.sh` validates the private matrix manifest shape and emits machine-readable required path/scenario lists, `test-relay-matrix-config.sh` covers duplicate IDs, kind/ID mismatches, duplicate/invalid scenarios, literal endpoint refs, sensitive literal values, and Provider Relay Matrix template parity, and the checked-in example covers all required relay paths/scenarios; readiness preflight confirms no operator-provided provider matrix is configured in the current local environment | Partial | Provider-backed proxy, VPN, diagnostics, restart, invalid credential, reset, timeout, malformed response, DNS fallback, and handover runs for every production relay path |
 | Verify accessibility with TalkBack | Automated label audits and Appium selector coverage passed; readiness preflight confirms TalkBack is installed but is not the active accessibility service | Partial | Manual TalkBack pass for buttons, switches, tabs, progress, and error messages |
 | Verify routed VM packet-loss lab | Netem scripts passed inside a disposable Linux network namespace; readiness preflight confirms the current host is Darwin and not a routed Linux VM; `test-lab/chaos/netem/README.md` now documents the routed Linux VM evidence run, VPN/diagnostics probes, QUIC-drop probe, cleanup, and required manual evidence fields | Partial | Linux routed-VM run that carries Android or device traffic through the netem path |
-| Verify remote release gates | Read-only GitHub Actions check on May 14, 2026 shows `origin/main` at `342a169a` has CI run `25875963396` completed with failure in `architecture-health`, `verify-roborazzi`, `rust-workspace-tests`, and `gradle-static-analysis`; CodeQL run `25875963413` passed for the same remote head. The local refresh reproduced or rechecked those failure classes locally: architecture health, full static analysis, CI-equivalent Roborazzi verification, and the Rust workspace test script now pass on local HEAD. The local branch diverges from `origin/main` after `git fetch --prune origin`, so no remote workflow covers the local commits | Partial | Reconcile the branch, push or dispatch fresh workflows for the local commits, then confirm CI, CodeQL, offline analytics, and mutation workflow status |
+| Verify remote release gates | Read-only GitHub Actions refresh on May 15, 2026 shows `origin/main` still at `342a169a`. CI run `25875963396` completed with failure in `architecture-health`, `verify-roborazzi`, `rust-workspace-tests`, and `gradle-static-analysis`; CodeQL run `25875963413` passed for the same remote head; scheduled Fuzz Nightly run `25897920791` is still in progress on the same remote head with `fuzz-nightly` running. The local refresh reproduced or rechecked the CI failure classes locally: architecture health, full static analysis, CI-equivalent Roborazzi verification, and the Rust workspace test script now pass on local HEAD. The local branch is ahead of `origin/main` after `git fetch --prune origin`, so no remote workflow covers the local commits | Partial | Reconcile the branch, push or dispatch fresh workflows for the local commits, then confirm CI, CodeQL, offline analytics, mutation, and scheduled nightly workflow status |
 
 ## Current Local State
 
@@ -98,14 +98,15 @@ available in the current local lab.
   branch, pull request, required checks/reviews, readiness JSON, plus the final
   guard command/result. Commit hooks passed for the latest
   native/Appium/test-lab/testing-docs commits.
-- Remote state: `origin/main` now points at `342a169a`. CI run `25875963396`
+- Remote state: `origin/main` still points at `342a169a`. CI run `25875963396`
   is not a green sign-off because it completed with failed jobs in
   `architecture-health`, `verify-roborazzi`, `rust-workspace-tests`, and
   `gradle-static-analysis`; CodeQL run `25875963413` passed for that remote
-  head. The current local refresh reproduced and fixed the architecture-health
-  class of failure; full local `staticAnalysis`, CI-equivalent Roborazzi
-  verification, and the Rust workspace test script now pass, but no remote run
-  covers the local commits.
+  head. Scheduled Fuzz Nightly run `25897920791` is currently in progress on the
+  same remote head. The current local refresh reproduced and fixed the
+  architecture-health class of failure; full local `staticAnalysis`,
+  CI-equivalent Roborazzi verification, and the Rust workspace test script now
+  pass, but no remote run covers the local commits.
 - Latest readiness preflight: the current May 15, 2026 refresh artifact
   `test-lab/artifacts/feature-gap-readiness-refresh.json` confirms the attached
   Pixel 8 Pro is ready; rooted physical device, TalkBack manual pass, routed
