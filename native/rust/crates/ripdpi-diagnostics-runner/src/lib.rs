@@ -1,3 +1,4 @@
+pub mod budget;
 pub mod connectivity;
 pub mod domain;
 pub mod strategy;

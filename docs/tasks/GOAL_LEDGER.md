@@ -38,9 +38,9 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 15 | P1 | `clean-up-cloudflare-credential-artifacts-on-stop`<br>Clean up Cloudflare credential artifacts on stop | task | `epic-cloudflare-publish-hardening` | relay | ⏫ | TODO | |
 | 16 | P1 | `define-netprofile-hostprofile-and-armstats`<br>Define NetProfile HostProfile and ArmStats | task | `epic-privacy-preserving-strategy-learner` | service | ⏫ | DONE | just test-module core:service (exit 0) |
 | 17 | P1 | `define-transparent-vs-owned-stack-mode-boundary`<br>Define transparent vs owned-stack mode boundary | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | ⏫ | DONE | just test-module core:diagnostics (exit 0) |
-| 18 | P1 | `define-transportpolicy-struct-and-per-host-state`<br>Define TransportPolicy struct and per-host state | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | ⏫ | TODO | |
-| 19 | P2 | `enforce-diagnostic-attempt-budget`<br>Enforce diagnostic attempt budget | task | `epic-privacy-preserving-strategy-learner` | service | ⏫ | TODO | |
-| 20 | P2 | `implement-bayesian-posterior-arm-scoring`<br>Implement Bayesian posterior arm scoring | task | `epic-privacy-preserving-strategy-learner` | service | ⏫ | TODO | |
+| 18 | P1 | `define-transportpolicy-struct-and-per-host-state`<br>Define TransportPolicy struct and per-host state | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | ⏫ | DONE | just test-module core:diagnostics (exit 0) |
+| 19 | P2 | `enforce-diagnostic-attempt-budget`<br>Enforce diagnostic attempt budget | task | `epic-privacy-preserving-strategy-learner` | service | ⏫ | DONE | just test-module core:service (exit 0) |
+| 20 | P2 | `implement-bayesian-posterior-arm-scoring`<br>Implement Bayesian posterior arm scoring | task | `epic-privacy-preserving-strategy-learner` | service | ⏫ | DONE | just test-module core:service (exit 0) |
 | 21 | P2 | `implement-direct-mode-diagnostic-orchestrator-phases-1-4`<br>Implement direct-mode diagnostic orchestrator Phases 1-4 | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | ⏫ | TODO | |
 | 22 | P2 | `implement-quic-soft-disable-per-tuple`<br>Implement QUIC soft-disable per tuple | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | ⏫ | TODO | |
 | 23 | P2 | `reject-concurrent-cloudflarepublishmanager-sessions`<br>Reject concurrent CloudflarePublishManager sessions | task | `epic-cloudflare-publish-hardening` | relay | ⏫ | TODO | |
