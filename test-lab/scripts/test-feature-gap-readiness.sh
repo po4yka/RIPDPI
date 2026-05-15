@@ -104,9 +104,18 @@ checks = {check["name"]: check for check in data.get("checks", [])}
 
 remote = checks["remote_workflow_confirmation"]
 message = remote.get("message", "")
-if "Local branch" not in message or "origin/main" not in message:
+if (
+    "Local branch" not in message
+    and "Local working tree has" not in message
+    and "Could not compare" not in message
+):
     raise SystemExit(f"remote workflow message lost branch context: {message!r}")
-if remote.get("status") == "blocked" and "review branch" not in message:
+if (
+    remote.get("status") == "blocked"
+    and "review branch" not in message
+    and "uncommitted change" not in message
+    and "Could not compare" not in message
+):
     raise SystemExit(f"remote workflow message lost ruleset path: {message!r}")
 if re.search(r"\b[0-9a-f]{7,40}\b", message) or re.search(r"\bby \d+ commit", message):
     raise SystemExit(f"remote workflow message is commit-specific: {message!r}")
@@ -180,7 +189,8 @@ expect_invalid_readiness "$invalid_required_json" "android_device readiness requ
 make_fixture "$unexpected_json" "unexpected"
 expect_invalid_readiness "$unexpected_json" "unexpected readiness checks: ['unexpected_check']"
 
-RIPDPI_REMOTE_COMPARE_REF="origin/ripdpi-missing-test-ref" \
+RIPDPI_IGNORE_DIRTY_WORKTREE_FOR_READINESS=true \
+  RIPDPI_REMOTE_COMPARE_REF="origin/ripdpi-missing-test-ref" \
   "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
   --output "$unknown_json" >/dev/null
 python3 "$validator" "$unknown_json" "$tmpdir/signoff-required-readiness.txt"

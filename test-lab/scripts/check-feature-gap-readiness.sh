@@ -6,6 +6,7 @@ artifact_path="$lab_root/artifacts/feature-gap-readiness.json"
 adb_bin="${ADB:-adb}"
 relay_matrix_config="${RIPDPI_RELAY_MATRIX_CONFIG:-}"
 remote_compare_ref="${RIPDPI_REMOTE_COMPARE_REF:-origin/main}"
+ignore_dirty_worktree="${RIPDPI_IGNORE_DIRTY_WORKTREE_FOR_READINESS:-false}"
 
 usage() {
   cat <<USAGE
@@ -146,8 +147,17 @@ else
   add_check "production_relay_matrix" "blocked" "true" "Set RIPDPI_RELAY_MATRIX_CONFIG to an operator-provided provider matrix before running production relay checks. Template: test-lab/relay/provider-matrix.example.json."
 fi
 
-ahead_count="$(git -C "$lab_root/.." rev-list --count "$remote_compare_ref..HEAD" 2>/dev/null || printf 'unknown')"
-if [[ "$ahead_count" == "0" ]]; then
+repo_root="$lab_root/.."
+if [[ "$ignore_dirty_worktree" == "true" ]]; then
+  dirty_worktree=""
+else
+  dirty_worktree="$(git -C "$repo_root" status --porcelain --untracked-files=all 2>/dev/null || true)"
+fi
+ahead_count="$(git -C "$repo_root" rev-list --count "$remote_compare_ref..HEAD" 2>/dev/null || printf 'unknown')"
+if [[ -n "$dirty_worktree" ]]; then
+  dirty_count="$(printf '%s\n' "$dirty_worktree" | sed '/^$/d' | wc -l | tr -d ' ')"
+  add_check "remote_workflow_confirmation" "blocked" "true" "Local working tree has $dirty_count uncommitted change(s); commit or discard them, then confirm fresh workflows before sign-off."
+elif [[ "$ahead_count" == "0" ]]; then
   add_check "remote_workflow_confirmation" "manual" "true" "Local branch is not ahead of $remote_compare_ref; inspect GitHub workflow status for the pushed or merged commit."
 elif [[ "$ahead_count" == "unknown" ]]; then
   add_check "remote_workflow_confirmation" "blocked" "true" "Could not compare the local branch to $remote_compare_ref; fetch the remote ref or run from a git worktree before sign-off."

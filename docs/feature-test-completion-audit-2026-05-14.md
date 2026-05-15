@@ -23,7 +23,7 @@ available in the current local lab.
 | Requirement | Evidence inspected | Result | Remaining evidence required |
 | --- | --- | --- | --- |
 | Use `docs/feature-test-checklist.md` as the source checklist | `test-lab/scripts/test-feature-checklist-coverage.sh` confirms `docs/feature-test-evidence-2026-05-14.md` maps every major checklist section to `Covered locally` or `Partial`, includes the current 248-item checklist baseline, and rejects stale section/item/evidence-row summary counts | Covered locally | None for source-checklist mapping; incomplete checklist rows remain tracked by their own requirement rows |
-| Fix all issues found during the local pass | `docs/feature-test-evidence-2026-05-14.md` records fixed findings and commit subjects for test-lab, build packaging, diagnostics archive redaction, Appium, Maestro, onboarding, logs, UI automation, debug-probe relay readiness, proxy E2E orchestration, and service stop-self fallback defects | Covered locally | None for the bugs found in the local pass |
+| Fix all issues found during the local pass | `docs/feature-test-evidence-2026-05-14.md` records fixed findings and commit subjects for test-lab, build packaging, diagnostics archive redaction, Appium, Maestro, onboarding, logs, UI automation, debug-probe relay readiness, proxy E2E orchestration, service stop-self fallback defects, native fuzz lockfile drift found by the current fuzz smoke rerun, mutation workflow wrapper drift found from the failed hosted mutation-testing logs, and stale diagnostics-boundary unit-test fixture drift found by the broad repository script-test suite | Covered locally | None for the bugs found in the local pass |
 | Verify Appium installation and current app flows | Appium evidence rows in `docs/feature-test-evidence-2026-05-14.md`; Appium 3.4.2 with UiAutomator2 7.3.0 is installed. After the local Maestro/Appium install was confirmed again on May 15, 2026, the first current installed full-suite rerun found two harness issues: a reset-state History no-match search assumption and an async support-bundle export chooser leak into the next Diagnostics launch. Both were fixed in the Appium tests. The final current full Appium suite passed on Pixel 8 Pro with `79 passed, 17 skipped, 1 warning` in 1846.96s (0:30:46). This covers launch/navigation, onboarding/advanced/host-pack, diagnostics/logs/support/theme, diagnostics-tail, deterministic scan report/audit coverage, all 7 workflow journeys, activation-window controls, background guidance, backup-PIN warning/editor paths, and clean History empty-state behavior on reset devices. Remaining skips are explicit fixture/environment skips, not unexpected failures | Covered locally | None for current Appium coverage; rerun after future UI or Appium page-object changes |
 | Verify Maestro installation and current smoke flows | Maestro smoke and default-install fallback rows in `docs/feature-test-evidence-2026-05-14.md`; smoke pack and lab VPN orchestrator passed on Pixel 8 Pro with Maestro resolved from `~/.maestro/bin/maestro` while absent from `PATH`; after merging `origin/main` locally and rebuilding the current debug APK from `89deca61`, the four-flow smoke rerun passed all committed flows; after the local Maestro/Appium install was confirmed again on May 15, 2026, `PATH="$HOME/.maestro/bin:$PATH" bash scripts/ci/run-maestro-smoke.sh` passed all four committed flows on the attached Pixel 8 Pro; the proxy E2E runner also passed with Maestro-driven connect/disconnect and foreground-service leak assertion | Covered locally | None for current Maestro coverage; rerun after future Home, Settings, or lab-runner changes |
 | Verify static local quality gates for the current head | `gh run view 25875963396 --json jobs,headSha,conclusion,status,workflowName,url`; `python3 scripts/ci/check_architecture_health.py --check`; `python3 scripts/ci/check_native_hotspot_budgets.py`; `./gradlew :core:diagnostics-data:ktlintMainSourceSetCheck -Pripdpi.skipNativeBuild=true --no-daemon`; `./gradlew :core:diagnostics-data:ktlintDebugSourceSetCheck :core:diagnostics-data:testDebugUnitTest -Pripdpi.skipNativeBuild=true --no-daemon`; `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon`; `./gradlew :app:verifyRoborazziGithubDebug -Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true --tests 'com.poyka.ripdpi.ui.screenshot.*' --no-daemon`; `bash scripts/ci/run-rust-workspace-tests.sh`; local `git diff --check`; focused JVM and Appium checks recorded in `docs/feature-test-evidence-2026-05-14.md`; pre-commit hooks passed for the latest local commits | Covered locally | None for local static gates; remote CI is tracked by the remote release gates row |
@@ -34,12 +34,11 @@ available in the current local lab.
 | Verify relay provider matrix | Mock relay tests and Rust relay interoperability passed for local fixture coverage; Android debug-probe tests now confirm the client readiness handshake, `relayReady` emission, and hard failure classification; physical proxy, VPN, and diagnostics mock-relay runs emitted `relayReady=true` while the relevant runtime path was active; `check-relay-matrix-config.sh` validates the private matrix manifest shape and emits machine-readable required path/scenario lists, `test-relay-matrix-config.sh` covers duplicate IDs, kind/ID mismatches, duplicate/invalid scenarios, literal endpoint refs, sensitive literal values, and Provider Relay Matrix template parity, and the checked-in example covers all required relay paths/scenarios; readiness preflight confirms no operator-provided provider matrix is configured in the current local environment | Partial | Provider-backed proxy, VPN, diagnostics, restart, invalid credential, reset, timeout, malformed response, DNS fallback, and handover runs for every production relay path |
 | Verify accessibility with TalkBack | Automated label audits and Appium selector coverage passed; readiness preflight confirms TalkBack is installed but is not the active accessibility service | Partial | Manual TalkBack pass for buttons, switches, tabs, progress, and error messages |
 | Verify routed VM packet-loss lab | Netem scripts passed inside a disposable Linux network namespace; readiness preflight confirms the current host is Darwin and not a routed Linux VM; `test-lab/chaos/netem/README.md` now documents the routed Linux VM evidence run, VPN/diagnostics probes, QUIC-drop probe, cleanup, and required manual evidence fields | Partial | Linux routed-VM run that carries Android or device traffic through the netem path |
-| Verify remote release gates | Read-only GitHub Actions refresh on May 15, 2026 shows `origin/main` still at `342a169a`. CI run `25875963396` completed with failure in `architecture-health`, `verify-roborazzi`, `rust-workspace-tests`, and `gradle-static-analysis`; CodeQL run `25875963413` passed for the same remote head; scheduled Fuzz Nightly run `25897920791` is still in progress on the same remote head with `fuzz-nightly` running. The local refresh reproduced or rechecked the CI failure classes locally: architecture health, full static analysis, CI-equivalent Roborazzi verification, and the Rust workspace test script now pass on local HEAD. The local branch is ahead of `origin/main` after `git fetch --prune origin`, so no remote workflow covers the local commits | Partial | Reconcile the branch, push or dispatch fresh workflows for the local commits, then confirm CI, CodeQL, local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly workflow status |
+| Verify remote release gates | Read-only GitHub Actions refresh on May 15, 2026 shows `origin/main` now at local HEAD `f6df72df`. CodeQL run `25900140424` passed for that head. CI run `25900140413` passed for that head with 32 successful jobs, 10 skipped schedule/manual-only jobs, and no failed, cancelled, or timed-out jobs. Older CI run `25875963396` failed on previous remote head `342a169a`; scheduled Fuzz Nightly run `25897920791` later passed, but it still covers previous remote head `342a169a` rather than current HEAD. The remaining workflow history is not current-head sign-off evidence: latest local-network-lab success `25844203179` is on `d717158e`, latest offline analytics run `25721322098` failed on `3b528850`, and latest mutation-testing run `25655283515` failed on `69defcca`. Failed-step logs show the offline analytics failure was from missing `app/src/main/assets/strategy-packs/catalog.json` on the old head and the mutation-testing failure was `cargo-mutants v27.0.0` rejecting `--jobs auto`; the current local offline analytics rerun passes and the mutation wrapper self-test now covers the fixed `--jobs` behavior. The local refresh reproduced or rechecked the older CI failure classes locally: architecture health, full static analysis, CI-equivalent Roborazzi verification, and the Rust workspace test script now pass on local HEAD. A later readiness refresh correctly blocks remote workflow confirmation while the working tree has uncommitted changes, because no hosted run can cover the local state until those changes are committed or discarded | Partial | CodeQL and CI are green for `f6df72df`; commit or discard the local changes, then confirm local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly workflow status for the resulting current commit |
 
 ## Current Local State
 
-- Branch: `main`; `origin/main` was merged locally, and the local branch is
-  ahead of `origin/main` with no behind count.
+- Branch: `main`; `origin/main` now points at the local HEAD `f6df72df`.
 - Working tree scope: this audit update reflects the latest native
   monitor-engine hotspot split, Roborazzi Logs golden refresh, Appium long-form
   scroll hardening, Appium launch-timeout retry, merged `origin/main`
@@ -77,7 +76,8 @@ available in the current local lab.
   the feature-gap readiness self-test including generated-artifact schema
   validation across default/unknown-remote/relay-config paths, malformed-row
   rejection, sign-off required-row parity, and
-  unknown remote-compare coverage, the feature sign-off guard self-test
+  unknown remote-compare coverage, dirty-worktree remote-confirmation blocking,
+  the feature sign-off guard self-test
   including help text, machine-readable required readiness/audit-row output,
   manual evidence template readiness-row parity, required remote-workflow
   evidence rows, remote workflow dispatch-command parity in both operator
@@ -94,28 +94,53 @@ available in the current local lab.
   verifier, debug/test/main source-set ktlint checks,
   the refreshed architecture-health and native-hotspot gates, the
   local-network-lab validation-only block, and the refreshed host lab doctor
-  plus archive-redaction run passed. The sign-off runbook now also
+  plus archive-redaction run passed. The May 15 offline analytics unit/sample
+  reruns passed under both the host default `python3` and the hosted-workflow
+  Python 3.12 runtime. Native fuzz smoke also passed; the fuzz smoke refreshed
+  `native/rust/fuzz/Cargo.lock` for the current dependency graph. The mutation
+  wrapper self-test also passed after removing the stale default `--jobs auto`
+  argument for newer `cargo-mutants`, avoids Bash 4-only `mapfile` and empty
+  array expansion in local Bash 3.2 environments, CI now runs that wrapper
+  self-test in the unit-test job, and a temporary local `cargo-mutants 27.0.0`
+  install exercised the real wrapper path with `--list-files` on
+  `ripdpi-strategy-trait`. The broad repository script-test suite now passes
+  after refreshing the
+  diagnostics-boundary unit-test fixture for the current package-layout gate,
+  the production diagnostics boundary verifier still reports 0 violations, and
+  the architecture-health/native-hotspot/native-architecture-contract gates are
+  green. CI now runs that focused unit test before the diagnostics boundary
+  verifier. The sign-off runbook now also
   documents the operator-reviewed readiness JSON input, requires evidence-backed
   `ready` status changes, and the manual evidence template captures review
   branch, pull request, required checks/reviews, readiness JSON, plus the final
   guard command/result. Commit hooks passed for the latest
   native/Appium/test-lab/testing-docs commits.
-- Remote state: `origin/main` still points at `342a169a`. CI run `25875963396`
-  is not a green sign-off because it completed with failed jobs in
-  `architecture-health`, `verify-roborazzi`, `rust-workspace-tests`, and
-  `gradle-static-analysis`; CodeQL run `25875963413` passed for that remote
-  head. Scheduled Fuzz Nightly run `25897920791` is currently in progress on the
-  same remote head. The current local refresh reproduced and fixed the
+- Remote state: `origin/main` now points at `f6df72df`. CodeQL run
+  `25900140424` passed for that head. CI run `25900140413` passed for that
+  head with 32 successful jobs, 10 skipped schedule/manual-only jobs, and no
+  failed, cancelled, or timed-out jobs. Older CI run `25875963396` failed on
+  previous remote head `342a169a`; scheduled Fuzz Nightly run `25897920791`
+  later passed, but it still covers previous remote head `342a169a` and is not
+  current-head sign-off evidence. Latest local-network-lab success
+  `25844203179` is on `d717158e`; latest offline analytics run `25721322098`
+  failed on `3b528850`; latest mutation-testing run `25655283515` failed on
+  `69defcca`. Failed-step logs show offline analytics failed on the old head
+  because `app/src/main/assets/strategy-packs/catalog.json` was absent, while
+  mutation testing failed before starting because `cargo-mutants v27.0.0`
+  rejected `--jobs auto`. The current local refresh reproduced and fixed the
   architecture-health class of failure; full local `staticAnalysis`,
   CI-equivalent Roborazzi verification, and the Rust workspace test script now
-  pass, but no remote run covers the local commits.
-- Latest readiness preflight: the current May 15, 2026 refresh artifact
+  pass.
+- Latest readiness preflight: the tracked May 15, 2026 refresh artifact
   `test-lab/artifacts/feature-gap-readiness-refresh.json` confirms the attached
   Pixel 8 Pro is ready; rooted physical device, TalkBack manual pass, routed
-  Linux netem VM, production relay matrix, and remote workflow confirmation
-  remain blocked; physical handover remains manual. The remote workflow item is
-  blocked because the local branch is ahead of `origin/main` and no fresh
-  workflow covers the local commits.
+  Linux netem VM, and production relay matrix remain blocked; physical handover
+  remains manual. A later local dirty-worktree refresh written to
+  `/tmp/ripdpi-feature-gap-readiness-dirty-worktree.json` blocks remote workflow
+  confirmation because the checkout currently has 10 uncommitted changes. The
+  branch is published and current-head CI/CodeQL are green for `f6df72df`, but
+  the remaining external workflow confirmations are not recorded and no hosted
+  run covers the dirty local state.
 
 ## Stop Rules
 
@@ -128,15 +153,16 @@ direct evidence:
 3. Production relay provider matrix pass.
 4. Manual TalkBack pass.
 5. Routed Linux VM netem packet-loss pass.
-6. Fresh remote workflows covering the local commits.
+6. Clean committed worktree plus fresh remote workflows covering the current
+   commit.
 
 ## Next Concrete Actions
 
-1. Complete remote workflow confirmation: push a review branch from the locally
-   reconciled head, complete the required pull request checks/reviews, merge to
-   `main`, then record CI and CodeQL for the merged commit and dispatch fresh
-   local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly
-   workflows where manual dispatch is supported.
+1. Complete remote workflow confirmation: commit or discard the current local
+   changes, keep current-head CI run `25900140413` and CodeQL run
+   `25900140424` recorded as passed for `f6df72df`, then dispatch or record
+   fresh local-network-lab, offline analytics, mutation-testing, and Fuzz
+   Nightly workflows where manual dispatch is supported.
 2. Run the rooted physical-device pass.
 3. Run the network lab pass with cellular, handover, IPv4-only, IPv6-only,
    captive, and limited-path coverage.
