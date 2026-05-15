@@ -76,6 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           test-lab/scripts/test-feature-gap-readiness.sh
+          test-lab/scripts/test-relay-matrix-config.sh
           test-lab/scripts/check-relay-matrix-config.sh \
             --config test-lab/relay/provider-matrix.example.json
           invalid_matrix="$RUNNER_TEMP/invalid-relay-matrix.json"

@@ -101,7 +101,39 @@ invalid_entries="$(
   ' "$config_path"
 )"
 
-literal_secret_hits="$(
+duplicate_ids="$(
+  jq -r '
+    [.relays[]?.id | select(type == "string")]
+    | group_by(.)
+    | .[]
+    | select(length > 1)
+    | .[0]
+  ' "$config_path"
+)"
+
+invalid_scenarios="$(
+  jq -r --argjson allowed "$(printf '%s\n' "${required_scenarios[@]}" | jq -R . | jq -s .)" '
+    .relays[]? as $relay
+    | ($relay.scenarios // [])[]
+    | . as $scenario
+    | select((type != "string") or (($allowed | index($scenario)) | not))
+    | ($relay.id // "<missing-id>") + "." + ($scenario|tostring)
+  ' "$config_path"
+)"
+
+literal_endpoint_ref_hits="$(
+  jq -r '
+    .relays[]? as $relay
+    | ["endpointRef", "credentialRef"][] as $field
+    | ($relay[$field] // empty) as $value
+    | select(($value | type) == "string")
+    | select($value != "none")
+    | select($value | test("(?i)(://|@)"))
+    | ($relay.id // "<missing-id>") + "." + $field
+  ' "$config_path"
+)"
+
+sensitive_literal_hits="$(
   jq -r '
     .relays[]? as $relay
     | $relay
@@ -126,8 +158,20 @@ if [[ -n "$invalid_entries" ]]; then
   printf 'Invalid relay entries:\n%s\n' "$invalid_entries" >&2
   exit 1
 fi
-if [[ -n "$literal_secret_hits" ]]; then
-  printf 'Potential literal secret values found at:\n%s\n' "$literal_secret_hits" >&2
+if [[ -n "$duplicate_ids" ]]; then
+  printf 'Duplicate relay IDs:\n%s\n' "$duplicate_ids" >&2
+  exit 1
+fi
+if [[ -n "$invalid_scenarios" ]]; then
+  printf 'Invalid relay scenarios:\n%s\n' "$invalid_scenarios" >&2
+  exit 1
+fi
+if [[ -n "$literal_endpoint_ref_hits" ]]; then
+  printf 'Endpoint or credential refs must not contain literal URLs or userinfo:\n%s\n' "$literal_endpoint_ref_hits" >&2
+  exit 1
+fi
+if [[ -n "$sensitive_literal_hits" ]]; then
+  printf 'Potential sensitive literal values found at:\n%s\n' "$sensitive_literal_hits" >&2
   exit 1
 fi
 

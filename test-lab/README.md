@@ -210,7 +210,9 @@ For each relay ID in the private manifest, record proxy, VPN, diagnostics,
 restart, invalid-credential, reset, timeout, malformed-response, DNS fallback,
 and handover outcomes in the manual evidence template. Store provider secrets
 and endpoint material outside the repository; committed docs should reference
-only redacted relay IDs such as `relay-masque-primary`.
+only redacted relay IDs such as `relay-masque-primary`. The manifest validator
+rejects duplicate relay IDs, unknown scenario names, literal URL/userinfo refs,
+and sensitive-looking literal values before any provider-backed run starts.
 
 ### TalkBack Manual Pass
 
