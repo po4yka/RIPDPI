@@ -99,6 +99,7 @@ on every PR. It looks for the following risky patterns under
 | `mem::transmute` / `transmute::<_,_>` | Reinterpretation cast that bypasses the type system. |
 | `.get_unchecked(_mut)?()`, `.unwrap_unchecked()` | Bounds/option check elision. |
 | `Pin::new_unchecked`, `Pin::get_unchecked_mut` | Pin invariant bypass. |
+| `NonNull::as_ref` / `NonNull::as_mut` (qualified form) | Materializing `&T` / `&mut T` from a raw `NonNull`. The unqualified method form is ignored to avoid the noisy `Option::as_ref` / `&str::as_ref` false-positive class — raw-pointer dereferences are covered instead by `unsafe_op_in_unsafe_fn = deny` plus the SAFETY-comment requirement. |
 | `unsafe impl (Send|Sync)` | Thread-safety assertion. |
 | `extern "C" fn`, `extern "system" fn` | FFI callback / JNI export entry point. |
 | `pub fn ... NonNull` | Raw handle in a public signature. |

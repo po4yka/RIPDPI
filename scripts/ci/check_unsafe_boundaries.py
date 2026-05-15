@@ -63,6 +63,13 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     "unwrap_unchecked": re.compile(r"\.unwrap_unchecked\(\)"),
     "Pin::new_unchecked": re.compile(r"\bPin::new_unchecked\b"),
     "Pin::get_unchecked_mut": re.compile(r"\.get_unchecked_mut\(\)"),
+    # NonNull::as_ref / as_mut: the qualified form is the reliable signal.
+    # The unqualified method-call form (`ptr.as_ref()`) collides with the
+    # ubiquitous `Option::as_ref` / `&str::as_ref` family, so we only catch
+    # the explicit `NonNull::...` spelling here. Raw-pointer dereferences
+    # are covered separately by `unsafe_op_in_unsafe_fn = deny` and the
+    # SAFETY-comment policy.
+    "NonNull::as_ref/as_mut": re.compile(r"\bNonNull(::<[^>]*>)?::as_(ref|mut)\b"),
     "unsafe impl Send/Sync": re.compile(r"^\s*unsafe\s+impl(\s*<[^>]+>)?\s+(Send|Sync)\b"),
     "extern \"C\" fn": re.compile(r"\bextern\s+\"C\"\s+fn\b"),
     "extern \"system\" fn": re.compile(r"\bextern\s+\"system\"\s+fn\b"),

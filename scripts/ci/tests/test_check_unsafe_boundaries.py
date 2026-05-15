@@ -89,6 +89,18 @@ class ScanRegressionTests(unittest.TestCase):
         src = "let inner = unsafe { pinned.get_unchecked_mut() };"
         self.assertTrue(_has(_scan(src), "Pin::get_unchecked_mut"))
 
+    def test_nonnull_as_ref_qualified_flagged(self) -> None:
+        for fragment in (
+            "let r = unsafe { NonNull::<u8>::as_ref(p) };",
+            "let r = unsafe { NonNull::as_mut(&mut p) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "NonNull::as_ref/as_mut"), msg=fragment)
+
+    def test_option_as_ref_not_flagged(self) -> None:
+        # The qualified-only pattern intentionally ignores `opt.as_ref()` etc.
+        src = "let r = some_option.as_ref();"
+        self.assertFalse(_has(_scan(src), "NonNull::as_ref/as_mut"))
+
     def test_unsafe_impl_send_sync_flagged(self) -> None:
         for fragment in (
             "unsafe impl Send for Foo {}",
