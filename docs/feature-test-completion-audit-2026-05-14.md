@@ -79,12 +79,14 @@ available in the current local lab.
   rejection, sign-off required-row parity, and
   unknown remote-compare coverage, the feature sign-off guard self-test
   including help text, machine-readable required readiness/audit-row output,
-  manual evidence template row parity, audit/evidence blocker and next-action
-  parity, missing required audit rows, incomplete audit result/remaining-evidence
-  cells, stale/missing/future readiness timestamps, required `manual` readiness
-  rows, missing required readiness rows, duplicate required rows, invalid statuses, and
-  malformed readiness JSON/object/row schema, the relay matrix config self-test including template
-  parity,
+  manual evidence template readiness-row parity, required remote-workflow
+  evidence rows, remote workflow dispatch-command parity in both operator
+  runbooks, audit/evidence blocker and next-action parity, remote-lane coverage
+  in the audit and evidence ledger, missing required audit rows, incomplete audit
+  result/remaining-evidence cells, stale/missing/future readiness timestamps,
+  required `manual` readiness rows, missing required readiness rows, duplicate
+  required rows, invalid statuses, and malformed readiness JSON/object/row
+  schema, the relay matrix config self-test including template parity,
   the focused debug-probe
   relay-readiness unit test, physical mock-relay
   VPN/proxy/diagnostics probes, proxy E2E runner syntax, the
