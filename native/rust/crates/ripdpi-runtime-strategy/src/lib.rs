@@ -1,4 +1,5 @@
 pub mod outbound_failover;
+pub mod profiles;
 pub mod strategy_evolver;
 
 pub use outbound_failover::{

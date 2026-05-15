@@ -1,7 +1,7 @@
 ---
 title: Define NetProfile HostProfile and ArmStats
 type: task
-status: backlog
+status: done
 area: service
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-privacy-preserving-strategy-learner
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-15
 ---
 
-- [ ] #task Define NetProfile HostProfile and ArmStats #repo/RIPDPI #area/service #status/backlog ⏫
+- [x] #task Define NetProfile HostProfile and ArmStats #repo/RIPDPI #area/service #status/done ⏫
 
 ## Goal contract
 
