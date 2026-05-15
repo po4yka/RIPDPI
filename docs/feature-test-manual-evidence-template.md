@@ -112,3 +112,5 @@ repository and reference only redacted relay IDs here.
 | Bugs found | |
 | Fix commits | |
 | Retest evidence | |
+| Operator-reviewed readiness JSON | |
+| Final sign-off guard command / result | |
