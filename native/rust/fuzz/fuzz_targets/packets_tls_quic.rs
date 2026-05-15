@@ -22,7 +22,7 @@ fn tls_variant(data: &[u8]) -> Vec<u8> {
 
     let desired_len = ripdpi_packets::DEFAULT_FAKE_TLS
         .len()
-        .saturating_add(data.get(0).copied().unwrap_or(0) as usize % 48);
+        .saturating_add(data.first().copied().unwrap_or(0) as usize % 48);
     let padded = ripdpi_packets::tune_tls_padding_size_like_c(&duplicated.bytes, desired_len);
 
     let payload_len = 1 + data.get(1).copied().unwrap_or(0) as usize % 64;

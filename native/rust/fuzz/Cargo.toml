@@ -21,6 +21,7 @@ ripdpi-proxy-config = { path = "../crates/ripdpi-proxy-config" }
 ripdpi-session = { path = "../crates/ripdpi-session" }
 ripdpi-tunnel-config = { path = "../crates/ripdpi-tunnel-config" }
 ripdpi-vless = { path = "../crates/ripdpi-vless" }
+ripdpi-ws-tunnel = { path = "../crates/ripdpi-ws-tunnel" }
 
 [[bin]]
 name = "packets_parse"
@@ -103,5 +104,11 @@ doc = false
 [[bin]]
 name = "client_hello_offsets"
 path = "fuzz_targets/client_hello_offsets.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "mtproto_init"
+path = "fuzz_targets/mtproto_init.rs"
 test = false
 doc = false

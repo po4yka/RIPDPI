@@ -39,8 +39,18 @@ worker.
 
 ## Acceptance criteria
 
-- [ ] Three new fuzz targets under `native/rust/fuzz/fuzz_targets/`:
-    `vless_response`, `vless_target_parse`, `mtproto_init`.
+- [x] (partial, 2026-05-15) `mtproto_init` fuzz target shipped under
+    `native/rust/fuzz/fuzz_targets/mtproto_init.rs`, covers
+    `classify_mtproto_seed`, `decrypt_init_packet`,
+    `extract_dc_from_init`. Compiles cleanly (cargo check passes).
+    `vless_response` still owed (async `read_response` needs a
+    runtime-wrapped Cursor harness); `vless_target_parse` deferred
+    because `parse_target` is a private helper — the existing
+    `vless_request_header` target already drives it transitively
+    via `encode_request`.
+- [ ] (original) Three new fuzz targets under
+    `native/rust/fuzz/fuzz_targets/`: `vless_response`,
+    `vless_target_parse`, `mtproto_init`.
 - [ ] Each target seeds a small corpus drawn from existing unit-test
     inputs.
 - [ ] CI runs each target for a short bounded duration (e.g. 60s) on
