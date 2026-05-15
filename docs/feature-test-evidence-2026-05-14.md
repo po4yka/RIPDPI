@@ -26,7 +26,7 @@ open checklist work.
 | --- | --- | --- |
 | Static analysis | `./gradlew :app:lintGithubDebug -Pripdpi.skipNativeBuild=true --no-daemon`; `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon` | Pass on local HEAD `e53da9d0` after the GitHub update-provider lint repair. The focused GitHub lint target completed with `BUILD SUCCESSFUL in 2m 10s`. The full aggregate static-analysis target completed with `BUILD SUCCESSFUL in 17s`, 518 actionable tasks, and no failures. |
 | Current debug APK rebuild | `./gradlew :app:assembleGithubDebug -Pripdpi.nativeAbisOverride=arm64-v8a -Pripdpi.nativeAbiParallelism=1 --no-daemon` | Pass on local HEAD `89deca61`; `BUILD SUCCESSFUL in 4m 8s`. This rebuilt the current `app-github-universal-debug.apk` with real `arm64-v8a` native libraries before the fresh Maestro and Appium reruns. |
-| Merged-origin architecture and release-gate checks | `gh run list --limit 10 --json databaseId,workflowName,headSha,status,conclusion,createdAt,updatedAt,url,event`; `gh run view 25903839185 --json status,conclusion,headSha,url,jobs`; `gh api /repos/po4yka/RIPDPI/actions/jobs/76132929838/logs`; `./gradlew :app:lintGithubDebug -Pripdpi.skipNativeBuild=true --no-daemon`; `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon`; earlier local release-gate commands recorded in this ledger | Partial for hosted release gates, covered locally for the new failure class. `origin/main` now points at `5f8c2636`; CodeQL run `25903839188` passed for that head. CI run `25903839185` is still in progress for `5f8c2636`, but its `gradle-static-analysis` job failed with Android Lint `Instantiatable` on `.updates.UpdateApkFileProvider` in `app/src/github/AndroidManifest.xml`. Local commit `e53da9d0` keeps the provider in Kotlin, adds the manifest `tools:ignore="Instantiatable"` already used for Kotlin-only manifest components, and makes `checkNoTrackedJavaSources` configuration-cache safe after the rejected Java-subclass attempt exposed that gate. Focused GitHub lint and full static analysis pass locally on `e53da9d0`. The local branch remains ahead of `origin/main`, so no hosted run covers `59e6df5b` or `e53da9d0` until the review-branch, pull-request, merge, and fresh-workflow path is completed. |
+| Merged-origin architecture and release-gate checks | `gh run list --limit 10 --json databaseId,workflowName,headSha,status,conclusion,createdAt,updatedAt,url,event`; `gh run view 25903839185 --json status,conclusion,headSha,url,jobs`; `gh api /repos/po4yka/RIPDPI/actions/jobs/76132929838/logs`; `./gradlew :app:lintGithubDebug -Pripdpi.skipNativeBuild=true --no-daemon`; `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --no-daemon`; earlier local release-gate commands recorded in this ledger | Partial for hosted release gates, covered locally for the new failure class. `origin/main` now points at `5f8c2636`; CodeQL run `25903839188` passed for that head. CI run `25903839185` is still in progress for `5f8c2636`; its `release-verification` job passed on May 15, 2026 at 06:57:52Z, its `gradle-static-analysis` job failed with Android Lint `Instantiatable` on `.updates.UpdateApkFileProvider`, and two Android integration shards remain in progress. Local commit `e53da9d0` keeps the provider in Kotlin, adds the manifest `tools:ignore="Instantiatable"` already used for Kotlin-only manifest components, and makes `checkNoTrackedJavaSources` configuration-cache safe after the rejected Java-subclass attempt exposed that gate. Focused GitHub lint and full static analysis pass locally on `e53da9d0`. The local branch remains ahead of `origin/main`, so no hosted run covers `59e6df5b`, `e53da9d0`, or `a882ed0e` until the review-branch, pull-request, merge, and fresh-workflow path is completed. |
 | Current local CI-equivalent Roborazzi and Rust workspace refresh | `./gradlew :app:verifyRoborazziGithubDebug -Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true --tests 'com.poyka.ripdpi.ui.screenshot.*' --no-daemon`; `bash scripts/ci/run-rust-workspace-tests.sh` | Pass on local HEAD `5e34139c`. Roborazzi completed with `BUILD SUCCESSFUL in 4m 31s`. The Rust workspace script passed membership, hotspot-budget, architecture-checker, contract, fixture, tunnel, Android adapter, and full workspace nextest phases; the main nextest summary was 2840 tests run, 2840 passed, 16 skipped, and the ignored startup-latency smoke added 1 passed test. This cleared the stale remote `verify-roborazzi` and `rust-workspace-tests` failure classes locally; later CI runs passed these lanes on baseline commits `f6df72df` and `d0b9347e`. |
 | Diagnostics-data focused regression | `./gradlew :core:diagnostics-data:ktlintDebugSourceSetCheck -Pripdpi.skipNativeBuild=true --no-daemon`; `./gradlew :core:diagnostics-data:testDebugUnitTest -Pripdpi.skipNativeBuild=true --no-daemon` | Pass on merged local HEAD `8807b2c9`; ktlint task was skipped because there are no debug-source files, and `testDebugUnitTest` completed with `BUILD SUCCESSFUL in 30s` |
 | Release verification build | `./gradlew :app:assembleGithubRelease -Pripdpi.nativeAbisOverride=arm64-v8a -Pripdpi.nativeAbiParallelism=1 --no-daemon` | Pass |
@@ -210,10 +210,11 @@ unexecuted manual rows from `docs/feature-test-checklist.md`.
 - Remote workflow confirmation for CI, CodeQL, local-network-lab, offline
   analytics, mutation-testing, and Fuzz Nightly on the current commit; CodeQL
   is recorded as passed for baseline commit `5f8c2636`, while CI run
-  `25903839185` is still in progress with a known static-analysis failure fixed
-  locally in `e53da9d0`. The local branch is ahead of `origin/main`; publish
-  through the review-branch path before any hosted workflow can cover these
-  local commits.
+  `25903839185` is still in progress with release verification passed, two
+  Android integration shards still running, and a known static-analysis failure
+  fixed locally in `e53da9d0`. The local branch is ahead of `origin/main`;
+  publish through the review-branch path before any hosted workflow can cover
+  these local commits.
 
 ## Next Concrete Runs
 
@@ -229,8 +230,8 @@ unexecuted manual rows from `docs/feature-test-checklist.md`.
    recording reference.
 5. Run the routed Linux VM netem scenario with device traffic carried through
    the routed namespace or VM, then attach the lab archive.
-6. Publish local commits `59e6df5b` and `e53da9d0` through the review-branch path, then complete
-   remote workflow confirmation by verifying CI, CodeQL, local-network-lab,
-   offline analytics, mutation-testing, and Fuzz Nightly workflows for the
-   current commit; current hosted workflow history still covers only
-   `origin/main` or older commits, not the local HEAD.
+6. Publish local commits `59e6df5b`, `e53da9d0`, and `a882ed0e` through the
+   review-branch path, then complete remote workflow confirmation by verifying
+   CI, CodeQL, local-network-lab, offline analytics, mutation-testing, and Fuzz
+   Nightly workflows for the current commit; current hosted workflow history
+   still covers only `origin/main` or older commits, not the local HEAD.

@@ -34,7 +34,7 @@ available in the current local lab.
 | Verify relay provider matrix | Mock relay tests and Rust relay interoperability passed for local fixture coverage; Android debug-probe tests now confirm the client readiness handshake, `relayReady` emission, and hard failure classification; physical proxy, VPN, and diagnostics mock-relay runs emitted `relayReady=true` while the relevant runtime path was active; `check-relay-matrix-config.sh` validates the private matrix manifest shape and emits machine-readable required path/scenario lists, `test-relay-matrix-config.sh` covers duplicate IDs, kind/ID mismatches, duplicate/invalid scenarios, literal endpoint refs, sensitive literal values, and Provider Relay Matrix template parity, and the checked-in example covers all required relay paths/scenarios; readiness preflight confirms no operator-provided provider matrix is configured in the current local environment | Partial | Provider-backed proxy, VPN, diagnostics, restart, invalid credential, reset, timeout, malformed response, DNS fallback, and handover runs for every production relay path |
 | Verify accessibility with TalkBack | Automated label audits and Appium selector coverage passed; readiness preflight confirms TalkBack is installed but is not the active accessibility service | Partial | Manual TalkBack pass for buttons, switches, tabs, progress, and error messages |
 | Verify routed VM packet-loss lab | Netem scripts passed inside a disposable Linux network namespace; readiness preflight confirms the current host is Darwin and not a routed Linux VM; `test-lab/chaos/netem/README.md` now documents the routed Linux VM evidence run, VPN/diagnostics probes, QUIC-drop probe, cleanup, and required manual evidence fields | Partial | Linux routed-VM run that carries Android or device traffic through the netem path |
-| Verify remote release gates | Read-only GitHub Actions refresh on May 15, 2026 showed `origin/main` at `5f8c2636`. CodeQL run `25903839188` passed for that head. CI run `25903839185` is still in progress for that head, but its `gradle-static-analysis` job failed with Android Lint `Instantiatable` on `.updates.UpdateApkFileProvider`. Local commit `e53da9d0` fixes that failure class by adding the GitHub manifest `tools:ignore="Instantiatable"` for the Kotlin-only provider and by making the no-handwritten-Java static-analysis gate configuration-cache safe after a rejected Java-subclass attempt exposed the gate. Focused `:app:lintGithubDebug` and full `staticAnalysis` pass locally on `e53da9d0`. Older Local Network Lab run `25902662966` passed for baseline head `d0b9347e`; scheduled Fuzz Nightly run `25897920791` passed for older head `342a169a`. Latest offline analytics run `25721322098` failed on `3b528850`, and latest mutation-testing run `25655283515` failed on `69defcca`, with local fixes and self-tests recorded in the evidence ledger. A current readiness refresh correctly blocks remote workflow confirmation because the local branch is ahead of `origin/main`; no hosted run covers local commits `59e6df5b` or `e53da9d0` until they are published through the review-branch, pull-request, merge, and fresh-workflow path | Partial | CodeQL is green for `5f8c2636`; CI for `5f8c2636` has a known static-analysis failure fixed locally; publish local commits `59e6df5b` and `e53da9d0` through the review-branch path, then confirm CI, CodeQL, local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly workflow status for the resulting current commit |
+| Verify remote release gates | Read-only GitHub Actions refresh on May 15, 2026 showed `origin/main` at `5f8c2636`. CodeQL run `25903839188` passed for that head. CI run `25903839185` is still in progress for that head; its `release-verification` job passed at 06:57:52Z, its `gradle-static-analysis` job failed with Android Lint `Instantiatable` on `.updates.UpdateApkFileProvider`, and two Android integration shards remain in progress. Local commit `e53da9d0` fixes that failure class by adding the GitHub manifest `tools:ignore="Instantiatable"` for the Kotlin-only provider and by making the no-handwritten-Java static-analysis gate configuration-cache safe after a rejected Java-subclass attempt exposed the gate. Focused `:app:lintGithubDebug` and full `staticAnalysis` pass locally on `e53da9d0`. Older Local Network Lab run `25902662966` passed for baseline head `d0b9347e`; scheduled Fuzz Nightly run `25897920791` passed for older head `342a169a`. Latest offline analytics run `25721322098` failed on `3b528850`, and latest mutation-testing run `25655283515` failed on `69defcca`, with local fixes and self-tests recorded in the evidence ledger. A current readiness refresh correctly blocks remote workflow confirmation because the local branch is ahead of `origin/main`; no hosted run covers local commits `59e6df5b`, `e53da9d0`, or `a882ed0e` until they are published through the review-branch, pull-request, merge, and fresh-workflow path | Partial | CodeQL and release verification are green for `5f8c2636`; CI for `5f8c2636` still has two Android integration shards running and a known static-analysis failure fixed locally; publish local commits `59e6df5b`, `e53da9d0`, and `a882ed0e` through the review-branch path, then confirm CI, CodeQL, local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly workflow status for the resulting current commit |
 
 ## Current Local State
 
@@ -125,8 +125,9 @@ available in the current local lab.
   native/Appium/test-lab/testing-docs commits.
 - Remote state: `origin/main` now points at `5f8c2636`. CodeQL run
   `25903839188` passed for that head. CI run `25903839185` is still in
-  progress for that head, but its `gradle-static-analysis` job failed with
-  Android Lint `Instantiatable` on the GitHub update APK provider. Local commit
+  progress for that head; release verification passed, two Android integration
+  shards remain in progress, and `gradle-static-analysis` failed with Android
+  Lint `Instantiatable` on the GitHub update APK provider. Local commit
   `e53da9d0` fixes that failure class and passes focused GitHub lint plus full
   `staticAnalysis`, but no hosted run covers the local commits yet. Older Local
   Network Lab run `25902662966` passed on `d0b9347e`; scheduled Fuzz Nightly
@@ -145,9 +146,10 @@ available in the current local lab.
   physical handover remained manual. A later local post-commit refresh written
   to `/tmp/ripdpi-feature-gap-readiness-current.json` blocks remote workflow
   confirmation because the local branch is ahead of `origin/main`; that refresh
-  also reports no attached adb device currently ready. CodeQL is green for
-  `5f8c2636`, but CI for that head has a known static-analysis failure fixed
-  locally and no hosted run covers the local commits.
+  also reports no attached adb device currently ready. CodeQL and release
+  verification are green for `5f8c2636`, but CI for that head still has two
+  Android integration shards running plus a known static-analysis failure fixed
+  locally, and no hosted run covers the local commits.
 
 ## Stop Rules
 
@@ -165,8 +167,9 @@ direct evidence:
 
 ## Next Concrete Actions
 
-1. Complete remote workflow confirmation: publish local commits `59e6df5b` and
-   `e53da9d0` through the review-branch and pull-request path, keep CodeQL run
+1. Complete remote workflow confirmation: publish local commits `59e6df5b`,
+   `e53da9d0`, and `a882ed0e` through the review-branch and pull-request path,
+   keep CodeQL run
    `25903839188` recorded as passed for baseline commit `5f8c2636`, keep the
    local fix for CI run `25903839185`'s static-analysis failure recorded, then
    dispatch or record fresh CI, CodeQL,
