@@ -24,24 +24,38 @@ def normalize(value: str) -> str:
 
 checklist_path = Path(sys.argv[1])
 evidence_path = Path(sys.argv[2])
+evidence_text = evidence_path.read_text(encoding="utf-8")
 
 checklist_sections = []
+checklist_item_counts = {}
+current_section = None
 for line in checklist_path.read_text(encoding="utf-8").splitlines():
     match = re.match(r"^(?:##|###)\s+(.+)$", line)
     if match:
         title = match.group(1).strip()
         if title != "Combination Matrices":
             checklist_sections.append(title)
+            checklist_item_counts[title] = 0
+            current_section = title
+        else:
+            current_section = None
+        continue
+    if re.match(r"^- \[ \]\s+", line) and current_section is not None:
+        checklist_item_counts[current_section] += 1
 
 allowed_statuses = {"Partial", "Covered locally"}
 evidence_rows = []
 invalid_rows = []
 duplicate_rows = []
 seen_evidence_keys = set()
-for line in evidence_path.read_text(encoding="utf-8").splitlines():
+command_evidence_rows = {}
+for line in evidence_text.splitlines():
     if not line.startswith("|"):
         continue
     cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    if len(cells) == 3 and cells[0] not in {"Check", "---"}:
+        command_evidence_rows[cells[0]] = cells
+        continue
     if len(cells) != 4 or cells[0] in {"Checklist section", "---"}:
         continue
 
@@ -89,9 +103,25 @@ if invalid_rows:
         print(f"Invalid checklist evidence row: {row}", file=sys.stderr)
     raise SystemExit(1)
 
+item_total = sum(checklist_item_counts.values())
+if evidence_path.name.startswith("feature-test-evidence-"):
+    audit_row = command_evidence_rows.get("Checklist section coverage audit")
+    expected_item_text = f"{item_total} checklist items"
+    if audit_row is None:
+        print("Missing command evidence row: Checklist section coverage audit", file=sys.stderr)
+        raise SystemExit(1)
+    if expected_item_text not in " | ".join(audit_row):
+        print(
+            "Checklist section coverage audit row does not mention current "
+            f"item baseline: {expected_item_text}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
 print(
     "Feature checklist coverage self-test passed: "
     f"{len(checklist_sections)} checklist sections, "
+    f"{item_total} checklist items, "
     f"{len(evidence_rows)} evidence rows, {len(missing)} missing mappings."
 )
 PY

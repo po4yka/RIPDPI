@@ -54,7 +54,8 @@ write_checklist
 write_evidence
 "$repo_root/test-lab/scripts/test-feature-checklist-coverage.sh" \
   "$checklist" \
-  "$evidence" >/dev/null
+  "$evidence" >"$output"
+grep -F "2 checklist items" "$output"
 
 write_checklist
 write_evidence

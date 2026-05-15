@@ -70,7 +70,8 @@ available in the current local lab.
   smoke pack, the May 15 installed-tool Maestro/Appium reruns, the focused
   support-bundle plus diagnostics-empty-state repro, the final current full
   Appium suite, the feature artifact-path self-test,
-  the feature checklist-coverage self-test and fixture negative-path self-test,
+  the feature checklist-coverage self-test with the 248-item checklist baseline
+  and fixture negative-path self-test,
   the feature-gap readiness self-test including sign-off required-row parity and
   unknown remote-compare coverage, the feature sign-off guard self-test
   including help text, machine-readable required-row output, manual evidence
