@@ -106,14 +106,25 @@ if invalid_rows:
 item_total = sum(checklist_item_counts.values())
 if evidence_path.name.startswith("feature-test-evidence-"):
     audit_row = command_evidence_rows.get("Checklist section coverage audit")
+    expected_section_text = f"{len(checklist_sections)} checklist sections"
     expected_item_text = f"{item_total} checklist items"
+    expected_evidence_text = f"{len(evidence_rows)} evidence rows"
     if audit_row is None:
         print("Missing command evidence row: Checklist section coverage audit", file=sys.stderr)
         raise SystemExit(1)
-    if expected_item_text not in " | ".join(audit_row):
+    audit_row_text = " | ".join(audit_row)
+    expected_summary_parts = [
+        expected_section_text,
+        expected_item_text,
+        expected_evidence_text,
+    ]
+    missing_summary_parts = [
+        part for part in expected_summary_parts if part not in audit_row_text
+    ]
+    if missing_summary_parts:
         print(
             "Checklist section coverage audit row does not mention current "
-            f"item baseline: {expected_item_text}",
+            f"summary baselines: {', '.join(missing_summary_parts)}",
             file=sys.stderr,
         )
         raise SystemExit(1)

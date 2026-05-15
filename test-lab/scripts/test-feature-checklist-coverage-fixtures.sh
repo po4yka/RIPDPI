@@ -65,7 +65,7 @@ cat >"$feature_evidence" <<'MD'
 
 | Check | Command or artifact | Result |
 | --- | --- | --- |
-| Checklist section coverage audit | fixture | Pass: 1 checklist items |
+| Checklist section coverage audit | fixture | Pass: 2 checklist sections, 1 checklist items, 2 evidence rows |
 
 | Checklist section | Status | Evidence | Remaining work |
 | --- | --- | --- | --- |
@@ -73,7 +73,41 @@ cat >"$feature_evidence" <<'MD'
 | Beta | Partial | Device fixture | Manual run |
 MD
 expect_failure \
-  "Checklist section coverage audit row does not mention current item baseline: 2 checklist items" \
+  "Checklist section coverage audit row does not mention current summary baselines: 2 checklist items" \
+  "$feature_evidence"
+
+write_checklist
+cat >"$feature_evidence" <<'MD'
+# Fixture Evidence
+
+| Check | Command or artifact | Result |
+| --- | --- | --- |
+| Checklist section coverage audit | fixture | Pass: 1 checklist sections, 2 checklist items, 2 evidence rows |
+
+| Checklist section | Status | Evidence | Remaining work |
+| --- | --- | --- | --- |
+| Alpha | Covered locally | Unit fixture | None |
+| Beta | Partial | Device fixture | Manual run |
+MD
+expect_failure \
+  "Checklist section coverage audit row does not mention current summary baselines: 2 checklist sections" \
+  "$feature_evidence"
+
+write_checklist
+cat >"$feature_evidence" <<'MD'
+# Fixture Evidence
+
+| Check | Command or artifact | Result |
+| --- | --- | --- |
+| Checklist section coverage audit | fixture | Pass: 2 checklist sections, 2 checklist items, 1 evidence rows |
+
+| Checklist section | Status | Evidence | Remaining work |
+| --- | --- | --- | --- |
+| Alpha | Covered locally | Unit fixture | None |
+| Beta | Partial | Device fixture | Manual run |
+MD
+expect_failure \
+  "Checklist section coverage audit row does not mention current summary baselines: 2 evidence rows" \
   "$feature_evidence"
 
 write_checklist
