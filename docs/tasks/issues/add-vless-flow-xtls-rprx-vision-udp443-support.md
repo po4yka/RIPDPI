@@ -41,12 +41,20 @@ shipping the wrong flow goes up.
 
 ## Acceptance criteria
 
-- [ ] A comment in `addons.rs` cites the upstream commit/tag the
-    addons bytes were derived from.
+- [x] A comment in `addons.rs` cites the upstream commit/tag the
+    addons bytes were derived from. **DONE 2026-05-15:** module
+    docstring now links to xray-core and `SPEC_VERSION.md`.
 - [ ] If only one flow is supported, the config rejects requests for
     other flows with a clear error.
-- [ ] If multi-flow support is decided, expose `flow: VlessFlow` and
-    cover each variant with a wire-encoding test.
+- [x] (partial, 2026-05-15) New `VISION_UDP443_ADDONS` constant
+    shipped in `addons.rs` with the hand-encoded 23-byte
+    `xtls-rprx-vision-udp443` payload + wire-encoding test
+    (`vision_udp443_addons_encoding`). Plumbing through
+    `VlessRealityConfig` to *select* between variants is the
+    remaining work.
+- [ ] (original) If multi-flow support is decided, expose
+    `flow: VlessFlow` and cover each variant with a wire-encoding
+    test.
 
 ## Definition of done
 
