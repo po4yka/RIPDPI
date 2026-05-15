@@ -6,9 +6,16 @@ workspace_manifest="$repo_root/native/rust/Cargo.toml"
 
 TEST_TOOL="${MUTANTS_TEST_TOOL:-nextest}"
 PACKAGES="${MUTANTS_PACKAGES:-}"
-JOBS="${MUTANTS_JOBS:-auto}"
+JOBS="${MUTANTS_JOBS:-}"
 
-common_args=(--test-tool "$TEST_TOOL" --jobs "$JOBS" --output "$repo_root/target/mutants-output")
+common_args=(--test-tool "$TEST_TOOL" --output "$repo_root/target/mutants-output")
+if [ -n "$JOBS" ]; then
+    if [[ ! "$JOBS" =~ ^[0-9]+$ ]]; then
+        echo "error: MUTANTS_JOBS must be a numeric cargo-mutants --jobs value, got: $JOBS" >&2
+        exit 2
+    fi
+    common_args+=(--jobs "$JOBS")
+fi
 
 workspace_packages() {
     local manifest="$1"
@@ -31,11 +38,14 @@ run_workspace_mutants() {
     local label="$1"
     local manifest="$2"
     shift 2
-    local extra_args=("$@")
+    local extra_arg_count="$#"
     local args=("${common_args[@]}")
 
     if [ -n "$PACKAGES" ]; then
-        mapfile -t available_packages < <(workspace_packages "$manifest")
+        available_packages=()
+        while IFS= read -r pkg; do
+            available_packages+=("$pkg")
+        done < <(workspace_packages "$manifest")
         matching_packages=()
         local pkg
         for pkg in $PACKAGES; do
@@ -55,7 +65,11 @@ run_workspace_mutants() {
     fi
 
     echo "==> mutation testing ($label)"
-    cargo mutants --manifest-path "$manifest" "${args[@]}" "${extra_args[@]}"
+    if [ "$extra_arg_count" -gt 0 ]; then
+        cargo mutants --manifest-path "$manifest" "${args[@]}" "$@"
+    else
+        cargo mutants --manifest-path "$manifest" "${args[@]}"
+    fi
 }
 
 run_workspace_mutants "main workspace" "$workspace_manifest" "$@"

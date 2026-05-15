@@ -339,11 +339,17 @@ jobs:
           :app:hiltJavaCompileGithubDebugUnitTest
           -Pripdpi.skipNativeBuild=true
 
+      - name: Run diagnostics boundary unit tests
+        run: python3 -m unittest scripts.tests.test_verify_diagnostics_boundary
+
       - name: Verify diagnostics-service boundary
         run: python3 scripts/ci/verify_diagnostics_boundary.py
 
       - name: Run sync script unit tests
         run: python3 -m unittest discover -s scripts/tests -p "test_sync_*.py"
+
+      - name: Run mutation wrapper unit test
+        run: bash scripts/tests/test_run_rust_mutants.sh
 
       - name: Upload test results
         if: always()
