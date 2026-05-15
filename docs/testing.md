@@ -15,7 +15,10 @@ recording rooted-device, physical-network, provider-relay, TalkBack, routed
 netem, or remote-workflow evidence. Final checklist sign-off must run
 `test-lab/scripts/check-feature-test-signoff.sh` with an evidence-backed,
 operator-reviewed readiness JSON whose required `ready` rows are tied to the
-filled manual template.
+filled manual template. The required readiness rows are `android_device`,
+`rooted_physical_device`, `manual_talkback`, `physical_network_handover`,
+`routed_netem_vm`, `production_relay_matrix`, and
+`remote_workflow_confirmation`.
 
 ### Kotlin/JVM tests
 

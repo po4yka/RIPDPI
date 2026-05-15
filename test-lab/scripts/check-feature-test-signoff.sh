@@ -16,6 +16,15 @@ The check fails while the completion audit is not complete or while the
 readiness preflight still reports blocked/manual rows. It does not replace the
 manual evidence template; it only prevents treating runbooks or partial local
 automation as full application-test sign-off.
+
+Required readiness rows:
+- android_device
+- rooted_physical_device
+- manual_talkback
+- physical_network_handover
+- routed_netem_vm
+- production_relay_matrix
+- remote_workflow_confirmation
 USAGE
 }
 

@@ -110,6 +110,22 @@ repository and reference only redacted relay IDs here.
 | offline-analytics | | | |
 | mutation-testing | | | |
 
+## Operator-Reviewed Readiness JSON
+
+The final `check-feature-test-signoff.sh --readiness` artifact must include
+these required rows, and each must be set to `ready` only when the matching
+manual evidence above is complete:
+
+| Readiness row | Matching evidence section |
+| --- | --- |
+| `android_device` | Run metadata |
+| `rooted_physical_device` | Rooted Physical Device |
+| `manual_talkback` | TalkBack |
+| `physical_network_handover` | Physical Network Matrix |
+| `routed_netem_vm` | Routed Linux Netem |
+| `production_relay_matrix` | Provider Relay Matrix |
+| `remote_workflow_confirmation` | Remote Workflows |
+
 ## Final Verdict
 
 | Field | Value |

@@ -101,6 +101,10 @@ Create the reviewed JSON from the generated readiness artifact, then change a
 required row to `ready` only when the manual evidence template names the
 matching artifact, run ID, transcript, or lab archive. Keep `blocked` or
 `manual` for any row whose evidence is missing or still under review.
+The reviewed JSON must keep all canonical required rows:
+`android_device`, `rooted_physical_device`, `manual_talkback`,
+`physical_network_handover`, `routed_netem_vm`, `production_relay_matrix`, and
+`remote_workflow_confirmation`.
 
 Provider-backed relay runs use an operator-owned matrix manifest. Keep live
 endpoints and secrets outside the repository, then validate the manifest before
