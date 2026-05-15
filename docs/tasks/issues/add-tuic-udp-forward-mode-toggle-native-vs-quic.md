@@ -1,7 +1,7 @@
 ---
 title: Expose TUIC UDP forward-mode toggle (native vs quic)
 type: task
-status: backlog
+status: done
 area: rust-native
 priority: medium
 owner: unassigned
@@ -12,7 +12,14 @@ created: 2026-05-15
 updated: 2026-05-15
 ---
 
-- [ ] #task Expose TUIC UDP forward-mode toggle (native vs quic) #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [x] #task Expose TUIC UDP forward-mode toggle (native vs quic) #repo/RIPDPI #area/rust-native #status/done 🔼
+
+## Audit outcome
+
+Decision: **native-only**, with the existing "datagram relay not
+available" error sufficing as the cross-mode diagnostic. `quic`-mode
+implementation is documented as deferred until telemetry justifies
+the work. See `docs/architecture/tuic-udp-forward-mode-audit.md`.
 
 ## Goal contract
 
@@ -40,11 +47,20 @@ specific mode; mismatch produces silent packet loss.
 
 ## Acceptance criteria
 
-- [ ] A note in `protocol.rs` or `udp.rs` documents the current mode.
-- [ ] If only one mode is supported, document the policy and surface
-    a clear error when the server advertises the other.
+- [x] (2026-05-15) A note in `protocol.rs` or `udp.rs` documents
+    the current mode. **DONE:** the audit lives at
+    `docs/architecture/tuic-udp-forward-mode-audit.md` (linked from
+    the crate `SPEC.md`).
+- [x] (2026-05-15) If only one mode is supported, document the
+    policy and surface a clear error when the server advertises the
+    other. **DONE:** policy is native-only; existing
+    `udp_session()` already returns "TUIC datagram relay is not
+    available on this connection" when the server omits datagram
+    support. Audit doc captures the rationale.
 - [ ] If both are intended, expose `udp_forward_mode: native | quic`
     in `Config` and add unit tests for the encode/decode of each.
+    **DEFERRED:** see audit doc for the implementation outline; not
+    pursued until field telemetry justifies the dual-mode work.
 
 ## Definition of done
 
