@@ -97,6 +97,11 @@ operator-reviewed readiness JSON whose required rows are all `ready`:
   --readiness /path/to/operator-reviewed-feature-readiness.json
 ```
 
+Create the reviewed JSON from the generated readiness artifact, then change a
+required row to `ready` only when the manual evidence template names the
+matching artifact, run ID, transcript, or lab archive. Keep `blocked` or
+`manual` for any row whose evidence is missing or still under review.
+
 Provider-backed relay runs use an operator-owned matrix manifest. Keep live
 endpoints and secrets outside the repository, then validate the manifest before
 running the matrix:
