@@ -7,6 +7,7 @@ tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-signoff-test.XXXXXX")"
 trap 'rm -rf "$tmpdir"' EXIT
 
 complete_audit="$tmpdir/complete-audit.md"
+missing_audit_row="$tmpdir/missing-audit-row.md"
 incomplete_audit="$tmpdir/incomplete-audit.md"
 ready_json="$tmpdir/ready.json"
 missing_required_json="$tmpdir/missing-required.json"
@@ -22,7 +23,40 @@ Status: **complete**.
 
 | Requirement | Evidence inspected | Result | Remaining evidence required |
 | --- | --- | --- | --- |
-| All rows | Fixture evidence | Covered locally | None |
+| Use `docs/feature-test-checklist.md` as the source checklist | Fixture evidence | Covered locally | None |
+| Fix all issues found during the local pass | Fixture evidence | Covered locally | None |
+| Verify Appium installation and current app flows | Fixture evidence | Covered locally | None |
+| Verify Maestro installation and current smoke flows | Fixture evidence | Covered locally | None |
+| Verify static local quality gates for the current head | Fixture evidence | Covered locally | None |
+| Verify local artifacts referenced by the evidence ledger exist | Fixture evidence | Covered locally | None |
+| Verify remaining environment readiness | Fixture evidence | Covered locally | None |
+| Verify rooted behavior | Fixture evidence | Covered locally | None |
+| Verify physical network matrix | Fixture evidence | Covered locally | None |
+| Verify relay provider matrix | Fixture evidence | Covered locally | None |
+| Verify accessibility with TalkBack | Fixture evidence | Covered locally | None |
+| Verify routed VM packet-loss lab | Fixture evidence | Covered locally | None |
+| Verify remote release gates | Fixture evidence | Covered locally | None |
+EOF
+
+cat > "$missing_audit_row" <<'EOF'
+# Feature Test Completion Audit
+
+Status: **complete**.
+
+| Requirement | Evidence inspected | Result | Remaining evidence required |
+| --- | --- | --- | --- |
+| Use `docs/feature-test-checklist.md` as the source checklist | Fixture evidence | Covered locally | None |
+| Fix all issues found during the local pass | Fixture evidence | Covered locally | None |
+| Verify Appium installation and current app flows | Fixture evidence | Covered locally | None |
+| Verify Maestro installation and current smoke flows | Fixture evidence | Covered locally | None |
+| Verify static local quality gates for the current head | Fixture evidence | Covered locally | None |
+| Verify local artifacts referenced by the evidence ledger exist | Fixture evidence | Covered locally | None |
+| Verify remaining environment readiness | Fixture evidence | Covered locally | None |
+| Verify rooted behavior | Fixture evidence | Covered locally | None |
+| Verify physical network matrix | Fixture evidence | Covered locally | None |
+| Verify relay provider matrix | Fixture evidence | Covered locally | None |
+| Verify accessibility with TalkBack | Fixture evidence | Covered locally | None |
+| Verify routed VM packet-loss lab | Fixture evidence | Covered locally | None |
 EOF
 
 cat > "$incomplete_audit" <<'EOF'
@@ -89,12 +123,18 @@ EOF
 
 "$guard" --help > "$tmpdir/help.out"
 grep -F 'Required readiness rows:' "$tmpdir/help.out"
+grep -F 'Required completion-audit rows:' "$tmpdir/help.out"
 grep -F 'rooted_physical_device' "$tmpdir/help.out"
 grep -F 'remote_workflow_confirmation' "$tmpdir/help.out"
+grep -F 'Verify remote release gates' "$tmpdir/help.out"
 "$guard" --list-required-readiness > "$tmpdir/required-readiness.out"
 grep -Fx 'android_device' "$tmpdir/required-readiness.out"
 grep -Fx 'rooted_physical_device' "$tmpdir/required-readiness.out"
 grep -Fx 'remote_workflow_confirmation' "$tmpdir/required-readiness.out"
+"$guard" --list-required-audit-rows > "$tmpdir/required-audit-rows.out"
+grep -Fx 'Use docs/feature-test-checklist.md as the source checklist' \
+  "$tmpdir/required-audit-rows.out"
+grep -Fx 'Verify remote release gates' "$tmpdir/required-audit-rows.out"
 
 python3 - "$repo_root/docs/feature-test-manual-evidence-template.md" \
   "$tmpdir/required-readiness.out" <<'PY'
@@ -213,6 +253,21 @@ PY
 
 "$guard" --audit "$complete_audit" --readiness "$ready_json" \
   | grep -F 'Feature test sign-off guard passed.'
+
+set +e
+"$guard" --audit "$missing_audit_row" --readiness "$ready_json" \
+  > "$tmpdir/missing-audit-row.out"
+missing_audit_row_status=$?
+set -e
+
+if [[ "$missing_audit_row_status" -ne 1 ]]; then
+  echo "Expected missing audit row to exit 1, got $missing_audit_row_status" >&2
+  cat "$tmpdir/missing-audit-row.out" >&2
+  exit 1
+fi
+
+grep -F 'completion audit is missing required row: Verify remote release gates' \
+  "$tmpdir/missing-audit-row.out"
 
 set +e
 "$guard" --audit "$incomplete_audit" --readiness "$blocked_json" \

@@ -6,6 +6,22 @@ audit_path="$repo_root/docs/feature-test-completion-audit-2026-05-14.md"
 readiness_path=""
 keep_readiness=false
 list_required_readiness=false
+list_required_audit_rows=false
+required_audit_rows=(
+  "Use docs/feature-test-checklist.md as the source checklist"
+  "Fix all issues found during the local pass"
+  "Verify Appium installation and current app flows"
+  "Verify Maestro installation and current smoke flows"
+  "Verify static local quality gates for the current head"
+  "Verify local artifacts referenced by the evidence ledger exist"
+  "Verify remaining environment readiness"
+  "Verify rooted behavior"
+  "Verify physical network matrix"
+  "Verify relay provider matrix"
+  "Verify accessibility with TalkBack"
+  "Verify routed VM packet-loss lab"
+  "Verify remote release gates"
+)
 required_readiness_checks=(
   android_device
   rooted_physical_device
@@ -18,7 +34,7 @@ required_readiness_checks=(
 
 usage() {
   cat <<USAGE
-Usage: $0 [--audit PATH] [--readiness PATH] [--list-required-readiness]
+Usage: $0 [--audit PATH] [--readiness PATH] [--list-required-readiness] [--list-required-audit-rows]
 
 Read-only pre-signoff guard for docs/feature-test-checklist.md.
 
@@ -35,6 +51,9 @@ Required readiness rows:
 - routed_netem_vm
 - production_relay_matrix
 - remote_workflow_confirmation
+
+Required completion-audit rows:
+$(printf -- '- %s\n' "${required_audit_rows[@]}")
 USAGE
 }
 
@@ -42,6 +61,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --list-required-readiness)
       list_required_readiness=true
+      shift
+      ;;
+    --list-required-audit-rows)
+      list_required_audit_rows=true
       shift
       ;;
     --audit)
@@ -67,6 +90,11 @@ done
 
 if [[ "$list_required_readiness" == "true" ]]; then
   printf '%s\n' "${required_readiness_checks[@]}"
+  exit 0
+fi
+
+if [[ "$list_required_audit_rows" == "true" ]]; then
+  printf '%s\n' "${required_audit_rows[@]}"
   exit 0
 fi
 
@@ -98,6 +126,38 @@ fi
 if grep -Fq '| Partial |' "$audit_path"; then
   failures+=("completion audit still contains Partial rows")
 fi
+
+while IFS= read -r row; do
+  failures+=("completion audit is missing required row: $row")
+done < <(
+  python3 - "$audit_path" "${required_audit_rows[@]}" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+
+def normalize(value):
+    value = value.lower().replace("`", "")
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+audit = Path(sys.argv[1]).read_text(encoding="utf-8")
+required_rows = sys.argv[2:]
+documented_rows = set()
+for line in audit.splitlines():
+    if not line.startswith("|"):
+        continue
+    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    if len(cells) != 4 or cells[0] in {"Requirement", "---"}:
+        continue
+    documented_rows.add(normalize(cells[0]))
+
+for row in required_rows:
+    if normalize(row) not in documented_rows:
+        print(row)
+PY
+)
 
 while IFS=$'\t' read -r name status message; do
   if [[ "$status" != "ready" ]]; then
