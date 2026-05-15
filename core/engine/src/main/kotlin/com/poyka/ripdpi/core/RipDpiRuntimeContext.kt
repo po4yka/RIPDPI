@@ -186,7 +186,7 @@ internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): Rip
                     )
                 }.distinctBy { capability ->
                     capability.authority to capability.ipSetDigest
-                }
+                }.applyQuicHostWideEscalation()
         val morphPolicy =
             ctx.morphPolicy?.let { policy ->
                 val normalizedId = policy.id.trim().takeIf { it.isNotEmpty() } ?: return@let null
@@ -249,4 +249,30 @@ fun ActiveDnsSettings.toRipDpiRuntimeContext(): RipDpiRuntimeContext? {
                 ),
         ),
     )
+}
+
+/**
+ * Escalates all per-tuple capabilities for any host that has at least one
+ * [QuicMode.HARD_DISABLE] tuple to [QuicMode.HARD_DISABLE] host-wide.
+ *
+ * This implements the "hard-disable tightens to the entire host" policy: once
+ * a host is persistently confirmed as QUIC-broken across any IP set, there is
+ * no value in attempting QUIC on other IP sets for the same authority.
+ * Per-tuple [QuicMode.SOFT_DISABLE] entries are subsumed by the host-wide
+ * decision.  Hosts with no HARD_DISABLE tuple are untouched.
+ */
+private fun List<RipDpiDirectPathCapability>.applyQuicHostWideEscalation(): List<RipDpiDirectPathCapability> {
+    val hardDisabledHosts =
+        asSequence()
+            .filter { it.quicMode == QuicMode.HARD_DISABLE }
+            .map { it.authority }
+            .toHashSet()
+    if (hardDisabledHosts.isEmpty()) return this
+    return map { capability ->
+        if (capability.authority in hardDisabledHosts && capability.quicMode != QuicMode.HARD_DISABLE) {
+            capability.copy(quicMode = QuicMode.HARD_DISABLE)
+        } else {
+            capability
+        }
+    }
 }

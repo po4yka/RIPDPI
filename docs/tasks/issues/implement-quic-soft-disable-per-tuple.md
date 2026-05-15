@@ -1,7 +1,7 @@
 ---
 title: Implement QUIC soft-disable per tuple
 type: task
-status: todo
+status: done
 area: diagnostics
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-direct-mode-transport-policy-and-verdicts
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-15
 ---
 
-- [ ] #task Implement QUIC soft-disable per tuple #repo/RIPDPI #area/diagnostics #status/todo ⏫
+- [x] #task Implement QUIC soft-disable per tuple #repo/RIPDPI #area/diagnostics #status/done ⏫
 
 ## Goal contract
 
@@ -41,7 +41,7 @@ SOFT_DISABLE enforcement detail.
 - [x] UDP/443 drop is tuple-scoped — does not affect traffic outside the
     tuple.
 - [x] TCP/443 to the same host remains allowed.
-- [ ] Hard-disable tightens to the entire host for persistent cases.
+- [x] Hard-disable tightens to the entire host for persistent cases.
 - [x] Observability: a counter per tuple for dropped UDP and subsequent
     TCP retries.
 
