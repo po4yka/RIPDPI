@@ -161,10 +161,6 @@ class CacheDegradationTest {
 
 // ── Minimal parse helpers used only in this test ──────────────────────────────
 
-private data class SimplePayload(
-    val value: String,
-)
-
 /** Simulates reading a cache file and producing a [CacheResult]. */
 private fun parseCacheFile(
     fileExists: Boolean,

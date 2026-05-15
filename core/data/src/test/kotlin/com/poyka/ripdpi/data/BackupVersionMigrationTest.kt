@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.data
 
-import com.poyka.ripdpi.data.backup.BACKUP_SCHEMA_VERSION
 import com.poyka.ripdpi.data.backup.BackupImporter
+import com.poyka.ripdpi.data.backup.BackupSchemaVersion
 import com.poyka.ripdpi.data.backup.UnsupportedBackupVersion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -27,8 +27,8 @@ class BackupVersionMigrationTest {
 
     @Test
     fun `deserializing schema version 1 succeeds`() {
-        val doc = BackupImporter.import(minimalJson(BACKUP_SCHEMA_VERSION))
-        assertEquals(BACKUP_SCHEMA_VERSION, doc.schemaVersion)
+        val doc = BackupImporter.import(minimalJson(BackupSchemaVersion))
+        assertEquals(BackupSchemaVersion, doc.schemaVersion)
     }
 
     @Test
@@ -38,7 +38,7 @@ class BackupVersionMigrationTest {
                 BackupImporter.import(minimalJson(99))
             }
         assertEquals(99, ex.found)
-        assertEquals(BACKUP_SCHEMA_VERSION, ex.supported)
+        assertEquals(BackupSchemaVersion, ex.supported)
     }
 
     @Test
@@ -57,8 +57,8 @@ class BackupVersionMigrationTest {
                 BackupImporter.import(minimalJson(42))
             }
         assert("42" in ex.message.orEmpty()) { "message should contain found version 42" }
-        assert(BACKUP_SCHEMA_VERSION.toString() in ex.message.orEmpty()) {
-            "message should contain supported version $BACKUP_SCHEMA_VERSION"
+        assert(BackupSchemaVersion.toString() in ex.message.orEmpty()) {
+            "message should contain supported version $BackupSchemaVersion"
         }
     }
 }

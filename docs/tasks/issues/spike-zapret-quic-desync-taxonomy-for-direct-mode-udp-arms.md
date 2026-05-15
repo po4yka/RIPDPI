@@ -1,7 +1,7 @@
 ---
 title: Spike zapret QUIC desync taxonomy for direct-mode UDP arms
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-direct-mode-transport-policy-and-verdicts
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-16
 ---
 
-- [ ] #task Spike zapret QUIC desync taxonomy for direct-mode UDP arms #repo/RIPDPI #area/diagnostics #status/backlog ⏫
+- [x] #task Spike zapret QUIC desync taxonomy for direct-mode UDP arms #repo/RIPDPI #area/diagnostics #status/done ⏫
 
 ## Goal contract
 
@@ -40,13 +40,13 @@ duplicate work and gives a shared vocabulary with the peer community.
 
 ## Acceptance criteria
 
-- [ ] zapret QUIC/UDP desync strategies catalogued by primitive (fake
+- [x] zapret QUIC/UDP desync strategies catalogued by primitive (fake
     packet, TTL game, header split, payload split, etc.).
-- [ ] Each primitive mapped to a candidate UDP arm or marked unmappable
+- [x] Each primitive mapped to a candidate UDP arm or marked unmappable
     with a short reason.
-- [ ] Recommendation on which one or two arms to add first to the
+- [x] Recommendation on which one or two arms to add first to the
     transport policy engine, with expected coverage gain.
-- [ ] Pointer to zapret source files or docs for each cited primitive.
+- [x] Pointer to zapret source files or docs for each cited primitive.
 
 ## Links
 

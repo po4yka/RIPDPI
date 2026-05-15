@@ -12,7 +12,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /** Current schema version for the backup/v1 format. */
-const val BACKUP_SCHEMA_VERSION: Int = 1
+const val BackupSchemaVersion: Int = 1
 
 /**
  * Backup export variant.
@@ -42,7 +42,7 @@ enum class Classification {
 /**
  * Top-level versioned backup document.
  *
- * [schemaVersion] must equal [BACKUP_SCHEMA_VERSION] on deserialization.
+ * [schemaVersion] must equal [BackupSchemaVersion] on deserialization.
  * [containsCredentials] is `true` only for [BackupVariant.FULL] exports.
  */
 @Serializable
@@ -258,7 +258,7 @@ object BackupExporter {
                 )
             }
         return BackupV1(
-            schemaVersion = BACKUP_SCHEMA_VERSION,
+            schemaVersion = BackupSchemaVersion,
             createdAtEpochMillis = createdAtEpochMillis,
             appVersion = appVersion,
             profiles = profileObjects,
@@ -278,7 +278,7 @@ object BackupExporter {
  * Deserializes a backup JSON string into a [BackupV1] document.
  *
  * Throws [UnsupportedBackupVersion] when [BackupV1.schemaVersion] is not
- * [BACKUP_SCHEMA_VERSION].
+ * [BackupSchemaVersion].
  */
 object BackupImporter {
     fun import(json: String): BackupV1 {
@@ -287,8 +287,8 @@ object BackupImporter {
             raw["schemaVersion"]
                 ?: error("Backup JSON is missing 'schemaVersion'")
         val version = versionElement.jsonPrimitive.content.toInt()
-        if (version != BACKUP_SCHEMA_VERSION) {
-            throw UnsupportedBackupVersion(found = version, supported = BACKUP_SCHEMA_VERSION)
+        if (version != BackupSchemaVersion) {
+            throw UnsupportedBackupVersion(found = version, supported = BackupSchemaVersion)
         }
         return backupJson.decodeFromJsonElement(raw)
     }

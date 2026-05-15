@@ -108,11 +108,11 @@ class CloudflarePublishManager
                     state.cloudflaredReady = true
                     ready = true
                 } finally {
-                    if (!ready) {
-                        runCatching { stop() }
-                    }
+                    if (!ready) runCatching { stop() }
                 }
-            } catch (e: Exception) {
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
                 sessionActive.set(false)
                 throw e
             }

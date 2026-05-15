@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.data
 
-import com.poyka.ripdpi.data.backup.BACKUP_SCHEMA_VERSION
 import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupImporter
+import com.poyka.ripdpi.data.backup.BackupSchemaVersion
 import com.poyka.ripdpi.data.backup.BackupVariant
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -35,7 +35,7 @@ class BackupV1Test {
     @Test
     fun `exported document contains schemaVersion createdAtEpochMillis and appVersion`() {
         val doc = minimalExport()
-        assertEquals(BACKUP_SCHEMA_VERSION, doc.schemaVersion)
+        assertEquals(BackupSchemaVersion, doc.schemaVersion)
         assertEquals(1_700_000_000_000L, doc.createdAtEpochMillis)
         assertEquals("1.2.3", doc.appVersion)
     }
@@ -67,7 +67,7 @@ class BackupV1Test {
             )
         val parsed = json.parseToJsonElement(serialized).jsonObject
         assertEquals(
-            BACKUP_SCHEMA_VERSION.toString(),
+            BackupSchemaVersion.toString(),
             parsed.getValue("schemaVersion").jsonPrimitive.content,
         )
     }

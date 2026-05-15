@@ -30,7 +30,8 @@ class CloudflarePublishCredentialLifecycleTest {
             .copy(
                 cloudflarePublishLocalOriginUrl = "http://localhost:43129",
                 cloudflareTunnelCredentialsJson =
-                    """{"TunnelID":"fixture-tunnel-id","AccountTag":"fixture-account","TunnelSecret":"fixture-secret-value"}""",
+                    """{"TunnelID":"fixture-tunnel-id","AccountTag":"fixture-account",""" +
+                        """"TunnelSecret":"fixture-secret-value"}""",
             )
 
     private fun instantManager(): CloudflarePublishManager {

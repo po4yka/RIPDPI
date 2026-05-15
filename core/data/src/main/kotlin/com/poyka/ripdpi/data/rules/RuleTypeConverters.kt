@@ -33,11 +33,11 @@ object RuleTypeConverters {
     @JvmStatic
     fun fromOutboundTag(tag: OutboundTag): String =
         when (tag) {
-            is OutboundTag.Proxy -> "$SENTINEL_PROXY:$OUTBOUND_KIND_NORMAL"
-            is OutboundTag.Bypass -> "$SENTINEL_BYPASS:$OUTBOUND_KIND_NORMAL"
-            is OutboundTag.Block -> "$SENTINEL_BLOCK:$OUTBOUND_KIND_NORMAL"
-            is OutboundTag.Profile -> "${tag.profileId}:$OUTBOUND_KIND_NORMAL"
-            is OutboundTag.Group -> "${tag.groupId}:$OUTBOUND_KIND_GROUP"
+            is OutboundTag.Proxy -> "$SentinelProxy:$OutboundKindNormal"
+            is OutboundTag.Bypass -> "$SentinelBypass:$OutboundKindNormal"
+            is OutboundTag.Block -> "$SentinelBlock:$OutboundKindNormal"
+            is OutboundTag.Profile -> "${tag.profileId}:$OutboundKindNormal"
+            is OutboundTag.Group -> "${tag.groupId}:$OutboundKindGroup"
         }
 
     @TypeConverter
@@ -45,12 +45,12 @@ object RuleTypeConverters {
     fun toOutboundTag(value: String): OutboundTag {
         val parts = value.split(":")
         val sentinel = parts[0].toLong()
-        val kind = if (parts.size > 1) parts[1].toLong() else OUTBOUND_KIND_NORMAL
+        val kind = if (parts.size > 1) parts[1].toLong() else OutboundKindNormal
         return when {
-            kind == OUTBOUND_KIND_GROUP -> OutboundTag.Group(sentinel)
-            sentinel == SENTINEL_PROXY -> OutboundTag.Proxy
-            sentinel == SENTINEL_BYPASS -> OutboundTag.Bypass
-            sentinel == SENTINEL_BLOCK -> OutboundTag.Block
+            kind == OutboundKindGroup -> OutboundTag.Group(sentinel)
+            sentinel == SentinelProxy -> OutboundTag.Proxy
+            sentinel == SentinelBypass -> OutboundTag.Bypass
+            sentinel == SentinelBlock -> OutboundTag.Block
             else -> OutboundTag.Profile(sentinel)
         }
     }

@@ -33,9 +33,9 @@ sealed class OutboundTag {
     ) : OutboundTag()
 }
 
-internal const val OUTBOUND_KIND_NORMAL = 0L
-internal const val OUTBOUND_KIND_GROUP = 1L
+internal const val OutboundKindNormal = 0L
+internal const val OutboundKindGroup = 1L
 
-internal const val SENTINEL_PROXY = 0L
-internal const val SENTINEL_BYPASS = -1L
-internal const val SENTINEL_BLOCK = -2L
+internal const val SentinelProxy = 0L
+internal const val SentinelBypass = -1L
+internal const val SentinelBlock = -2L

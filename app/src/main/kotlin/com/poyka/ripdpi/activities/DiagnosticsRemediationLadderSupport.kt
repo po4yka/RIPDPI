@@ -201,22 +201,25 @@ private fun StringResolver.homeTransportRemediationLadder(
         }
 
         TransportRemediationKind.DOMESTIC_DIRECT_RELAY_FOREIGN -> {
-            remediationLadder(
-                title = getString(R.string.home_remediation_browser_relay_title),
-                summary = getString(R.string.home_remediation_browser_relay_summary),
-                actionLabel = getString(R.string.diagnostics_remediation_open_mode_editor_action),
-                actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR,
-                tone = DiagnosticsTone.Warning,
-                getString(R.string.home_remediation_browser_relay_step_open_mode_editor),
-                getString(R.string.home_remediation_browser_relay_step_enable_relay),
-                getString(R.string.home_remediation_browser_relay_step_choose_preset),
-            )
+            homeDomesticRelayLadder()
         }
 
         null -> {
             null
         }
     }
+
+private fun StringResolver.homeDomesticRelayLadder(): DiagnosticsRemediationLadderUiModel =
+    remediationLadder(
+        title = getString(R.string.home_remediation_browser_relay_title),
+        summary = getString(R.string.home_remediation_browser_relay_summary),
+        actionLabel = getString(R.string.diagnostics_remediation_open_mode_editor_action),
+        actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR,
+        tone = DiagnosticsTone.Warning,
+        getString(R.string.home_remediation_browser_relay_step_open_mode_editor),
+        getString(R.string.home_remediation_browser_relay_step_enable_relay),
+        getString(R.string.home_remediation_browser_relay_step_choose_preset),
+    )
 
 internal fun DiagnosticsUiFactorySupport.buildScanRemediationLadder(
     selectedProfile: DiagnosticsProfileOptionUiModel?,
