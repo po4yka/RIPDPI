@@ -217,5 +217,5 @@ unexecuted manual rows from `docs/feature-test-checklist.md`.
 5. Run the routed Linux VM netem scenario with device traffic carried through
    the routed namespace or VM, then attach the lab archive.
 6. Publish a review branch, complete the required pull request checks/reviews,
-   merge to `main`, then verify remote CI, CodeQL, offline analytics, and
-   mutation workflows for the merged commit.
+   merge to `main`, then verify remote CI, CodeQL, local-network-lab, offline
+   analytics, mutation-testing, and Fuzz Nightly workflows for the merged commit.
