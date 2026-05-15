@@ -1220,6 +1220,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "linkme"
+version = "0.3.36"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e83272d46373fb8decca684579ac3e7c8f3d71d4cc3aa693df8759e260ae41cf"
+dependencies = [
+ "linkme-impl",
+]
+
+[[package]]
+name = "linkme-impl"
+version = "0.3.36"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32d59e20403c7d08fe62b4376edfe5c7fb2ef1e6b1465379686d0f21c8df444b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "litemap"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1619,11 +1639,13 @@ dependencies = [
 name = "ripdpi-desync"
 version = "0.1.0"
 dependencies = [
+ "linkme",
  "rand 0.10.1",
  "ring",
  "ripdpi-config",
  "ripdpi-ipfrag",
  "ripdpi-packets",
+ "ripdpi-strategy-trait",
  "ripdpi-tls-profiles",
 ]
 
@@ -1702,6 +1724,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-relay-mux"
+version = "0.1.0"
+dependencies = [
+ "rand 0.10.1",
+ "thiserror 2.0.18",
+ "tokio",
+]
+
+[[package]]
 name = "ripdpi-session"
 version = "0.1.0"
 dependencies = [
@@ -1719,6 +1750,13 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
+]
+
+[[package]]
+name = "ripdpi-strategy-trait"
+version = "0.1.0"
+dependencies = [
+ "linkme",
 ]
 
 [[package]]
@@ -1752,6 +1790,7 @@ dependencies = [
  "foreign-types-shared",
  "hex",
  "ring",
+ "ripdpi-relay-mux",
  "ripdpi-tls-profiles",
  "thiserror 2.0.18",
  "tokio",
