@@ -31,6 +31,11 @@ jq '.relays += [.relays[0]]' "$example" > "$duplicate_ids"
 expect_failure "$duplicate_ids" "Duplicate relay IDs:"
 grep -F "mock_relay" "$output"
 
+kind_mismatch="$tmpdir/kind-mismatch.json"
+jq '.relays[1].kind = "mock_relay"' "$example" > "$kind_mismatch"
+expect_failure "$kind_mismatch" "Relay kind must match canonical relay ID:"
+grep -F "vless_reality:mock_relay" "$output"
+
 unknown_scenario="$tmpdir/unknown-scenario.json"
 jq '.relays[0].scenarios += ["unexpected_scenario"]' "$example" > "$unknown_scenario"
 expect_failure "$unknown_scenario" "Invalid relay scenarios:"

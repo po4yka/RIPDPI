@@ -111,6 +111,16 @@ duplicate_ids="$(
   ' "$config_path"
 )"
 
+kind_mismatches="$(
+  jq -r --argjson required "$(printf '%s\n' "${required_paths[@]}" | jq -R . | jq -s .)" '
+    .relays[]?
+    | select((.id | type == "string") and (.kind | type == "string"))
+    | . as $relay
+    | select(($required | index($relay.id)) and ($relay.kind != $relay.id))
+    | $relay.id + ":" + $relay.kind
+  ' "$config_path"
+)"
+
 invalid_scenarios="$(
   jq -r --argjson allowed "$(printf '%s\n' "${required_scenarios[@]}" | jq -R . | jq -s .)" '
     .relays[]? as $relay
@@ -171,6 +181,10 @@ if [[ -n "$invalid_entries" ]]; then
 fi
 if [[ -n "$duplicate_ids" ]]; then
   printf 'Duplicate relay IDs:\n%s\n' "$duplicate_ids" >&2
+  exit 1
+fi
+if [[ -n "$kind_mismatches" ]]; then
+  printf 'Relay kind must match canonical relay ID:\n%s\n' "$kind_mismatches" >&2
   exit 1
 fi
 if [[ -n "$invalid_scenarios" ]]; then
