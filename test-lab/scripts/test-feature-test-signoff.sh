@@ -395,6 +395,37 @@ for section_name, body in sections.items():
         raise SystemExit(
             f"{section_name} does not mention required readiness blockers: {missing!r}"
         )
+
+remote_lane_terms = {
+    "CI": ("ci",),
+    "CodeQL": ("codeql",),
+    "local-network-lab": ("local-network-lab",),
+    "offline analytics": ("offline", "analytics"),
+    "mutation-testing": ("mutation",),
+    "Fuzz Nightly": ("fuzz", "nightly"),
+}
+remote_lane_sections = {
+    "completion audit prompt-to-artifact checklist": section(
+        audit,
+        "## Prompt-to-Artifact Checklist",
+        "## Current Local State",
+    ),
+    "completion audit next actions": sections["completion audit next actions"],
+    "evidence command evidence": section(
+        evidence,
+        "## Command Evidence",
+        "## Checklist Section Coverage",
+    ),
+    "evidence current open gaps": sections["evidence current open gaps"],
+    "evidence next concrete runs": sections["evidence next concrete runs"],
+}
+
+for section_name, body in remote_lane_sections.items():
+    missing = missing_labels(body, remote_lane_terms)
+    if missing:
+        raise SystemExit(
+            f"{section_name} does not mention required remote workflow lanes: {missing!r}"
+        )
 PY
 
 "$guard" --audit "$complete_audit" --readiness "$ready_json" \
