@@ -44,34 +44,7 @@ jobs:
       - name: Validate custom probe broadcast
         run: |
           set -euo pipefail
-          command="$(
-            ./test-lab/scripts/adb-run-probe.sh \
-              --profile custom \
-              --mode diagnostics \
-              --host lab.example.test \
-              --dns-server dns.example.test \
-              --dns-port 1053 \
-              --dns-hostname ok.test \
-              --http-url http://lab.example.test:8080/get \
-              --https-url https://lab.example.test:8443/ \
-              --tcp-host tcp.example.test \
-              --tcp-port 9000 \
-              --udp-host udp.example.test \
-              --udp-port 9001 \
-              --relay-endpoint relay.example.test:10080 \
-              --require-vpn-active false \
-              --require-proxy-ready false \
-              --print-broadcast
-          )"
-          printf '%s\n' "$command"
-          grep -F -- "--es profile custom" <<<"$command"
-          grep -F -- "--es dns_server dns.example.test" <<<"$command"
-          grep -F -- "--es http_url http://lab.example.test:8080/get" <<<"$command"
-          grep -F -- "--es tcp_host tcp.example.test" <<<"$command"
-          grep -F -- "--es udp_host udp.example.test" <<<"$command"
-          grep -F -- "--es relay_endpoint relay.example.test:10080" <<<"$command"
-          grep -F -- "--ez require_vpn_active false" <<<"$command"
-          grep -F -- "--ez require_proxy_ready false" <<<"$command"
+          test-lab/scripts/test-feature-custom-probe-broadcast.sh
 
       - name: Validate feature gap readiness preflight
         run: |

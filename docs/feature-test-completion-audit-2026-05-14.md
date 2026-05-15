@@ -88,7 +88,8 @@ available in the current local lab.
   the focused debug-probe
   relay-readiness unit test, physical mock-relay
   VPN/proxy/diagnostics probes, proxy E2E runner syntax, the
-  service stop-self fallback unit test, debug/test/main source-set ktlint checks,
+  service stop-self fallback unit test, the full custom debug-probe broadcast
+  verifier, debug/test/main source-set ktlint checks,
   the refreshed architecture-health and native-hotspot gates, and the
   local-network-lab validation-only block passed. The sign-off runbook now also
   documents the operator-reviewed readiness JSON input, requires evidence-backed
