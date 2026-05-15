@@ -1,7 +1,7 @@
 ---
 title: Define transparent vs owned-stack mode boundary
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-direct-mode-diagnostic-state-machine
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-15
 ---
 
-- [ ] #task Define transparent vs owned-stack mode boundary #repo/RIPDPI #area/diagnostics #status/backlog ⏫
+- [x] #task Define transparent vs owned-stack mode boundary #repo/RIPDPI #area/diagnostics #status/done ⏫
 
 ## Goal contract
 
