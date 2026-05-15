@@ -6,6 +6,7 @@ tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-readiness-test.XXXXXX")"
 trap 'rm -rf "$tmpdir"' EXIT
 
 default_json="$tmpdir/feature-gap-readiness.json"
+duplicate_json="$tmpdir/feature-gap-readiness-duplicate.json"
 relay_json="$tmpdir/feature-gap-readiness-with-relay.json"
 unknown_json="$tmpdir/feature-gap-readiness-unknown-remote.json"
 
@@ -24,7 +25,6 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 with open(sys.argv[2], encoding="utf-8") as handle:
     signoff_required = {line.strip() for line in handle if line.strip()}
 
-checks = {check["name"]: check for check in data.get("checks", [])}
 required = {
     "android_device",
     "rooted_physical_device",
@@ -39,9 +39,45 @@ if signoff_required != required:
         "readiness/signoff required row mismatch: "
         f"readiness={sorted(required)!r} signoff={sorted(signoff_required)!r}"
     )
-missing = sorted(required.difference(checks))
-if missing:
-    raise SystemExit(f"missing readiness checks: {missing}")
+if not isinstance(data, dict):
+    raise SystemExit("readiness artifact must be a JSON object")
+checks_list = data.get("checks")
+if not isinstance(checks_list, list):
+    raise SystemExit("readiness artifact checks must be an array")
+
+checks = {}
+allowed_statuses = {"ready", "manual", "blocked"}
+for index, check in enumerate(checks_list):
+    if not isinstance(check, dict):
+        raise SystemExit(f"readiness checks[{index}] must be an object")
+    name = check.get("name")
+    status = check.get("status")
+    required_value = check.get("required")
+    message = check.get("message")
+    if not isinstance(name, str) or not name:
+        raise SystemExit(f"readiness checks[{index}].name must be a non-empty string")
+    if name in checks:
+        raise SystemExit(f"duplicate readiness check: {name}")
+    if status not in allowed_statuses:
+        raise SystemExit(
+            f"{name} readiness status must be one of {sorted(allowed_statuses)}, "
+            f"got {status!r}"
+        )
+    if required_value is not True and required_value is not False:
+        raise SystemExit(f"{name} readiness required must be a boolean")
+    if not isinstance(message, str):
+        raise SystemExit(f"{name} readiness message must be a string")
+    checks[name] = check
+
+actual_required = {name for name, check in checks.items() if check.get("required") is True}
+if actual_required != required:
+    raise SystemExit(
+        "readiness artifact required row mismatch: "
+        f"actual={sorted(actual_required)!r} required={sorted(required)!r}"
+    )
+extra = sorted(set(checks).difference(required))
+if extra:
+    raise SystemExit(f"unexpected readiness checks: {extra}")
 
 remote = checks["remote_workflow_confirmation"]
 message = remote.get("message", "")
@@ -52,6 +88,56 @@ if remote.get("status") == "blocked" and "review branch" not in message:
 if re.search(r"\b[0-9a-f]{7,40}\b", message) or re.search(r"\bby \d+ commit", message):
     raise SystemExit(f"remote workflow message is commit-specific: {message!r}")
 PY
+
+python3 - "$default_json" "$duplicate_json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+data["checks"].append(dict(data["checks"][0]))
+with open(sys.argv[2], "w", encoding="utf-8") as handle:
+    json.dump(data, handle)
+PY
+
+set +e
+python3 - "$duplicate_json" "$tmpdir/signoff-required-readiness.txt" <<'PY' > "$tmpdir/duplicate.out" 2>&1
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    signoff_required = {line.strip() for line in handle if line.strip()}
+
+required = {
+    "android_device",
+    "rooted_physical_device",
+    "manual_talkback",
+    "physical_network_handover",
+    "routed_netem_vm",
+    "production_relay_matrix",
+    "remote_workflow_confirmation",
+}
+if signoff_required != required:
+    raise SystemExit("readiness/signoff required row mismatch")
+
+checks = {}
+for index, check in enumerate(data.get("checks", [])):
+    name = check.get("name")
+    if name in checks:
+        raise SystemExit(f"duplicate readiness check: {name}")
+    checks[name] = check
+PY
+duplicate_status=$?
+set -e
+
+if [[ "$duplicate_status" -ne 1 ]]; then
+  echo "Expected duplicate readiness fixture to fail, got $duplicate_status" >&2
+  cat "$tmpdir/duplicate.out" >&2
+  exit 1
+fi
+grep -F 'duplicate readiness check: android_device' "$tmpdir/duplicate.out"
 
 RIPDPI_REMOTE_COMPARE_REF="origin/ripdpi-missing-test-ref" \
   "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \

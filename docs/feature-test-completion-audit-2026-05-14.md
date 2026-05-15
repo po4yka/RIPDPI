@@ -72,7 +72,8 @@ available in the current local lab.
   Appium suite, the feature artifact-path self-test,
   the feature checklist-coverage self-test with the 248-item checklist baseline
   and fixture negative-path self-test,
-  the feature-gap readiness self-test including sign-off required-row parity and
+  the feature-gap readiness self-test including generated-artifact schema
+  validation, duplicate-row rejection, sign-off required-row parity, and
   unknown remote-compare coverage, the feature sign-off guard self-test
   including help text, machine-readable required readiness/audit-row output,
   manual evidence template row parity, audit/evidence blocker and next-action
