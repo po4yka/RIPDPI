@@ -10,6 +10,46 @@ trap 'rm -rf "$tmpdir"' EXIT
 output="$tmpdir/output.txt"
 
 "$validator" --config "$example" >/dev/null
+"$validator" --list-required-paths > "$tmpdir/required-paths.txt"
+"$validator" --list-required-scenarios > "$tmpdir/required-scenarios.txt"
+grep -Fxq "mock_relay" "$tmpdir/required-paths.txt"
+grep -Fxq "google_apps_script" "$tmpdir/required-paths.txt"
+grep -Fxq "proxy" "$tmpdir/required-scenarios.txt"
+grep -Fxq "network_handover" "$tmpdir/required-scenarios.txt"
+
+python3 - "$repo_root/docs/feature-test-manual-evidence-template.md" \
+  "$tmpdir/required-paths.txt" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+template = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = {
+    line.strip()
+    for line in Path(sys.argv[2]).read_text(encoding="utf-8").splitlines()
+    if line.strip()
+}
+
+section_match = re.search(
+    r"## Provider Relay Matrix\n(?P<body>.*?)\n## TalkBack",
+    template,
+    re.S,
+)
+if section_match is None:
+    raise SystemExit("manual evidence template is missing the provider relay matrix section")
+
+documented = set()
+for line in section_match.group("body").splitlines():
+    match = re.match(r"^\|\s*([a-z0-9_]+)\s*\|", line)
+    if match and match.group(1) != "Relay":
+        documented.add(match.group(1))
+
+if documented != required:
+    raise SystemExit(
+        "manual evidence relay rows do not match relay validator: "
+        f"documented={sorted(documented)!r} required={sorted(required)!r}"
+    )
+PY
 
 expect_failure() {
   local config="$1"

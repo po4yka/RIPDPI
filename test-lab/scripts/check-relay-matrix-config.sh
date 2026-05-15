@@ -3,6 +3,8 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 config_path="${RIPDPI_RELAY_MATRIX_CONFIG:-}"
+list_required_paths=false
+list_required_scenarios=false
 
 required_paths=(
   mock_relay
@@ -37,6 +39,8 @@ required_scenarios=(
 usage() {
   cat <<USAGE
 Usage: $0 --config PATH
+       $0 --list-required-paths
+       $0 --list-required-scenarios
 
 Validates the operator-provided production relay matrix manifest shape without
 connecting to any provider. The manifest must not contain live endpoints or
@@ -46,6 +50,14 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --list-required-paths)
+      list_required_paths=true
+      shift
+      ;;
+    --list-required-scenarios)
+      list_required_scenarios=true
+      shift
+      ;;
     --config)
       config_path="${2:?missing --config value}"
       shift 2
@@ -61,6 +73,15 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "$list_required_paths" == "true" ]]; then
+  printf '%s\n' "${required_paths[@]}"
+  exit 0
+fi
+if [[ "$list_required_scenarios" == "true" ]]; then
+  printf '%s\n' "${required_scenarios[@]}"
+  exit 0
+fi
 
 if [[ -z "$config_path" ]]; then
   echo "Missing relay matrix config. Set RIPDPI_RELAY_MATRIX_CONFIG or pass --config." >&2
