@@ -1,7 +1,7 @@
 ---
 title: Spike ECH end-to-end on Android 17 Beta 4
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-22
+updated: 2026-05-16
 ---
 
-- [ ] #task Spike ECH end-to-end on Android 17 Beta 4 #repo/RIPDPI #area/diagnostics #status/backlog ⏫
+- [x] #task Spike ECH end-to-end on Android 17 Beta 4 #repo/RIPDPI #area/diagnostics #status/done ⏫
 
 ## Goal contract
 
@@ -39,17 +39,17 @@ path owned-stack mode depends on; verify it works before deeper design.
 
 ## Acceptance criteria
 
-- [ ] `DnsResolver` HTTPS-RR query returns a parseable ECHConfig on
+- [x] `DnsResolver` HTTPS-RR query returns a parseable ECHConfig on
     Beta 4 for at least one known ECH-capable host.
-- [ ] Conscrypt `SSLEngine` / `SSLSocket` completes a handshake using
+- [x] Conscrypt `SSLEngine` / `SSLSocket` completes a handshake using
     that ECHConfig (ClientHelloInner encrypted, ClientHelloOuter
     innocuous).
-- [ ] Spike note records: emulator/device matrix, flaky paths, pre-stable
+- [x] Spike note records: emulator/device matrix, flaky paths, pre-stable
     API caveats, and any deltas from the documented surface.
-- [ ] Spike note records whether successful ECH changes only metadata
+- [x] Spike note records whether successful ECH changes only metadata
     privacy / owned-stack reachability, or actually changes the practical
     bypass verdict on the tested host class.
-- [ ] Spike note records the DNS dependency explicitly: which resolver path
+- [x] Spike note records the DNS dependency explicitly: which resolver path
     and `HTTPS/SVCB` bootstrap were required before ECH could even be tried.
 
 ## Links

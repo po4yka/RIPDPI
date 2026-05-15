@@ -14,6 +14,8 @@ ripdpi-diagnostics-transport = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 md5 = { workspace = true }
 rustls = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 tracing = { workspace = true }
 webpki-roots = { workspace = true }
 
