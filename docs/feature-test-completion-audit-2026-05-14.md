@@ -110,8 +110,9 @@ direct evidence:
 
 ## Next Concrete Actions
 
-1. Push or create a branch from the locally reconciled head, then dispatch
-   fresh remote workflows.
+1. Push a review branch from the locally reconciled head, complete the required
+   pull request checks/reviews, merge to `main`, then dispatch fresh remote
+   workflows for the merged commit where manual dispatch is supported.
 2. Run the rooted physical-device pass.
 3. Run the network lab pass with cellular, handover, IPv4-only, IPv6-only,
    captive, and limited-path coverage.

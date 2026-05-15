@@ -210,5 +210,6 @@ unexecuted manual rows from `docs/feature-test-checklist.md`.
 3. Execute the provider-backed relay matrix, using the passing mock-relay proxy
    and VPN debug-probe runs as the local baseline, then one production relay at
    a time.
-4. Push or dispatch the branch and verify remote CI, CodeQL, offline analytics,
-   and mutation workflows.
+4. Publish a review branch, complete the required pull request checks/reviews,
+   merge to `main`, then verify remote CI, CodeQL, offline analytics, and
+   mutation workflows for the merged commit.
