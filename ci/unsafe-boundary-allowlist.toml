@@ -54,6 +54,17 @@
 # (`assert!`, `Result`, type-level encoding) and keep `debug_assert!`
 # only for diagnostic checks that cannot promote to UB. See
 # docs/rust-soundness-policy.md § "`debug_assert!` as memory-safety guard".
+#
+# Additional rule for `UnsafeCell::get`: the scanner flags the
+# `*cell.get()` deref shape, which materializes `&mut T` / `&T` from
+# `*mut T` and bypasses Rust's borrow check entirely. A valid
+# allowlist entry MUST state:
+#   - what exclusivity protocol prevents two simultaneous `&mut T`
+#     (move-only handle + free list, Mutex/RwLock, type-state, `&mut self`),
+#   - why every reachable dereference has aligned, initialised, live data,
+#   - which symbol contains the deref and which type owns the cell,
+#   - whether the resulting reference's lifetime is tied to a real owner.
+# See docs/rust-soundness-policy.md § "Creating `&mut T` from raw memory".
 
 # ---------------------------------------------------------------------------
 # JNI export entry points: `extern "system" fn` is required by the JVM ABI for
@@ -285,5 +296,33 @@ pattern = "CStr::from_ptr"
 reason = "Parse the kernel version string from a successfully-populated `libc::utsname.release` field"
 preconditions = "`uname(2)` returned 0 (checked), guaranteeing `utsname.release` is a NUL-terminated byte sequence within the fixed-size array; pointer is aligned and the array outlives the `&CStr`"
 enforcement = "POSIX `uname(2)` contract for NUL termination; lifetime bounded by the enclosing `kernel_version_at_least` function — `release.to_string_lossy()` consumes the borrow before `utsname` drops"
+owner = "io-uring"
+review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# `UnsafeCell::get` derefs that materialize `&mut [u8]` from a pointer.
+# All four occurrences live in `bufpool.rs` (the only producer of
+# pointer-backed `&mut T` in the workspace per the issue-#7 audit) and
+# share one exclusivity proof:
+#   * `BufferHandle` is move-only (no Copy/Clone) and constructed only by
+#     `RegisteredBufferPool::acquire`, which pops a unique index from a
+#     `Mutex<Vec<u16>>` free list.
+#   * `as_mut_buf` and `DerefMut::deref_mut` take `&mut self`, so the
+#     borrow checker rules out aliased mutable access for a single owner.
+#   * The free list is restocked only by `Drop`/`PendingBuffer::complete`,
+#     and `release_by_index` is `pub(crate)` — outside the crate the only
+#     legitimate release path is dropping a handle.
+# Runtime regressions live in `bufpool::tests` (drop-and-reuse,
+# capacity-exhaustion, into-pending lifecycle, available-count balance);
+# the compile-fail half (`!Copy + !Clone`, `&mut self`-anchored borrow)
+# is enforced by the type system per `docs/rust-soundness-policy.md`
+# § "Compile-fail enforcement".
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-io-uring/src/bufpool.rs"
+pattern = "UnsafeCell::get"
+reason = "Produce `&mut [u8]` / `&[u8]` views into a registered io_uring buffer through the `BufferHandle` exclusivity protocol"
+preconditions = "At most one `BufferHandle` exists per `buffers[index]` at any moment (free-list invariant); `&mut self` on `as_mut_buf`/`DerefMut` rules out aliased mutable access for a single owner; cross-thread happens-before is supplied by the `Mutex<Vec<u16>>` free list"
+enforcement = "Move-only `BufferHandle` + `Mutex`-guarded free list + `&mut self`-anchored borrows + RAII Drop that returns the index exactly once; SAFETY comments at lines 53-54, 145-148, 173-174, 184 name the invariant; runtime regressions in `bufpool::tests`"
 owner = "io-uring"
 review_date = "2026-11-15"

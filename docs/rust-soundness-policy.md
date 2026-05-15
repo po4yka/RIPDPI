@@ -112,6 +112,7 @@ on every PR. It looks for the following risky patterns under
 | `debug_assert near unsafe` (proximity ≤ 10 lines) | `debug_assert!` is compiled out in release; placing one within 10 source lines of an `unsafe` keyword suggests the debug-only assertion is acting as the safety guard. Per Mandatory Invariant #3, the actual safety check must be a release-mode `assert!` / `Result` / type-level encoding. See "`debug_assert!` as memory-safety guard" below. |
 | `CStr::from_ptr` | Materializes a `&CStr` whose bytes are scanned for a NUL terminator starting at a raw pointer. The pointee must be a valid NUL-terminated C string in an allocation that lives at least as long as the returned `&CStr`. See "Creating `&T` from raw pointers" below. |
 | `str::from_utf8_unchecked` | Asserts the input bytes are valid UTF-8 without checking. A regression here invalidates the `str` invariant and produces UB on any subsequent UTF-8 operation. Prefer `str::from_utf8` (release-mode validation) unless the bytes come from a checked source documented in the SAFETY comment. |
+| `UnsafeCell::get` (deref form `*cell.get()`) | Materialises `&mut T` / `&T` from `*mut T` and bypasses Rust's borrow check. The exclusivity invariant — at most one accessor of the cell at any moment — must be enforced by the surrounding type design. The bare `.get()` method (without the `*` deref) is filtered out so unrelated `.get()` callers (HashMap, Vec, Option, AtomicPtr) are not flagged. See "Creating `&mut T` from raw memory" below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -382,6 +383,101 @@ reference sites; each is allowlisted with the validity argument:
 | `crates/ripdpi-privileged-ops/.../icmp_wrapped_udp.rs` | `slice::from_raw_parts` → `&[u8]` | `recv_from` contract initialises the first `received` bytes of a stack `MaybeUninit` buffer; slice is consumed in-scope. |
 | `crates/ripdpi-desync-runtime/src/platform/registry.rs` | `&*pointer` → `&dyn TcpDesyncPlatform` | RAII `Restore` guard scoped to a closure; non-owning observer. |
 | `crates/ripdpi-io-uring/src/probe.rs` | `CStr::from_ptr` → `&CStr` | POSIX `uname(2)` NUL-termination contract; lifetime bounded by the local `utsname`. |
+
+## Creating `&mut T` from raw memory
+
+`&mut T` carries the strongest aliasing guarantee in Rust: while it
+exists, no other reference (`&T` or `&mut T`) and no other route to
+the same memory may observe or mutate it. Producing one from a raw
+pointer or `*mut T` (the `&mut *ptr`, `ptr.as_mut()`,
+`NonNull::as_mut`, `get_unchecked_mut`, `slice::from_raw_parts_mut`,
+and `*cell.get()` paths) skips the borrow check entirely; soundness
+depends entirely on the surrounding type design proving exclusivity.
+
+**Rule.** A safe public function must not turn a raw pointer or
+`*mut T` into `&mut T` unless the caller's type signature (typically
+`&mut self`, plus an upstream uniqueness protocol on the owning
+container) guarantees no other accessor exists. If the caller can
+violate uniqueness, the function must be `unsafe fn` with a
+`# Safety` section, OR the design must be reworked.
+
+Concrete obligations:
+
+1. **`&mut self` is the local exclusivity proof.** A method that
+   derefs `*cell.get()` to `&mut T` must take `&mut self`. The
+   borrow checker then rules out aliased mutable access for a single
+   owner. The `BufferHandle::as_mut_buf(&mut self)` and
+   `BufferHandle::deref_mut(&mut self)` patterns in `bufpool.rs`
+   are the canonical examples.
+
+2. **Container exclusivity is the upstream proof.** When the cell
+   lives in a shared structure (a `Box<[UnsafeCell<T>]>` indexed by
+   a handle, a `Mutex<T>`, etc.), the structure must enforce that at
+   most one borrower exists per cell. The `BufferHandle` free-list
+   discipline is one such protocol; `Mutex<T>` and `RwLock<T>` are
+   the std-library equivalents. `Cell<T>` and `RefCell<T>` are
+   alternatives for single-threaded use.
+
+3. **Cross-thread synchronisation is a release/acquire edge.** When
+   multiple threads access the cell, the protocol that transfers
+   ownership of the cell must supply a happens-before relationship
+   — typically a `Mutex` unlock/lock pair or an `AtomicUsize::store`/
+   `load` with `Release`/`Acquire`. `bufpool.rs::RegisteredBufferPool`
+   uses the `Mutex<Vec<u16>>` free list for this.
+
+4. **Move-only handles encode "at most one accessor".** A non-`Copy`,
+   non-`Clone` handle whose constructor is gated by an exclusivity
+   protocol (acquire from a registry, mutex lock, type-state
+   transition) is a compile-time proof that safe code cannot
+   duplicate the access right. The runtime checks (free-list
+   bookkeeping, mutex contention) are necessary; the
+   non-`Copy`/non-`Clone` constraint is what makes them sufficient.
+
+5. **`debug_assert!` is not exclusivity.** A `debug_assert!(self
+   .unique())` guard around `(*cell.get()).as_mut()` is compiled out
+   of release builds; release-mode UB is the result if the assertion
+   would have failed. See § "`debug_assert!` as memory-safety guard".
+
+6. **Unbounded lifetimes leak the borrow.** A `fn as_mut<'a>(&self)
+   -> &'a mut T` with an unconstrained `'a` lets the caller widen
+   `'a` to `'static` and outlive `&self`. Tie the returned reference
+   to `&mut self` (sugar form `fn as_mut(&mut self) -> &mut T`) so
+   the borrow checker enforces the lifetime.
+
+**Anti-patterns rejected by review.**
+
+- `(*cell.get()).as_mut()` inside a method that takes `&self` (not
+  `&mut self`), unless an enclosing exclusivity protocol is named
+  in the SAFETY comment. The default expectation is `&mut self`.
+- `fn get_mut(&self) -> &mut T` — taking a shared self yet returning
+  exclusive — only sound when `T` is wrapped in interior mutability
+  (Mutex, RefCell) and the function returns a guard, not a bare `&mut`.
+- A safe `pub fn` that constructs `&mut T` from a `*mut T` parameter
+  without internal validation. Either validate (null, alignment,
+  exclusivity) before the conversion, or make the function `unsafe fn`
+  with a `# Safety` section enumerating every precondition.
+- Two methods with `&mut self` that each cache a `*mut T` in struct
+  fields and re-deref later, allowing one call to mutate through a
+  pointer the other call cached. The fields must be `&mut T` borrows
+  bound to `&mut self`, or the cache must be invalidated on every
+  mutation.
+
+**Existing benign use.** The only `*cell.get()` → `&mut T` site in
+the workspace is `bufpool.rs`. Its exclusivity proof:
+- `BufferHandle` is move-only (no `Copy`/`Clone`).
+- The `RegisteredBufferPool::acquire()` constructor pops a unique
+  index from a `Mutex<Vec<u16>>` free list under a lock; at most one
+  `BufferHandle` exists per cell.
+- `as_mut_buf(&mut self)` and `deref_mut(&mut self)` are anchored to
+  `&mut self`, so two simultaneous `&mut [u8]` borrows from one
+  handle cannot compile.
+- `Drop` (and `PendingBuffer::complete`) push the index back to the
+  free list; the next `acquire` may legitimately reuse the slot
+  because the previous handle is gone.
+- Runtime regressions in `bufpool::tests` witness this lifecycle.
+- The compile-fail half (`!Copy + !Clone`, `&mut self`-anchored
+  borrow, no `BufferHandle` constructor outside the crate) is
+  enforced by the type system per "Compile-fail enforcement" below.
 
 ## Documentation contract
 

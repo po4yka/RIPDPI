@@ -106,7 +106,45 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # validating UTF-8. A safe-API regression here invalidates the
     # `str` invariant and produces UB on any subsequent UTF-8 operation.
     "str::from_utf8_unchecked": re.compile(r"\b(?:std::|core::)?str::from_utf8_unchecked\b"),
+    # UnsafeCell::get returns `*mut T` from `&UnsafeCell<T>`. Dereferencing
+    # it to produce `&mut T` (the canonical `unsafe { (*cell.get()).as_mut() }`
+    # pattern) bypasses Rust's shared-vs-exclusive borrow check entirely;
+    # soundness depends on the caller proving no other accessor exists.
+    # New occurrences require an allowlist entry naming the exclusivity
+    # discipline (move-only handle + free list, mutex, type-state, etc.)
+    # per docs/rust-soundness-policy.md § "Creating `&mut T` from raw
+    # memory".
+    "UnsafeCell::get": re.compile(r"\.get\(\)"),  # narrowed below
 }
+
+# The `.get()` method is also used by many safe types (HashMap, Vec,
+# Option, AtomicPtr, etc.), so the regex above intentionally matches a
+# superset. We refine the match in `_unsafe_cell_get_filter` so only
+# `*cell.get()` / `(*cell.get())` / `unsafe { ... .get() ... }` patterns
+# co-located with an `UnsafeCell` type signal a real finding.
+UNSAFE_CELL_USE_RE = re.compile(r"\bUnsafeCell\b")
+UNSAFE_CELL_GET_RE = re.compile(r"\*\s*[A-Za-z_][A-Za-z0-9_\.\[\]]*\.get\(\)")
+
+
+def _filter_unsafe_cell_get(text: str, candidate_lines: list[int]) -> list[int]:
+    """Drop `.get()` matches that are not the `*cell.get()` pattern.
+
+    The regex `\\.get\\(\\)` deliberately over-matches; we only emit a
+    finding when:
+      - the file mentions `UnsafeCell` at least once (excludes most std
+        collection `.get()` callers), AND
+      - the matched `.get()` is preceded by a leading `*` deref
+        (the only shape that materialises `*mut T` → `&mut T` /
+        `&T` from an `UnsafeCell`).
+    """
+    if not UNSAFE_CELL_USE_RE.search(text):
+        return []
+    kept: list[int] = []
+    deref_lines = {text.count("\n", 0, m.start()) + 1 for m in UNSAFE_CELL_GET_RE.finditer(text)}
+    for line in candidate_lines:
+        if line in deref_lines:
+            kept.append(line)
+    return kept
 
 EXCLUDE_DIRS = {"tests", "benches", "examples"}
 EXCLUDE_FILE_RE = [
@@ -185,10 +223,16 @@ def scan_file(path: Path) -> list[Finding]:
         return []
     cleaned = strip_comments(text)
     findings: list[Finding] = []
+    raw_unsafe_cell_lines: list[int] = []
     for pattern_name, regex in PATTERNS.items():
         for match in regex.finditer(cleaned):
             line = cleaned.count("\n", 0, match.start()) + 1
+            if pattern_name == "UnsafeCell::get":
+                raw_unsafe_cell_lines.append(line)
+                continue
             findings.append(Finding(rel, pattern_name, line))
+    for line in _filter_unsafe_cell_get(cleaned, raw_unsafe_cell_lines):
+        findings.append(Finding(rel, "UnsafeCell::get", line))
     for line in find_debug_assert_near_unsafe(cleaned):
         findings.append(Finding(rel, DEBUG_ASSERT_PROXIMITY_PATTERN, line))
     return findings

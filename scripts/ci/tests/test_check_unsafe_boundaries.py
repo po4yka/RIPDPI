@@ -23,10 +23,16 @@ import check_unsafe_boundaries as guard  # noqa: E402  (sys.path tweak above)
 def _scan(text: str) -> list[tuple[str, int]]:
     cleaned = guard.strip_comments(text)
     matches: list[tuple[str, int]] = []
+    raw_unsafe_cell_lines: list[int] = []
     for pattern_name, regex in guard.PATTERNS.items():
         for m in regex.finditer(cleaned):
             line = cleaned.count("\n", 0, m.start()) + 1
+            if pattern_name == "UnsafeCell::get":
+                raw_unsafe_cell_lines.append(line)
+                continue
             matches.append((pattern_name, line))
+    for line in guard._filter_unsafe_cell_get(cleaned, raw_unsafe_cell_lines):
+        matches.append(("UnsafeCell::get", line))
     for line in guard.find_debug_assert_near_unsafe(cleaned):
         matches.append((guard.DEBUG_ASSERT_PROXIMITY_PATTERN, line))
     return matches
@@ -242,6 +248,33 @@ class ScanRegressionTests(unittest.TestCase):
             "let s = String::from_utf8(bytes)?;",
         ):
             self.assertFalse(_has(_scan(fragment), "str::from_utf8_unchecked"), msg=fragment)
+
+    def test_unsafe_cell_get_deref_flagged(self) -> None:
+        for fragment in (
+            "use std::cell::UnsafeCell;\nfn f(c: &UnsafeCell<u8>) { unsafe { let _x = *c.get(); } }",
+            "use std::cell::UnsafeCell;\nfn f(c: &UnsafeCell<Vec<u8>>) { let _r = unsafe { (*c.get()).as_mut() }; }",
+        ):
+            self.assertTrue(_has(_scan(fragment), "UnsafeCell::get"), msg=fragment)
+
+    def test_plain_get_method_not_flagged(self) -> None:
+        # The bare `.get()` form, used by HashMap, Vec, Option, AtomicPtr,
+        # etc., must NOT trigger — neither the `UnsafeCell` type token nor
+        # the `*x.get()` deref shape is present.
+        for fragment in (
+            "let v = map.get(&key);",
+            "let v = vec.get(0);",
+            "let v = some_option.get();",
+            "let p = atomic_ptr.get();",
+        ):
+            self.assertFalse(_has(_scan(fragment), "UnsafeCell::get"), msg=fragment)
+
+    def test_unsafe_cell_get_without_deref_not_flagged(self) -> None:
+        # `.get()` on an `UnsafeCell` without the `*deref` shape (e.g.
+        # passing the raw pointer to another function) is still risky but
+        # is *not* the same pattern; we leave it for `raw pointer in
+        # public fn` and the SAFETY-comment policy.
+        src = "use std::cell::UnsafeCell;\nfn f(c: &UnsafeCell<u8>) -> *mut u8 { c.get() }"
+        self.assertFalse(_has(_scan(src), "UnsafeCell::get"))
 
     # --- Negative cases: must NOT trigger the scan -----------------------
 
