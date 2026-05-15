@@ -33,7 +33,18 @@ pub struct WsTunnelConfig {
     /// `kws{dc}.web.telegram.org`, disguising the connection as traffic to a
     /// whitelisted service (e.g. `yandex.ru`). Certificate validation is
     /// disabled when fake SNI is active.
+    ///
+    /// **Requires `allow_insecure_sni == true`.** A `fake_sni` value
+    /// is silently ignored without an explicit opt-in, and
+    /// `relay_ws_tunnel` returns a `PermissionDenied` error so the
+    /// misconfiguration is loud rather than quiet.
     pub fake_sni: Option<String>,
+    /// Explicit operator acknowledgement that fake-SNI mode disables
+    /// standard TLS certificate verification. Required to honour
+    /// `fake_sni`; defaults to `false` for safe-by-default behaviour.
+    /// See
+    /// `docs/tasks/issues/gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry.md`.
+    pub allow_insecure_sni: bool,
 }
 
 /// Result of classifying a target IP for WS tunnel eligibility.
@@ -90,13 +101,20 @@ where
         ));
     }
 
-    let ws = open_ws(
-        dc,
-        config.resolved_addr,
-        config.protect_path.as_deref(),
-        config.connect_timeout,
-        config.fake_sni.as_deref(),
-    )?;
+    // fake-SNI mode disables standard TLS cert verification (see connect.rs).
+    // Refuse the connection when the operator has not explicitly acknowledged
+    // the bypass via allow_insecure_sni, so a misconfigured profile cannot
+    // silently route traffic through a cover-cert path.
+    let effective_fake_sni = if config.allow_insecure_sni { config.fake_sni.as_deref() } else { None };
+    if config.fake_sni.is_some() && !config.allow_insecure_sni {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "WS tunnel fake_sni requires allow_insecure_sni=true (TLS cert verification would be disabled)",
+        ));
+    }
+
+    let ws =
+        open_ws(dc, config.resolved_addr, config.protect_path.as_deref(), config.connect_timeout, effective_fake_sni)?;
     relay_ws(client, ws, &seed_request)
 }
 
@@ -178,6 +196,7 @@ mod tests {
                 resolved_addr: None,
                 connect_timeout: None,
                 fake_sni: None,
+                allow_insecure_sni: false,
             },
             |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni| Ok(()),
             |_client, _ws: (), _seed_request| Ok(()),
@@ -202,6 +221,7 @@ mod tests {
                 resolved_addr: Some(injected_addr),
                 connect_timeout: Some(Duration::from_millis(321)),
                 fake_sni: None,
+                allow_insecure_sni: false,
             },
             |dc, resolved_addr, protect_path, connect_timeout, _fake_sni| {
                 assert_eq!(dc, TelegramDc::production(2));
@@ -227,7 +247,13 @@ mod tests {
             relay_client,
             TelegramDc::production(1),
             seed_request,
-            &WsTunnelConfig { protect_path: None, resolved_addr: None, connect_timeout: None, fake_sni: None },
+            &WsTunnelConfig {
+                protect_path: None,
+                resolved_addr: None,
+                connect_timeout: None,
+                fake_sni: None,
+                allow_insecure_sni: false,
+            },
             |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni| {
                 Err(io::Error::new(io::ErrorKind::ConnectionRefused, "boom"))
             },
@@ -247,7 +273,13 @@ mod tests {
             relay_client,
             TelegramDc::production(5),
             seed_request.clone(),
-            &WsTunnelConfig { protect_path: None, resolved_addr: None, connect_timeout: None, fake_sni: None },
+            &WsTunnelConfig {
+                protect_path: None,
+                resolved_addr: None,
+                connect_timeout: None,
+                fake_sni: None,
+                allow_insecure_sni: false,
+            },
             |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni| Ok(()),
             |_client, _ws: (), forwarded_seed| {
                 assert_eq!(forwarded_seed, seed_request.as_slice());
@@ -257,5 +289,63 @@ mod tests {
         .expect_err("relay failure should surface");
 
         assert_eq!(error.kind(), io::ErrorKind::BrokenPipe);
+    }
+
+    #[test]
+    fn relay_ws_tunnel_refuses_fake_sni_without_allow_insecure_acknowledgement() {
+        // Operator must opt into the TLS cert-bypass via allow_insecure_sni
+        // before fake_sni is honoured. Without the flag, the relay refuses
+        // to start and surfaces a PermissionDenied error so misconfiguration
+        // is loud.
+        let (_app, relay_client) = tcp_pair();
+        let seed_request = vec![0x55; 64];
+
+        let error = relay_ws_tunnel_with(
+            relay_client,
+            TelegramDc::production(2),
+            seed_request,
+            &WsTunnelConfig {
+                protect_path: None,
+                resolved_addr: None,
+                connect_timeout: None,
+                fake_sni: Some("yandex.ru".to_string()),
+                allow_insecure_sni: false,
+            },
+            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni| Ok(()),
+            |_client, _ws: (), _seed_request| Ok(()),
+        )
+        .expect_err("fake_sni without allow_insecure_sni must refuse");
+
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+        assert!(
+            error.to_string().contains("allow_insecure_sni"),
+            "error message should name the required flag: {error}",
+        );
+    }
+
+    #[test]
+    fn relay_ws_tunnel_honours_fake_sni_when_allow_insecure_sni_is_set() {
+        let (_app, relay_client) = tcp_pair();
+        let seed_request = vec![0x66; 64];
+
+        let result = relay_ws_tunnel_with(
+            relay_client,
+            TelegramDc::production(1),
+            seed_request,
+            &WsTunnelConfig {
+                protect_path: None,
+                resolved_addr: None,
+                connect_timeout: None,
+                fake_sni: Some("yandex.ru".to_string()),
+                allow_insecure_sni: true,
+            },
+            |_dc, _resolved_addr, _protect_path, _connect_timeout, fake_sni| {
+                assert_eq!(fake_sni, Some("yandex.ru"));
+                Ok(())
+            },
+            |_client, _ws: (), _seed_request| Ok(()),
+        );
+
+        assert!(result.is_ok());
     }
 }

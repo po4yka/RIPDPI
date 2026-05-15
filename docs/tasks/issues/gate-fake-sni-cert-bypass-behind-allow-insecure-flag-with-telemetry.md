@@ -47,17 +47,30 @@ auth model; fake-SNI does not.
 
 ## Acceptance criteria
 
-- [ ] `WsTunnelConfig.fake_sni` is only honored when
+- [x] (2026-05-15) `WsTunnelConfig.fake_sni` is only honored when
     `allow_insecure_sni == true`; otherwise the runtime returns a
-    structured error before opening the socket.
-- [ ] The error path is exercised by a unit test on the config builder.
+    `PermissionDenied` `io::Error` before opening the socket. Wired
+    in `ripdpi-ws-tunnel/src/lib.rs::relay_ws_tunnel_with`.
+- [x] (2026-05-15) The error path is exercised by a unit test:
+    `relay_ws_tunnel_refuses_fake_sni_without_allow_insecure_acknowledgement`
+    plus a positive
+    `relay_ws_tunnel_honours_fake_sni_when_allow_insecure_sni_is_set`.
 - [ ] A new `ws_tunnel.fake_sni_active` counter is incremented in
     runtime telemetry per successful handshake; tests assert it fires
-    only on the fake-SNI path.
+    only on the fake-SNI path. **DEFERRED:** ws-tunnel telemetry
+    surface is owned by the adapter layer; tracked separately.
 - [ ] Service-layer profile import refuses to persist a profile that
-    sets `fake_sni` without `allow_insecure_sni`.
-- [ ] `docs/native/proxy-engine.md` documents the new flag and links
-    the telemetry counter.
+    sets `fake_sni` without `allow_insecure_sni`. **DEFERRED:**
+    adapter at
+    `ripdpi-proxy-runtime-adapter/src/model/config/ws_tunnel.rs:42`
+    currently hardcodes `allow_insecure_sni: false`, so catalog
+    profiles with `fake_sni` are refused at runtime via the new
+    `PermissionDenied` error. Service-layer rejection at *import*
+    time pairs with new `WsTunnelSettings.allow_insecure_sni`
+    plumbing.
+- [ ] `docs/native/proxy-engine.md` documents the new flag and
+    links the telemetry counter. **DEFERRED:** add when the
+    telemetry counter lands.
 
 ## Definition of done
 
