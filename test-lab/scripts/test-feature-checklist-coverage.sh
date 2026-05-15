@@ -27,11 +27,34 @@ for line in checklist_path.read_text(encoding="utf-8").splitlines():
         if title != "Combination Matrices":
             checklist_sections.append(title)
 
+allowed_statuses = {"Partial", "Covered locally"}
 evidence_rows = []
+invalid_rows = []
+duplicate_rows = []
+seen_evidence_keys = set()
 for line in evidence_path.read_text(encoding="utf-8").splitlines():
-    match = re.match(r"^\|\s*([^|]+?)\s*\|\s*(?:Partial|Covered locally)\s*\|", line)
-    if match and match.group(1).strip() != "Checklist section":
-        evidence_rows.append(match.group(1).strip())
+    if not line.startswith("|"):
+        continue
+    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    if len(cells) != 4 or cells[0] in {"Checklist section", "---"}:
+        continue
+
+    section, status, evidence, remaining_work = cells
+    if status not in allowed_statuses:
+        invalid_rows.append(f"{section}: unknown status {status!r}")
+        continue
+    if not evidence:
+        invalid_rows.append(f"{section}: missing evidence summary")
+    if status == "Partial" and remaining_work.lower() in {"", "none"}:
+        invalid_rows.append(f"{section}: Partial row must name remaining work")
+    if status == "Covered locally" and not remaining_work.lower().startswith("none"):
+        invalid_rows.append(f"{section}: Covered locally row must start remaining work with 'None'")
+
+    key = normalize(section)
+    if key in seen_evidence_keys:
+        duplicate_rows.append(section)
+    seen_evidence_keys.add(key)
+    evidence_rows.append(section)
 
 evidence_by_key = {normalize(row): row for row in evidence_rows}
 missing = [section for section in checklist_sections if normalize(section) not in evidence_by_key]
@@ -39,6 +62,25 @@ missing = [section for section in checklist_sections if normalize(section) not i
 if missing:
     for section in missing:
         print(f"Missing evidence row for checklist section: {section}", file=sys.stderr)
+    raise SystemExit(1)
+
+extra = [
+    row for row in evidence_rows
+    if normalize(row) not in {normalize(section) for section in checklist_sections}
+]
+if extra:
+    for row in extra:
+        print(f"Evidence row does not match a checklist section: {row}", file=sys.stderr)
+    raise SystemExit(1)
+
+if duplicate_rows:
+    for row in duplicate_rows:
+        print(f"Duplicate evidence row for checklist section: {row}", file=sys.stderr)
+    raise SystemExit(1)
+
+if invalid_rows:
+    for row in invalid_rows:
+        print(f"Invalid checklist evidence row: {row}", file=sys.stderr)
     raise SystemExit(1)
 
 print(
