@@ -81,7 +81,7 @@ available in the current local lab.
   parity, missing required audit rows, incomplete audit result/remaining-evidence
   cells, stale/missing/future readiness timestamps, required `manual` readiness
   rows, missing required readiness rows, duplicate required rows, invalid statuses, and
-  malformed readiness JSON, the relay matrix config self-test including template
+  malformed readiness JSON/object/row schema, the relay matrix config self-test including template
   parity,
   the focused debug-probe
   relay-readiness unit test, physical mock-relay

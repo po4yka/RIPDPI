@@ -14,6 +14,9 @@ ready_json="$tmpdir/ready.json"
 stale_json="$tmpdir/stale.json"
 missing_timestamp_json="$tmpdir/missing-timestamp.json"
 future_json="$tmpdir/future.json"
+non_object_json="$tmpdir/non-object.json"
+missing_checks_json="$tmpdir/missing-checks.json"
+invalid_row_schema_json="$tmpdir/invalid-row-schema.json"
 missing_required_json="$tmpdir/missing-required.json"
 duplicate_required_json="$tmpdir/duplicate-required.json"
 invalid_status_json="$tmpdir/invalid-status.json"
@@ -135,6 +138,31 @@ cat > "$future_json" <<EOF
     {"name": "routed_netem_vm", "status": "ready", "required": true, "message": "ready"},
     {"name": "production_relay_matrix", "status": "ready", "required": true, "message": "ready"},
     {"name": "remote_workflow_confirmation", "status": "ready", "required": true, "message": "ready"}
+  ]
+}
+EOF
+
+cat > "$non_object_json" <<EOF
+[
+  {"generatedAtEpoch": $current_epoch}
+]
+EOF
+
+cat > "$missing_checks_json" <<EOF
+{
+  "generatedAtEpoch": $current_epoch,
+  "checks": {}
+}
+EOF
+
+cat > "$invalid_row_schema_json" <<EOF
+{
+  "generatedAtEpoch": $current_epoch,
+  "checks": [
+    42,
+    {"name": "", "status": "ready", "required": true, "message": "empty name"},
+    {"name": "android_device", "status": "ready", "required": "true", "message": "bad required"},
+    {"name": "rooted_physical_device", "status": "ready", "required": true, "message": 42}
   ]
 }
 EOF
@@ -371,6 +399,57 @@ fi
 
 grep -F 'readiness_artifact is invalid: generatedAtEpoch is in the future' \
   "$tmpdir/future.out"
+
+set +e
+"$guard" --audit "$complete_audit" --readiness "$non_object_json" \
+  > "$tmpdir/non-object.out"
+non_object_status=$?
+set -e
+
+if [[ "$non_object_status" -ne 1 ]]; then
+  echo "Expected non-object readiness artifact to exit 1, got $non_object_status" >&2
+  cat "$tmpdir/non-object.out" >&2
+  exit 1
+fi
+
+grep -F 'readiness_artifact is invalid: top-level JSON value must be an object' \
+  "$tmpdir/non-object.out"
+
+set +e
+"$guard" --audit "$complete_audit" --readiness "$missing_checks_json" \
+  > "$tmpdir/missing-checks.out"
+missing_checks_status=$?
+set -e
+
+if [[ "$missing_checks_status" -ne 1 ]]; then
+  echo "Expected missing checks readiness artifact to exit 1, got $missing_checks_status" >&2
+  cat "$tmpdir/missing-checks.out" >&2
+  exit 1
+fi
+
+grep -F 'readiness_artifact is invalid: checks must be an array' \
+  "$tmpdir/missing-checks.out"
+
+set +e
+"$guard" --audit "$complete_audit" --readiness "$invalid_row_schema_json" \
+  > "$tmpdir/invalid-row-schema.out"
+invalid_row_schema_status=$?
+set -e
+
+if [[ "$invalid_row_schema_status" -ne 1 ]]; then
+  echo "Expected invalid readiness row schema to exit 1, got $invalid_row_schema_status" >&2
+  cat "$tmpdir/invalid-row-schema.out" >&2
+  exit 1
+fi
+
+grep -F 'readiness_artifact is invalid: checks[0] must be an object' \
+  "$tmpdir/invalid-row-schema.out"
+grep -F 'readiness_artifact is invalid: checks[1].name must be a non-empty string' \
+  "$tmpdir/invalid-row-schema.out"
+grep -F 'android_device is invalid: required must be a boolean' \
+  "$tmpdir/invalid-row-schema.out"
+grep -F 'rooted_physical_device is invalid: message must be a string' \
+  "$tmpdir/invalid-row-schema.out"
 
 set +e
 "$guard" --audit "$audit_remaining_work" --readiness "$ready_json" \
