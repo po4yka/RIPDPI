@@ -107,6 +107,9 @@ on every PR. It looks for the following risky patterns under
 | `pub fn ... NonNull` | Raw handle in a public signature. |
 | `pub fn ...: *const T` / `*mut T` | Raw pointer in a public signature. |
 | `pub fn ... handle/token/raw*: u64/i64/usize/isize` | Raw integer handle in a public signature. |
+| `Option<NonNull<T>>` (any position) | `Option<NonNull<T>>` is `Copy`; using it as a safe ownership/liveness/registration handle invites duplication → UAF / double-free / stale pointer. See "Option<NonNull<T>> ownership tokens" below. |
+| `&mut Option<NonNull<T>>` | The slot-extractor form (`fn take(slot: &mut Option<NonNull<T>>) -> Option<NonNull<T>>`) is the most acute UAF/double-free vector: a function can `take()` while a safe-code caller already holds a duplicate of the original slot. |
+| `debug_assert near unsafe` (proximity ≤ 10 lines) | `debug_assert!` is compiled out in release; placing one within 10 source lines of an `unsafe` keyword suggests the debug-only assertion is acting as the safety guard. Per Mandatory Invariant #3, the actual safety check must be a release-mode `assert!` / `Result` / type-level encoding. See "`debug_assert!` as memory-safety guard" below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -125,6 +128,174 @@ restructure (preferred) or an entry in
 **Adding a new entry is a code review red flag.** The reviewer should
 push back unless the contributor has explained why options (1)
 restructure and (2) `unsafe fn` were rejected.
+
+## `Option<NonNull<T>>` ownership tokens
+
+`Option<NonNull<T>>` is `Copy`. The value only represents "a nullable
+non-null raw pointer"; it does not prove ownership, uniqueness, liveness,
+valid lifetime, allocator provenance, initialization, or exclusive
+access. Used as a safe ownership / liveness / registration / exclusive-
+access handle, it lets safe callers duplicate the value and cause UAF,
+double-free, stale-handle dereference, or aliasing UB.
+
+**Rule.** `Option<NonNull<T>>` must not be used as a safe ownership token.
+
+Concretely:
+
+1. Do not store `Option<NonNull<T>>` in a struct field that is treated as
+   an owning slot. Wrap `NonNull<T>` in a private move-only newtype with
+   no `Copy`/`Clone` and store `Option<OwnerHandle<T>>` instead:
+
+   ```rust
+   use core::marker::PhantomData;
+   use core::ptr::NonNull;
+
+   pub(crate) struct OwnerHandle<T> {
+       ptr: NonNull<T>,
+       _owned: PhantomData<Box<T>>,
+   }
+   // NB: no #[derive(Copy)] / #[derive(Clone)].
+   ```
+
+2. Do not accept `&mut Option<NonNull<T>>` as a public parameter to
+   "extract" or "swap out" an ownership slot. Move the handle through
+   `slot.take()` on a value of type `Option<OwnerHandle<T>>` instead.
+
+3. Do not return `Option<NonNull<T>>` from a safe public function as a
+   handle. Return `Option<&T>`, `Option<&mut T>`, or a private
+   `OwnerHandle<T>` whose constructor is `pub(crate)` or `unsafe fn`.
+
+4. If a `NonNull<T>` field has to remain (for example to carry a raw
+   pointer through to `Drop`), it must be a **private** field on a
+   non-`Copy`, non-`Clone` struct, and the struct itself becomes the
+   ownership token. The two production examples are
+   `crates/ripdpi-geo/src/mapped_file.rs` and
+   `crates/ripdpi-privileged-ops/src/linux/mmap_region.rs`: each wraps
+   a single `NonNull<u8>` in a non-`Copy` `struct` whose `Drop` calls
+   `munmap` exactly once. Neither type exposes the `NonNull` to
+   callers, so safe duplication is impossible.
+
+5. `debug_assert!` does not enforce ownership. A `debug_assert!(slot
+   .is_none())` guard around a destroy/free call is compiled out of
+   release builds and protects no one.
+
+6. Lifecycle transitions ("created → registered → used → destroyed")
+   must be encoded as types or visibility, not as flags
+   (`is_alive`, `destroyed`, `disowned`, `owned_by_*`). Prefer typestate
+   or consuming methods (`fn destroy(self)`); the compiler refuses
+   double-destroy because the value moves.
+
+**Allowlist entry.** If you have a legitimate reason to keep
+`Option<NonNull<T>>` (e.g. a non-owning observation pointer used only as
+a fast `is_some` flag), add an entry to
+`ci/unsafe-boundary-allowlist.toml` whose `reason` and `enforcement`
+fields explicitly state:
+
+- whether the value is owning or non-owning,
+- who owns the underlying allocation,
+- how liveness is guaranteed for every reachable dereference,
+- why `Copy` duplication is harmless in this specific case,
+- whether the pointer is ever passed to a `destroy`/`free` /
+  `unregister` path (and if so, what makes that path single-shot).
+
+`pattern = "Option<NonNull<T>>"` is the key used by the scanner.
+
+**Why not trybuild compile-fail tests?** The repository policy (see
+"Compile-fail enforcement" below) is that the Rust type system *itself*
+serves as the compile-fail harness. A `pub struct OwnerHandle<T> { ptr:
+NonNull<T>, _owned: PhantomData<Box<T>> }` with private fields and no
+`Copy`/`Clone` derive is already a compile-fail for `let dup = *slot;`
+and `let dup = slot.clone();`. The scanner enforces *recognition* of the
+unsafe pattern; the type system enforces *correctness* of the safe
+replacement. Adding a `trybuild` harness for the same property would
+duplicate enforcement without adding signal.
+
+## `debug_assert!` as memory-safety guard
+
+`debug_assert!`, `debug_assert_eq!`, and `debug_assert_ne!` expand to
+no-ops in release builds unless the build was configured with debug
+assertions enabled. If unsafe code relies on a `debug_assert!` to
+exclude invalid pointers, bad lengths, uninitialized memory, duplicate
+ownership, invalid state-machine transitions, or aliasing violations,
+the release build will execute that unsafe code with the precondition
+unenforced — undefined behaviour.
+
+**Rule.** `debug_assert*!` must never be the *only* guard before an
+unsafe operation. This restates Mandatory Invariant #3 above and is
+enforced by the `debug_assert near unsafe` scan rule (debug-only
+assertion within ±10 source lines of an `unsafe` keyword, after
+comment stripping).
+
+Concrete obligations:
+
+1. **Safety preconditions are release-mode checks.** Replace
+   `debug_assert!(cond);` with one of:
+   - `assert!(cond, …)` if a panic is an acceptable safety boundary
+     and the cost is acceptable;
+   - `if !cond { return Err(…); }` if the caller is part of a fallible
+     API and can recover;
+   - a type or visibility change that makes the invalid state
+     unrepresentable from safe code (preferred).
+
+2. **Inputs from safe code are validated at the boundary, not inside
+   an `unsafe` block.** A `pub fn` that calls `unsafe { … }` must
+   either:
+   - reject invalid inputs in safe code *before* the unsafe operation
+     (`Result`, `Option`, `assert!`), or
+   - be `unsafe fn` with a `# Safety` section that names every
+     precondition.
+   `debug_assert!(valid)` followed by `unsafe { do_thing() }` is not
+   an acceptable pattern in either case.
+
+3. **`debug_assert!` is still useful for diagnostic-only checks.**
+   When the failure of the asserted condition produces incorrect-but-
+   safe behaviour (a stale cache entry, a wrong telemetry tag, a
+   logical inconsistency in non-`unsafe` code), `debug_assert!` is the
+   right tool. The three production occurrences in this workspace —
+   two in `crates/ripdpi-tunnel-core/src/dns_cache/state.rs` and one
+   in `crates/ripdpi-monitor-engine/src/execution/lanes/https/`
+   `sample_builder/sample_result.rs` — are all of this kind: the
+   first pair is fronted by a release-mode `NonZeroUsize::new(max)`
+   `.expect(…)`, and the third is a string-tag sanity check on
+   telemetry input that can't reach unsafe code.
+
+4. **Lifecycle flags are not safety guards.** Boolean flags such as
+   `is_alive`, `destroyed`, `initialized`, `registered`, or
+   `disowned`, combined with `debug_assert!(self.is_alive)`, are
+   classic recipes for release-mode UAF. The fix is typestate
+   (`fn destroy(self)` consumes the handle), RAII (`Drop` runs at
+   most once because of move semantics), or `Option<OwnerHandle<T>>`
+   (see "Option<NonNull<T>> ownership tokens").
+
+5. **`debug_assert_with_mut_call` divergence.** `debug_assert!(
+   self.try_mutate())` calls `try_mutate` in debug builds and silently
+   skips it in release. This is a common subtle bug. Either remove
+   the mutation or move it outside the assertion. We do not enable
+   `clippy::debug_assert_with_mut_call` as a deny lint today because
+   the workspace has no current occurrences and the lint is a
+   nursery-tier lint with churn risk; the policy here is the
+   enforcement of record.
+
+**Why a proximity-based scan.** A precise lexical scan ("`debug_assert`
+inside the same `unsafe { … }` block") would need AST-level analysis.
+The proximity heuristic is a cheap upper bound that catches the typical
+shapes — `debug_assert!(cond); unsafe { … }`, `unsafe fn f() {
+debug_assert!(cond); … }`, and the inverse — without dragging a Rust
+parser into the CI scripts. New legitimate uses (a `debug_assert!`
+near an `unsafe impl Send` block that is unrelated to the assertion)
+go through the allowlist; the `reason` and `enforcement` fields must
+explain why the release-mode behaviour is sound.
+
+**Allowlist entry requirements.** A `pattern = "debug_assert near
+unsafe"` entry in `ci/unsafe-boundary-allowlist.toml` must state:
+
+- which invariant the assertion documents,
+- what actually enforces that invariant in release builds (type,
+  RAII, separate release-mode `assert!`, FFI caller contract, …),
+- why release-mode failure of the asserted condition cannot promote
+  to UB,
+- the symbol (function/method) whose body contains the assertion,
+- an owner and a review date as for every other allowlist entry.
 
 ## Documentation contract
 
@@ -195,6 +366,9 @@ refactors guarantee that these misuses *do not compile*:
 | `alloc_region(len)` from anywhere | helper removed; only the RAII `MmapRegion` newtype is reachable. |
 | `MmapRegion::write(&self, ...)` | takes `&mut self`; concurrent writers cannot coexist. |
 | `pool.release_by_index(i)` from another crate | now `pub(crate)`. |
+| `let dup = *owner_slot;` where `owner_slot: Option<OwnerHandle<T>>` | `OwnerHandle<T>` doesn't implement `Copy`; the move out of `*slot` leaves the slot un-initialized. |
+| `let dup = owner_slot.clone();` | `OwnerHandle<T>` doesn't implement `Clone`. |
+| Constructing `OwnerHandle<T>` from outside its module | the `ptr` field is private and the constructor is either `pub(crate)` or `unsafe fn`. |
 
 Any new pattern in the same class should be encoded the same way: as a
 type or visibility constraint that makes the misuse impossible to

@@ -83,6 +83,17 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"^\s*pub(\s*\([^)]*\))?\s+(unsafe\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\b"
         r"(handle|token|raw[_a-z]*)\s*:\s*(u64|i64|usize|isize)\b"
     ),
+    # Option<NonNull<T>> is Copy. Stored in a struct field, returned from a
+    # function, or passed as a parameter, it cannot encode ownership: safe
+    # callers may duplicate the value and produce stale handles, UAF, or
+    # double-free. The fix is a private move-only newtype around `NonNull`
+    # (no Copy/Clone) plus `Option<OwnerHandle<T>>`. See
+    # docs/rust-soundness-policy.md § "Option<NonNull<T>> ownership tokens".
+    "Option<NonNull<T>>": re.compile(r"\bOption\s*<\s*NonNull\s*<"),
+    # The slot-mutating form — `fn extract(slot: &mut Option<NonNull<T>>)`
+    # is the most common UAF/double-free vector: the function can `take()`
+    # the value but safe code already held a copy of the original slot.
+    "&mut Option<NonNull<T>>": re.compile(r"&\s*mut\s+Option\s*<\s*NonNull\s*<"),
 }
 
 EXCLUDE_DIRS = {"tests", "benches", "examples"}
@@ -94,6 +105,39 @@ EXCLUDE_FILE_RE = [
 # documentation, SAFETY notes, and TODOs don't trigger findings.
 BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
 LINE_COMMENT_RE = re.compile(r"//[^\n]*")
+
+# Proximity detector for `debug_assert!` near `unsafe`. The single-line
+# regex set above cannot express "within N lines of X", so we run a small
+# post-pass that matches the two sentinels independently and emits a
+# finding for every debug-assertion that sits within
+# DEBUG_ASSERT_PROXIMITY_LINES lines of an `unsafe` keyword. The policy
+# in docs/rust-soundness-policy.md (§ Mandatory Invariant #3) is that
+# `debug_assert!` does NOT count as memory-safety enforcement; this scan
+# stops new code from re-introducing the pattern.
+DEBUG_ASSERT_RE = re.compile(r"\bdebug_assert(?:_eq|_ne)?!")
+UNSAFE_KEYWORD_RE = re.compile(r"\bunsafe\b")
+DEBUG_ASSERT_PROXIMITY_LINES = 10
+DEBUG_ASSERT_PROXIMITY_PATTERN = "debug_assert near unsafe"
+
+
+def find_debug_assert_near_unsafe(text: str) -> list[int]:
+    """Return line numbers of `debug_assert*!` within ±N lines of an `unsafe` keyword.
+
+    `text` must already have had comments stripped, so that a SAFETY comment
+    or a historical mention of `debug_assert` in a doc-comment does not
+    fire the rule. Both sentinel sets are computed from the stripped text.
+    """
+    da_lines = sorted({text.count("\n", 0, m.start()) + 1 for m in DEBUG_ASSERT_RE.finditer(text)})
+    if not da_lines:
+        return []
+    unsafe_lines = sorted({text.count("\n", 0, m.start()) + 1 for m in UNSAFE_KEYWORD_RE.finditer(text)})
+    if not unsafe_lines:
+        return []
+    out: list[int] = []
+    for da in da_lines:
+        if any(abs(da - u) <= DEBUG_ASSERT_PROXIMITY_LINES for u in unsafe_lines):
+            out.append(da)
+    return out
 
 
 @dataclass(frozen=True)
@@ -133,6 +177,8 @@ def scan_file(path: Path) -> list[Finding]:
         for match in regex.finditer(cleaned):
             line = cleaned.count("\n", 0, match.start()) + 1
             findings.append(Finding(rel, pattern_name, line))
+    for line in find_debug_assert_near_unsafe(cleaned):
+        findings.append(Finding(rel, DEBUG_ASSERT_PROXIMITY_PATTERN, line))
     return findings
 
 

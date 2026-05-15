@@ -25,6 +25,35 @@
 #      with a `# Safety` section and propagate it to callers.
 #   3. Only if neither is possible, add an entry here with a SPECIFIC
 #      justification — never with a TODO.
+#
+# Additional rule for the `Option<NonNull<T>>` and `&mut Option<NonNull<T>>`
+# patterns: these are flagged because `Option<NonNull<T>>` is `Copy` and
+# cannot encode ownership. A valid allowlist entry MUST state in its
+# `reason` and `enforcement` fields:
+#   - whether the pointer is owning or non-owning,
+#   - who owns the underlying allocation,
+#   - how liveness is guaranteed for every dereference,
+#   - why `Copy` duplication is harmless in this case,
+#   - whether the pointer ever reaches `destroy` / `free` / `unregister`
+#     (and if so, what makes that path single-shot).
+# In almost every case the correct fix is a private move-only
+# `OwnerHandle<T>` newtype wrapping `NonNull<T>` with no `Copy`/`Clone`,
+# so that `Option<OwnerHandle<T>>` replaces `Option<NonNull<T>>`. See
+# docs/rust-soundness-policy.md § "Option<NonNull<T>> ownership tokens".
+#
+# Additional rule for `debug_assert near unsafe`: the proximity heuristic
+# flags `debug_assert!` / `debug_assert_eq!` / `debug_assert_ne!` placed
+# within ±10 source lines of an `unsafe` keyword. `debug_assert!` is a
+# no-op in release builds; allowlisting an occurrence MUST state:
+#   - which invariant the assertion documents,
+#   - what actually enforces the invariant in release builds
+#     (release-mode `assert!`, type design, RAII, FFI caller contract),
+#   - why release-mode failure of the assertion cannot reach UB,
+#   - the symbol (function/method) whose body contains the assertion.
+# The default fix is to make the safety check a release-mode guard
+# (`assert!`, `Result`, type-level encoding) and keep `debug_assert!`
+# only for diagnostic checks that cannot promote to UB. See
+# docs/rust-soundness-policy.md § "`debug_assert!` as memory-safety guard".
 
 # ---------------------------------------------------------------------------
 # JNI export entry points: `extern "system" fn` is required by the JVM ABI for
