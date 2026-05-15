@@ -210,6 +210,10 @@ unexecuted manual rows from `docs/feature-test-checklist.md`.
 3. Execute the provider-backed relay matrix, using the passing mock-relay proxy
    and VPN debug-probe runs as the local baseline, then one production relay at
    a time.
-4. Publish a review branch, complete the required pull request checks/reviews,
+4. Run manual TalkBack verification and attach the transcript or screen
+   recording reference.
+5. Run the routed Linux VM netem scenario with device traffic carried through
+   the routed namespace or VM, then attach the lab archive.
+6. Publish a review branch, complete the required pull request checks/reviews,
    merge to `main`, then verify remote CI, CodeQL, offline analytics, and
    mutation workflows for the merged commit.

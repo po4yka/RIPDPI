@@ -46,8 +46,9 @@ available in the current local lab.
   fleet-compat changes, task-board legal-framing cleanup, the Appium
   clean-reset diagnostics history cleanup, current installed Appium harness
   fixes for reset History search and support-bundle export-surface cleanup,
-  and the current `DetectionResolverNetworkStack.kt::readUnsignedShort()`
-  architecture-health fix. The routed
+  the current `DetectionResolverNetworkStack.kt::readUnsignedShort()`
+  architecture-health fix, and the latest test-lab readiness, sign-off, and
+  relay-matrix verifier hardening. The routed
   netem runbook now has exact operator steps, but the external Linux routed
   VM evidence remains open. The test-lab README now also gives command-level
   operator steps for rooted physical device, physical network matrix, provider
@@ -85,8 +86,8 @@ available in the current local lab.
   documents the operator-reviewed readiness JSON input, requires evidence-backed
   `ready` status changes, and the manual evidence template captures review
   branch, pull request, required checks/reviews, readiness JSON, plus the final
-  guard command/result. Commit hooks passed for the latest native/Appium/test-lab/testing-docs
-  commits.
+  guard command/result. Commit hooks passed for the latest
+  native/Appium/test-lab/testing-docs commits.
 - Remote state: `origin/main` now points at `342a169a`. CI run `25875963396`
   is not a green sign-off because it completed with failed jobs in
   `architecture-health`, `verify-roborazzi`, `rust-workspace-tests`, and
