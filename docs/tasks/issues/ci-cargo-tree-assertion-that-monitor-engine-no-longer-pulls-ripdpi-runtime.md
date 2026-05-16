@@ -1,7 +1,7 @@
 ---
 title: CI: cargo-tree assertion that monitor-engine no longer pulls ripdpi-runtime-api or ripdpi-diagnostics-pcap
 type: task
-status: doing
+status: done
 area: ci
 priority: medium
 owner: Senior Build Gradle CI Engineer
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-16
 ---
 
-- [ ] #task CI: cargo-tree assertion that monitor-engine no longer pulls ripdpi-runtime-api or ripdpi-diagnostics-pcap #repo/RIPDPI #area/ci #status/doing 🔼
+- [x] #task CI: cargo-tree assertion that monitor-engine no longer pulls ripdpi-runtime-api or ripdpi-diagnostics-pcap #repo/RIPDPI #area/ci #status/done 🔼
 
 ## Goal contract
 
@@ -36,3 +36,22 @@ Acceptance criteria
 
 Definition of done
 PR merged; guard job green on main.
+
+## Work log — 2026-05-16
+
+Local verification (both commands exit 101 = package not found):
+
+```
+$ cargo tree --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine -i ripdpi-runtime-api
+error: package ID specification `ripdpi-runtime-api` did not match any packages
+EXIT: 101
+
+$ cargo tree --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine -i ripdpi-diagnostics-pcap
+error: package ID specification `ripdpi-diagnostics-pcap` did not match any packages
+EXIT: 101
+```
+
+CI guard added: `.github/workflows/cargo-tree-monitor-engine-guard.yml`
+- Triggers on PR/push to `main` for changes to `native/rust/Cargo.toml`, `Cargo.lock`, `ripdpi-monitor-engine/**`, or the workflow file itself.
+- Two steps: one per forbidden dependency; each uses `if cargo tree … 2>/dev/null; then exit 1; fi` so the job fails on reintroduction.
+- Update procedure documented inline in the workflow file header.

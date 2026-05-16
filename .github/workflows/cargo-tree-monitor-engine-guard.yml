@@ -1,0 +1,80 @@
+name: Monitor-engine dependency guard
+
+# Fails if ripdpi-monitor-engine re-acquires a direct or transitive dependency on
+# ripdpi-runtime-api or ripdpi-diagnostics-pcap.
+#
+# Update procedure (intentional reintroduction):
+#   1. Confirm the dependency is truly needed and the architectural decision has
+#      been reviewed (see docs/tasks/GOAL_LEDGER.md row 187 for context).
+#   2. Remove or relax the corresponding `if cargo tree …` guard block below.
+#   3. Open a PR with an explicit note in the description explaining why the
+#      formerly-dropped dependency is being reintroduced.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "native/rust/Cargo.toml"
+      - "native/rust/Cargo.lock"
+      - "native/rust/crates/ripdpi-monitor-engine/**"
+      - ".github/workflows/cargo-tree-monitor-engine-guard.yml"
+  push:
+    branches: [main]
+    paths:
+      - "native/rust/Cargo.toml"
+      - "native/rust/Cargo.lock"
+      - "native/rust/crates/ripdpi-monitor-engine/**"
+      - ".github/workflows/cargo-tree-monitor-engine-guard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  monitor-engine-dep-guard:
+    name: Assert monitor-engine has no runtime-api / diagnostics-pcap deps
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: cargo-tree-guard-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock') }}
+          restore-keys: cargo-tree-guard-${{ runner.os }}-
+
+      - name: Guard — ripdpi-runtime-api must not appear in monitor-engine deps
+        run: |
+          if cargo tree \
+               --manifest-path native/rust/Cargo.toml \
+               -p ripdpi-monitor-engine \
+               -i ripdpi-runtime-api \
+               2>/dev/null; then
+            echo "ERROR: ripdpi-monitor-engine has acquired a dependency on ripdpi-runtime-api."
+            echo "This is a regression. See the update procedure in this workflow file."
+            exit 1
+          fi
+          echo "OK: ripdpi-runtime-api not found in ripdpi-monitor-engine dep tree."
+
+      - name: Guard — ripdpi-diagnostics-pcap must not appear in monitor-engine deps
+        run: |
+          if cargo tree \
+               --manifest-path native/rust/Cargo.toml \
+               -p ripdpi-monitor-engine \
+               -i ripdpi-diagnostics-pcap \
+               2>/dev/null; then
+            echo "ERROR: ripdpi-monitor-engine has acquired a dependency on ripdpi-diagnostics-pcap."
+            echo "This is a regression. See the update procedure in this workflow file."
+            exit 1
+          fi
+          echo "OK: ripdpi-diagnostics-pcap not found in ripdpi-monitor-engine dep tree."
