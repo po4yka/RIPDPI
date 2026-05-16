@@ -249,6 +249,7 @@ mod tests {
             reality_public_key: [0x42; 32],
             reality_short_id: vec![0xAB, 0xCD],
             mux: None,
+            flow: crate::addons::VlessFlow::Vision,
         };
 
         let client_random = [0u8; 32];
@@ -269,6 +270,7 @@ mod tests {
             reality_public_key: [0x42; 32],
             reality_short_id: vec![0x01],
             mux: None,
+            flow: crate::addons::VlessFlow::Vision,
         };
 
         // With the same client_random, each call still generates a fresh ephemeral

@@ -13,7 +13,6 @@ use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpSocket, TcpStream};
 
-use crate::addons::VISION_ADDONS;
 use crate::config::VlessRealityConfig;
 use crate::vision::VisionStream;
 use tokio_boring::SslStream;
@@ -86,8 +85,11 @@ impl VlessRealityClient {
     where
         S: AsyncIo + 'static,
     {
-        // Write VLESS request
-        let request = wire::encode_request(&config.uuid, VISION_ADDONS, target);
+        // Write VLESS request. The addons block is driven by the
+        // profile's `flow` field so the engine can honor xray servers
+        // that advertise `flow: ""` or `xtls-rprx-vision-udp443`. See
+        // [`crate::addons::VlessFlow`] and audit finding C3.
+        let request = wire::encode_request(&config.uuid, config.flow.as_addons_bytes(), target);
         tls.write_all(&request).await?;
 
         // Read VLESS response header

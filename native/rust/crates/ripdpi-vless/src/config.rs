@@ -1,5 +1,6 @@
 use base64::prelude::*;
 
+use crate::addons::{FlowParseError, VlessFlow};
 use crate::mux::{MuxConfigError, VlessMuxConfig};
 
 /// Errors that can occur when parsing VLESS+Reality configuration from strings.
@@ -15,6 +16,8 @@ pub enum ConfigError {
     InvalidShortId(String),
     #[error("invalid mux config: {0}")]
     InvalidMux(#[from] MuxConfigError),
+    #[error("invalid flow: {0}")]
+    InvalidFlow(#[from] FlowParseError),
 }
 
 /// Configuration for a VLESS+Reality connection.
@@ -38,6 +41,12 @@ pub struct VlessRealityConfig {
     /// Wire-multiplexing config when the subscription requested `mux:
     /// sing-mux` / `mux: yamux`; `None` for one-connection-per-flow.
     pub mux: Option<VlessMuxConfig>,
+    /// Selected VLESS flow. Defaults to [`VlessFlow::Vision`] for
+    /// historical back-compatibility; the audit's "Vision is
+    /// unconditional" finding is addressed by exposing this as a
+    /// per-profile choice rather than hardcoding the addons block at
+    /// the call site.
+    pub flow: VlessFlow,
 }
 
 impl std::fmt::Debug for VlessRealityConfig {
@@ -51,6 +60,7 @@ impl std::fmt::Debug for VlessRealityConfig {
             .field("reality_public_key", &"<redacted>")
             .field("reality_short_id_len", &self.reality_short_id.len())
             .field("mux", &self.mux)
+            .field("flow", &self.flow)
             .finish()
     }
 }
@@ -98,7 +108,22 @@ impl VlessRealityConfig {
             reality_public_key,
             reality_short_id,
             mux: None,
+            flow: VlessFlow::default(),
         })
+    }
+
+    /// Replace the flow selection on this config.
+    pub fn with_flow(mut self, flow: VlessFlow) -> Self {
+        self.flow = flow;
+        self
+    }
+
+    /// Parse a flow string and attach it. Accepts the xray identifiers
+    /// `xtls-rprx-vision`, `xtls-rprx-vision-udp443`, and the empty
+    /// string / `"none"` / `"off"` for no flow.
+    pub fn with_flow_str(self, flow: &str) -> Result<Self, ConfigError> {
+        let parsed = VlessFlow::parse(flow)?;
+        Ok(self.with_flow(parsed))
     }
 
     /// Attach a wire-multiplexing config (builder style). NekoBox / sing-box
@@ -209,6 +234,38 @@ mod tests {
     fn with_mux_strings_rejects_unknown_protocol() {
         let err = sample_config().with_mux_strings("not-a-mux", 0, 0, 0).expect_err("unknown mux must be rejected");
         assert!(matches!(err, ConfigError::InvalidMux(_)));
+    }
+
+    #[test]
+    fn from_strings_defaults_flow_to_vision_for_back_compat() {
+        let cfg = sample_config();
+        // Historical callers that don't supply a flow continue to get
+        // VISION_ADDONS on the wire — the audit's C3 finding is closed
+        // by making the *choice* configurable, not by silently changing
+        // every existing client's behavior.
+        assert_eq!(cfg.flow, VlessFlow::Vision);
+    }
+
+    #[test]
+    fn with_flow_replaces_default_selection() {
+        let cfg = sample_config().with_flow(VlessFlow::None);
+        assert_eq!(cfg.flow, VlessFlow::None);
+        let cfg = sample_config().with_flow(VlessFlow::VisionUdp443);
+        assert_eq!(cfg.flow, VlessFlow::VisionUdp443);
+    }
+
+    #[test]
+    fn with_flow_str_parses_xray_identifiers() {
+        let cfg = sample_config().with_flow_str("").expect("empty flow accepted");
+        assert_eq!(cfg.flow, VlessFlow::None);
+        let cfg = sample_config().with_flow_str("xtls-rprx-vision-udp443").expect("udp443 flow accepted");
+        assert_eq!(cfg.flow, VlessFlow::VisionUdp443);
+    }
+
+    #[test]
+    fn with_flow_str_rejects_unknown_flow() {
+        let err = sample_config().with_flow_str("xtls-rprx-direct").expect_err("unknown flow rejected");
+        assert!(matches!(err, ConfigError::InvalidFlow(_)), "got {err:?}");
     }
 
     #[test]

@@ -9,6 +9,8 @@ use rand::{Rng, RngExt};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
 use tokio::sync::{mpsc, OwnedSemaphorePermit};
 
+use ripdpi_vless::addons::VlessFlow;
+
 use crate::config::{normalize_path, XhttpMode};
 use crate::h2_body::{build_get_request, build_post_request, ChannelBody};
 use crate::pool::PooledConnection;
@@ -48,6 +50,7 @@ trait StreamMetadata {
     fn session_path(&self) -> String;
     fn host_header(&self) -> String;
     fn uuid(&self) -> &[u8; 16];
+    fn flow(&self) -> VlessFlow;
 }
 
 impl StreamMetadata for XhttpMode {
@@ -69,6 +72,16 @@ impl StreamMetadata for XhttpMode {
         match self {
             Self::Reality(config) => &config.vless.uuid,
             Self::Tls(config) => &config.uuid,
+        }
+    }
+
+    fn flow(&self) -> VlessFlow {
+        match self {
+            // Reality-tunneled xHTTP reuses the inner VLESS profile's
+            // flow so the server-side selection stays consistent with
+            // direct VLESS+Reality connections.
+            Self::Reality(config) => config.vless.flow,
+            Self::Tls(config) => config.flow,
         }
     }
 }
@@ -151,7 +164,10 @@ impl PooledConnection {
             let _ = transport_download.shutdown().await;
         });
 
-        let request = ripdpi_vless::wire::encode_request(mode.uuid(), ripdpi_vless::addons::VISION_ADDONS, target);
+        // Honor the per-profile flow selection on the inner VLESS
+        // handshake instead of hardcoding `VISION_ADDONS`. See audit
+        // finding C3.
+        let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target);
         user_upload.write_all(&request).await?;
 
         let mut stream = XhttpStream { reader: user_download, writer: user_upload, _permit: permit };

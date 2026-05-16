@@ -1,5 +1,6 @@
 use std::net::IpAddr;
 
+use ripdpi_vless::addons::{FlowParseError, VlessFlow};
 use ripdpi_vless::config::VlessRealityConfig;
 use tokio::io::{AsyncRead, AsyncWrite};
 
@@ -73,6 +74,10 @@ pub struct XhttpTlsConfig {
     pub tls_fingerprint_profile: String,
     pub xmux: XmuxConfig,
     pub finalmask: FinalmaskConfig,
+    /// VLESS flow negotiated inside the xHTTP tunnel. Defaults to
+    /// [`VlessFlow::Vision`] for back-compatibility with profiles that
+    /// have not opted in to per-flow selection.
+    pub flow: VlessFlow,
 }
 
 impl XhttpTlsConfig {
@@ -97,7 +102,23 @@ impl XhttpTlsConfig {
             tls_fingerprint_profile: tls_fingerprint_profile.to_owned(),
             xmux: XmuxConfig::default(),
             finalmask: FinalmaskConfig::default(),
+            flow: VlessFlow::default(),
         })
+    }
+
+    /// Replace the flow selection (builder style). The default is
+    /// [`VlessFlow::Vision`] to preserve historical client behavior.
+    pub fn with_flow(mut self, flow: VlessFlow) -> Self {
+        self.flow = flow;
+        self
+    }
+
+    /// Parse a flow identifier (`xtls-rprx-vision`,
+    /// `xtls-rprx-vision-udp443`, or `""` / `"none"` / `"off"` for no
+    /// flow) and attach it.
+    pub fn with_flow_str(self, flow: &str) -> Result<Self, ConfigError> {
+        let parsed = VlessFlow::parse(flow)?;
+        Ok(self.with_flow(parsed))
     }
 }
 
@@ -107,6 +128,8 @@ pub enum ConfigError {
     InvalidUuid(String),
     #[error("invalid port: {0}")]
     InvalidPort(i32),
+    #[error("invalid flow: {0}")]
+    InvalidFlow(#[from] FlowParseError),
 }
 
 #[derive(Debug, Clone)]
