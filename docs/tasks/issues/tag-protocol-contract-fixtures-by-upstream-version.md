@@ -7,9 +7,9 @@ priority: medium
 owner: unassigned
 parent: null
 blocks: []
-blocked_by: [add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols, add-hysteria2-salamander-obfuscation-conformance-fixtures, add-vless-mux-conformance-tests-against-xray-core]
+blocked_by: [add-hysteria2-salamander-obfuscation-conformance-fixtures, add-vless-mux-conformance-tests-against-xray-core]
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-16
 ---
 
 ## Blocker (2026-05-15)
@@ -87,3 +87,7 @@ upstream tag X" as a checkable fact in the fixture tree.
 
 - [[add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols]]
 - [[Epic - Control-plane hardening]]
+
+## Work log
+
+- 2026-05-16: Dropped orphaned blocker reference 'add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols' (file does not exist); two remaining blockers are valid.

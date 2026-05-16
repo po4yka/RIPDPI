@@ -5,7 +5,7 @@ status: backlog
 area: testing
 priority: high
 owner: unassigned
-parent:
+parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16

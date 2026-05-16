@@ -7,9 +7,9 @@ priority: medium
 owner: unassigned
 parent: null
 blocks: []
-blocked_by: [add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols]
+blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-16
 ---
 
 - [ ] #task Add Hysteria 2 Salamander obfuscation conformance fixtures #repo/RIPDPI #area/testing #status/backlog 🔼
@@ -65,3 +65,7 @@ to a specific upstream tag.
 
 - [[tag-protocol-contract-fixtures-by-upstream-version]]
 - [[add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols]]
+
+## Work log
+
+- 2026-05-16: Dropped orphaned blocker reference 'add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols' (file does not exist).

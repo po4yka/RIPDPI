@@ -9,7 +9,7 @@ parent: epic-boot-autostart-and-session-persistence
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
 - [ ] #task Add package-replaced restart gated on prior running state #repo/RIPDPI #area/service #status/backlog 🔽

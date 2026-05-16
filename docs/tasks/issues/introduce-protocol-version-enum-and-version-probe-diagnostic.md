@@ -7,9 +7,9 @@ priority: medium
 owner: unassigned
 parent: epic-control-plane-hardening
 blocks: []
-blocked_by: [add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols]
+blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-16
 ---
 
 - [ ] #task Introduce ProtocolVersion enum and version-mismatch probe diagnostic #repo/RIPDPI #area/rust-native #status/backlog 🔼
@@ -95,3 +95,7 @@ misconfigured, or running an outdated client.
 
 - [[add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols]]
 - [[Epic - Control-plane hardening]]
+
+## Work log
+
+- 2026-05-16: Dropped orphaned blocker reference 'add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols' (file does not exist).

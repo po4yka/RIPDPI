@@ -9,7 +9,7 @@ parent: epic-native-hotspot-decomposition
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-14
 ---
 
 - [ ] #task Decompose linux.rs by responsibility #repo/RIPDPI #area/service #status/backlog 🔼

@@ -9,7 +9,7 @@ parent: epic-boot-autostart-and-session-persistence
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
 - [ ] #task Add boot-completed receiver with dynamic enable #repo/RIPDPI #area/service #status/backlog 🔼

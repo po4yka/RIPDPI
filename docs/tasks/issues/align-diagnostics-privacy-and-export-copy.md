@@ -7,9 +7,9 @@ priority: medium
 owner: Documentation Engineer
 parent: null
 blocks: []
-blocked_by: [UNRESOLVED-POY-13, UNRESOLVED-POY-14]
+blocked_by: []
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-16
 ---
 
 - [ ] #task Align diagnostics privacy and export copy #repo/RIPDPI #area/android #status/doing 🔼
@@ -60,3 +60,7 @@ Non-goals:
 
 ## Definition of done
 Approved copy is committed to repo files, screenshots/tests are updated or confirmed unchanged, and AppSec/QA review comments are present.
+
+## Work log
+
+- 2026-05-16: Dropped orphaned blocker references 'UNRESOLVED-POY-13' and 'UNRESOLVED-POY-14' (files do not exist).

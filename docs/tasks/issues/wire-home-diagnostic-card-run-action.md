@@ -13,7 +13,7 @@ created: 2026-05-08
 updated: 2026-05-08
 ---
 
-- [ ] #task Wire Home diagnostic card Run button and navigate to Diagnostics tab #repo/RIPDPI #area/ui #status/medium #status/backlog 🔼
+- [ ] #task Wire Home diagnostic card Run button and navigate to Diagnostics tab #repo/RIPDPI #area/ui #status/backlog 🔼
 
 ## Goal contract
 

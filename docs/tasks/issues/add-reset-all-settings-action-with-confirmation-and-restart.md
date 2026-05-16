@@ -9,7 +9,7 @@ parent: epic-settings-backup-and-restore
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
 - [ ] #task Add reset-all-settings action with confirmation and restart #repo/RIPDPI #area/data #status/backlog 🔽

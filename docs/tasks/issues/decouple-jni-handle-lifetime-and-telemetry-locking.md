@@ -1,18 +1,18 @@
 ---
 title: Decouple JNI handle-lifetime and telemetry locking
 type: task
-status: blocked
+status: backlog
 area: service
 priority: medium
 owner: Principal Android Rust Architect
 parent: epic-runtime-lifecycle-and-supervisors
 blocks: [select-resolver-mapping-from-dns-classification, adopt-handlereservation-primitive-in-ripdpiwarp, adopt-handlereservation-primitive-in-tun2sockstunnel, adopt-handlereservation-primitive-in-networkdiagnostics-cancelscan-latency]
-blocked_by: [surface-typed-cache-degradation-reasons]
+blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-16
 ---
 
-- [ ] #task Decouple JNI handle-lifetime and telemetry locking #repo/RIPDPI #area/service #status/blocked 🔼
+- [ ] #task Decouple JNI handle-lifetime and telemetry locking #repo/RIPDPI #area/service #status/backlog 🔼
 
 ## Goal contract
 
@@ -48,3 +48,7 @@ and vice versa.
 - [[Epic - Runtime lifecycle and supervisors]]
 - [[Add native readiness events to RipDpi wrappers]]
 - [[ripdpi-android-audit-2026-04-20]]
+
+## Work log
+
+- 2026-05-16: Dropped orphaned blocker reference 'surface-typed-cache-degradation-reasons' (file does not exist); reclassified to backlog.

@@ -9,7 +9,7 @@ parent: epic-native-hotspot-decomposition
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-14
 ---
 
 - [ ] #task Extract native ActionPlan IR #repo/RIPDPI #area/service #status/backlog 🔼

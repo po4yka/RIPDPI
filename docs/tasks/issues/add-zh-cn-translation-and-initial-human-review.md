@@ -9,7 +9,7 @@ parent: epic-localization-expansion
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
 - [ ] #task Add zh-CN translation and initial human review #repo/RIPDPI #area/ui #status/backlog 🔼

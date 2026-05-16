@@ -9,7 +9,7 @@ parent: epic-system-http-proxy-service-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
 - [ ] #task Add mixed SOCKS5 and HTTP CONNECT inbound listener #repo/RIPDPI #area/proxy #status/backlog 🔼

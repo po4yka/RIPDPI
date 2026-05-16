@@ -1,7 +1,7 @@
 ---
 title: Add network-security-config with opportunistic domainEncryption
 type: task
-status: blocked
+status: backlog
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-20
 updated: 2026-05-16
 ---
 
-- [ ] #task Add network-security-config with opportunistic domainEncryption #repo/RIPDPI #area/diagnostics #status/blocked 🔼
+- [ ] #task Add network-security-config with opportunistic domainEncryption #repo/RIPDPI #area/diagnostics #status/backlog 🔼
 
 ## Goal contract
 
@@ -61,6 +61,7 @@ proof that ECH is attempted when DNS supplies a config.
 ## Work log
 
 - **2026-05-16** — Blocked on Android 17 instrumented test requiring a physical device for ECH attempt verification. Static parts (config file `res/xml/network_security_config.xml` + `res/xml-v37/network_security_config.xml` overlay, manifest reference `@xml/network_security_config`, multi-platform build passing `just build`) are landed and verified. The remaining acceptance criterion (instrumented test on Android 17 confirming ECH is attempted when DNS surfaces an ECH config) cannot run in CI — no physical Android 17 device available.
+- 2026-05-16: Reclassified to backlog — no concrete blocker recorded in frontmatter (physical device constraint is an environment limitation, not a tracked dependency slug).
 
 ## Links
 

@@ -9,7 +9,7 @@ parent: epic-encrypted-dns-and-https-svcb-classifier
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-14
 ---
 
 - [ ] #task Limit DNS measurement to user-requested destinations #repo/RIPDPI #area/dns #status/backlog 🔼

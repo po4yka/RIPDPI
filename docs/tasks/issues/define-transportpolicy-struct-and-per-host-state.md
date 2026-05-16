@@ -9,7 +9,7 @@ parent: epic-direct-mode-transport-policy-and-verdicts
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-15
 ---
 
 - [ ] #task Define TransportPolicy struct and per-host state #repo/RIPDPI #area/diagnostics #status/backlog ⏫

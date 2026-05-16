@@ -1,7 +1,7 @@
 ---
 title: Add DNS interceptor and split DNS leak tests
 type: task
-status: blocked
+status: backlog
 area: vpn
 priority: critical
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-01
 updated: 2026-05-16
 ---
 
-- [ ] #task Add DNS interceptor and split DNS leak tests #repo/RIPDPI #area/vpn #status/blocked 🔺 — interceptor + leak tests pass; just test-module core:service blocked by pre-existing ConnectionPolicyResolverDirectPathTest failure
+- [ ] #task Add DNS interceptor and split DNS leak tests #repo/RIPDPI #area/vpn #status/backlog 🔺 — interceptor + leak tests pass; just test-module core:service blocked by pre-existing ConnectionPolicyResolverDirectPathTest failure
 
 ## Goal contract
 
@@ -60,3 +60,7 @@ This task is about Android VPN DNS enforcement; it should reuse the existing DNS
 - [[ripdpi-android-split-strict-dns-architecture-2026-05-01]]
 - [[Epic - Encrypted DNS and HTTPS SVCB classifier]]
 - [[Select resolver mapping from DNS classification]]
+
+## Work log
+
+- 2026-05-16: Reclassified to backlog — no concrete blocker recorded in frontmatter or prose (pre-existing test failure is a known flake, not a tracked dependency).

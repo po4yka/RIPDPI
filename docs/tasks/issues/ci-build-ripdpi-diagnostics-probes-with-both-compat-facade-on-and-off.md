@@ -1,7 +1,7 @@
 ---
 title: CI: build ripdpi-diagnostics-probes with both compat-facade on and off
 type: task
-status: blocked
+status: backlog
 area: ci
 priority: medium
 owner: Senior Build Gradle CI Engineer
@@ -12,10 +12,11 @@ created: 2026-05-04
 updated: 2026-05-16
 ---
 
-- [ ] #task CI: build ripdpi-diagnostics-probes with both compat-facade on and off #repo/RIPDPI #area/ci #status/blocked 🔼
+- [ ] #task CI: build ripdpi-diagnostics-probes with both compat-facade on and off #repo/RIPDPI #area/ci #status/backlog 🔼
 
 ## Work log
 
+- 2026-05-16: Reclassified to backlog — no concrete blocker recorded in frontmatter (crate scaffolding precondition is described in prose but has no corresponding issue slug).
 - 2026-05-16: BLOCKED. The `ripdpi-diagnostics-probes` crate currently has
   only `adaptive-tuning-v1.json` and `blockpage_fingerprints.csv` tracked
   in git — no `Cargo.toml`, no `src/`, and the crate is NOT in

@@ -9,7 +9,7 @@ parent: epic-localization-expansion
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-14
 ---
 
 - [ ] #task Select and set up translation pipeline for RIPDPI #repo/RIPDPI #area/ui #status/backlog 🔼

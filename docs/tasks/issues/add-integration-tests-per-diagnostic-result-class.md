@@ -7,12 +7,16 @@ priority: medium
 owner: unassigned
 parent: epic-direct-mode-diagnostic-state-machine
 blocks: []
-blocked_by: [UNRESOLVED-POY-129]
+blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-16
 ---
 
 - [ ] #task Add integration tests per diagnostic result class #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+
+## Work log
+
+- 2026-05-16: Dropped orphaned blocker reference 'UNRESOLVED-POY-129' (file does not exist); reclassified to backlog.
 
 ## Goal contract
 
