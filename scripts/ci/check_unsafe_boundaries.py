@@ -192,6 +192,30 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # matching `CString::into_raw` / `CString::new` site.
     "CString::from_raw": re.compile(r"\bCString::from_raw\b"),
     "CString::into_raw": re.compile(r"\bCString::into_raw\b"),
+    # `Vec::set_len` is an `unsafe fn`; the canonical call shape is
+    # `unsafe { v.set_len(n) }`. The bytes `[0, n)` of the Vec's
+    # buffer MUST be initialised valid `T` values BEFORE the call —
+    # an off-by-one or short fill makes Drop run on uninitialised
+    # memory (UB if `T: Drop`) and exposes uninit bytes on any
+    # `&[..]` borrow. Per docs/rust-soundness-policy.md
+    # § "`Vec::set_len` initialisation contract", new occurrences
+    # must either:
+    #   (a) restructure to use safe `Vec::push` / `Vec::extend` /
+    #       `Vec::extend_from_slice` (the bytes are typed `T` on
+    #       the way in),
+    #   (b) use the `Vec::with_capacity` + `spare_capacity_mut` +
+    #       guarded-`set_len` idiom with a documented producer
+    #       that writes `MaybeUninit::write` for every byte in
+    #       `[0, n)`, OR
+    #   (c) earn an allowlist entry naming the producer of the
+    #       initialised prefix and proving `n <= capacity`.
+    # The regex catches the `unsafe { ... .set_len( ... ) ... }`
+    # form on a single line; that is the only sound spelling
+    # (calling `Vec::set_len` outside an `unsafe` block is a
+    # compile error). False positives on `BufferHandle::set_len`,
+    # `File::set_len`, etc. are avoided because those methods are
+    # safe and never appear inside an `unsafe { }` block.
+    "unsafe Vec::set_len": re.compile(r"\bunsafe\s*\{[^}]*\.set_len\("),
     # UnsafeCell::get returns `*mut T` from `&UnsafeCell<T>`. Dereferencing
     # it to produce `&mut T` (the canonical `unsafe { (*cell.get()).as_mut() }`
     # pattern) bypasses Rust's shared-vs-exclusive borrow check entirely;

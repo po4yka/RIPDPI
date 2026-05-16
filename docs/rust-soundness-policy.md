@@ -117,6 +117,7 @@ on every PR. It looks for the following risky patterns under
 | `String::from_utf8_unchecked` | The owned counterpart of `str::from_utf8_unchecked`: turns a `Vec<u8>` into a `String` without validating UTF-8. Same UB risk as the borrowed variant, separate scanner pattern because the input is owned (so the validity argument must cover the ownership transfer too). Prefer `String::from_utf8` (returns `Result<String, FromUtf8Error>`) or `String::from_utf8_lossy` (substitutes U+FFFD for invalid sequences). See "Unsafe `String`/`str` construction" below. |
 | `libc::malloc`, `libc::calloc`, `libc::realloc`, `libc::free` | Direct C-allocator calls. Rust's default global allocator and libc's `malloc`/`free` are NOT contractually the same heap — even when they happen to coincide on a given target, the relationship is implementation-defined and breaks silently on a `#[global_allocator]` switch. New occurrences must either restructure to keep both ends of the lifetime on one side (Rust → `Box`/`Vec`; C → foreign-managed) or earn an allowlist entry per "Allocator mismatch across FFI" below. |
 | `CString::from_raw`, `CString::into_raw` | The FFI-string analogue of `Box::into_raw`/`Box::from_raw`. The pair carries the allocator-compatibility constraint (both ends must use the global allocator that `CString::new` used) plus a NUL-termination invariant. Mixing with `libc::malloc`/`libc::free` is UB. See "Allocator mismatch across FFI" below. |
+| `unsafe Vec::set_len` (proximity ≤ 1 line) | `unsafe { v.set_len(n) }` shape on a single line — the canonical spelling of `Vec::set_len`, which is `unsafe fn`. Bytes `[0, n)` MUST be initialised valid `T` values BEFORE the call; otherwise Drop runs on uninit memory (UB if `T: Drop`) and `&[..]` borrows expose uninit bytes. The pattern is intentionally narrow (matches only `unsafe { ... .set_len( ... ) }`) so safe inherent methods like `BufferHandle::set_len` and `File::set_len` are not flagged. See "`Vec::set_len` initialisation contract" below. |
 | `UnsafeCell::get` (deref form `*cell.get()`) | Materialises `&mut T` / `&T` from `*mut T` and bypasses Rust's borrow check. The exclusivity invariant — at most one accessor of the cell at any moment — must be enforced by the surrounding type design. The bare `.get()` method (without the `*` deref) is filtered out so unrelated `.get()` callers (HashMap, Vec, Option, AtomicPtr) are not flagged. See "Creating `&mut T` from raw memory" below. |
 | `Cell<bool>` | `Cell<bool>` is a common cheap way to encode lifecycle state, but the value's mutation has no synchronisation cost and no exclusivity discipline. Use a typestate / RAII guard / Mutex instead. See "Ownership must be types, not flags" below. |
 | `ownership flag near drop/unsafe` (proximity ≤ 50 lines) | A `bool` field named `registered`, `is_alive`, `destroyed`, `initialized`, `disowned`, `owned_by_*`, or `freed` that lives within 50 source lines of an `impl Drop` or `unsafe` keyword. Per issue-#11 audit, ownership/liveness must be encoded by the type system, not by flags + comments. See "Ownership must be types, not flags" below. |
@@ -1333,6 +1334,137 @@ below:
    sound if a future `#[global_allocator]` is added to
    the workspace. If not, the entry must say so
    explicitly so a future contributor can re-evaluate.
+
+## `Vec::set_len` initialisation contract
+
+`Vec::set_len(new_len)` is an `unsafe fn` that adjusts
+the length field of a `Vec<T>` without touching the
+buffer. After the call, the `Vec` claims that bytes
+`[0, new_len * size_of::<T>())` of its allocation
+contain valid `T` values. Every read, drop, and
+`&[..]` / `&mut [..]` borrow assumes that claim is
+true. Failures:
+
+| Failure mode | Consequence |
+|---|---|
+| `new_len` past the initialised prefix | Drop runs on uninit memory (UB if `T: Drop`); `&[..]` exposes uninit bytes (UB on any subsequent read). |
+| `new_len > capacity` | UB on the next push / resize / drop — `Vec` assumes its length-cap invariant. |
+| Panic between `with_capacity(N)` and `set_len(n)` while the spare region is partly written | The Vec's len is still 0 (set_len hasn't run), so Drop runs on no elements. Safe for `T: !Drop` (e.g. `u8`); for `T: Drop` the partially-initialised tail is leaked but not unsoundly used. |
+| `&mut [u8]` borrow of the spare region before `set_len` | Sound because the spare region is typed `MaybeUninit<T>`. Reading without writing is the failure mode. |
+
+The audit checklist for every `Vec::set_len(n)` site:
+
+1. **Initialised prefix.** A producer wrote valid `T`
+   values to every slot in `[0, n)` before
+   `set_len(n)` runs. The producer is named explicitly
+   in the SAFETY comment (e.g. "`recv(2)` returned
+   `n` and is documented to write `n` bytes",
+   "`MaybeUninit::write` was called for each slot in
+   the loop above").
+2. **`n <= capacity`.** Asserted on the line(s)
+   immediately above the `set_len` call. `Vec`'s
+   internal invariant breaks otherwise.
+3. **Panic-path soundness.** Either:
+   - `T: !Drop` (e.g. `u8`, `u32`, `bool`,
+     `MaybeUninit<U>`), in which case the
+     half-initialised tail doesn't matter on
+     unwind — `len` stays 0 and Drop is a no-op, OR
+   - a scope-bound RAII guard reduces `len` to the
+     last-known-good prefix on unwind. The
+     `std::vec::Drain` and
+     `Vec::extend_from_slice` implementations are
+     the std reference for this pattern.
+4. **No re-entrant reads.** Between the
+   `with_capacity` / `reserve` / `spare_capacity_mut`
+   site and the matching `set_len`, no code path may
+   re-borrow the Vec as `&[T]` / `&mut [T]` —
+   the spare region's typing is `MaybeUninit<T>`, not
+   `T`, and accessing it as `T` is UB regardless of
+   the buffer's runtime contents.
+
+**Rule.** Application code SHOULD NOT call
+`Vec::set_len` directly. The preferred shapes, in
+order:
+
+1. **Safe `Vec::push` / `Vec::extend` /
+   `Vec::extend_from_slice`.** The bytes are typed
+   `T` on the way in; no `MaybeUninit` exists; no
+   `set_len` needed.
+2. **`Vec::with_capacity` + `spare_capacity_mut` +
+   guarded `set_len`.** Use when a foreign filler
+   (`recv`, `read`, FFI buffer fill) writes into a
+   Rust-allocated buffer. The
+   `spare_capacity_mut()` typing
+   (`&mut [MaybeUninit<T>]`) keeps the
+   uninitialised state visible to the type system;
+   the filler writes through `MaybeUninit::write`;
+   the matching `set_len(n)` runs only after the
+   filler reports `n`. This is the workspace's
+   recommended idiom for the "Rust allocates,
+   foreign code writes" pattern, demonstrated end-
+   to-end by
+   `vec_with_capacity_spare_capacity_round_trip_models_recv_fill`
+   in `ripdpi-vless/src/scoped_handle.rs`.
+3. **A typed buffer wrapper.** When the lifecycle
+   spans multiple operations (e.g. io_uring fixed
+   buffers), encapsulate the spare-region writing in
+   a safe `&mut [u8]`-handing-out wrapper. The
+   workspace's `BufferHandle` in
+   `ripdpi-io-uring/src/bufpool.rs` is the reference:
+   `BufferHandle::set_len(&mut self, len: usize)` is
+   a SAFE inherent method that clamps to
+   `buffer_size`; the caller never sees
+   `MaybeUninit<u8>` or the bare `Vec::set_len`.
+
+**Anti-patterns.**
+
+- `let mut v = Vec::with_capacity(N); foreign_fill(v.as_mut_ptr(), N); unsafe { v.set_len(N); }`
+  — bypasses `MaybeUninit` typing, hard to audit,
+  and the SAFETY comment must hand-wave about the
+  foreign contract. The correct shape is
+  `foreign_fill(v.spare_capacity_mut().as_mut_ptr().cast(), N); unsafe { v.set_len(n) };`
+  with `n <= N`.
+- `unsafe { v.set_len(n) }` where the loop above
+  wrote `n` elements via index assignment
+  (`v[i] = …`) instead of `MaybeUninit::write` —
+  `v[i]` is `&mut T` and assigns through, but the
+  Vec's `len` was 0 at the time, so `v[i]` is itself
+  UB. Use `spare_capacity_mut()[i].write(value)`
+  instead.
+- `unsafe { v.set_len(n) }` immediately followed by
+  `&v[..]` when only some of `[0, n)` was written —
+  the borrow exposes uninit bytes. Set `len` to the
+  initialised count, not the buffer capacity.
+
+**Workspace inventory.** As of issue #19: **zero**
+production `Vec::set_len` calls. The single
+occurrence in the workspace is the regression test
+`vec_with_capacity_spare_capacity_round_trip_models_recv_fill`
+in `ripdpi-vless/src/scoped_handle.rs:331`, which
+demonstrates the recommended idiom (per shape 2
+above) end-to-end. The other three `.set_len(`
+matches in the workspace are NOT `Vec::set_len`:
+
+| File | Method | Allowlisted? |
+|---|---|---|
+| `ripdpi-io-uring/src/tun.rs:95` | `BufferHandle::set_len(&mut self, usize)` | No — safe inherent method on the io_uring buffer wrapper; clamps to `buffer_size`. |
+| `ripdpi-proxy-runtime/src/runtime/relay/stream_copy_uring/inbound_zc.rs:43` | `BufferHandle::set_len` (same method) | No — same as above. |
+| `ripdpi-proxy-runtime-adapter/src/platform.rs:363` | `std::fs::File::set_len(0)` | No — truncate syscall. |
+
+**Allowlist entry requirements.** A `unsafe Vec::set_len`
+allowlist entry's `enforcement` field MUST address every
+point of the checklist above:
+
+1. **Producer of the initialised prefix.** Which code
+   wrote valid `T` values to slots `[0, n)`.
+2. **`n <= capacity` proof.** Where the assertion lives
+   (typically an `assert!` on the line above the
+   `set_len`).
+3. **Panic-path argument.** Either `T: !Drop` (named
+   explicitly) or the RAII guard's name + scope.
+4. **No re-entrant reads.** That the function body
+   between `with_capacity` and `set_len` does not
+   borrow the Vec as `&[T]` / `&mut [T]`.
 
 ## Ownership must be types, not flags
 

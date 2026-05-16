@@ -369,6 +369,32 @@ class ScanRegressionTests(unittest.TestCase):
         # Direct path form must trigger the into_raw pattern.
         self.assertTrue(_has(_scan("CString::into_raw(s)"), "CString::into_raw"))
 
+    def test_unsafe_vec_set_len_flagged(self) -> None:
+        # Issue #19: `Vec::set_len` is an `unsafe fn`; the canonical
+        # call shape is `unsafe { v.set_len(n) }`. The pattern catches
+        # this single-line shape because `Vec::set_len` cannot be
+        # called outside an `unsafe { }` block (compile error
+        # otherwise).
+        for fragment in (
+            "unsafe { v.set_len(n) };",
+            "unsafe { buf.set_len(written) }",
+            "let x = unsafe { vec.set_len(count); 42 };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "unsafe Vec::set_len"), msg=fragment)
+
+    def test_safe_set_len_methods_not_flagged_by_vec_pattern(self) -> None:
+        # `BufferHandle::set_len`, `File::set_len`, and other safe
+        # inherent `.set_len()` methods MUST NOT trigger the
+        # `Vec::set_len` pattern. The distinguishing feature is the
+        # absence of the enclosing `unsafe { }` block — safe
+        # `.set_len()` methods are called bare.
+        for fragment in (
+            "handle.set_len(len);",            # BufferHandle::set_len (safe)
+            "file.set_len(0)?;",               # File::set_len (truncate)
+            "self.set_len(new_len);",          # any other safe inherent set_len
+        ):
+            self.assertFalse(_has(_scan(fragment), "unsafe Vec::set_len"), msg=fragment)
+
     def test_libc_unrelated_functions_not_flagged(self) -> None:
         # The libc::malloc regex must NOT match unrelated libc
         # calls (mmap, munmap, write, read, etc.).
