@@ -8,10 +8,13 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+futures = { workspace = true }
+libc = { workspace = true }
 ripdpi-diagnostics-classification = { workspace = true }
 ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-diagnostics-http = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
+tokio = { workspace = true, features = ["net", "time", "rt"] }
 
 [features]
 default = ["compat-facade"]

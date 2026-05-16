@@ -3607,8 +3607,13 @@ version = "0.1.0"
 name = "ripdpi-diagnostics-probes"
 version = "0.1.0"
 dependencies = [
+ "futures",
+ "libc",
+ "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-http",
+ "ripdpi-failure-classifier",
+ "tokio",
 ]
 
 [[package]]
