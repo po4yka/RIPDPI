@@ -50,14 +50,16 @@ misconfigured, or running an outdated client.
 
 ## Acceptance criteria
 
-- [x] (partial, 2026-05-15) `ripdpi-vless::wire::ProtocolVersion`
-    enum shipped with `V1` variant, `SUPPORTED` const slice,
-    `wire_byte()` and `from_wire_byte()` accessors. Three unit
-    tests assert round-trip and that unknown bytes are rejected.
-    **TUIC and MTProto enum migrations are deferred** — TUIC has
-    `TUIC_VERSION: u8 = 0x05` and the MTProto module has
-    `ALLOWED_PROTOCOL_TAGS`; both follow the same pattern but each
-    is a separate refactor.
+- [x] (2026-05-15) Each protocol crate exposes a typed enum.
+    - `ripdpi-vless::wire::ProtocolVersion` (`V1`) with
+      `wire_byte` + `from_wire_byte` + `SUPPORTED`.
+    - `ripdpi-ws-tunnel::mtproto::MtprotoTransportFamily`
+      (`PaddedIntermediate`, `Intermediate`, `Abridged`) with
+      `tag_bytes` + `from_tag_bytes` + `SUPPORTED`; legacy
+      `ALLOWED_PROTOCOL_TAGS` const derived from the enum.
+    - `ripdpi-tuic::protocol::ProtocolVersion` (`V5`) with
+      `wire_byte` + `from_wire_byte` + `SUPPORTED`; `TUIC_VERSION`
+      const derived from the enum.
 - [x] (partial, 2026-05-15) Wire encode/decode paths use the enum
     (no bare `0x01` / `0x05` literals in encode or decode arms) —
     **in `ripdpi-vless` only**. `encode_request` writes
