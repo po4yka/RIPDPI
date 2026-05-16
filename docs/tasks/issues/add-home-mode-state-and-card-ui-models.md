@@ -1,7 +1,7 @@
 ---
 title: Add HomeMode enum and per-card UiState models for mode-first home screen
 type: task
-status: review
+status: done
 area: ui
 priority: high
 owner: unassigned
@@ -10,10 +10,10 @@ blocks:
   - build-home-mode-summary-card-composable
 blocked_by: []
 created: 2026-05-08
-updated: 2026-05-08
+updated: 2026-05-16
 ---
 
-- [ ] #task Add HomeMode enum and per-card UiState models for mode-first home screen #repo/RIPDPI #area/ui #status/review ⏫
+- [x] #task Add HomeMode enum and per-card UiState models for mode-first home screen #repo/RIPDPI #area/ui #status/done ⏫
 
 ## Goal contract
 
