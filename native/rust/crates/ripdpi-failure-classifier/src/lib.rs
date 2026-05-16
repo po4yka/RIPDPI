@@ -21,5 +21,8 @@ pub use quic::classify_quic_probe;
 pub use strategy_execution::classify_strategy_execution_failure;
 pub use tls::{classify_redirect_failure, classify_tls_alert, classify_tls_handshake_failure};
 pub use transport::classify_transport_error;
-pub use types::{ClassifiedFailure, FailureAction, FailureClass, FailureEvidence, FailureStage};
+pub use types::{
+    ArmGate, ClassifiedFailure, FailureAction, FailureClass, FailureEvidence, FailureStage, IpBlockSuspectVerdict,
+    IpBlockVerdict,
+};
 pub use {connection_freeze::classify_connection_freeze, dns::confirm_dns_tampering};

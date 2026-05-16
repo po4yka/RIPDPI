@@ -31,6 +31,11 @@ pub enum FailureClass {
     /// Distinct from `TlsHandshakeFailure` so the user-visible
     /// diagnostic can recommend a server upgrade.
     ShadowTlsVersionMismatch,
+    /// All DoH-provided IPs failed at SYN and the alternate IP family also
+    /// failed at SYN, with no CDN variant succeeding within the attempt
+    /// budget. The engine must jump straight to owned-stack arms (A10/A9);
+    /// TLS-family arms must not be attempted in this state.
+    IpBlockSuspect,
 }
 
 impl FailureClass {
@@ -51,8 +56,47 @@ impl FailureClass {
             Self::CapabilitySkipped => "capability_skipped",
             Self::TuicVersionUnsupported => "tuic_version_unsupported",
             Self::ShadowTlsVersionMismatch => "shadowtls_version_mismatch",
+            Self::IpBlockSuspect => "ip_block_suspect",
         }
     }
+}
+
+/// Controls which circumvention arms the engine is allowed to attempt after
+/// classification. `OwnedStackOnly` skips all TLS-family arms and goes
+/// straight to owned-stack arms (A10/A9).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ArmGate {
+    /// No restriction — engine may attempt any arm.
+    #[default]
+    Unrestricted,
+    /// Skip TLS-family arms; jump directly to owned-stack arms (A10/A9).
+    OwnedStackOnly,
+}
+
+/// Verdict returned by [`classify_ip_block_suspect`]. When `verdict` is
+/// `IpBlockSuspect` the caller must honour `arm_gate = OwnedStackOnly`.
+/// When `verdict` is `PendingSecondFlow` the engine must wait for one more
+/// flow before persisting any classification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IpBlockVerdict {
+    /// Both IP families failed at SYN, no CDN success, guard passed —
+    /// classify as IP_BLOCK_SUSPECT.
+    IpBlockSuspect,
+    /// Guard has not yet been satisfied; defer classification until the next
+    /// flow completes.
+    PendingSecondFlow,
+    /// At least one SYN or CDN attempt succeeded — not an IP block.
+    NotIpBlock,
+}
+
+/// Output of the pure-function IP-block classifier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IpBlockSuspectVerdict {
+    pub verdict: IpBlockVerdict,
+    #[serde(default)]
+    pub arm_gate: ArmGate,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -174,6 +218,7 @@ mod tests {
             (FailureClass::CapabilitySkipped, "capability_skipped"),
             (FailureClass::TuicVersionUnsupported, "tuic_version_unsupported"),
             (FailureClass::ShadowTlsVersionMismatch, "shadowtls_version_mismatch"),
+            (FailureClass::IpBlockSuspect, "ip_block_suspect"),
         ];
         for (variant, expected) in cases {
             assert_eq!(variant.as_str(), expected, "{variant:?} should map to {expected:?}");
@@ -250,6 +295,7 @@ mod tests {
             FailureClass::StrategyExecutionFailure,
             FailureClass::ConnectionFreeze,
             FailureClass::CapabilitySkipped,
+            FailureClass::IpBlockSuspect,
         ] {
             let json = serde_json::to_string(&class).unwrap();
             let deserialized: FailureClass = serde_json::from_str(&json).unwrap();

@@ -1,4 +1,5 @@
 pub mod diagnosis;
+pub mod ip_block_suspect;
 pub mod strategy;
 
 pub use strategy::{

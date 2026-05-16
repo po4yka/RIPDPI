@@ -1,7 +1,7 @@
 ---
 title: Add repeated startup-shutdown supervisor test
 type: task
-status: backlog
+status: done
 area: testing
 priority: medium
 owner: unassigned
@@ -9,10 +9,21 @@ parent: epic-orchestration-test-posture
 blocks: []
 blocked_by: [UNRESOLVED-POY-129]
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-16
 ---
 
-- [ ] #task Add repeated startup-shutdown supervisor test #repo/RIPDPI #area/testing #status/backlog 🔼
+- [x] #task Add repeated startup-shutdown supervisor test #repo/RIPDPI #area/testing #status/done 🔼
+
+## Work log
+
+- 2026-05-16: The named supervisor types in the spec (`ProxyRuntimeSupervisor`,
+  `UpstreamRelaySupervisor`, `WarpRuntimeSupervisor`) do not exist in the
+  workspace. The embedded proxy runtime is managed instead by
+  `run_proxy_with_embedded_control` + `EmbeddedProxyControl`. Added
+  `native/rust/crates/ripdpi-proxy-runtime/tests/supervisor_restart.rs`
+  exercising 10 rapid start/stop cycles, expected-stop vs crash exit-path
+  disambiguation, and thread-join guarantees.
+- Verify: `cargo nextest run -p ripdpi-proxy-runtime` — exit 0.
 
 ## Goal contract
 

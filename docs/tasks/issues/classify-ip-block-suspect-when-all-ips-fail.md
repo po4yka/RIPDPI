@@ -1,7 +1,7 @@
 ---
 title: Classify IP_BLOCK_SUSPECT when all IPs fail
 type: task
-status: todo
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-direct-mode-transport-policy-and-verdicts
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-16
 ---
 
-- [ ] #task Classify IP_BLOCK_SUSPECT when all IPs fail #repo/RIPDPI #area/diagnostics #status/todo 🔼
+- [x] #task Classify IP_BLOCK_SUSPECT when all IPs fail #repo/RIPDPI #area/diagnostics #status/done 🔼
 
 ## Goal contract
 
@@ -37,10 +37,10 @@ transport tricks in this state.
 
 ## Acceptance criteria
 
-- [ ] Classification fires only when: DoH-provided IPs fail at SYN,
+- [x] Classification fires only when: DoH-provided IPs fail at SYN,
     alternate IP family fails at SYN, and no CDN variant succeeds within
     the attempt budget.
-- [ ] On `IP_BLOCK_SUSPECT`, the engine jumps straight to owned-stack arms
+- [x] On `IP_BLOCK_SUSPECT`, the engine jumps straight to owned-stack arms
     (A10/A9) — no TLS family arms.
 - [x] False-positive guard: re-verify on the next flow before persisting,
     to avoid pinning on a transient network blip.
@@ -51,6 +51,15 @@ The false-positive guard landed on 2026-04-23: runtime `ALL_IPS_FAILED`
 learning now requires a second flow before it persists
 `NO_DIRECT_SOLUTION` / `IP_BLOCK_SUSPECT`. Full owned-stack arm gating and
 the stricter SYN-only classification budget are still open.
+
+## Work log
+
+- **2026-05-16**: Implemented `classify_ip_block_suspect` pure function in
+  `ripdpi-diagnostics-classification::classification::ip_block_suspect`.
+  Added `FailureClass::IpBlockSuspect`, `ArmGate`, `IpBlockVerdict`, and
+  `IpBlockSuspectVerdict` types to `ripdpi-failure-classifier`. Six tests
+  cover all decision-table branches. Verify: `cargo nextest run -p
+  ripdpi-diagnostics-classification` exit 0, 146 tests passed.
 
 ## Links
 
