@@ -1,7 +1,7 @@
 ---
 title: Enforce fail-closed VpnService lifecycle
 type: task
-status: backlog
+status: done
 area: vpn
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Enforce fail-closed VpnService lifecycle #repo/RIPDPI #area/vpn #status/backlog ⏫
+- [x] #task Enforce fail-closed VpnService lifecycle #repo/RIPDPI #area/vpn #status/done ⏫
 
 ## Goal contract
 
@@ -39,11 +39,11 @@ Existing clients often look connected while the core, DNS resolver, or protected
 
 ## Acceptance criteria
 
-- [ ] VPN start aborts before TUN establishment if required transport sockets cannot be protected.
-- [ ] Core crash transitions connection state to blocked/reconnecting rather than connected.
-- [ ] `onRevoke()` closes TUN fd, tunnel sockets, provider runtimes, and local inbounds without main-thread assumptions.
-- [ ] Secure profiles never call `Builder.allowBypass()` unless the user explicitly enables an unsafe bypass setting.
-- [ ] Regression tests cover startup failure, core crash, and revoke cleanup.
+- [x] VPN start aborts before TUN establishment if required transport sockets cannot be protected.
+- [x] Core crash transitions connection state to blocked/reconnecting rather than connected.
+- [x] `onRevoke()` closes TUN fd, tunnel sockets, provider runtimes, and local inbounds without main-thread assumptions.
+- [x] Secure profiles never call `Builder.allowBypass()` unless the user explicitly enables an unsafe bypass setting.
+- [x] Regression tests cover startup failure, core crash, and revoke cleanup.
 
 ## Design notes
 
