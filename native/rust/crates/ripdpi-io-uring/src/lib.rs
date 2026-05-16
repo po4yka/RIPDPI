@@ -4,6 +4,21 @@
 //! on Linux 6.0+ kernels. All types and functions are gated behind
 //! `cfg(any(target_os = "linux", target_os = "android"))`.
 
+// Crate-local hardening for issue #16 (`Vec::from_raw_parts` /
+// raw-buffer-transfer audit). `ripdpi-io-uring` owns the workspace's
+// `RegisteredBufferPool` / `BufferHandle` shapes — the typed
+// alternative to `Vec::from_raw_parts` for "Rust allocates a buffer,
+// kernel writes into it" io_uring zero-copy paths. Per
+// docs/rust-soundness-policy.md § "`Vec::from_raw_parts` ownership
+// transfer", every `unsafe { }` in this crate MUST carry an inline
+// SAFETY comment so the buffer-transfer discipline is auditable
+// next to the operation. Workspace-wide `undocumented_unsafe_blocks`
+// is still `allow` while the legacy corpus is being annotated;
+// re-enabling it crate-locally locks the io_uring surface to the
+// documentation contract immediately.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 #[cfg(any(target_os = "linux", target_os = "android"))]
 mod bufpool;
 #[cfg(any(target_os = "linux", target_os = "android"))]

@@ -96,8 +96,16 @@ impl<T, F: FreeFunction<T>> Drop for ScopedHandle<T, F> {
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Mutex;
 
     static FREE_CALLS: AtomicUsize = AtomicUsize::new(0);
+    // `cargo test` runs tests in parallel by default. Every test in
+    // this module that reads or writes `FREE_CALLS` MUST hold this
+    // mutex for its body so the store-0 / drop-handle / load-N
+    // sequence is atomic w.r.t. sibling tests using the same
+    // counter. Without it, a parallel `CountFree::free` from a
+    // peer test inflates the count and fails the assertion.
+    static FREE_CALLS_MUTEX: Mutex<()> = Mutex::new(());
 
     struct CountFree;
 
@@ -109,6 +117,7 @@ mod tests {
 
     #[test]
     fn scoped_handle_calls_free_exactly_once_on_drop() {
+        let _guard = FREE_CALLS_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         FREE_CALLS.store(0, Ordering::SeqCst);
         let mut storage = 0u8;
         let raw: *mut u8 = &mut storage;
@@ -126,6 +135,7 @@ mod tests {
 
     #[test]
     fn scoped_handle_take_suppresses_free() {
+        let _guard = FREE_CALLS_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         FREE_CALLS.store(0, Ordering::SeqCst);
         let mut storage = 0u8;
         let raw: *mut u8 = &mut storage;
@@ -151,6 +161,7 @@ mod tests {
         // Construct two distinct handles to two distinct pointers
         // and assert each frees exactly once. Demonstrates the
         // wrapper does not share state across instances.
+        let _guard = FREE_CALLS_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         FREE_CALLS.store(0, Ordering::SeqCst);
         let mut a = 1u8;
         let mut b = 2u8;
@@ -207,6 +218,64 @@ mod tests {
     }
 
     #[test]
+    fn vec_with_capacity_spare_capacity_round_trip_models_recv_fill() {
+        // Raw-buffer-transfer regression for issue #16.
+        // The workspace's recommended alternative to
+        // `Vec::from_raw_parts` for the "Rust allocates, foreign code
+        // writes" pattern is `Vec::with_capacity(N)` +
+        // `spare_capacity_mut()` + `set_len(n)`. This test exercises
+        // that exact shape end-to-end so a future regression that
+        // introduces `Vec::from_raw_parts` instead of this idiom
+        // would have an explicit, named alternative test to
+        // reference.
+        //
+        // Models a foreign `recv`-style fill: Rust allocates a Vec
+        // with a capacity ceiling, hands `spare_capacity_mut()` (a
+        // `&mut [MaybeUninit<u8>]` — the typed safe wrapper around
+        // the spare region) to a simulated foreign filler, the
+        // filler writes `n` bytes through `MaybeUninit::write`,
+        // and Rust calls `set_len(n)` to publish the initialised
+        // prefix. No `Vec::from_raw_parts` is needed; the
+        // allocation never leaves Rust ownership.
+        use std::mem::MaybeUninit;
+
+        fn simulated_recv_fill(buffer: &mut [MaybeUninit<u8>]) -> usize {
+            // Foreign code's invariant: writes `n` bytes through
+            // `MaybeUninit::write`, returns `n`. Never reads
+            // uninitialised memory.
+            let payload: [u8; 7] = *b"PAYLOAD";
+            for (slot, byte) in buffer.iter_mut().zip(payload.iter()) {
+                slot.write(*byte);
+            }
+            payload.len()
+        }
+
+        const CAPACITY: usize = 32;
+        let mut v: Vec<u8> = Vec::with_capacity(CAPACITY);
+        assert_eq!(v.len(), 0, "freshly allocated");
+        assert!(v.capacity() >= CAPACITY, "with_capacity is a lower bound");
+
+        let n = simulated_recv_fill(v.spare_capacity_mut());
+        assert!(n <= v.capacity(), "filler must not overrun capacity");
+
+        // SAFETY: the simulated_recv_fill contract guarantees the
+        // first `n` bytes of the spare region are now valid `u8`
+        // values written via `MaybeUninit::write`. `n <= capacity`
+        // is asserted above. This is the canonical
+        // `with_capacity + spare_capacity_mut + set_len` idiom
+        // documented in docs/rust-soundness-policy.md § "`Vec::
+        // from_raw_parts` ownership transfer" as the workspace's
+        // recommended alternative to `Vec::from_raw_parts`.
+        unsafe { v.set_len(n) };
+
+        assert_eq!(v.len(), n, "len now reflects the initialised prefix");
+        assert_eq!(&v[..], b"PAYLOAD", "initialised bytes are observable");
+        // Capacity remains the original (or larger) — `set_len`
+        // does not shrink the allocation.
+        assert!(v.capacity() >= CAPACITY, "capacity unchanged by set_len");
+    }
+
+    #[test]
     fn scoped_handle_size_invariant_for_ffi_holder() {
         // FFI ownership-transfer regression for issue #15.
         // `ScopedHandle<T, F>` is the canonical holder between
@@ -234,6 +303,7 @@ mod tests {
 
     #[test]
     fn scoped_handle_frees_even_on_panic_unwind() {
+        let _guard = FREE_CALLS_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         FREE_CALLS.store(0, Ordering::SeqCst);
         let mut storage = 0u8;
         let raw: *mut u8 = &mut storage;
