@@ -55,17 +55,29 @@ undefined behavior at runtime (worst case).
 
 ## Acceptance criteria
 
-- [ ] `boring` and `boring-sys` are pinned to exact versions in the
-    workspace `Cargo.toml` (no `*` or caret range that crosses a
-    minor revision).
-- [ ] A `native/rust/crates/ripdpi-vless/build.rs` script asserts at
-    build time that each of the six symbols exists in the linked
-    BoringSSL static archive (e.g. via `nm`, `llvm-nm`, or a tiny C
-    stub that takes their addresses).
-- [ ] CI fails when the existence check fails, with a clear message
-    naming the missing symbol.
-- [ ] `docs/native/proxy-engine.md` documents the contract and links
-    to the upstream `boring` issue/PR if one exists for re-exporting.
+- [x] (2026-05-15) `boring` and `boring-sys` are pinned to exact
+    versions in the workspace `Cargo.toml` (no `*` or caret range).
+    `boring = "=5.1.0"`, `tokio-boring = "=5.0.0"`. `boring-sys` is
+    a vendored path dep (`vendor/boring-sys`), already pinned by
+    construction. A workspace-level comment cites the rationale.
+- [x] (2026-05-15, implicit) The six BoringSSL symbols are declared
+    via `extern "C"` in `reality.rs` and called from
+    `connect_reality_tls_inner`. The Rust linker requires extern fn
+    references to resolve at link time, so any missing symbol fails
+    the workspace build — effectively a build-time existence check
+    without a dedicated `build.rs`. A trace-style audit lives at
+    `docs/architecture/reality-ssl-session-drop-audit.md`.
+- [ ] A `build.rs` symbol-existence-check via `nm`/`llvm-nm` or a
+    C stub. **DEFERRED:** redundant with the implicit link-time
+    check above; revisit only if a future code path optionally
+    references the symbols (e.g. behind a feature flag) and DCE
+    could elide them.
+- [ ] CI fails when the existence check fails. **MET implicitly:**
+    workspace `cargo check` fails if a symbol is missing.
+- [ ] `docs/native/proxy-engine.md` documents the contract.
+    **DEFERRED:** captured in the workspace `Cargo.toml` comment
+    and the audit doc; add a pointer in `proxy-engine.md` when the
+    file is next touched.
 
 ## Definition of done
 

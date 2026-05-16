@@ -242,8 +242,14 @@ md5 = "0.8"
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "std"] }
 url = "2"
-boring = "5"
-tokio-boring = "5"
+# BoringSSL has no stable ABI; the Reality TLS path in ripdpi-vless
+# declares six BoringSSL symbols by hand (see reality.rs extern block).
+# Pin boring and tokio-boring to exact versions so a transitive cargo
+# update cannot silently swap in a vendored-BoringSSL revision that
+# renames or removes any of those symbols. See
+# docs/tasks/issues/pin-boringssl-symbols-with-build-time-existence-check.md.
+boring = "=5.1.0"
+tokio-boring = "=5.0.0"
 webpki-roots = "1.0"
 io-uring = "=0.7.12"
 flume = "0.12"
