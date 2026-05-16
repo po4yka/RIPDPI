@@ -8,7 +8,44 @@ use uuid::Uuid;
 
 use crate::config::Config;
 
-pub(crate) const TUIC_VERSION: u8 = 0x05;
+/// TUIC wire version.
+///
+/// EAimTY/tuic v5 only. Wrapping the byte in a typed enum mirrors the
+/// `ProtocolVersion` pattern in `ripdpi-vless::wire` and the
+/// `MtprotoTransportFamily` enum in `ripdpi-ws-tunnel::mtproto`, and
+/// is the hook point for the future version-mismatch probe diagnostic
+/// (`docs/tasks/issues/introduce-protocol-version-enum-and-version-probe-diagnostic.md`).
+/// v4 is intentionally unsupported per
+/// `docs/architecture/tuic-v4-policy.md` (v5-only policy).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProtocolVersion {
+    /// Wire byte `0x05`.
+    V5,
+}
+
+impl ProtocolVersion {
+    /// All wire-version variants this client can encode.
+    pub const SUPPORTED: &'static [Self] = &[Self::V5];
+
+    /// On-wire byte representation.
+    pub const fn wire_byte(self) -> u8 {
+        match self {
+            Self::V5 => 0x05,
+        }
+    }
+
+    /// Decode a wire byte into a known variant, or `None` for unsupported.
+    pub const fn from_wire_byte(byte: u8) -> Option<Self> {
+        match byte {
+            0x05 => Some(Self::V5),
+            _ => None,
+        }
+    }
+}
+
+/// Backwards-compatible alias for the wire byte. Derived from the
+/// enum so the two cannot drift.
+pub(crate) const TUIC_VERSION: u8 = ProtocolVersion::V5.wire_byte();
 pub(crate) const COMMAND_AUTHENTICATE: u8 = 0x00;
 pub(crate) const COMMAND_CONNECT: u8 = 0x01;
 pub(crate) const COMMAND_PACKET: u8 = 0x02;
@@ -242,4 +279,28 @@ fn take_bytes<'a>(input: &mut &'a [u8], count: usize) -> io::Result<&'a [u8]> {
     let (head, tail) = input.split_at(count);
     *input = tail;
     Ok(head)
+}
+
+#[cfg(test)]
+mod protocol_version_tests {
+    use super::*;
+
+    #[test]
+    fn protocol_version_wire_byte_roundtrip() {
+        for &version in ProtocolVersion::SUPPORTED {
+            assert_eq!(ProtocolVersion::from_wire_byte(version.wire_byte()), Some(version));
+        }
+    }
+
+    #[test]
+    fn protocol_version_from_wire_byte_rejects_unknown() {
+        for byte in [0x00u8, 0x01, 0x04, 0x06, 0xff] {
+            assert_eq!(ProtocolVersion::from_wire_byte(byte), None, "unexpected accept for {byte:#x}");
+        }
+    }
+
+    #[test]
+    fn tuic_version_const_equals_protocol_version_v5_wire_byte() {
+        assert_eq!(TUIC_VERSION, ProtocolVersion::V5.wire_byte());
+    }
 }

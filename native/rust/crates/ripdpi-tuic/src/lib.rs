@@ -12,5 +12,6 @@ mod udp;
 
 pub use client::TuicClient;
 pub use config::Config;
+pub use protocol::ProtocolVersion;
 pub use tcp::DuplexStream;
 pub use udp::UdpSession;
