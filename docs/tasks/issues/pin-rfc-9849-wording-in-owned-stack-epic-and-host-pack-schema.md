@@ -1,7 +1,7 @@
 ---
 title: Pin RFC 9849 wording in owned-stack epic and host-pack schema
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -9,10 +9,23 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-16
 ---
 
-- [ ] #task Pin RFC 9849 wording in owned-stack epic and host-pack schema #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [x] #task Pin RFC 9849 wording in owned-stack epic and host-pack schema #repo/RIPDPI #area/diagnostics #status/done 🔼
+
+## Work log
+
+- 2026-05-16: Updated the in-scope ECH spike doc to cite RFC 9849 in
+  place of `draft-ietf-tls-esni-18`, noting that the entire
+  `draft-ietf-tls-esni-*` series is superseded. Recorded that Conscrypt's
+  `setEchConfigList` / `getEchAccepted` / `setEchRetryConfigs` method
+  names already align with the stable RFC 9849 vocabulary
+  (`ECHConfigList`, `ech_accept_signal`, `retry_configs`) so no rename
+  is required. `core/data/model/` carries no ESNI/ECH textual references.
+  The host-pack catalog (`core/data/catalog/HostPackCatalog.kt`) holds
+  no draft-version string; its ECH fields are byte-blob carriers, which
+  remain valid under RFC 9849.
 
 ## Goal contract
 

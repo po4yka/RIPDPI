@@ -31,7 +31,12 @@ void query(
 `ServiceInfoAnswer` carries a parsed `SvcParams` map that includes the
 `ech` SvcParamKey (key 5, RFC 9460). The raw ECHConfigList bytes are
 accessible via `SvcParams.getEchConfigList()` — a `byte[]` containing
-a valid ECHConfigList as defined in draft-ietf-tls-esni-18.
+a valid ECHConfigList as defined in RFC 9849 (Encrypted ClientHello,
+ratified 2026, supersedes draft-ietf-tls-esni-18 and the entire
+draft-ietf-tls-esni-* series). Conscrypt's `setEchConfigList`,
+`getEchAccepted`, and `setEchRetryConfigs` method names map directly
+to the stable RFC 9849 vocabulary (`ECHConfigList`, `ech_accept_signal`,
+`retry_configs` from §6.1.6) and require no renaming.
 
 **What RIPDPI `core/diagnostics` would need to query it:**
 
