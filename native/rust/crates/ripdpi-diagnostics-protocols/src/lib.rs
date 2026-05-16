@@ -14,3 +14,4 @@ pub mod http;
 pub mod tls;
 pub mod transport;
 pub mod util;
+pub mod version_probe;
