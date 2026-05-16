@@ -12,6 +12,6 @@ mod udp;
 
 pub use client::TuicClient;
 pub use config::Config;
-pub use protocol::ProtocolVersion;
+pub use protocol::{classify_failure_payload, ProtocolVersion, TuicFailureKind};
 pub use tcp::DuplexStream;
 pub use udp::UdpSession;

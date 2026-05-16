@@ -46,6 +46,45 @@ impl ProtocolVersion {
 /// Backwards-compatible alias for the wire byte. Derived from the
 /// enum so the two cannot drift.
 pub(crate) const TUIC_VERSION: u8 = ProtocolVersion::V5.wire_byte();
+
+/// Coarse classification of a failed TUIC handshake payload.
+///
+/// Downstream code maps `VersionUnsupported` to
+/// `ripdpi-failure-classifier::FailureClass::TuicVersionUnsupported`
+/// so the user-visible diagnostic recommends upgrading the server.
+/// The kind is computed locally (no cross-crate dependency) so any
+/// caller — relay engine, diagnostics probe, JNI bridge — can
+/// classify a buffer without pulling in the failure-classifier crate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TuicFailureKind {
+    /// Server replied with a non-v5 version byte (`0x04` is the only
+    /// known prior variant; other bytes also classify here). See
+    /// `docs/architecture/tuic-v4-policy.md`.
+    VersionUnsupported,
+    /// Failure shape that doesn't match a known version mismatch;
+    /// pass through to the generic protocol-failure classifier.
+    Other,
+}
+
+/// Classify a TUIC handshake-failure payload as version mismatch or
+/// generic failure. The payload is whatever bytes were observed on
+/// the wire when the connection failed — typically the first bytes
+/// of the server's reject frame.
+///
+/// A payload starting with any byte that is not the v5 wire byte
+/// classifies as `VersionUnsupported`; the v5 wire byte at offset 0
+/// passes through as `Other` because a failure at v5-handshake time
+/// is some other class (auth, network, etc.).
+///
+/// Empty payloads classify as `Other` — without bytes the kind
+/// cannot be determined.
+pub fn classify_failure_payload(payload: &[u8]) -> TuicFailureKind {
+    match payload.first() {
+        None => TuicFailureKind::Other,
+        Some(&byte) if byte == TUIC_VERSION => TuicFailureKind::Other,
+        Some(_) => TuicFailureKind::VersionUnsupported,
+    }
+}
 pub(crate) const COMMAND_AUTHENTICATE: u8 = 0x00;
 pub(crate) const COMMAND_CONNECT: u8 = 0x01;
 pub(crate) const COMMAND_PACKET: u8 = 0x02;
@@ -302,5 +341,42 @@ mod protocol_version_tests {
     #[test]
     fn tuic_version_const_equals_protocol_version_v5_wire_byte() {
         assert_eq!(TUIC_VERSION, ProtocolVersion::V5.wire_byte());
+    }
+
+    #[test]
+    fn classify_failure_payload_returns_version_unsupported_for_v4_byte() {
+        // A v4-server reject frame starts with the v4 wire byte (0x04).
+        // The classifier must surface this as VersionUnsupported so the
+        // downstream FailureClass::TuicVersionUnsupported is selected.
+        assert_eq!(classify_failure_payload(&[0x04]), TuicFailureKind::VersionUnsupported);
+        assert_eq!(classify_failure_payload(&[0x04, 0xff, 0xfe, 0xfd]), TuicFailureKind::VersionUnsupported);
+    }
+
+    #[test]
+    fn classify_failure_payload_returns_other_for_v5_byte() {
+        // v5 byte at offset 0 means the server speaks v5; failure is
+        // some other class (auth, network, ...). Pass through.
+        assert_eq!(classify_failure_payload(&[0x05]), TuicFailureKind::Other);
+        assert_eq!(classify_failure_payload(&[TUIC_VERSION, 0x00, 0x01]), TuicFailureKind::Other);
+    }
+
+    #[test]
+    fn classify_failure_payload_returns_other_for_empty_payload() {
+        // No bytes -> cannot decide -> Other (caller will fall through
+        // to generic protocol-failure classification).
+        assert_eq!(classify_failure_payload(&[]), TuicFailureKind::Other);
+    }
+
+    #[test]
+    fn classify_failure_payload_treats_arbitrary_non_v5_bytes_as_version_unsupported() {
+        // Any non-v5 byte at offset 0 is a version mismatch signal.
+        // Cover representative bytes including 0x00, 0x01, 0xff.
+        for byte in [0x00u8, 0x01, 0x02, 0x03, 0x06, 0x7f, 0xff] {
+            assert_eq!(
+                classify_failure_payload(&[byte]),
+                TuicFailureKind::VersionUnsupported,
+                "byte {byte:#x} must classify as VersionUnsupported",
+            );
+        }
     }
 }
