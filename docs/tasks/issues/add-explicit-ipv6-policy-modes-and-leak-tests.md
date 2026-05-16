@@ -1,7 +1,7 @@
 ---
 title: Add explicit IPv6 policy modes and leak tests
 type: task
-status: backlog
+status: done
 area: vpn
 priority: critical
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Add explicit IPv6 policy modes and leak tests #repo/RIPDPI #area/vpn #status/backlog 🔺
+- [x] #task Add explicit IPv6 policy modes and leak tests #repo/RIPDPI #area/vpn #status/done 🔺
 
 ## Goal contract
 

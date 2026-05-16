@@ -102,6 +102,8 @@ pub fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
         FailureClass::ConnectionFreeze => DETECT_CONNECTION_FREEZE,
         FailureClass::Unknown => 0,
         FailureClass::CapabilitySkipped => 0,
+        FailureClass::TuicVersionUnsupported => 0,
+        FailureClass::ShadowTlsVersionMismatch => 0,
     }
 }
 

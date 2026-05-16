@@ -185,8 +185,19 @@ enum class ProfileDnsMode {
 /** IPv6 handling policy. */
 @Serializable
 enum class Ipv6Policy {
+    /**
+     * Secure default: no IPv6 address, route, DNS, or allowFamily(AF_INET6) is
+     * programmed into the VPN tunnel. All IPv6 traffic is suppressed.
+     */
+    IPV4_ONLY,
+
+    /** Full dual-stack: IPv6 TUN address, ::/0 route, AAAA DNS forwarded through tunnel. */
     ALLOW,
+
+    /** IPv6 is blocked at the application layer but no tunnel artefacts are added. */
     BLOCK,
+
+    /** Prefer IPv6 paths when available; falls back to IPv4. */
     PREFER,
 
     /** AAAA queries are forwarded to the resolver unchanged. */
@@ -298,7 +309,7 @@ data class DeviceProfile(
     val activeOutboundTag: String = "",
     val dns: ProfileDnsConfig = ProfileDnsConfig(),
     val routing: ProfileRoutingConfig = ProfileRoutingConfig(),
-    val ipv6Policy: Ipv6Policy = Ipv6Policy.ALLOW,
+    val ipv6Policy: Ipv6Policy = Ipv6Policy.IPV4_ONLY,
     val killSwitchMode: KillSwitchMode = KillSwitchMode.OFF,
     val subscriptionState: SubscriptionState = SubscriptionState(),
     /** Epoch-millis timestamp after which this profile is considered expired; `null` means no expiry. */
