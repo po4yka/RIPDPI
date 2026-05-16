@@ -15,7 +15,9 @@ pub use httpupgrade::{
     build_upgrade_request, parse_upgrade_response, HttpUpgradeConfig, HttpUpgradeError, HttpUpgradeTransport,
     UpgradeResponse,
 };
-pub use mtproto::{classify_mtproto_seed, decrypt_init_packet, extract_dc_from_init, MtprotoSeedClassification};
+pub use mtproto::{
+    classify_mtproto_seed, decrypt_init_packet, extract_dc_from_init, MtprotoSeedClassification, MtprotoTransportFamily,
+};
 pub use transport::{build_ws_request, EarlyData, WsTransport, WsTransportConfig, WsTransportError};
 
 /// Configuration for a WebSocket tunnel connection.

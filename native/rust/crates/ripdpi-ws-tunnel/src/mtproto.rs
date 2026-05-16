@@ -14,7 +14,50 @@ const ENCRYPTED_PREFIX_PADDED_INTERMEDIATE: u32 = 0xdddd_dddd;
 const ENCRYPTED_PREFIX_INTERMEDIATE: u32 = 0xeeee_eeee;
 const ENCRYPTED_PREFIX_ABRIDGED: u32 = 0xefef_efef;
 
-const ALLOWED_PROTOCOL_TAGS: [[u8; 4]; 3] = [[0xdd; 4], [0xee; 4], [0xef; 4]];
+/// MTProto obfuscated2 transport family identifier.
+///
+/// Telegram's published transport selectors carry one of three repeated-
+/// byte tags in bytes `[56..60]` of the decrypted init buffer. Wrapping
+/// them in a typed enum lets diagnostics distinguish "wrong family" from
+/// "not MTProto at all" and gives a hook point for future per-family
+/// stats. Mirrors the `ProtocolVersion` pattern in `ripdpi-vless` and
+/// `ripdpi-tuic` (see
+/// `docs/tasks/issues/introduce-protocol-version-enum-and-version-probe-diagnostic.md`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MtprotoTransportFamily {
+    /// `0xdddddddd` — padded intermediate.
+    PaddedIntermediate,
+    /// `0xeeeeeeee` — intermediate.
+    Intermediate,
+    /// `0xefefefef` — abridged.
+    Abridged,
+}
+
+impl MtprotoTransportFamily {
+    /// Every transport family this client recognises.
+    pub const SUPPORTED: &'static [Self] = &[Self::PaddedIntermediate, Self::Intermediate, Self::Abridged];
+
+    /// 4-byte tag pattern as it appears in `decrypted[56..60]`.
+    pub const fn tag_bytes(self) -> [u8; 4] {
+        match self {
+            Self::PaddedIntermediate => [0xdd; 4],
+            Self::Intermediate => [0xee; 4],
+            Self::Abridged => [0xef; 4],
+        }
+    }
+
+    /// Decode a 4-byte tag from the decrypted init into a known
+    /// transport family, or `None` for unrecognised.
+    pub fn from_tag_bytes(tag: &[u8; 4]) -> Option<Self> {
+        Self::SUPPORTED.iter().find(|&&family| family.tag_bytes() == *tag).copied()
+    }
+}
+
+const ALLOWED_PROTOCOL_TAGS: [[u8; 4]; 3] = [
+    MtprotoTransportFamily::PaddedIntermediate.tag_bytes(),
+    MtprotoTransportFamily::Intermediate.tag_bytes(),
+    MtprotoTransportFamily::Abridged.tag_bytes(),
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MtprotoSeedClassification {
@@ -200,5 +243,37 @@ mod tests {
 
         assert_eq!(&decrypted[56..60], &[0xdd; 4]);
         assert_eq!(i32::from_le_bytes(decrypted[60..64].try_into().expect("raw dc")), 10_004);
+    }
+
+    #[test]
+    fn transport_family_tag_bytes_match_known_canonical_tags() {
+        assert_eq!(MtprotoTransportFamily::PaddedIntermediate.tag_bytes(), [0xdd; 4]);
+        assert_eq!(MtprotoTransportFamily::Intermediate.tag_bytes(), [0xee; 4]);
+        assert_eq!(MtprotoTransportFamily::Abridged.tag_bytes(), [0xef; 4]);
+    }
+
+    #[test]
+    fn transport_family_from_tag_bytes_roundtrips_supported_variants() {
+        for &family in MtprotoTransportFamily::SUPPORTED {
+            assert_eq!(MtprotoTransportFamily::from_tag_bytes(&family.tag_bytes()), Some(family));
+        }
+    }
+
+    #[test]
+    fn transport_family_from_tag_bytes_rejects_unknown() {
+        // Any tag that isn't a repeated dd/ee/ef must not classify.
+        for tag in [[0xaa; 4], [0x00; 4], [0xff; 4], [0xde, 0xad, 0xbe, 0xef]] {
+            assert_eq!(MtprotoTransportFamily::from_tag_bytes(&tag), None, "unexpected accept for {tag:?}");
+        }
+    }
+
+    #[test]
+    fn allowed_protocol_tags_const_matches_enum_supported() {
+        // The legacy ALLOWED_PROTOCOL_TAGS const is now derived from
+        // MtprotoTransportFamily::SUPPORTED; the array order must match
+        // the SUPPORTED slice order so anywhere that indexes into the
+        // const stays aligned with the enum.
+        let derived: Vec<[u8; 4]> = MtprotoTransportFamily::SUPPORTED.iter().map(|f| f.tag_bytes()).collect();
+        assert_eq!(ALLOWED_PROTOCOL_TAGS.to_vec(), derived);
     }
 }
