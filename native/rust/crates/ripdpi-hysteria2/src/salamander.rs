@@ -188,4 +188,80 @@ mod tests {
         let decoded = codec.decode(&ciphertext).expect("decode synthetic ciphertext");
         assert_eq!(decoded, plaintext, "decode must invert XOR-with-keystream construction");
     }
+
+    /// Conformance-fixture harness for upstream Salamander vectors.
+    /// Walks every `.bin` file under
+    /// `contract-fixtures/hysteria2/<tag>/salamander/<key-hex>/`
+    /// where the parent directory name encodes the obfuscation key
+    /// as hex, and each `.bin` file's contents are `salt(8) +
+    /// ciphertext`. The harness decodes each file, asserts the
+    /// payload length is `file_len - 8`, and asserts decode never
+    /// panics.
+    ///
+    /// When no fixtures are present (the current bootstrap state),
+    /// the test passes — the harness exists so dropping upstream
+    /// vectors in unlocks coverage automatically.
+    ///
+    /// Tracks the upstream-conformance side of
+    /// `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
+    #[test]
+    fn upstream_salamander_fixtures_decode_cleanly() {
+        let fixtures_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../../contract-fixtures/hysteria2");
+        if !fixtures_root.exists() {
+            return;
+        }
+        let mut count = 0usize;
+        let tag_dirs = std::fs::read_dir(&fixtures_root)
+            .expect("read contract-fixtures/hysteria2")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false));
+        for tag in tag_dirs {
+            let salamander_dir = tag.path().join("salamander");
+            if !salamander_dir.exists() {
+                continue;
+            }
+            for key_entry in std::fs::read_dir(&salamander_dir).expect("read salamander dir") {
+                let key_entry = key_entry.expect("dir entry");
+                if !key_entry.file_type().expect("file type").is_dir() {
+                    continue;
+                }
+                let key_hex = key_entry.file_name().to_string_lossy().into_owned();
+                let key = match hex_decode_simple(&key_hex) {
+                    Some(k) => k,
+                    None => continue,
+                };
+                let codec = SalamanderCodec::new(key);
+                for entry in std::fs::read_dir(key_entry.path()).expect("read key dir") {
+                    let path = entry.expect("dir entry").path();
+                    if path.extension().and_then(|s| s.to_str()) != Some("bin") {
+                        continue;
+                    }
+                    let wire = std::fs::read(&path).expect("read fixture");
+                    assert!(wire.len() >= 8, "fixture {path:?} shorter than 8-byte salt prefix");
+                    let decoded = codec.decode(&wire).unwrap_or_else(|err| panic!("decode {path:?}: {err}"));
+                    assert_eq!(
+                        decoded.len(),
+                        wire.len() - 8,
+                        "salamander decode length must equal ciphertext - salt prefix for fixture {path:?}",
+                    );
+                    count += 1;
+                }
+            }
+        }
+        eprintln!("upstream_salamander_fixtures_decode_cleanly: exercised {count} fixtures");
+    }
+
+    fn hex_decode_simple(s: &str) -> Option<Vec<u8>> {
+        if s.len() % 2 != 0 {
+            return None;
+        }
+        let mut out = Vec::with_capacity(s.len() / 2);
+        for chunk in s.as_bytes().chunks(2) {
+            let hi = (chunk[0] as char).to_digit(16)?;
+            let lo = (chunk[1] as char).to_digit(16)?;
+            out.push(((hi << 4) | lo) as u8);
+        }
+        Some(out)
+    }
 }
