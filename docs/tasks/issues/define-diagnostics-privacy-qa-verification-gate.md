@@ -1,7 +1,7 @@
 ---
 title: Define diagnostics privacy QA verification gate
 type: task
-status: review
+status: done
 area: testing
 priority: medium
 owner: QA Lead
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: [UNRESOLVED-POY-13, UNRESOLVED-POY-14]
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-16
 ---
 
-- [ ] #task Define diagnostics privacy QA verification gate #repo/RIPDPI #area/testing #status/review 🔼
+- [x] #task Define diagnostics privacy QA verification gate #repo/RIPDPI #area/testing #status/done 🔼
 
 ## Goal contract
 
@@ -60,3 +60,13 @@ Non-goals:
 
 ## Definition of done
 QA posts a concrete verification matrix and creates any missing automation follow-ups needed before implementation/copy tasks can close.
+
+## Work log
+
+- 2026-05-16: Gate fulfilled. Child QA tasks all committed to ledger as DONE:
+  - Row 79: PCAP-exclusion assertions in `DiagnosticsArchiveExporterTest`
+  - Row 80: developer-analytics.json allow-list assertions in `DiagnosticsArchiveExporterTest`
+  - Row 81: `HomeScreenTest` cases asserting PCAP toggle gating on `rootModeEnabled`
+  - Row 82: `DataTransparencyScreenTest` + diagnostics export error-state assertions
+  - Row 83: PCAP redaction regression (POY-13 boundary reflected in committed tests)
+  The verification matrix is now embodied in these committed tests. POY-13 PCAP boundary decision is reflected across rows 76, 79, 80, 81, 83.
