@@ -13,6 +13,42 @@ Guide agents through writing, reviewing, and auditing unsafe Rust in RIPDPI's 23
 
 Pure-logic crates MUST carry `#![forbid(unsafe_code)]` at the crate root. Currently enforced in: `ripdpi-failure-classifier`, `ripdpi-ipfrag`, `ripdpi-desync`, `ripdpi-session`, `ripdpi-config`, `ripdpi-packets`. When creating a new crate that has no FFI or OS-level calls, add the attribute. When reviewing, verify it has not been removed without justification.
 
+## Lint floor for unsafe crates
+
+**Severity: CRITICAL — these lints are non-negotiable for any crate that contains `unsafe`**
+
+Pure-logic crates carry `#![forbid(unsafe_code)]`. Crates that legitimately contain `unsafe` (FFI adapters, syscall wrappers, the io_loop bridge) MUST carry the lint floor below at the crate root:
+
+```rust
+// Required for every crate that contains `unsafe`.
+#![deny(unsafe_op_in_unsafe_fn)]
+#![warn(
+    clippy::undocumented_unsafe_blocks,
+    clippy::multiple_unsafe_ops_per_block,
+    clippy::missing_safety_doc,
+)]
+```
+
+What each lint forces:
+
+| Lint | Forces | What it catches in LLM-generated code |
+|------|--------|----------------------------------------|
+| `unsafe_op_in_unsafe_fn` | Every unsafe op inside an `unsafe fn` must still be inside `unsafe { ... }` | LLM sees `unsafe fn` and stops writing `// SAFETY:` per-operation — this lint forces the discipline back |
+| `clippy::undocumented_unsafe_blocks` | Every `unsafe { ... }` block needs a preceding `// SAFETY:` comment | Bare `unsafe` blocks with no justification |
+| `clippy::multiple_unsafe_ops_per_block` | Each unsafe operation needs its OWN SAFETY entry; one comment for a block of three deref + cast + transmute is rejected | LLM writes one paragraph for a block containing 3 unsafe ops, missing that each has its own invariant |
+| `clippy::missing_safety_doc` | Every `pub unsafe fn` needs a `# Safety` rustdoc section listing caller obligations | LLM writes `pub unsafe fn` and skips the rustdoc block |
+
+These lints belong in `[workspace.lints.clippy]` at deny/warn level (see `rust-lints` skill); applying them at the crate root reinforces the workspace setting and makes the requirement visible in the crate's own source.
+
+### Audit checklist when adding `unsafe` to a previously safe crate
+
+1. Add the lint floor above to `lib.rs` / `main.rs`.
+2. If the crate previously carried `#![forbid(unsafe_code)]`, removing it is a change that requires a tracking comment with a tracking issue number — see the `Governance` section above.
+3. Run `cargo clippy -p <crate> --all-targets -- -D warnings` BEFORE writing the unsafe body, to confirm the lint floor is active and would catch a bare `unsafe { ... }`.
+4. Write the unsafe body, run clippy again, and confirm the SAFETY comments pass.
+5. Add a Miri test (if non-FFI) or a `cargo-careful` test (if FFI) under `#[cfg_attr(miri, ignore)]` gating.
+6. Cross-reference in this skill's "When to use unsafe in RIPDPI" section: does the new unsafe site fit a documented category, or does it need a new category entry?
+
 ## The five unsafe superpowers
 
 1. **Dereference raw pointers** (`*const T`, `*mut T`)

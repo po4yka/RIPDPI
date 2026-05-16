@@ -47,6 +47,41 @@ Skim AI-generated Rust diffs first for these patterns. Each one is a 70%+ predic
 - `tokio::select!` arm calling a function with no cancel-safety annotation → audit the awaits inside.
 - `commit().await?` on a transaction with no explicit rollback path on commit-failure → blocking Drop in async context.
 
+### Multi-model orchestration
+
+The two May-2026 frontier models have different shapes; use both, never just one for the same long task:
+
+- **Claude Opus 4.7** (claude-opus-4-7): literal instruction-following, high loop-resistance, verbose. Best as **generator** for large refactors, new module scaffolding, and PRs that need precise spec adherence. Self-output verification is built in — the model will re-check its own diff before claiming completion.
+- **GPT-5.5** (via codex:rescue): ~72% fewer output tokens for equivalent task. Best for **long agentic cycles** with tools (clippy → fix → check → fix → clippy → ...). On Terminal-Bench 2.0 (82.0–82.7%) the cycle efficiency is the single biggest win.
+
+**Generator + critic pattern**: one model writes the diff, the other reviews it before commit. The strongest empirical configuration:
+
+1. Opus 4.7 writes the implementation (generator), following CLAUDE.md / AGENTS.md inviolable rules literally.
+2. `codex:rescue` (GPT-5.5) reads the diff and runs `cargo clippy -- -D warnings`, `cargo check --locked`, `cargo +nightly miri test` (when applicable). The critic role is constrained to oracle outputs, not stylistic opinion.
+3. If the critic returns findings, the generator iterates. Cap iterations at 5 — beyond that the task is mis-scoped and should be split.
+
+Inverse routing (GPT-5.5 as generator, Opus as critic) is preferred for cycle-heavy tasks where the diff is small per iteration but the iteration count is high — e.g., chasing a long clippy warning list across many crates.
+
+For sub-agent dispatch: `rust-api-auditor`, `unsafe-code-auditor`, `async-cancel-safety` pin to `opus` (deep analysis). `rust-test-runner`, `regression-detector` use `sonnet` (mid-tier, faster). Match the agent's existing model pin in `.claude/agents/<name>.md` rather than overriding per-call.
+
+### `--locked` discipline in agentic flows
+
+Every cargo invocation issued by an agent — sub-agent Bash command, hook script, slash command, manual diagnostic — MUST pass `--locked`. Rationale:
+
+- Without `--locked`, cargo may transparently bump a dependency that was previously vetted by `cargo deny check`. The vetting becomes stale silently.
+- Agentic loops that run `cargo build` repeatedly without `--locked` can drift `Cargo.lock` across iterations, producing diffs unrelated to the task.
+- The `rust-toolchain.toml` pin (`rust-toolchain-pin.md` rule) provides the channel guarantee; `--locked` provides the dependency-version guarantee. They are complementary.
+
+Exception: `cargo update -p <crate> --precise <version>` and `cargo update --workspace` are the only valid ways to bump deps, and they must be in their own PR.
+
+### rust-analyzer MCP — query before guessing
+
+When a model would otherwise need to "guess" a Rust type, lifetime, trait bound, or signature, the model MUST first query rust-analyzer (via MCP, when available) for `hover` / `find_references` / `goto_definition` on the relevant identifier. Empirical: this reduces retry-to-compile by ~2× for borrow-checker errors specifically.
+
+Hook this into sub-agent dispatch: any agent whose prompt involves a type or borrow-checker question should be told "consult rust-analyzer MCP before guessing." For the `borrow-checker-reviewer` agent class, this is mandatory; for general code generation, it is strongly preferred.
+
+When rust-analyzer MCP is not configured, the fallback is `cargo expand -p <crate> <module>` (for macro-related questions) and reading the `cargo doc --no-deps --message-format=json` output (for cross-crate types). Never let the model guess a signature when one of these tools can answer in < 5 seconds.
+
 ### When the LLM disagrees with this rule file
 
 The LLM is wrong. The rules are derived from production failures, not theory. Push back; do not accept "but the code compiles" as an answer.
@@ -54,7 +89,11 @@ The LLM is wrong. The rules are derived from production failures, not theory. Pu
 ### Cross-references
 
 - `rust-discipline` skill — items 22–25 cover the lifetime/blanket-impl/stack-array sentinels above.
-- `rust-unsafe` skill — pointer reads from untrusted byte buffers section.
-- `rust-async-internals` skill — cancel-safety annotation discipline and library Drop contracts.
+- `rust-lints` skill — canonical `[workspace.lints]` and `clippy.toml` template that catches the sentinels at build time.
+- `rust-unsafe` skill — pointer reads from untrusted byte buffers section; lint floor for unsafe crates.
+- `rust-async-internals` skill — cancel-safety annotation discipline, library Drop contracts, async closures, extended `CancellationToken` patterns.
+- `rust-test-tools` skill — cargo-careful / loom / proptest / fuzz / mutants beyond the standard `cargo test`.
 - `rust-sanitizers-miri` skill — Miri configuration for the nightly UB-detection job.
 - `rust-security` skill — RUSTSEC triage SLA for advisories surfacing via `cargo audit`.
+- `rust-toolchain-pin.md` rule — toolchain channel pin and `--locked` discipline.
+- `async-cancel-safety` sub-agent — the automated audit for the cancel-safety requirements in this file.

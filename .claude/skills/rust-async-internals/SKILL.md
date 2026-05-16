@@ -186,6 +186,64 @@ for structured shutdown. The tunnel session state machine transitions through
 `Ready -> Starting -> Running -> Destroyed`, with the token stored in the
 `Starting` and `Running` variants.
 
+### CancellationToken: child tokens, DropGuard, run_until_cancelled
+
+`tokio_util::sync::CancellationToken` exposes three idioms beyond `.cancelled().await` that RIPDPI should use for structured concurrency:
+
+**Child tokens — parent cancels children, but child cancellation does not cancel parent.**
+
+```rust
+// Parent owns the master token. Each spawned session holds a child token.
+let master = CancellationToken::new();
+for session_id in sessions {
+    let child = master.child_token();
+    tokio::spawn(async move {
+        run_session(session_id, child).await
+    });
+}
+// Later: master.cancel() — propagates to every child.
+// A single child can fail without taking down siblings:
+//   child.cancel() inside one task affects only that task.
+```
+
+Use for: per-session lifetimes inside a tunnel runtime. The parent runtime token cancels every session on shutdown; a single session's failure does not cancel siblings.
+
+**DropGuard — cancellation on RAII boundary.**
+
+```rust
+let token = CancellationToken::new();
+let _guard = token.clone().drop_guard();
+// ... do work, possibly with early returns / ? ...
+// When _guard drops (early return, panic, end of scope), token is cancelled
+// automatically. Spawned tasks that hold `token.clone()` observe cancellation.
+```
+
+Use for: bounded async operations where cancellation must fire on any early exit. Replaces the manual `defer!`-style cleanup that the discipline skill warns about.
+
+**`run_until_cancelled` — race a future against cancellation, returning the future's value.**
+
+```rust
+use tokio_util::sync::CancellationToken;
+
+let token = parent.child_token();
+match token.run_until_cancelled(do_work()).await {
+    Some(value) => process(value),           // do_work completed
+    None         => log::info!("cancelled"), // cancellation fired first
+}
+```
+
+Equivalent to `tokio::select! { v = do_work() => Some(v), _ = token.cancelled() => None }` but reads better and avoids the `select!`-arm-cancellation footgun (the losing branch is dropped — make sure `do_work` is cancel-safe before using this).
+
+### Structured concurrency status (as of 1.94)
+
+Rust does not have first-class structured concurrency. The community RFC (tokio-rs/tokio#1879, tokio-uring#81) is open. Until it lands, `CancellationToken` + `JoinSet` is the canonical pattern:
+
+- **`JoinSet`** owns a set of spawned tasks. `join_next().await` returns the next-completed result. `abort_all()` aborts all tasks. Dropping the `JoinSet` aborts all tasks (does NOT wait for them — see the existing `JoinSet drop cannot abort spawn_blocking` rule).
+- Pair `JoinSet` + a parent `CancellationToken` with `child_token()` per task for graceful cancellation in addition to abrupt abort.
+- For task supervision (restart-on-failure), do not roll your own — use a supervised pool crate (`tokio_graceful`, `async-stream` patterns) and document the policy.
+
+Rule: any `for x in xs { tokio::spawn(work(x)); }` loop with N > 1 is a refactor candidate. Either use `JoinSet::spawn` + `join_next` or `futures::future::join_all` (bounded N) / `futures::stream::iter(...).buffer_unordered(K)` (bounded concurrency).
+
 ## Cancel-safety is an untyped invariant — annotate explicitly
 
 **Severity: CRITICAL when used inside `select!` / `timeout`**
@@ -313,6 +371,36 @@ Note: `tokio-console` is not practical for this project -- it requires the
 `tokio_unstable` cfg flag and `console-subscriber`, which add overhead and
 complexity to Android NDK cross-compilation. Use `tracing` spans and
 `RUST_LOG` filtering instead.
+
+## Async closures and the `AsyncFn` family (stable since Rust 1.85)
+
+**Severity: INFO — replaces several long-standing workarounds**
+
+Rust 1.85 (February 2025, RFC 3668) stabilized `async ||` closures and the `AsyncFn` / `AsyncFnMut` / `AsyncFnOnce` trait family. This resolves two long-standing pain points that `rust-async-internals` previously called out under "HRTB pitfalls":
+
+1. Higher-ranked async signatures `for<'a> Fn(&'a T) -> impl Future + 'a` could not be expressed without GATs; `AsyncFn` handles them natively.
+2. Returning futures that borrow from captured state required `Box<dyn Future + '_>` workarounds; `async ||` infers the right bound.
+
+```rust
+// PREFERRED (1.85+):
+fn register<F>(callback: F) where F: AsyncFn(&str) -> Result<u32> { ... }
+let cb = async |s: &str| { do_work(s).await };
+register(cb);
+
+// LEGACY (still works, but verbose and less inferable):
+fn register<F, Fut>(callback: F)
+where F: Fn(&str) -> Fut, Fut: Future<Output = Result<u32>> { ... }
+let cb = |s: &str| async move { do_work(s).await };
+```
+
+Rules for RIPDPI (workspace MSRV is 1.94 — `async ||` is available everywhere):
+
+1. New higher-ranked async bounds: prefer `F: AsyncFn(Args) -> T` over `F: Fn(Args) -> impl Future`.
+2. New callbacks captured into structs that span `tokio::spawn`: still need `+ Send + 'static`. The `AsyncFn` family does NOT auto-add `Send`; use `trait_variant::make` or write the bound explicitly: `F: AsyncFn(Args) -> T + Send + Sync + 'static`.
+3. Do NOT mass-rewrite existing `|x| async move { ... }` to `async |x|` in unrelated diffs. Migrate site-by-site when touching the callback site for another reason. Premature churn obscures git blame.
+4. The legacy HRTB workarounds in the section below (`force_hrtb`, `Box<dyn for<'a> Fn(&'a str) -> ...>`) remain documented for reference but should not be used in new code.
+
+Reference: [RFC 3668](https://github.com/rust-lang/rfcs/blob/master/text/3668-async-closures.md), Rust 1.85 release notes.
 
 ## HRTB pitfalls in `Fn` callbacks
 
