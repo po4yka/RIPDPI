@@ -6,6 +6,10 @@ use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime, ExecutionStageId, 
 
 use super::telegram_record::record_telegram_probe;
 
+const PHASE: &str = "telegram";
+#[cfg(test)]
+pub(super) const PHASE_TEST: &str = PHASE;
+
 pub(in crate::engine::runners) struct TelegramRunner;
 
 impl ExecutionStageRunner for TelegramRunner {
@@ -14,7 +18,7 @@ impl ExecutionStageRunner for TelegramRunner {
     }
 
     fn phase(&self) -> &'static str {
-        "telegram"
+        PHASE
     }
 
     fn total_steps(&self, plan: &ExecutionPlan) -> usize {

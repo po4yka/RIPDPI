@@ -1,7 +1,7 @@
 ---
 title: Add phase/artifact-source byte-identity regression test for connectivity stage runners
 type: task
-status: doing
+status: done
 area: testing
 priority: high
 owner: Test Automation Engineer
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-16
 ---
 
-- [ ] #task Add phase/artifact-source byte-identity regression test for connectivity stage runners #repo/RIPDPI #area/testing #status/doing ⏫
+- [x] #task Add phase/artifact-source byte-identity regression test for connectivity stage runners #repo/RIPDPI #area/testing #status/done ⏫
 
 ## Goal contract
 

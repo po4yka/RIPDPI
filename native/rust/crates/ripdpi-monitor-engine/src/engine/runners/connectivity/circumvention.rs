@@ -38,3 +38,8 @@ impl ConnectivityProbeFamily for CircumventionFamily {
 }
 
 impl_connectivity_runner!(CircumventionRunner, CircumventionFamily, Circumvention);
+
+#[cfg(test)]
+pub(super) const PHASE: &str = CircumventionFamily::PHASE;
+#[cfg(test)]
+pub(super) const ARTIFACT_SOURCE: &str = CircumventionFamily::ARTIFACT_SOURCE;

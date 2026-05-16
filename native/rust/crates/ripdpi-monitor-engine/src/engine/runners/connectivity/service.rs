@@ -38,3 +38,8 @@ impl ConnectivityProbeFamily for ServiceFamily {
 }
 
 impl_connectivity_runner!(ServiceRunner, ServiceFamily, Service);
+
+#[cfg(test)]
+pub(super) const PHASE: &str = ServiceFamily::PHASE;
+#[cfg(test)]
+pub(super) const ARTIFACT_SOURCE: &str = ServiceFamily::ARTIFACT_SOURCE;

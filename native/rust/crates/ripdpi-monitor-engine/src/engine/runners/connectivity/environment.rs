@@ -8,6 +8,13 @@ use crate::engine::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
 };
 
+const PHASE: &str = "environment";
+const ARTIFACT_SOURCE: &str = "network_environment";
+#[cfg(test)]
+pub(super) const PHASE_TEST: &str = PHASE;
+#[cfg(test)]
+pub(super) const ARTIFACT_SOURCE_TEST: &str = ARTIFACT_SOURCE;
+
 pub(in crate::engine::runners) struct EnvironmentRunner;
 
 impl ExecutionStageRunner for EnvironmentRunner {
@@ -16,7 +23,7 @@ impl ExecutionStageRunner for EnvironmentRunner {
     }
 
     fn phase(&self) -> &'static str {
-        "environment"
+        PHASE
     }
 
     fn total_steps(&self, plan: &ExecutionPlan) -> usize {
@@ -33,7 +40,7 @@ impl ExecutionStageRunner for EnvironmentRunner {
             return RunnerOutcome::Completed;
         };
         let probe = build_network_environment_probe(Some(snapshot)).expect("snapshot probe");
-        let artifacts = RunnerArtifacts::from_probe(probe.clone(), "network_environment", &plan.request.path_mode);
+        let artifacts = RunnerArtifacts::from_probe(probe.clone(), ARTIFACT_SOURCE, &plan.request.path_mode);
         runtime.record_step(
             plan,
             self.phase(),

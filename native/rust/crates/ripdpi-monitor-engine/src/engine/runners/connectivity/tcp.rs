@@ -38,3 +38,8 @@ impl ConnectivityProbeFamily for TcpFamily {
 }
 
 impl_connectivity_runner!(TcpRunner, TcpFamily, Tcp);
+
+#[cfg(test)]
+pub(super) const PHASE: &str = TcpFamily::PHASE;
+#[cfg(test)]
+pub(super) const ARTIFACT_SOURCE: &str = TcpFamily::ARTIFACT_SOURCE;

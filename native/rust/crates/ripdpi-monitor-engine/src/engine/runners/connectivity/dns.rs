@@ -58,3 +58,8 @@ impl ExecutionStageRunner for DnsRunner {
         collect_family_steps::<DnsFamily>(plan, cancel, tls_verifier)
     }
 }
+
+#[cfg(test)]
+pub(super) const PHASE: &str = DnsFamily::PHASE;
+#[cfg(test)]
+pub(super) const ARTIFACT_SOURCE: &str = DnsFamily::ARTIFACT_SOURCE;

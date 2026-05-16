@@ -38,3 +38,8 @@ impl ConnectivityProbeFamily for ThroughputFamily {
 }
 
 impl_connectivity_runner!(ThroughputRunner, ThroughputFamily, Throughput);
+
+#[cfg(test)]
+pub(super) const PHASE: &str = ThroughputFamily::PHASE;
+#[cfg(test)]
+pub(super) const ARTIFACT_SOURCE: &str = ThroughputFamily::ARTIFACT_SOURCE;

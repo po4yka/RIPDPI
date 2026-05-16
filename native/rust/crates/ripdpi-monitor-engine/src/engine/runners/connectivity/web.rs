@@ -41,3 +41,8 @@ impl ConnectivityProbeFamily for WebFamily {
 }
 
 impl_connectivity_runner!(WebRunner, WebFamily, Web);
+
+#[cfg(test)]
+pub(super) const PHASE: &str = WebFamily::PHASE;
+#[cfg(test)]
+pub(super) const ARTIFACT_SOURCE: &str = WebFamily::ARTIFACT_SOURCE;
