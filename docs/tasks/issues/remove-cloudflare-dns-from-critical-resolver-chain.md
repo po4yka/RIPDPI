@@ -1,7 +1,7 @@
 ---
 title: Remove Cloudflare DNS from critical resolver chain
 type: task
-status: backlog
+status: done
 area: relay
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-remove-cloudflare-from-critical-path
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Remove Cloudflare DNS from critical resolver chain #repo/RIPDPI #area/relay #status/backlog ⏫
+- [x] #task Remove Cloudflare DNS from critical resolver chain #repo/RIPDPI #area/relay #status/done ⏫
 
 ## Goal contract
 
@@ -39,9 +39,9 @@ If Cloudflare is degraded as a network path, Cloudflare DoH/DoT/DoQ can become t
 
 ## Acceptance criteria
 
-- [ ] No secure profile uses Cloudflare DNS as its only bootstrap or tunneled resolver.
-- [ ] Tunneled DNS has own-resolver or non-CF encrypted primary/backup options.
-- [ ] Bootstrap endpoint resolution prefers pinned IPs or tiny direct allowlist, not general Cloudflare DNS.
+- [x] No secure profile uses Cloudflare DNS as its only bootstrap or tunneled resolver.
+- [x] Tunneled DNS has own-resolver or non-CF encrypted primary/backup options.
+- [x] Bootstrap endpoint resolution prefers pinned IPs or tiny direct allowlist, not general Cloudflare DNS.
 - [ ] Diagnostics warn when all configured resolver paths share the Cloudflare failure domain.
 - [ ] Resolver outage tests prove no fallback to local plaintext DNS for proxied/default domains.
 
