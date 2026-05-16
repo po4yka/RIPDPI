@@ -113,7 +113,8 @@ on every PR. It looks for the following risky patterns under
 | `&mut Option<NonNull<T>>` | The slot-extractor form (`fn take(slot: &mut Option<NonNull<T>>) -> Option<NonNull<T>>`) is the most acute UAF/double-free vector: a function can `take()` while a safe-code caller already holds a duplicate of the original slot. |
 | `debug_assert near unsafe` (proximity ≤ 10 lines) | `debug_assert!` is compiled out in release; placing one within 10 source lines of an `unsafe` keyword suggests the debug-only assertion is acting as the safety guard. Per Mandatory Invariant #3, the actual safety check must be a release-mode `assert!` / `Result` / type-level encoding. See "`debug_assert!` as memory-safety guard" below. |
 | `CStr::from_ptr` | Materializes a `&CStr` whose bytes are scanned for a NUL terminator starting at a raw pointer. The pointee must be a valid NUL-terminated C string in an allocation that lives at least as long as the returned `&CStr`. See "Creating `&T` from raw pointers" below. |
-| `str::from_utf8_unchecked` | Asserts the input bytes are valid UTF-8 without checking. A regression here invalidates the `str` invariant and produces UB on any subsequent UTF-8 operation. Prefer `str::from_utf8` (release-mode validation) unless the bytes come from a checked source documented in the SAFETY comment. |
+| `str::from_utf8_unchecked` | Asserts the input bytes are valid UTF-8 without checking. A regression here invalidates the `str` invariant and produces UB on any subsequent UTF-8 operation. Prefer `str::from_utf8` (release-mode validation) unless the bytes come from a checked source documented in the SAFETY comment. See "Unsafe `String`/`str` construction" below. |
+| `String::from_utf8_unchecked` | The owned counterpart of `str::from_utf8_unchecked`: turns a `Vec<u8>` into a `String` without validating UTF-8. Same UB risk as the borrowed variant, separate scanner pattern because the input is owned (so the validity argument must cover the ownership transfer too). Prefer `String::from_utf8` (returns `Result<String, FromUtf8Error>`) or `String::from_utf8_lossy` (substitutes U+FFFD for invalid sequences). See "Unsafe `String`/`str` construction" below. |
 | `UnsafeCell::get` (deref form `*cell.get()`) | Materialises `&mut T` / `&T` from `*mut T` and bypasses Rust's borrow check. The exclusivity invariant — at most one accessor of the cell at any moment — must be enforced by the surrounding type design. The bare `.get()` method (without the `*` deref) is filtered out so unrelated `.get()` callers (HashMap, Vec, Option, AtomicPtr) are not flagged. See "Creating `&mut T` from raw memory" below. |
 | `Cell<bool>` | `Cell<bool>` is a common cheap way to encode lifecycle state, but the value's mutation has no synchronisation cost and no exclusivity discipline. Use a typestate / RAII guard / Mutex instead. See "Ownership must be types, not flags" below. |
 | `ownership flag near drop/unsafe` (proximity ≤ 50 lines) | A `bool` field named `registered`, `is_alive`, `destroyed`, `initialized`, `disowned`, `owned_by_*`, or `freed` that lives within 50 source lines of an `impl Drop` or `unsafe` keyword. Per issue-#11 audit, ownership/liveness must be encoded by the type system, not by flags + comments. See "Ownership must be types, not flags" below. |
@@ -1014,6 +1015,149 @@ because `String` adds the UTF-8 invariant):
 8. Unique ownership (which holder type carries the parts
    between `into_raw_parts` and `from_raw_parts`, and why
    it is `!Copy + !Clone`).
+
+## Unsafe `String`/`str` construction
+
+`String` and `&str` carry an additional invariant beyond
+`Vec<u8>`: the byte contents MUST be valid UTF-8 in the
+Unicode standard's strict sense (well-formed UTF-8, no
+overlong encodings, no surrogate code points, no invalid
+continuation bytes). The library and the language both
+assume this invariant for every operation: `chars()`
+iteration, `.len()`/`.is_char_boundary()`/`.split_at()`,
+formatting, slicing with `&s[a..b]`, and all higher-level
+APIs (regex, parser combinators, JSON). Violating it
+produces UB on the very next read, even if the bad bytes
+are never directly observed.
+
+Four unsafe constructors can violate this invariant:
+
+| API | Skipped check | Owned? |
+|---|---|---|
+| `String::from_raw_parts(ptr, len, cap)` | UTF-8 validity AND every `Vec::from_raw_parts` precondition | Yes |
+| `String::from_utf8_unchecked(bytes)` | UTF-8 validity (allocation already Rust-owned) | Yes |
+| `str::from_utf8_unchecked(&bytes)` | UTF-8 validity (borrowed) | No |
+| `str::from_boxed_utf8_unchecked` | UTF-8 validity (boxed) | Yes |
+
+The audit checklist for each occurrence:
+
+1. **UTF-8 validity proof.** Where do the bytes come from?
+   The proof MUST be either:
+   - Bytes copied verbatim from another `&str` / `String`
+     (already valid by the source's invariant).
+   - Output of a known-UTF-8-correct producer (Rust's
+     `format!`, `serde_json`'s output writer, etc.)
+     with the producer named in the SAFETY comment.
+   - A previously-validated slice; the validation site MUST
+     be in the same function or a same-crate helper with
+     a documented type-state transition.
+   - Trivially-UTF-8 bytes by construction (ASCII-only
+     output, hex-digit alphabet, base64 alphabet, etc.)
+     with the construction step named.
+
+   Network / file / FFI / parser input is **never** a
+   sound source — there's always a hostile path that
+   plants malformed bytes. Use `String::from_utf8`,
+   `str::from_utf8`, or `String::from_utf8_lossy`
+   instead.
+2. **Initialised.** Same checklist point as
+   `Vec::from_raw_parts`: bytes `[0, len)` of the
+   allocation must be initialised. UB if any byte in
+   that range is `MaybeUninit`-uninitialised.
+3. **Live.** The pointee must outlive the returned
+   reference's lifetime. For `str::from_utf8_unchecked`
+   this is bounded by the input slice; for the owned
+   variants the new `String` takes ownership and the
+   liveness chain transfers to it.
+4. **Unique ownership (owned variants only).** Same
+   checklist point as `Vec::from_raw_parts`: no aliased
+   `Vec<u8>`/`&[u8]`/`&str` to the same buffer may exist
+   while the new `String` is live.
+5. **`len`/`cap` correctness (`String::from_raw_parts`
+   only).** Inherits every `Vec::from_raw_parts`
+   precondition above, plus the UTF-8 invariant. The
+   compound contract is the strictest in std.
+
+**Rule.** Application code SHOULD NOT use any of the
+four unsafe `String`/`str` constructors. The preferred
+shapes, in order:
+
+1. **`String::from_utf8(bytes)` (returns `Result`).** The
+   release-mode validated alternative; one linear scan
+   over the bytes. This is the workspace's default and
+   appears at every parser/network boundary
+   (`ripdpi-warp-core/src/socks.rs`,
+   `ripdpi-tuic/src/protocol.rs`,
+   `ripdpi-relay-core/src/socks/auth.rs`,
+   `ripdpi-diagnostics-tls/src/tls/certs.rs`,
+   `ripdpi-geo/src/lib.rs`).
+2. **`String::from_utf8_lossy(&bytes)` (returns
+   `Cow<str>`).** Use when the input is best-effort
+   logging/classification and invalid sequences should
+   be substituted with U+FFFD rather than rejected.
+   Used by the failure-classifier crates
+   (`ripdpi-failure-classifier`) and packet introspection
+   (`ripdpi-packets/src/classify.rs`).
+3. **`str::from_utf8(&bytes)` (returns `Result`).** The
+   borrowed variant; same one-scan cost. Used at the
+   parser boundaries (`ripdpi-vless/src/wire.rs`,
+   `ripdpi-naiveproxy/src/connect_tunnel.rs`,
+   `ripdpi-relay-core/src/socks/udp_frame.rs`,
+   `ripdpi-shared-priors/src/lib.rs`, the DoH chunk
+   reader).
+4. **Bytes-only API.** If the consumer doesn't need a
+   `str`/`String`, keep the data as `&[u8]` / `Vec<u8>` /
+   `bstr::BStr` and skip the validation entirely. The
+   `ripdpi-packets` HTTP host-extraction path stays
+   `&[u8]` until the final `from_utf8_lossy` at the
+   classifier surface.
+
+**Anti-patterns.**
+
+- `String::from_utf8_unchecked(network_response)` —
+  hostile input is **never** guaranteed UTF-8. Always
+  use the validated `String::from_utf8`.
+- `str::from_utf8_unchecked(&buf[..n])` where `buf` is a
+  recv buffer — same problem; use `str::from_utf8` and
+  propagate the `Result`.
+- `String::from_raw_parts(ptr, len, cap)` — combines
+  every `Vec::from_raw_parts` failure mode with the
+  UTF-8 invariant. There is no situation in this
+  workspace where this is the right tool.
+- `String::from_utf8(bytes).unwrap()` on a non-trusted
+  input — moves the panic from validation to the
+  unwrap site without fixing the underlying issue. Use
+  `String::from_utf8(bytes).map_err(...)` or
+  `String::from_utf8_lossy(&bytes).into_owned()`.
+
+**Workspace inventory.** As of issue #17: **zero**
+production occurrences of `String::from_raw_parts`,
+`String::from_utf8_unchecked`,
+`str::from_utf8_unchecked`, or
+`str::from_boxed_utf8_unchecked`. Every byte-to-string
+conversion in the workspace uses one of the four
+preferred shapes above. The scanner enforces zero
+baseline going forward.
+
+**Allowlist entry requirements.** A `String::from_raw_parts`,
+`String::from_utf8_unchecked`, or
+`str::from_utf8_unchecked` allowlist entry's
+`enforcement` field MUST address every point of the
+checklist above:
+
+1. UTF-8 validity proof (which producer / validator
+   guarantees the input is valid UTF-8, and why that
+   guarantee survives every reachable code path).
+2. Initialised (matching `Vec::from_raw_parts`
+   discipline for the owned variants).
+3. Live (lifetime argument).
+4. Unique ownership (owned variants only).
+5. `len`/`cap` correctness (`from_raw_parts` only).
+
+For `String::from_raw_parts` specifically, the
+allowlist entry must address ALL eight
+`Vec::from_raw_parts` checklist points PLUS UTF-8
+validity — the strictest single-API contract in std.
 
 ## Ownership must be types, not flags
 

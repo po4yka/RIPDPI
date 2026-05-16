@@ -147,6 +147,18 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # validating UTF-8. A safe-API regression here invalidates the
     # `str` invariant and produces UB on any subsequent UTF-8 operation.
     "str::from_utf8_unchecked": re.compile(r"\b(?:std::|core::)?str::from_utf8_unchecked\b"),
+    # String::from_utf8_unchecked turns `Vec<u8>` into `String`
+    # without validating UTF-8. The owned counterpart of
+    # `str::from_utf8_unchecked`: same UB risk, same documentation
+    # requirement, separate audit because the input is owned rather
+    # than borrowed (so the validity argument must also cover the
+    # full ownership transfer). Per docs/rust-soundness-policy.md
+    # § "Unsafe `String`/`str` construction", new occurrences must
+    # restructure (use `String::from_utf8`, which returns a
+    # `Result<String, FromUtf8Error>` at the cost of one linear
+    # scan) or earn an allowlist entry naming the source of the
+    # UTF-8 guarantee.
+    "String::from_utf8_unchecked": re.compile(r"\bString::from_utf8_unchecked\b"),
     # UnsafeCell::get returns `*mut T` from `&UnsafeCell<T>`. Dereferencing
     # it to produce `&mut T` (the canonical `unsafe { (*cell.get()).as_mut() }`
     # pattern) bypasses Rust's shared-vs-exclusive borrow check entirely;

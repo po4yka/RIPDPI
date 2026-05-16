@@ -315,6 +315,30 @@ class ScanRegressionTests(unittest.TestCase):
             "let s = String::from_utf8(bytes)?;",
         ):
             self.assertFalse(_has(_scan(fragment), "str::from_utf8_unchecked"), msg=fragment)
+            self.assertFalse(_has(_scan(fragment), "String::from_utf8_unchecked"), msg=fragment)
+
+    def test_string_from_utf8_unchecked_flagged(self) -> None:
+        # Issue #17: the owned counterpart of `str::from_utf8_unchecked`
+        # must surface as a distinct scanner finding. Both bare and
+        # method-syntax-equivalent forms must trip.
+        for fragment in (
+            "let s = unsafe { String::from_utf8_unchecked(bytes) };",
+            "let s: String = unsafe { String::from_utf8_unchecked(v) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "String::from_utf8_unchecked"), msg=fragment)
+
+    def test_safe_string_from_utf8_does_not_match_unchecked(self) -> None:
+        # The safe `String::from_utf8` (release-mode validation, Result
+        # return) and `String::from_utf8_lossy` MUST NOT trigger the
+        # unchecked pattern. These are the workspace's two recommended
+        # alternatives per docs/rust-soundness-policy.md.
+        for fragment in (
+            "let s = String::from_utf8(bytes)?;",
+            "let s = String::from_utf8(v).unwrap();",
+            "let s = String::from_utf8_lossy(bytes).into_owned();",
+            "let s = String::from_utf8_lossy(&buf).to_string();",
+        ):
+            self.assertFalse(_has(_scan(fragment), "String::from_utf8_unchecked"), msg=fragment)
 
     def test_unsafe_cell_get_deref_flagged(self) -> None:
         for fragment in (
