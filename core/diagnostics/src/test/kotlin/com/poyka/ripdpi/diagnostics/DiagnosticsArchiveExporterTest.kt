@@ -401,13 +401,200 @@ class DiagnosticsArchiveExporterTest {
         )
     }
 
+    @Test
+    fun `createArchive excludes pcap from share archive when root mode disabled`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-share",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Share session",
+                ).copy(serviceMode = "vpn")
+            seedSingleSessionStore(stores, session)
+            val context = TestContext()
+            seedPcapFile(context)
+            val exporter = createArchiveExporter(stores, context = context, rootModeEnabled = false)
+
+            val archive =
+                exporter.createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 100L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                assertNoPcapEntries(zip)
+            }
+        }
+
+    @Test
+    fun `createArchive excludes pcap from save archive when root mode disabled`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-save",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Save session",
+                ).copy(serviceMode = "vpn")
+            seedSingleSessionStore(stores, session)
+            val context = TestContext()
+            seedPcapFile(context)
+            val exporter = createArchiveExporter(stores, context = context, rootModeEnabled = false)
+
+            val archive =
+                exporter.createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SAVE_ARCHIVE,
+                        requestedAt = 101L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                assertNoPcapEntries(zip)
+            }
+        }
+
+    @Test
+    fun `createArchive excludes pcap from support bundle when root mode disabled`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-bundle",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Bundle session",
+                ).copy(serviceMode = "vpn")
+            stores.sessionsState.value = listOf(session)
+            val context = TestContext()
+            seedPcapFile(context)
+            val exporter = createArchiveExporter(stores, context = context, rootModeEnabled = false)
+
+            val archive =
+                exporter.createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = null,
+                        reason = DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE,
+                        requestedAt = 102L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                assertNoPcapEntries(zip)
+            }
+        }
+
+    @Test
+    fun `createArchive excludes pcap from home composite when root mode disabled`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            seedCompositeSessionStores(stores)
+            val outcome = buildSampleCompositeOutcome()
+            compositeRunService.putCompletedRun(outcome)
+            val context = TestContext()
+            seedPcapFile(context)
+            val exporter = createArchiveExporter(stores, context = context, rootModeEnabled = false)
+
+            val archive =
+                exporter.createArchive(
+                    DiagnosticsArchiveRequest(
+                        sessionIds = outcome.bundleSessionIds,
+                        homeRunId = outcome.runId,
+                        reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
+                        requestedAt = 103L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                assertNoPcapEntries(zip)
+            }
+        }
+
+    @Test
+    fun `createArchive includes pcap only with explicit advanced opt-in`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-root",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Root session",
+                ).copy(serviceMode = "vpn")
+            seedSingleSessionStore(stores, session)
+            val context = TestContext()
+            seedPcapFile(context)
+            val exporter = createArchiveExporter(stores, context = context, rootModeEnabled = true)
+
+            val archive =
+                exporter.createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 104L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                val pcapEntries =
+                    zip
+                        .entries()
+                        .asSequence()
+                        .filter { it.name.endsWith(".pcap") }
+                        .toList()
+                assertTrue(
+                    "Expected at least one pcap entry with root mode enabled",
+                    pcapEntries.isNotEmpty(),
+                )
+            }
+        }
+
+    private fun seedPcapFile(context: TestContext) {
+        val pcapDir = java.io.File(context.cacheDir, "diagnostics").apply { mkdirs() }
+        java.io.File(pcapDir, "capture-fixture.pcap").writeBytes(byteArrayOf(0xA1.toByte(), 0xB2.toByte()))
+    }
+
+    private fun assertNoPcapEntries(zip: java.util.zip.ZipFile) {
+        val pcapEntries =
+            zip
+                .entries()
+                .asSequence()
+                .filter { entry ->
+                    entry.name.endsWith(".pcap") || entry.name.startsWith("pcap/")
+                }.toList()
+        assertTrue(
+            "Expected zero pcap entries but found: ${pcapEntries.map { it.name }}",
+            pcapEntries.isEmpty(),
+        )
+    }
+
     private fun createArchiveExporter(stores: FakeDiagnosticsHistoryStores): DefaultDiagnosticsArchiveExporter {
         val context = TestContext()
+        return createArchiveExporter(stores, context = context, rootModeEnabled = false)
+    }
+
+    private fun createArchiveExporter(
+        stores: FakeDiagnosticsHistoryStores,
+        context: TestContext,
+        rootModeEnabled: Boolean,
+    ): DefaultDiagnosticsArchiveExporter {
+        val appSettings =
+            defaultDiagnosticsAppSettings()
+                .toBuilder()
+                .setRootModeEnabled(rootModeEnabled)
+                .build()
         return DefaultDiagnosticsArchiveExporter(
             artifactWriteStore = stores,
             sourceLoader =
                 DiagnosticsArchiveSourceLoader(
-                    appSettingsRepository = FakeAppSettingsRepository(),
+                    appSettingsRepository = FakeAppSettingsRepository(appSettings),
                     scanRecordStore = stores,
                     artifactReadStore = stores,
                     bypassUsageHistoryStore = stores,

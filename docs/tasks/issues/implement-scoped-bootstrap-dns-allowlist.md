@@ -1,7 +1,7 @@
 ---
 title: Implement scoped bootstrap DNS allowlist
 type: task
-status: backlog
+status: done
 area: vpn
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Implement scoped bootstrap DNS allowlist #repo/RIPDPI #area/vpn #status/backlog ⏫
+- [x] #task Implement scoped bootstrap DNS allowlist #repo/RIPDPI #area/vpn #status/done ⏫
 
 ## Goal contract
 
@@ -39,11 +39,11 @@ Cold-start DNS is a leak risk and a routing-loop risk. RIPDPI should avoid the p
 
 ## Acceptance criteria
 
-- [ ] Bootstrap resolver rejects names outside the profile allowlist.
-- [ ] Bootstrap `AAAA` is disabled unless the profile IPv6 mode is dual-stack.
-- [ ] Pinned endpoint IPs are preferred over system resolution when present.
-- [ ] Last-known-good endpoint cache has bounded TTL and is tagged as bootstrap-derived.
-- [ ] Bootstrap failure produces a typed state and never enables general ISP DNS fallback.
+- [x] Bootstrap resolver rejects names outside the profile allowlist.
+- [x] Bootstrap `AAAA` is disabled unless the profile IPv6 mode is dual-stack.
+- [x] Pinned endpoint IPs are preferred over system resolution when present.
+- [x] Last-known-good endpoint cache has bounded TTL and is tagged as bootstrap-derived.
+- [x] Bootstrap failure produces a typed state and never enables general ISP DNS fallback.
 
 ## Design notes
 
