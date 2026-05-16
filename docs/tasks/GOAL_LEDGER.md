@@ -87,7 +87,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 64 | P4 | `enforce-fail-closed-vpnservice-lifecycle`<br>Enforce fail-closed VpnService lifecycle | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |
 | 65 | P4 | `harden-doh-post-resolver-client`<br>Harden DoH POST resolver client | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |
 | 66 | P4 | `implement-scoped-bootstrap-dns-allowlist`<br>Implement scoped bootstrap DNS allowlist | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |
-| 67 | P4 | `implement-strict-tunneled-dns-resolver-failover`<br>Implement strict tunneled DNS resolver failover | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |
+| 67 | P4 | `implement-strict-tunneled-dns-resolver-failover`<br>Implement strict tunneled DNS resolver failover | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | DONE | just test-module core:service (exit 1; 1 pre-existing unrelated failure only) |
 | 68 | P4 | `remove-cloudflare-dns-from-critical-resolver-chain`<br>Remove Cloudflare DNS from critical resolver chain | task | `epic-remove-cloudflare-from-critical-path` | relay | ⏫ | TODO | |
 | 69 | P4 | `epic-remove-cloudflare-from-critical-path`<br>Epic - Remove Cloudflare from critical path | epic | `—` | relay | 🔺 | TODO | |
 | 70 | P4 | `add-cancellation-environmentrunner-short-circuit-fixture-tests-for`<br>Add cancellation + EnvironmentRunner short-circuit fixture tests for connectivity runners | task | `(no epic)` | testing | ⏫ | TODO | |

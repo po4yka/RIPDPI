@@ -1,7 +1,7 @@
 ---
 title: Implement strict tunneled DNS resolver failover
 type: task
-status: backlog
+status: done
 area: vpn
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Implement strict tunneled DNS resolver failover #repo/RIPDPI #area/vpn #status/backlog ⏫
+- [x] #task Implement strict tunneled DNS resolver failover #repo/RIPDPI #area/vpn #status/done ⏫
 
 ## Goal contract
 
@@ -39,11 +39,11 @@ The most dangerous DNS bug is turning resolver outage into an ISP DNS leak. Prox
 
 ## Acceptance criteria
 
-- [ ] Proxy DNS tries configured encrypted resolvers through the active outbound first.
-- [ ] If active outbound DNS fails, only explicitly allowed encrypted DNS fallback outbounds are attempted.
-- [ ] Total failure returns `DNS_FAILED_STRICT` or equivalent and `SERVFAIL`/blocked state to callers.
-- [ ] No code path uses system/local plaintext DNS for proxy/default domains after strict failure.
-- [ ] Tests cover remote DoH block, DoT block, DoQ block, proxy-outbound failure, and cache-assisted recovery.
+- [x] Proxy DNS tries configured encrypted resolvers through the active outbound first.
+- [x] If active outbound DNS fails, only explicitly allowed encrypted DNS fallback outbounds are attempted.
+- [x] Total failure returns `DNS_FAILED_STRICT` or equivalent and `SERVFAIL`/blocked state to callers.
+- [x] No code path uses system/local plaintext DNS for proxy/default domains after strict failure.
+- [x] Tests cover remote DoH block, DoT block, DoQ block, proxy-outbound failure, and cache-assisted recovery.
 
 ## Design notes
 
