@@ -69,3 +69,44 @@ for why these checks run on the AI-generation path specifically. Empirical
 finding: PostToolUse blocking with `exit 2` is the single biggest behaviour
 shift for Opus 4.7 on Rust — the model sees its own clippy error inline and
 fixes on the next turn, without a separate user prompt.
+
+## Rust-analyzer MCP wiring (recommended)
+
+The `llm-rust-prompts.md` rule mandates "query rust-analyzer before guessing a Rust type or signature." This is only effective if a rust-analyzer MCP server is wired into `.claude/settings.json`. RIPDPI does not ship this config (settings.json is gitignored — see `.claude/settings.example.json` for the recommended template), so each developer wires their own.
+
+### Choose one of two MCP servers
+
+| Server | Source | Notes |
+|--------|--------|-------|
+| `zeenix/rust-analyzer-mcp` | `cargo install --git https://github.com/zeenix/rust-analyzer-mcp` | Native Rust; tools: get_symbols, goto_definition, find_references, hover, completion, format, code_actions, diagnostics. |
+| `bug-ops/mcpls` | `cargo install --git https://github.com/bug-ops/mcpls` | Universal MCP↔LSP bridge; speaks any LSP 3.17 server. |
+
+### Wire it into `.claude/settings.json`
+
+```json
+{
+  "mcpServers": {
+    "rust-analyzer": {
+      "command": "rust-analyzer-mcp",
+      "args": [],
+      "cwd": "${workspaceFolder}/native/rust"
+    }
+  }
+}
+```
+
+See the full example in `.claude/settings.example.json`.
+
+### Verify
+
+After wiring, restart Claude Code. The MCP should be queryable by tool name `mcp__rust-analyzer__*`. A smoke test:
+
+```
+Ask Claude: "Hover over `tokio::spawn` in <some file> using rust-analyzer MCP."
+```
+
+If the tool responds with the actual type signature, the MCP is live. If Claude says "the MCP isn't available," the wiring failed — check `.claude/settings.json` syntax with `jq . .claude/settings.json`.
+
+### Empirical payoff
+
+Cited in `llm-rust-prompts.md`: ~2× fewer retry-to-compile iterations on borrow-checker errors when rust-analyzer MCP is the first tool the model reaches for. This is the highest-ROI MCP wiring in the project.

@@ -67,6 +67,10 @@ pre-commit:
       glob: "native/rust/**"
       run: python3 scripts/ci/check_native_architecture_contracts.py
 
+    harness-link-audit:
+      glob: ".claude/**"
+      run: python3 scripts/ci/check_harness_links.py --report-only
+
 commit-msg:
   commands:
     conventional-commit:
