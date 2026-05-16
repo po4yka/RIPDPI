@@ -3604,6 +3604,14 @@ name = "ripdpi-diagnostics-pcap"
 version = "0.1.0"
 
 [[package]]
+name = "ripdpi-diagnostics-probes"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-http",
+]
+
+[[package]]
 name = "ripdpi-diagnostics-protocols"
 version = "0.1.0"
 dependencies = [
@@ -4217,6 +4225,7 @@ name = "ripdpi-shared-priors"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "rand 0.10.1",
  "ring",
  "serde",
  "serde_json",
@@ -4466,6 +4475,7 @@ dependencies = [
  "tokio",
  "tokio-boring",
  "tracing",
+ "tracing-subscriber",
  "x25519-dalek",
 ]
 

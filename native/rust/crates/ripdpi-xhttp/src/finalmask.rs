@@ -30,10 +30,7 @@ pub fn __fuzz_parse_finalmask_spec(config: &crate::config::FinalmaskConfig) -> s
 /// Hidden from generated docs — intended for `cargo-fuzz` harnesses
 /// in `native/rust/fuzz/`. Not stable public API.
 #[doc(hidden)]
-pub fn __fuzz_decode_finalmask_payload(
-    config: &crate::config::FinalmaskConfig,
-    payload: &[u8],
-) -> std::io::Result<()> {
+pub fn __fuzz_decode_finalmask_payload(config: &crate::config::FinalmaskConfig, payload: &[u8]) -> std::io::Result<()> {
     let Some(spec) = spec::FinalmaskSpec::from_config(config)? else {
         return Ok(());
     };

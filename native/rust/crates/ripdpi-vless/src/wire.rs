@@ -210,7 +210,8 @@ pub fn parse_response_header(bytes: &[u8]) -> Result<usize, ParseRequestError> {
         return Err(ParseRequestError::NeedMoreData);
     }
     let addons_len = usize::from(bytes[1]);
-    let total = 2usize.checked_add(addons_len).ok_or_else(|| ParseRequestError::Invalid("addons_len overflow".to_owned()))?;
+    let total =
+        2usize.checked_add(addons_len).ok_or_else(|| ParseRequestError::Invalid("addons_len overflow".to_owned()))?;
     if bytes.len() < total {
         return Err(ParseRequestError::NeedMoreData);
     }
@@ -381,7 +382,7 @@ mod tests {
     #[test]
     fn parse_response_header_accepts_max_addons() {
         let mut input = vec![0x00, 0xff];
-        input.extend(std::iter::repeat(0x00).take(255));
+        input.extend(std::iter::repeat_n(0x00, 255));
         assert_eq!(parse_response_header(&input), Ok(2 + 255));
     }
 }

@@ -371,10 +371,7 @@ mod tests {
             "tracing event exposes UUID: {joined}",
         );
         let reality_key_hex_run = "AB".repeat(32);
-        assert!(
-            !joined.contains(&reality_key_hex_run),
-            "tracing event exposes REALITY public key (hex): {joined}",
-        );
+        assert!(!joined.contains(&reality_key_hex_run), "tracing event exposes REALITY public key (hex): {joined}",);
         assert!(
             !joined.contains("171, 171, 171, 171"),
             "tracing event exposes REALITY public key (int array): {joined}",

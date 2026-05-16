@@ -82,9 +82,9 @@ pub static BUILTIN_FINGERPRINTS: &[HttpInjectionFingerprint] = &[
 ///
 /// * `status`  — HTTP status code (use `0` to signal connection-reset).
 /// * `headers` — response headers as `(name, value)` pairs; names are
-///               compared case-insensitively.
+///   compared case-insensitively.
 /// * `body`    — response body as a UTF-8 string slice (pass an empty string
-///               when the body is absent or binary).
+///   when the body is absent or binary).
 pub fn classify_http_response(status: u16, headers: &[(String, String)], body: &str) -> InjectionVerdict {
     // Sentinel: caller signals a TCP reset with status 0.
     if status == 0 {

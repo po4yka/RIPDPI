@@ -49,18 +49,12 @@ impl Probe for HttpInjectionOfflineProbe {
         let verdict = match classify_http_response(self.status, &self.headers, &self.body) {
             InjectionVerdict::Clean => ProbeVerdict::Pass,
             InjectionVerdict::Injected(class) => ProbeVerdict::Fail { class },
-            InjectionVerdict::RedirectToPortal => ProbeVerdict::Fail {
-                class: "captive-portal-redirect".to_string(),
-            },
-            InjectionVerdict::ConnectionResetAfterRequest => ProbeVerdict::Fail {
-                class: "tcp-reset-after-request".to_string(),
-            },
+            InjectionVerdict::RedirectToPortal => ProbeVerdict::Fail { class: "captive-portal-redirect".to_string() },
+            InjectionVerdict::ConnectionResetAfterRequest => {
+                ProbeVerdict::Fail { class: "tcp-reset-after-request".to_string() }
+            }
         };
-        ProbeOutcome {
-            probe_id: self.id(),
-            family: self.family(),
-            verdict,
-        }
+        ProbeOutcome { probe_id: self.id(), family: self.family(), verdict }
     }
 }
 
@@ -74,11 +68,8 @@ mod tests {
 
     #[test]
     fn clean_response_yields_pass() {
-        let probe = HttpInjectionOfflineProbe::new(
-            200,
-            vec![hdr("content-type", "text/html")],
-            "<html>ok</html>".to_string(),
-        );
+        let probe =
+            HttpInjectionOfflineProbe::new(200, vec![hdr("content-type", "text/html")], "<html>ok</html>".to_string());
         let outcome = probe.run(&ProbeContext::empty());
         assert_eq!(outcome.probe_id, HTTP_INJECTION_OFFLINE_PROBE_ID);
         assert_eq!(outcome.family, ProbeTaskFamily::Web);

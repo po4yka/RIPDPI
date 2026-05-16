@@ -200,16 +200,10 @@ mod tests {
 
     #[test]
     fn only_cloudflare_adapter_requires_client_certificate() {
-        for mode in [
-            MasqueAuthMode::None,
-            MasqueAuthMode::Bearer,
-            MasqueAuthMode::Preshared,
-            MasqueAuthMode::PrivacyPass,
-        ] {
-            assert!(
-                !adapter_for(mode).requires_client_certificate(),
-                "{mode:?} must NOT require a client certificate",
-            );
+        for mode in
+            [MasqueAuthMode::None, MasqueAuthMode::Bearer, MasqueAuthMode::Preshared, MasqueAuthMode::PrivacyPass]
+        {
+            assert!(!adapter_for(mode).requires_client_certificate(), "{mode:?} must NOT require a client certificate",);
         }
         assert!(
             adapter_for(MasqueAuthMode::CloudflareMtls).requires_client_certificate(),
@@ -219,12 +213,9 @@ mod tests {
 
     #[test]
     fn only_cloudflare_adapter_wants_geohash_header() {
-        for mode in [
-            MasqueAuthMode::None,
-            MasqueAuthMode::Bearer,
-            MasqueAuthMode::Preshared,
-            MasqueAuthMode::PrivacyPass,
-        ] {
+        for mode in
+            [MasqueAuthMode::None, MasqueAuthMode::Bearer, MasqueAuthMode::Preshared, MasqueAuthMode::PrivacyPass]
+        {
             assert!(!adapter_for(mode).wants_geohash_header(), "{mode:?} must NOT want the geohash header");
         }
         assert!(

@@ -57,12 +57,7 @@ impl ProbeContext {
     /// Construct an empty context. Tests and CLI smoke runs use this; the
     /// production runner builds a populated context per probe invocation.
     pub fn empty() -> Self {
-        Self {
-            network_scope_key: None,
-            resolver_hint: None,
-            relay_hint: None,
-            strategy_signature: None,
-        }
+        Self { network_scope_key: None, resolver_hint: None, relay_hint: None, strategy_signature: None }
     }
 }
 
@@ -145,11 +140,7 @@ mod tests {
             ProbeTaskFamily::Web
         }
         fn run(&self, _ctx: &ProbeContext) -> ProbeOutcome {
-            ProbeOutcome {
-                probe_id: self.id(),
-                family: self.family(),
-                verdict: ProbeVerdict::Pass,
-            }
+            ProbeOutcome { probe_id: self.id(), family: self.family(), verdict: ProbeVerdict::Pass }
         }
     }
 
