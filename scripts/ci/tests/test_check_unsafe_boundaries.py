@@ -141,8 +141,37 @@ class ScanRegressionTests(unittest.TestCase):
             self.assertFalse(_has(_scan(fragment), "Vec::from_raw_parts_in"), msg=fragment)
 
     def test_maybeuninit_assume_init_flagged(self) -> None:
-        src = "let value = unsafe { uninit.assume_init() };"
-        self.assertTrue(_has(_scan(src), "MaybeUninit::assume_init"))
+        # Issue #20: all five std-API variants of `assume_init` must
+        # trigger. The previous regex (`\b` anchor after
+        # `assume_init`) silently missed the `_ref` / `_mut` /
+        # `_drop` / `_read` suffixes because `_` is a word
+        # character. The fix uses the std-API-complete list
+        # explicitly.
+        for fragment in (
+            "let value = unsafe { uninit.assume_init() };",
+            "let r: &T = unsafe { uninit.assume_init_ref() };",
+            "let m: &mut T = unsafe { uninit.assume_init_mut() };",
+            "unsafe { uninit.assume_init_drop() };",
+            "let v: T = unsafe { uninit.assume_init_read() };",
+            "let value = unsafe { MaybeUninit::<T>::assume_init(uninit) };",
+            "let r = unsafe { MaybeUninit::<T>::assume_init_ref(&uninit) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "MaybeUninit::assume_init"), msg=fragment)
+
+    def test_safe_maybeuninit_apis_not_flagged(self) -> None:
+        # `MaybeUninit::uninit()`, `MaybeUninit::new(t)`, and
+        # `MaybeUninit::write(value)` are SAFE constructors and
+        # writers — they MUST NOT trigger the assume_init pattern.
+        # `spare_capacity_mut()` is the safe Vec API that returns
+        # `&mut [MaybeUninit<T>]`; bare uses of MaybeUninit's safe
+        # surface must not be misattributed.
+        for fragment in (
+            "let u: MaybeUninit<u8> = MaybeUninit::uninit();",
+            "let u = MaybeUninit::new(42);",
+            "slot.write(value);",
+            "let buf = v.spare_capacity_mut();",
+        ):
+            self.assertFalse(_has(_scan(fragment), "MaybeUninit::assume_init"), msg=fragment)
 
     def test_transmute_flagged(self) -> None:
         for fragment in (

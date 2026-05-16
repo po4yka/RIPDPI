@@ -99,7 +99,7 @@ on every PR. It looks for the following risky patterns under
 | `Box::from_raw`, `Vec::from_raw_parts`, `String::from_raw_parts` | Ownership reconstitution from a raw pointer. See "`Box::into_raw` / `Box::from_raw` ownership transfer" and "`Vec::from_raw_parts` ownership transfer" below. |
 | `Vec::from_raw_parts_in` | Allocator-API variant of `Vec::from_raw_parts`. Same eight-point checklist plus the allocator-compatibility constraint must hold across the call. The base `Vec::from_raw_parts` `\b` regex anchor does NOT match the `_in` suffix because `_` is a word character, so this is a dedicated pattern. See "`Vec::from_raw_parts` ownership transfer" below. |
 | `Box::into_raw` | The matched counterpart of `Box::from_raw`. Scanning only the reclaim side would miss orphaned `into_raw` calls that leak (`mem::forget` equivalent) or that hand the pointer to FFI without a matching `from_raw`. See "`Box::into_raw` / `Box::from_raw` ownership transfer" below. |
-| `.assume_init()` / `MaybeUninit::assume_init` | Promoting `MaybeUninit` to `T` without proof. |
+| `.assume_init()` / `.assume_init_ref()` / `.assume_init_mut()` / `.assume_init_drop()` / `.assume_init_read()` / `MaybeUninit::assume_init(_*)?` | Promoting `MaybeUninit<T>` to `T` (or `&T`/`&mut T`/Drop-target) without proof every byte of the slot is a valid `T` value. UB on the very next read otherwise. The previous regex matched only the base form because the `\b` anchor stopped at `_`; the broadened regex catches all five std-API variants. See "`MaybeUninit` correctness" below. |
 | `mem::transmute` / `transmute::<_,_>` | Reinterpretation cast that bypasses the type system. |
 | `.get_unchecked(_mut)?()`, `.unwrap_unchecked()` | Bounds/option check elision. |
 | `Pin::new_unchecked`, `Pin::get_unchecked_mut` | Pin invariant bypass. |
@@ -1497,6 +1497,159 @@ round-trip test); future allowlisted occurrences in
 production code must add their own Miri coverage in
 the same script so the strict-provenance borrow-
 stacked machine validates them at every PR.
+
+## `MaybeUninit` correctness
+
+`MaybeUninit<T>` is the std-library escape hatch for
+"I have a slot the size and alignment of `T` but I
+have not initialised it yet". The type carries no
+runtime tag; the compiler trusts the programmer to
+prove `T`-validity before any of the five
+`assume_init`-family methods runs. The five methods
+and their failure modes:
+
+| API | Failure mode if slot is uninit |
+|---|---|
+| `MaybeUninit<T>::assume_init(self) -> T` | UB on Drop and on every subsequent read. |
+| `assume_init_ref(&self) -> &T` | UB on every read through the `&T`. |
+| `assume_init_mut(&mut self) -> &mut T` | UB on every read and on the write of a non-trivial `T`. |
+| `assume_init_drop(&mut self)` | UB if Drop reads any uninit field. |
+| `assume_init_read(&self) -> T` | UB on every read of the returned `T`, and the original slot is logically duplicated (`T: Copy`-style) so Drop must not later run on the same allocation. |
+
+The audit checklist for every `assume_init*` call:
+
+1. **Every byte of `T` written.** A producer wrote
+   valid bytes for every field of `T` BEFORE
+   `assume_init` ran. The producer is named in the
+   SAFETY comment (e.g. "the C call `getsockopt`
+   filled all `size_of::<T>()` bytes",
+   "`MaybeUninit::write` was called for each field
+   in the block above").
+2. **Padding handled.** If `T` has padding bytes
+   (e.g. `#[repr(C)] struct { a: u8, b: u32 }` has
+   3 bytes of padding between `a` and `b`), those
+   padding bytes are EITHER zeroed at allocation
+   (e.g. via `mem::zeroed`) OR proven to be
+   irrelevant (the consumer reads only the named
+   fields, never `as_bytes` / `transmute` of the
+   whole struct).
+3. **No `&T` / `&mut T` to uninit memory.** The
+   only sound way to read uninit slots is through
+   `MaybeUninit<T>` (or `&[MaybeUninit<T>]`); even
+   creating a `&T` to uninit memory and immediately
+   discarding it is UB. `MaybeUninit::as_ptr()` is
+   sound (it returns `*const T`, not `&T`).
+4. **Drop semantics.** If `T: Drop` and the slot is
+   only partially initialised on a panic-unwind
+   path, the partial state must not reach Drop. The
+   std reference pattern is `MaybeUninit<T>` slots
+   inside an array with a scope-bound RAII guard
+   that calls `assume_init_drop` only on indices
+   that have been written.
+5. **Reference creation timing.** Between the slot
+   allocation (`MaybeUninit::uninit()`) and the
+   `assume_init`, no code path may borrow the
+   underlying memory as `&T` / `&mut T` — only
+   `&mut [MaybeUninit<T>]` is sound for uninit
+   buffers.
+
+**Rule.** Application code SHOULD NOT use
+`assume_init` family methods. The preferred shapes,
+in order:
+
+1. **Safe constructors.** `T::default()`, struct
+   literals with all fields named, `Vec::new()` +
+   `push`, `String::new()` + `push_str`, etc.
+2. **`array::from_fn(|i| init(i))`** for arrays
+   that can be initialised by a closure. The
+   closure runs in element order; if it panics
+   mid-build, std's drop guard correctly drops the
+   prefix it built.
+3. **`Vec::with_capacity` + `spare_capacity_mut` +
+   guarded `set_len`** (per
+   "`Vec::set_len` initialisation contract"). The
+   `spare_capacity_mut()` typing keeps `MaybeUninit`
+   visible; writes go through
+   `MaybeUninit::write`; `set_len` runs only after
+   the producer reports `n`.
+4. **`unsafe fn` recv-style API directly accepting
+   `&mut [MaybeUninit<T>]`.** Std's
+   `UdpSocket::recv_from` / `TcpStream::read` /
+   `read_buf` accept `&mut [MaybeUninit<u8>]`
+   natively (Rust 1.85+); no `assume_init` needed
+   because the bytes go through
+   `slice::from_raw_parts(..., received)` to
+   produce a `&[u8]` of exactly the initialised
+   prefix. This is the pattern used at the only
+   `MaybeUninit` production site in the workspace
+   (`ripdpi-privileged-ops/src/linux/experimental_tier3/icmp_wrapped_udp.rs`).
+
+**Anti-patterns.**
+
+- `let mut a: [MaybeUninit<T>; N] = unsafe { MaybeUninit::uninit().assume_init() };` —
+  the famous "uninit assume_init" trick. Sound only
+  because `MaybeUninit<T>` has no validity
+  invariant. Use
+  `[const { MaybeUninit::uninit() }; N]` (Rust
+  1.79+) or
+  `MaybeUninit::<[MaybeUninit<T>; N]>::uninit().assume_init()`
+  with a SAFETY comment naming the
+  "MaybeUninit<MaybeUninit<T>> always valid"
+  argument.
+- `let r: &T = unsafe { uninit.assume_init_ref() }`
+  followed by `r.field` when the slot's bytes are
+  partially uninit — UB on the field access.
+- `let v: T = unsafe { uninit.assume_init() }` for
+  `T: Drop` when the slot is only partially
+  initialised — Drop runs on uninit memory.
+- `mem::uninitialized::<T>()` — soft-deprecated;
+  use `MaybeUninit::<T>::uninit()` instead. (The
+  workspace has zero occurrences.)
+
+**Workspace inventory.** As of issue #20:
+
+| Site | Shape | Audit |
+|---|---|---|
+| `ripdpi-privileged-ops/.../icmp_wrapped_udp.rs:27` | `[MaybeUninit<u8>; 8192]` recv buffer, consumed via `slice::from_raw_parts(buf.as_ptr().cast::<u8>(), received)` | Sound. `UdpSocket::recv_from` natively accepts `&mut [MaybeUninit<u8>]` and is documented to initialise the first `received` bytes. The follow-on `slice::from_raw_parts` is allowlisted under issue #6. No `assume_init*` is used. |
+| `ripdpi-vless/.../scoped_handle.rs:304` | Test-mode `&mut [MaybeUninit<u8>]` parameter in `simulated_recv_fill` | Sound. Issue #16 regression test demonstrating the workspace's recommended `with_capacity + spare_capacity_mut + set_len` idiom. Miri-validated. |
+
+**ZERO production `assume_init` / `assume_init_ref` /
+`assume_init_mut` / `assume_init_drop` /
+`assume_init_read` calls** in the entire workspace.
+Every byte-fill operation goes through either
+`recv_from(&mut [MaybeUninit<u8>])` followed by
+`slice::from_raw_parts` (issue-#6-audited) or
+`Vec::with_capacity + spare_capacity_mut +
+MaybeUninit::write + set_len` (issue-#16-audited).
+The scanner enforces zero baseline going forward.
+
+**Allowlist entry requirements.** An
+`MaybeUninit::assume_init` allowlist entry's
+`enforcement` field MUST address every point as
+FIVE NAMED mandatory fields:
+
+1. **Initialisation proof** (which producer wrote
+   every byte of `T`).
+2. **Padding argument** (padding bytes zeroed or
+   proven irrelevant).
+3. **Reference safety** (no `&T`/`&mut T` to
+   uninit memory created before `assume_init`).
+4. **Drop safety** (panic-path guard, or `T: !Drop`
+   stated explicitly).
+5. **Owner** (crate/team, restated in the
+   enforcement summary).
+
+**CI Miri coverage.** Per
+"`Vec::set_len` initialisation contract", any new
+allowlisted `assume_init*` site in production code
+SHOULD also be exercised under Miri in
+`scripts/ci/run-rust-miri.sh`. The existing
+`scoped_handle::tests` Miri coverage validates the
+recommended `with_capacity + spare_capacity_mut +
+set_len` round-trip (which writes via
+`MaybeUninit::write` and would catch a regression
+that introduced unsound `assume_init` usage in the
+same crate).
 
 ## Ownership must be types, not flags
 

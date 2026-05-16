@@ -83,7 +83,22 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # allowlist entry naming the matching `into_raw_parts_in` call
     # site and the eight-point audit checklist.
     "Vec::from_raw_parts_in": re.compile(r"\bVec(::<[^>]*>)?::from_raw_parts_in\b"),
-    "MaybeUninit::assume_init": re.compile(r"\.assume_init\b|MaybeUninit::<[^>]*>::assume_init\b"),
+    # `MaybeUninit::assume_init` (and the four variants documented in
+    # the std API: `assume_init_ref`, `assume_init_mut`,
+    # `assume_init_drop`, `assume_init_read`). The base `assume_init`
+    # promotes `MaybeUninit<T>` to `T` by value; the variants
+    # reinterpret a slot of unknown contents as `&T`/`&mut T`/Drop-
+    # target. All five require every byte of the slot to be a valid
+    # `T` value at the call site — uninit bytes → UB on the very
+    # next read. The previous regex (`\b` anchor after
+    # `assume_init`) silently failed to match `_ref`/`_mut`/`_drop`/
+    # `_read` because `_` is a word character; this version uses
+    # the std-API-complete list explicitly. Issue #20 audit found
+    # ZERO production occurrences of any variant.
+    "MaybeUninit::assume_init": re.compile(
+        r"\.assume_init(?:_ref|_mut|_drop|_read)?\(|"
+        r"MaybeUninit(?:::<[^>]*>)?::assume_init(?:_ref|_mut|_drop|_read)?\b"
+    ),
     "mem::transmute": re.compile(r"\b(std::|core::)?mem::transmute\b|\btransmute(::<[^>]*>)?\("),
     "get_unchecked": re.compile(r"\.get_unchecked(_mut)?\("),
     "unwrap_unchecked": re.compile(r"\.unwrap_unchecked\(\)"),
