@@ -1,7 +1,7 @@
 ---
 title: Gate DoQ on UDP-clean classification
 type: task
-status: todo
+status: done
 area: dns
 priority: medium
 owner: unassigned
@@ -9,10 +9,21 @@ parent: epic-encrypted-dns-and-https-svcb-classifier
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-16
 ---
 
-- [ ] #task Gate DoQ on UDP-clean classification #repo/RIPDPI #area/dns #status/todo 🔼
+- [x] #task Gate DoQ on UDP-clean classification #repo/RIPDPI #area/dns #status/done 🔼
+
+## Work log
+
+- 2026-05-16: Added session-level DoQ demotion memory keyed by
+  `ResolverNetworkScope`. `record_doq_failure(scope)` marks the scope as
+  `udp_suspect`; `is_doq_suppressed_for_scope(scope)` reports the current state.
+  Selection paths in `pool.rs`, `ranking.rs`, and `health_updates.rs`
+  consult the suppression set before offering DoQ. Demotion does not cross
+  sessions (per-instance HashSet); switching to a new scope re-opens DoQ.
+  4 new unit tests in `pool/tests.rs` cover the four spec scenarios.
+- Verify: `cargo nextest run -p ripdpi-dns-resolver` exit 0 (114/114 tests pass).
 
 ## Goal contract
 

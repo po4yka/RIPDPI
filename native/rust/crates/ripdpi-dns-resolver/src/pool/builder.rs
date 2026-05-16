@@ -103,6 +103,7 @@ impl ResolverPoolBuilder {
                 network_scope: self.network_scope,
                 rotation_counter: AtomicUsize::new(0),
                 fallback_cache: Mutex::new(LruCache::new(cache_size)),
+                doq_demoted_scopes: Mutex::new(std::collections::HashSet::new()),
             }),
         })
     }

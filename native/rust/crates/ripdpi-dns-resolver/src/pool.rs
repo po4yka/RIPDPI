@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
 
@@ -27,6 +28,11 @@ struct PoolInner {
     network_scope: ResolverNetworkScope,
     rotation_counter: AtomicUsize,
     fallback_cache: Mutex<LruCache<String, FallbackEntry>>,
+    /// Scopes where a live DoQ failure has been observed in this session.
+    /// Once a scope is recorded here, DoQ resolvers are filtered out for
+    /// the remainder of this pool's lifetime (i.e. the current session).
+    /// This state is NOT shared across pool instances: a new pool = new session.
+    doq_demoted_scopes: Mutex<HashSet<ResolverNetworkScope>>,
 }
 
 /// Multi-endpoint encrypted DNS resolver pool with health-weighted rotation and fallback memory.
@@ -70,6 +76,25 @@ impl ResolverPool {
     /// a single-resolver request flow.
     pub fn record_oracle_observation(&self, label: &str, observation: ResolverOracleObservation) {
         self.inner.health.record_oracle_observation_in_scope(&self.inner.network_scope, label, observation);
+    }
+
+    /// Records a live DoQ failure for the given network scope, demoting DoQ to
+    /// DoH-only for the remainder of this session (this pool's lifetime).
+    ///
+    /// This is a no-op if the scope is already demoted. The demotion is scoped
+    /// to this pool instance; a new pool (new session) starts without any
+    /// demotion state.
+    pub fn record_doq_failure(&self, scope: &ResolverNetworkScope) {
+        if let Ok(mut set) = self.inner.doq_demoted_scopes.lock() {
+            set.insert(scope.clone());
+        }
+    }
+
+    /// Returns `true` when a live DoQ failure has been recorded for the given
+    /// scope in this session, meaning DoQ resolvers must be bypassed in favour
+    /// of DoH for the remainder of this pool's lifetime.
+    pub fn is_doq_suppressed_for_scope(&self, scope: &ResolverNetworkScope) -> bool {
+        self.inner.doq_demoted_scopes.lock().map(|set| set.contains(scope)).unwrap_or(false)
     }
 
     /// Returns the number of resolvers in the pool.

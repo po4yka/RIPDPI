@@ -136,6 +136,90 @@ fn oracle_quarantine_changes_pool_selection_order() {
     assert_eq!(order[0], 1, "quarantined resolver should not dominate rank 0");
 }
 
+// ---------------------------------------------------------------------------
+// DoQ session-level demotion tests (row 114)
+//
+// These tests exercise the demotion state API directly using DoH endpoints.
+// The demotion logic is keyed by ResolverNetworkScope and lives in PoolInner,
+// independent of whether actual DoQ resolvers are present in the pool.
+// Using DoH endpoints avoids the Quinn UDP socket initialisation that requires
+// a Tokio runtime in plain #[test] contexts.
+// ---------------------------------------------------------------------------
+
+/// Fresh session with no recorded failures: DoQ is offered (not suppressed).
+#[test]
+fn doq_not_suppressed_in_fresh_session() {
+    let scope = ResolverNetworkScope::new("wifi:home");
+    let pool = ResolverPool::builder()
+        .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+        .network_scope(scope.clone())
+        .build()
+        .unwrap();
+
+    assert!(!pool.is_doq_suppressed_for_scope(&scope), "DoQ must not be suppressed in a fresh session");
+}
+
+/// After `record_doq_failure`, DoQ is suppressed for the same scope in the same session.
+#[test]
+fn doq_suppressed_after_failure_in_same_session() {
+    let scope = ResolverNetworkScope::new("wifi:home");
+    let pool = ResolverPool::builder()
+        .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+        .network_scope(scope.clone())
+        .build()
+        .unwrap();
+
+    pool.record_doq_failure(&scope);
+
+    assert!(
+        pool.is_doq_suppressed_for_scope(&scope),
+        "DoQ must be suppressed after a recorded failure in the same scope"
+    );
+}
+
+/// Demotion does not cross sessions: a new pool (new session) can offer DoQ again.
+#[test]
+fn doq_demotion_does_not_cross_sessions() {
+    let scope = ResolverNetworkScope::new("wifi:home");
+    let session_a = ResolverPool::builder()
+        .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+        .network_scope(scope.clone())
+        .build()
+        .unwrap();
+
+    session_a.record_doq_failure(&scope);
+    assert!(session_a.is_doq_suppressed_for_scope(&scope), "session A must be demoted");
+
+    // New pool = new session; demotion state is not shared across Arc instances.
+    let session_b = ResolverPool::builder()
+        .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+        .network_scope(scope.clone())
+        .build()
+        .unwrap();
+
+    assert!(
+        !session_b.is_doq_suppressed_for_scope(&scope),
+        "new session must not inherit DoQ demotion from previous session"
+    );
+}
+
+/// Demotion is keyed by scope: switching scope mid-session re-opens DoQ for the new scope.
+#[test]
+fn doq_demotion_is_keyed_by_scope() {
+    let wifi = ResolverNetworkScope::new("wifi:home");
+    let cell = ResolverNetworkScope::new("cell:lte");
+    let pool = ResolverPool::builder()
+        .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+        .network_scope(wifi.clone())
+        .build()
+        .unwrap();
+
+    pool.record_doq_failure(&wifi);
+
+    assert!(pool.is_doq_suppressed_for_scope(&wifi), "wifi scope must be demoted after failure");
+    assert!(!pool.is_doq_suppressed_for_scope(&cell), "cell scope must not be demoted; demotion is scope-keyed");
+}
+
 #[test]
 fn ranking_persists_only_within_the_same_network_scope() {
     let shared = HealthRegistry::new(Duration::from_secs(60));
