@@ -1,7 +1,7 @@
 ---
 title: Add NetworkCallback reconnect and underlying-network tracking
 type: task
-status: backlog
+status: done
 area: vpn
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Add NetworkCallback reconnect and underlying-network tracking #repo/RIPDPI #area/vpn #status/backlog ⏫
+- [x] #task Add NetworkCallback reconnect and underlying-network tracking #repo/RIPDPI #area/vpn #status/done ⏫
 
 ## Goal contract
 
@@ -39,11 +39,11 @@ Polling produces stale snapshots and misses transition windows where clients lea
 
 ## Acceptance criteria
 
-- [ ] `onAvailable`, `onCapabilitiesChanged`, `onLinkPropertiesChanged`, and `onLost` update VPN provider state without polling loops.
-- [ ] DNS, route, metered, captive, suspended, and transport changes trigger scoped policy re-evaluation.
-- [ ] VPN builder sets underlying networks when available and safe.
-- [ ] Wi-Fi to LTE, LTE to Wi-Fi, sleep/wake, and captive-portal transitions do not mark the tunnel connected until health checks pass.
-- [ ] Transition tests verify no direct fallback occurs during reconnect.
+- [x] `onAvailable`, `onCapabilitiesChanged`, `onLinkPropertiesChanged`, and `onLost` update VPN provider state without polling loops.
+- [x] DNS, route, metered, captive, suspended, and transport changes trigger scoped policy re-evaluation.
+- [x] VPN builder sets underlying networks when available and safe.
+- [x] Wi-Fi to LTE, LTE to Wi-Fi, sleep/wake, and captive-portal transitions do not mark the tunnel connected until health checks pass.
+- [x] Transition tests verify no direct fallback occurs during reconnect.
 
 ## Design notes
 
