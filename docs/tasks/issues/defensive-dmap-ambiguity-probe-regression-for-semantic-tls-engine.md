@@ -1,7 +1,7 @@
 ---
 title: Defensive dMAP ambiguity-probe regression for semantic TLS engine
 type: task
-status: backlog
+status: done
 area: transport
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-16
 ---
 
-- [ ] #task Defensive dMAP ambiguity-probe regression for semantic TLS engine #repo/RIPDPI #area/transport #status/backlog 🔼
+- [x] #task Defensive dMAP ambiguity-probe regression for semantic TLS engine #repo/RIPDPI #area/transport #status/done 🔼
 
 ## Goal contract
 
