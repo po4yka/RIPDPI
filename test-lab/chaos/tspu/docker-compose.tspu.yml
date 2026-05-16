@@ -1,0 +1,33 @@
+# Compose overlay that adds the TSPU emulator service to the test-lab.
+#
+# Use with the existing compose file:
+#
+#     docker compose \
+#       -f test-lab/docker-compose.yml \
+#       -f test-lab/chaos/tspu/docker-compose.tspu.yml \
+#       up tspu
+#
+# v1.1 default command runs the dry-run replayer inside the container
+# (same surface as the host-side CI script). The live-mode follow-up PR
+# enables NET_ADMIN, attaches the nfqueue rules, and changes the command
+# to the live handler.
+
+services:
+  tspu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ripdpi/tspu-emulator:v1.1
+    profiles:
+      - chaos
+    volumes:
+      - tspu-out:/var/lib/tspu-out
+    # The live-mode follow-up enables the cap_add / network_mode lines
+    # below. They are commented out in v1.1 so the image can run as an
+    # unprivileged container in PR CI.
+    # cap_add:
+    #   - NET_ADMIN
+    # network_mode: host
+
+volumes:
+  tspu-out:

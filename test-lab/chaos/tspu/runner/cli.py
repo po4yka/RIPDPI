@@ -25,7 +25,7 @@ import os
 import sys
 from typing import Any
 
-from . import replay
+from . import live, replay
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
@@ -60,11 +60,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report["totals"], sort_keys=True))
         return 0
     if args.cmd == "live":
-        sys.stderr.write(
-            "live mode requires the nfqueue-attached classifier inside the v1.1 container "
-            "(see docs/architecture/spike-tspu-adversarial-emulator.md). Not implemented in v1.\n"
-        )
-        return 2
+        return live.run_live()
     sys.stderr.write(f"unknown subcommand: {args.cmd}\n")
     return 2
 
