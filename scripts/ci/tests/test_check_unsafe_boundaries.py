@@ -41,6 +41,8 @@ def _scan(text: str) -> list[tuple[str, int]]:
         matches.append((guard.CLONE_ON_OWNER_PROXIMITY_PATTERN, line))
     for line in guard.find_copy_derive_on_owner_named_type(cleaned):
         matches.append((guard.COPY_ON_OWNER_PROXIMITY_PATTERN, line))
+    for line in guard.find_copy_derive_with_risky_field(cleaned):
+        matches.append((guard.COPY_WITH_RISKY_FIELD_PATTERN, line))
     return matches
 
 
@@ -588,6 +590,67 @@ class ScanRegressionTests(unittest.TestCase):
             "pub struct MyHandle { fd: i32 }\n"
         )
         self.assertFalse(_has(_scan(src), guard.COPY_ON_OWNER_PROXIMITY_PATTERN))
+
+    def test_manual_impl_copy_flagged(self) -> None:
+        # Both the bare `impl Copy` and the (rare) `unsafe impl Copy`
+        # forms must trigger. Generic params on the impl must also
+        # match.
+        for fragment in (
+            "impl Copy for Foo {}",
+            "unsafe impl Copy for Foo {}",
+            "impl<T> Copy for Wrap<T> {}",
+            "impl<'a, T: ?Sized> Copy for Borrow<'a, T> {}",
+        ):
+            self.assertTrue(_has(_scan(fragment), "manual impl Copy"), msg=fragment)
+
+    def test_impl_clone_or_other_traits_not_flagged_by_manual_copy(self) -> None:
+        # A manual `impl Clone` / `impl Debug` etc. must NOT be
+        # misattributed to the manual-impl-Copy pattern; only `impl
+        # Copy for ...` should fire.
+        for fragment in (
+            "impl Clone for Foo { fn clone(&self) -> Self { *self } }",
+            "impl Debug for Foo {}",
+            "impl Drop for Foo { fn drop(&mut self) {} }",
+            "impl PartialEq for Foo {}",
+        ):
+            self.assertFalse(_has(_scan(fragment), "manual impl Copy"), msg=fragment)
+
+    def test_derive_copy_with_risky_field_flagged(self) -> None:
+        # A `derive(Copy)` struct whose body declares an ownership-
+        # bearing field (NonNull, raw pointer, RawFd, OwnedFd, JNI
+        # handle) must trigger.
+        for fragment in (
+            "#[derive(Copy, Clone)]\npub struct A { ptr: NonNull<u8>, len: usize }",
+            "#[derive(Copy, Clone)]\npub struct B { ptr: *mut u8 }",
+            "#[derive(Copy, Clone)]\npub struct C { fd: RawFd }",
+            "#[derive(Copy, Clone)]\nstruct D { fd: OwnedFd }",
+            "#[derive(Copy, Clone)]\npub(crate) struct E { vm: JavaVM }",
+            "#[derive(Copy, Clone)]\nstruct F { obj: JObject<'static> }",
+            "#[derive(Copy, Clone)]\nstruct G { env: JNIEnv<'static> }",
+            "#[derive(Copy, Clone)]\nstruct H { ptr: *const u8 }",
+        ):
+            self.assertTrue(_has(_scan(fragment), guard.COPY_WITH_RISKY_FIELD_PATTERN), msg=fragment)
+
+    def test_derive_copy_with_safe_fields_not_flagged(self) -> None:
+        # POD `derive(Copy)` structs with only safe fields must NOT
+        # trigger — this is the standard sound case (config/enum/ABI
+        # mirror).
+        for fragment in (
+            "#[derive(Copy, Clone)]\npub struct A { a: u32, b: u64 }",
+            "#[derive(Copy, Clone)]\nenum Direction { In, Out }",
+            "#[derive(Copy, Clone)]\npub struct Coord { x: f32, y: f32 }",
+            "#[derive(Copy, Clone)]\npub struct Tag(u16);",
+            "#[derive(Copy, Clone)]\npub struct StaticStr { value: &'static str }",
+        ):
+            self.assertFalse(_has(_scan(fragment), guard.COPY_WITH_RISKY_FIELD_PATTERN), msg=fragment)
+
+    def test_clone_only_with_risky_field_not_flagged_by_copy_rule(self) -> None:
+        # A `derive(Clone)` (without `Copy`) on a struct with a risky
+        # field must NOT fire the Copy-risky-field rule. The Clone
+        # case is policy-bounded separately by
+        # `find_clone_derive_on_owner_named_type`.
+        src = "#[derive(Clone)]\npub struct Foo { ptr: NonNull<u8>, len: usize }"
+        self.assertFalse(_has(_scan(src), guard.COPY_WITH_RISKY_FIELD_PATTERN))
 
     # --- Negative cases: must NOT trigger the scan -----------------------
 
