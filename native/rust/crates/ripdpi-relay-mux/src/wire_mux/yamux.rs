@@ -543,8 +543,8 @@ mod tests {
     /// `docs/tasks/issues/add-vless-mux-conformance-tests-against-xray-core.md`.
     #[test]
     fn upstream_yamux_fixtures_round_trip() {
-        let fixtures_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../../contract-fixtures/vless");
+        let fixtures_root =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../../contract-fixtures/vless");
         if !fixtures_root.exists() {
             // First time the harness runs; no fixtures committed yet.
             // The harness still passes — see task acceptance.
@@ -553,7 +553,7 @@ mod tests {
         let mut count = 0usize;
         let tags = std::fs::read_dir(&fixtures_root)
             .expect("read contract-fixtures/vless")
-            .filter_map(|e| e.ok())
+            .filter_map(Result::ok)
             .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false));
         for tag in tags {
             let yamux_dir = tag.path().join("mux").join("yamux");
@@ -570,8 +570,8 @@ mod tests {
                 if wire.len() < HEADER_LEN {
                     panic!("fixture {path:?} shorter than yamux header");
                 }
-                let header = YamuxHeader::decode(&wire[..HEADER_LEN])
-                    .unwrap_or_else(|err| panic!("decode {path:?}: {err:?}"));
+                let header =
+                    YamuxHeader::decode(&wire[..HEADER_LEN]).unwrap_or_else(|err| panic!("decode {path:?}: {err:?}"));
                 let mut re_encoded = [0u8; HEADER_LEN];
                 header.encode(&mut re_encoded);
                 assert_eq!(

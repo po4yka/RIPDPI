@@ -206,15 +206,15 @@ mod tests {
     /// `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
     #[test]
     fn upstream_salamander_fixtures_decode_cleanly() {
-        let fixtures_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../../contract-fixtures/hysteria2");
+        let fixtures_root =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../../contract-fixtures/hysteria2");
         if !fixtures_root.exists() {
             return;
         }
         let mut count = 0usize;
         let tag_dirs = std::fs::read_dir(&fixtures_root)
             .expect("read contract-fixtures/hysteria2")
-            .filter_map(|e| e.ok())
+            .filter_map(Result::ok)
             .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false));
         for tag in tag_dirs {
             let salamander_dir = tag.path().join("salamander");
@@ -227,9 +227,8 @@ mod tests {
                     continue;
                 }
                 let key_hex = key_entry.file_name().to_string_lossy().into_owned();
-                let key = match hex_decode_simple(&key_hex) {
-                    Some(k) => k,
-                    None => continue,
+                let Some(key) = hex_decode_simple(&key_hex) else {
+                    continue;
                 };
                 let codec = SalamanderCodec::new(key);
                 for entry in std::fs::read_dir(key_entry.path()).expect("read key dir") {
@@ -253,7 +252,7 @@ mod tests {
     }
 
     fn hex_decode_simple(s: &str) -> Option<Vec<u8>> {
-        if s.len() % 2 != 0 {
+        if !s.len().is_multiple_of(2) {
             return None;
         }
         let mut out = Vec::with_capacity(s.len() / 2);

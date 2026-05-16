@@ -20,6 +20,17 @@ dependencies = [
 
 [[package]]
 name = "aes"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b169f7a6d4742236a0a00c541b845991d0ac43e546831af1249753ab4c3aa3a0"
+dependencies = [
+ "cfg-if",
+ "cipher 0.4.4",
+ "cpufeatures 0.2.17",
+]
+
+[[package]]
+name = "aes"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66bd29a732b644c0431c6140f370d097879203d79b80c94a6747ba0872adaef8"
@@ -27,6 +38,20 @@ dependencies = [
  "cipher 0.5.1",
  "cpubits",
  "cpufeatures 0.3.0",
+]
+
+[[package]]
+name = "aes-gcm"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "831010a0f742e1209b3bcea8fab6a8e149051ba6099432c8cb2cc117dec3ead1"
+dependencies = [
+ "aead",
+ "aes 0.8.4",
+ "cipher 0.4.4",
+ "ctr 0.9.2",
+ "ghash",
+ "subtle",
 ]
 
 [[package]]
@@ -114,6 +139,12 @@ checksum = "6a3a1fd6f75306b68087b831f025c712524bcb19aad54e557b1129cfa0a2b207"
 dependencies = [
  "rustversion",
 ]
+
+[[package]]
+name = "arrayref"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76a2e8124351fda1ef8aaaa3bbd7ebbcb486bbcd4225aca0aa0d84bb2db8fecb"
 
 [[package]]
 name = "arrayvec"
@@ -296,6 +327,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46502ad458c9a52b69d4d4d32775c788b7a1b85e8bc9d482d92250fc0e3f8efe"
 dependencies = [
  "digest 0.10.7",
+]
+
+[[package]]
+name = "blake3"
+version = "1.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0aa83c34e62843d924f905e0f5c866eb1dd6545fc4d719e803d9ba6030371fce"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "cc",
+ "cfg-if",
+ "constant_time_eq",
+ "cpufeatures 0.3.0",
 ]
 
 [[package]]
@@ -626,6 +671,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
+name = "constant_time_eq"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
+
+[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -804,6 +855,15 @@ dependencies = [
  "salsa20",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "ctr"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0369ee1ad671834580515889b80f2ea915f23b8be8d0daa4bbaf2ac5c7590835"
+dependencies = [
+ "cipher 0.4.4",
 ]
 
 [[package]]
@@ -1340,6 +1400,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ghash"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0d8a4362ccb29cb0b265253fb0a2728f592895ee6854fd9bc13f2ffda266ff1"
+dependencies = [
+ "opaque-debug",
+ "polyval",
+]
+
+[[package]]
 name = "glob"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1560,6 +1630,15 @@ dependencies = [
  "tokio-rustls",
  "tracing",
  "webpki-roots",
+]
+
+[[package]]
+name = "hkdf"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b5f8eb2ad728638ea2c7d47a21db23b7b58a72ed6a38256b8a1849f15fbbdf7"
+dependencies = [
+ "hmac",
 ]
 
 [[package]]
@@ -2720,6 +2799,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "polyval"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d1fe60d06143b2430aa532c94cfe9e29783047f06c0d7fd359a9a51b729fa25"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.2.17",
+ "opaque-debug",
+ "universal-hash",
+]
+
+[[package]]
 name = "portable-atomic"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3330,7 +3421,7 @@ version = "0.1.0"
 name = "ripdpi-cli"
 version = "0.1.0"
 dependencies = [
- "aes",
+ "aes 0.9.0",
  "libc",
  "local-network-fixture",
  "log",
@@ -3384,7 +3475,7 @@ dependencies = [
 name = "ripdpi-desync"
 version = "0.1.0"
 dependencies = [
- "aes",
+ "aes 0.9.0",
  "golden-test-support",
  "linkme",
  "rand 0.10.1",
@@ -3401,7 +3492,7 @@ dependencies = [
 name = "ripdpi-desync-runtime"
 version = "0.1.0"
 dependencies = [
- "aes",
+ "aes 0.9.0",
  "libc",
  "loom",
  "ring",
@@ -3791,7 +3882,7 @@ version = "0.1.0"
 name = "ripdpi-packets"
 version = "0.1.0"
 dependencies = [
- "aes",
+ "aes 0.9.0",
  "enum-map",
  "nom 8.0.0",
  "proptest",
@@ -3849,9 +3940,9 @@ dependencies = [
 name = "ripdpi-proxy-runtime"
 version = "0.1.0"
 dependencies = [
- "aes",
+ "aes 0.9.0",
  "base64 0.22.1",
- "ctr",
+ "ctr 0.10.0",
  "libc",
  "local-network-fixture",
  "loom",
@@ -4041,7 +4132,7 @@ dependencies = [
 name = "ripdpi-runtime-policy"
 version = "0.1.0"
 dependencies = [
- "aes",
+ "aes 0.9.0",
  "ring",
  "ripdpi-config",
  "ripdpi-desync",
@@ -4088,6 +4179,25 @@ name = "ripdpi-session"
 version = "0.1.0"
 dependencies = [
  "ripdpi-packets",
+]
+
+[[package]]
+name = "ripdpi-shadowsocks"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "base64 0.22.1",
+ "blake3",
+ "bytes",
+ "chacha20poly1305",
+ "hex",
+ "hkdf",
+ "md5",
+ "rand 0.10.1",
+ "sha1",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -4344,7 +4454,7 @@ dependencies = [
 name = "ripdpi-vless"
 version = "0.1.0"
 dependencies = [
- "aes",
+ "aes 0.9.0",
  "base64 0.22.1",
  "boring",
  "foreign-types-shared",
@@ -4419,11 +4529,11 @@ dependencies = [
 name = "ripdpi-ws-tunnel"
 version = "0.1.0"
 dependencies = [
- "aes",
+ "aes 0.9.0",
  "boring",
  "bytes",
  "cipher 0.5.1",
- "ctr",
+ "ctr 0.10.0",
  "futures",
  "nix 0.31.3",
  "rcgen",

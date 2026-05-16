@@ -88,6 +88,7 @@ members = [
     "crates/ripdpi-strategy-udp",
     "crates/ripdpi-strategy-window",
     "crates/ripdpi-vless",
+    "crates/ripdpi-shadowsocks",
     "crates/ripdpi-shadowtls",
     "crates/ripdpi-masque",
     "crates/ripdpi-tuic",
@@ -180,6 +181,7 @@ ripdpi-strategy-trait = { path = "crates/ripdpi-strategy-trait" }
 ripdpi-strategy-udp = { path = "crates/ripdpi-strategy-udp" }
 ripdpi-strategy-window = { path = "crates/ripdpi-strategy-window" }
 ripdpi-vless = { path = "crates/ripdpi-vless" }
+ripdpi-shadowsocks = { path = "crates/ripdpi-shadowsocks" }
 ripdpi-shadowtls = { path = "crates/ripdpi-shadowtls" }
 ripdpi-masque = { path = "crates/ripdpi-masque" }
 ripdpi-tuic = { path = "crates/ripdpi-tuic" }

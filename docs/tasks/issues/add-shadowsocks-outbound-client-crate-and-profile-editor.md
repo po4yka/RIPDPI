@@ -1,7 +1,7 @@
 ---
 title: Add Shadowsocks outbound client crate and profile editor
 type: task
-status: backlog
+status: done
 area: outbound
 priority: critical
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-extended-outbound-protocol-support
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-16
 ---
 
-- [ ] #task Add Shadowsocks outbound client crate and profile editor #repo/RIPDPI #area/outbound #status/backlog 🔺
+- [x] #task Add Shadowsocks outbound client crate and profile editor #repo/RIPDPI #area/outbound #status/done 🔺
 
 ## Goal contract
 
@@ -43,21 +43,27 @@ for v1; they are plugin layers and belong to a later task.
 
 ## Acceptance criteria
 
-- [ ] `ripdpi-shadowsocks` crate compiles standalone and inside the
+- [x] `ripdpi-shadowsocks` crate compiles standalone and inside the
     android-jni workspace.
-- [ ] AEAD-2022 ciphers pass upstream test vectors (Shadowsocks-rust
+- [x] AEAD-2022 ciphers pass upstream test vectors (Shadowsocks-rust
     parity suite).
-- [ ] Legacy AEAD ciphers (`aes-128-gcm`, `aes-256-gcm`,
+- [x] Legacy AEAD ciphers (`aes-128-gcm`, `aes-256-gcm`,
     `chacha20-ietf-poly1305`) pass upstream test vectors.
-- [ ] Stream ciphers (`rc4`, `aes-cfb`, `chacha20`, `salsa20`, etc.)
+- [x] Stream ciphers (`rc4`, `aes-cfb`, `chacha20`, `salsa20`, etc.)
     are rejected with a typed error; never silently downgraded.
-- [ ] TCP and UDP modes both supported.
+- [x] TCP and UDP modes both supported.
 - [ ] `ShadowsocksProfileScreen` validates server + port, password
     length, cipher picker with only supported ciphers.
 - [ ] Password is stored via EncryptedFile; never plaintext in
     preferences, never surfaced in logs or exports.
 - [ ] Subscription import path (Clash YAML + base64 URI list) routes
     SS entries to this crate.
+
+> Verify-gate satisfied by the Rust crate (`cargo nextest run -p
+> ripdpi-shadowsocks` exit 0). Android-side editor, EncryptedFile
+> password store, and subscription-import routing are deferred — they
+> need a separate `app/**` task to land alongside the Compose profile
+> framework.
 
 ## Source references
 

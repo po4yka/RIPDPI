@@ -41,10 +41,7 @@ pub enum ProbeOutcome {
     /// `offered` field is the version the client tried; `server_signaled`
     /// is a coarse description of what came back (e.g. `"0x04"` for
     /// a v4-shaped reply).
-    VersionMismatch {
-        offered: ProbeProtocol,
-        server_signaled: String,
-    },
+    VersionMismatch { offered: ProbeProtocol, server_signaled: String },
     /// The handshake reached the auth phase and was rejected for an
     /// auth reason (wrong UUID, wrong password). Distinct from
     /// version mismatch.
@@ -96,10 +93,9 @@ fn classify_tuic_v5(observed: &[u8]) -> ProbeOutcome {
     // Reachable (subsequent layers handle auth).
     match observed.first() {
         Some(&0x05) => ProbeOutcome::Reachable,
-        Some(&byte) => ProbeOutcome::VersionMismatch {
-            offered: ProbeProtocol::TuicV5,
-            server_signaled: format!("0x{byte:02x}"),
-        },
+        Some(&byte) => {
+            ProbeOutcome::VersionMismatch { offered: ProbeProtocol::TuicV5, server_signaled: format!("0x{byte:02x}") }
+        }
         None => ProbeOutcome::BlockedOrDropped,
     }
 }
@@ -186,10 +182,7 @@ mod tests {
         let cases = [
             (ProbeOutcome::Reachable, "reachable"),
             (
-                ProbeOutcome::VersionMismatch {
-                    offered: ProbeProtocol::TuicV5,
-                    server_signaled: "0x04".to_string(),
-                },
+                ProbeOutcome::VersionMismatch { offered: ProbeProtocol::TuicV5, server_signaled: "0x04".to_string() },
                 "version_mismatch",
             ),
             (ProbeOutcome::AuthFailure, "auth_failure"),
