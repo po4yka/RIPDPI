@@ -117,6 +117,7 @@ on every PR. It looks for the following risky patterns under
 | `ownership flag near drop/unsafe` (proximity ≤ 50 lines) | A `bool` field named `registered`, `is_alive`, `destroyed`, `initialized`, `disowned`, `owned_by_*`, or `freed` that lives within 50 source lines of an `impl Drop` or `unsafe` keyword. Per issue-#11 audit, ownership/liveness must be encoded by the type system, not by flags + comments. See "Ownership must be types, not flags" below. |
 | `manual Arc/Rc refcount` | Calls to `Arc::into_raw`/`from_raw`/`increment_strong_count`/`decrement_strong_count` (and the `Rc`/`Weak` equivalents). The standard library handles every sound use of these internally; application code that calls them is almost always reinventing reference counting unsoundly. Round-tripping `Arc<T>` through `*const T` silently shifts the refcount by 0 or 1 depending on whether the caller remembers to call `Arc::from_raw` exactly once. See "Use `Arc<T>` / `Rc<T>` / `Weak<T>`, not manual refcounting" below. |
 | `manual atomic refcount field` | A struct field named `refs`/`refcount`/`ref_count`/`strong`/`weak` whose type is `AtomicUsize`/`AtomicU64`/`AtomicIsize`/`AtomicI64`. Indicates a hand-rolled intrusive reference count, which must either restructure to `Arc<T>`/`Rc<T>`/`Weak<T>` or earn an allowlist entry whose `enforcement` field documents the five-model template below. |
+| `derive Clone on owner-named type` (proximity ≤ 5 lines) | `#[derive(Clone)]` (alone or with other traits) immediately above a struct/enum whose name ends in `Handle`, `Owner`, `Guard`, `Token`, `Resource`, `Registration`, or `Slot`. Clone on an ownership-named type silently duplicates the resource unless the inner data is genuinely shared (Arc-backed) or copy-trivial (pure metadata). See "`Clone` on owner-named types" below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -387,6 +388,72 @@ reference sites; each is allowlisted with the validity argument:
 | `crates/ripdpi-privileged-ops/.../icmp_wrapped_udp.rs` | `slice::from_raw_parts` → `&[u8]` | `recv_from` contract initialises the first `received` bytes of a stack `MaybeUninit` buffer; slice is consumed in-scope. |
 | `crates/ripdpi-desync-runtime/src/platform/registry.rs` | `&*pointer` → `&dyn TcpDesyncPlatform` | RAII `Restore` guard scoped to a closure; non-owning observer. |
 | `crates/ripdpi-io-uring/src/probe.rs` | `CStr::from_ptr` → `&CStr` | POSIX `uname(2)` NUL-termination contract; lifetime bounded by the local `utsname`. |
+
+## `Clone` on owner-named types
+
+Types whose names end in `Handle`, `Owner`, `Guard`, `Token`,
+`Resource`, `Registration`, or `Slot` advertise ownership of a
+resource. `Clone` on such a type MUST mean exactly one of:
+
+1. **Independent safe duplicate** — the inner data is copy-trivial
+   (plain integers, `&'static str`, function pointers, `Copy`able
+   IDs). Cloning produces a new value that owns nothing the original
+   owned because there is nothing to own. Example:
+   `StrategyDescriptorRegistration { id: &'static str, describe: fn()
+   -> StrategyDescriptor }`.
+2. **Refcounted shared owner** — the type is a newtype around
+   `Arc<T>` / `Rc<T>` (or holds one as its sole resource-bearing
+   field). Cloning delegates to `Arc::clone` / `Rc::clone`, which
+   the standard library implements soundly. Example:
+   `ServicesStateHandle(pub(crate) Arc<ServicesState>)`.
+
+`Clone` MUST NOT mean:
+
+- "Duplicate a raw pointer". The original's `Drop` will free the
+  resource; the duplicate then dangles. Use `Arc<T>` if sharing
+  is intended.
+- "Duplicate a `RawFd`". The first `Drop` closes the fd; the
+  second sees a stale or recycled descriptor.
+- "Duplicate an FFI handle". Same problem as RawFd, plus the
+  foreign library may assert single-ownership.
+- "Duplicate an exclusive-access registration". The registry
+  silently has two entries for the same key; cleanup is racy.
+
+**Rule.** A `#[derive(Clone)]` on an owner-named struct must have
+either (a) only `Copy`-trivial fields, or (b) `Arc<T>` / `Rc<T>` as
+the sole resource-bearing field. Anything else requires either
+removing the Clone (the type becomes move-only) or providing a
+named `try_clone(&self) -> Result<Self, _>` method whose body
+documents the duplication semantics — `File::try_clone(&self) ->
+io::Result<File>` is the std model.
+
+**Allowlist entry requirements.** A `derive Clone on owner-named
+type` allowlist entry's `enforcement` field MUST state:
+
+- which of the two sound semantics the type uses (copy-trivial
+  metadata or `Arc`/`Rc`-backed shared ownership),
+- the specific field that bears the resource (and that it is
+  `Copy`-trivial or `Arc<T>`),
+- why a Clone of the outer struct does not duplicate any
+  underlying allocation, file descriptor, registration, or other
+  exclusive resource.
+
+**Workspace inventory.** Three allowlisted occurrences:
+
+| File | Type | Semantics |
+|---|---|---|
+| `ripdpi-strategy-trait/src/lib.rs` | `StrategyDescriptorRegistration` | Copy-trivial metadata: `&'static str` + function pointer; owns nothing. |
+| `ripdpi-proxy-runtime-adapter/src/model/services.rs` | `ReprobeResetHandle` | Arc-backed (wraps `ServicesStateHandle` which wraps `Arc<ServicesState>`). |
+| `ripdpi-runtime-services/src/lib.rs` | `ServicesStateHandle` | Arc-backed newtype: `pub(crate) Arc<ServicesState>`. |
+
+The load-bearing move-only owner handles (`BufferHandle`,
+`PendingBuffer`, `RootHelperRegistration`, `MmapRegion`,
+`MappedFile`, `RegisteredBufferPool`, `JniProtectCallback × 2`,
+`OwnedRxToken`, `OwnedTxToken`) correctly do NOT derive `Clone`,
+and the canonical owner handles (`BufferHandle`, `PendingBuffer`,
+`RootHelperRegistration`) carry explicit compile-fail
+`AmbiguousIfCopy`/`AmbiguousIfClone` const blocks that fail to
+compile if a future change ever derives `Clone`.
 
 ## Use `Arc<T>` / `Rc<T>` / `Weak<T>`, not manual refcounting
 

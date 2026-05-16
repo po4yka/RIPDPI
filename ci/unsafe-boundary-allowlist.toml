@@ -55,6 +55,19 @@
 # only for diagnostic checks that cannot promote to UB. See
 # docs/rust-soundness-policy.md § "`debug_assert!` as memory-safety guard".
 #
+# Additional rule for `derive Clone on owner-named type`: a struct/enum
+# whose name ends in `Handle`/`Owner`/`Guard`/`Token`/`Resource`/
+# `Registration`/`Slot` advertising `#[derive(Clone)]` is flagged. The
+# audit policy is that Clone on an ownership-named type MUST mean
+# either "independent safe duplicate" (Copy-trivial fields only) or
+# "refcounted shared owner" (`Arc<T>` / `Rc<T>` as the sole
+# resource-bearing field). A valid allowlist entry's `enforcement`
+# field MUST state which semantics the type uses, the specific field
+# that bears the resource, and why Clone does not duplicate any
+# underlying allocation, file descriptor, registration, or exclusive
+# resource. See docs/rust-soundness-policy.md § "`Clone` on
+# owner-named types".
+#
 # Additional rule for `manual Arc/Rc refcount` and
 # `manual atomic refcount field`: shared ownership must use std's
 # `Arc<T>` / `Rc<T>` / `Weak<T>` directly; manual lifecycle
@@ -477,4 +490,38 @@ reason = "`RootHelperRegistration::registered: bool` is a conditional-cleanup ga
 preconditions = "Struct is move-only (no `Copy`/`Clone`), field is private (cannot be forged from outside the module), constructor `for_config` sets the bool deterministically from config"
 enforcement = "Move semantics: Drop runs at most once per guard (no double-destroy). Field privacy: safe code cannot construct `Self { registered: true }` from elsewhere. Compile-fail `AmbiguousIfCopy`/`AmbiguousIfClone` const blocks lock the `!Copy + !Clone` claim. Runtime regressions in the `tests` module cover sequential lifecycle, no-op drop, and `mem::forget` leak documented limitation."
 owner = "proxy-runtime"
+review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# `derive Clone on owner-named type` — three production types whose names
+# end in `Registration` or `Handle` carry `#[derive(Clone)]`. Each is sound
+# per the issue-#13 audit; either the type owns nothing (link-time
+# metadata) or it wraps `Arc<T>` so Clone delegates to the standard
+# library's refcount.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-strategy-trait/src/lib.rs"
+pattern = "derive Clone on owner-named type"
+reason = "`StrategyDescriptorRegistration` is a link-time metadata record for `linkme::distributed_slice`, not a runtime ownership handle"
+preconditions = "Fields are `&'static str` and `fn() -> StrategyDescriptor` — both inherently `Copy`; the struct owns no allocation, file descriptor, or other resource"
+enforcement = "Type is metadata-only; Clone produces a bitwise duplicate with identical pointers to the same `'static` references and the same function pointer. No resource is duplicated because no resource is held."
+owner = "strategy-trait"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-proxy-runtime-adapter/src/model/services.rs"
+pattern = "derive Clone on owner-named type"
+reason = "`ReprobeResetHandle` wraps `ServicesStateHandle` which itself wraps `Arc<ServicesState>`"
+preconditions = "Inner field is an `Arc`-backed handle; cloning the outer struct delegates to `Arc::clone`, incrementing the std-managed strong count"
+enforcement = "Refcounted shared ownership via `Arc<ServicesState>`. The std library handles overflow (panic above `isize::MAX/2`), atomic ordering (Relaxed clone, Release drop, Acquire last-drop fence), Send+Sync, and object reclamation. See policy doc § \"Use `Arc<T>` / `Rc<T>` / `Weak<T>`, not manual refcounting\"."
+owner = "proxy-runtime-adapter"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-runtime-services/src/lib.rs"
+pattern = "derive Clone on owner-named type"
+reason = "`ServicesStateHandle(pub(crate) Arc<ServicesState>)` is a newtype wrapper around `Arc`"
+preconditions = "The sole field is `Arc<ServicesState>`; cloning the newtype delegates to `Arc::clone`"
+enforcement = "Refcounted shared ownership via `Arc<ServicesState>`; identical to the `ReprobeResetHandle` argument above. The newtype shape adds nominal typing without changing Clone semantics."
+owner = "runtime-services"
 review_date = "2026-11-15"

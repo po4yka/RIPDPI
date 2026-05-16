@@ -240,6 +240,58 @@ DROP_IMPL_RE = re.compile(r"\bimpl(\s*<[^>]+>)?\s+Drop\s+for\b")
 OWNERSHIP_FLAG_PROXIMITY_LINES = 50
 OWNERSHIP_FLAG_PROXIMITY_PATTERN = "ownership flag near drop/unsafe"
 
+# Proximity detector for `#[derive(Clone)]` on a struct/enum whose name
+# ends in `Handle`, `Owner`, `Guard`, `Token`, `Resource`, `Registration`,
+# or `Slot`. The issue-#13 audit established that ownership and
+# exclusive-access handles must be move-only; `Clone` must mean either
+# "independent safe duplicate" (Copy-able plain data) or "refcounted
+# shared owner" (Arc/Rc-backed). A bare `derive(Clone)` on an
+# owner-named struct that holds a raw pointer, file descriptor, or FFI
+# handle silently duplicates ownership and is the canonical
+# double-free/UAF recipe.
+CLONE_DERIVE_RE = re.compile(
+    r"#\s*\[\s*derive\s*\([^)]*\bClone\b[^)]*\)\s*\]",
+    re.MULTILINE,
+)
+OWNER_NAMED_TYPE_RE = re.compile(
+    # Leading whitespace is `[ \t]*` (not `\s*`) so the `^` anchor stays
+    # pinned to the actual line of the type declaration; with `\s*` the
+    # engine would greedily consume preceding blank lines and report the
+    # match on the wrong line.
+    r"^[ \t]*(?:pub(?:\s*\([^)]*\))?\s+)?(?:struct|enum)\s+"
+    r"[A-Za-z_][A-Za-z0-9_]*"
+    r"(?:Handle|Owner|Guard|Token|Resource|Registration|Slot)\b",
+    re.MULTILINE,
+)
+CLONE_ON_OWNER_PROXIMITY_LINES = 5
+CLONE_ON_OWNER_PROXIMITY_PATTERN = "derive Clone on owner-named type"
+
+
+def find_clone_derive_on_owner_named_type(text: str) -> list[int]:
+    """Return line numbers of `#[derive(Clone)]` annotations within ±N
+    lines of a struct/enum whose name matches the owner-named regex.
+
+    The window is small (5 lines) because `#[derive(...)]` is always
+    immediately above the type it annotates, possibly with a doc-
+    comment or another attribute in between. The window is symmetric
+    so post-annotation comment blocks don't break detection.
+    """
+    derive_lines = sorted(
+        {text.count("\n", 0, m.start()) + 1 for m in CLONE_DERIVE_RE.finditer(text)}
+    )
+    if not derive_lines:
+        return []
+    owner_lines = sorted(
+        {text.count("\n", 0, m.start()) + 1 for m in OWNER_NAMED_TYPE_RE.finditer(text)}
+    )
+    if not owner_lines:
+        return []
+    out: list[int] = []
+    for derive in derive_lines:
+        if any(0 < (owner - derive) <= CLONE_ON_OWNER_PROXIMITY_LINES for owner in owner_lines):
+            out.append(derive)
+    return out
+
 
 def find_ownership_flag_near_drop_or_unsafe(text: str) -> list[int]:
     """Return line numbers of ownership-flag bool fields within ±N lines of
@@ -336,6 +388,8 @@ def scan_file(path: Path) -> list[Finding]:
         findings.append(Finding(rel, DEBUG_ASSERT_PROXIMITY_PATTERN, line))
     for line in find_ownership_flag_near_drop_or_unsafe(cleaned):
         findings.append(Finding(rel, OWNERSHIP_FLAG_PROXIMITY_PATTERN, line))
+    for line in find_clone_derive_on_owner_named_type(cleaned):
+        findings.append(Finding(rel, CLONE_ON_OWNER_PROXIMITY_PATTERN, line))
     return findings
 
 

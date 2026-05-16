@@ -37,6 +37,8 @@ def _scan(text: str) -> list[tuple[str, int]]:
         matches.append((guard.DEBUG_ASSERT_PROXIMITY_PATTERN, line))
     for line in guard.find_ownership_flag_near_drop_or_unsafe(cleaned):
         matches.append((guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN, line))
+    for line in guard.find_clone_derive_on_owner_named_type(cleaned):
+        matches.append((guard.CLONE_ON_OWNER_PROXIMITY_PATTERN, line))
     return matches
 
 
@@ -488,6 +490,49 @@ class ScanRegressionTests(unittest.TestCase):
             "struct State { events: AtomicUsize, errors: AtomicUsize }",
         ):
             self.assertFalse(_has(_scan(fragment), "manual atomic refcount field"), msg=fragment)
+
+    def test_clone_derive_on_owner_named_type_flagged(self) -> None:
+        for fragment in (
+            "#[derive(Clone)]\npub struct MyHandle { inner: u32 }",
+            "#[derive(Debug, Clone)]\nstruct OwnerGuard { fd: i32 }",
+            "#[derive(Clone, Copy)]\npub struct ResourceToken { id: u64 }",
+            "#[derive(Clone)]\nenum SessionRegistration { Active, Idle }",
+            "#[derive(Clone)]\npub(crate) struct CacheSlot { ptr: u64 }",
+        ):
+            self.assertTrue(_has(_scan(fragment), guard.CLONE_ON_OWNER_PROXIMITY_PATTERN), msg=fragment)
+
+    def test_clone_derive_on_non_owner_named_type_not_flagged(self) -> None:
+        # Types whose names don't match the ownership pattern must NOT trigger.
+        for fragment in (
+            "#[derive(Clone)]\nstruct Config { value: u32 }",
+            "#[derive(Clone)]\nenum Event { A, B }",
+            "#[derive(Clone)]\npub struct Snapshot { value: u32 }",
+        ):
+            self.assertFalse(_has(_scan(fragment), guard.CLONE_ON_OWNER_PROXIMITY_PATTERN), msg=fragment)
+
+    def test_owner_named_type_without_clone_not_flagged(self) -> None:
+        # An owner-named struct without `derive(Clone)` is fine — that's
+        # the move-only pattern this rule encourages.
+        src = textwrap.dedent(
+            """\
+            pub struct BufferHandle<'a> {
+                _phantom: core::marker::PhantomData<&'a ()>,
+            }
+            """
+        )
+        self.assertFalse(_has(_scan(src), guard.CLONE_ON_OWNER_PROXIMITY_PATTERN))
+
+    def test_clone_derive_far_from_owner_type_not_flagged(self) -> None:
+        # A derive(Clone) more than 5 lines from any owner-named struct
+        # must not be (mis)attributed.
+        gap = "\n" * 10
+        src = (
+            "#[derive(Clone)]\n"
+            "pub struct PlainData { value: u32 }\n"
+            f"{gap}"
+            "pub struct MyHandle { fd: i32 }\n"
+        )
+        self.assertFalse(_has(_scan(src), guard.CLONE_ON_OWNER_PROXIMITY_PATTERN))
 
     # --- Negative cases: must NOT trigger the scan -----------------------
 
