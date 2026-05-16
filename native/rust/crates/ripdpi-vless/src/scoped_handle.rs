@@ -338,6 +338,73 @@ mod tests {
     }
 
     #[test]
+    fn ffi_round_trip_rust_alloc_rust_free_box_through_scoped_handle() {
+        // FFI allocator-boundary regression for issue #18.
+        // Demonstrates the policy doc's "Rust-managed lifetime"
+        // boundary shape (docs/rust-soundness-policy.md §
+        // "Allocator mismatch across FFI") end-to-end:
+        //   1. Rust allocates via `Box::new(T)`.
+        //   2. `Box::into_raw` hands the pointer across a
+        //      simulated FFI boundary.
+        //   3. The pointer is owned by a `ScopedHandle<T, F>` whose
+        //      `F::free` is the Rust deallocator
+        //      (`Box::from_raw` + drop). The matching deallocator
+        //      runs on the same allocator that produced the
+        //      pointer — no mismatch is possible.
+        //
+        // This is the exact pattern the policy recommends for
+        // every `Box::into_raw` site in the workspace. The
+        // `reality_hook.rs` install/drop pair (issue #15) is its
+        // production instance.
+
+        #[derive(Debug, PartialEq)]
+        struct BoxedState {
+            value: u32,
+        }
+
+        // `BoxFree` is the FFI-shape free function: it adopts the
+        // pointer through `Box::from_raw` (matching the
+        // `Box::into_raw` on the alloc side) and drops the
+        // resulting Box, which runs the global allocator's
+        // `dealloc` — the same allocator that produced the
+        // pointer.
+        struct BoxFree;
+        impl FreeFunction<BoxedState> for BoxFree {
+            unsafe fn free(ptr: *mut BoxedState) {
+                // SAFETY: by the `ScopedHandle::from_ptr` contract
+                // upheld at construction, `ptr` was produced by
+                // exactly one `Box::into_raw(Box::<BoxedState>::new(...))`
+                // and has not been freed since. The matching
+                // `Box::from_raw` here is the unique reclamation
+                // site; we drop the resulting Box immediately so
+                // the global allocator releases the allocation.
+                drop(unsafe { Box::from_raw(ptr) });
+            }
+        }
+
+        // Rust alloc (mirrors `rust_alloc_FOO` in the policy
+        // doc's paired-export shape).
+        let raw: *mut BoxedState = Box::into_raw(Box::new(BoxedState { value: 0x1234_5678 }));
+
+        // ScopedHandle wraps both ends: as_ptr() reads through
+        // the same pointer, Drop calls BoxFree::free exactly
+        // once. Same allocator on both sides — no mismatch.
+        {
+            // SAFETY: `raw` is freshly produced by `Box::into_raw`
+            // above and not aliased by any other handle in scope.
+            let handle: ScopedHandle<BoxedState, BoxFree> = unsafe { ScopedHandle::from_ptr(raw) }.expect("non-null");
+            // SAFETY: ScopedHandle owns the only live pointer to
+            // the BoxedState; `as_ptr()` is a non-owning borrow
+            // for read-back during this test scope. No other
+            // accessor exists, so the deref is exclusive.
+            assert_eq!(unsafe { &*handle.as_ptr() }, &BoxedState { value: 0x1234_5678 });
+        }
+        // After drop: BoxFree::free has run exactly once,
+        // releasing the allocation via the global allocator.
+        // Miri verifies no double-free and no leak.
+    }
+
+    #[test]
     fn scoped_handle_size_invariant_for_ffi_holder() {
         // FFI ownership-transfer regression for issue #15.
         // `ScopedHandle<T, F>` is the canonical holder between
