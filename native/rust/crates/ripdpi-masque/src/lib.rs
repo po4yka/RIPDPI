@@ -7,7 +7,7 @@ pub mod provider_adapter;
 mod client;
 mod h2;
 mod h3;
-mod migration;
+pub mod migration;
 mod privacy_pass;
 mod request;
 mod response;
