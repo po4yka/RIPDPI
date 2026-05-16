@@ -168,6 +168,20 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"\s*:\s*Atomic(?:Usize|U64|Isize|I64)\b",
         re.MULTILINE,
     ),
+    # Manual `impl Copy for X { }` (with or without leading `unsafe`).
+    # `Copy` is normally derived; a hand-written `impl Copy` block is
+    # almost never the right choice — the only legitimate uses are
+    # blanket `impl<T: ?Sized> Copy for ManuallyDrop<&T>` style helpers
+    # which do not appear in application code. Issue #14 audit found
+    # zero production occurrences; any new appearance must restructure
+    # (use `#[derive(Copy)]` if Copy is genuinely intended and the
+    # field shape supports it) or earn an allowlist entry naming the
+    # Copy-trivial-data property per docs/rust-soundness-policy.md
+    # § "`Copy` on owner-named types".
+    "manual impl Copy": re.compile(
+        r"^[ \t]*(?:unsafe\s+)?impl(\s*<[^>]+>)?\s+Copy\s+for\b",
+        re.MULTILINE,
+    ),
 }
 
 # The `.get()` method is also used by many safe types (HashMap, Vec,
@@ -286,6 +300,29 @@ COPY_DERIVE_RE = re.compile(
 COPY_ON_OWNER_PROXIMITY_LINES = 5
 COPY_ON_OWNER_PROXIMITY_PATTERN = "derive Copy on owner-named type"
 
+# Proximity detector for a `#[derive(Copy)]` whose struct body — within
+# the next 25 source lines — declares a field of an ownership-bearing
+# type: `NonNull<T>`, a raw `*const T` / `*mut T` pointer, a `RawFd`,
+# an `OwnedFd`, a JNI `JavaVM` / `JObject` / `Global<JObject>`. This
+# is the field-shape complement to the name-based detector above:
+# even if a struct is named `Config` rather than `OwnerHandle`, a
+# `Copy` derive that hands out duplicate `NonNull`s or file
+# descriptors is the same UAF/double-free recipe. The detector is
+# intentionally separate from the name-based one so a finding cites
+# the actual smoking gun (Copy + risky field).
+COPY_STRUCT_BODY_CAPTURE_LINES = 25
+COPY_RISKY_FIELD_RE = re.compile(
+    r"\bNonNull\s*<"
+    r"|\bRawFd\b"
+    r"|\bOwnedFd\b"
+    r"|\bJavaVM\b"
+    r"|\bJObject\b"
+    r"|\bJNIEnv\b"
+    r"|\bGlobal\s*<\s*JObject"
+    r"|:\s*\*(?:const|mut)\s",
+)
+COPY_WITH_RISKY_FIELD_PATTERN = "derive Copy with raw-pointer/handle field"
+
 
 def find_clone_derive_on_owner_named_type(text: str) -> list[int]:
     """Return line numbers of `#[derive(Clone)]` annotations within ±N
@@ -335,6 +372,65 @@ def find_copy_derive_on_owner_named_type(text: str) -> list[int]:
     for derive in derive_lines:
         if any(0 < (owner - derive) <= COPY_ON_OWNER_PROXIMITY_LINES for owner in owner_lines):
             out.append(derive)
+    return out
+
+
+COPY_STRUCT_HEADER_RE = re.compile(
+    # Match the struct/enum declaration header, allowing the
+    # `pub(crate)` / `pub(super)` visibility modifier without
+    # treating its parens as a tuple-struct opener. The capture
+    # consumes everything up to (but not including) the body
+    # opener (`{` or `(`), then groups the opener as `body_open`.
+    r"(?:pub(?:\s*\(\s*(?:crate|super|self|in\s+[\w:]+)\s*\))?\s+)?"
+    r"(?:struct|enum)\s+[A-Za-z_][A-Za-z0-9_]*"
+    r"(?:\s*<[^>]+>)?"
+    r"\s*(?P<body_open>[{(])",
+)
+
+
+def find_copy_derive_with_risky_field(text: str) -> list[int]:
+    """Return line numbers of `#[derive(Copy)]` whose immediately-
+    following struct body declares a field of an ownership-bearing
+    type (`NonNull<T>`, raw pointer, `RawFd`, `OwnedFd`, JNI handle).
+
+    The "struct body" is the brace-or-paren balanced region that
+    starts at the first `{` (field struct) or `(` (tuple struct)
+    appearing after the type name, within
+    `COPY_STRUCT_BODY_CAPTURE_LINES` lines of the `derive`. The
+    helper regex `COPY_STRUCT_HEADER_RE` skips the
+    `pub(crate)` / `pub(super)` visibility-modifier parens so the
+    tuple-struct fallback doesn't accidentally pick up the
+    visibility marker.
+    """
+    out: list[int] = []
+    for match in COPY_DERIVE_RE.finditer(text):
+        derive_line = text.count("\n", 0, match.start()) + 1
+        # Window: from the `derive` to N lines further on.
+        start = match.end()
+        end = start
+        for _ in range(COPY_STRUCT_BODY_CAPTURE_LINES):
+            nl = text.find("\n", end + 1)
+            if nl < 0:
+                end = len(text)
+                break
+            end = nl
+        window = text[start:end]
+        header = COPY_STRUCT_HEADER_RE.search(window)
+        if header is None:
+            continue
+        opener_pos = header.end("body_open") - 1
+        opener_close = "}" if header.group("body_open") == "{" else ")"
+        depth = 1
+        j = opener_pos + 1
+        while j < len(window) and depth > 0:
+            if window[j] == window[opener_pos]:
+                depth += 1
+            elif window[j] == opener_close:
+                depth -= 1
+            j += 1
+        body = window[opener_pos:j]
+        if COPY_RISKY_FIELD_RE.search(body):
+            out.append(derive_line)
     return out
 
 
@@ -437,6 +533,8 @@ def scan_file(path: Path) -> list[Finding]:
         findings.append(Finding(rel, CLONE_ON_OWNER_PROXIMITY_PATTERN, line))
     for line in find_copy_derive_on_owner_named_type(cleaned):
         findings.append(Finding(rel, COPY_ON_OWNER_PROXIMITY_PATTERN, line))
+    for line in find_copy_derive_with_risky_field(cleaned):
+        findings.append(Finding(rel, COPY_WITH_RISKY_FIELD_PATTERN, line))
     return findings
 
 

@@ -45,6 +45,27 @@ const _: fn() = || {
     assert_sync::<JniProtectCallback>();
 };
 
+// Compile-fail regression for soundness issue #14: `JniProtectCallback`
+// owns a JVM-side global reference (`Global<JObject<'static>>`) whose
+// `DeleteGlobalRef` invocation runs on `Drop`. Duplicating the wrapper
+// via a hypothetical `derive(Copy)` would let safe code drop the global
+// ref twice and produce a JNI-level use-after-free. The `Global` field
+// is itself `!Copy`, so the compiler already rejects any future
+// `derive(Copy)`; the block below documents the invariant explicitly
+// and ensures the regression fires at workspace build time rather than
+// at the macro-expansion site.
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfCopy<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfCopy<()> for Check<T> {}
+    impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
+    <Check<JniProtectCallback> as AmbiguousIfCopy<_>>::check();
+};
+
 impl ProtectCallback for JniProtectCallback {
     fn protect(&self, fd: RawFd) -> io::Result<()> {
         let result: Result<bool, jni::errors::Error> =

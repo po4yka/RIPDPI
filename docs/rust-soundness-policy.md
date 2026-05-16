@@ -119,6 +119,8 @@ on every PR. It looks for the following risky patterns under
 | `manual atomic refcount field` | A struct field named `refs`/`refcount`/`ref_count`/`strong`/`weak` whose type is `AtomicUsize`/`AtomicU64`/`AtomicIsize`/`AtomicI64`. Indicates a hand-rolled intrusive reference count, which must either restructure to `Arc<T>`/`Rc<T>`/`Weak<T>` or earn an allowlist entry whose `enforcement` field documents the five-model template below. |
 | `derive Clone on owner-named type` (proximity ≤ 5 lines) | `#[derive(Clone)]` (alone or with other traits) immediately above a struct/enum whose name ends in `Handle`, `Owner`, `Guard`, `Token`, `Resource`, `Registration`, or `Slot`. Clone on an ownership-named type silently duplicates the resource unless the inner data is genuinely shared (Arc-backed) or copy-trivial (pure metadata). See "`Clone` on owner-named types" below. |
 | `derive Copy on owner-named type` (proximity ≤ 5 lines) | `#[derive(Copy)]` (alone or with other traits) immediately above the same owner-named declarations. `Copy` is strictly stronger than `Clone`: every move, parameter pass, and assignment produces an implicit duplicate, so an owner-named `Copy` type cannot encode ownership of any resource. The only sound semantics is "Copy-trivial metadata that owns nothing" (e.g. `&'static str` + `fn` pointer). See "`Copy` on owner-named types" below. |
+| `manual impl Copy` | A hand-written `impl Copy for X { }` (with or without leading `unsafe`). `Copy` is normally derived; a manual `impl` block is almost never the right choice and signals that the contributor either knows the field shape doesn't satisfy `derive(Copy)` requirements or is trying to bypass an auto-trait check. The workspace has zero production occurrences. Any new appearance must restructure (use `#[derive(Copy)]` if Copy is genuinely intended and the field shape supports it) or earn an allowlist entry naming the Copy-trivial-data property. |
+| `derive Copy with raw-pointer/handle field` (proximity ≤ 25 lines) | `#[derive(Copy)]` immediately followed by a struct body whose fields include `NonNull<T>`, a raw `*const T` / `*mut T` pointer, a `RawFd`, an `OwnedFd`, or a JNI `JavaVM`/`JObject`/`JNIEnv`/`Global<JObject>` handle. Field-shape complement of the name-based detector: even structs with neutral names ("Config", "Slot") that hand out duplicates of a `RawFd` or `NonNull` produce the same UAF / double-close failure mode. The workspace has zero production occurrences; new entries must restructure or document the Copy-trivial-data property in an allowlist entry. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -549,12 +551,19 @@ derives `Copy`. The current explicit coverage is:
 | `ripdpi-privileged-ops/src/linux/mmap_region.rs` | `MmapRegion` | `AmbiguousIfCopy` const block (added with issue #14) |
 | `ripdpi-geo/src/mapped_file.rs` | `MappedFile` | `AmbiguousIfCopy` const block (added with issue #14) |
 | `ripdpi-proxy-runtime/src/runtime/listeners.rs` | `RootHelperRegistration` | `AmbiguousIfCopy` const block |
+| `ripdpi-android-vpn-protect-adapter/src/lib.rs` | `JniProtectCallback` | `AmbiguousIfCopy` const block |
+| `ripdpi-warp-android/src/vpn_protect.rs` | `JniProtectCallback` | `AmbiguousIfCopy` const block |
+| `ripdpi-tunnel-core/src/device.rs` | `OwnedRxToken` | `AmbiguousIfCopy` const block |
+| `ripdpi-tunnel-core/src/device.rs` | `OwnedTxToken<'a>` | `AmbiguousIfCopy` const block |
 
-The remaining move-only owner types (`JniProtectCallback × 2`,
-`OwnedRxToken`, `OwnedTxToken`) hold types that are themselves
-not `Copy` (`JavaVM`, `Global<JObject>`, `Vec<u8>`, `&mut
-VecDeque<_>`), so the compiler already rejects any future
-`derive(Copy)`; the scanner pattern is the systemic backstop.
+Every load-bearing move-only owner handle in the workspace now
+carries an explicit `AmbiguousIfCopy` block. For the four
+JNI/smoltcp shims the contained types (`Global<JObject>`,
+`Vec<u8>`, `&mut VecDeque<_>`) are themselves `!Copy`, so the
+compiler already rejects any future `derive(Copy)`; the explicit
+block pins the soundness argument adjacent to the type
+declaration so the next reviewer can see it without crossing
+crate boundaries.
 
 ## Use `Arc<T>` / `Rc<T>` / `Weak<T>`, not manual refcounting
 

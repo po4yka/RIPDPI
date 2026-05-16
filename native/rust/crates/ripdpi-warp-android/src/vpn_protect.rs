@@ -30,6 +30,23 @@ const _: fn() = || {
     assert_sync::<JniProtectCallback>();
 };
 
+// Compile-fail regression for soundness issue #14: see the matching
+// block in `ripdpi-android-vpn-protect-adapter::JniProtectCallback`.
+// The two callbacks are sibling shims; the soundness argument is the
+// same — Copy on a JNI global-ref wrapper would let safe code drop
+// `DeleteGlobalRef` twice.
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfCopy<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfCopy<()> for Check<T> {}
+    impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
+    <Check<JniProtectCallback> as AmbiguousIfCopy<_>>::check();
+};
+
 impl ProtectCallback for JniProtectCallback {
     fn protect(&self, fd: RawFd) -> io::Result<()> {
         let result: Result<bool, jni::errors::Error> =

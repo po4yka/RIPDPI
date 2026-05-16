@@ -545,3 +545,59 @@ preconditions = "Fields are `id: &'static str` (inherently `Copy`, references `'
 enforcement = "Both fields are `Copy` by language definition; the struct is `Copy` by composition. Duplicating it cannot duplicate ownership of anything because the struct owns nothing — the `&'static str` aliases a single rodata entry and the `fn` pointer aliases a single code address. The other ownership-bearing owner-named types in the workspace (`BufferHandle`, `PendingBuffer`, `RootHelperRegistration`, `MmapRegion`, `MappedFile`, `RegisteredBufferPool`, two `JniProtectCallback` shims, `OwnedRxToken`/`OwnedTxToken`) are intentionally `!Copy`."
 owner = "strategy-trait"
 review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# `ripdpi-vless/src/reality_hook.rs` — Rust glue for the BoringSSL Reality
+# `client_hello_cb` patch (H1) described in
+# `docs/design/reality-boringssl-patch.md`. The five entries below cover
+# every unsafe-boundary pattern this module triggers; each is intrinsic
+# to the BoringSSL C ABI and gated by an RAII guard (`RealityHookGuard`)
+# whose Drop reclaims the leaked `Box<RealityCallbackState>` exactly
+# once. The caller of `install_reality_client_hello_hook` (an `unsafe fn`)
+# must keep the returned guard alive at least as long as the SSL object,
+# per the module-level doc-comment contract.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-vless/src/reality_hook.rs"
+pattern = 'extern "C" fn'
+reason = "BoringSSL `client_hello_cb` ABI: a function-pointer type alias and the callback definition itself, invoked by patched BoringSSL during `ssl_add_client_hello`"
+preconditions = "Invoked by BoringSSL with a valid `*mut SslHandle`, a `*mut u8` plus length pair pointing into the in-flight ClientHello body, and the `arg` pointer that was set via `SSL_CTX_set_client_hello_cb`. The Rust side null-checks all three arguments before any dereference and `catch_unwind`s every panic so it never unwinds across the C ABI"
+enforcement = "Type alias `RealityHelloCb` matches the patched-BoringSSL signature exactly (verified against `docs/design/reality-boringssl-patch.md`). The function body runs inside `std::panic::catch_unwind(AssertUnwindSafe(...))`; any panic latches `RealityCallbackState.failed` via `Release` store and returns 0, which the C side interprets as handshake failure"
+owner = "vless"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-vless/src/reality_hook.rs"
+pattern = "Box::from_raw"
+reason = "RAII reclamation of the `Box<RealityCallbackState>` leaked into `SSL_CTX_set_client_hello_cb` during install; production occurrence in `Drop for RealityHookGuard`, test occurrence reclaims a leaked Box at end of unit test"
+preconditions = "Pointer was produced by exactly one `Box::into_raw` call in `install_reality_client_hello_hook` (or in test setup), has not been freed since, and is reachable only through the guard (or local test scope). Module-level contract: callers must drop the guard before the SSL object so no callback invocation can fire after Drop runs"
+enforcement = "Move-only `RealityHookGuard` (no `Copy`/`Clone`; `unsafe impl Send` opts in only `Send`, not `Sync`). The `Drop` impl nulls `state_ptr` after `Box::from_raw(...)` so a hypothetical second drop on the same guard would early-return. The test-mode `Box::from_raw` (line 282) is bracketed by the test that leaked the Box four lines earlier — single owner, single reclamation"
+owner = "vless"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-vless/src/reality_hook.rs"
+pattern = "unsafe impl Send/Sync"
+reason = "`unsafe impl Send for RealityHookGuard` — the guard holds a `*mut RealityCallbackState` that BoringSSL accesses from whichever thread runs the handshake. `Sync` is intentionally NOT implemented"
+preconditions = "`RealityCallbackState` contains only `[u8; 32]`, `Vec<u8>`, and `AtomicBool` — all `Send + Sync`. The raw pointer is owned exclusively by the guard for its lifetime; the C callback dereferences it through `arg` only between `install_reality_client_hello_hook` and the guard's Drop. No safe Rust code ever sees the pointer"
+enforcement = "Field-level `Send + Sync` (verified element-by-element above) + guard's exclusive ownership of `state_ptr` + RAII reclamation in `Drop`. The deliberate absence of `Sync` keeps callers from sharing the guard across threads concurrently with the in-progress BoringSSL handshake"
+owner = "vless"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-vless/src/reality_hook.rs"
+pattern = "raw pointer in public fn"
+reason = "`install_reality_client_hello_hook(ssl: *mut SslHandle, ...)` — the entry point that wires the Reality callback into a BoringSSL `SSL` object"
+preconditions = "Function is already `unsafe fn` and documents the contract in a `# Safety` section: `ssl` must be a valid `*mut SSL` from boring's safe API (`ssl.as_ptr()`); the `SSL_CTX` backing `ssl` must not have any other `client_hello_cb` installed (the patch holds only one callback slot per CTX)"
+enforcement = "Public visibility is `pub(crate)`, not `pub` — only the parent module installs the hook, and it does so via the typed boring SSL API. The `# Safety` section names every precondition; the caller's `unsafe { ... }` block carries its own SAFETY comment per repo policy"
+owner = "vless"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-vless/src/reality_hook.rs"
+pattern = "slice::from_raw_parts"
+reason = "`std::slice::from_raw_parts_mut(msg, msg_len)` inside the BoringSSL callback materialises a `&mut [u8]` over the in-flight ClientHello body so the Reality seal can rewrite bytes `[SESSION_ID_OFFSET..SESSION_ID_OFFSET + SESSION_ID_LEN]` in place"
+preconditions = "BoringSSL contract (patch H1) guarantees `msg` points to a valid byte buffer of `msg_len` bytes for the duration of the callback; both are null-checked before the call. Caller validates `msg_len >= SESSION_ID_OFFSET + SESSION_ID_LEN` immediately above the slice creation"
+enforcement = "Null check on `msg`/`ssl`/`arg` at the top of `reality_client_hello_cb_inner`; length check `msg_len < SESSION_ID_OFFSET + SESSION_ID_LEN` rejects short bodies; the resulting `&mut [u8]` is consumed entirely within the same function and the BoringSSL ABI does not call back into Rust during the rest of the callback body"
+owner = "vless"
+review_date = "2026-11-15"

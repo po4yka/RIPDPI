@@ -77,6 +77,40 @@ impl<'a> TxToken for OwnedTxToken<'a> {
     }
 }
 
+// Compile-fail regressions for soundness issue #14: `OwnedRxToken` owns
+// a heap-allocated `Vec<u8>` consumed exactly once via `RxToken::consume`,
+// and `OwnedTxToken<'a>` carries an exclusive `&'a mut VecDeque<Vec<u8>>`
+// borrow that smoltcp relies on for its single-consumer protocol. A
+// future `derive(Copy)` on either type would let safe code consume the
+// same packet twice (Rx) or hand out two aliasing exclusive borrows of
+// the same `VecDeque` (Tx). The contained types — `Vec<u8>` and `&mut
+// VecDeque<_>` — are already `!Copy`, so the compiler already rejects
+// any future `derive(Copy)`; these blocks pin the soundness argument so
+// the next reviewer can read it next to the type declaration.
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfCopy<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfCopy<()> for Check<T> {}
+    impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
+    <Check<OwnedRxToken> as AmbiguousIfCopy<_>>::check();
+};
+
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfCopy<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfCopy<()> for Check<T> {}
+    impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
+    <Check<OwnedTxToken<'static>> as AmbiguousIfCopy<_>>::check();
+};
+
 // ── smoltcp Device impl ───────────────────────────────────────────────────────
 
 impl Device for TunDevice {
