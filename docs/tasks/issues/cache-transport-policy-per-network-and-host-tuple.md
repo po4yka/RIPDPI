@@ -1,7 +1,7 @@
 ---
 title: Cache transport policy per network and host tuple
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -9,10 +9,21 @@ parent: epic-direct-mode-transport-policy-and-verdicts
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-16
 ---
 
-- [ ] #task Cache transport policy per network and host tuple #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [x] #task Cache transport policy per network and host tuple #repo/RIPDPI #area/diagnostics #status/done 🔼
+
+## Work log
+
+- 2026-05-16: Added `TransportPolicyCache` keyed by `(host, ip_set,
+  app_family, NetProfile)` in `ripdpi-failure-classifier::transport_policy_cache`.
+  Shared invalidation rules with the existing family cache: ASN change,
+  access-type change, 3 consecutive failures per host, 7-day TTL, HTTPS/SVCB
+  TTL expiry, ECH capability change. Write path uses atomic-rename via
+  AtomicFile. 10 unit tests cover hit/miss, key isolation, and each
+  invalidation rule.
+- Verify: `cargo nextest run -p ripdpi-failure-classifier` — exit 0.
 
 ## Goal contract
 
