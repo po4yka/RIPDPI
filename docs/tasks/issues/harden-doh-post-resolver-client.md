@@ -1,7 +1,7 @@
 ---
 title: Harden DoH POST resolver client
 type: task
-status: backlog
+status: done
 area: vpn
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Harden DoH POST resolver client #repo/RIPDPI #area/vpn #status/backlog ⏫
+- [x] #task Harden DoH POST resolver client #repo/RIPDPI #area/vpn #status/done ⏫
 
 ## Goal contract
 
@@ -39,11 +39,11 @@ DoH GET encodes the DNS query in the URL. RIPDPI's runtime resolver should prefe
 
 ## Acceptance criteria
 
-- [ ] Runtime proxy DNS uses DoH POST by default for encrypted DNS.
-- [ ] DoH GET is disabled for runtime resolver unless a profile explicitly enables it for compatibility.
-- [ ] Request URL, body, domain, and response payload are absent from release logs and diagnostics by default.
-- [ ] Resolver TLS authentication validates the expected auth name and configured trust/pin policy.
-- [ ] DoH failure integrates with strict tunneled resolver failover and never falls back to plaintext local DNS.
+- [x] Runtime proxy DNS uses DoH POST by default for encrypted DNS.
+- [x] DoH GET is disabled for runtime resolver unless a profile explicitly enables it for compatibility.
+- [x] Request URL, body, domain, and response payload are absent from release logs and diagnostics by default.
+- [x] Resolver TLS authentication validates the expected auth name and configured trust/pin policy.
+- [x] DoH failure integrates with strict tunneled resolver failover and never falls back to plaintext local DNS.
 
 ## Design notes
 

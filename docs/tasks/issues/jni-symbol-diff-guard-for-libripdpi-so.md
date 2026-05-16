@@ -1,7 +1,7 @@
 ---
 title: JNI symbol diff guard for libripdpi.so
 type: task
-status: doing
+status: done
 area: rust-native
 priority: high
 owner: Senior Rust Native Engineer
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-16
 ---
 
-- [ ] #task JNI symbol diff guard for libripdpi.so #repo/RIPDPI #area/rust-native #status/doing ⏫
+- [x] #task JNI symbol diff guard for libripdpi.so #repo/RIPDPI #area/rust-native #status/done ⏫
 
 ## Goal contract
 

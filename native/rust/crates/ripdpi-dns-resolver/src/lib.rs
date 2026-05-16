@@ -1,4 +1,5 @@
 mod dnscrypt;
+pub mod doh;
 mod doh_pipeline;
 mod health;
 #[cfg(feature = "hickory-backend")]

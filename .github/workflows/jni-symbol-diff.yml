@@ -1,0 +1,72 @@
+name: JNI Symbol Diff
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "native/rust/crates/ripdpi-android/**"
+      - ".github/workflows/jni-symbol-diff.yml"
+      - ".github/scripts/check-jni-symbols.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  jni-symbol-diff:
+    name: JNI symbol surface guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager "ndk;27.2.12479018"
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.2.12479018" >> "${GITHUB_ENV}"
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: jni-sym-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock') }}
+          restore-keys: jni-sym-${{ runner.os }}-
+
+      - name: Build native library (arm64-v8a release)
+        run: ./gradlew :core:engine:buildRustNativeLibs
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+
+      - name: Locate libripdpi.so (arm64-v8a)
+        id: locate
+        run: |
+          LIB="$(find . -path "*/jniLibs/arm64-v8a/libripdpi.so" -print -quit 2>/dev/null)"
+          if [[ -z "${LIB}" ]]; then
+            LIB="$(find native/rust/target -name "libripdpi.so" -print -quit 2>/dev/null)"
+          fi
+          if [[ -z "${LIB}" ]]; then
+            echo "error: could not locate libripdpi.so after build" >&2
+            exit 1
+          fi
+          echo "lib=${LIB}" >> "${GITHUB_OUTPUT}"
+
+      - name: Check JNI symbols against baseline
+        run: bash .github/scripts/check-jni-symbols.sh "${{ steps.locate.outputs.lib }}"

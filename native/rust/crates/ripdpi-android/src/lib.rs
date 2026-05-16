@@ -121,4 +121,32 @@ mod tests {
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>) -> jstring,
         );
     }
+
+    /// Verifies that the checked-in baseline lists at least as many JNI symbols
+    /// as are declared in this crate.  A mismatch means someone added or removed
+    /// a `#[no_mangle]` export without regenerating the baseline.
+    #[test]
+    fn jni_baseline_is_non_empty_and_contains_expected_symbols() {
+        let baseline_src = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/jni-symbols.baseline"));
+
+        let symbols: Vec<&str> = baseline_src.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+
+        assert!(!symbols.is_empty(), "jni-symbols.baseline must not be empty");
+
+        // Every Java_* / JNI_* name known at compile-time must appear in the
+        // baseline so that a silent removal is caught at test time too.
+        let required = [
+            "JNI_OnLoad",
+            "Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniCreate",
+            "Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStart",
+            "Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStop",
+            "Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniDestroy",
+            "Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCreate",
+            "Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniDestroy",
+            "Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaLoadScript",
+        ];
+        for sym in required {
+            assert!(symbols.contains(&sym), "jni-symbols.baseline is missing required symbol: {sym}");
+        }
+    }
 }
