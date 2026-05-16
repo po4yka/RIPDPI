@@ -1,7 +1,7 @@
 ---
 title: Add rarity and repeated-attempt penalties to arm ranking
 type: task
-status: backlog
+status: done
 area: service
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-privacy-preserving-strategy-learner
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-16
 ---
 
-- [ ] #task Add rarity and repeated-attempt penalties to arm ranking #repo/RIPDPI #area/service #status/backlog 🔼
+- [x] #task Add rarity and repeated-attempt penalties to arm ranking #repo/RIPDPI #area/service #status/done 🔼
 
 ## Goal contract
 
@@ -45,6 +45,15 @@ pattern pinning and battery burn.
 - [ ] Unit tests: rare arm wins tie-break only when posterior is high
     enough to justify it; repeated-attempt penalty caps after N
     consecutive failures.
+
+## Work log
+
+- 2026-05-16: Implemented `native/rust/crates/ripdpi-runtime-strategy/src/arm_penalties.rs`.
+  - `rarity_penalty(frequencies, arm_id)` — frequency-table-based, caller resets on profile change.
+  - `repeated_attempt_penalty(consecutive_failures)` — linear growth capped at `REPEATED_FAILURE_CAP` (5).
+  - `AttemptMemory` — `HashMap<(host, NetProfileKey), HostAttemptState>` tracking consecutive failures per `(host, NetProfile)`.
+  - `apply_penalties(base_score, rarity_pen, repeat_pen)` — composable score application.
+  - 9 tests added; all 154 crate tests pass (`cargo nextest run -p ripdpi-runtime-strategy` exit 0).
 
 ## Links
 
