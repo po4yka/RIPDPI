@@ -1,7 +1,7 @@
 ---
 title: Implement direct-mode diagnostic orchestrator Phases 1-4
 type: task
-status: todo
+status: done
 area: diagnostics
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-direct-mode-diagnostic-state-machine
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-16
 ---
 
-- [ ] #task Implement direct-mode diagnostic orchestrator Phases 1-4 #repo/RIPDPI #area/diagnostics #status/todo ⏫
+- [x] #task Implement direct-mode diagnostic orchestrator Phases 1-4 #repo/RIPDPI #area/diagnostics #status/done ⏫
 
 ## Goal contract
 
@@ -57,13 +57,13 @@ enforcement, and the full class-to-arm execution ladder from the plan.
 
 ## Acceptance criteria
 
-- [ ] Orchestrator delegates to subsystem epics, never reimplements them:
+- [x] Orchestrator delegates to subsystem epics, never reimplements them:
 - DNS → [[Epic - Encrypted DNS and HTTPS SVCB classifier]]
 - Transport policy → [[Epic - Direct-mode transport policy and verdicts]]
 - TLS family arms → [[Epic - Semantic TLS first-flight family engine]]
 - Arm ranking → [[Epic - Privacy-preserving strategy learner]]
 - Owned-stack arms → [[Epic - Owned-stack mode with Android 17 ECH]]
-- [ ] Per-class arm list matches the plan:
+- [x] Per-class arm list matches the plan:
 - `DNS_BLOCK:           A1, A3, A4, A5, A6, A10, A9`
 - `SNI_TLS_SUSPECT:     A3, A5, A6, A7, A8, A10, A9`
 - `QUIC_BLOCK_SUSPECT:  A3, A4, A5, A6, A9`
@@ -71,7 +71,7 @@ enforcement, and the full class-to-arm execution ladder from the plan.
 - `UNKNOWN:             A1, A3, A4, A5, A9`
 - [x] Repo-owned persistence path requires `confirm_once`; pin only after
     confirmation.
-- [ ] Attempt budget hard-enforced (see [[Enforce diagnostic attempt budget]]).
+- [x] Attempt budget hard-enforced (see [[Enforce diagnostic attempt budget]]).
 - [x] Produces one `DiagnosticResult` per run.
 
 ## Links
