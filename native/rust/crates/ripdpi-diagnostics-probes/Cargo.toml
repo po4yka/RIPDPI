@@ -1,0 +1,17 @@
+[package]
+name = "ripdpi-diagnostics-probes"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-diagnostics-contracts = { workspace = true }
+
+[features]
+default = ["compat-facade"]
+# Re-exports historic root-level symbols under `compat::*`.
+# Disable with `--no-default-features` once all consumers are migrated.
+compat-facade = []
