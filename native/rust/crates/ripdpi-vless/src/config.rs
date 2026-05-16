@@ -307,4 +307,78 @@ mod tests {
         assert!(dbg.contains("443"), "port should be visible in debug");
         assert!(dbg.contains("<redacted>"), "redaction marker should be present");
     }
+
+    /// Tracing-event-capture variant of the Debug-redaction contract.
+    ///
+    /// The Debug impl protects `tracing::debug!(?config, ...)` and
+    /// `tracing::error!(?config, "...")` calls — the most common way
+    /// secrets leak into logs. This test installs a temporary
+    /// subscriber that captures every event field as a string,
+    /// triggers a representative tracing call with `?config`, and
+    /// asserts the captured event does not echo the UUID or REALITY
+    /// public-key bytes.
+    ///
+    /// Pairs with the connect-path tracing sites in `lib.rs`
+    /// (`VLESS+Reality: connecting`, `VLESS handshake completed`)
+    /// and the Reality handshake site in `reality.rs`. Closes the
+    /// tracing-event-capture criterion on
+    /// `add-credential-redaction-tests-for-vless-uuid-tuic-uuid-naive-auth`.
+    #[test]
+    fn tracing_event_with_config_field_does_not_echo_uuid_or_key() {
+        use std::fmt;
+        use std::sync::{Arc, Mutex};
+        use tracing::{Event, Subscriber};
+        use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
+        use tracing_subscriber::Registry;
+
+        /// Capture every event's field-set into a shared Vec of strings.
+        struct CaptureLayer(Arc<Mutex<Vec<String>>>);
+
+        impl<S: Subscriber> Layer<S> for CaptureLayer {
+            fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+                struct Visitor<'a>(&'a mut String);
+                impl<'a> tracing::field::Visit for Visitor<'a> {
+                    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn fmt::Debug) {
+                        use fmt::Write;
+                        let _ = write!(self.0, " {}={:?}", field.name(), value);
+                    }
+                }
+                let mut rendered = String::new();
+                event.record(&mut Visitor(&mut rendered));
+                let mut store = self.0.lock().expect("capture mutex");
+                store.push(rendered);
+            }
+        }
+
+        let captured = Arc::new(Mutex::new(Vec::<String>::new()));
+        let layer = CaptureLayer(Arc::clone(&captured));
+        let subscriber = Registry::default().with(layer);
+
+        let cfg = sample_config();
+        tracing::subscriber::with_default(subscriber, || {
+            // Fires the exact ?config pattern used at the real
+            // tracing sites; if the Debug impl ever regresses,
+            // this assertion catches the leak.
+            tracing::debug!(config = ?cfg, "VLESS test event");
+        });
+
+        let events = captured.lock().expect("capture mutex");
+        let joined = events.join("\n");
+        let uuid_hex_no_dashes = "550e8400e29b41d4a716446655440000";
+        let uuid_hex_dashed = "550e8400-e29b-41d4-a716-446655440000";
+        assert!(
+            !joined.contains(uuid_hex_no_dashes) && !joined.contains(uuid_hex_dashed),
+            "tracing event exposes UUID: {joined}",
+        );
+        let reality_key_hex_run = "AB".repeat(32);
+        assert!(
+            !joined.contains(&reality_key_hex_run),
+            "tracing event exposes REALITY public key (hex): {joined}",
+        );
+        assert!(
+            !joined.contains("171, 171, 171, 171"),
+            "tracing event exposes REALITY public key (int array): {joined}",
+        );
+        assert!(joined.contains("<redacted>"), "tracing event must carry the redaction marker: {joined}");
+    }
 }
