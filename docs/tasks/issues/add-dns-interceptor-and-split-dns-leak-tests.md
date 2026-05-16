@@ -1,7 +1,7 @@
 ---
 title: Add DNS interceptor and split DNS leak tests
 type: task
-status: backlog
+status: blocked
 area: vpn
 priority: critical
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Add DNS interceptor and split DNS leak tests #repo/RIPDPI #area/vpn #status/backlog 🔺
+- [ ] #task Add DNS interceptor and split DNS leak tests #repo/RIPDPI #area/vpn #status/blocked 🔺 — interceptor + leak tests pass; just test-module core:service blocked by pre-existing ConnectionPolicyResolverDirectPathTest failure
 
 ## Goal contract
 

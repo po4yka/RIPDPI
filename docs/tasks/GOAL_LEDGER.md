@@ -27,7 +27,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 4 | P1 | `add-shadowsocks-outbound-client-crate-and-profile-editor`<br>Add Shadowsocks outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔺 | TODO | |
 | 5 | P1 | `add-sing-box-json-subscription-parser`<br>Add sing-box JSON subscription parser | task | `epic-subscription-profile-import` | outbound | 🔺 | DONE | |
 | 6 | P1 | `add-android-lockdown-onboarding-and-kill-switch-health-checks`<br>Add Android lockdown onboarding and kill-switch health checks | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔺 | TODO | |
-| 7 | P1 | `add-dns-interceptor-and-split-dns-leak-tests`<br>Add DNS interceptor and split DNS leak tests | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔺 | TODO | |
+| 7 | P1 | `add-dns-interceptor-and-split-dns-leak-tests`<br>Add DNS interceptor and split DNS leak tests | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔺 | BLOCKED | task 7 tests pass; `just test-module core:service` blocked by pre-existing ConnectionPolicyResolverDirectPathTest failure unrelated to this task |
 | 8 | P1 | `add-explicit-ipv6-policy-modes-and-leak-tests`<br>Add explicit IPv6 policy modes and leak tests | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔺 | TODO | |
 | 9 | P1 | `audit-cloudflare-only-dependencies`<br>Audit Cloudflare-only dependencies | task | `epic-remove-cloudflare-from-critical-path` | relay | 🔺 | DONE | just lint (exit 0) |
 | 10 | P1 | `define-policy-bundle-profile-schema`<br>Define policy bundle profile schema | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔺 | DONE | just test-module core:service (exit 0) |

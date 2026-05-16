@@ -39,6 +39,28 @@ class CloudflarePublishManager
 
         @Volatile private var running: RunningCloudflarePublish? = null
 
+        @Volatile private var activeStateDir: File? = null
+
+        init {
+            evictStaleCredentialDirs()
+        }
+
+        private fun credentialRoot(): File = File(context.cacheDir, "cloudflare-publish")
+
+        private fun evictStaleCredentialDirs() {
+            val root = credentialRoot()
+            if (!root.exists()) return
+            root
+                .listFiles()
+                ?.filter { it.isDirectory && it.name.startsWith("cloudflare-publish-session-") }
+                ?.forEach { it.deleteRecursively() }
+        }
+
+        private fun cleanupStateDir() {
+            activeStateDir?.deleteRecursively()
+            activeStateDir = null
+        }
+
         suspend fun start(config: ResolvedRipDpiRelayConfig) {
             require(config.kind == com.poyka.ripdpi.data.RelayKindCloudflareTunnel) {
                 "Cloudflare publish runtime only supports Cloudflare Tunnel profiles"
@@ -52,9 +74,10 @@ class CloudflarePublishManager
                 val metricsAddress = "127.0.0.1:$metricsPort"
                 val stateDir =
                     File(
-                        context.filesDir,
-                        "cloudflare-publish/${sanitizeSegment(config.profileId)}",
+                        credentialRoot(),
+                        "cloudflare-publish-session-${sanitizeSegment(config.profileId)}",
                     ).apply { mkdirs() }
+                activeStateDir = stateDir
                 val originReadySignal = CompletableDeferred<String>()
                 var runningState: RunningCloudflarePublish? = null
                 var pendingLastError: String? = null
@@ -140,14 +163,18 @@ class CloudflarePublishManager
 
         suspend fun stop() {
             withContext(Dispatchers.IO) {
-                val active = running
-                running = null
-                sessionActive.set(false)
-                if (active == null) {
-                    return@withContext
+                try {
+                    val active = running
+                    running = null
+                    sessionActive.set(false)
+                    if (active == null) {
+                        return@withContext
+                    }
+                    processSupervisor.stop(active.cloudflaredProcess)
+                    processSupervisor.stop(active.originProcess)
+                } finally {
+                    cleanupStateDir()
                 }
-                processSupervisor.stop(active.cloudflaredProcess)
-                processSupervisor.stop(active.originProcess)
             }
         }
 
