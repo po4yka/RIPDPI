@@ -1,7 +1,7 @@
 ---
 title: Add Android VPN leak-test instrumentation matrix
 type: task
-status: backlog
+status: done
 area: vpn
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Add Android VPN leak-test instrumentation matrix #repo/RIPDPI #area/vpn #status/backlog ⏫
+- [x] #task Add Android VPN leak-test instrumentation matrix #repo/RIPDPI #area/vpn #status/done ⏫
 
 ## Goal contract
 
@@ -34,13 +34,13 @@ The policy-first client is only credible if the failure modes are reproducible. 
 
 ## Acceptance criteria
 
-- [ ] DNS leak test proves proxied domains do not use ISP/default-network DNS.
-- [ ] IPv6 leak test proves IPv4-only mode does not expose direct IPv6 on IPv6-capable networks.
-- [ ] Core-crash and service-stop tests prove traffic is blocked or the VPN state is revoked, not silently direct.
-- [ ] Wi-Fi to LTE, LTE to Wi-Fi, sleep/wake, and captive portal transitions are covered.
-- [ ] `onRevoke()` test verifies sockets, TUN fd, and provider runtimes close.
-- [ ] Per-app allow/disallow tests cover reconnect requirement and lockdown interactions.
-- [ ] Revoked credential fixtures prove stale UUID/shortId/password/profile tokens no longer work in local validation paths.
+- [x] DNS leak test proves proxied domains do not use ISP/default-network DNS.
+- [x] IPv6 leak test proves IPv4-only mode does not expose direct IPv6 on IPv6-capable networks.
+- [x] Core-crash and service-stop tests prove traffic is blocked or the VPN state is revoked, not silently direct.
+- [x] Wi-Fi to LTE, LTE to Wi-Fi, sleep/wake, and captive portal transitions are covered.
+- [x] `onRevoke()` test verifies sockets, TUN fd, and provider runtimes close.
+- [x] Per-app allow/disallow tests cover reconnect requirement and lockdown interactions.
+- [x] Revoked credential fixtures prove stale UUID/shortId/password/profile tokens no longer work in local validation paths.
 
 ## Notes
 
