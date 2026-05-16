@@ -1,7 +1,7 @@
 ---
 title: Audit and add VLESS xtls-rprx-vision-udp443 flow support
 type: task
-status: backlog
+status: done
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,10 +9,25 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-16
 ---
 
-- [ ] #task Audit and add VLESS xtls-rprx-vision-udp443 flow support #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [x] #task Audit and add VLESS xtls-rprx-vision-udp443 flow support #repo/RIPDPI #area/rust-native #status/done 🔼
+
+## Completion (2026-05-16)
+
+`VlessFlow` enum shipped in `ripdpi-vless::addons` with three
+variants (`None`, `Vision`, `VisionUdp443`), `as_addons_bytes()`
+selector, `parse()` for Kotlin-supplied flow strings, `Default`
+resolving to `Vision` for back-compat, and `Display` matching the
+xray identifier. Tests cover encoding of both addons constants,
+selector mapping, default behavior, parse acceptance of empty /
+named / whitespace variants, rejection of unknown strings, and
+Display output.
+
+Threaded through `VlessRealityConfig` (`with_flow`,
+`with_flow_str`, Debug field, from_strings_defaults_flow_to_vision_
+for_back_compat regression test).
 
 ## Goal contract
 
