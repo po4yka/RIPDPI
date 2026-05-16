@@ -1,0 +1,65 @@
+[
+  {
+    "outcome": "Cancelled",
+    "phase": "environment",
+    "stage_id": "Environment",
+    "steps": [],
+    "total_steps": 0
+  },
+  {
+    "outcome": "Completed",
+    "phase": "dns",
+    "stage_id": "Dns",
+    "steps": [],
+    "total_steps": 0
+  },
+  {
+    "outcome": "Completed",
+    "phase": "reachability",
+    "stage_id": "Web",
+    "steps": [],
+    "total_steps": 0
+  },
+  {
+    "outcome": "Completed",
+    "phase": "quic",
+    "stage_id": "Quic",
+    "steps": [],
+    "total_steps": 0
+  },
+  {
+    "outcome": "Completed",
+    "phase": "tcp",
+    "stage_id": "Tcp",
+    "steps": [],
+    "total_steps": 0
+  },
+  {
+    "outcome": "Completed",
+    "phase": "service",
+    "stage_id": "Service",
+    "steps": [],
+    "total_steps": 0
+  },
+  {
+    "outcome": "Completed",
+    "phase": "circumvention",
+    "stage_id": "Circumvention",
+    "steps": [],
+    "total_steps": 0
+  },
+  {
+    "outcome": "Cancelled",
+    "phase": "telegram",
+    "stage_id": "Telegram",
+    "steps": [],
+    "total_steps": 0
+  },
+  {
+    "outcome": "Completed",
+    "phase": "throughput",
+    "stage_id": "Throughput",
+    "steps": [],
+    "total_steps": 0
+  }
+]

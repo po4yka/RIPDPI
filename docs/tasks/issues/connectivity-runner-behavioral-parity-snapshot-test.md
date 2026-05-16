@@ -1,7 +1,7 @@
 ---
 title: Connectivity runner behavioral parity snapshot test
 type: task
-status: doing
+status: done
 area: testing
 priority: high
 owner: Test Automation Engineer
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-16
 ---
 
-- [ ] #task Connectivity runner behavioral parity snapshot test #repo/RIPDPI #area/testing #status/doing ⏫
+- [x] #task Connectivity runner behavioral parity snapshot test #repo/RIPDPI #area/testing #status/done ⏫
 
 ## Goal contract
 

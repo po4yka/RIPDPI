@@ -9,6 +9,68 @@ use super::runtime::{
 };
 use crate::types::{ScanKind, ScanRequest, SharedState};
 
+/// A single recorded step from a connectivity runner's `run_collecting` output,
+/// scrubbed of non-deterministic fields (timestamps, OS-specific addresses).
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct RunnerStepSnapshot {
+    pub phase: String,
+    pub message: String,
+    pub latest_probe_target: Option<String>,
+    pub latest_probe_outcome: Option<String>,
+}
+
+/// Full behavioral snapshot record for one connectivity runner.
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct RunnerParityRecord {
+    pub stage_id: String,
+    pub phase: String,
+    pub total_steps: usize,
+    pub outcome: String,
+    pub steps: Vec<RunnerStepSnapshot>,
+}
+
+/// Public entry point for the behavioral-parity snapshot (row 73).
+///
+/// Builds the deterministic no-network fixture plan then delegates to the
+/// runners module (the only place runner structs are in scope).
+#[doc(hidden)]
+pub fn connectivity_runner_parity_snapshot() -> Vec<RunnerParityRecord> {
+    let plan = parity_fixture_plan();
+    super::runners::connectivity_runner_parity_snapshot(&plan)
+}
+
+fn parity_fixture_plan() -> super::runtime::ExecutionPlan {
+    let request = ScanRequest {
+        profile_id: "connectivity-parity-fixture".to_string(),
+        display_name: "Connectivity parity fixture".to_string(),
+        path_mode: crate::types::ScanPathMode::RawPath,
+        kind: ScanKind::Connectivity,
+        family: crate::types::DiagnosticProfileFamily::General,
+        region_tag: None,
+        manual_only: false,
+        pack_refs: Vec::new(),
+        proxy_host: None,
+        proxy_port: None,
+        probe_tasks: Vec::new(),
+        domain_targets: Vec::new(),
+        dns_targets: Vec::new(),
+        tcp_targets: Vec::new(),
+        quic_targets: Vec::new(),
+        service_targets: Vec::new(),
+        circumvention_targets: Vec::new(),
+        throughput_targets: Vec::new(),
+        whitelist_sni: Vec::new(),
+        telegram_target: None,
+        strategy_probe: None,
+        network_snapshot: None,
+        route_probe: None,
+        scan_deadline_ms: None,
+        diagnostic_tls_keylog_path: None,
+    };
+    super::plan::build_execution_plan("parity-session".to_string(), request, 0, crate::transport::direct_transport())
+        .unwrap()
+}
+
 #[doc(hidden)]
 pub(crate) fn connectivity_partial_report_contract_fixture() -> crate::types::ScanReport {
     let shared = Arc::new(Mutex::new(SharedState::default()));

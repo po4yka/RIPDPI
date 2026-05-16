@@ -20,6 +20,7 @@ use runners::execution_coordinator;
 use runtime::{publish_cancelled_run, ExecutionRuntime, RunnerOutcome};
 
 pub(crate) use contract_fixture::connectivity_partial_report_contract_fixture;
+pub use contract_fixture::{connectivity_runner_parity_snapshot, RunnerParityRecord, RunnerStepSnapshot};
 
 pub fn run_engine_scan(
     shared: Arc<Mutex<SharedState>>,
