@@ -115,6 +115,7 @@ on every PR. It looks for the following risky patterns under
 | `UnsafeCell::get` (deref form `*cell.get()`) | Materialises `&mut T` / `&T` from `*mut T` and bypasses Rust's borrow check. The exclusivity invariant — at most one accessor of the cell at any moment — must be enforced by the surrounding type design. The bare `.get()` method (without the `*` deref) is filtered out so unrelated `.get()` callers (HashMap, Vec, Option, AtomicPtr) are not flagged. See "Creating `&mut T` from raw memory" below. |
 | `Cell<bool>` | `Cell<bool>` is a common cheap way to encode lifecycle state, but the value's mutation has no synchronisation cost and no exclusivity discipline. Use a typestate / RAII guard / Mutex instead. See "Ownership must be types, not flags" below. |
 | `ownership flag near drop/unsafe` (proximity ≤ 50 lines) | A `bool` field named `registered`, `is_alive`, `destroyed`, `initialized`, `disowned`, `owned_by_*`, or `freed` that lives within 50 source lines of an `impl Drop` or `unsafe` keyword. Per issue-#11 audit, ownership/liveness must be encoded by the type system, not by flags + comments. See "Ownership must be types, not flags" below. |
+| `manual Arc/Rc refcount` | Calls to `Arc::into_raw`/`from_raw`/`increment_strong_count`/`decrement_strong_count` (and the `Rc`/`Weak` equivalents). The standard library handles every sound use of these internally; application code that calls them is almost always reinventing reference counting unsoundly. Round-tripping `Arc<T>` through `*const T` silently shifts the refcount by 0 or 1 depending on whether the caller remembers to call `Arc::from_raw` exactly once. See "Use `Arc<T>` / `Rc<T>` / `Weak<T>`, not manual refcounting" below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -385,6 +386,74 @@ reference sites; each is allowlisted with the validity argument:
 | `crates/ripdpi-privileged-ops/.../icmp_wrapped_udp.rs` | `slice::from_raw_parts` → `&[u8]` | `recv_from` contract initialises the first `received` bytes of a stack `MaybeUninit` buffer; slice is consumed in-scope. |
 | `crates/ripdpi-desync-runtime/src/platform/registry.rs` | `&*pointer` → `&dyn TcpDesyncPlatform` | RAII `Restore` guard scoped to a closure; non-owning observer. |
 | `crates/ripdpi-io-uring/src/probe.rs` | `CStr::from_ptr` → `&CStr` | POSIX `uname(2)` NUL-termination contract; lifetime bounded by the local `utsname`. |
+
+## Use `Arc<T>` / `Rc<T>` / `Weak<T>`, not manual refcounting
+
+Shared ownership in this workspace MUST use the standard library's
+reference-counting types: `std::sync::Arc<T>` for cross-thread sharing,
+`std::rc::Rc<T>` for single-threaded sharing, and `std::sync::Weak<T>`
+or `std::rc::Weak<T>` for observer pointers that must not extend the
+lifetime of the value. The standard library already handles every
+soundness requirement the issue-#12 audit names:
+
+| Concern | How std solves it |
+|---|---|
+| Overflow | `Arc::clone` panics on overflow (above `isize::MAX/2`). |
+| Atomic ordering | `Arc::clone` uses `Relaxed` for increment (the count is monotonic between clone and drop), `Release` for decrement, and `Acquire` for the last-drop fence. This is the canonical sound sequence. |
+| Clone/drop balance | Auto-derived `Clone` + std-provided `Drop` are guaranteed paired by Rust move semantics. |
+| Reentrancy | `Arc::drop` only deallocates at refcount zero; no callback into user code during the decrement. |
+| Panic paths | `Arc::drop` is panic-safe; the destructor never reads through the pointer after the last decrement. |
+| `Send`/`Sync` | `Arc<T>: Send + Sync` when `T: Send + Sync`, enforced by blanket impl. |
+| Object reclamation | The last `Drop` calls the inner `T`'s destructor under an `Acquire` fence. |
+
+**Rule.** Application code MUST NOT call any of the manual-lifecycle
+methods on `Arc`/`Rc`/`Weak`:
+
+- `Arc::into_raw` / `Arc::from_raw`
+- `Arc::increment_strong_count` / `Arc::decrement_strong_count`
+- `Rc::into_raw` / `Rc::from_raw`
+- `Weak::into_raw` / `Weak::from_raw`
+
+These exist for `unsafe` library authors implementing custom smart
+pointers; calling them in safe-feeling application code re-creates
+the bugs `Arc` was designed to prevent. The scanner pattern
+`manual Arc/Rc refcount` enforces this rule with zero baseline.
+
+**Allowlist entry requirements.** If a genuine FFI shim must pass an
+`Arc` through a C boundary (e.g. an opaque pointer registered with a
+foreign library), the allowlist entry MUST state:
+
+- which boundary requires the raw pointer,
+- which symbol is paired with `into_raw` (every `into_raw` MUST be
+  matched by exactly one `from_raw`),
+- how the call-site discipline prevents leaks (no `into_raw` without
+  a registered cleanup callback that consumes via `from_raw`),
+- thread-safety: whether the foreign code may share or send the
+  raw pointer, and how the `Arc`'s `Send + Sync` guarantees survive
+  the boundary.
+
+**Anti-patterns reviewers reject.**
+
+- `Arc::into_raw` followed by `mem::forget(arc)` — both increment
+  the refcount and forget the original `Arc`, leaking the value.
+- A custom `struct ManualRefcount { count: AtomicUsize, data: T }`
+  with hand-rolled `inc`/`dec` methods. Replace with `Arc<T>`.
+- `unsafe { Arc::from_raw(ptr) }` without a matching prior
+  `Arc::into_raw(arc)` from the SAME `Arc` allocation. Producing
+  the pointer any other way (cast from a `&T`, `Box::into_raw`,
+  pointer arithmetic) is UB.
+- A "manual `Weak`" using `Arc::downgrade` + a side channel that
+  stores raw pointers. Use `Weak<T>` directly; the std API already
+  handles upgrade race conditions.
+
+**Workspace inventory.** Zero manual-refcount sites in production.
+All shared ownership uses `Arc<T>` with the standard derive Clone
+or explicit `Arc::clone(&...)` calls. Pool-style "release(index)"
+methods that the initial grep flagged (e.g. `BufferHandle::release`,
+`VirtualPortPool::release`) are **index-based ownership transfer**
+into a `Mutex<Vec<u16>>` free list, not refcounting; they were
+audited under soundness issues #1, #2, #7, #8, #9, #10 and remain
+sound by the move-only handle + mutex protocol.
 
 ## Ownership must be types, not flags
 

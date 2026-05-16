@@ -139,6 +139,21 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # elsewhere. See docs/rust-soundness-policy.md § "Ownership must be
     # types, not flags".
     "Cell<bool>": re.compile(r"\bCell\s*<\s*bool\s*>"),
+    # Manual `Arc<T>` / `Rc<T>` lifecycle mutation via the raw-handle API
+    # surface (`into_raw`/`from_raw`/`increment_strong_count`/
+    # `decrement_strong_count`). The standard library handles every
+    # sound use of these (Tokio, async traits) internally; application
+    # code that calls them is almost always reinventing reference
+    # counting unsoundly. Round-tripping `Arc<T>` through `*const T`
+    # silently shifts the refcount by 0 or 1 depending on whether the
+    # caller remembers to call `Arc::from_raw` exactly once. There are
+    # zero production occurrences today; any new appearance trips CI.
+    # See docs/rust-soundness-policy.md § "Use `Arc<T>` / `Rc<T>` /
+    # `Weak<T>`, not manual refcounting".
+    "manual Arc/Rc refcount": re.compile(
+        r"\b(?:Arc|Rc|Weak)(?:::<[^>]*>)?::"
+        r"(?:into_raw|from_raw|increment_strong_count|decrement_strong_count)\b"
+    ),
 }
 
 # The `.get()` method is also used by many safe types (HashMap, Vec,

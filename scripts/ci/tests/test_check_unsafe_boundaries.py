@@ -441,6 +441,33 @@ class ScanRegressionTests(unittest.TestCase):
         )
         self.assertFalse(_has(_scan(src), guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN))
 
+    def test_manual_arc_refcount_flagged(self) -> None:
+        for fragment in (
+            "let raw = Arc::into_raw(arc);",
+            "let arc = unsafe { Arc::from_raw(raw) };",
+            "unsafe { Arc::increment_strong_count(raw) };",
+            "unsafe { Arc::decrement_strong_count(raw) };",
+            "let weak_raw = Weak::into_raw(weak);",
+            "let weak = unsafe { Weak::from_raw(weak_raw) };",
+            "let raw = Rc::into_raw(rc);",
+            "let rc = unsafe { Rc::from_raw(raw) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "manual Arc/Rc refcount"), msg=fragment)
+
+    def test_arc_clone_and_new_not_flagged(self) -> None:
+        # The sound API surface — `Arc::clone`, `Arc::new`, `Arc::strong_count`,
+        # `Arc::downgrade`, `Arc::weak_count` — must NOT trigger.
+        for fragment in (
+            "let a2 = Arc::clone(&a);",
+            "let a = Arc::new(42);",
+            "let n = Arc::strong_count(&a);",
+            "let w = Arc::downgrade(&a);",
+            "let n = Arc::weak_count(&a);",
+            "let r = Rc::new(42);",
+            "let r2 = Rc::clone(&r);",
+        ):
+            self.assertFalse(_has(_scan(fragment), "manual Arc/Rc refcount"), msg=fragment)
+
     # --- Negative cases: must NOT trigger the scan -----------------------
 
     def test_comments_are_ignored(self) -> None:
