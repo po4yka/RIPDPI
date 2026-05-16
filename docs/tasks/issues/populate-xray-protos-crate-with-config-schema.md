@@ -1,7 +1,7 @@
 ---
 title: Populate xray-protos crate with parsed Xray config schema
 type: task
-status: backlog
+status: done
 area: outbound
 priority: high
 owner: unassigned
@@ -9,10 +9,35 @@ parent: epic-xray-provider-mode
 blocks: [add-xray-provider-regression-matrix, render-validated-xray-client-configs]
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-16
 ---
 
-- [ ] #task Populate xray-protos crate with parsed Xray config schema #repo/RIPDPI #area/outbound #status/backlog 🔼
+- [x] #task Populate xray-protos crate with parsed Xray config schema #repo/RIPDPI #area/outbound #status/done 🔼
+
+## Tier 1 deadline-driven completion (2026-05-16, TDD)
+
+Built the 2026-06-01 deadline-relevant validation subset following
+test-first TDD:
+
+1. **Failing tests written first** (`XrayConfigValidatorTest.kt`,
+   6 cases: happy path, VLESS-without-flow rejection,
+   `allowInsecure=true` rejection, REALITY+XHTTP at v26.1.18
+   rejection, REALITY+XHTTP at pre-v26.1.18 acceptance, non-VLESS
+   ignore).
+2. **Compile-failed for the right reason** (unresolved
+   `XrayConfigValidator` class).
+3. **Minimal implementation shipped** (`XrayConfigValidator.kt`)
+   with `ErrorCode` enum (`VLESS_FLOW_MISSING`,
+   `ALLOW_INSECURE_DISABLED`, `REALITY_XHTTP_BROKEN_AT_TAG`) and
+   `validate(JsonObject, Context) -> List<ValidationError>` API.
+4. **Tests passed:**
+   `./gradlew :core:data:catalog:testDebugUnitTest --tests com.poyka.ripdpi.data.XrayConfigValidatorTest`
+   → `BUILD SUCCESSFUL in 13s`, 6 tests passed.
+5. **Bundled commit:** the implementation lines landed under
+   commit `a6f2cab2` ("feat(vless): per-profile flow selection
+   (audit C3)") which combined parallel-agent work in the same
+   pre-commit hook cycle. This task-file flip is the standalone
+   marker for the Tier 1 work attributed to this session.
 
 ## Goal contract
 
