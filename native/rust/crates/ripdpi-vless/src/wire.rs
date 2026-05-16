@@ -199,6 +199,24 @@ pub async fn read_response(stream: &mut (impl AsyncRead + Unpin)) -> io::Result<
     Ok(())
 }
 
+/// Sync parse of the VLESS response header from an in-memory buffer.
+///
+/// Mirrors [`read_response`] but operates on a byte slice so fuzz
+/// harnesses can drive the parser without an async runtime. Returns
+/// the number of bytes consumed (`2 + addons_len`) on success, or
+/// `ParseRequestError::NeedMoreData` if the buffer is too short.
+pub fn parse_response_header(bytes: &[u8]) -> Result<usize, ParseRequestError> {
+    if bytes.len() < 2 {
+        return Err(ParseRequestError::NeedMoreData);
+    }
+    let addons_len = usize::from(bytes[1]);
+    let total = 2usize.checked_add(addons_len).ok_or_else(|| ParseRequestError::Invalid("addons_len overflow".to_owned()))?;
+    if bytes.len() < total {
+        return Err(ParseRequestError::NeedMoreData);
+    }
+    Ok(total)
+}
+
 /// Split `"host:port"` into `(host, port)`.
 fn parse_target(target: &str) -> (String, u16) {
     // Handle IPv6 bracket notation: [::1]:443
@@ -337,5 +355,33 @@ mod tests {
     fn encoded_request_uses_protocol_version_wire_byte() {
         let encoded = encode_request(&[0x77; 16], &[], "example.com:443");
         assert_eq!(encoded[0], ProtocolVersion::V1.wire_byte());
+    }
+
+    #[test]
+    fn parse_response_header_reports_short_input_as_need_more_data() {
+        assert_eq!(parse_response_header(&[]), Err(ParseRequestError::NeedMoreData));
+        assert_eq!(parse_response_header(&[0x00]), Err(ParseRequestError::NeedMoreData));
+        // Two bytes header says 5 addons follow but buffer ends.
+        assert_eq!(parse_response_header(&[0x00, 0x05]), Err(ParseRequestError::NeedMoreData));
+        assert_eq!(parse_response_header(&[0x00, 0x05, 0x01, 0x02]), Err(ParseRequestError::NeedMoreData));
+    }
+
+    #[test]
+    fn parse_response_header_returns_consumed_length_for_zero_addons() {
+        assert_eq!(parse_response_header(&[0x00, 0x00]), Ok(2));
+    }
+
+    #[test]
+    fn parse_response_header_returns_consumed_length_for_addons() {
+        assert_eq!(parse_response_header(&[0x00, 0x03, 0xaa, 0xbb, 0xcc]), Ok(5));
+        // Extra bytes beyond the consumed window are fine.
+        assert_eq!(parse_response_header(&[0x00, 0x03, 0xaa, 0xbb, 0xcc, 0xdd, 0xee]), Ok(5));
+    }
+
+    #[test]
+    fn parse_response_header_accepts_max_addons() {
+        let mut input = vec![0x00, 0xff];
+        input.extend(std::iter::repeat(0x00).take(255));
+        assert_eq!(parse_response_header(&input), Ok(2 + 255));
     }
 }
