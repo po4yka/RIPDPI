@@ -3824,6 +3824,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-protocol-loopback"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ripdpi-proxy-config"
 version = "0.1.0"
 dependencies = [

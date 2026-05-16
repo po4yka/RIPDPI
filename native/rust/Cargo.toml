@@ -75,6 +75,7 @@ members = [
     "crates/ripdpi-capabilities",
     "crates/ripdpi-privileged-ops",
     "crates/ripdpi-protocol-detect",
+    "crates/ripdpi-protocol-loopback",
     "crates/ripdpi-root-helper-protocol",
     "crates/ripdpi-root-helper",
     "crates/ripdpi-relay-mux",

@@ -1,0 +1,20 @@
+# Dev-only loopback test-server harness shared by the per-transport
+# benchmark, QUIC PMTU regression, ShadowTLS soak, and cross-stack
+# chain test tasks. Never linked into release builds.
+[package]
+name = "ripdpi-protocol-loopback"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
