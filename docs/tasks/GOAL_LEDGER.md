@@ -149,7 +149,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 126 | P7 | `snapshot-owned-stack-ja4-fingerprint-in-release-ci`<br>Snapshot owned-stack JA4 fingerprint in release CI | task | `(no epic)` | diagnostics | 🔼 | TODO | |
 | 127 | P8 | `spike-censorlab-as-offline-censor-replay-harness`<br>Spike CensorLab as offline censor-replay harness | task | `epic-orchestration-test-posture` | testing | 🔼 | TODO | |
 | 128 | P8 | `surface-no-direct-solution-verdict-honestly`<br>Surface NO_DIRECT_SOLUTION verdict honestly | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | 🔼 | TODO | |
-| 129 | P8 | `spike-signed-route-pack-schema-for-direct-vs-relay-policy`<br>Spike signed route-pack schema for direct-vs-relay policy | task | `epic-control-plane-hardening` | engine | 🔼 | TODO | |
+| 129 | P8 | `spike-signed-route-pack-schema-for-direct-vs-relay-policy`<br>Spike signed route-pack schema for direct-vs-relay policy | task | `epic-control-plane-hardening` | engine | 🔼 | DONE | `just test-module core:engine` exit 0 |
 | 130 | P8 | `epic-control-plane-hardening`<br>Epic - Control-plane hardening | epic | `—` | epic | 🔺 | TODO | |
 | 131 | P8 | `epic-privacy-preserving-strategy-learner`<br>Epic - Privacy-preserving strategy learner | epic | `—` | epic | ⏫ | TODO | |
 | 132 | P8 | `add-amneziawg-profile-editor-screen-with-obfuscation-fields`<br>Add AmneziaWG profile editor screen with obfuscation fields | task | `epic-amneziawg-outbound-support` | outbound | 🔼 | DONE | |

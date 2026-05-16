@@ -1,7 +1,7 @@
 ---
 title: Spike signed route-pack schema for direct-vs-relay policy
 type: task
-status: todo
+status: done
 area: engine
 priority: medium
 owner: unassigned
@@ -9,10 +9,24 @@ parent: epic-control-plane-hardening
 blocks: []
 blocked_by: []
 created: 2026-04-22
-updated: 2026-04-22
+updated: 2026-05-16
 ---
 
-- [ ] #task Spike signed route-pack schema for direct-vs-relay policy #repo/RIPDPI #area/engine #status/todo 🔼
+- [x] #task Spike signed route-pack schema for direct-vs-relay policy #repo/RIPDPI #area/engine #status/done 🔼
+
+## Work log
+
+- 2026-05-16: Spike landed at
+  `core/engine/docs/spikes/signed-route-pack-schema-2026-05-16.md`.
+  Decision: introduce a separately-signed route-pack alongside
+  host-pack and strategy-pack. Manifest shape (sequence, issued_at,
+  channel, compatibility), canonical JSON wire format with locally
+  compiled side-car cache, hourly/daily refresh cadence with
+  monotonic sequence anti-rollback, schema-drift fall-through to
+  last-good-known, migration example for whitelist-sensitive
+  destinations, and explicit must-not list (operator secrets,
+  per-user state, raw URLs, identity-correlatable selectors) all
+  documented.
 
 ## Goal contract
 
