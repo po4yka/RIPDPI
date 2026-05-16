@@ -218,6 +218,68 @@ mod tests {
     }
 
     #[test]
+    #[allow(invalid_from_utf8)] // the test deliberately feeds invalid UTF-8 to the validating constructors
+    fn safe_string_from_utf8_rejects_invalid_input() {
+        // Invalid-UTF-8 regression for issue #17.
+        // The workspace's recommended alternative to
+        // `String::from_utf8_unchecked` for untrusted input is
+        // `String::from_utf8`, which performs release-mode UTF-8
+        // validation and returns `Result<String, FromUtf8Error>`.
+        // This test exercises that defence end-to-end against the
+        // three canonical hostile byte sequences a network/file/FFI
+        // input might produce: a lone continuation byte, an
+        // unfinished multi-byte sequence, and an over-long
+        // encoding. Each MUST produce `Err`; an unchecked
+        // constructor would silently invalidate the `str`
+        // invariant and reach UB on the next iteration.
+
+        // Lone continuation byte (0x80 with no leading start byte).
+        let lone_continuation: Vec<u8> = vec![0x80];
+        assert!(String::from_utf8(lone_continuation.clone()).is_err(), "lone continuation byte must be rejected",);
+
+        // Unfinished 3-byte sequence (0xE0 starts a 3-byte
+        // sequence; we provide only 1 of the 2 continuation bytes).
+        let unfinished_multi_byte: Vec<u8> = vec![0xE0, 0xA0];
+        assert!(
+            String::from_utf8(unfinished_multi_byte.clone()).is_err(),
+            "unfinished multi-byte sequence must be rejected",
+        );
+
+        // Over-long encoding (`/` encoded as a 2-byte sequence
+        // instead of 1 ASCII byte). This is the historical
+        // CVE-2000-0884-style attack vector — over-long encodings
+        // can bypass naive ASCII filters.
+        let overlong: Vec<u8> = vec![0xC0, 0xAF];
+        assert!(
+            String::from_utf8(overlong.clone()).is_err(),
+            "over-long encoding must be rejected (canonical security risk)",
+        );
+
+        // Lossy conversion of the same hostile inputs MUST succeed
+        // by substituting U+FFFD REPLACEMENT CHARACTER. Use this
+        // shape only for best-effort logging / classification —
+        // never round-trip lossy-converted bytes back to a
+        // protocol consumer.
+        for bad in [lone_continuation, unfinished_multi_byte, overlong] {
+            let lossy = String::from_utf8_lossy(&bad);
+            assert!(lossy.contains('\u{FFFD}'), "lossy conversion must emit U+FFFD for invalid input: {bad:02x?}",);
+        }
+
+        // Valid UTF-8 round-trips through `String::from_utf8`
+        // unchanged. This is the happy path; the rejection cases
+        // above are the load-bearing ones.
+        let valid_ascii: Vec<u8> = b"PAYLOAD".to_vec();
+        let valid_unicode: Vec<u8> = "café".as_bytes().to_vec();
+        assert_eq!(String::from_utf8(valid_ascii).unwrap(), "PAYLOAD");
+        assert_eq!(String::from_utf8(valid_unicode).unwrap(), "café");
+
+        // The same inputs through the borrowed `str::from_utf8`
+        // — same result, no allocation.
+        assert!(std::str::from_utf8(&[0x80]).is_err());
+        assert!(std::str::from_utf8(b"PAYLOAD").is_ok());
+    }
+
+    #[test]
     fn vec_with_capacity_spare_capacity_round_trip_models_recv_fill() {
         // Raw-buffer-transfer regression for issue #16.
         // The workspace's recommended alternative to
