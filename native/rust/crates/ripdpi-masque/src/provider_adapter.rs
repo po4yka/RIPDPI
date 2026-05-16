@@ -38,6 +38,27 @@ pub trait MasqueProviderAdapter: Send + Sync {
     /// Privacy Pass retry flow. Only the Privacy Pass adapter returns
     /// `true`; Cloudflare-direct mTLS does not.
     fn uses_privacy_pass_retry(&self) -> bool;
+
+    /// Whether this adapter requires a client certificate at TLS
+    /// handshake time. Only `CloudflareDirectAdapter` returns `true`
+    /// today; the other adapters authenticate at the HTTP layer with
+    /// headers and bearer tokens.
+    ///
+    /// Default = `false` so future adapter implementors that don't
+    /// touch client certs need not override.
+    fn requires_client_certificate(&self) -> bool {
+        false
+    }
+
+    /// Whether this adapter wants the optional `sec-ch-geohash`
+    /// header attached to outbound requests. Cloudflare's edge uses
+    /// this header to route requests by geohash; other providers
+    /// don't expect it.
+    ///
+    /// Default = `false`.
+    fn wants_geohash_header(&self) -> bool {
+        false
+    }
 }
 
 /// No-auth adapter. Pairs with `MasqueAuthMode::None`.
@@ -115,6 +136,12 @@ impl MasqueProviderAdapter for CloudflareDirectAdapter {
     fn uses_privacy_pass_retry(&self) -> bool {
         false
     }
+    fn requires_client_certificate(&self) -> bool {
+        true
+    }
+    fn wants_geohash_header(&self) -> bool {
+        true
+    }
 }
 
 /// Pick the adapter matching a configured `MasqueAuthMode`.
@@ -168,6 +195,41 @@ mod tests {
         assert!(
             adapter_for(MasqueAuthMode::PrivacyPass).uses_privacy_pass_retry(),
             "privacy_pass adapter must request retry flow",
+        );
+    }
+
+    #[test]
+    fn only_cloudflare_adapter_requires_client_certificate() {
+        for mode in [
+            MasqueAuthMode::None,
+            MasqueAuthMode::Bearer,
+            MasqueAuthMode::Preshared,
+            MasqueAuthMode::PrivacyPass,
+        ] {
+            assert!(
+                !adapter_for(mode).requires_client_certificate(),
+                "{mode:?} must NOT require a client certificate",
+            );
+        }
+        assert!(
+            adapter_for(MasqueAuthMode::CloudflareMtls).requires_client_certificate(),
+            "cloudflare_mtls adapter must require a client certificate",
+        );
+    }
+
+    #[test]
+    fn only_cloudflare_adapter_wants_geohash_header() {
+        for mode in [
+            MasqueAuthMode::None,
+            MasqueAuthMode::Bearer,
+            MasqueAuthMode::Preshared,
+            MasqueAuthMode::PrivacyPass,
+        ] {
+            assert!(!adapter_for(mode).wants_geohash_header(), "{mode:?} must NOT want the geohash header");
+        }
+        assert!(
+            adapter_for(MasqueAuthMode::CloudflareMtls).wants_geohash_header(),
+            "cloudflare_mtls adapter must want the geohash header",
         );
     }
 }
