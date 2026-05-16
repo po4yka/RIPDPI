@@ -58,13 +58,18 @@
 # Additional rule for `UnsafeCell::get`: the scanner flags the
 # `*cell.get()` deref shape, which materializes `&mut T` / `&T` from
 # `*mut T` and bypasses Rust's borrow check entirely. A valid
-# allowlist entry MUST state:
-#   - what exclusivity protocol prevents two simultaneous `&mut T`
+# allowlist entry MUST state the three-model template from
+# docs/rust-soundness-policy.md § "`UnsafeCell<T>` discipline":
+#   - aliasing model — what makes simultaneous `&T`/`&mut T` impossible
 #     (move-only handle + free list, Mutex/RwLock, type-state, `&mut self`),
-#   - why every reachable dereference has aligned, initialised, live data,
+#   - synchronisation model — what supplies the cross-thread
+#     happens-before edge (mutex unlock/lock, atomic Release/Acquire,
+#     channel send/receive, "single-threaded only"),
+#   - reentrancy behaviour — what prevents a nested deref from
+#     producing aliasing UB (no user callbacks while borrow live,
+#     RefCell runtime panic, or restructure to consume the borrow),
 #   - which symbol contains the deref and which type owns the cell,
 #   - whether the resulting reference's lifetime is tied to a real owner.
-# See docs/rust-soundness-policy.md § "Creating `&mut T` from raw memory".
 
 # ---------------------------------------------------------------------------
 # JNI export entry points: `extern "system" fn` is required by the JVM ABI for

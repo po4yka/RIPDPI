@@ -384,6 +384,61 @@ reference sites; each is allowlisted with the validity argument:
 | `crates/ripdpi-desync-runtime/src/platform/registry.rs` | `&*pointer` → `&dyn TcpDesyncPlatform` | RAII `Restore` guard scoped to a closure; non-owning observer. |
 | `crates/ripdpi-io-uring/src/probe.rs` | `CStr::from_ptr` → `&CStr` | POSIX `uname(2)` NUL-termination contract; lifetime bounded by the local `utsname`. |
 
+## `UnsafeCell<T>` discipline
+
+`UnsafeCell<T>` is the **only** way Rust allows mutation through a
+shared reference (`&UnsafeCell<T>`). It is also the only primitive
+that defeats the compiler's aliasing rules without an `unsafe`
+block at the type level — the unsafety is moved to the
+`unsafe { *cell.get() }` deref instead.
+
+**Rule.** `UnsafeCell<T>` permits interior mutability **but does
+not by itself make aliasing or threading sound.** Every `*cell.get()`
+deref must be guarded by an exclusivity protocol that the type
+system can enforce. The protocol must specify:
+
+1. **The aliasing model.** Who is allowed to hold `&T` and `&mut T`
+   simultaneously, and what makes simultaneous mutation impossible?
+   Standard answers: move-only handle + free list (the
+   `BufferHandle` design), `Mutex<T>`/`RwLock<T>` (locks),
+   `Cell<T>`/`RefCell<T>` (single-threaded runtime check),
+   atomics (lock-free primitive types).
+
+2. **The synchronisation model.** When the cell is shared across
+   threads, what supplies the release/acquire happens-before edge?
+   Standard answers: `Mutex` unlock/lock, atomic operation, channel
+   send/receive, thread spawn/join.
+
+3. **The reentrancy behaviour.** If user-supplied code can re-enter
+   the cell while a borrow is live, what prevents the second access
+   from producing aliasing UB? Standard answer: don't expose
+   user-supplied callbacks while a borrow is live; otherwise use
+   `RefCell` (which panics on reentrancy) or restructure.
+
+**Anti-patterns that the scanner + review reject.**
+
+- A `pub struct` with a public `UnsafeCell<T>` field. The field
+  must be private; the wrapper's API is the only valid access path.
+- `unsafe impl Send for X {}` or `unsafe impl Sync for X {}` for a
+  type whose `UnsafeCell<T>`'s contents are NOT protected by a
+  release/acquire-class synchronisation primitive.
+- A safe public method `fn get(&self) -> &mut T` (without `Mutex`-
+  style guard wrapping) that derefs `*cell.get()`. The signature
+  promises shared-to-exclusive without a runtime check; the type
+  system can't see the exclusivity protocol and neither can
+  callers.
+- Returning the raw pointer from `cell.get()` to safe callers. The
+  pointer is fine inside `unsafe { }`; surfacing it to safe code
+  gives the caller a tool that bypasses the borrow check.
+
+**Workspace inventory.** The only production `UnsafeCell` use is
+`Box<[UnsafeCell<Box<[u8]>>]>` in `crates/ripdpi-io-uring/src/`
+`bufpool.rs`. Its exclusivity protocol is documented in the next
+section and exercised by runtime tests in `bufpool::tests`. The
+scanner's `UnsafeCell::get` pattern (see "Custom scan" table) gates
+any new occurrence through the allowlist with the three-model
+template above.
+
 ## Creating `&mut T` from raw memory
 
 `&mut T` carries the strongest aliasing guarantee in Rust: while it
