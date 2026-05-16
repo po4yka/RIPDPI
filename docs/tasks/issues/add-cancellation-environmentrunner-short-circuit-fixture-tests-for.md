@@ -1,7 +1,7 @@
 ---
 title: Add cancellation + EnvironmentRunner short-circuit fixture tests for connectivity runners
 type: task
-status: todo
+status: done
 area: testing
 priority: high
 owner: Test Automation Engineer
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-16
 ---
 
-- [ ] #task Add cancellation + EnvironmentRunner short-circuit fixture tests for connectivity runners #repo/RIPDPI #area/testing #status/todo ⏫
+- [x] #task Add cancellation + EnvironmentRunner short-circuit fixture tests for connectivity runners #repo/RIPDPI #area/testing #status/done ⏫
 
 ## Goal contract
 
