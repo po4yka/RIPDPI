@@ -23,8 +23,11 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 internal class DiagnosticsProbeDependencies
@@ -55,7 +58,7 @@ class DiagnosticsViewModel
         private val diagnosticsViewModelBootstrapper: DiagnosticsViewModelBootstrapper,
         private val diagnosticsFiles: DiagnosticsFiles,
         private val stringResolver: StringResolver,
-        appSettingsRepository: AppSettingsRepository,
+        private val appSettingsRepository: AppSettingsRepository,
         probeDependencies: DiagnosticsProbeDependencies,
         diagnosticsUiStateAssembler: DiagnosticsUiStateAssembler,
         uiStateFactory: DiagnosticsUiStateFactory,
@@ -139,6 +142,14 @@ class DiagnosticsViewModel
 
         private val _pcapRecording = MutableStateFlow(false)
         val pcapRecording: StateFlow<Boolean> = _pcapRecording
+        val rootModeEnabled: StateFlow<Boolean> =
+            appSettingsRepository.settings
+                .map { it.rootModeEnabled }
+                .stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(5_000),
+                    initialValue = false,
+                )
         val dnsIntegrityTool: StateFlow<DiagnosticsDnsIntegrityToolUiModel> = dpiToolsController.dnsIntegrityTool
         val dnsAvailabilityTool: StateFlow<DiagnosticsDnsAvailabilityToolUiModel> =
             dpiToolsController.dnsAvailabilityTool

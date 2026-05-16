@@ -1718,6 +1718,13 @@ Quelle: %2$s</string>
     <string name="home_diagnostics_network_ipv6">IPv6</string>
     <string name="home_diagnostics_network_transparent_proxy">Transparenter Proxy</string>
     <string name="home_diagnostics_pcap_helper">Root erforderlich. Speichert ein PCAP für diesen Lauf.</string>
+    <string name="diagnostics_pcap_card_title">Paketaufzeichnung</string>
+    <string name="diagnostics_pcap_card_body_idle">Zeichnet rohe IP-Paketbytes in eine lokale PCAP-Datei auf. Aufbewahrung: 24 Std. / 3 neueste Dateien. Kein automatischer Export.</string>
+    <string name="diagnostics_pcap_card_body_recording">Pakete werden aufgezeichnet. Dateien werden 24 Std. aufbewahrt (3 neueste). Kein automatischer Export.</string>
+    <string name="diagnostics_pcap_card_start">Aufzeichnung starten</string>
+    <string name="diagnostics_pcap_card_stop">Aufzeichnung stoppen</string>
+    <string name="diagnostics_pcap_disclosure_title">Hinweis zur Rohpaketaufzeichnung</string>
+    <string name="diagnostics_pcap_disclosure_body">Die Aufzeichnung schreibt rohe IP-Paketbytes in eine lokale Datei. Aufbewahrung: 24 Std. oder 3 neueste Dateien. PCAP-Dateien werden nicht an normale Diagnosefreigaben angehängt. Sie können die Aufzeichnung jederzeit stoppen.</string>
     <string name="home_diagnostics_recommendation_label">Empfehlung</string>
     <string name="home_diagnostics_routing_sanity_section">App-Routing-Plausibilität</string>
     <string name="home_diagnostics_section">Diagnose</string>

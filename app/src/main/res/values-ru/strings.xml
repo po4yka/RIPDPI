@@ -2229,6 +2229,13 @@ fakeddisorder endhost</string>
     <string name="home_diagnostics_network_transport">Транспорт</string>
     <string name="home_diagnostics_pcap_helper">Требуется root. Сохраняет PCAP для этого запуска.</string>
     <string name="home_diagnostics_pcap_toggle">Захват пакетов (расширенно)</string>
+    <string name="diagnostics_pcap_card_title">Захват пакетов</string>
+    <string name="diagnostics_pcap_card_body_idle">Записывает необработанные IP-байты пакетов в локальный PCAP-файл. Хранение: 24 ч / 3 последних файла. Автоматический экспорт не выполняется.</string>
+    <string name="diagnostics_pcap_card_body_recording">Запись пакетов. Файлы хранятся 24 ч (3 последних). Автоматический экспорт не выполняется.</string>
+    <string name="diagnostics_pcap_card_start">Начать запись</string>
+    <string name="diagnostics_pcap_card_stop">Остановить запись</string>
+    <string name="diagnostics_pcap_disclosure_title">Раскрытие информации о захвате пакетов</string>
+    <string name="diagnostics_pcap_disclosure_body">Запись сохраняет необработанные IP-байты пакетов в локальный файл. Хранение: 24 ч или 3 последних файла. PCAP-файлы не прикрепляются к обычным диагностическим отчётам. Вы можете остановить запись в любое время.</string>
     <string name="home_diagnostics_quick_scan_body">Только зондирование стратегии, ~90 секунд</string>
     <string name="home_diagnostics_quick_scan">Быстрое сканирование</string>
     <string name="home_diagnostics_regression_failed_label">Новые сбои</string>

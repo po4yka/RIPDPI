@@ -617,6 +617,13 @@
     <string name="home_diagnostics_network_operator">运营商 / 网络</string>
     <string name="home_diagnostics_network_transport">传输</string>
     <string name="home_diagnostics_pcap_toggle">抓取数据包(高级)</string>
+    <string name="diagnostics_pcap_card_title">数据包捕获</string>
+    <string name="diagnostics_pcap_card_body_idle">将原始 IP 数据包字节记录到本地 PCAP 文件。保留期：24 小时 / 最近 3 个文件。不自动导出。</string>
+    <string name="diagnostics_pcap_card_body_recording">正在录制数据包。文件保留 24 小时（最近 3 个）。不自动导出。</string>
+    <string name="diagnostics_pcap_card_start">开始录制</string>
+    <string name="diagnostics_pcap_card_stop">停止录制</string>
+    <string name="diagnostics_pcap_disclosure_title">原始数据包捕获说明</string>
+    <string name="diagnostics_pcap_disclosure_body">录制将原始 IP 数据包字节写入本地文件。保留期：24 小时或最近 3 个文件（以较小者为准）。PCAP 文件不附加到常规诊断共享。您可以随时停止录制。</string>
     <string name="home_diagnostics_regression_failed_label">新增失败</string>
     <string name="home_diagnostics_routing_sanity_section">应用路由健全性</string>
     <string name="home_diagnostics_stage_failed_marker">失败</string>

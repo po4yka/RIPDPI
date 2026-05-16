@@ -7,8 +7,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -108,6 +110,7 @@ internal fun ToolsSection(
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     dpiToolActions: DiagnosticsDpiToolActions = DiagnosticsDpiToolActions(),
     onOpenDetectionCheck: () -> Unit = {},
+    rootModeEnabled: Boolean = false,
     pcapRecording: Boolean = false,
     onTogglePcapRecording: () -> Unit = {},
 ) {
@@ -124,7 +127,12 @@ internal fun ToolsSection(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         approachItems(approaches, onSelectApproachMode, onSelectApproach)
-        captureItem(pcapRecording, onTogglePcapRecording)
+        if (rootModeEnabled) {
+            captureItem(pcapRecording, onTogglePcapRecording)
+            if (pcapRecording) {
+                disclosureItem()
+            }
+        }
         shareItems(
             share = share,
             onShareSummary = shareActions.onShareSummary,
@@ -172,6 +180,12 @@ private fun LazyListScope.captureItem(
             pcapRecording = pcapRecording,
             onTogglePcapRecording = onTogglePcapRecording,
         )
+    }
+}
+
+private fun LazyListScope.disclosureItem() {
+    item {
+        RawPacketDisclosureCard()
     }
 }
 
@@ -730,18 +744,44 @@ private fun PcapCaptureCard(
     onTogglePcapRecording: () -> Unit,
 ) {
     ShareActionCard(
-        title = "Packet Capture",
+        title = stringResource(R.string.diagnostics_pcap_card_title),
         body =
             if (pcapRecording) {
-                "Recording packets for diagnostics..."
+                stringResource(R.string.diagnostics_pcap_card_body_recording)
             } else {
-                "Record raw packets to a pcap file for analysis in Wireshark."
+                stringResource(R.string.diagnostics_pcap_card_body_idle)
             },
-        buttonLabel = if (pcapRecording) "Stop Recording" else "Start Recording",
+        buttonLabel =
+            if (pcapRecording) {
+                stringResource(R.string.diagnostics_pcap_card_stop)
+            } else {
+                stringResource(R.string.diagnostics_pcap_card_start)
+            },
         onClick = onTogglePcapRecording,
         iconTint = if (pcapRecording) RipDpiThemeTokens.colors.destructive else RipDpiThemeTokens.colors.info,
         variant = if (pcapRecording) RipDpiButtonVariant.Destructive else RipDpiButtonVariant.Outline,
     )
+}
+
+@Composable
+private fun RawPacketDisclosureCard() {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        androidx.compose.material3.Text(
+            text = stringResource(R.string.diagnostics_pcap_disclosure_title),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.warning,
+        )
+        Spacer(
+            modifier = Modifier.height(spacing.xs),
+        )
+        androidx.compose.material3.Text(
+            text = stringResource(R.string.diagnostics_pcap_disclosure_body),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.foreground,
+        )
+    }
 }
 
 @Composable

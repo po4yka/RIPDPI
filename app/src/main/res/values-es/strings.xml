@@ -1718,6 +1718,13 @@ Origen: %2$s</string>
     <string name="home_diagnostics_network_ipv6">IPv6</string>
     <string name="home_diagnostics_network_transparent_proxy">Proxy transparente</string>
     <string name="home_diagnostics_pcap_helper">Requiere root. Guarda un PCAP para esta ejecución.</string>
+    <string name="diagnostics_pcap_card_title">Captura de paquetes</string>
+    <string name="diagnostics_pcap_card_body_idle">Registra bytes de paquetes IP en bruto en un archivo PCAP local. Retención: 24 h / 3 archivos más recientes. No se exporta automáticamente.</string>
+    <string name="diagnostics_pcap_card_body_recording">Grabando paquetes. Los archivos se conservan 24 h (3 más recientes). No se exporta automáticamente.</string>
+    <string name="diagnostics_pcap_card_start">Iniciar grabación</string>
+    <string name="diagnostics_pcap_card_stop">Detener grabación</string>
+    <string name="diagnostics_pcap_disclosure_title">Aviso de captura de paquetes sin procesar</string>
+    <string name="diagnostics_pcap_disclosure_body">La grabación escribe bytes de paquetes IP en bruto en un archivo local. Retención: 24 h o 3 archivos más recientes. Los archivos PCAP no se adjuntan a los reportes de diagnóstico normales. Puede detener la grabación en cualquier momento.</string>
     <string name="home_diagnostics_recommendation_label">Recomendación</string>
     <string name="home_diagnostics_routing_sanity_section">Cordura del enrutamiento de aplicaciones</string>
     <string name="home_diagnostics_section">Diagnósticos</string>

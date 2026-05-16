@@ -424,6 +424,13 @@
     <string name="home_diagnostics_vpn_detectors_summary">%1$d برنامهٔ نصب‌شده شناخته‌شده به‌عنوان تشخیص‌دهندهٔ VPN.</string>
     <string name="home_diagnostics_pcap_toggle">ضبط بسته‌ها (پیشرفته)</string>
     <string name="home_diagnostics_pcap_helper">روت لازم است. یک PCAP برای این اجرا ذخیره می‌کند.</string>
+    <string name="diagnostics_pcap_card_title">ضبط بسته</string>
+    <string name="diagnostics_pcap_card_body_idle">بایت‌های خام بسته IP را در یک فایل PCAP محلی ضبط می‌کند. نگهداری: ۲۴ ساعت / ۳ فایل اخیر. هیچ صادرات خودکاری انجام نمی‌شود.</string>
+    <string name="diagnostics_pcap_card_body_recording">در حال ضبط بسته‌ها. فایل‌ها ۲۴ ساعت نگهداری می‌شوند (۳ فایل اخیر). هیچ صادرات خودکاری انجام نمی‌شود.</string>
+    <string name="diagnostics_pcap_card_start">شروع ضبط</string>
+    <string name="diagnostics_pcap_card_stop">توقف ضبط</string>
+    <string name="diagnostics_pcap_disclosure_title">اطلاعیه ضبط بسته خام</string>
+    <string name="diagnostics_pcap_disclosure_body">ضبط، بایت‌های خام بسته IP را در یک فایل محلی می‌نویسد. نگهداری: ۲۴ ساعت یا ۳ فایل اخیر. فایل‌های PCAP به اشتراک‌گذاری تشخیص عادی پیوست نمی‌شوند. می‌توانید ضبط را هر زمان متوقف کنید.</string>
     <string name="home_diagnostics_detection_permission_required">برخی بررسی‌ها برای خواندن هویت Wi-Fi یا شبکهٔ سلولی به مجوز مکان یا تلفن Android نیاز دارند. RIPDPI فقط برای مقایسهٔ رفتار سیاست شبکه از آن استفاده می‌کند؛ شناسه‌های خام ذخیره نمی‌شوند و خروجی‌های تشخیصی آن‌ها را حذف می‌کنند.</string>
     <string name="home_diagnostics_actionable_section">گام بعدی چیست</string>
     <string name="home_diagnostics_network_section">در این شبکه</string>

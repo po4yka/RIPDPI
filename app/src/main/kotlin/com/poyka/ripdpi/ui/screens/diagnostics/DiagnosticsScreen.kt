@@ -178,6 +178,7 @@ fun DiagnosticsScreen(
     cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel = DiagnosticsCidrWhitelistToolUiModel(),
     ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
+    rootModeEnabled: Boolean = false,
     pcapRecording: Boolean = false,
 ) {
     TrackRecomposition("DiagnosticsScreen")
@@ -194,6 +195,7 @@ fun DiagnosticsScreen(
         cidrWhitelistTool = cidrWhitelistTool,
         ipv4WhitelistTool = ipv4WhitelistTool,
         pluggableTransportTool = pluggableTransportTool,
+        rootModeEnabled = rootModeEnabled,
         pcapRecording = pcapRecording,
         modifier = modifier,
     )
@@ -213,6 +215,7 @@ private fun DiagnosticsScreenFrame(
     cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
     ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel,
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
+    rootModeEnabled: Boolean,
     pcapRecording: Boolean,
     modifier: Modifier,
 ) {
@@ -287,6 +290,7 @@ private fun DiagnosticsScreenFrame(
                     cidrWhitelistTool = cidrWhitelistTool,
                     ipv4WhitelistTool = ipv4WhitelistTool,
                     pluggableTransportTool = pluggableTransportTool,
+                    rootModeEnabled = rootModeEnabled,
                     pcapRecording = pcapRecording,
                     modifier = Modifier.weight(1f),
                 )
@@ -304,6 +308,7 @@ private fun DiagnosticsScreenPager(
     cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
     ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel,
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
+    rootModeEnabled: Boolean,
     pcapRecording: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -353,6 +358,7 @@ private fun DiagnosticsScreenPager(
                     cidrWhitelistTool = cidrWhitelistTool,
                     ipv4WhitelistTool = ipv4WhitelistTool,
                     pluggableTransportTool = pluggableTransportTool,
+                    rootModeEnabled = rootModeEnabled,
                     pcapRecording = pcapRecording,
                 )
             }
@@ -368,6 +374,7 @@ private fun DiagnosticsToolsPagerPage(
     cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
     ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel,
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
+    rootModeEnabled: Boolean,
     pcapRecording: Boolean,
 ) {
     ToolsSection(
@@ -382,6 +389,7 @@ private fun DiagnosticsToolsPagerPage(
         pluggableTransportTool = pluggableTransportTool,
         dpiToolActions = actions.toDiagnosticsDpiToolActions(),
         onOpenDetectionCheck = actions.onOpenDetectionCheck,
+        rootModeEnabled = rootModeEnabled,
         pcapRecording = pcapRecording,
         onTogglePcapRecording = actions.onTogglePcapRecording,
     )

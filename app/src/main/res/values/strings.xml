@@ -424,6 +424,13 @@
     <string name="home_diagnostics_vpn_detectors_summary">%1$d installed apps are known VPN detectors.</string>
     <string name="home_diagnostics_pcap_toggle">Capture packets (advanced)</string>
     <string name="home_diagnostics_pcap_helper">Root required. Saves a PCAP for this run.</string>
+    <string name="diagnostics_pcap_card_title">Packet Capture</string>
+    <string name="diagnostics_pcap_card_body_idle">Records raw IP packet bytes to a local PCAP file. Retention: 24 h / 3 most-recent files. No automatic export occurs.</string>
+    <string name="diagnostics_pcap_card_body_recording">Recording raw packets. Files are kept for 24 h (3 most-recent). No automatic export occurs.</string>
+    <string name="diagnostics_pcap_card_start">Start Recording</string>
+    <string name="diagnostics_pcap_card_stop">Stop Recording</string>
+    <string name="diagnostics_pcap_disclosure_title">Raw-packet capture disclosure</string>
+    <string name="diagnostics_pcap_disclosure_body">Recording writes raw IP packet bytes to a local file. Retention: 24 h or 3 most-recent files, whichever is smaller. PCAP files are not attached to normal diagnostics shares. You can stop recording at any time.</string>
     <string name="home_diagnostics_detection_permission_required">Some detection checks need Android location or phone permissions to read Wi-Fi or cellular network identity. RIPDPI uses this only to compare network policy behavior; raw identifiers are not persisted and diagnostics exports redact them.</string>
     <string name="home_diagnostics_actionable_section">What to do next</string>
     <string name="home_diagnostics_network_section">On this network</string>

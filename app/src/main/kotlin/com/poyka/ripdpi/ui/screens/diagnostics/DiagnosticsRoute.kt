@@ -67,6 +67,7 @@ fun DiagnosticsRoute(
         cidrWhitelistTool = toolsState.cidrWhitelist,
         ipv4WhitelistTool = toolsState.ipv4Whitelist,
         pluggableTransportTool = toolsState.pluggableTransport,
+        rootModeEnabled = toolsState.rootModeEnabled,
         pcapRecording = toolsState.pcapRecording,
         modifier = modifier,
     )
