@@ -1,0 +1,16 @@
+{
+  "trace_version": 1,
+  "desync_mode_id": "large_tls_record_single_packet",
+  "description": "Monolithic ClientHello in one 220-byte TCP packet. Triggers mtu-clamp at threshold 200 and rst-after-sni-match/sni-replace via the blocked SNI; ip-blackhole-after-n-bytes (threshold 1000) does not trip because the single packet is under the threshold.",
+  "packets": [
+    {
+      "direction": "outbound",
+      "transport": "tcp",
+      "src_port": 49152,
+      "dst_port": 443,
+      "tls_record_type": "monolithic_clienthello",
+      "sni": "blocked.example",
+      "payload_hex": "16030100d80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ]
+}

@@ -19,6 +19,35 @@
         "alpn_blocklist": "list[str]",
         "sni_blocklist": "list[str]"
       }
+    },
+    {
+      "id": "sni-replace",
+      "status": "active",
+      "description": "Inspect outbound packets for a TLS ClientHello whose SNI matches a blocklist; rewrite the ClientHello so the handshake terminates at a sinkhole.",
+      "classifier_module": "patterns.sni_replace",
+      "config_schema": {
+        "sni_blocklist": "list[str]",
+        "replacement_sni": "str"
+      }
+    },
+    {
+      "id": "ip-blackhole-after-n-bytes",
+      "status": "active",
+      "description": "Accumulate outbound bytes per flow; after the threshold is crossed, drop all subsequent packets to the configured destination.",
+      "classifier_module": "patterns.ip_blackhole_after_n_bytes",
+      "config_schema": {
+        "threshold_bytes": "int",
+        "target_dst_ports": "list[int]"
+      }
+    },
+    {
+      "id": "mtu-clamp",
+      "status": "active",
+      "description": "Match any outbound packet whose payload exceeds the configured MTU threshold; fragment or drop in live mode.",
+      "classifier_module": "patterns.mtu_clamp",
+      "config_schema": {
+        "mtu_payload_bytes": "int"
+      }
     }
   ]
 }

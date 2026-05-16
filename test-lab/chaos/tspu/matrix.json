@@ -4,19 +4,34 @@
     {
       "id": "rst-after-sni-match",
       "config": {
-        "sni_blocklist": [
-          "blocked.example",
-          "tspu-target.example"
-        ]
+        "sni_blocklist": ["blocked.example", "tspu-target.example"]
       }
     },
     {
       "id": "quic-initial-drop",
       "config": {
         "alpn_blocklist": ["h3"],
-        "sni_blocklist": [
-          "blocked.example"
-        ]
+        "sni_blocklist": ["blocked.example"]
+      }
+    },
+    {
+      "id": "sni-replace",
+      "config": {
+        "sni_blocklist": ["blocked.example"],
+        "replacement_sni": "sinkhole.local"
+      }
+    },
+    {
+      "id": "ip-blackhole-after-n-bytes",
+      "config": {
+        "threshold_bytes": 1000,
+        "target_dst_ports": [443]
+      }
+    },
+    {
+      "id": "mtu-clamp",
+      "config": {
+        "mtu_payload_bytes": 200
       }
     }
   ],
@@ -25,6 +40,8 @@
     "tlsrandrec_profile_a",
     "fakettl_2_then_real",
     "quic_initial_with_blocked_sni",
-    "quic_initial_with_fake_decoy"
+    "quic_initial_with_fake_decoy",
+    "large_tls_record_single_packet",
+    "long_lived_flow_post_blackhole"
   ]
 }

@@ -3,7 +3,7 @@
 Tracked by
 [`docs/architecture/spike-tspu-adversarial-emulator.md`](../../../docs/architecture/spike-tspu-adversarial-emulator.md).
 
-v1 ships two patterns and a matrix-runner that reports per-cell verdicts
+v1.1 ships five patterns and a matrix-runner that reports per-cell verdicts
 (`bypassed` / `blocked` / `degraded` / `inconclusive`) per `(desync_mode_id,
 pattern_id)` cell:
 
@@ -11,6 +11,9 @@ pattern_id)` cell:
 |---|---|
 | `rst-after-sni-match` | Inspect outbound packets for a TLS ClientHello whose SNI matches a blocklist; emit a synthetic RST when matched. |
 | `quic-initial-drop` | Inspect outbound UDP datagrams for QUIC Initial long headers with matching SNI/ALPN; drop the matched datagram. |
+| `sni-replace` | Inspect outbound TLS ClientHello packets for a SNI on the blocklist; rewrite the ClientHello so the handshake terminates at a sinkhole. |
+| `ip-blackhole-after-n-bytes` | Accumulate outbound bytes per flow; once `threshold_bytes` is crossed (filtered by `target_dst_ports`), drop all subsequent packets. |
+| `mtu-clamp` | Match any outbound packet whose payload exceeds `mtu_payload_bytes`; fragment or drop in live mode. |
 
 ## Layout
 
@@ -75,9 +78,9 @@ will wire it into the `ripdpi-lab` self-hosted runner pool.
 `blocked` cells gate PRs that touch `ripdpi-desync`; `inconclusive` cells do
 not. See the design spike for the contract details.
 
-## Not in v1
+## Not in v1.1
 
 - Real-time nfqueue wiring exercised in CI (lands in the live-mode follow-up).
-- Patterns 2 / 3 / 5 from the design spike (SNI-replace, IP-blackhole-after-N,
-  MTU-clamp).
 - Generator-driven sampling across the 7-dim desync space (separate spike).
+- Stateful per-flow tracking across multiple SrcPort/DstPort tuples — the
+  dry-run runner treats each fixture as a single flow.
