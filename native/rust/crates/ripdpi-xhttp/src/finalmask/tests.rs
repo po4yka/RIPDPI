@@ -84,6 +84,37 @@ fn sudoku_round_trips_stream_payload() {
     assert_eq!(b"hello world", decoded.as_slice());
 }
 
+#[test]
+fn fragment_mode_rejects_negative_packets() {
+    let config = FinalmaskConfig {
+        r#type: "fragment".to_string(),
+        fragment_packets: -1,
+        fragment_min_bytes: 1,
+        fragment_max_bytes: 4,
+        ..FinalmaskConfig::default()
+    };
+    let Err(err) = FinalmaskSpec::from_config(&config) else {
+        panic!("negative packets must be rejected");
+    };
+    assert_eq!(std::io::ErrorKind::InvalidInput, err.kind());
+    assert!(err.to_string().contains("fragmentPackets"), "error must name the offending field: {err}");
+}
+
+#[test]
+fn fragment_mode_rejects_negative_min_bytes() {
+    let config = FinalmaskConfig {
+        r#type: "fragment".to_string(),
+        fragment_packets: 2,
+        fragment_min_bytes: -5,
+        fragment_max_bytes: 4,
+        ..FinalmaskConfig::default()
+    };
+    let Err(err) = FinalmaskSpec::from_config(&config) else {
+        panic!("negative min bytes must be rejected");
+    };
+    assert!(err.to_string().contains("fragmentMinBytes"), "error must name the offending field: {err}");
+}
+
 #[tokio::test]
 async fn tcp_wrapper_preserves_plain_streams_when_off() {
     let (mut left, right) = tokio::io::duplex(1024);

@@ -5,7 +5,7 @@ use std::task::{Context, Poll};
 use bytes::Bytes;
 use http_body_util::BodyExt;
 use hyper::StatusCode;
-use rand::RngExt;
+use rand::{Rng, RngExt};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
 use tokio::sync::{mpsc, OwnedSemaphorePermit};
 
@@ -161,8 +161,26 @@ impl PooledConnection {
 }
 
 pub(crate) fn random_padding_value() -> String {
+    // The xHTTP discussion spec calls for a random-looking padding value.
+    // Repeating a single ASCII byte is a deterministic byte-run that any
+    // entropy-based DPI heuristic flags; use uppercase-hex of random bytes
+    // so the resulting string still passes through a URL/Referer header
+    // (no escaping needed) while being entropic byte-for-byte.
     let padding_len = rand::rng().random_range(HEADER_PADDING_MIN..=HEADER_PADDING_MAX);
-    "X".repeat(padding_len)
+    // Two hex characters per random byte, so generate ceil(len / 2) bytes
+    // and truncate.
+    let byte_count = padding_len.div_ceil(2);
+    let mut bytes = vec![0u8; byte_count];
+    rand::rng().fill_bytes(&mut bytes);
+    let mut out = String::with_capacity(padding_len);
+    for byte in bytes {
+        out.push_str(&format!("{byte:02X}"));
+        if out.len() >= padding_len {
+            break;
+        }
+    }
+    out.truncate(padding_len);
+    out
 }
 
 pub(crate) fn stream_up_path(path: &str, session_id: &str) -> String {

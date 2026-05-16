@@ -34,9 +34,9 @@ impl FinalmaskSpec {
                 })?,
             },
             "fragment" => Self::Fragment {
-                packets: usize::try_from(config.fragment_packets).unwrap_or_default(),
-                min_bytes: usize::try_from(config.fragment_min_bytes).unwrap_or_default(),
-                max_bytes: usize::try_from(config.fragment_max_bytes).unwrap_or_default(),
+                packets: parse_non_negative("fragmentPackets", config.fragment_packets)?,
+                min_bytes: parse_non_negative("fragmentMinBytes", config.fragment_min_bytes)?,
+                max_bytes: parse_non_negative("fragmentMaxBytes", config.fragment_max_bytes)?,
             },
             "sudoku" => Self::Sudoku { table: Arc::new(SudokuTable::new(config.sudoku_seed.trim())?) },
             other => {
@@ -57,6 +57,12 @@ fn decode_hex(label: &str, value: &str) -> io::Result<Vec<u8>> {
     }
     Vec::from_hex(trimmed)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid finalmask {label}: {error}")))
+}
+
+fn parse_non_negative(label: &str, value: i32) -> io::Result<usize> {
+    usize::try_from(value).map_err(|_| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("finalmask {label} must be non-negative, got {value}"))
+    })
 }
 
 fn parse_rand_range(value: &str) -> io::Result<Option<(usize, usize)>> {

@@ -30,12 +30,28 @@ fn referer_padding_uses_expected_range() {
     let referer = referer_padding("cdn.example", "/api/v1/stream");
     let (_, padding) = referer.split_once("x_padding=").expect("padding");
     assert!((HEADER_PADDING_MIN..=HEADER_PADDING_MAX).contains(&padding.len()));
-    assert!(padding.chars().all(|character| character == 'X'));
+    assert!(
+        padding.chars().all(|character| character.is_ascii_hexdigit() && !character.is_ascii_lowercase()),
+        "padding must be uppercase hex (random anti-fingerprint): {padding}"
+    );
 }
 
 #[test]
 fn random_padding_value_uses_expected_range() {
     let value = random_padding_value();
     assert!((HEADER_PADDING_MIN..=HEADER_PADDING_MAX).contains(&value.len()));
-    assert!(value.chars().all(|character| character == 'X'));
+    assert!(
+        value.chars().all(|character| character.is_ascii_hexdigit() && !character.is_ascii_lowercase()),
+        "padding must be uppercase hex (random anti-fingerprint): {value}"
+    );
+}
+
+/// Two successive paddings must not be identical: literal `"X".repeat(n)` was
+/// the old behaviour and is exactly what DPI heuristics flag.
+#[test]
+fn random_padding_value_varies_between_calls() {
+    let a = random_padding_value();
+    let b = random_padding_value();
+    // Same length is allowed (both are in [100, 1000]); same content is not.
+    assert_ne!(a, b, "two random paddings must not be byte-identical: a={a} b={b}");
 }
