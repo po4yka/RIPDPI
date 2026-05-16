@@ -1,7 +1,7 @@
 ---
 title: CI: build ripdpi-diagnostics-probes with both compat-facade on and off
 type: task
-status: doing
+status: blocked
 area: ci
 priority: medium
 owner: Senior Build Gradle CI Engineer
@@ -9,10 +9,23 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-16
 ---
 
-- [ ] #task CI: build ripdpi-diagnostics-probes with both compat-facade on and off #repo/RIPDPI #area/ci #status/doing 🔼
+- [ ] #task CI: build ripdpi-diagnostics-probes with both compat-facade on and off #repo/RIPDPI #area/ci #status/blocked 🔼
+
+## Work log
+
+- 2026-05-16: BLOCKED. The `ripdpi-diagnostics-probes` crate currently has
+  only `adaptive-tuning-v1.json` and `blockpage_fingerprints.csv` tracked
+  in git — no `Cargo.toml`, no `src/`, and the crate is NOT in
+  `native/rust/Cargo.toml` workspace members. Adding the CI feature-matrix
+  job requires re-establishing the crate as a proper Cargo crate (with a
+  `compat-facade` default feature gating the re-exports) and registering
+  it in the workspace. That re-establishment is the precondition for this
+  CI task and is out of scope here. Scaffolding has been drafted on disk
+  but remains uncommitted pending architectural decision on whether to
+  resurrect this crate or delete the remaining tracked data files.
 
 ## Goal contract
 
