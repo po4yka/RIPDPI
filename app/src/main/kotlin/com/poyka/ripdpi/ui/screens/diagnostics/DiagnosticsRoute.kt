@@ -118,22 +118,27 @@ private fun DiagnosticsRouteEffects(
     }
 }
 
-private fun DiagnosticsViewModel.toolsRouteStateFlow(): Flow<DiagnosticsToolsRouteState> =
-    combine(
-        pcapRecording,
-        dpiToolsRouteFlow(),
-        cidrWhitelistTool,
-        ipv4WhitelistTool,
-        pluggableTransportTool,
-    ) { pcapRecording, dpiTools, cidrWhitelist, ipv4Whitelist, pluggableTransport ->
-        DiagnosticsToolsRouteState(
-            pcapRecording = pcapRecording,
-            dpiTools = dpiTools,
-            cidrWhitelist = cidrWhitelist,
-            ipv4Whitelist = ipv4Whitelist,
-            pluggableTransport = pluggableTransport,
-        )
+private fun DiagnosticsViewModel.toolsRouteStateFlow(): Flow<DiagnosticsToolsRouteState> {
+    val baseFlow =
+        combine(
+            pcapRecording,
+            dpiToolsRouteFlow(),
+            cidrWhitelistTool,
+            ipv4WhitelistTool,
+            pluggableTransportTool,
+        ) { pcapRecording, dpiTools, cidrWhitelist, ipv4Whitelist, pluggableTransport ->
+            DiagnosticsToolsRouteState(
+                pcapRecording = pcapRecording,
+                dpiTools = dpiTools,
+                cidrWhitelist = cidrWhitelist,
+                ipv4Whitelist = ipv4Whitelist,
+                pluggableTransport = pluggableTransport,
+            )
+        }
+    return combine(baseFlow, rootModeEnabled) { state, rootMode ->
+        state.copy(rootModeEnabled = rootMode)
     }
+}
 
 private fun DiagnosticsViewModel.dpiToolsRouteFlow(): Flow<DiagnosticsDpiToolsUiModel> {
     val basicTools =
@@ -342,6 +347,7 @@ private fun rememberDiagnosticsScreenActions(
 
 private data class DiagnosticsToolsRouteState(
     val pcapRecording: Boolean = false,
+    val rootModeEnabled: Boolean = false,
     val dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
     val cidrWhitelist: DiagnosticsCidrWhitelistToolUiModel = DiagnosticsCidrWhitelistToolUiModel(),
     val ipv4Whitelist: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),

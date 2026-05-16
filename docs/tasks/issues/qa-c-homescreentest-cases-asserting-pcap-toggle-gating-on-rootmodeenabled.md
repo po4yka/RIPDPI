@@ -1,7 +1,7 @@
 ---
 title: QA-C: HomeScreenTest cases asserting PCAP toggle gating on rootModeEnabled
 type: task
-status: doing
+status: done
 area: testing
 priority: high
 owner: Senior Android Engineer
@@ -9,10 +9,10 @@ parent: define-diagnostics-privacy-qa-verification-gate
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-16
 ---
 
-- [ ] #task QA-C: HomeScreenTest cases asserting PCAP toggle gating on rootModeEnabled #repo/RIPDPI #area/testing #status/doing ⏫
+- [x] #task QA-C: HomeScreenTest cases asserting PCAP toggle gating on rootModeEnabled #repo/RIPDPI #area/testing #status/done ⏫
 
 ## Goal contract
 

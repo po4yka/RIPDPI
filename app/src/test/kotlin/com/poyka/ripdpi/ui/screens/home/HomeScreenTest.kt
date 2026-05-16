@@ -321,6 +321,71 @@ class HomeScreenTest {
     }
 
     @Test
+    fun `pcap toggle hidden when root mode disabled`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            homeDiagnostics =
+                                HomeDiagnosticsUiState(
+                                    pcapToggleVisible = false,
+                                    analysisAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Run Full Analysis",
+                                            supportingText = "Ready",
+                                            enabled = true,
+                                        ),
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun `pcap toggle visible and disabled until opt-in when root mode enabled`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            homeDiagnostics =
+                                HomeDiagnosticsUiState(
+                                    pcapToggleVisible = true,
+                                    pcapRecordingRequested = false,
+                                    analysisAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Run Full Analysis",
+                                            supportingText = "Ready",
+                                            enabled = true,
+                                        ),
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .assertIsDisplayed()
+    }
+
+    @Test
     fun `analysis sheet owned stack remediation opens browser target`() {
         var openedBrowserTarget: String? = null
         composeRule.setContent {
