@@ -1,3 +1,15 @@
+// Crate-local hardening per docs/rust-soundness-policy.md
+// § "`MaybeUninit` correctness" — `ripdpi-privileged-ops` holds the
+// workspace's only production `MaybeUninit<u8>` site
+// (`linux::experimental_tier3::icmp_wrapped_udp` recv buffer) plus the
+// broadest unsafe FFI/syscall surface in the workspace. Re-enabling the
+// `undocumented_unsafe_blocks` and `multiple_unsafe_ops_per_block` lints
+// crate-locally turns the documentation requirement into a build-time
+// error so any future `MaybeUninit::assume_init*` or syscall unsafe
+// block without a SAFETY comment fails the workspace build.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 mod capabilities;
 mod fd;
 mod fragmentation;
