@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -127,6 +129,153 @@ class DiagnosticsArchiveRendererTest {
             assertEquals("{\"ok\":true}", zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText())
             assertNull(zip.getEntry("missing.txt"))
         }
+    }
+
+    @Test
+    fun `renderer developer-analytics json omits forbidden fields from archive`() {
+        val violatingPayload =
+            DeveloperAnalyticsPayload(
+                schemaVersion = 1,
+                generatedAtIsoUtc = "2026-05-16T00:00:00Z",
+                reproductionContext =
+                    DeveloperReproductionContext(
+                        appVersionName = "1.0.0-fixture",
+                        buildType = "debug",
+                        nativeLibDigests = mapOf("libripdpi-fixture.so" to "sha256-fixture-digest"),
+                    ),
+                nativeRuntime =
+                    DeveloperNativeRuntimeSnapshot(
+                        threadCount = 4,
+                        lastPanicBacktrace = "fixture-panic-backtrace-content",
+                    ),
+                effectiveConfigDiff =
+                    listOf(
+                        DeveloperConfigDiffEntry(key = "rootModeEnabled", defaultValue = "false", actualValue = "true"),
+                        DeveloperConfigDiffEntry(
+                            key = "enableCmdSettings",
+                            defaultValue = "false",
+                            actualValue = "true",
+                        ),
+                        DeveloperConfigDiffEntry(key = "desyncMode", defaultValue = "auto", actualValue = "manual"),
+                    ),
+                pcapManifest = listOf(DeveloperPcapFileEntry(name = "capture-fixture.pcap", sizeBytes = 1024L)),
+                breadcrumbs =
+                    listOf(
+                        DeveloperBreadcrumb(
+                            timestampMs = 0L,
+                            category = "fixture",
+                            message = "fixture-breadcrumb-message",
+                        ),
+                    ),
+                deviceState = DeveloperDeviceState(locale = "en_US", androidSdk = 33),
+                notes = listOf("fixture note"),
+            )
+        val selection = buildFullRendererSelection()
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-da-forbidden", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-da-forbidden.zip",
+                createdAt = 45L,
+            )
+
+        val entries = renderer.render(target, selection, violatingPayload).associateBy(DiagnosticsArchiveEntry::name)
+        val daJson = entries.getValue("developer-analytics.json").bytes.decodeToString()
+        val daObject = json.parseToJsonElement(daJson).jsonObject
+
+        assertFalse("pcapManifest must be absent", daObject.containsKey("pcapManifest"))
+        assertFalse("breadcrumbs must be absent", daObject.containsKey("breadcrumbs"))
+        assertFalse(
+            "fixture-panic-backtrace-content must not appear verbatim",
+            daJson.contains("fixture-panic-backtrace-content"),
+        )
+        assertFalse("sha256-fixture-digest must not appear verbatim", daJson.contains("sha256-fixture-digest"))
+        assertFalse("rootModeEnabled must be absent from effectiveConfigDiff", daJson.contains("\"rootModeEnabled\""))
+        assertFalse(
+            "enableCmdSettings must be absent from effectiveConfigDiff",
+            daJson.contains("\"enableCmdSettings\""),
+        )
+        assertTrue("desyncMode (allowed diff key) must remain", daJson.contains("\"desyncMode\""))
+        daObject["nativeRuntime"]?.jsonObject?.let { runtime ->
+            val backtrace = runtime["lastPanicBacktrace"]
+            assertTrue(
+                "nativeRuntime.lastPanicBacktrace must be null",
+                backtrace == null || backtrace is JsonNull,
+            )
+        }
+        daObject["reproductionContext"]?.jsonObject?.let { repro ->
+            val digests = repro["nativeLibDigests"]?.jsonObject
+            assertTrue(
+                "reproductionContext.nativeLibDigests must be absent or empty",
+                digests == null || digests.isEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun `renderer redacts sensitive ip ssid and bssid values from archive byte buffers`() {
+        val sensitiveSnapshot =
+            NetworkSnapshotModel(
+                transport = "wifi",
+                capabilities = listOf("validated"),
+                dnsServers = listOf("203.0.113.53"),
+                privateDnsMode = "strict",
+                mtu = 1500,
+                localAddresses = listOf("192.0.2.42"),
+                publicIp = "203.0.113.99",
+                publicAsn = "AS64501",
+                captivePortalDetected = false,
+                networkValidated = true,
+                wifiDetails =
+                    WifiNetworkDetails(
+                        ssid = "SensitiveNetwork",
+                        bssid = "AA:BB:CC:DD:EE:FF",
+                        band = "5 GHz",
+                        wifiStandard = "802.11ax",
+                        gateway = "192.0.2.1",
+                    ),
+                capturedAt = 46L,
+            )
+        val selection =
+            buildFullRendererSelection().copy(
+                primarySnapshots =
+                    listOf(
+                        NetworkSnapshotEntity(
+                            id = "snap-sensitive",
+                            sessionId = "session-1",
+                            snapshotKind = "post_scan",
+                            payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), sensitiveSnapshot),
+                            capturedAt = 46L,
+                        ),
+                    ),
+                latestSnapshotModel = sensitiveSnapshot,
+            )
+        val target =
+            DiagnosticsArchiveTarget(
+                file = Files.createTempFile("archive-redact", ".zip").toFile(),
+                fileName = "ripdpi-diagnostics-redact.zip",
+                createdAt = 46L,
+            )
+
+        val entries = renderer.render(target, selection).associateBy(DiagnosticsArchiveEntry::name)
+        val allBytes = entries.values.joinToString("") { it.bytes.decodeToString() }
+
+        assertFalse("public IP 203.0.113.99 must not appear verbatim", allBytes.contains("203.0.113.99"))
+        assertFalse(
+            "SSID SensitiveNetwork must not appear verbatim in network-snapshots.json",
+            entries
+                .getValue("network-snapshots.json")
+                .bytes
+                .decodeToString()
+                .contains("SensitiveNetwork"),
+        )
+        assertFalse(
+            "BSSID AA:BB:CC:DD:EE:FF must not appear verbatim in network-snapshots.json",
+            entries
+                .getValue("network-snapshots.json")
+                .bytes
+                .decodeToString()
+                .contains("AA:BB:CC:DD:EE:FF"),
+        )
     }
 
     private fun buildFullRendererSelection(): DiagnosticsArchiveSelection =

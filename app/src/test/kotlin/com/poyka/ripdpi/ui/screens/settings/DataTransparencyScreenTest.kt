@@ -1,11 +1,10 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasScrollToNodeAction
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -34,20 +33,14 @@ class DataTransparencyScreenTest {
     fun whatWeCollectSectionHeaderIsDisplayed() {
         setScreen()
 
-        composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("What we collect"))
-        composeRule.onNode(hasText("What we collect")).assertIsDisplayed()
+        composeRule.onNodeWithText("What we collect").performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun whatWeDoNotCollectSectionHeaderIsDisplayed() {
         setScreen()
 
-        composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("What we do NOT collect"))
-        composeRule.onNode(hasText("What we do NOT collect")).assertIsDisplayed()
+        composeRule.onNodeWithText("What we do NOT collect").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -55,9 +48,9 @@ class DataTransparencyScreenTest {
         setScreen()
 
         composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("No browsing history or URL content"))
-        composeRule.onNode(hasText("No browsing history or URL content")).assertIsDisplayed()
+            .onNodeWithText("No browsing history or URL content")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     @Test
@@ -65,9 +58,9 @@ class DataTransparencyScreenTest {
         setScreen()
 
         composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("No personal data, accounts, or credentials"))
-        composeRule.onNode(hasText("No personal data, accounts, or credentials")).assertIsDisplayed()
+            .onNodeWithText("No personal data, accounts, or credentials")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     @Test
@@ -75,9 +68,9 @@ class DataTransparencyScreenTest {
         setScreen()
 
         composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("No data is sent to external servers automatically"))
-        composeRule.onNode(hasText("No data is sent to external servers automatically")).assertIsDisplayed()
+            .onNodeWithText("No data is sent to external servers automatically")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     @Test
@@ -85,19 +78,16 @@ class DataTransparencyScreenTest {
         setScreen()
 
         composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("No analytics, crash reporting, or advertising SDKs"))
-        composeRule.onNode(hasText("No analytics, crash reporting, or advertising SDKs")).assertIsDisplayed()
+            .onNodeWithText("No analytics, crash reporting, or advertising SDKs")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     @Test
     fun howStoredSectionHeaderIsDisplayed() {
         setScreen()
 
-        composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("How data is stored"))
-        composeRule.onNode(hasText("How data is stored")).assertIsDisplayed()
+        composeRule.onNodeWithText("How data is stored").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -105,9 +95,9 @@ class DataTransparencyScreenTest {
         setScreen()
 
         composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("All data stays on your device in a local database"))
-        composeRule.onNode(hasText("All data stays on your device in a local database")).assertIsDisplayed()
+            .onNodeWithText("All data stays on your device in a local database")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     @Test
@@ -115,9 +105,9 @@ class DataTransparencyScreenTest {
         setScreen()
 
         composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("Configurable retention period (1–365 days)"))
-        composeRule.onNode(hasText("Configurable retention period (1–365 days)")).assertIsDisplayed()
+            .onNodeWithText("Configurable retention period (1–365 days)")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     @Test
@@ -125,9 +115,9 @@ class DataTransparencyScreenTest {
         setScreen()
 
         composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("You can disable passive monitoring in Advanced Settings"))
-        composeRule.onNode(hasText("You can disable passive monitoring in Advanced Settings")).assertIsDisplayed()
+            .onNodeWithText("You can disable passive monitoring in Advanced Settings")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     @Test
@@ -135,10 +125,8 @@ class DataTransparencyScreenTest {
         setScreen()
 
         composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("Export archives are only created when you explicitly request them"))
-        composeRule
-            .onNode(hasText("Export archives are only created when you explicitly request them"))
+            .onNodeWithText("Export archives are only created when you explicitly request them")
+            .performScrollTo()
             .assertIsDisplayed()
     }
 
@@ -146,10 +134,7 @@ class DataTransparencyScreenTest {
     fun exportPrivacySectionHeaderIsDisplayed() {
         setScreen()
 
-        composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("Export privacy"))
-        composeRule.onNode(hasText("Export privacy")).assertIsDisplayed()
+        composeRule.onNodeWithText("Export privacy").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -157,10 +142,8 @@ class DataTransparencyScreenTest {
         setScreen()
 
         composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("Exported archives redact IP addresses, WiFi identifiers, and other PII"))
-        composeRule
-            .onNode(hasText("Exported archives redact IP addresses, WiFi identifiers, and other PII"))
+            .onNodeWithText("Exported archives redact IP addresses, WiFi identifiers, and other PII")
+            .performScrollTo()
             .assertIsDisplayed()
     }
 
@@ -169,9 +152,9 @@ class DataTransparencyScreenTest {
         setScreen()
 
         composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText("You control what is shared and with whom"))
-        composeRule.onNode(hasText("You control what is shared and with whom")).assertIsDisplayed()
+            .onNodeWithText("You control what is shared and with whom")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     private fun setScreen(onBack: () -> Unit = {}) {
