@@ -234,4 +234,35 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 211 | P12 | `epic-fail-closed-android-vpn-policy-engine`<br>Epic - Fail-closed Android VPN policy engine | epic | `—` | vpn | 🔺 | TODO | |
 | 212 | P12 | `epic-direct-mode-diagnostic-state-machine`<br>Epic - Direct-mode diagnostic state machine | epic | `—` | epic | ⏫ | TODO | |
 | 213 | P12 | `epic-orchestration-test-posture`<br>Epic - Orchestration test posture | epic | `—` | testing | ⏫ | TODO | |
+| 214 | P12 | `add-cloudflare-workers-domain-fronting-bypass`<br>Add Cloudflare Workers domain-fronting bypass adapter | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 215 | P12 | `add-constant-rate-traffic-shaping-voip-camouflage`<br>Add constant-rate traffic shaping with VoIP camouflage profile | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 216 | P12 | `add-credential-redaction-tests-for-vless-uuid-tuic-uuid-naive-auth`<br>Add credential redaction tests for VLESS UUID, TUIC UUID, NaiveProxy auth | task | `(no epic)` | testing | ⏫ | TODO | |
+| 217 | P12 | `add-dns-over-https-tunnel-mode-for-arbitrary-payloads`<br>Add DNS-over-HTTPS tunnel mode for arbitrary payloads | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 218 | P12 | `add-ech-encrypted-client-hello-for-tls-outbounds`<br>Add Encrypted Client Hello (ECH) for TLS outbounds | task | `(no epic)` | rust-native | ⏫ | TODO | |
+| 219 | P12 | `add-format-transforming-encryption-marionette-style-protocol-shapeshift`<br>Add format-transforming encryption (Marionette-style) for protocol shape-shifting | task | `(no epic)` | rust-native | 🔽 | TODO | |
+| 220 | P12 | `add-fuzz-target-for-xhttp-finalmask-sudoku-decoder`<br>Add fuzz target for xHTTP FinalMask Sudoku decoder | task | `(no epic)` | testing | ⏫ | TODO | |
+| 221 | P12 | `add-fuzz-targets-for-vless-wire-and-mtproto-init`<br>Add fuzz targets for VLESS wire and MTProto init parsing | task | `(no epic)` | testing | ⏫ | TODO | |
+| 222 | P12 | `add-h3-to-h2-fallback-telemetry-rollout-validation`<br>Validate H3-to-H2 MASQUE fallback telemetry sufficiency | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 223 | P12 | `add-hysteria2-salamander-obfuscation-conformance-fixtures`<br>Add Hysteria 2 Salamander obfuscation conformance fixtures | task | `(no epic)` | testing | 🔼 | TODO | |
+| 224 | P12 | `add-miri-test-pass-for-vless-reality-ffi-unsafe-blocks`<br>Add Miri test pass for VLESS Reality FFI unsafe blocks | task | `(no epic)` | testing | ⏫ | TODO | |
+| 225 | P12 | `add-port-hopping-window-soak-test-for-hysteria2`<br>Add port-hopping window soak test for Hysteria 2 | task | `(no epic)` | testing | 🔼 | TODO | |
+| 226 | P12 | `add-post-quantum-hybrid-kem-x25519mlkem768-for-tls-handshakes`<br>Add post-quantum hybrid KEM (X25519MLKEM768) for outbound TLS handshakes | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 227 | P12 | `add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality`<br>Add cross-stack chain tests (VLESS over xHTTP over Reality) | task | `(no epic)` | testing | 🔽 | TODO | |
+| 228 | P12 | `add-protocol-throughput-benchmarks-for-each-transport`<br>Add Criterion throughput benchmarks for each transport | task | `(no epic)` | testing | 🔼 | TODO | |
+| 229 | P12 | `add-quic-path-mtu-discovery-regression-test`<br>Add QUIC path-MTU discovery regression test | task | `(no epic)` | testing | 🔼 | TODO | |
+| 230 | P12 | `add-shadowtls-loopback-test-server-for-soak-runs`<br>Add ShadowTLS loopback test server for soak runs | task | `(no epic)` | testing | 🔽 | TODO | |
+| 231 | P12 | `add-shadowtls-v2-compatibility-or-document-v3-only`<br>Add ShadowTLS v2 compatibility or document v3-only policy | task | `(no epic)` | rust-native | 🔽 | TODO | |
+| 232 | P12 | `add-tuic-heartbeat-and-keepalive-policy`<br>Add TUIC heartbeat and keepalive policy | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 233 | P12 | `add-tuic-v4-fallback-or-version-detection`<br>Add TUIC v4 fallback or explicit version detection | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 234 | P12 | `add-utls-per-connection-tls-fingerprint-rotation`<br>Add uTLS per-connection TLS-fingerprint rotation for outbound TLS handshakes | task | `(no epic)` | rust-native | ⏫ | TODO | |
+| 235 | P12 | `add-vless-mux-conformance-tests-against-xray-core`<br>Add VLESS mux conformance tests against xray-core | task | `(no epic)` | testing | 🔼 | TODO | |
+| 236 | P12 | `add-wireguard-over-websocket-transport-amneziawg-disguise`<br>Add WireGuard-over-WebSocket transport with AmneziaWG disguise | task | `(no epic)` | rust-native | ⏫ | TODO | |
+| 237 | P12 | `audit-vless-chained-connect-over-relay-end-to-end-tests`<br>Audit VLESS chained connect_over relay end-to-end test coverage | task | `(no epic)` | testing | 🔼 | TODO | |
+| 238 | P12 | `extract-masque-provider-adapter-trait-to-decouple-cloudflare`<br>Extract MasqueProviderAdapter trait to decouple Cloudflare-specific paths | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 239 | P12 | `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry`<br>Gate fake-SNI cert-bypass behind allow_insecure_sni flag with telemetry | task | `epic-control-plane-hardening` | rust-native | ⏫ | TODO | |
+| 240 | P12 | `introduce-protocol-version-enum-and-version-probe-diagnostic`<br>Introduce ProtocolVersion enum and version-mismatch probe diagnostic | task | `epic-control-plane-hardening` | rust-native | 🔼 | TODO | |
+| 241 | P12 | `make-naiveproxy-helper-probe-return-structured-version-json`<br>Make NaiveProxy helper probe return structured version JSON | task | `(no epic)` | service | 🔼 | TODO | |
+| 242 | P12 | `pin-boringssl-symbols-with-build-time-existence-check`<br>Pin BoringSSL Reality FFI symbols with a build-time existence check | task | `epic-control-plane-hardening` | rust-native | ⏫ | TODO | |
+| 243 | P12 | `spike-adversarial-network-harness-and-realprovider-matrix`<br>Spike adversarial network harness, generator-driven packet-smoke, and real-provider Phase-16 matrix | task | `(no epic)` | testing | ⏫ | TODO | |
+| 244 | P12 | `tag-protocol-contract-fixtures-by-upstream-version`<br>Tag protocol contract fixtures by upstream version | task | `(no epic)` | testing | 🔼 | BLOCKED | blocked by `add-hysteria2-salamander-obfuscation-conformance-fixtures` and `add-vless-mux-conformance-tests-against-xray-core` |
 
