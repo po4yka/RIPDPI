@@ -82,7 +82,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 59 | P4 | `add-per-device-subscription-token-ux-and-shared-link-warnings`<br>Add per-device subscription token UX and shared-link warnings | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | DONE | |
 | 60 | P4 | `add-priority-based-outbound-failover-state-machine`<br>Add priority-based outbound failover state machine | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | DONE | |
 | 61 | P4 | `bind-dns-answers-to-route-decisions`<br>Bind DNS answers to route decisions | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | DONE | `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-runtime-dns-cache` (17 passed, exit 0) |
-| 62 | P4 | `demote-cloudflare-profiles-from-default-auto-selection`<br>Demote Cloudflare profiles from default auto selection | task | `epic-remove-cloudflare-from-critical-path` | relay | ⏫ | TODO | |
+| 62 | P4 | `demote-cloudflare-profiles-from-default-auto-selection`<br>Demote Cloudflare profiles from default auto selection | task | `epic-remove-cloudflare-from-critical-path` | relay | ⏫ | DONE | just test-module core:data:settings (exit 0) |
 | 63 | P4 | `encrypt-vpn-profiles-with-android-keystore`<br>Encrypt VPN profiles with Android Keystore | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |
 | 64 | P4 | `enforce-fail-closed-vpnservice-lifecycle`<br>Enforce fail-closed VpnService lifecycle | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |
 | 65 | P4 | `harden-doh-post-resolver-client`<br>Harden DoH POST resolver client | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |

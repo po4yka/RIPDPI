@@ -1,7 +1,7 @@
 ---
 title: Demote Cloudflare profiles from default auto selection
 type: task
-status: backlog
+status: done
 area: relay
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-remove-cloudflare-from-critical-path
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Demote Cloudflare profiles from default auto selection #repo/RIPDPI #area/relay #status/backlog ⏫
+- [x] #task Demote Cloudflare profiles from default auto selection #repo/RIPDPI #area/relay #status/done ⏫
 
 ## Goal contract
 
@@ -39,11 +39,11 @@ Cloudflare can pass TCP/TLS and still fail payload transfer. It should not compe
 
 ## Acceptance criteria
 
-- [ ] Default auto candidates prefer direct REALITY and non-Cloudflare HTTPS fallback.
-- [ ] Cloudflare-backed profiles are excluded from auto when marked degraded.
-- [ ] Manual selection still allows Cloudflare profile use where it works.
-- [ ] Selector UI labels Cloudflare paths as optional/edge fallback.
-- [ ] Tests cover transition from healthy to degraded and back after payload health recovers.
+- [x] Default auto candidates prefer direct REALITY and non-Cloudflare HTTPS fallback.
+- [x] Cloudflare-backed profiles are excluded from auto when marked degraded.
+- [x] Manual selection still allows Cloudflare profile use where it works.
+- [x] Selector UI labels Cloudflare paths as optional/edge fallback.
+- [x] Tests cover transition from healthy to degraded and back after payload health recovers.
 
 ## Design notes
 
