@@ -1,7 +1,7 @@
 ---
 title: Recurring upstream watch for xray-core REALITY ECH XHTTP changes
 type: task
-status: backlog
+status: done
 area: engine
 priority: medium
 owner: unassigned
@@ -9,10 +9,25 @@ parent: epic-control-plane-hardening
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-16
 ---
 
-- [ ] #task Recurring upstream watch for xray-core REALITY ECH XHTTP changes #repo/RIPDPI #area/engine #status/backlog 🔼
+- [x] #task Recurring upstream watch for xray-core REALITY ECH XHTTP changes #repo/RIPDPI #area/engine #status/done 🔼
+
+## Work log
+
+- 2026-05-16: Watch cadence documented at
+  `core/engine/docs/upstream-watch-xray-core-2026-05-16.md` —
+  weekly skim + per-release deep-read; source list ordered by
+  priority (GitHub releases, commits filtered to four path globs,
+  pinned discussions, downstream sing-box tracker); rotating owner
+  + 48 h triage SLA; append-only watch log seeded with the known
+  breakages (`v1.26.1.18` XHTTP+REALITY, `v1.26.0601` VLESS flow
+  deprecation). The host-pack validator rejection rule shape is
+  documented (hard-reject / warn-only / compat-shim), but the
+  validator itself lives in `core/data/catalog/XrayConfigValidator.kt`
+  outside this row's `core/engine/**` scope; the validator extension
+  is filed as a follow-up issue.
 
 ## Goal contract
 

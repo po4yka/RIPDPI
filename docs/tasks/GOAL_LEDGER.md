@@ -144,7 +144,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 121 | P7 | `epic-cloudflare-publish-hardening`<br>Epic - Cloudflare publish hardening | epic | `—` | relay | ⏫ | TODO | |
 | 122 | P7 | `persist-direct-mode-policy-with-revalidation`<br>Persist direct-mode policy with revalidation | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | 🔼 | TODO | |
 | 123 | P7 | `pin-rfc-9849-wording-in-owned-stack-epic-and-host-pack-schema`<br>Pin RFC 9849 wording in owned-stack epic and host-pack schema | task | `(no epic)` | diagnostics | 🔼 | DONE | `./gradlew :core:diagnostics:detekt :core:diagnostics:ktlintCheck` exit 0 |
-| 124 | P7 | `recurring-upstream-watch-for-xray-core-reality-ech-xhttp-changes`<br>Recurring upstream watch for xray-core REALITY ECH XHTTP changes | task | `epic-control-plane-hardening` | engine | 🔼 | TODO | |
+| 124 | P7 | `recurring-upstream-watch-for-xray-core-reality-ech-xhttp-changes`<br>Recurring upstream watch for xray-core REALITY ECH XHTTP changes | task | `epic-control-plane-hardening` | engine | 🔼 | DONE | `just test-module core:engine` exit 0 |
 | 125 | P7 | `report-owned-stack-only-verdict-from-diagnostic`<br>Report OWNED_STACK_ONLY verdict from diagnostic | task | `(no epic)` | diagnostics | 🔼 | TODO | |
 | 126 | P7 | `snapshot-owned-stack-ja4-fingerprint-in-release-ci`<br>Snapshot owned-stack JA4 fingerprint in release CI | task | `(no epic)` | diagnostics | 🔼 | TODO | |
 | 127 | P8 | `spike-censorlab-as-offline-censor-replay-harness`<br>Spike CensorLab as offline censor-replay harness | task | `epic-orchestration-test-posture` | testing | 🔼 | TODO | |
