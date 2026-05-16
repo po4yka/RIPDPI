@@ -570,6 +570,97 @@ Profiles:
 - `smoke`: shorter local/manual runs
 - `full`: nightly profile used by scheduled CI
 
+## Known gaps & coverage roadmap
+
+This section is the human-curated companion to the feature-test checklist. It
+records the small set of gaps where the test pyramid is intentionally thin or
+where work is still in flight. Sized so it can be re-verified in one pass.
+
+### Verified closed (2026-05-16)
+
+Findings from earlier audits that were still open at the start of 2026-Q2 and
+have since landed. Re-verify before re-investigating.
+
+- **B-1** -- "Unbounded retry loop in `connect_target_with_route`."
+  Bounded in `native/rust/crates/ripdpi-proxy-runtime/src/runtime/routing/retry.rs`
+  by `state.max_route_retries()`, default 8. Covered by
+  `max_route_retries_default_is_eight` and
+  `max_route_retries_is_customizable` unit tests in the same file.
+- **C-1** -- "Dual adaptive systems (`adaptive_tuning` + `strategy_evolver`)
+  uncoordinated." Resolved via a documented priority chain in
+  `ripdpi-runtime-strategy/src/strategy_evolver.rs` and
+  `ripdpi-runtime-adaptive/src/adaptive_tuning.rs`: evolver hints override
+  per-flow adaptive hints when the evolver is enabled, otherwise per-flow
+  cycling drives the dimensions.
+- **E-1** -- "`adaptive_tuning.rs` has no dedicated unit tests."
+  `#[cfg(test)] mod tests;` is declared and the module covers candidate
+  cycling and dimension-order shuffling.
+- **VPN/DNS-leak instrumentation matrix** -- landed under
+  `core:service`'s androidTest sources; the original task issue is marked
+  `status: done`.
+- **HTTP-injection error-page probe** -- landed as
+  `ripdpi-diagnostics-http::http_injection_probe`; task `status: done`.
+
+### Open but tracked
+
+These have task issues under `docs/tasks/issues/` and are sized for routine
+roadmap work, not new design.
+
+- **D-1 residual** -- evolver combo space spans 5 adaptive dimensions plus
+  fake-TTL (6 of 7). Timing-jitter and OOB-byte placement are not in the
+  combo space and so are not explored by the bandit.
+- **A-1 spot-check** -- no `1.1.1.1`/`cloudflare-dns` literal remains in
+  `ripdpi-monitor-engine`, but the new `ripdpi-diagnostics-probes::ProbeContext`
+  contract should be threaded through as new probes migrate in so the
+  fix becomes structurally enforced instead of vigilance-based.
+- ECH for TLS outbounds
+  (`add-ech-encrypted-client-hello-for-tls-outbounds.md`).
+- Owned-stack JA3/JA4 fingerprint snapshot in release CI
+  (`snapshot-owned-stack-ja4-fingerprint-in-release-ci.md`). Without this,
+  transitive TLS dependency bumps can silently shift the ClientHello and
+  fail evasion in production without any test signal.
+- Telegram MTProto DC reachability diagnostic
+  (`add-telegram-mtproto-diagnostic-with-dc-reachability-and-throughput.md`).
+- Android lockdown / kill-switch onboarding health checks
+  (`add-android-lockdown-onboarding-and-kill-switch-health-checks.md`).
+- Split-DNS interceptor leak coverage
+  (`add-dns-interceptor-and-split-dns-leak-tests.md`, currently `blocked`).
+
+### Open and not yet tracked
+
+Heavier infrastructure work that needs a design decision before a task issue
+is meaningful. Listed so they are not silently forgotten.
+
+- **Adversarial TSPU emulator in `test-lab/chaos/`.** Today `chaos/` ships
+  Toxiproxy + netem for loss/latency/jitter; it does not reproduce the
+  RU-TSPU behaviour set (RST-injection on SNI, blackhole after N bytes,
+  selective QUIC-Initial drop, MTU-clamp). Without this, packet-smoke
+  scenarios verify the *byte shape on the wire* but not *survival against
+  a known adversary pattern*. Next step: container with nftables +
+  `nfqueue`/scapy rules per documented TSPU pattern, matrix run against
+  every desync mode.
+- **Generator-driven packet-smoke.** `scripts/ci/packet-smoke-scenarios.json`
+  hand-lists ~10-15 scenarios; the desync parameter space is 7-dimensional.
+  Move to a generator that samples the space and replays a named TSPU
+  pattern set per PR. The Probe trait landed in
+  `ripdpi-diagnostics-probes` does not solve this on its own; it is the
+  oracle, not the input source.
+- **Phase-16 lab matrix on real-provider SIMs.**
+  `contract-fixtures/phase16_lab_matrix.json` is synthetic. Release-time
+  confidence requires self-hosted runners on actual carrier SIMs;
+  GitHub-hosted runners cannot supply this signal.
+
+### How to use this section
+
+- Before claiming an "audit finding is still open," verify against the cited
+  file path and re-run the named tests. The 2026-Q1 audits have aged out of
+  most of their concrete claims.
+- Before adding a probe, route it through
+  `ripdpi-diagnostics-probes::Probe` with a populated `ProbeContext`. Do not
+  add probes that talk to hard-coded endpoints regardless of user policy.
+- When you close one of the "open but tracked" items, move it to "verified
+  closed" with the same shape (claim, file path, test name).
+
 ## CI overview
 
 PR CI runs:
