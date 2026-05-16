@@ -366,4 +366,34 @@ mod tests {
         let mean = telemetry.mean().expect("mean");
         assert!(mean > min && mean < max, "mean {mean:?} should sit inside the window");
     }
+
+    /// Socket-rebind soak. Exercises `build_client_udp_socket` over
+    /// 30 successive binds, drops each socket, and asserts:
+    ///
+    /// - every bind succeeds
+    /// - every bind reports a non-zero ephemeral port
+    /// - `HopIntervalTelemetry` counter matches the hop count (30)
+    ///
+    /// This is a unit-level soak: no Quinn server, no real hop
+    /// schedule, no real rebind_endpoint() call. The full Quinn-side
+    /// rebind soak depends on the per-protocol loopback module
+    /// designed in `docs/architecture/protocol-loopback-harness-design.md`
+    /// and is deferred to that follow-up.
+    ///
+    /// Tracks the partial-progress portion of
+    /// `docs/tasks/issues/add-port-hopping-window-soak-test-for-hysteria2.md`.
+    #[test]
+    fn socket_rebind_soak_thirty_iterations() {
+        use crate::quic_transport::build_client_udp_socket;
+        let mut telemetry = HopIntervalTelemetry::new();
+        for hop in 0..30u32 {
+            let started = std::time::Instant::now();
+            let socket = build_client_udp_socket(false, false).expect("ipv4 socket bind");
+            let port = socket.local_addr().expect("local addr").port();
+            assert_ne!(port, 0, "hop {hop} produced a zero port; ephemeral bind failed");
+            drop(socket);
+            telemetry.record(started.elapsed().max(Duration::from_nanos(1)));
+        }
+        assert_eq!(telemetry.count(), 30, "telemetry counter must match the hop count");
+    }
 }
