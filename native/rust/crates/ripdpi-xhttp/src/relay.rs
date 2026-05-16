@@ -11,7 +11,7 @@ use tokio::sync::{mpsc, OwnedSemaphorePermit};
 
 use ripdpi_vless::addons::VlessFlow;
 
-use crate::config::{normalize_path, XhttpMode};
+use crate::config::{normalize_path, XhttpMode, XhttpProtocolMode};
 use crate::h2_body::{build_get_request, build_post_request, ChannelBody};
 use crate::pool::PooledConnection;
 
@@ -47,17 +47,22 @@ impl AsyncWrite for XhttpStream {
 }
 
 trait StreamMetadata {
-    fn session_path(&self) -> String;
+    fn request_path(&self) -> String;
     fn host_header(&self) -> String;
     fn uuid(&self) -> &[u8; 16];
     fn flow(&self) -> VlessFlow;
+    fn protocol_mode(&self) -> XhttpProtocolMode;
+    fn base_path(&self) -> &str;
 }
 
 impl StreamMetadata for XhttpMode {
-    fn session_path(&self) -> String {
-        match self {
-            Self::Reality(config) => stream_up_path(&config.path, &random_session_id()),
-            Self::Tls(config) => stream_up_path(&config.path, &random_session_id()),
+    /// Per-request path. Stream-up embeds a fresh random session id;
+    /// stream-one uses the bare configured path (xray-core sets
+    /// `sessionId = ""` for stream-one in `dialer.go`).
+    fn request_path(&self) -> String {
+        match self.protocol_mode() {
+            XhttpProtocolMode::StreamUp => stream_up_path(self.base_path(), &random_session_id()),
+            XhttpProtocolMode::StreamOne => stream_one_path(self.base_path()),
         }
     }
 
@@ -84,6 +89,20 @@ impl StreamMetadata for XhttpMode {
             Self::Tls(config) => config.flow,
         }
     }
+
+    fn protocol_mode(&self) -> XhttpProtocolMode {
+        match self {
+            Self::Reality(config) => config.protocol_mode,
+            Self::Tls(config) => config.protocol_mode,
+        }
+    }
+
+    fn base_path(&self) -> &str {
+        match self {
+            Self::Reality(config) => &config.path,
+            Self::Tls(config) => &config.path,
+        }
+    }
 }
 
 impl PooledConnection {
@@ -93,7 +112,22 @@ impl PooledConnection {
         target: &str,
         permit: OwnedSemaphorePermit,
     ) -> io::Result<XhttpStream> {
-        let stream_path = mode.session_path();
+        match mode.protocol_mode() {
+            XhttpProtocolMode::StreamUp => self.open_stream_up(mode, target, permit).await,
+            XhttpProtocolMode::StreamOne => self.open_stream_one(mode, target, permit).await,
+        }
+    }
+
+    /// `stream-up` wire shape: one GET (download) + one streaming POST
+    /// (upload), session id embedded in the URL path. Matches xray-core's
+    /// `dialer.go` stream-up branch.
+    async fn open_stream_up(
+        &self,
+        mode: &XhttpMode,
+        target: &str,
+        permit: OwnedSemaphorePermit,
+    ) -> io::Result<XhttpStream> {
+        let stream_path = mode.request_path();
         let host_header = mode.host_header();
         let referer = referer_padding(&host_header, &stream_path);
         let header_padding = random_padding_value();
@@ -124,49 +158,12 @@ impl PooledConnection {
             ));
         }
 
-        let (mut user_upload, mut transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
-        let (mut transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
+        let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
+        let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
 
-        tokio::spawn(async move {
-            let mut buffer = vec![0u8; BODY_CHUNK_SIZE];
-            loop {
-                match transport_upload.read(&mut buffer).await {
-                    Ok(0) => break,
-                    Ok(read) => {
-                        if outgoing_tx.send(Ok(Bytes::copy_from_slice(&buffer[..read]))).await.is_err() {
-                            break;
-                        }
-                    }
-                    Err(error) => {
-                        let _ = outgoing_tx.send(Err(error)).await;
-                        break;
-                    }
-                }
-            }
-        });
+        spawn_upload_pump(transport_upload, outgoing_tx);
+        spawn_download_pump(get_response.into_body(), transport_download, "xHTTP GET stream failed");
 
-        tokio::spawn(async move {
-            let mut body = get_response.into_body();
-            while let Some(frame) = body.frame().await {
-                let frame = match frame {
-                    Ok(frame) => frame,
-                    Err(error) => {
-                        tracing::debug!(error = %error, "xHTTP GET stream failed");
-                        break;
-                    }
-                };
-                if let Ok(data) = frame.into_data() {
-                    if transport_download.write_all(&data).await.is_err() {
-                        break;
-                    }
-                }
-            }
-            let _ = transport_download.shutdown().await;
-        });
-
-        // Honor the per-profile flow selection on the inner VLESS
-        // handshake instead of hardcoding `VISION_ADDONS`. See audit
-        // finding C3.
         let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target);
         user_upload.write_all(&request).await?;
 
@@ -174,6 +171,96 @@ impl PooledConnection {
         ripdpi_vless::wire::read_response(&mut stream).await?;
         Ok(stream)
     }
+
+    /// `stream-one` wire shape: one bidirectional HTTP/2 request — the
+    /// request body carries the upload stream, the response body carries
+    /// the download stream, no session id is embedded in the URL.
+    /// Matches xray-core's `dialer.go` stream-one branch (upstream
+    /// default for REALITY without `downloadSettings`).
+    async fn open_stream_one(
+        &self,
+        mode: &XhttpMode,
+        target: &str,
+        permit: OwnedSemaphorePermit,
+    ) -> io::Result<XhttpStream> {
+        let stream_path = mode.request_path();
+        let host_header = mode.host_header();
+        let referer = referer_padding(&host_header, &stream_path);
+        let header_padding = random_padding_value();
+
+        let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
+        let post_request =
+            build_post_request(&stream_path, &host_header, &referer, &header_padding, ChannelBody::new(outgoing_rx))?;
+
+        let mut sender = self.sender.lock().await;
+        let post_response = sender.send_request(post_request).await.map_err(|error| {
+            io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP stream-one request failed: {error}"))
+        })?;
+        drop(sender);
+        if !post_response.status().is_success() {
+            return Err(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("xHTTP stream-one rejected: {}", post_response.status()),
+            ));
+        }
+
+        let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
+        let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
+
+        spawn_upload_pump(transport_upload, outgoing_tx);
+        spawn_download_pump(post_response.into_body(), transport_download, "xHTTP stream-one body failed");
+
+        let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target);
+        user_upload.write_all(&request).await?;
+
+        let mut stream = XhttpStream { reader: user_download, writer: user_upload, _permit: permit };
+        ripdpi_vless::wire::read_response(&mut stream).await?;
+        Ok(stream)
+    }
+}
+
+fn spawn_upload_pump(mut transport_upload: DuplexStream, outgoing_tx: mpsc::Sender<io::Result<Bytes>>) {
+    tokio::spawn(async move {
+        let mut buffer = vec![0u8; BODY_CHUNK_SIZE];
+        loop {
+            match transport_upload.read(&mut buffer).await {
+                Ok(0) => break,
+                Ok(read) => {
+                    if outgoing_tx.send(Ok(Bytes::copy_from_slice(&buffer[..read]))).await.is_err() {
+                        break;
+                    }
+                }
+                Err(error) => {
+                    let _ = outgoing_tx.send(Err(error)).await;
+                    break;
+                }
+            }
+        }
+    });
+}
+
+fn spawn_download_pump<B>(mut body: B, mut transport_download: DuplexStream, error_label: &'static str)
+where
+    B: hyper::body::Body<Data = Bytes> + Send + Unpin + 'static,
+    B::Error: std::fmt::Display + Send,
+{
+    tokio::spawn(async move {
+        while let Some(frame) = body.frame().await {
+            let frame = match frame {
+                Ok(frame) => frame,
+                Err(error) => {
+                    tracing::debug!(error = %error, "{error_label}");
+                    break;
+                }
+            };
+            if let Ok(data) = frame.into_data() {
+                if transport_download.write_all(&data).await.is_err() {
+                    break;
+                }
+            }
+        }
+        let _ = transport_download.shutdown().await;
+    });
 }
 
 pub(crate) fn random_padding_value() -> String {
@@ -206,6 +293,14 @@ pub(crate) fn stream_up_path(path: &str, session_id: &str) -> String {
     } else {
         format!("{normalized}/{session_id}")
     }
+}
+
+/// Stream-one URL path: the bare configured path. xray-core's
+/// `dialer.go` stream-one branch sets `sessionId = ""` and writes the
+/// request directly to `<path>`, so callers must not append a session
+/// segment.
+pub(crate) fn stream_one_path(path: &str) -> String {
+    normalize_path(path)
 }
 
 pub(crate) fn referer_padding(host: &str, path: &str) -> String {

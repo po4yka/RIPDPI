@@ -10,7 +10,10 @@ mod pool;
 mod relay;
 
 pub use client::{connect_reality, connect_tls, XhttpClient};
-pub use config::{AsyncIo, ConfigError, FinalmaskConfig, XhttpRealityConfig, XhttpTlsConfig, XmuxConfig};
+pub use config::{
+    AsyncIo, ConfigError, FinalmaskConfig, ProtocolModeParseError, XhttpProtocolMode, XhttpRealityConfig,
+    XhttpTlsConfig, XmuxConfig,
+};
 #[doc(hidden)]
 pub use finalmask::__fuzz_parse_finalmask_spec;
 pub use grpc::{

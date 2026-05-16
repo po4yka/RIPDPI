@@ -39,6 +39,7 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
                 bind_ip: context.outbound_bind_ip,
                 xmux: ripdpi_xhttp::XmuxConfig::default(),
                 finalmask: finalmask_config(&config.common.finalmask),
+                protocol_mode: ripdpi_xhttp::XhttpProtocolMode::default(),
             }),
         },
         context.pool_config,
