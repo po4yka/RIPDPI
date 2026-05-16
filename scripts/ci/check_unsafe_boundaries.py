@@ -130,6 +130,15 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # per docs/rust-soundness-policy.md § "Creating `&mut T` from raw
     # memory".
     "UnsafeCell::get": re.compile(r"\.get\(\)"),  # narrowed below
+    # `Cell<bool>` is a common cheap way to encode lifecycle state, but
+    # the value's mutation has no synchronisation cost and no exclusivity
+    # discipline. Use a typestate or RAII guard instead. There are zero
+    # production occurrences today; any new appearance must be reviewed
+    # and either restructured or earn an allowlist entry whose
+    # `enforcement` field explains why ownership/liveness is encoded
+    # elsewhere. See docs/rust-soundness-policy.md § "Ownership must be
+    # types, not flags".
+    "Cell<bool>": re.compile(r"\bCell\s*<\s*bool\s*>"),
 }
 
 # The `.get()` method is also used by many safe types (HashMap, Vec,
@@ -183,6 +192,52 @@ DEBUG_ASSERT_RE = re.compile(r"\bdebug_assert(?:_eq|_ne)?!")
 UNSAFE_KEYWORD_RE = re.compile(r"\bunsafe\b")
 DEBUG_ASSERT_PROXIMITY_LINES = 10
 DEBUG_ASSERT_PROXIMITY_PATTERN = "debug_assert near unsafe"
+
+# Proximity detector for ownership-flag bool fields near `impl Drop` or
+# `unsafe`. The issue-#11 audit established that ownership must be
+# encoded as types (move-only handles, RAII, typestate) rather than
+# boolean flags. A field named `registered`, `is_alive`, `destroyed`,
+# `initialized`, `disowned`, `owned_by_*`, `freed`, or `active` whose
+# value gates an `unsafe` operation or a Drop-time cleanup is a
+# classic recipe for double-destroy / stale-handle / aliasing-by-flag
+# bugs in release builds.
+OWNERSHIP_FLAG_RE = re.compile(
+    r"^\s*(?:pub(?:\s*\([^)]*\))?\s+)?"
+    r"(?:owned_by_\w+|is_alive|destroyed|registered|initialized|disowned|freed)"
+    r"\s*:\s*bool\s*[,;}]",
+    re.MULTILINE,
+)
+DROP_IMPL_RE = re.compile(r"\bimpl(\s*<[^>]+>)?\s+Drop\s+for\b")
+OWNERSHIP_FLAG_PROXIMITY_LINES = 50
+OWNERSHIP_FLAG_PROXIMITY_PATTERN = "ownership flag near drop/unsafe"
+
+
+def find_ownership_flag_near_drop_or_unsafe(text: str) -> list[int]:
+    """Return line numbers of ownership-flag bool fields within ±N lines of
+    an `impl Drop` or `unsafe` keyword in the same file.
+
+    `text` must already have had comments stripped, so doc-comment
+    mentions of these names don't fire the rule. The proximity window
+    is wider than the debug-assert one (50 lines vs 10) because the
+    `impl Drop` for a struct typically lives a struct-body's distance
+    away from the bool field declaration.
+    """
+    flag_lines = sorted(
+        {text.count("\n", 0, m.start()) + 1 for m in OWNERSHIP_FLAG_RE.finditer(text)}
+    )
+    if not flag_lines:
+        return []
+    sentinel_lines = sorted(
+        {text.count("\n", 0, m.start()) + 1 for m in DROP_IMPL_RE.finditer(text)}
+        | {text.count("\n", 0, m.start()) + 1 for m in UNSAFE_KEYWORD_RE.finditer(text)}
+    )
+    if not sentinel_lines:
+        return []
+    out: list[int] = []
+    for flag in flag_lines:
+        if any(abs(flag - sentinel) <= OWNERSHIP_FLAG_PROXIMITY_LINES for sentinel in sentinel_lines):
+            out.append(flag)
+    return out
 
 
 def find_debug_assert_near_unsafe(text: str) -> list[int]:
@@ -250,6 +305,8 @@ def scan_file(path: Path) -> list[Finding]:
         findings.append(Finding(rel, "UnsafeCell::get", line))
     for line in find_debug_assert_near_unsafe(cleaned):
         findings.append(Finding(rel, DEBUG_ASSERT_PROXIMITY_PATTERN, line))
+    for line in find_ownership_flag_near_drop_or_unsafe(cleaned):
+        findings.append(Finding(rel, OWNERSHIP_FLAG_PROXIMITY_PATTERN, line))
     return findings
 
 

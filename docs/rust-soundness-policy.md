@@ -113,6 +113,8 @@ on every PR. It looks for the following risky patterns under
 | `CStr::from_ptr` | Materializes a `&CStr` whose bytes are scanned for a NUL terminator starting at a raw pointer. The pointee must be a valid NUL-terminated C string in an allocation that lives at least as long as the returned `&CStr`. See "Creating `&T` from raw pointers" below. |
 | `str::from_utf8_unchecked` | Asserts the input bytes are valid UTF-8 without checking. A regression here invalidates the `str` invariant and produces UB on any subsequent UTF-8 operation. Prefer `str::from_utf8` (release-mode validation) unless the bytes come from a checked source documented in the SAFETY comment. |
 | `UnsafeCell::get` (deref form `*cell.get()`) | Materialises `&mut T` / `&T` from `*mut T` and bypasses Rust's borrow check. The exclusivity invariant — at most one accessor of the cell at any moment — must be enforced by the surrounding type design. The bare `.get()` method (without the `*` deref) is filtered out so unrelated `.get()` callers (HashMap, Vec, Option, AtomicPtr) are not flagged. See "Creating `&mut T` from raw memory" below. |
+| `Cell<bool>` | `Cell<bool>` is a common cheap way to encode lifecycle state, but the value's mutation has no synchronisation cost and no exclusivity discipline. Use a typestate / RAII guard / Mutex instead. See "Ownership must be types, not flags" below. |
+| `ownership flag near drop/unsafe` (proximity ≤ 50 lines) | A `bool` field named `registered`, `is_alive`, `destroyed`, `initialized`, `disowned`, `owned_by_*`, or `freed` that lives within 50 source lines of an `impl Drop` or `unsafe` keyword. Per issue-#11 audit, ownership/liveness must be encoded by the type system, not by flags + comments. See "Ownership must be types, not flags" below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -383,6 +385,66 @@ reference sites; each is allowlisted with the validity argument:
 | `crates/ripdpi-privileged-ops/.../icmp_wrapped_udp.rs` | `slice::from_raw_parts` → `&[u8]` | `recv_from` contract initialises the first `received` bytes of a stack `MaybeUninit` buffer; slice is consumed in-scope. |
 | `crates/ripdpi-desync-runtime/src/platform/registry.rs` | `&*pointer` → `&dyn TcpDesyncPlatform` | RAII `Restore` guard scoped to a closure; non-owning observer. |
 | `crates/ripdpi-io-uring/src/probe.rs` | `CStr::from_ptr` → `&CStr` | POSIX `uname(2)` NUL-termination contract; lifetime bounded by the local `utsname`. |
+
+## Ownership must be types, not flags
+
+A boolean field named `registered`, `is_alive`, `destroyed`,
+`initialized`, `disowned`, `owned_by_*`, or `freed` does not encode
+ownership — it only records a *belief* about a separate resource's
+state. If the resource is owned, the owning struct is the
+truth-bearing handle; the flag is at best a diagnostic check. If safe
+code can duplicate the flag, or set it to `true` without actually
+acquiring the underlying resource, or to `false` without releasing
+it, the flag silently becomes a lie and every downstream branch that
+depends on it is unsound.
+
+**Rule.** Ownership and liveness MUST be represented by:
+
+1. A **move-only handle** (no `Copy`/`Clone`) whose existence proves
+   the resource is held. Drop releases. The compiler enforces
+   "at most one owner".
+2. An **RAII guard** that performs cleanup in `Drop`. A `bool` field
+   inside the guard is acceptable **only** when used as a
+   conditional-cleanup gate (`if self.registered { unregister(); }`)
+   and the struct itself is move-only with a private field. The
+   flag is then diagnostic; the move-only struct is the ownership
+   token.
+3. **Typestate** — distinct types per phase of the lifecycle, with
+   transitions implemented as consuming methods (`fn destroy(self)`).
+   Invalid transitions don't compile.
+4. A **real reference count** (`Arc<T>`, `Rc<T>`, custom refcount
+   with atomic increment/decrement under a release/acquire fence).
+5. A **validated state machine** (enum + match) where every
+   transition returns `Result` and unreachable states are
+   `unreachable!()`.
+
+**Anti-patterns reviewers reject.**
+
+- A `pub struct` with a `pub registered: bool` field. Anyone can
+  set the flag; the ownership semantics collapse.
+- `Cell<bool>` for lifecycle: interior mutability with no
+  synchronisation, no exclusivity, no auditable transitions.
+- `if self.is_alive { unsafe { use_resource() } }` where the flag is
+  the only safety guard. `debug_assert!(self.is_alive)` alongside is
+  the release-mode trap (see § "`debug_assert!` as memory-safety
+  guard").
+- Multiple flags acting as a manual state machine (e.g.
+  `initialized + registered + destroyed`) — replace with an enum.
+- A "comment promise" — `// safety: the caller must ensure this
+  flag is true` next to an `unsafe { ... }` block. Promises don't
+  compile.
+
+**The workspace's one allowlisted use** is
+`RootHelperRegistration::registered` in
+`crates/ripdpi-proxy-runtime/src/runtime/listeners.rs`. It fits
+shape #2 above: the struct is move-only (no `Copy`/`Clone` —
+enforced by compile-fail `AmbiguousIfCopy`/`AmbiguousIfClone`
+blocks), the field is private (default visibility), the
+constructor `for_config` sets it deterministically from config,
+and Drop branches on it for conditional cleanup. Runtime
+regression tests cover sequential lifecycle, no-op drop on
+unregistered guards, and the `mem::forget` leak documented
+limitation.
 
 ## `UnsafeCell<T>` discipline
 

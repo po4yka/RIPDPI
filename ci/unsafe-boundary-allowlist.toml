@@ -55,6 +55,24 @@
 # only for diagnostic checks that cannot promote to UB. See
 # docs/rust-soundness-policy.md § "`debug_assert!` as memory-safety guard".
 #
+# Additional rule for `ownership flag near drop/unsafe` and
+# `Cell<bool>`: a boolean lifecycle/ownership flag (`registered`,
+# `is_alive`, `destroyed`, `initialized`, `disowned`, `owned_by_*`,
+# `freed`) located within ±50 source lines of an `impl Drop` or
+# `unsafe` keyword is flagged. The audit policy is that ownership
+# and liveness must be encoded as types (move-only handles, RAII
+# guards, typestate, validated state machines), not as flags
+# alongside comments. A valid allowlist entry MUST state:
+#   - whether the flag is diagnostic only or load-bearing for safety,
+#   - what actually encodes ownership/liveness (move-only struct,
+#     private constructor, type-state, refcount, mutex, etc.),
+#   - why safe code cannot duplicate or forge the flag,
+#   - what regressions exist (compile-fail `!Copy + !Clone` blocks,
+#     runtime tests for sequential lifecycle, conditional cleanup,
+#     `mem::forget` leak behaviour).
+# See docs/rust-soundness-policy.md § "Ownership must be types,
+# not flags".
+#
 # Additional rule for `UnsafeCell::get`: the scanner flags the
 # `*cell.get()` deref shape, which materializes `&mut T` / `&T` from
 # `*mut T` and bypasses Rust's borrow check entirely. A valid
@@ -420,4 +438,22 @@ reason = "JNI_OnLoad entry signature: `pub(crate) fn jni_on_load_entry(_vm: Java
 preconditions = "JNI ABI mandates `*mut c_void` for the reserved parameter; the pointer is unused (prefixed `_`) and never dereferenced"
 enforcement = "JNI ABI contract; the parameter is named `_reserved` and dropped without read/write; pattern matches the allowlisted `extern \"system\" fn` JNI entries elsewhere"
 owner = "android-ffi"
+review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# `ownership flag near drop/unsafe` — `RootHelperRegistration::registered`
+# is a `bool` field whose value gates the `unregister_root_helper()` call
+# in Drop. Per the issue-#11 audit, this would be unsound if safe code
+# could duplicate the guard or forge `registered: true` externally;
+# neither is possible because the struct is move-only and the field is
+# private. The bool is therefore diagnostic only — the actual ownership
+# of the registration is encoded by the move-only guard itself.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-proxy-runtime/src/runtime/listeners.rs"
+pattern = "ownership flag near drop/unsafe"
+reason = "`RootHelperRegistration::registered: bool` is a conditional-cleanup gate inside Drop"
+preconditions = "Struct is move-only (no `Copy`/`Clone`), field is private (cannot be forged from outside the module), constructor `for_config` sets the bool deterministically from config"
+enforcement = "Move semantics: Drop runs at most once per guard (no double-destroy). Field privacy: safe code cannot construct `Self { registered: true }` from elsewhere. Compile-fail `AmbiguousIfCopy`/`AmbiguousIfClone` const blocks lock the `!Copy + !Clone` claim. Runtime regressions in the `tests` module cover sequential lifecycle, no-op drop, and `mem::forget` leak documented limitation."
+owner = "proxy-runtime"
 review_date = "2026-11-15"

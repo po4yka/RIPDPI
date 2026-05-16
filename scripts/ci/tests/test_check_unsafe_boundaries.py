@@ -35,6 +35,8 @@ def _scan(text: str) -> list[tuple[str, int]]:
         matches.append(("UnsafeCell::get", line))
     for line in guard.find_debug_assert_near_unsafe(cleaned):
         matches.append((guard.DEBUG_ASSERT_PROXIMITY_PATTERN, line))
+    for line in guard.find_ownership_flag_near_drop_or_unsafe(cleaned):
+        matches.append((guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN, line))
     return matches
 
 
@@ -347,6 +349,97 @@ class ScanRegressionTests(unittest.TestCase):
             """
         )
         self.assertTrue(_has(_scan(src), "raw pointer in public fn"))
+
+    def test_cell_bool_flagged(self) -> None:
+        for fragment in (
+            "use std::cell::Cell;\nstruct S { ready: Cell<bool> }",
+            "use std::cell::Cell;\nstatic READY: Cell<bool> = Cell::new(false);",
+            # whitespace variant
+            "let x: Cell  <  bool > = Cell::new(false);",
+        ):
+            self.assertTrue(_has(_scan(fragment), "Cell<bool>"), msg=fragment)
+
+    def test_cell_other_types_not_flagged(self) -> None:
+        # `Cell<u32>`, `Cell<MyType>`, etc. must not trigger.
+        for fragment in (
+            "let x: Cell<u32> = Cell::new(0);",
+            "let x: Cell<MyType> = Cell::new(MyType);",
+            "let x: RefCell<bool> = RefCell::new(false);",
+        ):
+            self.assertFalse(_has(_scan(fragment), "Cell<bool>"), msg=fragment)
+
+    def test_ownership_flag_near_drop_flagged(self) -> None:
+        # The classic shape: a struct with a lifecycle flag and a Drop impl
+        # that branches on it. The issue-#11 audit names this pattern as
+        # the canonical "bool as ownership token" anti-pattern.
+        src = textwrap.dedent(
+            """\
+            struct Guard {
+                registered: bool,
+            }
+
+            impl Drop for Guard {
+                fn drop(&mut self) {
+                    if self.registered { unregister(); }
+                }
+            }
+            """
+        )
+        self.assertTrue(_has(_scan(src), guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN))
+
+    def test_ownership_flag_near_unsafe_flagged(self) -> None:
+        src = textwrap.dedent(
+            """\
+            struct Resource {
+                is_alive: bool,
+            }
+
+            impl Resource {
+                fn use_it(&self) {
+                    if self.is_alive {
+                        unsafe { do_thing(); }
+                    }
+                }
+            }
+            """
+        )
+        self.assertTrue(_has(_scan(src), guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN))
+
+    def test_ownership_flag_far_from_drop_not_flagged(self) -> None:
+        # 60 blank lines between the flag field and any Drop / unsafe
+        # exceeds the proximity window — must not fire.
+        gap = "\n" * 60
+        src = (
+            "struct A {\n"
+            "    registered: bool,\n"
+            "}\n"
+            f"{gap}"
+            "impl Drop for B {\n"
+            "    fn drop(&mut self) {}\n"
+            "}\n"
+        )
+        self.assertFalse(_has(_scan(src), guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN))
+
+    def test_ownership_flag_without_drop_or_unsafe_not_flagged(self) -> None:
+        # A `registered: bool` in a struct without any Drop or unsafe in
+        # the file is plain control-flow state, not an ownership token.
+        src = "struct Plain { registered: bool }\nfn main() {}"
+        self.assertFalse(_has(_scan(src), guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN))
+
+    def test_other_bool_fields_not_flagged(self) -> None:
+        # `closed`, `validated`, `is_ready`, etc. are not lifecycle/
+        # ownership flag names by the audit's vocabulary and must not
+        # trigger even when colocated with Drop.
+        src = textwrap.dedent(
+            """\
+            struct Session {
+                closed: bool,
+                validated: bool,
+            }
+            impl Drop for Session { fn drop(&mut self) {} }
+            """
+        )
+        self.assertFalse(_has(_scan(src), guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN))
 
     # --- Negative cases: must NOT trigger the scan -----------------------
 
