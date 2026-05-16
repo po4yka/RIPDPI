@@ -123,6 +123,10 @@ pub trait Probe {
     fn run(&self, ctx: &ProbeContext) -> ProbeOutcome;
 }
 
+pub mod http_injection;
+
+pub use http_injection::HttpInjectionOfflineProbe;
+
 #[cfg(feature = "compat-facade")]
 /// Reserved for re-exports as concrete probes migrate in. Empty today.
 pub mod compat {}
