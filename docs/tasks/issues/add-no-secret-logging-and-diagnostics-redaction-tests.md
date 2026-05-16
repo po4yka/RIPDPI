@@ -1,7 +1,7 @@
 ---
 title: Add no-secret logging and diagnostics redaction tests
 type: task
-status: backlog
+status: done
 area: vpn
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Add no-secret logging and diagnostics redaction tests #repo/RIPDPI #area/vpn #status/backlog ⏫
+- [x] #task Add no-secret logging and diagnostics redaction tests #repo/RIPDPI #area/vpn #status/done ⏫
 
 ## Goal contract
 
@@ -39,11 +39,11 @@ Several existing clients leak operational details through logcat, crash exports,
 
 ## Acceptance criteria
 
-- [ ] Release builds strip or downgrade verbose logs that could contain network/config state.
-- [ ] Test fixtures containing UUIDs, shortIds, subscription tokens, passwords, and endpoints are fully redacted from diagnostics output.
-- [ ] Diagnostics mode is opt-in, time-limited, and exports encrypted or explicitly user-controlled bundles.
-- [ ] Crash/report path stores config hash, profile ID, and state reason rather than raw profile fields.
-- [ ] Clipboard/share actions clear or warn when content contains live profile material.
+- [x] Release builds strip or downgrade verbose logs that could contain network/config state.
+- [x] Test fixtures containing UUIDs, shortIds, subscription tokens, passwords, and endpoints are fully redacted from diagnostics output.
+- [x] Diagnostics mode is opt-in, time-limited, and exports encrypted or explicitly user-controlled bundles.
+- [x] Crash/report path stores config hash, profile ID, and state reason rather than raw profile fields.
+- [x] Clipboard/share actions clear or warn when content contains live profile material.
 
 ## Design notes
 
