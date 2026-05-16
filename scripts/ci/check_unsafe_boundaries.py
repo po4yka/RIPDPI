@@ -266,6 +266,26 @@ OWNER_NAMED_TYPE_RE = re.compile(
 CLONE_ON_OWNER_PROXIMITY_LINES = 5
 CLONE_ON_OWNER_PROXIMITY_PATTERN = "derive Clone on owner-named type"
 
+# Proximity detector for `#[derive(Copy)]` on the same owner-named
+# types. `Copy` is strictly stronger than `Clone`: a `Copy` value
+# duplicates implicitly on every move, parameter pass, and assignment,
+# so an owner-named `Copy` type cannot be a sound ownership/exclusive-
+# access token. The issue-#14 audit established that the only sound
+# `Copy` semantics on a type ending in `Handle`/`Owner`/`Guard`/`Token`/
+# `Resource`/`Registration`/`Slot` is "Copy-trivial metadata that owns
+# nothing" (e.g. `StrategyDescriptorRegistration` — `&'static str` +
+# function pointer). Anything else (raw pointer, NonNull, RawFd,
+# OwnedFd, FFI handle, arena index, Drop-adjacent state) is unsound
+# Copy. The detector reuses `OWNER_NAMED_TYPE_RE`; the proximity
+# window matches `CLONE_ON_OWNER_PROXIMITY_LINES` because the layout
+# of `#[derive(...)]` above an owner-named declaration is identical.
+COPY_DERIVE_RE = re.compile(
+    r"#\s*\[\s*derive\s*\([^)]*\bCopy\b[^)]*\)\s*\]",
+    re.MULTILINE,
+)
+COPY_ON_OWNER_PROXIMITY_LINES = 5
+COPY_ON_OWNER_PROXIMITY_PATTERN = "derive Copy on owner-named type"
+
 
 def find_clone_derive_on_owner_named_type(text: str) -> list[int]:
     """Return line numbers of `#[derive(Clone)]` annotations within ±N
@@ -289,6 +309,31 @@ def find_clone_derive_on_owner_named_type(text: str) -> list[int]:
     out: list[int] = []
     for derive in derive_lines:
         if any(0 < (owner - derive) <= CLONE_ON_OWNER_PROXIMITY_LINES for owner in owner_lines):
+            out.append(derive)
+    return out
+
+
+def find_copy_derive_on_owner_named_type(text: str) -> list[int]:
+    """Return line numbers of `#[derive(Copy)]` annotations within ±N
+    lines of an owner-named struct/enum declaration.
+
+    Mirrors `find_clone_derive_on_owner_named_type` because `Copy`
+    `derive`s are placed identically in the source; the only
+    difference is which marker we match on.
+    """
+    derive_lines = sorted(
+        {text.count("\n", 0, m.start()) + 1 for m in COPY_DERIVE_RE.finditer(text)}
+    )
+    if not derive_lines:
+        return []
+    owner_lines = sorted(
+        {text.count("\n", 0, m.start()) + 1 for m in OWNER_NAMED_TYPE_RE.finditer(text)}
+    )
+    if not owner_lines:
+        return []
+    out: list[int] = []
+    for derive in derive_lines:
+        if any(0 < (owner - derive) <= COPY_ON_OWNER_PROXIMITY_LINES for owner in owner_lines):
             out.append(derive)
     return out
 
@@ -390,6 +435,8 @@ def scan_file(path: Path) -> list[Finding]:
         findings.append(Finding(rel, OWNERSHIP_FLAG_PROXIMITY_PATTERN, line))
     for line in find_clone_derive_on_owner_named_type(cleaned):
         findings.append(Finding(rel, CLONE_ON_OWNER_PROXIMITY_PATTERN, line))
+    for line in find_copy_derive_on_owner_named_type(cleaned):
+        findings.append(Finding(rel, COPY_ON_OWNER_PROXIMITY_PATTERN, line))
     return findings
 
 

@@ -525,3 +525,23 @@ preconditions = "The sole field is `Arc<ServicesState>`; cloning the newtype del
 enforcement = "Refcounted shared ownership via `Arc<ServicesState>`; identical to the `ReprobeResetHandle` argument above. The newtype shape adds nominal typing without changing Clone semantics."
 owner = "runtime-services"
 review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# `derive Copy on owner-named type` — exactly one production type whose
+# name ends in `Registration` carries `#[derive(Copy)]`. The struct is
+# pure Copy-trivial metadata (fields are `&'static str` and a function
+# pointer); it owns no allocation, file descriptor, or other resource,
+# so the implicit duplication that `Copy` produces on every move and
+# function call is sound. The audit (issue #14) found no other Copy
+# owner-named type in the workspace; any new entry under this pattern
+# must demonstrate the same "owns nothing" property in its
+# `preconditions` and `enforcement` fields.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-strategy-trait/src/lib.rs"
+pattern = "derive Copy on owner-named type"
+reason = "`StrategyDescriptorRegistration` is link-time metadata for `linkme::distributed_slice`; the struct holds no resource, so the implicit duplication `Copy` produces is bitwise-equivalent to re-reading the same registration entry"
+preconditions = "Fields are `id: &'static str` (inherently `Copy`, references `'static` rodata) and `describe: fn() -> StrategyDescriptor` (function pointer, inherently `Copy`). No allocation, file descriptor, raw pointer, or kernel resource is held; no `Drop` impl exists or can be sensibly added"
+enforcement = "Both fields are `Copy` by language definition; the struct is `Copy` by composition. Duplicating it cannot duplicate ownership of anything because the struct owns nothing — the `&'static str` aliases a single rodata entry and the `fn` pointer aliases a single code address. The other ownership-bearing owner-named types in the workspace (`BufferHandle`, `PendingBuffer`, `RootHelperRegistration`, `MmapRegion`, `MappedFile`, `RegisteredBufferPool`, two `JniProtectCallback` shims, `OwnedRxToken`/`OwnedTxToken`) are intentionally `!Copy`."
+owner = "strategy-trait"
+review_date = "2026-11-15"

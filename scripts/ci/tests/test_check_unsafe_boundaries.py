@@ -39,6 +39,8 @@ def _scan(text: str) -> list[tuple[str, int]]:
         matches.append((guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN, line))
     for line in guard.find_clone_derive_on_owner_named_type(cleaned):
         matches.append((guard.CLONE_ON_OWNER_PROXIMITY_PATTERN, line))
+    for line in guard.find_copy_derive_on_owner_named_type(cleaned):
+        matches.append((guard.COPY_ON_OWNER_PROXIMITY_PATTERN, line))
     return matches
 
 
@@ -533,6 +535,59 @@ class ScanRegressionTests(unittest.TestCase):
             "pub struct MyHandle { fd: i32 }\n"
         )
         self.assertFalse(_has(_scan(src), guard.CLONE_ON_OWNER_PROXIMITY_PATTERN))
+
+    def test_copy_derive_on_owner_named_type_flagged(self) -> None:
+        # Every owner-suffix spelling × every realistic derive arrangement
+        # — `Copy` alone, `Copy + Clone`, multiple traits — must trigger.
+        for fragment in (
+            "#[derive(Copy, Clone)]\npub struct MyHandle { inner: u32 }",
+            "#[derive(Debug, Clone, Copy)]\nstruct OwnerGuard { fd: i32 }",
+            "#[derive(Clone, Copy)]\npub struct ResourceToken { id: u64 }",
+            "#[derive(Copy, Clone, Debug)]\nenum SessionRegistration { Active, Idle }",
+            "#[derive(Copy, Clone, PartialEq, Eq, Hash)]\npub(crate) struct CacheSlot { ptr: u64 }",
+        ):
+            self.assertTrue(_has(_scan(fragment), guard.COPY_ON_OWNER_PROXIMITY_PATTERN), msg=fragment)
+
+    def test_copy_derive_on_non_owner_named_type_not_flagged(self) -> None:
+        # Types whose names don't match the ownership suffix list must NOT
+        # trigger, even though `Copy` is a strictly stronger trait. The
+        # rule deliberately targets owner-named types — bare value/config
+        # PODs are sound to `Copy`.
+        for fragment in (
+            "#[derive(Copy, Clone)]\nstruct Config { value: u32 }",
+            "#[derive(Copy, Clone)]\nenum Event { A, B }",
+            "#[derive(Copy, Clone, Debug)]\npub struct Snapshot { value: u32 }",
+            "#[derive(Copy, Clone)]\npub struct FlowId(pub u64);",
+        ):
+            self.assertFalse(_has(_scan(fragment), guard.COPY_ON_OWNER_PROXIMITY_PATTERN), msg=fragment)
+
+    def test_owner_named_type_without_copy_not_flagged(self) -> None:
+        # An owner-named struct without `derive(Copy)` is the move-only
+        # default this rule encourages; even a bare `derive(Clone)` must
+        # not trip the Copy-specific pattern (the Clone pattern catches
+        # that separately).
+        src = textwrap.dedent(
+            """\
+            #[derive(Clone)]
+            pub struct MyHandle { fd: i32 }
+            """
+        )
+        self.assertFalse(_has(_scan(src), guard.COPY_ON_OWNER_PROXIMITY_PATTERN))
+
+    def test_copy_derive_far_from_owner_type_not_flagged(self) -> None:
+        # A derive(Copy) more than 5 lines from any owner-named struct
+        # must not be (mis)attributed. Also exercises the `^[ \\t]*`
+        # leading-whitespace anchor fix: an interleaved blank-line block
+        # must not shift the match across to an unrelated owner-named
+        # declaration further down.
+        gap = "\n" * 10
+        src = (
+            "#[derive(Copy, Clone)]\n"
+            "pub struct PlainData { value: u32 }\n"
+            f"{gap}"
+            "pub struct MyHandle { fd: i32 }\n"
+        )
+        self.assertFalse(_has(_scan(src), guard.COPY_ON_OWNER_PROXIMITY_PATTERN))
 
     # --- Negative cases: must NOT trigger the scan -----------------------
 

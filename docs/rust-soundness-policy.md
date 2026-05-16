@@ -118,6 +118,7 @@ on every PR. It looks for the following risky patterns under
 | `manual Arc/Rc refcount` | Calls to `Arc::into_raw`/`from_raw`/`increment_strong_count`/`decrement_strong_count` (and the `Rc`/`Weak` equivalents). The standard library handles every sound use of these internally; application code that calls them is almost always reinventing reference counting unsoundly. Round-tripping `Arc<T>` through `*const T` silently shifts the refcount by 0 or 1 depending on whether the caller remembers to call `Arc::from_raw` exactly once. See "Use `Arc<T>` / `Rc<T>` / `Weak<T>`, not manual refcounting" below. |
 | `manual atomic refcount field` | A struct field named `refs`/`refcount`/`ref_count`/`strong`/`weak` whose type is `AtomicUsize`/`AtomicU64`/`AtomicIsize`/`AtomicI64`. Indicates a hand-rolled intrusive reference count, which must either restructure to `Arc<T>`/`Rc<T>`/`Weak<T>` or earn an allowlist entry whose `enforcement` field documents the five-model template below. |
 | `derive Clone on owner-named type` (proximity ≤ 5 lines) | `#[derive(Clone)]` (alone or with other traits) immediately above a struct/enum whose name ends in `Handle`, `Owner`, `Guard`, `Token`, `Resource`, `Registration`, or `Slot`. Clone on an ownership-named type silently duplicates the resource unless the inner data is genuinely shared (Arc-backed) or copy-trivial (pure metadata). See "`Clone` on owner-named types" below. |
+| `derive Copy on owner-named type` (proximity ≤ 5 lines) | `#[derive(Copy)]` (alone or with other traits) immediately above the same owner-named declarations. `Copy` is strictly stronger than `Clone`: every move, parameter pass, and assignment produces an implicit duplicate, so an owner-named `Copy` type cannot encode ownership of any resource. The only sound semantics is "Copy-trivial metadata that owns nothing" (e.g. `&'static str` + `fn` pointer). See "`Copy` on owner-named types" below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -454,6 +455,106 @@ and the canonical owner handles (`BufferHandle`, `PendingBuffer`,
 `RootHelperRegistration`) carry explicit compile-fail
 `AmbiguousIfCopy`/`AmbiguousIfClone` const blocks that fail to
 compile if a future change ever derives `Clone`.
+
+## `Copy` on owner-named types
+
+`Copy` is strictly stronger than `Clone`: a `Copy` value is
+duplicated implicitly on every move, every function call by-value,
+every pattern bind by-value, and every assignment. There is no
+explicit `.clone()` call site at which a reviewer could intercept
+the duplication. An owner-named type that is `Copy` therefore
+cannot encode any ownership of any resource — by the time the call
+stack unwinds, every parameter pass and every `let` binding has
+silently produced another bitwise duplicate of the supposed
+owner.
+
+The only sound `Copy` semantics on a type whose name ends in
+`Handle`, `Owner`, `Guard`, `Token`, `Resource`, `Registration`,
+or `Slot` is:
+
+- **Copy-trivial metadata that owns nothing.** Every field is
+  itself `Copy` and aliases something that is intrinsically
+  duplicable: `&'static str` (rodata reference), function
+  pointer (code address), plain integer (numeric value),
+  `Copy`-only id newtype. No allocation, no file descriptor, no
+  kernel resource, no FFI handle, no arena index whose validity
+  depends on the surrounding arena's lifetime, no `Drop` impl.
+  The canonical example is
+  `StrategyDescriptorRegistration { id: &'static str, describe:
+  fn() -> StrategyDescriptor }` — a `linkme::distributed_slice`
+  entry that exists only to register a strategy family at link
+  time.
+
+`Copy` MUST NOT mean any of the following on an owner-named
+type:
+
+- "Duplicate a raw pointer / `NonNull`". Every move duplicates
+  the pointer; whichever copy drops first runs the cleanup, and
+  every other copy then dangles. (See "Option<NonNull<T>>
+  ownership tokens" above for the same failure mode at the
+  `Option` level.)
+- "Duplicate a `RawFd` / `OwnedFd` / file descriptor". Closing
+  the fd on first drop leaves all other copies referring to
+  a stale or recycled descriptor.
+- "Duplicate an FFI handle / `JavaVM` / `Global<JObject>` /
+  `*mut FFI_T`". The foreign library has no idea Rust has
+  silently produced more handles; double-free or use-after-free
+  on the foreign side is the typical result.
+- "Duplicate an arena index whose validity depends on the
+  arena". A `Copy` `BufferIndex(u16)` looks innocent until the
+  free-list hands the same index to two callers, at which point
+  the type system can no longer enforce exclusivity.
+- "Duplicate a `Drop`-bearing handle". `Copy` + `Drop` is
+  rejected by the compiler outright — Rust enforces this part of
+  the rule itself. The scanner catches the failure mode
+  immediately upstream: a future contributor who adds
+  `#[derive(Copy)]` to a `Drop`-bearing handle gets a CI
+  failure before the compile error.
+
+**Rule.** A `#[derive(Copy)]` on an owner-named struct must
+demonstrate the Copy-trivial-metadata property: every field is
+inherently `Copy` and aliases something whose duplication is
+free of ownership. Anything else either removes the `Copy`
+derive (the type becomes move-only — the default and preferred
+shape) or restructures into a metadata wrapper plus a separate
+`!Copy` owner handle.
+
+**Allowlist entry requirements.** A `derive Copy on owner-named
+type` allowlist entry's `enforcement` field MUST state:
+
+- that every field is inherently `Copy` and what each field
+  aliases (rodata, code address, numeric value, `Copy`-only id),
+- that the struct holds no allocation, file descriptor, raw
+  pointer, kernel resource, or arena index whose validity is
+  bounded by an enclosing object,
+- that no `Drop` impl exists and that none could be sensibly
+  added (the type is pure metadata).
+
+**Workspace inventory.** Exactly one allowlisted occurrence:
+
+| File | Type | Semantics |
+|---|---|---|
+| `ripdpi-strategy-trait/src/lib.rs` | `StrategyDescriptorRegistration` | Copy-trivial metadata: `&'static str` + function pointer; owns nothing; no `Drop`. |
+
+**Compile-fail enforcement.** The load-bearing move-only owner
+handles are `!Copy` and carry explicit `AmbiguousIfCopy` const
+blocks that fail the workspace build if a future change ever
+derives `Copy`. The current explicit coverage is:
+
+| File | Type | Block kind |
+|---|---|---|
+| `ripdpi-io-uring/src/bufpool.rs` | `BufferHandle<'pool>` | `AmbiguousIfCopy` const block |
+| `ripdpi-io-uring/src/bufpool.rs` | `PendingBuffer<'pool>` | `AmbiguousIfCopy` const block |
+| `ripdpi-io-uring/src/bufpool.rs` | `RegisteredBufferPool` | `AmbiguousIfCopy` const block (added with issue #14) |
+| `ripdpi-privileged-ops/src/linux/mmap_region.rs` | `MmapRegion` | `AmbiguousIfCopy` const block (added with issue #14) |
+| `ripdpi-geo/src/mapped_file.rs` | `MappedFile` | `AmbiguousIfCopy` const block (added with issue #14) |
+| `ripdpi-proxy-runtime/src/runtime/listeners.rs` | `RootHelperRegistration` | `AmbiguousIfCopy` const block |
+
+The remaining move-only owner types (`JniProtectCallback × 2`,
+`OwnedRxToken`, `OwnedTxToken`) hold types that are themselves
+not `Copy` (`JavaVM`, `Global<JObject>`, `Vec<u8>`, `&mut
+VecDeque<_>`), so the compiler already rejects any future
+`derive(Copy)`; the scanner pattern is the systemic backstop.
 
 ## Use `Arc<T>` / `Rc<T>` / `Weak<T>`, not manual refcounting
 

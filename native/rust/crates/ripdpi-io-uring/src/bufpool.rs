@@ -48,6 +48,26 @@ const _: fn() = || {
     assert_sync::<RegisteredBufferPool>();
 };
 
+// Compile-fail regression for soundness issue #14: `RegisteredBufferPool`
+// owns the kernel registration (released via `IORING_UNREGISTER_BUFFERS`
+// on the held `IoUring`, indirectly through the `_iovecs` Vec lifetime)
+// plus a heap allocation (`Box<[UnsafeCell<Box<[u8]>>]>`). A
+// `#[derive(Copy)]` would let safe code duplicate the pool, hand out
+// `BufferHandle`s against two aliasing pools, and double-free the heap
+// allocation. The block stays unambiguous only while
+// `RegisteredBufferPool: !Copy`.
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfCopy<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfCopy<()> for Check<T> {}
+    impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
+    <Check<RegisteredBufferPool> as AmbiguousIfCopy<_>>::check();
+};
+
 impl RegisteredBufferPool {
     /// Create a new buffer pool and register buffers with the given io_uring.
     ///
