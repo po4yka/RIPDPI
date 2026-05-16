@@ -1,7 +1,7 @@
 ---
 title: Remove PCAP from normal diagnostics archives and harden developer-analytics.json
 type: task
-status: backlog
+status: done
 area: android
 priority: high
 owner: Senior Android Engineer
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-16
 ---
 
-- [ ] #task Remove PCAP from normal diagnostics archives and harden developer-analytics.json #repo/RIPDPI #area/android #status/backlog ⏫
+- [x] #task Remove PCAP from normal diagnostics archives and harden developer-analytics.json #repo/RIPDPI #area/android #status/done ⏫
 
 ## Goal contract
 
