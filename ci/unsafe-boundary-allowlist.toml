@@ -55,6 +55,27 @@
 # only for diagnostic checks that cannot promote to UB. See
 # docs/rust-soundness-policy.md § "`debug_assert!` as memory-safety guard".
 #
+# Additional rule for `manual Arc/Rc refcount` and
+# `manual atomic refcount field`: shared ownership must use std's
+# `Arc<T>` / `Rc<T>` / `Weak<T>` directly; manual lifecycle
+# manipulation (`into_raw`/`from_raw`/`increment_strong_count`/
+# `decrement_strong_count`) or a hand-rolled `AtomicUsize` counter
+# field named `refs`/`refcount`/`ref_count`/`strong`/`weak` is
+# almost always re-inventing reference counting unsoundly. A valid
+# allowlist entry's `enforcement` field MUST state the five-model
+# template from docs/rust-soundness-policy.md § "Use `Arc<T>` /
+# `Rc<T>` / `Weak<T>`, not manual refcounting":
+#   - ownership model (which type owns, non-`Copy` handle shape),
+#   - atomic ordering proof (Relaxed clone, Release drop, Acquire
+#     last-drop fence — with the happens-before chain stated),
+#   - overflow policy (must abort/panic before wrap),
+#   - reclamation policy (what runs at refcount zero and how it
+#     synchronises with the last Release),
+#   - owner accountable for periodic re-review.
+# Required regression tests: clone/drop balance (sequential and
+# multi-threaded), reentrancy proof, compile-fail `!Copy + !Clone`,
+# Miri run on a single-threaded clone/drop sequence.
+#
 # Additional rule for `ownership flag near drop/unsafe` and
 # `Cell<bool>`: a boolean lifecycle/ownership flag (`registered`,
 # `is_alive`, `destroyed`, `initialized`, `disowned`, `owned_by_*`,

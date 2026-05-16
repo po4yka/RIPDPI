@@ -116,6 +116,7 @@ on every PR. It looks for the following risky patterns under
 | `Cell<bool>` | `Cell<bool>` is a common cheap way to encode lifecycle state, but the value's mutation has no synchronisation cost and no exclusivity discipline. Use a typestate / RAII guard / Mutex instead. See "Ownership must be types, not flags" below. |
 | `ownership flag near drop/unsafe` (proximity ≤ 50 lines) | A `bool` field named `registered`, `is_alive`, `destroyed`, `initialized`, `disowned`, `owned_by_*`, or `freed` that lives within 50 source lines of an `impl Drop` or `unsafe` keyword. Per issue-#11 audit, ownership/liveness must be encoded by the type system, not by flags + comments. See "Ownership must be types, not flags" below. |
 | `manual Arc/Rc refcount` | Calls to `Arc::into_raw`/`from_raw`/`increment_strong_count`/`decrement_strong_count` (and the `Rc`/`Weak` equivalents). The standard library handles every sound use of these internally; application code that calls them is almost always reinventing reference counting unsoundly. Round-tripping `Arc<T>` through `*const T` silently shifts the refcount by 0 or 1 depending on whether the caller remembers to call `Arc::from_raw` exactly once. See "Use `Arc<T>` / `Rc<T>` / `Weak<T>`, not manual refcounting" below. |
+| `manual atomic refcount field` | A struct field named `refs`/`refcount`/`ref_count`/`strong`/`weak` whose type is `AtomicUsize`/`AtomicU64`/`AtomicIsize`/`AtomicI64`. Indicates a hand-rolled intrusive reference count, which must either restructure to `Arc<T>`/`Rc<T>`/`Weak<T>` or earn an allowlist entry whose `enforcement` field documents the five-model template below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -419,9 +420,10 @@ pointers; calling them in safe-feeling application code re-creates
 the bugs `Arc` was designed to prevent. The scanner pattern
 `manual Arc/Rc refcount` enforces this rule with zero baseline.
 
-**Allowlist entry requirements.** If a genuine FFI shim must pass an
-`Arc` through a C boundary (e.g. an opaque pointer registered with a
-foreign library), the allowlist entry MUST state:
+**Allowlist entry requirements (manual Arc/Rc raw round-trip).** If a
+genuine FFI shim must pass an `Arc` through a C boundary (e.g. an
+opaque pointer registered with a foreign library), the allowlist
+entry MUST state:
 
 - which boundary requires the raw pointer,
 - which symbol is paired with `into_raw` (every `into_raw` MUST be
@@ -431,6 +433,44 @@ foreign library), the allowlist entry MUST state:
 - thread-safety: whether the foreign code may share or send the
   raw pointer, and how the `Arc`'s `Send + Sync` guarantees survive
   the boundary.
+
+**Allowlist entry requirements (intrusive `AtomicUsize` refcount).**
+If a hand-rolled refcount survives review (intrusive linked list
+node, embedded-target where `Arc` is too large, etc.), the
+allowlist entry's `enforcement` field MUST document all five of:
+
+1. **Ownership model** — which type owns the allocation, when it
+   reclaims, and what handle shape is exposed to callers (must be
+   non-`Copy`, with `Clone` and `Drop` implemented in lockstep).
+2. **Atomic ordering proof** — every operation on the counter must
+   name its ordering: `Relaxed` for clone (monotonic increment),
+   `Release` for drop (publish writes before decrement), `Acquire`
+   on the last-drop fence (synchronise with prior `Release`-stores
+   from other dropping threads). The proof must cite the exact
+   happens-before chain.
+3. **Overflow policy** — the counter must `abort` or `panic` on
+   overflow before it wraps (`Arc` does this by aborting above
+   `isize::MAX/2`). A silently-wrapping counter is a double-free
+   waiting to happen.
+4. **Reclamation policy** — what runs at refcount zero, in what
+   order, and what synchronises the destructor with the last
+   `Release` decrement (typically an `Acquire` fence inside Drop).
+5. **Owner** — the team or crate accountable for re-reviewing the
+   design on schedule.
+
+Required regression tests for every custom-refcount allowlist:
+
+- Clone/drop balance under sequential calls (no leak, no
+  double-free).
+- Clone/drop balance under multi-threaded contention (loom or
+  thread-spawn test).
+- Reentrancy: cloning inside the inner `T`'s destructor is either
+  forbidden by API design or proven sound.
+- Compile-fail: the handle is not `Copy` (use `AmbiguousIfCopy`
+  trick) and not `Clone` unless the `Clone` impl maintains the
+  refcount invariant.
+- Miri run on a single-threaded clone/drop sequence to catch
+  obvious provenance/UB issues.
 
 **Anti-patterns reviewers reject.**
 

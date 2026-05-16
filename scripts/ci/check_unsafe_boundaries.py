@@ -154,6 +154,20 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"\b(?:Arc|Rc|Weak)(?:::<[^>]*>)?::"
         r"(?:into_raw|from_raw|increment_strong_count|decrement_strong_count)\b"
     ),
+    # A struct field whose name (`refs`, `refcount`, `ref_count`, `strong`,
+    # `weak`) and type (`AtomicUsize`/`AtomicU64`/`AtomicIsize`/`AtomicI64`)
+    # together indicate a hand-rolled intrusive reference count. The
+    # workspace has none today. Any new occurrence must either restructure
+    # to use `Arc<T>` / `Rc<T>` / `Weak<T>` or earn an allowlist entry
+    # naming the atomic-ordering proof, overflow policy, reclamation
+    # policy, and Send/Sync argument per
+    # docs/rust-soundness-policy.md § "Use `Arc<T>` / `Rc<T>` /
+    # `Weak<T>`, not manual refcounting".
+    "manual atomic refcount field": re.compile(
+        r"^\s*(?:pub(?:\s*\([^)]*\))?\s+)?(?:refs|refcount|ref_count|strong|weak)"
+        r"\s*:\s*Atomic(?:Usize|U64|Isize|I64)\b",
+        re.MULTILINE,
+    ),
 }
 
 # The `.get()` method is also used by many safe types (HashMap, Vec,

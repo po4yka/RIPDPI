@@ -468,6 +468,27 @@ class ScanRegressionTests(unittest.TestCase):
         ):
             self.assertFalse(_has(_scan(fragment), "manual Arc/Rc refcount"), msg=fragment)
 
+    def test_manual_atomic_refcount_field_flagged(self) -> None:
+        for fragment in (
+            "struct Node {\n    refs: AtomicUsize,\n}",
+            "struct Node {\n    refcount: AtomicU64,\n    data: u32,\n}",
+            "struct Node {\n    ref_count: AtomicIsize,\n}",
+            "struct Node {\n    strong: AtomicUsize,\n    weak: AtomicUsize,\n}",
+            "pub struct Header {\n    pub(crate) refcount: AtomicUsize,\n}",
+        ):
+            self.assertTrue(_has(_scan(fragment), "manual atomic refcount field"), msg=fragment)
+
+    def test_unrelated_atomic_fields_not_flagged(self) -> None:
+        # Atomic fields with unrelated names (counters, flags, sequence
+        # numbers) must NOT trigger.
+        for fragment in (
+            "struct State { dropped: AtomicUsize }",
+            "struct State { seq: AtomicU64 }",
+            "struct State { shutdown: AtomicBool }",
+            "struct State { events: AtomicUsize, errors: AtomicUsize }",
+        ):
+            self.assertFalse(_has(_scan(fragment), "manual atomic refcount field"), msg=fragment)
+
     # --- Negative cases: must NOT trigger the scan -----------------------
 
     def test_comments_are_ignored(self) -> None:
