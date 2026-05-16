@@ -1143,21 +1143,51 @@ baseline going forward.
 `String::from_utf8_unchecked`, or
 `str::from_utf8_unchecked` allowlist entry's
 `enforcement` field MUST address every point of the
-checklist above:
+checklist above as six NAMED mandatory fields:
 
-1. UTF-8 validity proof (which producer / validator
+1. **UTF-8 validity proof.** Which producer / validator
    guarantees the input is valid UTF-8, and why that
-   guarantee survives every reachable code path).
-2. Initialised (matching `Vec::from_raw_parts`
-   discipline for the owned variants).
-3. Live (lifetime argument).
-4. Unique ownership (owned variants only).
-5. `len`/`cap` correctness (`from_raw_parts` only).
+   guarantee survives every reachable code path.
+2. **Input trust boundary.** Where do the bytes
+   physically enter Rust ownership? Acceptable origins:
+   `'static` rodata, the output of `format!` / `write!`,
+   a previously-validated `&str` / `String`, an ASCII /
+   hex / base64 alphabet enforced at the parser layer,
+   or a Rust-allocated and Rust-filled buffer whose
+   producer is named and checked. **Forbidden origins:**
+   network reads, file reads, FFI inputs, unbounded
+   parser output, any external API surface. Untrusted
+   bytes MUST use `String::from_utf8` / `str::from_utf8`
+   / `String::from_utf8_lossy` instead, propagating the
+   `Result` to the caller.
+3. **Initialised.** Matching `Vec::from_raw_parts`
+   discipline for the owned variants.
+4. **Live.** Lifetime argument for the borrowed
+   variant; ownership-transfer argument for the owned
+   variants.
+5. **Unique ownership** (owned variants only). Which
+   `!Copy + !Clone` holder carries the bytes between
+   the validation site and the unchecked constructor.
+6. **`len`/`cap` correctness** (`from_raw_parts` only).
+
+Every allowlisted occurrence MUST also be preceded by
+an inline `// SAFETY:` comment in the source enumerating
+the same six fields locally — the allowlist entry is
+the auditor-facing summary; the SAFETY comment is the
+reviewer-facing proof at the call site. Per
+`docs/rust-soundness-policy.md` § "Documentation
+contract", every unsafe block in production code
+already requires a SAFETY comment; this rule restates
+the requirement for the unchecked-string case where
+the consequence (UTF-8-invariant break → UB on the
+next `chars()` iteration) is particularly easy to
+overlook.
 
 For `String::from_raw_parts` specifically, the
 allowlist entry must address ALL eight
-`Vec::from_raw_parts` checklist points PLUS UTF-8
-validity — the strictest single-API contract in std.
+`Vec::from_raw_parts` checklist points PLUS the six
+fields above — the strictest single-API contract in
+std.
 
 ## Ownership must be types, not flags
 
