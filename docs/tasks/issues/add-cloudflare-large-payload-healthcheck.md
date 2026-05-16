@@ -1,7 +1,7 @@
 ---
 title: Add Cloudflare large-payload healthcheck
 type: task
-status: backlog
+status: done
 area: relay
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-remove-cloudflare-from-critical-path
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Add Cloudflare large-payload healthcheck #repo/RIPDPI #area/relay #status/backlog ⏫
+- [x] #task Add Cloudflare large-payload healthcheck #repo/RIPDPI #area/relay #status/done ⏫
 
 ## Goal contract
 
