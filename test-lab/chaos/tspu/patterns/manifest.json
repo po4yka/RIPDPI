@@ -1,0 +1,24 @@
+{
+  "manifest_version": 1,
+  "patterns": [
+    {
+      "id": "rst-after-sni-match",
+      "status": "active",
+      "description": "Inspect outbound packets for a TLS ClientHello whose SNI matches a blocklist; emit a synthetic RST when matched.",
+      "classifier_module": "patterns.rst_after_sni_match",
+      "config_schema": {
+        "sni_blocklist": "list[str]"
+      }
+    },
+    {
+      "id": "quic-initial-drop",
+      "status": "active",
+      "description": "Inspect outbound UDP datagrams for QUIC Initial long headers with matching SNI/ALPN; drop the matched datagram.",
+      "classifier_module": "patterns.quic_initial_drop",
+      "config_schema": {
+        "alpn_blocklist": "list[str]",
+        "sni_blocklist": "list[str]"
+      }
+    }
+  ]
+}

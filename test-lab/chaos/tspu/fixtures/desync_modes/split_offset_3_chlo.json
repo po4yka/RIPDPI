@@ -1,0 +1,25 @@
+{
+  "trace_version": 1,
+  "desync_mode_id": "split_offset_3_chlo",
+  "description": "Single TCP split at offset 3 of the TLS ClientHello; both segments are visible to a per-packet inspector. SNI lives in the second segment.",
+  "packets": [
+    {
+      "direction": "outbound",
+      "transport": "tcp",
+      "src_port": 49152,
+      "dst_port": 443,
+      "tls_record_type": "handshake_prefix",
+      "sni": null,
+      "payload_hex": "160301"
+    },
+    {
+      "direction": "outbound",
+      "transport": "tcp",
+      "src_port": 49152,
+      "dst_port": 443,
+      "tls_record_type": "handshake_remainder_with_sni",
+      "sni": "blocked.example",
+      "payload_hex": "0200010001fc010001f80303"
+    }
+  ]
+}

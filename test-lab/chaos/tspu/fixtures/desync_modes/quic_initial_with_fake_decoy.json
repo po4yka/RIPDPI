@@ -1,0 +1,29 @@
+{
+  "trace_version": 1,
+  "desync_mode_id": "quic_initial_with_fake_decoy",
+  "description": "Fake QUIC Initial: the first datagram is an Initial with a benign SNI and no advertised ALPN; the real flow continues via a Handshake packet (non-Initial) that the per-packet drop does not inspect.",
+  "packets": [
+    {
+      "direction": "outbound",
+      "transport": "udp",
+      "src_port": 49152,
+      "dst_port": 443,
+      "quic_long_header": true,
+      "quic_packet_type": "initial",
+      "sni": "decoy.example",
+      "alpn": null,
+      "payload_hex": "c0000000010800000000000000004400dead"
+    },
+    {
+      "direction": "outbound",
+      "transport": "udp",
+      "src_port": 49152,
+      "dst_port": 443,
+      "quic_long_header": true,
+      "quic_packet_type": "handshake",
+      "sni": "blocked.example",
+      "alpn": "h3",
+      "payload_hex": "e0000000010800000000000000004400beef"
+    }
+  ]
+}

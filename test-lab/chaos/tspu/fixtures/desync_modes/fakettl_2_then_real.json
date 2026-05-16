@@ -1,0 +1,27 @@
+{
+  "trace_version": 1,
+  "desync_mode_id": "fakettl_2_then_real",
+  "description": "Fake-TTL ladder: a decoy ClientHello with TTL=2 (dies before TSPU) is sent first with a benign SNI; the real ClientHello with the blocked SNI follows. v1 pattern is per-packet stateless, so it still matches the real packet — this fixture documents the fidelity limit and exercises the matched verdict.",
+  "packets": [
+    {
+      "direction": "outbound",
+      "transport": "tcp",
+      "src_port": 49152,
+      "dst_port": 443,
+      "tls_record_type": "fake_clienthello",
+      "sni": "decoy.example",
+      "ttl": 2,
+      "payload_hex": "16030100200100001c030300"
+    },
+    {
+      "direction": "outbound",
+      "transport": "tcp",
+      "src_port": 49152,
+      "dst_port": 443,
+      "tls_record_type": "real_clienthello",
+      "sni": "blocked.example",
+      "ttl": 64,
+      "payload_hex": "16030100200100001c030301"
+    }
+  ]
+}

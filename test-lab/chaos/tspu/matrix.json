@@ -1,0 +1,30 @@
+{
+  "matrix_version": 1,
+  "patterns": [
+    {
+      "id": "rst-after-sni-match",
+      "config": {
+        "sni_blocklist": [
+          "blocked.example",
+          "tspu-target.example"
+        ]
+      }
+    },
+    {
+      "id": "quic-initial-drop",
+      "config": {
+        "alpn_blocklist": ["h3"],
+        "sni_blocklist": [
+          "blocked.example"
+        ]
+      }
+    }
+  ],
+  "desync_modes": [
+    "split_offset_3_chlo",
+    "tlsrandrec_profile_a",
+    "fakettl_2_then_real",
+    "quic_initial_with_blocked_sni",
+    "quic_initial_with_fake_decoy"
+  ]
+}

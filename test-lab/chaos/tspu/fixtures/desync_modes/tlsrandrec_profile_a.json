@@ -1,0 +1,34 @@
+{
+  "trace_version": 1,
+  "desync_mode_id": "tlsrandrec_profile_a",
+  "description": "TLS record randomization profile A: ClientHello is split across multiple TLS records such that no single packet carries the SNI host string intact. A per-packet inspector cannot reconstruct it.",
+  "packets": [
+    {
+      "direction": "outbound",
+      "transport": "tcp",
+      "src_port": 49152,
+      "dst_port": 443,
+      "tls_record_type": "handshake_fragment_1",
+      "sni": null,
+      "payload_hex": "16030100200100001c0303"
+    },
+    {
+      "direction": "outbound",
+      "transport": "tcp",
+      "src_port": 49152,
+      "dst_port": 443,
+      "tls_record_type": "handshake_fragment_2",
+      "sni": null,
+      "payload_hex": "1603010040626c6f636b"
+    },
+    {
+      "direction": "outbound",
+      "transport": "tcp",
+      "src_port": 49152,
+      "dst_port": 443,
+      "tls_record_type": "handshake_fragment_3",
+      "sni": null,
+      "payload_hex": "160301004065642e6578616d706c65"
+    }
+  ]
+}

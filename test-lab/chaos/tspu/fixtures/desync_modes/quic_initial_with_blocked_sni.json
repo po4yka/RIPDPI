@@ -1,0 +1,18 @@
+{
+  "trace_version": 1,
+  "desync_mode_id": "quic_initial_with_blocked_sni",
+  "description": "Plain QUIC Initial with SNI on the blocklist and ALPN=h3. quic-initial-drop matches; rst-after-sni-match is TCP-only so it does not.",
+  "packets": [
+    {
+      "direction": "outbound",
+      "transport": "udp",
+      "src_port": 49152,
+      "dst_port": 443,
+      "quic_long_header": true,
+      "quic_packet_type": "initial",
+      "sni": "blocked.example",
+      "alpn": "h3",
+      "payload_hex": "c0000000010800000000000000004400ffff"
+    }
+  ]
+}
