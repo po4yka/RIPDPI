@@ -382,6 +382,7 @@ class HomeScreenTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .performScrollTo()
             .assertIsDisplayed()
     }
 

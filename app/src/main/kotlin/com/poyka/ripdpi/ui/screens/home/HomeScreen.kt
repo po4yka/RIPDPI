@@ -27,6 +27,7 @@ import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiDashboardScaffold
@@ -64,6 +65,7 @@ fun HomeScreen(
     onShareAnalysis: () -> Unit = {},
     onDismissAnalysisSheet: () -> Unit = {},
     onDismissVerificationSheet: () -> Unit = {},
+    onTogglePcapRecording: () -> Unit = {},
 ) {
     TrackRecomposition("HomeScreen")
     val colors = RipDpiThemeTokens.colors
@@ -191,6 +193,7 @@ fun HomeScreen(
             onBypassCardClick = onBypassCardClick,
             onVpnCardClick = onVpnCardClick,
             onDiagnosticCardClick = onDiagnosticCardClick,
+            onTogglePcapRecording = onTogglePcapRecording,
         )
 
         HomeDiagnosticsBottomSheetHost(
@@ -216,6 +219,7 @@ private fun HomeModeCardList(
     onBypassCardClick: () -> Unit,
     onVpnCardClick: () -> Unit,
     onDiagnosticCardClick: () -> Unit,
+    onTogglePcapRecording: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -239,6 +243,17 @@ private fun HomeModeCardList(
             onConfigure = onDiagnosticCardClick,
             onCardClick = onDiagnosticCardClick,
         )
+        if (uiState.homeDiagnostics.pcapToggleVisible) {
+            RipDpiSwitch(
+                checked = uiState.homeDiagnostics.pcapRecordingRequested,
+                onCheckedChange = { onTogglePcapRecording() },
+                modifier = Modifier.fillMaxWidth(),
+                label = stringResource(R.string.home_diagnostics_pcap_toggle),
+                helperText = stringResource(R.string.home_diagnostics_pcap_helper),
+                enabled = uiState.homeDiagnostics.analysisAction.enabled,
+                testTag = RipDpiTestTags.HomeDiagnosticsPcapToggle,
+            )
+        }
     }
 }
 
