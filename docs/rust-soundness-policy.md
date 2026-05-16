@@ -1453,18 +1453,50 @@ matches in the workspace are NOT `Vec::set_len`:
 
 **Allowlist entry requirements.** A `unsafe Vec::set_len`
 allowlist entry's `enforcement` field MUST address every
-point of the checklist above:
+point as FIVE NAMED mandatory fields:
 
-1. **Producer of the initialised prefix.** Which code
-   wrote valid `T` values to slots `[0, n)`.
-2. **`n <= capacity` proof.** Where the assertion lives
-   (typically an `assert!` on the line above the
-   `set_len`).
-3. **Panic-path argument.** Either `T: !Drop` (named
-   explicitly) or the RAII guard's name + scope.
-4. **No re-entrant reads.** That the function body
-   between `with_capacity` and `set_len` does not
-   borrow the Vec as `&[T]` / `&mut [T]`.
+1. **Initialisation proof.** Which code wrote valid
+   `T` values to slots `[0, n)` before the `set_len`
+   ran. Name the producer explicitly (e.g.
+   "`simulated_recv_fill` wrote each slot via
+   `MaybeUninit::write` in the loop above",
+   "`libc::recv` returned `n` and is documented to
+   write `n` bytes"). "The buffer is filled" is not a
+   proof; the writer function must be named.
+2. **`n <= capacity` proof.** Where the assertion
+   lives (typically an `assert!` on the line above
+   the `set_len`). If the guarantee is structural
+   (e.g. `n` is the return value of a function whose
+   contract is `0 <= ret <= capacity`), name the
+   function and the contract.
+3. **Element type and Drop semantics.** Name `T`
+   explicitly and whether `T: Drop`. `T: !Drop`
+   (`u8`, `u32`, `bool`, `MaybeUninit<U>`) makes
+   panic-path soundness trivial; `T: Drop` requires a
+   scope-bound RAII guard that reduces `len` to the
+   last-known-good prefix on unwind.
+4. **Panic-path safety.** The argument that an unwind
+   between `with_capacity` and `set_len` cannot run
+   destructors on uninitialised memory. Either
+   field 3's `T: !Drop` is sufficient, OR the entry
+   names the unwind guard.
+5. **Owner.** Crate/team responsible for keeping the
+   entry sound. Matches the `owner` TOML field but
+   restated in the `enforcement` summary so the
+   reviewer can see the responsible party without
+   scrolling.
+
+**CI Miri coverage.** Every `unsafe Vec::set_len`
+allowlist entry SHOULD also be exercised under Miri
+in `scripts/ci/run-rust-miri.sh` (the workspace's
+"targeted Miri smoke" CI gate). The existing
+`scoped_handle::tests` Miri coverage already includes
+the workspace's only `Vec::set_len` site (the
+`with_capacity` + `spare_capacity_mut` + `set_len`
+round-trip test); future allowlisted occurrences in
+production code must add their own Miri coverage in
+the same script so the strict-provenance borrow-
+stacked machine validates them at every PR.
 
 ## Ownership must be types, not flags
 
