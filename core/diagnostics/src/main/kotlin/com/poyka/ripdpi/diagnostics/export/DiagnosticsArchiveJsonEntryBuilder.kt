@@ -107,10 +107,14 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                 ),
             )
             add(
-                jsonEntry(
+                DiagnosticsArchiveEntry(
                     name = "developer-analytics.json",
-                    serializer = DeveloperAnalyticsPayload.serializer(),
-                    value = developerAnalytics,
+                    bytes =
+                        json
+                            .encodeToString(
+                                JsonElement.serializer(),
+                                DeveloperAnalyticsAllowListFilter.filterToJson(developerAnalytics, json),
+                            ).toByteArray(),
                 ),
             )
         }

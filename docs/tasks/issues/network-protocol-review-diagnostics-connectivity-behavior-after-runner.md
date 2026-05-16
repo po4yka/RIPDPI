@@ -1,7 +1,7 @@
 ---
 title: Network protocol review: diagnostics connectivity behavior after runner refactor
 type: task
-status: doing
+status: done
 area: rust-native
 priority: high
 owner: Senior Network Protocol Engineer
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-16
 ---
 
-- [ ] #task Network protocol review: diagnostics connectivity behavior after runner refactor #repo/RIPDPI #area/rust-native #status/doing ⏫
+- [x] #task Network protocol review: diagnostics connectivity behavior after runner refactor #repo/RIPDPI #area/rust-native #status/done ⏫
 
 ## Goal contract
 
