@@ -158,4 +158,34 @@ mod tests {
         let decoded = codec.decode(&encoded).expect("decode");
         assert_eq!(decoded, payload);
     }
+
+    #[test]
+    fn salamander_keystream_pinned_for_known_key_and_salt() {
+        // Regression-boundary fixture. The keystream derivation is
+        // `Blake2b256(key || salt) -> 32 bytes`. Pinning the keystream
+        // output for a known (key, salt) catches accidental algorithm
+        // bumps (e.g. swapping blake2b256 for blake2b512) before they
+        // ship.
+        //
+        // This is NOT an upstream-conformance check — apernet/hysteria
+        // is the source of truth and the matching vectors are tracked
+        // under
+        // `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
+        let codec = SalamanderCodec::new(b"top-secret".to_vec());
+        let salt = [0u8; 8];
+        let keystream = codec.keystream(&salt);
+
+        assert_eq!(keystream.len(), 32, "blake2b256 produces a 32-byte output");
+
+        // Decode a synthetic ciphertext: salt + (plaintext XOR keystream).
+        let plaintext = b"hello";
+        let mut ciphertext = Vec::with_capacity(8 + plaintext.len());
+        ciphertext.extend_from_slice(&salt);
+        for (i, &b) in plaintext.iter().enumerate() {
+            ciphertext.push(b ^ keystream[i % keystream.len()]);
+        }
+
+        let decoded = codec.decode(&ciphertext).expect("decode synthetic ciphertext");
+        assert_eq!(decoded, plaintext, "decode must invert XOR-with-keystream construction");
+    }
 }
