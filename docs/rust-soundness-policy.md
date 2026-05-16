@@ -479,6 +479,64 @@ the workspace is `bufpool.rs`. Its exclusivity proof:
   borrow, no `BufferHandle` constructor outside the crate) is
   enforced by the type system per "Compile-fail enforcement" below.
 
+## `unsafe impl Send` and `unsafe impl Sync`
+
+`Send` says "the whole value can be moved across threads safely."
+`Sync` says "`&T` can be shared across threads safely." Both are
+opt-in auto-traits: the compiler derives them automatically when
+every field implements them. A manual `unsafe impl Send` or
+`unsafe impl Sync` overrides the compiler's analysis, usually
+because the type contains a raw pointer (`*const T`/`*mut T`),
+`NonNull<T>`, `UnsafeCell<T>`, a JNI handle (`JavaVM`, jobject),
+or a thread-affine OS resource that the Rust type system can't
+reason about.
+
+**Rule.** Every manual `unsafe impl Send | Sync` MUST:
+
+1. carry a SAFETY comment naming the cross-thread invariant and the
+   mechanism that enforces it (mutex unlock/lock for happens-before,
+   read-only data, JNI spec contract, ownership transfer through a
+   move-only handle, etc.);
+2. live in an allowlist entry in
+   `ci/unsafe-boundary-allowlist.toml` whose `enforcement` field
+   reproduces the SAFETY argument in machine-readable form; and
+3. include a `const _: fn() = || { fn assert_send<T: Send>() {}
+   assert_send::<T>(); … }` block locking the claim — any future
+   field change that breaks Send/Sync fails to compile at the
+   assertion, before the lefthook clippy hook ever runs.
+
+**Negative (`!Send` / `!Sync`) types** must use the trait-dispatch
+ambiguity trick (`AmbiguousIfSend<A>` / `AmbiguousIfSync<A>`
+overlapping blanket impls) to lock the absence of Send/Sync. This
+is the stable-Rust equivalent of
+`static_assertions::assert_not_impl_any!`. The pattern is in-place
+on `MmapRegion` in `crates/ripdpi-privileged-ops/src/linux/`
+`mmap_region.rs`; copy it verbatim for any future `!Send` type.
+
+**The four manual `unsafe impl Send + Sync` impls in production**:
+
+| Type | File | Cross-thread enforcement |
+|---|---|---|
+| `MappedFile` | `ripdpi-geo/src/mapped_file.rs` | Read-only mmap; no interior mutability; single owner; Drop munmaps once. |
+| `RegisteredBufferPool` | `ripdpi-io-uring/src/bufpool.rs` | `Mutex<Vec<u16>>` free list supplies happens-before; per-cell access via the unique `BufferHandle` whose index is mutex-guarded. |
+| `JniProtectCallback` (warp-android) | `ripdpi-warp-android/src/vpn_protect.rs` | JNI spec: `JavaVM` is thread-safe; `Global<JObject>` is GC-pinned across threads; `protect()` uses `attach_current_thread` per invocation. |
+| `JniProtectCallback` (vpn-protect-adapter) | `ripdpi-android-vpn-protect-adapter/src/lib.rs` | Same as above (duplicate of the warp-android impl). |
+
+**Anti-patterns rejected by review.**
+
+- `unsafe impl Send for X {}` with no SAFETY comment — fails the
+  `clippy::undocumented_unsafe_blocks` aspiration and the policy here.
+- `unsafe impl Send` to "make it compile" because the type holds a
+  raw pointer that's actually thread-affine (e.g. a `JNIEnv*`, an
+  OpenGL context, a `MAP_SHARED` mmap with writeable mappings).
+  These types must remain `!Send` and the design must change to use
+  `Arc<Mutex<…>>`, a channel-based handoff, or per-thread
+  registration.
+- A `unsafe impl Send` impl whose SAFETY argument cites
+  `debug_assert!` for the thread-affine invariant. The release-mode
+  build is the one that ships; debug-only checks don't enforce
+  thread safety.
+
 ## Documentation contract
 
 Every `unsafe` block in production code must have a `// SAFETY:` comment

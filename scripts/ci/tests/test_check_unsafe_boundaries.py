@@ -276,6 +276,78 @@ class ScanRegressionTests(unittest.TestCase):
         src = "use std::cell::UnsafeCell;\nfn f(c: &UnsafeCell<u8>) -> *mut u8 { c.get() }"
         self.assertFalse(_has(_scan(src), "UnsafeCell::get"))
 
+    def test_unsafe_impl_send_sync_flagged_on_later_line(self) -> None:
+        # Regression: prior to the `re.MULTILINE` fix, the `^`-anchored
+        # `unsafe impl Send/Sync` regex only matched at file position 0,
+        # so any occurrence on line 2+ was silently invisible. This
+        # multi-line fragment exercises the multi-line path.
+        src = textwrap.dedent(
+            """\
+            struct Foo;
+
+            unsafe impl Send for Foo {}
+            unsafe impl Sync for Foo {}
+            """
+        )
+        matches = [m for m in _scan(src) if m[0] == "unsafe impl Send/Sync"]
+        self.assertEqual(len(matches), 2, msg=f"expected two findings, got {matches}")
+
+    def test_raw_pointer_in_public_fn_flagged_on_later_line(self) -> None:
+        # Regression: same MULTILINE issue for the `pub fn ... *const T`
+        # signature regex. The signature appears on line 3, not line 1.
+        src = textwrap.dedent(
+            """\
+            mod m {
+                use libc;
+                pub fn write(ptr: *mut u8, value: u8) {}
+            }
+            """
+        )
+        self.assertTrue(_has(_scan(src), "raw pointer in public fn"))
+
+    def test_raw_usize_handle_in_public_fn_flagged_on_later_line(self) -> None:
+        src = textwrap.dedent(
+            """\
+            mod m {
+                pub fn destroy(handle: u64) {}
+            }
+            """
+        )
+        self.assertTrue(_has(_scan(src), "raw usize handle in public fn"))
+
+    def test_raw_pointer_in_body_does_not_match_signature_pattern(self) -> None:
+        # Regression: the `[^;{]*` (not `[^;]*`) constraint stops the
+        # signature regex from greedily spanning across the function body
+        # and matching raw-pointer casts in unrelated code further down.
+        # The signature here takes `&T` (no raw pointer), so the rule must
+        # NOT fire even though the body contains `*const T`.
+        src = textwrap.dedent(
+            """\
+            pub fn safe_helper<T>(val: &T) -> u32 {
+                let cast = val as *const T;
+                cast as usize as u32
+            }
+            """
+        )
+        self.assertFalse(_has(_scan(src), "raw pointer in public fn"))
+
+    def test_raw_pointer_in_multi_line_signature_still_flagged(self) -> None:
+        # The `[^;{]*` constraint must still tolerate multi-line signatures
+        # (rust-fmt wraps long arg lists). The raw pointer is in the args,
+        # not the body, so the rule MUST fire.
+        src = textwrap.dedent(
+            """\
+            pub fn long_signature(
+                a: &Foo,
+                b: *const u8,
+                c: usize,
+            ) -> io::Result<()> {
+                Ok(())
+            }
+            """
+        )
+        self.assertTrue(_has(_scan(src), "raw pointer in public fn"))
+
     # --- Negative cases: must NOT trigger the scan -----------------------
 
     def test_comments_are_ignored(self) -> None:

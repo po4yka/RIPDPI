@@ -326,3 +326,93 @@ preconditions = "At most one `BufferHandle` exists per `buffers[index]` at any m
 enforcement = "Move-only `BufferHandle` + `Mutex`-guarded free list + `&mut self`-anchored borrows + RAII Drop that returns the index exactly once; SAFETY comments at lines 53-54, 145-148, 173-174, 184 name the invariant; runtime regressions in `bufpool::tests`"
 owner = "io-uring"
 review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# `unsafe impl Send / unsafe impl Sync` — each manual auto-trait impl in
+# production carries a SAFETY comment and a `const _: fn() = || { … }`
+# compile-fail regression block that locks the claim to the current
+# ground truth (any future field change that breaks Send/Sync fails to
+# compile). Soundness arguments are audited per issues #4, #7, #8.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-geo/src/mapped_file.rs"
+pattern = "unsafe impl Send/Sync"
+reason = "MappedFile owns a MAP_PRIVATE read-only mmap; only observable op is `as_slice` returning `&[u8]`"
+preconditions = "Read-only mapping; no interior mutability; single owner; Drop munmaps exactly once"
+enforcement = "Type design (no public Copy/Clone, private NonNull/len fields); compile-fail const block at line 26-32 locks the Send+Sync claim"
+owner = "geo"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-io-uring/src/bufpool.rs"
+pattern = "unsafe impl Send/Sync"
+reason = "RegisteredBufferPool with private UnsafeCell-backed slots and Mutex-guarded free list"
+preconditions = "iovecs are read-only after construction; per-cell access goes through the unique BufferHandle whose index is owned via the Mutex<Vec<u16>> free list"
+enforcement = "Free-list mutex supplies happens-before; move-only BufferHandle + `&mut self`-anchored borrows enforce exclusivity; compile-fail const block locks the Send+Sync claim; runtime regressions in bufpool::tests"
+owner = "io-uring"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-warp-android/src/vpn_protect.rs"
+pattern = "unsafe impl Send/Sync"
+reason = "JniProtectCallback holds a JavaVM handle plus a JNI Global ref; both are documented thread-safe per JNI spec"
+preconditions = "JavaVM is a wrapper around *mut sys::JavaVM (JVM is thread-safe); Global<JObject<'static>> is GC-pinned and safe across threads; `protect()` uses attach_current_thread for every invocation"
+enforcement = "JNI spec contract (NewGlobalRef/DeleteGlobalRef atomic, AttachCurrentThread invocation discipline); compile-fail const block locks the Send+Sync claim"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android-vpn-protect-adapter/src/lib.rs"
+pattern = "unsafe impl Send/Sync"
+reason = "JniProtectCallback (duplicate of the warp-android impl, same shape and SAFETY argument)"
+preconditions = "JavaVM is a wrapper around *mut sys::JavaVM (JVM is thread-safe); Global<JObject<'static>> is GC-pinned and safe across threads; `protect()` uses attach_current_thread for every invocation"
+enforcement = "JNI spec contract (NewGlobalRef/DeleteGlobalRef atomic, AttachCurrentThread invocation discipline); compile-fail const block locks the Send+Sync claim"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# `raw usize handle in public fn` — handle types are integer indices into a
+# Mutex-guarded HashMap, NOT raw pointers. Forging a handle returns
+# `None`/`Option<...>`; the handle space is monotonic.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/android-support/src/handles.rs"
+pattern = "raw usize handle in public fn"
+reason = "HandleRegistry::get/remove(&self, handle: u64) — integer keys into a Mutex<HashMap>"
+preconditions = "Handle is an index, not a pointer; `Option::None` returned for unknown keys; insert monotonically allocates new IDs"
+enforcement = "Mutex-guarded HashMap lookup returns Option; no raw pointer dereference; pattern is `pub fn get(&self, handle: u64) -> Option<Arc<T>>`"
+owner = "android-support"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-io-uring/src/ring/completion.rs"
+pattern = "raw usize handle in public fn"
+reason = "CompletionFuture/CompletionRegistry use a u64 token to index a Mutex<HashMap<u64, WakerSlot>>"
+preconditions = "Token is an index, not a pointer; lookups return Option/handle empty state; tokens issued monotonically by the registry"
+enforcement = "Mutex-guarded HashMap; no raw pointer dereference; functions are pub(crate) only"
+owner = "io-uring"
+review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# `raw pointer in public fn` — JNI ABI requires `*mut c_void`, and the
+# MmapRegion accessors return `*const u8`/`*mut u8` for FFI handoff only.
+# Neither path materialises a Rust reference from the pointer; the mmap
+# accessors take `&self`/`&mut self` so the pointer's lifetime is bounded.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-privileged-ops/src/linux/mmap_region.rs"
+pattern = "raw pointer in public fn"
+reason = "MmapRegion::as_ptr(&self) -> *const u8 and as_mut_ptr(&mut self) -> *mut u8 hand the raw pointer to FFI (e.g. vmsplice)"
+preconditions = "Pointer is only valid while the borrow of &self / &mut self lives; no reference is created from the pointer in safe Rust; pub(super) visibility limits callers to the parent module"
+enforcement = "Method takes &self/&mut self so the returned pointer is implicitly lifetime-bounded; pub(super) visibility; the struct itself is module-private; audited under issue #4"
+owner = "privileged-ops"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-relay-android/src/lifecycle.rs"
+pattern = "raw pointer in public fn"
+reason = "JNI_OnLoad entry signature: `pub(crate) fn jni_on_load_entry(_vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint`"
+preconditions = "JNI ABI mandates `*mut c_void` for the reserved parameter; the pointer is unused (prefixed `_`) and never dereferenced"
+enforcement = "JNI ABI contract; the parameter is named `_reserved` and dropped without read/write; pattern matches the allowlisted `extern \"system\" fn` JNI entries elsewhere"
+owner = "android-ffi"
+review_date = "2026-11-15"

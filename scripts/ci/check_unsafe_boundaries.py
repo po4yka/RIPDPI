@@ -70,18 +70,33 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # are covered separately by `unsafe_op_in_unsafe_fn = deny` and the
     # SAFETY-comment policy.
     "NonNull::as_ref/as_mut": re.compile(r"\bNonNull(::<[^>]*>)?::as_(ref|mut)\b"),
-    "unsafe impl Send/Sync": re.compile(r"^\s*unsafe\s+impl(\s*<[^>]+>)?\s+(Send|Sync)\b"),
+    # NB: the four `^`-anchored patterns below MUST be compiled with
+    # `re.MULTILINE` so `^` matches the start of any line, not only the
+    # first character of the whole file. Prior to this fix the patterns
+    # silently matched zero occurrences in production code; the test
+    # suite's single-line fragments happened to pass because `^` aligns
+    # with position 0 of a one-line string.
+    "unsafe impl Send/Sync": re.compile(
+        r"^\s*unsafe\s+impl(\s*<[^>]+>)?\s+(Send|Sync)\b", re.MULTILINE
+    ),
     "extern \"C\" fn": re.compile(r"\bextern\s+\"C\"\s+fn\b"),
     "extern \"system\" fn": re.compile(r"\bextern\s+\"system\"\s+fn\b"),
+    # `[^;{]*` (rather than `[^;]*`) constrains the body-of-signature match
+    # to characters before the opening `{` of the function body — without
+    # this, the greedy class spans across the function body and matches
+    # raw-pointer casts in unrelated code further down the file.
     "NonNull in public fn": re.compile(
-        r"^\s*pub(\s*\([^)]*\))?\s+(unsafe\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*[^;]*\bNonNull\b"
+        r"^\s*pub(\s*\([^)]*\))?\s+(unsafe\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*[^;{]*\bNonNull\b",
+        re.MULTILINE,
     ),
     "raw pointer in public fn": re.compile(
-        r"^\s*pub(\s*\([^)]*\))?\s+(unsafe\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*[^;]*[:,(\s]\*(const|mut)\s"
+        r"^\s*pub(\s*\([^)]*\))?\s+(unsafe\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*[^;{]*[:,(\s]\*(const|mut)\s",
+        re.MULTILINE,
     ),
     "raw usize handle in public fn": re.compile(
         r"^\s*pub(\s*\([^)]*\))?\s+(unsafe\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\b"
-        r"(handle|token|raw[_a-z]*)\s*:\s*(u64|i64|usize|isize)\b"
+        r"(handle|token|raw[_a-z]*)\s*:\s*(u64|i64|usize|isize)\b",
+        re.MULTILINE,
     ),
     # Option<NonNull<T>> is Copy. Stored in a struct field, returned from a
     # function, or passed as a parameter, it cannot encode ownership: safe
