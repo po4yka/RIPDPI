@@ -1,8 +1,29 @@
 # Reality SSL_SESSION Drop-Path Audit
 
-> Status: **audit complete; current code is leak-safe; RAII wrapper recommended for structural safety**.
-> Authored: 2026-05-15.
-> Tracking task: `docs/tasks/issues/audit-reality-ssl-session-drop-paths-for-leak-and-double-free.md`.
+> Status: **SUPERSEDED 2026-05-16** — the H1 follow-up commit (see
+> `docs/design/reality-boringssl-patch.md`) replaced the
+> `SSL_SESSION_new`/`SSL_set_session`/`SSL_SESSION_free` codepath in
+> `ripdpi-vless::reality::connect_reality_tls_inner` with the
+> BoringSSL `client_hello_cb` patch. The session-id slot is now
+> written directly into the serialized ClientHello buffer by the
+> callback in [`crate::reality_hook`], so no `SSL_SESSION` object is
+> ever allocated on the Reality path. **The audit subject below no
+> longer exists in the code; the analysis is preserved for historical
+> context only.**
+>
+> The new unsafe surface lives in `crates/ripdpi-vless/src/reality_hook.rs`
+> and consists of three BoringSSL symbols
+> (`SSL_handshake_get_x25519_private_key`, `SSL_CTX_set_client_hello_cb`,
+> `SSL_get_SSL_CTX`) plus one `extern "C" fn` callback. The callback
+> traps panics with `catch_unwind` and the boxed callback state is
+> owned by an RAII `RealityHookGuard` whose `Drop` reclaims the box —
+> structurally satisfying the "RAII wrapper" recommendation that this
+> audit's Recommendation section was advocating.
+>
+> Authored: 2026-05-15. Tracking task:
+> `docs/tasks/issues/audit-reality-ssl-session-drop-paths-for-leak-and-double-free.md`
+> (now effectively closed: the audited code has been removed rather
+> than wrapped).
 
 ## Scope
 

@@ -26,32 +26,44 @@ updated: 2026-05-15
 
 ## Summary
 
-The Reality TLS implementation in `ripdpi-vless` declares five BoringSSL
-symbols by hand because the `boring` crate does not re-export them.
-Pin the `boring` / `boring-sys` versions exactly and add a `build.rs`
-existence check so a vendored-BoringSSL bump cannot break Reality
-silently.
+The Reality TLS implementation in `ripdpi-vless` declares three
+BoringSSL symbols by hand because the `boring` crate does not
+re-export them. Pin the `boring` / `boring-sys` versions exactly and
+add a `build.rs` existence check so a vendored-BoringSSL bump cannot
+break Reality silently.
+
+**Two of the three symbols
+(`SSL_handshake_get_x25519_private_key`,
+`SSL_CTX_set_client_hello_cb`) are part of the H1 vendor patch — they
+do not exist in upstream BoringSSL. A `boring-sys` bump must either
+carry the same patch forward or this task's existence check must
+fail loudly so the breakage surfaces before the link.**
 
 ## Context
 
-`native/rust/crates/ripdpi-vless/src/reality.rs:23-43` declares:
+`native/rust/crates/ripdpi-vless/src/reality_hook.rs` declares (post
+the 2026-05-16 H1 follow-up):
 
 ```rust
 extern "C" {
-    fn SSL_set_client_random(...) -> c_int;
-    fn SSL_SESSION_new(...) -> *mut c_void;
-    fn SSL_SESSION_set1_id(...) -> c_int;
-    fn SSL_set_session(...) -> c_int;
-    fn SSL_SESSION_free(...);
-    fn SSL_get_SSL_CTX(...) -> *mut c_void;
+    // Patched-in by the H1 BoringSSL vendor patch
+    // (commit 0155564c). Not present in upstream BoringSSL.
+    fn SSL_handshake_get_x25519_private_key(ssl: *const SslHandle, out: *mut u8) -> c_int;
+    fn SSL_CTX_set_client_hello_cb(ctx: *mut SslCtxHandle, cb: RealityHelloCb, arg: *mut c_void);
+
+    // Stock BoringSSL — stable accessor.
+    fn SSL_get_SSL_CTX(ssl: *const SslHandle) -> *mut SslCtxHandle;
 }
 ```
 
-The SAFETY comment asserts these are "stable BoringSSL ABI". BoringSSL
-has no stable ABI guarantee; if `boring-sys` bumps to a vendored
-BoringSSL revision that renames or removes any of these, the link will
-either fail (best case) or succeed against a different signature with
-undefined behavior at runtime (worst case).
+The SAFETY comment asserts these are "stable BoringSSL ABI" for the
+third symbol only; the first two are part of the vendored patch we
+maintain. BoringSSL has no stable ABI guarantee, and the patched
+symbols have no stability guarantee at all. If `boring-sys` bumps
+to a vendored BoringSSL revision that does not carry the H1 patch
+forward, or that renames any of the three symbols, the link will
+either fail (best case) or succeed against a different signature
+with undefined behavior at runtime (worst case).
 
 ## Acceptance criteria
 
