@@ -3,6 +3,8 @@ mod registry;
 #[cfg(test)]
 mod test_support;
 mod r#trait;
+#[cfg(test)]
+mod trait_split_parity;
 mod types;
 
 pub use dispatch_wrappers::{

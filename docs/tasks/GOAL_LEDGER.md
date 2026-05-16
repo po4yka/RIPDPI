@@ -91,7 +91,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 68 | P4 | `remove-cloudflare-dns-from-critical-resolver-chain`<br>Remove Cloudflare DNS from critical resolver chain | task | `epic-remove-cloudflare-from-critical-path` | relay | ⏫ | TODO | |
 | 69 | P4 | `epic-remove-cloudflare-from-critical-path`<br>Epic - Remove Cloudflare from critical path | epic | `—` | relay | 🔺 | TODO | |
 | 70 | P4 | `add-cancellation-environmentrunner-short-circuit-fixture-tests-for`<br>Add cancellation + EnvironmentRunner short-circuit fixture tests for connectivity runners | task | `(no epic)` | testing | ⏫ | TODO | |
-| 71 | P4 | `add-desync-trait-split-parity-tests-for-tcpdesyncplatform-sub-traits`<br>Add desync trait-split parity tests for TcpDesyncPlatform sub-traits | task | `(no epic)` | rust-native | ⏫ | TODO | |
+| 71 | P4 | `add-desync-trait-split-parity-tests-for-tcpdesyncplatform-sub-traits`<br>Add desync trait-split parity tests for TcpDesyncPlatform sub-traits | task | `(no epic)` | rust-native | ⏫ | DONE | `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-desync-runtime` exit 0 (118 passed) |
 | 72 | P4 | `add-phase-artifact-source-byte-identity-regression-test-for-connectivity`<br>Add phase/artifact-source byte-identity regression test for connectivity stage runners | task | `(no epic)` | testing | ⏫ | TODO | |
 | 73 | P5 | `connectivity-runner-behavioral-parity-snapshot-test`<br>Connectivity runner behavioral parity snapshot test | task | `(no epic)` | testing | ⏫ | TODO | |
 | 74 | P5 | `extend-contract-fixtures-with-connectivity-scan-report-golden-covering`<br>Extend contract_fixtures with connectivity scan-report golden covering cancellation + partial-results | task | `(no epic)` | testing | ⏫ | DONE | |

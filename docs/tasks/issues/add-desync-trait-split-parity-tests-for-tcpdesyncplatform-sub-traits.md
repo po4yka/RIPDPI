@@ -1,7 +1,7 @@
 ---
 title: Add desync trait-split parity tests for TcpDesyncPlatform sub-traits
 type: task
-status: doing
+status: done
 area: rust-native
 priority: high
 owner: Senior Network Protocol Engineer
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-16
 ---
 
-- [ ] #task Add desync trait-split parity tests for TcpDesyncPlatform sub-traits #repo/RIPDPI #area/rust-native #status/doing ⏫
+- [x] #task Add desync trait-split parity tests for TcpDesyncPlatform sub-traits #repo/RIPDPI #area/rust-native #status/done ⏫
 
 ## Goal contract
 
