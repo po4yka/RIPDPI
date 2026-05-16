@@ -69,6 +69,20 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     "Box::into_raw": re.compile(r"\bBox(::<[^>]*>)?::into_raw\b"),
     "Vec::from_raw_parts": re.compile(r"\bVec(::<[^>]*>)?::from_raw_parts\b"),
     "String::from_raw_parts": re.compile(r"\bString::from_raw_parts\b"),
+    # The allocator-API variant of `Vec::from_raw_parts`. Adds an
+    # `Allocator` parameter and rejects `from_raw_parts` callers that
+    # used the default global allocator on the `into_raw_parts` side
+    # but a custom allocator on the `from_raw_parts_in` side (UB).
+    # The base `Vec::from_raw_parts` pattern's `\b` anchor does NOT
+    # match `from_raw_parts_in` because `_` is a word character, so
+    # a dedicated pattern is required. Issue #16 audit found zero
+    # production occurrences. Per docs/rust-soundness-policy.md
+    # § "`Vec::from_raw_parts` ownership transfer" any new occurrence
+    # must restructure (use `Vec::with_capacity_in` + `set_len` in
+    # the same scope, or a typed buffer wrapper) or earn an
+    # allowlist entry naming the matching `into_raw_parts_in` call
+    # site and the eight-point audit checklist.
+    "Vec::from_raw_parts_in": re.compile(r"\bVec(::<[^>]*>)?::from_raw_parts_in\b"),
     "MaybeUninit::assume_init": re.compile(r"\.assume_init\b|MaybeUninit::<[^>]*>::assume_init\b"),
     "mem::transmute": re.compile(r"\b(std::|core::)?mem::transmute\b|\btransmute(::<[^>]*>)?\("),
     "get_unchecked": re.compile(r"\.get_unchecked(_mut)?\("),

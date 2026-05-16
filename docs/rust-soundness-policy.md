@@ -96,7 +96,8 @@ on every PR. It looks for the following risky patterns under
 | Pattern | Concern |
 |---|---|
 | `slice::from_raw_parts(_mut)?` | Synthesizing slices over raw memory. |
-| `Box::from_raw`, `Vec::from_raw_parts`, `String::from_raw_parts` | Ownership reconstitution from a raw pointer. See "`Box::into_raw` / `Box::from_raw` ownership transfer" below for the `Box` variant. |
+| `Box::from_raw`, `Vec::from_raw_parts`, `String::from_raw_parts` | Ownership reconstitution from a raw pointer. See "`Box::into_raw` / `Box::from_raw` ownership transfer" and "`Vec::from_raw_parts` ownership transfer" below. |
+| `Vec::from_raw_parts_in` | Allocator-API variant of `Vec::from_raw_parts`. Same eight-point checklist plus the allocator-compatibility constraint must hold across the call. The base `Vec::from_raw_parts` `\b` regex anchor does NOT match the `_in` suffix because `_` is a word character, so this is a dedicated pattern. See "`Vec::from_raw_parts` ownership transfer" below. |
 | `Box::into_raw` | The matched counterpart of `Box::from_raw`. Scanning only the reclaim side would miss orphaned `into_raw` calls that leak (`mem::forget` equivalent) or that hand the pointer to FFI without a matching `from_raw`. See "`Box::into_raw` / `Box::from_raw` ownership transfer" below. |
 | `.assume_init()` / `MaybeUninit::assume_init` | Promoting `MaybeUninit` to `T` without proof. |
 | `mem::transmute` / `transmute::<_,_>` | Reinterpretation cast that bypasses the type system. |
@@ -856,6 +857,163 @@ foreign code by returning the raw pointer and
 The `ScopedHandle::take()` method in
 `ripdpi-vless/src/scoped_handle.rs` is the canonical
 implementation of that escape hatch.
+
+## `Vec::from_raw_parts` ownership transfer
+
+`Vec::from_raw_parts(ptr, len, cap)` and its allocator-API
+counterpart `Vec::from_raw_parts_in(ptr, len, cap, alloc)`
+reconstitute a `Vec<T>` from three (or four) raw values. The
+resulting `Vec` runs its destructor on drop, which deallocates
+the buffer using `dealloc(ptr, Layout::array::<T>(cap)?)` on
+whichever allocator was supplied. Every soundness precondition
+must hold — even a single mismatched field is UB.
+
+The eight-point audit checklist (issue #16):
+
+1. **Allocation origin.** `ptr` must come from a Rust
+   allocation produced by a `Vec<T>` (or `String`, for the
+   `String` variant) on the same allocator. A pointer from
+   `libc::malloc`, `boxed slice`, `Box<[T]>` after
+   `Box::into_raw`, an mmap region, or a foreign allocator
+   is UB even if alignment and size happen to match.
+2. **Element type `T`.** The pointer must address a buffer
+   that was allocated for exactly this `T`. A
+   layout-compatible-but-distinct `T'` (e.g. `repr(C)` mirror
+   structs) is UB.
+3. **Alignment.** The pointer must satisfy
+   `mem::align_of::<T>()` — automatic if it came from a
+   `Vec<T>::into_raw_parts`; not automatic if it came from
+   `libc::malloc` (only `MAX_ALIGN` guaranteed in C) or from
+   a `Box<[u8]>` cast to `*mut T` (alignment of `u8` is 1).
+4. **Initialized length.** Bytes
+   `[0, len * size_of::<T>())` must contain valid `T`
+   values. `set_len`-style "leave it uninitialized and
+   overwrite later" is UB on any read between
+   `from_raw_parts` and the overwrite — including the
+   `Drop` impl of any element type that runs destructors.
+5. **Capacity.** Bytes `[0, cap * size_of::<T>())` must be
+   the exact allocation size the allocator was told about.
+   Passing a larger `cap` than the original allocation
+   over-reads on drop; smaller leaks the tail.
+6. **Allocator compatibility.** For
+   `Vec::from_raw_parts_in`, the supplied `Allocator` MUST
+   be the same instance (or interchangeable instance) that
+   allocated the buffer. Workspace policy: only the default
+   global allocator is in use; any future
+   `#[global_allocator]` or per-Vec `Allocator` instance
+   invalidates every existing pair and requires re-audit.
+7. **`len <= cap`.** Required by the `Vec` invariant. A
+   `from_raw_parts(p, 8, 4)` violates this immediately and
+   is UB on the next `Vec` operation.
+8. **Unique ownership.** Between
+   `Vec::from_raw_parts` and the resulting `Vec` being
+   moved or dropped, no other code may hold a `&[T]`,
+   `&mut [T]`, second `Vec<T>`, or raw `*mut T` to the
+   same buffer. The reconstituted `Vec` owns the
+   allocation exclusively; an aliased view is UB on the
+   very next mutation.
+
+**Rule.** Application code SHOULD NOT use
+`Vec::from_raw_parts(_in)?`. The preferred shapes, in order:
+
+1. **Safe `Vec` ownership.** Pass `Vec<T>` by value across
+   internal APIs; accept `&[T]` or `&mut [T]` from FFI
+   callers and `Vec::from(slice)` or `.to_vec()` if you
+   need to own. Lets the type system prove every checklist
+   point trivially.
+2. **`Vec::with_capacity` + `spare_capacity_mut` +
+   `set_len`.** When initialising a buffer in-place from
+   a `recv`/`read`/foreign-fill call, allocate with
+   `Vec::with_capacity(N)`, pass
+   `spare_capacity_mut()` (returns
+   `&mut [MaybeUninit<T>]`), then assert
+   `set_len(n)` for the actually-initialised prefix `n`.
+   The `Vec` was always Rust-owned; only the
+   "initialised-up-to" cursor changed. This is the std-
+   library-blessed equivalent of `from_raw_parts` for the
+   common "Rust allocates, foreign code writes" pattern.
+3. **A typed buffer wrapper.** When the buffer's lifecycle
+   is more complex than a single `recv` (e.g. io_uring
+   `IORING_REGISTER_BUFFERS`, page-aligned ring buffers,
+   `MAP_PRIVATE` mmap), wrap the allocation in an owner
+   type whose API is `&[u8] / &mut [u8]` and whose `Drop`
+   handles the matching cleanup. The workspace has two
+   reference implementations: `BufferHandle` in
+   `ripdpi-io-uring/src/bufpool.rs` (move-only handle into
+   a `Box<[UnsafeCell<Box<[u8]>>]>` pool) and `MappedFile`
+   in `ripdpi-geo/src/mapped_file.rs` (mmap-backed
+   read-only `&[u8]`).
+4. **`unsafe fn` boundary + caller contract.** Only when
+   the buffer genuinely originates from a foreign
+   allocator and Rust must take ownership. The function
+   becomes `unsafe fn` with a `# Safety` section that
+   enumerates all eight checklist points; the caller
+   enters `unsafe { … }` with their own SAFETY comment
+   per the documentation contract above. The workspace
+   has zero functions of this shape today.
+
+**Anti-patterns.**
+
+- `Vec::from_raw_parts(libc::malloc(n) as *mut T, n /
+  size_of::<T>(), n / size_of::<T>())` — allocator
+  mismatch (UB on drop), and alignment is unspecified.
+  Use `Vec::with_capacity` instead and have the C code
+  fill the Rust-allocated buffer.
+- `let mut v = Vec::with_capacity(N); recv(v.as_mut_ptr(),
+  N); unsafe { v.set_len(N); }` — bypasses
+  `spare_capacity_mut`'s `MaybeUninit` typing and is hard
+  to audit. The correct shape is
+  `recv(v.spare_capacity_mut().as_mut_ptr() as *mut u8,
+  N); unsafe { v.set_len(N); }` — the `set_len` line is
+  still `unsafe`, but the SAFETY comment can reference the
+  initialisation contract of `recv` instead of
+  hand-waving about the buffer.
+- `String::from_raw_parts(ptr, len, cap)` where bytes are
+  not validated UTF-8. `String` carries the UTF-8
+  invariant; reconstituting from raw without validating is
+  UB on any subsequent string operation. Use
+  `String::from_utf8(vec)` (release-mode validation) on a
+  Rust-owned `Vec<u8>` instead.
+
+**Workspace inventory.** As of issue #16: **zero**
+production occurrences of `Vec::from_raw_parts`,
+`Vec::from_raw_parts_in`, `String::from_raw_parts`, or
+`Vec::set_len` (verified via
+`rg '\bVec(::<[^>]*>)?::(from_raw_parts(_in)?|set_len)\b'`
+and `rg '\bString::from_raw_parts\b'` across all crates).
+The "Rust allocates, foreign code writes" pattern is
+handled by `BufferHandle` and `Vec::with_capacity +
+spare_capacity_mut`; the io_uring fixed buffers are
+`Box<[u8]>` allocated by `Vec::new(...).into_boxed_slice()`
+and never round-trip through raw parts. The two `set_len`
+hits in the workspace are
+`BufferHandle::set_len(&mut self, usize)` (a safe inherent
+method on a typed wrapper that clamps to the underlying
+buffer capacity) and `std::fs::File::set_len` (truncation
+syscall); neither is `Vec::set_len`.
+
+**Allowlist entry requirements.** A `Vec::from_raw_parts`,
+`Vec::from_raw_parts_in`, or `String::from_raw_parts`
+allowlist entry's `enforcement` field MUST address every
+point of the eight-point checklist above (the same
+five-field rubric as `Box::from_raw` is insufficient
+because `Vec` carries `len` and `cap` separately and
+because `String` adds the UTF-8 invariant):
+
+1. Allocation origin (which Rust `Vec<T>::into_raw_parts`
+   or equivalent produced the pointer).
+2. Element type `T` (matching on both sides).
+3. Alignment proof (allocator guarantee or explicit check).
+4. Initialised length (exactly which bytes are valid `T`
+   values, and the validity argument).
+5. Capacity (matches the original allocation size).
+6. Allocator (default global unless named; for
+   `from_raw_parts_in`, the allocator instance must be
+   the same one that allocated the buffer).
+7. `len <= cap` (structural argument).
+8. Unique ownership (which holder type carries the parts
+   between `into_raw_parts` and `from_raw_parts`, and why
+   it is `!Copy + !Clone`).
 
 ## Ownership must be types, not flags
 

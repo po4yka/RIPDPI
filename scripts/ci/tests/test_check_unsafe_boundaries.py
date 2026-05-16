@@ -104,6 +104,42 @@ class ScanRegressionTests(unittest.TestCase):
         src = "let v = unsafe { Vec::from_raw_parts(p, len, cap) };"
         self.assertTrue(_has(_scan(src), "Vec::from_raw_parts"))
 
+    def test_vec_from_raw_parts_in_flagged(self) -> None:
+        # The allocator-API variant `Vec::from_raw_parts_in` has a
+        # distinct soundness contract (allocator must match the
+        # `into_raw_parts_in` side). The base `Vec::from_raw_parts`
+        # regex's `\\b` anchor does NOT match `from_raw_parts_in`
+        # (underscore is a word char), so a dedicated pattern is
+        # required.
+        for fragment in (
+            "let v = unsafe { Vec::from_raw_parts_in(p, len, cap, alloc) };",
+            "let v = unsafe { Vec::<T>::from_raw_parts_in(p, len, cap, alloc) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "Vec::from_raw_parts_in"), msg=fragment)
+
+    def test_vec_from_raw_parts_in_is_distinct_from_from_raw_parts(self) -> None:
+        # A `from_raw_parts_in` call must trigger the `_in` pattern
+        # only, not the base `Vec::from_raw_parts` pattern (the two
+        # APIs are semantically distinct).
+        src = "let v = unsafe { Vec::from_raw_parts_in(p, len, cap, alloc) };"
+        matches = _scan(src)
+        self.assertTrue(_has(matches, "Vec::from_raw_parts_in"))
+        self.assertFalse(_has(matches, "Vec::from_raw_parts"), msg="Vec::from_raw_parts must not match the _in variant")
+
+    def test_safe_vec_constructors_not_flagged(self) -> None:
+        # Safe Vec construction APIs MUST NOT trigger either raw-
+        # parts pattern. This guards against future regex
+        # broadening that would catch the safe `Vec::with_capacity`
+        # / `Vec::new` / `Vec::from` family.
+        for fragment in (
+            "let v: Vec<u8> = Vec::with_capacity(64);",
+            "let v: Vec<u8> = Vec::new();",
+            "let v: Vec<u8> = Vec::from([1u8, 2, 3]);",
+            "let mut v = Vec::with_capacity(16); v.spare_capacity_mut();",
+        ):
+            self.assertFalse(_has(_scan(fragment), "Vec::from_raw_parts"), msg=fragment)
+            self.assertFalse(_has(_scan(fragment), "Vec::from_raw_parts_in"), msg=fragment)
+
     def test_maybeuninit_assume_init_flagged(self) -> None:
         src = "let value = unsafe { uninit.assume_init() };"
         self.assertTrue(_has(_scan(src), "MaybeUninit::assume_init"))
