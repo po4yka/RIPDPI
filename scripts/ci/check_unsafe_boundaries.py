@@ -130,6 +130,44 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # per docs/rust-soundness-policy.md § "Creating `&mut T` from raw
     # memory".
     "UnsafeCell::get": re.compile(r"\.get\(\)"),  # narrowed below
+    # `Cell<bool>` is a common cheap way to encode lifecycle state, but
+    # the value's mutation has no synchronisation cost and no exclusivity
+    # discipline. Use a typestate or RAII guard instead. There are zero
+    # production occurrences today; any new appearance must be reviewed
+    # and either restructured or earn an allowlist entry whose
+    # `enforcement` field explains why ownership/liveness is encoded
+    # elsewhere. See docs/rust-soundness-policy.md § "Ownership must be
+    # types, not flags".
+    "Cell<bool>": re.compile(r"\bCell\s*<\s*bool\s*>"),
+    # Manual `Arc<T>` / `Rc<T>` lifecycle mutation via the raw-handle API
+    # surface (`into_raw`/`from_raw`/`increment_strong_count`/
+    # `decrement_strong_count`). The standard library handles every
+    # sound use of these (Tokio, async traits) internally; application
+    # code that calls them is almost always reinventing reference
+    # counting unsoundly. Round-tripping `Arc<T>` through `*const T`
+    # silently shifts the refcount by 0 or 1 depending on whether the
+    # caller remembers to call `Arc::from_raw` exactly once. There are
+    # zero production occurrences today; any new appearance trips CI.
+    # See docs/rust-soundness-policy.md § "Use `Arc<T>` / `Rc<T>` /
+    # `Weak<T>`, not manual refcounting".
+    "manual Arc/Rc refcount": re.compile(
+        r"\b(?:Arc|Rc|Weak)(?:::<[^>]*>)?::"
+        r"(?:into_raw|from_raw|increment_strong_count|decrement_strong_count)\b"
+    ),
+    # A struct field whose name (`refs`, `refcount`, `ref_count`, `strong`,
+    # `weak`) and type (`AtomicUsize`/`AtomicU64`/`AtomicIsize`/`AtomicI64`)
+    # together indicate a hand-rolled intrusive reference count. The
+    # workspace has none today. Any new occurrence must either restructure
+    # to use `Arc<T>` / `Rc<T>` / `Weak<T>` or earn an allowlist entry
+    # naming the atomic-ordering proof, overflow policy, reclamation
+    # policy, and Send/Sync argument per
+    # docs/rust-soundness-policy.md § "Use `Arc<T>` / `Rc<T>` /
+    # `Weak<T>`, not manual refcounting".
+    "manual atomic refcount field": re.compile(
+        r"^\s*(?:pub(?:\s*\([^)]*\))?\s+)?(?:refs|refcount|ref_count|strong|weak)"
+        r"\s*:\s*Atomic(?:Usize|U64|Isize|I64)\b",
+        re.MULTILINE,
+    ),
 }
 
 # The `.get()` method is also used by many safe types (HashMap, Vec,
@@ -183,6 +221,149 @@ DEBUG_ASSERT_RE = re.compile(r"\bdebug_assert(?:_eq|_ne)?!")
 UNSAFE_KEYWORD_RE = re.compile(r"\bunsafe\b")
 DEBUG_ASSERT_PROXIMITY_LINES = 10
 DEBUG_ASSERT_PROXIMITY_PATTERN = "debug_assert near unsafe"
+
+# Proximity detector for ownership-flag bool fields near `impl Drop` or
+# `unsafe`. The issue-#11 audit established that ownership must be
+# encoded as types (move-only handles, RAII, typestate) rather than
+# boolean flags. A field named `registered`, `is_alive`, `destroyed`,
+# `initialized`, `disowned`, `owned_by_*`, `freed`, or `active` whose
+# value gates an `unsafe` operation or a Drop-time cleanup is a
+# classic recipe for double-destroy / stale-handle / aliasing-by-flag
+# bugs in release builds.
+OWNERSHIP_FLAG_RE = re.compile(
+    r"^\s*(?:pub(?:\s*\([^)]*\))?\s+)?"
+    r"(?:owned_by_\w+|is_alive|destroyed|registered|initialized|disowned|freed)"
+    r"\s*:\s*bool\s*[,;}]",
+    re.MULTILINE,
+)
+DROP_IMPL_RE = re.compile(r"\bimpl(\s*<[^>]+>)?\s+Drop\s+for\b")
+OWNERSHIP_FLAG_PROXIMITY_LINES = 50
+OWNERSHIP_FLAG_PROXIMITY_PATTERN = "ownership flag near drop/unsafe"
+
+# Proximity detector for `#[derive(Clone)]` on a struct/enum whose name
+# ends in `Handle`, `Owner`, `Guard`, `Token`, `Resource`, `Registration`,
+# or `Slot`. The issue-#13 audit established that ownership and
+# exclusive-access handles must be move-only; `Clone` must mean either
+# "independent safe duplicate" (Copy-able plain data) or "refcounted
+# shared owner" (Arc/Rc-backed). A bare `derive(Clone)` on an
+# owner-named struct that holds a raw pointer, file descriptor, or FFI
+# handle silently duplicates ownership and is the canonical
+# double-free/UAF recipe.
+CLONE_DERIVE_RE = re.compile(
+    r"#\s*\[\s*derive\s*\([^)]*\bClone\b[^)]*\)\s*\]",
+    re.MULTILINE,
+)
+OWNER_NAMED_TYPE_RE = re.compile(
+    # Leading whitespace is `[ \t]*` (not `\s*`) so the `^` anchor stays
+    # pinned to the actual line of the type declaration; with `\s*` the
+    # engine would greedily consume preceding blank lines and report the
+    # match on the wrong line.
+    r"^[ \t]*(?:pub(?:\s*\([^)]*\))?\s+)?(?:struct|enum)\s+"
+    r"[A-Za-z_][A-Za-z0-9_]*"
+    r"(?:Handle|Owner|Guard|Token|Resource|Registration|Slot)\b",
+    re.MULTILINE,
+)
+CLONE_ON_OWNER_PROXIMITY_LINES = 5
+CLONE_ON_OWNER_PROXIMITY_PATTERN = "derive Clone on owner-named type"
+
+# Proximity detector for `#[derive(Copy)]` on the same owner-named
+# types. `Copy` is strictly stronger than `Clone`: a `Copy` value
+# duplicates implicitly on every move, parameter pass, and assignment,
+# so an owner-named `Copy` type cannot be a sound ownership/exclusive-
+# access token. The issue-#14 audit established that the only sound
+# `Copy` semantics on a type ending in `Handle`/`Owner`/`Guard`/`Token`/
+# `Resource`/`Registration`/`Slot` is "Copy-trivial metadata that owns
+# nothing" (e.g. `StrategyDescriptorRegistration` — `&'static str` +
+# function pointer). Anything else (raw pointer, NonNull, RawFd,
+# OwnedFd, FFI handle, arena index, Drop-adjacent state) is unsound
+# Copy. The detector reuses `OWNER_NAMED_TYPE_RE`; the proximity
+# window matches `CLONE_ON_OWNER_PROXIMITY_LINES` because the layout
+# of `#[derive(...)]` above an owner-named declaration is identical.
+COPY_DERIVE_RE = re.compile(
+    r"#\s*\[\s*derive\s*\([^)]*\bCopy\b[^)]*\)\s*\]",
+    re.MULTILINE,
+)
+COPY_ON_OWNER_PROXIMITY_LINES = 5
+COPY_ON_OWNER_PROXIMITY_PATTERN = "derive Copy on owner-named type"
+
+
+def find_clone_derive_on_owner_named_type(text: str) -> list[int]:
+    """Return line numbers of `#[derive(Clone)]` annotations within ±N
+    lines of a struct/enum whose name matches the owner-named regex.
+
+    The window is small (5 lines) because `#[derive(...)]` is always
+    immediately above the type it annotates, possibly with a doc-
+    comment or another attribute in between. The window is symmetric
+    so post-annotation comment blocks don't break detection.
+    """
+    derive_lines = sorted(
+        {text.count("\n", 0, m.start()) + 1 for m in CLONE_DERIVE_RE.finditer(text)}
+    )
+    if not derive_lines:
+        return []
+    owner_lines = sorted(
+        {text.count("\n", 0, m.start()) + 1 for m in OWNER_NAMED_TYPE_RE.finditer(text)}
+    )
+    if not owner_lines:
+        return []
+    out: list[int] = []
+    for derive in derive_lines:
+        if any(0 < (owner - derive) <= CLONE_ON_OWNER_PROXIMITY_LINES for owner in owner_lines):
+            out.append(derive)
+    return out
+
+
+def find_copy_derive_on_owner_named_type(text: str) -> list[int]:
+    """Return line numbers of `#[derive(Copy)]` annotations within ±N
+    lines of an owner-named struct/enum declaration.
+
+    Mirrors `find_clone_derive_on_owner_named_type` because `Copy`
+    `derive`s are placed identically in the source; the only
+    difference is which marker we match on.
+    """
+    derive_lines = sorted(
+        {text.count("\n", 0, m.start()) + 1 for m in COPY_DERIVE_RE.finditer(text)}
+    )
+    if not derive_lines:
+        return []
+    owner_lines = sorted(
+        {text.count("\n", 0, m.start()) + 1 for m in OWNER_NAMED_TYPE_RE.finditer(text)}
+    )
+    if not owner_lines:
+        return []
+    out: list[int] = []
+    for derive in derive_lines:
+        if any(0 < (owner - derive) <= COPY_ON_OWNER_PROXIMITY_LINES for owner in owner_lines):
+            out.append(derive)
+    return out
+
+
+def find_ownership_flag_near_drop_or_unsafe(text: str) -> list[int]:
+    """Return line numbers of ownership-flag bool fields within ±N lines of
+    an `impl Drop` or `unsafe` keyword in the same file.
+
+    `text` must already have had comments stripped, so doc-comment
+    mentions of these names don't fire the rule. The proximity window
+    is wider than the debug-assert one (50 lines vs 10) because the
+    `impl Drop` for a struct typically lives a struct-body's distance
+    away from the bool field declaration.
+    """
+    flag_lines = sorted(
+        {text.count("\n", 0, m.start()) + 1 for m in OWNERSHIP_FLAG_RE.finditer(text)}
+    )
+    if not flag_lines:
+        return []
+    sentinel_lines = sorted(
+        {text.count("\n", 0, m.start()) + 1 for m in DROP_IMPL_RE.finditer(text)}
+        | {text.count("\n", 0, m.start()) + 1 for m in UNSAFE_KEYWORD_RE.finditer(text)}
+    )
+    if not sentinel_lines:
+        return []
+    out: list[int] = []
+    for flag in flag_lines:
+        if any(abs(flag - sentinel) <= OWNERSHIP_FLAG_PROXIMITY_LINES for sentinel in sentinel_lines):
+            out.append(flag)
+    return out
 
 
 def find_debug_assert_near_unsafe(text: str) -> list[int]:
@@ -250,6 +431,12 @@ def scan_file(path: Path) -> list[Finding]:
         findings.append(Finding(rel, "UnsafeCell::get", line))
     for line in find_debug_assert_near_unsafe(cleaned):
         findings.append(Finding(rel, DEBUG_ASSERT_PROXIMITY_PATTERN, line))
+    for line in find_ownership_flag_near_drop_or_unsafe(cleaned):
+        findings.append(Finding(rel, OWNERSHIP_FLAG_PROXIMITY_PATTERN, line))
+    for line in find_clone_derive_on_owner_named_type(cleaned):
+        findings.append(Finding(rel, CLONE_ON_OWNER_PROXIMITY_PATTERN, line))
+    for line in find_copy_derive_on_owner_named_type(cleaned):
+        findings.append(Finding(rel, COPY_ON_OWNER_PROXIMITY_PATTERN, line))
     return findings
 
 

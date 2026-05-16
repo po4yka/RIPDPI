@@ -29,6 +29,24 @@ const _: fn() = || {
     assert_sync::<MappedFile>();
 };
 
+// Compile-fail regression for soundness issue #14: `MappedFile` owns a
+// kernel mmap (released via `libc::munmap` on Drop). A `#[derive(Copy)]`
+// would let safe code duplicate the owning `NonNull<u8>` and produce a
+// double-`munmap` on the second drop. The block stays unambiguous only
+// while `MappedFile: !Copy`; if a future change derives `Copy` the trait
+// dispatch becomes ambiguous and this block fails to compile.
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfCopy<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfCopy<()> for Check<T> {}
+    impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
+    <Check<MappedFile> as AmbiguousIfCopy<_>>::check();
+};
+
 impl MappedFile {
     pub(crate) fn open(path: &Path) -> Result<Self, MappedFileError> {
         let file = File::open(path)?;

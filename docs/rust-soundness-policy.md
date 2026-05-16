@@ -113,6 +113,12 @@ on every PR. It looks for the following risky patterns under
 | `CStr::from_ptr` | Materializes a `&CStr` whose bytes are scanned for a NUL terminator starting at a raw pointer. The pointee must be a valid NUL-terminated C string in an allocation that lives at least as long as the returned `&CStr`. See "Creating `&T` from raw pointers" below. |
 | `str::from_utf8_unchecked` | Asserts the input bytes are valid UTF-8 without checking. A regression here invalidates the `str` invariant and produces UB on any subsequent UTF-8 operation. Prefer `str::from_utf8` (release-mode validation) unless the bytes come from a checked source documented in the SAFETY comment. |
 | `UnsafeCell::get` (deref form `*cell.get()`) | Materialises `&mut T` / `&T` from `*mut T` and bypasses Rust's borrow check. The exclusivity invariant — at most one accessor of the cell at any moment — must be enforced by the surrounding type design. The bare `.get()` method (without the `*` deref) is filtered out so unrelated `.get()` callers (HashMap, Vec, Option, AtomicPtr) are not flagged. See "Creating `&mut T` from raw memory" below. |
+| `Cell<bool>` | `Cell<bool>` is a common cheap way to encode lifecycle state, but the value's mutation has no synchronisation cost and no exclusivity discipline. Use a typestate / RAII guard / Mutex instead. See "Ownership must be types, not flags" below. |
+| `ownership flag near drop/unsafe` (proximity ≤ 50 lines) | A `bool` field named `registered`, `is_alive`, `destroyed`, `initialized`, `disowned`, `owned_by_*`, or `freed` that lives within 50 source lines of an `impl Drop` or `unsafe` keyword. Per issue-#11 audit, ownership/liveness must be encoded by the type system, not by flags + comments. See "Ownership must be types, not flags" below. |
+| `manual Arc/Rc refcount` | Calls to `Arc::into_raw`/`from_raw`/`increment_strong_count`/`decrement_strong_count` (and the `Rc`/`Weak` equivalents). The standard library handles every sound use of these internally; application code that calls them is almost always reinventing reference counting unsoundly. Round-tripping `Arc<T>` through `*const T` silently shifts the refcount by 0 or 1 depending on whether the caller remembers to call `Arc::from_raw` exactly once. See "Use `Arc<T>` / `Rc<T>` / `Weak<T>`, not manual refcounting" below. |
+| `manual atomic refcount field` | A struct field named `refs`/`refcount`/`ref_count`/`strong`/`weak` whose type is `AtomicUsize`/`AtomicU64`/`AtomicIsize`/`AtomicI64`. Indicates a hand-rolled intrusive reference count, which must either restructure to `Arc<T>`/`Rc<T>`/`Weak<T>` or earn an allowlist entry whose `enforcement` field documents the five-model template below. |
+| `derive Clone on owner-named type` (proximity ≤ 5 lines) | `#[derive(Clone)]` (alone or with other traits) immediately above a struct/enum whose name ends in `Handle`, `Owner`, `Guard`, `Token`, `Resource`, `Registration`, or `Slot`. Clone on an ownership-named type silently duplicates the resource unless the inner data is genuinely shared (Arc-backed) or copy-trivial (pure metadata). See "`Clone` on owner-named types" below. |
+| `derive Copy on owner-named type` (proximity ≤ 5 lines) | `#[derive(Copy)]` (alone or with other traits) immediately above the same owner-named declarations. `Copy` is strictly stronger than `Clone`: every move, parameter pass, and assignment produces an implicit duplicate, so an owner-named `Copy` type cannot encode ownership of any resource. The only sound semantics is "Copy-trivial metadata that owns nothing" (e.g. `&'static str` + `fn` pointer). See "`Copy` on owner-named types" below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -383,6 +389,394 @@ reference sites; each is allowlisted with the validity argument:
 | `crates/ripdpi-privileged-ops/.../icmp_wrapped_udp.rs` | `slice::from_raw_parts` → `&[u8]` | `recv_from` contract initialises the first `received` bytes of a stack `MaybeUninit` buffer; slice is consumed in-scope. |
 | `crates/ripdpi-desync-runtime/src/platform/registry.rs` | `&*pointer` → `&dyn TcpDesyncPlatform` | RAII `Restore` guard scoped to a closure; non-owning observer. |
 | `crates/ripdpi-io-uring/src/probe.rs` | `CStr::from_ptr` → `&CStr` | POSIX `uname(2)` NUL-termination contract; lifetime bounded by the local `utsname`. |
+
+## `Clone` on owner-named types
+
+Types whose names end in `Handle`, `Owner`, `Guard`, `Token`,
+`Resource`, `Registration`, or `Slot` advertise ownership of a
+resource. `Clone` on such a type MUST mean exactly one of:
+
+1. **Independent safe duplicate** — the inner data is copy-trivial
+   (plain integers, `&'static str`, function pointers, `Copy`able
+   IDs). Cloning produces a new value that owns nothing the original
+   owned because there is nothing to own. Example:
+   `StrategyDescriptorRegistration { id: &'static str, describe: fn()
+   -> StrategyDescriptor }`.
+2. **Refcounted shared owner** — the type is a newtype around
+   `Arc<T>` / `Rc<T>` (or holds one as its sole resource-bearing
+   field). Cloning delegates to `Arc::clone` / `Rc::clone`, which
+   the standard library implements soundly. Example:
+   `ServicesStateHandle(pub(crate) Arc<ServicesState>)`.
+
+`Clone` MUST NOT mean:
+
+- "Duplicate a raw pointer". The original's `Drop` will free the
+  resource; the duplicate then dangles. Use `Arc<T>` if sharing
+  is intended.
+- "Duplicate a `RawFd`". The first `Drop` closes the fd; the
+  second sees a stale or recycled descriptor.
+- "Duplicate an FFI handle". Same problem as RawFd, plus the
+  foreign library may assert single-ownership.
+- "Duplicate an exclusive-access registration". The registry
+  silently has two entries for the same key; cleanup is racy.
+
+**Rule.** A `#[derive(Clone)]` on an owner-named struct must have
+either (a) only `Copy`-trivial fields, or (b) `Arc<T>` / `Rc<T>` as
+the sole resource-bearing field. Anything else requires either
+removing the Clone (the type becomes move-only) or providing a
+named `try_clone(&self) -> Result<Self, _>` method whose body
+documents the duplication semantics — `File::try_clone(&self) ->
+io::Result<File>` is the std model.
+
+**Allowlist entry requirements.** A `derive Clone on owner-named
+type` allowlist entry's `enforcement` field MUST state:
+
+- which of the two sound semantics the type uses (copy-trivial
+  metadata or `Arc`/`Rc`-backed shared ownership),
+- the specific field that bears the resource (and that it is
+  `Copy`-trivial or `Arc<T>`),
+- why a Clone of the outer struct does not duplicate any
+  underlying allocation, file descriptor, registration, or other
+  exclusive resource.
+
+**Workspace inventory.** Three allowlisted occurrences:
+
+| File | Type | Semantics |
+|---|---|---|
+| `ripdpi-strategy-trait/src/lib.rs` | `StrategyDescriptorRegistration` | Copy-trivial metadata: `&'static str` + function pointer; owns nothing. |
+| `ripdpi-proxy-runtime-adapter/src/model/services.rs` | `ReprobeResetHandle` | Arc-backed (wraps `ServicesStateHandle` which wraps `Arc<ServicesState>`). |
+| `ripdpi-runtime-services/src/lib.rs` | `ServicesStateHandle` | Arc-backed newtype: `pub(crate) Arc<ServicesState>`. |
+
+The load-bearing move-only owner handles (`BufferHandle`,
+`PendingBuffer`, `RootHelperRegistration`, `MmapRegion`,
+`MappedFile`, `RegisteredBufferPool`, `JniProtectCallback × 2`,
+`OwnedRxToken`, `OwnedTxToken`) correctly do NOT derive `Clone`,
+and the canonical owner handles (`BufferHandle`, `PendingBuffer`,
+`RootHelperRegistration`) carry explicit compile-fail
+`AmbiguousIfCopy`/`AmbiguousIfClone` const blocks that fail to
+compile if a future change ever derives `Clone`.
+
+## `Copy` on owner-named types
+
+`Copy` is strictly stronger than `Clone`: a `Copy` value is
+duplicated implicitly on every move, every function call by-value,
+every pattern bind by-value, and every assignment. There is no
+explicit `.clone()` call site at which a reviewer could intercept
+the duplication. An owner-named type that is `Copy` therefore
+cannot encode any ownership of any resource — by the time the call
+stack unwinds, every parameter pass and every `let` binding has
+silently produced another bitwise duplicate of the supposed
+owner.
+
+The only sound `Copy` semantics on a type whose name ends in
+`Handle`, `Owner`, `Guard`, `Token`, `Resource`, `Registration`,
+or `Slot` is:
+
+- **Copy-trivial metadata that owns nothing.** Every field is
+  itself `Copy` and aliases something that is intrinsically
+  duplicable: `&'static str` (rodata reference), function
+  pointer (code address), plain integer (numeric value),
+  `Copy`-only id newtype. No allocation, no file descriptor, no
+  kernel resource, no FFI handle, no arena index whose validity
+  depends on the surrounding arena's lifetime, no `Drop` impl.
+  The canonical example is
+  `StrategyDescriptorRegistration { id: &'static str, describe:
+  fn() -> StrategyDescriptor }` — a `linkme::distributed_slice`
+  entry that exists only to register a strategy family at link
+  time.
+
+`Copy` MUST NOT mean any of the following on an owner-named
+type:
+
+- "Duplicate a raw pointer / `NonNull`". Every move duplicates
+  the pointer; whichever copy drops first runs the cleanup, and
+  every other copy then dangles. (See "Option<NonNull<T>>
+  ownership tokens" above for the same failure mode at the
+  `Option` level.)
+- "Duplicate a `RawFd` / `OwnedFd` / file descriptor". Closing
+  the fd on first drop leaves all other copies referring to
+  a stale or recycled descriptor.
+- "Duplicate an FFI handle / `JavaVM` / `Global<JObject>` /
+  `*mut FFI_T`". The foreign library has no idea Rust has
+  silently produced more handles; double-free or use-after-free
+  on the foreign side is the typical result.
+- "Duplicate an arena index whose validity depends on the
+  arena". A `Copy` `BufferIndex(u16)` looks innocent until the
+  free-list hands the same index to two callers, at which point
+  the type system can no longer enforce exclusivity.
+- "Duplicate a `Drop`-bearing handle". `Copy` + `Drop` is
+  rejected by the compiler outright — Rust enforces this part of
+  the rule itself. The scanner catches the failure mode
+  immediately upstream: a future contributor who adds
+  `#[derive(Copy)]` to a `Drop`-bearing handle gets a CI
+  failure before the compile error.
+
+**Rule.** A `#[derive(Copy)]` on an owner-named struct must
+demonstrate the Copy-trivial-metadata property: every field is
+inherently `Copy` and aliases something whose duplication is
+free of ownership. Anything else either removes the `Copy`
+derive (the type becomes move-only — the default and preferred
+shape) or restructures into a metadata wrapper plus a separate
+`!Copy` owner handle.
+
+**Allowlist entry requirements.** A `derive Copy on owner-named
+type` allowlist entry's `enforcement` field MUST state:
+
+- that every field is inherently `Copy` and what each field
+  aliases (rodata, code address, numeric value, `Copy`-only id),
+- that the struct holds no allocation, file descriptor, raw
+  pointer, kernel resource, or arena index whose validity is
+  bounded by an enclosing object,
+- that no `Drop` impl exists and that none could be sensibly
+  added (the type is pure metadata).
+
+**Workspace inventory.** Exactly one allowlisted occurrence:
+
+| File | Type | Semantics |
+|---|---|---|
+| `ripdpi-strategy-trait/src/lib.rs` | `StrategyDescriptorRegistration` | Copy-trivial metadata: `&'static str` + function pointer; owns nothing; no `Drop`. |
+
+**Compile-fail enforcement.** The load-bearing move-only owner
+handles are `!Copy` and carry explicit `AmbiguousIfCopy` const
+blocks that fail the workspace build if a future change ever
+derives `Copy`. The current explicit coverage is:
+
+| File | Type | Block kind |
+|---|---|---|
+| `ripdpi-io-uring/src/bufpool.rs` | `BufferHandle<'pool>` | `AmbiguousIfCopy` const block |
+| `ripdpi-io-uring/src/bufpool.rs` | `PendingBuffer<'pool>` | `AmbiguousIfCopy` const block |
+| `ripdpi-io-uring/src/bufpool.rs` | `RegisteredBufferPool` | `AmbiguousIfCopy` const block (added with issue #14) |
+| `ripdpi-privileged-ops/src/linux/mmap_region.rs` | `MmapRegion` | `AmbiguousIfCopy` const block (added with issue #14) |
+| `ripdpi-geo/src/mapped_file.rs` | `MappedFile` | `AmbiguousIfCopy` const block (added with issue #14) |
+| `ripdpi-proxy-runtime/src/runtime/listeners.rs` | `RootHelperRegistration` | `AmbiguousIfCopy` const block |
+
+The remaining move-only owner types (`JniProtectCallback × 2`,
+`OwnedRxToken`, `OwnedTxToken`) hold types that are themselves
+not `Copy` (`JavaVM`, `Global<JObject>`, `Vec<u8>`, `&mut
+VecDeque<_>`), so the compiler already rejects any future
+`derive(Copy)`; the scanner pattern is the systemic backstop.
+
+## Use `Arc<T>` / `Rc<T>` / `Weak<T>`, not manual refcounting
+
+Shared ownership in this workspace MUST use the standard library's
+reference-counting types: `std::sync::Arc<T>` for cross-thread sharing,
+`std::rc::Rc<T>` for single-threaded sharing, and `std::sync::Weak<T>`
+or `std::rc::Weak<T>` for observer pointers that must not extend the
+lifetime of the value. The standard library already handles every
+soundness requirement the issue-#12 audit names:
+
+| Concern | How std solves it |
+|---|---|
+| Overflow | `Arc::clone` panics on overflow (above `isize::MAX/2`). |
+| Atomic ordering | `Arc::clone` uses `Relaxed` for increment (the count is monotonic between clone and drop), `Release` for decrement, and `Acquire` for the last-drop fence. This is the canonical sound sequence. |
+| Clone/drop balance | Auto-derived `Clone` + std-provided `Drop` are guaranteed paired by Rust move semantics. |
+| Reentrancy | `Arc::drop` only deallocates at refcount zero; no callback into user code during the decrement. |
+| Panic paths | `Arc::drop` is panic-safe; the destructor never reads through the pointer after the last decrement. |
+| `Send`/`Sync` | `Arc<T>: Send + Sync` when `T: Send + Sync`, enforced by blanket impl. |
+| Object reclamation | The last `Drop` calls the inner `T`'s destructor under an `Acquire` fence. |
+
+**Rule.** Application code MUST NOT call any of the manual-lifecycle
+methods on `Arc`/`Rc`/`Weak`:
+
+- `Arc::into_raw` / `Arc::from_raw`
+- `Arc::increment_strong_count` / `Arc::decrement_strong_count`
+- `Rc::into_raw` / `Rc::from_raw`
+- `Weak::into_raw` / `Weak::from_raw`
+
+These exist for `unsafe` library authors implementing custom smart
+pointers; calling them in safe-feeling application code re-creates
+the bugs `Arc` was designed to prevent. The scanner pattern
+`manual Arc/Rc refcount` enforces this rule with zero baseline.
+
+**Allowlist entry requirements (manual Arc/Rc raw round-trip).** If a
+genuine FFI shim must pass an `Arc` through a C boundary (e.g. an
+opaque pointer registered with a foreign library), the allowlist
+entry MUST state:
+
+- which boundary requires the raw pointer,
+- which symbol is paired with `into_raw` (every `into_raw` MUST be
+  matched by exactly one `from_raw`),
+- how the call-site discipline prevents leaks (no `into_raw` without
+  a registered cleanup callback that consumes via `from_raw`),
+- thread-safety: whether the foreign code may share or send the
+  raw pointer, and how the `Arc`'s `Send + Sync` guarantees survive
+  the boundary.
+
+**Allowlist entry requirements (intrusive `AtomicUsize` refcount).**
+If a hand-rolled refcount survives review (intrusive linked list
+node, embedded-target where `Arc` is too large, etc.), the
+allowlist entry's `enforcement` field MUST document all five of:
+
+1. **Ownership model** — which type owns the allocation, when it
+   reclaims, and what handle shape is exposed to callers (must be
+   non-`Copy`, with `Clone` and `Drop` implemented in lockstep).
+2. **Atomic ordering proof** — every operation on the counter must
+   name its ordering: `Relaxed` for clone (monotonic increment),
+   `Release` for drop (publish writes before decrement), `Acquire`
+   on the last-drop fence (synchronise with prior `Release`-stores
+   from other dropping threads). The proof must cite the exact
+   happens-before chain.
+3. **Overflow policy** — the counter must `abort` or `panic` on
+   overflow before it wraps (`Arc` does this by aborting above
+   `isize::MAX/2`). A silently-wrapping counter is a double-free
+   waiting to happen.
+4. **Reclamation policy** — what runs at refcount zero, in what
+   order, and what synchronises the destructor with the last
+   `Release` decrement (typically an `Acquire` fence inside Drop).
+5. **Owner** — the team or crate accountable for re-reviewing the
+   design on schedule.
+
+Required regression tests for every custom-refcount allowlist:
+
+- Clone/drop balance under sequential calls (no leak, no
+  double-free).
+- Clone/drop balance under multi-threaded contention (loom or
+  thread-spawn test).
+- Reentrancy: cloning inside the inner `T`'s destructor is either
+  forbidden by API design or proven sound.
+- Compile-fail: the handle is not `Copy` (use `AmbiguousIfCopy`
+  trick) and not `Clone` unless the `Clone` impl maintains the
+  refcount invariant.
+- Miri run on a single-threaded clone/drop sequence to catch
+  obvious provenance/UB issues.
+
+**Anti-patterns reviewers reject.**
+
+- `Arc::into_raw` followed by `mem::forget(arc)` — both increment
+  the refcount and forget the original `Arc`, leaking the value.
+- A custom `struct ManualRefcount { count: AtomicUsize, data: T }`
+  with hand-rolled `inc`/`dec` methods. Replace with `Arc<T>`.
+- `unsafe { Arc::from_raw(ptr) }` without a matching prior
+  `Arc::into_raw(arc)` from the SAME `Arc` allocation. Producing
+  the pointer any other way (cast from a `&T`, `Box::into_raw`,
+  pointer arithmetic) is UB.
+- A "manual `Weak`" using `Arc::downgrade` + a side channel that
+  stores raw pointers. Use `Weak<T>` directly; the std API already
+  handles upgrade race conditions.
+
+**Workspace inventory.** Zero manual-refcount sites in production.
+All shared ownership uses `Arc<T>` with the standard derive Clone
+or explicit `Arc::clone(&...)` calls. Pool-style "release(index)"
+methods that the initial grep flagged (e.g. `BufferHandle::release`,
+`VirtualPortPool::release`) are **index-based ownership transfer**
+into a `Mutex<Vec<u16>>` free list, not refcounting; they were
+audited under soundness issues #1, #2, #7, #8, #9, #10 and remain
+sound by the move-only handle + mutex protocol.
+
+## Ownership must be types, not flags
+
+A boolean field named `registered`, `is_alive`, `destroyed`,
+`initialized`, `disowned`, `owned_by_*`, or `freed` does not encode
+ownership — it only records a *belief* about a separate resource's
+state. If the resource is owned, the owning struct is the
+truth-bearing handle; the flag is at best a diagnostic check. If safe
+code can duplicate the flag, or set it to `true` without actually
+acquiring the underlying resource, or to `false` without releasing
+it, the flag silently becomes a lie and every downstream branch that
+depends on it is unsound.
+
+**Rule.** Ownership and liveness MUST be represented by:
+
+1. A **move-only handle** (no `Copy`/`Clone`) whose existence proves
+   the resource is held. Drop releases. The compiler enforces
+   "at most one owner".
+2. An **RAII guard** that performs cleanup in `Drop`. A `bool` field
+   inside the guard is acceptable **only** when used as a
+   conditional-cleanup gate (`if self.registered { unregister(); }`)
+   and the struct itself is move-only with a private field. The
+   flag is then diagnostic; the move-only struct is the ownership
+   token.
+3. **Typestate** — distinct types per phase of the lifecycle, with
+   transitions implemented as consuming methods (`fn destroy(self)`).
+   Invalid transitions don't compile.
+4. A **real reference count** (`Arc<T>`, `Rc<T>`, custom refcount
+   with atomic increment/decrement under a release/acquire fence).
+5. A **validated state machine** (enum + match) where every
+   transition returns `Result` and unreachable states are
+   `unreachable!()`.
+
+**Anti-patterns reviewers reject.**
+
+- A `pub struct` with a `pub registered: bool` field. Anyone can
+  set the flag; the ownership semantics collapse.
+- `Cell<bool>` for lifecycle: interior mutability with no
+  synchronisation, no exclusivity, no auditable transitions.
+- `if self.is_alive { unsafe { use_resource() } }` where the flag is
+  the only safety guard. `debug_assert!(self.is_alive)` alongside is
+  the release-mode trap (see § "`debug_assert!` as memory-safety
+  guard").
+- Multiple flags acting as a manual state machine (e.g.
+  `initialized + registered + destroyed`) — replace with an enum.
+- A "comment promise" — `// safety: the caller must ensure this
+  flag is true` next to an `unsafe { ... }` block. Promises don't
+  compile.
+
+**The workspace's one allowlisted use** is
+`RootHelperRegistration::registered` in
+`crates/ripdpi-proxy-runtime/src/runtime/listeners.rs`. It fits
+shape #2 above: the struct is move-only (no `Copy`/`Clone` —
+enforced by compile-fail `AmbiguousIfCopy`/`AmbiguousIfClone`
+blocks), the field is private (default visibility), the
+constructor `for_config` sets it deterministically from config,
+and Drop branches on it for conditional cleanup. Runtime
+regression tests cover sequential lifecycle, no-op drop on
+unregistered guards, and the `mem::forget` leak documented
+limitation.
+
+## `UnsafeCell<T>` discipline
+
+`UnsafeCell<T>` is the **only** way Rust allows mutation through a
+shared reference (`&UnsafeCell<T>`). It is also the only primitive
+that defeats the compiler's aliasing rules without an `unsafe`
+block at the type level — the unsafety is moved to the
+`unsafe { *cell.get() }` deref instead.
+
+**Rule.** `UnsafeCell<T>` permits interior mutability **but does
+not by itself make aliasing or threading sound.** Every `*cell.get()`
+deref must be guarded by an exclusivity protocol that the type
+system can enforce. The protocol must specify:
+
+1. **The aliasing model.** Who is allowed to hold `&T` and `&mut T`
+   simultaneously, and what makes simultaneous mutation impossible?
+   Standard answers: move-only handle + free list (the
+   `BufferHandle` design), `Mutex<T>`/`RwLock<T>` (locks),
+   `Cell<T>`/`RefCell<T>` (single-threaded runtime check),
+   atomics (lock-free primitive types).
+
+2. **The synchronisation model.** When the cell is shared across
+   threads, what supplies the release/acquire happens-before edge?
+   Standard answers: `Mutex` unlock/lock, atomic operation, channel
+   send/receive, thread spawn/join.
+
+3. **The reentrancy behaviour.** If user-supplied code can re-enter
+   the cell while a borrow is live, what prevents the second access
+   from producing aliasing UB? Standard answer: don't expose
+   user-supplied callbacks while a borrow is live; otherwise use
+   `RefCell` (which panics on reentrancy) or restructure.
+
+**Anti-patterns that the scanner + review reject.**
+
+- A `pub struct` with a public `UnsafeCell<T>` field. The field
+  must be private; the wrapper's API is the only valid access path.
+- `unsafe impl Send for X {}` or `unsafe impl Sync for X {}` for a
+  type whose `UnsafeCell<T>`'s contents are NOT protected by a
+  release/acquire-class synchronisation primitive.
+- A safe public method `fn get(&self) -> &mut T` (without `Mutex`-
+  style guard wrapping) that derefs `*cell.get()`. The signature
+  promises shared-to-exclusive without a runtime check; the type
+  system can't see the exclusivity protocol and neither can
+  callers.
+- Returning the raw pointer from `cell.get()` to safe callers. The
+  pointer is fine inside `unsafe { }`; surfacing it to safe code
+  gives the caller a tool that bypasses the borrow check.
+
+**Workspace inventory.** The only production `UnsafeCell` use is
+`Box<[UnsafeCell<Box<[u8]>>]>` in `crates/ripdpi-io-uring/src/`
+`bufpool.rs`. Its exclusivity protocol is documented in the next
+section and exercised by runtime tests in `bufpool::tests`. The
+scanner's `UnsafeCell::get` pattern (see "Custom scan" table) gates
+any new occurrence through the allowlist with the three-model
+template above.
 
 ## Creating `&mut T` from raw memory
 

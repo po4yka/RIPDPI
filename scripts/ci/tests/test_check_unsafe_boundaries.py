@@ -35,6 +35,12 @@ def _scan(text: str) -> list[tuple[str, int]]:
         matches.append(("UnsafeCell::get", line))
     for line in guard.find_debug_assert_near_unsafe(cleaned):
         matches.append((guard.DEBUG_ASSERT_PROXIMITY_PATTERN, line))
+    for line in guard.find_ownership_flag_near_drop_or_unsafe(cleaned):
+        matches.append((guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN, line))
+    for line in guard.find_clone_derive_on_owner_named_type(cleaned):
+        matches.append((guard.CLONE_ON_OWNER_PROXIMITY_PATTERN, line))
+    for line in guard.find_copy_derive_on_owner_named_type(cleaned):
+        matches.append((guard.COPY_ON_OWNER_PROXIMITY_PATTERN, line))
     return matches
 
 
@@ -347,6 +353,241 @@ class ScanRegressionTests(unittest.TestCase):
             """
         )
         self.assertTrue(_has(_scan(src), "raw pointer in public fn"))
+
+    def test_cell_bool_flagged(self) -> None:
+        for fragment in (
+            "use std::cell::Cell;\nstruct S { ready: Cell<bool> }",
+            "use std::cell::Cell;\nstatic READY: Cell<bool> = Cell::new(false);",
+            # whitespace variant
+            "let x: Cell  <  bool > = Cell::new(false);",
+        ):
+            self.assertTrue(_has(_scan(fragment), "Cell<bool>"), msg=fragment)
+
+    def test_cell_other_types_not_flagged(self) -> None:
+        # `Cell<u32>`, `Cell<MyType>`, etc. must not trigger.
+        for fragment in (
+            "let x: Cell<u32> = Cell::new(0);",
+            "let x: Cell<MyType> = Cell::new(MyType);",
+            "let x: RefCell<bool> = RefCell::new(false);",
+        ):
+            self.assertFalse(_has(_scan(fragment), "Cell<bool>"), msg=fragment)
+
+    def test_ownership_flag_near_drop_flagged(self) -> None:
+        # The classic shape: a struct with a lifecycle flag and a Drop impl
+        # that branches on it. The issue-#11 audit names this pattern as
+        # the canonical "bool as ownership token" anti-pattern.
+        src = textwrap.dedent(
+            """\
+            struct Guard {
+                registered: bool,
+            }
+
+            impl Drop for Guard {
+                fn drop(&mut self) {
+                    if self.registered { unregister(); }
+                }
+            }
+            """
+        )
+        self.assertTrue(_has(_scan(src), guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN))
+
+    def test_ownership_flag_near_unsafe_flagged(self) -> None:
+        src = textwrap.dedent(
+            """\
+            struct Resource {
+                is_alive: bool,
+            }
+
+            impl Resource {
+                fn use_it(&self) {
+                    if self.is_alive {
+                        unsafe { do_thing(); }
+                    }
+                }
+            }
+            """
+        )
+        self.assertTrue(_has(_scan(src), guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN))
+
+    def test_ownership_flag_far_from_drop_not_flagged(self) -> None:
+        # 60 blank lines between the flag field and any Drop / unsafe
+        # exceeds the proximity window — must not fire.
+        gap = "\n" * 60
+        src = (
+            "struct A {\n"
+            "    registered: bool,\n"
+            "}\n"
+            f"{gap}"
+            "impl Drop for B {\n"
+            "    fn drop(&mut self) {}\n"
+            "}\n"
+        )
+        self.assertFalse(_has(_scan(src), guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN))
+
+    def test_ownership_flag_without_drop_or_unsafe_not_flagged(self) -> None:
+        # A `registered: bool` in a struct without any Drop or unsafe in
+        # the file is plain control-flow state, not an ownership token.
+        src = "struct Plain { registered: bool }\nfn main() {}"
+        self.assertFalse(_has(_scan(src), guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN))
+
+    def test_other_bool_fields_not_flagged(self) -> None:
+        # `closed`, `validated`, `is_ready`, etc. are not lifecycle/
+        # ownership flag names by the audit's vocabulary and must not
+        # trigger even when colocated with Drop.
+        src = textwrap.dedent(
+            """\
+            struct Session {
+                closed: bool,
+                validated: bool,
+            }
+            impl Drop for Session { fn drop(&mut self) {} }
+            """
+        )
+        self.assertFalse(_has(_scan(src), guard.OWNERSHIP_FLAG_PROXIMITY_PATTERN))
+
+    def test_manual_arc_refcount_flagged(self) -> None:
+        for fragment in (
+            "let raw = Arc::into_raw(arc);",
+            "let arc = unsafe { Arc::from_raw(raw) };",
+            "unsafe { Arc::increment_strong_count(raw) };",
+            "unsafe { Arc::decrement_strong_count(raw) };",
+            "let weak_raw = Weak::into_raw(weak);",
+            "let weak = unsafe { Weak::from_raw(weak_raw) };",
+            "let raw = Rc::into_raw(rc);",
+            "let rc = unsafe { Rc::from_raw(raw) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "manual Arc/Rc refcount"), msg=fragment)
+
+    def test_arc_clone_and_new_not_flagged(self) -> None:
+        # The sound API surface — `Arc::clone`, `Arc::new`, `Arc::strong_count`,
+        # `Arc::downgrade`, `Arc::weak_count` — must NOT trigger.
+        for fragment in (
+            "let a2 = Arc::clone(&a);",
+            "let a = Arc::new(42);",
+            "let n = Arc::strong_count(&a);",
+            "let w = Arc::downgrade(&a);",
+            "let n = Arc::weak_count(&a);",
+            "let r = Rc::new(42);",
+            "let r2 = Rc::clone(&r);",
+        ):
+            self.assertFalse(_has(_scan(fragment), "manual Arc/Rc refcount"), msg=fragment)
+
+    def test_manual_atomic_refcount_field_flagged(self) -> None:
+        for fragment in (
+            "struct Node {\n    refs: AtomicUsize,\n}",
+            "struct Node {\n    refcount: AtomicU64,\n    data: u32,\n}",
+            "struct Node {\n    ref_count: AtomicIsize,\n}",
+            "struct Node {\n    strong: AtomicUsize,\n    weak: AtomicUsize,\n}",
+            "pub struct Header {\n    pub(crate) refcount: AtomicUsize,\n}",
+        ):
+            self.assertTrue(_has(_scan(fragment), "manual atomic refcount field"), msg=fragment)
+
+    def test_unrelated_atomic_fields_not_flagged(self) -> None:
+        # Atomic fields with unrelated names (counters, flags, sequence
+        # numbers) must NOT trigger.
+        for fragment in (
+            "struct State { dropped: AtomicUsize }",
+            "struct State { seq: AtomicU64 }",
+            "struct State { shutdown: AtomicBool }",
+            "struct State { events: AtomicUsize, errors: AtomicUsize }",
+        ):
+            self.assertFalse(_has(_scan(fragment), "manual atomic refcount field"), msg=fragment)
+
+    def test_clone_derive_on_owner_named_type_flagged(self) -> None:
+        for fragment in (
+            "#[derive(Clone)]\npub struct MyHandle { inner: u32 }",
+            "#[derive(Debug, Clone)]\nstruct OwnerGuard { fd: i32 }",
+            "#[derive(Clone, Copy)]\npub struct ResourceToken { id: u64 }",
+            "#[derive(Clone)]\nenum SessionRegistration { Active, Idle }",
+            "#[derive(Clone)]\npub(crate) struct CacheSlot { ptr: u64 }",
+        ):
+            self.assertTrue(_has(_scan(fragment), guard.CLONE_ON_OWNER_PROXIMITY_PATTERN), msg=fragment)
+
+    def test_clone_derive_on_non_owner_named_type_not_flagged(self) -> None:
+        # Types whose names don't match the ownership pattern must NOT trigger.
+        for fragment in (
+            "#[derive(Clone)]\nstruct Config { value: u32 }",
+            "#[derive(Clone)]\nenum Event { A, B }",
+            "#[derive(Clone)]\npub struct Snapshot { value: u32 }",
+        ):
+            self.assertFalse(_has(_scan(fragment), guard.CLONE_ON_OWNER_PROXIMITY_PATTERN), msg=fragment)
+
+    def test_owner_named_type_without_clone_not_flagged(self) -> None:
+        # An owner-named struct without `derive(Clone)` is fine — that's
+        # the move-only pattern this rule encourages.
+        src = textwrap.dedent(
+            """\
+            pub struct BufferHandle<'a> {
+                _phantom: core::marker::PhantomData<&'a ()>,
+            }
+            """
+        )
+        self.assertFalse(_has(_scan(src), guard.CLONE_ON_OWNER_PROXIMITY_PATTERN))
+
+    def test_clone_derive_far_from_owner_type_not_flagged(self) -> None:
+        # A derive(Clone) more than 5 lines from any owner-named struct
+        # must not be (mis)attributed.
+        gap = "\n" * 10
+        src = (
+            "#[derive(Clone)]\n"
+            "pub struct PlainData { value: u32 }\n"
+            f"{gap}"
+            "pub struct MyHandle { fd: i32 }\n"
+        )
+        self.assertFalse(_has(_scan(src), guard.CLONE_ON_OWNER_PROXIMITY_PATTERN))
+
+    def test_copy_derive_on_owner_named_type_flagged(self) -> None:
+        # Every owner-suffix spelling × every realistic derive arrangement
+        # — `Copy` alone, `Copy + Clone`, multiple traits — must trigger.
+        for fragment in (
+            "#[derive(Copy, Clone)]\npub struct MyHandle { inner: u32 }",
+            "#[derive(Debug, Clone, Copy)]\nstruct OwnerGuard { fd: i32 }",
+            "#[derive(Clone, Copy)]\npub struct ResourceToken { id: u64 }",
+            "#[derive(Copy, Clone, Debug)]\nenum SessionRegistration { Active, Idle }",
+            "#[derive(Copy, Clone, PartialEq, Eq, Hash)]\npub(crate) struct CacheSlot { ptr: u64 }",
+        ):
+            self.assertTrue(_has(_scan(fragment), guard.COPY_ON_OWNER_PROXIMITY_PATTERN), msg=fragment)
+
+    def test_copy_derive_on_non_owner_named_type_not_flagged(self) -> None:
+        # Types whose names don't match the ownership suffix list must NOT
+        # trigger, even though `Copy` is a strictly stronger trait. The
+        # rule deliberately targets owner-named types — bare value/config
+        # PODs are sound to `Copy`.
+        for fragment in (
+            "#[derive(Copy, Clone)]\nstruct Config { value: u32 }",
+            "#[derive(Copy, Clone)]\nenum Event { A, B }",
+            "#[derive(Copy, Clone, Debug)]\npub struct Snapshot { value: u32 }",
+            "#[derive(Copy, Clone)]\npub struct FlowId(pub u64);",
+        ):
+            self.assertFalse(_has(_scan(fragment), guard.COPY_ON_OWNER_PROXIMITY_PATTERN), msg=fragment)
+
+    def test_owner_named_type_without_copy_not_flagged(self) -> None:
+        # An owner-named struct without `derive(Copy)` is the move-only
+        # default this rule encourages; even a bare `derive(Clone)` must
+        # not trip the Copy-specific pattern (the Clone pattern catches
+        # that separately).
+        src = textwrap.dedent(
+            """\
+            #[derive(Clone)]
+            pub struct MyHandle { fd: i32 }
+            """
+        )
+        self.assertFalse(_has(_scan(src), guard.COPY_ON_OWNER_PROXIMITY_PATTERN))
+
+    def test_copy_derive_far_from_owner_type_not_flagged(self) -> None:
+        # A derive(Copy) more than 5 lines from any owner-named struct
+        # must not be (mis)attributed. Also exercises the `^[ \\t]*`
+        # leading-whitespace anchor fix: an interleaved blank-line block
+        # must not shift the match across to an unrelated owner-named
+        # declaration further down.
+        gap = "\n" * 10
+        src = (
+            "#[derive(Copy, Clone)]\n"
+            "pub struct PlainData { value: u32 }\n"
+            f"{gap}"
+            "pub struct MyHandle { fd: i32 }\n"
+        )
+        self.assertFalse(_has(_scan(src), guard.COPY_ON_OWNER_PROXIMITY_PATTERN))
 
     # --- Negative cases: must NOT trigger the scan -----------------------
 

@@ -110,3 +110,22 @@ const _: fn() = || {
     impl<T: ?Sized + Sync> AmbiguousIfSync<u8> for Check<T> {}
     <Check<MmapRegion> as AmbiguousIfSync<_>>::check();
 };
+
+// Compile-fail regression for soundness issue #14: `MmapRegion` owns a
+// kernel mmap and unmaps it on `Drop`. A `#[derive(Copy)]` would let
+// safe code silently duplicate the owning `NonNull<u8>` and produce a
+// double-`munmap` on the second drop. The two `AmbiguousIfCopy` impls
+// stay unambiguous only while `MmapRegion: !Copy`; if a future change
+// derives `Copy` the trait dispatch becomes ambiguous and this block
+// fails to compile.
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfCopy<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfCopy<()> for Check<T> {}
+    impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
+    <Check<MmapRegion> as AmbiguousIfCopy<_>>::check();
+};
