@@ -1,7 +1,7 @@
 ---
 title: Bind DNS answers to route decisions
 type: task
-status: backlog
+status: done
 area: vpn
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Bind DNS answers to route decisions #repo/RIPDPI #area/vpn #status/backlog ⏫
+- [x] #task Bind DNS answers to route decisions #repo/RIPDPI #area/vpn #status/done ⏫
 
 ## Goal contract
 
@@ -39,11 +39,11 @@ Split-brain DNS is a leak and compatibility risk: the same domain can return dif
 
 ## Acceptance criteria
 
-- [ ] DNS cache entries record domain, qtype, IPs, resolver path, route decision, expiry, and source policy version.
-- [ ] Direct DNS answers are not reused for proxy routes unless policy explicitly permits it.
-- [ ] Proxy DNS answers are not reused for direct RU/local routes unless policy explicitly permits it.
-- [ ] Negative cache has short bounded TTL and preserves resolver path.
-- [ ] Route decision mismatch triggers re-resolution or fail-closed behavior, not silent reuse.
+- [x] DNS cache entries record domain, qtype, IPs, resolver path, route decision, expiry, and source policy version.
+- [x] Direct DNS answers are not reused for proxy routes unless policy explicitly permits it.
+- [x] Proxy DNS answers are not reused for direct RU/local routes unless policy explicitly permits it.
+- [x] Negative cache has short bounded TTL and preserves resolver path.
+- [x] Route decision mismatch triggers re-resolution or fail-closed behavior, not silent reuse.
 
 ## Design notes
 
