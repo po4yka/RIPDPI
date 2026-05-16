@@ -64,10 +64,7 @@ mod classify_failure_tests {
     fn classify_failure_payload_detects_v2_tls_handshake_header_at_offset_zero() {
         // v2 server sends the TLS handshake record directly; first
         // bytes are 0x16 (Handshake content type) + 0x03 (TLS major).
-        assert_eq!(
-            classify_failure_payload(&[0x16, 0x03, 0x03, 0x00, 0x10]),
-            ShadowTlsFailureKind::VersionMismatch,
-        );
+        assert_eq!(classify_failure_payload(&[0x16, 0x03, 0x03, 0x00, 0x10]), ShadowTlsFailureKind::VersionMismatch,);
         // 0x16 + 0x03 followed by any payload still classifies as v2.
         assert_eq!(classify_failure_payload(&[0x16, 0x03]), ShadowTlsFailureKind::VersionMismatch);
     }
