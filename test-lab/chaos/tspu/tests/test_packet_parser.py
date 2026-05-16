@@ -14,37 +14,7 @@ if TSPU_DIR not in sys.path:
 
 
 from runner import packet_parser  # noqa: E402
-
-
-def _build_clienthello_with_sni(sni: str) -> bytes:
-    """Build a minimal TLS ClientHello with the given SNI extension."""
-    sni_bytes = sni.encode("ascii")
-    # server_name extension body: list_len(2) name_type(1) name_len(2) name
-    name_entry = bytes([0x00]) + len(sni_bytes).to_bytes(2, "big") + sni_bytes
-    sni_ext_body = len(name_entry).to_bytes(2, "big") + name_entry
-    sni_ext = bytes([0x00, 0x00]) + len(sni_ext_body).to_bytes(2, "big") + sni_ext_body
-
-    extensions = sni_ext
-    ext_block = len(extensions).to_bytes(2, "big") + extensions
-
-    # ClientHello body: legacy_version(2) random(32) session_id_len(1)
-    # cipher_suites_len(2) cipher_suites(2) compression_methods_len(1)
-    # compression_methods(1) extensions_block
-    ch_body = (
-        bytes([0x03, 0x03])
-        + bytes(32)
-        + bytes([0x00])
-        + bytes([0x00, 0x02])
-        + bytes([0x00, 0x35])
-        + bytes([0x01])
-        + bytes([0x00])
-        + ext_block
-    )
-    # Handshake header: type(1) length(3)
-    handshake = bytes([0x01]) + len(ch_body).to_bytes(3, "big") + ch_body
-    # Record header: type(1) version(2) length(2)
-    record = bytes([0x16, 0x03, 0x01]) + len(handshake).to_bytes(2, "big") + handshake
-    return record
+from tests._helpers import build_clienthello_with_sni as _build_clienthello_with_sni  # noqa: E402
 
 
 class ExtractTlsSniTests(unittest.TestCase):

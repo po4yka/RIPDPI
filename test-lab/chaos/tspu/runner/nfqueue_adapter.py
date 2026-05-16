@@ -60,12 +60,14 @@ class NfqueueAdapter:
     """Production kernel adapter.
 
     The constructor binds to `queue_num`; `consume` runs the
-    netfilterqueue main loop until the kernel closes the queue.
+    netfilterqueue main loop until the kernel closes the queue or
+    `shutdown()` is called from another thread / a signal handler.
     """
 
     def __init__(self, queue_num: int = 0):
         self._queue_num = queue_num
         self._nfq = NetfilterQueue()
+        self._bound = False
 
     def consume(self, handler: Callable[[str, bytes, int, int], "live_mod.Verdict"]) -> None:
         def _on_pkt(pkt):  # pragma: no cover - exercised in live mode only
@@ -94,7 +96,18 @@ class NfqueueAdapter:
                 pkt.drop()
 
         self._nfq.bind(self._queue_num, _on_pkt)
+        self._bound = True
         try:
             self._nfq.run()
         finally:
+            if self._bound:
+                self._nfq.unbind()
+                self._bound = False
+
+    def shutdown(self) -> None:  # pragma: no cover - exercised in live mode only
+        if self._bound:
+            # Unbind from another thread; the kernel closes the netlink
+            # socket and `run()` returns. The finally block in consume()
+            # is a no-op in that path.
             self._nfq.unbind()
+            self._bound = False

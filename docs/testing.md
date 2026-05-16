@@ -694,6 +694,7 @@ PR CI runs:
 - `cli-packet-smoke` -- CLI proxy behavioral verification with pcap capture
 - `fleet-fixtures` -- structural drift gate + `*FleetCompat*` golden-file suite, on PRs touching the subscription/routing/AWG/relay models or the fleet fixtures
 - `tspu-dryrun` -- TSPU adversarial emulator matrix-runner dry-run + unittest suite, on PRs touching `test-lab/chaos/tspu/` or its CI script. Uploads `verdict-report.json` and per-cell `.pcap` artifacts for triage.
+- `tspu-live` -- TSPU adversarial emulator live-mode smoke. Installs `nftables` and `python3-netfilterqueue` on an ubuntu-latest runner, loads the CI nft ruleset that funnels TCP:8443 into nfqueue 0, runs the live handler with a watchdog `--timeout-seconds`, sends a synthetic TLS ClientHello with a blocklisted SNI, and asserts that the resulting `verdict-report.json` records at least one `blocked` cell. Uploads `verdict-report.json` and `handler.log` as artifacts.
 
 Nightly/manual lanes add:
 

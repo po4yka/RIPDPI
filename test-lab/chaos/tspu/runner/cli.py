@@ -41,6 +41,12 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     live_cmd.add_argument("--matrix", required=False, help="Path to matrix.json (required when adapter is available).")
     live_cmd.add_argument("--out-dir", required=False, help="Where to write verdict-report.json (required when adapter is available).")
     live_cmd.add_argument("--queue-num", type=int, default=0, help="nfqueue queue number (default 0).")
+    live_cmd.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=None,
+        help="Shut down the live handler after this many seconds (CI smoke).",
+    )
 
     return parser.parse_args(argv)
 
@@ -63,7 +69,12 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report["totals"], sort_keys=True))
         return 0
     if args.cmd == "live":
-        return live.run_live(matrix_path=args.matrix, out_dir=args.out_dir, queue_num=args.queue_num)
+        return live.run_live(
+            matrix_path=args.matrix,
+            out_dir=args.out_dir,
+            queue_num=args.queue_num,
+            timeout_seconds=args.timeout_seconds,
+        )
     sys.stderr.write(f"unknown subcommand: {args.cmd}\n")
     return 2
 

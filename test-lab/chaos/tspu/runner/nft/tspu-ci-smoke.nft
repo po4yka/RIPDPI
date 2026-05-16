@@ -1,0 +1,18 @@
+# CI-smoke nftables ruleset.
+#
+# Used by scripts/ci/run-tspu-live-smoke.sh to exercise the live handler
+# inside a GitHub Actions runner. Targets a localhost smoke port instead
+# of 443 so the test doesn't depend on outbound internet access.
+#
+# `bypass` keeps the policy fail-open if the queue is full or the
+# handler crashes; the smoke script asserts a successful match against
+# the verdict report, so a fail-open silently passing does not produce
+# a false positive.
+
+table inet tspu_ci_smoke {
+    chain output {
+        type filter hook output priority 0; policy accept;
+        # Synthetic test target on the loopback.
+        ip daddr 127.0.0.1 tcp dport 8443 queue num 0 bypass
+    }
+}

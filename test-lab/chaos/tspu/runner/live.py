@@ -20,6 +20,18 @@ Live mode currently runs the *full pattern matrix* per packet (cheap
 in practice; 5 patterns x small classifiers). The first matched
 pattern wins for verdict-recording purposes; the cell record carries
 all matched pattern ids so triage retains the cross-pattern signal.
+
+Shutdown semantics:
+
+- A `--timeout-seconds` watchdog thread calls `adapter.shutdown()` after
+  the configured budget elapses. The adapter is expected to break out
+  of `consume()` when shut down.
+- SIGTERM / SIGINT call the same `adapter.shutdown()` so the container
+  exits cleanly when stopped by docker-compose / CI.
+- `run_with_adapter` always writes verdict-report.json before returning,
+  regardless of whether the adapter terminated naturally or via the
+  watchdog/signal path. This is what makes the live mode usable from
+  CI: the report is the contract artifact, not the process exit code.
 """
 
 from __future__ import annotations
@@ -27,7 +39,9 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import signal
 import sys
+import threading
 from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
@@ -50,12 +64,14 @@ class Verdict:
 
 
 class KernelAdapter(Protocol):
-    """One method: consume packets and invoke `handler` per packet."""
+    """Two methods: consume packets and shut down."""
 
     def consume(
         self,
         handler: Callable[[str, bytes, int, int], Verdict],
     ) -> None: ...
+
+    def shutdown(self) -> None: ...
 
 
 def _load_pattern_module(pattern_id: str):
@@ -78,12 +94,20 @@ def run_with_adapter(
     matrix: dict[str, Any],
     adapter: KernelAdapter,
     out_dir: str,
+    timeout_seconds: float | None = None,
+    install_signal_handlers: bool = False,
 ) -> dict[str, Any]:
     """Drive `adapter` and emit a verdict-report.json compatible report.
 
     Cells are recorded per packet (the "desync_mode_id" field carries
     the live-mode source identifier rather than a fixture name). This
     keeps the report consumable by the same triage tooling.
+
+    If `timeout_seconds` is set, a watchdog thread calls
+    `adapter.shutdown()` after the budget elapses. If
+    `install_signal_handlers` is true, SIGTERM and SIGINT do the same.
+    Both are no-ops when `consume()` returns naturally before the
+    watchdog fires.
     """
     os.makedirs(out_dir, exist_ok=True)
     patterns = matrix.get("patterns", [])
@@ -113,7 +137,32 @@ def run_with_adapter(
         )
         return Verdict(accept=not matched, pattern_ids_matched=tuple(matched))
 
-    adapter.consume(handler)
+    watchdog: threading.Timer | None = None
+    if timeout_seconds and timeout_seconds > 0:
+        watchdog = threading.Timer(timeout_seconds, adapter.shutdown)
+        watchdog.daemon = True
+        watchdog.start()
+
+    prior_signal_handlers: dict[int, Any] = {}
+    if install_signal_handlers:
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            try:
+                prior_signal_handlers[sig] = signal.signal(sig, lambda _signum, _frame: adapter.shutdown())
+            except ValueError:
+                # Not in the main thread of the main interpreter; CI tests
+                # call run_with_adapter from worker threads in some cases.
+                pass
+
+    try:
+        adapter.consume(handler)
+    finally:
+        if watchdog is not None:
+            watchdog.cancel()
+        for sig, prior in prior_signal_handlers.items():
+            try:
+                signal.signal(sig, prior)
+            except ValueError:
+                pass
 
     totals = {v: 0 for v in schema.ALL_VERDICTS}
     for cell in cells:
@@ -137,10 +186,16 @@ class FakeAdapter:
 
     def __init__(self, packets: list[tuple[str, bytes, int, int]]):
         self._packets = list(packets)
+        self._shutdown = threading.Event()
 
     def consume(self, handler: Callable[[str, bytes, int, int], Verdict]) -> None:
         for transport, payload, src_port, dst_port in self._packets:
+            if self._shutdown.is_set():
+                return
             handler(transport, payload, src_port, dst_port)
+
+    def shutdown(self) -> None:
+        self._shutdown.set()
 
 
 def _try_load_nfqueue_adapter():
@@ -154,7 +209,12 @@ def _try_load_nfqueue_adapter():
         return None
 
 
-def run_live(matrix_path: str | None = None, out_dir: str | None = None, queue_num: int = 0) -> int:
+def run_live(
+    matrix_path: str | None = None,
+    out_dir: str | None = None,
+    queue_num: int = 0,
+    timeout_seconds: float | None = None,
+) -> int:
     """Production entry point. Wires NfqueueAdapter if available.
 
     Exits non-zero with a documented message when the adapter is not
@@ -170,5 +230,11 @@ def run_live(matrix_path: str | None = None, out_dir: str | None = None, queue_n
     with open(matrix_path, "r", encoding="utf-8") as fh:
         matrix = json.load(fh)
     adapter = NfqueueAdapter(queue_num=queue_num)
-    run_with_adapter(matrix, adapter, out_dir)
+    run_with_adapter(
+        matrix,
+        adapter,
+        out_dir,
+        timeout_seconds=timeout_seconds,
+        install_signal_handlers=True,
+    )
     return 0

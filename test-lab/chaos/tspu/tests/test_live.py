@@ -16,7 +16,7 @@ if TSPU_DIR not in sys.path:
 
 
 from runner import live  # noqa: E402
-from tests.test_packet_parser import _build_clienthello_with_sni  # noqa: E402
+from tests._helpers import build_clienthello_with_sni as _build_clienthello_with_sni  # noqa: E402
 
 
 def _matrix() -> dict:

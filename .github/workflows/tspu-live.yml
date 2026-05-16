@@ -1,0 +1,50 @@
+name: TSPU live smoke
+
+on:
+  pull_request:
+    paths:
+      - "test-lab/chaos/tspu/**"
+      - "scripts/ci/run-tspu-live-smoke.sh"
+      - ".github/workflows/tspu-live.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "test-lab/chaos/tspu/**"
+      - "scripts/ci/run-tspu-live-smoke.sh"
+      - ".github/workflows/tspu-live.yml"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install nftables and python3-netfilterqueue
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            nftables \
+            libnetfilter-queue1 \
+            python3-netfilterqueue
+
+      - name: Run TSPU live smoke
+        env:
+          RIPDPI_TSPU_LIVE_ARTIFACT_DIR: ${{ runner.temp }}/tspu-live
+        run: bash scripts/ci/run-tspu-live-smoke.sh
+
+      - name: Upload verdict report + handler logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tspu-live-artifacts
+          path: ${{ runner.temp }}/tspu-live
+          retention-days: 14
