@@ -115,6 +115,8 @@ on every PR. It looks for the following risky patterns under
 | `CStr::from_ptr` | Materializes a `&CStr` whose bytes are scanned for a NUL terminator starting at a raw pointer. The pointee must be a valid NUL-terminated C string in an allocation that lives at least as long as the returned `&CStr`. See "Creating `&T` from raw pointers" below. |
 | `str::from_utf8_unchecked` | Asserts the input bytes are valid UTF-8 without checking. A regression here invalidates the `str` invariant and produces UB on any subsequent UTF-8 operation. Prefer `str::from_utf8` (release-mode validation) unless the bytes come from a checked source documented in the SAFETY comment. See "Unsafe `String`/`str` construction" below. |
 | `String::from_utf8_unchecked` | The owned counterpart of `str::from_utf8_unchecked`: turns a `Vec<u8>` into a `String` without validating UTF-8. Same UB risk as the borrowed variant, separate scanner pattern because the input is owned (so the validity argument must cover the ownership transfer too). Prefer `String::from_utf8` (returns `Result<String, FromUtf8Error>`) or `String::from_utf8_lossy` (substitutes U+FFFD for invalid sequences). See "Unsafe `String`/`str` construction" below. |
+| `libc::malloc`, `libc::calloc`, `libc::realloc`, `libc::free` | Direct C-allocator calls. Rust's default global allocator and libc's `malloc`/`free` are NOT contractually the same heap — even when they happen to coincide on a given target, the relationship is implementation-defined and breaks silently on a `#[global_allocator]` switch. New occurrences must either restructure to keep both ends of the lifetime on one side (Rust → `Box`/`Vec`; C → foreign-managed) or earn an allowlist entry per "Allocator mismatch across FFI" below. |
+| `CString::from_raw`, `CString::into_raw` | The FFI-string analogue of `Box::into_raw`/`Box::from_raw`. The pair carries the allocator-compatibility constraint (both ends must use the global allocator that `CString::new` used) plus a NUL-termination invariant. Mixing with `libc::malloc`/`libc::free` is UB. See "Allocator mismatch across FFI" below. |
 | `UnsafeCell::get` (deref form `*cell.get()`) | Materialises `&mut T` / `&T` from `*mut T` and bypasses Rust's borrow check. The exclusivity invariant — at most one accessor of the cell at any moment — must be enforced by the surrounding type design. The bare `.get()` method (without the `*` deref) is filtered out so unrelated `.get()` callers (HashMap, Vec, Option, AtomicPtr) are not flagged. See "Creating `&mut T` from raw memory" below. |
 | `Cell<bool>` | `Cell<bool>` is a common cheap way to encode lifecycle state, but the value's mutation has no synchronisation cost and no exclusivity discipline. Use a typestate / RAII guard / Mutex instead. See "Ownership must be types, not flags" below. |
 | `ownership flag near drop/unsafe` (proximity ≤ 50 lines) | A `bool` field named `registered`, `is_alive`, `destroyed`, `initialized`, `disowned`, `owned_by_*`, or `freed` that lives within 50 source lines of an `impl Drop` or `unsafe` keyword. Per issue-#11 audit, ownership/liveness must be encoded by the type system, not by flags + comments. See "Ownership must be types, not flags" below. |
@@ -1188,6 +1190,149 @@ allowlist entry must address ALL eight
 `Vec::from_raw_parts` checklist points PLUS the six
 fields above — the strictest single-API contract in
 std.
+
+## Allocator mismatch across FFI
+
+When an allocation crosses an FFI boundary, the
+**same** allocator that produced the pointer MUST be
+the one that frees it. The Rust default global
+allocator (`std::alloc::System` on Unix targets) and
+libc's `malloc` / `free` may or may not be the same
+heap — the relationship is target- and toolchain-
+defined and changes silently on a `#[global_allocator]`
+switch. Mixing them is undefined behaviour.
+
+The four classic allocator-mismatch patterns:
+
+1. **C allocates, Rust frees.**
+   `Box::from_raw(libc::malloc(n) as *mut T)` — the
+   `Box::drop` calls the Rust global allocator's
+   `dealloc`, which may not be `libc::free`. Even when
+   it is, the layout that `dealloc` reconstructs
+   (`Layout::for_value(&*ptr)`) might differ from what
+   `malloc` actually saw, and `dealloc` is contractually
+   not allowed to handle that mismatch.
+2. **Rust allocates, C frees.** `let p =
+   Box::into_raw(Box::new(t)); foreign_free(p);` — the
+   foreign code calls `libc::free` (or another C
+   deallocator) on a pointer the Rust global allocator
+   owns. Same UB as above, mirrored.
+3. **Wrong-allocator `CString::from_raw`.**
+   `CString::from_raw(libc::malloc(n) as *mut c_char)`
+   — `CString::drop` runs the Rust deallocator on a
+   `libc::malloc`-allocated buffer. UB.
+4. **Allocator-mismatched `Vec::from_raw_parts_in`.**
+   Already covered in
+   "`Vec::from_raw_parts` ownership transfer" point 6
+   (allocator compatibility).
+
+**Rule.** Each allocation that crosses an FFI boundary
+MUST take one of these forms:
+
+1. **Foreign-managed lifetime.** The foreign library
+   allocates AND frees; Rust receives a `*mut T` /
+   `*const T` and either:
+   - never frees it (non-owning observer pattern; the
+     foreign side guarantees the pointer outlives
+     every Rust use), OR
+   - explicitly calls the foreign deallocator (e.g.
+     `SSL_CTX_free`, `EVP_PKEY_free`) inside an RAII
+     wrapper. The workspace's `ScopedHandle<T, F:
+     FreeFunction<T>>` in
+     `ripdpi-vless/src/scoped_handle.rs` is the
+     canonical implementation.
+2. **Rust-managed lifetime.** Rust allocates AND
+   frees; the foreign side receives a borrowed `*const
+   T` / `*mut T` for the duration of a call and never
+   retains it past the call. No `Box::into_raw`
+   needed.
+3. **Paired `rust_alloc` / `rust_free` exports** (also
+   documented in
+   "`Box::into_raw` / `Box::from_raw` ownership
+   transfer" § "FFI ownership shapes"). The crate
+   exposes two `extern "C" fn`s: `rust_alloc_FOO() ->
+   *mut FOO` (Box::into_raw) and `rust_free_FOO(*mut
+   FOO)` (Box::from_raw). Foreign code is contractually
+   required to call exactly one `rust_free_FOO` for
+   every `rust_alloc_FOO`.
+4. **Unsafe-fn install + RAII reclaim** (also
+   documented in
+   "`Box::into_raw` / `Box::from_raw` ownership
+   transfer" § "FFI ownership shapes"). Rust leaks one
+   Box via `Box::into_raw` and reclaims it in the
+   guard's `Drop`.
+
+**Anti-patterns.**
+
+- `Box::from_raw(libc::malloc(n) as *mut T)` — see
+  pattern 1 above.
+- `unsafe { libc::free(b.as_ptr() as *mut _) }` for
+  any `Box<T>` / `Vec<T>` / `String` `b` — see pattern
+  2 above. The `free` runs on a Rust allocation.
+- `CString::from_raw(c_string_returned_by_strdup)` —
+  `strdup` uses `malloc`, but `CString::drop` runs the
+  Rust deallocator.
+- A scanner allowlist entry that names the matching
+  `into_raw` but the partner lives in a different
+  crate. The two must live in the same module so a
+  reviewer can match them without crossing files.
+
+**Workspace inventory.** As of issue #18: **zero**
+production occurrences of any allocator-crossing
+pattern.
+
+- `rg '\blibc::(malloc|calloc|realloc|free)\b'` — zero
+- `rg '\bCString::(from_raw|into_raw)\b'` — zero
+- `rg '#\[global_allocator\]'` — zero (workspace uses
+  the default `std::alloc::System`)
+- `rg 'extern "C" \{'` — exactly one
+  `extern "C" {}` block in
+  `ripdpi-vless/src/reality_hook.rs` (BoringSSL Reality
+  client_hello hook). The three imported BoringSSL
+  functions are
+  `SSL_handshake_get_x25519_private_key`
+  (fills a caller-owned 32-byte stack buffer; no
+  allocation crosses the boundary),
+  `SSL_CTX_set_client_hello_cb` (installs a Rust
+  callback + Rust-owned `Box::into_raw` `arg` — the
+  Rust-managed lifetime reclaimed by
+  `RealityHookGuard::Drop` per issue #15), and
+  `SSL_get_SSL_CTX` (returns a BoringSSL-managed
+  pointer that Rust never frees — non-owning observer
+  per shape 1). All three are sound.
+
+The only Rust→C heap transfer in the workspace is the
+already-audited `Box::into_raw(Box<RealityCallbackState>)`
+/ `Drop for RealityHookGuard` pair (issue #15,
+Miri-validated).
+
+**Allowlist entry requirements.** A `libc::malloc`,
+`CString::from_raw`, or `CString::into_raw` allowlist
+entry's `enforcement` field MUST address every point
+below:
+
+1. **C-allocator provenance.** Which foreign function
+   produced the pointer (`libc::malloc`, `strdup`,
+   `EVP_PKEY_new`, etc.). The reviewer must be able to
+   follow the chain `foreign_alloc -> ... -> matching
+   free` without leaving the policy entry.
+2. **Matching deallocator.** The C function that frees
+   the allocation. Must be the documented dual of the
+   producer; `libc::malloc` is paired with
+   `libc::free`, not with `Box::drop`.
+3. **Type and layout.** Which `T` the pointer
+   addresses and how the alignment is guaranteed
+   (`malloc` only guarantees `MAX_ALIGN`; if `T` has
+   higher alignment requirements use `posix_memalign`
+   or `aligned_alloc`).
+4. **Pair locality.** Both ends of the
+   allocation/deallocation must live in the same
+   module or be exposed as a documented `rust_alloc_FOO`
+   / `rust_free_FOO` pair.
+5. **No allocator switch.** Whether the entry remains
+   sound if a future `#[global_allocator]` is added to
+   the workspace. If not, the entry must say so
+   explicitly so a future contributor can re-evaluate.
 
 ## Ownership must be types, not flags
 

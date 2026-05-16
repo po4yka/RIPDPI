@@ -159,6 +159,39 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # scan) or earn an allowlist entry naming the source of the
     # UTF-8 guarantee.
     "String::from_utf8_unchecked": re.compile(r"\bString::from_utf8_unchecked\b"),
+    # `libc::malloc` / `libc::calloc` / `libc::realloc` /
+    # `libc::free` — direct C-allocator calls. Rust's default
+    # global allocator (`std::alloc::System` on most targets) and
+    # libc's malloc are NOT guaranteed to be the same heap — even
+    # when they happen to be in practice, the contract is
+    # implementation-defined and changes silently on
+    # `#[global_allocator]` switches. Per
+    # docs/rust-soundness-policy.md § "Allocator mismatch across
+    # FFI", any new occurrence must either:
+    #   (a) restructure to keep both ends of the lifetime in C
+    #       (the foreign library allocates and frees; Rust only
+    #       borrows),
+    #   (b) restructure to keep both ends in Rust (`Box`, `Vec`,
+    #       `String`),
+    #   (c) earn an allowlist entry naming the C-allocator
+    #       provenance and proof that every `libc::malloc` /
+    #       `libc::calloc` / `libc::realloc` is matched by
+    #       exactly one `libc::free`.
+    # Issue #18 audit found zero production occurrences.
+    "libc::malloc": re.compile(r"\blibc::(?:malloc|calloc|realloc|free)\b"),
+    # `CString::from_raw` / `CString::into_raw` — the FFI string
+    # analogue of `Box::from_raw` / `Box::into_raw`. The pair has
+    # the same allocator-compatibility constraint (both ends must
+    # use the global allocator that `CString::new` used) plus a
+    # NUL-termination invariant. Mixing
+    # `CString::from_raw(libc::malloc(n) as *mut c_char)` is UB
+    # because the deallocator that runs on Drop is the global
+    # allocator, not `libc::free`. Issue #18 audit found zero
+    # production occurrences. New entries must restructure to a
+    # typed RAII wrapper or earn an allowlist entry naming the
+    # matching `CString::into_raw` / `CString::new` site.
+    "CString::from_raw": re.compile(r"\bCString::from_raw\b"),
+    "CString::into_raw": re.compile(r"\bCString::into_raw\b"),
     # UnsafeCell::get returns `*mut T` from `&UnsafeCell<T>`. Dereferencing
     # it to produce `&mut T` (the canonical `unsafe { (*cell.get()).as_mut() }`
     # pattern) bypasses Rust's shared-vs-exclusive borrow check entirely;

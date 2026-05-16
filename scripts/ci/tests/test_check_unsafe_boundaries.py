@@ -327,6 +327,59 @@ class ScanRegressionTests(unittest.TestCase):
         ):
             self.assertTrue(_has(_scan(fragment), "String::from_utf8_unchecked"), msg=fragment)
 
+    def test_libc_malloc_family_flagged(self) -> None:
+        # Issue #18: every direct C-allocator call must surface as
+        # a scanner finding so the allocator-mismatch audit can be
+        # applied. The four entry points are `libc::malloc`,
+        # `libc::calloc`, `libc::realloc`, and `libc::free`.
+        for fragment in (
+            "let p = unsafe { libc::malloc(64) };",
+            "let p = unsafe { libc::calloc(16, 4) };",
+            "let p = unsafe { libc::realloc(old, 128) };",
+            "unsafe { libc::free(p) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "libc::malloc"), msg=fragment)
+
+    def test_cstring_round_trip_flagged(self) -> None:
+        # Issue #18: `CString::from_raw` and `CString::into_raw`
+        # are the FFI-string analogue of `Box::into_raw` /
+        # `Box::from_raw`. Both sides must surface as distinct
+        # findings so the matched-pair allowlist requirement can
+        # name the partner call site.
+        #
+        # NOTE: regex-based scanning catches only the qualified-
+        # path form (`CString::from_raw` / `CString::into_raw`).
+        # The method-call form (`cstr.into_raw()`) cannot be
+        # disambiguated from other `.into_raw()` methods without
+        # type analysis. The qualified path is the canonical
+        # spelling in this workspace (zero method-call form
+        # findings); a future migration could add a method-call
+        # detector if needed.
+        for fragment in (
+            "let s = unsafe { CString::from_raw(ptr) };",
+            "let raw = CString::into_raw(cstr);",
+        ):
+            scan = _scan(fragment)
+            self.assertTrue(
+                _has(scan, "CString::from_raw") or _has(scan, "CString::into_raw"),
+                msg=fragment,
+            )
+        # Direct path form must trigger the from_raw pattern.
+        self.assertTrue(_has(_scan("CString::from_raw(p)"), "CString::from_raw"))
+        # Direct path form must trigger the into_raw pattern.
+        self.assertTrue(_has(_scan("CString::into_raw(s)"), "CString::into_raw"))
+
+    def test_libc_unrelated_functions_not_flagged(self) -> None:
+        # The libc::malloc regex must NOT match unrelated libc
+        # calls (mmap, munmap, write, read, etc.).
+        for fragment in (
+            "let p = unsafe { libc::mmap(...) };",
+            "unsafe { libc::munmap(p, len) };",
+            "unsafe { libc::write(fd, p, n) };",
+            "unsafe { libc::close(fd) };",
+        ):
+            self.assertFalse(_has(_scan(fragment), "libc::malloc"), msg=fragment)
+
     def test_safe_string_from_utf8_does_not_match_unchecked(self) -> None:
         # The safe `String::from_utf8` (release-mode validation, Result
         # return) and `String::from_utf8_lossy` MUST NOT trigger the
