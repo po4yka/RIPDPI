@@ -44,6 +44,25 @@ pub(crate) const RETRY_SATURATION: u32 = 20;
 /// RETRY_SATURATION + 1)`. Bounded by ln(remaining-pool-size) in practice.
 pub(crate) const RETRY_COST_FACTOR: f64 = 4.0;
 
+/// Half-life for the win (success) component of asymmetric decay.
+///
+/// Wins decay slower than losses so a successful family retains its learned
+/// advantage longer than a failed exact variant. The ratio `WIN_HALF_LIFE_MS /
+/// LOSS_HALF_LIFE_MS == 2` means the win count halves in twice the time it
+/// takes the loss count to halve, preserving accumulated learning after a
+/// transient failure streak.
+///
+/// Rationale: a single failure should not wipe out accumulated wins; a 2×
+/// half-life ratio gives losses room to clear while keeping the win signal
+/// meaningful for roughly two loss cycles.
+pub(crate) const WIN_HALF_LIFE_MS: u64 = 7_200_000; // 2 h
+
+/// Half-life for the loss (failure) component of asymmetric decay.
+///
+/// Losses decay faster than wins so that old failure streaks do not
+/// permanently suppress a family that has since recovered.
+pub(crate) const LOSS_HALF_LIFE_MS: u64 = 3_600_000; // 1 h (= WIN_HALF_LIFE_MS / 2)
+
 /// Per-combo performance statistics.
 ///
 /// `last_attempt_ms`, `cooldown_until_ms`, and `consecutive_failure_count`
@@ -142,6 +161,49 @@ impl ComboStats {
         let elapsed = now_ms.saturating_sub(self.last_attempt_ms) as f64;
         let half_life = half_life_ms as f64;
         (-std::f64::consts::LN_2 * elapsed / half_life).exp()
+    }
+
+    /// Apply asymmetric exponential decay to the win and loss accumulators.
+    ///
+    /// Wins use [`WIN_HALF_LIFE_MS`] and losses use [`LOSS_HALF_LIFE_MS`]
+    /// (wins decay 2× slower). This is intentionally cheaper than decaying on
+    /// every update: callers should invoke this only at periodic checkpoints
+    /// (e.g. once per selection cycle) rather than after each `record_attempt`.
+    ///
+    /// The method is a no-op when `elapsed_ms == 0` (idempotent at zero) or
+    /// when `attempts == 0` (nothing to decay). `total_latency_ms` and
+    /// `total_latency_square_ms` are scaled by the win multiplier so that
+    /// the average-latency computation remains consistent with the decayed
+    /// success count.
+    pub fn apply_decay(&mut self, elapsed_ms: u64) {
+        if elapsed_ms == 0 || self.attempts == 0 {
+            return;
+        }
+
+        let elapsed = elapsed_ms as f64;
+
+        // Compute per-component decay multipliers: exp(-ln2 * t / half_life)
+        let win_mult = (-std::f64::consts::LN_2 * elapsed / WIN_HALF_LIFE_MS as f64).exp();
+        let loss_mult = (-std::f64::consts::LN_2 * elapsed / LOSS_HALF_LIFE_MS as f64).exp();
+
+        let old_wins = self.successes as f64;
+        let old_losses = (self.attempts - self.successes) as f64;
+
+        let new_wins = (old_wins * win_mult).max(0.0);
+        let new_losses = (old_losses * loss_mult).max(0.0);
+
+        // Round to nearest integer; guarantee wins <= attempts.
+        self.successes = new_wins.round() as u32;
+        self.attempts = (new_wins + new_losses).round() as u32;
+        // Ensure consistency: successes can never exceed attempts after rounding.
+        if self.successes > self.attempts {
+            self.successes = self.attempts;
+        }
+
+        // Scale latency accumulators proportionally with the win multiplier so
+        // avg_latency_ms stays consistent with the decayed success count.
+        self.total_latency_ms = (self.total_latency_ms as f64 * win_mult).round() as u64;
+        self.total_latency_square_ms = (self.total_latency_square_ms as f64 * win_mult * win_mult).round() as u128;
     }
 
     pub(crate) fn avg_latency_ms(&self) -> f64 {

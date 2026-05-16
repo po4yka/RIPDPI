@@ -862,6 +862,84 @@ fn ech_bucket_pilot_prefers_ech_offset_combo() {
     assert_eq!(combo.split_offset_base, Some(OffsetBase::EchExt));
 }
 
+// ── Asymmetric ArmStats decay (row 103) ──
+
+#[test]
+fn apply_decay_zero_elapsed_is_idempotent() {
+    // elapsed = 0 must leave the struct bit-for-bit identical.
+    let mut stats = ComboStats { attempts: 10, successes: 5, total_latency_ms: 500, ..ComboStats::new() };
+    let before_attempts = stats.attempts;
+    let before_successes = stats.successes;
+    let before_latency = stats.total_latency_ms;
+    stats.apply_decay(0);
+    assert_eq!(stats.attempts, before_attempts, "attempts must be unchanged at elapsed=0");
+    assert_eq!(stats.successes, before_successes, "successes must be unchanged at elapsed=0");
+    assert_eq!(stats.total_latency_ms, before_latency, "latency must be unchanged at elapsed=0");
+}
+
+#[test]
+fn apply_decay_50_50_history_at_loss_half_life_shows_asymmetry() {
+    // With 50 wins and 50 losses, after elapsed = LOSS_HALF_LIFE_MS:
+    //   - Losses halve  → ~25 losses
+    //   - Wins decay by win multiplier (half-life 2×) → wins > 25 (> half of original)
+    // So the win component is strictly greater than the loss component after decay.
+    use crate::strategy_evolver::types::{LOSS_HALF_LIFE_MS, WIN_HALF_LIFE_MS};
+    let _ = WIN_HALF_LIFE_MS; // confirm constant is exported
+
+    let mut stats = ComboStats { attempts: 100, successes: 50, total_latency_ms: 5_000, ..ComboStats::new() };
+    stats.apply_decay(LOSS_HALF_LIFE_MS);
+
+    // Losses after one LOSS_HALF_LIFE: ~50 * 0.5 = 25
+    let decayed_losses = stats.attempts - stats.successes;
+    // Wins after one LOSS_HALF_LIFE (= half of WIN_HALF_LIFE): ~50 * 0.707 ≈ 35
+    // Asymmetry: wins > losses
+    assert!(
+        stats.successes > decayed_losses,
+        "after one loss half-life, win count ({}) must exceed loss count ({}) — asymmetry broken",
+        stats.successes,
+        decayed_losses
+    );
+    // Wins must be strictly greater than half the original (50/2 = 25).
+    assert!(
+        stats.successes > 25,
+        "win component must be > half of original after one LOSS_HALF_LIFE (got {})",
+        stats.successes
+    );
+}
+
+#[test]
+fn apply_decay_repeated_losses_decrease_score_without_zeroing() {
+    // Simulate N successive losses by calling record_attempt + apply_decay in a loop.
+    // The arm must retain a positive fitness score throughout (losses should not
+    // zero out the win-side completely because wins decay much slower).
+    use crate::strategy_evolver::types::LOSS_HALF_LIFE_MS;
+
+    let mut stats = ComboStats { attempts: 20, successes: 20, total_latency_ms: 2_000, ..ComboStats::new() };
+
+    for tick in 1..=10u64 {
+        // Record a failure.
+        stats.record_attempt(false, 5000, None, tick * 1_000, 0, 0);
+        // Apply one LOSS_HALF_LIFE worth of decay each round.
+        stats.apply_decay(LOSS_HALF_LIFE_MS);
+    }
+
+    // After 10 rounds of losses + decay, the score must still be positive.
+    assert!(
+        stats.successes > 0,
+        "successes must remain positive after repeated losses + decay (got {})",
+        stats.successes
+    );
+}
+
+#[test]
+fn apply_decay_no_op_on_zero_attempts() {
+    use crate::strategy_evolver::types::LOSS_HALF_LIFE_MS;
+    let mut stats = ComboStats::new(); // attempts = 0
+    stats.apply_decay(LOSS_HALF_LIFE_MS);
+    assert_eq!(stats.attempts, 0);
+    assert_eq!(stats.successes, 0);
+}
+
 // ── Time-driven evolver semantics: TTL, decay, cooldown ──
 
 #[test]

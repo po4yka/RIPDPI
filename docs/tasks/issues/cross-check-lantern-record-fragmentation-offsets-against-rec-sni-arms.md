@@ -1,7 +1,7 @@
 ---
 title: Cross-check Lantern record-fragmentation offsets against rec_sni arms
 type: task
-status: backlog
+status: done
 area: transport
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-16
 ---
 
-- [ ] #task Cross-check Lantern record-fragmentation offsets against rec_sni arms #repo/RIPDPI #area/transport #status/backlog 🔼
+- [x] #task Cross-check Lantern record-fragmentation offsets against rec_sni arms #repo/RIPDPI #area/transport #status/done 🔼
 
 ## Goal contract
 
@@ -40,12 +40,28 @@ works and RIPDPI does not.
 
 ## Acceptance criteria
 
-- [ ] Lantern's TLS record-fragmentation offsets enumerated with source
+- [x] Lantern's TLS record-fragmentation offsets enumerated with source
     pointers.
-- [ ] Diff against `rec_pre_sni` and `rec_mid_sni` neighborhoods
+- [x] Diff against `rec_pre_sni` and `rec_mid_sni` neighborhoods
     documented (same / subset / superset / disjoint).
-- [ ] Recommendation: widen neighborhood, add a new record-split arm, or
+- [x] Recommendation: widen neighborhood, add a new record-split arm, or
     no change — with expected coverage impact.
+
+## Work log
+
+**2026-05-16** — verify exit 0
+
+```
+cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-desync --test lantern_rec_sni_coverage
+Summary [0.012s] 4 tests run: 4 passed, 0 skipped
+```
+
+Files added:
+- `native/rust/crates/ripdpi-desync/tests/lantern_rec_sni_coverage.rs` — 4 deterministic unit tests
+- `native/rust/crates/ripdpi-desync/docs/lantern_rec_sni_coverage.md` — gap analysis doc
+
+Recommendation: **no change** — `rec_pre_sni` (SniExt+0) already covers Lantern's canonical
+split point; `rec_mid_sni` uses a different base (MidSld) and provides complementary coverage.
 
 ## Links
 
