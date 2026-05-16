@@ -119,8 +119,14 @@ pub trait Probe {
 }
 
 pub mod http_injection;
+pub mod http_response_block;
+pub mod ip_block_suspect;
+pub mod tls_alert;
 
 pub use http_injection::HttpInjectionOfflineProbe;
+pub use http_response_block::HttpResponseBlockOfflineProbe;
+pub use ip_block_suspect::IpBlockSuspectProbe;
+pub use tls_alert::TlsAlertOfflineProbe;
 
 #[cfg(feature = "compat-facade")]
 /// Reserved for re-exports as concrete probes migrate in. Empty today.
