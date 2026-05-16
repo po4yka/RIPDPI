@@ -118,14 +118,18 @@ pub trait Probe {
     fn run(&self, ctx: &ProbeContext) -> ProbeOutcome;
 }
 
+pub mod dns_tampering;
 pub mod http_injection;
 pub mod http_response_block;
 pub mod ip_block_suspect;
+pub mod quic_probe;
 pub mod tls_alert;
 
+pub use dns_tampering::DnsTamperingConfirmationProbe;
 pub use http_injection::HttpInjectionOfflineProbe;
 pub use http_response_block::HttpResponseBlockOfflineProbe;
 pub use ip_block_suspect::IpBlockSuspectProbe;
+pub use quic_probe::QuicProbeOfflineProbe;
 pub use tls_alert::TlsAlertOfflineProbe;
 
 #[cfg(feature = "compat-facade")]
