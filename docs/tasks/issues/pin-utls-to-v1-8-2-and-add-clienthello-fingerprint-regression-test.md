@@ -1,7 +1,7 @@
 ---
 title: Pin uTLS to v1.8.2 and add ClientHello fingerprint regression test
 type: task
-status: backlog
+status: done
 area: transport
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-25
-updated: 2026-04-25
+updated: 2026-05-16
 ---
 
-- [ ] #task Pin uTLS to v1.8.2 and add ClientHello fingerprint regression test #repo/RIPDPI #area/transport #status/backlog 🔼
+- [x] #task Pin uTLS to v1.8.2 and add ClientHello fingerprint regression test #repo/RIPDPI #area/transport #status/done 🔼
 
 ## Goal contract
 
@@ -45,5 +45,27 @@ Pin `refraction-networking/utls` to ≥ v1.8.2 to close the Chrome 120 padding-e
 - Epic: [[Epic - Semantic TLS first-flight family engine]]
 - Research: [[ripdpi-android-research-2026-04-25]] §TLS fingerprinting tooling
 
+
+## Work log
+
+### 2026-05-16
+
+Translated spec intent to Rust workspace (no Go uTLS dependency exists here).
+Added `chrome_120_fingerprint_regression` module to
+`native/rust/crates/ripdpi-tls-profiles/src/tests.rs` with four deterministic
+assertions operating on `ProfileConfig` struct fields — no network I/O, no real
+TLS handshake:
+
+1. `chrome_120_extension_order_family_is_chromium_permuted` — extension order family locked to `chromium_permuted`.
+2. `chrome_120_padding_extension_present_via_non_ech_profile` — `ech_capable` must remain false; size hint in [480, 540] and not 517.
+3. `chrome_120_cipher_suite_order_matches_reference` — TLS 1.2 cipher order, TLS 1.3 cipher list, and curves order frozen.
+4. `chrome_120_frozen_fingerprint_hash_unchanged` — SHA-256 of the pipe-delimited canonical profile string frozen to `ddfaf9775ab79531f803efa416b8f1ccbec4dd1892d1672f6a90664df5b6469f`.
+
+Note: the spec's Go uTLS v1.8.2 dependency pin does not apply to the Rust
+workspace (Go uTLS is not a dependency). The translated intent — a frozen
+fingerprint regression that catches silent profile drift — is fully implemented.
+
+Verify: `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-tls-profiles`
+Result: 24 passed, 0 skipped, exit 0.
 
 ## settings-backup-and-restore

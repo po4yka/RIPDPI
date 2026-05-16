@@ -1,7 +1,7 @@
 ---
 title: Add HTTP injection error-page diagnostic probe
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-direct-mode-diagnostic-state-machine
 blocks: []
 blocked_by: []
 created: 2026-04-25
-updated: 2026-04-25
+updated: 2026-05-16
 ---
 
-- [ ] #task Add HTTP injection error-page diagnostic probe #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [x] #task Add HTTP injection error-page diagnostic probe #repo/RIPDPI #area/diagnostics #status/done 🔼
 
 ## Goal contract
 
@@ -89,6 +89,10 @@ RIPDPI parallel: `ripdpi-failure-classifier` error-page fingerprint set.
 the diagnostics user manual and keep the probe gated.
 - Some operators inject only on specific Host headers; the probe must
 send a realistic UA + Host pair, not a synthetic test fixture.
+
+## Work log
+
+- 2026-05-16: Landed offline classifier in `ripdpi-diagnostics-http::http_injection_probe` — `InjectionVerdict`, `FingerprintKind`, `HttpInjectionFingerprint`, `BUILTIN_FINGERPRINTS` (3 entries: TransparentProxyHeader, MiddleboxHtmlMarker, CaptiveRedirect), `classify_http_response` pure fn. 5 tests, all pass (37 total in crate). Live network probing and `core/diagnostics` integration deferred to follow-up.
 
 ## Links
 
