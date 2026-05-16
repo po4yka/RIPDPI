@@ -91,6 +91,55 @@ To run on-device:
 2. Push to device and set `LD_PRELOAD` for the sanitizer runtime, or
 3. Use Android Gradle plugin `android.defaultConfig.externalNativeBuild` with `arguments "-DANDROID_STL=c++_shared"` and enable HWASan in CMake
 
+### 3a. MTE (Memory Tagging Extension) — Android 14+ on supporting SoCs
+
+MTE is the hardware-accelerated successor to HWASan, available on arm64 Android 14+ with a supporting SoC (Pixel 8+, recent Samsung flagships). Unlike HWASan (software top-byte-ignore), MTE uses dedicated CPU instructions to tag heap allocations and check on access. The runtime cost in production is near-zero in async mode.
+
+#### Activation (no Rust code changes)
+
+In `AndroidManifest.xml`:
+
+```xml
+<application
+    android:memtagMode="async"
+    ... >
+```
+
+Modes:
+- `async` — production-safe. Tag mismatches detected at some delay (typically next syscall); minimal latency cost.
+- `sync` — debug only. Tag mismatches detected at the exact access; higher cost but precise.
+- `off` — explicit disable.
+
+For Rust code, MTE works transparently through bionic's allocator (jemalloc-based on Android). No `RUSTFLAGS`, no `#![cfg_attr(sanitize, ...)]`, no rebuild. The allocator inserts tags; the CPU verifies; mismatches deliver `SIGSEGV` with `si_code = SEGV_MTEAERR` (async) or `SEGV_MTESERR` (sync).
+
+#### Production vs debug trade-off
+
+| Setting | Detection | Latency cost | Use |
+|---------|-----------|--------------|-----|
+| `memtagMode="async"` | Eventually consistent, ~10-100 µs delay | ~3% on benchmarked workloads | Production builds |
+| `memtagMode="sync"` | Exact, at the access | ~15-25% | Internal dogfood, soak tests |
+| HWASan | Exact, at the access | ~15% RAM overhead + ~5% CPU | When MTE hardware not available |
+| ASan | Exact | ~100% RAM + ~50% CPU | Legacy / when HWASan/MTE unavailable |
+
+For RIPDPI: enable `memtagMode="async"` on release builds for arm64-v8a; the cost is well within the 5% size-baseline allowance. Keep HWASan available for CI runs on emulators (which typically don't expose MTE hardware) and for non-Pixel test devices.
+
+#### Detection of MTE-caught crashes
+
+Tombstone analysis: `adb pull /data/tombstones/<latest>` and grep for `MTEAERR` / `MTESERR`. The tombstone includes the tagged address and the access kind (read/write). For Rust-side debugging, pair with `addr2line` on the symbol-bearing build (see `rust-debugging` skill).
+
+#### What MTE catches
+
+Same UB class as HWASan: use-after-free on heap allocations, double-free, buffer overflow into adjacent tagged allocation, type confusion that crosses allocation boundaries. NOT caught: stack-based UAF (different mechanism — Stack-MTE is a separate, less-deployed extension), uninit reads (use MSan or Miri), data races (use TSan or loom).
+
+For RIPDPI's hot-path code with raw pointers (`ripdpi-runtime/platform/linux.rs`, packet parsers using `ptr::read_unaligned`), MTE is the right production-grade safety net once the hardware supports it.
+
+#### Rollout
+
+1. Bump `targetSdkVersion` to 34+ (already done in RIPDPI).
+2. Add `android:memtagMode="async"` to `<application>` in `AndroidManifest.xml`.
+3. Run the full soak suite on a Pixel 8+ to verify no false positives surface.
+4. Ship.
+
 ### 4. Miri -- interpreter for undefined behaviour
 
 > **FFI LIMITATION**: Miri cannot execute `extern "C"`, JNI, libc syscalls, or inline assembly. This means JNI interop crates (`ripdpi-android`, `ripdpi-tunnel-android`) and any code calling libc directly cannot be tested under Miri without stubs. Use `#[cfg(miri)]` to provide mock implementations (see below).

@@ -1,0 +1,57 @@
+## Android VPN Service lifecycle invariants
+
+Android's process model imposes constraints that Rust code rarely encounters elsewhere: `SIGKILL` from LMK with no Drop running, Doze freezer-cgroup suspension, App Standby Buckets demoting Foreground Services, JNI-shutdown deadlocks. This rule documents the invariants that Rust code MUST honor.
+
+### State persistence — assume process death
+
+Low Memory Killer (LMK) terminates the process with `SIGKILL`. NO Drop runs. NO `tokio::runtime::Runtime::shutdown_background()` runs. Any state required across a kill cycle MUST be persisted via:
+
+- A WAL-backed store (`sled`, `sqlite` via `rusqlite`/`sqlx`) — durability is the library's job.
+- For small state (`< 1 KiB`, infrequent updates): `serde_json::to_writer(BufWriter::new(...))` + explicit `fsync` after every significant transition.
+
+`serde_json::to_writer` to a path that contains user data, with NO fsync, is FORBIDDEN. The next LMK kill discards everything.
+
+### Tokio runtime shutdown — avoid the self-deadlock
+
+If a JNI method runs inside a tokio task (via `block_on`), and that method tries to `Runtime::shutdown_background()` on the same runtime, the runtime waits for itself to drain — deadlock. The Mullvad canonical pattern:
+
+1. `Service.onDestroy()` → JNI callback `daemon_shutdown()`.
+2. `daemon_shutdown` sends a `Shutdown` command over an mpsc channel and returns immediately.
+3. The tokio main loop receives `Shutdown`, completes in-flight work, drops the runtime from OUTSIDE a tokio context.
+4. `JNI_OnUnload` then runs cleanly.
+
+NEVER call `runtime.block_on(runtime.shutdown_*)` from a JNI method.
+
+### Foreground Service contract
+
+`startForeground(NOTIFICATION_ID, notification)` MUST be called within 5 seconds of `onStartCommand` returning. The notification MUST be visible (no transparent/blank notifications); Android demotes the service to LMK-eligible if the notification disappears.
+
+Worker threads must set a readable name:
+- pthread: `pthread_setname_np(thread, "ripdpi-...")`.
+- tokio: `Builder::new_multi_thread().thread_name_fn(|| { /* atomic counter + "ripdpi-tokio-worker-N" */ })`.
+
+Unnamed threads in logcat are a debugging tax — enforce naming in `JNI_OnLoad` or runtime construction.
+
+### Doze and App Standby Buckets
+
+With Android 6+ Doze: timer-based alarms via `AlarmManager.setExactAndAllowWhileIdle` may be deferred. WorkManager periodic tasks may be skipped. App Standby Buckets (Android 9+) further demote inactive apps.
+
+Rule: state must be persisted on every significant state transition, NOT on a periodic timer. A timer that misfires loses an hour of policy updates; an event-driven save captures every transition regardless of Doze.
+
+### Signal handling
+
+SIGPIPE is masked in JVM-spawned threads. Tokio threads created via `pthread_create` directly do NOT inherit the mask. Either:
+- Use `tokio::net::TcpStream` which sets `MSG_NOSIGNAL` on writes (Linux) or `SO_NOSIGPIPE` (BSD/macOS — not applicable).
+- Install a process-wide SIGPIPE handler via `nix::sys::signal::signal(Signal::SIGPIPE, SigHandler::SigIgn)` in `JNI_OnLoad`.
+
+A panic that originates from an unhandled SIGPIPE crashes the entire process and is invisible in logcat past the JNI_OnUnload boundary.
+
+### Process death simulation in tests
+
+CI matrix MUST include `adb shell am kill <package>` mid-session and verify the next session reconstructs state correctly. Without this, persistence regressions ship unnoticed.
+
+### Cross-references
+
+- `rust-async-internals` skill — JNI-to-async bridge canonical pattern.
+- `rust-android-jni` skill — JNI panic safety and pthread setname.
+- `network-fingerprint-privacy.md` rule — state that must survive kill includes per-network policy.

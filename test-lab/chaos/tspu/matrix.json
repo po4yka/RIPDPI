@@ -35,6 +35,34 @@
       }
     }
   ],
+  "combinations": [
+    {
+      "id": "tcp-sni-and-mtu",
+      "description": "Per-packet TCP TSPU: RST on SNI, ClientHello rewrite, and oversize-packet drop are all on at once.",
+      "patterns": ["rst-after-sni-match", "sni-replace", "mtu-clamp"]
+    },
+    {
+      "id": "quic-strict",
+      "description": "QUIC-side TSPU pessimistic: Initial drop plus IP blackhole after 1000 bytes.",
+      "patterns": ["quic-initial-drop", "ip-blackhole-after-n-bytes"]
+    },
+    {
+      "id": "all-tcp-and-blackhole",
+      "description": "Defense-in-depth on the TCP path: every TCP-side pattern plus the byte-budget blackhole.",
+      "patterns": ["rst-after-sni-match", "sni-replace", "ip-blackhole-after-n-bytes", "mtu-clamp"]
+    },
+    {
+      "id": "all-five",
+      "description": "Worst-case adversary: every v1.1 pattern active simultaneously.",
+      "patterns": [
+        "rst-after-sni-match",
+        "quic-initial-drop",
+        "sni-replace",
+        "ip-blackhole-after-n-bytes",
+        "mtu-clamp"
+      ]
+    }
+  ],
   "desync_modes": [
     "split_offset_3_chlo",
     "tlsrandrec_profile_a",

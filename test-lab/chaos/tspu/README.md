@@ -78,9 +78,33 @@ will wire it into the `ripdpi-lab` self-hosted runner pool.
 `blocked` cells gate PRs that touch `ripdpi-desync`; `inconclusive` cells do
 not. See the design spike for the contract details.
 
-## Not in v1.1
+## Combination matrices
 
-- Real-time nfqueue wiring exercised in CI (lands in the live-mode follow-up).
+`matrix.json` also defines a `combinations` array. Each entry lists
+member `patterns` by id; the runner OR-joins their classifications. A
+combination cell is `blocked` if any member pattern matches, otherwise
+`bypassed`. The cell records `combination_member_ids` and
+`matched_pattern_ids` in `evidence` so triage knows which adversary
+within the combination fired.
+
+Shipped combinations:
+
+| id | semantics |
+|---|---|
+| `tcp-sni-and-mtu` | TCP-side TSPU running RST-on-SNI + ClientHello-rewrite + MTU-clamp simultaneously. |
+| `quic-strict` | QUIC-side pessimistic: Initial drop + IP blackhole after 1000 bytes. |
+| `all-tcp-and-blackhole` | Defense-in-depth on the TCP path: every TCP-touching pattern plus the byte-budget blackhole. |
+| `all-five` | Worst-case adversary: every v1.1 pattern active simultaneously. |
+
+Combinations expand the matrix to 7 desync modes × (5 patterns + 4
+combinations) = 63 cells. The matrix-runner reports per-cell verdicts
+plus the same totals.
+
+## Not in v1.x
+
+- Real-time nfqueue wiring exercised against synthetic outbound traffic
+  is in CI under `tspu-live`; bringing in *real* internet-facing
+  carriers belongs to the Phase-16 real-provider spike.
 - Generator-driven sampling across the 7-dim desync space (separate spike).
-- Stateful per-flow tracking across multiple SrcPort/DstPort tuples — the
-  dry-run runner treats each fixture as a single flow.
+- Stateful per-flow tracking across multiple SrcPort/DstPort tuples —
+  the dry-run runner treats each fixture as a single flow.

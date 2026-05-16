@@ -395,3 +395,107 @@ If a Rust-native uTLS equivalent emerges (a port of utls to rustls or a ClientHe
 - `ws-tunnel-telegram` — the WS-over-TLS tunnel consumes the same TLS fingerprint profiles and shares the 517-byte invariant concern.
 - `rust-panic-safety` — desync execution paths must handle all panic cases at the JNI boundary; `ripdpi-desync` errors are typed via `thiserror`.
 - `rust-io-loop` — UDP desync interacts with the tunnel io_loop; when adding UDP fake-packet injection, consult the io_loop skill for the correct integration point.
+
+## TLS ClientHello semantic markers
+
+When implementing offset bases like `host`, `endhost`, `midsld`, `sniext`, `extlen`, the parser must locate fields in the ClientHello byte layout per RFC 8446 §4.1.2. The byte structure after the TLS record header (5 bytes) and handshake header (4 bytes) is:
+
+```
+ClientHello {
+    legacy_version              (2)
+    random                     (32)
+    legacy_session_id_len       (1)
+    legacy_session_id        (0..32)
+    cipher_suites_len           (2)
+    cipher_suites               (variable)
+    legacy_compression_len      (1)
+    legacy_compression          (variable)
+    extensions_len              (2)    // <- `extlen` marker location
+    extensions                  (variable)
+}
+```
+
+Inside `extensions`, each entry is `ExtensionType (2) + ExtensionData_len (2) + ExtensionData`. The `server_name` extension (`ExtensionType=0`) wraps a `ServerNameList`:
+
+```
+server_name_extension {
+    list_len                    (2)
+    ServerNameList [
+        NameType (1)            // 0 for HostName
+        HostName_len (2)
+        HostName (variable)     // <- `host` marker starts here
+                                // <- `endhost` marker ends here
+                                // <- `midsld` = host_start + sld_offset + sld_len/2
+    ]
+}
+```
+
+Specific marker offsets:
+- `host` — first byte of the `HostName` payload inside the `server_name` extension.
+- `endhost` — byte AFTER the last byte of `HostName`.
+- `midsld` — middle byte of the second-level domain (the part to the left of the final dot). For `www.google.com`, `sld = "google"`, so `midsld` is at `host_offset + len("www.") + len("goo") = host_offset + 7`.
+- `sniext` — first byte of the `server_name` extension header (i.e. the `ExtensionType` byte = 0x00).
+- `extlen` — the 2-byte `extensions_length` field that immediately precedes the extensions array.
+
+### Parser edge cases
+
+The parser MUST handle:
+
+- **GREASE extensions** (RFC 8701). Random extension types like `0x0a0a`, `0x1a1a`, ... appear sprinkled across the ClientHello. They contain no useful data but must not cause the parser to abort. Skip unknown ExtensionType values, do not error.
+- **Encrypted ClientHello (ECH, RFC 9460).** When the outer ClientHello contains `encrypted_client_hello` extension (type `0xfe0d`), the outer SNI is the ECH config's `public_name` and the real SNI is encrypted inside. Split-position manipulation on the OUTER SNI is bypass-useless (DPI sees only the public_name; no censored domain to match) and breaks 0-RTT. Detection: if `encrypted_client_hello` is present, skip all SNI-based desync strategies and fall back to QUIC Initial manipulation or transport-level desync.
+- **ALPN extension (`application_layer_protocol_negotiation`, type 16).** Split positions MUST NOT fall inside this extension; servers reject ClientHello with a malformed ALPN. The planner should compute ALPN's byte range and reject candidate offsets that intersect.
+- **TLS 1.3 `pre_shared_key` extension.** Must be the LAST extension per RFC 8446 §4.2.11. A split that crosses its boundary (e.g., splits after the second-to-last extension's end and before `pre_shared_key`'s start) breaks 0-RTT — the server is required to fall back to 1-RTT, losing the early-data savings. Detection: if `pre_shared_key` is the last extension, treat all candidate offsets after its start as 0-RTT-breaking.
+
+### Implementation pointer
+
+For reference parser behavior, use `rustls::internal::msgs::*` (rustls v0.23+) — it's the gold standard for correctness. For RIPDPI's hot-path parser, write a zero-allocation byte parser that returns only the marker offsets, NOT a full struct. The `tls-parser` crate (Rusticata) is a third-party reference.
+
+## Fake-TTL / fakeddisorder boundary in proxy-mode vs TUN-mode
+
+The single most common LLM misconception about RIPDPI's `fake`, `fakeddisorder`, `fakedsplit`, `ttl=N` chain steps: they do NOT work uniformly across deployment modes. The boundary is determined by who writes the IP-level header bytes.
+
+### TUN-mode (RIPDPI as VPN)
+
+Rust writes raw IP packets directly to the `tun_fd`. The IP header — including `TTL` (IPv4) or `Hop Limit` (IPv6) — is constructed by Rust. The kernel does NOT rewrite these fields on the path TUN→app→socket, because that path is loopback; the bytes leave Android only when the user-space proxy code subsequently sends them to a real network socket.
+
+In TUN-mode, fake-TTL works when:
+
+- RIPDPI runs in VPN-mode and writes packets directly to TUN with custom TTL.
+- The packet's NEXT HOP after leaving the device kernel honors the original TTL (no transparent proxy / no NAT-helper that normalizes TTL — rare on consumer ISPs in TSPU-affected regions, but possible).
+
+### Proxy-mode (RIPDPI as local SOCKS5)
+
+Rust uses ordinary `TcpStream::connect` / `UdpSocket` / `mio::net::*` against an upstream SOCKS5 server. The kernel constructs the IP header. `setsockopt(IP_TTL, 4)` is honored at packet construction, BUT only on the LOCAL host's egress. If you set `IP_TTL=4` on a `TcpStream` whose remote is a SOCKS5 server hop away, the kernel emits packets with TTL=4 — which are dropped before reaching the SOCKS5 server.
+
+In proxy-mode, the "fake-TTL" pattern that actually works is TWO sockets to the same remote:
+
+```rust
+// Decoy socket: short-TTL fake packet to poison DPI's reassembly.
+let mut decoy = TcpStream::connect(remote)?;
+decoy.set_ttl(4)?;
+decoy.write_all(&fake_client_hello)?;
+// Decoy is dropped/RST before reaching the real server.
+
+// Real socket: full-TTL, real payload.
+let mut real = TcpStream::connect(remote)?;
+real.set_ttl(64)?;
+real.write_all(&real_client_hello)?;
+```
+
+This is `fakeddisorder` reframed for userspace: two TCP flows to the same `(remote, port)` from the same local IP+ephemeral-port pair are typically impossible (the kernel enforces 4-tuple uniqueness), so you need two separate ephemeral source ports. The DPI sees TWO flows and reassembles each independently; the decoy poisons the DPI's view if it inspects per-tuple, or has no effect if it inspects per-destination.
+
+### Forbidden assumptions for LLM-generated code
+
+The following are LLM mis-assumptions that produce code which compiles but does not bypass DPI:
+
+- `IP_TTL=4` on a single TCP socket in proxy-mode "splits" or "decoys" anything. It does not — it just creates a flow whose packets die in transit.
+- The kernel honors TTL set via `socket(2)` for packets to local SOCKS5. Yes, it does — but the SOCKS5 server is one hop away, and the packets die there. The DPI between the SOCKS5 server and the actual remote is on a path RIPDPI doesn't control. fake-TTL targeted at THAT DPI requires raw socket access (`CAP_NET_RAW`), which Android apps do not have.
+- Mixing TUN-mode TTL semantics with proxy-mode socket TTL semantics in the same chain. Validate which mode the chain runs in BEFORE selecting strategy.
+
+### Audit rule
+
+For any new `TcpChainStep` / `UdpChainStep` whose kind references TTL, fake packets, or fakeddisorder, the planner MUST check that the runtime context's mode (`TUN` vs `Proxy`) is compatible. In proxy-mode, single-socket TTL manipulation is a no-op or actively harmful (kills the only flow); reject the strategy or transparently rewrite to two-socket-decoy. Document the choice in the strategy's rustdoc comment.
+
+### Reference
+
+Terminology was renamed in zapret v69: `split` → `fakedsplit`, `disorder` → `fakeddisorder`, plus `multisplit` / `multidisorder` with N split positions. The byedpi project (`hufrea/byedpi`) provides a userspace implementation reference for proxy-mode techniques. The bol-van/zapret project (kernel-level via nfqueue) provides the canonical TUN-mode reference. RIPDPI's `desync_engine` should match one or the other unambiguously per chain step.

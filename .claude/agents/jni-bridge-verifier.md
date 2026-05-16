@@ -89,6 +89,48 @@ A new `JNI_OnLoad` or `Java_*` method without panic containment is a CRITICAL fi
 - `block_on()` not called from within an async context (deadlock)
 - CancellationToken wired from Java lifecycle to Rust async tasks
 
+### VpnService.protect() invariant (CRITICAL)
+Every outbound socket constructed in Rust whose target is NOT `127.0.0.1` / `[::1]` MUST be preceded by a `protect_socket(fd)` call that talks to Kotlin's `VpnService.protect()`. The two valid implementations are UDS+SCM_RIGHTS (preferred for high socket churn) and direct JNI callback to a stored `GlobalRef<VpnService>`. Without protect, every such socket enters an infinite packet-routing loop into the TUN device the VPN itself owns.
+
+Audit recipe:
+```bash
+rg "TcpStream::connect|UdpSocket::bind|mio::net::TcpSocket::connect|tokio::net::TcpStream::connect" \
+   native/rust/crates/ripdpi-runtime/ \
+   native/rust/crates/ripdpi-dns-resolver/ \
+   native/rust/crates/ripdpi-ws-tunnel/ \
+   --type rust -n
+```
+For each hit, walk up the call chain. If the target is loopback (127.0.0.1, [::1], or matched by the SOCKS5 local-bind address constants), accept silently. Otherwise verify a `protect_socket` / `vpn_protect` / equivalent call precedes it. Missing protect = CRITICAL.
+
+Forbidden alternative: `NetdClient.h::protectFromVpn` is NOT part of the NDK ABI. Flag any reference as CRITICAL.
+
+Reference: `.claude/rules/vpnservice-protect-invariant.md`.
+
+### Forbidden JNI escape patterns (CRITICAL)
+LLM-generated diffs frequently "fix" `JNIEnv` lifetime errors with one of these patterns. All are CRITICAL findings:
+
+- `Box::leak(Box::new(env))` or any `Box::leak` on a `JNIEnv` / `EnvUnowned` / `AttachGuard` value.
+- `std::mem::transmute::<JNIEnv<'_>, JNIEnv<'static>>` or any `transmute` whose source or target type contains `JNIEnv`.
+- Capturing `&mut JNIEnv` / `JNIEnv<'_>` inside a `tokio::spawn(async move { ... })` closure.
+- Casting `JNIEnv` via raw pointer (`as *mut _`) to extend its lifetime.
+
+Correct pattern: extract data from `env` synchronously, drop `env`, then spawn. The spawned task attaches its own thread via `vm.attach_current_thread()`.
+
+Grep audit:
+```bash
+rg "Box::leak|mem::transmute" native/rust/crates/ripdpi-*android* --type rust -n
+```
+Cross-check each hit against context — if `JNIEnv` is anywhere in scope, flag CRITICAL.
+
+### Blocking I/O on tun_fd (CRITICAL)
+Blocking `read(2)` / `write(2)` directly on `tun_fd` from a tokio worker thread stalls the runtime. Verify all tun_fd reads go through `tokio::io::unix::AsyncFd::new(tun_fd)?.readable().await` (or `writable`) OR a `tokio::task::spawn_blocking` boundary. Bare `std::io::Read::read(&mut tun_file, &mut buf)` from inside a tokio async function is CRITICAL.
+
+Pattern audit:
+```bash
+rg "AsyncFd|spawn_blocking|tun_fd" native/rust/crates/ripdpi-tunnel-* --type rust -n
+```
+For every site that touches `tun_fd`, confirm it goes through `AsyncFd` or `spawn_blocking`.
+
 ## Response Protocol
 
 Return to main context ONLY:

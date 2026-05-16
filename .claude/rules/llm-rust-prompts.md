@@ -39,6 +39,8 @@ No exceptions. The reviewer pass costs minutes; an unaudited bug from this list 
 
 Skim AI-generated Rust diffs first for these patterns. Each one is a 70%+ predictor of a bug below:
 
+**Generic Rust:**
+
 - `<'a>` appearing in both a function parameter and a `&mut` collection in the same signature → lifetime laundering risk.
 - `std::sync::Mutex` in async code → near-certain deadlock under load.
 - `ptr::read(buf.as_ptr() as *const T)` on `buf: &[u8]` → near-certain ARM64 UB.
@@ -46,6 +48,19 @@ Skim AI-generated Rust diffs first for these patterns. Each one is a 70%+ predic
 - `impl<T: ...> PubTrait for T` in a `pub` API → semver hazard.
 - `tokio::select!` arm calling a function with no cancel-safety annotation → audit the awaits inside.
 - `commit().await?` on a transaction with no explicit rollback path on commit-failure → blocking Drop in async context.
+
+**Android-specific (RIPDPI niche):**
+
+- `TcpStream::connect` / `UdpSocket::bind` / `mio::net::*` in non-loopback Rust code without a preceding `protect_socket(fd)` call → near-certain packet routing loop into TUN. See `vpnservice-protect-invariant.md`.
+- `Box::leak`, `mem::transmute`, or raw pointer cast applied to a `JNIEnv` / `EnvUnowned` / `AttachGuard` value → LLM "fix" for a lifetime error; reject.
+- `&mut JNIEnv` captured in a `tokio::spawn(async move { ... })` closure → compile error at best, UB through unsafe escape at worst.
+- Bare `std::io::Read::read(tun_file, ...)` inside an `async fn` (no `AsyncFd` wrapper, no `spawn_blocking`) → tokio runtime stall.
+- `tracing::event!` / `tracing::span!` / `log::info!` on a per-packet / per-byte code path → ~3 µs/event JNI overhead is a measurable CPU bottleneck at 1 Gbps.
+- Logging containing raw `BSSID`, `IMEI`, `IMSI`, `SSID`, or any device IP (other than the SHA-256 scope hash) → privacy violation, Play Store Data Safety regression.
+- `addAddress` chain on `VpnService.Builder` without a matching `addRoute`, or `setMtu(1500)` without justification (cellular MTU is < 1500) → broken VPN tunnel.
+- `RIPDPI_BLESS_GOLDENS=1` in a shell command issued by the model → ALWAYS reject. See `golden-bless-discipline.md`.
+- `NetdClient.h::protectFromVpn` reference → non-ABI API, breaks between Android releases.
+- `serde_json::to_writer` to a path under `~/data` or `/data/data/.../files` without an explicit `fsync` call → state loss on LMK SIGKILL.
 
 ### Multi-model orchestration
 
