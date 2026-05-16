@@ -189,6 +189,18 @@ class X25519KeyShare : public SSLKeyShare {
     return true;
   }
 
+  bool CopyPrivateKeyBytes(uint8_t *out, size_t *out_len) const override {
+    if (out == nullptr || out_len == nullptr || *out_len < sizeof(private_key_)) {
+      if (out_len != nullptr) {
+        *out_len = sizeof(private_key_);
+      }
+      return false;
+    }
+    OPENSSL_memcpy(out, private_key_, sizeof(private_key_));
+    *out_len = sizeof(private_key_);
+    return true;
+  }
+
  private:
   uint8_t private_key_[32];
 };
@@ -535,4 +547,29 @@ const char *SSL_get_group_name(uint16_t group_id) {
 size_t SSL_get_all_group_names(const char **out, size_t max_out) {
   return GetAllNames(out, max_out, Span<const char *const>(), &NamedGroup::name,
                      Span(kNamedGroups));
+}
+
+// SSL_handshake_get_x25519_private_key extracts the X25519 private key from
+// the first matching key_share entry on the current handshake of |ssl|. It is
+// valid only between ssl_setup_key_shares() and the destruction of the
+// handshake object inside add_message() (i.e., from inside the
+// SSL_CTX_set_client_hello_cb callback). Returns 1 on success and 0 if no
+// X25519 key share exists, the handshake is not active, or the key has
+// already been wiped. Used by the Reality TLS hook — see
+// docs/design/reality-boringssl-patch.md.
+int SSL_handshake_get_x25519_private_key(const SSL *ssl, uint8_t out[32]) {
+  if (ssl == nullptr || out == nullptr || ssl->s3 == nullptr ||
+      !ssl->s3->hs) {
+    return 0;
+  }
+  for (auto &share : ssl->s3->hs->key_shares) {
+    if (!share || share->GroupID() != SSL_GROUP_X25519) {
+      continue;
+    }
+    size_t out_len = 32;
+    if (share->CopyPrivateKeyBytes(out, &out_len) && out_len == 32) {
+      return 1;
+    }
+  }
+  return 0;
 }

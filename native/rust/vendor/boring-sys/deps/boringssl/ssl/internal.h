@@ -943,6 +943,18 @@ class SSLKeyShare {
   // DeserializePrivateKey initializes the state of the key exchange from |in|,
   // returning true if successful and false otherwise.
   virtual bool DeserializePrivateKey(CBS *in) { return false; }
+
+  // CopyPrivateKeyBytes copies the raw private key bytes for this key share
+  // into |out|. On entry, |*out_len| is the capacity of |out|; on success it
+  // is updated to the number of bytes written. Returns true on success and
+  // false otherwise. The default implementation returns false; only key
+  // shares whose private representation is a fixed-length byte string
+  // override it (currently only X25519). This is used by the Reality TLS
+  // hook (`SSL_handshake_get_x25519_private_key`) — see
+  // docs/design/reality-boringssl-patch.md.
+  virtual bool CopyPrivateKeyBytes(uint8_t *out, size_t *out_len) const {
+    return false;
+  }
 };
 
 struct NamedGroup {
@@ -3856,6 +3868,18 @@ struct ssl_ctx_st : public bssl::RefCounted<ssl_ctx_st> {
                        const void *buf, size_t len, SSL *ssl,
                        void *arg) = nullptr;
   void *msg_callback_arg = nullptr;
+
+  // client_hello_cb, if non-null, is invoked from the client after the
+  // ClientHello body has been serialized into the outgoing handshake
+  // message buffer, but before that buffer is appended to the transcript
+  // hash and flushed to the wire. The callback may mutate |msg| in place;
+  // |msg_len| includes the 4-byte handshake header. Returning 1 continues
+  // the handshake; returning 0 aborts it with a handshake-failure alert.
+  // Used by the Reality TLS hook — see
+  // docs/design/reality-boringssl-patch.md.
+  int (*client_hello_cb)(SSL *ssl, uint8_t *msg, size_t msg_len,
+                         void *arg) = nullptr;
+  void *client_hello_cb_arg = nullptr;
 
   int verify_mode = SSL_VERIFY_NONE;
   int (*default_verify_callback)(int ok, X509_STORE_CTX *ctx) =

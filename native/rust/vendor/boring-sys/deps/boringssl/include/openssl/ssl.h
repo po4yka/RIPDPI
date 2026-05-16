@@ -5197,6 +5197,26 @@ OPENSSL_EXPORT uint16_t SSL_get_peer_signature_algorithm(const SSL *ssl);
 OPENSSL_EXPORT int SSL_set_client_random(SSL *ssl, const uint8_t *random,
                                          size_t random_len);
 
+// SSL_handshake_get_x25519_private_key copies the 32-byte X25519 private key
+// associated with the current handshake's first X25519 key_share entry into
+// |out|. It returns 1 on success and 0 if no X25519 key share is active, the
+// handshake is not in progress, or the key has already been wiped. Valid only
+// from inside a |SSL_CTX_set_client_hello_cb| callback. Used by the Reality
+// TLS hook — see docs/design/reality-boringssl-patch.md.
+OPENSSL_EXPORT int SSL_handshake_get_x25519_private_key(const SSL *ssl,
+                                                        uint8_t out[32]);
+
+// SSL_CTX_set_client_hello_cb installs a callback that fires inside
+// |ssl_add_client_hello| after the ClientHello body has been serialized but
+// before it is appended to the handshake transcript. The callback may mutate
+// |msg| in place; |msg_len| includes the 4-byte handshake header. Returning
+// 1 continues the handshake; returning 0 aborts it with a handshake-failure
+// alert. Used by the Reality TLS hook to inject a sealed session_id into a
+// fresh ClientHello — see docs/design/reality-boringssl-patch.md.
+OPENSSL_EXPORT void SSL_CTX_set_client_hello_cb(
+    SSL_CTX *ctx,
+    int (*cb)(SSL *ssl, uint8_t *msg, size_t msg_len, void *arg), void *arg);
+
 // SSL_get_client_random writes up to |max_out| bytes of the most recent
 // handshake's client_random to |out| and returns the number of bytes written.
 // If |max_out| is zero, it returns the size of the client_random.

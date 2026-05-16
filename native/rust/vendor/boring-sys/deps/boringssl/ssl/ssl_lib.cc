@@ -2807,6 +2807,17 @@ void SSL_set_msg_callback_arg(SSL *ssl, void *arg) {
   ssl->msg_callback_arg = arg;
 }
 
+void SSL_CTX_set_client_hello_cb(SSL_CTX *ctx,
+                                 int (*cb)(SSL *ssl, uint8_t *msg,
+                                           size_t msg_len, void *arg),
+                                 void *arg) {
+  if (ctx == nullptr) {
+    return;
+  }
+  ctx->client_hello_cb = cb;
+  ctx->client_hello_cb_arg = arg;
+}
+
 void SSL_CTX_set_keylog_callback(SSL_CTX *ctx,
                                  void (*cb)(const SSL *ssl, const char *line)) {
   ctx->keylog_callback = cb;

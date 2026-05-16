@@ -2,6 +2,7 @@ pub mod addons;
 pub mod config;
 pub mod mux;
 pub mod reality;
+pub(crate) mod reality_seal;
 pub mod vision;
 pub mod wire;
 

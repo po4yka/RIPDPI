@@ -159,23 +159,19 @@ where
     Ok(tls_stream)
 }
 
-/// Build the 32-byte Reality session_id.
+/// Build the 32-byte Reality session_id (legacy, non-interoperable path).
 ///
-/// Format:
-/// ```text
-/// [version(3B: 0x00,0x00,0x01)]
-/// [reserved(1B: 0x00)]
-/// [unix_timestamp_secs(4B BE)]
-/// [short_id padded to 8B]
-/// [ephemeral_public_key first 16B]
-/// ```
-///
-/// The first 16 bytes are encrypted with AES-128-ECB using `auth_key[0..16]`
-/// derived from ECDH + HKDF.
-///
-/// `client_random` must be the 32-byte ClientHello random that was (or will be)
-/// injected into the TLS ClientHello. The HKDF salt is `client_random[20..]`
-/// (the last 12 bytes) per the xray-core Reality specification.
+/// **This function is known broken against real xray-core Reality
+/// servers** and is preserved only because the live handshake path
+/// has no replacement until the BoringSSL `key_share` extraction work
+/// in `docs/design/reality-boringssl-patch.md` (audit finding H1)
+/// lands. The spec-conformant crypto primitive is implemented in
+/// [`crate::reality_seal::seal_session_id`] (audit findings C1 + C2);
+/// once H1 plumbs the TLS key_share private key through the
+/// BoringSSL callback, the live path can call that function and this
+/// one will be removed. See the audit document for the three
+/// non-interoperability points (wrong HKDF salt direction, wrong
+/// cipher, wrong ECDH partner key).
 fn build_reality_session_id(config: &VlessRealityConfig, client_random: &[u8; 32]) -> io::Result<[u8; 32]> {
     // 1. Generate ephemeral X25519 keypair
     let ephemeral_secret = EphemeralSecret::random();

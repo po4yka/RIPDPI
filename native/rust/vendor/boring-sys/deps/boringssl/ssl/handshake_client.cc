@@ -245,6 +245,18 @@ bool ssl_add_client_hello(SSL_HANDSHAKE *hs) {
     }
   }
 
+  // Reality TLS hook: allow a registered callback to mutate the serialized
+  // ClientHello body before it enters the transcript hash and the record
+  // flight. The callback is invoked unconditionally; if none is set on the
+  // SSL_CTX, this is a no-op. See docs/design/reality-boringssl-patch.md.
+  if (ssl->ctx->client_hello_cb != nullptr) {
+    if (ssl->ctx->client_hello_cb(ssl, msg.data(), msg.size(),
+                                  ssl->ctx->client_hello_cb_arg) != 1) {
+      OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
+      return false;
+    }
+  }
+
   return ssl->method->add_message(ssl, std::move(msg));
 }
 
