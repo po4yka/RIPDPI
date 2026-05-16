@@ -633,6 +633,23 @@ Heavier infrastructure work tracked as a single design spike under
 the spike unblocks three separate implementation issues. Listed here so
 they are not silently forgotten.
 
+**TSPU adversarial emulator v1 landed.** Dry-run path is verifiable on any
+host:
+
+```bash
+cd test-lab/chaos/tspu
+python3 -m runner.cli dry-run \
+  --matrix matrix.json --fixtures fixtures --out-dir /tmp/tspu-dryrun-v1
+python3 -m unittest discover -s tests
+```
+
+The live `nfqueue` mode is documented in
+[`test-lab/chaos/tspu/README.md`](../test-lab/chaos/tspu/README.md) and
+follows in a separate PR. The generator-driven packet-smoke and
+real-provider Phase-16 spikes are still open; design docs live under
+`docs/architecture/spike-generator-packet-smoke.md` and
+`docs/architecture/spike-phase16-real-provider.md`.
+
 - **Adversarial TSPU emulator in `test-lab/chaos/`.** Today `chaos/` ships
   Toxiproxy + netem for loss/latency/jitter; it does not reproduce the
   RU-TSPU behaviour set (RST-injection on SNI, blackhole after N bytes,
