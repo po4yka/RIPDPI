@@ -2,14 +2,19 @@
 
 #![forbid(unsafe_code)]
 
+pub mod coarse_payload;
+pub mod jitter;
 pub mod manifest;
 pub mod parser;
+pub mod uploader;
 
 use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
-pub use manifest::{is_production_key_set, ManifestError, SharedPriorsManifest, SHARED_PRIORS_PUB_KEY};
-pub use parser::SharedPriorsError;
+pub use {
+    manifest::{is_production_key_set, ManifestError, SharedPriorsManifest, SHARED_PRIORS_PUB_KEY},
+    parser::SharedPriorsError,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PriorParams {

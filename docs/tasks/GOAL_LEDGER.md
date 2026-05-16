@@ -139,7 +139,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 116 | P7 | `install-cloudflare-binaries-once-per-abi-and-version`<br>Install Cloudflare binaries once per ABI and version | task | `epic-cloudflare-publish-hardening` | relay | 🔼 | TODO | |
 | 117 | P7 | `limit-dns-measurement-to-user-requested-destinations`<br>Limit DNS measurement to user-requested destinations | task | `epic-encrypted-dns-and-https-svcb-classifier` | dns | 🔼 | TODO | |
 | 118 | P7 | `epic-encrypted-dns-and-https-svcb-classifier`<br>Epic - Encrypted DNS and HTTPS SVCB classifier | epic | `—` | dns | 🔺 | TODO | |
-| 119 | P7 | `opt-in-shared-priors-with-coarse-keys-only`<br>Opt-in shared priors with coarse keys only | task | `epic-privacy-preserving-strategy-learner` | service | 🔼 | TODO | |
+| 119 | P7 | `opt-in-shared-priors-with-coarse-keys-only`<br>Opt-in shared priors with coarse keys only | task | `epic-privacy-preserving-strategy-learner` | service | 🔼 | DONE | `cargo nextest run -p ripdpi-shared-priors` exit 0 (25/25 tests pass); CoarseKey type-enforced (5 fields), default-off OptInUploader, JitterScheduler in [60s,3600s]; live upload + Kotlin UI deferred |
 | 120 | P7 | `per-session-cloudflarepublishruntime-instances`<br>Per-session CloudflarePublishRuntime instances | task | `epic-cloudflare-publish-hardening` | relay | 🔼 | TODO | |
 | 121 | P7 | `epic-cloudflare-publish-hardening`<br>Epic - Cloudflare publish hardening | epic | `—` | relay | ⏫ | TODO | |
 | 122 | P7 | `persist-direct-mode-policy-with-revalidation`<br>Persist direct-mode policy with revalidation | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | 🔼 | TODO | |

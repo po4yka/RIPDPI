@@ -1,7 +1,7 @@
 ---
 title: Opt-in shared priors with coarse keys only
 type: task
-status: backlog
+status: done
 area: service
 priority: medium
 owner: unassigned
@@ -9,10 +9,22 @@ parent: epic-privacy-preserving-strategy-learner
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-05-16
 ---
 
-- [ ] #task Opt-in shared priors with coarse keys only #repo/RIPDPI #area/service #status/backlog 🔼
+- [x] #task Opt-in shared priors with coarse keys only #repo/RIPDPI #area/service #status/done 🔼
+
+## Work log
+
+- 2026-05-16: Pure-Rust scaffolding in `ripdpi-shared-priors`:
+  `CoarseKey { asn, access_type, dns_class, udp443_ok, fail_phase }`
+  (only 5 coarse fields; type-system enforced), `CoarsePayload`,
+  `OptInUploader` (default off; rejects submit with NotOptedIn unless
+  explicitly opted in), and `JitterScheduler` (uniform delay in
+  [60 s, 3600 s] via rand::RngExt). Live network upload + Kotlin
+  UI hookup deferred.
+- Verify: `cargo nextest run -p ripdpi-shared-priors` — exit 0,
+  25/25 tests pass.
 
 ## Goal contract
 
