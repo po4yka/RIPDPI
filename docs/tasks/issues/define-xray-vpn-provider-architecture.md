@@ -1,7 +1,7 @@
 ---
 title: Define Xray VPN provider architecture
 type: task
-status: todo
+status: done
 area: outbound
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-16
 ---
 
-- [ ] #task Define Xray VPN provider architecture #repo/RIPDPI #area/outbound #status/todo ⏫
+- [x] #task Define Xray VPN provider architecture #repo/RIPDPI #area/outbound #status/done ⏫
 
 ## Goal contract
 
@@ -39,15 +39,15 @@ Plan reference: [[ripdpi-android-xray-provider-plan-2026-04-24]].
 
 ## Acceptance criteria
 
-- [ ] Provider model names the first supported provider kinds and the state
+- [x] Provider model names the first supported provider kinds and the state
     transitions shared by native RIPDPI and Xray paths.
-- [ ] Decision recorded for first tunnel topology: existing TUN-to-local-Xray
+- [x] Decision recorded for first tunnel topology: existing TUN-to-local-Xray
     inbound versus direct `libXray.SetTunFd`, with explicit tradeoffs.
-- [ ] Required Kotlin/Rust/Go wrapper module boundaries are listed with owners:
+- [x] Required Kotlin/Rust/Go wrapper module boundaries are listed with owners:
     `:core:service`, `:core:engine`, and any generated Xray adapter module.
-- [ ] Socket-protection, DNS-loop avoidance, telemetry, readiness, and stop
+- [x] Socket-protection, DNS-loop avoidance, telemetry, readiness, and stop
     semantics are described before implementation tasks start.
-- [ ] The architecture doc links back to the epic and avoids storing endpoints,
+- [x] The architecture doc links back to the epic and avoids storing endpoints,
     credentials, or sample live configs.
 
 ## Notes

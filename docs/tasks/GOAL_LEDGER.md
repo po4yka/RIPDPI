@@ -62,7 +62,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 39 | P3 | `add-versioned-backup-json-schema-with-redaction-allowlist`<br>Add versioned backup JSON schema with redaction allowlist | task | `epic-settings-backup-and-restore` | data | ⏫ | DONE | just test-module core:data (exit 0) |
 | 40 | P3 | `add-wireguard-ini-subscription-parser`<br>Add WireGuard INI subscription parser | task | `epic-subscription-profile-import` | outbound | ⏫ | DONE | |
 | 41 | P3 | `bridge-tun-traffic-through-xray-local-inbound`<br>Bridge TUN traffic through Xray local inbound | task | `epic-xray-provider-mode` | outbound | ⏫ | TODO | |
-| 42 | P3 | `define-xray-vpn-provider-architecture`<br>Define Xray VPN provider architecture | task | `epic-xray-provider-mode` | outbound | ⏫ | TODO | |
+| 42 | P3 | `define-xray-vpn-provider-architecture`<br>Define Xray VPN provider architecture | task | `epic-xray-provider-mode` | outbound | ⏫ | DONE | just test-module core:data:runtime-state (exit 0) |
 | 43 | P3 | `fork-boringtun-and-add-amneziawg-handshake-obfuscation`<br>Fork boringtun and add AmneziaWG handshake obfuscation | task | `epic-amneziawg-outbound-support` | outbound | ⏫ | DONE | |
 | 44 | P3 | `generalize-websocket-transport-for-outbound-composition`<br>Generalize WebSocket transport for outbound composition | task | `epic-composable-transport-layer-parity` | transport | ⏫ | DONE | |
 | 45 | P3 | `package-libxray-for-android-abis`<br>Package libXray for Android ABIs | task | `epic-xray-provider-mode` | outbound | ⏫ | TODO | |
