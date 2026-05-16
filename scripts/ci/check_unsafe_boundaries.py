@@ -231,6 +231,47 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # `File::set_len`, etc. are avoided because those methods are
     # safe and never appear inside an `unsafe { }` block.
     "unsafe Vec::set_len": re.compile(r"\bunsafe\s*\{[^}]*\.set_len\("),
+    # `mem::zeroed::<T>()` produces a `T` whose bytes are all zero.
+    # Sound only if every bit pattern of zero is a valid `T` —
+    # which holds for plain integer types, `[u8; N]`, `#[repr(C)]`
+    # POD structs, and a few other narrow categories. UB for `T`
+    # that has a validity invariant: `&T` (null reference), `Box<T>`
+    # (null Box), `NonNull<T>` (null), `NonZero*` (zero), `bool`
+    # (only 0/1 valid as bit patterns, but `false`==0 is OK; the
+    # issue is when `T` is the carrier of a `bool` field that
+    # cannot be 0), `char` (high surrogates etc.), enums (must be
+    # a declared variant), and function pointers (null). Issue #21
+    # audit found ONE production occurrence: `mem::zeroed::<libc::
+    # utsname>()` in `ripdpi-io-uring/src/probe.rs` — sound because
+    # `utsname` is `#[repr(C)]` with only `[c_char; N]` fields, and
+    # zero bytes represent empty NUL-terminated C strings. New
+    # occurrences must restructure to safe constructors / Default /
+    # MaybeUninit staged init / explicit field initialisation or
+    # earn an allowlist entry naming each field's zero-validity
+    # proof per docs/rust-soundness-policy.md
+    # § "Zero-initialisation validity".
+    "mem::zeroed": re.compile(r"\b(?:std::|core::)?mem::zeroed\b"),
+    # `MaybeUninit::zeroed()` is a typed version of the same trap:
+    # returns `MaybeUninit<T>` whose bytes are all zero, awaiting an
+    # `assume_init*` call that asserts zero is valid for `T`. The
+    # scan catches the constructor; the matching `assume_init*` is
+    # caught separately. Zero production occurrences in the
+    # workspace.
+    "MaybeUninit::zeroed": re.compile(r"\bMaybeUninit(?:::<[^>]*>)?::zeroed\b"),
+    # `ptr::write_bytes(ptr, 0, n)` is the per-element memset
+    # equivalent. The validity question is identical to
+    # `mem::zeroed` but at the element-type level (`ptr: *mut T`,
+    # writes `n * size_of::<T>()` bytes of zero). Workspace has
+    # ONE production occurrence: `ptr::write_bytes(self.ptr.as_ptr(),
+    # 0, len)` in `ripdpi-privileged-ops/src/linux/mmap_region.rs`
+    # where the pointer type is `*mut u8` (zero-valid by
+    # construction).
+    "ptr::write_bytes": re.compile(r"\b(?:std::|core::)?ptr::write_bytes\b"),
+    # `libc::memset` is the C-side counterpart of
+    # `ptr::write_bytes`. Same validity question; zero workspace
+    # occurrences today. Any new use must restructure or earn an
+    # allowlist entry with the same per-field zero-validity proof.
+    "libc::memset": re.compile(r"\blibc::memset\b"),
     # UnsafeCell::get returns `*mut T` from `&UnsafeCell<T>`. Dereferencing
     # it to produce `&mut T` (the canonical `unsafe { (*cell.get()).as_mut() }`
     # pattern) bypasses Rust's shared-vs-exclusive borrow check entirely;

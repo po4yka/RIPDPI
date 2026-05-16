@@ -411,6 +411,42 @@ class ScanRegressionTests(unittest.TestCase):
         ):
             self.assertTrue(_has(_scan(fragment), "unsafe Vec::set_len"), msg=fragment)
 
+    def test_zero_init_patterns_flagged(self) -> None:
+        # Issue #21: every zero-init primitive must surface as a
+        # scanner finding so the per-field zero-validity audit can
+        # be applied. Five canonical entry points: `mem::zeroed`,
+        # `MaybeUninit::zeroed`, `ptr::write_bytes`, `libc::memset`
+        # (the C-side equivalent), and turbofish variants.
+        for fragment, pattern in (
+            ("let x = unsafe { mem::zeroed::<T>() };", "mem::zeroed"),
+            ("let x = unsafe { std::mem::zeroed() };", "mem::zeroed"),
+            ("let x = unsafe { core::mem::zeroed::<u32>() };", "mem::zeroed"),
+            ("let u = MaybeUninit::<T>::zeroed();", "MaybeUninit::zeroed"),
+            ("let u = MaybeUninit::zeroed();", "MaybeUninit::zeroed"),
+            ("unsafe { ptr::write_bytes(p, 0, n) };", "ptr::write_bytes"),
+            ("unsafe { std::ptr::write_bytes(p, 0xff, n) };", "ptr::write_bytes"),
+            ("unsafe { libc::memset(p, 0, n) };", "libc::memset"),
+        ):
+            self.assertTrue(_has(_scan(fragment), pattern), msg=fragment)
+
+    def test_zero_init_unrelated_apis_not_flagged(self) -> None:
+        # Safe zero-init APIs (Default::default, integer literal 0,
+        # `Vec::new`, etc.) MUST NOT trigger the issue-#21 patterns.
+        # Unrelated libc / std / core APIs that share substrings
+        # with the patterns must also not match.
+        for fragment in (
+            "let x: u32 = 0;",
+            "let v: Vec<u8> = Vec::new();",
+            "let d = T::default();",
+            "let m = mem::take(&mut value);",     # mem::take, not mem::zeroed
+            "let p = ptr::null::<T>();",          # ptr::null, not ptr::write_bytes
+            "unsafe { libc::memcpy(dst, src, n) };",  # memcpy, not memset
+        ):
+            self.assertFalse(_has(_scan(fragment), "mem::zeroed"), msg=fragment)
+            self.assertFalse(_has(_scan(fragment), "MaybeUninit::zeroed"), msg=fragment)
+            self.assertFalse(_has(_scan(fragment), "ptr::write_bytes"), msg=fragment)
+            self.assertFalse(_has(_scan(fragment), "libc::memset"), msg=fragment)
+
     def test_safe_set_len_methods_not_flagged_by_vec_pattern(self) -> None:
         # `BufferHandle::set_len`, `File::set_len`, and other safe
         # inherent `.set_len()` methods MUST NOT trigger the

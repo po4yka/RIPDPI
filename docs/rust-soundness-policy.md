@@ -118,6 +118,7 @@ on every PR. It looks for the following risky patterns under
 | `libc::malloc`, `libc::calloc`, `libc::realloc`, `libc::free` | Direct C-allocator calls. Rust's default global allocator and libc's `malloc`/`free` are NOT contractually the same heap — even when they happen to coincide on a given target, the relationship is implementation-defined and breaks silently on a `#[global_allocator]` switch. New occurrences must either restructure to keep both ends of the lifetime on one side (Rust → `Box`/`Vec`; C → foreign-managed) or earn an allowlist entry per "Allocator mismatch across FFI" below. |
 | `CString::from_raw`, `CString::into_raw` | The FFI-string analogue of `Box::into_raw`/`Box::from_raw`. The pair carries the allocator-compatibility constraint (both ends must use the global allocator that `CString::new` used) plus a NUL-termination invariant. Mixing with `libc::malloc`/`libc::free` is UB. See "Allocator mismatch across FFI" below. |
 | `unsafe Vec::set_len` (proximity ≤ 1 line) | `unsafe { v.set_len(n) }` shape on a single line — the canonical spelling of `Vec::set_len`, which is `unsafe fn`. Bytes `[0, n)` MUST be initialised valid `T` values BEFORE the call; otherwise Drop runs on uninit memory (UB if `T: Drop`) and `&[..]` borrows expose uninit bytes. The pattern is intentionally narrow (matches only `unsafe { ... .set_len( ... ) }`) so safe inherent methods like `BufferHandle::set_len` and `File::set_len` are not flagged. See "`Vec::set_len` initialisation contract" below. |
+| `mem::zeroed`, `MaybeUninit::zeroed`, `ptr::write_bytes`, `libc::memset` | Zero-initialise a `T` (or `n` `T` values). Sound only if every bit pattern of zero is a valid `T`; UB for `T` carrying a validity invariant (references, `NonNull<T>`, `Box<T>`, `NonZero*`, `bool` if asserted as non-false-only, `char` (gap in valid Unicode), enums (must be a declared variant), function pointers (null)). See "Zero-initialisation validity" below. |
 | `UnsafeCell::get` (deref form `*cell.get()`) | Materialises `&mut T` / `&T` from `*mut T` and bypasses Rust's borrow check. The exclusivity invariant — at most one accessor of the cell at any moment — must be enforced by the surrounding type design. The bare `.get()` method (without the `*` deref) is filtered out so unrelated `.get()` callers (HashMap, Vec, Option, AtomicPtr) are not flagged. See "Creating `&mut T` from raw memory" below. |
 | `Cell<bool>` | `Cell<bool>` is a common cheap way to encode lifecycle state, but the value's mutation has no synchronisation cost and no exclusivity discipline. Use a typestate / RAII guard / Mutex instead. See "Ownership must be types, not flags" below. |
 | `ownership flag near drop/unsafe` (proximity ≤ 50 lines) | A `bool` field named `registered`, `is_alive`, `destroyed`, `initialized`, `disowned`, `owned_by_*`, or `freed` that lives within 50 source lines of an `impl Drop` or `unsafe` keyword. Per issue-#11 audit, ownership/liveness must be encoded by the type system, not by flags + comments. See "Ownership must be types, not flags" below. |
@@ -1650,6 +1651,116 @@ set_len` round-trip (which writes via
 `MaybeUninit::write` and would catch a regression
 that introduced unsound `assume_init` usage in the
 same crate).
+
+## Zero-initialisation validity
+
+`mem::zeroed::<T>()` and its variants
+(`MaybeUninit::<T>::zeroed`, `ptr::write_bytes(ptr, 0, n)`,
+`libc::memset(ptr, 0, n)`) produce a `T` (or `n` `T` values)
+whose bytes are all zero. The runtime cost is one `memset`;
+the soundness cost depends entirely on whether the all-zero
+bit pattern is a valid `T`.
+
+**Types where zero IS a valid bit pattern:** integers,
+`f32`/`f64`, `[u8; N]` and other arrays of zero-valid
+types, `#[repr(C)]` POD structs whose every field is
+zero-valid, `Option<&T>` / `Option<Box<T>>` /
+`Option<NonNull<T>>` / `Option<NonZeroU32>` (the niche
+optimisation makes zero represent `None`),
+`MaybeUninit<T>`, and raw pointers `*mut T` / `*const T`
+(null bit pattern is fine; dereferencing it is the UB).
+
+**Types where zero is NOT a valid bit pattern (UB to
+construct via `mem::zeroed`):** `&T` / `&mut T` (never
+null), `Box<T>` / `Rc<T>` / `Arc<T>` (never null),
+`NonNull<T>`, `NonZeroU*` / `NonZeroI*`, `bool` byte
+values outside `{0, 1}`, `char` surrogates and
+out-of-range code points, enums whose `0` discriminant
+is not declared (e.g. `#[repr(u8)] enum { A = 1, B = 2
+}`), function pointers (`fn()`, `extern "C" fn(...)`),
+and any `#[repr(transparent)]` newtype around the above.
+
+The audit checklist for each zero-init site:
+
+1. **Identify `T`** (or the element type for
+   `ptr::write_bytes` / `libc::memset`).
+2. **Field-by-field zero-validity.** If `T` is a
+   struct/enum, every field's all-zero bit pattern must
+   be in the field's validity domain. Recurse into
+   nested types.
+3. **Reference/pointer/function-pointer check.** Does
+   `T` transitively contain any `&T` / `&mut T` /
+   `Box<T>` / `NonNull<T>` / `NonZero*` / function
+   pointer / non-zero-variant enum? If yes,
+   `mem::zeroed::<T>` is UB.
+4. **`#[repr(C)]`.** FFI structs MUST be `#[repr(C)]` so
+   the layout is stable and field offsets are
+   knowable. Zero-init across versions of a
+   `#[repr(Rust)]` struct is fragile because the
+   compiler is free to reorder fields and change
+   padding.
+5. **Padding bytes.** With `mem::zeroed`, padding bytes
+   are guaranteed zero; with `MaybeUninit` they're
+   tracked as uninit. This matters when the consumer
+   reads the struct as `&[u8]` or passes it across FFI
+   as a byte block.
+
+**Rule.** Application code SHOULD NOT use `mem::zeroed`
+or its variants. The preferred shapes, in order:
+
+1. **Safe constructors:** `T::default()`, struct
+   literals with every field named, `Vec::new()`,
+   `String::new()`, `[const { … }; N]`.
+2. **`MaybeUninit` staged init:** `let mut u =
+   MaybeUninit::<T>::uninit(); /* fill */ unsafe {
+   u.assume_init() }`. Forces field-by-field
+   accountability — no "memset and pray".
+3. **Field-by-field zero, not whole-struct zero:**
+   `let s = MyStruct { a: 0, b: 0, c: false };` —
+   the compiler chooses the byte representation; you
+   don't pretend zero bytes are a valid `MyStruct`.
+
+**Workspace inventory.** As of issue #21: **two**
+sound production sites, both audited and allowlisted.
+**Zero `MaybeUninit::zeroed`**, **zero `libc::memset`**.
+
+| File | API | Element type | Sound because |
+|---|---|---|---|
+| `ripdpi-io-uring/src/probe.rs:85` | `mem::zeroed::<libc::utsname>()` | `libc::utsname` | `#[repr(C)]` with every field `[c_char; N]` (= `[i8; N]`). `i8` has no validity invariant; zero bytes also represent the empty NUL-terminated C string each field is contractually allowed to start as (kernel `uname(2)` fills every field). |
+| `ripdpi-privileged-ops/src/linux/mmap_region.rs:65` | `ptr::write_bytes(*mut u8, 0, len)` | `u8` | Element type is `u8`; every bit pattern is a valid `u8`. Destination is exclusive (`&mut self` on the owning `MmapRegion: !Copy`); no aliased reader can observe a mid-write state. Bounds (`len`) come from the region's own owned `NonZeroUsize`. |
+
+**Anti-patterns.**
+
+- `let s: MyStruct = unsafe { mem::zeroed() };` where
+  `MyStruct` contains a `Box<u8>` field — UB; zero is
+  a null Box.
+- `let f: fn() = unsafe { mem::zeroed() };` — UB;
+  zero is not a valid function pointer.
+- `unsafe { ptr::write_bytes(buf.cast::<MyEnum>(), 0,
+  n) };` for an enum whose `0` variant is not
+  declared — UB on every subsequent read.
+- `let mut x = MaybeUninit::<&T>::zeroed(); unsafe {
+  x.assume_init() };` — UB; references cannot be
+  null.
+
+**Allowlist entry requirements.** A `mem::zeroed`,
+`MaybeUninit::zeroed`, `ptr::write_bytes`, or
+`libc::memset` allowlist entry's `enforcement` field
+MUST address all FIVE NAMED mandatory fields:
+
+1. **Element type and layout** (concrete `T`, its
+   `#[repr]`, the field list if relevant).
+2. **Field-by-field zero-validity** (every field's
+   validity domain; recursive if a field is itself a
+   struct).
+3. **No invariant-bearing fields** (no references,
+   `NonNull`, `NonZero*`, `Box`, function pointer,
+   non-zero-variant enum).
+4. **Padding-byte semantics** (if the consumer reads
+   the struct as `&[u8]`, that the padding-zero claim
+   is documented; otherwise that the consumer reads
+   only named fields).
+5. **Owner.**
 
 ## Ownership must be types, not flags
 

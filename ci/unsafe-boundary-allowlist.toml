@@ -675,3 +675,27 @@ preconditions = "`v` is a freshly-allocated `Vec<u8>` from `Vec::with_capacity(C
 enforcement = "Inline `// SAFETY:` comment at the call site enumerates the producer (`simulated_recv_fill`) and the `n <= capacity` guard. `T = u8` is `Copy + !Drop`, so partial-initialisation panic paths are sound by element-type construction. Miri validates the round-trip (10/10 pass). Issue #19 audit found ZERO production `Vec::set_len` calls; this is the only occurrence in the workspace."
 owner = "vless"
 review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# Issue #21 zero-init validity: two sound production sites. Both write
+# zero bytes to memory whose element type makes zero a valid bit pattern;
+# neither targets a type with a validity invariant (no references, no
+# NonNull, no NonZero*, no bool/char/enum in either case).
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-io-uring/src/probe.rs"
+pattern = "mem::zeroed"
+reason = "`std::mem::zeroed::<libc::utsname>()` produces a zero-initialised libc::utsname for `libc::uname(&mut utsname)` to populate"
+preconditions = "`libc::utsname` is `#[repr(C)]` with fields that are all `[c_char; N]` arrays (`sysname`, `nodename`, `release`, `version`, `machine`, `domainname`). `c_char` is `i8` on most Unix targets; the zero bit pattern represents `0i8` which is both a valid `i8` value AND the C NUL terminator (the contractually expected initial state for unfilled C strings)."
+enforcement = "Field-by-field zero-validity: every field is `[c_char; N]` (= `[i8; N]`), and `i8` has no validity invariant beyond 'is an i8' — zero bytes trivially satisfy that. The variable is immediately handed to `libc::uname(&mut utsname)` which the kernel contract requires to populate every field; only `release.as_ptr()` is read post-call (already allowlisted under issue #6's `CStr::from_ptr` entry). No `bool`/`char`/enum/reference/NonNull/NonZero/function pointer field exists; no validity violation is possible."
+owner = "io-uring"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-privileged-ops/src/linux/mmap_region.rs"
+pattern = "ptr::write_bytes"
+reason = "`ptr::write_bytes(self.ptr.as_ptr(), 0, len)` zeroes the anonymous mmap region before copying `data` into the head, in `MmapRegion::write(&mut self, data: &[u8])`"
+preconditions = "`self.ptr` is `NonNull<u8>` pointing to a writable anonymous mmap region of exactly `self.len.get()` bytes (invariant established in `MmapRegion::new` and Send/Sync-asserted under issue #8). The element type is `u8` — every bit pattern is a valid `u8` value, so zero bytes are trivially zero-valid. `len` is a fresh `NonZeroUsize` taken from the region's owned length so the write stays within bounds."
+enforcement = "Element type `u8` has no validity invariant; `ptr::write_bytes(*mut u8, 0, n)` always produces `n` valid `u8` values. The destination is exclusive (mutable borrow `&mut self` + `MmapRegion: !Copy + !Clone`), so no aliased reader can observe a mid-write state. The bounds (`len`) come from the region's own owned length; no over-write is possible. Issue #21 zero-validity checklist: type=u8 (zero-valid), bounds=exclusive owned length, alignment=trivially aligned for u8, no references/NonNull/NonZero/bool/char/enum field in target type."
+owner = "privileged-ops"
+review_date = "2026-11-15"
