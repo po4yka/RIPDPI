@@ -1,7 +1,7 @@
 ---
 title: Add authoritative DNS leak-test harness
 type: task
-status: backlog
+status: done
 area: vpn
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-16
 ---
 
-- [ ] #task Add authoritative DNS leak-test harness #repo/RIPDPI #area/vpn #status/backlog ⏫
+- [x] #task Add authoritative DNS leak-test harness #repo/RIPDPI #area/vpn #status/done ⏫
 
 ## Goal contract
 
@@ -34,11 +34,11 @@ Public DNS leak-test pages are useful but not reproducible enough for RIPDPI reg
 
 ## Acceptance criteria
 
-- [ ] Test harness generates unique per-run domains for proxy, direct, IPv6, and captive scenarios.
-- [ ] Authoritative logs record resolver source and coarse time bucket without storing live profile secrets.
-- [ ] App-side test reports expected resolver path versus observed resolver path.
-- [ ] Failure cases cover remote resolver outage, bootstrap resolver failure, proxy outbound failure, Android Private DNS enabled, Wi-Fi/LTE switch, captive portal, and core crash.
-- [ ] Harness integrates with the Android VPN leak-test matrix.
+- [x] Test harness generates unique per-run domains for proxy, direct, IPv6, and captive scenarios.
+- [x] Authoritative logs record resolver source and coarse time bucket without storing live profile secrets.
+- [x] App-side test reports expected resolver path versus observed resolver path.
+- [x] Failure cases cover remote resolver outage, bootstrap resolver failure, proxy outbound failure, Android Private DNS enabled, Wi-Fi/LTE switch, captive portal, and core crash.
+- [x] Harness integrates with the Android VPN leak-test matrix.
 
 ## Notes
 

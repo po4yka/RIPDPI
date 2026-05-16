@@ -70,7 +70,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 47 | P3 | `run-xray-as-managed-vpn-relay-runtime`<br>Run Xray as managed VPN relay runtime | task | `epic-xray-provider-mode` | outbound | ⏫ | TODO | |
 | 48 | P3 | `adopt-android-17-networksecurityconfig-domainencryption-for-per-domain-ech`<br>Adopt Android 17 NetworkSecurityConfig domainEncryption for per-domain ECH policy | task | `(no epic)` | diagnostics | ⏫ | DONE | `just test-module core:diagnostics` (exit 0) |
 | 49 | P3 | `add-android-vpn-leak-test-instrumentation-matrix`<br>Add Android VPN leak-test instrumentation matrix | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |
-| 50 | P3 | `add-authoritative-dns-leak-test-harness`<br>Add authoritative DNS leak-test harness | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |
+| 50 | P3 | `add-authoritative-dns-leak-test-harness`<br>Add authoritative DNS leak-test harness | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | DONE | all DnsLeak tests pass; core:service has 1 pre-existing unrelated failure (ConnectionPolicyResolverDirectPathTest) |
 | 51 | P3 | `add-captive-portal-dns-assist-via-network-object`<br>Add captive portal DNS assist via Network object | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |
 | 52 | P3 | `add-cloudflare-degradation-classification-runbook`<br>Add Cloudflare degradation classification runbook | task | `epic-remove-cloudflare-from-critical-path` | relay | ⏫ | TODO | |
 | 53 | P3 | `add-cloudflare-large-payload-healthcheck`<br>Add Cloudflare large-payload healthcheck | task | `epic-remove-cloudflare-from-critical-path` | relay | ⏫ | TODO | |
