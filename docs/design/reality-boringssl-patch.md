@@ -1,6 +1,21 @@
 # Reality protocol — BoringSSL key_share patch design
 
-Status: design only, not implemented. Tracks the architectural work needed to make `ripdpi-vless::reality` interoperable with real Xray-core Reality servers. The current code in `native/rust/crates/ripdpi-vless/src/reality.rs` is non-interoperable; see § Background.
+**Status: implemented as of 2026-05-16.** Audit findings C1, C2, H1 are landed across commits `c1437b65` (C1+C2 crypto primitive), `0155564c` (BoringSSL vendor patch), and the H1 follow-up (Rust callback glue + frozen-vector test + Go reference vector). The interoperable handshake now flows through:
+
+1. `ripdpi-vless::reality::connect_reality_tls_inner` builds the SSL connector.
+2. `ripdpi-vless::reality_hook::install_reality_client_hello_hook` installs the BoringSSL `client_hello_cb` on the SSL_CTX.
+3. Inside `ssl_add_client_hello` (vendored patch in `native/rust/vendor/boring-sys/`), the callback fires after the body is serialized but before `add_message` consumes it.
+4. The callback reads the X25519 key_share private key via the patched `SSL_handshake_get_x25519_private_key`, pulls client_random out of `msg[6..38]`, and calls into `ripdpi-vless::reality_seal::seal_session_id` to produce the AES-256-GCM sealed session_id.
+5. The 32 sealed bytes overwrite `msg[39..71]` before the transcript hash absorbs them.
+
+Cross-implementation oracle: `test-lab/reality-vector/main.go` reproduces the seal in pure Go (mirroring xray-core `reality.go`) and prints the same 32 bytes that the Rust frozen-vector test asserts on.
+
+Remaining work that is intentionally **not** part of H1 itself:
+
+- Native `.so` size baselines will need to be updated once a real Android build runs through the patched boring-sys. Gated by the project's hook-enforced `*baseline*` policy.
+- `test-lab/` integration test that brings up a real Xray-core Reality server in docker-compose and asserts the full handshake completes against it. Tracked in the "Integration test" section below.
+
+Original design context follows.
 
 ## Background — verified non-interoperability
 

@@ -359,4 +359,48 @@ mod tests {
             .expect("seal_session_id_now succeeds");
         assert_eq!(sealed.len(), SESSION_ID_LEN);
     }
+
+    /// **Frozen test vector.** Locks the output of `seal_session_id`
+    /// against accidental regression (a wrong-direction salt slice,
+    /// an off-by-one in the AAD zeroing window, a swap from
+    /// AES-256-GCM to some other AEAD). The expected bytes were
+    /// captured from this same implementation; if a future commit
+    /// changes the seal output, this test fails and the diff must be
+    /// reviewed against the audit doc before re-blessing.
+    ///
+    /// Inputs are also documented in
+    /// `docs/design/reality-boringssl-patch.md` so a Go reference
+    /// program (when added under `test-lab/reality-vector/`) can
+    /// reproduce them and confirm cross-implementation interop with
+    /// xray-core upstream.
+    #[test]
+    fn seal_session_id_matches_frozen_vector() {
+        let (priv_key, server_pub, client_random, short_id, raw, now) = frozen_vector_inputs();
+        let sealed =
+            seal_session_id(&priv_key, &server_pub, &client_random, &short_id, &raw, now).expect("seal frozen vector");
+        let expected: [u8; SESSION_ID_LEN] = [
+            0x17, 0xa7, 0xaf, 0x6b, 0x73, 0x36, 0x79, 0x33, 0xc3, 0x4d, 0xdc, 0x9a, 0x7a, 0x3a, 0xfb, 0xc1, 0x7b, 0x75,
+            0xfa, 0x06, 0x3c, 0x98, 0xb6, 0xaa, 0xda, 0x10, 0x7d, 0xc5, 0x90, 0x85, 0x3d, 0xe0,
+        ];
+        assert_eq!(sealed, expected, "frozen vector regressed; review against the Reality spec before re-blessing");
+    }
+
+    fn frozen_vector_inputs() -> ([u8; 32], [u8; 32], [u8; 32], Vec<u8>, Vec<u8>, u32) {
+        let priv_key = [0x11u8; 32];
+        let secret = StaticSecret::from([0x22u8; 32]);
+        let server_pub = *PublicKey::from(&secret).as_bytes();
+        let mut client_random = [0u8; 32];
+        for (i, byte) in client_random.iter_mut().enumerate() {
+            *byte = (i as u8).wrapping_add(1);
+        }
+        let short_id = vec![0xAB, 0xCD];
+        let mut raw = vec![0u8; 80];
+        raw[0] = 0x01;
+        raw[1..4].copy_from_slice(&[0x00, 0x00, 0x4c]);
+        raw[4..6].copy_from_slice(&[0x03, 0x03]);
+        raw[6..38].copy_from_slice(&client_random);
+        raw[38] = 0x20;
+        let now: u32 = 1_700_000_000;
+        (priv_key, server_pub, client_random, short_id, raw, now)
+    }
 }
