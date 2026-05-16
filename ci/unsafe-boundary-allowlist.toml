@@ -601,3 +601,41 @@ preconditions = "BoringSSL contract (patch H1) guarantees `msg` points to a vali
 enforcement = "Null check on `msg`/`ssl`/`arg` at the top of `reality_client_hello_cb_inner`; length check `msg_len < SESSION_ID_OFFSET + SESSION_ID_LEN` rejects short bodies; the resulting `&mut [u8]` is consumed entirely within the same function and the BoringSSL ABI does not call back into Rust during the rest of the callback body"
 owner = "vless"
 review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# `Box::into_raw` pair-of-`Box::from_raw` ownership-transfer: matched
+# counterpart of the entry above. Issue #15 audit confirmed exactly one
+# production `into_raw`/`from_raw` pair in the workspace; the install
+# leaks a `Box<RealityCallbackState>` via `into_raw` and `RealityHookGuard`
+# reclaims it once via `from_raw` in its `Drop` impl. Tests use the same
+# `into_raw` API to construct test guards; each is paired with a
+# `from_raw` (or with guard drop) before the test scope exits.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-vless/src/reality_hook.rs"
+pattern = "Box::into_raw"
+reason = "Production leak in `install_reality_client_hello_hook` (matched by the `Box::from_raw` in `Drop for RealityHookGuard`); test-mode constructions of `RealityHookGuard` for unit tests, each reclaimed by guard drop or an explicit `Box::from_raw`"
+preconditions = "Same `RealityCallbackState` type on both sides of the round-trip; global allocator (no custom `Allocator`); pointer never offset between `into_raw` and `from_raw`; `RealityHookGuard` is `!Copy + !Clone` so exactly one owner exists; module-level doc-comment contract requires the guard to outlive the SSL object so no callback can fire after Drop"
+enforcement = "Issue #15 audit checklist completed: T matches, allocator matches (default global), alignment matches, allocation start preserved (no offsetting), exactly one owner (move-only guard), reclaim guarded by `if !state_ptr.is_null()` in Drop, test-mode pairs visible within the same function. Miri exercise of `reality_hook::tests` validates the production-shape Drop path. Caller must observe the `# Safety` section on `install_reality_client_hello_hook` (already `unsafe fn`)."
+owner = "vless"
+review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# `ripdpi-vless/src/scoped_handle.rs` — generic RAII wrapper for refcount-
+# managed FFI handles. This is exactly the "safe ownership wrapper" shape
+# issue #15 recommends for `Box::from_raw`-style ownership transfer. The
+# three findings on this file are the wrapper's three public APIs: an
+# `unsafe fn from_ptr` constructor (caller asserts the alloc/free dual),
+# a `pub fn as_ptr` borrow accessor, and a `pub fn take` consume-without-
+# free escape hatch. The wrapper's Drop calls the typed `FreeFunction::free`
+# exactly once, and a panic-unwind regression test in the same file proves
+# the cleanup fires even on unwind.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-vless/src/scoped_handle.rs"
+pattern = "raw pointer in public fn"
+reason = "Three APIs of the generic RAII handle wrapper: `unsafe fn from_ptr(ptr: *mut T) -> Option<Self>` (constructor), `fn as_ptr(&self) -> *mut T` (borrow accessor), `fn take(self) -> *mut T` (consume-without-free)"
+preconditions = "`from_ptr` is already `unsafe fn` and documents the `F::free` dual contract in its `# Safety` section; `as_ptr` returns the pointer for read-only inspection (doc-comment explicitly forbids passing it to `F::free`); `take` consumes the wrapper via `self`, returning the pointer and `mem::forget`-ing the wrapper so the caller is responsible for freeing"
+enforcement = "Move-only `ScopedHandle<T, F>` (no Copy/Clone derives or impls); Drop calls `F::free` exactly once via the `FreeFunction` trait's `unsafe fn free`; `take` uses `mem::forget(self)` to suppress that Drop. The four unit tests in the same module (free-exactly-once, take-suppresses-free, null-rejected, panic-unwind-still-frees) lock in the discipline at runtime"
+owner = "vless"
+review_date = "2026-11-15"

@@ -55,6 +55,18 @@ ALLOWLIST_FILE = REPO_ROOT / "ci" / "unsafe-boundary-allowlist.toml"
 PATTERNS: dict[str, re.Pattern[str]] = {
     "slice::from_raw_parts": re.compile(r"\b(?:std::|core::)?slice::from_raw_parts(?:_mut)?\b"),
     "Box::from_raw": re.compile(r"\bBox(::<[^>]*>)?::from_raw\b"),
+    # `Box::into_raw` is the matching counterpart of `Box::from_raw`. The
+    # pair encodes a manual ownership transfer (Rust → caller of the raw
+    # pointer → Rust again) that the type system cannot check end-to-end.
+    # Scanning only `from_raw` would catch the reclaim side but miss
+    # orphaned `into_raw` calls that leak (`mem::forget` equivalent) or
+    # that hand the pointer to FFI without a matching `from_raw`. Each
+    # occurrence must either restructure (use `Pin<Box<T>>`, a typed FFI
+    # wrapper, or an explicit free callback) or earn an allowlist entry
+    # naming the matching `from_raw` call site and the ownership-transfer
+    # contract. See docs/rust-soundness-policy.md § "`Box::into_raw` /
+    # `Box::from_raw` ownership transfer".
+    "Box::into_raw": re.compile(r"\bBox(::<[^>]*>)?::into_raw\b"),
     "Vec::from_raw_parts": re.compile(r"\bVec(::<[^>]*>)?::from_raw_parts\b"),
     "String::from_raw_parts": re.compile(r"\bString::from_raw_parts\b"),
     "MaybeUninit::assume_init": re.compile(r"\.assume_init\b|MaybeUninit::<[^>]*>::assume_init\b"),

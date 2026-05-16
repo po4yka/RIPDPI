@@ -77,6 +77,29 @@ class ScanRegressionTests(unittest.TestCase):
         src = "let owned = unsafe { Box::from_raw(ptr) };"
         self.assertTrue(_has(_scan(src), "Box::from_raw"))
 
+    def test_box_into_raw_flagged(self) -> None:
+        # `Box::into_raw` is the matched counterpart of `Box::from_raw`;
+        # the issue-#15 audit requires both sides of the ownership
+        # transfer to surface independently so an orphaned `into_raw`
+        # (leak / handed to FFI without matching reclaim) doesn't slip
+        # past the scanner. Turbofish form must also trigger.
+        for fragment in (
+            "let raw = Box::into_raw(boxed);",
+            "let raw: *mut T = Box::into_raw(b);",
+            "let raw = Box::<MyState>::into_raw(b);",
+        ):
+            self.assertTrue(_has(_scan(fragment), "Box::into_raw"), msg=fragment)
+
+    def test_box_into_raw_unrelated_methods_not_flagged(self) -> None:
+        # `Box::new` and other unrelated methods must not match the
+        # into_raw pattern.
+        for fragment in (
+            "let b = Box::new(42);",
+            "let b: Box<u32> = Box::default();",
+            "let p = b.as_mut_ptr();",
+        ):
+            self.assertFalse(_has(_scan(fragment), "Box::into_raw"), msg=fragment)
+
     def test_vec_from_raw_parts_flagged(self) -> None:
         src = "let v = unsafe { Vec::from_raw_parts(p, len, cap) };"
         self.assertTrue(_has(_scan(src), "Vec::from_raw_parts"))

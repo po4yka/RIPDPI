@@ -96,7 +96,8 @@ on every PR. It looks for the following risky patterns under
 | Pattern | Concern |
 |---|---|
 | `slice::from_raw_parts(_mut)?` | Synthesizing slices over raw memory. |
-| `Box::from_raw`, `Vec::from_raw_parts`, `String::from_raw_parts` | Ownership reconstitution from a raw pointer. |
+| `Box::from_raw`, `Vec::from_raw_parts`, `String::from_raw_parts` | Ownership reconstitution from a raw pointer. See "`Box::into_raw` / `Box::from_raw` ownership transfer" below for the `Box` variant. |
+| `Box::into_raw` | The matched counterpart of `Box::from_raw`. Scanning only the reclaim side would miss orphaned `into_raw` calls that leak (`mem::forget` equivalent) or that hand the pointer to FFI without a matching `from_raw`. See "`Box::into_raw` / `Box::from_raw` ownership transfer" below. |
 | `.assume_init()` / `MaybeUninit::assume_init` | Promoting `MaybeUninit` to `T` without proof. |
 | `mem::transmute` / `transmute::<_,_>` | Reinterpretation cast that bypasses the type system. |
 | `.get_unchecked(_mut)?()`, `.unwrap_unchecked()` | Bounds/option check elision. |
@@ -671,6 +672,121 @@ methods that the initial grep flagged (e.g. `BufferHandle::release`,
 into a `Mutex<Vec<u16>>` free list, not refcounting; they were
 audited under soundness issues #1, #2, #7, #8, #9, #10 and remain
 sound by the move-only handle + mutex protocol.
+
+## `Box::into_raw` / `Box::from_raw` ownership transfer
+
+A `Box::into_raw` / `Box::from_raw` pair encodes a manual
+ownership transfer that the type system cannot check end-to-end:
+Rust hands a heap allocation to non-Rust code (FFI, a registry,
+a callback closure) and trusts that the same allocation comes
+back exactly once for reclamation. Every occurrence has to pass
+the issue-#15 audit checklist before it can ship:
+
+1. **Same `T` on both sides.** The pointer's runtime type must
+   match the type used in `Box::from_raw::<T>(...)`. A
+   `Box::into_raw(Box::<Foo>::new(..))` followed by
+   `Box::from_raw(ptr as *mut Bar)` is UB even if `Foo` and
+   `Bar` have the same layout.
+2. **Same allocator.** Both ends of the round-trip must use the
+   same allocator. The workspace uses only the default global
+   allocator (no `#[global_allocator]` switch, no `Box::new_in`
+   call sites), so this is satisfied by default — but a future
+   custom allocator would invalidate every existing pair.
+3. **Correct alignment.** `Box::from_raw` assumes the pointer
+   meets `mem::align_of::<T>()`. Always true if the pointer
+   came from `Box::into_raw` and was never offset; UB if it
+   came from `libc::malloc` (which only guarantees `MAX_ALIGN`
+   in C, not `align_of::<T>()` for `T` with alignment > 16).
+4. **Allocation start, not interior.** The pointer must address
+   the start of the allocation. Offsetting (e.g. `ptr.add(1)`)
+   between `into_raw` and `from_raw` is UB.
+5. **Not already freed.** Each `Box::into_raw` is matched by
+   **exactly one** `Box::from_raw`. Zero matchings is a memory
+   leak; two or more is double-free / UAF.
+6. **Exactly one owner.** While the raw pointer is in flight,
+   there is exactly one entity entitled to call `Box::from_raw`
+   on it. Multiple entities → race for the reclaim; safe Rust
+   re-borrow of the pointer while `Box::from_raw` runs → UAF.
+
+**Rule.** Application code SHOULD NOT use `Box::into_raw` /
+`Box::from_raw` directly. The preferred shapes, in order:
+
+1. **A typed RAII wrapper** — the
+   `ripdpi-vless/src/scoped_handle.rs` `ScopedHandle<T, F:
+   FreeFunction<T>>` is the workspace's general-purpose shape
+   for any refcount- or malloc-managed FFI handle. Construct
+   from an `unsafe fn from_ptr(*mut T) -> Option<Self>`; the
+   `Drop` impl calls `F::free` exactly once. Tests in the same
+   module assert "frees exactly once on drop", "panic-unwind
+   still frees", "null rejected", and "two handles freed
+   independently".
+2. **An explicit free callback registered with the FFI.** If
+   the C side has a destruction hook, register it and let the
+   foreign code free the Rust-owned allocation — keeping the
+   allocator boundary one-sided.
+3. **`unsafe fn` install + RAII guard reclaim.** Used by
+   `ripdpi-vless/src/reality_hook.rs`:
+   `install_reality_client_hello_hook` (`unsafe fn`,
+   `pub(crate)`) leaks one `Box<RealityCallbackState>` via
+   `Box::into_raw` into BoringSSL's `SSL_CTX_set_client_hello_cb`
+   `arg` slot. The returned `RealityHookGuard` is move-only
+   (`!Copy + !Clone`); its `Drop` impl is the unique site that
+   calls `Box::from_raw`, after checking `state_ptr` is non-
+   null (defence in depth — Rust cannot actually drop the same
+   value twice). The module-level doc-comment enforces the
+   "guard outlives the SSL object" contract that the type
+   system cannot express on its own.
+
+**Anti-patterns.**
+
+- A safe `pub fn` whose body contains a bare `Box::into_raw`
+  and hands the pointer to a foreign API without a matching
+  `unsafe fn ..._free(*mut T)` or RAII guard exposed by the
+  same module. The function must either be `unsafe fn` with a
+  documented `# Safety` contract OR ship the matching reclaim
+  API in the same module.
+- A `from_raw` whose matching `into_raw` is in a different
+  crate. The allowlist entry's `enforcement` field must name
+  both sites; if they cross a crate boundary, the upstream
+  crate must also publish the typed wrapper so the boundary
+  is one-sided.
+- `mem::forget(boxed)` as a substitute for `Box::into_raw`.
+  Both forms leak the allocation; only `Box::into_raw` returns
+  a pointer that can be reclaimed. Using `mem::forget` to
+  "leak intentionally" then later trying to `Box::from_raw`
+  on an external pointer is UB.
+
+**Workspace inventory.** Exactly one production
+`Box::into_raw` / `Box::from_raw` pair in the entire workspace,
+plus three test-mode `into_raw` calls each paired in the same
+function:
+
+| File | Production `into_raw` | Matching `from_raw` | Test pairs |
+|---|---|---|---|
+| `ripdpi-vless/src/reality_hook.rs` | `install_reality_client_hello_hook` (line 141) | `Drop for RealityHookGuard` (line 111) | 3 (each paired within the same `#[test]` body) |
+
+**Miri validation.** `cargo +nightly miri test -p ripdpi-vless
+reality_hook::tests` runs the four reality-hook unit tests
+under Miri, including `guard_reclaims_box_on_drop`. All four
+pass: Miri detects no double-free, no use-after-free, and no
+aliasing violation along the Drop path.
+
+**Allowlist entry requirements.** A `Box::into_raw` or
+`Box::from_raw` allowlist entry's `enforcement` field MUST
+state:
+
+- the matching `from_raw` (or `into_raw`) call site by file
+  and function, so a reviewer can verify the pair is one-to-
+  one,
+- which type (`T`) appears on both sides,
+- which allocator owns both ends (default global, unless an
+  `Allocator` is explicitly named),
+- the move-only-owner argument: which type holds the raw
+  pointer between the two ends, and why that type is `!Copy +
+  !Clone`,
+- if the boundary is FFI, which contract obliges the foreign
+  code to retain the pointer unchanged (not offset, not
+  freed, not duplicated) for the duration.
 
 ## Ownership must be types, not flags
 
