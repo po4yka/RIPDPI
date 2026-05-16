@@ -79,6 +79,42 @@ impl Drop for RootHelperRegistration {
     }
 }
 
+// Compile-fail regressions for soundness issue #11: `RootHelperRegistration`
+// is a move-only RAII guard whose `registered: bool` field gates the
+// `unregister_root_helper()` call in Drop. Soundness requires that safe
+// code cannot duplicate the guard — otherwise two guards could each see
+// `registered == true` and Drop into a double-unregister.
+//
+// The two blocks below assert at compile time that the guard implements
+// neither `Copy` nor `Clone`. The trait-dispatch ambiguity trick is the
+// stable-Rust equivalent of `static_assertions::assert_not_impl_any!`:
+// if a future change ever adds `Copy`/`Clone` to the struct, both
+// `AmbiguousIf*<()>` and `AmbiguousIf*<u8>` impls apply and the `_` in
+// the call site cannot be resolved → compile error.
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfCopy<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfCopy<()> for Check<T> {}
+    impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
+    <Check<RootHelperRegistration> as AmbiguousIfCopy<_>>::check();
+};
+
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfClone<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfClone<()> for Check<T> {}
+    impl<T: Clone> AmbiguousIfClone<u8> for Check<T> {}
+    <Check<RootHelperRegistration> as AmbiguousIfClone<_>>::check();
+};
+
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn unregister_root_helper() {
     ripdpi_proxy_runtime_adapter::platform::root_helper::unregister_root_helper();
@@ -137,6 +173,95 @@ mod tests {
         let guard = RootHelperRegistration::for_config(&config);
 
         assert!(!guard.registered);
+        assert!(!ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
+    }
+
+    /// Issue #11 regression: prove sequential register/drop cycles
+    /// leave no stale state. The "no double-destroy" invariant follows
+    /// from Rust's move semantics + Drop running exactly once per
+    /// moved value; this test exercises the runtime half by chaining
+    /// two guard lifecycles and asserting clean state between them.
+    #[test]
+    fn sequential_registrations_each_cleanup_exactly_once() {
+        let _lock = ROOT_HELPER_TEST_LOCK.lock().expect("root helper test lock");
+        ripdpi_proxy_runtime_adapter::platform::root_helper::unregister_root_helper();
+        let mut config = RuntimeConfig::default();
+        config.process.root_helper_socket_path = Some("/tmp/ripdpi-proxy-root-helper-seq.sock".to_string());
+
+        {
+            let guard1 = RootHelperRegistration::for_config(&config);
+            assert!(guard1.registered);
+            assert!(ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
+        }
+        // First guard dropped — registration must be cleared exactly once.
+        assert!(!ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
+
+        {
+            let guard2 = RootHelperRegistration::for_config(&config);
+            assert!(guard2.registered);
+            assert!(ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
+        }
+        // Second guard dropped — registration must be cleared again.
+        assert!(!ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
+    }
+
+    /// Issue #11 regression: prove the conditional `if self.registered`
+    /// branch in `Drop` actually gates the unregister call. A guard
+    /// constructed with a blank path (`registered == false`) must NOT
+    /// touch an unrelated foreign registration on drop — that would
+    /// be the "stale handle" failure mode where one guard's lifecycle
+    /// silently invalidates another's resource.
+    #[test]
+    fn unregistered_guard_drop_does_not_touch_foreign_registration() {
+        let _lock = ROOT_HELPER_TEST_LOCK.lock().expect("root helper test lock");
+        ripdpi_proxy_runtime_adapter::platform::root_helper::unregister_root_helper();
+
+        // Install a registered guard first.
+        let mut config = RuntimeConfig::default();
+        config.process.root_helper_socket_path = Some("/tmp/ripdpi-proxy-root-helper-foreign.sock".to_string());
+        let foreign = RootHelperRegistration::for_config(&config);
+        assert!(foreign.registered);
+        assert!(ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
+
+        // Construct + drop an UNregistered guard. Its Drop must be a no-op.
+        {
+            let mut blank_config = RuntimeConfig::default();
+            blank_config.process.root_helper_socket_path = Some(" ".to_string());
+            let skip_guard = RootHelperRegistration::for_config(&blank_config);
+            assert!(!skip_guard.registered);
+        }
+
+        // Foreign registration survives — proves the conditional gate.
+        assert!(ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
+
+        // Cleanup.
+        drop(foreign);
+        assert!(!ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
+    }
+
+    /// Issue #11 documented failure mode: `mem::forget(guard)` suppresses
+    /// Drop, leaking the registration. Rust's safety model explicitly
+    /// allows leaks (they are not UB), but soundness depends on no
+    /// follow-up code assuming Drop ran. This test pins the leak
+    /// behaviour so future contributors don't add silent assumptions.
+    #[test]
+    fn mem_forget_leaks_registration_documented_failure_mode() {
+        let _lock = ROOT_HELPER_TEST_LOCK.lock().expect("root helper test lock");
+        ripdpi_proxy_runtime_adapter::platform::root_helper::unregister_root_helper();
+        let mut config = RuntimeConfig::default();
+        config.process.root_helper_socket_path = Some("/tmp/ripdpi-proxy-root-helper-leak.sock".to_string());
+
+        let guard = RootHelperRegistration::for_config(&config);
+        assert!(guard.registered);
+        assert!(ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
+
+        std::mem::forget(guard);
+
+        // Drop did not run; registration LEAKS. Documented limitation.
+        assert!(ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
+
+        // Manual cleanup for the next test.
+        ripdpi_proxy_runtime_adapter::platform::root_helper::unregister_root_helper();
         assert!(!ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
     }
 }
