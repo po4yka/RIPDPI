@@ -90,12 +90,14 @@ internal class DefaultDiagnosticsArchiveExporter
                     compositeSessionIds = selection.compositeStages.mapNotNull { it.session?.id },
                 )
             val developerAnalytics =
-                runCatching { developerAnalyticsSource.collect(analyticsContext) }
-                    .getOrDefault(
-                        DeveloperAnalyticsPayload(
-                            notes = listOf("Developer analytics collection failed — payload is empty."),
+                DeveloperAnalyticsAllowListFilter.filter(
+                    runCatching { developerAnalyticsSource.collect(analyticsContext) }
+                        .getOrDefault(
+                            DeveloperAnalyticsPayload(
+                                notes = listOf("Developer analytics collection failed — payload is empty."),
+                            ),
                         ),
-                    )
+                )
             zipWriter.write(target.file, renderer.render(target, selection, developerAnalytics))
             artifactWriteStore.insertExportRecord(
                 ExportRecordEntity(
