@@ -62,6 +62,23 @@ session if you want the hooks dormant for a debugging stint:
 RIPDPI_RUST_HOOKS=off claude
 ```
 
+## Codex CLI hook wiring
+
+The same scripts are usable from Codex CLI's `[hooks]` table in `.codex/config.toml` (project-local) or `~/.codex/config.toml` (per-user). Codex's hook schema mirrors Claude Code's event names but uses TOML. Sketch:
+
+```toml
+[[hooks.post_tool_use]]
+matcher = "Edit|Write|MultiEdit"
+command = "bash ${workspace_root}/.claude/scripts/rust-postedit-check.sh"
+
+[[hooks.stop]]
+command = "bash ${workspace_root}/.claude/scripts/rust-stop-verify.sh"
+```
+
+The scripts are tool-agnostic: they read no Claude-Code-specific environment variables (the `PostToolUse` script reads `.tool_input.file_path` from stdin via `jq`, which Codex CLI also pipes per Claude's hook protocol). If a future Codex version uses a different JSON key name on the tool-input stream, only the `jq` selector needs adjusting.
+
+Verify your local Codex version's hook event names with `codex hooks --help` (or the upstream docs) — names changed between Codex 0.20 and 0.30. The script bodies do not depend on the event name.
+
 ## Strict vs advisory mode
 
 `rust-stop-verify.sh` defaults to **advisory** — it prints any fmt-check or

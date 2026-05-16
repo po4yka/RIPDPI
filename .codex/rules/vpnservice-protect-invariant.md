@@ -1,0 +1,1 @@
+../../.claude/rules/vpnservice-protect-invariant.md

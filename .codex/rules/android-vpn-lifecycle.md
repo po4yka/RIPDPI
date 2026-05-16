@@ -1,0 +1,1 @@
+../../.claude/rules/android-vpn-lifecycle.md

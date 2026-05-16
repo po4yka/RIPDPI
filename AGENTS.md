@@ -391,16 +391,34 @@ Additional skills in `.claude/skills/` (also accessible to Codex via `.codex/ski
 | `memory-model` | Understanding memory ordering, writing lock-free code, using Rust atomics, or diagnosing data races on ARM64 Android |
 | `play-store-screenshots` | Creating Play Store listing assets, marketing screenshots, or feature graphics |
 | `repo-task-board` | Creating, updating, triaging, or completing repository tasks in `docs/tasks/` |
+| `rust-android-build` | Modifying `.cargo/config.toml` Android targets, the `[profile.android-jni]` block, ELF symbol allowlist, 16 KiB page-size verification, or per-ABI `.so` size budgets |
+| `rust-android-jni` | Authoring or reviewing JNI exports under `ripdpi-*-android` crates — panic containment, AttachCurrentThread discipline, local-ref frames, JNIEnv-across-await rules, JByteArray vs DirectByteBuffer, VpnService.protect callback wiring |
+| `rust-android-telemetry` | Authoring telemetry emission, bounded event ring, control-plane vs data-plane logging channel selection, pull-model 1Hz polling, deterministic JSON for goldens, ANR-precursor heartbeat |
 | `rust-async-internals` | Diagnosing select!/join! pitfalls, blocking-in-async issues, JNI-to-async bridging, or tokio runtime configuration for Android NDK |
 | `rust-debugging` | Debugging Rust native libraries on Android (JNI panics, logcat tracing, tombstones, addr2line), using GDB/LLDB with Rust |
 | `rust-discipline` | Authoring or reviewing Rust API signatures (borrowed args, lifetime infection, HRTB, Drop rules) and catching anti-patterns (panic policy, error propagation, RAII, hot-path allocation, concurrency primitives, atomic ordering, unsafe encapsulation, lints) |
+| `rust-lints` | Reviewing or modifying workspace `[workspace.lints]` and `clippy.toml`, adding a new crate, or auditing why an LLM-class bug went undetected by clippy |
 | `rust-performance` | Profiling Android .so binaries with simpleperf/perfetto or cargo-flamegraph; measuring monomorphization bloat with cargo-llvm-lines; micro-benchmarking with Criterion; or optimizing build times with cargo-timings, sccache, and NDK cross-compilation |
-| `rust-sanitizers-miri` | Running AddressSanitizer or ThreadSanitizer on Rust code, using Miri to detect undefined behaviour in unsafe Rust |
+| `rust-sanitizers-miri` | Running AddressSanitizer or ThreadSanitizer on Rust code, using Miri to detect undefined behaviour in unsafe Rust, or enabling MTE on Android 14+ |
 | `rust-security` | Auditing dependencies with cargo-audit, enforcing policies with cargo-deny, or reviewing RUSTSEC advisories |
+| `rust-test-tools` | Authoring tests for unsafe code, custom atomics/locks, or packet parsers — cargo-careful, loom, proptest, cargo-fuzz, cargo-mutants beyond the standard `cargo test` |
 | `rust-unsafe` | Writing or reviewing unsafe Rust, auditing unsafe blocks, understanding raw pointers, or implementing safe abstractions over FFI |
 | `ws-tunnel-telegram` | Working with MTProto WebSocket tunnel for Telegram traffic, ripdpi-ws-tunnel crate, DC IP database, or obfuscated2 classification |
 
 Treat the tables above as an index only. The source of truth for each skill is its own `SKILL.md`.
+
+### Project Rules (cross-tool)
+
+Long-form rules that apply to both Claude Code and Codex CLI live in `.claude/rules/` (with relative symlinks in `.codex/rules/` for Codex parity). They are not auto-loaded into project memory; agents should `Read` them when their topic comes up in a diff or review.
+
+| Rule | When to consult |
+|------|-----------------|
+| `llm-rust-prompts.md` | Delegating Rust work to a sub-agent (`executor`, `codex:rescue`, etc.); reviewing any AI-generated Rust diff. Diff-acceptance gate items and Android-specific sentinel patterns. |
+| `rust-toolchain-pin.md` | Cargo invocations in agentic flows (`--locked` discipline); bumping MSRV; modifying `native/rust/rust-toolchain.toml`. |
+| `vpnservice-protect-invariant.md` | Any code path constructing an outbound `TcpStream`/`UdpSocket`/`mio::net::*` in Rust — protect callback must precede `connect`/`bind` for non-loopback targets. |
+| `golden-bless-discipline.md` | Anything that would invoke `RIPDPI_BLESS_GOLDENS=1` or touch files under `tests/golden/` / `src/test/resources/golden/`. |
+| `android-vpn-lifecycle.md` | State persistence under LMK, tokio shutdown from JNI, Foreground Service contract, thread naming, signal masking, Doze/Standby. |
+| `network-fingerprint-privacy.md` | Per-network policy cache, scope-key construction, anything that might log device identifiers (BSSID, IMEI, IP) — privacy + Play Data Safety implications. |
 
 ## Design Sources
 

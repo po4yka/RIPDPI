@@ -1,0 +1,1 @@
+../../.claude/rules/rust-toolchain-pin.md

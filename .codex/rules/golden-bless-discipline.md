@@ -1,0 +1,1 @@
+../../.claude/rules/golden-bless-discipline.md
