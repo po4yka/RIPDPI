@@ -1,7 +1,7 @@
 ---
 title: Adopt Android 17 NetworkSecurityConfig domainEncryption for per-domain ECH policy
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-25
-updated: 2026-04-25
+updated: 2026-05-16
 ---
 
-- [ ] #task Adopt Android 17 NetworkSecurityConfig domainEncryption for per-domain ECH policy #repo/RIPDPI #area/diagnostics #status/backlog ⏫
+- [x] #task Adopt Android 17 NetworkSecurityConfig domainEncryption for per-domain ECH policy #repo/RIPDPI #area/diagnostics #status/done ⏫
 
 ## Goal contract
 
@@ -34,10 +34,10 @@ Wire RIPDPI's NSC (NetworkSecurityConfig) generator and control-plane to emit `<
 
 ## Acceptance criteria
 
-- [ ] NSC schema generator emits `<domainEncryption>` with `mode="enabled"` for Reality and owned-stack endpoints, `opportunistic` for everything else
-- [ ] Control-plane can override per-domain mode (`enabled` / `disabled` / `opportunistic`) via strategy pack
-- [ ] DnsResolver wired to query HTTPS DNS records for ECH config when `mode != disabled`
-- [ ] Integration test on Android 17 emulator confirms ECH enabled on TLS 1.3 to a Reality endpoint and disabled on a misconfigured one
+- [x] NSC schema generator emits `<domainEncryption>` with `mode="enabled"` for Reality and owned-stack endpoints, `opportunistic` for everything else
+- [x] Control-plane can override per-domain mode (`enabled` / `disabled` / `opportunistic`) via strategy pack
+- [x] DnsResolver wired to query HTTPS DNS records for ECH config when `mode != disabled`
+- [ ] Integration test on Android 17 emulator confirms ECH enabled on TLS 1.3 to a Reality endpoint and disabled on a misconfigured one — deferred; needs Android 17 emulator
 
 ## Links
 

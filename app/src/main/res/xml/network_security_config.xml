@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Base NSC template. Per-domain <domainEncryption> blocks for Android 17 (API 37)
+    ECH policy are generated at runtime by NscDomainEncryptionGenerator and applied
+    via the system NetworkSecurityConfig mechanism. Static overrides may be added
+    as <domain-config> children here; runtime generator output takes precedence.
+-->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
 </network-security-config>

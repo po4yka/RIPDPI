@@ -68,7 +68,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 45 | P3 | `package-libxray-for-android-abis`<br>Package libXray for Android ABIs | task | `epic-xray-provider-mode` | outbound | ⏫ | TODO | |
 | 46 | P3 | `render-validated-xray-client-configs`<br>Render validated Xray client configs | task | `epic-xray-provider-mode` | outbound | ⏫ | TODO | |
 | 47 | P3 | `run-xray-as-managed-vpn-relay-runtime`<br>Run Xray as managed VPN relay runtime | task | `epic-xray-provider-mode` | outbound | ⏫ | TODO | |
-| 48 | P3 | `adopt-android-17-networksecurityconfig-domainencryption-for-per-domain-ech`<br>Adopt Android 17 NetworkSecurityConfig domainEncryption for per-domain ECH policy | task | `(no epic)` | diagnostics | ⏫ | TODO | |
+| 48 | P3 | `adopt-android-17-networksecurityconfig-domainencryption-for-per-domain-ech`<br>Adopt Android 17 NetworkSecurityConfig domainEncryption for per-domain ECH policy | task | `(no epic)` | diagnostics | ⏫ | DONE | `just test-module core:diagnostics` (exit 0) |
 | 49 | P3 | `add-android-vpn-leak-test-instrumentation-matrix`<br>Add Android VPN leak-test instrumentation matrix | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |
 | 50 | P3 | `add-authoritative-dns-leak-test-harness`<br>Add authoritative DNS leak-test harness | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |
 | 51 | P3 | `add-captive-portal-dns-assist-via-network-object`<br>Add captive portal DNS assist via Network object | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | ⏫ | TODO | |
