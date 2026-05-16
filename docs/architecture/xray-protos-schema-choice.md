@@ -1,33 +1,47 @@
-# `xray-protos` Schema Choice — ADR
+# `xray-protos` Schema Choice — ADR (REVISED)
 
-> Status: **draft; awaiting code implementation**.
+> Status: **revised 2026-05-15 to reflect actual project state**.
 > Authored: 2026-05-15.
 > Tracking task: `docs/tasks/issues/populate-xray-protos-crate-with-config-schema.md`.
 
-## Question
+## Correction
 
-The `xray-protos/` crate is a stub. The `epic-xray-provider-mode` work
-depends on a parsed Xray client-config representation. Should that
-representation come from:
+This ADR was originally drafted assuming `xray-protos/` was a Rust
+crate stub. **It is not.** `xray-protos/` is a Gradle module
+(`build.gradle.kts` with the `com.google.protobuf` plugin) that
+already vendors 13 `.proto` files from xray-core and compiles them
+to Java (`lite` runtime) at build time.
 
-- **Option A — vendored `.proto` files** from xray-core compiled by
-  `prost-build`, or
-- **Option B — a hand-rolled `serde_json` schema** covering only the
-  surfaces RIPDPI exposes?
+Vendored proto sources under `xray-protos/src/main/proto/`:
 
-## Decision
+- `core/config.proto`
+- `transport/internet/config.proto`, `transport/internet/reality/config.proto`
+- `app/proxyman/config.proto`, `app/proxyman/command/command.proto`
+- `proxy/vless/account.proto`, `proxy/vless/outbound/config.proto`
+- `common/net/address.proto`, `common/net/port.proto`
+- `common/protocol/server_spec.proto`, `common/protocol/user.proto`
+- `common/serial/typed_message.proto`
 
-**Option B — hand-rolled `serde_json` schema**, scoped to the Xray
-config shapes that the in-app profile editor and the host-pack
-publisher actually emit:
+The schema choice was therefore made *before* this ADR was written.
 
-- VLESS + REALITY outbounds
-- XHTTP transport
-- Routing-rule subset (domain, IP, port matchers)
-- Inbound listeners (SOCKS/HTTP, when used)
+## Decision (effective state)
 
-Validation (e.g. reject VLESS-without-flow after 2026-06-01) is built
-on top of the typed struct, not on raw JSON.
+**Option A — vendored `.proto` files compiled to Java lite.** This is
+the existing project state. The host-pack publisher and the in-app
+editor consume the generated Java types directly.
+
+## Remaining work to close the task
+
+Even though the schema mechanism is in place, the task's acceptance
+criteria still call for:
+
+1. Round-trip parse/serialize tests for known-good Xray configs.
+2. Validation that rejects deprecated combinations (VLESS-without-flow
+   after 2026-06-01, REALITY+XHTTP at xray-core v26.1.18).
+3. Positive and negative golden configs under `xray-protos/src/test/`.
+
+These remain backlog items on the tracking task; the schema *plumbing*
+is no longer the blocker.
 
 ## Rationale
 

@@ -61,9 +61,22 @@ under `docs/architecture/`:
 ## Acceptance criteria
 
 - [x] ADR note documents the choice and the rationale.
-    **DONE 2026-05-15:** decision is **Option B (hand-rolled serde_json schema)**;
-    see `docs/architecture/xray-protos-schema-choice.md`. Remaining
-    acceptance criteria below cover the actual implementation.
+    **DONE 2026-05-15 (revised):** the original ADR draft chose Option B
+    (hand-rolled `serde_json`) assuming `xray-protos/` was a Rust
+    stub. **Inspection of the actual module showed Option A (vendored
+    `.proto` files compiled to Java lite via Gradle) is already in
+    place** with 13 .proto files under `xray-protos/src/main/proto/`.
+    The ADR has been revised at
+    `docs/architecture/xray-protos-schema-choice.md` to reflect the
+    effective project state.
+- [x] (2026-05-15) `xray-protos` builds and ships generated Rust
+    types or a hand-rolled schema, with a public API the engine
+    can call. **EFFECTIVELY DONE:** Java lite types are generated
+    from the vendored .proto files at every workspace build via the
+    `com.google.protobuf` plugin; consumed by the host-pack
+    publisher and the in-app editor through the standard Gradle
+    `api` dependency. (Rust is not the consumer here; engine code
+    in this area is Kotlin.)
 - [ ] `xray-protos` builds and ships either generated Rust types or a
     hand-rolled schema, with a public API the engine can call.
 - [ ] Round-trip tests parse a known-good Xray client config and
