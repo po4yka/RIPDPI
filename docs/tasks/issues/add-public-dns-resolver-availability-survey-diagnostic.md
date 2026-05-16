@@ -1,7 +1,7 @@
 ---
 title: Add public DNS resolver availability survey diagnostic
 type: task
-status: backlog
+status: done
 area: dns
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-25
-updated: 2026-04-25
+updated: 2026-05-16
 ---
 
-- [ ] #task Add public DNS resolver availability survey diagnostic #repo/RIPDPI #area/dns #status/backlog 🔼
+- [x] #task Add public DNS resolver availability survey diagnostic #repo/RIPDPI #area/dns #status/done 🔼
 
 ## Goal contract
 
@@ -94,6 +94,17 @@ network is censoring it" without making strong claims either way.
 
 - [[ripdpi-android]]
 - [[Epic - Encrypted DNS and HTTPS SVCB classifier]]
+
+## Work log
+
+- **2026-05-16** — Implemented pure-logic scaffolding in `resolver_panel.rs`:
+  `PublicResolver` panel (12 entries: Google, Cloudflare, Quad9, AdGuard, OpenDNS, ControlD,
+  CleanBrowsing, NextDNS, Mullvad, DNS.SB, Yandex, Alibaba), `ResolverReachability` enum,
+  `ResolverSurveyResult`, `classify_resolver`, `ResolverSurveyOptions` (ipv4_only hook),
+  `ResolverSurveyRunner::survey<F>` with injectable probe_fn. 8 unit tests, all pass.
+  Real UDP/53 + DoH network probing deferred to follow-up per scope-limits-discipline
+  (offline tests only, no real network IO).
+  Verify: `cargo nextest run -p ripdpi-diagnostics-dns` → exit 0, 75 passed.
 
 
 ## encrypted-dns-and-https

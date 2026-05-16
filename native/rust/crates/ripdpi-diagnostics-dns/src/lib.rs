@@ -2,6 +2,7 @@ pub mod cdn_ech;
 pub mod dns;
 pub mod dns_analysis;
 pub mod dns_oracle;
+pub mod resolver_panel;
 
 pub(crate) mod transport {
     pub use ripdpi_diagnostics_transport::transport::*;
