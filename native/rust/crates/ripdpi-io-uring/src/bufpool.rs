@@ -227,6 +227,62 @@ impl PendingBuffer<'_> {
     }
 }
 
+// Compile-fail regressions for soundness issue #13: `BufferHandle` and
+// `PendingBuffer` are the two canonical move-only owner handles in this
+// workspace. Their exclusive-access protocol (move-only handle + free-list
+// mutex + `&mut self`-anchored borrows + RAII Drop) breaks the moment safe
+// code can duplicate the handle. The four `AmbiguousIf*` const blocks below
+// fail to compile if a future change ever derives `Copy` or `Clone` on
+// either type, catching the regression at workspace build time before any
+// CI test runs.
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfCopy<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfCopy<()> for Check<T> {}
+    impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
+    <Check<BufferHandle<'static>> as AmbiguousIfCopy<_>>::check();
+};
+
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfClone<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfClone<()> for Check<T> {}
+    impl<T: Clone> AmbiguousIfClone<u8> for Check<T> {}
+    <Check<BufferHandle<'static>> as AmbiguousIfClone<_>>::check();
+};
+
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfCopy<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfCopy<()> for Check<T> {}
+    impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
+    <Check<PendingBuffer<'static>> as AmbiguousIfCopy<_>>::check();
+};
+
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfClone<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfClone<()> for Check<T> {}
+    impl<T: Clone> AmbiguousIfClone<u8> for Check<T> {}
+    <Check<PendingBuffer<'static>> as AmbiguousIfClone<_>>::check();
+};
+
 #[cfg(test)]
 mod tests {
     //! Soundness regressions for `BufferHandle`'s exclusive-access design.
