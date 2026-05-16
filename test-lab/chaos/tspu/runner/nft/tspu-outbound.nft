@@ -1,0 +1,24 @@
+# nftables ruleset for the TSPU live-mode container.
+#
+# Funnels outbound TCP:443 and UDP:443 traffic into nfqueue 0 where the
+# python live handler dispatches each packet through the pattern matrix.
+# Other traffic is accepted unchanged so the container can reach apt
+# mirrors, GitHub Actions metadata, etc. during setup.
+#
+# Apply with:
+#
+#     nft -f /opt/tspu/runner/nft/tspu-outbound.nft
+#
+# Requires the container to run with cap_add: NET_ADMIN.
+
+table inet tspu {
+    chain output {
+        type filter hook output priority 0; policy accept;
+
+        # TLS / HTTPS-over-TCP.
+        tcp dport 443 queue num 0 bypass
+
+        # QUIC / HTTPS-over-UDP.
+        udp dport 443 queue num 0 bypass
+    }
+}

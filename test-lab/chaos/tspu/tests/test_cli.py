@@ -17,8 +17,8 @@ if TSPU_DIR not in sys.path:
 from runner import cli, live  # noqa: E402
 
 
-class CliLiveStubTests(unittest.TestCase):
-    def test_live_subcommand_exits_nonzero_with_documented_message(self):
+class CliLiveDispatchTests(unittest.TestCase):
+    def test_live_subcommand_without_args_exits_nonzero(self):
         stderr = io.StringIO()
         original_stderr = sys.stderr
         sys.stderr = stderr
@@ -27,11 +27,22 @@ class CliLiveStubTests(unittest.TestCase):
         finally:
             sys.stderr = original_stderr
         self.assertEqual(rc, 2)
-        self.assertIn("not implemented", stderr.getvalue().lower())
+        # Either the adapter-not-available branch or the missing-args
+        # branch, depending on whether netfilterqueue is installed on
+        # the host. Both mention "live mode" or "matrix" so the test
+        # asserts on the documented contract surface.
+        msg = stderr.getvalue().lower()
+        self.assertTrue(
+            "live mode" in msg or "matrix" in msg or "kerneladapter" in msg,
+            f"unexpected stderr: {msg!r}",
+        )
 
     def test_live_stub_message_contract_is_stable(self):
-        self.assertIn("nfqueue", live.LIVE_NOT_IMPLEMENTED_MESSAGE.lower())
-        self.assertIn("v1.1", live.LIVE_NOT_IMPLEMENTED_MESSAGE)
+        # The LIVE_NOT_AVAILABLE_MESSAGE constant is the documented
+        # contract that the v1.1 container's image-build status uses to
+        # detect a missing live adapter. Pin the visible strings.
+        self.assertIn("nfqueue", live.LIVE_NOT_AVAILABLE_MESSAGE.lower())
+        self.assertIn("v1.1", live.LIVE_NOT_AVAILABLE_MESSAGE)
 
 
 if __name__ == "__main__":

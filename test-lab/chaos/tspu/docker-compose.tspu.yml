@@ -1,16 +1,26 @@
 # Compose overlay that adds the TSPU emulator service to the test-lab.
 #
-# Use with the existing compose file:
+# Two profiles are exposed:
+#
+#   * `chaos` (default) -- runs the dry-run replayer. No kernel
+#     requirements. Suitable for any host that can run the image.
+#   * `chaos-live` -- runs the live-mode handler with NET_ADMIN.
+#     Loads nft rules from /opt/tspu/runner/nft/ and attaches the
+#     Python classifier to nfqueue 0.
+#
+# Dry-run invocation:
 #
 #     docker compose \
 #       -f test-lab/docker-compose.yml \
 #       -f test-lab/chaos/tspu/docker-compose.tspu.yml \
-#       up tspu
+#       --profile chaos up tspu
 #
-# v1.1 default command runs the dry-run replayer inside the container
-# (same surface as the host-side CI script). The live-mode follow-up PR
-# enables NET_ADMIN, attaches the nfqueue rules, and changes the command
-# to the live handler.
+# Live invocation (Linux host, requires capability):
+#
+#     docker compose \
+#       -f test-lab/docker-compose.yml \
+#       -f test-lab/chaos/tspu/docker-compose.tspu.yml \
+#       --profile chaos-live up tspu-live
 
 services:
   tspu:
@@ -22,12 +32,21 @@ services:
       - chaos
     volumes:
       - tspu-out:/var/lib/tspu-out
-    # The live-mode follow-up enables the cap_add / network_mode lines
-    # below. They are commented out in v1.1 so the image can run as an
-    # unprivileged container in PR CI.
-    # cap_add:
-    #   - NET_ADMIN
-    # network_mode: host
+
+  tspu-live:
+    image: ripdpi/tspu-emulator:v1.1
+    profiles:
+      - chaos-live
+    cap_add:
+      - NET_ADMIN
+    network_mode: host
+    entrypoint: ["/opt/tspu/runner/entrypoint-live.sh"]
+    environment:
+      MATRIX_FILE: /opt/tspu/matrix.json
+      OUT_DIR: /var/lib/tspu-out
+      QUEUE_NUM: "0"
+    volumes:
+      - tspu-out:/var/lib/tspu-out
 
 volumes:
   tspu-out:

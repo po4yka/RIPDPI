@@ -37,7 +37,10 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     dry.add_argument("--fixtures", required=True, help="Path to fixtures directory.")
     dry.add_argument("--out-dir", required=True, help="Where to write verdict-report.json and pcaps.")
 
-    sub.add_parser("live", help="(stub) Run the nfqueue-attached classifier inside the container.")
+    live_cmd = sub.add_parser("live", help="Run the nfqueue-attached classifier inside the container.")
+    live_cmd.add_argument("--matrix", required=False, help="Path to matrix.json (required when adapter is available).")
+    live_cmd.add_argument("--out-dir", required=False, help="Where to write verdict-report.json (required when adapter is available).")
+    live_cmd.add_argument("--queue-num", type=int, default=0, help="nfqueue queue number (default 0).")
 
     return parser.parse_args(argv)
 
@@ -60,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report["totals"], sort_keys=True))
         return 0
     if args.cmd == "live":
-        return live.run_live()
+        return live.run_live(matrix_path=args.matrix, out_dir=args.out_dir, queue_num=args.queue_num)
     sys.stderr.write(f"unknown subcommand: {args.cmd}\n")
     return 2
 

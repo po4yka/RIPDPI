@@ -1,37 +1,174 @@
-"""Live-mode entry point (skeleton).
+"""Live-mode handler.
 
-The full nfqueue-attached classifier lands in the follow-up PR. This
-module exists so the dispatching surface in `runner.cli` has a real
-import target, and so the live-mode contract can be tested with a
-deliberate "not implemented" exit before the real handler arrives.
+The dry-run replayer consumes JSON traces; the live mode consumes raw
+packets from a kernel hook (nfqueue on Linux) and produces the same
+verdict-report.json shape on shutdown.
 
-Implementation plan for the follow-up PR:
+The handler does not import netfilterqueue directly. Instead it depends
+on a [`KernelAdapter`] protocol that exposes one method:
 
-1. Install nftables rules from `runner/nft/` that funnel matched
-   packets into nfqueue 0.
-2. For each pattern in `matrix.json`, instantiate its classifier and
-   register it with the netfilterqueue python bindings.
-3. For each incoming packet, build the trace dict on the fly from the
-   raw bytes (parsing TLS ClientHello / QUIC long-header headers here,
-   not in the pattern modules) and call `pattern.classify(...)`.
-4. Emit a cell-verdict report with the same JSON shape the dry-run
-   replayer produces, so downstream tooling stays unchanged.
+    def consume(self, handler) -> None: ...
 
-For v1.1 the entry point exits non-zero with a documented message; the
-test suite exercises this path so the contract does not regress.
+`handler` receives `(transport, payload, src_port, dst_port)` per
+packet and returns a [`Verdict`] which the adapter applies to the
+kernel (accept / drop / mangle). In production we wire up
+[`NfqueueAdapter`]; in tests we use [`FakeAdapter`] that drives a
+canned packet list. Both produce the same per-cell verdict report so
+the live-mode and dry-run goldens stay structurally identical.
+
+Live mode currently runs the *full pattern matrix* per packet (cheap
+in practice; 5 patterns x small classifiers). The first matched
+pattern wins for verdict-recording purposes; the cell record carries
+all matched pattern ids so triage retains the cross-pattern signal.
 """
 
 from __future__ import annotations
 
+import importlib
+import json
+import os
 import sys
+from dataclasses import dataclass
+from typing import Any, Callable, Protocol
+
+from . import packet_parser, schema
 
 
-LIVE_NOT_IMPLEMENTED_MESSAGE = (
-    "live mode requires the nfqueue-attached classifier inside the v1.1 container "
-    "(see docs/architecture/spike-tspu-adversarial-emulator.md). Not implemented in v1.1."
+LIVE_NOT_AVAILABLE_MESSAGE = (
+    "live mode requires a KernelAdapter implementation. Build the v1.1 container "
+    "(Dockerfile + docker-compose.tspu.yml) and run with NfqueueAdapter, or supply "
+    "a FakeAdapter in process for testing."
 )
 
 
-def run_live() -> int:
-    sys.stderr.write(LIVE_NOT_IMPLEMENTED_MESSAGE + "\n")
-    return 2
+@dataclass
+class Verdict:
+    """Kernel action for one packet seen by the live handler."""
+
+    accept: bool
+    pattern_ids_matched: tuple[str, ...]
+
+
+class KernelAdapter(Protocol):
+    """One method: consume packets and invoke `handler` per packet."""
+
+    def consume(
+        self,
+        handler: Callable[[str, bytes, int, int], Verdict],
+    ) -> None: ...
+
+
+def _load_pattern_module(pattern_id: str):
+    module_name = pattern_id.replace("-", "_")
+    return importlib.import_module(f"patterns.{module_name}")
+
+
+def _evaluate_patterns(packet: dict[str, Any], patterns: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Run every pattern's classifier against a single-packet trace."""
+    trace = {"packets": [packet]}
+    results = []
+    for entry in patterns:
+        module = _load_pattern_module(entry["id"])
+        result = module.classify(trace, entry.get("config", {}))
+        results.append({"pattern_id": entry["id"], "result": result, "config": entry.get("config", {})})
+    return results
+
+
+def run_with_adapter(
+    matrix: dict[str, Any],
+    adapter: KernelAdapter,
+    out_dir: str,
+) -> dict[str, Any]:
+    """Drive `adapter` and emit a verdict-report.json compatible report.
+
+    Cells are recorded per packet (the "desync_mode_id" field carries
+    the live-mode source identifier rather than a fixture name). This
+    keeps the report consumable by the same triage tooling.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    patterns = matrix.get("patterns", [])
+    cells: list[dict[str, Any]] = []
+
+    def handler(transport: str, payload: bytes, src_port: int, dst_port: int) -> Verdict:
+        packet = packet_parser.parse_outbound_packet(
+            transport=transport, payload=payload, src_port=src_port, dst_port=dst_port
+        )
+        pattern_results = _evaluate_patterns(packet, patterns)
+        matched = [r["pattern_id"] for r in pattern_results if r["result"].get("matched")]
+        cell_verdict = schema.VERDICT_BLOCKED if matched else schema.VERDICT_BYPASSED
+        cells.append(
+            {
+                "desync_mode_id": f"live::{transport}:{dst_port}",
+                "pattern_id": matched[0] if matched else "(none)",
+                "verdict": cell_verdict,
+                "pattern_result": pattern_results[0]["result"] if pattern_results else {},
+                "evidence": {
+                    "transport": transport,
+                    "src_port": src_port,
+                    "dst_port": dst_port,
+                    "payload_bytes_len": len(payload),
+                    "pattern_ids_matched": matched,
+                },
+            }
+        )
+        return Verdict(accept=not matched, pattern_ids_matched=tuple(matched))
+
+    adapter.consume(handler)
+
+    totals = {v: 0 for v in schema.ALL_VERDICTS}
+    for cell in cells:
+        totals[cell["verdict"]] = totals.get(cell["verdict"], 0) + 1
+    report = {
+        "report_schema_version": schema.REPORT_SCHEMA_VERSION,
+        "matrix_version": matrix.get("matrix_version"),
+        "mode": "live",
+        "cells": cells,
+        "totals": totals,
+    }
+    report_path = os.path.join(out_dir, "verdict-report.json")
+    with open(report_path, "w", encoding="utf-8") as fh:
+        json.dump(report, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+    return report
+
+
+class FakeAdapter:
+    """In-process adapter that feeds a fixed packet list."""
+
+    def __init__(self, packets: list[tuple[str, bytes, int, int]]):
+        self._packets = list(packets)
+
+    def consume(self, handler: Callable[[str, bytes, int, int], Verdict]) -> None:
+        for transport, payload, src_port, dst_port in self._packets:
+            handler(transport, payload, src_port, dst_port)
+
+
+def _try_load_nfqueue_adapter():
+    """Lazily import the NfqueueAdapter so the host doesn't need
+    netfilterqueue installed for dry-run."""
+    try:
+        from .nfqueue_adapter import NfqueueAdapter  # type: ignore
+
+        return NfqueueAdapter
+    except ImportError:
+        return None
+
+
+def run_live(matrix_path: str | None = None, out_dir: str | None = None, queue_num: int = 0) -> int:
+    """Production entry point. Wires NfqueueAdapter if available.
+
+    Exits non-zero with a documented message when the adapter is not
+    installable (no netfilterqueue / not Linux).
+    """
+    NfqueueAdapter = _try_load_nfqueue_adapter()
+    if NfqueueAdapter is None:
+        sys.stderr.write(LIVE_NOT_AVAILABLE_MESSAGE + "\n")
+        return 2
+    if not matrix_path or not out_dir:
+        sys.stderr.write("live mode requires --matrix and --out-dir\n")
+        return 2
+    with open(matrix_path, "r", encoding="utf-8") as fh:
+        matrix = json.load(fh)
+    adapter = NfqueueAdapter(queue_num=queue_num)
+    run_with_adapter(matrix, adapter, out_dir)
+    return 0
