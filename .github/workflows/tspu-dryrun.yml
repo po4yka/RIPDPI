@@ -1,0 +1,42 @@
+name: TSPU dry-run
+
+on:
+  pull_request:
+    paths:
+      - "test-lab/chaos/tspu/**"
+      - "scripts/ci/run-tspu-dryrun.sh"
+      - ".github/workflows/tspu-dryrun.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "test-lab/chaos/tspu/**"
+      - "scripts/ci/run-tspu-dryrun.sh"
+      - ".github/workflows/tspu-dryrun.yml"
+  workflow_dispatch:
+
+jobs:
+  dryrun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run TSPU dry-run
+        env:
+          RIPDPI_TSPU_ARTIFACT_DIR: ${{ runner.temp }}/tspu-dryrun
+        run: bash scripts/ci/run-tspu-dryrun.sh
+
+      - name: Upload verdict report + pcaps
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tspu-dryrun-artifacts
+          path: ${{ runner.temp }}/tspu-dryrun
+          retention-days: 14

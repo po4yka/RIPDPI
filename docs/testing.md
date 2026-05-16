@@ -693,6 +693,7 @@ PR CI runs:
 - `rust-loom` -- exhaustive concurrency verification (20 min timeout)
 - `cli-packet-smoke` -- CLI proxy behavioral verification with pcap capture
 - `fleet-fixtures` -- structural drift gate + `*FleetCompat*` golden-file suite, on PRs touching the subscription/routing/AWG/relay models or the fleet fixtures
+- `tspu-dryrun` -- TSPU adversarial emulator matrix-runner dry-run + unittest suite, on PRs touching `test-lab/chaos/tspu/` or its CI script. Uploads `verdict-report.json` and per-cell `.pcap` artifacts for triage.
 
 Nightly/manual lanes add:
 
