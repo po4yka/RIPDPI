@@ -163,9 +163,9 @@ dependencies = [
 
 [[package]]
 name = "boring"
-version = "5.0.2"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb424b02b733bc0fafbe9b269db743d44126fabf2e55edaefb42762491955c9e"
+checksum = "4b573999d5cb0fdb9e9bb495058981752547b6475ba5e346247ebbd329917549"
 dependencies = [
  "bitflags",
  "boring-sys",
@@ -176,9 +176,9 @@ dependencies = [
 
 [[package]]
 name = "boring-sys"
-version = "5.0.2"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71108e4d30f6275b216e78706b438d2880a4d1503fbc40f8616a3c69401ee2e6"
+checksum = "bbc39169cb8fa025002661c8d9148ed38a896908e4d308bb0cb55303f66e95d4"
 dependencies = [
  "bindgen",
  "cmake",

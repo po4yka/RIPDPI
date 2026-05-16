@@ -119,3 +119,9 @@ name = "finalmask_spec"
 path = "fuzz_targets/finalmask_spec.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "finalmask_decoder"
+path = "fuzz_targets/finalmask_decoder.rs"
+test = false
+doc = false

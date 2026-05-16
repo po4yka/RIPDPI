@@ -15,7 +15,7 @@ pub use config::{
     XhttpTlsConfig, XmuxConfig,
 };
 #[doc(hidden)]
-pub use finalmask::__fuzz_parse_finalmask_spec;
+pub use finalmask::{__fuzz_decode_finalmask_payload, __fuzz_parse_finalmask_spec};
 pub use grpc::{
     encode_hunk, encode_hunk_to_bytes, tun_path, GrpcFramingError, GrpcTransport, GrpcTransportConfig, GrpcWireHalves,
     HunkDecoder,
