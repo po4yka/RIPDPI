@@ -22,5 +22,13 @@ hex = { workspace = true }
 [dev-dependencies]
 tracing-subscriber = { workspace = true }
 
+[features]
+# Miri-friendly stubs for the three BoringSSL FFI calls in
+# reality_hook.rs. Build with --features miri-stubs and run under
+# `cargo +nightly miri test` to validate the Rust-side glue
+# (Box::into_raw + RealityHookGuard drop + extern "C" callback
+# panic-trap) without linking BoringSSL.
+miri-stubs = []
+
 [lints]
 workspace = true

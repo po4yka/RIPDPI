@@ -50,6 +50,7 @@ pub(crate) struct SslHandle {
 pub(crate) type RealityHelloCb =
     extern "C" fn(ssl: *mut SslHandle, msg: *mut u8, msg_len: usize, arg: *mut c_void) -> c_int;
 
+#[cfg(not(feature = "miri-stubs"))]
 extern "C" {
     /// Patched BoringSSL accessor. Returns 1 if it copied 32 bytes
     /// into `out`, 0 otherwise. Valid only between
@@ -67,6 +68,67 @@ extern "C" {
     /// [`crate::reality`].
     fn SSL_get_SSL_CTX(ssl: *const SslHandle) -> *mut SslCtxHandle;
 }
+
+/// Miri-friendly stubs that simulate the three BoringSSL FFI calls
+/// without linking against the real library. Each stub does the
+/// safe-Rust-only operation Miri can validate (pointer provenance,
+/// write-through-pointer with proper bounds) and returns success-
+/// shaped values so the install / callback / drop dance round-trips
+/// cleanly under Miri.
+///
+/// Enable via `cargo +nightly miri test -p ripdpi-vless --features miri-stubs`.
+#[cfg(feature = "miri-stubs")]
+mod miri_stubs {
+    use super::{c_int, c_void, RealityHelloCb, SslCtxHandle, SslHandle};
+
+    /// Writes 32 zero bytes to `out` and returns 1 (success) so the
+    /// callback's `priv_key` path doesn't take the empty-key error
+    /// branch. Real BoringSSL writes the actual X25519 key.
+    ///
+    /// # Safety
+    /// `out` must point to 32 writable bytes.
+    #[no_mangle]
+    pub(super) unsafe extern "C" fn SSL_handshake_get_x25519_private_key(
+        _ssl: *const SslHandle,
+        out: *mut u8,
+    ) -> c_int {
+        // SAFETY: caller contract — out points to 32 writable bytes.
+        unsafe { std::ptr::write_bytes(out, 0, 32) };
+        1
+    }
+
+    /// Records the callback + arg pair; real BoringSSL stores them
+    /// on the SSL_CTX. Marked `unsafe` to match the real extern
+    /// signature so the install-path `unsafe {}` block stays load-
+    /// bearing under cfg.
+    ///
+    /// # Safety
+    ///
+    /// Stub never dereferences any argument; safety obligations are
+    /// inherited from the real extern signature.
+    #[no_mangle]
+    pub(super) unsafe extern "C" fn SSL_CTX_set_client_hello_cb(
+        _ctx: *mut SslCtxHandle,
+        _cb: RealityHelloCb,
+        _arg: *mut c_void,
+    ) {
+    }
+
+    /// Returns a non-null but otherwise-unused pointer; real
+    /// BoringSSL returns the SSL_CTX backing the SSL.
+    ///
+    /// # Safety
+    ///
+    /// Returned pointer must not be dereferenced under stubs.
+    #[no_mangle]
+    pub(super) unsafe extern "C" fn SSL_get_SSL_CTX(_ssl: *const SslHandle) -> *mut SslCtxHandle {
+        // 0x1 sentinel: never dereferenced under stubs.
+        std::ptr::without_provenance_mut::<SslCtxHandle>(1)
+    }
+}
+
+#[cfg(feature = "miri-stubs")]
+use miri_stubs::{SSL_CTX_set_client_hello_cb, SSL_get_SSL_CTX, SSL_handshake_get_x25519_private_key};
 
 pub(crate) struct RealityCallbackState {
     pub server_pubkey: [u8; 32],
