@@ -94,6 +94,7 @@ members = [
     "crates/ripdpi-cloudflare-origin",
     "crates/ripdpi-tls-profiles",
     "crates/ripdpi-xhttp",
+    "crates/ripdpi-trojan",
 ]
 
 [workspace.package]
@@ -183,6 +184,7 @@ ripdpi-masque = { path = "crates/ripdpi-masque" }
 ripdpi-tuic = { path = "crates/ripdpi-tuic" }
 ripdpi-tls-profiles = { path = "crates/ripdpi-tls-profiles" }
 ripdpi-xhttp = { path = "crates/ripdpi-xhttp" }
+ripdpi-trojan = { path = "crates/ripdpi-trojan" }
 ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }
 ripdpi-cloudflare-origin = { path = "crates/ripdpi-cloudflare-origin" }
 criterion = { version = "0.8", features = ["html_reports"] }

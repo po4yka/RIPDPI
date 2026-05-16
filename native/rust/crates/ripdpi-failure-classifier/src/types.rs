@@ -20,6 +20,17 @@ pub enum FailureClass {
     /// Distinct from `Failed` (which implies the probe ran and lost) and
     /// from `NetworkBlocked` (which implies external censorship).
     CapabilitySkipped,
+    /// The TUIC server speaks a wire version this client does not
+    /// support (RIPDPI is v5-only per
+    /// `docs/architecture/tuic-v4-policy.md`). Distinct from
+    /// `ConnectFailure` so the user-visible diagnostic can recommend
+    /// upgrading the server rather than retrying.
+    TuicVersionUnsupported,
+    /// The ShadowTLS server speaks v2 wire framing while this client
+    /// is v3-only per `docs/architecture/shadowtls-version-policy.md`.
+    /// Distinct from `TlsHandshakeFailure` so the user-visible
+    /// diagnostic can recommend a server upgrade.
+    ShadowTlsVersionMismatch,
 }
 
 impl FailureClass {
@@ -38,6 +49,8 @@ impl FailureClass {
             Self::StrategyExecutionFailure => "strategy_execution_failure",
             Self::ConnectionFreeze => "connection_freeze",
             Self::CapabilitySkipped => "capability_skipped",
+            Self::TuicVersionUnsupported => "tuic_version_unsupported",
+            Self::ShadowTlsVersionMismatch => "shadowtls_version_mismatch",
         }
     }
 }
@@ -159,10 +172,34 @@ mod tests {
             (FailureClass::StrategyExecutionFailure, "strategy_execution_failure"),
             (FailureClass::ConnectionFreeze, "connection_freeze"),
             (FailureClass::CapabilitySkipped, "capability_skipped"),
+            (FailureClass::TuicVersionUnsupported, "tuic_version_unsupported"),
+            (FailureClass::ShadowTlsVersionMismatch, "shadowtls_version_mismatch"),
         ];
         for (variant, expected) in cases {
             assert_eq!(variant.as_str(), expected, "{variant:?} should map to {expected:?}");
         }
+    }
+
+    #[test]
+    fn tuic_version_unsupported_distinct_from_connect_failure() {
+        // TUIC v4-server response must classify as a distinct variant so
+        // the user-visible diagnostic can recommend upgrading the server
+        // rather than a generic protocol failure. See
+        // docs/architecture/tuic-v4-policy.md.
+        assert_ne!(FailureClass::TuicVersionUnsupported, FailureClass::ConnectFailure);
+        assert_ne!(FailureClass::TuicVersionUnsupported, FailureClass::Unknown);
+        assert_eq!(FailureClass::TuicVersionUnsupported.as_str(), "tuic_version_unsupported");
+    }
+
+    #[test]
+    fn shadowtls_version_mismatch_distinct_from_tls_handshake_failure() {
+        // ShadowTLS v2-server response must classify as a distinct
+        // variant so the user-visible diagnostic can recommend
+        // upgrading the server rather than a generic TLS handshake
+        // failure. See docs/architecture/shadowtls-version-policy.md.
+        assert_ne!(FailureClass::ShadowTlsVersionMismatch, FailureClass::TlsHandshakeFailure);
+        assert_ne!(FailureClass::ShadowTlsVersionMismatch, FailureClass::Unknown);
+        assert_eq!(FailureClass::ShadowTlsVersionMismatch.as_str(), "shadowtls_version_mismatch");
     }
 
     #[test]

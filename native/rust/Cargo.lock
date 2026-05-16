@@ -4221,6 +4221,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-trojan"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "sha2",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ripdpi-tuic"
 version = "0.1.0"
 dependencies = [

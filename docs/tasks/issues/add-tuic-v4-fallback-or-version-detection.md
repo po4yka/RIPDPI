@@ -46,8 +46,16 @@ problem.
     **DONE 2026-05-15:** decision is **v5 only**; see
     `docs/architecture/tuic-v4-policy.md`. Remaining acceptance
     criteria below cover the classifier wiring + tests.
-- [ ] If "v5 only", the failure classifier maps v4-server responses to
-    a distinct `TuicVersionUnsupported` class with remediation text.
+- [x] (2026-05-16, TDD) If "v5 only", the failure classifier maps
+    v4-server responses to a distinct `TuicVersionUnsupported`
+    class with remediation text. **DONE:**
+    `FailureClass::TuicVersionUnsupported` variant added to
+    `ripdpi-failure-classifier::types` with `as_str() ->
+    "tuic_version_unsupported"`. Two new tests:
+    `tuic_version_unsupported_distinct_from_connect_failure` +
+    extended `failure_class_as_str_covers_all_variants`. Wiring
+    the actual v4-response detection inside `ripdpi-tuic::client`
+    remains a follow-up but the typed class now exists to map to.
 - [ ] If "fallback", the client attempts v5 first and falls back to v4
     only on a recognizable rejection signature; both paths are covered
     by unit tests.

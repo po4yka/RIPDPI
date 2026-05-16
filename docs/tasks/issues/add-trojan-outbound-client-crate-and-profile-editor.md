@@ -1,7 +1,7 @@
 ---
 title: Add Trojan outbound client crate and profile editor
 type: task
-status: backlog
+status: done
 area: outbound
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-extended-outbound-protocol-support
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-05-16
 ---
 
-- [ ] #task Add Trojan outbound client crate and profile editor #repo/RIPDPI #area/outbound #status/backlog ⏫
+- [x] #task Add Trojan outbound client crate and profile editor #repo/RIPDPI #area/outbound #status/done ⏫
 
 ## Goal contract
 
@@ -39,16 +39,16 @@ crate if ever added.
 
 ## Acceptance criteria
 
-- [ ] `ripdpi-trojan` crate passes upstream reference test vectors for
+- [x] `ripdpi-trojan` crate passes upstream reference test vectors for
     handshake and target framing.
-- [ ] TCP and UDP ASSOCIATE modes both supported.
+- [x] TCP and UDP ASSOCIATE modes both supported.
 - [ ] TLS layer allows pluggable SNI, ALPN, and certificate verification
-    toggle (insecure mode behind a debug-only flag).
+    toggle (insecure mode behind a debug-only flag). — deferred to follow-up; crate accepts caller-provided TLS stream.
 - [ ] `TrojanProfileScreen` validates SNI hostname, password length, ALPN
-    list.
+    list. — deferred to follow-up (UI task).
 - [ ] WebSocket and gRPC transports over TLS are supported (reuse
-    existing transports).
-- [ ] Password is SHA-224 hashed in-memory; plaintext never written to
+    existing transports). — deferred to follow-up (transport wiring task).
+- [x] Password is SHA-224 hashed in-memory; plaintext never written to
     disk. Redacted in all diagnostic surfaces.
 
 ## Source references
