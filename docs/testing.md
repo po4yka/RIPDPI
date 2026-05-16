@@ -628,8 +628,10 @@ roadmap work, not new design.
 
 ### Open and not yet tracked
 
-Heavier infrastructure work that needs a design decision before a task issue
-is meaningful. Listed so they are not silently forgotten.
+Heavier infrastructure work tracked as a single design spike under
+[`spike-adversarial-network-harness-and-realprovider-matrix.md`](tasks/issues/spike-adversarial-network-harness-and-realprovider-matrix.md);
+the spike unblocks three separate implementation issues. Listed here so
+they are not silently forgotten.
 
 - **Adversarial TSPU emulator in `test-lab/chaos/`.** Today `chaos/` ships
   Toxiproxy + netem for loss/latency/jitter; it does not reproduce the
