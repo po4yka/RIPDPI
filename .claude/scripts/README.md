@@ -62,6 +62,20 @@ session if you want the hooks dormant for a debugging stint:
 RIPDPI_RUST_HOOKS=off claude
 ```
 
+## Strict vs advisory mode
+
+`rust-stop-verify.sh` defaults to **advisory** — it prints any fmt-check or
+clippy findings to stderr but exits 0, so a parallel agent's in-flight drift in
+the working tree does not block your turn. To make it blocking (exit 2 on
+findings — model sees the error in next turn's context):
+
+```bash
+RIPDPI_RUST_HOOKS_STRICT=on claude
+```
+
+Use strict mode for solo sessions on a clean tree; default advisory mode for
+multi-agent or worktree-shared work where dirty files may not be yours.
+
 ## Rationale
 
 See `.claude/rules/llm-rust-prompts.md` and `.claude/rules/rust-toolchain-pin.md`
