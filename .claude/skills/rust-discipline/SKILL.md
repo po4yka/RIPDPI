@@ -319,6 +319,94 @@ struct Connection { pool: Weak<Pool> }
 
 Rule: in any parent-child relationship where the child needs a reference back to the parent, always use `Weak<T>` for the child→parent direction.
 
+### Lifetime laundering across input/storage
+
+**Severity: CRITICAL**
+
+A function that takes `&'a T` and writes derived references into a long-lived `HashMap<_, &'a U>` looks elegant — but the shared `'a` forces every call site to choose a single lifetime spanning both the input borrow and the cache. In real code the intersection collapses to empty almost immediately.
+
+```rust
+// BAD: 'a binds the input slice AND the cache values together.
+fn first_word<'a>(s: &'a str, cache: &mut HashMap<String, &'a str>) -> &'a str {
+    if let Some(cached) = cache.get(s) { return cached; }
+    let word = s.split_whitespace().next().unwrap_or("");
+    cache.insert(s.to_string(), word);
+    word
+}
+// The cache outlives any single `s`. First call locks 'a to the first input,
+// second call from a different scope fails to compile.
+
+// GOOD: split lifetimes with documented contract
+fn first_word<'cache, 'input: 'cache>(
+    s: &'input str,
+    cache: &mut HashMap<String, &'cache str>,
+) -> &'cache str { /* ... */ }
+
+// BETTER: store owned data, decouple lifetimes entirely
+fn first_word(s: &str, cache: &mut HashMap<String, String>) -> &str { /* ... */ }
+```
+
+Rule: when an `&'a` parameter appears in both an input position and a storage parameter, either split lifetimes with a documented `'input: 'cache` bound, or store owned data. The single-lifetime form is almost always a trap planted for the next caller.
+
+Grep for violations: `rg "fn .+<'[a-z]>.*HashMap.*&'[a-z]" native/rust/ --type rust -n`
+
+### Blanket impl in public API is a semver hazard
+
+**Severity: CRITICAL**
+
+`impl<T: Foo> Bar for T` on a `pub trait Bar` lets downstream crates write `impl Bar for MyType` only as long as `MyType: !Foo`. When a future minor release of your crate adds another blanket impl, narrows a bound, or implements `Foo` for a type the downstream crate uses, downstream compilation breaks — the error surfaces only at the consumer's CI, months after the change ships.
+
+```rust
+// HAZARD: any downstream `impl Bar for MyType where MyType: Display` may
+// conflict with this on a future bump.
+pub trait Bar { fn bar(&self) -> String; }
+impl<T: Display> Bar for T {
+    fn bar(&self) -> String { format!("{}", self) }
+}
+
+// SAFE: trait is sealed; only this crate can implement it. Blanket impl is fine
+// because no downstream impl can ever exist.
+mod private { pub trait Sealed {} }
+pub trait Bar: private::Sealed { fn bar(&self) -> String; }
+impl<T: Display + private::Sealed> Bar for T { /* ... */ }
+```
+
+Rule: a blanket `impl<T: ...> PubTrait for T` is allowed only if `PubTrait` is sealed (extends a private trait). Otherwise, write explicit per-type impls. The cost of going from sealed → unsealed later is free; the cost of going from blanket → explicit later is a downstream-breaking semver bump.
+
+Grep for violations: `rg "^impl<T(:\s*\w[\w:+ ]*)?>\s+\w+\s+for\s+T\b" native/rust/ --type rust -n`
+
+### Large stack arrays and the `Box::new([0u8; N])` pitfall
+
+**Severity: WARNING**
+
+`Box::new([0u8; N])` does NOT allocate `N` bytes directly on the heap. The expression first constructs `[0u8; N]` on the caller's stack, then `Box::new` copies it into a heap allocation. In debug builds (no placement-new optimization), this overflows the default ~1 MiB Android thread stack for `N ≥ ~256 KiB`. Release builds sometimes optimize via NRVO but the optimization is fragile — any intermediate `let buf = Box::new([0u8; N]);` may materialize the stack copy.
+
+```rust
+// BAD: stack-overflows in debug, brittle NRVO in release.
+let buf: Box<[u8; 1024 * 1024]> = Box::new([0u8; 1024 * 1024]);
+
+// BAD: returning large arrays by value forces memcpy via stack.
+fn make_buf() -> [u8; 1024 * 1024] { [0u8; 1024 * 1024] }
+
+// GOOD: allocate on the heap from the start.
+let buf: Box<[u8]> = vec![0u8; 1024 * 1024].into_boxed_slice();
+
+// GOOD (nightly): direct heap allocation without zeroing the stack.
+let buf: Box<[u8]> = unsafe {
+    let mut b = Box::<[u8]>::new_uninit_slice(1024 * 1024);
+    std::ptr::write_bytes(b.as_mut_ptr() as *mut u8, 0, 1024 * 1024);
+    b.assume_init()
+};
+```
+
+Rule: any array larger than 16 KiB constructed for heap residence must use `Vec::into_boxed_slice` or `Box::new_uninit_slice`. Never write `Box::new([T; N])` for large `N`, and never return `[T; N]` by value for large `N`. Hot-path code paths additionally fall under the "no allocation" rule above.
+
+Grep for violations:
+```bash
+rg "Box::new\(\s*\[0?[a-z0-9_]+\s*;\s*[0-9]{4,}" native/rust/ --type rust -n
+rg "fn .* -> \[[a-z0-9_]+\s*;\s*[0-9]{4,}\]" native/rust/ --type rust -n
+```
+
 ---
 
 ## Quick review checklist
@@ -349,5 +437,9 @@ Apply to every changed public or `pub(crate)` API and every Rust PR:
 19. Any migration from `std::sync::Mutex` to `parking_lot` or `tokio::sync::Mutex` that relied on poison detection?
 20. Any unchecked arithmetic on values derived from external input in packet parsers or length calculations?
 21. Any `Arc<T>` that points back to its parent container (pool → connection → pool cycle)?
+22. Any function taking `&'a T` that also writes references into a storage parameter sharing the same `'a`? → split lifetimes with `'input: 'cache` or store owned data.
+23. Any `impl<T: ...> PubTrait for T` on a public trait that is NOT sealed (does not extend a private `Sealed` trait)? → seal the trait or write explicit per-type impls.
+24. Any `Box::new([T; N])` or return-by-value of `[T; N]` for `N` > 16 KiB? → use `Vec::into_boxed_slice` or `Box::new_uninit_slice`.
+25. Any blanket impl added without a tracking comment confirming the trait is sealed?
 
 If the answer to any is yes, the change needs revision before merge.

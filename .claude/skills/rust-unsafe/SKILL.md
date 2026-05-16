@@ -215,6 +215,42 @@ Call `ignore_sigpipe()` exactly once from `JNI_OnLoad`. On Android, ART does not
 | `u8` | `MyEnum` | **No** unless valid tag | `MyEnum::try_from(u)` |
 | `Vec<T>` | `Vec<U>` | **No** | Manual conversion |
 
+## Pointer reads from untrusted byte buffers
+
+**Severity: CRITICAL — silent UB on ARM64**
+
+`std::ptr::read(buf.as_ptr() as *const T)` requires `buf.as_ptr()` to be aligned for `T`. Bytes that arrive from the network, a file, or any boundary outside your allocator carry arbitrary alignment.
+
+On x86, a misaligned read of a `repr(C)` struct containing `u32`/`u64` fields is silently slower. On ARM64 (RIPDPI's target), the result is either a `SIGBUS` trap or garbage data depending on kernel configuration. Tests on a dev x86 machine pass; Android device runs return random bytes or crash on the same input.
+
+```rust
+// BAD: assumes alignment that the input byte slice does not promise.
+let header: Header = unsafe { std::ptr::read(buf.as_ptr() as *const Header) };
+
+// CORRECT: explicit unaligned read.
+let header: Header = unsafe { std::ptr::read_unaligned(buf.as_ptr() as *const Header) };
+
+// BETTER: bypass unsafe entirely.
+use zerocopy::FromBytes;
+let header = Header::read_from_prefix(buf).ok_or(Error::Truncated)?;
+// Or for streaming parsers:
+let mut cur = std::io::Cursor::new(buf);
+let header_field = cur.get_u32_le(); // bytes::Buf — endianness-explicit, no transmute.
+```
+
+Rules:
+1. Any `ptr::read` whose source is a `&[u8]` from I/O, FFI, or `mmap` must be `ptr::read_unaligned` — no exceptions, even if the field happens to be aligned today.
+2. Prefer `zerocopy::FromBytes` / `bytes::Buf` over raw pointer arithmetic on byte buffers. They eliminate the unsafe block and make endianness explicit.
+3. Add a Miri test under `MIRIFLAGS="-Zmiri-tree-borrows"` for every new unsafe byte-buffer parser. Empirical measurement on LLM-generated Rust: 22 of 40 unsafe samples had UB that passed normal tests + clippy + visual review.
+
+Grep audit:
+```bash
+rg "ptr::read\(\s*[a-z_][a-z_0-9]*\.as_ptr\(\)\s*as\s*\*const" native/rust/ --type rust -n
+rg "transmute::<\s*&\[u8\]" native/rust/ --type rust -n
+```
+
+Cross-reference: `rust-sanitizers-miri` — Miri Tree Borrows is the formal aliasing model that catches this class of UB; `crabbook/unsafe_is_unsafe.md` — one unsafe block breaks local reasoning, including in byte-buffer parsers.
+
 ## Audit checklist
 
 When reviewing an `unsafe` block:

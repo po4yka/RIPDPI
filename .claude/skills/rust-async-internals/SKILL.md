@@ -186,6 +186,120 @@ for structured shutdown. The tunnel session state machine transitions through
 `Ready -> Starting -> Running -> Destroyed`, with the token stored in the
 `Starting` and `Running` variants.
 
+## Cancel-safety is an untyped invariant — annotate explicitly
+
+**Severity: CRITICAL when used inside `select!` / `timeout`**
+
+A future is **cancel-safe** iff dropping it between any two `.await` points leaves observable state consistent. The property is not expressed in any signature — `async fn f(...)` looks identical whether `f` is safe to cancel between its internal `.await`s or not. Borrow checker and clippy do not help. The information lives in caller context (whether the future ends up in `tokio::select!`, `tokio::time::timeout`, or `FuturesUnordered`) plus library documentation that must be read per-method.
+
+### Annotation discipline
+
+Every `async fn` in RIPDPI that may transitively be polled inside `select!` / `timeout` / `FuturesUnordered` MUST carry a doc comment of the form:
+
+```rust
+/// cancel-safe: only `.await`s on `read` and `mpsc::recv`, both individually cancel-safe.
+async fn read_request(&mut self) -> Result<Request> { /* ... */ }
+
+/// NOT cancel-safe: `db.insert().await` followed by `send_ack().await` —
+/// cancellation between them leaves the DB written but the client unacked.
+async fn process(&self, stream: TcpStream) -> Result<()> { /* ... */ }
+```
+
+Rule: prefix `cancel-safe:` or `NOT cancel-safe:` with a reason. "cancel-safe because idempotent" is not acceptable — idempotence is a property of the OPERATION, cancel-safety is a property of the SCHEDULING. Both must hold independently.
+
+### Library method cancel-safety table
+
+Memorize this; the documentation entries are easy to miss.
+
+| Method | Cancel-safe? | Why |
+|--------|--------------|-----|
+| `AsyncReadExt::read` | Yes | Single syscall; on cancellation, no bytes consumed. |
+| `AsyncReadExt::read_exact` | **No** | May consume some bytes before cancellation; caller loses them. |
+| `AsyncWriteExt::write` | Yes | Single syscall. |
+| `AsyncWriteExt::write_all` | **No** | Same partial-write hazard. |
+| `tokio::sync::Mutex::lock` | Yes | Acquisition is the only state change; cancellation releases the wait. |
+| `tokio::sync::oneshot::Receiver` | Yes | Single state transition. |
+| `tokio::sync::mpsc::Receiver::recv` | Yes | Documented cancel-safe. |
+| `tokio::sync::Notify::notified` | **Conditional** | Must be awaited via `Pin<&mut>` to be cancel-safe; bare `.notified().await` re-arms each call. |
+| `tokio::time::sleep` | Yes | Cancellation just drops the timer. |
+| `sqlx::Transaction::commit` | **No** | Drop on partial commit triggers implicit blocking rollback. |
+| `sqlx::QueryAs::fetch_one` | Conditional | Cancel-safe if the connection is dropped (released to pool); not if reused. |
+| `reqwest::RequestBuilder::send` | **No** | Body may be partially sent. |
+
+### Spawn-and-join firewall for non-cancellable critical sections
+
+When a sequence of `.await`s must complete atomically with respect to cancellation, lift it into a spawned task and join the handle:
+
+```rust
+async fn process(stream: TcpStream, db: Arc<Db>) -> Result<()> {
+    let data = read_message(&stream).await?;
+    // From here on, cancellation of `process()` must NOT abort the work.
+    let handle = tokio::spawn(async move {
+        db.insert(&data).await?;
+        send_ack(&stream).await?;
+        Ok::<_, Error>(())
+    });
+    handle.await?  // outer cancellation cancels the join, not the spawned work.
+}
+```
+
+This trades cooperative cancellation for atomicity. The spawned task will run to completion even if the caller is dropped. Use only when the alternative (data loss or inconsistent state) is worse. Pair with a `tokio::time::timeout` inside the spawned task if unbounded run-time is itself a hazard.
+
+## Async-Drop contracts of pooled resource libraries
+
+**Severity: WARNING**
+
+Async types whose `Drop` performs cleanup (transactions, connections, file handles) have library-specific behavior that is NOT visible in their signatures. LLM-generated code memorizes the API but routinely misses the Drop semantics.
+
+### sqlx 0.7 transactions
+
+```rust
+let tx = conn.begin().await?;
+// ... operations ...
+tx.commit().await?;  // If THIS fails, tx is dropped with no rollback decision made.
+```
+
+`Transaction`'s `Drop` impl issues an implicit ROLLBACK via a **blocking syscall** on the connection. Inside a tokio multi-thread runtime this surfaces as a `WARN`-level "blocking call in async context" log from the runtime's blocking-detector. Inside a `current_thread` runtime or under heavy load, it blocks a worker thread until the rollback completes — manifesting as random latency spikes.
+
+Rule: never let a sqlx `Transaction` Drop after a failed `commit().await`. Convert to explicit rollback:
+
+```rust
+match work(&mut tx).await {
+    Ok(v) => match tx.commit().await {
+        Ok(()) => Ok(v),
+        Err(e) => {
+            // commit failed; Drop will do blocking rollback. Pre-empt it.
+            let _ = tx.rollback().await;
+            Err(e.into())
+        }
+    },
+    Err(e) => {
+        let _ = tx.rollback().await;
+        Err(e)
+    }
+}
+```
+
+### deadpool-postgres / deadpool connections
+
+`Object<Manager>::drop` returns the connection to the pool. If the pool's recycle hook performs an async health check, the recycle is enqueued on a background task — which may not run if the runtime is shutting down. Connection leaks under shutdown.
+
+Rule: explicitly call `Object::take()` + `Manager::recycle()` in shutdown paths rather than relying on Drop.
+
+### tokio::fs::File
+
+Drop closes the fd via a `spawn_blocking` to avoid the close syscall on the runtime thread. If the runtime is shutting down with `Runtime::shutdown_timeout(Duration::ZERO)`, the close may not run and the fd leaks to the kernel until process exit.
+
+Rule: in shutdown paths, explicitly `drop(file)` + `tokio::task::yield_now().await` before returning, or use `file.sync_all().await?` followed by explicit drop in a non-shutdown context.
+
+### General audit
+
+For every Drop on an async resource type:
+1. Check the library's source for `impl Drop` — does it block, spawn, or no-op?
+2. If it blocks: cleanup must run via explicit `.commit() / .rollback() / .close()` before drop.
+3. If it spawns: cleanup is fire-and-forget; verify behavior under runtime shutdown.
+4. Document the choice in a comment on the variable binding: `// drop here: blocking rollback acceptable in error path`.
+
 ## Debugging async issues
 
 - **Task starvation**: Look for blocking calls in async context. The io_loop
