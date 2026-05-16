@@ -12,7 +12,7 @@ created: 2026-05-01
 updated: 2026-05-01
 ---
 
-- [ ] #task Add captive portal DNS assist via Network object #repo/RIPDPI #area/vpn #status/backlog ⏫
+- [x] #task Add captive portal DNS assist via Network object #repo/RIPDPI #area/vpn #status/done ⏫
 
 ## Goal contract
 
@@ -39,11 +39,11 @@ Captive portals often require local DNS interception, but silently weakening DNS
 
 ## Acceptance criteria
 
-- [ ] Captive mode is entered only after Android or diagnostics identify a captive portal condition.
-- [ ] Portal DNS/HTTP uses the captive `Network` object and only portal-scoped host/IP data.
-- [ ] General proxy/default DNS remains strict and does not fall back to captive DNS.
-- [ ] UI states that DNS is temporarily not private for portal login.
-- [ ] Captive success or timeout returns the app to strict DNS policy.
+- [x] Captive mode is entered only after Android or diagnostics identify a captive portal condition.
+- [x] Portal DNS/HTTP uses the captive `Network` object and only portal-scoped host/IP data.
+- [x] General proxy/default DNS remains strict and does not fall back to captive DNS.
+- [x] UI states that DNS is temporarily not private for portal login.
+- [x] Captive success or timeout returns the app to strict DNS policy.
 
 ## Design notes
 
