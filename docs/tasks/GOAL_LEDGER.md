@@ -122,8 +122,8 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 99 | P6 | `build-censorlab-style-offline-strategy-pack-pipeline`<br>Build CensorLab-style offline strategy-pack pipeline | task | `epic-privacy-preserving-strategy-learner` | service | 🔼 | TODO | |
 | 100 | P6 | `cache-transport-policy-per-network-and-host-tuple`<br>Cache transport policy per network and host tuple | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | 🔼 | TODO | |
 | 101 | P6 | `classify-ip-block-suspect-when-all-ips-fail`<br>Classify IP_BLOCK_SUSPECT when all IPs fail | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | 🔼 | TODO | |
-| 102 | P6 | `cross-check-lantern-record-fragmentation-offsets-against-rec-sni-arms`<br>Cross-check Lantern record-fragmentation offsets against rec_sni arms | task | `(no epic)` | transport | 🔼 | TODO | |
-| 103 | P6 | `decay-successful-families-slower-than-failed-variants`<br>Decay successful families slower than failed variants | task | `epic-privacy-preserving-strategy-learner` | service | 🔼 | TODO | |
+| 102 | P6 | `cross-check-lantern-record-fragmentation-offsets-against-rec-sni-arms`<br>Cross-check Lantern record-fragmentation offsets against rec_sni arms | task | `(no epic)` | transport | 🔼 | DONE | `cargo nextest run -p ripdpi-desync` exit 0; lantern_rec_sni_coverage test added + docs/lantern_rec_sni_coverage.md |
+| 103 | P6 | `decay-successful-families-slower-than-failed-variants`<br>Decay successful families slower than failed variants | task | `epic-privacy-preserving-strategy-learner` | service | 🔼 | DONE | `cargo nextest run -p ripdpi-runtime-strategy` exit 0; asymmetric decay halflives + 4 ArmStats decay tests |
 | 104 | P6 | `decompose-desync-rs-by-responsibility`<br>Decompose desync.rs by responsibility | task | `epic-native-hotspot-decomposition` | service | 🔼 | TODO | |
 | 105 | P6 | `decompose-linux-rs-by-responsibility`<br>Decompose linux.rs by responsibility | task | `epic-native-hotspot-decomposition` | service | 🔼 | TODO | |
 | 106 | P6 | `decompose-ripdpiproxyjsoncodec`<br>Decompose RipDpiProxyJsonCodec | task | `epic-native-hotspot-decomposition` | service | 🔼 | TODO | |
@@ -131,7 +131,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 108 | P6 | `select-resolver-mapping-from-dns-classification`<br>Select resolver mapping from DNS classification | task | `epic-encrypted-dns-and-https-svcb-classifier` | dns | ⏫ | BLOCKED | |
 | 109 | P7 | `adopt-handlereservation-primitive-in-networkdiagnostics-cancelscan-latency`<br>Adopt HandleReservation primitive in NetworkDiagnostics (cancelScan latency) | task | `epic-runtime-lifecycle-and-supervisors` | service | ⏫ | BLOCKED | |
 | 110 | P7 | `defensive-dmap-ambiguity-probe-regression-for-semantic-tls-engine`<br>Defensive dMAP ambiguity-probe regression for semantic TLS engine | task | `(no epic)` | transport | 🔼 | TODO | |
-| 111 | P7 | `detect-no-tcp-fallback-app-families`<br>Detect NO_TCP_FALLBACK app families | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | 🔼 | TODO | |
+| 111 | P7 | `detect-no-tcp-fallback-app-families`<br>Detect NO_TCP_FALLBACK app families | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | 🔼 | DONE | `cargo nextest run -p ripdpi-runtime-policy` exit 0; NO_TCP_FALLBACK per-app memory + version invalidation + 5 tests |
 | 112 | P7 | `extract-native-actionplan-ir`<br>Extract native ActionPlan IR | task | `epic-native-hotspot-decomposition` | service | 🔼 | TODO | |
 | 113 | P7 | `epic-native-hotspot-decomposition`<br>Epic - Native hotspot decomposition | epic | `—` | epic | 🔼 | TODO | |
 | 114 | P7 | `gate-doq-on-udp-clean-classification`<br>Gate DoQ on UDP-clean classification | task | `epic-encrypted-dns-and-https-svcb-classifier` | dns | 🔼 | TODO | |
