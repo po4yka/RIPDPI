@@ -67,11 +67,14 @@ where
     //    is the connect future; the box it owns is reclaimed
     //    deterministically after the handshake completes.
     //
+    let ssl_handle = ssl.as_ptr().cast::<SslHandle>();
     // SAFETY: `ssl_handle` is produced by `ssl.as_ptr()` and stays
     // valid for the SSL object's lifetime; the guard returned here
     // outlives the call to `connect().await` below, which is the
-    // only place the callback can fire.
-    let ssl_handle = ssl.as_ptr().cast::<SslHandle>();
+    // only place the callback can fire. `install_reality_client_hello_hook`
+    // is `unsafe fn` because the caller must uphold "guard outlives
+    // the SSL object" — satisfied here by binding both `ssl` and
+    // `hook_guard` to local variables in this function.
     let hook_guard = unsafe {
         install_reality_client_hello_hook(ssl_handle, config.reality_public_key, config.reality_short_id.clone())
     };

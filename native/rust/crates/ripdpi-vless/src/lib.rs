@@ -1,3 +1,16 @@
+// Crate-local hardening for issue #15 (`Box::from_raw` ownership transfer).
+// `ripdpi-vless` is the sole crate in the workspace that uses
+// `Box::into_raw` / `Box::from_raw` (the BoringSSL Reality client_hello
+// hook) and the workspace's generic FFI handle wrapper (`ScopedHandle`)
+// lives in this crate. Per docs/rust-soundness-policy.md § "`Box::into_raw`
+// / `Box::from_raw` ownership transfer", every `unsafe` block touching
+// the matched pair MUST document its preconditions inline. Re-enabling
+// the workspace-deferred `undocumented_unsafe_blocks` lint locally
+// turns that documentation requirement into a build-time error, while
+// the rest of the workspace continues the gradual migration.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 pub mod addons;
 pub mod config;
 pub mod mux;

@@ -113,6 +113,10 @@ mod tests {
         let mut storage = 0u8;
         let raw: *mut u8 = &mut storage;
         {
+            // SAFETY: `raw` points to a live stack `u8`; `CountFree`'s
+            // `free` impl only increments a counter (no actual
+            // deallocation), so the pointer's allocation-API dual is
+            // trivially "do nothing". Handle drops at end of block.
             let handle: ScopedHandle<u8, CountFree> = unsafe { ScopedHandle::from_ptr(raw) }.expect("non-null");
             assert_eq!(handle.as_ptr(), raw);
             assert_eq!(FREE_CALLS.load(Ordering::SeqCst), 0, "no free yet");
@@ -125,6 +129,8 @@ mod tests {
         FREE_CALLS.store(0, Ordering::SeqCst);
         let mut storage = 0u8;
         let raw: *mut u8 = &mut storage;
+        // SAFETY: see `scoped_handle_calls_free_exactly_once_on_drop`;
+        // the test's `CountFree::free` does not deallocate.
         let handle: ScopedHandle<u8, CountFree> = unsafe { ScopedHandle::from_ptr(raw) }.expect("non-null");
         let released = handle.take();
         assert_eq!(released, raw, "take must return the original pointer");
@@ -133,6 +139,9 @@ mod tests {
 
     #[test]
     fn scoped_handle_from_ptr_returns_none_for_null() {
+        // SAFETY: `from_ptr`'s contract holds vacuously for null —
+        // the impl's `NonNull::new` returns `None` before any
+        // dereference and never calls `F::free`.
         let result: Option<ScopedHandle<u8, CountFree>> = unsafe { ScopedHandle::from_ptr(std::ptr::null_mut()) };
         assert!(result.is_none(), "null pointer must not produce a handle");
     }
@@ -146,10 +155,81 @@ mod tests {
         let mut a = 1u8;
         let mut b = 2u8;
         {
+            // SAFETY: `&mut a` is a live exclusive borrow; the test
+            // `CountFree::free` does not deallocate. h1 drops at end
+            // of block.
             let _h1: ScopedHandle<u8, CountFree> = unsafe { ScopedHandle::from_ptr(&mut a) }.expect("h1");
+            // SAFETY: `&mut b` is a separate live exclusive borrow
+            // for a distinct stack slot; the same rationale as h1
+            // applies.
             let _h2: ScopedHandle<u8, CountFree> = unsafe { ScopedHandle::from_ptr(&mut b) }.expect("h2");
         }
         assert_eq!(FREE_CALLS.load(Ordering::SeqCst), 2, "two handles freed once each");
+    }
+
+    #[test]
+    fn scoped_handle_take_round_trip_frees_exactly_once() {
+        // FFI ownership-transfer regression for issue #15.
+        // Models the `rust_alloc` / `rust_free` paired-export shape
+        // documented in docs/rust-soundness-policy.md § "FFI
+        // ownership shapes": Rust hands the pointer back to the
+        // C side via `take()` (no free runs), then a separate
+        // "C-side free" path reclaims it (one free counted). The
+        // discipline is the same as a real
+        // `rust_alloc_FOO` / `rust_free_FOO` pair where the holder
+        // type transitions ownership exactly once across the
+        // boundary.
+        //
+        // Uses a per-test `BoundaryFree` impl with its own atomic
+        // counter so the test does not race with other
+        // `FREE_CALLS`-mutating tests in this module.
+        static BOUNDARY_CALLS: AtomicUsize = AtomicUsize::new(0);
+        struct BoundaryFree;
+        impl FreeFunction<u8> for BoundaryFree {
+            unsafe fn free(_: *mut u8) {
+                BOUNDARY_CALLS.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        BOUNDARY_CALLS.store(0, Ordering::SeqCst);
+        let mut storage = 0u8;
+        let raw: *mut u8 = &mut storage;
+        // SAFETY: `&mut storage` is a live exclusive borrow; the
+        // test `BoundaryFree::free` does not deallocate.
+        let handle: ScopedHandle<u8, BoundaryFree> = unsafe { ScopedHandle::from_ptr(raw) }.expect("non-null");
+        let across_boundary = handle.take();
+        assert_eq!(BOUNDARY_CALLS.load(Ordering::SeqCst), 0, "take must NOT trigger F::free");
+        // Simulated foreign-side `rust_free_FOO(ptr)`:
+        // SAFETY: pointer round-tripped through `take()`; the
+        // wrapper's Drop is suppressed, so this is the unique
+        // reclamation site.
+        unsafe { BoundaryFree::free(across_boundary) };
+        assert_eq!(BOUNDARY_CALLS.load(Ordering::SeqCst), 1, "free must be called exactly once across the boundary");
+    }
+
+    #[test]
+    fn scoped_handle_size_invariant_for_ffi_holder() {
+        // FFI ownership-transfer regression for issue #15.
+        // `ScopedHandle<T, F>` is the canonical holder between
+        // `Box::into_raw` (or any C `*` allocation) and the
+        // matching free; its in-memory layout MUST be exactly
+        // one machine pointer plus the zero-sized `PhantomData<F>`
+        // marker. A future field addition (e.g. a "was_freed"
+        // bool) would silently bloat the holder beyond a pointer
+        // and break ABI for any FFI caller that mirrors the type.
+        // The wrapper is move-only (no Copy/Clone), so this also
+        // doubles as a structural assertion that no field was
+        // added that would force the trait derivations down a
+        // different path.
+        assert_eq!(
+            std::mem::size_of::<ScopedHandle<u8, CountFree>>(),
+            std::mem::size_of::<*mut u8>(),
+            "ScopedHandle must remain one machine pointer wide",
+        );
+        assert_eq!(
+            std::mem::align_of::<ScopedHandle<u8, CountFree>>(),
+            std::mem::align_of::<*mut u8>(),
+            "ScopedHandle must keep pointer alignment",
+        );
     }
 
     #[test]
@@ -158,6 +238,10 @@ mod tests {
         let mut storage = 0u8;
         let raw: *mut u8 = &mut storage;
         let result = std::panic::catch_unwind(|| {
+            // SAFETY: see `scoped_handle_calls_free_exactly_once_on_drop`;
+            // the panic-unwind inside `catch_unwind` exercises Drop
+            // on the live handle, which is the discipline this test
+            // pins down.
             let _handle: ScopedHandle<u8, CountFree> = unsafe { ScopedHandle::from_ptr(raw) }.expect("non-null");
             panic!("simulated handshake failure between alloc and free");
         });

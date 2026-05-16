@@ -773,20 +773,89 @@ aliasing violation along the Drop path.
 
 **Allowlist entry requirements.** A `Box::into_raw` or
 `Box::from_raw` allowlist entry's `enforcement` field MUST
-state:
+state all five of these mandatory fields:
 
-- the matching `from_raw` (or `into_raw`) call site by file
-  and function, so a reviewer can verify the pair is one-to-
-  one,
-- which type (`T`) appears on both sides,
-- which allocator owns both ends (default global, unless an
-  `Allocator` is explicitly named),
-- the move-only-owner argument: which type holds the raw
-  pointer between the two ends, and why that type is `!Copy +
-  !Clone`,
-- if the boundary is FFI, which contract obliges the foreign
-  code to retain the pointer unchanged (not offset, not
-  freed, not duplicated) for the duration.
+1. **Allocation origin.** Where in the Rust source the
+   matching `Box::new(...)` runs (file:function). The
+   reviewer must be able to follow the chain
+   `Box::new -> Box::into_raw -> ... -> Box::from_raw`
+   without leaving the policy entry.
+2. **Type `T`.** The concrete type whose `Box<T>` is being
+   transferred. The reviewer must verify the same `T`
+   appears on both sides — a layout-compatible-but-distinct
+   `T'` would be UB.
+3. **Allocator.** Default global allocator unless the entry
+   names a custom `Allocator` (e.g.
+   `Box::<T, MyAlloc>::new_in(...)`). The workspace uses
+   only the default global allocator today; any future
+   `#[global_allocator]` or `Box::new_in` call site
+   invalidates every existing pair and requires re-audit.
+4. **Ownership transfer path.** Which entity (struct
+   field, FFI slot, registry index, closure capture) holds
+   the raw pointer between `into_raw` and `from_raw`, and
+   why that entity is `!Copy + !Clone` so the pointer
+   cannot be duplicated while in flight.
+5. **Deallocation proof.** The single site that calls
+   `Box::from_raw`, and the structural reason it is
+   reached exactly once: RAII `Drop` impl on a move-only
+   guard, type-state transition that consumes the holder,
+   FFI-side destructor callback registered in the same
+   commit, or equivalent. The proof must explain why a
+   second `Box::from_raw` on the same pointer cannot occur
+   (Rust's move semantics + the `!Copy + !Clone` of the
+   holding type are usually sufficient; if not, what other
+   discipline supplies the missing guarantee).
+
+### FFI ownership shapes
+
+When the matched `from_raw` is itself called from a non-
+Rust context (the most common reason to reach for
+`Box::into_raw`), the boundary MUST take one of these
+shapes:
+
+**Shape A — paired `rust_alloc` / `rust_free` exports.** The
+crate exposes two `extern "C" fn`s: `rust_alloc_FOO() ->
+*mut FOO` performs `Box::into_raw(Box::new(...))`, and
+`rust_free_FOO(ptr: *mut FOO)` performs
+`Box::from_raw(ptr)` after asserting non-null. The foreign
+code is contractually required to call exactly one
+`rust_free_FOO` for every `rust_alloc_FOO`. The pair lives
+in the same module so a reviewer can match the two
+without crossing files. Use this shape when the foreign
+code manages the lifetime explicitly and Rust has no
+say in when reclamation happens.
+
+**Shape B — keep ownership on one side.** Rust hands the
+foreign side a borrowed `&T` or `&mut T` (cast to `*mut
+T` only for the duration of the call) and the foreign
+side never retains the pointer past the call. No
+`Box::into_raw` is needed. Use this shape when the
+foreign API takes the pointer only for read-back (e.g.
+`SSL_set_session`-style "give us your data, we copy it").
+
+**Shape C — `unsafe fn` install + RAII guard reclaim.**
+Rust leaks one Box into a foreign slot via
+`Box::into_raw` and immediately returns an
+`unsafe`-constructed RAII guard that owns the reclaim
+side. The guard's `Drop` impl calls `Box::from_raw` and
+nulls the holder field. The install function is
+`unsafe fn` because the caller must uphold the
+"guard outlives the foreign reference" contract that the
+type system cannot express. Use this shape when the
+foreign API has no destructor callback and the install
+function is the natural moment to bind a Rust lifetime
+to the registration. This is the shape used by
+`install_reality_client_hello_hook` /
+`Drop for RealityHookGuard`.
+
+Mixing the shapes (e.g. `rust_alloc_FOO` paired with a
+RAII guard on the Rust side) is permitted only if the
+guard's `take()` method releases ownership back to the
+foreign code by returning the raw pointer and
+`mem::forget`-ing the guard so its Drop does not fire.
+The `ScopedHandle::take()` method in
+`ripdpi-vless/src/scoped_handle.rs` is the canonical
+implementation of that escape hatch.
 
 ## Ownership must be types, not flags
 
