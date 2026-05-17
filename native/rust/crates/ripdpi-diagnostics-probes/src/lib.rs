@@ -126,6 +126,7 @@ pub mod http_response_block;
 pub mod ip_block_suspect;
 pub mod mtproto_reachability;
 pub mod quic_probe;
+pub mod throughput;
 pub mod tls_alert;
 
 pub use dns_tampering::DnsTamperingConfirmationProbe;
@@ -136,6 +137,7 @@ pub use http_response_block::HttpResponseBlockOfflineProbe;
 pub use ip_block_suspect::IpBlockSuspectProbe;
 pub use mtproto_reachability::MtprotoReachabilityProbe;
 pub use quic_probe::QuicProbeOfflineProbe;
+pub use throughput::ThroughputProbe;
 pub use tls_alert::TlsAlertOfflineProbe;
 
 #[cfg(feature = "compat-facade")]
