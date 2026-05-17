@@ -438,11 +438,21 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # exists on the four JNI bridge crates) do not also let a
     # genuine FFI-unstable type slip through.
     "extern fn non-FFI type": re.compile(
-        r"\bextern\s+\"(?:C|system)\"\s+fn[^;{]*"
-        r"(?:\b(?:bool|String|Vec|Box<dyn)\b"
+        # `\s+\w` after `fn` disambiguates an extern fn DEFINITION
+        # (`extern "C" fn name(...)`) from an extern fn POINTER TYPE
+        # (`handler: extern "C" fn(c_int)`). Only the definition
+        # spelling has an identifier between `fn` and the opening
+        # paren — the pointer-type spelling jumps straight to `(`.
+        # Without this anchor, the regex would falsely match an
+        # outer non-extern fn's `Result<...>` return type whose
+        # parameter list happens to contain an extern-fn-pointer.
+        r"\bextern\s+\"(?:C|system)\"\s+fn\s+\w[^;{]*"
+        r"(?:\b(?:bool|String|Vec|Box<dyn|Result|impl)\b"
         r"|&\s*str\b"
         r"|&\s*\[(?:[^\]]*)\](?:\s*[,)\s])"
+        r"|&\s*(?:mut\s+)?dyn\s+\w"
         r"|\bOption\s*<\s*(?!(?:NonNull|NonZero|&|fn))"
+        r"|:\s*\(\s*\w[^)]*,\s*\w"
         r")"
     ),
     # `bindgen::Builder` / `cbindgen::Builder` invocations in `build.rs`

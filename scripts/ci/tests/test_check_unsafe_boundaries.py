@@ -1151,6 +1151,77 @@ class ScanRegressionTests(unittest.TestCase):
         ):
             self.assertFalse(_has(_scan(fragment), "bindgen invocation"), msg=fragment)
 
+    # --- Issue #25: Rust-only layout types in extern signatures ----------
+
+    def test_extern_fn_with_result_flagged(self) -> None:
+        for fragment in (
+            'extern "C" fn cb() -> Result<u32, i32> { Ok(0) }',
+            'pub extern "C" fn cb(x: i32) -> Result<*mut c_void, i32> { Ok(std::ptr::null_mut()) }',
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
+            )
+
+    def test_extern_fn_with_tuple_flagged(self) -> None:
+        for fragment in (
+            'extern "C" fn cb(pair: (u32, u32)) -> i32 { 0 }',
+            'pub extern "C" fn cb(triple: (u8, u16, u32)) -> i32 { 0 }',
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
+            )
+
+    def test_extern_fn_with_dyn_trait_flagged(self) -> None:
+        for fragment in (
+            'extern "C" fn cb(t: &dyn MyTrait) -> i32 { 0 }',
+            'extern "C" fn cb(t: &mut dyn Iterator<Item = u8>) -> i32 { 0 }',
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
+            )
+
+    def test_extern_fn_with_impl_trait_flagged(self) -> None:
+        # `impl Trait` is not even legal in extern fn signatures in
+        # practice (the compiler rejects it), but the scanner catches
+        # the spelling as forward-defense in case a contributor
+        # transcribes it from non-extern code.
+        for fragment in (
+            'extern "C" fn cb() -> impl Iterator<Item = u8> { std::iter::empty() }',
+            'extern "C" fn cb(x: impl AsRef<str>) -> i32 { 0 }',
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
+            )
+
+    def test_extern_fn_pointer_type_as_parameter_not_flagged(self) -> None:
+        # A function that takes an `extern "C" fn(...)` POINTER as a
+        # parameter — NOT itself an extern fn definition — must not
+        # trip the rule. The fix is the `\s+\w` anchor after `fn` that
+        # requires the function-name identifier (distinguishing
+        # definition from pointer-type spelling). The `Result<...>`
+        # in the return type of the OUTER `pub fn` would otherwise
+        # match `\bResult\b` in the regex.
+        for fragment in (
+            "pub fn install_signal_handlers(handler: extern \"C\" fn(c_int)) -> io::Result<()> { Ok(()) }",
+            "fn register(cb: extern \"C\" fn(*mut c_void) -> i32) -> Result<(), Error> { Ok(()) }",
+        ):
+            self.assertFalse(
+                _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
+            )
+
+    def test_extern_fn_with_single_element_tuple_pattern_not_flagged(self) -> None:
+        # A single-element tuple (unit struct in the type position)
+        # like `Result<(), Error>` from a non-extern function should
+        # NOT trigger. Also confirm that primitive triples in
+        # non-extern code don't accidentally light up.
+        for fragment in (
+            "fn helper() -> Result<(), Error> { Ok(()) }",
+            "let triple: (u8, u16, u32) = (1, 2, 3);",
+        ):
+            self.assertFalse(
+                _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
+            )
+
     # --- Negative cases: must NOT trigger the scan -----------------------
 
     def test_comments_are_ignored(self) -> None:
