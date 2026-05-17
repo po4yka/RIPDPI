@@ -29,20 +29,20 @@ use self::packet::{
 #[cfg(test)]
 use self::packet::{recompute_ipv4_header_checksum, IPV4_MIN_HEADER_LEN, IPV6_HEADER_LEN, TCP_PROTO, UDP_PROTO};
 
-pub(in crate::io_loop) trait TunPacketInjector {
+pub trait TunPacketInjector {
     fn inject_packet(&mut self, packet: &[u8]) -> io::Result<()>;
 }
 
-pub(in crate::io_loop) trait TunEgressPacketHandler: Send {
+pub trait TunEgressPacketHandler: Send {
     fn handle_packet(&mut self, packet: &[u8]) -> bool;
 }
 
-pub(in crate::io_loop) struct RawTunPacketInjector {
+pub struct RawTunPacketInjector {
     protect_path: Option<String>,
 }
 
 impl RawTunPacketInjector {
-    pub(in crate::io_loop) fn new(protect_path: Option<String>) -> Self {
+    pub fn new(protect_path: Option<String>) -> Self {
         Self { protect_path }
     }
 }
@@ -55,18 +55,18 @@ impl TunPacketInjector for RawTunPacketInjector {
     }
 }
 
-pub(in crate::io_loop) struct TunEgressInterceptor<I> {
+pub struct TunEgressInterceptor<I> {
     rules: Vec<EgressRule>,
     injector: I,
 }
 
 impl<I: TunPacketInjector> TunEgressInterceptor<I> {
-    pub(in crate::io_loop) fn new(strategy_yaml: Option<&str>, injector: I) -> Self {
+    pub fn new(strategy_yaml: Option<&str>, injector: I) -> Self {
         let rules = strategy_yaml.map(parse_rules).unwrap_or_default();
         Self { rules, injector }
     }
 
-    pub(in crate::io_loop) fn handle_packet(&mut self, packet: &[u8]) -> bool {
+    pub fn handle_packet(&mut self, packet: &[u8]) -> bool {
         if self.rules.is_empty() {
             return false;
         }

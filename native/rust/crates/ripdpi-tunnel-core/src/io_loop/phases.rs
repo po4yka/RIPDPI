@@ -100,10 +100,10 @@ mod tests {
 
     use crate::session::Auth;
     use crate::{ActiveSessions, Stats, TunDevice};
+    use ripdpi_tunnel_intercept::egress::TunEgressPacketHandler;
+    use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, TunIngressInterceptor};
 
     use super::super::state::{LoopRuntime, LoopState};
-    use super::super::tun_egress_interceptor::TunEgressPacketHandler;
-    use super::super::tun_ingress_interceptor::{RawSynAckPacketInjector, TunIngressInterceptor};
     use super::super::udp_assoc::{UdpEvictionEntry, DEFAULT_MAX_UDP_ASSOCIATIONS};
     use super::*;
 

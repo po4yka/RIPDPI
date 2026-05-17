@@ -14,9 +14,9 @@ use crate::{ActiveSessions, Stats, TunDevice};
 
 use super::dns_intercept::{DnsRequest, DnsResponse, MapDnsRuntime};
 use super::packet::TcpFlowKey;
-use super::tun_egress_interceptor::TunEgressPacketHandler;
-use super::tun_ingress_interceptor::{RawSynAckPacketInjector, TunIngressInterceptor};
 use super::udp_assoc::{UdpAssociation, UdpEvent, UdpEvictionEntry};
+use ripdpi_tunnel_intercept::egress::TunEgressPacketHandler;
+use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, TunIngressInterceptor};
 
 pub(in crate::io_loop) struct LoopRuntime {
     pub(in crate::io_loop) proxy_sockaddr: SocketAddr,

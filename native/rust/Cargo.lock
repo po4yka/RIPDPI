@@ -3983,9 +3983,27 @@ dependencies = [
  "base64 0.22.1",
  "daemonize",
  "libc",
- "loom",
  "metrics",
  "nix 0.31.3",
+ "ripdpi-config",
+ "ripdpi-failure-classifier",
+ "ripdpi-proxy-config",
+ "ripdpi-proxy-runtime-desync-adapter",
+ "ripdpi-runtime-api",
+ "ripdpi-runtime-decision-ports",
+ "ripdpi-runtime-platform",
+ "ripdpi-runtime-services",
+ "ripdpi-session",
+ "ripdpi-ws-bootstrap",
+ "socket2",
+ "tracing",
+]
+
+[[package]]
+name = "ripdpi-proxy-runtime-desync-adapter"
+version = "0.1.0"
+dependencies = [
+ "loom",
  "ripdpi-config",
  "ripdpi-desync",
  "ripdpi-desync-runtime",
@@ -3998,8 +4016,6 @@ dependencies = [
  "ripdpi-runtime-platform",
  "ripdpi-runtime-services",
  "ripdpi-session",
- "ripdpi-ws-bootstrap",
- "socket2",
  "tracing",
 ]
 
@@ -4447,16 +4463,10 @@ dependencies = [
  "ripdpi-collections",
  "ripdpi-dns-resolver",
  "ripdpi-io-uring",
- "ripdpi-packets",
- "ripdpi-runtime-platform",
  "ripdpi-socks5-core",
- "ripdpi-strategy-config",
- "ripdpi-strategy-ipv6",
- "ripdpi-strategy-registry",
- "ripdpi-strategy-trait",
- "ripdpi-strategy-udp",
  "ripdpi-tun-driver",
  "ripdpi-tunnel-config",
+ "ripdpi-tunnel-intercept",
  "smoltcp",
  "thiserror 2.0.18",
  "tokio",
@@ -4466,6 +4476,21 @@ dependencies = [
  "tracing-subscriber",
  "tun-rs",
  "turmoil",
+]
+
+[[package]]
+name = "ripdpi-tunnel-intercept"
+version = "0.1.0"
+dependencies = [
+ "etherparse",
+ "ripdpi-packets",
+ "ripdpi-runtime-platform",
+ "ripdpi-strategy-config",
+ "ripdpi-strategy-ipv6",
+ "ripdpi-strategy-registry",
+ "ripdpi-strategy-trait",
+ "ripdpi-strategy-udp",
+ "tracing",
 ]
 
 [[package]]

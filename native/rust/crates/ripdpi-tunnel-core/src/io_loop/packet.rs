@@ -4,7 +4,6 @@ mod tcp_flags;
 mod udp_response;
 
 pub(crate) use endpoint::endpoint_to_socketaddr;
-pub(in crate::io_loop) use parse::parse_tcp_slices;
 pub(crate) use tcp_flags::{is_injected_rst, tcp_syn_flow_key, TcpFlowKey};
 pub(crate) use udp_response::build_udp_response;
 

@@ -11,6 +11,8 @@ use tokio_util::sync::CancellationToken;
 use tracing::info;
 
 use ripdpi_tunnel_config::Config;
+use ripdpi_tunnel_intercept::egress::{RawTunPacketInjector, TunEgressInterceptor};
+use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, SynAckStrategy, TunIngressInterceptor};
 
 use crate::dns_cache::DnsCache;
 use crate::{ActiveSessions, Stats, TunDevice};
@@ -58,13 +60,13 @@ pub(in crate::io_loop) fn setup_io_loop(
         mapdns_runtime,
         mapdns_classify,
         filter_injected_resets: config.misc.filter_injected_resets,
-        tun_ingress_interceptor: super::tun_ingress_interceptor::TunIngressInterceptor::new(
-            super::tun_ingress_interceptor::SynAckStrategy::from_yaml(config.misc.strategy_chain_yaml.as_deref()),
-            super::tun_ingress_interceptor::RawSynAckPacketInjector::new(config.misc.protect_path.clone()),
+        tun_ingress_interceptor: TunIngressInterceptor::new(
+            SynAckStrategy::from_yaml(config.misc.strategy_chain_yaml.as_deref()),
+            RawSynAckPacketInjector::new(config.misc.protect_path.clone()),
         ),
-        tun_egress_interceptor: Box::new(super::tun_egress_interceptor::TunEgressInterceptor::new(
+        tun_egress_interceptor: Box::new(TunEgressInterceptor::new(
             config.misc.strategy_chain_yaml.as_deref(),
-            super::tun_egress_interceptor::RawTunPacketInjector::new(config.misc.protect_path.clone()),
+            RawTunPacketInjector::new(config.misc.protect_path.clone()),
         )),
         udp_idle_timeout: Duration::from_millis(u64::from(config.misc.udp_read_write_timeout)),
     };

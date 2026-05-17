@@ -1,11 +1,9 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 
-use etherparse::{NetSlice, TcpHeaderSlice};
+use etherparse::{NetSlice, SlicedPacket, TcpHeaderSlice, TransportSlice};
 use ripdpi_strategy_config::{parse_yaml_str, StepType};
 use tracing::{debug, warn};
-
-use super::packet::parse_tcp_slices;
 
 const IPV4_TTL_OFFSET: usize = 8;
 const IPV4_CHECKSUM_OFFSET: usize = 10;
@@ -14,16 +12,16 @@ const TCP_SEQUENCE_OFFSET: usize = 4;
 const TCP_CHECKSUM_OFFSET: usize = 16;
 const DEFAULT_SYNACK_SPLIT_SEQUENCE_DELTA: u32 = 0x4000_0000;
 
-pub(in crate::io_loop) trait SynAckPacketInjector {
+pub trait SynAckPacketInjector {
     fn inject_packet(&mut self, packet: &[u8]) -> io::Result<()>;
 }
 
-pub(in crate::io_loop) struct RawSynAckPacketInjector {
+pub struct RawSynAckPacketInjector {
     protect_path: Option<String>,
 }
 
 impl RawSynAckPacketInjector {
-    pub(in crate::io_loop) fn new(protect_path: Option<String>) -> Self {
+    pub fn new(protect_path: Option<String>) -> Self {
         Self { protect_path }
     }
 }
@@ -43,19 +41,19 @@ impl SynAckPacketInjector for RawSynAckPacketInjector {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(in crate::io_loop) enum SynAckStrategy {
+pub enum SynAckStrategy {
     LowTtl { ttl: u8 },
     Split { sequence_delta: u32 },
 }
 
-pub(in crate::io_loop) struct TunIngressInterceptor<I> {
+pub struct TunIngressInterceptor<I> {
     strategy: Option<SynAckStrategy>,
     injector: I,
 }
 
 impl<I: SynAckPacketInjector> TunIngressInterceptor<I> {
     #[cfg(test)]
-    pub(in crate::io_loop) fn disabled(injector: I) -> Self {
+    pub(crate) fn disabled(injector: I) -> Self {
         Self { strategy: None, injector }
     }
 
@@ -64,11 +62,11 @@ impl<I: SynAckPacketInjector> TunIngressInterceptor<I> {
         Self { strategy: Some(strategy), injector }
     }
 
-    pub(in crate::io_loop) fn new(strategy: Option<SynAckStrategy>, injector: I) -> Self {
+    pub fn new(strategy: Option<SynAckStrategy>, injector: I) -> Self {
         Self { strategy, injector }
     }
 
-    pub(in crate::io_loop) fn handle_packet(&mut self, packet: &[u8]) {
+    pub fn handle_packet(&mut self, packet: &[u8]) {
         let Some(strategy) = self.strategy else {
             return;
         };
@@ -99,7 +97,7 @@ impl SynAckStrategy {
         Self::Split { sequence_delta: DEFAULT_SYNACK_SPLIT_SEQUENCE_DELTA }
     }
 
-    pub(in crate::io_loop) fn from_yaml(yaml: Option<&str>) -> Option<Self> {
+    pub fn from_yaml(yaml: Option<&str>) -> Option<Self> {
         let yaml = yaml?.trim();
         if yaml.is_empty() {
             return None;
@@ -126,6 +124,15 @@ impl SynAckStrategy {
                 Some(vec![fake, packet.to_vec()])
             }
         }
+    }
+}
+
+fn parse_tcp_slices(pkt: &[u8]) -> Option<(NetSlice<'_>, etherparse::TcpSlice<'_>)> {
+    let parsed = SlicedPacket::from_ip(pkt).ok()?;
+    let net = parsed.net?;
+    match parsed.transport? {
+        TransportSlice::Tcp(tcp) => Some((net, tcp)),
+        _ => None,
     }
 }
 

@@ -1,0 +1,19 @@
+[package]
+name = "ripdpi-tunnel-intercept"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+etherparse = { workspace = true }
+ripdpi-packets = { workspace = true }
+ripdpi-runtime-platform = { workspace = true }
+ripdpi-strategy-config = { workspace = true }
+ripdpi-strategy-ipv6 = { workspace = true }
+ripdpi-strategy-registry = { workspace = true, features = ["lua-strategies"] }
+ripdpi-strategy-trait = { workspace = true }
+ripdpi-strategy-udp = { workspace = true }
+tracing = { workspace = true }

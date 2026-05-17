@@ -1,9 +1,9 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-pub(in crate::io_loop) const IPV4_MIN_HEADER_LEN: usize = 20;
-pub(in crate::io_loop) const IPV6_HEADER_LEN: usize = 40;
-pub(in crate::io_loop) const TCP_PROTO: u8 = 6;
-pub(in crate::io_loop) const UDP_PROTO: u8 = 17;
+pub(crate) const IPV4_MIN_HEADER_LEN: usize = 20;
+pub(crate) const IPV6_HEADER_LEN: usize = 40;
+pub(crate) const TCP_PROTO: u8 = 6;
+pub(crate) const UDP_PROTO: u8 = 17;
 const IPV6_HOP_BY_HOP: u8 = 0;
 const IPV6_ROUTING: u8 = 43;
 const IPV6_FRAGMENT: u8 = 44;
@@ -14,11 +14,11 @@ const UDP_LEN_OFFSET: usize = 4;
 const UDP_CHECKSUM_OFFSET: usize = 6;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(in crate::io_loop) struct PacketMeta {
-    pub(in crate::io_loop) transport: Transport,
-    pub(in crate::io_loop) is_ipv6: bool,
-    pub(in crate::io_loop) src_port: u16,
-    pub(in crate::io_loop) dst_port: u16,
+pub(crate) struct PacketMeta {
+    pub(crate) transport: Transport,
+    pub(crate) is_ipv6: bool,
+    pub(crate) src_port: u16,
+    pub(crate) dst_port: u16,
     src_ip: IpAddr,
     dst_ip: IpAddr,
     transport_offset: usize,
@@ -26,7 +26,7 @@ pub(in crate::io_loop) struct PacketMeta {
 }
 
 impl PacketMeta {
-    pub(in crate::io_loop) fn parse(packet: &[u8]) -> Option<Self> {
+    pub(crate) fn parse(packet: &[u8]) -> Option<Self> {
         transport_endpoint(packet).map(|endpoint| Self {
             transport: endpoint.transport,
             is_ipv6: endpoint.is_ipv6,
@@ -39,24 +39,24 @@ impl PacketMeta {
         })
     }
 
-    pub(in crate::io_loop) fn flow_id(self) -> u64 {
+    pub(crate) fn flow_id(self) -> u64 {
         let ports = (u64::from(self.src_port) << 16) | u64::from(self.dst_port);
         ports ^ ip_hash(self.src_ip).rotate_left(13) ^ ip_hash(self.dst_ip).rotate_left(29)
     }
 
-    pub(in crate::io_loop) fn payload(self, packet: &[u8]) -> &[u8] {
+    pub(crate) fn payload(self, packet: &[u8]) -> &[u8] {
         packet.get(self.payload_offset..).unwrap_or_default()
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(in crate::io_loop) enum Transport {
+pub(crate) enum Transport {
     Tcp,
     Udp,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(in crate::io_loop) struct TransportEndpoint {
+pub(crate) struct TransportEndpoint {
     transport: Transport,
     is_ipv6: bool,
     src_ip: IpAddr,
@@ -67,12 +67,12 @@ pub(in crate::io_loop) struct TransportEndpoint {
     dst_port: u16,
 }
 
-pub(in crate::io_loop) fn packet_destination(packet: &[u8]) -> Option<SocketAddr> {
+pub(crate) fn packet_destination(packet: &[u8]) -> Option<SocketAddr> {
     let endpoint = transport_endpoint(packet)?;
     Some(SocketAddr::new(endpoint.dst_ip, endpoint.dst_port))
 }
 
-pub(in crate::io_loop) fn packet_with_payload(
+pub(crate) fn packet_with_payload(
     packet: &[u8],
     meta: PacketMeta,
     payload: &[u8],
@@ -90,7 +90,7 @@ pub(in crate::io_loop) fn packet_with_payload(
     Some(output)
 }
 
-pub(in crate::io_loop) fn set_packet_hop_limit(packet: &mut [u8], ttl: u8) -> Option<()> {
+pub(crate) fn set_packet_hop_limit(packet: &mut [u8], ttl: u8) -> Option<()> {
     match packet.first()? >> 4 {
         4 => {
             if packet.len() < IPV4_MIN_HEADER_LEN {
@@ -114,7 +114,7 @@ pub(in crate::io_loop) fn set_packet_hop_limit(packet: &mut [u8], ttl: u8) -> Op
     Some(())
 }
 
-pub(in crate::io_loop) fn transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
+pub(crate) fn transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
     let version = packet.first()? >> 4;
     match version {
         4 => ipv4_transport_endpoint(packet),
@@ -123,7 +123,7 @@ pub(in crate::io_loop) fn transport_endpoint(packet: &[u8]) -> Option<TransportE
     }
 }
 
-pub(in crate::io_loop) fn low_ttl_tcp_copy(packet: &[u8], ttl: u8) -> Option<Vec<u8>> {
+pub(crate) fn low_ttl_tcp_copy(packet: &[u8], ttl: u8) -> Option<Vec<u8>> {
     let version = packet.first()? >> 4;
     match version {
         4 => low_ttl_ipv4_tcp_copy(packet, ttl),
@@ -357,7 +357,7 @@ fn low_ttl_ipv6_tcp_copy(packet: &[u8], ttl: u8) -> Option<Vec<u8>> {
     Some(modified)
 }
 
-pub(in crate::io_loop) fn recompute_ipv4_header_checksum(header: &mut [u8]) {
+pub(crate) fn recompute_ipv4_header_checksum(header: &mut [u8]) {
     header[10] = 0;
     header[11] = 0;
     let checksum = ipv4_checksum(header);

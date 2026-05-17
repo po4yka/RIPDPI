@@ -6,8 +6,7 @@ use tracing::warn;
 use tun_rs::AsyncDevice;
 
 use crate::{Stats, TunDevice};
-
-use super::super::tun_ingress_interceptor::{SynAckPacketInjector, TunIngressInterceptor};
+use ripdpi_tunnel_intercept::ingress::{SynAckPacketInjector, TunIngressInterceptor};
 
 pub(in crate::io_loop) async fn flush_device_tx_queue(
     tun: &AsyncDevice,

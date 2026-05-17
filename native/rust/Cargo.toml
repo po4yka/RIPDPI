@@ -31,6 +31,7 @@ members = [
     "crates/ripdpi-monitor-engine",
     "crates/ripdpi-monitor-lane-adapter",
     "crates/ripdpi-monitor-proxy-runtime",
+    "crates/ripdpi-proxy-runtime-desync-adapter",
     "crates/ripdpi-proxy-runtime-adapter",
     "crates/ripdpi-proxy-runtime",
     "crates/ripdpi-runtime-api",
@@ -68,6 +69,7 @@ members = [
     "crates/ripdpi-desync-runtime",
     "crates/ripdpi-tunnel-config",
     "crates/ripdpi-tun-driver",
+    "crates/ripdpi-tunnel-intercept",
     "crates/ripdpi-tunnel-core",
     "crates/ripdpi-tunnel-android",
     "crates/ripdpi-cli",
@@ -135,6 +137,7 @@ ripdpi-monitor-adapter = { path = "crates/ripdpi-monitor-adapter" }
 ripdpi-monitor-engine = { path = "crates/ripdpi-monitor-engine" }
 ripdpi-monitor-lane-adapter = { path = "crates/ripdpi-monitor-lane-adapter" }
 ripdpi-monitor-proxy-runtime = { path = "crates/ripdpi-monitor-proxy-runtime" }
+ripdpi-proxy-runtime-desync-adapter = { path = "crates/ripdpi-proxy-runtime-desync-adapter" }
 ripdpi-proxy-runtime-adapter = { path = "crates/ripdpi-proxy-runtime-adapter" }
 ripdpi-proxy-runtime = { path = "crates/ripdpi-proxy-runtime" }
 ripdpi-runtime-api = { path = "crates/ripdpi-runtime-api" }
@@ -198,6 +201,7 @@ enum-map = "2"
 async-trait = "0.1"
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }
+ripdpi-tunnel-intercept = { path = "crates/ripdpi-tunnel-intercept" }
 ripdpi-tunnel-config = { path = "crates/ripdpi-tunnel-config" }
 ripdpi-tunnel-core = { path = "crates/ripdpi-tunnel-core" }
 

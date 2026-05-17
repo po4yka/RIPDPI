@@ -58,7 +58,7 @@ pub fn relay_group_settings_table(config: &RuntimeConfig) -> RelayGroupSettingsT
         primary_strategy_families: config
             .groups
             .iter()
-            .map(ripdpi_desync_runtime::primary_tcp_strategy_family)
+            .map(ripdpi_proxy_runtime_desync_adapter::primary_tcp_strategy_family)
             .collect(),
     }
 }

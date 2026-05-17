@@ -28,8 +28,6 @@ mod setup_dns;
 mod state;
 mod state_shutdown;
 mod tcp_accept;
-mod tun_egress_interceptor;
-mod tun_ingress_interceptor;
 mod udp_assoc;
 mod wait;
 
