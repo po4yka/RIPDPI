@@ -87,6 +87,21 @@ impl MappedFile {
     }
 }
 
+// Compile-fail regression for soundness issue #22 (lifetime extension):
+// `MappedFile::as_slice` MUST return a `&[u8]` whose lifetime is tied to
+// `&self` via Rust's lifetime elision (i.e. desugars to
+// `fn as_slice<'a>(&'a self) -> &'a [u8]`). The HRTB `for<'a> fn(&'a
+// MappedFile) -> &'a [u8]` only accepts function pointers whose lifetime
+// parameter is universally quantified — a `fn(&MappedFile) -> &'static
+// [u8]` would NOT satisfy it because the `'static` return type fixes the
+// lifetime instead of inheriting `'a`. If a future change extends the
+// returned slice to `'static` (via `mem::transmute`, `Box::leak`, or a
+// raw-pointer trick), this assertion fails to compile — catching the
+// regression at workspace build time before any test runs.
+const _: fn() = || {
+    let _check: for<'a> fn(&'a MappedFile) -> &'a [u8] = MappedFile::as_slice;
+};
+
 impl AsRef<[u8]> for MappedFile {
     fn as_ref(&self) -> &[u8] {
         self.as_slice()
