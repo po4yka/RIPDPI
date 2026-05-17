@@ -25,8 +25,12 @@ fn get_bpf_filter_len(fd: RawFd) -> io::Result<usize> {
     // unchanged. Pass a buffer big enough for any filter we attach in this crate
     // so the kernel's copy_to_sockptr step succeeds and the instruction count is
     // surfaced via the rc value.
+    // SAFETY: sock_filter is a plain C struct; zeroed array entries are valid
+    // writable storage for getsockopt to fill.
     let mut buffer: [libc::sock_filter; 64] = unsafe { std::mem::zeroed() };
     let mut len: libc::socklen_t = size_of_val(&buffer) as libc::socklen_t;
+    // SAFETY: `fd` is a socket descriptor under test; `buffer` and `len` are
+    // writable stack storage matching the getsockopt ABI.
     let rc =
         unsafe { libc::getsockopt(fd, libc::SOL_SOCKET, libc::SO_ATTACH_FILTER, buffer.as_mut_ptr().cast(), &mut len) };
     if rc < 0 {

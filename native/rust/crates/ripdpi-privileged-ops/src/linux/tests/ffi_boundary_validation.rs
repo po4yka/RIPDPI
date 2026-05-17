@@ -37,9 +37,7 @@ unsafe fn validate_ffi_buffer<'a>(ptr: *const u8, len: usize) -> Option<&'a [u8]
     }
     // Bounds check: pointer arithmetic ptr + len must not wrap.
     let addr = ptr as usize;
-    if addr.checked_add(len).is_none() {
-        return None;
-    }
+    addr.checked_add(len)?;
     // SAFETY: caller's contract (documented in # Safety above) guarantees
     // `ptr` points to `len` initialised bytes that outlive the slice.
     Some(unsafe { std::slice::from_raw_parts(ptr, len) })
@@ -47,6 +45,7 @@ unsafe fn validate_ffi_buffer<'a>(ptr: *const u8, len: usize) -> Option<&'a [u8]
 
 #[test]
 fn validate_rejects_null_pointer() {
+    // SAFETY: the function must reject null before materializing a slice.
     let result = unsafe { validate_ffi_buffer(std::ptr::null(), 8) };
     assert!(result.is_none(), "null pointer must be rejected");
 }
@@ -54,6 +53,7 @@ fn validate_rejects_null_pointer() {
 #[test]
 fn validate_rejects_zero_length() {
     let buf = [0u8; 4];
+    // SAFETY: the function must reject zero length before materializing a slice.
     let result = unsafe { validate_ffi_buffer(buf.as_ptr(), 0) };
     assert!(result.is_none(), "zero length must be rejected");
 }
@@ -62,6 +62,7 @@ fn validate_rejects_zero_length() {
 fn validate_rejects_length_overflow() {
     // Use a non-null pointer with a length that would wrap.
     let buf = [0u8; 4];
+    // SAFETY: the function must reject overflowing length before materializing a slice.
     let result = unsafe { validate_ffi_buffer(buf.as_ptr(), usize::MAX) };
     assert!(result.is_none(), "length overflow must be rejected");
 }
@@ -69,6 +70,8 @@ fn validate_rejects_length_overflow() {
 #[test]
 fn validate_accepts_valid_buffer() {
     let buf = [1u8, 2, 3, 4];
+    // SAFETY: `buf.as_ptr()` points to `buf.len()` initialized bytes and `buf`
+    // outlives the returned slice.
     let result = unsafe { validate_ffi_buffer(buf.as_ptr(), buf.len()) };
     let slice = result.expect("valid buffer should be accepted");
     assert_eq!(slice, &[1, 2, 3, 4]);

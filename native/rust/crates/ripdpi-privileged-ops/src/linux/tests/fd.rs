@@ -35,7 +35,11 @@ fn dup2_fd_replaces_target_and_close_owned_fd_releases_transient_source() {
 
 #[test]
 fn storage_to_socket_addr_parses_ipv4_and_ipv6_sockaddrs() {
+    // SAFETY: sockaddr_storage is a plain C storage struct; zeroed bytes are a
+    // valid starting point before setting the family-specific fields below.
     let mut storage = unsafe { zeroed::<libc::sockaddr_storage>() };
+    // SAFETY: sockaddr_storage has sufficient size/alignment for sockaddr_in;
+    // this test immediately sets the AF_INET fields before parsing.
     let sin = unsafe { &mut *(&mut storage as *mut libc::sockaddr_storage).cast::<libc::sockaddr_in>() };
     sin.sin_family = libc::AF_INET as libc::sa_family_t;
     sin.sin_port = 443u16.to_be();
@@ -45,7 +49,10 @@ fn storage_to_socket_addr_parses_ipv4_and_ipv6_sockaddrs() {
         SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 8)), 443)
     );
 
+    // SAFETY: see the IPv4 storage initialization above.
     let mut storage6 = unsafe { zeroed::<libc::sockaddr_storage>() };
+    // SAFETY: sockaddr_storage has sufficient size/alignment for sockaddr_in6;
+    // this test immediately sets the AF_INET6 fields before parsing.
     let sin6 = unsafe { &mut *(&mut storage6 as *mut libc::sockaddr_storage).cast::<libc::sockaddr_in6>() };
     sin6.sin6_family = libc::AF_INET6 as libc::sa_family_t;
     sin6.sin6_port = 8443u16.to_be();
@@ -58,6 +65,8 @@ fn storage_to_socket_addr_parses_ipv4_and_ipv6_sockaddrs() {
 
 #[test]
 fn storage_to_socket_addr_rejects_unknown_families() {
+    // SAFETY: sockaddr_storage is a plain C storage struct; zeroed bytes are a
+    // valid starting point before setting an unsupported family tag.
     let mut storage = unsafe { zeroed::<libc::sockaddr_storage>() };
     storage.ss_family = libc::AF_UNIX as libc::sa_family_t;
 

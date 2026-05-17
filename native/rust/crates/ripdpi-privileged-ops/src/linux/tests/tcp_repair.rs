@@ -29,6 +29,8 @@ fn invalid_fds_report_errors_for_tcp_state_helpers() {
 
 #[test]
 fn decode_tcp_repair_options_preserves_negotiated_timestamp_state() {
+    // SAFETY: LinuxTcpInfo mirrors the kernel tcp_info layout; zeroed is a
+    // valid base before filling the fields relevant to this decoder.
     let mut info: LinuxTcpInfo = unsafe { zeroed() };
     info.tcpi_options = TCPI_OPT_TIMESTAMPS | TCPI_OPT_SACK | TCPI_OPT_WSCALE | TCPI_OPT_USEC_TS;
     info.tcpi_snd_wscale_rcv_wscale = 0x27;
@@ -47,6 +49,7 @@ fn decode_tcp_repair_options_preserves_negotiated_timestamp_state() {
 
 #[test]
 fn decode_tcp_repair_options_omits_timestamp_when_not_negotiated() {
+    // SAFETY: see the tcp_info zero-initialization rationale above.
     let mut info: LinuxTcpInfo = unsafe { zeroed() };
     info.tcpi_options = TCPI_OPT_SACK;
     info.tcpi_snd_mss = 1200;

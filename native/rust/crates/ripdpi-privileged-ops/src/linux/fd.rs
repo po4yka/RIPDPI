@@ -177,6 +177,8 @@ mod tests {
     fn make_owned_fd() -> OwnedFd {
         // `/dev/null` is universally available on Linux/Android and
         // tolerates close/EBADF round-trips.
+        // SAFETY: the C string is static and null-terminated; `open` returns
+        // either a fresh owned descriptor or a negative errno.
         let raw = unsafe { libc::open(c"/dev/null".as_ptr(), libc::O_RDONLY) };
         assert!(raw >= 0, "open /dev/null failed: {}", io::Error::last_os_error());
         // SAFETY: `raw` is a freshly opened, owned descriptor with
@@ -189,10 +191,13 @@ mod tests {
         let fd = make_owned_fd();
         let raw = fd.as_raw_fd();
         // Sanity: the fd is currently valid (fcntl returns >= 0).
+        // SAFETY: `raw` comes from a live `OwnedFd`; F_GETFL only queries fd flags.
         let pre = unsafe { libc::fcntl(raw, libc::F_GETFL) };
         assert!(pre >= 0, "fd must be valid before close");
         close_owned_fd(fd).expect("close should succeed");
         // After close, the fd number must now be invalid (EBADF).
+        // SAFETY: probing an fd number with F_GETFL is allowed; EBADF is the
+        // expected kernel response after close.
         let post = unsafe { libc::fcntl(raw, libc::F_GETFL) };
         assert_eq!(post, -1, "fd must be invalid after close");
         assert_eq!(
@@ -215,6 +220,8 @@ mod tests {
         // close_owned_fd to close it again. The second close is the
         // one this test asserts surfaces EBADF instead of being
         // silently swallowed.
+        // SAFETY: `raw` comes from a live `OwnedFd`; this intentionally closes
+        // it early to exercise the error path.
         let pre_close = unsafe { libc::close(raw) };
         assert_eq!(pre_close, 0, "pre-close should succeed");
         // The OwnedFd still thinks it owns `raw`, but the kernel
@@ -246,6 +253,8 @@ mod tests {
             close_owned_fd(fd).expect("inner close should succeed");
         }));
         assert!(outcome.is_ok(), "close_owned_fd must not panic on the success path");
+        // SAFETY: probing an fd number with F_GETFL is allowed; EBADF proves
+        // the descriptor was closed.
         let post = unsafe { libc::fcntl(raw, libc::F_GETFL) };
         assert_eq!(post, -1, "fd must be invalid after close (no leak)");
         assert_eq!(io::Error::last_os_error().raw_os_error(), Some(libc::EBADF));
