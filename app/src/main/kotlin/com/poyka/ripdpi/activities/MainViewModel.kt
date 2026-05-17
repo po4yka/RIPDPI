@@ -34,7 +34,6 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,16 +43,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
-import kotlin.time.Duration.Companion.seconds
 
 enum class ConnectionState {
     Disconnected,
@@ -341,7 +337,12 @@ class MainViewModel
 
         private val _pendingCrashReport = MutableStateFlow<CrashReport?>(null)
         val pendingCrashReport: StateFlow<CrashReport?> = _pendingCrashReport.asStateFlow()
-        private var strategyConfigRestartJob: Job? = null
+        private val strategyConfigActions =
+            MainStrategyConfigApplyActions(
+                scope = viewModelScope,
+                serviceStateStore = mainServiceDependencies.serviceStateStore,
+                serviceController = mainServiceDependencies.serviceController,
+            )
 
         private val settingsState: StateFlow<AppSettings> =
             appSettingsRepository.settings.stateIn(
@@ -585,34 +586,7 @@ class MainViewModel
 
         fun onToggleHomePcapRecording() = homeDiagnosticsActions.togglePcapRecording()
 
-        fun applySavedStrategyConfig(): StrategyConfigApplyResult =
-            when {
-                mainServiceDependencies.serviceStateStore.status.value.first != AppStatus.Running -> {
-                    StrategyConfigApplyResult.NextSession
-                }
-
-                strategyConfigRestartJob?.isActive == true -> {
-                    StrategyConfigApplyResult.RestartAlreadyPending
-                }
-
-                else -> {
-                    val mode = mainServiceDependencies.serviceStateStore.status.value.second
-                    strategyConfigRestartJob =
-                        viewModelScope.launch {
-                            mainServiceDependencies.serviceController.stop()
-                            if (waitForServiceStatus(AppStatus.Halted)) {
-                                mainServiceDependencies.serviceController.start(mode)
-                            }
-                        }
-                    StrategyConfigApplyResult.RestartingActiveService
-                }
-            }
-
-        private suspend fun waitForServiceStatus(target: AppStatus): Boolean =
-            withTimeoutOrNull(10.seconds) {
-                mainServiceDependencies.serviceStateStore.status.first { it.first == target }
-                true
-            } == true
+        fun applySavedStrategyConfig(): StrategyConfigApplyResult = strategyConfigActions.applySavedStrategyConfig()
 
         val onShareHomeAnalysis: () -> Unit = {
             homeDiagnosticsActions.shareLatestHomeAnalysis()
@@ -626,25 +600,3 @@ class MainViewModel
             homeDiagnosticsActions.dismissVerificationSheet()
         }
     }
-
-class MainCrashReportActions(
-    private val coordinator: MainCrashReportCoordinator,
-    private val scope: kotlinx.coroutines.CoroutineScope,
-    private val pendingCrashReport: MutableStateFlow<CrashReport?>,
-) {
-    fun buildShareText(report: CrashReport): Pair<String, String> = coordinator.buildShareText(report)
-
-    fun dismiss() {
-        coordinator.dismiss(scope) {
-            pendingCrashReport.value = null
-        }
-    }
-}
-
-class MainAppLockActions(
-    private val coordinator: MainAppLockLifecycleCoordinator,
-) {
-    fun onAuthenticated() {
-        coordinator.onAuthenticated()
-    }
-}
