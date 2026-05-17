@@ -3,7 +3,6 @@ package com.poyka.ripdpi
 import android.app.Application
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.CdnEchPersistedCache
-import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PersistedEchEntry
@@ -17,6 +16,7 @@ import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.strategy.StrategyPackService
+import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -324,7 +324,7 @@ class AppStartupInitializerTest {
             appShortcutsPublisher =
                 AppShortcutsPublisher(
                     context = application,
-                    serviceStateStore = DefaultServiceStateStore(),
+                    serviceStateStore = FakeServiceStateStore(),
                     proxyGroupRepository = EmptyProxyGroupRepository,
                     selectorSelectionStore = NoOpSelectorSelectionStore,
                     applicationScope = scope,

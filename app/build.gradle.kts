@@ -282,6 +282,10 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
 
+    // Glance app widgets
+    implementation(libs.bundles.glance)
+    implementation(libs.androidx.datastore.preferences)
+
     // QR scanner: CameraX preview/analysis + ML Kit on-device barcode scanning.
     implementation(libs.bundles.camerax)
     implementation(libs.mlkit.barcode.scanning)

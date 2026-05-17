@@ -281,6 +281,55 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- Glance app widgets -->
+        <receiver
+            android:name=".widget.ConnectToggleWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_description_connect_toggle">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_connect_toggle_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.StatusDisplayWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_description_status">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_status_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.TelemetryWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_description_telemetry">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_telemetry_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.ModePickerWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_description_mode_picker">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_mode_picker_info" />
+        </receiver>
+
         <service
             android:name=".services.QuickTileService"
             android:icon="@drawable/ic_notification"

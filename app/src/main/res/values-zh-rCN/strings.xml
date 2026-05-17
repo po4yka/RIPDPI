@@ -2548,4 +2548,23 @@ fake_burst 3</string>
     <string name="awg_paste_conf_action">粘贴 .conf</string>
     <string name="awg_reveal_secret_action">显示</string>
     <string name="awg_secret_hidden">已隐藏 — 点按“显示”以查看</string>
+
+    <!-- App widget strings -->
+    <string name="widget_description_connect_toggle">连接开关</string>
+    <string name="widget_description_status">VPN 状态</string>
+    <string name="widget_description_telemetry">遥测</string>
+    <string name="widget_description_mode_picker">模式选择器</string>
+    <string name="widget_action_connect">连接</string>
+    <string name="widget_action_disconnect">断开</string>
+    <string name="widget_status_running">运行中</string>
+    <string name="widget_status_halted">已停止</string>
+    <string name="widget_status_connecting">连接中</string>
+    <string name="widget_status_unknown">未知</string>
+    <string name="widget_telemetry_uptime">运行时间</string>
+    <string name="widget_telemetry_bytes_up">上传</string>
+    <string name="widget_telemetry_bytes_down">下载</string>
+    <string name="widget_telemetry_restarts">重启次数</string>
+    <string name="widget_mode_vpn">VPN</string>
+    <string name="widget_mode_proxy">代理</string>
+    <string name="widget_mode_picker_title">选择模式</string>
 </resources>

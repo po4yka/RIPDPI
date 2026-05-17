@@ -3,7 +3,6 @@ package com.poyka.ripdpi.activities
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
@@ -34,6 +33,7 @@ import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
 import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,7 +51,7 @@ internal fun createDiagnosticsViewModel(
     diagnosticsResolverActions: DiagnosticsResolverActions = StubDiagnosticsResolverActions(),
     rememberedPolicySource: DiagnosticsRememberedPolicySource = EmptyRememberedNetworkPolicySource(),
     activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource = EmptyActiveConnectionPolicySource(),
-    serviceStateStore: ServiceStateStore = DefaultServiceStateStore(),
+    serviceStateStore: ServiceStateStore = FakeServiceStateStore(),
     probeDependencies: DiagnosticsProbeDependencies = defaultDiagnosticsProbeDependencies(appContext),
     autoStartScan: Boolean = false,
     initialize: Boolean = true,
@@ -114,7 +114,7 @@ internal fun createDiagnosticsViewModel(
     appSettingsRepository: AppSettingsRepository,
     rememberedPolicySource: DiagnosticsRememberedPolicySource = EmptyRememberedNetworkPolicySource(),
     activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource = EmptyActiveConnectionPolicySource(),
-    serviceStateStore: ServiceStateStore = DefaultServiceStateStore(),
+    serviceStateStore: ServiceStateStore = FakeServiceStateStore(),
     autoStartScan: Boolean = false,
     initialize: Boolean = true,
 ): DiagnosticsViewModel =

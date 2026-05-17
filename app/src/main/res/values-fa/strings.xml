@@ -2552,4 +2552,23 @@ fakeddisorder endhost</string>
     <string name="awg_paste_conf_action">چسباندن ‎.conf</string>
     <string name="awg_reveal_secret_action">نمایش</string>
     <string name="awg_secret_hidden">پنهان — برای نمایش، «نمایش» را بزنید</string>
+
+    <!-- App widget strings -->
+    <string name="widget_description_connect_toggle">کلید اتصال</string>
+    <string name="widget_description_status">وضعیت VPN</string>
+    <string name="widget_description_telemetry">تله‌متری</string>
+    <string name="widget_description_mode_picker">انتخاب حالت</string>
+    <string name="widget_action_connect">اتصال</string>
+    <string name="widget_action_disconnect">قطع اتصال</string>
+    <string name="widget_status_running">در حال اجرا</string>
+    <string name="widget_status_halted">متوقف</string>
+    <string name="widget_status_connecting">در حال اتصال</string>
+    <string name="widget_status_unknown">نامعلوم</string>
+    <string name="widget_telemetry_uptime">زمان فعالیت</string>
+    <string name="widget_telemetry_bytes_up">آپلود</string>
+    <string name="widget_telemetry_bytes_down">دانلود</string>
+    <string name="widget_telemetry_restarts">راه‌اندازی مجدد</string>
+    <string name="widget_mode_vpn">VPN</string>
+    <string name="widget_mode_proxy">پروکسی</string>
+    <string name="widget_mode_picker_title">انتخاب حالت</string>
 </resources>

@@ -4,12 +4,16 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -76,7 +80,11 @@ interface ServiceStateStore {
 @Singleton
 class DefaultServiceStateStore
     @Inject
-    constructor() : ServiceStateStore {
+    constructor(
+        private val widgetStateRepository: WidgetStateRepository,
+        private val widgetNotifier: WidgetNotifier,
+        @ApplicationScope private val applicationScope: CoroutineScope,
+    ) : ServiceStateStore {
         private val _status = MutableStateFlow(AppStatus.Halted to Mode.VPN)
         override val status: StateFlow<Pair<AppStatus, Mode>> = _status.asStateFlow()
 
@@ -85,6 +93,31 @@ class DefaultServiceStateStore
 
         private val _telemetry = MutableStateFlow(ServiceTelemetrySnapshot())
         override val telemetry: StateFlow<ServiceTelemetrySnapshot> = _telemetry.asStateFlow()
+
+        init {
+            applicationScope.launch {
+                combine(_status, _telemetry) { statusPair, telemetry ->
+                    val startedAt = telemetry.serviceStartedAt
+                    val uptimeMs =
+                        if (statusPair.first == AppStatus.Running && startedAt != null) {
+                            System.currentTimeMillis() - startedAt
+                        } else {
+                            0L
+                        }
+                    WidgetSnapshot(
+                        status = statusPair.first,
+                        mode = statusPair.second,
+                        uptimeMs = uptimeMs,
+                        bytesUp = telemetry.tunnelStats.txBytes,
+                        bytesDown = telemetry.tunnelStats.rxBytes,
+                        restartCount = telemetry.restartCount,
+                    )
+                }.conflate().collect { widgetSnapshot ->
+                    widgetStateRepository.write(widgetSnapshot)
+                    widgetNotifier.pushUpdate()
+                }
+            }
+        }
 
         override fun setStatus(
             status: AppStatus,

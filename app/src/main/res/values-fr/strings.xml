@@ -2547,4 +2547,23 @@ Source : %2$s</string>
     <string name="awg_paste_conf_action">Coller .conf</string>
     <string name="awg_reveal_secret_action">Afficher</string>
     <string name="awg_secret_hidden">Masqué — appuyez sur Afficher pour voir</string>
+
+    <!-- App widget strings -->
+    <string name="widget_description_connect_toggle">Bouton de connexion</string>
+    <string name="widget_description_status">État VPN</string>
+    <string name="widget_description_telemetry">Télémétrie</string>
+    <string name="widget_description_mode_picker">Sélecteur de mode</string>
+    <string name="widget_action_connect">Connecter</string>
+    <string name="widget_action_disconnect">Déconnecter</string>
+    <string name="widget_status_running">Actif</string>
+    <string name="widget_status_halted">Arrêté</string>
+    <string name="widget_status_connecting">Connexion en cours</string>
+    <string name="widget_status_unknown">Inconnu</string>
+    <string name="widget_telemetry_uptime">Durée active</string>
+    <string name="widget_telemetry_bytes_up">Envoi</string>
+    <string name="widget_telemetry_bytes_down">Réception</string>
+    <string name="widget_telemetry_restarts">Redémarrages</string>
+    <string name="widget_mode_vpn">VPN</string>
+    <string name="widget_mode_proxy">Proxy</string>
+    <string name="widget_mode_picker_title">Choisir le mode</string>
 </resources>

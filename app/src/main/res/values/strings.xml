@@ -2616,4 +2616,23 @@ Source: %2$s</string>
     <string name="awg_paste_conf_action">Paste .conf</string>
     <string name="awg_reveal_secret_action">Reveal</string>
     <string name="awg_secret_hidden">Hidden — tap reveal to show</string>
+
+    <!-- App widget strings -->
+    <string name="widget_description_connect_toggle">Connect Toggle</string>
+    <string name="widget_description_status">VPN Status</string>
+    <string name="widget_description_telemetry">Telemetry</string>
+    <string name="widget_description_mode_picker">Mode Picker</string>
+    <string name="widget_action_connect">Connect</string>
+    <string name="widget_action_disconnect">Disconnect</string>
+    <string name="widget_status_running">Running</string>
+    <string name="widget_status_halted">Halted</string>
+    <string name="widget_status_connecting">Connecting</string>
+    <string name="widget_status_unknown">Unknown</string>
+    <string name="widget_telemetry_uptime">Uptime</string>
+    <string name="widget_telemetry_bytes_up">Up</string>
+    <string name="widget_telemetry_bytes_down">Down</string>
+    <string name="widget_telemetry_restarts">Restarts</string>
+    <string name="widget_mode_vpn">VPN</string>
+    <string name="widget_mode_proxy">Proxy</string>
+    <string name="widget_mode_picker_title">Select Mode</string>
 </resources>

@@ -17,6 +17,7 @@ dependencies {
     api(project(":core:data:catalog"))
     api(project(":core:data:settings"))
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kaml)

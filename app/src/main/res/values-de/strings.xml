@@ -2547,4 +2547,23 @@ Quelle: %2$s</string>
     <string name="awg_paste_conf_action">.conf einfügen</string>
     <string name="awg_reveal_secret_action">Anzeigen</string>
     <string name="awg_secret_hidden">Verborgen – zum Anzeigen tippen</string>
+
+    <!-- App widget strings -->
+    <string name="widget_description_connect_toggle">Verbindungsschalter</string>
+    <string name="widget_description_status">VPN-Status</string>
+    <string name="widget_description_telemetry">Telemetrie</string>
+    <string name="widget_description_mode_picker">Modusauswahl</string>
+    <string name="widget_action_connect">Verbinden</string>
+    <string name="widget_action_disconnect">Trennen</string>
+    <string name="widget_status_running">Aktiv</string>
+    <string name="widget_status_halted">Gestoppt</string>
+    <string name="widget_status_connecting">Verbinde</string>
+    <string name="widget_status_unknown">Unbekannt</string>
+    <string name="widget_telemetry_uptime">Laufzeit</string>
+    <string name="widget_telemetry_bytes_up">Hoch</string>
+    <string name="widget_telemetry_bytes_down">Runter</string>
+    <string name="widget_telemetry_restarts">Neustarts</string>
+    <string name="widget_mode_vpn">VPN</string>
+    <string name="widget_mode_proxy">Proxy</string>
+    <string name="widget_mode_picker_title">Modus wählen</string>
 </resources>
