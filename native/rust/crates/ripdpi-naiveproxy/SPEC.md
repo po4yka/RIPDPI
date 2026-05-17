@@ -2,13 +2,9 @@
 
 ## Scope
 
-A subprocess helper that exposes a local SOCKS5 listener and tunnels
-TCP through an upstream HTTPS proxy via `CONNECT`. Distributed alongside
-the klzgrad/naiveproxy binary, but the helper itself runs as a
-separate process under the Android service supervisor.
+A subprocess helper that exposes a local SOCKS5 listener and tunnels TCP through an upstream HTTPS proxy via `CONNECT`. Distributed alongside the klzgrad/naiveproxy binary, but the helper itself runs as a separate process under the Android service supervisor.
 
-See `docs/native/relay-naiveproxy-runtime.md` for the operational
-model.
+See `docs/native/relay-naiveproxy-runtime.md` for the operational model.
 
 ## Upstream
 
@@ -28,17 +24,13 @@ Helper emits two well-known stdout markers:
 - `RIPDPI-READY` — listener is bound and handshake completed
 - `RIPDPI-ERROR <code>` — structured failure with classification text
 
-The Android side (`NaiveProxyManager`,
-`SubprocessSocksRelayManager`) classifies failures into DNS / TLS /
-HTTP CONNECT / auth categories.
+The Android side (`NaiveProxyManager`, `SubprocessSocksRelayManager`) classifies failures into DNS / TLS / HTTP CONNECT / auth categories.
 
-A planned structured `RIPDPI-PROBE` JSON contract is tracked in
-`docs/tasks/issues/make-naiveproxy-helper-probe-return-structured-version-json.md`.
+A planned structured `RIPDPI-PROBE` JSON contract is tracked in `docs/tasks/issues/make-naiveproxy-helper-probe-return-structured-version-json.md`.
 
 ## Known divergences from upstream
 
-- This helper is not a full naiveproxy port; it shells SOCKS5↔CONNECT.
-  Browser-engine features are explicitly out of scope.
+- This helper is not a full naiveproxy port; it shells SOCKS5↔CONNECT. Browser-engine features are explicitly out of scope.
 
 ## Non-goals
 

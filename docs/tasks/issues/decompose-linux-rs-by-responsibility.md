@@ -26,8 +26,7 @@ updated: 2026-05-14
 
 ## Summary
 
-`linux.rs` (1557 LOC) mixes socket options, protect logic, raw sends, TCP
-repair, TTL capture, and low-level packet mutation. Split by responsibility.
+`linux.rs` (1557 LOC) mixes socket options, protect logic, raw sends, TCP repair, TTL capture, and low-level packet mutation. Split by responsibility.
 
 ## Audit citation
 

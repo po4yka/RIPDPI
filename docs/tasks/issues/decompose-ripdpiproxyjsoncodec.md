@@ -26,8 +26,7 @@ updated: 2026-05-14
 
 ## Summary
 
-`RipDpiProxyJsonCodec.kt` (708 LOC) mixes schema definition, version
-migration, validation, and rewrite concerns.
+`RipDpiProxyJsonCodec.kt` (708 LOC) mixes schema definition, version migration, validation, and rewrite concerns.
 
 ## Audit citation
 
@@ -35,12 +34,9 @@ migration, validation, and rewrite concerns.
 
 ## Acceptance criteria
 
-- [ ] Split into: `schema` (field definitions), `migration` (version-to-
-    version transforms), `validation` (constraint checks), `rewrite`
-    (import/export reshaping).
+- [ ] Split into: `schema` (field definitions), `migration` (version-to- version transforms), `validation` (constraint checks), `rewrite` (import/export reshaping).
 - [ ] Public API preserved unless simplification is obvious.
-- [ ] Existing codec tests still pass; new tests cover migration paths
-    independently.
+- [ ] Existing codec tests still pass; new tests cover migration paths independently.
 - [ ] `file-loc-baseline.json` updated.
 
 ## Links

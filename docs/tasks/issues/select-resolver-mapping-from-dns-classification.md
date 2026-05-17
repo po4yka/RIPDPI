@@ -43,24 +43,14 @@ else:
 
 ## Acceptance criteria
 
-- [ ] Selection runs after classification, produces a concrete
-    `ResolvedMapping { best_ip, ip_family, source }`.
-- [ ] `DIVERGENT` correlation check uses observed transport fail phase,
-    not a static heuristic.
-- [ ] On `CLEAN`, fastest resolver wins — no unnecessary encrypted-DNS
-    overhead.
-- [ ] Selection is cached per `(host, NetProfile)` with the same TTL as
-    the family cache.
+- [ ] Selection runs after classification, produces a concrete `ResolvedMapping { best_ip, ip_family, source }`.
+- [ ] `DIVERGENT` correlation check uses observed transport fail phase, not a static heuristic.
+- [ ] On `CLEAN`, fastest resolver wins — no unnecessary encrypted-DNS overhead.
+- [ ] Selection is cached per `(host, NetProfile)` with the same TTL as the family cache.
 
 ## Implementation note
 
-As of 2026-04-23, RIPDPI now consumes the classifier-derived
-`DOH_PRIMARY` / `DOH_SECONDARY` signal in two enforcement paths:
-authority-scoped native hostname resolution and VPN startup when the
-observed hostname-backed hints converge on one resolver role. That lands the
-runtime resolver-mapping slice without yet implementing the richer
-`ResolvedMapping { best_ip, ip_family, source }` object or the dedicated
-`(host, NetProfile)` selection cache described above.
+As of 2026-04-23, RIPDPI now consumes the classifier-derived `DOH_PRIMARY` / `DOH_SECONDARY` signal in two enforcement paths: authority-scoped native hostname resolution and VPN startup when the observed hostname-backed hints converge on one resolver role. That lands the runtime resolver-mapping slice without yet implementing the richer `ResolvedMapping { best_ip, ip_family, source }` object or the dedicated `(host, NetProfile)` selection cache described above.
 
 ## Links
 

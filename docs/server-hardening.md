@@ -1,14 +1,10 @@
 # Server Hardening For Self-Hosted Relays
 
-This note documents the server-side graylist pattern referenced by the Tier 3
-roadmap. It is not a client feature and it does not change RIPDPI's runtime.
-Use it only if you operate your own relay or origin and want to deflect active
-probing without hard-dropping traffic.
+This note documents the server-side graylist pattern referenced by the Tier 3 roadmap. It is not a client feature and it does not change RIPDPI's runtime. Use it only if you operate your own relay or origin and want to deflect active probing without hard-dropping traffic.
 
 ## Goal
 
-When a probe source looks like an active scanner, route it to a harmless
-fallback instead of the real protected service.
+When a probe source looks like an active scanner, route it to a harmless fallback instead of the real protected service.
 
 Operational rules:
 
@@ -34,12 +30,9 @@ Recommended threshold: `score >= 5` moves the source into the graylist.
 
 Use three layers:
 
-1. `nginx stream` terminates nothing and only performs `ssl_preread`, logging,
-   and source-based routing.
-2. A sidecar scorer tails the stream log, computes the score, and rewrites a
-   graylist map file.
-3. Graylisted sources go to a fallback upstream that looks benign and stable,
-   while other sources continue to the real origin.
+1. `nginx stream` terminates nothing and only performs `ssl_preread`, logging, and source-based routing.
+2. A sidecar scorer tails the stream log, computes the score, and rewrites a graylist map file.
+3. Graylisted sources go to a fallback upstream that looks benign and stable, while other sources continue to the real origin.
 
 ## Example File Layout
 
@@ -92,8 +85,7 @@ The fallback target should behave consistently and cheaply. Good options are:
 
 - a decoy TLS service with an ordinary certificate chain
 - a static nginx stream backend that accepts and closes cleanly
-- a low-risk mirror or splash origin that reveals nothing about the protected
-  upstream
+- a low-risk mirror or splash origin that reveals nothing about the protected upstream
 
 ## Graylist Map Format
 
@@ -130,8 +122,7 @@ tcpdump -i any \
   'tcp port 443 or icmp or icmp6'
 ```
 
-Keep captures short and rotate aggressively. The goal is operator debugging, not
-long-term retention.
+Keep captures short and rotate aggressively. The goal is operator debugging, not long-term retention.
 
 ## Compose Reference
 
@@ -185,10 +176,8 @@ Do not use a single weak signal, such as odd TTL alone, to graylist a source.
 
 ## Safety Notes
 
-- do not `DROP` high-score sources by default; scanners often retry harder after
-  silent failure
-- keep the fallback response ordinary enough that it does not become a new
-  fingerprint
+- do not `DROP` high-score sources by default; scanners often retry harder after silent failure
+- keep the fallback response ordinary enough that it does not become a new fingerprint
 - separate logs for protected and fallback upstreams so score tuning is auditable
 - rate-limit reloads; frequent reload storms become their own availability risk
 

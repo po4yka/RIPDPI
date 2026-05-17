@@ -2,10 +2,7 @@
 
 ## Scope
 
-Client implementation of the VLESS application protocol, the REALITY TLS
-handshake, and the XTLS-Vision flow addon. Used both standalone (TCP →
-REALITY → VLESS) and chained (over an existing transport via
-`connect_over`).
+Client implementation of the VLESS application protocol, the REALITY TLS handshake, and the XTLS-Vision flow addon. Used both standalone (TCP → REALITY → VLESS) and chained (over an existing transport via `connect_over`).
 
 ## Upstream
 
@@ -25,8 +22,7 @@ REALITY → VLESS) and chained (over an existing transport via
 | AddrType | 1 byte | `0x01` IPv4, `0x02` domain, `0x03` IPv6 |
 | Address | var | IPv4: 4 bytes; IPv6: 16 bytes; domain: 1-byte len + UTF-8 |
 
-See `wire.rs` for the encoder; the response header is one version byte +
-one addons-length byte + variable addons.
+See `wire.rs` for the encoder; the response header is one version byte + one addons-length byte + variable addons.
 
 ## REALITY TLS handshake
 
@@ -36,25 +32,17 @@ one addons-length byte + variable addons.
 4. Encrypt and inject the session_id into the ClientHello.
 5. Disable standard cert verification (REALITY uses its own auth model).
 
-Six BoringSSL FFI symbols are declared locally (see `reality.rs`
-extern block). Pinning policy in
-`docs/tasks/issues/pin-boringssl-symbols-with-build-time-existence-check.md`.
+Six BoringSSL FFI symbols are declared locally (see `reality.rs` extern block). Pinning policy in `docs/tasks/issues/pin-boringssl-symbols-with-build-time-existence-check.md`.
 
 ## XTLS-Vision
 
-Vision is an addon string carried in the request `Addons` field. It
-controls TLS-in-TLS detection avoidance via a stream wrapper
-(`VisionStream` in `vision.rs`).
+Vision is an addon string carried in the request `Addons` field. It controls TLS-in-TLS detection avoidance via a stream wrapper (`VisionStream` in `vision.rs`).
 
 ## Known divergences from upstream
 
-- VLESS-mux protocol may lag upstream framing tweaks; see
-  `docs/tasks/issues/add-vless-mux-conformance-tests-against-xray-core.md`.
-- UDP forwarding (`Command = 0x02`) is not implemented; only TCP
-  CONNECT.
-- Some flow variants (e.g. `xtls-rprx-vision-udp443`) are not
-  covered; see
-  `docs/tasks/issues/add-vless-flow-xtls-rprx-vision-udp443-support.md`.
+- VLESS-mux protocol may lag upstream framing tweaks; see `docs/tasks/issues/add-vless-mux-conformance-tests-against-xray-core.md`.
+- UDP forwarding (`Command = 0x02`) is not implemented; only TCP CONNECT.
+- Some flow variants (e.g. `xtls-rprx-vision-udp443`) are not covered; see `docs/tasks/issues/add-vless-flow-xtls-rprx-vision-udp443-support.md`.
 
 ## Non-goals
 

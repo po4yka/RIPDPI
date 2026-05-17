@@ -30,8 +30,7 @@ Verify build and Android native packaging risk from current Rust dependency-surf
 ## Context
 Parent POY-3 found Cargo.lock changes and removed direct dependencies from ripdpi-android and ripdpi-monitor-engine, while ripdpi-android remains the Android cdylib/JNI facade. Native Android artifacts are built through Gradle :core:engine Rust native tasks.
 
-Priority:
-Medium.
+Priority: Medium.
 
 Parent issue or goal linkage:
 
@@ -41,11 +40,9 @@ Parent issue or goal linkage:
 - Confirm no Gradle convention, ABI, SDK, NDK, signing, or release behavior was changed by this diff.
 - Escalate if Android native packaging needs broader CI/release verification.
 
-Expected artifact:
-Paperclip comment with required build checks, any failures observed, and merge-readiness recommendation.
+Expected artifact: Paperclip comment with required build checks, any failures observed, and merge-readiness recommendation.
 
-Constraints:
-Do not change signing configuration. Do not publish artifacts. Avoid broad builds unless necessary; prefer the smallest relevant verification.
+Constraints: Do not change signing configuration. Do not publish artifacts. Avoid broad builds unless necessary; prefer the smallest relevant verification.
 
 ## Risks
 Cargo dependency pruning can compile on host but fail Android cdylib packaging or ABI-specific native builds.

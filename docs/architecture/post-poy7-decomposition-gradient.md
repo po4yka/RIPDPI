@@ -1,7 +1,6 @@
 # Android Adapter Crate Decomposition, Runtime-Adaptive Policy Sink, and Kotlin Sub-Service Splits
 
-Status: Approved.
-Decision date: 2026-05-02.
+Status: Approved. Decision date: 2026-05-02.
 
 ## Decision
 
@@ -32,8 +31,7 @@ Chose option 1: the four commits implement a single architectural shape (decompo
 
 ## Chosen Approach
 
-**1. Android adapter crate decomposition (Rust).**
-`ripdpi-android` is the JNI cdylib only. Feature-specific glue lives in seven sibling adapter crates:
+**1. Android adapter crate decomposition (Rust).** `ripdpi-android` is the JNI cdylib only. Feature-specific glue lives in seven sibling adapter crates:
 
 - `ripdpi-android-bridge-support` — JNI plumbing primitives (jstring marshaling, panic-safe wrappers).
 - `ripdpi-android-diagnostics-adapter`
@@ -45,11 +43,9 @@ Chose option 1: the four commits implement a single architectural shape (decompo
 
 `ripdpi-android/Cargo.toml` declares only `android-support`, `jni`, `once_cell`, and the seven adapter crates. No domain crate is a direct dependency of the cdylib. Adapter crates depend downward on domain crates (`ripdpi-proxy-runtime`, `ripdpi-monitor`, `ripdpi-runtime-adaptive`, etc.).
 
-**2. Runtime-adaptive policy sink (Rust).**
-Policy decisions previously embedded in `ripdpi-proxy-runtime/src/runtime/{adaptive,morph,reprobe,routing,retry}` are extracted into `ripdpi-runtime-adaptive` (`morph_policy.rs`, `strategy_context/{payload_classification,preferred_targets}.rs`). `ripdpi-proxy-runtime` depends on `ripdpi-runtime-adaptive`; the reverse edge is forbidden. This is the same direction the workspace already used for `ripdpi-runtime-adaptive`'s prior surface; the refactor moves more logic to it without flipping the edge.
+**2. Runtime-adaptive policy sink (Rust).** Policy decisions previously embedded in `ripdpi-proxy-runtime/src/runtime/{adaptive,morph,reprobe,routing,retry}` are extracted into `ripdpi-runtime-adaptive` (`morph_policy.rs`, `strategy_context/{payload_classification,preferred_targets}.rs`). `ripdpi-proxy-runtime` depends on `ripdpi-runtime-adaptive`; the reverse edge is forbidden. This is the same direction the workspace already used for `ripdpi-runtime-adaptive`'s prior surface; the refactor moves more logic to it without flipping the edge.
 
-**3. Kotlin sub-service splits (`app/`).**
-`WarpEnrollmentOrchestrator` (1× god-orchestrator) is split into eight focused services + a Hilt bindings module. `DiagnosticsUiSectionBuilders.kt` (1× 1228-line god-builder) is split into sixteen per-section builders. The split files live in the same Kotlin package; downstream call sites are unchanged.
+**3. Kotlin sub-service splits (`app/`).** `WarpEnrollmentOrchestrator` (1× god-orchestrator) is split into eight focused services + a Hilt bindings module. `DiagnosticsUiSectionBuilders.kt` (1× 1228-line god-builder) is split into sixteen per-section builders. The split files live in the same Kotlin package; downstream call sites are unchanged.
 
 ## Rationale
 
@@ -59,10 +55,7 @@ Policy decisions previously embedded in `ripdpi-proxy-runtime/src/runtime/{adapt
 
    diffed against the same expression at `HEAD`.
 
-2. **Dependency direction is correct and acyclic.**
-   - `ripdpi-android` → seven adapter crates → domain crates. The cdylib never reaches around the adapter layer to import a domain crate directly.
-   - `ripdpi-proxy-runtime` → `ripdpi-runtime-adaptive`. `ripdpi-runtime-adaptive`'s manifest does not list `ripdpi-proxy-runtime` as a dependency, so the new policy extraction does not introduce a cycle.
-   - `ripdpi-android-proxy-adapter` → `ripdpi-proxy-runtime` (downward). `ripdpi-android-bridge-support` is a leaf with only `jni`/`once_cell`.
+2. **Dependency direction is correct and acyclic.** - `ripdpi-android` → seven adapter crates → domain crates. The cdylib never reaches around the adapter layer to import a domain crate directly. - `ripdpi-proxy-runtime` → `ripdpi-runtime-adaptive`. `ripdpi-runtime-adaptive`'s manifest does not list `ripdpi-proxy-runtime` as a dependency, so the new policy extraction does not introduce a cycle. - `ripdpi-android-proxy-adapter` → `ripdpi-proxy-runtime` (downward). `ripdpi-android-bridge-support` is a leaf with only `jni`/`once_cell`.
 
 3. **Each split preserves call-surface contract.** WARP enrollment public APIs in `WarpEnrollmentOrchestrator` are unchanged; the orchestrator becomes a coordinator over the new services rather than the implementer. Diagnostics UI builders split along section boundaries with no `Composable` signature change. Runtime policy extraction keeps the `&self` and `&mut self` signatures used by callers in proxy-runtime; the destination crate publishes the policy types under its existing namespace.
 

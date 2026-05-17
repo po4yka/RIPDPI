@@ -26,34 +26,20 @@ updated: 2026-05-14
 
 ## Summary
 
-Add a "Start on boot" toggle in Settings that controls boot-receiver
-enable state, with a one-time prompt to whitelist from battery-saver /
-doze / vendor background-kill policies.
+Add a "Start on boot" toggle in Settings that controls boot-receiver enable state, with a one-time prompt to whitelist from battery-saver / doze / vendor background-kill policies.
 
 ## Context
 
-On stock Android the toggle is enough. On vendor ROMs (MIUI, EMUI,
-OneUI, ColorOS, FuntouchOS), auto-start is gated by a separate vendor
-setting. The prompt should link out to the vendor setting on detection
-and not nag on subsequent launches.
+On stock Android the toggle is enough. On vendor ROMs (MIUI, EMUI, OneUI, ColorOS, FuntouchOS), auto-start is gated by a separate vendor setting. The prompt should link out to the vendor setting on detection and not nag on subsequent launches.
 
 ## Acceptance criteria
 
-- [ ] Toggle in Settings labeled "Start on boot" with an explanatory
-    caption.
-- [ ] First time enabling invokes `PowerManager.isIgnoringBattery
-    Optimizations` check; if false, show rationale and launch the
-    system intent.
-- [ ] Vendor-specific intent routing for at least: Xiaomi, Huawei,
-    Oppo, Vivo, Samsung — each wrapped in a try/fallback to the
-    generic settings intent.
-- [ ] Rejection of the battery whitelist does NOT reset the toggle;
-    the user can still proceed with a warning banner showing expected
-    reliability impact.
-- [ ] Toggle state persists; companion task handles the component
-    enable/disable wiring.
-- [ ] Accessibility: toggle has description, vendor-setting link is
-    keyboard-reachable.
+- [ ] Toggle in Settings labeled "Start on boot" with an explanatory caption.
+- [ ] First time enabling invokes `PowerManager.isIgnoringBattery Optimizations` check; if false, show rationale and launch the system intent.
+- [ ] Vendor-specific intent routing for at least: Xiaomi, Huawei, Oppo, Vivo, Samsung — each wrapped in a try/fallback to the generic settings intent.
+- [ ] Rejection of the battery whitelist does NOT reset the toggle; the user can still proceed with a warning banner showing expected reliability impact.
+- [ ] Toggle state persists; companion task handles the component enable/disable wiring.
+- [ ] Accessibility: toggle has description, vendor-setting link is keyboard-reachable.
 
 ## Source references
 

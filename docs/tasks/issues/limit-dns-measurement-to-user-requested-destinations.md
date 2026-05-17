@@ -26,9 +26,7 @@ updated: 2026-05-14
 
 ## Summary
 
-Measure DNS only for destinations the user is actually trying to reach.
-No preloaded target lists, no broad scanning. Matches the C-Saw
-measurement-with-consent posture.
+Measure DNS only for destinations the user is actually trying to reach. No preloaded target lists, no broad scanning. Matches the C-Saw measurement-with-consent posture.
 
 ## Plan reference
 
@@ -38,11 +36,8 @@ measurement-with-consent posture.
 
 - [ ] No code path exists that scans a preloaded domain list.
 - [ ] Measurement is always tied to a live flow request.
-- [ ] If measurement results are uploaded later (see shared priors), they
-    carry only coarse keys — no raw user URLs, no SSIDs, no precise
-    geolocation.
-- [ ] Review documented so future contributors don't accidentally add
-    background probing.
+- [ ] If measurement results are uploaded later (see shared priors), they carry only coarse keys — no raw user URLs, no SSIDs, no precise geolocation.
+- [ ] Review documented so future contributors don't accidentally add background probing.
 
 ## Links
 

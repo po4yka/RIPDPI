@@ -26,27 +26,18 @@ updated: 2026-05-14
 
 ## Summary
 
-Surface the TUN VPN vs System Proxy choice in both Settings and the
-onboarding flow, with a clear trade-off explanation.
+Surface the TUN VPN vs System Proxy choice in both Settings and the onboarding flow, with a clear trade-off explanation.
 
 ## Context
 
-The existing onboarding already validates the chosen mode before finish.
-Extend it with the new choice and keep the phrasing honest: VPN is
-higher coverage but requires TUN permission; Proxy is lower coverage but
-no TUN prompt. Default to VPN mode; users must deliberately opt into
-Proxy mode.
+The existing onboarding already validates the chosen mode before finish. Extend it with the new choice and keep the phrasing honest: VPN is higher coverage but requires TUN permission; Proxy is lower coverage but no TUN prompt. Default to VPN mode; users must deliberately opt into Proxy mode.
 
 ## Acceptance criteria
 
-- [ ] Settings / Advanced Settings exposes a "Service mode" radio with
-    two options: "Full tunnel (VPN)" and "System proxy only".
-- [ ] Onboarding asks the same question with a short trade-off blurb
-    and a "most users pick Full tunnel" steer.
-- [ ] Changing the mode while a session is running prompts for
-    reconnect; the UI does not silently restart.
-- [ ] Chosen mode is persisted and restored on boot (coordinates with
-    [[Epic - Boot autostart and session persistence]]).
+- [ ] Settings / Advanced Settings exposes a "Service mode" radio with two options: "Full tunnel (VPN)" and "System proxy only".
+- [ ] Onboarding asks the same question with a short trade-off blurb and a "most users pick Full tunnel" steer.
+- [ ] Changing the mode while a session is running prompts for reconnect; the UI does not silently restart.
+- [ ] Chosen mode is persisted and restored on boot (coordinates with [[Epic - Boot autostart and session persistence]]).
 - [ ] Mode name localizes correctly in RTL layouts.
 
 ## Source references

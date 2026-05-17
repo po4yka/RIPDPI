@@ -26,40 +26,26 @@ updated: 2026-04-23
 
 ## Summary
 
-Before active probing, extract what we can from the last real failed flow:
-DNS outcome, TCP SYN/SYN-ACK, did failure happen before or after
-ClientHello, did UDP/443 fail while TCP to same host worked, did the
-response look like a error-page.
+Before active probing, extract what we can from the last real failed flow: DNS outcome, TCP SYN/SYN-ACK, did failure happen before or after ClientHello, did UDP/443 fail while TCP to same host worked, did the response look like a error-page.
 
 ## Plan reference
 
-[[ripdpi-android-direct-mode-plan-2026-04-20]] "Phase 0 — Passive
-observation first".
+[[ripdpi-android-direct-mode-plan-2026-04-20]] "Phase 0 — Passive observation first".
 
 ## Progress
 
-The full passive-observer struct is still not landed, but the repo-owned
-state machine no longer starts entirely from zero:
+The full passive-observer struct is still not landed, but the repo-owned state machine no longer starts entirely from zero:
 
-- diagnostics finalization now consults the previously confirmed authority
-record before pinning a new direct-path verdict;
-- that stored authority prior is now used as a lightweight passive signal for
-confirmation/revalidation, especially when the current run only produced one
-active direct-path failure.
+- diagnostics finalization now consults the previously confirmed authority record before pinning a new direct-path verdict;
+- that stored authority prior is now used as a lightweight passive signal for confirmation/revalidation, especially when the current run only produced one active direct-path failure.
 
-Still open: emitting a typed `PassiveObservation` payload directly from live
-runtime failures and feeding that payload into Phase 1 / Phase 2 before active
-probing starts.
+Still open: emitting a typed `PassiveObservation` payload directly from live runtime failures and feeding that payload into Phase 1 / Phase 2 before active probing starts.
 
 ## Acceptance criteria
 
-- [ ] Passive observer runs when a flow fails; emits a typed
-    `PassiveObservation` struct.
-- [ ] Error-page detection uses a small heuristic set — TLS certificate
-    mismatch, known middlebox block HTML shapes, response sizes, common block
-    patterns.
-- [ ] Phase 0 observation is consumed by Phase 1/Phase 2 classification
-    instead of them probing from zero.
+- [ ] Passive observer runs when a flow fails; emits a typed `PassiveObservation` struct.
+- [ ] Error-page detection uses a small heuristic set — TLS certificate mismatch, known middlebox block HTML shapes, response sizes, common block patterns.
+- [ ] Phase 0 observation is consumed by Phase 1/Phase 2 classification instead of them probing from zero.
 - [ ] Zero added cost on success paths.
 
 ## Links

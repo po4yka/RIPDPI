@@ -26,30 +26,19 @@ updated: 2026-05-14
 
 ## Summary
 
-When the app is updated (MY_PACKAGE_REPLACED), auto-restart the tunnel
-only if the session was running at the moment the update installed.
+When the app is updated (MY_PACKAGE_REPLACED), auto-restart the tunnel only if the session was running at the moment the update installed.
 
 ## Context
 
-Resuming the session after an update is expected behavior for always-on
-VPN use, but blanket resume on every update is wrong (a user may have
-stopped the tunnel deliberately before the update). Persist a "was
-running" flag on service stop-or-update; read and clear it on the
-receive path.
+Resuming the session after an update is expected behavior for always-on VPN use, but blanket resume on every update is wrong (a user may have stopped the tunnel deliberately before the update). Persist a "was running" flag on service stop-or-update; read and clear it on the receive path.
 
 ## Acceptance criteria
 
-- [ ] A persistent `wasRunningAtUpdate` flag is set when the session is
-    active AND the user is not in the Settings → Stop flow; cleared
-    on explicit user-initiated stop.
-- [ ] On `MY_PACKAGE_REPLACED`, the receiver reads and clears the flag;
-    auto-start only when it was set.
-- [ ] Unit tests cover: updated-while-running, updated-while-stopped,
-    stopped-then-updated.
-- [ ] Flag location is direct-boot aware so the check works even before
-    user unlock.
-- [ ] No secret material or profile identity surfaces in the flag
-    itself.
+- [ ] A persistent `wasRunningAtUpdate` flag is set when the session is active AND the user is not in the Settings → Stop flow; cleared on explicit user-initiated stop.
+- [ ] On `MY_PACKAGE_REPLACED`, the receiver reads and clears the flag; auto-start only when it was set.
+- [ ] Unit tests cover: updated-while-running, updated-while-stopped, stopped-then-updated.
+- [ ] Flag location is direct-boot aware so the check works even before user unlock.
+- [ ] No secret material or profile identity surfaces in the flag itself.
 
 ## Source references
 

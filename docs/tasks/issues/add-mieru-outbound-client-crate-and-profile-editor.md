@@ -26,28 +26,19 @@ updated: 2026-05-14
 
 ## Summary
 
-Add a `ripdpi-mieru` Rust crate implementing the Mieru outbound client
-and a `MieruProfileScreen` editor. Mieru (enfein/mieru) is actively
-developed and used in the Chinese bypass community; ignoring it blocks
-that user cohort.
+Add a `ripdpi-mieru` Rust crate implementing the Mieru outbound client and a `MieruProfileScreen` editor. Mieru (enfein/mieru) is actively developed and used in the Chinese bypass community; ignoring it blocks that user cohort.
 
 ## Context
 
-Mieru uses a custom UDP-based protocol with replay resistance; the
-Go reference implementation is the canonical spec. Upstream tests are
-the reference for protocol-level correctness. TCP transport mode is
-also supported upstream; both should land.
+Mieru uses a custom UDP-based protocol with replay resistance; the Go reference implementation is the canonical spec. Upstream tests are the reference for protocol-level correctness. TCP transport mode is also supported upstream; both should land.
 
 ## Acceptance criteria
 
-- [ ] `ripdpi-mieru` crate passes upstream reference handshake +
-    session-framing test vectors.
+- [ ] `ripdpi-mieru` crate passes upstream reference handshake + session-framing test vectors.
 - [ ] UDP and TCP transport modes both supported.
 - [ ] Multiplexing behavior matches upstream.
-- [ ] `MieruProfileScreen` validates server + port, username, password,
-    protocol mode (TCP/UDP), mTU.
-- [ ] Mieru's time-based replay protection is clock-synced via the
-    existing network-time source, not `System.currentTimeMillis`.
+- [ ] `MieruProfileScreen` validates server + port, username, password, protocol mode (TCP/UDP), mTU.
+- [ ] Mieru's time-based replay protection is clock-synced via the existing network-time source, not `System.currentTimeMillis`.
 - [ ] Credentials redacted in all diagnostic surfaces.
 - [ ] Subscription import path recognizes `mieru://` URIs.
 

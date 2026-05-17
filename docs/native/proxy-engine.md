@@ -49,24 +49,14 @@ Relevant sources:
 
 ### VPN localhost hardening
 
-VPN mode now treats the local proxy endpoint as a session-local runtime detail
-instead of reusing the persisted manual proxy port.
+VPN mode now treats the local proxy endpoint as a session-local runtime detail instead of reusing the persisted manual proxy port.
 
-- Proxy mode still binds the configured `proxyPort` and exposes it directly to
-  the user.
-- VPN mode applies runtime-only `sessionOverrides` after payload parsing:
-  `listenPortOverride=0` for an ephemeral localhost bind and `authToken=<fresh
-  token>` for mandatory local auth.
-- The same override layer is applied to both UI-config and command-line-config
-  VPN sessions. No AppSettings schema change and no new CLI flag were added.
-- `ProxyRuntimeSupervisor.start()` waits for readiness, polls proxy telemetry,
-  and resolves the actual `listenerAddress` into a concrete localhost endpoint
-  before tun2socks starts.
-- If the proxy becomes ready but never publishes a listener address, VPN
-  startup fails closed instead of falling back to `1080`.
-- Initial VPN start and handover restart rotate both the auth token and the
-  ephemeral listener port. DNS-only tunnel rebuilds reuse the current endpoint
-  because the proxy is not restarted.
+- Proxy mode still binds the configured `proxyPort` and exposes it directly to the user.
+- VPN mode applies runtime-only `sessionOverrides` after payload parsing: `listenPortOverride=0` for an ephemeral localhost bind and `authToken=<fresh token>` for mandatory local auth.
+- The same override layer is applied to both UI-config and command-line-config VPN sessions. No AppSettings schema change and no new CLI flag were added.
+- `ProxyRuntimeSupervisor.start()` waits for readiness, polls proxy telemetry, and resolves the actual `listenerAddress` into a concrete localhost endpoint before tun2socks starts.
+- If the proxy becomes ready but never publishes a listener address, VPN startup fails closed instead of falling back to `1080`.
+- Initial VPN start and handover restart rotate both the auth token and the ephemeral listener port. DNS-only tunnel rebuilds reuse the current endpoint because the proxy is not restarted.
 
 Resolved endpoint shape handed from proxy startup to the TUN bridge:
 
@@ -77,8 +67,7 @@ username=ripdpi
 password=<session auth token>
 ```
 
-That same token is enforced on all localhost proxy protocols already guarded by
-the native `auth_token` path:
+That same token is enforced on all localhost proxy protocols already guarded by the native `auth_token` path:
 
 - SOCKS5 requires RFC 1929 username/password auth
 - HTTP CONNECT requires valid `Proxy-Authorization`
@@ -134,27 +123,14 @@ The same JSON path is also used to replay validated remembered network policies.
 
 ### Circular TCP rotation
 
-The native strategy bridge now supports optional per-connection TCP chain
-rotation through `chains.tcpRotation`.
+The native strategy bridge now supports optional per-connection TCP chain rotation through `chains.tcpRotation`.
 
-- Rotation is JSON/config driven only in this slice. There is no new AppSettings
-  field or Compose surface.
-- Only TCP chains rotate. The base group's fake-packet settings, QUIC config,
-  parser variants, activation filters, and route/group selection remain
-  inherited.
-- Rotation boundaries are per outbound round on the same socket. RIPDPI does
-  not rewrite an in-flight payload mid-send.
-- The relay activates rotation only after the connection has already completed
-  its first successful outbound and first-response exchange. Initial connect and
-  first-response failures still use the existing cross-connection route/group
-  retry path.
-- Failure signals come from the existing first-response classifier
-  (redirect/TLS alert/reset-class style failures), connection close/reset during
-  the first-response window for that round, and `TCP_INFO` retransmission
-  deltas.
-- When a threshold trips, the current round finishes unchanged and the next
-  outbound round swaps `actions.tcp_chain` to the next candidate in the ordered
-  rotation list, wrapping modulo the candidate count.
+- Rotation is JSON/config driven only in this slice. There is no new AppSettings field or Compose surface.
+- Only TCP chains rotate. The base group's fake-packet settings, QUIC config, parser variants, activation filters, and route/group selection remain inherited.
+- Rotation boundaries are per outbound round on the same socket. RIPDPI does not rewrite an in-flight payload mid-send.
+- The relay activates rotation only after the connection has already completed its first successful outbound and first-response exchange. Initial connect and first-response failures still use the existing cross-connection route/group retry path.
+- Failure signals come from the existing first-response classifier (redirect/TLS alert/reset-class style failures), connection close/reset during the first-response window for that round, and `TCP_INFO` retransmission deltas.
+- When a threshold trips, the current round finishes unchanged and the next outbound round swaps `actions.tcp_chain` to the next candidate in the ordered rotation list, wrapping modulo the candidate count.
 
 `chains.tcpRotation` shape:
 
@@ -179,37 +155,24 @@ rotation through `chains.tcpRotation`.
 }
 ```
 
-Each candidate supplies only a replacement `tcpSteps` chain. Everything else is
-inherited from the base group for that connection.
+Each candidate supplies only a replacement `tcpSteps` chain. Everything else is inherited from the base group for that connection.
 
 ### Conditional TCP step execution
 
-TCP chain steps now support runtime branching through the existing
-`activationFilter` path rather than a separate condition AST.
+TCP chain steps now support runtime branching through the existing `activationFilter` path rather than a separate condition AST.
 
-- The predicates are available only on TCP step activation filters. Group
-  activation windows and UDP steps reject them during Kotlin validation and
-  native config conversion.
-- Predicate evaluation happens per outbound TCP write during planning. If a step
-  does not match, that step is skipped and later steps still run normally.
-- TCP-state predicates are ANDed with the existing `when_round`,
-  `when_size_*`, and `when_stream_*` filters.
-- Unknown TCP state fails closed for that predicate. RIPDPI skips the step
-  instead of guessing.
-- `tcp_has_ech` is derived from the current outbound TLS payload's markers, not
-  from persistent socket state.
-- `tcp_window_lt` and `tcp_mss_lt` prefer TCP repair snapshot data and fall back
-  to the existing segment hints only when a repair snapshot does not provide the
-  value.
+- The predicates are available only on TCP step activation filters. Group activation windows and UDP steps reject them during Kotlin validation and native config conversion.
+- Predicate evaluation happens per outbound TCP write during planning. If a step does not match, that step is skipped and later steps still run normally.
+- TCP-state predicates are ANDed with the existing `when_round`, `when_size_*`, and `when_stream_*` filters.
+- Unknown TCP state fails closed for that predicate. RIPDPI skips the step instead of guessing.
+- `tcp_has_ech` is derived from the current outbound TLS payload's markers, not from persistent socket state.
+- `tcp_window_lt` and `tcp_mss_lt` prefer TCP repair snapshot data and fall back to the existing segment hints only when a repair snapshot does not provide the value.
 
 Supported TCP predicates:
 
-- `tcp_has_ts=true|false` -- whether the negotiated TCP connection has
-  timestamps
-- `tcp_has_ech=true|false` -- whether the current outbound TLS payload contains
-  an ECH extension
-- `tcp_window_lt=<u16>` -- current advertised receive window is below the
-  threshold
+- `tcp_has_ts=true|false` -- whether the negotiated TCP connection has timestamps
+- `tcp_has_ech=true|false` -- whether the current outbound TLS payload contains an ECH extension
+- `tcp_window_lt=<u16>` -- current advertised receive window is below the threshold
 - `tcp_mss_lt=<u16>` -- negotiated MSS is below the threshold
 
 Example chain DSL:
@@ -247,41 +210,25 @@ Equivalent JSON fragment:
 
 ### TCP flag manipulation
 
-TCP chain steps now support explicit TCP flag overrides on both fake packets
-and original payload packets.
+TCP chain steps now support explicit TCP flag overrides on both fake packets and original payload packets.
 
-- Shared fields across proto, Kotlin, JSON, and Rust config:
-  - `tcp_flags_set`
-  - `tcp_flags_unset`
-  - `tcp_flags_orig_set`
-  - `tcp_flags_orig_unset`
-- Supported flag names: `fin`, `syn`, `rst`, `psh`, `ack`, `urg`, `ece`,
-  `cwr`, `ae`, `r1`, `r2`, `r3`
-- Import accepts decimal or hex numeric masks as well as named masks, but the
-  stored representation is always normalized to lower-case pipe-separated names
-  in canonical bit order.
+- Shared fields across proto, Kotlin, JSON, and Rust config: - `tcp_flags_set` - `tcp_flags_unset` - `tcp_flags_orig_set` - `tcp_flags_orig_unset`
+- Supported flag names: `fin`, `syn`, `rst`, `psh`, `ack`, `urg`, `ece`, `cwr`, `ae`, `r1`, `r2`, `r3`
+- Import accepts decimal or hex numeric masks as well as named masks, but the stored representation is always normalized to lower-case pipe-separated names in canonical bit order.
 
 Validation rules:
 
-- Fake masks are allowed only on steps that emit synthetic TCP packets:
-  `fake`, `fakesplit`, `fakedisorder`, `hostfake`, `seqovl`, and `fakerst`
-- Original masks are allowed only on steps that emit original payload bytes:
-  `split`, `syndata`, `disorder`, `multidisorder`, `fake`, `fakesplit`,
-  `fakedisorder`, `hostfake`, and `ipfrag2`
+- Fake masks are allowed only on steps that emit synthetic TCP packets: `fake`, `fakesplit`, `fakedisorder`, `hostfake`, `seqovl`, and `fakerst`
+- Original masks are allowed only on steps that emit original payload bytes: `split`, `syndata`, `disorder`, `multidisorder`, `fake`, `fakesplit`, `fakedisorder`, `hostfake`, and `ipfrag2`
 - `fakerst` is fake-only
 - `oob` and `disoob` reject all four mask fields in v1
 - Set and unset masks for the same target must not overlap
 
 Runtime semantics:
 
-- Fake packet flag overrides are applied by the shared raw TCP segment builder
-  used by fake sends, fake RST, seq-overlap helpers, multi-disorder, and TCP
-  IP fragmentation.
-- Original-payload flag overrides do not use normal stream writes. The runtime
-  sends the payload through the raw TCP / TCP_REPAIR path and swaps to a
-  replacement socket exactly like other raw original-payload techniques.
-- If the required raw capability is unavailable, RIPDPI fails closed instead of
-  silently sending the original payload with the kernel's default flags.
+- Fake packet flag overrides are applied by the shared raw TCP segment builder used by fake sends, fake RST, seq-overlap helpers, multi-disorder, and TCP IP fragmentation.
+- Original-payload flag overrides do not use normal stream writes. The runtime sends the payload through the raw TCP / TCP_REPAIR path and swaps to a replacement socket exactly like other raw original-payload techniques.
+- If the required raw capability is unavailable, RIPDPI fails closed instead of silently sending the original payload with the kernel's default flags.
 
 Example DSL:
 
@@ -316,20 +263,11 @@ Equivalent JSON fragment:
 
 ### Fake ordering variants
 
-Fake-family TCP steps also support zapret-style ordering control for how fake
-and genuine spans are emitted on a single outbound write.
+Fake-family TCP steps also support zapret-style ordering control for how fake and genuine spans are emitted on a single outbound write.
 
-- Shared fields across proto, Kotlin, JSON, and Rust config:
-  - `fake_order`
-  - `fake_seq_mode`
-- DSL tokens:
-  - `altorder=<0|1|2|3>`
-  - `seqmode=<duplicate|sequential>`
-- Supported step kinds:
-  - `fake`
-  - `fakedsplit`
-  - `fakeddisorder`
-  - `hostfake`
+- Shared fields across proto, Kotlin, JSON, and Rust config: - `fake_order` - `fake_seq_mode`
+- DSL tokens: - `altorder=<0|1|2|3>` - `seqmode=<duplicate|sequential>`
+- Supported step kinds: - `fake` - `fakedsplit` - `fakeddisorder` - `hostfake`
 
 Ordering semantics:
 
@@ -340,34 +278,22 @@ Ordering semantics:
 
 Step-specific behavior:
 
-- `fake` is treated as a one-region case:
-  - `0` and `1` both collapse to fake(s) before the original payload
-  - `2` and `3` both collapse to the original payload before fake(s)
+- `fake` is treated as a one-region case: - `0` and `1` both collapse to fake(s) before the original payload - `2` and `3` both collapse to the original payload before fake(s)
 - `fakedsplit` and `fakeddisorder` use the full two-region ordering model
-- `hostfake` uses the full two-region ordering model only when `midhost=` is
-  present. Prefix bytes before the host and suffix bytes after the host stay in
-  their normal positions, while the host-region block is reordered internally.
+- `hostfake` uses the full two-region ordering model only when `midhost=` is present. Prefix bytes before the host and suffix bytes after the host stay in their normal positions, while the host-region block is reordered internally.
 
 Sequence behavior:
 
-- `duplicate` preserves current behavior: every fake packet reuses the original
-  stream sequence for its target region
-- `sequential` advances later fake packet sequence numbers in emission order by
-  the byte lengths of earlier fake packets
+- `duplicate` preserves current behavior: every fake packet reuses the original stream sequence for its target region
+- `sequential` advances later fake packet sequence numbers in emission order by the byte lengths of earlier fake packets
 - genuine/original packets keep the normal real stream sequence
 
 Runtime policy:
 
-- Non-default `altorder` can still use the normal fake/original execution path
-  when exact raw sequence control is not required.
-- `seqmode=sequential` and any combination with other raw-only features
-  (original TCP flag overrides, exact `seqgroup`, and similar settings) are
-  executed through the generalized raw TCP batch sender.
-- If exact sequential fake sequencing would require raw/TCP_REPAIR support and
-  that capability is unavailable, RIPDPI fails closed instead of silently
-  degrading to duplicate mode.
-- `hostfake` rejects non-default `altorder` without `midhost=` in both Kotlin
-  and native validation.
+- Non-default `altorder` can still use the normal fake/original execution path when exact raw sequence control is not required.
+- `seqmode=sequential` and any combination with other raw-only features (original TCP flag overrides, exact `seqgroup`, and similar settings) are executed through the generalized raw TCP batch sender.
+- If exact sequential fake sequencing would require raw/TCP_REPAIR support and that capability is unavailable, RIPDPI fails closed instead of silently degrading to duplicate mode.
+- `hostfake` rejects non-default `altorder` without `midhost=` in both Kotlin and native validation.
 
 Example DSL:
 
@@ -405,9 +331,7 @@ Equivalent JSON fragment:
 
 ### IPv4 ID control
 
-RIPDPI also exposes a group-wide IPv4 Identification mode on the fake-packet
-surface. This is intentionally not a per-step DSL field because the policy
-belongs to the shared raw IPv4 packet builders.
+RIPDPI also exposes a group-wide IPv4 Identification mode on the fake-packet surface. This is intentionally not a per-step DSL field because the policy belongs to the shared raw IPv4 packet builders.
 
 - Supported values: empty/default, `seq`, `seqgroup`, `rnd`, `zero`
 - Kotlin / JSON field: `ipIdMode`
@@ -425,21 +349,15 @@ Allocator semantics:
 Mode behavior:
 
 - `seq`: monotonic per-flow IDs for raw-built IPv4 datagrams
-- `seqgroup`: same monotonic sequence, but mixed fake+original TCP paths
-  promote the original payload onto the raw/TCP_REPAIR replacement-socket path
-  so fake and original packets participate in the exact same ID stream
+- `seqgroup`: same monotonic sequence, but mixed fake+original TCP paths promote the original payload onto the raw/TCP_REPAIR replacement-socket path so fake and original packets participate in the exact same ID stream
 - `rnd`: randomized non-zero IDs
 - `zero`: always write ID `0`
 
 Fail-closed behavior:
 
 - `seqgroup` correctness is prioritized over partial compatibility.
-- If a mixed fake+original TCP technique would need raw promotion to keep exact
-  sequencing and the required raw/TCP_REPAIR path is unavailable, RIPDPI fails
-  that send closed instead of silently emitting a kernel-stream original with a
-  mismatched ID.
-- Root-helper IPC takes explicit IPv4 identification values from the main
-  runtime so rooted and non-rooted paths consume the same reserved sequence.
+- If a mixed fake+original TCP technique would need raw promotion to keep exact sequencing and the required raw/TCP_REPAIR path is unavailable, RIPDPI fails that send closed instead of silently emitting a kernel-stream original with a mismatched ID.
+- Root-helper IPC takes explicit IPv4 identification values from the main runtime so rooted and non-rooted paths consume the same reserved sequence.
 
 Example JSON:
 

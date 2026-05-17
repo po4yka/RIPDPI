@@ -26,30 +26,20 @@ updated: 2026-05-14
 
 ## Summary
 
-Add a "Reset all settings" destructive action in Tools → Backup & Restore
-that wipes profiles, groups, routes, user settings, and caches; then
-restarts the app.
+Add a "Reset all settings" destructive action in Tools → Backup & Restore that wipes profiles, groups, routes, user settings, and caches; then restarts the app.
 
 ## Context
 
-Complements export/import: gives a clean slate for testing. This is a
-destructive action, so the confirmation must be typed (not a single tap)
-and the action must surface telemetry so diagnostics can distinguish
-"reset" from "crash" in user reports.
+Complements export/import: gives a clean slate for testing. This is a destructive action, so the confirmation must be typed (not a single tap) and the action must surface telemetry so diagnostics can distinguish "reset" from "crash" in user reports.
 
 ## Acceptance criteria
 
 - [ ] Action surfaces behind a "type RESET to confirm" dialog (localized).
-- [ ] On confirm, wipes: ProxyEntity/ProxyGroup/Subscription, RuleEntity,
-    AppSettings proto, DiagnosticsDatabase tables that hold user
-    history, cache directories.
-- [ ] Keeps: app install state, keystore entries needed for the next
-    session bootstrap, permission grants.
-- [ ] Emits a one-shot telemetry event "user_initiated_reset" before
-    wipe; the event is preserved across restart.
+- [ ] On confirm, wipes: ProxyEntity/ProxyGroup/Subscription, RuleEntity, AppSettings proto, DiagnosticsDatabase tables that hold user history, cache directories.
+- [ ] Keeps: app install state, keystore entries needed for the next session bootstrap, permission grants.
+- [ ] Emits a one-shot telemetry event "user_initiated_reset" before wipe; the event is preserved across restart.
 - [ ] `ProcessPhoenix`-equivalent restart brings the app to onboarding.
-- [ ] Destructive action can be cancelled up to the confirm step
-    without side effects.
+- [ ] Destructive action can be cancelled up to the confirm step without side effects.
 
 ## Source references
 

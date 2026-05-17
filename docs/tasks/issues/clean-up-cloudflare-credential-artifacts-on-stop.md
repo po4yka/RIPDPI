@@ -26,9 +26,7 @@ updated: 2026-05-14
 
 ## Summary
 
-Named-tunnel credentials and config are written to persistent `filesDir`
-state and survive the session. `allowBackup="false"` prevents backup leak,
-but the files still persist unnecessarily.
+Named-tunnel credentials and config are written to persistent `filesDir` state and survive the session. `allowBackup="false"` prevents backup leak, but the files still persist unnecessarily.
 
 ## Audit citation
 
@@ -36,11 +34,9 @@ but the files still persist unnecessarily.
 
 ## Acceptance criteria
 
-- [ ] Ephemeral working directory used where possible (e.g. `cacheDir` or
-    a session-scoped subdir).
+- [ ] Ephemeral working directory used where possible (e.g. `cacheDir` or a session-scoped subdir).
 - [ ] Credential files deleted on session stop (success or error).
-- [ ] Stale credential files cleaned up at startup if a previous run
-    crashed without cleanup.
+- [ ] Stale credential files cleaned up at startup if a previous run crashed without cleanup.
 
 ## Links
 

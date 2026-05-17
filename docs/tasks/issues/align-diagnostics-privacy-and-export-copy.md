@@ -30,11 +30,9 @@ Align RIPDPI user-facing privacy and diagnostics copy with the approved export/P
 ## Context
 POY-6 produced the acceptance gate and found copy gaps: README privacy promises mention no full packet captures while app/archive paths can expose PCAP; share/save archive strings say raw report data stays intact but do not plainly enumerate exclusions such as payloads, credentials, TLS secrets, or PCAP conditions; support bundle copy says app-visible logcat and recent debug information without enough user-facing detail.
 
-User story:
-As a non-technical RIPDPI user, I want export and privacy copy to say what is collected, what is not collected, and when advanced packet capture is included, so that I can decide whether to share diagnostics.
+User story: As a non-technical RIPDPI user, I want export and privacy copy to say what is collected, what is not collected, and when advanced packet capture is included, so that I can decide whether to share diagnostics.
 
-Affected surface:
-README.md, README-ru.md if maintained in parallel, data transparency screen, Diagnostics share/save archive cards, support bundle copy, Home PCAP toggle/helper, Diagnostics packet-capture card.
+Affected surface: README.md, README-ru.md if maintained in parallel, data transparency screen, Diagnostics share/save archive cards, support bundle copy, Home PCAP toggle/helper, Diagnostics packet-capture card.
 
 ## Acceptance criteria
 1. User story: As a non-technical RIPDPI user, I want export and privacy copy to say what is collected, what is not collected, and when advanced packet capture is included, so that I can decide whether to share diagnostics.
@@ -44,14 +42,12 @@ README.md, README-ru.md if maintained in parallel, data transparency screen, Dia
 5. Rollback note: Copy-only changes are reversible by reverting strings/docs. If the approved decision requires migration or retained-file cleanup copy, document the user-visible fallback state.
 6. Explicit non-goals: This issue does not implement archive behavior. This issue does not alter diagnostic collection scope. This issue does not approve PCAP recording.
 
-Privacy implication:
-High. User-facing privacy claims must match implementation and AppSec-approved wording.
+Privacy implication: High. User-facing privacy claims must match implementation and AppSec-approved wording.
 
 ## Required verification
 Diff of actual copy changes; AppSec written approval; QA confirmation of screenshot/UI coverage or explicitly unchanged baselines.
 
-Rollback note:
-Revert copy/docs if AppSec or QA rejects the framing; no data migration unless POY-13/POY-14 requires retained-file cleanup language.
+Rollback note: Revert copy/docs if AppSec or QA rejects the framing; no data migration unless POY-13/POY-14 requires retained-file cleanup language.
 
 Non-goals:
 - No Kotlin/Rust behavior changes.

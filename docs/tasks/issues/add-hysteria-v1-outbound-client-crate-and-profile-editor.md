@@ -26,31 +26,19 @@ updated: 2026-05-14
 
 ## Summary
 
-Add a `ripdpi-hysteria-v1` Rust crate (distinct from the existing
-`ripdpi-hysteria2`) for legacy Hysteria v1 subscriptions, plus a
-`HysteriaV1ProfileScreen` editor. Mark the crate with an explicit sunset
-decision date.
+Add a `ripdpi-hysteria-v1` Rust crate (distinct from the existing `ripdpi-hysteria2`) for legacy Hysteria v1 subscriptions, plus a `HysteriaV1ProfileScreen` editor. Mark the crate with an explicit sunset decision date.
 
 ## Context
 
-Hysteria v1 is being replaced by v2 in the upstream ecosystem but remains
-present in older subscriptions. v1 protocol framing, auth, and congestion
-control differ enough that forcing them into `ripdpi-hysteria2` would
-regress that crate's simplicity. Ship as a thin, clearly-deprecated
-crate rather than hacking v1 into v2.
+Hysteria v1 is being replaced by v2 in the upstream ecosystem but remains present in older subscriptions. v1 protocol framing, auth, and congestion control differ enough that forcing them into `ripdpi-hysteria2` would regress that crate's simplicity. Ship as a thin, clearly-deprecated crate rather than hacking v1 into v2.
 
 ## Acceptance criteria
 
-- [ ] `ripdpi-hysteria-v1` crate compiles and passes v1 reference test
-    vectors.
-- [ ] Crate has a top-of-file comment stating the sunset target (date
-    to be decided during implementation but committed to repo).
-- [ ] `HysteriaV1ProfileScreen` prominently marks the profile as legacy
-    and suggests Hysteria2 migration.
-- [ ] Subscription import still routes v1 entries to this crate without
-    user intervention.
-- [ ] Shutdown joins bounded handler work; no background QUIC sockets
-    leak.
+- [ ] `ripdpi-hysteria-v1` crate compiles and passes v1 reference test vectors.
+- [ ] Crate has a top-of-file comment stating the sunset target (date to be decided during implementation but committed to repo).
+- [ ] `HysteriaV1ProfileScreen` prominently marks the profile as legacy and suggests Hysteria2 migration.
+- [ ] Subscription import still routes v1 entries to this crate without user intervention.
+- [ ] Shutdown joins bounded handler work; no background QUIC sockets leak.
 - [ ] Auth token is redacted in all diagnostic surfaces.
 
 ## Source references

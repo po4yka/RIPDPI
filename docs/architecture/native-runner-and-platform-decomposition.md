@@ -1,7 +1,6 @@
 # Native Connectivity Runner Split, Diagnostics Facade, and TCP Desync Platform Decomposition
 
-Status: Approved.
-Decision date: 2026-05-02.
+Status: Approved. Decision date: 2026-05-02.
 
 ## Decision
 
@@ -35,15 +34,9 @@ Chose option 1 because (2) is satisfied by inspection (see Rationale §3) and (3
 
 ## Rationale
 
-1. Connectivity stage contract preserved. Each per-stage module declares the original `PHASE` and `ARTIFACT_SOURCE` constants verbatim:
-   - `dns`/`dns_integrity`, `tcp`/`tcp_fat_header`, `quic`/`quic_reachability`, `reachability`/`domain_reachability` (Web — note: phase string is intentionally `reachability`, not `web`), `throughput`/`throughput_window`, `circumvention`/`circumvention_reachability`, `service`/`service_reachability`, plus single-shot `telegram`/`telegram` and `environment`/`network_environment`.
-   - Cancellation: `support::collect_family_steps` honours `cancel.load(Ordering::Acquire)` and returns `None` to signal stage cancellation, matching the previous early-return contract used by the runtime driver.
-   - Report finalisation: `EnvironmentRunner::run` retains the `runtime.finish_with_report(...)` short-circuit when `transport == "none" && !vpn_service_was_active`, including the captive-portal/unvalidated-network warn path.
+1. Connectivity stage contract preserved. Each per-stage module declares the original `PHASE` and `ARTIFACT_SOURCE` constants verbatim: - `dns`/`dns_integrity`, `tcp`/`tcp_fat_header`, `quic`/`quic_reachability`, `reachability`/`domain_reachability` (Web — note: phase string is intentionally `reachability`, not `web`), `throughput`/`throughput_window`, `circumvention`/`circumvention_reachability`, `service`/`service_reachability`, plus single-shot `telegram`/`telegram` and `environment`/`network_environment`. - Cancellation: `support::collect_family_steps` honours `cancel.load(Ordering::Acquire)` and returns `None` to signal stage cancellation, matching the previous early-return contract used by the runtime driver. - Report finalisation: `EnvironmentRunner::run` retains the `runtime.finish_with_report(...)` short-circuit when `transport == "none" && !vpn_service_was_active`, including the captive-portal/unvalidated-network warn path.
 2. Diagnostics facade is a strict narrowing. `Cargo.toml` for `ripdpi-monitor-engine` and `ripdpi-android` no longer references `ripdpi-diagnostics-probes`. A `grep` of the workspace shows zero non-self references to the crate. The crate's `lib.rs` re-exports the historic root API only when the default `compat-facade` feature is active, so any external consumer continues to compile against the same paths.
-3. `TcpDesyncPlatform` decomposition is non-breaking.
-   - Object safety: each of the five sub-traits is object-safe; the marker super-trait has zero methods; thus `dyn TcpDesyncPlatform` remains valid (already used as `*const dyn TcpDesyncPlatform` in `platform/registry.rs`).
-   - API churn: the only public bound on the symbol — `send_prepared_with_group<P: TcpDesyncPlatform + 'static>` in `tcp.rs` — is unchanged. The blanket impl `impl<T> TcpDesyncPlatform for T where T: …` ensures existing implementors that satisfied the monolithic trait by implementing every method continue to satisfy it after the split, provided they break their `impl` into the five sub-trait blocks. Both implementors (`TestTcpDesyncPlatform`, `RuntimeTcpDesyncPlatform`) have done so.
-   - The split lets future emitters depend on a narrower capability slice (e.g., a fragmentation-only emitter does not pull in seq-overlap surface), which is the correct direction for the desync subsystem.
+3. `TcpDesyncPlatform` decomposition is non-breaking. - Object safety: each of the five sub-traits is object-safe; the marker super-trait has zero methods; thus `dyn TcpDesyncPlatform` remains valid (already used as `*const dyn TcpDesyncPlatform` in `platform/registry.rs`). - API churn: the only public bound on the symbol — `send_prepared_with_group<P: TcpDesyncPlatform + 'static>` in `tcp.rs` — is unchanged. The blanket impl `impl<T> TcpDesyncPlatform for T where T: …` ensures existing implementors that satisfied the monolithic trait by implementing every method continue to satisfy it after the split, provided they break their `impl` into the five sub-trait blocks. Both implementors (`TestTcpDesyncPlatform`, `RuntimeTcpDesyncPlatform`) have done so. - The split lets future emitters depend on a narrower capability slice (e.g., a fragmentation-only emitter does not pull in seq-overlap surface), which is the correct direction for the desync subsystem.
 
 ## Impacted Subsystems
 

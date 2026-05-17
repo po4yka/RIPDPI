@@ -26,31 +26,20 @@ updated: 2026-05-14
 
 ## Summary
 
-Add a `ripdpi-vmess` Rust crate implementing VMess client outbound (AEAD
-only, legacy security variants rejected with typed error) plus a
-`VMessProfileScreen` editor.
+Add a `ripdpi-vmess` Rust crate implementing VMess client outbound (AEAD only, legacy security variants rejected with typed error) plus a `VMessProfileScreen` editor.
 
 ## Context
 
-VMess is legacy but widely present in older subscriptions. Supporting the
-AEAD variant is sufficient for realistic traffic. Legacy `security: auto`
-and MD5-based auth are explicitly unsupported. VMess transports (tcp, ws,
-h2, grpc) reuse existing transport crates where possible.
+VMess is legacy but widely present in older subscriptions. Supporting the AEAD variant is sufficient for realistic traffic. Legacy `security: auto` and MD5-based auth are explicitly unsupported. VMess transports (tcp, ws, h2, grpc) reuse existing transport crates where possible.
 
 ## Acceptance criteria
 
-- [ ] `ripdpi-vmess` crate compiles standalone and as part of the
-    android-jni workspace.
-- [ ] AEAD (`aes-128-gcm`, `chacha20-poly1305`) ciphers pass reference
-    test vectors.
-- [ ] Legacy security values (`auto`, `none`, `md5`) are rejected with
-    typed error messages surfaced to the user.
-- [ ] Transport matrix: tcp, ws, h2, grpc — all supported via shared
-    transport layer.
-- [ ] Profile editor enforces schema validation: UUID v4, port range,
-    alterId=0 only, security whitelist.
-- [ ] Profile is flagged "legacy" in lists so new users know it is not
-    the recommended path.
+- [ ] `ripdpi-vmess` crate compiles standalone and as part of the android-jni workspace.
+- [ ] AEAD (`aes-128-gcm`, `chacha20-poly1305`) ciphers pass reference test vectors.
+- [ ] Legacy security values (`auto`, `none`, `md5`) are rejected with typed error messages surfaced to the user.
+- [ ] Transport matrix: tcp, ws, h2, grpc — all supported via shared transport layer.
+- [ ] Profile editor enforces schema validation: UUID v4, port range, alterId=0 only, security whitelist.
+- [ ] Profile is flagged "legacy" in lists so new users know it is not the recommended path.
 - [ ] Secrets (UUID) are redacted in all logs, diagnostics, and exports.
 
 ## Source references

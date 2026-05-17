@@ -1,12 +1,8 @@
 # Feature Test Manual Evidence Template
 
-Use this template for the manual or external lab rows that remain open in
-`docs/feature-test-checklist.md`. Attach the completed file or paste its
-contents into `docs/feature-test-evidence-YYYY-MM-DD.md` after the run.
+Use this template for the manual or external lab rows that remain open in `docs/feature-test-checklist.md`. Attach the completed file or paste its contents into `docs/feature-test-evidence-YYYY-MM-DD.md` after the run.
 
-Do not paste live endpoints, credentials, subscription identifiers, SSIDs,
-BSSIDs, phone numbers, account names, or private hostnames. Use redacted labels
-such as `relay-vless-reality-primary` or `cellular-provider-a`.
+Do not paste live endpoints, credentials, subscription identifiers, SSIDs, BSSIDs, phone numbers, account names, or private hostnames. Use redacted labels such as `relay-vless-reality-primary` or `cellular-provider-a`.
 
 ## Run Metadata
 
@@ -49,9 +45,7 @@ such as `relay-vless-reality-primary` or `cellular-provider-a`.
 
 ## Provider Relay Matrix
 
-Run `test-lab/scripts/check-relay-matrix-config.sh --config <private-matrix>`
-before starting provider-backed tests. Store the private matrix outside the
-repository and reference only redacted relay IDs here.
+Run `test-lab/scripts/check-relay-matrix-config.sh --config <private-matrix>` before starting provider-backed tests. Store the private matrix outside the repository and reference only redacted relay IDs here.
 
 | Relay ID | Proxy | VPN | Diagnostics | Restart | Invalid credentials | Reset | Timeout | Malformed response | DNS fallback | Handover | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -113,9 +107,7 @@ repository and reference only redacted relay IDs here.
 
 ## Operator-Reviewed Readiness JSON
 
-The final `check-feature-test-signoff.sh --readiness` artifact must include
-these required rows, and each must be set to `ready` only when the matching
-manual evidence above is complete:
+The final `check-feature-test-signoff.sh --readiness` artifact must include these required rows, and each must be set to `ready` only when the matching manual evidence above is complete:
 
 | Readiness row | Matching evidence section |
 | --- | --- |
@@ -127,10 +119,7 @@ manual evidence above is complete:
 | `production_relay_matrix` | Provider Relay Matrix |
 | `remote_workflow_confirmation` | Remote Workflows |
 
-The sign-off guard rejects malformed readiness JSON, stale/missing/future
-`generatedAtEpoch` values, non-object artifacts, missing `checks` arrays,
-duplicate required rows, non-boolean `required` values, non-string messages,
-and statuses outside `ready`, `manual`, or `blocked`.
+The sign-off guard rejects malformed readiness JSON, stale/missing/future `generatedAtEpoch` values, non-object artifacts, missing `checks` arrays, duplicate required rows, non-boolean `required` values, non-string messages, and statuses outside `ready`, `manual`, or `blocked`.
 
 ## Final Verdict
 

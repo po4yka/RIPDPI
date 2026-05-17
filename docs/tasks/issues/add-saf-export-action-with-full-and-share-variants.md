@@ -26,29 +26,19 @@ updated: 2026-05-14
 
 ## Summary
 
-Add Tools-screen export action that writes the backup JSON via
-`ActivityResultContracts.CreateDocument`, letting the user pick between
-FULL (credentials included) and SHARE (redacted) variants.
+Add Tools-screen export action that writes the backup JSON via `ActivityResultContracts.CreateDocument`, letting the user pick between FULL (credentials included) and SHARE (redacted) variants.
 
 ## Context
 
-SAF is the only write path — no hardcoded file locations. Default target
-is the Downloads bucket, default filename is
-`ripdpi-backup-YYYY-MM-DDTHH-MM.json`. The FULL/SHARE picker is a
-bottom-sheet with clear risk framing for FULL.
+SAF is the only write path — no hardcoded file locations. Default target is the Downloads bucket, default filename is `ripdpi-backup-YYYY-MM-DDTHH-MM.json`. The FULL/SHARE picker is a bottom-sheet with clear risk framing for FULL.
 
 ## Acceptance criteria
 
 - [ ] Export entry point in Tools → Backup & Restore.
-- [ ] Variant picker makes the risk visually distinct; FULL is not the
-    default.
-- [ ] Writer streams the JSON via SAF `OutputStream`; never materializes
-    the full archive in memory.
-- [ ] On success, a snackbar confirms the destination and offers a
-    "Share" follow-up for SHARE variant; for FULL, share is not
-    offered inline.
-- [ ] Write failure surfaces a typed error; partial file is deleted if
-    the user hit cancel mid-write.
+- [ ] Variant picker makes the risk visually distinct; FULL is not the default.
+- [ ] Writer streams the JSON via SAF `OutputStream`; never materializes the full archive in memory.
+- [ ] On success, a snackbar confirms the destination and offers a "Share" follow-up for SHARE variant; for FULL, share is not offered inline.
+- [ ] Write failure surfaces a typed error; partial file is deleted if the user hit cancel mid-write.
 - [ ] Export never logs the payload; only the byte count and variant.
 
 ## Source references

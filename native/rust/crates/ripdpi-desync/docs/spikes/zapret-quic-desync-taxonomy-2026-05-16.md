@@ -1,16 +1,10 @@
 # Spike: zapret QUIC/UDP desync taxonomy for direct-mode UDP arms
 
-**Date:** 2026-05-16
-**Author:** spike / automated research
-**Status:** complete
+**Date:** 2026-05-16 **Author:** spike / automated research **Status:** complete
 
 ## Overview
 
-zapret (bol-van/zapret) is the closest peer to RIPDPI's transparent-mode desync
-engine. Its QUIC/UDP desync logic is load-bearing for HTTP/3 targets blocked in
-Russia (YouTube, Google services). This spike catalogues every zapret QUIC/UDP
-desync primitive, maps each to an existing or candidate RIPDPI UDP arm, and
-recommends the highest-leverage additions.
+zapret (bol-van/zapret) is the closest peer to RIPDPI's transparent-mode desync engine. Its QUIC/UDP desync logic is load-bearing for HTTP/3 targets blocked in Russia (YouTube, Google services). This spike catalogues every zapret QUIC/UDP desync primitive, maps each to an existing or candidate RIPDPI UDP arm, and recommends the highest-leverage additions.
 
 ---
 
@@ -63,33 +57,17 @@ recommends the highest-leverage additions.
 
 ### Priority 1 — `QuicEchDecoy`
 
-**What it does:** Before sending the real QUIC Initial, send one or more Initials
-whose CRYPTO/ClientHello contains an ECH outer extension with a crafted/random
-`public_name`. The DPI's SNI inspector sees `cloudflare.com` (or any high-trust
-domain) instead of the real SNI, and dismisses the flow.
+**What it does:** Before sending the real QUIC Initial, send one or more Initials whose CRYPTO/ClientHello contains an ECH outer extension with a crafted/random `public_name`. The DPI's SNI inspector sees `cloudflare.com` (or any high-trust domain) instead of the real SNI, and dismisses the flow.
 
-**Why first:** YouTube and major Google services increasingly deploy ECH. Russian
-ISP DPI systems (TSPU/ТСПУ) perform shallow SNI matching on the outer ClientHello.
-An ECH decoy packet requires no kernel module changes (pure userspace/nftables),
-fits naturally into the existing `UdpChainStepKind` enum, and reuses the existing
-QUIC packetisation helpers in `ripdpi-packets`.
+**Why first:** YouTube and major Google services increasingly deploy ECH. Russian ISP DPI systems (TSPU/ТСПУ) perform shallow SNI matching on the outer ClientHello. An ECH decoy packet requires no kernel module changes (pure userspace/nftables), fits naturally into the existing `UdpChainStepKind` enum, and reuses the existing QUIC packetisation helpers in `ripdpi-packets`.
 
-**Expected coverage gain:** Targets blocked purely by SNI matching on the first
-QUIC Initial (the dominant blocking method for YouTube HTTP/3 in Russia as of
-2025-2026). Conservative estimate: 40-60% of QUIC-blocked destinations become
-accessible when the first N datagrams show a trusted SNI.
+**Expected coverage gain:** Targets blocked purely by SNI matching on the first QUIC Initial (the dominant blocking method for YouTube HTTP/3 in Russia as of 2025-2026). Conservative estimate: 40-60% of QUIC-blocked destinations become accessible when the first N datagrams show a trusted SNI.
 
 ### Priority 2 — `QuicLengthJitter`
 
-**What it does:** Vary the QUIC Initial datagram total length by ±8-64 bytes
-across the burst (via PADDING frames), so the DPI cannot fingerprint by the
-characteristic 1200-byte minimum-length Initial.
+**What it does:** Vary the QUIC Initial datagram total length by ±8-64 bytes across the burst (via PADDING frames), so the DPI cannot fingerprint by the characteristic 1200-byte minimum-length Initial.
 
-**Why second:** Complements `QuicEchDecoy`. Some DPI rules trigger on length
-(1200 bytes exactly) before they even parse SNI. Adding jitter costs ~5 lines in
-the existing `QuicInitialPacketLayout` machinery and has no server-side impact
-(PADDING frames are ignored). Expected coverage gain: marginal alone (5-10%),
-but eliminates a false-negative class when combined with ECH decoy.
+**Why second:** Complements `QuicEchDecoy`. Some DPI rules trigger on length (1200 bytes exactly) before they even parse SNI. Adding jitter costs ~5 lines in the existing `QuicInitialPacketLayout` machinery and has no server-side impact (PADDING frames are ignored). Expected coverage gain: marginal alone (5-10%), but eliminates a false-negative class when combined with ECH decoy.
 
 ---
 

@@ -26,29 +26,19 @@ updated: 2026-05-14
 
 ## Summary
 
-Surface an asset-provider picker that lets users choose the source of
-`geoip.db` / `geosite.db`, mirroring Reference implementation's four built-in presets:
-SagerNet, soffchen, Chocolate4U Iran rules, L11R antizapret.
+Surface an asset-provider picker that lets users choose the source of `geoip.db` / `geosite.db`, mirroring Reference implementation's four built-in presets: SagerNet, soffchen, Chocolate4U Iran rules, L11R antizapret.
 
 ## Context
 
-Different regions have different "good" asset providers. Chocolate4U is
-tuned for Iran; antizapret is Russia-centric; SagerNet and soffchen are
-generalist. Picker is in Advanced Settings; updates are user-triggered
-via a button, not background fetch.
+Different regions have different "good" asset providers. Chocolate4U is tuned for Iran; antizapret is Russia-centric; SagerNet and soffchen are generalist. Picker is in Advanced Settings; updates are user-triggered via a button, not background fetch.
 
 ## Acceptance criteria
 
-- [ ] Four built-in providers with labels, descriptions, and
-    repository URLs (GitHub Releases).
-- [ ] "Custom URL" option for a user-supplied GitHub-Releases-compatible
-    provider.
-- [ ] "Check for updates" button compares local version tag to latest
-    release; downloads only if newer.
-- [ ] Download uses the existing in-proxy HTTP client so the update
-    works from inside a bypass tunnel.
-- [ ] Imported DBs land in external files dir; runtime reload signal
-    fires the geo-loader swap without restart.
+- [ ] Four built-in providers with labels, descriptions, and repository URLs (GitHub Releases).
+- [ ] "Custom URL" option for a user-supplied GitHub-Releases-compatible provider.
+- [ ] "Check for updates" button compares local version tag to latest release; downloads only if newer.
+- [ ] Download uses the existing in-proxy HTTP client so the update works from inside a bypass tunnel.
+- [ ] Imported DBs land in external files dir; runtime reload signal fires the geo-loader swap without restart.
 - [ ] SAF import path for local `.db` files as a final fallback.
 - [ ] Post-update, surface new version tag inline.
 

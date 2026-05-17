@@ -14,15 +14,7 @@ Run Codex local-state maintenance with `keep-codex-fast --apply` after preservin
 ## Completed
 
 - Ran `keep-codex-fast` report-only health scans.
-- Identified Codex local-state maintenance candidates:
-  - active sessions: about `0.954 GB`
-  - archived sessions: about `2.932 GB`
-  - old session candidates: `293`, about `0.134 GB`
-  - config prune candidates: `14`
-  - worktree candidates: `0`
-  - extended path candidates: `0`
-  - logs: about `603.7 MB`
-  - top Node/dev processes: largest around `54.9 MB`, `53.2 MB`, `53.0 MB`, `52.3 MB`, `52.1 MB`
+- Identified Codex local-state maintenance candidates: - active sessions: about `0.954 GB` - archived sessions: about `2.932 GB` - old session candidates: `293`, about `0.134 GB` - config prune candidates: `14` - worktree candidates: `0` - extended path candidates: `0` - logs: about `603.7 MB` - top Node/dev processes: largest around `54.9 MB`, `53.2 MB`, `53.0 MB`, `52.3 MB`, `52.1 MB`
 - Fixed repo-local Codex agent config in `.codex/agents/arch-layer-auditor.toml`.
 - Committed the fix as `fd3ac4be fix(codex): repair architecture auditor instructions`.
 

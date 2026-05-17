@@ -37,15 +37,7 @@ All three Home cards share the same visual structure: a title, a one-line config
 ## Acceptance criteria
 
 - [ ] `HomeModeCard` composable in `ui/screens/home/components/HomeModeCard.kt`.
-- [ ] Parameters:
-  - `title: String`
-  - `description: String`
-  - `primaryLabel: String` — config summary line
-  - `secondaryLabel: String?`
-  - `isActive: Boolean`
-  - `isLoading: Boolean`
-  - `actionVariant: HomeModeCardAction` — sealed: `Toggle(checked, onToggle)` or `RunButton(onClick)`
-  - `onCardClick: () -> Unit` — fired when the card body (not the control) is tapped
+- [ ] Parameters: - `title: String` - `description: String` - `primaryLabel: String` — config summary line - `secondaryLabel: String?` - `isActive: Boolean` - `isLoading: Boolean` - `actionVariant: HomeModeCardAction` — sealed: `Toggle(checked, onToggle)` or `RunButton(onClick)` - `onCardClick: () -> Unit` — fired when the card body (not the control) is tapped
 - [ ] Toggle variant: `Switch` aligned to the card trailing edge; disabled and shows `CircularProgressIndicator` when `isLoading`.
 - [ ] RunButton variant: full-width `Button` below the summary text; disabled when `isLoading`.
 - [ ] Status chip: small pill showing "Active" (green) / "Inactive" (neutral) / "Running…" (yellow) derived from `isActive` + `isLoading`.

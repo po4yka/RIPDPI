@@ -2,9 +2,7 @@
 
 ## Scope
 
-MASQUE client supporting HTTP/3 and HTTP/2 transports, including
-CONNECT (TCP) and CONNECT-UDP. Includes provider-specific extensions
-for Cloudflare-direct (mTLS + `sec-ch-geohash`) and Privacy Pass.
+MASQUE client supporting HTTP/3 and HTTP/2 transports, including CONNECT (TCP) and CONNECT-UDP. Includes provider-specific extensions for Cloudflare-direct (mTLS + `sec-ch-geohash`) and Privacy Pass.
 
 ## Standards
 
@@ -31,25 +29,18 @@ Provider extensions:
 ## Transport selection
 
 - H3 first (`h3.rs`)
-- H2 fallback (`h2.rs`) when H3 is unreachable; reason captured in
-  the migration snapshot
+- H2 fallback (`h2.rs`) when H3 is unreachable; reason captured in the migration snapshot
 
 ## URL validation
 
-Non-HTTPS URLs are rejected before native startup. Endpoint path and
-query are preserved through H3 and H2 request construction.
+Non-HTTPS URLs are rejected before native startup. Endpoint path and query are preserved through H3 and H2 request construction.
 
 ## Known divergences from standards
 
-- Cloudflare-direct flow couples the crate to one vendor; the
-  `MasqueProviderAdapter` extraction in
-  `docs/tasks/issues/extract-masque-provider-adapter-trait-to-decouple-cloudflare.md`
-  is the planned decoupling.
-- H3-to-H2 fallback telemetry is incomplete; see
-  `docs/tasks/issues/add-h3-to-h2-fallback-telemetry-rollout-validation.md`.
+- Cloudflare-direct flow couples the crate to one vendor; the `MasqueProviderAdapter` extraction in `docs/tasks/issues/extract-masque-provider-adapter-trait-to-decouple-cloudflare.md` is the planned decoupling.
+- H3-to-H2 fallback telemetry is incomplete; see `docs/tasks/issues/add-h3-to-h2-fallback-telemetry-rollout-validation.md`.
 
 ## Non-goals
 
 - Server-side MASQUE.
-- Pure HTTP/2 MASQUE without the H3 attempt (the H2 fallback is
-  reactive, not primary).
+- Pure HTTP/2 MASQUE without the H3 attempt (the H2 fallback is reactive, not primary).

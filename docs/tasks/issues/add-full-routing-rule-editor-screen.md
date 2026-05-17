@@ -26,35 +26,21 @@ updated: 2026-05-14
 
 ## Summary
 
-Add the full rule editor: list of rules (drag-to-reorder), per-rule
-editor with all matcher types, outbound-action picker including
-specific-profile and specific-group targets.
+Add the full rule editor: list of rules (drag-to-reorder), per-rule editor with all matcher types, outbound-action picker including specific-profile and specific-group targets.
 
 ## Context
 
-The editor is the power-user surface. It lives on a dedicated Routes
-screen in the main nav drawer. Matchers are the superset: domain,
-domain_suffix, domain_regex, geosite, ip_cidr, geoip, port, source,
-network, process, package. Outbound actions pick from the enum plus
-existing profiles and groups.
+The editor is the power-user surface. It lives on a dedicated Routes screen in the main nav drawer. Matchers are the superset: domain, domain_suffix, domain_regex, geosite, ip_cidr, geoip, port, source, network, process, package. Outbound actions pick from the enum plus existing profiles and groups.
 
 ## Acceptance criteria
 
-- [ ] Routes screen in main nav shows the rule list with
-    drag-to-reorder, enable-toggle per rule, name + summary line.
-- [ ] Rule editor has collapsible sections per matcher type; empty
-    matchers are absent from the compiled rule.
-- [ ] Geosite / geoip pickers surface the categories / country codes
-    from the loaded DBs; autocomplete on type.
-- [ ] Package picker uses the existing `PackageCache` to show icon +
-    label; multi-select.
-- [ ] Outbound picker: Proxy / Bypass / Block / specific profile /
-    specific group.
-- [ ] Validation: empty rule cannot save; conflicting matchers (e.g.
-    port 80 AND port 443 only) are not auto-corrected — first match
-    wins at runtime.
-- [ ] Rule list honors the first-match-wins runtime semantic; reorder
-    persists immediately.
+- [ ] Routes screen in main nav shows the rule list with drag-to-reorder, enable-toggle per rule, name + summary line.
+- [ ] Rule editor has collapsible sections per matcher type; empty matchers are absent from the compiled rule.
+- [ ] Geosite / geoip pickers surface the categories / country codes from the loaded DBs; autocomplete on type.
+- [ ] Package picker uses the existing `PackageCache` to show icon + label; multi-select.
+- [ ] Outbound picker: Proxy / Bypass / Block / specific profile / specific group.
+- [ ] Validation: empty rule cannot save; conflicting matchers (e.g. port 80 AND port 443 only) are not auto-corrected — first match wins at runtime.
+- [ ] Rule list honors the first-match-wins runtime semantic; reorder persists immediately.
 - [ ] Accessibility: drag-reorder has keyboard equivalents.
 
 ## Source references

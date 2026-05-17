@@ -56,8 +56,7 @@ These constraints remain intentional:
 
 - NaiveProxy stays a subprocess backend, not a JNI-embedded transport.
 - The helper should remain small and protocol-focused.
-- New work should improve observability and compatibility, not expand the
-  helper toward browser-engine behavior.
+- New work should improve observability and compatibility, not expand the helper toward browser-engine behavior.
 
 ## Remaining Work
 
@@ -100,5 +99,4 @@ Terminal classes:
 - `tls`
 - `config`
 
-This keeps the helper responsive to transient path failures without looping on
-deterministic credential or TLS configuration problems.
+This keeps the helper responsive to transient path failures without looping on deterministic credential or TLS configuration problems.

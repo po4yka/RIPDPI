@@ -34,13 +34,9 @@ Constants from `protocol.rs`:
 
 ## Known divergences from upstream
 
-- v4 is unsupported pending policy decision; see
-  `docs/tasks/issues/add-tuic-v4-fallback-or-version-detection.md`.
-- UDP forward mode (native vs quic) is not exposed as a toggle yet;
-  see
-  `docs/tasks/issues/add-tuic-udp-forward-mode-toggle-native-vs-quic.md`.
-- App-level keepalive policy not yet defined; see
-  `docs/tasks/issues/add-tuic-heartbeat-and-keepalive-policy.md`.
+- v4 is unsupported pending policy decision; see `docs/tasks/issues/add-tuic-v4-fallback-or-version-detection.md`.
+- UDP forward mode (native vs quic) is not exposed as a toggle yet; see `docs/tasks/issues/add-tuic-udp-forward-mode-toggle-native-vs-quic.md`.
+- App-level keepalive policy not yet defined; see `docs/tasks/issues/add-tuic-heartbeat-and-keepalive-policy.md`.
 
 ## Non-goals
 

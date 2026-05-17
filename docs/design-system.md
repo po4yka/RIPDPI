@@ -1,8 +1,6 @@
 # RIPDPI Design System
 
-`DESIGN.md` at the repository root is the portable, agent-readable summary of the RIPDPI visual identity.
-This document is the engineering supplement for implementation details, mappings, and enforcement rules that
-the current `DESIGN.md` format does not express strongly enough.
+`DESIGN.md` at the repository root is the portable, agent-readable summary of the RIPDPI visual identity. This document is the engineering supplement for implementation details, mappings, and enforcement rules that the current `DESIGN.md` format does not express strongly enough.
 
 ## Source of Truth
 
@@ -29,8 +27,7 @@ When any of these disagree, the Compose theme code and screenshot baselines win.
 | Surface tokens | `ui/theme/RipDpiSurface.kt` | First-class panel, modal, feedback, menu, and navigation-chrome surfaces |
 | State tokens | `ui/theme/RipDpiState.kt` | First-class pressed, focused, disabled, loading, selected, and semantic tone resolution for shared components |
 
-Feature geometry does not belong in the shared theme. Flow-specific measurements stay close to the screen
-family that owns them, for example `HomeChromeMetrics` and `RipDpiIntroScaffoldMetrics`.
+Feature geometry does not belong in the shared theme. Flow-specific measurements stay close to the screen family that owns them, for example `HomeChromeMetrics` and `RipDpiIntroScaffoldMetrics`.
 
 ## Component Taxonomy
 
@@ -45,8 +42,7 @@ family that owns them, for example `HomeChromeMetrics` and `RipDpiIntroScaffoldM
 
 ## Interaction State Layer
 
-Shared components should resolve interaction and semantic states from `RipDpiStateTokens`, not by rebuilding
-pressed, focused, disabled, selected, loading, or error colors inline.
+Shared components should resolve interaction and semantic states from `RipDpiStateTokens`, not by rebuilding pressed, focused, disabled, selected, loading, or error colors inline.
 
 Current first-class state families:
 
@@ -63,8 +59,7 @@ Current first-class state families:
 
 ## Surface Roles
 
-Shared containers should resolve their structural surface from `RipDpiSurfaceTokens` instead of rebuilding
-container, border, content, or elevation inline.
+Shared containers should resolve their structural surface from `RipDpiSurfaceTokens` instead of rebuilding container, border, content, or elevation inline.
 
 Current first-class surface roles:
 
@@ -82,8 +77,7 @@ Usage rules:
 - `SelectedCard` is for explicit picked-state surfaces such as presets.
 - `Dialog` and `BottomSheet` are separate roles even when they currently share the same visual recipe.
 - `SwitchThumb` stays in the surface taxonomy because its elevation and containment are structural, not textual.
-- Route roles describe secure-route opportunity and selection surfaces only. They must not imply a new runtime
-  protocol, provider integration, or persistence contract until the corresponding product layer exists.
+- Route roles describe secure-route opportunity and selection surfaces only. They must not imply a new runtime protocol, provider integration, or persistence contract until the corresponding product layer exists.
 
 ## Component Mapping
 
@@ -136,8 +130,7 @@ RIPDPI supports:
 - dark theme
 - contrast levels `Standard`, `Medium`, and `High`
 
-The design contract is semantic, not palette-branching. Screens should keep the same structure and role
-assignment across variants.
+The design contract is semantic, not palette-branching. Screens should keep the same structure and role assignment across variants.
 
 Variant rules:
 
@@ -159,12 +152,8 @@ Home:
 
 - Use `RipDpiDashboardScaffold`.
 - Keep a calm status summary above deeper operational detail.
-- Use `RipDpiConnectionActuator` as the primary connection primitive in `HomeStatusCard`; it replaces the
-  circular VPN power button and owns activation intent, route label, stage pipeline, localized fault, and
-  degraded-but-active visual states.
-- The actuator route label should name the selected Secure Route, not only the anti-DPI technique. Use Secure
-  Route components when a screen needs to compare available VPN, proxy, WARP, relay, provider, or advanced
-  technique opportunities.
+- Use `RipDpiConnectionActuator` as the primary connection primitive in `HomeStatusCard`; it replaces the circular VPN power button and owns activation intent, route label, stage pipeline, localized fault, and degraded-but-active visual states.
+- The actuator route label should name the selected Secure Route, not only the anti-DPI technique. Use Secure Route components when a screen needs to compare available VPN, proxy, WARP, relay, provider, or advanced technique opportunities.
 - In expanded layouts, split primary status/actions from secondary analysis or supporting content.
 
 Settings and advanced settings:
@@ -243,9 +232,7 @@ Onboarding and permission flows:
 
 - Build with `RipDpiDashboardScaffold` and keep warning or permission banners above the main dashboard content.
 - The first primary block must be `HomeStatusCard`; connection state, verification state, and the primary toggle live there and should not be split across multiple cards.
-- `HomeStatusCard` must render `RipDpiConnectionActuator` with the stable root tag `home-connection-button`
-  and stage tags `home-connection-stage-network`, `home-connection-stage-dns`,
-  `home-connection-stage-handshake`, `home-connection-stage-tunnel`, and `home-connection-stage-route`.
+- `HomeStatusCard` must render `RipDpiConnectionActuator` with the stable root tag `home-connection-button` and stage tags `home-connection-stage-network`, `home-connection-stage-dns`, `home-connection-stage-handshake`, `home-connection-stage-tunnel`, and `home-connection-stage-route`.
 - The second primary block must be `HomeDiagnosticsCard`; it owns analysis actions, latest audit summary, remediation ladder, and scan-progress affordances.
 - Supporting overview content should stay in secondary cards such as `HomeApproachCard`, `HomeHistoryCard`, and `HomeStatsGrid`.
 - The default order is banners, `HomeStatusCard`, `HomeDiagnosticsCard`, optional `HomeApproachCard`, `HomeHistoryCard`, then overview stats.
@@ -309,8 +296,7 @@ Onboarding and permission flows:
 - `monoValue`, `monoConfig`, `monoInline`, `monoLog`, `monoSmall`: values, config strings, logs, and dense telemetry.
 - `screenTitleEmphasis` and `bodyEmphasisBold` exist for stronger emphasis when weight promotion is needed.
 
-Reusable primitives must not override typography inline for branding. If a screen needs a special treatment,
-create a scoped component for that screen family.
+Reusable primitives must not override typography inline for branding. If a screen needs a special treatment, create a scoped component for that screen family.
 
 ## Motion Baselines
 
@@ -391,5 +377,4 @@ The curated suite covers:
 - `RipDpiScreenPreviewCatalog` scenes for home, settings, diagnostics, intro/auth, and supporting flows
 - theme-variant coverage including dark and high-contrast states
 
-The screenshot catalog intentionally excludes continuously animated or cursor-driven samples such as pressed
-states and blinking text cursors. Those remain available in the richer preview catalog for manual inspection.
+The screenshot catalog intentionally excludes continuously animated or cursor-driven samples such as pressed states and blinking text cursors. Those remain available in the richer preview catalog for manual inspection.

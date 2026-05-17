@@ -26,45 +26,33 @@ updated: 2026-05-14
 
 ## Summary
 
-Route Android VPN TUN traffic through Xray's local inbound for the first Xray
-tunneled outbound profile milestone.
+Route Android VPN TUN traffic through Xray's local inbound for the first Xray tunneled outbound profile milestone.
 
 ## Motivation
 
-RIPDPI already has a well-tested TUN-to-SOCKS path with DNS interception,
-handover handling, and telemetry. Using Xray as the local inbound preserves
-that path while adding Xray outbound support.
+RIPDPI already has a well-tested TUN-to-SOCKS path with DNS interception, handover handling, and telemetry. Using Xray as the local inbound preserves that path while adding Xray outbound support.
 
 ## Scope
 
-- In scope: local Xray SOCKS/HTTP inbound selection, tunnel config handoff,
-auth/localhost hardening, DNS-loop avoidance, handover restart behavior, and
-traffic-smoke validation.
-- Out of scope: shipping direct `libXray.SetTunFd` until lifecycle and
-telemetry parity are proven.
+- In scope: local Xray SOCKS/HTTP inbound selection, tunnel config handoff, auth/localhost hardening, DNS-loop avoidance, handover restart behavior, and traffic-smoke validation.
+- Out of scope: shipping direct `libXray.SetTunFd` until lifecycle and telemetry parity are proven.
 
 ## Acceptance criteria
 
 - [ ] VPN startup can select Xray as the tunnel's upstream local endpoint.
-- [ ] Xray outbound sockets and DNS are protected so provider traffic does not
-    loop into the TUN fd.
-- [ ] Existing tunnel telemetry remains available when the upstream endpoint is
-    Xray instead of RIPDPI-native proxy.
-- [ ] Network handover restarts both Xray and tunnel when the local inbound or
-    provider route changes.
+- [ ] Xray outbound sockets and DNS are protected so provider traffic does not loop into the TUN fd.
+- [ ] Existing tunnel telemetry remains available when the upstream endpoint is Xray instead of RIPDPI-native proxy.
+- [ ] Network handover restarts both Xray and tunnel when the local inbound or provider route changes.
 - [ ] A local/device smoke test proves traffic exits through the Xray outbound.
 
 ## Design notes
 
-Keep the direct `SetTunFd` path as an explicit follow-up decision, not an
-accidental first implementation.
+Keep the direct `SetTunFd` path as an explicit follow-up decision, not an accidental first implementation.
 
 ## Risks / open questions
 
-- Xray local inbound authentication support must be validated before exposing
-any localhost listener beyond the tunnel's private use.
-- DNS interception ownership needs one clear source of truth: RIPDPI tunnel,
-Xray DNS, or a deliberately split model.
+- Xray local inbound authentication support must be validated before exposing any localhost listener beyond the tunnel's private use.
+- DNS interception ownership needs one clear source of truth: RIPDPI tunnel, Xray DNS, or a deliberately split model.
 
 ## Links
 

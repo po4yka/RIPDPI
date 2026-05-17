@@ -39,12 +39,7 @@ The screen must handle the case where no relay profile exists yet ("No server co
 
 - [ ] `VpnConfigSection` composable hosted in the VPN section of `ConfigScreen`.
 - [ ] Empty state: if no relay is configured, show a prominent "Add server" button that opens an add/import flow (can reuse or link to the existing profile/subscription import path).
-- [ ] When a relay is configured, show:
-  - **Protocol**: display-only chip (VLESS, VLESS+Reality, AmneziaWG, etc.); tapping opens protocol picker / profile editor.
-  - **Server**: hostname + port display row; tapping opens edit field.
-  - **TLS / transport**: collapsed summary (e.g. `"Reality · chrome"`); tapping opens detail editor.
-  - **Desync method**: same picker as Local Bypass screen — applies DPI desync on traffic leaving the VPN tunnel.
-  - **DNS**: same DNS selector as Local Bypass screen.
+- [ ] When a relay is configured, show: - **Protocol**: display-only chip (VLESS, VLESS+Reality, AmneziaWG, etc.); tapping opens protocol picker / profile editor. - **Server**: hostname + port display row; tapping opens edit field. - **TLS / transport**: collapsed summary (e.g. `"Reality · chrome"`); tapping opens detail editor. - **Desync method**: same picker as Local Bypass screen — applies DPI desync on traffic leaving the VPN tunnel. - **DNS**: same DNS selector as Local Bypass screen.
 - [ ] "Edit full profile" button navigates to `Route.ModeEditor` (existing editor) for advanced users.
 - [ ] Changes persisted via `ConfigViewModel` profile save path.
 - [ ] `@Preview` for empty state and configured state.

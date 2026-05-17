@@ -1,7 +1,6 @@
 # Fake Profile Provenance
 
-Binary blobs used by `TlsFakeProfile`, `HttpFakeProfile`, and `UdpFakeProfile`
-to impersonate legitimate traffic during DPI evasion.
+Binary blobs used by `TlsFakeProfile`, `HttpFakeProfile`, and `UdpFakeProfile` to impersonate legitimate traffic during DPI evasion.
 
 ## TLS ClientHello Profiles
 
@@ -18,26 +17,15 @@ to impersonate legitimate traffic during DPI evasion.
 
 Browser attribution is based on the following TLS fingerprint signals:
 
-- **Firefox**: no GREASE values, `TLS_CHACHA20_POLY1305_SHA256` (`ccaa`) in cipher
-  list, x448 (`0x001e`) in supported groups, four TLS versions in
-  `supported_versions`, no ALPS extension (`0x4469`).
-- **Chrome**: GREASE values in ciphers / extensions / supported groups / versions,
-  ALPS extension (`0x4469`), `compress_certificate` (`0x001b`), typically two TLS
-  versions (1.3, 1.2) plus a GREASE value in `supported_versions`.
-- **Post-quantum**: ML-KEM-768 (`0x6399`) in `key_share` and `supported_groups`.
-  Present only in Chrome >= 124.
-- **ECH**: extension `0xfe0d` (`encrypted_client_hello`). Present in the Google
-  and Rutracker blobs.
+- **Firefox**: no GREASE values, `TLS_CHACHA20_POLY1305_SHA256` (`ccaa`) in cipher list, x448 (`0x001e`) in supported groups, four TLS versions in `supported_versions`, no ALPS extension (`0x4469`).
+- **Chrome**: GREASE values in ciphers / extensions / supported groups / versions, ALPS extension (`0x4469`), `compress_certificate` (`0x001b`), typically two TLS versions (1.3, 1.2) plus a GREASE value in `supported_versions`.
+- **Post-quantum**: ML-KEM-768 (`0x6399`) in `key_share` and `supported_groups`. Present only in Chrome >= 124.
+- **ECH**: extension `0xfe0d` (`encrypted_client_hello`). Present in the Google and Rutracker blobs.
 
 ### Notes on specific profiles
 
-- **BigsizeIana** is a synthetic variant of `IanaFirefox`. The TLS record length
-  field is set to `0xFFFF` and the handshake length to `0xFFFFFF` (all-ones),
-  while the payload after byte 9 is byte-identical to `tls_clienthello_iana_org.bin`.
-  It exists to test DPI behaviour with oversized length fields.
-- **GoogleChrome** has no GREASE in cipher suites but does include ALPS and ECH,
-  suggesting it was captured from a Chrome version that randomised GREASE to
-  absent, or GREASE was stripped during capture.
+- **BigsizeIana** is a synthetic variant of `IanaFirefox`. The TLS record length field is set to `0xFFFF` and the handshake length to `0xFFFFFF` (all-ones), while the payload after byte 9 is byte-identical to `tls_clienthello_iana_org.bin`. It exists to test DPI behaviour with oversized length fields.
+- **GoogleChrome** has no GREASE in cipher suites but does include ALPS and ECH, suggesting it was captured from a Chrome version that randomised GREASE to absent, or GREASE was stripped during capture.
 
 ## HTTP Profiles
 
@@ -72,9 +60,7 @@ Browser attribution is based on the following TLS fingerprint signals:
      -T fields -e tls.record.content_type -e tls.record.version -e tls.handshake.type \
      --export-objects tls,/tmp/tls-objects/
    ```
-   Alternatively, use the raw TCP payload. The `.bin` file must contain the
-   complete TLS record starting with byte `0x16` (ContentType: Handshake)
-   through the end of the ClientHello message, including padding extensions.
+   Alternatively, use the raw TCP payload. The `.bin` file must contain the complete TLS record starting with byte `0x16` (ContentType: Handshake) through the end of the ClientHello message, including padding extensions.
 4. Save the raw TLS record bytes (no TCP/IP headers) to a `.bin` file.
 5. Record the browser name, version, OS, and capture date in this file.
 
@@ -85,10 +71,7 @@ Browser attribution is based on the following TLS fingerprint signals:
 cargo test -p ripdpi-packets -- fake_profiles::tests::tls_profiles_parse_and_expose_sni
 ```
 
-The test calls `parse_tls()` on every `TlsFakeProfile` variant and asserts that
-the SNI extracted from the blob matches the expected hostname. If the new blob
-is malformed or uses an unexpected TLS structure, the test will fail with a
-parse error.
+The test calls `parse_tls()` on every `TlsFakeProfile` variant and asserts that the SNI extracted from the blob matches the expected hostname. If the new blob is malformed or uses an unexpected TLS structure, the test will fail with a parse error.
 
 For a quick manual sanity check without modifying Rust code:
 

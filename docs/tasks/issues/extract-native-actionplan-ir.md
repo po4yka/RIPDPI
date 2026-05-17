@@ -26,9 +26,7 @@ updated: 2026-05-14
 
 ## Summary
 
-Introduce a first-class internal `ActionPlan` IR in the Rust runtime so
-planning, emission, and fallback decisions become independently testable
-concerns.
+Introduce a first-class internal `ActionPlan` IR in the Rust runtime so planning, emission, and fallback decisions become independently testable concerns.
 
 ## Audit citation
 
@@ -36,18 +34,14 @@ concerns.
 
 ## Acceptance criteria
 
-- [ ] `ActionPlan` type defined with enough fidelity to describe current
-    desync / emit flows.
-- [ ] Planner produces an `ActionPlan`; emitter consumes one; fallback
-    classifier operates on it.
+- [ ] `ActionPlan` type defined with enough fidelity to describe current desync / emit flows.
+- [ ] Planner produces an `ActionPlan`; emitter consumes one; fallback classifier operates on it.
 - [ ] Round-trip tests for plan → emission on representative scenarios.
-- [ ] At least one existing use-site migrated to the IR as a pilot; others
-    can follow incrementally.
+- [ ] At least one existing use-site migrated to the IR as a pilot; others can follow incrementally.
 
 ## Notes
 
-Decide IR shape in a spike before committing to a public surface. Keep the
-IR internal to the Rust runtime initially — no JNI exposure required.
+Decide IR shape in a spike before committing to a public surface. Keep the IR internal to the Rust runtime initially — no JNI exposure required.
 
 ## Links
 

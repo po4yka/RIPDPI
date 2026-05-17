@@ -26,42 +26,25 @@ updated: 2026-05-14
 
 ## Summary
 
-Evaluate whether RIPDPI should add a second-tier rescue mode that uses a
-relay-assisted QUICstep-style first-flight bootstrap only after direct-mode has
-already returned `NO_DIRECT_SOLUTION`.
+Evaluate whether RIPDPI should add a second-tier rescue mode that uses a relay-assisted QUICstep-style first-flight bootstrap only after direct-mode has already returned `NO_DIRECT_SOLUTION`.
 
 ## Context
 
-The current direct-mode plan explicitly keeps relay-assisted QUICstep out of
-scope for the default no-proxy path. Today's [[quicstep-first-flight-hiding]]
-note sharpens why: it is strongest only for controlled infrastructure and
-first-flight classifiers, and becomes a liability when migration support is
-weak or generic QUIC blocking dominates.
+The current direct-mode plan explicitly keeps relay-assisted QUICstep out of scope for the default no-proxy path. Today's [[quicstep-first-flight-hiding]] note sharpens why: it is strongest only for controlled infrastructure and first-flight classifiers, and becomes a liability when migration support is weak or generic QUIC blocking dominates.
 
-That still leaves a possible niche: a post-`NO_DIRECT_SOLUTION` rescue track
-for controlled server or CDN-backed controlled property, not arbitrary
-third-party sites.
+That still leaves a possible niche: a post-`NO_DIRECT_SOLUTION` rescue track for controlled server or CDN-backed controlled property, not arbitrary third-party sites.
 
 ## Acceptance criteria
 
-- [ ] The spike defines the only acceptable deployment scopes for RIPDPI
-    (`controlled server` and, if justified, `CDN-backed controlled property`)
-    and rejects arbitrary-site assumptions explicitly.
-- [ ] The spike records go/no-go criteria using the practical indicators from
-    [[quicstep-first-flight-hiding]]: migration support, operator-level QUIC
-    blocking, and whether the later path can really detach from the censored
-    bootstrap path.
-- [ ] The spike decides where this mode would attach in product flow:
-    post-`NO_DIRECT_SOLUTION` remediation only, not default transparent mode.
-- [ ] The spike records Android-specific costs: battery, background execution,
-    socket lifecycle, and policy interaction with the existing relay stack.
-- [ ] The output ends with one explicit recommendation:
-    `do not pursue`, `research-only`, or `promote to implementation epic`.
+- [ ] The spike defines the only acceptable deployment scopes for RIPDPI (`controlled server` and, if justified, `CDN-backed controlled property`) and rejects arbitrary-site assumptions explicitly.
+- [ ] The spike records go/no-go criteria using the practical indicators from [[quicstep-first-flight-hiding]]: migration support, operator-level QUIC blocking, and whether the later path can really detach from the censored bootstrap path.
+- [ ] The spike decides where this mode would attach in product flow: post-`NO_DIRECT_SOLUTION` remediation only, not default transparent mode.
+- [ ] The spike records Android-specific costs: battery, background execution, socket lifecycle, and policy interaction with the existing relay stack.
+- [ ] The output ends with one explicit recommendation: `do not pursue`, `research-only`, or `promote to implementation epic`.
 
 ## Notes
 
-Do not let this reopen the default direct-mode plan. If the answer is
-"interesting but niche", keep it as a parked research branch.
+Do not let this reopen the default direct-mode plan. If the answer is "interesting but niche", keep it as a parked research branch.
 
 ## Links
 

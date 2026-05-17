@@ -26,28 +26,18 @@ updated: 2026-05-14
 
 ## Summary
 
-Persist a non-sensitive pointer to the last-active profile (id + service
-mode) in a device-protected (direct-boot-aware) storage location so
-`LOCKED_BOOT_COMPLETED` can resume before the user unlocks.
+Persist a non-sensitive pointer to the last-active profile (id + service mode) in a device-protected (direct-boot-aware) storage location so `LOCKED_BOOT_COMPLETED` can resume before the user unlocks.
 
 ## Context
 
-The profile bean itself (which contains secrets) must stay in user-
-protected Credential Encrypted storage. Only a stable id and the service
-mode go into the direct-boot path. The service resumes with the pointer;
-secret-bearing fields are read after unlock completes, and the tunnel
-is refreshed at that point if anything had to hold.
+The profile bean itself (which contains secrets) must stay in user- protected Credential Encrypted storage. Only a stable id and the service mode go into the direct-boot path. The service resumes with the pointer; secret-bearing fields are read after unlock completes, and the tunnel is refreshed at that point if anything had to hold.
 
 ## Acceptance criteria
 
-- [ ] A `DeviceProtectedSettings` store holds `{ profileId,
-    serviceMode }` — no secrets.
+- [ ] A `DeviceProtectedSettings` store holds `{ profileId, serviceMode }` — no secrets.
 - [ ] The full profile bean never lands in device-protected storage.
-- [ ] Resume logic: at `LOCKED_BOOT_COMPLETED`, start the service with
-    the pointer only; at user unlock, re-materialize the full profile
-    and trigger the supervisor's existing reload path.
-- [ ] If the referenced profile is deleted, the pointer clears silently
-    and the service does not attempt to start.
+- [ ] Resume logic: at `LOCKED_BOOT_COMPLETED`, start the service with the pointer only; at user unlock, re-materialize the full profile and trigger the supervisor's existing reload path.
+- [ ] If the referenced profile is deleted, the pointer clears silently and the service does not attempt to start.
 - [ ] Unit tests cover the before/after-unlock transition.
 
 ## Source references

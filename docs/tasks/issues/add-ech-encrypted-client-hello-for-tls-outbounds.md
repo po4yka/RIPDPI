@@ -26,47 +26,26 @@ updated: 2026-05-16
 
 ## Summary
 
-Wire ECH (draft-ietf-tls-esni-22) into the TLS outbound stack so
-the real SNI is encrypted under a server-published HPKE key. ECH
-eliminates the most reliable single-feature DPI signal (cleartext
-SNI) without requiring domain fronting.
+Wire ECH (draft-ietf-tls-esni-22) into the TLS outbound stack so the real SNI is encrypted under a server-published HPKE key. ECH eliminates the most reliable single-feature DPI signal (cleartext SNI) without requiring domain fronting.
 
 ## Context
 
-Russian TSPU and similar DPI systems target HTTPS sessions via the
-cleartext SNI extension in ClientHello. Both Chrome and Firefox now
-ship ECH by default to ECH-enabled origins (Cloudflare, Fastly). For
-RIPDPI to look indistinguishable from those browsers, the outbound
-stack must also speak ECH.
+Russian TSPU and similar DPI systems target HTTPS sessions via the cleartext SNI extension in ClientHello. Both Chrome and Firefox now ship ECH by default to ECH-enabled origins (Cloudflare, Fastly). For RIPDPI to look indistinguishable from those browsers, the outbound stack must also speak ECH.
 
-BoringSSL has ECH primitives behind a feature flag. The `boring`
-crate exposes some of them; missing pieces may need additional
-extern declarations (see `pin-boringssl-symbols-with-build-time-existence-check`
-for the discipline).
+BoringSSL has ECH primitives behind a feature flag. The `boring` crate exposes some of them; missing pieces may need additional extern declarations (see `pin-boringssl-symbols-with-build-time-existence-check` for the discipline).
 
 ## Acceptance criteria
 
-- [ ] `ripdpi-tls-profiles` exposes a `EchConfig` carrying the
-    server's HPKE keyset (parsed from the DNS HTTPSSVC record or
-    operator-supplied bytes).
-- [ ] xHTTP and MASQUE outbounds accept `EchConfig` and route the
-    real SNI through HPKE encryption; the outer ClientHello carries
-    only the public name.
-- [ ] Negotiation fallback: if ECH is rejected (empty retry config),
-    surface a typed `FailureClass::EchRetryRequired` rather than
-    falling through to plain SNI silently.
-- [ ] Unit tests cover: (a) ECH success path, (b) retry-config
-    handling, (c) reject when server doesn't speak ECH.
-- [ ] `docs/native/relay-masque-status.md` documents the ECH option
-    and Cloudflare-direct interaction.
+- [ ] `ripdpi-tls-profiles` exposes a `EchConfig` carrying the server's HPKE keyset (parsed from the DNS HTTPSSVC record or operator-supplied bytes).
+- [ ] xHTTP and MASQUE outbounds accept `EchConfig` and route the real SNI through HPKE encryption; the outer ClientHello carries only the public name.
+- [ ] Negotiation fallback: if ECH is rejected (empty retry config), surface a typed `FailureClass::EchRetryRequired` rather than falling through to plain SNI silently.
+- [ ] Unit tests cover: (a) ECH success path, (b) retry-config handling, (c) reject when server doesn't speak ECH.
+- [ ] `docs/native/relay-masque-status.md` documents the ECH option and Cloudflare-direct interaction.
 
 ## Risks / open questions
 
-- BoringSSL ECH support has changed across releases; pair this with
-  `pin-boringssl-symbols-with-build-time-existence-check` so a
-  vendor revision swap is caught.
-- Tracker for the HTTPSSVC DNS record fetch: pairs with
-  `add-doh-json-api-resolver-path-alongside-rfc-8484-wire`.
+- BoringSSL ECH support has changed across releases; pair this with `pin-boringssl-symbols-with-build-time-existence-check` so a vendor revision swap is caught.
+- Tracker for the HTTPSSVC DNS record fetch: pairs with `add-doh-json-api-resolver-path-alongside-rfc-8484-wire`.
 
 ## Links
 

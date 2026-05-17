@@ -4,8 +4,7 @@ This guide shows how RIPDPI relay profiles are split between non-secret profile 
 
 ## Data Model Split
 
-Non-secret transport settings live in `RelayProfileRecord`.
-Secrets live in `RelayCredentialRecord`.
+Non-secret transport settings live in `RelayProfileRecord`. Secrets live in `RelayCredentialRecord`.
 
 Common non-secret profile fields:
 

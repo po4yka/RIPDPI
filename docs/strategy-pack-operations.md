@@ -59,11 +59,7 @@ The repository verifies downloaded catalogs in this order:
 5. Verify `catalogSignatureBase64` using the trusted ECDSA public key.
 6. Parse the catalog payload.
 7. Reject it if app or native compatibility fails.
-8. Enforce downloaded-catalog anti-rollback policy:
-   - require `sequence > 0`
-   - require parseable UTC `issuedAt`
-   - reject `issuedAt` older than 30 days
-   - reject `sequence <= last accepted downloaded sequence` for the same channel unless the debug override is enabled
+8. Enforce downloaded-catalog anti-rollback policy: - require `sequence > 0` - require parseable UTC `issuedAt` - reject `issuedAt` older than 30 days - reject `sequence <= last accepted downloaded sequence` for the same channel unless the debug override is enabled
 9. Cache the verified snapshot and expose it as `downloaded`.
 10. Fall back to the bundled asset if the cached or downloaded snapshot is incompatible.
 
@@ -197,28 +193,13 @@ Before shipping a catalog update:
 
 ## Telegram DC table review
 
-The IPv4 DC range table in `native/rust/crates/ripdpi-ws-tunnel/src/dc.rs`
-must be re-verified against Telegram's published DC documentation
-(`https://core.telegram.org`) on a quarterly cadence. The constant
-`TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED` and the
-`dc_ipv4_table_provenance` unit test assert the review date is
-present and well-formed; the review itself is a human obligation.
+The IPv4 DC range table in `native/rust/crates/ripdpi-ws-tunnel/src/dc.rs` must be re-verified against Telegram's published DC documentation (`https://core.telegram.org`) on a quarterly cadence. The constant `TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED` and the `dc_ipv4_table_provenance` unit test assert the review date is present and well-formed; the review itself is a human obligation.
 
 - **Owner role:** native-runtime maintainer.
-- **Cadence:** quarterly, or sooner if the upstream-spec-watch job
-  flags Telegram-side changes.
-- **On review:**
-  1. Cross-check `dc::dc_from_ip` ranges against Telegram's current
-     published list.
-  2. Update the table when ranges have rotated; add a matching unit
-     test for each new range.
-  3. Bump `TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED` to the review date.
-  4. Record the review in `docs/strategy-pack-tls-refresh-log.json`
-     if a strategy-pack republication is needed; otherwise the
-     dc.rs git history is the audit trail.
+- **Cadence:** quarterly, or sooner if the upstream-spec-watch job flags Telegram-side changes.
+- **On review:** 1. Cross-check `dc::dc_from_ip` ranges against Telegram's current published list. 2. Update the table when ranges have rotated; add a matching unit test for each new range. 3. Bump `TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED` to the review date. 4. Record the review in `docs/strategy-pack-tls-refresh-log.json` if a strategy-pack republication is needed; otherwise the dc.rs git history is the audit trail.
 
-The IPv6 DC table gap is tracked under
-`docs/tasks/issues/add-ipv6-telegram-dc-classification-to-ws-tunnel.md`.
+The IPv6 DC table gap is tracked under `docs/tasks/issues/add-ipv6-telegram-dc-classification-to-ws-tunnel.md`.
 
 ## What Not To Do
 

@@ -26,28 +26,19 @@ updated: 2026-05-14
 
 ## Summary
 
-Add a `ripdpi-anytls` Rust crate implementing the AnyTLS client and a
-`AnyTLSProfileScreen` editor. AnyTLS is the newer sing-anytls protocol
-designed to reduce TLS-in-TLS detection vs ShadowTLS.
+Add a `ripdpi-anytls` Rust crate implementing the AnyTLS client and a `AnyTLSProfileScreen` editor. AnyTLS is the newer sing-anytls protocol designed to reduce TLS-in-TLS detection vs ShadowTLS.
 
 ## Context
 
-Upstream reference: `anytls/sing-anytls`. The protocol coexists with
-ShadowTLS on RIPDPI's roadmap because subscription providers are split
-between the two. Reuse the existing ShadowTLS TLS session machinery where
-shape overlaps.
+Upstream reference: `anytls/sing-anytls`. The protocol coexists with ShadowTLS on RIPDPI's roadmap because subscription providers are split between the two. Reuse the existing ShadowTLS TLS session machinery where shape overlaps.
 
 ## Acceptance criteria
 
-- [ ] `ripdpi-anytls` crate passes upstream reference handshake and
-    session-framing test vectors.
+- [ ] `ripdpi-anytls` crate passes upstream reference handshake and session-framing test vectors.
 - [ ] Fallback-SNI and fallback-server behavior matches upstream spec.
-- [ ] `AnyTLSProfileScreen` validates password length, server + port,
-    and server-name (SNI).
-- [ ] Integrate with relay supervisor lifecycle; shutdown joins bounded
-    handler work.
-- [ ] Strategy-pack metadata advertises AnyTLS compat hints, especially
-    around QUIC-heavy neighborhoods.
+- [ ] `AnyTLSProfileScreen` validates password length, server + port, and server-name (SNI).
+- [ ] Integrate with relay supervisor lifecycle; shutdown joins bounded handler work.
+- [ ] Strategy-pack metadata advertises AnyTLS compat hints, especially around QUIC-heavy neighborhoods.
 - [ ] Password is redacted in all diagnostic surfaces.
 
 ## Source references

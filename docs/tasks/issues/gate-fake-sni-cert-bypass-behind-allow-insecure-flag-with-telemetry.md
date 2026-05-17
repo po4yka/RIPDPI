@@ -26,10 +26,7 @@ updated: 2026-05-15
 
 ## Summary
 
-Make the WS-tunnel "fake SNI" mode require an explicit
-`allow_insecure_sni: true` config field and emit a runtime telemetry
-counter every time a connection is established with TLS verification
-disabled, so misconfiguration is visible at deploy time.
+Make the WS-tunnel "fake SNI" mode require an explicit `allow_insecure_sni: true` config field and emit a runtime telemetry counter every time a connection is established with TLS verification disabled, so misconfiguration is visible at deploy time.
 
 ## Context
 
@@ -37,53 +34,24 @@ disabled, so misconfiguration is visible at deploy time.
 
 > Certificate validation is disabled when fake SNI is active.
 
-This is intentional for the Telegram-WSS-impersonation path, but the
-current config surface allows enabling fake SNI silently with no
-operator acknowledgment and no operational signal afterward. By
-contrast, the Reality TLS path
-(`native/rust/crates/ripdpi-vless/src/reality.rs:85`) is also bypassing
-standard cert verification, but Reality has a dedicated cryptographic
-auth model; fake-SNI does not.
+This is intentional for the Telegram-WSS-impersonation path, but the current config surface allows enabling fake SNI silently with no operator acknowledgment and no operational signal afterward. By contrast, the Reality TLS path (`native/rust/crates/ripdpi-vless/src/reality.rs:85`) is also bypassing standard cert verification, but Reality has a dedicated cryptographic auth model; fake-SNI does not.
 
 ## Acceptance criteria
 
-- [x] (2026-05-15) `WsTunnelConfig.fake_sni` is only honored when
-    `allow_insecure_sni == true`; otherwise the runtime returns a
-    `PermissionDenied` `io::Error` before opening the socket. Wired
-    in `ripdpi-ws-tunnel/src/lib.rs::relay_ws_tunnel_with`.
-- [x] (2026-05-15) The error path is exercised by a unit test:
-    `relay_ws_tunnel_refuses_fake_sni_without_allow_insecure_acknowledgement`
-    plus a positive
-    `relay_ws_tunnel_honours_fake_sni_when_allow_insecure_sni_is_set`.
-- [ ] A new `ws_tunnel.fake_sni_active` counter is incremented in
-    runtime telemetry per successful handshake; tests assert it fires
-    only on the fake-SNI path. **DEFERRED:** ws-tunnel telemetry
-    surface is owned by the adapter layer; tracked separately.
-- [ ] Service-layer profile import refuses to persist a profile that
-    sets `fake_sni` without `allow_insecure_sni`. **DEFERRED:**
-    adapter at
-    `ripdpi-proxy-runtime-adapter/src/model/config/ws_tunnel.rs:42`
-    currently hardcodes `allow_insecure_sni: false`, so catalog
-    profiles with `fake_sni` are refused at runtime via the new
-    `PermissionDenied` error. Service-layer rejection at *import*
-    time pairs with new `WsTunnelSettings.allow_insecure_sni`
-    plumbing.
-- [ ] `docs/native/proxy-engine.md` documents the new flag and
-    links the telemetry counter. **DEFERRED:** add when the
-    telemetry counter lands.
+- [x] (2026-05-15) `WsTunnelConfig.fake_sni` is only honored when `allow_insecure_sni == true`; otherwise the runtime returns a `PermissionDenied` `io::Error` before opening the socket. Wired in `ripdpi-ws-tunnel/src/lib.rs::relay_ws_tunnel_with`.
+- [x] (2026-05-15) The error path is exercised by a unit test: `relay_ws_tunnel_refuses_fake_sni_without_allow_insecure_acknowledgement` plus a positive `relay_ws_tunnel_honours_fake_sni_when_allow_insecure_sni_is_set`.
+- [ ] A new `ws_tunnel.fake_sni_active` counter is incremented in runtime telemetry per successful handshake; tests assert it fires only on the fake-SNI path. **DEFERRED:** ws-tunnel telemetry surface is owned by the adapter layer; tracked separately.
+- [ ] Service-layer profile import refuses to persist a profile that sets `fake_sni` without `allow_insecure_sni`. **DEFERRED:** adapter at `ripdpi-proxy-runtime-adapter/src/model/config/ws_tunnel.rs:42` currently hardcodes `allow_insecure_sni: false`, so catalog profiles with `fake_sni` are refused at runtime via the new `PermissionDenied` error. Service-layer rejection at *import* time pairs with new `WsTunnelSettings.allow_insecure_sni` plumbing.
+- [ ] `docs/native/proxy-engine.md` documents the new flag and links the telemetry counter. **DEFERRED:** add when the telemetry counter lands.
 
 ## Definition of done
 
-- A config with `fake_sni` set but `allow_insecure_sni` unset cannot
-  start the tunnel and produces a recognizable failure-classifier
-  result.
+- A config with `fake_sni` set but `allow_insecure_sni` unset cannot start the tunnel and produces a recognizable failure-classifier result.
 - Telemetry counter is visible in the diagnostics export.
 
 ## Risks / open questions
 
-- Existing serialized profiles may carry `fake_sni` without the new
-  flag. Decide whether to migrate them or reject them; default should
-  be reject + surface a one-time UI warning.
+- Existing serialized profiles may carry `fake_sni` without the new flag. Decide whether to migrate them or reject them; default should be reject + surface a one-time UI warning.
 
 ## Links
 

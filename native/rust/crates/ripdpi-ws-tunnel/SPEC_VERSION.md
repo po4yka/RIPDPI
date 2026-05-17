@@ -9,9 +9,7 @@ This crate has two distinct wire surfaces with different upstream sources.
 
 ## Telegram MTProto path
 
-The Telegram-specific MTProto obfuscated2 init handling is pinned against
-Telegram's published protocol description rather than a reference
-implementation.
+The Telegram-specific MTProto obfuscated2 init handling is pinned against Telegram's published protocol description rather than a reference implementation.
 
 - **Upstream repo:** https://core.telegram.org/mtproto (Telegram protocol description)
 - **Upstream tag:** n/a (no upstream tags; protocol is documentation-only)
@@ -24,17 +22,13 @@ implementation.
 
 This crate implements:
 
-- WSS connection to `kws{dc}.web.telegram.org/apiws` with optional
-  fake-SNI cover
+- WSS connection to `kws{dc}.web.telegram.org/apiws` with optional fake-SNI cover
 - 64-byte MTProto obfuscated2 init decryption + DC extraction
 - WS tunnel relay for production Telegram DCs 1-5
-- An HTTPUpgrade transport variant that deliberately skips RFC 6455
-  framing (see `transport.rs`, `httpupgrade.rs`)
+- An HTTPUpgrade transport variant that deliberately skips RFC 6455 framing (see `transport.rs`, `httpupgrade.rs`)
 
 ## Drift policy
 
 - RFC 6455 is stable; drift not expected.
-- Telegram DC IP table is rotated by Telegram; reviewed quarterly per
-  `docs/tasks/issues/refresh-telegram-dc-ipv4-range-table-and-add-quarterly-review.md`.
-- IPv6 DC support is a tracked gap: see
-  `docs/tasks/issues/add-ipv6-telegram-dc-classification-to-ws-tunnel.md`.
+- Telegram DC IP table is rotated by Telegram; reviewed quarterly per `docs/tasks/issues/refresh-telegram-dc-ipv4-range-table-and-add-quarterly-review.md`.
+- IPv6 DC support is a tracked gap: see `docs/tasks/issues/add-ipv6-telegram-dc-classification-to-ws-tunnel.md`.

@@ -26,46 +26,33 @@ updated: 2026-05-14
 
 ## Summary
 
-Implement a supervised Xray runtime that starts, reports readiness, exposes
-health, and stops cleanly inside RIPDPI's Android service layer.
+Implement a supervised Xray runtime that starts, reports readiness, exposes health, and stops cleanly inside RIPDPI's Android service layer.
 
 ## Motivation
 
-Xray must behave like the existing managed proxy/relay runtimes: no ambiguous
-"running" state before listeners bind, no silent crashes, no leaked native
-resources, and no recursive VPN socket loops.
+Xray must behave like the existing managed proxy/relay runtimes: no ambiguous "running" state before listeners bind, no silent crashes, no leaked native resources, and no recursive VPN socket loops.
 
 ## Scope
 
-- In scope: `RunXrayFromJSON` startup, `StopXray` shutdown, protect-controller
-registration, DNS initialization, readiness probing, state mapping, telemetry
-snapshots, and supervisor exit causes.
+- In scope: `RunXrayFromJSON` startup, `StopXray` shutdown, protect-controller registration, DNS initialization, readiness probing, state mapping, telemetry snapshots, and supervisor exit causes.
 - Out of scope: UI profile editing and non-Xray providers.
 
 ## Acceptance criteria
 
-- [ ] Runtime registers libXray dialer/listener protection before starting
-    Xray.
-- [ ] Startup waits for a concrete listener or verified Xray state before VPN
-    tunnel handoff.
-- [ ] Stop path is bounded, idempotent, and reports typed clean/failed stop
-    causes.
-- [ ] Xray version and basic provider state flow into service telemetry without
-    exposing profile secrets.
-- [ ] Unit or service tests cover startup failure, invalid config, late stop,
-    and crash/exit mapping.
+- [ ] Runtime registers libXray dialer/listener protection before starting Xray.
+- [ ] Startup waits for a concrete listener or verified Xray state before VPN tunnel handoff.
+- [ ] Stop path is bounded, idempotent, and reports typed clean/failed stop causes.
+- [ ] Xray version and basic provider state flow into service telemetry without exposing profile secrets.
+- [ ] Unit or service tests cover startup failure, invalid config, late stop, and crash/exit mapping.
 
 ## Design notes
 
-Map Xray readiness and stop outcomes into the same service-level language used
-for proxy, relay, WARP, and tunnel runtimes.
+Map Xray readiness and stop outcomes into the same service-level language used for proxy, relay, WARP, and tunnel runtimes.
 
 ## Risks / open questions
 
-- libXray wrapper calls may be process-global; the app should assume only one
-active Xray instance until proven otherwise.
-- Metrics/API mode may require a child process according to upstream notes;
-do not rely on it until tested on Android.
+- libXray wrapper calls may be process-global; the app should assume only one active Xray instance until proven otherwise.
+- Metrics/API mode may require a child process according to upstream notes; do not rely on it until tested on Android.
 
 ## Links
 

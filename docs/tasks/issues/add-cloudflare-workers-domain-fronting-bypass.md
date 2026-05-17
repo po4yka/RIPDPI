@@ -26,48 +26,26 @@ updated: 2026-05-16
 
 ## Summary
 
-Route tunnel traffic through Cloudflare Workers (serverless edge
-compute) so the on-wire TLS connection targets a generic
-`*.workers.dev` or operator-mapped custom domain. The Worker
-forwards the inner stream to the real upstream. DPI sees a vanilla
-TLS connection to a Cloudflare-fronted hostname; the real
-destination is hidden inside the Worker request.
+Route tunnel traffic through Cloudflare Workers (serverless edge compute) so the on-wire TLS connection targets a generic `*.workers.dev` or operator-mapped custom domain. The Worker forwards the inner stream to the real upstream. DPI sees a vanilla TLS connection to a Cloudflare-fronted hostname; the real destination is hidden inside the Worker request.
 
 ## Context
 
-Cloudflare Workers terminate TLS at Cloudflare's edge and route
-HTTP requests to operator-defined backends. Combined with
-WebSocket upgrade and a small Worker script, this gives an
-operator-controlled domain-fronted relay that's
-indistinguishable from any other Cloudflare-fronted site.
+Cloudflare Workers terminate TLS at Cloudflare's edge and route HTTP requests to operator-defined backends. Combined with WebSocket upgrade and a small Worker script, this gives an operator-controlled domain-fronted relay that's indistinguishable from any other Cloudflare-fronted site.
 
-RIPDPI already has `ripdpi-cloudflare-origin` and Cloudflare-direct
-MASQUE; this task adds the *Workers-fronted* deployment mode where
-the worker hostname is the SNI and the real upstream is in a
-header.
+RIPDPI already has `ripdpi-cloudflare-origin` and Cloudflare-direct MASQUE; this task adds the *Workers-fronted* deployment mode where the worker hostname is the SNI and the real upstream is in a header.
 
 ## Acceptance criteria
 
-- [ ] Operator-supplied Worker URL + auth bearer is consumable
-    via `core:data:model` typed schema.
-- [ ] WS-tunnel transport variant routes through the Worker,
-    using the Worker hostname for SNI and TLS, the real target
-    in a `X-Ripdpi-Upstream` header.
-- [ ] At least one reference Worker script under
-    `docs/native/cloudflare-workers/relay.js` that operators can
-    deploy.
-- [ ] Loopback test (against a mock HTTP/2 server) exercises the
-    Worker-routed path.
-- [ ] `docs/native/cloudflare-tunnel-operations.md` documents
-    deployment, cost model, and rate-limit considerations.
+- [ ] Operator-supplied Worker URL + auth bearer is consumable via `core:data:model` typed schema.
+- [ ] WS-tunnel transport variant routes through the Worker, using the Worker hostname for SNI and TLS, the real target in a `X-Ripdpi-Upstream` header.
+- [ ] At least one reference Worker script under `docs/native/cloudflare-workers/relay.js` that operators can deploy.
+- [ ] Loopback test (against a mock HTTP/2 server) exercises the Worker-routed path.
+- [ ] `docs/native/cloudflare-tunnel-operations.md` documents deployment, cost model, and rate-limit considerations.
 
 ## Risks / open questions
 
-- Cloudflare Workers free tier has request and CPU-time limits;
-  document operator-side cost expectations.
-- A worker that proxies arbitrary bytes is a TOS edge case; the
-  reference script should be narrow (WS upgrade + framed relay,
-  no open-relay).
+- Cloudflare Workers free tier has request and CPU-time limits; document operator-side cost expectations.
+- A worker that proxies arbitrary bytes is a TOS edge case; the reference script should be narrow (WS upgrade + framed relay, no open-relay).
 
 ## Links
 

@@ -7,16 +7,13 @@
 | Latest release | Yes |
 | Older releases | No |
 
-Only the latest release receives security updates. Users should always run the
-most recent version.
+Only the latest release receives security updates. Users should always run the most recent version.
 
 ## Reporting a Vulnerability
 
 **Please do not open public issues for security vulnerabilities.**
 
-Use [GitHub Private Vulnerability Reporting](https://github.com/po4yka/RIPDPI/security/advisories/new)
-to submit a report. This ensures the issue stays confidential until a fix is
-available.
+Use [GitHub Private Vulnerability Reporting](https://github.com/po4yka/RIPDPI/security/advisories/new) to submit a report. This ensures the issue stays confidential until a fix is available.
 
 ### What to include
 
@@ -29,8 +26,7 @@ available.
 
 - **Acknowledgment**: within 3 business days
 - **Initial assessment**: within 7 business days
-- **Fix or mitigation**: depends on severity, but we aim for 30 days for
-  critical issues
+- **Fix or mitigation**: depends on severity, but we aim for 30 days for critical issues
 
 ### Scope
 
@@ -43,8 +39,7 @@ The following are in scope:
 
 The following are out of scope:
 
-- Vulnerabilities in upstream dependencies (report these to the upstream
-  project, but feel free to let us know)
+- Vulnerabilities in upstream dependencies (report these to the upstream project, but feel free to let us know)
 - Social engineering attacks
 - Denial of service attacks against user devices
 

@@ -1,9 +1,6 @@
 # Goal Ledger — epic-ripdpi-vpn-deploy-fleet-compatibility closure
 
-Auto-generated. The transitive dependency closure of
-`epic-ripdpi-vpn-deploy-fleet-compatibility` — every task it needs plus the epic itself — in
-**topological order (feeders first)**. Working top-to-bottom keeps every
-row's Blocked-by satisfied. The `/goal` loop edits only Status and Proof.
+Auto-generated. The transitive dependency closure of `epic-ripdpi-vpn-deploy-fleet-compatibility` — every task it needs plus the epic itself — in **topological order (feeders first)**. Working top-to-bottom keeps every row's Blocked-by satisfied. The `/goal` loop edits only Status and Proof.
 
 - Rows: **45**  ·  global source: `docs/tasks/GOAL_LEDGER.md`
 - Phase size **12** -> **4** phases

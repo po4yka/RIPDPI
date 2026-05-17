@@ -26,8 +26,7 @@ updated: 2026-05-15
 
 ## Summary
 
-Introduce the `TransportPolicy` type the rest of the direct-mode system
-uses as its per-host source of truth.
+Introduce the `TransportPolicy` type the rest of the direct-mode system uses as its per-host source of truth.
 
 ```text
 TransportPolicy {
@@ -46,10 +45,8 @@ outcome: TRANSPARENT_OK | OWNED_STACK_ONLY | NO_DIRECT_SOLUTION
 ## Acceptance criteria
 
 - [ ] Type exists with the fields above; enums are sealed.
-- [ ] A default policy constructor used on first contact with an unknown
-    host.
-- [ ] Serialization/deserialization is stable across app updates
-    (versioned envelope).
+- [ ] A default policy constructor used on first contact with an unknown host.
+- [ ] Serialization/deserialization is stable across app updates (versioned envelope).
 - [ ] Unit tests cover state transitions the rest of the engine drives.
 
 ## Links

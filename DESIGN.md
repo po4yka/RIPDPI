@@ -497,13 +497,9 @@ components:
 
 ## Overview
 
-RIPDPI is an operator-facing Android utility, not a lifestyle product. The interface should feel quiet,
-deliberate, and technically trustworthy. The visual language is monochrome-first: dense information, strong
-contrast, stable geometry, and narrow use of semantic status color only when the state itself matters.
+RIPDPI is an operator-facing Android utility, not a lifestyle product. The interface should feel quiet, deliberate, and technically trustworthy. The visual language is monochrome-first: dense information, strong contrast, stable geometry, and narrow use of semantic status color only when the state itself matters.
 
-The YAML tokens above describe the default light-theme baseline that agents can reuse across tools. The
-implementation adapts those roles for dark theme and high-contrast modes in Compose; those rules are part of
-the design contract and are described in the prose below.
+The YAML tokens above describe the default light-theme baseline that agents can reuse across tools. The implementation adapts those roles for dark theme and high-contrast modes in Compose; those rules are part of the design contract and are described in the prose below.
 
 ## Colors
 
@@ -512,8 +508,7 @@ Core UI uses achromatic structure:
 - `background`, `card`, and `muted` define the page, card, and secondary-surface hierarchy.
 - `foreground`, `cardForeground`, and `mutedForeground` define the text hierarchy.
 - `primary` is a portability alias for the same deep ink role as `foreground`.
-- `accent` and `accentForeground` are for selected status cards or emphasized neutral surfaces, not for
-  playful branding.
+- `accent` and `accentForeground` are for selected status cards or emphasized neutral surfaces, not for playful branding.
 - `border`, `cardBorder`, `divider`, `hairline`, `outline`, and `outlineVariant` encode structure and focus.
 
 Status color is intentionally scarce and semantic:
@@ -524,8 +519,7 @@ Status color is intentionally scarce and semantic:
 - `info` and `infoContainer` mean explanatory state or guidance.
 - `restricted` and `restrictedContainer` mean limited capability or unavailable mode.
 
-Dark mode preserves the same role mapping instead of inventing a separate visual identity. Contrast settings
-increase readability by tightening muted, border, and outline relationships without making the app visually loud.
+Dark mode preserves the same role mapping instead of inventing a separate visual identity. Contrast settings increase readability by tightening muted, border, and outline relationships without making the app visually loud.
 
 ## Typography
 
@@ -535,8 +529,7 @@ Typography uses bundled Geist families only:
 - `Geist Mono` for telemetry, configuration, values, logs, and protocol-oriented strings.
 - `Geist Pixel Circle` for the home brand mark only.
 
-Text should stay compact and readable. Emphasis comes from weight promotion before size changes. Agents should
-prefer `bodyEmphasis` and `bodyEmphasisBold` over inventing larger ad hoc styles for routine emphasis.
+Text should stay compact and readable. Emphasis comes from weight promotion before size changes. Agents should prefer `bodyEmphasis` and `bodyEmphasisBold` over inventing larger ad hoc styles for routine emphasis.
 
 Reserved usage matters:
 
@@ -558,9 +551,7 @@ Layout is adaptive and width-aware:
 - `Medium`: `600dp` to `839dp`
 - `Expanded`: `840dp` and above
 
-Compact layouts should feel efficient, not cramped. Expanded layouts should split primary and secondary
-panels instead of stretching one long column edge to edge. Form and settings flows should stay narrower than
-dashboard-style content.
+Compact layouts should feel efficient, not cramped. Expanded layouts should split primary and secondary panels instead of stretching one long column edge to edge. Form and settings flows should stay narrower than dashboard-style content.
 
 ## Elevation & Depth
 
@@ -586,8 +577,7 @@ Role rules:
 - `StatusCard` is neutral emphasis, not a warning or error container.
 - `SelectedCard` is for explicit picked-state surfaces such as preset selection.
 - Dialog and bottom-sheet surfaces may currently look aligned, but they are distinct roles and should stay named separately.
-- Shared containers should resolve these roles from the theme surface-token layer instead of rebuilding container,
-  border, content, or elevation inline.
+- Shared containers should resolve these roles from the theme surface-token layer instead of rebuilding container, border, content, or elevation inline.
 
 ## Shapes
 
@@ -620,13 +610,8 @@ Component behavior rules:
 - Ghost and outline actions stay visually light, but their disabled state must still be legible.
 - Text fields and dropdowns use filled muted surfaces, not raw outlined-only treatment.
 - Settings rows use stable vertical rhythm and must clearly communicate selected, navigable, and toggle states.
-- `RipDpiConnectionActuator` is the Home primary connection primitive: a horizontal slider-lock with fixed
-  Network, DNS, Handshake, Tunnel, and Route stages, localized fault/warning treatment, a visible route label,
-  and a locked terminal slot for connected or degraded-but-active sessions.
-- Secure Route components describe any user-engageable protected path. Transport labels identify local VPN,
-  local proxy, relay, WARP, or future provider VPN paths; capability pills identify VPN privacy, DNS protection,
-  anti-DPI, relay, split/full tunnel, and traffic modification without making low-level techniques the product
-  identity.
+- `RipDpiConnectionActuator` is the Home primary connection primitive: a horizontal slider-lock with fixed Network, DNS, Handshake, Tunnel, and Route stages, localized fault/warning treatment, a visible route label, and a locked terminal slot for connected or degraded-but-active sessions.
+- Secure Route components describe any user-engageable protected path. Transport labels identify local VPN, local proxy, relay, WARP, or future provider VPN paths; capability pills identify VPN privacy, DNS protection, anti-DPI, relay, split/full tunnel, and traffic modification without making low-level techniques the product identity.
 - Warning and remediation surfaces use semantic containers, not full-saturation fills by default.
 - Monospace treatments belong in diagnostic or configuration contexts, not in general navigation chrome.
 - Shared components should resolve pressed, focused, disabled, loading, selected, and error visuals from a first-class state-token layer instead of rebuilding those palettes inline.
@@ -657,8 +642,7 @@ Don't:
 Accessibility is a design requirement, not an afterthought:
 
 - Interactive elements must expose a semantic hit area of at least `48dp`.
-- Buttons, icon buttons, inputs, switches, chips, and selectable cards must keep visible disabled, focused,
-  pressed, loading, and error states where applicable.
+- Buttons, icon buttons, inputs, switches, chips, and selectable cards must keep visible disabled, focused, pressed, loading, and error states where applicable.
 - Icon-only buttons require a content description.
 - `RipDpiDropdown`, `RipDpiTextField`, and `RipDpiSwitch` must surface labels and errors semantically.
 - Secondary text roles must remain readable in both light and dark themes.
@@ -712,8 +696,7 @@ Contrast changes tighten readability rather than recolor the app:
 - `High` strengthens muted text, borders, and outline relationships further
 - dark high-contrast also nudges `inputBackground` toward stronger separation
 
-Agents should preserve semantic role names across variants rather than introducing theme-specific content
-branches unless a screen is intentionally showing theme comparison.
+Agents should preserve semantic role names across variants rather than introducing theme-specific content branches unless a screen is intentionally showing theme comparison.
 
 ## Screen Recipes
 

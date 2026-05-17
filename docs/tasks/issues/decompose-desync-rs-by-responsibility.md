@@ -26,27 +26,22 @@ updated: 2026-05-14
 
 ## Summary
 
-`desync.rs` mixes planning, fallback choice, fake-packet construction,
-TTL-sensitive send logic, and plan execution in 1538 LOC. Split by
-responsibility.
+`desync.rs` mixes planning, fallback choice, fake-packet construction, TTL-sensitive send logic, and plan execution in 1538 LOC. Split by responsibility.
 
 ## Audit citation
 
-- `native/rust/crates/ripdpi-runtime/src/runtime/desync.rs` — 1538 LOC,
-function-dense in practice.
+- `native/rust/crates/ripdpi-runtime/src/runtime/desync.rs` — 1538 LOC, function-dense in practice.
 
 ## Acceptance criteria
 
-- [ ] `desync.rs` split into: `planner`, `emitters`, `fallback` (classifier),
-    `fake_packet` (builders).
+- [ ] `desync.rs` split into: `planner`, `emitters`, `fallback` (classifier), `fake_packet` (builders).
 - [ ] Each module has its own unit tests.
 - [ ] No behavior change — existing integration/fuzz tests stay green.
 - [ ] `file-loc-baseline.json` updated to reflect the split.
 
 ## Notes
 
-Coordinate with [[Extract native ActionPlan IR]] — the planner module is the
-natural home for the IR.
+Coordinate with [[Extract native ActionPlan IR]] — the planner module is the natural home for the IR.
 
 ## Links
 

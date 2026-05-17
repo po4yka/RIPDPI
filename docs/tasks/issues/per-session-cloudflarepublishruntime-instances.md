@@ -26,8 +26,7 @@ updated: 2026-05-14
 
 ## Summary
 
-`DefaultCloudflarePublishRuntimeFactory` returns a singleton runtime — state
-leaks across sessions.
+`DefaultCloudflarePublishRuntimeFactory` returns a singleton runtime — state leaks across sessions.
 
 ## Audit citation
 
@@ -36,9 +35,7 @@ leaks across sessions.
 ## Acceptance criteria
 
 - [ ] Factory creates a fresh `CloudflarePublishRuntime` per session.
-- [ ] No mutable state survives between sessions unless explicitly persisted
-    and audited (install cache is the one documented exception — see
-    [[Install Cloudflare binaries once per ABI and version]]).
+- [ ] No mutable state survives between sessions unless explicitly persisted and audited (install cache is the one documented exception — see [[Install Cloudflare binaries once per ABI and version]]).
 - [ ] Old singleton path removed.
 
 ## Links

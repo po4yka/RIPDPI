@@ -26,51 +26,31 @@ updated: 2026-04-23
 
 ## Goal
 
-Replace the current fragile catalog download path (same-origin checksums,
-no anti-rollback, non-atomic writes, setting-triggered refreshes) with a
-signed, rollback-resistant, atomic, TTL-gated control plane. Outcome: an
-old valid-signed payload can't downgrade the client, a mid-write crash
-can't corrupt the cache, and unrelated settings edits don't hit the network.
+Replace the current fragile catalog download path (same-origin checksums, no anti-rollback, non-atomic writes, setting-triggered refreshes) with a signed, rollback-resistant, atomic, TTL-gated control plane. Outcome: an old valid-signed payload can't downgrade the client, a mid-write crash can't corrupt the cache, and unrelated settings edits don't hit the network.
 
 ## Why now
 
-The 2026-04-20 audit rated strategy/host catalog trust as the single
-weakest link in the project's security story. Fixing this first prevents
-building new features on top of a control plane that may ship fragile.
+The 2026-04-20 audit rated strategy/host catalog trust as the single weakest link in the project's security story. Fixing this first prevents building new features on top of a control plane that may ship fragile.
 
 ## Key decisions
 
-- **Signed manifests for host packs** using the same app-trusted key infra
-as strategy packs (decide reuse vs new key before implementation).
-- **Monotonic sequence + freshness** inside the signed envelope for both
-pack types; reject stale on principle, allow rollback only via an
-explicit local override.
-- **AtomicFile (or temp-file + fsync + rename)** for every cache write; a
-torn file must never appear at the canonical path.
-- **Refresh is scheduled, not eager.** Trigger on the narrow tuple
-`(channel, refreshPolicy, pinnedPackId, pinnedPackVersion)` with
-`distinctUntilChanged` + TTL + backoff.
+- **Signed manifests for host packs** using the same app-trusted key infra as strategy packs (decide reuse vs new key before implementation).
+- **Monotonic sequence + freshness** inside the signed envelope for both pack types; reject stale on principle, allow rollback only via an explicit local override.
+- **AtomicFile (or temp-file + fsync + rename)** for every cache write; a torn file must never appear at the canonical path.
+- **Refresh is scheduled, not eager.** Trigger on the narrow tuple `(channel, refreshPolicy, pinnedPackId, pinnedPackVersion)` with `distinctUntilChanged` + TTL + backoff.
 
 ## Scope
 
-- **In scope:** strategy-pack refresh discipline, host-pack signature
-model, anti-rollback, atomic snapshot writes, typed degradation
-telemetry.
-- **Out of scope:** transport/runtime changes, operator UX beyond the
-degradation-reason surfacing.
+- **In scope:** strategy-pack refresh discipline, host-pack signature model, anti-rollback, atomic snapshot writes, typed degradation telemetry.
+- **Out of scope:** transport/runtime changes, operator UX beyond the degradation-reason surfacing.
 
 ## Ship definition
 
-- [ ] Unsigned or invalid-signature host-pack payload is rejected with a
-    typed error.
-- [ ] Older-sequence strategy-pack payload is rejected without the debug
-    local override.
-- [ ] Process kill mid-write of either cache leaves the prior snapshot
-    intact and readable.
-- [ ] Unrelated app-setting edits produce zero strategy-pack network I/O
-    (measured in a unit test).
-- [ ] Cache parse failures surface as typed `CacheDegradation` reasons,
-    not silent empty state.
+- [ ] Unsigned or invalid-signature host-pack payload is rejected with a typed error.
+- [ ] Older-sequence strategy-pack payload is rejected without the debug local override.
+- [ ] Process kill mid-write of either cache leaves the prior snapshot intact and readable.
+- [ ] Unrelated app-setting edits produce zero strategy-pack network I/O (measured in a unit test).
+- [ ] Cache parse failures surface as typed `CacheDegradation` reasons, not silent empty state.
 
 ## Child tasks
 
@@ -90,21 +70,14 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 
 ## Dependencies
 
-- Unblocks: [[Add control-plane rollback attempt test]] and
-[[Add cache-corruption regression test]] under
-[[Epic - Orchestration test posture]].
-- Unblocks: [[Build CensorLab-style offline strategy-pack pipeline]] under
-[[Epic - Privacy-preserving strategy learner]] (generated packs must fit
-the hardened signed format).
+- Unblocks: [[Add control-plane rollback attempt test]] and [[Add cache-corruption regression test]] under [[Epic - Orchestration test posture]].
+- Unblocks: [[Build CensorLab-style offline strategy-pack pipeline]] under [[Epic - Privacy-preserving strategy learner]] (generated packs must fit the hardened signed format).
 
 ## Risks / open questions
 
-- Signing model for host packs: reuse the strategy-pack key or issue a
-new one? Decide before the signing task lands.
-- Rollback override UX: settings toggle, CLI flag, or debug-only? Keep it
-boring and hard to find by accident.
-- `autoArchiveDelay` coupling to status changes — ensure degraded-source
-telemetry doesn't accidentally auto-archive the related notes.
+- Signing model for host packs: reuse the strategy-pack key or issue a new one? Decide before the signing task lands.
+- Rollback override UX: settings toggle, CLI flag, or debug-only? Keep it boring and hard to find by accident.
+- `autoArchiveDelay` coupling to status changes — ensure degraded-source telemetry doesn't accidentally auto-archive the related notes.
 
 ## Links
 

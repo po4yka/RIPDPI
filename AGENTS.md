@@ -9,9 +9,7 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 1. Requirements: JDK 17, Android SDK, Android NDK 29.0.14206865, stable Rust toolchain with Android targets, Android CLI (`android`) from `d.android.com/tools/agents` (agents and CI depend on it; `android docs` must be available)
 2. Native build properties are defined in `gradle.properties` -- do not hardcode NDK version, ABI filters, or SDK levels elsewhere
 3. The Android build invokes the `ripdpi.android.rust-native` convention plugin from `:core:engine`, which builds the native workspace under `native/rust/`
-4. Agent runtime permissions for `android` CLI calls:
-   - **Claude Code**: `.claude/settings.local.json` allowlists `Bash(android:*)` -- committed, no per-developer action needed
-   - **Codex**: approve the project once via `trust_level = "trusted"` in `~/.codex/config.toml` (Codex prompts on first run). Codex has no per-command allowlist; project trust covers all shell invocations including `android docs` / `android sdk` / `android emulator`.
+4. Agent runtime permissions for `android` CLI calls: - **Claude Code**: `.claude/settings.local.json` allowlists `Bash(android:*)` -- committed, no per-developer action needed - **Codex**: approve the project once via `trust_level = "trusted"` in `~/.codex/config.toml` (Codex prompts on first run). Codex has no per-command allowlist; project trust covers all shell invocations including `android docs` / `android sdk` / `android emulator`.
 
 ## Build & Test
 
@@ -36,8 +34,7 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 
 ## Task Board
 
-This repository uses Obsidian Tasks-compatible Markdown task lines as the canonical task system.
-Use the `repo-task-board` skill for all task-related operations.
+This repository uses Obsidian Tasks-compatible Markdown task lines as the canonical task system. Use the `repo-task-board` skill for all task-related operations.
 
 Canonical files:
 
@@ -429,8 +426,7 @@ For UI work, use these sources in order:
 3. `app/src/main/kotlin/com/poyka/ripdpi/ui/theme/` as the implementation source of truth for Compose tokens
 4. Roborazzi baselines under `app/src/test/screenshots/` for visual regression verification
 
-`DESIGN.md` is descriptive and portable. The Compose theme code and screenshot baselines remain canonical when
-there is any conflict.
+`DESIGN.md` is descriptive and portable. The Compose theme code and screenshot baselines remain canonical when there is any conflict.
 
 ## Repo-local Codex subagents
 

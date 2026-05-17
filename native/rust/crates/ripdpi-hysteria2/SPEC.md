@@ -2,8 +2,7 @@
 
 ## Scope
 
-Hysteria 2 client over Quinn, including Salamander obfuscation,
-port-hopping schedule, and H3 CONNECT / CONNECT-UDP transports.
+Hysteria 2 client over Quinn, including Salamander obfuscation, port-hopping schedule, and H3 CONNECT / CONNECT-UDP transports.
 
 ## Upstream
 
@@ -22,18 +21,14 @@ port-hopping schedule, and H3 CONNECT / CONNECT-UDP transports.
 
 ## Migration
 
-Post-handshake socket rebind is implemented in `migration.rs`; Quinn
-performs RFC 9000 path validation on rebind.
+Post-handshake socket rebind is implemented in `migration.rs`; Quinn performs RFC 9000 path validation on rebind.
 
 ## Known divergences from upstream
 
-- Salamander wire fixtures are not yet checked into
-  `contract-fixtures/`; see
-  `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
+- Salamander wire fixtures are not yet checked into `contract-fixtures/`; see `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
 - Hysteria v1 is intentionally unsupported.
 
 ## Non-goals
 
 - Server-side Hysteria.
-- v1 client; see `add-hysteria-v1-outbound-client-crate-and-profile-editor.md`
-  for a separate decision.
+- v1 client; see `add-hysteria-v1-outbound-client-crate-and-profile-editor.md` for a separate decision.

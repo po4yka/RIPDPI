@@ -26,29 +26,19 @@ updated: 2026-05-14
 
 ## Summary
 
-Extend the existing local-SOCKS5 inbound into a "mixed" inbound that also
-speaks HTTP CONNECT on the same port (protocol detected from the first
-bytes).
+Extend the existing local-SOCKS5 inbound into a "mixed" inbound that also speaks HTTP CONNECT on the same port (protocol detected from the first bytes).
 
 ## Context
 
-Reference implementation's `mixedPort` accepts SOCKS5 greeting and HTTP CONNECT on one TCP
-port. For local-only traffic from apps that honor the Android system
-proxy, this is the simplest path. First-byte switch: `0x05` → SOCKS5,
-`CONNECT ` prefix → HTTP.
+Reference implementation's `mixedPort` accepts SOCKS5 greeting and HTTP CONNECT on one TCP port. For local-only traffic from apps that honor the Android system proxy, this is the simplest path. First-byte switch: `0x05` → SOCKS5, `CONNECT ` prefix → HTTP.
 
 ## Acceptance criteria
 
-- [ ] Single listener binds a configurable port (default 2080) and
-    dispatches per-connection to SOCKS5 or HTTP CONNECT handler.
-- [ ] HTTP CONNECT supports TLS tunnels only; no HTTP proxying of
-    cleartext requests (no TLS interception anywhere).
-- [ ] No authentication; listener is bound to `127.0.0.1` by default.
-    An opt-in "allow LAN" toggle binds to all interfaces with a stern
-    warning modal.
+- [ ] Single listener binds a configurable port (default 2080) and dispatches per-connection to SOCKS5 or HTTP CONNECT handler.
+- [ ] HTTP CONNECT supports TLS tunnels only; no HTTP proxying of cleartext requests (no TLS interception anywhere).
+- [ ] No authentication; listener is bound to `127.0.0.1` by default. An opt-in "allow LAN" toggle binds to all interfaces with a stern warning modal.
 - [ ] Port collision surfaces a typed error with suggested next port.
-- [ ] Both SOCKS5 and CONNECT paths route through the existing outbound
-    dispatch; no parallel supervisor.
+- [ ] Both SOCKS5 and CONNECT paths route through the existing outbound dispatch; no parallel supervisor.
 
 ## Source references
 

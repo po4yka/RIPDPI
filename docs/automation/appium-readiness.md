@@ -1,7 +1,6 @@
 # Appium Readiness
 
-RIPDPI is prepared for Appium through the debug automation launch contract and Compose resource-id
-exposure. This document keeps the first manual smoke path narrow and repeatable.
+RIPDPI is prepared for Appium through the debug automation launch contract and Compose resource-id exposure. This document keeps the first manual smoke path narrow and repeatable.
 
 ## Desired Capabilities Template
 
@@ -24,9 +23,7 @@ Use UiAutomator2 against a debug build:
 - Install a `debug` APK, not `release`.
 - Start the app with automation extras before attaching the inspector.
 - Use `DISABLE_MOTION=true` for inspector sessions.
-- Verify resource IDs are visible for:
-  `home-screen`, `settings-screen`, `advanced_settings-screen`,
-  `home-mode-primary-local-dpi-bypass`, `home-mode-primary-remote-vpn`
+- Verify resource IDs are visible for: `home-screen`, `settings-screen`, `advanced_settings-screen`, `home-mode-primary-local-dpi-bypass`, `home-mode-primary-remote-vpn`
 - Check that bottom nav IDs are present: `bottom-nav-home`, `bottom-nav-settings`
 - Check that form controls expose the same IDs as `RipDpiTestTags`.
 
@@ -58,23 +55,10 @@ adb shell am start \
 
 Use the raw tag values from `RipDpiTestTags` as your locator contract.
 
-- Screen roots:
-  `home-screen`, `config-screen`, `diagnostics-screen`, `settings-screen`,
-  `advanced_settings-screen`, `dns_settings-screen`, `onboarding-screen`
-- Primary actions:
-  `home-mode-primary-local-dpi-bypass`, `home-mode-primary-remote-vpn`,
-  `home-mode-primary-diagnostic`, `settings-advanced-settings`,
-  `settings-dns-settings`, `mode-editor-save`, `dns-custom-save`
-- DNS configuration:
-  `dns-mode-encrypted`, `dns-mode-plain-udp`, `dns-protocol-doh`,
-  `dns-protocol-dot`, `dns-protocol-dnscrypt`, `dns-resolver-cloudflare`,
-  `dns-resolver-google`, `dns-resolver-quad9`, `dns-resolver-adguard`
-- Diagnostics and sharing:
-  `diagnostics-top-history-action`, `diagnostics-share-archive`,
-  `diagnostics-save-archive`, `diagnostics-share-summary`, `diagnostics-save-logs`
-- Dialogs:
-  `vpn-permission-dialog`, `vpn-permission-dialog-continue`,
-  `vpn-permission-dialog-dismiss`
+- Screen roots: `home-screen`, `config-screen`, `diagnostics-screen`, `settings-screen`, `advanced_settings-screen`, `dns_settings-screen`, `onboarding-screen`
+- Primary actions: `home-mode-primary-local-dpi-bypass`, `home-mode-primary-remote-vpn`, `home-mode-primary-diagnostic`, `settings-advanced-settings`, `settings-dns-settings`, `mode-editor-save`, `dns-custom-save`
+- DNS configuration: `dns-mode-encrypted`, `dns-mode-plain-udp`, `dns-protocol-doh`, `dns-protocol-dot`, `dns-protocol-dnscrypt`, `dns-resolver-cloudflare`, `dns-resolver-google`, `dns-resolver-quad9`, `dns-resolver-adguard`
+- Diagnostics and sharing: `diagnostics-top-history-action`, `diagnostics-share-archive`, `diagnostics-save-archive`, `diagnostics-share-summary`, `diagnostics-save-logs`
+- Dialogs: `vpn-permission-dialog`, `vpn-permission-dialog-continue`, `vpn-permission-dialog-dismiss`
 
-For the full registry, use
-[`RipDpiTestTags.kt`](../../app/src/main/kotlin/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt).
+For the full registry, use [`RipDpiTestTags.kt`](../../app/src/main/kotlin/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt).

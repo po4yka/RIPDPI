@@ -26,8 +26,7 @@ updated: 2026-05-14
 
 ## Summary
 
-Binaries are copied from assets on every start — slow startup and extra
-flash churn.
+Binaries are copied from assets on every start — slow startup and extra flash churn.
 
 ## Audit citation
 

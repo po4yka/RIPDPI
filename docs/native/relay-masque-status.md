@@ -1,7 +1,6 @@
 # MASQUE Runtime
 
-This note describes the current MASQUE implementation in RIPDPI and the
-validation surface that gates rollout confidence.
+This note describes the current MASQUE implementation in RIPDPI and the validation surface that gates rollout confidence.
 
 ## Implemented Transport Surface
 
@@ -24,8 +23,7 @@ Primary implementation points:
 
 ## Current Hardening State
 
-The Cloudflare-direct path includes the interoperability fixes required for
-normal operation:
+The Cloudflare-direct path includes the interoperability fixes required for normal operation:
 
 - configured MASQUE endpoint paths and queries are preserved for both HTTP/3 and HTTP/2 request construction
 - non-HTTPS MASQUE URLs are rejected before native startup
@@ -80,11 +78,7 @@ The deployer-supplied `privacy_pass` provider flow remains distinct from the Clo
 
 ## QUIC Migration Telemetry Vocabulary
 
-The `record_quic_migration_status(status, reason)` call writes into the
-snapshot that `quic_migration_snapshot()` returns. The status/reason
-strings are stable telemetry fields; rollout decisions branch on them.
-The vocabulary tracked here matches the strings emitted in
-`client.rs`, `udp.rs`, and the validation tests under `tests.rs`.
+The `record_quic_migration_status(status, reason)` call writes into the snapshot that `quic_migration_snapshot()` returns. The status/reason strings are stable telemetry fields; rollout decisions branch on them. The vocabulary tracked here matches the strings emitted in `client.rs`, `udp.rs`, and the validation tests under `tests.rs`.
 
 ### Status values
 
@@ -113,19 +107,11 @@ The vocabulary tracked here matches the strings emitted in
 
 ### Stability and bump policy
 
-These strings are part of the telemetry export schema and should not
-change without bumping the relevant catalog or telemetry consumers.
-A planned typed `H3FallbackReason` enum
-(see `docs/tasks/issues/add-h3-to-h2-fallback-telemetry-rollout-validation.md`)
-will replace the strings with a non-exhaustive Rust enum once
-downstream consumers are wired to dispatch on it.
+These strings are part of the telemetry export schema and should not change without bumping the relevant catalog or telemetry consumers. A planned typed `H3FallbackReason` enum (see `docs/tasks/issues/add-h3-to-h2-fallback-telemetry-rollout-validation.md`) will replace the strings with a non-exhaustive Rust enum once downstream consumers are wired to dispatch on it.
 
 ### Existing test coverage
 
-- `quic_migration_snapshot_records_http2_fallback_reason` exercises the
-  `http2_fallback` + `http3_connect_failed_connect` pair.
-- `new_client_starts_with_not_attempted_quic_snapshot` asserts the
-  initial state.
+- `quic_migration_snapshot_records_http2_fallback_reason` exercises the `http2_fallback` + `http3_connect_failed_connect` pair.
+- `new_client_starts_with_not_attempted_quic_snapshot` asserts the initial state.
 
-The remaining work — one dedicated test per status/reason pair plus
-the typed enum migration — is tracked in the task above.
+The remaining work — one dedicated test per status/reason pair plus the typed enum migration — is tracked in the task above.

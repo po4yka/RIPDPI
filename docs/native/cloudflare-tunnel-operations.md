@@ -82,14 +82,8 @@ Additional requirements:
 
 - Strategy-pack feature flag `cloudflare_publish` must be enabled.
 - `cloudflarePublishLocalOriginUrl` must be present.
-- The origin URL must:
-  - use `http://`
-  - target loopback only: `127.0.0.1`, `localhost`, or `::1`
-  - include an explicit port
-  - not include a path, query, or fragment
-- Credentials must include either:
-  - `cloudflareTunnelToken`, or
-  - `cloudflareTunnelCredentialsJson`
+- The origin URL must: - use `http://` - target loopback only: `127.0.0.1`, `localhost`, or `::1` - include an explicit port - not include a path, query, or fragment
+- Credentials must include either: - `cloudflareTunnelToken`, or - `cloudflareTunnelCredentialsJson`
 
 Typical profile shape:
 
@@ -143,9 +137,7 @@ Runtime behavior:
 
 - binaries are extracted under `filesDir/cloudflare-runtime/<abi>/`
 - per-profile state lives under `filesDir/cloudflare-publish/<profileId>/`
-- named-tunnel mode writes:
-  - `cloudflared-credentials.json`
-  - `cloudflared-config.yml`
+- named-tunnel mode writes: - `cloudflared-credentials.json` - `cloudflared-config.yml`
 - token mode launches `cloudflared tunnel run --token ...`
 
 Readiness:
@@ -194,5 +186,4 @@ Before enabling Cloudflare Tunnel for a user-facing profile:
 3. Keep secrets in `RelayCredentialStore`, not in the profile payload.
 4. For publish mode, validate the loopback origin URL and confirm the local origin process is listening.
 5. Use strategy-pack feature flags to widen rollout instead of changing app defaults directly.
-6. When telemetry reports `ptRuntimeState=failed`, use `lastFailureClass` to separate origin misconfiguration from
-   `cloudflared` tunnel failures before retrying the profile.
+6. When telemetry reports `ptRuntimeState=failed`, use `lastFailureClass` to separate origin misconfiguration from `cloudflared` tunnel failures before retrying the profile.

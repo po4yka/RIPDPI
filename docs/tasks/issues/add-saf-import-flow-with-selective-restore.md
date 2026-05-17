@@ -26,31 +26,21 @@ updated: 2026-05-14
 
 ## Summary
 
-Add a SAF-based import flow that reads a backup JSON, previews its
-contents, and lets the user pick which subsets (profiles / routing /
-settings) to restore.
+Add a SAF-based import flow that reads a backup JSON, previews its contents, and lets the user pick which subsets (profiles / routing / settings) to restore.
 
 ## Context
 
-Restore is destructive; no silent overwrite. The preview step lists the
-counts (N profiles, M rules, K settings changed vs current), and the
-user opts in to specific subsets. Schema-version gating is strict:
-newer-than-app rejects, older migrates.
+Restore is destructive; no silent overwrite. The preview step lists the counts (N profiles, M rules, K settings changed vs current), and the user opts in to specific subsets. Schema-version gating is strict: newer-than-app rejects, older migrates.
 
 ## Acceptance criteria
 
 - [ ] Import entry point in Tools → Backup & Restore.
 - [ ] File picker restricts to `application/json` MIME.
 - [ ] Preview screen shows per-category counts and the schema version.
-- [ ] Checkbox per category (profiles+groups / routes / settings)
-    selects what to restore; current state for unchecked categories
-    is preserved.
-- [ ] Restore writes to a staging area, validates integrity, then
-    atomically swaps into the live data stores.
-- [ ] `ProcessPhoenix`-equivalent restart after successful restore so
-    all in-flight DataStore / Room observers reinitialize.
-- [ ] Malformed JSON or failed integrity check aborts without touching
-    live data.
+- [ ] Checkbox per category (profiles+groups / routes / settings) selects what to restore; current state for unchecked categories is preserved.
+- [ ] Restore writes to a staging area, validates integrity, then atomically swaps into the live data stores.
+- [ ] `ProcessPhoenix`-equivalent restart after successful restore so all in-flight DataStore / Room observers reinitialize.
+- [ ] Malformed JSON or failed integrity check aborts without touching live data.
 
 ## Source references
 

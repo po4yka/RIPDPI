@@ -4,8 +4,7 @@ Python + pytest test suite targeting the RIPDPI debug automation contract via Ap
 
 ## Prerequisites
 
-- Debug APK installed on an emulator or device (`./gradlew :app:assembleGithubDebug`
-  or `./gradlew assembleDebug`).
+- Debug APK installed on an emulator or device (`./gradlew :app:assembleGithubDebug` or `./gradlew assembleDebug`).
 - Appium 2.x/3.x with the UiAutomator2 driver:
   ```bash
   npm install -g appium
@@ -18,10 +17,7 @@ Python + pytest test suite targeting the RIPDPI debug automation contract via Ap
 
 ## Run
 
-Use the repository runner for local and CI smoke checks. It installs the debug
-APK, starts Appium with the required UiAutomator2 `adb_shell` permission,
-exports `ANDROID_HOME`/`ANDROID_SDK_ROOT` from the default local SDK path when
-needed, and runs pytest:
+Use the repository runner for local and CI smoke checks. It installs the debug APK, starts Appium with the required UiAutomator2 `adb_shell` permission, exports `ANDROID_HOME`/`ANDROID_SDK_ROOT` from the default local SDK path when needed, and runs pytest:
 
 ```bash
 bash scripts/ci/run-appium-smoke.sh
@@ -36,8 +32,7 @@ bash scripts/ci/run-appium-smoke.sh \
   tests/test_03_settings_navigation.py
 ```
 
-Set `PYTHON_BIN` when using a virtual environment, and set `APPIUM_APK_PATH`
-when the debug APK is outside the default Gradle output locations:
+Set `PYTHON_BIN` when using a virtual environment, and set `APPIUM_APK_PATH` when the debug APK is outside the default Gradle output locations:
 
 ```bash
 PYTHON_BIN=/tmp/ripdpi-appium-venv/bin/python \
@@ -64,21 +59,17 @@ appium/
 
 ## How It Works
 
-Each test is decorated with `@pytest.mark.automation(...)` specifying the automation
-launch contract parameters. The `conftest.py` `launch_app` fixture:
+Each test is decorated with `@pytest.mark.automation(...)` specifying the automation launch contract parameters. The `conftest.py` `launch_app` fixture:
 
 1. Force-stops the app via `adb`.
-2. Launches `MainActivity` with automation intent extras (`ENABLED`, `RESET_STATE`,
-   `START_ROUTE`, `PERMISSION_PRESET`, `SERVICE_PRESET`, `DATA_PRESET`).
+2. Launches `MainActivity` with automation intent extras (`ENABLED`, `RESET_STATE`, `START_ROUTE`, `PERMISSION_PRESET`, `SERVICE_PRESET`, `DATA_PRESET`).
 3. Waits for the expected screen resource ID to appear.
 
-This mirrors the Maestro flows under `maestro/` but uses Appium for richer assertions
-and programmatic control.
+This mirrors the Maestro flows under `maestro/` but uses Appium for richer assertions and programmatic control.
 
 ## CI
 
-The GitHub Actions CI workflow exposes a `run_appium_smoke` input on `workflow_dispatch`.
-When enabled, the Appium smoke suite runs after the Android E2E instrumentation step.
+The GitHub Actions CI workflow exposes a `run_appium_smoke` input on `workflow_dispatch`. When enabled, the Appium smoke suite runs after the Android E2E instrumentation step.
 
 ```bash
 bash scripts/ci/run-appium-smoke.sh
@@ -129,8 +120,7 @@ bash scripts/ci/run-appium-smoke.sh
 
 ## Workflow Tests
 
-Multi-step end-to-end tests that span multiple screens without restarting the app.
-Located in `tests/workflows/`. Run them separately:
+Multi-step end-to-end tests that span multiple screens without restarting the app. Located in `tests/workflows/`. Run them separately:
 
 ```bash
 cd appium

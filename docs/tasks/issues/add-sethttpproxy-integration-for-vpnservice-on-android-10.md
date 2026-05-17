@@ -26,29 +26,19 @@ updated: 2026-05-14
 
 ## Summary
 
-Allow the VpnService builder on Android 10+ to also advertise an HTTP
-proxy to the system via `setHttpProxy(ProxyInfo.buildDirectProxy(...))`.
+Allow the VpnService builder on Android 10+ to also advertise an HTTP proxy to the system via `setHttpProxy(ProxyInfo.buildDirectProxy(...))`.
 
 ## Context
 
-In VPN mode, most traffic goes through TUN. But a handful of apps (and
-Android system services) honor the system HTTP proxy out-of-band. Setting
-the proxy to the local mixed inbound port gives those paths a fast-lane
-without an extra service.
+In VPN mode, most traffic goes through TUN. But a handful of apps (and Android system services) honor the system HTTP proxy out-of-band. Setting the proxy to the local mixed inbound port gives those paths a fast-lane without an extra service.
 
 ## Acceptance criteria
 
-- [ ] Optional toggle in Advanced Settings: "Also advertise HTTP proxy
-    to system" (default off).
-- [ ] When on and API ≥ 29, the VPN builder calls
-    `setHttpProxy(ProxyInfo.buildDirectProxy("127.0.0.1",
-    mixedPort))`.
-- [ ] When the mixed port changes, the VPN is NOT auto-reestablished;
-    the toggle change takes effect on next connect.
-- [ ] Works only in VPN mode; in Proxy mode, system proxy comes from
-    the user's Android network settings, not us.
-- [ ] Bypass list for the system proxy exclusion includes `localhost`
-    and the loopback range.
+- [ ] Optional toggle in Advanced Settings: "Also advertise HTTP proxy to system" (default off).
+- [ ] When on and API ≥ 29, the VPN builder calls `setHttpProxy(ProxyInfo.buildDirectProxy("127.0.0.1", mixedPort))`.
+- [ ] When the mixed port changes, the VPN is NOT auto-reestablished; the toggle change takes effect on next connect.
+- [ ] Works only in VPN mode; in Proxy mode, system proxy comes from the user's Android network settings, not us.
+- [ ] Bypass list for the system proxy exclusion includes `localhost` and the loopback range.
 
 ## Source references
 

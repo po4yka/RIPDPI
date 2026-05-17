@@ -26,29 +26,20 @@ updated: 2026-05-14
 
 ## Summary
 
-Introduce `RipDpiProxyService` as a foreground-service alternative to
-`RipDpiVpnService`: runs the mixed inbound and outbound dispatch, but
-opens no TUN and creates no `vpn_protect` socket server.
+Introduce `RipDpiProxyService` as a foreground-service alternative to `RipDpiVpnService`: runs the mixed inbound and outbound dispatch, but opens no TUN and creates no `vpn_protect` socket server.
 
 ## Context
 
-The existing VPN service holds the TUN-centric invariants. A parallel
-service class keeps those separate; session picker decides which one
-starts. One-session-at-a-time guard prevents both from racing.
+The existing VPN service holds the TUN-centric invariants. A parallel service class keeps those separate; session picker decides which one starts. One-session-at-a-time guard prevents both from racing.
 
 ## Acceptance criteria
 
 - [ ] `RipDpiProxyService` extends a `LifecycleService`, not `VpnService`.
-- [ ] Foreground-service type is `systemExempted` + `specialUse`;
-    notification channel reused from VPN path or dedicated.
-- [ ] Start/stop transitions share the supervisor lifecycle with
-    `RipDpiVpnService`; a mutual-exclusion guard ensures only one of
-    the two runs per session.
-- [ ] Switching VPN → Proxy (or vice versa) closes cleanly before the
-    other starts; no socket or route leaks.
+- [ ] Foreground-service type is `systemExempted` + `specialUse`; notification channel reused from VPN path or dedicated.
+- [ ] Start/stop transitions share the supervisor lifecycle with `RipDpiVpnService`; a mutual-exclusion guard ensures only one of the two runs per session.
+- [ ] Switching VPN → Proxy (or vice versa) closes cleanly before the other starts; no socket or route leaks.
 - [ ] Diagnostics, logs, and crash reports clearly tag the active mode.
-- [ ] Strategy probe and detection checker both work in Proxy mode
-    without a TUN.
+- [ ] Strategy probe and detection checker both work in Proxy mode without a TUN.
 
 ## Source references
 

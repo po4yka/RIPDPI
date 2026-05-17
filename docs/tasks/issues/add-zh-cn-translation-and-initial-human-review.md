@@ -26,28 +26,19 @@ updated: 2026-05-14
 
 ## Summary
 
-Land a human-reviewed `values-zh-rCN` translation covering ≥95% of
-`values/` strings. zh-CN is the first wave because the Chinese bypass
-community is the largest non-Russian user cohort.
+Land a human-reviewed `values-zh-rCN` translation covering ≥95% of `values/` strings. zh-CN is the first wave because the Chinese bypass community is the largest non-Russian user cohort.
 
 ## Context
 
-MT pre-translation is acceptable as a starting point for the translator
-to work from, but shipping MT-only is not. Screenshot tests cover the
-main screens in zh-CN to catch layout breakage from longer strings.
+MT pre-translation is acceptable as a starting point for the translator to work from, but shipping MT-only is not. Screenshot tests cover the main screens in zh-CN to catch layout breakage from longer strings.
 
 ## Acceptance criteria
 
-- [ ] `app/src/main/res/values-zh-rCN/strings.xml` covers ≥95% of
-    default strings; uncovered strings list is tracked in the
-    pipeline.
+- [ ] `app/src/main/res/values-zh-rCN/strings.xml` covers ≥95% of default strings; uncovered strings list is tracked in the pipeline.
 - [ ] At least one human reviewer sign-off documented in the merge PR.
-- [ ] Roborazzi screenshot tests in zh-CN for: Home, Config,
-    Diagnostics, Settings, Onboarding.
-- [ ] No hard-coded strings surface on the reviewed screens (manual
-    audit + lint rule).
-- [ ] Glossary terms land in the shared glossary for consistency with
-    other future locales.
+- [ ] Roborazzi screenshot tests in zh-CN for: Home, Config, Diagnostics, Settings, Onboarding.
+- [ ] No hard-coded strings surface on the reviewed screens (manual audit + lint rule).
+- [ ] Glossary terms land in the shared glossary for consistency with other future locales.
 
 ## Source references
 

@@ -1,19 +1,12 @@
 # `amneziawg://` share-URI scheme
 
-RIPDPI defines a local `amneziawg://` URI scheme for ergonomic single-profile
-sharing of AmneziaWG profiles (link, QR code, clipboard import).
+RIPDPI defines a local `amneziawg://` URI scheme for ergonomic single-profile sharing of AmneziaWG profiles (link, QR code, clipboard import).
 
 ## Rationale
 
-There is **no standardized AmneziaWG share-URI scheme upstream**. Neither
-`amneziawg-android` nor `amneziawg-go` defines one — both share profiles as
-`.conf` files or as a QR code of a `.conf`. A `.conf` file is awkward to paste
-into a chat or embed in a link, so RIPDPI invents `amneziawg://` for the same
-ergonomics the proxy schemes (`vless://`, `hysteria2://`, …) already provide.
+There is **no standardized AmneziaWG share-URI scheme upstream**. Neither `amneziawg-android` nor `amneziawg-go` defines one — both share profiles as `.conf` files or as a QR code of a `.conf`. A `.conf` file is awkward to paste into a chat or embed in a link, so RIPDPI invents `amneziawg://` for the same ergonomics the proxy schemes (`vless://`, `hysteria2://`, …) already provide.
 
-The layout follows the Hysteria2 URI shape: the secret in userinfo, the
-endpoint as `host:port`, auxiliary fields as query params, the display name as
-the fragment. All AWG-specific query-param names are defined by this document.
+The layout follows the Hysteria2 URI shape: the secret in userinfo, the endpoint as `host:port`, auxiliary fields as query params, the display name as the fragment. All AWG-specific query-param names are defined by this document.
 
 ## Layout
 
@@ -30,20 +23,17 @@ amneziawg://<private-key>@<host>:<port>
   #<name>
 ```
 
-- **userinfo** — the interface private key (base64). It contains `+` `/` `=`,
-  so it is percent-encoded; the URI is always structurally valid.
+- **userinfo** — the interface private key (base64). It contains `+` `/` `=`, so it is percent-encoded; the URI is always structurally valid.
 - **host:port** — the peer endpoint. Both are mandatory.
 - **`public_key`** — the peer public key (base64). **Mandatory.**
 - **`preshared_key`** — optional peer preshared key (base64).
 - **`allowed_ips`** — comma-separated CIDR list (e.g. `0.0.0.0/0,::/0`).
 - **`dns`** — comma-separated DNS server list.
 - **`mtu`** — interface MTU.
-- **`jc` `jmin` `jmax` `s1` `s2`** — AmneziaWG junk-packet obfuscation
-  parameters (non-negative integers).
+- **`jc` `jmin` `jmax` `s1` `s2`** — AmneziaWG junk-packet obfuscation parameters (non-negative integers).
 - **`h1`..`h4`** — AmneziaWG magic-header values (4-byte unsigned).
 - **`i1`..`i5`** — AmneziaWG special-junk payloads (lowercase hex strings).
-- **fragment** — the profile display name (percent-encoded). When absent, the
-  host is used as the name.
+- **fragment** — the profile display name (percent-encoded). When absent, the host is used as the name.
 
 ## Example
 
@@ -55,9 +45,7 @@ amneziawg://cHJpdmF0ZS1rZXk%3D@awg.example.com:51820?public_key=cHVibGljLWtleQ%3
 
 The codec (`AmneziaWgUriCodec`) never throws on `decode`:
 
-- An unrecognised scheme, a structurally broken URI, or a missing mandatory
-  field (private key, public key, host, port) yields `null`.
-- A malformed *optional* numeric param (e.g. `mtu=not-a-number`) is silently
-  dropped — the rest of the profile still decodes.
+- An unrecognised scheme, a structurally broken URI, or a missing mandatory field (private key, public key, host, port) yields `null`.
+- A malformed *optional* numeric param (e.g. `mtu=not-a-number`) is silently dropped — the rest of the profile still decodes.
 
 `encode` followed by `decode` round-trips an `AmneziaWgProfile` losslessly.

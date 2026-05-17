@@ -1,9 +1,6 @@
 # Xray VPN Provider Architecture
 
-**Created:** 2026-05-16
-**Epic:** [[Epic - Xray provider mode]]
-**Plan reference:** [[ripdpi-android-xray-provider-plan-2026-04-24]]
-**Status:** design — no endpoints, credentials, or sample live configs stored here
+**Created:** 2026-05-16 **Epic:** [[Epic - Xray provider mode]] **Plan reference:** [[ripdpi-android-xray-provider-plan-2026-04-24]] **Status:** design — no endpoints, credentials, or sample live configs stored here
 
 ---
 
@@ -59,13 +56,7 @@ The native runner reads IP packets from the TUN fd and forwards them to a local 
 
 **Tradeoffs:**
 
-| | |
-|-|-|
-| Pro | No libXray ABI surface for fd hand-off; survives Xray version upgrades. |
-| Pro | Socket protection stays in one place (`:core:service` `SocketProtector`). |
-| Pro | DNS traffic naturally passes through the native DNS-loop guard. |
-| Con | One extra loopback copy per packet vs. direct fd hand-off. |
-| Con | Requires a live local inbound listener; port conflicts must be handled at startup. |
+| | | |-|-| | Pro | No libXray ABI surface for fd hand-off; survives Xray version upgrades. | | Pro | Socket protection stays in one place (`:core:service` `SocketProtector`). | | Pro | DNS traffic naturally passes through the native DNS-loop guard. | | Con | One extra loopback copy per packet vs. direct fd hand-off. | | Con | Requires a live local inbound listener; port conflicts must be handled at startup. |
 
 ### 3.2 LibXraySetTunFd (rejected for now)
 

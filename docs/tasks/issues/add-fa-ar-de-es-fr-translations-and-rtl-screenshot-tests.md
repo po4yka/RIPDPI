@@ -26,30 +26,20 @@ updated: 2026-05-14
 
 ## Summary
 
-Land human-reviewed translations for Persian (fa), Arabic (ar), German
-(de), Spanish (es), and French (fr). Add RTL-variant Roborazzi screenshot
-tests for fa and ar to catch layout regressions.
+Land human-reviewed translations for Persian (fa), Arabic (ar), German (de), Spanish (es), and French (fr). Add RTL-variant Roborazzi screenshot tests for fa and ar to catch layout regressions.
 
 ## Context
 
-Persian and Arabic are RTL and represent the next-largest bypass user
-cohorts after Chinese. German / Spanish / French are coverage locales;
-their volume is lower but their review cost is lowest (native-speaker
-contributors are easier to recruit).
+Persian and Arabic are RTL and represent the next-largest bypass user cohorts after Chinese. German / Spanish / French are coverage locales; their volume is lower but their review cost is lowest (native-speaker contributors are easier to recruit).
 
 ## Acceptance criteria
 
-- [ ] `values-fa/`, `values-ar/`, `values-de/`, `values-es/`,
-    `values-fr/` each cover ≥95% of default strings.
+- [ ] `values-fa/`, `values-ar/`, `values-de/`, `values-es/`, `values-fr/` each cover ≥95% of default strings.
 - [ ] Each locale has documented human reviewer sign-off.
-- [ ] Roborazzi RTL screenshot tests for fa and ar on Home, Config,
-    Diagnostics, Settings, Onboarding.
-- [ ] RTL padding / chevron / icon-flip regressions, if any, fixed in
-    the same PR stack.
-- [ ] Persian and Arabic glyph coverage for the Geist font family is
-    verified; fallback is wired where needed.
-- [ ] Weekly string-diff from the pipeline keeps these locales fresh
-    without manual polling.
+- [ ] Roborazzi RTL screenshot tests for fa and ar on Home, Config, Diagnostics, Settings, Onboarding.
+- [ ] RTL padding / chevron / icon-flip regressions, if any, fixed in the same PR stack.
+- [ ] Persian and Arabic glyph coverage for the Geist font family is verified; fallback is wired where needed.
+- [ ] Weekly string-diff from the pipeline keeps these locales fresh without manual polling.
 
 ## Source references
 

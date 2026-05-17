@@ -38,11 +38,7 @@ The outbound relay section is deliberately excluded from this screen — it belo
 ## Acceptance criteria
 
 - [ ] `LocalDpiBypassConfigSection` composable hosted in the Local Bypass section of `ConfigScreen`.
-- [ ] Settings rows (all editable inline or via a bottom sheet):
-  - **Mode**: segmented toggle `Local VPN` / `Local Proxy`.
-  - **Desync method**: dropdown or picker for available `DesyncMode` values (split, disorder, fake, etc.); shows current value.
-  - **Listen address**: text field for proxy listen address (shown/editable only when Mode = Local Proxy).
-  - **DNS**: selector for DNS preset (System / Encrypted Cloudflare DoH / Encrypted Google DoH / Custom).
+- [ ] Settings rows (all editable inline or via a bottom sheet): - **Mode**: segmented toggle `Local VPN` / `Local Proxy`. - **Desync method**: dropdown or picker for available `DesyncMode` values (split, disorder, fake, etc.); shows current value. - **Listen address**: text field for proxy listen address (shown/editable only when Mode = Local Proxy). - **DNS**: selector for DNS preset (System / Encrypted Cloudflare DoH / Encrypted Google DoH / Custom).
 - [ ] Preset quick-select row at the top: `Recommended` and `Custom` chips; selecting Recommended applies safe defaults, Custom unlocks all fields.
 - [ ] Changes are written to `ConfigViewModel` / `ConfigUiState` immediately; persisted via the existing profile save path.
 - [ ] Validation: invalid listen address format shows inline error; unknown desync mode is rejected.

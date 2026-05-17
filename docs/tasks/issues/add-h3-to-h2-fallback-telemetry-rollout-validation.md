@@ -26,40 +26,21 @@ updated: 2026-05-15
 
 ## Summary
 
-`docs/native/relay-masque-status.md` flags
-"continued verification that HTTP/3 to HTTP/2 fallback telemetry is
-sufficient for rollout decisions" as remaining work. Define the
-telemetry contract and add tests asserting that every distinct
-fallback-trigger reason is captured.
+`docs/native/relay-masque-status.md` flags "continued verification that HTTP/3 to HTTP/2 fallback telemetry is sufficient for rollout decisions" as remaining work. Define the telemetry contract and add tests asserting that every distinct fallback-trigger reason is captured.
 
 ## Context
 
-The existing test
-`quic_migration_snapshot_records_http2_fallback_reason` covers one
-case. Rollout decisions need to distinguish at least: handshake
-failure, post-handshake idle, transport error, server-side rejection,
-and explicit downgrade.
+The existing test `quic_migration_snapshot_records_http2_fallback_reason` covers one case. Rollout decisions need to distinguish at least: handshake failure, post-handshake idle, transport error, server-side rejection, and explicit downgrade.
 
 ## Acceptance criteria
 
-- [x] (partial, 2026-05-15) An enum (or string vocabulary)
-    enumerates fallback-trigger reasons. **DONE as string vocabulary**
-    documented in `docs/native/relay-masque-status.md` § "QUIC
-    Migration Telemetry Vocabulary". Typed enum migration tracked as
-    remaining work.
-- [ ] Each reason has a dedicated unit test asserting the snapshot
-    captures it. **DEFERRED:** the existing
-    `quic_migration_snapshot_records_http2_fallback_reason` test
-    covers one pair; per-reason coverage pairs with the typed-enum
-    migration to keep the test set exhaustive.
-- [x] (2026-05-15) The telemetry export schema is documented in
-    `docs/native/relay-masque-status.md`.
+- [x] (partial, 2026-05-15) An enum (or string vocabulary) enumerates fallback-trigger reasons. **DONE as string vocabulary** documented in `docs/native/relay-masque-status.md` § "QUIC Migration Telemetry Vocabulary". Typed enum migration tracked as remaining work.
+- [ ] Each reason has a dedicated unit test asserting the snapshot captures it. **DEFERRED:** the existing `quic_migration_snapshot_records_http2_fallback_reason` test covers one pair; per-reason coverage pairs with the typed-enum migration to keep the test set exhaustive.
+- [x] (2026-05-15) The telemetry export schema is documented in `docs/native/relay-masque-status.md`.
 
 ## Definition of done
 
-- A new fallback reason cannot be added in the future without also
-  adding a test, by virtue of the enum match being non-exhaustive
-  in the assertion helper.
+- A new fallback reason cannot be added in the future without also adding a test, by virtue of the enum match being non-exhaustive in the assertion helper.
 
 ## Links
 

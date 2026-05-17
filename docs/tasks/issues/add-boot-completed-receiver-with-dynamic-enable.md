@@ -26,31 +26,20 @@ updated: 2026-05-14
 
 ## Summary
 
-Add a `BootReceiver` that handles `BOOT_COMPLETED`, `LOCKED_BOOT_COMPLETED`,
-and `MY_PACKAGE_REPLACED`, toggled on only when the user has enabled
-"Start on boot".
+Add a `BootReceiver` that handles `BOOT_COMPLETED`, `LOCKED_BOOT_COMPLETED`, and `MY_PACKAGE_REPLACED`, toggled on only when the user has enabled "Start on boot".
 
 ## Context
 
-reference implementation enables the receiver component dynamically via
-`PackageManager.setComponentEnabledSetting` so the broadcast filter only
-exists while needed. Default state must be `DISABLED`; enabling it without
-user opt-in is both a battery concern and a surprise behavior.
+reference implementation enables the receiver component dynamically via `PackageManager.setComponentEnabledSetting` so the broadcast filter only exists while needed. Default state must be `DISABLED`; enabling it without user opt-in is both a battery concern and a surprise behavior.
 
 ## Acceptance criteria
 
-- [ ] `BootReceiver` declared in manifest with
-    `android:enabled="false"` and filters for all three actions.
-- [ ] Runtime enable/disable driven by a single repository method wired
-    to the Settings toggle.
+- [ ] `BootReceiver` declared in manifest with `android:enabled="false"` and filters for all three actions.
+- [ ] Runtime enable/disable driven by a single repository method wired to the Settings toggle.
 - [ ] `RECEIVE_BOOT_COMPLETED` permission declared.
-- [ ] On fire, the receiver re-schedules subscription auto-update
-    WorkManager job and, if active-profile exists + "start on boot" is
-    on, starts the appropriate service mode.
-- [ ] `MY_PACKAGE_REPLACED` path is gated by the "was running before
-    update" flag (see companion task).
-- [ ] Receiver work is short and offloads to a WorkManager one-shot;
-    no heavy work in `onReceive`.
+- [ ] On fire, the receiver re-schedules subscription auto-update WorkManager job and, if active-profile exists + "start on boot" is on, starts the appropriate service mode.
+- [ ] `MY_PACKAGE_REPLACED` path is gated by the "was running before update" flag (see companion task).
+- [ ] Receiver work is short and offloads to a WorkManager one-shot; no heavy work in `onReceive`.
 
 ## Source references
 

@@ -1,28 +1,17 @@
 # Feature Test Checklist
 
-This checklist is the release and nightly QA inventory for RIPDPI application
-features. Use it when changing runtime behavior, diagnostics, relay paths,
-settings persistence, UI flows, or test-lab tooling.
+This checklist is the release and nightly QA inventory for RIPDPI application features. Use it when changing runtime behavior, diagnostics, relay paths, settings persistence, UI flows, or test-lab tooling.
 
-The goal is not to run every combination on every pull request. The goal is to
-make the complete feature surface explicit so each change can choose a justified
-slice, while release, nightly, and manual lab passes can cover the full matrix.
+The goal is not to run every combination on every pull request. The goal is to make the complete feature surface explicit so each change can choose a justified slice, while release, nightly, and manual lab passes can cover the full matrix.
 
 ## How to Use
 
-- [ ] Identify the changed feature, its owning module, and every affected runtime
-      mode before selecting tests.
+- [ ] Identify the changed feature, its owning module, and every affected runtime mode before selecting tests.
 - [ ] Run the direct feature checks for that area.
-- [ ] Add at least one cross-feature combination for each changed boundary:
-      runtime mode, DNS mode, relay path, packet strategy, diagnostics profile,
-      network type, locale, and persistence.
-- [ ] Record the evidence artifact: unit test, integration test, packet smoke,
-      emulator/device log, Roborazzi image, GitHub Actions run, or test-lab
-      archive.
-- [ ] For release candidates, complete the release matrix in this document or
-      record the reason a row is not applicable.
-- [ ] When a feature is root-only, verify both rooted behavior and non-rooted
-      graceful degradation.
+- [ ] Add at least one cross-feature combination for each changed boundary: runtime mode, DNS mode, relay path, packet strategy, diagnostics profile, network type, locale, and persistence.
+- [ ] Record the evidence artifact: unit test, integration test, packet smoke, emulator/device log, Roborazzi image, GitHub Actions run, or test-lab archive.
+- [ ] For release candidates, complete the release matrix in this document or record the reason a row is not applicable.
+- [ ] When a feature is root-only, verify both rooted behavior and non-rooted graceful degradation.
 - [ ] When a feature writes or exports data, verify redaction and retention.
 
 ## Test Dimensions
@@ -65,13 +54,11 @@ Run this matrix before considering a build broadly healthy.
 ## App Shell, Navigation, and Settings
 
 - [ ] First launch renders Home without saved settings.
-- [ ] App returns to the last selected tab after process recreation where that is
-      supported.
+- [ ] App returns to the last selected tab after process recreation where that is supported.
 - [ ] Bottom navigation and nested routes preserve expected back-stack behavior.
 - [ ] Settings screens render with all feature flags enabled.
 - [ ] Settings screens render with all optional relay and root features disabled.
-- [ ] Search, filtering, or section expansion state survives rotation when the
-      screen owns that state.
+- [ ] Search, filtering, or section expansion state survives rotation when the screen owns that state.
 - [ ] Theme selection applies immediately and persists across restart.
 - [ ] Dynamic color does not reduce contrast below accessibility requirements.
 - [ ] Large font mode keeps controls usable and does not overlap important text.
@@ -79,14 +66,12 @@ Run this matrix before considering a build broadly healthy.
 - [ ] RTL layout renders for Persian without clipping or reversed semantics.
 - [ ] Language selector shows native language names in every locale.
 - [ ] Reset-to-default behavior clears only the intended settings.
-- [ ] Importing a profile rejects malformed or unsupported values with a clear
-      local error.
+- [ ] Importing a profile rejects malformed or unsupported values with a clear local error.
 - [ ] Exporting a profile omits private runtime-only values.
 - [ ] Migrated settings keep old defaults compatible with current schema.
 - [ ] The app handles missing native libraries with a clear non-crashing state.
 - [ ] Background-to-foreground resume refreshes service state.
-- [ ] Process kill during active service does not leave UI in a false running
-      state after relaunch.
+- [ ] Process kill during active service does not leave UI in a false running state after relaunch.
 
 ## Proxy Service
 
@@ -101,26 +86,21 @@ Run this matrix before considering a build broadly healthy.
 - [ ] Proxy mode with relay disabled uses direct outbound path.
 - [ ] Proxy mode with each relay path uses that relay for outbound traffic.
 - [ ] Proxy mode with encrypted DNS uses the selected resolver chain.
-- [ ] Proxy mode with packet strategy enabled applies only compatible TCP/UDP
-      actions.
-- [ ] Proxy mode with command-line settings enabled reflects the command-line
-      strategy and blocks automatic UI-only strategy trials.
+- [ ] Proxy mode with packet strategy enabled applies only compatible TCP/UDP actions.
+- [ ] Proxy mode with command-line settings enabled reflects the command-line strategy and blocks automatic UI-only strategy trials.
 - [ ] Proxy mode continues to work after changing DNS settings and restarting.
 - [ ] Proxy mode continues to work after changing relay settings and restarting.
 - [ ] Proxy service notification appears, updates state, and dismisses after stop.
-- [ ] Proxy service logs do not include credentials, resolver tokens, URLs with
-      secrets, or payload bytes.
+- [ ] Proxy service logs do not include credentials, resolver tokens, URLs with secrets, or payload bytes.
 
 ## VPN Service
 
 - [ ] VPN consent flow starts only when required.
 - [ ] VPN start creates foreground notification before the platform timeout.
 - [ ] TUN routes are installed and removed cleanly.
-- [ ] Upstream sockets use the protection path so service traffic does not loop
-      back into TUN.
+- [ ] Upstream sockets use the protection path so service traffic does not loop back into TUN.
 - [ ] JNI socket protection is used when available.
-- [ ] Unix socket protection fallback is used when JNI registration is not
-      available.
+- [ ] Unix socket protection fallback is used when JNI registration is not available.
 - [ ] VPN start fails gracefully if native startup returns an error.
 - [ ] VPN stop cancels native work and waits for cleanup.
 - [ ] VPN restart after failure creates a fresh native session.
@@ -134,10 +114,8 @@ Run this matrix before considering a build broadly healthy.
 - [ ] VPN with relay disabled uses direct outbound path.
 - [ ] VPN with relay enabled routes through the selected relay path.
 - [ ] VPN with encrypted DNS and relay enabled keeps resolver behavior stable.
-- [ ] VPN with packet strategy enabled applies compatible actions and reports
-      unsupported actions.
-- [ ] Always-on or lockdown platform behavior is verified where configured on the
-      device.
+- [ ] VPN with packet strategy enabled applies compatible actions and reports unsupported actions.
+- [ ] Always-on or lockdown platform behavior is verified where configured on the device.
 - [ ] VPN foreground notification action stops the service.
 - [ ] VPN logs include lifecycle events but not traffic content.
 
@@ -167,8 +145,7 @@ Run this matrix before considering a build broadly healthy.
 
 ## Packet Strategy Features
 
-For each strategy family, verify serialization, config validation, runtime
-application, diagnostics reporting, and graceful unsupported-device handling.
+For each strategy family, verify serialization, config validation, runtime application, diagnostics reporting, and graceful unsupported-device handling.
 
 | Strategy family | Required checks |
 | --- | --- |
@@ -199,8 +176,7 @@ Additional combination checks:
 - [ ] Every QUIC candidate can be selected from configuration.
 - [ ] Candidate ordering remains modern-first in diagnostics reports.
 - [ ] Fake-TTL-required candidates are skipped or marked when TTL is unavailable.
-- [ ] Root-only strategies are hidden, disabled, or explained when root mode is
-      off.
+- [ ] Root-only strategies are hidden, disabled, or explained when root mode is off.
 - [ ] Unsupported packet actions do not crash proxy mode.
 - [ ] Unsupported packet actions do not crash VPN mode.
 - [ ] Packet action telemetry is structured and redacted.
@@ -209,8 +185,7 @@ Additional combination checks:
 
 ## Relay and Tunneling Paths
 
-Each path needs validation in proxy mode, VPN mode, restart behavior, failure
-classification, and redaction.
+Each path needs validation in proxy mode, VPN mode, restart behavior, failure classification, and redaction.
 
 | Relay path | Required feature checks |
 | --- | --- |
@@ -250,29 +225,22 @@ Combination checks:
 - [ ] Connectivity profile runs to completion with default targets.
 - [ ] Quick strategy probe runs automatic recommendations.
 - [ ] Full matrix audit runs selected target cohorts.
-- [ ] Home composite run executes stages in order:
-      automatic audit, default connectivity, network-path connectivity profile,
-      strategy profile.
+- [ ] Home composite run executes stages in order: automatic audit, default connectivity, network-path connectivity profile, strategy profile.
 - [ ] Home composite skips remaining stages after audit failure or timeout.
 - [ ] Home composite marks current stage failed if the service halts.
 - [ ] Home composite fallback finalization runs when audit is not actionable.
-- [ ] Native deadline is shorter than Kotlin stage timeout to allow partial
-      result recovery.
+- [ ] Native deadline is shorter than Kotlin stage timeout to allow partial result recovery.
 - [ ] Cancellation performs the grace-period partial-result poll.
-- [ ] Progress reports active lane, candidate index, total count, candidate id,
-      and label.
+- [ ] Progress reports active lane, candidate index, total count, candidate id, and label.
 - [ ] Reports include audit assessment and target selection.
 - [ ] Export/share summaries include selected cohort and coverage/confidence.
-- [ ] Automatic diagnostics are unavailable when command-line settings are
-      enabled.
-- [ ] Remembered-network persistence is driven only by validated
-      recommendations.
+- [ ] Automatic diagnostics are unavailable when command-line settings are enabled.
+- [ ] Remembered-network persistence is driven only by validated recommendations.
 - [ ] Full matrix audit remains manual-apply only.
 - [ ] RAW_PATH diagnostics stop the VPN service before direct probing.
 - [ ] RAW_PATH diagnostics do not require TUN socket protection.
 - [ ] Diagnostics can run when proxy service is stopped.
-- [ ] Diagnostics can run when proxy service is active if the workflow supports
-      it.
+- [ ] Diagnostics can run when proxy service is active if the workflow supports it.
 - [ ] Diagnostics can run after a failed prior run without stale progress.
 - [ ] Diagnostics cancellation clears UI busy state.
 - [ ] Diagnostics history stores summary metadata and not traffic payloads.
@@ -295,16 +263,14 @@ Combination checks:
 
 ## Browser and HTTP Stack
 
-- [ ] In-app browser launch route opens expected destination without exposing
-      private query values in logs.
+- [ ] In-app browser launch route opens expected destination without exposing private query values in logs.
 - [ ] Diagnostics-to-browser handoff preserves only intended state.
 - [ ] Home-to-browser handoff works after service restart.
 - [ ] Secure HTTP client verifies TLS certificates.
 - [ ] HTTP/2-only retry path is triggered only for eligible failures.
 - [ ] Android ECH behavior is gated by platform support.
 - [ ] HTTP redirect parsing emits expected fields.
-- [ ] HTTP response parser extracts status, headers, body sample metadata, and
-      redirect fields without storing full private content.
+- [ ] HTTP response parser extracts status, headers, body sample metadata, and redirect fields without storing full private content.
 - [ ] TLS parser extracts alert, version, and ServerHello metadata.
 - [ ] SSH parser extracts banner metadata.
 - [ ] Parser failures are classified and do not abort unrelated diagnostics.
@@ -331,30 +297,23 @@ Combination checks:
 
 - [ ] Debug logs include lifecycle and decision events needed for triage.
 - [ ] Release logs omit verbose/debug-only entries.
-- [ ] Logs redact passwords, tokens, auth headers, private keys, profile secrets,
-      SSID/BSSID-like values, subscription identifiers, and private endpoint
-      material.
+- [ ] Logs redact passwords, tokens, auth headers, private keys, profile secrets, SSID/BSSID-like values, subscription identifiers, and private endpoint material.
 - [ ] Logs omit tunneled traffic payloads.
-- [ ] Diagnostics history stores summary, timestamps, profile, result, and
-      selected candidate metadata.
+- [ ] Diagnostics history stores summary, timestamps, profile, result, and selected candidate metadata.
 - [ ] Diagnostics history can be cleared.
 - [ ] Exported diagnostic summary contains enough data for local triage.
 - [ ] Exported diagnostic summary redacts private values.
-- [ ] Support archive includes command output, logs, and lab artifacts when
-      requested.
+- [ ] Support archive includes command output, logs, and lab artifacts when requested.
 - [ ] Support archive excludes release credentials and local secrets.
 - [ ] Redaction applies to success path and failure path.
 - [ ] Retention or cleanup settings remove old artifacts.
-- [ ] Archive generation failure reports local error without partial misleading
-      success.
+- [ ] Archive generation failure reports local error without partial misleading success.
 
 ## UI, Compose, Localization, and Accessibility
 
-- [ ] Home screen renders stopped, starting, running, degraded, failed, and
-      diagnostics-running states.
+- [ ] Home screen renders stopped, starting, running, degraded, failed, and diagnostics-running states.
 - [ ] Settings screen renders all configuration sections.
-- [ ] Diagnostics screen renders idle, running, progress, success, degraded,
-      failed, and canceled states.
+- [ ] Diagnostics screen renders idle, running, progress, success, degraded, failed, and canceled states.
 - [ ] History screen renders empty, populated, filtered, and deleted states.
 - [ ] Relay configuration UI validates required fields.
 - [ ] Strategy configuration UI validates incompatible selections.
@@ -384,11 +343,9 @@ Combination checks:
 - [ ] Toxiproxy reset scenario applies and clears.
 - [ ] Linux netem packet-loss scenario applies and clears in a routed VM lab.
 - [ ] VPN E2E runner verifies DNS, HTTP, HTTPS, TCP, UDP, and optional QUIC.
-- [ ] Proxy E2E runner verifies DNS, HTTP, HTTPS, TCP, UDP, optional QUIC, mock
-      relay readiness, and service cleanup after disconnect.
+- [ ] Proxy E2E runner verifies DNS, HTTP, HTTPS, TCP, UDP, optional QUIC, mock relay readiness, and service cleanup after disconnect.
 - [ ] E2E runner distinguishes passed, degraded, failed, and skipped evidence.
-- [ ] Archive script collects logs, command output, scenario config, and device
-      metadata.
+- [ ] Archive script collects logs, command output, scenario config, and device metadata.
 - [ ] Archive script redacts local secrets.
 - [ ] Local-network-lab GitHub Actions workflow runs lab checks.
 - [ ] Test-lab documentation matches script names and environment variables.
@@ -411,8 +368,7 @@ Combination checks:
 - [ ] Release verification build succeeds without debug-only assets.
 - [ ] Release APK does not include generated lab certificates or logs.
 - [ ] CodeQL workflow remains green.
-- [ ] Offline diagnostics workflow remains compatible with checked-in sample
-      corpus.
+- [ ] Offline diagnostics workflow remains compatible with checked-in sample corpus.
 - [ ] Mutation testing scope is updated when new native critical logic is added.
 - [ ] Baselines are not expanded to hide new violations.
 
@@ -479,13 +435,10 @@ A feature is ready for review when all applicable items are true:
 - [ ] Direct unit tests cover config validation and state transitions.
 - [ ] Integration tests cover the owning service or native boundary.
 - [ ] At least one runtime smoke covers the feature on emulator or device.
-- [ ] At least one cross-feature combination covers the most likely production
-      interaction.
-- [ ] Failure behavior is covered with timeout, malformed input, or unavailable
-      dependency.
+- [ ] At least one cross-feature combination covers the most likely production interaction.
+- [ ] Failure behavior is covered with timeout, malformed input, or unavailable dependency.
 - [ ] Logs and exported artifacts are redacted.
 - [ ] UI text is localized in all supported locales when new strings are added.
-- [ ] Documentation describes any new user-visible setting, workflow, or test-lab
-      command.
+- [ ] Documentation describes any new user-visible setting, workflow, or test-lab command.
 - [ ] CI gates that should catch regressions are wired or updated.
 - [ ] Manual test gaps are recorded when automation is not yet practical.

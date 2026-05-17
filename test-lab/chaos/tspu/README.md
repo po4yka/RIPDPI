@@ -1,11 +1,8 @@
 # TSPU adversarial emulator (v1)
 
-Tracked by
-[`docs/architecture/spike-tspu-adversarial-emulator.md`](../../../docs/architecture/spike-tspu-adversarial-emulator.md).
+Tracked by [`docs/architecture/spike-tspu-adversarial-emulator.md`](../../../docs/architecture/spike-tspu-adversarial-emulator.md).
 
-v1.1 ships five patterns and a matrix-runner that reports per-cell verdicts
-(`bypassed` / `blocked` / `degraded` / `inconclusive`) per `(desync_mode_id,
-pattern_id)` cell:
+v1.1 ships five patterns and a matrix-runner that reports per-cell verdicts (`bypassed` / `blocked` / `degraded` / `inconclusive`) per `(desync_mode_id, pattern_id)` cell:
 
 | pattern_id | description |
 |---|---|
@@ -41,16 +38,12 @@ test-lab/chaos/tspu/
 
 ### Dry-run (any host, including macOS)
 
-Replays packet traces from `fixtures/desync_modes/*.json` against each
-pattern's classifier without touching the kernel. Emits:
+Replays packet traces from `fixtures/desync_modes/*.json` against each pattern's classifier without touching the kernel. Emits:
 
 - `verdict-report.json` — per-cell verdict + evidence summary.
-- `<cell>.pcap` — synthesized pcap from the replayed trace + the
-  classifier's injected response (RST or drop marker). Pcap format is
-  stdlib-only; no scapy / dpkt dependency.
+- `<cell>.pcap` — synthesized pcap from the replayed trace + the classifier's injected response (RST or drop marker). Pcap format is stdlib-only; no scapy / dpkt dependency.
 
-This mode exists so the harness shape is verifiable on every PR without
-requiring a Linux runner.
+This mode exists so the harness shape is verifiable on every PR without requiring a Linux runner.
 
 ```bash
 python3 -m test-lab.chaos.tspu.runner.cli dry-run \
@@ -61,10 +54,7 @@ python3 -m test-lab.chaos.tspu.runner.cli dry-run \
 
 ### Live (Linux only, requires NET_ADMIN)
 
-Builds the container in `Dockerfile`, attaches nfqueue rules, and dispatches
-real traffic through the userspace classifier. **Not exercised in CI yet** —
-v1 lands the live surface stubbed; the implementation PR following this v1
-will wire it into the `ripdpi-lab` self-hosted runner pool.
+Builds the container in `Dockerfile`, attaches nfqueue rules, and dispatches real traffic through the userspace classifier. **Not exercised in CI yet** — v1 lands the live surface stubbed; the implementation PR following this v1 will wire it into the `ripdpi-lab` self-hosted runner pool.
 
 ## Verdict semantics
 
@@ -75,17 +65,11 @@ will wire it into the `ripdpi-lab` self-hosted runner pool.
 | `degraded` | Pattern matched on a non-initial packet, or fixture explicitly flags partial. Reserved primarily for live mode. |
 | `inconclusive` | Trace malformed or missing data the pattern requires. Does not gate PRs. |
 
-`blocked` cells gate PRs that touch `ripdpi-desync`; `inconclusive` cells do
-not. See the design spike for the contract details.
+`blocked` cells gate PRs that touch `ripdpi-desync`; `inconclusive` cells do not. See the design spike for the contract details.
 
 ## Combination matrices
 
-`matrix.json` also defines a `combinations` array. Each entry lists
-member `patterns` by id; the runner OR-joins their classifications. A
-combination cell is `blocked` if any member pattern matches, otherwise
-`bypassed`. The cell records `combination_member_ids` and
-`matched_pattern_ids` in `evidence` so triage knows which adversary
-within the combination fired.
+`matrix.json` also defines a `combinations` array. Each entry lists member `patterns` by id; the runner OR-joins their classifications. A combination cell is `blocked` if any member pattern matches, otherwise `bypassed`. The cell records `combination_member_ids` and `matched_pattern_ids` in `evidence` so triage knows which adversary within the combination fired.
 
 Shipped combinations:
 
@@ -96,15 +80,10 @@ Shipped combinations:
 | `all-tcp-and-blackhole` | Defense-in-depth on the TCP path: every TCP-touching pattern plus the byte-budget blackhole. |
 | `all-five` | Worst-case adversary: every v1.1 pattern active simultaneously. |
 
-Combinations expand the matrix to 7 desync modes × (5 patterns + 4
-combinations) = 63 cells. The matrix-runner reports per-cell verdicts
-plus the same totals.
+Combinations expand the matrix to 7 desync modes × (5 patterns + 4 combinations) = 63 cells. The matrix-runner reports per-cell verdicts plus the same totals.
 
 ## Not in v1.x
 
-- Real-time nfqueue wiring exercised against synthetic outbound traffic
-  is in CI under `tspu-live`; bringing in *real* internet-facing
-  carriers belongs to the Phase-16 real-provider spike.
+- Real-time nfqueue wiring exercised against synthetic outbound traffic is in CI under `tspu-live`; bringing in *real* internet-facing carriers belongs to the Phase-16 real-provider spike.
 - Generator-driven sampling across the 7-dim desync space (separate spike).
-- Stateful per-flow tracking across multiple SrcPort/DstPort tuples —
-  the dry-run runner treats each fixture as a single flow.
+- Stateful per-flow tracking across multiple SrcPort/DstPort tuples — the dry-run runner treats each fixture as a single flow.

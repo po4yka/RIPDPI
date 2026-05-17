@@ -1,8 +1,6 @@
 # Packet Capture
 
-Use MacBook interface captures for physical devices and Docker/container logs
-for emulator runs. Do not run a second Android VPN packet-capture app while
-RIPDPI VPN mode is active.
+Use MacBook interface captures for physical devices and Docker/container logs for emulator runs. Do not run a second Android VPN packet-capture app while RIPDPI VPN mode is active.
 
 Examples:
 

@@ -26,26 +26,17 @@ updated: 2026-04-23
 
 ## Goal
 
-Make DNS a first-class bypass layer and a first-class classifier. Separate
-DNS poisoning from SNI/TLS blocking from QUIC filtering from IP blocking
-before the diagnostic burns any transport-level attempts.
+Make DNS a first-class bypass layer and a first-class classifier. Separate DNS poisoning from SNI/TLS blocking from QUIC filtering from IP blocking before the diagnostic burns any transport-level attempts.
 
 ## Why now
 
-middlebox blocks by DNS manipulation too, not only by SNI or IP. Without
-classifying DNS first, the diagnostic will cycle through transport tricks
-against a host it could have reached by simply switching resolvers. Also,
-HTTPS/SVCB records carry ECH config metadata that gates
-[[Epic - Owned-stack mode with Android 17 ECH]].
+middlebox blocks by DNS manipulation too, not only by SNI or IP. Without classifying DNS first, the diagnostic will cycle through transport tricks against a host it could have reached by simply switching resolvers. Also, HTTPS/SVCB records carry ECH config metadata that gates [[Epic - Owned-stack mode with Android 17 ECH]].
 
 ## Key decisions
 
 - **DoH by default.** It rides HTTPS and survives hostile UDP.
-- **DoQ gated.** Only activated after the transport policy engine marks
-UDP/443 healthy for the current network profile. Otherwise DoQ and
-QUIC fail together.
-- **Always query HTTPS/SVCB** alongside A/AAAA/CNAME — these carry ALPN
-hints and ECH configs and are cheap enough to piggyback.
+- **DoQ gated.** Only activated after the transport policy engine marks UDP/443 healthy for the current network profile. Otherwise DoQ and QUIC fail together.
+- **Always query HTTPS/SVCB** alongside A/AAAA/CNAME — these carry ALPN hints and ECH configs and are cheap enough to piggyback.
 - **Five-state classification** produced for every target:
 
 | State             | Meaning |
@@ -56,28 +47,20 @@ hints and ECH configs and are cheap enough to piggyback.
 | `ECH_CAPABLE`     | HTTPS RR carries ECH config metadata |
 | `NO_HTTPS_RR`     | No HTTPS/SVCB data available |
 
-- **No broad preloaded scanning.** Measure only destinations the user is
-actually trying to reach (C-Saw consent posture).
+- **No broad preloaded scanning.** Measure only destinations the user is actually trying to reach (C-Saw consent posture).
 
 ## Scope
 
-- **In scope:** DoH primary+secondary pipeline, DoQ gated on UDP-clean,
-HTTPS/SVCB RR queries with ECH config parsing, DNS classification,
-resolver selection logic, user-destinations-only measurement.
+- **In scope:** DoH primary+secondary pipeline, DoQ gated on UDP-clean, HTTPS/SVCB RR queries with ECH config parsing, DNS classification, resolver selection logic, user-destinations-only measurement.
 - **Out of scope:** running a DoH/DoQ resolver ourselves.
 
 ## Ship definition
 
-- [ ] Resolver cascade runs per-target: system → DoH primary → DoH
-    secondary → DoQ (if UDP clean).
-- [ ] A/AAAA/CNAME/HTTPS/SVCB queried in one batch; HTTPS RR ECH config
-    parsed into a typed `EchConfig`.
-- [x] Classification produces exactly one of the five states above on the
-    active native `dns_integrity` path, and that classifier is persisted
-    into direct-path capability envelopes.
+- [ ] Resolver cascade runs per-target: system → DoH primary → DoH secondary → DoQ (if UDP clean).
+- [ ] A/AAAA/CNAME/HTTPS/SVCB queried in one batch; HTTPS RR ECH config parsed into a typed `EchConfig`.
+- [x] Classification produces exactly one of the five states above on the active native `dns_integrity` path, and that classifier is persisted into direct-path capability envelopes.
 - [ ] No code path exists that probes a preloaded target list.
-- [ ] Selection cache keyed by `(host, NetProfile)` with the same TTL as
-    the family cache.
+- [ ] Selection cache keyed by `(host, NetProfile)` with the same TTL as the family cache.
 
 ## Child tasks
 
@@ -99,36 +82,21 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 
 ## Dependencies
 
-- Feeds: [[Epic - Direct-mode diagnostic state machine]] Phase 1 and
-arms A0–A2.
-- Coordinates with: [[Epic - Direct-mode transport policy and verdicts]]
-(DoQ gating depends on `udp443_ok` from transport policy).
+- Feeds: [[Epic - Direct-mode diagnostic state machine]] Phase 1 and arms A0–A2.
+- Coordinates with: [[Epic - Direct-mode transport policy and verdicts]] (DoQ gating depends on `udp443_ok` from transport policy).
 
 ## Risks / open questions
 
-- DoH resolver selection: which providers, which redundancy? Decide in
-the pipeline task.
-- Caching policy: HTTPS/SVCB TTL vs field-observed staleness — surface
-staleness via the Phase 5 revalidation triggers.
-- "Known bad IP" heuristic for POISONED classification: start
-conservative to avoid false positives; tune from field data.
+- DoH resolver selection: which providers, which redundancy? Decide in the pipeline task.
+- Caching policy: HTTPS/SVCB TTL vs field-observed staleness — surface staleness via the Phase 5 revalidation triggers.
+- "Known bad IP" heuristic for POISONED classification: start conservative to avoid false positives; tune from field data.
 
 ## Implementation note
 
-As of 2026-04-23, RIPDPI now ships the classifier itself on the live native
-DNS-probe path, threads the result into direct-path policy storage, applies
-authority-scoped encrypted-DNS resolver selection on the native hostname-
-resolution path, and downgrades DoQ back to DoH whenever the current host is
-not UDP-clean under transport policy. VPN startup also now promotes converged
-hostname-backed `DOH_PRIMARY` / `DOH_SECONDARY` guidance into the active
-resolver selection instead of waiting for reactive failover. What remains open
-in this epic is the follow-on cache/policy work: a dedicated fastest-resolver
-cache keyed by `(host, NetProfile)` and any richer `DIVERGENT` correlation
-logic beyond the current policy-hint path.
+As of 2026-04-23, RIPDPI now ships the classifier itself on the live native DNS-probe path, threads the result into direct-path policy storage, applies authority-scoped encrypted-DNS resolver selection on the native hostname- resolution path, and downgrades DoQ back to DoH whenever the current host is not UDP-clean under transport policy. VPN startup also now promotes converged hostname-backed `DOH_PRIMARY` / `DOH_SECONDARY` guidance into the active resolver selection instead of waiting for reactive failover. What remains open in this epic is the follow-on cache/policy work: a dedicated fastest-resolver cache keyed by `(host, NetProfile)` and any richer `DIVERGENT` correlation logic beyond the current policy-hint path.
 
 ## Links
 
 - [[ripdpi-android]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]] §2, Basic diagnostic
-Phase 1 + arms A0–A2
+- [[ripdpi-android-direct-mode-plan-2026-04-20]] §2, Basic diagnostic Phase 1 + arms A0–A2
 - Child issues: 3

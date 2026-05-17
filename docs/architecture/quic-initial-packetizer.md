@@ -1,8 +1,6 @@
 # QUIC Initial Packetizer
 
-QUIC Initial shaping is owned by a packetizer surface in `ripdpi-packets`.
-`ripdpi-desync` owns semantic planning and asks the packetizer for valid wire
-images instead of mutating encrypted Initial bytes directly.
+QUIC Initial shaping is owned by a packetizer surface in `ripdpi-packets`. `ripdpi-desync` owns semantic planning and asks the packetizer for valid wire images instead of mutating encrypted Initial bytes directly.
 
 ## Responsibilities
 
@@ -23,24 +21,17 @@ The packetizer owns:
 
 ## Core Types
 
-- `QuicInitialSeed`: immutable header and ClientHello seed for one Initial
-  family, including `version`, `dcid`, `scid`, `token`, and full TLS
-  ClientHello bytes.
-- `QuicInitialPacketLayout`: declarative layout request carrying CRYPTO split
-  offsets, minimum datagram length, extra tail padding, and packet number.
-- `QuicInitialBrowserProfile`: browser-like seed family. Current families are
-  `ChromeAndroid` and `FirefoxAndroid`.
+- `QuicInitialSeed`: immutable header and ClientHello seed for one Initial family, including `version`, `dcid`, `scid`, `token`, and full TLS ClientHello bytes.
+- `QuicInitialPacketLayout`: declarative layout request carrying CRYPTO split offsets, minimum datagram length, extra tail padding, and packet number.
+- `QuicInitialBrowserProfile`: browser-like seed family. Current families are `ChromeAndroid` and `FirefoxAndroid`.
 
 ## Invariants
 
 1. Semantic split offsets are defined in defragmented ClientHello byte space.
-2. Version, connection ID, CRYPTO framing, packet-number, and datagram-length
-   changes go through full Initial re-encryption and header protection.
-3. Parsed-packet rewrites preserve the original Initial seed unless a tactic
-   explicitly requests a browser-like synthetic seed.
+2. Version, connection ID, CRYPTO framing, packet-number, and datagram-length changes go through full Initial re-encryption and header protection.
+3. Parsed-packet rewrites preserve the original Initial seed unless a tactic explicitly requests a browser-like synthetic seed.
 4. Browser-like seeds reuse the committed TLS fake-profile corpus.
-5. Weak mutation families stay explicit and demotable instead of silently
-   entering the production probe pool.
+5. Weak mutation families stay explicit and demotable instead of silently entering the production probe pool.
 
 ## Layout Families
 
@@ -63,6 +54,4 @@ Lab-only or demotable families:
 
 ## Verification
 
-`ripdpi-packets` unit tests pin browser-like seed generation, parsed-seed round
-trips, CRYPTO split packetization, padding target preservation, and
-packet-number variation.
+`ripdpi-packets` unit tests pin browser-like seed generation, parsed-seed round trips, CRYPTO split packetization, padding target preservation, and packet-number variation.

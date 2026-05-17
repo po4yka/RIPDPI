@@ -26,30 +26,22 @@ updated: 2026-04-23
 
 ## Summary
 
-Phase 5 of the diagnostic. Policy is pinned with a TTL and invalidated on
-environmental change; after 3 consecutive failures re-runs the full
-diagnostic.
+Phase 5 of the diagnostic. Policy is pinned with a TTL and invalidated on environmental change; after 3 consecutive failures re-runs the full diagnostic.
 
 ## Plan reference
 
-[[ripdpi-android-direct-mode-plan-2026-04-20]] "Phase 5 — Persistence and
-revalidation".
+[[ripdpi-android-direct-mode-plan-2026-04-20]] "Phase 5 — Persistence and revalidation".
 
 ## Progress
 
 The repo-owned persistence path is now partially landed:
 
 - confirmed direct-path policy is stored with a 7-day TTL;
-- runtime ignores unconfirmed authority policy records instead of blindly
-replaying one-off diagnostics results;
-- three consecutive revalidation failures now retire the cached policy entry
-from runtime use;
-- `NO_DIRECT_SOLUTION` entries now age out when their cooldown expires instead
-of living forever in the injected direct-path capability set.
+- runtime ignores unconfirmed authority policy records instead of blindly replaying one-off diagnostics results;
+- three consecutive revalidation failures now retire the cached policy entry from runtime use;
+- `NO_DIRECT_SOLUTION` entries now age out when their cooldown expires instead of living forever in the injected direct-path capability set.
 
-Still open: ASN-aware invalidation, HTTPS/SVCB/ECH-specific invalidation, and
-the explicit shared atomic-write/revalidation surface across every policy
-store.
+Still open: ASN-aware invalidation, HTTPS/SVCB/ECH-specific invalidation, and the explicit shared atomic-write/revalidation surface across every policy store.
 
 ## Acceptance criteria
 
@@ -58,10 +50,8 @@ store.
 - [x] Invalidate on access-type change (wifi ↔ cellular).
 - [x] Invalidate after 3 consecutive failures.
 - [ ] Invalidate when HTTPS/SVCB TTL expires or ECH capability changes.
-- [ ] Atomic write (shares path with
-    [[Make cache snapshot writes atomic]]).
-- [ ] Phase 6 rotation triggers only within the same policy entry — does
-    not count against the TTL.
+- [ ] Atomic write (shares path with [[Make cache snapshot writes atomic]]).
+- [ ] Phase 6 rotation triggers only within the same policy entry — does not count against the TTL.
 
 ## Links
 
