@@ -117,7 +117,12 @@ class AppShortcutsPublisher
 
         private fun publishDynamicShortcuts(entries: List<DynamicProfileEntry>) {
             runCatching {
-                val limit = min(MAX_DYNAMIC_SHORTCUTS, ShortcutManagerCompat.getMaxShortcutCountPerActivity(context))
+                val platformLimit =
+                    ShortcutManagerCompat
+                        .getMaxShortcutCountPerActivity(context)
+                        .takeIf { it > 0 }
+                        ?: MAX_DYNAMIC_SHORTCUTS
+                val limit = min(MAX_DYNAMIC_SHORTCUTS, platformLimit)
                 val infos = entries.take(limit).map { buildShortcut(it) }
                 ShortcutManagerCompat.setDynamicShortcuts(context, infos)
             }.onFailure { err ->

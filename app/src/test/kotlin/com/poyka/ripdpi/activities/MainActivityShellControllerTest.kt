@@ -1,11 +1,15 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Intent
+import android.net.Uri
 import app.cash.turbine.test
 import com.poyka.ripdpi.permissions.PermissionKind
+import com.poyka.ripdpi.shortcuts.EXTRA_SELECT_GROUP_ID
+import com.poyka.ripdpi.shortcuts.EXTRA_SELECT_PROFILE_ID
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -173,5 +177,85 @@ class MainActivityShellControllerTest {
         controller.consumeStartConfiguredModeRequest()
 
         assertFalse(controller.state.value.startConfiguredModeRequested)
+    }
+
+    @Test
+    fun `stop configured mode extra populates shell state`() {
+        val controller =
+            MainActivityShellController(
+                MainActivity.createLaunchIntent(
+                    context = RuntimeEnvironment.getApplication(),
+                    requestStopConfiguredMode = true,
+                ),
+            )
+
+        assertTrue(controller.state.value.stopConfiguredModeRequested)
+
+        controller.consumeStopConfiguredModeRequest()
+
+        assertFalse(controller.state.value.stopConfiguredModeRequested)
+    }
+
+    @Test
+    fun `disconnect deep link uri populates stop request`() {
+        val intent =
+            Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://disconnect"))
+        val controller = MainActivityShellController(intent)
+
+        assertTrue(controller.state.value.stopConfiguredModeRequested)
+    }
+
+    @Test
+    fun `selector intent extras populate selector selection request`() {
+        val intent =
+            Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://connect")).apply {
+                putExtra(EXTRA_SELECT_GROUP_ID, "group-a")
+                putExtra(EXTRA_SELECT_PROFILE_ID, "profile-x")
+            }
+
+        val controller = MainActivityShellController(intent)
+
+        val request = controller.state.value.selectorSelectionRequested
+        assertEquals("group-a", request?.groupId)
+        assertEquals("profile-x", request?.profileId)
+
+        controller.consumeSelectorSelectionRequest()
+
+        assertNull(controller.state.value.selectorSelectionRequested)
+    }
+
+    @Test
+    fun `partial selector intent extras do not populate selection`() {
+        val intent =
+            Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://connect")).apply {
+                putExtra(EXTRA_SELECT_GROUP_ID, "group-a")
+            }
+
+        val controller = MainActivityShellController(intent)
+
+        assertNull(controller.state.value.selectorSelectionRequested)
+    }
+
+    @Test
+    fun `new intent merges stop and selector requests`() {
+        val controller = MainActivityShellController()
+
+        controller.onNewIntent(
+            Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://disconnect")),
+        )
+
+        assertTrue(controller.state.value.stopConfiguredModeRequested)
+
+        controller.onNewIntent(
+            Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://connect")).apply {
+                putExtra(EXTRA_SELECT_GROUP_ID, "group-b")
+                putExtra(EXTRA_SELECT_PROFILE_ID, "profile-y")
+            },
+        )
+
+        assertTrue(controller.state.value.stopConfiguredModeRequested)
+        val request = controller.state.value.selectorSelectionRequested
+        assertEquals("group-b", request?.groupId)
+        assertEquals("profile-y", request?.profileId)
     }
 }
