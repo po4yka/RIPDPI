@@ -118,6 +118,7 @@ pub trait Probe {
     fn run(&self, ctx: &ProbeContext) -> ProbeOutcome;
 }
 
+pub mod circumvention_reachability;
 pub mod dns_tampering;
 pub mod doh_survey;
 pub mod ech_handshake;
@@ -126,9 +127,11 @@ pub mod http_response_block;
 pub mod ip_block_suspect;
 pub mod mtproto_reachability;
 pub mod quic_probe;
+pub mod service_reachability;
 pub mod throughput;
 pub mod tls_alert;
 
+pub use circumvention_reachability::CircumventionReachabilityProbe;
 pub use dns_tampering::DnsTamperingConfirmationProbe;
 pub use doh_survey::DohSurveyProbe;
 pub use ech_handshake::EchHandshakeProbe;
@@ -137,6 +140,7 @@ pub use http_response_block::HttpResponseBlockOfflineProbe;
 pub use ip_block_suspect::IpBlockSuspectProbe;
 pub use mtproto_reachability::MtprotoReachabilityProbe;
 pub use quic_probe::QuicProbeOfflineProbe;
+pub use service_reachability::ServiceReachabilityProbe;
 pub use throughput::ThroughputProbe;
 pub use tls_alert::TlsAlertOfflineProbe;
 
