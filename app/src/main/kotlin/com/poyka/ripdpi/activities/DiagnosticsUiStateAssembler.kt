@@ -4,7 +4,6 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
-import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import kotlinx.coroutines.CoroutineScope
@@ -218,8 +217,10 @@ internal class DiagnosticsUiStateAssembler
             ) { settings, rememberedPolicies, serviceStatus, activePolicies ->
                 val (_, activeMode) = serviceStatus
                 val connectionPolicy =
-                    activePolicies[activeMode]
-                        ?: activePolicies.values.maxByOrNull(DiagnosticActiveConnectionPolicy::appliedAt)
+                    selectActiveConnectionPolicy(
+                        serviceMode = activeMode,
+                        activePolicies = activePolicies,
+                    )
                 ConfigSnapshot(settings, rememberedPolicies, connectionPolicy)
             }.stateIn(
                 scope,
