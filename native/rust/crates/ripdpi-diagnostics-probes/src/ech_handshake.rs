@@ -11,12 +11,12 @@
 //! * **Async Runner** ([`EchHandshakeRunner`]) — performs the live DNS + TLS
 //!   work and returns a populated `EchHandshakeProbe` ready to be scheduled.
 //!
-// PARENT-INTEGRATION: EchHandshakeRunner is a stub that returns
-// SetupError{"ech-runner-not-implemented"} because rustls 0.23 ECH support
-// is in the `experimental` feature flag (not yet in the published release at
-// the time of writing). Wire this up once `rustls::ClientConfig::ech_mode` is
-// stabilised and added to the workspace's Cargo.toml. The pure Probe adapter
-// and all unit tests are fully functional today.
+// PARENT-INTEGRATION: EchHandshakeRunner now dispatches through the
+// EchHandshakeDriver trait. Wire a real driver (hickory-resolver for
+// HTTPS RR + rustls ClientConfig::ech_mode) by implementing the trait
+// in a separate crate or sibling module and passing it to the runner.
+// NoopEchHandshakeDriver preserves the historical "not implemented"
+// behaviour for callers that have not yet picked a real driver.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 
@@ -146,50 +146,99 @@ fn sanitize_detail(raw: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Async Runner (stub pending rustls ECH stabilisation)
+// Async Runner with pluggable driver
 // ---------------------------------------------------------------------------
+
+/// Pluggable backend for the ECH handshake runner.
+///
+/// Real implementations wire DNS HTTPS-RR resolution (e.g.
+/// `hickory-resolver`) and a TLS handshake stack with ECH support
+/// (e.g. rustls 0.23+ `ClientConfig::ech_mode`). Tests use the
+/// in-process fake produced by [`NoopEchHandshakeDriver`] or a custom
+/// fake.
+///
+/// The trait uses native `async fn in trait` (stable Rust 1.75+) so
+/// the runner can stay generic over the driver without boxing.
+pub trait EchHandshakeDriver: Send + Sync {
+    /// Resolve the HTTPS RR for `host` and return the parsed `ech=`
+    /// parameter bytes, or `None` if the record exists but carries no
+    /// ECH config. Returns `Err` only when the lookup itself failed
+    /// (resolver unavailable, timeout, malformed response); a clean
+    /// "no HTTPS RR" answer is `Ok(None)`.
+    fn lookup_ech_config(
+        &self,
+        host: &str,
+    ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, String>> + Send;
+
+    /// Perform the TLS handshake against `host:port` with ECH enabled
+    /// using `ech_config`. Return the [`EchHandshakeOutcome`] directly
+    /// so the runner can stay agnostic of the underlying TLS stack's
+    /// error model.
+    fn handshake_with_ech(
+        &self,
+        host: &str,
+        port: u16,
+        ech_config: &[u8],
+        timeout: std::time::Duration,
+    ) -> impl std::future::Future<Output = EchHandshakeOutcome> + Send;
+}
+
+/// In-process driver that preserves the pre-refactor stub behaviour.
+///
+/// Always returns
+/// `SetupError { detail: "ech-runner-not-implemented" }` so callers
+/// that have not yet picked a real driver see the documented
+/// "not implemented" signal instead of silent success.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NoopEchHandshakeDriver;
+
+impl EchHandshakeDriver for NoopEchHandshakeDriver {
+    async fn lookup_ech_config(&self, _host: &str) -> Result<Option<Vec<u8>>, String> {
+        Err("ech-runner-not-implemented".to_string())
+    }
+
+    async fn handshake_with_ech(
+        &self,
+        _host: &str,
+        _port: u16,
+        _ech_config: &[u8],
+        _timeout: std::time::Duration,
+    ) -> EchHandshakeOutcome {
+        EchHandshakeOutcome::SetupError { detail: "ech-runner-not-implemented".to_string() }
+    }
+}
 
 /// Async runner that performs DNS HTTPS-RR resolution and a live TLS
 /// handshake with ECH enabled, then returns a populated [`EchHandshakeProbe`].
 ///
-/// # Integration status
-///
-/// The runner is currently a **stub** — see the `PARENT-INTEGRATION` comment
-/// at the top of this file. It always returns
-/// `SetupError { detail: "ech-runner-not-implemented" }`.
-///
-/// When rustls ECH is stabilised, replace the body of [`EchHandshakeRunner::attempt`]
-/// with:
-///
-/// 1. Resolve `target_host` HTTPS RR (RFC 9460) using `ctx.resolver_hint`
-///    (or the platform resolver when `None`) to obtain ECH config bytes.
-/// 2. Return `NoEchConfig` if no HTTPS RR or no `ech=` parameter is present.
-/// 3. Open TCP to `target_host:443`.
-/// 4. Perform TLS handshake with ECH mode enabled; inspect the negotiated ECH
-///    result.
-/// 5. Map the TLS outcome to [`EchHandshakeOutcome`] and construct the probe.
-pub struct EchHandshakeRunner {
+/// Generic over the backend [`EchHandshakeDriver`]; the runner itself
+/// is pure dispatcher logic and is exercised by the FakeDriver tests
+/// in `tests/ech_handshake_runner_tdd.rs`.
+pub struct EchHandshakeRunner<D: EchHandshakeDriver> {
+    /// Backend driver responsible for the DNS + TLS I/O.
+    pub driver: D,
     /// Hostname to probe (e.g. `"cloudflare.com"`).
     pub target_host: String,
-    /// Maximum wall-clock time for the combined DNS + TLS attempt.
+    /// Maximum wall-clock time for the TLS handshake. The DNS lookup
+    /// uses the driver's own deadline.
     pub timeout: std::time::Duration,
 }
 
-impl EchHandshakeRunner {
-    /// Attempt ECH negotiation against `self.target_host` and return a probe
-    /// carrying the captured [`EchHandshakeOutcome`].
-    ///
-    /// The probe is ready for immediate scheduling via `Probe::run`; no
-    /// further I/O is performed after this method returns.
+impl<D: EchHandshakeDriver> EchHandshakeRunner<D> {
+    /// Construct a runner with the supplied driver and target.
+    pub fn new(driver: D, target_host: impl Into<String>, timeout: std::time::Duration) -> Self {
+        Self { driver, target_host: target_host.into(), timeout }
+    }
+
+    /// Attempt ECH negotiation and return a probe carrying the
+    /// captured [`EchHandshakeOutcome`].
     pub async fn attempt(&self, ctx: &ProbeContext) -> EchHandshakeProbe {
-        // PARENT-INTEGRATION: stub — replace with real DNS + TLS logic once
-        // rustls ECH is available in the workspace dependency tree.
-        let _ = &self.timeout;
-        EchHandshakeProbe::new(
-            self.target_host.clone(),
-            EchHandshakeOutcome::SetupError { detail: "ech-runner-not-implemented".to_string() },
-            ctx.relay_hint.clone(),
-        )
+        let outcome = match self.driver.lookup_ech_config(&self.target_host).await {
+            Err(detail) => EchHandshakeOutcome::SetupError { detail },
+            Ok(None) => EchHandshakeOutcome::NoEchConfig,
+            Ok(Some(config)) => self.driver.handshake_with_ech(&self.target_host, 443, &config, self.timeout).await,
+        };
+        EchHandshakeProbe::new(self.target_host.clone(), outcome, ctx.relay_hint.clone())
     }
 }
 
