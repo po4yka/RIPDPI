@@ -14,13 +14,15 @@
 # Requires:
 #   - Linux host (nfqueue + nftables).
 #   - sudo / NET_ADMIN.
-#   - python3-netfilterqueue installed.
+#   - NetfilterQueue installed for the Python interpreter used below.
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TSPU_DIR="$ROOT/test-lab/chaos/tspu"
 NFT_FILE="$TSPU_DIR/runner/nft/tspu-ci-smoke.nft"
+PYTHON_BIN="${TSPU_PYTHON:-${pythonLocation:+$pythonLocation/bin/python}}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 if [[ "$(uname -s)" != "Linux" ]]; then
     echo "live smoke requires Linux (got $(uname -s)); skipping" >&2
@@ -50,7 +52,7 @@ trap cleanup EXIT
 # 1. Loopback listener so the TCP connect completes and ClientHello
 #    bytes are written into the OUTPUT path (which is where nft sees
 #    them).
-python3 - <<'PY' &
+"$PYTHON_BIN" - <<'PY' &
 import socket
 import sys
 s = socket.socket()
@@ -81,7 +83,7 @@ sleep 0.5
 # 2. Live handler with sudo, time-limited so the script returns.
 sudo --preserve-env=PYTHONPATH \
     PYTHONPATH="$TSPU_DIR" \
-    python3 -m runner.cli live \
+    "$PYTHON_BIN" -m runner.cli live \
         --matrix "$TSPU_DIR/matrix.json" \
         --out-dir "$ARTIFACT_DIR" \
         --timeout-seconds 8 \
@@ -93,7 +95,7 @@ echo "tspu live: handler PID=$HANDLER_PID"
 sleep 2
 
 # 3. Test traffic.
-PYTHONPATH="$TSPU_DIR" python3 -m runner.ci_smoke_traffic blocked.example || true
+PYTHONPATH="$TSPU_DIR" "$PYTHON_BIN" -m runner.ci_smoke_traffic blocked.example || true
 
 # 4. Wait for the handler to finish (its watchdog will fire at 8s).
 wait "$HANDLER_PID"
@@ -106,7 +108,7 @@ if [[ ! -s "$REPORT" ]]; then
     exit 1
 fi
 
-python3 - <<PY
+"$PYTHON_BIN" - <<PY
 import json, sys
 with open("$REPORT") as fh:
     report = json.load(fh)
