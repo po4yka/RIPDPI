@@ -14,7 +14,6 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.classifyFailureReason
-import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsBlockedPathStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
@@ -285,23 +284,10 @@ internal class VpnServiceRuntimeCoordinator(
         restartReason: String,
         appliedAt: Long,
     ) {
-        val policy =
-            resolution.appliedPolicy ?: run {
-                session.clearActiveConnectionPolicy()
-                return
-            }
         session.updateActiveConnectionPolicy(
-            ActiveConnectionPolicy(
-                mode = Mode.VPN,
-                policy = policy,
-                matchedPolicy = resolution.matchedNetworkPolicy,
-                usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
-                rememberedPolicyAppliedByExactMatch = resolution.rememberedPolicyAppliedByExactMatch,
-                fingerprintHash = resolution.fingerprintHash,
-                policySignature = resolution.policySignature,
-                appliedAt = appliedAt,
+            resolution.toVpnActiveConnectionPolicy(
                 restartReason = restartReason,
-                handoverClassification = resolution.handoverClassification,
+                appliedAt = appliedAt,
             ),
         )
     }
