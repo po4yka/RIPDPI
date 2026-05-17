@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import socket
 import struct
+import threading
+import time
 from typing import Callable
 
 from . import live as live_mod
@@ -68,6 +70,7 @@ class NfqueueAdapter:
         self._queue_num = queue_num
         self._nfq = NetfilterQueue()
         self._bound = False
+        self._shutdown = threading.Event()
 
     def consume(self, handler: Callable[[str, bytes, int, int], "live_mod.Verdict"]) -> None:
         def _on_pkt(pkt):  # pragma: no cover - exercised in live mode only
@@ -97,17 +100,15 @@ class NfqueueAdapter:
 
         self._nfq.bind(self._queue_num, _on_pkt)
         self._bound = True
+        self._shutdown.clear()
         try:
-            self._nfq.run()
+            while not self._shutdown.is_set():
+                self._nfq.run(block=False)
+                time.sleep(0.05)
         finally:
             if self._bound:
                 self._nfq.unbind()
                 self._bound = False
 
     def shutdown(self) -> None:  # pragma: no cover - exercised in live mode only
-        if self._bound:
-            # Unbind from another thread; the kernel closes the netlink
-            # socket and `run()` returns. The finally block in consume()
-            # is a no-op in that path.
-            self._nfq.unbind()
-            self._bound = False
+        self._shutdown.set()
