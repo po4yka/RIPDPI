@@ -242,7 +242,10 @@ private fun bucketStrategyFailureClassification(outcome: String): DiagnosticsOut
         "tls_handshake_failure",
         "connect_failure",
         "connection_freeze",
+        "ip_block_suspect",
+        "shadowtls_version_mismatch",
         "strategy_execution_failure",
+        "tuic_version_unsupported",
         -> DiagnosticsOutcomeBucket.Failed
 
         // Capability-skipped is not a network failure; a required platform
