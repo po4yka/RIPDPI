@@ -10,6 +10,7 @@ import com.poyka.ripdpi.services.CdnEchRefreshWorker
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.services.SharedPriorsRefreshWorker
+import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.strategy.StrategyPackService
 import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -31,9 +32,12 @@ class AppStartupInitializer
         private val dnsPathPreferenceInvalidator: DnsPathPreferenceInvalidator,
         private val cdnEchSeedFromCache: CdnEchSeedFromCache,
         private val proxyGroupRepository: ProxyGroupRepository,
+        private val appShortcutsPublisher: AppShortcutsPublisher,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
+            runCatching { appShortcutsPublisher.start() }
+                .onFailure { error -> Logger.w(error) { "App shortcuts publisher failed to start" } }
             applicationScope.launch {
                 val report = initializeSubsystems()
                 Logger.i { report.toLogMessage() }

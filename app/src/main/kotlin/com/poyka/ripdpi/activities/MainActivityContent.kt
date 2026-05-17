@@ -138,6 +138,13 @@ private fun MainActivityEffects(
         }
     }
 
+    LaunchedEffect(shellState.stopConfiguredModeRequested) {
+        if (shellState.stopConfiguredModeRequested) {
+            viewModel.onStopRequested()
+            controller.consumeStopConfiguredModeRequest()
+        }
+    }
+
     LaunchedEffect(connectionState) {
         controller.onConnectionStateChanged(connectionState)
     }

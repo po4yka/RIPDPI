@@ -2379,6 +2379,13 @@ Source : %2$s</string>
     <string name="settings_theme_body">Choisissez si l\'application suit le thème du système ou reste fixe.</string>
     <string name="settings_warning_backup_pin_title">PIN de secours recommandé</string>
     <string name="shortcut_diagnostics_short">Diagnostics</string>
+    <string name="shortcut_stop_vpn">Arrêter le VPN</string>
+    <string name="shortcut_stop_vpn_short">Arrêter</string>
+    <string name="shortcut_stop_vpn_disabled">Le VPN n\'est pas actif</string>
+    <string name="shortcut_open_config">Ouvrir les profils</string>
+    <string name="shortcut_open_config_short">Profils</string>
+    <string name="shortcut_open_settings">Ouvrir les paramètres</string>
+    <string name="shortcut_open_settings_short">Paramètres</string>
     <string name="source_code_link">Code source</string>
     <string name="status_indicator_description">Statut : %1$s</string>
     <string name="strategy_config_export_action">Exporter</string>

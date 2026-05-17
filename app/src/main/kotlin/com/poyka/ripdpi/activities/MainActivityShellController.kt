@@ -17,8 +17,15 @@ internal data class MainActivityShellState(
     val sharedDiagnosticFragmentRequested: String? = null,
     val importRouteRequested: Route? = null,
     val startConfiguredModeRequested: Boolean = false,
+    val stopConfiguredModeRequested: Boolean = false,
+    val selectorSelectionRequested: SelectorSelectionRequest? = null,
     val vpnPermissionDialogVisible: Boolean = false,
     val relockRequested: Boolean = false,
+)
+
+internal data class SelectorSelectionRequest(
+    val groupId: String,
+    val profileId: String,
 )
 
 internal sealed interface MainActivityUiEvent {
@@ -37,6 +44,8 @@ internal class MainActivityShellController(
                 sharedDiagnosticFragmentRequested = MainActivity.diagnosticShareFragment(initialIntent),
                 importRouteRequested = MainActivity.importRouteFrom(initialIntent),
                 startConfiguredModeRequested = MainActivity.requestsConfiguredStart(initialIntent),
+                stopConfiguredModeRequested = MainActivity.requestsConfiguredStop(initialIntent),
+                selectorSelectionRequested = selectorRequestFrom(initialIntent),
             ),
         )
     private val _uiEvents =
@@ -65,8 +74,18 @@ internal class MainActivityShellController(
                     MainActivity.importRouteFrom(intent) ?: current.importRouteRequested,
                 startConfiguredModeRequested =
                     current.startConfiguredModeRequested || MainActivity.requestsConfiguredStart(intent),
+                stopConfiguredModeRequested =
+                    current.stopConfiguredModeRequested || MainActivity.requestsConfiguredStop(intent),
+                selectorSelectionRequested =
+                    selectorRequestFrom(intent) ?: current.selectorSelectionRequested,
             )
         }
+    }
+
+    private fun selectorRequestFrom(intent: Intent?): SelectorSelectionRequest? {
+        val groupId = MainActivity.selectorGroupIdFrom(intent) ?: return null
+        val profileId = MainActivity.selectorProfileIdFrom(intent) ?: return null
+        return SelectorSelectionRequest(groupId = groupId, profileId = profileId)
     }
 
     fun setLaunchRouteRequest(route: String?) {
@@ -138,6 +157,14 @@ internal class MainActivityShellController(
 
     fun consumeStartConfiguredModeRequest() {
         _state.update { it.copy(startConfiguredModeRequested = false) }
+    }
+
+    fun consumeStopConfiguredModeRequest() {
+        _state.update { it.copy(stopConfiguredModeRequested = false) }
+    }
+
+    fun consumeSelectorSelectionRequest() {
+        _state.update { it.copy(selectorSelectionRequested = null) }
     }
 
     fun showVpnPermissionDialog() {

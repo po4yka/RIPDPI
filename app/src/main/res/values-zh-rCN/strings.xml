@@ -2356,6 +2356,13 @@ fake_burst 3</string>
     <string name="settings_warning_backup_pin_title">建议设置备用 PIN</string>
     <string name="shortcut_diagnostics_short">诊断</string>
     <string name="shortcut_quick_connect">快速连接</string>
+    <string name="shortcut_stop_vpn">停止 VPN</string>
+    <string name="shortcut_stop_vpn_short">停止</string>
+    <string name="shortcut_stop_vpn_disabled">VPN 未运行</string>
+    <string name="shortcut_open_config">打开配置</string>
+    <string name="shortcut_open_config_short">配置</string>
+    <string name="shortcut_open_settings">打开设置</string>
+    <string name="shortcut_open_settings_short">设置</string>
     <plurals name="stage_failed_count">
         <item quantity="other">,%d 项失败</item>
     </plurals>

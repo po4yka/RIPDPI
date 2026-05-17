@@ -2353,6 +2353,13 @@ fakeddisorder endhost</string>
     <string name="settings_warning_backup_pin_title">PIN پشتیبان توصیه می‌شود</string>
     <string name="shortcut_diagnostics_disabled">تشخیص‌ها در دسترس نیست</string>
     <string name="shortcut_quick_connect_disabled">اتصال در دسترس نیست</string>
+    <string name="shortcut_stop_vpn">توقف VPN</string>
+    <string name="shortcut_stop_vpn_short">توقف</string>
+    <string name="shortcut_stop_vpn_disabled">VPN فعال نیست</string>
+    <string name="shortcut_open_config">باز کردن نمایه‌ها</string>
+    <string name="shortcut_open_config_short">نمایه‌ها</string>
+    <string name="shortcut_open_settings">باز کردن تنظیمات</string>
+    <string name="shortcut_open_settings_short">تنظیمات</string>
     <string name="sni_of_fake_packet">SNI بسته جعلی</string>
     <plurals name="stage_failed_count">
         <item quantity="one">، %d ناموفق</item>

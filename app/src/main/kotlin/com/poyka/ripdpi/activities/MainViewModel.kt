@@ -532,6 +532,12 @@ class MainViewModel
             }
         }
 
+        fun onStopRequested() {
+            if (uiState.value.appStatus == AppStatus.Running) {
+                connectionActions.stop()
+            }
+        }
+
         fun onToggleLocalBypass(enabled: Boolean) {
             if (enabled) {
                 permissionActions.resolvePermissionAction(PermissionAction.StartProxyMode)

@@ -2379,6 +2379,13 @@ Origen: %2$s</string>
     <string name="settings_theme_body">Elige si la aplicación sigue el tema del sistema o se mantiene fijo.</string>
     <string name="settings_warning_backup_pin_title">PIN de respaldo recomendado</string>
     <string name="shortcut_diagnostics_short">Diagnóstico</string>
+    <string name="shortcut_stop_vpn">Detener VPN</string>
+    <string name="shortcut_stop_vpn_short">Detener</string>
+    <string name="shortcut_stop_vpn_disabled">El VPN no está activo</string>
+    <string name="shortcut_open_config">Abrir perfiles</string>
+    <string name="shortcut_open_config_short">Perfiles</string>
+    <string name="shortcut_open_settings">Abrir ajustes</string>
+    <string name="shortcut_open_settings_short">Ajustes</string>
     <string name="source_code_link">Código fuente</string>
     <string name="status_indicator_description">Estado: %1$s</string>
     <string name="strategy_config_export_action">Exportar</string>

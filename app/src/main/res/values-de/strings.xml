@@ -2379,6 +2379,13 @@ Quelle: %2$s</string>
     <string name="settings_theme_body">Wählen Sie, ob die App dem Systemdesign folgt oder fest bleibt.</string>
     <string name="settings_warning_backup_pin_title">Backup-PIN empfohlen</string>
     <string name="shortcut_diagnostics_short">Diagnose</string>
+    <string name="shortcut_stop_vpn">VPN beenden</string>
+    <string name="shortcut_stop_vpn_short">Stopp</string>
+    <string name="shortcut_stop_vpn_disabled">VPN ist nicht aktiv</string>
+    <string name="shortcut_open_config">Profile öffnen</string>
+    <string name="shortcut_open_config_short">Profile</string>
+    <string name="shortcut_open_settings">Einstellungen öffnen</string>
+    <string name="shortcut_open_settings_short">Einstellungen</string>
     <string name="source_code_link">Quellcode</string>
     <string name="status_indicator_description">Status: %1$s</string>
     <string name="strategy_config_export_action">Exportieren</string>

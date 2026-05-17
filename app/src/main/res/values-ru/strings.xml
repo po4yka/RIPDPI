@@ -2383,6 +2383,13 @@ fakeddisorder endhost</string>
     <string name="shortcut_quick_connect_disabled">Соединение недоступно</string>
     <string name="shortcut_quick_connect_short">Подключить</string>
     <string name="shortcut_quick_connect">Быстрое подключение</string>
+    <string name="shortcut_stop_vpn">Остановить VPN</string>
+    <string name="shortcut_stop_vpn_short">Стоп</string>
+    <string name="shortcut_stop_vpn_disabled">VPN не запущен</string>
+    <string name="shortcut_open_config">Открыть профили</string>
+    <string name="shortcut_open_config_short">Профили</string>
+    <string name="shortcut_open_settings">Открыть настройки</string>
+    <string name="shortcut_open_settings_short">Настройки</string>
 
     <!-- gap-fill: stage plurals -->
     <plurals name="stage_failed_count">

@@ -12,6 +12,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.automation.AutomationController
+import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.proxyimport.ImportHandlerActivity
 import com.poyka.ripdpi.proxyimport.ImportLaunchRoute
@@ -31,17 +32,22 @@ class MainActivity : AppCompatActivity() {
     @Inject
     internal lateinit var automationController: Optional<AutomationController>
 
+    @Inject
+    internal lateinit var selectorSelectionStore: SelectorSelectionStore
+
     private val viewModel: MainViewModel by viewModels()
     private val shellController by lazy(LazyThreadSafetyMode.NONE) { MainActivityShellController(intent) }
 
     companion object {
         private const val EXTRA_OPEN_HOME = "com.poyka.ripdpi.extra.OPEN_HOME"
         private const val EXTRA_START_CONFIGURED_MODE = "com.poyka.ripdpi.extra.START_CONFIGURED_MODE"
+        private const val EXTRA_STOP_CONFIGURED_MODE = "com.poyka.ripdpi.extra.STOP_CONFIGURED_MODE"
 
         fun createLaunchIntent(
             context: Context,
             openHome: Boolean = false,
             requestStartConfiguredMode: Boolean = false,
+            requestStopConfiguredMode: Boolean = false,
         ): Intent =
             Intent(context, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -51,12 +57,25 @@ class MainActivity : AppCompatActivity() {
                 if (requestStartConfiguredMode) {
                     putExtra(EXTRA_START_CONFIGURED_MODE, true)
                 }
+                if (requestStopConfiguredMode) {
+                    putExtra(EXTRA_STOP_CONFIGURED_MODE, true)
+                }
             }
 
         internal fun requestsHomeTab(intent: Intent?): Boolean = intent?.getBooleanExtra(EXTRA_OPEN_HOME, false) == true
 
         internal fun requestsConfiguredStart(intent: Intent?): Boolean =
             intent?.getBooleanExtra(EXTRA_START_CONFIGURED_MODE, false) == true
+
+        internal fun requestsConfiguredStop(intent: Intent?): Boolean =
+            intent?.getBooleanExtra(EXTRA_STOP_CONFIGURED_MODE, false) == true ||
+                intent?.data?.toString() == "ripdpi://disconnect"
+
+        internal fun selectorGroupIdFrom(intent: Intent?): String? =
+            intent?.getStringExtra(com.poyka.ripdpi.shortcuts.EXTRA_SELECT_GROUP_ID)
+
+        internal fun selectorProfileIdFrom(intent: Intent?): String? =
+            intent?.getStringExtra(com.poyka.ripdpi.shortcuts.EXTRA_SELECT_PROFILE_ID)
 
         internal fun diagnosticShareFragment(intent: Intent?): String? =
             DiagnosticShareLinkDeepLink.fragmentFrom(intent)
@@ -120,6 +139,7 @@ class MainActivity : AppCompatActivity() {
         val splashScreen = installSplashScreen()
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        applySelectorSelection(intent)
         val automationConfig =
             automationController
                 .map { controller -> controller.prepareLaunch(intent) }
@@ -149,11 +169,21 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        applySelectorSelection(intent)
         val automationConfig =
             automationController
                 .map { controller -> controller.prepareLaunch(intent) }
                 .orElse(null)
         shellController.onNewIntent(intent)
         shellController.setLaunchRouteRequest(automationConfig?.startRoute)
+    }
+
+    private fun applySelectorSelection(intent: Intent?) {
+        val groupId = selectorGroupIdFrom(intent) ?: return
+        val profileId = selectorProfileIdFrom(intent) ?: return
+        runCatching { selectorSelectionStore.select(groupId, profileId) }
+            .onFailure { error ->
+                Logger.w(error) { "Failed to apply selector selection from shortcut intent" }
+            }
     }
 }

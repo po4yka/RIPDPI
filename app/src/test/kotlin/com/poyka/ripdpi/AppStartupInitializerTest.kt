@@ -3,6 +3,7 @@ package com.poyka.ripdpi
 import android.app.Application
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.CdnEchPersistedCache
+import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PersistedEchEntry
@@ -10,13 +11,17 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
+import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.strategy.StrategyPackService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
@@ -316,8 +321,27 @@ class AppStartupInitializerTest {
             dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
             cdnEchSeedFromCache = CdnEchSeedFromCache(EmptyCdnEchPersistedCache),
             proxyGroupRepository = EmptyProxyGroupRepository,
+            appShortcutsPublisher =
+                AppShortcutsPublisher(
+                    context = application,
+                    serviceStateStore = DefaultServiceStateStore(),
+                    proxyGroupRepository = EmptyProxyGroupRepository,
+                    selectorSelectionStore = NoOpSelectorSelectionStore,
+                    applicationScope = scope,
+                ),
             applicationScope = scope,
         )
+}
+
+private object NoOpSelectorSelectionStore : SelectorSelectionStore {
+    override fun selectedProfileId(groupId: String): StateFlow<String?> = MutableStateFlow(null)
+
+    override fun select(
+        groupId: String,
+        profileId: String,
+    ) = Unit
+
+    override fun clearSelection(groupId: String) = Unit
 }
 
 private object EmptyProxyGroupRepository : ProxyGroupRepository {

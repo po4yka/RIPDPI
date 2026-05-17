@@ -408,7 +408,9 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
     navigation<ConfigGraph>(
         startDestination = Route.Config,
     ) {
-        composable<Route.Config> {
+        composable<Route.Config>(
+            deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://config" }),
+        ) {
             val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
             val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
             ConfigRoute(

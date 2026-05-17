@@ -2440,6 +2440,13 @@ Source: %2$s</string>
     <string name="shortcut_diagnostics">Run Diagnostics</string>
     <string name="shortcut_diagnostics_short">Diagnostics</string>
     <string name="shortcut_diagnostics_disabled">Diagnostics unavailable</string>
+    <string name="shortcut_stop_vpn">Stop VPN</string>
+    <string name="shortcut_stop_vpn_short">Stop</string>
+    <string name="shortcut_stop_vpn_disabled">VPN is not running</string>
+    <string name="shortcut_open_config">Open Profiles</string>
+    <string name="shortcut_open_config_short">Profiles</string>
+    <string name="shortcut_open_settings">Open Settings</string>
+    <string name="shortcut_open_settings_short">Settings</string>
     <plurals name="stage_passed_count">
         <item quantity="one">%d passed</item>
         <item quantity="other">%d passed</item>
