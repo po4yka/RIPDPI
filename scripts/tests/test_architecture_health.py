@@ -94,6 +94,51 @@ local-network-fixture = { path = "../local-network-fixture" }
         self.assertFalse(any(indicator.rule == "dependency-hub" for indicator in at_limit))
         self.assertTrue(any(indicator.rule == "dependency-hub" for indicator in over_limit))
 
+    def test_tunnel_core_is_guarded_as_dependency_hub(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            manifest = repo / "native/rust/crates/ripdpi-tunnel-core/Cargo.toml"
+            base_manifest = """
+[package]
+name = "ripdpi-tunnel-core"
+version = "0.1.0"
+
+[dependencies]
+ripdpi-a = { path = "../ripdpi-a" }
+ripdpi-b = { path = "../ripdpi-b" }
+ripdpi-c = { path = "../ripdpi-c" }
+ripdpi-d = { path = "../ripdpi-d" }
+ripdpi-e = { path = "../ripdpi-e" }
+ripdpi-f = { path = "../ripdpi-f" }
+ripdpi-g = { path = "../ripdpi-g" }
+ripdpi-h = { path = "../ripdpi-h" }
+ripdpi-i = { path = "../ripdpi-i" }
+ripdpi-j = { path = "../ripdpi-j" }
+ripdpi-k = { path = "../ripdpi-k" }
+ripdpi-l = { path = "../ripdpi-l" }
+ripdpi-m = { path = "../ripdpi-m" }
+"""
+            self._write(manifest, base_manifest)
+
+            at_limit = sut.collect_dependency_indicators(repo, None)
+
+            self._write(
+                manifest,
+                base_manifest + 'ripdpi-n = { path = "../ripdpi-n" }\n',
+            )
+            over_limit = sut.collect_dependency_indicators(repo, None)
+
+        self.assertFalse(any(indicator.rule == "dependency-hub" for indicator in at_limit))
+        self.assertTrue(
+            any(
+                indicator.rule == "dependency-hub"
+                and indicator.path == "native/rust/crates/ripdpi-tunnel-core/Cargo.toml"
+                and indicator.metric_value == 14
+                and indicator.limit == 13
+                for indicator in over_limit
+            )
+        )
+
     def test_kotlin_feature_spread_and_suppression_are_reported(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo = Path(temp_dir)

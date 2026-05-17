@@ -34,6 +34,7 @@ DEPENDENCY_HUB_LIMITS = {
     "ripdpi-diagnostics-runner": (8, 3),
     "ripdpi-runtime-services": (8, 3),
     "ripdpi-relay-core": (7, 3),
+    "ripdpi-tunnel-core": (13, 3),
 }
 
 DISCOURAGED_EDGES = {
