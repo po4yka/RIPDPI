@@ -1,19 +1,11 @@
-use std::net::IpAddr;
-
 use ripdpi_failure_classifier::{
     classify_http_response_block, classify_tls_alert, classify_tls_handshake_failure, confirm_dns_tampering,
     ClassifiedFailure,
 };
+use ripdpi_runtime_decision_ports::policy_ports::DnsTamperingEvidence;
 use ripdpi_session::{detect_response_trigger, TriggerEvent};
 
 use super::matching::is_tls_client_hello_payload;
-
-pub struct DnsTamperingEvidence<'a> {
-    pub host: &'a str,
-    pub target_ip: IpAddr,
-    pub answers: &'a [IpAddr],
-    pub resolver_label: &'a str,
-}
 
 pub fn response_requires_dns_tampering_evidence(request: &[u8], response: &[u8]) -> bool {
     response.starts_with(b"HTTP/1.") && is_tls_client_hello_payload(request)

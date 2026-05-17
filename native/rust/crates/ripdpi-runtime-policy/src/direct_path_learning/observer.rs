@@ -1,14 +1,6 @@
 use super::key::TupleKey;
 
-pub trait DirectPathLearningObserver {
-    fn on_direct_path_learning_signal(
-        &self,
-        authority: &str,
-        ip_set_digest: &str,
-        event: &'static str,
-        strategy_family: Option<&str>,
-    );
-}
+pub use ripdpi_runtime_decision_ports::policy_ports::DirectPathLearningObserver;
 
 pub(super) fn emit_learning_signal(
     observer: Option<&dyn DirectPathLearningObserver>,

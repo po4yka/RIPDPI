@@ -4,6 +4,8 @@
 //! policy/adaptive engines directly. The engines remain behind these port traits
 //! and selected-route data contracts.
 
+mod adaptive;
+mod policy;
 mod snapshot;
 
 pub mod snapshots {
@@ -15,15 +17,15 @@ pub mod snapshots {
 }
 
 pub mod adaptive_ports {
-    pub use ripdpi_runtime_adaptive::{
+    pub use crate::adaptive::{
         AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, PreferredTargets, RetryPacingPort,
     };
 }
 
 pub mod policy_ports {
-    pub use ripdpi_runtime_policy::{
+    pub use crate::policy::{
         ConnectionRoute, DirectPathLearningObserver, DirectPathLearningPort, DnsTamperingEvidence, ExtractedHost,
-        HostAutolearnEvent, HostAutolearnState, HostSource, PolicyPort, RetrySelectionPenalty, RouteAdvance,
-        TransportProtocol,
+        GeoMatcher, HostAutolearnEvent, HostAutolearnState, HostSource, PolicyPort, RetrySelectionPenalty,
+        RouteAdvance, TransportProtocol,
     };
 }

@@ -129,6 +129,19 @@ pub fn apply_udp_morph_policy_to_hints() {}
         messages = [violation.message for violation in violations]
         self.assertTrue(any("policy/adaptive helper export" in message for message in messages))
 
+    def test_concrete_engine_dependencies_fail(self) -> None:
+        source = """
+[dependencies]
+ripdpi-proxy-config = { workspace = true }
+ripdpi-runtime-adaptive = { workspace = true }
+ripdpi-runtime-policy = { workspace = true }
+"""
+        violations = sut.runtime_decision_ports_dependency_violations(sut.RUNTIME_DECISION_PORTS_CARGO_PATH, source)
+        messages = [violation.message for violation in violations]
+        self.assertEqual(len(violations), 2)
+        self.assertTrue(any("ripdpi-runtime-adaptive" in message for message in messages))
+        self.assertTrue(any("ripdpi-runtime-policy" in message for message in messages))
+
 
 class DiagnosticsLaneContractTests(unittest.TestCase):
     def test_explicit_diagnostics_adapter_exports_pass(self) -> None:
@@ -196,6 +209,10 @@ class RepoCollectionTests(unittest.TestCase):
             self._write(
                 repo_root / "native/rust/crates/ripdpi-runtime-decision-ports/src/lib.rs",
                 "pub use ripdpi_runtime_policy::{ConnectionRoute, PolicyPort};\n",
+            )
+            self._write(
+                repo_root / "native/rust/crates/ripdpi-runtime-decision-ports/Cargo.toml",
+                "ripdpi-proxy-config = { workspace = true }\n",
             )
             self._write(
                 repo_root / "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/adapters.rs",

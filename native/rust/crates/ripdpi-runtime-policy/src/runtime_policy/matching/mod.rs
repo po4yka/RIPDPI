@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
+pub use ripdpi_runtime_decision_ports::policy_ports::GeoMatcher;
 
 use super::{ExtractedHost, TransportProtocol};
 use facts::{extract_host as extract_host_from_payload, extract_host_info as extract_host_info_from_payload};
@@ -10,12 +11,6 @@ use predicates::{
 
 mod facts;
 mod predicates;
-
-pub trait GeoMatcher {
-    fn country_matches_ip(&self, country_code: &str, ip: std::net::IpAddr) -> bool;
-
-    fn geosite_matches_host(&self, category: &str, host: &str) -> bool;
-}
 
 pub fn extract_host_info(config: &RuntimeConfig, payload: &[u8]) -> Option<ExtractedHost> {
     extract_host_info_from_payload(config, payload)

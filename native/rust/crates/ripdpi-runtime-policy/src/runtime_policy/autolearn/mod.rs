@@ -16,8 +16,11 @@ use state::{ensure_host_order, host_has_active_penalty, promote_group, refresh_b
 use store::config_fingerprint;
 use store::network_scope_key;
 
-use super::types::{HostAutolearnState, LearnedHostRecord, PendingBlockedHost};
-use super::{now_millis, HostAutolearnEvent, RuntimePolicy, BLOCK_CONFIRMATION_WINDOW_MS, EMPTY_LEARNED_HOSTS};
+use super::types::{LearnedHostRecord, PendingBlockedHost};
+use super::{
+    now_millis, HostAutolearnEvent, HostAutolearnState, RuntimePolicy, BLOCK_CONFIRMATION_WINDOW_MS,
+    EMPTY_LEARNED_HOSTS,
+};
 
 impl RuntimePolicy {
     pub fn drain_autolearn_events(&mut self) -> Vec<HostAutolearnEvent> {

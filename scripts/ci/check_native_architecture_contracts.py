@@ -20,6 +20,7 @@ CONFIG_ROOT = Path("native/rust/crates/ripdpi-config/src")
 CONFIG_PARSE_ROOT = CONFIG_ROOT / "parse"
 CONFIG_MODEL_PATH = CONFIG_ROOT / "model" / "mod.rs"
 RUNTIME_DECISION_PORTS_PATH = Path("native/rust/crates/ripdpi-runtime-decision-ports/src/lib.rs")
+RUNTIME_DECISION_PORTS_CARGO_PATH = Path("native/rust/crates/ripdpi-runtime-decision-ports/Cargo.toml")
 MONITOR_ENGINE_CARGO_PATH = Path("native/rust/crates/ripdpi-monitor-engine/Cargo.toml")
 DIAGNOSTICS_RUNNER_ADAPTER_FILES = (
     Path("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/adapters.rs"),
@@ -79,6 +80,10 @@ RUNTIME_DECISION_PORTS_FORBIDDEN_PATTERNS = {
         re.MULTILINE,
     ),
 }
+RUNTIME_DECISION_PORTS_FORBIDDEN_DEP_RE = re.compile(
+    r"^\s*(ripdpi-runtime-(?:adaptive|policy))\s*=",
+    re.MULTILINE,
+)
 DIAGNOSTICS_LANE_BROAD_REEXPORT_RE = re.compile(
     r"^\s*pub\s+use\s+ripdpi_diagnostics_[A-Za-z0-9_]+::[A-Za-z0-9_:]+::\*\s*;",
     re.MULTILINE,
@@ -170,6 +175,21 @@ def runtime_decision_ports_violations(relative_path: Path, source_text: str) -> 
     return violations
 
 
+def runtime_decision_ports_dependency_violations(relative_path: Path, source_text: str) -> list[Violation]:
+    violations: list[Violation] = []
+
+    for match in RUNTIME_DECISION_PORTS_FORBIDDEN_DEP_RE.finditer(source_text):
+        dependency = match.group(1)
+        violations.append(
+            Violation(
+                path=relative_path.as_posix(),
+                message=f"runtime decision ports must not depend on concrete engine crate `{dependency}`",
+            )
+        )
+
+    return violations
+
+
 def diagnostics_lane_adapter_violations(relative_path: Path, source_text: str) -> list[Violation]:
     violations: list[Violation] = []
 
@@ -218,6 +238,13 @@ def collect_violations(repo_root: Path) -> list[Violation]:
     runtime_ports_path = repo_root / RUNTIME_DECISION_PORTS_PATH
     violations.extend(
         runtime_decision_ports_violations(RUNTIME_DECISION_PORTS_PATH, read_production_source(runtime_ports_path))
+    )
+    runtime_ports_cargo = repo_root / RUNTIME_DECISION_PORTS_CARGO_PATH
+    violations.extend(
+        runtime_decision_ports_dependency_violations(
+            RUNTIME_DECISION_PORTS_CARGO_PATH,
+            runtime_ports_cargo.read_text(encoding="utf-8"),
+        )
     )
 
     for relative_path in DIAGNOSTICS_RUNNER_ADAPTER_FILES:

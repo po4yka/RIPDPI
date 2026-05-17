@@ -1,15 +1,8 @@
 use std::collections::BTreeMap;
-use std::net::SocketAddr;
 
 use ripdpi_config::CacheEntry;
 use ripdpi_failure_classifier::BlockSignal;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone)]
-pub struct ConnectionRoute {
-    pub group_index: usize,
-    pub attempted_mask: u64,
-}
 
 #[derive(Debug, Clone)]
 pub(super) struct GroupPolicy {
@@ -63,66 +56,12 @@ pub(super) struct LearnedHostStore {
     pub scopes: BTreeMap<String, LearnedNetworkScopeStore>,
 }
 
-#[derive(Debug, Clone)]
-pub struct HostAutolearnEvent {
-    pub action: &'static str,
-    pub host: Option<String>,
-    pub group_index: Option<usize>,
-}
-
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct PendingBlockedHost {
     pub first_detected_at_ms: u64,
     pub count: u8,
     pub last_signal: Option<BlockSignal>,
     pub last_provider: Option<String>,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct HostAutolearnState {
-    pub enabled: bool,
-    pub learned_host_count: usize,
-    pub penalized_host_count: usize,
-    pub blocked_host_count: usize,
-    pub last_block_signal: Option<String>,
-    pub last_block_provider: Option<String>,
-}
-
-pub struct RouteAdvance<'a> {
-    pub dest: SocketAddr,
-    pub payload: Option<&'a [u8]>,
-    pub transport: TransportProtocol,
-    pub trigger: u32,
-    pub can_reconnect: bool,
-    pub host: Option<String>,
-    pub penalize_strategy_failure: bool,
-    pub retry_penalties: Option<&'a BTreeMap<usize, RetrySelectionPenalty>>,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct RetrySelectionPenalty {
-    pub same_signature_cooldown_ms: u64,
-    pub family_cooldown_ms: u64,
-    pub diversification_rank: u64,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TransportProtocol {
-    Tcp,
-    Udp,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExtractedHost {
-    pub host: String,
-    pub source: HostSource,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HostSource {
-    Http,
-    Tls,
-    Quic,
 }
 
 #[derive(Debug)]

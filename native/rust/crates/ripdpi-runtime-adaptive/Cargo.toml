@@ -13,6 +13,7 @@ ripdpi-desync = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
+ripdpi-runtime-decision-ports = { workspace = true }
 ripdpi-runtime-policy = { workspace = true }
 ring = { workspace = true }
 serde = { workspace = true }

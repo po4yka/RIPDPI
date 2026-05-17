@@ -13,13 +13,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+pub use ripdpi_runtime_decision_ports::policy_ports::{
+    ConnectionRoute, DnsTamperingEvidence, ExtractedHost, HostAutolearnEvent, HostAutolearnState, HostSource,
+    RetrySelectionPenalty, RouteAdvance, TransportProtocol,
+};
 use types::{CacheRecord, GroupPolicy, LearnedHostRecord, PendingBlockedHost};
 
-pub use response_failure::{classify_response_failure, response_requires_dns_tampering_evidence, DnsTamperingEvidence};
-pub use types::{
-    ConnectionRoute, ExtractedHost, HostAutolearnEvent, HostAutolearnState, HostSource, RetrySelectionPenalty,
-    RouteAdvance, TransportProtocol,
-};
+pub use response_failure::{classify_response_failure, response_requires_dns_tampering_evidence};
 
 #[doc(hidden)]
 pub use matching::{

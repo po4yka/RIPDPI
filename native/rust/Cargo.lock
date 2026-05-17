@@ -4109,6 +4109,7 @@ dependencies = [
  "ripdpi-failure-classifier",
  "ripdpi-packets",
  "ripdpi-proxy-config",
+ "ripdpi-runtime-decision-ports",
  "ripdpi-runtime-policy",
  "serde",
  "serde_json",
@@ -4130,9 +4131,10 @@ dependencies = [
 name = "ripdpi-runtime-decision-ports"
 version = "0.1.0"
 dependencies = [
+ "ripdpi-config",
+ "ripdpi-desync",
+ "ripdpi-failure-classifier",
  "ripdpi-proxy-config",
- "ripdpi-runtime-adaptive",
- "ripdpi-runtime-policy",
 ]
 
 [[package]]
@@ -4171,6 +4173,7 @@ dependencies = [
  "ripdpi-desync",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
+ "ripdpi-runtime-decision-ports",
  "ripdpi-session",
  "serde",
  "serde_json",
