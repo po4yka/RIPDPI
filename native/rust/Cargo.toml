@@ -354,6 +354,33 @@ multiple_unsafe_ops_per_block = "allow"
 as_ptr_cast_mut = "warn"
 ptr_as_ptr = "warn"
 
+# Type-pun / layout-reinterpretation lints (soundness issue #23).
+#
+# - `cast_ptr_alignment` flags `*const U` → `*const V` (and `.cast::<V>()`)
+#   pointer casts where `align_of::<V>() > align_of::<U>()`. Reading
+#   through the resulting pointer would be UB on ARM64 strict-alignment
+#   configurations (and silently miscompiled elsewhere). The workspace
+#   currently has zero findings — the only type-pun cast in production
+#   is `sockaddr_storage` → `sockaddr_in*`, where the alignment relation
+#   is opposite (`align_of::<sockaddr_storage>() >= align_of::<sockaddr_in*>()`)
+#   and the compile-time `assert!` block in `fd.rs` locks it. `deny` to
+#   prevent any new occurrence.
+#
+# - `crosspointer_transmute` flags `mem::transmute<*const T, *mut U>`
+#   and the inverse. Such transmutes are always expressible as a plain
+#   cast and the transmute spelling defeats clippy's other transmute
+#   lints. Pre-existing in the `complexity` group (warn); restated here
+#   so the policy intent is explicit.
+#
+# - `transmute_undefined_repr` (nursery) flags `mem::transmute<T, U>`
+#   where either type is missing `#[repr]` and the layout therefore
+#   isn't stable across compiler versions. Issue #23 audit confirmed
+#   zero findings; `warn` (escalated to error via CI's `-D warnings`)
+#   locks the baseline.
+cast_ptr_alignment = "deny"
+crosspointer_transmute = "deny"
+transmute_undefined_repr = "warn"
+
 [workspace.lints.rust]
 # Force every operation inside `unsafe fn` to live in its own `unsafe {}`
 # block with a SAFETY comment, rather than inheriting the function-level

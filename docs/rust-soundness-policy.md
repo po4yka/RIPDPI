@@ -2047,13 +2047,40 @@ The workspace has ZERO production occurrences of `mem::transmute`,
 locks the workspace at that baseline via dedicated patterns; any new
 adoption requires an allowlist entry with the five-point checklist.
 
-**Clippy lints.** The workspace's `[workspace.lints]` denies
-`useless_transmute`, `transmute_ptr_to_ptr`, and the entire
-`clippy::correctness` group (which includes `wrong_transmute`,
-`transmuting_null`, `unsound_collection_transmute`,
-`transmute_null_to_fn`, and the `transmute_int_to_*` family). This
-catches the most common compile-time-detectable transmute mistakes
-before the scanner runs.
+**Clippy lints.** The workspace's `[workspace.lints]` enforces:
+
+- `useless_transmute = "deny"` — `transmute<T, T>` (identity).
+- `transmute_ptr_to_ptr = "deny"` — `transmute<*const T, *const U>`
+  that should be a plain cast (forces the cast form, which clippy
+  then lints via the other rules below).
+- `cast_ptr_alignment = "deny"` — `as *const V` / `.cast::<V>()`
+  where `align_of::<V>()` is strictly greater than the source
+  pointee's alignment. Catches the ARM64 UB risk
+  (`&[u8]` → `&Header`) at compile time. Issue #23 audit confirmed
+  zero findings; lint locks the baseline.
+- `crosspointer_transmute = "deny"` — `transmute<*const T, *mut U>`
+  (and inverse). Always expressible as a cast, so the transmute
+  spelling is intentionally rejected.
+- `transmute_undefined_repr = "warn"` — nursery lint that flags
+  `mem::transmute<T, U>` where either type is missing `#[repr]`
+  and the layout therefore isn't stable across rustc versions.
+  Issue #23 audit confirmed zero findings; `warn` (escalated to
+  error via CI's `-D warnings`) locks the baseline.
+- `clippy::correctness` group (`deny`) covers `wrong_transmute`,
+  `transmuting_null`, `unsound_collection_transmute`,
+  `transmute_null_to_fn`, and the `transmute_int_to_*` family
+  (bool / char / float / int) — all the compile-time-detectable
+  transmute mistakes.
+- `clippy::complexity` group (`warn`, escalated to error via CI
+  `-D warnings`) covers `transmute_ptr_to_ref` and
+  `transmutes_expressible_as_ptr_casts`.
+
+Together this covers every transmute clippy lint that exists in
+stable rustc; the only remaining surface is the workspace's own
+custom scanner pattern `mem::transmute` (catches the spelling even
+if a future clippy bug regresses the existing lints) and the
+`cast then deref (type pun)` proximity detector (catches the
+pointer-cast spelling that clippy does NOT lint at all).
 
 **Allowlist requirements.** Each `cast then deref (type pun)` /
 `union declaration` / `bytemuck::cast` / `zerocopy::transmute` /
