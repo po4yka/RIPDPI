@@ -4,8 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import app.cash.turbine.test
 import com.poyka.ripdpi.permissions.PermissionKind
-import com.poyka.ripdpi.shortcuts.EXTRA_SELECT_GROUP_ID
-import com.poyka.ripdpi.shortcuts.EXTRA_SELECT_PROFILE_ID
+import com.poyka.ripdpi.shortcuts.ExtraSelectGroupId
+import com.poyka.ripdpi.shortcuts.ExtraSelectProfileId
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -209,8 +209,8 @@ class MainActivityShellControllerTest {
     fun `selector intent extras populate selector selection request`() {
         val intent =
             Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://connect")).apply {
-                putExtra(EXTRA_SELECT_GROUP_ID, "group-a")
-                putExtra(EXTRA_SELECT_PROFILE_ID, "profile-x")
+                putExtra(ExtraSelectGroupId, "group-a")
+                putExtra(ExtraSelectProfileId, "profile-x")
             }
 
         val controller = MainActivityShellController(intent)
@@ -228,7 +228,7 @@ class MainActivityShellControllerTest {
     fun `partial selector intent extras do not populate selection`() {
         val intent =
             Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://connect")).apply {
-                putExtra(EXTRA_SELECT_GROUP_ID, "group-a")
+                putExtra(ExtraSelectGroupId, "group-a")
             }
 
         val controller = MainActivityShellController(intent)
@@ -248,8 +248,8 @@ class MainActivityShellControllerTest {
 
         controller.onNewIntent(
             Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://connect")).apply {
-                putExtra(EXTRA_SELECT_GROUP_ID, "group-b")
-                putExtra(EXTRA_SELECT_PROFILE_ID, "profile-y")
+                putExtra(ExtraSelectGroupId, "group-b")
+                putExtra(ExtraSelectProfileId, "profile-y")
             },
         )
 

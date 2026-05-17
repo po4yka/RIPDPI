@@ -27,6 +27,8 @@ pub(crate) unsafe fn setsockopt_raw<T>(
     name: libc::c_int,
     val: &T,
 ) -> io::Result<()> {
+    // SAFETY: caller guarantees `fd` is a live socket descriptor and `val`
+    // matches the kernel ABI payload for `level`/`name`.
     let rc = unsafe { libc::setsockopt(fd, level, name, (val as *const T).cast(), size_of::<T>() as libc::socklen_t) };
     if rc == 0 {
         Ok(())
@@ -48,8 +50,12 @@ pub(crate) unsafe fn getsockopt_raw<T>(
     level: libc::c_int,
     name: libc::c_int,
 ) -> io::Result<(T, libc::socklen_t)> {
+    // SAFETY: caller guarantees `T` is a plain kernel ABI output type valid
+    // when zero-initialized before `getsockopt` fills it.
     let mut val: T = unsafe { zeroed() };
     let mut len = size_of::<T>() as libc::socklen_t;
+    // SAFETY: caller guarantees `fd` and the option layout are valid; `val` and
+    // `len` are live writable stack slots for the duration of the syscall.
     let rc = unsafe { libc::getsockopt(fd, level, name, (&mut val as *mut T).cast(), &mut len) };
     if rc == 0 {
         Ok((val, len))
@@ -189,6 +195,8 @@ pub fn bind_udp_low_port(socket: &UdpSocket, local_ip: IpAddr, max_port: u16) ->
         let addr = SocketAddr::new(local_ip, port);
         let fd = socket.as_raw_fd();
         let sa = socket2::SockAddr::from(addr);
+        // SAFETY: `fd` is owned by `socket`; `sa` points to a live sockaddr with
+        // the length returned by socket2 for this address family.
         let ret = unsafe { libc::bind(fd, sa.as_ptr().cast(), sa.len()) };
         if ret == 0 {
             return Ok(port);
@@ -198,6 +206,8 @@ pub fn bind_udp_low_port(socket: &UdpSocket, local_ip: IpAddr, max_port: u16) ->
     let addr = SocketAddr::new(local_ip, 0);
     let fd = socket.as_raw_fd();
     let sa = socket2::SockAddr::from(addr);
+    // SAFETY: `fd` is owned by `socket`; `sa` points to a live sockaddr with
+    // the length returned by socket2 for this address family.
     let ret = unsafe { libc::bind(fd, sa.as_ptr().cast(), sa.len()) };
     if ret != 0 {
         return Err(io::Error::last_os_error());
@@ -222,9 +232,13 @@ pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(us
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "read_chunk_with_ttl: buf must not be empty"));
     }
     let fd = stream.as_raw_fd();
+    // SAFETY: CMSG_SPACE is a libc alignment/size macro; `c_int` is the
+    // ancillary payload type used for TTL/hop-limit control messages.
     let ctrl_len = unsafe { libc::CMSG_SPACE(size_of::<libc::c_int>() as u32) } as usize;
     let mut ctrl = vec![0u8; ctrl_len];
     let mut iov = libc::iovec { iov_base: buf.as_mut_ptr().cast(), iov_len: buf.len() };
+    // SAFETY: `msghdr` is a plain C struct; zero initialization is valid before
+    // assigning the fields used by `recvmsg`.
     let mut msg: libc::msghdr = unsafe { zeroed() };
     msg.msg_iov = &mut iov;
     msg.msg_iovlen = 1;
@@ -246,16 +260,23 @@ pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(us
     // iterate over the ancillary data buffer we provided.
     let mut cmsg = unsafe { libc::CMSG_FIRSTHDR(&msg) };
     while !cmsg.is_null() {
+        // SAFETY: `cmsg` is non-null and was produced by CMSG_FIRSTHDR or
+        // CMSG_NXTHDR for the live control buffer in `msg`.
         let cmsg_ref = unsafe { &*cmsg };
         if (cmsg_ref.cmsg_level == libc::IPPROTO_IP && cmsg_ref.cmsg_type == libc::IP_TTL)
             || (cmsg_ref.cmsg_level == libc::IPPROTO_IPV6 && cmsg_ref.cmsg_type == libc::IPV6_HOPLIMIT)
         {
-            // SAFETY: cmsg_data points into the control buffer we own; the
-            // kernel wrote a c_int there per the IP_TTL cmsg spec.
-            let value: libc::c_int = unsafe { ptr::read_unaligned(libc::CMSG_DATA(cmsg).cast()) };
+            // SAFETY: `cmsg` is the current valid ancillary header; CMSG_DATA
+            // returns the payload pointer inside the control buffer.
+            let data = unsafe { libc::CMSG_DATA(cmsg) };
+            // SAFETY: the kernel wrote a c_int payload for IP_TTL/IPV6_HOPLIMIT;
+            // unaligned read is allowed because cmsg payload alignment is a C ABI detail.
+            let value: libc::c_int = unsafe { ptr::read_unaligned(data.cast()) };
             ttl = u8::try_from(value).ok();
             break;
         }
+        // SAFETY: `cmsg` is the current valid ancillary header and `msg`
+        // still owns the same control buffer populated by `recvmsg`.
         cmsg = unsafe { libc::CMSG_NXTHDR(&msg, cmsg) };
     }
     Ok((n as usize, ttl))

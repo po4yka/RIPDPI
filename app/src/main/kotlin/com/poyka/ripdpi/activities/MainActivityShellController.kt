@@ -82,11 +82,12 @@ internal class MainActivityShellController(
         }
     }
 
-    private fun selectorRequestFrom(intent: Intent?): SelectorSelectionRequest? {
-        val groupId = MainActivity.selectorGroupIdFrom(intent) ?: return null
-        val profileId = MainActivity.selectorProfileIdFrom(intent) ?: return null
-        return SelectorSelectionRequest(groupId = groupId, profileId = profileId)
-    }
+    private fun selectorRequestFrom(intent: Intent?): SelectorSelectionRequest? =
+        MainActivity.selectorGroupIdFrom(intent)?.let { groupId ->
+            MainActivity.selectorProfileIdFrom(intent)?.let { profileId ->
+                SelectorSelectionRequest(groupId = groupId, profileId = profileId)
+            }
+        }
 
     fun setLaunchRouteRequest(route: String?) {
         _state.update { it.copy(launchRouteRequested = route) }
@@ -185,47 +186,51 @@ internal class MainActivityShellController(
         }
     }
 
-    fun requestSaveLogs() {
-        _hostCommands.tryEmit(MainActivityHostCommand.SaveLogs)
+    internal fun emitHostCommand(command: MainActivityHostCommand) {
+        _hostCommands.tryEmit(command)
     }
+}
 
-    fun requestShareDebugBundle() {
-        _hostCommands.tryEmit(MainActivityHostCommand.ShareDebugBundle)
-    }
+internal fun MainActivityShellController.requestSaveLogs() {
+    emitHostCommand(MainActivityHostCommand.SaveLogs)
+}
 
-    fun requestSaveDiagnosticsArchive(
-        filePath: String,
-        fileName: String,
-    ) {
-        _hostCommands.tryEmit(
-            MainActivityHostCommand.SaveDiagnosticsArchive(
-                filePath = filePath,
-                fileName = fileName,
-            ),
-        )
-    }
+internal fun MainActivityShellController.requestShareDebugBundle() {
+    emitHostCommand(MainActivityHostCommand.ShareDebugBundle)
+}
 
-    fun requestShareDiagnosticsArchive(
-        filePath: String,
-        fileName: String,
-    ) {
-        _hostCommands.tryEmit(
-            MainActivityHostCommand.ShareDiagnosticsArchive(
-                filePath = filePath,
-                fileName = fileName,
-            ),
-        )
-    }
+internal fun MainActivityShellController.requestSaveDiagnosticsArchive(
+    filePath: String,
+    fileName: String,
+) {
+    emitHostCommand(
+        MainActivityHostCommand.SaveDiagnosticsArchive(
+            filePath = filePath,
+            fileName = fileName,
+        ),
+    )
+}
 
-    fun requestShareDiagnosticsSummary(
-        title: String,
-        body: String,
-    ) {
-        _hostCommands.tryEmit(
-            MainActivityHostCommand.ShareDiagnosticsSummary(
-                title = title,
-                body = body,
-            ),
-        )
-    }
+internal fun MainActivityShellController.requestShareDiagnosticsArchive(
+    filePath: String,
+    fileName: String,
+) {
+    emitHostCommand(
+        MainActivityHostCommand.ShareDiagnosticsArchive(
+            filePath = filePath,
+            fileName = fileName,
+        ),
+    )
+}
+
+internal fun MainActivityShellController.requestShareDiagnosticsSummary(
+    title: String,
+    body: String,
+) {
+    emitHostCommand(
+        MainActivityHostCommand.ShareDiagnosticsSummary(
+            title = title,
+            body = body,
+        ),
+    )
 }

@@ -55,7 +55,7 @@ class ConnectionPolicyResolverDirectPathTest {
             assertEquals(false, softDisable?.udpUsable)
             assertEquals(true, softDisable?.fallbackRequired)
             assertEquals("tcp_reset", softDisable?.repeatedHandshakeFailureClass)
-            assertEquals(QuicMode.SOFT_DISABLE, softDisable?.quicMode)
+            assertEquals(QuicMode.HARD_DISABLE, softDisable?.quicMode)
             assertEquals(DirectDnsClassification.POISONED, softDisable?.dnsClassification)
             assertEquals(PreferredStack.H2, softDisable?.preferredStack)
             assertEquals(DnsMode.SYSTEM, softDisable?.dnsMode)

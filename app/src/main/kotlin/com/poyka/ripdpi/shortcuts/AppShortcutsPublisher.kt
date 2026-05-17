@@ -27,11 +27,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.min
 
-const val EXTRA_SELECT_GROUP_ID = "com.poyka.ripdpi.extra.SELECT_GROUP_ID"
-const val EXTRA_SELECT_PROFILE_ID = "com.poyka.ripdpi.extra.SELECT_PROFILE_ID"
+const val ExtraSelectGroupId = "com.poyka.ripdpi.extra.SELECT_GROUP_ID"
+const val ExtraSelectProfileId = "com.poyka.ripdpi.extra.SELECT_PROFILE_ID"
 
-private const val STOP_VPN_SHORTCUT_ID = "stop_vpn"
-private const val MAX_DYNAMIC_SHORTCUTS = 4
+private const val StopVpnShortcutId = "stop_vpn"
+private const val MaxDynamicShortcuts = 4
+private const val ShortcutShortLabelLength = 10
 
 private data class DynamicProfileEntry(
     val groupId: String,
@@ -43,11 +44,11 @@ private data class DynamicProfileEntry(
 class AppShortcutsPublisher
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
         private val serviceStateStore: ServiceStateStore,
         private val proxyGroupRepository: ProxyGroupRepository,
         private val selectorSelectionStore: SelectorSelectionStore,
-        @ApplicationScope private val applicationScope: CoroutineScope,
+        @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         private val started = AtomicBoolean(false)
 
@@ -66,7 +67,7 @@ class AppShortcutsPublisher
                                     val manifestShortcut =
                                         ShortcutManagerCompat
                                             .getShortcuts(context, ShortcutManagerCompat.FLAG_MATCH_MANIFEST)
-                                            .firstOrNull { it.id == STOP_VPN_SHORTCUT_ID }
+                                            .firstOrNull { it.id == StopVpnShortcutId }
                                     if (manifestShortcut != null) {
                                         ShortcutManagerCompat.enableShortcuts(context, listOf(manifestShortcut))
                                     }
@@ -75,7 +76,7 @@ class AppShortcutsPublisher
                                 AppStatus.Halted -> {
                                     ShortcutManagerCompat.disableShortcuts(
                                         context,
-                                        listOf(STOP_VPN_SHORTCUT_ID),
+                                        listOf(StopVpnShortcutId),
                                         context.getString(R.string.shortcut_stop_vpn_disabled),
                                     )
                                 }
@@ -121,8 +122,8 @@ class AppShortcutsPublisher
                     ShortcutManagerCompat
                         .getMaxShortcutCountPerActivity(context)
                         .takeIf { it > 0 }
-                        ?: MAX_DYNAMIC_SHORTCUTS
-                val limit = min(MAX_DYNAMIC_SHORTCUTS, platformLimit)
+                        ?: MaxDynamicShortcuts
+                val limit = min(MaxDynamicShortcuts, platformLimit)
                 val infos = entries.take(limit).map { buildShortcut(it) }
                 ShortcutManagerCompat.setDynamicShortcuts(context, infos)
             }.onFailure { err ->
@@ -133,7 +134,7 @@ class AppShortcutsPublisher
         private fun buildShortcut(entry: DynamicProfileEntry): ShortcutInfoCompat =
             ShortcutInfoCompat
                 .Builder(context, "profile_${entry.groupId}")
-                .setShortLabel(entry.groupName.take(10))
+                .setShortLabel(entry.groupName.take(ShortcutShortLabelLength))
                 .setLongLabel(entry.groupName)
                 .setIcon(IconCompat.createWithResource(context, R.drawable.ic_vpn_key_outline))
                 .setIntent(buildSelectGroupIntent(entry))
@@ -142,7 +143,7 @@ class AppShortcutsPublisher
         private fun buildSelectGroupIntent(entry: DynamicProfileEntry): Intent =
             Intent(Intent.ACTION_VIEW, "ripdpi://connect".toUri()).apply {
                 setPackage(context.packageName)
-                putExtra(EXTRA_SELECT_GROUP_ID, entry.groupId)
-                putExtra(EXTRA_SELECT_PROFILE_ID, entry.profileId)
+                putExtra(ExtraSelectGroupId, entry.groupId)
+                putExtra(ExtraSelectProfileId, entry.profileId)
             }
     }

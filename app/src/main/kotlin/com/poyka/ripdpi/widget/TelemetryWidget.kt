@@ -31,13 +31,21 @@ import com.poyka.ripdpi.widget.theme.GlanceMutedForeground
 import com.poyka.ripdpi.widget.theme.RipDpiGlanceTheme
 import java.util.concurrent.TimeUnit
 
+private const val WidgetCompactWidthDp = 180
+private const val WidgetMediumWidthDp = 250
+private const val WidgetCompactHeightDp = 110
+private const val WidgetExpandedHeightDp = 180
+private const val TelemetryLabelWidthDp = 80
+private const val BytesPerKiB = 1024.0
+private const val SecondsPerMinute = 60L
+
 class TelemetryWidget : GlanceAppWidget() {
     override val sizeMode =
         SizeMode.Responsive(
             setOf(
-                DpSize(180.dp, 110.dp),
-                DpSize(250.dp, 110.dp),
-                DpSize(250.dp, 180.dp),
+                DpSize(WidgetCompactWidthDp.dp, WidgetCompactHeightDp.dp),
+                DpSize(WidgetMediumWidthDp.dp, WidgetCompactHeightDp.dp),
+                DpSize(WidgetMediumWidthDp.dp, WidgetExpandedHeightDp.dp),
             ),
         )
 
@@ -110,7 +118,7 @@ private fun TelemetryRow(
         Text(
             text = label,
             style = TextStyle(color = GlanceMutedForeground),
-            modifier = GlanceModifier.width(80.dp),
+            modifier = GlanceModifier.width(TelemetryLabelWidthDp.dp),
         )
         Spacer(modifier = GlanceModifier.width(4.dp))
         Text(
@@ -123,16 +131,16 @@ private fun TelemetryRow(
 private fun formatUptime(ms: Long): String {
     if (ms <= 0L) return "--"
     val hours = TimeUnit.MILLISECONDS.toHours(ms)
-    val minutes = TimeUnit.MILLISECONDS.toMinutes(ms) % 60
-    val seconds = TimeUnit.MILLISECONDS.toSeconds(ms) % 60
+    val minutes = TimeUnit.MILLISECONDS.toMinutes(ms) % SecondsPerMinute
+    val seconds = TimeUnit.MILLISECONDS.toSeconds(ms) % SecondsPerMinute
     return "%02d:%02d:%02d".format(hours, minutes, seconds)
 }
 
 private fun formatBytes(bytes: Long): String {
     if (bytes <= 0L) return "0 B"
-    val kb = bytes / 1024.0
-    val mb = kb / 1024.0
-    val gb = mb / 1024.0
+    val kb = bytes / BytesPerKiB
+    val mb = kb / BytesPerKiB
+    val gb = mb / BytesPerKiB
     return when {
         gb >= 1.0 -> "%.1f GB".format(gb)
         mb >= 1.0 -> "%.1f MB".format(mb)

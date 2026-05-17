@@ -72,10 +72,10 @@ class MainActivity : AppCompatActivity() {
                 intent?.data?.toString() == "ripdpi://disconnect"
 
         internal fun selectorGroupIdFrom(intent: Intent?): String? =
-            intent?.getStringExtra(com.poyka.ripdpi.shortcuts.EXTRA_SELECT_GROUP_ID)
+            intent?.getStringExtra(com.poyka.ripdpi.shortcuts.ExtraSelectGroupId)
 
         internal fun selectorProfileIdFrom(intent: Intent?): String? =
-            intent?.getStringExtra(com.poyka.ripdpi.shortcuts.EXTRA_SELECT_PROFILE_ID)
+            intent?.getStringExtra(com.poyka.ripdpi.shortcuts.ExtraSelectProfileId)
 
         internal fun diagnosticShareFragment(intent: Intent?): String? =
             DiagnosticShareLinkDeepLink.fragmentFrom(intent)
