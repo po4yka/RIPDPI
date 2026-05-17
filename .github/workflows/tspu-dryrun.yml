@@ -15,6 +15,9 @@ on:
       - ".github/workflows/tspu-dryrun.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   dryrun:
     runs-on: ubuntu-latest

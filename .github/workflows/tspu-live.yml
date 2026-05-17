@@ -15,6 +15,9 @@ on:
       - ".github/workflows/tspu-live.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   smoke:
     runs-on: ubuntu-latest
