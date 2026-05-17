@@ -85,6 +85,8 @@ pub fn original_dst(stream: &TcpStream) -> io::Result<SocketAddr> {
     {
         return storage_to_socket_addr(&storage);
     }
+    // SAFETY: `fd` is a live TCP socket; the kernel writes a `sockaddr_storage`
+    // for the IPv6 original-destination option.
     let (storage, _) =
         unsafe { getsockopt_raw::<libc::sockaddr_storage>(fd, libc::IPPROTO_IPV6, IP6T_SO_ORIGINAL_DST) }?;
     storage_to_socket_addr(&storage)
@@ -95,6 +97,8 @@ pub(crate) fn peer_addr(fd: libc::c_int) -> io::Result<libc::sockaddr_storage> {
     // `len` bytes into it for the valid socket descriptor `fd`.
     let mut storage = unsafe { zeroed::<libc::sockaddr_storage>() };
     let mut len = size_of::<libc::sockaddr_storage>() as libc::socklen_t;
+    // SAFETY: `fd` is a valid socket descriptor and `storage`/`len` are live
+    // writable stack slots whose sizes match the `getpeername` ABI.
     let rc = unsafe { libc::getpeername(fd, (&mut storage as *mut libc::sockaddr_storage).cast(), &mut len) };
     if rc == 0 {
         Ok(storage)

@@ -58,13 +58,11 @@ impl MmapRegion {
     pub(super) fn write(&mut self, data: &[u8]) {
         let len = self.len.get();
         // SAFETY: `self.ptr` points to a writable mapping of exactly `len`
-        // bytes (invariant established at construction). `write_bytes` and
-        // `copy_nonoverlapping` stay within `len`. `data` and the region
-        // are disjoint allocations (region is fresh anonymous memory).
-        unsafe {
-            ptr::write_bytes(self.ptr.as_ptr(), 0, len);
-            ptr::copy_nonoverlapping(data.as_ptr(), self.ptr.as_ptr(), data.len().min(len));
-        }
+        // bytes (invariant established at construction).
+        unsafe { ptr::write_bytes(self.ptr.as_ptr(), 0, len) };
+        // SAFETY: the copy length is truncated to the mapping length, and
+        // `data` and the region are disjoint allocations.
+        unsafe { ptr::copy_nonoverlapping(data.as_ptr(), self.ptr.as_ptr(), data.len().min(len)) };
     }
 }
 
