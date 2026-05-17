@@ -1,4 +1,5 @@
 mod fd;
+mod ffi_boundary_validation;
 mod ffi_layout;
 mod raw_packet;
 mod socket_options;
