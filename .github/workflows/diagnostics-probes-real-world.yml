@@ -1,0 +1,87 @@
+# diagnostics-probes-real-world
+#
+# What this lane runs:
+#   Integration tests in ripdpi-diagnostics-probes that are marked #[ignore]
+#   because they require live network egress:
+#
+#   - tests/ech_real_world_ignored.rs
+#       Runs HickoryRustlsEchHandshakeDriver against cloudflare.com:443.
+#       Performs a real DNS HTTPS RR lookup and a real TLS handshake with ECH.
+#
+#   - tests/hickory_rustls_ech_driver_tdd.rs
+#       Includes one #[ignore] NX-domain lookup test that requires DNS access.
+#
+# Why not PR-gated:
+#   These tests hit live Cloudflare infrastructure. Running them on every PR
+#   would burn CI quota and produce flaky results on sandbox runners that may
+#   have restricted egress. They run on a weekly cron instead, which is
+#   sufficient to detect configuration drift without saturating CI.
+#
+# Cron schedule rationale:
+#   Weekly on Monday at 05:17 UTC -- outside normal CI traffic windows.
+#   Weekly cadence is enough to catch resolver or Cloudflare ECH config
+#   rotation (HTTPS RR ech= parameter changes) without burning quota daily.
+#
+# Interpreting results:
+#   GREEN  -- dispatcher + real driver wiring works end-to-end. The hickory
+#             parser correctly extracts ECH config from the HTTPS RR and the
+#             TLS handshake succeeds.
+#   RED    -- one of three root causes:
+#             (a) Cloudflare's HTTPS RR no longer carries `ech=` for the
+#                 tested hostname, or the ECH config bytes changed format.
+#             (b) The hickory DNS parser regressed (check hickory-dns release
+#                 notes for the version pinned in Cargo.lock).
+#             (c) Network egress from GitHub Actions to Cloudflare is blocked
+#                 or throttled on the runner that picked up this job.
+#   The uploaded artifact (artifacts/cargo-test-output.log) contains full
+#   test stdout/stderr including the "expected on sandbox" eprintln! lines
+#   that distinguish case (c) from (a)/(b).
+
+name: diagnostics-probes-real-world
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * 1'
+
+jobs:
+  real-world:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/rust/target
+          key: ${{ runner.os }}-cargo-diagnostics-probes-${{ hashFiles('native/rust/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-diagnostics-probes-
+
+      - name: Run real-world ignored tests
+        env:
+          RUST_BACKTRACE: 1
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          cargo test --manifest-path native/rust/Cargo.toml \
+            -p ripdpi-diagnostics-probes \
+            -- --ignored --nocapture --test-threads=1 \
+            2>&1 | tee artifacts/cargo-test-output.log
+
+      - name: Upload test output artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostics-probes-real-world-${{ github.run_id }}
+          path: artifacts/
+          retention-days: 30

@@ -12,15 +12,9 @@
 //      pub mod hickory_rustls_ech_driver;
 //      pub use hickory_rustls_ech_driver::HickoryRustlsEchHandshakeDriver;
 //
-// 3. rustls ECH: the `handshake_with_ech` method intentionally returns
-//    SetupError until the workspace enables the `unstable-ech` Cargo feature
-//    on rustls 0.23. To wire it:
-//      - In workspace Cargo.toml add:
-//          [dependencies.rustls]
-//          features = ["unstable-ech"]
-//      - Replace the SetupError body below with a real ClientConfig::ech_mode
-//        call. The ECH API may change between rustls minor versions; schedule
-//        an audit after each rustls bump.
+// 3. rustls ECH is part of the public API as of rustls 0.23 — no Cargo feature
+//    flag required. This driver uses `rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES`
+//    which the workspace's `rustls` feature set (aws-lc-rs) already provides.
 
 //! Real DNS + TLS ECH handshake driver backed by `hickory-resolver`.
 //!
@@ -30,10 +24,12 @@
 //!   default config, querying `RecordType::HTTPS` and extracting the
 //!   `SvcParamKey::EchConfigList` value from SVCB/HTTPS resource records.
 //!
-//! - **TLS half**: stub returning [`EchHandshakeOutcome::SetupError`] until
-//!   rustls `unstable-ech` is enabled workspace-wide (see `PARENT-INTEGRATION`
-//!   comment at the top of this file).
+//! - **TLS half**: real rustls 0.23 ECH handshake via
+//!   [`rustls::client::EchConfig`] + [`tokio_rustls::TlsConnector`].
+//!   ECH status is read from [`rustls::client::EchStatus`] after the
+//!   handshake completes and mapped to [`EchHandshakeOutcome`].
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use hickory_resolver::{
@@ -43,18 +39,23 @@ use hickory_resolver::{
     proto::rr::{RData, RecordType},
     TokioResolver,
 };
+use rustls::client::{EchConfig, EchMode, EchStatus};
+use rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES;
+use rustls::pki_types::{EchConfigListBytes, ServerName};
+use rustls::RootCertStore;
+use tokio_rustls::TlsConnector;
 
 use crate::ech_handshake::{EchHandshakeDriver, EchHandshakeOutcome};
 
-/// Real ECH handshake driver using `hickory-resolver` for HTTPS RR lookup.
+/// Real ECH handshake driver using `hickory-resolver` for HTTPS RR lookup
+/// and `rustls` 0.23 + `tokio-rustls` for the TLS handshake.
 ///
 /// The DNS half resolves `HTTPS` resource records via Cloudflare's resolvers
 /// and extracts the `ech=` (`SvcParamKey::EchConfigList`) parameter bytes.
 ///
-/// The TLS half is a documented stub: it returns
-/// [`EchHandshakeOutcome::SetupError`] with detail
-/// `"rustls-ech-feature-not-enabled"` until the workspace enables the
-/// `unstable-ech` feature on rustls 0.23 (see module-level comment).
+/// The TLS half performs a genuine ECH-enabled TLS 1.3 handshake using
+/// [`EchConfig::new`] with [`ALL_SUPPORTED_SUITES`] (aws-lc-rs HPKE suites)
+/// and reads the outcome from [`EchStatus`] on the completed connection.
 pub struct HickoryRustlsEchHandshakeDriver {
     /// Maximum wall-clock time allowed for each HTTPS RR lookup.
     ///
@@ -126,31 +127,88 @@ impl EchHandshakeDriver for HickoryRustlsEchHandshakeDriver {
         Ok(None)
     }
 
-    /// Perform a TLS handshake with ECH enabled.
+    /// Perform a real TLS 1.3 handshake with ECH enabled via rustls 0.23.
     ///
-    /// # Current status
-    ///
-    /// This method is a documented integration hook. rustls 0.23 ECH support
-    /// lives behind the `unstable-ech` Cargo feature which is not yet enabled
-    /// in this workspace. Until it is, this method always returns
-    /// [`EchHandshakeOutcome::SetupError`] with detail
-    /// `"rustls-ech-feature-not-enabled"`.
-    ///
-    /// See the `PARENT-INTEGRATION` comment at the top of this module for the
-    /// steps required to wire the real handshake.
+    /// Steps:
+    /// 1. Parse `ech_config` bytes into an [`EchConfig`] selecting a compatible
+    ///    HPKE suite from [`ALL_SUPPORTED_SUITES`] (aws-lc-rs).
+    /// 2. Build a [`rustls::ClientConfig`] with ECH enabled and the system
+    ///    WebPKI roots via `webpki_roots`.
+    /// 3. Open a TCP connection and drive the TLS handshake, both bounded by
+    ///    `timeout`.
+    /// 4. Inspect [`EchStatus`] on the completed connection and map to
+    ///    [`EchHandshakeOutcome`].
     async fn handshake_with_ech(
         &self,
-        _host: &str,
-        _port: u16,
-        _ech_config: &[u8],
-        _timeout: Duration,
+        host: &str,
+        port: u16,
+        ech_config: &[u8],
+        timeout: Duration,
     ) -> EchHandshakeOutcome {
-        // PARENT-INTEGRATION: replace this body once [dependencies.rustls]
-        // features = ["unstable-ech"] is added to the workspace Cargo.toml.
-        // Use rustls::ClientConfig::builder_with_provider(...)
-        //     .with_ech(EchMode::Enable(EchConfig::new(...)))
-        //     .with_root_certificates(...) to build the config, then drive
-        // the handshake with tokio-rustls::TlsConnector.
-        EchHandshakeOutcome::SetupError { detail: "rustls-ech-feature-not-enabled".to_string() }
+        // Step 1: parse ECHConfigList bytes.
+        let ech_config_list = EchConfigListBytes::from(ech_config.to_vec());
+        let ech_cfg = match EchConfig::new(ech_config_list, ALL_SUPPORTED_SUITES) {
+            Ok(c) => c,
+            Err(e) => {
+                return EchHandshakeOutcome::SetupError { detail: format!("ech-config-parse-error: {e}") };
+            }
+        };
+
+        // Step 2: build root store and ClientConfig with ECH.
+        let mut root_store = RootCertStore::empty();
+        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+
+        let client_config =
+            match rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::aws_lc_rs::default_provider()))
+                .with_ech(EchMode::Enable(ech_cfg))
+            {
+                Ok(builder) => builder.with_root_certificates(root_store).with_no_client_auth(),
+                Err(e) => {
+                    return EchHandshakeOutcome::SetupError { detail: format!("ech-clientconfig-build-error: {e}") };
+                }
+            };
+
+        // Step 3a: TCP connect with timeout.
+        let tcp = match tokio::time::timeout(timeout, tokio::net::TcpStream::connect((host, port))).await {
+            Err(_elapsed) => {
+                return EchHandshakeOutcome::HandshakeFailure { detail: "tcp-connect-timeout".to_string() };
+            }
+            Ok(Err(e)) => {
+                return EchHandshakeOutcome::HandshakeFailure { detail: format!("tcp-connect-error: {e}") };
+            }
+            Ok(Ok(stream)) => stream,
+        };
+
+        // Step 3b: parse ServerName.
+        let server_name = match ServerName::try_from(host.to_string()) {
+            Ok(n) => n,
+            Err(e) => {
+                return EchHandshakeOutcome::SetupError { detail: format!("server-name-parse-error: {e}") };
+            }
+        };
+
+        // Step 3c: TLS handshake with timeout.
+        let connector = TlsConnector::from(Arc::new(client_config));
+        let tls = match tokio::time::timeout(timeout, connector.connect(server_name, tcp)).await {
+            Err(_elapsed) => {
+                return EchHandshakeOutcome::HandshakeFailure { detail: "tls-handshake-timeout".to_string() };
+            }
+            Ok(Err(e)) => {
+                return EchHandshakeOutcome::HandshakeFailure { detail: format!("tls-handshake-error: {e}") };
+            }
+            Ok(Ok(stream)) => stream,
+        };
+
+        // Step 4: map ECH status to outcome.
+        let (_io, conn) = tls.get_ref();
+        let alpn = conn.alpn_protocol().and_then(|b| std::str::from_utf8(b).ok().map(String::from));
+
+        match conn.ech_status() {
+            EchStatus::Accepted => EchHandshakeOutcome::EchAccepted { selected_alpn: alpn },
+            EchStatus::Rejected => EchHandshakeOutcome::EchRejectedWithRetryConfig,
+            EchStatus::NotOffered | EchStatus::Grease | EchStatus::Offered => {
+                EchHandshakeOutcome::HandshakeFailure { detail: "ech-not-negotiated".to_string() }
+            }
+        }
     }
 }

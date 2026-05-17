@@ -15,7 +15,10 @@ ripdpi-diagnostics-classification = { workspace = true }
 ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-diagnostics-http = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
+rustls = { workspace = true }
 tokio = { workspace = true, features = ["net", "time", "rt"] }
+tokio-rustls = { workspace = true }
+webpki-roots = { workspace = true }
 
 [features]
 default = ["compat-facade"]

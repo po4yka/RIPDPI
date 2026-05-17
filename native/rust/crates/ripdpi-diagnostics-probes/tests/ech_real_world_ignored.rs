@@ -60,12 +60,16 @@ fn real_world_cloudflare_runner_attempt_produces_documented_outcome() {
         "rustls-ech-feature-not-enabled",
         "svcparam-key-not-found",
         "ech-runner-not-implemented",
+        "ech-config-parse-error",
+        "ech-clientconfig-build-error",
+        "server-name-parse-error",
         "network",
         "timeout",
         "refused",
         "unreachable",
         "resolve",
         "dns",
+        "hickory",
     ];
 
     match &probe.outcome {

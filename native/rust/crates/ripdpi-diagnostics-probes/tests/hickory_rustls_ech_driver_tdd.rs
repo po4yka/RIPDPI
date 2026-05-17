@@ -49,15 +49,18 @@ fn default_trait_matches_new() {
     assert_eq!(via_new.lookup_timeout, via_default.lookup_timeout);
 }
 
-/// The handshake stub must return `SetupError` with the documented detail
-/// string. No network I/O is performed.
+/// The handshake's first step parses the ECHConfigList bytes via
+/// `rustls::client::EchConfig::new`. Feeding a deliberately malformed
+/// single-byte buffer must yield `SetupError` with detail prefixed
+/// `"ech-config-parse-error:"` — proving the parsing path is wired
+/// without requiring any network I/O.
 #[test]
-fn handshake_returns_setup_error_with_documented_detail() {
+fn handshake_invalid_ech_config_yields_setup_error_parse_prefix() {
     let driver = HickoryRustlsEchHandshakeDriver::new();
     let outcome = block_on(driver.handshake_with_ech("cloudflare.com", 443, b"\x00", Duration::from_secs(1)));
     match outcome {
         EchHandshakeOutcome::SetupError { detail } => {
-            assert_eq!(detail, "rustls-ech-feature-not-enabled", "unexpected detail: {detail:?}");
+            assert!(detail.starts_with("ech-config-parse-error:"), "unexpected detail: {detail:?}");
         }
         other => panic!("expected SetupError, got {other:?}"),
     }
