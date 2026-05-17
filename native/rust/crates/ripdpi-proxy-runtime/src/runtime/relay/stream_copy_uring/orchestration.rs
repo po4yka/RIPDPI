@@ -1,9 +1,8 @@
-use crate::sync::Arc;
-
 use std::io;
 use std::net::TcpStream;
 use std::os::fd::AsRawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread;
 
 use ripdpi_io_uring::IoUringDriver;

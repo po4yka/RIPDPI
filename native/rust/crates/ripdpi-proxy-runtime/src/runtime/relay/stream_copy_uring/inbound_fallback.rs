@@ -1,9 +1,8 @@
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
-
-use crate::sync::Arc;
 
 use super::super::session::RelaySharedSession;
 use super::cleanup::shutdown_direction;
