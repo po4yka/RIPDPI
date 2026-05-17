@@ -19,7 +19,7 @@ use super::outbound_desync::copy_outbound_half;
 /// available. The inbound path (upstream -> client) uses `IORING_OP_SEND_ZC`
 /// via registered buffers. The outbound path uses the standard desync
 /// pipeline since desync strategies require fine-grained socket manipulation.
-pub(in crate::runtime) fn relay_streams_uring(
+pub(crate) fn relay_streams_uring(
     client: TcpStream,
     upstream: TcpStream,
     state: &RuntimeState,

@@ -2,6 +2,8 @@ use std::io::{self, Read};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::sync::Arc;
+
 use super::super::super::desync::{DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
 use super::super::session::RelaySharedSession;

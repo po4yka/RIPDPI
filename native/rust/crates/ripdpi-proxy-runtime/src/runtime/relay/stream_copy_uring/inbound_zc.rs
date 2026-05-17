@@ -5,6 +5,8 @@ use std::time::Instant;
 
 use ripdpi_io_uring::IoUringDriver;
 
+use crate::sync::Arc;
+
 use super::super::session::RelaySharedSession;
 use super::cleanup::shutdown_direction;
 use super::freeze_detector::FreezeDetector;
