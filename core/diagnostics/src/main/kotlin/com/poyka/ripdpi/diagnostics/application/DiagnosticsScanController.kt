@@ -39,15 +39,13 @@ internal class DefaultDiagnosticsScanController
         private val activeScanRegistry: ActiveScanRegistry,
         private val bridgeExecutionService: BridgeExecutionService,
         private val executionCoordinator: DiagnosticsScanExecutionCoordinator,
-        @param:Named("diagnosticsJson")
-        private val json: Json,
+        private val hiddenProbeConflictRequestFactory: HiddenProbeConflictRequestFactory,
         @param:ApplicationIoScope
         private val scope: CoroutineScope,
     ) : DiagnosticsScanController,
         AutomaticProbeLauncher {
         private companion object {
             const val HiddenProbeCancellationTimeoutMs = 10_000L
-            const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
         }
 
         private val startMutex = Mutex()
@@ -96,13 +94,14 @@ internal class DefaultDiagnosticsScanController
                     }
 
                     is ManualStartAdmission.HiddenAutomaticProbeConflict -> {
-                        createPendingHiddenConflictRequest(
-                            profile = admission.profile,
-                            settings = admission.settings,
-                            pathMode = pathMode,
-                        ).also { pendingRequest ->
-                            pendingHiddenConflictRequest = pendingRequest
-                        }.toConflictResult()
+                        hiddenProbeConflictRequestFactory
+                            .create(
+                                profile = admission.profile,
+                                settings = admission.settings,
+                                pathMode = pathMode,
+                            ).also { pendingRequest ->
+                                pendingHiddenConflictRequest = pendingRequest
+                            }.toConflictResult()
                     }
                 }
             }
@@ -308,15 +307,35 @@ internal class DefaultDiagnosticsScanController
             )
             return prepared.sessionId
         }
+    }
 
-        private fun createPendingHiddenConflictRequest(
+internal class HiddenProbeConflictRequestFactory
+    @Inject
+    constructor(
+        @param:Named("diagnosticsJson")
+        private val json: Json,
+    ) {
+        private var requestIdGenerator: () -> String = { UUID.randomUUID().toString() }
+
+        internal constructor(
+            json: Json,
+            requestIdGenerator: () -> String,
+        ) : this(json) {
+            this.requestIdGenerator = requestIdGenerator
+        }
+
+        private companion object {
+            const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
+        }
+
+        fun create(
             profile: DiagnosticProfileEntity,
             settings: com.poyka.ripdpi.proto.AppSettings,
             pathMode: ScanPathMode,
         ): PendingHiddenConflictRequest {
             val projection = json.decodeProfileSpecWire(profile.requestJson).toProfileProjection()
             return PendingHiddenConflictRequest(
-                requestId = UUID.randomUUID().toString(),
+                requestId = requestIdGenerator(),
                 profile = profile,
                 settings = settings,
                 pathMode = pathMode,
@@ -483,7 +502,7 @@ private fun Throwable.summaryForScan(
         message ?: "Diagnostics scan failed"
     }
 
-private data class PendingHiddenConflictRequest(
+internal data class PendingHiddenConflictRequest(
     val requestId: String,
     val profile: DiagnosticProfileEntity,
     val settings: com.poyka.ripdpi.proto.AppSettings,
@@ -493,7 +512,7 @@ private data class PendingHiddenConflictRequest(
     val isFullAudit: Boolean,
 )
 
-private fun PendingHiddenConflictRequest.toConflictResult():
+internal fun PendingHiddenConflictRequest.toConflictResult():
     DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution =
     DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution(
         requestId = requestId,

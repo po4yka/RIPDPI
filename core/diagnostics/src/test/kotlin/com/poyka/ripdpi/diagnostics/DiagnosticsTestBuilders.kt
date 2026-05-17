@@ -271,7 +271,7 @@ internal fun createDiagnosticsServices(
             activeScanRegistry = activeScanRegistry,
             bridgeExecutionService = bridgeExecutionService,
             executionCoordinator = executionCoordinator,
-            json = json,
+            hiddenProbeConflictRequestFactory = HiddenProbeConflictRequestFactory(json),
             scope = controllerScope,
         )
     return DiagnosticsServicesBundle(
