@@ -72,35 +72,50 @@ class StrictDnsResolver(
         domain: String,
         qtype: String,
         policy: FailoverPolicy,
-    ): StrictDnsResult {
+    ): StrictDnsResult =
         cache.lookup(domain, qtype)?.let { cached ->
-            return StrictDnsResult.Success(
+            StrictDnsResult.Success(
                 addresses = cached,
                 outboundUsed = "",
                 fromCache = true,
             )
-        }
+        } ?: resolveLive(domain, qtype, policy)
 
+    private fun resolveLive(
+        domain: String,
+        qtype: String,
+        policy: FailoverPolicy,
+    ): StrictDnsResult {
         val activeOutbound: OutboundId = ""
         val allEndpoints = listOf(policy.primary) + policy.secondaries
+        return firstSuccess(domain, qtype, allEndpoints, activeOutbound)
+            ?: firstFallbackSuccess(domain, qtype, allEndpoints, policy.fallbackOutbounds)
+            ?: StrictDnsResult.StrictFailure
+    }
 
-        for (endpoint in allEndpoints) {
-            transport.resolve(domain, qtype, endpoint, activeOutbound)?.let { addresses ->
-                return StrictDnsResult.Success(addresses = addresses, outboundUsed = activeOutbound)
+    private fun firstFallbackSuccess(
+        domain: String,
+        qtype: String,
+        endpoints: List<ResolverEndpoint>,
+        fallbackOutbounds: List<OutboundId>,
+    ): StrictDnsResult? {
+        fallbackOutbounds.forEach { outbound ->
+            firstSuccess(domain, qtype, endpoints, outbound)?.let { return it }
+        }
+        return null
+    }
+
+    private fun firstSuccess(
+        domain: String,
+        qtype: String,
+        endpoints: List<ResolverEndpoint>,
+        outbound: OutboundId,
+    ): StrictDnsResult? {
+        endpoints.forEach { endpoint ->
+            transport.resolve(domain, qtype, endpoint, outbound)?.let { addresses ->
+                return StrictDnsResult.Success(addresses = addresses, outboundUsed = outbound)
             }
         }
-
-        for (fallbackOutbound in policy.fallbackOutbounds) {
-            for (endpoint in allEndpoints) {
-                transport.resolve(domain, qtype, endpoint, fallbackOutbound)?.let { addresses ->
-                    return StrictDnsResult.Success(
-                        addresses = addresses,
-                        outboundUsed = fallbackOutbound,
-                    )
-                }
-            }
-        }
-
-        return StrictDnsResult.StrictFailure
+        return null
     }
 }

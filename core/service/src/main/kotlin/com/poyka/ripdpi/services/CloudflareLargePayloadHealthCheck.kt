@@ -104,19 +104,18 @@ enum class ProfileHealthState {
  * Deliberately Android-free and dependency-free; safe for JVM unit tests.
  */
 object CloudflareHealthClassifier {
-    fun classify(report: HealthCheckReport): ProfileHealthState {
+    fun classify(report: HealthCheckReport): ProfileHealthState =
+        when {
+            report.phases.isEmpty() -> ProfileHealthState.Unknown
+            report.phases[HealthCheckPhase.TlsHandshake] != HealthPhaseOutcome.Ok -> ProfileHealthState.Unknown
+            hasStalledBodyPhase(report) -> ProfileHealthState.DegradedCloudflareLike
+            else -> ProfileHealthState.Healthy
+        }
+
+    private fun hasStalledBodyPhase(report: HealthCheckReport): Boolean {
         val phases = report.phases
-        if (phases.isEmpty()) return ProfileHealthState.Unknown
-
-        val tlsOutcome = phases[HealthCheckPhase.TlsHandshake]
-        if (tlsOutcome != HealthPhaseOutcome.Ok) return ProfileHealthState.Unknown
-
-        val body64Stalled = phases[HealthCheckPhase.Body64Kb] == HealthPhaseOutcome.Stalled
-        val body256Stalled = phases[HealthCheckPhase.Body256KbHash] == HealthPhaseOutcome.Stalled
-
-        if (body64Stalled || body256Stalled) return ProfileHealthState.DegradedCloudflareLike
-
-        return ProfileHealthState.Healthy
+        return phases[HealthCheckPhase.Body64Kb] == HealthPhaseOutcome.Stalled ||
+            phases[HealthCheckPhase.Body256KbHash] == HealthPhaseOutcome.Stalled
     }
 }
 

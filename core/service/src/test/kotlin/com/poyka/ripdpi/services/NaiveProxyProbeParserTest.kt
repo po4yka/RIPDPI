@@ -23,7 +23,9 @@ class NaiveProxyProbeParserTest {
     @Test
     fun `parses a well-formed probe line into all fields`() {
         val line =
-            """RIPDPI-PROBE {"schema_version":1,"helper_version":"0.1.0","features":["socks5-listener","https-connect-upstream"]}"""
+            "RIPDPI-PROBE " +
+                """{"schema_version":1,"helper_version":"0.1.0","features":[""" +
+                """"socks5-listener","https-connect-upstream"]}"""
 
         val probe = NaiveProxyProbeParser.parse(line)
 

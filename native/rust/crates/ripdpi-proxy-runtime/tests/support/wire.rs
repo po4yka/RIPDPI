@@ -153,7 +153,7 @@ pub mod capture {
             let rc = unsafe {
                 libc::bind(
                     fd,
-                    &addr as *const libc::sockaddr_ll as *const libc::sockaddr,
+                    (&addr as *const libc::sockaddr_ll).cast::<libc::sockaddr>(),
                     mem::size_of::<libc::sockaddr_ll>() as libc::socklen_t,
                 )
             };
@@ -172,7 +172,7 @@ pub mod capture {
                     fd,
                     libc::SOL_SOCKET,
                     libc::SO_RCVTIMEO,
-                    &tv as *const libc::timeval as *const libc::c_void,
+                    (&tv as *const libc::timeval).cast::<libc::c_void>(),
                     mem::size_of::<libc::timeval>() as libc::socklen_t,
                 );
             }
@@ -186,7 +186,7 @@ pub mod capture {
                 let mut buf = [0u8; 65536];
                 while !stop_flag.load(Ordering::Relaxed) {
                     // SAFETY: fd is valid for the lifetime of this thread; buf is a valid writable buffer of the given length.
-                    let read = unsafe { libc::recv(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len(), 0) };
+                    let read = unsafe { libc::recv(fd, buf.as_mut_ptr().cast::<libc::c_void>(), buf.len(), 0) };
                     if read <= 0 {
                         continue;
                     }
