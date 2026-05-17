@@ -429,6 +429,43 @@ class ScanRegressionTests(unittest.TestCase):
         ):
             self.assertTrue(_has(_scan(fragment), pattern), msg=fragment)
 
+    def test_transmute_copy_flagged(self) -> None:
+        # Issue #22: `mem::transmute_copy` was previously missed
+        # because the `mem::transmute` regex used a `\b` anchor
+        # that does not cross `_` (word boundary requirement). The
+        # new pattern catches it explicitly.
+        for fragment in (
+            "let u: U = unsafe { mem::transmute_copy(&t) };",
+            "let u = unsafe { std::mem::transmute_copy::<T, U>(&t) };",
+            "let u = unsafe { core::mem::transmute_copy(&t) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "mem::transmute_copy"), msg=fragment)
+
+    def test_explicit_leak_flagged(self) -> None:
+        # Issue #22: `Box::leak` / `Vec::leak` / `String::leak`
+        # promote a heap allocation to `&'static`. Sound by
+        # language definition but the leaked memory is
+        # unreachable for the rest of the process lifetime. Each
+        # use must be deliberate and documented.
+        for fragment in (
+            "let s: &'static str = String::leak(s);",
+            "let v: &'static mut [u8] = Vec::leak(v);",
+            "let b: &'static mut T = Box::leak(b);",
+            "let s = String::leak(format!(\"hello\"));",
+        ):
+            self.assertTrue(_has(_scan(fragment), "explicit leak"), msg=fragment)
+
+    def test_unrelated_leak_apis_not_flagged(self) -> None:
+        # `Pin::leak`, `Rc::strong_count`, and other unrelated APIs
+        # MUST NOT trigger the explicit-leak pattern.
+        for fragment in (
+            "let count = Arc::strong_count(&a);",
+            "let p = std::ptr::null::<T>();",
+            "let r = Rc::clone(&rc);",
+            "let s = leak.to_string();",  # bare `leak.` field access, no `::leak`
+        ):
+            self.assertFalse(_has(_scan(fragment), "explicit leak"), msg=fragment)
+
     def test_zero_init_unrelated_apis_not_flagged(self) -> None:
         # Safe zero-init APIs (Default::default, integer literal 0,
         # `Vec::new`, etc.) MUST NOT trigger the issue-#21 patterns.

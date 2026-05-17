@@ -101,6 +101,8 @@ on every PR. It looks for the following risky patterns under
 | `Box::into_raw` | The matched counterpart of `Box::from_raw`. Scanning only the reclaim side would miss orphaned `into_raw` calls that leak (`mem::forget` equivalent) or that hand the pointer to FFI without a matching `from_raw`. See "`Box::into_raw` / `Box::from_raw` ownership transfer" below. |
 | `.assume_init()` / `.assume_init_ref()` / `.assume_init_mut()` / `.assume_init_drop()` / `.assume_init_read()` / `MaybeUninit::assume_init(_*)?` | Promoting `MaybeUninit<T>` to `T` (or `&T`/`&mut T`/Drop-target) without proof every byte of the slot is a valid `T` value. UB on the very next read otherwise. The previous regex matched only the base form because the `\b` anchor stopped at `_`; the broadened regex catches all five std-API variants. See "`MaybeUninit` correctness" below. |
 | `mem::transmute` / `transmute::<_,_>` | Reinterpretation cast that bypasses the type system. |
+| `mem::transmute_copy` | Cousin of `transmute` that does NOT enforce `size_of::<T>() == size_of::<U>()` at compile time; any size mismatch silently reads past the source allocation. The base `transmute` regex's `\b` anchor missed this; the dedicated pattern is the issue-#22 fix. See "Lifetime extension" below. |
+| `Box::leak` / `Vec::leak` / `String::leak` | Promote a heap allocation to `&'static mut T` / `&'static mut [T]` / `&'static mut str`. Sound by language definition but the leaked memory is unreachable for the rest of the process lifetime. Workspace has zero production occurrences. See "Lifetime extension" below. |
 | `.get_unchecked(_mut)?()`, `.unwrap_unchecked()` | Bounds/option check elision. |
 | `Pin::new_unchecked`, `Pin::get_unchecked_mut` | Pin invariant bypass. |
 | `NonNull::as_ref` / `NonNull::as_mut` (qualified form) | Materializing `&T` / `&mut T` from a raw `NonNull`. The unqualified method form is ignored to avoid the noisy `Option::as_ref` / `&str::as_ref` false-positive class — raw-pointer dereferences are covered instead by `unsafe_op_in_unsafe_fn = deny` plus the SAFETY-comment requirement. |
@@ -1760,6 +1762,152 @@ MUST address all FIVE NAMED mandatory fields:
    the struct as `&[u8]`, that the padding-zero claim
    is documented; otherwise that the consumer reads
    only named fields).
+5. **Owner.**
+
+## Lifetime extension
+
+Three patterns can silently extend the lifetime of a Rust
+reference past its owner's scope, all of which are UB on the
+next read:
+
+1. **`mem::transmute::<&'a T, &'b T>`** — the textbook trick.
+   Sound iff `'a: 'b`, but the cast itself doesn't check;
+   only the programmer does.
+2. **`mem::transmute_copy`** — the under-the-radar cousin.
+   Does NOT enforce `size_of::<T>() == size_of::<U>()` at
+   compile time; a size mismatch silently reads past the
+   source allocation. Equally usable for lifetime extension
+   AND for ABI-mismatched type punning.
+3. **Raw pointer round-trip with synthesized lifetime** —
+   `let ptr = r as *const T; ... let r2: &'static T = unsafe
+   { &*ptr };` synthesises a `'static` lifetime out of a
+   borrowed pointer. The borrow checker can't see what the
+   `unsafe` block claims; the next read past the original
+   owner's scope is UB.
+
+The audit checklist for every potential lifetime-extension
+site:
+
+1. **Where does the reference's lifetime come from?** Is it
+   bound by the borrow checker to a real owner (`&self`,
+   `&'a T` parameter, RAII guard), or does the function
+   signature use an unconstrained `'a` (`fn f<'a>() -> &'a
+   T`)?
+2. **Is the returned `'static` actually `'static`?** A
+   function returning `&'static str` is sound iff its body
+   returns a string literal, `OnceLock`-backed value,
+   `Box::leak`-ed allocation, or other genuinely-`'static`
+   data. Returning `&'static str` from a `let s = String::
+   from(...); &s` is UB — the local `String` drops at end
+   of function.
+3. **Does an unsafe block synthesise a lifetime?** Look
+   for `&*ptr` / `&mut *ptr` / `transmute::<*const _, &_>`
+   / `transmute::<*mut _, &mut _>` patterns. If the
+   returned reference's lifetime isn't tied to a real
+   owner, it's UB-by-construction.
+4. **Is an explicit `Box::leak` / `Vec::leak` / `String::
+   leak` paired with a justification?** Sound by language
+   definition (the language-level `'static` is genuine —
+   the memory is never freed), but the leaked memory is
+   unreachable for the rest of the process lifetime. Each
+   leak must be deliberate: process-lifetime
+   configuration, one-time symbol-table allocation,
+   `'static` callback registration. Never use to "fix" a
+   lifetime error.
+
+**Rule.** Application code SHOULD NOT extend reference
+lifetimes through `transmute` or raw-pointer tricks. The
+preferred shapes, in order:
+
+1. **Tie the reference's lifetime to a real owner.** `fn
+   get(&self) -> &T` is sugar for `fn get<'a>(&'a self)
+   -> &'a T` — the returned `&T` cannot outlive `&self`,
+   the borrow checker enforces it. The workspace's
+   `MappedFile::as_slice(&self) -> &[u8]`,
+   `BufferHandle::deref(&self) -> &[u8]`, and the
+   `*const u8` returns from `MmapRegion::as_ptr(&self)`
+   (followed by caller-side `&*ptr` bounded by the same
+   `&self`) all use this shape.
+2. **Return owned values.** `fn get(&self) -> String`
+   instead of `fn get(&self) -> &'static str` when the
+   data is per-instance.
+3. **`Arc<T>` for shared ownership.** Clone the `Arc`
+   instead of extending a reference; the language tracks
+   the refcount for you.
+4. **`Cow<'a, T>`** when the data may or may not need to
+   be owned (e.g. parser output that might be a borrow
+   into the input OR a fresh owned string after
+   sanitisation).
+5. **Explicit `Box::leak` / `Vec::leak` / `String::leak`
+   with a SAFETY comment.** Reserved for process-lifetime
+   configuration / one-shot allocations that genuinely
+   live forever. Document WHY the leak is permanent (size
+   bound, no per-request growth, no other lifecycle
+   alternative).
+
+**Anti-patterns.**
+
+- `fn get_static<'a>(input: &'a str) -> &'static str {
+  unsafe { std::mem::transmute(input) } }` — UB; the
+  function's body claims `'static` but the input is
+  bounded by `'a`.
+- `let ptr = local_string.as_ptr(); let s = unsafe {
+  &*ptr };` followed by use after `local_string` drops —
+  UB; classic dangling-pointer-via-raw-pointer trick.
+- `let r: &'static Config = unsafe { mem::transmute(&
+  config) };` where `config` is a local — UB; the
+  `config` drops at end of scope and the `'static`
+  reference dangles.
+- `Box::leak(Box::new(per_request_data))` to satisfy a
+  function signature requiring `&'static T` — actually
+  sound at the language level, but accidentally creates
+  a per-request memory leak. Use `Arc<T>` and change the
+  signature instead.
+
+**Workspace inventory.** As of issue #22: **zero**
+production occurrences of any lifetime-extension trick.
+
+- `rg '\bmem::transmute(_copy)?\b'` — zero (the
+  workspace has only the scanner-pattern test fragments).
+- `rg '\b(Box|Vec|String)::leak\b'` — zero.
+- `rg 'extend_lifetime'` — zero.
+- Every `&'static` return in the workspace is one of:
+  - string literal / rodata (e.g.
+    `proto_name(&L7Protocol) -> &'static str` in
+    `ripdpi-strategy-lua`, `as_str(self) -> &'static str`
+    on enum variants throughout `ripdpi-capabilities`,
+    telemetry phase labels in `ripdpi-runtime-api`),
+  - `'static` field of a `Copy`-trivial metadata
+    struct (e.g.
+    `StrategyDescriptorRegistration { id: &'static str,
+    describe: fn() -> StrategyDescriptor }`),
+  - `OnceLock::get_or_init` return value (e.g.
+    `telemetry_slot() -> &'static Mutex<…>` in
+    `ripdpi-runtime-api::global_telemetry`).
+
+Each is sound: the language type system enforces the
+`'static` claim against an actually-`'static` value.
+
+**Allowlist entry requirements.** A `mem::transmute`,
+`mem::transmute_copy`, or `explicit leak` allowlist
+entry's `enforcement` field MUST address all FIVE NAMED
+mandatory fields:
+
+1. **Lifetime origin** (what the source reference's
+   lifetime is, and what the target lifetime is).
+2. **Lifetime-extension argument** (proof the target
+   lifetime is sound for every reachable code path —
+   typically "the owner is `'static`" or "the
+   transmute is a no-op lifetime-wise, only the type
+   changes").
+3. **Size argument** (for `transmute_copy` only:
+   explicit `size_of::<T>() == size_of::<U>()` proof,
+   either by named ABI contract or by `const_assert!`).
+4. **Leak justification** (for `Box::leak` /
+   `Vec::leak` / `String::leak` only: why the leak is
+   genuinely permanent — process-lifetime config,
+   one-shot init, etc.; never to satisfy a borrow
+   error).
 5. **Owner.**
 
 ## Ownership must be types, not flags

@@ -272,6 +272,28 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # occurrences today. Any new use must restructure or earn an
     # allowlist entry with the same per-field zero-validity proof.
     "libc::memset": re.compile(r"\blibc::memset\b"),
+    # `mem::transmute_copy::<T, U>(src: &T) -> U` is the
+    # under-the-radar cousin of `mem::transmute`. The existing
+    # `mem::transmute` regex uses `\btransmute\b` which silently
+    # missed `transmute_copy` (underscore is a word character).
+    # Issue #22 audit confirmed ZERO production occurrences;
+    # this pattern locks the workspace at that baseline. The
+    # safety contract is even stricter than `transmute` because
+    # `transmute_copy` does NOT enforce `size_of::<T>() ==
+    # size_of::<U>()` at compile time — any size mismatch
+    # silently reads past the source allocation.
+    "mem::transmute_copy": re.compile(r"\b(?:std::|core::)?mem::transmute_copy\b"),
+    # Explicit leaks: `Box::leak`, `Vec::leak`, `String::leak`
+    # promote a heap allocation to `&'static mut T` / `&'static
+    # mut [T]` / `&'static mut str`. Sound by language definition
+    # but the resulting memory is unreachable for the rest of
+    # the program's lifetime. Issue #22 audit found ZERO
+    # production occurrences. New uses must restructure (use
+    # `Arc`, `Cow`, or scope-bounded references) or earn an
+    # allowlist entry naming WHY the leak is genuinely
+    # permanent (e.g. process-lifetime configuration loaded
+    # once at startup, never freed by design).
+    "explicit leak": re.compile(r"\b(?:Box|Vec|String)::leak\b"),
     # UnsafeCell::get returns `*mut T` from `&UnsafeCell<T>`. Dereferencing
     # it to produce `&mut T` (the canonical `unsafe { (*cell.get()).as_mut() }`
     # pattern) bypasses Rust's shared-vs-exclusive borrow check entirely;

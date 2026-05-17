@@ -699,3 +699,12 @@ preconditions = "`self.ptr` is `NonNull<u8>` pointing to a writable anonymous mm
 enforcement = "Element type `u8` has no validity invariant; `ptr::write_bytes(*mut u8, 0, n)` always produces `n` valid `u8` values. The destination is exclusive (mutable borrow `&mut self` + `MmapRegion: !Copy + !Clone`), so no aliased reader can observe a mid-write state. The bounds (`len`) come from the region's own owned length; no over-write is possible. Issue #21 zero-validity checklist: type=u8 (zero-valid), bounds=exclusive owned length, alignment=trivially aligned for u8, no references/NonNull/NonZero/bool/char/enum field in target type."
 owner = "privileged-ops"
 review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-vless/src/reality_hook.rs"
+pattern = "ptr::write_bytes"
+reason = "`std::ptr::write_bytes(out, 0, 32)` inside the `miri_stubs::SSL_handshake_get_x25519_private_key` stub, which simulates the BoringSSL accessor under Miri (`--features miri-stubs`). Writes 32 zero bytes to the caller-provided out buffer to satisfy the success branch of the Reality client_hello callback so the install/drop dance can be exercised end-to-end under Miri without linking BoringSSL"
+preconditions = "Stub is gated behind `#[cfg(feature = \"miri-stubs\")]`; only compiled in the Miri CI run. The `out: *mut u8` parameter inherits the same safety contract as the real BoringSSL signature — caller must guarantee 32 writable bytes (32-byte stack buffer in the production caller `reality_client_hello_cb_inner`). Element type is `u8`; zero is trivially a valid `u8`. The destination is exclusive (a local stack buffer in the caller, never aliased) and the bounds (32) match the caller's allocation"
+enforcement = "Issue #21 zero-validity checklist: type=u8 (zero-valid by definition), bounds=32 (matches caller's local buffer), alignment=1 (trivial for u8), no validity-bearing fields. Issue #22 lifetime check: no reference is created from the write_bytes; the `out` pointer is consumed in-scope by the caller. The stub is dead code outside `--features miri-stubs` Miri runs, so production builds are unaffected"
+owner = "vless"
+review_date = "2026-11-15"
