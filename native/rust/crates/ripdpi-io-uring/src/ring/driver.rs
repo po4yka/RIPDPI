@@ -15,6 +15,15 @@ const RING_SIZE: u32 = 256;
 
 /// The io_uring driver manages a dedicated thread that processes submissions
 /// and completions, bridging to tokio tasks via [`CompletionFuture`].
+///
+/// Drop order: the `Drop::drop` body drives the full shutdown handshake
+/// (`tx.send(Submission::Shutdown)` -> `thread.take() + join()`) BEFORE
+/// any field drops, so the declaration order between `tx`, `registry`,
+/// `pool`, and `thread` is incidental rather than load-bearing. After
+/// the body returns, the joined thread has already released its
+/// `Sender` clone, so `tx`/`registry`/`pool` drop with no concurrent
+/// reader. The `thread` field is `None` at that point (taken by
+/// `Option::take`), so its implicit drop is trivial.
 pub struct IoUringDriver {
     tx: flume::Sender<Submission>,
     registry: Arc<CompletionRegistry>,

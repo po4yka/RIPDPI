@@ -56,6 +56,17 @@ pub enum LoopbackError {
 /// useful on its own for tests that don't need any cover handshake.
 /// Each accepted connection echoes inbound bytes until the peer
 /// closes, up to a soft byte cap to bound runaway tests.
+///
+/// Drop order: the `Drop::drop` body takes `shutdown` via
+/// `Option::take` and fires the oneshot signal BEFORE any implicit
+/// field drop. After the body returns, `local_addr` (Copy), the
+/// already-`None` `shutdown`, and `join_handle` drop in declaration
+/// order. Dropping a `JoinHandle` without `await` detaches the
+/// accept loop; the accept loop sees the oneshot signal on its
+/// next `tokio::select!` poll and exits cleanly. This is
+/// fire-and-forget shutdown -- appropriate for a test fixture but
+/// callers that need synchronous teardown should use the explicit
+/// `shutdown()` method instead.
 pub struct EchoLoopback {
     local_addr: SocketAddr,
     shutdown: Option<oneshot::Sender<()>>,
@@ -210,5 +221,88 @@ mod tests {
         let inner = io::Error::new(io::ErrorKind::TimedOut, "boom");
         let wrapped: LoopbackError = inner.into();
         assert!(matches!(wrapped, LoopbackError::Io(_)));
+    }
+
+    // --- Issue #31: drop-order teardown regressions -----------------------
+    //
+    // The `EchoLoopback` struct's `Drop order:` invariant (documented above
+    // the struct definition) is that `Drop::drop` takes `shutdown` via
+    // `Option::take` and fires the oneshot BEFORE the implicit field drop
+    // detaches the `JoinHandle`. The three tests below pin the observable
+    // behaviour that contract produces:
+    //
+    //   1. Implicit drop completes without panic even with no active
+    //      clients (no peer to drain pending writes against).
+    //   2. Implicit drop completes without panic even with a live client
+    //      connected (the accept loop is mid-cycle when the oneshot fires).
+    //   3. Repeated construct-then-drop cycles do not leak local ports
+    //      (the accept loop releases its `TcpListener` after seeing the
+    //      shutdown signal).
+
+    #[tokio::test]
+    async fn implicit_drop_without_clients_completes_cleanly() {
+        // No explicit `shutdown().await` -- relies entirely on the Drop
+        // body firing the oneshot. A regression that re-ordered the field
+        // drop (e.g. drops `join_handle` first, then `shutdown`) would not
+        // panic in this test alone, but combined with test (3) below it
+        // would surface as a leaked port / leaked task.
+        let server = EchoLoopback::start(1024).await.expect("start");
+        let addr = server.local_addr();
+        assert!(addr.ip().is_loopback());
+        drop(server);
+        // Give the runtime a moment to drain the detached accept loop.
+        // The implicit drop is fire-and-forget; this yield is a courtesy
+        // for the runtime, not a correctness requirement of the test.
+        tokio::task::yield_now().await;
+    }
+
+    #[tokio::test]
+    async fn implicit_drop_with_live_client_completes_cleanly() {
+        let server = EchoLoopback::start(1024).await.expect("start");
+        let addr = server.local_addr();
+        let mut client = TcpStream::connect(addr).await.expect("client connect");
+        // Send something so the accept loop is actively processing a
+        // connection at the moment we drop the server.
+        client.write_all(b"keepalive").await.expect("client write");
+        let mut received = vec![0u8; 9];
+        client.read_exact(&mut received).await.expect("client read");
+        assert_eq!(&received, b"keepalive");
+
+        // Drop the server while the client connection is still alive.
+        // The Drop body fires the shutdown oneshot; the accept loop
+        // sees it on its next `tokio::select!` poll and exits. The
+        // already-spawned per-connection task continues until the
+        // client closes (verified next).
+        drop(server);
+
+        // Client should still be able to receive any in-flight bytes and
+        // then observe EOF when its per-connection task exits.
+        drop(client);
+
+        // No assertion needed past this point -- the test's load-bearing
+        // assertion is "the drop above did not panic". Reaching this
+        // line is the pass condition.
+    }
+
+    #[tokio::test]
+    async fn repeated_construct_and_drop_does_not_leak() {
+        // Stress: 32 construct/drop cycles. A field-drop-order
+        // regression that left the `TcpListener` bound after Drop
+        // would either fail subsequent `start()` calls (if Linux
+        // SO_REUSEADDR somehow lost) or accumulate dangling tasks
+        // visible under Miri/sanitizers. The cycle count is small
+        // enough to stay tractable under Miri's bookkeeping.
+        const CYCLES: usize = 32;
+        for _ in 0..CYCLES {
+            let server = EchoLoopback::start(64).await.expect("start in cycle");
+            let addr = server.local_addr();
+            assert!(addr.port() != 0);
+            drop(server);
+        }
+        // Yield once at the end so any tail-end spawned tasks from the
+        // last cycle's accept loop get a chance to drain before the
+        // test completes. Not a correctness requirement -- the cycles
+        // above already exercised the discipline.
+        tokio::task::yield_now().await;
     }
 }

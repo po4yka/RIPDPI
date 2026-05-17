@@ -27,6 +27,19 @@ echo "==> FFI panic-boundary guard"
 # Allowlist: ci/ffi-panic-boundary-allowlist.toml.
 python3 "$repo_root/scripts/ci/check_ffi_panic_boundary.py"
 
+echo "==> drop-order scanner self-tests"
+# Field declaration order is part of every multi-resource Drop impl's
+# safety contract. The scanner enforces a `Drop order:` marker comment
+# (or allowlist entry) for every struct that has `impl Drop` and 2+
+# resource-bearing fields. Self-tests first so regex/balancer
+# regressions surface here.
+python3 -m unittest discover -s "$repo_root/scripts/ci/tests" -p 'test_check_drop_order.py' -v
+
+echo "==> drop-order guard"
+# Policy: docs/rust-soundness-policy.md -- "Field declaration order in
+# Drop impls". Allowlist: ci/drop-order-allowlist.toml.
+python3 "$repo_root/scripts/ci/check_drop_order.py"
+
 echo "==> clippy"
 cargo clippy --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
 

@@ -1,0 +1,38 @@
+# Drop-Order Discipline Allowlist
+# ===============================
+# Each entry grandfathers a struct whose `impl Drop` AND 2+
+# resource-bearing fields would otherwise trigger
+# `scripts/ci/check_drop_order.py`. The policy in
+# `docs/rust-soundness-policy.md` ("Field declaration order in `Drop`
+# impls") requires every such struct to satisfy ONE of:
+#
+#   1. A `Drop order:` marker comment anywhere in the file documenting
+#      the field-drop / teardown rationale.
+#   2. An allowlist entry below with a `reason` field that names the
+#      discipline pattern in use.
+#
+# (1) is strongly preferred. The allowlist exists for cases where the
+# comment would be redundant with elaborate doc-comments elsewhere or
+# for true "all fields are independent" patterns where there is
+# genuinely no ordering rationale to document.
+#
+# Required fields per entry:
+#   file          Path relative to repo root.
+#   type_name     Exact type identifier matched by the scanner.
+#   reason        Short human-readable proof: which discipline applies
+#                 (Option::take, abort+detach, sole-owner mmap,
+#                 explicit shutdown method, ManuallyDrop chain).
+#   owner         Crate/team responsible for keeping the entry sound.
+#   review_date   ISO date for the next mandatory re-review.
+#
+# When the guard fails, the correct fix order is:
+#   1. Add a `// Drop order: ...` comment to the struct or `impl Drop`.
+#      The marker is case-insensitive; line, block, or doc comments
+#      all count.
+#   2. If the comment is genuinely redundant, add an entry here.
+#   Never lower the scanner or remove the multi-resource detection.
+#
+# As of 2026-05-17 the workspace has ZERO allowlist entries -- every
+# qualifying struct carries an inline `Drop order:` marker comment.
+
+# entries = []

@@ -22,6 +22,15 @@ pub struct MasqueUdpRelay {
     pub(crate) incoming_rx: mpsc::Receiver<(String, Vec<u8>)>,
 }
 
+/// Drop order: the `Drop::drop` body aborts both `driver_task` and
+/// `reader_task` (tokio `.abort()` is non-blocking and merely flips
+/// the task's cancellation flag) before any field drops. After the
+/// body returns, the fields drop in declaration order: `sender`
+/// (the H3 datagram sender), then the two `JoinHandle`s. Dropping
+/// a `JoinHandle` without `await` is a detach -- the tokio runtime
+/// reclaims the task on its next scheduler tick. Because both
+/// aborts fire BEFORE `sender` drops, the tasks observe
+/// cancellation rather than a `BrokenPipe` on their next `.await`.
 pub(crate) struct MasqueUdpFlow {
     pub(crate) sender: H3DatagramSender,
     pub(crate) driver_task: JoinHandle<()>,
