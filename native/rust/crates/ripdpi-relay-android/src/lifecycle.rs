@@ -7,7 +7,7 @@ use crate::registry::{insert_session, remove_session, session_from_handle};
 use crate::runtime::create_session;
 use crate::telemetry::{serialize_runtime_telemetry, IDLE_TELEMETRY_JSON};
 
-pub(crate) fn jni_on_load_entry(_vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
+pub(crate) fn jni_on_load_entry(_vm: JavaVM) -> jint {
     match std::panic::catch_unwind(|| {
         android_support::ignore_sigpipe();
         init_android_logging("ripdpi-relay-native");

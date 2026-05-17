@@ -3,7 +3,6 @@ use std::mem::zeroed;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::os::fd::{AsFd, FromRawFd, IntoRawFd, OwnedFd};
 use std::os::unix::net::UnixStream;
-use std::slice;
 
 use crate::linux::fd::{close_owned_fd, dup2_fd, storage_to_socket_addr};
 use crate::linux::mmap_region::MmapRegion;
@@ -80,9 +79,7 @@ fn alloc_and_write_region_round_trip_bytes() {
     let mut region = MmapRegion::new(len).expect("allocate region");
     region.write(b"hello");
 
-    // SAFETY: `region` owns a writable mapping of exactly `len` bytes that
-    // is kept alive for the duration of the borrow below.
-    let bytes = unsafe { slice::from_raw_parts(region.as_ptr(), region.len()) };
+    let bytes = region.to_vec();
     assert_eq!(&bytes[..5], b"hello");
     assert_eq!(&bytes[5..], &[0, 0, 0]);
     // `region` drops here, unmapping.
@@ -100,7 +97,16 @@ fn mmap_region_rejects_zero_length() {
 fn mmap_region_write_truncates_to_region_length() {
     let mut region = MmapRegion::new(4).expect("allocate region");
     region.write(b"abcdefgh");
-    // SAFETY: see `alloc_and_write_region_round_trip_bytes`.
-    let bytes = unsafe { slice::from_raw_parts(region.as_ptr(), region.len()) };
+    let bytes = region.to_vec();
     assert_eq!(bytes, b"abcd");
+}
+
+#[test]
+fn mmap_region_vmsplice_rejects_oversized_len() {
+    let (_read_fd, write_fd) = nix::unistd::pipe().expect("create pipe");
+    let mut region = MmapRegion::new(4).expect("allocate region");
+
+    let err = region.vmsplice_to(write_fd.as_fd(), 5).expect_err("oversized vmsplice should fail");
+
+    assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
 }

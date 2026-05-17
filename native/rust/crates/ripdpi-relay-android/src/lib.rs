@@ -14,8 +14,8 @@ use jni::{EnvUnowned, JavaVM};
 /// are handled inside the `catch_unwind` wrapper.
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
-pub extern "system" fn JNI_OnLoad(vm: JavaVM, reserved: *mut std::ffi::c_void) -> jint {
-    match std::panic::catch_unwind(|| lifecycle::jni_on_load_entry(vm, reserved)) {
+pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
+    match std::panic::catch_unwind(|| lifecycle::jni_on_load_entry(vm)) {
         Ok(version) => version,
         Err(_) => jni::sys::JNI_ERR,
     }

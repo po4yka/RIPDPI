@@ -460,30 +460,6 @@ owner = "io-uring"
 review_date = "2026-11-15"
 
 # ---------------------------------------------------------------------------
-# `raw pointer in public fn` — JNI ABI requires `*mut c_void`, and the
-# MmapRegion accessors return `*const u8`/`*mut u8` for FFI handoff only.
-# Neither path materialises a Rust reference from the pointer; the mmap
-# accessors take `&self`/`&mut self` so the pointer's lifetime is bounded.
-# ---------------------------------------------------------------------------
-[[entries]]
-file = "native/rust/crates/ripdpi-privileged-ops/src/linux/mmap_region.rs"
-pattern = "raw pointer in public fn"
-reason = "MmapRegion::as_ptr(&self) -> *const u8 and as_mut_ptr(&mut self) -> *mut u8 hand the raw pointer to FFI (e.g. vmsplice)"
-preconditions = "Pointer is only valid while the borrow of &self / &mut self lives; no reference is created from the pointer in safe Rust; pub(super) visibility limits callers to the parent module"
-enforcement = "Method takes &self/&mut self so the returned pointer is implicitly lifetime-bounded; pub(super) visibility; the struct itself is module-private; audited under issue #4"
-owner = "privileged-ops"
-review_date = "2026-11-15"
-
-[[entries]]
-file = "native/rust/crates/ripdpi-relay-android/src/lifecycle.rs"
-pattern = "raw pointer in public fn"
-reason = "JNI_OnLoad entry signature: `pub(crate) fn jni_on_load_entry(_vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint`"
-preconditions = "JNI ABI mandates `*mut c_void` for the reserved parameter; the pointer is unused (prefixed `_`) and never dereferenced"
-enforcement = "JNI ABI contract; the parameter is named `_reserved` and dropped without read/write; pattern matches the allowlisted `extern \"system\" fn` JNI entries elsewhere"
-owner = "android-ffi"
-review_date = "2026-11-15"
-
-# ---------------------------------------------------------------------------
 # `ownership flag near drop/unsafe` — `RootHelperRegistration::registered`
 # is a `bool` field whose value gates the `unregister_root_helper()` call
 # in Drop. Per the issue-#11 audit, this would be unsound if safe code

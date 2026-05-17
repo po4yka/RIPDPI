@@ -5,7 +5,7 @@
 
 use std::io;
 use std::net::TcpStream;
-use std::os::fd::AsRawFd;
+use std::os::fd::{AsFd, AsRawFd};
 
 use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable};
 
@@ -83,15 +83,8 @@ pub fn send_fake_tcp(
             set_tcp_md5sig(stream, 5)?;
         }
 
-        let iov = libc::iovec { iov_base: region.as_mut_ptr().cast(), iov_len: original_prefix.len() };
-        // SAFETY: `iov` points into a writable mapping of length
-        // `region_len` >= `original_prefix.len()` owned by `region`, which
-        // is kept alive until after the `vmsplice` call returns.
-        let queued = unsafe { libc::vmsplice(pipe_w.as_raw_fd(), &iov, 1, 0) };
-        if queued < 0 {
-            return Err(io::Error::last_os_error());
-        }
-        if queued as usize != original_prefix.len() {
+        let queued = region.vmsplice_to(pipe_w.as_fd(), original_prefix.len())?;
+        if queued != original_prefix.len() {
             return Err(io::Error::new(io::ErrorKind::WriteZero, "partial vmsplice during fake tcp send"));
         }
 
