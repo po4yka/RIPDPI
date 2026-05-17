@@ -103,6 +103,23 @@ pub(crate) fn peer_addr(fd: libc::c_int) -> io::Result<libc::sockaddr_storage> {
     }
 }
 
+// Compile-time guard for soundness issue #23 (type punning).
+// `storage_to_socket_addr` reinterprets `&libc::sockaddr_storage` as
+// `&libc::sockaddr_in` / `&libc::sockaddr_in6` after a family-tag
+// check. The reinterpretation is sound only while
+// `sockaddr_storage`'s alignment is ≥ the target type's alignment
+// (POSIX guarantees this via the `__ss_align` field; the assert
+// catches any future libc/platform layout change before the
+// `.cast::<...>().&*` deref below could produce a misaligned
+// reference). Size is guaranteed by the same POSIX rule and is
+// validated implicitly by the syscall populating the bytes.
+const _: () = {
+    assert!(align_of::<libc::sockaddr_storage>() >= align_of::<libc::sockaddr_in>());
+    assert!(align_of::<libc::sockaddr_storage>() >= align_of::<libc::sockaddr_in6>());
+    assert!(size_of::<libc::sockaddr_storage>() >= size_of::<libc::sockaddr_in>());
+    assert!(size_of::<libc::sockaddr_storage>() >= size_of::<libc::sockaddr_in6>());
+};
+
 pub(crate) fn storage_to_socket_addr(storage: &libc::sockaddr_storage) -> io::Result<SocketAddr> {
     match i32::from(storage.ss_family) {
         libc::AF_INET => {

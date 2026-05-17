@@ -708,3 +708,29 @@ preconditions = "Stub is gated behind `#[cfg(feature = \"miri-stubs\")]`; only c
 enforcement = "Issue #21 zero-validity checklist: type=u8 (zero-valid by definition), bounds=32 (matches caller's local buffer), alignment=1 (trivial for u8), no validity-bearing fields. Issue #22 lifetime check: no reference is created from the write_bytes; the `out` pointer is consumed in-scope by the caller. The stub is dead code outside `--features miri-stubs` Miri runs, so production builds are unaffected"
 owner = "vless"
 review_date = "2026-11-15"
+
+# ---------------------------------------------------------------------------
+# Issue #23 — type punning and layout reinterpretation. The
+# `.cast::<T>()` + `&*` deref pattern materialises a `&T` from a pointer
+# whose original pointee type was different. POSIX/FFI layouts can make
+# this sound IF a discriminant tag is checked first AND the source type's
+# size and alignment satisfy `T`'s validity invariants. The three
+# entries below cover the only production occurrences in the workspace.
+# ---------------------------------------------------------------------------
+[[entries]]
+file = "native/rust/crates/ripdpi-privileged-ops/src/linux/fd.rs"
+pattern = "cast then deref (type pun)"
+reason = "`storage_to_socket_addr` reinterprets a `&libc::sockaddr_storage` as either `&libc::sockaddr_in` (AF_INET arm, line 110) or `&libc::sockaddr_in6` (AF_INET6 arm, line 117) after the family-tag check"
+preconditions = "POSIX guarantees `sockaddr_storage` (i) has alignment ≥ any concrete `sockaddr_*` family (the `__ss_align` field) — verified at compile time by the `const _: () = { assert!(align_of::<sockaddr_storage>() >= align_of::<sockaddr_in>()); assert!(align_of::<sockaddr_storage>() >= align_of::<sockaddr_in6>()); ... }` block immediately above `storage_to_socket_addr`; (ii) has size ≥ any concrete `sockaddr_*` (also compile-time asserted); (iii) when populated by a syscall (`getsockopt(SO_ORIGINAL_DST)`, `getpeername`) the bytes through `size_of::<sockaddr_in*>()` are a valid `sockaddr_in*` whenever the corresponding family tag is set. The reference borrows `&storage` (function parameter) so no Drop runs during the pun"
+enforcement = "Family-tag match (`AF_INET` / `AF_INET6` arms) gates each reinterpretation; compile-time alignment+size asserts on the type pair catch any future libc/platform layout change. Only well-defined primitive fields are read: AF_INET arm reads `sin_addr.s_addr` (u32) + `sin_port` (u16); AF_INET6 arm reads `sin6_addr.s6_addr` (`[u8; 16]`) + `sin6_port` (u16). None of these have validity invariants beyond their integer/byte-array nature. The borrowed reference is consumed in-scope before `storage` drops"
+owner = "privileged-ops"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-vless/src/reality_hook.rs"
+pattern = "cast then deref (type pun)"
+reason = "`&*arg.cast::<RealityCallbackState>().cast_const()` recovers the Rust state pointer from the BoringSSL callback's `arg: *mut c_void` parameter. `arg` was originally `Box::into_raw(Box::new(RealityCallbackState { ... }))` (allowlisted under issue #15) so the pointer's provenance is a valid `RealityCallbackState`"
+preconditions = "The `arg` pointer was set by `install_reality_client_hello_hook` via `SSL_CTX_set_client_hello_cb(ctx, reality_client_hello_cb, state_ptr.cast::<c_void>())` where `state_ptr: *mut RealityCallbackState`. The `RealityHookGuard` keeps the `Box<RealityCallbackState>` alive for the SSL object's lifetime (verified by issue #15 ownership audit + Miri test under `--features miri-stubs`). The reference is consumed by the next few lines (atomic store on `failed`/`success`) before any code path can drop the Box"
+enforcement = "Ownership chain: `Box::into_raw` (install) → `arg: *mut c_void` (BoringSSL) → `arg.cast::<RealityCallbackState>()` (callback) → `Box::from_raw` (Drop of RealityHookGuard). The `RealityHookGuard::Drop` runs after the SSL handshake completes, which is after the last possible callback fire. Miri test `reality_hook` (4/4 stages in `run-rust-miri.sh`) exercises install/callback/drop and validates the pointer provenance round-trip"
+owner = "vless"
+review_date = "2026-11-15"

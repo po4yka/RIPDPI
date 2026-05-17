@@ -130,6 +130,10 @@ on every PR. It looks for the following risky patterns under
 | `derive Copy on owner-named type` (proximity ≤ 5 lines) | `#[derive(Copy)]` (alone or with other traits) immediately above the same owner-named declarations. `Copy` is strictly stronger than `Clone`: every move, parameter pass, and assignment produces an implicit duplicate, so an owner-named `Copy` type cannot encode ownership of any resource. The only sound semantics is "Copy-trivial metadata that owns nothing" (e.g. `&'static str` + `fn` pointer). See "`Copy` on owner-named types" below. |
 | `manual impl Copy` | A hand-written `impl Copy for X { }` (with or without leading `unsafe`). `Copy` is normally derived; a manual `impl` block is almost never the right choice and signals that the contributor either knows the field shape doesn't satisfy `derive(Copy)` requirements or is trying to bypass an auto-trait check. The workspace has zero production occurrences. Any new appearance must restructure (use `#[derive(Copy)]` if Copy is genuinely intended and the field shape supports it) or earn an allowlist entry naming the Copy-trivial-data property. |
 | `derive Copy with raw-pointer/handle field` (proximity ≤ 25 lines) | `#[derive(Copy)]` immediately followed by a struct body whose fields include `NonNull<T>`, a raw `*const T` / `*mut T` pointer, a `RawFd`, an `OwnedFd`, or a JNI `JavaVM`/`JObject`/`JNIEnv`/`Global<JObject>` handle. Field-shape complement of the name-based detector: even structs with neutral names ("Config", "Slot") that hand out duplicates of a `RawFd` or `NonNull` produce the same UAF / double-close failure mode. The workspace has zero production occurrences; new entries must restructure or document the Copy-trivial-data property in an allowlist entry. |
+| `union declaration` | `union T { ... }` declarations. The only Rust construct that lets safe code read bytes interpreted as one type when they were written as another. The validity invariants (size, alignment, padding, initialised bytes, target-type validity) must hold for every field, and only one variant is "live" at a time. Workspace has zero production occurrences. See "Type punning and layout reinterpretation" below. |
+| `bytemuck::cast` | `bytemuck::cast`, `bytemuck::cast_ref`, `bytemuck::cast_mut`, `bytemuck::cast_slice`, `bytemuck::pod_read_unaligned`, `bytemuck::from_bytes`, and `try_*` variants. Sound only if the `Pod` / `Zeroable` trait bounds on every involved type are actually correct (no padding, no non-pod fields, `#[repr(C)]` layout). The workspace does NOT depend on bytemuck today; the pattern is forward-defense for future adoption. See "Type punning and layout reinterpretation" below. |
+| `zerocopy::transmute`, `zerocopy::IntoBytes::as_bytes` | `zerocopy::transmute!`, `zerocopy::transmute_ref!`, `zerocopy::transmute_mut!`, `zerocopy::Ref::new[_unaligned]`, and the qualified-path `IntoBytes::as_bytes` / `as_mut_bytes`. Same trait-bound soundness chain as bytemuck (`FromBytes`/`IntoBytes`/`Unaligned`). The workspace does NOT depend on zerocopy today; forward-defense. The `IntoBytes::as_bytes` regex is the qualified-path spelling to avoid colliding with the ubiquitous bare-method `String::as_bytes` / `&str::as_bytes`. See "Type punning and layout reinterpretation" below. |
+| `cast then deref (type pun)` (single-line proximity) | `.cast::<T>()` paired with a `&*` or `&mut *` deref on the same source line — the canonical type-pun spelling that materialises `&T`/`&mut T` from a pointer whose original pointee was a different type. The workspace has three production occurrences: `sockaddr_storage` → `sockaddr_in`/`sockaddr_in6` reinterpretation in `fd.rs` (family-tag-checked + compile-time alignment assert) and the BoringSSL `c_void` → `RealityCallbackState` callback round-trip in `reality_hook.rs` (provenance from `Box::into_raw`; Miri-validated). Any new occurrence must satisfy the five-point validity checklist in "Type punning and layout reinterpretation" below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -1908,6 +1912,164 @@ mandatory fields:
    genuinely permanent — process-lifetime config,
    one-shot init, etc.; never to satisfy a borrow
    error).
+5. **Owner.**
+
+## Type punning and layout reinterpretation
+
+Type punning is reading bytes through a reference to one type when
+they were written through (or are owned by) a different type. The
+five forms that appear in Rust:
+
+1. `mem::transmute::<T, U>(value)` — by-value reinterpretation, must
+   satisfy `size_of::<T>() == size_of::<U>()` at compile time.
+2. `mem::transmute_copy::<T, U>(reference)` — reads `size_of::<U>()`
+   bytes through a `&T`, NO compile-time size check.
+3. `union` field reads — any field read returns the active variant's
+   bytes interpreted as that field's type.
+4. Pointer-cast + deref: `&*p.cast::<U>()` or `&*(p as *const U)` —
+   the workspace's primary type-pun spelling.
+5. Trait-mediated reinterpretation via `bytemuck::cast`,
+   `bytemuck::from_bytes`, `zerocopy::transmute!`, `zerocopy::Ref::
+   new`, etc. — sound only if the `Pod` / `FromBytes` / `IntoBytes` /
+   `Unaligned` trait bounds were derived correctly on a type with
+   no padding, no non-pod fields, and a `#[repr(C)]` /
+   `#[repr(transparent)]` layout.
+
+Every type pun must satisfy all five preconditions below; missing any
+one is UB.
+
+**Rule.** A type pun is sound only when:
+
+1. **Size:** `size_of::<U>() <= size_of::<T>()` (or `== T` for
+   `transmute`). For pointer-cast spellings the source allocation
+   must contain at least `size_of::<U>()` initialised bytes
+   reachable through the pointer.
+2. **Alignment:** `align_of::<T>() >= align_of::<U>()`. A
+   misaligned dereference of `&U` is instant UB on architectures
+   that fault on it (ARM64 strict-alignment configurations) and
+   silently miscompiled on others. **Verify with a `const _: () =
+   { assert!(align_of::<T>() >= align_of::<U>()); }` block at the
+   pun site so a future libc/platform layout change fails to
+   compile.**
+3. **Validity invariants:** every byte of the resulting `U` must be
+   a valid `U` value. A `bool` with byte value 2, a `char` with
+   high-surrogate code point, an enum with a discriminant not
+   declared in its variants, a `NonZero*` with all zeros, a
+   reference or `NonNull<T>` that is null — each is instant UB on
+   the dereference, regardless of whether the bad value is read.
+4. **Padding & initialisation:** if `T` contains padding bytes,
+   reading them through `U` exposes uninit memory (UB). `#[repr(C)]`
+   types still have inter-field padding when alignment forces it.
+   The pun is sound only if `U`'s layout exactly mirrors the
+   initialised bytes of `T`, padding included.
+5. **Endianness & ABI:** when bytes cross a network or file boundary,
+   little-endian / big-endian must match between writer and reader.
+   Multi-byte integer fields use `from_ne_bytes` / `to_ne_bytes`
+   (for in-memory shared state) or `from_le_bytes` / `to_le_bytes` /
+   `from_be_bytes` / `to_be_bytes` (for protocols with a fixed
+   byte order). Bare pointer-cast reinterpretation of a `[u8; 4]`
+   into a `u32` is UB if alignment fails AND wrong-endian if not.
+
+**Preferred shapes.** In order of preference:
+
+1. **Safe by-value conversions.** `u32::from_ne_bytes([a, b, c, d])`,
+   `i16::from_be_bytes(bytes)`, `f32::from_bits(u32_value)`. These
+   are zero-cost, satisfy all five preconditions at the type
+   level, and produce no UB regardless of input.
+
+2. **`TryFrom` / explicit parsing.** When the source has a
+   structured discriminant (TLV, length-prefixed, family-tag), use
+   `match` + explicit field-by-field reads after validating the
+   discriminant. The reads can be safe — pull primitive fields out
+   of a `#[repr(C)]` struct one at a time, never via a wholesale
+   reinterpretation.
+
+3. **Family-tag-checked pun.** When POSIX/FFI dictates a union-style
+   layout (`sockaddr_storage`, `msghdr.msg_control`), the
+   `match family { AF_INET => &*(p.cast::<sockaddr_in>()), ... }`
+   pattern is sound if (a) the tag is checked first, (b) a
+   compile-time `assert!(align_of::<sockaddr_storage>() >=
+   align_of::<sockaddr_in>())` block sits at the pun site, and
+   (c) only well-defined primitive fields are read post-cast.
+
+4. **`bytemuck::Pod` / `zerocopy::FromBytes`.** When parsing a
+   high-volume on-wire format, trait-mediated reinterpretation is
+   acceptable IF the derived bounds are reviewed and the source
+   type has `#[repr(C, packed)]` with no padding AND the target
+   type also has `#[repr(C, packed)]` AND every field type is
+   itself `Pod` / `FromBytes`. The workspace does not currently
+   depend on either crate; adoption requires a separate audit.
+
+5. **`unsafe fn` + `# Safety`.** When none of the above apply
+   (kernel ABI shims), wrap the pun in `unsafe fn` and document
+   every precondition; the caller enters `unsafe { … }` with their
+   own SAFETY comment listing the validity proof.
+
+**Anti-patterns.**
+
+- `mem::transmute::<&Foo, &Bar>(&foo)` — bypasses every type-level
+  check Rust offers; almost always wrong outside of compiler
+  internals. Use a safe `From` / `TryFrom` impl or explicit field
+  reads instead.
+- `mem::transmute_copy::<T, U>(&value)` where `size_of::<U>() !=
+  size_of::<T>()`. Silently reads past or short of `value` because
+  the function does NOT enforce the size check. Use
+  `transmute` (forced size check) if you really meant by-value
+  reinterpretation.
+- `union ByteSplit { whole: u32, parts: [u8; 4] }` — convenient
+  but invites accidentally reading the wrong variant. Use
+  `u32::to_ne_bytes()` and `u32::from_ne_bytes()` instead.
+- `&*(buf.as_ptr() as *const Header)` where `buf: &[u8]` — UB on
+  ARM64 if `buf` is not 4-byte aligned (which `&[u8]` doesn't
+  guarantee). Use `ptr::read_unaligned` and copy out fields, or use
+  `bytemuck::pod_read_unaligned` with verified bounds.
+- A `bytemuck::Pod` impl on a type with one `bool` field — `bool`
+  is not `Pod` (validity invariant: bytes must be 0 or 1), but
+  `unsafe impl Pod` will compile. The pun then reads arbitrary
+  bytes as `bool` → UB.
+- `let x: u32 = unsafe { std::mem::transmute(*p) };` where
+  `p: *const f32` — silently wrong on NaN/subnormal layout
+  differences; use `f32::to_bits()` instead.
+
+**Existing benign uses.** The audit recorded three production
+type-pun sites; each is allowlisted in
+`ci/unsafe-boundary-allowlist.toml` under the
+`cast then deref (type pun)` pattern with the validity argument:
+
+| File | Conversion | Validity source |
+|---|---|---|
+| `crates/ripdpi-privileged-ops/src/linux/fd.rs` | `&sockaddr_storage` → `&sockaddr_in` / `&sockaddr_in6` | Family-tag match on `ss_family` + compile-time `assert!(align_of::<sockaddr_storage>() >= align_of::<sockaddr_in*>())` block in `fd.rs`; only well-defined primitive fields (`sin_addr.s_addr`, `sin_port`, `sin6_addr.s6_addr`, `sin6_port`) read post-cast. |
+| `crates/ripdpi-vless/src/reality_hook.rs` | `*mut c_void` → `&RealityCallbackState` | The pointer was produced by `Box::into_raw(Box::new(RealityCallbackState { ... }))` (issue #15 ownership audit); the `RealityHookGuard` keeps the Box alive across all callback fires; Miri test under `--features miri-stubs` validates the round-trip (4/4 stages in `run-rust-miri.sh`). |
+
+The workspace has ZERO production occurrences of `mem::transmute`,
+`mem::transmute_copy`, `union` declarations, `bytemuck::*`, or
+`zerocopy::*`. The CI scanner (`scripts/ci/check_unsafe_boundaries.py`)
+locks the workspace at that baseline via dedicated patterns; any new
+adoption requires an allowlist entry with the five-point checklist.
+
+**Clippy lints.** The workspace's `[workspace.lints]` denies
+`useless_transmute`, `transmute_ptr_to_ptr`, and the entire
+`clippy::correctness` group (which includes `wrong_transmute`,
+`transmuting_null`, `unsound_collection_transmute`,
+`transmute_null_to_fn`, and the `transmute_int_to_*` family). This
+catches the most common compile-time-detectable transmute mistakes
+before the scanner runs.
+
+**Allowlist requirements.** Each `cast then deref (type pun)` /
+`union declaration` / `bytemuck::cast` / `zerocopy::transmute` /
+`zerocopy::IntoBytes::as_bytes` entry in
+`ci/unsafe-boundary-allowlist.toml` must state:
+
+1. **Size argument** (`size_of::<U>() <= size_of::<T>()`,
+   compile-time-asserted if the platform layout could change).
+2. **Alignment argument** (`align_of::<T>() >= align_of::<U>()`,
+   compile-time-asserted at the pun site).
+3. **Validity invariants per field** (no `bool`/`char`/enum/
+   reference/`NonNull`/`NonZero` reads from punned bytes unless
+   the bit pattern is statically known to be valid).
+4. **Discriminant or provenance proof** (family-tag check before
+   the pun; or the ownership chain that establishes the bytes
+   were originally written through the target type).
 5. **Owner.**
 
 ## Ownership must be types, not flags

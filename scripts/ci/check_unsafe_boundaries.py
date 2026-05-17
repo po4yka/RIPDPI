@@ -355,6 +355,57 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"^[ \t]*(?:unsafe\s+)?impl(\s*<[^>]+>)?\s+Copy\s+for\b",
         re.MULTILINE,
     ),
+    # `union T { ... }` is the only Rust construct that lets safe code
+    # read bytes interpreted as one type when they were written as
+    # another. The validity invariants (size, alignment, padding,
+    # initialised bytes, target-type validity) must hold for every
+    # field, and only one variant is "live" at a time. Issue #23
+    # audit found ZERO production occurrences. Any new declaration
+    # requires either a typestate refactor (enum + discriminant), a
+    # `#[repr(C)]` struct + `MaybeUninit` per field, or an allowlist
+    # entry naming the per-field validity proof per
+    # docs/rust-soundness-policy.md § "Type punning and layout
+    # reinterpretation".
+    "union declaration": re.compile(
+        r"^\s*(?:pub(?:\s*\([^)]*\))?\s+)?union\s+[A-Za-z_][A-Za-z0-9_]*",
+        re.MULTILINE,
+    ),
+    # `bytemuck::cast` (and the cast_ref/cast_mut/cast_slice/
+    # cast_slice_mut/pod_read_unaligned/from_bytes/from_bytes_mut
+    # family) reinterprets bytes between types whose `Pod`/`Zeroable`
+    # trait bounds prove the reinterpretation is sound — IF the
+    # derived bounds are actually correct. Manual `unsafe impl Pod`
+    # (or `#[derive(Pod)]` on a type with padding, non-Pod fields,
+    # or non-C repr) silently breaks the soundness chain. The
+    # workspace does NOT depend on bytemuck today; this pattern is
+    # forward-defense to ensure any future adoption goes through
+    # review per docs/rust-soundness-policy.md § "Type punning and
+    # layout reinterpretation".
+    "bytemuck::cast": re.compile(
+        r"\bbytemuck::(?:cast(?:_ref|_mut|_slice|_slice_mut)?"
+        r"|pod_read_unaligned|from_bytes(?:_mut)?|try_cast(?:_ref|_mut|_slice|_slice_mut)?"
+        r"|try_from_bytes(?:_mut)?|try_pod_read_unaligned)\b"
+    ),
+    # `zerocopy::transmute` (and `transmute_ref`/`transmute_mut`/
+    # `IntoBytes::as_bytes`/`Ref::new`) is the zerocopy crate's
+    # equivalent of bytemuck. Same trait-bound soundness chain
+    # (`FromBytes`/`IntoBytes`/`Unaligned`), same audit
+    # requirement. The workspace does NOT depend on zerocopy today;
+    # this pattern is forward-defense.
+    "zerocopy::transmute": re.compile(
+        r"\bzerocopy::(?:transmute(?:_ref|_mut)?|Ref::new(?:_unaligned)?)\b"
+    ),
+    # `as_bytes()` / `as_mut_bytes()` from zerocopy's `IntoBytes`
+    # trait reinterprets a `&T`/`&mut T` as `&[u8]`/`&mut [u8]`.
+    # Sound only when `T` has no padding bytes (the bytes returned
+    # could otherwise leak uninit memory into a buffer that the
+    # caller treats as initialised). The bare method-call form
+    # collides with `String::as_bytes` / `&[u8]::as_bytes` etc., so
+    # this regex is intentionally narrow to the qualified-path /
+    # trait-import-style spelling.
+    "zerocopy::IntoBytes::as_bytes": re.compile(
+        r"\bIntoBytes::as_(?:mut_)?bytes\b"
+    ),
 }
 
 # The `.get()` method is also used by many safe types (HashMap, Vec,
@@ -607,6 +658,52 @@ def find_copy_derive_with_risky_field(text: str) -> list[int]:
     return out
 
 
+# Proximity detector for the `.cast::<TargetType>()` + `&*` deref
+# pattern that materialises a `&TargetType` from a `*const SourceType`
+# whose bytes were laid out for a different type. This is the
+# pointer-cast spelling of `mem::transmute` and is the only form of
+# type punning that currently exists in the workspace
+# (`storage_to_socket_addr` reinterprets `sockaddr_storage` as
+# `sockaddr_in`/`sockaddr_in6` after checking the family tag).
+#
+# The detector matches a single line containing both `.cast::<T>()`
+# (with or without the turbofish — `.cast()` also fires when paired
+# with `&*`) AND a `&*` deref that pulls a reference out of the
+# resulting pointer. The two-on-one-line shape is the canonical
+# spelling that gets used in this workspace; multi-line spellings
+# (`let p = x.cast::<U>(); ... &*p`) would be caught by `raw pointer
+# in public fn` if exposed to safe callers, or by `unsafe_op_in_
+# unsafe_fn = deny` clippy enforcement inside `unsafe fn`.
+#
+# Issue #23 audit found TWO production occurrences, both family-
+# tag-checked in `ripdpi-privileged-ops/src/linux/fd.rs`. Any new
+# occurrence must either restructure (use `from_ne_bytes` /
+# `TryFrom` / explicit field reads), or earn an allowlist entry
+# naming the validity argument per docs/rust-soundness-policy.md
+# § "Type punning and layout reinterpretation".
+CAST_DEREF_TYPE_PUN_RE = re.compile(
+    r".*\.cast(?:::<[^>]+>)?\s*\(\s*\).*&\s*(?:mut\s+)?\*"
+    r"|.*&\s*(?:mut\s+)?\*.*\.cast(?:::<[^>]+>)?\s*\(\s*\)"
+)
+CAST_DEREF_TYPE_PUN_PATTERN = "cast then deref (type pun)"
+
+
+def find_cast_deref_type_pun(text: str) -> list[int]:
+    """Return line numbers of `.cast::<T>()` + `&*` on the same line.
+
+    The line-level granularity is intentional: in this workspace the
+    canonical type-pun spelling fits on one line
+    (`&*(p as *const A).cast::<B>()`), and a multi-line spelling
+    would have intermediate state that is caught by other patterns
+    (raw-pointer-in-public-fn or unsafe-op-in-unsafe-fn deny).
+    """
+    out: list[int] = []
+    for idx, line in enumerate(text.splitlines(), start=1):
+        if CAST_DEREF_TYPE_PUN_RE.search(line):
+            out.append(idx)
+    return out
+
+
 def find_ownership_flag_near_drop_or_unsafe(text: str) -> list[int]:
     """Return line numbers of ownership-flag bool fields within ±N lines of
     an `impl Drop` or `unsafe` keyword in the same file.
@@ -708,6 +805,8 @@ def scan_file(path: Path) -> list[Finding]:
         findings.append(Finding(rel, COPY_ON_OWNER_PROXIMITY_PATTERN, line))
     for line in find_copy_derive_with_risky_field(cleaned):
         findings.append(Finding(rel, COPY_WITH_RISKY_FIELD_PATTERN, line))
+    for line in find_cast_deref_type_pun(cleaned):
+        findings.append(Finding(rel, CAST_DEREF_TYPE_PUN_PATTERN, line))
     return findings
 
 

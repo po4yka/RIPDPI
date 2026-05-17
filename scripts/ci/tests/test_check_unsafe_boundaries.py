@@ -43,6 +43,8 @@ def _scan(text: str) -> list[tuple[str, int]]:
         matches.append((guard.COPY_ON_OWNER_PROXIMITY_PATTERN, line))
     for line in guard.find_copy_derive_with_risky_field(cleaned):
         matches.append((guard.COPY_WITH_RISKY_FIELD_PATTERN, line))
+    for line in guard.find_cast_deref_type_pun(cleaned):
+        matches.append((guard.CAST_DEREF_TYPE_PUN_PATTERN, line))
     return matches
 
 
@@ -915,6 +917,111 @@ class ScanRegressionTests(unittest.TestCase):
         # `find_clone_derive_on_owner_named_type`.
         src = "#[derive(Clone)]\npub struct Foo { ptr: NonNull<u8>, len: usize }"
         self.assertFalse(_has(_scan(src), guard.COPY_WITH_RISKY_FIELD_PATTERN))
+
+    # --- Issue #23: type punning and layout reinterpretation -------------
+
+    def test_union_declaration_flagged(self) -> None:
+        for fragment in (
+            "union Foo { a: u32, b: f32 }",
+            "pub union Bar { a: [u8; 4], b: u32 }",
+            "pub(crate) union Baz { a: u64, b: [u32; 2] }",
+        ):
+            self.assertTrue(_has(_scan(fragment), "union declaration"), msg=fragment)
+
+    def test_struct_with_union_in_name_not_flagged(self) -> None:
+        # The `union declaration` regex must require the `union` keyword
+        # as the type kind — a struct or enum that happens to mention
+        # "union" in its name (e.g. `SetUnion`, `DnsUnionPolicy`) must
+        # not trip the rule.
+        for fragment in (
+            "struct SetUnion { left: BTreeSet<u32>, right: BTreeSet<u32> }",
+            "pub struct DnsUnionPolicy { shared: f64 }",
+            "let union_size = 4;",
+        ):
+            self.assertFalse(_has(_scan(fragment), "union declaration"), msg=fragment)
+
+    def test_bytemuck_cast_flagged(self) -> None:
+        for fragment in (
+            "let x: u32 = bytemuck::cast(arr);",
+            "let r: &Header = bytemuck::cast_ref(&buf);",
+            "let s: &[u32] = bytemuck::cast_slice(&bytes);",
+            "let v: u64 = bytemuck::pod_read_unaligned(&buf[..8]);",
+            "let h: Header = bytemuck::from_bytes::<Header>(&buf).clone();",
+            "let h = bytemuck::try_cast::<[u8; 4], u32>(arr)?;",
+        ):
+            self.assertTrue(_has(_scan(fragment), "bytemuck::cast"), msg=fragment)
+
+    def test_zerocopy_transmute_flagged(self) -> None:
+        for fragment in (
+            "let x: u32 = zerocopy::transmute!(arr);",
+            "let r: &Header = zerocopy::transmute_ref!(&buf);",
+            "let m: &mut Header = zerocopy::transmute_mut!(&mut buf);",
+            "let r = zerocopy::Ref::new(&buf)?;",
+            "let r = zerocopy::Ref::new_unaligned(&buf)?;",
+        ):
+            self.assertTrue(_has(_scan(fragment), "zerocopy::transmute"), msg=fragment)
+
+    def test_zerocopy_into_bytes_as_bytes_flagged(self) -> None:
+        for fragment in (
+            "let bytes = IntoBytes::as_bytes(&header);",
+            "let bytes = IntoBytes::as_mut_bytes(&mut header);",
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), "zerocopy::IntoBytes::as_bytes"), msg=fragment
+            )
+
+    def test_string_as_bytes_not_flagged_by_intobytes_rule(self) -> None:
+        # The narrow `IntoBytes::as_bytes` qualified-path regex must not
+        # collide with the ubiquitous bare-method `.as_bytes()` form
+        # used by `String`/`&str`.
+        for fragment in (
+            'let bytes = "hello".as_bytes();',
+            "let bytes = s.as_bytes();",
+            "let bytes = String::from(\"x\").as_bytes().to_vec();",
+        ):
+            self.assertFalse(
+                _has(_scan(fragment), "zerocopy::IntoBytes::as_bytes"), msg=fragment
+            )
+
+    def test_cast_deref_type_pun_flagged(self) -> None:
+        # The canonical type-pun spelling in this workspace fits on one
+        # line: `&*(p as *const A).cast::<B>()`. The detector must fire
+        # in both orderings (`.cast()` before `&*` and vice versa).
+        for fragment in (
+            "let sin = unsafe { &*(storage as *const A).cast::<B>() };",
+            "let sin = unsafe { &mut *(storage as *mut A).cast::<B>() };",
+            "let r: &B = unsafe { &*p.cast::<B>() };",
+            "let r = unsafe { &*ptr.cast() }; // bare .cast() also fires",
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), guard.CAST_DEREF_TYPE_PUN_PATTERN), msg=fragment
+            )
+
+    def test_cast_without_deref_not_flagged(self) -> None:
+        # `.cast::<T>()` on its own — without a paired `&*` deref on
+        # the same line — must not trip the rule. Plenty of legitimate
+        # FFI pointer-passing uses .cast() without materialising a
+        # Rust reference at the call site.
+        for fragment in (
+            "let p = ssl.as_ptr().cast::<SslHandle>();",
+            "libc::setsockopt(fd, level, name, val.cast(), len);",
+            "let raw = boxed.cast::<c_void>();",
+        ):
+            self.assertFalse(
+                _has(_scan(fragment), guard.CAST_DEREF_TYPE_PUN_PATTERN), msg=fragment
+            )
+
+    def test_deref_without_cast_not_flagged(self) -> None:
+        # `&*p` on its own (no `.cast()`) is just a raw-pointer deref;
+        # covered by `unsafe_op_in_unsafe_fn = deny` + SAFETY policy,
+        # not by the cast-then-deref type-pun rule.
+        for fragment in (
+            "let r: &T = unsafe { &*ptr };",
+            "let m: &mut T = unsafe { &mut *ptr };",
+        ):
+            self.assertFalse(
+                _has(_scan(fragment), guard.CAST_DEREF_TYPE_PUN_PATTERN), msg=fragment
+            )
 
     # --- Negative cases: must NOT trigger the scan -----------------------
 
