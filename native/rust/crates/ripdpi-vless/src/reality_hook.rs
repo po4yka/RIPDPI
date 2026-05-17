@@ -236,11 +236,17 @@ fn reality_client_hello_cb_inner(ssl: *mut SslHandle, msg: *mut u8, msg_len: usi
         return 0;
     }
 
-    // SAFETY: the BoringSSL contract guarantees `msg` points to a
-    // valid byte buffer of `msg_len` bytes for the duration of the
-    // callback; `arg` was set to a leaked Box<RealityCallbackState>
-    // owned by the RealityHookGuard kept alive on the connect path.
+    // SAFETY: `arg` was set to a leaked `Box<RealityCallbackState>`
+    // owned by the `RealityHookGuard` kept alive on the connect path
+    // (cleared on guard Drop before the SSL_CTX can fire the callback
+    // again). The null check above rejects the null-arg case.
     let state = unsafe { &*arg.cast::<RealityCallbackState>().cast_const() };
+    // SAFETY: BoringSSL contract guarantees `msg` points to a valid
+    // mutable byte buffer of `msg_len` bytes for the duration of the
+    // callback. The null check + length check above rejected
+    // `msg.is_null()` and `msg_len < SESSION_ID_OFFSET +
+    // SESSION_ID_LEN`. The resulting `&mut [u8]` is consumed before
+    // the next BoringSSL call.
     let msg_slice = unsafe { std::slice::from_raw_parts_mut(msg, msg_len) };
 
     let mut client_random = [0u8; 32];

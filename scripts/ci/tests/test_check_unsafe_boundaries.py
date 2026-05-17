@@ -77,13 +77,101 @@ class ScanRegressionTests(unittest.TestCase):
         src = "let owned = unsafe { Box::from_raw(ptr) };"
         self.assertTrue(_has(_scan(src), "Box::from_raw"))
 
+    def test_box_into_raw_flagged(self) -> None:
+        # `Box::into_raw` is the matched counterpart of `Box::from_raw`;
+        # the issue-#15 audit requires both sides of the ownership
+        # transfer to surface independently so an orphaned `into_raw`
+        # (leak / handed to FFI without matching reclaim) doesn't slip
+        # past the scanner. Turbofish form must also trigger.
+        for fragment in (
+            "let raw = Box::into_raw(boxed);",
+            "let raw: *mut T = Box::into_raw(b);",
+            "let raw = Box::<MyState>::into_raw(b);",
+        ):
+            self.assertTrue(_has(_scan(fragment), "Box::into_raw"), msg=fragment)
+
+    def test_box_into_raw_unrelated_methods_not_flagged(self) -> None:
+        # `Box::new` and other unrelated methods must not match the
+        # into_raw pattern.
+        for fragment in (
+            "let b = Box::new(42);",
+            "let b: Box<u32> = Box::default();",
+            "let p = b.as_mut_ptr();",
+        ):
+            self.assertFalse(_has(_scan(fragment), "Box::into_raw"), msg=fragment)
+
     def test_vec_from_raw_parts_flagged(self) -> None:
         src = "let v = unsafe { Vec::from_raw_parts(p, len, cap) };"
         self.assertTrue(_has(_scan(src), "Vec::from_raw_parts"))
 
+    def test_vec_from_raw_parts_in_flagged(self) -> None:
+        # The allocator-API variant `Vec::from_raw_parts_in` has a
+        # distinct soundness contract (allocator must match the
+        # `into_raw_parts_in` side). The base `Vec::from_raw_parts`
+        # regex's `\\b` anchor does NOT match `from_raw_parts_in`
+        # (underscore is a word char), so a dedicated pattern is
+        # required.
+        for fragment in (
+            "let v = unsafe { Vec::from_raw_parts_in(p, len, cap, alloc) };",
+            "let v = unsafe { Vec::<T>::from_raw_parts_in(p, len, cap, alloc) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "Vec::from_raw_parts_in"), msg=fragment)
+
+    def test_vec_from_raw_parts_in_is_distinct_from_from_raw_parts(self) -> None:
+        # A `from_raw_parts_in` call must trigger the `_in` pattern
+        # only, not the base `Vec::from_raw_parts` pattern (the two
+        # APIs are semantically distinct).
+        src = "let v = unsafe { Vec::from_raw_parts_in(p, len, cap, alloc) };"
+        matches = _scan(src)
+        self.assertTrue(_has(matches, "Vec::from_raw_parts_in"))
+        self.assertFalse(_has(matches, "Vec::from_raw_parts"), msg="Vec::from_raw_parts must not match the _in variant")
+
+    def test_safe_vec_constructors_not_flagged(self) -> None:
+        # Safe Vec construction APIs MUST NOT trigger either raw-
+        # parts pattern. This guards against future regex
+        # broadening that would catch the safe `Vec::with_capacity`
+        # / `Vec::new` / `Vec::from` family.
+        for fragment in (
+            "let v: Vec<u8> = Vec::with_capacity(64);",
+            "let v: Vec<u8> = Vec::new();",
+            "let v: Vec<u8> = Vec::from([1u8, 2, 3]);",
+            "let mut v = Vec::with_capacity(16); v.spare_capacity_mut();",
+        ):
+            self.assertFalse(_has(_scan(fragment), "Vec::from_raw_parts"), msg=fragment)
+            self.assertFalse(_has(_scan(fragment), "Vec::from_raw_parts_in"), msg=fragment)
+
     def test_maybeuninit_assume_init_flagged(self) -> None:
-        src = "let value = unsafe { uninit.assume_init() };"
-        self.assertTrue(_has(_scan(src), "MaybeUninit::assume_init"))
+        # Issue #20: all five std-API variants of `assume_init` must
+        # trigger. The previous regex (`\b` anchor after
+        # `assume_init`) silently missed the `_ref` / `_mut` /
+        # `_drop` / `_read` suffixes because `_` is a word
+        # character. The fix uses the std-API-complete list
+        # explicitly.
+        for fragment in (
+            "let value = unsafe { uninit.assume_init() };",
+            "let r: &T = unsafe { uninit.assume_init_ref() };",
+            "let m: &mut T = unsafe { uninit.assume_init_mut() };",
+            "unsafe { uninit.assume_init_drop() };",
+            "let v: T = unsafe { uninit.assume_init_read() };",
+            "let value = unsafe { MaybeUninit::<T>::assume_init(uninit) };",
+            "let r = unsafe { MaybeUninit::<T>::assume_init_ref(&uninit) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "MaybeUninit::assume_init"), msg=fragment)
+
+    def test_safe_maybeuninit_apis_not_flagged(self) -> None:
+        # `MaybeUninit::uninit()`, `MaybeUninit::new(t)`, and
+        # `MaybeUninit::write(value)` are SAFE constructors and
+        # writers — they MUST NOT trigger the assume_init pattern.
+        # `spare_capacity_mut()` is the safe Vec API that returns
+        # `&mut [MaybeUninit<T>]`; bare uses of MaybeUninit's safe
+        # surface must not be misattributed.
+        for fragment in (
+            "let u: MaybeUninit<u8> = MaybeUninit::uninit();",
+            "let u = MaybeUninit::new(42);",
+            "slot.write(value);",
+            "let buf = v.spare_capacity_mut();",
+        ):
+            self.assertFalse(_has(_scan(fragment), "MaybeUninit::assume_init"), msg=fragment)
 
     def test_transmute_flagged(self) -> None:
         for fragment in (
@@ -256,6 +344,145 @@ class ScanRegressionTests(unittest.TestCase):
             "let s = String::from_utf8(bytes)?;",
         ):
             self.assertFalse(_has(_scan(fragment), "str::from_utf8_unchecked"), msg=fragment)
+            self.assertFalse(_has(_scan(fragment), "String::from_utf8_unchecked"), msg=fragment)
+
+    def test_string_from_utf8_unchecked_flagged(self) -> None:
+        # Issue #17: the owned counterpart of `str::from_utf8_unchecked`
+        # must surface as a distinct scanner finding. Both bare and
+        # method-syntax-equivalent forms must trip.
+        for fragment in (
+            "let s = unsafe { String::from_utf8_unchecked(bytes) };",
+            "let s: String = unsafe { String::from_utf8_unchecked(v) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "String::from_utf8_unchecked"), msg=fragment)
+
+    def test_libc_malloc_family_flagged(self) -> None:
+        # Issue #18: every direct C-allocator call must surface as
+        # a scanner finding so the allocator-mismatch audit can be
+        # applied. The four entry points are `libc::malloc`,
+        # `libc::calloc`, `libc::realloc`, and `libc::free`.
+        for fragment in (
+            "let p = unsafe { libc::malloc(64) };",
+            "let p = unsafe { libc::calloc(16, 4) };",
+            "let p = unsafe { libc::realloc(old, 128) };",
+            "unsafe { libc::free(p) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "libc::malloc"), msg=fragment)
+
+    def test_cstring_round_trip_flagged(self) -> None:
+        # Issue #18: `CString::from_raw` and `CString::into_raw`
+        # are the FFI-string analogue of `Box::into_raw` /
+        # `Box::from_raw`. Both sides must surface as distinct
+        # findings so the matched-pair allowlist requirement can
+        # name the partner call site.
+        #
+        # NOTE: regex-based scanning catches only the qualified-
+        # path form (`CString::from_raw` / `CString::into_raw`).
+        # The method-call form (`cstr.into_raw()`) cannot be
+        # disambiguated from other `.into_raw()` methods without
+        # type analysis. The qualified path is the canonical
+        # spelling in this workspace (zero method-call form
+        # findings); a future migration could add a method-call
+        # detector if needed.
+        for fragment in (
+            "let s = unsafe { CString::from_raw(ptr) };",
+            "let raw = CString::into_raw(cstr);",
+        ):
+            scan = _scan(fragment)
+            self.assertTrue(
+                _has(scan, "CString::from_raw") or _has(scan, "CString::into_raw"),
+                msg=fragment,
+            )
+        # Direct path form must trigger the from_raw pattern.
+        self.assertTrue(_has(_scan("CString::from_raw(p)"), "CString::from_raw"))
+        # Direct path form must trigger the into_raw pattern.
+        self.assertTrue(_has(_scan("CString::into_raw(s)"), "CString::into_raw"))
+
+    def test_unsafe_vec_set_len_flagged(self) -> None:
+        # Issue #19: `Vec::set_len` is an `unsafe fn`; the canonical
+        # call shape is `unsafe { v.set_len(n) }`. The pattern catches
+        # this single-line shape because `Vec::set_len` cannot be
+        # called outside an `unsafe { }` block (compile error
+        # otherwise).
+        for fragment in (
+            "unsafe { v.set_len(n) };",
+            "unsafe { buf.set_len(written) }",
+            "let x = unsafe { vec.set_len(count); 42 };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "unsafe Vec::set_len"), msg=fragment)
+
+    def test_zero_init_patterns_flagged(self) -> None:
+        # Issue #21: every zero-init primitive must surface as a
+        # scanner finding so the per-field zero-validity audit can
+        # be applied. Five canonical entry points: `mem::zeroed`,
+        # `MaybeUninit::zeroed`, `ptr::write_bytes`, `libc::memset`
+        # (the C-side equivalent), and turbofish variants.
+        for fragment, pattern in (
+            ("let x = unsafe { mem::zeroed::<T>() };", "mem::zeroed"),
+            ("let x = unsafe { std::mem::zeroed() };", "mem::zeroed"),
+            ("let x = unsafe { core::mem::zeroed::<u32>() };", "mem::zeroed"),
+            ("let u = MaybeUninit::<T>::zeroed();", "MaybeUninit::zeroed"),
+            ("let u = MaybeUninit::zeroed();", "MaybeUninit::zeroed"),
+            ("unsafe { ptr::write_bytes(p, 0, n) };", "ptr::write_bytes"),
+            ("unsafe { std::ptr::write_bytes(p, 0xff, n) };", "ptr::write_bytes"),
+            ("unsafe { libc::memset(p, 0, n) };", "libc::memset"),
+        ):
+            self.assertTrue(_has(_scan(fragment), pattern), msg=fragment)
+
+    def test_zero_init_unrelated_apis_not_flagged(self) -> None:
+        # Safe zero-init APIs (Default::default, integer literal 0,
+        # `Vec::new`, etc.) MUST NOT trigger the issue-#21 patterns.
+        # Unrelated libc / std / core APIs that share substrings
+        # with the patterns must also not match.
+        for fragment in (
+            "let x: u32 = 0;",
+            "let v: Vec<u8> = Vec::new();",
+            "let d = T::default();",
+            "let m = mem::take(&mut value);",     # mem::take, not mem::zeroed
+            "let p = ptr::null::<T>();",          # ptr::null, not ptr::write_bytes
+            "unsafe { libc::memcpy(dst, src, n) };",  # memcpy, not memset
+        ):
+            self.assertFalse(_has(_scan(fragment), "mem::zeroed"), msg=fragment)
+            self.assertFalse(_has(_scan(fragment), "MaybeUninit::zeroed"), msg=fragment)
+            self.assertFalse(_has(_scan(fragment), "ptr::write_bytes"), msg=fragment)
+            self.assertFalse(_has(_scan(fragment), "libc::memset"), msg=fragment)
+
+    def test_safe_set_len_methods_not_flagged_by_vec_pattern(self) -> None:
+        # `BufferHandle::set_len`, `File::set_len`, and other safe
+        # inherent `.set_len()` methods MUST NOT trigger the
+        # `Vec::set_len` pattern. The distinguishing feature is the
+        # absence of the enclosing `unsafe { }` block — safe
+        # `.set_len()` methods are called bare.
+        for fragment in (
+            "handle.set_len(len);",            # BufferHandle::set_len (safe)
+            "file.set_len(0)?;",               # File::set_len (truncate)
+            "self.set_len(new_len);",          # any other safe inherent set_len
+        ):
+            self.assertFalse(_has(_scan(fragment), "unsafe Vec::set_len"), msg=fragment)
+
+    def test_libc_unrelated_functions_not_flagged(self) -> None:
+        # The libc::malloc regex must NOT match unrelated libc
+        # calls (mmap, munmap, write, read, etc.).
+        for fragment in (
+            "let p = unsafe { libc::mmap(...) };",
+            "unsafe { libc::munmap(p, len) };",
+            "unsafe { libc::write(fd, p, n) };",
+            "unsafe { libc::close(fd) };",
+        ):
+            self.assertFalse(_has(_scan(fragment), "libc::malloc"), msg=fragment)
+
+    def test_safe_string_from_utf8_does_not_match_unchecked(self) -> None:
+        # The safe `String::from_utf8` (release-mode validation, Result
+        # return) and `String::from_utf8_lossy` MUST NOT trigger the
+        # unchecked pattern. These are the workspace's two recommended
+        # alternatives per docs/rust-soundness-policy.md.
+        for fragment in (
+            "let s = String::from_utf8(bytes)?;",
+            "let s = String::from_utf8(v).unwrap();",
+            "let s = String::from_utf8_lossy(bytes).into_owned();",
+            "let s = String::from_utf8_lossy(&buf).to_string();",
+        ):
+            self.assertFalse(_has(_scan(fragment), "String::from_utf8_unchecked"), msg=fragment)
 
     def test_unsafe_cell_get_deref_flagged(self) -> None:
         for fragment in (

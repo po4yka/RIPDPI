@@ -55,9 +55,50 @@ ALLOWLIST_FILE = REPO_ROOT / "ci" / "unsafe-boundary-allowlist.toml"
 PATTERNS: dict[str, re.Pattern[str]] = {
     "slice::from_raw_parts": re.compile(r"\b(?:std::|core::)?slice::from_raw_parts(?:_mut)?\b"),
     "Box::from_raw": re.compile(r"\bBox(::<[^>]*>)?::from_raw\b"),
+    # `Box::into_raw` is the matching counterpart of `Box::from_raw`. The
+    # pair encodes a manual ownership transfer (Rust → caller of the raw
+    # pointer → Rust again) that the type system cannot check end-to-end.
+    # Scanning only `from_raw` would catch the reclaim side but miss
+    # orphaned `into_raw` calls that leak (`mem::forget` equivalent) or
+    # that hand the pointer to FFI without a matching `from_raw`. Each
+    # occurrence must either restructure (use `Pin<Box<T>>`, a typed FFI
+    # wrapper, or an explicit free callback) or earn an allowlist entry
+    # naming the matching `from_raw` call site and the ownership-transfer
+    # contract. See docs/rust-soundness-policy.md § "`Box::into_raw` /
+    # `Box::from_raw` ownership transfer".
+    "Box::into_raw": re.compile(r"\bBox(::<[^>]*>)?::into_raw\b"),
     "Vec::from_raw_parts": re.compile(r"\bVec(::<[^>]*>)?::from_raw_parts\b"),
     "String::from_raw_parts": re.compile(r"\bString::from_raw_parts\b"),
-    "MaybeUninit::assume_init": re.compile(r"\.assume_init\b|MaybeUninit::<[^>]*>::assume_init\b"),
+    # The allocator-API variant of `Vec::from_raw_parts`. Adds an
+    # `Allocator` parameter and rejects `from_raw_parts` callers that
+    # used the default global allocator on the `into_raw_parts` side
+    # but a custom allocator on the `from_raw_parts_in` side (UB).
+    # The base `Vec::from_raw_parts` pattern's `\b` anchor does NOT
+    # match `from_raw_parts_in` because `_` is a word character, so
+    # a dedicated pattern is required. Issue #16 audit found zero
+    # production occurrences. Per docs/rust-soundness-policy.md
+    # § "`Vec::from_raw_parts` ownership transfer" any new occurrence
+    # must restructure (use `Vec::with_capacity_in` + `set_len` in
+    # the same scope, or a typed buffer wrapper) or earn an
+    # allowlist entry naming the matching `into_raw_parts_in` call
+    # site and the eight-point audit checklist.
+    "Vec::from_raw_parts_in": re.compile(r"\bVec(::<[^>]*>)?::from_raw_parts_in\b"),
+    # `MaybeUninit::assume_init` (and the four variants documented in
+    # the std API: `assume_init_ref`, `assume_init_mut`,
+    # `assume_init_drop`, `assume_init_read`). The base `assume_init`
+    # promotes `MaybeUninit<T>` to `T` by value; the variants
+    # reinterpret a slot of unknown contents as `&T`/`&mut T`/Drop-
+    # target. All five require every byte of the slot to be a valid
+    # `T` value at the call site — uninit bytes → UB on the very
+    # next read. The previous regex (`\b` anchor after
+    # `assume_init`) silently failed to match `_ref`/`_mut`/`_drop`/
+    # `_read` because `_` is a word character; this version uses
+    # the std-API-complete list explicitly. Issue #20 audit found
+    # ZERO production occurrences of any variant.
+    "MaybeUninit::assume_init": re.compile(
+        r"\.assume_init(?:_ref|_mut|_drop|_read)?\(|"
+        r"MaybeUninit(?:::<[^>]*>)?::assume_init(?:_ref|_mut|_drop|_read)?\b"
+    ),
     "mem::transmute": re.compile(r"\b(std::|core::)?mem::transmute\b|\btransmute(::<[^>]*>)?\("),
     "get_unchecked": re.compile(r"\.get_unchecked(_mut)?\("),
     "unwrap_unchecked": re.compile(r"\.unwrap_unchecked\(\)"),
@@ -121,6 +162,116 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # validating UTF-8. A safe-API regression here invalidates the
     # `str` invariant and produces UB on any subsequent UTF-8 operation.
     "str::from_utf8_unchecked": re.compile(r"\b(?:std::|core::)?str::from_utf8_unchecked\b"),
+    # String::from_utf8_unchecked turns `Vec<u8>` into `String`
+    # without validating UTF-8. The owned counterpart of
+    # `str::from_utf8_unchecked`: same UB risk, same documentation
+    # requirement, separate audit because the input is owned rather
+    # than borrowed (so the validity argument must also cover the
+    # full ownership transfer). Per docs/rust-soundness-policy.md
+    # § "Unsafe `String`/`str` construction", new occurrences must
+    # restructure (use `String::from_utf8`, which returns a
+    # `Result<String, FromUtf8Error>` at the cost of one linear
+    # scan) or earn an allowlist entry naming the source of the
+    # UTF-8 guarantee.
+    "String::from_utf8_unchecked": re.compile(r"\bString::from_utf8_unchecked\b"),
+    # `libc::malloc` / `libc::calloc` / `libc::realloc` /
+    # `libc::free` — direct C-allocator calls. Rust's default
+    # global allocator (`std::alloc::System` on most targets) and
+    # libc's malloc are NOT guaranteed to be the same heap — even
+    # when they happen to be in practice, the contract is
+    # implementation-defined and changes silently on
+    # `#[global_allocator]` switches. Per
+    # docs/rust-soundness-policy.md § "Allocator mismatch across
+    # FFI", any new occurrence must either:
+    #   (a) restructure to keep both ends of the lifetime in C
+    #       (the foreign library allocates and frees; Rust only
+    #       borrows),
+    #   (b) restructure to keep both ends in Rust (`Box`, `Vec`,
+    #       `String`),
+    #   (c) earn an allowlist entry naming the C-allocator
+    #       provenance and proof that every `libc::malloc` /
+    #       `libc::calloc` / `libc::realloc` is matched by
+    #       exactly one `libc::free`.
+    # Issue #18 audit found zero production occurrences.
+    "libc::malloc": re.compile(r"\blibc::(?:malloc|calloc|realloc|free)\b"),
+    # `CString::from_raw` / `CString::into_raw` — the FFI string
+    # analogue of `Box::from_raw` / `Box::into_raw`. The pair has
+    # the same allocator-compatibility constraint (both ends must
+    # use the global allocator that `CString::new` used) plus a
+    # NUL-termination invariant. Mixing
+    # `CString::from_raw(libc::malloc(n) as *mut c_char)` is UB
+    # because the deallocator that runs on Drop is the global
+    # allocator, not `libc::free`. Issue #18 audit found zero
+    # production occurrences. New entries must restructure to a
+    # typed RAII wrapper or earn an allowlist entry naming the
+    # matching `CString::into_raw` / `CString::new` site.
+    "CString::from_raw": re.compile(r"\bCString::from_raw\b"),
+    "CString::into_raw": re.compile(r"\bCString::into_raw\b"),
+    # `Vec::set_len` is an `unsafe fn`; the canonical call shape is
+    # `unsafe { v.set_len(n) }`. The bytes `[0, n)` of the Vec's
+    # buffer MUST be initialised valid `T` values BEFORE the call —
+    # an off-by-one or short fill makes Drop run on uninitialised
+    # memory (UB if `T: Drop`) and exposes uninit bytes on any
+    # `&[..]` borrow. Per docs/rust-soundness-policy.md
+    # § "`Vec::set_len` initialisation contract", new occurrences
+    # must either:
+    #   (a) restructure to use safe `Vec::push` / `Vec::extend` /
+    #       `Vec::extend_from_slice` (the bytes are typed `T` on
+    #       the way in),
+    #   (b) use the `Vec::with_capacity` + `spare_capacity_mut` +
+    #       guarded-`set_len` idiom with a documented producer
+    #       that writes `MaybeUninit::write` for every byte in
+    #       `[0, n)`, OR
+    #   (c) earn an allowlist entry naming the producer of the
+    #       initialised prefix and proving `n <= capacity`.
+    # The regex catches the `unsafe { ... .set_len( ... ) ... }`
+    # form on a single line; that is the only sound spelling
+    # (calling `Vec::set_len` outside an `unsafe` block is a
+    # compile error). False positives on `BufferHandle::set_len`,
+    # `File::set_len`, etc. are avoided because those methods are
+    # safe and never appear inside an `unsafe { }` block.
+    "unsafe Vec::set_len": re.compile(r"\bunsafe\s*\{[^}]*\.set_len\("),
+    # `mem::zeroed::<T>()` produces a `T` whose bytes are all zero.
+    # Sound only if every bit pattern of zero is a valid `T` —
+    # which holds for plain integer types, `[u8; N]`, `#[repr(C)]`
+    # POD structs, and a few other narrow categories. UB for `T`
+    # that has a validity invariant: `&T` (null reference), `Box<T>`
+    # (null Box), `NonNull<T>` (null), `NonZero*` (zero), `bool`
+    # (only 0/1 valid as bit patterns, but `false`==0 is OK; the
+    # issue is when `T` is the carrier of a `bool` field that
+    # cannot be 0), `char` (high surrogates etc.), enums (must be
+    # a declared variant), and function pointers (null). Issue #21
+    # audit found ONE production occurrence: `mem::zeroed::<libc::
+    # utsname>()` in `ripdpi-io-uring/src/probe.rs` — sound because
+    # `utsname` is `#[repr(C)]` with only `[c_char; N]` fields, and
+    # zero bytes represent empty NUL-terminated C strings. New
+    # occurrences must restructure to safe constructors / Default /
+    # MaybeUninit staged init / explicit field initialisation or
+    # earn an allowlist entry naming each field's zero-validity
+    # proof per docs/rust-soundness-policy.md
+    # § "Zero-initialisation validity".
+    "mem::zeroed": re.compile(r"\b(?:std::|core::)?mem::zeroed\b"),
+    # `MaybeUninit::zeroed()` is a typed version of the same trap:
+    # returns `MaybeUninit<T>` whose bytes are all zero, awaiting an
+    # `assume_init*` call that asserts zero is valid for `T`. The
+    # scan catches the constructor; the matching `assume_init*` is
+    # caught separately. Zero production occurrences in the
+    # workspace.
+    "MaybeUninit::zeroed": re.compile(r"\bMaybeUninit(?:::<[^>]*>)?::zeroed\b"),
+    # `ptr::write_bytes(ptr, 0, n)` is the per-element memset
+    # equivalent. The validity question is identical to
+    # `mem::zeroed` but at the element-type level (`ptr: *mut T`,
+    # writes `n * size_of::<T>()` bytes of zero). Workspace has
+    # ONE production occurrence: `ptr::write_bytes(self.ptr.as_ptr(),
+    # 0, len)` in `ripdpi-privileged-ops/src/linux/mmap_region.rs`
+    # where the pointer type is `*mut u8` (zero-valid by
+    # construction).
+    "ptr::write_bytes": re.compile(r"\b(?:std::|core::)?ptr::write_bytes\b"),
+    # `libc::memset` is the C-side counterpart of
+    # `ptr::write_bytes`. Same validity question; zero workspace
+    # occurrences today. Any new use must restructure or earn an
+    # allowlist entry with the same per-field zero-validity proof.
+    "libc::memset": re.compile(r"\blibc::memset\b"),
     # UnsafeCell::get returns `*mut T` from `&UnsafeCell<T>`. Dereferencing
     # it to produce `&mut T` (the canonical `unsafe { (*cell.get()).as_mut() }`
     # pattern) bypasses Rust's shared-vs-exclusive borrow check entirely;

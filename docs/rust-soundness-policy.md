@@ -96,8 +96,10 @@ on every PR. It looks for the following risky patterns under
 | Pattern | Concern |
 |---|---|
 | `slice::from_raw_parts(_mut)?` | Synthesizing slices over raw memory. |
-| `Box::from_raw`, `Vec::from_raw_parts`, `String::from_raw_parts` | Ownership reconstitution from a raw pointer. |
-| `.assume_init()` / `MaybeUninit::assume_init` | Promoting `MaybeUninit` to `T` without proof. |
+| `Box::from_raw`, `Vec::from_raw_parts`, `String::from_raw_parts` | Ownership reconstitution from a raw pointer. See "`Box::into_raw` / `Box::from_raw` ownership transfer" and "`Vec::from_raw_parts` ownership transfer" below. |
+| `Vec::from_raw_parts_in` | Allocator-API variant of `Vec::from_raw_parts`. Same eight-point checklist plus the allocator-compatibility constraint must hold across the call. The base `Vec::from_raw_parts` `\b` regex anchor does NOT match the `_in` suffix because `_` is a word character, so this is a dedicated pattern. See "`Vec::from_raw_parts` ownership transfer" below. |
+| `Box::into_raw` | The matched counterpart of `Box::from_raw`. Scanning only the reclaim side would miss orphaned `into_raw` calls that leak (`mem::forget` equivalent) or that hand the pointer to FFI without a matching `from_raw`. See "`Box::into_raw` / `Box::from_raw` ownership transfer" below. |
+| `.assume_init()` / `.assume_init_ref()` / `.assume_init_mut()` / `.assume_init_drop()` / `.assume_init_read()` / `MaybeUninit::assume_init(_*)?` | Promoting `MaybeUninit<T>` to `T` (or `&T`/`&mut T`/Drop-target) without proof every byte of the slot is a valid `T` value. UB on the very next read otherwise. The previous regex matched only the base form because the `\b` anchor stopped at `_`; the broadened regex catches all five std-API variants. See "`MaybeUninit` correctness" below. |
 | `mem::transmute` / `transmute::<_,_>` | Reinterpretation cast that bypasses the type system. |
 | `.get_unchecked(_mut)?()`, `.unwrap_unchecked()` | Bounds/option check elision. |
 | `Pin::new_unchecked`, `Pin::get_unchecked_mut` | Pin invariant bypass. |
@@ -111,7 +113,12 @@ on every PR. It looks for the following risky patterns under
 | `&mut Option<NonNull<T>>` | The slot-extractor form (`fn take(slot: &mut Option<NonNull<T>>) -> Option<NonNull<T>>`) is the most acute UAF/double-free vector: a function can `take()` while a safe-code caller already holds a duplicate of the original slot. |
 | `debug_assert near unsafe` (proximity ≤ 10 lines) | `debug_assert!` is compiled out in release; placing one within 10 source lines of an `unsafe` keyword suggests the debug-only assertion is acting as the safety guard. Per Mandatory Invariant #3, the actual safety check must be a release-mode `assert!` / `Result` / type-level encoding. See "`debug_assert!` as memory-safety guard" below. |
 | `CStr::from_ptr` | Materializes a `&CStr` whose bytes are scanned for a NUL terminator starting at a raw pointer. The pointee must be a valid NUL-terminated C string in an allocation that lives at least as long as the returned `&CStr`. See "Creating `&T` from raw pointers" below. |
-| `str::from_utf8_unchecked` | Asserts the input bytes are valid UTF-8 without checking. A regression here invalidates the `str` invariant and produces UB on any subsequent UTF-8 operation. Prefer `str::from_utf8` (release-mode validation) unless the bytes come from a checked source documented in the SAFETY comment. |
+| `str::from_utf8_unchecked` | Asserts the input bytes are valid UTF-8 without checking. A regression here invalidates the `str` invariant and produces UB on any subsequent UTF-8 operation. Prefer `str::from_utf8` (release-mode validation) unless the bytes come from a checked source documented in the SAFETY comment. See "Unsafe `String`/`str` construction" below. |
+| `String::from_utf8_unchecked` | The owned counterpart of `str::from_utf8_unchecked`: turns a `Vec<u8>` into a `String` without validating UTF-8. Same UB risk as the borrowed variant, separate scanner pattern because the input is owned (so the validity argument must cover the ownership transfer too). Prefer `String::from_utf8` (returns `Result<String, FromUtf8Error>`) or `String::from_utf8_lossy` (substitutes U+FFFD for invalid sequences). See "Unsafe `String`/`str` construction" below. |
+| `libc::malloc`, `libc::calloc`, `libc::realloc`, `libc::free` | Direct C-allocator calls. Rust's default global allocator and libc's `malloc`/`free` are NOT contractually the same heap — even when they happen to coincide on a given target, the relationship is implementation-defined and breaks silently on a `#[global_allocator]` switch. New occurrences must either restructure to keep both ends of the lifetime on one side (Rust → `Box`/`Vec`; C → foreign-managed) or earn an allowlist entry per "Allocator mismatch across FFI" below. |
+| `CString::from_raw`, `CString::into_raw` | The FFI-string analogue of `Box::into_raw`/`Box::from_raw`. The pair carries the allocator-compatibility constraint (both ends must use the global allocator that `CString::new` used) plus a NUL-termination invariant. Mixing with `libc::malloc`/`libc::free` is UB. See "Allocator mismatch across FFI" below. |
+| `unsafe Vec::set_len` (proximity ≤ 1 line) | `unsafe { v.set_len(n) }` shape on a single line — the canonical spelling of `Vec::set_len`, which is `unsafe fn`. Bytes `[0, n)` MUST be initialised valid `T` values BEFORE the call; otherwise Drop runs on uninit memory (UB if `T: Drop`) and `&[..]` borrows expose uninit bytes. The pattern is intentionally narrow (matches only `unsafe { ... .set_len( ... ) }`) so safe inherent methods like `BufferHandle::set_len` and `File::set_len` are not flagged. See "`Vec::set_len` initialisation contract" below. |
+| `mem::zeroed`, `MaybeUninit::zeroed`, `ptr::write_bytes`, `libc::memset` | Zero-initialise a `T` (or `n` `T` values). Sound only if every bit pattern of zero is a valid `T`; UB for `T` carrying a validity invariant (references, `NonNull<T>`, `Box<T>`, `NonZero*`, `bool` if asserted as non-false-only, `char` (gap in valid Unicode), enums (must be a declared variant), function pointers (null)). See "Zero-initialisation validity" below. |
 | `UnsafeCell::get` (deref form `*cell.get()`) | Materialises `&mut T` / `&T` from `*mut T` and bypasses Rust's borrow check. The exclusivity invariant — at most one accessor of the cell at any moment — must be enforced by the surrounding type design. The bare `.get()` method (without the `*` deref) is filtered out so unrelated `.get()` callers (HashMap, Vec, Option, AtomicPtr) are not flagged. See "Creating `&mut T` from raw memory" below. |
 | `Cell<bool>` | `Cell<bool>` is a common cheap way to encode lifecycle state, but the value's mutation has no synchronisation cost and no exclusivity discipline. Use a typestate / RAII guard / Mutex instead. See "Ownership must be types, not flags" below. |
 | `ownership flag near drop/unsafe` (proximity ≤ 50 lines) | A `bool` field named `registered`, `is_alive`, `destroyed`, `initialized`, `disowned`, `owned_by_*`, or `freed` that lives within 50 source lines of an `impl Drop` or `unsafe` keyword. Per issue-#11 audit, ownership/liveness must be encoded by the type system, not by flags + comments. See "Ownership must be types, not flags" below. |
@@ -671,6 +678,1089 @@ methods that the initial grep flagged (e.g. `BufferHandle::release`,
 into a `Mutex<Vec<u16>>` free list, not refcounting; they were
 audited under soundness issues #1, #2, #7, #8, #9, #10 and remain
 sound by the move-only handle + mutex protocol.
+
+## `Box::into_raw` / `Box::from_raw` ownership transfer
+
+A `Box::into_raw` / `Box::from_raw` pair encodes a manual
+ownership transfer that the type system cannot check end-to-end:
+Rust hands a heap allocation to non-Rust code (FFI, a registry,
+a callback closure) and trusts that the same allocation comes
+back exactly once for reclamation. Every occurrence has to pass
+the issue-#15 audit checklist before it can ship:
+
+1. **Same `T` on both sides.** The pointer's runtime type must
+   match the type used in `Box::from_raw::<T>(...)`. A
+   `Box::into_raw(Box::<Foo>::new(..))` followed by
+   `Box::from_raw(ptr as *mut Bar)` is UB even if `Foo` and
+   `Bar` have the same layout.
+2. **Same allocator.** Both ends of the round-trip must use the
+   same allocator. The workspace uses only the default global
+   allocator (no `#[global_allocator]` switch, no `Box::new_in`
+   call sites), so this is satisfied by default — but a future
+   custom allocator would invalidate every existing pair.
+3. **Correct alignment.** `Box::from_raw` assumes the pointer
+   meets `mem::align_of::<T>()`. Always true if the pointer
+   came from `Box::into_raw` and was never offset; UB if it
+   came from `libc::malloc` (which only guarantees `MAX_ALIGN`
+   in C, not `align_of::<T>()` for `T` with alignment > 16).
+4. **Allocation start, not interior.** The pointer must address
+   the start of the allocation. Offsetting (e.g. `ptr.add(1)`)
+   between `into_raw` and `from_raw` is UB.
+5. **Not already freed.** Each `Box::into_raw` is matched by
+   **exactly one** `Box::from_raw`. Zero matchings is a memory
+   leak; two or more is double-free / UAF.
+6. **Exactly one owner.** While the raw pointer is in flight,
+   there is exactly one entity entitled to call `Box::from_raw`
+   on it. Multiple entities → race for the reclaim; safe Rust
+   re-borrow of the pointer while `Box::from_raw` runs → UAF.
+
+**Rule.** Application code SHOULD NOT use `Box::into_raw` /
+`Box::from_raw` directly. The preferred shapes, in order:
+
+1. **A typed RAII wrapper** — the
+   `ripdpi-vless/src/scoped_handle.rs` `ScopedHandle<T, F:
+   FreeFunction<T>>` is the workspace's general-purpose shape
+   for any refcount- or malloc-managed FFI handle. Construct
+   from an `unsafe fn from_ptr(*mut T) -> Option<Self>`; the
+   `Drop` impl calls `F::free` exactly once. Tests in the same
+   module assert "frees exactly once on drop", "panic-unwind
+   still frees", "null rejected", and "two handles freed
+   independently".
+2. **An explicit free callback registered with the FFI.** If
+   the C side has a destruction hook, register it and let the
+   foreign code free the Rust-owned allocation — keeping the
+   allocator boundary one-sided.
+3. **`unsafe fn` install + RAII guard reclaim.** Used by
+   `ripdpi-vless/src/reality_hook.rs`:
+   `install_reality_client_hello_hook` (`unsafe fn`,
+   `pub(crate)`) leaks one `Box<RealityCallbackState>` via
+   `Box::into_raw` into BoringSSL's `SSL_CTX_set_client_hello_cb`
+   `arg` slot. The returned `RealityHookGuard` is move-only
+   (`!Copy + !Clone`); its `Drop` impl is the unique site that
+   calls `Box::from_raw`, after checking `state_ptr` is non-
+   null (defence in depth — Rust cannot actually drop the same
+   value twice). The module-level doc-comment enforces the
+   "guard outlives the SSL object" contract that the type
+   system cannot express on its own.
+
+**Anti-patterns.**
+
+- A safe `pub fn` whose body contains a bare `Box::into_raw`
+  and hands the pointer to a foreign API without a matching
+  `unsafe fn ..._free(*mut T)` or RAII guard exposed by the
+  same module. The function must either be `unsafe fn` with a
+  documented `# Safety` contract OR ship the matching reclaim
+  API in the same module.
+- A `from_raw` whose matching `into_raw` is in a different
+  crate. The allowlist entry's `enforcement` field must name
+  both sites; if they cross a crate boundary, the upstream
+  crate must also publish the typed wrapper so the boundary
+  is one-sided.
+- `mem::forget(boxed)` as a substitute for `Box::into_raw`.
+  Both forms leak the allocation; only `Box::into_raw` returns
+  a pointer that can be reclaimed. Using `mem::forget` to
+  "leak intentionally" then later trying to `Box::from_raw`
+  on an external pointer is UB.
+
+**Workspace inventory.** Exactly one production
+`Box::into_raw` / `Box::from_raw` pair in the entire workspace,
+plus three test-mode `into_raw` calls each paired in the same
+function:
+
+| File | Production `into_raw` | Matching `from_raw` | Test pairs |
+|---|---|---|---|
+| `ripdpi-vless/src/reality_hook.rs` | `install_reality_client_hello_hook` (line 141) | `Drop for RealityHookGuard` (line 111) | 3 (each paired within the same `#[test]` body) |
+
+**Miri validation.** `cargo +nightly miri test -p ripdpi-vless
+reality_hook::tests` runs the four reality-hook unit tests
+under Miri, including `guard_reclaims_box_on_drop`. All four
+pass: Miri detects no double-free, no use-after-free, and no
+aliasing violation along the Drop path.
+
+**Allowlist entry requirements.** A `Box::into_raw` or
+`Box::from_raw` allowlist entry's `enforcement` field MUST
+state all five of these mandatory fields:
+
+1. **Allocation origin.** Where in the Rust source the
+   matching `Box::new(...)` runs (file:function). The
+   reviewer must be able to follow the chain
+   `Box::new -> Box::into_raw -> ... -> Box::from_raw`
+   without leaving the policy entry.
+2. **Type `T`.** The concrete type whose `Box<T>` is being
+   transferred. The reviewer must verify the same `T`
+   appears on both sides — a layout-compatible-but-distinct
+   `T'` would be UB.
+3. **Allocator.** Default global allocator unless the entry
+   names a custom `Allocator` (e.g.
+   `Box::<T, MyAlloc>::new_in(...)`). The workspace uses
+   only the default global allocator today; any future
+   `#[global_allocator]` or `Box::new_in` call site
+   invalidates every existing pair and requires re-audit.
+4. **Ownership transfer path.** Which entity (struct
+   field, FFI slot, registry index, closure capture) holds
+   the raw pointer between `into_raw` and `from_raw`, and
+   why that entity is `!Copy + !Clone` so the pointer
+   cannot be duplicated while in flight.
+5. **Deallocation proof.** The single site that calls
+   `Box::from_raw`, and the structural reason it is
+   reached exactly once: RAII `Drop` impl on a move-only
+   guard, type-state transition that consumes the holder,
+   FFI-side destructor callback registered in the same
+   commit, or equivalent. The proof must explain why a
+   second `Box::from_raw` on the same pointer cannot occur
+   (Rust's move semantics + the `!Copy + !Clone` of the
+   holding type are usually sufficient; if not, what other
+   discipline supplies the missing guarantee).
+
+### FFI ownership shapes
+
+When the matched `from_raw` is itself called from a non-
+Rust context (the most common reason to reach for
+`Box::into_raw`), the boundary MUST take one of these
+shapes:
+
+**Shape A — paired `rust_alloc` / `rust_free` exports.** The
+crate exposes two `extern "C" fn`s: `rust_alloc_FOO() ->
+*mut FOO` performs `Box::into_raw(Box::new(...))`, and
+`rust_free_FOO(ptr: *mut FOO)` performs
+`Box::from_raw(ptr)` after asserting non-null. The foreign
+code is contractually required to call exactly one
+`rust_free_FOO` for every `rust_alloc_FOO`. The pair lives
+in the same module so a reviewer can match the two
+without crossing files. Use this shape when the foreign
+code manages the lifetime explicitly and Rust has no
+say in when reclamation happens.
+
+**Shape B — keep ownership on one side.** Rust hands the
+foreign side a borrowed `&T` or `&mut T` (cast to `*mut
+T` only for the duration of the call) and the foreign
+side never retains the pointer past the call. No
+`Box::into_raw` is needed. Use this shape when the
+foreign API takes the pointer only for read-back (e.g.
+`SSL_set_session`-style "give us your data, we copy it").
+
+**Shape C — `unsafe fn` install + RAII guard reclaim.**
+Rust leaks one Box into a foreign slot via
+`Box::into_raw` and immediately returns an
+`unsafe`-constructed RAII guard that owns the reclaim
+side. The guard's `Drop` impl calls `Box::from_raw` and
+nulls the holder field. The install function is
+`unsafe fn` because the caller must uphold the
+"guard outlives the foreign reference" contract that the
+type system cannot express. Use this shape when the
+foreign API has no destructor callback and the install
+function is the natural moment to bind a Rust lifetime
+to the registration. This is the shape used by
+`install_reality_client_hello_hook` /
+`Drop for RealityHookGuard`.
+
+Mixing the shapes (e.g. `rust_alloc_FOO` paired with a
+RAII guard on the Rust side) is permitted only if the
+guard's `take()` method releases ownership back to the
+foreign code by returning the raw pointer and
+`mem::forget`-ing the guard so its Drop does not fire.
+The `ScopedHandle::take()` method in
+`ripdpi-vless/src/scoped_handle.rs` is the canonical
+implementation of that escape hatch.
+
+## `Vec::from_raw_parts` ownership transfer
+
+`Vec::from_raw_parts(ptr, len, cap)` and its allocator-API
+counterpart `Vec::from_raw_parts_in(ptr, len, cap, alloc)`
+reconstitute a `Vec<T>` from three (or four) raw values. The
+resulting `Vec` runs its destructor on drop, which deallocates
+the buffer using `dealloc(ptr, Layout::array::<T>(cap)?)` on
+whichever allocator was supplied. Every soundness precondition
+must hold — even a single mismatched field is UB.
+
+The eight-point audit checklist (issue #16):
+
+1. **Allocation origin.** `ptr` must come from a Rust
+   allocation produced by a `Vec<T>` (or `String`, for the
+   `String` variant) on the same allocator. A pointer from
+   `libc::malloc`, `boxed slice`, `Box<[T]>` after
+   `Box::into_raw`, an mmap region, or a foreign allocator
+   is UB even if alignment and size happen to match.
+2. **Element type `T`.** The pointer must address a buffer
+   that was allocated for exactly this `T`. A
+   layout-compatible-but-distinct `T'` (e.g. `repr(C)` mirror
+   structs) is UB.
+3. **Alignment.** The pointer must satisfy
+   `mem::align_of::<T>()` — automatic if it came from a
+   `Vec<T>::into_raw_parts`; not automatic if it came from
+   `libc::malloc` (only `MAX_ALIGN` guaranteed in C) or from
+   a `Box<[u8]>` cast to `*mut T` (alignment of `u8` is 1).
+4. **Initialized length.** Bytes
+   `[0, len * size_of::<T>())` must contain valid `T`
+   values. `set_len`-style "leave it uninitialized and
+   overwrite later" is UB on any read between
+   `from_raw_parts` and the overwrite — including the
+   `Drop` impl of any element type that runs destructors.
+5. **Capacity.** Bytes `[0, cap * size_of::<T>())` must be
+   the exact allocation size the allocator was told about.
+   Passing a larger `cap` than the original allocation
+   over-reads on drop; smaller leaks the tail.
+6. **Allocator compatibility.** For
+   `Vec::from_raw_parts_in`, the supplied `Allocator` MUST
+   be the same instance (or interchangeable instance) that
+   allocated the buffer. Workspace policy: only the default
+   global allocator is in use; any future
+   `#[global_allocator]` or per-Vec `Allocator` instance
+   invalidates every existing pair and requires re-audit.
+7. **`len <= cap`.** Required by the `Vec` invariant. A
+   `from_raw_parts(p, 8, 4)` violates this immediately and
+   is UB on the next `Vec` operation.
+8. **Unique ownership.** Between
+   `Vec::from_raw_parts` and the resulting `Vec` being
+   moved or dropped, no other code may hold a `&[T]`,
+   `&mut [T]`, second `Vec<T>`, or raw `*mut T` to the
+   same buffer. The reconstituted `Vec` owns the
+   allocation exclusively; an aliased view is UB on the
+   very next mutation.
+
+**Rule.** Application code SHOULD NOT use
+`Vec::from_raw_parts(_in)?`. The preferred shapes, in order:
+
+1. **Safe `Vec` ownership.** Pass `Vec<T>` by value across
+   internal APIs; accept `&[T]` or `&mut [T]` from FFI
+   callers and `Vec::from(slice)` or `.to_vec()` if you
+   need to own. Lets the type system prove every checklist
+   point trivially.
+2. **`Vec::with_capacity` + `spare_capacity_mut` +
+   `set_len`.** When initialising a buffer in-place from
+   a `recv`/`read`/foreign-fill call, allocate with
+   `Vec::with_capacity(N)`, pass
+   `spare_capacity_mut()` (returns
+   `&mut [MaybeUninit<T>]`), then assert
+   `set_len(n)` for the actually-initialised prefix `n`.
+   The `Vec` was always Rust-owned; only the
+   "initialised-up-to" cursor changed. This is the std-
+   library-blessed equivalent of `from_raw_parts` for the
+   common "Rust allocates, foreign code writes" pattern.
+3. **A typed buffer wrapper.** When the buffer's lifecycle
+   is more complex than a single `recv` (e.g. io_uring
+   `IORING_REGISTER_BUFFERS`, page-aligned ring buffers,
+   `MAP_PRIVATE` mmap), wrap the allocation in an owner
+   type whose API is `&[u8] / &mut [u8]` and whose `Drop`
+   handles the matching cleanup. The workspace has two
+   reference implementations: `BufferHandle` in
+   `ripdpi-io-uring/src/bufpool.rs` (move-only handle into
+   a `Box<[UnsafeCell<Box<[u8]>>]>` pool) and `MappedFile`
+   in `ripdpi-geo/src/mapped_file.rs` (mmap-backed
+   read-only `&[u8]`).
+4. **`unsafe fn` boundary + caller contract.** Only when
+   the buffer genuinely originates from a foreign
+   allocator and Rust must take ownership. The function
+   becomes `unsafe fn` with a `# Safety` section that
+   enumerates all eight checklist points; the caller
+   enters `unsafe { … }` with their own SAFETY comment
+   per the documentation contract above. The workspace
+   has zero functions of this shape today.
+
+**Anti-patterns.**
+
+- `Vec::from_raw_parts(libc::malloc(n) as *mut T, n /
+  size_of::<T>(), n / size_of::<T>())` — allocator
+  mismatch (UB on drop), and alignment is unspecified.
+  Use `Vec::with_capacity` instead and have the C code
+  fill the Rust-allocated buffer.
+- `let mut v = Vec::with_capacity(N); recv(v.as_mut_ptr(),
+  N); unsafe { v.set_len(N); }` — bypasses
+  `spare_capacity_mut`'s `MaybeUninit` typing and is hard
+  to audit. The correct shape is
+  `recv(v.spare_capacity_mut().as_mut_ptr() as *mut u8,
+  N); unsafe { v.set_len(N); }` — the `set_len` line is
+  still `unsafe`, but the SAFETY comment can reference the
+  initialisation contract of `recv` instead of
+  hand-waving about the buffer.
+- `String::from_raw_parts(ptr, len, cap)` where bytes are
+  not validated UTF-8. `String` carries the UTF-8
+  invariant; reconstituting from raw without validating is
+  UB on any subsequent string operation. Use
+  `String::from_utf8(vec)` (release-mode validation) on a
+  Rust-owned `Vec<u8>` instead.
+
+**Workspace inventory.** As of issue #16: **zero**
+production occurrences of `Vec::from_raw_parts`,
+`Vec::from_raw_parts_in`, `String::from_raw_parts`, or
+`Vec::set_len` (verified via
+`rg '\bVec(::<[^>]*>)?::(from_raw_parts(_in)?|set_len)\b'`
+and `rg '\bString::from_raw_parts\b'` across all crates).
+The "Rust allocates, foreign code writes" pattern is
+handled by `BufferHandle` and `Vec::with_capacity +
+spare_capacity_mut`; the io_uring fixed buffers are
+`Box<[u8]>` allocated by `Vec::new(...).into_boxed_slice()`
+and never round-trip through raw parts. The two `set_len`
+hits in the workspace are
+`BufferHandle::set_len(&mut self, usize)` (a safe inherent
+method on a typed wrapper that clamps to the underlying
+buffer capacity) and `std::fs::File::set_len` (truncation
+syscall); neither is `Vec::set_len`.
+
+**Allowlist entry requirements.** A `Vec::from_raw_parts`,
+`Vec::from_raw_parts_in`, or `String::from_raw_parts`
+allowlist entry's `enforcement` field MUST address every
+point of the eight-point checklist above (the same
+five-field rubric as `Box::from_raw` is insufficient
+because `Vec` carries `len` and `cap` separately and
+because `String` adds the UTF-8 invariant):
+
+1. Allocation origin (which Rust `Vec<T>::into_raw_parts`
+   or equivalent produced the pointer).
+2. Element type `T` (matching on both sides).
+3. Alignment proof (allocator guarantee or explicit check).
+4. Initialised length (exactly which bytes are valid `T`
+   values, and the validity argument).
+5. Capacity (matches the original allocation size).
+6. Allocator (default global unless named; for
+   `from_raw_parts_in`, the allocator instance must be
+   the same one that allocated the buffer).
+7. `len <= cap` (structural argument).
+8. Unique ownership (which holder type carries the parts
+   between `into_raw_parts` and `from_raw_parts`, and why
+   it is `!Copy + !Clone`).
+
+## Unsafe `String`/`str` construction
+
+`String` and `&str` carry an additional invariant beyond
+`Vec<u8>`: the byte contents MUST be valid UTF-8 in the
+Unicode standard's strict sense (well-formed UTF-8, no
+overlong encodings, no surrogate code points, no invalid
+continuation bytes). The library and the language both
+assume this invariant for every operation: `chars()`
+iteration, `.len()`/`.is_char_boundary()`/`.split_at()`,
+formatting, slicing with `&s[a..b]`, and all higher-level
+APIs (regex, parser combinators, JSON). Violating it
+produces UB on the very next read, even if the bad bytes
+are never directly observed.
+
+Four unsafe constructors can violate this invariant:
+
+| API | Skipped check | Owned? |
+|---|---|---|
+| `String::from_raw_parts(ptr, len, cap)` | UTF-8 validity AND every `Vec::from_raw_parts` precondition | Yes |
+| `String::from_utf8_unchecked(bytes)` | UTF-8 validity (allocation already Rust-owned) | Yes |
+| `str::from_utf8_unchecked(&bytes)` | UTF-8 validity (borrowed) | No |
+| `str::from_boxed_utf8_unchecked` | UTF-8 validity (boxed) | Yes |
+
+The audit checklist for each occurrence:
+
+1. **UTF-8 validity proof.** Where do the bytes come from?
+   The proof MUST be either:
+   - Bytes copied verbatim from another `&str` / `String`
+     (already valid by the source's invariant).
+   - Output of a known-UTF-8-correct producer (Rust's
+     `format!`, `serde_json`'s output writer, etc.)
+     with the producer named in the SAFETY comment.
+   - A previously-validated slice; the validation site MUST
+     be in the same function or a same-crate helper with
+     a documented type-state transition.
+   - Trivially-UTF-8 bytes by construction (ASCII-only
+     output, hex-digit alphabet, base64 alphabet, etc.)
+     with the construction step named.
+
+   Network / file / FFI / parser input is **never** a
+   sound source — there's always a hostile path that
+   plants malformed bytes. Use `String::from_utf8`,
+   `str::from_utf8`, or `String::from_utf8_lossy`
+   instead.
+2. **Initialised.** Same checklist point as
+   `Vec::from_raw_parts`: bytes `[0, len)` of the
+   allocation must be initialised. UB if any byte in
+   that range is `MaybeUninit`-uninitialised.
+3. **Live.** The pointee must outlive the returned
+   reference's lifetime. For `str::from_utf8_unchecked`
+   this is bounded by the input slice; for the owned
+   variants the new `String` takes ownership and the
+   liveness chain transfers to it.
+4. **Unique ownership (owned variants only).** Same
+   checklist point as `Vec::from_raw_parts`: no aliased
+   `Vec<u8>`/`&[u8]`/`&str` to the same buffer may exist
+   while the new `String` is live.
+5. **`len`/`cap` correctness (`String::from_raw_parts`
+   only).** Inherits every `Vec::from_raw_parts`
+   precondition above, plus the UTF-8 invariant. The
+   compound contract is the strictest in std.
+
+**Rule.** Application code SHOULD NOT use any of the
+four unsafe `String`/`str` constructors. The preferred
+shapes, in order:
+
+1. **`String::from_utf8(bytes)` (returns `Result`).** The
+   release-mode validated alternative; one linear scan
+   over the bytes. This is the workspace's default and
+   appears at every parser/network boundary
+   (`ripdpi-warp-core/src/socks.rs`,
+   `ripdpi-tuic/src/protocol.rs`,
+   `ripdpi-relay-core/src/socks/auth.rs`,
+   `ripdpi-diagnostics-tls/src/tls/certs.rs`,
+   `ripdpi-geo/src/lib.rs`).
+2. **`String::from_utf8_lossy(&bytes)` (returns
+   `Cow<str>`).** Use when the input is best-effort
+   logging/classification and invalid sequences should
+   be substituted with U+FFFD rather than rejected.
+   Used by the failure-classifier crates
+   (`ripdpi-failure-classifier`) and packet introspection
+   (`ripdpi-packets/src/classify.rs`).
+3. **`str::from_utf8(&bytes)` (returns `Result`).** The
+   borrowed variant; same one-scan cost. Used at the
+   parser boundaries (`ripdpi-vless/src/wire.rs`,
+   `ripdpi-naiveproxy/src/connect_tunnel.rs`,
+   `ripdpi-relay-core/src/socks/udp_frame.rs`,
+   `ripdpi-shared-priors/src/lib.rs`, the DoH chunk
+   reader).
+4. **Bytes-only API.** If the consumer doesn't need a
+   `str`/`String`, keep the data as `&[u8]` / `Vec<u8>` /
+   `bstr::BStr` and skip the validation entirely. The
+   `ripdpi-packets` HTTP host-extraction path stays
+   `&[u8]` until the final `from_utf8_lossy` at the
+   classifier surface.
+
+**Anti-patterns.**
+
+- `String::from_utf8_unchecked(network_response)` —
+  hostile input is **never** guaranteed UTF-8. Always
+  use the validated `String::from_utf8`.
+- `str::from_utf8_unchecked(&buf[..n])` where `buf` is a
+  recv buffer — same problem; use `str::from_utf8` and
+  propagate the `Result`.
+- `String::from_raw_parts(ptr, len, cap)` — combines
+  every `Vec::from_raw_parts` failure mode with the
+  UTF-8 invariant. There is no situation in this
+  workspace where this is the right tool.
+- `String::from_utf8(bytes).unwrap()` on a non-trusted
+  input — moves the panic from validation to the
+  unwrap site without fixing the underlying issue. Use
+  `String::from_utf8(bytes).map_err(...)` or
+  `String::from_utf8_lossy(&bytes).into_owned()`.
+
+**Workspace inventory.** As of issue #17: **zero**
+production occurrences of `String::from_raw_parts`,
+`String::from_utf8_unchecked`,
+`str::from_utf8_unchecked`, or
+`str::from_boxed_utf8_unchecked`. Every byte-to-string
+conversion in the workspace uses one of the four
+preferred shapes above. The scanner enforces zero
+baseline going forward.
+
+**Allowlist entry requirements.** A `String::from_raw_parts`,
+`String::from_utf8_unchecked`, or
+`str::from_utf8_unchecked` allowlist entry's
+`enforcement` field MUST address every point of the
+checklist above as six NAMED mandatory fields:
+
+1. **UTF-8 validity proof.** Which producer / validator
+   guarantees the input is valid UTF-8, and why that
+   guarantee survives every reachable code path.
+2. **Input trust boundary.** Where do the bytes
+   physically enter Rust ownership? Acceptable origins:
+   `'static` rodata, the output of `format!` / `write!`,
+   a previously-validated `&str` / `String`, an ASCII /
+   hex / base64 alphabet enforced at the parser layer,
+   or a Rust-allocated and Rust-filled buffer whose
+   producer is named and checked. **Forbidden origins:**
+   network reads, file reads, FFI inputs, unbounded
+   parser output, any external API surface. Untrusted
+   bytes MUST use `String::from_utf8` / `str::from_utf8`
+   / `String::from_utf8_lossy` instead, propagating the
+   `Result` to the caller.
+3. **Initialised.** Matching `Vec::from_raw_parts`
+   discipline for the owned variants.
+4. **Live.** Lifetime argument for the borrowed
+   variant; ownership-transfer argument for the owned
+   variants.
+5. **Unique ownership** (owned variants only). Which
+   `!Copy + !Clone` holder carries the bytes between
+   the validation site and the unchecked constructor.
+6. **`len`/`cap` correctness** (`from_raw_parts` only).
+
+Every allowlisted occurrence MUST also be preceded by
+an inline `// SAFETY:` comment in the source enumerating
+the same six fields locally — the allowlist entry is
+the auditor-facing summary; the SAFETY comment is the
+reviewer-facing proof at the call site. Per
+`docs/rust-soundness-policy.md` § "Documentation
+contract", every unsafe block in production code
+already requires a SAFETY comment; this rule restates
+the requirement for the unchecked-string case where
+the consequence (UTF-8-invariant break → UB on the
+next `chars()` iteration) is particularly easy to
+overlook.
+
+For `String::from_raw_parts` specifically, the
+allowlist entry must address ALL eight
+`Vec::from_raw_parts` checklist points PLUS the six
+fields above — the strictest single-API contract in
+std.
+
+## Allocator mismatch across FFI
+
+When an allocation crosses an FFI boundary, the
+**same** allocator that produced the pointer MUST be
+the one that frees it. The Rust default global
+allocator (`std::alloc::System` on Unix targets) and
+libc's `malloc` / `free` may or may not be the same
+heap — the relationship is target- and toolchain-
+defined and changes silently on a `#[global_allocator]`
+switch. Mixing them is undefined behaviour.
+
+The four classic allocator-mismatch patterns:
+
+1. **C allocates, Rust frees.**
+   `Box::from_raw(libc::malloc(n) as *mut T)` — the
+   `Box::drop` calls the Rust global allocator's
+   `dealloc`, which may not be `libc::free`. Even when
+   it is, the layout that `dealloc` reconstructs
+   (`Layout::for_value(&*ptr)`) might differ from what
+   `malloc` actually saw, and `dealloc` is contractually
+   not allowed to handle that mismatch.
+2. **Rust allocates, C frees.** `let p =
+   Box::into_raw(Box::new(t)); foreign_free(p);` — the
+   foreign code calls `libc::free` (or another C
+   deallocator) on a pointer the Rust global allocator
+   owns. Same UB as above, mirrored.
+3. **Wrong-allocator `CString::from_raw`.**
+   `CString::from_raw(libc::malloc(n) as *mut c_char)`
+   — `CString::drop` runs the Rust deallocator on a
+   `libc::malloc`-allocated buffer. UB.
+4. **Allocator-mismatched `Vec::from_raw_parts_in`.**
+   Already covered in
+   "`Vec::from_raw_parts` ownership transfer" point 6
+   (allocator compatibility).
+
+**Rule.** Each allocation that crosses an FFI boundary
+MUST take one of these forms:
+
+1. **Foreign-managed lifetime.** The foreign library
+   allocates AND frees; Rust receives a `*mut T` /
+   `*const T` and either:
+   - never frees it (non-owning observer pattern; the
+     foreign side guarantees the pointer outlives
+     every Rust use), OR
+   - explicitly calls the foreign deallocator (e.g.
+     `SSL_CTX_free`, `EVP_PKEY_free`) inside an RAII
+     wrapper. The workspace's `ScopedHandle<T, F:
+     FreeFunction<T>>` in
+     `ripdpi-vless/src/scoped_handle.rs` is the
+     canonical implementation.
+2. **Rust-managed lifetime.** Rust allocates AND
+   frees; the foreign side receives a borrowed `*const
+   T` / `*mut T` for the duration of a call and never
+   retains it past the call. No `Box::into_raw`
+   needed.
+3. **Paired `rust_alloc` / `rust_free` exports** (also
+   documented in
+   "`Box::into_raw` / `Box::from_raw` ownership
+   transfer" § "FFI ownership shapes"). The crate
+   exposes two `extern "C" fn`s: `rust_alloc_FOO() ->
+   *mut FOO` (Box::into_raw) and `rust_free_FOO(*mut
+   FOO)` (Box::from_raw). Foreign code is contractually
+   required to call exactly one `rust_free_FOO` for
+   every `rust_alloc_FOO`.
+4. **Unsafe-fn install + RAII reclaim** (also
+   documented in
+   "`Box::into_raw` / `Box::from_raw` ownership
+   transfer" § "FFI ownership shapes"). Rust leaks one
+   Box via `Box::into_raw` and reclaims it in the
+   guard's `Drop`.
+
+**Anti-patterns.**
+
+- `Box::from_raw(libc::malloc(n) as *mut T)` — see
+  pattern 1 above.
+- `unsafe { libc::free(b.as_ptr() as *mut _) }` for
+  any `Box<T>` / `Vec<T>` / `String` `b` — see pattern
+  2 above. The `free` runs on a Rust allocation.
+- `CString::from_raw(c_string_returned_by_strdup)` —
+  `strdup` uses `malloc`, but `CString::drop` runs the
+  Rust deallocator.
+- A scanner allowlist entry that names the matching
+  `into_raw` but the partner lives in a different
+  crate. The two must live in the same module so a
+  reviewer can match them without crossing files.
+
+**Workspace inventory.** As of issue #18: **zero**
+production occurrences of any allocator-crossing
+pattern.
+
+- `rg '\blibc::(malloc|calloc|realloc|free)\b'` — zero
+- `rg '\bCString::(from_raw|into_raw)\b'` — zero
+- `rg '#\[global_allocator\]'` — zero (workspace uses
+  the default `std::alloc::System`)
+- `rg 'extern "C" \{'` — exactly one
+  `extern "C" {}` block in
+  `ripdpi-vless/src/reality_hook.rs` (BoringSSL Reality
+  client_hello hook). The three imported BoringSSL
+  functions are
+  `SSL_handshake_get_x25519_private_key`
+  (fills a caller-owned 32-byte stack buffer; no
+  allocation crosses the boundary),
+  `SSL_CTX_set_client_hello_cb` (installs a Rust
+  callback + Rust-owned `Box::into_raw` `arg` — the
+  Rust-managed lifetime reclaimed by
+  `RealityHookGuard::Drop` per issue #15), and
+  `SSL_get_SSL_CTX` (returns a BoringSSL-managed
+  pointer that Rust never frees — non-owning observer
+  per shape 1). All three are sound.
+
+The only Rust→C heap transfer in the workspace is the
+already-audited `Box::into_raw(Box<RealityCallbackState>)`
+/ `Drop for RealityHookGuard` pair (issue #15,
+Miri-validated).
+
+**Allowlist entry requirements.** A `libc::malloc`,
+`CString::from_raw`, or `CString::into_raw` allowlist
+entry's `enforcement` field MUST address every point
+below:
+
+1. **C-allocator provenance.** Which foreign function
+   produced the pointer (`libc::malloc`, `strdup`,
+   `EVP_PKEY_new`, etc.). The reviewer must be able to
+   follow the chain `foreign_alloc -> ... -> matching
+   free` without leaving the policy entry.
+2. **Matching deallocator.** The C function that frees
+   the allocation. Must be the documented dual of the
+   producer; `libc::malloc` is paired with
+   `libc::free`, not with `Box::drop`.
+3. **Type and layout.** Which `T` the pointer
+   addresses and how the alignment is guaranteed
+   (`malloc` only guarantees `MAX_ALIGN`; if `T` has
+   higher alignment requirements use `posix_memalign`
+   or `aligned_alloc`).
+4. **Pair locality.** Both ends of the
+   allocation/deallocation must live in the same
+   module or be exposed as a documented `rust_alloc_FOO`
+   / `rust_free_FOO` pair.
+5. **No allocator switch.** Whether the entry remains
+   sound if a future `#[global_allocator]` is added to
+   the workspace. If not, the entry must say so
+   explicitly so a future contributor can re-evaluate.
+
+## `Vec::set_len` initialisation contract
+
+`Vec::set_len(new_len)` is an `unsafe fn` that adjusts
+the length field of a `Vec<T>` without touching the
+buffer. After the call, the `Vec` claims that bytes
+`[0, new_len * size_of::<T>())` of its allocation
+contain valid `T` values. Every read, drop, and
+`&[..]` / `&mut [..]` borrow assumes that claim is
+true. Failures:
+
+| Failure mode | Consequence |
+|---|---|
+| `new_len` past the initialised prefix | Drop runs on uninit memory (UB if `T: Drop`); `&[..]` exposes uninit bytes (UB on any subsequent read). |
+| `new_len > capacity` | UB on the next push / resize / drop — `Vec` assumes its length-cap invariant. |
+| Panic between `with_capacity(N)` and `set_len(n)` while the spare region is partly written | The Vec's len is still 0 (set_len hasn't run), so Drop runs on no elements. Safe for `T: !Drop` (e.g. `u8`); for `T: Drop` the partially-initialised tail is leaked but not unsoundly used. |
+| `&mut [u8]` borrow of the spare region before `set_len` | Sound because the spare region is typed `MaybeUninit<T>`. Reading without writing is the failure mode. |
+
+The audit checklist for every `Vec::set_len(n)` site:
+
+1. **Initialised prefix.** A producer wrote valid `T`
+   values to every slot in `[0, n)` before
+   `set_len(n)` runs. The producer is named explicitly
+   in the SAFETY comment (e.g. "`recv(2)` returned
+   `n` and is documented to write `n` bytes",
+   "`MaybeUninit::write` was called for each slot in
+   the loop above").
+2. **`n <= capacity`.** Asserted on the line(s)
+   immediately above the `set_len` call. `Vec`'s
+   internal invariant breaks otherwise.
+3. **Panic-path soundness.** Either:
+   - `T: !Drop` (e.g. `u8`, `u32`, `bool`,
+     `MaybeUninit<U>`), in which case the
+     half-initialised tail doesn't matter on
+     unwind — `len` stays 0 and Drop is a no-op, OR
+   - a scope-bound RAII guard reduces `len` to the
+     last-known-good prefix on unwind. The
+     `std::vec::Drain` and
+     `Vec::extend_from_slice` implementations are
+     the std reference for this pattern.
+4. **No re-entrant reads.** Between the
+   `with_capacity` / `reserve` / `spare_capacity_mut`
+   site and the matching `set_len`, no code path may
+   re-borrow the Vec as `&[T]` / `&mut [T]` —
+   the spare region's typing is `MaybeUninit<T>`, not
+   `T`, and accessing it as `T` is UB regardless of
+   the buffer's runtime contents.
+
+**Rule.** Application code SHOULD NOT call
+`Vec::set_len` directly. The preferred shapes, in
+order:
+
+1. **Safe `Vec::push` / `Vec::extend` /
+   `Vec::extend_from_slice`.** The bytes are typed
+   `T` on the way in; no `MaybeUninit` exists; no
+   `set_len` needed.
+2. **`Vec::with_capacity` + `spare_capacity_mut` +
+   guarded `set_len`.** Use when a foreign filler
+   (`recv`, `read`, FFI buffer fill) writes into a
+   Rust-allocated buffer. The
+   `spare_capacity_mut()` typing
+   (`&mut [MaybeUninit<T>]`) keeps the
+   uninitialised state visible to the type system;
+   the filler writes through `MaybeUninit::write`;
+   the matching `set_len(n)` runs only after the
+   filler reports `n`. This is the workspace's
+   recommended idiom for the "Rust allocates,
+   foreign code writes" pattern, demonstrated end-
+   to-end by
+   `vec_with_capacity_spare_capacity_round_trip_models_recv_fill`
+   in `ripdpi-vless/src/scoped_handle.rs`.
+3. **A typed buffer wrapper.** When the lifecycle
+   spans multiple operations (e.g. io_uring fixed
+   buffers), encapsulate the spare-region writing in
+   a safe `&mut [u8]`-handing-out wrapper. The
+   workspace's `BufferHandle` in
+   `ripdpi-io-uring/src/bufpool.rs` is the reference:
+   `BufferHandle::set_len(&mut self, len: usize)` is
+   a SAFE inherent method that clamps to
+   `buffer_size`; the caller never sees
+   `MaybeUninit<u8>` or the bare `Vec::set_len`.
+
+**Anti-patterns.**
+
+- `let mut v = Vec::with_capacity(N); foreign_fill(v.as_mut_ptr(), N); unsafe { v.set_len(N); }`
+  — bypasses `MaybeUninit` typing, hard to audit,
+  and the SAFETY comment must hand-wave about the
+  foreign contract. The correct shape is
+  `foreign_fill(v.spare_capacity_mut().as_mut_ptr().cast(), N); unsafe { v.set_len(n) };`
+  with `n <= N`.
+- `unsafe { v.set_len(n) }` where the loop above
+  wrote `n` elements via index assignment
+  (`v[i] = …`) instead of `MaybeUninit::write` —
+  `v[i]` is `&mut T` and assigns through, but the
+  Vec's `len` was 0 at the time, so `v[i]` is itself
+  UB. Use `spare_capacity_mut()[i].write(value)`
+  instead.
+- `unsafe { v.set_len(n) }` immediately followed by
+  `&v[..]` when only some of `[0, n)` was written —
+  the borrow exposes uninit bytes. Set `len` to the
+  initialised count, not the buffer capacity.
+
+**Workspace inventory.** As of issue #19: **zero**
+production `Vec::set_len` calls. The single
+occurrence in the workspace is the regression test
+`vec_with_capacity_spare_capacity_round_trip_models_recv_fill`
+in `ripdpi-vless/src/scoped_handle.rs:331`, which
+demonstrates the recommended idiom (per shape 2
+above) end-to-end. The other three `.set_len(`
+matches in the workspace are NOT `Vec::set_len`:
+
+| File | Method | Allowlisted? |
+|---|---|---|
+| `ripdpi-io-uring/src/tun.rs:95` | `BufferHandle::set_len(&mut self, usize)` | No — safe inherent method on the io_uring buffer wrapper; clamps to `buffer_size`. |
+| `ripdpi-proxy-runtime/src/runtime/relay/stream_copy_uring/inbound_zc.rs:43` | `BufferHandle::set_len` (same method) | No — same as above. |
+| `ripdpi-proxy-runtime-adapter/src/platform.rs:363` | `std::fs::File::set_len(0)` | No — truncate syscall. |
+
+**Allowlist entry requirements.** A `unsafe Vec::set_len`
+allowlist entry's `enforcement` field MUST address every
+point as FIVE NAMED mandatory fields:
+
+1. **Initialisation proof.** Which code wrote valid
+   `T` values to slots `[0, n)` before the `set_len`
+   ran. Name the producer explicitly (e.g.
+   "`simulated_recv_fill` wrote each slot via
+   `MaybeUninit::write` in the loop above",
+   "`libc::recv` returned `n` and is documented to
+   write `n` bytes"). "The buffer is filled" is not a
+   proof; the writer function must be named.
+2. **`n <= capacity` proof.** Where the assertion
+   lives (typically an `assert!` on the line above
+   the `set_len`). If the guarantee is structural
+   (e.g. `n` is the return value of a function whose
+   contract is `0 <= ret <= capacity`), name the
+   function and the contract.
+3. **Element type and Drop semantics.** Name `T`
+   explicitly and whether `T: Drop`. `T: !Drop`
+   (`u8`, `u32`, `bool`, `MaybeUninit<U>`) makes
+   panic-path soundness trivial; `T: Drop` requires a
+   scope-bound RAII guard that reduces `len` to the
+   last-known-good prefix on unwind.
+4. **Panic-path safety.** The argument that an unwind
+   between `with_capacity` and `set_len` cannot run
+   destructors on uninitialised memory. Either
+   field 3's `T: !Drop` is sufficient, OR the entry
+   names the unwind guard.
+5. **Owner.** Crate/team responsible for keeping the
+   entry sound. Matches the `owner` TOML field but
+   restated in the `enforcement` summary so the
+   reviewer can see the responsible party without
+   scrolling.
+
+**CI Miri coverage.** Every `unsafe Vec::set_len`
+allowlist entry SHOULD also be exercised under Miri
+in `scripts/ci/run-rust-miri.sh` (the workspace's
+"targeted Miri smoke" CI gate). The existing
+`scoped_handle::tests` Miri coverage already includes
+the workspace's only `Vec::set_len` site (the
+`with_capacity` + `spare_capacity_mut` + `set_len`
+round-trip test); future allowlisted occurrences in
+production code must add their own Miri coverage in
+the same script so the strict-provenance borrow-
+stacked machine validates them at every PR.
+
+## `MaybeUninit` correctness
+
+`MaybeUninit<T>` is the std-library escape hatch for
+"I have a slot the size and alignment of `T` but I
+have not initialised it yet". The type carries no
+runtime tag; the compiler trusts the programmer to
+prove `T`-validity before any of the five
+`assume_init`-family methods runs. The five methods
+and their failure modes:
+
+| API | Failure mode if slot is uninit |
+|---|---|
+| `MaybeUninit<T>::assume_init(self) -> T` | UB on Drop and on every subsequent read. |
+| `assume_init_ref(&self) -> &T` | UB on every read through the `&T`. |
+| `assume_init_mut(&mut self) -> &mut T` | UB on every read and on the write of a non-trivial `T`. |
+| `assume_init_drop(&mut self)` | UB if Drop reads any uninit field. |
+| `assume_init_read(&self) -> T` | UB on every read of the returned `T`, and the original slot is logically duplicated (`T: Copy`-style) so Drop must not later run on the same allocation. |
+
+The audit checklist for every `assume_init*` call:
+
+1. **Every byte of `T` written.** A producer wrote
+   valid bytes for every field of `T` BEFORE
+   `assume_init` ran. The producer is named in the
+   SAFETY comment (e.g. "the C call `getsockopt`
+   filled all `size_of::<T>()` bytes",
+   "`MaybeUninit::write` was called for each field
+   in the block above").
+2. **Padding handled.** If `T` has padding bytes
+   (e.g. `#[repr(C)] struct { a: u8, b: u32 }` has
+   3 bytes of padding between `a` and `b`), those
+   padding bytes are EITHER zeroed at allocation
+   (e.g. via `mem::zeroed`) OR proven to be
+   irrelevant (the consumer reads only the named
+   fields, never `as_bytes` / `transmute` of the
+   whole struct).
+3. **No `&T` / `&mut T` to uninit memory.** The
+   only sound way to read uninit slots is through
+   `MaybeUninit<T>` (or `&[MaybeUninit<T>]`); even
+   creating a `&T` to uninit memory and immediately
+   discarding it is UB. `MaybeUninit::as_ptr()` is
+   sound (it returns `*const T`, not `&T`).
+4. **Drop semantics.** If `T: Drop` and the slot is
+   only partially initialised on a panic-unwind
+   path, the partial state must not reach Drop. The
+   std reference pattern is `MaybeUninit<T>` slots
+   inside an array with a scope-bound RAII guard
+   that calls `assume_init_drop` only on indices
+   that have been written.
+5. **Reference creation timing.** Between the slot
+   allocation (`MaybeUninit::uninit()`) and the
+   `assume_init`, no code path may borrow the
+   underlying memory as `&T` / `&mut T` — only
+   `&mut [MaybeUninit<T>]` is sound for uninit
+   buffers.
+
+**Rule.** Application code SHOULD NOT use
+`assume_init` family methods. The preferred shapes,
+in order:
+
+1. **Safe constructors.** `T::default()`, struct
+   literals with all fields named, `Vec::new()` +
+   `push`, `String::new()` + `push_str`, etc.
+2. **`array::from_fn(|i| init(i))`** for arrays
+   that can be initialised by a closure. The
+   closure runs in element order; if it panics
+   mid-build, std's drop guard correctly drops the
+   prefix it built.
+3. **`Vec::with_capacity` + `spare_capacity_mut` +
+   guarded `set_len`** (per
+   "`Vec::set_len` initialisation contract"). The
+   `spare_capacity_mut()` typing keeps `MaybeUninit`
+   visible; writes go through
+   `MaybeUninit::write`; `set_len` runs only after
+   the producer reports `n`.
+4. **`unsafe fn` recv-style API directly accepting
+   `&mut [MaybeUninit<T>]`.** Std's
+   `UdpSocket::recv_from` / `TcpStream::read` /
+   `read_buf` accept `&mut [MaybeUninit<u8>]`
+   natively (Rust 1.85+); no `assume_init` needed
+   because the bytes go through
+   `slice::from_raw_parts(..., received)` to
+   produce a `&[u8]` of exactly the initialised
+   prefix. This is the pattern used at the only
+   `MaybeUninit` production site in the workspace
+   (`ripdpi-privileged-ops/src/linux/experimental_tier3/icmp_wrapped_udp.rs`).
+
+**Anti-patterns.**
+
+- `let mut a: [MaybeUninit<T>; N] = unsafe { MaybeUninit::uninit().assume_init() };` —
+  the famous "uninit assume_init" trick. Sound only
+  because `MaybeUninit<T>` has no validity
+  invariant. Use
+  `[const { MaybeUninit::uninit() }; N]` (Rust
+  1.79+) or
+  `MaybeUninit::<[MaybeUninit<T>; N]>::uninit().assume_init()`
+  with a SAFETY comment naming the
+  "MaybeUninit<MaybeUninit<T>> always valid"
+  argument.
+- `let r: &T = unsafe { uninit.assume_init_ref() }`
+  followed by `r.field` when the slot's bytes are
+  partially uninit — UB on the field access.
+- `let v: T = unsafe { uninit.assume_init() }` for
+  `T: Drop` when the slot is only partially
+  initialised — Drop runs on uninit memory.
+- `mem::uninitialized::<T>()` — soft-deprecated;
+  use `MaybeUninit::<T>::uninit()` instead. (The
+  workspace has zero occurrences.)
+
+**Workspace inventory.** As of issue #20:
+
+| Site | Shape | Audit |
+|---|---|---|
+| `ripdpi-privileged-ops/.../icmp_wrapped_udp.rs:27` | `[MaybeUninit<u8>; 8192]` recv buffer, consumed via `slice::from_raw_parts(buf.as_ptr().cast::<u8>(), received)` | Sound. `UdpSocket::recv_from` natively accepts `&mut [MaybeUninit<u8>]` and is documented to initialise the first `received` bytes. The follow-on `slice::from_raw_parts` is allowlisted under issue #6. No `assume_init*` is used. |
+| `ripdpi-vless/.../scoped_handle.rs:304` | Test-mode `&mut [MaybeUninit<u8>]` parameter in `simulated_recv_fill` | Sound. Issue #16 regression test demonstrating the workspace's recommended `with_capacity + spare_capacity_mut + set_len` idiom. Miri-validated. |
+
+**ZERO production `assume_init` / `assume_init_ref` /
+`assume_init_mut` / `assume_init_drop` /
+`assume_init_read` calls** in the entire workspace.
+Every byte-fill operation goes through either
+`recv_from(&mut [MaybeUninit<u8>])` followed by
+`slice::from_raw_parts` (issue-#6-audited) or
+`Vec::with_capacity + spare_capacity_mut +
+MaybeUninit::write + set_len` (issue-#16-audited).
+The scanner enforces zero baseline going forward.
+
+**Allowlist entry requirements.** An
+`MaybeUninit::assume_init` allowlist entry's
+`enforcement` field MUST address every point as
+FIVE NAMED mandatory fields:
+
+1. **Initialisation proof** (which producer wrote
+   every byte of `T`).
+2. **Padding argument** (padding bytes zeroed or
+   proven irrelevant).
+3. **Reference safety** (no `&T`/`&mut T` to
+   uninit memory created before `assume_init`).
+4. **Drop safety** (panic-path guard, or `T: !Drop`
+   stated explicitly).
+5. **Owner** (crate/team, restated in the
+   enforcement summary).
+
+**CI Miri coverage.** Per
+"`Vec::set_len` initialisation contract", any new
+allowlisted `assume_init*` site in production code
+SHOULD also be exercised under Miri in
+`scripts/ci/run-rust-miri.sh`. The existing
+`scoped_handle::tests` Miri coverage validates the
+recommended `with_capacity + spare_capacity_mut +
+set_len` round-trip (which writes via
+`MaybeUninit::write` and would catch a regression
+that introduced unsound `assume_init` usage in the
+same crate).
+
+## Zero-initialisation validity
+
+`mem::zeroed::<T>()` and its variants
+(`MaybeUninit::<T>::zeroed`, `ptr::write_bytes(ptr, 0, n)`,
+`libc::memset(ptr, 0, n)`) produce a `T` (or `n` `T` values)
+whose bytes are all zero. The runtime cost is one `memset`;
+the soundness cost depends entirely on whether the all-zero
+bit pattern is a valid `T`.
+
+**Types where zero IS a valid bit pattern:** integers,
+`f32`/`f64`, `[u8; N]` and other arrays of zero-valid
+types, `#[repr(C)]` POD structs whose every field is
+zero-valid, `Option<&T>` / `Option<Box<T>>` /
+`Option<NonNull<T>>` / `Option<NonZeroU32>` (the niche
+optimisation makes zero represent `None`),
+`MaybeUninit<T>`, and raw pointers `*mut T` / `*const T`
+(null bit pattern is fine; dereferencing it is the UB).
+
+**Types where zero is NOT a valid bit pattern (UB to
+construct via `mem::zeroed`):** `&T` / `&mut T` (never
+null), `Box<T>` / `Rc<T>` / `Arc<T>` (never null),
+`NonNull<T>`, `NonZeroU*` / `NonZeroI*`, `bool` byte
+values outside `{0, 1}`, `char` surrogates and
+out-of-range code points, enums whose `0` discriminant
+is not declared (e.g. `#[repr(u8)] enum { A = 1, B = 2
+}`), function pointers (`fn()`, `extern "C" fn(...)`),
+and any `#[repr(transparent)]` newtype around the above.
+
+The audit checklist for each zero-init site:
+
+1. **Identify `T`** (or the element type for
+   `ptr::write_bytes` / `libc::memset`).
+2. **Field-by-field zero-validity.** If `T` is a
+   struct/enum, every field's all-zero bit pattern must
+   be in the field's validity domain. Recurse into
+   nested types.
+3. **Reference/pointer/function-pointer check.** Does
+   `T` transitively contain any `&T` / `&mut T` /
+   `Box<T>` / `NonNull<T>` / `NonZero*` / function
+   pointer / non-zero-variant enum? If yes,
+   `mem::zeroed::<T>` is UB.
+4. **`#[repr(C)]`.** FFI structs MUST be `#[repr(C)]` so
+   the layout is stable and field offsets are
+   knowable. Zero-init across versions of a
+   `#[repr(Rust)]` struct is fragile because the
+   compiler is free to reorder fields and change
+   padding.
+5. **Padding bytes.** With `mem::zeroed`, padding bytes
+   are guaranteed zero; with `MaybeUninit` they're
+   tracked as uninit. This matters when the consumer
+   reads the struct as `&[u8]` or passes it across FFI
+   as a byte block.
+
+**Rule.** Application code SHOULD NOT use `mem::zeroed`
+or its variants. The preferred shapes, in order:
+
+1. **Safe constructors:** `T::default()`, struct
+   literals with every field named, `Vec::new()`,
+   `String::new()`, `[const { … }; N]`.
+2. **`MaybeUninit` staged init:** `let mut u =
+   MaybeUninit::<T>::uninit(); /* fill */ unsafe {
+   u.assume_init() }`. Forces field-by-field
+   accountability — no "memset and pray".
+3. **Field-by-field zero, not whole-struct zero:**
+   `let s = MyStruct { a: 0, b: 0, c: false };` —
+   the compiler chooses the byte representation; you
+   don't pretend zero bytes are a valid `MyStruct`.
+
+**Workspace inventory.** As of issue #21: **two**
+sound production sites, both audited and allowlisted.
+**Zero `MaybeUninit::zeroed`**, **zero `libc::memset`**.
+
+| File | API | Element type | Sound because |
+|---|---|---|---|
+| `ripdpi-io-uring/src/probe.rs:85` | `mem::zeroed::<libc::utsname>()` | `libc::utsname` | `#[repr(C)]` with every field `[c_char; N]` (= `[i8; N]`). `i8` has no validity invariant; zero bytes also represent the empty NUL-terminated C string each field is contractually allowed to start as (kernel `uname(2)` fills every field). |
+| `ripdpi-privileged-ops/src/linux/mmap_region.rs:65` | `ptr::write_bytes(*mut u8, 0, len)` | `u8` | Element type is `u8`; every bit pattern is a valid `u8`. Destination is exclusive (`&mut self` on the owning `MmapRegion: !Copy`); no aliased reader can observe a mid-write state. Bounds (`len`) come from the region's own owned `NonZeroUsize`. |
+
+**Anti-patterns.**
+
+- `let s: MyStruct = unsafe { mem::zeroed() };` where
+  `MyStruct` contains a `Box<u8>` field — UB; zero is
+  a null Box.
+- `let f: fn() = unsafe { mem::zeroed() };` — UB;
+  zero is not a valid function pointer.
+- `unsafe { ptr::write_bytes(buf.cast::<MyEnum>(), 0,
+  n) };` for an enum whose `0` variant is not
+  declared — UB on every subsequent read.
+- `let mut x = MaybeUninit::<&T>::zeroed(); unsafe {
+  x.assume_init() };` — UB; references cannot be
+  null.
+
+**Allowlist entry requirements.** A `mem::zeroed`,
+`MaybeUninit::zeroed`, `ptr::write_bytes`, or
+`libc::memset` allowlist entry's `enforcement` field
+MUST address all FIVE NAMED mandatory fields:
+
+1. **Element type and layout** (concrete `T`, its
+   `#[repr]`, the field list if relevant).
+2. **Field-by-field zero-validity** (every field's
+   validity domain; recursive if a field is itself a
+   struct).
+3. **No invariant-bearing fields** (no references,
+   `NonNull`, `NonZero*`, `Box`, function pointer,
+   non-zero-variant enum).
+4. **Padding-byte semantics** (if the consumer reads
+   the struct as `&[u8]`, that the padding-zero claim
+   is documented; otherwise that the consumer reads
+   only named fields).
+5. **Owner.**
 
 ## Ownership must be types, not flags
 
