@@ -211,9 +211,9 @@ internal fun ScanSection(
                 }
                 itemsIndexed(
                     items = progress.completedProbes.reversed().take(LiveProbePreviewCount),
-                    key = { _, probe -> "${probe.target}-${probe.outcome}" },
+                    key = { index, probe -> "$index-${probe.target}-${probe.outcome}" },
                     contentType = { _, _ -> "live_probe" },
-                ) { _, probe ->
+                ) { index, probe ->
                     AnimatedVisibility(
                         visible = true,
                         enter =
@@ -230,7 +230,7 @@ internal fun ScanSection(
                             probe = probe,
                             modifier =
                                 Modifier.ripDpiTestTag(
-                                    RipDpiTestTags.diagnosticsLiveProbe("${probe.target}-${probe.outcome}"),
+                                    RipDpiTestTags.diagnosticsLiveProbe("$index-${probe.target}-${probe.outcome}"),
                                 ),
                         )
                     }

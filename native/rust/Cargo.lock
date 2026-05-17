@@ -3608,12 +3608,16 @@ name = "ripdpi-diagnostics-probes"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "hickory-resolver",
  "libc",
  "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-http",
  "ripdpi-failure-classifier",
+ "rustls",
  "tokio",
+ "tokio-rustls",
+ "webpki-roots",
 ]
 
 [[package]]
