@@ -70,7 +70,7 @@ pub(super) fn maybe_rebind_udp_source_port(
 #[cfg(test)]
 mod tests {
     use crate::runtime::state::RuntimeState;
-    use crate::runtime::types::RuntimeUdpSourceRebindPolicy;
+    use crate::runtime::udp::RuntimeUdpSourceRebindPolicy;
 
     #[test]
     fn udp_source_rebind_waits_for_short_header_after_two_rounds() {

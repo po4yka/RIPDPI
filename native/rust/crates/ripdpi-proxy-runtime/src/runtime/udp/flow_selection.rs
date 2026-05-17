@@ -8,12 +8,10 @@ use super::flow::{udp_flow_at_capacity, UdpFlowActivationState};
 use super::session::UdpFlowSession;
 use super::sockets::build_udp_upstream_socket;
 use super::upstream_pump::send_udp_flow_payload;
+use super::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy};
 use crate::runtime::routing::{preferred_targets_for_transport, select_route_for_transport};
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::{
-    RuntimeConnectionRoute, RuntimeTransportProtocol, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings,
-    RuntimeUdpSourceRebindPolicy,
-};
+use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
 
 pub(super) struct UdpFlowSelection {
     pub(super) target: SocketAddr,

@@ -23,11 +23,11 @@ impl ProcessGuard {
     }
 }
 
-pub fn shutdown_requested() -> bool {
+pub(crate) fn shutdown_requested() -> bool {
     SHUTDOWN.load(Ordering::Acquire)
 }
 
-pub fn request_shutdown() {
+fn request_shutdown() {
     SHUTDOWN.store(true, Ordering::Release);
 }
 

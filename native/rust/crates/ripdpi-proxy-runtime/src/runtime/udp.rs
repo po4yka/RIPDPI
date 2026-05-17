@@ -4,6 +4,7 @@ mod flow;
 mod flow_selection;
 mod migration;
 mod session;
+mod settings;
 mod sockets;
 mod upstream_pump;
 
@@ -20,6 +21,10 @@ use crate::sync::{Arc, AtomicBool, Ordering};
 
 use self::client_receive::receive_and_forward_udp_client_packet;
 use self::flow::{expire_udp_flows, UdpFlowActivationState};
+pub(in crate::runtime) use self::settings::{
+    runtime_udp_packet_settings, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy,
+    UdpFlowGroupPolicy,
+};
 pub(crate) use self::sockets::build_udp_relay_sockets;
 use self::upstream_pump::pump_udp_upstream_responses;
 use super::adaptive::emit_due_direct_path_learning_timeouts;

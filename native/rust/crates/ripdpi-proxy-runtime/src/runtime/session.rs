@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 pub(super) use ripdpi_proxy_runtime_adapter::model::protocol_auth::validate_http_proxy_auth;
 pub(super) use ripdpi_proxy_runtime_adapter::model::session::{
     encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, encode_socks5_udp_packet,
@@ -12,7 +14,8 @@ pub(super) use ripdpi_proxy_runtime_adapter::model::session::{
 
 use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 use ripdpi_proxy_runtime_adapter::model::session::{
-    first_outbound_payload_policy, payload_host_extractor, udp_packet_parser, udp_payload_classifier,
+    classify_udp_payload_with, first_outbound_payload_policy, parse_socks5_udp_packet_with, payload_host_extractor,
+    udp_packet_parser, udp_payload_classifier,
 };
 
 pub(super) struct RuntimeSessionProjection {
@@ -29,4 +32,19 @@ pub(super) fn runtime_session_projection(config: &RuntimeConfig) -> RuntimeSessi
         relay_host_extractor: payload_host_extractor(config),
         first_outbound_payload_policy: first_outbound_payload_policy(config),
     }
+}
+
+pub(in crate::runtime) fn runtime_parse_socks5_udp_packet<'a>(
+    parser: &UdpPacketParser,
+    packet: &'a [u8],
+    resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
+) -> Option<(SocketAddr, &'a [u8])> {
+    parse_socks5_udp_packet_with(parser, packet, resolve_name)
+}
+
+pub(in crate::runtime) fn runtime_classify_udp_payload(
+    classifier: &UdpPayloadClassifier,
+    payload: &[u8],
+) -> UdpPayloadInfo {
+    classify_udp_payload_with(classifier, payload)
 }

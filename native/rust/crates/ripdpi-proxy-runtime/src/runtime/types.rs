@@ -1,16 +1,14 @@
 use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    DesyncGroup, IpIdMode, RelayGroupSettings, RotationPolicy, RuntimeTimeoutSettings, UdpGroupPacketSettings,
-    UdpSourceRebindPolicy,
+    DesyncGroup, RelayGroupSettings, RotationPolicy, RuntimeTimeoutSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{
-    classify_first_outbound_payload, classify_udp_payload_with, parse_socks5_udp_packet_with, ClientRequest,
-    FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, SessionError, SessionState, SocketType,
-    UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
+    classify_first_outbound_payload, ClientRequest, FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress,
+    SessionError, SessionState,
 };
 
 pub(super) type RuntimeConnectionRoute = ConnectionRoute;
@@ -22,18 +20,6 @@ pub(super) fn runtime_classify_first_outbound_payload(
     payload: &[u8],
 ) -> OutboundPayloadInfo {
     classify_first_outbound_payload(policy, payload)
-}
-
-pub(super) fn runtime_parse_socks5_udp_packet<'a>(
-    parser: &UdpPacketParser,
-    packet: &'a [u8],
-    resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
-) -> Option<(SocketAddr, &'a [u8])> {
-    parse_socks5_udp_packet_with(parser, packet, resolve_name)
-}
-
-pub(super) fn runtime_classify_udp_payload(classifier: &UdpPayloadClassifier, payload: &[u8]) -> UdpPayloadInfo {
-    classify_udp_payload_with(classifier, payload)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -71,29 +57,6 @@ pub(super) struct RuntimeOutboundProgress {
     pub(super) payload_size: usize,
     pub(super) stream_start: usize,
     pub(super) stream_end: usize,
-}
-
-#[derive(Clone, Copy)]
-pub(super) struct UdpFlowGroupPolicy {
-    pub(super) socket: RuntimeUdpSocketSettings,
-    pub(super) packet: RuntimeUdpPacketSettings,
-    pub(super) source_rebind: RuntimeUdpSourceRebindPolicy,
-}
-
-#[derive(Clone, Copy)]
-pub(super) struct RuntimeUdpSocketSettings {
-    pub(super) bind_low_port: bool,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct RuntimeUdpPacketSettings {
-    pub(super) default_ttl: u8,
-    pub(super) ip_id_mode: Option<IpIdMode>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct RuntimeUdpSourceRebindPolicy {
-    pub(super) after_handshake: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -184,20 +147,5 @@ impl RuntimeOutboundProgress {
             stream_start: self.stream_start,
             stream_end: self.stream_end,
         }
-    }
-}
-
-pub(super) fn runtime_udp_packet_settings(settings: UdpGroupPacketSettings) -> RuntimeUdpPacketSettings {
-    RuntimeUdpPacketSettings { default_ttl: settings.default_ttl, ip_id_mode: settings.ip_id_mode }
-}
-
-impl RuntimeUdpSourceRebindPolicy {
-    #[cfg(test)]
-    pub(super) fn after_handshake(after_handshake: bool) -> Self {
-        Self { after_handshake }
-    }
-
-    pub(super) fn into_adapter(self) -> UdpSourceRebindPolicy {
-        UdpSourceRebindPolicy { after_handshake: self.after_handshake }
     }
 }

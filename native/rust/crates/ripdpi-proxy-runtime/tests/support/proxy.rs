@@ -2,7 +2,7 @@ use std::io;
 use std::sync::Arc;
 use std::thread;
 
-use ripdpi_proxy_runtime::process::prepare_embedded;
+use ripdpi_proxy_runtime::prepare_embedded;
 use ripdpi_proxy_runtime::{create_listener, run_proxy_with_embedded_control};
 use ripdpi_proxy_runtime_adapter::model::config::{parse_cli, ParseResult, StartupEnv};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{

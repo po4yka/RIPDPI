@@ -55,7 +55,7 @@ impl BenchInfra {
         let fixture = FixtureStack::start(FixtureConfig::default()).expect("start fixture stack");
         let echo_port = fixture.manifest().tcp_echo_port;
 
-        ripdpi_proxy_runtime::process::prepare_embedded();
+        ripdpi_proxy_runtime::prepare_embedded();
 
         let mut config = RuntimeConfig::default();
         config.network.listen.listen_port = 0;

@@ -40,7 +40,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use ripdpi_proxy_runtime::process::prepare_embedded;
+use ripdpi_proxy_runtime::prepare_embedded;
 use ripdpi_proxy_runtime::{create_listener, run_proxy_with_embedded_control};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{clear_runtime_telemetry, EmbeddedProxyControl};
 

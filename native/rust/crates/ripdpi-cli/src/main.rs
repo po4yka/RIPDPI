@@ -4,7 +4,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use ripdpi_config::{ParseResult, StartupEnv};
-use ripdpi_proxy_runtime::process::{process_settings, ProcessGuard};
+use ripdpi_proxy_runtime::{process_settings, ProcessGuard};
 use ripdpi_runtime_api::install_runtime_telemetry;
 
 use crate::telemetry::TracingTelemetrySink;

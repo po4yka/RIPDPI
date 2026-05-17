@@ -6,10 +6,9 @@ use std::time::Instant;
 use super::feedback::note_udp_flow_timeout_failure;
 use super::flow_selection::try_advance_udp_preferred_target;
 use super::session::UdpFlowSession;
+use super::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy};
 use crate::runtime::state::{RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
-use crate::runtime::types::{
-    RuntimeConnectionRoute, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy,
-};
+use crate::runtime::types::RuntimeConnectionRoute;
 
 pub(super) struct UdpFlowActivationState {
     pub(super) session: UdpFlowSession,
