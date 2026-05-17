@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.keystore
 
+import android.annotation.TargetApi
+import android.os.Build
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
@@ -82,14 +84,14 @@ class AndroidKeystoreKeyManager(
     }
 
     private fun generateKey(): SecretKey {
-        if (preferStrongBox) {
+        if (preferStrongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             runCatching { generateKeyWithStrongBox() }.onSuccess { return it }
         }
         return generateKeyTee()
     }
 
     private fun generateKeyWithStrongBox(): SecretKey {
-        val spec = buildKeyGenSpec(strongBox = true)
+        val spec = buildStrongBoxKeyGenSpec()
         val generator = javax.crypto.KeyGenerator.getInstance("AES", AndroidKeystore)
         generator.init(spec)
         isStrongBoxBacked = true
@@ -97,14 +99,18 @@ class AndroidKeystoreKeyManager(
     }
 
     private fun generateKeyTee(): SecretKey {
-        val spec = buildKeyGenSpec(strongBox = false)
+        val spec = buildKeyGenSpec().build()
         val generator = javax.crypto.KeyGenerator.getInstance("AES", AndroidKeystore)
         generator.init(spec)
         isStrongBoxBacked = false
         return generator.generateKey()
     }
 
-    private fun buildKeyGenSpec(strongBox: Boolean): android.security.keystore.KeyGenParameterSpec =
+    @TargetApi(Build.VERSION_CODES.P)
+    private fun buildStrongBoxKeyGenSpec(): android.security.keystore.KeyGenParameterSpec =
+        buildKeyGenSpec().setIsStrongBoxBacked(true).build()
+
+    private fun buildKeyGenSpec(): android.security.keystore.KeyGenParameterSpec.Builder =
         android.security.keystore.KeyGenParameterSpec
             .Builder(
                 keystoreAlias,
@@ -113,8 +119,6 @@ class AndroidKeystoreKeyManager(
             ).setBlockModes(android.security.keystore.KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(android.security.keystore.KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(AesKeySizeBits)
-            .setIsStrongBoxBacked(strongBox)
-            .build()
 
     override fun deleteKey() {
         val keystore = java.security.KeyStore.getInstance(AndroidKeystore)
