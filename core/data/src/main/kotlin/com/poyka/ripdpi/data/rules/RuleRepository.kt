@@ -37,11 +37,7 @@ class RuleRepository
          * Re-assigns [RuleEntity.userOrder] so that the rule at position `i` in [orderedIds]
          * receives `userOrder = i`.
          */
-        suspend fun reorder(orderedIds: List<Long>) {
-            orderedIds.forEachIndexed { index, id ->
-                dao.updateOrder(id = id, order = index)
-            }
-        }
+        suspend fun reorder(orderedIds: List<Long>) = dao.updateOrders(orderedIds)
 
         /**
          * Resets [RuleEntity.outboundTag] to [OutboundTag.Proxy] for every rule that currently
@@ -51,9 +47,10 @@ class RuleRepository
             profileId: Long,
             rules: List<RuleEntity>,
         ) {
-            rules
-                .filter { it.outboundTag == OutboundTag.Profile(profileId) }
-                .forEach { dao.update(it.copy(outboundTag = OutboundTag.Proxy)) }
+            resetOutboundTags(
+                rules = rules,
+                targetTag = OutboundTag.Profile(profileId),
+            )
         }
 
         /**
@@ -64,8 +61,22 @@ class RuleRepository
             groupId: Long,
             rules: List<RuleEntity>,
         ) {
-            rules
-                .filter { it.outboundTag == OutboundTag.Group(groupId) }
-                .forEach { dao.update(it.copy(outboundTag = OutboundTag.Proxy)) }
+            resetOutboundTags(
+                rules = rules,
+                targetTag = OutboundTag.Group(groupId),
+            )
+        }
+
+        private suspend fun resetOutboundTags(
+            rules: List<RuleEntity>,
+            targetTag: OutboundTag,
+        ) {
+            if (rules.isEmpty()) return
+
+            dao.resetOutboundTags(
+                ruleIds = rules.map { it.id },
+                targetTag = targetTag,
+                replacementTag = OutboundTag.Proxy,
+            )
         }
     }

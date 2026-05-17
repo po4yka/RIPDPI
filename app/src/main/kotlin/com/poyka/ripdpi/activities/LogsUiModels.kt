@@ -60,16 +60,14 @@ data class LogsUiState(
     val isAutoScroll: Boolean = true,
     val bufferCapacity: Int = MaxLogEntries,
     val isRefreshing: Boolean = false,
+    val filteredLogs: ImmutableList<LogEntry> =
+        filterLogs(
+            logs = logs,
+            subsystems = activeSubsystems,
+            severities = activeSeverities,
+            activeSessionOnly = showActiveSessionOnly,
+        ).toImmutableList(),
 ) {
-    val filteredLogs: ImmutableList<LogEntry>
-        get() =
-            filterLogs(
-                logs = logs,
-                subsystems = activeSubsystems,
-                severities = activeSeverities,
-                activeSessionOnly = showActiveSessionOnly,
-            ).toImmutableList()
-
     val latestLog: LogEntry?
         get() = logs.lastOrNull()
 }

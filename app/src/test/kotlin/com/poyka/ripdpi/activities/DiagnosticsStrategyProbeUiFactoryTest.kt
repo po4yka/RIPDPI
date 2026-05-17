@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyEmitterTier
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
@@ -39,6 +41,52 @@ class DiagnosticsStrategyProbeUiFactoryTest {
         assertEquals("System DNS", winningPath.dnsLaneLabel)
         assertNotNull(uiModel.candidateDetails[winningPath.tcpWinner.id])
         assertNotNull(uiModel.candidateDetails[winningPath.quicWinner.id])
+    }
+
+    @Test
+    fun `candidate details preserve candidate and per candidate result ordering`() {
+        val report =
+            strategyProbeReport(
+                suiteId = StrategyProbeSuiteFullMatrixV1,
+                tcpWinnerId = "tcp-2",
+                quicWinnerId = "quic-2",
+            )
+        val reportResults =
+            listOf(
+                strategyProbeResult(candidateId = "tcp-2", target = "tcp-two-first.example", protocol = "https"),
+                strategyProbeResult(candidateId = "tcp-1", target = "tcp-one-first.example", protocol = "http"),
+                strategyProbeResult(candidateId = "tcp-2", target = "tcp-two-second.example", protocol = "https"),
+                strategyProbeResult(candidateId = "quic-1", target = "quic-one-first.example", protocol = "quic"),
+                strategyProbeResult(candidateId = "tcp-1", target = "tcp-one-second.example", protocol = "http"),
+            )
+
+        val uiModel = support.toStrategyProbeReportUiModel(report, reportResults = reportResults, serviceMode = "VPN")
+
+        assertEquals(listOf("tcp-1", "tcp-2", "quic-1", "quic-2"), uiModel.candidateDetails.keys.toList())
+        assertEquals(
+            listOf("tcp-one-first.example", "tcp-one-second.example"),
+            requireNotNull(uiModel.candidateDetails["tcp-1"])
+                .resultGroups
+                .single { it.title == "HTTP results" }
+                .items
+                .map { it.target },
+        )
+        assertEquals(
+            listOf("report-0-strategy_probe-tcp-two-first.example", "report-1-strategy_probe-tcp-two-second.example"),
+            requireNotNull(uiModel.candidateDetails["tcp-2"])
+                .resultGroups
+                .single { it.title == "HTTPS results" }
+                .items
+                .map { it.id },
+        )
+        assertEquals(
+            listOf("quic-one-first.example"),
+            requireNotNull(uiModel.candidateDetails["quic-1"])
+                .resultGroups
+                .single { it.title == "QUIC results" }
+                .items
+                .map { it.target },
+        )
     }
 
     @Test
@@ -250,4 +298,20 @@ private fun strategyProbeCandidate(
         totalWeight = 10,
         qualityScore = 10,
         skipped = skipped,
+    )
+
+private fun strategyProbeResult(
+    candidateId: String,
+    target: String,
+    protocol: String,
+): ProbeResult =
+    ProbeResult(
+        probeType = "strategy_probe",
+        target = target,
+        outcome = "success",
+        details =
+            listOf(
+                ProbeDetail(key = "candidateId", value = candidateId),
+                ProbeDetail(key = "protocol", value = protocol),
+            ),
     )

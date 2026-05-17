@@ -12,6 +12,9 @@ from .common import (
     stable_hash,
 )
 
+CLUSTER_MATCH_THRESHOLD = 0.45
+MAX_PAIRWISE_SIMILARITY_COMPARISONS = 4_096
+
 
 def run_cluster(extracted_payload: dict[str, Any]) -> dict[str, Any]:
     records = extracted_payload.get("records", [])
@@ -55,19 +58,22 @@ def coarse_bucket_for_record(record: dict[str, Any]) -> str:
 
 def greedy_cluster(records: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     clusters: list[list[dict[str, Any]]] = []
+    cluster_feature_unions: list[set[str]] = []
     for record in records:
         best_index = None
         best_score = 0.0
         record_features = clustering_features(record)
-        for index, cluster in enumerate(clusters):
-            score = jaccard(record_features, cluster_union_features(cluster))
+        for index, cluster_features in enumerate(cluster_feature_unions):
+            score = jaccard(record_features, cluster_features)
             if score > best_score:
                 best_score = score
                 best_index = index
-        if best_index is not None and best_score >= 0.45:
+        if best_index is not None and best_score >= CLUSTER_MATCH_THRESHOLD:
             clusters[best_index].append(record)
+            cluster_feature_unions[best_index].update(record_features)
         else:
             clusters.append([record])
+            cluster_feature_unions.append(set(record_features))
     return clusters
 
 
@@ -85,8 +91,10 @@ def cluster_union_features(cluster: list[dict[str, Any]]) -> set[str]:
 def jaccard(left: set[str], right: set[str]) -> float:
     if not left and not right:
         return 1.0
-    intersection = len(left & right)
-    union = len(left | right)
+    if len(left) > len(right):
+        left, right = right, left
+    intersection = sum(1 for feature in left if feature in right)
+    union = len(left) + len(right) - intersection
     return intersection / union if union else 0.0
 
 
@@ -95,10 +103,12 @@ def build_cluster(bucket: str, records: list[dict[str, Any]]) -> dict[str, Any]:
     affected_targets: Counter[str] = Counter()
     winner_counter: Counter[str] = Counter()
     winner_signature_counter: Counter[str] = Counter()
-    pairwise_scores: list[float] = []
+    feature_sets: list[set[str]] = []
 
-    for index, record in enumerate(records):
-        feature_counter.update(clustering_features(record))
+    for record in records:
+        record_features = clustering_features(record)
+        feature_sets.append(record_features)
+        feature_counter.update(record_features)
         affected_targets.update(target["label"] for target in record["affectedTargets"])
         winner_family = record["winnerSummary"].get("family")
         winner_signature = record["winnerSummary"].get("signatureHash")
@@ -106,8 +116,6 @@ def build_cluster(bucket: str, records: list[dict[str, Any]]) -> dict[str, Any]:
             winner_counter[winner_family] += 1
         if winner_signature:
             winner_signature_counter[winner_signature] += 1
-        for other in records[index + 1 :]:
-            pairwise_scores.append(jaccard(clustering_features(record), clustering_features(other)))
 
     support_count = len(records)
     dominant_signal_threshold = max(1, (support_count + 1) // 2)
@@ -118,8 +126,9 @@ def build_cluster(bucket: str, records: list[dict[str, Any]]) -> dict[str, Any]:
             if count >= dominant_signal_threshold
         )
     )
-    cluster_fingerprint_hash = stable_hash(bucket + "|" + "|".join(dominant_signals or sorted(feature_counter)[:8]))[:16]
-    average_similarity = sum(pairwise_scores) / len(pairwise_scores) if pairwise_scores else 1.0
+    fingerprint_source = bucket + "|" + "|".join(dominant_signals or sorted(feature_counter)[:8])
+    cluster_fingerprint_hash = stable_hash(fingerprint_source)[:16]
+    average_similarity = average_pairwise_similarity(feature_sets)
     confidence = round(min(0.99, 0.45 + support_count * 0.1 + average_similarity * 0.25), 2)
     stable_winner_families = [
         {"family": family, "supportCount": count}
@@ -154,6 +163,59 @@ def build_cluster(bucket: str, records: list[dict[str, Any]]) -> dict[str, Any]:
         "records": [record["recordId"] for record in records],
         "minedSignatures": mined_signatures,
     }
+
+
+def average_pairwise_similarity(feature_sets: list[set[str]]) -> float:
+    record_count = len(feature_sets)
+    pair_count = record_count * (record_count - 1) // 2
+    if pair_count == 0:
+        return 1.0
+
+    total = 0.0
+    comparisons = 0
+    if pair_count <= MAX_PAIRWISE_SIMILARITY_COMPARISONS:
+        for left_index, left in enumerate(feature_sets):
+            for right_index in range(left_index + 1, record_count):
+                total += jaccard(left, feature_sets[right_index])
+                comparisons += 1
+    else:
+        for ordinal in sampled_pair_ordinals(pair_count):
+            left_index, right_index = pair_indices_for_ordinal(record_count, ordinal)
+            total += jaccard(feature_sets[left_index], feature_sets[right_index])
+            comparisons += 1
+
+    return total / comparisons if comparisons else 1.0
+
+
+def sampled_pair_ordinals(pair_count: int) -> list[int]:
+    sample_count = min(pair_count, MAX_PAIRWISE_SIMILARITY_COMPARISONS)
+    if sample_count <= 1:
+        return [0]
+    last_ordinal = pair_count - 1
+    return [
+        sample_index * last_ordinal // (sample_count - 1)
+        for sample_index in range(sample_count)
+    ]
+
+
+def pair_indices_for_ordinal(record_count: int, ordinal: int) -> tuple[int, int]:
+    low = 0
+    high = record_count - 2
+    while low <= high:
+        midpoint = (low + high) // 2
+        row_start = pairwise_row_start(record_count, midpoint)
+        next_row_start = pairwise_row_start(record_count, midpoint + 1)
+        if ordinal < row_start:
+            high = midpoint - 1
+        elif ordinal >= next_row_start:
+            low = midpoint + 1
+        else:
+            return midpoint, midpoint + 1 + ordinal - row_start
+    raise ValueError(f"pair ordinal {ordinal} is out of range for {record_count} records")
+
+
+def pairwise_row_start(record_count: int, row_index: int) -> int:
+    return row_index * (2 * record_count - row_index - 1) // 2
 
 
 def build_mined_signatures(

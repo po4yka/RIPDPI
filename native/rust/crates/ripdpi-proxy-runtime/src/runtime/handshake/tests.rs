@@ -102,6 +102,18 @@ fn read_socks5_request_reads_domain_target() {
 }
 
 #[test]
+fn read_http_connect_request_reads_delimiter_split_across_chunks() {
+    let (mut reader, mut writer) = connected_pair();
+    let mut request = b"CONNECT example.com:443 HTTP/1.1\r\n".to_vec();
+    let padding_len = 510usize.checked_sub(request.len()).expect("request prefix fits in first chunk");
+    request.extend(vec![b'A'; padding_len]);
+    request.extend_from_slice(b"\r\n\r\n");
+    writer.write_all(&request).expect("write http connect request");
+
+    assert_eq!(read_http_connect_request(&mut reader).expect("read http connect request"), request);
+}
+
+#[test]
 fn parse_shadowsocks_target_handles_ipv4_and_resolved_domain_targets() {
     let config = RuntimeConfig::default();
     let state = runtime_state(config);

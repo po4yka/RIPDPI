@@ -216,19 +216,22 @@ internal fun DiagnosticsUiFactorySupport.buildStrategyProbeCandidateDetails(
     report: StrategyProbeReport,
     reportResults: List<ProbeResult>,
     serviceMode: String?,
-): Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel> =
-    (report.tcpCandidates + report.quicCandidates).associate { candidate ->
+): Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel> {
+    val reportResultsByCandidateId = reportResults.groupByStrategyProbeCandidateId()
+
+    return (report.tcpCandidates + report.quicCandidates).associate { candidate ->
         candidate.id to
             toCandidateDetailUiModel(
                 candidate = candidate,
                 suiteId = report.suiteId,
                 serviceMode = serviceMode,
-                reportResults = reportResults,
+                candidateResults = reportResultsByCandidateId[candidate.id].orEmpty(),
                 recommended =
                     candidate.id == report.recommendation.tcpCandidateId ||
                         candidate.id == report.recommendation.quicCandidateId,
             )
     }
+}
 
 private fun StrategyProbeReport.buildStrategyProbeWinningPath(
     candidateDetails: Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel>,
@@ -599,12 +602,19 @@ private fun DiagnosticsUiFactorySupport.deriveSignature(
 
 private fun ProbeResult.detailValue(key: String): String? = details.firstOrNull { it.key == key }?.value
 
+private fun List<ProbeResult>.groupByStrategyProbeCandidateId(): Map<String, List<ProbeResult>> {
+    val grouped = LinkedHashMap<String, MutableList<ProbeResult>>()
+    for (result in this) {
+        val candidateId = result.detailValue("candidateId") ?: continue
+        grouped.getOrPut(candidateId) { mutableListOf() }.add(result)
+    }
+    return grouped
+}
+
 private fun DiagnosticsUiFactorySupport.buildStrategyProbeResultGroups(
-    reportResults: List<ProbeResult>,
-    candidateId: String,
+    candidateResults: List<ProbeResult>,
 ): List<DiagnosticsProbeGroupUiModel> =
-    reportResults
-        .filter { result -> result.detailValue("candidateId") == candidateId }
+    candidateResults
         .mapIndexed { index, result ->
             toProbeResultUiModel(
                 index = index,
@@ -640,7 +650,7 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
     candidate: StrategyProbeCandidateSummary,
     suiteId: String,
     serviceMode: String?,
-    reportResults: List<ProbeResult>,
+    candidateResults: List<ProbeResult>,
     recommended: Boolean,
 ): DiagnosticsStrategyProbeCandidateDetailUiModel =
     DiagnosticsStrategyProbeCandidateDetailUiModel(
@@ -662,8 +672,7 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
         signature = deriveSignature(candidate, serviceMode)?.let(::strategySignatureFields).orEmpty().toImmutableList(),
         resultGroups =
             buildStrategyProbeResultGroups(
-                reportResults = reportResults,
-                candidateId = candidate.id,
+                candidateResults = candidateResults,
             ).toImmutableList(),
     )
 

@@ -233,6 +233,54 @@ class RuleEntityRoomTest {
         }
 
     @Test
+    fun `resetOutboundTagForProfile bulk resets only matching scoped rules`() =
+        runTest {
+            val scopedProfile =
+                RuleEntity(id = 1L, name = "profile-42", userOrder = 0, outboundTag = OutboundTag.Profile(42L))
+            val otherProfile =
+                RuleEntity(id = 2L, name = "profile-7", userOrder = 1, outboundTag = OutboundTag.Profile(7L))
+            val alreadyProxy =
+                RuleEntity(id = 3L, name = "proxy", userOrder = 2, outboundTag = OutboundTag.Proxy)
+            val outsideScope =
+                RuleEntity(id = 4L, name = "outside-scope", userOrder = 3, outboundTag = OutboundTag.Profile(42L))
+            listOf(scopedProfile, otherProfile, alreadyProxy, outsideScope).forEach { dao.insert(it) }
+
+            repository.resetOutboundTagForProfile(
+                profileId = 42L,
+                rules = listOf(scopedProfile, otherProfile, alreadyProxy),
+            )
+
+            val byId = dao.allRules().first().associateBy { it.id }
+            assertEquals(OutboundTag.Proxy, byId[1L]!!.outboundTag)
+            assertEquals(OutboundTag.Profile(7L), byId[2L]!!.outboundTag)
+            assertEquals(OutboundTag.Proxy, byId[3L]!!.outboundTag)
+            assertEquals(OutboundTag.Profile(42L), byId[4L]!!.outboundTag)
+        }
+
+    @Test
+    fun `resetOutboundTagForGroup bulk resets only matching scoped rules`() =
+        runTest {
+            val scopedGroup = RuleEntity(id = 1L, name = "group-9", userOrder = 0, outboundTag = OutboundTag.Group(9L))
+            val otherGroup = RuleEntity(id = 2L, name = "group-8", userOrder = 1, outboundTag = OutboundTag.Group(8L))
+            val profileSameId =
+                RuleEntity(id = 3L, name = "profile-9", userOrder = 2, outboundTag = OutboundTag.Profile(9L))
+            val outsideScope =
+                RuleEntity(id = 4L, name = "outside-scope", userOrder = 3, outboundTag = OutboundTag.Group(9L))
+            listOf(scopedGroup, otherGroup, profileSameId, outsideScope).forEach { dao.insert(it) }
+
+            repository.resetOutboundTagForGroup(
+                groupId = 9L,
+                rules = listOf(scopedGroup, otherGroup, profileSameId),
+            )
+
+            val byId = dao.allRules().first().associateBy { it.id }
+            assertEquals(OutboundTag.Proxy, byId[1L]!!.outboundTag)
+            assertEquals(OutboundTag.Group(8L), byId[2L]!!.outboundTag)
+            assertEquals(OutboundTag.Profile(9L), byId[3L]!!.outboundTag)
+            assertEquals(OutboundTag.Group(9L), byId[4L]!!.outboundTag)
+        }
+
+    @Test
     fun `fresh database seeds bypass-LAN and bypass-loopback rules`() =
         runTest {
             // Seeded rules are inserted in onCreate callback; in-memory DB runs callback on first open

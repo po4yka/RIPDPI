@@ -90,6 +90,13 @@ class LogsViewModel
                     activeSeverities = severities.toImmutableSet(),
                     showActiveSessionOnly = activeSessionOnly,
                     isAutoScroll = isAutoScroll,
+                    filteredLogs =
+                        filterLogs(
+                            logs = logs,
+                            subsystems = subsystems,
+                            severities = severities,
+                            activeSessionOnly = activeSessionOnly,
+                        ).toImmutableList(),
                 )
             }.combine(refreshing) { state, isRefreshing ->
                 state.copy(isRefreshing = isRefreshing)

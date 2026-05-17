@@ -69,15 +69,17 @@ pub(in crate::runtime::handshake) fn read_socks4_request(client: &mut TcpStream,
 pub(in crate::runtime::handshake) fn read_http_connect_request(client: &mut TcpStream) -> io::Result<Vec<u8>> {
     let mut out = Vec::new();
     let mut chunk = [0u8; 512];
+    let mut delimiter_search_start = 0usize;
     loop {
         let n = client.read(&mut chunk)?;
         if n == 0 {
             return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "unexpected eof during http connect request"));
         }
         out.extend_from_slice(&chunk[..n]);
-        if out.windows(4).any(|window| window == b"\r\n\r\n") {
+        if out[delimiter_search_start..].windows(4).any(|window| window == b"\r\n\r\n") {
             return Ok(out);
         }
+        delimiter_search_start = out.len().saturating_sub(3);
         if out.len() > 64 * 1024 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "http connect request too large"));
         }
