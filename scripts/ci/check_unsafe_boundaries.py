@@ -406,6 +406,45 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     "zerocopy::IntoBytes::as_bytes": re.compile(
         r"\bIntoBytes::as_(?:mut_)?bytes\b"
     ),
+    # `#[repr(packed)]` removes padding between fields, which produces
+    # underaligned field accesses. Reading or writing a packed field
+    # through `&field` materialises an underaligned reference — instant
+    # UB on ARM64 strict-alignment configurations. The narrow safe
+    # spelling is `addr_of!(s.field)` / `addr_of_mut!(s.field)` + a
+    # `ptr::read_unaligned` / `ptr::write_unaligned`. Issue #24 audit
+    # found ZERO production occurrences. Any new appearance must
+    # restructure to use `#[repr(C)]` with explicit padding fields, OR
+    # earn an allowlist entry naming the unaligned-access discipline
+    # per docs/rust-soundness-policy.md § "FFI layout and ABI".
+    "repr packed": re.compile(
+        r"#\s*\[\s*repr\s*\(\s*(?:[^)]*,\s*)?packed\b"
+    ),
+    # `extern` function signatures (declaration in `extern "C" { ... }`
+    # or definition `extern "C" fn` / `extern "system" fn`) that take
+    # or return Rust-only types whose layout the C ABI does not
+    # define. Common offenders: `bool` (the C `_Bool` and Rust `bool`
+    # share the size in practice but the contract is implementation-
+    # defined per the Rust Reference), `&str` / `String` / `Vec<T>`
+    # / `Box<dyn Trait>` (fat pointers / non-trivial layouts),
+    # `(T, U)` Rust tuples (no layout guarantee), `Option<T>` for
+    # `T` other than `NonNull`/`NonZero*`/references/function
+    # pointers (Option layout is unspecified for general T). Issue
+    # #24 audit found ZERO production occurrences in extern blocks
+    # or extern fn declarations; this pattern locks the workspace
+    # at that baseline. The `improper_ctypes_definitions` clippy
+    # lint catches a superset of this at compile time, but the
+    # scanner pattern provides a belt-and-suspenders cross-check
+    # that allowance bypasses (`#[allow(improper_ctypes_definitions)]`
+    # exists on the four JNI bridge crates) do not also let a
+    # genuine FFI-unstable type slip through.
+    "extern fn non-FFI type": re.compile(
+        r"\bextern\s+\"(?:C|system)\"\s+fn[^;{]*"
+        r"(?:\b(?:bool|String|Vec|Box<dyn)\b"
+        r"|&\s*str\b"
+        r"|&\s*\[(?:[^\]]*)\](?:\s*[,)\s])"
+        r"|\bOption\s*<\s*(?!(?:NonNull|NonZero|&|fn))"
+        r")"
+    ),
 }
 
 # The `.get()` method is also used by many safe types (HashMap, Vec,
@@ -704,6 +743,50 @@ def find_cast_deref_type_pun(text: str) -> list[int]:
     return out
 
 
+# Proximity detector for `#[no_mangle]` annotations that are NOT paired
+# with an `extern "C"` / `extern "system"` / `extern "system-unwind"` /
+# similar ABI specification within the next 3 source lines. A
+# `#[no_mangle]` on a function with the default Rust ABI exports a
+# symbol that uses the unstable Rust calling convention — instant ABI
+# mismatch the moment a C/Java/other-language caller invokes it. The
+# only legitimate `#[no_mangle]` use is to export a fixed symbol name
+# for FFI consumption, which requires the matching `extern "<abi>"`.
+#
+# Issue #24 audit confirmed every workspace `#[no_mangle]` is
+# correctly paired (`reality_hook.rs:90/109/123` — all
+# `extern "C"`). This proximity detector locks the workspace at that
+# baseline.
+NO_MANGLE_RE = re.compile(r"^[ \t]*#\s*\[\s*no_mangle\s*\]", re.MULTILINE)
+EXTERN_ABI_RE = re.compile(r"\bextern\s+\"[A-Za-z][A-Za-z0-9_-]*\"\s+(?:fn|\{|\bunsafe\b)")
+NO_MANGLE_PROXIMITY_LINES = 3
+NO_MANGLE_PROXIMITY_PATTERN = "no_mangle without extern ABI"
+
+
+def find_no_mangle_without_extern(text: str) -> list[int]:
+    """Return line numbers of `#[no_mangle]` not paired with `extern "<abi>"`
+    within `NO_MANGLE_PROXIMITY_LINES` source lines below.
+
+    The window is narrow because `#[no_mangle]` is always immediately
+    above its annotated function (possibly with a doc-comment or
+    another attribute in between). A `pub unsafe extern "C" fn` may
+    appear on the line right after `#[no_mangle]` or up to ~3 lines
+    later if intervening attributes (e.g. `#[allow(...)]`) are
+    present. Two-line lookahead would miss legitimate multi-
+    attribute stacks; six-line would allow spurious pairings.
+    """
+    no_mangle_lines = [text.count("\n", 0, m.start()) + 1 for m in NO_MANGLE_RE.finditer(text)]
+    if not no_mangle_lines:
+        return []
+    lines = text.splitlines()
+    out: list[int] = []
+    for line_no in no_mangle_lines:
+        window_end = min(line_no + NO_MANGLE_PROXIMITY_LINES, len(lines))
+        window = "\n".join(lines[line_no:window_end])
+        if not EXTERN_ABI_RE.search(window):
+            out.append(line_no)
+    return out
+
+
 def find_ownership_flag_near_drop_or_unsafe(text: str) -> list[int]:
     """Return line numbers of ownership-flag bool fields within ±N lines of
     an `impl Drop` or `unsafe` keyword in the same file.
@@ -807,6 +890,8 @@ def scan_file(path: Path) -> list[Finding]:
         findings.append(Finding(rel, COPY_WITH_RISKY_FIELD_PATTERN, line))
     for line in find_cast_deref_type_pun(cleaned):
         findings.append(Finding(rel, CAST_DEREF_TYPE_PUN_PATTERN, line))
+    for line in find_no_mangle_without_extern(cleaned):
+        findings.append(Finding(rel, NO_MANGLE_PROXIMITY_PATTERN, line))
     return findings
 
 

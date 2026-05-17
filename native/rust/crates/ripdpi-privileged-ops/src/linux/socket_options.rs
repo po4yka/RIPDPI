@@ -102,6 +102,19 @@ struct TcpMd5Sig {
     key: [u8; 80],
 }
 
+// Compile-time ABI guard for issue #24: Linux `tcp_md5sig` is exactly
+// `sockaddr_storage` (128 bytes on most platforms) + u16 + u16 + u32
+// + [u8; 80]. The trailing key array is 80 bytes (TCP_MD5SIG_MAXKEYLEN).
+// The exact byte layout depends on libc::sockaddr_storage's platform-
+// specific size, so we assert relative properties — the struct is at
+// least sockaddr_storage + 88 bytes — rather than a fixed byte count.
+// Alignment must match sockaddr_storage (the `__ss_align` field is the
+// strictest alignment).
+const _: () = {
+    assert!(std::mem::size_of::<TcpMd5Sig>() >= std::mem::size_of::<libc::sockaddr_storage>() + 2 + 2 + 4 + 80);
+    assert!(std::mem::align_of::<TcpMd5Sig>() == std::mem::align_of::<libc::sockaddr_storage>());
+};
+
 pub fn enable_tcp_fastopen_connect<T: AsRawFd>(socket: &T) -> io::Result<()> {
     set_c_int_sockopt(socket.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_FASTOPEN_CONNECT, 1)
 }

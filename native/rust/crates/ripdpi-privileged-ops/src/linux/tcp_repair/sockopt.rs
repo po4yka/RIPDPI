@@ -26,12 +26,29 @@ pub(crate) struct TcpRepairWindow {
     pub(crate) rcv_wup: u32,
 }
 
+// Compile-time ABI guard for issue #24: the Linux kernel
+// `tcp_repair_window` is 5 contiguous `u32` fields (20 bytes, align 4).
+// `#[repr(C)]` should produce that exact layout — any reordering
+// (e.g. due to a future field addition) fails to compile here, before
+// `setsockopt(TCP_REPAIR_WINDOW)` could ever see a mismatched buffer.
+const _: () = {
+    assert!(std::mem::size_of::<TcpRepairWindow>() == 20);
+    assert!(std::mem::align_of::<TcpRepairWindow>() == 4);
+};
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct TcpRepairOpt {
     pub(crate) opt_code: u32,
     pub(crate) opt_val: u32,
 }
+
+// Compile-time ABI guard: Linux `tcp_repair_opt` is two `u32` fields
+// (8 bytes, align 4).
+const _: () = {
+    assert!(std::mem::size_of::<TcpRepairOpt>() == 8);
+    assert!(std::mem::align_of::<TcpRepairOpt>() == 4);
+};
 
 pub(crate) fn set_tcp_repair(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
     set_c_int_sockopt(fd, libc::IPPROTO_TCP, TCP_REPAIR, value)

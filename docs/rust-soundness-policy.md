@@ -134,6 +134,9 @@ on every PR. It looks for the following risky patterns under
 | `bytemuck::cast` | `bytemuck::cast`, `bytemuck::cast_ref`, `bytemuck::cast_mut`, `bytemuck::cast_slice`, `bytemuck::pod_read_unaligned`, `bytemuck::from_bytes`, and `try_*` variants. Sound only if the `Pod` / `Zeroable` trait bounds on every involved type are actually correct (no padding, no non-pod fields, `#[repr(C)]` layout). The workspace does NOT depend on bytemuck today; the pattern is forward-defense for future adoption. See "Type punning and layout reinterpretation" below. |
 | `zerocopy::transmute`, `zerocopy::IntoBytes::as_bytes` | `zerocopy::transmute!`, `zerocopy::transmute_ref!`, `zerocopy::transmute_mut!`, `zerocopy::Ref::new[_unaligned]`, and the qualified-path `IntoBytes::as_bytes` / `as_mut_bytes`. Same trait-bound soundness chain as bytemuck (`FromBytes`/`IntoBytes`/`Unaligned`). The workspace does NOT depend on zerocopy today; forward-defense. The `IntoBytes::as_bytes` regex is the qualified-path spelling to avoid colliding with the ubiquitous bare-method `String::as_bytes` / `&str::as_bytes`. See "Type punning and layout reinterpretation" below. |
 | `cast then deref (type pun)` (single-line proximity) | `.cast::<T>()` paired with a `&*` or `&mut *` deref on the same source line — the canonical type-pun spelling that materialises `&T`/`&mut T` from a pointer whose original pointee was a different type. The workspace has three production occurrences: `sockaddr_storage` → `sockaddr_in`/`sockaddr_in6` reinterpretation in `fd.rs` (family-tag-checked + compile-time alignment assert) and the BoringSSL `c_void` → `RealityCallbackState` callback round-trip in `reality_hook.rs` (provenance from `Box::into_raw`; Miri-validated). Any new occurrence must satisfy the five-point validity checklist in "Type punning and layout reinterpretation" below. |
+| `repr packed` | `#[repr(packed)]`, `#[repr(packed(N))]`, `#[repr(C, packed)]`. Eliminates padding, producing underaligned field accesses — `&packed.field` materialises an underaligned reference (UB on ARM64 strict-alignment configurations). Workspace has zero occurrences. Any new use must restructure to `#[repr(C)]` with explicit padding fields or earn an allowlist entry naming the `addr_of!` + `ptr::read_unaligned` discipline. See "FFI layout and ABI" below. |
+| `extern fn non-FFI type` | `extern "C" fn` / `extern "system" fn` signatures containing `bool` (implementation-defined at FFI level), `&str` / `String` / `Vec<T>` / `Box<dyn ...>` (fat pointers / Drop-bearing types), `&[T]` (fat pointer), or `Option<T>` for `T` other than `NonNull`/`NonZero*`/references/function pointers (general Option layout is unspecified). Workspace has zero occurrences in extern blocks or definitions. The companion clippy lints `improper_ctypes` and `improper_ctypes_definitions` catch a superset; this scanner pattern is the belt-and-suspenders cross-check that survives module-level `#[allow(improper_ctypes_definitions)]` waivers. See "FFI layout and ABI" below. |
+| `no_mangle without extern ABI` (proximity ≤ 3 lines) | `#[no_mangle]` not paired with `extern "C"` / `extern "system"` / similar within 3 source lines below. A `#[no_mangle]` on a default-Rust-ABI function exports an unstable-ABI symbol under a fixed name — guaranteed ABI mismatch at every C/Java/other-language call site. Workspace has three correctly-paired occurrences (`reality_hook.rs:90/109/123` — all paired with `extern "C"`); the proximity check locks the workspace at that baseline. See "FFI layout and ABI" below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -2098,6 +2101,182 @@ pointer-cast spelling that clippy does NOT lint at all).
    the pun; or the ownership chain that establishes the bytes
    were originally written through the target type).
 5. **Owner.**
+
+## FFI layout and ABI
+
+Any struct, enum, or function signature that crosses a foreign-
+function boundary (`extern "C" { ... }` import, `extern "C" fn` /
+`extern "system" fn` export, function pointer typedef passed to C
+or Java) must have a stable, C-compatible layout. Rust's default
+struct/enum layout is intentionally unspecified — fields may be
+reordered, padding may be inserted, enum discriminants may not
+match what C expects. The five mechanisms below are the only sound
+spellings:
+
+1. `#[repr(C)]` — fields laid out in declaration order with the
+   same padding/alignment rules as a C struct. The default for
+   any struct that crosses FFI.
+2. `#[repr(transparent)]` — the struct is a single non-zero-sized
+   field plus zero-sized markers. The ABI is exactly the inner
+   type's ABI. Use for `NonNull<T>` newtypes and other zero-cost
+   wrappers.
+3. `#[repr(u8)]` / `#[repr(u16)]` / `#[repr(u32)]` / `#[repr(i8)]`
+   etc. — enum with explicit integer representation. Required
+   whenever an enum is passed across FFI; without it the
+   discriminant size is implementation-defined and may differ
+   from what C expects.
+4. `#[repr(C, packed)]` (and `#[repr(packed)]` alone) — eliminates
+   padding between fields. **Dangerous**: reading a packed field
+   through `&field` materialises an underaligned reference (UB on
+   ARM64 strict-alignment configurations). Only use with
+   `addr_of!(s.field)` + `ptr::read_unaligned`. The scanner
+   pattern `repr packed` flags every occurrence; workspace has
+   zero today.
+5. Opaque zero-sized handle: `#[repr(C)] struct Handle { _opaque:
+   [u8; 0] }`. Used as the pointee type in `*const Handle` /
+   `*mut Handle` for FFI handles whose internals are managed by
+   the foreign library. `SslHandle` and `SslCtxHandle` in
+   `ripdpi-vless/src/reality_hook.rs` are the workspace examples.
+
+### Rule
+
+A type that appears in an `extern "C"` / `extern "system"`
+declaration or definition MUST satisfy ALL of:
+
+1. **Explicit `#[repr(...)]` attribute.** Default Rust layout is
+   forbidden at FFI boundaries.
+2. **Every field type is itself FFI-stable.** Primitives (`i*` /
+   `u*` / `f32` / `f64` / `usize` / `isize`), `*const T` / `*mut T`
+   raw pointers, `Option<NonNull<T>>` / `Option<NonZero*>` /
+   `Option<fn(...) -> ...>` (the null-pointer-optimisation cases),
+   `repr(C)` arrays of FFI-stable types, and other explicitly-repr
+   structs/enums. `bool` is implementation-defined (matches C
+   `_Bool` in practice but the Rust Reference does not guarantee
+   it) and is rejected by the scanner. `&str`, `String`, `Vec<T>`,
+   `Box<dyn Trait>`, `(T, U)` Rust tuples, and `Option<T>` for
+   non-NonNull `T` are unconditionally rejected — their layouts
+   are unspecified and they carry Drop logic that the C side has
+   no way to invoke.
+3. **No alignment hazards.** `#[repr(packed)]` is forbidden unless
+   every field access goes through `addr_of!` + unaligned
+   read/write. The default `#[repr(C)]` layout is properly
+   aligned by construction.
+4. **`#[no_mangle]` always paired with `extern "<abi>"`** in the
+   same source proximity. A `#[no_mangle]` on a default-Rust-ABI
+   function exports an unstable-ABI symbol — guaranteed mismatch
+   at the call site.
+5. **Compile-time layout assertion at every kernel/library ABI
+   boundary.** Every struct that mirrors a kernel `struct`
+   (sockaddr, tcp_info, tcp_repair_*) or a foreign library
+   binary layout MUST have a sibling `const _: () = { assert!(
+   size_of::<T>() == EXPECTED); assert!(align_of::<T>() ==
+   EXPECTED); };` block. Any future field reorder/insert/delete
+   fails to compile before the FFI buffer goes out of sync.
+
+### Preferred shapes
+
+1. **No FFI surface.** Wrap the foreign call in a Rust-only safe
+   API that takes/returns owned Rust types; never expose the
+   `extern "C"` signature beyond a thin shim module.
+
+2. **Opaque handles.** `#[repr(C)] struct Handle { _opaque: [u8;
+   0] }` for any FFI handle whose internals are foreign-managed.
+   The Rust side carries `*mut Handle` and never reads/writes
+   through it directly.
+
+3. **Compile-time-asserted `#[repr(C)]` mirror struct.** When the
+   FFI surface is a value type (kernel sockopt buffer, BoringSSL
+   constants struct), declare it with `#[repr(C)]`, set the field
+   types to FFI-stable primitives, and add a sibling `const _:
+   () = { ... };` block. The four workspace examples are
+   `LinuxTcpInfo`, `TcpMd5Sig`, `TcpRepairWindow`, and
+   `TcpRepairOpt` in `ripdpi-privileged-ops/src/linux/`.
+
+4. **`#[repr(transparent)]` newtypes.** For zero-cost type
+   safety (`NetworkScope(SHA256Hash)`, `OwnedFd(i32)`), use
+   `transparent`. The ABI matches the inner field, so the FFI
+   side sees the underlying primitive.
+
+### Anti-patterns
+
+- `pub struct Header { ... }` (no `#[repr]`) passed as `*const
+  Header` to a C library — layout is unspecified; any compiler
+  upgrade can break the contract.
+- `extern "C" fn callback(arg: bool) -> i32` — `bool` is
+  implementation-defined at the FFI level; use `u8` with explicit
+  0/1 convention.
+- `extern "C" fn handle(msg: &str) -> i32` — `&str` is a fat
+  pointer (`(ptr, len)`); C sees neither the pointer nor the
+  length correctly.
+- `extern "C" fn cb(buf: Vec<u8>) {}` — `Vec` is three words
+  (ptr/len/cap) AND carries a Drop impl that the C side cannot
+  invoke; the allocation leaks at best, UB at worst.
+- `#[no_mangle] pub fn export() { ... }` (no `extern`) — exports
+  a Rust-ABI symbol under a fixed name; any C caller gets the
+  wrong calling convention.
+- `#[repr(packed)] struct Foo { x: u32 }` followed by `&foo.x`
+  — materialises an underaligned `&u32` reference; instant UB
+  on ARM64 strict-alignment.
+- Enum without explicit `#[repr(u*)]` / `#[repr(i*)]` passed
+  across FFI — discriminant size is implementation-defined.
+
+### Existing benign uses
+
+The audit recorded all FFI-bearing types in the workspace; each is
+correctly repr-attributed and compile-time-asserted where the
+kernel ABI is the contract:
+
+| File | Type | Layout |
+|---|---|---|
+| `crates/ripdpi-vless/src/reality_hook.rs` | `SslCtxHandle`, `SslHandle` | `#[repr(C)] struct H { _opaque: [u8; 0] }` opaque handle |
+| `crates/ripdpi-privileged-ops/src/linux/tcp_info.rs` | `LinuxTcpInfo` | `#[repr(C)]` prefix of kernel `tcp_info`; compile-time `assert!(size_of >= 148)` + alignment relation |
+| `crates/ripdpi-privileged-ops/src/linux/socket_options.rs` | `TcpMd5Sig` | `#[repr(C)]` matching Linux `tcp_md5sig`; compile-time `assert!(size_of >= sockaddr_storage + 88)` + alignment matches sockaddr_storage |
+| `crates/ripdpi-privileged-ops/src/linux/tcp_repair/sockopt.rs` | `TcpRepairWindow`, `TcpRepairOpt` | `#[repr(C)]` matching Linux `tcp_repair_window` / `tcp_repair_opt`; compile-time `assert!(size_of == 20)` and `assert!(size_of == 8)` respectively |
+| `crates/ripdpi-packets/src/classify.rs` | `ProtocolId` | `#[repr(u8)]` — does NOT cross FFI; the repr is for `enum_map::Enum` derive efficiency |
+
+The four JNI bridge crates (`ripdpi-android`, `ripdpi-relay-android`,
+`ripdpi-warp-android`, `ripdpi-tunnel-android`) carry
+`#[allow(improper_ctypes_definitions)]` at module level because the
+`jni` crate's `EnvUnowned<'_>` and `JObject<'_>` types use
+lifetime parameters that rustc's CType check cannot prove are
+FFI-safe. The actual layout IS FFI-safe (newtypes around raw
+pointers), validated by the `jni` crate's own test suite.
+
+### CI surface
+
+- **Scanner** (`scripts/ci/check_unsafe_boundaries.py`):
+  - `repr packed` — flags any `#[repr(packed)]` / `#[repr(packed(N))]` /
+    `#[repr(C, packed)]`.
+  - `extern fn non-FFI type` — flags `extern "C" fn` / `extern
+    "system" fn` signatures with `bool`, `&str`, `String`, `Vec<T>`,
+    `Box<dyn ...>`, `&[T]`, or `Option<T>` for non-NonNull/non-fn `T`.
+  - `no_mangle without extern ABI` — proximity detector (3-line
+    window) that flags `#[no_mangle]` not paired with `extern
+    "<abi>"` immediately below.
+- **Clippy**: `improper_ctypes` (rust) and `improper_ctypes_definitions`
+  (rust) catch a superset at compile time. The four JNI bridge
+  crates carry an explicit `#[allow(...)]` with the JNI-types
+  rationale; the scanner provides the belt-and-suspenders check.
+- **Compile-time layout asserts** at each kernel-ABI struct
+  definition site: `const _: () = { assert!(size_of::<T>() ==
+  EXPECTED); assert!(align_of::<T>() == EXPECTED); };` blocks
+  fail to build on any field reorder/insert/delete.
+
+### Allowlist requirements
+
+Each `repr packed` / `extern fn non-FFI type` / `no_mangle without
+extern ABI` entry in `ci/unsafe-boundary-allowlist.toml` must
+state:
+
+1. **ABI mapping** (which foreign type / function this matches;
+   ideally with a link to the C/Java header or the kernel
+   `include/uapi/linux/<file>.h` source).
+2. **Layout proof** (the compile-time `const _: () = assert!(...)`
+   block protecting the struct's size and alignment; or the
+   foreign-library binary contract that fixes the layout).
+3. **Field type stability** (each field is a primitive, raw
+   pointer, opaque handle, or transitively repr-stable type).
+4. **Owner.**
 
 ## Ownership must be types, not flags
 

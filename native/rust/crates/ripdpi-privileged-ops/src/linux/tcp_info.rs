@@ -68,6 +68,22 @@ pub(crate) struct LinuxTcpInfo {
     pub(crate) tcpi_notsent_bytes: u32,
 }
 
+// Compile-time ABI guard for issue #24: `LinuxTcpInfo` is the prefix
+// of the kernel `tcp_info` struct that this crate consumes via
+// `getsockopt(TCP_INFO)`. `read_tcp_info` checks `len >=
+// size_of::<LinuxTcpInfo>()` before accepting the result, so the
+// declared size IS the contract — any field reorder/insert/delete
+// must be intentional. The field bytes total to 148 (8 u8 + 24 u32
+// + 4 u64 + 3 u32 = 8 + 96 + 32 + 12); struct alignment depends on
+// u64 alignment, which is 8 on aarch64/x86_64/armv7 and 4 on i686
+// Linux. We assert a lower bound and an alignment relation rather
+// than a strict equality so the assert holds across all four
+// Android targets in this workspace.
+const _: () = {
+    assert!(std::mem::size_of::<LinuxTcpInfo>() >= 148);
+    assert!(std::mem::align_of::<LinuxTcpInfo>() >= std::mem::align_of::<u32>());
+};
+
 pub(crate) fn tcp_has_notsent(fd: libc::c_int) -> io::Result<bool> {
     let Some(info) = read_tcp_info(fd)? else {
         return Ok(false);

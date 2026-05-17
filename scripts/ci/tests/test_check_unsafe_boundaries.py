@@ -45,6 +45,8 @@ def _scan(text: str) -> list[tuple[str, int]]:
         matches.append((guard.COPY_WITH_RISKY_FIELD_PATTERN, line))
     for line in guard.find_cast_deref_type_pun(cleaned):
         matches.append((guard.CAST_DEREF_TYPE_PUN_PATTERN, line))
+    for line in guard.find_no_mangle_without_extern(cleaned):
+        matches.append((guard.NO_MANGLE_PROXIMITY_PATTERN, line))
     return matches
 
 
@@ -1022,6 +1024,116 @@ class ScanRegressionTests(unittest.TestCase):
             self.assertFalse(
                 _has(_scan(fragment), guard.CAST_DEREF_TYPE_PUN_PATTERN), msg=fragment
             )
+
+    # --- Issue #24: FFI layout and ABI -----------------------------------
+
+    def test_repr_packed_flagged(self) -> None:
+        for fragment in (
+            "#[repr(packed)]\nstruct Footer { magic: u32, len: u16 }",
+            "#[repr(packed(2))]\nstruct Header { kind: u8, code: u16 }",
+            "#[repr(C, packed)]\nstruct Frame { hdr: u32, payload: [u8; 16] }",
+        ):
+            self.assertTrue(_has(_scan(fragment), "repr packed"), msg=fragment)
+
+    def test_repr_c_alone_not_flagged_by_packed_rule(self) -> None:
+        # Plain `#[repr(C)]` (with no `packed`) and `#[repr(transparent)]`
+        # must NOT trip the packed-alignment rule.
+        for fragment in (
+            "#[repr(C)]\nstruct A { x: u32 }",
+            "#[repr(transparent)]\nstruct B(u32);",
+            "#[repr(u8)]\nenum C { A = 0, B = 1 }",
+        ):
+            self.assertFalse(_has(_scan(fragment), "repr packed"), msg=fragment)
+
+    def test_extern_fn_with_bool_flagged(self) -> None:
+        for fragment in (
+            'extern "C" fn callback(flag: bool) -> i32 { 0 }',
+            'pub extern "system" fn export(arg: bool) {}',
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
+            )
+
+    def test_extern_fn_with_rust_string_or_vec_flagged(self) -> None:
+        for fragment in (
+            'extern "C" fn callback(msg: &str) -> i32 { 0 }',
+            'pub extern "C" fn cb(buf: Vec<u8>) {}',
+            'extern "C" fn handle(s: String) {}',
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
+            )
+
+    def test_extern_fn_with_slice_flagged(self) -> None:
+        for fragment in (
+            'extern "C" fn callback(buf: &[u8]) -> i32 { 0 }',
+            'pub extern "C" fn cb(data: &[u32]) {}',
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
+            )
+
+    def test_extern_fn_with_option_nonnull_not_flagged(self) -> None:
+        # `Option<NonNull<T>>` and `Option<fn(...)>` ARE FFI-safe (null
+        # pointer / function pointer optimisation). These must not trip
+        # the rule. Note: `Option<NonNull<T>>` is independently caught
+        # by the issue #11 ownership detector; that's intentional.
+        for fragment in (
+            'extern "C" fn cb(ptr: Option<NonNull<u8>>) -> i32 { 0 }',
+            'extern "C" fn cb(f: Option<fn(i32) -> i32>) -> i32 { 0 }',
+        ):
+            self.assertFalse(
+                _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
+            )
+
+    def test_extern_fn_with_ffi_safe_types_not_flagged(self) -> None:
+        # The canonical FFI-safe signatures must not trip the rule.
+        for fragment in (
+            'extern "C" fn cb(arg: *mut c_void) -> c_int { 0 }',
+            'extern "C" fn cb(ssl: *mut SslHandle, msg: *mut u8, len: usize) -> c_int { 0 }',
+            'pub extern "system" fn Java_x(env: EnvUnowned<\'_>, obj: JObject<\'_>) -> jlong { 0 }',
+            'extern "C" fn cb(x: u32, y: i64) -> bool_t { 0 }',
+        ):
+            self.assertFalse(
+                _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
+            )
+
+    def test_no_mangle_with_extern_c_not_flagged(self) -> None:
+        # Correctly paired #[no_mangle] + extern "C" / "system" must
+        # not trip the proximity rule. Both with and without
+        # intervening attributes/visibility.
+        for fragment in (
+            '#[no_mangle]\npub extern "C" fn foo() {}',
+            '#[no_mangle]\nunsafe extern "C" fn bar() {}',
+            '#[no_mangle]\npub(super) unsafe extern "C" fn baz() {}',
+            '#[no_mangle]\n#[allow(non_snake_case)]\npub extern "system" fn Java_x() {}',
+        ):
+            self.assertFalse(
+                _has(_scan(fragment), guard.NO_MANGLE_PROXIMITY_PATTERN), msg=fragment
+            )
+
+    def test_no_mangle_without_extern_flagged(self) -> None:
+        # `#[no_mangle]` on a plain `fn` (default Rust ABI) is an
+        # ABI footgun: the symbol uses the unstable Rust calling
+        # convention but is exported as if for FFI consumption.
+        for fragment in (
+            "#[no_mangle]\npub fn naked_export() {}",
+            "#[no_mangle]\nfn no_extern() {}",
+            "#[no_mangle]\n#[inline]\npub fn still_no_extern() {}",
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), guard.NO_MANGLE_PROXIMITY_PATTERN), msg=fragment
+            )
+
+    def test_no_mangle_with_extern_block_not_flagged(self) -> None:
+        # `#[no_mangle]` immediately above an `extern "C" { ... }`
+        # block is unusual but legal — the block declares foreign
+        # symbols and the `no_mangle` would apply to a sibling
+        # function. This is rare enough that we accept the
+        # proximity-only check; refine later if false positives
+        # emerge.
+        src = '#[no_mangle]\nextern "C" {\n    fn foo();\n}'
+        self.assertFalse(_has(_scan(src), guard.NO_MANGLE_PROXIMITY_PATTERN))
 
     # --- Negative cases: must NOT trigger the scan -----------------------
 
