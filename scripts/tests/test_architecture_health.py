@@ -139,6 +139,19 @@ ripdpi-m = { path = "../ripdpi-m" }
             )
         )
 
+    def test_dependency_metrics_report_outdegree_and_indegree(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            self._write_manifest(repo, "ripdpi-a", {"ripdpi-b", "ripdpi-c"})
+            self._write_manifest(repo, "ripdpi-b", set())
+            self._write_manifest(repo, "ripdpi-c", {"ripdpi-b"})
+
+            metrics = {metric.crate: metric for metric in sut.collect_dependency_metrics(repo, None)}
+
+        self.assertEqual(("ripdpi-b", "ripdpi-c"), metrics["ripdpi-a"].internal_dependencies)
+        self.assertEqual(("ripdpi-a", "ripdpi-c"), metrics["ripdpi-b"].internal_dependents)
+        self.assertEqual(0, len(metrics["ripdpi-a"].internal_dependents))
+
     def test_kotlin_feature_spread_and_suppression_are_reported(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo = Path(temp_dir)
@@ -168,6 +181,31 @@ class VpnCoordinator {
         rules = {indicator.rule for indicator in indicators}
         self.assertIn("kotlin-feature-spread", rules)
         self.assertIn("complexity-suppression", rules)
+
+    def test_source_metrics_report_loc_root_exports_and_longest_function(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            source = repo / "native/rust/crates/ripdpi-example/src/lib.rs"
+            self._write(
+                source,
+                """
+pub mod transport;
+pub use transport::Route;
+
+pub fn route_packet() {
+    let dns_probe = "dns resolver tunnel";
+    println!("{dns_probe}");
+}
+""",
+            )
+
+            metrics = sut.collect_source_metrics(repo, ["native/rust/crates/ripdpi-example/src/lib.rs"])
+
+        self.assertEqual(1, len(metrics))
+        self.assertEqual("rust", metrics[0].kind)
+        self.assertEqual(2, metrics[0].root_exports)
+        self.assertEqual("route_packet", metrics[0].longest_function)
+        self.assertIn("dns", metrics[0].feature_families)
 
     def test_baseline_exempts_current_entries_and_flags_worsening(self) -> None:
         indicator = sut.Indicator(
@@ -234,10 +272,50 @@ class VpnCoordinator {
             suggestion="split",
         )
         results = sut.evaluate_indicators([indicator], {}, enforce_stale=True)
+        results["metrics"] = {
+            "dependencyGraph": {
+                "crateCount": 1,
+                "totalInternalDependencyEdges": 1,
+                "maxInternalDependencyCount": 1,
+                "maxInternalDependentCount": 0,
+                "crates": [
+                    {
+                        "crate": "ripdpi-example",
+                        "path": "native/rust/crates/ripdpi-example/Cargo.toml",
+                        "internalDependencyCount": 1,
+                        "internalDependentCount": 0,
+                        "internalDependencies": ["ripdpi-core"],
+                        "internalDependents": [],
+                    }
+                ],
+            },
+            "sources": {
+                "fileCount": 1,
+                "totalCodeLines": 42,
+                "byKind": {"rust": {"fileCount": 1, "codeLines": 42}},
+                "files": [
+                    {
+                        "path": "native/rust/crates/ripdpi-example/src/lib.rs",
+                        "kind": "rust",
+                        "codeLines": 42,
+                        "rootExports": 2,
+                        "longestFunction": "build_runtime",
+                        "longestFunctionLines": 12,
+                        "featureFamilyCount": 1,
+                        "featureFamilies": ["tunnel"],
+                        "suppressionCount": 0,
+                    }
+                ],
+            },
+        }
         markdown = sut.render_markdown(results)
         payload = sut.baseline_payload([indicator])
 
+        self.assertIn("Metrics Summary", markdown)
+        self.assertIn("Dependency Metrics", markdown)
+        self.assertIn("Source Metrics", markdown)
         self.assertIn("New Indicators", markdown)
+        self.assertIn("ripdpi-example", json.dumps(results))
         self.assertIn("dependency-hub", json.dumps(payload))
         self.assertTrue(sut.should_fail(results))
 
@@ -245,6 +323,23 @@ class VpnCoordinator {
     def _write(path: Path, text: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
+
+    def _write_manifest(self, repo: Path, crate: str, dependencies: set[str]) -> None:
+        dependency_lines = "\n".join(
+            f'{dependency} = {{ path = "../{dependency}" }}'
+            for dependency in sorted(dependencies)
+        )
+        self._write(
+            repo / f"native/rust/crates/{crate}/Cargo.toml",
+            f"""
+[package]
+name = "{crate}"
+version = "0.1.0"
+
+[dependencies]
+{dependency_lines}
+""",
+        )
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ import re
 import subprocess
 import sys
 import tomllib
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -131,6 +131,26 @@ class BaselineEntry:
     suggestion: str
 
 
+@dataclass(frozen=True)
+class DependencyMetric:
+    crate: str
+    path: str
+    internal_dependencies: tuple[str, ...]
+    internal_dependents: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SourceMetric:
+    path: str
+    kind: str
+    code_lines: int
+    root_exports: int
+    longest_function: str | None
+    longest_function_lines: int
+    feature_families: tuple[str, ...]
+    suppression_count: int
+
+
 def normalize_id(value: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_.:-]+", "-", value).strip("-").lower()
 
@@ -150,22 +170,33 @@ def read_toml(path: Path) -> dict:
     return tomllib.loads(path.read_text(encoding="utf-8"))
 
 
-def dependency_names(table: object) -> set[str]:
+def dependency_names(table: object, internal_crates: set[str] | None = None) -> set[str]:
     if not isinstance(table, dict):
         return set()
+    if internal_crates is not None:
+        return {key for key in table if key in internal_crates}
     return {key for key in table if key.startswith(INTERNAL_CRATE_PREFIXES)}
 
 
-def manifest_dependencies(manifest: Path, *, production_only: bool = False) -> set[str]:
+def manifest_dependencies(
+    manifest: Path,
+    *,
+    production_only: bool = False,
+    internal_crates: set[str] | None = None,
+) -> set[str]:
     data = read_toml(manifest)
     deps: set[str] = set()
-    dependency_sections = ("dependencies",) if production_only else ("dependencies", "dev-dependencies", "build-dependencies")
+    dependency_sections = (
+        ("dependencies",)
+        if production_only
+        else ("dependencies", "dev-dependencies", "build-dependencies")
+    )
     for key in dependency_sections:
-        deps.update(dependency_names(data.get(key)))
+        deps.update(dependency_names(data.get(key), internal_crates))
     for target in data.get("target", {}).values():
         if isinstance(target, dict):
             for key in dependency_sections:
-                deps.update(dependency_names(target.get(key)))
+                deps.update(dependency_names(target.get(key), internal_crates))
     return deps
 
 
@@ -256,6 +287,48 @@ def collect_dependency_indicators(repo_root: Path, tracked_paths: Sequence[str] 
     return indicators
 
 
+def collect_dependency_metrics(repo_root: Path, tracked_paths: Sequence[str] | None) -> list[DependencyMetric]:
+    all_manifests = iter_crate_manifests(repo_root, None)
+    target_manifests = iter_crate_manifests(repo_root, tracked_paths)
+    dependencies_by_crate: dict[str, tuple[str, ...]] = {}
+    paths_by_crate: dict[str, str] = {}
+
+    for manifest in all_manifests:
+        name = crate_name(manifest)
+        paths_by_crate[name] = manifest.relative_to(repo_root).as_posix()
+
+    workspace_crates = set(paths_by_crate)
+    for manifest in all_manifests:
+        name = crate_name(manifest)
+        dependencies_by_crate[name] = tuple(
+            sorted(
+                manifest_dependencies(
+                    manifest,
+                    production_only=True,
+                    internal_crates=workspace_crates,
+                )
+            )
+        )
+
+    dependents_by_crate: dict[str, list[str]] = {name: [] for name in dependencies_by_crate}
+    for crate, dependencies in dependencies_by_crate.items():
+        for dependency in dependencies:
+            if dependency in dependents_by_crate:
+                dependents_by_crate[dependency].append(crate)
+
+    target_crates = sorted({crate_name(manifest) for manifest in target_manifests})
+    return [
+        DependencyMetric(
+            crate=crate,
+            path=paths_by_crate[crate],
+            internal_dependencies=dependencies_by_crate[crate],
+            internal_dependents=tuple(sorted(dependents_by_crate[crate])),
+        )
+        for crate in target_crates
+        if crate in paths_by_crate
+    ]
+
+
 def source_kind(path: Path, text: str) -> str:
     if path.suffix == ".rs":
         return "rust"
@@ -300,66 +373,92 @@ def suppression_count(text: str) -> int:
     return sum(text.count(token) for token in SUPPRESSION_TOKENS)
 
 
-def collect_source_indicators(repo_root: Path, tracked_paths: Sequence[str] | None) -> list[Indicator]:
+def source_language(kind: str) -> str:
+    return "rust" if kind == "rust" else "kotlin"
+
+
+def measure_source_metric(repo_root: Path, rel: Path) -> SourceMetric:
+    path = repo_root / rel
+    text = path.read_text(encoding="utf-8", errors="replace")
+    kind = source_kind(rel, text)
+    language = source_language(kind)
+    longest = top_functions(path, language, top_n=1)
+
+    return SourceMetric(
+        path=rel.as_posix(),
+        kind=kind,
+        code_lines=count_code_lines(text, language),
+        root_exports=count_root_exports(text) if rel.name in ("lib.rs", "main.rs") else 0,
+        longest_function=longest[0][0] if longest else None,
+        longest_function_lines=longest[0][1] if longest else 0,
+        feature_families=tuple(sorted(feature_families(text))),
+        suppression_count=suppression_count(text),
+    )
+
+
+def collect_source_metrics(repo_root: Path, tracked_paths: Sequence[str] | None) -> list[SourceMetric]:
+    return [measure_source_metric(repo_root, rel) for rel in iter_source_files(repo_root, tracked_paths)]
+
+
+def source_indicators_from_metrics(metrics: Sequence[SourceMetric]) -> list[Indicator]:
     indicators: list[Indicator] = []
-    for rel in iter_source_files(repo_root, tracked_paths):
-        path = repo_root / rel
-        rel_path = rel.as_posix()
-        text = path.read_text(encoding="utf-8", errors="replace")
-        kind = source_kind(rel, text)
-        language = "rust" if kind == "rust" else "kotlin"
-        measured_loc = count_code_lines(text, language)
+    for metric in metrics:
+        rel_path = metric.path
+        rel = Path(rel_path)
+        kind = metric.kind
 
         loc_limit, loc_priority = SOURCE_LOC_LIMITS[kind]
-        if measured_loc > loc_limit:
+        if metric.code_lines > loc_limit:
             add_indicator(
                 indicators,
                 rule="oversized-source-file",
                 priority=loc_priority,
                 path=rel_path,
                 subject=kind,
-                message=f"{rel_path} has {measured_loc} code lines",
+                message=f"{rel_path} has {metric.code_lines} code lines",
                 metric_name="codeLines",
-                metric_value=measured_loc,
+                metric_value=metric.code_lines,
                 limit=loc_limit,
                 suggestion="Split unrelated responsibilities into focused modules before growing this file.",
             )
 
         fn_limit, fn_priority = LONG_FUNCTION_LIMITS[kind]
-        longest = top_functions(path, language, top_n=1)
-        if longest and longest[0][1] > fn_limit and measured_loc > 500:
+        if (
+            metric.longest_function is not None
+            and metric.longest_function_lines > fn_limit
+            and metric.code_lines > 500
+        ):
             add_indicator(
                 indicators,
                 rule="long-function-or-composable",
                 priority=fn_priority,
                 path=rel_path,
-                subject=longest[0][0],
-                message=f"{longest[0][0]} spans {longest[0][1]} lines",
+                subject=metric.longest_function,
+                message=f"{metric.longest_function} spans {metric.longest_function_lines} lines",
                 metric_name="functionLines",
-                metric_value=longest[0][1],
+                metric_value=metric.longest_function_lines,
                 limit=fn_limit,
                 suggestion="Extract state, rendering, parsing, or execution phases into named helpers.",
             )
 
         if rel.name in ("lib.rs", "main.rs"):
-            exports = count_root_exports(text)
-            if exports > ROOT_FACADE_EXPORT_LIMIT:
+            if metric.root_exports > ROOT_FACADE_EXPORT_LIMIT:
                 add_indicator(
                     indicators,
                     rule="broad-root-facade",
                     priority=3,
                     path=rel_path,
                     subject=rel.name,
-                    message=f"root file exposes {exports} public modules/re-exports",
+                    message=f"root file exposes {metric.root_exports} public modules/re-exports",
                     metric_name="rootExports",
-                    metric_value=exports,
+                    metric_value=metric.root_exports,
                     limit=ROOT_FACADE_EXPORT_LIMIT,
                     suggestion="Keep the root as a small facade and move implementation families into modules.",
                 )
 
         if kind in {"kotlin", "compose"}:
             spread_limit = kotlin_feature_limit(rel_path)
-            families = feature_families(text)
+            families = set(metric.feature_families)
             if spread_limit is not None and len(families) > spread_limit[0]:
                 add_indicator(
                     indicators,
@@ -374,22 +473,25 @@ def collect_source_indicators(repo_root: Path, tracked_paths: Sequence[str] | No
                     suggestion="Move feature-specific models, binders, or lifecycle work behind feature modules.",
                 )
 
-            suppressions = suppression_count(text)
-            if suppressions > 0 and measured_loc > 300 and spread_limit is not None:
+            if metric.suppression_count > 0 and metric.code_lines > 300 and spread_limit is not None:
                 add_indicator(
                     indicators,
                     rule="complexity-suppression",
                     priority=3,
                     path=rel_path,
                     subject="suppression",
-                    message=f"{rel_path} carries {suppressions} complexity suppressions",
+                    message=f"{rel_path} carries {metric.suppression_count} complexity suppressions",
                     metric_name="suppressionCount",
-                    metric_value=suppressions,
+                    metric_value=metric.suppression_count,
                     limit=0,
                     suggestion="Use suppressions as a refactor marker and split the suppressed surface.",
                 )
 
     return indicators
+
+
+def collect_source_indicators(repo_root: Path, tracked_paths: Sequence[str] | None) -> list[Indicator]:
+    return source_indicators_from_metrics(collect_source_metrics(repo_root, tracked_paths))
 
 
 def collect_indicators(repo_root: Path, tracked_paths: Sequence[str] | None = None) -> list[Indicator]:
@@ -457,6 +559,78 @@ def indicator_json(indicator: Indicator) -> dict[str, object]:
     }
 
 
+def dependency_metric_json(metric: DependencyMetric) -> dict[str, object]:
+    return {
+        "crate": metric.crate,
+        "path": metric.path,
+        "internalDependencyCount": len(metric.internal_dependencies),
+        "internalDependentCount": len(metric.internal_dependents),
+        "internalDependencies": list(metric.internal_dependencies),
+        "internalDependents": list(metric.internal_dependents),
+    }
+
+
+def source_metric_json(metric: SourceMetric) -> dict[str, object]:
+    return {
+        "path": metric.path,
+        "kind": metric.kind,
+        "codeLines": metric.code_lines,
+        "rootExports": metric.root_exports,
+        "longestFunction": metric.longest_function,
+        "longestFunctionLines": metric.longest_function_lines,
+        "featureFamilyCount": len(metric.feature_families),
+        "featureFamilies": list(metric.feature_families),
+        "suppressionCount": metric.suppression_count,
+    }
+
+
+def source_kind_summary(metrics: Sequence[SourceMetric]) -> dict[str, dict[str, int]]:
+    summary: dict[str, dict[str, int]] = {}
+    for metric in metrics:
+        entry = summary.setdefault(metric.kind, {"fileCount": 0, "codeLines": 0})
+        entry["fileCount"] += 1
+        entry["codeLines"] += metric.code_lines
+    return dict(sorted(summary.items()))
+
+
+def collect_metrics(
+    repo_root: Path,
+    tracked_paths: Sequence[str] | None = None,
+    *,
+    source_metrics: Sequence[SourceMetric] | None = None,
+) -> dict[str, object]:
+    dependency_metrics = collect_dependency_metrics(repo_root, tracked_paths)
+    measured_sources = (
+        list(source_metrics)
+        if source_metrics is not None
+        else collect_source_metrics(repo_root, tracked_paths)
+    )
+    dependency_rows = [dependency_metric_json(metric) for metric in dependency_metrics]
+    source_rows = [source_metric_json(metric) for metric in measured_sources]
+
+    return {
+        "dependencyGraph": {
+            "crateCount": len(dependency_rows),
+            "totalInternalDependencyEdges": sum(int(row["internalDependencyCount"]) for row in dependency_rows),
+            "maxInternalDependencyCount": max(
+                (int(row["internalDependencyCount"]) for row in dependency_rows),
+                default=0,
+            ),
+            "maxInternalDependentCount": max(
+                (int(row["internalDependentCount"]) for row in dependency_rows),
+                default=0,
+            ),
+            "crates": dependency_rows,
+        },
+        "sources": {
+            "fileCount": len(source_rows),
+            "totalCodeLines": sum(int(row["codeLines"]) for row in source_rows),
+            "byKind": source_kind_summary(measured_sources),
+            "files": source_rows,
+        },
+    }
+
+
 def evaluate_indicators(
     indicators: Sequence[Indicator],
     baseline: dict[str, BaselineEntry],
@@ -512,6 +686,120 @@ def evaluate_indicators(
     }
 
 
+def markdown_cell(value: object) -> str:
+    return str(value).replace("\n", " ").replace("|", "\\|")
+
+
+def metric_int(row: dict[str, object], key: str) -> int:
+    return int(row.get(key, 0))
+
+
+def preview_list(values: object, *, limit: int = 5) -> str:
+    if not isinstance(values, list) or not values:
+        return "None"
+
+    rendered = [f"`{markdown_cell(value)}`" for value in values[:limit]]
+    if len(values) > limit:
+        rendered.append(f"+{len(values) - limit} more")
+    return ", ".join(rendered)
+
+
+def render_metrics_markdown(results: dict[str, object]) -> list[str]:
+    metrics = results.get("metrics")
+    if not isinstance(metrics, dict):
+        return []
+
+    dependency_graph = metrics.get("dependencyGraph")
+    source_metrics = metrics.get("sources")
+    if not isinstance(dependency_graph, dict) or not isinstance(source_metrics, dict):
+        return []
+
+    source_by_kind = source_metrics.get("byKind")
+    if isinstance(source_by_kind, dict):
+        source_kind_parts = [
+            f"{kind}: {summary['fileCount']} files / {summary['codeLines']} LOC"
+            for kind, summary in sorted(source_by_kind.items())
+            if isinstance(summary, dict)
+        ]
+    else:
+        source_kind_parts = []
+
+    lines = [
+        "## Metrics Summary",
+        "",
+        f"- measured crates: `{dependency_graph['crateCount']}`",
+        f"- internal dependency edges: `{dependency_graph['totalInternalDependencyEdges']}`",
+        f"- max internal dependencies: `{dependency_graph['maxInternalDependencyCount']}`",
+        f"- max internal dependents: `{dependency_graph['maxInternalDependentCount']}`",
+        f"- measured source files: `{source_metrics['fileCount']}`",
+        f"- measured source code lines: `{source_metrics['totalCodeLines']}`",
+    ]
+    if source_kind_parts:
+        lines.append(f"- source mix: {', '.join(source_kind_parts)}")
+    lines.append("")
+
+    crate_rows = dependency_graph.get("crates")
+    if isinstance(crate_rows, list):
+        lines.extend(
+            [
+                "## Dependency Metrics",
+                "",
+                "| Crate | Internal deps | Internal dependents | Dependency preview | Dependent preview |",
+                "| --- | ---: | ---: | --- | --- |",
+            ]
+        )
+        for row in sorted(
+            (item for item in crate_rows if isinstance(item, dict)),
+            key=lambda item: (
+                -metric_int(item, "internalDependencyCount"),
+                -metric_int(item, "internalDependentCount"),
+                str(item.get("crate", "")),
+            ),
+        ):
+            lines.append(
+                "| "
+                f"`{markdown_cell(row['crate'])}` | "
+                f"{row['internalDependencyCount']} | "
+                f"{row['internalDependentCount']} | "
+                f"{preview_list(row.get('internalDependencies'))} | "
+                f"{preview_list(row.get('internalDependents'))} |"
+            )
+        lines.append("")
+
+    source_rows = source_metrics.get("files")
+    if isinstance(source_rows, list):
+        lines.extend(
+            [
+                "## Source Metrics",
+                "",
+                "Largest 25 measured source files by code lines. The JSON report contains the full file list.",
+                "",
+                "| Path | Kind | Code lines | Longest item | Root exports | Feature families | Suppressions |",
+                "| --- | --- | ---: | --- | ---: | --- | ---: |",
+            ]
+        )
+        for row in sorted(
+            (item for item in source_rows if isinstance(item, dict)),
+            key=lambda item: (-metric_int(item, "codeLines"), str(item.get("path", ""))),
+        )[:25]:
+            longest = "None"
+            if row.get("longestFunction"):
+                longest = f"`{markdown_cell(row['longestFunction'])}` ({row['longestFunctionLines']})"
+            lines.append(
+                "| "
+                f"`{markdown_cell(row['path'])}` | "
+                f"`{markdown_cell(row['kind'])}` | "
+                f"{row['codeLines']} | "
+                f"{longest} | "
+                f"{row['rootExports']} | "
+                f"{preview_list(row.get('featureFamilies'))} | "
+                f"{row['suppressionCount']} |"
+            )
+        lines.append("")
+
+    return lines
+
+
 def render_markdown(results: dict[str, object]) -> str:
     counts = results["counts"]
     assert isinstance(counts, dict)
@@ -525,6 +813,7 @@ def render_markdown(results: dict[str, object]) -> str:
         f"- stale baseline entries: `{counts['staleBaselineEntries']}`",
         "",
     ]
+    lines.extend(render_metrics_markdown(results))
 
     for title, key in (
         ("New Indicators", "newIndicators"),
@@ -542,7 +831,12 @@ def render_markdown(results: dict[str, object]) -> str:
         for row in rows:
             metric = f"`{row['metricName']}={row.get('metricValue', row.get('baselineValue'))}`"
             lines.append(
-                f"| P{row['priority']} | `{row['rule']}` | `{row['path']}` | {metric} | {row['suggestion']} |"
+                "| "
+                f"P{row['priority']} | "
+                f"`{markdown_cell(row['rule'])}` | "
+                f"`{markdown_cell(row['path'])}` | "
+                f"{metric} | "
+                f"{markdown_cell(row['suggestion'])} |"
             )
         lines.append("")
 
@@ -560,6 +854,24 @@ def format_summary(results: dict[str, object]) -> str:
         f"Worsened baseline entries: {counts['worsenedBaselineEntries']}",
         f"Stale baseline entries: {counts['staleBaselineEntries']}",
     ]
+    metrics = results.get("metrics")
+    if isinstance(metrics, dict):
+        dependency_graph = metrics.get("dependencyGraph")
+        source_metrics = metrics.get("sources")
+        if isinstance(dependency_graph, dict):
+            lines.extend(
+                [
+                    f"Measured crates: {dependency_graph['crateCount']}",
+                    f"Internal dependency edges: {dependency_graph['totalInternalDependencyEdges']}",
+                ]
+            )
+        if isinstance(source_metrics, dict):
+            lines.extend(
+                [
+                    f"Measured source files: {source_metrics['fileCount']}",
+                    f"Measured source code lines: {source_metrics['totalCodeLines']}",
+                ]
+            )
     for key, label in (
         ("newIndicators", "new"),
         ("worsenedBaselineEntries", "worsened"),
@@ -607,7 +919,13 @@ def main() -> int:
     elif args.paths is not None:
         enforce_stale = False
 
-    indicators = collect_indicators(repo_root, tracked_paths)
+    source_metrics = collect_source_metrics(repo_root, tracked_paths)
+    indicators = collect_dependency_indicators(repo_root, tracked_paths)
+    indicators.extend(source_indicators_from_metrics(source_metrics))
+    indicators = sorted(
+        indicators,
+        key=lambda indicator: (indicator.priority, indicator.rule, indicator.path, indicator.id),
+    )
 
     if args.dump_baseline:
         print(json.dumps(baseline_payload(indicators), indent=2))
@@ -618,6 +936,7 @@ def main() -> int:
         raise ValueError(f"Architecture baseline not found: {baseline_path}")
 
     results = evaluate_indicators(indicators, read_baseline(baseline_path), enforce_stale=enforce_stale)
+    results["metrics"] = collect_metrics(repo_root, tracked_paths, source_metrics=source_metrics)
     write_reports((repo_root / args.report_dir).resolve(), results)
     print(format_summary(results))
     return 1 if should_fail(results) else 0
