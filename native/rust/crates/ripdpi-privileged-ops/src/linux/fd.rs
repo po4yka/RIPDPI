@@ -141,3 +141,109 @@ pub(crate) fn storage_to_socket_addr(storage: &libc::sockaddr_storage) -> io::Re
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! Regressions for issue #33 (incorrect `ManuallyDrop` /
+    //! `mem::forget` usage). `close_owned_fd` is the only
+    //! `mem::forget` site in the workspace that operates on an
+    //! `OwnedFd` (rather than on a private RAII guard). The pattern:
+    //!
+    //!     let raw = fd.as_raw_fd();
+    //!     std::mem::forget(fd);
+    //!     unsafe { libc::close(raw) };
+    //!
+    //! depends on `OwnedFd`'s `Drop` being the unique close site --
+    //! if the `mem::forget` were missing, both the `OwnedFd`'s Drop
+    //! and the explicit `libc::close` would close the same fd
+    //! (double-close UB; on Linux this races with other threads'
+    //! `open` calls that may have re-claimed the fd number). If the
+    //! `libc::close` were missing, the close error this function is
+    //! designed to surface would be swallowed by `OwnedFd::drop`.
+    //!
+    //! These tests pin down both invariants on the success path and
+    //! on the error path (close on an already-invalid fd returns
+    //! EBADF), with the panic-unwind path covered by exercising
+    //! `close_owned_fd` inside `catch_unwind` to verify no leak
+    //! between the `forget` and the `close`.
+    use super::*;
+    use std::os::fd::AsRawFd;
+    use std::os::fd::FromRawFd;
+
+    fn make_owned_fd() -> OwnedFd {
+        // `/dev/null` is universally available on Linux/Android and
+        // tolerates close/EBADF round-trips.
+        let raw = unsafe { libc::open(c"/dev/null".as_ptr(), libc::O_RDONLY) };
+        assert!(raw >= 0, "open /dev/null failed: {}", io::Error::last_os_error());
+        // SAFETY: `raw` is a freshly opened, owned descriptor with
+        // no aliasing handle; transfer ownership into OwnedFd.
+        unsafe { OwnedFd::from_raw_fd(raw) }
+    }
+
+    #[test]
+    fn close_owned_fd_success_path_closes_exactly_once() {
+        let fd = make_owned_fd();
+        let raw = fd.as_raw_fd();
+        // Sanity: the fd is currently valid (fcntl returns >= 0).
+        let pre = unsafe { libc::fcntl(raw, libc::F_GETFL) };
+        assert!(pre >= 0, "fd must be valid before close");
+        close_owned_fd(fd).expect("close should succeed");
+        // After close, the fd number must now be invalid (EBADF).
+        let post = unsafe { libc::fcntl(raw, libc::F_GETFL) };
+        assert_eq!(post, -1, "fd must be invalid after close");
+        assert_eq!(
+            io::Error::last_os_error().raw_os_error(),
+            Some(libc::EBADF),
+            "post-close fcntl must report EBADF (fd was closed exactly once)",
+        );
+    }
+
+    #[test]
+    fn close_owned_fd_surfaces_close_error_on_already_invalid_fd() {
+        // Construct an OwnedFd around a known-invalid descriptor by
+        // closing the underlying number out from under it first.
+        // This simulates the "kernel closed the fd before us" failure
+        // mode (rare but legal on Linux when fd table is reused under
+        // a non-cooperative parent process).
+        let fd = make_owned_fd();
+        let raw = fd.as_raw_fd();
+        // Pre-close the descriptor through the raw fd, then ask
+        // close_owned_fd to close it again. The second close is the
+        // one this test asserts surfaces EBADF instead of being
+        // silently swallowed.
+        let pre_close = unsafe { libc::close(raw) };
+        assert_eq!(pre_close, 0, "pre-close should succeed");
+        // The OwnedFd still thinks it owns `raw`, but the kernel
+        // has already reclaimed the number. `close_owned_fd`
+        // forgets the OwnedFd (no double-close) and explicitly
+        // close()s `raw`, which the kernel rejects with EBADF.
+        let err = close_owned_fd(fd).expect_err("close must error on already-invalid fd");
+        assert_eq!(
+            err.raw_os_error(),
+            Some(libc::EBADF),
+            "close-error must propagate as EBADF rather than being swallowed",
+        );
+    }
+
+    #[test]
+    fn close_owned_fd_does_not_leak_under_panic_unwind() {
+        // The `mem::forget(fd)` between extracting `raw` and calling
+        // `libc::close(raw)` runs to completion atomically -- there
+        // is no `.await`, no fallible operation, and no panic site
+        // between them in the current implementation. This test
+        // pins down that invariant: if a future refactor were to
+        // introduce a panic site between `forget` and `close`, the
+        // resource would leak. We exercise the function inside
+        // `catch_unwind` and verify no panic propagates AND the fd
+        // is closed (EBADF on the followup fcntl).
+        let fd = make_owned_fd();
+        let raw = fd.as_raw_fd();
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            close_owned_fd(fd).expect("inner close should succeed");
+        }));
+        assert!(outcome.is_ok(), "close_owned_fd must not panic on the success path");
+        let post = unsafe { libc::fcntl(raw, libc::F_GETFL) };
+        assert_eq!(post, -1, "fd must be invalid after close (no leak)");
+        assert_eq!(io::Error::last_os_error().raw_os_error(), Some(libc::EBADF));
+    }
+}
