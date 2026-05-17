@@ -1237,6 +1237,46 @@ class ScanRegressionTests(unittest.TestCase):
                 _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
             )
 
+    # --- Issue #29: lock held across callback invocation -----------------
+
+    def test_lock_held_across_callback_flagged(self) -> None:
+        for fragment in (
+            "let guard = stats.observer.lock().unwrap(); observer(42);",
+            "if let Some(cb) = lock_field.lock().unwrap().take() { cb(arg); }",
+            "let g = self.handler.read().unwrap(); handler(payload);",
+            "let g = field.borrow_mut(); on_change(value);",
+            "let g = cell.borrow(); notify(data);",
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), "lock held across callback"), msg=fragment
+            )
+
+    def test_lock_without_callback_not_flagged(self) -> None:
+        # A bare `.lock()` with no callback invocation on the same
+        # line must not trip. Locks held for value reads/writes are
+        # the normal case.
+        for fragment in (
+            "let guard = state.lock().unwrap();",
+            "let n = counter.lock().unwrap().clone();",
+            "*state.write().unwrap() = new_value;",
+            "let v = cell.borrow().clone();",
+        ):
+            self.assertFalse(
+                _has(_scan(fragment), "lock held across callback"), msg=fragment
+            )
+
+    def test_callback_without_lock_not_flagged(self) -> None:
+        # A bare callback invocation with no surrounding lock must
+        # not trip — the canonical safe pattern.
+        for fragment in (
+            "observer(latency_ms);",
+            "if let Some(cb) = saved_cb { cb(value); }",
+            "self.handler(payload);",
+        ):
+            self.assertFalse(
+                _has(_scan(fragment), "lock held across callback"), msg=fragment
+            )
+
     # --- Negative cases: must NOT trigger the scan -----------------------
 
     def test_comments_are_ignored(self) -> None:

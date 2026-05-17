@@ -481,6 +481,29 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     "bindgen invocation": re.compile(
         r"\b(?:bindgen|cbindgen)::(?:Builder|generate|Config|Language)\b"
     ),
+    # `Mutex::lock()` / `RwLock::read()` / `RwLock::write()` /
+    # `RefCell::borrow()` / `RefCell::borrow_mut()` followed by a
+    # call expression with a name that matches a callback identifier
+    # convention (`observer`, `callback`, `cb`, `handler`, `hook`,
+    # `listener`, `notify`, `emit`, `on_*`). Single-line proximity
+    # only — the regex catches the canonical
+    # `guard.observer.lock().unwrap()(...)` and `if let Some(cb) =
+    # guard.lock().take() { cb(...) }` shapes. Multi-line cases are
+    # caught by the looser proximity scan (when we add it later).
+    #
+    # The rationale: any user-supplied closure invoked while a
+    # synchronisation primitive is held may re-enter the same
+    # primitive from inside its own body, deadlocking (Mutex /
+    # RwLock) or panicking (RefCell). Issue #29 fix in
+    # ripdpi-tunnel-core/src/stats/observer.rs documented this for
+    # the canonical pattern. New occurrences must restructure
+    # (clone Arc inside lock, release lock, invoke outside) or
+    # earn an allowlist entry naming the reentrancy contract per
+    # docs/rust-soundness-policy.md § "Callback reentrancy".
+    "lock held across callback": re.compile(
+        r"\.(?:lock|read|write|borrow|borrow_mut)\s*\(\s*\).*?"
+        r"\b(?:observer|callback|cb|handler|hook|listener|notify|emit|on_[a-z_]+)\s*\("
+    ),
 }
 
 # The `.get()` method is also used by many safe types (HashMap, Vec,

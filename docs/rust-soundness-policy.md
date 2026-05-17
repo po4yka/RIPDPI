@@ -2486,6 +2486,137 @@ state:
    `std::panic::catch_unwind`).
 4. **Owner.**
 
+## Callback reentrancy
+
+A user-supplied closure (observer, hook, listener, callback) must
+never be invoked while the surrounding object holds a
+synchronisation primitive lock OR is in a temporary inconsistent
+state. Both invariants protect against the same class of bug: the
+callback re-enters the same API from inside its own body and finds
+either a deadlocked lock or torn state.
+
+Issue #29 found and fixed exactly this bug in
+`ripdpi-tunnel-core/src/stats/observer.rs`:
+`notify_dns_latency` previously held the `dns_latency_observer`
+Mutex across the user callback invocation; re-entering
+`set_dns_latency_observer` from inside the callback would
+deadlock.
+
+### Rule
+
+A function that invokes a user-supplied closure (`Box<dyn Fn>`,
+`Arc<dyn Fn>`, `impl Fn(...)`, etc.) MUST satisfy ALL of:
+
+1. **No synchronisation primitive held during the invocation.**
+   Clone an owning handle (`Arc`) inside the lock, release the
+   lock, then invoke the closure outside the locked region. The
+   Arc clone is O(1) (one atomic refcount bump). This is the
+   workspace pattern in `notify_dns_latency` post-fix.
+
+2. **No temporary inconsistent state visible to the callback.**
+   If the API mutates a field before invoking the callback (e.g.
+   "extract from list, invoke, re-insert"), the extracted slot
+   must either be filled with a sentinel value (typestate) before
+   the callback fires, OR the operation must be transactional
+   (commit only after the callback returns).
+
+3. **Reentrant calls back into the same API must be sound.** The
+   callback body may legitimately call the same API again to
+   register a replacement, query state, etc. The API design must
+   support this — typically by being fully re-entrant (no locks
+   held) or by detecting re-entry and queueing the second call.
+
+4. **Callback body must not assume a particular caller state.**
+   Documented contracts that say "the callback fires while the
+   object is locked" are anti-patterns — they push the reentrancy
+   hazard to every callback author.
+
+### Preferred shapes
+
+1. **Clone-out-of-lock + invoke-outside-lock** (workspace
+   canonical, post-issue-#29). The function locks the
+   synchronisation primitive briefly, clones the `Arc<dyn Fn>`
+   holding the callback, releases the lock, and invokes the
+   cloned callback. The lock window is O(1). See
+   `notify_dns_latency` in
+   `ripdpi-tunnel-core/src/stats/observer.rs`.
+
+2. **RAII-restored state via stack discipline.** When the callback
+   runs in a context where some temporary state must be installed
+   (e.g. "set CURRENT_PLATFORM to P, run closure, restore
+   previous"), use a Drop-guard pattern so the state is restored
+   even if the closure panics. The workspace example is
+   `with_tcp_desync_platform` in
+   `ripdpi-desync-runtime/src/platform/registry.rs` — `Restore`
+   guard re-stores the previous `CURRENT_PLATFORM` on Drop,
+   surviving panics and supporting nested reentry correctly.
+
+3. **Deferred action via channel.** When the callback's work must
+   be deferred to a different thread or until the current
+   operation completes, the callback enqueues a message and the
+   consumer thread invokes the actual work later. Decouples the
+   callback latency from the producer's critical path.
+
+4. **Restricted callback capabilities.** When the callback must
+   NOT re-enter the same API, give it a restricted capability
+   handle (e.g. `&CallbackView` exposing only read methods)
+   rather than a full `&Object`. Prevents reentry at the type
+   level.
+
+### Anti-patterns
+
+- `let g = self.observer.lock().unwrap(); (g)(event);` — lock
+  held across callback. Caught by scanner pattern `lock held
+  across callback`.
+- `let g = self.handlers.write().unwrap(); for h in g.iter() {
+  h(event); }` — RwLock write lock held across multiple
+  callback invocations. Catastrophic deadlock surface.
+- `self.state = State::Invoking; (cb)(arg); self.state =
+  State::Idle;` — temporary inconsistent state visible to
+  callback. Use a typestate enum or transactional commit
+  instead.
+- Callback body that recursively calls the same API without
+  bounded recursion. Unbounded reentry → stack overflow.
+- Documenting "the callback runs under the lock" as the
+  invariant. Push the lock OUT of the public API instead.
+
+### Existing benign uses
+
+| File | Pattern | Soundness mechanism |
+|---|---|---|
+| `ripdpi-tunnel-core/src/stats/observer.rs` | `Mutex<Option<Arc<dyn Fn>>>` observer slot | Issue #29 fix: clone Arc inside lock, release lock, invoke observer outside. Test `dns_latency_observer_reentry_does_not_deadlock` exercises the reentry path. |
+| `ripdpi-desync-runtime/src/platform/registry.rs` | `thread_local!{RefCell<Option<*const dyn TcpDesyncPlatform>>}` + RAII restore | Single-threaded RefCell with stack-disciplined `Restore` guard; nested `with_tcp_desync_platform` calls work correctly via Drop ordering. |
+| `ripdpi-vless/src/reality_hook.rs` | BoringSSL `client_hello_cb` with `Box::into_raw` userdata | Per-connection SSL_CTX (single-use callback slot); guard's Drop reclaims box; BoringSSL single-threaded `ssl_add_client_hello` contract. Audited under issue #28. |
+
+### CI surface
+
+- **Scanner pattern `lock held across callback`** flags single-line
+  occurrences of `.lock()` / `.read()` / `.write()` /
+  `.borrow()` / `.borrow_mut()` followed by a call expression
+  matching common callback identifier conventions (`observer`,
+  `callback`, `cb`, `handler`, `hook`, `listener`, `notify`,
+  `emit`, `on_*`). Workspace currently has zero findings.
+  Multi-line cases are not caught by this regex and rely on
+  manual review.
+- **Regression test
+  `dns_latency_observer_reentry_does_not_deadlock`** in
+  `stats::observer::tests` exercises the canonical reentry
+  pattern: an observer that, when fired, replaces itself with a
+  different observer (re-locking the same Mutex from inside the
+  callback). Pre-issue-#29: deadlock. Post-fix: passes.
+
+### Allowlist requirements
+
+Each `lock held across callback` allowlist entry must state:
+
+1. **Reentrancy contract** (whether the callback may re-enter the
+   same API; if yes, why it is sound).
+2. **Lock-window bound** (how long the synchronisation primitive
+   is held during the callback — e.g. "single Arc clone, O(1)").
+3. **Panic safety** (whether the callback can panic without
+   leaving the object in an inconsistent state).
+4. **Owner.**
+
 ## Ownership must be types, not flags
 
 A boolean field named `registered`, `is_alive`, `destroyed`,
@@ -2849,3 +2980,112 @@ If you must add new `unsafe`:
 
 Reviewers must check that step 4 is present and persuasive before
 approving.
+
+## FFI panic-unwind containment
+
+The `android-jni` and `android-jni-dev` cargo profiles in
+`native/rust/Cargo.toml` set `panic = "unwind"`. Unwinding through an
+`extern "C"` / `extern "system"` function is undefined behaviour. The
+release profile (`panic = "abort"`) is safer but is not the build that
+ships to Android.
+
+### Rule
+
+Every Rust function exported via one of the foreign-language ABIs
+(`extern "C"`, `extern "system"`, `extern "C-unwind"`,
+`extern "system-unwind"`) MUST guarantee that a Rust panic in its body
+cannot escape to foreign code. The two sanctioned shapes are:
+
+1. **Preferred** — wrap the body with
+   `android_support::ffi_boundary(default, || { ... })`. The helper
+   runs the inner closure inside `catch_unwind` + `AssertUnwindSafe`
+   and substitutes `default` on panic. The existing
+   `android_support::install_panic_hook` logs the panic + backtrace
+   before `catch_unwind` returns.
+
+2. **Acceptable** — open-code `std::panic::catch_unwind(|| { ... })`
+   and convert the `Result` into an FFI-safe return. This is the
+   `JNI_OnLoad` shape: every cdylib's `JNI_OnLoad` opens with
+   `match std::panic::catch_unwind(|| { ... }) { Ok(v) => v, Err(_) => JNI_ERR }`.
+
+The body must contain `ffi_boundary(` or `catch_unwind(` *at the same
+function definition* — chaining the boundary into a helper one
+indirection away (`pub extern "system" fn export(...) { helper(...) }`,
+where `helper` does the wrap) hides the discipline from the CI scanner
+and from human reviewers reading the export site. Inline the wrapper.
+
+### Sentinel value selection
+
+The `default` passed to `ffi_boundary` is the value the JVM (or other
+foreign caller) sees when a panic is contained. It MUST be an
+unambiguous-failure value the caller already treats as an error:
+
+| Return type           | Default                       | Why                                          |
+|-----------------------|-------------------------------|----------------------------------------------|
+| `jstring` / `jobjectArray` | `core::ptr::null_mut()`  | Callers already null-check string returns.   |
+| `jboolean`            | `jni::sys::JNI_FALSE`         | "Failed / no" surface.                       |
+| `jlong` (handle)      | `0`                            | "No handle" sentinel — every `jniCreate` caller treats `0` as failure. |
+| `jint` (status code)  | `-1` (or any non-zero error)   | NEVER `0`: that is the success code for `jniStart`-style exports. |
+| `()`                  | `()`                           | Nothing to communicate.                       |
+
+The asymmetry on `jint` is the most important one: a careless
+`Default::default()` would substitute `0` on panic, which `jniStart`-
+shape callers treat as "started successfully" — silently turning a panic
+into a phantom success.
+
+### Intentional unwind — the `-unwind` ABI variants
+
+`extern "C-unwind"` / `extern "system-unwind"` sanction Rust panic
+unwinding through the foreign frame (Rust → C → Rust round-trips). They
+are NOT a workaround for "I do not want to wrap" — they require the
+foreign frame to be compiled with a matching unwind tolerance, which is
+a per-platform contract that this workspace does not generally satisfy.
+Use them only for Rust-to-Rust unwinding through a C trampoline, with
+an allowlist entry that names the foreign frame and its unwind ABI.
+
+### Callbacks invoked from foreign code
+
+The same rule applies to every Rust function whose POINTER is handed to
+foreign code: BoringSSL SSL_CTX callbacks, POSIX signal handlers,
+JavaVM thread-attach callbacks, libc qsort comparators. The
+`reality_client_hello_cb` in `ripdpi-vless/src/reality_hook.rs` is the
+canonical example — its body opens with
+`std::panic::catch_unwind(AssertUnwindSafe(|| inner(...)))`.
+
+POSIX signal handlers (`signal_handler` in `ripdpi-root-helper`,
+`handle_signal` in `ripdpi-proxy-runtime`) are an exception by
+construction: they must remain async-signal-safe, so panicking in them
+is already undefined behaviour for reasons independent of FFI. The
+bodies are restricted to single `AtomicBool::store` calls that cannot
+panic; both are allowlisted on that basis.
+
+### Drop in async / FFI contexts
+
+A `Drop` impl that runs as part of stack unwinding through an FFI
+boundary will be invoked while `panicking()` is already true. If the
+Drop itself panics, the process aborts (`double-panic`). Drops that
+might panic (mutex poisoning, channel send, tokio runtime shutdown) MUST
+not appear on the unwind path of an `extern` function — wrap with
+`catch_unwind` inside the Drop, or restructure so the cleanup runs
+before the panic site.
+
+### Enforcement
+
+`scripts/ci/check_ffi_panic_boundary.py` runs in CI. It walks every
+`extern "C"` / `extern "system"` / `extern "C-unwind"` /
+`extern "system-unwind"` definition under `native/rust/crates/*/src/**`
+and fails the build if any function's body does not contain
+`ffi_boundary(` or `catch_unwind(` AND is not allowlisted in
+`ci/ffi-panic-boundary-allowlist.toml`. The allowlist requires a
+`reason` field that documents the no-panic property (atomic store
+only, literal-value return, stub under cfg). New entries are
+discouraged and audited at the `review_date`.
+
+The scanner has corresponding unit tests in
+`scripts/ci/tests/test_check_ffi_panic_boundary.py` plus an integration
+test that exercises the live workspace. The runtime helper
+`android_support::ffi_boundary` has unit tests in
+`native/rust/crates/android-support/src/ffi_boundary.rs` covering each
+JNI return shape, plus a live `extern "system" fn` test that calls the
+ABI through a real function pointer with a panicking inner and asserts
+the sentinel returns without unwinding.
