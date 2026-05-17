@@ -32,7 +32,7 @@ pub struct UdpDesyncPlanContext<'a> {
     pub planner: &'a UdpDesyncPlanner,
     pub runtime_context: Option<&'a ripdpi_proxy_config::ProxyRuntimeContext>,
     pub telemetry: Option<&'a dyn ripdpi_runtime_api::RuntimeTelemetrySink>,
-    pub adaptive_hints: &'a dyn ripdpi_runtime_decision_ports::AdaptiveHintPort,
+    pub adaptive_hints: &'a dyn ripdpi_runtime_decision_ports::adaptive_ports::AdaptiveHintPort,
 }
 
 pub struct UdpDesyncPlanRequest<'a> {

@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind};
-use ripdpi_runtime_decision_ports::ConnectionRoute;
+use ripdpi_runtime_decision_ports::policy_ports::ConnectionRoute;
 
 use super::{connect_timeout, protect_path_owned, selected_desync_group};
 
@@ -142,7 +142,7 @@ mod tests {
     use std::time::Duration;
 
     use ripdpi_config::{DesyncGroup, OffsetExpr, RuntimeConfig, TcpChainStep, TcpChainStepKind, UpstreamSocksConfig};
-    use ripdpi_runtime_decision_ports::ConnectionRoute;
+    use ripdpi_runtime_decision_ports::policy_ports::ConnectionRoute;
 
     use super::*;
 

@@ -1,4 +1,4 @@
-pub use ripdpi_runtime_decision_ports::{
+pub use ripdpi_runtime_decision_ports::policy_ports::{
     ConnectionRoute, DnsTamperingEvidence, ExtractedHost, HostSource, RetrySelectionPenalty, RouteAdvance,
     TransportProtocol,
 };

@@ -1,5 +1,5 @@
 use ripdpi_config::{QuicInitialMode, RuntimeConfig};
-use ripdpi_runtime_decision_ports::{ExtractedHost, HostSource};
+use ripdpi_runtime_decision_ports::policy_ports::{ExtractedHost, HostSource};
 
 pub fn quic_route_and_cache_enabled(config: &RuntimeConfig) -> bool {
     matches!(config.quic.initial_mode, QuicInitialMode::RouteAndCache)
@@ -16,7 +16,7 @@ pub fn should_cache_udp_host(config: &RuntimeConfig, host: Option<&ExtractedHost
 #[cfg(test)]
 mod tests {
     use ripdpi_config::{QuicInitialMode, RuntimeConfig};
-    use ripdpi_runtime_decision_ports::{ExtractedHost, HostSource};
+    use ripdpi_runtime_decision_ports::policy_ports::{ExtractedHost, HostSource};
 
     use super::*;
 

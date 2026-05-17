@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
-use ripdpi_runtime_decision_ports::TransportProtocol;
+use ripdpi_runtime_decision_ports::policy_ports::TransportProtocol;
 use ripdpi_runtime_services::GeoMatcher;
 
 pub fn selected_desync_group(config: &RuntimeConfig, group_index: usize) -> Option<&DesyncGroup> {
@@ -96,7 +96,7 @@ mod tests {
     use std::net::SocketAddr;
 
     use ripdpi_config::RuntimeConfig;
-    use ripdpi_runtime_decision_ports::TransportProtocol;
+    use ripdpi_runtime_decision_ports::policy_ports::TransportProtocol;
 
     use super::*;
 

@@ -31,7 +31,7 @@ pub struct TcpDesyncExecutionContext<'a> {
     pub executor: &'a TcpDesyncExecutor,
     pub runtime_context: Option<&'a ripdpi_proxy_config::ProxyRuntimeContext>,
     pub telemetry: Option<&'a dyn ripdpi_runtime_api::RuntimeTelemetrySink>,
-    pub adaptive_hints: &'a dyn ripdpi_runtime_decision_ports::AdaptiveHintPort,
+    pub adaptive_hints: &'a dyn ripdpi_runtime_decision_ports::adaptive_ports::AdaptiveHintPort,
     pub ttl_unavailable: &'a AtomicBool,
     pub pcap_hook: Option<&'a PcapHook>,
 }

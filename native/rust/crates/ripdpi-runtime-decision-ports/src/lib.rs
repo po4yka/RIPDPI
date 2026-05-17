@@ -6,17 +6,24 @@
 
 mod snapshot;
 
-pub use snapshot::{
-    AdaptiveDecisionSnapshot, DesyncDecisionSnapshot, DirectPathDnsMode, DirectPathQuicMode, DnsDecisionSnapshot,
-    ProxyDecisionSnapshot, QuicDecisionSnapshot, RelayDecisionSnapshot, RoutingDecisionSnapshot,
-    RuntimeDecisionSnapshot, StrategyPackDecisionSnapshot, UiDecisionSnapshot, WarpDecisionSnapshot,
-};
+pub mod snapshots {
+    pub use crate::snapshot::{
+        AdaptiveDecisionSnapshot, DesyncDecisionSnapshot, DirectPathDnsMode, DirectPathQuicMode, DnsDecisionSnapshot,
+        ProxyDecisionSnapshot, QuicDecisionSnapshot, RelayDecisionSnapshot, RoutingDecisionSnapshot,
+        RuntimeDecisionSnapshot, StrategyPackDecisionSnapshot, UiDecisionSnapshot, WarpDecisionSnapshot,
+    };
+}
 
-pub use ripdpi_runtime_adaptive::{
-    AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, PreferredTargets, RetryPacingPort,
-};
-pub use ripdpi_runtime_policy::{
-    ConnectionRoute, DirectPathLearningObserver, DirectPathLearningPort, DnsTamperingEvidence, ExtractedHost,
-    HostAutolearnEvent, HostAutolearnState, HostSource, PolicyPort, RetrySelectionPenalty, RouteAdvance,
-    TransportProtocol,
-};
+pub mod adaptive_ports {
+    pub use ripdpi_runtime_adaptive::{
+        AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, PreferredTargets, RetryPacingPort,
+    };
+}
+
+pub mod policy_ports {
+    pub use ripdpi_runtime_policy::{
+        ConnectionRoute, DirectPathLearningObserver, DirectPathLearningPort, DnsTamperingEvidence, ExtractedHost,
+        HostAutolearnEvent, HostAutolearnState, HostSource, PolicyPort, RetrySelectionPenalty, RouteAdvance,
+        TransportProtocol,
+    };
+}
