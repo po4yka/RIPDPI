@@ -2,18 +2,15 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
+mod report;
+
 use crate::connectivity::{build_network_environment_probe, push_event};
-use crate::engine::report::{build_report, connectivity_summary};
 use crate::engine::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
 };
 
 const PHASE: &str = "environment";
 const ARTIFACT_SOURCE: &str = "network_environment";
-#[cfg(test)]
-pub(super) const PHASE_TEST: &str = PHASE;
-#[cfg(test)]
-pub(super) const ARTIFACT_SOURCE_TEST: &str = ARTIFACT_SOURCE;
 
 pub(in crate::engine::runners) struct EnvironmentRunner;
 
@@ -63,16 +60,7 @@ impl ExecutionStageRunner for EnvironmentRunner {
         };
         if snapshot.transport == "none" && !snapshot.vpn_service_was_active {
             warn(&runtime.shared, "OS reports no network; aborting scan".to_string());
-            runtime.finish_with_report(build_report(
-                plan.session_id.clone(),
-                plan.request.clone(),
-                plan.started_at,
-                connectivity_summary(&runtime.results, &plan.request.path_mode),
-                runtime.results.clone(),
-                runtime.observations.clone(),
-                None,
-                None,
-            ));
+            report::finish_offline_scan(plan, runtime);
             return RunnerOutcome::Finished;
         }
         if !snapshot.validated && !snapshot.captive_portal {

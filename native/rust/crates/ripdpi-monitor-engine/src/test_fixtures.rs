@@ -753,6 +753,5 @@ pub fn build_udp_dns_answer(request: &[u8], answer_ip: Ipv4Addr) -> Result<Vec<u
 pub fn make_cert(names: &[String]) -> (CertificateDer<'static>, PrivateKeyDer<'static>) {
     let certified = generate_simple_self_signed(names.to_vec()).expect("generate cert");
     let cert = certified.cert.der().clone();
-    let key = PrivateKeyDer::Pkcs8(certified.signing_key.serialize_der().into());
-    (cert, key)
+    (cert, PrivateKeyDer::Pkcs8(certified.signing_key.serialize_der().into()))
 }

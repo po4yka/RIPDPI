@@ -118,33 +118,13 @@ pub trait Probe {
     fn run(&self, ctx: &ProbeContext) -> ProbeOutcome;
 }
 
-pub mod circumvention_reachability;
-pub mod dns_tampering;
-pub mod doh_survey;
-pub mod ech_handshake;
-pub mod hickory_rustls_ech_driver;
-pub mod http_injection;
-pub mod http_response_block;
-pub mod ip_block_suspect;
-pub mod mtproto_reachability;
-pub mod quic_probe;
-pub mod service_reachability;
-pub mod throughput;
-pub mod tls_alert;
+pub mod probes;
 
-pub use circumvention_reachability::CircumventionReachabilityProbe;
-pub use dns_tampering::DnsTamperingConfirmationProbe;
-pub use doh_survey::DohSurveyProbe;
-pub use ech_handshake::EchHandshakeProbe;
-pub use hickory_rustls_ech_driver::HickoryRustlsEchHandshakeDriver;
-pub use http_injection::HttpInjectionOfflineProbe;
-pub use http_response_block::HttpResponseBlockOfflineProbe;
-pub use ip_block_suspect::IpBlockSuspectProbe;
-pub use mtproto_reachability::MtprotoReachabilityProbe;
-pub use quic_probe::QuicProbeOfflineProbe;
-pub use service_reachability::ServiceReachabilityProbe;
-pub use throughput::ThroughputProbe;
-pub use tls_alert::TlsAlertOfflineProbe;
+pub use probes::{
+    CircumventionReachabilityProbe, DnsTamperingConfirmationProbe, DohSurveyProbe, EchHandshakeProbe,
+    HickoryRustlsEchHandshakeDriver, HttpInjectionOfflineProbe, HttpResponseBlockOfflineProbe, IpBlockSuspectProbe,
+    MtprotoReachabilityProbe, QuicProbeOfflineProbe, ServiceReachabilityProbe, ThroughputProbe, TlsAlertOfflineProbe,
+};
 
 #[cfg(feature = "compat-facade")]
 /// Reserved for re-exports as concrete probes migrate in. Empty today.

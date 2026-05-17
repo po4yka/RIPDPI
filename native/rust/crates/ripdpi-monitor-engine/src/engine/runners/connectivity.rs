@@ -56,15 +56,15 @@ mod tests {
     /// `run_collecting()` and therefore do not emit a `ConnectivityProbeFamily`
     /// artifact source (telegram has no family artifact; environment uses its own const).
     const FROZEN: &[(&str, &str, &str)] = &[
-        ("dns", super::dns::PHASE, super::dns::ARTIFACT_SOURCE),
+        ("dns", "dns", "dns_integrity"),
         ("tcp", super::tcp::PHASE, super::tcp::ARTIFACT_SOURCE),
-        ("quic", super::quic::PHASE, super::quic::ARTIFACT_SOURCE),
+        ("quic", "quic", "quic_reachability"),
         ("web", super::web::PHASE, super::web::ARTIFACT_SOURCE),
         ("throughput", super::throughput::PHASE, super::throughput::ARTIFACT_SOURCE),
         ("circumvention", super::circumvention::PHASE, super::circumvention::ARTIFACT_SOURCE),
         ("service", super::service::PHASE, super::service::ARTIFACT_SOURCE),
         ("telegram", super::telegram::PHASE_TEST, "telegram"),
-        ("environment", super::environment::PHASE_TEST, super::environment::ARTIFACT_SOURCE_TEST),
+        ("environment", "environment", "network_environment"),
     ];
 
     /// Expected byte-identical pairs frozen at spec time (acceptance criteria from

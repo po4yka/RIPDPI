@@ -4,7 +4,7 @@
 //! one row of the verdict matrix specified in the goal.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
-use ripdpi_diagnostics_probes::service_reachability::{
+use ripdpi_diagnostics_probes::probes::service_reachability::{
     LayerStatus, ServiceLayer, ServiceLayerOutcome, ServiceReachabilityProbe, SERVICE_REACHABILITY_PROBE_ID,
 };
 use ripdpi_diagnostics_probes::{Probe, ProbeContext, ProbeVerdict};

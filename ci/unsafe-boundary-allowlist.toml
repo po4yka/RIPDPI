@@ -144,7 +144,7 @@ owner = "android-ffi"
 review_date = "2026-11-15"
 
 [[entries]]
-file = "native/rust/crates/ripdpi-android/src/ffi/cdn_ech_bridge.rs"
+file = "native/rust/crates/ripdpi-android/src/ffi/cdn_ech_bridge/cdn_ech_entry.rs"
 pattern = 'extern "system" fn'
 reason = "JNI bridge: CDN ECH"
 preconditions = "Invoked from Java; JNIEnv* valid for the call; arguments are typed JObject/JString"
@@ -262,6 +262,15 @@ review_date = "2026-11-15"
 
 [[entries]]
 file = "native/rust/crates/ripdpi-tunnel-android/src/lib.rs"
+pattern = 'extern "system" fn'
+reason = "JNI_OnLoad export for ripdpi-tunnel-android crate"
+preconditions = "Invoked from Java; JavaVM* valid for the call"
+enforcement = "panic::catch_unwind for JNI_OnLoad"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-tunnel-android/src/entry.rs"
 pattern = 'extern "system" fn'
 reason = "JNI exports for ripdpi-tunnel-android crate (tunnel session lifecycle)"
 preconditions = "Invoked from Java; JNIEnv* valid for the call; jlong handles validated via HandleRegistry"

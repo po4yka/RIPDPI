@@ -8,8 +8,8 @@
 
 use std::time::Duration;
 
-use ripdpi_diagnostics_probes::ech_handshake::{EchHandshakeDriver, EchHandshakeOutcome};
-use ripdpi_diagnostics_probes::hickory_rustls_ech_driver::HickoryRustlsEchHandshakeDriver;
+use ripdpi_diagnostics_probes::probes::ech_handshake::{EchHandshakeDriver, EchHandshakeOutcome};
+use ripdpi_diagnostics_probes::probes::hickory_rustls_ech_driver::HickoryRustlsEchHandshakeDriver;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

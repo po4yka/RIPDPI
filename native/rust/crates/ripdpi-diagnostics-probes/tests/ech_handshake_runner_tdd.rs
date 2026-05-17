@@ -8,7 +8,7 @@
 
 use std::time::Duration;
 
-use ripdpi_diagnostics_probes::ech_handshake::{
+use ripdpi_diagnostics_probes::probes::ech_handshake::{
     EchHandshakeDriver, EchHandshakeOutcome, EchHandshakeRunner, NoopEchHandshakeDriver,
 };
 use ripdpi_diagnostics_probes::{Probe, ProbeContext, ProbeVerdict};

@@ -5,6 +5,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -83,8 +85,14 @@ class DefaultServiceStateStore
     constructor(
         private val widgetStateRepository: WidgetStateRepository,
         private val widgetNotifier: WidgetNotifier,
-        @ApplicationScope private val applicationScope: CoroutineScope,
+        @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) : ServiceStateStore {
+        constructor() : this(
+            NoopWidgetStateRepository,
+            NoopWidgetNotifier,
+            CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+        )
+
         private val _status = MutableStateFlow(AppStatus.Halted to Mode.VPN)
         override val status: StateFlow<Pair<AppStatus, Mode>> = _status.asStateFlow()
 
@@ -204,6 +212,18 @@ class DefaultServiceStateStore
                 )
         }
     }
+
+private object NoopWidgetStateRepository : WidgetStateRepository {
+    private val snapshot = MutableStateFlow(WidgetSnapshot())
+
+    override suspend fun write(snapshot: WidgetSnapshot) {
+        this.snapshot.value = snapshot
+    }
+
+    override fun observe(): StateFlow<WidgetSnapshot> = snapshot.asStateFlow()
+
+    override suspend fun snapshot(): WidgetSnapshot = snapshot.value
+}
 
 @Module
 @InstallIn(SingletonComponent::class)

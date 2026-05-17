@@ -58,8 +58,3 @@ impl ExecutionStageRunner for QuicRunner {
         collect_family_steps::<QuicFamily>(plan, cancel, tls_verifier)
     }
 }
-
-#[cfg(test)]
-pub(super) const PHASE: &str = QuicFamily::PHASE;
-#[cfg(test)]
-pub(super) const ARTIFACT_SOURCE: &str = QuicFamily::ARTIFACT_SOURCE;

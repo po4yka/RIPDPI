@@ -45,7 +45,7 @@ use rustls::pki_types::{EchConfigListBytes, ServerName};
 use rustls::RootCertStore;
 use tokio_rustls::TlsConnector;
 
-use crate::ech_handshake::{EchHandshakeDriver, EchHandshakeOutcome};
+use crate::probes::ech_handshake::{EchHandshakeDriver, EchHandshakeOutcome};
 
 /// Real ECH handshake driver using `hickory-resolver` for HTTPS RR lookup
 /// and `rustls` 0.23 + `tokio-rustls` for the TLS handshake.

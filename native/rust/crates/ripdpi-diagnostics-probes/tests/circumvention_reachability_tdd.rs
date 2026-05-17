@@ -1,7 +1,7 @@
 //! TDD test file for CircumventionReachabilityProbe.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
-use ripdpi_diagnostics_probes::circumvention_reachability::{
+use ripdpi_diagnostics_probes::probes::circumvention_reachability::{
     CircumventionLayer, CircumventionLayerOutcome, CircumventionLayerStatus, CircumventionReachabilityProbe,
     CIRCUMVENTION_REACHABILITY_PROBE_ID,
 };

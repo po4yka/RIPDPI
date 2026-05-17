@@ -14,9 +14,6 @@ pub(super) trait ConnectivityProbeFamily {
 
     fn targets(plan: &ExecutionPlan) -> Vec<Self::Target>;
     fn message(target: &Self::Target) -> String;
-    fn latest_target(target: &Self::Target) -> String {
-        Self::message(target)
-    }
     #[rustfmt::skip]
     fn run_probe(target: &Self::Target, plan: &ExecutionPlan, tls_verifier: Option<&Arc<dyn ServerCertVerifier>>) -> ProbeResult;
 }
@@ -37,14 +34,13 @@ pub(super) fn collect_family_steps<F: ConnectivityProbeFamily>(
             return CollectedStageOutcome::Cancelled(steps);
         }
         let message = F::message(&target);
-        let latest_target = F::latest_target(&target);
         let probe = F::run_probe(&target, plan, tls_verifier);
         let outcome = probe.outcome.clone();
         let artifacts = RunnerArtifacts::from_probe(probe, F::ARTIFACT_SOURCE, &plan.request.path_mode);
         steps.push(CollectedStep {
             phase: F::PHASE,
+            latest_probe_target: Some(message.clone()),
             message,
-            latest_probe_target: Some(latest_target),
             latest_probe_outcome: Some(outcome),
             artifacts,
         });

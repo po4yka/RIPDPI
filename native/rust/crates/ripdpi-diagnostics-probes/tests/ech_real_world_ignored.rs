@@ -14,8 +14,8 @@
 
 use std::time::Duration;
 
-use ripdpi_diagnostics_probes::ech_handshake::{EchHandshakeDriver, EchHandshakeOutcome, EchHandshakeRunner};
-use ripdpi_diagnostics_probes::hickory_rustls_ech_driver::HickoryRustlsEchHandshakeDriver;
+use ripdpi_diagnostics_probes::probes::ech_handshake::{EchHandshakeDriver, EchHandshakeOutcome, EchHandshakeRunner};
+use ripdpi_diagnostics_probes::probes::hickory_rustls_ech_driver::HickoryRustlsEchHandshakeDriver;
 use ripdpi_diagnostics_probes::ProbeContext;
 
 fn block_on<F: std::future::Future>(f: F) -> F::Output {
