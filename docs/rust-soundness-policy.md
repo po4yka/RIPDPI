@@ -139,6 +139,7 @@ on every PR. It looks for the following risky patterns under
 | `no_mangle without extern ABI` (proximity ≤ 3 lines) | `#[no_mangle]` not paired with `extern "C"` / `extern "system"` / similar within 3 source lines below. A `#[no_mangle]` on a default-Rust-ABI function exports an unstable-ABI symbol under a fixed name — guaranteed ABI mismatch at every C/Java/other-language call site. Workspace has three correctly-paired occurrences (`reality_hook.rs:90/109/123` — all paired with `extern "C"`); the proximity check locks the workspace at that baseline. See "FFI layout and ABI" below. |
 | `bindgen invocation` | `bindgen::Builder` / `bindgen::generate` / `cbindgen::Builder` / `cbindgen::generate` / `cbindgen::Config` / `cbindgen::Language` calls in build scripts or production code. Both crates generate FFI binding code that the rest of the workspace's `#[repr]` discipline cannot automatically verify. The workspace does NOT depend on either crate today; the pattern is forward-defense. Any future adoption must include either a checked-in snapshot of the generated bindings (committed for PR review) or a CI step that diffs generated output against a snapshot. See "FFI layout and ABI" below. |
 | `raw back-pointer field` | A struct field whose name matches a back-pointer convention (`parent`, `owner`, `container`, `list`, `prev`, `next`, `head`, `tail`, `back`, `back_ptr`, `backptr`, `registry`) and whose type is a raw pointer (`*const T` / `*mut T`) or `NonNull<T>`. The pattern is the canonical intrusive parent/owner/container pointer — by definition it does NOT own the pointee, so any `Drop` impl that dereferences it has no Rust-level guarantee the pointee is still alive (or not partially dropped). Workspace has zero production occurrences: every Drop that notifies a parent uses a lifetime-bound `&'a Parent`, an `Arc<Parent>`, or a `Weak<Parent>`. See "Drop and raw back-pointers" below. |
+| `MaybeUninit::write`, `ptr::write`, `addr_of_mut!` | Upstream-write sites of the partial-init class. `MaybeUninit::write` (qualified-path), bare `ptr::write` (NOT `_bytes`/`_volatile`/`_unaligned`), and `addr_of_mut!` are the canonical entry points for staged initialisation. If the surrounding function returns `Result` or can panic between the first write and the commit point (`set_len` / `assume_init` / struct literal), every already-written `T: Drop` value leaks. Workspace has zero production occurrences. See "Partial initialisation and panic safety" below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -2783,6 +2784,181 @@ generic allowlist preconditions: a back-pointer bug class is
 load-bearing for many small UAFs at once (every Drop along the
 parent chain), so the review burden is intentionally higher.
 
+## Partial initialisation and panic safety
+
+A staged initialisation that writes some elements of a buffer,
+some fields of a struct, or some entries of a collection BEFORE
+publishing ownership (via `set_len`, `assume_init`, or a struct
+literal) is at elevated risk if the surrounding function can
+panic or return `Err` between the first write and the final
+commit. Two failure modes:
+
+1. **Leak.** The partially-initialised prefix contains
+   `T: Drop` values that have logically been written. Dropping
+   the surrounding `MaybeUninit<T>` / `[MaybeUninit<T>; N]` /
+   `Vec<MaybeUninit<T>>` does NOT call `T::drop`, so each
+   already-written `T` leaks its owned resources (file
+   descriptors, heap allocations, mutex guards, etc.).
+2. **UB on continuation.** Code that proceeds to call
+   `assume_init` or `set_len(written)` after the panic-recovery
+   path treats uninit bytes as valid `T` values. Any subsequent
+   read materialises an invalid `T` — instant UB.
+
+The bug class only matters for `T: Drop`. For `T: !Drop`
+(integers, `[u8; N]`, `#[repr(C)]` POD structs without Drop-
+bearing fields, function pointers), `MaybeUninit<T>` is itself
+`!Drop` for its uninit contents, so a panic that abandons the
+prefix is sound by definition.
+
+### Rule
+
+A safe function that returns `Result` or can panic MUST NOT
+combine `MaybeUninit::write` / `ptr::write` / `addr_of_mut!` +
+field-by-field assignment with subsequent `assume_init*` /
+`set_len` on a `T: Drop` payload UNLESS one of:
+
+- The full initialisation is committed by an infallible
+  expression (no `?`, no panic source, no fallible call between
+  the first write and the commit point), OR
+- The function maintains an **initialisation guard**: a private
+  RAII struct that owns the partial prefix, drops the written
+  elements in its `Drop` impl, and is `mem::forget`-en or
+  `into_inner`'d only on the commit path, OR
+- The initialisation uses a safe API (`Vec::push`,
+  `Vec::extend_from_slice`, `Vec::with_capacity` +
+  `spare_capacity_mut` with `T: !Drop`) that handles the
+  panic-leak class internally.
+
+`Vec::set_len` is `unsafe fn` precisely because it publishes
+the prefix `[0, n)` as initialised; calling it BEFORE all
+`[0, n)` slots have been written with valid `T` values is the
+canonical bug. The existing `unsafe Vec::set_len` scanner
+pattern catches the inline `unsafe { v.set_len(n) }` shape;
+this rule adds the upstream write sites that produce the
+initialised prefix.
+
+### Preferred shapes
+
+In order of preference for a fallible initialisation that fills
+`n` slots:
+
+1. **Safe `Vec::push` / `Vec::extend_from_slice` /
+   `Vec::extend(iter)`.** Each element is moved into the Vec by
+   value; if the iterator panics mid-way, the `Vec`'s Drop runs
+   on the prefix already pushed (which contains valid `T`
+   values, hence `T::drop` runs exactly once per element). No
+   `unsafe` needed. Default to this for every case that can be
+   expressed as "iterate and push".
+
+2. **`Vec::with_capacity` + `spare_capacity_mut` + `set_len`,
+   restricted to `T: !Drop`.** The `T: !Drop` bound makes
+   panic-leak vacuously safe: there are no resources to leak.
+   This is the canonical workspace pattern, documented by the
+   reference test in
+   `ripdpi-vless/src/scoped_handle.rs::tests` (with
+   `T = u8`). New occurrences must add a
+   `static_assertions::assert_not_impl_any!(T, Drop)` or an
+   equivalent compile-time check naming the `T: !Drop`
+   precondition.
+
+3. **All-or-nothing init using infallible writes.** Collect
+   into a temporary (`Vec<T>`, array literal, struct literal)
+   using safe operations; commit the result in a single
+   infallible move into the final destination. No partial-init
+   state exists, no panic can interrupt the commit.
+
+4. **RAII initialisation guard.** A private newtype that owns
+   a `&mut [MaybeUninit<T>]` plus a `written: usize` counter,
+   whose `Drop` impl runs
+   `unsafe { ptr::drop_in_place(slice::from_raw_parts_mut(
+       slot.as_mut_ptr() as *mut T, self.written)) }` on the
+   prefix. Commit by replacing the guard with the final value
+   via `mem::forget`. This shape is reserved for cases where
+   shapes 1–3 are not possible (FFI fill patterns with a
+   `T: Drop` payload).
+
+### Anti-patterns
+
+- A `fn new(...) -> io::Result<Self>` that calls
+  `MaybeUninit::write(&mut slot, value)` followed by a fallible
+  syscall (`libc::ioctl(...)? -> err`) before commit. The Err
+  branch returns without dropping `value`, leaking its
+  resources. The fix: do the syscall FIRST, validate, then
+  commit the initialisation infallibly.
+- A struct-by-struct staged init using `addr_of_mut!` with a
+  fallible expression for one field. The fix: build the
+  contents in local variables (safe construction), then assign
+  the struct literal as a single infallible move.
+- `unsafe { v.set_len(initialised + 1) }` inside a loop where
+  the per-iteration writer can panic. The prefix grows but the
+  invariant "all of `[0, len)` is valid `T`" is violated the
+  moment the writer panics. Use `Vec::push` (which only commits
+  the length after the write returns) instead.
+
+### Existing benign uses
+
+Audit log: the workspace has ONE production `MaybeUninit` site
+plus ONE production `set_len` site, both panic-safe by
+construction:
+
+| File | Pattern | Why panic-safe |
+|---|---|---|
+| `crates/ripdpi-privileged-ops/.../icmp_wrapped_udp.rs:27` | `[MaybeUninit<u8>; 8192]` stack buffer | `u8: !Drop`, so panic leaves no resources to leak. The slice constructed in the SAFETY block is sized to `received` (the contract-fulfilled prefix). |
+| `crates/ripdpi-vless/src/scoped_handle.rs::tests` (test code) | `Vec<u8>::with_capacity + spare_capacity_mut + set_len(n)` | `u8: !Drop`, plus test isolation. Documents the canonical workspace shape. |
+| `crates/ripdpi-io-uring/src/bufpool.rs::RegisteredBufferPool::new` | `Vec::collect` + fallible `register_buffers(&iovecs)?` | All buffers are FULLY initialised with `vec![0u8; ...]` BEFORE the fallible syscall; Err branch drops them via standard `Vec<Box<[u8]>>` Drop. No partial-init window. |
+| `crates/ripdpi-privileged-ops/.../mmap_region.rs::MmapRegion::new` | Single fallible step (`mmap_anonymous`) | Err branch: nothing has been allocated yet. Ok branch: the `NonNull<u8>` is moved into `Self` infallibly. No partial-init window. |
+
+The `BufferHandle::set_len` and `File::set_len` callers in the
+workspace are safe inherent methods on those types, not the
+`unsafe Vec::set_len` form. Scanner excludes them.
+
+### CI surface
+
+`scripts/ci/check_unsafe_boundaries.py` runs three scans on
+every PR for the upstream-write sites of the partial-init
+class:
+
+- **`MaybeUninit::write`** — qualified-path form
+  (`MaybeUninit::write(...)` /
+  `MaybeUninit::<T>::write(...)` /
+  `std::mem::MaybeUninit::write(...)`). The bare method-call
+  spelling `slot.write(v)` is NOT flagged because `.write(` is
+  ambiguous with the `Write` trait.
+- **`ptr::write`** — bare form only. The sibling APIs
+  `ptr::write_bytes`, `ptr::write_volatile`, `ptr::write_unaligned`
+  have their own audit-class and are excluded via a `(?!_)`
+  negative lookahead.
+- **`addr_of_mut!`** — macro invocation. The read-only
+  `addr_of!` is intentionally NOT in scope (its failure mode is
+  read-from-uninit, which is already caught by
+  `MaybeUninit::assume_init`).
+
+The commit point patterns (`unsafe Vec::set_len`,
+`MaybeUninit::assume_init`) are already covered by existing
+scanner rules and lock the workspace at their respective
+zero-occurrence baselines.
+
+### Allowlist requirements
+
+Each `MaybeUninit::write` / `ptr::write` / `addr_of_mut!`
+allowlist entry must state:
+
+1. **Drop-leak proof** — either `T: !Drop` (and how the bound
+   is enforced — `static_assertions::assert_not_impl_any!`,
+   trait-dispatch ambiguity block, or `#[deny(...)]` lint) OR
+   the name of the initialisation guard that handles panic
+   recovery.
+2. **Commit-path linearity** — the source range from first
+   write to commit (`set_len` / `assume_init` / struct
+   literal) must be infallible: no `?`, no panic source, no
+   fallible call. The entry names the line range and confirms
+   the inspection.
+3. **Panic-path test** — the name of the test that forces a
+   panic between the first write and the commit, asserting no
+   leak (count `Drop` calls via a static counter) and no UB
+   (no use of partially-init memory).
+4. **Owner.**
+
 ## Field declaration order in `Drop` impls
 
 Rust runs a user-defined `Drop::drop` body FIRST, then drops each field
@@ -2814,11 +2990,12 @@ mutually dependent MUST either:
    on those fields (i.e. the only ordering pressure is the
    automatic post-body field drop).
 
-3. **Use `ManuallyDrop<T>` plus a manual `ManuallyDrop::drop(&mut
-   self.x)` chain** when neither (1) nor (2) is expressible
-   (e.g. self-referential types, FFI handle exchange). Each
-   manual drop must have a `// SAFETY:` block stating the chosen
-   order and the dependency that mandates it.
+3. **Restructure the type to avoid the cross-field dependency**
+   entirely -- carve the unrelated fields into a separate inner
+   struct that owns the teardown discipline, then compose. The
+   workspace explicitly DOES NOT permit `ManuallyDrop<T>` as the
+   escape hatch here -- see the dedicated forbiddance section
+   below for the reasoning and the preferred alternatives.
 
 A Drop body that performs cleanup actions whose ordering matters
 (release a lock → unlink an artifact; cancel a worker → join its
@@ -2951,6 +3128,189 @@ construct-and-drop without leak.
   alone cannot catch.
 - `.claude/rules/llm-rust-prompts.md` — diff acceptance gate
   for AI-generated diffs touching `impl Drop`.
+
+## `ManuallyDrop<T>` forbiddance
+
+`std::mem::ManuallyDrop<T>` is a `#[repr(transparent)]` wrapper
+that DISABLES `T`'s destructor. The wrapped value's `Drop` no
+longer runs automatically; the surrounding code MUST hit a
+manual `ManuallyDrop::drop(&mut field)` (or `ManuallyDrop::take`
++ explicit consumption) on every path out of scope, including
+panic-unwind paths. Three failure modes show up empirically:
+
+- **Forgotten drop.** A panic between construction and the
+  manual `ManuallyDrop::drop` site leaks the resource. With
+  `panic = "unwind"` (the `android-jni` cargo profile setting)
+  the leak is silent and only the resource-exhaustion side
+  effect surfaces, usually under load tests minutes later.
+- **Double drop.** The author moves the value out of the
+  wrapper via `ManuallyDrop::into_inner` AND also runs the
+  manual `ManuallyDrop::drop`. The first call drops the value;
+  the second call drops the already-dropped value via the
+  freed allocation. UB.
+- **Read after drop.** Code reads through `&self.field` /
+  `&mut self.field` after the manual `ManuallyDrop::drop`. The
+  type system permits the read because `ManuallyDrop<T>` is
+  still a valid `T` according to the compiler, but the
+  pointed-to bytes are now reused freed memory. UB on the
+  first read.
+
+The escape valve `ManuallyDrop` provides (suppress automatic
+Drop while keeping the field accessible) is almost never the
+right tool. The workspace's measured occurrences across the
+audit window (2026-05-17): ZERO production uses, ZERO test
+uses. Issue #33 retired `ManuallyDrop` as a valid escape hatch
+in the field-drop-order section above.
+
+### Rule
+
+`ManuallyDrop<T>` (qualified as `std::mem::ManuallyDrop<T>`,
+`core::mem::ManuallyDrop<T>`, or unqualified) is FORBIDDEN in
+production Rust crates under `native/rust/crates/*/src/**`. Any
+new occurrence must restructure to one of:
+
+1. **`Option<T>`** with `Option::take()` for explicit teardown
+   ordering. The borrow checker proves the value is consumed
+   exactly once; `Drop` runs automatically on the `None` slot
+   (which is trivial); the `Some` case runs `T`'s destructor at
+   the explicit `take()` site. This is the canonical
+   replacement and matches the rest of the workspace's
+   discipline (`TemporaryProxyRuntime::handle`,
+   `EchoLoopback::shutdown` + `join_handle`,
+   `IoUringDriver::thread`, etc.).
+2. **Private RAII guard** (`ScopedHandle<T, F>`,
+   `BufferHandle<'pool>`, `IdleGuard<'_>`). The destructor is
+   the single ownership-transfer point; safe code cannot
+   bypass it (move-only handle, no `Copy`/`Clone`).
+3. **Explicit enum state** (`Idle` / `Running` / `Destroyed`
+   carrying the resource inside the active variant). The
+   variant's `Drop` runs at the transition point; the state
+   transition is in `match`-checked safe code.
+4. **`mem::take` + `Default`** when the value's `Default::
+   default()` is provably cheap to drop (`Vec::new()`,
+   `None`, `String::new()`). Use `mem::take` to swap the
+   field out for the empty value and consume the original by
+   value, calling `T`'s destructor through `drop()`.
+
+If none of these apply, the type is a self-referential
+structure or a self-referential FFI handle exchange. In that
+case the correct shape is `Pin<Box<T>>` with explicit
+`PhantomPinned` plus a custom destructor on `T`, NOT
+`ManuallyDrop<T>`.
+
+### Soundness boundary -- private and explicit
+
+`ManuallyDrop<T>` is a SOUNDNESS BOUNDARY, not a convenience
+wrapper. Crossing it shifts responsibility for `T`'s destructor
+from the compiler to the surrounding code. That responsibility
+MUST be encoded in the type system, not in commentary:
+
+- **Fields are private.** A `pub(crate) field: ManuallyDrop<T>`
+  is forbidden. The wrapper must live behind a private module
+  (`mod private { ... }`) so safe code outside the module
+  cannot construct, move out of, or read through the wrapper
+  except via the module's curated API.
+- **Drop state is explicit.** The owning struct MUST carry an
+  explicit state machine (typically a private enum:
+  `NotInitialized | Initialized | ManuallyDropped`) and every
+  `ManuallyDrop::drop` / `ManuallyDrop::take` /
+  `ManuallyDrop::into_inner` call MUST happen only in the
+  exact state transition the protocol allows. The state
+  transition itself, not the `// SAFETY:` comment above it,
+  is what proves the call is reachable exactly once.
+- **Panic safety is committed in writing.** Every panic-
+  unwind path through the wrapper's lifetime is enumerated
+  in the allowlist entry below -- which path leaks
+  deterministically, which path triggers a guard's Drop that
+  hits the manual drop, which path is unreachable because of
+  a preceding `?`. No path may double-drop.
+
+### Allowlist
+
+In the unusual case where `ManuallyDrop` is unavoidable (a
+crate-private FFI helper that must hand off a value across an
+allocator boundary; a self-referential type that cannot use
+`Pin<Box<T>>` for layout reasons), the type MUST:
+
+- Satisfy the three Soundness-Boundary rules above.
+- Carry a `// SAFETY:` block on every `ManuallyDrop::drop` /
+  `ManuallyDrop::take` / `ManuallyDrop::into_inner` call site
+  naming the matching construction site and the state
+  transition that proves the call is reachable exactly once.
+- Have a `#[test]` exercising the panic-unwind path
+  (`std::panic::catch_unwind` around the construction +
+  teardown sequence; assert the leak counter is unchanged)
+  AND a Miri test (`cargo +nightly miri test`) that runs the
+  same sequence under Miri's UB / UAF / leak detector. The
+  reference implementation lives in
+  `crates/ripdpi-vless/tests/manuallydrop_canary.rs`.
+- Earn an entry in `ci/unsafe-boundary-allowlist.toml` with
+  the `ManuallyDrop` pattern AND the three extra required
+  fields enforced by the scanner's allowlist validator:
+    * `drop_state_protocol` -- the explicit state machine
+      (e.g. `"NotInitialized -> Initialized ->
+      ManuallyDropped; transition via Self::dispose()
+      consuming self"`) and which code path triggers each
+      transition.
+    * `panic_safety` -- per-unwind-path proof that the manual
+      drop runs exactly once or the leak is bounded (name the
+      leak budget).
+    * `alternative_rejected` -- a specific reason `Option<T>`
+      + `Option::take`, a private RAII guard,
+      `mem::take` + `Default`, or an explicit enum state with
+      the resource in the variant is NOT sufficient for this
+      site. The default policy answer is "use one of those";
+      the allowlist entry must rebut the default.
+
+The scanner-side allowlist validator
+(`scripts/ci/check_unsafe_boundaries.py::load_allowlist`)
+enforces all of the above at PR time. An entry that lists
+`pattern = "ManuallyDrop"` but omits any of the three extra
+fields exits with code 2 (allowlist malformed), failing CI
+before the scan itself runs. Six unit tests in
+`scripts/ci/tests/test_check_unsafe_boundaries.py::
+AllowlistValidatorTests` pin this enforcement down.
+
+### CI surface
+
+`scripts/ci/check_unsafe_boundaries.py` runs on every PR (via
+`scripts/ci/run-rust-lint.sh`). The `ManuallyDrop` pattern in
+that scanner's `PATTERNS` dict flags any new occurrence of the
+type. The four unit tests in
+`scripts/ci/tests/test_check_unsafe_boundaries.py` cover the
+field-shape match, the local-binding match, the substring
+guard (must NOT match `ManuallyDropped` / `manually_drop_*`),
+and the whitespace-tolerant `ManuallyDrop  <T>` form.
+
+`mem::forget` is a separate but related pattern that suppresses
+Drop without `ManuallyDrop`. The five production
+`mem::forget` sites in the workspace
+(`ripdpi-vless/src/scoped_handle.rs::take`,
+`ripdpi-io-uring/src/bufpool.rs::into_pending`,
+`ripdpi-privileged-ops/src/linux/fd.rs::close_owned_fd`,
+`ripdpi-android-proxy-adapter/src/lifecycle.rs::start_session`'s
+`IdleGuard` disarm, and the same disarm pattern in
+`ripdpi-proxy-runtime/src/runtime/listeners.rs`) are each
+allowlisted with documented enforcement and matching
+construction sites. New `mem::forget` occurrences inherit the
+existing allowlist discipline -- no new CI surface needed
+because the unsafe-boundary scanner already requires the
+allowlist entry on the surrounding `Box::into_raw` /
+`unsafe impl Send` / `Vec::set_len` patterns that the
+`mem::forget` site typically pairs with.
+
+### Cross-references
+
+- `## Field declaration order in Drop impls` (above) -- removes
+  `ManuallyDrop<T>` from the list of valid teardown-ordering
+  escape hatches.
+- `## Ownership must be types, not flags` (below) -- forbids
+  the related "manual drop flag" anti-pattern (a `bool` that
+  tracks whether a separate resource has been dropped).
+- `## `Box::into_raw` / `Box::from_raw` ownership transfer` --
+  the canonical FFI-friendly ownership-transfer pattern that
+  replaces `ManuallyDrop` for the "hand the value across an
+  allocator boundary" use case.
 
 ## Ownership must be types, not flags
 

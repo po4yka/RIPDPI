@@ -100,6 +100,31 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"MaybeUninit(?:::<[^>]*>)?::assume_init(?:_ref|_mut|_drop|_read)?\b"
     ),
     "mem::transmute": re.compile(r"\b(std::|core::)?mem::transmute\b|\btransmute(::<[^>]*>)?\("),
+    # `ManuallyDrop<T>` -- workspace policy forbids it in production
+    # code. The wrapper suppresses `T`'s destructor and demands a
+    # manual `ManuallyDrop::drop(&mut field)` call on every drop /
+    # ownership-transfer path; missed paths leak; double-called paths
+    # produce double-drop UB; reads after manual drop produce
+    # use-after-free. Issue #33 audit found ZERO production
+    # occurrences. Per docs/rust-soundness-policy.md
+    # § "`ManuallyDrop<T>` forbiddance" any new occurrence must
+    # restructure to one of:
+    #   (a) `Option<T>` with `Option::take()` for explicit teardown
+    #       ordering -- the borrow checker and Drop derivation
+    #       handle the rest;
+    #   (b) a private RAII guard (`ScopedHandle<T, F>`,
+    #       `BufferHandle<'pool>`) where the destructor is the
+    #       single ownership-transfer point;
+    #   (c) an explicit enum state (`Idle`/`Running` with the
+    #       resource carried by the variant -- the variant's Drop
+    #       runs at exactly one transition);
+    #   (d) `mem::take` + a `Default` shape that is provably cheap
+    #       to drop (Vec::new(), None);
+    # OR earn an allowlist entry naming the documented invariant
+    # set, the matching teardown sites, and a panic-path test.
+    # The regex catches qualified (`std::mem::ManuallyDrop<T>`,
+    # `core::mem::ManuallyDrop<T>`) and unqualified spellings.
+    "ManuallyDrop": re.compile(r"\b(?:std::mem::|core::mem::|mem::)?ManuallyDrop\s*<"),
     "get_unchecked": re.compile(r"\.get_unchecked(_mut)?\("),
     "unwrap_unchecked": re.compile(r"\.unwrap_unchecked\(\)"),
     "Pin::new_unchecked": re.compile(r"\bPin::new_unchecked\b"),
@@ -504,6 +529,58 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"\.(?:lock|read|write|borrow|borrow_mut)\s*\(\s*\).*?"
         r"\b(?:observer|callback|cb|handler|hook|listener|notify|emit|on_[a-z_]+)\s*\("
     ),
+    # `MaybeUninit::write(value)` (qualified-path spelling) writes a
+    # `T` value into a `MaybeUninit<T>` slot without dropping any
+    # previously-written value. If the surrounding function returns
+    # a `Result` (or contains `?`), or can panic between successive
+    # `write` calls, the partially-initialised prefix becomes
+    # unreachable safely: dropping the `MaybeUninit<T>` does NOT
+    # call `T::drop`, so any `T: Drop` value already written leaks
+    # its resources. Conversely, calling `assume_init*` on a slot
+    # whose initialisation was abandoned mid-loop reads uninit
+    # bytes → UB. Issue #32 audit found ZERO production
+    # occurrences (the one test-only `scoped_handle.rs` reference
+    # is in `mod tests` documenting the canonical safe shape).
+    # New occurrences must restructure to safe `Vec::push` /
+    # `Vec::extend_from_slice` / `Vec::with_capacity` +
+    # `spare_capacity_mut` (where `T: !Drop` removes the
+    # panic-leak class entirely), or earn an allowlist entry
+    # naming the init-guard discipline per
+    # docs/rust-soundness-policy.md § "Partial initialisation and
+    # panic safety".
+    "MaybeUninit::write": re.compile(r"\bMaybeUninit(?:::<[^>]*>)?::write\b"),
+    # `ptr::write(dst, src)` (bare form — NOT `write_bytes`,
+    # `write_volatile`, `write_unaligned`) writes `src` into the
+    # location at `dst` without dropping whatever value was there.
+    # The canonical use is `MaybeUninit`-style staged initialisation,
+    # which has the same partial-init panic-leak class as
+    # `MaybeUninit::write`. The negative lookahead `(?!_)` excludes
+    # the three sibling APIs which have their own audit-class
+    # (`write_bytes` is allowlisted for the mmap_region zero-init;
+    # `write_volatile` / `write_unaligned` are unused in the
+    # workspace). Issue #32 audit found ZERO production
+    # occurrences. New uses must restructure or earn an allowlist
+    # entry naming the destination's panic-safety witness per
+    # docs/rust-soundness-policy.md § "Partial initialisation and
+    # panic safety".
+    "ptr::write": re.compile(r"\b(?:std::|core::)?ptr::write\b(?!_)"),
+    # `addr_of_mut!(place)` produces `*mut T` for `place` without
+    # creating an intermediate `&mut T`. The canonical use is
+    # taking the address of a field inside a `MaybeUninit<Struct>`
+    # to perform staged field-by-field initialisation. Same
+    # partial-init panic-leak class: a panic after writing some
+    # fields but before `assume_init` leaves the struct partially
+    # initialised; dropping the `MaybeUninit<Struct>` does NOT
+    # drop the written fields, and `assume_init` on the partial
+    # struct is UB. Issue #32 audit found ZERO production
+    # occurrences. `addr_of!` (read-only) is intentionally NOT
+    # flagged because read-from-uninit is caught by
+    # `MaybeUninit::assume_init` instead. New uses of
+    # `addr_of_mut!` must restructure or earn an allowlist entry
+    # naming the field-write-order panic-safety analysis per
+    # docs/rust-soundness-policy.md § "Partial initialisation and
+    # panic safety".
+    "addr_of_mut!": re.compile(r"\b(?:std::ptr::|core::ptr::|ptr::)?addr_of_mut!"),
     # Field declaration whose name matches a "back-pointer" naming
     # convention (`parent`, `owner`, `container`, `list`, `prev`,
     # `next`, `head`, `tail`, `back`, `back_ptr`, `backptr`,
@@ -999,6 +1076,28 @@ def collect_findings() -> list[Finding]:
     return out
 
 
+BASE_REQUIRED_FIELDS = {"file", "pattern", "reason", "preconditions", "enforcement", "owner", "review_date"}
+
+# Patterns that demand additional disclosure beyond the baseline.
+# `ManuallyDrop` is a soundness boundary -- the wrapper opts out of
+# Rust's automatic destructor and turns Drop into a manually-driven
+# state machine. Allowlist entries must commit to:
+#   `drop_state_protocol` -- the explicit state transitions
+#       (e.g. "constructed -> initialized -> manually-dropped") and
+#       which code path transitions between them.
+#   `panic_safety` -- proof that every panic-unwind path either runs
+#       the manual drop exactly once or leaks deterministically (and
+#       names the leak budget).
+#   `alternative_rejected` -- why `Option<T>` + `Option::take` /
+#       private RAII guard / explicit enum state / `mem::take` +
+#       Default is NOT sufficient for this site. The default policy
+#       answer is "use one of those alternatives"; an allowlist
+#       entry must rebut the default with a specific reason.
+EXTRA_REQUIRED_FIELDS_BY_PATTERN: dict[str, set[str]] = {
+    "ManuallyDrop": {"drop_state_protocol", "panic_safety", "alternative_rejected"},
+}
+
+
 def load_allowlist() -> dict[tuple[str, str], dict]:
     if not ALLOWLIST_FILE.exists():
         return {}
@@ -1006,8 +1105,8 @@ def load_allowlist() -> dict[tuple[str, str], dict]:
         data = tomllib.load(fh)
     entries = data.get("entries", [])
     out: dict[tuple[str, str], dict] = {}
-    required = {"file", "pattern", "reason", "preconditions", "enforcement", "owner", "review_date"}
     for entry in entries:
+        required = BASE_REQUIRED_FIELDS | EXTRA_REQUIRED_FIELDS_BY_PATTERN.get(entry.get("pattern", ""), set())
         missing = required - entry.keys()
         if missing:
             print(

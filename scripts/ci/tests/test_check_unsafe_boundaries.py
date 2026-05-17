@@ -185,6 +185,49 @@ class ScanRegressionTests(unittest.TestCase):
         ):
             self.assertTrue(_has(_scan(fragment), "mem::transmute"), msg=fragment)
 
+    def test_manuallydrop_field_flagged(self) -> None:
+        # Field-shape: any ManuallyDrop<T> declaration anywhere in a
+        # struct body triggers the guard. Workspace policy is that
+        # ManuallyDrop is forbidden without an allowlist entry naming
+        # the documented invariant set.
+        for fragment in (
+            "struct Foo { inner: ManuallyDrop<Vec<u8>> }",
+            "struct Foo { inner: std::mem::ManuallyDrop<Vec<u8>> }",
+            "struct Foo { inner: core::mem::ManuallyDrop<Vec<u8>> }",
+            "struct Foo { inner: mem::ManuallyDrop<Vec<u8>> }",
+        ):
+            self.assertTrue(_has(_scan(fragment), "ManuallyDrop"), msg=fragment)
+
+    def test_manuallydrop_local_flagged(self) -> None:
+        # Local-binding shape: a local typed as ManuallyDrop is
+        # equally hazardous (every code path out of scope -- including
+        # panic-unwind -- must hit a manual `ManuallyDrop::drop`).
+        for fragment in (
+            "let m: ManuallyDrop<Bomb> = ManuallyDrop::new(b);",
+            "let m: std::mem::ManuallyDrop<Bomb> = std::mem::ManuallyDrop::new(b);",
+        ):
+            self.assertTrue(_has(_scan(fragment), "ManuallyDrop"), msg=fragment)
+
+    def test_manuallydrop_substring_not_overmatched(self) -> None:
+        # Substring-only identifiers must NOT trigger the guard --
+        # only `ManuallyDrop<` (with the angle bracket) counts. This
+        # protects against false positives on legitimate domain
+        # vocabulary like `ManuallyDropped`, `ManuallyDropError`,
+        # `ManuallyDropConfig`, etc.
+        for fragment in (
+            "struct ManuallyDroppedConfig { ttl: u32 }",
+            "fn manually_drop_pending() {}",
+            "/// The struct was ManuallyDropped in the previous test.",
+        ):
+            self.assertFalse(_has(_scan(fragment), "ManuallyDrop"), msg=fragment)
+
+    def test_manuallydrop_with_whitespace_in_type_param_flagged(self) -> None:
+        # `ManuallyDrop  <  T  >` (extra whitespace before the angle
+        # bracket) MUST still match -- rustfmt occasionally produces
+        # this on long generic type expressions.
+        src = "struct Foo { inner: ManuallyDrop  <Vec<u8>> }"
+        self.assertTrue(_has(_scan(src), "ManuallyDrop"))
+
     def test_get_unchecked_flagged(self) -> None:
         src = "let v = unsafe { xs.get_unchecked(0) };"
         self.assertTrue(_has(_scan(src), "get_unchecked"))
@@ -323,6 +366,70 @@ class ScanRegressionTests(unittest.TestCase):
             """
         )
         self.assertFalse(_has(_scan(src), guard.DEBUG_ASSERT_PROXIMITY_PATTERN))
+
+    def test_maybe_uninit_write_flagged(self) -> None:
+        # Qualified-path `MaybeUninit::write` (with or without turbofish)
+        # is the canonical staged-initialisation entry point and must
+        # surface for panic-safety review per Issue #32.
+        for fragment in (
+            "unsafe { MaybeUninit::write(slot.as_mut_ptr(), v) };",
+            "let r = MaybeUninit::<MyStruct>::write(slot, value);",
+            "let _ = std::mem::MaybeUninit::write(p, v);",
+        ):
+            self.assertTrue(_has(_scan(fragment), "MaybeUninit::write"), msg=fragment)
+
+    def test_maybe_uninit_write_unrelated_methods_not_flagged(self) -> None:
+        # Other `MaybeUninit` APIs and other types with `.write()` must
+        # not be caught by the `MaybeUninit::write` regex.
+        for fragment in (
+            "let m = MaybeUninit::<u8>::uninit();",
+            "let z = MaybeUninit::<u8>::zeroed();",
+            "writer.write(&buf)?;",
+            "file.write_all(b\"data\")?;",
+        ):
+            self.assertFalse(_has(_scan(fragment), "MaybeUninit::write"), msg=fragment)
+
+    def test_ptr_write_bare_flagged(self) -> None:
+        # The bare `ptr::write` form (no underscore suffix) is the
+        # destructor-suppressing single-element write. Issue #32
+        # requires every occurrence to surface for review.
+        for fragment in (
+            "unsafe { ptr::write(dst, src) };",
+            "unsafe { std::ptr::write(p, value) };",
+            "unsafe { core::ptr::write(slot, payload) };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "ptr::write"), msg=fragment)
+
+    def test_ptr_write_sibling_apis_not_flagged(self) -> None:
+        # `ptr::write_bytes`, `ptr::write_volatile`, `ptr::write_unaligned`
+        # have their own audit-class. The `(?!_)` negative lookahead
+        # must exclude them from the `ptr::write` rule.
+        for fragment in (
+            "unsafe { ptr::write_bytes(p, 0, n) };",
+            "unsafe { std::ptr::write_volatile(reg, value) };",
+            "unsafe { core::ptr::write_unaligned(dst, src) };",
+        ):
+            self.assertFalse(_has(_scan(fragment), "ptr::write"), msg=fragment)
+
+    def test_addr_of_mut_flagged(self) -> None:
+        # `addr_of_mut!` macro is the canonical field-by-field
+        # staged-init helper. Must surface for review per Issue #32.
+        for fragment in (
+            "let p = addr_of_mut!(s.field);",
+            "let p = std::ptr::addr_of_mut!(s.field);",
+            "let p = core::ptr::addr_of_mut!(s.field);",
+        ):
+            self.assertTrue(_has(_scan(fragment), "addr_of_mut!"), msg=fragment)
+
+    def test_addr_of_read_only_not_flagged(self) -> None:
+        # `addr_of!` (read-only) is intentionally NOT in scope for
+        # Issue #32 — the read-from-uninit class is caught by
+        # `MaybeUninit::assume_init` instead.
+        for fragment in (
+            "let p = addr_of!(s.field);",
+            "let p = std::ptr::addr_of!(s.field);",
+        ):
+            self.assertFalse(_has(_scan(fragment), "addr_of_mut!"), msg=fragment)
 
     def test_raw_back_pointer_field_flagged(self) -> None:
         # All twelve back-pointer naming conventions paired with each of
@@ -1379,6 +1486,138 @@ class ScanRegressionTests(unittest.TestCase):
         # Only public signatures are flagged for raw-pointer arguments.
         src = "fn private_read(ptr: *const u8) -> u8 { 0 }"
         self.assertFalse(_has(_scan(src), "raw pointer in public fn"))
+
+
+class AllowlistValidatorTests(unittest.TestCase):
+    """Tests for `load_allowlist`'s field-set enforcement.
+
+    Baseline pattern entries require the seven fields in
+    `BASE_REQUIRED_FIELDS`. `ManuallyDrop` entries additionally require
+    `drop_state_protocol`, `panic_safety`, and `alternative_rejected`
+    so the soundness-boundary discipline (issue #33) is committed to
+    in the allowlist itself, not buried in a code comment.
+    """
+
+    def setUp(self) -> None:
+        # Stash the production allowlist path; tests below redirect
+        # the module-level constant to a tempfile. Restored in tearDown.
+        self._saved_allowlist = guard.ALLOWLIST_FILE
+
+    def tearDown(self) -> None:
+        guard.ALLOWLIST_FILE = self._saved_allowlist
+
+    def _write_allowlist(self, body: str) -> Path:
+        import tempfile
+
+        # tempfile.NamedTemporaryFile would auto-delete on close;
+        # instead write to a fixed dir under the test's tmp.
+        tmpdir = Path(tempfile.mkdtemp())
+        path = tmpdir / "allowlist.toml"
+        path.write_text(body, encoding="utf-8")
+        guard.ALLOWLIST_FILE = path
+        return path
+
+    _BASE_FIELDS = textwrap.dedent(
+        """\
+        file = "native/rust/crates/foo/src/bar.rs"
+        pattern = "ManuallyDrop"
+        reason = "synthetic test fixture"
+        preconditions = "test"
+        enforcement = "test"
+        owner = "test-owner"
+        review_date = "2099-01-01"
+        """
+    )
+
+    def test_manuallydrop_entry_with_all_fields_loads(self) -> None:
+        body = (
+            "[[entries]]\n"
+            + self._BASE_FIELDS
+            + 'drop_state_protocol = "Initialized -> Dropped at exit; transition via dispose()"\n'
+            + 'panic_safety = "No panic site between init and dispose; unwind drops via Drop guard"\n'
+            + 'alternative_rejected = "Option<T> rejected because layout must be #[repr(transparent)] over T"\n'
+        )
+        self._write_allowlist(body)
+        loaded = guard.load_allowlist()
+        self.assertEqual(len(loaded), 1)
+
+    def test_manuallydrop_missing_drop_state_protocol_exits_2(self) -> None:
+        body = (
+            "[[entries]]\n"
+            + self._BASE_FIELDS
+            + 'panic_safety = "..."\n'
+            + 'alternative_rejected = "..."\n'
+        )
+        self._write_allowlist(body)
+        with self.assertRaises(SystemExit) as cm:
+            guard.load_allowlist()
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_manuallydrop_missing_panic_safety_exits_2(self) -> None:
+        body = (
+            "[[entries]]\n"
+            + self._BASE_FIELDS
+            + 'drop_state_protocol = "..."\n'
+            + 'alternative_rejected = "..."\n'
+        )
+        self._write_allowlist(body)
+        with self.assertRaises(SystemExit) as cm:
+            guard.load_allowlist()
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_manuallydrop_missing_alternative_rejected_exits_2(self) -> None:
+        body = (
+            "[[entries]]\n"
+            + self._BASE_FIELDS
+            + 'drop_state_protocol = "..."\n'
+            + 'panic_safety = "..."\n'
+        )
+        self._write_allowlist(body)
+        with self.assertRaises(SystemExit) as cm:
+            guard.load_allowlist()
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_non_manuallydrop_entry_only_requires_base_fields(self) -> None:
+        # A baseline pattern (e.g. `mem::transmute`) does NOT require
+        # the three extra fields. Verify the gate is pattern-keyed.
+        body = textwrap.dedent(
+            """\
+            [[entries]]
+            file = "native/rust/crates/foo/src/bar.rs"
+            pattern = "mem::transmute"
+            reason = "synthetic test fixture"
+            preconditions = "test"
+            enforcement = "test"
+            owner = "test-owner"
+            review_date = "2099-01-01"
+            """
+        )
+        self._write_allowlist(body)
+        loaded = guard.load_allowlist()
+        self.assertEqual(len(loaded), 1)
+
+    def test_manuallydrop_missing_baseline_field_still_exits_2(self) -> None:
+        # The extra ManuallyDrop fields don't substitute for the
+        # baseline seven -- both sets are required.
+        body = textwrap.dedent(
+            """\
+            [[entries]]
+            file = "native/rust/crates/foo/src/bar.rs"
+            pattern = "ManuallyDrop"
+            reason = "synthetic test fixture"
+            preconditions = "test"
+            enforcement = "test"
+            owner = "test-owner"
+            drop_state_protocol = "..."
+            panic_safety = "..."
+            alternative_rejected = "..."
+            """
+        )
+        # Missing baseline `review_date`.
+        self._write_allowlist(body)
+        with self.assertRaises(SystemExit) as cm:
+            guard.load_allowlist()
+        self.assertEqual(cm.exception.code, 2)
 
 
 if __name__ == "__main__":
