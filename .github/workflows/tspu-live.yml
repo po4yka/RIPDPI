@@ -31,13 +31,17 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install nftables and python3-netfilterqueue
+      - name: Install nftables and NetfilterQueue bindings
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
+            build-essential \
+            libnetfilter-queue-dev \
             nftables \
-            libnetfilter-queue1 \
-            python3-netfilterqueue
+            pkg-config \
+            python3-dev
+          python -m pip install --upgrade pip
+          python -m pip install NetfilterQueue
 
       - name: Run TSPU live smoke
         env:
