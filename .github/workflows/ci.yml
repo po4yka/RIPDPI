@@ -687,18 +687,10 @@ jobs:
         run: rustup toolchain install nightly --profile minimal --no-self-update
       - name: Install cargo-public-api
         run: cargo install cargo-public-api --quiet
-      - name: Check ripdpi-runtime-api public API snapshot
-        working-directory: native/rust
+      - name: Check Rust public API snapshots
         run: |
-          cargo public-api --manifest-path crates/ripdpi-runtime-api/Cargo.toml > /tmp/current-api.txt
-          if ! diff -u crates/ripdpi-runtime-api/api-snapshot.txt /tmp/current-api.txt; then
-            echo ""
-            echo "error: ripdpi-runtime-api public API has changed."
-            echo "If this is intentional, update native/rust/crates/ripdpi-runtime-api/api-snapshot.txt"
-            echo "by running: cargo public-api --manifest-path crates/ripdpi-runtime-api/Cargo.toml > crates/ripdpi-runtime-api/api-snapshot.txt"
-            exit 1
-          fi
-          echo "API snapshot matches — no drift detected."
+          python3 scripts/ci/test_rust_api_snapshots.py
+          python3 scripts/ci/check_rust_api_snapshots.py
 
   gradle-static-analysis:
     if: github.event_name != 'schedule'

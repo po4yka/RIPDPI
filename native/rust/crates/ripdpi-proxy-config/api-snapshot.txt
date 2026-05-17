@@ -1,0 +1,308 @@
+pub mod ripdpi_proxy_config
+pub mod ripdpi_proxy_config::presets
+pub fn ripdpi_proxy_config::presets::apply_preset(preset_id: &str, config: &mut ripdpi_proxy_config::ProxyUiConfig) -> core::result::Result<(), ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::presets::apply_runtime_preset(preset_id: &str, config: &mut ripdpi_config::model::runtime::RuntimeConfig) -> core::result::Result<(), ripdpi_proxy_config::ProxyConfigError>
+pub enum ripdpi_proxy_config::ProxyConfigError
+pub ripdpi_proxy_config::ProxyConfigError::InvalidConfig(alloc::string::String)
+pub enum ripdpi_proxy_config::ProxyConfigPayload
+pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine
+pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::args: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::host_autolearn_store_path: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::log_context: core::option::Option<ripdpi_proxy_config::ProxyLogContext>
+pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::runtime_context: core::option::Option<ripdpi_proxy_config::ProxyRuntimeContext>
+pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::session_overrides: core::option::Option<ripdpi_proxy_config::ProxySessionOverrides>
+pub ripdpi_proxy_config::ProxyConfigPayload::Ui
+pub ripdpi_proxy_config::ProxyConfigPayload::Ui::config: ripdpi_proxy_config::ProxyUiConfig
+pub ripdpi_proxy_config::ProxyConfigPayload::Ui::log_context: core::option::Option<ripdpi_proxy_config::ProxyLogContext>
+pub ripdpi_proxy_config::ProxyConfigPayload::Ui::runtime_context: core::option::Option<ripdpi_proxy_config::ProxyRuntimeContext>
+pub ripdpi_proxy_config::ProxyConfigPayload::Ui::session_overrides: core::option::Option<ripdpi_proxy_config::ProxySessionOverrides>
+pub ripdpi_proxy_config::ProxyConfigPayload::Ui::strategy_preset: core::option::Option<alloc::string::String>
+pub struct ripdpi_proxy_config::CellularSnapshot
+pub ripdpi_proxy_config::CellularSnapshot::carrier_id: core::option::Option<i32>
+pub ripdpi_proxy_config::CellularSnapshot::data_network_type: alloc::string::String
+pub ripdpi_proxy_config::CellularSnapshot::generation: alloc::string::String
+pub ripdpi_proxy_config::CellularSnapshot::operator_code: alloc::string::String
+pub ripdpi_proxy_config::CellularSnapshot::roaming: bool
+pub ripdpi_proxy_config::CellularSnapshot::service_state: alloc::string::String
+pub ripdpi_proxy_config::CellularSnapshot::signal_dbm: core::option::Option<i32>
+pub ripdpi_proxy_config::CellularSnapshot::signal_level: core::option::Option<i32>
+pub struct ripdpi_proxy_config::NetworkSnapshot
+pub ripdpi_proxy_config::NetworkSnapshot::captive_portal: bool
+pub ripdpi_proxy_config::NetworkSnapshot::captured_at_ms: u64
+pub ripdpi_proxy_config::NetworkSnapshot::cellular: core::option::Option<ripdpi_proxy_config::CellularSnapshot>
+pub ripdpi_proxy_config::NetworkSnapshot::dns_servers: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_proxy_config::NetworkSnapshot::metered: bool
+pub ripdpi_proxy_config::NetworkSnapshot::mtu: core::option::Option<u32>
+pub ripdpi_proxy_config::NetworkSnapshot::private_dns_mode: alloc::string::String
+pub ripdpi_proxy_config::NetworkSnapshot::traffic_rx_bytes: u64
+pub ripdpi_proxy_config::NetworkSnapshot::traffic_tx_bytes: u64
+pub ripdpi_proxy_config::NetworkSnapshot::transport: alloc::string::String
+pub ripdpi_proxy_config::NetworkSnapshot::validated: bool
+pub ripdpi_proxy_config::NetworkSnapshot::vpn_service_was_active: bool
+pub ripdpi_proxy_config::NetworkSnapshot::wifi: core::option::Option<ripdpi_proxy_config::WifiSnapshot>
+pub struct ripdpi_proxy_config::ProxyDirectPathCapability
+pub ripdpi_proxy_config::ProxyDirectPathCapability::authority: alloc::string::String
+pub ripdpi_proxy_config::ProxyDirectPathCapability::cooldown_until: core::option::Option<i64>
+pub ripdpi_proxy_config::ProxyDirectPathCapability::dns_classification: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyDirectPathCapability::dns_mode: alloc::string::String
+pub ripdpi_proxy_config::ProxyDirectPathCapability::fallback_required: core::option::Option<bool>
+pub ripdpi_proxy_config::ProxyDirectPathCapability::ip_set_digest: alloc::string::String
+pub ripdpi_proxy_config::ProxyDirectPathCapability::outcome: alloc::string::String
+pub ripdpi_proxy_config::ProxyDirectPathCapability::preferred_stack: alloc::string::String
+pub ripdpi_proxy_config::ProxyDirectPathCapability::quic_mode: alloc::string::String
+pub ripdpi_proxy_config::ProxyDirectPathCapability::quic_usable: core::option::Option<bool>
+pub ripdpi_proxy_config::ProxyDirectPathCapability::reason_code: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyDirectPathCapability::repeated_handshake_failure_class: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyDirectPathCapability::tcp_family: alloc::string::String
+pub ripdpi_proxy_config::ProxyDirectPathCapability::transport_class: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyDirectPathCapability::transport_policy_version: i32
+pub ripdpi_proxy_config::ProxyDirectPathCapability::udp_usable: core::option::Option<bool>
+pub ripdpi_proxy_config::ProxyDirectPathCapability::updated_at: i64
+pub struct ripdpi_proxy_config::ProxyEncryptedDnsContext
+pub ripdpi_proxy_config::ProxyEncryptedDnsContext::bootstrap_ips: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_proxy_config::ProxyEncryptedDnsContext::dnscrypt_provider_name: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyEncryptedDnsContext::dnscrypt_public_key: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyEncryptedDnsContext::doh_url: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyEncryptedDnsContext::host: alloc::string::String
+pub ripdpi_proxy_config::ProxyEncryptedDnsContext::port: u16
+pub ripdpi_proxy_config::ProxyEncryptedDnsContext::protocol: alloc::string::String
+pub ripdpi_proxy_config::ProxyEncryptedDnsContext::resolver_id: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyEncryptedDnsContext::tls_server_name: core::option::Option<alloc::string::String>
+pub struct ripdpi_proxy_config::ProxyLogContext
+pub ripdpi_proxy_config::ProxyLogContext::diagnostics_session_id: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyLogContext::fingerprint_hash: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyLogContext::mode: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyLogContext::policy_signature: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyLogContext::runtime_id: core::option::Option<alloc::string::String>
+pub struct ripdpi_proxy_config::ProxyMorphPolicy
+pub ripdpi_proxy_config::ProxyMorphPolicy::entropy_target_permil: i32
+pub ripdpi_proxy_config::ProxyMorphPolicy::fake_packet_shape_profile: alloc::string::String
+pub ripdpi_proxy_config::ProxyMorphPolicy::first_flight_size_max: i32
+pub ripdpi_proxy_config::ProxyMorphPolicy::first_flight_size_min: i32
+pub ripdpi_proxy_config::ProxyMorphPolicy::id: alloc::string::String
+pub ripdpi_proxy_config::ProxyMorphPolicy::padding_envelope_max: i32
+pub ripdpi_proxy_config::ProxyMorphPolicy::padding_envelope_min: i32
+pub ripdpi_proxy_config::ProxyMorphPolicy::quic_burst_profile: alloc::string::String
+pub ripdpi_proxy_config::ProxyMorphPolicy::tcp_burst_cadence_ms: alloc::vec::Vec<i32>
+pub ripdpi_proxy_config::ProxyMorphPolicy::tls_burst_cadence_ms: alloc::vec::Vec<i32>
+pub struct ripdpi_proxy_config::ProxyPreferredEdge
+pub ripdpi_proxy_config::ProxyPreferredEdge::ip: alloc::string::String
+pub ripdpi_proxy_config::ProxyPreferredEdge::transport_kind: alloc::string::String
+pub struct ripdpi_proxy_config::ProxyRuntimeContext
+pub ripdpi_proxy_config::ProxyRuntimeContext::direct_path_capabilities: alloc::vec::Vec<ripdpi_proxy_config::ProxyDirectPathCapability>
+pub ripdpi_proxy_config::ProxyRuntimeContext::encrypted_dns: core::option::Option<ripdpi_proxy_config::ProxyEncryptedDnsContext>
+pub ripdpi_proxy_config::ProxyRuntimeContext::morph_policy: core::option::Option<ripdpi_proxy_config::ProxyMorphPolicy>
+pub ripdpi_proxy_config::ProxyRuntimeContext::preferred_edges: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::vec::Vec<ripdpi_proxy_config::ProxyPreferredEdge>>
+pub ripdpi_proxy_config::ProxyRuntimeContext::protect_path: core::option::Option<alloc::string::String>
+pub struct ripdpi_proxy_config::ProxySessionOverrides
+pub ripdpi_proxy_config::ProxySessionOverrides::auth_token: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxySessionOverrides::listen_port_override: core::option::Option<i32>
+pub struct ripdpi_proxy_config::ProxyUiActivationFilter
+pub ripdpi_proxy_config::ProxyUiActivationFilter::payload_size: core::option::Option<ripdpi_proxy_config::ProxyUiNumericRange>
+pub ripdpi_proxy_config::ProxyUiActivationFilter::round: core::option::Option<ripdpi_proxy_config::ProxyUiNumericRange>
+pub ripdpi_proxy_config::ProxyUiActivationFilter::stream_bytes: core::option::Option<ripdpi_proxy_config::ProxyUiNumericRange>
+pub ripdpi_proxy_config::ProxyUiActivationFilter::tcp_has_ech: core::option::Option<bool>
+pub ripdpi_proxy_config::ProxyUiActivationFilter::tcp_has_timestamp: core::option::Option<bool>
+pub ripdpi_proxy_config::ProxyUiActivationFilter::tcp_mss_below: core::option::Option<u16>
+pub ripdpi_proxy_config::ProxyUiActivationFilter::tcp_window_below: core::option::Option<u16>
+pub struct ripdpi_proxy_config::ProxyUiChainConfig
+pub ripdpi_proxy_config::ProxyUiChainConfig::any_protocol: bool
+pub ripdpi_proxy_config::ProxyUiChainConfig::group_activation_filter: core::option::Option<ripdpi_proxy_config::ProxyUiActivationFilter>
+pub ripdpi_proxy_config::ProxyUiChainConfig::payload_disable: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_proxy_config::ProxyUiChainConfig::tcp_rotation: core::option::Option<ripdpi_proxy_config::ProxyUiTcpRotationConfig>
+pub ripdpi_proxy_config::ProxyUiChainConfig::tcp_steps: alloc::vec::Vec<ripdpi_proxy_config::ProxyUiTcpChainStep>
+pub ripdpi_proxy_config::ProxyUiChainConfig::udp_steps: alloc::vec::Vec<ripdpi_proxy_config::ProxyUiUdpChainStep>
+impl core::default::Default for ripdpi_proxy_config::ProxyUiChainConfig
+pub fn ripdpi_proxy_config::ProxyUiChainConfig::default() -> Self
+pub struct ripdpi_proxy_config::ProxyUiConfig
+pub ripdpi_proxy_config::ProxyUiConfig::adaptive_fallback: ripdpi_proxy_config::types::adaptive_fallback::ProxyUiAdaptiveFallbackConfig
+pub ripdpi_proxy_config::ProxyUiConfig::chains: ripdpi_proxy_config::ProxyUiChainConfig
+pub ripdpi_proxy_config::ProxyUiConfig::environment_kind: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyUiConfig::fake_packets: ripdpi_proxy_config::ProxyUiFakePacketConfig
+pub ripdpi_proxy_config::ProxyUiConfig::geoip_db_path: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyUiConfig::geosite_db_path: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyUiConfig::host_autolearn: ripdpi_proxy_config::ProxyUiHostAutolearnConfig
+pub ripdpi_proxy_config::ProxyUiConfig::hosts: ripdpi_proxy_config::ProxyUiHostsConfig
+pub ripdpi_proxy_config::ProxyUiConfig::listen: ripdpi_proxy_config::ProxyUiListenConfig
+pub ripdpi_proxy_config::ProxyUiConfig::native_log_level: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyUiConfig::parser_evasions: ripdpi_proxy_config::ProxyUiParserEvasionConfig
+pub ripdpi_proxy_config::ProxyUiConfig::protocols: ripdpi_proxy_config::ProxyUiProtocolConfig
+pub ripdpi_proxy_config::ProxyUiConfig::quic: ripdpi_proxy_config::ProxyUiQuicConfig
+pub ripdpi_proxy_config::ProxyUiConfig::root_helper_socket_path: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyUiConfig::root_mode: bool
+pub ripdpi_proxy_config::ProxyUiConfig::upstream_relay: ripdpi_proxy_config::types::relay::ProxyUiRelayConfig
+pub ripdpi_proxy_config::ProxyUiConfig::warp: ripdpi_proxy_config::types::warp::ProxyUiWarpConfig
+pub ripdpi_proxy_config::ProxyUiConfig::ws_tunnel: ripdpi_proxy_config::types::ui::ProxyUiWsTunnelConfig
+pub struct ripdpi_proxy_config::ProxyUiFakePacketConfig
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::adaptive_fake_ttl_delta: i32
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::adaptive_fake_ttl_enabled: bool
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::adaptive_fake_ttl_fallback: i32
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::adaptive_fake_ttl_max: i32
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::adaptive_fake_ttl_min: i32
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::drop_sack: bool
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::entropy_mode: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::entropy_padding_max: core::option::Option<u32>
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::entropy_padding_target_permil: core::option::Option<u32>
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_offset_marker: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_sni: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_tcp_timestamp_delta_ticks: i32
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_tcp_timestamp_enabled: bool
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_tls_dup_session_id: bool
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_tls_pad_encap: bool
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_tls_randomize: bool
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_tls_secondary_profile: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_tls_size: i32
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_tls_sni_mode: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_tls_source: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_tls_use_original: bool
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_ttl: i32
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::http_fake_profile: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::ip_id_mode: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::oob_char: u8
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::quic_bind_low_port: bool
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::quic_fake_version: core::option::Option<u32>
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::quic_migrate_after_handshake: bool
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::shannon_entropy_target_permil: core::option::Option<u32>
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::strip_timestamps: bool
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::tls_fake_profile: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::tls_fingerprint_profile: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::udp_fake_profile: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::window_clamp: core::option::Option<u32>
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::wsize_scale: core::option::Option<i32>
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::wsize_window: core::option::Option<u32>
+impl core::default::Default for ripdpi_proxy_config::ProxyUiFakePacketConfig
+pub fn ripdpi_proxy_config::ProxyUiFakePacketConfig::default() -> Self
+pub struct ripdpi_proxy_config::ProxyUiHostAutolearnConfig
+pub ripdpi_proxy_config::ProxyUiHostAutolearnConfig::enabled: bool
+pub ripdpi_proxy_config::ProxyUiHostAutolearnConfig::max_hosts: usize
+pub ripdpi_proxy_config::ProxyUiHostAutolearnConfig::network_reprobe_enabled: bool
+pub ripdpi_proxy_config::ProxyUiHostAutolearnConfig::network_scope_key: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyUiHostAutolearnConfig::penalty_ttl_hours: i64
+pub ripdpi_proxy_config::ProxyUiHostAutolearnConfig::store_path: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyUiHostAutolearnConfig::warmup_probe_enabled: bool
+impl core::default::Default for ripdpi_proxy_config::ProxyUiHostAutolearnConfig
+pub fn ripdpi_proxy_config::ProxyUiHostAutolearnConfig::default() -> Self
+pub struct ripdpi_proxy_config::ProxyUiHostsConfig
+pub ripdpi_proxy_config::ProxyUiHostsConfig::entries: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyUiHostsConfig::mode: alloc::string::String
+impl core::default::Default for ripdpi_proxy_config::ProxyUiHostsConfig
+pub fn ripdpi_proxy_config::ProxyUiHostsConfig::default() -> Self
+pub struct ripdpi_proxy_config::ProxyUiListenConfig
+pub ripdpi_proxy_config::ProxyUiListenConfig::auth_token: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyUiListenConfig::buffer_size: i32
+pub ripdpi_proxy_config::ProxyUiListenConfig::custom_ttl: bool
+pub ripdpi_proxy_config::ProxyUiListenConfig::default_ttl: i32
+pub ripdpi_proxy_config::ProxyUiListenConfig::freeze_detection_enabled: bool
+pub ripdpi_proxy_config::ProxyUiListenConfig::ip: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiListenConfig::max_connections: i32
+pub ripdpi_proxy_config::ProxyUiListenConfig::port: i32
+pub ripdpi_proxy_config::ProxyUiListenConfig::tcp_fast_open: bool
+impl core::default::Default for ripdpi_proxy_config::ProxyUiListenConfig
+pub fn ripdpi_proxy_config::ProxyUiListenConfig::default() -> Self
+pub struct ripdpi_proxy_config::ProxyUiNumericRange
+pub ripdpi_proxy_config::ProxyUiNumericRange::end: core::option::Option<i64>
+pub ripdpi_proxy_config::ProxyUiNumericRange::start: core::option::Option<i64>
+pub struct ripdpi_proxy_config::ProxyUiParserEvasionConfig
+pub ripdpi_proxy_config::ProxyUiParserEvasionConfig::domain_mixed_case: bool
+pub ripdpi_proxy_config::ProxyUiParserEvasionConfig::host_mixed_case: bool
+pub ripdpi_proxy_config::ProxyUiParserEvasionConfig::host_remove_spaces: bool
+pub ripdpi_proxy_config::ProxyUiParserEvasionConfig::http_host_extra_space: bool
+pub ripdpi_proxy_config::ProxyUiParserEvasionConfig::http_host_pad: bool
+pub ripdpi_proxy_config::ProxyUiParserEvasionConfig::http_host_tab: bool
+pub ripdpi_proxy_config::ProxyUiParserEvasionConfig::http_method_eol: bool
+pub ripdpi_proxy_config::ProxyUiParserEvasionConfig::http_method_space: bool
+pub ripdpi_proxy_config::ProxyUiParserEvasionConfig::http_unix_eol: bool
+pub struct ripdpi_proxy_config::ProxyUiProtocolConfig
+pub ripdpi_proxy_config::ProxyUiProtocolConfig::desync_http: bool
+pub ripdpi_proxy_config::ProxyUiProtocolConfig::desync_https: bool
+pub ripdpi_proxy_config::ProxyUiProtocolConfig::desync_udp: bool
+pub ripdpi_proxy_config::ProxyUiProtocolConfig::resolve_domains: bool
+impl core::default::Default for ripdpi_proxy_config::ProxyUiProtocolConfig
+pub fn ripdpi_proxy_config::ProxyUiProtocolConfig::default() -> Self
+pub struct ripdpi_proxy_config::ProxyUiQuicConfig
+pub ripdpi_proxy_config::ProxyUiQuicConfig::fake_host: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiQuicConfig::fake_profile: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiQuicConfig::initial_mode: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiQuicConfig::support_v1: bool
+pub ripdpi_proxy_config::ProxyUiQuicConfig::support_v2: bool
+impl core::default::Default for ripdpi_proxy_config::ProxyUiQuicConfig
+pub fn ripdpi_proxy_config::ProxyUiQuicConfig::default() -> Self
+pub struct ripdpi_proxy_config::ProxyUiTcpChainStep
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::activation_filter: core::option::Option<ripdpi_proxy_config::ProxyUiActivationFilter>
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::fake_host_template: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::fake_mode: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::fake_order: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::fake_seq_mode: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::fragment_count: i32
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::inter_segment_delay_ms: u32
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::ipv6_extension_profile: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::kind: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::marker: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::max_fragment_size: i32
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::midhost_marker: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::min_fragment_size: i32
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::overlap_size: i32
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::random_fake_host: bool
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::tcp_flags_orig_set: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::tcp_flags_orig_unset: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::tcp_flags_set: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiTcpChainStep::tcp_flags_unset: alloc::string::String
+pub struct ripdpi_proxy_config::ProxyUiTcpRotationCandidate
+pub ripdpi_proxy_config::ProxyUiTcpRotationCandidate::tcp_steps: alloc::vec::Vec<ripdpi_proxy_config::ProxyUiTcpChainStep>
+pub struct ripdpi_proxy_config::ProxyUiTcpRotationConfig
+pub ripdpi_proxy_config::ProxyUiTcpRotationConfig::cancel_on_failure: core::option::Option<bool>
+pub ripdpi_proxy_config::ProxyUiTcpRotationConfig::candidates: alloc::vec::Vec<ripdpi_proxy_config::ProxyUiTcpRotationCandidate>
+pub ripdpi_proxy_config::ProxyUiTcpRotationConfig::fails: usize
+pub ripdpi_proxy_config::ProxyUiTcpRotationConfig::retrans: u32
+pub ripdpi_proxy_config::ProxyUiTcpRotationConfig::rst: u32
+pub ripdpi_proxy_config::ProxyUiTcpRotationConfig::seq: u32
+pub ripdpi_proxy_config::ProxyUiTcpRotationConfig::time_secs: u64
+impl core::default::Default for ripdpi_proxy_config::ProxyUiTcpRotationConfig
+pub fn ripdpi_proxy_config::ProxyUiTcpRotationConfig::default() -> Self
+pub struct ripdpi_proxy_config::ProxyUiUdpChainStep
+pub ripdpi_proxy_config::ProxyUiUdpChainStep::activation_filter: core::option::Option<ripdpi_proxy_config::ProxyUiActivationFilter>
+pub ripdpi_proxy_config::ProxyUiUdpChainStep::count: i32
+pub ripdpi_proxy_config::ProxyUiUdpChainStep::ipv6_extension_profile: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiUdpChainStep::kind: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiUdpChainStep::split_bytes: i32
+pub struct ripdpi_proxy_config::RuntimeConfigEnvelope
+pub ripdpi_proxy_config::RuntimeConfigEnvelope::config: ripdpi_config::model::runtime::RuntimeConfig
+pub ripdpi_proxy_config::RuntimeConfigEnvelope::log_context: core::option::Option<ripdpi_proxy_config::ProxyLogContext>
+pub ripdpi_proxy_config::RuntimeConfigEnvelope::native_log_level: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::RuntimeConfigEnvelope::runtime_context: core::option::Option<ripdpi_proxy_config::ProxyRuntimeContext>
+pub struct ripdpi_proxy_config::WifiSnapshot
+pub ripdpi_proxy_config::WifiSnapshot::channel_width: alloc::string::String
+pub ripdpi_proxy_config::WifiSnapshot::frequency_band: alloc::string::String
+pub ripdpi_proxy_config::WifiSnapshot::frequency_mhz: core::option::Option<i32>
+pub ripdpi_proxy_config::WifiSnapshot::link_speed_mbps: core::option::Option<i32>
+pub ripdpi_proxy_config::WifiSnapshot::rssi_dbm: core::option::Option<i32>
+pub ripdpi_proxy_config::WifiSnapshot::rx_link_speed_mbps: core::option::Option<i32>
+pub ripdpi_proxy_config::WifiSnapshot::ssid_hash: alloc::string::String
+pub ripdpi_proxy_config::WifiSnapshot::tx_link_speed_mbps: core::option::Option<i32>
+pub ripdpi_proxy_config::WifiSnapshot::wifi_standard: alloc::string::String
+pub const ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA: i32
+pub const ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK: i32
+pub const ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX: i32
+pub const ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN: i32
+pub const ripdpi_proxy_config::FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT: &str
+pub const ripdpi_proxy_config::FAKE_TLS_SNI_MODE_FIXED: &str
+pub const ripdpi_proxy_config::FAKE_TLS_SNI_MODE_RANDOMIZED: &str
+pub const ripdpi_proxy_config::HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_HOURS: i64
+pub const ripdpi_proxy_config::QUIC_FAKE_PROFILE_DISABLED: &str
+pub const ripdpi_proxy_config::SEQOVL_DEFAULT_OVERLAP_SIZE: i32
+pub const ripdpi_proxy_config::SEQOVL_FAKE_MODE_PROFILE: &str
+pub const ripdpi_proxy_config::SEQOVL_FAKE_MODE_RAND: &str
+pub fn ripdpi_proxy_config::normalize_fake_tls_sni_mode(value: &str) -> &'static str
+pub fn ripdpi_proxy_config::parse_desync_mode(value: &str) -> core::result::Result<ripdpi_config::model::tcp::DesyncMode, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_http_fake_profile(value: &str) -> core::result::Result<ripdpi_packets::fake_profiles::HttpFakeProfile, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_proxy_config_json(json: &str) -> core::result::Result<ripdpi_proxy_config::ProxyConfigPayload, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_quic_fake_profile(value: &str) -> core::result::Result<ripdpi_config::model::group::QuicFakeProfile, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_quic_initial_mode(value: &str) -> core::result::Result<ripdpi_config::model::group::QuicInitialMode, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_tcp_chain_step_kind(value: &str) -> core::result::Result<ripdpi_config::model::tcp::TcpChainStepKind, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_tls_fake_profile(value: &str) -> core::result::Result<ripdpi_packets::fake_profiles::TlsFakeProfile, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_udp_chain_step_kind(value: &str) -> core::result::Result<ripdpi_config::model::udp::UdpChainStepKind, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_udp_fake_profile(value: &str) -> core::result::Result<ripdpi_packets::fake_profiles::UdpFakeProfile, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::runtime_config_envelope_from_payload(payload: ripdpi_proxy_config::ProxyConfigPayload) -> core::result::Result<ripdpi_proxy_config::RuntimeConfigEnvelope, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::runtime_config_from_command_line(args: alloc::vec::Vec<alloc::string::String>) -> core::result::Result<ripdpi_config::model::runtime::RuntimeConfig, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::runtime_config_from_payload(payload: ripdpi_proxy_config::ProxyConfigPayload) -> core::result::Result<ripdpi_config::model::runtime::RuntimeConfig, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::runtime_config_from_ui(payload: ripdpi_proxy_config::ProxyUiConfig) -> core::result::Result<ripdpi_config::model::runtime::RuntimeConfig, ripdpi_proxy_config::ProxyConfigError>

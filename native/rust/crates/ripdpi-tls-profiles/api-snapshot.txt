@@ -1,0 +1,96 @@
+pub mod ripdpi_tls_profiles
+pub enum ripdpi_tls_profiles::Error
+pub ripdpi_tls_profiles::Error::Invariant
+pub ripdpi_tls_profiles::Error::Invariant::profile: &'static str
+pub ripdpi_tls_profiles::Error::Invariant::reason: &'static str
+pub ripdpi_tls_profiles::Error::Ssl(boring::error::ErrorStack)
+pub enum ripdpi_tls_profiles::ProfileInvariantStatus
+pub ripdpi_tls_profiles::ProfileInvariantStatus::AvoidsBlocked517ByteClientHello
+pub ripdpi_tls_profiles::ProfileInvariantStatus::Satisfied
+impl ripdpi_tls_profiles::ProfileInvariantStatus
+pub const fn ripdpi_tls_profiles::ProfileInvariantStatus::as_str(self) -> &'static str
+pub enum ripdpi_tls_profiles::RecordChoreography
+pub ripdpi_tls_profiles::RecordChoreography::HostTailTwoRecord
+pub ripdpi_tls_profiles::RecordChoreography::SingleRecord
+pub ripdpi_tls_profiles::RecordChoreography::SniEchTailAdaptive
+pub ripdpi_tls_profiles::RecordChoreography::SniTailTwoRecord
+impl ripdpi_tls_profiles::RecordChoreography
+pub const fn ripdpi_tls_profiles::RecordChoreography::as_str(self) -> &'static str
+pub struct ripdpi_tls_profiles::ProfileCatalog
+pub ripdpi_tls_profiles::ProfileCatalog::default_profile_set_id: &'static str
+pub ripdpi_tls_profiles::ProfileCatalog::profiles: &'static [&'static str]
+pub ripdpi_tls_profiles::ProfileCatalog::version: &'static str
+pub struct ripdpi_tls_profiles::ProfileConfig
+pub ripdpi_tls_profiles::ProfileConfig::alpn: &'static [&'static [u8]]
+pub ripdpi_tls_profiles::ProfileConfig::alpn_template: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::browser_family: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::browser_track: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::cipher_list_tls12: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::ciphersuites_tls13: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::client_hello_size_hint: usize
+pub ripdpi_tls_profiles::ProfileConfig::curves: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::ech_bootstrap_policy: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::ech_bootstrap_resolver_id: core::option::Option<&'static str>
+pub ripdpi_tls_profiles::ProfileConfig::ech_capable: bool
+pub ripdpi_tls_profiles::ProfileConfig::ech_outer_extension_policy: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::extension_order_family: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::grease_enabled: bool
+pub ripdpi_tls_profiles::ProfileConfig::grease_style: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::ja3_parity_target: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::ja4_parity_target: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::key_share_profile: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::max_version: boring::ssl::SslVersion
+pub ripdpi_tls_profiles::ProfileConfig::min_version: boring::ssl::SslVersion
+pub ripdpi_tls_profiles::ProfileConfig::name: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::permute_extensions: bool
+pub ripdpi_tls_profiles::ProfileConfig::record_choreography: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::sigalgs: &'static str
+pub ripdpi_tls_profiles::ProfileConfig::supported_groups_profile: &'static str
+pub struct ripdpi_tls_profiles::ProfileMetadata
+pub ripdpi_tls_profiles::ProfileMetadata::catalog_version: &'static str
+pub ripdpi_tls_profiles::ProfileMetadata::client_hello_size_hint: usize
+pub ripdpi_tls_profiles::ProfileMetadata::invariant_status: ripdpi_tls_profiles::ProfileInvariantStatus
+pub ripdpi_tls_profiles::ProfileMetadata::parity_targets: ripdpi_tls_profiles::ProfileParityTargets
+pub ripdpi_tls_profiles::ProfileMetadata::profile_name: &'static str
+pub ripdpi_tls_profiles::ProfileMetadata::template: ripdpi_tls_profiles::ProfileTemplateMetadata
+pub struct ripdpi_tls_profiles::ProfileParityTargets
+pub ripdpi_tls_profiles::ProfileParityTargets::browser_family: &'static str
+pub ripdpi_tls_profiles::ProfileParityTargets::browser_track: &'static str
+pub ripdpi_tls_profiles::ProfileParityTargets::ja3: &'static str
+pub ripdpi_tls_profiles::ProfileParityTargets::ja4: &'static str
+pub struct ripdpi_tls_profiles::ProfileTemplateMetadata
+pub ripdpi_tls_profiles::ProfileTemplateMetadata::alpn_template: &'static str
+pub ripdpi_tls_profiles::ProfileTemplateMetadata::ech_bootstrap_policy: &'static str
+pub ripdpi_tls_profiles::ProfileTemplateMetadata::ech_bootstrap_resolver_id: core::option::Option<&'static str>
+pub ripdpi_tls_profiles::ProfileTemplateMetadata::ech_capable: bool
+pub ripdpi_tls_profiles::ProfileTemplateMetadata::ech_outer_extension_policy: &'static str
+pub ripdpi_tls_profiles::ProfileTemplateMetadata::extension_order_family: &'static str
+pub ripdpi_tls_profiles::ProfileTemplateMetadata::grease_style: &'static str
+pub ripdpi_tls_profiles::ProfileTemplateMetadata::key_share_profile: &'static str
+pub ripdpi_tls_profiles::ProfileTemplateMetadata::record_choreography: &'static str
+pub ripdpi_tls_profiles::ProfileTemplateMetadata::supported_groups_profile: &'static str
+pub struct ripdpi_tls_profiles::TlsTemplateFirstFlightPlan
+pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::ech_bootstrap_policy: &'static str
+pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::ech_bootstrap_resolver_id: core::option::Option<&'static str>
+pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::ech_capable_template: bool
+pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::ech_outer_extension_policy: &'static str
+pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::ech_present_in_input: bool
+pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::grease_style: &'static str
+pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::record_choreography: ripdpi_tls_profiles::RecordChoreography
+pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::record_payload_boundaries: alloc::vec::Vec<usize>
+pub const ripdpi_tls_profiles::AVAILABLE_PROFILES: &[&str]
+pub fn ripdpi_tls_profiles::apply_record_choreography(profile: &str, client_hello: &[u8]) -> core::option::Option<alloc::vec::Vec<u8>>
+pub fn ripdpi_tls_profiles::build_connector(profile: &str, verify: bool) -> core::result::Result<boring::ssl::connector::SslConnector, ripdpi_tls_profiles::Error>
+pub fn ripdpi_tls_profiles::configure_builder(profile: &str) -> core::result::Result<boring::ssl::connector::SslConnectorBuilder, ripdpi_tls_profiles::Error>
+pub fn ripdpi_tls_profiles::plan_first_flight(profile: &str, client_hello: &[u8]) -> core::option::Option<ripdpi_tls_profiles::TlsTemplateFirstFlightPlan>
+pub fn ripdpi_tls_profiles::planned_record_payload_boundaries(profile: &str, client_hello: &[u8]) -> core::option::Option<alloc::vec::Vec<usize>>
+pub fn ripdpi_tls_profiles::planned_record_payload_lengths(profile: &str, client_hello: &[u8]) -> core::option::Option<alloc::vec::Vec<usize>>
+pub fn ripdpi_tls_profiles::profile_catalog() -> &'static ripdpi_tls_profiles::ProfileCatalog
+pub fn ripdpi_tls_profiles::profile_catalog_version() -> &'static str
+pub fn ripdpi_tls_profiles::profile_metadata(name: &str) -> ripdpi_tls_profiles::ProfileMetadata
+pub fn ripdpi_tls_profiles::select_profile_for_connection(rotation_enabled: bool, default_profile: &str, domain: &str, session_seed: u64, allowed_profiles: &[alloc::string::String]) -> &'static str
+pub fn ripdpi_tls_profiles::select_rotated_profile(domain: &str, session_seed: u64, allowed_profiles: &[alloc::string::String]) -> &'static str
+pub fn ripdpi_tls_profiles::select_rotated_profile_with_set(authority: &str, session_seed: u64, profile_set_id: &str, allowed_profiles: &[alloc::string::String]) -> &'static str
+pub fn ripdpi_tls_profiles::selected_profile_config(profile: &str) -> &'static ripdpi_tls_profiles::ProfileConfig
+pub fn ripdpi_tls_profiles::selected_profile_metadata(profile: &str) -> ripdpi_tls_profiles::ProfileMetadata
+pub fn ripdpi_tls_profiles::selected_record_choreography(profile: &str) -> ripdpi_tls_profiles::RecordChoreography

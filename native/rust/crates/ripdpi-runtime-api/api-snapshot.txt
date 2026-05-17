@@ -10,43 +10,10 @@ pub fn ripdpi_runtime_api::EmbeddedProxyControl::runtime_context(&self) -> core:
 pub fn ripdpi_runtime_api::EmbeddedProxyControl::shutdown_requested(&self) -> bool
 pub fn ripdpi_runtime_api::EmbeddedProxyControl::telemetry_sink(&self) -> core::option::Option<alloc::sync::Arc<dyn ripdpi_runtime_api::RuntimeTelemetrySink>>
 pub fn ripdpi_runtime_api::EmbeddedProxyControl::update_network_snapshot(&self, snapshot: ripdpi_proxy_config::types::network::NetworkSnapshot)
-impl core::clone::Clone for ripdpi_runtime_api::EmbeddedProxyControl
-pub fn ripdpi_runtime_api::EmbeddedProxyControl::clone(&self) -> ripdpi_runtime_api::EmbeddedProxyControl
 impl core::default::Default for ripdpi_runtime_api::EmbeddedProxyControl
 pub fn ripdpi_runtime_api::EmbeddedProxyControl::default() -> Self
 impl core::fmt::Debug for ripdpi_runtime_api::EmbeddedProxyControl
 pub fn ripdpi_runtime_api::EmbeddedProxyControl::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::Freeze for ripdpi_runtime_api::EmbeddedProxyControl
-impl core::marker::Send for ripdpi_runtime_api::EmbeddedProxyControl
-impl core::marker::Sync for ripdpi_runtime_api::EmbeddedProxyControl
-impl core::marker::Unpin for ripdpi_runtime_api::EmbeddedProxyControl
-impl core::marker::UnsafeUnpin for ripdpi_runtime_api::EmbeddedProxyControl
-impl !core::panic::unwind_safe::RefUnwindSafe for ripdpi_runtime_api::EmbeddedProxyControl
-impl !core::panic::unwind_safe::UnwindSafe for ripdpi_runtime_api::EmbeddedProxyControl
-impl<T, U> core::convert::Into<U> for ripdpi_runtime_api::EmbeddedProxyControl where U: core::convert::From<T>
-pub fn ripdpi_runtime_api::EmbeddedProxyControl::into(self) -> U
-impl<T, U> core::convert::TryFrom<U> for ripdpi_runtime_api::EmbeddedProxyControl where U: core::convert::Into<T>
-pub type ripdpi_runtime_api::EmbeddedProxyControl::Error = core::convert::Infallible
-pub fn ripdpi_runtime_api::EmbeddedProxyControl::try_from(value: U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
-impl<T, U> core::convert::TryInto<U> for ripdpi_runtime_api::EmbeddedProxyControl where U: core::convert::TryFrom<T>
-pub type ripdpi_runtime_api::EmbeddedProxyControl::Error = <U as core::convert::TryFrom<T>>::Error
-pub fn ripdpi_runtime_api::EmbeddedProxyControl::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
-impl<T> alloc::borrow::ToOwned for ripdpi_runtime_api::EmbeddedProxyControl where T: core::clone::Clone
-pub type ripdpi_runtime_api::EmbeddedProxyControl::Owned = T
-pub fn ripdpi_runtime_api::EmbeddedProxyControl::clone_into(&self, target: &mut T)
-pub fn ripdpi_runtime_api::EmbeddedProxyControl::to_owned(&self) -> T
-impl<T> core::any::Any for ripdpi_runtime_api::EmbeddedProxyControl where T: 'static + ?core::marker::Sized
-pub fn ripdpi_runtime_api::EmbeddedProxyControl::type_id(&self) -> core::any::TypeId
-impl<T> core::borrow::Borrow<T> for ripdpi_runtime_api::EmbeddedProxyControl where T: ?core::marker::Sized
-pub fn ripdpi_runtime_api::EmbeddedProxyControl::borrow(&self) -> &T
-impl<T> core::borrow::BorrowMut<T> for ripdpi_runtime_api::EmbeddedProxyControl where T: ?core::marker::Sized
-pub fn ripdpi_runtime_api::EmbeddedProxyControl::borrow_mut(&mut self) -> &mut T
-impl<T> core::clone::CloneToUninit for ripdpi_runtime_api::EmbeddedProxyControl where T: core::clone::Clone
-pub unsafe fn ripdpi_runtime_api::EmbeddedProxyControl::clone_to_uninit(&self, dest: *mut u8)
-impl<T> core::convert::From<T> for ripdpi_runtime_api::EmbeddedProxyControl
-pub fn ripdpi_runtime_api::EmbeddedProxyControl::from(t: T) -> T
-impl<T> typenum::type_operators::Same for ripdpi_runtime_api::EmbeddedProxyControl
-pub type ripdpi_runtime_api::EmbeddedProxyControl::Output = T
 pub trait ripdpi_runtime_api::BackgroundProbes: core::marker::Send + core::marker::Sync
 pub fn ripdpi_runtime_api::BackgroundProbes::notify_network_change(&self, snapshot: ripdpi_proxy_config::types::network::NetworkSnapshot)
 pub fn ripdpi_runtime_api::BackgroundProbes::request_warmup(&self, authority: &str, is_udp: bool)
