@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from check_native_hotspot_budgets import production_source
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+CRATES_ROOT = Path("native/rust/crates")
 ADAPTER_FILES = (
     Path("native/rust/crates/ripdpi-android-proxy-adapter/src/lib.rs"),
     Path("native/rust/crates/ripdpi-android-diagnostics-adapter/src/lib.rs"),
@@ -96,6 +98,102 @@ MONITOR_ENGINE_CONCRETE_LANE_DEP_RE = re.compile(
     r"^\s*ripdpi-diagnostics-(?!contracts\b)[A-Za-z0-9-]+\s*=",
     re.MULTILINE,
 )
+ENTRYPOINT_CRATES = frozenset(
+    {
+        "ripdpi-android",
+        "ripdpi-bench",
+        "ripdpi-cli",
+        "ripdpi-relay-android",
+        "ripdpi-root-helper",
+        "ripdpi-tunnel-android",
+        "ripdpi-warp-android",
+    }
+)
+RUNTIME_BOUNDARY_CRATES = frozenset({"ripdpi-runtime-api", "ripdpi-runtime-decision-ports"})
+RUNTIME_BOUNDARY_FORBIDDEN_DEPENDENCIES = frozenset(
+    {
+        "ripdpi-android",
+        "ripdpi-android-bridge-support",
+        "ripdpi-android-diagnostics-adapter",
+        "ripdpi-android-fetch-adapter",
+        "ripdpi-android-platform-adapter",
+        "ripdpi-android-proxy-adapter",
+        "ripdpi-android-telemetry-adapter",
+        "ripdpi-android-vpn-protect-adapter",
+        "ripdpi-monitor-engine",
+        "ripdpi-monitor-lane-adapter",
+        "ripdpi-monitor-proxy-runtime",
+        "ripdpi-proxy-runtime",
+        "ripdpi-proxy-runtime-adapter",
+        "ripdpi-proxy-runtime-desync-adapter",
+        "ripdpi-relay-android",
+        "ripdpi-runtime-adaptive",
+        "ripdpi-runtime-platform",
+        "ripdpi-runtime-policy",
+        "ripdpi-runtime-services",
+        "ripdpi-runtime-strategy",
+        "ripdpi-tunnel-android",
+        "ripdpi-tunnel-core",
+        "ripdpi-tunnel-intercept",
+        "ripdpi-warp-android",
+    }
+)
+PROXY_RUNTIME_FORBIDDEN_DEPENDENCIES = frozenset(
+    {
+        "ripdpi-config",
+        "ripdpi-desync",
+        "ripdpi-desync-runtime",
+        "ripdpi-dns-resolver",
+        "ripdpi-failure-classifier",
+        "ripdpi-packets",
+        "ripdpi-proxy-config",
+        "ripdpi-runtime-adaptive",
+        "ripdpi-runtime-decision-ports",
+        "ripdpi-runtime-platform",
+        "ripdpi-runtime-policy",
+        "ripdpi-runtime-services",
+        "ripdpi-runtime-strategy",
+        "ripdpi-session",
+        "ripdpi-ws-bootstrap",
+        "ripdpi-ws-tunnel",
+    }
+)
+MONITOR_ENGINE_FORBIDDEN_DEPENDENCIES = frozenset(
+    {
+        "ripdpi-diagnostics-candidates",
+        "ripdpi-diagnostics-classification",
+        "ripdpi-diagnostics-dns",
+        "ripdpi-diagnostics-fat-header",
+        "ripdpi-diagnostics-http",
+        "ripdpi-diagnostics-net",
+        "ripdpi-diagnostics-protocols",
+        "ripdpi-diagnostics-runner",
+        "ripdpi-diagnostics-telegram",
+        "ripdpi-diagnostics-tls",
+        "ripdpi-diagnostics-transport",
+        "ripdpi-monitor-proxy-runtime",
+        "ripdpi-proxy-runtime",
+    }
+)
+DIAGNOSTICS_BOUNDARY_CRATES = frozenset({"ripdpi-diagnostics-contracts", "ripdpi-diagnostics-transport"})
+DIAGNOSTICS_UPWARD_DEPENDENCIES = frozenset(
+    {
+        "ripdpi-android-diagnostics-adapter",
+        "ripdpi-diagnostics-runner",
+        "ripdpi-monitor-adapter",
+        "ripdpi-monitor-engine",
+        "ripdpi-monitor-lane-adapter",
+        "ripdpi-monitor-proxy-runtime",
+    }
+)
+RUNTIME_UPWARD_DEPENDENCY_PREFIXES = (
+    "ripdpi-android",
+    "ripdpi-monitor",
+    "ripdpi-proxy-runtime",
+    "ripdpi-relay",
+    "ripdpi-tunnel",
+    "ripdpi-warp",
+)
 
 
 @dataclass(frozen=True)
@@ -106,6 +204,172 @@ class Violation:
 
 def read_production_source(path: Path) -> str:
     return production_source(path.read_text(encoding="utf-8"))
+
+
+def read_toml(path: Path) -> dict:
+    return tomllib.loads(path.read_text(encoding="utf-8"))
+
+
+def crate_name(manifest: Path) -> str:
+    package = read_toml(manifest).get("package", {})
+    if isinstance(package, dict) and isinstance(package.get("name"), str):
+        return str(package["name"])
+    return manifest.parent.name
+
+
+def dependency_names(table: object, workspace_crates: set[str]) -> set[str]:
+    if not isinstance(table, dict):
+        return set()
+    return {name for name in table if name in workspace_crates}
+
+
+def manifest_production_dependencies(manifest: Path, workspace_crates: set[str]) -> set[str]:
+    data = read_toml(manifest)
+    dependencies = dependency_names(data.get("dependencies"), workspace_crates)
+    for target in data.get("target", {}).values():
+        if isinstance(target, dict):
+            dependencies.update(dependency_names(target.get("dependencies"), workspace_crates))
+    return dependencies
+
+
+def production_dependency_graph(repo_root: Path) -> tuple[dict[str, set[str]], dict[str, Path]]:
+    manifests = sorted((repo_root / CRATES_ROOT).glob("*/Cargo.toml"))
+    manifest_paths = {crate_name(manifest): manifest.relative_to(repo_root) for manifest in manifests}
+    workspace_crates = set(manifest_paths)
+    graph = {
+        crate: manifest_production_dependencies(repo_root / relative_path, workspace_crates)
+        for crate, relative_path in manifest_paths.items()
+    }
+    return graph, manifest_paths
+
+
+def is_android_surface(crate: str) -> bool:
+    return crate == "ripdpi-android" or crate.startswith("ripdpi-android-")
+
+
+def is_runtime_crate(crate: str) -> bool:
+    return crate.startswith("ripdpi-runtime-")
+
+
+def is_diagnostics_crate(crate: str) -> bool:
+    return crate.startswith("ripdpi-diagnostics-")
+
+
+def is_diagnostics_implementation_dependency(crate: str) -> bool:
+    return is_diagnostics_crate(crate) and crate not in DIAGNOSTICS_BOUNDARY_CRATES
+
+
+def is_upward_runtime_dependency(crate: str) -> bool:
+    return crate.startswith(RUNTIME_UPWARD_DEPENDENCY_PREFIXES)
+
+
+def dependency_violation(
+    manifest_paths: dict[str, Path],
+    source: str,
+    dependency: str,
+    message: str,
+) -> Violation:
+    path = manifest_paths.get(source, CRATES_ROOT / source / "Cargo.toml")
+    return Violation(
+        path=path.as_posix(),
+        message=f"{source} must not depend on {dependency}: {message}",
+    )
+
+
+def dependency_direction_violations(
+    graph: dict[str, set[str]],
+    manifest_paths: dict[str, Path],
+) -> list[Violation]:
+    violations: list[Violation] = []
+    for source, dependencies in sorted(graph.items()):
+        for dependency in sorted(dependencies):
+            if dependency in ENTRYPOINT_CRATES:
+                violations.append(
+                    dependency_violation(
+                        manifest_paths,
+                        source,
+                        dependency,
+                        "entrypoint crates are dependency graph leaves",
+                    )
+                )
+            if (
+                dependency not in ENTRYPOINT_CRATES
+                and is_android_surface(dependency)
+                and not is_android_surface(source)
+            ):
+                violations.append(
+                    dependency_violation(
+                        manifest_paths,
+                        source,
+                        dependency,
+                        "Android adapter/support crates must not leak into native core crates",
+                    )
+                )
+            if is_android_surface(source) and dependency == "ripdpi-android":
+                violations.append(
+                    dependency_violation(
+                        manifest_paths,
+                        source,
+                        dependency,
+                        "Android adapters must point toward reusable crates, not the JNI root",
+                    )
+                )
+            if source in RUNTIME_BOUNDARY_CRATES and dependency in RUNTIME_BOUNDARY_FORBIDDEN_DEPENDENCIES:
+                violations.append(
+                    dependency_violation(
+                        manifest_paths,
+                        source,
+                        dependency,
+                        "runtime boundary crates may expose ports but not depend on runtime implementations",
+                    )
+                )
+            if source == "ripdpi-proxy-runtime" and dependency in PROXY_RUNTIME_FORBIDDEN_DEPENDENCIES:
+                violations.append(
+                    dependency_violation(
+                        manifest_paths,
+                        source,
+                        dependency,
+                        "proxy runtime must depend through its adapter and runtime API boundary",
+                    )
+                )
+            if source == "ripdpi-monitor-engine" and dependency in MONITOR_ENGINE_FORBIDDEN_DEPENDENCIES:
+                violations.append(
+                    dependency_violation(
+                        manifest_paths,
+                        source,
+                        dependency,
+                        "monitor engine must depend through monitor adapters instead of concrete lanes",
+                    )
+                )
+            if source in DIAGNOSTICS_BOUNDARY_CRATES and is_diagnostics_implementation_dependency(dependency):
+                violations.append(
+                    dependency_violation(
+                        manifest_paths,
+                        source,
+                        dependency,
+                        "diagnostics boundary crates must not depend on diagnostics implementation lanes",
+                    )
+                )
+            if is_diagnostics_crate(source) and dependency in DIAGNOSTICS_UPWARD_DEPENDENCIES:
+                violations.append(
+                    dependency_violation(
+                        manifest_paths,
+                        source,
+                        dependency,
+                        "diagnostics crates must not point upward into monitor or Android adapters",
+                    )
+                )
+            if is_runtime_crate(source) and is_upward_runtime_dependency(dependency):
+                violations.append(
+                    dependency_violation(
+                        manifest_paths,
+                        source,
+                        dependency,
+                        "runtime crates must not point upward into adapters, entrypoints, or composition hubs",
+                    )
+                )
+
+    return violations
 
 
 def adapter_contract_violations(relative_path: Path, source_text: str) -> list[Violation]:
@@ -227,6 +491,9 @@ def monitor_engine_dependency_violations(relative_path: Path, source_text: str) 
 def collect_violations(repo_root: Path) -> list[Violation]:
     violations: list[Violation] = []
 
+    graph, manifest_paths = production_dependency_graph(repo_root)
+    violations.extend(dependency_direction_violations(graph, manifest_paths))
+
     for relative_path in ADAPTER_FILES:
         source_path = repo_root / relative_path
         violations.extend(adapter_contract_violations(relative_path, read_production_source(source_path)))
@@ -253,7 +520,10 @@ def collect_violations(repo_root: Path) -> list[Violation]:
 
     monitor_engine_cargo = repo_root / MONITOR_ENGINE_CARGO_PATH
     violations.extend(
-        monitor_engine_dependency_violations(MONITOR_ENGINE_CARGO_PATH, monitor_engine_cargo.read_text(encoding="utf-8"))
+        monitor_engine_dependency_violations(
+            MONITOR_ENGINE_CARGO_PATH,
+            monitor_engine_cargo.read_text(encoding="utf-8"),
+        )
     )
 
     return violations

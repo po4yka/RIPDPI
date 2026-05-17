@@ -12,6 +12,63 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_native_architecture_contracts as sut
 
 
+class DependencyDirectionTests(unittest.TestCase):
+    def test_compliant_dependency_direction_edges_pass(self) -> None:
+        graph = {
+            "ripdpi-diagnostics-contracts": {"ripdpi-proxy-config"},
+            "ripdpi-proxy-runtime": {
+                "ripdpi-geo",
+                "ripdpi-io-uring",
+                "ripdpi-proxy-runtime-adapter",
+                "ripdpi-runtime-api",
+            },
+            "ripdpi-runtime-api": {"ripdpi-failure-classifier", "ripdpi-proxy-config"},
+        }
+
+        violations = sut.dependency_direction_violations(graph, self._manifest_paths(graph))
+
+        self.assertEqual(violations, [])
+
+    def test_entrypoint_and_android_direction_edges_fail(self) -> None:
+        graph = {
+            "ripdpi-android-proxy-adapter": {"ripdpi-android"},
+            "ripdpi-runtime-services": {"ripdpi-android", "ripdpi-android-proxy-adapter"},
+        }
+
+        violations = sut.dependency_direction_violations(graph, self._manifest_paths(graph))
+        messages = [violation.message for violation in violations]
+
+        self.assertTrue(any("entrypoint crates are dependency graph leaves" in message for message in messages))
+        self.assertTrue(any("Android adapter/support crates must not leak" in message for message in messages))
+        self.assertTrue(any("not the JNI root" in message for message in messages))
+        self.assertTrue(any("runtime crates must not point upward" in message for message in messages))
+
+    def test_runtime_monitor_and_diagnostics_direction_edges_fail(self) -> None:
+        graph = {
+            "ripdpi-diagnostics-contracts": {"ripdpi-diagnostics-http"},
+            "ripdpi-diagnostics-http": {"ripdpi-monitor-engine"},
+            "ripdpi-monitor-engine": {"ripdpi-diagnostics-dns", "ripdpi-proxy-runtime"},
+            "ripdpi-proxy-runtime": {"ripdpi-runtime-services"},
+            "ripdpi-runtime-api": {"ripdpi-runtime-services"},
+        }
+
+        violations = sut.dependency_direction_violations(graph, self._manifest_paths(graph))
+        messages = [violation.message for violation in violations]
+
+        self.assertTrue(any("diagnostics boundary crates" in message for message in messages))
+        self.assertTrue(any("diagnostics crates must not point upward" in message for message in messages))
+        self.assertTrue(any("monitor engine must depend through monitor adapters" in message for message in messages))
+        self.assertTrue(any("proxy runtime must depend through its adapter" in message for message in messages))
+        self.assertTrue(any("runtime boundary crates may expose ports" in message for message in messages))
+
+    @staticmethod
+    def _manifest_paths(graph: dict[str, set[str]]) -> dict[str, Path]:
+        return {
+            crate: Path(f"native/rust/crates/{crate}/Cargo.toml")
+            for crate in graph
+        }
+
+
 class AdapterContractTests(unittest.TestCase):
     def test_compliant_adapter_file_passes(self) -> None:
         source = """
@@ -212,7 +269,7 @@ class RepoCollectionTests(unittest.TestCase):
             )
             self._write(
                 repo_root / "native/rust/crates/ripdpi-runtime-decision-ports/Cargo.toml",
-                "ripdpi-proxy-config = { workspace = true }\n",
+                self._manifest("ripdpi-runtime-decision-ports", {"ripdpi-proxy-config"}),
             )
             self._write(
                 repo_root / "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/adapters.rs",
@@ -224,7 +281,7 @@ class RepoCollectionTests(unittest.TestCase):
             )
             self._write(
                 repo_root / "native/rust/crates/ripdpi-monitor-engine/Cargo.toml",
-                "ripdpi-diagnostics-contracts = { workspace = true }\n",
+                self._manifest("ripdpi-monitor-engine", {"ripdpi-diagnostics-contracts"}),
             )
 
             violations = sut.collect_violations(repo_root)
@@ -234,6 +291,21 @@ class RepoCollectionTests(unittest.TestCase):
     def _write(path: Path, text: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
+
+    @staticmethod
+    def _manifest(crate: str, dependencies: set[str]) -> str:
+        dependency_lines = "\n".join(
+            f'{dependency} = {{ workspace = true }}'
+            for dependency in sorted(dependencies)
+        )
+        return f"""
+[package]
+name = "{crate}"
+version = "0.1.0"
+
+[dependencies]
+{dependency_lines}
+"""
 
 
 if __name__ == "__main__":
