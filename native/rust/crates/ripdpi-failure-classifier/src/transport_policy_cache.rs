@@ -194,20 +194,16 @@ impl TransportPolicyCache {
     /// that host once the count reaches 3.  Returns `true` if any entries were
     /// removed.
     pub fn record_failure(&mut self, host: &str) -> bool {
-        // Increment counters first.
-        let mut to_remove = Vec::new();
-        for (key, entry) in &mut self.entries {
-            if key.host == host {
-                entry.consecutive_failures = entry.consecutive_failures.saturating_add(1);
-                if entry.consecutive_failures >= 3 {
-                    to_remove.push(key.clone());
-                }
+        let mut removed = false;
+        self.entries.retain(|key, entry| {
+            if key.host != host {
+                return true;
             }
-        }
-        let removed = !to_remove.is_empty();
-        for key in to_remove {
-            self.entries.remove(&key);
-        }
+            entry.consecutive_failures = entry.consecutive_failures.saturating_add(1);
+            let keep = entry.consecutive_failures < 3;
+            removed |= !keep;
+            keep
+        });
         removed
     }
 

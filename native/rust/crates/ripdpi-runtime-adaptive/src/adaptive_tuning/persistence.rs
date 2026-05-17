@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 use std::io;
 
@@ -13,6 +14,7 @@ pub(super) use location::adaptive_store_path;
 #[cfg(test)]
 pub(super) use schema::{restore_offset_base, StoredOffsetBase};
 
+use super::types::{AdaptiveFlowKind, AdaptivePlannerTarget};
 use file_io::{read_store, write_store};
 use location::adaptive_store_fingerprint;
 use schema::{
@@ -69,7 +71,12 @@ pub(super) fn write_adaptive_store(
         });
     }
     for scope in scopes.values_mut() {
-        scope.entries.sort_by_key(|entry| format!("{}|{:?}|{:?}", entry.group_index, entry.flow_kind, entry.target));
+        scope.entries.sort_by(|left, right| {
+            left.group_index
+                .cmp(&right.group_index)
+                .then_with(|| compare_flow_kind_for_store(left.flow_kind, right.flow_kind))
+                .then_with(|| compare_target_for_store(&left.target, &right.target))
+        });
     }
     let store = StoredAdaptivePlannerStore {
         version: ADAPTIVE_TUNING_STORE_VERSION,
@@ -77,4 +84,26 @@ pub(super) fn write_adaptive_store(
         scopes,
     };
     write_store(&path, &store)
+}
+
+fn compare_flow_kind_for_store(left: AdaptiveFlowKind, right: AdaptiveFlowKind) -> Ordering {
+    flow_kind_debug_rank(left).cmp(&flow_kind_debug_rank(right))
+}
+
+fn flow_kind_debug_rank(flow_kind: AdaptiveFlowKind) -> u8 {
+    match flow_kind {
+        AdaptiveFlowKind::TcpOther => 0,
+        AdaptiveFlowKind::TcpTls => 1,
+        AdaptiveFlowKind::UdpOther => 2,
+        AdaptiveFlowKind::UdpQuic => 3,
+    }
+}
+
+fn compare_target_for_store(left: &AdaptivePlannerTarget, right: &AdaptivePlannerTarget) -> Ordering {
+    match (left, right) {
+        (AdaptivePlannerTarget::Address(left), AdaptivePlannerTarget::Address(right)) => left.cmp(right),
+        (AdaptivePlannerTarget::Address(_), AdaptivePlannerTarget::Host(_)) => Ordering::Less,
+        (AdaptivePlannerTarget::Host(_), AdaptivePlannerTarget::Address(_)) => Ordering::Greater,
+        (AdaptivePlannerTarget::Host(left), AdaptivePlannerTarget::Host(right)) => left.cmp(right),
+    }
 }

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::net::SocketAddr;
 
 use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
@@ -12,8 +13,8 @@ pub fn direct_path_capability_for_route<'a>(
     target: SocketAddr,
 ) -> Option<&'a ProxyDirectPathCapability> {
     let capabilities = runtime_context?.direct_path_capabilities.as_slice();
-    let candidates = direct_path_authority_candidates(host, target);
-    capabilities.iter().find(|capability| candidates.contains(&capability.authority))
+    let candidates = direct_path_authority_candidates(host, target).into_iter().collect::<HashSet<_>>();
+    capabilities.iter().find(|capability| candidates.contains(capability.authority.as_str()))
 }
 
 pub fn direct_path_capability_for_targets<'a>(
@@ -22,10 +23,10 @@ pub fn direct_path_capability_for_targets<'a>(
     targets: &[SocketAddr],
 ) -> Option<&'a ProxyDirectPathCapability> {
     let capabilities = runtime_context?.direct_path_capabilities.as_slice();
-    let candidates = direct_path_authority_candidates_for_targets(host, targets);
+    let candidates = direct_path_authority_candidates_for_targets(host, targets).into_iter().collect::<HashSet<_>>();
     let ip_set_digest = direct_path_ip_set_digest(targets);
     capabilities.iter().find(|capability| {
-        candidates.contains(&capability.authority)
+        candidates.contains(capability.authority.as_str())
             && (capability.ip_set_digest.trim().is_empty() || capability.ip_set_digest == ip_set_digest)
     })
 }

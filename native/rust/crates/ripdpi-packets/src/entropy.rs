@@ -128,7 +128,8 @@ pub fn generate_shannon_padding(payload: &[u8], target: f32, max_pad: usize) -> 
     if payload.is_empty() || max_pad == 0 {
         return Vec::new();
     }
-    let current = shannon_entropy(payload);
+    let payload_freq = byte_frequencies(payload);
+    let current = shannon_entropy_from_frequencies(&payload_freq, payload.len());
     if current <= target {
         return Vec::new();
     }
@@ -142,8 +143,7 @@ pub fn generate_shannon_padding(payload: &[u8], target: f32, max_pad: usize) -> 
 
     while lo <= hi {
         let mid = lo + (hi - lo) / 2;
-        let pad = build_structured_padding(mid);
-        let combined = shannon_entropy_combined(payload, &pad);
+        let combined = shannon_entropy_with_structured_padding(&payload_freq, payload.len(), mid);
         if combined <= target {
             best = Some(mid);
             hi = mid - 1;
@@ -158,8 +158,61 @@ pub fn generate_shannon_padding(payload: &[u8], target: f32, max_pad: usize) -> 
     }
 }
 
+fn byte_frequencies(data: &[u8]) -> [u32; 256] {
+    let mut freq = [0u32; 256];
+    for &byte in data {
+        freq[byte as usize] += 1;
+    }
+    freq
+}
+
+fn shannon_entropy_from_frequencies(freq: &[u32; 256], total: usize) -> f32 {
+    if total == 0 {
+        return 0.0;
+    }
+    let len = total as f32;
+    let mut entropy: f32 = 0.0;
+    for &count in freq {
+        if count > 0 {
+            let p = count as f32 / len;
+            entropy -= p * p.log2();
+        }
+    }
+    entropy
+}
+
+fn shannon_entropy_with_structured_padding(payload_freq: &[u32; 256], payload_len: usize, pad_len: usize) -> f32 {
+    let total = payload_len + pad_len;
+    if total == 0 {
+        return 0.0;
+    }
+    let pad_freq = structured_padding_frequencies(pad_len);
+    let len = total as f32;
+    let mut entropy: f32 = 0.0;
+    for (&payload_count, &pad_count) in payload_freq.iter().zip(pad_freq.iter()) {
+        let count = payload_count + pad_count;
+        if count > 0 {
+            let p = count as f32 / len;
+            entropy -= p * p.log2();
+        }
+    }
+    entropy
+}
+
+fn structured_padding_frequencies(len: usize) -> [u32; 256] {
+    let mut freq = [0u32; 256];
+    let full_patterns = len / TLS_HEADER_PATTERN.len();
+    let remainder = len % TLS_HEADER_PATTERN.len();
+    for (index, &byte) in TLS_HEADER_PATTERN.iter().enumerate() {
+        let count = full_patterns + usize::from(index < remainder);
+        freq[byte as usize] += count as u32;
+    }
+    freq
+}
+
 /// Shannon entropy of two slices treated as one contiguous buffer,
 /// without allocating a combined buffer.
+#[cfg(test)]
 fn shannon_entropy_combined(a: &[u8], b: &[u8]) -> f32 {
     let total = a.len() + b.len();
     if total == 0 {
