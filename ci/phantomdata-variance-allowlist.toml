@@ -1,0 +1,34 @@
+# PhantomData / Variance Allowlist
+# ================================
+# Each entry grandfathers a production `PhantomData<...>` field that
+# lacks a `// Variance: ...` (or `// PhantomData: ...`) comment
+# within ±5 lines of its declaration, detected by
+# `scripts/ci/check_phantomdata_variance.py`.
+#
+# Required fields per entry:
+#   file                 Path relative to repo root.
+#   line                 Line number reported by the scanner.
+#   reason               Short human-readable summary.
+#   variance_argument    The actual proof:
+#                          - Ownership for drop-check (owning vs
+#                            borrowed).
+#                          - Variance over lifetime/type parameters
+#                            (covariant, contravariant, invariant).
+#                          - Auto-trait effect (Send / Sync
+#                            inheritance, removal via `*mut T`,
+#                            restoration via `fn() -> T`).
+#                          - Why the inline comment was insufficient
+#                            (usually only justified when the
+#                            argument is >10 lines).
+#   owner                Crate/team responsible for keeping the entry
+#                        sound across refactors.
+#   review_date          ISO date for the next mandatory re-review.
+#
+# As of 2026-05-17 the workspace has ZERO entries -- production
+# `PhantomData<...>` usages (scoped_handle.rs, mapped_file.rs,
+# mmap_region.rs, server/protocol.rs) all carry adjacent variance
+# comments inside ±5 lines, and the static auto-trait assertion
+# helpers (`AmbiguousIfSend` / `AmbiguousIfSync` / `AmbiguousIfCopy`)
+# are skipped wholesale by the scanner.
+
+# entries = []

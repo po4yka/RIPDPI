@@ -3784,3 +3784,459 @@ test that exercises the live workspace. The runtime helper
 JNI return shape, plus a live `extern "system" fn` test that calls the
 ABI through a real function pointer with a panicking inner and asserts
 the sentinel returns without unwinding.
+
+## Self-referential structs and Pin
+
+Audit issue 35. Storing a raw pointer, reference, slice, or computed
+address that aims at another field of the same struct creates a
+self-referential type. Rust values are movable by default; a move
+invalidates every internal pointer and the type becomes UB on next
+access.
+
+The default fix is to remove the self-reference: store an offset, an
+index, a `Range<usize>`, or an owned value instead. If the referent
+needs a stable address, allocate it separately (`Box<T>`, `Arc<T>`)
+so its address is independent of the parent struct's location.
+
+If self-reference is genuinely required:
+
+- The struct MUST add `PhantomData<PhantomPinned>` (or contain a
+  `PhantomPinned` field) so it is `!Unpin`.
+- The struct MUST never be exposed as plain `Self`; the only safe
+  constructor returns `Pin<Box<Self>>` (or another stable container).
+- Every projection method MUST go through `pin-project` or
+  `pin-project-lite`; manual `unsafe { Pin::get_unchecked_mut(...) }`
+  is forbidden in production code.
+- Fields holding the internal pointer MUST be private.
+
+### Enforcement
+
+`scripts/ci/check_pin_and_self_reference.py` runs in CI. It scans
+every `.rs` file under `native/rust/crates/*/src/**` for the six
+high-risk patterns (`PhantomPinned`, `get_unchecked_mut`,
+`map_unchecked_mut`, `Pin::new_unchecked`, `unsafe impl Unpin`, and
+the self-referential field names `self_ptr` / `ptr_into_buf` /
+`slice_ptr` / `raw_view` / `cached_ref`) and fails the build if any
+production hit lacks an entry in `ci/pin-allowlist.toml`. The
+allowlist requires a `soundness_argument` field naming what is
+structurally pinned, what `Drop` does, and why no safe public API
+can break the invariant. As of 2026-05-17 the workspace has ZERO
+hits across all six patterns.
+
+## Incorrect Pin API
+
+Audit issue 36. `Pin<&mut T>` prevents moves only if every API on
+`T` preserves that invariant. The two canonical failure modes:
+
+- A method on `Pin<&mut Self>` returns `&mut field`, letting a
+  caller `std::mem::replace` the field and move the value `T`
+  expected to be pinned.
+- A manual `unsafe impl Unpin for SelfReferentialT` silently lifts
+  the pin requirement and lets `mem::take` (or any
+  `Pin::into_inner_unchecked` consumer) move the value.
+
+The default position is identical to issue 35: use `pin-project` or
+`pin-project-lite` for projections; never write manual
+`get_unchecked_mut` / `map_unchecked_mut`; never write `unsafe impl
+Unpin` for a type whose constructor or fields can produce
+self-reference.
+
+### Enforcement
+
+Shares the `check_pin_and_self_reference.py` scanner and the
+`ci/pin-allowlist.toml` allowlist with issue 35. The five
+non-naming patterns (`get_unchecked_mut`, `map_unchecked_mut`,
+`Pin::new_unchecked`, `unsafe impl Unpin`, and `PhantomPinned`)
+directly police the issue-36 surface.
+
+## Async borrow safety
+
+Audit issue 37. Anything held across `.await` -- a `MutexGuard`, a
+`RefCell::borrow`, a raw pointer, a `&mut` borrow into another
+future's state -- must remain valid (and not produce a deadlock or
+panic) while the future is suspended.
+
+The two patterns this codifies:
+
+- **`std::sync::Mutex` / `parking_lot::Mutex` across `.await`**:
+  forbidden. The sync lock blocks the runtime worker for the entire
+  duration of any awaited future scheduled to that lock's region;
+  if another arm of the same task tries to acquire the same lock,
+  the runtime deadlocks. Use `tokio::sync::Mutex` if the critical
+  section must span an `.await`, or restructure to drop the guard
+  before the `.await`.
+- **`RefCell::borrow` / `borrow_mut` across `.await`**: forbidden.
+  A reentrant poll on the same task that tries to borrow the cell
+  panics; this is the canonical issue-42 failure mode. Use `Cell`
+  for `Copy` data or scope the borrow to a non-async block.
+
+### Enforcement
+
+The two Clippy lints `await_holding_lock` and
+`await_holding_refcell_ref` are set to `deny` in
+`[workspace.lints.clippy]` (`native/rust/Cargo.toml`). With CI's
+`-D warnings` they become hard errors; no allowlist exists at the
+guard level. The complementary `check_async_safety.py` scanner
+catches the related but distinct issue-39 case (blocking
+primitives called from within `async fn` bodies).
+
+## Async cancellation safety
+
+Audit issue 38. Dropping a future cancels it at any `.await`
+point. If the future temporarily mutated object state before
+`.await` and intended to restore it after, cancellation leaves the
+object permanently inconsistent.
+
+The default fix is one of:
+
+- Use an RAII guard whose `Drop` restores the temporary state
+  unconditionally. The guard's destructor runs on both the
+  resume-success path (where the guard is dropped explicitly at
+  scope exit) and the cancel-on-await-drop path (where the future
+  is being torn down).
+- Defer committing state until after the awaited operation
+  completes: `let result = op.await?; self.state = State::Ready;`.
+  Cancellation in `op.await` leaves `self.state` unchanged.
+- Use a typestate or split prepare/commit/rollback API so the
+  intermediate state is invisible to other code paths.
+
+Every `async fn` in production code SHOULD carry a rustdoc
+comment in the form:
+
+```rust
+/// # Cancel safety
+///
+/// Cancel-safe. <one-line reason: no mutable state crosses .await,
+/// only stack-local borrows, etc.>
+```
+
+or:
+
+```rust
+/// # Cancel safety
+///
+/// NOT cancel-safe -- callers must use `tokio::select!` carefully
+/// because dropping this future after the first `.await` leaves
+/// `self.pending_queue` non-empty without a matching ack.
+```
+
+### Enforcement
+
+The cancel-safety comment requirement is enforced at PR-review
+time and by the `async-cancel-safety` agent (see
+`.claude/agents/async-cancel-safety.md`). The agent runs as part
+of the soundness audit pass and the every-PR review when async
+code is touched. There is no per-line CI scanner for this rule.
+
+## Blocking inside async runtime
+
+Audit issue 39. A blocking call inside an `async fn` body that
+runs on a tokio worker pins that worker for the full duration of
+the syscall. Two consequences: `tokio::time::timeout` cannot fire
+(the timer driver does not advance while the worker is parked in
+libc), and concurrent blocking calls can exhaust the worker pool
+and deadlock the runtime.
+
+The default fix is one of:
+
+- Replace with the async equivalent: `tokio::net::lookup_host`
+  instead of `ToSocketAddrs::to_socket_addrs`, `tokio::fs::*`
+  instead of `std::fs::*`, `tokio::time::sleep` instead of
+  `std::thread::sleep`, `tokio::net::TcpStream::connect` instead
+  of `std::net::TcpStream::connect`.
+- Wrap in `tokio::task::spawn_blocking(move || { ... })` and
+  `.await` the join handle; the blocking work runs on tokio's
+  dedicated blocking thread pool.
+- Move long-lived blocking work to a dedicated OS thread that
+  communicates with the runtime over a channel.
+
+### Enforcement
+
+`scripts/ci/check_async_safety.py` runs in CI. It walks every
+`async fn` body in production crates and flags any call to a known
+blocking primitive (`std::thread::sleep`, `std::fs::*`,
+`std::net::TcpStream::connect`, `std::net::UdpSocket::*`,
+`to_socket_addrs(`, `Command::output/status/spawn`). `#[cfg(test)]`
+modules are skipped wholesale (test fixtures routinely use
+`std::thread::sleep` for timing). New hits MUST appear in
+`ci/async-safety-allowlist.toml` with an `executor_strategy` field
+that names why the blocking is safe in context (dedicated
+current-thread runtime, single-shot bootstrap before runtime
+spawns, etc.). The placeholder value `review-needed: ...` is
+permitted only for entries grandfathered in the audit pass; new
+entries cannot use it.
+
+The two highest-leverage call sites (`ripdpi-android-platform-
+adapter/src/doq.rs` and `ripdpi-xhttp/src/connect.rs`) were
+refactored to `tokio::net::lookup_host` in the audit pass for
+issues 37-39. The remaining 8 allowlisted entries are vendored
+SOCKS5/Hysteria2/ShadowTLS paths with `review-needed` follow-ups.
+
+## `Arc<Mutex<T>>` discipline
+
+Audit issue 40. `Arc<Mutex<T>>` is a legitimate primitive but a
+poor default. Per-feature use is fine; whole-module use is a
+design smell: it hides ownership, increases contention, and
+amplifies deadlock risk.
+
+The default position is to ask, in order:
+
+1. Can the data live in one task and communicate via channels
+   (`mpsc`, `oneshot`, `watch`)? Channels move data and avoid all
+   the lock-order questions below.
+2. Is the data immutable after construction? `Arc<T>` alone
+   suffices; no lock needed.
+3. Are the readers many and writers rare? `Arc<ArcSwap<T>>`
+   (or `Arc<RwLock<T>>`) is cheaper than `Arc<Mutex<T>>`.
+4. Is the critical section CPU-bound and short? A sharded lock
+   (`Arc<[Mutex<T>; N]>` keyed by hash) bounds contention.
+5. If none of the above applies, `Arc<Mutex<T>>` is correct.
+
+Every new `Arc<Mutex<T>>` introduction SHOULD document the owner
+model and contention expectation in a comment near the type
+declaration.
+
+### Enforcement
+
+There is no per-line CI scanner for `Arc<Mutex<T>>` overuse
+(it would over-fire on a workspace where the primitive is
+the legitimate primary tool). The `kotlin-design-auditor` and
+`rust-api-auditor` agents flag overuse during periodic design
+reviews. The complementary `check_locking_and_shared_state.py`
+scanner enforces the strict rules for the related `Rc<RefCell>` /
+`Rc<Mutex>` patterns.
+
+## Deadlock from nested locks
+
+Audit issue 41. Rust prevents data races but not deadlocks. A
+function that holds lock A and then acquires lock B can deadlock
+with another function that holds B and then tries to acquire A.
+
+The two rules:
+
+1. **Lock order**: every module with two or more locks MUST
+   document the allowed acquisition order in a comment near the
+   lock declarations. Violations of the documented order are
+   reviewer-blocking.
+2. **No user callbacks under lock**: a function holding a lock
+   MUST NOT call back into user-supplied code (a closure
+   parameter, a trait method on a generic argument, a `dyn`
+   callback). The callee might re-enter the same lock, causing
+   deadlock; releasing the lock before the callback eliminates
+   the class entirely.
+
+### Enforcement
+
+The lock-held-across-callback scanner in
+`scripts/ci/check_unsafe_boundaries.py` (the
+`lock_held_across_callback` pattern) catches the second rule for
+the known lock types (`Mutex`, `RwLock`, `parking_lot::*`,
+`tokio::sync::Mutex`). The first rule is reviewer-enforced;
+there is no per-line scanner.
+
+## RefCell runtime borrow panics
+
+Audit issue 42. `RefCell<T>` enforces borrow rules at runtime. A
+borrow held while user code re-enters the same cell panics, not
+UB -- still a reliability bug in production.
+
+The rule: `RefCell` is permitted for narrow, localized interior
+mutability (a cache invalidation flag in a single struct's
+method). It is forbidden for cross-component shared state. In
+particular, `Rc<RefCell<T>>` is forbidden for graph/observer/
+callback patterns (see issue 43).
+
+`Ref` and `RefMut` borrows MUST NOT cross `.await` (Clippy lint
+`await_holding_refcell_ref`, deny -- see issue 37 enforcement).
+
+### Enforcement
+
+The Clippy lint covers the cross-`.await` case. The broader
+`Rc<RefCell<T>>` ban is covered by issue 43.
+
+## `Rc<RefCell<T>>` as implicit mutable graph
+
+Audit issue 43. `Rc<RefCell<T>>` graphs hide ownership, panic
+under reentrancy, and leak via cycles. The lower-cost alternatives
+for every common case:
+
+- **Tree with parent/child links**: parent owns child via
+  `Rc<Child>`; child references parent via `Weak<Parent>`.
+- **Graph**: arena-allocated nodes with typed integer IDs; the
+  arena owns every node; "references" between nodes are IDs, not
+  pointers.
+- **Observer/listener pattern**: registration returns an RAII
+  guard; the guard's `Drop` unregisters; cycles cannot form.
+- **Mutation across components**: command queue (`mpsc::Sender`);
+  one task owns the mutable state; everyone else sends commands.
+- **Read-heavy state**: `Arc<ArcSwap<T>>` (or `arc-swap::ArcSwap`)
+  for cheap atomic snapshot replacement.
+
+### Enforcement
+
+`scripts/ci/check_locking_and_shared_state.py` runs in CI. It
+flags every production hit of `Rc<RefCell<...>>`,
+`Rc<Mutex<...>>`, or `Rc<RwLock<...>>` (the latter two are
+almost always a typo for `Arc<...>`). New hits MUST appear in
+`ci/locking-allowlist.toml` with a `graph_shape` field naming the
+strong-edge owner chain, the `Weak` back-references, the cycle-
+handling story, and the reentrancy strategy. As of 2026-05-17 the
+workspace has ZERO hits.
+
+The Clippy lint `rc_mutex` is set to `deny` in
+`[workspace.lints.clippy]` as a belt-and-suspenders check for the
+`Rc<Mutex<T>>` typo specifically.
+
+## `Rc` / `Arc` cycles
+
+Audit issue 44. A cycle in the strong reference graph leaks
+forever: every node holds a strong reference to the next, the
+reference counts never reach zero, the destructors never run.
+
+The rule: in any graph-like or observer-like data structure, the
+strong-edge direction MUST be acyclic. Back-edges MUST use
+`Weak<T>`. Closures and tasks that capture `Arc<Self>` MUST have
+a documented lifecycle (either a finite lifetime tied to a
+specific operation, or an explicit `unregister`/`close` API).
+
+Common offenders:
+
+- Parent ↔ child references both using `Rc`/`Arc`: convert one
+  direction to `Weak`.
+- Observer lists where listeners capture `Arc<Self>` of the
+  observed object: registration must return an RAII guard that
+  the observer drops on unregister.
+- Background tasks spawned with `tokio::spawn(async move { ...
+  self_arc ... })`: the task must terminate when `self_arc` is
+  the only remaining reference (typically via a
+  `CancellationToken` shared by the spawner and the task).
+
+### Enforcement
+
+Reviewer-enforced. There is no per-line CI scanner; the
+`rust-api-auditor` agent flags suspicious patterns during periodic
+audits. Drop-counter tests (count `Arc::strong_count` after
+dropping the root) catch concrete leaks at test time.
+
+## PhantomData and variance
+
+Audit issues 45 and 46. `PhantomData<T>` simultaneously decides
+drop-check ownership, auto-trait inheritance (Send/Sync), and
+variance over lifetime and type parameters. Picking the wrong
+form is silent at the type level and catastrophic at runtime:
+
+- `PhantomData<T>`              owns `T` for drop-check;
+                                inherits `Send`/`Sync` from `T`.
+- `PhantomData<&'a T>`           borrowed; covariant in `T`/`'a`.
+- `PhantomData<&'a mut T>`       borrowed; invariant.
+- `PhantomData<*const T>`        no ownership; covariant; removes
+                                 auto-traits (need explicit
+                                 `unsafe impl Send/Sync` if desired).
+- `PhantomData<*mut T>`          no ownership; invariant; removes
+                                 auto-traits.
+- `PhantomData<fn() -> T>`       Send + Sync without ownership.
+- `PhantomData<fn(T)>`           contravariant marker.
+
+The rule: every production `PhantomData<...>` field MUST be
+within 10 lines of a `// Variance:` (or `// PhantomData:`)
+comment that names the intended ownership, variance, and auto-
+trait effect. The marker may be a line comment, block comment, or
+doc comment.
+
+For unsafe abstractions carrying lifetime parameters (typically
+`NonNull<T>` wrappers, iterator newtypes, FFI handles), the
+intended variance over each lifetime/type parameter MUST be
+documented AND covered by a compile-fail (`trybuild`) test that
+proves the variance is what the documentation claims.
+
+### Enforcement
+
+`scripts/ci/check_phantomdata_variance.py` runs in CI. Files
+containing the auto-trait assertion helpers (`AmbiguousIfSend`,
+`AmbiguousIfSync`, `AmbiguousIfCopy`) are skipped wholesale; the
+remaining production hits MUST satisfy the proximity-comment
+rule or appear in `ci/phantomdata-variance-allowlist.toml` with a
+complete `variance_argument`.
+
+## Raw slice construction is a soundness boundary
+
+Audit issue 47. `slice::from_raw_parts` and
+`slice::from_raw_parts_mut` synthesize a `&[T]` / `&mut [T]` from
+a pointer and length. Every contract in their `# Safety` sections
+is a separate UB vector: pointer validity, alignment,
+initialization, range-within-one-allocation, length-overflow,
+exclusive-access-for-mut. All silent under unit tests.
+
+The rule: internal APIs accept `&[T]` / `&mut [T]`, NOT pointer +
+length. Conversion happens once at the FFI boundary with an
+explicit owner whose lifetime bounds the returned slice. Every
+`from_raw_parts*` call site is a soundness boundary that requires
+a written `soundness_argument`.
+
+### Enforcement
+
+`scripts/ci/check_raw_slice_and_layout.py` runs in CI. Every
+production call site of `slice::from_raw_parts`,
+`slice::from_raw_parts_mut`, `Layout::from_size_align`, or manual
+`* size_of::<T>()` arithmetic MUST appear in
+`ci/raw-slice-layout-allowlist.toml` with `soundness_argument`
+covering each safety condition individually (pointer validity,
+alignment, initialization, length overflow, lifetime owner,
+aliasing for `_mut`). The audit pass for issues 47-48 documented
+three known hits (`icmp_wrapped_udp.rs:51`, `mapped_file.rs:86`,
+`reality_hook.rs:266`); no new hits without a corresponding
+allowlist entry.
+
+## Allocation / layout arithmetic
+
+Audit issue 48. Manual `count * size_of::<T>()` arithmetic for
+allocation sizes overflows when `count` is attacker-controlled
+(network length field, parser tag, `as usize` from a foreign
+integer). The allocator returns a buffer smaller than the caller
+expected; the next write or read goes out of bounds.
+
+The rule: allocation/layout math uses `Layout::array::<T>(count)`,
+`checked_mul`, `try_reserve`, or `usize::try_from`. Bare
+`count * size_of::<T>()` is forbidden in production code.
+
+### Enforcement
+
+`scripts/ci/check_raw_slice_and_layout.py` (shared with issue 47)
+catches `Layout::from_size_align` and `* size_of::<T>()`
+arithmetic. The Clippy lint `cast_possible_truncation` is set to
+`warn` in `[workspace.lints.clippy]` to catch the `as usize` /
+`as u32` truncation cases.
+
+## `repr(packed)` discipline
+
+Audit issue 49. Fields of `#[repr(packed)]` structs may be
+unaligned. Creating any Rust reference to such a field is UB
+even on aarch64; rustc's `unaligned_references` lint catches the
+reference case and is set to `forbid` in
+`[workspace.lints.rust]`.
+
+The rule:
+
+1. Wire formats are decoded with explicit byte parsing
+   (`u32::from_le_bytes(buf[0..4].try_into()?)`), NOT by mapping
+   bytes onto a packed struct.
+2. The only acceptable use of `repr(packed)` is when an external
+   ABI demands the exact byte layout AND field access goes
+   through `std::ptr::addr_of!(...).read_unaligned()` (never
+   `&packed.field`).
+3. Derived `Debug`, `Clone`, `PartialEq`, etc. on packed structs
+   may create references to packed fields; the
+   `unaligned_references` lint catches the obvious cases, but new
+   `#[derive(...)]` on a packed struct still requires manual
+   review.
+
+### Enforcement
+
+`scripts/ci/check_packed_structs.py` runs in CI. Every
+production `#[repr(packed)]` (or `repr(packed(N))`, or
+`repr(C, packed)`) struct MUST appear in
+`ci/packed-allowlist.toml` with an `abi_source` field naming the
+external ABI demanding the packed layout and an
+`access_discipline` field naming the `addr_of!` +
+`read_unaligned` pattern in use. As of 2026-05-17 the workspace
+has ZERO `#[repr(packed)]` structs in production code.

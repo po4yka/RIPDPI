@@ -1,0 +1,141 @@
+# Raw Slice / Layout Arithmetic Allowlist
+# =======================================
+# Each entry grandfathers an existing production call site flagged by
+# `scripts/ci/check_raw_slice_and_layout.py`. The policy in
+# `docs/rust-soundness-policy.md` ("Raw slice construction is a
+# soundness boundary", "Allocation / layout arithmetic") requires
+# every entry to ship a complete soundness argument covering every
+# safety condition the pattern carries.
+#
+# Required fields per entry:
+#   file                 Path relative to repo root.
+#   pattern              One of:
+#                          from_raw_parts
+#                          from_raw_parts_mut
+#                          Layout::from_size_align
+#                          size_of_times_count
+#   line                 Line number reported by the scanner. The
+#                        line field is part of the dedup key, so a
+#                        refactor that moves the call site requires
+#                        updating the entry.
+#   reason               Short human-readable summary.
+#   soundness_argument   For `from_raw_parts*`:
+#                          - Pointer validity range and owner.
+#                          - Alignment guarantee (type-level or runtime).
+#                          - Initialization guarantee for `len` elements.
+#                          - Length overflow prevention (where `len`
+#                            comes from + bound).
+#                          - Aliasing: for `_mut`, why exclusive access
+#                            is guaranteed.
+#                          - Returned lifetime owner.
+#                        For `Layout::*` / `size_of_times_count`:
+#                          - Bound on the input that makes overflow
+#                            impossible.
+#                          - Whether `Layout::array` was considered
+#                            and why it was rejected.
+#   owner                Crate/team responsible for keeping the entry
+#                        sound across refactors.
+#   review_date          ISO date for the next mandatory re-review.
+#
+# As of 2026-05-17 the workspace has 3 known production hits of
+# `from_raw_parts*` (icmp_wrapped_udp.rs, mapped_file.rs,
+# reality_hook.rs); these are listed below with full justifications
+# from the audit pass for issues 47/48.
+
+[[entries]]
+file = "native/rust/crates/ripdpi-privileged-ops/src/linux/experimental_tier3/icmp_wrapped_udp.rs"
+pattern = "from_raw_parts"
+line = 51
+reason = "Constructs `&[u8]` view over the bytes a `recv_from` syscall initialized."
+soundness_argument = """
+Pointer = `buf.as_ptr().cast::<u8>()` -- `buf` is a stack `[u8; N]`
+owned by the enclosing loop iteration; the resulting `&[u8]` borrow
+cannot outlive the iteration.
+
+Alignment = `u8` requires alignment 1; trivially satisfied.
+
+Initialization = `received` is the byte count returned by the prior
+`recv_from` syscall on the same iteration. The kernel contract
+guarantees those first `received` bytes are written.
+
+Length overflow = `received` is `usize` returned by libc; bounded
+above by the syscall API to be <= the buffer's capacity (the
+preceding `recv_from` call uses the same `buf`).
+
+Lifetime owner = inferred `&self` borrow via the enclosing impl
+block.
+
+Why not safe alternative = the kernel returns a count that may be
+smaller than the buffer; `&buf[..received]` would also work and is
+the preferred fix in a follow-up refactor. Tracked separately.
+"""
+owner = "transport-team"
+review_date = "2026-11-17"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-geo/src/mapped_file.rs"
+pattern = "from_raw_parts"
+line = 86
+reason = "Constructs `&[u8]` view over an mmap'd file region."
+soundness_argument = """
+Pointer = `self.ptr.as_ptr()` -- `self.ptr` is the `NonNull<u8>`
+returned by `mmap`; valid for `self.len` bytes by the mmap contract;
+released only in `MappedFile::drop` which is exclusive over `&mut
+self`.
+
+Alignment = `u8` requires alignment 1; trivially satisfied. Page
+alignment from the kernel exceeds this.
+
+Initialization = mmap of a file maps file bytes as initialized
+memory; reading any byte not in a hole returns the file content.
+
+Length overflow = `self.len` is set by the constructor from
+`std::fs::metadata().len()` cast through `usize::try_from`; out-of-
+range files are rejected at construction.
+
+Lifetime owner = `&self` of the `MappedFile`; HRTB compile-fail
+assertion at line 102-103 prevents lifetime extension.
+
+Aliasing = `from_raw_parts` (not `_mut`) returns a `&[u8]`; mmap
+read-only mode prevents external mutation.
+
+Why not safe alternative = `memmap2::Mmap` would also work; the
+direct mmap is used to avoid the dep. The HRTB compile-fail
+assertion is the load-bearing safety check.
+"""
+owner = "geo-team"
+review_date = "2026-11-17"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-vless/src/reality_hook.rs"
+pattern = "from_raw_parts_mut"
+line = 266
+reason = "Constructs `&mut [u8]` view over a buffer BoringSSL passes through a callback."
+soundness_argument = """
+Pointer = `msg` -- raw `*mut u8` argument from a BoringSSL TLS
+callback. BoringSSL contract (documented inline at lines 260-265)
+guarantees `msg` points to a mutable buffer of at least `msg_len`
+bytes, valid for the duration of the callback.
+
+Alignment = `u8` requires alignment 1; trivially satisfied.
+
+Initialization = the buffer is BoringSSL-owned; on entry the buffer
+is either initialized (verifying client hello) or being written
+(server side); the callback is single-shot per buffer.
+
+Length overflow = `msg_len` is validated at line 257 to be >= the
+minimum TLS record header size; the caller (BoringSSL) holds the
+allocation size.
+
+Lifetime owner = the slice is consumed entirely within the callback
+body; never escapes to user code. The BoringSSL contract guarantees
+no concurrent callback runs against the same buffer.
+
+Aliasing = single-threaded callback per TLS session; BoringSSL
+serializes record processing.
+
+Why not safe alternative = BoringSSL's FFI uses raw pointers; the
+slice conversion is the safe-Rust adapter at the FFI boundary.
+"""
+owner = "vless-team"
+review_date = "2026-11-17"

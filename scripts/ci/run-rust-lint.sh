@@ -40,6 +40,48 @@ echo "==> drop-order guard"
 # Drop impls". Allowlist: ci/drop-order-allowlist.toml.
 python3 "$repo_root/scripts/ci/check_drop_order.py"
 
+echo "==> soundness-audit (issues 35-49) scanner self-tests"
+# The six new scanners covering audit issues 35-49 share unit + integration
+# tests in a single suite. Run them first so any regex regression surfaces
+# here, not as a confusing production-scan false positive.
+python3 -m unittest discover -s "$repo_root/scripts/ci/tests" \
+    -p 'test_check_soundness_35_49.py' -v
+
+echo "==> packed-struct guard (issue 49)"
+# Policy: docs/rust-soundness-policy.md -- "repr(packed) discipline".
+# Allowlist: ci/packed-allowlist.toml.
+python3 "$repo_root/scripts/ci/check_packed_structs.py"
+
+echo "==> pin / self-reference guard (issues 35-36)"
+# Policy: docs/rust-soundness-policy.md -- "Self-referential structs and
+# Pin" and "Incorrect Pin API". Allowlist: ci/pin-allowlist.toml.
+python3 "$repo_root/scripts/ci/check_pin_and_self_reference.py"
+
+echo "==> raw-slice / layout-arithmetic guard (issues 47-48)"
+# Policy: docs/rust-soundness-policy.md -- "Raw slice construction is a
+# soundness boundary" and "Allocation / layout arithmetic".
+# Allowlist: ci/raw-slice-layout-allowlist.toml.
+python3 "$repo_root/scripts/ci/check_raw_slice_and_layout.py"
+
+echo "==> async-safety guard (issues 38-39)"
+# Policy: docs/rust-soundness-policy.md -- "Blocking inside async runtime".
+# Complementary to clippy's `await_holding_lock` (issue 37/42) which is
+# enforced via [workspace.lints.clippy] in native/rust/Cargo.toml.
+# Allowlist: ci/async-safety-allowlist.toml.
+python3 "$repo_root/scripts/ci/check_async_safety.py"
+
+echo "==> locking / shared-state guard (issues 40-44)"
+# Policy: docs/rust-soundness-policy.md -- "Rc<RefCell<T>> as implicit
+# mutable graph" and "Rc / Arc cycles". Complementary to clippy's
+# `rc_mutex` and `arc_with_non_send_sync`.
+# Allowlist: ci/locking-allowlist.toml.
+python3 "$repo_root/scripts/ci/check_locking_and_shared_state.py"
+
+echo "==> PhantomData / variance guard (issues 45-46)"
+# Policy: docs/rust-soundness-policy.md -- "PhantomData and variance".
+# Allowlist: ci/phantomdata-variance-allowlist.toml.
+python3 "$repo_root/scripts/ci/check_phantomdata_variance.py"
+
 echo "==> clippy"
 cargo clippy --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
 

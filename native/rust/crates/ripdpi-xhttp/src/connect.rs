@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use hyper::client::conn::http2;
@@ -54,7 +54,7 @@ pub(crate) async fn create_connection(
 }
 
 async fn connect_tcp_stream(server: &str, port: u16, bind_ip: Option<IpAddr>) -> io::Result<TcpStream> {
-    let target = resolve_server_addr(server, port, bind_ip)?;
+    let target = resolve_server_addr(server, port, bind_ip).await?;
     let socket = match target {
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,
@@ -77,9 +77,14 @@ async fn connect_tcp_stream(server: &str, port: u16, bind_ip: Option<IpAddr>) ->
     Ok(stream)
 }
 
-fn resolve_server_addr(server: &str, port: u16, bind_ip: Option<IpAddr>) -> io::Result<SocketAddr> {
-    let mut candidates = (server, port)
-        .to_socket_addrs()
+// Cancel safety: cancel-safe. `tokio::net::lookup_host` runs the blocking
+// resolver on tokio's blocking pool; cancellation drops only the address
+// iterator. No caller-visible state mutates across the `.await`.
+async fn resolve_server_addr(server: &str, port: u16, bind_ip: Option<IpAddr>) -> io::Result<SocketAddr> {
+    // Async DNS via the blocking pool — avoids parking a tokio worker thread
+    // in libc `getaddrinfo` on every xHTTP connection establishment.
+    let mut candidates = tokio::net::lookup_host((server, port))
+        .await
         .map_err(|error| io::Error::new(error.kind(), format!("resolve {server}:{port}: {error}")))?;
     if let Some(bind_ip) = bind_ip {
         candidates.find(|address| address.is_ipv4() == bind_ip.is_ipv4()).ok_or_else(|| {

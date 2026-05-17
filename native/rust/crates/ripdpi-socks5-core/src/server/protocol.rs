@@ -20,6 +20,11 @@ pub mod states {
 
 pub struct Socks5ServerProtocol<T, S> {
     inner: T,
+    // Variance: invariant over `S` (typestate marker). The state types
+    // (`Opened`/`Authenticated`/`CommandRead`) are zero-sized phantoms
+    // with no instances; `PhantomData<S>` carries the typestate at the
+    // type level without owning anything. No Send/Sync impact -- those
+    // come from `inner: T`.
     _state: PhantomData<S>,
 }
 
@@ -172,6 +177,10 @@ mod password_states {
 
 pub struct PasswordAuthenticationImpl<T, S> {
     inner: T,
+    // Variance: invariant over `S` (typestate marker). The state types
+    // (`password_states::Started`/`Received`/`Finished`) are zero-sized
+    // phantoms; `PhantomData<S>` carries the typestate at the type
+    // level without owning anything. Send/Sync come from `inner: T`.
     _state: PhantomData<S>,
 }
 

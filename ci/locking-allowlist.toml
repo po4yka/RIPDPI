@@ -1,0 +1,44 @@
+# Locking / Shared-State Allowlist
+# ================================
+# Each entry grandfathers a production hit of
+# `Rc<RefCell<...>>` / `Rc<Mutex<...>>` / `Rc<RwLock<...>>`
+# detected by `scripts/ci/check_locking_and_shared_state.py`. The
+# policy in `docs/rust-soundness-policy.md` ("Rc<RefCell<T>> as
+# implicit mutable graph", "Rc / Arc cycles") requires every entry
+# to ship a `graph_shape` description (strong vs Weak edges, cycle
+# handling) plus the usual provenance metadata.
+#
+# `Rc<Mutex<T>>` and `Rc<RwLock<T>>` are double-flagged because
+# `Rc` is single-threaded -- the lock can never contend, so the
+# combination is almost always evidence of a missing `Arc` or a
+# stale refactor. Either fix the type or allowlist with an explicit
+# explanation of why the mutex is load-bearing without sharing.
+#
+# Required fields per entry:
+#   file           Path relative to repo root.
+#   pattern        One of:
+#                    Rc<RefCell>
+#                    Rc<Mutex>
+#                    Rc<RwLock>
+#   line           Line number reported by the scanner.
+#   reason         Short human-readable summary.
+#   graph_shape    For `Rc<RefCell<...>>`:
+#                    - Strong-edge owner chain.
+#                    - Whether `Weak` is used for back-references.
+#                    - Whether cycles can form, and if so, how they
+#                      are broken at teardown.
+#                    - Reentrancy strategy (call paths that may
+#                      re-enter the cell during a `borrow_mut`).
+#                  For `Rc<Mutex|RwLock<...>>`:
+#                    - Why the mutex is required despite `Rc` being
+#                      single-threaded (cross-task reentrancy via
+#                      coroutine-style yields? wait-for-callback?).
+#   owner          Crate/team responsible for keeping the entry sound.
+#   review_date    ISO date for the next mandatory re-review.
+#
+# As of 2026-05-17 the workspace has ZERO entries -- production code
+# avoids the `Rc<RefCell<...>>` / `Rc<Mutex<...>>` combinations
+# entirely. The single `RefCell` usage (desync-runtime platform
+# registry, thread-local) does not trigger this guard.
+
+# entries = []

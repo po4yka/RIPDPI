@@ -1,0 +1,41 @@
+# Pin / Self-Reference Allowlist
+# ==============================
+# Each entry grandfathers a production-code hit of one of the high-
+# risk patterns detected by `scripts/ci/check_pin_and_self_reference.py`:
+#
+#   - `PhantomPinned`              (marker that the type is !Unpin)
+#   - `get_unchecked_mut`           (pin-projection escape hatch)
+#   - `map_unchecked_mut`           (pin-projection escape hatch)
+#   - `Pin::new_unchecked`          (unchecked pin construction)
+#   - `unsafe impl Unpin`           (manual auto-trait override)
+#   - `self_referential_field_name` (`self_ptr`, `ptr_into_buf`,
+#                                    `slice_ptr`, `raw_view`,
+#                                    `cached_ref`)
+#
+# The policy in `docs/rust-soundness-policy.md` ("Self-referential
+# structs and Pin", "Incorrect Pin API") requires every entry to ship
+# a complete soundness argument -- "what is structurally pinned",
+# "what Drop does", "why no safe API can move the pinned data".
+#
+# Required fields per entry:
+#   file                 Path relative to repo root.
+#   pattern              One of the pattern IDs listed above.
+#   reason               Short human-readable summary.
+#   soundness_argument   The actual proof:
+#                          - What state is structurally pinned.
+#                          - What invariants Drop preserves.
+#                          - Why no safe public API can break those
+#                            invariants (e.g. field is private; type
+#                            is `!Send + !Sync`; only constructor
+#                            returns `Pin<Box<Self>>`).
+#                          - Why `pin-project` could not be used.
+#   owner                Crate/team responsible for keeping the entry
+#                        sound across refactors.
+#   review_date          ISO date for the next mandatory re-review.
+#
+# As of 2026-05-17 the workspace has ZERO entries -- the audit pass
+# for issues 35/36 found no production hits of any of the six
+# patterns. Future additions require human review and a complete
+# `soundness_argument`.
+
+# entries = []

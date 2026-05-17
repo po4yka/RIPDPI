@@ -42,6 +42,13 @@ pub trait FreeFunction<T> {
 /// wants to suppress the auto-free.
 pub struct ScopedHandle<T, F: FreeFunction<T>> {
     ptr: std::ptr::NonNull<T>,
+    // Variance: invariant in `F`. `F: FreeFunction<T>` is a zero-sized
+    // trait marker that names which C free function `Drop` will call;
+    // `PhantomData<F>` is the only way to carry the type at the type
+    // level without an instance. The marker has no ownership over `F`
+    // (drop-check sees no `F` value); Send/Sync are gated by the
+    // explicit `unsafe impl Send` below plus the absence of an
+    // `unsafe impl Sync`.
     _phantom: std::marker::PhantomData<F>,
 }
 

@@ -1,0 +1,37 @@
+# `repr(packed)` Allowlist
+# ========================
+# Each entry grandfathers an existing `#[repr(packed)]` (or
+# `repr(packed(N))`) struct detected by
+# `scripts/ci/check_packed_structs.py`. The policy in
+# `docs/rust-soundness-policy.md` ("`repr(packed)` discipline")
+# requires every such struct to satisfy ONE of:
+#
+#   1. Replacement with explicit byte parsing
+#      (`u32::from_le_bytes(buf[0..4].try_into()?)`); this is the
+#      preferred fix and removes the need for any allowlist entry.
+#   2. An allowlist entry below that names the external ABI demanding
+#      the exact byte layout AND the access discipline used to read
+#      the struct safely (the only safe choice is
+#      `std::ptr::addr_of!(...).read_unaligned()` -- ordinary
+#      `&packed.field` is UB even on aarch64 and is forbidden by the
+#      `unaligned_references = "forbid"` lint).
+#
+# Required fields per entry:
+#   file                Path relative to repo root.
+#   type_name           Exact identifier of the packed struct.
+#   abi_source          What external ABI (kernel UAPI, network wire
+#                       format, etc.) demands the packed layout.
+#   access_discipline   How field reads stay sound (must reference
+#                       `addr_of!` + `read_unaligned`, OR explain why
+#                       no field is ever read by reference).
+#   owner               Crate/team responsible for keeping the entry
+#                       sound across rustc upgrades and refactors.
+#   review_date         ISO date for the next mandatory re-review.
+#
+# As of 2026-05-17 the workspace has ZERO `#[repr(packed)]` structs
+# in production code -- every wire format is decoded with explicit
+# `u32::from_le_bytes` (or equivalent). The allowlist exists in
+# `entries = []` shape so the scanner can parse it without `[[entry]]`
+# headers being present.
+
+# entries = []

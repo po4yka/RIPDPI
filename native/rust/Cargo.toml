@@ -381,6 +381,64 @@ cast_ptr_alignment = "deny"
 crosspointer_transmute = "deny"
 transmute_undefined_repr = "warn"
 
+# Async safety + interior-mutability anti-patterns (soundness audit
+# issues 37, 38, 42, 43 -- see docs/rust-soundness-policy.md
+# "Async borrow safety", "RefCell runtime borrow panics", and
+# "Rc<RefCell<T>> as global mutable graph").
+#
+# - `await_holding_lock` flags `std::sync::Mutex`/`RwLock` or
+#   `parking_lot::Mutex`/`RwLock` guards held across an `.await`. The
+#   sync lock blocks the runtime worker indefinitely (issue 39) and
+#   can deadlock with another `.await` arm that needs the same lock.
+#   Fix: drop the guard before `.await`, switch to a `tokio::sync`
+#   lock, or move the awaited work outside the critical section.
+#
+# - `await_holding_refcell_ref` flags `Ref`/`RefMut` from `RefCell`
+#   held across `.await`. A second future polled on the same task
+#   then trying to borrow the cell panics; this is the canonical
+#   issue 42 failure mode. Fix: scope the borrow to a non-async
+#   block, or replace `RefCell` with `Cell`/`Mutex` if cross-await
+#   access is genuinely required.
+#
+# - `rc_mutex` flags `Rc<Mutex<T>>` / `Rc<RwLock<T>>`. `Rc` is
+#   single-threaded so the lock can never contend; the combination
+#   is almost always a typo for `Arc<Mutex<T>>` or evidence that
+#   `Rc<RefCell<T>>` would have sufficed. Either way, manual review
+#   is warranted (issue 43).
+#
+# - `arc_with_non_send_sync` (already `suspicious` group, restated)
+#   flags `Arc<T>` where `T: !Send + !Sync`, which silently turns
+#   a "shared ownership" pattern into a single-threaded pointer
+#   with extra atomic-refcount overhead. Often a regression after
+#   adding a non-Send field deep inside `T`.
+await_holding_lock = "deny"
+await_holding_refcell_ref = "deny"
+rc_mutex = "deny"
+
+# Allocation / layout arithmetic safety (soundness audit issue 48).
+#
+# `cast_possible_truncation` is intentionally NOT enabled workspace-
+# wide: the SOCKS5/protocol-encoding tail has many provably-safe
+# `len() as u8` casts where the protocol bounds the value to 255.
+# Enabling the lint at `warn` would become `deny` under CI's
+# `-D warnings` and require dozens of per-site `#[allow]` (defeats
+# the lint) or a workspace-wide truncation audit (out of scope).
+# The `scripts/ci/check_raw_slice_and_layout.py` scanner catches
+# the higher-impact pattern -- manual `* size_of::<T>()` arithmetic
+# in allocation contexts -- which is the true issue-48 vector.
+
+# Packed-struct field reference safety (soundness audit issue 49).
+#
+# - `unaligned_references` is built into rustc and DENY by default
+#   since Rust 1.71. Restated here so the intent appears in one
+#   place with the audit cross-reference. Any `&header.packed_field`
+#   on a `#[repr(packed)]` struct is a hard error.
+#
+# - The companion `safe_packed_borrows` lint is the historical
+#   warn-by-default version covering the same pattern from a
+#   different angle; we elevate it to `deny` to close any niche
+#   the newer rustc lint might miss in future-edition code.
+
 [workspace.lints.rust]
 # Force every operation inside `unsafe fn` to live in its own `unsafe {}`
 # block with a SAFETY comment, rather than inheriting the function-level
@@ -406,6 +464,17 @@ unsafe_op_in_unsafe_fn = "deny"
 #   not let a genuine FFI-unstable type slip through.
 improper_ctypes = "warn"
 improper_ctypes_definitions = "warn"
+
+# Packed-struct reference safety (soundness audit issue 49).
+#
+# The historical `unaligned_references` lint was REMOVED from rustc
+# (rust-lang/rust#82523): creating any `&packed.field` reference on
+# a `#[repr(packed)]` struct is now a HARD COMPILER ERROR, not a
+# lint that could be downgraded. The audit cross-reference lives in
+# `docs/rust-soundness-policy.md` § "`repr(packed)` discipline" and
+# in `scripts/ci/check_packed_structs.py` (which enforces the
+# upstream rule that production code may not introduce
+# `#[repr(packed)]` at all without an allowlist entry).
 
 [profile.dev]
 debug = "line-tables-only"

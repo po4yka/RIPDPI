@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{IpAddr, ToSocketAddrs, UdpSocket};
+use std::net::{IpAddr, UdpSocket};
 use std::os::fd::AsRawFd;
 use std::time::Duration;
 
@@ -61,7 +61,7 @@ async fn exchange_async(
     query: Vec<u8>,
     timeout_duration: Duration,
 ) -> Result<Vec<u8>, NativeDoqError> {
-    let bootstrap_ips = bootstrap_ips(&request.endpoint, request.port)?;
+    let bootstrap_ips = bootstrap_ips(&request.endpoint, request.port).await?;
     let resolver = EncryptedDnsResolver::with_timeout_and_connect_hooks(
         EncryptedDnsEndpoint {
             protocol: EncryptedDnsProtocol::Doq,
@@ -82,12 +82,20 @@ async fn exchange_async(
     resolver.exchange(&query).await.map_err(NativeDoqError::from)
 }
 
-fn bootstrap_ips(endpoint: &str, port: u16) -> Result<Vec<IpAddr>, NativeDoqError> {
+// Cancel safety: cancel-safe. `tokio::net::lookup_host` is implemented via
+// `spawn_blocking`; dropping this future does not leave runtime state behind
+// other than the in-flight blocking task, which finishes on its own and is
+// observed by no one. No mutation of caller-visible state spans the `.await`.
+async fn bootstrap_ips(endpoint: &str, port: u16) -> Result<Vec<IpAddr>, NativeDoqError> {
     if let Ok(ip) = endpoint.parse::<IpAddr>() {
         return Ok(vec![ip]);
     }
-    let addresses = (endpoint, port)
-        .to_socket_addrs()
+    // Async DNS via tokio's blocking pool — avoids blocking the current_thread
+    // runtime worker (which is the only worker on this JNI-spawned runtime, so
+    // a sync `to_socket_addrs` would defeat the outer `tokio::time::timeout`
+    // because the timer cannot fire while the worker is parked in libc resolve).
+    let addresses = tokio::net::lookup_host((endpoint, port))
+        .await
         .map_err(|error| NativeDoqError::new("quic", format!("resolve DoQ bootstrap {endpoint}: {error}")))?;
     let ips: Vec<IpAddr> = addresses.map(|addr| addr.ip()).collect();
     if ips.is_empty() {
