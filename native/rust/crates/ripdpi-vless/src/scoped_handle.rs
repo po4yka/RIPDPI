@@ -451,4 +451,95 @@ mod tests {
             "free must fire on panic-unwind drop — this is the safety guarantee the audit requires",
         );
     }
+
+    #[test]
+    fn scoped_handle_partial_init_guard_drops_only_written_prefix_on_panic() {
+        // Partial-initialisation guard regression for issue #32
+        // (`docs/rust-soundness-policy.md` § "Partial initialisation
+        // and panic safety"). Demonstrates Preferred Shape 4: a
+        // private RAII newtype that tracks the written prefix of a
+        // `[MaybeUninit<T>; N]` and drops exactly that prefix when
+        // the guard itself is dropped — including the panic-unwind
+        // path that interrupts initialisation mid-way.
+        //
+        // Without the guard, a panic between successive
+        // `MaybeUninit::write` calls would leak every already-
+        // written `T: Drop` value: the surrounding
+        // `[MaybeUninit<T>; N]` is itself `!Drop`, so `T::drop`
+        // never runs on the prefix. This is the bug class issue
+        // #32 audits for; the test pins the documented fix.
+        //
+        // Runs under the Miri suite (filter `scoped_handle`); the
+        // strict-provenance machine verifies `ptr::drop_in_place`
+        // never reads past the guard's `written` boundary into
+        // uninit memory.
+        use std::mem::MaybeUninit;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        // Hold the test-wide free-counter mutex so concurrent tests
+        // in this module that drive `FREE_CALLS` cannot interleave;
+        // the local `DROPS` counter is module-local but the mutex
+        // is the established serialisation primitive.
+        let _serialise = FREE_CALLS_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+
+        static DROPS: AtomicUsize = AtomicUsize::new(0);
+
+        struct DropCounter;
+        impl Drop for DropCounter {
+            fn drop(&mut self) {
+                DROPS.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        struct InitGuard<'a, T> {
+            slots: &'a mut [MaybeUninit<T>],
+            written: usize,
+        }
+
+        impl<T> Drop for InitGuard<'_, T> {
+            fn drop(&mut self) {
+                for slot in &mut self.slots[..self.written] {
+                    // SAFETY: by the guard's own invariant
+                    // (`written` increments after each successful
+                    // write), the prefix `slots[..written]` is
+                    // fully initialised valid `T`. `drop_in_place`
+                    // runs `T::drop` exactly once per element; the
+                    // uninit tail (`slots[written..]`) is never
+                    // touched. No aliasing because the iteration
+                    // takes `&mut self.slots[..written]`
+                    // exclusively.
+                    unsafe { std::ptr::drop_in_place(slot.as_mut_ptr()) };
+                }
+            }
+        }
+
+        DROPS.store(0, Ordering::SeqCst);
+        let result = std::panic::catch_unwind(|| {
+            // Per-slot const-evaluated `MaybeUninit::uninit()` —
+            // stable on the pinned 1.94.0 toolchain. The array
+            // itself is `!Drop`, so a panic that leaves slots
+            // uninitialised cannot leak.
+            let mut storage: [MaybeUninit<DropCounter>; 4] = [const { MaybeUninit::uninit() }; 4];
+            let mut guard = InitGuard { slots: &mut storage[..], written: 0 };
+            // Initialise three of four slots; the bare
+            // `slot.write(value)` method-call form moves `value`
+            // into the slot without dropping the previous
+            // (uninitialised) contents.
+            for _ in 0..3 {
+                guard.slots[guard.written].write(DropCounter);
+                guard.written += 1;
+            }
+            // Force the panic-unwind path with the prefix
+            // half-initialised. The 4th slot remains uninit and
+            // MUST NOT be dropped.
+            panic!("simulated mid-init failure between elements 3 and 4");
+        });
+        assert!(result.is_err(), "panic propagated through catch_unwind");
+        assert_eq!(
+            DROPS.load(Ordering::SeqCst),
+            3,
+            "exactly 3 elements (the written prefix) must drop; \
+             the 4th uninit slot must NOT — guard read past `written` would be UB",
+        );
+    }
 }
