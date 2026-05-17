@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
+hickory-resolver = { workspace = true }
 libc = { workspace = true }
 ripdpi-diagnostics-classification = { workspace = true }
 ripdpi-diagnostics-contracts = { workspace = true }
