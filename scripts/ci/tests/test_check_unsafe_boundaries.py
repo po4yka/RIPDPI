@@ -1222,6 +1222,21 @@ class ScanRegressionTests(unittest.TestCase):
                 _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
             )
 
+    def test_extern_fn_with_closure_traits_flagged(self) -> None:
+        # `Fn` / `FnMut` / `FnOnce` are unsized trait types; they can
+        # only cross FFI via `Box<dyn Fn...>` or `&dyn Fn...`, both
+        # of which are caught by the existing alternatives. The bare
+        # keyword catch is forward-defense for `impl Fn(...)` or
+        # generic bounds.
+        for fragment in (
+            'extern "C" fn cb(callback: Fn(i32) -> i32) {}',
+            'extern "C" fn cb(handler: FnMut(*mut c_void)) {}',
+            'extern "C" fn cb(once: FnOnce()) {}',
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), "extern fn non-FFI type"), msg=fragment
+            )
+
     # --- Negative cases: must NOT trigger the scan -----------------------
 
     def test_comments_are_ignored(self) -> None:

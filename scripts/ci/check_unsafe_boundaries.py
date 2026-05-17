@@ -446,8 +446,18 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         # Without this anchor, the regex would falsely match an
         # outer non-extern fn's `Result<...>` return type whose
         # parameter list happens to contain an extern-fn-pointer.
+        #
+        # Closure traits `Fn` / `FnMut` / `FnOnce` are flagged
+        # because they are unsized trait types — they can only be
+        # carried across FFI as `Box<dyn Fn...>` (Drop-bearing fat
+        # pointer, already caught by the `Box<dyn` alternative) or
+        # as `&dyn Fn...` (vtable fat pointer, caught by the `&dyn`
+        # alternative). The bare-token form is the FORWARD-DEFENSE
+        # catch in case a future contributor writes `cb: impl
+        # Fn(...)` or a generic bound like `<F: Fn(...) -> ...>`
+        # which becomes a separate ICE/error class.
         r"\bextern\s+\"(?:C|system)\"\s+fn\s+\w[^;{]*"
-        r"(?:\b(?:bool|String|Vec|Box<dyn|Result|impl)\b"
+        r"(?:\b(?:bool|String|Vec|Box<dyn|Result|impl|Fn|FnMut|FnOnce)\b"
         r"|&\s*str\b"
         r"|&\s*\[(?:[^\]]*)\](?:\s*[,)\s])"
         r"|&\s*(?:mut\s+)?dyn\s+\w"
