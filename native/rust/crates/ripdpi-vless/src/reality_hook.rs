@@ -47,6 +47,22 @@ pub(crate) struct SslHandle {
     _opaque: [u8; 0],
 }
 
+// Compile-time FFI guards for soundness issue #24: both `SslHandle` and
+// `SslCtxHandle` are opaque BoringSSL handle types. The Rust side only
+// ever sees `*const`/`*mut` pointers to these and never reads/writes
+// through them — they must therefore be zero-sized so any accidental
+// by-value materialisation (`unsafe { *p }`) is statically rejected.
+// `#[repr(C)]` + a `[u8; 0]` field gives `size_of == 0` and `align_of
+// == 1`. Any future field addition (which would silently make the
+// handle by-value-readable and create an ABI mismatch with BoringSSL's
+// real SSL/SSL_CTX layouts) fails to compile here.
+const _: () = {
+    assert!(std::mem::size_of::<SslHandle>() == 0);
+    assert!(std::mem::align_of::<SslHandle>() == 1);
+    assert!(std::mem::size_of::<SslCtxHandle>() == 0);
+    assert!(std::mem::align_of::<SslCtxHandle>() == 1);
+};
+
 pub(crate) type RealityHelloCb =
     extern "C" fn(ssl: *mut SslHandle, msg: *mut u8, msg_len: usize, arg: *mut c_void) -> c_int;
 

@@ -445,6 +445,22 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"|\bOption\s*<\s*(?!(?:NonNull|NonZero|&|fn))"
         r")"
     ),
+    # `bindgen::Builder` / `cbindgen::Builder` invocations in `build.rs`
+    # or any source file. Both crates generate FFI binding code that
+    # the rest of the workspace's `#[repr]` discipline cannot
+    # automatically verify. The workspace does NOT depend on either
+    # crate today (verified by issue #24 audit). Any future adoption
+    # must:
+    #   (a) include a checked-in snapshot of the generated bindings
+    #       (committed to the repo, not generated on every build) so
+    #       the FFI surface is reviewable in PRs, OR
+    #   (b) include a CI step that diffs the generated output against
+    #       the snapshot on every build and fails on drift, OR
+    #   (c) earn an allowlist entry naming the verification strategy
+    #       per docs/rust-soundness-policy.md § "FFI layout and ABI".
+    "bindgen invocation": re.compile(
+        r"\b(?:bindgen|cbindgen)::(?:Builder|generate|Config|Language)\b"
+    ),
 }
 
 # The `.get()` method is also used by many safe types (HashMap, Vec,

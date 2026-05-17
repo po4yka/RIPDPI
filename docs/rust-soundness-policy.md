@@ -137,6 +137,7 @@ on every PR. It looks for the following risky patterns under
 | `repr packed` | `#[repr(packed)]`, `#[repr(packed(N))]`, `#[repr(C, packed)]`. Eliminates padding, producing underaligned field accesses — `&packed.field` materialises an underaligned reference (UB on ARM64 strict-alignment configurations). Workspace has zero occurrences. Any new use must restructure to `#[repr(C)]` with explicit padding fields or earn an allowlist entry naming the `addr_of!` + `ptr::read_unaligned` discipline. See "FFI layout and ABI" below. |
 | `extern fn non-FFI type` | `extern "C" fn` / `extern "system" fn` signatures containing `bool` (implementation-defined at FFI level), `&str` / `String` / `Vec<T>` / `Box<dyn ...>` (fat pointers / Drop-bearing types), `&[T]` (fat pointer), or `Option<T>` for `T` other than `NonNull`/`NonZero*`/references/function pointers (general Option layout is unspecified). Workspace has zero occurrences in extern blocks or definitions. The companion clippy lints `improper_ctypes` and `improper_ctypes_definitions` catch a superset; this scanner pattern is the belt-and-suspenders cross-check that survives module-level `#[allow(improper_ctypes_definitions)]` waivers. See "FFI layout and ABI" below. |
 | `no_mangle without extern ABI` (proximity ≤ 3 lines) | `#[no_mangle]` not paired with `extern "C"` / `extern "system"` / similar within 3 source lines below. A `#[no_mangle]` on a default-Rust-ABI function exports an unstable-ABI symbol under a fixed name — guaranteed ABI mismatch at every C/Java/other-language call site. Workspace has three correctly-paired occurrences (`reality_hook.rs:90/109/123` — all paired with `extern "C"`); the proximity check locks the workspace at that baseline. See "FFI layout and ABI" below. |
+| `bindgen invocation` | `bindgen::Builder` / `bindgen::generate` / `cbindgen::Builder` / `cbindgen::generate` / `cbindgen::Config` / `cbindgen::Language` calls in build scripts or production code. Both crates generate FFI binding code that the rest of the workspace's `#[repr]` discipline cannot automatically verify. The workspace does NOT depend on either crate today; the pattern is forward-defense. Any future adoption must include either a checked-in snapshot of the generated bindings (committed for PR review) or a CI step that diffs generated output against a snapshot. See "FFI layout and ABI" below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -2253,14 +2254,29 @@ pointers), validated by the `jni` crate's own test suite.
   - `no_mangle without extern ABI` — proximity detector (3-line
     window) that flags `#[no_mangle]` not paired with `extern
     "<abi>"` immediately below.
-- **Clippy**: `improper_ctypes` (rust) and `improper_ctypes_definitions`
-  (rust) catch a superset at compile time. The four JNI bridge
-  crates carry an explicit `#[allow(...)]` with the JNI-types
-  rationale; the scanner provides the belt-and-suspenders check.
-- **Compile-time layout asserts** at each kernel-ABI struct
-  definition site: `const _: () = { assert!(size_of::<T>() ==
-  EXPECTED); assert!(align_of::<T>() == EXPECTED); };` blocks
-  fail to build on any field reorder/insert/delete.
+  - `bindgen invocation` — flags any `bindgen::Builder` /
+    `cbindgen::Builder` / `cbindgen::Config` / `cbindgen::Language`
+    call. Workspace has zero occurrences; future adoption requires
+    a committed binding snapshot + drift-detection CI step.
+- **Rust lints** (workspace `[workspace.lints.rust]`):
+  - `improper_ctypes = "warn"` — `extern "C" { fn(...) -> T; }`
+    declarations whose parameter/return types are not FFI-stable.
+  - `improper_ctypes_definitions = "warn"` — same lint for `extern
+    "C" fn` / `extern "system" fn` definitions (functions we
+    export). Four JNI bridge crates carry
+    `#[allow(improper_ctypes_definitions)]` because the `jni`
+    crate's `EnvUnowned<'_>` / `JObject<'_>` types use lifetime
+    parameters that rustc's CType check cannot prove FFI-safe.
+    The scanner pattern `extern fn non-FFI type` provides the
+    cross-check that the allowance does not let a genuine
+    FFI-unstable type slip through.
+- **Compile-time layout asserts** at each FFI struct definition
+  site: `const _: () = { assert!(size_of::<T>() == EXPECTED);
+  assert!(align_of::<T>() == EXPECTED); };` blocks fail to build
+  on any field reorder/insert/delete. The four kernel-ABI structs
+  (`LinuxTcpInfo`, `TcpMd5Sig`, `TcpRepairWindow`, `TcpRepairOpt`)
+  and the two opaque BoringSSL handles (`SslHandle`,
+  `SslCtxHandle` — both asserted zero-sized) all carry these.
 
 ### Allowlist requirements
 

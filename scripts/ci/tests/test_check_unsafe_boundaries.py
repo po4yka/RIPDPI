@@ -1135,6 +1135,22 @@ class ScanRegressionTests(unittest.TestCase):
         src = '#[no_mangle]\nextern "C" {\n    fn foo();\n}'
         self.assertFalse(_has(_scan(src), guard.NO_MANGLE_PROXIMITY_PATTERN))
 
+    def test_bindgen_invocation_flagged(self) -> None:
+        for fragment in (
+            "let bindings = bindgen::Builder::default().header(\"x.h\").generate()?;",
+            "cbindgen::Builder::new().with_language(cbindgen::Language::C).generate()?;",
+            "let cfg = cbindgen::Config { ..Default::default() };",
+        ):
+            self.assertTrue(_has(_scan(fragment), "bindgen invocation"), msg=fragment)
+
+    def test_bindgen_keyword_in_unrelated_text_not_flagged(self) -> None:
+        # Bare keyword mentions in unrelated identifiers must not trip.
+        for fragment in (
+            "let bindgen_path = Path::new(\"bindings.rs\");",
+            "fn rebindgen_helper() {}",
+        ):
+            self.assertFalse(_has(_scan(fragment), "bindgen invocation"), msg=fragment)
+
     # --- Negative cases: must NOT trigger the scan -----------------------
 
     def test_comments_are_ignored(self) -> None:

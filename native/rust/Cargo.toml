@@ -387,6 +387,26 @@ transmute_undefined_repr = "warn"
 # unsafe context implicitly.
 unsafe_op_in_unsafe_fn = "deny"
 
+# FFI layout and ABI hygiene (soundness issue #24).
+#
+# - `improper_ctypes` (rustc) flags `extern "C" { fn(...) -> T; }`
+#   declarations whose parameter/return types are not FFI-stable
+#   (Rust enums without `#[repr]`, `bool`, `&str`, `String`, `Vec<T>`,
+#   etc.). Already `warn` by default in rustc; restating here so the
+#   policy intent is explicit and `-D warnings` in CI makes it a
+#   hard error.
+#
+# - `improper_ctypes_definitions` (rustc) is the matching lint for
+#   `extern "C" fn` / `extern "system" fn` definitions (i.e. functions
+#   we EXPORT, not import). Four JNI bridge crates carry
+#   `#[allow(improper_ctypes_definitions)]` because the `jni` crate's
+#   types use lifetime parameters that rustc's CType check cannot
+#   prove FFI-safe; the scanner pattern `extern fn non-FFI type`
+#   provides the belt-and-suspenders check that the allowance does
+#   not let a genuine FFI-unstable type slip through.
+improper_ctypes = "warn"
+improper_ctypes_definitions = "warn"
+
 [profile.dev]
 debug = "line-tables-only"
 
