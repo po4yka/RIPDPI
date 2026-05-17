@@ -1,3 +1,4 @@
+use android_support::ffi_boundary;
 use jni::objects::{JObject, JString};
 use jni::sys::jstring;
 use jni::EnvUnowned;
@@ -12,5 +13,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiSharedPriorsNativeBindin
     manifest_json: JString<'_>,
     priors_base64: JString<'_>,
 ) -> jstring {
-    ripdpi_android_platform_adapter::apply_entry(env, manifest_json, priors_base64)
+    ffi_boundary(core::ptr::null_mut(), move || {
+        ripdpi_android_platform_adapter::apply_entry(env, manifest_json, priors_base64)
+    })
 }

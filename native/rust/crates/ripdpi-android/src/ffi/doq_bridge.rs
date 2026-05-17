@@ -1,3 +1,4 @@
+use android_support::ffi_boundary;
 use jni::objects::{JObject, JString};
 use jni::sys::jstring;
 use jni::EnvUnowned;
@@ -8,5 +9,5 @@ pub extern "system" fn Java_com_poyka_ripdpi_diagnostics_dpi_NativeDoqQuicClient
     _thiz: JObject<'_>,
     request_json: JString<'_>,
 ) -> jstring {
-    ripdpi_android_platform_adapter::exchange_doq_entry(env, request_json)
+    ffi_boundary(core::ptr::null_mut(), move || ripdpi_android_platform_adapter::exchange_doq_entry(env, request_json))
 }

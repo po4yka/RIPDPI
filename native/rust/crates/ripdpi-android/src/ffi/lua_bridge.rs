@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use android_support::ffi_boundary;
 use jni::objects::{JObject, JObjectArray, JString};
 use jni::sys::{jobjectArray, jstring};
 use jni::{Env, EnvUnowned, Outcome};
@@ -17,68 +18,79 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_l
     _thiz: JObject<'_>,
     path: JString<'_>,
 ) -> jstring {
-    nullable_error_entry(env, path, |path| {
-        engine()?.load_script_registering_globals(&path)?;
-        remember_loaded_path(path)?;
-        Ok(())
+    ffi_boundary(core::ptr::null_mut(), move || {
+        nullable_error_entry(env, path, |path| {
+            engine()?.load_script_registering_globals(&path)?;
+            remember_loaded_path(path)?;
+            Ok(())
+        })
     })
 }
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaReloadConfig(
-    mut env: EnvUnowned<'_>,
+    env: EnvUnowned<'_>,
     _thiz: JObject<'_>,
 ) -> jstring {
-    match env
-        .with_env(|env| -> jni::errors::Result<jstring> {
-            let result = reload_loaded_scripts().map_err(|error| error.to_string());
-            error_to_nullable_jstring(env, result)
-        })
-        .into_outcome()
-    {
-        Outcome::Ok(value) => value,
-        _ => std::ptr::null_mut(),
-    }
+    ffi_boundary(core::ptr::null_mut(), move || {
+        let mut env = env;
+        match env
+            .with_env(|env| -> jni::errors::Result<jstring> {
+                let result = reload_loaded_scripts().map_err(|error| error.to_string());
+                error_to_nullable_jstring(env, result)
+            })
+            .into_outcome()
+        {
+            Outcome::Ok(value) => value,
+            _ => std::ptr::null_mut(),
+        }
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaListStrategies(
-    mut env: EnvUnowned<'_>,
+    env: EnvUnowned<'_>,
     _thiz: JObject<'_>,
 ) -> jobjectArray {
-    match env
-        .with_env(|env| -> jni::errors::Result<jobjectArray> {
-            let names = match engine() {
-                Ok(engine) => engine.list_registered_functions().unwrap_or_default(),
-                Err(_) => Vec::new(),
-            };
-            string_array(env, &names)
-        })
-        .into_outcome()
-    {
-        Outcome::Ok(value) => value,
-        _ => std::ptr::null_mut(),
-    }
+    ffi_boundary(core::ptr::null_mut(), move || {
+        let mut env = env;
+        match env
+            .with_env(|env| -> jni::errors::Result<jobjectArray> {
+                let names = match engine() {
+                    Ok(engine) => engine.list_registered_functions().unwrap_or_default(),
+                    Err(_) => Vec::new(),
+                };
+                string_array(env, &names)
+            })
+            .into_outcome()
+        {
+            Outcome::Ok(value) => value,
+            _ => std::ptr::null_mut(),
+        }
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaLoadedScriptPaths(
-    mut env: EnvUnowned<'_>,
+    env: EnvUnowned<'_>,
     _thiz: JObject<'_>,
 ) -> jobjectArray {
-    match env
-        .with_env(|env| -> jni::errors::Result<jobjectArray> {
-            let paths = LOADED_SCRIPT_PATHS
-                .lock()
-                .map(|paths| paths.iter().map(|path| path.to_string_lossy().to_string()).collect::<Vec<_>>())
-                .unwrap_or_default();
-            string_array(env, &paths)
-        })
-        .into_outcome()
-    {
-        Outcome::Ok(value) => value,
-        _ => std::ptr::null_mut(),
-    }
+    ffi_boundary(core::ptr::null_mut(), move || {
+        let mut env = env;
+        match env
+            .with_env(|env| -> jni::errors::Result<jobjectArray> {
+                let paths = LOADED_SCRIPT_PATHS
+                    .lock()
+                    .map(|paths| paths.iter().map(|path| path.to_string_lossy().to_string()).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                string_array(env, &paths)
+            })
+            .into_outcome()
+        {
+            Outcome::Ok(value) => value,
+            _ => std::ptr::null_mut(),
+        }
+    })
 }
 
 #[unsafe(no_mangle)]
@@ -87,25 +99,30 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_l
     _thiz: JObject<'_>,
     path: JString<'_>,
 ) -> jstring {
-    nullable_error_entry(env, path, |path| LuaStrategyEngine::validate_script(path).map_err(Into::into))
+    ffi_boundary(core::ptr::null_mut(), move || {
+        nullable_error_entry(env, path, |path| LuaStrategyEngine::validate_script(path).map_err(Into::into))
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_validateStrategyConfigText(
-    mut env: EnvUnowned<'_>,
+    env: EnvUnowned<'_>,
     _thiz: JObject<'_>,
     config_text: JString<'_>,
 ) -> jstring {
-    match env
-        .with_env(move |env| -> jni::errors::Result<jstring> {
-            let config_text = config_text.mutf8_chars(env)?.to_str().into_owned();
-            error_to_nullable_jstring(env, validate_strategy_config_text(&config_text))
-        })
-        .into_outcome()
-    {
-        Outcome::Ok(value) => value,
-        _ => std::ptr::null_mut(),
-    }
+    ffi_boundary(core::ptr::null_mut(), move || {
+        let mut env = env;
+        match env
+            .with_env(move |env| -> jni::errors::Result<jstring> {
+                let config_text = config_text.mutf8_chars(env)?.to_str().into_owned();
+                error_to_nullable_jstring(env, validate_strategy_config_text(&config_text))
+            })
+            .into_outcome()
+        {
+            Outcome::Ok(value) => value,
+            _ => std::ptr::null_mut(),
+        }
+    })
 }
 
 fn validate_strategy_config_text(config_text: &str) -> Result<(), String> {

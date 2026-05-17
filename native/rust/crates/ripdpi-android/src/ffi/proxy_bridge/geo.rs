@@ -7,11 +7,13 @@ export_jni!(
     Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniGeoDatabaseVersions,
     (geoip_db_path: JString, geosite_db_path: JString),
     jstring,
-    proxy_geo_database_versions_entry
+    proxy_geo_database_versions_entry,
+    core::ptr::null_mut(),
 );
 export_jni!(
     Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniGeoIpMetadata,
     (geoip_db_path: JString, geosite_db_path: JString, ip: JString),
     jstring,
-    proxy_geoip_metadata_entry
+    proxy_geoip_metadata_entry,
+    core::ptr::null_mut(),
 );

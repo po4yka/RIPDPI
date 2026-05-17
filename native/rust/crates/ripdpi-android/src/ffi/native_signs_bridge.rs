@@ -1,3 +1,4 @@
+use android_support::ffi_boundary;
 use jni::objects::JObject;
 use jni::sys::jstring;
 use jni::{EnvUnowned, Outcome};
@@ -7,19 +8,22 @@ use std::path::Path;
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_detection_checker_JniNativeSignsBridge_jniSnapshot(
-    mut env: EnvUnowned<'_>,
+    env: EnvUnowned<'_>,
     _thiz: JObject<'_>,
 ) -> jstring {
-    match env
-        .with_env(|env| -> jni::errors::Result<jstring> {
-            let payload = native_signs_snapshot_json();
-            Ok(env.new_string(payload)?.into_raw())
-        })
-        .into_outcome()
-    {
-        Outcome::Ok(value) => value,
-        _ => std::ptr::null_mut(),
-    }
+    ffi_boundary(core::ptr::null_mut(), move || {
+        let mut env = env;
+        match env
+            .with_env(|env| -> jni::errors::Result<jstring> {
+                let payload = native_signs_snapshot_json();
+                Ok(env.new_string(payload)?.into_raw())
+            })
+            .into_outcome()
+        {
+            Outcome::Ok(value) => value,
+            _ => std::ptr::null_mut(),
+        }
+    })
 }
 
 fn native_signs_snapshot_json() -> String {

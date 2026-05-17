@@ -1,5 +1,6 @@
 mod events;
 mod exceptions;
+mod ffi_boundary;
 mod handles;
 mod logging;
 mod sync;
@@ -20,6 +21,7 @@ pub use exceptions::{
     throw_illegal_state, throw_illegal_state_env, throw_io_exception, throw_io_exception_env, throw_runtime_exception,
     throw_runtime_exception_env,
 };
+pub use ffi_boundary::ffi_boundary;
 pub use handles::HandleRegistry;
 pub use logging::{
     android_log_level_from_debug_verbosity, android_log_level_from_str, clear_android_log_scope_level,

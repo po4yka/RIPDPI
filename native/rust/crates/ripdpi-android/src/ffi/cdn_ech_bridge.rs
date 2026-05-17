@@ -1,3 +1,4 @@
+use android_support::ffi_boundary;
 use jni::objects::{JObject, JString};
 use jni::sys::{jlong, jstring};
 use jni::EnvUnowned;
@@ -12,7 +13,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jni
     env: EnvUnowned<'_>,
     _thiz: JObject<'_>,
 ) -> jstring {
-    ripdpi_android_platform_adapter::refresh_entry(env)
+    ffi_boundary(core::ptr::null_mut(), move || ripdpi_android_platform_adapter::refresh_entry(env))
 }
 
 /// Snapshot the current cache for persistence to platform storage.
@@ -21,7 +22,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jni
     env: EnvUnowned<'_>,
     _thiz: JObject<'_>,
 ) -> jstring {
-    ripdpi_android_platform_adapter::snapshot_entry(env)
+    ffi_boundary(core::ptr::null_mut(), move || ripdpi_android_platform_adapter::snapshot_entry(env))
 }
 
 /// Seed the singleton's cache from a previously-persisted snapshot.
@@ -32,5 +33,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jni
     config_base64: JString<'_>,
     fetched_at_unix_ms: jlong,
 ) -> jstring {
-    ripdpi_android_platform_adapter::seed_entry(env, config_base64, fetched_at_unix_ms)
+    ffi_boundary(core::ptr::null_mut(), move || {
+        ripdpi_android_platform_adapter::seed_entry(env, config_base64, fetched_at_unix_ms)
+    })
 }

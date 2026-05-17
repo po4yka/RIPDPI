@@ -1,3 +1,4 @@
+use android_support::ffi_boundary;
 use jni::objects::{JObject, JString};
 use jni::sys::jstring;
 use jni::EnvUnowned;
@@ -8,5 +9,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_i
     _thiz: JObject<'_>,
     results_json: JString<'_>,
 ) -> jstring {
-    ripdpi_android_platform_adapter::inject_probe_results_entry(env, results_json)
+    ffi_boundary(core::ptr::null_mut(), move || {
+        ripdpi_android_platform_adapter::inject_probe_results_entry(env, results_json)
+    })
 }

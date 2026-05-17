@@ -16,6 +16,17 @@ python3 "$repo_root/scripts/ci/check_runtime_crate_boundaries.py"
 echo "==> unsafe-boundary allowlist guard"
 python3 "$repo_root/scripts/ci/check_unsafe_boundaries.py"
 
+echo "==> FFI panic-boundary scanner self-tests"
+# Run the scanner's unit tests first so a regex regression surfaces here
+# (cheap, ~0.5s) rather than as a confusing production-scan false positive
+# below. Mirrors the discipline applied to other CI guards.
+python3 -m unittest discover -s "$repo_root/scripts/ci/tests" -p 'test_check_ffi_panic_boundary.py' -v
+
+echo "==> FFI panic-boundary guard"
+# Policy: docs/rust-soundness-policy.md -- "FFI panic-unwind containment".
+# Allowlist: ci/ffi-panic-boundary-allowlist.toml.
+python3 "$repo_root/scripts/ci/check_ffi_panic_boundary.py"
+
 echo "==> clippy"
 cargo clippy --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
 

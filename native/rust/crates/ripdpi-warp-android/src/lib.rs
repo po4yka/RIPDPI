@@ -5,6 +5,7 @@ mod registry;
 mod telemetry;
 mod vpn_protect;
 
+use android_support::ffi_boundary;
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong};
 use jni::{EnvUnowned, JavaVM};
@@ -27,7 +28,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniCr
     _thiz: JObject,
     config_json: JString,
 ) -> jlong {
-    lifecycle::create(env, config_json)
+    ffi_boundary(0, move || lifecycle::create(env, config_json))
 }
 
 #[unsafe(no_mangle)]
@@ -36,7 +37,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniSt
     _thiz: JObject,
     handle: jlong,
 ) -> jint {
-    lifecycle::start(handle)
+    ffi_boundary(-1, move || lifecycle::start(handle))
 }
 
 #[unsafe(no_mangle)]
@@ -45,7 +46,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniSt
     _thiz: JObject,
     handle: jlong,
 ) {
-    lifecycle::stop(handle);
+    ffi_boundary((), move || {
+        lifecycle::stop(handle);
+    });
 }
 
 #[unsafe(no_mangle)]
@@ -54,7 +57,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniPo
     _thiz: JObject,
     handle: jlong,
 ) -> jni::sys::jstring {
-    telemetry::poll(env, handle)
+    ffi_boundary(core::ptr::null_mut(), move || telemetry::poll(env, handle))
 }
 
 #[unsafe(no_mangle)]
@@ -63,7 +66,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniDe
     _thiz: JObject,
     handle: jlong,
 ) {
-    lifecycle::destroy(handle);
+    ffi_boundary((), move || {
+        lifecycle::destroy(handle);
+    });
 }
 
 #[unsafe(no_mangle)]
@@ -72,7 +77,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniEx
     _thiz: JObject,
     request_json: JString,
 ) -> jni::sys::jstring {
-    provisioning::execute_from_jni(env, request_json)
+    ffi_boundary(core::ptr::null_mut(), move || provisioning::execute_from_jni(env, request_json))
 }
 
 #[unsafe(no_mangle)]
@@ -81,7 +86,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniPr
     _thiz: JObject,
     request_json: JString,
 ) -> jni::sys::jstring {
-    endpoint_probe::probe(env, request_json)
+    ffi_boundary(core::ptr::null_mut(), move || endpoint_probe::probe(env, request_json))
 }
 
 // @JvmStatic in a Kotlin companion object generates the JNI symbol on the
@@ -92,7 +97,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniRe
     _thiz: JObject,
     vpn_service: JObject,
 ) {
-    vpn_protect::register_from_jni(env, vpn_service);
+    ffi_boundary((), move || {
+        vpn_protect::register_from_jni(env, vpn_service);
+    });
 }
 
 #[unsafe(no_mangle)]
@@ -100,5 +107,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniUn
     _env: EnvUnowned<'_>,
     _thiz: JObject,
 ) {
-    vpn_protect::unregister_entry();
+    ffi_boundary((), || {
+        vpn_protect::unregister_entry();
+    });
 }

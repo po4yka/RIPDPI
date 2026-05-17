@@ -8,7 +8,7 @@ mod config;
 mod session;
 mod telemetry;
 
-use android_support::{init_android_logging, JNI_VERSION};
+use android_support::{ffi_boundary, init_android_logging, JNI_VERSION};
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jlongArray};
 use jni::{EnvUnowned, JavaVM};
@@ -41,7 +41,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniCre
     _thiz: JObject,
     config_json: JString,
 ) -> jlong {
-    tunnel_create_entry(env, config_json)
+    ffi_boundary(0, move || tunnel_create_entry(env, config_json))
 }
 
 #[unsafe(no_mangle)]
@@ -51,7 +51,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniSta
     handle: jlong,
     tun_fd: jint,
 ) {
-    tunnel_start_entry(env, handle, tun_fd);
+    ffi_boundary((), move || {
+        tunnel_start_entry(env, handle, tun_fd);
+    });
 }
 
 #[unsafe(no_mangle)]
@@ -60,7 +62,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniSto
     _thiz: JObject,
     handle: jlong,
 ) {
-    tunnel_stop_entry(env, handle);
+    ffi_boundary((), move || {
+        tunnel_stop_entry(env, handle);
+    });
 }
 
 #[unsafe(no_mangle)]
@@ -69,7 +73,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGet
     _thiz: JObject,
     handle: jlong,
 ) -> jlongArray {
-    tunnel_stats_entry(env, handle)
+    ffi_boundary(core::ptr::null_mut(), move || tunnel_stats_entry(env, handle))
 }
 
 #[unsafe(no_mangle)]
@@ -78,7 +82,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGet
     _thiz: JObject,
     handle: jlong,
 ) -> jni::sys::jstring {
-    tunnel_telemetry_entry(env, handle)
+    ffi_boundary(core::ptr::null_mut(), move || tunnel_telemetry_entry(env, handle))
 }
 
 #[unsafe(no_mangle)]
@@ -87,7 +91,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniDes
     _thiz: JObject,
     handle: jlong,
 ) {
-    tunnel_destroy_entry(env, handle);
+    ffi_boundary((), move || {
+        tunnel_destroy_entry(env, handle);
+    });
 }
 
 pub(crate) fn to_handle(value: jlong) -> Option<u64> {
