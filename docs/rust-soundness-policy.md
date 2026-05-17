@@ -2318,6 +2318,174 @@ state:
    pointer, opaque handle, or transitively repr-stable type).
 4. **Owner.**
 
+## Callback registration with context pointers
+
+A common FFI pattern: register an `extern "C" fn callback(arg: *mut
+c_void)` with a foreign library and pass a Rust-owned context
+pointer through `arg`. The library calls the callback at some
+future time(s), dereferences `arg`, and the Rust side recovers
+the typed context. The hazard is straightforward — if the Rust
+context is freed before the LAST callback fires, the next
+dereference is UAF.
+
+The workspace has ONE production callback-with-context system:
+`RealityHookGuard` in `ripdpi-vless/src/reality_hook.rs`. The
+following pattern is the canonical sound shape — every new
+callback-registration site MUST satisfy all four rules.
+
+### Rule
+
+1. **Context allocation is `Box::into_raw`** (or a typed wrapper
+   thereof — `Arc::into_raw`, `RegisteredBufferPool`, etc.). The
+   allocator must be Rust's global allocator on BOTH sides
+   (alloc with `Box::new`, free with `Box::from_raw`). NEVER mix
+   `libc::malloc` / `libc::free` with `Box::*_raw` (see § "Allocator
+   mismatch across FFI").
+
+2. **The context pointer is owned by a RAII guard struct** named
+   `*Guard`, `*Registration`, `*Hook`, or `*Slot` whose Drop impl
+   reclaims the box. The guard is move-only (no `Clone`/`Copy`)
+   so safe code cannot duplicate the owning handle. See §
+   "`Clone` on owner-named types" and "`Copy` on owner-named
+   types" for the scanner enforcement.
+
+3. **The foreign library cannot fire the callback after Drop.**
+   This is the load-bearing invariant; there are three sound
+   ways to enforce it:
+
+   - **Per-registration foreign resource.** Each callback gets
+     its own foreign object (SSL_CTX, listener, etc.) that is
+     dropped before the guard. After the foreign object drops,
+     no further callback invocations are possible. This is what
+     `RealityHookGuard` uses — each Reality connect builds a
+     fresh `SSL_CTX` (per-connection), so the CTX-bound callback
+     slot is single-use. The guard's Drop runs after the
+     handshake's `connect().await` completes, by which point
+     BoringSSL guarantees no further `client_hello_cb` fires.
+
+   - **Explicit unregister in Drop.** The guard's Drop impl
+     calls the foreign library's `unregister` / `set_cb(NULL)`
+     function BEFORE reclaiming the box. This requires the
+     foreign API to expose an unregister hook; not always
+     available.
+
+   - **Synchronous join.** The guard's Drop impl blocks until
+     all pending callback invocations complete. Requires the
+     foreign library to expose a "wait for in-flight callbacks
+     to drain" primitive. Rare.
+
+4. **The callback body defends against null `arg`.** Even with
+   correct registration discipline, a defensive `if arg.is_null()
+   { return error_code; }` at the top of the callback prevents
+   UB in the (impossible-by-contract) case where the foreign
+   library invokes the callback with a different arg. Cost:
+   one branch.
+
+5. **The callback is wrapped in `std::panic::catch_unwind`** so a
+   Rust panic does not unwind across the `extern "C"` boundary
+   (which is UB). On panic, latch a failure flag on the context
+   for post-handshake inspection.
+
+### Preferred shapes
+
+1. **Per-registration foreign resource (workspace canonical).**
+   `RealityHookGuard` is the reference implementation. Each
+   Reality connect:
+   - allocates `Box<RealityCallbackState>` (server pubkey + short
+     ID + AtomicBool failure latch),
+   - `Box::into_raw` to get `*mut RealityCallbackState`,
+   - `SSL_CTX_set_client_hello_cb(ctx, cb, state_ptr.cast::<c_void>())`,
+   - returns `RealityHookGuard { state_ptr }`,
+   - the caller binds the guard to a local that outlives the
+     `connect().await` call,
+   - guard Drop calls `Box::from_raw(state_ptr)` to reclaim.
+
+   Soundness: each connect builds a fresh `SSL_CTX` (issue #28
+   audit verified, `reality.rs` line 43-54), so the
+   callback slot is single-use per connection. No callback can
+   fire after `connect().await` returns because BoringSSL only
+   calls `client_hello_cb` during `ssl_add_client_hello`.
+
+2. **Explicit unregister in Drop.** When the foreign library
+   exposes an unregister hook (e.g. `nl80211_remove_callback`,
+   `libusb_set_pollfd_notifiers(NULL, NULL)`), the guard's Drop
+   calls it BEFORE `Box::from_raw`. Cleaner contract but
+   requires foreign-API support.
+
+3. **`Arc<T>` + Weak.** If the callback may fire from multiple
+   threads or contexts, wrap the context in `Arc<T>` and pass
+   a `Weak<T>::into_raw()` to the foreign side. The callback
+   recovers the `Weak` and `upgrade()`s; if the strong refs are
+   gone (guard dropped), the callback returns gracefully. Costs
+   a refcount but eliminates the lifetime contract.
+
+### Anti-patterns
+
+- `static mut STATE: Option<Box<Context>> = None;` filled at
+  registration time and cleared at unregister. Race condition
+  between the callback's read and the unregister's write; UB on
+  any concurrent foreign-library use.
+- `Box::leak(Box::new(state))` for callback context. The leaked
+  memory cannot be reclaimed; if the registration is
+  repeatable, this is an unbounded memory leak. See § "Lifetime
+  extension" for the `Box::leak` scanner pattern.
+- `Box::into_raw(state)` with no RAII guard. The matching
+  `Box::from_raw` is in scope but a panic or early return leaks
+  the box. Must be paired with `Drop`.
+- `Box::into_raw` for context + `libc::free` to reclaim. The
+  global allocator and `libc::free` are not the same heap. See
+  § "Allocator mismatch across FFI".
+- Callback body that dereferences `arg` without a null check.
+  One mistake in the registration discipline → instant UB.
+- Callback body that allocates / takes a mutex / does anything
+  but trivial work. Foreign libraries may invoke the callback
+  from a signal handler or with internal locks held; complex
+  work can deadlock or violate async-signal-safety.
+- Storing a `&'static Mutex<Context>` in the foreign library and
+  expecting `'static` to bind correctly. The Rust borrow
+  checker can't see across the FFI boundary; `'static` here is
+  the LIE-by-omission shape — use `Arc` instead.
+
+### Existing benign uses
+
+| File | Pattern | Soundness mechanism |
+|---|---|---|
+| `crates/ripdpi-vless/src/reality_hook.rs` | `Box::into_raw(RealityCallbackState)` → `SSL_CTX_set_client_hello_cb` → `RealityHookGuard::Drop` reclaims | Per-connection SSL_CTX (single-use callback slot) + RAII guard outlives `connect().await` + null-arg defensive check + `catch_unwind` panic trap. Miri-validated via `--features miri-stubs` (4-stage CI Miri job). |
+
+### CI surface
+
+- **Scanner pattern `Box::into_raw`** (existing from issue #15):
+  every occurrence requires an allowlist entry naming the
+  matching `Box::from_raw` site AND the ownership-transfer
+  contract. The single workspace site is
+  `reality_hook.rs:219` (Reality callback state install) plus
+  three test-mode sites in `scoped_handle.rs` (all allowlisted).
+- **Scanner pattern `derive Clone on owner-named type`** (existing
+  from issue #13): prevents accidental duplication of guard
+  handles that would lead to double-free.
+- **Scanner pattern `derive Copy on owner-named type`** (existing
+  from issue #14): same for `Copy`.
+- **Miri test stage** `ripdpi-vless --features miri-stubs reality_hook`
+  in `scripts/ci/run-rust-miri.sh` exercises the install /
+  callback / drop cycle end-to-end without linking BoringSSL.
+- **Production callback null-arg check** at
+  `reality_hook.rs:340` (test `callback_inner_rejects_null_arg`)
+  proves the defensive null check is in place.
+
+### Allowlist requirements
+
+Each new callback-registration `Box::into_raw` allowlist entry must
+state:
+
+1. **Lifetime invariant** (which of the three Rule #3 mechanisms
+   ensures no callback fires after Drop: per-registration
+   foreign resource, explicit unregister, or synchronous join).
+2. **Defensive null-arg check** (line number of the callback's
+   `if arg.is_null()` check).
+3. **Panic isolation** (line number of the callback's
+   `std::panic::catch_unwind`).
+4. **Owner.**
+
 ## Ownership must be types, not flags
 
 A boolean field named `registered`, `is_alive`, `destroyed`,
