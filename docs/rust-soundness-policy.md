@@ -2272,6 +2272,16 @@ pointers), validated by the `jni` crate's own test suite.
     `cbindgen::Builder` / `cbindgen::Config` / `cbindgen::Language`
     call. Workspace has zero occurrences; future adoption requires
     a committed binding snapshot + drift-detection CI step.
+- **FFI header hygiene script** (`scripts/ci/check_ffi_headers.py`):
+  separate CI step that enforces three properties: (a) no
+  `bindgen` / `cbindgen` / `autocxx` / `safer-ffi` / `cxx` /
+  `cxx-build` / `cxx-gen` deps in any workspace `Cargo.toml`;
+  (b) no `.h` / `.hpp` / `.hxx` headers committed under
+  `native/rust/` outside `vendor/` (BoringSSL); (c) no auto-
+  generated Rust files matching `bindings.rs` / `bindgen_bindings.rs`
+  / `generated.rs` / `auto_bindings.rs`. Together this constitutes
+  the workspace's "header check" — confirming the FFI surface is
+  hand-written and reviewable in PRs rather than auto-generated.
 - **Rust lints** (workspace `[workspace.lints.rust]`):
   - `improper_ctypes = "warn"` — `extern "C" { fn(...) -> T; }`
     declarations whose parameter/return types are not FFI-stable.
