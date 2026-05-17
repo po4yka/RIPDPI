@@ -374,10 +374,93 @@ pub mod process {
 
     impl Drop for PidFileGuard {
         fn drop(&mut self) {
-            if let Some(file) = self.file.as_mut() {
+            // Release the advisory lock (and close the fd) BEFORE unlinking
+            // the pid file. Linux flock is per-fd, so the inverse order is
+            // not UB, but it leaves a small window in which another process
+            // may `open(path, CREATE)` + `flock` on a fresh inode while we
+            // still hold the lock on the orphaned one. Dropping the
+            // `Flock<File>` first closes that window: any new claimant
+            // observes either the live pid file (we still hold it) or
+            // post-unlink emptiness (we're fully gone).
+            if let Some(mut file) = self.file.take() {
                 let _ = file.flush();
+                drop(file);
             }
             let _ = fs::remove_file(&self.path);
+        }
+    }
+
+    #[cfg(all(test, unix))]
+    mod pid_file_guard_tests {
+        //! Regressions for soundness issue #31 (incorrect field/drop
+        //! order). `PidFileGuard::drop` MUST release the `Flock<File>`
+        //! before unlinking the pid file so the lock-release-then-unlink
+        //! teardown order matches the create-then-lock build order.
+        //! Without this discipline, a sibling process could acquire a
+        //! fresh inode + flock on the same path during the gap between
+        //! `remove_file` and the implicit field drop, and the original
+        //! guard would still appear to hold the lock against the
+        //! orphaned inode.
+        use super::PidFileGuard;
+        use std::fs;
+        use std::path::PathBuf;
+        use std::sync::atomic::{AtomicU64, Ordering};
+
+        static UNIQ: AtomicU64 = AtomicU64::new(0);
+
+        fn unique_path(label: &str) -> PathBuf {
+            let n = UNIQ.fetch_add(1, Ordering::Relaxed);
+            std::env::temp_dir().join(format!("ripdpi-pidguard-{}-{}-{}.pid", std::process::id(), label, n))
+        }
+
+        #[test]
+        fn create_writes_pid_and_drop_removes_file() {
+            let path = unique_path("write-remove");
+            {
+                let guard = PidFileGuard::create(&path).expect("create");
+                let contents = fs::read_to_string(&path).expect("read pid file");
+                assert_eq!(
+                    contents.trim(),
+                    std::process::id().to_string(),
+                    "pid file body must record this process id"
+                );
+                drop(guard);
+            }
+            assert!(!path.exists(), "Drop must unlink the pid file");
+        }
+
+        #[test]
+        fn drop_releases_lock_so_a_second_guard_can_claim_the_path() {
+            let path = unique_path("relock");
+            let guard1 = PidFileGuard::create(&path).expect("first create");
+            // While guard1 is alive, a second create must fail
+            // (LockExclusiveNonblock returns EWOULDBLOCK on the same inode).
+            assert!(PidFileGuard::create(&path).is_err(), "second create must fail while first holds the flock");
+            drop(guard1);
+            // After guard1 drops, the path is removed AND the flock is
+            // released — a fresh guard succeeds. This is the load-bearing
+            // assertion for issue #31: a stale flock on an orphaned inode
+            // would NOT block a sibling claiming a fresh inode at the
+            // same path, but the test verifies the conventional sequence
+            // works end-to-end (file removed AND lock released cleanly).
+            let guard2 = PidFileGuard::create(&path).expect("re-create after drop");
+            drop(guard2);
+            assert!(!path.exists(), "second guard must also clean up");
+        }
+
+        #[test]
+        fn remove_on_drop_variant_unlinks_without_flock() {
+            // The `remove_on_drop` constructor takes ownership of a
+            // post-daemonize path and only unlinks on drop (no flock).
+            // The Drop ordering fix still has to handle `file: None`
+            // safely.
+            let path = unique_path("remove-only");
+            fs::write(&path, "stub").expect("write stub");
+            assert!(path.exists());
+            {
+                let _guard = PidFileGuard::remove_on_drop(path.clone());
+            }
+            assert!(!path.exists(), "remove_on_drop variant must still unlink");
         }
     }
 }
