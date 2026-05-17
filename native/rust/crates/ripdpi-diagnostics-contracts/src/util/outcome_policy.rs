@@ -143,7 +143,10 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             | "tls_handshake_failure"
             | "connect_failure"
             | "connection_freeze"
-            | "strategy_execution_failure" => ProbeOutcomeBucket::Failed,
+            | "ip_block_suspect"
+            | "shadowtls_version_mismatch"
+            | "strategy_execution_failure"
+            | "tuic_version_unsupported" => ProbeOutcomeBucket::Failed,
             _ => ProbeOutcomeBucket::Inconclusive,
         },
         _ => legacy_outcome_bucket(outcome),
