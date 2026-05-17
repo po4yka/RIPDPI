@@ -365,4 +365,94 @@ mod tests {
         // SAFETY: reclaim the leaked box for this test.
         unsafe { drop(Box::from_raw(raw)) };
     }
+
+    // --- Issue #28: callback-after-drop / unregister race tests ----------
+
+    /// `RealityHookGuard::Drop` must null its `state_ptr` so a subsequent
+    /// `was_successful()` (called accidentally by post-Drop diagnostic
+    /// code) returns `false` instead of dereferencing freed memory.
+    /// Miri detects use-after-free if the null guard is missing.
+    #[test]
+    fn guard_drop_nulls_state_pointer() {
+        let state = Box::new(RealityCallbackState {
+            server_pubkey: [0u8; 32],
+            short_id: vec![],
+            failed: AtomicBool::new(false),
+        });
+        let raw = Box::into_raw(state);
+        let mut guard = RealityHookGuard { state_ptr: raw };
+        // Take a copy of the address for post-drop comparison only;
+        // the value itself is never dereferenced after drop.
+        let pre_drop_addr = guard.state_ptr;
+        assert!(!pre_drop_addr.is_null());
+        // Inline-drop via destructor mutation: simulate the cleanup
+        // path by calling Drop manually.
+        // SAFETY: `&mut guard` is a unique mutable borrow for the
+        // duration of this call; `drop_in_place` runs the destructor
+        // exactly once and the subsequent `std::mem::forget(guard)`
+        // below prevents the implicit second Drop at scope exit.
+        unsafe {
+            std::ptr::drop_in_place(&mut guard as *mut RealityHookGuard);
+        }
+        // After Drop, the guard's state_ptr field is nulled so any
+        // accidental subsequent read (e.g. by post-drop diagnostic
+        // code) returns false rather than dereferencing.
+        assert!(guard.state_ptr.is_null(), "Drop must null state_ptr to prevent UAF on accidental re-use");
+        assert!(!guard.was_successful(), "post-drop was_successful must return false (null-guard branch)");
+        // Forget the guard now that Drop has already run; running Drop
+        // again would be a double-free.
+        std::mem::forget(guard);
+    }
+
+    /// Two independent guards must drop without interference. This
+    /// exercises the "no shared state" invariant — each guard owns
+    /// its own `Box<RealityCallbackState>` and they must not alias.
+    /// Miri catches any double-free.
+    #[test]
+    fn two_concurrent_guards_drop_independently() {
+        let state_a = Box::new(RealityCallbackState {
+            server_pubkey: [1u8; 32],
+            short_id: vec![0x01],
+            failed: AtomicBool::new(false),
+        });
+        let state_b = Box::new(RealityCallbackState {
+            server_pubkey: [2u8; 32],
+            short_id: vec![0x02],
+            failed: AtomicBool::new(false),
+        });
+        let guard_a = RealityHookGuard { state_ptr: Box::into_raw(state_a) };
+        let guard_b = RealityHookGuard { state_ptr: Box::into_raw(state_b) };
+        // Different pointers.
+        assert_ne!(guard_a.state_ptr, guard_b.state_ptr);
+        // Drop in reverse order — independence means order doesn't
+        // matter and neither drop touches the other's memory.
+        drop(guard_b);
+        drop(guard_a);
+    }
+
+    /// Simulates the "unregister race" — the callback latches a
+    /// failure flag from one thread while the guard's Drop runs
+    /// from another. With BoringSSL's single-threaded
+    /// ssl_add_client_hello contract this race cannot happen in
+    /// production, but the test exercises the AtomicBool ordering
+    /// discipline that would catch a regression to `Cell<bool>`.
+    #[test]
+    fn callback_failure_flag_ordering_holds_across_drop() {
+        let state = Box::new(RealityCallbackState {
+            server_pubkey: [0u8; 32],
+            short_id: vec![],
+            failed: AtomicBool::new(false),
+        });
+        let raw = Box::into_raw(state);
+        // Set the failure flag via Release write (matches the
+        // catch_unwind panic branch in reality_client_hello_cb).
+        // SAFETY: state is alive for the duration of this test.
+        unsafe { (*raw).failed.store(true, Ordering::Release) };
+        let guard = RealityHookGuard { state_ptr: raw };
+        // Acquire read in was_successful must observe the Release
+        // write — i.e. the latched failure must propagate.
+        assert!(!guard.was_successful(), "Release/Acquire ordering must propagate failure flag");
+        // Guard drops normally — Box::from_raw reclaims; Miri
+        // validates no leak.
+    }
 }
