@@ -455,4 +455,35 @@ mod tests {
         // Guard drops normally — Box::from_raw reclaims; Miri
         // validates no leak.
     }
+
+    /// Stress test: repeated install/drop cycles must not leak the
+    /// callback state allocation. Without proper RAII discipline a
+    /// `Box::into_raw` whose matching `Box::from_raw` is missing
+    /// from Drop would leak one `RealityCallbackState` per cycle.
+    /// Each iteration is independent — no shared state, no
+    /// callback fire — so the test exercises only the allocation/
+    /// reclamation pairing. Miri runs this test (under `--features
+    /// miri-stubs`) and would surface any leak as a final report
+    /// at process exit; the iteration count is small enough to
+    /// stay tractable under Miri's tracking overhead.
+    #[test]
+    fn repeated_install_drop_cycles_do_not_leak() {
+        const CYCLES: usize = 64;
+        for _ in 0..CYCLES {
+            let state = Box::new(RealityCallbackState {
+                server_pubkey: [0xAB; 32],
+                short_id: vec![0xCD, 0xEF],
+                failed: AtomicBool::new(false),
+            });
+            let raw = Box::into_raw(state);
+            let guard = RealityHookGuard { state_ptr: raw };
+            // Synthesize a successful-handshake observation each
+            // cycle — was_successful reads through the box, so a
+            // regression that decoupled the guard from its state
+            // would surface here as a wrong value or UAF.
+            assert!(guard.was_successful());
+            drop(guard);
+            // Box::from_raw inside Drop reclaims — no leak.
+        }
+    }
 }
