@@ -324,6 +324,75 @@ class ScanRegressionTests(unittest.TestCase):
         )
         self.assertFalse(_has(_scan(src), guard.DEBUG_ASSERT_PROXIMITY_PATTERN))
 
+    def test_raw_back_pointer_field_flagged(self) -> None:
+        # All twelve back-pointer naming conventions paired with each of
+        # the three raw-pointer type spellings. Each one is a structural
+        # match for an intrusive parent/owner/container pointer whose
+        # liveness Rust cannot prove at Drop time. Real source always
+        # places struct fields on their own line, so the regex anchors
+        # to `^[ \t]*` — the test fragments must match that shape.
+        for fragment in (
+            "struct Node {\n    parent: *mut Node,\n}",
+            "struct Node {\n    parent: *const Node,\n}",
+            "struct Node {\n    parent: NonNull<Node>,\n}",
+            "struct Owned {\n    owner: *mut Owner,\n}",
+            "struct Owned {\n    owner: NonNull<Owner>,\n}",
+            "struct Slot {\n    container: *mut Container,\n}",
+            "struct Item {\n    list: NonNull<List>,\n}",
+            "struct Cell {\n    prev: *mut Cell,\n    next: *mut Cell,\n}",
+            "struct Linked {\n    next: NonNull<Linked>,\n}",
+            "struct Anchor {\n    head: *mut Node,\n    tail: *mut Node,\n}",
+            "struct Inner {\n    back: *mut Outer,\n}",
+            "struct Inner {\n    back_ptr: *const Outer,\n}",
+            "struct Inner {\n    backptr: NonNull<Outer>,\n}",
+            "struct Listener {\n    registry: *mut Registry,\n}",
+            "pub struct Node {\n    pub(crate) parent: *mut Node,\n}",
+        ):
+            self.assertTrue(
+                _has(_scan(fragment), "raw back-pointer field"),
+                msg=fragment,
+            )
+
+    def test_safe_back_pointer_shapes_not_flagged(self) -> None:
+        # The four canonical safe shapes — lifetime-bound `&'a T`, `Arc<T>`,
+        # `Weak<T>`, and an opaque integer handle — must NOT trigger the
+        # rule. The rule's whole point is to push contributors toward these
+        # shapes; the scanner must not punish them for using them.
+        for fragment in (
+            "struct Node<'a> {\n    parent: &'a Node<'a>,\n}",
+            "struct Node {\n    parent: Arc<Node>,\n}",
+            "struct Node {\n    parent: Weak<Node>,\n}",
+            "struct Node {\n    parent_handle: u64,\n}",
+            "struct Slot {\n    owner: Arc<Mutex<Owner>>,\n}",
+            "struct Item {\n    list: Vec<Item>,\n}",
+            "struct Cell {\n    prev: Option<Arc<Cell>>,\n    next: Option<Arc<Cell>>,\n}",
+            "struct Anchor {\n    head: Option<Arc<Node>>,\n}",
+            "struct Listener {\n    registry: Arc<Registry>,\n}",
+            # Lifetime-bound mutable reference is also safe.
+            "struct Guard<'a> {\n    parent: &'a mut Parent,\n}",
+        ):
+            self.assertFalse(
+                _has(_scan(fragment), "raw back-pointer field"),
+                msg=fragment,
+            )
+
+    def test_raw_pointer_with_non_back_pointer_name_not_flagged(self) -> None:
+        # Raw-pointer fields with names that don't match the back-pointer
+        # convention are out of scope for this scanner — they may still
+        # trigger `raw pointer in public fn` or `Box::from_raw` rules at
+        # their use site, but the structural back-pointer scan is
+        # narrowly targeted by name.
+        for fragment in (
+            "struct MmapRegion {\n    ptr: NonNull<u8>,\n}",
+            "struct MappedFile {\n    ptr: NonNull<u8>,\n    len: usize,\n}",
+            "struct State {\n    data: *mut u8,\n}",
+            "struct Buffer {\n    storage: *const u8,\n}",
+        ):
+            self.assertFalse(
+                _has(_scan(fragment), "raw back-pointer field"),
+                msg=fragment,
+            )
+
     def test_cstr_from_ptr_flagged(self) -> None:
         for fragment in (
             "let s = unsafe { CStr::from_ptr(ptr) };",

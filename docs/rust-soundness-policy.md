@@ -138,6 +138,7 @@ on every PR. It looks for the following risky patterns under
 | `extern fn non-FFI type` | `extern "C" fn` / `extern "system" fn` DEFINITION signatures containing any Rust-only layout type: `bool` (implementation-defined at FFI level), `&str` / `String` / `Vec<T>` / `Box<dyn ...>` (fat pointers / Drop-bearing types), `&[T]` (fat pointer), `Option<T>` for `T` other than `NonNull`/`NonZero*`/references/function pointers (general Option layout is unspecified), `Result<T, E>` (Rust enum without `#[repr]`), `(T, U)` Rust tuples (no layout guarantee), `&dyn Trait` / `&mut dyn Trait` (trait-object fat pointer with vtable), `impl Trait` (compiler-internal opaque type), or `Fn` / `FnMut` / `FnOnce` (unsized closure trait types — must be carried as `Box<dyn Fn...>` or function pointer instead). The regex disambiguates extern fn DEFINITIONS (`extern "C" fn name(...)` — has identifier between `fn` and `(`) from extern fn POINTER TYPES (`handler: extern "C" fn(c_int)` — `fn` immediately followed by `(`) so a non-extern function that takes a callback parameter is not falsely flagged. Workspace has zero occurrences in extern blocks or definitions. The companion clippy lints `improper_ctypes` and `improper_ctypes_definitions` catch a superset (including non-`#[repr]` enums); this scanner pattern is the belt-and-suspenders cross-check that survives module-level `#[allow(improper_ctypes_definitions)]` waivers. See "FFI layout and ABI" below. |
 | `no_mangle without extern ABI` (proximity ≤ 3 lines) | `#[no_mangle]` not paired with `extern "C"` / `extern "system"` / similar within 3 source lines below. A `#[no_mangle]` on a default-Rust-ABI function exports an unstable-ABI symbol under a fixed name — guaranteed ABI mismatch at every C/Java/other-language call site. Workspace has three correctly-paired occurrences (`reality_hook.rs:90/109/123` — all paired with `extern "C"`); the proximity check locks the workspace at that baseline. See "FFI layout and ABI" below. |
 | `bindgen invocation` | `bindgen::Builder` / `bindgen::generate` / `cbindgen::Builder` / `cbindgen::generate` / `cbindgen::Config` / `cbindgen::Language` calls in build scripts or production code. Both crates generate FFI binding code that the rest of the workspace's `#[repr]` discipline cannot automatically verify. The workspace does NOT depend on either crate today; the pattern is forward-defense. Any future adoption must include either a checked-in snapshot of the generated bindings (committed for PR review) or a CI step that diffs generated output against a snapshot. See "FFI layout and ABI" below. |
+| `raw back-pointer field` | A struct field whose name matches a back-pointer convention (`parent`, `owner`, `container`, `list`, `prev`, `next`, `head`, `tail`, `back`, `back_ptr`, `backptr`, `registry`) and whose type is a raw pointer (`*const T` / `*mut T`) or `NonNull<T>`. The pattern is the canonical intrusive parent/owner/container pointer — by definition it does NOT own the pointee, so any `Drop` impl that dereferences it has no Rust-level guarantee the pointee is still alive (or not partially dropped). Workspace has zero production occurrences: every Drop that notifies a parent uses a lifetime-bound `&'a Parent`, an `Arc<Parent>`, or a `Weak<Parent>`. See "Drop and raw back-pointers" below. |
 
 When the script flags a `(file, pattern)` pair it requires either a
 restructure (preferred) or an entry in
@@ -2616,6 +2617,340 @@ Each `lock held across callback` allowlist entry must state:
 3. **Panic safety** (whether the callback can panic without
    leaving the object in an inconsistent state).
 4. **Owner.**
+
+## Drop and raw back-pointers
+
+A `Drop` implementation runs at a point the language otherwise
+hides — when a `Box`, a local binding, a struct field, or a stack
+frame goes out of scope. A struct that stores a raw pointer
+(`*const T` / `*mut T` / `NonNull<T>`) to its parent, owner,
+container, or any object that does NOT own the struct is at
+elevated risk during Drop, because the pointee may have already
+been dropped, partially dropped, or be in the middle of dropping
+the struct itself. The pattern is the canonical bug in C and C++
+intrusive data structures (linked lists, arenas, observer trees);
+Rust's borrow checker does not catch it because the back-pointer
+is raw and the dereference is in `unsafe { ... }`.
+
+### Rule
+
+A struct field whose name matches a back-pointer convention
+(`parent`, `owner`, `container`, `list`, `prev`, `next`, `head`,
+`tail`, `back`, `back_ptr`, `backptr`, `registry`) and whose type
+is a raw pointer or `NonNull<T>` is FORBIDDEN in production
+crates. The struct must instead carry one of:
+
+- a lifetime-bound shared reference `&'a T` (the borrow checker
+  enforces the parent outlives every child),
+- an `Arc<T>` (the parent's refcount keeps it alive as long as
+  any child exists),
+- a `Weak<T>` (the child observes parent liveness via
+  `upgrade()` before any dereference — including the dereference
+  inside `Drop`),
+- an opaque integer handle indexed through a separate registry
+  (so the lookup at Drop time fails cleanly if the parent is
+  gone, rather than UB).
+
+A `Drop` implementation MUST NOT dereference a raw back-pointer
+under any circumstance. If the cleanup needs to notify a parent
+(e.g. decrement a refcount, remove from a list), the notification
+path must go through one of the safe shapes above.
+
+### Preferred shapes
+
+In order of preference for a child-of-parent relationship where
+the child's Drop must notify the parent:
+
+1. **Lifetime-bound `&'a Parent`**. The child cannot outlive
+   the parent because the borrow check forbids it. The Drop
+   impl reads `self.parent.method()` through a safe `&Parent`
+   reference. Examples in the workspace:
+   `ripdpi-io-uring/src/bufpool.rs::BufferHandle<'pool>` returns
+   its slot to `RegisteredBufferPool` via `&'pool` borrow;
+   `ripdpi-android-proxy-adapter/src/lifecycle.rs::IdleGuard<'_>`
+   resets `ProxySessionState` via `&'a Mutex<...>`;
+   `ripdpi-desync-runtime/src/platform/registry.rs::Restore<'_>`
+   restores a thread-local via `&'a RefCell<...>`.
+
+2. **`Arc<Parent>`**. The parent stays alive for the child's
+   entire lifetime (including Drop) because the strong count
+   contains the child's reference. The Drop impl reads
+   `self.parent.method()` through `Arc::deref`. Examples:
+   `ripdpi-proxy-runtime/src/runtime/state/listener.rs::
+   ClientSlotGuard` decrements a shared `Arc<AtomicUsize>`;
+   `ripdpi-relay-mux/src/lease.rs::LeaseGuard<S>` releases
+   leases through `Arc<Mutex<RelayMuxState<S>>>`.
+
+3. **`Weak<Parent>`** when the parent's lifetime is genuinely
+   independent of the child. The Drop impl calls
+   `if let Some(parent) = self.parent.upgrade() { ... }` — if
+   the parent is gone, the cleanup is a no-op. Suitable for
+   observer/listener patterns where the listener can outlive
+   the observable.
+
+4. **Opaque handle + registry lookup**. The child stores a
+   `u64` / `NonZeroU64` handle; the Drop impl looks the parent
+   up in a shared registry (`HandleRegistry`, `DashMap`, etc.)
+   and bails out cleanly if the registry has already evicted
+   it.
+
+### Anti-patterns
+
+- A struct field `parent: *mut Parent` whose Drop impl does
+  `unsafe { (*self.parent).method() }`. The dereference is
+  unchecked UB if the parent has already been dropped (Drop
+  order is implementation-defined for sibling fields and for
+  unrelated heap allocations; any reasoning about "parent
+  outlives child" must be a Rust-level guarantee, not a
+  comment).
+- An intrusive linked list node `next: *mut Node` /
+  `prev: *mut Node` whose Drop impl unlinks itself by writing
+  through `prev` and `next`. The pattern is sound only with a
+  pinning discipline, a head-anchor invariant, and a separate
+  audit. The workspace has no such structure today; adoption
+  requires a dedicated soundness review.
+- An "arena" struct that hands out `&'static T` references
+  derived from a raw pointer into its own storage. The
+  `'static` lifetime laundering hides drop-order coupling and
+  is rejected by Issue #25 (unstable-layout-across-FFI) plus
+  the present rule.
+- A `NonNull<Parent>` field where the safety comment claims
+  "the parent always outlives this struct because the parent
+  drops us first". Drop order between sibling fields of a
+  containing struct is well-defined (declaration order), but
+  drop order between unrelated heap allocations is not. The
+  comment is a load-bearing oral tradition; the rule requires
+  the lifetime to be in the type system.
+
+### Existing benign uses
+
+Audit log: the workspace has ZERO production occurrences of a
+raw back-pointer field. Every Drop impl that notifies a parent
+uses one of the four safe shapes above. The audit covered:
+
+| Drop impl | Parent relationship | Safe shape used |
+|---|---|---|
+| `BufferHandle<'pool>` | RegisteredBufferPool returns slot to free-list | Lifetime-bound `&'pool` |
+| `PendingBuffer<'pool>` | RegisteredBufferPool returns slot | Lifetime-bound `&'pool` |
+| `IdleGuard<'_>` | ProxySessionState reset to Idle | Lifetime-bound `&'a Mutex<...>` |
+| `Restore<'_>` | Thread-local slot restored | Lifetime-bound `&'a RefCell<...>` |
+| `ClientSlotGuard` | Shared AtomicUsize decremented | `Arc<AtomicUsize>` |
+| `LeaseGuard<S>` | RelayMuxState lease released | `Arc<Mutex<RelayMuxState<S>>>` |
+| `MappedFile` / `MmapRegion` | No parent — sole-owner of mmap region | `NonNull<u8>` (owned, not back-pointer) |
+| `RealityHookGuard` | No parent — owns `Box::into_raw` state | `*mut RealityCallbackState` (owned, not back-pointer) |
+| `ScopedHandle<T, F>` | No parent — owns pointee via `F::free` | `NonNull<T>` (owned, not back-pointer) |
+
+The three "owned, not back-pointer" entries are flagged by
+adjacent scanner patterns (`NonNull in public fn`,
+`Box::into_raw` / `Box::from_raw`) and allowlisted with the
+sole-owner justification.
+
+### CI surface
+
+`scripts/ci/check_unsafe_boundaries.py` runs the
+`raw back-pointer field` scan on every PR. It matches field
+declarations whose identifier is one of the back-pointer
+naming-convention set listed in the Rule above AND whose type
+starts with `NonNull<` or `*const` / `*mut`. The scan is
+intentionally name-based and structural: the alternative — a
+proximity scan that links a raw pointer field to its Drop impl —
+misses the "field present but Drop hasn't been written yet"
+window, which is exactly when the bug class is easiest to
+introduce.
+
+Regression tests in
+`scripts/ci/tests/test_check_unsafe_boundaries.py` exercise
+both the positive shape (`parent: *mut Parent`,
+`prev: NonNull<Node>`) and the safe shapes (`parent: &'a Parent`,
+`parent: Arc<Parent>`, `parent: Weak<Parent>`) to ensure the
+regex does not over-fire on legitimate uses of the same names.
+
+### Allowlist requirements
+
+Each `raw back-pointer field` allowlist entry must state:
+
+1. **Drop-order proof** — which side drops first and why
+   (lifetime, refcount, registry).
+2. **Liveness witness** — what mechanism, at the point of Drop,
+   establishes the pointee is still a valid `T` (lifetime
+   binding, atomic flag, lock, intrusive list anchor).
+3. **Test coverage** — the name of the test that exercises
+   both parent-then-child AND child-then-parent drop paths.
+4. **Owner.**
+
+The first three fields are deliberately stricter than the
+generic allowlist preconditions: a back-pointer bug class is
+load-bearing for many small UAFs at once (every Drop along the
+parent chain), so the review burden is intentionally higher.
+
+## Field declaration order in `Drop` impls
+
+Rust runs a user-defined `Drop::drop` body FIRST, then drops each field
+in declaration order (top-to-bottom). The body sees every field still
+alive; subsequent field drops happen in source order. A struct whose
+fields are inter-dependent at teardown — a guard plus the resource it
+guards, a callback registration plus the context that backs it, a
+runtime plus a handle that runs on it, a lock plus an artifact whose
+lifecycle is bound to the lock — is sensitive to BOTH the body's
+operation order AND the field declaration order. Getting either
+wrong produces use-after-free, lock-after-drop UB,
+panic-from-runtime-drop, or a small race window in which another
+process / thread observes inconsistent state.
+
+### Rule
+
+A struct with `impl Drop` and two or more fields whose teardown is
+mutually dependent MUST either:
+
+1. **Drive every dependent teardown step explicitly in the Drop
+   body**, using `Option::take()` to pull each owning field out of
+   its slot in the chosen order. After the body finishes, the
+   remaining fields drop in declaration order, but each `take()`d
+   field is already `None` so the implicit drop is trivial. This
+   is the load-bearing pattern in the workspace.
+
+2. **Order fields so the declared-order field drops match the
+   intended teardown order** when no explicit Drop body operates
+   on those fields (i.e. the only ordering pressure is the
+   automatic post-body field drop).
+
+3. **Use `ManuallyDrop<T>` plus a manual `ManuallyDrop::drop(&mut
+   self.x)` chain** when neither (1) nor (2) is expressible
+   (e.g. self-referential types, FFI handle exchange). Each
+   manual drop must have a `// SAFETY:` block stating the chosen
+   order and the dependency that mandates it.
+
+A Drop body that performs cleanup actions whose ordering matters
+(release a lock → unlink an artifact; cancel a worker → join its
+thread; signal shutdown → drain a channel) MUST sequence those
+actions in the body itself. Relying on the implicit field-drop
+order for ordering-critical work is a latent bug; the
+declared-order semantics are correct, but the next refactor that
+re-shuffles fields silently changes teardown semantics.
+
+### Sentinel patterns
+
+The following shapes MUST trigger a soundness review when added or
+modified:
+
+- `Option<JoinHandle<T>>` + an `Arc<Runtime>` (or `Arc<CancellationToken>`)
+  in the same struct, where the join handle runs work *on* the
+  runtime. Drop MUST `take()` and join the handle BEFORE any field
+  drop releases the runtime / cancellation source.
+- `Option<oneshot::Sender<()>>` + `Option<JoinHandle<...>>` for a
+  shutdown-signal + worker pair. Drop MUST `take()` and send first,
+  then `take()` and join.
+- A `Flock<File>` (or any kernel-lock guard) plus the path /
+  artifact the lock protects. Drop MUST release the lock BEFORE
+  removing or modifying the artifact, so a concurrent claimant
+  cannot acquire the artifact while we still hold the lock on the
+  orphaned inode.
+- A callback registration handle plus the context object the
+  callback reads through. The registration MUST be torn down
+  before the context, either by an explicit unregister call in
+  the Drop body or by ordering the registration field FIRST in
+  declaration order.
+- A guard or `MutexGuard`/`RwLockGuard` stored alongside the
+  lock it was taken from. The guard MUST appear BEFORE the lock
+  in declaration order; otherwise the lock drops first and the
+  guard's drop dereferences freed memory.
+- A `GlobalRef`/`JObject` issued from a `JavaVM` reference. The
+  reference field MUST appear BEFORE the `JavaVM` field so the
+  `DeleteGlobalRef` call in the guard's drop runs while the VM
+  handle is still live.
+
+### Existing benign uses
+
+Audit log (2026-05-17): every Drop impl in
+`native/rust/crates/*` has been reviewed against this rule. The
+codebase uses pattern (1) — explicit `Option::take()` plus
+sequenced cleanup — for every teardown that ordering matters
+for. Representative examples:
+
+| Drop impl | Ordering discipline | File |
+|---|---|---|
+| `TemporaryProxyRuntime` | `control.request_shutdown()` → wake via `TcpStream::connect(addr)` → `take()` + `handle.join()` | `ripdpi-monitor-proxy-runtime/src/lib.rs` |
+| `EchoLoopback` | `take()` shutdown sender → fire-and-forget (test fixture) | `ripdpi-protocol-loopback/src/lib.rs` |
+| `IoUringDriver` | `tx.send(Shutdown)` → `take()` + `join()` thread; field order is irrelevant because the body completes the handshake | `ripdpi-io-uring/src/ring/driver.rs` |
+| `TunnelSessionHarness` | `cleanup()` chains `active_handle.take()` → cancel → join → remove from registry | `ripdpi-tunnel-android/src/session/state_machine.rs` |
+| `UdpDnsServer` / `Socks5RelayServer` | `stop.store(true)` → wake socket → `take()` + `join()` thread | `ripdpi-monitor-engine/src/test_fixtures.rs` |
+| `FixtureStack` | `stop.store(true)` → wake all TCP/UDP listeners → drain & join every handle in a single loop | `local-network-fixture/src/stack.rs` |
+| `MasqueUdpFlow` | `driver_task.abort()` → `reader_task.abort()` (no explicit join — tokio cancels at next yield) | `ripdpi-masque/src/udp.rs` |
+| `RealityHookGuard` | Owns single `*mut RealityCallbackState`; `Box::from_raw` + null the pointer to defuse accidental re-use | `ripdpi-vless/src/reality_hook.rs` |
+| `PidFileGuard` | `take()` + drop the `Flock<File>` BEFORE `fs::remove_file(&path)` (fix landed for issue #31) | `ripdpi-proxy-runtime-adapter/src/platform.rs` |
+| `MmapRegion` / `MappedFile` | Sole-owner; single `munmap` in Drop, no cross-field dep | `ripdpi-privileged-ops/src/linux/mmap_region.rs`, `ripdpi-geo/src/mapped_file.rs` |
+| `ScopedHandle<T, F>` | Sole-owner generic RAII; `F::free(ptr)` exactly once | `ripdpi-vless/src/scoped_handle.rs` |
+| `RootHelperRegistration` | `registered: bool` gates `unregister_root_helper()` call; no second field to order against | `ripdpi-proxy-runtime/src/runtime/listeners.rs` |
+
+The workspace has ZERO known field-order soundness bugs as of
+this audit. The `PidFileGuard` fix is the only modification the
+audit produced: the prior shape used `self.file.as_mut().flush()`
+(borrow, not move) which left the `Flock<File>` to drop AFTER
+`fs::remove_file(&self.path)`. Functionally correct (Linux flock
+is per-fd, an open-but-unlinked inode keeps its lock until the fd
+closes), but the conventional teardown order eliminates the small
+window in which a sibling process could `open(path, CREATE)` +
+`flock` on a fresh inode while the original guard still holds the
+lock on the orphaned one.
+
+### CI surface
+
+`scripts/ci/check_drop_order.py` runs on every PR (via
+`scripts/ci/run-rust-lint.sh`). It walks
+`native/rust/crates/*/src/**/*.rs`, finds every struct with `impl
+Drop`, parses the field list, and flags structs whose field types
+include 2+ resource-bearing patterns (`JoinHandle`, `Runtime`,
+`oneshot::Sender` / `mpsc::Sender` / `flume::Sender`,
+`CancellationToken`, raw pointers, `NonNull`, `Box<dyn ...>`,
+`OwnedFd`/`RawFd`, `Mmap`/`MmapMut`, `Flock`, `MutexGuard`,
+`RwLockGuard`, `File`, `OwnedSemaphorePermit`, `AbortHandle`).
+
+Each flagged struct MUST satisfy ONE of:
+
+1. The file contains a `Drop order:` marker comment (case-
+   insensitive; line / block / doc comment all count) anywhere.
+   Typically authored as a doc comment on the struct or on the
+   `impl Drop` block stating which field drops first and why.
+2. The struct is allowlisted in `ci/drop-order-allowlist.toml`
+   with required fields `file`, `type_name`, `reason`, `owner`,
+   `review_date`.
+
+The marker-comment route is strongly preferred. The allowlist
+exists for true "all fields are independent" patterns where there
+is genuinely no ordering rationale worth writing down (as of
+2026-05-17 the allowlist contains ZERO entries).
+
+The scanner has dedicated unit tests at
+`scripts/ci/tests/test_check_drop_order.py` (19 cases covering
+regex, brace balancer, field parser, resource classifier, generic
+struct + generic impl matching, macro_rules! suppression). A
+final integration test in that suite asserts the workspace passes
+the scanner with the current marker set, so a regression in
+either the scanner or the marker placement fails CI immediately.
+
+Regression tests for the `PidFileGuard` ordering live at
+`ripdpi-proxy-runtime-adapter/src/platform.rs`'s
+`pid_file_guard_tests` module — `drop_releases_lock_so_a_second_guard_can_claim_the_path`
+is the load-bearing assertion that the fix produces the intended
+sequence. End-to-end teardown regressions for `EchoLoopback`
+(a multi-resource owner with both `oneshot::Sender` and
+`JoinHandle`) live in
+`ripdpi-protocol-loopback/src/lib.rs`'s test module under the
+`Issue #31` banner — three async tests cover implicit-drop with
+no clients, implicit-drop with a live client, and 32-cycle
+construct-and-drop without leak.
+
+### Cross-references
+
+- `## Drop and raw back-pointers` (above) — the related rule for
+  the parent-pointer side of drop discipline.
+- `## Compile-fail enforcement` — most Drop-bearing types in the
+  workspace are paired with `!Copy + !Clone` compile-fail
+  regressions; those guards prevent the "duplicate guard ⇒
+  double free" failure mode that field/drop-order discipline
+  alone cannot catch.
+- `.claude/rules/llm-rust-prompts.md` — diff acceptance gate
+  for AI-generated diffs touching `impl Drop`.
 
 ## Ownership must be types, not flags
 

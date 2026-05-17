@@ -504,6 +504,42 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"\.(?:lock|read|write|borrow|borrow_mut)\s*\(\s*\).*?"
         r"\b(?:observer|callback|cb|handler|hook|listener|notify|emit|on_[a-z_]+)\s*\("
     ),
+    # Field declaration whose name matches a "back-pointer" naming
+    # convention (`parent`, `owner`, `container`, `list`, `prev`,
+    # `next`, `head`, `tail`, `back`, `back_ptr`, `backptr`,
+    # `registry`) and whose type is a raw pointer (`*const T` /
+    # `*mut T`) or `NonNull<T>`. This is the structural shape of an
+    # intrusive parent/owner/container pointer that, by definition,
+    # does NOT own the referenced object — so the referenced object
+    # can outlive or pre-decease the holder, and a `Drop` impl that
+    # dereferences the field through `unsafe { (*self.field) ... }`
+    # has no Rust-level guarantee the pointee is still alive (or
+    # not partially dropped, in the parent-then-child path).
+    #
+    # The repository has ZERO production occurrences today: every
+    # back-pointer-style field uses either a lifetime-bound `&'a T`
+    # reference (compile-time forces the parent to outlive the
+    # child), an `Arc<T>` (the parent's strong count keeps it alive
+    # for the child's Drop), or a `Weak<T>` (the child observes
+    # parent liveness via `upgrade()` before dereferencing). New
+    # occurrences must:
+    #   (a) restructure to one of those three safe shapes, OR
+    #   (b) make the pointer NOT dereferenced in Drop (the cleanup
+    #       is a no-op for the back-pointer; only the owned
+    #       resources are released), OR
+    #   (c) earn an allowlist entry naming the drop-order proof
+    #       (which side is dropped first), the liveness witness
+    #       (Pin, intrusive list anchor, lock-protected validity
+    #       flag), and the test that exercises both
+    #       parent-then-child and child-then-parent drop paths
+    #       per docs/rust-soundness-policy.md § "Drop and raw
+    #       back-pointers".
+    "raw back-pointer field": re.compile(
+        r"^[ \t]*(?:pub(?:\s*\([^)]*\))?\s+)?"
+        r"(?:parent|owner|container|list|prev|next|head|tail|back|back_ptr|backptr|registry)"
+        r"\s*:\s*(?:NonNull\s*<|\*\s*(?:const|mut)\s)",
+        re.MULTILINE,
+    ),
 }
 
 # The `.get()` method is also used by many safe types (HashMap, Vec,
