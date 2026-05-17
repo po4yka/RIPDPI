@@ -82,11 +82,15 @@ fn probe_fixed_buffers(ring: &IoUring) -> bool {
 
 /// Parse kernel version from `uname` and check `major.minor >= target`.
 fn kernel_version_at_least(target_major: u32, target_minor: u32) -> bool {
+    // SAFETY: `libc::utsname` is a plain C struct; all-zero bytes are a valid
+    // initialization before `uname` fills the fields.
     let mut utsname = unsafe { std::mem::zeroed::<libc::utsname>() };
     // SAFETY: utsname is zeroed, uname fills it.
     if unsafe { libc::uname(&mut utsname) } != 0 {
         return false;
     }
+    // SAFETY: `uname` succeeded, so `release` is a NUL-terminated C string
+    // stored inside the live `utsname` object.
     let release = unsafe { std::ffi::CStr::from_ptr(utsname.release.as_ptr()) };
     let release = release.to_string_lossy();
     parse_major_minor(&release)

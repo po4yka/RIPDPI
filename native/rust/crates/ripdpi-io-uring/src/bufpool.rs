@@ -35,6 +35,9 @@ pub struct RegisteredBufferPool {
 //     `Mutex`-guarded free list, which provides the necessary
 //     happens-before edge between threads.
 unsafe impl Send for RegisteredBufferPool {}
+// SAFETY: same invariant as `Send`: shared access cannot mutate a buffer unless
+// the caller owns its unique `BufferHandle`, and free-list transfers are mutex
+// synchronized.
 unsafe impl Sync for RegisteredBufferPool {}
 
 // Compile-fail regression for soundness issue #8: any future change that

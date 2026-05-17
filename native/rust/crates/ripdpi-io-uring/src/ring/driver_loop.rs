@@ -155,11 +155,11 @@ fn push_entry(ring: &mut IoUring, entry: &Entry) {
     // SAFETY: every call site builds an SQE whose fd/buffer lifetime follows
     // the Submission contract, and the entry is copied into the kernel-owned
     // submission queue before this function returns.
-    unsafe {
-        if ring.submission().push(entry).is_err() {
-            // SQ full -- submit what we have and retry.
-            let _ = ring.submit();
-            let _ = ring.submission().push(entry);
-        }
+    if unsafe { ring.submission().push(entry) }.is_err() {
+        // SQ full -- submit what we have and retry.
+        let _ = ring.submit();
+        // SAFETY: same SQE lifetime invariant as the first push; submit only
+        // frees queue capacity and does not invalidate `entry`.
+        let _ = unsafe { ring.submission().push(entry) };
     }
 }
