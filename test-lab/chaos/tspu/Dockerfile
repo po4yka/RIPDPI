@@ -15,11 +15,15 @@ RUN apt-get update \
         nftables \
         iproute2 \
         iptables \
+        build-essential \
+        libnetfilter-queue-dev \
         libnetfilter-queue1 \
         python3 \
-        python3-netfilterqueue \
+        python3-dev \
+        python3-pip \
         python3-scapy \
         ca-certificates \
+    && python3 -m pip install --no-cache-dir --break-system-packages NetfilterQueue \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/tspu
