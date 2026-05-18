@@ -122,8 +122,32 @@ seed_debug_automation_state() {
     --es com.poyka.ripdpi.automation.DATA_PRESET settings_ready >/dev/null
 }
 
+resume_debug_automation_state() {
+  adb shell am start \
+    -n com.poyka.ripdpi/.activities.MainActivity \
+    --ez com.poyka.ripdpi.automation.ENABLED true \
+    --ez com.poyka.ripdpi.automation.RESET_STATE false \
+    --ez com.poyka.ripdpi.automation.DISABLE_MOTION true \
+    --es com.poyka.ripdpi.automation.PERMISSION_PRESET granted \
+    --es com.poyka.ripdpi.automation.SERVICE_PRESET live \
+    --es com.poyka.ripdpi.automation.DATA_PRESET settings_ready >/dev/null
+}
+
 grant_runtime_permissions() {
   adb shell pm grant com.poyka.ripdpi android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+}
+
+assert_vpn_service_stopped() {
+  local service_state
+  service_state="$(
+    adb shell dumpsys activity services com.poyka.ripdpi |
+      rg 'RipDpi(Proxy|Vpn)Service|isForeground|ServiceRecord' || true
+  )"
+  if [[ -n "$service_state" ]]; then
+    printf '%s\n' "$service_state" > "$out_dir/service-leak.txt"
+    echo "VPN disconnect flow left a RIPDPI foreground service running; see $out_dir/service-leak.txt" >&2
+    return 1
+  fi
 }
 
 collect_failure_artifacts() {
@@ -151,7 +175,10 @@ cleanup() {
   fi
 
   if [[ "$maestro_ran" == "true" ]]; then
+    resume_debug_automation_state >/dev/null 2>&1 || true
     "$maestro_bin" test "$lab_root/maestro/disconnect-vpn.yaml" >/dev/null 2>&1 || true
+    sleep 2
+    assert_vpn_service_stopped >/dev/null 2>&1 || true
   fi
 
   if [[ "$lab_started" == "true" && "$keep_lab" != "true" ]]; then
@@ -191,5 +218,13 @@ fi
   --mode vpn \
   --timeout-ms "$timeout_ms" \
   --out-dir "$out_dir"
+
+if [[ "$maestro_ran" == "true" ]]; then
+  resume_debug_automation_state
+  "$maestro_bin" test "$lab_root/maestro/disconnect-vpn.yaml"
+  sleep 2
+  assert_vpn_service_stopped
+  maestro_ran=false
+fi
 
 echo "VPN E2E smoke passed. Artifacts: $out_dir"

@@ -36,6 +36,7 @@ import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -722,6 +723,23 @@ class MainViewModelTest {
             assertTrue(serviceController.startedModes.isEmpty())
             collector.cancel()
         }
+
+    @Test
+    fun `local bypass toggle stop policy follows visible active local card`() {
+        val vpnLocalState =
+            MainUiState(
+                appStatus = AppStatus.Running,
+                activeMode = Mode.VPN,
+                modeCards =
+                    persistentListOf(
+                        HomeModeCardUiState(mode = HomeMode.LocalDpiBypass, isActive = true),
+                        HomeModeCardUiState(mode = HomeMode.RemoteVpn, isActive = false),
+                        HomeModeCardUiState(mode = HomeMode.Diagnostic),
+                    ),
+            )
+
+        assertTrue(shouldStopLocalBypassToggle(vpnLocalState))
+    }
 
     @Test
     fun `vpn toggle starts vpn mode independent of configured proxy mode`() =

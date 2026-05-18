@@ -244,6 +244,9 @@ data class MainUiState(
         get() = connectionState == ConnectionState.Connecting
 }
 
+internal fun shouldStopLocalBypassToggle(state: MainUiState): Boolean =
+    state.appStatus == AppStatus.Running && state.localBypassCard.isActive
+
 @Immutable
 data class HomeApproachSummaryUiState(
     val title: String,
@@ -540,9 +543,10 @@ class MainViewModel
         }
 
         fun onToggleLocalBypass(enabled: Boolean) {
+            val state = uiState.value
             if (enabled) {
                 permissionActions.resolvePermissionAction(PermissionAction.StartProxyMode)
-            } else if (uiState.value.appStatus == AppStatus.Running && uiState.value.activeMode == Mode.Proxy) {
+            } else if (shouldStopLocalBypassToggle(state)) {
                 connectionActions.stop()
             }
         }

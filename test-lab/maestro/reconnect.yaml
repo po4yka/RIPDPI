@@ -2,13 +2,13 @@ appId: com.poyka.ripdpi
 ---
 - launchApp
 - tapOn:
-    id: "home-mode-primary-remote-vpn"
+    id: "home-mode-primary-local-dpi-bypass"
 - assertVisible:
-    text: "Inactive"
+    text: "^Inactive$"
 - tapOn:
     id: "home-mode-primary-remote-vpn"
 - tapOn:
     text: "OK|Allow"
     optional: true
 - assertVisible:
-    text: "Active"
+    text: "^Active$"
