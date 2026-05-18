@@ -86,6 +86,7 @@ private const val NearbyWifiDevicesPermission = "android.permission.NEARBY_WIFI_
 private const val DebugNetworkProbeAction = "com.poyka.ripdpi.debug.PROBE_TCP"
 private const val DebugDnsProbeAction = "com.poyka.ripdpi.debug.PROBE_DNS"
 private const val DebugNetworkProbeReceiverClass = "com.poyka.ripdpi.debug.DebugNetworkProbeReceiver"
+private const val TestNetworkProbeReceiverClass = "com.poyka.ripdpi.e2e.TestNetworkProbeReceiver"
 private const val DebugNetworkProbeExtraHost = "host"
 private const val DebugNetworkProbeExtraPort = "port"
 private const val DebugNetworkProbeExtraConnectTimeoutMs = "connect_timeout_ms"
@@ -995,6 +996,62 @@ fun probeInstrumentationTcpConnect(
             errorMessage = error.message,
         )
     }
+
+fun testProcessTcpRoundTrip(
+    host: String,
+    port: Int,
+    payload: String,
+    connectTimeoutMs: Long = DebugNetworkProbeTimeoutMs,
+    readTimeoutMs: Long = 5_000L,
+): AppProcessTcpProbeResult {
+    val context = InstrumentationRegistry.getInstrumentation().context
+    val latch = CountDownLatch(1)
+    val probeResult = AtomicReference<AppProcessTcpProbeResult?>()
+    val intent =
+        Intent(DebugNetworkProbeAction).apply {
+            setClassName(context.packageName, TestNetworkProbeReceiverClass)
+            putExtra(DebugNetworkProbeExtraHost, host)
+            putExtra(DebugNetworkProbeExtraPort, port)
+            putExtra(DebugNetworkProbeExtraConnectTimeoutMs, connectTimeoutMs.toInt())
+            putExtra(DebugNetworkProbeExtraReadTimeoutMs, readTimeoutMs.toInt())
+            putExtra(DebugNetworkProbeExtraPayload, payload)
+        }
+    context.sendOrderedBroadcast(
+        intent,
+        null,
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                val extras = getResultExtras(false) ?: Bundle.EMPTY
+                probeResult.set(
+                    AppProcessTcpProbeResult(
+                        host = host,
+                        port = port,
+                        ok = resultCode == Activity.RESULT_OK && extras.getBoolean(DebugNetworkProbeExtraOk, false),
+                        localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
+                        localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
+                        response = extras.getString(DebugNetworkProbeExtraResponse),
+                        errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
+                        errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
+                    ),
+                )
+                latch.countDown()
+            }
+        },
+        null,
+        Activity.RESULT_CANCELED,
+        null,
+        null,
+    )
+    check(latch.await(DebugNetworkProbeBroadcastTimeoutMs, TimeUnit.MILLISECONDS)) {
+        "Timed out waiting for test-process TCP round-trip for $host:$port"
+    }
+    return requireNotNull(probeResult.get()) {
+        "Test-process TCP round-trip did not deliver a result for $host:$port"
+    }
+}
 
 fun probeAppProcessDns(
     context: Context,

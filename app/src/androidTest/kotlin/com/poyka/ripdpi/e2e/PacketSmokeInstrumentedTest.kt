@@ -227,11 +227,14 @@ class PacketSmokeInstrumentedTest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
 
-        val payload = httpEchoPayloadShellLiteral("packet-smoke-vpn")
+        val payload = httpEchoPayloadText("packet-smoke-vpn")
         val result = vpnTcpRoundTripResult(fixture.androidHost, fixture.tcpEchoPort, payload)
         assertTrue("Expected VPN TCP round-trip to succeed: $result", result.ok)
         val output = result.response.orEmpty()
-        assertTrue(output.contains("GET /packet-smoke-vpn HTTP/1.1"))
+        assertTrue(
+            "Expected VPN TCP response to contain request line, got: $output",
+            output.contains("GET /packet-smoke-vpn HTTP/1.1"),
+        )
 
         awaitUntil {
             val snapshot = serviceStateStore.telemetry.value
@@ -329,7 +332,7 @@ class PacketSmokeInstrumentedTest {
                 vpnTcpRoundTripResult(
                     fixture.fixtureDomain,
                     fixture.tcpEchoPort,
-                    httpEchoPayloadShellLiteral("packet-smoke-host-autolearn-$round"),
+                    httpEchoPayloadText("packet-smoke-host-autolearn-$round"),
                 )
             assertTrue("Expected VPN TCP round-trip to succeed: $result", result.ok)
             val output = result.response.orEmpty()
@@ -380,7 +383,7 @@ class PacketSmokeInstrumentedTest {
                 vpnTcpRoundTripResult(
                     fixture.fixtureDomain,
                     fixture.tcpEchoPort,
-                    httpEchoPayloadShellLiteral("packet-smoke-remembered-$round"),
+                    httpEchoPayloadText("packet-smoke-remembered-$round"),
                 )
             assertTrue("Expected VPN TCP round-trip to succeed: $result", result.ok)
             val output = result.response.orEmpty()
@@ -423,7 +426,7 @@ class PacketSmokeInstrumentedTest {
             vpnTcpRoundTripResult(
                 fixture.fixtureDomain,
                 fixture.tcpEchoPort,
-                httpEchoPayloadShellLiteral("packet-smoke-ws-fallback"),
+                httpEchoPayloadText("packet-smoke-ws-fallback"),
             )
         assertTrue("Expected VPN TCP round-trip to succeed: $result", result.ok)
         val output = result.response.orEmpty()
@@ -519,12 +522,12 @@ class PacketSmokeInstrumentedTest {
             vpnTcpRoundTripResult(
                 fixture.fixtureDomain,
                 fixture.tcpEchoPort,
-                httpEchoPayloadShellLiteral("packet-smoke-${protocol.lowercase()}"),
+                httpEchoPayloadText("packet-smoke-${protocol.lowercase()}"),
             )
         assertTrue("Expected hostname VPN round-trip for $protocol, got: $result", result.ok)
         val output = result.response.orEmpty()
         assertTrue(
-            "Expected hostname shell round-trip for $protocol, got: $output",
+            "Expected hostname TCP round-trip for $protocol, got: $output",
             output.contains("Host: ${fixture.fixtureDomain}"),
         )
 
@@ -567,7 +570,7 @@ class PacketSmokeInstrumentedTest {
             vpnTcpRoundTripResult(
                 fixture.fixtureDomain,
                 fixture.tcpEchoPort,
-                httpEchoPayloadShellLiteral("packet-smoke-${protocol.lowercase()}-fault"),
+                httpEchoPayloadText("packet-smoke-${protocol.lowercase()}-fault"),
             )
         val output = result.response.orEmpty()
         assertFalse(output.contains("GET /packet-smoke-${protocol.lowercase()}-fault HTTP/1.1"))
@@ -1215,31 +1218,17 @@ class PacketSmokeInstrumentedTest {
         )
     }
 
-    private fun shellTcpRoundTrip(
-        host: String,
-        port: Int,
-        payload: String,
-    ): String =
-        execShell(
-            "sh -c 'printf %b \"$payload\" | toybox nc -w 5 $host $port'",
-        )
-
     private fun vpnTcpRoundTripResult(
         host: String,
         port: Int,
         payload: String,
     ): AppProcessTcpProbeResult =
         if (isLikelyEmulator()) {
-            AppProcessTcpProbeResult(
-                host = host,
-                port = port,
-                ok = true,
-                response = shellTcpRoundTrip(host, port, payload),
-            )
+            testProcessTcpRoundTrip(host, port, payload)
         } else {
             appProcessTcpRoundTrip(appContext, host, port, payload)
         }
 
-    private fun httpEchoPayloadShellLiteral(pathToken: String): String =
-        "GET /$pathToken HTTP/1.1\\r\\nHost: ${fixture.fixtureDomain}\\r\\nConnection: close\\r\\n\\r\\n"
+    private fun httpEchoPayloadText(pathToken: String): String =
+        "GET /$pathToken HTTP/1.1\r\nHost: ${fixture.fixtureDomain}\r\nConnection: close\r\n\r\n"
 }

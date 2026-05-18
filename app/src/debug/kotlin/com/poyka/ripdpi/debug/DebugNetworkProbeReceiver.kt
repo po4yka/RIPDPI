@@ -8,10 +8,12 @@ import android.os.Bundle
 import android.os.SystemClock
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
 import kotlin.concurrent.thread
 import kotlin.random.Random
@@ -108,23 +110,15 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
             var responseText: String? = null
 
             if (payload != null) {
+                val payloadBytes = payload.toByteArray(StandardCharsets.UTF_8)
                 val output = socket.getOutputStream()
-                output.write(payload.toByteArray(StandardCharsets.UTF_8))
+                output.write(payloadBytes)
                 output.flush()
                 socket.shutdownOutput()
 
-                val response = ByteArrayOutputStream()
                 socket.getInputStream().use { input ->
-                    val buffer = ByteArray(4 * 1024)
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read <= 0) {
-                            break
-                        }
-                        response.write(buffer, 0, read)
-                    }
+                    responseText = readDebugTcpProbeResponse(input, payloadBytes.size)
                 }
-                responseText = response.toString(StandardCharsets.UTF_8.name())
                 extras.putString(ExtraResponse, responseText)
             }
 
@@ -235,6 +229,37 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
         val scenarioDir = File(context.cacheDir, "packet-smoke/${probeResult.scenarioId}").apply { mkdirs() }
         File(scenarioDir, PacketSmokeProbeResultFileName).writeText(probeResult.toJson(), Charsets.UTF_8)
     }
+}
+
+internal fun readDebugTcpProbeResponse(
+    input: InputStream,
+    expectedBytes: Int,
+): String {
+    require(expectedBytes >= 0) { "expectedBytes must be non-negative" }
+    val response = ByteArrayOutputStream()
+    val buffer = ByteArray(4 * 1024)
+    while (expectedBytes == 0 || response.size() < expectedBytes) {
+        val maxRead =
+            if (expectedBytes == 0) {
+                buffer.size
+            } else {
+                minOf(buffer.size, expectedBytes - response.size())
+            }
+        val read =
+            try {
+                input.read(buffer, 0, maxRead)
+            } catch (timeout: SocketTimeoutException) {
+                if (response.size() > 0) {
+                    break
+                }
+                throw timeout
+            }
+        if (read <= 0) {
+            break
+        }
+        response.write(buffer, 0, read)
+    }
+    return response.toString(StandardCharsets.UTF_8.name())
 }
 
 private object DebugProbeDispatchResult
