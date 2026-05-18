@@ -642,6 +642,42 @@ fn command_line_session_overrides_apply_ephemeral_port_and_auth_token() {
 }
 
 #[test]
+fn kotlin_ui_json_session_overrides_apply_ephemeral_port_and_auth_token() {
+    let mut payload = serde_json::to_value(minimal_ui()).expect("serialize minimal ui");
+    let object = payload.as_object_mut().expect("minimal ui object");
+    object.insert("kind".to_string(), serde_json::json!("ui"));
+    object.insert("strategyPreset".to_string(), serde_json::json!("ripdpi_default"));
+    object.insert(
+        "runtimeContext".to_string(),
+        serde_json::json!({
+            "protectPath": "/tmp/protect.sock",
+        }),
+    );
+    object.insert(
+        "logContext".to_string(),
+        serde_json::json!({
+            "runtimeId": "runtime-1",
+            "mode": "VPN",
+        }),
+    );
+    object.insert(
+        "sessionOverrides".to_string(),
+        serde_json::json!({
+            "listenPortOverride": 0,
+            "authToken": "alpha-123",
+        }),
+    );
+
+    let parsed = parse_proxy_config_json(&payload.to_string()).expect("parse kotlin ui json");
+    let envelope = runtime_config_envelope_from_payload(parsed).expect("runtime config envelope");
+
+    assert_eq!(envelope.config.network.listen.listen_port, 0);
+    assert_eq!(envelope.config.network.listen.auth_token.as_deref(), Some("alpha-123"));
+    assert_eq!(envelope.runtime_context.and_then(|context| context.protect_path).as_deref(), Some("/tmp/protect.sock"),);
+    assert_eq!(envelope.log_context.and_then(|context| context.runtime_id).as_deref(), Some("runtime-1"),);
+}
+
+#[test]
 fn invalid_session_override_listen_port_is_rejected() {
     let err = runtime_config_envelope_from_payload(ProxyConfigPayload::CommandLine {
         args: vec!["ripdpi".to_string(), "--port".to_string(), "1081".to_string()],
