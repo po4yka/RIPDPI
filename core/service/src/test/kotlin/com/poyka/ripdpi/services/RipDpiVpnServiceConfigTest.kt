@@ -58,6 +58,7 @@ class RipDpiVpnServiceConfigTest {
 
     @Test
     fun buildTun2SocksConfigUsesMapDnsAndLeavesIpv6UnsetWhenDisabled() {
+        val tlsRootsPem = "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----"
         val config =
             RipDpiVpnService.buildTun2SocksConfig(
                 activeDns = encryptedDns(),
@@ -65,6 +66,7 @@ class RipDpiVpnServiceConfigTest {
                 localProxyEndpoint =
                     localProxyEndpoint.copy(port = 2080, password = TestRotatedLocalProxyAuth),
                 ipv6Enabled = false,
+                encryptedDnsTlsRootsPem = tlsRootsPem,
             )
 
         assertEquals("10.10.10.10/32", config.tunnelIpv4)
@@ -77,6 +79,7 @@ class RipDpiVpnServiceConfigTest {
         assertEquals("198.18.0.0", config.mapdnsNetwork)
         assertEquals("255.254.0.0", config.mapdnsNetmask)
         assertEquals("cloudflare", config.encryptedDnsResolverId)
+        assertEquals(tlsRootsPem, config.encryptedDnsTlsRootsPem)
         assertTrue(config.resolverFallbackActive == true)
         assertEquals("dns_probe_failed", config.resolverFallbackReason)
         assertEquals(TestRotatedLocalProxyAuth, config.password)

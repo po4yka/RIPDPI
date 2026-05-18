@@ -206,6 +206,7 @@ class RipDpiVpnService :
             localProxyEndpoint: LocalProxyEndpoint,
             ipv6Enabled: Boolean,
             logContext: RipDpiLogContext? = null,
+            encryptedDnsTlsRootsPem: String? = null,
             strategyChainYaml: String? = null,
             protectPath: String? = null,
             rootHelperSocketPath: String? = null,
@@ -253,6 +254,12 @@ class RipDpiVpnService :
                 encryptedDnsDnscryptPublicKey =
                     if (activeDns.mode == DnsModeEncrypted) {
                         activeDns.encryptedDnsDnscryptPublicKey
+                    } else {
+                        null
+                    },
+                encryptedDnsTlsRootsPem =
+                    if (activeDns.mode == DnsModeEncrypted) {
+                        encryptedDnsTlsRootsPem?.takeIf { it.isNotBlank() }
                     } else {
                         null
                     },

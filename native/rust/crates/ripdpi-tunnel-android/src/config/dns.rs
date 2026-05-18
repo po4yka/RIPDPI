@@ -18,6 +18,7 @@ pub(crate) fn mapdns_config_from_payload(payload: &TunnelConfigPayload) -> Optio
         encrypted_dns_doh_url: payload.encrypted_dns_doh_url.clone(),
         encrypted_dns_dnscrypt_provider_name: payload.encrypted_dns_dnscrypt_provider_name.clone(),
         encrypted_dns_dnscrypt_public_key: payload.encrypted_dns_dnscrypt_public_key.clone(),
+        encrypted_dns_tls_roots_pem: payload.encrypted_dns_tls_roots_pem.clone(),
         dns_query_timeout_ms: payload.dns_query_timeout_ms.unwrap_or(4_000),
         resolver_fallback_active: payload.resolver_fallback_active.unwrap_or(false),
         resolver_fallback_reason: payload.resolver_fallback_reason.clone(),

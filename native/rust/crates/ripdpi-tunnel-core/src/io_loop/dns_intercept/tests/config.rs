@@ -67,3 +67,21 @@ fn build_encrypted_dns_resolver_uses_doh_url_defaults() {
     );
     assert_eq!(endpoint.doh_url.as_deref(), Some("https://dns.example.test/dns-query"));
 }
+
+#[test]
+fn build_encrypted_dns_resolver_rejects_invalid_tls_roots_pem() {
+    let mut mapdns = mapdns_config(16);
+    mapdns.encrypted_dns_protocol = Some("dot".to_string());
+    mapdns.encrypted_dns_host = Some("fixture.test".to_string());
+    mapdns.encrypted_dns_port = Some(853);
+    mapdns.encrypted_dns_tls_server_name = Some("fixture.test".to_string());
+    mapdns.encrypted_dns_bootstrap_ips = vec!["127.0.0.1".to_string()];
+    mapdns.encrypted_dns_tls_roots_pem =
+        Some("-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----".to_string());
+    let config = tunnel_config_with_mapdns(Some(mapdns));
+
+    let err = build_encrypted_dns_resolver(&config).expect_err("invalid PEM");
+
+    assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
+    assert!(err.to_string().contains("invalid encrypted DNS TLS root"));
+}

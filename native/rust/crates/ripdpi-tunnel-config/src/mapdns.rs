@@ -20,6 +20,7 @@ pub struct MapDnsConfig {
     pub encrypted_dns_doh_url: Option<String>,
     pub encrypted_dns_dnscrypt_provider_name: Option<String>,
     pub encrypted_dns_dnscrypt_public_key: Option<String>,
+    pub encrypted_dns_tls_roots_pem: Option<String>,
     #[serde(default = "default_dns_query_timeout_ms")]
     pub dns_query_timeout_ms: u32,
     #[serde(default)]

@@ -112,6 +112,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 encrypted_dns_doh_url: None,
                 encrypted_dns_dnscrypt_provider_name: None,
                 encrypted_dns_dnscrypt_public_key: None,
+                encrypted_dns_tls_roots_pem: None,
                 encrypted_dns_bootstrap_ips: Vec::new(),
                 dns_query_timeout_ms: None,
                 resolver_fallback_active: None,
@@ -232,6 +233,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 encrypted_dns_doh_url: None,
                 encrypted_dns_dnscrypt_provider_name: None,
                 encrypted_dns_dnscrypt_public_key: None,
+                encrypted_dns_tls_roots_pem: None,
                 encrypted_dns_bootstrap_ips: Vec::new(),
                 dns_query_timeout_ms: None,
                 resolver_fallback_active: None,
@@ -257,9 +259,18 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
 
 #[test]
 fn builds_config_from_json_payload() {
-    let config = config_from_payload(sample_payload()).expect("config");
+    let mut payload = sample_payload();
+    payload.mapdns_address = Some("198.18.0.53".to_string());
+    payload.encrypted_dns_tls_roots_pem =
+        Some("-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----".to_string());
+
+    let config = config_from_payload(payload).expect("config");
     assert_eq!(config.socks5.address, "127.0.0.1");
     assert_eq!(config.misc.task_stack_size, 81_920);
+    assert_eq!(
+        config.mapdns.and_then(|mapdns| mapdns.encrypted_dns_tls_roots_pem),
+        Some("-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----".to_string()),
+    );
 }
 
 #[test]
@@ -496,6 +507,7 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
         "encryptedDnsDohUrl": "https://cloudflare-dns.com/dns-query",
         "encryptedDnsDnscryptProviderName": "provider",
         "encryptedDnsDnscryptPublicKey": "key",
+        "encryptedDnsTlsRootsPem": "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----",
         "encryptedDnsBootstrapIps": ["1.0.0.1"],
         "dnsQueryTimeoutMs": 4000,
         "resolverFallbackActive": true,

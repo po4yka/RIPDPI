@@ -405,6 +405,7 @@ class NativeBinaryContractTest {
                 encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
                 encryptedDnsDnscryptProviderName = "provider",
                 encryptedDnsDnscryptPublicKey = "key",
+                encryptedDnsTlsRootsPem = "-----BEGIN CERTIFICATE-----\\nfixture\\n-----END CERTIFICATE-----",
                 dnsQueryTimeoutMs = 4000,
                 resolverFallbackActive = true,
                 resolverFallbackReason = "timeout",

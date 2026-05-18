@@ -5,6 +5,8 @@ use std::time::Duration;
 
 use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport};
 use ripdpi_tunnel_config::Config;
+use rustls::pki_types::{pem::PemObject, CertificateDer};
+use rustls::RootCertStore;
 
 use crate::dns_cache::DnsCache;
 
@@ -115,7 +117,8 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
         .encrypted_dns_host
         .clone()
         .unwrap_or_else(|| doh_url.as_deref().and_then(parse_url_host).unwrap_or_default());
-    let resolver = EncryptedDnsResolver::with_timeout(
+    let tls_roots = parse_encrypted_dns_tls_roots(mapdns.encrypted_dns_tls_roots_pem.as_deref())?;
+    let resolver = EncryptedDnsResolver::with_extra_tls_roots(
         EncryptedDnsEndpoint {
             protocol,
             resolver_id: mapdns.resolver_id.clone(),
@@ -129,10 +132,30 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
         },
         EncryptedDnsTransport::Direct,
         Duration::from_millis(u64::from(mapdns.dns_query_timeout_ms)),
+        tls_roots,
     )
     .map_err(|err| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("initialize encrypted DNS resolver ({protocol:?}): {err}"))
     })?;
 
     Ok(Some(resolver))
+}
+
+fn parse_encrypted_dns_tls_roots(value: Option<&str>) -> io::Result<Vec<CertificateDer<'static>>> {
+    let Some(pem) = value.map(str::trim).filter(|entry| !entry.is_empty()) else {
+        return Ok(Vec::new());
+    };
+    let roots = CertificateDer::pem_slice_iter(pem.as_bytes()).collect::<Result<Vec<_>, _>>().map_err(|err| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid encrypted DNS TLS root PEM: {err}"))
+    })?;
+    if roots.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "encrypted DNS TLS root PEM is empty"));
+    }
+    let mut root_store = RootCertStore::empty();
+    for root in &roots {
+        root_store.add(root.clone()).map_err(|err| {
+            io::Error::new(io::ErrorKind::InvalidInput, format!("invalid encrypted DNS TLS root certificate: {err}"))
+        })?;
+    }
+    Ok(roots)
 }

@@ -9,6 +9,7 @@
   "encryptedDnsPort",
   "encryptedDnsProtocol",
   "encryptedDnsResolverId",
+  "encryptedDnsTlsRootsPem",
   "encryptedDnsTlsServerName",
   "filterInjectedResets",
   "limitNofile",

@@ -19,7 +19,7 @@ use tokio::runtime::Builder;
 use crate::event::{event, EventLog};
 use crate::fault::FaultController;
 use crate::http::{start_http_server, HttpResponse};
-use crate::types::{FixtureFaultOutcome, FixtureFaultTarget, IO_POLL_DELAY, IO_TIMEOUT};
+use crate::types::{FixtureFaultOutcome, FixtureFaultTarget, IO_POLL_DELAY, IO_TIMEOUT, SOCKS_IO_TIMEOUT};
 use crate::util;
 
 const DNSCRYPT_CERT_MAGIC: [u8; 4] = *b"DNSC";
@@ -206,7 +206,8 @@ pub(crate) fn start_dns_dot_server(
                         let config = server_config.clone();
                         thread::spawn(move || {
                             let _ = stream.set_nonblocking(false);
-                            let _ = stream.set_read_timeout(Some(IO_TIMEOUT));
+                            let _ = stream.set_read_timeout(Some(SOCKS_IO_TIMEOUT));
+                            let _ = stream.set_write_timeout(Some(SOCKS_IO_TIMEOUT));
                             let local = stream.local_addr().ok();
                             events.record(event("dns_dot", "dot", peer, local, "accept", 0, None));
                             if let Some(_fault) = faults.take_matching(FixtureFaultTarget::DnsDot, |outcome| {
@@ -234,6 +235,8 @@ pub(crate) fn start_dns_dot_server(
                                     return;
                                 }
                             }
+                            let _ = stream.set_read_timeout(Some(IO_TIMEOUT));
+                            let _ = stream.set_write_timeout(Some(IO_TIMEOUT));
                             let sni = connection.server_name().map(ToOwned::to_owned);
                             let mut tls = StreamOwned::new(connection, stream);
                             loop {

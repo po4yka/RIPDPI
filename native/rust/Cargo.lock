@@ -4470,6 +4470,7 @@ dependencies = [
  "ripdpi-tun-driver",
  "ripdpi-tunnel-config",
  "ripdpi-tunnel-intercept",
+ "rustls",
  "smoltcp",
  "thiserror 2.0.18",
  "tokio",

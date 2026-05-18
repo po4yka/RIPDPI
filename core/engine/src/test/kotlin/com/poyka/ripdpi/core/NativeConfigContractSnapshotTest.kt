@@ -538,6 +538,7 @@ class NativeConfigContractSnapshotTest {
                     encryptedDnsTlsServerName = "cloudflare-dns.com",
                     encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
                     encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
+                    encryptedDnsTlsRootsPem = "-----BEGIN CERTIFICATE-----\\nfixture\\n-----END CERTIFICATE-----",
                     dnsQueryTimeoutMs = 4000,
                     taskStackSize = 65536,
                     tcpBufferSize = 32768,
@@ -584,6 +585,7 @@ class NativeConfigContractSnapshotTest {
                     "1.0.0.1"
                   ],
                   "encryptedDnsDohUrl": "https://cloudflare-dns.com/dns-query",
+                  "encryptedDnsTlsRootsPem": "-----BEGIN CERTIFICATE-----\\nfixture\\n-----END CERTIFICATE-----",
                   "dnsQueryTimeoutMs": 4000,
                   "taskStackSize": 65536,
                   "tcpBufferSize": 32768,

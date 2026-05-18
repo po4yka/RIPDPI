@@ -13,6 +13,7 @@ ripdpi-tunnel-intercept = { workspace = true }
 ripdpi-tun-driver = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-collections = { workspace = true }
+rustls = { workspace = true }
 ringbuf = { workspace = true }
 smoltcp = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }

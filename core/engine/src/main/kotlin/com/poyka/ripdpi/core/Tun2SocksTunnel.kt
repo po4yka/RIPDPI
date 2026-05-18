@@ -227,6 +227,7 @@ data class Tun2SocksConfig(
     val encryptedDnsDohUrl: String? = null,
     val encryptedDnsDnscryptProviderName: String? = null,
     val encryptedDnsDnscryptPublicKey: String? = null,
+    val encryptedDnsTlsRootsPem: String? = null,
     val dnsQueryTimeoutMs: Int? = null,
     val resolverFallbackActive: Boolean? = null,
     val resolverFallbackReason: String? = null,

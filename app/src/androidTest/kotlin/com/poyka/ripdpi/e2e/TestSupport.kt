@@ -417,6 +417,13 @@ suspend fun AppSettingsRepository.applyFixtureEncryptedDns(
         setEncryptedDnsDnscryptPublicKey(
             if (normalizedProtocol == EncryptedDnsProtocolDnsCrypt) fixture.dnscryptPublicKey else "",
         )
+        setEncryptedDnsTlsRootsPem(
+            if (normalizedProtocol == EncryptedDnsProtocolDot || normalizedProtocol == EncryptedDnsProtocolDoq) {
+                fixture.tlsCertificatePem
+            } else {
+                ""
+            },
+        )
     }
 }
 
@@ -438,6 +445,7 @@ suspend fun AppSettingsRepository.applyPacketSmokePlainDns(
         setEncryptedDnsDohUrl("")
         setEncryptedDnsDnscryptProviderName("")
         setEncryptedDnsDnscryptPublicKey("")
+        setEncryptedDnsTlsRootsPem("")
     }
 }
 
@@ -460,6 +468,7 @@ suspend fun AppSettingsRepository.applyPacketSmokeEncryptedDns(
         setEncryptedDnsDohUrl(preset.dohUrl)
         setEncryptedDnsDnscryptProviderName(preset.dnscryptProviderName)
         setEncryptedDnsDnscryptPublicKey(preset.dnscryptPublicKey)
+        setEncryptedDnsTlsRootsPem("")
     }
 }
 
