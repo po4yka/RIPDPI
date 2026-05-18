@@ -451,6 +451,7 @@ class PacketSmokeInstrumentedTest {
                 desyncHttp = false
                 desyncHttps = true
                 enableCmdSettings = false
+                setFakeTtl(packetSmokeFixtureFakeTtl())
                 setRawStrategyChainDsl(chainDsl)
             }
         }
@@ -483,6 +484,15 @@ class PacketSmokeInstrumentedTest {
             fixtureClient.events().any { event -> event.service == "tls_echo" && event.sni == fixture.fixtureDomain },
         )
     }
+
+    private fun packetSmokeFixtureFakeTtl(): Int =
+        when (packetSmokeDeviceProfile()) {
+            PacketSmokeDeviceProfile.EMULATOR_RAW,
+            PacketSmokeDeviceProfile.ROOTED_ANDROID_PCAP,
+            -> 1
+
+            PacketSmokeDeviceProfile.PHYSICAL_INDIRECT -> 8
+        }
 
     private fun runVpnEncryptedDnsSuccessSmoke(
         protocol: String,

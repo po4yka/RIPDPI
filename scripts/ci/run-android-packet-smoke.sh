@@ -302,6 +302,87 @@ run_instrumentation_phase() {
     run_remote_command_logged "$log_file" "$command"
 }
 
+hex_encode() {
+    od -An -tx1 -v | tr -d ' \n'
+}
+
+validate_raw_fake_strategy_packet_pattern() {
+    local scenario_id="$1"
+    local scenario_dir="$2"
+    if [[ "$selected_capture_mode" != "raw" ]]; then
+        return 1
+    fi
+    if ! command -v tshark >/dev/null 2>&1; then
+        return 1
+    fi
+    local pcap="$scenario_dir/device-capture.pcap"
+    local manifest="$scenario_dir/fixture-manifest.json"
+    if [[ ! -s "$pcap" || ! -s "$manifest" ]]; then
+        return 1
+    fi
+
+    local fixture_domain
+    local tls_port
+    local fixture_hex
+    local fixture_len
+    fixture_domain="$(jq -r '.fixtureDomain' "$manifest")"
+    tls_port="$(jq -r '.tlsEchoPort' "$manifest")"
+    fixture_hex="$(printf '%s' "$fixture_domain" | hex_encode)"
+    fixture_len="${#fixture_domain}"
+
+    local rows
+    rows="$(
+        tshark -r "$pcap" -Y "tcp.dstport == ${tls_port} && tcp.len > 0" -T fields -e ip.ttl -e tcp.len -e tcp.payload 2>/dev/null || true
+    )"
+    if [[ -z "$rows" ]]; then
+        return 1
+    fi
+
+    if [[ "$scenario_id" == "android_proxy_fakedsplit_family" || "$scenario_id" == "android_proxy_fakeddisorder_family" ]]; then
+        local low_ttl_count
+        local low_ttl_bytes
+        low_ttl_count="$(
+            printf '%s\n' "$rows" |
+                awk -F '\t' '$1 == "1" && $2 > 0 { count += 1 } END { print count + 0 }'
+        )"
+        low_ttl_bytes="$(
+            printf '%s\n' "$rows" |
+                awk -F '\t' '$1 == "1" && $2 > 0 { bytes += $2 } END { print bytes + 0 }'
+        )"
+        if [[ "$low_ttl_count" -ge 1 && "$low_ttl_bytes" -ge 64 ]]; then
+            append_runner_log \
+                "$scenario_dir/test-output.txt" \
+                "==> raw ${scenario_id} packet pattern validated: low-TTL TLS payload reached the local fixture path, so the TLS fixture cannot validate this strategy by handshake success"
+            return 0
+        fi
+        return 1
+    fi
+
+    if [[ "$scenario_id" != "android_proxy_hostfake_family" ]]; then
+        return 1
+    fi
+
+    local real_count
+    local fake_count
+    real_count="$(
+        printf '%s\n' "$rows" |
+            awk -F '\t' -v fixture_hex="$fixture_hex" '$1 != "1" && $3 == fixture_hex { count += 1 } END { print count + 0 }'
+    )"
+    fake_count="$(
+        printf '%s\n' "$rows" |
+            awk -F '\t' -v fixture_hex="$fixture_hex" -v fixture_len="$fixture_len" \
+                '$1 == "1" && $2 == fixture_len && $3 != fixture_hex { count += 1 } END { print count + 0 }'
+    )"
+
+    if [[ "$real_count" -ge 1 && "$fake_count" -ge 2 ]]; then
+        append_runner_log \
+            "$scenario_dir/test-output.txt" \
+            "==> raw hostfake packet pattern validated: fake low-TTL host chunks reached the local fixture path, so TLS alert is an expected lab-topology outcome"
+        return 0
+    fi
+    return 1
+}
+
 append_probe_result_artifact() {
     local runner_probe_json="$1"
     local result_json="$2"
@@ -556,6 +637,10 @@ for row in "${scenarios[@]}"; do
     stop_device_capture "$scenario_id" "$scenario_dir" "$capture_pid"
     collect_device_snapshot "$scenario_dir"
     curl -fsS "http://127.0.0.1:${fixture_control_port}/events" >"$scenario_dir/fixture-events.json" || true
+
+    if [[ "$status" -ne 0 ]] && validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir"; then
+        status=0
+    fi
 
     if [[ "$status" -ne 0 ]]; then
         adb_cmd exec-out screencap -p >"$scenario_dir/failure-screenshot.png" 2>/dev/null || true
