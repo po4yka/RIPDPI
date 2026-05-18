@@ -103,6 +103,7 @@ object DiagnosticsOutcomeTaxonomy {
         return when {
             buckets.any { it == DiagnosticsOutcomeBucket.Failed } -> DiagnosticsOutcomeBucket.Failed
             buckets.any { it == DiagnosticsOutcomeBucket.Attention } -> DiagnosticsOutcomeBucket.Attention
+            results.hasOnlyUdpTransientArtifactsOutsideHealthyResults(pathMode) -> DiagnosticsOutcomeBucket.Healthy
             buckets.any { it == DiagnosticsOutcomeBucket.Inconclusive } -> DiagnosticsOutcomeBucket.Inconclusive
             else -> DiagnosticsOutcomeBucket.Healthy
         }
@@ -183,6 +184,10 @@ private fun bucketDnsIntegrity(
         }
 
         "dns_oracle_unavailable" -> {
+            DiagnosticsOutcomeBucket.Inconclusive
+        }
+
+        in udpTransientProbeArtifactOutcomes -> {
             DiagnosticsOutcomeBucket.Inconclusive
         }
 
@@ -373,7 +378,11 @@ private fun attentionKindForProbeOutcome(
 ): DiagnosticsAttentionKind? =
     when {
         bucket != DiagnosticsOutcomeBucket.Attention -> {
-            null
+            if (probeType == "dns_integrity" && outcome in udpTransientProbeArtifactOutcomes) {
+                DiagnosticsAttentionKind.ProbeArtifact
+            } else {
+                null
+            }
         }
 
         probeType == "tcp_fat_header" && outcome in fatHeaderProbeArtifactOutcomes -> {
@@ -393,6 +402,28 @@ private val fatHeaderProbeArtifactOutcomes =
         "tcp_freeze_after_threshold",
         "tls_handshake_failed",
     )
+
+private val udpTransientProbeArtifactOutcomes =
+    setOf(
+        "udp_timeout_transient",
+        "udp_plain_dns_unstable",
+    )
+
+private fun List<ProbeResult>.hasOnlyUdpTransientArtifactsOutsideHealthyResults(pathMode: ScanPathMode): Boolean {
+    fun ProbeResult.bucket(): DiagnosticsOutcomeBucket =
+        DiagnosticsOutcomeTaxonomy
+            .classifyProbeOutcome(
+                probeType = probeType,
+                pathMode = pathMode,
+                outcome = outcome,
+            ).bucket
+
+    return any { result -> result.bucket() == DiagnosticsOutcomeBucket.Healthy } &&
+        filterNot { result -> result.bucket() == DiagnosticsOutcomeBucket.Healthy }
+            .all { result ->
+                result.probeType == "dns_integrity" && result.outcome in udpTransientProbeArtifactOutcomes
+            }
+}
 
 private fun ProbeResult.isContextualCdnDnsVariance(reportResults: List<ProbeResult>): Boolean =
     probeType == "dns_integrity" &&

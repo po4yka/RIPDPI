@@ -69,6 +69,52 @@ class DiagnosticsOutcomeTaxonomyTest {
     }
 
     @Test
+    fun `udp transient dns outcome is inconclusive probe artifact`() {
+        val classification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(
+                probeType = "dns_integrity",
+                pathMode = ScanPathMode.RAW_PATH,
+                outcome = "udp_timeout_transient",
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Inconclusive, classification.bucket)
+        assertEquals(DiagnosticsOutcomeTone.Neutral, classification.uiTone)
+        assertEquals(DiagnosticsAttentionKind.ProbeArtifact, classification.attentionKind)
+    }
+
+    @Test
+    fun `aggregate collapses repeated udp transient artifacts when dns has healthy evidence`() {
+        val bucket =
+            DiagnosticsOutcomeTaxonomy.aggregateBucket(
+                pathMode = ScanPathMode.RAW_PATH,
+                results =
+                    listOf(
+                        ProbeResult("dns_integrity", "example.org", "dns_match"),
+                        ProbeResult("dns_integrity", "example.org", "udp_timeout_transient"),
+                        ProbeResult("dns_integrity", "example.net", "udp_plain_dns_unstable"),
+                    ),
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Healthy, bucket)
+    }
+
+    @Test
+    fun `aggregate keeps dns tampering stronger than udp transient artifacts`() {
+        val bucket =
+            DiagnosticsOutcomeTaxonomy.aggregateBucket(
+                pathMode = ScanPathMode.RAW_PATH,
+                results =
+                    listOf(
+                        ProbeResult("dns_integrity", "blocked.example", "dns_substitution"),
+                        ProbeResult("dns_integrity", "blocked.example", "udp_timeout_transient"),
+                        ProbeResult("dns_integrity", "example.org", "dns_match"),
+                    ),
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Failed, bucket)
+    }
+
+    @Test
     fun `http unreachable after successful tls is downgraded to probe artifact attention`() {
         val classification =
             DiagnosticsOutcomeTaxonomy.classifyProbeResult(

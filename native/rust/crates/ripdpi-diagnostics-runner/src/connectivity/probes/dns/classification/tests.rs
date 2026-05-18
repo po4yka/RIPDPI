@@ -52,9 +52,56 @@ fn dns_probe_gates_single_fallback_success_as_oracle_unavailable() {
         &ScanPathMode::RawPath,
         "25",
         &BTreeSet::new(),
+        None,
+        1,
     );
 
     assert_eq!(outcome, "dns_oracle_unavailable");
+}
+
+#[test]
+fn dns_probe_marks_retried_udp_timeout_as_transient() {
+    let outcome = classify_dns_probe_outcome(
+        &Err("Try again (os error 11)".to_string()),
+        &Ok(vec!["198.51.100.77".to_string()]),
+        &ScanPathMode::RawPath,
+        "3600",
+        &BTreeSet::new(),
+        Some("timeout"),
+        3,
+    );
+
+    assert_eq!(outcome, "udp_timeout_transient");
+}
+
+#[test]
+fn dns_probe_marks_recovered_udp_timeout_as_match_when_answers_match() {
+    let outcome = classify_dns_probe_outcome(
+        &Ok(vec!["198.51.100.77".to_string()]),
+        &Ok(vec!["198.51.100.77".to_string()]),
+        &ScanPathMode::RawPath,
+        "1250",
+        &BTreeSet::new(),
+        Some("would_block"),
+        2,
+    );
+
+    assert_eq!(outcome, "dns_match");
+}
+
+#[test]
+fn dns_probe_keeps_non_timeout_udp_failures_on_hard_block_path() {
+    let outcome = classify_dns_probe_outcome(
+        &Err("connection refused".to_string()),
+        &Ok(vec!["198.51.100.77".to_string()]),
+        &ScanPathMode::RawPath,
+        "10",
+        &BTreeSet::new(),
+        Some("refused"),
+        1,
+    );
+
+    assert_eq!(outcome, "udp_blocked");
 }
 
 #[test]

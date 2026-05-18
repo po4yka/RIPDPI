@@ -64,6 +64,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             "dns_expected_mismatch" | "dns_compatible_divergence" | "dns_suspicious_divergence" => {
                 ProbeOutcomeBucket::Attention
             }
+            "udp_timeout_transient" | "udp_plain_dns_unstable" => ProbeOutcomeBucket::Inconclusive,
             "udp_blocked" if matches!(path_mode, ScanPathMode::RawPath) => ProbeOutcomeBucket::Attention,
             "udp_blocked" => ProbeOutcomeBucket::Inconclusive,
             "udp_skipped_or_blocked" if matches!(path_mode, ScanPathMode::InPath) => ProbeOutcomeBucket::Attention,

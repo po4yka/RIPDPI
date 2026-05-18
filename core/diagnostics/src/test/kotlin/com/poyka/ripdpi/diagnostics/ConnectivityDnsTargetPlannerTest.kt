@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.builtInEncryptedDnsPathCandidates
 import org.junit.Assert.assertEquals
@@ -152,5 +153,69 @@ class ConnectivityDnsTargetPlannerTest {
         assertNotNull(result.firstOrNull())
         assertEquals(EncryptedDnsProtocolDot, result.first().encryptedProtocol)
         assertEquals("google", result.first().encryptedResolverId)
+    }
+
+    @Test
+    fun `snapshot dns server becomes udp baseline when target has no explicit udp server`() {
+        val target = DnsTarget(domain = "example.com")
+        val result =
+            ConnectivityDnsTargetPlanner.expandTargets(
+                targets = listOf(target),
+                activeDns = plainUdpDns(),
+                preferredPath = null,
+                networkSnapshot =
+                    NativeNetworkSnapshot(
+                        dnsServers = listOf("", "1.1.1.1", "8.8.8.8"),
+                    ),
+            )
+
+        assertTrue(result.isNotEmpty())
+        assertTrue(result.all { it.udpServer == "1.1.1.1:53" })
+    }
+
+    @Test
+    fun `default diagnostics limits resolver matrix`() {
+        val target = DnsTarget(domain = "example.com")
+        val result =
+            ConnectivityDnsTargetPlanner.expandTargets(
+                targets = listOf(target),
+                activeDns = plainUdpDns(),
+                preferredPath = null,
+                resolverCandidateLimit = defaultDiagnosticsResolverCandidateLimit("default"),
+            )
+
+        assertEquals(3, result.size)
+    }
+
+    @Test
+    fun `resolver audit keeps full resolver matrix`() {
+        val target = DnsTarget(domain = "example.com")
+        val result =
+            ConnectivityDnsTargetPlanner.expandTargets(
+                targets = listOf(target),
+                activeDns = plainUdpDns(),
+                preferredPath = null,
+                resolverCandidateLimit = defaultDiagnosticsResolverCandidateLimit("resolver-audit"),
+            )
+
+        assertEquals(builtInEncryptedDnsPathCandidates().size, result.size)
+    }
+
+    @Test
+    fun `explicit udp server wins over snapshot dns server`() {
+        val target = DnsTarget(domain = "example.com", udpServer = "9.9.9.9")
+        val result =
+            ConnectivityDnsTargetPlanner.expandTargets(
+                targets = listOf(target),
+                activeDns = plainUdpDns(),
+                preferredPath = null,
+                networkSnapshot =
+                    NativeNetworkSnapshot(
+                        dnsServers = listOf("1.1.1.1", "8.8.8.8"),
+                    ),
+            )
+
+        assertTrue(result.isNotEmpty())
+        assertTrue(result.all { it.udpServer == "9.9.9.9" })
     }
 }

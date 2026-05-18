@@ -20,7 +20,10 @@ pub use endpoints::{
 pub use fallback::build_fallback_encrypted_dns_endpoints;
 #[cfg(feature = "hickory")]
 pub use hickory_probe::resolve_via_hickory_dns;
-pub use udp::resolve_via_udp_with_raw;
+pub use udp::{
+    classify_udp_dns_error, is_retryable_udp_dns_error, resolve_via_udp_with_observations, resolve_via_udp_with_raw,
+    UdpDnsResolution,
+};
 pub use wire::{build_dns_query_with_type, parse_dns_response, skip_dns_name};
 
 #[cfg(test)]

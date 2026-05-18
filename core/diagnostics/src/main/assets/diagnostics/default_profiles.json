@@ -35,7 +35,7 @@
     {
       "id": "default",
       "name": "Default diagnostics",
-      "version": 3,
+      "version": 4,
       "request": {
         "profileId": "default",
         "displayName": "Default diagnostics",
@@ -110,6 +110,44 @@
           "dzen.ru",
           "2gis.com"
         ]
+      }
+    },
+    {
+      "id": "resolver-audit",
+      "name": "Resolver audit",
+      "version": 1,
+      "request": {
+        "profileId": "resolver-audit",
+        "displayName": "Resolver audit",
+        "kind": "CONNECTIVITY",
+        "family": "GENERAL",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [
+          {
+            "domain": "cloudflare.com"
+          },
+          {
+            "domain": "google.com"
+          },
+          {
+            "domain": "youtube.com"
+          }
+        ],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": []
       }
     },
     {

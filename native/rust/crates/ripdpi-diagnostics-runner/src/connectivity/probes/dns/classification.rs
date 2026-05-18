@@ -48,6 +48,16 @@ pub(super) fn classify_dns_probe_outcome(
     path_mode: &ScanPathMode,
     udp_latency_ms: &str,
     expected: &BTreeSet<String>,
+    udp_error_kind: Option<&str>,
+    udp_attempt_count: usize,
 ) -> String {
-    outcome::classify_dns_probe_outcome(udp_result, encrypted_result, path_mode, udp_latency_ms, expected)
+    outcome::classify_dns_probe_outcome(
+        udp_result,
+        encrypted_result,
+        path_mode,
+        udp_latency_ms,
+        expected,
+        udp_error_kind,
+        udp_attempt_count,
+    )
 }

@@ -193,6 +193,8 @@ internal class DefaultDiagnosticsPlanner
                     targets = intent.dnsTargets,
                     activeDns = intent.settings.activeDnsSettings(),
                     preferredPath = context.preferredDnsPath,
+                    networkSnapshot = context.networkSnapshot,
+                    resolverCandidateLimit = defaultDiagnosticsResolverCandidateLimit(intent.profileId),
                 )
             val domainTargets =
                 intent.domainTargets.map { target ->

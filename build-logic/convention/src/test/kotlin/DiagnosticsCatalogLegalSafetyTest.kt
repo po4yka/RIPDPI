@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class DiagnosticsCatalogLegalSafetyTest {
     private val registry =
@@ -161,5 +162,25 @@ class DiagnosticsCatalogLegalSafetyTest {
         throttlingProfile.throughputTargets.forEach { target ->
             assertContains(target.url, "https://")
         }
+    }
+
+    @Test
+    fun `default diagnostics stays lightweight and resolver audit keeps full matrix expansion`() {
+        val index = DiagnosticsCatalogIndex(DefaultDiagnosticsCatalogPackSource.load())
+        val profiles = DefaultDiagnosticsCatalogProfileSource.load(index)
+
+        val defaultProfile = profiles.single { it.id == "default" }
+        val resolverAuditProfile = profiles.single { it.id == "resolver-audit" }
+
+        assertEquals(4, defaultProfile.version)
+        assertEquals(listOf("cloudflare.com", "google.com", "youtube.com"), defaultProfile.dnsTargets.map { it.domain })
+        assertTrue(defaultProfile.dnsTargets.all { it.udpServer == null })
+
+        assertTrue(resolverAuditProfile.executionPolicy.manualOnly)
+        assertEquals(
+            listOf("cloudflare.com", "google.com", "youtube.com"),
+            resolverAuditProfile.dnsTargets.map { it.domain },
+        )
+        assertTrue(resolverAuditProfile.dnsTargets.all { it.udpServer == null })
     }
 }

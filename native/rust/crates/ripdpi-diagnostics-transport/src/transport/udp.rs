@@ -1,3 +1,4 @@
+use std::io::ErrorKind;
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 
 use crate::util::IO_TIMEOUT;
@@ -76,7 +77,15 @@ pub fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<(Vec<u8>, 
     socket.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     socket.send_to(payload, server).map_err(|err| err.to_string())?;
     let mut buf = [0u8; 2048];
-    let (size, _) = socket.recv_from(&mut buf).map_err(|err| err.to_string())?;
+    let (size, _) = socket.recv_from(&mut buf).map_err(format_udp_recv_error)?;
     let local_addr = socket.local_addr().map_err(|err| err.to_string())?;
     Ok((buf[..size].to_vec(), local_addr))
+}
+
+fn format_udp_recv_error(err: std::io::Error) -> String {
+    match err.kind() {
+        ErrorKind::TimedOut => "udp_recv_timeout".to_string(),
+        ErrorKind::WouldBlock => "udp_recv_would_block".to_string(),
+        kind => format!("udp_recv_{kind:?}: {err}"),
+    }
 }

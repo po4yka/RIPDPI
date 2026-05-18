@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::connectivity::adapters::dns::{
     build_fallback_encrypted_dns_endpoints, encrypted_dns_endpoint_for_target, resolve_via_encrypted_dns_with_raw,
-    resolve_via_udp_with_raw,
+    resolve_via_udp_with_observations,
 };
 use crate::connectivity::adapters::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
 use crate::connectivity::adapters::transport::TransportConfig;
@@ -64,9 +64,8 @@ pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode:
         Ok(value) => value,
         Err(err) => return dns_probe_unavailable_result(target, err),
     };
-    let udp_started = std::time::Instant::now();
-    let (udp_result, raw_udp_response) = resolve_via_udp_with_raw(&target.domain, &udp_server, transport);
-    let udp_latency_ms = udp_started.elapsed().as_millis().to_string();
+    let udp_resolution = resolve_via_udp_with_observations(&target.domain, &udp_server, transport);
+    let udp_latency_ms = udp_resolution.latency_ms.to_string();
     let target_uses_default_resolver =
         target.encrypted_host.is_none() && target.encrypted_doh_url.is_none() && target.encrypted_protocol.is_none();
     let fallback_endpoints = if target_uses_default_resolver {
@@ -91,7 +90,15 @@ pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode:
     let encrypted_latency_ms = oracle_assessment.preferred_latency_ms().to_string();
 
     let expected: BTreeSet<String> = target.expected_ips.iter().cloned().collect();
-    let outcome = classify_dns_probe_outcome(&udp_result, &encrypted_result, path_mode, &udp_latency_ms, &expected);
+    let outcome = classify_dns_probe_outcome(
+        &udp_resolution.result,
+        &encrypted_result,
+        path_mode,
+        &udp_latency_ms,
+        &expected,
+        udp_resolution.error_kind.as_deref(),
+        udp_resolution.attempt_count,
+    );
     let injection_suspected = is_dns_injection_suspected(&udp_latency_ms, &outcome);
     let selected_endpoint =
         oracle_assessment.selected.as_ref().map_or(&encrypted_endpoint, |selected| &selected.endpoint);
@@ -108,8 +115,13 @@ pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode:
         outcome,
         details: build_dns_probe_details(DnsProbeDetailInputs {
             udp_server: &udp_server,
-            udp_result: &udp_result,
+            udp_result: &udp_resolution.result,
             udp_latency_ms: &udp_latency_ms,
+            udp_attempt_count: udp_resolution.attempt_count,
+            udp_success_count: udp_resolution.success_count,
+            udp_error_kind: udp_resolution.error_kind.as_deref(),
+            udp_retry_recovered: udp_resolution.retry_recovered,
+            udp_cache_hit: udp_resolution.cache_hit,
             encrypted_endpoint: &encrypted_endpoint,
             encrypted_bootstrap_ips: &encrypted_bootstrap_ips,
             selected_bootstrap_ips: &selected_bootstrap_ips,
@@ -124,7 +136,7 @@ pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode:
     append_dns_classifier_details(
         &mut result,
         &target.domain,
-        &udp_result,
+        &udp_resolution.result,
         &encrypted_result,
         selected_endpoint,
         transport,
@@ -135,22 +147,23 @@ pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode:
     if is_suspected_dns_tampering_outcome(result.outcome.as_str()) {
         append_injection_profile_details(
             &mut result,
-            &udp_result,
+            &udp_resolution.result,
             &encrypted_result,
             &udp_latency_ms,
             &encrypted_latency_ms,
         );
     }
 
-    if let Some(raw) = raw_udp_response.as_deref() {
+    if let Some(raw) = udp_resolution.raw_response.as_deref() {
         append_udp_response_analysis(&mut result, raw);
     }
 
-    if let (Some(udp_raw), Some(enc_raw)) = (raw_udp_response.as_deref(), raw_encrypted_response.as_deref()) {
+    if let (Some(udp_raw), Some(enc_raw)) = (udp_resolution.raw_response.as_deref(), raw_encrypted_response.as_deref())
+    {
         append_record_comparison_details(&mut result, udp_raw, enc_raw);
     }
 
-    if result.outcome != "dns_match" {
+    if should_run_dns_trigger_fuzzing(result.outcome.as_str()) {
         append_dns_trigger_fuzzing_details(
             &mut result.details,
             target,
@@ -161,6 +174,10 @@ pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode:
     }
 
     result
+}
+
+fn should_run_dns_trigger_fuzzing(outcome: &str) -> bool {
+    is_suspected_dns_tampering_outcome(outcome)
 }
 
 fn dns_probe_unavailable_result(target: &DnsTarget, err: String) -> ProbeResult {

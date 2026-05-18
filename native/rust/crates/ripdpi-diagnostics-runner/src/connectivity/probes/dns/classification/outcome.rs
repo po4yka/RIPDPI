@@ -9,6 +9,8 @@ pub(super) fn classify_dns_probe_outcome(
     path_mode: &ScanPathMode,
     udp_latency_ms: &str,
     expected: &BTreeSet<String>,
+    udp_error_kind: Option<&str>,
+    udp_attempt_count: usize,
 ) -> String {
     match (udp_result, encrypted_result) {
         (Ok(udp_ips), Ok(encrypted_ips)) => match classify_dns_answer_overlap(udp_ips, encrypted_ips) {
@@ -30,6 +32,9 @@ pub(super) fn classify_dns_probe_outcome(
         },
         (Ok(_), Err(_)) => "dns_oracle_unavailable".to_string(),
         (Err(err), Ok(_)) if err == "dns_nxdomain" => "dns_nxdomain_mismatch".to_string(),
+        (Err(_), Ok(_)) if is_transient_udp_timeout_evidence(udp_error_kind, udp_attempt_count) => {
+            "udp_timeout_transient".to_string()
+        }
         (Err(_), Ok(_)) => {
             if matches!(path_mode, ScanPathMode::InPath) {
                 "udp_skipped_or_blocked".to_string()
@@ -39,4 +44,8 @@ pub(super) fn classify_dns_probe_outcome(
         }
         (Err(_), Err(_)) => "dns_unavailable".to_string(),
     }
+}
+
+fn is_transient_udp_timeout_evidence(udp_error_kind: Option<&str>, udp_attempt_count: usize) -> bool {
+    matches!(udp_error_kind, Some("timeout" | "would_block")) && udp_attempt_count > 1
 }

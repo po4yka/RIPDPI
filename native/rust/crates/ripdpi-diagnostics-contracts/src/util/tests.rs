@@ -115,6 +115,14 @@ fn classify_probe_outcome_marks_expected_health_buckets() {
         ProbeOutcomeBucket::Attention,
     );
     assert_eq!(
+        classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "udp_timeout_transient").bucket,
+        ProbeOutcomeBucket::Inconclusive,
+    );
+    assert_eq!(
+        classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "udp_plain_dns_unstable").bucket,
+        ProbeOutcomeBucket::Inconclusive,
+    );
+    assert_eq!(
         classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "udp_blocked").bucket,
         ProbeOutcomeBucket::Attention,
     );
@@ -124,6 +132,10 @@ fn classify_probe_outcome_marks_expected_health_buckets() {
     );
     assert_eq!(
         classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "dns_oracle_unavailable").bucket,
+        ProbeOutcomeBucket::Inconclusive,
+    );
+    assert_eq!(
+        classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "udp_timeout_transient").bucket,
         ProbeOutcomeBucket::Inconclusive,
     );
     assert_eq!(

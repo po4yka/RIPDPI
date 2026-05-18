@@ -1,7 +1,10 @@
 internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfileSource {
+    private val defaultDnsDomains = listOf("cloudflare.com", "google.com", "youtube.com")
+
     override fun load(index: DiagnosticsCatalogIndex): List<DiagnosticsProfileDefinition> =
         listOf(
             defaultProfile(),
+            resolverAuditProfile(),
             automaticProbingProfile(),
             automaticAuditProfile(),
             dpiDetectorFullProfile(),
@@ -16,7 +19,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         DiagnosticsProfileDefinition(
             id = "default",
             name = "Default diagnostics",
-            version = 3,
+            version = 4,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
             legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = false, requiresRawPath = false),
@@ -31,15 +34,20 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     """.trimIndent(),
                 ),
             dnsTargets =
-                domainTargets(
-                    """
-                    cloudflare.com
-                    google.com
-                    youtube.com
-                    """.trimIndent(),
-                ).map { DnsTargetDefinition(domain = it.host) },
+                defaultDnsDomains.map { domain -> DnsTargetDefinition(domain = domain) },
             tcpTargets = DiagnosticsCatalogSharedData.defaultTcpTargets,
             whitelistSni = DiagnosticsCatalogSharedData.defaultWhitelist,
+        )
+
+    private fun resolverAuditProfile(): DiagnosticsProfileDefinition =
+        DiagnosticsProfileDefinition(
+            id = "resolver-audit",
+            name = "Resolver audit",
+            version = 1,
+            intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
+            legalSafety = CatalogLegalSafety.SAFE,
+            executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
+            dnsTargets = defaultDnsDomains.map { domain -> DnsTargetDefinition(domain = domain) },
         )
 
     private fun automaticProbingProfile(): DiagnosticsProfileDefinition =
