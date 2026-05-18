@@ -15,6 +15,8 @@ unexpected_json="$tmpdir/feature-gap-readiness-unexpected.json"
 relay_json="$tmpdir/feature-gap-readiness-with-relay.json"
 unknown_json="$tmpdir/feature-gap-readiness-unknown-remote.json"
 atomic_json="$tmpdir/feature-gap-readiness-atomic.json"
+multi_device_json="$tmpdir/feature-gap-readiness-multi-device.json"
+fake_adb="$tmpdir/fake-adb"
 validator="$tmpdir/validate-readiness.py"
 
 "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
@@ -227,6 +229,108 @@ if remote.get("status") != "blocked":
 message = remote.get("message", "")
 if "Could not compare" not in message or "origin/ripdpi-missing-test-ref" not in message:
     raise SystemExit(f"unknown remote compare message is unclear: {message!r}")
+PY
+
+cat > "$fake_adb" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+
+serial=""
+if [[ "${1:-}" == "-s" ]]; then
+  serial="${2:-}"
+  shift 2
+fi
+
+case "${1:-}" in
+  devices)
+    cat <<'EOF'
+List of devices attached
+pixel-serial	device usb:1 product:husky model:Pixel_8_Pro device:husky transport_id:1
+emulator-5554	device product:sdk_gphone64_arm64 model:sdk_gphone64_arm64 device:emu64a transport_id:2
+EOF
+    ;;
+  get-state)
+    if [[ "$serial" == "pixel-serial" || "$serial" == "emulator-5554" ]]; then
+      echo "device"
+    else
+      echo "error: more than one device/emulator" >&2
+      exit 1
+    fi
+    ;;
+  shell)
+    shift
+    case "$*" in
+      "getprop ro.product.model")
+        if [[ "$serial" == "pixel-serial" ]]; then
+          echo "Pixel 8 Pro"
+        else
+          echo "Android SDK built for arm64"
+        fi
+        ;;
+      "getprop ro.build.version.sdk")
+        echo "36"
+        ;;
+      "getprop ro.build.version.release_or_codename")
+        echo "16"
+        ;;
+      "su 0 id")
+        echo "permission denied" >&2
+        exit 1
+        ;;
+      "settings get secure enabled_accessibility_services")
+        echo "com.example/.OtherService"
+        ;;
+      "settings get secure accessibility_enabled")
+        echo "1"
+        ;;
+      "pm list packages")
+        echo "package:com.google.android.marvin.talkback"
+        ;;
+      "dumpsys connectivity")
+        cat <<'EOF'
+NetworkAgentInfo{netId=100 Transports: WIFI}
+NetworkAgentInfo{netId=101 Transports: CELLULAR}
+EOF
+        ;;
+      *)
+        exit 0
+        ;;
+    esac
+    ;;
+  *)
+    echo "unsupported fake adb command: $*" >&2
+    exit 1
+    ;;
+esac
+SH
+chmod +x "$fake_adb"
+
+ADB="$fake_adb" \
+  RIPDPI_IGNORE_DIRTY_WORKTREE_FOR_READINESS=true \
+  RIPDPI_REMOTE_COMPARE_REF=HEAD \
+  "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
+  --output "$multi_device_json" >/dev/null
+python3 "$validator" "$multi_device_json" "$tmpdir/signoff-required-readiness.txt"
+
+python3 - "$multi_device_json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+
+checks = {check["name"]: check for check in data.get("checks", [])}
+android = checks["android_device"]
+if android.get("status") != "ready":
+    raise SystemExit(f"expected auto-selected physical device to be ready, got {android!r}")
+if "Connected physical device: Pixel 8 Pro" not in android.get("message", ""):
+    raise SystemExit(f"physical device selection message is unclear: {android.get('message', '')!r}")
+handover = checks["physical_network_handover"]
+if handover.get("status") != "manual":
+    raise SystemExit(f"expected physical handover to require manual evidence, got {handover!r}")
+rooted = checks["rooted_physical_device"]
+if rooted.get("status") != "blocked" or "did not provide root" not in rooted.get("message", ""):
+    raise SystemExit(f"expected non-rooted physical device blocker, got {rooted!r}")
 PY
 
 RIPDPI_RELAY_MATRIX_CONFIG="$repo_root/test-lab/relay/provider-matrix.example.json" \
