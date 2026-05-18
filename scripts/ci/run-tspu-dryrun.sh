@@ -21,6 +21,7 @@ fi
 
 ARTIFACT_DIR="${RIPDPI_TSPU_ARTIFACT_DIR:-$(mktemp -d -t tspu-dryrun-XXXXXX)}"
 mkdir -p "$ARTIFACT_DIR"
+ARTIFACT_DIR="$(cd "$ARTIFACT_DIR" && pwd)"
 echo "tspu artifacts -> $ARTIFACT_DIR"
 
 echo "--- unittest discover"
