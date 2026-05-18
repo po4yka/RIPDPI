@@ -1,6 +1,6 @@
 ---
 name: rust-security
-description: Rust supply-chain security with cargo-audit, cargo-deny, RUSTSEC advisories, and CVE triage.
+description: Use when auditing Rust dependencies with cargo-audit, configuring cargo-deny policies, triaging RUSTSEC advisories, evaluating a new crate for typosquat/supply-chain risk before adding it to Cargo.toml, responding to a published CVE on a pinned dep, or modifying native/rust/deny.toml. Triggers on "cargo audit", "cargo deny", "RUSTSEC", "advisory", "supply chain", or new-dependency-addition reviews.
 ---
 
 # Rust Supply Chain Security
@@ -19,7 +19,7 @@ Guide agents through Rust supply chain security: vulnerability scanning with car
 
 ## Project context
 
-- 23 Rust crates under `native/rust/`
+- 97 Rust crates under `native/rust/`
 - Policy config: `native/rust/deny.toml`
 - CI job: `cargo-deny` in `.github/workflows/ci.yml` (cargo-deny v0.19.0, installed via `taiki-e/install-action@v2`)
 - CI invocation: `cargo deny --manifest-path native/rust/Cargo.toml check`

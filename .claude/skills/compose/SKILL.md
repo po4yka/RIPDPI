@@ -41,8 +41,13 @@ Read the relevant reference file(s) from `references/` before answering:
 
 | Topic | Reference File |
 |-------|---------------|
-| `@State`, `remember`, `mutableStateOf`, state hoisting, `derivedStateOf`, `snapshotFlow` | `references/state-management.md` |
+| `@State`, `remember`, `mutableStateOf`, `derivedStateOf`, `snapshotFlow` | `references/state-management.md` |
+| State hoisting decisions (local / hoisted / plain-holder / ViewModel) | `references/state-hoisting.md` |
+| Screen state-holder vs plain UI composable split for previewability/testing | `references/state-holder-vs-viewmodel.md` |
+| `StateFlow` / `SharedFlow` / `Channel` modeling, `update { }`, `stateIn` placement | `references/state-event-flow.md` |
+| Deferred state reads (provider lambdas, block-form modifiers) for scroll/animation perf | `references/deferred-reads.md` |
 | Structuring composables, slots, extraction, preview | `references/view-composition.md` |
+| Slot API design for reusable components (`xxxContent: @Composable () -> Unit`) | `references/slot-api.md` |
 | Modifier ordering, custom modifiers, `Modifier.Node` | `references/modifiers.md` |
 | `LaunchedEffect`, `DisposableEffect`, `SideEffect`, `rememberCoroutineScope` | `references/side-effects.md` |
 | `CompositionLocal`, `LocalContext`, `LocalDensity`, custom locals | `references/composition-locals.md` |
@@ -107,7 +112,7 @@ Four scored categories: Performance, State Management, Side Effects, Composable 
 ### Expected Output
 
 Produce both:
-- a repository report file named `COMPOSE-AUDIT-REPORT.md`
+- a repository report file named **COMPOSE-AUDIT-REPORT.md**
 - a short chat summary with the overall score, category scores, worst issues, and top fixes
 
 ### Audit Principles
@@ -216,7 +221,7 @@ Performance ceiling check:
 
 Use `references/report-template.md`. The report must include: overall score, category score table, top critical findings, category-by-category reasoning, evidence file paths, prioritized remediation list, **Known Open Items** cross-referencing the quick-wins checklist from `.github/skills/compose-performance/SKILL.md`, and an optional note to run `material-3` if design issues are suspected.
 
-Write to `COMPOSE-AUDIT-REPORT.md` at the project root. If it already exists, confirm overwrite or write to `COMPOSE-AUDIT-REPORT-<YYYY-MM-DD>.md`.
+Write to **COMPOSE-AUDIT-REPORT.md** at the project root. If it already exists, confirm overwrite or write to `COMPOSE-AUDIT-REPORT-<YYYY-MM-DD>.md`.
 
 ### Step 9: Return A Short Summary
 
@@ -237,7 +242,7 @@ The top-three fixes in the chat summary MUST be the same items as the report's `
 
 - `references/scoring.md` — per-rule rubric with inline citations
 - `references/search-playbook.md` — search patterns and red-flag heuristics
-- `references/report-template.md` — required structure for `COMPOSE-AUDIT-REPORT.md`
+- `references/report-template.md` — required structure for **COMPOSE-AUDIT-REPORT.md**
 - `references/canonical-sources.md` — the official URLs every deduction must cite
 - `references/diagnostics.md` — Gradle/code snippets for compiler reports, stability config, baseline profiles, R8 checks
 - `scripts/compose-reports.init.gradle` — Gradle init script fallback

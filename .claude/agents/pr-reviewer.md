@@ -48,7 +48,7 @@ If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back t
 - Check: `config/detekt/detekt.yml`, any `*baseline*.xml` files
 
 ### Rust Panic-Safety Policy
-- Flag any new `.unwrap()` / `.expect()` / `panic!()` / `todo!()` / `unimplemented!()` in non-test Rust code (paths outside `tests/`, `benches/`, `fuzz/`, or `#[cfg(test)]` blocks) as WARNING unless the diff includes a line-level `// Infallible: <proof>` comment directly above the call — see `rust-panic-safety` skill for the policy.
+- Flag any new `.unwrap()` / `.expect()` / `panic!()` / `todo!()` / `unimplemented!()` in non-test Rust code (paths outside `tests/`, `benches/`, `fuzz/`, or `#[cfg(test)]` blocks) as WARNING unless the diff includes a line-level `// Infallible: <proof>` comment directly above the call — see `rust-discipline` skill for the policy.
 - Flag any new `extern "system" fn Java_*` or `extern "C" fn` body that lacks a `catch_unwind` or `EnvUnowned::with_env + into_outcome` guard as CRITICAL.
 
 ### Rust Supply Chain Policy

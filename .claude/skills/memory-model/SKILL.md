@@ -1,6 +1,6 @@
 ---
 name: memory-model
-description: Rust memory ordering, atomics, happens-before reasoning, and ARM64 concurrency diagnostics.
+description: Use when writing or reviewing Rust atomic operations, lock-free data structures, AtomicBool publish/subscribe patterns, choosing between Ordering::Relaxed/Acquire/Release/SeqCst, or diagnosing data races on ARM64 Android. Triggers on memory-ordering questions, weakly-ordered concurrency, happens-before reasoning, and atomic fence placement.
 ---
 
 # Memory Model

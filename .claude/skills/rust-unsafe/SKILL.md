@@ -1,13 +1,13 @@
 ---
 name: rust-unsafe
-description: Rust unsafe guidance for FFI, raw pointers, transmute, UnsafeCell, ioctl/tun, and safe wrappers.
+description: Use when adding or reviewing any unsafe Rust block, FFI/JNI export, raw-pointer arithmetic, transmute, ManuallyDrop, mem::zeroed, ioctl call, union access, manual unsafe impl Send/Sync, Box::leak, JString::from_raw, EnvUnowned::from_raw, or any change that removes #![forbid(unsafe_code)] from a previously-safe crate. Triggers on "unsafe", "FFI", "extern", "raw pointer", "transmute", "*mut/*const", "SAFETY comment", "undefined behavior", or any soundness question.
 ---
 
 # Rust unsafe -- RIPDPI
 
 ## Purpose
 
-Guide agents through writing, reviewing, and auditing unsafe Rust in RIPDPI's 23 native crates. The dominant unsafe patterns are JNI FFI, Linux ioctl/tun device operations, and signal handling.
+Guide agents through writing, reviewing, and auditing unsafe Rust in RIPDPI's 97 native crates. The dominant unsafe patterns are JNI FFI, Linux ioctl/tun device operations, and signal handling.
 
 ## Governance: `#![forbid(unsafe_code)]`
 

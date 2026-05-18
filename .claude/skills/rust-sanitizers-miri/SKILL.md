@@ -1,6 +1,6 @@
 ---
 name: rust-sanitizers-miri
-description: Rust memory-safety validation with ASan, TSan, Miri, HWASan, and sanitizer report triage.
+description: Use when running AddressSanitizer/ThreadSanitizer/MemorySanitizer on Rust code, configuring Miri for unsafe-Rust UB detection (Stacked Borrows or Tree Borrows), stubbing FFI for Miri compatibility, enabling HWASan or MTE on Android 14+, interpreting tombstones tagged SEGV_MTEAERR/SEGV_MTESERR, or wiring sanitizers into CI. Triggers on "sanitizer", "miri", "ASan/TSan/HWASan/MTE", "undefined behavior", or memory-safety validation questions.
 ---
 
 # Rust Sanitizers and Miri
@@ -11,7 +11,7 @@ Guide agents through runtime safety validation for Rust: ASan/TSan/MSan/UBSan vi
 
 ## RIPDPI Project Context
 
-This project has ~135 `unsafe` occurrences across 20 Rust crates. JNI interop crates (`ripdpi-android`, `ripdpi-tunnel-android`) use heavy FFI with the JVM. Other crates use raw pointers, libc syscalls, and platform-specific code. Miri cannot execute JNI/FFI code -- see the FFI caveat in section 4.
+This project has ~135 `unsafe` occurrences across 97 Rust crates. JNI interop crates (`ripdpi-android`, `ripdpi-tunnel-android`) use heavy FFI with the JVM. Other crates use raw pointers, libc syscalls, and platform-specific code. Miri cannot execute JNI/FFI code -- see the FFI caveat in section 4.
 
 ## Triggers
 

@@ -1,6 +1,6 @@
 ---
 name: play-store-screenshots
-description: "Generate Google Play screenshots, marketing images, and feature graphics for RIPDPI."
+description: "Use when generating Google Play Store assets for RIPDPI — phone screenshots (1080x1920), feature graphics (1024x500), tablet screenshots, or marketing images. Also use when updating play-store-screenshots/src/app/page.tsx, refreshing the raw app captures in public/screenshots/, running the Puppeteer batch capture, or aligning slides with DESIGN.md tokens. Triggers on \"Play Store assets\", \"marketing screenshots\", \"feature graphic\", \"screenshot generator\", \"1080x1920\", or \"play-store-screenshots\"."
 ---
 
 # Google Play Screenshots Generator (RIPDPI)
@@ -59,9 +59,9 @@ play-store-screenshots/
 
 ### Pre-Filled from DESIGN.md (confirm, don't ask from scratch)
 
-All colors come from the project's design system (`DESIGN.md` / `RipDpiExtendedColors`). The Play Store screenshots use these tokens for brand consistency.
+All colors come from the project's design system (**DESIGN.md** / `RipDpiExtendedColors`). The Play Store screenshots use these tokens for brand consistency.
 
-**Brand-palette note:** `DESIGN.md` (alpha) is monochrome-first **light** (`#FAFAFA` background, `#1A1A1A` foreground). Marketing slides honor the design system: light, monochrome-first, restrained semantic color, no decorative gradients. `BRAND_LIGHT` is the **canonical default**; `BRAND` (the strict dark inversion) is kept for at most 1-2 rhythm-break slides per set and uses the same role mapping, not a separate visual identity.
+**Brand-palette note:** the repo-root **DESIGN.md** (alpha) is monochrome-first **light** (`#FAFAFA` background, `#1A1A1A` foreground). Marketing slides honor the design system: light, monochrome-first, restrained semantic color, no decorative gradients. `BRAND_LIGHT` is the **canonical default**; `BRAND` (the strict dark inversion) is kept for at most 1-2 rhythm-break slides per set and uses the same role mapping, not a separate visual identity.
 
 | Item | Default |
 |------|---------|
