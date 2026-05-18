@@ -115,6 +115,13 @@ class RustApiSnapshotTests(unittest.TestCase):
             self.assertEqual(output, "pub struct ripdpi_example::Example\n")
             self.assertIn("-sss", command)
 
+    def test_normalize_public_api_canonicalizes_rustdoc_path_aliases(self) -> None:
+        output = sut.normalize_public_api(
+            "pub fn ripdpi_example::f(kind: core::io::error::ErrorKind)\n"
+        )
+
+        self.assertEqual(output, "pub fn ripdpi_example::f(kind: std::io::error::ErrorKind)\n")
+
 
 if __name__ == "__main__":
     unittest.main()

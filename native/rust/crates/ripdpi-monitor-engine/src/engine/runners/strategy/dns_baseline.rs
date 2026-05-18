@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use rustls::client::danger::ServerCertVerifier;
 
@@ -34,9 +33,9 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
         let Some(strategy_plan) = plan.strategy.as_ref() else {
             return RunnerOutcome::Completed;
         };
-        let Some(baseline) =
-            detect_strategy_probe_dns_tampering(&plan.request.domain_targets, strategy_plan.runtime_context.as_ref())
-        else {
+        let targets = &plan.request.domain_targets;
+        let context = strategy_plan.runtime_context.as_ref();
+        let Some(baseline) = detect_strategy_probe_dns_tampering(targets, context) else {
             return RunnerOutcome::Completed;
         };
         let artifacts = RunnerArtifacts::from_results(
@@ -70,16 +69,12 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
                 overrides.entry(host.as_str()).or_insert(ip);
             }
             let mut domain_ov = plan.request.domain_targets.clone();
-            for t in &mut domain_ov {
-                if t.connect_ip.is_none() {
-                    t.connect_ip = overrides.get(t.host.as_str()).map(|ip| (*ip).to_string());
-                }
+            for t in domain_ov.iter_mut().filter(|target| target.connect_ip.is_none()) {
+                t.connect_ip = overrides.get(t.host.as_str()).map(|ip| (*ip).to_string());
             }
             let mut quic_ov = plan.request.quic_targets.clone();
-            for t in &mut quic_ov {
-                if t.connect_ip.is_none() {
-                    t.connect_ip = overrides.get(t.host.as_str()).map(|ip| (*ip).to_string());
-                }
+            for t in quic_ov.iter_mut().filter(|target| target.connect_ip.is_none()) {
+                t.connect_ip = overrides.get(t.host.as_str()).map(|ip| (*ip).to_string());
             }
             runtime.strategy.dns_override_domain_targets = Some(domain_ov);
             runtime.strategy.dns_override_quic_targets = Some(quic_ov);

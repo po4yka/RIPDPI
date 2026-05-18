@@ -20,6 +20,9 @@ WORKSPACE_MANIFEST = RUST_ROOT / "Cargo.toml"
 HIGH_INDEGREE_THRESHOLD = 10
 EXPLICIT_SNAPSHOT_CRATES = frozenset({"ripdpi-runtime-api"})
 PUBLIC_API_ARGS = ("-sss",)
+PUBLIC_API_NORMALIZATIONS = {
+    "core::io::error::ErrorKind": "std::io::error::ErrorKind",
+}
 
 
 @dataclass(frozen=True)
@@ -133,7 +136,14 @@ def cargo_public_api(crate: WorkspaceCrate) -> str:
         print(result.stdout, end="")
         print(result.stderr, end="", file=sys.stderr)
         raise RuntimeError(f"cargo public-api failed for {crate.name}")
-    return result.stdout
+    return normalize_public_api(result.stdout)
+
+
+def normalize_public_api(public_api: str) -> str:
+    normalized = public_api
+    for current, canonical in PUBLIC_API_NORMALIZATIONS.items():
+        normalized = normalized.replace(current, canonical)
+    return normalized
 
 
 def ensure_public_api_tool_available() -> None:
