@@ -499,14 +499,16 @@ internal class MutableNetworkFingerprintProvider(
     override fun capture(): NetworkFingerprint? = fingerprint
 }
 
-internal class FakeDiagnosticsContextProvider : DiagnosticsContextProvider {
+internal class FakeDiagnosticsContextProvider(
+    private val serviceStatus: String = "Running",
+) : DiagnosticsContextProvider {
     override suspend fun captureContext(): DiagnosticContextModel = captureContextForTest()
 
     fun captureContextForTest(): DiagnosticContextModel =
         DiagnosticContextModel(
             service =
                 ServiceContextModel(
-                    serviceStatus = "Running",
+                    serviceStatus = serviceStatus,
                     configuredMode = "VPN",
                     activeMode = "VPN",
                     selectedProfileId = "default",

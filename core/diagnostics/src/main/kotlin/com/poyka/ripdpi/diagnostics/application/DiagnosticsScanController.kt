@@ -254,6 +254,20 @@ internal class DefaultDiagnosticsScanController
             artifactWriteStore.upsertSnapshot(prepared.preScanSnapshot)
             artifactWriteStore.upsertContextSnapshot(prepared.preScanContext)
 
+            val preflightFailureSummary = prepared.inPathPreflightFailureSummary()
+            if (preflightFailureSummary != null) {
+                activeScanRegistry.removePreparedScan(prepared.sessionId)
+                if (prepared.exposeProgress) {
+                    activeScanRegistry.updateProgress(null)
+                }
+                DiagnosticsReportPersister.persistScanFailure(
+                    prepared.sessionId,
+                    preflightFailureSummary,
+                    scanRecordStore,
+                )
+                throw IllegalStateException(preflightFailureSummary)
+            }
+
             val handle =
                 bridgeExecutionService.createHandle(
                     sessionId = prepared.sessionId,
@@ -501,6 +515,37 @@ private fun Throwable.summaryForScan(
     } else {
         message ?: "Diagnostics scan failed"
     }
+
+private const val InPathServiceUnavailableAction = "start the RIPDPI service before scanning"
+
+private fun PreparedDiagnosticsScan.inPathPreflightFailureSummary(): String? {
+    val service = context.contextSnapshot.service
+    val expectedEndpoint = expectedProxyEndpoint()
+    val listenerAddress = service.proxy?.listenerAddress?.takeIf { it.isNotBlank() }
+    return when {
+        pathMode != ScanPathMode.IN_PATH -> {
+            null
+        }
+
+        !service.serviceStatus.equals(AppStatus.Running.name, ignoreCase = true) -> {
+            val status = service.serviceStatus
+            "In-path diagnostics unavailable: local proxy service is $status; $InPathServiceUnavailableAction"
+        }
+
+        listenerAddress != null && listenerAddress != expectedEndpoint -> {
+            "In-path diagnostics unavailable: proxy listener is $listenerAddress, expected $expectedEndpoint"
+        }
+
+        else -> {
+            null
+        }
+    }
+}
+
+private fun PreparedDiagnosticsScan.expectedProxyEndpoint(): String =
+    plan.proxyHost?.let { host ->
+        plan.proxyPort?.let { port -> "$host:$port" } ?: host
+    } ?: "unknown"
 
 internal data class PendingHiddenConflictRequest(
     val requestId: String,
