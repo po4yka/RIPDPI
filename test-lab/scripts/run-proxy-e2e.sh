@@ -133,6 +133,10 @@ resume_debug_automation_state() {
     --es com.poyka.ripdpi.automation.DATA_PRESET settings_ready >/dev/null
 }
 
+grant_runtime_permissions() {
+  adb shell pm grant com.poyka.ripdpi android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+}
+
 assert_proxy_service_stopped() {
   local service_state
   service_state="$(
@@ -193,6 +197,7 @@ fi
 
 if [[ "$skip_maestro" != "true" ]]; then
   if resolve_maestro; then
+    grant_runtime_permissions
     seed_debug_automation_state
     maestro_ran=true
     "$maestro_bin" test "$lab_root/maestro/connect-proxy.yaml"

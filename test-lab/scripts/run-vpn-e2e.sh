@@ -122,6 +122,10 @@ seed_debug_automation_state() {
     --es com.poyka.ripdpi.automation.DATA_PRESET settings_ready >/dev/null
 }
 
+grant_runtime_permissions() {
+  adb shell pm grant com.poyka.ripdpi android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+}
+
 collect_failure_artifacts() {
   local status="$1"
   local logs_dir="$out_dir/device-logs"
@@ -171,6 +175,7 @@ fi
 
 if [[ "$skip_maestro" != "true" ]]; then
   if resolve_maestro; then
+    grant_runtime_permissions
     seed_debug_automation_state
     maestro_ran=true
     "$maestro_bin" test "$lab_root/maestro/connect-vpn.yaml"
