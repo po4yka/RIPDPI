@@ -52,7 +52,7 @@ class RawPacketDisclosureContentTest {
             .onNodeWithText("raw IP packet bytes", substring = true)
             .assertIsDisplayed()
         composeRule
-            .onNodeWithText("24 h", substring = true)
+            .onNodeWithText("24 h or 3 most-recent files", substring = true)
             .assertIsDisplayed()
         composeRule
             .onNodeWithText("not attached", substring = true)

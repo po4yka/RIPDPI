@@ -35,15 +35,16 @@ class DataTransparencyScreenTest {
     fun whatWeCollectSectionHeaderIsDisplayed() {
         setScreen()
 
-        composeRule.onNodeWithText("What we collect").fetchSemanticsNode()
+        scrollTo("WHAT WE COLLECT")
+        composeRule.onNodeWithText("WHAT WE COLLECT").fetchSemanticsNode()
     }
 
     @Test
     fun whatWeDoNotCollectSectionHeaderIsDisplayed() {
         setScreen()
 
-        scrollTo("No browsing history or URL content")
-        composeRule.onNodeWithText("What we do NOT collect").fetchSemanticsNode()
+        scrollTo("WHAT WE DO NOT COLLECT")
+        composeRule.onNodeWithText("WHAT WE DO NOT COLLECT").fetchSemanticsNode()
     }
 
     @Test
@@ -86,8 +87,8 @@ class DataTransparencyScreenTest {
     fun howStoredSectionHeaderIsDisplayed() {
         setScreen()
 
-        scrollTo("All data stays on your device in a local database")
-        composeRule.onNodeWithText("How data is stored").fetchSemanticsNode()
+        scrollTo("HOW DATA IS STORED")
+        composeRule.onNodeWithText("HOW DATA IS STORED").fetchSemanticsNode()
     }
 
     @Test
@@ -134,8 +135,8 @@ class DataTransparencyScreenTest {
     fun exportPrivacySectionHeaderIsDisplayed() {
         setScreen()
 
-        scrollTo("You control what is shared and with whom")
-        composeRule.onNodeWithText("Export privacy").fetchSemanticsNode()
+        scrollTo("EXPORT PRIVACY")
+        composeRule.onNodeWithText("EXPORT PRIVACY").fetchSemanticsNode()
     }
 
     @Test
