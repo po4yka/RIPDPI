@@ -1,12 +1,3 @@
-<!--
-Adapted from chrisbanes/skills (Apache License 2.0):
-https://github.com/chrisbanes/skills/blob/main/skills/kotlin-flow-state-event-modeling/SKILL.md
-Reproduced with cross-references repointed at RIPDPI's reference layout.
-This is Kotlin-Flow guidance broader than Compose, but lives here because most
-flow collection in this app surfaces at the Compose boundary
-(collectAsStateWithLifecycle) - keep the compose skill as the single entry.
--->
-
 # Kotlin Flow: state and event modeling
 
 ## Core principle

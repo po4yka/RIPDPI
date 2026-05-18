@@ -1,9 +1,3 @@
-<!--
-Adapted from chrisbanes/skills (Apache License 2.0):
-https://github.com/chrisbanes/skills/blob/main/skills/compose-state-holder-ui-split/SKILL.md
-Reproduced with structural references repointed at RIPDPI's reference layout.
--->
-
 # Compose state-holder / UI split
 
 ## Core principle

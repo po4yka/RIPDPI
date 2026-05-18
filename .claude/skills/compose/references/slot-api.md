@@ -1,9 +1,3 @@
-<!--
-Adapted from chrisbanes/skills (Apache License 2.0):
-https://github.com/chrisbanes/skills/blob/main/skills/compose-slot-api-pattern/SKILL.md
-Reproduced with structural references repointed at RIPDPI's reference layout.
--->
-
 # Compose slot API pattern
 
 ## Core principle

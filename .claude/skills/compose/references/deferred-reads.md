@@ -1,10 +1,3 @@
-<!--
-Adapted from chrisbanes/skills (Apache License 2.0):
-https://github.com/chrisbanes/skills/blob/main/skills/compose-state-deferred-reads/SKILL.md
-Examples adjusted for RIPDPI screen names (HomeScreen, AdvancedSettings) where
-the same patterns apply. The original guidance is unchanged.
--->
-
 # Compose state — deferred reads
 
 ## Core principle
