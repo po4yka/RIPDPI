@@ -1012,6 +1012,58 @@ fun probeInstrumentationTcpConnect(
         )
     }
 
+fun testProcessTcpConnect(
+    host: String,
+    port: Int,
+    timeoutMs: Long = DebugNetworkProbeTimeoutMs,
+): AppProcessTcpProbeResult {
+    val context = InstrumentationRegistry.getInstrumentation().context
+    val latch = CountDownLatch(1)
+    val probeResult = AtomicReference<AppProcessTcpProbeResult?>()
+    val intent =
+        Intent(DebugNetworkProbeAction).apply {
+            setClassName(context.packageName, TestNetworkProbeReceiverClass)
+            putExtra(DebugNetworkProbeExtraHost, host)
+            putExtra(DebugNetworkProbeExtraPort, port)
+            putExtra(DebugNetworkProbeExtraConnectTimeoutMs, timeoutMs.toInt())
+        }
+    context.sendOrderedBroadcast(
+        intent,
+        null,
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                val extras = getResultExtras(false) ?: Bundle.EMPTY
+                probeResult.set(
+                    AppProcessTcpProbeResult(
+                        host = host,
+                        port = port,
+                        ok = resultCode == Activity.RESULT_OK && extras.getBoolean(DebugNetworkProbeExtraOk, false),
+                        localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
+                        localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
+                        response = extras.getString(DebugNetworkProbeExtraResponse),
+                        errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
+                        errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
+                    ),
+                )
+                latch.countDown()
+            }
+        },
+        null,
+        Activity.RESULT_CANCELED,
+        null,
+        null,
+    )
+    check(latch.await(DebugNetworkProbeBroadcastTimeoutMs, TimeUnit.MILLISECONDS)) {
+        "Timed out waiting for test-process TCP probe for $host:$port"
+    }
+    return requireNotNull(probeResult.get()) {
+        "Test-process TCP probe did not deliver a result for $host:$port"
+    }
+}
+
 fun testProcessTcpRoundTrip(
     host: String,
     port: Int,
@@ -1139,6 +1191,69 @@ fun probeAppProcessDns(
     }
     return requireNotNull(probeResult.get()) {
         "App-process DNS probe did not deliver a result for $queryHost via $serverHost:$serverPort"
+    }
+}
+
+fun testProcessDnsProbe(
+    queryHost: String,
+    serverHost: String = PacketSmokeMapDnsAddress,
+    serverPort: Int = PacketSmokeMapDnsPort,
+    timeoutMs: Long = DebugNetworkProbeTimeoutMs,
+): AppProcessDnsProbeResult {
+    val context = InstrumentationRegistry.getInstrumentation().context
+    val latch = CountDownLatch(1)
+    val probeResult = AtomicReference<AppProcessDnsProbeResult?>()
+    val intent =
+        Intent(DebugDnsProbeAction).apply {
+            setClassName(context.packageName, TestNetworkProbeReceiverClass)
+            putExtra(DebugNetworkProbeExtraHost, serverHost)
+            putExtra(DebugNetworkProbeExtraPort, serverPort)
+            putExtra(DebugNetworkProbeExtraReadTimeoutMs, timeoutMs.toInt())
+            putExtra(DebugNetworkProbeExtraQueryHost, queryHost)
+        }
+    context.sendOrderedBroadcast(
+        intent,
+        null,
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                val extras = getResultExtras(false) ?: Bundle.EMPTY
+                probeResult.set(
+                    AppProcessDnsProbeResult(
+                        queryHost = queryHost,
+                        serverHost = serverHost,
+                        serverPort = serverPort,
+                        ok = resultCode == Activity.RESULT_OK && extras.getBoolean(DebugNetworkProbeExtraOk, false),
+                        rcode =
+                            extras
+                                .takeIf { it.containsKey(DebugNetworkProbeExtraDnsRcode) }
+                                ?.getInt(DebugNetworkProbeExtraDnsRcode),
+                        answers = extras.getStringArrayList(DebugNetworkProbeExtraDnsAnswers).orEmpty(),
+                        latencyMs =
+                            extras
+                                .takeIf { it.containsKey(DebugNetworkProbeExtraDnsLatencyMs) }
+                                ?.getLong(DebugNetworkProbeExtraDnsLatencyMs),
+                        localAddress = extras.getString(DebugNetworkProbeExtraLocalAddress),
+                        localPort = extras.getInt(DebugNetworkProbeExtraLocalPort).takeIf { it > 0 },
+                        errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
+                        errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
+                    ),
+                )
+                latch.countDown()
+            }
+        },
+        null,
+        Activity.RESULT_CANCELED,
+        null,
+        null,
+    )
+    check(latch.await(DebugNetworkProbeBroadcastTimeoutMs, TimeUnit.MILLISECONDS)) {
+        "Timed out waiting for test-process DNS probe for $queryHost via $serverHost:$serverPort"
+    }
+    return requireNotNull(probeResult.get()) {
+        "Test-process DNS probe did not deliver a result for $queryHost via $serverHost:$serverPort"
     }
 }
 

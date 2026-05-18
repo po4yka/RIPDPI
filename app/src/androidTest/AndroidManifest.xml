@@ -10,6 +10,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="com.poyka.ripdpi.debug.PROBE_TCP" />
+                <action android:name="com.poyka.ripdpi.debug.PROBE_DNS" />
             </intent-filter>
         </receiver>
     </application>

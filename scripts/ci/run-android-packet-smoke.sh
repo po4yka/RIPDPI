@@ -18,6 +18,7 @@ gradle_abi_override="${RIPDPI_LOCAL_NATIVE_ABI:-}"
 android_serial="${ANDROID_SERIAL:-}"
 app_package="com.poyka.ripdpi"
 debug_probe_component="com.poyka.ripdpi/.debug.DebugNetworkProbeReceiver"
+gradle_fresh_build_args=(--rerun-tasks --no-build-cache -Pkotlin.incremental=false)
 
 fixture_pid_file=""
 fixture_manifest=""
@@ -225,7 +226,8 @@ install_physical_indirect_builds() {
     install_log="$(mktemp)"
     set +e
     ANDROID_SERIAL="$android_serial" \
-    ./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest :app:installGithubDebug :app:installGithubDebugAndroidTest \
+    ./gradlew "${gradle_fresh_build_args[@]}" \
+        :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest :app:installGithubDebug :app:installGithubDebugAndroidTest \
         "-Pripdpi.localNativeAbis=${gradle_abi}" >"$install_log" 2>&1
     status=$?
     set -e
@@ -285,11 +287,55 @@ append_runner_log() {
 run_remote_command_logged() {
     local log_file="$1"
     local command="$2"
+    local restore_errexit="0"
+    if [[ $- == *e* ]]; then
+        restore_errexit="1"
+    fi
     set +e
     adb_cmd shell "$command" 2>&1 | tr -d '\r' | tee -a "$log_file"
     local status=${PIPESTATUS[0]}
-    set -e
+    if [[ "$restore_errexit" == "1" ]]; then
+        set -e
+    else
+        set +e
+    fi
     return "$status"
+}
+
+run_instrumentation_command_logged() {
+    local log_file="$1"
+    local command="$2"
+    local output_file
+    local restore_errexit="0"
+    local status
+    output_file="$(mktemp)"
+    if [[ $- == *e* ]]; then
+        restore_errexit="1"
+    fi
+    set +e
+    adb_cmd shell "$command" 2>&1 | tr -d '\r' | tee -a "$log_file" | tee "$output_file" >/dev/null
+    status=${PIPESTATUS[0]}
+    if [[ "$restore_errexit" == "1" ]]; then
+        set -e
+    else
+        set +e
+    fi
+    if [[ "$status" -ne 0 ]]; then
+        rm -f "$output_file"
+        return "$status"
+    fi
+    if packet_smoke_instrumentation_output_failed "$output_file"; then
+        append_runner_log "$log_file" "==> instrumentation reported a failed test or runner crash"
+        rm -f "$output_file"
+        return 1
+    fi
+    if ! packet_smoke_instrumentation_output_completed "$output_file"; then
+        append_runner_log "$log_file" "==> instrumentation did not report a successful completion marker"
+        rm -f "$output_file"
+        return 1
+    fi
+    rm -f "$output_file"
+    return 0
 }
 
 run_instrumentation_phase() {
@@ -308,7 +354,14 @@ run_instrumentation_phase() {
         "$(shell_quote "$scenario_id")" \
         "$(shell_quote "$instrumentation_component")"
     append_runner_log "$log_file" "==> instrumentation phase: $phase"
-    run_remote_command_logged "$log_file" "$command"
+    run_instrumentation_command_logged "$log_file" "$command"
+}
+
+reset_physical_test_process() {
+    if [[ "$device_profile" != "physical_indirect" ]]; then
+        return
+    fi
+    adb_cmd shell am force-stop "${app_package}.test" >/dev/null 2>&1 || true
 }
 
 hex_encode() {
@@ -580,7 +633,8 @@ if [[ "$device_profile" == "physical_indirect" ]]; then
     require_run_as
 else
     ANDROID_SERIAL="$android_serial" \
-    ./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest "-Pripdpi.localNativeAbis=${gradle_abi}" >/dev/null
+    ./gradlew "${gradle_fresh_build_args[@]}" \
+        :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest "-Pripdpi.localNativeAbis=${gradle_abi}" >/dev/null
 fi
 
 jq_selector='.[] | select(.lane == "android_proxy" or .lane == "android_vpn")'
@@ -605,11 +659,6 @@ for row in "${scenarios[@]}"; do
         echo "==> Skipping Android packet smoke: $scenario_id (requires direct UDP reachability to the host fixture)"
         continue
     fi
-    if [[ "$device_profile" == "physical_indirect" && "$scenario_lane" == "android_vpn" ]]; then
-        echo "==> Skipping Android packet smoke: $scenario_id (physical VPN lanes require raw capture or emulator routing)"
-        continue
-    fi
-
     scenario_dir="$artifact_root/$scenario_id"
     rm -rf "$scenario_dir"
     mkdir -p "$scenario_dir"
@@ -623,9 +672,10 @@ for row in "${scenarios[@]}"; do
     capture_pid="$(start_device_capture "$scenario_id" | tr -d '\r')"
 
     : >"$scenario_dir/test-output.txt"
-    if [[ "$device_profile" == "physical_indirect" && "$scenario_lane" == "android_vpn" ]]; then
+    if [[ "$device_profile" == "physical_indirect" ]]; then
+        reset_physical_test_process
         set +e
-        run_physical_indirect_vpn_scenario "$scenario_id" "$test_selector" "$traffic_kind" "$scenario_dir"
+        run_instrumentation_phase "$scenario_id" "$test_selector" "single" "$scenario_dir/test-output.txt"
         status=$?
         set -e
     else
@@ -640,9 +690,9 @@ for row in "${scenarios[@]}"; do
             2>&1 | tee "$scenario_dir/test-output.txt"
         status=${PIPESTATUS[0]}
         set -e
-        if [[ "$scenario_lane" == "android_vpn" ]]; then
-            record_single_phase_vpn_artifacts "$scenario_id" "$scenario_dir"
-        fi
+    fi
+    if [[ "$scenario_lane" == "android_vpn" ]]; then
+        record_single_phase_vpn_artifacts "$scenario_id" "$scenario_dir"
     fi
 
     stop_device_capture "$scenario_id" "$scenario_dir" "$capture_pid"
