@@ -23,6 +23,13 @@ private const val OutcomeQuicError = "quic_error"
 
 private const val MinimumHealthyDirectTlsProbesForSyntheticBlocking = 3
 
+internal enum class DirectPathHealthState {
+    DIRECT_PATH_HEALTHY,
+    DIRECT_PATH_HEALTHY_WITH_SYNTHETIC_ATTENTION,
+    DIRECT_PATH_RISK_DETECTED,
+    INCONCLUSIVE,
+}
+
 private val fatHeaderBlockingOutcomes =
     setOf(
         OutcomeTcpReset,
@@ -52,6 +59,35 @@ internal fun ScanReport.hasFatHeaderOnlySyntheticBlocking(): Boolean {
         hasBlockingFatHeader &&
         !hasRealReachabilityFailure &&
         healthyDirectTlsCount >= MinimumHealthyDirectTlsProbesForSyntheticBlocking
+}
+
+internal fun ScanReport.hasOnlySyntheticFatHeaderBlocking(): Boolean {
+    val hasBlockingFatHeader = results.any(ProbeResult::isBlockingFatHeaderProbe)
+    val hasRealReachabilityFailure = results.any(ProbeResult::isRealReachabilityBlockingProbe)
+    return pathMode == ScanPathMode.RAW_PATH && hasBlockingFatHeader && !hasRealReachabilityFailure
+}
+
+internal fun ScanReport.directPathHealthState(): DirectPathHealthState {
+    val hasHealthyDirectTls =
+        results.count(ProbeResult::isHealthyDomainTlsReachability) >= MinimumHealthyDirectTlsProbesForSyntheticBlocking
+    val hasRealReachabilityFailure = results.any(ProbeResult::isRealReachabilityBlockingProbe)
+    return when {
+        hasFatHeaderOnlySyntheticBlocking() -> {
+            DirectPathHealthState.DIRECT_PATH_HEALTHY_WITH_SYNTHETIC_ATTENTION
+        }
+
+        pathMode == ScanPathMode.RAW_PATH && hasHealthyDirectTls && !hasRealReachabilityFailure -> {
+            DirectPathHealthState.DIRECT_PATH_HEALTHY
+        }
+
+        hasRealReachabilityFailure || directModeVerdict != null -> {
+            DirectPathHealthState.DIRECT_PATH_RISK_DETECTED
+        }
+
+        else -> {
+            DirectPathHealthState.INCONCLUSIVE
+        }
+    }
 }
 
 internal fun ScanReport.resultsForDirectModePolicy(): List<ProbeResult> =

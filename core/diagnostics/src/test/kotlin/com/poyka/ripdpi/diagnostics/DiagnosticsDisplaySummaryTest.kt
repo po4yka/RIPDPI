@@ -216,6 +216,28 @@ class DiagnosticsDisplaySummaryTest {
     }
 
     @Test
+    fun `summary projector surfaces healthy direct path with synthetic attention`() {
+        val summary =
+            ScanReport(
+                sessionId = "session-clean-synthetic",
+                profileId = "automatic-probing",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 10L,
+                finishedAt = 20L,
+                summary = "Scan completed",
+                results =
+                    listOf(
+                        ProbeResult("domain_reachability", "youtube.com", "tls_ok"),
+                        ProbeResult("domain_reachability", "discord.com", "tls_ok"),
+                        ProbeResult("domain_reachability", "proton.me", "tls_ok"),
+                        ProbeResult("tcp_fat_header", "172.67.70.222:443 (Cloudflare)", "tcp_16kb_blocked"),
+                    ),
+            ).displaySummary()
+
+        assertEquals("Direct connectivity is healthy; only synthetic probe artifacts need attention", summary)
+    }
+
+    @Test
     fun `summary projector surfaces no direct solution verdict`() {
         val summary =
             ScanReport(

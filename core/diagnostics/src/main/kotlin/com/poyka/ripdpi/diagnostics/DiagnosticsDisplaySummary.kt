@@ -10,11 +10,14 @@ internal const val ScanCompletedWithPartialResultsSummary = "Scan completed with
 
 private const val ScanCompletedWithDnsFallbackSummary = "Scan completed with DNS fallback"
 private const val TransparentDirectModeSummary = "Direct mode works transparently"
+private const val DirectPathHealthyWithSyntheticAttentionSummary =
+    "Direct connectivity is healthy; only synthetic probe artifacts need attention"
 
 internal fun ScanReport.displaySummary(defaultSummary: String = summary): String =
     deriveDisplaySummary(
         rawSummary = summary.ifBlank { defaultSummary },
         directModeVerdict = directModeVerdict,
+        directPathHealthState = directPathHealthState(),
         strategyCompletionKind = strategyProbeReport?.completionKind,
         hasPartialResults = results.isNotEmpty() || observations.isNotEmpty(),
     )
@@ -28,6 +31,7 @@ internal fun DiagnosticsSessionProjection.displaySummary(rawSummary: String): St
     deriveDisplaySummary(
         rawSummary = rawSummary,
         directModeVerdict = directModeVerdict,
+        directPathHealthState = null,
         strategyCompletionKind = strategyProbeReport?.completionKind,
         hasPartialResults = results.isNotEmpty() || observations.isNotEmpty(),
     )
@@ -35,12 +39,17 @@ internal fun DiagnosticsSessionProjection.displaySummary(rawSummary: String): St
 private fun deriveDisplaySummary(
     rawSummary: String,
     directModeVerdict: DirectModeVerdict?,
+    directPathHealthState: DirectPathHealthState?,
     strategyCompletionKind: StrategyProbeCompletionKind?,
     hasPartialResults: Boolean,
 ): String =
     when {
         directModeVerdictSummary(directModeVerdict) != null -> {
             directModeVerdictSummary(directModeVerdict).orEmpty()
+        }
+
+        directPathHealthState == DirectPathHealthState.DIRECT_PATH_HEALTHY_WITH_SYNTHETIC_ATTENTION -> {
+            DirectPathHealthyWithSyntheticAttentionSummary
         }
 
         strategyCompletionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK -> {

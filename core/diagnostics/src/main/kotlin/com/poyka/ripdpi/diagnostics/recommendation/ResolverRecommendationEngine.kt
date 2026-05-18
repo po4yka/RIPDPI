@@ -25,6 +25,9 @@ private const val OutcomeDnsSubstitution = "dns_substitution"
 private const val OutcomeDnsNxdomain = "dns_nxdomain"
 private const val OutcomeUdpBlocked = "udp_blocked"
 private const val OutcomeUdpSkippedOrBlocked = "udp_skipped_or_blocked"
+private const val DetailDnsSelectedResolverRole = "dnsSelectedResolverRole"
+private const val ResolverRolePrimary = "primary"
+private const val ResolverRoleSystem = "system"
 private const val SchemeHttp = "http://"
 private const val SchemeHttps = "https://"
 private const val DefaultPortHttp = 80
@@ -53,7 +56,10 @@ internal object ResolverRecommendationEngine {
     ): ResolverRecommendation? {
         val dnsResults = report.results.filter { it.probeType == ProbeTypeDnsIntegrity }
         val blockedBootstrapIps = extractBlockedBootstrapIps(report.results)
-        return dnsResults.firstTriggerOutcome()?.let { triggerOutcome ->
+        return dnsResults.firstRecommendationTrigger()?.let { trigger ->
+            if (dnsResults.hasHealthyPrimaryDnsFor(trigger.target) && !trigger.isPrimaryOrSystemDnsObservation()) {
+                return null
+            }
             val currentPath = settings.activeDnsSettings().toEncryptedDnsPathCandidate()
             selectCandidate(
                 collectCandidates(dnsResults),
@@ -62,7 +68,7 @@ internal object ResolverRecommendationEngine {
                 blockedBootstrapIps,
             )?.let { selected ->
                 ResolverRecommendation(
-                    triggerOutcome = triggerOutcome,
+                    triggerOutcome = trigger.outcome,
                     selectedResolverId = selected.path.resolverId,
                     selectedProtocol = selected.path.protocol,
                     selectedEndpoint = selected.path.endpointLabel(),
@@ -73,7 +79,7 @@ internal object ResolverRecommendationEngine {
                     selectedDohUrl = selected.path.dohUrl,
                     selectedDnscryptProviderName = selected.path.dnscryptProviderName,
                     selectedDnscryptPublicKey = selected.path.dnscryptPublicKey,
-                    rationale = selected.rationale(triggerOutcome, preferredPath, currentPath, blockedBootstrapIps),
+                    rationale = selected.rationale(trigger.outcome, preferredPath, currentPath, blockedBootstrapIps),
                     appliedTemporarily = false,
                     persistable = true,
                 )
@@ -213,13 +219,28 @@ private fun collectCandidates(dnsResults: List<ProbeResult>): List<Candidate> =
         }.groupBy { it.path.pathKey() }
         .mapNotNull { (_, entries) -> entries.toCandidate() }
 
-private fun List<ProbeResult>.firstTriggerOutcome(): String? =
+private fun List<ProbeResult>.firstRecommendationTrigger(): ProbeResult? =
     firstOrNull {
         it.outcome == OutcomeDnsSubstitution ||
             it.outcome == OutcomeDnsNxdomain ||
             it.outcome == OutcomeUdpBlocked ||
             it.outcome == OutcomeUdpSkippedOrBlocked
-    }?.outcome
+    }
+
+private fun List<ProbeResult>.hasHealthyPrimaryDnsFor(target: String): Boolean =
+    any { result ->
+        result.target == target &&
+            result.outcome == OutcomeDnsMatch &&
+            result.isPrimaryOrSystemDnsObservation()
+    }
+
+private fun ProbeResult.isPrimaryOrSystemDnsObservation(): Boolean =
+    (
+        detailValue(DetailDnsSelectedResolverRole)
+            ?.trim()
+            ?.lowercase(Locale.US)
+            ?.let { it == ResolverRolePrimary || it == ResolverRoleSystem } == true
+    )
 
 private fun List<CandidateObservation>.toCandidate(): Candidate? {
     val healthyEntries = filter(CandidateObservation::isHealthy)

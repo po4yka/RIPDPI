@@ -532,6 +532,13 @@ data class ProbeResult(
 }
 
 @Serializable
+enum class StrategyRecommendationConfidence {
+    LOW,
+    MEDIUM,
+    HIGH,
+}
+
+@Serializable
 data class StrategyRecommendation(
     val triggerOutcomes: List<String>,
     val recommendedFamily: String,
@@ -539,6 +546,8 @@ data class StrategyRecommendation(
     val rationale: String,
     val evidence: List<String> = emptyList(),
     val actionable: Boolean = true,
+    val confidence: StrategyRecommendationConfidence = StrategyRecommendationConfidence.MEDIUM,
+    val evidenceScore: Int = 0,
 )
 
 @Serializable
@@ -548,6 +557,21 @@ data class DirectModeVerdict(
     val transportClass: DirectTransportClass? = null,
     val authority: String? = null,
     val cooldownUntil: Long? = null,
+)
+
+@Serializable
+enum class LogHealthLevel {
+    HEALTHY,
+    WARNING,
+    ERROR,
+}
+
+@Serializable
+data class LogHealthSummary(
+    val level: LogHealthLevel,
+    val warningCount: Int = 0,
+    val errorCount: Int = 0,
+    val recentWarnings: List<String> = emptyList(),
 )
 
 @Serializable
@@ -568,6 +592,7 @@ data class ScanReport(
     val diagnoses: List<Diagnosis> = emptyList(),
     val classifierVersion: String? = null,
     val packVersions: Map<String, Int> = emptyMap(),
+    val logHealthSummary: LogHealthSummary? = null,
 )
 
 @Serializable

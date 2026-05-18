@@ -5,6 +5,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticsLegalSafety
 import com.poyka.ripdpi.diagnostics.DiagnosticsProfileIntentBucket
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
+import com.poyka.ripdpi.diagnostics.LogHealthSummary
 import com.poyka.ripdpi.diagnostics.ObservationFact
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.ProbeResult
@@ -47,6 +48,7 @@ data class DiagnosticsSessionProjection(
     val diagnoses: List<Diagnosis> = emptyList(),
     val classifierVersion: String? = null,
     val packVersions: Map<String, Int> = emptyMap(),
+    val logHealthSummary: LogHealthSummary? = null,
 )
 
 @Serializable

@@ -14,11 +14,17 @@ enum class DiagnosticsOutcomeTone {
     Neutral,
 }
 
+enum class DiagnosticsAttentionKind {
+    NetworkRisk,
+    ProbeArtifact,
+}
+
 data class DiagnosticsOutcomeClassification(
     val bucket: DiagnosticsOutcomeBucket,
     val uiTone: DiagnosticsOutcomeTone,
     val eventLevel: String,
     val healthyEnoughForSummary: Boolean,
+    val attentionKind: DiagnosticsAttentionKind? = null,
 )
 
 object DiagnosticsOutcomeTaxonomy {
@@ -33,7 +39,40 @@ object DiagnosticsOutcomeTaxonomy {
             uiTone = bucket.uiTone(),
             eventLevel = eventLevelOverride(probeType, outcome) ?: bucket.eventLevel(),
             healthyEnoughForSummary = bucket == DiagnosticsOutcomeBucket.Healthy,
+            attentionKind = attentionKindForProbeOutcome(probeType = probeType, outcome = outcome, bucket = bucket),
         )
+    }
+
+    fun classifyProbeResult(
+        pathMode: ScanPathMode,
+        result: ProbeResult,
+        reportResults: List<ProbeResult>,
+    ): DiagnosticsOutcomeClassification {
+        val base =
+            classifyProbeOutcome(
+                probeType = result.probeType,
+                pathMode = pathMode,
+                outcome = result.outcome,
+            )
+        return when {
+            result.isTlsOkWithHttpFetchArtifact() -> {
+                base.copy(attentionKind = DiagnosticsAttentionKind.ProbeArtifact)
+            }
+
+            result.isHttpUnreachableWithSuccessfulTls(reportResults) -> {
+                base.copy(
+                    bucket = DiagnosticsOutcomeBucket.Attention,
+                    uiTone = DiagnosticsOutcomeTone.Warning,
+                    eventLevel = "warn",
+                    healthyEnoughForSummary = false,
+                    attentionKind = DiagnosticsAttentionKind.ProbeArtifact,
+                )
+            }
+
+            else -> {
+                base
+            }
+        }
     }
 
     fun aggregateBucket(
@@ -45,10 +84,10 @@ object DiagnosticsOutcomeTaxonomy {
         }
         val buckets =
             results.map { result ->
-                classifyProbeOutcome(
-                    probeType = result.probeType,
+                classifyProbeResult(
                     pathMode = pathMode,
-                    outcome = result.outcome,
+                    result = result,
+                    reportResults = results,
                 ).bucket
             }
         return when {
@@ -316,6 +355,68 @@ private fun eventLevelOverride(
 
         else -> null
     }
+
+private fun attentionKindForProbeOutcome(
+    probeType: String,
+    outcome: String,
+    bucket: DiagnosticsOutcomeBucket,
+): DiagnosticsAttentionKind? =
+    when {
+        bucket != DiagnosticsOutcomeBucket.Attention -> {
+            null
+        }
+
+        probeType == "tcp_fat_header" && outcome in fatHeaderProbeArtifactOutcomes -> {
+            DiagnosticsAttentionKind.ProbeArtifact
+        }
+
+        else -> {
+            DiagnosticsAttentionKind.NetworkRisk
+        }
+    }
+
+private val fatHeaderProbeArtifactOutcomes =
+    setOf(
+        "tcp_16kb_blocked",
+        "tcp_reset",
+        "tcp_timeout",
+        "tcp_freeze_after_threshold",
+        "tls_handshake_failed",
+    )
+
+private fun ProbeResult.isTlsOkWithHttpFetchArtifact(): Boolean {
+    if (probeType != "domain_reachability" || outcome != "tls_ok") {
+        return false
+    }
+    val details = details.associate { it.key to it.value }
+    return details["httpStatus"] == "http_unreachable" ||
+        details["httpOutcome"] == "http_unreachable" ||
+        details["httpError"] == "response_too_large"
+}
+
+private fun ProbeResult.isHttpUnreachableWithSuccessfulTls(reportResults: List<ProbeResult>): Boolean {
+    if (outcome != "http_unreachable" || probeType !in httpProbeTypes) {
+        return false
+    }
+    val authority = target.normalizedProbeAuthority()
+    return reportResults.any { candidate ->
+        candidate.outcome == "tls_ok" &&
+            candidate.probeType in tlsProbeTypes &&
+            candidate.target.normalizedProbeAuthority() == authority
+    }
+}
+
+private val httpProbeTypes = setOf("domain_reachability", "strategy_http")
+private val tlsProbeTypes = setOf("domain_reachability", "strategy_https")
+
+private fun String.normalizedProbeAuthority(): String =
+    trim()
+        .removePrefix("https://")
+        .removePrefix("http://")
+        .substringBefore('/')
+        .substringBefore(" (")
+        .substringBefore(':')
+        .lowercase()
 
 private fun DiagnosticsOutcomeBucket.uiTone(): DiagnosticsOutcomeTone =
     when (this) {

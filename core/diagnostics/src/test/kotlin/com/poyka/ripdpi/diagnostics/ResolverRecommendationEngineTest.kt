@@ -411,4 +411,58 @@ class ResolverRecommendationEngineTest {
         assertEquals("dns_substitution", result.triggerOutcome)
         assertTrue(result.persistable)
     }
+
+    @Test
+    fun `compute returns null when primary dns is healthy and secondary encrypted resolver is slow`() {
+        val report =
+            ScanReport(
+                sessionId = "s1",
+                profileId = "p1",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 0,
+                finishedAt = 100,
+                summary = "",
+                results =
+                    listOf(
+                        ProbeResult(
+                            probeType = "dns_integrity",
+                            target = "example.com",
+                            outcome = "dns_match",
+                            details =
+                                listOf(
+                                    ProbeDetail("dnsSelectedResolverRole", "primary"),
+                                    ProbeDetail("encryptedResolverId", DnsProviderCloudflare),
+                                    ProbeDetail("encryptedProtocol", EncryptedDnsProtocolDoh),
+                                    ProbeDetail("encryptedAddresses", "93.184.216.34"),
+                                    ProbeDetail("encryptedLatencyMs", "30"),
+                                ),
+                        ),
+                        ProbeResult(
+                            probeType = "dns_integrity",
+                            target = "example.com",
+                            outcome = "dns_substitution",
+                            details =
+                                listOf(
+                                    ProbeDetail("dnsSelectedResolverRole", "secondary"),
+                                    ProbeDetail("encryptedResolverId", DnsProviderGoogle),
+                                    ProbeDetail("encryptedProtocol", EncryptedDnsProtocolDoh),
+                                    ProbeDetail("encryptedHost", "dns.google"),
+                                    ProbeDetail("encryptedAddresses", "203.0.113.44"),
+                                    ProbeDetail("encryptedLatencyMs", "6500"),
+                                ),
+                        ),
+                    ),
+            )
+
+        val result =
+            ResolverRecommendationEngine.compute(
+                report = report,
+                settings =
+                    com.poyka.ripdpi.proto.AppSettings
+                        .getDefaultInstance(),
+                preferredPath = null,
+            )
+
+        assertNull(result)
+    }
 }

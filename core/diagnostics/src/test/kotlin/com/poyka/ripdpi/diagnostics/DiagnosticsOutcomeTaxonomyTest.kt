@@ -56,6 +56,51 @@ class DiagnosticsOutcomeTaxonomyTest {
     }
 
     @Test
+    fun `fat header attention is marked as probe artifact`() {
+        val classification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(
+                probeType = "tcp_fat_header",
+                pathMode = ScanPathMode.RAW_PATH,
+                outcome = "tcp_16kb_blocked",
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Attention, classification.bucket)
+        assertEquals(DiagnosticsAttentionKind.ProbeArtifact, classification.attentionKind)
+    }
+
+    @Test
+    fun `http unreachable after successful tls is downgraded to probe artifact attention`() {
+        val classification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeResult(
+                pathMode = ScanPathMode.RAW_PATH,
+                result = ProbeResult("strategy_http", "example.com", "http_unreachable"),
+                reportResults = listOf(ProbeResult("strategy_https", "example.com", "tls_ok")),
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Attention, classification.bucket)
+        assertEquals(DiagnosticsAttentionKind.ProbeArtifact, classification.attentionKind)
+    }
+
+    @Test
+    fun `domain tls success with oversized http detail remains healthy probe artifact`() {
+        val classification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeResult(
+                pathMode = ScanPathMode.RAW_PATH,
+                result =
+                    ProbeResult(
+                        probeType = "domain_reachability",
+                        target = "www.google.com",
+                        outcome = "tls_ok",
+                        details = listOf(ProbeDetail("httpError", "response_too_large")),
+                    ),
+                reportResults = emptyList(),
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Healthy, classification.bucket)
+        assertEquals(DiagnosticsAttentionKind.ProbeArtifact, classification.attentionKind)
+    }
+
+    @Test
     fun `approach summaries require all healthy results for validated success`() {
         val sessions = buildApproachSummarySessions()
 

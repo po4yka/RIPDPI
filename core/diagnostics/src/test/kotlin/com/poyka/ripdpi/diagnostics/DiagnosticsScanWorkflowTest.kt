@@ -135,16 +135,20 @@ class DiagnosticsScanWorkflowTest {
     }
 
     @Test
-    fun `fat header only synthetic blocking does not recommend strategy when direct tls is healthy`() {
+    fun `georgia clean network fixture does not recommend strategy for synthetic fat header attention`() {
         val enriched =
             DiagnosticsScanWorkflow.enrichScanReport(
-                report = scanReportWithFatHeaderOnlySyntheticBlocking(),
+                report = georgiaCleanNetworkReportShape(),
                 settings = settings,
                 preferredDnsPath = null,
             )
 
         assertNull(enriched.strategyRecommendation)
         assertNull(enriched.directModeVerdict)
+        assertEquals(
+            DirectPathHealthState.DIRECT_PATH_HEALTHY_WITH_SYNTHETIC_ATTENTION,
+            enriched.directPathHealthState(),
+        )
     }
 
     @Test
@@ -680,7 +684,7 @@ private fun scanReportWithResolverRecommendation(): ScanReport =
         resolverRecommendation = resolverRecommendation(),
     )
 
-private fun scanReportWithFatHeaderOnlySyntheticBlocking(): ScanReport =
+private fun georgiaCleanNetworkReportShape(): ScanReport =
     ScanReport(
         sessionId = "session-1",
         profileId = "automatic-probing",
@@ -693,18 +697,35 @@ private fun scanReportWithFatHeaderOnlySyntheticBlocking(): ScanReport =
                 domainTlsOkProbe("youtube.com"),
                 domainTlsOkProbe("discord.com"),
                 domainTlsOkProbe("proton.me"),
+                domainTlsOkProbe(
+                    target = "www.google.com",
+                    details = listOf(ProbeDetail("httpError", "response_too_large")),
+                ),
+                dnsCompatibleDivergenceProbe("google.com"),
+                dnsCompatibleDivergenceProbe("youtube.com"),
                 tcpFatHeaderProbe(target = "172.67.70.222:443 (Cloudflare)", outcome = "tcp_16kb_blocked"),
                 tcpFatHeaderProbe(target = "8.8.8.8:443 (Google DNS)", outcome = "tcp_reset"),
                 tcpFatHeaderProbe(target = "9.9.9.9:443 (Quad9)", outcome = "tcp_reset"),
             ),
     )
 
-private fun domainTlsOkProbe(target: String): ProbeResult =
+private fun domainTlsOkProbe(
+    target: String,
+    details: List<ProbeDetail> = listOf(ProbeDetail("targetHost", target)),
+): ProbeResult =
     ProbeResult(
         probeType = "domain_reachability",
         target = target,
         outcome = "tls_ok",
-        details = listOf(ProbeDetail("targetHost", target)),
+        details = details,
+    )
+
+private fun dnsCompatibleDivergenceProbe(target: String): ProbeResult =
+    ProbeResult(
+        probeType = "dns_integrity",
+        target = target,
+        outcome = "dns_compatible_divergence",
+        details = listOf(ProbeDetail("dnsSelectedResolverRole", "secondary")),
     )
 
 private fun tcpFatHeaderProbe(

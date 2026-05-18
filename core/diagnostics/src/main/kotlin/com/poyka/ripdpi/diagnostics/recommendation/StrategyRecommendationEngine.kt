@@ -29,7 +29,12 @@ private const val FamilyDisorder = "disorder"
 private const val FamilyTlsrecFake = "tlsrec_fake"
 
 private const val MinTcpFailuresForRecommendation = 2
+private const val MinRawPathRecommendationStrength = 2
 private const val MaxEvidenceTargets = 3
+private const val RealReachabilitySignalWeight = 2
+private const val SyntheticTcpSignalWeight = 1
+private const val HighConfidenceEvidenceScore = 4
+private const val MinRealReachabilitySignalsForMediumConfidence = 1
 
 internal object StrategyRecommendationEngine {
     private val outcomeToCategory: Map<Pair<String, String>, SignalCategory> =
@@ -50,7 +55,7 @@ internal object StrategyRecommendationEngine {
         currentTcpFamily: String?,
     ): StrategyRecommendation? {
         val signals = collectBlockingSignals(report.results)
-        return if (signals.isEmpty() || report.hasFatHeaderOnlySyntheticBlocking()) {
+        return if (signals.isEmpty() || !report.hasActionableStrategyEvidence(signals)) {
             null
         } else {
             val pattern = classifyBlockingPattern(signals)
@@ -59,6 +64,24 @@ internal object StrategyRecommendationEngine {
                     ?.takeIf { it != currentTcpFamily }
             recommendedFamily?.let { family ->
                 val evidence = buildEvidence(signals)
+                val evidenceScore = signals.sumOf { it.recommendationStrength() }
+                val realReachabilityCount = signals.count { it.isRealReachabilityFailure() }
+                val confidence =
+                    when {
+                        realReachabilityCount >= MinTcpFailuresForRecommendation &&
+                            evidenceScore >= HighConfidenceEvidenceScore -> {
+                            StrategyRecommendationConfidence.HIGH
+                        }
+
+                        realReachabilityCount >= MinRealReachabilitySignalsForMediumConfidence &&
+                            evidenceScore >= MinRawPathRecommendationStrength -> {
+                            StrategyRecommendationConfidence.MEDIUM
+                        }
+
+                        else -> {
+                            StrategyRecommendationConfidence.LOW
+                        }
+                    }
                 StrategyRecommendation(
                     triggerOutcomes = signals.map { it.outcome }.distinct(),
                     recommendedFamily = family,
@@ -66,6 +89,8 @@ internal object StrategyRecommendationEngine {
                     rationale = buildRationale(pattern, family, signals),
                     evidence = evidence,
                     actionable = true,
+                    confidence = confidence,
+                    evidenceScore = evidenceScore,
                 )
             }
         }
@@ -223,4 +248,37 @@ internal object StrategyRecommendationEngine {
         THROUGHPUT_BLOCKED("Throughput throttled"),
         QUIC_BLOCKED("QUIC blocked"),
     }
+
+    private fun ScanReport.hasActionableStrategyEvidence(signals: List<BlockingSignal>): Boolean =
+        when {
+            hasFatHeaderOnlySyntheticBlocking() -> {
+                false
+            }
+
+            pathMode != ScanPathMode.RAW_PATH -> {
+                true
+            }
+
+            else -> {
+                signals.any { it.isRealReachabilityFailure() } &&
+                    signals.sumOf { it.recommendationStrength() } >= MinRawPathRecommendationStrength
+            }
+        }
+
+    private fun BlockingSignal.isRealReachabilityFailure(): Boolean =
+        category in
+            setOf(
+                SignalCategory.DOMAIN_BLOCKED,
+                SignalCategory.SERVICE_BLOCKED,
+                SignalCategory.CIRCUMVENTION_BLOCKED,
+                SignalCategory.THROUGHPUT_BLOCKED,
+                SignalCategory.QUIC_BLOCKED,
+            )
+
+    private fun BlockingSignal.recommendationStrength(): Int =
+        if (isRealReachabilityFailure()) {
+            RealReachabilitySignalWeight
+        } else {
+            SyntheticTcpSignalWeight
+        }
 }

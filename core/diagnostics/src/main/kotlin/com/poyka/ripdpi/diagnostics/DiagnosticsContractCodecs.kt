@@ -190,6 +190,7 @@ internal fun EngineScanReportWire.toSessionProjection(): DiagnosticsSessionProje
         diagnoses = diagnoses,
         classifierVersion = classifierVersion,
         packVersions = packVersions,
+        logHealthSummary = logHealthSummary,
     )
 
 internal fun EngineScanReportWire.toScanReport(): ScanReport =
@@ -210,6 +211,7 @@ internal fun EngineScanReportWire.toScanReport(): ScanReport =
         diagnoses = diagnoses,
         classifierVersion = classifierVersion,
         packVersions = packVersions,
+        logHealthSummary = logHealthSummary,
     )
 
 internal fun ScanReport.toEngineScanReportWire(): EngineScanReportWire =
@@ -230,6 +232,7 @@ internal fun ScanReport.toEngineScanReportWire(): EngineScanReportWire =
         diagnoses = diagnoses,
         classifierVersion = classifierVersion,
         packVersions = packVersions,
+        logHealthSummary = logHealthSummary,
     )
 
 internal fun ScanProgress.toEngineProgressWire(): EngineProgressWire =

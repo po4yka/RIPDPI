@@ -8,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
+import com.poyka.ripdpi.diagnostics.LogHealthSummary
 import com.poyka.ripdpi.diagnostics.ObservationFact
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.QuicTarget
@@ -105,6 +106,7 @@ data class EngineScanReportWire(
     val diagnoses: List<Diagnosis> = emptyList(),
     val classifierVersion: String? = null,
     val packVersions: Map<String, Int> = emptyMap(),
+    val logHealthSummary: LogHealthSummary? = null,
 )
 
 @Serializable

@@ -156,6 +156,7 @@ class DirectModePolicySupportTest {
         assertFalse(observations.containsKey("8.8.8.8:443"))
         assertFalse(observations.containsKey("9.9.9.9:443"))
         assertTrue(observations.values.all { it.transportPolicy?.outcome != DirectModeOutcome.NO_DIRECT_SOLUTION })
+        assertEquals(DirectPathHealthState.DIRECT_PATH_HEALTHY_WITH_SYNTHETIC_ATTENTION, report.directPathHealthState())
     }
 
     @Test
