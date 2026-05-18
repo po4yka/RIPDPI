@@ -1,6 +1,6 @@
 # RIPDPI Local Network Test Lab
 
-This lab provides a repeatable local "mock internet" for RIPDPI debug builds. It is intended for Android Emulator runs through `10.0.2.2` and physical-device runs through the MacBook LAN IP.
+This lab provides a repeatable local "mock internet" for RIPDPI debug builds. It is intended for Android Emulator runs through `10.0.2.2` and physical-device runs through the MacBook LAN IP. On macOS, `start-lab.sh` runs DNS and UDP echo endpoints as host processes because Docker Desktop UDP port forwarding can receive datagrams without returning replies reliably.
 
 ## Quick Start
 

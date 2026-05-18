@@ -4,7 +4,7 @@ This directory implements the repository-local network testing harness for RIPDP
 
 ## Implemented MVP
 
-- Docker Compose lab with CoreDNS, httpbin, WireMock, Caddy HTTPS, TCP echo, UDP echo, mock relay, Toxiproxy, optional mitmproxy, and QUIC/HTTP3 server.
+- Docker Compose lab with CoreDNS, httpbin, WireMock, Caddy HTTPS, TCP echo, UDP echo, mock relay, Toxiproxy, optional mitmproxy, and QUIC/HTTP3 server; macOS uses host-side DNS and UDP echo processes while keeping the same ports and probe contracts.
 - Emulator profile with `10.0.2.2` endpoints.
 - Physical-device profile rendered from the MacBook LAN IP.
 - Debug-only ADB probe action: `com.poyka.ripdpi.DEBUG_PROBE`.
@@ -23,7 +23,7 @@ This directory implements the repository-local network testing harness for RIPDP
 ## Explicit MVP Boundaries
 
 - Android QUIC probing is marked as `QUIC_UNSUPPORTED_ANDROID_DEBUG_PROBE` in the JSON result. The host-side QUIC server is present for future HTTP/3 app client support and host validation.
-- UDP echo is tested and reported independently. On host paths that drop Docker UDP replies, the probe returns a typed UDP timeout and a `Degraded` verdict while preserving successful DNS, HTTP, HTTPS, and TCP results.
+- UDP echo is tested and reported independently. On host paths that still drop UDP replies after the macOS host fallback, the probe returns a typed UDP timeout and a `Degraded` verdict while preserving successful DNS, HTTP, HTTPS, and TCP results.
 - The mock relay implements only a minimal lab JSON handshake. The reference relay directory remains documentation-only until a stable relay server contract is selected.
 - Linux `netem` scripts require an external VM/router path and are not invoked by default on macOS.
 - Hosted CI does not run the full Android VPN-mode smoke by default because it requires an emulator/device, ADB install access, and Maestro. The workflow keeps that lane as a manual documented step while nightly runs exercise the Docker lab, shell contracts, and the missing-Maestro fast-fail guard.
