@@ -41,8 +41,13 @@ Read the relevant reference file(s) from `references/` before answering:
 
 | Topic | Reference File |
 |-------|---------------|
-| `@State`, `remember`, `mutableStateOf`, state hoisting, `derivedStateOf`, `snapshotFlow` | `references/state-management.md` |
+| `@State`, `remember`, `mutableStateOf`, `derivedStateOf`, `snapshotFlow` | `references/state-management.md` |
+| State hoisting decisions (local / hoisted / plain-holder / ViewModel) | `references/state-hoisting.md` |
+| Screen state-holder vs plain UI composable split for previewability/testing | `references/state-holder-vs-viewmodel.md` |
+| `StateFlow` / `SharedFlow` / `Channel` modeling, `update { }`, `stateIn` placement | `references/state-event-flow.md` |
+| Deferred state reads (provider lambdas, block-form modifiers) for scroll/animation perf | `references/deferred-reads.md` |
 | Structuring composables, slots, extraction, preview | `references/view-composition.md` |
+| Slot API design for reusable components (`xxxContent: @Composable () -> Unit`) | `references/slot-api.md` |
 | Modifier ordering, custom modifiers, `Modifier.Node` | `references/modifiers.md` |
 | `LaunchedEffect`, `DisposableEffect`, `SideEffect`, `rememberCoroutineScope` | `references/side-effects.md` |
 | `CompositionLocal`, `LocalContext`, `LocalDensity`, custom locals | `references/composition-locals.md` |
@@ -241,3 +246,13 @@ The top-three fixes in the chat summary MUST be the same items as the report's `
 - `references/canonical-sources.md` — the official URLs every deduction must cite
 - `references/diagnostics.md` — Gradle/code snippets for compiler reports, stability config, baseline profiles, R8 checks
 - `scripts/compose-reports.init.gradle` — Gradle init script fallback
+
+### Upstream attribution
+
+The following references are adapted from [chrisbanes/skills](https://github.com/chrisbanes/skills) (Apache License 2.0). Each file carries an attribution header pointing to its upstream source.
+
+- `references/state-hoisting.md`
+- `references/state-holder-vs-viewmodel.md`
+- `references/state-event-flow.md`
+- `references/deferred-reads.md`
+- `references/slot-api.md`
