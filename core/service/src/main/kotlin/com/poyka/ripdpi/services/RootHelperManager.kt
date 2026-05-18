@@ -28,10 +28,14 @@ open class RootHelperManager
             binaryExtractor: (Context) -> File,
             processLaunchAttempts: (File, File, File) -> List<RootHelperLaunchAttempt>,
             readinessProbe: suspend (File, Long, Long) -> Boolean,
+            shutdownRequester: ((String, String?) -> Unit)? = null,
+            rootProcessTerminator: (() -> Unit)? = null,
         ) : this() {
             this.binaryExtractor = binaryExtractor
             this.processLaunchAttempts = processLaunchAttempts
             this.readinessProbe = readinessProbe
+            this.shutdownRequester = shutdownRequester ?: ::requestHelperShutdown
+            this.rootProcessTerminator = rootProcessTerminator ?: ::terminateRootHelperProcesses
         }
 
         private var helperProcess: Process? = null
@@ -43,12 +47,17 @@ open class RootHelperManager
         private var readinessProbe: suspend (File, Long, Long) -> Boolean = { socket, timeoutMs, pollIntervalMs ->
             awaitSocketReady(socket, timeoutMs, pollIntervalMs)
         }
+        private var shutdownRequester: (String, String?) -> Unit = ::requestHelperShutdown
+        private var rootProcessTerminator: () -> Unit = ::terminateRootHelperProcesses
 
         private companion object {
             private val log = Logger.withTag("RootHelperManager")
             private const val HELPER_BINARY_NAME = "ripdpi-root-helper"
             private const val SOCKET_NAME = "root_helper.sock"
             private const val NONCE_FILE_NAME = "$SOCKET_NAME.nonce"
+            private const val SHUTDOWN_COMMAND = "shutdown"
+            private const val SHUTDOWN_READ_TIMEOUT_MS = 500
+            private const val ROOT_TERMINATION_TIMEOUT_MS = 1000L
             private const val SESSION_NONCE_BYTES = 32
             private const val READY_POLL_INTERVAL_MS = 100L
             private const val READY_TIMEOUT_MS = 3000L
@@ -143,6 +152,13 @@ open class RootHelperManager
             helperProcess = null
             activeSocketPath = null
             activeNoncePath = null
+            if (socketPath != null) {
+                runCatching {
+                    shutdownRequester(socketPath, noncePath)
+                }.onFailure { error ->
+                    log.w(error) { "failed to request root helper shutdown" }
+                }
+            }
             if (process == null) {
                 removeIpcFiles(socketPath, noncePath)
                 return
@@ -163,6 +179,13 @@ open class RootHelperManager
             } catch (e: SecurityException) {
                 log.w(e) { "error stopping root helper" }
             } finally {
+                if (socketPath != null) {
+                    runCatching {
+                        rootProcessTerminator()
+                    }.onFailure { error ->
+                        log.w(error) { "failed to terminate detached root helper process" }
+                    }
+                }
                 removeIpcFiles(socketPath, noncePath)
             }
             log.i { "root helper stopped" }
@@ -261,6 +284,50 @@ open class RootHelperManager
         ) {
             socketPath?.let { runCatching { File(it).delete() } }
             noncePath?.let { runCatching { File(it).delete() } }
+        }
+
+        private fun requestHelperShutdown(
+            socketPath: String,
+            noncePath: String?,
+        ) {
+            val nonce =
+                noncePath
+                    ?.let(::File)
+                    ?.takeIf(File::exists)
+                    ?.readText(Charsets.US_ASCII)
+                    ?.trim()
+                    .orEmpty()
+            if (nonce.isEmpty()) {
+                return
+            }
+            val payload =
+                """{"command":"$SHUTDOWN_COMMAND","session_nonce":"$nonce"}""" +
+                    "\n"
+            LocalSocket().use { socket ->
+                socket.soTimeout = SHUTDOWN_READ_TIMEOUT_MS
+                socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
+                socket.outputStream.write(payload.toByteArray(Charsets.UTF_8))
+                socket.outputStream.flush()
+                runCatching {
+                    socket.inputStream.bufferedReader(Charsets.UTF_8).readLine()
+                }
+            }
+        }
+
+        private fun terminateRootHelperProcesses() {
+            val command =
+                "killall -TERM $HELPER_BINARY_NAME 2>/dev/null || true; " +
+                    "killall -KILL $HELPER_BINARY_NAME 2>/dev/null || true"
+            launchableSuCommands().firstOrNull { suCommand ->
+                runCatching {
+                    val process = Runtime.getRuntime().exec(arrayOf(suCommand, "-c", command))
+                    val exited = process.waitFor(ROOT_TERMINATION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                    if (!exited) {
+                        process.destroyForcibly()
+                    }
+                    exited
+                }.getOrDefault(false)
+            }
         }
 
         private suspend fun awaitSocketReady(
