@@ -12,6 +12,38 @@ pub struct FakeRstParams {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FakeTcpParams {
+    pub original_prefix: Vec<u8>,
+    pub fake_prefix: Vec<u8>,
+    pub ttl: u8,
+    pub default_ttl: u8,
+    #[serde(default)]
+    pub md5sig: bool,
+    #[serde(default)]
+    pub secondary_fake_prefix: Option<Vec<u8>>,
+    #[serde(default)]
+    pub timestamp_delta_ticks: Option<i32>,
+    #[serde(default)]
+    pub tcp_flags_set: u16,
+    #[serde(default)]
+    pub tcp_flags_unset: u16,
+    #[serde(default)]
+    pub tcp_flags_orig_set: u16,
+    #[serde(default)]
+    pub tcp_flags_orig_unset: u16,
+    #[serde(default)]
+    pub require_raw_path: bool,
+    #[serde(default)]
+    pub force_raw_original: bool,
+    #[serde(default)]
+    pub ipv4_identifications: Vec<u16>,
+    #[serde(default)]
+    pub wait_enabled: bool,
+    #[serde(default)]
+    pub wait_poll_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FlaggedTcpPayloadParams {
     pub payload: Vec<u8>,
     pub default_ttl: u8,

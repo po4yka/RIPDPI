@@ -11,6 +11,7 @@
 /// Runtime-side conversion from this JSON shape to typed runtime capability
 /// outcomes lives in `ripdpi-runtime`, where those capability types are defined.
 pub const CMD_PROBE_CAPABILITIES: &str = "probe_capabilities";
+pub const CMD_SEND_FAKE_TCP: &str = "send_fake_tcp";
 pub const CMD_SEND_FAKE_RST: &str = "send_fake_rst";
 pub const CMD_SEND_FLAGGED_TCP_PAYLOAD: &str = "send_flagged_tcp_payload";
 pub const CMD_SEND_SEQOVL_TCP: &str = "send_seqovl_tcp";

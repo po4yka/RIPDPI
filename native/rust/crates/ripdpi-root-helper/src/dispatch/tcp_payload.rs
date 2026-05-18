@@ -9,6 +9,10 @@ pub(crate) fn dispatch_send_fake_rst(request: &HelperRequest, received_fd: Optio
     dispatch_with_stream_fd(request, received_fd, "send_fake_rst requires a stream fd", handlers::handle_send_fake_rst)
 }
 
+pub(crate) fn dispatch_send_fake_tcp(request: &HelperRequest, received_fd: Option<RawFd>) -> DispatchOutcome {
+    dispatch_with_stream_fd(request, received_fd, "send_fake_tcp requires a stream fd", handlers::handle_send_fake_tcp)
+}
+
 pub(crate) fn dispatch_send_flagged_tcp_payload(
     request: &HelperRequest,
     received_fd: Option<RawFd>,

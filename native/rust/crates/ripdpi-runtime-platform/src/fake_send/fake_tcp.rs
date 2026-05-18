@@ -4,7 +4,7 @@ use std::net::TcpStream;
 use ripdpi_config::IpIdMode;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use super::raw_path_ids;
+use super::{raw_path_ids, root_helper_dispatch};
 use crate::{FakeTcpOptions, TcpStageWait};
 
 #[allow(clippy::too_many_arguments)]
@@ -21,6 +21,18 @@ pub fn send_fake_tcp(
     wait: TcpStageWait,
 ) -> io::Result<()> {
     let options = raw_path_ids::prepare_fake_tcp_options(stream, fake_prefix, options, ip_id_mode)?;
+    if let Some(result) = root_helper_dispatch::send_fake_tcp(
+        stream,
+        original_prefix,
+        fake_prefix,
+        ttl,
+        md5sig,
+        default_ttl,
+        &options,
+        wait,
+    ) {
+        return result;
+    }
     ripdpi_privileged_ops::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, wait)
 }
 

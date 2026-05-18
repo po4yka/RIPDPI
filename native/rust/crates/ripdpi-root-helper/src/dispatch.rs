@@ -8,9 +8,10 @@ use std::os::fd::RawFd;
 
 use ripdpi_root_helper_protocol as protocol;
 use ripdpi_root_helper_protocol::{
-    HelperRequest, CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FLAGGED_TCP_PAYLOAD,
-    CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP,
-    CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
+    HelperRequest, CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
+    CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP,
+    CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP,
+    CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
 };
 
 pub(crate) struct DispatchOutcome {
@@ -32,6 +33,7 @@ impl DispatchOutcome {
 pub(crate) fn dispatch_command(request: &HelperRequest, received_fd: Option<RawFd>) -> DispatchOutcome {
     match request.command.as_str() {
         CMD_PROBE_CAPABILITIES => capabilities::dispatch_probe_capabilities(),
+        CMD_SEND_FAKE_TCP => tcp_payload::dispatch_send_fake_tcp(request, received_fd),
         CMD_SEND_FAKE_RST => tcp_payload::dispatch_send_fake_rst(request, received_fd),
         CMD_SEND_FLAGGED_TCP_PAYLOAD => tcp_payload::dispatch_send_flagged_tcp_payload(request, received_fd),
         CMD_SEND_SEQOVL_TCP => tcp_payload::dispatch_send_seqovl_tcp(request, received_fd),
