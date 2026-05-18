@@ -7,7 +7,10 @@ import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.DnsMode
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DirectModePolicySupportTest {
@@ -132,6 +135,63 @@ class DirectModePolicySupportTest {
         assertEquals(DirectModeReasonCode.IP_BLOCKED, verdict?.reasonCode)
         assertEquals(DirectTransportClass.IP_BLOCK_SUSPECT, verdict?.transportClass)
     }
+
+    @Test
+    fun `fat header failures do not create no direct solution when domain tls is healthy`() {
+        val report =
+            reportWithResults(
+                healthyDomainTlsProbe("youtube.com"),
+                healthyDomainTlsProbe("discord.com"),
+                healthyDomainTlsProbe("proton.me"),
+                fatHeaderProbe(target = "172.67.70.222:443 (Cloudflare)", outcome = "tcp_16kb_blocked"),
+                fatHeaderProbe(target = "8.8.8.8:443 (Google DNS)", outcome = "tcp_reset"),
+                fatHeaderProbe(target = "9.9.9.9:443 (Quad9)", outcome = "tcp_reset"),
+            )
+
+        val observations = collectDirectPathCapabilityObservations(report)
+        val verdict = deriveDirectModeVerdict(report)
+
+        assertNull(verdict)
+        assertFalse(observations.containsKey("172.67.70.222:443"))
+        assertFalse(observations.containsKey("8.8.8.8:443"))
+        assertFalse(observations.containsKey("9.9.9.9:443"))
+        assertTrue(observations.values.all { it.transportPolicy?.outcome != DirectModeOutcome.NO_DIRECT_SOLUTION })
+    }
+
+    @Test
+    fun `fat header failures still create no direct solution without enough healthy domain tls coverage`() {
+        val report =
+            reportWithResults(
+                healthyDomainTlsProbe("youtube.com"),
+                healthyDomainTlsProbe("discord.com"),
+                fatHeaderProbe(target = "172.67.70.222:443 (Cloudflare)", outcome = "tcp_16kb_blocked"),
+                fatHeaderProbe(target = "8.8.8.8:443 (Google DNS)", outcome = "tcp_reset"),
+            )
+
+        val verdict = deriveDirectModeVerdict(report)
+
+        assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, verdict?.result)
+        assertEquals(DirectModeReasonCode.IP_BLOCKED, verdict?.reasonCode)
+        assertEquals(DirectTransportClass.IP_BLOCK_SUSPECT, verdict?.transportClass)
+    }
+
+    private fun healthyDomainTlsProbe(target: String): ProbeResult =
+        ProbeResult(
+            probeType = "domain_reachability",
+            target = target,
+            outcome = "tls_ok",
+            details = listOf(ProbeDetail("targetHost", target)),
+        )
+
+    private fun fatHeaderProbe(
+        target: String,
+        outcome: String,
+    ): ProbeResult =
+        ProbeResult(
+            probeType = "tcp_fat_header",
+            target = target,
+            outcome = outcome,
+        )
 
     private fun reportWithResults(vararg results: ProbeResult): ScanReport =
         ScanReport(

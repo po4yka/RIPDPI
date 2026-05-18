@@ -66,7 +66,8 @@ internal fun enrichDirectPathCapabilityObservation(
 
 private fun collectDirectModePolicyEvaluations(report: ScanReport): List<DirectModePolicyEvaluation> {
     val groupedResults =
-        report.results
+        report
+            .resultsForDirectModePolicy()
             .mapNotNull { result ->
                 result.directModeAuthority()?.let { authority -> authority to result }
             }.groupBy({ it.first }, { it.second })

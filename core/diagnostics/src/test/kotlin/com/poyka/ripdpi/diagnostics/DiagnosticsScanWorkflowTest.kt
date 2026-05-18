@@ -135,6 +135,19 @@ class DiagnosticsScanWorkflowTest {
     }
 
     @Test
+    fun `fat header only synthetic blocking does not recommend strategy when direct tls is healthy`() {
+        val enriched =
+            DiagnosticsScanWorkflow.enrichScanReport(
+                report = scanReportWithFatHeaderOnlySyntheticBlocking(),
+                settings = settings,
+                preferredDnsPath = null,
+            )
+
+        assertNull(enriched.strategyRecommendation)
+        assertNull(enriched.directModeVerdict)
+    }
+
+    @Test
     fun `legacy recommended proxy config leaves derived metadata null`() {
         val report =
             scanReportWithStrategyProbe(
@@ -665,6 +678,43 @@ private fun scanReportWithResolverRecommendation(): ScanReport =
         finishedAt = 20L,
         summary = "connectivity scan",
         resolverRecommendation = resolverRecommendation(),
+    )
+
+private fun scanReportWithFatHeaderOnlySyntheticBlocking(): ScanReport =
+    ScanReport(
+        sessionId = "session-1",
+        profileId = "automatic-probing",
+        pathMode = ScanPathMode.RAW_PATH,
+        startedAt = 10L,
+        finishedAt = 20L,
+        summary = "connectivity scan",
+        results =
+            listOf(
+                domainTlsOkProbe("youtube.com"),
+                domainTlsOkProbe("discord.com"),
+                domainTlsOkProbe("proton.me"),
+                tcpFatHeaderProbe(target = "172.67.70.222:443 (Cloudflare)", outcome = "tcp_16kb_blocked"),
+                tcpFatHeaderProbe(target = "8.8.8.8:443 (Google DNS)", outcome = "tcp_reset"),
+                tcpFatHeaderProbe(target = "9.9.9.9:443 (Quad9)", outcome = "tcp_reset"),
+            ),
+    )
+
+private fun domainTlsOkProbe(target: String): ProbeResult =
+    ProbeResult(
+        probeType = "domain_reachability",
+        target = target,
+        outcome = "tls_ok",
+        details = listOf(ProbeDetail("targetHost", target)),
+    )
+
+private fun tcpFatHeaderProbe(
+    target: String,
+    outcome: String,
+): ProbeResult =
+    ProbeResult(
+        probeType = "tcp_fat_header",
+        target = target,
+        outcome = outcome,
     )
 
 private fun resolverRecommendation(): ResolverRecommendation =

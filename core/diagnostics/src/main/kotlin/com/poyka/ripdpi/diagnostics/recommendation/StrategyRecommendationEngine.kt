@@ -50,21 +50,24 @@ internal object StrategyRecommendationEngine {
         currentTcpFamily: String?,
     ): StrategyRecommendation? {
         val signals = collectBlockingSignals(report.results)
-        if (signals.isEmpty()) return null
-        val pattern = classifyBlockingPattern(signals)
-        val recommendedFamily =
-            recommendFamily(pattern, currentTcpFamily)
-                ?.takeIf { it != currentTcpFamily }
-        return recommendedFamily?.let { family ->
-            val evidence = buildEvidence(signals)
-            StrategyRecommendation(
-                triggerOutcomes = signals.map { it.outcome }.distinct(),
-                recommendedFamily = family,
-                blockingPattern = pattern,
-                rationale = buildRationale(pattern, family, signals),
-                evidence = evidence,
-                actionable = true,
-            )
+        return if (signals.isEmpty() || report.hasFatHeaderOnlySyntheticBlocking()) {
+            null
+        } else {
+            val pattern = classifyBlockingPattern(signals)
+            val recommendedFamily =
+                recommendFamily(pattern, currentTcpFamily)
+                    ?.takeIf { it != currentTcpFamily }
+            recommendedFamily?.let { family ->
+                val evidence = buildEvidence(signals)
+                StrategyRecommendation(
+                    triggerOutcomes = signals.map { it.outcome }.distinct(),
+                    recommendedFamily = family,
+                    blockingPattern = pattern,
+                    rationale = buildRationale(pattern, family, signals),
+                    evidence = evidence,
+                    actionable = true,
+                )
+            }
         }
     }
 
