@@ -7,6 +7,7 @@ adb_bin="${ADB:-adb}"
 relay_matrix_config="${RIPDPI_RELAY_MATRIX_CONFIG:-}"
 remote_compare_ref="${RIPDPI_REMOTE_COMPARE_REF:-origin/main}"
 ignore_dirty_worktree="${RIPDPI_IGNORE_DIRTY_WORKTREE_FOR_READINESS:-false}"
+netem_container_name="${RIPDPI_NETEM_CONTAINER:-ripdpi-linux-netem}"
 
 usage() {
   cat <<USAGE
@@ -131,6 +132,18 @@ adb_shell() {
   adb_cmd shell "$@" 2>/dev/null | tr -d '\r'
 }
 
+netem_container_running() {
+  [[ -n "$netem_container_name" ]] || return 1
+  command -v docker >/dev/null 2>&1 || return 1
+  [[ "$(docker inspect -f '{{.State.Running}}' "$netem_container_name" 2>/dev/null || true)" == "true" ]]
+}
+
+netem_container_has_tc() {
+  docker exec "$netem_container_name" sh -c \
+    'command -v tc >/dev/null 2>&1 && tc qdisc show dev "${NETEM_DEV:-eth0}" >/dev/null 2>&1' \
+    >/dev/null 2>&1
+}
+
 select_android_device || true
 device_state="$(adb_state || true)"
 if [[ "$device_state" == "device" ]]; then
@@ -193,7 +206,13 @@ else
   add_check "physical_network_handover" "blocked" "true" "No adb device is ready for network matrix checks."
 fi
 
-if [[ "$(uname -s)" == "Linux" ]] && command -v tc >/dev/null 2>&1; then
+if netem_container_running; then
+  if netem_container_has_tc; then
+    add_check "routed_netem_vm" "manual" "true" "Docker netem container '$netem_container_name' is running and has tc; confirm Android/device traffic is routed through this container or a Linux router namespace before running packet-loss scenarios."
+  else
+    add_check "routed_netem_vm" "blocked" "true" "Docker netem container '$netem_container_name' is running, but tc is unavailable or cannot inspect NETEM_DEV=${NETEM_DEV:-eth0}."
+  fi
+elif [[ "$(uname -s)" == "Linux" ]] && command -v tc >/dev/null 2>&1; then
   if [[ -c /dev/net/tun || -e /proc/sys/net/ipv4/ip_forward ]]; then
     add_check "routed_netem_vm" "manual" "true" "Linux netem tools are present; confirm this host is routing Android/device traffic before running packet-loss scenarios."
   else

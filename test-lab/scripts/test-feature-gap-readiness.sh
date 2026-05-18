@@ -16,7 +16,9 @@ relay_json="$tmpdir/feature-gap-readiness-with-relay.json"
 unknown_json="$tmpdir/feature-gap-readiness-unknown-remote.json"
 atomic_json="$tmpdir/feature-gap-readiness-atomic.json"
 multi_device_json="$tmpdir/feature-gap-readiness-multi-device.json"
+netem_container_json="$tmpdir/feature-gap-readiness-netem-container.json"
 fake_adb="$tmpdir/fake-adb"
+fake_docker="$tmpdir/docker"
 validator="$tmpdir/validate-readiness.py"
 
 "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
@@ -331,6 +333,58 @@ if handover.get("status") != "manual":
 rooted = checks["rooted_physical_device"]
 if rooted.get("status") != "blocked" or "did not provide root" not in rooted.get("message", ""):
     raise SystemExit(f"expected non-rooted physical device blocker, got {rooted!r}")
+PY
+
+cat > "$fake_docker" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+  inspect)
+    if [[ "${2:-}" != "-f" || "${4:-}" != "ripdpi-linux-netem" ]]; then
+      echo "unsupported fake docker inspect: $*" >&2
+      exit 1
+    fi
+    echo "true"
+    ;;
+  exec)
+    if [[ "${2:-}" != "ripdpi-linux-netem" ]]; then
+      echo "unsupported fake docker exec target: $*" >&2
+      exit 1
+    fi
+    exit 0
+    ;;
+  *)
+    echo "unsupported fake docker command: $*" >&2
+    exit 1
+    ;;
+esac
+SH
+chmod +x "$fake_docker"
+
+PATH="$tmpdir:$PATH" \
+  RIPDPI_IGNORE_DIRTY_WORKTREE_FOR_READINESS=true \
+  RIPDPI_REMOTE_COMPARE_REF=HEAD \
+  "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
+  --output "$netem_container_json" >/dev/null
+python3 "$validator" "$netem_container_json" "$tmpdir/signoff-required-readiness.txt"
+
+python3 - "$netem_container_json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+
+checks = {check["name"]: check for check in data.get("checks", [])}
+netem = checks["routed_netem_vm"]
+if netem.get("status") != "manual":
+    raise SystemExit(f"expected running netem container to require manual route proof, got {netem!r}")
+message = netem.get("message", "")
+if "Docker netem container 'ripdpi-linux-netem' is running and has tc" not in message:
+    raise SystemExit(f"netem container message lost capability context: {message!r}")
+if "routed through this container" not in message:
+    raise SystemExit(f"netem container message lost route-proof requirement: {message!r}")
 PY
 
 RIPDPI_RELAY_MATRIX_CONFIG="$repo_root/test-lab/relay/provider-matrix.example.json" \
