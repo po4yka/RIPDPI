@@ -245,7 +245,8 @@ data class MainUiState(
 }
 
 internal fun shouldStopLocalBypassToggle(state: MainUiState): Boolean =
-    state.appStatus == AppStatus.Running && state.localBypassCard.isActive
+    state.appStatus == AppStatus.Running &&
+        (state.activeMode == Mode.Proxy || state.localBypassCard.isActive)
 
 @Immutable
 data class HomeApproachSummaryUiState(

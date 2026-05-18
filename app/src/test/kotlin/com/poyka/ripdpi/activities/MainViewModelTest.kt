@@ -726,6 +726,11 @@ class MainViewModelTest {
 
     @Test
     fun `local bypass toggle stop policy follows visible active local card`() {
+        val proxyState =
+            MainUiState(
+                appStatus = AppStatus.Running,
+                activeMode = Mode.Proxy,
+            )
         val vpnLocalState =
             MainUiState(
                 appStatus = AppStatus.Running,
@@ -738,6 +743,7 @@ class MainViewModelTest {
                     ),
             )
 
+        assertTrue(shouldStopLocalBypassToggle(proxyState))
         assertTrue(shouldStopLocalBypassToggle(vpnLocalState))
     }
 
