@@ -24,6 +24,7 @@ pub(in crate::io_loop) fn spawn_dns_worker(
                     let Some(request) = request else {
                         break;
                     };
+                    let resolver_endpoint_label = resolver.endpoint_label();
                     let upstream =
                         resolver
                             .exchange_with_metadata(&request.query)
@@ -42,6 +43,7 @@ pub(in crate::io_loop) fn spawn_dns_worker(
                         host: request.host,
                         upstream,
                         resolver_error_kind,
+                        resolver_endpoint_label: Some(resolver_endpoint_label),
                     }).await.is_err() {
                         break;
                     }

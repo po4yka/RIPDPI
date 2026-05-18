@@ -1,5 +1,6 @@
 mod config;
 mod mapping;
+mod protect_hooks;
 mod responses;
 mod wire;
 mod worker;
@@ -36,6 +37,7 @@ pub(super) struct DnsResponse {
     pub(super) host: Option<String>,
     pub(super) upstream: Result<EncryptedDnsExchangeSuccess, String>,
     pub(super) resolver_error_kind: Option<EncryptedDnsErrorKind>,
+    pub(super) resolver_endpoint_label: Option<String>,
 }
 
 #[cfg(test)]

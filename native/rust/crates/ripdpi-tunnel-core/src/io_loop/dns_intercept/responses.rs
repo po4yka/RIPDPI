@@ -37,7 +37,11 @@ pub(in crate::io_loop) fn handle_dns_result(
         },
         Err(err) => {
             let formatted_error = response.resolver_error_kind.map(|kind| format!("{kind:?}: {err}")).unwrap_or(err);
-            stats.record_dns_failure(response.host.as_deref(), &formatted_error, None);
+            stats.record_dns_failure(
+                response.host.as_deref(),
+                &formatted_error,
+                response.resolver_endpoint_label.as_deref(),
+            );
             send_servfail(device, mapdns, dns_cache, response.src, &response.query, "upstream failure");
         }
     }

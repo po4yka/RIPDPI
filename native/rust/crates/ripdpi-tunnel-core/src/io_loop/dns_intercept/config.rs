@@ -10,6 +10,7 @@ use rustls::RootCertStore;
 
 use crate::dns_cache::DnsCache;
 
+use super::protect_hooks::encrypted_dns_connect_hooks;
 use super::MapDnsRuntime;
 
 pub(in crate::io_loop) fn parse_mapdns_runtime(config: &Config) -> io::Result<Option<MapDnsRuntime>> {
@@ -118,7 +119,7 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
         .clone()
         .unwrap_or_else(|| doh_url.as_deref().and_then(parse_url_host).unwrap_or_default());
     let tls_roots = parse_encrypted_dns_tls_roots(mapdns.encrypted_dns_tls_roots_pem.as_deref())?;
-    let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+    let resolver = EncryptedDnsResolver::with_extra_tls_roots_and_connect_hooks(
         EncryptedDnsEndpoint {
             protocol,
             resolver_id: mapdns.resolver_id.clone(),
@@ -133,6 +134,7 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
         EncryptedDnsTransport::Direct,
         Duration::from_millis(u64::from(mapdns.dns_query_timeout_ms)),
         tls_roots,
+        encrypted_dns_connect_hooks(config.misc.protect_path.clone()),
     )
     .map_err(|err| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("initialize encrypted DNS resolver ({protocol:?}): {err}"))

@@ -2,6 +2,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use ripdpi_dns_resolver::EncryptedDnsProtocol;
 
+use super::super::protect_hooks::encrypted_dns_connect_hooks;
 use super::super::{build_encrypted_dns_resolver, parse_dns_cache, parse_mapdns_runtime};
 use super::support::{mapdns_config, tunnel_config_with_mapdns};
 
@@ -84,4 +85,12 @@ fn build_encrypted_dns_resolver_rejects_invalid_tls_roots_pem() {
 
     assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
     assert!(err.to_string().contains("invalid encrypted DNS TLS root"));
+}
+
+#[test]
+fn encrypted_dns_connect_hooks_install_protected_connectors() {
+    let hooks = encrypted_dns_connect_hooks(Some("/tmp/ripdpi-protect.sock".to_string()));
+
+    assert!(hooks.direct_tcp_connector.is_some());
+    assert!(hooks.direct_udp_binder.is_some());
 }
