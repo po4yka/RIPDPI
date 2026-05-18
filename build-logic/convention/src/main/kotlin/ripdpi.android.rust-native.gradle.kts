@@ -1017,45 +1017,14 @@ val rustWorkspaceManifestFile =
         .file("native/rust/Cargo.toml")
         .asFile
 val rustWorkspaceDir = rustWorkspaceManifestFile.parentFile
-// Keep this list aligned with `cargo tree -p ripdpi-android` and `cargo tree -p ripdpi-tunnel-android`
-// so unrelated workspace members do not invalidate the native build cache.
-val rustNativePackageDirs =
-    listOf(
-        "android-support",
-        "ripdpi-android",
-        "ripdpi-apps-script-core",
-        "ripdpi-relay-android",
-        "ripdpi-config",
-        "ripdpi-desync",
-        "ripdpi-dns-resolver",
-        "ripdpi-failure-classifier",
-        "ripdpi-monitor",
-        "ripdpi-packets",
-        "ripdpi-proxy-config",
-        "ripdpi-runtime",
-        "ripdpi-session",
-        "ripdpi-telemetry",
-        "ripdpi-warp-android",
-        "ripdpi-tun-driver",
-        "ripdpi-tunnel-android",
-        "ripdpi-tunnel-config",
-        "ripdpi-tunnel-core",
-        "ripdpi-ws-tunnel",
-        "ripdpi-ipfrag",
-        "ripdpi-root-helper",
-        "ripdpi-relay-mux",
-        "ripdpi-relay-core",
-        "ripdpi-warp-core",
-        "ripdpi-native-protect",
-        "ripdpi-naiveproxy",
-        "ripdpi-shadowtls",
-        "ripdpi-tuic",
-        "ripdpi-vless",
-        "ripdpi-masque",
-        "ripdpi-tls-profiles",
-        "ripdpi-cloudflare-origin",
-    ).map { packageName ->
-        rustWorkspaceDir.resolve("crates").resolve(packageName)
+val rustWorkspaceCratesDir = rustWorkspaceDir.resolve("crates")
+
+// Track every workspace crate source; Cargo still decides the minimal dependency graph.
+fun rustWorkspaceCrateSources() =
+    fileTree(rustWorkspaceCratesDir) {
+        include("**/*")
+        exclude("**/target/**")
+        exclude("**/.git/**")
     }
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
 val generatedAssetsDir = layout.buildDirectory.dir("generated/rootHelperAssets")
@@ -1108,11 +1077,7 @@ val buildRustNativeLibs =
             },
         )
         nativeSources.from(
-            rustNativePackageDirs.map { packageDir ->
-                fileTree(packageDir) {
-                    exclude("**/target/**")
-                }
-            },
+            rustWorkspaceCrateSources(),
         )
         workspaceManifest.set(rustWorkspaceManifestFile)
         sdkDir.set(resolveAndroidSdkDir())
@@ -1159,13 +1124,8 @@ val buildRustRootHelper =
                 exclude("**/target/**")
             },
         )
-        // The root helper depends on ripdpi-runtime and ripdpi-ipfrag sources.
         nativeSources.from(
-            rustNativePackageDirs.map { packageDir ->
-                fileTree(packageDir) {
-                    exclude("**/target/**")
-                }
-            },
+            rustWorkspaceCrateSources(),
         )
         workspaceManifest.set(rustWorkspaceManifestFile)
         sdkDir.set(resolveAndroidSdkDir())
@@ -1210,11 +1170,7 @@ val buildRustNaiveProxy =
             },
         )
         nativeSources.from(
-            rustNativePackageDirs.map { packageDir ->
-                fileTree(packageDir) {
-                    exclude("**/target/**")
-                }
-            },
+            rustWorkspaceCrateSources(),
         )
         workspaceManifest.set(rustWorkspaceManifestFile)
         sdkDir.set(resolveAndroidSdkDir())
@@ -1258,11 +1214,7 @@ val buildRustCloudflareOrigin =
             },
         )
         nativeSources.from(
-            rustNativePackageDirs.map { packageDir ->
-                fileTree(packageDir) {
-                    exclude("**/target/**")
-                }
-            },
+            rustWorkspaceCrateSources(),
         )
         workspaceManifest.set(rustWorkspaceManifestFile)
         sdkDir.set(resolveAndroidSdkDir())
