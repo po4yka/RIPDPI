@@ -79,10 +79,15 @@ pub(crate) fn dns_status(outcome: &str) -> DnsObservationStatus {
 pub(crate) fn http_status(status: Option<&str>) -> HttpProbeStatus {
     match status.unwrap_or("not_run") {
         "http_ok" => HttpProbeStatus::Ok,
+        value if http_status_code(value).is_some_and(|code| (200..400).contains(&code)) => HttpProbeStatus::Ok,
         "http_blockpage" => HttpProbeStatus::Blockpage,
         "not_run" => HttpProbeStatus::NotRun,
         _ => HttpProbeStatus::Unreachable,
     }
+}
+
+fn http_status_code(value: &str) -> Option<u16> {
+    value.strip_prefix("http_status_")?.parse().ok()
 }
 
 pub(crate) fn tls_status(status: Option<&str>) -> TlsProbeStatus {

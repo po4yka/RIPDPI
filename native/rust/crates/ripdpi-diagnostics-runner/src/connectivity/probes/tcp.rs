@@ -98,6 +98,14 @@ pub fn run_tcp_probe(
         ProbeDetail { key: "probeRetryCount".to_string(), value: probe_retry_count.to_string() },
         ProbeDetail { key: "tcpBlockMethod".to_string(), value: tcp_block_method.to_string() },
         ProbeDetail {
+            key: "tcpAttentionConfidence".to_string(),
+            value: tcp_attention_confidence(&final_observation.status, rst_origin),
+        },
+        ProbeDetail {
+            key: "tcpAttentionReason".to_string(),
+            value: tcp_attention_reason(&final_observation.status, tcp_block_method, rst_origin),
+        },
+        ProbeDetail {
             key: "synAckLatencyMs".to_string(),
             value: final_observation.syn_ack_latency_ms.map_or_else(String::new, |v| v.to_string()),
         },
@@ -150,5 +158,55 @@ pub fn run_tcp_probe(
         target: format!("{}:{} ({})", target.ip, target.port, target.provider),
         outcome,
         details,
+    }
+}
+
+fn tcp_attention_confidence(status: &FatHeaderStatus, rst_origin: &str) -> String {
+    match status {
+        FatHeaderStatus::Success => "none",
+        FatHeaderStatus::ThresholdCutoff | FatHeaderStatus::FreezeAfterThreshold => "high",
+        FatHeaderStatus::Reset if rst_origin == "in_path_rst" => "high",
+        FatHeaderStatus::Reset => "medium",
+        FatHeaderStatus::Timeout | FatHeaderStatus::ConnectFailed | FatHeaderStatus::HandshakeFailed => "medium",
+    }
+    .to_string()
+}
+
+fn tcp_attention_reason(status: &FatHeaderStatus, block_method: &str, rst_origin: &str) -> String {
+    match status {
+        FatHeaderStatus::Success => "none".to_string(),
+        FatHeaderStatus::ThresholdCutoff | FatHeaderStatus::FreezeAfterThreshold => {
+            format!("large_header_cutoff:{block_method}")
+        }
+        FatHeaderStatus::Reset => format!("reset:{rst_origin}:{block_method}"),
+        FatHeaderStatus::Timeout => format!("timeout:{block_method}"),
+        FatHeaderStatus::ConnectFailed => "connect_failed".to_string(),
+        FatHeaderStatus::HandshakeFailed => "tls_handshake_failed".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{tcp_attention_confidence, tcp_attention_reason};
+    use crate::connectivity::adapters::fat_header::FatHeaderStatus;
+
+    #[test]
+    fn tcp_attention_confidence_distinguishes_rst_origin() {
+        assert_eq!(tcp_attention_confidence(&FatHeaderStatus::Reset, "in_path_rst"), "high");
+        assert_eq!(tcp_attention_confidence(&FatHeaderStatus::Reset, "peer_or_server_rst"), "medium");
+        assert_eq!(tcp_attention_confidence(&FatHeaderStatus::ThresholdCutoff, "none"), "high");
+        assert_eq!(tcp_attention_confidence(&FatHeaderStatus::Success, "none"), "none");
+    }
+
+    #[test]
+    fn tcp_attention_reason_includes_method_and_origin() {
+        assert_eq!(
+            tcp_attention_reason(&FatHeaderStatus::ThresholdCutoff, "window_cap", "in_path_rst"),
+            "large_header_cutoff:window_cap",
+        );
+        assert_eq!(
+            tcp_attention_reason(&FatHeaderStatus::Reset, "rst_injection", "in_path_rst"),
+            "reset:in_path_rst:rst_injection",
+        );
     }
 }

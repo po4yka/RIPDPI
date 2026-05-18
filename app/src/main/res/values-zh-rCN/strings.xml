@@ -2097,6 +2097,7 @@ fake_burst 3</string>
     <string name="diagnostics_metric_warnings">警告</string>
     <string name="diagnostics_scan_automatic_probing">自动探测</string>
     <string name="diagnostics_scan_raw_only_format">%1$s 仅支持原始路径,因为它会启动隔离的临时策略试运行。</string>
+    <string name="diagnostics_scan_in_path_service_halted">运行路径内诊断前,请先启动 RIPDPI 服务。</string>
     <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s 被阻止,因为 %2$s 已启用。请先在「高级设置」中关闭它,然后运行此工作流,这样 RIPDPI 才能使用可视化配置启动隔离的临时策略试运行。</string>
     <string name="diagnostics_section_transport">传输</string>
     <string name="diagnostics_share_metric_app">应用</string>

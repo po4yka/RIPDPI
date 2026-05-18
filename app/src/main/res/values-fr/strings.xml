@@ -1175,6 +1175,7 @@ fake_burst 3</string>
     <string name="diagnostics_scan_launch_unknown">Diagnostics enregistrés</string>
     <string name="diagnostics_scan_metadata_previous_fingerprint">Empreinte précédente</string>
     <string name="diagnostics_scan_raw_only_format">%1$s n\'est en chemin brut que parce qu\'il lance des essais de stratégie temporaires isolés.</string>
+    <string name="diagnostics_scan_in_path_service_halted">Démarrez le service RIPDPI avant d\'exécuter les diagnostics en chemin.</string>
     <string name="diagnostics_scan_trigger_unknown">Déclencheur inconnu</string>
     <string name="diagnostics_search_placeholder">Rechercher des sessions</string>
     <string name="diagnostics_section_wifi">Wi-Fi</string>

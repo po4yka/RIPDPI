@@ -1733,6 +1733,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_scan_automatic_probing">Автоматическое зондирование</string>
     <string name="diagnostics_scan_raw_path_format">%1$s запускает временную среду выполнения RIPDPI по прямому пути и возвращает ручную рекомендацию.</string>
     <string name="diagnostics_scan_raw_only_format">%1$s работает только по прямому пути, так как запускает изолированные временные испытания стратегий.</string>
+    <string name="diagnostics_scan_in_path_service_halted">Запустите службу RIPDPI перед диагностикой внутри пути.</string>
 
     <!-- Diagnostics share preview -->
     <string name="diagnostics_share_title">Диагностика RIPDPI</string>

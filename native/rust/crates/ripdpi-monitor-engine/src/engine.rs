@@ -15,7 +15,7 @@ use crate::types::{ScanKind, ScanProgress, ScanRequest, SharedState};
 use crate::CandidateRuntimeLauncher;
 
 use plan::build_execution_plan;
-use report::{build_report, connectivity_summary};
+use report::{build_report, connectivity_analytics_summary, connectivity_summary};
 use runners::execution_coordinator;
 use runtime::{publish_cancelled_run, ExecutionRuntime, RunnerOutcome};
 
@@ -97,8 +97,30 @@ pub fn run_engine_scan(
         }
         RunnerOutcome::Finished => {
             if let Some(report) = runtime.final_report {
+                let analytics_summary = matches!(plan.request.kind, ScanKind::Connectivity)
+                    .then(|| connectivity_analytics_summary(&report.results, &report.path_mode));
                 set_report(&shared, report);
+                if let Some(analytics_summary) = analytics_summary {
+                    push_event(
+                        &shared,
+                        &plan.session_id,
+                        &plan.request.profile_id,
+                        &plan.request.path_mode,
+                        "engine",
+                        "info",
+                        analytics_summary,
+                    );
+                }
             }
+            push_event(
+                &shared,
+                &plan.session_id,
+                &plan.request.profile_id,
+                &plan.request.path_mode,
+                "engine",
+                "info",
+                "Diagnostics finished".to_string(),
+            );
             set_progress(
                 &shared,
                 ScanProgress {
@@ -121,6 +143,8 @@ pub fn run_engine_scan(
                     runtime.strategy.summary.clone().unwrap_or_else(|| "Automatic probing finished".to_string())
                 }
             };
+            let analytics_summary = matches!(plan.request.kind, ScanKind::Connectivity)
+                .then(|| connectivity_analytics_summary(&runtime.results, &plan.request.path_mode));
             let report = build_report(
                 plan.session_id.clone(),
                 plan.request.clone(),
@@ -132,6 +156,17 @@ pub fn run_engine_scan(
                 None,
             );
             set_report(&shared, report);
+            if let Some(analytics_summary) = analytics_summary {
+                push_event(
+                    &shared,
+                    &plan.session_id,
+                    &plan.request.profile_id,
+                    &plan.request.path_mode,
+                    "engine",
+                    "info",
+                    analytics_summary,
+                );
+            }
             push_event(
                 &shared,
                 &plan.session_id,
@@ -162,7 +197,7 @@ pub fn run_engine_scan(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{ProbeResult, ProbeTaskFamily};
+    use crate::types::{ProbeDetail, ProbeResult, ProbeTaskFamily};
 
     use plan::connectivity_stage_order;
     use runtime::{cancelled_run_summary, ExecutionStageId};
@@ -184,6 +219,41 @@ mod tests {
     #[test]
     fn connectivity_summary_omits_zero_value_non_healthy_buckets() {
         assert_eq!(connectivity_summary(&[], &crate::types::ScanPathMode::RawPath), "0 completed · 0 healthy");
+    }
+
+    #[test]
+    fn connectivity_analytics_summary_captures_remaining_attention_surface() {
+        let results = vec![
+            probe("network_environment", "wifi", "network_available"),
+            probe("dns_integrity", "google.com", "dns_compatible_divergence"),
+            ProbeResult {
+                probe_type: "tcp_fat_header".to_string(),
+                target: "8.8.8.8:443 (Google DNS)".to_string(),
+                outcome: "tcp_reset".to_string(),
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "rst_injection".to_string() }],
+            },
+            ProbeResult {
+                probe_type: "tcp_fat_header".to_string(),
+                target: "172.67.70.222:443 (Cloudflare)".to_string(),
+                outcome: "tcp_16kb_blocked".to_string(),
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "window_cap".to_string() }],
+            },
+            ProbeResult {
+                probe_type: "domain_reachability".to_string(),
+                target: "cloudflare.com".to_string(),
+                outcome: "tls_ok".to_string(),
+                details: vec![ProbeDetail { key: "httpStatusClass".to_string(), value: "redirect".to_string() }],
+            },
+        ];
+
+        let summary = connectivity_analytics_summary(&results, &crate::types::ScanPathMode::RawPath);
+
+        assert!(summary.contains("dns_compatible_divergence=1"));
+        assert!(summary.contains("tcp_attention=2"));
+        assert!(summary.contains("tcp_resets=1"));
+        assert!(summary.contains("tcp_window_cap=1"));
+        assert!(summary.contains("domain_tls_ok=1"));
+        assert!(summary.contains("domain_http_ok_or_redirect=1"));
     }
 
     #[test]

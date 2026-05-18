@@ -170,6 +170,8 @@ pub fn run_domain_probe_with_key_log(
                 value: tls_ech.ech_resolution_detail.clone().unwrap_or_else(|| "none".to_string()),
             },
             ProbeDetail { key: "httpStatus".to_string(), value: http.status.clone() },
+            ProbeDetail { key: "httpStatusCode".to_string(), value: http_status_code(&http.status) },
+            ProbeDetail { key: "httpStatusClass".to_string(), value: http_status_class(&http.status) },
             ProbeDetail { key: "httpResponse".to_string(), value: describe_http_observation(&http) },
             ProbeDetail { key: "h3Advertised".to_string(), value: h3_advertised.to_string() },
             ProbeDetail { key: "altSvc".to_string(), value: alt_svc_value.unwrap_or_else(|| "none".to_string()) },
@@ -212,5 +214,48 @@ fn try_tls_handshake_with_optional_key_log(
             Some(key_log),
         ),
         None => try_tls_handshake(target, port, transport, server_name, verify_certificates, profile, tls_verifier),
+    }
+}
+
+fn http_status_code(status: &str) -> String {
+    status.strip_prefix("http_status_").unwrap_or("").to_string()
+}
+
+fn http_status_class(status: &str) -> String {
+    match status.strip_prefix("http_status_").and_then(|value| value.parse::<u16>().ok()) {
+        Some(200..=299) => "success".to_string(),
+        Some(300..=399) => "redirect".to_string(),
+        Some(400..=499) => "client_error".to_string(),
+        Some(500..=599) => "server_error".to_string(),
+        Some(_) => "nonstandard".to_string(),
+        None if status == "http_ok" => "success".to_string(),
+        None if status == "http_blockpage" => "blockpage".to_string(),
+        None if status == "http_unreachable" => "unreachable".to_string(),
+        None if status == "not_run" => "not_run".to_string(),
+        None => "unknown".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{http_status_class, http_status_code};
+
+    #[test]
+    fn http_status_details_extract_code_and_class() {
+        assert_eq!(http_status_code("http_status_301"), "301");
+        assert_eq!(http_status_class("http_status_200"), "success");
+        assert_eq!(http_status_class("http_status_301"), "redirect");
+        assert_eq!(http_status_class("http_status_400"), "client_error");
+        assert_eq!(http_status_class("http_status_503"), "server_error");
+    }
+
+    #[test]
+    fn http_status_details_classify_symbolic_statuses() {
+        assert_eq!(http_status_code("http_ok"), "");
+        assert_eq!(http_status_class("http_ok"), "success");
+        assert_eq!(http_status_class("http_blockpage"), "blockpage");
+        assert_eq!(http_status_class("http_unreachable"), "unreachable");
+        assert_eq!(http_status_class("not_run"), "not_run");
+        assert_eq!(http_status_class("weird"), "unknown");
     }
 }

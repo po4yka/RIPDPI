@@ -1175,6 +1175,7 @@ fake_burst 3</string>
     <string name="diagnostics_scan_launch_unknown">Gespeicherte Diagnostik</string>
     <string name="diagnostics_scan_metadata_previous_fingerprint">Vorheriger Fingerabdruck</string>
     <string name="diagnostics_scan_raw_only_format">%1$s ist nur Raw-Pfad, weil isolierte temporäre Strategieversuche gestartet werden.</string>
+    <string name="diagnostics_scan_in_path_service_halted">Starte den RIPDPI-Dienst, bevor du In-Path-Diagnosen ausführst.</string>
     <string name="diagnostics_scan_trigger_unknown">Unbekannter Auslöser</string>
     <string name="diagnostics_search_placeholder">Sitzungen suchen</string>
     <string name="diagnostics_section_wifi">Wi-Fi</string>

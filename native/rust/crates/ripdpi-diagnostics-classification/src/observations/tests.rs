@@ -68,6 +68,11 @@ fn dns_status_maps_all_variants() {
 #[test]
 fn http_status_maps_all_variants() {
     assert_eq!(http_status(Some("http_ok")), HttpProbeStatus::Ok);
+    assert_eq!(http_status(Some("http_status_200")), HttpProbeStatus::Ok);
+    assert_eq!(http_status(Some("http_status_301")), HttpProbeStatus::Ok);
+    assert_eq!(http_status(Some("http_status_308")), HttpProbeStatus::Ok);
+    assert_eq!(http_status(Some("http_status_400")), HttpProbeStatus::Unreachable);
+    assert_eq!(http_status(Some("http_status_500")), HttpProbeStatus::Unreachable);
     assert_eq!(http_status(Some("http_blockpage")), HttpProbeStatus::Blockpage);
     assert_eq!(http_status(Some("not_run")), HttpProbeStatus::NotRun);
     assert_eq!(http_status(None), HttpProbeStatus::NotRun);

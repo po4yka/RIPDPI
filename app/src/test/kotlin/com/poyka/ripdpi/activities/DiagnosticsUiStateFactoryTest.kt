@@ -138,6 +138,7 @@ private fun diagnosticsUiStateInput(sessions: List<com.poyka.ripdpi.diagnostics.
         exports = emptyList(),
         rememberedPolicies = emptyList(),
         activeConnectionPolicy = null,
+        serviceStatus = com.poyka.ripdpi.data.AppStatus.Halted,
         selectedSectionRequest = DiagnosticsSection.Dashboard,
         selectedProfileId = null,
         selectedApproachMode = DiagnosticsApproachMode.Profiles,

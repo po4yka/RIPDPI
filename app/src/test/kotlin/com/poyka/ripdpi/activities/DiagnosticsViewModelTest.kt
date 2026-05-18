@@ -687,6 +687,7 @@ class DiagnosticsViewModelTest {
                     RuntimeEnvironment.getApplication(),
                     manager,
                     FakeAppSettingsRepository(settings),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                 )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
@@ -775,6 +776,7 @@ class DiagnosticsViewModelTest {
                     RuntimeEnvironment.getApplication(),
                     manager,
                     FakeAppSettingsRepository(settings),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                 )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
@@ -783,6 +785,41 @@ class DiagnosticsViewModelTest {
             assertTrue(scan.runRawEnabled)
             assertTrue(scan.runInPathEnabled)
             assertNull(scan.workflowRestriction)
+            collector.cancel()
+        }
+
+    @Test
+    fun `connectivity profile disables in path scan while service is halted`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = "default",
+                                name = "Default",
+                                source = "bundled",
+                                version = 1,
+                                requestJson = profileRequest(profileId = "default", displayName = "Default"),
+                                updatedAt = 1L,
+                            ),
+                        )
+                }
+
+            val viewModel =
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    manager,
+                    FakeAppSettingsRepository(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.VPN),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val scan = viewModel.uiState.value.scan
+            assertTrue(scan.runRawEnabled)
+            assertFalse(scan.runInPathEnabled)
+            assertTrue(scan.runInPathHint.orEmpty().contains("service", ignoreCase = true))
             collector.cancel()
         }
 

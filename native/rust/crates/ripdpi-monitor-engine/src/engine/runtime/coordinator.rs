@@ -62,6 +62,20 @@ impl ExecutionCoordinator {
                     if runtime.is_cancelled() || runtime.is_past_deadline() {
                         return RunnerOutcome::Cancelled;
                     }
+                    let parallel_target_count = parallel_runners
+                        .iter()
+                        .filter_map(|stage| self.runners.get(stage))
+                        .map(|runner| runner.total_steps(plan))
+                        .sum::<usize>();
+                    runtime.publish_progress(
+                        plan,
+                        "parallel_connectivity",
+                        runtime.completed_steps,
+                        format!("Running DNS, TCP, and QUIC probes ({parallel_target_count} targets)"),
+                        None,
+                        None,
+                        None,
+                    );
 
                     let thread_results = std::thread::scope(|s| {
                         let mut handles = Vec::with_capacity(parallel_runners.len());

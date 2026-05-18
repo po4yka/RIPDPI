@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -21,6 +22,7 @@ internal data class BuildScanUiModelParams(
     val latestStrategyProbeReport: DiagnosticsStrategyProbeReportUiModel?,
     val progress: ScanProgress?,
     val rawArgsEnabled: Boolean,
+    val serviceStatus: AppStatus,
     val scanStartedAt: Long?,
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
     val candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
@@ -36,8 +38,9 @@ internal data class BuildScanUiModelParams(
 internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiModelParams): DiagnosticsScanUiModel {
     val selectedProfile = params.activeProfile?.let(::toProfileOptionUiModel)
     val strategyProbeSelected = selectedProfile?.isStrategyProbe == true
+    val serviceRunning = params.serviceStatus == AppStatus.Running
     val runRawEnabled = params.progress == null && !(strategyProbeSelected && params.rawArgsEnabled)
-    val runInPathEnabled = params.progress == null && !strategyProbeSelected
+    val runInPathEnabled = params.progress == null && !strategyProbeSelected && serviceRunning
     val workflowRestriction = buildWorkflowRestriction(params, selectedProfile, strategyProbeSelected)
     val workflowLabel = buildWorkflowLabel(selectedProfile)
     val runRawHint =
@@ -47,10 +50,10 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
             null
         }
     val runInPathHint =
-        if (strategyProbeSelected) {
-            context.getString(R.string.diagnostics_scan_raw_only_format, workflowLabel)
-        } else {
-            null
+        when {
+            strategyProbeSelected -> context.getString(R.string.diagnostics_scan_raw_only_format, workflowLabel)
+            !serviceRunning -> context.getString(R.string.diagnostics_scan_in_path_service_halted)
+            else -> null
         }
     val remediationLadder =
         buildScanRemediationLadder(

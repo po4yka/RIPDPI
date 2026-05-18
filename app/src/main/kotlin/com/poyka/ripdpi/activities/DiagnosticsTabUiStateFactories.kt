@@ -57,6 +57,7 @@ internal class DiagnosticsScanUiStateFactory
                     latestStrategyProbeReport = resolvedInput.latestStrategyProbeReport,
                     progress = input.progress,
                     rawArgsEnabled = input.settings.enableCmdSettings,
+                    serviceStatus = input.serviceStatus,
                     vpnPermissionDisabled =
                         resolvedInput.latestContext
                             ?.permissions

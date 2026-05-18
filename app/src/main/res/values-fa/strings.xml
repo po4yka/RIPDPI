@@ -2160,6 +2160,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_probe_copy_action">کپی نتیجه</string>
     <string name="diagnostics_scan_blocked_setting_label">تنظیم مسدودشده</string>
     <string name="diagnostics_scan_raw_only_format">%1$s فقط مسیر خام است، زیرا آزمایش‌های استراتژی موقت ایزوله‌شده را راه‌اندازی می‌کند.</string>
+    <string name="diagnostics_scan_in_path_service_halted">پیش از اجرای عیب‌یابی درون‌مسیر، سرویس RIPDPI را راه‌اندازی کنید.</string>
     <string name="diagnostics_scan_vpn_permission_warning_title">مجوز VPN توصیه می‌شود</string>
     <string name="diagnostics_section_device">دستگاه</string>
     <string name="diagnostics_section_wifi">Wi-Fi</string>

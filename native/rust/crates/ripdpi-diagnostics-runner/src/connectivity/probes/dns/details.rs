@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 
 use crate::connectivity::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
-use crate::connectivity::adapters::util::{format_result_set, ip_set};
+use crate::connectivity::adapters::util::{classify_dns_answer_overlap, format_result_set, ip_set, DnsAnswerOverlap};
 use crate::types::{ProbeDetail, ProbeResult};
 
 use super::classify_dns_latency_quality;
@@ -15,6 +15,7 @@ pub(super) struct DnsProbeDetailInputs<'a> {
     pub(super) encrypted_endpoint: &'a EncryptedDnsEndpoint,
     pub(super) encrypted_bootstrap_ips: &'a [String],
     pub(super) selected_bootstrap_ips: &'a [String],
+    pub(super) encrypted_result: &'a Result<Vec<String>, String>,
     pub(super) encrypted_addresses: &'a str,
     pub(super) encrypted_latency_ms: &'a str,
     pub(super) injection_suspected: bool,
@@ -23,6 +24,7 @@ pub(super) struct DnsProbeDetailInputs<'a> {
 }
 
 pub(super) fn build_dns_probe_details(inputs: DnsProbeDetailInputs<'_>) -> Vec<ProbeDetail> {
+    let analytics = dns_answer_analytics(inputs.udp_result, inputs.encrypted_result);
     vec![
         ProbeDetail { key: "udpServer".to_string(), value: inputs.udp_server.to_string() },
         ProbeDetail { key: "udpAddresses".to_string(), value: format_result_set(inputs.udp_result) },
@@ -69,6 +71,12 @@ pub(super) fn build_dns_probe_details(inputs: DnsProbeDetailInputs<'_>) -> Vec<P
         },
         ProbeDetail { key: "encryptedAddresses".to_string(), value: inputs.encrypted_addresses.to_string() },
         ProbeDetail { key: "encryptedLatencyMs".to_string(), value: inputs.encrypted_latency_ms.to_string() },
+        ProbeDetail { key: "dnsAnswerOverlap".to_string(), value: analytics.overlap },
+        ProbeDetail { key: "udpAnswerSetSize".to_string(), value: analytics.udp_count.to_string() },
+        ProbeDetail { key: "encryptedAnswerSetSize".to_string(), value: analytics.encrypted_count.to_string() },
+        ProbeDetail { key: "answerIntersectionCount".to_string(), value: analytics.intersection_count.to_string() },
+        ProbeDetail { key: "answerOnlyUdpCount".to_string(), value: analytics.only_udp_count.to_string() },
+        ProbeDetail { key: "answerOnlyEncryptedCount".to_string(), value: analytics.only_encrypted_count.to_string() },
         ProbeDetail {
             key: "dnsLatencyQuality".to_string(),
             value: classify_dns_latency_quality(inputs.udp_latency_ms, inputs.encrypted_latency_ms),
@@ -87,6 +95,45 @@ pub(super) fn build_dns_probe_details(inputs: DnsProbeDetailInputs<'_>) -> Vec<P
             value: inputs.oracle_assessment.fallback_resolver_used().unwrap_or_default(),
         },
     ]
+}
+
+struct DnsAnswerAnalytics {
+    overlap: String,
+    udp_count: usize,
+    encrypted_count: usize,
+    intersection_count: usize,
+    only_udp_count: usize,
+    only_encrypted_count: usize,
+}
+
+fn dns_answer_analytics(
+    udp_result: &Result<Vec<String>, String>,
+    encrypted_result: &Result<Vec<String>, String>,
+) -> DnsAnswerAnalytics {
+    let empty = Vec::new();
+    let udp_answers = udp_result.as_ref().unwrap_or(&empty);
+    let encrypted_answers = encrypted_result.as_ref().unwrap_or(&empty);
+    let udp_set = ip_set(udp_answers);
+    let encrypted_set = ip_set(encrypted_answers);
+    let overlap = match (udp_result, encrypted_result) {
+        (Ok(udp), Ok(encrypted)) => match classify_dns_answer_overlap(udp, encrypted) {
+            DnsAnswerOverlap::Match => "match",
+            DnsAnswerOverlap::CompatibleDivergence => "compatible_divergence",
+            DnsAnswerOverlap::SinkholeSubstitution => "sinkhole_substitution",
+        },
+        (Ok(_), Err(_)) => "oracle_unavailable",
+        (Err(_), Ok(_)) => "udp_unavailable",
+        (Err(_), Err(_)) => "unavailable",
+    }
+    .to_string();
+    DnsAnswerAnalytics {
+        overlap,
+        udp_count: udp_set.len(),
+        encrypted_count: encrypted_set.len(),
+        intersection_count: udp_set.intersection(&encrypted_set).count(),
+        only_udp_count: udp_set.difference(&encrypted_set).count(),
+        only_encrypted_count: encrypted_set.difference(&udp_set).count(),
+    }
 }
 
 #[inline(never)]
@@ -108,5 +155,50 @@ pub(super) fn append_injection_profile_details(
     let forged: Vec<String> = udp_set.difference(&enc_set).cloned().collect();
     if !forged.is_empty() {
         result.details.push(ProbeDetail { key: "forgedAddresses".to_string(), value: forged.join(",") });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::dns_answer_analytics;
+
+    #[test]
+    fn dns_answer_analytics_counts_overlap_and_divergence() {
+        let udp = Ok(vec!["172.217.20.78".to_string()]);
+        let encrypted = Ok(vec!["172.217.20.78".to_string(), "142.250.75.78".to_string()]);
+
+        let analytics = dns_answer_analytics(&udp, &encrypted);
+
+        assert_eq!(analytics.overlap, "match");
+        assert_eq!(analytics.udp_count, 1);
+        assert_eq!(analytics.encrypted_count, 2);
+        assert_eq!(analytics.intersection_count, 1);
+        assert_eq!(analytics.only_udp_count, 0);
+        assert_eq!(analytics.only_encrypted_count, 1);
+    }
+
+    #[test]
+    fn dns_answer_analytics_labels_cdn_compatible_divergence() {
+        let udp = Ok(vec!["172.217.20.78".to_string()]);
+        let encrypted = Ok(vec!["142.250.21.100".to_string(), "142.250.21.101".to_string()]);
+
+        let analytics = dns_answer_analytics(&udp, &encrypted);
+
+        assert_eq!(analytics.overlap, "compatible_divergence");
+        assert_eq!(analytics.intersection_count, 0);
+        assert_eq!(analytics.only_udp_count, 1);
+        assert_eq!(analytics.only_encrypted_count, 2);
+    }
+
+    #[test]
+    fn dns_answer_analytics_marks_oracle_unavailable() {
+        let udp = Ok(vec!["104.16.132.229".to_string()]);
+        let encrypted = Err("timeout".to_string());
+
+        let analytics = dns_answer_analytics(&udp, &encrypted);
+
+        assert_eq!(analytics.overlap, "oracle_unavailable");
+        assert_eq!(analytics.udp_count, 1);
+        assert_eq!(analytics.encrypted_count, 0);
     }
 }

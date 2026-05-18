@@ -495,6 +495,93 @@ class DiagnosticsScanExecutionCoordinatorTest {
         }
 
     @Test
+    fun `available report finalizes scan when final progress is missed`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-report-before-progress",
+                    settings = defaultDiagnosticsAppSettings(),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    autoCompleteOnStart = false
+                    enqueueProgress(
+                        ScanProgress(
+                            sessionId = prepared.sessionId,
+                            phase = "tcp",
+                            completedSteps = 52,
+                            totalSteps = 57,
+                            message = "TCP Quad9",
+                            isFinished = false,
+                        ),
+                    )
+                    enqueueReport(scanReportWithResolverRecommendation(prepared.sessionId))
+                }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            val session = requireNotNull(stores.getScanSession(prepared.sessionId))
+            assertEquals("completed", session.status)
+            assertNotNull(session.reportJson)
+            assertEquals(1, stores.storedProbeResults(prepared.sessionId).size)
+            assertNull(timelineSource.activeScanProgress.value)
+        }
+
+    @Test
+    fun `polling timeout marks session failed and clears active progress`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = timelineSource(stores, backgroundScope)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    json = json,
+                )
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-poll-timeout",
+                    settings = defaultDiagnosticsAppSettings(),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge =
+                FakeNetworkDiagnosticsBridge(json).apply {
+                    autoCompleteOnStart = false
+                }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
+
+            val session = requireNotNull(stores.getScanSession(prepared.sessionId))
+            assertEquals("failed", session.status)
+            assertTrue(session.summary.contains("timed out", ignoreCase = true))
+            assertEquals(0, stores.storedProbeResults(prepared.sessionId).size)
+            assertNull(timelineSource.activeScanProgress.value)
+        }
+
+    @Test
     fun `background automatic probing skips remembered policy when prepared fingerprint is missing`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

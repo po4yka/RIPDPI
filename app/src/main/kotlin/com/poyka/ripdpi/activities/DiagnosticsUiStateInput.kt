@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
@@ -34,6 +35,7 @@ internal data class DiagnosticsUiStateInput(
     val exports: List<DiagnosticExportRecord>,
     val rememberedPolicies: List<DiagnosticsRememberedPolicy>,
     val activeConnectionPolicy: DiagnosticActiveConnectionPolicy?,
+    val serviceStatus: AppStatus,
     val selectedSectionRequest: DiagnosticsSection,
     val selectedProfileId: String?,
     val selectedApproachMode: DiagnosticsApproachMode,

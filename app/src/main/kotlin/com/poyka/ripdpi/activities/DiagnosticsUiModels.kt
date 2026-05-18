@@ -1104,6 +1104,7 @@ internal data class ConfigSnapshot(
     val settings: com.poyka.ripdpi.proto.AppSettings,
     val rememberedPolicies: List<DiagnosticsRememberedPolicy>,
     val activeConnectionPolicy: DiagnosticActiveConnectionPolicy?,
+    val serviceStatus: com.poyka.ripdpi.data.AppStatus,
 )
 
 internal data class UiControlState(

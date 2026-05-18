@@ -215,13 +215,13 @@ internal class DiagnosticsUiStateAssembler
                 contextDependencies.serviceStateStore.status,
                 contextDependencies.activeConnectionPolicySource.activePolicies,
             ) { settings, rememberedPolicies, serviceStatus, activePolicies ->
-                val (_, activeMode) = serviceStatus
+                val (status, activeMode) = serviceStatus
                 val connectionPolicy =
                     selectActiveConnectionPolicy(
                         serviceMode = activeMode,
                         activePolicies = activePolicies,
                     )
-                ConfigSnapshot(settings, rememberedPolicies, connectionPolicy)
+                ConfigSnapshot(settings, rememberedPolicies, connectionPolicy, status)
             }.stateIn(
                 scope,
                 SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
@@ -229,6 +229,7 @@ internal class DiagnosticsUiStateAssembler
                     settings = AppSettingsSerializer.defaultValue,
                     rememberedPolicies = emptyList(),
                     activeConnectionPolicy = null,
+                    serviceStatus = AppStatus.Halted,
                 ),
             )
 
@@ -283,6 +284,7 @@ internal class DiagnosticsUiStateAssembler
                 exports = scan.exports,
                 rememberedPolicies = config.rememberedPolicies,
                 activeConnectionPolicy = config.activeConnectionPolicy,
+                serviceStatus = config.serviceStatus,
                 selectedSectionRequest = controls.selection.selectedSectionRequest,
                 selectedProfileId =
                     controls.selection.selectedProfileId

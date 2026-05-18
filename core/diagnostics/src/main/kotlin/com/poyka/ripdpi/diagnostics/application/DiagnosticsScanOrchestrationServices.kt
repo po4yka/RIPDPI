@@ -25,6 +25,7 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -453,7 +454,8 @@ class BridgePollingService
         private companion object {
             private const val FinishedReportPollAttempts = 30
             private const val FinishedReportPollDelayMs = 250L
-            const val PollScanResultTimeoutMs = 360_000L
+            private const val PollTimeoutNativeDeadlineGraceMs = 60_000L
+            const val PollScanResultTimeoutMs = 360_000L + PollTimeoutNativeDeadlineGraceMs
             const val PollScanIntervalMs = 400L
         }
 
@@ -483,23 +485,35 @@ class BridgePollingService
             activeScanRegistry: ActiveScanRegistry,
             onFinishedReportJson: suspend (String) -> Unit,
         ) {
-            withTimeout(PollScanResultTimeoutMs) {
-                while (true) {
-                    persistPassiveEvents(handle)
-                    val progress = pollProgress(handle)
-                    if (prepared.exposeProgress) {
-                        activeScanRegistry.updateProgress(progress)
+            try {
+                withTimeout(PollScanResultTimeoutMs) {
+                    while (true) {
+                        persistPassiveEvents(handle)
+                        handle.bridge.takeReportJson()?.let { reportJson ->
+                            onFinishedReportJson(reportJson)
+                            return@withTimeout
+                        }
+                        val progress = pollProgress(handle)
+                        if (prepared.exposeProgress) {
+                            activeScanRegistry.updateProgress(progress)
+                        }
+                        if (progress?.isFinished == true) {
+                            val reportJson =
+                                checkNotNull(awaitFinishedReportJson(handle)) {
+                                    "Diagnostics scan completed without a report"
+                                }
+                            onFinishedReportJson(reportJson)
+                            break
+                        }
+                        delay(PollScanIntervalMs)
                     }
-                    if (progress?.isFinished == true) {
-                        val reportJson =
-                            checkNotNull(awaitFinishedReportJson(handle)) {
-                                "Diagnostics scan completed without a report"
-                            }
-                        onFinishedReportJson(reportJson)
-                        break
-                    }
-                    delay(PollScanIntervalMs)
                 }
+            } catch (error: TimeoutCancellationException) {
+                awaitFinishedReportJson(handle)?.let { reportJson ->
+                    onFinishedReportJson(reportJson)
+                    return
+                }
+                throw IllegalStateException("Diagnostics scan timed out waiting for native completion", error)
             }
         }
     }

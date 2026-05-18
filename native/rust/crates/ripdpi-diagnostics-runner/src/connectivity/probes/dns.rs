@@ -113,6 +113,7 @@ pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode:
             encrypted_endpoint: &encrypted_endpoint,
             encrypted_bootstrap_ips: &encrypted_bootstrap_ips,
             selected_bootstrap_ips: &selected_bootstrap_ips,
+            encrypted_result: &encrypted_result,
             encrypted_addresses: &encrypted_addresses,
             encrypted_latency_ms: &encrypted_latency_ms,
             injection_suspected,
