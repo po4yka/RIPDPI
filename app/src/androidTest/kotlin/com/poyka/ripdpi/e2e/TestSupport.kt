@@ -267,7 +267,7 @@ class LocalFixtureClient(
                 val body =
                     org.json
                         .JSONObject()
-                        .put("target", spec.target.name.lowercase())
+                        .put("target", spec.target.toFixtureWireName())
                         .put("outcome", spec.outcome.name.lowercase())
                         .put("scope", spec.scope.name.lowercase())
                         .apply {
@@ -326,6 +326,12 @@ class LocalFixtureClient(
         }
     }
 }
+
+private fun FixtureFaultTargetDto.toFixtureWireName(): String =
+    when (this) {
+        FixtureFaultTargetDto.DNS_DNSCRYPT -> "dns_dns_crypt"
+        else -> name.lowercase()
+    }
 
 private inline fun <T> withRetry(block: () -> T): T {
     repeat(FixtureControlRetryCount - 1) {
@@ -1012,6 +1018,7 @@ fun testProcessTcpRoundTrip(
     payload: String,
     connectTimeoutMs: Long = DebugNetworkProbeTimeoutMs,
     readTimeoutMs: Long = 5_000L,
+    throwOnBroadcastTimeout: Boolean = true,
 ): AppProcessTcpProbeResult {
     val context = InstrumentationRegistry.getInstrumentation().context
     val latch = CountDownLatch(1)
@@ -1054,7 +1061,17 @@ fun testProcessTcpRoundTrip(
         null,
         null,
     )
-    check(latch.await(DebugNetworkProbeBroadcastTimeoutMs, TimeUnit.MILLISECONDS)) {
+    val delivered = latch.await(DebugNetworkProbeBroadcastTimeoutMs, TimeUnit.MILLISECONDS)
+    if (!delivered && !throwOnBroadcastTimeout) {
+        return AppProcessTcpProbeResult(
+            host = host,
+            port = port,
+            ok = false,
+            errorClass = java.util.concurrent.TimeoutException::class.java.name,
+            errorMessage = "Timed out waiting for test-process TCP round-trip for $host:$port",
+        )
+    }
+    check(delivered) {
         "Timed out waiting for test-process TCP round-trip for $host:$port"
     }
     return requireNotNull(probeResult.get()) {

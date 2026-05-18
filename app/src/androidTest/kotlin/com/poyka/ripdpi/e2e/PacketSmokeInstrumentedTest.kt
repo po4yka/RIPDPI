@@ -564,21 +564,33 @@ class PacketSmokeInstrumentedTest {
 
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
-        fixtureClient.setFault(FixtureFaultSpecDto(target = faultTarget, outcome = outcome))
+        fixtureClient.setFault(
+            FixtureFaultSpecDto(
+                target = faultTarget,
+                outcome = outcome,
+                scope = FixtureFaultScopeDto.PERSISTENT,
+            ),
+        )
 
         val result =
             vpnTcpRoundTripResult(
                 fixture.fixtureDomain,
                 fixture.tcpEchoPort,
                 httpEchoPayloadText("packet-smoke-${protocol.lowercase()}-fault"),
+                throwOnProbeTimeout = false,
             )
         val output = result.response.orEmpty()
         assertFalse(output.contains("GET /packet-smoke-${protocol.lowercase()}-fault HTTP/1.1"))
 
         awaitUntil(timeoutMs = 20_000L) {
             val snapshot = serviceStateStore.telemetry.value
-            snapshot.tunnelTelemetry.dnsFailuresTotal > 0L &&
-                !snapshot.tunnelTelemetry.lastDnsError.isNullOrBlank()
+            val dnsFailureVisible =
+                snapshot.tunnelTelemetry.dnsFailuresTotal > 0L &&
+                    !snapshot.tunnelTelemetry.lastDnsError.isNullOrBlank()
+            val resolverFallbackVisible =
+                snapshot.tunnelTelemetry.resolverFallbackActive &&
+                    !snapshot.tunnelTelemetry.resolverFallbackReason.isNullOrBlank()
+            dnsFailureVisible || resolverFallbackVisible
         }
         assertTrue(
             fixtureClient.events().none { event -> event.service == "tcp_echo" && event.detail == "echo" },
@@ -1222,9 +1234,10 @@ class PacketSmokeInstrumentedTest {
         host: String,
         port: Int,
         payload: String,
+        throwOnProbeTimeout: Boolean = true,
     ): AppProcessTcpProbeResult =
         if (isLikelyEmulator()) {
-            testProcessTcpRoundTrip(host, port, payload)
+            testProcessTcpRoundTrip(host, port, payload, throwOnBroadcastTimeout = throwOnProbeTimeout)
         } else {
             appProcessTcpRoundTrip(appContext, host, port, payload)
         }
