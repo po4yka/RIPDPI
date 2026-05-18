@@ -47,6 +47,19 @@ class DebugLocalNetworkProbeTest {
         assertEquals("https://10.0.2.2:9443/h3/ok", config.quicUrl)
         assertEquals("10.0.2.2:10080", config.relayEndpoint)
         assertTrue(config.requireVpnActive)
+        assertFalse(config.requireProxyReady)
+    }
+
+    @Test
+    fun `proxy mode requires fixed proxy listener by default`() {
+        val config =
+            NetworkProbeConfig.fromIntent(
+                Intent(debugProbeAction)
+                    .putExtra("profile", "emulator")
+                    .putExtra("mode", "proxy"),
+            )
+
+        assertFalse(config.requireVpnActive)
         assertTrue(config.requireProxyReady)
     }
 

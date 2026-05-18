@@ -122,7 +122,7 @@ data class NetworkProbeConfig(
             val requireProxyReady =
                 intent.getBooleanExtra(
                     "require_proxy_ready",
-                    mode == ProbeMode.Vpn || mode == ProbeMode.Proxy,
+                    mode == ProbeMode.Proxy,
                 )
 
             return NetworkProbeConfig(

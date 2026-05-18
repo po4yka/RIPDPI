@@ -216,6 +216,8 @@ fi
 "$script_dir/adb-run-probe.sh" \
   --profile "$profile" \
   --mode vpn \
+  --require-vpn-active true \
+  --require-proxy-ready false \
   --timeout-ms "$timeout_ms" \
   --out-dir "$out_dir"
 

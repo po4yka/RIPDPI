@@ -11,7 +11,7 @@ This directory implements the repository-local network testing harness for RIPDP
 - Machine-readable app-private JSON result file.
 - DNS, HTTP, HTTPS, TCP echo, and UDP echo probes.
 - DNS over UDP with DNS-over-TCP fallback for host network paths where Docker UDP replies are not reliable.
-- VPN active-transport and local proxy readiness checks.
+- VPN active-transport checks and mode-specific local proxy readiness checks.
 - VPN-mode E2E orchestration script for lab restart, debug APK install, debug automation state seeding, Maestro connect/disconnect, VPN probe execution, and failure artifact archiving. `--skip-maestro` is reserved for already-connected manual or external automation runs.
 - Proxy-mode E2E orchestration script for the same lab/probe path, Maestro local-card connect/disconnect, mock-relay readiness evidence, and a foreground-service leak assertion after disconnect.
 - Basic typed failure codes derived from the failing exception/stage.

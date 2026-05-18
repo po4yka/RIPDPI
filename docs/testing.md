@@ -249,7 +249,7 @@ Start the lab for a physical device on the same Wi-Fi network:
 ./test-lab/scripts/stop-lab.sh
 ```
 
-Use `--mode diagnostics` for a transport reachability smoke that does not require RIPDPI's foreground service to be active. Use `--mode vpn` only after the app has started VPN mode; the probe will then require Android to report an active VPN transport and the local proxy port to accept connections.
+Use `--mode diagnostics` for a transport reachability smoke that does not require RIPDPI's foreground service to be active. Use `--mode proxy` only after the app has started proxy mode; the probe will then require the fixed loopback proxy listener to accept connections. Use `--mode vpn` only after the app has started VPN mode; the probe will then require Android to report an active VPN transport and the lab traffic checks to pass. VPN mode does not require `127.0.0.1:1080` because the service may use an ephemeral authenticated internal SOCKS hop between the tunnel and proxy.
 
 The probe JSON is pulled into `test-lab/artifacts/probe-<profile>-<mode>.json`. `verdict=Fail` exits non-zero; typed recoverable failures such as UDP timeout or Android QUIC probe unsupported return `Degraded` so they remain observable without masking DNS, HTTP, HTTPS, or TCP success.
 
