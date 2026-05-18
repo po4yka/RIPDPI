@@ -2,20 +2,20 @@
 
 Status: **not complete**.
 
-This audit keeps the path expected by `test-lab/scripts/check-feature-test-signoff.sh`, while the current evidence was refreshed on 2026-05-19 from the connected non-rooted Pixel 8 Pro and local lab tooling. The `RIPDPI_Root_API34` AVD is available and shell-rooted, but the opt-in root-helper smoke still skips because that AVD does not grant `su` to the app UID.
+This audit keeps the path expected by `test-lab/scripts/check-feature-test-signoff.sh`, while the current evidence was refreshed on 2026-05-19 from the connected non-rooted Pixel 8 Pro and local lab tooling. The `RIPDPI_Root_API34` AVD is available and shell-rooted, but the opt-in root-helper smoke still skips because that AVD does not grant executable `su` to the app UID.
 
 ## Prompt-to-Artifact Checklist
 
 | Requirement | Current artifact or command | Result |
 | --- | --- | --- |
 | Use `docs/feature-test-checklist.md` as the source checklist | `docs/feature-test-checklist.md` and `docs/feature-test-evidence-2026-05-14.md` | Used as the coverage inventory. |
-| Fix all issues found during the local pass | QA commits through `47ea6211`, including physical packet-smoke, readiness, root-helper launch fallback, macOS host UDP/DNS, and VPN readiness-contract fixes | Local findings were fixed and verified. |
+| Fix all issues found during the local pass | QA commits through `4488a7a6`, including physical packet-smoke, readiness, root-helper launch fallback, macOS host UDP/DNS, VPN readiness-contract fixes, and root-helper smoke diagnostics | Local findings were fixed and verified. |
 | Verify Appium installation and current app flows | `ANDROID_SERIAL=38080DLJG000GX RUNNER_TEMP=/tmp/ripdpi-appium-20260518 bash scripts/ci/run-appium-smoke.sh` | Passed after installing missing Python test dependencies and fixing one scroll expectation: 78 passed, 18 skipped. |
 | Verify Maestro installation and current smoke flows | `run-proxy-e2e.sh` and `run-vpn-e2e.sh` artifacts under `test-lab/artifacts/` | Passed on the Pixel with DNS, HTTP, HTTPS, TCP, UDP, relay readiness, and mode-specific service readiness green; only Android debug QUIC probing remains explicitly unsupported. |
 | Verify static local quality gates for the current head | `./gradlew :app:testGithubDebugUnitTest -Pripdpi.skipNativeBuild=true` plus hook checks on each commit | Passed. |
 | Verify local artifacts referenced by the evidence ledger exist | `test-lab/artifacts/...`, `appium/appium-report.html`, `build/packet-smoke/android/...` | Present locally; generated artifacts remain gitignored. |
 | Verify remaining environment readiness | `test-lab/artifacts/feature-gap-readiness-20260519-auto-device-clean.json` | Blocked/manual rows remain. |
-| Verify rooted behavior | Readiness probe, `RootHelperManagerTest`, and current opt-in `RootHelperInstrumentedTest` skip-safety on `RIPDPI_Root_API34` | Blocked for rooted physical/app-granting behavior because the connected Pixel is non-rooted and the available rooted AVD does not grant `su` to app UIDs. |
+| Verify rooted behavior | Readiness probe, `RootHelperManagerTest`, and current opt-in `RootHelperInstrumentedTest` skip-safety on `RIPDPI_Root_API34` | Blocked for rooted physical/app-granting behavior because the connected Pixel is non-rooted and the available rooted AVD returns `error=13, Permission denied` for app-context `su` execution. |
 | Verify physical network matrix | Readiness probe and device transport state | Manual cellular handover, IPv4, and IPv6 evidence remain. |
 | Verify relay provider matrix | Readiness probe | Blocked until relay provider configuration is supplied. |
 | Verify accessibility with TalkBack | Readiness probe | Blocked because TalkBack is installed but inactive. |
@@ -24,14 +24,14 @@ This audit keeps the path expected by `test-lab/scripts/check-feature-test-signo
 
 ## Current Local State
 
-The local non-rooted Pixel pass is healthy for the currently executable surface: app unit tests, Maestro proxy/VPN E2E, physical instrumentation E2E, Android packet-smoke proxy and VPN families, Appium UI/workflow smoke, adversarial middlebox dry-run, root-helper launch fallback unit coverage, current opt-in root-helper instrumentation skip-safety on the shell-rooted `RIPDPI_Root_API34` AVD, and current netem container capability all pass after the committed fixes. The remaining blockers are not hidden failures; they are missing environment or operator evidence for rooted physical or app-granting emulator behavior, TalkBack, cellular handover with IPv4 and IPv6 coverage, routed netem traffic, relay provider coverage, and remote workflow confirmation.
+The local non-rooted Pixel pass is healthy for the currently executable surface: app unit tests, Maestro proxy/VPN E2E, physical instrumentation E2E, Android packet-smoke proxy and VPN families, Appium UI/workflow smoke, adversarial middlebox dry-run, root-helper launch fallback unit coverage, current opt-in root-helper instrumentation skip-safety on the shell-rooted `RIPDPI_Root_API34` AVD, and current netem container capability all pass after the committed fixes. The rooted AVD result is now explicit: app-context `su` launch fails before execution with `error=13, Permission denied`, so it cannot close the app-granting root row. The remaining blockers are not hidden failures; they are missing environment or operator evidence for rooted physical or app-granting emulator behavior, TalkBack, cellular handover with IPv4 and IPv6 coverage, routed netem traffic, relay provider coverage, and remote workflow confirmation.
 
 ## Requirement Table
 
 | Requirement | Evidence inspected | Result | Remaining evidence required |
 | --- | --- | --- | --- |
 | Use `docs/feature-test-checklist.md` as the source checklist | Checklist, evidence ledger, and audit table | Covered locally | None |
-| Fix all issues found during the local pass | QA commits through `47ea6211` and retest commands | Covered locally | None for locally reproducible issues |
+| Fix all issues found during the local pass | QA commits through `4488a7a6` and retest commands | Covered locally | None for locally reproducible issues |
 | Verify Appium installation and current app flows | Full Appium smoke after fix: 78 passed, 18 skipped | Covered locally | None for Appium smoke; skipped seeded flows remain non-blocking for this pass |
 | Verify Maestro installation and current smoke flows | Proxy and VPN E2E artifacts from 2026-05-19 | Covered locally | None for non-rooted Pixel Maestro smoke |
 | Verify static local quality gates for the current head | Full app unit lane and commit hooks | Covered locally | None |

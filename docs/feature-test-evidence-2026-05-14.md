@@ -2,7 +2,7 @@
 
 Status: local evidence refreshed on 2026-05-19; release sign-off is not complete.
 
-This file keeps the path expected by `test-lab/scripts/check-feature-test-signoff.sh`, while the evidence below reflects the current 2026-05-19 local QA pass on commit `47ea6211` with the connected non-rooted Pixel 8 Pro and local lab tooling. The `RIPDPI_Root_API34` AVD is available and shell-rooted, but the opt-in root-helper smoke still skips because that AVD does not grant `su` to the app UID.
+This file keeps the path expected by `test-lab/scripts/check-feature-test-signoff.sh`, while the evidence below reflects the current 2026-05-19 local QA pass through commit `4488a7a6` with the connected non-rooted Pixel 8 Pro and local lab tooling. The `RIPDPI_Root_API34` AVD is available and shell-rooted, but the opt-in root-helper smoke still skips because that AVD does not grant executable `su` to the app UID.
 
 ## Run Metadata
 
@@ -10,7 +10,7 @@ This file keeps the path expected by `test-lab/scripts/check-feature-test-signof
 | --- | --- |
 | Date/time | 2026-05-19, Asia/Tbilisi |
 | Operator | Codex local QA agent |
-| Git commit | `47ea6211` after local QA fixes |
+| Git commit | `4488a7a6` after local QA fixes |
 | Device | Pixel 8 Pro `38080DLJG000GX`, Android 16 / API 36, non-rooted |
 | Local lab host | macOS Darwin host `po4ykas-MacBook-Pro.local`; device-profile lab endpoints on `192.168.1.9` |
 | Readiness artifact | `test-lab/artifacts/feature-gap-readiness-20260519-root-avd-attached.json` |
@@ -32,7 +32,7 @@ This file keeps the path expected by `test-lab/scripts/check-feature-test-signof
 | `./gradlew :app:connectedGithubDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e` | Passed | Physical Pixel E2E package finished 35/35 tests with zero failures. |
 | `ANDROID_SERIAL=38080DLJG000GX RIPDPI_PACKET_SMOKE_ARTIFACT_DIR=test-lab/artifacts/android-packet-smoke-pixel8pro-full-after-autolearn-fixture-20260519 bash scripts/ci/run-android-packet-smoke.sh` | Passed | Non-rooted physical packet-smoke passed 17/17 rows: proxy packet families, VPN baseline, DoH/DoT/DNSCrypt/DoQ success and fault rows, host autolearn, remembered policy, and ws tunnel fallback. |
 | `./gradlew :core:service:testDebugUnitTest --tests com.poyka.ripdpi.services.RootHelperManagerTest --rerun-tasks --no-build-cache -Pkotlin.incremental=false -Pripdpi.skipNativeBuild=true --console=plain` | Passed | Root-helper manager unit coverage verifies fallback to the next launcher when the first `su` launch throws, plus existing readiness and cleanup behavior. |
-| `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedGithubDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.RootHelperInstrumentedTest -Pandroid.testInstrumentationRunnerArguments.ripdpi.rootHelperSmoke=true --rerun-tasks --no-build-cache -Pkotlin.incremental=false --console=plain` | Passed with deliberate skip | The `RIPDPI_Root_API34` Google APIs AVD has root-capable `adbd` and shell `su`, but the current test report at `app/build/outputs/androidTest-results/connected/debug/flavors/github/TEST-RIPDPI_Root_API34(AVD) - 14-_app-github.xml` records one skipped root-helper smoke because app-granting `su` is unavailable. |
+| `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedGithubDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.RootHelperInstrumentedTest -Pandroid.testInstrumentationRunnerArguments.ripdpi.rootHelperSmoke=true --no-build-cache -Pkotlin.incremental=false --console=plain` | Passed with deliberate skip | The `RIPDPI_Root_API34` Google APIs AVD has root-capable `adbd` and shell `su`, but the current test report at `app/build/outputs/androidTest-results/connected/debug/flavors/github/TEST-RIPDPI_Root_API34(AVD) - 14-_app-github.xml` records one skipped root-helper smoke because app-context `su` launch fails before execution with `Cannot run program "su": error=13, Permission denied`. |
 | `ANDROID_SERIAL=38080DLJG000GX RUNNER_TEMP=/tmp/ripdpi-appium-20260518 bash scripts/ci/run-appium-smoke.sh` | Passed | Full Appium smoke rerun after fixes: 78 passed, 18 skipped, 1 warning, 0 failures. |
 | `/usr/bin/python3 -m runner.cli dry-run --matrix matrix.json --fixtures fixtures --out-dir test-lab/artifacts/tspu-dryrun-current` from the adversarial middlebox harness | Passed | Dry-run matrix produced 63 cells and a complete `verdict-report.json`: 23 blocked, 40 bypassed, 0 degraded, 0 inconclusive. |
 | `/usr/bin/python3 -m unittest discover -s tests` from the adversarial middlebox harness | Passed | Adversarial middlebox emulator unit suite ran 53 tests with zero failures. |
@@ -90,12 +90,13 @@ This file keeps the path expected by `test-lab/scripts/check-feature-test-signof
 | `1f3a5623` | Root-helper launch stopped after the first `su` launcher threw, and the new rooted smoke needed to avoid touching shell-only AOSP emulator `su` unless app-granting root is explicitly requested. | Forced `RootHelperManagerTest` passed, and `RootHelperInstrumentedTest` passed with a deliberate skip on the clean shell-rooted API 34 AVD. |
 | `90c1946c` | macOS Docker Desktop returned UDP/DNS replies from an unusable source path for physical Wi-Fi device-profile probes. | Host UDP echo and host DNS helpers passed locally; Pixel proxy/VPN/diagnostics probes now show UDP and DNS success. |
 | `47ea6211` | VPN E2E required the fixed debug proxy listener even though VPN mode may use an ephemeral authenticated internal SOCKS hop. | Focused debug-probe unit tests passed, and Pixel VPN/proxy E2E passed with explicit mode-specific readiness preconditions. |
+| `4488a7a6` | Root-helper instrumentation hid the exact app-context `su` failure behind a generic skip, making rooted-emulator readiness ambiguous. | `:app:ktlintCheck`, `git diff --check`, and a fresh no-build-cache `RootHelperInstrumentedTest` run passed; the rooted AVD artifact now reports `error=13, Permission denied` for app-context `su` attempts. |
 
 ## Current Open Gaps
 
 | Gap | Current evidence | Required next evidence |
 | --- | --- | --- |
-| Rooted physical behavior | Readiness says `rooted_physical_device` is blocked because the attached Pixel did not provide root through `su 0 id`; `RIPDPI_Root_API34` is adb/shell-rooted but the opt-in root-helper smoke skipped with `Root helper smoke requires app-granting su`. | Run the rooted physical device section from the manual evidence template on a device with app-granting root, or run the opt-in root-helper smoke on a Magisk/SuperSU-style emulator; rooted ADB-only evidence can supplement local debugging but does not close the rooted physical requirement. |
+| Rooted physical behavior | Readiness says `rooted_physical_device` is blocked because the attached Pixel did not provide root through `su 0 id`; `RIPDPI_Root_API34` is adb/shell-rooted but the opt-in root-helper smoke skipped because app-context `su` attempts return `error=13, Permission denied`. | Run the rooted physical device section from the manual evidence template on a device with app-granting root, or run the opt-in root-helper smoke on a Magisk/SuperSU-style emulator; rooted ADB-only evidence can supplement local debugging but does not close the rooted physical requirement. |
 | TalkBack | Readiness says TalkBack is installed but not active; active accessibility service is Bitwarden. | Enable TalkBack and record the TalkBack control-label pass. |
 | Physical network matrix | Readiness says Wi-Fi and cellular transports are both visible, but handover is still manual; IPv4 and IPv6 routed coverage is not complete. | Perform cellular handover, Wi-Fi return, IPv4-only, IPv6-only, private-DNS, and limited-path runs and attach probe JSON. |
 | Routed netem | The `ripdpi-linux-netem` container can apply and clear `tc netem` at current head, but the Pixel is not proven to route through it. | Place the Linux VM/router namespace in the Pixel traffic path, then run routed netem VPN and diagnostics probes under loss and QUIC-drop scenarios. |
