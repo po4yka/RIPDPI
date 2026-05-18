@@ -250,7 +250,9 @@ mod tests {
 
         assert!(summary.contains("dns_compatible_divergence=1"));
         assert!(summary.contains("dns_contextual_downgraded=0"));
+        assert!(summary.contains("attention=1"));
         assert!(summary.contains("tcp_attention=2"));
+        assert!(summary.contains("tcp_contextual_downgraded=2"));
         assert!(summary.contains("tcp_resets=1"));
         assert!(summary.contains("tcp_window_cap=1"));
         assert!(summary.contains("domain_tls_ok=1"));
@@ -273,16 +275,75 @@ mod tests {
             },
         ];
 
-        assert_eq!(
-            connectivity_summary(&results, &crate::types::ScanPathMode::RawPath),
-            "5 completed · 4 healthy · 1 attention",
-        );
+        assert_eq!(connectivity_summary(&results, &crate::types::ScanPathMode::RawPath), "5 completed · 5 healthy",);
 
         let analytics = connectivity_analytics_summary(&results, &crate::types::ScanPathMode::RawPath);
         assert!(analytics.contains("dns_compatible_divergence=2"));
         assert!(analytics.contains("dns_contextual_downgraded=2"));
+        assert!(analytics.contains("tcp_contextual_downgraded=1"));
         assert!(analytics
             .contains("network_verdict=healthy_connectivity_with_cdn_dns_variance_and_tcp_stress_probe_sensitivity",),);
+    }
+
+    #[test]
+    fn connectivity_summary_contextualizes_tcp_stress_when_domain_tls_is_healthy() {
+        let results = vec![
+            probe("network_environment", "wifi", "network_available"),
+            probe("domain_reachability", "www.google.com", "tls_ok"),
+            probe("domain_reachability", "www.cloudflare.com", "tls_ok"),
+            ProbeResult {
+                probe_type: "tcp_fat_header".to_string(),
+                target: "172.67.70.222:443 (Cloudflare)".to_string(),
+                outcome: "tcp_16kb_blocked".to_string(),
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "window_cap".to_string() }],
+            },
+            ProbeResult {
+                probe_type: "tcp_fat_header".to_string(),
+                target: "8.8.8.8:443 (Google DNS)".to_string(),
+                outcome: "tcp_reset".to_string(),
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "rst_injection".to_string() }],
+            },
+            ProbeResult {
+                probe_type: "tcp_fat_header".to_string(),
+                target: "9.9.9.9:443 (Quad9 DNS)".to_string(),
+                outcome: "tcp_reset".to_string(),
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "rst_injection".to_string() }],
+            },
+        ];
+
+        assert_eq!(connectivity_summary(&results, &crate::types::ScanPathMode::RawPath), "6 completed · 6 healthy",);
+
+        let analytics = connectivity_analytics_summary(&results, &crate::types::ScanPathMode::RawPath);
+        assert!(analytics.contains("healthy=6"));
+        assert!(analytics.contains("attention=0"));
+        assert!(analytics.contains("tcp_attention=3"));
+        assert!(analytics.contains("tcp_contextual_downgraded=3"));
+        assert!(analytics.contains("tcp_resets=2"));
+        assert!(analytics.contains("tcp_window_cap=1"));
+        assert!(analytics.contains("network_verdict=healthy_connectivity_with_tcp_stress_probe_sensitivity"));
+    }
+
+    #[test]
+    fn connectivity_summary_keeps_tcp_stress_as_attention_when_domain_reachability_fails() {
+        let results = vec![
+            probe("network_environment", "wifi", "network_available"),
+            probe("domain_reachability", "www.google.com", "unreachable"),
+            ProbeResult {
+                probe_type: "tcp_fat_header".to_string(),
+                target: "8.8.8.8:443 (Google DNS)".to_string(),
+                outcome: "tcp_reset".to_string(),
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "rst_injection".to_string() }],
+            },
+        ];
+
+        assert_eq!(
+            connectivity_summary(&results, &crate::types::ScanPathMode::RawPath),
+            "3 completed · 1 healthy · 1 attention · 1 failed",
+        );
+
+        let analytics = connectivity_analytics_summary(&results, &crate::types::ScanPathMode::RawPath);
+        assert!(analytics.contains("tcp_contextual_downgraded=0"));
+        assert!(analytics.contains("network_verdict=network_failures_detected"));
     }
 
     #[test]

@@ -4,12 +4,41 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class MainHomeDiagnosticsUiStateTest {
+    @Test
+    fun `buildHomeDiagnosticsUiState exposes latest manual scan when no composite audit exists`() {
+        val uiState =
+            buildHomeDiagnosticsUiState(
+                settings = AppSettingsSerializer.defaultValue,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                runtime =
+                    HomeDiagnosticsRuntimeState(
+                        latestManualDiagnosticSession =
+                            DiagnosticScanSession(
+                                id = "manual-session",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                serviceMode = null,
+                                status = "completed",
+                                summary = "18 completed · 18 healthy",
+                                startedAt = 10L,
+                                finishedAt = 20L,
+                            ),
+                    ),
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals("18 completed · 18 healthy", uiState.latestAudit?.headline)
+        assertEquals("default · RAW_PATH", uiState.latestAudit?.summary)
+    }
+
     @Test
     fun `buildHomeDiagnosticsUiState exposes owned stack browser target from composite verdict`() {
         val uiState =

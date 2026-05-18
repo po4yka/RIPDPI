@@ -69,6 +69,45 @@ class DiagnosticsOutcomeTaxonomyTest {
     }
 
     @Test
+    fun `fat header stress result is healthy when domain reachability succeeds`() {
+        val reportResults =
+            listOf(
+                ProbeResult("tcp_fat_header", "8.8.8.8:443 (Google DNS)", "tcp_reset"),
+                ProbeResult("domain_reachability", "www.google.com", "tls_ok"),
+            )
+
+        val classification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeResult(
+                pathMode = ScanPathMode.RAW_PATH,
+                result = reportResults.first(),
+                reportResults = reportResults,
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Healthy, classification.bucket)
+        assertEquals(DiagnosticsOutcomeTone.Positive, classification.uiTone)
+        assertEquals("info", classification.eventLevel)
+    }
+
+    @Test
+    fun `fat header stress result stays attention when domain reachability fails`() {
+        val reportResults =
+            listOf(
+                ProbeResult("tcp_fat_header", "8.8.8.8:443 (Google DNS)", "tcp_reset"),
+                ProbeResult("domain_reachability", "www.google.com", "unreachable"),
+            )
+
+        val classification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeResult(
+                pathMode = ScanPathMode.RAW_PATH,
+                result = reportResults.first(),
+                reportResults = reportResults,
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Attention, classification.bucket)
+        assertEquals(DiagnosticsAttentionKind.ProbeArtifact, classification.attentionKind)
+    }
+
+    @Test
     fun `udp transient dns outcome is inconclusive probe artifact`() {
         val classification =
             DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(

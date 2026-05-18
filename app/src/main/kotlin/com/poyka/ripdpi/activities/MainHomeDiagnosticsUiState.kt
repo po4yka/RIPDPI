@@ -2,7 +2,9 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeDetectionVerdict
@@ -112,22 +114,8 @@ internal fun buildHomeDiagnosticsUiState(
         }
     val latestAudit =
         runtime.latestCompositeOutcome?.let { outcome ->
-            HomeDiagnosticsLatestAuditUiState(
-                headline = outcome.headline,
-                summary = outcome.summary,
-                recommendationSummary = outcome.recommendationSummary,
-                ownedStackLaunchUrl = ownedStackBrowserLaunchUrl(outcome.directModeVerdict?.authority),
-                completedStageCount = outcome.completedStageCount,
-                failedStageCount = outcome.failedStageCount,
-                totalStageCount = outcome.stageSummaries.size,
-                stale = fingerprintMismatch,
-                actionable = outcome.actionable && !fingerprintMismatch,
-                directModeResult = outcome.directModeVerdict?.result,
-                directModeReasonCode = outcome.directModeVerdict?.reasonCode,
-                directTransportClass = outcome.directModeVerdict?.transportClass,
-                transportRemediationEvidence = outcome.capabilityEvidence.toTransportRemediationEvidence(),
-            )
-        }
+            outcome.toLatestAuditUiState(fingerprintMismatch)
+        } ?: runtime.latestManualDiagnosticSession?.toLatestManualScanUiState()
     val remediationLadder =
         if (analysisBusy || verificationBusy || runtime.externalScanActive) {
             null
@@ -360,6 +348,33 @@ internal fun buildHomeDiagnosticsUiState(
             },
     )
 }
+
+private fun DiagnosticsHomeCompositeOutcome.toLatestAuditUiState(fingerprintMismatch: Boolean) =
+    HomeDiagnosticsLatestAuditUiState(
+        headline = headline,
+        summary = summary,
+        recommendationSummary = recommendationSummary,
+        ownedStackLaunchUrl = ownedStackBrowserLaunchUrl(directModeVerdict?.authority),
+        completedStageCount = completedStageCount,
+        failedStageCount = failedStageCount,
+        totalStageCount = stageSummaries.size,
+        stale = fingerprintMismatch,
+        actionable = actionable && !fingerprintMismatch,
+        directModeResult = directModeVerdict?.result,
+        directModeReasonCode = directModeVerdict?.reasonCode,
+        directTransportClass = directModeVerdict?.transportClass,
+        transportRemediationEvidence = capabilityEvidence.toTransportRemediationEvidence(),
+    )
+
+private fun DiagnosticScanSession.toLatestManualScanUiState() =
+    HomeDiagnosticsLatestAuditUiState(
+        headline = summary.ifBlank { profileId },
+        summary =
+            listOf(profileId, pathMode)
+                .filter { it.isNotBlank() }
+                .joinToString(" · "),
+        actionable = false,
+    )
 
 private fun toCapabilityEvidenceUiModel(
     evidence: DiagnosticsCapabilityEvidence,

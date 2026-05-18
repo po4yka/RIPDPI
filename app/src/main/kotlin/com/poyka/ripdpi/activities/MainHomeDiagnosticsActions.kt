@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
@@ -18,6 +19,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
@@ -46,6 +48,7 @@ internal data class HomeDiagnosticsRuntimeState(
     val verificationProgress: String? = null,
     val verificationSheet: DiagnosticsHomeVerificationOutcome? = null,
     val currentFingerprintHash: String? = null,
+    val latestManualDiagnosticSession: DiagnosticScanSession? = null,
     val externalScanActive: Boolean = false,
     val externalScanMessage: String? = null,
     val pcapRecordingRequested: Boolean = false,
@@ -71,10 +74,26 @@ internal class MainHomeDiagnosticsActions(
     fun initialize() {
         observeInitialFingerprint()
         observeActiveScanProgress()
+        observeLatestManualDiagnosticSession()
         observeVerificationSessions()
         observeVerifiedVpnConnection()
         observeVpnConsentWhileWaiting()
         observeServiceStatusForFingerprint()
+    }
+
+    private fun observeLatestManualDiagnosticSession() {
+        mutations.launch {
+            diagnosticsTimelineSource.sessions.collect { sessions ->
+                val latestManualSession = sessions.latestCompletedManualDiagnosticSession()
+                homeDiagnosticsState.update { current ->
+                    if (current.latestManualDiagnosticSession == latestManualSession) {
+                        current
+                    } else {
+                        current.copy(latestManualDiagnosticSession = latestManualSession)
+                    }
+                }
+            }
+        }
     }
 
     private fun observeInitialFingerprint() {
@@ -562,3 +581,10 @@ internal class MainHomeDiagnosticsActions(
         latestDirectModeOutcomeStore.publish(snapshot)
     }
 }
+
+private fun List<DiagnosticScanSession>.latestCompletedManualDiagnosticSession(): DiagnosticScanSession? =
+    filter { session ->
+        session.launchOrigin == DiagnosticsScanLaunchOrigin.USER_INITIATED &&
+            session.finishedAt != null &&
+            session.status.equals("completed", ignoreCase = true)
+    }.maxByOrNull { session -> session.finishedAt ?: session.startedAt }
