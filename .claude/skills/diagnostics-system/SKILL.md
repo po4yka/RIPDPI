@@ -1,6 +1,6 @@
 ---
 name: diagnostics-system
-description: Diagnostics scan pipeline, strategy probes, telemetry, wire schemas, catalogs, and goldens.
+description: Use when modifying the diagnostics scan pipeline, ScanRequest/ScanReport types, ProbeTask families, ripdpi-monitor crate, strategy-probe candidates, the diagnostics catalog (packs/profiles), wire-schema contracts between Rust and Kotlin, DIAGNOSTICS_ENGINE_SCHEMA_VERSION, golden contract tests, or adding a new probe type / profile. Triggers on diagnostics scans, strategy probes, automatic audit, dpi-detector profiles, or anything in core/diagnostics or native/rust/crates/ripdpi-monitor-*.
 ---
 
 # Diagnostics System

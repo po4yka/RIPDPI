@@ -1,6 +1,6 @@
 ---
 name: rust-debugging
-description: Android Rust debugging for JNI panics, logcat, tombstones, addr2line, GDB/LLDB, and backtraces.
+description: Use when investigating a native Rust crash in the RIPDPI Android app, decoding tombstones, symbolicating addresses with addr2line, setting up LLDB in Android Studio for the cdylib crates, diagnosing JNI panics, missing logcat output from Rust, RUST_BACKTRACE on Android, or async-Rust debugging via tracing spans. Triggers on "native crash", "JNI panic", "tombstone", "addr2line", "RUST_BACKTRACE", or "lldb-server".
 ---
 
 # Rust Debugging (Android NDK Focus)
@@ -22,16 +22,18 @@ tracing-to-logcat wiring, and standard GDB/LLDB workflows.
 
 ## Project Architecture
 
-Two `cdylib` crates are loaded via JNI on Android:
-- `ripdpi-android` -- proxy engine (loaded as `libripdpi_native.so`)
-- `ripdpi-tunnel-android` -- tun2socks tunnel (loaded as `libripdpi_tunnel_native.so`)
+Four `cdylib` crates are loaded via JNI on Android:
+- `ripdpi-android` -- proxy engine (loaded as `libripdpi.so`)
+- `ripdpi-tunnel-android` -- tun2socks tunnel (loaded as `libripdpi-tunnel.so`)
+- `ripdpi-warp-android` -- WARP transport (loaded as `libripdpi-warp.so`)
+- `ripdpi-relay-android` -- relay transport (loaded as `libripdpi-relay.so`)
 
 Shared infrastructure lives in `android-support` crate:
 - `init_android_logging(tag)` -- wires `tracing` to logcat via `android_logger` + `tracing_subscriber`
 - `install_panic_hook()` -- logs panic + full backtrace via `log::error!` (visible in logcat)
 - `ignore_sigpipe()` -- prevents SIGPIPE kills on socket disconnect
 
-Both crates call these in `JNI_OnLoad`, wrapped in `catch_unwind`.
+All four cdylib crates call these in `JNI_OnLoad`, wrapped in `catch_unwind`.
 
 ## Workflow
 
@@ -68,11 +70,11 @@ adb bugreport bugreport.zip
 ADDR2LINE=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/*/bin/llvm-addr2line
 
 # Symbolicate addresses from tombstone/logcat
-$ADDR2LINE -e native/rust/target/aarch64-linux-android/debug/libripdpi_native.so \
+$ADDR2LINE -e native/rust/target/aarch64-linux-android/debug/libripdpi.so \
     0x12345 0x67890
 
 # Demangle Rust symbols
-$ADDR2LINE -Cfe native/rust/target/aarch64-linux-android/debug/libripdpi_native.so \
+$ADDR2LINE -Cfe native/rust/target/aarch64-linux-android/debug/libripdpi.so \
     0x12345
 ```
 

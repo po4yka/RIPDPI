@@ -1,6 +1,6 @@
 ---
 name: rust-async-internals
-description: Rust async internals for select/join, blocking, JNI bridges, Tokio setup, cancellation, and io_loop.
+description: Use when authoring or reviewing async Rust that may run inside tokio::select! / tokio::time::timeout / FuturesUnordered, bridging JNI to async (block_on from JNI thread), configuring tokio runtime for Android NDK, designing CancellationToken parent/child trees, handling broadcast::Lagged, choosing spawn_blocking vs std::thread::spawn, or auditing for std::sync::Mutex-across-await deadlocks. Triggers on "select", "join", "spawn", "cancellation", "tokio runtime", "block_on", "async fn", "tokio-console", or async-related test/runtime questions.
 ---
 
 # Rust Async Internals -- RIPDPI

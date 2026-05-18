@@ -1,6 +1,6 @@
 ---
 name: cargo-workflows
-description: Cargo workspace, feature flags, native builds, dependency audits, and Android cross-compilation.
+description: Use when managing the Rust workspace, adding/removing crates, editing workspace dependencies, running cargo nextest/audit/deny, configuring Cargo profiles for Android cross-compilation, debugging Cargo.lock churn, migrating crate edition, or wiring Gradle to cargo via the ripdpi.android.rust-native plugin.
 ---
 
 # Cargo Workflows -- RIPDPI
@@ -9,7 +9,7 @@ description: Cargo workspace, feature flags, native builds, dependency audits, a
 
 ```text
 native/rust/
-  Cargo.toml              # Virtual workspace manifest (40 crates as of 2026-04)
+  Cargo.toml              # Virtual workspace manifest (97 crates as of 2026-05)
   Cargo.lock              # Checked in -- reproducible builds
   .cargo/config.toml      # Per-target rustflags for Android NDK
   .config/nextest.toml    # nextest profiles (default + ci)
@@ -290,7 +290,5 @@ Reference: Cargo issue #11779.
 
 - `rust-debugging` -- GDB/LLDB, async debugging, backtraces
 - `rust-security` -- cargo-audit, cargo-deny, supply chain safety
-- `rust-build-times` -- cargo-timings, sccache, Cranelift, LTO tuning
-- `rust-profiling` -- flamegraphs, cargo-bloat, Criterion benchmarks
+- `rust-performance` -- runtime profiling and build-time tuning
 - `rust-unsafe` -- unsafe code review, JNI safety patterns
-- `rust-panic-safety` -- `.unwrap()` / `.expect()` policy (1,727 call sites to grandfather through edition migration)

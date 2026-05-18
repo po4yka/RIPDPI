@@ -1,7 +1,13 @@
 ---
 name: desync-engine
-description: DPI desync planning and packet-manipulation logic for modes, plans, fake packets, TTL, and offsets.
+description: Use when designing or reviewing DPI desync evasion chains, TcpChainStep/UdpChainStep configurations, OffsetExpr/OffsetBase expressions, fake-packet injection, TLS-prelude steps, strategy-probe candidate behavior, fake-TTL semantics across TUN vs proxy mode, or anything in the ripdpi-config/ripdpi-desync/ripdpi-runtime desync pipeline. Triggers on "desync", "DesyncMode", "fake packet", "TTL", "OOB", "tlsrec", "QUIC initial split", or DPI-bypass strategy questions.
 ---
+
+# Desync Engine -- RIPDPI
+
+## Purpose
+
+Document the three-layer DPI desync pipeline that RIPDPI uses to evade middlebox inspection: configuration model (`ripdpi-config`), planning (`ripdpi-desync`), and execution (`ripdpi-runtime`). Apply this skill when modifying any layer of the pipeline, adding new desync techniques, or reasoning about why a strategy works (or doesn't) on a specific Android deployment mode.
 
 ## Conceptual model
 

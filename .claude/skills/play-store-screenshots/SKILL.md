@@ -1,6 +1,6 @@
 ---
 name: play-store-screenshots
-description: "Generate Google Play screenshots, marketing images, and feature graphics for RIPDPI."
+description: "Use when generating Google Play Store assets for RIPDPI — phone screenshots (1080x1920), feature graphics (1024x500), tablet screenshots, or marketing images. Also use when updating play-store-screenshots/src/app/page.tsx, refreshing the raw app captures in public/screenshots/, running the Puppeteer batch capture, or aligning slides with DESIGN.md tokens. Triggers on \"Play Store assets\", \"marketing screenshots\", \"feature graphic\", \"screenshot generator\", \"1080x1920\", or \"play-store-screenshots\"."
 ---
 
 # Google Play Screenshots Generator (RIPDPI)

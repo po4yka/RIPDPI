@@ -1,6 +1,6 @@
 ---
 name: ws-tunnel-telegram
-description: Telegram MTProto WebSocket tunnel logic, DC routing, target classification, and TLS fingerprints.
+description: Use when modifying the MTProto WebSocket tunnel for Telegram in ripdpi-ws-tunnel, Telegram DC IP routing (149.154.* / 91.108.* etc.), MTProto obfuscated2 classification, kws*.web.telegram.org bootstrap and TLS handshake, choosing between rustls and BoringSSL backends, the AvoidsBlocked517ByteClientHello invariant, or the telegram_availability diagnostics probe. Triggers on "Telegram", "MTProto", "ws tunnel", "WsTunnelMode", "ClientHello fingerprint", or Telegram-DC routing questions.
 ---
 
 # WebSocket Tunnel for Telegram (ripdpi-ws-tunnel)

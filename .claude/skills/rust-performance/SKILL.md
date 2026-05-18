@@ -1,13 +1,13 @@
 ---
 name: rust-performance
-description: Rust performance for RIPDPI — runtime profiling (simpleperf, Perfetto, flamegraphs, bloat, benchmarks) and build-time optimization (cargo-timings, sccache, LTO, NDK builds).
+description: Use when profiling native .so files on Android with simpleperf/Perfetto, generating host flamegraphs, measuring binary size with cargo-bloat, analyzing monomorphization bloat with cargo-llvm-lines, configuring LTO/codegen-units, tuning sccache for the 4-ABI build matrix, writing or reviewing Criterion microbenchmarks in ripdpi-bench, or investigating cross-compilation build-time regressions. Triggers on "flamegraph", "cargo-bloat", "binary size", "build time", "LTO", or any performance question.
 ---
 
 # Rust Performance -- RIPDPI
 
 ## Project context
 
-- 23 Rust crates at `native/rust/`, cross-compiled to 4 Android NDK targets
+- 97 Rust crates at `native/rust/`, cross-compiled to 4 Android NDK targets
 - Custom Cargo profiles in `native/rust/Cargo.toml`:
   - `android-jni` — release for APK: `opt-level="z"`, `panic="unwind"`, thin LTO, `codegen-units=1`, `strip=symbols`
   - `android-jni-dev` — dev for on-device debugging: `opt-level=1`, `debug="line-tables-only"`, `panic="unwind"`
@@ -211,7 +211,7 @@ cargo llvm-lines --release | head -20
 
 ### 8. sccache — compilation caching
 
-sccache is critical for this project: 23 crates × 4 Android targets = massive redundant work without caching.
+sccache is critical for this project: 97 crates × 4 Android targets = massive redundant work without caching.
 
 ```bash
 # Install
