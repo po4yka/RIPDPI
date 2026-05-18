@@ -55,7 +55,7 @@ rg 'panic!\(|todo!\(|unimplemented!\(' native/rust/crates/<name>/src/ --type rus
 
 - Check if a crate-level error type exists (e.g., `Error` enum in `error.rs`).
 - Flag crates that use `anyhow::Error` or `Box<dyn Error>` in public APIs (should use typed errors).
-- **Flag `anyhow::Result` appearing in `lib.rs` public API** — library crates MUST use `thiserror`-derived typed errors; `anyhow` is for application/CLI crates only. Per `rust-panic-safety` skill: 2 crates currently use anyhow (`ripdpi-warp-core`, `ripdpi-dns-resolver`) — verify each is actually an application-tier crate, not a library.
+- **Flag `anyhow::Result` appearing in `lib.rs` public API** — library crates MUST use `thiserror`-derived typed errors; `anyhow` is for application/CLI crates only. Per `rust-discipline` skill: 2 crates currently use anyhow (`ripdpi-warp-core`, `ripdpi-dns-resolver`) — verify each is actually an application-tier crate, not a library.
 - **Flag `Result<_, String>` as a code smell** — a `String` error type discards structure and prevents exhaustive match on the caller side. Propose a `thiserror` enum for the crate.
 - Count `.unwrap()` and `.expect()` in non-test code. Flag if > 5 per crate.
 - Flag `panic!()`, `todo!()`, `unimplemented!()` in non-test code.
@@ -107,7 +107,7 @@ rg '^pub mod|^mod ' native/rust/crates/<name>/src/lib.rs --type rust -c
 rg '#\[inline\(always\)\]|#\[cold\]|#\[target_feature' native/rust/ --type rust -n
 ```
 
-- Current workspace has ZERO manual perf hints (`#[inline(always)]`, `#[cold]`, `#[target_feature]`, `likely!/unlikely!` as of 2026-04) — any addition MUST be justified with a Criterion benchmark showing measurable improvement. See `rust-profiling` skill.
+- Current workspace has ZERO manual perf hints (`#[inline(always)]`, `#[cold]`, `#[target_feature]`, `likely!/unlikely!` as of 2026-04) — any addition MUST be justified with a Criterion benchmark showing measurable improvement. See `rust-performance` skill.
 - `#[inline(always)]` on a function with branching logic or a large body is almost always wrong — it inflates binary size without speedup and defeats LLVM's heuristics.
 - `#[target_feature(enable = "...")]` requires a `cfg_feature!`-guarded call site; bare usage without runtime detection is a portability bug on Android ARMv7 vs ARMv8.
 - Flag any hint added without a benchmark diff in the PR.
@@ -145,7 +145,7 @@ rg 'fn \w+\(.+\) -> \w+' native/rust/crates/ripdpi-runtime/src/ --type rust -n
 - **WARNING**: `impl Drop` on a struct that has a field consumers need to move out — prefer a dedicated guard type with `ManuallyDrop` + `#[repr(transparent)]`.
 - **CRITICAL**: `unsafe impl Sync` or `unsafe impl Send` without an explicit `// SAFETY:` comment listing every field type and why the invariant holds.
 
-See `rust-api-design` skill for detail on each rule.
+See `rust-discipline` skill for detail on each rule.
 
 ## Known Issues to Track
 

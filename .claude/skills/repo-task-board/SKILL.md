@@ -61,7 +61,7 @@ updated: YYYY-MM-DD
 
 Epic notes (`type: epic`) use `#area/epic` on the canonical line and include `## Goal / ## Why now / ## Key decisions / ## Scope / ## Ship definition` sections. Child tasks reference their parent via `parent: <epic-slug>`.
 
-Lifecycle: create via Templater → update `status:` + `#status/*` tag on transition → delete file on close (git history is the audit trail). Do NOT add task lines to `active.md`, `backlog.md`, `blocked.md`, or `epics.md` — those are query-only views.
+Lifecycle: create via Templater → update `status:` + `#status/*` tag on transition → delete file on close (git history is the audit trail). Do NOT add task lines to `docs/tasks/active.md`, `docs/tasks/backlog.md`, `docs/tasks/blocked.md`, or `docs/tasks/epics.md` — those are query-only views.
 
 ## Rules
 
@@ -79,7 +79,7 @@ Lifecycle: create via Templater → update `status:` + `#status/*` tag on transi
 
 1. Search `docs/tasks/issues/` for similar tasks (the slug should be self-explanatory).
 2. If a similar task exists, update it instead of duplicating.
-3. Use Templater: "Create new note from template" → `new-task.md` (or `new-epic.md`). File lands in `issues/` automatically.
+3. Use Templater: "Create new note from template" → **new-task.md** (or **new-epic.md**). File lands in `issues/` automatically.
 4. Fill prompts: title, area, priority, owner, parent epic slug (or blank).
 5. The Templater template writes the canonical `- [ ]` line into the note; do not add it to the bucket files.
 

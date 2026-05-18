@@ -59,9 +59,9 @@ play-store-screenshots/
 
 ### Pre-Filled from DESIGN.md (confirm, don't ask from scratch)
 
-All colors come from the project's design system (`DESIGN.md` / `RipDpiExtendedColors`). The Play Store screenshots use these tokens for brand consistency.
+All colors come from the project's design system (**DESIGN.md** / `RipDpiExtendedColors`). The Play Store screenshots use these tokens for brand consistency.
 
-**Brand-palette note:** `DESIGN.md` (alpha) is monochrome-first **light** (`#FAFAFA` background, `#1A1A1A` foreground). Marketing slides honor the design system: light, monochrome-first, restrained semantic color, no decorative gradients. `BRAND_LIGHT` is the **canonical default**; `BRAND` (the strict dark inversion) is kept for at most 1-2 rhythm-break slides per set and uses the same role mapping, not a separate visual identity.
+**Brand-palette note:** the repo-root **DESIGN.md** (alpha) is monochrome-first **light** (`#FAFAFA` background, `#1A1A1A` foreground). Marketing slides honor the design system: light, monochrome-first, restrained semantic color, no decorative gradients. `BRAND_LIGHT` is the **canonical default**; `BRAND` (the strict dark inversion) is kept for at most 1-2 rhythm-break slides per set and uses the same role mapping, not a separate visual identity.
 
 | Item | Default |
 |------|---------|

@@ -61,7 +61,7 @@ Parse the output into a change map: `{ crate_or_area: [changed_files] }`.
 | `core/` (non-service) | `mobile-platform-enforcement/wiki/entities/ripdpi-android.md` |
 | `app/` | `mobile-platform-enforcement/wiki/entities/ripdpi-android.md` |
 | `docs/architecture/*.md` | cross-check against all RIPDPI vault pages |
-| `DESIGN.md` / `ROADMAP.md` | `mobile-platform-enforcement/wiki/entities/ripdpi-android.md` |
+| **DESIGN.md** / **ROADMAP.md** | `mobile-platform-enforcement/wiki/entities/ripdpi-android.md` |
 
 **New crate detection:** If `native/rust/crates/ripdpi-<name>/` exists on disk but has no corresponding vault page, flag it for a new page.
 
