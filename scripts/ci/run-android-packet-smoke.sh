@@ -13,6 +13,7 @@ artifact_root="${RIPDPI_PACKET_SMOKE_ARTIFACT_DIR:-$repo_root/build/packet-smoke
 scenario_filter="${RIPDPI_PACKET_SMOKE_SCENARIO_FILTER:-}"
 capture_mode="${RIPDPI_PACKET_SMOKE_CAPTURE_MODE:-auto}"
 fixture_android_host_override="${RIPDPI_FIXTURE_ANDROID_HOST:-}"
+fixture_dns_answer_ipv4_override="${RIPDPI_FIXTURE_DNS_ANSWER_IPV4:-}"
 gradle_abi_override="${RIPDPI_LOCAL_NATIVE_ABI:-}"
 android_serial="${ANDROID_SERIAL:-}"
 app_package="com.poyka.ripdpi"
@@ -73,6 +74,14 @@ resolve_fixture_android_host() {
         echo "10.0.2.2"
     else
         echo "127.0.0.1"
+    fi
+}
+
+resolve_fixture_dns_answer_ipv4() {
+    if [[ -n "$fixture_dns_answer_ipv4_override" ]]; then
+        echo "$fixture_dns_answer_ipv4_override"
+    else
+        echo "$fixture_android_host"
     fi
 }
 
@@ -549,7 +558,9 @@ fixture_log="$shared_dir/fixture.log"
 fixture_manifest="$shared_dir/fixture-manifest.json"
 fixture_pid_file="$shared_dir/fixture.pid"
 
-RIPDPI_FIXTURE_ANDROID_HOST="$fixture_android_host" bash "$start_fixture_script" "$fixture_log" "$fixture_manifest" "$fixture_pid_file" >/dev/null
+RIPDPI_FIXTURE_ANDROID_HOST="$fixture_android_host" \
+RIPDPI_FIXTURE_DNS_ANSWER_IPV4="$(resolve_fixture_dns_answer_ipv4)" \
+    bash "$start_fixture_script" "$fixture_log" "$fixture_manifest" "$fixture_pid_file" >/dev/null
 fixture_control_port="$(jq -r '.controlPort' "$fixture_manifest")"
 device_capture_filter="$(jq -r '[.tcpEchoPort, .tlsEchoPort, .dnsHttpPort, .dnsDotPort, .dnsDnscryptPort, .dnsDoqPort] | map("port " + tostring) | join(" or ")' "$fixture_manifest")"
 
