@@ -9,39 +9,39 @@ This audit keeps the path expected by `test-lab/scripts/check-feature-test-signo
 | Requirement | Current artifact or command | Result |
 | --- | --- | --- |
 | Use `docs/feature-test-checklist.md` as the source checklist | `docs/feature-test-checklist.md` and `docs/feature-test-evidence-2026-05-14.md` | Used as the coverage inventory. |
-| Fix all issues found during the local pass | QA commits through `4488a7a6`, including physical packet-smoke, readiness, root-helper launch fallback, macOS host UDP/DNS, VPN readiness-contract fixes, and root-helper smoke diagnostics | Local findings were fixed and verified. |
+| Fix all issues found during the local pass | QA commits through `ded3ac55`, including physical packet-smoke, readiness, root-helper launch fallback, macOS host UDP/DNS, VPN readiness-contract fixes, root-helper smoke diagnostics, and Docker netem readiness reporting | Local findings were fixed and verified. |
 | Verify Appium installation and current app flows | `ANDROID_SERIAL=38080DLJG000GX RUNNER_TEMP=/tmp/ripdpi-appium-20260518 bash scripts/ci/run-appium-smoke.sh` | Passed after installing missing Python test dependencies and fixing one scroll expectation: 78 passed, 18 skipped. |
 | Verify Maestro installation and current smoke flows | `run-proxy-e2e.sh` and `run-vpn-e2e.sh` artifacts under `test-lab/artifacts/` | Passed on the Pixel with DNS, HTTP, HTTPS, TCP, UDP, relay readiness, and mode-specific service readiness green; only Android debug QUIC probing remains explicitly unsupported. |
 | Verify static local quality gates for the current head | `./gradlew :app:testGithubDebugUnitTest -Pripdpi.skipNativeBuild=true` plus hook checks on each commit | Passed. |
 | Verify local artifacts referenced by the evidence ledger exist | `test-lab/artifacts/...`, `appium/appium-report.html`, `build/packet-smoke/android/...` | Present locally; generated artifacts remain gitignored. |
-| Verify remaining environment readiness | `test-lab/artifacts/feature-gap-readiness-20260519-auto-device-clean.json` | Blocked/manual rows remain. |
+| Verify remaining environment readiness | `test-lab/artifacts/feature-gap-readiness-20260519-netem-aware.json` | Blocked/manual rows remain. |
 | Verify rooted behavior | Readiness probe, `RootHelperManagerTest`, and current opt-in `RootHelperInstrumentedTest` skip-safety on `RIPDPI_Root_API34` | Blocked for rooted physical/app-granting behavior because the connected Pixel is non-rooted and the available rooted AVD returns `error=13, Permission denied` for app-context `su` execution. |
 | Verify physical network matrix | Readiness probe and device transport state | Manual cellular handover, IPv4, and IPv6 evidence remain. |
 | Verify relay provider matrix | Readiness probe | Blocked until relay provider configuration is supplied. |
 | Verify accessibility with TalkBack | Readiness probe | Blocked because TalkBack is installed but inactive. |
-| Verify routed VM packet-loss lab | `test-lab/artifacts/netem-container-capability-20260519-current.txt` | Container capability proved at current head; routed netem Pixel path remains unproven. |
+| Verify routed VM packet-loss lab | `test-lab/artifacts/netem-container-capability-20260519-current.txt` plus `test-lab/artifacts/feature-gap-readiness-20260519-netem-aware.json` | Container capability and readiness detection are current; routed netem Pixel path remains unproven. |
 | Verify remote release gates | Required workflow list | Blocked until CI, CodeQL, local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly remote workflow evidence exists. |
 
 ## Current Local State
 
-The local non-rooted Pixel pass is healthy for the currently executable surface: app unit tests, Maestro proxy/VPN E2E, physical instrumentation E2E, Android packet-smoke proxy and VPN families, Appium UI/workflow smoke, adversarial middlebox dry-run, root-helper launch fallback unit coverage, current opt-in root-helper instrumentation skip-safety on the shell-rooted `RIPDPI_Root_API34` AVD, and current netem container capability all pass after the committed fixes. The rooted AVD result is now explicit: app-context `su` launch fails before execution with `error=13, Permission denied`, so it cannot close the app-granting root row. The remaining blockers are not hidden failures; they are missing environment or operator evidence for rooted physical or app-granting emulator behavior, TalkBack, cellular handover with IPv4 and IPv6 coverage, routed netem traffic, relay provider coverage, and remote workflow confirmation.
+The local non-rooted Pixel pass is healthy for the currently executable surface: app unit tests, Maestro proxy/VPN E2E, physical instrumentation E2E, Android packet-smoke proxy and VPN families, Appium UI/workflow smoke, adversarial middlebox dry-run, root-helper launch fallback unit coverage, current opt-in root-helper instrumentation skip-safety on the shell-rooted `RIPDPI_Root_API34` AVD, and current netem container capability/readiness reporting all pass after the committed fixes. The rooted AVD result is now explicit: app-context `su` launch fails before execution with `error=13, Permission denied`, so it cannot close the app-granting root row. The routed-netem result is also explicit: the `ripdpi-linux-netem` container is running with `tc`, but no evidence proves Pixel traffic is routed through it. The remaining blockers are not hidden failures; they are missing environment or operator evidence for rooted physical or app-granting emulator behavior, TalkBack, cellular handover with IPv4 and IPv6 coverage, routed netem traffic, relay provider coverage, and remote workflow confirmation.
 
 ## Requirement Table
 
 | Requirement | Evidence inspected | Result | Remaining evidence required |
 | --- | --- | --- | --- |
 | Use `docs/feature-test-checklist.md` as the source checklist | Checklist, evidence ledger, and audit table | Covered locally | None |
-| Fix all issues found during the local pass | QA commits through `4488a7a6` and retest commands | Covered locally | None for locally reproducible issues |
+| Fix all issues found during the local pass | QA commits through `ded3ac55` and retest commands | Covered locally | None for locally reproducible issues |
 | Verify Appium installation and current app flows | Full Appium smoke after fix: 78 passed, 18 skipped | Covered locally | None for Appium smoke; skipped seeded flows remain non-blocking for this pass |
 | Verify Maestro installation and current smoke flows | Proxy and VPN E2E artifacts from 2026-05-19 | Covered locally | None for non-rooted Pixel Maestro smoke |
 | Verify static local quality gates for the current head | Full app unit lane and commit hooks | Covered locally | None |
 | Verify local artifacts referenced by the evidence ledger exist | Artifact paths listed in `docs/feature-test-evidence-2026-05-14.md` | Covered locally | None |
-| Verify remaining environment readiness | `test-lab/artifacts/feature-gap-readiness-20260519-root-avd-attached.json` | Blocked/manual | Rooted physical, TalkBack, cellular handover, IPv4, IPv6, routed netem, relay provider, and remote workflow rows |
+| Verify remaining environment readiness | `test-lab/artifacts/feature-gap-readiness-20260519-netem-aware.json` | Blocked/manual | Rooted physical, TalkBack, cellular handover, IPv4, IPv6, routed netem, relay provider, and remote workflow rows |
 | Verify rooted behavior | `adb shell su 0 id`, `RootHelperManagerTest`, and current opt-in `RootHelperInstrumentedTest` on `RIPDPI_Root_API34` | Blocked/manual | Rooted physical device or app-granting Magisk/SuperSU emulator evidence |
 | Verify physical network matrix | Readiness row and Pixel transport state | Blocked/manual | Cellular handover, IPv4-only, IPv6-only, private-DNS, and limited-path evidence |
 | Verify relay provider matrix | Missing `RIPDPI_RELAY_MATRIX_CONFIG` | Blocked/manual | Operator-provided relay provider matrix and full relay provider run |
 | Verify accessibility with TalkBack | Accessibility readiness row | Blocked/manual | TalkBack active-session evidence |
-| Verify routed VM packet-loss lab | Netem container capability artifact | Blocked/manual | Routed netem VM/router path carrying Pixel traffic |
+| Verify routed VM packet-loss lab | Netem container capability artifact and netem-aware readiness row | Blocked/manual | Routed netem VM/router path carrying Pixel traffic |
 | Verify remote release gates | Branch state and workflow list | Blocked/manual | CI, CodeQL, local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly remote workflow results |
 
 ## Stop Rules

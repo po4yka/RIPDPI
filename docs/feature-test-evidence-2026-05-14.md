@@ -2,7 +2,7 @@
 
 Status: local evidence refreshed on 2026-05-19; release sign-off is not complete.
 
-This file keeps the path expected by `test-lab/scripts/check-feature-test-signoff.sh`, while the evidence below reflects the current 2026-05-19 local QA pass through commit `4488a7a6` with the connected non-rooted Pixel 8 Pro and local lab tooling. The `RIPDPI_Root_API34` AVD is available and shell-rooted, but the opt-in root-helper smoke still skips because that AVD does not grant executable `su` to the app UID.
+This file keeps the path expected by `test-lab/scripts/check-feature-test-signoff.sh`, while the evidence below reflects the current 2026-05-19 local QA pass through commit `ded3ac55` with the connected non-rooted Pixel 8 Pro and local lab tooling. The `RIPDPI_Root_API34` AVD is available and shell-rooted, but the opt-in root-helper smoke still skips because that AVD does not grant executable `su` to the app UID.
 
 ## Run Metadata
 
@@ -10,10 +10,10 @@ This file keeps the path expected by `test-lab/scripts/check-feature-test-signof
 | --- | --- |
 | Date/time | 2026-05-19, Asia/Tbilisi |
 | Operator | Codex local QA agent |
-| Git commit | `4488a7a6` after local QA fixes |
+| Git commit | `ded3ac55` after local QA fixes |
 | Device | Pixel 8 Pro `38080DLJG000GX`, Android 16 / API 36, non-rooted |
 | Local lab host | macOS Darwin host `po4ykas-MacBook-Pro.local`; device-profile lab endpoints on `192.168.1.9` |
-| Readiness artifact | `test-lab/artifacts/feature-gap-readiness-20260519-root-avd-attached.json` |
+| Readiness artifact | `test-lab/artifacts/feature-gap-readiness-20260519-netem-aware.json` |
 | Appium report | `appium/appium-report.html` |
 | Proxy E2E artifact | `test-lab/artifacts/proxy-e2e-20260519-015247/probe-device-proxy.json` |
 | VPN E2E artifact | `test-lab/artifacts/vpn-e2e-20260519-015119/probe-device-vpn.json` |
@@ -36,9 +36,9 @@ This file keeps the path expected by `test-lab/scripts/check-feature-test-signof
 | `ANDROID_SERIAL=38080DLJG000GX RUNNER_TEMP=/tmp/ripdpi-appium-20260518 bash scripts/ci/run-appium-smoke.sh` | Passed | Full Appium smoke rerun after fixes: 78 passed, 18 skipped, 1 warning, 0 failures. |
 | `/usr/bin/python3 -m runner.cli dry-run --matrix matrix.json --fixtures fixtures --out-dir test-lab/artifacts/tspu-dryrun-current` from the adversarial middlebox harness | Passed | Dry-run matrix produced 63 cells and a complete `verdict-report.json`: 23 blocked, 40 bypassed, 0 degraded, 0 inconclusive. |
 | `/usr/bin/python3 -m unittest discover -s tests` from the adversarial middlebox harness | Passed | Adversarial middlebox emulator unit suite ran 53 tests with zero failures. |
-| `./test-lab/scripts/check-feature-gap-readiness.sh --output test-lab/artifacts/feature-gap-readiness-20260519-root-avd-attached.json` | Passed | With the Pixel and `RIPDPI_Root_API34` both attached, readiness still selects the connected physical Pixel for the Android device row and leaves rooted physical, TalkBack, handover, routed netem, relay provider, and remote workflow rows blocked/manual. |
+| `ANDROID_SERIAL=38080DLJG000GX ./test-lab/scripts/check-feature-gap-readiness.sh --output test-lab/artifacts/feature-gap-readiness-20260519-netem-aware.json` | Passed | Current-head readiness selects the connected physical Pixel for the Android device row, reports the running `ripdpi-linux-netem` container as a manual routed-netem prerequisite, and leaves rooted physical, TalkBack, handover, relay provider, and remote workflow rows blocked/manual. |
 | `docker exec ripdpi-linux-netem ... tc qdisc replace dev eth0 root netem loss 1%` | Passed as container capability check | The Linux container has `tc`, `nft`, `CAP_NET_ADMIN`, and `CAP_NET_RAW`; loss applied and cleared on `eth0` in `test-lab/artifacts/netem-container-capability-20260519-current.txt`. This does not prove routed Pixel traffic through netem. |
-| `ANDROID_SERIAL=38080DLJG000GX ./test-lab/scripts/check-feature-test-signoff.sh --readiness test-lab/artifacts/feature-gap-readiness-20260519-root-avd-attached.json` | Blocked | Guard correctly blocks release sign-off while rooted physical, TalkBack, cellular handover with IPv4 and IPv6 coverage, routed netem, relay provider, and remote workflow evidence are incomplete. |
+| `ANDROID_SERIAL=38080DLJG000GX ./test-lab/scripts/check-feature-test-signoff.sh --readiness test-lab/artifacts/feature-gap-readiness-20260519-netem-aware.json` | Blocked | Guard correctly blocks release sign-off while rooted physical, TalkBack, cellular handover with IPv4 and IPv6 coverage, routed netem path proof, relay provider, and remote workflow evidence are incomplete. |
 | `gh workflow run ci.yml --ref main` | Not run locally | Remote workflow evidence still required after review branch publication. |
 | `gh workflow run local-network-lab.yml --ref main -f run_vpn_emulator_lane=false` | Not run locally | Remote local-network-lab workflow evidence still required after review branch publication. |
 | `gh workflow run offline-analytics.yml --ref main -f private_corpus_path=''` | Not run locally | Remote offline analytics workflow evidence still required after review branch publication. |
@@ -91,6 +91,7 @@ This file keeps the path expected by `test-lab/scripts/check-feature-test-signof
 | `90c1946c` | macOS Docker Desktop returned UDP/DNS replies from an unusable source path for physical Wi-Fi device-profile probes. | Host UDP echo and host DNS helpers passed locally; Pixel proxy/VPN/diagnostics probes now show UDP and DNS success. |
 | `47ea6211` | VPN E2E required the fixed debug proxy listener even though VPN mode may use an ephemeral authenticated internal SOCKS hop. | Focused debug-probe unit tests passed, and Pixel VPN/proxy E2E passed with explicit mode-specific readiness preconditions. |
 | `4488a7a6` | Root-helper instrumentation hid the exact app-context `su` failure behind a generic skip, making rooted-emulator readiness ambiguous. | `:app:ktlintCheck`, `git diff --check`, and a fresh no-build-cache `RootHelperInstrumentedTest` run passed; the rooted AVD artifact now reports `error=13, Permission denied` for app-context `su` attempts. |
+| `ded3ac55` | Feature-gap readiness reported a generic Darwin routed-netem blocker even when the Docker netem container was running with `tc`, hiding the actual missing evidence. | `test-feature-gap-readiness.sh`, `test-feature-test-signoff.sh`, `bash -n`, and current-head readiness passed; `routed_netem_vm` now reports manual route-proof work with the running `ripdpi-linux-netem` container. |
 
 ## Current Open Gaps
 
@@ -99,7 +100,7 @@ This file keeps the path expected by `test-lab/scripts/check-feature-test-signof
 | Rooted physical behavior | Readiness says `rooted_physical_device` is blocked because the attached Pixel did not provide root through `su 0 id`; `RIPDPI_Root_API34` is adb/shell-rooted but the opt-in root-helper smoke skipped because app-context `su` attempts return `error=13, Permission denied`. | Run the rooted physical device section from the manual evidence template on a device with app-granting root, or run the opt-in root-helper smoke on a Magisk/SuperSU-style emulator; rooted ADB-only evidence can supplement local debugging but does not close the rooted physical requirement. |
 | TalkBack | Readiness says TalkBack is installed but not active; active accessibility service is Bitwarden. | Enable TalkBack and record the TalkBack control-label pass. |
 | Physical network matrix | Readiness says Wi-Fi and cellular transports are both visible, but handover is still manual; IPv4 and IPv6 routed coverage is not complete. | Perform cellular handover, Wi-Fi return, IPv4-only, IPv6-only, private-DNS, and limited-path runs and attach probe JSON. |
-| Routed netem | The `ripdpi-linux-netem` container can apply and clear `tc netem` at current head, but the Pixel is not proven to route through it. | Place the Linux VM/router namespace in the Pixel traffic path, then run routed netem VPN and diagnostics probes under loss and QUIC-drop scenarios. |
+| Routed netem | Readiness now sees the running `ripdpi-linux-netem` container and marks `routed_netem_vm` manual, but the Pixel is not proven to route through that container or another Linux router namespace. | Place the Linux VM/router namespace in the Pixel traffic path, then run routed netem VPN and diagnostics probes under loss and QUIC-drop scenarios. |
 | Relay provider matrix | Readiness says `RIPDPI_RELAY_MATRIX_CONFIG` is unset. | Provide an operator-owned relay provider matrix and run proxy, VPN, diagnostics, restart, invalid credential, reset, timeout, malformed response, DNS fallback, and handover rows. |
 | Remote workflow confirmation | Local branch is ahead of `origin/main`; remote workflow evidence is unavailable. | Publish a review branch, complete pull request review, then confirm CI, CodeQL, local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly remote workflow results. |
 
