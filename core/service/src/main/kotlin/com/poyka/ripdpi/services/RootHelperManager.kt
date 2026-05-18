@@ -53,6 +53,7 @@ open class RootHelperManager
             private const val READY_POLL_INTERVAL_MS = 100L
             private const val READY_TIMEOUT_MS = 3000L
             private const val STOP_TIMEOUT_MS = 1000L
+            private val SU_COMMAND_CANDIDATES = listOf("su", "/system/xbin/su", "/system/bin/su")
             private val secureRandom = SecureRandom()
         }
 
@@ -98,7 +99,20 @@ open class RootHelperManager
                         removeStaleSocket(socket)
 
                         log.i { "starting root helper: ${attempt.description}" }
-                        helperProcess = attempt.launch()
+                        val process =
+                            try {
+                                attempt.launch()
+                            } catch (e: IOException) {
+                                log.w(e) { "failed to launch root helper via ${attempt.description}" }
+                                null
+                            } catch (e: SecurityException) {
+                                log.w(e) { "failed to launch root helper via ${attempt.description}" }
+                                null
+                            }
+                        if (process == null) {
+                            continue
+                        }
+                        helperProcess = process
 
                         if (readinessProbe(socket, READY_TIMEOUT_MS, READY_POLL_INTERVAL_MS)) {
                             activeSocketPath = socket.absolutePath
@@ -185,19 +199,26 @@ open class RootHelperManager
             val helperCommand =
                 "${shellQuote(binary.absolutePath)} --socket ${shellQuote(socket.absolutePath)} " +
                     "--session-nonce-file ${shellQuote(nonceFile.absolutePath)}"
-            return listOf(
-                RootHelperLaunchAttempt("su -c exec $helperCommand") {
-                    Runtime
-                        .getRuntime()
-                        .exec(arrayOf("su", "-c", "exec $helperCommand"))
-                },
-                RootHelperLaunchAttempt("su 0 sh -c exec $helperCommand") {
-                    Runtime
-                        .getRuntime()
-                        .exec(arrayOf("su", "0", "sh", "-c", "exec $helperCommand"))
-                },
-            )
+            return launchableSuCommands().flatMap { suCommand ->
+                listOf(
+                    RootHelperLaunchAttempt("$suCommand -c exec $helperCommand") {
+                        Runtime
+                            .getRuntime()
+                            .exec(arrayOf(suCommand, "-c", "exec $helperCommand"))
+                    },
+                    RootHelperLaunchAttempt("$suCommand 0 sh -c exec $helperCommand") {
+                        Runtime
+                            .getRuntime()
+                            .exec(arrayOf(suCommand, "0", "sh", "-c", "exec $helperCommand"))
+                    },
+                )
+            }
         }
+
+        private fun launchableSuCommands(): List<String> =
+            SU_COMMAND_CANDIDATES.filter { suCommand ->
+                !suCommand.startsWith(File.separator) || File(suCommand).canExecute()
+            }
 
         private fun shellQuote(value: String): String = "'" + value.replace("'", "'\"'\"'") + "'"
 
