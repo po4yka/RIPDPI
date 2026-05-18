@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeTaxonomy
 import com.poyka.ripdpi.diagnostics.NativeSessionEvent
 import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
 import kotlinx.serialization.builtins.ListSerializer
@@ -157,12 +158,13 @@ internal object DiagnosticsReportPersister {
         report: EngineScanReportWire,
         artifactWriteStore: DiagnosticsArtifactWriteStore,
     ) {
+        val reportResults = report.results.map { it.toProbeResult() }
         report.results.forEach { result ->
             val classification =
-                DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(
-                    probeType = result.probeType,
+                DiagnosticsOutcomeTaxonomy.classifyProbeResult(
                     pathMode = report.pathMode,
-                    outcome = result.outcome,
+                    result = result.toProbeResult(),
+                    reportResults = reportResults,
                 )
             artifactWriteStore.insertNativeSessionEvent(
                 NativeSessionEventEntity(
@@ -191,4 +193,13 @@ internal object DiagnosticsReportPersister {
         val retryCount = deriveProbeRetryCount(details)
         return copy(probeRetryCount = probeRetryCount ?: retryCount)
     }
+
+    private fun com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire.toProbeResult(): ProbeResult =
+        ProbeResult(
+            probeType = probeType,
+            target = target,
+            outcome = outcome,
+            details = details,
+            probeRetryCount = probeRetryCount,
+        )
 }

@@ -249,11 +249,56 @@ mod tests {
         let summary = connectivity_analytics_summary(&results, &crate::types::ScanPathMode::RawPath);
 
         assert!(summary.contains("dns_compatible_divergence=1"));
+        assert!(summary.contains("dns_contextual_downgraded=0"));
         assert!(summary.contains("tcp_attention=2"));
         assert!(summary.contains("tcp_resets=1"));
         assert!(summary.contains("tcp_window_cap=1"));
         assert!(summary.contains("domain_tls_ok=1"));
         assert!(summary.contains("domain_http_ok_or_redirect=1"));
+        assert!(summary.contains("network_verdict=attention_required"));
+    }
+
+    #[test]
+    fn connectivity_summary_treats_weak_cdn_dns_variance_as_healthy_when_reachable() {
+        let results = vec![
+            probe("network_environment", "wifi", "network_available"),
+            dns_compatible_probe("google.com", "0"),
+            dns_compatible_probe("www.google.com", "10"),
+            probe("domain_reachability", "www.google.com", "tls_ok"),
+            ProbeResult {
+                probe_type: "tcp_fat_header".to_string(),
+                target: "8.8.8.8:443 (Google DNS)".to_string(),
+                outcome: "tcp_reset".to_string(),
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "rst_injection".to_string() }],
+            },
+        ];
+
+        assert_eq!(
+            connectivity_summary(&results, &crate::types::ScanPathMode::RawPath),
+            "5 completed · 4 healthy · 1 attention",
+        );
+
+        let analytics = connectivity_analytics_summary(&results, &crate::types::ScanPathMode::RawPath);
+        assert!(analytics.contains("dns_compatible_divergence=2"));
+        assert!(analytics.contains("dns_contextual_downgraded=2"));
+        assert!(analytics
+            .contains("network_verdict=healthy_connectivity_with_cdn_dns_variance_and_tcp_stress_probe_sensitivity",),);
+    }
+
+    #[test]
+    fn connectivity_summary_keeps_strong_dns_divergence_as_attention() {
+        let mut dns_probe = dns_compatible_probe("google.com", "20");
+        dns_probe.details.push(ProbeDetail { key: "recordTypeMismatch".to_string(), value: "true".to_string() });
+        let results = vec![
+            probe("network_environment", "wifi", "network_available"),
+            dns_probe,
+            probe("domain_reachability", "www.google.com", "tls_ok"),
+        ];
+
+        assert_eq!(
+            connectivity_summary(&results, &crate::types::ScanPathMode::RawPath),
+            "3 completed · 2 healthy · 1 attention",
+        );
     }
 
     #[test]
@@ -348,6 +393,19 @@ mod tests {
             target: target.into(),
             outcome: outcome.to_string(),
             details: Vec::new(),
+        }
+    }
+
+    fn dns_compatible_probe(target: impl Into<String>, comparison_score: &str) -> ProbeResult {
+        ProbeResult {
+            probe_type: "dns_integrity".to_string(),
+            target: target.into(),
+            outcome: "dns_compatible_divergence".to_string(),
+            details: vec![
+                ProbeDetail { key: "dnsHttpsClass".to_string(), value: "HTTPS_RR_PRESENT".to_string() },
+                ProbeDetail { key: "comparisonScore".to_string(), value: comparison_score.to_string() },
+                ProbeDetail { key: "comparisonSignals".to_string(), value: "answer_count_divergent".to_string() },
+            ],
         }
     }
 

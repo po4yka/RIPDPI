@@ -65,7 +65,7 @@ class DiagnosticsRouteTest {
     }
 
     @Test
-    fun `route auto-start argument starts in-path scan once`() {
+    fun `route auto-start argument starts raw-path scan once`() {
         val manager = FakeDiagnosticsManager()
         var startCount = 0
         var startedPathMode: ScanPathMode? = null
@@ -100,11 +100,11 @@ class DiagnosticsRouteTest {
         composeRule.waitForIdle()
 
         assertEquals(1, startCount)
-        assertEquals(ScanPathMode.IN_PATH, startedPathMode)
+        assertEquals(ScanPathMode.RAW_PATH, startedPathMode)
     }
 
     @Test
-    fun `dashboard run scan button is enabled and starts in-path scan`() {
+    fun `dashboard run scan button is enabled and starts raw-path scan`() {
         val manager = FakeDiagnosticsManager()
         var startedPathMode: ScanPathMode? = null
         manager.scanController.onStartScan = { pathMode, _ ->
@@ -131,9 +131,9 @@ class DiagnosticsRouteTest {
             .assertIsDisplayed()
             .assertIsEnabled()
             .performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) { startedPathMode == ScanPathMode.IN_PATH }
+        composeRule.waitUntil(timeoutMillis = 5_000) { startedPathMode == ScanPathMode.RAW_PATH }
 
-        assertEquals(ScanPathMode.IN_PATH, startedPathMode)
+        assertEquals(ScanPathMode.RAW_PATH, startedPathMode)
     }
 
     @Test

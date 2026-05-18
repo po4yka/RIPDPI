@@ -277,7 +277,7 @@ class DiagnosticsViewModel
 
         fun startInPathScan() = scanActions.startInPathScan()
 
-        fun runScan() = startInPathScan()
+        fun runScan() = startRawScan()
 
         fun waitForHiddenProbeAndRun() = scanActions.waitForHiddenProbeAndRun()
 

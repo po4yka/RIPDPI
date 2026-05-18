@@ -101,6 +101,67 @@ class DiagnosticsOutcomeTaxonomyTest {
     }
 
     @Test
+    fun `compatible cdn dns variance with healthy reachability is healthy`() {
+        val reportResults =
+            listOf(
+                compatibleDnsVariance("google.com", comparisonScore = "10"),
+                ProbeResult("domain_reachability", "www.google.com", "tls_ok"),
+            )
+
+        val classification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeResult(
+                pathMode = ScanPathMode.RAW_PATH,
+                result = reportResults.first(),
+                reportResults = reportResults,
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Healthy, classification.bucket)
+        assertEquals(DiagnosticsOutcomeTone.Positive, classification.uiTone)
+        assertEquals("info", classification.eventLevel)
+    }
+
+    @Test
+    fun `compatible cdn dns variance with strong evidence remains attention`() {
+        val reportResults =
+            listOf(
+                compatibleDnsVariance(
+                    target = "google.com",
+                    comparisonScore = "20",
+                    extraDetails = listOf(ProbeDetail("recordTypeMismatch", "true")),
+                ),
+                ProbeResult("domain_reachability", "www.google.com", "tls_ok"),
+            )
+
+        val classification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeResult(
+                pathMode = ScanPathMode.RAW_PATH,
+                result = reportResults.first(),
+                reportResults = reportResults,
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Attention, classification.bucket)
+        assertEquals(DiagnosticsOutcomeTone.Warning, classification.uiTone)
+    }
+
+    @Test
+    fun `compatible dns variance on non geodns domain remains attention`() {
+        val reportResults =
+            listOf(
+                compatibleDnsVariance("example.org", comparisonScore = "0"),
+                ProbeResult("domain_reachability", "example.org", "tls_ok"),
+            )
+
+        val classification =
+            DiagnosticsOutcomeTaxonomy.classifyProbeResult(
+                pathMode = ScanPathMode.RAW_PATH,
+                result = reportResults.first(),
+                reportResults = reportResults,
+            )
+
+        assertEquals(DiagnosticsOutcomeBucket.Attention, classification.bucket)
+    }
+
+    @Test
     fun `approach summaries require all healthy results for validated success`() {
         val sessions = buildApproachSummarySessions()
 
@@ -192,6 +253,23 @@ class DiagnosticsOutcomeTaxonomyTest {
             ),
         )
 
+    private fun compatibleDnsVariance(
+        target: String,
+        comparisonScore: String,
+        extraDetails: List<ProbeDetail> = emptyList(),
+    ): ProbeResult =
+        ProbeResult(
+            probeType = "dns_integrity",
+            target = target,
+            outcome = "dns_compatible_divergence",
+            details =
+                listOf(
+                    ProbeDetail("dnsHttpsClass", "HTTPS_RR_PRESENT"),
+                    ProbeDetail("comparisonScore", comparisonScore),
+                    ProbeDetail("comparisonSignals", "answer_count_divergent"),
+                ) + extraDetails,
+        )
+
     @Test
     fun `persist scan report bridges taxonomy event levels`() =
         runTest {
@@ -204,13 +282,19 @@ class DiagnosticsOutcomeTaxonomyTest {
                     pathMode = ScanPathMode.RAW_PATH,
                     startedAt = 10L,
                     finishedAt = 20L,
-                    summary = "3 completed · 2 healthy · 1 failed",
+                    summary = "5 completed · 4 healthy · 1 failed",
                     results =
                         listOf(
                             ProbeResult(
                                 probeType = "dns_integrity",
                                 target = "example.org",
                                 outcome = "dns_match",
+                            ),
+                            compatibleDnsVariance("google.com", comparisonScore = "10"),
+                            ProbeResult(
+                                probeType = "domain_reachability",
+                                target = "www.google.com",
+                                outcome = "tls_ok",
                             ),
                             ProbeResult(
                                 probeType = "network_environment",
@@ -234,9 +318,15 @@ class DiagnosticsOutcomeTaxonomyTest {
             )
 
             val sessionEvents = stores.nativeEventsState.value.filter { it.sessionId == "session-1" }
-            assertEquals(listOf("info", "info", "error"), sessionEvents.map { it.level })
+            assertEquals(listOf("info", "info", "info", "info", "error"), sessionEvents.map { it.level })
             assertEquals(
-                listOf("dns_integrity", "network_environment", "tcp_fat_header"),
+                listOf(
+                    "dns_integrity",
+                    "dns_integrity",
+                    "domain_reachability",
+                    "network_environment",
+                    "tcp_fat_header",
+                ),
                 sessionEvents.map { it.source },
             )
         }

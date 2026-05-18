@@ -73,7 +73,8 @@ internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
     index: Int,
     pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode,
     result: com.poyka.ripdpi.diagnostics.ProbeResult,
-): DiagnosticsProbeResultUiModel = core.toProbeResultUiModel(index, pathMode, result)
+    reportResults: List<com.poyka.ripdpi.diagnostics.ProbeResult> = emptyList(),
+): DiagnosticsProbeResultUiModel = core.toProbeResultUiModel(index, pathMode, result, reportResults)
 
 internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis): DiagnosticsDiagnosisUiModel =
     DiagnosticsDiagnosisUiModel(

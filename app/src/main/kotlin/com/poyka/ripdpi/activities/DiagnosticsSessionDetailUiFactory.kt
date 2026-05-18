@@ -32,6 +32,7 @@ internal class DiagnosticsSessionDetailUiFactory
                             index = index,
                             pathMode = support.parsePathMode(detail.session.pathMode),
                             result = result,
+                            reportResults = detail.results,
                         )
                     }.groupBy { it.probeType }
                     .map { (title, items) ->

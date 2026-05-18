@@ -137,6 +137,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
     index: Int,
     pathMode: ScanPathMode,
     result: ProbeResult,
+    reportResults: List<ProbeResult> = emptyList(),
 ): DiagnosticsProbeResultUiModel =
     DiagnosticsProbeResultUiModel(
         id = "report-$index-${result.probeType}-${result.target}",
@@ -144,7 +145,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
         target = result.target,
         outcome = result.outcome,
         probeRetryCount = result.probeRetryCount ?: deriveProbeRetryCount(result.details),
-        tone = toneForProbeOutcome(result.probeType, pathMode, result.outcome),
+        tone = toneForProbeResult(pathMode, result, reportResults),
         details = result.details.map { DiagnosticsFieldUiModel(it.key, it.value) },
     )
 
@@ -165,6 +166,16 @@ internal fun DiagnosticsUiCoreSupport.toneForProbeOutcome(
 ): DiagnosticsTone =
     DiagnosticsOutcomeTaxonomy
         .classifyProbeOutcome(probeType = probeType, pathMode = pathMode, outcome = outcome)
+        .uiTone
+        .toUiTone()
+
+internal fun DiagnosticsUiCoreSupport.toneForProbeResult(
+    pathMode: ScanPathMode,
+    result: ProbeResult,
+    reportResults: List<ProbeResult>,
+): DiagnosticsTone =
+    DiagnosticsOutcomeTaxonomy
+        .classifyProbeResult(pathMode = pathMode, result = result, reportResults = reportResults)
         .uiTone
         .toUiTone()
 

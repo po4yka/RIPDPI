@@ -105,16 +105,17 @@ internal class DiagnosticsUiInputResolver
 
         private fun DiagnosticsSessionProjection?.probeResultRows(
             latestProfileSession: DiagnosticScanSession?,
-        ): List<DiagnosticsProbeResultUiModel> =
-            this
-                ?.results
-                ?.mapIndexed { index, result ->
-                    support.toProbeResultUiModel(
-                        index = index,
-                        pathMode = latestProfileSession?.pathMode?.let(support::parsePathMode) ?: ScanPathMode.RAW_PATH,
-                        result = result,
-                    )
-                }.orEmpty()
+        ): List<DiagnosticsProbeResultUiModel> {
+            val projectionResults = this?.results.orEmpty()
+            return projectionResults.mapIndexed { index, result ->
+                support.toProbeResultUiModel(
+                    index = index,
+                    pathMode = latestProfileSession?.pathMode?.let(support::parsePathMode) ?: ScanPathMode.RAW_PATH,
+                    result = result,
+                    reportResults = projectionResults,
+                )
+            }
+        }
 
         private fun buildWarnings(
             latestContext: DiagnosticContextModel?,
