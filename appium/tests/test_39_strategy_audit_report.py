@@ -28,9 +28,11 @@ def test_strategy_winning_path_elements(driver):
     assert diag.is_visible(DiagnosticsPage.STRATEGY_WINNING_PATH), (
         "Winning path card should be visible after scan completes"
     )
+    diag.scroll_to(DiagnosticsPage.STRATEGY_WINNING_TCP_ACTION)
     assert diag.is_visible(DiagnosticsPage.STRATEGY_WINNING_TCP_ACTION), (
         "Winning TCP action should be visible"
     )
+    diag.scroll_to(DiagnosticsPage.STRATEGY_WINNING_QUIC_ACTION)
     assert diag.is_visible(DiagnosticsPage.STRATEGY_WINNING_QUIC_ACTION), (
         "Winning QUIC action should be visible"
     )
