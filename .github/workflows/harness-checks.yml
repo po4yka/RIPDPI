@@ -4,14 +4,17 @@ on:
   pull_request:
     paths:
       - '.claude/**'
+      - '.codex/**'
       - 'native/rust/Cargo.toml'
       - 'native/rust/clippy.toml'
       - 'scripts/ci/check_harness_*.py'
+      - 'scripts/ci/check_codex_skills_sync.py'
       - '.github/workflows/harness-checks.yml'
   push:
     branches: [main]
     paths:
       - '.claude/**'
+      - '.codex/**'
       - 'native/rust/Cargo.toml'
       - 'native/rust/clippy.toml'
 
@@ -43,6 +46,18 @@ jobs:
           python-version: '3.11'
       - name: run policy audit (report-only during transition)
         run: python3 scripts/ci/check_harness_policy.py --report-only
+
+  codex-skills-sync:
+    name: codex/claude harness mirror sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: set up python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: verify .claude/.codex mirror
+        run: python3 scripts/ci/check_codex_skills_sync.py
 
   # agent-review is a placeholder lane that demonstrates how the Claude-Code
   # sub-agents (`unsafe-code-auditor`, `async-cancel-safety`,
