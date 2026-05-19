@@ -82,6 +82,11 @@ appium/screenshots/
 # Detekt baselines are forbidden — violations must be fixed in code
 detekt-baseline.xml
 
+# compose-ai-tools render output (renderAllPreviews task) — throwaway PNGs
+# for AI agents and human reviewers. Never goldens; see
+# .claude/rules/compose-preview.md and .claude/rules/golden-bless-discipline.md.
+**/build/compose-previews/
+
 # Obsidian volatile state
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json

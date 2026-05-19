@@ -352,6 +352,11 @@ class RuntimeHistoryMonitorTest {
                     it.lastAppliedAt == 2_000L
             }
         }
+        waitUntil {
+            stores.usageSessionsState.value
+                .singleOrNull()
+                ?.rememberedPolicyMatchedFingerprintHash == "fingerprint-b"
+        }
     }
 
     @Test

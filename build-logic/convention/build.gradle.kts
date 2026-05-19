@@ -14,6 +14,10 @@ dependencies {
     compileOnly(libs.plugins.detekt.map { "${it.pluginId}:${it.pluginId}.gradle.plugin:${it.version}" })
     compileOnly(libs.plugins.ktlint.map { "${it.pluginId}:${it.pluginId}.gradle.plugin:${it.version}" })
     compileOnly(libs.plugins.roborazzi.map { "${it.pluginId}:${it.pluginId}.gradle.plugin:${it.version}" })
+    compileOnly(
+        libs.plugins.compose.preview
+            .map { "${it.pluginId}:${it.pluginId}.gradle.plugin:${it.version}" },
+    )
     implementation(libs.kotlinx.serialization.json)
     testImplementation(kotlin("test"))
 }

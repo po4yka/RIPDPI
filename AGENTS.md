@@ -416,6 +416,7 @@ Long-form rules that apply to both Claude Code and Codex CLI live in `.claude/ru
 | `golden-bless-discipline.md` | Anything that would invoke `RIPDPI_BLESS_GOLDENS=1` or touch files under `tests/golden/` / `src/test/resources/golden/`. |
 | `android-vpn-lifecycle.md` | State persistence under LMK, tokio shutdown from JNI, Foreground Service contract, thread naming, signal masking, Doze/Standby. |
 | `network-fingerprint-privacy.md` | Per-network policy cache, scope-key construction, anything that might log device identifiers (BSSID, IMEI, IP) — privacy + Play Data Safety implications. |
+| `compose-preview.md` | Rendering `@Preview` composables to PNG via `ee.schimke.composeai.preview` — Gradle tasks, output paths under `build/compose-previews/`, and the hard rule that this output is NEVER copied into Roborazzi golden paths. |
 
 ## Design Sources
 

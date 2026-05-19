@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginE
 
 plugins {
     id("org.jetbrains.kotlin.plugin.compose")
+    id("ee.schimke.composeai.preview")
 }
 
 the<CommonExtension>().apply {
