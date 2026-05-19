@@ -23,8 +23,10 @@ private val TcpFatHeaderBlockedOutcomes = setOf("tcp_reset", "tcp_16kb_blocked",
 private const val OutcomeDnsMatch = "dns_match"
 private const val OutcomeDnsSubstitution = "dns_substitution"
 private const val OutcomeDnsNxdomain = "dns_nxdomain"
+private const val OutcomeDnsNxdomainMismatch = "dns_nxdomain_mismatch"
 private const val OutcomeUdpBlocked = "udp_blocked"
 private const val OutcomeUdpSkippedOrBlocked = "udp_skipped_or_blocked"
+private const val OutcomeUdpTimeoutTransient = "udp_timeout_transient"
 private const val DetailDnsSelectedResolverRole = "dnsSelectedResolverRole"
 private const val ResolverRolePrimary = "primary"
 private const val ResolverRoleSystem = "system"
@@ -223,8 +225,10 @@ private fun List<ProbeResult>.firstRecommendationTrigger(): ProbeResult? =
     firstOrNull {
         it.outcome == OutcomeDnsSubstitution ||
             it.outcome == OutcomeDnsNxdomain ||
+            it.outcome == OutcomeDnsNxdomainMismatch ||
             it.outcome == OutcomeUdpBlocked ||
-            it.outcome == OutcomeUdpSkippedOrBlocked
+            it.outcome == OutcomeUdpSkippedOrBlocked ||
+            it.outcome == OutcomeUdpTimeoutTransient
     }
 
 private fun List<ProbeResult>.hasHealthyPrimaryDnsFor(target: String): Boolean =
