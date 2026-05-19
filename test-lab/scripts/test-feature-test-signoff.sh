@@ -6,32 +6,10 @@ guard="$repo_root/test-lab/scripts/check-feature-test-signoff.sh"
 tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-signoff-test.XXXXXX")"
 trap 'rm -rf "$tmpdir"' EXIT
 
-resolve_python() {
-  if [[ -n "${RIPDPI_PYTHON_BIN:-}" ]]; then
-    if [[ "$("$RIPDPI_PYTHON_BIN" -c 'print("ripdpi-python-ok")' 2>/dev/null)" == "ripdpi-python-ok" ]]; then
-      echo "$RIPDPI_PYTHON_BIN"
-      return 0
-    fi
-    echo "Configured RIPDPI_PYTHON_BIN is not a working Python interpreter: $RIPDPI_PYTHON_BIN" >&2
-    return 1
-  fi
+# shellcheck source=test-lab/scripts/python.sh
+source "$repo_root/test-lab/scripts/python.sh"
 
-  local candidate
-  for candidate in /usr/bin/python3 python3; do
-    if ! command -v "$candidate" >/dev/null 2>&1; then
-      continue
-    fi
-    if [[ "$("$candidate" -c 'print("ripdpi-python-ok")' 2>/dev/null)" == "ripdpi-python-ok" ]]; then
-      echo "$candidate"
-      return 0
-    fi
-  done
-
-  echo "No working Python interpreter found for feature sign-off tests." >&2
-  return 1
-}
-
-python_bin="$(resolve_python)"
+python_bin="$(ripdpi_resolve_python "feature sign-off tests")"
 
 complete_audit="$tmpdir/complete-audit.md"
 missing_audit_row="$tmpdir/missing-audit-row.md"
