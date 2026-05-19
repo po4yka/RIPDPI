@@ -37,6 +37,7 @@ kaml = "0.67.0"
 room = "2.8.4"
 robolectric = "4.16.1"
 roborazzi = "1.60.0"
+compose-preview-plugin = "0.10.18"
 retrofit = "3.0.0"
 okhttp = "5.3.2"
 profileinstaller = "1.4.1"
@@ -177,3 +178,4 @@ ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 google-protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
+compose-preview = { id = "ee.schimke.composeai.preview", version.ref = "compose-preview-plugin" }
