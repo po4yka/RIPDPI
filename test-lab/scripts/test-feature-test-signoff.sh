@@ -6,6 +6,33 @@ guard="$repo_root/test-lab/scripts/check-feature-test-signoff.sh"
 tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-signoff-test.XXXXXX")"
 trap 'rm -rf "$tmpdir"' EXIT
 
+resolve_python() {
+  if [[ -n "${RIPDPI_PYTHON_BIN:-}" ]]; then
+    if [[ "$("$RIPDPI_PYTHON_BIN" -c 'print("ripdpi-python-ok")' 2>/dev/null)" == "ripdpi-python-ok" ]]; then
+      echo "$RIPDPI_PYTHON_BIN"
+      return 0
+    fi
+    echo "Configured RIPDPI_PYTHON_BIN is not a working Python interpreter: $RIPDPI_PYTHON_BIN" >&2
+    return 1
+  fi
+
+  local candidate
+  for candidate in /usr/bin/python3 python3; do
+    if ! command -v "$candidate" >/dev/null 2>&1; then
+      continue
+    fi
+    if [[ "$("$candidate" -c 'print("ripdpi-python-ok")' 2>/dev/null)" == "ripdpi-python-ok" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  echo "No working Python interpreter found for feature sign-off tests." >&2
+  return 1
+}
+
+python_bin="$(resolve_python)"
+
 complete_audit="$tmpdir/complete-audit.md"
 missing_audit_row="$tmpdir/missing-audit-row.md"
 audit_remaining_work="$tmpdir/audit-remaining-work.md"
@@ -239,7 +266,7 @@ grep -Fx 'Use docs/feature-test-checklist.md as the source checklist' \
   "$tmpdir/required-audit-rows.out"
 grep -Fx 'Verify remote release gates' "$tmpdir/required-audit-rows.out"
 
-python3 - "$repo_root/docs/feature-test-manual-evidence-template.md" \
+"$python_bin" - "$repo_root/docs/feature-test-manual-evidence-template.md" \
   "$repo_root/docs/testing.md" \
   "$repo_root/test-lab/README.md" \
   "$tmpdir/required-readiness.out" <<'PY'
@@ -332,7 +359,7 @@ for doc_name, doc_text in {
         raise SystemExit(f"{doc_name} must document CodeQL as a push-triggered run")
 PY
 
-python3 - "$repo_root/docs/feature-test-completion-audit-2026-05-14.md" \
+"$python_bin" - "$repo_root/docs/feature-test-completion-audit-2026-05-14.md" \
   "$repo_root/docs/feature-test-evidence-2026-05-14.md" \
   "$tmpdir/required-readiness.out" <<'PY'
 import re

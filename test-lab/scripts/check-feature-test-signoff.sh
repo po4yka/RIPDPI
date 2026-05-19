@@ -33,6 +33,33 @@ required_readiness_checks=(
   remote_workflow_confirmation
 )
 
+resolve_python() {
+  if [[ -n "${RIPDPI_PYTHON_BIN:-}" ]]; then
+    if [[ "$("$RIPDPI_PYTHON_BIN" -c 'print("ripdpi-python-ok")' 2>/dev/null)" == "ripdpi-python-ok" ]]; then
+      echo "$RIPDPI_PYTHON_BIN"
+      return 0
+    fi
+    echo "Configured RIPDPI_PYTHON_BIN is not a working Python interpreter: $RIPDPI_PYTHON_BIN" >&2
+    return 1
+  fi
+
+  local candidate
+  for candidate in /usr/bin/python3 python3; do
+    if ! command -v "$candidate" >/dev/null 2>&1; then
+      continue
+    fi
+    if [[ "$("$candidate" -c 'print("ripdpi-python-ok")' 2>/dev/null)" == "ripdpi-python-ok" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  echo "No working Python interpreter found for feature sign-off checks." >&2
+  return 1
+}
+
+python_bin="$(resolve_python)"
+
 usage() {
   cat <<USAGE
 Usage: $0 [--audit PATH] [--readiness PATH] [--list-required-readiness] [--list-required-audit-rows]
@@ -131,7 +158,7 @@ fi
 while IFS= read -r row; do
   failures+=("completion audit is missing required row: $row")
 done < <(
-  python3 - "$audit_path" "${required_audit_rows[@]}" <<'PY'
+  "$python_bin" - "$audit_path" "${required_audit_rows[@]}" <<'PY'
 import re
 import sys
 from pathlib import Path
@@ -163,7 +190,7 @@ PY
 while IFS=$'\t' read -r requirement reason; do
   failures+=("completion audit row is incomplete: $requirement: $reason")
 done < <(
-  python3 - "$audit_path" <<'PY'
+  "$python_bin" - "$audit_path" <<'PY'
 import sys
 from pathlib import Path
 
@@ -197,7 +224,7 @@ while IFS=$'\t' read -r name status message; do
     failures+=("$name is $status: $message")
   fi
 done < <(
-  python3 - "$readiness_path" "$readiness_max_age_seconds" "$(date +%s)" \
+  "$python_bin" - "$readiness_path" "$readiness_max_age_seconds" "$(date +%s)" \
     "${required_readiness_checks[@]}" <<'PY'
 import json
 import sys
