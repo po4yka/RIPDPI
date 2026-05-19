@@ -59,12 +59,14 @@ class NetworkPathE2ETest {
         assumeE2eFixtureConfigured()
         hiltRule.inject()
         hiltInjected = true
+        runBlocking {
+            stopService(RipDpiProxyService::class.java)
+            stopService(RipDpiVpnService::class.java)
+        }
         val environment = prepareE2eEnvironment(appContext)
         fixtureClient = environment.fixtureClient
         fixture = environment.fixture
         runBlocking {
-            stopService(RipDpiProxyService::class.java)
-            stopService(RipDpiVpnService::class.java)
             appSettingsRepository.update {
                 proxyIp = "127.0.0.1"
                 proxyPort = reserveLoopbackPort()
@@ -182,9 +184,9 @@ class NetworkPathE2ETest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
 
-        val payload = httpEchoPayloadShellLiteral("vpn-e2e")
-        val output = shellTcpRoundTrip(fixture.androidHost, fixture.tcpEchoPort, payload)
-        assertTrue("Expected VPN shell round-trip, got: $output", output.contains("GET /vpn-e2e HTTP/1.1"))
+        val payload = httpEchoPayloadText("vpn-e2e")
+        val output = vpnTcpRoundTrip(fixture.androidHost, fixture.tcpEchoPort, payload)
+        assertTrue("Expected VPN TCP round-trip, got: $output", output.contains("GET /vpn-e2e HTTP/1.1"))
 
         awaitUntil {
             val snapshot = serviceStateStore.telemetry.value
@@ -219,10 +221,10 @@ class NetworkPathE2ETest {
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
 
         val baselineRestartCount = serviceStateStore.telemetry.value.restartCount
-        val payload = httpEchoPayloadShellLiteral("vpn-hostname")
-        val output = shellTcpRoundTrip(fixture.fixtureDomain, fixture.tcpEchoPort, payload)
+        val payload = httpEchoPayloadText("vpn-hostname")
+        val output = vpnTcpRoundTrip(fixture.fixtureDomain, fixture.tcpEchoPort, payload)
         assertTrue(
-            "Expected VPN hostname shell round-trip, got: $output",
+            "Expected VPN hostname TCP round-trip, got: $output",
             output.contains("GET /vpn-hostname HTTP/1.1"),
         )
 
@@ -295,11 +297,12 @@ class NetworkPathE2ETest {
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.DNS_HTTP,
                 outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+                scope = FixtureFaultScopeDto.PERSISTENT,
             ),
         )
 
-        val payload = httpEchoPayloadShellLiteral("vpn-dns-timeout")
-        val output = shellTcpRoundTrip(fixture.fixtureDomain, fixture.tcpEchoPort, payload)
+        val payload = httpEchoPayloadText("vpn-dns-timeout")
+        val output = vpnTcpRoundTrip(fixture.fixtureDomain, fixture.tcpEchoPort, payload)
 
         assertFalse(output.contains("GET /vpn-dns-timeout HTTP/1.1"))
         awaitUntil(timeoutMs = 20_000L) {
@@ -406,8 +409,8 @@ class NetworkPathE2ETest {
             ),
         )
 
-        val payload = httpEchoPayloadShellLiteral("vpn-reset")
-        val output = shellTcpRoundTrip(fixture.androidHost, fixture.tcpEchoPort, payload)
+        val payload = httpEchoPayloadText("vpn-reset")
+        val output = vpnTcpRoundTrip(fixture.androidHost, fixture.tcpEchoPort, payload)
 
         assertFalse(output.contains("GET /vpn-reset HTTP/1.1"))
         assertTrue(
@@ -441,18 +444,15 @@ class NetworkPathE2ETest {
         )
     }
 
-    private fun shellTcpRoundTrip(
+    private fun vpnTcpRoundTrip(
         host: String,
         port: Int,
         payload: String,
-    ): String =
-        execShell(
-            "sh -c 'printf %b \"$payload\" | toybox nc -w 5 $host $port'",
-        )
+    ): String = testProcessTcpRoundTrip(host, port, payload).response.orEmpty()
 
     private fun httpEchoPayload(pathToken: String): ByteArray =
         "GET /$pathToken HTTP/1.1\r\nHost: ${fixture.fixtureDomain}\r\nConnection: close\r\n\r\n".encodeToByteArray()
 
-    private fun httpEchoPayloadShellLiteral(pathToken: String): String =
-        "GET /$pathToken HTTP/1.1\\r\\nHost: ${fixture.fixtureDomain}\\r\\nConnection: close\\r\\n\\r\\n"
+    private fun httpEchoPayloadText(pathToken: String): String =
+        "GET /$pathToken HTTP/1.1\r\nHost: ${fixture.fixtureDomain}\r\nConnection: close\r\n\r\n"
 }

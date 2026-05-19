@@ -21,3 +21,13 @@ packet_smoke_probe_plan_lines() {
             ;;
     esac
 }
+
+packet_smoke_instrumentation_output_failed() {
+    local output_file="$1"
+    grep -Eq '(^FAILURES!!!$|^INSTRUMENTATION_STATUS_CODE: -2$|^INSTRUMENTATION_RESULT: shortMsg=|^INSTRUMENTATION_CODE: 0$|Process crashed)' "$output_file"
+}
+
+packet_smoke_instrumentation_output_completed() {
+    local output_file="$1"
+    grep -Eq '^INSTRUMENTATION_CODE: -1$' "$output_file"
+}

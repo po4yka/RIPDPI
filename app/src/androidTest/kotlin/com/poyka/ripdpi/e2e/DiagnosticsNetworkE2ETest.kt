@@ -105,12 +105,14 @@ class DiagnosticsNetworkE2ETest {
         assumeE2eFixtureConfigured()
         hiltRule.inject()
         hiltInjected = true
+        runBlocking {
+            stopService(RipDpiProxyService::class.java)
+            stopService(RipDpiVpnService::class.java)
+        }
         val environment = prepareE2eEnvironment(appContext)
         fixtureClient = environment.fixtureClient
         fixture = environment.fixture
         runBlocking {
-            stopService(RipDpiProxyService::class.java)
-            stopService(RipDpiVpnService::class.java)
             diagnosticsBootstrapper.initialize()
             seedLocalProfile()
         }
@@ -197,7 +199,7 @@ class DiagnosticsNetworkE2ETest {
     }
 
     @Test
-    fun inPathScanSucceedsWhileVpnServiceIsRunning() {
+    fun inPathScanReportsUnavailableWhileVpnServiceIsRunning() {
         ensureVpnConsentGranted(appContext)
 
         val listenPort = reserveLoopbackPort()
@@ -211,15 +213,13 @@ class DiagnosticsNetworkE2ETest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
 
-        val sessionId = runBlocking { startScanSessionId(ScanPathMode.IN_PATH) }
-        val detail = awaitCompletedSession(sessionId)
-
+        val failure = runCatching { runBlocking { startScanSessionId(ScanPathMode.IN_PATH) } }.exceptionOrNull()
         assertTrue(
-            detail.results.any { result ->
-                result.probeType == "dns_integrity" && result.outcome in inPathDnsSuccessOutcomes()
-            },
+            failure is IllegalStateException &&
+                failure.message ==
+                "In-path diagnostics unavailable while VPN service is active; " +
+                "run raw-path diagnostics so the VPN can pause and resume safely",
         )
-        assertTrue(detail.results.any { it.outcome == "http_ok" })
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
     }
 
@@ -280,7 +280,7 @@ class DiagnosticsNetworkE2ETest {
     }
 
     @Test
-    fun inPathVpnScanAppliesTemporaryResolverOverrideFromConnectivityRecommendation() {
+    fun rawPathVpnScanAppliesTemporaryResolverOverrideFromConnectivityRecommendation() {
         ensureVpnConsentGranted(appContext)
         runBlocking {
             appSettingsRepository.update {
@@ -297,13 +297,14 @@ class DiagnosticsNetworkE2ETest {
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.DNS_UDP,
                 outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+                scope = FixtureFaultScopeDto.PERSISTENT,
             ),
         )
 
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
 
-        val sessionId = runBlocking { startScanSessionId(ScanPathMode.IN_PATH) }
+        val sessionId = runBlocking { startScanSessionId(ScanPathMode.RAW_PATH) }
         val detail = awaitCompletedSession(sessionId)
         val persisted =
             json.decodeFromString(
@@ -313,7 +314,7 @@ class DiagnosticsNetworkE2ETest {
 
         assertTrue(
             diagnosticOutcomes(detail),
-            detail.results.any { it.probeType == "dns_integrity" && it.outcome == "udp_skipped_or_blocked" },
+            detail.results.any { it.probeType == "dns_integrity" && it.outcome in resolverRecommendationDnsOutcomes() },
         )
         assertEquals("cloudflare", persisted.resolverRecommendation?.selectedResolverId)
         assertTrue(persisted.resolverRecommendation?.appliedTemporarily == true)
@@ -341,6 +342,7 @@ class DiagnosticsNetworkE2ETest {
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.DNS_UDP,
                 outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+                scope = FixtureFaultScopeDto.PERSISTENT,
             ),
         )
 
@@ -550,10 +552,12 @@ class DiagnosticsNetworkE2ETest {
     private fun inPathDnsSuccessOutcomes(): Set<String> = setOf("dns_match", "udp_skipped_or_blocked")
 
     private fun rawPathDnsFaultOutcomes(): Set<String> =
-        setOf("encrypted_dns_blocked", "dns_unavailable", "udp_blocked")
+        setOf("encrypted_dns_blocked", "dns_unavailable", "dns_oracle_unavailable", "udp_blocked")
+
+    private fun resolverRecommendationDnsOutcomes(): Set<String> = rawPathDnsFaultOutcomes() + "udp_timeout_transient"
 
     private fun inPathDnsFaultOutcomes(): Set<String> =
-        setOf("encrypted_dns_blocked", "dns_unavailable", "udp_skipped_or_blocked")
+        setOf("encrypted_dns_blocked", "dns_unavailable", "dns_oracle_unavailable", "udp_skipped_or_blocked")
 
     private fun diagnosticOutcomes(detail: com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail): String =
         detail.results.joinToString(prefix = "Diagnostic outcomes: ") { result ->

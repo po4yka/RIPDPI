@@ -161,6 +161,7 @@ fn drain_dns_responses_processes_pending() {
                 latency_ms: 5,
             }),
             resolver_error_kind: None,
+            resolver_endpoint_label: Some("test".to_string()),
         })
         .expect("send response");
 

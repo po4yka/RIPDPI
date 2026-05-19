@@ -32,6 +32,23 @@ assert_status() {
     fi
 }
 
+temp_files=()
+
+make_temp_file() {
+    local temp_file
+    temp_file="$(mktemp)"
+    temp_files+=("$temp_file")
+    echo "$temp_file"
+}
+
+cleanup_temp_files() {
+    if [[ "${#temp_files[@]}" -gt 0 ]]; then
+        rm -f "${temp_files[@]}"
+    fi
+}
+
+trap cleanup_temp_files EXIT
+
 baseline_plan="$(packet_smoke_probe_plan_lines android_vpn_tunnel_baseline_family)"
 assert_eq $'tcp\t1.1.1.1\t443\t5000\t5000\t' "$baseline_plan" "baseline probe plan"
 
@@ -42,5 +59,34 @@ autolearn_lines="$(packet_smoke_probe_plan_lines android_vpn_host_autolearn_fami
 assert_eq "2" "$autolearn_lines" "autolearn probe count"
 
 assert_status 1 "unsupported scenario fails" packet_smoke_probe_plan_lines android_proxy_tlsrec_family
+
+instrumentation_success="$(make_temp_file)"
+cat >"$instrumentation_success" <<'EOF'
+INSTRUMENTATION_STATUS: class=com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS_CODE: 0
+OK (1 test)
+INSTRUMENTATION_CODE: -1
+EOF
+assert_status 1 "successful instrumentation is not failed" packet_smoke_instrumentation_output_failed "$instrumentation_success"
+assert_status 0 "successful instrumentation completed" packet_smoke_instrumentation_output_completed "$instrumentation_success"
+
+instrumentation_failure="$(make_temp_file)"
+cat >"$instrumentation_failure" <<'EOF'
+INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: expected true
+INSTRUMENTATION_STATUS_CODE: -2
+FAILURES!!!
+INSTRUMENTATION_CODE: -1
+EOF
+assert_status 0 "failed instrumentation is failed" packet_smoke_instrumentation_output_failed "$instrumentation_failure"
+assert_status 0 "failed instrumentation still completed" packet_smoke_instrumentation_output_completed "$instrumentation_failure"
+
+instrumentation_crash="$(make_temp_file)"
+cat >"$instrumentation_crash" <<'EOF'
+INSTRUMENTATION_RESULT: shortMsg=Process crashed.
+INSTRUMENTATION_CODE: 0
+EOF
+assert_status 0 "crashed instrumentation is failed" packet_smoke_instrumentation_output_failed "$instrumentation_crash"
+assert_status 1 "crashed instrumentation did not complete" packet_smoke_instrumentation_output_completed "$instrumentation_crash"
 
 echo "android packet smoke lib tests passed"

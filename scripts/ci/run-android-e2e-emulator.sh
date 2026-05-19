@@ -25,7 +25,8 @@ run_target() {
 
   ./gradlew :app:connectedGithubDebugAndroidTest \
     "$GRADLE_ABI" \
-    "$@"
+    "$@" \
+    -Pandroid.testInstrumentationRunnerArguments.coverage=false
 }
 
 if ! run_target \
@@ -46,8 +47,6 @@ if ! run_target \
   adb_cmd logcat -d > android-logcat.txt || true
   exit 1
 fi
-
-./gradlew :app:createGithubDebugAndroidTestCoverageReport "$GRADLE_ABI"
 
 if [ "$event_name" = "workflow_dispatch" ] && [ "$run_maestro" = "true" ]; then
   mkdir -p "$RUNNER_TEMP/maestro"

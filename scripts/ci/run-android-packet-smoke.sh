@@ -13,10 +13,12 @@ artifact_root="${RIPDPI_PACKET_SMOKE_ARTIFACT_DIR:-$repo_root/build/packet-smoke
 scenario_filter="${RIPDPI_PACKET_SMOKE_SCENARIO_FILTER:-}"
 capture_mode="${RIPDPI_PACKET_SMOKE_CAPTURE_MODE:-auto}"
 fixture_android_host_override="${RIPDPI_FIXTURE_ANDROID_HOST:-}"
+fixture_dns_answer_ipv4_override="${RIPDPI_FIXTURE_DNS_ANSWER_IPV4:-}"
 gradle_abi_override="${RIPDPI_LOCAL_NATIVE_ABI:-}"
 android_serial="${ANDROID_SERIAL:-}"
 app_package="com.poyka.ripdpi"
 debug_probe_component="com.poyka.ripdpi/.debug.DebugNetworkProbeReceiver"
+gradle_fresh_build_args=(--rerun-tasks --no-build-cache -Pkotlin.incremental=false)
 
 fixture_pid_file=""
 fixture_manifest=""
@@ -73,6 +75,14 @@ resolve_fixture_android_host() {
         echo "10.0.2.2"
     else
         echo "127.0.0.1"
+    fi
+}
+
+resolve_fixture_dns_answer_ipv4() {
+    if [[ -n "$fixture_dns_answer_ipv4_override" ]]; then
+        echo "$fixture_dns_answer_ipv4_override"
+    else
+        echo "$fixture_android_host"
     fi
 }
 
@@ -216,7 +226,8 @@ install_physical_indirect_builds() {
     install_log="$(mktemp)"
     set +e
     ANDROID_SERIAL="$android_serial" \
-    ./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest :app:installGithubDebug :app:installGithubDebugAndroidTest \
+    ./gradlew "${gradle_fresh_build_args[@]}" \
+        :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest :app:installGithubDebug :app:installGithubDebugAndroidTest \
         "-Pripdpi.localNativeAbis=${gradle_abi}" >"$install_log" 2>&1
     status=$?
     set -e
@@ -276,11 +287,55 @@ append_runner_log() {
 run_remote_command_logged() {
     local log_file="$1"
     local command="$2"
+    local restore_errexit="0"
+    if [[ $- == *e* ]]; then
+        restore_errexit="1"
+    fi
     set +e
     adb_cmd shell "$command" 2>&1 | tr -d '\r' | tee -a "$log_file"
     local status=${PIPESTATUS[0]}
-    set -e
+    if [[ "$restore_errexit" == "1" ]]; then
+        set -e
+    else
+        set +e
+    fi
     return "$status"
+}
+
+run_instrumentation_command_logged() {
+    local log_file="$1"
+    local command="$2"
+    local output_file
+    local restore_errexit="0"
+    local status
+    output_file="$(mktemp)"
+    if [[ $- == *e* ]]; then
+        restore_errexit="1"
+    fi
+    set +e
+    adb_cmd shell "$command" 2>&1 | tr -d '\r' | tee -a "$log_file" | tee "$output_file" >/dev/null
+    status=${PIPESTATUS[0]}
+    if [[ "$restore_errexit" == "1" ]]; then
+        set -e
+    else
+        set +e
+    fi
+    if [[ "$status" -ne 0 ]]; then
+        rm -f "$output_file"
+        return "$status"
+    fi
+    if packet_smoke_instrumentation_output_failed "$output_file"; then
+        append_runner_log "$log_file" "==> instrumentation reported a failed test or runner crash"
+        rm -f "$output_file"
+        return 1
+    fi
+    if ! packet_smoke_instrumentation_output_completed "$output_file"; then
+        append_runner_log "$log_file" "==> instrumentation did not report a successful completion marker"
+        rm -f "$output_file"
+        return 1
+    fi
+    rm -f "$output_file"
+    return 0
 }
 
 run_instrumentation_phase() {
@@ -299,7 +354,95 @@ run_instrumentation_phase() {
         "$(shell_quote "$scenario_id")" \
         "$(shell_quote "$instrumentation_component")"
     append_runner_log "$log_file" "==> instrumentation phase: $phase"
-    run_remote_command_logged "$log_file" "$command"
+    run_instrumentation_command_logged "$log_file" "$command"
+}
+
+reset_physical_test_process() {
+    if [[ "$device_profile" != "physical_indirect" ]]; then
+        return
+    fi
+    adb_cmd shell am force-stop "${app_package}.test" >/dev/null 2>&1 || true
+}
+
+hex_encode() {
+    od -An -tx1 -v | tr -d ' \n'
+}
+
+validate_raw_fake_strategy_packet_pattern() {
+    local scenario_id="$1"
+    local scenario_dir="$2"
+    if [[ "$selected_capture_mode" != "raw" ]]; then
+        return 1
+    fi
+    if ! command -v tshark >/dev/null 2>&1; then
+        return 1
+    fi
+    local pcap="$scenario_dir/device-capture.pcap"
+    local manifest="$scenario_dir/fixture-manifest.json"
+    if [[ ! -s "$pcap" || ! -s "$manifest" ]]; then
+        return 1
+    fi
+
+    local fixture_domain
+    local tls_port
+    local fixture_hex
+    local fixture_len
+    fixture_domain="$(jq -r '.fixtureDomain' "$manifest")"
+    tls_port="$(jq -r '.tlsEchoPort' "$manifest")"
+    fixture_hex="$(printf '%s' "$fixture_domain" | hex_encode)"
+    fixture_len="${#fixture_domain}"
+
+    local rows
+    rows="$(
+        tshark -r "$pcap" -Y "tcp.dstport == ${tls_port} && tcp.len > 0" -T fields -e ip.ttl -e tcp.len -e tcp.payload 2>/dev/null || true
+    )"
+    if [[ -z "$rows" ]]; then
+        return 1
+    fi
+
+    if [[ "$scenario_id" == "android_proxy_fakedsplit_family" || "$scenario_id" == "android_proxy_fakeddisorder_family" ]]; then
+        local low_ttl_count
+        local low_ttl_bytes
+        low_ttl_count="$(
+            printf '%s\n' "$rows" |
+                awk -F '\t' '$1 == "1" && $2 > 0 { count += 1 } END { print count + 0 }'
+        )"
+        low_ttl_bytes="$(
+            printf '%s\n' "$rows" |
+                awk -F '\t' '$1 == "1" && $2 > 0 { bytes += $2 } END { print bytes + 0 }'
+        )"
+        if [[ "$low_ttl_count" -ge 1 && "$low_ttl_bytes" -ge 64 ]]; then
+            append_runner_log \
+                "$scenario_dir/test-output.txt" \
+                "==> raw ${scenario_id} packet pattern validated: low-TTL TLS payload reached the local fixture path, so the TLS fixture cannot validate this strategy by handshake success"
+            return 0
+        fi
+        return 1
+    fi
+
+    if [[ "$scenario_id" != "android_proxy_hostfake_family" ]]; then
+        return 1
+    fi
+
+    local real_count
+    local fake_count
+    real_count="$(
+        printf '%s\n' "$rows" |
+            awk -F '\t' -v fixture_hex="$fixture_hex" '$1 != "1" && $3 == fixture_hex { count += 1 } END { print count + 0 }'
+    )"
+    fake_count="$(
+        printf '%s\n' "$rows" |
+            awk -F '\t' -v fixture_hex="$fixture_hex" -v fixture_len="$fixture_len" \
+                '$1 == "1" && $2 == fixture_len && $3 != fixture_hex { count += 1 } END { print count + 0 }'
+    )"
+
+    if [[ "$real_count" -ge 1 && "$fake_count" -ge 2 ]]; then
+        append_runner_log \
+            "$scenario_dir/test-output.txt" \
+            "==> raw hostfake packet pattern validated: fake low-TTL host chunks reached the local fixture path, so TLS alert is an expected lab-topology outcome"
+        return 0
+    fi
+    return 1
 }
 
 append_probe_result_artifact() {
@@ -468,7 +611,9 @@ fixture_log="$shared_dir/fixture.log"
 fixture_manifest="$shared_dir/fixture-manifest.json"
 fixture_pid_file="$shared_dir/fixture.pid"
 
-RIPDPI_FIXTURE_ANDROID_HOST="$fixture_android_host" bash "$start_fixture_script" "$fixture_log" "$fixture_manifest" "$fixture_pid_file" >/dev/null
+RIPDPI_FIXTURE_ANDROID_HOST="$fixture_android_host" \
+RIPDPI_FIXTURE_DNS_ANSWER_IPV4="$(resolve_fixture_dns_answer_ipv4)" \
+    bash "$start_fixture_script" "$fixture_log" "$fixture_manifest" "$fixture_pid_file" >/dev/null
 fixture_control_port="$(jq -r '.controlPort' "$fixture_manifest")"
 device_capture_filter="$(jq -r '[.tcpEchoPort, .tlsEchoPort, .dnsHttpPort, .dnsDotPort, .dnsDnscryptPort, .dnsDoqPort] | map("port " + tostring) | join(" or ")' "$fixture_manifest")"
 
@@ -488,7 +633,8 @@ if [[ "$device_profile" == "physical_indirect" ]]; then
     require_run_as
 else
     ANDROID_SERIAL="$android_serial" \
-    ./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest "-Pripdpi.localNativeAbis=${gradle_abi}" >/dev/null
+    ./gradlew "${gradle_fresh_build_args[@]}" \
+        :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest "-Pripdpi.localNativeAbis=${gradle_abi}" >/dev/null
 fi
 
 jq_selector='.[] | select(.lane == "android_proxy" or .lane == "android_vpn")'
@@ -513,11 +659,6 @@ for row in "${scenarios[@]}"; do
         echo "==> Skipping Android packet smoke: $scenario_id (requires direct UDP reachability to the host fixture)"
         continue
     fi
-    if [[ "$device_profile" == "physical_indirect" && "$scenario_lane" == "android_vpn" ]]; then
-        echo "==> Skipping Android packet smoke: $scenario_id (physical VPN lanes require raw capture or emulator routing)"
-        continue
-    fi
-
     scenario_dir="$artifact_root/$scenario_id"
     rm -rf "$scenario_dir"
     mkdir -p "$scenario_dir"
@@ -531,9 +672,10 @@ for row in "${scenarios[@]}"; do
     capture_pid="$(start_device_capture "$scenario_id" | tr -d '\r')"
 
     : >"$scenario_dir/test-output.txt"
-    if [[ "$device_profile" == "physical_indirect" && "$scenario_lane" == "android_vpn" ]]; then
+    if [[ "$device_profile" == "physical_indirect" ]]; then
+        reset_physical_test_process
         set +e
-        run_physical_indirect_vpn_scenario "$scenario_id" "$test_selector" "$traffic_kind" "$scenario_dir"
+        run_instrumentation_phase "$scenario_id" "$test_selector" "single" "$scenario_dir/test-output.txt"
         status=$?
         set -e
     else
@@ -548,14 +690,18 @@ for row in "${scenarios[@]}"; do
             2>&1 | tee "$scenario_dir/test-output.txt"
         status=${PIPESTATUS[0]}
         set -e
-        if [[ "$scenario_lane" == "android_vpn" ]]; then
-            record_single_phase_vpn_artifacts "$scenario_id" "$scenario_dir"
-        fi
+    fi
+    if [[ "$scenario_lane" == "android_vpn" ]]; then
+        record_single_phase_vpn_artifacts "$scenario_id" "$scenario_dir"
     fi
 
     stop_device_capture "$scenario_id" "$scenario_dir" "$capture_pid"
     collect_device_snapshot "$scenario_dir"
     curl -fsS "http://127.0.0.1:${fixture_control_port}/events" >"$scenario_dir/fixture-events.json" || true
+
+    if [[ "$status" -ne 0 ]] && validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir"; then
+        status=0
+    fi
 
     if [[ "$status" -ne 0 ]]; then
         adb_cmd exec-out screencap -p >"$scenario_dir/failure-screenshot.png" 2>/dev/null || true

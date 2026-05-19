@@ -42,6 +42,7 @@ pub(super) fn mapdns_config(cache_size: u32) -> ripdpi_tunnel_config::MapDnsConf
         encrypted_dns_doh_url: None,
         encrypted_dns_dnscrypt_provider_name: None,
         encrypted_dns_dnscrypt_public_key: None,
+        encrypted_dns_tls_roots_pem: None,
         dns_query_timeout_ms: 4000,
         resolver_fallback_active: false,
         resolver_fallback_reason: None,

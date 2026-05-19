@@ -273,25 +273,28 @@ internal class DefaultDiagnosticsScanController
                     sessionId = prepared.sessionId,
                     registerActiveBridge = prepared.registerActiveBridge,
                 )
-            val startFailure =
-                runCatching {
-                    bridgeExecutionService.start(
-                        handle = handle,
-                        requestJson = prepared.requestJson,
+            val startBridgeBeforeAwait = prepared.pathMode == ScanPathMode.RAW_PATH
+            if (!startBridgeBeforeAwait) {
+                val startFailure =
+                    runCatching {
+                        bridgeExecutionService.start(
+                            handle = handle,
+                            requestJson = prepared.requestJson,
+                        )
+                    }.exceptionOrNull()
+                if (startFailure != null) {
+                    activeScanRegistry.removePreparedScan(prepared.sessionId)
+                    runCatching { bridgeExecutionService.destroy(handle) }
+                    if (prepared.exposeProgress) {
+                        activeScanRegistry.updateProgress(null)
+                    }
+                    DiagnosticsReportPersister.persistScanFailure(
+                        prepared.sessionId,
+                        startFailure.message ?: "Diagnostics scan failed to start",
+                        scanRecordStore,
                     )
-                }.exceptionOrNull()
-            if (startFailure != null) {
-                activeScanRegistry.removePreparedScan(prepared.sessionId)
-                runCatching { bridgeExecutionService.destroy(handle) }
-                if (prepared.exposeProgress) {
-                    activeScanRegistry.updateProgress(null)
+                    throw startFailure
                 }
-                DiagnosticsReportPersister.persistScanFailure(
-                    prepared.sessionId,
-                    startFailure.message ?: "Diagnostics scan failed to start",
-                    scanRecordStore,
-                )
-                throw startFailure
             }
 
             if (prepared.exposeProgress) {
@@ -312,6 +315,7 @@ internal class DefaultDiagnosticsScanController
                         prepared = prepared,
                         handle = handle,
                         rawPathRunner = rawPathRunner,
+                        startBridgeBeforeAwait = startBridgeBeforeAwait,
                     )
                 }
             activeScanRegistry.registerExecution(
@@ -381,11 +385,18 @@ internal class DiagnosticsScanExecutionCoordinator
             prepared: PreparedDiagnosticsScan,
             handle: BridgeSessionHandle,
             rawPathRunner: suspend (suspend () -> Unit) -> Unit,
+            startBridgeBeforeAwait: Boolean = false,
         ) {
             var finalizationResult: ScanFinalizationResult? = null
             val failure =
                 try {
                     val scanBlock: suspend () -> Unit = {
+                        if (startBridgeBeforeAwait) {
+                            bridgeExecutionService.start(
+                                handle = handle,
+                                requestJson = prepared.requestJson,
+                            )
+                        }
                         bridgePollingService.awaitCompletion(
                             prepared = prepared,
                             handle = handle,
@@ -517,6 +528,7 @@ private fun Throwable.summaryForScan(
     }
 
 private const val InPathServiceUnavailableAction = "start the RIPDPI service before scanning"
+private const val InPathVpnUnavailableAction = "run raw-path diagnostics so the VPN can pause and resume safely"
 
 private fun PreparedDiagnosticsScan.inPathPreflightFailureSummary(): String? {
     val service = context.contextSnapshot.service
@@ -530,6 +542,10 @@ private fun PreparedDiagnosticsScan.inPathPreflightFailureSummary(): String? {
         !service.serviceStatus.equals(AppStatus.Running.name, ignoreCase = true) -> {
             val status = service.serviceStatus
             "In-path diagnostics unavailable: local proxy service is $status; $InPathServiceUnavailableAction"
+        }
+
+        service.activeMode.equals(Mode.VPN.name, ignoreCase = true) -> {
+            "In-path diagnostics unavailable while VPN service is active; $InPathVpnUnavailableAction"
         }
 
         listenerAddress != null && listenerAddress != expectedEndpoint -> {

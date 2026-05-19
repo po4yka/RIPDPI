@@ -501,6 +501,8 @@ internal class MutableNetworkFingerprintProvider(
 
 internal class FakeDiagnosticsContextProvider(
     private val serviceStatus: String = "Running",
+    private val activeMode: String = "Proxy",
+    private val proxyListenerAddress: String? = null,
 ) : DiagnosticsContextProvider {
     override suspend fun captureContext(): DiagnosticContextModel = captureContextForTest()
 
@@ -510,7 +512,7 @@ internal class FakeDiagnosticsContextProvider(
                 ServiceContextModel(
                     serviceStatus = serviceStatus,
                     configuredMode = "VPN",
-                    activeMode = "VPN",
+                    activeMode = activeMode,
                     selectedProfileId = "default",
                     selectedProfileName = "Default",
                     configSource = "ui",
@@ -527,6 +529,14 @@ internal class FakeDiagnosticsContextProvider(
                     lastAutolearnHost = "example.org",
                     lastAutolearnGroup = "3",
                     lastAutolearnAction = "host_promoted",
+                    proxy =
+                        proxyListenerAddress?.let {
+                            RuntimeComponentSummary(
+                                state = "running",
+                                health = "healthy",
+                                listenerAddress = it,
+                            )
+                        },
                 ),
             permissions =
                 PermissionContextModel(

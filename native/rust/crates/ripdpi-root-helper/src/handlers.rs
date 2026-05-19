@@ -7,7 +7,7 @@ mod udp_fragment_handlers;
 
 pub use capabilities::handle_probe_capabilities;
 pub use fake_tcp_handlers::{
-    handle_send_fake_rst, handle_send_flagged_tcp_payload, handle_send_multi_disorder_tcp,
+    handle_send_fake_rst, handle_send_fake_tcp, handle_send_flagged_tcp_payload, handle_send_multi_disorder_tcp,
     handle_send_ordered_tcp_segments, handle_send_seqovl_tcp,
 };
 pub use privileged_adapters::{

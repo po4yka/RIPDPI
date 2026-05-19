@@ -75,6 +75,7 @@ class RootHelperManagerTest {
                         )
                     },
                     readinessProbe = { _, _, _ -> true },
+                    rootProcessTerminator = {},
                 )
 
             val result = manager.start(context)
@@ -125,6 +126,41 @@ class RootHelperManagerTest {
         }
 
     @Test
+    fun `start tries next root helper launcher when first launch throws`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val fakeBinary = File(context.filesDir, "fake-root-helper").apply { writeText("bin") }
+            val secondProcess = RecordingProcess()
+            val launchOrder = mutableListOf<String>()
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { fakeBinary },
+                    processLaunchAttempts = { _, _, nonceFile ->
+                        listOf(
+                            RootHelperLaunchAttempt("missing su") {
+                                assertValidNonceFile(nonceFile)
+                                launchOrder += "missing"
+                                throw java.io.IOException("su missing")
+                            },
+                            RootHelperLaunchAttempt("absolute su") {
+                                assertValidNonceFile(nonceFile)
+                                launchOrder += "absolute"
+                                secondProcess
+                            },
+                        )
+                    },
+                    readinessProbe = { _, _, _ -> true },
+                    rootProcessTerminator = {},
+                )
+
+            val result = manager.start(context)
+
+            assertEquals(listOf("missing", "absolute"), launchOrder)
+            assertEquals(File(context.filesDir, "root_helper.sock").absolutePath, result)
+            assertEquals(result, manager.socketPath)
+        }
+
+    @Test
     fun `stop removes root helper session nonce file`() =
         runTest {
             val context = RuntimeEnvironment.getApplication()
@@ -139,6 +175,7 @@ class RootHelperManagerTest {
                         listOf(RootHelperLaunchAttempt("test root helper launcher") { fakeProcess })
                     },
                     readinessProbe = { _, _, _ -> true },
+                    rootProcessTerminator = {},
                 )
 
             val result = manager.start(context)
@@ -152,6 +189,35 @@ class RootHelperManagerTest {
             assertNull(manager.socketPath)
             assertTrue(fakeProcess.destroyed)
             assertTrue(!nonceFile.exists())
+        }
+
+    @Test
+    fun `stop requests helper shutdown before destroying launcher process`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val fakeBinary = File(context.filesDir, "fake-root-helper").apply { writeText("bin") }
+            val fakeProcess = RecordingProcess()
+            lateinit var nonceFile: File
+            val shutdownRequests = mutableListOf<Pair<String, String?>>()
+            var rootTerminated = false
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { fakeBinary },
+                    processLaunchAttempts = { _, _, file ->
+                        nonceFile = file
+                        listOf(RootHelperLaunchAttempt("test root helper launcher") { fakeProcess })
+                    },
+                    readinessProbe = { _, _, _ -> true },
+                    shutdownRequester = { socketPath, noncePath -> shutdownRequests += socketPath to noncePath },
+                    rootProcessTerminator = { rootTerminated = true },
+                )
+
+            val result = requireNotNull(manager.start(context))
+            manager.stop()
+
+            assertEquals(listOf(result to nonceFile.absolutePath), shutdownRequests)
+            assertTrue(fakeProcess.destroyed)
+            assertTrue(rootTerminated)
         }
 }
 

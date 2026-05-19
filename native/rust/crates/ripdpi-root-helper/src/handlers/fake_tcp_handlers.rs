@@ -3,7 +3,8 @@ use std::os::fd::{IntoRawFd, RawFd};
 use ripdpi_privileged_ops as platform;
 use ripdpi_privileged_ops::TcpPayloadSegment;
 use ripdpi_root_helper_protocol::{
-    FakeRstParams, FlaggedTcpPayloadParams, HelperResponse, MultiDisorderParams, OrderedTcpSegmentsParams, SeqOvlParams,
+    FakeRstParams, FakeTcpParams, FlaggedTcpPayloadParams, HelperResponse, MultiDisorderParams,
+    OrderedTcpSegmentsParams, SeqOvlParams,
 };
 use tracing::{debug, error};
 
@@ -31,6 +32,45 @@ pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse
         Err(e) => {
             let _ = stream.into_raw_fd();
             error!(%e, "send_fake_rst failed");
+            (HelperResponse::error(e.to_string()), None)
+        }
+    }
+}
+
+pub fn handle_send_fake_tcp(fd: RawFd, params: FakeTcpParams) -> (HelperResponse, Option<RawFd>) {
+    debug!(fd, len = params.original_prefix.len(), "send_fake_tcp");
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
+    // dispatch loop, which guarantees a live TCP socket exclusively owned
+    // by this handler. Every exit path below releases the fd via
+    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    let stream = unsafe { adopt_tcp_stream(fd) };
+    let options = platform::FakeTcpOptions {
+        secondary_fake_prefix: params.secondary_fake_prefix.as_deref(),
+        timestamp_delta_ticks: params.timestamp_delta_ticks,
+        protect_path: None,
+        fake_flags: platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
+        orig_flags: platform::TcpFlagOverrides { set: params.tcp_flags_orig_set, unset: params.tcp_flags_orig_unset },
+        require_raw_path: params.require_raw_path,
+        force_raw_original: params.force_raw_original,
+        ipv4_identifications: params.ipv4_identifications,
+    };
+    match platform::send_fake_tcp(
+        &stream,
+        &params.original_prefix,
+        &params.fake_prefix,
+        params.ttl,
+        params.md5sig,
+        params.default_ttl,
+        options,
+        (params.wait_enabled, std::time::Duration::from_millis(params.wait_poll_ms.max(1))),
+    ) {
+        Ok(()) => {
+            let out_fd = stream.into_raw_fd();
+            (HelperResponse::success(serde_json::Value::Null), Some(out_fd))
+        }
+        Err(e) => {
+            let _ = stream.into_raw_fd();
+            error!(%e, "send_fake_tcp failed");
             (HelperResponse::error(e.to_string()), None)
         }
     }

@@ -19,6 +19,8 @@ case "${1:-}" in
     printf '{"packages":[{"name":"ripdpi-desync"},{"name":"ripdpi-packets"}]}\n'
     ;;
   mutants)
+    printf 'RIPDPI_REPO_ROOT=%q\n' "${RIPDPI_REPO_ROOT:-}" >>"$CARGO_STUB_LOG"
+    printf 'RIPDPI_CONTRACT_FIXTURES_DIR=%q\n' "${RIPDPI_CONTRACT_FIXTURES_DIR:-}" >>"$CARGO_STUB_LOG"
     printf '%q ' "$@" >>"$CARGO_STUB_LOG"
     printf '\n' >>"$CARGO_STUB_LOG"
     ;;
@@ -55,11 +57,16 @@ assert_log_not_contains() {
 }
 
 : >"$log_path"
-run_wrapper --in-diff "git diff origin/main...HEAD"
+missing_parent_output="$tmp_dir/missing-parent/mutants-output"
+MUTANTS_OUTPUT_DIR="$missing_parent_output" run_wrapper --in-diff "git diff origin/main...HEAD"
+test -d "$(dirname "$missing_parent_output")"
 assert_log_contains "mutants --manifest-path"
 assert_log_contains "--test-tool nextest"
 assert_log_contains "--output"
+assert_log_contains "--output $missing_parent_output"
 assert_log_contains "--in-diff git\\ diff\\ origin/main...HEAD"
+assert_log_contains "RIPDPI_REPO_ROOT=$repo_root"
+assert_log_contains "RIPDPI_CONTRACT_FIXTURES_DIR=$repo_root/contract-fixtures"
 assert_log_not_contains "--jobs"
 
 : >"$log_path"

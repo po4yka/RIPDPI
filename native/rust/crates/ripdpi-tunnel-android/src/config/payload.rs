@@ -45,6 +45,7 @@ pub(crate) struct TunnelConfigPayload {
     pub(crate) encrypted_dns_doh_url: Option<String>,
     pub(crate) encrypted_dns_dnscrypt_provider_name: Option<String>,
     pub(crate) encrypted_dns_dnscrypt_public_key: Option<String>,
+    pub(crate) encrypted_dns_tls_roots_pem: Option<String>,
     #[serde(default)]
     pub(crate) encrypted_dns_bootstrap_ips: Vec<String>,
     pub(crate) dns_query_timeout_ms: Option<u32>,

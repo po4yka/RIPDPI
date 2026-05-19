@@ -7,6 +7,7 @@ adb_bin="${ADB:-adb}"
 relay_matrix_config="${RIPDPI_RELAY_MATRIX_CONFIG:-}"
 remote_compare_ref="${RIPDPI_REMOTE_COMPARE_REF:-origin/main}"
 ignore_dirty_worktree="${RIPDPI_IGNORE_DIRTY_WORKTREE_FOR_READINESS:-false}"
+netem_container_name="${RIPDPI_NETEM_CONTAINER:-ripdpi-linux-netem}"
 
 usage() {
   cat <<USAGE
@@ -41,6 +42,9 @@ declare -a check_names=()
 declare -a check_statuses=()
 declare -a check_required=()
 declare -a check_messages=()
+selected_android_serial=""
+selected_android_kind=""
+device_selection_error=""
 
 json_escape() {
   local value="$1"
@@ -59,34 +63,107 @@ add_check() {
   check_messages+=("$4")
 }
 
-adb_state() {
+select_android_device() {
   if ! command -v "$adb_bin" >/dev/null 2>&1; then
+    device_selection_error="adb is not available on PATH."
     return 1
   fi
-  "$adb_bin" get-state 2>/dev/null
+
+  if [[ -n "${ANDROID_SERIAL:-}" ]]; then
+    selected_android_serial="$ANDROID_SERIAL"
+    if [[ "$selected_android_serial" == emulator-* ]]; then
+      selected_android_kind="emulator"
+    else
+      selected_android_kind="physical"
+    fi
+    return 0
+  fi
+
+  local ready_serials=()
+  local physical_serials=()
+  local serial
+  while read -r serial; do
+    [[ -n "$serial" ]] || continue
+    ready_serials+=("$serial")
+    if [[ "$serial" != emulator-* ]]; then
+      physical_serials+=("$serial")
+    fi
+  done < <("$adb_bin" devices 2>/dev/null | awk 'NR > 1 && $2 == "device" { print $1 }')
+
+  if [[ "${#physical_serials[@]}" -eq 1 ]]; then
+    selected_android_serial="${physical_serials[0]}"
+    selected_android_kind="physical"
+    return 0
+  fi
+  if [[ "${#physical_serials[@]}" -gt 1 ]]; then
+    device_selection_error="Multiple physical adb devices are attached; set ANDROID_SERIAL for the release-readiness target."
+    return 1
+  fi
+  if [[ "${#ready_serials[@]}" -eq 1 ]]; then
+    selected_android_serial="${ready_serials[0]}"
+    selected_android_kind="emulator"
+    return 0
+  fi
+  if [[ "${#ready_serials[@]}" -gt 1 ]]; then
+    device_selection_error="Multiple adb targets are attached and no physical target could be selected; set ANDROID_SERIAL."
+    return 1
+  fi
+
+  device_selection_error="No attached adb device is ready."
+  return 1
+}
+
+adb_cmd() {
+  if [[ -n "$selected_android_serial" ]]; then
+    "$adb_bin" -s "$selected_android_serial" "$@"
+  else
+    "$adb_bin" "$@"
+  fi
+}
+
+adb_state() {
+  if [[ -z "$selected_android_serial" ]]; then
+    return 1
+  fi
+  adb_cmd get-state 2>/dev/null
 }
 
 adb_shell() {
-  "$adb_bin" shell "$@" 2>/dev/null | tr -d '\r'
+  adb_cmd shell "$@" 2>/dev/null | tr -d '\r'
 }
 
+netem_container_running() {
+  [[ -n "$netem_container_name" ]] || return 1
+  command -v docker >/dev/null 2>&1 || return 1
+  [[ "$(docker inspect -f '{{.State.Running}}' "$netem_container_name" 2>/dev/null || true)" == "true" ]]
+}
+
+netem_container_has_tc() {
+  docker exec "$netem_container_name" sh -c \
+    'command -v tc >/dev/null 2>&1 && tc qdisc show dev "${NETEM_DEV:-eth0}" >/dev/null 2>&1' \
+    >/dev/null 2>&1
+}
+
+select_android_device || true
 device_state="$(adb_state || true)"
 if [[ "$device_state" == "device" ]]; then
   model="$(adb_shell getprop ro.product.model || true)"
   api_level="$(adb_shell getprop ro.build.version.sdk || true)"
   release="$(adb_shell getprop ro.build.version.release_or_codename || true)"
-  add_check "android_device" "ready" "true" "Connected device: ${model:-unknown}, Android ${release:-unknown} / API ${api_level:-unknown}."
+  add_check "android_device" "ready" "true" "Connected ${selected_android_kind:-adb} device: ${model:-unknown}, Android ${release:-unknown} / API ${api_level:-unknown}."
 else
-  add_check "android_device" "blocked" "true" "No attached adb device is ready."
+  add_check "android_device" "blocked" "true" "${device_selection_error:-No attached adb device is ready.}"
 fi
 
-if [[ "$device_state" == "device" ]]; then
+if [[ "$device_state" == "device" && "$selected_android_kind" != "emulator" ]]; then
   root_probe="$(adb_shell su 0 id || true)"
   if [[ "$root_probe" == *"uid=0"* ]]; then
     add_check "rooted_physical_device" "ready" "true" "Root shell is available via su 0 id: $root_probe."
   else
     add_check "rooted_physical_device" "blocked" "true" "Attached device did not provide root via su 0 id."
   fi
+elif [[ "$device_state" == "device" ]]; then
+  add_check "rooted_physical_device" "blocked" "true" "Selected adb target is an emulator; rooted physical evidence requires a physical device."
 else
   add_check "rooted_physical_device" "blocked" "true" "No adb device is ready for the root-helper pass."
 fi
@@ -106,7 +183,7 @@ else
   add_check "manual_talkback" "blocked" "true" "No adb device is ready for TalkBack verification."
 fi
 
-if [[ "$device_state" == "device" ]]; then
+if [[ "$device_state" == "device" && "$selected_android_kind" != "emulator" ]]; then
   connectivity="$(adb_shell dumpsys connectivity || true)"
   if [[ "$connectivity" == *"Transports: WIFI"* ]]; then
     wifi_state="present"
@@ -123,11 +200,19 @@ if [[ "$device_state" == "device" ]]; then
   else
     add_check "physical_network_handover" "blocked" "true" "Need both Wi-Fi and cellular transports visible; wifi=$wifi_state cellular=$cellular_state."
   fi
+elif [[ "$device_state" == "device" ]]; then
+  add_check "physical_network_handover" "blocked" "true" "Selected adb target is an emulator; physical network matrix evidence requires a physical device."
 else
   add_check "physical_network_handover" "blocked" "true" "No adb device is ready for network matrix checks."
 fi
 
-if [[ "$(uname -s)" == "Linux" ]] && command -v tc >/dev/null 2>&1; then
+if netem_container_running; then
+  if netem_container_has_tc; then
+    add_check "routed_netem_vm" "manual" "true" "Docker netem container '$netem_container_name' is running and has tc; confirm Android/device traffic is routed through this container or a Linux router namespace before running packet-loss scenarios."
+  else
+    add_check "routed_netem_vm" "blocked" "true" "Docker netem container '$netem_container_name' is running, but tc is unavailable or cannot inspect NETEM_DEV=${NETEM_DEV:-eth0}."
+  fi
+elif [[ "$(uname -s)" == "Linux" ]] && command -v tc >/dev/null 2>&1; then
   if [[ -c /dev/net/tun || -e /proc/sys/net/ipv4/ip_forward ]]; then
     add_check "routed_netem_vm" "manual" "true" "Linux netem tools are present; confirm this host is routing Android/device traffic before running packet-loss scenarios."
   else

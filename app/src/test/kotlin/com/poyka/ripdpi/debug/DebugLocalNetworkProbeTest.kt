@@ -11,6 +11,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.File
+import java.io.InputStream
+import java.net.SocketTimeoutException
 
 @RunWith(RobolectricTestRunner::class)
 class DebugLocalNetworkProbeTest {
@@ -45,6 +47,19 @@ class DebugLocalNetworkProbeTest {
         assertEquals("https://10.0.2.2:9443/h3/ok", config.quicUrl)
         assertEquals("10.0.2.2:10080", config.relayEndpoint)
         assertTrue(config.requireVpnActive)
+        assertFalse(config.requireProxyReady)
+    }
+
+    @Test
+    fun `proxy mode requires fixed proxy listener by default`() {
+        val config =
+            NetworkProbeConfig.fromIntent(
+                Intent(debugProbeAction)
+                    .putExtra("profile", "emulator")
+                    .putExtra("mode", "proxy"),
+            )
+
+        assertFalse(config.requireVpnActive)
         assertTrue(config.requireProxyReady)
     }
 
@@ -183,6 +198,40 @@ class DebugLocalNetworkProbeTest {
         assertEquals(null, parseRelayEndpoint("10.0.2.2"))
         assertEquals(null, parseRelayEndpoint("10.0.2.2:0"))
         assertEquals(null, parseRelayEndpoint(":10080"))
+    }
+
+    @Test
+    fun `tcp probe response reader keeps bytes received before timeout`() {
+        val input =
+            object : InputStream() {
+                private val data = "echo-body".toByteArray()
+                private var offset = 0
+
+                override fun read(
+                    buffer: ByteArray,
+                    byteOffset: Int,
+                    byteCount: Int,
+                ): Int {
+                    if (offset >= data.size) {
+                        throw SocketTimeoutException("read timed out")
+                    }
+                    val read = minOf(byteCount, data.size - offset)
+                    data.copyInto(buffer, byteOffset, offset, offset + read)
+                    offset += read
+                    return read
+                }
+
+                override fun read(): Int =
+                    if (offset < data.size) {
+                        data[offset++].toInt() and 0xFF
+                    } else {
+                        throw SocketTimeoutException("read timed out")
+                    }
+            }
+
+        val response = readDebugTcpProbeResponse(input, expectedBytes = 128)
+
+        assertEquals("echo-body", response)
     }
 
     @Test

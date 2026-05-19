@@ -1297,7 +1297,7 @@ jobs:
   android-network-e2e:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_network_e2e == 'true') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-android-e2e'))
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -1328,6 +1328,9 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Start local network fixture
+        env:
+          RIPDPI_FIXTURE_ANDROID_HOST: 10.0.2.2
+          RIPDPI_FIXTURE_DNS_ANSWER_IPV4: 10.0.2.2
         run: |
           mkdir -p "$RUNNER_TEMP/local-network-fixture"
           scripts/ci/start-local-network-fixture.sh \

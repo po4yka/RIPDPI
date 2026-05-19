@@ -6,6 +6,33 @@ guard="$repo_root/test-lab/scripts/check-feature-test-signoff.sh"
 tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-signoff-test.XXXXXX")"
 trap 'rm -rf "$tmpdir"' EXIT
 
+resolve_python() {
+  if [[ -n "${RIPDPI_PYTHON_BIN:-}" ]]; then
+    if [[ "$("$RIPDPI_PYTHON_BIN" -c 'print("ripdpi-python-ok")' 2>/dev/null)" == "ripdpi-python-ok" ]]; then
+      echo "$RIPDPI_PYTHON_BIN"
+      return 0
+    fi
+    echo "Configured RIPDPI_PYTHON_BIN is not a working Python interpreter: $RIPDPI_PYTHON_BIN" >&2
+    return 1
+  fi
+
+  local candidate
+  for candidate in /usr/bin/python3 python3; do
+    if ! command -v "$candidate" >/dev/null 2>&1; then
+      continue
+    fi
+    if [[ "$("$candidate" -c 'print("ripdpi-python-ok")' 2>/dev/null)" == "ripdpi-python-ok" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  echo "No working Python interpreter found for feature sign-off tests." >&2
+  return 1
+}
+
+python_bin="$(resolve_python)"
+
 complete_audit="$tmpdir/complete-audit.md"
 missing_audit_row="$tmpdir/missing-audit-row.md"
 audit_remaining_work="$tmpdir/audit-remaining-work.md"
@@ -22,6 +49,7 @@ duplicate_required_json="$tmpdir/duplicate-required.json"
 invalid_status_json="$tmpdir/invalid-status.json"
 malformed_json="$tmpdir/malformed.json"
 blocked_json="$tmpdir/blocked.json"
+multiline_message_json="$tmpdir/multiline-message.json"
 current_epoch="$(date +%s)"
 
 cat > "$complete_audit" <<'EOF'
@@ -208,6 +236,21 @@ cat > "$blocked_json" <<EOF
 }
 EOF
 
+cat > "$multiline_message_json" <<EOF
+{
+  "generatedAtEpoch": $current_epoch,
+  "checks": [
+    {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "rooted_physical_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "manual_talkback", "status": "ready", "required": true, "message": "ready"},
+    {"name": "physical_network_handover", "status": "ready", "required": true, "message": "ready"},
+    {"name": "routed_netem_vm", "status": "ready", "required": true, "message": "ready"},
+    {"name": "production_relay_matrix", "status": "manual", "required": true, "message": "Relay matrix config is valid.\\nConfig: /tmp/provider-matrix.json\\nExample: test-lab/relay/provider-matrix.example.json"},
+    {"name": "remote_workflow_confirmation", "status": "ready", "required": true, "message": "ready"}
+  ]
+}
+EOF
+
 "$guard" --help > "$tmpdir/help.out"
 grep -F 'Required readiness rows:' "$tmpdir/help.out"
 grep -F 'Required completion-audit rows:' "$tmpdir/help.out"
@@ -223,7 +266,7 @@ grep -Fx 'Use docs/feature-test-checklist.md as the source checklist' \
   "$tmpdir/required-audit-rows.out"
 grep -Fx 'Verify remote release gates' "$tmpdir/required-audit-rows.out"
 
-python3 - "$repo_root/docs/feature-test-manual-evidence-template.md" \
+"$python_bin" - "$repo_root/docs/feature-test-manual-evidence-template.md" \
   "$repo_root/docs/testing.md" \
   "$repo_root/test-lab/README.md" \
   "$tmpdir/required-readiness.out" <<'PY'
@@ -316,7 +359,7 @@ for doc_name, doc_text in {
         raise SystemExit(f"{doc_name} must document CodeQL as a push-triggered run")
 PY
 
-python3 - "$repo_root/docs/feature-test-completion-audit-2026-05-14.md" \
+"$python_bin" - "$repo_root/docs/feature-test-completion-audit-2026-05-14.md" \
   "$repo_root/docs/feature-test-evidence-2026-05-14.md" \
   "$tmpdir/required-readiness.out" <<'PY'
 import re
@@ -574,6 +617,26 @@ grep -F "completion audit row is incomplete: Remaining environment readiness: re
   "$tmpdir/blocked.out"
 grep -F 'manual_talkback is blocked: TalkBack inactive' "$tmpdir/blocked.out"
 grep -F 'physical_network_handover is manual: Handover needs operator run' "$tmpdir/blocked.out"
+
+set +e
+"$guard" --audit "$complete_audit" --readiness "$multiline_message_json" \
+  > "$tmpdir/multiline-message.out"
+multiline_message_status=$?
+set -e
+
+if [[ "$multiline_message_status" -ne 1 ]]; then
+  echo "Expected multiline readiness message to exit 1, got $multiline_message_status" >&2
+  cat "$tmpdir/multiline-message.out" >&2
+  exit 1
+fi
+
+grep -F 'production_relay_matrix is manual: Relay matrix config is valid. Config: /tmp/provider-matrix.json Example: test-lab/relay/provider-matrix.example.json' \
+  "$tmpdir/multiline-message.out"
+if grep -F 'Config: /tmp/provider-matrix.json is' "$tmpdir/multiline-message.out"; then
+  echo "Multiline readiness message was split into a bogus sign-off row" >&2
+  cat "$tmpdir/multiline-message.out" >&2
+  exit 1
+fi
 
 set +e
 "$guard" --audit "$complete_audit" --readiness "$missing_required_json" \

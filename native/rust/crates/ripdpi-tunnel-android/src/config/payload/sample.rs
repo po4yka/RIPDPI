@@ -28,6 +28,7 @@ pub(crate) fn sample_payload() -> TunnelConfigPayload {
         encrypted_dns_doh_url: None,
         encrypted_dns_dnscrypt_provider_name: None,
         encrypted_dns_dnscrypt_public_key: None,
+        encrypted_dns_tls_roots_pem: None,
         encrypted_dns_bootstrap_ips: Vec::new(),
         dns_query_timeout_ms: None,
         resolver_fallback_active: None,

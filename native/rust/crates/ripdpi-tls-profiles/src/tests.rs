@@ -1,9 +1,9 @@
 use boring::ssl::{SslVerifyMode, SslVersion};
+use golden_test_support::repo_root;
 use serde_json::Value;
 use std::fs;
 use std::io::Read;
 use std::net::{Shutdown, TcpListener, TcpStream};
-use std::path::Path;
 use std::thread;
 use std::time::Duration;
 
@@ -12,10 +12,6 @@ use crate::{
     profile_catalog, profile_catalog_version, select_rotated_profile_with_set, selected_profile_metadata,
     ProfileInvariantStatus, AVAILABLE_PROFILES,
 };
-
-fn repo_root() -> std::path::PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../").canonicalize().expect("repo root")
-}
 
 fn capture_client_hello(profile: &str) -> Vec<u8> {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback listener");

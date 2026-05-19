@@ -14,4 +14,5 @@ ripdpi-strategy-trait = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+golden-test-support = { workspace = true }
 static_assertions = "1"

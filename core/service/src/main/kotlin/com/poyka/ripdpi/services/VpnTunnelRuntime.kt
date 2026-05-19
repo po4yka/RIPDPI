@@ -52,6 +52,7 @@ internal class VpnTunnelRuntime(
                 localProxyEndpoint = localProxyEndpoint,
                 ipv6Enabled = ipv6,
                 logContext = logContext,
+                encryptedDnsTlsRootsPem = settings.encryptedDnsTlsRootsPem.takeIf { it.isNotBlank() },
                 strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() },
                 protectPath = protectPath,
                 rootHelperSocketPath = rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
