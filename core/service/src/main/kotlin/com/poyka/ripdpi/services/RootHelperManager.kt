@@ -304,8 +304,8 @@ open class RootHelperManager
                 """{"command":"$SHUTDOWN_COMMAND","session_nonce":"$nonce"}""" +
                     "\n"
             LocalSocket().use { socket ->
-                socket.soTimeout = SHUTDOWN_READ_TIMEOUT_MS
                 socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
+                socket.soTimeout = SHUTDOWN_READ_TIMEOUT_MS
                 socket.outputStream.write(payload.toByteArray(Charsets.UTF_8))
                 socket.outputStream.flush()
                 runCatching {
