@@ -517,6 +517,7 @@ private fun Throwable.summaryForScan(
     }
 
 private const val InPathServiceUnavailableAction = "start the RIPDPI service before scanning"
+private const val InPathVpnUnavailableAction = "run raw-path diagnostics so the VPN can pause and resume safely"
 
 private fun PreparedDiagnosticsScan.inPathPreflightFailureSummary(): String? {
     val service = context.contextSnapshot.service
@@ -530,6 +531,10 @@ private fun PreparedDiagnosticsScan.inPathPreflightFailureSummary(): String? {
         !service.serviceStatus.equals(AppStatus.Running.name, ignoreCase = true) -> {
             val status = service.serviceStatus
             "In-path diagnostics unavailable: local proxy service is $status; $InPathServiceUnavailableAction"
+        }
+
+        service.activeMode.equals(Mode.VPN.name, ignoreCase = true) -> {
+            "In-path diagnostics unavailable while VPN service is active; $InPathVpnUnavailableAction"
         }
 
         listenerAddress != null && listenerAddress != expectedEndpoint -> {

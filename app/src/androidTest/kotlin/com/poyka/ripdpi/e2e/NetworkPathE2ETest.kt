@@ -295,6 +295,7 @@ class NetworkPathE2ETest {
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.DNS_HTTP,
                 outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+                scope = FixtureFaultScopeDto.PERSISTENT,
             ),
         )
 
