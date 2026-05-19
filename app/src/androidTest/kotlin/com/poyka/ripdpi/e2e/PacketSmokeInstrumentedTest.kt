@@ -1133,11 +1133,15 @@ class PacketSmokeInstrumentedTest {
     }
 
     private fun assumeProxyFixtureCanValidateTlsHandshake(expectedScenario: String) {
-        val lowTtlFakeScenario = expectedScenario == "fakedsplit" || expectedScenario == "fakeddisorder"
+        val fakeSegmentScenario =
+            expectedScenario == "hostfake" ||
+                expectedScenario == "fakedsplit" ||
+                expectedScenario == "fakeddisorder"
+        val fixtureIsHostLoopback = fixture.androidHost == "127.0.0.1" || fixture.androidHost == "10.0.2.2"
         assumeFalse(
-            "Physical loopback packet-smoke cannot validate $expectedScenario with a TLS fixture handshake; " +
-                "the low-TTL fake segment can reach the adb-reversed fixture endpoint.",
-            lowTtlFakeScenario && !isLikelyEmulator() && fixture.androidHost == "127.0.0.1",
+            "Host-loopback packet-smoke cannot validate $expectedScenario with a TLS fixture handshake; " +
+                "the fake segment can reach the local fixture endpoint.",
+            fakeSegmentScenario && fixtureIsHostLoopback,
         )
     }
 

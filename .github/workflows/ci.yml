@@ -1328,6 +1328,9 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Start local network fixture
+        env:
+          RIPDPI_FIXTURE_ANDROID_HOST: 10.0.2.2
+          RIPDPI_FIXTURE_DNS_ANSWER_IPV4: 10.0.2.2
         run: |
           mkdir -p "$RUNNER_TEMP/local-network-fixture"
           scripts/ci/start-local-network-fixture.sh \

@@ -297,6 +297,7 @@ class DiagnosticsNetworkE2ETest {
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.DNS_UDP,
                 outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+                scope = FixtureFaultScopeDto.PERSISTENT,
             ),
         )
 
@@ -341,6 +342,7 @@ class DiagnosticsNetworkE2ETest {
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.DNS_UDP,
                 outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+                scope = FixtureFaultScopeDto.PERSISTENT,
             ),
         )
 
@@ -550,10 +552,10 @@ class DiagnosticsNetworkE2ETest {
     private fun inPathDnsSuccessOutcomes(): Set<String> = setOf("dns_match", "udp_skipped_or_blocked")
 
     private fun rawPathDnsFaultOutcomes(): Set<String> =
-        setOf("encrypted_dns_blocked", "dns_unavailable", "udp_blocked")
+        setOf("encrypted_dns_blocked", "dns_unavailable", "dns_oracle_unavailable", "udp_blocked")
 
     private fun inPathDnsFaultOutcomes(): Set<String> =
-        setOf("encrypted_dns_blocked", "dns_unavailable", "udp_skipped_or_blocked")
+        setOf("encrypted_dns_blocked", "dns_unavailable", "dns_oracle_unavailable", "udp_skipped_or_blocked")
 
     private fun diagnosticOutcomes(detail: com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail): String =
         detail.results.joinToString(prefix = "Diagnostic outcomes: ") { result ->
