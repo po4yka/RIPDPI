@@ -1,37 +1,51 @@
 #!/usr/bin/env bash
 
+is_android_sdk_root() {
+  local candidate="$1"
+  [[ -n "$candidate" && -d "$candidate" ]] || return 1
+
+  [[ -x "$candidate/platform-tools/adb" ||
+    -x "$candidate/emulator/emulator" ||
+    -x "$candidate/cmdline-tools/latest/bin/avdmanager" ||
+    -x "$candidate/cmdline-tools/bin/avdmanager" ]]
+}
+
 resolve_android_sdk_root() {
-  if [[ -n "${ANDROID_SDK_ROOT:-}" && -d "${ANDROID_SDK_ROOT}" ]]; then
+  if [[ -n "${ANDROID_SDK_ROOT:-}" ]] && is_android_sdk_root "${ANDROID_SDK_ROOT}"; then
     printf '%s\n' "${ANDROID_SDK_ROOT}"
     return 0
   fi
 
-  if [[ -n "${ANDROID_HOME:-}" && -d "${ANDROID_HOME}" ]]; then
+  if [[ -n "${ANDROID_HOME:-}" ]] && is_android_sdk_root "${ANDROID_HOME}"; then
     printf '%s\n' "${ANDROID_HOME}"
     return 0
   fi
+
+  local candidate
+  for candidate in \
+    "$HOME/Library/Android/sdk" \
+    "$HOME/Android/Sdk" \
+    "$HOME/android-sdk" \
+    "$HOME/.android-sdk" \
+    "$HOME/.local/share/android-sdk"
+  do
+    if is_android_sdk_root "$candidate"; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
 
   local adb_bin=""
   if command -v adb >/dev/null 2>&1; then
     adb_bin="$(command -v adb)"
   fi
   if [[ -n "$adb_bin" ]]; then
-    printf '%s\n' "$(cd "$(dirname "$adb_bin")/.." && pwd)"
-    return 0
-  fi
-
-  local candidate
-  for candidate in \
-    "$HOME/Android/Sdk" \
-    "$HOME/android-sdk" \
-    "$HOME/.android-sdk" \
-    "$HOME/.local/share/android-sdk"
-  do
-    if [[ -d "$candidate" ]]; then
+    candidate="$(cd "$(dirname "$adb_bin")/.." && pwd)"
+    if is_android_sdk_root "$candidate"; then
       printf '%s\n' "$candidate"
       return 0
     fi
-  done
+  fi
 
   echo "::warning::Unable to resolve Android SDK root" >&2
   return 1
