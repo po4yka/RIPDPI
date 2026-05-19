@@ -2,7 +2,7 @@
 
 Status: **not complete**.
 
-This audit keeps the path expected by `test-lab/scripts/check-feature-test-signoff.sh`, while the current evidence was refreshed on 2026-05-19 from the connected non-rooted Pixel 8 Pro and local lab tooling, then updated through PR #118 head `d5f177ca` after PR #117 merged to `main` as `57f33277`. Earlier physical-device artifacts remain valid for the recorded pass, but the latest continuation re-check found no Pixel or other adb device visible through adb or USB, so physical-only rows were not refreshed. The `RIPDPI_Root_API34` AVD is now Magisk-rooted with app-granting `su`, the opt-in root-helper lifecycle smoke passes there, and rooted-emulator packet smoke now has raw on-device pcap artifacts for all 17 scenarios; the rooted physical-device release row remains open because the connected Pixel evidence is non-rooted and a rooted physical device is still unavailable.
+This audit keeps the path expected by `test-lab/scripts/check-feature-test-signoff.sh`, while the current evidence was refreshed on 2026-05-19 from the connected non-rooted Pixel 8 Pro and local lab tooling, then updated through the tested PR #118 code/evidence head `d5f177ca` after PR #117 merged to `main` as `57f33277`; later docs-only commits only refresh this audit and still require the normal PR check rollup before merge. Earlier physical-device artifacts remain valid for the recorded pass, but the latest continuation re-check found no Pixel or other adb device visible through adb or USB, so physical-only rows were not refreshed. The `RIPDPI_Root_API34` AVD is now Magisk-rooted with app-granting `su`, the opt-in root-helper lifecycle smoke passes there, and rooted-emulator packet smoke now has raw on-device pcap artifacts for all 17 scenarios; the rooted physical-device release row remains open because the connected Pixel evidence is non-rooted and a rooted physical device is still unavailable.
 
 ## Prompt-to-Artifact Checklist
 
@@ -20,7 +20,7 @@ This audit keeps the path expected by `test-lab/scripts/check-feature-test-signo
 | Verify relay provider matrix | Readiness probe | Blocked until relay provider configuration is supplied. |
 | Verify accessibility with TalkBack | Readiness probe | Blocked because TalkBack is installed but inactive. |
 | Verify routed VM packet-loss lab | `test-lab/artifacts/netem-container-capability-20260519-current.txt` plus `test-lab/artifacts/feature-gap-readiness-20260519-netem-aware.json` | Container capability and readiness detection are current; routed netem Pixel path remains unproven. |
-| Verify remote release gates | PR #118 check rollup, PR #117 merge state, and main workflow list for CI, CodeQL, local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly | Partial: PR #117 merged to `main` as `57f33277`; PR #118 head `d5f177ca` has green CI, CodeQL, Local Network Lab, and release-verification after rerun, while `mergeStateStatus=BLOCKED` prevents treating the branch as merged release evidence. Fresh main-branch CI, CodeQL, local-network-lab after PR #118 merge, offline analytics, mutation-testing, and Fuzz Nightly evidence remain. |
+| Verify remote release gates | PR #118 check rollup, PR #117 merge state, and main workflow list for CI, CodeQL, local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly | Partial: PR #117 merged to `main` as `57f33277`; the tested PR #118 code/evidence head `d5f177ca` had green CI, CodeQL, Local Network Lab, and release-verification after rerun, while `mergeStateStatus=BLOCKED` prevents treating the branch as merged release evidence. Fresh main-branch CI, CodeQL, local-network-lab after PR #118 merge, offline analytics, mutation-testing, and Fuzz Nightly evidence remain. |
 
 ## Current Local State
 
@@ -42,7 +42,7 @@ The local non-rooted Pixel pass is healthy for the surface that was executable w
 | Verify relay provider matrix | Missing `RIPDPI_RELAY_MATRIX_CONFIG` | Blocked/manual | Operator-provided relay provider matrix and full relay provider run |
 | Verify accessibility with TalkBack | Accessibility readiness row | Blocked/manual | TalkBack active-session evidence |
 | Verify routed VM packet-loss lab | Netem container capability artifact and netem-aware readiness row | Blocked/manual | Routed netem VM/router path carrying Pixel traffic |
-| Verify remote release gates | PR #118 check rollup, PR #117 merge state, and workflow list | Partial | PR #118 branch checks are green at `d5f177ca`, including CI, CodeQL, Local Network Lab, and rerun release-verification, but merge-to-main confirmation plus fresh main-branch local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly remote workflow results remain |
+| Verify remote release gates | PR #118 check rollup, PR #117 merge state, and workflow list | Partial | The tested PR #118 code/evidence head `d5f177ca` had green CI, CodeQL, Local Network Lab, and rerun release-verification, but merge-to-main confirmation plus fresh main-branch local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly remote workflow results remain |
 
 ## Stop Rules
 
