@@ -334,9 +334,11 @@ if [[ "$using_temp_docker_config" == "true" ]]; then
   done
   local_image_specs=(
     "test-lab-quic_server:latest:$lab_root/quic/quic-go-server"
-    "test-lab-udp_echo:latest:$lab_root/udp-echo"
     "test-lab-mock_relay:latest:$lab_root/relay/mock-relay"
   )
+  if [[ "$use_host_udp_echo" != "true" ]]; then
+    local_image_specs+=("test-lab-udp_echo:latest:$lab_root/udp-echo")
+  fi
   for image_spec in "${local_image_specs[@]}"; do
     image_name="${image_spec%%:*}:latest"
     image_context="${image_spec#*:latest:}"
