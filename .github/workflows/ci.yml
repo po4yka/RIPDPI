@@ -443,6 +443,8 @@ jobs:
           RUSTC_WRAPPER: sccache
         run: |
           ./gradlew :app:assembleRelease \
+            -Pripdpi.enableAbiSplits=false \
+            -Pripdpi.nativeAbiParallelism=1 \
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-release/jniLibs" \
             -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-release/assetsBin" \
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-release/assetsBin" \
