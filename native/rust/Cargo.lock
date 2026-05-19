@@ -4230,7 +4230,7 @@ dependencies = [
  "hkdf",
  "md5",
  "rand 0.10.1",
- "sha1",
+ "sha1 0.11.0",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -4910,6 +4910,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha1"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aacc4cc499359472b4abe1bf11d0b12e688af9a805fa5e3016f9a386dc2d0214"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.0",
+ "digest 0.11.2",
+]
+
+[[package]]
 name = "sha2"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5542,7 +5553,7 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.9.3",
- "sha1",
+ "sha1 0.10.6",
  "thiserror 2.0.18",
  "utf-8",
 ]
@@ -5559,7 +5570,7 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.9.3",
- "sha1",
+ "sha1 0.10.6",
  "thiserror 2.0.18",
 ]
 
