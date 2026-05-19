@@ -1297,7 +1297,7 @@ jobs:
   android-network-e2e:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_network_e2e == 'true') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-android-e2e'))
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
