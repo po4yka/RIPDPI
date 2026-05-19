@@ -3,203 +3,23 @@ mod plan;
 mod report;
 mod runners;
 mod runtime;
+mod scan;
 
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
-
-use rustls::client::danger::ServerCertVerifier;
-
-use crate::connectivity::{push_event, set_progress, set_report};
-use crate::transport::transport_for_request_with_session;
-use crate::types::{ScanKind, ScanProgress, ScanRequest, SharedState};
-use crate::CandidateRuntimeLauncher;
-
-use plan::build_execution_plan;
-use report::{build_report, connectivity_analytics_summary, connectivity_summary};
-use runners::execution_coordinator;
-use runtime::{publish_cancelled_run, ExecutionRuntime, RunnerOutcome};
+pub use scan::run_engine_scan;
 
 pub(crate) use contract_fixture::connectivity_partial_report_contract_fixture;
 pub use contract_fixture::{connectivity_runner_parity_snapshot, RunnerParityRecord, RunnerStepSnapshot};
 
-pub fn run_engine_scan(
-    shared: Arc<Mutex<SharedState>>,
-    cancel: Arc<AtomicBool>,
-    session_id: String,
-    request: ScanRequest,
-    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
-    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
-) {
-    let started_at = crate::util::now_ms();
-    let transport = transport_for_request_with_session(&request, &session_id);
-    let mut plan = match build_execution_plan(session_id.clone(), request.clone(), started_at, transport.clone()) {
-        Ok(plan) => plan,
-        Err(message) => {
-            let report =
-                build_report(session_id.clone(), request, started_at, message, Vec::new(), Vec::new(), None, None);
-            set_report(&shared, report);
-            set_progress(
-                &shared,
-                ScanProgress {
-                    session_id,
-                    phase: "finished".to_string(),
-                    completed_steps: 1,
-                    total_steps: 1,
-                    message: "Diagnostics finished".to_string(),
-                    is_finished: true,
-                    latest_probe_target: None,
-                    latest_probe_outcome: None,
-                    strategy_probe_progress: None,
-                },
-            );
-            return;
-        }
-    };
-    let coordinator = execution_coordinator(candidate_runtime_launcher);
-    plan.total_steps = coordinator.total_steps(&plan);
-
-    set_progress(
-        &shared,
-        ScanProgress {
-            session_id: plan.session_id.clone(),
-            phase: "starting".to_string(),
-            completed_steps: 0,
-            total_steps: plan.total_steps,
-            message: format!("Preparing {}", plan.request.display_name),
-            is_finished: false,
-            latest_probe_target: None,
-            latest_probe_outcome: None,
-            strategy_probe_progress: None,
-        },
-    );
-    push_event(
-        &shared,
-        &plan.session_id,
-        &plan.request.profile_id,
-        &plan.request.path_mode,
-        "engine",
-        "info",
-        format!(
-            "Starting {} in {:?} transport={}",
-            plan.request.display_name,
-            plan.request.path_mode,
-            crate::transport::describe_transport(&plan.transport)
-        ),
-    );
-
-    let mut runtime = ExecutionRuntime::new(shared.clone(), cancel);
-    runtime.set_scan_deadline(
-        std::time::Instant::now() + std::time::Duration::from_millis(plan.request.scan_deadline_ms.unwrap_or(360_000)),
-    );
-    match coordinator.run(&plan, &mut runtime, tls_verifier.as_ref()) {
-        RunnerOutcome::Cancelled => {
-            publish_cancelled_run(&plan, &shared, runtime);
-        }
-        RunnerOutcome::Finished => {
-            if let Some(report) = runtime.final_report {
-                let analytics_summary = matches!(plan.request.kind, ScanKind::Connectivity)
-                    .then(|| connectivity_analytics_summary(&report.results, &report.path_mode));
-                set_report(&shared, report);
-                if let Some(analytics_summary) = analytics_summary {
-                    push_event(
-                        &shared,
-                        &plan.session_id,
-                        &plan.request.profile_id,
-                        &plan.request.path_mode,
-                        "engine",
-                        "info",
-                        analytics_summary,
-                    );
-                }
-            }
-            push_event(
-                &shared,
-                &plan.session_id,
-                &plan.request.profile_id,
-                &plan.request.path_mode,
-                "engine",
-                "info",
-                "Diagnostics finished".to_string(),
-            );
-            set_progress(
-                &shared,
-                ScanProgress {
-                    session_id: plan.session_id,
-                    phase: "finished".to_string(),
-                    completed_steps: plan.total_steps,
-                    total_steps: plan.total_steps,
-                    message: "Diagnostics finished".to_string(),
-                    is_finished: true,
-                    latest_probe_target: None,
-                    latest_probe_outcome: None,
-                    strategy_probe_progress: None,
-                },
-            );
-        }
-        RunnerOutcome::Completed => {
-            let summary = match plan.request.kind {
-                ScanKind::Connectivity => connectivity_summary(&runtime.results, &plan.request.path_mode),
-                ScanKind::StrategyProbe => {
-                    runtime.strategy.summary.clone().unwrap_or_else(|| "Automatic probing finished".to_string())
-                }
-            };
-            let analytics_summary = matches!(plan.request.kind, ScanKind::Connectivity)
-                .then(|| connectivity_analytics_summary(&runtime.results, &plan.request.path_mode));
-            let report = build_report(
-                plan.session_id.clone(),
-                plan.request.clone(),
-                plan.started_at,
-                summary,
-                runtime.results,
-                runtime.observations,
-                runtime.strategy.strategy_probe_report,
-                None,
-            );
-            set_report(&shared, report);
-            if let Some(analytics_summary) = analytics_summary {
-                push_event(
-                    &shared,
-                    &plan.session_id,
-                    &plan.request.profile_id,
-                    &plan.request.path_mode,
-                    "engine",
-                    "info",
-                    analytics_summary,
-                );
-            }
-            push_event(
-                &shared,
-                &plan.session_id,
-                &plan.request.profile_id,
-                &plan.request.path_mode,
-                "engine",
-                "info",
-                "Diagnostics finished".to_string(),
-            );
-            set_progress(
-                &shared,
-                ScanProgress {
-                    session_id: plan.session_id,
-                    phase: "finished".to_string(),
-                    completed_steps: plan.total_steps,
-                    total_steps: plan.total_steps,
-                    message: "Diagnostics finished".to_string(),
-                    is_finished: true,
-                    latest_probe_target: None,
-                    latest_probe_outcome: None,
-                    strategy_probe_progress: None,
-                },
-            );
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicBool;
+    use std::sync::{Arc, Mutex};
+
     use super::*;
-    use crate::types::{ProbeDetail, ProbeResult, ProbeTaskFamily};
+    use crate::types::{ProbeDetail, ProbeResult, ProbeTaskFamily, ScanKind, ScanRequest, SharedState};
 
     use plan::connectivity_stage_order;
+    use report::{connectivity_analytics_summary, connectivity_summary};
     use runtime::{cancelled_run_summary, ExecutionStageId};
 
     #[test]

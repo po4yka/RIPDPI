@@ -1,6 +1,7 @@
 mod artifacts;
 mod cancellation;
 mod coordinator;
+mod parallel;
 mod plan;
 mod progress;
 mod recording;
