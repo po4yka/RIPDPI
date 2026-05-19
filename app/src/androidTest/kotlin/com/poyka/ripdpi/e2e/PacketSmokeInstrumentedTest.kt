@@ -104,6 +104,10 @@ class PacketSmokeInstrumentedTest {
         if (packetSmokeUsesPhasedPhysicalRunner() && packetSmokePhase() == PacketSmokePhase.ASSERT) {
             return
         }
+        runBlocking {
+            stopService(RipDpiProxyService::class.java)
+            stopService(RipDpiVpnService::class.java)
+        }
         val environment = prepareE2eEnvironment(appContext)
         fixtureClient = environment.fixtureClient
         fixture = environment.fixture
@@ -111,8 +115,6 @@ class PacketSmokeInstrumentedTest {
             clearPacketSmokeScenarioState(appContext, requirePacketSmokeScenarioId())
         }
         runBlocking {
-            stopService(RipDpiProxyService::class.java)
-            stopService(RipDpiVpnService::class.java)
             appSettingsRepository.update {
                 proxyIp = "127.0.0.1"
                 proxyPort = reserveLoopbackPort()
