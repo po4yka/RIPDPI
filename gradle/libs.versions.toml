@@ -48,7 +48,7 @@ brotli = "0.1.2"
 zstd-jni = "1.5.7-8"
 camerax = "1.6.1"
 mlkit-barcode = "17.3.0"
-zxing-core = "3.5.3"
+zxing-core = "3.5.4"
 glance = "1.1.1"
 
 [libraries]
