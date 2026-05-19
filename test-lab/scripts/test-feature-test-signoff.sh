@@ -22,6 +22,7 @@ duplicate_required_json="$tmpdir/duplicate-required.json"
 invalid_status_json="$tmpdir/invalid-status.json"
 malformed_json="$tmpdir/malformed.json"
 blocked_json="$tmpdir/blocked.json"
+multiline_message_json="$tmpdir/multiline-message.json"
 current_epoch="$(date +%s)"
 
 cat > "$complete_audit" <<'EOF'
@@ -204,6 +205,21 @@ cat > "$blocked_json" <<EOF
     {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
     {"name": "manual_talkback", "status": "blocked", "required": true, "message": "TalkBack inactive"},
     {"name": "physical_network_handover", "status": "manual", "required": true, "message": "Handover needs operator run"}
+  ]
+}
+EOF
+
+cat > "$multiline_message_json" <<EOF
+{
+  "generatedAtEpoch": $current_epoch,
+  "checks": [
+    {"name": "android_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "rooted_physical_device", "status": "ready", "required": true, "message": "ready"},
+    {"name": "manual_talkback", "status": "ready", "required": true, "message": "ready"},
+    {"name": "physical_network_handover", "status": "ready", "required": true, "message": "ready"},
+    {"name": "routed_netem_vm", "status": "ready", "required": true, "message": "ready"},
+    {"name": "production_relay_matrix", "status": "manual", "required": true, "message": "Relay matrix config is valid.\\nConfig: /tmp/provider-matrix.json\\nExample: test-lab/relay/provider-matrix.example.json"},
+    {"name": "remote_workflow_confirmation", "status": "ready", "required": true, "message": "ready"}
   ]
 }
 EOF
@@ -574,6 +590,26 @@ grep -F "completion audit row is incomplete: Remaining environment readiness: re
   "$tmpdir/blocked.out"
 grep -F 'manual_talkback is blocked: TalkBack inactive' "$tmpdir/blocked.out"
 grep -F 'physical_network_handover is manual: Handover needs operator run' "$tmpdir/blocked.out"
+
+set +e
+"$guard" --audit "$complete_audit" --readiness "$multiline_message_json" \
+  > "$tmpdir/multiline-message.out"
+multiline_message_status=$?
+set -e
+
+if [[ "$multiline_message_status" -ne 1 ]]; then
+  echo "Expected multiline readiness message to exit 1, got $multiline_message_status" >&2
+  cat "$tmpdir/multiline-message.out" >&2
+  exit 1
+fi
+
+grep -F 'production_relay_matrix is manual: Relay matrix config is valid. Config: /tmp/provider-matrix.json Example: test-lab/relay/provider-matrix.example.json' \
+  "$tmpdir/multiline-message.out"
+if grep -F 'Config: /tmp/provider-matrix.json is' "$tmpdir/multiline-message.out"; then
+  echo "Multiline readiness message was split into a bogus sign-off row" >&2
+  cat "$tmpdir/multiline-message.out" >&2
+  exit 1
+fi
 
 set +e
 "$guard" --audit "$complete_audit" --readiness "$missing_required_json" \

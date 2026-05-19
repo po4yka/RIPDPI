@@ -202,54 +202,57 @@ done < <(
 import json
 import sys
 
+
+def emit(name, status, message):
+    normalized_message = " ".join(message.split())
+    print(name, status, normalized_message, sep="\t")
+
+
 try:
     with open(sys.argv[1], encoding="utf-8") as handle:
         data = json.load(handle)
 except Exception as exc:
-    print(
+    emit(
         "readiness_artifact",
         "invalid",
         f"could not parse readiness JSON: {exc}",
-        sep="\t",
     )
     raise SystemExit(0)
 
 if not isinstance(data, dict):
-    print("readiness_artifact", "invalid", "top-level JSON value must be an object", sep="\t")
+    emit("readiness_artifact", "invalid", "top-level JSON value must be an object")
     raise SystemExit(0)
 
 try:
     max_age_seconds = int(sys.argv[2])
     current_epoch = int(sys.argv[3])
 except ValueError as exc:
-    print("readiness_artifact", "invalid", f"invalid freshness configuration: {exc}", sep="\t")
+    emit("readiness_artifact", "invalid", f"invalid freshness configuration: {exc}")
     raise SystemExit(0)
 
 generated_at = data.get("generatedAtEpoch")
 if not isinstance(generated_at, int):
-    print("readiness_artifact", "invalid", "generatedAtEpoch must be an integer", sep="\t")
+    emit("readiness_artifact", "invalid", "generatedAtEpoch must be an integer")
     raise SystemExit(0)
 if generated_at > current_epoch + 300:
-    print(
+    emit(
         "readiness_artifact",
         "invalid",
         f"generatedAtEpoch is in the future: {generated_at}",
-        sep="\t",
     )
     raise SystemExit(0)
 age_seconds = current_epoch - generated_at
 if age_seconds > max_age_seconds:
-    print(
+    emit(
         "readiness_artifact",
         "stale",
         f"generatedAtEpoch is {age_seconds}s old; regenerate readiness within {max_age_seconds}s",
-        sep="\t",
     )
     raise SystemExit(0)
 
 checks = data.get("checks")
 if not isinstance(checks, list):
-    print("readiness_artifact", "invalid", "checks must be an array", sep="\t")
+    emit("readiness_artifact", "invalid", "checks must be an array")
     raise SystemExit(0)
 
 required_names = set(sys.argv[4:])
@@ -257,46 +260,39 @@ seen_required = set()
 allowed_statuses = {"ready", "manual", "blocked"}
 for index, check in enumerate(checks):
     if not isinstance(check, dict):
-        print(
+        emit(
             "readiness_artifact",
             "invalid",
             f"checks[{index}] must be an object",
-            sep="\t",
         )
         continue
     name = check.get("name", "unknown")
     status = check.get("status", "unknown")
     message = check.get("message", "")
     if not isinstance(name, str) or not name:
-        print("readiness_artifact", "invalid", f"checks[{index}].name must be a non-empty string", sep="\t")
+        emit("readiness_artifact", "invalid", f"checks[{index}].name must be a non-empty string")
         continue
     if status not in allowed_statuses:
-        print(name, "invalid", f"status must be one of {sorted(allowed_statuses)}", sep="\t")
+        emit(name, "invalid", f"status must be one of {sorted(allowed_statuses)}")
         continue
     if check.get("required") is not True and check.get("required") is not False:
-        print(name, "invalid", "required must be a boolean", sep="\t")
+        emit(name, "invalid", "required must be a boolean")
         continue
     if not isinstance(message, str):
-        print(name, "invalid", "message must be a string", sep="\t")
+        emit(name, "invalid", "message must be a string")
         continue
     if check.get("required") is True:
         if name in seen_required:
-            print(name, "invalid", "duplicate required readiness check", sep="\t")
+            emit(name, "invalid", "duplicate required readiness check")
             continue
         seen_required.add(name)
-        print(
-            name,
-            status,
-            message,
-            sep="\t",
-        )
+        emit(name, status, message)
 
 for name in sorted(required_names - seen_required):
-    print(
+    emit(
         name,
         "missing",
         "required readiness check is absent from the artifact",
-        sep="\t",
     )
 PY
 )
