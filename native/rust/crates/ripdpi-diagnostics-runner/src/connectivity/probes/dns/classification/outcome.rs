@@ -11,12 +11,15 @@ pub(super) fn classify_dns_probe_outcome(
     expected: &BTreeSet<String>,
     udp_error_kind: Option<&str>,
     udp_attempt_count: usize,
+    udp_retry_recovered: bool,
 ) -> String {
     match (udp_result, encrypted_result) {
         (Ok(udp_ips), Ok(encrypted_ips)) => match classify_dns_answer_overlap(udp_ips, encrypted_ips) {
             DnsAnswerOverlap::Match => {
                 if !expected.is_empty() && ip_set(udp_ips) != expected.clone() {
                     "dns_expected_mismatch".to_string()
+                } else if udp_retry_recovered {
+                    "udp_plain_dns_unstable".to_string()
                 } else {
                     "dns_match".to_string()
                 }

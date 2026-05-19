@@ -54,6 +54,7 @@ fn dns_probe_gates_single_fallback_success_as_oracle_unavailable() {
         &BTreeSet::new(),
         None,
         1,
+        false,
     );
 
     assert_eq!(outcome, "dns_oracle_unavailable");
@@ -69,13 +70,14 @@ fn dns_probe_marks_retried_udp_timeout_as_transient() {
         &BTreeSet::new(),
         Some("timeout"),
         3,
+        false,
     );
 
     assert_eq!(outcome, "udp_timeout_transient");
 }
 
 #[test]
-fn dns_probe_marks_recovered_udp_timeout_as_match_when_answers_match() {
+fn dns_probe_marks_recovered_udp_timeout_as_plain_dns_unstable_when_answers_match() {
     let outcome = classify_dns_probe_outcome(
         &Ok(vec!["198.51.100.77".to_string()]),
         &Ok(vec!["198.51.100.77".to_string()]),
@@ -84,9 +86,10 @@ fn dns_probe_marks_recovered_udp_timeout_as_match_when_answers_match() {
         &BTreeSet::new(),
         Some("would_block"),
         2,
+        true,
     );
 
-    assert_eq!(outcome, "dns_match");
+    assert_eq!(outcome, "udp_plain_dns_unstable");
 }
 
 #[test]
@@ -99,6 +102,7 @@ fn dns_probe_keeps_non_timeout_udp_failures_on_hard_block_path() {
         &BTreeSet::new(),
         Some("refused"),
         1,
+        false,
     );
 
     assert_eq!(outcome, "udp_blocked");
