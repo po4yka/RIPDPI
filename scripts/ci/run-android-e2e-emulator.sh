@@ -42,6 +42,7 @@ if ! run_target \
   "com.poyka.ripdpi.e2e" \
   -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e \
   "-Pandroid.testInstrumentationRunnerArguments.notClass=$PREFLIGHT_CLASS" \
+  -Pandroid.testInstrumentationRunnerArguments.notAnnotation=com.poyka.ripdpi.e2e.RawPacketValidationOnly \
   -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
   -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090; then
   adb_cmd logcat -d > android-logcat.txt || true

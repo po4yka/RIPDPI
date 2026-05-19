@@ -175,6 +175,7 @@ class PacketSmokeInstrumentedTest {
     }
 
     @Test
+    @RawPacketValidationOnly
     fun proxyHostfakeSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
             chainDsl =
@@ -187,6 +188,7 @@ class PacketSmokeInstrumentedTest {
     }
 
     @Test
+    @RawPacketValidationOnly
     fun proxyFakedsplitSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
             chainDsl =
@@ -200,6 +202,7 @@ class PacketSmokeInstrumentedTest {
     }
 
     @Test
+    @RawPacketValidationOnly
     fun proxyFakeddisorderSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
             chainDsl =
