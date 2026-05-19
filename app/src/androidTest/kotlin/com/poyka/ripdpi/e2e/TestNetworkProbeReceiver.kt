@@ -272,7 +272,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
     ) {
         var start = 0
         while (start <= hostname.length) {
-            val dot = hostname.indexOf('.', start)
+            val dot = indexOfDot(hostname, start)
             val end =
                 if (dot == -1) {
                     hostname.length
@@ -282,10 +282,9 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             if (end == start) {
                 throw IllegalArgumentException("hostname contains an empty label: $hostname")
             }
-            val label = hostname.substring(start, end)
-            val labelBytes = utf8Bytes(label)
+            val labelBytes = asciiDnsLabelBytes(hostname, start, end)
             if (labelBytes.size > DnsMaxLabelBytes) {
-                throw IllegalArgumentException("hostname label exceeds 63 octets: $label")
+                throw IllegalArgumentException("hostname label exceeds 63 octets")
             }
             output.write(labelBytes.size)
             output.write(labelBytes, 0, labelBytes.size)
@@ -294,6 +293,38 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             }
             start = dot + 1
         }
+    }
+
+    private fun asciiDnsLabelBytes(
+        hostname: String,
+        start: Int,
+        end: Int,
+    ): ByteArray {
+        val bytes = ByteArray(end - start)
+        var index = start
+        while (index < end) {
+            val code = hostname[index].code
+            if (code > 0x7F) {
+                throw IllegalArgumentException("hostname label must be ASCII")
+            }
+            bytes[index - start] = code.toByte()
+            index += 1
+        }
+        return bytes
+    }
+
+    private fun indexOfDot(
+        hostname: String,
+        start: Int,
+    ): Int {
+        var index = start
+        while (index < hostname.length) {
+            if (hostname[index] == '.') {
+                return index
+            }
+            index += 1
+        }
+        return -1
     }
 
     private fun decodeDnsResponse(
