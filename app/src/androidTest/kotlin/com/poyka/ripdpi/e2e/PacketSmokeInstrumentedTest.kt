@@ -329,6 +329,19 @@ class PacketSmokeInstrumentedTest {
 
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
+        awaitUntil(
+            timeoutMs = 10_000L,
+            failureMessage = {
+                serviceStateDebugSummary(
+                    serviceStateStore = serviceStateStore,
+                    fixtureClient = fixtureClient,
+                )
+            },
+        ) {
+            val snapshot = serviceStateStore.telemetry.value
+            snapshot.status == AppStatus.Running &&
+                snapshot.mode == Mode.VPN
+        }
         val baselineRestartCount = serviceStateStore.telemetry.value.restartCount
 
         repeat(2) { round ->
