@@ -15,12 +15,7 @@
 use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
 
 fn fixture_path(name: &str) -> std::path::PathBuf {
-    // CARGO_MANIFEST_DIR = .../native/rust/crates/ripdpi-proxy-config
-    // Fixture root is repo_root/core/engine/src/test/resources/fixtures
-    // = ../../../../core/engine/... (4 levels up from the crate dir)
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../../core/engine/src/test/resources/fixtures")
-        .join(name)
+    golden_test_support::repo_root().join("core/engine/src/test/resources/fixtures").join(name)
 }
 
 fn read_fixture(name: &str) -> String {

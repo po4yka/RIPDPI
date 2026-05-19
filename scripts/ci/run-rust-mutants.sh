@@ -10,6 +10,8 @@ JOBS="${MUTANTS_JOBS:-}"
 OUTPUT_DIR="${MUTANTS_OUTPUT_DIR:-$repo_root/target/mutants-output}"
 
 mkdir -p "$(dirname "$OUTPUT_DIR")"
+export RIPDPI_REPO_ROOT="${RIPDPI_REPO_ROOT:-$repo_root}"
+export RIPDPI_CONTRACT_FIXTURES_DIR="${RIPDPI_CONTRACT_FIXTURES_DIR:-$RIPDPI_REPO_ROOT/contract-fixtures}"
 
 common_args=(--test-tool "$TEST_TOOL" --output "$OUTPUT_DIR")
 if [ -n "$JOBS" ]; then

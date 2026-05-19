@@ -102,14 +102,26 @@ fn workspace_root(path: &Path) -> PathBuf {
         .map_or_else(|| PathBuf::from("."), PathBuf::from)
 }
 
-/// Returns the path to a file inside the shared `contract-fixtures/` directory
-/// at the repository root. Navigates from the Cargo workspace root (`native/rust/`)
-/// up to the repo root, then into `contract-fixtures/`.
-pub fn contract_fixture_path(name: &str) -> PathBuf {
+/// Returns the repository root for tests that need fixtures outside
+/// `native/rust/`. `cargo-mutants` runs tests from a temporary copy of the
+/// Cargo workspace, so CI can set `RIPDPI_REPO_ROOT` to the checked-out repo.
+pub fn repo_root() -> PathBuf {
+    if let Some(root) = env::var_os("RIPDPI_REPO_ROOT") {
+        return PathBuf::from(root);
+    }
+
     let workspace = cargo_workspace_root();
     // native/rust/ -> repo root
-    let repo_root = workspace.parent().and_then(Path::parent).unwrap_or(&workspace);
-    repo_root.join("contract-fixtures").join(name)
+    workspace.parent().and_then(Path::parent).unwrap_or(&workspace).to_path_buf()
+}
+
+/// Returns the path to a file inside the shared `contract-fixtures/` directory
+/// at the repository root. `RIPDPI_CONTRACT_FIXTURES_DIR` may override the
+/// fixture directory for harnesses that copy only part of the repository.
+pub fn contract_fixture_path(name: &str) -> PathBuf {
+    let fixture_root = env::var_os("RIPDPI_CONTRACT_FIXTURES_DIR")
+        .map_or_else(|| repo_root().join("contract-fixtures"), PathBuf::from);
+    fixture_root.join(name)
 }
 
 /// Asserts that `actual` matches the shared contract fixture at
@@ -186,6 +198,40 @@ fn cargo_workspace_root() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    struct EnvRestore {
+        key: &'static str,
+        previous: Option<std::ffi::OsString>,
+    }
+
+    impl EnvRestore {
+        fn set(key: &'static str, value: &Path) -> Self {
+            let previous = env::var_os(key);
+            env::set_var(key, value);
+            Self { key, previous }
+        }
+    }
+
+    impl Drop for EnvRestore {
+        fn drop(&mut self) {
+            if let Some(previous) = &self.previous {
+                env::set_var(self.key, previous);
+            } else {
+                env::remove_var(self.key);
+            }
+        }
+    }
+
+    fn unique_temp_dir(label: &str) -> PathBuf {
+        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).expect("system time").as_nanos();
+        let path = env::temp_dir().join(format!("ripdpi-golden-test-support-{label}-{}-{nanos}", std::process::id()));
+        fs::create_dir_all(&path).expect("create temp dir");
+        path
+    }
 
     #[test]
     fn canonicalize_json_sorts_nested_keys() {
@@ -196,5 +242,23 @@ mod tests {
     #[test]
     fn normalize_text_rewrites_crlf_and_appends_terminal_newline() {
         assert_eq!(normalize_text("a\r\nb"), "a\nb\n");
+    }
+
+    #[test]
+    fn repo_root_prefers_explicit_env_override() {
+        let _guard = ENV_LOCK.lock().expect("env lock");
+        let expected = unique_temp_dir("repo-root");
+        let _restore = EnvRestore::set("RIPDPI_REPO_ROOT", &expected);
+
+        assert_eq!(repo_root(), expected);
+    }
+
+    #[test]
+    fn contract_fixture_path_prefers_specific_fixture_dir_override() {
+        let _guard = ENV_LOCK.lock().expect("env lock");
+        let expected = unique_temp_dir("contract-fixtures");
+        let _restore = EnvRestore::set("RIPDPI_CONTRACT_FIXTURES_DIR", &expected);
+
+        assert_eq!(contract_fixture_path("handle_contract.json"), expected.join("handle_contract.json"));
     }
 }

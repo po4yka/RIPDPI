@@ -3751,6 +3751,7 @@ version = "0.1.0"
 dependencies = [
  "blake2",
  "bytes",
+ "golden-test-support",
  "h3",
  "h3-quinn",
  "http",
@@ -4058,6 +4059,7 @@ dependencies = [
 name = "ripdpi-relay-mux"
 version = "0.1.0"
 dependencies = [
+ "golden-test-support",
  "rand 0.10.1",
  "thiserror 2.0.18",
  "tokio",
@@ -4305,6 +4307,7 @@ dependencies = [
 name = "ripdpi-strategy-lua"
 version = "0.1.0"
 dependencies = [
+ "golden-test-support",
  "mlua",
  "ripdpi-strategy-trait",
  "static_assertions",
@@ -4366,6 +4369,7 @@ name = "ripdpi-tls-profiles"
 version = "0.1.0"
 dependencies = [
  "boring",
+ "golden-test-support",
  "rcgen",
  "ripdpi-packets",
  "serde_json",

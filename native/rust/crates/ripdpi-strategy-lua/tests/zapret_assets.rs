@@ -9,7 +9,7 @@ use ripdpi_strategy_trait::{
 };
 
 fn lua_asset(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../../app/src/main/assets/lua").join(name)
+    golden_test_support::repo_root().join("app/src/main/assets/lua").join(name)
 }
 
 #[test]

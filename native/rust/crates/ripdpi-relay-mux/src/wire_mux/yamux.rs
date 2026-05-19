@@ -543,8 +543,7 @@ mod tests {
     /// `docs/tasks/issues/add-vless-mux-conformance-tests-against-xray-core.md`.
     #[test]
     fn upstream_yamux_fixtures_round_trip() {
-        let fixtures_root =
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../../contract-fixtures/vless");
+        let fixtures_root = golden_test_support::repo_root().join("contract-fixtures/vless");
         if !fixtures_root.exists() {
             // First time the harness runs; no fixtures committed yet.
             // The harness still passes — see task acceptance.

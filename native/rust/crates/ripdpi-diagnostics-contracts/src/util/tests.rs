@@ -1,6 +1,6 @@
 use std::fs;
-use std::path::{Path, PathBuf};
 
+use golden_test_support::repo_root;
 use serde::Deserialize;
 
 use crate::types::ScanPathMode;
@@ -302,10 +302,6 @@ fn probe_session_seed_uses_default_scope_when_none() {
     let with_none = probe_session_seed(None, "session-1");
     let with_default = probe_session_seed(Some("default"), "session-1");
     assert_eq!(with_none, with_default);
-}
-
-fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../").canonicalize().expect("repo root")
 }
 
 fn bucket_name(bucket: ProbeOutcomeBucket) -> &'static str {

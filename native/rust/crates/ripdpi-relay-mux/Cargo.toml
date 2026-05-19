@@ -9,5 +9,8 @@ rand = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "rt", "sync", "time"] }
 
+[dev-dependencies]
+golden-test-support = { workspace = true }
+
 [lints]
 workspace = true

@@ -13,6 +13,7 @@ sha2 = { workspace = true }
 ripdpi-packets = { workspace = true }
 
 [dev-dependencies]
+golden-test-support = { workspace = true }
 rcgen = { workspace = true }
 ripdpi-packets = { workspace = true }
 serde_json = { workspace = true }

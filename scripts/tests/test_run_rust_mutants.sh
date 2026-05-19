@@ -19,6 +19,8 @@ case "${1:-}" in
     printf '{"packages":[{"name":"ripdpi-desync"},{"name":"ripdpi-packets"}]}\n'
     ;;
   mutants)
+    printf 'RIPDPI_REPO_ROOT=%q\n' "${RIPDPI_REPO_ROOT:-}" >>"$CARGO_STUB_LOG"
+    printf 'RIPDPI_CONTRACT_FIXTURES_DIR=%q\n' "${RIPDPI_CONTRACT_FIXTURES_DIR:-}" >>"$CARGO_STUB_LOG"
     printf '%q ' "$@" >>"$CARGO_STUB_LOG"
     printf '\n' >>"$CARGO_STUB_LOG"
     ;;
@@ -63,6 +65,8 @@ assert_log_contains "--test-tool nextest"
 assert_log_contains "--output"
 assert_log_contains "--output $missing_parent_output"
 assert_log_contains "--in-diff git\\ diff\\ origin/main...HEAD"
+assert_log_contains "RIPDPI_REPO_ROOT=$repo_root"
+assert_log_contains "RIPDPI_CONTRACT_FIXTURES_DIR=$repo_root/contract-fixtures"
 assert_log_not_contains "--jobs"
 
 : >"$log_path"
