@@ -7,8 +7,11 @@ workspace_manifest="$repo_root/native/rust/Cargo.toml"
 TEST_TOOL="${MUTANTS_TEST_TOOL:-nextest}"
 PACKAGES="${MUTANTS_PACKAGES:-}"
 JOBS="${MUTANTS_JOBS:-}"
+OUTPUT_DIR="${MUTANTS_OUTPUT_DIR:-$repo_root/target/mutants-output}"
 
-common_args=(--test-tool "$TEST_TOOL" --output "$repo_root/target/mutants-output")
+mkdir -p "$(dirname "$OUTPUT_DIR")"
+
+common_args=(--test-tool "$TEST_TOOL" --output "$OUTPUT_DIR")
 if [ -n "$JOBS" ]; then
     if [[ ! "$JOBS" =~ ^[0-9]+$ ]]; then
         echo "error: MUTANTS_JOBS must be a numeric cargo-mutants --jobs value, got: $JOBS" >&2
@@ -74,4 +77,4 @@ run_workspace_mutants() {
 
 run_workspace_mutants "main workspace" "$workspace_manifest" "$@"
 
-echo "==> Results: $repo_root/target/mutants-output/"
+echo "==> Results: $OUTPUT_DIR/"

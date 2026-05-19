@@ -55,10 +55,13 @@ assert_log_not_contains() {
 }
 
 : >"$log_path"
-run_wrapper --in-diff "git diff origin/main...HEAD"
+missing_parent_output="$tmp_dir/missing-parent/mutants-output"
+MUTANTS_OUTPUT_DIR="$missing_parent_output" run_wrapper --in-diff "git diff origin/main...HEAD"
+test -d "$(dirname "$missing_parent_output")"
 assert_log_contains "mutants --manifest-path"
 assert_log_contains "--test-tool nextest"
 assert_log_contains "--output"
+assert_log_contains "--output $missing_parent_output"
 assert_log_contains "--in-diff git\\ diff\\ origin/main...HEAD"
 assert_log_not_contains "--jobs"
 
