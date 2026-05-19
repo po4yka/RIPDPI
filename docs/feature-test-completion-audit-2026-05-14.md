@@ -20,7 +20,7 @@ This audit keeps the path expected by `test-lab/scripts/check-feature-test-signo
 | Verify relay provider matrix | Readiness probe | Blocked until relay provider configuration is supplied. |
 | Verify accessibility with TalkBack | Readiness probe | Blocked because TalkBack is installed but inactive. |
 | Verify routed VM packet-loss lab | `test-lab/artifacts/netem-container-capability-20260519-current.txt` plus `test-lab/artifacts/feature-gap-readiness-20260519-netem-aware.json` | Container capability and readiness detection are current; routed netem Pixel path remains unproven. |
-| Verify remote release gates | PR #117 check rollup plus required workflow list | Partial: PR #117 was green at `e6a57057`, then advanced to `0ad430c8` after merging current `origin/main`; current-head checks were still in progress before the local `e6c6fefd` evidence update was pushed. Merge-to-main confirmation plus local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly evidence remain. |
+| Verify remote release gates | PR #117 check rollup plus required workflow list for CI, CodeQL, local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly | Partial: PR #117 was green at `e6a57057`, then advanced to `0ad430c8` after merging current `origin/main`; current-head checks were still in progress before the local `e6c6fefd` evidence update was pushed. Merge-to-main confirmation plus local-network-lab, offline analytics, mutation-testing, and Fuzz Nightly evidence remain. |
 
 ## Current Local State
 
