@@ -3,8 +3,7 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::types::ScanKind;
-
+use super::parallel;
 use super::plan::ExecutionPlan;
 use super::recording::{record_steps, CollectedStageOutcome};
 use super::stage::{ExecutionStageId, ExecutionStageRunner, RunnerOutcome};
@@ -35,38 +34,20 @@ impl ExecutionCoordinator {
         runtime: &mut ExecutionRuntime,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> RunnerOutcome {
-        // For CONNECTIVITY scans, DNS + TCP + QUIC are independent I/O-bound
-        // stages that can run concurrently. Each stage collects its own steps,
-        // then the coordinator merges them back into runtime in stage order.
-        const PARALLEL_GROUP: &[ExecutionStageId] =
-            &[ExecutionStageId::Dns, ExecutionStageId::Tcp, ExecutionStageId::Quic];
-
-        let is_connectivity = matches!(plan.request.kind, ScanKind::Connectivity);
         let mut parallel_done = HashSet::new();
 
         for stage in &plan.stage_order {
             if parallel_done.contains(stage) {
                 continue;
             }
-            if is_connectivity && PARALLEL_GROUP.contains(stage) {
-                let parallel_runners: Vec<&ExecutionStageId> = plan
-                    .stage_order
-                    .iter()
-                    .filter(|candidate| {
-                        PARALLEL_GROUP.contains(candidate)
-                            && self.runners.get(candidate).is_some_and(|r| r.total_steps(plan) > 0)
-                    })
-                    .collect();
+            if parallel::is_connectivity_parallel_plan_stage(plan, stage) {
+                let parallel_runners = parallel::runnable_connectivity_parallel_stages(plan, &self.runners);
 
                 if parallel_runners.len() > 1 {
                     if runtime.is_cancelled() || runtime.is_past_deadline() {
                         return RunnerOutcome::Cancelled;
                     }
-                    let parallel_target_count = parallel_runners
-                        .iter()
-                        .filter_map(|stage| self.runners.get(stage))
-                        .map(|runner| runner.total_steps(plan))
-                        .sum::<usize>();
+                    let parallel_target_count = parallel::total_steps(&parallel_runners, &self.runners, plan);
                     runtime.publish_progress(
                         plan,
                         "parallel_connectivity",

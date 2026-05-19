@@ -1,6 +1,6 @@
-use std::sync::Arc;
+mod servfail;
 
-use tracing::debug;
+use std::sync::Arc;
 
 use crate::dns_cache::DnsCache;
 use crate::{Stats, TunDevice};
@@ -8,6 +8,7 @@ use crate::{Stats, TunDevice};
 use super::super::bridge::enqueue_tun_packet;
 use super::super::packet::build_udp_response;
 use super::{DnsResponse, MapDnsRuntime};
+use servfail::send_servfail;
 
 pub(in crate::io_loop) fn handle_dns_result(
     device: &mut TunDevice,
@@ -44,22 +45,5 @@ pub(in crate::io_loop) fn handle_dns_result(
             );
             send_servfail(device, mapdns, dns_cache, response.src, &response.query, "upstream failure");
         }
-    }
-}
-
-fn send_servfail(
-    device: &mut TunDevice,
-    mapdns: MapDnsRuntime,
-    dns_cache: &DnsCache,
-    dst: std::net::SocketAddr,
-    query: &[u8],
-    reason: &str,
-) {
-    match dns_cache.servfail_response(query) {
-        Ok(servfail) => {
-            let raw = build_udp_response(mapdns.intercept_addr, dst, &servfail);
-            enqueue_tun_packet(device, raw, "dns-servfail");
-        }
-        Err(servfail_err) => debug!("failed to synthesize SERVFAIL after {reason}: {servfail_err}"),
     }
 }

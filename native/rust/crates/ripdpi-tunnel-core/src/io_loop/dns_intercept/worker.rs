@@ -8,6 +8,7 @@ use tracing::debug;
 use crate::dns_cache::DnsCache;
 use crate::{Stats, TunDevice};
 
+use super::super::send_dns_servfail;
 use super::{handle_dns_result, DnsRequest, DnsResponse, MapDnsRuntime};
 
 pub(in crate::io_loop) fn spawn_dns_worker(
@@ -155,17 +156,4 @@ pub(in crate::io_loop) fn drain_dns_responses(
         };
         handle_dns_result(device, stats, mapdns, cache, response);
     }
-}
-
-fn send_dns_servfail(
-    device: &mut TunDevice,
-    stats: &Arc<Stats>,
-    mapdns: MapDnsRuntime,
-    cache: &DnsCache,
-    src: SocketAddr,
-    query: &[u8],
-    host: Option<&str>,
-    reason: &str,
-) {
-    super::super::send_dns_servfail(device, stats, mapdns, cache, src, query, host, reason);
 }
