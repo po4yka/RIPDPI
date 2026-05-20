@@ -3,6 +3,8 @@ appId: com.poyka.ripdpi
 - launchApp
 - tapOn: "Diagnostics"
 - tapOn:
-    id: "home-mode-primary-diagnostic"
+    id: "diagnostics-overview-run-scan-action"
 - assertVisible:
-    text: "Transparent works|Owned stack only|No direct solution|Degraded"
+    id: "diagnostics-section-scan"
+- assertVisible:
+    id: "diagnostics-scan-state-progress|diagnostics-scan-state-content|diagnostics-scan-progress-card"
