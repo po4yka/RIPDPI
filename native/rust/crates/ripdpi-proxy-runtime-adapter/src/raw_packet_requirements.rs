@@ -264,7 +264,9 @@ mod tests {
         crate::platform::root_helper::unregister_root_helper();
         {
             let _guard = RootHelperProbeRegistration::for_path(Some(" /tmp/ripdpi-probe-helper.sock "));
-            let path = crate::platform::root_helper::with_root_helper(|client| client.socket_path());
+            let path = crate::platform::root_helper::with_root_helper(
+                ripdpi_runtime_platform::root_helper_client::RootHelperClient::socket_path,
+            );
             assert_eq!(path.as_deref(), Some("/tmp/ripdpi-probe-helper.sock"));
         }
 
@@ -280,11 +282,15 @@ mod tests {
         crate::platform::root_helper::register_root_helper("/tmp/ripdpi-existing-helper.sock".to_string());
         {
             let _guard = RootHelperProbeRegistration::for_path(Some("/tmp/ripdpi-probe-helper.sock"));
-            let path = crate::platform::root_helper::with_root_helper(|client| client.socket_path());
+            let path = crate::platform::root_helper::with_root_helper(
+                ripdpi_runtime_platform::root_helper_client::RootHelperClient::socket_path,
+            );
             assert_eq!(path.as_deref(), Some("/tmp/ripdpi-existing-helper.sock"));
         }
 
-        let path = crate::platform::root_helper::with_root_helper(|client| client.socket_path());
+        let path = crate::platform::root_helper::with_root_helper(
+            ripdpi_runtime_platform::root_helper_client::RootHelperClient::socket_path,
+        );
         assert_eq!(path.as_deref(), Some("/tmp/ripdpi-existing-helper.sock"));
         crate::platform::root_helper::unregister_root_helper();
     }

@@ -10,12 +10,12 @@ pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::args: alloc::vec::Vec<
 pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::host_autolearn_store_path: core::option::Option<alloc::string::String>
 pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::log_context: core::option::Option<ripdpi_proxy_config::ProxyLogContext>
 pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::runtime_context: core::option::Option<ripdpi_proxy_config::ProxyRuntimeContext>
-pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::session_overrides: core::option::Option<ripdpi_proxy_config::ProxySessionOverrides>
+pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::session_overrides: core::option::Option<ripdpi_proxy_config::types::payload::ProxySessionOverrides>
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui::config: ripdpi_proxy_config::ProxyUiConfig
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui::log_context: core::option::Option<ripdpi_proxy_config::ProxyLogContext>
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui::runtime_context: core::option::Option<ripdpi_proxy_config::ProxyRuntimeContext>
-pub ripdpi_proxy_config::ProxyConfigPayload::Ui::session_overrides: core::option::Option<ripdpi_proxy_config::ProxySessionOverrides>
+pub ripdpi_proxy_config::ProxyConfigPayload::Ui::session_overrides: core::option::Option<ripdpi_proxy_config::types::payload::ProxySessionOverrides>
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui::strategy_preset: core::option::Option<alloc::string::String>
 pub struct ripdpi_proxy_config::CellularSnapshot
 pub ripdpi_proxy_config::CellularSnapshot::carrier_id: core::option::Option<i32>
@@ -94,9 +94,6 @@ pub ripdpi_proxy_config::ProxyRuntimeContext::encrypted_dns: core::option::Optio
 pub ripdpi_proxy_config::ProxyRuntimeContext::morph_policy: core::option::Option<ripdpi_proxy_config::ProxyMorphPolicy>
 pub ripdpi_proxy_config::ProxyRuntimeContext::preferred_edges: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::vec::Vec<ripdpi_proxy_config::ProxyPreferredEdge>>
 pub ripdpi_proxy_config::ProxyRuntimeContext::protect_path: core::option::Option<alloc::string::String>
-pub struct ripdpi_proxy_config::ProxySessionOverrides
-pub ripdpi_proxy_config::ProxySessionOverrides::auth_token: core::option::Option<alloc::string::String>
-pub ripdpi_proxy_config::ProxySessionOverrides::listen_port_override: core::option::Option<i32>
 pub struct ripdpi_proxy_config::ProxyUiActivationFilter
 pub ripdpi_proxy_config::ProxyUiActivationFilter::payload_size: core::option::Option<ripdpi_proxy_config::ProxyUiNumericRange>
 pub ripdpi_proxy_config::ProxyUiActivationFilter::round: core::option::Option<ripdpi_proxy_config::ProxyUiNumericRange>
@@ -284,14 +281,8 @@ pub const ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA: i32
 pub const ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK: i32
 pub const ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX: i32
 pub const ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN: i32
-pub const ripdpi_proxy_config::FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT: &str
-pub const ripdpi_proxy_config::FAKE_TLS_SNI_MODE_FIXED: &str
 pub const ripdpi_proxy_config::FAKE_TLS_SNI_MODE_RANDOMIZED: &str
-pub const ripdpi_proxy_config::HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_HOURS: i64
 pub const ripdpi_proxy_config::QUIC_FAKE_PROFILE_DISABLED: &str
-pub const ripdpi_proxy_config::SEQOVL_DEFAULT_OVERLAP_SIZE: i32
-pub const ripdpi_proxy_config::SEQOVL_FAKE_MODE_PROFILE: &str
-pub const ripdpi_proxy_config::SEQOVL_FAKE_MODE_RAND: &str
 pub fn ripdpi_proxy_config::normalize_fake_tls_sni_mode(value: &str) -> &'static str
 pub fn ripdpi_proxy_config::parse_desync_mode(value: &str) -> core::result::Result<ripdpi_config::model::tcp::DesyncMode, ripdpi_proxy_config::ProxyConfigError>
 pub fn ripdpi_proxy_config::parse_http_fake_profile(value: &str) -> core::result::Result<ripdpi_packets::fake_profiles::HttpFakeProfile, ripdpi_proxy_config::ProxyConfigError>
