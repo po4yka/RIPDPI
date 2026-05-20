@@ -15,7 +15,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-WORKFLOW="${REPO_ROOT}/.github/workflows/ci.yml"
+DEFAULT_WORKFLOW="${REPO_ROOT}/.github/workflows/ci.yml"
 ACT_DIR="${REPO_ROOT}/.github/act"
 WORKSPACE_MANIFEST="$REPO_ROOT/native/rust/Cargo.toml"
 ACT_UBUNTU_IMAGE="${ACT_UBUNTU_IMAGE:-catthehacker/ubuntu:act-latest}"
@@ -57,6 +57,7 @@ declare -A JOB_MODE=(
   [native-bloat]="native"
   [coverage]="native"
   [cli-packet-smoke]="act"
+  [local-network-lab]="act"
   [android-macrobenchmark]="skip"
   [android-network-e2e]="skip"
   [linux-tun-e2e]="skip"
@@ -75,6 +76,16 @@ declare -A JOB_SKIP_REASON=(
   [rust-native-load]="Schedule/dispatch-only long-running job"
   [nightly-rust-coverage]="Schedule-only nightly job"
   [cli-packet-smoke]="Needs tcpdump/tshark + cap_net_raw (use --act-only or Linux)"
+  [local-network-lab]="Runs Docker lab doctor and readiness preflights through act"
+)
+
+declare -A JOB_WORKFLOW=(
+  [cli-packet-smoke]="${REPO_ROOT}/.github/workflows/ci.yml"
+  [local-network-lab]="${REPO_ROOT}/.github/workflows/local-network-lab.yml"
+)
+
+declare -A JOB_ACT_ID=(
+  [local-network-lab]="lab-doctor"
 )
 
 # Ordered by speed -- fast checks first for quick feedback
@@ -95,7 +106,7 @@ ALL_NATIVE_JOBS=(
   coverage
 )
 
-ALL_ACT_JOBS=(cli-packet-smoke)
+ALL_ACT_JOBS=(cli-packet-smoke local-network-lab)
 
 # ── Helpers ─────────────────────────────────────────────────────────
 
@@ -203,6 +214,8 @@ run_native_job() {
 
 run_act_job() {
   local job="$1"
+  local workflow="${JOB_WORKFLOW[$job]:-$DEFAULT_WORKFLOW}"
+  local act_job="${JOB_ACT_ID[$job]:-$job}"
   local act_container_args=()
   local act_container_options="$ACT_CONTAINER_OPTIONS"
   local act_env_args=(
@@ -237,8 +250,8 @@ run_act_job() {
     --container-architecture "$ACT_CONTAINER_ARCH" \
     "${act_container_args[@]}" \
     --rm \
-    -j "$job" \
-    -W "$WORKFLOW" \
+    -j "$act_job" \
+    -W "$workflow" \
     -e "${ACT_DIR}/event-push.json" \
     "${act_env_args[@]}"
 }

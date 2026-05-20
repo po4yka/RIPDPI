@@ -50,6 +50,7 @@ jobs:
       - name: Validate feature gap readiness preflight
         run: |
           set -euo pipefail
+          mkdir -p "$RUNNER_TEMP"
           test-lab/scripts/test-feature-gap-readiness.sh
           test-lab/scripts/test-relay-matrix-config.sh
           test-lab/scripts/check-relay-matrix-config.sh \
@@ -92,7 +93,13 @@ jobs:
             "$RUNNER_TEMP/ripdpi-missing-maestro-fast-fail.log"
 
       - name: Validate workflow YAML
-        run: ruby -e 'require "yaml"; YAML.load_file(".github/workflows/local-network-lab.yml")'
+        run: |
+          set -euo pipefail
+          if ! command -v ruby >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ruby
+          fi
+          ruby -e 'require "yaml"; YAML.load_file(".github/workflows/local-network-lab.yml")'
 
       - name: Validate Docker Compose model
         run: docker compose -f test-lab/docker-compose.yml config
@@ -111,7 +118,7 @@ jobs:
         run: ./test-lab/scripts/stop-lab.sh
 
       - name: Upload test-lab artifacts
-        if: always()
+        if: ${{ always() && env.ACT != 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: local-network-lab-artifacts
