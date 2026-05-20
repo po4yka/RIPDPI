@@ -7,6 +7,7 @@ trap 'rm -rf "$tmp_dir"' EXIT
 
 bin_dir="$tmp_dir/bin"
 log_path="$tmp_dir/cargo.log"
+git_log_path="$tmp_dir/git.log"
 err_path="$tmp_dir/stderr.log"
 mkdir -p "$bin_dir"
 
@@ -32,8 +33,30 @@ esac
 STUB
 chmod +x "$bin_dir/cargo"
 
+cat >"$bin_dir/git" <<'STUB'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${1:-}" = "diff" ]; then
+  printf '%q ' "$@" >>"$GIT_STUB_LOG"
+  printf '\n' >>"$GIT_STUB_LOG"
+  cat <<'DIFF'
+diff --git a/crates/ripdpi-desync/src/lib.rs b/crates/ripdpi-desync/src/lib.rs
+--- a/crates/ripdpi-desync/src/lib.rs
++++ b/crates/ripdpi-desync/src/lib.rs
+@@ -1 +1 @@
+-pub fn sample() -> bool { false }
++pub fn sample() -> bool { true }
+DIFF
+else
+  echo "unexpected git command: ${1:-}" >&2
+  exit 9
+fi
+STUB
+chmod +x "$bin_dir/git"
+
 run_wrapper() {
-  PATH="$bin_dir:$PATH" CARGO_STUB_LOG="$log_path" bash "$repo_root/scripts/ci/run-rust-mutants.sh" "$@"
+  PATH="$bin_dir:$PATH" CARGO_STUB_LOG="$log_path" GIT_STUB_LOG="$git_log_path" bash "$repo_root/scripts/ci/run-rust-mutants.sh" "$@"
 }
 
 assert_log_contains() {
@@ -57,6 +80,7 @@ assert_log_not_contains() {
 }
 
 : >"$log_path"
+: >"$git_log_path"
 missing_parent_output="$tmp_dir/missing-parent/mutants-output"
 MUTANTS_OUTPUT_DIR="$missing_parent_output" run_wrapper --in-diff "git diff origin/main...HEAD"
 test -d "$(dirname "$missing_parent_output")"
@@ -64,7 +88,9 @@ assert_log_contains "mutants --manifest-path"
 assert_log_contains "--test-tool nextest"
 assert_log_contains "--output"
 assert_log_contains "--output $missing_parent_output"
-assert_log_contains "--in-diff git\\ diff\\ origin/main...HEAD"
+assert_log_contains "--in-diff"
+assert_log_not_contains "git\\ diff\\ origin/main...HEAD"
+grep -Fq "diff --relative=native/rust origin/main...HEAD" "$git_log_path"
 assert_log_contains "RIPDPI_REPO_ROOT=$repo_root"
 assert_log_contains "RIPDPI_CONTRACT_FIXTURES_DIR=$repo_root/contract-fixtures"
 assert_log_not_contains "--jobs"

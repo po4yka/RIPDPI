@@ -8,10 +8,18 @@ TEST_TOOL="${MUTANTS_TEST_TOOL:-nextest}"
 PACKAGES="${MUTANTS_PACKAGES:-}"
 JOBS="${MUTANTS_JOBS:-}"
 OUTPUT_DIR="${MUTANTS_OUTPUT_DIR:-$repo_root/target/mutants-output}"
+TMP_DIFF_DIR=""
 
 mkdir -p "$(dirname "$OUTPUT_DIR")"
 export RIPDPI_REPO_ROOT="${RIPDPI_REPO_ROOT:-$repo_root}"
 export RIPDPI_CONTRACT_FIXTURES_DIR="${RIPDPI_CONTRACT_FIXTURES_DIR:-$RIPDPI_REPO_ROOT/contract-fixtures}"
+
+cleanup() {
+    if [ -n "$TMP_DIFF_DIR" ]; then
+        rm -rf "$TMP_DIFF_DIR"
+    fi
+}
+trap cleanup EXIT
 
 common_args=(--test-tool "$TEST_TOOL" --output "$OUTPUT_DIR")
 if [ -n "$JOBS" ]; then
@@ -39,11 +47,54 @@ package_belongs_to_workspace() {
     return 1
 }
 
+normalize_extra_args() {
+    local manifest="$1"
+    shift
+    normalized_extra_args=()
+
+    while [ "$#" -gt 0 ]; do
+        local arg="$1"
+        shift
+        if [ "$arg" != "--in-diff" ]; then
+            normalized_extra_args+=("$arg")
+            continue
+        fi
+        if [ "$#" -eq 0 ]; then
+            echo "error: --in-diff requires a diff file path or git diff command" >&2
+            exit 2
+        fi
+
+        local diff_source="$1"
+        shift
+        if [ -f "$diff_source" ]; then
+            normalized_extra_args+=(--in-diff "$diff_source")
+            continue
+        fi
+        if [[ "$diff_source" != git\ diff* ]]; then
+            echo "error: --in-diff must be a readable diff file or a git diff command, got: $diff_source" >&2
+            exit 2
+        fi
+
+        if [ -z "$TMP_DIFF_DIR" ]; then
+            TMP_DIFF_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-mutants-diff.XXXXXX")"
+        fi
+        local workspace_dir="${manifest%/*}"
+        local workspace_rel="${workspace_dir#$repo_root/}"
+        local diff_file="$TMP_DIFF_DIR/$(basename "$workspace_dir").diff"
+        local diff_args_text="${diff_source#git diff}"
+        # shellcheck disable=SC2206
+        local diff_args=($diff_args_text)
+        (cd "$repo_root" && git diff --relative="$workspace_rel" "${diff_args[@]}") >"$diff_file"
+        normalized_extra_args+=(--in-diff "$diff_file")
+    done
+}
+
 run_workspace_mutants() {
     local label="$1"
     local manifest="$2"
     shift 2
-    local extra_arg_count="$#"
+    normalize_extra_args "$manifest" "$@"
+    local extra_arg_count="${#normalized_extra_args[@]}"
     local args=("${common_args[@]}")
 
     if [ -n "$PACKAGES" ]; then
@@ -71,7 +122,7 @@ run_workspace_mutants() {
 
     echo "==> mutation testing ($label)"
     if [ "$extra_arg_count" -gt 0 ]; then
-        cargo mutants --manifest-path "$manifest" "${args[@]}" "$@"
+        cargo mutants --manifest-path "$manifest" "${args[@]}" "${normalized_extra_args[@]}"
     else
         cargo mutants --manifest-path "$manifest" "${args[@]}"
     fi
