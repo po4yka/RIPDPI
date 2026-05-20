@@ -199,6 +199,65 @@ approximation or be inert when root is unavailable. `multidisorder` is
 5. If the transport has a URI scheme, extend the subscription/profile importers
    (base64, Clash/Clash.Meta YAML, sing-box JSON, WireGuard-INI).
 
+### The transport-descriptor seam (future improvement)
+
+A new transport today touches several **parallel, decentralized registries**
+keyed by the same `relay_kind` string family — there is no single
+`RelayTransportDescriptor`:
+
+| Site | What it holds |
+|------|---------------|
+| `RelayKind` enum + `RelayBackendConfig::kind_id()` (`ripdpi-relay-core/src/config/`) | the taxonomy and the `relay_kind` → kind-id string mapping |
+| `RelayKind::supports_finalmask` / `supports_outbound_bind_ip` (`config/kind.rs`) | static capability predicates |
+| `planned_backend_capabilities` / `pool_config_for_backend` / `planned_backend_fallback_mode` / `describe_upstream` (`runtime_validation.rs`) | per-kind `match` statements feeding TCP/UDP capability, pool sizing, and fallback mode |
+| `BUILDERS: &[BackendBuilder]` (`backend/builder/builders/mod.rs`) | the `{ supports, build }` dispatch slice |
+| `RelayKindResolverRegistry.kt` + per-kind `*RelayKindResolver.kt` (`:core:service`) | the Kotlin-side resolver registry |
+
+Adding a transport means editing each Rust `match RelayKind` arm by hand and
+adding a Kotlin resolver — the `relay_kind` string is re-matched at every layer.
+
+*Future improvement — a `RelayTransportDescriptor` seam.* Collapse the static
+per-kind facts into one descriptor type plus a table in `ripdpi-relay-core`:
+
+```rust
+pub struct RelayTransportDescriptor {
+    /// The stable `relay_kind` string (proto field 171). Never changes.
+    pub kind_id: &'static str,
+    /// Human-readable label for diagnostics / telemetry.
+    pub label: &'static str,
+    /// Backend capability profile (from `ripdpi-relay-mux`).
+    pub capabilities: RelayCapabilities,
+    /// Connection-pool tuning (from `ripdpi-relay-mux`).
+    pub pool: RelayPoolConfig,
+    /// Static capability predicates currently methods on `RelayKind`.
+    pub supports_finalmask: bool,
+    pub supports_outbound_bind_ip: bool,
+}
+
+static RELAY_TRANSPORT_DESCRIPTORS: &[RelayTransportDescriptor] = &[ /* one row per kind */ ];
+```
+
+The four `match RelayKind` statements in `runtime_validation.rs` then become a
+descriptor lookup, and a new transport is one table row plus its `BUILDERS`
+entry.
+
+**Why this is not done in this pass:** the capability / pool / fallback data
+lives inside *behavior-bearing* `match` statements — `pool_config_for_backend`
+sets live `max_active_leases` / `idle_timeout`, `planned_backend_capabilities`
+feeds the `ripdpi-relay-mux` pool. Collapsing them is a runtime-path refactor
+that must be proven behavior-identical, not a docs-pass change. Two modeling
+snags must be resolved first: `RelayKind::VlessReality { xhttp: bool }` splits
+one `relay_kind` string into two capability / pool profiles (the descriptor key
+is not 1:1 with the string — `xhttp` must be part of the key or the row), and
+`RelayKind::Unsupported(&str)` is a borrowed catch-all with no static row.
+Sequence the migration safest-first: (1) introduce the type and table; (2)
+migrate the two pure `supports_*` predicates (behavior-trivial, unit-test
+covered); (3) migrate the capability / pool / fallback matches under a
+golden/parity test; (4) only then consider exposing the descriptor for
+telemetry (a new telemetry field is itself a contract change — see §6). Keep
+the `BUILDERS` dispatch slice as-is — it is already a descriptor-shaped
+registry.
+
 ### Compatibility checks
 
 - `ripdpi-relay-core` config must preserve Cloudflare-tunnel mode, credential

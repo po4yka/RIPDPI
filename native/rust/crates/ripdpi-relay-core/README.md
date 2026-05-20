@@ -36,6 +36,29 @@ for the privileged path it does not use.
 3. Adding a new **relay kind** (a new `relay_kind` string) is a cross-cutting
    change — follow [`FEATURE_EXTENSION_GUIDE.md`](../../../../docs/architecture/FEATURE_EXTENSION_GUIDE.md) §2.
 
+## Transport-descriptor seam
+
+There is **no single `RelayTransportDescriptor`** today. The static per-kind
+facts are spread across decentralized sites, all keyed by the same `relay_kind`
+string family:
+
+- `RelayKind` (`src/config/kind.rs`) — the taxonomy plus the
+  `supports_finalmask` / `supports_outbound_bind_ip` predicates.
+- `RelayBackendConfig::kind_id()` (`src/config/backend.rs`) — the kind-id string.
+- `runtime_validation.rs` — the `planned_backend_capabilities`,
+  `pool_config_for_backend`, `planned_backend_fallback_mode`, and
+  `describe_upstream` `match RelayKind` statements (TCP/UDP capability, pool
+  sizing, fallback mode).
+- `backend/builder/builders/mod.rs` — the `BUILDERS` dispatch slice.
+
+Collapsing these into one descriptor type and table is a tracked **future
+improvement**, deferred because the capability / pool / fallback matches are
+runtime-behavior-bearing and `RelayKind::VlessReality { xhttp }` splits one
+`relay_kind` string into two profiles. The exact `RelayTransportDescriptor`
+design and a safest-first migration order are documented in
+[`FEATURE_EXTENSION_GUIDE.md`](../../../../docs/architecture/FEATURE_EXTENSION_GUIDE.md)
+§2, "The transport-descriptor seam".
+
 ---
 See [`NATIVE_RUST.md`](../../../../docs/architecture/NATIVE_RUST.md),
 [`ROOT_HELPER_CONTRACT.md`](../../../../docs/architecture/ROOT_HELPER_CONTRACT.md),
