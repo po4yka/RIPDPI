@@ -6,14 +6,14 @@
 # 1. Load the CI nftables ruleset that funnels outbound TCP:8443 to
 #    nfqueue 0.
 # 2. Start a localhost TCP listener on 127.0.0.1:8443.
-# 3. Start the live handler with sudo and a fixed --timeout-seconds.
+# 3. Start the live handler with elevated network privileges and a fixed --timeout-seconds.
 # 4. Send a crafted TLS ClientHello with SNI=blocked.example.
 # 5. Wait for the handler to time out.
 # 6. Verify verdict-report.json contains >= 1 blocked cell.
 #
 # Requires:
 #   - Linux host (nfqueue + nftables).
-#   - sudo / NET_ADMIN.
+#   - root or sudo / NET_ADMIN.
 #   - NetfilterQueue installed for the Python interpreter used below.
 
 set -euo pipefail
@@ -29,22 +29,34 @@ if [[ "$(uname -s)" != "Linux" ]]; then
     exit 0
 fi
 
+run_privileged() {
+    if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+        "$@"
+    else
+        sudo "$@"
+    fi
+}
+
 ARTIFACT_DIR="${RIPDPI_TSPU_LIVE_ARTIFACT_DIR:-$(mktemp -d -t tspu-live-XXXXXX)}"
 mkdir -p "$ARTIFACT_DIR"
 echo "tspu live: artifacts -> $ARTIFACT_DIR"
 
 # Ensure the nfqueue kernel module is loaded.
-sudo modprobe nfnetlink_queue || true
+if command -v modprobe >/dev/null 2>&1; then
+    run_privileged modprobe nfnetlink_queue || true
+else
+    echo "tspu live: modprobe unavailable; assuming nfqueue support is already present" >&2
+fi
 
 # Load nft rules; tear them down on exit.
-sudo nft -f "$NFT_FILE"
+run_privileged nft -f "$NFT_FILE"
 cleanup() {
-    sudo nft delete table inet tspu_ci_smoke >/dev/null 2>&1 || true
+    run_privileged nft delete table inet tspu_ci_smoke >/dev/null 2>&1 || true
     if [[ -n "${LISTENER_PID:-}" ]]; then
         kill "$LISTENER_PID" >/dev/null 2>&1 || true
     fi
     if [[ -n "${HANDLER_PID:-}" ]]; then
-        sudo kill "$HANDLER_PID" >/dev/null 2>&1 || true
+        run_privileged kill "$HANDLER_PID" >/dev/null 2>&1 || true
     fi
 }
 trap cleanup EXIT
@@ -80,8 +92,8 @@ PY
 LISTENER_PID=$!
 sleep 0.5
 
-# 2. Live handler with sudo, time-limited so the script returns.
-sudo --preserve-env=PYTHONPATH \
+# 2. Live handler with network privileges, time-limited so the script returns.
+run_privileged env \
     PYTHONPATH="$TSPU_DIR" \
     "$PYTHON_BIN" -m runner.cli live \
         --matrix "$TSPU_DIR/matrix.json" \
