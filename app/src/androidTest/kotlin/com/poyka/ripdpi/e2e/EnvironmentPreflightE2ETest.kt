@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
-import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -63,6 +62,6 @@ class EnvironmentPreflightE2ETest {
     }
 
     private fun stopService(serviceClass: Class<*>) {
-        appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
+        appContext.stopService(Intent(appContext, serviceClass))
     }
 }
