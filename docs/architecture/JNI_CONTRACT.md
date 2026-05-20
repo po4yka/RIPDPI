@@ -1,0 +1,414 @@
+# JNI Contract — the Kotlin ↔ Rust Boundary
+
+The Kotlin/Rust JNI boundary is an **architecture contract**, not an
+implementation detail. This document is the normative reference for what
+crosses it, who owns each side, and the invariants every JNI method must
+honor. Treat a violation of any rule here as a release blocker.
+
+Companion docs: [`ARCHITECTURE.md`](ARCHITECTURE.md) (whole-app),
+[`NATIVE_RUST.md`](NATIVE_RUST.md) (crate taxonomy),
+[`FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) (adding features).
+Derived from current source; exact paths and crate names are used throughout.
+
+---
+
+## 1. Native library map
+
+Four JNI `cdylib` libraries are loaded into the app process. Each has its own
+`JNI_OnLoad`.
+
+| Library | Source crate | Loaded by (Kotlin) | `JNI_OnLoad` location |
+|---------|--------------|--------------------|-----------------------|
+| `libripdpi.so` | `ripdpi-android` | `RipDpiNativeLoader` → `System.loadLibrary("ripdpi")` | `native/rust/crates/ripdpi-android/src/lib.rs` |
+| `libripdpi-tunnel.so` | `ripdpi-tunnel-android` | `Tun2SocksNativeBindings` companion → `System.loadLibrary("ripdpi-tunnel")` | `native/rust/crates/ripdpi-tunnel-android/src/lib.rs` |
+| `libripdpi-relay.so` | `ripdpi-relay-android` | `RipDpiRelayNativeLoader` → `System.loadLibrary("ripdpi-relay")` | `native/rust/crates/ripdpi-relay-android/src/lib.rs` |
+| `libripdpi-warp.so` | `ripdpi-warp-android` | `RipDpiWarpNativeLoader` → `System.loadLibrary("ripdpi-warp")` | `native/rust/crates/ripdpi-warp-android/src/lib.rs` |
+
+`JNI_OnLoad` behavior:
+
+- **All four** wrap their body in `std::panic::catch_unwind` and return
+  `jni::sys::JNI_ERR` on panic; on success they return `android_support::JNI_VERSION`
+  (`JNI_VERSION_1_6`).
+- `libripdpi.so` `JNI_OnLoad` (`ripdpi-android/src/lib.rs`): stores the
+  `JavaVM` in a process-static `OnceCell<JavaVM>` (`JVM`), then calls
+  `android_support::ignore_sigpipe()`, `init_android_logging("ripdpi-native")`,
+  `android_support::install_panic_hook()`, and
+  `ripdpi_android_telemetry_adapter::install_recorder()`.
+- `libripdpi-tunnel.so` and `libripdpi-warp.so` **do not** store the `JavaVM`
+  passed to `JNI_OnLoad`; they call `ignore_sigpipe` + `init_android_logging`
+  + `install_panic_hook`. `libripdpi-relay.so` routes through
+  `lifecycle::jni_on_load_entry(vm)`.
+- `RipDpiNativeLoader` is a Kotlin `object`; its `init` block runs
+  `System.loadLibrary` exactly once. `RipDpiProxyNativeBindings`,
+  `NetworkDiagnosticsNativeBindings`, `StrategyEngineNativeBindings`,
+  `RipDpiCdnEchNativeBindings`, `RipDpiSharedPriorsNativeBindings`,
+  `RipDpiPlatformCapabilities`, `NativeOwnedTlsHttpFetcher`, and
+  `NativeEchTlsHandshakeBridge` all funnel through `RipDpiNativeLoader.ensureLoaded()`.
+
+---
+
+## 2 & 3. Boundary ownership map
+
+Each row is one JNI boundary. The **Kotlin owner** declares the `external fun`s;
+the **Rust owner** exports the matching `Java_*` symbols. The `*NativeBindings`
+class holds the raw `external fun`s; a sibling wrapper class
+(`RipDpiProxy`, `Tun2SocksTunnel`, …) adds the coroutine-friendly API.
+
+| Kotlin owner class | JNI symbol prefix | Rust owner crate · module | Native lib |
+|--------------------|-------------------|---------------------------|------------|
+| `RipDpiProxyNativeBindings` (`core/engine/.../core/RipDpiProxy.kt`) | `Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_*` | `ripdpi-android` · `src/ffi/proxy_bridge.rs` (+ `proxy_bridge/{core,geo,pcap}.rs`), `src/ffi/vpn_protect_bridge.rs` | `libripdpi.so` |
+| `NetworkDiagnosticsNativeBindings` (`.../core/NetworkDiagnostics.kt`) | `Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_*` | `ripdpi-android` · `src/ffi/diagnostics_bridge.rs` | `libripdpi.so` |
+| `StrategyEngineNativeBindings` (`.../core/StrategyEngineNativeBindings.kt`) | `Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_*` | `ripdpi-android` · `src/ffi/lua_bridge.rs`, `src/ffi/probe_results_bridge.rs` | `libripdpi.so` |
+| `RipDpiCdnEchNativeBindings` (`.../core/RipDpiCdnEchNativeBindings.kt`) | `Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_*` | `ripdpi-android` · `src/ffi/cdn_ech_bridge.rs` | `libripdpi.so` |
+| `RipDpiSharedPriorsNativeBindings` (`.../core/RipDpiSharedPriorsNativeBindings.kt`) | `Java_com_poyka_ripdpi_core_RipDpiSharedPriorsNativeBindings_*` | `ripdpi-android` · `src/ffi/shared_priors_bridge.rs` | `libripdpi.so` |
+| `RipDpiPlatformCapabilities` (`.../core/RipDpiPlatformCapabilities.kt`) | `Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_*` | `ripdpi-android` · `src/ffi/platform_bridge.rs` | `libripdpi.so` |
+| `NativeOwnedTlsHttpFetcherNativeBindings` (`.../core/NativeOwnedTlsHttpFetcher.kt`) | `Java_com_poyka_ripdpi_core_NativeOwnedTlsHttpFetcherNativeBindings_*` | `ripdpi-android` · `src/ffi/owned_tls_http_bridge.rs` | `libripdpi.so` |
+| `NativeEchTlsHandshakeBridge` (`.../core/NativeEchTlsHandshakeBridge.kt`) | `Java_com_poyka_ripdpi_core_*` (native-ech-tls) | `ripdpi-android` · `src/ffi/native_ech_tls_bridge.rs` | `libripdpi.so` |
+| `NativeDoqQuicClientNativeBindings` (`:core:diagnostics`) | `Java_com_poyka_ripdpi_diagnostics_dpi_NativeDoqQuicClientNativeBindings_*` | `ripdpi-android` · `src/ffi/doq_bridge.rs` | `libripdpi.so` |
+| `NativeQuicInitialPacketBindings` (`:core:diagnostics`) | `Java_com_poyka_ripdpi_diagnostics_dpi_NativeQuicInitialPacketBindings_*` | `ripdpi-android` · `src/ffi/quic_initial_bridge.rs` | `libripdpi.so` |
+| `JniNativeSignsBridge` (`:core:detection`) | `Java_com_poyka_ripdpi_core_detection_checker_JniNativeSignsBridge_*` | `ripdpi-android` · `src/ffi/native_signs_bridge.rs` | `libripdpi.so` |
+| `Tun2SocksNativeBindings` (`.../core/Tun2SocksTunnel.kt`) | `Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_*` | `ripdpi-tunnel-android` · `src/entry.rs` (+ `src/session/`) | `libripdpi-tunnel.so` |
+| `RipDpiRelayNativeBindings` (`.../core/RipDpiRelay.kt`) | `Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_*` | `ripdpi-relay-android` · `src/lib.rs` (+ `lifecycle.rs`, `registry.rs`, `runtime.rs`, `telemetry.rs`) | `libripdpi-relay.so` |
+| `RipDpiWarpNativeBindings` (`.../core/RipDpiWarp.kt`) | `Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_*` | `ripdpi-warp-android` · `src/lib.rs` (+ `lifecycle.rs`, `provisioning.rs`, `endpoint_probe.rs`, `telemetry.rs`, `vpn_protect.rs`) | `libripdpi-warp.so` |
+
+**Layering inside `libripdpi.so`:** the `ripdpi-android` crate is an
+**export facade only**. `src/ffi.rs` defines the `export_jni!` macro;
+`src/ffi/bridges.rs` aggregates the per-feature bridge modules. Each bridge
+delegates real work to an adapter crate — `ripdpi-android-proxy-adapter`,
+`ripdpi-android-diagnostics-adapter`, `ripdpi-android-platform-adapter`,
+`ripdpi-android-fetch-adapter`, `ripdpi-android-telemetry-adapter`,
+`ripdpi-android-vpn-protect-adapter`. Shared JNI machinery lives in
+`android-support` and `ripdpi-android-bridge-support`.
+
+---
+
+## 4. Handle lifecycle rules
+
+Native sessions are passed across the boundary as an opaque `jlong` **handle**,
+never a raw pointer.
+
+- **Registry.** `android_support::HandleRegistry<T>`
+  (`native/rust/crates/android-support/src/handles.rs`) is
+  `AtomicU64 next` (starts at `1`) + `Mutex<HashMap<u64, Arc<T>>>`. `insert`
+  returns a handle, keeping it inside positive `i64` range; `get` clones the
+  `Arc`; `remove` retires it.
+- **`0` is the "no handle" sentinel.** `jniCreate` returns `0` on failure.
+  Kotlin treats `0L` as failure (`RipDpiProxy.startProxy` /
+  `Tun2SocksTunnel.start` throw `NativeError.SessionCreationFailed`). Rust-side
+  `to_handle(jlong) -> Option<u64>` (`ripdpi-android-bridge-support` and
+  `ripdpi-tunnel-android`) rejects `0` and negative values.
+- **Lifecycle ordering:** `create` → `start` → `stop` → `destroy`. `destroy`
+  retires the handle from the registry; a handle must **never** be used after
+  `destroy`. `stop` is idempotent on the Rust side.
+- **Kotlin owns mutual exclusion.** The wrapper class holds one handle field
+  guarded by a coroutine `Mutex`. `RipDpiProxy` keeps `handle` `@Volatile` and
+  routes lifecycle-sensitive calls through `withActiveHandle { … }` under the
+  mutex so `stop`/`destroy` cannot retire the handle mid-call.
+  `RipDpiProxy.startProxy` registers `Job.invokeOnCompletion` to dispatch
+  `stop`, and always `destroy`s in `finally`.
+- **`jniStart` blocking contract differs per library** — see [§12](#12-data-plane-work-must-not-cross-jni-frequently).
+
+---
+
+## 5. Threading / JVM attachment assumptions
+
+- **JNI export threads are JVM-attached.** Every `Java_*` function receives a
+  `jni::EnvUnowned<'_>` valid only for that call, on the calling thread. Enter
+  an owned `Env` with `.with_env(|env| …)`.
+- **`Env` / `EnvUnowned` are `!Send`.** They must not cross threads, be stored,
+  or be held across an `.await`. JNI work happens synchronously inside the
+  export.
+- **Rust worker threads are NOT attached.** Tokio runtime workers and native
+  event loops created inside Rust have no `JNIEnv`. To call back into Java they
+  must `JavaVM::attach_current_thread(|env| …)` per call — see
+  `JniProtectCallback::protect` in
+  `ripdpi-android-vpn-protect-adapter/src/lib.rs`.
+- **`JavaVM` is `Send + Sync`** (a pointer wrapper). `libripdpi.so` keeps it in
+  the process-static `JVM` `OnceCell`; the VPN-protect adapter re-derives a
+  `JavaVM` handle via `JavaVM::from_raw(vm.get_raw())`.
+- Worker threads must carry a readable `ripdpi-*` name (logcat hygiene; see
+  [`.claude/rules/android-vpn-lifecycle.md`](../../.claude/rules/android-vpn-lifecycle.md)).
+  The Unix-socket protect accept thread is named `vpn-protect-socket`.
+
+---
+
+## 6. Panic containment policy
+
+The `android-jni` Cargo profile sets `panic = "unwind"`. **Unwinding across an
+`extern "system"` boundary is undefined behavior** — every export must contain
+panics.
+
+- **Every `Java_*` export** wraps its delegate in
+  `android_support::ffi_boundary(default_on_panic, || …)`
+  (`native/rust/crates/android-support/src/ffi_boundary.rs`), which
+  `catch_unwind`s and substitutes the sentinel. In `ripdpi-android` the
+  `export_jni!` macro (`src/ffi.rs`) applies this uniformly; `ripdpi-tunnel-android`,
+  `ripdpi-warp-android`, and `ripdpi-relay-android` call `ffi_boundary` per
+  function.
+- **`JNI_OnLoad`** uses `std::panic::catch_unwind` directly and returns
+  `JNI_ERR` on panic.
+- **C callbacks from foreign code** also contain panics — the VPN-protect
+  registration entry (`ripdpi-android-vpn-protect-adapter/src/entry.rs`) handles
+  `Outcome::Panic` explicitly.
+- `android_support::install_panic_hook()` logs the panic via `log::error!`
+  *before* `catch_unwind` returns, so `ffi_boundary` itself logs nothing.
+- **Panic-default sentinels** (must match the value the Kotlin caller already
+  treats as failure):
+
+  | Return type | Sentinel | Meaning |
+  |-------------|----------|---------|
+  | `jstring`, `jobjectArray` | `core::ptr::null_mut()` | null payload |
+  | `jboolean` | `jni::sys::JNI_FALSE` | false |
+  | `jlong` | `0` | "no handle" |
+  | `jlongArray` | `core::ptr::null_mut()` | null stats array |
+  | `jint` | a caller-chosen **failure** code (e.g. `-1`) | never `0` — `0` means success |
+  | `()` | `()` | no-op |
+
+- CI scanners `scripts/ci/check_ffi_panic_boundary.py` and
+  `scripts/ci/check_ffi_headers.py` enforce the boundary; do not bypass them.
+
+---
+
+## 7. Error mapping policy
+
+Two error channels exist; pick one deliberately per method.
+
+1. **Throw a Java exception.** `JniProxyError`
+   (`ripdpi-android-bridge-support/src/lib.rs`) maps Rust errors to Java
+   classes — this mapping is a **golden contract** (`error_exception_mapping.json`):
+
+   | `JniProxyError` variant | Java exception |
+   |-------------------------|----------------|
+   | `InvalidConfig`, `InvalidArgument` | `java.lang.IllegalArgumentException` |
+   | `IllegalState` | `java.lang.IllegalStateException` |
+   | `Io` | `java.io.IOException` |
+   | `Serialization` | `java.lang.RuntimeException` |
+
+   `JniProxyError::throw(env)` logs `log::error!` then throws via the
+   `android_support::throw_*` helpers (`src/exceptions.rs`).
+   `android_support::sanitize_error_message(detail, user)` returns
+   `"{user}: {detail}"` in debug builds and just `user` in release — internal
+   detail is **stripped in release builds**.
+
+2. **Return a sentinel value.** `jniCreate` → `0`; `jniStart` → non-zero
+   `errno`-style code (`proxy_start_codes.json`: `success = 0`,
+   `fallbackError = 22` = `EINVAL`, `positive_errno` semantics);
+   `jboolean` predicates → `JNI_FALSE`. Telemetry/poll methods return a JSON
+   string and surface errors in-band; a `null`/blank string maps to an idle
+   snapshot on the Kotlin side.
+
+Never let a Rust `Result::Err` silently become a success sentinel.
+
+---
+
+## 8. Callback registration / unregistration rules
+
+- **VPN protect callback** — registered by `jniRegisterVpnProtect(vpnService)`,
+  cleared by `jniUnregisterVpnProtect()`. These are `@JvmStatic` companion
+  `external fun`s on **both** `RipDpiProxyNativeBindings` and
+  `RipDpiWarpNativeBindings`. `VpnNativeProtectRegistration`
+  (`core/service/.../services/VpnNativeProtectRegistration.kt`) calls both on
+  VPN start and both on VPN stop. Registration and unregistration must be
+  **symmetric** — see [§10](#10-vpnserviceprotect-callback-rules).
+- **Telemetry recorder** — installed process-wide once, in `libripdpi.so`
+  `JNI_OnLoad` via `ripdpi_android_telemetry_adapter::install_recorder()`. Not
+  per-session; no unregister.
+- **Event rings** — `android_support::events` exposes `drain_*` / `clear_*`
+  per domain (`proxy`, `tunnel`, `relay`, `warp`, `diagnostics`); Kotlin drains
+  them through the poll methods.
+- **Rule:** any callback that captures a `GlobalRef` or `JavaVM` must have a
+  matching unregister tied to a lifecycle event, or the referenced Java object
+  is pinned against GC for the process lifetime.
+
+---
+
+## 9. TUN fd and socket fd ownership
+
+- **TUN fd.** Kotlin's `VpnService.Builder.establish()` yields a
+  `ParcelFileDescriptor`; its raw `int` is passed as `tunFd` to
+  `Tun2SocksNativeBindings.jniStart(handle, tunFd)`. Rust **adopts** the TUN fd
+  on `start` — fd handling lives in
+  `ripdpi-tunnel-android/src/session/lifecycle/fd.rs`. Kotlin must keep the
+  `ParcelFileDescriptor` open for the lifetime of the native session and close
+  it only after `destroy`. The TUN device is the data-plane ingress/egress and
+  is **never** read/written from Kotlin.
+- **Upstream socket fds.** Created inside Rust. Every non-loopback upstream
+  socket must be passed to `VpnService.protect()` before `connect`/`bind`
+  returns (see [§10](#10-vpnserviceprotect-callback-rules) and
+  [`.claude/rules/vpnservice-protect-invariant.md`](../../.claude/rules/vpnservice-protect-invariant.md)).
+  Rust retains ownership of upstream fds for their whole life.
+- **Unix-socket protect path** does not transfer fd ownership: Rust sends a
+  duplicate of the fd via `SCM_RIGHTS`; Kotlin (`VpnProtectSocketServer`)
+  receives a dup, calls `protect`, acks, and closes its dup. The original fd
+  stays owned by Rust.
+- **Root-helper fd-passing** — see [§11](#11-root-helper-ipc-and-fd-passing-boundary).
+
+---
+
+## 10. `VpnService.protect()` callback rules
+
+Two mechanisms exist; selection is automatic.
+
+**Mechanism A — JNI callback (preferred).**
+`jniRegisterVpnProtect` → `ripdpi-android/src/ffi/vpn_protect_bridge.rs` →
+`ripdpi_android_vpn_protect_adapter::register_entry(env, vpn_service)`. The
+adapter calls `env.get_java_vm()` and `env.new_global_ref(&vpn_service)`, then
+builds a `JniProtectCallback { vm, vpn_service: Global<JObject<'static>> }` and
+registers it via `ripdpi_native_protect::register_protect_callback`.
+`JniProtectCallback::protect(fd)` (`ripdpi-android-vpn-protect-adapter/src/lib.rs`)
+does `vm.attach_current_thread(|env| env.call_method(vpn_service, "protect",
+"(I)Z", [fd]))`. Result mapping: `true` → `Ok(())`; `false` → `PermissionDenied`;
+JNI error → `io::Error::other`. The same path exists for WARP via
+`ripdpi-warp-android/src/vpn_protect.rs`.
+
+**Mechanism B — Unix-domain-socket fallback.**
+`VpnProtectSocketServer` (`core/service/.../services/VpnProtectSocketServer.kt`)
+binds a filesystem-namespace UDS, accepts on a `vpn-protect-socket` thread,
+receives fds via `SCM_RIGHTS`, calls `VpnService::protect`, and writes a 1-byte
+ack.
+
+**Registry & selection.** `ripdpi_native_protect`
+(`native/rust/crates/ripdpi-native-protect/src/lib.rs`) holds a global
+`RwLock<Option<Arc<dyn ProtectCallback>>>` with `register_protect_callback`,
+`unregister_protect_callback`, `has_protect_callback`, and
+`protect_socket_via_callback`. `ripdpi-runtime-platform` picks Mechanism A when
+`has_protect_callback()` is true, else Mechanism B.
+
+**Rules.**
+
+- `protect()` **must succeed before `connect`/`bind` returns** control to the
+  caller; on failure the socket is closed and the connection fails — never
+  proceed unprotected.
+- Registration happens at VPN service start, unregistration at stop, via
+  `VpnNativeProtectRegistration`. The `Global<JObject>` pins the `VpnService`
+  against GC until unregister drops it.
+- Diagnostics RAW_PATH scans stop the VPN service first (which unregisters both
+  mechanisms) and connect directly — no protection needed there.
+- Loopback (`127.0.0.1` / `[::1]`) sockets are exempt.
+
+---
+
+## 11. Root-helper IPC and fd-passing boundary
+
+The root helper is a **separate process**, not a `.so` — this boundary is
+Unix-socket IPC, **not JNI**.
+
+- **Kotlin lifecycle.** `RootHelperManager`
+  (`core/service/.../services/RootHelperManager.kt`) — when `root_mode_enabled`
+  is set — extracts the `ripdpi-root-helper` binary from APK assets, launches it
+  via `su`, and polls a filesystem-namespace Unix socket (`root_helper.sock`)
+  for readiness, guarded by a 32-byte secure-random session nonce
+  (`root_helper.sock.nonce`). `RootDetector` performs the `su` access test.
+- **Protocol crate.** `ripdpi-root-helper-protocol` — `commands.rs` (the
+  `CMD_*` string constants: `probe_capabilities`, `send_fake_rst`,
+  `send_seqovl_tcp`, `send_multi_disorder_tcp`, `send_ip_fragmented_tcp/udp`,
+  `send_raw_ip_packet`, `shutdown`, …), `params.rs`, `wire.rs`, `scm_rights.rs`.
+- **Helper binary.** `ripdpi-root-helper` crate (`src/main.rs`, `dispatch.rs`,
+  `handlers.rs`) runs as uid 0; privileged primitives live in
+  `ripdpi-privileged-ops`.
+- **Rust client & dispatch.** `ripdpi-runtime-platform/src/root_helper_client.rs`
+  connects per operation, sends a JSON command plus a socket fd via
+  `SCM_RIGHTS`, and receives a response plus an optional **replacement fd**
+  (`TCP_REPAIR`-class operations) which is swapped in via `dup2()`.
+  `ripdpi-runtime-platform/src/root_helper.rs` is the global registry; each
+  privileged function checks `with_root_helper()` first.
+- **Mandatory non-root fallback.** Every privileged op must fall back to a
+  local non-privileged path (or be inert) when no helper is registered. The app
+  must fully function on non-rooted devices; root features are opt-in behind
+  `root_mode_enabled`.
+- **Trust boundary.** The helper is a uid-0 process — treat every input as
+  untrusted; protocol changes are security-sensitive.
+
+---
+
+## 12. Data-plane work must not cross JNI frequently
+
+**The data plane stays entirely in Rust.** JNI is crossed only at coarse
+granularity.
+
+- A JNI call carries measurable overhead (~3 µs/event of JVM/JNI work). A
+  per-packet or per-byte JNI call is a CPU bottleneck at line rate.
+- Packet processing — SOCKS5 sessions, the TUN packet pump, desync mutation,
+  relay transport, DNS forwarding — runs **fully native** with **no JNI on the
+  hot path**.
+- The boundary is crossed only for: **lifecycle** (`create`/`start`/`stop`/
+  `destroy`), **~1 Hz telemetry polling**, **network-snapshot updates**, and
+  **per-socket** (not per-packet) `protect()` calls.
+- **Telemetry is pull-model.** `:core:service` polls `jniPollTelemetry` /
+  `jniGetTelemetry` / `jniPollProgress` once per second; Rust accumulates into
+  a bounded event ring drained on poll. Do **not** add a callback-per-event
+  JNI path from Rust into Kotlin.
+- **`jniStart` blocking contract differs:**
+  - `RipDpiProxyNativeBindings.jniStart` runs the **blocking** native proxy
+    event loop on the caller thread — `RipDpiProxy` invokes it under
+    `withContext(Dispatchers.IO)` and `yield()`s first.
+  - `Tun2SocksNativeBindings.jniStart` is **non-blocking**: it adopts the TUN
+    fd, spawns the tunnel worker, and returns. `stop` may block briefly waiting
+    for that worker to exit.
+
+---
+
+## 13. Checklist — adding a new JNI method
+
+> **Constraint:** never change or rename an existing JNI method — the symbol
+> name is an ABI contract. This checklist is for **adding** one.
+
+1. **Kotlin side.** Add the `external fun` to the correct `*NativeBindings`
+   class (e.g. `RipDpiProxyNativeBindings` in `RipDpiProxy.kt`). Keep the name
+   `jni<Verb>`; expose it through the wrapper class's coroutine API. Run
+   lifecycle-sensitive calls under the wrapper's `Mutex` and on
+   `Dispatchers.IO`.
+2. **Rust export.** Add the `Java_<pkg>_<Class>_<method>` function in the
+   matching bridge module (e.g. `ripdpi-android/src/ffi/proxy_bridge/…`, or the
+   `entry.rs` of the tunnel/relay/warp crate). The package/class segments must
+   exactly match the Kotlin owner. Re-export it from `bridges.rs` if it is in
+   `ripdpi-android`.
+3. **Panic boundary.** Wrap the delegate in `android_support::ffi_boundary`
+   (or use `export_jni!`). Choose the correct panic-default sentinel from the
+   [§6](#6-panic-containment-policy) table — for `jint`, never `0`.
+4. **Delegate, don't implement.** Put real logic in the adapter crate
+   (`ripdpi-android-*-adapter`) or the runtime crate; the `*-android` crate
+   stays an export facade.
+5. **Handles.** If it creates a session, return a `HandleRegistry` handle as
+   `jlong` (`0` on failure). If it operates on a session, accept a `jlong` and
+   validate with `to_handle`. Pair every `create` with a `destroy`.
+6. **Errors.** Decide: throw (`JniProxyError::throw`) or sentinel return. Keep
+   the `JniProxyError` → Java-class mapping intact; in release builds detail is
+   sanitized.
+7. **Threading.** Do JNI work synchronously inside the export. Never hold
+   `Env`/`EnvUnowned` across `.await` or move it between threads. A Rust worker
+   calling back into Java must `attach_current_thread`.
+8. **Sockets.** Any new non-loopback outbound socket must call `protect()`
+   before `connect`/`bind` returns ([§10](#10-vpnserviceprotect-callback-rules)).
+9. **Hot path.** Confirm the method is lifecycle/telemetry/control, not
+   per-packet ([§12](#12-data-plane-work-must-not-cross-jni-frequently)).
+10. **Symbol baseline.** Adding a `#[no_mangle]` export changes
+    `native/rust/crates/ripdpi-android/jni-symbols.baseline`, and a unit test in
+    `ripdpi-android/src/lib.rs` (`jni_baseline_is_non_empty_and_contains_expected_symbols`)
+    plus the `jni_facade_exports_stable_native_entrypoints` test guard the
+    symbol set. **Note:** `jni-symbols.baseline` matches the hook-protected
+    `*baseline*` pattern — regenerating it is a human/explicitly-approved step,
+    not an agent edit.
+11. **Tests / goldens.** Add adapter-crate tests
+    (`ripdpi-android-bridge-support` has a `test-support` JVM harness). If the
+    method changes a wire payload, update the relevant golden contract under
+    human supervision (see
+    [`.claude/rules/golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md)).
+12. **CI.** `scripts/ci/check_ffi_panic_boundary.py`,
+    `scripts/ci/check_ffi_headers.py`, and `scripts/ci/check_unsafe_boundaries.py`
+    must stay green.
+
+---
+
+## Cross-references
+
+| Topic | Source |
+|-------|--------|
+| Whole-app architecture, control/data plane | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Crate taxonomy, Android-adapter layer | [`NATIVE_RUST.md`](NATIVE_RUST.md) |
+| Adding strategies / relays / settings | [`FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) |
+| Socket-protect invariant | [`.claude/rules/vpnservice-protect-invariant.md`](../../.claude/rules/vpnservice-protect-invariant.md) |
+| LMK / Doze / tokio-shutdown / thread naming | [`.claude/rules/android-vpn-lifecycle.md`](../../.claude/rules/android-vpn-lifecycle.md) |
+| AI-generated JNI diff acceptance gate | [`.claude/rules/llm-rust-prompts.md`](../../.claude/rules/llm-rust-prompts.md) |
+| JNI authoring patterns | `rust-android-jni` skill |
+| Root helper IPC narrative | [`AGENTS.md`](../../AGENTS.md) § Root Helper IPC |

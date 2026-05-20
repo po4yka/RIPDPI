@@ -208,6 +208,7 @@ a per-socket (not per-packet) control-plane call required by the
 | Compact architecture notes (ownership, runtime behavior, follow-ups) | [`architecture/README.md`](README.md) |
 | Native Rust workspace taxonomy + dependency direction | [`architecture/NATIVE_RUST.md`](NATIVE_RUST.md) |
 | Adding a feature safely (strategy, relay, probe, setting, …) | [`architecture/FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) |
+| Kotlin ↔ Rust JNI boundary contract | [`architecture/JNI_CONTRACT.md`](JNI_CONTRACT.md) |
 | Native modules, crate dependency graph, runtime topology | [`docs/native/README.md`](../native/README.md) |
 | Proxy engine and strategy surface | [`docs/native/proxy-engine.md`](../native/proxy-engine.md) |
 | TUN-to-SOCKS bridge | [`docs/native/tunnel.md`](../native/tunnel.md) |
