@@ -30,22 +30,80 @@ interface RipDpiWarpRuntime {
 
 internal const val defaultWarpReadyTimeoutMs = 5_000L
 
+/**
+ * Thin JNI binding surface over the WARP (WireGuard) native session in
+ * `libripdpi-warp.so` (Rust crate `ripdpi-warp-android`). Each method maps 1:1
+ * onto an `external` JNI function; the interface exists so the lifecycle can
+ * be faked in unit tests.
+ *
+ * ## Handle lifecycle and ordering
+ * One session runs through [create] -> [start] -> [stop] -> [destroy], in that
+ * order. [create] returns an opaque non-zero `Long` handle (a native registry
+ * key, not a pointer), or `0` on failure. [start] runs the tunnel; [stop]
+ * signals it to unwind; [destroy] removes the session from the registry. After
+ * [destroy] returns the handle is dead and must never be reused.
+ *
+ * ## Idempotency
+ * [stop] and [destroy] are both idempotent: each is a silent no-op when the
+ * handle is unknown or already retired. [start] on an unknown handle returns
+ * the error code `1` rather than blocking.
+ *
+ * ## fd ownership
+ * The WARP runtime adopts no externally supplied file descriptors — it opens
+ * and closes its own WireGuard UDP socket and loopback SOCKS listener. That
+ * outbound UDP socket is kept off the VPN tunnel via the
+ * [RipDpiWarpNativeBindings.jniRegisterVpnProtect] callback — see the
+ * `vpnservice-protect-invariant` rule.
+ *
+ * ## Error mapping
+ * The lifecycle bindings report failure purely through return values, **not**
+ * Java exceptions: [create] returns `0`, and [start] returns `0` (clean exit),
+ * `1` (unknown handle) or `2` (runtime error). A contained Rust panic is
+ * absorbed by the FFI boundary and surfaces as the same sentinel.
+ *
+ * ## Blocking
+ * [start] **blocks for the whole tunnel lifetime** — it builds a Tokio runtime
+ * and runs the session to completion — so always invoke it on a background
+ * dispatcher. [create], [stop], [destroy] and [pollTelemetry] are non-blocking.
+ *
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §6 (panic
+ * containment), §7 (error mapping) and §10 (VpnService.protect callback).
+ */
 interface RipDpiWarpBindings {
+    /** Creates a WARP session from [configJson]; returns its handle, or `0` on failure. */
     fun create(configJson: String): Long
 
+    /**
+     * Runs the WARP tunnel for [handle] and **blocks** until it stops. Returns
+     * `0` on a clean exit, `1` for an unknown handle, or `2` on a runtime error.
+     */
     fun start(handle: Long): Int
 
+    /** Signals the tunnel to shut down; an idempotent no-op when [handle] is unknown. */
     fun stop(handle: Long)
 
     fun pollTelemetry(handle: Long): String?
 
+    /** Retires the session for [handle]; an idempotent no-op when already removed. */
     fun destroy(handle: Long)
 }
 
+/**
+ * Stateless JNI binding for WARP account provisioning. [executeProvisioning]
+ * takes no handle: it runs a one-shot request and returns a JSON result, or
+ * `null` on failure / a contained panic. It does not touch the runtime session
+ * registry, so it has no lifecycle ordering constraints.
+ */
 interface RipDpiWarpProvisioningBindings {
     fun executeProvisioning(requestJson: String): String?
 }
 
+/**
+ * Stateless JNI binding for WARP endpoint probing. [probeEndpoint] takes no
+ * handle: it runs a one-shot reachability/RTT probe and returns a JSON result,
+ * or `null` on failure / a contained panic. Like [RipDpiWarpProvisioningBindings]
+ * it is independent of the runtime session lifecycle.
+ */
 interface RipDpiWarpEndpointProbeBindings {
     fun probeEndpoint(requestJson: String): String?
 }
@@ -69,9 +127,26 @@ class RipDpiWarpNativeBindings
                 RipDpiWarpNativeLoader.ensureLoaded()
             }
 
+            /**
+             * Register a VPN socket protection callback for the WARP library.
+             *
+             * Stores a JNI `GlobalRef` to the [vpnService] so the native WARP
+             * runtime can call `VpnService.protect(fd)` directly on its WireGuard
+             * UDP socket. Must be called **before** [RipDpiWarpBindings.create]/
+             * [RipDpiWarpBindings.start] so the socket is protected the moment it
+             * is opened; registering later risks a routing loop into the TUN (see
+             * the `vpnservice-protect-invariant` rule). The `GlobalRef` is
+             * process-global and is released only by [jniUnregisterVpnProtect].
+             */
             @JvmStatic
             external fun jniRegisterVpnProtect(vpnService: Any)
 
+            /**
+             * Unregister the WARP VPN socket protection callback and release the
+             * `GlobalRef` held since [jniRegisterVpnProtect]. Call when the VPN
+             * service stops, after the WARP session has been stopped/destroyed.
+             * Safe to call when no callback is registered.
+             */
             @JvmStatic
             external fun jniUnregisterVpnProtect()
         }
@@ -197,6 +272,22 @@ private data class WarpRuntimeNativeConfig(
     val mtu: Int,
 )
 
+/**
+ * Coroutine-friendly owner of a single native WARP handle (see
+ * [RipDpiWarpBindings] for the raw JNI contract).
+ *
+ * Holds at most one live handle and serializes handle-sensitive JNI calls under
+ * [mutex]. [start] keeps the blocking [RipDpiWarpBindings.start] on
+ * `Dispatchers.IO` and `destroy`s the handle in a `finally` block once it
+ * returns, so callers never call `destroy` directly. [stop] clears the handle
+ * field first, then runs `stop` + `destroy` off the lock — both are idempotent
+ * native no-ops, so a redundant [stop] is harmless. A second [start] while a
+ * handle is live throws `NativeError.AlreadyRunning`. VPN socket protection
+ * must be registered out-of-band via
+ * [RipDpiWarpNativeBindings.jniRegisterVpnProtect] before [start].
+ *
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle).
+ */
 class RipDpiWarp(
     private val nativeBindings: RipDpiWarpBindings,
 ) : RipDpiWarpRuntime {

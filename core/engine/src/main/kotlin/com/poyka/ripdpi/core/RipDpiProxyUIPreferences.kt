@@ -48,12 +48,14 @@ class RipDpiProxyUIPreferences(
 
     override fun toNativeConfigJson(): String =
         RipDpiProxyJsonCodec.encodeUiPreferences(
-            this,
-            rootMode = rootMode,
-            rootHelperSocketPath = rootHelperSocketPath,
-            geoipDbPath = geoipDbPath,
-            geositeDbPath = geositeDbPath,
-            environmentKind = environmentKind,
+            NativeProxyCreateRequest(
+                preferences = this,
+                rootMode = rootMode,
+                rootHelperSocketPath = rootHelperSocketPath,
+                geoipDbPath = geoipDbPath,
+                geositeDbPath = geositeDbPath,
+                environmentKind = environmentKind,
+            ),
         )
 
     fun withSessionOverrides(

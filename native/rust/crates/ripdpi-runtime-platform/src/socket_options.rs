@@ -1,3 +1,10 @@
+//! OS-primitive adapter — socket-option syscalls.
+//!
+//! TCP Fast Open, `TCP_MD5SIG`, SACK drop, window clamp, receive-buffer size,
+//! low-port UDP bind, and TCP-stage waiting. Each is a thin `#[cfg]`-split
+//! wrapper over `ripdpi-privileged-ops`; non-Linux targets return
+//! `Unsupported`. Surfaced through the `socket` facade.
+
 use std::io;
 use std::net::{IpAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;

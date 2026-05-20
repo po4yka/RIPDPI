@@ -7,7 +7,7 @@ use ripdpi_monitor_engine::MonitorSession;
 use ripdpi_monitor_proxy_runtime::ProductionCandidateRuntimeLauncher;
 
 use super::platform_bridge::AndroidMonitorPlatformBridge;
-use ripdpi_android_bridge_support::to_handle;
+use ripdpi_android_bridge_support::{invalid_handle_message, to_handle, unknown_handle_message};
 
 pub(crate) static DIAGNOSTIC_SESSIONS: once_cell::sync::Lazy<HandleRegistry<MonitorSession>> =
     once_cell::sync::Lazy::new(HandleRegistry::new);
@@ -21,11 +21,11 @@ pub(crate) fn create_diagnostics_session() -> jlong {
 
 pub(crate) fn diagnostics_session(env: &mut Env<'_>, handle: jlong) -> Option<Arc<MonitorSession>> {
     let Some(handle) = to_handle(handle) else {
-        throw_illegal_argument_env(env, "Invalid diagnostics handle");
+        throw_illegal_argument_env(env, invalid_handle_message("diagnostics"));
         return None;
     };
     let Some(session) = DIAGNOSTIC_SESSIONS.get(handle) else {
-        throw_illegal_argument_env(env, "Unknown diagnostics handle");
+        throw_illegal_argument_env(env, unknown_handle_message("diagnostics"));
         return None;
     };
     Some(session)
@@ -33,11 +33,11 @@ pub(crate) fn diagnostics_session(env: &mut Env<'_>, handle: jlong) -> Option<Ar
 
 pub(crate) fn destroy_diagnostics_session(env: &mut Env<'_>, handle: jlong) {
     let Some(handle) = to_handle(handle) else {
-        throw_illegal_argument_env(env, "Invalid diagnostics handle");
+        throw_illegal_argument_env(env, invalid_handle_message("diagnostics"));
         return;
     };
     match DIAGNOSTIC_SESSIONS.remove(handle) {
         Some(session) => session.destroy(),
-        None => throw_illegal_argument_env(env, "Unknown diagnostics handle"),
+        None => throw_illegal_argument_env(env, unknown_handle_message("diagnostics")),
     }
 }

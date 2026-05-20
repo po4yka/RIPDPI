@@ -1,3 +1,41 @@
+//! JNI export facade for the WARP (WireGuard) runtime (`libripdpi-warp.so`).
+//!
+//! This crate is the `cdylib` boundary for the WARP native session. It owns
+//! the `JNI_OnLoad` hook and the `Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_*`
+//! export symbols; each wraps a `lifecycle`/`telemetry`/`provisioning`/
+//! `endpoint_probe`/`vpn_protect` delegate in `android_support::ffi_boundary`
+//! so a Rust panic cannot unwind across the `extern "system"` boundary.
+//!
+//! ## Handle lifecycle
+//! `jniCreate` -> `jniStart` -> `jniStop` -> `jniDestroy`, per session.
+//! `jniCreate` registers a session and returns an opaque `jlong` registry key
+//! (`0` on failure). `jniStart` builds a Tokio runtime and **blocks for the
+//! whole tunnel lifetime**, returning `0` (clean exit), `1` (unknown handle)
+//! or `2` (runtime error). `jniStop` signals the blocked `jniStart` to unwind.
+//! `jniDestroy` removes the session from the registry. `jniStop`/`jniDestroy`
+//! are idempotent — a no-op on an unknown handle.
+//!
+//! ## Stateless entries
+//! `jniExecuteProvisioning` and `jniProbeEndpoint` take no handle: each runs a
+//! one-shot request and returns a JSON `jstring` (`null` on failure). They are
+//! independent of the session registry.
+//!
+//! ## fd ownership and callbacks
+//! The WARP runtime adopts no externally supplied fds — it opens its own
+//! WireGuard UDP socket and loopback SOCKS listener. That UDP socket is kept
+//! off the VPN tunnel via the `jniRegisterVpnProtect` callback, which stores a
+//! JNI `GlobalRef` to the `VpnService`; `jniUnregisterVpnProtect` releases it.
+//! Register before `jniStart` and unregister after `jniDestroy` (see the
+//! `vpnservice-protect-invariant` rule).
+//!
+//! ## Errors
+//! Lifecycle entries report failure through return codes only, never Java
+//! exceptions; a contained panic yields the panic-default sentinel.
+//!
+//! See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §6 (panic
+//! containment), §7 (error mapping), §8 (callback rules) and §10
+//! (VpnService.protect callback).
+
 mod endpoint_probe;
 mod lifecycle;
 mod provisioning;

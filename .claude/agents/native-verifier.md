@@ -23,7 +23,7 @@ Before flagging any NDK API, ELF-alignment rule, or Android platform requirement
 command -v android >/dev/null 2>&1 || { echo "ERROR: Android CLI missing -- see d.android.com/tools/agents"; exit 2; }
 ```
 
-If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for NDK API availability. The pinned NDK is `29.0.14206865` (see `gradle.properties:30`); when the tracked libraries call a potentially NDK-versioned symbol, run `android docs "<symbol>"` and cite the API level / NDK version in which it stabilized before claiming the call is safe. Same for platform features (page alignment, bionic loader behaviour).
+If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for NDK API availability. The pinned NDK is `29.0.14206865` (see `gradle.properties:30`); when the tracked libraries call a potentially NDK-versioned symbol, look it up in the Android Knowledge Base before claiming the call is safe. As of Android CLI 1.0, `android docs` is a two-step command: `android docs search '<symbol> NDK API availability'` returns `kb://` URLs, then `android docs fetch <kb-url>` prints the article. Cite the API level / NDK version in which the symbol stabilized. Same for platform features (page alignment, bionic loader behaviour).
 
 ## Tracked libraries
 

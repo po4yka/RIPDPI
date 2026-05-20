@@ -112,13 +112,18 @@ if [[ -z "$avd_name" || -z "$api_level" || -z "$arch" || -z "$target" ]]; then
 fi
 
 echo "Installing emulator SDK packages for android-${api_level}/${target}/${arch}"
+# Android CLI 1.0 uses slash-notation package IDs (`system-images/android-NN/...`),
+# not the legacy sdkmanager semicolon notation. See `android sdk install --help`.
 timeout 1200 android sdk install \
-  "cmdline-tools;latest" \
+  "cmdline-tools/latest" \
   "emulator" \
-  "system-images;android-${api_level};${target};${arch}"
+  "system-images/android-${api_level}/${target}/${arch}"
 
 avdmanager_bin="$(resolve_avdmanager_bin)"
 emulator_bin="$(resolve_emulator_bin)"
+# Legacy semicolon notation is intentional here: this ID is passed to
+# `avdmanager create avd --package`, not the Android CLI. avdmanager keeps the
+# sdkmanager-style ID. Do not migrate this to slash notation.
 sdk_id="system-images;android-${api_level};${target};${arch}"
 android_user_home="${ANDROID_SDK_HOME:-$HOME}"
 android_dot_dir="$android_user_home/.android"

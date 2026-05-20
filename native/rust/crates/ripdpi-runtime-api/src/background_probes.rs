@@ -1,3 +1,11 @@
+//! Contract port — **stable** public API.
+//!
+//! [`BackgroundProbes`] is implemented outside this crate (by
+//! `ripdpi-runtime-services`) and consumed by the proxy runtime through an
+//! `Arc<dyn BackgroundProbes>`, so `ripdpi-proxy-runtime` never depends on the
+//! concrete reprobe types. The `NetworkSnapshot` parameter is reused from
+//! `ripdpi-proxy-config` by design — see the crate-level docs.
+
 use ripdpi_proxy_config::NetworkSnapshot;
 
 /// Coarse port trait for background probe scheduling.

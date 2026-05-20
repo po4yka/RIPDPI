@@ -14,36 +14,74 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 
+/**
+ * Thin JNI binding surface over the tun2socks tunnel native session in
+ * `libripdpi-tunnel.so` (Rust crate `ripdpi-tunnel-android`). Each method maps
+ * 1:1 onto an `external` JNI function; the interface exists so the lifecycle
+ * can be faked in unit tests.
+ *
+ * ## Handle lifecycle and ordering
+ * One session runs through [create] -> [start] -> [stop] -> [destroy], in that
+ * order. [create] returns an opaque non-zero `Long` handle (a native registry
+ * key, not a pointer) for a session in the `Ready` state, or `0` on failure.
+ * [start] adopts the TUN fd and moves `Ready -> Running`; [stop] cancels the
+ * worker and moves it out of `Running`; [destroy] retires the handle. After
+ * [destroy] returns the handle is dead and must never be reused.
+ *
+ * ## Idempotency
+ * None of the lifecycle calls are idempotent on the native side. [start] throws
+ * `IllegalStateException` unless the session is `Ready`; [stop] throws
+ * `IllegalStateException` unless it is `Running`; [destroy] throws
+ * `IllegalStateException` if the worker is still running. [Tun2SocksTunnel]
+ * provides the idempotent wrapper by gating on its own handle field.
+ *
+ * ## fd ownership
+ * [start] **dups** the TUN fd it is handed (`adopt_tun_fd`). The caller keeps
+ * ownership of the original descriptor — the `VpnService` `ParcelFileDescriptor`
+ * — and must close it itself; the native side closes only its own dup, when the
+ * tunnel worker exits. There is no JNI callback channel: outbound sockets are
+ * protected through the `protectPath` Unix-domain socket named in the config,
+ * not through a registered callback.
+ *
+ * ## Error mapping
+ * Native failures throw Java exceptions from the JNI frame:
+ * `IllegalArgumentException` (bad handle, bad config, invalid TUN fd),
+ * `IllegalStateException` (wrong lifecycle state), `IOException` (fd adoption
+ * or worker-spawn failure). A contained Rust panic surfaces as the sentinel
+ * return (`0` handle / no-op) rather than crossing the boundary.
+ *
+ * ## Blocking
+ * [start] returns after the worker thread is spawned — it does **not** run
+ * packet IO on the caller thread. [stop] is the one blocking lifecycle call: it
+ * cancels the worker and joins it, so keep it on the IO dispatcher. [create],
+ * [getStats], [getTelemetry] and [destroy] are non-blocking.
+ *
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §9 (TUN fd
+ * ownership) and §6 (panic containment).
+ */
 interface Tun2SocksBindings {
-    /**
-     * Creates a native tunnel session in Ready state.
-     *
-     * Lifecycle-sensitive JNI calls on this binding have a bounded contract:
-     * create/start/getStats/getTelemetry/destroy must not run the tunnel event loop
-     * on the caller thread. start may perform validation and worker-thread spawn
-     * setup, then returns after the native session is Running or failed. stop may
-     * wait for that worker to exit after cancellation, so callers keep it on the
-     * IO dispatcher and must treat it as the only potentially blocking lifecycle
-     * call.
-     */
+    /** Creates a `Ready` tunnel session from [configJson]; returns its handle, or `0` on failure. */
     fun create(configJson: String): Long
 
     /**
-     * Starts the native session by adopting the TUN fd and spawning the tunnel
-     * worker. The native FFI contract is non-blocking with respect to packet IO:
-     * this call returns after worker launch, not after tunnel termination.
+     * Starts the native session: validates and **dups** [tunFd], adopts the dup,
+     * and spawns the tunnel worker. Returns after worker launch, not after
+     * tunnel termination. The caller retains ownership of the original [tunFd]
+     * and must close it; the native dup is closed by the worker on exit.
      */
     fun start(
         handle: Long,
         tunFd: Int,
     )
 
+    /** Cancels the tunnel worker and **blocks** until it joins; throws `IllegalStateException` if not `Running`. */
     fun stop(handle: Long)
 
     fun getStats(handle: Long): LongArray
 
     fun getTelemetry(handle: Long): String?
 
+    /** Retires the session for [handle]; throws `IllegalStateException` if the worker is still running. */
     fun destroy(handle: Long)
 }
 
@@ -93,6 +131,22 @@ class Tun2SocksNativeBindings
         private external fun jniDestroy(handle: Long)
     }
 
+/**
+ * Coroutine-friendly owner of a single native tunnel handle (see
+ * [Tun2SocksBindings] for the raw JNI contract).
+ *
+ * Holds at most one live handle and serializes every JNI call under [mutex].
+ * [start] runs [Tun2SocksBindings.create] then [Tun2SocksBindings.start]; if
+ * `start` fails (including via cancellation) it `destroy`s the freshly created
+ * handle so no orphan session is left in the native registry. [stop] always
+ * pairs `stop` with `destroy` in a `finally` chain, so callers never invoke
+ * `destroy` directly. A second [start] while a handle is live throws
+ * `NativeError.AlreadyRunning`; [stop] with no live handle throws
+ * `NativeError.NotRunning`. The TUN fd passed to [start] stays owned by the
+ * caller — see [Tun2SocksBindings] § fd ownership.
+ *
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §9 (TUN fd).
+ */
 class Tun2SocksTunnel(
     private val nativeBindings: Tun2SocksBindings,
 ) {

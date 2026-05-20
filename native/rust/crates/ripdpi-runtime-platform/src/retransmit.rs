@@ -1,3 +1,10 @@
+//! OS-primitive adapter — fake-retransmit / seqovl capability detection.
+//!
+//! Answers "does this platform support fake retransmission / sequence
+//! overlap". `supports_fake_retransmit` is a compile-time `#[cfg]` constant;
+//! `seqovl_supported` memoizes a one-shot `TCP_REPAIR` capability probe in a
+//! process-global `OnceLock`. Surfaced through the `tcp` facade.
+
 use std::sync::OnceLock;
 
 static SEQOVL_SUPPORTED: OnceLock<bool> = OnceLock::new();

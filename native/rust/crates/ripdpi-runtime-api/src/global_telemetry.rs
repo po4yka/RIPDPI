@@ -1,3 +1,16 @@
+//! Process-global telemetry registry — **stable** public API.
+//!
+//! A single process-wide `RuntimeTelemetrySink` slot for code paths that
+//! cannot thread an [`EmbeddedProxyControl`](crate::EmbeddedProxyControl)
+//! through (notably the global runtime state). Prefer the per-runtime sink on
+//! `EmbeddedProxyControl` when a handle is reachable; this global is the
+//! fallback, not the default.
+//!
+//! Under `--features loom` the `OnceLock`-backed global is compiled out (loom
+//! does not model `OnceLock`); the accessors become no-ops returning `None`.
+//! The loom test in `tests/loom_telemetry_sink.rs` exercises the underlying
+//! `Mutex<Option<Arc<...>>>` slot pattern directly instead.
+
 #[cfg(not(feature = "loom"))]
 use std::sync::OnceLock;
 
@@ -9,6 +22,7 @@ use crate::telemetry_sink::RuntimeTelemetrySink;
 #[cfg(not(feature = "loom"))]
 static TELEMETRY_SINK: OnceLock<std::sync::Mutex<Option<std::sync::Arc<dyn RuntimeTelemetrySink>>>> = OnceLock::new();
 
+/// Install (or replace) the process-global telemetry sink.
 #[cfg(not(feature = "loom"))]
 pub fn install_runtime_telemetry(sink: std::sync::Arc<dyn RuntimeTelemetrySink>) {
     if let Ok(mut slot) = telemetry_slot().lock() {
@@ -16,6 +30,7 @@ pub fn install_runtime_telemetry(sink: std::sync::Arc<dyn RuntimeTelemetrySink>)
     }
 }
 
+/// Clear the process-global telemetry sink, if one is installed.
 #[cfg(not(feature = "loom"))]
 pub fn clear_runtime_telemetry() {
     if let Ok(mut slot) = telemetry_slot().lock() {
@@ -23,6 +38,7 @@ pub fn clear_runtime_telemetry() {
     }
 }
 
+/// Clone the currently installed process-global telemetry sink, or `None`.
 #[cfg(not(feature = "loom"))]
 pub fn current_runtime_telemetry() -> Option<std::sync::Arc<dyn RuntimeTelemetrySink>> {
     telemetry_slot().lock().ok().and_then(|slot| slot.clone())

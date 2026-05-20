@@ -1,4 +1,9 @@
-//! Runtime facade for tier-3 privileged platform primitives.
+//! Runtime-adaptation — tier-3 privileged platform primitives.
+//!
+//! Raw IP packet emission, SYN-hide TCP, and ICMP-wrapped UDP send/receive.
+//! Each entry point dispatches through the registered root helper first and
+//! otherwise falls back to `ripdpi-privileged-ops` on Linux/Android (or
+//! `Unsupported` elsewhere). Surfaced through the `experimental` facade.
 
 use std::io;
 use std::net::SocketAddr;

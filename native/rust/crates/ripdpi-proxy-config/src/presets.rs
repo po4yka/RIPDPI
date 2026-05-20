@@ -8,7 +8,7 @@ use ripdpi_config::{
 };
 use ripdpi_packets::{IS_HTTP, IS_HTTPS};
 
-use crate::{ProxyConfigError, ProxyUiConfig, ProxyUiTcpChainStep, FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT};
+use crate::types::{ProxyConfigError, ProxyUiConfig, ProxyUiTcpChainStep, FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT};
 
 /// Apply the named preset to `config`.
 ///

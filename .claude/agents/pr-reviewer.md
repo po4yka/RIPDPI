@@ -22,7 +22,7 @@ Before asserting that an Android SDK / AndroidX / NDK API in a diff is misused, 
 command -v android >/dev/null 2>&1 || { echo "ERROR: Android CLI missing -- see d.android.com/tools/agents"; exit 2; }
 ```
 
-If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for API deprecations, replacement APIs, or lifecycle contracts. For every API-surface comment you emit, first run `android docs "<api name>"` and cite the current status (stable / deprecated / replaced-by) in your finding. A comment like "this API is deprecated" without a live-doc citation is not acceptable — the reviewer's word carries weight only when grounded.
+If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for API deprecations, replacement APIs, or lifecycle contracts. As of Android CLI 1.0, `android docs` is a two-step command: `android docs search '<api name>'` returns `kb://` URLs, then `android docs fetch <kb-url>` prints the article. For every API-surface comment you emit, first consult the Knowledge Base this way and cite the current status (stable / deprecated / replaced-by) in your finding. A comment like "this API is deprecated" without a live-doc citation is not acceptable — the reviewer's word carries weight only when grounded.
 
 ## Workflow
 

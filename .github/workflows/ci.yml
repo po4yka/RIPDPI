@@ -56,6 +56,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_android_journeys:
+        description: Run Android CLI Journeys emulator suite
+        required: false
+        default: false
+        type: boolean
       run_android_relay_smoke:
         description: Run Android relay emulator smoke suite
         required: false
@@ -1468,6 +1473,71 @@ jobs:
             ${{ runner.temp }}/local-network-fixture/fixture.log
             ${{ runner.temp }}/local-network-fixture/fixture-manifest.json
             ${{ runner.temp }}/local-network-fixture/fixture-events.json
+          retention-days: 7
+
+  android-journeys:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_journeys == 'true') ||
+      (
+        github.event_name == 'pull_request' &&
+        github.event.action == 'labeled' &&
+        github.event.label.name == 'run-android-journeys'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-targets: x86_64-linux-android
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Enable KVM for emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Provision journeys emulator
+        run: |
+          bash scripts/ci/start-android-emulator.sh \
+            --avd journeys \
+            --api 34 \
+            --arch x86_64 \
+            --target google_apis
+
+      # Android CLI 1.0 has no `android journeys` command -- Journeys are
+      # AI-agent-driven. This step installs the app and smoke-tests the journey
+      # primitives (screen capture / layout); full unattended journey execution
+      # needs an agent wired into the runner (tracked follow-up). Opt-in lane.
+      - name: Prepare Android CLI journeys (agent-driven)
+        run: bash scripts/ci/run-android-journeys-emulator.sh
+
+      - name: Capture journeys emulator diagnostics
+        if: always()
+        run: |
+          bash scripts/ci/capture-android-emulator-diagnostics.sh \
+            --avd journeys \
+            --output-dir "$RUNNER_TEMP/android-journeys-diagnostics" \
+            --logcat-file android-logcat.txt
+
+      - name: Stop emulator
+        if: always()
+        run: bash scripts/ci/stop-android-emulator.sh --avd journeys
+
+      - name: Upload Android journeys artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-journeys-artifacts
+          path: |
+            android-logcat.txt
+            ${{ runner.temp }}/android-journeys-diagnostics/
+            ${{ runner.temp }}/journeys/
           retention-days: 7
 
   android-relay-emulator-smoke:

@@ -1,3 +1,10 @@
+//! OS-primitive adapter — receive-side TTL operations.
+//!
+//! Enabling per-recv TTL delivery and reading a chunk together with its
+//! observed IP TTL. Thin `#[cfg]`-split wrapper over `ripdpi-privileged-ops`;
+//! the non-Linux arm degrades to a plain read with no TTL. Surfaced through
+//! the `ttl_ops` facade.
+
 use std::io;
 use std::net::TcpStream;
 

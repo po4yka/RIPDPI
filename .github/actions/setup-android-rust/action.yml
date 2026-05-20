@@ -67,7 +67,22 @@ runs:
         fi
         bash "$installer"
         android update
-        android --version
+        # Fail fast if the runner resolved a pre-1.0 binary (stale ~/.android
+        # cache or a Google CDN regression). CI fetches `latest`, which is
+        # 1.0 stable as of 2026-05; the slash-notation `sdk install` package
+        # IDs below and `android docs search` require >= 1.0.
+        ver_line="$(android --version 2>&1 | head -n1)"
+        major="$(printf '%s' "$ver_line" | grep -oE '[0-9]+' | head -n1)"
+        if [ -z "$major" ] || [ "$major" -lt 1 ]; then
+          echo "Android CLI must be >= 1.0 stable (got: $ver_line)" >&2
+          exit 1
+        fi
+        echo "Android CLI: $ver_line"
+        # Install the android-cli agent skill (1.0 feature). `android init`
+        # writes only to agent skill dirs under $HOME (e.g. ~/.claude/skills/),
+        # regardless of cwd -- it never touches the repo tree. Non-fatal: CI
+        # invokes `android` directly; the skill only aids agent-driven runs.
+        android init || echo "android init skipped (non-fatal)"
 
     - name: Read native toolchain policy
       if: inputs.skip-android-sdk-ndk != 'true'
@@ -98,7 +113,7 @@ runs:
         set -euo pipefail
         android sdk install \
           "platform-tools" \
-          "platforms;android-${{ steps.native-toolchain.outputs.compile-sdk }}"
+          "platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}"
 
     - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       with:
@@ -115,7 +130,7 @@ runs:
     - name: Install NDK via android CLI
       if: inputs.skip-android-sdk-ndk != 'true' && steps.cache-android-sdk.outputs.cache-hit != 'true'
       shell: bash
-      run: android sdk install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
+      run: android sdk install "ndk/${{ steps.native-toolchain.outputs.ndk }}"
 
     - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
       env:

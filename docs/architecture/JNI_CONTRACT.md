@@ -199,6 +199,45 @@ Two error channels exist; pick one deliberately per method.
 
 Never let a Rust `Result::Err` silently become a success sentinel.
 
+### Shared handle-error helpers
+
+`ripdpi-android-bridge-support` owns the canonical "bad handle" message
+wording so every adapter's exception text is byte-identical per subsystem:
+
+- `invalid_handle_message(kind)` / `unknown_handle_message(kind)` →
+  `"Invalid {kind} handle"` / `"Unknown {kind} handle"`.
+- `JniProxyError::invalid_handle()` / `unknown_handle()` — the proxy-typed
+  constructors (`InvalidArgument` variant) built on those messages.
+
+`ripdpi-android-proxy-adapter` and `ripdpi-android-diagnostics-adapter` use
+these; new adapters that validate a `jlong` handle should too.
+
+### Known duplication — consolidation follow-ups
+
+Two duplications are **intentionally not consolidated** yet; consolidating
+either would change observable behaviour or the dependency graph, so each is
+a deliberate follow-up rather than a mechanical refactor:
+
+1. **Per-entry `with_env(...).into_outcome()` match.** Every entry function in
+   `ripdpi-android-proxy-adapter/src/entry.rs` and
+   `ripdpi-android-diagnostics-adapter/src/lib.rs` repeats the same
+   `Ok` / `Err` / `Panic` arm shape. It is not extracted into a generic
+   `run_jni_entry` helper because the two crates diverge on error wording:
+   the proxy adapter routes `Err`/`Panic` through `log_and_throw`, which
+   applies `sanitize_error_message` (detail stripped in release builds), while
+   the diagnostics adapter throws a raw `format!("...: {err}")`. Unifying them
+   would change the Java-visible exception message for one crate. A future
+   change must first align both on one sanitisation policy, then extract the
+   helper.
+2. **`to_handle` reimplemented in relay/warp.** `ripdpi-relay-android` and
+   `ripdpi-warp-android` carry their own handle decoders (a private
+   `to_handle` and inline `u64::try_from` respectively) instead of
+   `ripdpi-android-bridge-support::to_handle`. The local copies accept handle
+   `0`; the canonical helper rejects it — behaviourally equivalent only
+   because those registries never issue handle `0`. Consolidating requires
+   relay/warp-android to depend on `ripdpi-android-bridge-support`, adding an
+   internal dependency edge, so it is deferred to a deliberate decision.
+
 ---
 
 ## 8. Callback registration / unregistration rules
@@ -219,6 +258,42 @@ Never let a Rust `Result::Err` silently become a success sentinel.
 - **Rule:** any callback that captures a `GlobalRef` or `JavaVM` must have a
   matching unregister tied to a lifecycle event, or the referenced Java object
   is pinned against GC for the process lifetime.
+
+### Stale-unregister hazard — VPN protect registry (follow-up)
+
+The VPN protect callback lives in a single process-global slot
+(`ripdpi-native-protect`, one slot per `.so`). `jniRegisterVpnProtect`
+overwrites it; `jniUnregisterVpnProtect` clears it **unconditionally**. If a
+VPN session is torn down and a new one starts before the old session's
+unregister runs, the stale unregister clears the *new* session's callback —
+outbound sockets then fail `protect_socket_via_callback` and risk a routing
+loop into the TUN (see `vpnservice-protect-invariant.md`). A single active VPN
+session — the normal case — is unaffected: register/unregister are strictly
+paired.
+
+The sibling root-helper registry (`ripdpi-runtime-platform::root_helper`) was
+hardened against the same hazard with a `RootHelperGeneration` token: each
+register stamps the slot, and `unregister_root_helper_if(generation)` clears it
+only on a generation match. That fix is fully Rust-internal because the
+root-helper register/unregister callers are RAII guards that hold the token.
+
+The VPN protect registry **cannot** be fixed the same way without a JNI
+**signature change**, because its register and unregister are two separate
+JNI calls with no Rust object spanning them — the token must round-trip
+through Kotlin. Required change (tracked as `TODO(vpn-protect-generation)`):
+
+1. `register_protect_callback` returns a `ProtectGeneration` (newtype over
+   `u64`); keep the `()`-returning form as a back-compat wrapper.
+2. Add `unregister_protect_callback_if(ProtectGeneration) -> bool`.
+3. `jniRegisterVpnProtect` returns the generation as a `jlong`;
+   `jniUnregisterVpnProtect(jlong)` takes it back. This touches the
+   `external fun` declarations on `RipDpiProxyNativeBindings` and
+   `RipDpiWarpNativeBindings`, the four Rust export symbols, and
+   `VpnNativeProtectRegistration.kt`, which would hold the token between
+   register and unregister.
+
+Because step 3 is a wire-contract change, it must land as its own reviewed
+commit, not as part of an unrelated change.
 
 ---
 

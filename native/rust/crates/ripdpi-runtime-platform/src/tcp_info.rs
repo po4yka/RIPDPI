@@ -1,3 +1,9 @@
+//! OS-primitive adapter — `TCP_INFO` introspection.
+//!
+//! Segment hints, activation state, round-trip time, and retransmission
+//! counts. Each is a thin `#[cfg]`-split wrapper over `ripdpi-privileged-ops`;
+//! non-Linux targets return `None`. Surfaced through the `tcp` facade.
+
 use std::io;
 use std::net::TcpStream;
 use std::os::fd::AsRawFd;

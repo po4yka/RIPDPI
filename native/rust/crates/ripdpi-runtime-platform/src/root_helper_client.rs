@@ -1,8 +1,11 @@
-//! IPC client for the privileged root helper process.
+//! Runtime-adaptation — IPC client for the privileged root helper process.
 //!
 //! Communicates over a Unix domain socket using JSON-line framing with
 //! SCM_RIGHTS for file descriptor passing. Framing is owned by
-//! `ripdpi-root-helper-protocol`.
+//! `ripdpi-root-helper-protocol`. The runtime-adaptation modules
+//! (`fake_send`, `ip_fragmentation`, `experimental_tier3`) reach a live
+//! `RootHelperClient` only through the [`root_helper`](crate::root_helper)
+//! registry, never by constructing one directly. Linux/Android only.
 
 use std::io;
 

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  RIPDPI journey: edit + save an advanced setting. Mirrors
+  maestro/03-advanced-settings-edit-save.yaml. Schema (root <journey> +
+  <description> + ordered <step>) follows the Android Studio "New > Journey Test"
+  template; confirm against the installed Android CLI 1.0 template before this
+  lane gates merges. See journeys/README.md.
+-->
+<journey name="03-advanced-settings-edit-save">
+  <description>
+    Edit-and-persist smoke test: change the diagnostics history retention value
+    in Advanced settings and save it.
+  </description>
+  <step>Launch the RIPDPI app from a cold start (force-stop it first if running).</step>
+  <step>Confirm the Home screen is displayed.</step>
+  <step>Tap the "Settings" item in the bottom navigation bar.</step>
+  <step>Open "Advanced settings", scrolling down if needed to find it.</step>
+  <step>Confirm the Advanced settings screen is displayed.</step>
+  <step>Scroll down until the "Diagnostics history retention (days)" input field is visible.</step>
+  <step>Clear the "Diagnostics history retention (days)" input field and type the value 21.</step>
+  <step>Tap the Save button for the "Diagnostics history retention (days)" field.</step>
+  <step>Confirm the field shows the saved value of 21 days.</step>
+</journey>

@@ -2,21 +2,8 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.core.codec.AdaptiveSectionCodec
 import com.poyka.ripdpi.core.codec.ChainCodec
-import com.poyka.ripdpi.core.codec.NativeAdaptiveFallbackConfig
-import com.poyka.ripdpi.core.codec.NativeChainConfig
-import com.poyka.ripdpi.core.codec.NativeFakePacketConfig
-import com.poyka.ripdpi.core.codec.NativeHostAutolearnConfig
-import com.poyka.ripdpi.core.codec.NativeHostsConfig
-import com.poyka.ripdpi.core.codec.NativeListenConfig
-import com.poyka.ripdpi.core.codec.NativeLogContext
-import com.poyka.ripdpi.core.codec.NativeParserEvasionConfig
-import com.poyka.ripdpi.core.codec.NativeProtocolConfig
-import com.poyka.ripdpi.core.codec.NativeQuicConfig
-import com.poyka.ripdpi.core.codec.NativeRelayConfig
-import com.poyka.ripdpi.core.codec.NativeRuntimeContext
-import com.poyka.ripdpi.core.codec.NativeSessionLocalProxyOverrides
-import com.poyka.ripdpi.core.codec.NativeWarpConfig
-import com.poyka.ripdpi.core.codec.NativeWsTunnelConfig
+import com.poyka.ripdpi.core.codec.NativeProxyConfig
+import com.poyka.ripdpi.core.codec.NativeProxyConfigValidation
 import com.poyka.ripdpi.core.codec.NetworkSectionCodec
 import com.poyka.ripdpi.core.codec.PacketCodec
 import com.poyka.ripdpi.core.codec.ProxyLogContextCodec
@@ -25,15 +12,8 @@ import com.poyka.ripdpi.core.codec.RelaySectionCodec
 import com.poyka.ripdpi.core.codec.SessionOverrideCodec
 import com.poyka.ripdpi.core.codec.WarpSectionCodec
 import com.poyka.ripdpi.core.codec.WsTunnelSectionCodec
-import com.poyka.ripdpi.data.EnvironmentKind
-import kotlinx.serialization.EncodeDefault
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import com.poyka.ripdpi.core.codec.decodeEnvironmentKind
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 
 internal object RipDpiProxyJsonCodec {
     private val json =
@@ -41,96 +21,6 @@ internal object RipDpiProxyJsonCodec {
             classDiscriminator = "kind"
             encodeDefaults = true
         }
-    private val groupedUiKeys =
-        setOf(
-            "listen",
-            "protocols",
-            "chains",
-            "fakePackets",
-            "parserEvasions",
-            "adaptiveFallback",
-            "quic",
-            "hosts",
-            "upstreamRelay",
-            "warp",
-            "hostAutolearn",
-            "wsTunnel",
-        )
-    private val legacyFlatUiKeys =
-        setOf(
-            "ip",
-            "port",
-            "maxConnections",
-            "bufferSize",
-            "tcpFastOpen",
-            "defaultTtl",
-            "customTtl",
-            "noDomain",
-            "desyncHttp",
-            "desyncHttps",
-            "desyncUdp",
-            "desyncMethod",
-            "splitMarker",
-            "tcpChainSteps",
-            "groupActivationFilter",
-            "splitPosition",
-            "splitAtHost",
-            "fakeTtl",
-            "adaptiveFakeTtlEnabled",
-            "adaptiveFakeTtlDelta",
-            "adaptiveFakeTtlMin",
-            "adaptiveFakeTtlMax",
-            "adaptiveFakeTtlFallback",
-            "fakeSni",
-            "httpFakeProfile",
-            "fakeTlsUseOriginal",
-            "fakeTlsRandomize",
-            "fakeTlsDupSessionId",
-            "fakeTlsPadEncap",
-            "fakeTlsSize",
-            "fakeTlsSniMode",
-            "tlsFakeProfile",
-            "oobChar",
-            "hostMixedCase",
-            "domainMixedCase",
-            "hostRemoveSpaces",
-            "httpMethodEol",
-            "httpMethodSpace",
-            "httpUnixEol",
-            "httpHostPad",
-            "tlsRecordSplit",
-            "tlsRecordSplitMarker",
-            "tlsRecordSplitPosition",
-            "tlsRecordSplitAtSni",
-            "hostsMode",
-            "udpFakeCount",
-            "udpChainSteps",
-            "udpFakeProfile",
-            "dropSack",
-            "fakeOffsetMarker",
-            "fakeOffset",
-            "quicInitialMode",
-            "quicSupportV1",
-            "quicSupportV2",
-            "quicFakeProfile",
-            "quicFakeHost",
-            "hostAutolearnEnabled",
-            "hostAutolearnPenaltyTtlSecs",
-            "hostAutolearnPenaltyTtlHours",
-            "hostAutolearnMaxHosts",
-            "hostAutolearnStorePath",
-            "networkScopeKey",
-            "adaptiveFallbackEnabled",
-            "adaptiveFallbackTorst",
-            "adaptiveFallbackTlsErr",
-            "adaptiveFallbackHttpRedirect",
-            "adaptiveFallbackConnectFailure",
-            "adaptiveFallbackAutoSort",
-            "adaptiveFallbackCacheTtlSeconds",
-            "adaptiveFallbackCachePrefixV4",
-        )
-    private const val LegacyCommandLineProgram = "cia" + "dpi"
-    private const val LegacyStrategyPreset = "bye" + "dpi_default"
 
     fun encodeCommandLinePreferences(
         args: List<String>,
@@ -187,6 +77,20 @@ internal object RipDpiProxyJsonCodec {
                 logContext = ProxyLogContextCodec.toNative(preferences.logContext),
                 sessionOverrides = SessionOverrideCodec.toNative(localListenPortOverride, localAuthToken),
             ),
+        )
+
+    fun encodeUiPreferences(request: NativeProxyCreateRequest): String =
+        encodeUiPreferences(
+            preferences = request.preferences,
+            strategyPreset = request.strategyPreset,
+            rootMode = request.rootMode,
+            rootHelperSocketPath = request.rootHelperSocketPath,
+            geoipDbPath = request.geoipDbPath,
+            geositeDbPath = request.geositeDbPath,
+            listenAuthToken = request.listenAuthToken,
+            localListenPortOverride = request.localListenPortOverride,
+            localAuthToken = request.localAuthToken,
+            environmentKind = request.environmentKind,
         )
 
     fun decodeUiPreferences(configJson: String): RipDpiProxyUIPreferences? {
@@ -280,100 +184,16 @@ internal object RipDpiProxyJsonCodec {
 
     private fun decode(configJson: String): NativeProxyConfig {
         val element = json.parseToJsonElement(configJson)
-        validateUiPayloadShape(element)
+        NativeProxyConfigValidation.validateUiPayloadShape(element)
         return json
             .decodeFromString(NativeProxyConfig.serializer(), configJson)
-            .also(::validateSupportedPayload)
+            .also(NativeProxyConfigValidation::validateSupportedPayload)
     }
 
     private fun decodeOrNull(configJson: String): NativeProxyConfig? = runCatching { decode(configJson) }.getOrNull()
 
     private fun encode(payload: NativeProxyConfig): String =
         payload
-            .also(::validateSupportedPayload)
+            .also(NativeProxyConfigValidation::validateSupportedPayload)
             .let(json::encodeToString)
-
-    private fun validateUiPayloadShape(element: JsonElement) {
-        val payload = element as? JsonObject ?: return
-        if (payload["kind"]?.jsonPrimitive?.contentOrNull != "ui") {
-            return
-        }
-        require(payload.keys.none(legacyFlatUiKeys::contains)) {
-            "Legacy flat UI config JSON is not supported"
-        }
-        require(payload.keys.any(groupedUiKeys::contains)) {
-            "Grouped UI config JSON must include at least one nested section"
-        }
-    }
-
-    private fun validateSupportedPayload(payload: NativeProxyConfig) {
-        when (payload) {
-            is NativeProxyConfig.CommandLine -> {
-                require(payload.args.firstOrNull() != LegacyCommandLineProgram) {
-                    "Legacy command-line executable alias is not supported"
-                }
-            }
-
-            is NativeProxyConfig.Ui -> {
-                require(payload.strategyPreset != LegacyStrategyPreset) {
-                    "Legacy strategy preset alias is not supported"
-                }
-            }
-        }
-    }
-
-    @Serializable
-    private sealed interface NativeProxyConfig {
-        @Serializable
-        @SerialName("command_line")
-        data class CommandLine(
-            val args: List<String>,
-            val hostAutolearnStorePath: String? = null,
-            val runtimeContext: NativeRuntimeContext? = null,
-            val logContext: NativeLogContext? = null,
-            val sessionOverrides: NativeSessionLocalProxyOverrides? = null,
-        ) : NativeProxyConfig
-
-        @Serializable
-        @SerialName("ui")
-        data class Ui(
-            val strategyPreset: String? = null,
-            val listen: NativeListenConfig = NativeListenConfig(),
-            val protocols: NativeProtocolConfig = NativeProtocolConfig(),
-            val chains: NativeChainConfig = NativeChainConfig(),
-            val fakePackets: NativeFakePacketConfig = NativeFakePacketConfig(),
-            val parserEvasions: NativeParserEvasionConfig = NativeParserEvasionConfig(),
-            val adaptiveFallback: NativeAdaptiveFallbackConfig = NativeAdaptiveFallbackConfig(),
-            val quic: NativeQuicConfig = NativeQuicConfig(),
-            val hosts: NativeHostsConfig = NativeHostsConfig(),
-            val upstreamRelay: NativeRelayConfig = NativeRelayConfig(),
-            val warp: NativeWarpConfig = NativeWarpConfig(),
-            val hostAutolearn: NativeHostAutolearnConfig = NativeHostAutolearnConfig(),
-            val wsTunnel: NativeWsTunnelConfig = NativeWsTunnelConfig(),
-            @EncodeDefault(EncodeDefault.Mode.NEVER)
-            val nativeLogLevel: String? = null,
-            val rootMode: Boolean = false,
-            @EncodeDefault(EncodeDefault.Mode.NEVER)
-            val rootHelperSocketPath: String? = null,
-            @EncodeDefault(EncodeDefault.Mode.NEVER)
-            val geoipDbPath: String? = null,
-            @EncodeDefault(EncodeDefault.Mode.NEVER)
-            val geositeDbPath: String? = null,
-            // Environment classification supplied by the platform-side
-            // EnvironmentDetector. Wire form is the
-            // EnvironmentKind variant name ("Field" / "Emulator" /
-            // "Unknown"); Rust parses it back into ripdpi_config::EnvironmentKind.
-            val environmentKind: String = "Unknown",
-            val runtimeContext: NativeRuntimeContext? = null,
-            val logContext: NativeLogContext? = null,
-            val sessionOverrides: NativeSessionLocalProxyOverrides? = null,
-        ) : NativeProxyConfig
-    }
-}
-
-private fun decodeEnvironmentKind(value: String): EnvironmentKind {
-    for (kind in enumValues<EnvironmentKind>()) {
-        if (kind.name == value) return kind
-    }
-    return EnvironmentKind.Unknown
 }

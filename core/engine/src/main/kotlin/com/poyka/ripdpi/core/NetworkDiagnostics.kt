@@ -7,23 +7,72 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+/**
+ * Thin JNI binding surface over the network-diagnostics native session in
+ * `libripdpi.so` (Rust crate `ripdpi-android`, delegating to
+ * `ripdpi-android-diagnostics-adapter`). Each method maps 1:1 onto an
+ * `external` JNI function; the interface exists so it can be faked in tests.
+ *
+ * ## Handle lifecycle and ordering
+ * [create] registers a session and returns an opaque non-zero `Long` handle (a
+ * native registry key, not a pointer), or `0` on failure. The handle then
+ * accepts any number of scan cycles — each cycle is [startScan] followed by
+ * polling via [pollProgress]/[takeReport] and optional [cancelScan] — until
+ * [destroy] retires it. [pollPassiveEvents] is independent of scan state. After
+ * [destroy] the handle is dead and must never be reused.
+ *
+ * ## Idempotency
+ * [startScan] is **not** idempotent: starting a second scan while one is
+ * running throws `IllegalStateException` ("diagnostics scan already running").
+ * [cancelScan] **is** idempotent — it is a no-op when no scan is active.
+ * [takeReport] has take semantics: it consumes the finished report, so a second
+ * call returns `null` until the next scan completes.
+ *
+ * ## fd ownership
+ * Diagnostics adopts no externally supplied file descriptors; any probe sockets
+ * it opens are created and closed entirely within the native session.
+ *
+ * ## Error mapping
+ * Native failures throw Java exceptions from the JNI frame:
+ * `IllegalArgumentException` (invalid/unknown handle, malformed request JSON or
+ * session id), `IllegalStateException` (scan already running), and
+ * `RuntimeException` (session-creation failure or a contained Rust panic). The
+ * `String?`-returning polls yield `null` on a contained panic.
+ *
+ * ## Blocking
+ * No method blocks. [startScan] spawns the scan on a native worker and returns
+ * immediately; progress and results are observed by polling. There is no JNI
+ * callback channel — the Kotlin side polls.
+ *
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §7 (error
+ * mapping), §8 (callback rules) and the diagnostics scan pipeline in
+ * `docs/architecture/DIAGNOSTICS_ARCHITECTURE.md`.
+ */
 interface NetworkDiagnosticsBindings {
+    /** Registers a diagnostics session; returns its handle, or `0` on failure. */
     fun create(): Long
 
+    /**
+     * Spawns a scan for [requestJson] tagged [sessionId] and returns immediately.
+     * Throws `IllegalStateException` if a scan is already running on [handle].
+     */
     fun startScan(
         handle: Long,
         requestJson: String,
         sessionId: String,
     )
 
+    /** Requests cancellation of the running scan; a no-op when no scan is active. */
     fun cancelScan(handle: Long)
 
     fun pollProgress(handle: Long): String?
 
+    /** Returns the finished scan report once, consuming it; `null` until the next scan completes. */
     fun takeReport(handle: Long): String?
 
     fun pollPassiveEvents(handle: Long): String?
 
+    /** Retires the session for [handle]; the handle must not be reused afterwards. */
     fun destroy(handle: Long)
 }
 
@@ -96,6 +145,20 @@ interface NetworkDiagnosticsBridge {
     suspend fun destroy()
 }
 
+/**
+ * Coroutine-friendly owner of a single native diagnostics handle (see
+ * [NetworkDiagnosticsBindings] for the raw JNI contract).
+ *
+ * The handle is created **lazily**: `ensureHandleLocked` calls
+ * [NetworkDiagnosticsBindings.create] on the first scan or poll and reuses it
+ * for the lifetime of this instance, so there is no separate create step for
+ * callers. Every JNI call is serialized under [mutex], so a [destroy] cannot
+ * retire the handle while a scan or poll is in flight. [destroy] is idempotent
+ * — a no-op once the handle has been cleared — and after it the next call
+ * lazily creates a fresh handle. [cancelScan] is a no-op when no handle exists.
+ *
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle).
+ */
 class NetworkDiagnostics
     @Inject
     constructor(
