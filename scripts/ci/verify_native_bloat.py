@@ -17,6 +17,22 @@ CLANG_TARGETS = {
     "i686-linux-android": "i686-linux-android",
     "x86_64-linux-android": "x86_64-linux-android",
 }
+APPLE_HOST_ENV_KEYS = (
+    "SDKROOT",
+    "MACOSX_DEPLOYMENT_TARGET",
+    "IPHONEOS_DEPLOYMENT_TARGET",
+    "TVOS_DEPLOYMENT_TARGET",
+    "WATCHOS_DEPLOYMENT_TARGET",
+    "XROS_DEPLOYMENT_TARGET",
+    "ARCHFLAGS",
+    "RC_ARCHS",
+    "CMAKE_OSX_ARCHITECTURES",
+    "CMAKE_OSX_SYSROOT",
+    "CFLAGS",
+    "CXXFLAGS",
+    "CPPFLAGS",
+    "LDFLAGS",
+)
 
 
 def read_properties(path: Path) -> dict[str, str]:
@@ -78,6 +94,15 @@ def resolve_min_sdk(repo_root: Path) -> int:
     return int(value)
 
 
+def resolve_android_cmake(sdk_dir: Path) -> Path | None:
+    preferred = sdk_dir / "cmake" / "3.22.1" / "bin" / "cmake"
+    if preferred.is_file():
+        return preferred
+
+    candidates = sorted((sdk_dir / "cmake").glob("*/bin/cmake"))
+    return candidates[-1] if candidates else None
+
+
 def cargo_environment(repo_root: Path, target: str) -> dict[str, str]:
     sdk_dir = resolve_sdk_dir(repo_root)
     ndk_dir = resolve_ndk_dir(repo_root, sdk_dir)
@@ -99,6 +124,10 @@ def cargo_environment(repo_root: Path, target: str) -> dict[str, str]:
 
     target_env = target.replace("-", "_")
     env = os.environ.copy()
+    for key in APPLE_HOST_ENV_KEYS:
+        env.pop(key, None)
+
+    android_cmake = resolve_android_cmake(sdk_dir)
     env.update(
         {
             f"CC_{target_env}": str(linker),
@@ -110,8 +139,11 @@ def cargo_environment(repo_root: Path, target: str) -> dict[str, str]:
             "ANDROID_SDK_ROOT": str(sdk_dir),
             "ANDROID_NDK_HOME": str(ndk_dir),
             "CARGO_TARGET_DIR": str((repo_root / "native/rust/target/cargo-bloat-ci").resolve()),
+            "BORING_BSSL_RUST_CPPLIB": env.get("BORING_BSSL_RUST_CPPLIB", "c++_static"),
         },
     )
+    if android_cmake is not None:
+        env["CMAKE"] = str(android_cmake)
     return env
 
 

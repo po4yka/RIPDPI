@@ -34,6 +34,27 @@ if [[ ! -d "$ndk_bin" ]]; then
 fi
 export ANDROID_NDK_HOME="$ndk_dir"
 
+android_cmake=""
+if [[ -x "$ANDROID_HOME/cmake/3.22.1/bin/cmake" ]]; then
+  android_cmake="$ANDROID_HOME/cmake/3.22.1/bin/cmake"
+else
+  android_cmake="$(
+    find "$ANDROID_HOME/cmake" -path '*/bin/cmake' -type f 2>/dev/null | sort -V | tail -n1 || true
+  )"
+fi
+if [[ -n "$android_cmake" && -x "$android_cmake" ]]; then
+  export CMAKE="$android_cmake"
+fi
+
+# Match the Gradle native build environment: Cargo dependencies that shell out
+# to CMake must not inherit Apple host SDK or architecture flags while targeting
+# Android, otherwise CMake can inject `-arch`/`-isysroot` into NDK clang.
+unset SDKROOT
+unset MACOSX_DEPLOYMENT_TARGET IPHONEOS_DEPLOYMENT_TARGET TVOS_DEPLOYMENT_TARGET WATCHOS_DEPLOYMENT_TARGET XROS_DEPLOYMENT_TARGET
+unset ARCHFLAGS RC_ARCHS CMAKE_OSX_ARCHITECTURES CMAKE_OSX_SYSROOT
+unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
+export BORING_BSSL_RUST_CPPLIB="${BORING_BSSL_RUST_CPPLIB:-c++_static}"
+
 declare -A CLANG_TARGETS=(
   [aarch64-linux-android]="aarch64-linux-android"
   [armv7-linux-androideabi]="armv7a-linux-androideabi"
