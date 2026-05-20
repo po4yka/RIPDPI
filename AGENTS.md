@@ -239,7 +239,7 @@ Supporting crates providing shared traits, data structures, and classification:
 
 - **`ripdpi-packets`** -- protocol classification (`ProtocolClassifier` trait + `ClassifierRegistry` with `EnumMap` O(1) dispatch), protocol field extraction (`ProtocolField` + `FieldObserver` + `FieldCache`), TLS/HTTP/QUIC detection and mutation
 - **`ripdpi-failure-classifier`** -- failure classification from pre-extracted fields (`classify_from_fields()` via `FieldCache`), blockpage CSV fingerprints, TLS alert/HTTP blockpage/redirect detection
-- **`ripdpi-monitor`** -- DNS tampering detection (`dns_analysis.rs` with 8 anomaly signals + record-level comparison + compression pointer validation), response parser framework (`response_parser/` with HTTP/TLS/SSH parsers and `FieldObserver` emission), PCAP diagnostic recording
+- **`ripdpi-monitor-engine`** (active-scan engine) plus the `ripdpi-diagnostics-*` family -- DNS tampering detection (`ripdpi-diagnostics-dns`, `dns_analysis` with 8 anomaly signals + record-level comparison + compression pointer validation), response parsers (`ripdpi-diagnostics-parsers`, HTTP/TLS/SSH), PCAP diagnostic recording (`ripdpi-diagnostics-pcap`). See `docs/architecture/DIAGNOSTICS_ARCHITECTURE.md`.
 - **`ripdpi-root-helper`** -- standalone privileged binary for rooted devices; Unix socket IPC with SCM_RIGHTS fd passing for raw socket operations (`send_fake_rst`, `send_seqovl_tcp`, `send_multi_disorder_tcp`, `send_ip_fragmented_tcp/udp`, `probe_capabilities`); IPC client in `ripdpi-runtime/src/platform/root_helper_client.rs`
 - **`android-support`** -- generic data structures: `BoundedHeap<T>` (fixed-capacity min-heap for session eviction), `EnumMap<K,V>` (O(1) enum-keyed dispatch for registries)
 
@@ -384,7 +384,7 @@ Additional skills in `.claude/skills/` (also accessible to Codex via `.codex/ski
 | `cargo-workflows` | Managing the Rust workspace, feature flags, build scripts, Gradle-Cargo integration, or cross-compilation |
 | `compose` | Compose expert guidance (state, recomposition, modifiers, navigation, theming) or scored Compose codebase audit (Performance/State/Side Effects/API Quality), generating `COMPOSE-AUDIT-REPORT.md` |
 | `desync-engine` | Working with DPI desync evasion pipeline, DesyncMode, DesyncGroup, TcpChainStep, UdpChainStep, OffsetExpr, or ActivationFilter |
-| `diagnostics-system` | Working with diagnostics scan pipeline, ScanRequest, ScanReport, ProbeTask, ripdpi-monitor, strategy probes, or diagnostics catalog |
+| `diagnostics-system` | Working with diagnostics scan pipeline, ScanRequest, ScanReport, ProbeTask, the `ripdpi-monitor-*` / `ripdpi-diagnostics-*` crates, strategy probes, or diagnostics catalog |
 | `legal-check` | Reviewing public docs, store listings, or UI copy for Russian VPN/circumvention advertising risk |
 | `material-3` | Material Design 3 token usage, component selection, dynamic color, layout, or accessibility guidance |
 | `memory-model` | Understanding memory ordering, writing lock-free code, using Rust atomics, or diagnosing data races on ARM64 Android |

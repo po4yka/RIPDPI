@@ -126,8 +126,8 @@ files — they are compiled from source.
    │               NetworkDiagnostics.kt, RipDpiRelay.kt, RipDpiWarp.kt
    ▼
 native Rust    ── libripdpi.so / libripdpi-tunnel.so
-                   ripdpi-runtime drives the proxy; ripdpi-tunnel-core drives
-                   the TUN bridge; ripdpi-monitor drives diagnostics scans
+                   ripdpi-proxy-runtime drives the proxy; ripdpi-tunnel-core
+                   drives the TUN bridge; ripdpi-monitor-engine drives diagnostics scans
 ```
 
 - **VPN socket protection invariant** — every non-loopback outbound socket the

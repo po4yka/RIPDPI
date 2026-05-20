@@ -41,7 +41,7 @@ Chose option 1: the four commits implement a single architectural shape (decompo
 - `ripdpi-android-telemetry-adapter`
 - `ripdpi-android-vpn-protect-adapter`
 
-`ripdpi-android/Cargo.toml` declares only `android-support`, `jni`, `once_cell`, and the seven adapter crates. No domain crate is a direct dependency of the cdylib. Adapter crates depend downward on domain crates (`ripdpi-proxy-runtime`, `ripdpi-monitor`, `ripdpi-runtime-adaptive`, etc.).
+`ripdpi-android/Cargo.toml` declares only `android-support`, `jni`, `once_cell`, and the seven adapter crates. No domain crate is a direct dependency of the cdylib. Adapter crates depend downward on domain crates (`ripdpi-proxy-runtime`, `ripdpi-monitor-engine`, `ripdpi-runtime-adaptive`, etc.).
 
 **2. Runtime-adaptive policy sink (Rust).** Policy decisions previously embedded in `ripdpi-proxy-runtime/src/runtime/{adaptive,morph,reprobe,routing,retry}` are extracted into `ripdpi-runtime-adaptive` (`morph_policy.rs`, `strategy_context/{payload_classification,preferred_targets}.rs`). `ripdpi-proxy-runtime` depends on `ripdpi-runtime-adaptive`; the reverse edge is forbidden. This is the same direction the workspace already used for `ripdpi-runtime-adaptive`'s prior surface; the refactor moves more logic to it without flipping the edge.
 

@@ -3,11 +3,14 @@
 This directory documents the in-repository Rust native modules used by RIPDPI and the Android integration layer that wraps them.
 
 > **Canonical crate map:** [`docs/architecture/NATIVE_RUST.md`](../architecture/NATIVE_RUST.md)
-> is the current workspace taxonomy and dependency-direction reference. Some
-> sections below predate the runtime/monitor crate split — the crate names
-> `ripdpi-runtime` and `ripdpi-monitor` are **historical**. The workspace
-> (`native/rust/Cargo.toml`) now uses the `ripdpi-proxy-runtime` +
-> `ripdpi-runtime-*` family and the `ripdpi-monitor-*` family instead.
+> is the current workspace taxonomy and dependency-direction reference;
+> [`docs/architecture/DIAGNOSTICS_ARCHITECTURE.md`](../architecture/DIAGNOSTICS_ARCHITECTURE.md)
+> covers the diagnostics / monitor crates. Some sections below predate the
+> runtime/monitor crate split — the crate names `ripdpi-runtime` and
+> `ripdpi-monitor` are **historical**. The workspace (`native/rust/Cargo.toml`)
+> now uses the `ripdpi-proxy-runtime` + `ripdpi-runtime-*` family and the
+> `ripdpi-monitor-*` family (active-scan engine: `ripdpi-monitor-engine`) plus
+> the `ripdpi-diagnostics-*` probe crates instead.
 
 ## Overview
 
@@ -16,8 +19,8 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 | `native/rust/crates/ripdpi-cli` | `ripdpi` binary | Desktop development (macOS/Linux) | N/A -- standalone CLI | `ripdpi_config::parse_cli`, `runtime::run_proxy`, `ProcessGuard::prepare`, `install_runtime_telemetry` |
 | `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode, VPN mode, diagnostics | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`, `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | `ripdpi_config::parse_cli`, `ripdpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_embedded_control`, `EmbeddedProxyControl::request_shutdown`, `platform::detect_default_ttl`, `MonitorSession::*`, proxy telemetry polling, `jniRegisterVpnProtect` / `jniUnregisterVpnProtect` for VPN socket protection JNI callback |
 | `native/rust/crates/ripdpi-tunnel-android` | `libripdpi-tunnel.so` | VPN mode only | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `ripdpi_tunnel_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
-| `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, DNS tampering detection (8 anomaly signals + record-level comparison + compression pointer validation), response parser framework (HTTP/TLS/SSH with `FieldObserver` emission), TLS/HTTP reachability probes, TCP fat-header probes, allowlist-SNI retries, strategy-probe progress/report state |
-| `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor` and `ripdpi-tunnel-core` for DoH/DoT/DNSCrypt/DoQ exchange, metadata collection, and IP answer extraction |
+| `native/rust/crates/ripdpi-monitor-engine` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, DNS tampering detection (8 anomaly signals + record-level comparison + compression pointer validation), response parser framework (HTTP/TLS/SSH with `FieldObserver` emission), TLS/HTTP reachability probes, TCP fat-header probes, allowlist-SNI retries, strategy-probe progress/report state |
+| `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor-engine` and `ripdpi-tunnel-core` for DoH/DoT/DNSCrypt/DoQ exchange, metadata collection, and IP answer extraction |
 | `native/rust/crates/ripdpi-packets` | linked into ripdpi-runtime, ripdpi-monitor, ripdpi-desync | Protocol detection, packet mutation, classification | none directly | `ProtocolClassifier` trait + `ClassifierRegistry` for unified protocol detection, `ProtocolField` + `FieldObserver` for callback-based field extraction, TLS/HTTP/QUIC marker info for desync offset resolution |
 | `native/rust/crates/ripdpi-failure-classifier` | linked into ripdpi-runtime, ripdpi-monitor | Failure analysis, block signal detection | none directly | `classify_from_fields()` uses `FieldCache` for response analysis without re-parsing, failure-page CSV fingerprints, TLS alert classification |
 | `native/rust/crates/ripdpi-root-helper` | `ripdpi-root-helper` binary | Rooted devices only (opt-in) | `core/service/.../RootHelperManager.kt` | Standalone privileged process spawned via `su`; Unix socket IPC with SCM_RIGHTS: `probe_capabilities`, `send_fake_rst`, `send_seqovl_tcp`, `send_multi_disorder_tcp`, `send_ip_fragmented_tcp`, `send_ip_fragmented_udp`, `send_raw_ip_packet` |
@@ -104,7 +107,7 @@ App-originated traffic that RIPDPI controls itself no longer always traverses th
 
 Diagnostics in the Android app are split across three native paths:
 
-- `ripdpi-monitor` performs active scans and produces structured scan reports and scan-time passive events
+- `ripdpi-monitor-engine` performs active scans and produces structured scan reports and scan-time passive events
 - `ripdpi-runtime` emits passive proxy runtime telemetry for the long-running local SOCKS5 proxy
 - `ripdpi-tunnel-android` exposes tunnel runtime telemetry for the long-running TUN-to-SOCKS bridge
 
@@ -263,7 +266,7 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - `native/rust/crates/ripdpi-cli` (desktop CLI binary -- macOS/Linux)
 - `native/rust/crates/ripdpi-android`
 - `native/rust/crates/ripdpi-tunnel-android`
-- `native/rust/crates/ripdpi-monitor`
+- `native/rust/crates/ripdpi-monitor-engine` (plus the `ripdpi-monitor-*` and `ripdpi-diagnostics-*` families)
 - `native/rust/crates/ripdpi-dns-resolver`
 - `native/rust/crates/ripdpi-proxy-config`
 - `native/rust/crates/ripdpi-config` -- CLI configuration parsing
@@ -323,7 +326,7 @@ flowchart TD
     end
 
     subgraph "Diagnostics"
-        MON["ripdpi-monitor"]
+        MON["ripdpi-monitor-engine"]
     end
 
     AND --> RT & MON & CFG

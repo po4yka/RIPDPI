@@ -79,8 +79,8 @@ That script runs:
 Focused native commands for the current policy/runtime surface:
 
 ```bash
-cargo test -p ripdpi-runtime --lib
-cargo test -p ripdpi-monitor --lib
+cargo test -p ripdpi-proxy-runtime --lib
+cargo test -p ripdpi-monitor-engine --lib
 cargo test -p ripdpi-android --lib
 cargo test -p ripdpi-masque -p ripdpi-relay-core -p ripdpi-xhttp -p ripdpi-naiveproxy -p ripdpi-cloudflare-origin
 ./gradlew :core:engine:testDebugUnitTest \
