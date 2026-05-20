@@ -41,3 +41,52 @@ grep -Fq -- "--ez require_vpn_active false" <<<"$command"
 grep -Fq -- "--ez require_proxy_ready false" <<<"$command"
 
 echo "Feature custom probe broadcast self-test passed."
+
+lab_env="$repo_root/test-lab/artifacts/lab-env.sh"
+lab_env_backup="$(mktemp)"
+warning_log="$(mktemp)"
+had_lab_env=false
+if [[ -f "$lab_env" ]]; then
+  cp "$lab_env" "$lab_env_backup"
+  had_lab_env=true
+fi
+cleanup() {
+  if [[ "$had_lab_env" == "true" ]]; then
+    cp "$lab_env_backup" "$lab_env"
+  else
+    rm -f "$lab_env"
+  fi
+  rm -f "$lab_env_backup"
+  rm -f "$warning_log"
+}
+trap cleanup EXIT
+
+mkdir -p "$(dirname "$lab_env")"
+cat > "$lab_env" <<'EOF'
+export MACBOOK_LAN_IP="198.51.100.20"
+export RIPDPI_DNS_PORT="1053"
+export RIPDPI_LAB_PROFILE="device"
+export RIPDPI_HOST_UDP_ECHO="true"
+export RIPDPI_HOST_DNS="true"
+EOF
+
+current_host="$(MACBOOK_LAN_IP= "$repo_root/test-lab/scripts/print-host-env.sh" | awk -F= '/^MACBOOK_LAN_IP=/{print $2}')"
+device_command="$(
+  "$repo_root/test-lab/scripts/adb-run-probe.sh" \
+    --profile device \
+    --mode diagnostics \
+    --require-vpn-active false \
+    --require-proxy-ready false \
+    --print-broadcast \
+    2>"$warning_log"
+)"
+
+printf '%s\n' "$device_command"
+grep -Fq -- "--es lab_host $current_host" <<<"$device_command"
+if grep -Fq -- "198.51.100.20" <<<"$device_command"; then
+  echo "stale lab host leaked into device probe broadcast" >&2
+  exit 1
+fi
+grep -Fq -- "Ignoring stale lab host" "$warning_log"
+
+echo "Feature stale device probe host self-test passed."

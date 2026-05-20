@@ -11,6 +11,7 @@ fi
 profile="${RIPDPI_LAB_PROFILE:-emulator}"
 mode="${RIPDPI_PROBE_MODE:-vpn}"
 lab_host="${MACBOOK_LAN_IP:-}"
+lab_host_from_cli=false
 timeout_ms="${RIPDPI_PROBE_TIMEOUT_MS:-5000}"
 dns_server=""
 dns_port="${RIPDPI_DNS_PORT:-53}"
@@ -72,6 +73,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --lab-host|--host)
       lab_host="${2:?missing --lab-host value}"
+      lab_host_from_cli=true
       shift 2
       ;;
     --timeout-ms)
@@ -158,9 +160,38 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+detect_current_lab_host() {
+  MACBOOK_LAN_IP= "$lab_root/scripts/print-host-env.sh" | awk -F= '/^MACBOOK_LAN_IP=/{print $2}'
+}
+
+host_ip_is_assigned() {
+  local candidate="$1"
+  [[ -n "$candidate" ]] || return 1
+
+  if command -v ifconfig >/dev/null 2>&1; then
+    if ifconfig 2>/dev/null | awk '/^[[:space:]]*inet / {print $2}' | grep -Fxq "$candidate"; then
+      return 0
+    fi
+  fi
+
+  if command -v hostname >/dev/null 2>&1; then
+    if hostname -I 2>/dev/null | tr ' ' '\n' | grep -Fxq "$candidate"; then
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
 if [[ "$profile" == "device" || "$profile" == "physical" ]]; then
-  if [[ -z "$lab_host" ]]; then
-    lab_host="$(MACBOOK_LAN_IP= "$lab_root/scripts/print-host-env.sh" | awk -F= '/^MACBOOK_LAN_IP=/{print $2}')"
+  if [[ "$lab_host_from_cli" != "true" ]]; then
+    current_lab_host="$(detect_current_lab_host)"
+    if [[ -z "$lab_host" ]]; then
+      lab_host="$current_lab_host"
+    elif [[ -n "$current_lab_host" && "$lab_host" != "$current_lab_host" ]] && ! host_ip_is_assigned "$lab_host"; then
+      echo "Ignoring stale lab host from environment/artifacts: $lab_host; using current host IP: $current_lab_host" >&2
+      lab_host="$current_lab_host"
+    fi
   fi
 fi
 
