@@ -138,7 +138,8 @@ mod tests {
 
     use std::io::Write;
     use std::net::TcpListener;
-    use std::thread::{sleep, JoinHandle};
+    use std::sync::mpsc::{self, Receiver};
+    use std::thread::sleep;
     use std::time::{Duration, Instant};
 
     use android_support::describe_exception;
@@ -267,7 +268,14 @@ mod tests {
         with_env(|env| {
             jni_start_scan(env, handle.raw(), &slow_request_json(slow_server.port()), "session-duplicate");
             assert_no_exception(env);
+        });
 
+        slow_server
+            .accepted
+            .recv_timeout(Duration::from_secs(2))
+            .expect("slow HTTP server should receive the diagnostics request before duplicate start");
+
+        with_env(|env| {
             jni_start_scan(env, handle.raw(), &minimal_request_json(), "session-duplicate-2");
             let exception = take_exception(env);
             assert_eq!(exception, "java.lang.IllegalStateException: diagnostics scan already running",);
@@ -444,44 +452,26 @@ mod tests {
 
     struct SlowHttpServer {
         port: u16,
-        worker: Option<JoinHandle<()>>,
+        accepted: Receiver<()>,
     }
 
     impl SlowHttpServer {
         fn start() -> Self {
             let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind slow HTTP test server");
             let port = listener.local_addr().expect("read slow HTTP server address").port();
-            listener.set_nonblocking(true).expect("set slow HTTP server nonblocking");
-            let worker = std::thread::spawn(move || {
-                let deadline = Instant::now() + Duration::from_secs(2);
-                loop {
-                    match listener.accept() {
-                        Ok((mut stream, _addr)) => {
-                            sleep(Duration::from_millis(250));
-                            let _ = stream
-                                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
-                            return;
-                        }
-                        Err(err) if err.kind() == std::io::ErrorKind::WouldBlock && Instant::now() < deadline => {
-                            sleep(Duration::from_millis(5));
-                        }
-                        Err(_) => return,
-                    }
+            let (accepted_tx, accepted) = mpsc::channel();
+            std::thread::spawn(move || {
+                if let Ok((mut stream, _addr)) = listener.accept() {
+                    let _ = accepted_tx.send(());
+                    sleep(Duration::from_millis(250));
+                    let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
                 }
             });
-            Self { port, worker: Some(worker) }
+            Self { port, accepted }
         }
 
         fn port(&self) -> u16 {
             self.port
-        }
-    }
-
-    impl Drop for SlowHttpServer {
-        fn drop(&mut self) {
-            if let Some(worker) = self.worker.take() {
-                let _ = worker.join();
-            }
         }
     }
 }
