@@ -23,7 +23,7 @@ Before flagging a Compose / Hilt / Coroutines / AndroidX API as misused, verify 
 command -v android >/dev/null 2>&1 || { echo "ERROR: Android CLI missing -- see d.android.com/tools/agents"; exit 2; }
 ```
 
-If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge — Compose / Hilt / Coroutines API shapes evolve across BOM releases and your training may be stale. For each anti-pattern you flag, first run `android docs "<api name>"` (e.g. `android docs "collectAsStateWithLifecycle"`, `android docs "HiltViewModel"`) and cite the current contract in your finding. If the live docs contradict your first instinct, trust the docs.
+If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge — Compose / Hilt / Coroutines API shapes evolve across BOM releases and your training may be stale. As of Android CLI 1.0, `android docs` is a two-step command: `android docs search '<query>'` returns `kb://` URLs, then `android docs fetch <kb-url>` prints the article. For each anti-pattern you flag, first consult the Knowledge Base — e.g. `android docs search 'collectAsStateWithLifecycle'`, `android docs search 'HiltViewModel'` — then `fetch` a returned `kb://` URL and cite the current contract in your finding. If the live docs contradict your first instinct, trust the docs.
 
 ## Workflow
 

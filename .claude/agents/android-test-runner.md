@@ -1,6 +1,6 @@
 ---
 name: android-test-runner
-description: Runs and triages Android test suites for the RIPDPI app -- instrumentation tests, Maestro flows, and Appium suites on emulator or device, with failure artifact collection and structured reporting.
+description: Runs and triages Android test suites for the RIPDPI app -- instrumentation tests, Maestro flows, Appium suites, and Android CLI Journeys on emulator or device, with failure artifact collection and structured reporting.
 tools: Bash, Read, Grep, Glob
 model: sonnet
 maxTurns: 30
@@ -21,7 +21,7 @@ Before analysing any Android test-framework or instrumentation-runner behaviour 
 command -v android >/dev/null 2>&1 || { echo "ERROR: Android CLI missing -- see d.android.com/tools/agents"; exit 2; }
 ```
 
-If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for API shapes. When a test failure cites an androidx.test or instrumentation API, run `android docs "<api name>"` first and cite the output in your root-cause hypothesis.
+If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for API shapes. When a test failure cites an androidx.test or instrumentation API, consult the Knowledge Base first -- Android CLI 1.0's `android docs` is two-step: `android docs search '<api name>'` returns `kb://` URLs, then `android docs fetch <kb-url>` prints the article -- and cite the output in your root-cause hypothesis.
 
 ## ABI Selection
 
@@ -48,6 +48,7 @@ Pick suites based on what is requested:
 - **Maestro flows**: `maestro test maestro/<flow>.yaml` (requires `maestro` CLI on PATH, device/emulator running)
 - **Full Maestro smoke**: `bash scripts/ci/run-maestro-smoke.sh` (runs all 4 flows sequentially)
 - **Appium suite**: `bash scripts/ci/run-appium-smoke.sh` (starts Appium server, installs APK, runs pytest on `appium/tests/`)
+- **Android CLI Journeys**: `bash scripts/ci/run-android-journeys-emulator.sh` (installs the app, runs the natural-language flows in `journeys/` via `android journeys`; AI-agent-driven)
 
 ## Emulator Setup (local)
 
@@ -70,10 +71,15 @@ On any test failure, collect these before reporting:
 4. **Appium artifacts**: `appium/appium-report.html`, `appium/screenshots/`
 5. **Maestro logs**: `$RUNNER_TEMP/maestro/maestro-smoke.log`
 6. **Test reports**: `app/build/reports/androidTests/connected/`
+7. **Journey logs**: `$RUNNER_TEMP/journeys/` (per-journey `.log` files plus pulled on-device artifacts)
 
 ## Maestro Flows (4 flows in `maestro/`)
 
 01-cold-launch-home, 02-settings-navigation, 03-advanced-settings-edit-save, 04-start-stop-configured-mode
+
+## Android CLI Journeys (4 journeys in `journeys/`)
+
+01-cold-launch-home, 02-settings-navigation, 03-advanced-settings-edit-save, 04-start-stop-configured-mode -- natural-language, AI-agent-driven UI tests run by Android CLI 1.0 (`android journeys`). They mirror the Maestro flows, but the agent reasons about goals instead of matching resource IDs. The app ID is passed via the `JOURNEYS_CUSTOM_APP_ID` env var. See `journeys/README.md` for the schema and run-subcommand verification gates -- confirm them with `android journeys --help` before treating a journey failure as definitive.
 
 ## Appium Tests (46 tests in `appium/tests/`)
 

@@ -6,6 +6,12 @@
   "enabledPlugins": {
     "codex@openai-codex": true
   },
+  "//4": "permissions.allow carries into your gitignored settings.json on copy. Agents and CI both invoke the Android CLI 1.0 (`android sdk install`, `android docs search`, `android journeys`); the wildcard covers every subcommand. See AGENTS.md § Setup.",
+  "permissions": {
+    "allow": [
+      "Bash(android:*)"
+    ]
+  },
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
