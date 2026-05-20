@@ -11,7 +11,7 @@ import javax.inject.Singleton
 class WidgetUpdater
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : WidgetNotifier {
         override suspend fun pushUpdate() {
             ConnectToggleWidget().updateAll(context)

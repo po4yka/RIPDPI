@@ -40,7 +40,7 @@ interface ClipboardReader {
 class SystemClipboardReader
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : ClipboardReader {
         private val clipboardManager: ClipboardManager?
             get() = context.getSystemService()
