@@ -137,6 +137,19 @@ grant_runtime_permissions() {
   adb shell pm grant com.poyka.ripdpi android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
 }
 
+wake_unlock_device() {
+  "$script_dir/adb-wake-unlock.sh"
+}
+
+run_maestro_flow() {
+  local flow="$1"
+  local maestro_args=(test)
+  if [[ -n "${ANDROID_SERIAL:-}" ]]; then
+    maestro_args+=(--udid "$ANDROID_SERIAL")
+  fi
+  "$maestro_bin" "${maestro_args[@]}" "$flow"
+}
+
 assert_vpn_service_stopped() {
   local service_state
   service_state="$(
@@ -175,8 +188,10 @@ cleanup() {
   fi
 
   if [[ "$maestro_ran" == "true" ]]; then
+    wake_unlock_device >/dev/null 2>&1 || true
     resume_debug_automation_state >/dev/null 2>&1 || true
-    "$maestro_bin" test "$lab_root/maestro/disconnect-vpn.yaml" >/dev/null 2>&1 || true
+    wake_unlock_device >/dev/null 2>&1 || true
+    run_maestro_flow "$lab_root/maestro/disconnect-vpn.yaml" >/dev/null 2>&1 || true
     sleep 2
     assert_vpn_service_stopped >/dev/null 2>&1 || true
   fi
@@ -203,9 +218,11 @@ fi
 if [[ "$skip_maestro" != "true" ]]; then
   if resolve_maestro; then
     grant_runtime_permissions
+    wake_unlock_device
     seed_debug_automation_state
+    wake_unlock_device
     maestro_ran=true
-    "$maestro_bin" test "$lab_root/maestro/connect-vpn.yaml"
+    run_maestro_flow "$lab_root/maestro/connect-vpn.yaml"
   else
     echo "maestro is not available; cannot drive the VPN connect flow." >&2
     echo "Install Maestro, set MAESTRO_BIN, add it to PATH, or rerun with --skip-maestro only after manually connecting VPN mode." >&2
@@ -222,8 +239,10 @@ fi
   --out-dir "$out_dir"
 
 if [[ "$maestro_ran" == "true" ]]; then
+  wake_unlock_device
   resume_debug_automation_state
-  "$maestro_bin" test "$lab_root/maestro/disconnect-vpn.yaml"
+  wake_unlock_device
+  run_maestro_flow "$lab_root/maestro/disconnect-vpn.yaml"
   sleep 2
   assert_vpn_service_stopped
   maestro_ran=false
