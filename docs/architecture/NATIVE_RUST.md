@@ -222,7 +222,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 
 | Crate | Responsibility | API surface | Key internal deps | Coupling / risk | Action |
 |-------|----------------|-------------|-------------------|-----------------|--------|
-| `ripdpi-runtime-platform` | Platform capability + port decomposition | Port traits + types | `ripdpi-capabilities`, `ripdpi-native-protect`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, … | Fan-in 8; platform hub | Keep — keep JNI-free |
+| `ripdpi-runtime-platform` | Platform port — OS-primitive facade + non-root/root-helper adaptation | Facade modules + types | `ripdpi-capabilities`, `ripdpi-native-protect`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, … | Fan-in 8; platform hub | Keep — keep JNI-free |
 | `ripdpi-native-protect` | `VpnService.protect` socket-protection mechanism (port) | Protect-callback API | — (leaf) | Fan-in 6 | Keep — keep JNI-free |
 | `ripdpi-tun-driver` | Raw TUN device socket handling | Driver API | — (leaf) | `tun-rs` | Keep |
 | `ripdpi-io-uring` | io_uring async I/O (Linux) | I/O API | — (leaf) | Linux-only path | Keep |

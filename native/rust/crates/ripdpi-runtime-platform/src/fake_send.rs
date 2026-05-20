@@ -1,3 +1,12 @@
+//! Runtime-adaptation — fake-packet TCP emission.
+//!
+//! Fake RST, fake TCP, flagged payloads, ordered segments, and sequence
+//! overlap. Each `send_*` entry point dispatches through the root helper
+//! (`root_helper_dispatch`) first and otherwise falls back to
+//! `ripdpi-privileged-ops`; `raw_path_ids` reserves IPv4 identifications for
+//! the local path. Non-Linux targets return `Unsupported`. Surfaced through
+//! the `raw_packet` facade.
+
 mod fake_rst;
 mod fake_tcp;
 mod flagged_payload;

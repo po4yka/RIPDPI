@@ -1,3 +1,10 @@
+//! OS-primitive adapter — TTL capability detection.
+//!
+//! Default-TTL detection and stream-TTL write probing, delegating to
+//! `ripdpi-privileged-ops` on Linux/Android and reporting `Unsupported`
+//! elsewhere. Capability *types* come from `ripdpi-capabilities`. Surfaced
+//! through the `capability` facade.
+
 use std::net::TcpStream;
 
 pub use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};

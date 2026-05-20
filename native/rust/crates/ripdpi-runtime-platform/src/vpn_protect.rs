@@ -1,3 +1,13 @@
+//! Runtime-adaptation — `VpnService.protect` dispatch for outbound sockets.
+//!
+//! `protect_socket` chooses between two paths at call time: if a
+//! `VpnService.protect` callback is registered (via the `protect` /
+//! `ripdpi-native-protect` registry) it routes the fd through that callback;
+//! otherwise it falls back to `ripdpi-privileged-ops` on Linux/Android, or a
+//! no-op on other targets. This is the load-bearing protect invariant — see
+//! `.claude/rules/vpnservice-protect-invariant.md`. Surfaced through the
+//! `vpn` facade.
+
 use std::io;
 use std::os::fd::AsRawFd;
 

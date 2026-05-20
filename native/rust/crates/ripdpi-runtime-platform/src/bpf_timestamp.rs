@@ -1,3 +1,8 @@
+//! OS-primitive adapter — BPF socket-filter timestamp stripping.
+//!
+//! Thin `#[cfg]`-split wrapper over `ripdpi-privileged-ops`; non-Linux targets
+//! return `Unsupported`. Surfaced through the `socket` facade.
+
 use std::io;
 use std::net::TcpStream;
 

@@ -1,3 +1,10 @@
+//! OS-primitive adapter — process / thread / signal primitives.
+//!
+//! CPU-parallelism detection and shutdown signal-handler installation. Uses
+//! `libc` / `nix` directly (no `ripdpi-privileged-ops` round-trip) because
+//! these are unprivileged process facilities, not network syscalls. Surfaced
+//! through the `capability` facade — see the follow-up note in `README.md`.
+
 use std::io;
 use std::num::NonZeroUsize;
 use std::os::raw::c_int;

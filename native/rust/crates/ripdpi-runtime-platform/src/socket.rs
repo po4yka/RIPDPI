@@ -1,3 +1,10 @@
+//! Public facade — socket-level option syscalls.
+//!
+//! Aggregates the `socket_options`, `bpf_timestamp`, `original_destination`,
+//! and (feature-gated) `io_uring` OS-primitive adapter modules. Every entry
+//! point is a thin `#[cfg]`-split wrapper over `ripdpi-privileged-ops` /
+//! `ripdpi-io-uring` with a non-Linux fallback — no root-helper dispatch.
+
 pub use super::bpf_timestamp::attach_strip_timestamps;
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 pub use super::io_uring::io_uring_capabilities;

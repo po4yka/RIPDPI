@@ -1,8 +1,11 @@
-//! Global registry for the root helper client.
+//! Runtime-adaptation — process-global registry for the root helper client.
 //!
 //! Follows the same pattern as `protect.rs` — a global `RwLock<Option<...>>`
 //! that is set at startup when root mode is enabled and the helper socket
-//! path is known.
+//! path is known. The other runtime-adaptation modules (`fake_send`,
+//! `ip_fragmentation`, `experimental_tier3`) read this slot through
+//! [`with_root_helper`] to decide between the privileged and local paths.
+//! Linux/Android only.
 //!
 //! ## Generation guard
 //!
