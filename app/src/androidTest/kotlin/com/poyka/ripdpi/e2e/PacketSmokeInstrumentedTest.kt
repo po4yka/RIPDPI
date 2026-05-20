@@ -37,6 +37,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TestName
+import java.io.IOException
 import javax.inject.Inject
 
 @HiltAndroidTest
@@ -212,6 +213,38 @@ class PacketSmokeInstrumentedTest {
                 fakeddisorder endhost
                 """.trimIndent(),
             expectedScenario = "fakeddisorder",
+        )
+    }
+
+    @Test
+    @RawPacketValidationOnly
+    fun proxySeqOverlapSmokeFamilyRoutesTlsTraffic() {
+        runProxyTlsChainSmoke(
+            chainDsl =
+                """
+                [tcp]
+                tlsrec extlen
+                seqovl midsld overlap=16 fake=rand
+                """.trimIndent(),
+            expectedScenario = "seqovl",
+            rootModeEnabled = true,
+            requireFixtureResponse = false,
+        )
+    }
+
+    @Test
+    @RawPacketValidationOnly
+    fun proxyFakeRstSmokeFamilyRoutesTlsTraffic() {
+        runProxyTlsChainSmoke(
+            chainDsl =
+                """
+                [tcp]
+                fakerst host+2
+                split host+2
+                """.trimIndent(),
+            expectedScenario = "fakerst",
+            rootModeEnabled = true,
+            requireFixtureResponse = false,
         )
     }
 
@@ -464,6 +497,8 @@ class PacketSmokeInstrumentedTest {
     private fun runProxyTlsChainSmoke(
         chainDsl: String,
         expectedScenario: String,
+        rootModeEnabled: Boolean = false,
+        requireFixtureResponse: Boolean = true,
     ) {
         assumeProxyFixtureCanValidateTlsHandshake(expectedScenario)
         val listenPort = reserveLoopbackPort()
@@ -474,6 +509,7 @@ class PacketSmokeInstrumentedTest {
                 desyncHttp = false
                 desyncHttps = true
                 enableCmdSettings = false
+                this.rootModeEnabled = rootModeEnabled
                 setFakeTtl(packetSmokeFixtureFakeTtl())
                 setRawStrategyChainDsl(chainDsl)
             }
@@ -486,26 +522,48 @@ class PacketSmokeInstrumentedTest {
         assertTrue("Expected proxy listener probe to succeed for $expectedScenario: $probe", probe.ok)
 
         val response =
-            socksTlsHandshake(
-                proxyPort = listenPort,
-                targetHost = fixture.androidHost,
-                targetPort = fixture.tlsEchoPort,
-                sniHost = fixture.fixtureDomain,
+            runCatching {
+                socksTlsHandshake(
+                    proxyPort = listenPort,
+                    targetHost = fixture.androidHost,
+                    targetPort = fixture.tlsEchoPort,
+                    sniHost = fixture.fixtureDomain,
+                )
+            }
+        if (requireFixtureResponse) {
+            val body = response.getOrThrow()
+            assertTrue(
+                "Expected TLS fixture response for $expectedScenario, got: $body",
+                body.contains("fixture tls ok"),
             )
-        assertTrue(
-            "Expected TLS fixture response for $expectedScenario, got: $response",
-            response.contains("fixture tls ok"),
-        )
+        } else {
+            response
+                .onSuccess { body ->
+                    assertTrue(
+                        "Expected TLS fixture response for $expectedScenario when the raw-only handshake completed, got: $body",
+                        body.contains("fixture tls ok"),
+                    )
+                }.onFailure { error ->
+                    assertTrue(
+                        "Expected raw-only $expectedScenario traffic to complete or close during TLS, got: $error",
+                        error is IOException,
+                    )
+                }
+        }
         awaitUntil {
             val snapshot = serviceStateStore.telemetry.value
             snapshot.mode == Mode.Proxy &&
                 snapshot.status == AppStatus.Running &&
                 snapshot.proxyTelemetry.totalSessions > 0
         }
-        assertTrue(
-            "Expected fixture TLS handshake event for $expectedScenario, got ${fixtureClient.events()}",
-            fixtureClient.events().any { event -> event.service == "tls_echo" && event.sni == fixture.fixtureDomain },
-        )
+        if (requireFixtureResponse) {
+            assertTrue(
+                "Expected fixture TLS handshake event for $expectedScenario, got ${fixtureClient.events()}",
+                fixtureClient.events().any { event ->
+                    event.service == "tls_echo" && event.sni == fixture.fixtureDomain
+                },
+            )
+        }
     }
 
     private fun packetSmokeFixtureFakeTtl(): Int =
@@ -1155,6 +1213,9 @@ class PacketSmokeInstrumentedTest {
             expectedScenario == "hostfake" ||
                 expectedScenario == "fakedsplit" ||
                 expectedScenario == "fakeddisorder"
+        val rawPrivilegedScenario =
+            expectedScenario == "seqovl" ||
+                expectedScenario == "fakerst"
         val fixtureIsHostLoopback = fixture.androidHost == "127.0.0.1" || fixture.androidHost == "10.0.2.2"
         val rawCaptureCanValidateFakeSegments =
             packetSmokeDeviceProfile() == PacketSmokeDeviceProfile.EMULATOR_RAW ||
@@ -1163,6 +1224,10 @@ class PacketSmokeInstrumentedTest {
             "Host-loopback packet-smoke cannot validate $expectedScenario with a TLS fixture handshake; " +
                 "the fake segment can reach the local fixture endpoint.",
             fakeSegmentScenario && fixtureIsHostLoopback && !rawCaptureCanValidateFakeSegments,
+        )
+        assumeFalse(
+            "Packet-smoke cannot validate $expectedScenario without raw capture and rooted packet privileges.",
+            rawPrivilegedScenario && !rawCaptureCanValidateFakeSegments,
         )
     }
 

@@ -392,11 +392,63 @@ validate_raw_fake_strategy_packet_pattern() {
     fixture_hex="$(printf '%s' "$fixture_domain" | hex_encode)"
     fixture_len="${#fixture_domain}"
 
+    if [[ "$scenario_id" == "android_proxy_fakerst_family" ]]; then
+        local low_ttl_rst_count
+        low_ttl_rst_count="$(
+            tshark -r "$pcap" -Y "tcp.dstport == ${tls_port} && tcp.flags.reset == 1" -T fields -e ip.ttl 2>/dev/null |
+                awk '$1 == "1" { count += 1 } END { print count + 0 }'
+        )"
+        if [[ "$low_ttl_rst_count" -ge 1 ]]; then
+            append_runner_log \
+                "$scenario_dir/test-output.txt" \
+                "==> raw fakerst packet pattern validated: captured low-TTL TCP RST toward the TLS fixture"
+            return 0
+        fi
+        return 1
+    fi
+
     local rows
     rows="$(
         tshark -r "$pcap" -Y "tcp.dstport == ${tls_port} && tcp.len > 0" -T fields -e ip.ttl -e tcp.len -e tcp.payload 2>/dev/null || true
     )"
     if [[ -z "$rows" ]]; then
+        return 1
+    fi
+
+    if [[ "$scenario_id" == "android_proxy_seqovl_family" ]]; then
+        local syn_seq
+        local data_seq_rows
+        syn_seq="$(
+            tshark -o tcp.relative_sequence_numbers:FALSE -r "$pcap" \
+                -Y "tcp.dstport == ${tls_port} && tcp.flags.syn == 1 && tcp.flags.ack == 0" \
+                -T fields -e tcp.seq 2>/dev/null |
+                awk 'NF { print $1; exit }'
+        )"
+        data_seq_rows="$(
+            tshark -o tcp.relative_sequence_numbers:FALSE -r "$pcap" \
+                -Y "tcp.dstport == ${tls_port} && tcp.len > 0" \
+                -T fields -e tcp.seq -e tcp.len 2>/dev/null || true
+        )"
+        if [[ -n "$syn_seq" ]] &&
+            printf '%s\n' "$data_seq_rows" |
+                awk -F '\t' -v syn="$syn_seq" '
+                    $1 != "" && $2 > 0 {
+                        delta = syn - $1
+                        if (delta < 0) {
+                            delta += 4294967296
+                        }
+                        if (delta > 0 && delta <= 64) {
+                            found = 1
+                        }
+                    }
+                    END { exit found ? 0 : 1 }
+                '
+        then
+            append_runner_log \
+                "$scenario_dir/test-output.txt" \
+                "==> raw seqovl packet pattern validated: captured overlapped TCP payload sequence before the post-SYN stream cursor"
+            return 0
+        fi
         return 1
     fi
 
@@ -443,6 +495,17 @@ validate_raw_fake_strategy_packet_pattern() {
         return 0
     fi
     return 1
+}
+
+raw_privileged_strategy_scenario() {
+    case "$1" in
+        android_proxy_seqovl_family|android_proxy_fakerst_family)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
 }
 
 test_output_reports_junit_skip() {
@@ -706,17 +769,25 @@ for row in "${scenarios[@]}"; do
     collect_device_snapshot "$scenario_dir"
     curl -fsS "http://127.0.0.1:${fixture_control_port}/events" >"$scenario_dir/fixture-events.json" || true
 
-    if test_output_reports_junit_skip "$scenario_dir/test-output.txt" "$test_selector"; then
-        append_runner_log "$scenario_dir/test-output.txt" "==> instrumentation reported a skipped packet-smoke test"
+    if [[ "$selected_capture_mode" == "raw" ]] && raw_privileged_strategy_scenario "$scenario_id"; then
         if validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir"; then
             status=0
         else
             status=1
         fi
-    fi
+    else
+        if test_output_reports_junit_skip "$scenario_dir/test-output.txt" "$test_selector"; then
+            append_runner_log "$scenario_dir/test-output.txt" "==> instrumentation reported a skipped packet-smoke test"
+            if validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir"; then
+                status=0
+            else
+                status=1
+            fi
+        fi
 
-    if [[ "$status" -ne 0 ]] && validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir"; then
-        status=0
+        if [[ "$status" -ne 0 ]] && validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir"; then
+            status=0
+        fi
     fi
 
     if [[ "$status" -ne 0 ]]; then

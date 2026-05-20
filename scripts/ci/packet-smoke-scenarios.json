@@ -211,6 +211,42 @@
     ]
   },
   {
+    "id": "android_proxy_seqovl_family",
+    "lane": "android_proxy",
+    "requiredCapability": "adb_raw_pcap",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#proxySeqOverlapSmokeFamilyRoutesTlsTraffic",
+    "trafficKind": "tcp_tls",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
+    "id": "android_proxy_fakerst_family",
+    "lane": "android_proxy",
+    "requiredCapability": "adb_raw_pcap",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#proxyFakeRstSmokeFamilyRoutesTlsTraffic",
+    "trafficKind": "tcp_tls",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
     "id": "android_vpn_tunnel_baseline_family",
     "lane": "android_vpn",
     "requiredCapability": "adb_observable",
