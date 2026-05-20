@@ -18,6 +18,14 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 WORKFLOW="${REPO_ROOT}/.github/workflows/ci.yml"
 ACT_DIR="${REPO_ROOT}/.github/act"
 WORKSPACE_MANIFEST="$REPO_ROOT/native/rust/Cargo.toml"
+ACT_UBUNTU_IMAGE="${ACT_UBUNTU_IMAGE:-catthehacker/ubuntu:act-latest}"
+case "$(uname -m)" in
+  arm64|aarch64) default_act_container_arch="linux/arm64" ;;
+  *) default_act_container_arch="linux/amd64" ;;
+esac
+ACT_CONTAINER_ARCH="${ACT_CONTAINER_ARCH:-$default_act_container_arch}"
+ACT_PACKET_CAPTURE_CAPS="${ACT_PACKET_CAPTURE_CAPS:-true}"
+ACT_CONTAINER_OPTIONS="${ACT_CONTAINER_OPTIONS:-}"
 
 # ── Colors ──────────────────────────────────────────────────────────
 red()    { printf '\033[0;31m%s\033[0m' "$*"; }
@@ -96,6 +104,13 @@ require_cmd() {
   if ! command -v "$cmd" &>/dev/null; then
     echo "ERROR: '$cmd' not installed. Install with: $install_hint" >&2
     return 1
+  fi
+}
+
+ensure_docker_desktop_credential_helper() {
+  local docker_desktop_bin="/Applications/Docker.app/Contents/Resources/bin"
+  if ! command -v docker-credential-desktop &>/dev/null && [[ -x "$docker_desktop_bin/docker-credential-desktop" ]]; then
+    export PATH="$docker_desktop_bin:$PATH"
   fi
 }
 
@@ -184,6 +199,13 @@ run_native_job() {
 
 run_act_job() {
   local job="$1"
+  local act_container_args=()
+  local act_container_options="$ACT_CONTAINER_OPTIONS"
+  local act_env_args=(
+    --env "ACT=true"
+    --env "GITHUB_EVENT_NAME=push"
+    --env "RUNNER_TEMP=/tmp/runner-temp"
+  )
 
   if ! command -v act &>/dev/null; then
     echo "ERROR: 'act' not installed (brew install act)" >&2
@@ -193,13 +215,28 @@ run_act_job() {
     echo "ERROR: Docker not running" >&2
     return 1
   fi
+  ensure_docker_desktop_credential_helper
+  if [[ "$ACT_PACKET_CAPTURE_CAPS" == "true" ]]; then
+    act_container_options="${act_container_options:+$act_container_options }--cap-add=NET_RAW --cap-add=NET_ADMIN"
+  fi
+  if [[ -n "$act_container_options" ]]; then
+    act_container_args=(--container-options "$act_container_options")
+  fi
+  for passthrough_env in RIPDPI_PACKET_SMOKE_SCENARIO_FILTER RIPDPI_PACKET_SMOKE_CAPTURE_MODE; do
+    if [[ -n "${!passthrough_env:-}" ]]; then
+      act_env_args+=(--env "$passthrough_env=${!passthrough_env}")
+    fi
+  done
 
   act \
+    -P "ubuntu-latest=${ACT_UBUNTU_IMAGE}" \
+    --container-architecture "$ACT_CONTAINER_ARCH" \
+    "${act_container_args[@]}" \
+    --rm \
     -j "$job" \
     -W "$WORKFLOW" \
     -e "${ACT_DIR}/event-push.json" \
-    --env "GITHUB_EVENT_NAME=push" \
-    --env "RUNNER_TEMP=/tmp/runner-temp"
+    "${act_env_args[@]}"
 }
 
 # ── Commands ───────────────────────────────────────────────────────

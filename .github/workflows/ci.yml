@@ -813,14 +813,14 @@ jobs:
       - name: Install CLI packet capture tools
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y tcpdump tshark
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake libclang-dev tcpdump tshark
           sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"
 
       - name: Run CLI packet smoke matrix
         run: bash scripts/ci/run-cli-packet-smoke.sh
 
       - name: Upload CLI packet smoke artifacts
-        if: always()
+        if: ${{ always() && env.ACT != 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cli-packet-smoke
