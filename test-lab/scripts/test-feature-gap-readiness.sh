@@ -20,6 +20,7 @@ unknown_json="$tmpdir/feature-gap-readiness-unknown-remote.json"
 atomic_json="$tmpdir/feature-gap-readiness-atomic.json"
 multi_device_json="$tmpdir/feature-gap-readiness-multi-device.json"
 netem_container_json="$tmpdir/feature-gap-readiness-netem-container.json"
+cellular_out_of_service_json="$tmpdir/feature-gap-readiness-cellular-out-of-service.json"
 fake_adb="$tmpdir/fake-adb"
 fake_docker="$tmpdir/docker"
 validator="$tmpdir/validate-readiness.py"
@@ -297,6 +298,13 @@ NetworkAgentInfo{netId=100 Transports: WIFI}
 NetworkAgentInfo{netId=101 Transports: CELLULAR}
 EOF
         ;;
+      "dumpsys telephony.registry")
+        if [[ "${RIPDPI_FAKE_CELLULAR_SERVICE:-in_service}" == "out_of_service" ]]; then
+          echo "mServiceState={mVoiceRegState=1(OUT_OF_SERVICE), mDataRegState=1(OUT_OF_SERVICE)}"
+        else
+          echo "mServiceState={mVoiceRegState=0(IN_SERVICE), mDataRegState=0(IN_SERVICE)}"
+        fi
+        ;;
       *)
         exit 0
         ;;
@@ -336,6 +344,30 @@ if handover.get("status") != "manual":
 rooted = checks["rooted_physical_device"]
 if rooted.get("status") != "blocked" or "did not provide root" not in rooted.get("message", ""):
     raise SystemExit(f"expected non-rooted physical device blocker, got {rooted!r}")
+PY
+
+ADB="$fake_adb" \
+  RIPDPI_FAKE_CELLULAR_SERVICE=out_of_service \
+  RIPDPI_IGNORE_DIRTY_WORKTREE_FOR_READINESS=true \
+  RIPDPI_REMOTE_COMPARE_REF=HEAD \
+  "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
+  --output "$cellular_out_of_service_json" >/dev/null
+"$python_bin" "$validator" "$cellular_out_of_service_json" "$tmpdir/signoff-required-readiness.txt"
+
+"$python_bin" - "$cellular_out_of_service_json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+
+checks = {check["name"]: check for check in data.get("checks", [])}
+handover = checks["physical_network_handover"]
+if handover.get("status") != "blocked":
+    raise SystemExit(f"expected out-of-service cellular state to block handover, got {handover!r}")
+message = handover.get("message", "")
+if "cellular data service is out of service" not in message:
+    raise SystemExit(f"handover blocker lost cellular service context: {message!r}")
 PY
 
 cat > "$fake_docker" <<'SH'

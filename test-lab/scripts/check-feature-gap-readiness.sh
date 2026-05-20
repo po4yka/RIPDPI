@@ -196,7 +196,21 @@ if [[ "$device_state" == "device" && "$selected_android_kind" != "emulator" ]]; 
     cellular_state="absent"
   fi
   if [[ "$wifi_state" == "present" && "$cellular_state" == "present" ]]; then
-    add_check "physical_network_handover" "manual" "true" "Wi-Fi and cellular transports are both visible; a human or external harness still must perform the handover run."
+    telephony_registry="$(adb_shell dumpsys telephony.registry || true)"
+    if [[ "$telephony_registry" == *"mDataRegState=0(IN_SERVICE)"* ]]; then
+      cellular_service_state="in_service"
+    elif [[ "$telephony_registry" == *"mDataRegState="* ]]; then
+      cellular_service_state="out_of_service"
+    else
+      cellular_service_state="unknown"
+    fi
+    if [[ "$cellular_service_state" == "out_of_service" ]]; then
+      add_check "physical_network_handover" "blocked" "true" "Wi-Fi and cellular transports are visible, but cellular data service is out of service; use a physical device/SIM with in-service cellular data before the handover run."
+    elif [[ "$cellular_service_state" == "unknown" ]]; then
+      add_check "physical_network_handover" "manual" "true" "Wi-Fi and cellular transports are both visible, but cellular service state could not be confirmed; a human or external harness still must perform the handover run."
+    else
+      add_check "physical_network_handover" "manual" "true" "Wi-Fi and in-service cellular transports are both visible; a human or external harness still must perform the handover run."
+    fi
   else
     add_check "physical_network_handover" "blocked" "true" "Need both Wi-Fi and cellular transports visible; wifi=$wifi_state cellular=$cellular_state."
   fi
