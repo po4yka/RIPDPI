@@ -12,6 +12,7 @@ mod runtime;
 mod runtime_validation;
 mod socks;
 mod telemetry;
+mod transport_descriptor;
 
 pub use config::{
     ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig, MasqueRelayConfig,
@@ -21,6 +22,7 @@ pub use config::{
 };
 pub use runtime::RelayRuntime;
 pub use telemetry::RelayTelemetry;
+pub use transport_descriptor::{relay_transport_descriptor, RelayTransportDescriptor, RELAY_TRANSPORT_DESCRIPTORS};
 
 #[cfg(test)]
 mod tests;

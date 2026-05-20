@@ -38,24 +38,23 @@ for the privileged path it does not use.
 
 ## Transport-descriptor seam
 
-There is **no single `RelayTransportDescriptor`** today. The static per-kind
-facts are spread across decentralized sites, all keyed by the same `relay_kind`
-string family:
+`RelayTransportDescriptor` (`src/transport_descriptor.rs`, re-exported from the
+crate root with `RELAY_TRANSPORT_DESCRIPTORS` and `relay_transport_descriptor`)
+is an **additive, read-only inventory** of every concrete relay transport: one
+row per `relay_kind`, carrying the static, `relay_kind`-keyed facts — kind
+string, label, SOCKS capability profile (TCP / UDP / connection reuse), and
+outbound-bind-IP support — for documentation, diagnostics, and inventory
+consumers.
 
-- `RelayKind` (`src/config/kind.rs`) — the taxonomy plus the
-  `supports_finalmask` / `supports_outbound_bind_ip` predicates.
-- `RelayBackendConfig::kind_id()` (`src/config/backend.rs`) — the kind-id string.
-- `runtime_validation.rs` — the `planned_backend_capabilities`,
-  `pool_config_for_backend`, `planned_backend_fallback_mode`, and
-  `describe_upstream` `match RelayKind` statements (TCP/UDP capability, pool
-  sizing, fallback mode).
-- `backend/builder/builders/mod.rs` — the `BUILDERS` dispatch slice.
-
-Collapsing these into one descriptor type and table is a tracked **future
-improvement**, deferred because the capability / pool / fallback matches are
-runtime-behavior-bearing and `RelayKind::VlessReality { xhttp }` splits one
-`relay_kind` string into two profiles. The exact `RelayTransportDescriptor`
-design and a safest-first migration order are documented in
+It is **not** wired into runtime dispatch: relay selection, capability
+planning, pool sizing, and config parsing still flow through the `match
+RelayKind` statements in `runtime_validation.rs` and the `BUILDERS` slice. A
+crate test (`relay_transport_descriptors_match_runtime_capability_planning`)
+pins the descriptor table against those so they cannot drift. Finalmask support
+and pool tuning are intentionally **excluded** from the descriptor — they vary
+with VLESS Reality's `xhttp` sub-mode, not the `relay_kind` string alone.
+Migrating the runtime matches onto the descriptor is the tracked future
+refactor in
 [`FEATURE_EXTENSION_GUIDE.md`](../../../../docs/architecture/FEATURE_EXTENSION_GUIDE.md)
 §2, "The transport-descriptor seam".
 
