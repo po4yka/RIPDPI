@@ -48,6 +48,12 @@ impl TelegramTransferResult {
     }
 }
 
+fn update_peak_bps(peak_bps: &mut u64, sample_bytes: usize, sample_ms: u64) {
+    if let Some(sample_bps) = (sample_bytes as u64).saturating_mul(1000).checked_div(sample_ms) {
+        *peak_bps = (*peak_bps).max(sample_bps);
+    }
+}
+
 pub(crate) fn telegram_download_probe(
     target: &TelegramTarget,
     transport: &TransportConfig,
@@ -140,12 +146,7 @@ pub(crate) fn telegram_download_probe(
 
                 if sample_start.elapsed() >= TELEGRAM_SPEED_SAMPLE_INTERVAL {
                     let sample_ms = sample_start.elapsed().as_millis() as u64;
-                    if sample_ms > 0 {
-                        let sample_bps = (sample_bytes as u64) * 1000 / sample_ms;
-                        if sample_bps > peak_bps {
-                            peak_bps = sample_bps;
-                        }
-                    }
+                    update_peak_bps(&mut peak_bps, sample_bytes, sample_ms);
                     sample_bytes = 0;
                     sample_start = std::time::Instant::now();
                 }
@@ -249,12 +250,7 @@ pub(crate) fn telegram_upload_probe(
 
                 if sample_start.elapsed() >= TELEGRAM_SPEED_SAMPLE_INTERVAL {
                     let sample_ms = sample_start.elapsed().as_millis() as u64;
-                    if sample_ms > 0 {
-                        let sample_bps = (sample_bytes as u64) * 1000 / sample_ms;
-                        if sample_bps > peak_bps {
-                            peak_bps = sample_bps;
-                        }
-                    }
+                    update_peak_bps(&mut peak_bps, sample_bytes, sample_ms);
                     sample_bytes = 0;
                     sample_start = std::time::Instant::now();
                 }

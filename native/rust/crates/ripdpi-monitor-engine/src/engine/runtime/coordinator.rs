@@ -72,7 +72,7 @@ impl ExecutionCoordinator {
                     });
 
                     let mut cancelled = false;
-                    for (parallel_stage, collected) in parallel_runners.iter().zip(thread_results.into_iter()) {
+                    for (parallel_stage, collected) in parallel_runners.iter().zip(thread_results) {
                         parallel_done.insert(*parallel_stage);
                         let steps = match collected {
                             CollectedStageOutcome::Completed(steps) => steps,

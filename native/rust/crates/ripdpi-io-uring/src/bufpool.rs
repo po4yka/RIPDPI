@@ -126,7 +126,7 @@ impl RegisteredBufferPool {
 
     /// Number of buffers currently available.
     pub fn available(&self) -> usize {
-        self.free_list.lock().map(|f| f.len()).unwrap_or(0)
+        self.free_list.lock().map_or(0, |f| f.len())
     }
 
     /// Total capacity of the pool.

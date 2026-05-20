@@ -94,7 +94,7 @@ impl ResolverPool {
     /// scope in this session, meaning DoQ resolvers must be bypassed in favour
     /// of DoH for the remainder of this pool's lifetime.
     pub fn is_doq_suppressed_for_scope(&self, scope: &ResolverNetworkScope) -> bool {
-        self.inner.doq_demoted_scopes.lock().map(|set| set.contains(scope)).unwrap_or(false)
+        self.inner.doq_demoted_scopes.lock().is_ok_and(|set| set.contains(scope))
     }
 
     /// Returns the number of resolvers in the pool.

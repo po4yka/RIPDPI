@@ -73,7 +73,7 @@ impl DnsHostnameCache {
 
     #[allow(dead_code)]
     pub fn stats(&self) -> (usize, u64, u64) {
-        self.inner.lock().map(|inner| (inner.lru.len(), inner.hits, inner.misses)).unwrap_or((0, 0, 0))
+        self.inner.lock().map_or((0, 0, 0), |inner| (inner.lru.len(), inner.hits, inner.misses))
     }
 }
 

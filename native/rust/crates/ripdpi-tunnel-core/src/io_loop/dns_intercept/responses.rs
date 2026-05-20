@@ -37,7 +37,10 @@ pub(in crate::io_loop) fn handle_dns_result(
             }
         },
         Err(err) => {
-            let formatted_error = response.resolver_error_kind.map(|kind| format!("{kind:?}: {err}")).unwrap_or(err);
+            let formatted_error = match response.resolver_error_kind {
+                Some(kind) => format!("{kind:?}: {err}"),
+                None => err,
+            };
             stats.record_dns_failure(
                 response.host.as_deref(),
                 &formatted_error,

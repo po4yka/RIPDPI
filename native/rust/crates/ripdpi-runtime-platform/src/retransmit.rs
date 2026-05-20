@@ -14,6 +14,6 @@ pub const fn supports_fake_retransmit() -> bool {
 
 pub fn seqovl_supported() -> bool {
     *SEQOVL_SUPPORTED.get_or_init(|| {
-        crate::ip_fragmentation::probe_ip_fragmentation_capabilities(None).map(|caps| caps.tcp_repair).unwrap_or(false)
+        crate::ip_fragmentation::probe_ip_fragmentation_capabilities(None).is_ok_and(|caps| caps.tcp_repair)
     })
 }

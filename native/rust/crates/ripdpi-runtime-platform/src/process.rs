@@ -16,7 +16,7 @@ pub fn detected_parallelism(fallback: usize) -> usize {
             return n as usize;
         }
     }
-    thread::available_parallelism().map(NonZeroUsize::get).unwrap_or(fallback)
+    thread::available_parallelism().map_or(fallback, NonZeroUsize::get)
 }
 
 pub fn install_shutdown_signal_handlers(handler: extern "C" fn(c_int)) -> io::Result<()> {

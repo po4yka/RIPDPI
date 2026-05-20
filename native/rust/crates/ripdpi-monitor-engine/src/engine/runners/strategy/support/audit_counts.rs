@@ -15,11 +15,7 @@ impl StrategyAuditLaneCounts {
 }
 
 pub(in crate::engine::runners::strategy) fn round_percent(numerator: usize, denominator: usize) -> usize {
-    if denominator == 0 {
-        0
-    } else {
-        (numerator.saturating_mul(100) + (denominator / 2)) / denominator
-    }
+    numerator.saturating_mul(100).saturating_add(denominator / 2).checked_div(denominator).unwrap_or(0)
 }
 
 pub(in crate::engine::runners::strategy) fn strategy_audit_lane_counts(

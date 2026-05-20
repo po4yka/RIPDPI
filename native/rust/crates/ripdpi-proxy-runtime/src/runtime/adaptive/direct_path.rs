@@ -6,7 +6,7 @@ use crate::runtime::state::RuntimeState;
 use crate::runtime::types::RuntimeTransportProtocol;
 
 pub(in crate::runtime) fn now_millis() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|value| value.as_millis() as i64).unwrap_or(0)
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |value| value.as_millis() as i64)
 }
 
 pub(in crate::runtime) fn note_direct_path_transport_attempt(

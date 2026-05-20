@@ -214,7 +214,7 @@ mod tests {
         let tag_dirs = std::fs::read_dir(&fixtures_root)
             .expect("read contract-fixtures/hysteria2")
             .filter_map(Result::ok)
-            .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false));
+            .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()));
         for tag in tag_dirs {
             let salamander_dir = tag.path().join("salamander");
             if !salamander_dir.exists() {

@@ -156,7 +156,7 @@ pub(super) fn append_injection_profile_details(
 ) {
     let udp_ms: u64 = udp_latency_ms.parse().unwrap_or(0);
     let enc_ms: u64 = encrypted_latency_ms.parse().unwrap_or(0);
-    let ratio_x100: u64 = if udp_ms > 0 { (enc_ms * 100) / udp_ms } else { 0 };
+    let ratio_x100: u64 = enc_ms.saturating_mul(100).checked_div(udp_ms).unwrap_or(0);
     result.details.push(ProbeDetail { key: "injectionLatencyRatio".to_string(), value: ratio_x100.to_string() });
 
     let empty = vec![];

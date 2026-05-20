@@ -161,7 +161,7 @@ impl InMemoryRecorder {
     /// Returns total number of registered metric keys across all collections.
     #[cfg(test)]
     pub(crate) fn total_keys(&self) -> usize {
-        self.key_count.lock().map(|count| *count).unwrap_or(0)
+        self.key_count.lock().map_or(0, |count| *count)
     }
 
     /// Returns total keys while the caller holds one collection write lock.

@@ -418,25 +418,21 @@ fn recover_clean_traffic_within(
             FaultProbe::Tcp => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 socks_tcp_round_trip(socks.port, fixture.manifest().tcp_echo_port, b"recover tcp")
             }))
-            .map(|echoed| echoed == b"recover tcp")
-            .unwrap_or(false),
+            .is_ok_and(|echoed| echoed == b"recover tcp"),
             FaultProbe::Udp => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 socks_udp_round_trip(socks.port, fixture.manifest().udp_echo_port, b"recover udp")
             }))
-            .map(|echoed| echoed == b"recover udp")
-            .unwrap_or(false),
+            .is_ok_and(|echoed| echoed == b"recover udp"),
             FaultProbe::Tls => http_connect_tls_probe_with_retry(
                 connect.port,
                 fixture.manifest().tls_echo_port,
                 &fixture.manifest().fixture_domain,
             )
-            .map(|body| body == "tls_ok")
-            .unwrap_or(false),
+            .is_ok_and(|body| body == "tls_ok"),
             FaultProbe::Chain => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 socks_tcp_round_trip(chained.port, fixture.manifest().tcp_echo_port, b"recover chain")
             }))
-            .map(|echoed| echoed == b"recover chain")
-            .unwrap_or(false),
+            .is_ok_and(|echoed| echoed == b"recover chain"),
         };
         if recovered {
             return;

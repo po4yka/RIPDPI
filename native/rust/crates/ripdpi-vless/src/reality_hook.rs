@@ -279,7 +279,7 @@ fn reality_client_hello_cb_inner(ssl: *mut SslHandle, msg: *mut u8, msg_len: usi
         return 0;
     }
 
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as u32).unwrap_or(0);
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as u32);
 
     let Ok(sealed) = seal_session_id(&priv_key, &state.server_pubkey, &client_random, &state.short_id, msg_slice, now)
     else {

@@ -147,10 +147,7 @@ impl RelayTelemetryState {
 }
 
 fn now_epoch_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|value| u64::try_from(value.as_millis()).unwrap_or(u64::MAX))
-        .unwrap_or(0)
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |value| u64::try_from(value.as_millis()).unwrap_or(u64::MAX))
 }
 
 pub(crate) type SharedTelemetryState = Arc<RelayTelemetryState>;

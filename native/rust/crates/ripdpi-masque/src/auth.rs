@@ -138,7 +138,7 @@ fn privacy_pass_auth_param<'a>(params: &'a str, name: &str) -> Option<&'a str> {
 }
 
 fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|duration| duration.as_millis() as u64).unwrap_or(0)
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |duration| duration.as_millis() as u64)
 }
 
 #[cfg(test)]

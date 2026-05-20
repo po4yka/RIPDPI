@@ -26,7 +26,7 @@ fn health_ranked_order(inner: &PoolInner) -> Vec<usize> {
 /// Removes DoQ resolvers from the candidate order when the pool's network scope
 /// has been demoted due to a live DoQ failure in this session.
 fn filter_demoted_doq_resolvers(inner: &PoolInner, ranked: &mut Vec<usize>) {
-    let suppressed = inner.doq_demoted_scopes.lock().map(|set| set.contains(&inner.network_scope)).unwrap_or(false);
+    let suppressed = inner.doq_demoted_scopes.lock().is_ok_and(|set| set.contains(&inner.network_scope));
 
     if suppressed {
         ranked.retain(|&idx| inner.resolvers[idx].endpoint().protocol != EncryptedDnsProtocol::Doq);

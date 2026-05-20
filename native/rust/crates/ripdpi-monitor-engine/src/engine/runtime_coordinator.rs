@@ -71,7 +71,7 @@ impl ExecutionCoordinator {
                 });
 
                 // Merge results back into runtime in stage_order sequence.
-                for (stage, collected_opt) in parallel_runners.iter().zip(thread_results.into_iter()) {
+                for (stage, collected_opt) in parallel_runners.iter().zip(thread_results) {
                     parallel_done.insert(*stage);
                     let Some(steps) = collected_opt else {
                         // Runner signalled cancellation.

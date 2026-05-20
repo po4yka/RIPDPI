@@ -553,7 +553,7 @@ mod tests {
         let tags = std::fs::read_dir(&fixtures_root)
             .expect("read contract-fixtures/vless")
             .filter_map(Result::ok)
-            .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false));
+            .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()));
         for tag in tags {
             let yamux_dir = tag.path().join("mux").join("yamux");
             if !yamux_dir.exists() {
