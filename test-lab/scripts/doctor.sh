@@ -2,6 +2,8 @@
 set -euo pipefail
 
 lab_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=test-lab/scripts/python.sh
+source "$lab_root/scripts/python.sh"
 artifact_path="$lab_root/artifacts/doctor.json"
 dns_port="${RIPDPI_DNS_PORT:-1053}"
 
@@ -169,8 +171,9 @@ check_tcp_echo() {
     echo "tcp echo matched"
     return 0
   fi
-  if command -v python3 >/dev/null 2>&1; then
-    if ! python3 - "$payload" <<'PY'
+  local python_bin
+  if python_bin="$(ripdpi_resolve_python "doctor TCP echo")"; then
+    if ! "$python_bin" - "$payload" <<'PY'
 import socket
 import sys
 
@@ -212,8 +215,9 @@ check_udp_echo() {
     echo "udp echo matched"
     return 0
   fi
-  if command -v python3 >/dev/null 2>&1; then
-    if ! python3 - "$payload" <<'PY'
+  local python_bin
+  if python_bin="$(ripdpi_resolve_python "doctor UDP echo")"; then
+    if ! "$python_bin" - "$payload" <<'PY'
 import socket
 import sys
 
@@ -258,8 +262,9 @@ check_mock_relay() {
     echo "mock relay ready"
     return 0
   fi
-  if command -v python3 >/dev/null 2>&1; then
-    if ! python3 - "$handshake" <<'PY'
+  local python_bin
+  if python_bin="$(ripdpi_resolve_python "doctor mock relay check")"; then
+    if ! "$python_bin" - "$handshake" <<'PY'
 import json
 import socket
 import sys

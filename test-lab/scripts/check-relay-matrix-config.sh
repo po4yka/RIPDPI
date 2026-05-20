@@ -2,6 +2,8 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=test-lab/scripts/python.sh
+source "$repo_root/test-lab/scripts/python.sh"
 config_path="${RIPDPI_RELAY_MATRIX_CONFIG:-}"
 list_required_paths=false
 list_required_scenarios=false
@@ -226,9 +228,13 @@ if [[ -n "$sensitive_literal_hits" ]]; then
 fi
 
 relay_count="$(jq '.relays | length' "$config_path")"
+if ! config_display_path="$(realpath "$config_path" 2>/dev/null)"; then
+  python_bin="$(ripdpi_resolve_python "relay matrix path resolution")"
+  config_display_path="$("$python_bin" -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$config_path")"
+fi
 printf 'Relay matrix config valid: %s relays, %s required paths, %s required scenarios.\n' \
   "$relay_count" \
   "${#required_paths[@]}" \
   "${#required_scenarios[@]}"
-printf 'Config: %s\n' "$(realpath "$config_path" 2>/dev/null || python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$config_path")"
+printf 'Config: %s\n' "$config_display_path"
 printf 'Example: %s\n' "$repo_root/test-lab/relay/provider-matrix.example.json"

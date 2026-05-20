@@ -445,6 +445,13 @@ validate_raw_fake_strategy_packet_pattern() {
     return 1
 }
 
+test_output_reports_junit_skip() {
+    local output_file="$1"
+    local test_selector="$2"
+    local test_method="${test_selector##*#}"
+    awk -v method="$test_method" 'index($0, method) && index($0, "SKIPPED") { found = 1 } END { exit found ? 0 : 1 }' "$output_file"
+}
+
 append_probe_result_artifact() {
     local runner_probe_json="$1"
     local result_json="$2"
@@ -698,6 +705,15 @@ for row in "${scenarios[@]}"; do
     stop_device_capture "$scenario_id" "$scenario_dir" "$capture_pid"
     collect_device_snapshot "$scenario_dir"
     curl -fsS "http://127.0.0.1:${fixture_control_port}/events" >"$scenario_dir/fixture-events.json" || true
+
+    if test_output_reports_junit_skip "$scenario_dir/test-output.txt" "$test_selector"; then
+        append_runner_log "$scenario_dir/test-output.txt" "==> instrumentation reported a skipped packet-smoke test"
+        if validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir"; then
+            status=0
+        else
+            status=1
+        fi
+    fi
 
     if [[ "$status" -ne 0 ]] && validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir"; then
         status=0

@@ -10,7 +10,11 @@ if [[ $# -gt 1 ]]; then
   exit 2
 fi
 
-python3 - "$artifact_root" "$evidence_path" <<'PY'
+# shellcheck source=test-lab/scripts/python.sh
+source "$repo_root/test-lab/scripts/python.sh"
+python_bin="$(ripdpi_resolve_python "feature local artifact checks")"
+
+"$python_bin" - "$artifact_root" "$evidence_path" <<'PY'
 import re
 import sys
 from pathlib import Path
