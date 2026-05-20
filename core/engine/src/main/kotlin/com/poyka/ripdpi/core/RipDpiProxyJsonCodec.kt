@@ -79,6 +79,20 @@ internal object RipDpiProxyJsonCodec {
             ),
         )
 
+    fun encodeUiPreferences(request: NativeProxyCreateRequest): String =
+        encodeUiPreferences(
+            preferences = request.preferences,
+            strategyPreset = request.strategyPreset,
+            rootMode = request.rootMode,
+            rootHelperSocketPath = request.rootHelperSocketPath,
+            geoipDbPath = request.geoipDbPath,
+            geositeDbPath = request.geositeDbPath,
+            listenAuthToken = request.listenAuthToken,
+            localListenPortOverride = request.localListenPortOverride,
+            localAuthToken = request.localAuthToken,
+            environmentKind = request.environmentKind,
+        )
+
     fun decodeUiPreferences(configJson: String): RipDpiProxyUIPreferences? {
         val payload = decodeOrNull(configJson) as? NativeProxyConfig.Ui ?: return null
         return runCatching {
