@@ -33,8 +33,8 @@ See [README.md](../../README.md) for the user-facing feature list.
 |------|---------------|-----------|-------------|
 | **Proxy** | `RipDpiProxyService.kt` | Local SOCKS5 proxy on a localhost port | `RipDpiProxy.kt` → `libripdpi.so` |
 | **VPN / TUN** | `RipDpiVpnService.kt` (extends `LifecycleVpnService.kt`) | `VpnService` TUN device → TUN-to-SOCKS bridge → local proxy | `Tun2SocksTunnel.kt` → `libripdpi-tunnel.so`, then `libripdpi.so` |
-| **Diagnostics** | Driven from `:core:diagnostics` UI | Active scans + DNS/TLS/strategy probes; stops the VPN service for RAW_PATH scans | `NetworkDiagnostics.kt` → `ripdpi-monitor` (linked into `libripdpi.so`) |
-| **Relay** | Composed into proxy/VPN mode | Encrypted relay transport; JNI-embedded relays via `RipDpiRelay.kt` / `RipDpiWarp.kt`; subprocess helpers (NaiveProxy, `cloudflared`) via `Subprocess*` services | Relay/WARP crates linked into `libripdpi.so`; helper binaries via subprocess |
+| **Diagnostics** | Driven from `:core:diagnostics` UI | Active scans + DNS/TLS/strategy probes; stops the VPN service for RAW_PATH scans | `NetworkDiagnostics.kt` → `ripdpi-monitor-engine` (linked into `libripdpi.so`) |
+| **Relay** | Composed into proxy/VPN mode | Encrypted relay transport; JNI relays via `RipDpiRelay.kt` / `RipDpiWarp.kt`; subprocess helpers (NaiveProxy, `cloudflared`) via `Subprocess*` services | `libripdpi-relay.so` / `libripdpi-warp.so`; subprocess helper binaries |
 | **Root helper** (optional, opt-in) | `RootHelperManager.kt` | Privileged raw-socket ops (FakeRst, MultiDisorder, IP fragmentation, raw IPv4/IPv6 emit) behind `root_mode_enabled` | `ripdpi-root-helper` ELF binary, Unix-socket IPC with SCM_RIGHTS fd passing |
 
 Both proxy and VPN modes work **with or without** a relay configured. The app
@@ -75,31 +75,35 @@ direction flows downward (`:app` depends on everything below it).
 ## 4. Native Rust artifact map
 
 The Rust workspace is at [`native/rust/`](../../native/rust/Cargo.toml) — a
-cdylib-bearing Cargo workspace of ~100 crates. Three artifacts are produced for
-Android by [`:core:engine`](../../core/engine/build.gradle.kts) via the
-`ripdpi.android.rust-native` convention plugin.
+Cargo workspace of 99 crates. [`:core:engine`](../../core/engine/build.gradle.kts)
+builds it via the `ripdpi.android.rust-native` convention plugin: **four** JNI
+`.so` libraries plus three helper binaries are packaged into the APK. See
+[`NATIVE_RUST.md`](NATIVE_RUST.md) for the full crate taxonomy and dependency map.
 
-| Artifact | Kind | Source crate | Kotlin bridge | Used in |
-|----------|------|--------------|---------------|---------|
-| `libripdpi.so` | Shared library (JNI) | `crates/ripdpi-android` | `RipDpiProxy.kt`, `NetworkDiagnostics.kt`, `RipDpiRelay.kt`, `RipDpiWarp.kt` | Proxy, VPN, diagnostics, relay, WARP |
-| `libripdpi-tunnel.so` | Shared library (JNI) | `crates/ripdpi-tunnel-android` | `Tun2SocksTunnel.kt` | VPN mode only (TUN-to-SOCKS bridge) |
-| `ripdpi-root-helper` | Standalone ELF binary | `crates/ripdpi-root-helper` | `RootHelperManager.kt` (lifecycle), `RootDetector.kt` (root check) | Rooted devices only, opt-in |
+| Artifact | Kind | Source crate | Kotlin bridge | Role |
+|----------|------|--------------|---------------|------|
+| `libripdpi.so` | JNI shared library | `crates/ripdpi-android` | `RipDpiProxy.kt`, `NetworkDiagnostics.kt` | Proxy, VPN, diagnostics, strategy engine |
+| `libripdpi-tunnel.so` | JNI shared library | `crates/ripdpi-tunnel-android` | `Tun2SocksTunnel.kt` | VPN-mode TUN-to-SOCKS bridge |
+| `libripdpi-relay.so` | JNI shared library | `crates/ripdpi-relay-android` | `RipDpiRelay.kt` | Encrypted relay transports |
+| `libripdpi-warp.so` | JNI shared library | `crates/ripdpi-warp-android` | `RipDpiWarp.kt` | WARP / AmneziaWG runtime |
+| `ripdpi-root-helper` | Standalone ELF binary | `crates/ripdpi-root-helper` | `RootHelperManager.kt`, `RootDetector.kt` | Privileged raw-socket ops, rooted devices only |
 
 - `libripdpi.so` is loaded by `RipDpiNativeLoader.kt` via
-  `System.loadLibrary("ripdpi")`.
-- **Relay / WARP have no separate `.so`** — `ripdpi-relay-core`,
-  `ripdpi-relay-mux`, `ripdpi-xhttp`, `ripdpi-tuic`, `ripdpi-shadowtls`,
-  `ripdpi-vless`, `ripdpi-warp-core`, `ripdpi-cloudflare-origin`, etc. are
-  linked into `libripdpi.so` and reached through `RipDpiRelay.kt` /
-  `RipDpiWarp.kt`.
-- **Subprocess helpers** — `ripdpi-naiveproxy` and a bundled `cloudflared`
-  run as separate processes (not JNI-embedded), supervised by the
-  `Subprocess*` / `Cloudflare*` services in `:core:service`.
-  **TODO verify** how each subprocess helper binary is packaged and extracted —
-  see `core/service/.../services/SubprocessRelayBinaryExtractor.kt`.
+  `System.loadLibrary("ripdpi")`. The relay and WARP runtimes ship as
+  **separate** `.so` files (`crates/ripdpi-relay-android`,
+  `crates/ripdpi-warp-android`) — they are not linked into `libripdpi.so`.
+  The relay transport crates (`ripdpi-relay-core`, `ripdpi-vless`,
+  `ripdpi-xhttp`, `ripdpi-tuic`, `ripdpi-shadowtls`, …) link into
+  `libripdpi-relay.so`.
+- **Subprocess helper binaries** — `ripdpi-naiveproxy` and
+  `ripdpi-cloudflare-origin` are workspace `bin` crates packaged into APK
+  assets and run as separate processes (not JNI-embedded), supervised by the
+  `Subprocess*` / `Cloudflare*` services in `:core:service`. A third-party
+  `cloudflared` sidecar is bundled for Cloudflare Tunnel publish mode.
 - `ripdpi` (desktop CLI, `crates/ripdpi-cli`) is a development binary for
   macOS/Linux and is **not** packaged in the APK.
-- Crate-by-crate detail and the dependency graph live in
+- Full crate taxonomy, layering, and dependency-direction policy live in
+  [`NATIVE_RUST.md`](NATIVE_RUST.md); module narrative in
   [`docs/native/README.md`](../native/README.md).
 
 Supported ABIs: `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`. Never edit `.so`
@@ -202,6 +206,8 @@ a per-socket (not per-packet) control-plane call required by the
 | Topic | Document |
 |-------|----------|
 | Compact architecture notes (ownership, runtime behavior, follow-ups) | [`architecture/README.md`](README.md) |
+| Native Rust workspace taxonomy + dependency direction | [`architecture/NATIVE_RUST.md`](NATIVE_RUST.md) |
+| Adding a feature safely (strategy, relay, probe, setting, …) | [`architecture/FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) |
 | Native modules, crate dependency graph, runtime topology | [`docs/native/README.md`](../native/README.md) |
 | Proxy engine and strategy surface | [`docs/native/proxy-engine.md`](../native/proxy-engine.md) |
 | TUN-to-SOCKS bridge | [`docs/native/tunnel.md`](../native/tunnel.md) |
