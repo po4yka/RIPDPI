@@ -42,7 +42,9 @@ pub(super) fn run_proxy_with_listener_internal(
     // if the network switched (e.g. WiFi -> cellular).
     super::reprobe::maybe_spawn_reprobe(&state);
 
-    run_accept_loop(listener, state, RuntimeShutdown::new(control), client_capacity)
+    let result = run_accept_loop(listener, state.clone(), RuntimeShutdown::new(control), client_capacity);
+    state.flush_host_store();
+    result
 }
 
 pub(super) fn close_rejected_client(client: &TcpStream) {

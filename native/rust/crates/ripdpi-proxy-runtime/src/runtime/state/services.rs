@@ -25,6 +25,9 @@ impl RuntimeState {
             self.drain_autolearn_events();
         }
     }
+    pub(in crate::runtime) fn flush_host_store(&self) {
+        PolicyPort::flush_host_store(&self.services);
+    }
     pub(in crate::runtime) fn reprobe_reset_handle(&self) -> ReprobeResetHandle {
         reprobe_reset_handle(&self.services)
     }
