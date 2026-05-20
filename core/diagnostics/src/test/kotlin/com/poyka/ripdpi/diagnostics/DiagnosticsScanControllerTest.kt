@@ -380,9 +380,8 @@ class DiagnosticsScanControllerTest {
                     json = json,
                 )
 
-            assertSuspendFailsWith<java.io.IOException> {
-                services.scanController.startScan(ScanPathMode.RAW_PATH).startedSessionId()
-            }
+            services.scanController.startScan(ScanPathMode.RAW_PATH).startedSessionId()
+            advanceUntilIdle()
 
             val failedSession = stores.sessionsState.value.single()
             assertEquals("failed", failedSession.status)

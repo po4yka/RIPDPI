@@ -46,9 +46,10 @@ Replays packet traces from `fixtures/desync_modes/*.json` against each pattern's
 This mode exists so the harness shape is verifiable on every PR without requiring a Linux runner.
 
 ```bash
-python3 -m test-lab.chaos.tspu.runner.cli dry-run \
-  --matrix test-lab/chaos/tspu/matrix.json \
-  --fixtures test-lab/chaos/tspu/fixtures \
+cd test-lab/chaos/tspu
+python3 -m runner.cli dry-run \
+  --matrix matrix.json \
+  --fixtures fixtures \
   --out-dir /tmp/tspu-dryrun
 ```
 

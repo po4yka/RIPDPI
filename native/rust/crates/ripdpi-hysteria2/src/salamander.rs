@@ -206,8 +206,7 @@ mod tests {
     /// `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
     #[test]
     fn upstream_salamander_fixtures_decode_cleanly() {
-        let fixtures_root =
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../../contract-fixtures/hysteria2");
+        let fixtures_root = golden_test_support::repo_root().join("contract-fixtures/hysteria2");
         if !fixtures_root.exists() {
             return;
         }

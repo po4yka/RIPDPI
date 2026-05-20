@@ -104,6 +104,10 @@ class PacketSmokeInstrumentedTest {
         if (packetSmokeUsesPhasedPhysicalRunner() && packetSmokePhase() == PacketSmokePhase.ASSERT) {
             return
         }
+        runBlocking {
+            stopService(RipDpiProxyService::class.java)
+            stopService(RipDpiVpnService::class.java)
+        }
         val environment = prepareE2eEnvironment(appContext)
         fixtureClient = environment.fixtureClient
         fixture = environment.fixture
@@ -111,8 +115,6 @@ class PacketSmokeInstrumentedTest {
             clearPacketSmokeScenarioState(appContext, requirePacketSmokeScenarioId())
         }
         runBlocking {
-            stopService(RipDpiProxyService::class.java)
-            stopService(RipDpiVpnService::class.java)
             appSettingsRepository.update {
                 proxyIp = "127.0.0.1"
                 proxyPort = reserveLoopbackPort()
@@ -327,6 +329,19 @@ class PacketSmokeInstrumentedTest {
 
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
+        awaitUntil(
+            timeoutMs = 10_000L,
+            failureMessage = {
+                serviceStateDebugSummary(
+                    serviceStateStore = serviceStateStore,
+                    fixtureClient = fixtureClient,
+                )
+            },
+        ) {
+            val snapshot = serviceStateStore.telemetry.value
+            snapshot.status == AppStatus.Running &&
+                snapshot.mode == Mode.VPN
+        }
         val baselineRestartCount = serviceStateStore.telemetry.value.restartCount
 
         repeat(2) { round ->
@@ -1133,11 +1148,15 @@ class PacketSmokeInstrumentedTest {
     }
 
     private fun assumeProxyFixtureCanValidateTlsHandshake(expectedScenario: String) {
-        val lowTtlFakeScenario = expectedScenario == "fakedsplit" || expectedScenario == "fakeddisorder"
+        val fakeSegmentScenario =
+            expectedScenario == "hostfake" ||
+                expectedScenario == "fakedsplit" ||
+                expectedScenario == "fakeddisorder"
+        val fixtureIsHostLoopback = fixture.androidHost == "127.0.0.1" || fixture.androidHost == "10.0.2.2"
         assumeFalse(
-            "Physical loopback packet-smoke cannot validate $expectedScenario with a TLS fixture handshake; " +
-                "the low-TTL fake segment can reach the adb-reversed fixture endpoint.",
-            lowTtlFakeScenario && !isLikelyEmulator() && fixture.androidHost == "127.0.0.1",
+            "Host-loopback packet-smoke cannot validate $expectedScenario with a TLS fixture handshake; " +
+                "the fake segment can reach the local fixture endpoint.",
+            fakeSegmentScenario && fixtureIsHostLoopback,
         )
     }
 

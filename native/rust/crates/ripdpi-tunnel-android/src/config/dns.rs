@@ -1,6 +1,10 @@
+mod protocol;
+
 use ripdpi_tunnel_config::MapDnsConfig;
 
 use crate::config::payload::TunnelConfigPayload;
+
+pub(crate) use protocol::mapdns_resolver_protocol;
 
 pub(crate) fn mapdns_config_from_payload(payload: &TunnelConfigPayload) -> Option<MapDnsConfig> {
     payload.mapdns_address.as_ref().map(|address| MapDnsConfig {
@@ -23,8 +27,4 @@ pub(crate) fn mapdns_config_from_payload(payload: &TunnelConfigPayload) -> Optio
         resolver_fallback_active: payload.resolver_fallback_active.unwrap_or(false),
         resolver_fallback_reason: payload.resolver_fallback_reason.clone(),
     })
-}
-
-pub(crate) fn mapdns_resolver_protocol(mapdns: &MapDnsConfig) -> Option<String> {
-    mapdns.encrypted_dns_protocol.clone().or_else(|| mapdns.encrypted_dns_doh_url.as_ref().map(|_| "doh".to_string()))
 }

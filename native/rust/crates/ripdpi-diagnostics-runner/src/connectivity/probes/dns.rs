@@ -98,6 +98,7 @@ pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode:
         &expected,
         udp_resolution.error_kind.as_deref(),
         udp_resolution.attempt_count,
+        udp_resolution.retry_recovered,
     );
     let injection_suspected = is_dns_injection_suspected(&udp_latency_ms, &outcome);
     let selected_endpoint =

@@ -59,12 +59,14 @@ class NetworkPathE2ETest {
         assumeE2eFixtureConfigured()
         hiltRule.inject()
         hiltInjected = true
+        runBlocking {
+            stopService(RipDpiProxyService::class.java)
+            stopService(RipDpiVpnService::class.java)
+        }
         val environment = prepareE2eEnvironment(appContext)
         fixtureClient = environment.fixtureClient
         fixture = environment.fixture
         runBlocking {
-            stopService(RipDpiProxyService::class.java)
-            stopService(RipDpiVpnService::class.java)
             appSettingsRepository.update {
                 proxyIp = "127.0.0.1"
                 proxyPort = reserveLoopbackPort()
@@ -295,6 +297,7 @@ class NetworkPathE2ETest {
             FixtureFaultSpecDto(
                 target = FixtureFaultTargetDto.DNS_HTTP,
                 outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+                scope = FixtureFaultScopeDto.PERSISTENT,
             ),
         )
 

@@ -1,17 +1,13 @@
 use std::collections::BTreeSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use golden_test_support::{assert_text_golden, canonicalize_json};
+use golden_test_support::{assert_text_golden, canonicalize_json, repo_root};
 use ripdpi_monitor_engine::contracts::connectivity_partial_report_contract_fixture;
 use ripdpi_monitor_engine::wire::{
     EngineProgressWire, EngineScanReportWire, EngineScanRequestWire, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
 };
 use serde_json::Value;
-
-fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../").canonicalize().expect("repo root")
-}
 
 fn fixture(path: &str) -> String {
     fs::read_to_string(repo_root().join(path)).expect("fixture")

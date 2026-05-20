@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.poyka.ripdpi.services.RootHelperManager
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -78,6 +79,10 @@ class RootHelperInstrumentedTest {
 
     private companion object {
         private const val RootHelperSmokeArg = "ripdpi.rootHelperSmoke"
+        private const val ProbeCapabilitiesCommand = "probe_capabilities"
+        private const val RawIpv4Capability = "raw_ipv4"
+        private const val RawIpv6Capability = "raw_ipv6"
+        private const val TcpRepairCapability = "tcp_repair"
     }
 
     @After
@@ -109,6 +114,7 @@ class RootHelperInstrumentedTest {
             assertTrue("Root helper socket does not exist at $socketPath", socketFile.exists())
             assertTrue("Root helper process is not running", rootHelper.isRunning())
             assertSocketConnects(socketPath)
+            assertCapabilityProbeSucceeds(socketPath)
 
             rootHelper.stop()
 
@@ -188,5 +194,38 @@ class RootHelperInstrumentedTest {
         LocalSocket().use { socket ->
             socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
         }
+    }
+
+    private fun assertCapabilityProbeSucceeds(socketPath: String) {
+        val sessionNonce = File("$socketPath.nonce").readText().trim()
+        assertTrue("Root helper session nonce should be valid", sessionNonce.length in 32..128)
+
+        LocalSocket().use { socket ->
+            socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
+            val request =
+                JSONObject()
+                    .put("command", ProbeCapabilitiesCommand)
+                    .put("session_nonce", sessionNonce)
+                    .toString()
+            socket.outputStream.write("$request\n".toByteArray(Charsets.UTF_8))
+            socket.outputStream.flush()
+
+            val responseLine = socket.inputStream.bufferedReader(Charsets.UTF_8).readLine()
+            assertNotNull("Root helper did not return a capability probe response", responseLine)
+            val response = JSONObject(requireNotNull(responseLine))
+            assertTrue(response.optString("error"), response.optBoolean("ok"))
+            val data = response.getJSONObject("data")
+            assertBooleanCapability(data, RawIpv4Capability)
+            assertBooleanCapability(data, RawIpv6Capability)
+            assertBooleanCapability(data, TcpRepairCapability)
+        }
+    }
+
+    private fun assertBooleanCapability(
+        data: JSONObject,
+        key: String,
+    ) {
+        assertTrue("Root helper capability '$key' is missing", data.has(key))
+        assertTrue("Root helper capability '$key' is not boolean", data.get(key) is Boolean)
     }
 }

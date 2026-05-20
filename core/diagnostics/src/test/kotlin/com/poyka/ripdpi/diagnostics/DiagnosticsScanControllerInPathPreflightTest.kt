@@ -53,6 +53,47 @@ class DiagnosticsScanControllerInPathPreflightTest {
             assertEquals(failure.message, session.summary)
             assertEquals(0, runtimeCoordinator.rawScanCount.get())
         }
+
+    @Test
+    fun `in-path scan launch fails before bridge when VPN service owns runtime proxy`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(activeMode = "VPN"),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = runtimeCoordinator,
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            val failure =
+                assertSuspendFailsWith<IllegalStateException> {
+                    services.scanController.startScan(ScanPathMode.IN_PATH)
+                }
+            advanceUntilIdle()
+
+            val expectedSummary =
+                "In-path diagnostics unavailable while VPN service is active; " +
+                    "run raw-path diagnostics so the VPN can pause and resume safely"
+            assertEquals(
+                expectedSummary,
+                failure.message,
+            )
+            assertNull(bridgeFactory.bridge.startedRequestJson)
+            val session = stores.sessionsState.value.single()
+            assertEquals("failed", session.status)
+            assertEquals(failure.message, session.summary)
+            assertEquals(0, runtimeCoordinator.rawScanCount.get())
+        }
 }
 
 private suspend inline fun <reified T : Throwable> assertSuspendFailsWith(noinline block: suspend () -> Unit): T {

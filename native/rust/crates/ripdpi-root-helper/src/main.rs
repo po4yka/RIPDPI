@@ -1,15 +1,21 @@
 mod dispatch;
 mod handlers;
 
+use std::ffi::CString;
 use std::fs;
 use std::io;
 use std::os::fd::RawFd;
+use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::MetadataExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use tracing::{error, info, warn};
+
+#[cfg(target_os = "android")]
+use std::process::Command;
 
 use ripdpi_root_helper_protocol as protocol;
 use ripdpi_root_helper_protocol::{valid_session_nonce, HelperRequest, HelperResponse};
@@ -45,11 +51,15 @@ fn main() {
         }
     };
 
-    // Restrict socket permissions to owner only.
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(&socket_path, fs::Permissions::from_mode(0o600));
+    if let Err(e) = prepare_socket_for_app(&socket_path) {
+        error!(path = %socket_path.display(), %e, "failed to prepare root-helper socket for app access");
+        let _ = fs::remove_file(&socket_path);
+        std::process::exit(1);
+    }
+    if let Err(e) = listener.set_nonblocking(true) {
+        error!(path = %socket_path.display(), %e, "failed to configure root-helper socket");
+        let _ = fs::remove_file(&socket_path);
+        std::process::exit(1);
     }
 
     let running = Arc::new(AtomicBool::new(true));
@@ -63,16 +73,16 @@ fn main() {
     info!(path = %socket_path.display(), "listening for connections");
 
     while running.load(Ordering::Relaxed) && RUNNING.load(Ordering::SeqCst) {
-        // Use a short accept timeout so we can check the shutdown flag.
-        listener.set_nonblocking(false).ok();
-
         match listener.accept() {
             Ok((stream, _addr)) => {
                 if let Err(e) = handle_connection(&stream, &session_nonce) {
                     warn!(%e, "connection handler error");
                 }
             }
-            Err(e) if e.kind() == io::ErrorKind::WouldBlock => continue,
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                continue;
+            }
             Err(e) => {
                 if !RUNNING.load(Ordering::SeqCst) {
                     break;
@@ -145,6 +155,47 @@ fn close_received_fd(fd: Option<RawFd>) {
     }
 }
 
+fn prepare_socket_for_app(socket_path: &Path) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let parent = socket_path
+        .parent()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "root-helper socket path has no parent"))?;
+    let parent_metadata = fs::metadata(parent)?;
+    chown_socket(socket_path, parent_metadata.uid(), parent_metadata.gid())?;
+    fs::set_permissions(socket_path, fs::Permissions::from_mode(0o600))?;
+    restore_android_label(socket_path);
+    Ok(())
+}
+
+fn chown_socket(socket_path: &Path, uid: u32, gid: u32) -> io::Result<()> {
+    let c_path = CString::new(socket_path.as_os_str().as_bytes()).map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("root-helper socket path contains NUL byte: {}", socket_path.display()),
+        )
+    })?;
+    // SAFETY: `c_path` is a valid, NUL-terminated filesystem path and the uid/gid values come from `metadata(2)`.
+    let rc = unsafe { libc::chown(c_path.as_ptr(), uid, gid) };
+    if rc == 0 {
+        Ok(())
+    } else {
+        Err(io::Error::last_os_error())
+    }
+}
+
+#[cfg(target_os = "android")]
+fn restore_android_label(socket_path: &Path) {
+    match Command::new("/system/bin/restorecon").arg(socket_path).status() {
+        Ok(status) if status.success() => {}
+        Ok(status) => warn!(path = %socket_path.display(), ?status, "restorecon failed for root-helper socket"),
+        Err(e) => warn!(path = %socket_path.display(), %e, "failed to execute restorecon for root-helper socket"),
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+fn restore_android_label(_socket_path: &Path) {}
+
 fn session_nonce_matches(expected: &str, actual: Option<&str>) -> bool {
     let Some(actual) = actual else {
         return false;
@@ -206,13 +257,15 @@ extern "C" fn signal_handler(_sig: libc::c_int) {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use std::os::unix::net::UnixStream;
     use std::sync::Mutex;
     use std::thread;
 
     use ripdpi_root_helper_protocol::{recv_message, send_message, HelperRequest, HelperResponse, CMD_SHUTDOWN};
 
-    use super::{handle_connection, read_session_nonce_file, session_nonce_matches, RUNNING};
+    use super::{handle_connection, prepare_socket_for_app, read_session_nonce_file, session_nonce_matches, RUNNING};
 
     const TEST_NONCE: &str = "abcdefghijklmnopqrstuvwxyzABCDEF";
     static RUNNING_TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -283,6 +336,26 @@ mod tests {
         );
 
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn prepare_socket_for_app_uses_app_directory_owner_and_private_mode() {
+        let base_dir = std::path::PathBuf::from(format!("/tmp/rhs-{}-{}", std::process::id(), unique_suffix()));
+        fs::create_dir(&base_dir).expect("create temp dir");
+        let socket_path = base_dir.join("root_helper.sock");
+        let listener = std::os::unix::net::UnixListener::bind(&socket_path).expect("bind socket");
+
+        prepare_socket_for_app(&socket_path).expect("prepare socket");
+
+        let parent_metadata = fs::metadata(&base_dir).expect("parent metadata");
+        let socket_metadata = fs::metadata(&socket_path).expect("socket metadata");
+        assert_eq!(socket_metadata.uid(), parent_metadata.uid());
+        assert_eq!(socket_metadata.gid(), parent_metadata.gid());
+        assert_eq!(socket_metadata.permissions().mode() & 0o777, 0o600);
+
+        drop(listener);
+        let _ = fs::remove_file(&socket_path);
+        let _ = fs::remove_dir(&base_dir);
     }
 
     fn unique_suffix() -> u128 {

@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 
+use golden_test_support::repo_root;
 use ripdpi_packets::{parse_tls_client_hello_layout, TlsClientHelloLayout};
 use serde_json::{json, Value};
 
@@ -176,10 +177,6 @@ fn expected_supported_groups(profile: &str) -> &'static [u16] {
         "x25519_p256_p384_p521" => &[X25519, SECP256R1, SECP384R1, SECP521R1],
         other => panic!("unexpected supported-groups profile {other}"),
     }
-}
-
-fn repo_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..").canonicalize().expect("canonical repo root")
 }
 
 fn fixture_path() -> PathBuf {

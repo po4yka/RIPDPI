@@ -10,6 +10,7 @@ import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.testing.Test
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.Properties
 
 abstract class VerifyEngineBoundaryClasspathTask : DefaultTask() {
@@ -82,6 +83,18 @@ val includeRoborazziUnitTests =
 tasks.withType<Test>().configureEach {
     if (!includeRoborazziUnitTests.get()) {
         exclude("**/ui/screenshot/**")
+    }
+}
+
+tasks.withType<KotlinCompile>().configureEach {
+    if (name.endsWith("AndroidTestKotlin")) {
+        compilerOptions {
+            freeCompilerArgs.addAll(
+                "-Xno-call-assertions",
+                "-Xno-param-assertions",
+                "-Xno-receiver-assertions",
+            )
+        }
     }
 }
 

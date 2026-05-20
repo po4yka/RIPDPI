@@ -50,6 +50,7 @@ pub(super) fn classify_dns_probe_outcome(
     expected: &BTreeSet<String>,
     udp_error_kind: Option<&str>,
     udp_attempt_count: usize,
+    udp_retry_recovered: bool,
 ) -> String {
     outcome::classify_dns_probe_outcome(
         udp_result,
@@ -59,5 +60,6 @@ pub(super) fn classify_dns_probe_outcome(
         expected,
         udp_error_kind,
         udp_attempt_count,
+        udp_retry_recovered,
     )
 }
