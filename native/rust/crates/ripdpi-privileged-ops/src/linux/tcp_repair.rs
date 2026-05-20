@@ -12,9 +12,8 @@ mod snapshot;
 mod sockopt;
 
 use std::io;
+use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::os::fd::AsRawFd;
-
-use socket2::{Domain, Protocol, Socket, Type};
 
 pub(crate) use handoff::swap_stream_to_replacement;
 pub(crate) use options::TcpTimestampSnapshot;
@@ -28,10 +27,25 @@ pub(crate) use sockopt::TcpRepairWindow;
 pub(crate) use sockopt::{disable_tcp_repair, set_tcp_repair, set_tcp_repair_queue, TCP_NO_QUEUE, TCP_REPAIR_ON};
 
 pub(crate) fn probe_tcp_repair(protect_path: Option<&str>) -> io::Result<()> {
-    let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
-    crate::protect_socket(&socket, protect_path)?;
-    let fd = socket.as_raw_fd();
-
+    let (client, _server) = connected_loopback_pair()?;
+    let fd = client.as_raw_fd();
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
-    disable_tcp_repair(fd)
+    let result = (|| -> io::Result<()> {
+        let snapshot = snapshot_tcp_repair_state(fd)?;
+        let _replacement =
+            build_replacement_tcp_socket(client.local_addr()?, client.peer_addr()?, 0, &snapshot, protect_path)?;
+        Ok(())
+    })();
+
+    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+    let _ = disable_tcp_repair(fd);
+    result
+}
+
+fn connected_loopback_pair() -> io::Result<(TcpStream, TcpStream)> {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
+    let addr = listener.local_addr()?;
+    let client = TcpStream::connect(addr)?;
+    let (server, _) = listener.accept()?;
+    Ok((client, server))
 }

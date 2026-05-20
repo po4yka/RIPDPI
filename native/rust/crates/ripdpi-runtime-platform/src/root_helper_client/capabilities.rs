@@ -51,8 +51,8 @@ pub fn capability_outcome_from_probe_json(json: &str) -> Vec<(RuntimeCapability,
                     },
                 ),
                 (
-                    RuntimeCapability::TtlWrite,
-                    CapabilityOutcome::ProbeFailed { capability: RuntimeCapability::TtlWrite, error: msg },
+                    RuntimeCapability::ReplacementSocket,
+                    CapabilityOutcome::ProbeFailed { capability: RuntimeCapability::ReplacementSocket, error: msg },
                 ),
             ];
         }
@@ -68,6 +68,35 @@ pub fn capability_outcome_from_probe_json(json: &str) -> Vec<(RuntimeCapability,
     vec![
         extract("raw_ipv4", RuntimeCapability::RawTcpFakeSend),
         extract("raw_ipv6", RuntimeCapability::RawUdpFragmentation),
-        extract("tcp_repair", RuntimeCapability::TtlWrite),
+        extract("tcp_repair", RuntimeCapability::ReplacementSocket),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::capability_outcome_from_probe_json;
+    use crate::capability::{CapabilityOutcome, RuntimeCapability};
+
+    #[test]
+    fn probe_json_maps_tcp_repair_to_replacement_socket() {
+        let outcomes = capability_outcome_from_probe_json(r#"{"raw_ipv4":true,"raw_ipv6":false,"tcp_repair":true}"#);
+
+        assert!(outcomes.iter().any(|(capability, outcome)| {
+            *capability == RuntimeCapability::ReplacementSocket && matches!(outcome, CapabilityOutcome::Available(true))
+        }));
+        assert!(!outcomes.iter().any(|(capability, _)| *capability == RuntimeCapability::TtlWrite));
+    }
+
+    #[test]
+    fn malformed_probe_json_reports_replacement_socket_failure() {
+        let outcomes = capability_outcome_from_probe_json("{");
+
+        assert!(outcomes.iter().any(|(capability, outcome)| {
+            *capability == RuntimeCapability::ReplacementSocket
+                && matches!(
+                    outcome,
+                    CapabilityOutcome::ProbeFailed { capability: RuntimeCapability::ReplacementSocket, .. }
+                )
+        }));
+    }
 }

@@ -6,6 +6,7 @@ use ripdpi_runtime_platform::raw_packet::{probe_ip_fragmentation_capabilities, I
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RawPacketRequirements {
     protect_path: Option<String>,
+    root_helper_socket_path: Option<String>,
     ipv6_enabled: bool,
     requires_packet_owned_tcp: bool,
     requires_udp_ipfrag: bool,
@@ -14,6 +15,7 @@ pub struct RawPacketRequirements {
 pub fn raw_packet_requirements(config: &RuntimeConfig) -> RawPacketRequirements {
     RawPacketRequirements {
         protect_path: config.process.protect_path.clone(),
+        root_helper_socket_path: config.process.root_helper_socket_path.clone(),
         ipv6_enabled: config.network.ipv6,
         requires_packet_owned_tcp: requires_packet_owned_tcp(config),
         requires_udp_ipfrag: requires_udp_ipfrag(config),
@@ -25,6 +27,7 @@ pub fn validate_ip_fragmentation_support(requirements: &RawPacketRequirements) -
         return Ok(());
     }
 
+    let _root_helper = RootHelperProbeRegistration::for_path(requirements.root_helper_socket_path.as_deref());
     let capabilities = probe_ip_fragmentation_capabilities(requirements.protect_path.as_deref())?;
     validate_ip_fragmentation_capabilities(requirements, capabilities)
 }
@@ -75,6 +78,38 @@ fn validate_ip_fragmentation_capabilities(
         Ok(())
     } else {
         Err(io::Error::new(io::ErrorKind::Unsupported, format!("raw-packet desync requires {}", missing.join(", "))))
+    }
+}
+
+struct RootHelperProbeRegistration {
+    registered: bool,
+}
+
+impl RootHelperProbeRegistration {
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn for_path(path: Option<&str>) -> Self {
+        if crate::platform::root_helper::has_root_helper() {
+            return Self { registered: false };
+        }
+        let Some(path) = path.map(str::trim).filter(|path| !path.is_empty()) else {
+            return Self { registered: false };
+        };
+        crate::platform::root_helper::register_root_helper(path.to_owned());
+        Self { registered: true }
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    fn for_path(_path: Option<&str>) -> Self {
+        Self { registered: false }
+    }
+}
+
+impl Drop for RootHelperProbeRegistration {
+    fn drop(&mut self) {
+        if self.registered {
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            crate::platform::root_helper::unregister_root_helper();
+        }
     }
 }
 
@@ -186,6 +221,49 @@ mod tests {
             IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: true, tcp_repair: true },
         )
         .expect("multidisorder should pass when raw sockets and tcp repair are available");
+    }
+
+    #[test]
+    fn raw_packet_requirements_captures_root_helper_socket_path() {
+        let mut config = runtime_config_with_multidisorder(false);
+        config.process.root_helper_socket_path = Some(" /data/app/root_helper.sock ".to_string());
+
+        let requirements = raw_packet_requirements(&config);
+
+        assert_eq!(requirements.root_helper_socket_path.as_deref(), Some(" /data/app/root_helper.sock "));
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[test]
+    fn root_helper_probe_registration_registers_trimmed_path_until_drop() {
+        use super::RootHelperProbeRegistration;
+
+        crate::platform::root_helper::unregister_root_helper();
+        {
+            let _guard = RootHelperProbeRegistration::for_path(Some(" /tmp/ripdpi-probe-helper.sock "));
+            let path = crate::platform::root_helper::with_root_helper(|client| client.socket_path());
+            assert_eq!(path.as_deref(), Some("/tmp/ripdpi-probe-helper.sock"));
+        }
+
+        assert!(!crate::platform::root_helper::has_root_helper());
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[test]
+    fn root_helper_probe_registration_preserves_existing_registration() {
+        use super::RootHelperProbeRegistration;
+
+        crate::platform::root_helper::unregister_root_helper();
+        crate::platform::root_helper::register_root_helper("/tmp/ripdpi-existing-helper.sock".to_string());
+        {
+            let _guard = RootHelperProbeRegistration::for_path(Some("/tmp/ripdpi-probe-helper.sock"));
+            let path = crate::platform::root_helper::with_root_helper(|client| client.socket_path());
+            assert_eq!(path.as_deref(), Some("/tmp/ripdpi-existing-helper.sock"));
+        }
+
+        let path = crate::platform::root_helper::with_root_helper(|client| client.socket_path());
+        assert_eq!(path.as_deref(), Some("/tmp/ripdpi-existing-helper.sock"));
+        crate::platform::root_helper::unregister_root_helper();
     }
 
     #[test]
