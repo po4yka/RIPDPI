@@ -2,6 +2,8 @@
 set -euo pipefail
 
 lab_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=test-lab/scripts/python.sh
+source "$lab_root/scripts/python.sh"
 profile="${RIPDPI_LAB_PROFILE:-emulator}"
 
 while [[ $# -gt 0 ]]; do
@@ -36,6 +38,14 @@ host_dns_log="$lab_root/artifacts/host-dns.log"
 host_dns_setting="${RIPDPI_HOST_DNS:-auto}"
 use_host_udp_echo=false
 use_host_dns=false
+python_bin=""
+
+resolve_host_python() {
+  local purpose="$1"
+  if [[ -z "$python_bin" ]]; then
+    python_bin="$(ripdpi_resolve_python "$purpose")"
+  fi
+}
 
 case "$host_udp_echo_setting" in
   1|true|TRUE|yes|YES)
@@ -117,7 +127,7 @@ host_dns_record_ip() {
 }
 
 check_host_udp_echo() {
-  UDP_ECHO_PORT="$host_udp_echo_port" python3 - <<'PY'
+  UDP_ECHO_PORT="$host_udp_echo_port" "$python_bin" - <<'PY'
 import os
 import socket
 
@@ -133,7 +143,7 @@ PY
 }
 
 check_host_dns() {
-  DNS_PORT="$dns_port" DNS_RECORD_IP="$(host_dns_record_ip)" python3 - <<'PY'
+  DNS_PORT="$dns_port" DNS_RECORD_IP="$(host_dns_record_ip)" "$python_bin" - <<'PY'
 import os
 import socket
 import struct
@@ -152,14 +162,11 @@ PY
 }
 
 start_host_udp_echo() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    echo "python3 is required for RIPDPI_HOST_UDP_ECHO=$host_udp_echo_setting." >&2
-    return 1
-  fi
+  resolve_host_python "host UDP echo service"
   stop_host_udp_echo
   mkdir -p "$lab_root/artifacts"
   RIPDPI_UDP_ECHO_HOST=0.0.0.0 RIPDPI_UDP_ECHO_PORT="$host_udp_echo_port" \
-    python3 "$lab_root/scripts/host-udp-echo.py" \
+    "$python_bin" "$lab_root/scripts/host-udp-echo.py" \
       --daemonize \
       --pid-file "$host_udp_echo_pid_file" \
       --log-file "$host_udp_echo_log"
@@ -192,14 +199,11 @@ start_host_udp_echo() {
 }
 
 start_host_dns() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    echo "python3 is required for RIPDPI_HOST_DNS=$host_dns_setting." >&2
-    return 1
-  fi
+  resolve_host_python "host DNS service"
   stop_host_dns
   mkdir -p "$lab_root/artifacts"
   RIPDPI_DNS_HOST=0.0.0.0 RIPDPI_DNS_PORT="$dns_port" RIPDPI_LAB_RECORD_IP="$(host_dns_record_ip)" \
-    python3 "$lab_root/scripts/host-dns.py" \
+    "$python_bin" "$lab_root/scripts/host-dns.py" \
       --daemonize \
       --pid-file "$host_dns_pid_file" \
       --log-file "$host_dns_log"

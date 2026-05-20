@@ -2,9 +2,12 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=test-lab/scripts/python.sh
+source "$repo_root/test-lab/scripts/python.sh"
+python_bin="$(ripdpi_resolve_python "host DNS tests")"
 log_file="$(mktemp "${TMPDIR:-/tmp}/ripdpi-host-dns.XXXXXX.log")"
 port="$(
-  python3 - <<'PY'
+  "$python_bin" - <<'PY'
 import socket
 
 for _ in range(100):
@@ -23,7 +26,7 @@ PY
 )"
 
 RIPDPI_DNS_HOST=127.0.0.1 RIPDPI_DNS_PORT="$port" RIPDPI_LAB_RECORD_IP=127.0.0.42 \
-  python3 "$repo_root/test-lab/scripts/host-dns.py" >"$log_file" 2>&1 &
+  "$python_bin" "$repo_root/test-lab/scripts/host-dns.py" >"$log_file" 2>&1 &
 pid="$!"
 
 cleanup() {
@@ -38,7 +41,7 @@ for _ in {1..30}; do
     cat "$log_file" >&2
     exit 1
   fi
-  if python3 - "$port" <<'PY' >/dev/null 2>&1
+  if "$python_bin" - "$port" <<'PY' >/dev/null 2>&1
 import socket
 import struct
 import sys

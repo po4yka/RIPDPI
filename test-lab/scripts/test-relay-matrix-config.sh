@@ -2,6 +2,9 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=test-lab/scripts/python.sh
+source "$repo_root/test-lab/scripts/python.sh"
+python_bin="$(ripdpi_resolve_python "relay matrix config tests")"
 validator="$repo_root/test-lab/scripts/check-relay-matrix-config.sh"
 example="$repo_root/test-lab/relay/provider-matrix.example.json"
 tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-relay-matrix-test.XXXXXX")"
@@ -17,7 +20,7 @@ grep -Fxq "google_apps_script" "$tmpdir/required-paths.txt"
 grep -Fxq "proxy" "$tmpdir/required-scenarios.txt"
 grep -Fxq "network_handover" "$tmpdir/required-scenarios.txt"
 
-python3 - "$repo_root/docs/feature-test-manual-evidence-template.md" \
+"$python_bin" - "$repo_root/docs/feature-test-manual-evidence-template.md" \
   "$tmpdir/required-paths.txt" <<'PY'
 import re
 import sys

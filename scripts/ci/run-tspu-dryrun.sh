@@ -14,6 +14,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TSPU_DIR="$ROOT/test-lab/chaos/tspu"
 
+source "$ROOT/test-lab/scripts/python.sh"
+
+PYTHON_BIN="$(ripdpi_resolve_python "TSPU dry-run")"
+
 if [[ ! -d "$TSPU_DIR" ]]; then
     echo "tspu directory missing at $TSPU_DIR" >&2
     exit 2
@@ -25,12 +29,12 @@ ARTIFACT_DIR="$(cd "$ARTIFACT_DIR" && pwd)"
 echo "tspu artifacts -> $ARTIFACT_DIR"
 
 echo "--- unittest discover"
-python3 -m unittest discover -s "$TSPU_DIR/tests" -t "$TSPU_DIR" -v
+"$PYTHON_BIN" -m unittest discover -s "$TSPU_DIR/tests" -t "$TSPU_DIR" -v
 
 echo "--- matrix dry-run"
 (
     cd "$TSPU_DIR"
-    python3 -m runner.cli dry-run \
+    "$PYTHON_BIN" -m runner.cli dry-run \
         --matrix matrix.json \
         --fixtures fixtures \
         --out-dir "$ARTIFACT_DIR"
@@ -49,7 +53,7 @@ if [[ "$PCAP_COUNT" -lt 1 ]]; then
 fi
 
 echo "--- summary"
-python3 - <<PY
+"$PYTHON_BIN" - <<PY
 import json, sys
 with open("$REPORT") as fh:
     report = json.load(fh)

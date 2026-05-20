@@ -2,9 +2,12 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=test-lab/scripts/python.sh
+source "$repo_root/test-lab/scripts/python.sh"
+python_bin="$(ripdpi_resolve_python "host UDP echo tests")"
 log_file="$(mktemp "${TMPDIR:-/tmp}/ripdpi-host-udp-echo.XXXXXX.log")"
 port="$(
-  python3 - <<'PY'
+  "$python_bin" - <<'PY'
 import socket
 
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
@@ -14,7 +17,7 @@ PY
 )"
 
 RIPDPI_UDP_ECHO_HOST=127.0.0.1 RIPDPI_UDP_ECHO_PORT="$port" \
-  python3 "$repo_root/test-lab/scripts/host-udp-echo.py" >"$log_file" 2>&1 &
+  "$python_bin" "$repo_root/test-lab/scripts/host-udp-echo.py" >"$log_file" 2>&1 &
 pid="$!"
 
 cleanup() {
@@ -29,7 +32,7 @@ for _ in {1..30}; do
     cat "$log_file" >&2
     exit 1
   fi
-  if python3 - "$port" <<'PY' >/dev/null 2>&1
+  if "$python_bin" - "$port" <<'PY' >/dev/null 2>&1
 import socket
 import sys
 

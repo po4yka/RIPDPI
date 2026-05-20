@@ -2,6 +2,9 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=test-lab/scripts/python.sh
+source "$repo_root/test-lab/scripts/python.sh"
+python_bin="$(ripdpi_resolve_python "feature gap readiness tests")"
 tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-readiness-test.XXXXXX")"
 trap 'rm -rf "$tmpdir"' EXIT
 
@@ -96,10 +99,10 @@ if extra:
     raise SystemExit(f"unexpected readiness checks: {extra}")
 PY
 
-python3 "$validator" "$default_json" "$tmpdir/signoff-required-readiness.txt"
+"$python_bin" "$validator" "$default_json" "$tmpdir/signoff-required-readiness.txt"
 cp "$default_json" "$atomic_json"
 
-python3 - "$default_json" <<'PY'
+"$python_bin" - "$default_json" <<'PY'
 import json
 import re
 import sys
@@ -134,17 +137,17 @@ for _ in 1 2 3 4 5; do
   pids+=("$!")
 done
 for _ in 1 2 3 4 5 6 7 8 9 10; do
-  python3 "$validator" "$atomic_json" "$tmpdir/signoff-required-readiness.txt"
+  "$python_bin" "$validator" "$atomic_json" "$tmpdir/signoff-required-readiness.txt"
 done
 for pid in "${pids[@]}"; do
   wait "$pid"
 done
-python3 "$validator" "$atomic_json" "$tmpdir/signoff-required-readiness.txt"
+"$python_bin" "$validator" "$atomic_json" "$tmpdir/signoff-required-readiness.txt"
 
 make_fixture() {
   local output="$1"
   local mutation="$2"
-  python3 - "$default_json" "$output" "$mutation" <<'PY'
+  "$python_bin" - "$default_json" "$output" "$mutation" <<'PY'
 import json
 import sys
 
@@ -181,7 +184,7 @@ expect_invalid_readiness() {
   local fixture="$1"
   local expected="$2"
   set +e
-  python3 "$validator" "$fixture" "$tmpdir/signoff-required-readiness.txt" \
+  "$python_bin" "$validator" "$fixture" "$tmpdir/signoff-required-readiness.txt" \
     > "$tmpdir/invalid-readiness.out" 2>&1
   local status=$?
   set -e
@@ -213,9 +216,9 @@ RIPDPI_IGNORE_DIRTY_WORKTREE_FOR_READINESS=true \
   RIPDPI_REMOTE_COMPARE_REF="origin/ripdpi-missing-test-ref" \
   "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
   --output "$unknown_json" >/dev/null
-python3 "$validator" "$unknown_json" "$tmpdir/signoff-required-readiness.txt"
+"$python_bin" "$validator" "$unknown_json" "$tmpdir/signoff-required-readiness.txt"
 
-python3 - "$unknown_json" <<'PY'
+"$python_bin" - "$unknown_json" <<'PY'
 import json
 import sys
 
@@ -312,9 +315,9 @@ ADB="$fake_adb" \
   RIPDPI_REMOTE_COMPARE_REF=HEAD \
   "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
   --output "$multi_device_json" >/dev/null
-python3 "$validator" "$multi_device_json" "$tmpdir/signoff-required-readiness.txt"
+"$python_bin" "$validator" "$multi_device_json" "$tmpdir/signoff-required-readiness.txt"
 
-python3 - "$multi_device_json" <<'PY'
+"$python_bin" - "$multi_device_json" <<'PY'
 import json
 import sys
 
@@ -367,9 +370,9 @@ PATH="$tmpdir:$PATH" \
   RIPDPI_REMOTE_COMPARE_REF=HEAD \
   "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
   --output "$netem_container_json" >/dev/null
-python3 "$validator" "$netem_container_json" "$tmpdir/signoff-required-readiness.txt"
+"$python_bin" "$validator" "$netem_container_json" "$tmpdir/signoff-required-readiness.txt"
 
-python3 - "$netem_container_json" <<'PY'
+"$python_bin" - "$netem_container_json" <<'PY'
 import json
 import sys
 
@@ -390,9 +393,9 @@ PY
 RIPDPI_RELAY_MATRIX_CONFIG="$repo_root/test-lab/relay/provider-matrix.example.json" \
   "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
   --output "$relay_json" >/dev/null
-python3 "$validator" "$relay_json" "$tmpdir/signoff-required-readiness.txt"
+"$python_bin" "$validator" "$relay_json" "$tmpdir/signoff-required-readiness.txt"
 
-python3 - "$relay_json" <<'PY'
+"$python_bin" - "$relay_json" <<'PY'
 import json
 import sys
 

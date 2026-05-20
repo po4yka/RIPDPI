@@ -175,6 +175,7 @@ class PacketSmokeInstrumentedTest {
     }
 
     @Test
+    @RawPacketValidationOnly
     fun proxyHostfakeSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
             chainDsl =
@@ -187,6 +188,7 @@ class PacketSmokeInstrumentedTest {
     }
 
     @Test
+    @RawPacketValidationOnly
     fun proxyFakedsplitSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
             chainDsl =
@@ -200,6 +202,7 @@ class PacketSmokeInstrumentedTest {
     }
 
     @Test
+    @RawPacketValidationOnly
     fun proxyFakeddisorderSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
             chainDsl =
@@ -1153,10 +1156,13 @@ class PacketSmokeInstrumentedTest {
                 expectedScenario == "fakedsplit" ||
                 expectedScenario == "fakeddisorder"
         val fixtureIsHostLoopback = fixture.androidHost == "127.0.0.1" || fixture.androidHost == "10.0.2.2"
+        val rawCaptureCanValidateFakeSegments =
+            packetSmokeDeviceProfile() == PacketSmokeDeviceProfile.EMULATOR_RAW ||
+                packetSmokeDeviceProfile() == PacketSmokeDeviceProfile.ROOTED_ANDROID_PCAP
         assumeFalse(
             "Host-loopback packet-smoke cannot validate $expectedScenario with a TLS fixture handshake; " +
                 "the fake segment can reach the local fixture endpoint.",
-            fakeSegmentScenario && fixtureIsHostLoopback,
+            fakeSegmentScenario && fixtureIsHostLoopback && !rawCaptureCanValidateFakeSegments,
         )
     }
 
