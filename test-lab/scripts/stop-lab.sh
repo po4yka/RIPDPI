@@ -4,6 +4,8 @@ set -euo pipefail
 lab_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 host_udp_echo_pid_file="$lab_root/artifacts/host-udp-echo.pid"
 host_dns_pid_file="$lab_root/artifacts/host-dns.pid"
+# shellcheck source=test-lab/scripts/lab-corefile.sh
+source "$lab_root/scripts/lab-corefile.sh"
 
 if [[ -f "$host_udp_echo_pid_file" ]]; then
   pid="$(cat "$host_udp_echo_pid_file" 2>/dev/null || true)"
@@ -44,5 +46,5 @@ fi
   "${compose_cmd[@]}" down
 )
 
-rm -f "$lab_root/dns/Corefile.active"
+remove_generated_corefile_active
 echo "RIPDPI lab stopped."

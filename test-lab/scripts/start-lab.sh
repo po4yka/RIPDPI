@@ -4,6 +4,8 @@ set -euo pipefail
 lab_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=test-lab/scripts/python.sh
 source "$lab_root/scripts/python.sh"
+# shellcheck source=test-lab/scripts/lab-corefile.sh
+source "$lab_root/scripts/lab-corefile.sh"
 profile="${RIPDPI_LAB_PROFILE:-emulator}"
 
 while [[ $# -gt 0 ]]; do
@@ -354,9 +356,11 @@ fi
 
 case "$profile" in
   emulator)
+    remove_generated_corefile_active
     cp "$lab_root/dns/Corefile.emulator" "$lab_root/dns/Corefile.active"
     ;;
   device|physical)
+    remove_generated_corefile_active
     sed "s/\${MACBOOK_LAN_IP}/$macbook_lan_ip/g" \
       "$lab_root/dns/Corefile.device.template" > "$lab_root/dns/Corefile.active"
     ;;

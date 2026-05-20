@@ -41,6 +41,7 @@ jobs:
           test-lab/scripts/test-feature-checklist-coverage-fixtures.sh
           test-lab/scripts/test-feature-test-signoff.sh
           test-lab/scripts/test-adb-install-debug.sh
+          test-lab/scripts/test-lab-corefile.sh
 
       - name: Validate custom probe broadcast
         run: |
