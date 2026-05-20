@@ -1,3 +1,32 @@
+//! JNI export facade for the embedded SOCKS proxy lifecycle.
+//!
+//! Each `export_jni!` entry is a `Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_*`
+//! symbol that wraps a `proxy_*_entry` delegate from `ripdpi-android-proxy-adapter`
+//! in `android_support::ffi_boundary` for panic containment. This module owns
+//! only the export symbols and panic sentinels; the lifecycle logic lives in
+//! the adapter crate.
+//!
+//! ## Handle lifecycle
+//! `jniCreate` -> `jniStart` -> `jniStop` -> `jniDestroy`, per session.
+//! `jniCreate` registers an `Idle` session and returns an opaque `jlong`
+//! registry key (`0` on failure). `jniStart` transitions `Idle -> Running` and
+//! **blocks for the whole proxy lifetime**, returning `0` on a clean shutdown
+//! or a positive `errno` otherwise. `jniStop` signals the blocked `jniStart`
+//! to unwind. `jniDestroy` retires the session and must run only after
+//! `jniStart` has returned. `jniUpdateNetworkSnapshot` is a control-plane call
+//! valid only while `Running` (ignored otherwise).
+//!
+//! ## Idempotency, fds, errors
+//! `jniStop` throws `IllegalStateException` if the session is not `Running`;
+//! `jniDestroy` throws if it is still `Running` — neither is silently
+//! idempotent. The proxy adopts no externally supplied fds (it binds its own
+//! loopback listener). Failures are reported as Java exceptions thrown by the
+//! adapter (see `JniProxyError`); a contained panic yields the panic-default
+//! sentinel — `0` for `jlong`, `EINVAL` for `jniStart`, null for `jstring`.
+//!
+//! See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §6 (panic
+//! containment) and §7 (error mapping).
+
 use jni::objects::JString;
 use jni::sys::{jint, jlong, jstring};
 

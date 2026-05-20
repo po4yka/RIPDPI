@@ -35,15 +35,74 @@ internal const val defaultProxyReadyTimeoutMs = 5_000L
 private const val readyLogPollInterval = 20L
 private val geoDatabaseVersionsJson = Json { ignoreUnknownKeys = true }
 
+/**
+ * Thin JNI binding surface over the embedded SOCKS-proxy native session in
+ * `libripdpi.so` (Rust crate `ripdpi-android`, delegating to
+ * `ripdpi-android-proxy-adapter`). Each method maps 1:1 onto an `external` JNI
+ * function; the interface exists so the lifecycle can be faked in unit tests.
+ *
+ * ## Handle lifecycle and ordering
+ * One session is driven through [create] -> [start] -> [stop] -> [destroy], in
+ * that order. [create] returns an opaque non-zero `Long` handle — a key into a
+ * native registry, never a raw pointer — or `0` when session creation fails.
+ * Every later call takes that handle; once [destroy] returns the handle is
+ * retired and must never be reused.
+ *
+ * - [create] parses the config JSON, opens the loopback listener and registers
+ *   an `Idle` session.
+ * - [start] transitions `Idle -> Running` and then **blocks for the whole
+ *   proxy lifetime**, returning `0` on a clean shutdown or a positive `errno`
+ *   on failure. Always invoke it on a background dispatcher.
+ * - [stop] signals the blocked [start] to unwind; it returns immediately.
+ * - [destroy] retires the session and must run only after [start] has returned.
+ *
+ * ## Idempotency
+ * [stop] is **not** silently idempotent: invoking it when the session is not
+ * `Running` throws `IllegalStateException`. Callers either serialize lifecycle
+ * calls under a mutex (as [RipDpiProxy] does) or treat that exception as
+ * benign. [destroy] throws `IllegalStateException` if the session is still
+ * `Running`. A failed [create] returns `0` rather than throwing for the null
+ * handle, but malformed config still throws `IllegalArgumentException`.
+ *
+ * ## fd ownership
+ * The proxy adopts no externally supplied file descriptors: it binds and owns
+ * its own loopback listener socket and closes it during shutdown. Outbound
+ * sockets opened by the native runtime are kept off the VPN tunnel via the
+ * [RipDpiProxyNativeBindings.jniRegisterVpnProtect] callback — see the
+ * `vpnservice-protect-invariant` rule.
+ *
+ * ## Error mapping
+ * Native failures surface as Java exceptions thrown inside the JNI frame and
+ * observed on return: `IllegalArgumentException` (bad handle or config),
+ * `IllegalStateException` (wrong lifecycle state), `IOException` (listener or
+ * socket failure) and `RuntimeException` (serialization failure or a contained
+ * Rust panic). [start] additionally encodes failure as a positive `errno`
+ * return value.
+ *
+ * ## Blocking
+ * Only [start] blocks (for the proxy's entire run). [create], [stop],
+ * [destroy], [pollTelemetry] and [updateNetworkSnapshot] are non-blocking; they
+ * still run off the main thread because they cross JNI.
+ *
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §6 (panic
+ * containment), §7 (error mapping) and §10 (VpnService.protect callback).
+ */
 interface RipDpiProxyBindings {
+    /** Creates an `Idle` proxy session from [configJson]; returns its handle, or `0` on failure. */
     fun create(configJson: String): Long
 
+    /**
+     * Runs the proxy event loop for [handle] and **blocks** until it stops.
+     * Returns `0` on a clean shutdown or a positive `errno` on failure.
+     */
     fun start(handle: Long): Int
 
+    /** Signals a `Running` session to shut down; throws `IllegalStateException` if it is not running. */
     fun stop(handle: Long)
 
     fun pollTelemetry(handle: Long): String?
 
+    /** Retires the session for [handle]; must run only after [start] has returned. */
     fun destroy(handle: Long)
 
     fun updateNetworkSnapshot(
@@ -85,14 +144,28 @@ class RipDpiProxyNativeBindings
             }
 
             /**
-             * Register a VPN socket protection callback. Called when VPN service starts.
-             * Stores a global JNI reference to the VpnService for direct protect(fd) calls
-             * from native code, replacing the Unix domain socket approach.
+             * Register a VPN socket protection callback.
+             *
+             * Stores a JNI `GlobalRef` to the [vpnService] so native code can call
+             * `VpnService.protect(fd)` directly, instead of the Unix-domain-socket
+             * relay. Must be called **before** any session [create]/[start] so the
+             * native runtime can protect outbound sockets the moment it opens them;
+             * registering later risks an unprotected socket looping into the TUN
+             * (see the `vpnservice-protect-invariant` rule).
+             *
+             * The held `GlobalRef` is process-global and is released only by
+             * [jniUnregisterVpnProtect]; failing to unregister leaks the reference
+             * and pins the `VpnService` instance.
              */
             @JvmStatic
             external fun jniRegisterVpnProtect(vpnService: Any)
 
-            /** Unregister the VPN socket protection callback. Called when VPN service stops. */
+            /**
+             * Unregister the VPN socket protection callback and release the
+             * `GlobalRef` held since [jniRegisterVpnProtect]. Call when the VPN
+             * service stops, after the proxy session has been [stop]ped/[destroy]ed.
+             * Safe to call when no callback is registered.
+             */
             @JvmStatic
             external fun jniUnregisterVpnProtect()
         }
@@ -178,6 +251,22 @@ class RipDpiProxyNativeBindings
         ): String?
     }
 
+/**
+ * Coroutine-friendly owner of a single native proxy handle (see
+ * [RipDpiProxyBindings] for the raw JNI contract).
+ *
+ * Holds at most one live handle at a time and serializes every
+ * lifecycle-sensitive JNI call under [mutex], so [stopProxy]/`destroy` cannot
+ * retire the handle while another call is mid-flight. [startProxy] keeps the
+ * blocking native [RipDpiProxyBindings.start] on `Dispatchers.IO` and treats
+ * its return as the session ending — it then `destroy`s the handle in a
+ * `finally` block, so callers never call `destroy` directly. A second
+ * concurrent [startProxy] throws `NativeError.AlreadyRunning`; calling
+ * [stopProxy]/[pollTelemetry] with no live handle throws `NativeError.NotRunning`
+ * or yields an idle snapshot respectively.
+ *
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle).
+ */
 class RipDpiProxy(
     private val nativeBindings: RipDpiProxyBindings,
 ) : RipDpiProxyRuntime {

@@ -1,3 +1,40 @@
+//! JNI export facade for the tun2socks tunnel session lifecycle.
+//!
+//! Each `Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_*` symbol wraps a
+//! `tunnel_*_entry` delegate from the `session` module in
+//! `android_support::ffi_boundary` for panic containment. This module owns
+//! only the export symbols and panic sentinels; the session state machine
+//! lives in `crate::session`.
+//!
+//! ## Handle lifecycle
+//! `jniCreate` -> `jniStart` -> `jniStop` -> `jniDestroy`, per session.
+//! `jniCreate` registers a `Ready` session and returns an opaque `jlong`
+//! registry key (`0` on failure). `jniStart` adopts the TUN fd, transitions
+//! `Ready -> Running` and spawns the tunnel worker. `jniStop` cancels the
+//! worker and joins it. `jniDestroy` retires the session.
+//!
+//! ## Idempotency
+//! None of the lifecycle entries are idempotent: `jniStart` throws
+//! `IllegalStateException` unless `Ready`, `jniStop` throws unless `Running`,
+//! and `jniDestroy` throws if the worker is still running.
+//!
+//! ## fd ownership
+//! `jniStart` takes the TUN `tun_fd` by value and **dups** it (`adopt_tun_fd`).
+//! The JVM caller keeps ownership of the original descriptor (the `VpnService`
+//! `ParcelFileDescriptor`) and must close it; the native side closes only its
+//! dup, when the worker exits. There is no JNI callback channel — outbound
+//! sockets are protected via the `protectPath` Unix-domain socket in the config.
+//!
+//! ## Blocking and errors
+//! `jniStart` returns after the worker thread is spawned (it does not run
+//! packet IO on the caller thread); `jniStop` blocks until the worker joins.
+//! Failures surface as Java exceptions (`IllegalArgumentException`,
+//! `IllegalStateException`, `IOException`); a contained panic yields the
+//! panic-default sentinel (`0` handle, null `jstring`/`jlongArray`).
+//!
+//! See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §9 (TUN fd
+//! ownership) and §6 (panic containment).
+
 use android_support::ffi_boundary;
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jlongArray};

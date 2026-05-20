@@ -1,3 +1,29 @@
+//! JNI export facade for the relay-transport runtime (`libripdpi-relay.so`).
+//!
+//! This crate is the `cdylib` boundary for the relay native session. It owns
+//! the `JNI_OnLoad` hook and the `Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_*`
+//! export symbols; each wraps a `lifecycle::*` delegate in
+//! `android_support::ffi_boundary` so a Rust panic cannot unwind across the
+//! `extern "system"` boundary.
+//!
+//! ## Handle lifecycle
+//! `jniCreate` -> `jniStart` -> `jniStop` -> `jniDestroy`, per session.
+//! `jniCreate` registers a session and returns an opaque `jlong` registry key
+//! (`0` on failure). `jniStart` builds a Tokio runtime and **blocks for the
+//! whole relay lifetime**, returning `0` (clean exit), `1` (unknown handle) or
+//! `2` (runtime error). `jniStop` signals the blocked `jniStart` to unwind.
+//! `jniDestroy` removes the session from the registry.
+//!
+//! ## Idempotency, fds, errors
+//! `jniStop` and `jniDestroy` are idempotent — each is a silent no-op on an
+//! unknown handle. The relay adopts no externally supplied fds and registers
+//! no VPN-protect callback (it serves a loopback SOCKS listener and owns its
+//! transport sockets). Failures are reported through return codes only, never
+//! Java exceptions; a contained panic yields the panic-default sentinel.
+//!
+//! See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §6 (panic
+//! containment) and §7 (error mapping).
+
 mod lifecycle;
 mod registry;
 mod runtime;

@@ -1,3 +1,31 @@
+//! Shared JNI handle and error helpers for the Android bridge crates.
+//!
+//! These helpers implement the cross-language pieces of the JNI contract that
+//! the `ripdpi-android*` adapters depend on:
+//!
+//! - **Error mapping.** [`JniProxyError`] and its [`JniProxyError::throw`]
+//!   method translate native error categories into the Java exception classes
+//!   the Kotlin layer expects: `IllegalArgumentException` (bad config/handle),
+//!   `IllegalStateException` (wrong lifecycle state), `IOException` (socket/IO
+//!   failure) and `RuntimeException` (serialization failure). The variant ->
+//!   class mapping is regression-locked by the `error_exception_mapping.json`
+//!   contract fixture; keep [`JniProxyError::throw`] and that fixture in sync.
+//! - **Panic containment.** [`extract_panic_message`] and [`throw_panic`]
+//!   convert a payload caught by `catch_unwind` into a Java `RuntimeException`
+//!   instead of letting the panic unwind across the `extern "system"` boundary
+//!   — that unwind is undefined behaviour under the `android-jni` profile's
+//!   `panic = "unwind"` setting. They are the throwing counterpart to
+//!   `android_support::ffi_boundary`, which substitutes a sentinel value.
+//! - **Handle decoding.** [`to_handle`] validates the opaque `jlong` handle the
+//!   Kotlin side passes back, rejecting `0` (the "no handle" sentinel) and
+//!   negative values, and yielding a registry-key `u64` on success.
+//!
+//! None of these helpers own file descriptors or register callbacks; fd and
+//! callback ownership live in the per-feature adapter crates.
+//!
+//! See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §6 (panic
+//! containment) and §7 (error mapping).
+
 use std::any::Any;
 
 use android_support::{
@@ -7,6 +35,8 @@ use android_support::{
 use jni::sys::jlong;
 use jni::{Env, EnvUnowned};
 
+/// Native error categories raised by the proxy/geo JNI adapters, each mapped to
+/// a fixed Java exception class by [`JniProxyError::throw`].
 #[derive(Debug, thiserror::Error)]
 pub enum JniProxyError {
     #[error("invalid configuration: {0}")]
@@ -27,6 +57,15 @@ pub enum JniProxyError {
 }
 
 impl JniProxyError {
+    /// Throw this error into the JVM as a pending Java exception, then return.
+    ///
+    /// The mapping is fixed: `InvalidConfig`/`InvalidArgument` ->
+    /// `IllegalArgumentException`, `IllegalState` -> `IllegalStateException`,
+    /// `Io` -> `IOException`, `Serialization` -> `RuntimeException`. IO and
+    /// serialization messages are passed through `sanitize_error_message` so
+    /// raw paths/identifiers do not leak. After this call the caller must
+    /// return the FFI sentinel value without making further JNI calls (a
+    /// pending exception poisons subsequent JNI operations).
     pub fn throw(self, env: &mut Env<'_>) {
         log::error!("JNI proxy error: {self:?}");
         match self {
@@ -45,6 +84,9 @@ impl JniProxyError {
     }
 }
 
+/// Extract a human-readable message from a `catch_unwind` panic payload,
+/// handling the `String` and `&str` payload shapes and falling back to
+/// `"unknown panic"` for any other type.
 pub fn extract_panic_message(payload: Box<dyn Any + Send>) -> String {
     payload
         .downcast_ref::<String>()
@@ -54,10 +96,17 @@ pub fn extract_panic_message(payload: Box<dyn Any + Send>) -> String {
         .to_string()
 }
 
+/// Throw a caught panic payload into the JVM as a `RuntimeException` prefixed
+/// with `prefix`. Call this from the `Outcome::Panic` arm of a JNI entry point
+/// so a contained panic is reported to Kotlin instead of unwinding.
 pub fn throw_panic(env: &mut EnvUnowned<'_>, prefix: &str, payload: Box<dyn Any + Send>) {
     throw_runtime_exception(env, format!("{prefix}: {}", extract_panic_message(payload)));
 }
 
+/// Decode the opaque `jlong` handle passed back from Kotlin into a native
+/// registry key. Returns `None` for `0` (the "no handle" sentinel) and for any
+/// value outside the non-negative `u64` range, so callers can reject stale or
+/// never-created handles before a registry lookup.
 pub fn to_handle(value: jlong) -> Option<u64> {
     u64::try_from(value).ok().filter(|handle| *handle != 0)
 }

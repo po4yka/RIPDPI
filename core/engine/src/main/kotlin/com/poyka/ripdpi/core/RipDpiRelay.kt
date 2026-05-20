@@ -33,15 +33,61 @@ interface RipDpiRelayRuntime {
 
 internal const val defaultRelayReadyTimeoutMs = 5_000L
 
+/**
+ * Thin JNI binding surface over the relay-transport native session in
+ * `libripdpi-relay.so` (Rust crate `ripdpi-relay-android`). Each method maps
+ * 1:1 onto an `external` JNI function; the interface exists so the lifecycle
+ * can be faked in unit tests.
+ *
+ * ## Handle lifecycle and ordering
+ * One session runs through [create] -> [start] -> [stop] -> [destroy], in that
+ * order. [create] returns an opaque non-zero `Long` handle (a native registry
+ * key, not a pointer), or `0` on failure. [start] runs the relay; [stop]
+ * signals it to unwind; [destroy] removes the session from the registry. After
+ * [destroy] returns the handle is dead and must never be reused.
+ *
+ * ## Idempotency
+ * [stop] and [destroy] are both idempotent: each is a silent no-op when the
+ * handle is unknown or already retired (unlike the proxy and tunnel bindings,
+ * which throw on a stale handle). [start] on an unknown handle returns the
+ * error code `1` rather than blocking.
+ *
+ * ## fd ownership
+ * The relay adopts no externally supplied file descriptors and exposes no JNI
+ * callback channel — it opens a loopback SOCKS listener and its own outbound
+ * transport sockets, and closes them within the native session.
+ *
+ * ## Error mapping
+ * The relay bindings report failure purely through return values, **not** Java
+ * exceptions: [create] returns `0`, and [start] returns `0` (clean exit), `1`
+ * (unknown handle) or `2` (runtime/transport error). A contained Rust panic is
+ * absorbed by the FFI boundary and surfaces as the same sentinel (`0` handle /
+ * non-zero code / `null` telemetry).
+ *
+ * ## Blocking
+ * [start] **blocks for the whole relay lifetime** — it builds a Tokio runtime
+ * and runs the session to completion — so always invoke it on a background
+ * dispatcher. [create], [stop], [destroy] and [pollTelemetry] are non-blocking.
+ *
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §6 (panic
+ * containment) and §7 (error mapping).
+ */
 interface RipDpiRelayBindings {
+    /** Creates a relay session from [configJson]; returns its handle, or `0` on failure. */
     fun create(configJson: String): Long
 
+    /**
+     * Runs the relay for [handle] and **blocks** until it stops. Returns `0`
+     * on a clean exit, `1` for an unknown handle, or `2` on a runtime error.
+     */
     fun start(handle: Long): Int
 
+    /** Signals the relay to shut down; an idempotent no-op when [handle] is unknown. */
     fun stop(handle: Long)
 
     fun pollTelemetry(handle: Long): String?
 
+    /** Retires the session for [handle]; an idempotent no-op when already removed. */
     fun destroy(handle: Long)
 }
 
@@ -192,6 +238,20 @@ data class ResolvedRipDpiRelayConfig(
     val finalmask: ResolvedRelayFinalmaskConfig = ResolvedRelayFinalmaskConfig(),
 )
 
+/**
+ * Coroutine-friendly owner of a single native relay handle (see
+ * [RipDpiRelayBindings] for the raw JNI contract).
+ *
+ * Holds at most one live handle and serializes handle-sensitive JNI calls under
+ * [mutex]. [start] keeps the blocking [RipDpiRelayBindings.start] on
+ * `Dispatchers.IO` and `destroy`s the handle in a `finally` block once it
+ * returns, so callers never call `destroy` directly. [stop] clears the handle
+ * field first, then runs `stop` + `destroy` off the lock — both are idempotent
+ * native no-ops, so a redundant [stop] is harmless. A second [start] while a
+ * handle is live throws `NativeError.AlreadyRunning`.
+ *
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle).
+ */
 class RipDpiRelay(
     private val nativeBindings: RipDpiRelayBindings,
 ) : RipDpiRelayRuntime {
