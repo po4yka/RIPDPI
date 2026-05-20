@@ -147,6 +147,14 @@ Details: [docs/testing.md](docs/testing.md)
 
 ## Documentation
 
+**New to RIPDPI?** Recommended reading path:
+[Architecture overview](docs/architecture/ARCHITECTURE.md) →
+[runtime modes](docs/architecture/ARCHITECTURE.md#2-runtime-modes) →
+[native Rust workspace](docs/architecture/NATIVE_RUST.md) →
+[Kotlin/Rust JNI contract](docs/architecture/JNI_CONTRACT.md) →
+[config contracts](docs/architecture/CONFIG_CONTRACTS.md) →
+[feature extension guide](docs/architecture/FEATURE_EXTENSION_GUIDE.md).
+
 - [Native integration and modules](docs/native/README.md)
 - [Packet strategy runtime](docs/packet-strategy-runtime.md)
 - [Proxy engine and strategy surface](docs/native/proxy-engine.md)

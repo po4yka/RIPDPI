@@ -488,6 +488,7 @@ whether an emitter runs, they do not change the taxonomy.
 
 | Topic | Source |
 |-------|--------|
+| Domain term definitions | [`GLOSSARY.md`](GLOSSARY.md) |
 | Module map, control flow, config flow | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Crate taxonomy + dependency direction | [`NATIVE_RUST.md`](NATIVE_RUST.md) |
 | Desync chains, `TcpChainStep`, fake-TTL | `desync-engine` skill |

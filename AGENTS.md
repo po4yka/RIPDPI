@@ -78,6 +78,8 @@ Invoke the `repo-task-board` skill when the user mentions: roadmap, TODO, backlo
 
 ## Architecture
 
+Deep-dive architecture references live under `docs/architecture/`: start with [`ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md) (the canonical map), then [`NATIVE_RUST.md`](docs/architecture/NATIVE_RUST.md), [`JNI_CONTRACT.md`](docs/architecture/JNI_CONTRACT.md), [`CONFIG_CONTRACTS.md`](docs/architecture/CONFIG_CONTRACTS.md), and [`FEATURE_EXTENSION_GUIDE.md`](docs/architecture/FEATURE_EXTENSION_GUIDE.md). The summary below is a quick reference.
+
 ```
 :app (UI/Compose) --> :core:service (VPN/proxy services)
                           |
@@ -215,7 +217,7 @@ The native Rust proxy calls `VpnService.protect(fd)` on upstream sockets so they
 
 ## Native Code
 
-Two native libraries are built from repo-owned Android adapter crates in the native workspace:
+JNI native libraries are built from repo-owned Android adapter crates in the native workspace; [`docs/architecture/NATIVE_RUST.md`](docs/architecture/NATIVE_RUST.md) carries the complete native artifact map and crate taxonomy. The table below is a quick reference:
 
 | Library | Build system | Source | Output |
 |---------|-------------|--------|--------|

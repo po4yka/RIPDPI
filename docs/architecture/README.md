@@ -2,11 +2,23 @@
 
 This directory keeps compact architecture documentation. Completed history lives in git.
 
+## Start here
+
+The canonical architecture docs, in reading order:
+
+1. [ARCHITECTURE.md](ARCHITECTURE.md) — the "start here" map: modules, runtime modes, control/data plane, config flow
+2. [NATIVE_RUST.md](NATIVE_RUST.md) — native Rust workspace taxonomy and dependency direction
+3. [JNI_CONTRACT.md](JNI_CONTRACT.md) — the Kotlin ↔ Rust JNI boundary contract
+4. [CONFIG_CONTRACTS.md](CONFIG_CONTRACTS.md) — settings, protobuf, native JSON, and Rust config compatibility
+5. [FEATURE_EXTENSION_GUIDE.md](FEATURE_EXTENSION_GUIDE.md) — how to add features safely
+
+The notes below this point are compact, topic-specific records; the five docs above are the entry points.
+
 ## Ownership Boundaries
 
 **Config contract:** Kotlin is authoritative for user-facing strategy models, defaults, validation, and JSON serialization. Rust consumes the JSON produced by Kotlin. Owners: `StrategyChains.kt` and `RipDpiProxyJsonCodec.kt`.
 
-**Diagnosis classification:** Rust produces the final blocking verdict because packet, TLS, DNS, and timing evidence is collected in the native monitor. Kotlin maps the result to UI and persistence without re-classifying. Owner: `native/rust/crates/ripdpi-monitor/src/classification/diagnosis.rs`.
+**Diagnosis classification:** Rust produces the final blocking verdict because packet, TLS, DNS, and timing evidence is collected in the native monitor. Kotlin maps the result to UI and persistence without re-classifying. Owner: `native/rust/crates/ripdpi-diagnostics-classification/src/classification/diagnosis.rs`.
 
 **Service lifecycle:** `ServiceRuntimeCoordinator` owns lifecycle sequencing, restart/backoff, and stop/start orchestration. Mode-specific behavior is composed through injected policies rather than subclass override logic.
 
@@ -38,7 +50,7 @@ This directory keeps compact architecture documentation. Completed history lives
 
 ## ECH Rotation
 
-`ripdpi-monitor` keeps ECH support fresh through `CdnEchUpdater`:
+`ripdpi-diagnostics-dns` keeps ECH support fresh through `CdnEchUpdater`:
 
 - bundled ECH bytes are always available as fallback;
 - `RemoteEchConfigSource` fetches HTTPS-RR ECHConfigList data through the existing encrypted-DNS plumbing;

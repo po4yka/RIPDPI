@@ -2,6 +2,13 @@
 
 This directory documents the in-repository Rust native modules used by RIPDPI and the Android integration layer that wraps them.
 
+> **Canonical crate map:** [`docs/architecture/NATIVE_RUST.md`](../architecture/NATIVE_RUST.md)
+> is the current workspace taxonomy and dependency-direction reference. Some
+> sections below predate the runtime/monitor crate split — the crate names
+> `ripdpi-runtime` and `ripdpi-monitor` are **historical**. The workspace
+> (`native/rust/Cargo.toml`) now uses the `ripdpi-proxy-runtime` +
+> `ripdpi-runtime-*` family and the `ripdpi-monitor-*` family instead.
+
 ## Overview
 
 | Native module | Built artifact | Used in app | Main Kotlin bridge | Methods actually reached from app |
