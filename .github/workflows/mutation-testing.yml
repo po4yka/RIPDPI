@@ -39,6 +39,12 @@ jobs:
         with:
           tool: cargo-nextest,cargo-mutants
 
+      - name: Install act build prerequisites
+        if: env.ACT == 'true'
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cmake ninja-build pkg-config build-essential libclang-dev
+
       - name: Run mutation testing
         env:
           MUTANTS_PACKAGES: ${{ github.event.inputs.packages || '' }}
@@ -50,7 +56,7 @@ jobs:
           bash scripts/ci/run-rust-mutants.sh "${extra_args[@]}"
 
       - name: Upload mutation results
-        if: always()
+        if: always() && env.ACT != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mutants-output
