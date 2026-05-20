@@ -1,4 +1,10 @@
-//! TCP window-size desync strategies.
+//! TCP window-size desync strategies (`wsize`, `wssize`).
+//!
+//! A representative, minimal `ripdpi-strategy-*` implementation crate: it
+//! implements [`DesyncStrategy`] for each strategy type and contributes a
+//! [`StrategyFactory`] to `STRATEGY_FACTORIES` for each stable ID, so
+//! `ripdpi-strategy-registry` resolves it by ID with no central match arm.
+//! See `README.md` and `FEATURE_EXTENSION_GUIDE.md` §1.
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,

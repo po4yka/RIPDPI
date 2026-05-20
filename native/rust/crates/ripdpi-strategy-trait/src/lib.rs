@@ -1,4 +1,19 @@
 //! Shared strategy abstraction for RIPDPI desync backends.
+//!
+//! This crate is the **strategy contract** (L2). It defines [`DesyncStrategy`]
+//! — implemented by every desync backend — and the [`StrategyContext`] /
+//! [`DesyncPlan`] / [`DesyncAction`] types passed across it.
+//!
+//! Strategy crates advertise themselves through two `linkme` distributed
+//! slices so the registry never needs a central match arm:
+//!
+//! - [`STRATEGY_FACTORIES`] — zero-argument default builders, keyed by stable
+//!   ID; this is the preferred registration seam.
+//! - [`STRATEGY_DESCRIPTOR_REGISTRATIONS`] — descriptor-only entries for
+//!   strategies that cannot be built without runtime config.
+//!
+//! See `README.md` and `FEATURE_EXTENSION_GUIDE.md` §1 for how to add a
+//! strategy and which central edits each registration path requires.
 
 use std::collections::HashMap;
 
