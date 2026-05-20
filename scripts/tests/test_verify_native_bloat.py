@@ -70,6 +70,53 @@ class VerifyNativeBloatTest(unittest.TestCase):
             self.assertEqual(str(sdk_dir.resolve()), env["ANDROID_SDK_ROOT"])
             self.assertEqual(str(ndk_dir.resolve()), env["ANDROID_NDK_HOME"])
 
+    def test_parse_cmake_version_reads_semver(self) -> None:
+        self.assertEqual(
+            (4, 3, 2),
+            verify_native_bloat.parse_cmake_version("cmake version 4.3.2\n\nCMake suite maintained by Kitware.\n"),
+        )
+
+    def test_resolve_android_cmake_prefers_modern_path_cmake_over_sdk_cmake(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            path_cmake = root / "homebrew" / "bin" / "cmake"
+            sdk_cmake = root / "sdk" / "cmake" / "3.22.1" / "bin" / "cmake"
+            path_cmake.parent.mkdir(parents=True)
+            sdk_cmake.parent.mkdir(parents=True)
+            path_cmake.write_text("#!/bin/sh\n", encoding="utf-8")
+            sdk_cmake.write_text("#!/bin/sh\n", encoding="utf-8")
+
+            def fake_version(path: Path) -> tuple[int, int, int] | None:
+                if path == path_cmake.resolve():
+                    return (4, 3, 2)
+                if path == sdk_cmake.resolve():
+                    return (3, 22, 1)
+                return None
+
+            with (
+                patch.dict("os.environ", {}, clear=True),
+                patch("scripts.ci.verify_native_bloat.shutil.which", return_value=str(path_cmake)),
+                patch("scripts.ci.verify_native_bloat.read_cmake_version", side_effect=fake_version),
+            ):
+                resolved = verify_native_bloat.resolve_android_cmake(root / "sdk")
+
+            self.assertEqual(path_cmake.resolve(), resolved)
+
+    def test_resolve_android_cmake_rejects_only_old_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            sdk_cmake = root / "sdk" / "cmake" / "3.22.1" / "bin" / "cmake"
+            sdk_cmake.parent.mkdir(parents=True)
+            sdk_cmake.write_text("#!/bin/sh\n", encoding="utf-8")
+
+            with (
+                patch.dict("os.environ", {}, clear=True),
+                patch("scripts.ci.verify_native_bloat.shutil.which", return_value=None),
+                patch("scripts.ci.verify_native_bloat.read_cmake_version", return_value=(3, 22, 1)),
+            ):
+                with self.assertRaisesRegex(ValueError, "requires CMake >= 3.28.0"):
+                    verify_native_bloat.resolve_android_cmake(root / "sdk")
+
     def test_diff_named_items_tracks_growth_and_new_entries(self) -> None:
         diff = verify_native_bloat.diff_named_items(
             baseline_items=[{"name": "foo", "size": 1000, "crate": "a"}],

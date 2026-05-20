@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -12,6 +13,7 @@ from pathlib import Path
 
 PACKAGES = ("ripdpi-android", "ripdpi-tunnel-android")
 HOST_TAGS = ("linux-x86_64", "darwin-arm64", "darwin-x86_64")
+MIN_ANDROID_CMAKE_VERSION = (3, 28, 0)
 CLANG_TARGETS = {
     "aarch64-linux-android": "aarch64-linux-android",
     "armv7-linux-androideabi": "armv7a-linux-androideabi",
@@ -95,13 +97,78 @@ def resolve_min_sdk(repo_root: Path) -> int:
     return int(value)
 
 
-def resolve_android_cmake(sdk_dir: Path) -> Path | None:
-    preferred = sdk_dir / "cmake" / "3.22.1" / "bin" / "cmake"
-    if preferred.is_file():
-        return preferred
+def parse_cmake_version(output: str) -> tuple[int, int, int] | None:
+    match = re.search(r"cmake version (\d+)\.(\d+)\.(\d+)", output)
+    if not match:
+        return None
+    return tuple(int(part) for part in match.groups())
 
-    candidates = sorted((sdk_dir / "cmake").glob("*/bin/cmake"))
-    return candidates[-1] if candidates else None
+
+def read_cmake_version(cmake_path: Path) -> tuple[int, int, int] | None:
+    result = subprocess.run(
+        [str(cmake_path), "--version"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return parse_cmake_version(result.stdout)
+
+
+def format_version(version: tuple[int, int, int]) -> str:
+    return ".".join(str(part) for part in version)
+
+
+def resolve_executable_path(value: str) -> Path | None:
+    expanded = Path(value).expanduser()
+    if expanded.is_file():
+        return expanded.resolve()
+    resolved = shutil.which(value)
+    return Path(resolved).resolve() if resolved else None
+
+
+def resolve_android_cmake(sdk_dir: Path) -> Path | None:
+    explicit = os.environ.get("CMAKE")
+    if explicit:
+        cmake_path = resolve_executable_path(explicit)
+        if cmake_path is None:
+            raise ValueError(f"CMAKE points to a non-existent executable: {explicit}")
+        version = read_cmake_version(cmake_path)
+        if version is not None and version < MIN_ANDROID_CMAKE_VERSION:
+            raise ValueError(
+                "Android cargo-bloat requires CMake "
+                f">= {format_version(MIN_ANDROID_CMAKE_VERSION)}; "
+                f"CMAKE={cmake_path} reports {format_version(version)}.",
+            )
+        return cmake_path
+
+    candidates: list[Path] = []
+    path_cmake = shutil.which("cmake")
+    if path_cmake:
+        candidates.append(Path(path_cmake).resolve())
+    candidates.extend(candidate.resolve() for candidate in sorted((sdk_dir / "cmake").glob("*/bin/cmake")))
+
+    seen: set[Path] = set()
+    versioned: list[tuple[tuple[int, int, int], Path]] = []
+    for candidate in candidates:
+        if candidate in seen or not candidate.is_file():
+            continue
+        seen.add(candidate)
+        version = read_cmake_version(candidate)
+        if version is not None:
+            versioned.append((version, candidate))
+
+    modern = [(version, path) for version, path in versioned if version >= MIN_ANDROID_CMAKE_VERSION]
+    if modern:
+        return max(modern, key=lambda item: item[0])[1]
+    if versioned:
+        found = ", ".join(f"{path}={format_version(version)}" for version, path in versioned)
+        raise ValueError(
+            "Android cargo-bloat requires CMake "
+            f">= {format_version(MIN_ANDROID_CMAKE_VERSION)}; found only {found}.",
+        )
+    return None
 
 
 def write_android_compiler_filter_wrapper(wrapper_path: Path, real_compiler: Path) -> Path:
