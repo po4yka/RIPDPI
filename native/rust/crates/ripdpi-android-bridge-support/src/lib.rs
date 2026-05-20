@@ -57,6 +57,20 @@ pub enum JniProxyError {
 }
 
 impl JniProxyError {
+    /// `InvalidArgument` for a proxy handle that failed [`to_handle`] decoding
+    /// (zero or out of range). Maps to `IllegalArgumentException` with the
+    /// message `"Invalid proxy handle"`. Use as `ok_or_else(JniProxyError::invalid_handle)`.
+    pub fn invalid_handle() -> Self {
+        Self::InvalidArgument(invalid_handle_message("proxy"))
+    }
+
+    /// `InvalidArgument` for a well-formed proxy handle with no registered
+    /// session. Maps to `IllegalArgumentException` with the message
+    /// `"Unknown proxy handle"`.
+    pub fn unknown_handle() -> Self {
+        Self::InvalidArgument(unknown_handle_message("proxy"))
+    }
+
     /// Throw this error into the JVM as a pending Java exception, then return.
     ///
     /// The mapping is fixed: `InvalidConfig`/`InvalidArgument` ->
@@ -109,6 +123,23 @@ pub fn throw_panic(env: &mut EnvUnowned<'_>, prefix: &str, payload: Box<dyn Any 
 /// never-created handles before a registry lookup.
 pub fn to_handle(value: jlong) -> Option<u64> {
     u64::try_from(value).ok().filter(|handle| *handle != 0)
+}
+
+/// Canonical `IllegalArgumentException`-class message for a handle that failed
+/// [`to_handle`] decoding (zero or out of range). `kind` is the subsystem name
+/// (`"proxy"`, `"diagnostics"`, ...); the result reads `"Invalid {kind} handle"`.
+///
+/// Centralizes the message wording so every adapter's "bad handle" exception is
+/// byte-identical for a given subsystem.
+pub fn invalid_handle_message(kind: &str) -> String {
+    format!("Invalid {kind} handle")
+}
+
+/// Canonical `IllegalArgumentException`-class message for a well-formed handle
+/// that has no registered session. The result reads `"Unknown {kind} handle"`.
+/// See [`invalid_handle_message`].
+pub fn unknown_handle_message(kind: &str) -> String {
+    format!("Unknown {kind} handle")
 }
 
 #[cfg(feature = "test-support")]
@@ -182,6 +213,19 @@ mod tests {
     use std::io;
 
     use crate::test_support::{lock_jni_tests, take_exception, with_env};
+
+    #[test]
+    fn handle_message_helpers_format_kind_and_back_the_proxy_constructors() {
+        assert_eq!(invalid_handle_message("proxy"), "Invalid proxy handle");
+        assert_eq!(invalid_handle_message("diagnostics"), "Invalid diagnostics handle");
+        assert_eq!(unknown_handle_message("proxy"), "Unknown proxy handle");
+        assert_eq!(unknown_handle_message("diagnostics"), "Unknown diagnostics handle");
+
+        // The proxy constructors must keep producing the exact strings the
+        // adapter test suites and `error_exception_mapping.json` pin.
+        assert_eq!(JniProxyError::invalid_handle().to_string(), "Invalid proxy handle");
+        assert_eq!(JniProxyError::unknown_handle().to_string(), "Unknown proxy handle");
+    }
 
     #[test]
     fn throw_maps_argument_errors_to_illegal_argument_exception() {

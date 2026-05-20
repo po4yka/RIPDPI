@@ -27,14 +27,13 @@ pub(crate) enum ProxySessionState {
 }
 
 pub(crate) fn lookup_proxy_session(handle: jlong) -> Result<Arc<ProxySession>, JniProxyError> {
-    let handle = to_handle(handle).ok_or_else(|| JniProxyError::InvalidArgument("Invalid proxy handle".to_string()))?;
-    SESSIONS.get(handle).ok_or_else(|| JniProxyError::InvalidArgument("Unknown proxy handle".to_string()))
+    let handle = to_handle(handle).ok_or_else(JniProxyError::invalid_handle)?;
+    SESSIONS.get(handle).ok_or_else(JniProxyError::unknown_handle)
 }
 
 pub(crate) fn remove_proxy_session(handle: jlong) -> Result<Arc<ProxySession>, JniProxyError> {
-    let handle = to_handle(handle).ok_or_else(|| JniProxyError::InvalidArgument("Invalid proxy handle".to_string()))?;
-    let session =
-        SESSIONS.remove(handle).ok_or_else(|| JniProxyError::InvalidArgument("Unknown proxy handle".to_string()))?;
+    let handle = to_handle(handle).ok_or_else(JniProxyError::invalid_handle)?;
+    let session = SESSIONS.remove(handle).ok_or_else(JniProxyError::unknown_handle)?;
     clear_android_log_scope_level(session.telemetry.log_scope());
     Ok(session)
 }
