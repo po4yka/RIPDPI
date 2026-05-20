@@ -81,33 +81,35 @@ fn validate_ip_fragmentation_capabilities(
     }
 }
 
-struct RootHelperProbeRegistration {
-    registered: bool,
+enum RootHelperProbeRegistration {
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    Registered,
+    Unchanged,
 }
 
 impl RootHelperProbeRegistration {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     fn for_path(path: Option<&str>) -> Self {
         if crate::platform::root_helper::has_root_helper() {
-            return Self { registered: false };
+            return Self::Unchanged;
         }
         let Some(path) = path.map(str::trim).filter(|path| !path.is_empty()) else {
-            return Self { registered: false };
+            return Self::Unchanged;
         };
         crate::platform::root_helper::register_root_helper(path.to_owned());
-        Self { registered: true }
+        Self::Registered
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     fn for_path(_path: Option<&str>) -> Self {
-        Self { registered: false }
+        Self::Unchanged
     }
 }
 
 impl Drop for RootHelperProbeRegistration {
     fn drop(&mut self) {
-        if self.registered {
-            #[cfg(any(target_os = "linux", target_os = "android"))]
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        if matches!(self, Self::Registered) {
             crate::platform::root_helper::unregister_root_helper();
         }
     }
