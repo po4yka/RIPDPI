@@ -5,6 +5,7 @@ lab_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 artifact_path="$lab_root/artifacts/feature-gap-readiness.json"
 adb_bin="${ADB:-adb}"
 relay_matrix_config="${RIPDPI_RELAY_MATRIX_CONFIG:-}"
+local_workflow_evidence="${RIPDPI_LOCAL_WORKFLOW_EVIDENCE:-}"
 remote_compare_ref="${RIPDPI_REMOTE_COMPARE_REF:-origin/main}"
 ignore_dirty_worktree="${RIPDPI_IGNORE_DIRTY_WORKTREE_FOR_READINESS:-false}"
 netem_container_name="${RIPDPI_NETEM_CONTAINER:-ripdpi-linux-netem}"
@@ -256,6 +257,15 @@ ahead_count="$(git -C "$repo_root" rev-list --count "$remote_compare_ref..HEAD" 
 if [[ -n "$dirty_worktree" ]]; then
   dirty_count="$(printf '%s\n' "$dirty_worktree" | sed '/^$/d' | wc -l | tr -d ' ')"
   add_check "remote_workflow_confirmation" "blocked" "true" "Local working tree has $dirty_count uncommitted change(s); commit or discard them, then confirm fresh workflows before sign-off."
+elif [[ -n "$local_workflow_evidence" ]]; then
+  head_sha="$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || true)"
+  if [[ -z "$head_sha" ]]; then
+    add_check "remote_workflow_confirmation" "blocked" "true" "Could not resolve the current git commit for local workflow evidence validation."
+  elif local_workflow_output="$("$lab_root/scripts/check-local-workflow-evidence.sh" --evidence "$local_workflow_evidence" --head "$head_sha" 2>&1)"; then
+    add_check "remote_workflow_confirmation" "ready" "true" "Local workflow evidence accepted for the current commit. $local_workflow_output"
+  else
+    add_check "remote_workflow_confirmation" "blocked" "true" "Local workflow evidence is invalid at $local_workflow_evidence: $local_workflow_output"
+  fi
 elif [[ "$ahead_count" == "0" ]]; then
   add_check "remote_workflow_confirmation" "manual" "true" "Local branch is not ahead of $remote_compare_ref; inspect GitHub workflow status for the pushed or merged commit."
 elif [[ "$ahead_count" == "unknown" ]]; then

@@ -21,6 +21,8 @@ atomic_json="$tmpdir/feature-gap-readiness-atomic.json"
 multi_device_json="$tmpdir/feature-gap-readiness-multi-device.json"
 netem_container_json="$tmpdir/feature-gap-readiness-netem-container.json"
 cellular_out_of_service_json="$tmpdir/feature-gap-readiness-cellular-out-of-service.json"
+local_workflow_json="$tmpdir/local-workflow-evidence.json"
+local_workflow_readiness_json="$tmpdir/feature-gap-readiness-local-workflow.json"
 fake_adb="$tmpdir/fake-adb"
 fake_docker="$tmpdir/docker"
 validator="$tmpdir/validate-readiness.py"
@@ -235,6 +237,49 @@ if remote.get("status") != "blocked":
 message = remote.get("message", "")
 if "Could not compare" not in message or "origin/ripdpi-missing-test-ref" not in message:
     raise SystemExit(f"unknown remote compare message is unclear: {message!r}")
+PY
+
+"$python_bin" - "$local_workflow_json" "$(git -C "$repo_root" rev-parse HEAD)" <<'PY'
+import json
+import sys
+import time
+
+output, head_sha = sys.argv[1:3]
+checks = [
+    {"name": "ci", "status": "passed", "source": "act", "evidence": "test"},
+    {"name": "codeql", "status": "passed", "source": "github", "evidence": "test"},
+    {"name": "local-network-lab", "status": "passed", "source": "act", "evidence": "test"},
+    {"name": "offline-analytics", "status": "passed", "source": "local", "evidence": "test"},
+    {"name": "mutation-testing", "status": "passed", "source": "act", "evidence": "test"},
+    {"name": "fuzz-nightly", "status": "passed", "source": "local", "evidence": "test"},
+]
+with open(output, "w", encoding="utf-8") as handle:
+    json.dump({"version": 1, "commit": head_sha, "generatedAtEpoch": int(time.time()), "checks": checks}, handle)
+PY
+
+RIPDPI_LOCAL_WORKFLOW_EVIDENCE="$local_workflow_json" \
+  RIPDPI_IGNORE_DIRTY_WORKTREE_FOR_READINESS=true \
+  RIPDPI_REMOTE_COMPARE_REF="origin/ripdpi-missing-test-ref" \
+  "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
+  --output "$local_workflow_readiness_json" >/dev/null
+"$python_bin" "$validator" "$local_workflow_readiness_json" "$tmpdir/signoff-required-readiness.txt"
+
+"$python_bin" - "$local_workflow_readiness_json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+
+checks = {check["name"]: check for check in data.get("checks", [])}
+remote = checks.get("remote_workflow_confirmation")
+if remote is None:
+    raise SystemExit("missing remote_workflow_confirmation readiness check")
+if remote.get("status") != "ready":
+    raise SystemExit(f"expected local workflow evidence to make remote row ready, got {remote!r}")
+message = remote.get("message", "")
+if "Local workflow evidence accepted for the current commit" not in message:
+    raise SystemExit(f"local workflow evidence message is unclear: {message!r}")
 PY
 
 cat > "$fake_adb" <<'SH'
