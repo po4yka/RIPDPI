@@ -1,3 +1,9 @@
+//! Internal (`pub(crate)`) — **not** part of the public API.
+//!
+//! Lock-free storage backing [`EmbeddedProxyControl`](crate::EmbeddedProxyControl)'s
+//! network snapshot. `ArcSwap` gives wait-free reads on the per-connection hot
+//! path; the type is `pub(crate)` so it never widens the crate's API surface.
+
 use arc_swap::ArcSwap;
 use ripdpi_proxy_config::NetworkSnapshot;
 

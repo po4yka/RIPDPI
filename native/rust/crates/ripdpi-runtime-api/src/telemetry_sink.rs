@@ -1,8 +1,24 @@
+//! Contract port — **stable** public API.
+//!
+//! [`RuntimeTelemetrySink`] is implemented outside this crate (by the CLI, the
+//! Android telemetry adapter, and test harnesses) and consumed by the runtime
+//! through a trait object, so the runtime never depends on a concrete
+//! telemetry backend. The `ClassifiedFailure` parameter is reused from
+//! `ripdpi-failure-classifier` by design — see the crate-level docs.
+//!
+//! Every method past the required core has a default empty body, so adding a
+//! new observation point here is a non-breaking change for existing sinks.
+
 use std::io;
 use std::net::SocketAddr;
 
 use ripdpi_failure_classifier::ClassifiedFailure;
 
+/// Per-event telemetry port for a running proxy.
+///
+/// Required methods cover the listener/client/route lifecycle; the
+/// default-bodied methods are optional observation points an implementer may
+/// override. See the module docs for the stability contract.
 pub trait RuntimeTelemetrySink: Send + Sync {
     fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize);
 
