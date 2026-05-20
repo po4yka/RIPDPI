@@ -136,7 +136,9 @@ pub fn diagnostics_destroy_entry(mut env: EnvUnowned<'_>, handle: jlong) {
 mod tests {
     use super::*;
 
-    use std::thread::sleep;
+    use std::io::Write;
+    use std::net::TcpListener;
+    use std::thread::{sleep, JoinHandle};
     use std::time::{Duration, Instant};
 
     use android_support::describe_exception;
@@ -260,9 +262,10 @@ mod tests {
     fn duplicate_start_throws_illegal_state() {
         let _serial = lock_jni_tests();
         let handle = DiagnosticsHandle::new();
+        let slow_server = SlowHttpServer::start();
 
         with_env(|env| {
-            jni_start_scan(env, handle.raw(), &minimal_request_json(), "session-duplicate");
+            jni_start_scan(env, handle.raw(), &slow_request_json(slow_server.port()), "session-duplicate");
             assert_no_exception(env);
 
             jni_start_scan(env, handle.raw(), &minimal_request_json(), "session-duplicate-2");
@@ -408,5 +411,77 @@ mod tests {
             "whitelistSni": [],
         })
         .to_string()
+    }
+
+    fn slow_request_json(http_port: u16) -> String {
+        serde_json::json!({
+            "profileId": "jni-test-profile",
+            "displayName": "JNI diagnostics",
+            "pathMode": "RAW_PATH",
+            "proxyHost": null,
+            "proxyPort": null,
+            "probeTasks": [
+                {
+                    "family": "WEB",
+                    "targetId": "slow-localhost",
+                    "label": "Slow localhost"
+                }
+            ],
+            "domainTargets": [
+                {
+                    "host": "127.0.0.1",
+                    "httpPort": http_port,
+                    "httpPath": "/",
+                    "isControl": true
+                }
+            ],
+            "dnsTargets": [],
+            "tcpTargets": [],
+            "whitelistSni": [],
+        })
+        .to_string()
+    }
+
+    struct SlowHttpServer {
+        port: u16,
+        worker: Option<JoinHandle<()>>,
+    }
+
+    impl SlowHttpServer {
+        fn start() -> Self {
+            let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind slow HTTP test server");
+            let port = listener.local_addr().expect("read slow HTTP server address").port();
+            listener.set_nonblocking(true).expect("set slow HTTP server nonblocking");
+            let worker = std::thread::spawn(move || {
+                let deadline = Instant::now() + Duration::from_secs(2);
+                loop {
+                    match listener.accept() {
+                        Ok((mut stream, _addr)) => {
+                            sleep(Duration::from_millis(250));
+                            let _ = stream
+                                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
+                            return;
+                        }
+                        Err(err) if err.kind() == std::io::ErrorKind::WouldBlock && Instant::now() < deadline => {
+                            sleep(Duration::from_millis(5));
+                        }
+                        Err(_) => return,
+                    }
+                }
+            });
+            Self { port, worker: Some(worker) }
+        }
+
+        fn port(&self) -> u16 {
+            self.port
+        }
+    }
+
+    impl Drop for SlowHttpServer {
+        fn drop(&mut self) {
+            if let Some(worker) = self.worker.take() {
+                let _ = worker.join();
+            }
+        }
     }
 }
