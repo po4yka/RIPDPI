@@ -7,10 +7,11 @@ This directory keeps compact architecture documentation. Completed history lives
 The canonical architecture docs, in reading order:
 
 1. [ARCHITECTURE.md](ARCHITECTURE.md) — the "start here" map: modules, runtime modes, control/data plane, config flow
-2. [NATIVE_RUST.md](NATIVE_RUST.md) — native Rust workspace taxonomy and dependency direction
-3. [JNI_CONTRACT.md](JNI_CONTRACT.md) — the Kotlin ↔ Rust JNI boundary contract
-4. [CONFIG_CONTRACTS.md](CONFIG_CONTRACTS.md) — settings, protobuf, native JSON, and Rust config compatibility
-5. [FEATURE_EXTENSION_GUIDE.md](FEATURE_EXTENSION_GUIDE.md) — how to add features safely
+2. [RUNTIME_MODES.md](RUNTIME_MODES.md) — proxy, VPN/TUN, diagnostics, relay, and root-helper runtime paths
+3. [NATIVE_RUST.md](NATIVE_RUST.md) — native Rust workspace taxonomy and dependency direction
+4. [JNI_CONTRACT.md](JNI_CONTRACT.md) — the Kotlin ↔ Rust JNI boundary contract
+5. [CONFIG_CONTRACTS.md](CONFIG_CONTRACTS.md) — settings, protobuf, native JSON, and Rust config compatibility
+6. [FEATURE_EXTENSION_GUIDE.md](FEATURE_EXTENSION_GUIDE.md) — how to add features safely
 
 The notes below this point are compact, topic-specific records; the five docs above are the entry points.
 

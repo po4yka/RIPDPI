@@ -149,7 +149,7 @@ Details: [docs/testing.md](docs/testing.md)
 
 **New to RIPDPI?** Recommended reading path:
 [Architecture overview](docs/architecture/ARCHITECTURE.md) →
-[runtime modes](docs/architecture/ARCHITECTURE.md#2-runtime-modes) →
+[runtime modes](docs/architecture/RUNTIME_MODES.md) →
 [native Rust workspace](docs/architecture/NATIVE_RUST.md) →
 [Kotlin/Rust JNI contract](docs/architecture/JNI_CONTRACT.md) →
 [config contracts](docs/architecture/CONFIG_CONTRACTS.md) →

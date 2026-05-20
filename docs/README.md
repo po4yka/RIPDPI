@@ -7,7 +7,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 New developers should read these in order:
 
 1. [Architecture overview](architecture/ARCHITECTURE.md) — what RIPDPI is, the module map, the control/data-plane boundary
-2. [Runtime modes](architecture/ARCHITECTURE.md#2-runtime-modes) — proxy, VPN/TUN, diagnostics, relay, optional root helper
+2. [Runtime modes](architecture/RUNTIME_MODES.md) — proxy, VPN/TUN, diagnostics, relay, optional root helper
 3. [Native Rust workspace](architecture/NATIVE_RUST.md) — crate taxonomy and dependency direction
 4. [JNI contract](architecture/JNI_CONTRACT.md) — the Kotlin ↔ Rust boundary
 5. [Config contracts](architecture/CONFIG_CONTRACTS.md) — protobuf, native JSON, and Rust config compatibility

@@ -206,6 +206,7 @@ a per-socket (not per-packet) control-plane call required by the
 | Topic | Document |
 |-------|----------|
 | Domain term definitions | [`architecture/GLOSSARY.md`](GLOSSARY.md) |
+| Runtime modes — proxy, VPN/TUN, diagnostics, relay, root helper | [`architecture/RUNTIME_MODES.md`](RUNTIME_MODES.md) |
 | Compact architecture notes (ownership, runtime behavior, follow-ups) | [`architecture/README.md`](README.md) |
 | Native Rust workspace taxonomy + dependency direction | [`architecture/NATIVE_RUST.md`](NATIVE_RUST.md) |
 | Adding a feature safely (strategy, relay, probe, setting, …) | [`architecture/FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) |
