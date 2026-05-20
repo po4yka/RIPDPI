@@ -259,6 +259,42 @@ a deliberate follow-up rather than a mechanical refactor:
   matching unregister tied to a lifecycle event, or the referenced Java object
   is pinned against GC for the process lifetime.
 
+### Stale-unregister hazard — VPN protect registry (follow-up)
+
+The VPN protect callback lives in a single process-global slot
+(`ripdpi-native-protect`, one slot per `.so`). `jniRegisterVpnProtect`
+overwrites it; `jniUnregisterVpnProtect` clears it **unconditionally**. If a
+VPN session is torn down and a new one starts before the old session's
+unregister runs, the stale unregister clears the *new* session's callback —
+outbound sockets then fail `protect_socket_via_callback` and risk a routing
+loop into the TUN (see `vpnservice-protect-invariant.md`). A single active VPN
+session — the normal case — is unaffected: register/unregister are strictly
+paired.
+
+The sibling root-helper registry (`ripdpi-runtime-platform::root_helper`) was
+hardened against the same hazard with a `RootHelperGeneration` token: each
+register stamps the slot, and `unregister_root_helper_if(generation)` clears it
+only on a generation match. That fix is fully Rust-internal because the
+root-helper register/unregister callers are RAII guards that hold the token.
+
+The VPN protect registry **cannot** be fixed the same way without a JNI
+**signature change**, because its register and unregister are two separate
+JNI calls with no Rust object spanning them — the token must round-trip
+through Kotlin. Required change (tracked as `TODO(vpn-protect-generation)`):
+
+1. `register_protect_callback` returns a `ProtectGeneration` (newtype over
+   `u64`); keep the `()`-returning form as a back-compat wrapper.
+2. Add `unregister_protect_callback_if(ProtectGeneration) -> bool`.
+3. `jniRegisterVpnProtect` returns the generation as a `jlong`;
+   `jniUnregisterVpnProtect(jlong)` takes it back. This touches the
+   `external fun` declarations on `RipDpiProxyNativeBindings` and
+   `RipDpiWarpNativeBindings`, the four Rust export symbols, and
+   `VpnNativeProtectRegistration.kt`, which would hold the token between
+   register and unregister.
+
+Because step 3 is a wire-contract change, it must land as its own reviewed
+commit, not as part of an unrelated change.
+
 ---
 
 ## 9. TUN fd and socket fd ownership

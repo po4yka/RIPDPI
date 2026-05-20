@@ -1,4 +1,4 @@
-use crate::types::ProxyMorphPolicy;
+use crate::types::{ProxyMorphPolicy, ProxySessionOverrides};
 use ripdpi_config::{
     AutoTtlConfig, DesyncMode, FakeOrder, FakePacketSource, FakeSeqMode, OffsetBase, OffsetExpr, OffsetProto,
     QuicFakeProfile, TcpChainStepKind, UdpChainStepKind, WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG,

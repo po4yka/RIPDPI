@@ -8,6 +8,8 @@ use std::sync::Arc as StdArc;
 
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use ripdpi_proxy_runtime_adapter::platform::root_helper::RootHelperGeneration;
 
 use crate::process;
 
@@ -51,8 +53,23 @@ pub(super) fn close_rejected_client(client: &TcpStream) {
     listener_platform::close_rejected_client(client);
 }
 
+/// Registration token carried by the `RootHelperRegistration` RAII guard.
+///
+/// A `RootHelperGeneration` on platforms with a root helper; `()` elsewhere,
+/// where there is nothing to register and the guard is inert. The portable
+/// alias keeps the guard struct compilable on every target while the
+/// `root_helper` module itself is `linux`/`android`-only.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+type RootHelperToken = RootHelperGeneration;
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+type RootHelperToken = ();
+
 struct RootHelperRegistration {
-    registered: bool,
+    /// `Some(token)` once this guard has registered the root helper client;
+    /// `None` when registration was skipped. Releasing through the generation
+    /// token makes a stale `Drop` from a superseded session a no-op instead
+    /// of clobbering a newer session's registration.
+    generation: Option<RootHelperToken>,
 }
 
 impl RootHelperRegistration {
@@ -61,22 +78,23 @@ impl RootHelperRegistration {
         let Some(path) =
             config.process.root_helper_socket_path.as_deref().map(str::trim).filter(|path| !path.is_empty())
         else {
-            return Self { registered: false };
+            return Self { generation: None };
         };
-        ripdpi_proxy_runtime_adapter::platform::root_helper::register_root_helper(path.to_owned());
-        Self { registered: true }
+        let generation =
+            ripdpi_proxy_runtime_adapter::platform::root_helper::register_root_helper_versioned(path.to_owned());
+        Self { generation: Some(generation) }
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     fn for_config(_config: &RuntimeConfig) -> Self {
-        Self { registered: false }
+        Self { generation: None }
     }
 }
 
 impl Drop for RootHelperRegistration {
     fn drop(&mut self) {
-        if self.registered {
-            unregister_root_helper();
+        if let Some(generation) = self.generation {
+            unregister_root_helper(generation);
         }
     }
 }
@@ -118,12 +136,12 @@ const _: fn() = || {
 };
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-fn unregister_root_helper() {
-    ripdpi_proxy_runtime_adapter::platform::root_helper::unregister_root_helper();
+fn unregister_root_helper(generation: RootHelperToken) {
+    ripdpi_proxy_runtime_adapter::platform::root_helper::unregister_root_helper_if(generation);
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
-fn unregister_root_helper() {}
+fn unregister_root_helper(_generation: RootHelperToken) {}
 
 #[derive(Clone)]
 pub(super) struct RuntimeShutdown {
@@ -157,7 +175,7 @@ mod tests {
 
         let guard = RootHelperRegistration::for_config(&config);
 
-        assert!(guard.registered);
+        assert!(guard.generation.is_some());
         assert!(ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
         assert_eq!(ripdpi_proxy_runtime_adapter::platform::root_helper::with_root_helper(|_| ()), Some(()));
 
@@ -174,7 +192,7 @@ mod tests {
 
         let guard = RootHelperRegistration::for_config(&config);
 
-        assert!(!guard.registered);
+        assert!(guard.generation.is_none());
         assert!(!ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
     }
 
@@ -192,7 +210,7 @@ mod tests {
 
         {
             let guard1 = RootHelperRegistration::for_config(&config);
-            assert!(guard1.registered);
+            assert!(guard1.generation.is_some());
             assert!(ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
         }
         // First guard dropped — registration must be cleared exactly once.
@@ -200,7 +218,7 @@ mod tests {
 
         {
             let guard2 = RootHelperRegistration::for_config(&config);
-            assert!(guard2.registered);
+            assert!(guard2.generation.is_some());
             assert!(ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
         }
         // Second guard dropped — registration must be cleared again.
@@ -222,7 +240,7 @@ mod tests {
         let mut config = RuntimeConfig::default();
         config.process.root_helper_socket_path = Some("/tmp/ripdpi-proxy-root-helper-foreign.sock".to_string());
         let foreign = RootHelperRegistration::for_config(&config);
-        assert!(foreign.registered);
+        assert!(foreign.generation.is_some());
         assert!(ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
 
         // Construct + drop an UNregistered guard. Its Drop must be a no-op.
@@ -230,7 +248,7 @@ mod tests {
             let mut blank_config = RuntimeConfig::default();
             blank_config.process.root_helper_socket_path = Some(" ".to_string());
             let skip_guard = RootHelperRegistration::for_config(&blank_config);
-            assert!(!skip_guard.registered);
+            assert!(skip_guard.generation.is_none());
         }
 
         // Foreign registration survives — proves the conditional gate.
@@ -254,7 +272,7 @@ mod tests {
         config.process.root_helper_socket_path = Some("/tmp/ripdpi-proxy-root-helper-leak.sock".to_string());
 
         let guard = RootHelperRegistration::for_config(&config);
-        assert!(guard.registered);
+        assert!(guard.generation.is_some());
         assert!(ripdpi_proxy_runtime_adapter::platform::root_helper::has_root_helper());
 
         std::mem::forget(guard);

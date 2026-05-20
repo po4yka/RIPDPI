@@ -81,37 +81,60 @@ fn validate_ip_fragmentation_capabilities(
     }
 }
 
+/// Registration token carried by the `RootHelperProbeRegistration` RAII guard.
+///
+/// A `RootHelperGeneration` on platforms with a root helper; `()` elsewhere,
+/// where there is nothing to register. The portable alias keeps the guard
+/// struct compilable on every target while the `root_helper` module itself is
+/// `linux`/`android`-only.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+type RootHelperToken = crate::platform::root_helper::RootHelperGeneration;
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+type RootHelperToken = ();
+
 struct RootHelperProbeRegistration {
-    registered: bool,
+    /// `Some(token)` once this guard registered the root helper client; `None`
+    /// when registration was skipped (helper already registered, or no usable
+    /// path). Releasing through the generation token makes a stale `Drop` from
+    /// a superseded session a no-op rather than clearing a newer session's
+    /// registration.
+    generation: Option<RootHelperToken>,
 }
 
 impl RootHelperProbeRegistration {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     fn for_path(path: Option<&str>) -> Self {
         if crate::platform::root_helper::has_root_helper() {
-            return Self { registered: false };
+            return Self { generation: None };
         }
         let Some(path) = path.map(str::trim).filter(|path| !path.is_empty()) else {
-            return Self { registered: false };
+            return Self { generation: None };
         };
-        crate::platform::root_helper::register_root_helper(path.to_owned());
-        Self { registered: true }
+        let generation = crate::platform::root_helper::register_root_helper_versioned(path.to_owned());
+        Self { generation: Some(generation) }
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     fn for_path(_path: Option<&str>) -> Self {
-        Self { registered: false }
+        Self { generation: None }
     }
 }
 
 impl Drop for RootHelperProbeRegistration {
     fn drop(&mut self) {
-        if self.registered {
-            #[cfg(any(target_os = "linux", target_os = "android"))]
-            crate::platform::root_helper::unregister_root_helper();
+        if let Some(generation) = self.generation {
+            unregister_root_helper(generation);
         }
     }
 }
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn unregister_root_helper(generation: RootHelperToken) {
+    crate::platform::root_helper::unregister_root_helper_if(generation);
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+fn unregister_root_helper(_generation: RootHelperToken) {}
 
 #[cfg(test)]
 mod tests {
