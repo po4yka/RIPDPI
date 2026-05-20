@@ -3,9 +3,9 @@
 #
 # Steps:
 #
-# 1. Load the CI nftables ruleset that funnels outbound TCP:8443 to
+# 1. Load the CI nftables ruleset that funnels outbound TCP smoke traffic to
 #    nfqueue 0.
-# 2. Start a localhost TCP listener on 127.0.0.1:8443.
+# 2. Start a localhost TCP listener on the smoke port.
 # 3. Start the live handler with elevated network privileges and a fixed --timeout-seconds.
 # 4. Send a crafted TLS ClientHello with SNI=blocked.example.
 # 5. Wait for the handler to time out.
@@ -41,6 +41,19 @@ ARTIFACT_DIR="${RIPDPI_TSPU_LIVE_ARTIFACT_DIR:-$(mktemp -d -t tspu-live-XXXXXX)}
 mkdir -p "$ARTIFACT_DIR"
 echo "tspu live: artifacts -> $ARTIFACT_DIR"
 
+if [[ -n "${TSPU_LIVE_SMOKE_PORT:-}" ]]; then
+    SMOKE_PORT="$TSPU_LIVE_SMOKE_PORT"
+else
+    SMOKE_PORT="$("$PYTHON_BIN" - <<'PY'
+import socket
+with socket.socket() as s:
+    s.bind(("127.0.0.1", 0))
+    print(s.getsockname()[1])
+PY
+)"
+fi
+echo "tspu live: smoke port -> $SMOKE_PORT"
+
 # Ensure the nfqueue kernel module is loaded.
 if command -v modprobe >/dev/null 2>&1; then
     run_privileged modprobe nfnetlink_queue || true
@@ -49,7 +62,9 @@ else
 fi
 
 # Load nft rules; tear them down on exit.
-run_privileged nft -f "$NFT_FILE"
+NFT_RENDERED="$ARTIFACT_DIR/tspu-ci-smoke.nft"
+sed -E "s/tcp dport [0-9]+/tcp dport $SMOKE_PORT/" "$NFT_FILE" > "$NFT_RENDERED"
+run_privileged nft -f "$NFT_RENDERED"
 cleanup() {
     run_privileged nft delete table inet tspu_ci_smoke >/dev/null 2>&1 || true
     if [[ -n "${LISTENER_PID:-}" ]]; then
@@ -64,14 +79,16 @@ trap cleanup EXIT
 # 1. Loopback listener so the TCP connect completes and ClientHello
 #    bytes are written into the OUTPUT path (which is where nft sees
 #    them).
-"$PYTHON_BIN" - <<'PY' &
+TSPU_LIVE_SMOKE_PORT="$SMOKE_PORT" "$PYTHON_BIN" - <<'PY' &
+import os
 import socket
 import sys
+port = int(os.environ["TSPU_LIVE_SMOKE_PORT"])
 s = socket.socket()
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s.bind(("127.0.0.1", 8443))
+s.bind(("127.0.0.1", port))
 s.listen(4)
-sys.stdout.write("listening\n")
+sys.stdout.write(f"listening on 127.0.0.1:{port}\n")
 sys.stdout.flush()
 try:
     while True:
@@ -91,6 +108,9 @@ except KeyboardInterrupt:
 PY
 LISTENER_PID=$!
 sleep 0.5
+if ! kill -0 "$LISTENER_PID" >/dev/null 2>&1; then
+    wait "$LISTENER_PID"
+fi
 
 # 2. Live handler with network privileges, time-limited so the script returns.
 run_privileged env \
@@ -107,7 +127,7 @@ echo "tspu live: handler PID=$HANDLER_PID"
 sleep 2
 
 # 3. Test traffic.
-PYTHONPATH="$TSPU_DIR" "$PYTHON_BIN" -m runner.ci_smoke_traffic blocked.example || true
+PYTHONPATH="$TSPU_DIR" TSPU_LIVE_SMOKE_PORT="$SMOKE_PORT" "$PYTHON_BIN" -m runner.ci_smoke_traffic blocked.example || true
 
 # 4. Wait for the handler to finish (its watchdog will fire at 8s).
 wait "$HANDLER_PID"
