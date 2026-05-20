@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 
 use etherparse::{Ipv4Header, TcpHeader};
 
-use super::sample_tcp_repair_snapshot;
+use super::{connected_pair, missing_protect_socket_path, sample_tcp_repair_snapshot};
 use crate::linux::fragmentation;
 use crate::linux::raw_packet;
 use crate::linux::tcp_repair::{sequence_after_payload, TcpTimestampSnapshot};
@@ -124,4 +124,48 @@ fn build_multi_disorder_packets_rejects_partial_payload_coverage() {
 
     assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
     assert!(err.to_string().contains("multidisorder TCP payload segments must cover the full payload"));
+}
+
+#[test]
+fn send_ip_fragmented_tcp_requires_raw_send_path_for_non_empty_payload() {
+    let (client, _server) = connected_pair();
+    let protect_path = missing_protect_socket_path("ipfrag-tcp");
+
+    fragmentation::send_ip_fragmented_tcp(
+        &client,
+        b"fragmented-payload",
+        8,
+        64,
+        Some(&protect_path),
+        false,
+        ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+        TcpFlagOverrides::default(),
+        Some(0x1234),
+    )
+    .expect_err("non-empty fragmented TCP payload must not be accepted without raw/protect work");
+}
+
+#[test]
+fn send_multi_disorder_tcp_requires_raw_send_path_for_non_empty_payload() {
+    let (client, _server) = connected_pair();
+    let protect_path = missing_protect_socket_path("multidisorder-tcp");
+    let payload = b"multidisorder";
+    let segments = [
+        crate::TcpPayloadSegment { start: 0, end: 5 },
+        crate::TcpPayloadSegment { start: 5, end: 10 },
+        crate::TcpPayloadSegment { start: 10, end: payload.len() },
+    ];
+
+    fragmentation::send_multi_disorder_tcp(
+        &client,
+        payload,
+        &segments,
+        64,
+        Some(&protect_path),
+        0,
+        false,
+        TcpFlagOverrides::default(),
+        &[],
+    )
+    .expect_err("non-empty multidisorder TCP payload must not be accepted without raw/protect work");
 }

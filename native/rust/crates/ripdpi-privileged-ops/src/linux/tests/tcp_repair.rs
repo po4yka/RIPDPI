@@ -5,7 +5,9 @@ use crate::linux::tcp_info::{
     tcp_has_notsent, tcp_total_retransmissions_from_info, wait_tcp_stage_fd, LinuxTcpInfo, TCPI_OPT_SACK,
     TCPI_OPT_TIMESTAMPS, TCPI_OPT_USEC_TS, TCPI_OPT_WSCALE, TCP_ESTABLISHED,
 };
-use crate::linux::tcp_repair::{decode_tcp_repair_options, TcpTimestampSnapshot, TcpWindowScaleSnapshot};
+use crate::linux::tcp_repair::{
+    decode_tcp_repair_options, probe_tcp_repair, TcpTimestampSnapshot, TcpWindowScaleSnapshot,
+};
 
 #[test]
 fn tcp_total_retransmissions_prefers_total_counter_and_falls_back_to_retransmits() {
@@ -60,4 +62,12 @@ fn decode_tcp_repair_options_omits_timestamp_when_not_negotiated() {
     assert!(options.sack_permitted);
     assert_eq!(options.window_scale, None);
     assert_eq!(options.timestamp, None);
+}
+
+#[test]
+fn probe_tcp_repair_requires_kernel_or_protect_path_work() {
+    let protect_path = super::missing_protect_socket_path("tcp-repair-probe");
+
+    probe_tcp_repair(Some(&protect_path))
+        .expect_err("TCP_REPAIR probe must not succeed without protect/capability work");
 }

@@ -33,3 +33,9 @@ fn sample_tcp_repair_snapshot() -> TcpRepairSnapshot {
         },
     }
 }
+
+fn missing_protect_socket_path(label: &str) -> String {
+    let path = std::env::temp_dir().join(format!("ripdpi-missing-protect-{}-{label}.sock", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    path.into_os_string().into_string().expect("temp path is valid UTF-8")
+}
