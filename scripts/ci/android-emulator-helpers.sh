@@ -51,6 +51,63 @@ resolve_android_sdk_root() {
   return 1
 }
 
+create_android_compiler_wrapper_dir() {
+  if [[ $# -gt 0 && -n "$1" ]]; then
+    mkdir -p "$1"
+    printf '%s\n' "$1"
+    return 0
+  fi
+
+  mktemp -d "${TMPDIR:-/tmp}/ripdpi-android-clang.XXXXXX"
+}
+
+write_android_compiler_filter_wrapper() {
+  local wrapper_path="$1"
+  local real_compiler="$2"
+
+  mkdir -p "$(dirname "$wrapper_path")"
+  cat > "$wrapper_path" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+real_compiler="$real_compiler"
+filtered=()
+skip_next=false
+
+for arg in "\$@"; do
+  if [[ "\$skip_next" == "true" ]]; then
+    skip_next=false
+    continue
+  fi
+
+  case "\$arg" in
+    -arch|-isysroot)
+      skip_next=true
+      ;;
+    -arch=*|-isysroot=*|-mmacosx-version-min=*|-miphoneos-version-min=*|-mios-simulator-version-min=*)
+      ;;
+    -Wl,-search_paths_first|-Wl,-headerpad_max_install_names|-Wl,-syslibroot,*|-Wl,-macosx_version_min,*|-Wl,-platform_version,*)
+      ;;
+    *)
+      filtered+=("\$arg")
+      ;;
+  esac
+done
+
+exec "\$real_compiler" "\${filtered[@]}"
+EOF
+  chmod +x "$wrapper_path"
+}
+
+clean_android_boring_sys_build_cache() {
+  local cargo_target_root="$1"
+  local rust_target="$2"
+  local build_root="$cargo_target_root/$rust_target/debug/build"
+
+  [[ -d "$build_root" ]] || return 0
+  find "$build_root" -maxdepth 1 -type d -name 'boring-sys-*' -exec rm -rf {} +
+}
+
 resolve_avdmanager_bin() {
   if command -v avdmanager >/dev/null 2>&1; then
     command -v avdmanager

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -103,6 +104,48 @@ def resolve_android_cmake(sdk_dir: Path) -> Path | None:
     return candidates[-1] if candidates else None
 
 
+def write_android_compiler_filter_wrapper(wrapper_path: Path, real_compiler: Path) -> Path:
+    wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+    wrapper_path.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        f"real_compiler={json.dumps(str(real_compiler))}\n"
+        "filtered=()\n"
+        "skip_next=false\n"
+        "for arg in \"$@\"; do\n"
+        "  if [[ \"$skip_next\" == \"true\" ]]; then\n"
+        "    skip_next=false\n"
+        "    continue\n"
+        "  fi\n"
+        "  case \"$arg\" in\n"
+        "    -arch|-isysroot)\n"
+        "      skip_next=true\n"
+        "      ;;\n"
+        "    -arch=*|-isysroot=*|-mmacosx-version-min=*|-miphoneos-version-min=*|-mios-simulator-version-min=*)\n"
+        "      ;;\n"
+        "    -Wl,-search_paths_first|-Wl,-headerpad_max_install_names|-Wl,-syslibroot,*|-Wl,-macosx_version_min,*|-Wl,-platform_version,*)\n"
+        "      ;;\n"
+        "    *)\n"
+        "      filtered+=(\"$arg\")\n"
+        "      ;;\n"
+        "  esac\n"
+        "done\n"
+        "exec \"$real_compiler\" \"${filtered[@]}\"\n",
+    )
+    wrapper_path.chmod(0o755)
+    return wrapper_path
+
+
+def clean_boring_sys_build_cache(cargo_target_dir: Path, target: str) -> None:
+    build_root = cargo_target_dir / target / "debug" / "build"
+    if not build_root.is_dir():
+        return
+
+    for candidate in build_root.glob("boring-sys-*"):
+        if candidate.is_dir():
+            shutil.rmtree(candidate, ignore_errors=True)
+
+
 def cargo_environment(repo_root: Path, target: str) -> dict[str, str]:
     sdk_dir = resolve_sdk_dir(repo_root)
     ndk_dir = resolve_ndk_dir(repo_root, sdk_dir)
@@ -128,17 +171,22 @@ def cargo_environment(repo_root: Path, target: str) -> dict[str, str]:
         env.pop(key, None)
 
     android_cmake = resolve_android_cmake(sdk_dir)
+    target_dir = (repo_root / "native/rust/target/cargo-bloat-ci").resolve()
+    compiler_wrapper_dir = target_dir / "compiler-wrappers" / target
+    linker_wrapper = write_android_compiler_filter_wrapper(compiler_wrapper_dir / linker.name, linker)
+    cxx_linker_wrapper = write_android_compiler_filter_wrapper(compiler_wrapper_dir / cxx_linker.name, cxx_linker)
+    clean_boring_sys_build_cache(target_dir, target)
     env.update(
         {
-            f"CC_{target_env}": str(linker),
-            f"CXX_{target_env}": str(cxx_linker),
+            f"CC_{target_env}": str(linker_wrapper),
+            f"CXX_{target_env}": str(cxx_linker_wrapper),
             f"AR_{target_env}": str(ar),
-            f"CARGO_TARGET_{target_env.upper()}_LINKER": str(linker),
+            f"CARGO_TARGET_{target_env.upper()}_LINKER": str(linker_wrapper),
             f"CARGO_TARGET_{target_env.upper()}_AR": str(ar),
             "ANDROID_HOME": str(sdk_dir),
             "ANDROID_SDK_ROOT": str(sdk_dir),
             "ANDROID_NDK_HOME": str(ndk_dir),
-            "CARGO_TARGET_DIR": str((repo_root / "native/rust/target/cargo-bloat-ci").resolve()),
+            "CARGO_TARGET_DIR": str(target_dir),
             "BORING_BSSL_RUST_CPPLIB": env.get("BORING_BSSL_RUST_CPPLIB", "c++_static"),
         },
     )

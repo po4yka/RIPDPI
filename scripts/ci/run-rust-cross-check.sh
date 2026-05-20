@@ -54,6 +54,7 @@ unset MACOSX_DEPLOYMENT_TARGET IPHONEOS_DEPLOYMENT_TARGET TVOS_DEPLOYMENT_TARGET
 unset ARCHFLAGS RC_ARCHS CMAKE_OSX_ARCHITECTURES CMAKE_OSX_SYSROOT
 unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
 export BORING_BSSL_RUST_CPPLIB="${BORING_BSSL_RUST_CPPLIB:-c++_static}"
+compiler_wrapper_dir="$(create_android_compiler_wrapper_dir "$repo_root/native/rust/target/android-compiler-wrappers/cross-check")"
 
 declare -A CLANG_TARGETS=(
   [aarch64-linux-android]="aarch64-linux-android"
@@ -66,10 +67,14 @@ for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x
   clang_target="${CLANG_TARGETS[$target]}"
   target_env="${target//-/_}"
   target_upper="${target_env^^}"
-  export "CC_${target_env}=$ndk_bin/${clang_target}${min_sdk}-clang"
-  export "CXX_${target_env}=$ndk_bin/${clang_target}${min_sdk}-clang++"
+  cc_wrapper="$compiler_wrapper_dir/${clang_target}${min_sdk}-clang"
+  cxx_wrapper="$compiler_wrapper_dir/${clang_target}${min_sdk}-clang++"
+  write_android_compiler_filter_wrapper "$cc_wrapper" "$ndk_bin/${clang_target}${min_sdk}-clang"
+  write_android_compiler_filter_wrapper "$cxx_wrapper" "$ndk_bin/${clang_target}${min_sdk}-clang++"
+  export "CC_${target_env}=$cc_wrapper"
+  export "CXX_${target_env}=$cxx_wrapper"
   export "AR_${target_env}=$ndk_bin/llvm-ar"
-  export "CARGO_TARGET_${target_upper}_LINKER=$ndk_bin/${clang_target}${min_sdk}-clang"
+  export "CARGO_TARGET_${target_upper}_LINKER=$cc_wrapper"
   export "CARGO_TARGET_${target_upper}_AR=$ndk_bin/llvm-ar"
 done
 
@@ -83,6 +88,7 @@ done
 # and is validated by the host-native workspace tests instead.
 for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; do
   echo "  -> $target"
+  clean_android_boring_sys_build_cache "${CARGO_TARGET_DIR:-$repo_root/native/rust/target}" "$target"
   RUSTC_WRAPPER="" cargo check --manifest-path "$workspace_manifest" --workspace \
     --exclude ripdpi-io-uring --target "$target" --locked
 done
