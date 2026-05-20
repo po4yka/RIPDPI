@@ -168,7 +168,11 @@ start_device_capture() {
 
     local remote_pcap="/data/local/tmp/${scenario_id}.pcap"
     local remote_log="/data/local/tmp/${scenario_id}.tcpdump.log"
-    adb_cmd shell "rm -f '$remote_pcap' '$remote_log'; nohup tcpdump -i any -U -n -s 0 -w '$remote_pcap' \"$device_capture_filter\" >'$remote_log' 2>&1 & echo \$!"
+    local capture_filter="$device_capture_filter"
+    if [[ "$scenario_id" == "android_proxy_ipfrag2_family" ]]; then
+        capture_filter="(${device_capture_filter}) or (ip and host ${fixture_android_host})"
+    fi
+    adb_cmd shell "rm -f '$remote_pcap' '$remote_log'; nohup tcpdump -i any -U -n -s 0 -w '$remote_pcap' \"$capture_filter\" >'$remote_log' 2>&1 & echo \$!"
 }
 
 stop_device_capture() {
@@ -452,6 +456,70 @@ validate_raw_fake_strategy_packet_pattern() {
         return 1
     fi
 
+    if [[ "$scenario_id" == "android_proxy_multidisorder_family" ]]; then
+        local data_seq_rows
+        data_seq_rows="$(
+            tshark -o tcp.relative_sequence_numbers:FALSE -r "$pcap" \
+                -Y "tcp.dstport == ${tls_port} && tcp.len > 0" \
+                -T fields -e tcp.seq -e tcp.len 2>/dev/null || true
+        )"
+        if printf '%s\n' "$data_seq_rows" |
+            awk -F '\t' '
+                $1 != "" && $2 > 0 {
+                    count += 1
+                    if (count > 1 && $1 + 0 < previous + 0) {
+                        found_reorder = 1
+                    }
+                    previous = $1
+                }
+                END { exit count >= 3 && found_reorder ? 0 : 1 }
+            '
+        then
+            append_runner_log \
+                "$scenario_dir/test-output.txt" \
+                "==> raw multidisorder packet pattern validated: captured 3+ TCP payload segments with out-of-order sequence delivery"
+            return 0
+        fi
+        return 1
+    fi
+
+    if [[ "$scenario_id" == "android_proxy_ipfrag2_family" ]]; then
+        local android_host
+        local fragment_pair_count
+        android_host="$(jq -r '.androidHost' "$manifest")"
+        fragment_pair_count="$(
+            tshark -r "$pcap" \
+                -Y "ip.dst == ${android_host} && ip.proto == 6 && (ip.flags.mf == 1 || ip.frag_offset > 0)" \
+                -T fields -e ip.src -e ip.dst -e ip.id -e ip.flags.mf -e ip.frag_offset 2>/dev/null |
+                awk -F '\t' '
+                    $3 != "" {
+                        key = $1 FS $2 FS $3
+                        if ($4 == "True" && $5 + 0 == 0) {
+                            first[key] = 1
+                        }
+                        if ($5 + 0 > 0) {
+                            second[key] = 1
+                        }
+                    }
+                    END {
+                        for (key in first) {
+                            if (second[key]) {
+                                count += 1
+                            }
+                        }
+                        print count + 0
+                    }
+                '
+        )"
+        if [[ "$fragment_pair_count" -ge 1 ]]; then
+            append_runner_log \
+                "$scenario_dir/test-output.txt" \
+                "==> raw ipfrag2 packet pattern validated: captured a same-ID IPv4 TCP fragment pair toward the TLS fixture"
+            return 0
+        fi
+        return 1
+    fi
+
     if [[ "$scenario_id" == "android_proxy_fakedsplit_family" || "$scenario_id" == "android_proxy_fakeddisorder_family" ]]; then
         local low_ttl_count
         local low_ttl_bytes
@@ -498,6 +566,17 @@ validate_raw_fake_strategy_packet_pattern() {
 }
 
 raw_privileged_strategy_scenario() {
+    case "$1" in
+        android_proxy_multidisorder_family|android_proxy_ipfrag2_family|android_proxy_seqovl_family|android_proxy_fakerst_family)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+raw_privileged_strategy_allows_instrumentation_failure() {
     case "$1" in
         android_proxy_seqovl_family|android_proxy_fakerst_family)
             return 0
@@ -771,7 +850,9 @@ for row in "${scenarios[@]}"; do
 
     if [[ "$selected_capture_mode" == "raw" ]] && raw_privileged_strategy_scenario "$scenario_id"; then
         if validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir"; then
-            status=0
+            if raw_privileged_strategy_allows_instrumentation_failure "$scenario_id"; then
+                status=0
+            fi
         else
             status=1
         fi

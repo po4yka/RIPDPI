@@ -31,10 +31,8 @@ pub(crate) fn probe_tcp_repair(protect_path: Option<&str>) -> io::Result<()> {
     let fd = client.as_raw_fd();
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
-        let snapshot = snapshot_tcp_repair_state(fd)?;
-        let _replacement =
-            build_replacement_tcp_socket(client.local_addr()?, client.peer_addr()?, 0, &snapshot, protect_path)?;
-        Ok(())
+        crate::protect_socket(&client, protect_path)?;
+        snapshot_tcp_repair_state(fd).map(|_| ())
     })();
 
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);

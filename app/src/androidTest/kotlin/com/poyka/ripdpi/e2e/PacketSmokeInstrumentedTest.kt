@@ -218,6 +218,35 @@ class PacketSmokeInstrumentedTest {
 
     @Test
     @RawPacketValidationOnly
+    fun proxyMultiDisorderSmokeFamilyRoutesTlsTraffic() {
+        runProxyTlsChainSmoke(
+            chainDsl =
+                """
+                [tcp]
+                multidisorder host+2
+                multidisorder midsld
+                """.trimIndent(),
+            expectedScenario = "multidisorder",
+            rootModeEnabled = true,
+        )
+    }
+
+    @Test
+    @RawPacketValidationOnly
+    fun proxyIpFrag2SmokeFamilyRoutesTlsTraffic() {
+        runProxyTlsChainSmoke(
+            chainDsl =
+                """
+                [tcp]
+                ipfrag2 host+2
+                """.trimIndent(),
+            expectedScenario = "ipfrag2",
+            rootModeEnabled = true,
+        )
+    }
+
+    @Test
+    @RawPacketValidationOnly
     fun proxySeqOverlapSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
             chainDsl =

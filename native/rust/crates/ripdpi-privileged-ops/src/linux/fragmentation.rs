@@ -4,6 +4,7 @@
 //! capture before crafting fragmented packets.
 
 use std::io;
+use std::io::Write;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
 
@@ -18,9 +19,8 @@ use crate::linux::raw_packet::{
 };
 use crate::linux::socket_options::get_stream_ttl;
 use crate::linux::tcp_repair::{
-    build_replacement_tcp_socket, capture_stream_socket_settings, disable_tcp_repair, probe_tcp_repair,
-    sequence_after_payload, set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state,
-    swap_stream_to_replacement, TcpRepairSnapshot, TCP_NO_QUEUE, TCP_REPAIR_ON,
+    disable_tcp_repair, probe_tcp_repair, sequence_after_payload, set_tcp_repair, set_tcp_repair_queue,
+    snapshot_tcp_repair_state, TcpRepairSnapshot, TCP_NO_QUEUE, TCP_REPAIR_ON,
 };
 use crate::{IpFragmentationCapabilities, TcpFlagOverrides, TcpPayloadSegment};
 pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Result<IpFragmentationCapabilities> {
@@ -86,7 +86,6 @@ pub fn send_ip_fragmented_tcp(
     let target = stream.peer_addr()?;
     let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
     let fd = stream.as_raw_fd();
-    let settings = capture_stream_socket_settings(stream);
 
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
@@ -115,15 +114,14 @@ pub fn send_ip_fragmented_tcp(
         )
         .map_err(build_error_to_io)?;
 
-        let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
         if disorder {
             send_raw_fragments(target, [&pair.second, &pair.first], protect_path)?;
         } else {
             send_raw_fragments(target, [&pair.first, &pair.second], protect_path)?;
         }
-        swap_stream_to_replacement(stream, &replacement, settings)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-        disable_tcp_repair(fd)
+        disable_tcp_repair(fd)?;
+        (&*stream).write_all(payload)
     })();
 
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
@@ -157,7 +155,6 @@ pub fn send_multi_disorder_tcp(
     let target = stream.peer_addr()?;
     let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
     let fd = stream.as_raw_fd();
-    let settings = capture_stream_socket_settings(stream);
 
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
@@ -173,16 +170,15 @@ pub fn send_multi_disorder_tcp(
             flags,
             ipv4_identifications,
         )?;
-        let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
         send_raw_packets_with_delay(
             target,
             packets.iter().rev().map(Vec::as_slice),
             protect_path,
             inter_segment_delay_ms,
         )?;
-        swap_stream_to_replacement(stream, &replacement, settings)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-        disable_tcp_repair(fd)
+        disable_tcp_repair(fd)?;
+        (&*stream).write_all(payload)
     })();
 
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
