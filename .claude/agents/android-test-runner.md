@@ -48,7 +48,7 @@ Pick suites based on what is requested:
 - **Maestro flows**: `maestro test maestro/<flow>.yaml` (requires `maestro` CLI on PATH, device/emulator running)
 - **Full Maestro smoke**: `bash scripts/ci/run-maestro-smoke.sh` (runs all 4 flows sequentially)
 - **Appium suite**: `bash scripts/ci/run-appium-smoke.sh` (starts Appium server, installs APK, runs pytest on `appium/tests/`)
-- **Android CLI Journeys**: `bash scripts/ci/run-android-journeys-emulator.sh` (installs the app, runs the natural-language flows in `journeys/` via `android journeys`; AI-agent-driven)
+- **Android CLI Journeys**: `bash scripts/ci/run-android-journeys-emulator.sh` installs the app and smoke-tests the journey primitives; you then drive each `journeys/*.journey` yourself (there is no `android journeys` command -- journeys are agent-executed; see the Journeys section below)
 
 ## Emulator Setup (local)
 
@@ -79,7 +79,20 @@ On any test failure, collect these before reporting:
 
 ## Android CLI Journeys (4 journeys in `journeys/`)
 
-01-cold-launch-home, 02-settings-navigation, 03-advanced-settings-edit-save, 04-start-stop-configured-mode -- natural-language, AI-agent-driven UI tests run by Android CLI 1.0 (`android journeys`). They mirror the Maestro flows, but the agent reasons about goals instead of matching resource IDs. The app ID is passed via the `JOURNEYS_CUSTOM_APP_ID` env var. See `journeys/README.md` for the schema and run-subcommand verification gates -- confirm them with `android journeys --help` before treating a journey failure as definitive.
+01-cold-launch-home, 02-settings-navigation, 03-advanced-settings-edit-save, 04-start-stop-configured-mode -- natural-language UI tests that mirror the Maestro flows but reason about goals instead of matching resource IDs.
+
+Android CLI 1.0 has **no `android journeys` command** -- *you* are the journey runner. To run a journey:
+
+1. `bash scripts/ci/run-android-journeys-emulator.sh` -- installs the app and smoke-tests the primitives.
+2. For each step in the `.journey` file, loop:
+   - `android screen capture --annotate -o shot.png` -- annotated screenshot with labeled UI elements.
+   - Reason over the screenshot to pick the element/label for the step.
+   - `android screen resolve --screenshot=shot.png --string="input tap #N"` -- converts label `#N` to coordinates.
+   - `adb shell input tap <x> <y>` (or `input text ...`) to perform the action.
+   - `android layout --pretty` -- UI tree, for evaluating `<step>` assertions.
+3. Report each journey as pass/fail with the screenshot evidence.
+
+The app ID for pre-installed runs is `JOURNEYS_CUSTOM_APP_ID=com.poyka.ripdpi`. See `journeys/README.md`.
 
 ## Appium Tests (46 tests in `appium/tests/`)
 

@@ -1510,10 +1510,11 @@ jobs:
             --arch x86_64 \
             --target google_apis
 
-      # Android CLI 1.0 Journeys are AI-agent-driven. Until an agent runner is
-      # wired into CI, run-android-journeys-emulator.sh installs the app, reports
-      # the missing journey-runner prerequisite, and exits 0 (opt-in lane).
-      - name: Run Android CLI journeys
+      # Android CLI 1.0 has no `android journeys` command -- Journeys are
+      # AI-agent-driven. This step installs the app and smoke-tests the journey
+      # primitives (screen capture / layout); full unattended journey execution
+      # needs an agent wired into the runner (tracked follow-up). Opt-in lane.
+      - name: Prepare Android CLI journeys (agent-driven)
         run: bash scripts/ci/run-android-journeys-emulator.sh
 
       - name: Capture journeys emulator diagnostics

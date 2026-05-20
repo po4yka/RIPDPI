@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 #
-# Run RIPDPI Journeys (Android CLI 1.0) against a connected device/emulator.
+# Prepare a connected device/emulator for an agent-driven Android CLI Journeys
+# run, and smoke-test the journey primitives.
 #
-# Journeys are natural-language, AI-agent-driven UI tests executed by
-# `android journeys`. This is an opt-in scaffolding lane: until an AI agent is
-# wired into the CI runner, the script installs the app, reports the missing
-# journey-runner prerequisite, and exits 0 rather than failing the build.
-#
-# Verification gates (see journeys/README.md):
-#   * the exact `android journeys` run subcommand/flags -- confirm via
-#     `android journeys --help` once the CLI is installed;
-#   * the journey XML schema -- confirm via the Android CLI 1.0 journey template.
+# Android CLI 1.0 has NO `android journeys` command -- Journeys are executed by
+# an AI agent (the android-test-runner agent, Gemini, etc.) that drives the app
+# with `android screen capture -a`, `android screen resolve`, `android layout`,
+# and `android run`, guided by the bundled `android-cli` skill. A shell script
+# cannot perform the vision/reasoning loop, so this script only:
+#   1. installs the app under test,
+#   2. verifies the device + the journey primitives respond,
+#   3. lists the journeys awaiting agent execution,
+# then exits 0. Wiring an agent into CI to fully execute journeys is a separate
+# follow-up. See journeys/README.md.
 
 set -euo pipefail
 
@@ -52,37 +54,24 @@ fi
 echo "Installing $apk"
 adb install -r -d "$apk"
 
-# --- Journey runner prerequisite check ------------------------------------
-# Journeys are driven by an AI agent's vision/reasoning. Confirm the installed
-# Android CLI exposes the journey runner before attempting a run; if it does
-# not, skip cleanly -- this lane is opt-in scaffolding, not yet a merge gate.
-if ! android journeys --help >/dev/null 2>&1; then
-  echo "::notice::'android journeys' runner unavailable in this Android CLI build."
-  echo "::notice::App installed; journeys not executed. See journeys/README.md gate #2/#3."
-  exit 0
-fi
+# --- Smoke-test the journey primitives ------------------------------------
+# These are the Android CLI commands an agent uses to execute a journey.
+# Capturing an annotated screenshot and dumping the layout tree proves the CLI
+# can see the device; if either fails, an agent journey run would fail too.
+echo "Verifying journey primitives (screen capture / layout) ..."
+android --no-metrics screen capture --annotate --output "$ARTIFACT_DIR/primitive-check.png"
+android --no-metrics layout --output "$ARTIFACT_DIR/primitive-check.layout.json"
 
-# --- Run each journey ------------------------------------------------------
-# The app ID is supplied to the journey runner via the environment, not the
-# journey files (Android CLI uses JOURNEYS_CUSTOM_APP_ID for pre-installed apps).
-export JOURNEYS_CUSTOM_APP_ID="$APP_ID"
-serial="$(adb get-serialno)"
-status=0
+# --- Hand off to the agent -------------------------------------------------
+echo
+echo "Device prepared. ${#journeys[@]} journey(s) await agent execution:"
 for journey in "${journeys[@]}"; do
-  name="$(basename "$journey")"
-  log="$ARTIFACT_DIR/${name%.journey}.log"
-  echo "=== Running journey: $name ==="
-  # VERIFICATION GATE: confirm the exact subcommand and flags against
-  # `android journeys --help`. Best-effort invocation below.
-  if android journeys run "$journey" --device "$serial" >"$log" 2>&1; then
-    echo "PASS: $name"
-  else
-    echo "FAIL: $name (see $log)"
-    status=1
-  fi
+  echo "  - $(basename "$journey")"
 done
-
-# Pull any on-device journey artifacts (screenshots / reasoning traces).
-adb pull "/sdcard/Android/data/$APP_ID/files/journeys" "$ARTIFACT_DIR/device" 2>/dev/null || true
-
-exit "$status"
+echo
+echo "Android CLI 1.0 has no 'android journeys' command. To run a journey, an"
+echo "agent drives each step with: android screen capture --annotate -> reason"
+echo "over the labeled screenshot -> android screen resolve --string 'input tap"
+echo "#N' -> adb shell input ... -> android layout for assertions. The app ID"
+echo "for pre-installed runs is JOURNEYS_CUSTOM_APP_ID=$APP_ID."
+echo "See journeys/README.md and the android-test-runner agent."

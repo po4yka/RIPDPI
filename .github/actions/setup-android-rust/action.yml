@@ -78,11 +78,11 @@ runs:
           exit 1
         fi
         echo "Android CLI: $ver_line"
-        # Install the android-cli agent skill (1.0 feature). Run from
-        # RUNNER_TEMP so it cannot write into the repo's tracked .claude/
-        # tree; non-fatal because CI invokes `android` directly and the
-        # skill only benefits agent-driven runs.
-        ( cd "$RUNNER_TEMP" && android init ) || echo "android init skipped (non-fatal)"
+        # Install the android-cli agent skill (1.0 feature). `android init`
+        # writes only to agent skill dirs under $HOME (e.g. ~/.claude/skills/),
+        # regardless of cwd -- it never touches the repo tree. Non-fatal: CI
+        # invokes `android` directly; the skill only aids agent-driven runs.
+        android init || echo "android init skipped (non-fatal)"
 
     - name: Read native toolchain policy
       if: inputs.skip-android-sdk-ndk != 'true'
