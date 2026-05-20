@@ -6,6 +6,7 @@ set -euo pipefail
 # in the same change.
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+source "$repo_root/scripts/ci/android-emulator-helpers.sh"
 
 workspace_manifest="$repo_root/native/rust/Cargo.toml"
 export RIPDPI_GOLDEN_ARTIFACT_DIR="${RIPDPI_GOLDEN_ARTIFACT_DIR:-$repo_root/native/rust/target/golden-diffs}"
@@ -17,9 +18,12 @@ echo "==> clippy"
 cargo clippy --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
 
 echo "==> cross-target check (Android ABIs)"
-if [[ -z "${ANDROID_HOME:-}" ]]; then
-  echo "  ANDROID_HOME not set — skipping Android cross-target checks"
+if ! android_sdk_root="$(resolve_android_sdk_root)"; then
+  echo "  Android SDK not found — skipping Android cross-target checks"
 else
+  export ANDROID_HOME="$android_sdk_root"
+  export ANDROID_SDK_ROOT="$android_sdk_root"
+
   # Disable sccache for cross-compilation: aws-lc-sys invokes the NDK C
   # compiler through cargo's cc crate, and sccache cannot wrap cross-
   # compiler toolchains like aarch64-linux-android-clang.
@@ -30,38 +34,45 @@ else
   # Mirrors the approach in verify_native_bloat.py:cargo_environment().
   ndk_version="$(grep '^ripdpi.nativeNdkVersion=' "$repo_root/gradle.properties" | cut -d= -f2-)"
   min_sdk="$(grep '^ripdpi.minSdk=' "$repo_root/gradle.properties" | cut -d= -f2-)"
+  ndk_dir="$ANDROID_HOME/ndk/$ndk_version"
   case "$(uname -s)" in
     Darwin) ndk_host="darwin-x86_64" ;;
     *)      ndk_host="linux-x86_64" ;;
   esac
-  ndk_bin="$ANDROID_HOME/ndk/$ndk_version/toolchains/llvm/prebuilt/$ndk_host/bin"
+  ndk_bin="$ndk_dir/toolchains/llvm/prebuilt/$ndk_host/bin"
+  if [[ ! -d "$ndk_bin" ]]; then
+    echo "  Android NDK toolchain not found: $ndk_bin — skipping Android cross-target checks"
+  else
+    export ANDROID_NDK_HOME="$ndk_dir"
 
-  declare -A CLANG_TARGETS=(
-    [aarch64-linux-android]="aarch64-linux-android"
-    [armv7-linux-androideabi]="armv7a-linux-androideabi"
-    [i686-linux-android]="i686-linux-android"
-    [x86_64-linux-android]="x86_64-linux-android"
-  )
+    declare -A CLANG_TARGETS=(
+      [aarch64-linux-android]="aarch64-linux-android"
+      [armv7-linux-androideabi]="armv7a-linux-androideabi"
+      [i686-linux-android]="i686-linux-android"
+      [x86_64-linux-android]="x86_64-linux-android"
+    )
 
-  for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; do
-    clang_target="${CLANG_TARGETS[$target]}"
-    target_env="${target//-/_}"
-    target_upper="${target_env^^}"
-    export "CC_${target_env}=$ndk_bin/${clang_target}${min_sdk}-clang"
-    export "CXX_${target_env}=$ndk_bin/${clang_target}${min_sdk}-clang++"
-    export "AR_${target_env}=$ndk_bin/llvm-ar"
-    export "CARGO_TARGET_${target_upper}_LINKER=$ndk_bin/${clang_target}${min_sdk}-clang"
-  done
+    for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; do
+      clang_target="${CLANG_TARGETS[$target]}"
+      target_env="${target//-/_}"
+      target_upper="${target_env^^}"
+      export "CC_${target_env}=$ndk_bin/${clang_target}${min_sdk}-clang"
+      export "CXX_${target_env}=$ndk_bin/${clang_target}${min_sdk}-clang++"
+      export "AR_${target_env}=$ndk_bin/llvm-ar"
+      export "CARGO_TARGET_${target_upper}_LINKER=$ndk_bin/${clang_target}${min_sdk}-clang"
+      export "CARGO_TARGET_${target_upper}_AR=$ndk_bin/llvm-ar"
+    done
 
-  # Exclude ripdpi-io-uring: the upstream io-uring crate (0.7.x) has
-  # broken cross-compilation for ARM/i686 targets (u16/u32 type mismatch
-  # in prebuilt sys.rs).  The crate is a Linux-only optional dependency
-  # and is validated by the host-native workspace tests instead.
-  for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; do
-    echo "  -> $target"
-    RUSTC_WRAPPER="" cargo check --manifest-path "$workspace_manifest" --workspace \
-      --exclude ripdpi-io-uring --target "$target" --locked
-  done
+    # Exclude ripdpi-io-uring: the upstream io-uring crate (0.7.x) has
+    # broken cross-compilation for ARM/i686 targets (u16/u32 type mismatch
+    # in prebuilt sys.rs).  The crate is a Linux-only optional dependency
+    # and is validated by the host-native workspace tests instead.
+    for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; do
+      echo "  -> $target"
+      RUSTC_WRAPPER="" cargo check --manifest-path "$workspace_manifest" --workspace \
+        --exclude ripdpi-io-uring --target "$target" --locked
+    done
+  fi
 fi
 
 NEXTEST_PROFILE="${CI:+ci}"

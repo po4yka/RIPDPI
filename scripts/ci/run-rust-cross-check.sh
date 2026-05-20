@@ -6,12 +6,15 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
 workspace_manifest="$repo_root/native/rust/Cargo.toml"
+source "$repo_root/scripts/ci/android-emulator-helpers.sh"
 
 echo "==> cross-target check (Android ABIs)"
-if [[ -z "${ANDROID_HOME:-}" ]]; then
-  echo "  ANDROID_HOME not set — skipping Android cross-target checks"
+if ! android_sdk_root="$(resolve_android_sdk_root)"; then
+  echo "  Android SDK not found — cannot run Android cross-target checks" >&2
   exit 1
 fi
+export ANDROID_HOME="$android_sdk_root"
+export ANDROID_SDK_ROOT="$android_sdk_root"
 
 # Resolve NDK toolchain and set CC_<target>, CXX_<target>, AR_<target>,
 # and CARGO_TARGET_<TARGET>_LINKER so cc-rs / ring / aws-lc-sys /
@@ -19,11 +22,17 @@ fi
 # Mirrors the approach in verify_native_bloat.py:cargo_environment().
 ndk_version="$(grep '^ripdpi.nativeNdkVersion=' "$repo_root/gradle.properties" | cut -d= -f2-)"
 min_sdk="$(grep '^ripdpi.minSdk=' "$repo_root/gradle.properties" | cut -d= -f2-)"
+ndk_dir="$ANDROID_HOME/ndk/$ndk_version"
 case "$(uname -s)" in
   Darwin) ndk_host="darwin-x86_64" ;;
   *)      ndk_host="linux-x86_64" ;;
 esac
-ndk_bin="$ANDROID_HOME/ndk/$ndk_version/toolchains/llvm/prebuilt/$ndk_host/bin"
+ndk_bin="$ndk_dir/toolchains/llvm/prebuilt/$ndk_host/bin"
+if [[ ! -d "$ndk_bin" ]]; then
+  echo "  Android NDK toolchain not found: $ndk_bin" >&2
+  exit 1
+fi
+export ANDROID_NDK_HOME="$ndk_dir"
 
 declare -A CLANG_TARGETS=(
   [aarch64-linux-android]="aarch64-linux-android"
@@ -40,6 +49,7 @@ for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x
   export "CXX_${target_env}=$ndk_bin/${clang_target}${min_sdk}-clang++"
   export "AR_${target_env}=$ndk_bin/llvm-ar"
   export "CARGO_TARGET_${target_upper}_LINKER=$ndk_bin/${clang_target}${min_sdk}-clang"
+  export "CARGO_TARGET_${target_upper}_AR=$ndk_bin/llvm-ar"
 done
 
 # Disable sccache for cross-compilation: aws-lc-sys invokes the NDK C

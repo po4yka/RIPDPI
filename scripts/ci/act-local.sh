@@ -121,7 +121,7 @@ run_native_rust_lint() {
 }
 
 run_native_cargo_deny() {
-  require_cmd cargo-deny "cargo install cargo-deny"
+  require_cmd cargo-deny "cargo install cargo-deny" || return
   cargo deny --manifest-path "$WORKSPACE_MANIFEST" check
 }
 
@@ -130,8 +130,10 @@ run_native_rust_workspace_tests() {
 }
 
 run_native_rust_loom() {
-  cd "$REPO_ROOT/native/rust"
-  LOOM_MAX_PREEMPTIONS=3 cargo test --features loom -- loom
+  (
+    cd "$REPO_ROOT/native/rust" &&
+      LOOM_MAX_PREEMPTIONS=3 cargo test --features loom -- loom
+  )
 }
 
 run_native_rust_turmoil() {
@@ -147,8 +149,10 @@ run_native_rust_network_e2e() {
 }
 
 run_native_rust_criterion_bench() {
-  cd "$REPO_ROOT/native/rust"
-  cargo bench --package ripdpi-bench
+  (
+    cd "$REPO_ROOT/native/rust" &&
+      cargo bench --package ripdpi-bench
+  )
 }
 
 run_native_rust_cross_check() {
@@ -160,8 +164,8 @@ run_native_gradle_static_analysis() {
 }
 
 run_native_build() {
-  "$REPO_ROOT/gradlew" -p "$REPO_ROOT" assembleDebug testDebugUnitTest
-  "$REPO_ROOT/gradlew" -p "$REPO_ROOT" :app:verifyRoborazziGithubDebug
+  "$REPO_ROOT/gradlew" -p "$REPO_ROOT" assembleDebug testDebugUnitTest || return
+  "$REPO_ROOT/gradlew" -p "$REPO_ROOT" :app:verifyRoborazziGithubDebug || return
   # verify_native_elfs.py and verify_native_sizes.py are skipped locally:
   # local debug builds only produce the host ABI with unstripped symbols,
   # while CI builds all 4 ABIs with stripped symbols. These checks only
@@ -170,7 +174,7 @@ run_native_build() {
 }
 
 run_native_native_bloat() {
-  require_cmd cargo-bloat "cargo install cargo-bloat"
+  require_cmd cargo-bloat "cargo install cargo-bloat" || return
   python3 "$REPO_ROOT/scripts/ci/verify_native_bloat.py"
 }
 
@@ -179,8 +183,8 @@ run_native_release_verification() {
 }
 
 run_native_coverage() {
-  require_cmd cargo-llvm-cov "cargo install cargo-llvm-cov"
-  "$REPO_ROOT/gradlew" -p "$REPO_ROOT" coverageReport
+  require_cmd cargo-llvm-cov "cargo install cargo-llvm-cov" || return
+  "$REPO_ROOT/gradlew" -p "$REPO_ROOT" coverageReport || return
   bash "$REPO_ROOT/scripts/ci/run-rust-coverage.sh"
 }
 
