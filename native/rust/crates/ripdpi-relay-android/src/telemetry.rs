@@ -4,7 +4,12 @@ use serde::Serialize;
 use crate::runtime::SessionRuntime;
 
 pub(crate) const IDLE_TELEMETRY_JSON: &str =
-    "{\"source\":\"relay\",\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
+    "{\"source\":\"relay\",\"schemaVersion\":1,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
+
+/// Runtime-telemetry payload schema version emitted on every snapshot.
+/// Additive forward marker — consumers do not branch on it yet. See
+/// `docs/architecture/TELEMETRY_CONTRACT.md`.
+const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,6 +35,7 @@ struct NativeRuntimeEvent {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct NativeRuntimeSnapshot<T> {
+    schema_version: u32,
     #[serde(flatten)]
     telemetry: T,
     native_events: Vec<NativeRuntimeEvent>,
@@ -68,6 +74,7 @@ where
 
 fn snapshot_from_telemetry<T>(telemetry: T) -> NativeRuntimeSnapshot<T> {
     NativeRuntimeSnapshot {
+        schema_version: SNAPSHOT_SCHEMA_VERSION,
         telemetry,
         native_events: drain_relay_events().into_iter().map(NativeRuntimeEvent::from).collect(),
     }
@@ -79,7 +86,7 @@ mod tests {
     use ripdpi_relay_core::RelayTelemetry as StandardRelayTelemetry;
     use tracing_subscriber::prelude::*;
 
-    use super::{NativeRuntimeEvent, NativeRuntimeSnapshot};
+    use super::{NativeRuntimeEvent, NativeRuntimeSnapshot, SNAPSHOT_SCHEMA_VERSION};
 
     fn sample_telemetry() -> StandardRelayTelemetry {
         StandardRelayTelemetry {
@@ -115,9 +122,21 @@ mod tests {
 
     fn snapshot_from_buffers(buffers: &EventRingBuffers) -> NativeRuntimeSnapshot<StandardRelayTelemetry> {
         NativeRuntimeSnapshot {
+            schema_version: SNAPSHOT_SCHEMA_VERSION,
             telemetry: sample_telemetry(),
             native_events: buffers.drain_relay().into_iter().map(NativeRuntimeEvent::from).collect(),
         }
+    }
+
+    #[test]
+    fn relay_snapshot_json_carries_schema_version() {
+        let snapshot = NativeRuntimeSnapshot {
+            schema_version: SNAPSHOT_SCHEMA_VERSION,
+            telemetry: sample_telemetry(),
+            native_events: Vec::<NativeRuntimeEvent>::new(),
+        };
+        let value = serde_json::to_value(&snapshot).expect("serialize relay snapshot");
+        assert_eq!(value["schemaVersion"], serde_json::json!(1));
     }
 
     #[test]

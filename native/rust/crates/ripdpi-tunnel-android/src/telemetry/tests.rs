@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use tracing_subscriber::prelude::*;
 
 use super::state::TunnelTelemetryState;
-use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, TunnelStatsSnapshot};
+use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, TunnelStatsSnapshot, SNAPSHOT_SCHEMA_VERSION};
 
 fn assert_tunnel_snapshot_golden(name: &str, snapshot: &NativeRuntimeSnapshot) {
     let actual = canonicalize_json_with(
@@ -234,6 +234,7 @@ fn tunnel_snapshot_field_manifest_matches_contract_fixture() {
 
     let snapshot = NativeRuntimeSnapshot {
         source: "tunnel".to_string(),
+        schema_version: SNAPSHOT_SCHEMA_VERSION,
         state: "running".to_string(),
         health: "healthy".to_string(),
         active_sessions: 1,
@@ -341,4 +342,14 @@ fn tunnel_event_field_manifest_matches_contract_fixture() {
     let paths = extract_field_paths(&json);
     let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
     assert_contract_fixture("tunnel_event_fields.json", &manifest);
+}
+
+#[test]
+fn tunnel_snapshot_json_carries_schema_version() {
+    let state = TunnelTelemetryState::new(None);
+    let snapshot = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+    assert_eq!(snapshot.schema_version, SNAPSHOT_SCHEMA_VERSION);
+
+    let value = serde_json::to_value(&snapshot).expect("serialize tunnel snapshot");
+    assert_eq!(value["schemaVersion"], json!(1));
 }

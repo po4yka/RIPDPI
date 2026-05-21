@@ -4,7 +4,7 @@ use android_support::drain_proxy_events;
 use ripdpi_telemetry::LatencyDistributions;
 
 use super::state::ProxyTelemetryState;
-use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, TunnelStatsSnapshot};
+use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, TunnelStatsSnapshot, SNAPSHOT_SCHEMA_VERSION};
 use super::util::now_ms;
 
 impl ProxyTelemetryState {
@@ -37,6 +37,7 @@ impl ProxyTelemetryState {
             .unwrap_or_default();
         NativeRuntimeSnapshot {
             source: "proxy".to_string(),
+            schema_version: SNAPSHOT_SCHEMA_VERSION,
             // Ordering: Acquire -- pairs with Release stores in mark_running/mark_stopped.
             state: if self.running.load(Ordering::Acquire) { "running".to_string() } else { "idle".to_string() },
             // Ordering: Acquire -- pairs with Release stores in mark_running/mark_stopped.

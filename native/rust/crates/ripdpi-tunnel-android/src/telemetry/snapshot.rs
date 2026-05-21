@@ -5,7 +5,7 @@ use ripdpi_telemetry::LatencyDistributions;
 use ripdpi_tunnel_core::DnsStatsSnapshot;
 
 use super::state::TunnelTelemetryState;
-use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, TunnelStatsSnapshot};
+use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, TunnelStatsSnapshot, SNAPSHOT_SCHEMA_VERSION};
 
 impl TunnelTelemetryState {
     pub(crate) fn snapshot(
@@ -17,6 +17,7 @@ impl TunnelTelemetryState {
     ) -> NativeRuntimeSnapshot {
         NativeRuntimeSnapshot {
             source: "tunnel".to_string(),
+            schema_version: SNAPSHOT_SCHEMA_VERSION,
             state: if self.running.load(Ordering::Relaxed) { "running".to_string() } else { "idle".to_string() },
             health: if self.running.load(Ordering::Relaxed) {
                 if self.total_errors.load(Ordering::Relaxed) == 0 {

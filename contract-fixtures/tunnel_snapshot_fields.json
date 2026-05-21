@@ -58,6 +58,7 @@
   "resolverLatencyMs",
   "resolverProtocol",
   "routeChanges",
+  "schemaVersion",
   "source",
   "state",
   "strategyPackId",

@@ -6,7 +6,13 @@ use serde::Serialize;
 
 use crate::registry;
 
-const IDLE_TELEMETRY_JSON: &str = "{\"source\":\"warp\",\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
+const IDLE_TELEMETRY_JSON: &str =
+    "{\"source\":\"warp\",\"schemaVersion\":1,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
+
+/// Runtime-telemetry payload schema version emitted on every snapshot.
+/// Additive forward marker — consumers do not branch on it yet. See
+/// `docs/architecture/TELEMETRY_CONTRACT.md`.
+const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,6 +38,7 @@ struct NativeRuntimeEvent {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct WarpNativeRuntimeSnapshot {
+    schema_version: u32,
     #[serde(flatten)]
     telemetry: WarpTelemetry,
     native_events: Vec<NativeRuntimeEvent>,
@@ -56,6 +63,7 @@ impl From<NativeEventRecord> for NativeRuntimeEvent {
 
 fn snapshot_from_telemetry(telemetry: WarpTelemetry) -> WarpNativeRuntimeSnapshot {
     WarpNativeRuntimeSnapshot {
+        schema_version: SNAPSHOT_SCHEMA_VERSION,
         telemetry,
         native_events: drain_warp_events().into_iter().map(NativeRuntimeEvent::from).collect(),
     }
@@ -104,9 +112,21 @@ mod tests {
 
     fn snapshot_from_buffers(buffers: &EventRingBuffers) -> WarpNativeRuntimeSnapshot {
         WarpNativeRuntimeSnapshot {
+            schema_version: SNAPSHOT_SCHEMA_VERSION,
             telemetry: sample_telemetry(),
             native_events: buffers.drain_warp().into_iter().map(NativeRuntimeEvent::from).collect(),
         }
+    }
+
+    #[test]
+    fn warp_snapshot_json_carries_schema_version() {
+        let snapshot = WarpNativeRuntimeSnapshot {
+            schema_version: SNAPSHOT_SCHEMA_VERSION,
+            telemetry: sample_telemetry(),
+            native_events: Vec::new(),
+        };
+        let value = serde_json::to_value(&snapshot).expect("serialize warp snapshot");
+        assert_eq!(value["schemaVersion"], serde_json::json!(1));
     }
 
     #[test]

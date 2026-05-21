@@ -84,6 +84,13 @@ data class DirectPathLearningSignal(
 @Serializable
 data class NativeRuntimeSnapshot(
     val source: String,
+    /**
+     * Runtime-telemetry payload schema version. Additive forward marker:
+     * no decoder branches on it, and a payload from an older native build
+     * that omits the key falls back to `1` via this default. See
+     * docs/architecture/TELEMETRY_CONTRACT.md.
+     */
+    val schemaVersion: Int = 1,
     val state: String = "idle",
     val health: String = "idle",
     val activeSessions: Long = 0,

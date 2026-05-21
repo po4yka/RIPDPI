@@ -68,6 +68,7 @@
   "quicMigrationStatus",
   "retryPacedCount",
   "routeChanges",
+  "schemaVersion",
   "slotExhaustions",
   "source",
   "state",

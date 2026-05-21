@@ -48,10 +48,16 @@ pub(crate) struct TunnelStatsSnapshot {
     pub(crate) rx_bytes: u64,
 }
 
+/// Runtime-telemetry payload schema version emitted on every snapshot.
+/// Additive forward marker — consumers do not branch on it yet. See
+/// `docs/architecture/TELEMETRY_CONTRACT.md`.
+pub(crate) const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeRuntimeSnapshot {
     pub(crate) source: String,
+    pub(crate) schema_version: u32,
     pub state: String,
     pub(crate) health: String,
     pub(crate) active_sessions: u64,

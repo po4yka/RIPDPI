@@ -28,6 +28,7 @@
   "resolverLatencyMs": null,
   "resolverProtocol": null,
   "routeChanges": 0,
+  "schemaVersion": 1,
   "source": "tunnel",
   "state": "running",
   "strategyPackId": null,

@@ -215,6 +215,58 @@ class NativeRuntimeSnapshotTest {
         )
     }
 
+    @Test
+    fun `snapshot without schemaVersion decodes with the default schema version`() {
+        // An older native build emits no schemaVersion key. The defaulted
+        // Kotlin field keeps the payload decodable -- schemaVersion is never
+        // required on the wire. See TELEMETRY_CONTRACT.md.
+        val json = """{ "source": "proxy", "state": "running" }"""
+
+        val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
+
+        assertEquals(1, decoded.schemaVersion)
+    }
+
+    @Test
+    fun `snapshot with explicit schemaVersion decodes that value`() {
+        val json = """{ "source": "proxy", "state": "running", "schemaVersion": 1 }"""
+
+        val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
+
+        assertEquals(1, decoded.schemaVersion)
+        assertEquals("proxy", decoded.source)
+    }
+
+    @Test
+    fun `schemaVersion coexists with unknown forward-compatible fields`() {
+        // schemaVersion is additive: it does not gate decoding, and the
+        // existing unknown-key tolerance still holds alongside it.
+        val json =
+            """
+            { "source": "proxy", "state": "running", "schemaVersion": 1,
+              "futureUnknownSnapshotField": 42 }
+            """.trimIndent()
+
+        val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
+
+        assertEquals(1, decoded.schemaVersion)
+        assertEquals("running", decoded.state)
+    }
+
+    @Test
+    fun `default snapshot encodes schemaVersion as 1`() {
+        val encoded =
+            snapshotJson.encodeToString(
+                NativeRuntimeSnapshot.serializer(),
+                NativeRuntimeSnapshot(source = "proxy"),
+            )
+
+        assertTrue(
+            "expected schemaVersion in $encoded",
+            encoded.contains("\"schemaVersion\":1"),
+        )
+    }
+
     private companion object {
         val snapshotJson =
             kotlinx.serialization.json.Json {

@@ -114,11 +114,19 @@ The telemetry payload is JSON: Rust `serde` serializes, Kotlin
 - **Additive and defaulted.** A new telemetry field is safe only if it is an
   `Option<T>`/`skip_serializing_if` (or otherwise omittable) on the Rust side
   **and** a defaulted field on the Kotlin side.
-- **No schema version.** Unlike the diagnostics wire contract
+- **Schema version.** The payload carries an additive `schemaVersion` integer
+  (currently `1`). Every Rust snapshot producer emits it — the
+  `SNAPSHOT_SCHEMA_VERSION` constant in the proxy / tunnel / warp / relay
+  telemetry modules — and the Kotlin `NativeRuntimeSnapshot` defaults the field
+  to `1`, so a payload from an older native build that omits the key still
+  decodes. It is a *forward marker*, not a gate: no decoder branches on it
+  today. Unlike the diagnostics wire contract
   (`DIAGNOSTICS_ENGINE_SCHEMA_VERSION`, [`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md)
-  §8), the runtime-telemetry payload carries **no version field**.
-  Compatibility rests entirely on the additive-and-defaulted rule plus the
-  Kotlin parsers' unknown-key tolerance below.
+  §8), bumping `schemaVersion` is not wired to any validation — it exists so a
+  future *breaking* telemetry change has an explicit signal to branch on.
+  Routine field additions stay governed by the additive-and-defaulted rule plus
+  the Kotlin parsers' unknown-key tolerance below; they do **not** require a
+  `schemaVersion` bump.
 - **Golden-locked.** `NativeTelemetryGoldenTest` (`:core:engine`) and
   `ServiceTelemetryGoldenTest` (`:core:service`) pin the payload shape. A
   field rename, an event-name change, or a removed field is a contract change
@@ -175,7 +183,8 @@ runtime is already safe with no Kotlin change at all.
 1. **New snapshot/event field.** Rust: add it omittable (`Option<T>` +
    `#[serde(skip_serializing_if)]`, or a `skip`-able default). Kotlin: add a
    defaulted field to the matching `@Serializable` class. Update the goldens
-   under supervision. No version bump — the field is additive.
+   under supervision. No `schemaVersion` bump — a routine field addition is
+   additive.
 2. **New event `kind`.** Just emit it from Rust; `kind` is an open `String?`.
    Document the new value in the §Stable identifiers table.
 3. **New event domain.** Add the `EventDomain` arm in `android-support` and a
