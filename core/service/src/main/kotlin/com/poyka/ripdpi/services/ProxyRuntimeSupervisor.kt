@@ -15,6 +15,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
 
+/**
+ * Supervises the native proxy runtime — starts it, owns its coroutine `Job`,
+ * surfaces an unexpected exit via a `SupervisorExitCause` callback, and stops
+ * it within a bounded timeout.
+ */
 internal class ProxyRuntimeSupervisor(
     private val scope: CoroutineScope,
     private val dispatcher: CoroutineDispatcher,

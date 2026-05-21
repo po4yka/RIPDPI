@@ -9,6 +9,12 @@ import kotlinx.coroutines.delay
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Service-side bridge to the diagnostics scan engine — sequences a raw-path
+ * scan against service state: stops a running service before the scan and
+ * auto-resumes it afterward when the `diagnosticsAutoResumeAfterRawScan`
+ * setting is on. See `docs/architecture/DIAGNOSTICS_ARCHITECTURE.md`.
+ */
 @Singleton
 class DefaultDiagnosticsRuntimeCoordinator
     @Inject

@@ -2,6 +2,11 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 
+/**
+ * The service lifecycle state machine — enforces the
+ * `STOPPED → STARTING → RUNNING → STOPPING` transitions and rejects an
+ * out-of-order start. Service start/stop behavior is frozen.
+ */
 internal class ServiceLifecycleStateMachine {
     enum class State {
         STOPPED,

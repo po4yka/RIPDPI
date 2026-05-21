@@ -23,6 +23,13 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import javax.inject.Provider
 
+/**
+ * VPN-mode foreground `VpnService` — the Android entry point for VPN mode.
+ * Hosts the VPN session lifecycle, the foreground notification, underlying-
+ * network binding, and `onRevoke`; runtime orchestration is delegated to
+ * `VpnServiceRuntimeCoordinator`. Lifecycle-callback behavior is frozen — see
+ * this module's `README.md`.
+ */
 @AndroidEntryPoint
 class RipDpiVpnService :
     LifecycleVpnService(),

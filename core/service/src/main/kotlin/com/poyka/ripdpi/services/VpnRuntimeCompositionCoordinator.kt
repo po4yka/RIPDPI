@@ -2,6 +2,11 @@ package com.poyka.ripdpi.services
 
 import java.util.UUID
 
+/**
+ * Composes a VPN runtime — starts and stops the shared proxy runtime stack and
+ * the VPN tunnel together as one unit, and applies the active connection
+ * policy. Driven by `VpnServiceRuntimeCoordinator`.
+ */
 internal class VpnRuntimeCompositionCoordinator(
     private val proxyRuntimeStack: SharedProxyRuntimeStack,
     private val vpnTunnelRuntime: VpnTunnelRuntime,

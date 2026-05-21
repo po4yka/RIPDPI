@@ -53,6 +53,12 @@ internal data class ProxyRuntimeSupervisorBundle(
     val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
 )
 
+/**
+ * Concrete proxy-mode runtime coordinator. Composes the upstream relay
+ * supervisor and the proxy runtime into a running proxy session and drives
+ * start / stop / handover. The coordinator (DI-wiring) half of the `service`
+ * layer over the `services` implementations.
+ */
 internal class ProxyServiceRuntimeCoordinator(
     host: ServiceCoordinatorHost,
     connectionPolicyResolver: ConnectionPolicyResolver,

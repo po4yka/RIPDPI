@@ -34,6 +34,13 @@ import com.poyka.ripdpi.data.NetworkHandoverMonitor as SharedNetworkHandoverMoni
 typealias NetworkHandoverEvent = SharedNetworkHandoverEvent
 typealias NetworkHandoverMonitor = SharedNetworkHandoverMonitor
 
+/**
+ * Watches the underlying network via `ConnectivityManager` callbacks and emits
+ * a `NetworkHandoverEvent` when a qualifying Wi-Fi ↔ cellular switch is
+ * detected. `NetworkHandoverProcessor` consumes the event and drives a
+ * retry-backed runtime restart. See this module's `README.md`,
+ * "Network handover".
+ */
 @Singleton
 class DefaultNetworkHandoverMonitor
     @Inject

@@ -42,6 +42,13 @@ data class ConnectionPolicyResolution(
     val handoverClassification: String? = null,
 )
 
+/**
+ * The connection-policy decision authority. `resolve` merges app settings, DNS
+ * configuration, VPN options, and the network-specific remembered policy into
+ * a single `ConnectionPolicyResolution`. The default implementation is
+ * `DefaultConnectionPolicyResolver`. See this module's `README.md`,
+ * "Policy memory".
+ */
 interface ConnectionPolicyResolver {
     suspend fun resolve(
         mode: Mode,

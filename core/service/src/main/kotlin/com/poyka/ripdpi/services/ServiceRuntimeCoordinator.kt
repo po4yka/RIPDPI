@@ -36,6 +36,13 @@ internal interface HandoverAwareSession {
     var handoverRetryCount: Int
 }
 
+/**
+ * Abstract per-mode runtime orchestrator — owns runtime state, connection-
+ * policy resolution, network-handover handling, and permission gating shared
+ * by VPN and proxy modes. Concrete subclasses are `VpnServiceRuntimeCoordinator`
+ * and `ProxyServiceRuntimeCoordinator`. See this module's `README.md`,
+ * "Runtime / proxy / VPN orchestration".
+ */
 internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     private val mode: Mode,
     protected val host: ServiceCoordinatorHost,

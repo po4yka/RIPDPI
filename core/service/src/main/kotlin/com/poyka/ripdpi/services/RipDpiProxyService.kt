@@ -25,6 +25,12 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import javax.inject.Provider
 
+/**
+ * Proxy-mode foreground `Service` — the Android entry point for proxy mode.
+ * Hosts the proxy session component; runtime orchestration is delegated to
+ * `ProxyServiceRuntimeCoordinator`. Lifecycle-callback behavior is frozen —
+ * see this module's `README.md`.
+ */
 @AndroidEntryPoint
 class RipDpiProxyService :
     LifecycleService(),

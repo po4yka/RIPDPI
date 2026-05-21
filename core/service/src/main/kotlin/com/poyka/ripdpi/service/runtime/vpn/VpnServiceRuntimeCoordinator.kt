@@ -71,6 +71,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Concrete VPN-mode runtime coordinator. Composes the VPN tunnel, the proxy
+ * runtime stack, DNS policy, relay supervision, and the protect server into a
+ * running VPN session and drives start / stop / handover. The coordinator
+ * (DI-wiring) half of the `service` layer over the `services` implementations.
+ */
 @Suppress("LongParameterList")
 internal class VpnServiceRuntimeCoordinator(
     vpnHost: VpnCoordinatorHost,
