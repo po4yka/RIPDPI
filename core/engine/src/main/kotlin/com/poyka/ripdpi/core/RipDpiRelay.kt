@@ -3,9 +3,6 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.core.lifetime.HandleReservation
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.RelayCongestionControlBbr
-import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
-import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -14,7 +11,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -133,109 +129,6 @@ class RipDpiRelayNativeBindings
     }
 
 private val relayJson = Json { ignoreUnknownKeys = true }
-
-@Serializable
-data class ResolvedRelayFinalmaskConfig(
-    val type: String = com.poyka.ripdpi.data.RelayFinalmaskTypeOff,
-    val headerHex: String = "",
-    val trailerHex: String = "",
-    val randRange: String = "",
-    val sudokuSeed: String = "",
-    val fragmentPackets: Int = 0,
-    val fragmentMinBytes: Int = 0,
-    val fragmentMaxBytes: Int = 0,
-)
-
-@Serializable
-data class ResolvedShadowTlsInnerRelayConfig(
-    val kind: String,
-    val profileId: String,
-    val server: String,
-    val serverPort: Int,
-    val serverName: String,
-    val realityPublicKey: String = "",
-    val realityShortId: String = "",
-    val vlessTransport: String = RelayVlessTransportRealityTcp,
-    val vlessUuid: String? = null,
-)
-
-@Serializable
-data class ResolvedRipDpiRelayConfig(
-    val enabled: Boolean,
-    val kind: String,
-    val profileId: String,
-    val outboundBindIp: String = "",
-    val server: String,
-    val serverPort: Int,
-    val serverName: String,
-    val realityPublicKey: String,
-    val realityShortId: String,
-    val vlessTransport: String = RelayVlessTransportRealityTcp,
-    val xhttpPath: String = "",
-    val xhttpHost: String = "",
-    val cloudflareTunnelMode: String = com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting,
-    val cloudflarePublishLocalOriginUrl: String = "",
-    val cloudflareCredentialsRef: String = "",
-    val chainEntryServer: String,
-    val chainEntryPort: Int,
-    val chainEntryServerName: String,
-    val chainEntryPublicKey: String,
-    val chainEntryShortId: String,
-    val chainEntryProfileId: String = "",
-    val chainExitServer: String,
-    val chainExitPort: Int,
-    val chainExitServerName: String,
-    val chainExitPublicKey: String,
-    val chainExitShortId: String,
-    val chainExitProfileId: String = "",
-    val masqueUrl: String,
-    val masqueUseHttp2Fallback: Boolean,
-    val masqueCloudflareGeohashEnabled: Boolean = false,
-    val tuicZeroRtt: Boolean = false,
-    val tuicCongestionControl: String = RelayCongestionControlBbr,
-    val shadowTlsInnerProfileId: String = "",
-    val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig? = null,
-    val naivePath: String = "",
-    val ptBridgeLine: String = "",
-    val ptWebTunnelUrl: String = "",
-    val ptSnowflakeBrokerUrl: String = "",
-    val ptSnowflakeFrontDomain: String = "",
-    val localSocksHost: String,
-    val localSocksPort: Int,
-    val udpEnabled: Boolean,
-    val tcpFallbackEnabled: Boolean,
-    val quicBindLowPort: Boolean = false,
-    val quicMigrateAfterHandshake: Boolean = false,
-    val vlessUuid: String? = null,
-    val chainEntryUuid: String? = null,
-    val chainExitUuid: String? = null,
-    val hysteriaPassword: String? = null,
-    val hysteriaSalamanderKey: String? = null,
-    val tuicUuid: String? = null,
-    val tuicPassword: String? = null,
-    val shadowTlsPassword: String? = null,
-    val naiveUsername: String? = null,
-    val naivePassword: String? = null,
-    val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
-    val masqueAuthMode: String? = null,
-    val masqueAuthToken: String? = null,
-    val masqueClientCertificateChainPem: String? = null,
-    val masqueClientPrivateKeyPem: String? = null,
-    val masqueCloudflareGeohashHeader: String? = null,
-    val masquePrivacyPassProviderUrl: String? = null,
-    val masquePrivacyPassProviderAuthToken: String? = null,
-    val cloudflareTunnelToken: String? = null,
-    val cloudflareTunnelCredentialsJson: String? = null,
-    val appsScriptScriptIds: List<String> = emptyList(),
-    val appsScriptGoogleIp: String = "",
-    val appsScriptFrontDomain: String = "",
-    val appsScriptSniHosts: List<String> = emptyList(),
-    val appsScriptVerifySsl: Boolean = com.poyka.ripdpi.data.DefaultRelayAppsScriptVerifySsl,
-    val appsScriptParallelRelay: Boolean = false,
-    val appsScriptDirectHosts: List<String> = emptyList(),
-    val appsScriptAuthKey: String? = null,
-    val finalmask: ResolvedRelayFinalmaskConfig = ResolvedRelayFinalmaskConfig(),
-)
 
 /**
  * Coroutine-friendly owner of a single native relay handle (see
