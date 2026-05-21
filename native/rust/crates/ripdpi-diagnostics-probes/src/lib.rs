@@ -119,11 +119,13 @@ pub trait Probe {
 }
 
 pub mod probes;
+pub mod scheduled_inventory;
 
 pub use probes::{
-    CircumventionReachabilityProbe, DnsTamperingConfirmationProbe, DohSurveyProbe, EchHandshakeProbe,
-    HickoryRustlsEchHandshakeDriver, HttpInjectionOfflineProbe, HttpResponseBlockOfflineProbe, IpBlockSuspectProbe,
-    MtprotoReachabilityProbe, QuicProbeOfflineProbe, ServiceReachabilityProbe, ThroughputProbe, TlsAlertOfflineProbe,
+    CircumventionReachabilityProbe, DnsIntegrityProbe, DnsTamperingConfirmationProbe, DohSurveyProbe,
+    DomainReachabilityProbe, EchHandshakeProbe, HickoryRustlsEchHandshakeDriver, HttpInjectionOfflineProbe,
+    HttpResponseBlockOfflineProbe, IpBlockSuspectProbe, MtprotoReachabilityProbe, QuicProbeOfflineProbe,
+    ServiceReachabilityProbe, TcpFatHeaderProbe, ThroughputProbe, TlsAlertOfflineProbe,
 };
 
 #[cfg(feature = "compat-facade")]

@@ -2,10 +2,14 @@
 
 #[path = "circumvention_reachability.rs"]
 pub mod circumvention_reachability;
+#[path = "dns_integrity.rs"]
+pub mod dns_integrity;
 #[path = "dns_tampering.rs"]
 pub mod dns_tampering;
 #[path = "doh_survey.rs"]
 pub mod doh_survey;
+#[path = "domain_reachability.rs"]
+pub mod domain_reachability;
 #[path = "ech_handshake.rs"]
 pub mod ech_handshake;
 #[path = "hickory_rustls_ech_driver.rs"]
@@ -22,14 +26,18 @@ pub mod mtproto_reachability;
 pub mod quic_probe;
 #[path = "service_reachability.rs"]
 pub mod service_reachability;
+#[path = "tcp_fat_header.rs"]
+pub mod tcp_fat_header;
 #[path = "throughput.rs"]
 pub mod throughput;
 #[path = "tls_alert.rs"]
 pub mod tls_alert;
 
 pub use circumvention_reachability::CircumventionReachabilityProbe;
+pub use dns_integrity::DnsIntegrityProbe;
 pub use dns_tampering::DnsTamperingConfirmationProbe;
 pub use doh_survey::DohSurveyProbe;
+pub use domain_reachability::DomainReachabilityProbe;
 pub use ech_handshake::EchHandshakeProbe;
 pub use hickory_rustls_ech_driver::HickoryRustlsEchHandshakeDriver;
 pub use http_injection::HttpInjectionOfflineProbe;
@@ -38,5 +46,6 @@ pub use ip_block_suspect::IpBlockSuspectProbe;
 pub use mtproto_reachability::MtprotoReachabilityProbe;
 pub use quic_probe::QuicProbeOfflineProbe;
 pub use service_reachability::ServiceReachabilityProbe;
+pub use tcp_fat_header::TcpFatHeaderProbe;
 pub use throughput::ThroughputProbe;
 pub use tls_alert::TlsAlertOfflineProbe;
