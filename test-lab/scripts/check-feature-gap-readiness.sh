@@ -173,12 +173,23 @@ if [[ "$device_state" == "device" ]]; then
   enabled_services="$(adb_shell settings get secure enabled_accessibility_services || true)"
   accessibility_enabled="$(adb_shell settings get secure accessibility_enabled || true)"
   talkback_packages="$(adb_shell pm list packages | grep -Ei 'talkback|marvin' || true)"
+  window_state="$(adb_shell dumpsys window || true)"
+  keyguard_locked=false
+  keyguard_context=""
+  if [[ "$window_state" == *"isKeyguardShowing=true"* || "$window_state" == *"mDreamingLockscreen=true"* ]]; then
+    keyguard_locked=true
+    keyguard_context=" Device is locked; unlock it before physical app-window or UI-driven TalkBack verification."
+  fi
   if [[ "$enabled_services" == *"com.google.android.marvin.talkback"* ]]; then
-    add_check "manual_talkback" "ready" "true" "TalkBack is the active accessibility service."
+    if [[ "$keyguard_locked" == "true" ]]; then
+      add_check "manual_talkback" "blocked" "true" "TalkBack is the active accessibility service.$keyguard_context"
+    else
+      add_check "manual_talkback" "ready" "true" "TalkBack is the active accessibility service."
+    fi
   elif [[ -n "$talkback_packages" ]]; then
-    add_check "manual_talkback" "blocked" "true" "TalkBack is installed but not active; accessibility_enabled=$accessibility_enabled active_services=${enabled_services:-none}."
+    add_check "manual_talkback" "blocked" "true" "TalkBack is installed but not active; accessibility_enabled=$accessibility_enabled active_services=${enabled_services:-none}.$keyguard_context"
   else
-    add_check "manual_talkback" "blocked" "true" "TalkBack package is not installed on the attached device."
+    add_check "manual_talkback" "blocked" "true" "TalkBack package is not installed on the attached device.$keyguard_context"
   fi
 else
   add_check "manual_talkback" "blocked" "true" "No adb device is ready for TalkBack verification."

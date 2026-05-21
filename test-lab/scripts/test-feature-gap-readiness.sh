@@ -21,6 +21,7 @@ atomic_json="$tmpdir/feature-gap-readiness-atomic.json"
 multi_device_json="$tmpdir/feature-gap-readiness-multi-device.json"
 netem_container_json="$tmpdir/feature-gap-readiness-netem-container.json"
 cellular_out_of_service_json="$tmpdir/feature-gap-readiness-cellular-out-of-service.json"
+locked_talkback_json="$tmpdir/feature-gap-readiness-locked-talkback.json"
 local_workflow_json="$tmpdir/local-workflow-evidence.json"
 local_workflow_readiness_json="$tmpdir/feature-gap-readiness-local-workflow.json"
 fake_adb="$tmpdir/fake-adb"
@@ -329,13 +330,26 @@ EOF
         exit 1
         ;;
       "settings get secure enabled_accessibility_services")
-        echo "com.example/.OtherService"
+        if [[ "${RIPDPI_FAKE_TALKBACK_ACTIVE:-false}" == "true" ]]; then
+          echo "com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService"
+        else
+          echo "com.example/.OtherService"
+        fi
         ;;
       "settings get secure accessibility_enabled")
         echo "1"
         ;;
       "pm list packages")
         echo "package:com.google.android.marvin.talkback"
+        ;;
+      "dumpsys window")
+        if [[ "${RIPDPI_FAKE_KEYGUARD:-unlocked}" == "locked" ]]; then
+          echo "mDreamingLockscreen=true"
+          echo "isKeyguardShowing=true"
+        else
+          echo "mDreamingLockscreen=false"
+          echo "isKeyguardShowing=false"
+        fi
         ;;
       "dumpsys connectivity")
         cat <<'EOF'
@@ -389,6 +403,35 @@ if handover.get("status") != "manual":
 rooted = checks["rooted_physical_device"]
 if rooted.get("status") != "blocked" or "did not provide root" not in rooted.get("message", ""):
     raise SystemExit(f"expected non-rooted physical device blocker, got {rooted!r}")
+PY
+
+ADB="$fake_adb" \
+  RIPDPI_FAKE_KEYGUARD=locked \
+  RIPDPI_FAKE_TALKBACK_ACTIVE=true \
+  RIPDPI_IGNORE_DIRTY_WORKTREE_FOR_READINESS=true \
+  RIPDPI_REMOTE_COMPARE_REF=HEAD \
+  "$repo_root/test-lab/scripts/check-feature-gap-readiness.sh" \
+  --output "$locked_talkback_json" >/dev/null
+"$python_bin" "$validator" "$locked_talkback_json" "$tmpdir/signoff-required-readiness.txt"
+
+"$python_bin" - "$locked_talkback_json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+
+checks = {check["name"]: check for check in data.get("checks", [])}
+talkback = checks["manual_talkback"]
+if talkback.get("status") != "blocked":
+    raise SystemExit(f"expected locked active TalkBack to remain blocked, got {talkback!r}")
+message = talkback.get("message", "")
+if (
+    "TalkBack is the active accessibility service" not in message
+    or "Device is locked" not in message
+    or "UI-driven TalkBack verification" not in message
+):
+    raise SystemExit(f"locked TalkBack blocker lost keyguard context: {message!r}")
 PY
 
 ADB="$fake_adb" \
