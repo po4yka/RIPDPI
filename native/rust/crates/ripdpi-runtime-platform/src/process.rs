@@ -4,6 +4,14 @@
 //! `libc` / `nix` directly (no `ripdpi-privileged-ops` round-trip) because
 //! these are unprivileged process facilities, not network syscalls. Surfaced
 //! through the `capability` facade — see the follow-up note in `README.md`.
+//!
+//! ## Unsafe surface
+//!
+//! Two `unsafe` calls, each with a per-call `// SAFETY:` note: the
+//! `libc::sysconf(_SC_NPROCESSORS_ONLN)` query (always defined on
+//! Linux/Android — the negative-return error case is checked at the call
+//! site) and the `nix::sys::signal::signal` handler install (the
+//! caller-supplied handler must be async-signal-safe).
 
 use std::io;
 use std::num::NonZeroUsize;

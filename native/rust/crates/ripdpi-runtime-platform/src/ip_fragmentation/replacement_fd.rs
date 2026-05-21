@@ -1,3 +1,18 @@
+//! Runtime-adaptation — IP-fragmentation descriptor-swap helper.
+//!
+//! A single thin `unsafe` wrapper, `swap_replacement_fd`, used by the
+//! IP-fragmentation entry points in the sibling `tcp` module to install the
+//! replacement socket descriptor the privileged root helper may return over
+//! the caller's stream fd.
+//!
+//! ## Unsafe surface
+//!
+//! `swap_replacement_fd` is an `unsafe fn`: it performs a `dup2`-class syscall
+//! via `ripdpi_privileged_ops::swap_replacement_fd`. The caller invariant —
+//! `replacement_fd` is a live, owned descriptor being surrendered, and
+//! `target_fd` is a live descriptor the caller keeps owning — is restated on
+//! the function's own `# Safety` section.
+
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use std::io;
 #[cfg(any(target_os = "linux", target_os = "android"))]

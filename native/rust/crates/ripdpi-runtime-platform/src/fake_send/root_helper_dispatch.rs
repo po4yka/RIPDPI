@@ -7,6 +7,14 @@
 //! is registered, and the caller in the sibling `fake_send::*` modules must
 //! fall through to the local `ripdpi-privileged-ops` path. A `None` here is
 //! never an error — it is the rooted-vs-non-root branch.
+//!
+//! ## Unsafe surface
+//!
+//! One `unsafe` call, in `swap_stream_replacement_fd`: when the root helper
+//! returns a freshly-created replacement descriptor it is installed over the
+//! caller's stream fd via `ripdpi_privileged_ops::swap_replacement_fd`. The
+//! replacement fd is retained by no other path and `stream` only borrows its
+//! descriptor for the call — see the per-call `// SAFETY:` note.
 
 use std::io;
 use std::net::TcpStream;

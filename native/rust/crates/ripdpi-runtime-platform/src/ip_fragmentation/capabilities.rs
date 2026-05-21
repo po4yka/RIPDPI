@@ -1,3 +1,11 @@
+//! Runtime-adaptation — IP-fragmentation capability probe.
+//!
+//! `probe_ip_fragmentation_capabilities` reports whether IP-fragmentation
+//! desync is usable on the current device. It tries the privileged root helper
+//! first and otherwise falls back to the local `ripdpi-privileged-ops` probe;
+//! non-Linux targets report `IpFragmentationCapabilities::default()`. This
+//! module issues no `unsafe` of its own.
+
 use std::io;
 
 use super::super::IpFragmentationCapabilities;
