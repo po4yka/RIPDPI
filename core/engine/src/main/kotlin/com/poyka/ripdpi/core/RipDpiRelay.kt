@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.core.lifetime.HandleReservation
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
@@ -10,8 +11,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
@@ -242,15 +241,18 @@ data class ResolvedRipDpiRelayConfig(
  * Coroutine-friendly owner of a single native relay handle (see
  * [RipDpiRelayBindings] for the raw JNI contract).
  *
- * Holds at most one live handle and serializes handle-sensitive JNI calls under
- * [mutex]. [start] keeps the blocking [RipDpiRelayBindings.start] on
- * `Dispatchers.IO` and `destroy`s the handle in a `finally` block once it
- * returns, so callers never call `destroy` directly. [stop] clears the handle
- * field first, then runs `stop` + `destroy` off the lock — both are idempotent
- * native no-ops, so a redundant [stop] is harmless. A second [start] while a
- * handle is live throws `NativeError.AlreadyRunning`.
+ * Holds at most one live handle and uses [HandleReservation] to let telemetry
+ * reservations overlap while lifecycle mutations drain them before clearing or
+ * destroying the native session. [start] keeps the blocking
+ * [RipDpiRelayBindings.start] on `Dispatchers.IO` and `destroy`s the handle in
+ * a `finally` block once it returns, so callers never call `destroy` directly.
+ * [stop] drains in-flight telemetry, then clears the handle field and runs
+ * `stop` + `destroy` — both are idempotent native no-ops, so a redundant [stop]
+ * is harmless. A second [start] while a handle is live throws
+ * `NativeError.AlreadyRunning`.
  *
- * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle).
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle) and
+ * `docs/architecture/jni-handle-lifetime-telemetry-lock.md` (lock model).
  */
 class RipDpiRelay(
     private val nativeBindings: RipDpiRelayBindings,
@@ -259,8 +261,9 @@ class RipDpiRelay(
         private const val ReadyPollIntervalMs = 50L
     }
 
-    private val mutex = Mutex()
-    private var readinessSignal: CompletableDeferred<Unit>? = null
+    private val reservations = HandleReservation()
+
+    @Volatile private var readinessSignal: CompletableDeferred<Unit>? = null
 
     @Volatile private var handle = 0L
 
@@ -269,7 +272,7 @@ class RipDpiRelay(
     override suspend fun start(config: ResolvedRipDpiRelayConfig): Int {
         val startupSignal = CompletableDeferred<Unit>()
         val createdHandle =
-            mutex.withLock {
+            reservations.withExclusive {
                 if (handle != 0L) {
                     throw NativeError.AlreadyRunning("relay")
                 }
@@ -312,7 +315,7 @@ class RipDpiRelay(
             startupSignal.completeExceptionally(error)
             throw error
         } finally {
-            mutex.withLock {
+            reservations.withExclusiveNonCancellable {
                 if (handle == createdHandle) {
                     try {
                         nativeBindings.destroy(createdHandle)
@@ -331,10 +334,7 @@ class RipDpiRelay(
     }
 
     override suspend fun awaitReady(timeoutMillis: Long) {
-        val startupSignal =
-            mutex.withLock {
-                readinessSignal
-            } ?: throw NativeError.NotRunning("relay")
+        val startupSignal = readinessSignal ?: throw NativeError.NotRunning("relay")
         var lastState = "idle"
         var lastEventMessage: String? = null
         try {
@@ -370,32 +370,27 @@ class RipDpiRelay(
     }
 
     override suspend fun stop() {
-        val activeHandle =
-            mutex.withLock {
-                val currentHandle = handle
-                handle = 0L
-                readinessSignal = null
-                currentHandle
-            }
-        if (activeHandle != 0L) {
-            withContext(Dispatchers.IO) {
-                runCatching { nativeBindings.stop(activeHandle) }
-                nativeBindings.destroy(activeHandle)
+        // Exclusive: drain in-flight telemetry reservations before the handle
+        // is cleared and the native session is stopped/destroyed.
+        reservations.withExclusiveNonCancellable {
+            val activeHandle = handle
+            handle = 0L
+            readinessSignal = null
+            if (activeHandle != 0L) {
+                withContext(Dispatchers.IO) {
+                    runCatching { nativeBindings.stop(activeHandle) }
+                    nativeBindings.destroy(activeHandle)
+                }
             }
         }
     }
 
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
+        // Reserve the active handle, then run the JNI call without holding the
+        // exclusive lifecycle section, so telemetry polls overlap.
         val telemetryJson =
-            mutex.withLock {
-                val currentHandle = handle
-                if (currentHandle == 0L) {
-                    null
-                } else {
-                    // Serialize handle-sensitive JNI calls with lifecycle transitions so
-                    // stop/destroy cannot invalidate the handle during polling.
-                    withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(currentHandle) }
-                }
+            reservations.withReservationOrNull({ handle }) { currentHandle ->
+                withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(currentHandle) }
             }
         return telemetryJson
             ?.takeIf { it.isNotBlank() }
