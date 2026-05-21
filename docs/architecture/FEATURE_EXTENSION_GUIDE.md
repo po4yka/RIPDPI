@@ -82,6 +82,59 @@ these breaks something downstream:
   (see §3) — the 24 TCP + 6 QUIC candidates are listed in
   [`AGENTS.md`](../../AGENTS.md) § Strategy Probe Candidates.
 
+### The strategy registration seam (`ripdpi-strategy-*`)
+
+The step-kind path above is the proxy-mode surface. A second, **separate**
+strategy system feeds TUN-egress mutation (`ripdpi-tunnel-intercept`) and
+file-/CLI-driven config — the `ripdpi-strategy-*` crates behind the
+`DesyncStrategy` trait:
+
+| Crate | Role |
+|-------|------|
+| `ripdpi-strategy-trait` | The `DesyncStrategy` contract + the `STRATEGY_FACTORIES` / `STRATEGY_DESCRIPTOR_REGISTRATIONS` `linkme` slices |
+| `ripdpi-strategy-{http,ipv6,udp,window,lua}` | Built-in strategy implementations |
+| `ripdpi-strategy-config` | YAML/TOML strategy-file model (`StepType`, `LoadedStrategyConfig`) |
+| `ripdpi-strategy-registry` | Aggregates the impls into a `StrategyRegistry` and executes the chain |
+
+**To add a factory-backed strategy** (a stateless default — the preferred,
+lowest-friction path):
+
+1. Implement `DesyncStrategy` in a `ripdpi-strategy-*` crate (new or existing).
+2. Contribute a `StrategyFactory` to `STRATEGY_FACTORIES` with
+   `#[linkme::distributed_slice(...)]`. `ripdpi-strategy-window` is the minimal
+   worked example.
+3. **Central edit:** if the strategy lives in a *new* crate, add
+   `extern crate ripdpi_strategy_<name> as _;` to
+   `ripdpi-strategy-registry/src/lib.rs` — `linkme` only collects slice entries
+   from linked crates. This is the *only* central edit the factory path needs;
+   the registry then resolves the stable ID with no match arm.
+
+**Other central edit points** in the registry / config, needed only for the
+non-factory paths:
+
+- `BUILTIN_TECHNIQUES` (`ripdpi-strategy-registry`) — a technique with no
+  linked factory; pairs with…
+- `BuiltinTechnique::plan`'s `match self.definition.id` — the `DesyncAction`
+  the built-in technique emits.
+- `configured_strategy_from_step` (`ripdpi-strategy-registry`) — a strategy
+  that must be built with config parameters (e.g. `UdpLenStrategy::new(delta)`).
+- `StepType` + `StepType::registry_id()` (`ripdpi-strategy-config`) — a new
+  YAML/TOML step kind. The `StepType` serde representation **is** config
+  schema: adding a variant is additive, renaming one (or its `rename`/`alias`)
+  is a schema break.
+
+> *Future improvement: `BuiltinTechnique::plan` carries a central
+> `match self.definition.id` mapping each built-in technique ID to its
+> `DesyncAction`. The `BuiltinTechniqueDefinition` table entries already hold
+> id / label / tier / capabilities but **not** the action, so the match cannot
+> today be replaced by a table lookup against an existing descriptor field.
+> Adding an `action: fn() -> Option<DesyncAction>` field to
+> `BuiltinTechniqueDefinition` would make `BUILTIN_TECHNIQUES` the single
+> source of truth and collapse `BuiltinTechnique::plan` to a fieldless table
+> dispatch, retiring the parallel ID list. It is behavior-neutral only if each
+> function pointer reproduces the exact `DesyncAction` the current arm pushes —
+> treat it as its own reviewed refactor, not a docs-pass change.*
+
 ### Compatibility checks
 
 - Kotlin/Rust wire structs must stay field-order-aligned; `@SerialName` values
@@ -145,6 +198,49 @@ approximation or be inert when root is unavailable. `multidisorder` is
    `Subprocess*` supervisor in `:core:service` instead of JNI wiring.
 5. If the transport has a URI scheme, extend the subscription/profile importers
    (base64, Clash/Clash.Meta YAML, sing-box JSON, WireGuard-INI).
+
+### The transport-descriptor seam
+
+`ripdpi-relay-core` exposes a `RelayTransportDescriptor` — an additive,
+read-only inventory of every concrete relay transport
+(`RELAY_TRANSPORT_DESCRIPTORS`, looked up with `relay_transport_descriptor()`,
+both re-exported from the crate root). Each row records the static,
+`relay_kind`-keyed facts: the stable `relay_kind` string, a label, the SOCKS
+capability profile (TCP / UDP / connection reuse), and outbound-bind-IP
+support. It is metadata for documentation, diagnostics, and inventory; a crate
+test pins it against the runtime source of truth so the two cannot drift.
+
+The descriptor is **not yet wired into runtime dispatch** — relay backend
+selection, capability planning, pool sizing, and config parsing still flow
+through these decentralized sites:
+
+| Site | What it holds |
+|------|---------------|
+| `RelayTransportDescriptor` / `RELAY_TRANSPORT_DESCRIPTORS` (`transport_descriptor.rs`) | additive static inventory — `relay_kind`-keyed facts only |
+| `RelayKind` enum + `RelayBackendConfig::kind_id()` (`config/`) | the taxonomy and the `relay_kind` → kind-id mapping used by dispatch |
+| `RelayKind::supports_finalmask` / `supports_outbound_bind_ip` (`config/kind.rs`) | static capability predicates |
+| `planned_backend_capabilities` / `pool_config_for_backend` / `planned_backend_fallback_mode` / `describe_upstream` (`runtime_validation.rs`) | per-kind `match` statements feeding capability, pool sizing, fallback mode |
+| `BUILDERS: &[BackendBuilder]` (`backend/builder/builders/mod.rs`) | the `{ supports, build }` dispatch slice |
+| `RelayKindResolverRegistry.kt` + per-kind `*RelayKindResolver.kt` (`:core:service`) | the Kotlin-side resolver registry |
+
+Adding a transport is a descriptor row **plus** editing each Rust `match
+RelayKind` arm and adding a Kotlin resolver — the `relay_kind` string is still
+re-matched at every layer.
+
+*Future improvement — migrate the runtime matches onto the descriptor.* The
+four `match RelayKind` statements in `runtime_validation.rs` could become
+descriptor lookups, making the table the single source of truth. Two facts are
+deliberately **excluded** from the descriptor today because they are not
+`relay_kind`-keyed: finalmask support and connection-pool tuning both vary with
+VLESS Reality's `xhttp` transport sub-mode (`RelayKind::VlessReality { xhttp }`
+splits one `relay_kind` string into two profiles), and `RelayKind::Unsupported`
+is a borrowed catch-all with no row. Folding them in needs an `xhttp`-aware key
+or a per-row variant. Sequence the migration safest-first: the table already
+exists; migrate the `supports_*` predicates; migrate the capability / pool /
+fallback matches under the parity test; only then consider exposing the
+descriptor for telemetry (a new telemetry field is itself a contract change —
+see §6). Keep the `BUILDERS` dispatch slice as-is — it is already a
+descriptor-shaped registry.
 
 ### Compatibility checks
 

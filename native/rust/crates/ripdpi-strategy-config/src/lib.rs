@@ -1,5 +1,18 @@
 #![forbid(unsafe_code)]
 
+//! Strategy-chain config model — the **file-driven** strategy surface.
+//!
+//! Parses developer- and CLI-authored YAML or TOML strategy files into a
+//! [`LoadedStrategyConfig`], resolves `@file` host-list references, and
+//! hot-reloads on change ([`StrategyConfigReloader`]). The output is consumed
+//! by `ripdpi-strategy-registry` (`StrategyRegistry::from_loaded_config`).
+//!
+//! [`StepType`]'s serde representation **is** the YAML/TOML schema; its
+//! [`registry_id`](StepType::registry_id) mapping must stay in lock-step with
+//! the stable IDs in `ripdpi-strategy-registry`. This crate is distinct from
+//! the Android protobuf settings path (Kotlin `StrategyChain*`); see
+//! `README.md` and `FEATURE_EXTENSION_GUIDE.md` §1.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;

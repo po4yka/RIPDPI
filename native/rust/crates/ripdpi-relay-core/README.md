@@ -36,6 +36,28 @@ for the privileged path it does not use.
 3. Adding a new **relay kind** (a new `relay_kind` string) is a cross-cutting
    change — follow [`FEATURE_EXTENSION_GUIDE.md`](../../../../docs/architecture/FEATURE_EXTENSION_GUIDE.md) §2.
 
+## Transport-descriptor seam
+
+`RelayTransportDescriptor` (`src/transport_descriptor.rs`, re-exported from the
+crate root with `RELAY_TRANSPORT_DESCRIPTORS` and `relay_transport_descriptor`)
+is an **additive, read-only inventory** of every concrete relay transport: one
+row per `relay_kind`, carrying the static, `relay_kind`-keyed facts — kind
+string, label, SOCKS capability profile (TCP / UDP / connection reuse), and
+outbound-bind-IP support — for documentation, diagnostics, and inventory
+consumers.
+
+It is **not** wired into runtime dispatch: relay selection, capability
+planning, pool sizing, and config parsing still flow through the `match
+RelayKind` statements in `runtime_validation.rs` and the `BUILDERS` slice. A
+crate test (`relay_transport_descriptors_match_runtime_capability_planning`)
+pins the descriptor table against those so they cannot drift. Finalmask support
+and pool tuning are intentionally **excluded** from the descriptor — they vary
+with VLESS Reality's `xhttp` sub-mode, not the `relay_kind` string alone.
+Migrating the runtime matches onto the descriptor is the tracked future
+refactor in
+[`FEATURE_EXTENSION_GUIDE.md`](../../../../docs/architecture/FEATURE_EXTENSION_GUIDE.md)
+§2, "The transport-descriptor seam".
+
 ---
 See [`NATIVE_RUST.md`](../../../../docs/architecture/NATIVE_RUST.md),
 [`ROOT_HELPER_CONTRACT.md`](../../../../docs/architecture/ROOT_HELPER_CONTRACT.md),

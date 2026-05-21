@@ -350,3 +350,56 @@ async fn relay_runtime_builds_shadowtls_backend_with_inner_vless_profile() {
         other => panic!("expected ShadowTLS backend, got {:?}", std::mem::discriminant(&other)),
     }
 }
+
+#[test]
+fn relay_transport_descriptors_match_runtime_capability_planning() {
+    use crate::config::{NaiveProxyRelayConfig, RelayKind};
+    use crate::transport_descriptor::{relay_transport_descriptor, RELAY_TRANSPORT_DESCRIPTORS};
+
+    let expected_kinds = [
+        "hysteria2",
+        "tuic_v5",
+        "vless_reality",
+        "cloudflare_tunnel",
+        "chain_relay",
+        "masque",
+        "shadowtls_v3",
+        "naiveproxy",
+    ];
+    assert_eq!(RELAY_TRANSPORT_DESCRIPTORS.len(), expected_kinds.len(), "one descriptor per concrete relay kind");
+
+    for descriptor in RELAY_TRANSPORT_DESCRIPTORS {
+        assert!(expected_kinds.contains(&descriptor.kind_id), "unexpected descriptor kind {}", descriptor.kind_id);
+        assert!(!descriptor.label.is_empty(), "{} descriptor needs a label", descriptor.kind_id);
+        assert!(descriptor.tcp, "every relay transport relays TCP");
+        assert_eq!(Some(descriptor), relay_transport_descriptor(descriptor.kind_id), "lookup must round-trip");
+
+        // Cross-check the descriptor against the runtime source of truth so the
+        // additive table cannot drift from `runtime_validation` / `RelayKind`.
+        let config = match descriptor.kind_id {
+            "naiveproxy" => {
+                let mut config = sample_config("hysteria2");
+                config.backend = RelayBackendConfig::NaiveProxy(NaiveProxyRelayConfig::default());
+                config
+            }
+            kind => sample_config(kind),
+        };
+
+        let capabilities = planned_backend_capabilities(&config);
+        assert_eq!(
+            (descriptor.tcp, descriptor.udp, descriptor.reusable),
+            (capabilities.tcp, capabilities.udp, capabilities.reusable),
+            "descriptor capabilities drifted from planned_backend_capabilities for {}",
+            descriptor.kind_id,
+        );
+        assert_eq!(
+            descriptor.supports_outbound_bind_ip,
+            RelayKind::from_config(&config).supports_outbound_bind_ip(),
+            "descriptor supports_outbound_bind_ip drifted for {}",
+            descriptor.kind_id,
+        );
+    }
+
+    assert!(relay_transport_descriptor("off").is_none(), "\"off\" is not a relay transport");
+    assert!(relay_transport_descriptor("totally_unknown").is_none(), "unknown kinds have no descriptor");
+}

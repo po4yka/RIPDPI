@@ -1,4 +1,23 @@
 //! Strategy registry and chain executor for desync backends.
+//!
+//! [`StrategyRegistry`] aggregates every `ripdpi-strategy-*` implementation
+//! into an ordered chain and runs it: the first [`matches`](DesyncStrategy::matches)ing
+//! strategy whose [`plan`](DesyncStrategy::plan) succeeds wins, with a
+//! per-strategy [`OnFail`] policy on failure.
+//!
+//! Strategies are resolved through three paths:
+//!
+//! 1. **Linked factories** — [`STRATEGY_FACTORIES`] entries contributed by the
+//!    `extern crate ripdpi_strategy_* as _;` crates force-linked below. This
+//!    is the seam that needs no central match arm.
+//! 2. **`BUILTIN_TECHNIQUES`** — a static table of techniques that have no
+//!    linked factory; the `BuiltinTechnique` adapter plans them via the
+//!    central `match self.definition.id` in its `plan` method.
+//! 3. **`configured_strategy_from_step`** — strategies that need per-profile
+//!    parameters, materialized from a parsed [`StrategyStep`].
+//!
+//! See `README.md` and `FEATURE_EXTENSION_GUIDE.md` §1 for the full central
+//! edit-point list and the documented future refactor of path 2.
 
 extern crate ripdpi_strategy_http as _;
 extern crate ripdpi_strategy_ipv6 as _;
