@@ -196,6 +196,28 @@ RUNTIME_UPWARD_DEPENDENCY_PREFIXES = (
 )
 
 
+# NATIVE_RUST.md §3 rule 2 ("JNI containment") and §5: only the 12 L8
+# Android/JNI crates (enumerated in §6) may pull `jni`, `android-support`,
+# `android_logger`, or an `ndk-*` crate. Every other crate must stay JNI-free.
+L8_JNI_ALLOWED_CRATES = frozenset(
+    {
+        "ripdpi-android",
+        "ripdpi-tunnel-android",
+        "ripdpi-relay-android",
+        "ripdpi-warp-android",
+        "android-support",
+        "ripdpi-android-bridge-support",
+        "ripdpi-android-proxy-adapter",
+        "ripdpi-android-diagnostics-adapter",
+        "ripdpi-android-fetch-adapter",
+        "ripdpi-android-platform-adapter",
+        "ripdpi-android-vpn-protect-adapter",
+        "ripdpi-android-telemetry-adapter",
+    }
+)
+ANDROID_JNI_DEPENDENCY_NAMES = frozenset({"jni", "android-support", "android_logger"})
+
+
 @dataclass(frozen=True)
 class Violation:
     path: str
@@ -261,6 +283,23 @@ def is_diagnostics_implementation_dependency(crate: str) -> bool:
 
 def is_upward_runtime_dependency(crate: str) -> bool:
     return crate.startswith(RUNTIME_UPWARD_DEPENDENCY_PREFIXES)
+
+
+def is_android_jni_dependency(name: str) -> bool:
+    return name in ANDROID_JNI_DEPENDENCY_NAMES or name == "ndk" or name.startswith("ndk-")
+
+
+def manifest_all_production_dependencies(manifest: Path) -> set[str]:
+    """Every production dependency name (workspace and external) of one crate."""
+    data = read_toml(manifest)
+    names: set[str] = set()
+    table = data.get("dependencies")
+    if isinstance(table, dict):
+        names.update(table)
+    for target in data.get("target", {}).values():
+        if isinstance(target, dict) and isinstance(target.get("dependencies"), dict):
+            names.update(target["dependencies"])
+    return names
 
 
 def dependency_violation(
@@ -369,6 +408,37 @@ def dependency_direction_violations(
                     )
                 )
 
+    return violations
+
+
+def jni_containment_violations(
+    repo_root: Path,
+    manifest_paths: dict[str, Path],
+) -> list[Violation]:
+    """NATIVE_RUST.md §3 rule 2 / §5: keep `jni` and friends out of non-L8 crates.
+
+    Only the 12 L8 Android/JNI crates may carry a production dependency on
+    `jni`, `android-support`, `android_logger`, or an `ndk-*` crate. The
+    existing dependency-direction check only inspects workspace-crate edges, so
+    this guards the *external* Android/JNI crates a lower crate could pull in
+    directly.
+    """
+    violations: list[Violation] = []
+    for crate, relative_path in sorted(manifest_paths.items()):
+        if crate in L8_JNI_ALLOWED_CRATES:
+            continue
+        for dependency in sorted(manifest_all_production_dependencies(repo_root / relative_path)):
+            if is_android_jni_dependency(dependency):
+                violations.append(
+                    Violation(
+                        path=relative_path.as_posix(),
+                        message=(
+                            f"{crate} must not depend on `{dependency}`: only the 12 L8 "
+                            "Android/JNI crates may pull jni / android-support / android_logger / "
+                            "ndk-* (NATIVE_RUST.md §3 rule 2, §5)"
+                        ),
+                    )
+                )
     return violations
 
 
@@ -493,6 +563,7 @@ def collect_violations(repo_root: Path) -> list[Violation]:
 
     graph, manifest_paths = production_dependency_graph(repo_root)
     violations.extend(dependency_direction_violations(graph, manifest_paths))
+    violations.extend(jni_containment_violations(repo_root, manifest_paths))
 
     for relative_path in ADAPTER_FILES:
         source_path = repo_root / relative_path

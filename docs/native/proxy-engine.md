@@ -1,5 +1,13 @@
 # Proxy Engine
 
+> **Historical crate names.** Some crate names and `native/rust/crates/...`
+> paths below predate the workspace decomposition. The crates `ripdpi-runtime`
+> and `ripdpi-monitor` no longer exist: the proxy runtime is now
+> `ripdpi-proxy-runtime` (plus the `ripdpi-runtime-*` family) and the
+> active-scan engine is `ripdpi-monitor-engine` (plus the `ripdpi-diagnostics-*`
+> probe crates). The canonical crate map is
+> [`docs/architecture/NATIVE_RUST.md`](../architecture/NATIVE_RUST.md).
+
 ## Role in RIPDPI
 
 The local SOCKS5 proxy is implemented by the in-repo Rust native module.

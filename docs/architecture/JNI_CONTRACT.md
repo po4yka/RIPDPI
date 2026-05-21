@@ -7,7 +7,9 @@ honor. Treat a violation of any rule here as a release blocker.
 
 Companion docs: [`ARCHITECTURE.md`](ARCHITECTURE.md) (whole-app),
 [`NATIVE_RUST.md`](NATIVE_RUST.md) (crate taxonomy),
-[`FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) (adding features).
+[`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md) (the config JSON that crosses this
+boundary), [`FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) (adding
+features).
 Derived from current source; exact paths and crate names are used throughout.
 
 ---

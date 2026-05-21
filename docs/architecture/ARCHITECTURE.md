@@ -70,6 +70,14 @@ direction flows downward (`:app` depends on everything below it).
 > **TODO verify** the exact responsibility split between `:core:data:settings`
 > and `:core:data:model` against `core/data/settings/` and `core/data/model/`.
 
+**Boundary enforcement.** `:app` must not depend directly on `:core:engine` —
+it reaches the native layer only through `:core:service`
+([§5](#5-kotlin--rust-control-flow)). The `:app:verifyEngineBoundaryClasspath`
+Gradle task fails the build if `:core:engine` leaks onto an `:app` compile
+classpath. Native-crate dependency direction is enforced separately by
+`scripts/ci/check_native_architecture_contracts.py` — see
+[`NATIVE_RUST.md`](NATIVE_RUST.md) §3.
+
 ---
 
 ## 4. Native Rust artifact map
@@ -168,7 +176,7 @@ JSON codecs in :core:engine
 native config JSON  ── passed over JNI ──▶  Rust
    │
    ▼
-ripdpi-proxy-config / ripdpi-config  ──▶  RuntimeConfig  ──▶  ripdpi-runtime
+ripdpi-proxy-config / ripdpi-config  ──▶  RuntimeConfig  ──▶  ripdpi-proxy-runtime
 ```
 
 - `ripdpi-proxy-config` is the shared translation crate that aligns
@@ -177,9 +185,11 @@ ripdpi-proxy-config / ripdpi-config  ──▶  RuntimeConfig  ──▶  ripdpi
   ([docs/native/README.md](../native/README.md) § Shared Strategy Bridge).
 - Validated per-network winners are persisted as exact `proxyConfigJson` in
   `remembered_network_policies` and replayed on reconnect.
-- **TODO verify** the proto path: [AGENTS.md](../../AGENTS.md) cites
-  `core/data/src/main/proto/app_settings.proto`, but the file currently lives at
-  `core/data/model/src/main/proto/app_settings.proto`.
+- The settings schema lives at
+  `core/data/model/src/main/proto/app_settings.proto` (confirmed by
+  [`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md) §1, the canonical config-contract
+  doc); [AGENTS.md](../../AGENTS.md) still cites the older
+  `core/data/src/main/proto/` path.
 
 ---
 

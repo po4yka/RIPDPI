@@ -134,6 +134,16 @@ Rules, all of which **hold today** in `Cargo.toml`:
    tooling and must never be an Android dependency. Verified: every occurrence
    of those five crates today is a dev-dependency or none.
 
+**Enforcement.** The dependency-direction and JNI-containment rules (1–2) are
+machine-checked by `scripts/ci/check_native_architecture_contracts.py`, the
+`native-contracts` pre-commit hook: it parses every crate's `Cargo.toml` and
+fails on an inward/downward direction violation, an Android-surface crate
+leaking into a core crate, or a non-L8 crate pulling `jni` / `android-support`
+/ `android_logger` / `ndk-*`. Run it locally:
+`python3 scripts/ci/check_native_architecture_contracts.py`. Rules 3–6 are not
+machine-checked — verify them by review when touching `crate-type`, the
+platform-port crates, the L2 contract crates, or the support crates.
+
 Highest fan-in hubs (a change here ripples widest): `ripdpi-failure-classifier`
 (17 consumers), `ripdpi-config` (16), `ripdpi-diagnostics-contracts` (15),
 `ripdpi-packets` (14), `ripdpi-proxy-config` (14).
@@ -329,6 +339,11 @@ into the `.so` files but must themselves contain no JNI.
 
 This invariant holds in `Cargo.toml` today: only the 11 JNI-bearing L8 crates
 pull `jni`, and `android-support` is consumed by L8 crates only.
+
+`scripts/ci/check_native_architecture_contracts.py` enforces it: a crate
+outside the 12 L8 crates (the allowlist mirrors [§6](#6-outer-android-adapter-crates))
+that adds a `jni` / `android-support` / `android_logger` / `ndk-*` production
+dependency fails the `native-contracts` pre-commit hook.
 
 ---
 
