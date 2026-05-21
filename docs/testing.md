@@ -261,6 +261,14 @@ ANDROID_SERIAL=emulator-5554 ./test-lab/scripts/run-rooted-emulator-netem.sh
 
 The runner verifies root access, captures qdisc state, runs baseline diagnostics, applies `tc qdisc replace dev wlan0 root netem delay 200ms 40ms loss 1%`, reruns diagnostics, asserts DNS, HTTP, HTTPS, TCP, UDP, and relay readiness with no probe errors, and clears the qdisc before exit. This proves the rooted-emulator controlled-network lane; it does not replace the release row that requires a physical Pixel traffic path through a Linux routed netem VM/router.
 
+For the repeatable physical TCP-family netem forwarder slice, run:
+
+```bash
+ANDROID_SERIAL=31130DLH2000EG ./test-lab/scripts/run-netem-forwarder.sh --profile device
+```
+
+The runner starts a temporary Docker container on the lab network, publishes fresh host TCP ports, forwards HTTP, HTTPS, TCP echo, and mock relay traffic through that container, applies `tc netem` delay and loss to the container interface, and asserts the Android diagnostics probe still reports DNS, HTTP, HTTPS, TCP, UDP, and relay readiness. DNS and UDP intentionally remain on host helpers because Docker Desktop UDP publication is not reliable for same-LAN physical devices. This is a repeatable partial routed-netem proof for TCP-family and relay paths; it does not close the full physical routed-netem requirement until a Linux VM/router carries DNS, UDP, TCP, HTTPS, and relay traffic in the Pixel path.
+
 For repeatable physical or emulator DNS/UDP fault combinations using the host-side fallback helpers, run:
 
 ```bash
