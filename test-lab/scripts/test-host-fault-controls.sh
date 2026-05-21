@@ -142,4 +142,33 @@ if socket.inet_aton("127.0.0.42") not in tcp_response:
     raise SystemExit(f"missing expected A record in {tcp_response!r}")
 PY
 
+relative_daemon_dir="$tmpdir/relative-daemon"
+mkdir -p "$relative_daemon_dir"
+daemon_udp_port="$(free_udp_port)"
+(
+  cd "$relative_daemon_dir"
+  RIPDPI_UDP_ECHO_HOST=127.0.0.1 \
+    RIPDPI_UDP_ECHO_PORT="$daemon_udp_port" \
+    "$python_bin" "$repo_root/test-lab/scripts/host-udp-echo.py" \
+      --daemonize \
+      --pid-file udp.pid \
+      --log-file udp.log
+)
+wait_for_log "$relative_daemon_dir/udp.log" "host udp echo listening"
+pids+=("$(cat "$relative_daemon_dir/udp.pid")")
+
+daemon_dns_port="$(free_dual_port)"
+(
+  cd "$relative_daemon_dir"
+  RIPDPI_DNS_HOST=127.0.0.1 \
+    RIPDPI_DNS_PORT="$daemon_dns_port" \
+    RIPDPI_LAB_RECORD_IP=127.0.0.42 \
+    "$python_bin" "$repo_root/test-lab/scripts/host-dns.py" \
+      --daemonize \
+      --pid-file dns.pid \
+      --log-file dns.log
+)
+wait_for_log "$relative_daemon_dir/dns.log" "host dns listening"
+pids+=("$(cat "$relative_daemon_dir/dns.pid")")
+
 echo "Host DNS/UDP fault-control self-test passed."

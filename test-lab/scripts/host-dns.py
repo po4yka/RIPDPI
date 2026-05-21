@@ -32,6 +32,9 @@ def env_int(name: str, default: int) -> int:
 
 
 def daemonize(pid_file: str, log_file: str) -> None:
+    pid_file = os.path.abspath(pid_file)
+    log_file = os.path.abspath(log_file)
+
     first_pid = os.fork()
     if first_pid > 0:
         os._exit(0)
