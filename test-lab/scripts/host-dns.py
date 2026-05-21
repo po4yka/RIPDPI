@@ -4,10 +4,31 @@ import socket
 import struct
 import sys
 import threading
+import time
 
 
 MAX_DNS_MESSAGE_SIZE = 4096
 DEFAULT_TTL_SECONDS = 60
+
+
+def env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    value = float(raw)
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0")
+    return value
+
+
+def env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    value = int(raw)
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0")
+    return value
 
 
 def daemonize(pid_file: str, log_file: str) -> None:
@@ -101,12 +122,19 @@ def build_response(packet: bytes, records: dict[str, str]) -> bytes:
     return header + question + answers
 
 
-def serve_udp(sock: socket.socket, records: dict[str, str]) -> None:
+def serve_udp(sock: socket.socket, records: dict[str, str], delay_seconds: float, drop_every: int) -> None:
+    received_count = 0
     while True:
         packet, source = sock.recvfrom(MAX_DNS_MESSAGE_SIZE)
+        received_count += 1
         try:
+            if drop_every and received_count % drop_every == 0:
+                print(f"dns udp drop source={source[0]}:{source[1]} size={len(packet)} count={received_count}", flush=True)
+                continue
+            if delay_seconds:
+                time.sleep(delay_seconds)
             response = build_response(packet, records)
-            print(f"dns udp source={source[0]}:{source[1]} size={len(packet)}", flush=True)
+            print(f"dns udp source={source[0]}:{source[1]} size={len(packet)} count={received_count}", flush=True)
             sock.sendto(response, source)
         except Exception as error:
             print(f"dns udp query failed from {source}: {error}", file=sys.stderr, flush=True)
@@ -139,6 +167,8 @@ def main() -> int:
     parse_args()
     host = os.environ.get("RIPDPI_DNS_HOST", "0.0.0.0")
     port = int(os.environ.get("RIPDPI_DNS_PORT", "1053"))
+    udp_delay_seconds = env_float("RIPDPI_DNS_UDP_DELAY_MS", 0.0) / 1000.0
+    udp_drop_every = env_int("RIPDPI_DNS_UDP_DROP_EVERY", 0)
     records = default_records()
     udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -147,9 +177,13 @@ def main() -> int:
         udp_sock.bind((host, port))
         tcp_sock.bind((host, port))
         tcp_sock.listen(32)
-        print(f"host dns listening on {host}:{port} records={records}", flush=True)
+        print(
+            f"host dns listening on {host}:{port} udp_delay_ms={udp_delay_seconds * 1000:g} "
+            f"udp_drop_every={udp_drop_every} records={records}",
+            flush=True,
+        )
         threading.Thread(target=serve_tcp, args=(tcp_sock, records), daemon=True).start()
-        serve_udp(udp_sock, records)
+        serve_udp(udp_sock, records, udp_delay_seconds, udp_drop_every)
     finally:
         udp_sock.close()
         tcp_sock.close()

@@ -2,9 +2,30 @@
 import os
 import socket
 import sys
+import time
 
 
 MAX_DATAGRAM_SIZE = 64 * 1024
+
+
+def env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    value = float(raw)
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0")
+    return value
+
+
+def env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    value = int(raw)
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0")
+    return value
 
 
 def daemonize(pid_file: str, log_file: str) -> None:
@@ -41,12 +62,24 @@ def main() -> int:
 
     host = os.environ.get("RIPDPI_UDP_ECHO_HOST", "0.0.0.0")
     port = int(os.environ.get("RIPDPI_UDP_ECHO_PORT", "9001"))
+    delay_seconds = env_float("RIPDPI_UDP_ECHO_DELAY_MS", 0.0) / 1000.0
+    drop_every = env_int("RIPDPI_UDP_ECHO_DROP_EVERY", 0)
+    received_count = 0
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.bind((host, port))
-        print(f"host udp echo listening on {host}:{port}", flush=True)
+        print(
+            f"host udp echo listening on {host}:{port} delay_ms={delay_seconds * 1000:g} drop_every={drop_every}",
+            flush=True,
+        )
         while True:
             data, source = sock.recvfrom(MAX_DATAGRAM_SIZE)
-            print(f"echo source={source[0]}:{source[1]} size={len(data)}", flush=True)
+            received_count += 1
+            if drop_every and received_count % drop_every == 0:
+                print(f"drop source={source[0]}:{source[1]} size={len(data)} count={received_count}", flush=True)
+                continue
+            if delay_seconds:
+                time.sleep(delay_seconds)
+            print(f"echo source={source[0]}:{source[1]} size={len(data)} count={received_count}", flush=True)
             sock.sendto(data, source)
 
 
