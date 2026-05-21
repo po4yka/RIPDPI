@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.lifetime.HandleReservation
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -9,8 +10,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
@@ -255,17 +254,20 @@ class RipDpiProxyNativeBindings
  * Coroutine-friendly owner of a single native proxy handle (see
  * [RipDpiProxyBindings] for the raw JNI contract).
  *
- * Holds at most one live handle at a time and serializes every
- * lifecycle-sensitive JNI call under [mutex], so [stopProxy]/`destroy` cannot
- * retire the handle while another call is mid-flight. [startProxy] keeps the
- * blocking native [RipDpiProxyBindings.start] on `Dispatchers.IO` and treats
- * its return as the session ending — it then `destroy`s the handle in a
- * `finally` block, so callers never call `destroy` directly. A second
- * concurrent [startProxy] throws `NativeError.AlreadyRunning`; calling
- * [stopProxy]/[pollTelemetry] with no live handle throws `NativeError.NotRunning`
- * or yields an idle snapshot respectively.
+ * Holds at most one live handle and uses [HandleReservation] to admit
+ * concurrent telemetry / network-snapshot JNI calls while lifecycle mutations
+ * drain those reservations before retiring the native handle, so
+ * [stopProxy]/`destroy` cannot retire the handle while a read-style call is
+ * mid-flight, yet two read-style calls no longer head-of-line-block each other.
+ * [startProxy] keeps the blocking native [RipDpiProxyBindings.start] on
+ * `Dispatchers.IO` and treats its return as the session ending — it then
+ * `destroy`s the handle in a `finally` block, so callers never call `destroy`
+ * directly. A second concurrent [startProxy] throws `NativeError.AlreadyRunning`;
+ * calling [stopProxy] with no live handle throws `NativeError.NotRunning`, and
+ * [pollTelemetry] yields an idle snapshot.
  *
- * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle).
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle) and
+ * `docs/architecture/jni-handle-lifetime-telemetry-lock.md` (lock model).
  */
 class RipDpiProxy(
     private val nativeBindings: RipDpiProxyBindings,
@@ -275,29 +277,18 @@ class RipDpiProxy(
     }
 
     private val json = Json { ignoreUnknownKeys = true }
-    private val mutex = Mutex()
+    private val reservations = HandleReservation()
 
     @Volatile private var handle = 0L
-    private var readinessSignal: CompletableDeferred<Unit>? = null
 
-    private suspend fun <T> withActiveHandle(block: suspend (Long) -> T): T? =
-        mutex.withLock {
-            val currentHandle = handle
-            if (currentHandle == 0L) {
-                null
-            } else {
-                // Keep lifecycle-sensitive JNI calls under the mutex so stop/destroy
-                // cannot retire the native handle while a call is still in flight.
-                block(currentHandle)
-            }
-        }
+    @Volatile private var readinessSignal: CompletableDeferred<Unit>? = null
 
     @Suppress("TooGenericExceptionCaught")
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override suspend fun startProxy(preferences: RipDpiProxyPreferences): Int {
         val startupSignal = CompletableDeferred<Unit>()
         val handle =
-            mutex.withLock {
+            reservations.withExclusive {
                 if (this.handle != 0L) {
                     throw NativeError.AlreadyRunning("Proxy")
                 }
@@ -330,8 +321,8 @@ class RipDpiProxy(
             val capturedHandle = handle
             val completionHandle =
                 coroutineContext[Job]!!.invokeOnCompletion {
-                    // Always dispatch stop -- do not gate on the mutex.
-                    // The volatile handle field is readable without the lock, and
+                    // Always dispatch stop -- do not gate on the exclusive section.
+                    // The volatile handle field is readable without a lock, and
                     // nativeBindings.stop() is idempotent on the Rust side.
                     try {
                         if (this@RipDpiProxy.handle == capturedHandle && capturedHandle != 0L) {
@@ -350,7 +341,7 @@ class RipDpiProxy(
             startupSignal.completeExceptionally(error)
             throw error
         } finally {
-            mutex.withLock {
+            reservations.withExclusiveNonCancellable {
                 if (this.handle == handle) {
                     try {
                         nativeBindings.destroy(handle)
@@ -369,10 +360,7 @@ class RipDpiProxy(
     }
 
     override suspend fun awaitReady(timeoutMillis: Long) {
-        val startupSignal =
-            mutex.withLock {
-                readinessSignal
-            } ?: throw NativeError.NotRunning("Proxy")
+        val startupSignal = readinessSignal ?: throw NativeError.NotRunning("Proxy")
 
         Logger.d { "Awaiting proxy readiness (timeout=${timeoutMillis}ms)" }
         var pollCount = 0L
@@ -420,7 +408,9 @@ class RipDpiProxy(
     }
 
     override suspend fun stopProxy() {
-        mutex.withLock {
+        // Exclusive: stop drains in-flight telemetry/snapshot reservations so
+        // the handle is not signalled to unwind while a read-style call runs.
+        reservations.withExclusive {
             if (handle == 0L) {
                 throw NativeError.NotRunning("Proxy")
             }
@@ -431,16 +421,20 @@ class RipDpiProxy(
 
     override suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot) {
         val snapshotJson = json.encodeToString(NativeNetworkSnapshot.serializer(), snapshot)
-        withActiveHandle { currentHandle ->
+        // Reserve the active handle, then run the JNI call without holding the
+        // exclusive lifetime section, so it overlaps a concurrent telemetry poll.
+        reservations.withReservationOrNull({ handle }) { currentHandle ->
             withContext(Dispatchers.IO) { nativeBindings.updateNetworkSnapshot(currentHandle, snapshotJson) }
         }
     }
 
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
-        val payload: String? =
-            withActiveHandle { currentHandle ->
+        // Reserve the active handle, then run the JNI call without holding the
+        // exclusive lifetime section, so it overlaps a concurrent snapshot update.
+        val payload =
+            reservations.withReservationOrNull({ handle }) { currentHandle ->
                 withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(currentHandle) }
-            } ?: return NativeRuntimeSnapshot.idle(source = "proxy")
+            }
         return payload
             ?.takeIf { it.isNotBlank() }
             ?.let { json.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
