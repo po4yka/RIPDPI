@@ -121,4 +121,34 @@ class Tun2SocksTunnelLockingTest {
             stopJob.await()
             assertEquals(1L, destroyed.await())
         }
+
+    @Test
+    fun cancelledStatsReleasesReservationForStop() =
+        runTest {
+            val statsStarted = CompletableDeferred<Long>()
+            val statsBlocker = CompletableDeferred<Unit>()
+            val destroyed = CompletableDeferred<Long>()
+            val bindings =
+                FakeTun2SocksBindings().apply {
+                    nativeStats = longArrayOf(9, 9, 9, 9)
+                    statsStartedSignal = statsStarted
+                    this.statsBlocker = statsBlocker
+                    destroySignal = destroyed
+                }
+            val tunnel = Tun2SocksTunnel(bindings)
+            tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 42)
+
+            // Cancel the stats caller while its reservation is in flight.
+            val statsJob = async { tunnel.stats() }
+            assertEquals(1L, statsStarted.await())
+            statsJob.cancel()
+            statsBlocker.complete(Unit)
+            statsJob.join()
+
+            // The reservation was released despite cancellation, so stop drains
+            // and retires the handle instead of wedging.
+            tunnel.stop()
+            assertEquals(1L, destroyed.await())
+            assertEquals(listOf(1L), bindings.destroyedHandles.toList())
+        }
 }
