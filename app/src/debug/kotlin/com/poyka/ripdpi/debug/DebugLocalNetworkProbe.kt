@@ -39,6 +39,8 @@ private const val EmulatorHost = "10.0.2.2"
 private const val DefaultTimeoutMs = 5_000L
 private const val DefaultProxyPort = 1080
 private const val DefaultDnsPort = 53
+private const val DnsTransportUdp = "udp"
+private const val DnsTransportTcp = "tcp"
 private const val TcpProbePayload = "ripdpi-tcp-probe-v1"
 private const val UdpProbePayload = "ripdpi-udp-probe-v1"
 
@@ -190,6 +192,8 @@ data class DnsProbeResult(
     val addresses: List<String>,
     val latencyMs: Long?,
     val errorCode: String?,
+    val transport: String = DnsTransportUdp,
+    val fallbackErrorCode: String? = null,
 )
 
 data class HttpProbeResult(
@@ -330,6 +334,8 @@ private fun DnsProbeResult.toJson() =
         )
         put("latencyMs", latencyMs?.let(::JsonPrimitive) ?: JsonNull)
         put("errorCode", errorCode?.let(::JsonPrimitive) ?: JsonNull)
+        put("transport", JsonPrimitive(transport))
+        put("fallbackErrorCode", fallbackErrorCode?.let(::JsonPrimitive) ?: JsonNull)
     }
 
 private fun HttpProbeResult.toJson() =
@@ -477,8 +483,14 @@ class DebugLocalNetworkProbeRunner(
         val udpResult = runDnsUdpProbe(config, startMs)
         if (udpResult.ok) return udpResult
 
-        return runDnsTcpProbe(config, startMs).getOrElse {
-            udpResult
+        val tcpResult =
+            runDnsTcpProbe(config, startMs).getOrElse { fallbackError ->
+                return udpResult.copy(fallbackErrorCode = fallbackError.errorCode())
+            }
+        return if (tcpResult.ok) {
+            tcpResult.copy(transport = DnsTransportTcp)
+        } else {
+            udpResult.copy(fallbackErrorCode = tcpResult.errorCode)
         }
     }
 

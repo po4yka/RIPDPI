@@ -45,6 +45,7 @@ for _ in {1..30}; do
 import socket
 import struct
 import sys
+import time
 
 port = int(sys.argv[1])
 
@@ -73,6 +74,17 @@ with socket.create_connection(("127.0.0.1", port), timeout=0.25) as sock:
     response_length = struct.unpack("!H", length_prefix)[0]
     tcp_response = sock.recv(response_length)
 assert_answer(tcp_response)
+
+split_tcp_query = build_query(0x3456)
+length_prefix = struct.pack("!H", len(split_tcp_query))
+with socket.create_connection(("127.0.0.1", port), timeout=0.25) as sock:
+    sock.sendall(length_prefix[:1])
+    time.sleep(0.05)
+    sock.sendall(length_prefix[1:] + split_tcp_query)
+    response_prefix = sock.recv(2)
+    response_length = struct.unpack("!H", response_prefix)[0]
+    split_tcp_response = sock.recv(response_length)
+assert_answer(split_tcp_response)
 PY
   then
     echo "Host DNS self-test passed."

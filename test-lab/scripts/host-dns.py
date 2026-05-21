@@ -143,18 +143,32 @@ def serve_udp(sock: socket.socket, records: dict[str, str], delay_seconds: float
             print(f"dns udp query failed from {source}: {error}", file=sys.stderr, flush=True)
 
 
+def recv_exact(conn: socket.socket, byte_count: int) -> bytes:
+    received = b""
+    while len(received) < byte_count:
+        chunk = conn.recv(byte_count - len(received))
+        if not chunk:
+            break
+        received += chunk
+    return received
+
+
 def handle_tcp_client(conn: socket.socket, source: tuple[str, int], records: dict[str, str]) -> None:
     with conn:
-        length_prefix = conn.recv(2)
+        print(f"dns tcp accept source={source[0]}:{source[1]}", flush=True)
+        length_prefix = recv_exact(conn, 2)
         if len(length_prefix) != 2:
+            print(f"dns tcp short_prefix source={source[0]}:{source[1]} size={len(length_prefix)}", flush=True)
             return
         expected = struct.unpack("!H", length_prefix)[0]
-        packet = b""
-        while len(packet) < expected:
-            chunk = conn.recv(expected - len(packet))
-            if not chunk:
-                return
-            packet += chunk
+        packet = recv_exact(conn, expected)
+        if len(packet) != expected:
+            print(
+                f"dns tcp short_body source={source[0]}:{source[1]} "
+                f"expected={expected} actual={len(packet)}",
+                flush=True,
+            )
+            return
         response = build_response(packet, records)
         print(f"dns tcp source={source[0]}:{source[1]} size={len(packet)}", flush=True)
         conn.sendall(struct.pack("!H", len(response)) + response)
@@ -163,7 +177,8 @@ def handle_tcp_client(conn: socket.socket, source: tuple[str, int], records: dic
 def serve_tcp(sock: socket.socket, records: dict[str, str]) -> None:
     while True:
         conn, source = sock.accept()
-        threading.Thread(target=handle_tcp_client, args=(conn, source, records), daemon=True).start()
+        thread = threading.Thread(target=handle_tcp_client, args=(conn, source, records), daemon=True)
+        thread.start()
 
 
 def main() -> int:
