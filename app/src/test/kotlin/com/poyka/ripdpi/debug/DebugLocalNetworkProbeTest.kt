@@ -46,6 +46,7 @@ class DebugLocalNetworkProbeTest {
         assertEquals(9001, config.udpPort)
         assertEquals("https://10.0.2.2:9443/h3/ok", config.quicUrl)
         assertEquals("10.0.2.2:10080", config.relayEndpoint)
+        assertEquals("ok", config.relayAuth)
         assertTrue(config.requireVpnActive)
         assertFalse(config.requireProxyReady)
     }
@@ -187,6 +188,19 @@ class DebugLocalNetworkProbeTest {
         assertTrue(isRelayReadyResponse("""{"ok":true,"code":"READY","message":"mock relay ready"}"""))
         assertFalse(isRelayReadyResponse("""{"ok":false,"code":"AUTH_FAILED","message":"mock relay rejected"}"""))
         assertFalse(isRelayReadyResponse("not-json"))
+    }
+
+    @Test
+    fun `relay probe payload escapes auth extra`() {
+        val config =
+            NetworkProbeConfig.fromIntent(
+                Intent(debugProbeAction)
+                    .putExtra("profile", "emulator")
+                    .putExtra("relay_auth", """fail"\value"""),
+            )
+
+        assertEquals("""fail"\value""", config.relayAuth)
+        assertEquals("""{"auth":"fail\"\\value"}""", relayProbePayload(config.relayAuth))
     }
 
     @Test

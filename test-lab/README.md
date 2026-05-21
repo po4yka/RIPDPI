@@ -274,6 +274,14 @@ The probe currently validates DNS, HTTP, HTTPS, TCP echo, UDP echo, active VPN t
 
 The mock relay on port `10080` exposes a minimal JSON handshake for readiness, auth-failure, and malformed-response tests. It is not a production relay protocol implementation.
 
+Run the controlled mock-relay fault matrix with:
+
+```bash
+./test-lab/scripts/run-mock-relay-matrix.sh --profile emulator
+```
+
+The matrix writes `summary.tsv` plus one probe JSON per scenario and covers ready, invalid credentials, malformed response, server reset, and timeout. The failure scenarios are expected to exit non-zero and prove the debug diagnostics contract reports relay failures without breaking DNS, HTTP, HTTPS, TCP, or UDP probes.
+
 Use `--mode diagnostics` for a lab reachability smoke without requiring an active RIPDPI service. Use `--mode proxy` after proxy mode is running; that mode requires local proxy readiness on the configured loopback listener. Use `--mode vpn` after VPN mode is running; that mode requires Android VPN transport and end-to-end lab traffic success. VPN mode does not require the fixed `127.0.0.1:1080` listener because the service may use an ephemeral authenticated internal SOCKS hop between the tunnel and proxy.
 
 ## Artifacts

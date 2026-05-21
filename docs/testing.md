@@ -261,6 +261,14 @@ ANDROID_SERIAL=emulator-5554 ./test-lab/scripts/run-rooted-emulator-netem.sh
 
 The runner verifies root access, captures qdisc state, runs baseline diagnostics, applies `tc qdisc replace dev wlan0 root netem delay 200ms 40ms loss 1%`, reruns diagnostics, asserts DNS, HTTP, HTTPS, TCP, UDP, and relay readiness with no probe errors, and clears the qdisc before exit. This proves the rooted-emulator controlled-network lane; it does not replace the release row that requires a physical Pixel traffic path through a Linux routed netem VM/router.
 
+For the controlled local relay-failure slice, run:
+
+```bash
+ANDROID_SERIAL=emulator-5554 ./test-lab/scripts/run-mock-relay-matrix.sh --profile emulator
+```
+
+The runner validates the relay matrix manifest, restarts the local lab unless `--skip-start` is set, installs the current debug APK unless `--skip-install` is set, then runs ready, invalid-credential, malformed-response, server-reset, and timeout scenarios through the Android debug diagnostics probe. It asserts DNS, HTTP, HTTPS, TCP, and UDP stay healthy while relay failures surface as typed `RELAY_NOT_READY` diagnostics. This is a fast local regression harness for relay readiness and fault handling; it does not replace provider-backed relay evidence.
+
 ## Offline Analytics CI
 
 The offline analytics pipeline has a dedicated workflow:

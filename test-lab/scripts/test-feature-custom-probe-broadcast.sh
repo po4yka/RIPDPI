@@ -18,6 +18,7 @@ command="$(
     --udp-host udp.example.test \
     --udp-port 9001 \
     --relay-endpoint relay.example.test:10080 \
+    --relay-auth fail \
     --require-vpn-active false \
     --require-proxy-ready false \
     --print-broadcast
@@ -37,6 +38,7 @@ grep -Fq -- "--ei tcp_port 9000" <<<"$command"
 grep -Fq -- "--es udp_host udp.example.test" <<<"$command"
 grep -Fq -- "--ei udp_port 9001" <<<"$command"
 grep -Fq -- "--es relay_endpoint relay.example.test:10080" <<<"$command"
+grep -Fq -- "--es relay_auth fail" <<<"$command"
 grep -Fq -- "--ez require_vpn_active false" <<<"$command"
 grep -Fq -- "--ez require_proxy_ready false" <<<"$command"
 

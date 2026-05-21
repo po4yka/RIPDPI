@@ -24,6 +24,7 @@ udp_host=""
 udp_port=""
 quic_url=""
 relay_endpoint=""
+relay_auth=""
 proxy_host=""
 proxy_port=""
 require_vpn_active=""
@@ -51,6 +52,7 @@ Options:
   --udp-port PORT
   --quic-url URL
   --relay-endpoint HOST:PORT
+  --relay-auth VALUE
   --proxy-host HOST
   --proxy-port PORT
   --require-vpn-active true|false
@@ -122,6 +124,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --relay-endpoint)
       relay_endpoint="${2:?missing --relay-endpoint value}"
+      shift 2
+      ;;
+    --relay-auth)
+      relay_auth="${2:?missing --relay-auth value}"
       shift 2
       ;;
     --proxy-host)
@@ -237,6 +243,9 @@ if [[ -n "$quic_url" ]]; then
 fi
 if [[ -n "$relay_endpoint" ]]; then
   broadcast+=(--es relay_endpoint "$relay_endpoint")
+fi
+if [[ -n "$relay_auth" ]]; then
+  broadcast+=(--es relay_auth "$relay_auth")
 fi
 if [[ -n "$proxy_host" ]]; then
   broadcast+=(--es proxy_host "$proxy_host")

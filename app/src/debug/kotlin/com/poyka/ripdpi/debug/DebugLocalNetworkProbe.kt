@@ -41,7 +41,6 @@ private const val DefaultProxyPort = 1080
 private const val DefaultDnsPort = 53
 private const val TcpProbePayload = "ripdpi-tcp-probe-v1"
 private const val UdpProbePayload = "ripdpi-udp-probe-v1"
-private const val RelayProbePayload = """{"auth":"ok"}"""
 
 enum class LabProfile {
     Emulator,
@@ -92,6 +91,7 @@ data class NetworkProbeConfig(
     val udpPort: Int,
     val quicUrl: String?,
     val relayEndpoint: String?,
+    val relayAuth: String = "ok",
     val timeoutMs: Long,
     val requireVpnActive: Boolean,
     val requireProxyReady: Boolean,
@@ -153,6 +153,10 @@ data class NetworkProbeConfig(
                     intent.getStringExtra("relayEndpoint")
                         ?: intent.getStringExtra("relay_endpoint")
                         ?: "$labHost:10080",
+                relayAuth =
+                    intent.getStringExtra("relayAuth")
+                        ?: intent.getStringExtra("relay_auth")
+                        ?: "ok",
                 timeoutMs = timeoutMs,
                 requireVpnActive = requireVpnActive,
                 requireProxyReady = requireProxyReady,
@@ -634,7 +638,8 @@ class DebugLocalNetworkProbeRunner(
             Socket().use { socket ->
                 socket.connect(address, config.timeoutMs.toInt())
                 socket.soTimeout = config.timeoutMs.toInt()
-                socket.getOutputStream().write((RelayProbePayload + "\n").toByteArray(StandardCharsets.UTF_8))
+                val payload = relayProbePayload(config.relayAuth) + "\n"
+                socket.getOutputStream().write(payload.toByteArray(StandardCharsets.UTF_8))
                 socket.getOutputStream().flush()
                 val response = socket.getInputStream().readLineUtf8()
                 isRelayReadyResponse(response)
@@ -783,6 +788,11 @@ internal fun isRelayReadyResponse(response: String): Boolean =
         val code = json["code"]?.jsonPrimitive?.contentOrNull
         ok && code == "READY"
     }.getOrDefault(false)
+
+internal fun relayProbePayload(auth: String): String =
+    buildJsonObject {
+        put("auth", JsonPrimitive(auth.take(128)))
+    }.toString()
 
 internal fun parseRelayEndpoint(endpoint: String): InetSocketAddress? {
     val separator = endpoint.lastIndexOf(':')
