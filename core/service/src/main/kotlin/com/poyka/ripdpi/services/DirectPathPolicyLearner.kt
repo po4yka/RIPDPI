@@ -44,14 +44,19 @@ internal class DirectPathPolicyLearner
         private val pendingNoDirectSolutions = linkedMapOf<DirectPathTupleKey, Long>()
 
         override suspend fun consume(snapshot: NativeRuntimeSnapshot) {
-            if (snapshot.directPathLearningSignals.isEmpty()) {
+            // Events this build cannot map to a policy are ignored entirely --
+            // not learned, not persisted, never fatal -- so a newer runtime
+            // emitting an unrecognized event name stays compatible.
+            val knownSignals =
+                snapshot.directPathLearningSignals.filter { DirectPathLearningEventRules.isKnown(it.event) }
+            if (knownSignals.isEmpty()) {
                 return
             }
             val fingerprint = networkFingerprintProvider.capture() ?: return
             val fingerprintHash = fingerprint.scopeKey()
             ensureFingerprintCache(fingerprintHash)
 
-            collapseSignals(snapshot.directPathLearningSignals).forEach { (tupleKey, signal) ->
+            collapseSignals(knownSignals).forEach { (tupleKey, signal) ->
                 val current = cachedEnvelopes[tupleKey]
                 if (signal.event == DirectPathLearningEvent.ALL_IPS_FAILED &&
                     !shouldPersistNoDirectSolution(tupleKey, current)
@@ -143,113 +148,27 @@ internal class DirectPathPolicyLearner
             signal: DirectPathLearningSignal,
             current: TransportPolicyEnvelope?,
         ): TransportPolicyEnvelope? {
-            if (signal.event == DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK &&
-                current?.reasonCode == DirectModeReasonCode.NO_TCP_FALLBACK
-            ) {
-                return null
+            val rule = DirectPathLearningEventRules.ruleFor(signal.event) ?: return null
+            val suppressedByNoTcpFallback =
+                signal.event == DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK &&
+                    current?.reasonCode == DirectModeReasonCode.NO_TCP_FALLBACK
+            return if (suppressedByNoTcpFallback) {
+                null
+            } else {
+                TransportPolicyEnvelope(
+                    policy = rule.buildPolicy(signal, current),
+                    ipSetDigest = signal.ipSetDigest.normalizeIpSetDigest(),
+                    transportClass = rule.transportClass,
+                    reasonCode = rule.reasonCode,
+                    cooldownUntil =
+                        if (rule.setsCooldown) {
+                            signal.capturedAt + DirectModeNoDirectSolutionCooldownMs
+                        } else {
+                            null
+                        },
+                )
             }
-            return TransportPolicyEnvelope(
-                policy = computePolicy(signal, current),
-                ipSetDigest = signal.ipSetDigest.normalizeIpSetDigest(),
-                transportClass = computeTransportClass(signal.event),
-                reasonCode = computeReasonCode(signal.event),
-                cooldownUntil =
-                    if (signal.event == DirectPathLearningEvent.ALL_IPS_FAILED) {
-                        signal.capturedAt + DirectModeNoDirectSolutionCooldownMs
-                    } else {
-                        null
-                    },
-            )
         }
-
-        private fun computePolicy(
-            signal: DirectPathLearningSignal,
-            current: TransportPolicyEnvelope?,
-        ): TransportPolicy =
-            when (signal.event) {
-                DirectPathLearningEvent.QUIC_SUCCESS,
-                DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED,
-                -> {
-                    TransportPolicy(
-                        quicMode = QuicMode.ALLOW,
-                        preferredStack = PreferredStack.H3,
-                        dnsMode = DnsMode.SYSTEM,
-                        tcpFamily = TcpFamily.NONE,
-                        outcome = DirectModeOutcome.TRANSPARENT_OK,
-                    )
-                }
-
-                DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK -> {
-                    TransportPolicy(
-                        quicMode = QuicMode.SOFT_DISABLE,
-                        preferredStack = PreferredStack.H2,
-                        dnsMode = DnsMode.SYSTEM,
-                        tcpFamily = TcpFamily.NONE,
-                        outcome = DirectModeOutcome.TRANSPARENT_OK,
-                    )
-                }
-
-                DirectPathLearningEvent.TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK -> {
-                    TransportPolicy(
-                        quicMode = QuicMode.HARD_DISABLE,
-                        preferredStack = PreferredStack.H2,
-                        dnsMode = DnsMode.SYSTEM,
-                        tcpFamily = normalizeStrategyFamilyToTcpFamily(signal.strategyFamily),
-                        outcome = DirectModeOutcome.TRANSPARENT_OK,
-                    )
-                }
-
-                DirectPathLearningEvent.ALL_IPS_FAILED -> {
-                    TransportPolicy(
-                        quicMode =
-                            when (current?.transportClass) {
-                                DirectTransportClass.SNI_TLS_SUSPECT -> QuicMode.HARD_DISABLE
-                                DirectTransportClass.QUIC_BLOCK_SUSPECT -> QuicMode.SOFT_DISABLE
-                                else -> QuicMode.ALLOW
-                            },
-                        preferredStack = PreferredStack.H2,
-                        dnsMode = DnsMode.SYSTEM,
-                        tcpFamily = current?.policy?.tcpFamily ?: TcpFamily.NONE,
-                        outcome = DirectModeOutcome.NO_DIRECT_SOLUTION,
-                    )
-                }
-            }
-
-        private fun computeTransportClass(event: DirectPathLearningEvent): DirectTransportClass? =
-            when (event) {
-                DirectPathLearningEvent.QUIC_SUCCESS -> null
-
-                DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
-                DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED,
-                -> DirectTransportClass.QUIC_BLOCK_SUSPECT
-
-                DirectPathLearningEvent.TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK -> DirectTransportClass.SNI_TLS_SUSPECT
-
-                DirectPathLearningEvent.ALL_IPS_FAILED -> DirectTransportClass.IP_BLOCK_SUSPECT
-            }
-
-        private fun computeReasonCode(event: DirectPathLearningEvent): DirectModeReasonCode? =
-            when (event) {
-                DirectPathLearningEvent.QUIC_SUCCESS -> {
-                    null
-                }
-
-                DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK -> {
-                    DirectModeReasonCode.QUIC_BLOCKED
-                }
-
-                DirectPathLearningEvent.TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK -> {
-                    DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
-                }
-
-                DirectPathLearningEvent.ALL_IPS_FAILED -> {
-                    DirectModeReasonCode.IP_BLOCKED
-                }
-
-                DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED -> {
-                    DirectModeReasonCode.NO_TCP_FALLBACK
-                }
-            }
 
         private fun trimCaches() {
             while (cachedEnvelopes.size > CacheLimit) {
@@ -296,17 +215,123 @@ private fun envelopeSignature(envelope: TransportPolicyEnvelope): String =
         append(envelope.cooldownUntil)
     }
 
-private const val signalOrderTcpPostClientHelloFailure = 3
-private const val signalOrderQuicSuccess = 4
-
 private fun signalOrder(event: DirectPathLearningEvent): Int =
-    when (event) {
-        DirectPathLearningEvent.ALL_IPS_FAILED -> 0
-        DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED -> 1
-        DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK -> 2
-        DirectPathLearningEvent.TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK -> signalOrderTcpPostClientHelloFailure
-        DirectPathLearningEvent.QUIC_SUCCESS -> signalOrderQuicSuccess
-    }
+    DirectPathLearningEventRules.ruleFor(event)?.signalOrder ?: -1
+
+/**
+ * Central [DirectPathLearningEvent] -> policy mapping for [DirectPathPolicyLearner].
+ *
+ * Every event the learner acts on has exactly one [Rule] here. An event with no
+ * rule is treated as unknown and skipped by the learner. Teaching the learner a
+ * new event is therefore a single map entry plus a [DirectPathLearningEvent]
+ * companion constant -- no scattered exhaustive `when` expressions to keep in
+ * sync across `computeEnvelope` / classification / collapse ordering.
+ */
+private object DirectPathLearningEventRules {
+    private const val SignalOrderAllIpsFailed = 0
+    private const val SignalOrderNoTcpFallback = 1
+    private const val SignalOrderQuicBlocked = 2
+    private const val SignalOrderTcpPostClientHelloFailure = 3
+    private const val SignalOrderQuicSuccess = 4
+
+    /** Per-event facts the learner needs: collapse ordering, classification, cooldown, and the policy builder. */
+    class Rule(
+        val signalOrder: Int,
+        val transportClass: DirectTransportClass?,
+        val reasonCode: DirectModeReasonCode?,
+        val setsCooldown: Boolean,
+        val buildPolicy: (signal: DirectPathLearningSignal, current: TransportPolicyEnvelope?) -> TransportPolicy,
+    )
+
+    fun ruleFor(event: DirectPathLearningEvent): Rule? = rules[event]
+
+    fun isKnown(event: DirectPathLearningEvent): Boolean = rules.containsKey(event)
+
+    private val rules: Map<DirectPathLearningEvent, Rule> =
+        mapOf(
+            DirectPathLearningEvent.QUIC_SUCCESS to
+                Rule(
+                    signalOrder = SignalOrderQuicSuccess,
+                    transportClass = null,
+                    reasonCode = null,
+                    setsCooldown = false,
+                    buildPolicy = { _, _ -> transparentDirectPolicy() },
+                ),
+            DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED to
+                Rule(
+                    signalOrder = SignalOrderNoTcpFallback,
+                    transportClass = DirectTransportClass.QUIC_BLOCK_SUSPECT,
+                    reasonCode = DirectModeReasonCode.NO_TCP_FALLBACK,
+                    setsCooldown = false,
+                    buildPolicy = { _, _ -> transparentDirectPolicy() },
+                ),
+            DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK to
+                Rule(
+                    signalOrder = SignalOrderQuicBlocked,
+                    transportClass = DirectTransportClass.QUIC_BLOCK_SUSPECT,
+                    reasonCode = DirectModeReasonCode.QUIC_BLOCKED,
+                    setsCooldown = false,
+                    buildPolicy = { _, _ -> quicBlockedTcpOkPolicy() },
+                ),
+            DirectPathLearningEvent.TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK to
+                Rule(
+                    signalOrder = SignalOrderTcpPostClientHelloFailure,
+                    transportClass = DirectTransportClass.SNI_TLS_SUSPECT,
+                    reasonCode = DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE,
+                    setsCooldown = false,
+                    buildPolicy = { signal, _ -> tcpPostClientHelloFailurePolicy(signal) },
+                ),
+            DirectPathLearningEvent.ALL_IPS_FAILED to
+                Rule(
+                    signalOrder = SignalOrderAllIpsFailed,
+                    transportClass = DirectTransportClass.IP_BLOCK_SUSPECT,
+                    reasonCode = DirectModeReasonCode.IP_BLOCKED,
+                    setsCooldown = true,
+                    buildPolicy = { _, current -> allIpsFailedPolicy(current) },
+                ),
+        )
+
+    private fun transparentDirectPolicy(): TransportPolicy =
+        TransportPolicy(
+            quicMode = QuicMode.ALLOW,
+            preferredStack = PreferredStack.H3,
+            dnsMode = DnsMode.SYSTEM,
+            tcpFamily = TcpFamily.NONE,
+            outcome = DirectModeOutcome.TRANSPARENT_OK,
+        )
+
+    private fun quicBlockedTcpOkPolicy(): TransportPolicy =
+        TransportPolicy(
+            quicMode = QuicMode.SOFT_DISABLE,
+            preferredStack = PreferredStack.H2,
+            dnsMode = DnsMode.SYSTEM,
+            tcpFamily = TcpFamily.NONE,
+            outcome = DirectModeOutcome.TRANSPARENT_OK,
+        )
+
+    private fun tcpPostClientHelloFailurePolicy(signal: DirectPathLearningSignal): TransportPolicy =
+        TransportPolicy(
+            quicMode = QuicMode.HARD_DISABLE,
+            preferredStack = PreferredStack.H2,
+            dnsMode = DnsMode.SYSTEM,
+            tcpFamily = normalizeStrategyFamilyToTcpFamily(signal.strategyFamily),
+            outcome = DirectModeOutcome.TRANSPARENT_OK,
+        )
+
+    private fun allIpsFailedPolicy(current: TransportPolicyEnvelope?): TransportPolicy =
+        TransportPolicy(
+            quicMode =
+                when (current?.transportClass) {
+                    DirectTransportClass.SNI_TLS_SUSPECT -> QuicMode.HARD_DISABLE
+                    DirectTransportClass.QUIC_BLOCK_SUSPECT -> QuicMode.SOFT_DISABLE
+                    else -> QuicMode.ALLOW
+                },
+            preferredStack = PreferredStack.H2,
+            dnsMode = DnsMode.SYSTEM,
+            tcpFamily = current?.policy?.tcpFamily ?: TcpFamily.NONE,
+            outcome = DirectModeOutcome.NO_DIRECT_SOLUTION,
+        )
+}
 
 @Module
 @InstallIn(ProxyServiceSessionComponent::class, VpnServiceSessionComponent::class)

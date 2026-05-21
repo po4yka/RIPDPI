@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NativeRuntimeSnapshotTest {
@@ -146,6 +148,71 @@ class NativeRuntimeSnapshotTest {
         val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
 
         assertEquals("future_event_kind_v2", decoded.nativeEvents.first().kind)
+    }
+
+    @Test
+    fun `unknown direct path learning event decodes verbatim instead of failing the snapshot`() {
+        // DirectPathLearningEvent is a wire-preserving value class, not an enum:
+        // a future runtime emitting a new event name must not break decoding of
+        // the entire enclosing NativeRuntimeSnapshot for an older app build.
+        val json =
+            """
+            {
+              "source": "proxy",
+              "directPathLearningSignals": [
+                { "authority": "example.org:443", "ipSetDigest": "deadbeef",
+                  "event": "FUTURE_DIRECT_PATH_EVENT_V2", "capturedAt": 99 }
+              ]
+            }
+            """.trimIndent()
+
+        val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
+
+        val signal = decoded.directPathLearningSignals.single()
+        assertEquals("FUTURE_DIRECT_PATH_EVENT_V2", signal.event.wire)
+        assertFalse(signal.event.isKnown)
+    }
+
+    @Test
+    fun `known direct path learning events report isKnown with their exact wire strings`() {
+        val knownByWire =
+            mapOf(
+                "QUIC_SUCCESS" to DirectPathLearningEvent.QUIC_SUCCESS,
+                "QUIC_BLOCKED_TCP_OK" to DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
+                "TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK" to DirectPathLearningEvent.TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK,
+                "ALL_IPS_FAILED" to DirectPathLearningEvent.ALL_IPS_FAILED,
+                "NO_TCP_FALLBACK_DETECTED" to DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED,
+            )
+        knownByWire.forEach { (wire, event) ->
+            assertEquals(wire, event.wire)
+            assertTrue("event $wire should be known", event.isKnown)
+        }
+    }
+
+    @Test
+    fun `known direct path learning event serializes to its bare wire string`() {
+        val snapshot =
+            NativeRuntimeSnapshot(
+                source = "proxy",
+                directPathLearningSignals =
+                    listOf(
+                        DirectPathLearningSignal(
+                            authority = "example.org:443",
+                            ipSetDigest = "deadbeef",
+                            event = DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
+                            capturedAt = 7L,
+                        ),
+                    ),
+            )
+
+        val encoded = snapshotJson.encodeToString(NativeRuntimeSnapshot.serializer(), snapshot)
+
+        // The event encodes as the bare wire string, byte-identical to the
+        // pre-value-class enum encoding -- existing goldens stay valid.
+        assertTrue(
+            "expected verbatim event wire string in $encoded",
+            encoded.contains("\"event\":\"QUIC_BLOCKED_TCP_OK\""),
+        )
     }
 
     private companion object {

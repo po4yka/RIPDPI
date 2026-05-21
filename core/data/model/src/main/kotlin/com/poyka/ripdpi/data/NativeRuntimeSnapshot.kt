@@ -33,13 +33,43 @@ data class NativeRuntimeEvent(
     val subsystem: String? = null,
 )
 
+/**
+ * Direct-path learning event identifier.
+ *
+ * Decoded from the free-form `event` string the native runtime emits on
+ * [DirectPathLearningSignal]. Modeled as a wire-preserving value class rather
+ * than an enum so a future runtime build emitting a new event name decodes
+ * cleanly instead of failing the entire enclosing [NativeRuntimeSnapshot].
+ * A known event serializes to exactly its wire string, byte-identical to the
+ * former enum encoding. Known events are exposed as companion constants;
+ * [isKnown] reports whether this value is one of them.
+ */
+@JvmInline
 @Serializable
-enum class DirectPathLearningEvent {
-    QUIC_SUCCESS,
-    QUIC_BLOCKED_TCP_OK,
-    TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK,
-    ALL_IPS_FAILED,
-    NO_TCP_FALLBACK_DETECTED,
+value class DirectPathLearningEvent(
+    val wire: String,
+) {
+    /** True when [wire] is one of the events this build recognizes. */
+    val isKnown: Boolean
+        get() = wire in KNOWN_WIRE_VALUES
+
+    companion object {
+        val QUIC_SUCCESS: DirectPathLearningEvent = DirectPathLearningEvent("QUIC_SUCCESS")
+        val QUIC_BLOCKED_TCP_OK: DirectPathLearningEvent = DirectPathLearningEvent("QUIC_BLOCKED_TCP_OK")
+        val TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK: DirectPathLearningEvent =
+            DirectPathLearningEvent("TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK")
+        val ALL_IPS_FAILED: DirectPathLearningEvent = DirectPathLearningEvent("ALL_IPS_FAILED")
+        val NO_TCP_FALLBACK_DETECTED: DirectPathLearningEvent = DirectPathLearningEvent("NO_TCP_FALLBACK_DETECTED")
+
+        private val KNOWN_WIRE_VALUES: Set<String> =
+            setOf(
+                QUIC_SUCCESS.wire,
+                QUIC_BLOCKED_TCP_OK.wire,
+                TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK.wire,
+                ALL_IPS_FAILED.wire,
+                NO_TCP_FALLBACK_DETECTED.wire,
+            )
+    }
 }
 
 @Serializable

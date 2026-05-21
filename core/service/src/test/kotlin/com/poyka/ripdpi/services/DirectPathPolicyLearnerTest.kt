@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DirectPathPolicyLearnerTest {
@@ -191,6 +192,79 @@ class DirectPathPolicyLearnerTest {
             assertNull(envelope.transportClass)
             assertNull(envelope.reasonCode)
             assertNull(envelope.cooldownUntil)
+        }
+
+    @Test
+    fun `unknown direct path learning event is ignored and persists nothing`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val store = TestServerCapabilityStore()
+            val learner =
+                DirectPathPolicyLearner(
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    serverCapabilityStore = store,
+                )
+
+            learner.consume(
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    state = "running",
+                    directPathLearningSignals =
+                        listOf(
+                            DirectPathLearningSignal(
+                                authority = "example.org:443",
+                                ipSetDigest = "deadbeef",
+                                event = DirectPathLearningEvent("FUTURE_DIRECT_PATH_EVENT_V2"),
+                                capturedAt = 100L,
+                            ),
+                        ),
+                ),
+            )
+
+            assertTrue(store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey()).isEmpty())
+        }
+
+    @Test
+    fun `unknown event alongside a known event leaves the known event learned`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val store = TestServerCapabilityStore()
+            val learner =
+                DirectPathPolicyLearner(
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    serverCapabilityStore = store,
+                )
+
+            learner.consume(
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    state = "running",
+                    directPathLearningSignals =
+                        listOf(
+                            DirectPathLearningSignal(
+                                authority = "unknown.example:443",
+                                ipSetDigest = "cafef00d",
+                                event = DirectPathLearningEvent("FUTURE_DIRECT_PATH_EVENT_V2"),
+                                capturedAt = 100L,
+                            ),
+                            DirectPathLearningSignal(
+                                authority = "Example.org:443",
+                                ipSetDigest = "deadbeef",
+                                event = DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
+                                capturedAt = 200L,
+                            ),
+                        ),
+                ),
+            )
+
+            // The unknown event is dropped; the known event learns exactly as
+            // it would have without the unknown sibling present.
+            val record = store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey()).single()
+            val envelope = record.effectiveTransportPolicyEnvelope()
+            assertEquals("example.org:443", record.authority)
+            assertEquals("deadbeef", envelope.ipSetDigest)
+            assertEquals(QuicMode.SOFT_DISABLE, envelope.policy.quicMode)
+            assertEquals(DirectModeReasonCode.QUIC_BLOCKED, envelope.reasonCode)
         }
 }
 

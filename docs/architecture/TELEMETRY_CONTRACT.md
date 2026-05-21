@@ -92,7 +92,7 @@ values, never rename or repurpose an existing one** (mirrors
 | **Event domain** (`source`) | `proxy`, `relay`, `warp`, `tunnel`, `diagnostics` — `EventDomain` in `android-support/src/events.rs`. `monitor` is accepted as an input alias normalized to `diagnostics`. |
 | **Event `kind`** | Optional and sparse — most events carry no `kind`. Defined today: `runtime_ready`, `runtime_stopped` (`ripdpi-android-telemetry-adapter/src/lifecycle.rs`). Read by Kotlin via `nativeEvents.any { it.kind == "runtime_ready" }`. |
 | **Event `level`** | `info`, `warn`, `error` — log-level strings. |
-| **Direct-path learning event** | `QUIC_SUCCESS`, `QUIC_BLOCKED_TCP_OK`, `TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK`, `ALL_IPS_FAILED`, `NO_TCP_FALLBACK_DETECTED` — Rust `DirectPathLearningSignal.event: String`, decoded Kotlin-side into the `DirectPathLearningEvent` enum **by exact name**. See the forward-compatibility note below. |
+| **Direct-path learning event** | `QUIC_SUCCESS`, `QUIC_BLOCKED_TCP_OK`, `TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK`, `ALL_IPS_FAILED`, `NO_TCP_FALLBACK_DETECTED` — Rust `DirectPathLearningSignal.event: String`, decoded Kotlin-side into the `DirectPathLearningEvent` **wire-preserving value class** (known events are companion constants; an unknown name decodes verbatim). See the forward-compatibility note below. |
 
 ---
 
@@ -141,27 +141,32 @@ intended posture:
   a snapshot or event field does **not** break an older Kotlin build.
 - **Unknown event kinds are preserved.** `NativeRuntimeEvent.kind` is a plain
   `String?`; a new `kind` value decodes verbatim, with no enum to reject it.
+- **Unknown direct-path learning events are preserved.**
+  `DirectPathLearningSignal.event` decodes into the `DirectPathLearningEvent`
+  wire-preserving value class — not an enum — so a new event name decodes
+  verbatim (`event.wire`) instead of failing the enclosing snapshot.
 - **Absent fields fall back.** Every telemetry model field is defaulted (see
   payload rules), so a newer Kotlin build reading older JSON is also safe.
 
 These guarantees are locked by forward-compatibility tests in
 `core/data/src/test/.../data/NativeRuntimeSnapshotTest.kt` — unknown top-level
-field, unknown nested-event field, and unknown event `kind` all decode
-cleanly.
+field, unknown nested-event field, unknown event `kind`, and unknown
+direct-path learning event all decode cleanly.
 
-**The one non-tolerant spot — `DirectPathLearningEvent`.** Rust emits
-`DirectPathLearningSignal.event` as a free `String`, but Kotlin decodes it into
-the `DirectPathLearningEvent` **enum by exact name**. `kotlinx.serialization`
-rejects an unknown enum value, so a future Rust-side value would fail to decode
-the *entire* enclosing `NativeRuntimeSnapshot`. Making the enum tolerant is
-**not a low-risk change**: a sentinel variant would ripple into the three
-exhaustive `when` expressions in
-`core/service/.../services/DirectPathPolicyLearner.kt`
-(`computeTransportClass`, `computeReasonCode`, `signalOrder`) and force a
-behavioral decision in the policy learner. Therefore: **adding a
-`DirectPathLearningEvent` value is a coordinated change** — land the Rust
-emitter, the Kotlin enum variant, and the `DirectPathPolicyLearner` `when`
-arms in one commit. It is not additive-safe like an ordinary telemetry field.
+**`DirectPathLearningEvent` — tolerant value class.** Rust emits
+`DirectPathLearningSignal.event` as a free `String`. Kotlin decodes it into
+`DirectPathLearningEvent`, a `@JvmInline value class` wrapping the raw wire
+string: a known event matches one of the companion constants (`QUIC_SUCCESS`,
+…), an unknown name decodes verbatim and reports `isKnown == false`. A known
+event still serializes to exactly its wire string, byte-identical to the former
+enum encoding. The policy learner
+(`core/service/.../services/DirectPathPolicyLearner.kt`) drives all event →
+policy mapping through one centralized table (`DirectPathLearningEventRules`)
+and **ignores** any event with no rule — unknown events are not learned, not
+persisted, never fatal. Adding a *known* `DirectPathLearningEvent` is therefore
+no longer a rippling coordinated change: add the companion constant and one
+`DirectPathLearningEventRules` entry. An unrecognized event from a newer
+runtime is already safe with no Kotlin change at all.
 
 ---
 
@@ -175,7 +180,10 @@ arms in one commit. It is not additive-safe like an ordinary telemetry field.
    Document the new value in the §Stable identifiers table.
 3. **New event domain.** Add the `EventDomain` arm in `android-support` and a
    ring capacity in `RingConfig`; the `source` string is then frozen.
-4. **New `DirectPathLearningEvent`.** Coordinated change — see the note above.
+4. **New `DirectPathLearningEvent`.** Known event: add a `DirectPathLearningEvent`
+   companion constant and one `DirectPathLearningEventRules` entry — additive,
+   no `when` edits. Unrecognized events already decode and are ignored; see the
+   note above.
 5. **Never** rename a JSON key, repurpose an identifier, remove a field, or
    make a new field required.
 
