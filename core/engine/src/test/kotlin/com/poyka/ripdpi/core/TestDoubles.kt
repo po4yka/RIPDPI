@@ -273,6 +273,16 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
     @Volatile var statsFailure: Throwable? = null
 
     @Volatile var telemetryFailure: Throwable? = null
+
+    @Volatile var statsStartedSignal: CompletableDeferred<Long>? = null
+
+    @Volatile var statsBlocker: CompletableDeferred<Unit>? = null
+
+    @Volatile var telemetryStartedSignal: CompletableDeferred<Long>? = null
+
+    @Volatile var telemetryBlocker: CompletableDeferred<Unit>? = null
+
+    @Volatile var destroySignal: CompletableDeferred<Long>? = null
     var lastCreatePayload: String? = null
     var lastStartHandle: Long? = null
     var lastStartTunFd: Int? = null
@@ -318,6 +328,8 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
 
     override fun getStats(handle: Long): LongArray {
         statsHandles += handle
+        statsStartedSignal?.complete(handle)
+        statsBlocker?.awaitBlocking("FakeTun2SocksBindings.getStats")
         faults.next(TunnelBindingFaultTarget.STATS)?.throwOrIgnore()
         statsFailure?.let { throw it }
         return nativeStats
@@ -325,6 +337,8 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
 
     override fun getTelemetry(handle: Long): String? {
         telemetryHandles += handle
+        telemetryStartedSignal?.complete(handle)
+        telemetryBlocker?.awaitBlocking("FakeTun2SocksBindings.getTelemetry")
         faults.next(TunnelBindingFaultTarget.TELEMETRY)?.let { fault ->
             return fault.payloadResult() ?: telemetryJson
         }
@@ -335,6 +349,7 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
     override fun destroy(handle: Long) {
         lastDestroyedHandle = handle
         destroyedHandles += handle
+        destroySignal?.complete(handle)
     }
 }
 
@@ -406,6 +421,14 @@ class FakeRipDpiWarpBindings : RipDpiWarpBindings {
     @Volatile var startedSignal: CompletableDeferred<Long>? = null
 
     @Volatile var startBlocker: CompletableDeferred<Unit>? = null
+
+    @Volatile var telemetryStartedSignal: CompletableDeferred<Long>? = null
+
+    @Volatile var telemetryBlocker: CompletableDeferred<Unit>? = null
+
+    @Volatile var destroySignal: CompletableDeferred<Long>? = null
+
+    @Volatile var stopCompletesStartBlocker: Boolean = false
     var lastCreatePayload: String? = null
     var lastStartedHandle: Long? = null
     var lastStoppedHandle: Long? = null
@@ -429,16 +452,22 @@ class FakeRipDpiWarpBindings : RipDpiWarpBindings {
 
     override fun stop(handle: Long) {
         lastStoppedHandle = handle
+        if (stopCompletesStartBlocker) {
+            startBlocker?.complete(Unit)
+        }
         stopFailure?.let { throw it }
     }
 
     override fun pollTelemetry(handle: Long): String? {
+        telemetryStartedSignal?.complete(handle)
+        telemetryBlocker?.awaitBlocking("FakeRipDpiWarpBindings.pollTelemetry")
         telemetryFailure?.let { throw it }
         return telemetryJson
     }
 
     override fun destroy(handle: Long) {
         lastDestroyedHandle = handle
+        destroySignal?.complete(handle)
     }
 }
 
@@ -468,6 +497,23 @@ class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
     var reportJson: String? = null
     var passiveEventsJson: String? = "[]"
     var state: ScanState = ScanState.READY
+    var createCount: Int = 0
+
+    @Volatile var progressStartedSignal: CompletableDeferred<Long>? = null
+
+    @Volatile var progressBlocker: CompletableDeferred<Unit>? = null
+
+    @Volatile var reportStartedSignal: CompletableDeferred<Long>? = null
+
+    @Volatile var reportBlocker: CompletableDeferred<Unit>? = null
+
+    @Volatile var passiveEventsStartedSignal: CompletableDeferred<Long>? = null
+
+    @Volatile var passiveEventsBlocker: CompletableDeferred<Unit>? = null
+
+    @Volatile var cancelStartedSignal: CompletableDeferred<Long>? = null
+
+    @Volatile var destroyStartedSignal: CompletableDeferred<Long>? = null
     val faults = FaultQueue<DiagnosticsBindingFaultTarget>()
     var lastStartedHandle: Long? = null
     var lastStartedRequestJson: String? = null
@@ -481,6 +527,7 @@ class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
     override fun create(): Long {
         faults.next(DiagnosticsBindingFaultTarget.CREATE)?.throwOrIgnore()
         createFailure?.let { throw it }
+        createCount += 1
         return createdHandle
     }
 
@@ -502,12 +549,15 @@ class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
 
     override fun cancelScan(handle: Long) {
         cancelledHandles += handle
+        cancelStartedSignal?.complete(handle)
         faults.next(DiagnosticsBindingFaultTarget.CANCEL)?.throwOrIgnore()
         state = ScanState.READY
     }
 
     override fun pollProgress(handle: Long): String? {
         progressHandles += handle
+        progressStartedSignal?.complete(handle)
+        progressBlocker?.awaitBlocking("FakeNetworkDiagnosticsBindings.pollProgress")
         faults.next(DiagnosticsBindingFaultTarget.POLL_PROGRESS)?.let { fault ->
             return fault.payloadResult() ?: progressJson
         }
@@ -517,6 +567,8 @@ class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
 
     override fun takeReport(handle: Long): String? {
         reportHandles += handle
+        reportStartedSignal?.complete(handle)
+        reportBlocker?.awaitBlocking("FakeNetworkDiagnosticsBindings.takeReport")
         faults.next(DiagnosticsBindingFaultTarget.TAKE_REPORT)?.let { fault ->
             return fault.payloadResult() ?: reportJson
         }
@@ -526,6 +578,8 @@ class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
 
     override fun pollPassiveEvents(handle: Long): String? {
         passiveEventHandles += handle
+        passiveEventsStartedSignal?.complete(handle)
+        passiveEventsBlocker?.awaitBlocking("FakeNetworkDiagnosticsBindings.pollPassiveEvents")
         faults.next(DiagnosticsBindingFaultTarget.PASSIVE_EVENTS)?.let { fault ->
             return fault.payloadResult() ?: passiveEventsJson
         }
@@ -535,6 +589,7 @@ class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
 
     override fun destroy(handle: Long) {
         destroyedHandles += handle
+        destroyStartedSignal?.complete(handle)
         faults.next(DiagnosticsBindingFaultTarget.DESTROY)?.throwOrIgnore()
         state = ScanState.READY
     }

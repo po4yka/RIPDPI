@@ -1,14 +1,13 @@
 package com.poyka.ripdpi.core
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.lifetime.HandleReservation
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -135,7 +134,9 @@ class Tun2SocksNativeBindings
  * Coroutine-friendly owner of a single native tunnel handle (see
  * [Tun2SocksBindings] for the raw JNI contract).
  *
- * Holds at most one live handle and serializes every JNI call under [mutex].
+ * Holds at most one live handle and uses [HandleReservation] to let read-style
+ * stats/telemetry calls run concurrently while lifecycle mutations drain them
+ * before destroying the native session.
  * [start] runs [Tun2SocksBindings.create] then [Tun2SocksBindings.start]; if
  * `start` fails (including via cancellation) it `destroy`s the freshly created
  * handle so no orphan session is left in the native registry. [stop] always
@@ -155,7 +156,7 @@ class Tun2SocksTunnel(
             ignoreUnknownKeys = true
             encodeDefaults = true
         }
-    private val mutex = Mutex()
+    private val reservations = HandleReservation()
     private var handle = 0L
 
     @Suppress("ThrowsCount", "TooGenericExceptionCaught")
@@ -163,7 +164,7 @@ class Tun2SocksTunnel(
         config: Tun2SocksConfig,
         tunFd: Int,
     ) {
-        mutex.withLock {
+        reservations.withExclusive {
             if (handle != 0L) {
                 throw NativeError.AlreadyRunning("Tunnel")
             }
@@ -203,19 +204,20 @@ class Tun2SocksTunnel(
     }
 
     suspend fun stop() {
-        mutex.withLock {
+        reservations.withExclusive {
             if (handle == 0L) {
                 throw NativeError.NotRunning("Tunnel")
             }
 
+            val currentHandle = handle
             try {
                 withContext(Dispatchers.IO) {
-                    nativeBindings.stop(handle)
+                    nativeBindings.stop(currentHandle)
                 }
             } finally {
                 try {
                     withContext(Dispatchers.IO) {
-                        nativeBindings.destroy(handle)
+                        nativeBindings.destroy(currentHandle)
                     }
                 } finally {
                     handle = 0L
@@ -225,30 +227,23 @@ class Tun2SocksTunnel(
     }
 
     suspend fun stats(): TunnelStats =
-        mutex.withLock {
-            if (handle == 0L) {
-                TunnelStats()
-            } else {
-                val nativeStats =
-                    withContext(Dispatchers.IO) {
-                        nativeBindings.getStats(handle)
-                    }
-                TunnelStats.fromNative(nativeStats)
-            }
-        }
+        reservations.withReservationOrNull({ handle }) { currentHandle ->
+            val nativeStats =
+                withContext(Dispatchers.IO) {
+                    nativeBindings.getStats(currentHandle)
+                }
+            TunnelStats.fromNative(nativeStats)
+        } ?: TunnelStats()
 
     suspend fun telemetry(): NativeRuntimeSnapshot =
-        mutex.withLock {
-            if (handle == 0L) {
-                NativeRuntimeSnapshot.idle(source = "tunnel")
-            } else {
+        reservations
+            .withReservationOrNull({ handle }) { currentHandle ->
                 withContext(Dispatchers.IO) {
-                    nativeBindings.getTelemetry(handle)
-                }?.takeIf { it.isNotBlank() }
-                    ?.let { json.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
-                    ?: NativeRuntimeSnapshot.idle(source = "tunnel")
-            }
-        }
+                    nativeBindings.getTelemetry(currentHandle)
+                }
+            }?.takeIf { it.isNotBlank() }
+            ?.let { json.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
+            ?: NativeRuntimeSnapshot.idle(source = "tunnel")
 }
 
 const val defaultTun2SocksTunnelMtu: Int = 1500

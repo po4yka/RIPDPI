@@ -1,9 +1,8 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.core.lifetime.HandleReservation
 import com.poyka.ripdpi.data.NativeError
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -149,13 +148,14 @@ interface NetworkDiagnosticsBridge {
  * Coroutine-friendly owner of a single native diagnostics handle (see
  * [NetworkDiagnosticsBindings] for the raw JNI contract).
  *
- * The handle is created **lazily**: `ensureHandleLocked` calls
+ * The handle is created **lazily**: `ensureHandleExclusive` calls
  * [NetworkDiagnosticsBindings.create] on the first scan or poll and reuses it
  * for the lifetime of this instance, so there is no separate create step for
- * callers. Every JNI call is serialized under [mutex], so a [destroy] cannot
- * retire the handle while a scan or poll is in flight. [destroy] is idempotent
+ * callers. Read-style JNI calls use [HandleReservation], so polls can overlap
+ * and [destroy] drains them before retiring the handle. [destroy] is idempotent
  * — a no-op once the handle has been cleared — and after it the next call
- * lazily creates a fresh handle. [cancelScan] is a no-op when no handle exists.
+ * lazily creates a fresh handle. [cancelScan] is a no-op when no handle exists
+ * and never creates a new handle.
  *
  * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle).
  */
@@ -164,10 +164,10 @@ class NetworkDiagnostics
     constructor(
         private val nativeBindings: NetworkDiagnosticsBindings,
     ) : NetworkDiagnosticsBridge {
-        private val mutex = Mutex()
+        private val reservations = HandleReservation()
         private var handle = 0L
 
-        private fun ensureHandleLocked(): Long {
+        private fun ensureHandleExclusive(): Long {
             if (handle == 0L) {
                 val createdHandle = nativeBindings.create()
                 if (createdHandle == 0L) {
@@ -178,47 +178,61 @@ class NetworkDiagnostics
             return handle
         }
 
+        private suspend fun ensureHandle() {
+            reservations.withExclusive {
+                ensureHandleExclusive()
+            }
+        }
+
+        private suspend fun <T> withLazyHandle(block: suspend (Long) -> T): T {
+            while (true) {
+                val reservedCall =
+                    reservations.withReservationOrNull({ handle }) { currentHandle ->
+                        ReservedCall(block(currentHandle))
+                    }
+                if (reservedCall != null) {
+                    return reservedCall.value
+                }
+                ensureHandle()
+            }
+        }
+
         override suspend fun startScan(
             requestJson: String,
             sessionId: String,
         ) {
-            mutex.withLock {
-                val h = ensureHandleLocked()
+            withLazyHandle { h ->
                 withContext(Dispatchers.IO) { nativeBindings.startScan(h, requestJson, sessionId) }
             }
         }
 
         override suspend fun cancelScan() {
-            mutex.withLock {
-                if (handle != 0L) {
-                    nativeBindings.cancelScan(handle)
-                }
+            reservations.withReservationOrNull({ handle }) { currentHandle ->
+                withContext(Dispatchers.IO) { nativeBindings.cancelScan(currentHandle) }
             }
         }
 
         override suspend fun pollProgressJson(): String? =
-            mutex.withLock {
-                val h = ensureHandleLocked()
+            withLazyHandle { h ->
                 withContext(Dispatchers.IO) { nativeBindings.pollProgress(h) }
             }
 
         override suspend fun takeReportJson(): String? =
-            mutex.withLock {
-                val h = ensureHandleLocked()
+            withLazyHandle { h ->
                 withContext(Dispatchers.IO) { nativeBindings.takeReport(h) }
             }
 
         override suspend fun pollPassiveEventsJson(): String? =
-            mutex.withLock {
-                val h = ensureHandleLocked()
+            withLazyHandle { h ->
                 withContext(Dispatchers.IO) { nativeBindings.pollPassiveEvents(h) }
             }
 
         override suspend fun destroy() {
-            mutex.withLock {
+            reservations.withExclusive {
                 if (handle != 0L) {
+                    val currentHandle = handle
                     try {
-                        nativeBindings.destroy(handle)
+                        withContext(Dispatchers.IO) { nativeBindings.destroy(currentHandle) }
                     } finally {
                         handle = 0L
                     }
@@ -226,3 +240,7 @@ class NetworkDiagnostics
             }
         }
     }
+
+private data class ReservedCall<T>(
+    val value: T,
+)
