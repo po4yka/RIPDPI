@@ -66,9 +66,22 @@ open class RootHelperManager
             private val secureRandom = SecureRandom()
         }
 
+        /** Absolute path of the live helper Unix socket, or `null` when the helper is not running. */
         open val socketPath: String?
             get() = activeSocketPath
 
+        /**
+         * Reconcile the helper process with the `root_mode_enabled` setting.
+         *
+         * When [rootModeEnabled] is `false` the helper is stopped and `null` is
+         * returned — preserving the non-root baseline. When `true`, the helper
+         * is started if it is not already running.
+         *
+         * @return the helper Unix socket path while the helper is running, or
+         *   `null` when root mode is off or the helper could not be started. A
+         *   `null` result is the signal for the native runtime to fall back to
+         *   non-privileged code paths.
+         */
         open suspend fun syncRootMode(
             context: Context,
             rootModeEnabled: Boolean,
@@ -80,6 +93,12 @@ open class RootHelperManager
             return ensureStarted(context)
         }
 
+        /**
+         * Start the helper if it is not already running, idempotently.
+         *
+         * @return the live helper socket path, or `null` when the helper could
+         *   not be started — callers must then degrade to non-root behavior.
+         */
         open suspend fun ensureStarted(context: Context): String? {
             val currentPath = activeSocketPath
             if (currentPath != null && isRunning()) {
@@ -191,6 +210,7 @@ open class RootHelperManager
             log.i { "root helper stopped" }
         }
 
+        /** Returns `true` while the launched helper process is still alive. */
         open fun isRunning(): Boolean {
             val process = helperProcess ?: return false
             return runCatching {

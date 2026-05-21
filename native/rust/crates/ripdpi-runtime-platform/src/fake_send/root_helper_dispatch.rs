@@ -1,3 +1,13 @@
+//! Root-helper dispatch half of the fake-send privileged operations.
+//!
+//! Each function here forwards one fake-packet operation to the privileged
+//! `ripdpi-root-helper` over `with_root_helper`. The `Option` return type is
+//! the **non-root fallback signal**: `Some(result)` means a helper was
+//! registered and ran the operation (privileged path); `None` means no helper
+//! is registered, and the caller in the sibling `fake_send::*` modules must
+//! fall through to the local `ripdpi-privileged-ops` path. A `None` here is
+//! never an error — it is the rooted-vs-non-root branch.
+
 use std::io;
 use std::net::TcpStream;
 use std::os::fd::{AsRawFd, RawFd};
