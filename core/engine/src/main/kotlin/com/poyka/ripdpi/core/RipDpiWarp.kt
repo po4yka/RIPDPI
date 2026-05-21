@@ -136,18 +136,25 @@ class RipDpiWarpNativeBindings
              * is opened; registering later risks a routing loop into the TUN (see
              * the `vpnservice-protect-invariant` rule). The `GlobalRef` is
              * process-global and is released only by [jniUnregisterVpnProtect].
+             *
+             * Returns a generation token identifying this registration. Keep it
+             * and pass it to [jniUnregisterVpnProtect] so a stale unregister from
+             * a superseded VPN session cannot clear a newer session's callback.
+             * A `0` return means registration failed.
              */
             @JvmStatic
-            external fun jniRegisterVpnProtect(vpnService: Any)
+            external fun jniRegisterVpnProtect(vpnService: Any): Long
 
             /**
              * Unregister the WARP VPN socket protection callback and release the
-             * `GlobalRef` held since [jniRegisterVpnProtect]. Call when the VPN
-             * service stops, after the WARP session has been stopped/destroyed.
-             * Safe to call when no callback is registered.
+             * `GlobalRef` held since [jniRegisterVpnProtect], passing back the
+             * [token] that call returned. The callback is cleared only if the
+             * registry slot still carries that generation; a stale token (a
+             * superseded session) or a `0` token is a safe no-op. Call when the
+             * VPN service stops, after the WARP session has been stopped/destroyed.
              */
             @JvmStatic
-            external fun jniUnregisterVpnProtect()
+            external fun jniUnregisterVpnProtect(token: Long)
         }
 
         override fun create(configJson: String): Long = jniCreate(configJson)

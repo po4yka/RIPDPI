@@ -14,7 +14,9 @@ use jni::objects::{JObject, JValue};
 use jni::refs::Global;
 use jni::JavaVM;
 
-use ripdpi_native_protect::{register_protect_callback, unregister_protect_callback, ProtectCallback};
+use ripdpi_native_protect::{
+    register_protect_callback_versioned, unregister_protect_callback_if, ProtectCallback, ProtectGeneration,
+};
 
 pub use entry::{register_entry, unregister_entry};
 
@@ -59,24 +61,37 @@ impl ProtectCallback for JniProtectCallback {
 
 /// Register VPN socket protection callback via JNI.
 ///
-/// Called from Kotlin when the VPN service starts. Stores the JavaVM
-/// and a global reference to the VpnService instance.
-pub(crate) fn register_vpn_protect(vm: &JavaVM, vpn_service: Global<JObject<'static>>) {
+/// Called from Kotlin when the VPN service starts. Stores the JavaVM and a
+/// global reference to the VpnService instance. Returns the generation token
+/// the registry stamped on the slot; the caller threads it back to
+/// [`unregister_vpn_protect`] so a stale unregister cannot clobber a newer
+/// session's callback.
+pub(crate) fn register_vpn_protect(vm: &JavaVM, vpn_service: Global<JObject<'static>>) -> i64 {
     // SAFETY: JavaVM pointer is held live by JNI_OnLoad registration for the duration of the process.
     // Re-create a JavaVM handle from the raw pointer (just copies the pointer).
     let vm_clone = unsafe { JavaVM::from_raw(vm.get_raw()) };
     let callback = Arc::new(JniProtectCallback { vm: vm_clone, vpn_service });
-    register_protect_callback(callback);
-    tracing::info!("VPN protect callback registered via JNI");
+    let generation = register_protect_callback_versioned(callback);
+    tracing::info!(generation = generation.token(), "VPN protect callback registered via JNI");
+    // The generation is a monotonic counter from 1; the value fits jlong for
+    // the lifetime of any realistic process.
+    generation.token() as i64
 }
 
 /// Unregister VPN socket protection callback.
 ///
-/// Called from Kotlin when the VPN service stops. The global reference
-/// is dropped, allowing the Java object to be garbage collected.
-pub(crate) fn unregister_vpn_protect() {
-    unregister_protect_callback();
-    tracing::info!("VPN protect callback unregistered");
+/// Called from Kotlin when the VPN service stops, passing back the `token`
+/// [`register_vpn_protect`] returned. The slot is cleared only if it still
+/// carries that generation; a stale token (a superseded session) or a `0`
+/// token (a failed register) is a safe no-op. The global reference is dropped
+/// on a successful clear, allowing the Java object to be garbage collected.
+pub(crate) fn unregister_vpn_protect(token: i64) {
+    let generation = ProtectGeneration::from_token(token as u64);
+    if unregister_protect_callback_if(generation) {
+        tracing::info!(generation = generation.token(), "VPN protect callback unregistered");
+    } else {
+        tracing::info!(token, "VPN protect unregister ignored (stale token or no registration)");
+    }
 }
 
 mod tests {

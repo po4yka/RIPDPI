@@ -5,7 +5,9 @@ use std::sync::Arc;
 use jni::objects::{JObject, JValue};
 use jni::refs::Global;
 use jni::{EnvUnowned, JavaVM, Outcome};
-use ripdpi_native_protect::{register_protect_callback, unregister_protect_callback, ProtectCallback};
+use ripdpi_native_protect::{
+    register_protect_callback_versioned, unregister_protect_callback_if, ProtectCallback, ProtectGeneration,
+};
 use ripdpi_warp_core::WarpPlatform;
 
 struct JniProtectCallback {
@@ -72,19 +74,24 @@ pub(crate) fn warp_platform() -> WarpPlatform {
     WarpPlatform::new().with_socket_protector(ripdpi_native_protect::protect_socket_via_callback)
 }
 
-pub(crate) fn register_from_jni(mut env: EnvUnowned<'_>, vpn_service: JObject<'_>) {
+/// JNI entry for the WARP `jniRegisterVpnProtect`.
+///
+/// Returns the generation token the registry stamped on the slot, or `0` on
+/// failure. Kotlin threads it back to [`unregister_entry`] so a stale
+/// unregister cannot clobber a newer session's callback.
+pub(crate) fn register_from_jni(mut env: EnvUnowned<'_>, vpn_service: JObject<'_>) -> i64 {
     match env
-        .with_env(|env| -> jni::errors::Result<()> {
+        .with_env(|env| -> jni::errors::Result<i64> {
             let vm = env.get_java_vm()?;
             let global_ref: Global<JObject<'static>> = env.new_global_ref(vpn_service)?;
-            register_vpn_protect(&vm, global_ref);
-            Ok(())
+            Ok(register_vpn_protect(&vm, global_ref))
         })
         .into_outcome()
     {
-        Outcome::Ok(()) => {}
+        Outcome::Ok(token) => token,
         Outcome::Err(err) => {
             log::error!("warp VPN protect registration failed: {err}");
+            0
         }
         Outcome::Panic(payload) => {
             let msg = payload
@@ -93,17 +100,29 @@ pub(crate) fn register_from_jni(mut env: EnvUnowned<'_>, vpn_service: JObject<'_
                 .or_else(|| payload.downcast_ref::<&str>().copied())
                 .unwrap_or("unknown panic");
             log::error!("warp VPN protect registration panicked: {msg}");
+            0
         }
     }
 }
 
-fn register_vpn_protect(vm: &JavaVM, vpn_service: Global<JObject<'static>>) {
+fn register_vpn_protect(vm: &JavaVM, vpn_service: Global<JObject<'static>>) -> i64 {
     // SAFETY: JavaVM pointer is held live by JNI_OnLoad registration for the duration of the process.
     // Re-creating a JavaVM from the raw pointer copies only the thin pointer wrapper; no double-free risk.
     let vm_clone = unsafe { JavaVM::from_raw(vm.get_raw()) };
-    register_protect_callback(Arc::new(JniProtectCallback { vm: vm_clone, vpn_service }));
+    let generation = register_protect_callback_versioned(Arc::new(JniProtectCallback { vm: vm_clone, vpn_service }));
+    // The generation is a monotonic counter from 1; the value fits jlong for
+    // the lifetime of any realistic process.
+    generation.token() as i64
 }
 
-pub(crate) fn unregister_entry() {
-    unregister_protect_callback();
+/// JNI entry for the WARP `jniUnregisterVpnProtect`.
+///
+/// `token` is the value [`register_from_jni`] returned. Clearing is
+/// generation-checked: a stale token (a superseded session) or a `0` token (a
+/// failed register) is a safe no-op.
+pub(crate) fn unregister_entry(token: i64) {
+    let generation = ProtectGeneration::from_token(token as u64);
+    if !unregister_protect_callback_if(generation) {
+        log::info!("warp VPN protect unregister ignored (stale token or no registration)");
+    }
 }

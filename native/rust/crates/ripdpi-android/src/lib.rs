@@ -52,7 +52,6 @@ mod tests {
         use jni::sys::{jboolean, jint, jlong, jstring};
         use jni::EnvUnowned;
 
-        type Void = extern "system" fn(EnvUnowned<'_>, JObject<'_>);
         type VoidHandle = extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong);
         type Long = extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jlong;
         type Bool = extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jboolean;
@@ -78,8 +77,8 @@ mod tests {
             Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniGeoIpMetadata
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>, JString<'_>, JString<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniRegisterVpnProtect
-                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JObject<'_>),
-            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUnregisterVpnProtect as Void,
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JObject<'_>) -> jlong,
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUnregisterVpnProtect as VoidHandle,
             Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCreate as Long,
             Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniStartScan
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong, JString<'_>, JString<'_>),

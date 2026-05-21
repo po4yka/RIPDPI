@@ -244,13 +244,18 @@ a deliberate follow-up rather than a mechanical refactor:
 
 ## 8. Callback registration / unregistration rules
 
-- **VPN protect callback** — registered by `jniRegisterVpnProtect(vpnService)`,
-  cleared by `jniUnregisterVpnProtect()`. These are `@JvmStatic` companion
+- **VPN protect callback** — registered by
+  `jniRegisterVpnProtect(vpnService): jlong`, cleared by
+  `jniUnregisterVpnProtect(token: jlong)`. These are `@JvmStatic` companion
   `external fun`s on **both** `RipDpiProxyNativeBindings` and
-  `RipDpiWarpNativeBindings`. `VpnNativeProtectRegistration`
-  (`core/service/.../services/VpnNativeProtectRegistration.kt`) calls both on
-  VPN start and both on VPN stop. Registration and unregistration must be
-  **symmetric** — see [§10](#10-vpnserviceprotect-callback-rules).
+  `RipDpiWarpNativeBindings`. Register returns a generation token;
+  `VpnNativeProtectRegistration`
+  (`core/service/.../services/VpnNativeProtectRegistration.kt`) keeps the proxy
+  and WARP tokens, calls both registers on VPN start, and passes each token
+  back to its unregister on VPN stop. Registration and unregistration must be
+  **symmetric** — see [§10](#10-vpnserviceprotect-callback-rules); the
+  generation guard makes an *asymmetric* (stale) unregister a safe no-op rather
+  than a clobber — see below.
 - **Telemetry recorder** — installed process-wide once, in `libripdpi.so`
   `JNI_OnLoad` via `ripdpi_android_telemetry_adapter::install_recorder()`. Not
   per-session; no unregister.
@@ -261,41 +266,34 @@ a deliberate follow-up rather than a mechanical refactor:
   matching unregister tied to a lifecycle event, or the referenced Java object
   is pinned against GC for the process lifetime.
 
-### Stale-unregister hazard — VPN protect registry (follow-up)
+### Stale-unregister guard — VPN protect registry
 
 The VPN protect callback lives in a single process-global slot
-(`ripdpi-native-protect`, one slot per `.so`). `jniRegisterVpnProtect`
-overwrites it; `jniUnregisterVpnProtect` clears it **unconditionally**. If a
-VPN session is torn down and a new one starts before the old session's
-unregister runs, the stale unregister clears the *new* session's callback —
-outbound sockets then fail `protect_socket_via_callback` and risk a routing
-loop into the TUN (see `vpnservice-protect-invariant.md`). A single active VPN
-session — the normal case — is unaffected: register/unregister are strictly
-paired.
+(`ripdpi-native-protect`, one slot per `.so`). If a VPN session is torn down
+and a new one starts before the old session's unregister runs, an
+*unconditional* unregister would clear the **new** session's callback —
+outbound sockets would then fail `protect_socket_via_callback` and risk a
+routing loop into the TUN (see `vpnservice-protect-invariant.md`).
 
-The sibling root-helper registry (`ripdpi-runtime-platform::root_helper`) was
-hardened against the same hazard with a `RootHelperGeneration` token: each
-register stamps the slot, and `unregister_root_helper_if(generation)` clears it
-only on a generation match. That fix is fully Rust-internal because the
-root-helper register/unregister callers are RAII guards that hold the token.
+The registry is generation-guarded. `register_protect_callback_versioned`
+stamps the slot with a monotonic `ProtectGeneration` and returns it;
+`unregister_protect_callback_if(generation)` clears the slot **only** on a
+generation match. Because register and unregister are two separate JNI calls
+with no Rust object spanning them, the token round-trips through Kotlin:
 
-The VPN protect registry **cannot** be fixed the same way without a JNI
-**signature change**, because its register and unregister are two separate
-JNI calls with no Rust object spanning them — the token must round-trip
-through Kotlin. Required change (tracked as `TODO(vpn-protect-generation)`):
-
-1. `register_protect_callback` returns a `ProtectGeneration` (newtype over
-   `u64`); keep the `()`-returning form as a back-compat wrapper.
-2. Add `unregister_protect_callback_if(ProtectGeneration) -> bool`.
-3. `jniRegisterVpnProtect` returns the generation as a `jlong`;
-   `jniUnregisterVpnProtect(jlong)` takes it back. This touches the
-   `external fun` declarations on `RipDpiProxyNativeBindings` and
-   `RipDpiWarpNativeBindings`, the four Rust export symbols, and
-   `VpnNativeProtectRegistration.kt`, which would hold the token between
+1. `jniRegisterVpnProtect` returns the generation as a `jlong` (`0` when
+   registration failed).
+2. `jniUnregisterVpnProtect(jlong)` takes it back; a stale token (a superseded
+   session) or a `0` token clears nothing — a safe no-op.
+3. `VpnNativeProtectRegistration` holds the proxy and WARP tokens between
    register and unregister.
 
-Because step 3 is a wire-contract change, it must land as its own reviewed
-commit, not as part of an unrelated change.
+`register_protect_callback` / `unregister_protect_callback` remain as
+unconditional back-compat wrappers for callers that do not race a later
+session. The sibling root-helper registry
+(`ripdpi-runtime-platform::root_helper`) uses the same generation pattern, but
+fully Rust-internally — its register/unregister callers are RAII guards that
+hold the token, so no JNI round-trip is needed there.
 
 ---
 
@@ -331,7 +329,9 @@ Two mechanisms exist; selection is automatic.
 `ripdpi_android_vpn_protect_adapter::register_entry(env, vpn_service)`. The
 adapter calls `env.get_java_vm()` and `env.new_global_ref(&vpn_service)`, then
 builds a `JniProtectCallback { vm, vpn_service: Global<JObject<'static>> }` and
-registers it via `ripdpi_native_protect::register_protect_callback`.
+registers it via `ripdpi_native_protect::register_protect_callback_versioned`,
+returning the generation token (see
+[§8](#8-callback-registration--unregistration-rules)).
 `JniProtectCallback::protect(fd)` (`ripdpi-android-vpn-protect-adapter/src/lib.rs`)
 does `vm.attach_current_thread(|env| env.call_method(vpn_service, "protect",
 "(I)Z", [fd]))`. Result mapping: `true` → `Ok(())`; `false` → `PermissionDenied`;

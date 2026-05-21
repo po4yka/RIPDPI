@@ -134,18 +134,19 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniRe
     env: EnvUnowned<'_>,
     _thiz: JObject,
     vpn_service: JObject,
-) {
-    ffi_boundary((), move || {
-        vpn_protect::register_from_jni(env, vpn_service);
-    });
+) -> jni::sys::jlong {
+    // Returns the generation token (0 on failure); Kotlin threads it back to
+    // jniUnregisterVpnProtect. See docs/architecture/JNI_CONTRACT.md §8.
+    ffi_boundary(0, move || vpn_protect::register_from_jni(env, vpn_service))
 }
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniUnregisterVpnProtect(
     _env: EnvUnowned<'_>,
     _thiz: JObject,
+    token: jni::sys::jlong,
 ) {
-    ffi_boundary((), || {
-        vpn_protect::unregister_entry();
+    ffi_boundary((), move || {
+        vpn_protect::unregister_entry(token);
     });
 }
