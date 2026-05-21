@@ -6,18 +6,33 @@ use ripdpi_relay_mux::{RelayCapabilities, RelayPoolConfig};
 
 use crate::backend::RelayBackend;
 use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
+use crate::transport_descriptor::{relay_transport_descriptor, RelayTransportDescriptor};
 
-pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) -> RelayCapabilities {
+/// The [`RelayTransportDescriptor`] for `config`'s relay kind, or `None` for
+/// the `Unsupported` catch-all (which has no descriptor row).
+///
+/// `RelayKind::from_config` structurally separates the `Unsupported` arm, so a
+/// genuinely unknown `relay_kind` string never resolves to a descriptor. Every
+/// concrete kind's `kind_id()` is a descriptor key; the
+/// `relay_transport_descriptors_cover_every_kind_exactly_once` test pins that.
+fn relay_transport_descriptor_for(config: &ResolvedRelayRuntimeConfig) -> Option<&'static RelayTransportDescriptor> {
     match RelayKind::from_config(config) {
-        RelayKind::Hysteria2 | RelayKind::Masque | RelayKind::TuicV5 => {
-            RelayCapabilities { tcp: true, udp: true, reusable: true }
-        }
-        RelayKind::CloudflareTunnel => RelayCapabilities { tcp: true, udp: false, reusable: true },
-        RelayKind::ShadowTlsV3 | RelayKind::NaiveProxy | RelayKind::VlessReality { .. } | RelayKind::ChainRelay => {
-            RelayCapabilities { tcp: true, udp: false, reusable: false }
-        }
-        RelayKind::Unsupported(_) => RelayCapabilities::default(),
+        RelayKind::Unsupported(_) => None,
+        _ => relay_transport_descriptor(config.kind_id()),
     }
+}
+
+/// The relay backend's planned SOCKS capability profile.
+///
+/// The generic TCP / UDP / connection-reuse capabilities are read straight
+/// from the [`RelayTransportDescriptor`] table — the single source of truth
+/// for these `relay_kind`-keyed facts. The `Unsupported` catch-all has no
+/// descriptor row and reports the empty [`RelayCapabilities::default`] profile.
+pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) -> RelayCapabilities {
+    let Some(descriptor) = relay_transport_descriptor_for(config) else {
+        return RelayCapabilities::default();
+    };
+    RelayCapabilities { tcp: descriptor.tcp, udp: descriptor.udp, reusable: descriptor.reusable }
 }
 
 pub(crate) fn planned_backend_fallback_mode(config: &ResolvedRelayRuntimeConfig) -> Option<String> {
@@ -87,7 +102,6 @@ pub(crate) fn normalized_xhttp_path(config: &ResolvedRelayRuntimeConfig) -> Stri
 }
 
 pub(crate) fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backend: &RelayBackend) -> io::Result<()> {
-    let kind = RelayKind::from_config(config);
     let outbound_bind_ip = parse_outbound_bind_ip(&config.common.outbound_bind_ip)?;
     if config.common.udp_enabled && !backend.udp_capable() {
         return Err(io::Error::new(
@@ -96,7 +110,12 @@ pub(crate) fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backe
         ));
     }
 
-    if outbound_bind_ip.is_some() && !kind.supports_outbound_bind_ip() {
+    // Outbound-bind-IP support is a generic, `relay_kind`-keyed capability:
+    // the descriptor table is the source of truth. An `Unsupported` kind has
+    // no descriptor row and keeps the historical permissive default (allowed).
+    let supports_outbound_bind_ip =
+        relay_transport_descriptor_for(config).is_none_or(|descriptor| descriptor.supports_outbound_bind_ip);
+    if outbound_bind_ip.is_some() && !supports_outbound_bind_ip {
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
             format!("relay backend {} does not support outbound bind IP", config.kind_id()),

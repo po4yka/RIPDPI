@@ -26,11 +26,12 @@ impl<'a> RelayKind<'a> {
         }
     }
 
+    /// Whether finalmask is honoured on this kind's *active transport*.
+    ///
+    /// Sub-mode dependent — VLESS Reality only supports finalmask on its
+    /// `xhttp` transport — so this stays a `match RelayKind` decision rather
+    /// than a `RelayTransportDescriptor` field.
     pub(crate) fn supports_finalmask(self) -> bool {
         matches!(self, Self::CloudflareTunnel | Self::VlessReality { xhttp: true })
-    }
-
-    pub(crate) fn supports_outbound_bind_ip(self) -> bool {
-        !matches!(self, Self::Hysteria2 | Self::Masque)
     }
 }

@@ -201,45 +201,47 @@ approximation or be inert when root is unavailable. `multidisorder` is
 
 ### The transport-descriptor seam
 
-`ripdpi-relay-core` exposes a `RelayTransportDescriptor` — an additive,
-read-only inventory of every concrete relay transport
-(`RELAY_TRANSPORT_DESCRIPTORS`, looked up with `relay_transport_descriptor()`,
-both re-exported from the crate root). Each row records the static,
-`relay_kind`-keyed facts: the stable `relay_kind` string, a label, the SOCKS
-capability profile (TCP / UDP / connection reuse), and outbound-bind-IP
-support. It is metadata for documentation, diagnostics, and inventory; a crate
-test pins it against the runtime source of truth so the two cannot drift.
+`ripdpi-relay-core` exposes a `RelayTransportDescriptor` — the
+`relay_kind`-keyed source of truth for a relay transport's generic capability
+profile (`RELAY_TRANSPORT_DESCRIPTORS`, looked up with
+`relay_transport_descriptor()`, both re-exported from the crate root). Each row
+records the static, `relay_kind`-keyed facts: the stable `relay_kind` string, a
+label, the SOCKS capability profile (TCP / UDP / connection reuse), and
+outbound-bind-IP support.
 
-The descriptor is **not yet wired into runtime dispatch** — relay backend
-selection, capability planning, pool sizing, and config parsing still flow
-through these decentralized sites:
+`runtime_validation` resolves the **generic** capability decisions through the
+descriptor: `planned_backend_capabilities` reads TCP / UDP / reuse from it, and
+the outbound-bind-IP validation gate reads `supports_outbound_bind_ip`. The
+remaining per-kind logic still flows through these decentralized sites:
 
 | Site | What it holds |
 |------|---------------|
-| `RelayTransportDescriptor` / `RELAY_TRANSPORT_DESCRIPTORS` (`transport_descriptor.rs`) | additive static inventory — `relay_kind`-keyed facts only |
+| `RelayTransportDescriptor` / `RELAY_TRANSPORT_DESCRIPTORS` (`transport_descriptor.rs`) | the source of truth for generic `relay_kind`-keyed capabilities |
 | `RelayKind` enum + `RelayBackendConfig::kind_id()` (`config/`) | the taxonomy and the `relay_kind` → kind-id mapping used by dispatch |
-| `RelayKind::supports_finalmask` / `supports_outbound_bind_ip` (`config/kind.rs`) | static capability predicates |
-| `planned_backend_capabilities` / `pool_config_for_backend` / `planned_backend_fallback_mode` / `describe_upstream` (`runtime_validation.rs`) | per-kind `match` statements feeding capability, pool sizing, fallback mode |
+| `RelayKind::supports_finalmask` (`config/kind.rs`) | the sub-mode-dependent finalmask predicate (varies with VLESS `xhttp`) |
+| `pool_config_for_backend` / `planned_backend_fallback_mode` / `describe_upstream` (`runtime_validation.rs`) | per-kind `match` statements for pool sizing, backend-specific fallback mode, and upstream description |
 | `BUILDERS: &[BackendBuilder]` (`backend/builder/builders/mod.rs`) | the `{ supports, build }` dispatch slice |
 | `RelayKindResolverRegistry.kt` + per-kind `*RelayKindResolver.kt` (`:core:service`) | the Kotlin-side resolver registry |
 
-Adding a transport is a descriptor row **plus** editing each Rust `match
-RelayKind` arm and adding a Kotlin resolver — the `relay_kind` string is still
-re-matched at every layer.
+Adding a transport is a descriptor row **plus** editing each remaining Rust
+`match RelayKind` arm and adding a Kotlin resolver — the `relay_kind` string is
+still re-matched at those layers.
 
-*Future improvement — migrate the runtime matches onto the descriptor.* The
-four `match RelayKind` statements in `runtime_validation.rs` could become
-descriptor lookups, making the table the single source of truth. Two facts are
-deliberately **excluded** from the descriptor today because they are not
-`relay_kind`-keyed: finalmask support and connection-pool tuning both vary with
-VLESS Reality's `xhttp` transport sub-mode (`RelayKind::VlessReality { xhttp }`
-splits one `relay_kind` string into two profiles), and `RelayKind::Unsupported`
-is a borrowed catch-all with no row. Folding them in needs an `xhttp`-aware key
-or a per-row variant. Sequence the migration safest-first: the table already
-exists; migrate the `supports_*` predicates; migrate the capability / pool /
-fallback matches under the parity test; only then consider exposing the
-descriptor for telemetry (a new telemetry field is itself a contract change —
-see §6). Keep the `BUILDERS` dispatch slice as-is — it is already a
+*Future improvement — migrate the remaining runtime matches onto the
+descriptor.* `planned_backend_capabilities` and the outbound-bind-IP gate are
+already descriptor lookups; the
+`relay_planned_capabilities_are_pinned_for_every_kind` and
+`relay_transport_descriptors_cover_every_kind_exactly_once` tests pin the table
+against every `RelayKind`. The remaining `match RelayKind` statements in
+`runtime_validation.rs` — `pool_config_for_backend`,
+`planned_backend_fallback_mode`, `describe_upstream` — and
+`RelayKind::supports_finalmask` stay match-based because they are not purely
+`relay_kind`-keyed: pool tuning and finalmask support both vary with VLESS
+Reality's `xhttp` transport sub-mode (`RelayKind::VlessReality { xhttp }`
+splits one `relay_kind` string into two profiles), the fallback mode and
+upstream description are backend-specific, and `RelayKind::Unsupported` is a
+borrowed catch-all with no row. Folding them in needs an `xhttp`-aware key or a
+per-row variant. Keep the `BUILDERS` dispatch slice as-is — it is already a
 descriptor-shaped registry.
 
 ### Compatibility checks

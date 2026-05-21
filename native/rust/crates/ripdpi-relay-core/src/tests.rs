@@ -4,8 +4,8 @@ use std::time::Duration;
 use crate::backend::{build_backend, RelayBackend};
 use crate::config::{
     ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig, MasqueRelayConfig,
-    RelayBackendConfig, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig,
-    ShadowTlsRelayConfig, TuicRelayConfig, VlessRealityRelayConfig,
+    NaiveProxyRelayConfig, RelayBackendConfig, RelayKind, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig,
+    ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, TuicRelayConfig, VlessRealityRelayConfig,
 };
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
@@ -77,6 +77,7 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             password: Some("secret".to_string()),
             ..ShadowTlsRelayConfig::default()
         }),
+        "naiveproxy" => RelayBackendConfig::NaiveProxy(NaiveProxyRelayConfig::default()),
         other => RelayBackendConfig::Unsupported(crate::config::UnsupportedRelayConfig { kind: other.to_string() }),
     };
     ResolvedRelayRuntimeConfig { common, backend }
@@ -351,54 +352,156 @@ async fn relay_runtime_builds_shadowtls_backend_with_inner_vless_profile() {
     }
 }
 
+/// Asserts whether `validate_runtime_config` accepts an outbound bind IP for a
+/// relay kind, exercising the descriptor-driven capability gate end to end.
+fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeConfig, supported: bool) {
+    let mut config = base.clone();
+    config.common.outbound_bind_ip = "203.0.113.10".to_string();
+    let backend = RelayBackend::Unsupported { kind: kind_id.to_string() };
+
+    let result = validate_runtime_config(&config, &backend);
+    if supported {
+        result.unwrap_or_else(|error| panic!("{kind_id} should accept an outbound bind IP: {error}"));
+    } else {
+        let error = result.expect_err("outbound bind IP must be rejected");
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported, "{kind_id} bind-IP rejection error kind");
+    }
+}
+
+/// Pins the planned SOCKS capability profile and outbound-bind-IP support for
+/// every `RelayKind`. `planned_backend_capabilities` and the bind-IP gate now
+/// resolve through `RELAY_TRANSPORT_DESCRIPTORS`, so a wrong descriptor row is
+/// caught here against literal expectations.
 #[test]
-fn relay_transport_descriptors_match_runtime_capability_planning() {
-    use crate::config::{NaiveProxyRelayConfig, RelayKind};
-    use crate::transport_descriptor::{relay_transport_descriptor, RELAY_TRANSPORT_DESCRIPTORS};
-
-    let expected_kinds = [
-        "hysteria2",
-        "tuic_v5",
-        "vless_reality",
-        "cloudflare_tunnel",
-        "chain_relay",
-        "masque",
-        "shadowtls_v3",
-        "naiveproxy",
+fn relay_planned_capabilities_are_pinned_for_every_kind() {
+    // kind_id, tcp, udp, reusable, supports_outbound_bind_ip
+    let pinned: [(&str, bool, bool, bool, bool); 8] = [
+        ("hysteria2", true, true, true, false),
+        ("tuic_v5", true, true, true, true),
+        ("vless_reality", true, false, false, true),
+        ("cloudflare_tunnel", true, false, true, true),
+        ("chain_relay", true, false, false, true),
+        ("masque", true, true, true, false),
+        ("shadowtls_v3", true, false, false, true),
+        ("naiveproxy", true, false, false, true),
     ];
-    assert_eq!(RELAY_TRANSPORT_DESCRIPTORS.len(), expected_kinds.len(), "one descriptor per concrete relay kind");
 
-    for descriptor in RELAY_TRANSPORT_DESCRIPTORS {
-        assert!(expected_kinds.contains(&descriptor.kind_id), "unexpected descriptor kind {}", descriptor.kind_id);
-        assert!(!descriptor.label.is_empty(), "{} descriptor needs a label", descriptor.kind_id);
-        assert!(descriptor.tcp, "every relay transport relays TCP");
-        assert_eq!(Some(descriptor), relay_transport_descriptor(descriptor.kind_id), "lookup must round-trip");
-
-        // Cross-check the descriptor against the runtime source of truth so the
-        // additive table cannot drift from `runtime_validation` / `RelayKind`.
-        let config = match descriptor.kind_id {
-            "naiveproxy" => {
-                let mut config = sample_config("hysteria2");
-                config.backend = RelayBackendConfig::NaiveProxy(NaiveProxyRelayConfig::default());
-                config
-            }
-            kind => sample_config(kind),
-        };
-
+    for (kind_id, tcp, udp, reusable, bind_ip) in pinned {
+        let config = sample_config(kind_id);
         let capabilities = planned_backend_capabilities(&config);
         assert_eq!(
-            (descriptor.tcp, descriptor.udp, descriptor.reusable),
+            (tcp, udp, reusable),
             (capabilities.tcp, capabilities.udp, capabilities.reusable),
-            "descriptor capabilities drifted from planned_backend_capabilities for {}",
-            descriptor.kind_id,
+            "planned capabilities drifted for {kind_id}",
         );
-        assert_eq!(
-            descriptor.supports_outbound_bind_ip,
-            RelayKind::from_config(&config).supports_outbound_bind_ip(),
-            "descriptor supports_outbound_bind_ip drifted for {}",
-            descriptor.kind_id,
-        );
+        assert_outbound_bind_ip_support(kind_id, &config, bind_ip);
     }
+
+    // VLESS Reality's `xhttp` sub-mode shares the single `vless_reality`
+    // descriptor: its capability profile is identical to `reality_tcp`.
+    let mut vless_xhttp = sample_config("vless_reality");
+    vless_config_mut(&mut vless_xhttp).vless_transport = "xhttp".to_string();
+    let xhttp = planned_backend_capabilities(&vless_xhttp);
+    assert_eq!(
+        (true, false, false),
+        (xhttp.tcp, xhttp.udp, xhttp.reusable),
+        "VLESS xhttp sub-mode must share the vless_reality capability profile",
+    );
+
+    // The `Unsupported` catch-all has no descriptor: it reports the empty
+    // capability profile and keeps the permissive outbound-bind-IP default.
+    let unsupported = sample_config("totally_unknown");
+    let caps = planned_backend_capabilities(&unsupported);
+    assert_eq!(
+        (false, false, false),
+        (caps.tcp, caps.udp, caps.reusable),
+        "Unsupported relay kind must report no capabilities",
+    );
+    assert_outbound_bind_ip_support("totally_unknown", &unsupported, true);
+}
+
+/// Drift guard: every `RelayKind` maps to exactly one transport descriptor and
+/// every descriptor `kind_id` maps back to a supported (non-`Unsupported`)
+/// `RelayKind`. The `descriptor_kind_id` match is exhaustive, so a new
+/// `RelayKind` variant fails to compile here until the table is extended.
+#[test]
+fn relay_transport_descriptors_cover_every_kind_exactly_once() {
+    use crate::transport_descriptor::{relay_transport_descriptor, RELAY_TRANSPORT_DESCRIPTORS};
+
+    fn descriptor_kind_id(kind: RelayKind<'_>) -> Option<&'static str> {
+        match kind {
+            RelayKind::Hysteria2 => Some("hysteria2"),
+            RelayKind::TuicV5 => Some("tuic_v5"),
+            RelayKind::VlessReality { .. } => Some("vless_reality"),
+            RelayKind::CloudflareTunnel => Some("cloudflare_tunnel"),
+            RelayKind::ChainRelay => Some("chain_relay"),
+            RelayKind::Masque => Some("masque"),
+            RelayKind::ShadowTlsV3 => Some("shadowtls_v3"),
+            RelayKind::NaiveProxy => Some("naiveproxy"),
+            RelayKind::Unsupported(_) => None,
+        }
+    }
+
+    // One config per concrete RelayKind, both VLESS sub-modes, and an
+    // unsupported kind. `from_config` drives the classification.
+    let mut vless_xhttp = sample_config("vless_reality");
+    vless_config_mut(&mut vless_xhttp).vless_transport = "xhttp".to_string();
+    let configs = [
+        sample_config("hysteria2"),
+        sample_config("tuic_v5"),
+        sample_config("vless_reality"),
+        vless_xhttp,
+        sample_config("cloudflare_tunnel"),
+        sample_config("chain_relay"),
+        sample_config("masque"),
+        sample_config("shadowtls_v3"),
+        sample_config("naiveproxy"),
+        sample_config("totally_unknown"),
+    ];
+
+    // Forward: every concrete kind resolves to exactly one descriptor row;
+    // the Unsupported catch-all resolves to none.
+    let mut covered = std::collections::BTreeSet::new();
+    for config in &configs {
+        match descriptor_kind_id(RelayKind::from_config(config)) {
+            Some(kind_id) => {
+                assert_eq!(kind_id, config.kind_id(), "RelayKind / config kind_id disagree");
+                let rows = RELAY_TRANSPORT_DESCRIPTORS.iter().filter(|d| d.kind_id == kind_id).count();
+                assert_eq!(1, rows, "{kind_id} must have exactly one descriptor row");
+                assert!(relay_transport_descriptor(kind_id).is_some(), "{kind_id} must resolve to a descriptor");
+                covered.insert(kind_id);
+            }
+            None => assert!(
+                relay_transport_descriptor(config.kind_id()).is_none(),
+                "Unsupported relay kind {} must not resolve to a descriptor",
+                config.kind_id(),
+            ),
+        }
+    }
+
+    // Reverse: every descriptor row is reachable from a supported RelayKind,
+    // and the table holds exactly the concrete kinds -- no orphan rows.
+    for descriptor in RELAY_TRANSPORT_DESCRIPTORS {
+        assert!(descriptor.tcp, "{} descriptor: every relay transport relays TCP", descriptor.kind_id);
+        assert!(!descriptor.label.is_empty(), "{} descriptor needs a label", descriptor.kind_id);
+        assert_eq!(
+            Some(descriptor),
+            relay_transport_descriptor(descriptor.kind_id),
+            "{} descriptor lookup must round-trip",
+            descriptor.kind_id,
+        );
+        assert!(
+            !matches!(RelayKind::from_config(&sample_config(descriptor.kind_id)), RelayKind::Unsupported(_)),
+            "descriptor kind {} must map to a supported RelayKind",
+            descriptor.kind_id,
+        );
+        assert!(covered.contains(descriptor.kind_id), "descriptor kind {} is unreachable", descriptor.kind_id);
+    }
+    assert_eq!(
+        RELAY_TRANSPORT_DESCRIPTORS.len(),
+        covered.len(),
+        "descriptor count must equal the number of concrete relay kinds",
+    );
 
     assert!(relay_transport_descriptor("off").is_none(), "\"off\" is not a relay transport");
     assert!(relay_transport_descriptor("totally_unknown").is_none(), "unknown kinds have no descriptor");

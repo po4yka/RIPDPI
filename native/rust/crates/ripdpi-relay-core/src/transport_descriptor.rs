@@ -1,25 +1,29 @@
-//! Relay transport descriptor — an additive, read-only inventory of the relay
-//! transports the runtime can build.
+//! Relay transport descriptor — the `relay_kind`-keyed source of truth for a
+//! relay transport's generic capability profile.
 //!
 //! Each [`RelayTransportDescriptor`] records the *static, `relay_kind`-keyed*
 //! facts about one relay transport: its stable `relay_kind` string, a
 //! human-readable label, the SOCKS capability profile (TCP / UDP / connection
 //! reuse), and whether it honours an outbound bind IP.
 //!
-//! This descriptor is **additive metadata for documentation, diagnostics, and
-//! inventory** — it is intentionally *not* wired into runtime dispatch. Relay
-//! backend selection, capability planning, pool sizing, and config parsing
-//! continue to flow through the `match RelayKind` statements in
-//! `runtime_validation.rs` and the `BUILDERS` slice. A crate test keeps this
-//! table consistent with that source of truth so the two cannot drift.
+//! `runtime_validation` resolves the generic capability decisions through this
+//! table: `planned_backend_capabilities` reads TCP / UDP / reuse from it, and
+//! the outbound-bind-IP validation gate reads `supports_outbound_bind_ip`.
+//! A `relay_kind` with no row (`"off"`, an unknown kind, or any kind that
+//! resolves to the `Unsupported` catch-all) yields `None`, which the callers
+//! map to the historical permissive / empty defaults. Relay backend selection,
+//! config parsing, and runtime dispatch still flow through `match RelayKind`
+//! and the `BUILDERS` slice.
 //!
-//! Two facts are deliberately **excluded** from the descriptor because they
-//! depend on a transport sub-mode rather than the `relay_kind` string alone:
-//! finalmask support and connection-pool tuning both vary with VLESS Reality's
-//! `xhttp` transport (`RelayKind::VlessReality { xhttp }` splits one
-//! `relay_kind` string into two profiles). Folding those in — and migrating
-//! the runtime matches onto the descriptor — is the tracked future refactor in
-//! `FEATURE_EXTENSION_GUIDE.md` §2 and this crate's `README.md`.
+//! Capability facts that depend on a transport *sub-mode* rather than the
+//! `relay_kind` string alone deliberately stay in the `match RelayKind`
+//! statements in `runtime_validation.rs`: connection-pool tuning and finalmask
+//! support both vary with VLESS Reality's `xhttp` transport
+//! (`RelayKind::VlessReality { xhttp }` splits one `relay_kind` string into two
+//! profiles), and chain-relay upstream description and the NaiveProxy
+//! subprocess fallback are backend-specific. Folding those in is the tracked
+//! future refactor in `FEATURE_EXTENSION_GUIDE.md` §2 and this crate's
+//! `README.md`.
 
 /// Static, `relay_kind`-keyed metadata for one relay transport.
 ///
@@ -45,10 +49,11 @@ pub struct RelayTransportDescriptor {
 
 /// Inventory of every concrete relay transport, one row per `relay_kind`.
 ///
-/// Kept consistent with `runtime_validation::planned_backend_capabilities` and
-/// `RelayKind::supports_outbound_bind_ip` by a crate test — see
-/// `relay_transport_descriptors_match_runtime_capability_planning` in
-/// `tests.rs`.
+/// `runtime_validation` resolves `planned_backend_capabilities` and the
+/// outbound-bind-IP gate through this table. The
+/// `relay_transport_descriptors_cover_every_kind_exactly_once` and
+/// `relay_planned_capabilities_are_pinned_for_every_kind` tests in `tests.rs`
+/// pin it against every `RelayKind`.
 pub static RELAY_TRANSPORT_DESCRIPTORS: &[RelayTransportDescriptor] = &[
     RelayTransportDescriptor {
         kind_id: "hysteria2",
