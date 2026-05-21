@@ -93,11 +93,75 @@ class NativeRuntimeSnapshotTest {
         assertNull(decoded.directPathLearningSignals.last().strategyFamily)
     }
 
+    @Test
+    fun `unknown top-level snapshot field is tolerated by the forward-compatible parser`() {
+        // Mirrors the production engine telemetry decoders, which all configure
+        // Json { ignoreUnknownKeys = true } — see TELEMETRY_CONTRACT.md. A future
+        // Rust build that adds a snapshot field must not break an older app build.
+        val json =
+            """
+            { "source": "proxy", "state": "running", "futureUnknownSnapshotField": 42 }
+            """.trimIndent()
+
+        val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
+
+        assertEquals("proxy", decoded.source)
+        assertEquals("running", decoded.state)
+    }
+
+    @Test
+    fun `unknown field inside a native event is tolerated`() {
+        val json =
+            """
+            {
+              "source": "proxy",
+              "nativeEvents": [
+                { "source": "proxy", "level": "info", "message": "ready",
+                  "createdAt": 1, "futureEventField": "x" }
+              ]
+            }
+            """.trimIndent()
+
+        val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
+
+        assertEquals(1, decoded.nativeEvents.size)
+        assertEquals("ready", decoded.nativeEvents.first().message)
+    }
+
+    @Test
+    fun `unknown future event kind string decodes verbatim`() {
+        // NativeRuntimeEvent.kind is an open String? — a new event kind emitted
+        // by a future Rust build decodes without an enum to reject it.
+        val json =
+            """
+            {
+              "source": "proxy",
+              "nativeEvents": [
+                { "source": "proxy", "level": "info", "message": "m",
+                  "createdAt": 2, "kind": "future_event_kind_v2" }
+              ]
+            }
+            """.trimIndent()
+
+        val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
+
+        assertEquals("future_event_kind_v2", decoded.nativeEvents.first().kind)
+    }
+
     private companion object {
         val snapshotJson =
             kotlinx.serialization.json.Json {
                 explicitNulls = true
                 encodeDefaults = true
+            }
+
+        // Mirrors the production engine telemetry decoders (RipDpiProxy,
+        // Tun2SocksTunnel, RipDpiWarp, RipDpiRelay), which decode the native
+        // telemetry snapshot with ignoreUnknownKeys = true. See
+        // docs/architecture/TELEMETRY_CONTRACT.md, "Forward compatibility".
+        val forwardCompatJson =
+            kotlinx.serialization.json.Json {
+                ignoreUnknownKeys = true
             }
     }
 }

@@ -218,7 +218,9 @@ values; never rename or repurpose an existing one.**
 - Some Rust wire names carry `#[serde(alias = …)]` so a historic spelling still
   decodes — preserve aliases when touching those structs.
 - Telemetry payloads are golden-locked; an event-name or field change is a
-  contract change.
+  contract change. The runtime-telemetry ownership, stable identifiers, and
+  forward-compatibility rules are documented in
+  [`TELEMETRY_CONTRACT.md`](TELEMETRY_CONTRACT.md).
 
 ---
 
@@ -337,3 +339,4 @@ why it is deferred, not adopted here.
 | Golden bless discipline | [`.claude/rules/golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md) |
 | Proto evolution / DataStore | `protobuf-schema-evolution`, `protobuf-datastore` skills |
 | Diagnostics wire contract | `diagnostics-system` skill |
+| Runtime telemetry events & snapshots | [`TELEMETRY_CONTRACT.md`](TELEMETRY_CONTRACT.md) |

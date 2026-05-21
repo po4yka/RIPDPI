@@ -302,6 +302,28 @@ still function with no relay configured (proxy/VPN modes work standalone).
 - Use the `diagnostics-system` skill — it owns `ScanRequest`/`ScanReport`/
   `ProbeTask` and the catalog pipeline.
 
+### The probe registration seam
+
+Diagnostics has **no central registry and no `linkme` slice** — registration
+is four decentralized, hand-maintained seams. Edit the one(s) your probe
+needs; nothing is discovered at link time:
+
+| Seam | Where | Edit it for |
+|------|-------|-------------|
+| Scan stage runner | the `ExecutionCoordinator::new(vec![…])` list in `ripdpi-monitor-engine/src/engine/runners/mod.rs` | a new scan stage the engine schedules |
+| Lane adapter | the `LANE_ADAPTERS` table + an `adapters` module in `ripdpi-monitor-lane-adapter` | surfacing a new `ripdpi-diagnostics-*` crate into the engine |
+| Concrete probe | a `Probe` impl + a `*_PROBE_ID` const in `ripdpi-diagnostics-probes` | a single named offline/online check |
+| Strategy candidate | a `StrategyCandidateSpec` planned by `build_strategy_probe_suite()` in `ripdpi-diagnostics-candidates` | a new strategy configuration in the TCP/QUIC matrix |
+
+`StrategyCandidateSpec` is the canonical descriptor pattern — id, family,
+capability requirements (`requires_fake_ttl`, `requires_capabilities`),
+eligibility. There is **no unified `ProbeDescriptor`** table for the scheduled
+stage runners; building one is gated on finishing the `Probe`-trait migration
+so every scheduled probe is a `Probe` impl carrying its descriptor as an
+associated `const`. The full registration flow and the descriptor-seam
+rationale live in
+[`DIAGNOSTICS_ARCHITECTURE.md`](DIAGNOSTICS_ARCHITECTURE.md).
+
 ### Compatibility checks
 
 - **Bump `DIAGNOSTICS_ENGINE_SCHEMA_VERSION`** when the wire contract changes,

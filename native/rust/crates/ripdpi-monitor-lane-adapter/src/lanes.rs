@@ -1,10 +1,26 @@
+/// Static descriptor for one probe-lane adapter module.
+///
+/// A `LaneAdapter` is read-only inventory metadata: it names an adapter
+/// module in this crate and records which `ripdpi-diagnostics-*` crate the
+/// adapter wraps. It is not a dispatch handle — the engine calls the adapter
+/// functions directly; the table exists for documentation and architecture
+/// audit. See `docs/architecture/DIAGNOSTICS_ARCHITECTURE.md`, "Probe &
+/// candidate registration flow".
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct LaneAdapter {
+    /// Short, stable adapter name (matches the module name under `adapters`).
     pub name: &'static str,
+    /// Fully qualified path of the adapter module within this crate.
     pub module_path: &'static str,
+    /// The `ripdpi-diagnostics-*` crate whose probe logic the adapter wraps.
     pub source_crate: &'static str,
 }
 
+/// Inventory of every probe-lane adapter, one [`LaneAdapter`] row per module.
+///
+/// This is the wiring seam between the `ripdpi-diagnostics-*` probe crates
+/// and `ripdpi-monitor-engine`. Adding a probe crate that the engine consumes
+/// means adding an `adapters` module and a row here.
 pub const LANE_ADAPTERS: &[LaneAdapter] = &[
     LaneAdapter {
         name: "blockpage_fingerprints",
