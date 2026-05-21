@@ -530,59 +530,47 @@ mod tests {
     }
 
     /// Conformance-fixture harness for upstream-supplied yamux frame
-    /// vectors. Walks every `.bin` file under
-    /// `contract-fixtures/vless/<tag>/mux/yamux/` and asserts each
+    /// vectors. Walks every `.bin` file under the pinned upstream tag:
+    /// `contract-fixtures/vless/<tag>/mux/yamux/`, then asserts each
     /// file decodes cleanly and re-encodes byte-for-byte.
-    ///
-    /// When no fixtures are present (the current bootstrap state),
-    /// the test passes with a structural assertion that the
-    /// directory exists. Drop new vectors in to extend coverage
-    /// without touching this test.
     ///
     /// Tracks the upstream-conformance side of
     /// `docs/tasks/issues/add-vless-mux-conformance-tests-against-xray-core.md`.
     #[test]
     fn upstream_yamux_fixtures_round_trip() {
-        let fixtures_root = golden_test_support::repo_root().join("contract-fixtures/vless");
-        if !fixtures_root.exists() {
-            // First time the harness runs; no fixtures committed yet.
-            // The harness still passes — see task acceptance.
-            return;
-        }
+        let repo_root = golden_test_support::repo_root();
+        let upstream_tag = pinned_upstream_tag(&repo_root.join("native/rust/crates/ripdpi-vless/SPEC_VERSION.md"));
+        let yamux_dir = repo_root.join("contract-fixtures/vless").join(upstream_tag).join("mux").join("yamux");
+        assert!(yamux_dir.is_dir(), "missing pinned yamux fixture dir: {yamux_dir:?}");
+
         let mut count = 0usize;
-        let tags = std::fs::read_dir(&fixtures_root)
-            .expect("read contract-fixtures/vless")
-            .filter_map(Result::ok)
-            .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()));
-        for tag in tags {
-            let yamux_dir = tag.path().join("mux").join("yamux");
-            if !yamux_dir.exists() {
+        for entry in std::fs::read_dir(&yamux_dir).expect("read yamux fixture dir") {
+            let entry = entry.expect("dir entry");
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("bin") {
                 continue;
             }
-            for entry in std::fs::read_dir(&yamux_dir).expect("read yamux fixture dir") {
-                let entry = entry.expect("dir entry");
-                let path = entry.path();
-                if path.extension().and_then(|s| s.to_str()) != Some("bin") {
-                    continue;
-                }
-                let wire = std::fs::read(&path).expect("read fixture");
-                if wire.len() < HEADER_LEN {
-                    panic!("fixture {path:?} shorter than yamux header");
-                }
-                let header =
-                    YamuxHeader::decode(&wire[..HEADER_LEN]).unwrap_or_else(|err| panic!("decode {path:?}: {err:?}"));
-                let mut re_encoded = [0u8; HEADER_LEN];
-                header.encode(&mut re_encoded);
-                assert_eq!(
-                    &wire[..HEADER_LEN],
-                    &re_encoded[..],
-                    "yamux header round-trip mismatch in fixture {path:?}",
-                );
-                count += 1;
+            let wire = std::fs::read(&path).expect("read fixture");
+            if wire.len() < HEADER_LEN {
+                panic!("fixture {path:?} shorter than yamux header");
             }
+            let header =
+                YamuxHeader::decode(&wire[..HEADER_LEN]).unwrap_or_else(|err| panic!("decode {path:?}: {err:?}"));
+            let mut re_encoded = [0u8; HEADER_LEN];
+            header.encode(&mut re_encoded);
+            assert_eq!(&wire[..HEADER_LEN], &re_encoded[..], "yamux header round-trip mismatch in fixture {path:?}",);
+            count += 1;
         }
-        // Documented as part of the task: a "no fixtures present"
-        // pass is acceptable; the count is reported for visibility.
+        assert!(count > 0, "no pinned yamux fixtures found under {yamux_dir:?}");
         eprintln!("upstream_yamux_fixtures_round_trip: exercised {count} fixtures");
+    }
+
+    fn pinned_upstream_tag(spec_version: &std::path::Path) -> String {
+        let spec = std::fs::read_to_string(spec_version).expect("read SPEC_VERSION.md");
+        spec.lines()
+            .find_map(|line| line.strip_prefix("- **Upstream tag:**"))
+            .and_then(|value| value.split_whitespace().next())
+            .expect("upstream tag in SPEC_VERSION.md")
+            .to_string()
     }
 }

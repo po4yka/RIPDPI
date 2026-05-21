@@ -190,7 +190,7 @@ mod tests {
     }
 
     /// Conformance-fixture harness for upstream Salamander vectors.
-    /// Walks every `.bin` file under
+    /// Walks every `.bin` file under the pinned upstream tag:
     /// `contract-fixtures/hysteria2/<tag>/salamander/<key-hex>/`
     /// where the parent directory name encodes the obfuscation key
     /// as hex, and each `.bin` file's contents are `salt(8) +
@@ -198,56 +198,53 @@ mod tests {
     /// payload length is `file_len - 8`, and asserts decode never
     /// panics.
     ///
-    /// When no fixtures are present (the current bootstrap state),
-    /// the test passes — the harness exists so dropping upstream
-    /// vectors in unlocks coverage automatically.
-    ///
     /// Tracks the upstream-conformance side of
     /// `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
     #[test]
     fn upstream_salamander_fixtures_decode_cleanly() {
-        let fixtures_root = golden_test_support::repo_root().join("contract-fixtures/hysteria2");
-        if !fixtures_root.exists() {
-            return;
-        }
+        let repo_root = golden_test_support::repo_root();
+        let upstream_tag = pinned_upstream_tag(&repo_root.join("native/rust/crates/ripdpi-hysteria2/SPEC_VERSION.md"));
+        let salamander_dir = repo_root.join("contract-fixtures/hysteria2").join(upstream_tag).join("salamander");
+        assert!(salamander_dir.is_dir(), "missing pinned Salamander fixture dir: {salamander_dir:?}");
+
         let mut count = 0usize;
-        let tag_dirs = std::fs::read_dir(&fixtures_root)
-            .expect("read contract-fixtures/hysteria2")
-            .filter_map(Result::ok)
-            .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()));
-        for tag in tag_dirs {
-            let salamander_dir = tag.path().join("salamander");
-            if !salamander_dir.exists() {
+        for key_entry in std::fs::read_dir(&salamander_dir).expect("read salamander dir") {
+            let key_entry = key_entry.expect("dir entry");
+            if !key_entry.file_type().expect("file type").is_dir() {
                 continue;
             }
-            for key_entry in std::fs::read_dir(&salamander_dir).expect("read salamander dir") {
-                let key_entry = key_entry.expect("dir entry");
-                if !key_entry.file_type().expect("file type").is_dir() {
+            let key_hex = key_entry.file_name().to_string_lossy().into_owned();
+            let Some(key) = hex_decode_simple(&key_hex) else {
+                continue;
+            };
+            let codec = SalamanderCodec::new(key);
+            for entry in std::fs::read_dir(key_entry.path()).expect("read key dir") {
+                let path = entry.expect("dir entry").path();
+                if path.extension().and_then(|s| s.to_str()) != Some("bin") {
                     continue;
                 }
-                let key_hex = key_entry.file_name().to_string_lossy().into_owned();
-                let Some(key) = hex_decode_simple(&key_hex) else {
-                    continue;
-                };
-                let codec = SalamanderCodec::new(key);
-                for entry in std::fs::read_dir(key_entry.path()).expect("read key dir") {
-                    let path = entry.expect("dir entry").path();
-                    if path.extension().and_then(|s| s.to_str()) != Some("bin") {
-                        continue;
-                    }
-                    let wire = std::fs::read(&path).expect("read fixture");
-                    assert!(wire.len() >= 8, "fixture {path:?} shorter than 8-byte salt prefix");
-                    let decoded = codec.decode(&wire).unwrap_or_else(|err| panic!("decode {path:?}: {err}"));
-                    assert_eq!(
-                        decoded.len(),
-                        wire.len() - 8,
-                        "salamander decode length must equal ciphertext - salt prefix for fixture {path:?}",
-                    );
-                    count += 1;
-                }
+                let wire = std::fs::read(&path).expect("read fixture");
+                assert!(wire.len() >= 8, "fixture {path:?} shorter than 8-byte salt prefix");
+                let decoded = codec.decode(&wire).unwrap_or_else(|err| panic!("decode {path:?}: {err}"));
+                assert_eq!(
+                    decoded.len(),
+                    wire.len() - 8,
+                    "salamander decode length must equal ciphertext - salt prefix for fixture {path:?}",
+                );
+                count += 1;
             }
         }
+        assert!(count > 0, "no pinned Salamander fixtures found under {salamander_dir:?}");
         eprintln!("upstream_salamander_fixtures_decode_cleanly: exercised {count} fixtures");
+    }
+
+    fn pinned_upstream_tag(spec_version: &std::path::Path) -> String {
+        let spec = std::fs::read_to_string(spec_version).expect("read SPEC_VERSION.md");
+        spec.lines()
+            .find_map(|line| line.strip_prefix("- **Upstream tag:**"))
+            .and_then(|value| value.split_whitespace().next())
+            .expect("upstream tag in SPEC_VERSION.md")
+            .to_string()
     }
 
     fn hex_decode_simple(s: &str) -> Option<Vec<u8>> {
