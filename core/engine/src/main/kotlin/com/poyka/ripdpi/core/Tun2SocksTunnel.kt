@@ -204,7 +204,7 @@ class Tun2SocksTunnel(
     }
 
     suspend fun stop() {
-        reservations.withExclusive {
+        reservations.withExclusiveNonCancellable {
             if (handle == 0L) {
                 throw NativeError.NotRunning("Tunnel")
             }

@@ -374,7 +374,7 @@ class RipDpiWarp(
             startupSignal.completeExceptionally(error)
             throw error
         } finally {
-            reservations.withExclusive {
+            reservations.withExclusiveNonCancellable {
                 if (handle == createdHandle) {
                     try {
                         nativeBindings.destroy(createdHandle)
@@ -429,7 +429,7 @@ class RipDpiWarp(
     }
 
     override suspend fun stop() {
-        reservations.withExclusive {
+        reservations.withExclusiveNonCancellable {
             val activeHandle = handle
             handle = 0L
             readinessSignal = null

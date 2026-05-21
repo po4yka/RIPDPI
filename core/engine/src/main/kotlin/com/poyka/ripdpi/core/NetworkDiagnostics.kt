@@ -228,7 +228,7 @@ class NetworkDiagnostics
             }
 
         override suspend fun destroy() {
-            reservations.withExclusive {
+            reservations.withExclusiveNonCancellable {
                 if (handle != 0L) {
                     val currentHandle = handle
                     try {
