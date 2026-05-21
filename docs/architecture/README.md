@@ -15,6 +15,15 @@ The canonical architecture docs, in reading order:
 
 The notes below this point are compact, topic-specific records; the five docs above are the entry points.
 
+## Contracts and migration backlog
+
+Cross-boundary contract docs and the standing maintainability backlog:
+
+- [DIAGNOSTICS_ARCHITECTURE.md](DIAGNOSTICS_ARCHITECTURE.md) — diagnostics probe/candidate registration seams, raw-path vs in-path, lifecycle/policy-memory interaction
+- [TELEMETRY_CONTRACT.md](TELEMETRY_CONTRACT.md) — runtime telemetry event/snapshot ownership, payload rules, Rust↔Kotlin forward-compatibility
+- [ROOT_HELPER_CONTRACT.md](ROOT_HELPER_CONTRACT.md) — root-helper IPC protocol, command table, session nonce, fd passing, and the non-root fallback invariant
+- [MIGRATION_BACKLOG.md](MIGRATION_BACKLOG.md) — completed maintainability work, deferred refactors and why, hotspots, compatibility risks, and next small tasks
+
 ## Ownership Boundaries
 
 **Config contract:** Kotlin is authoritative for user-facing strategy models, defaults, validation, and JSON serialization. Rust consumes the JSON produced by Kotlin. Owners: `StrategyChains.kt` and `RipDpiProxyJsonCodec.kt`.
