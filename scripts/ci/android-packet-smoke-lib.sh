@@ -22,6 +22,22 @@ packet_smoke_probe_plan_lines() {
     esac
 }
 
+packet_smoke_required_capability_supported() {
+    local required_capability="${1:-}"
+    local device_profile="${2:-}"
+    case "$required_capability" in
+        ""|adb_observable)
+            return 0
+            ;;
+        adb_raw_pcap)
+            [[ "$device_profile" != "physical_indirect" ]]
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 packet_smoke_instrumentation_output_failed() {
     local output_file="$1"
     grep -Eq '(^FAILURES!!!$|^INSTRUMENTATION_STATUS_CODE: -2$|^INSTRUMENTATION_RESULT: shortMsg=|^INSTRUMENTATION_CODE: 0$|Process crashed)' "$output_file"

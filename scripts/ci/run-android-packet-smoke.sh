@@ -793,7 +793,7 @@ fi
 
 mapfile -t scenarios < <(
     jq -r --arg scenario_filter "$scenario_filter" \
-        "$jq_selector | [.id, .lane, .testSelector, .trafficKind] | @tsv" \
+        "$jq_selector | [.id, .lane, .requiredCapability, .testSelector, .trafficKind] | @tsv" \
         "$registry"
 )
 
@@ -803,7 +803,11 @@ if [[ "${#scenarios[@]}" -eq 0 ]]; then
 fi
 
 for row in "${scenarios[@]}"; do
-    IFS=$'\t' read -r scenario_id scenario_lane test_selector traffic_kind <<<"$row"
+    IFS=$'\t' read -r scenario_id scenario_lane required_capability test_selector traffic_kind <<<"$row"
+    if ! packet_smoke_required_capability_supported "$required_capability" "$device_profile"; then
+        echo "==> Skipping Android packet smoke: $scenario_id (requires $required_capability; device profile $device_profile)"
+        continue
+    fi
     if ! scenario_is_supported "$traffic_kind"; then
         echo "==> Skipping Android packet smoke: $scenario_id (requires direct UDP reachability to the host fixture)"
         continue

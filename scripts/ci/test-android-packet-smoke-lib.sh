@@ -60,6 +60,17 @@ assert_eq "2" "$autolearn_lines" "autolearn probe count"
 
 assert_status 1 "unsupported scenario fails" packet_smoke_probe_plan_lines android_proxy_tlsrec_family
 
+assert_status 0 "physical indirect supports adb observable" \
+    packet_smoke_required_capability_supported adb_observable physical_indirect
+assert_status 1 "physical indirect rejects raw pcap" \
+    packet_smoke_required_capability_supported adb_raw_pcap physical_indirect
+assert_status 0 "rooted capture supports raw pcap" \
+    packet_smoke_required_capability_supported adb_raw_pcap rooted_android_pcap
+assert_status 0 "emulator raw supports raw pcap" \
+    packet_smoke_required_capability_supported adb_raw_pcap emulator_raw
+assert_status 1 "unknown capability is unsupported" \
+    packet_smoke_required_capability_supported adb_magic physical_indirect
+
 instrumentation_success="$(make_temp_file)"
 cat >"$instrumentation_success" <<'EOF'
 INSTRUMENTATION_STATUS: class=com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest

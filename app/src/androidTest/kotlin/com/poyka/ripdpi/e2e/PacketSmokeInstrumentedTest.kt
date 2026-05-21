@@ -1243,7 +1243,9 @@ class PacketSmokeInstrumentedTest {
                 expectedScenario == "fakedsplit" ||
                 expectedScenario == "fakeddisorder"
         val rawPrivilegedScenario =
-            expectedScenario == "seqovl" ||
+            expectedScenario == "multidisorder" ||
+                expectedScenario == "ipfrag2" ||
+                expectedScenario == "seqovl" ||
                 expectedScenario == "fakerst"
         val fixtureIsHostLoopback = fixture.androidHost == "127.0.0.1" || fixture.androidHost == "10.0.2.2"
         val rawCaptureCanValidateFakeSegments =
