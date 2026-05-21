@@ -10,6 +10,7 @@ from typing import Any
 
 
 SUMMARY_VERSION = "phase16_pcap_summary_v1"
+SUPPORT_DIRECTORIES = {"shared"}
 
 
 def repo_root() -> Path:
@@ -65,6 +66,26 @@ def first_existing_path(*candidates: Path) -> Path | None:
         if candidate.exists():
             return candidate
     return None
+
+
+def load_run_metadata(artifact_root: Path) -> dict[str, Any]:
+    manifest = artifact_root / "phase16-run.json"
+    if not manifest.exists():
+        return {}
+    try:
+        payload = read_json(manifest)
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def optional_artifacts(expected_artifacts: list[str], run_metadata: dict[str, Any]) -> list[str]:
+    optional: set[str] = set()
+    if run_metadata.get("status") == "success":
+        optional.add("failure-screenshot.png")
+    if run_metadata.get("captureMode") == "indirect":
+        optional.add("device-capture.pcap")
+    return sorted(optional.intersection(expected_artifacts))
 
 
 def flatten_values(value: Any) -> list[str]:
@@ -129,10 +150,12 @@ def summarize_packets(packets: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def summarize_scenario(scenario_dir: Path, registry: dict[str, dict]) -> dict[str, Any]:
+def summarize_scenario(scenario_dir: Path, registry: dict[str, dict], run_metadata: dict[str, Any]) -> dict[str, Any]:
     scenario_id = scenario_dir.name
     scenario = registry.get(scenario_id, {})
     expected_artifacts = scenario.get("artifacts", [])
+    optional = optional_artifacts(expected_artifacts, run_metadata)
+    required_artifacts = sorted(set(expected_artifacts) - set(optional))
     present_artifacts = sorted(path.name for path in scenario_dir.iterdir() if path.is_file())
     packets = load_capture_packets(scenario_dir)
     summary = summarize_packets(packets)
@@ -141,8 +164,10 @@ def summarize_scenario(scenario_dir: Path, registry: dict[str, dict]) -> dict[st
         "lane": scenario.get("lane"),
         "trafficKind": scenario.get("trafficKind"),
         "expectedArtifacts": expected_artifacts,
+        "requiredArtifacts": required_artifacts,
+        "optionalArtifacts": optional,
         "presentArtifacts": present_artifacts,
-        "missingArtifacts": sorted(set(expected_artifacts) - set(present_artifacts)),
+        "missingArtifacts": sorted(set(required_artifacts) - set(present_artifacts)),
         "captureSummary": summary,
     }
 
@@ -150,12 +175,15 @@ def summarize_scenario(scenario_dir: Path, registry: dict[str, dict]) -> dict[st
 def summarize_artifact_root(artifact_root: Path, registry: dict[str, dict]) -> dict[str, Any]:
     if not artifact_root.exists():
         raise FileNotFoundError(f"artifact root does not exist: {artifact_root}")
-    scenario_dirs = sorted(path for path in artifact_root.iterdir() if path.is_dir())
+    run_metadata = load_run_metadata(artifact_root)
+    scenario_dirs = sorted(
+        path for path in artifact_root.iterdir() if path.is_dir() and path.name not in SUPPORT_DIRECTORIES
+    )
     return {
         "version": SUMMARY_VERSION,
         "artifactRoot": str(artifact_root),
         "scenarioCount": len(scenario_dirs),
-        "scenarios": [summarize_scenario(path, registry) for path in scenario_dirs],
+        "scenarios": [summarize_scenario(path, registry, run_metadata) for path in scenario_dirs],
     }
 
 

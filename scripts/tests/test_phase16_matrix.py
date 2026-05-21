@@ -141,6 +141,37 @@ class Phase16PcapSummaryTest(unittest.TestCase):
             self.assertEqual(["0x00000001"], capture["quicVersions"])
             self.assertEqual([53000], capture["udpSourcePorts"])
 
+    def test_successful_indirect_android_run_does_not_require_capture_or_failure_screenshot(self) -> None:
+        registry = phase16_pcap_summary.load_registry()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "phase16-run.json").write_text(
+                json.dumps({"status": "success", "captureMode": "indirect"}),
+                encoding="utf-8",
+            )
+            shared_dir = root / "shared"
+            shared_dir.mkdir()
+            (shared_dir / "fixture-manifest.json").write_text("{}", encoding="utf-8")
+            scenario_dir = root / "android_proxy_tlsrec_family"
+            scenario_dir.mkdir()
+            for artifact_name in [
+                "fixture-manifest.json",
+                "fixture-events.json",
+                "logcat.txt",
+                "dumpsys-connectivity.txt",
+                "ip-addr.txt",
+                "ip-route.txt",
+                "test-output.txt",
+            ]:
+                (scenario_dir / artifact_name).write_text("", encoding="utf-8")
+
+            summary = phase16_pcap_summary.summarize_artifact_root(root, registry)
+            self.assertEqual(1, summary["scenarioCount"])
+            scenario = summary["scenarios"][0]
+            self.assertEqual("android_proxy_tlsrec_family", scenario["id"])
+            self.assertEqual([], scenario["missingArtifacts"])
+            self.assertEqual(["device-capture.pcap", "failure-screenshot.png"], scenario["optionalArtifacts"])
+
 
 if __name__ == "__main__":
     unittest.main()
