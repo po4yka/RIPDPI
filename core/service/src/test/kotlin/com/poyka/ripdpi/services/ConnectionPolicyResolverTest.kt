@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.DnsProviderCloudflare
+import com.poyka.ripdpi.data.DnsProviderDnsSb
 import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.DnsProviderQuad9
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
@@ -263,6 +264,53 @@ class ConnectionPolicyResolverTest {
             assertEquals(DnsProviderAdGuard, resolution.activeDns.providerId)
             assertEquals(EncryptedDnsProtocolDoh, resolution.activeDns.encryptedDnsProtocol)
             assertEquals("dns.adguard-dns.com", resolution.activeDns.encryptedDnsHost)
+        }
+
+    @Test
+    fun `resolver promotes divergent correlated mapping into vpn dns selection`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val capabilityStore = TestServerCapabilityStore()
+            val now = System.currentTimeMillis()
+            listOf("Example.org:443", "Video.example.org:443").forEach { authority ->
+                capabilityStore.rememberDirectPathObservation(
+                    fingerprint = fingerprint,
+                    authority = authority,
+                    observation =
+                        ServerCapabilityObservation(
+                            transportPolicy =
+                                TransportPolicy(
+                                    dnsMode = DnsMode.DOH_SECONDARY,
+                                ),
+                            policyConfirmedAt = now,
+                            ipSetDigest = "198.18.0.10",
+                            dnsClassification = DirectDnsClassification.DIVERGENT,
+                            transportClass = DirectTransportClass.IP_BLOCK_SUSPECT,
+                            reasonCode = DirectModeReasonCode.IP_BLOCKED,
+                        ),
+                    recordedAt = now,
+                )
+            }
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(plainUdpSettings()),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = capabilityStore,
+                )
+
+            val resolution = resolver.resolve(mode = Mode.VPN)
+
+            assertEquals(DnsProviderDnsSb, resolution.activeDns.providerId)
+            assertEquals(EncryptedDnsProtocolDoh, resolution.activeDns.encryptedDnsProtocol)
+            assertEquals("dns.sb", resolution.activeDns.encryptedDnsHost)
         }
 
     @Test

@@ -29,6 +29,12 @@ pub enum DohResolverRole {
     Secondary,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DohIpFamily {
+    Ipv4,
+    Ipv6,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DohBatchRecordResponse {
     pub record_type: DohBatchRecordType,
@@ -43,4 +49,12 @@ pub struct DohBatchLookup {
     pub endpoint_label: String,
     pub records: Vec<DohBatchRecordResponse>,
     pub cache_ttl_secs: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DohIpAnswerCandidate {
+    pub ip: String,
+    pub ip_family: DohIpFamily,
+    pub resolver_role: DohResolverRole,
+    pub ttl_secs: Option<u32>,
 }

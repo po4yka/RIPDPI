@@ -15,8 +15,8 @@ mod tests;
 
 // Public API re-exports
 pub use doh_pipeline::{
-    DohBatchLookup, DohBatchRecordResponse, DohBatchRecordType, DohResolverPipeline, DohResolverPipelineBuilder,
-    DohResolverRole,
+    doh_ip_answer_candidates, DohBatchLookup, DohBatchRecordResponse, DohBatchRecordType, DohIpAnswerCandidate,
+    DohIpFamily, DohResolverPipeline, DohResolverPipelineBuilder, DohResolverRole,
 };
 pub use health::{HealthRegistry, HealthScoreSnapshot};
 pub use https_service_binding::{
@@ -25,7 +25,7 @@ pub use https_service_binding::{
 };
 pub use pool::{ResolverPool, ResolverPoolBuilder};
 pub use resolver::EncryptedDnsResolver;
-pub use transport::extract_ip_answers;
+pub use transport::{extract_ip_answer_records, extract_ip_answers, IpAnswerFamily, IpAnswerRecord};
 pub use types::{
     EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsErrorKind,
     EncryptedDnsExchangeSuccess, EncryptedDnsProtocol, EncryptedDnsTransport, ResolverNetworkScope,

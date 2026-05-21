@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.DnsProviderDnsSb
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.TemporaryResolverOverride
+import com.poyka.ripdpi.data.TransportPolicyEnvelope
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.builtInEncryptedDnsPathCandidates
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
@@ -27,6 +28,8 @@ internal class ConnectionPolicyDnsSelector
     constructor(
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         private val startupDnsProbe: VpnStartupDnsProbe,
+        private val resolverMappingPolicy: ResolverMappingPolicy,
+        private val resolverMappingCache: ResolverMappingCache,
     ) {
         suspend fun baselineSelection(
             mode: Mode,
@@ -68,21 +71,23 @@ internal class ConnectionPolicyDnsSelector
         ): EncryptedDnsPathCandidate? =
             if (mode == Mode.VPN && dnsResolution.override == null && networkScopeKey != null) {
                 networkDnsPathPreferenceStore.getPreferredPath(networkScopeKey)
-                    ?: derivePreferredVpnDnsPathFromDirectPathCapabilities(directPathCapabilities)
+                    ?: derivePreferredVpnDnsPathFromDirectPathCapabilities(networkScopeKey, directPathCapabilities)
                     ?: startupDnsProbe.probeIfTampered(dnsResolution.activeDns.mode)
             } else {
                 null
             }
 
         private fun derivePreferredVpnDnsPathFromDirectPathCapabilities(
+            networkScopeKey: String,
             directPathCapabilities: List<RipDpiDirectPathCapability>,
         ): EncryptedDnsPathCandidate? {
             val dnsModes =
                 directPathCapabilities
                     .asSequence()
                     .filter { capability -> isResolvableHostnameAuthority(capability.authority) }
-                    .map(RipDpiDirectPathCapability::dnsMode)
-                    .filter { dnsMode -> dnsMode != DnsMode.SYSTEM }
+                    .mapNotNull { capability ->
+                        resolveMappingForCapability(networkScopeKey, capability)?.source
+                    }.filter { dnsMode -> dnsMode != DnsMode.SYSTEM }
                     .distinct()
                     .toList()
             val selectedMode = dnsModes.singleOrNull() ?: return null
@@ -91,6 +96,50 @@ internal class ConnectionPolicyDnsSelector
                 DnsMode.DOH_SECONDARY -> builtInDohCandidate(DnsProviderDnsSb)
                 DnsMode.SYSTEM -> null
             }
+        }
+
+        private fun resolveMappingForCapability(
+            networkScopeKey: String,
+            capability: RipDpiDirectPathCapability,
+        ): ResolvedMapping? {
+            val host = capability.authority.normalizedHost()
+            return if (host == null) {
+                null
+            } else {
+                resolverMappingCache.get(host, networkScopeKey)
+                    ?: selectAndCacheMapping(host, networkScopeKey, capability)
+            }
+        }
+
+        private fun selectAndCacheMapping(
+            host: String,
+            networkScopeKey: String,
+            capability: RipDpiDirectPathCapability,
+        ): ResolvedMapping? {
+            val encryptedCandidates = encryptedCandidateForMode(capability.dnsMode)
+            val systemCandidates = systemCandidates(capability)
+            val mapping =
+                resolverMappingPolicy.select(
+                    ResolverMappingRequest(
+                        host = host,
+                        networkScopeKey = networkScopeKey,
+                        dnsClassification = capability.dnsClassification,
+                        systemCandidates = systemCandidates,
+                        encryptedCandidates = encryptedCandidates,
+                        transportEnvelope = capability.toTransportPolicyEnvelope(),
+                    ),
+                )
+            if (mapping != null) {
+                resolverMappingCache.put(
+                    host = host,
+                    networkScopeKey = networkScopeKey,
+                    mapping = mapping,
+                    ttlMs =
+                        (systemCandidates + encryptedCandidates).minOfOrNull(ResolverMappingCandidate::ttlMs)
+                            ?: DefaultResolverMappingTtlMs,
+                )
+            }
+            return mapping
         }
     }
 
@@ -127,10 +176,81 @@ private fun builtInDohCandidate(resolverId: String): EncryptedDnsPathCandidate? 
     }
 
 private fun isResolvableHostnameAuthority(authority: String): Boolean {
-    val host =
-        authority
-            .substringBefore(':')
-            .trim()
-            .trimEnd('.')
-    return host.isNotEmpty() && host.any(Char::isLetter)
+    val host = authority.normalizedHost()
+    return host != null && host.any(Char::isLetter)
 }
+
+private fun String.normalizedHost(): String? =
+    substringBefore(':')
+        .trim()
+        .trimEnd('.')
+        .lowercase()
+        .takeIf { it.isNotEmpty() }
+
+private fun encryptedCandidateForMode(dnsMode: DnsMode): List<ResolverMappingCandidate> {
+    val resolverId =
+        when (dnsMode) {
+            DnsMode.DOH_PRIMARY -> DnsProviderAdGuard
+            DnsMode.DOH_SECONDARY -> DnsProviderDnsSb
+            DnsMode.SYSTEM -> null
+        }
+    val ip =
+        resolverId
+            ?.let(::builtInDohCandidate)
+            ?.bootstrapIps
+            ?.firstOrNull()
+            ?.takeIf { it.isNotBlank() }
+    return ip
+        ?.let { bootstrapIp ->
+            listOf(
+                ResolverMappingCandidate(
+                    ip = bootstrapIp,
+                    source = dnsMode,
+                    latencyMs =
+                        when (dnsMode) {
+                            DnsMode.DOH_PRIMARY -> DohPrimarySyntheticLatencyMs
+                            DnsMode.DOH_SECONDARY -> DohSecondarySyntheticLatencyMs
+                            DnsMode.SYSTEM -> SystemSyntheticLatencyMs
+                        },
+                    ttlMs = DefaultResolverMappingTtlMs,
+                ),
+            )
+        }.orEmpty()
+}
+
+private fun systemCandidates(capability: RipDpiDirectPathCapability): List<ResolverMappingCandidate> =
+    capability.ipSetDigest
+        .split(',')
+        .mapNotNull { ip ->
+            ip.trim().takeIf { it.isNotEmpty() }?.let {
+                ResolverMappingCandidate(
+                    ip = it,
+                    source = DnsMode.SYSTEM,
+                    latencyMs = SystemSyntheticLatencyMs,
+                    ttlMs = DefaultResolverMappingTtlMs,
+                    ipSetDigest = capability.ipSetDigest,
+                )
+            }
+        }
+
+private fun RipDpiDirectPathCapability.toTransportPolicyEnvelope(): TransportPolicyEnvelope =
+    TransportPolicyEnvelope(
+        policy =
+            com.poyka.ripdpi.data.TransportPolicy(
+                quicMode = quicMode,
+                preferredStack = preferredStack,
+                dnsMode = dnsMode,
+                tcpFamily = tcpFamily,
+                outcome = outcome,
+            ),
+        ipSetDigest = ipSetDigest,
+        dnsClassification = dnsClassification,
+        transportClass = transportClass,
+        reasonCode = reasonCode,
+        cooldownUntil = cooldownUntil,
+    )
+
+private const val SystemSyntheticLatencyMs = 10L
+private const val DohPrimarySyntheticLatencyMs = 20L
+private const val DohSecondarySyntheticLatencyMs = 30L
+private const val DefaultResolverMappingTtlMs = 5L * 60L * 1_000L

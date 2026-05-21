@@ -67,7 +67,13 @@ class DefaultConnectionPolicyResolver
         private val rootHelperManager: RootHelperManager,
         private val environmentDetector: EnvironmentDetector,
     ) : ConnectionPolicyResolver {
-        private val dnsSelector = ConnectionPolicyDnsSelector(networkDnsPathPreferenceStore, startupDnsProbe)
+        private val dnsSelector =
+            ConnectionPolicyDnsSelector(
+                networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
+                startupDnsProbe = startupDnsProbe,
+                resolverMappingPolicy = ResolverMappingPolicy(),
+                resolverMappingCache = ResolverMappingCache(),
+            )
         private val runtimeContextAssembler =
             ConnectionPolicyRuntimeContextAssembler(
                 context = context,

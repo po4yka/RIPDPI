@@ -1,5 +1,5 @@
 use super::*;
-use crate::{DohBatchRecordType, DohResolverPipeline, DohResolverRole};
+use crate::{doh_ip_answer_candidates, DohBatchRecordType, DohIpFamily, DohResolverPipeline, DohResolverRole};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn spawn_batched_doh_fixture(
@@ -118,6 +118,50 @@ fn doh_pipeline_queries_primary_batch_and_returns_record_order() {
     assert_eq!(lookup.cache_ttl_secs, Some(120));
     assert_eq!(query_count.load(Ordering::Relaxed), 5);
     server.join().expect("server joins");
+}
+
+#[test]
+fn doh_ip_answer_candidates_preserve_family_and_ignore_empty_records() {
+    let records = [RecordType::A, RecordType::AAAA, RecordType::HTTPS]
+        .iter()
+        .map(|record_type| {
+            let query = build_query_for_type("fixture.test", *record_type);
+            let response_bytes = match record_type {
+                RecordType::A | RecordType::AAAA => build_response_with_record(&query, 120),
+                _ => build_empty_response(&query),
+            };
+            crate::DohBatchRecordResponse {
+                record_type: match record_type {
+                    RecordType::A => DohBatchRecordType::A,
+                    RecordType::AAAA => DohBatchRecordType::Aaaa,
+                    _ => DohBatchRecordType::Https,
+                },
+                response_bytes,
+                min_ttl_secs: Some(120),
+            }
+        })
+        .collect();
+    let lookup = crate::DohBatchLookup {
+        domain: "fixture.test".to_string(),
+        resolver_role: DohResolverRole::Primary,
+        endpoint_label: "primary".to_string(),
+        records,
+        cache_ttl_secs: Some(120),
+    };
+
+    let candidates = doh_ip_answer_candidates(&lookup);
+
+    assert_eq!(candidates.len(), 2);
+    assert!(candidates.iter().any(|candidate| {
+        candidate.ip == "198.18.0.10"
+            && candidate.ip_family == DohIpFamily::Ipv4
+            && candidate.resolver_role == DohResolverRole::Primary
+    }));
+    assert!(candidates.iter().any(|candidate| {
+        candidate.ip == "2001:db8::10"
+            && candidate.ip_family == DohIpFamily::Ipv6
+            && candidate.resolver_role == DohResolverRole::Primary
+    }));
 }
 
 #[test]
