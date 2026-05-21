@@ -62,6 +62,13 @@ data class ServiceTelemetrySnapshot(
 )
 
 interface ServiceStateStore {
+    /**
+     * The canonical runtime-state observable — the current [AppStatus] paired
+     * with the active [Mode]. RIPDPI has no single unified `RuntimeMode` type;
+     * runtime state is this pair plus the relay / root / diagnostics layers
+     * inferred from settings and native handles. See
+     * `docs/architecture/RUNTIME_MODES.md`, "The runtime mode state model".
+     */
     val status: StateFlow<Pair<AppStatus, Mode>>
     val events: SharedFlow<ServiceEvent>
     val telemetry: StateFlow<ServiceTelemetrySnapshot>

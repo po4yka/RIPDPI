@@ -26,6 +26,64 @@ This invariant constrains every section below.
 
 ---
 
+## The runtime mode state model
+
+RIPDPI's runtime state is **not a single type** — it is a small set of
+explicit enums plus several *inferred* layers. This section is the canonical
+map; §1–§8 elaborate each flow.
+
+### Explicit state — the enums
+
+| Type | Values | Owns | Defined in |
+|------|--------|------|------------|
+| `Mode` | `Proxy`, `VPN` | *which* runtime kind. Persisted (`@SerialName`); mutually exclusive at runtime. | `core/data/model/.../data/AppStatus.kt` |
+| `AppStatus` | `Halted`, `Running` | coarse *is a runtime active*. | `core/data/model/.../data/AppStatus.kt` |
+| `ServiceStatus` | `Disconnected`, `Connected`, `Failed` | finer per-supervisor connection health; projected into `AppStatus` by `RuntimeTelemetryProjection`. | `core/data/model/.../data/ServiceStatus.kt` |
+| `ServiceLifecycleStateMachine.State` | `STOPPED`, `STARTING`, `RUNNING`, `STOPPING` | the service-internal start/stop phase guard. | `core/service/.../services/ServiceLifecycleStateMachine.kt` |
+
+The **canonical runtime observable** is `ServiceStateStore.status`, a
+`StateFlow<Pair<AppStatus, Mode>>` — the coarse status paired with the active
+mode. `ServiceStatus` and `ServiceLifecycleStateMachine.State` are the finer,
+service-internal representations that feed it.
+
+> Not to be confused: `RipDpiHostsConfig.Mode`
+> (`Disable` / `Blacklist` / `Whitelist`) is an unrelated hosts-filter config
+> enum, not a runtime mode.
+
+### Inferred state — relay, root, diagnostics
+
+Relay, the root helper, and diagnostics are **not** `Mode` values — they are
+layers and sessions whose "active" state is *inferred*:
+
+| Layer | "Active" is inferred from |
+|-------|---------------------------|
+| Relay | `relay_enabled` / `relay_kind != "off"` settings + a non-zero `RipDpiRelay` / `RipDpiWarp` / subprocess handle. Composes *into* proxy or VPN (§4). |
+| Root helper | the `root_mode_enabled` setting + `RootHelperManager.socketPath != null` (§5). |
+| Diagnostics scan | a non-zero `NetworkDiagnostics` native handle; raw-path vs in-path is the `ScanPathMode` on the request (§3). |
+
+### Native-runtime liveness — the handle pattern
+
+Every engine wrapper — `RipDpiProxy`, `Tun2SocksTunnel`, `RipDpiRelay`,
+`RipDpiWarp`, `NetworkDiagnostics` (`core/engine/.../core/`) — tracks
+running-vs-stopped from a **private nullable native handle** (`var handle =
+0L`; non-zero ⇒ a live native session). There is no per-wrapper state enum and
+no public `isRunning` / `state` accessor; an invalid lifecycle call surfaces as
+a `NativeError.NotRunning` / `AlreadyRunning` exception. Handle lifecycle is in
+[`JNI_CONTRACT.md`](JNI_CONTRACT.md).
+
+### Why there is no single `RuntimeMode` type
+
+A unified sealed `RuntimeMode` — one type capturing mode + status + relay +
+root + diagnostics — would read better, but `Mode` is referenced in ~140 files
+and `AppStatus` in ~45; collapsing them onto a new type is broad rewiring of
+every status consumer and a behavior risk to start/stop. It is therefore a
+**documented future refactor**, not adopted here — the model above is the
+contract to reason against today. The safe first step would be a *derived*,
+read-only projection over `ServiceStateStore.status` plus the inferred layers,
+added without touching the existing enums or their consumers.
+
+---
+
 ## 1. Proxy mode flow
 
 Proxy mode exposes the native local SOCKS5 proxy directly on a configured
