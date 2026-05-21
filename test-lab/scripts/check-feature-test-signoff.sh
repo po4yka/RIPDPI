@@ -133,9 +133,7 @@ if grep -Fq '| Partial |' "$audit_path"; then
   failures+=("completion audit still contains Partial rows")
 fi
 
-while IFS= read -r row; do
-  failures+=("completion audit is missing required row: $row")
-done < <(
+missing_audit_rows="$(
   "$python_bin" - "$audit_path" "${required_audit_rows[@]}" <<'PY'
 import re
 import sys
@@ -143,7 +141,7 @@ from pathlib import Path
 
 
 def normalize(value):
-    value = value.lower().replace("`", "")
+    value = value.lower().replace(chr(96), "")
     value = re.sub(r"[^a-z0-9]+", " ", value)
     return re.sub(r"\s+", " ", value).strip()
 
@@ -164,10 +162,15 @@ for row in required_rows:
         print(row)
 PY
 )
+"
+if [[ -n "$missing_audit_rows" ]]; then
+  while IFS= read -r row; do
+    [[ -z "$row" ]] && continue
+    failures+=("completion audit is missing required row: $row")
+  done <<< "$missing_audit_rows"
+fi
 
-while IFS=$'\t' read -r requirement reason; do
-  failures+=("completion audit row is incomplete: $requirement: $reason")
-done < <(
+incomplete_audit_rows="$(
   "$python_bin" - "$audit_path" <<'PY'
 import sys
 from pathlib import Path
@@ -196,12 +199,15 @@ for line in audit.splitlines():
         )
 PY
 )
+"
+if [[ -n "$incomplete_audit_rows" ]]; then
+  while IFS=$'\t' read -r requirement reason; do
+    [[ -z "$requirement$reason" ]] && continue
+    failures+=("completion audit row is incomplete: $requirement: $reason")
+  done <<< "$incomplete_audit_rows"
+fi
 
-while IFS=$'\t' read -r name status message; do
-  if [[ "$status" != "ready" ]]; then
-    failures+=("$name is $status: $message")
-  fi
-done < <(
+readiness_failures="$(
   "$python_bin" - "$readiness_path" "$readiness_max_age_seconds" "$(date +%s)" \
     "${required_readiness_checks[@]}" <<'PY'
 import json
@@ -301,6 +307,15 @@ for name in sorted(required_names - seen_required):
     )
 PY
 )
+"
+if [[ -n "$readiness_failures" ]]; then
+  while IFS=$'\t' read -r name status message; do
+    [[ -z "$name$status$message" ]] && continue
+    if [[ "$status" != "ready" ]]; then
+      failures+=("$name is $status: $message")
+    fi
+  done <<< "$readiness_failures"
+fi
 
 if [[ "${#failures[@]}" -gt 0 ]]; then
   echo "Feature test sign-off blocked:"

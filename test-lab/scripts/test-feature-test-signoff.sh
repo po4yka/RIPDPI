@@ -11,6 +11,10 @@ source "$repo_root/test-lab/scripts/python.sh"
 
 python_bin="$(ripdpi_resolve_python "feature sign-off tests")"
 
+if [[ -x /bin/bash ]]; then
+  /bin/bash -n "$guard"
+fi
+
 complete_audit="$tmpdir/complete-audit.md"
 missing_audit_row="$tmpdir/missing-audit-row.md"
 audit_remaining_work="$tmpdir/audit-remaining-work.md"
