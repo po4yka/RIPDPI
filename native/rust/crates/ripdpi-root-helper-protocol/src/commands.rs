@@ -78,3 +78,69 @@ pub const CMD_SEND_RAW_IP_PACKET: &str = "send_raw_ip_packet";
 /// Ask the helper to finish the in-flight request and exit cleanly. No fd is
 /// passed; issued by `RootHelperManager` during shutdown.
 pub const CMD_SHUTDOWN: &str = "shutdown";
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
+        CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP,
+        CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET,
+        CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
+    };
+
+    /// Every `CMD_*` wire string. A change to this set is a breaking protocol
+    /// change — see `docs/architecture/ROOT_HELPER_CONTRACT.md`.
+    const ALL_COMMANDS: [&str; 14] = [
+        CMD_PROBE_CAPABILITIES,
+        CMD_SEND_FAKE_TCP,
+        CMD_SEND_FAKE_RST,
+        CMD_SEND_FLAGGED_TCP_PAYLOAD,
+        CMD_SEND_SEQOVL_TCP,
+        CMD_SEND_MULTI_DISORDER_TCP,
+        CMD_SEND_ORDERED_TCP_SEGMENTS,
+        CMD_SEND_IP_FRAGMENTED_TCP,
+        CMD_SEND_IP_FRAGMENTED_UDP,
+        CMD_SEND_SYN_HIDE_TCP,
+        CMD_SEND_ICMP_WRAPPED_UDP,
+        CMD_RECV_ICMP_WRAPPED_UDP,
+        CMD_SEND_RAW_IP_PACKET,
+        CMD_SHUTDOWN,
+    ];
+
+    #[test]
+    fn command_wire_strings_are_frozen() {
+        // These literals are the cross-process wire contract; a diff here must
+        // be a deliberate, reviewed protocol change, never an incidental edit.
+        assert_eq!(CMD_PROBE_CAPABILITIES, "probe_capabilities");
+        assert_eq!(CMD_SEND_FAKE_TCP, "send_fake_tcp");
+        assert_eq!(CMD_SEND_FAKE_RST, "send_fake_rst");
+        assert_eq!(CMD_SEND_FLAGGED_TCP_PAYLOAD, "send_flagged_tcp_payload");
+        assert_eq!(CMD_SEND_SEQOVL_TCP, "send_seqovl_tcp");
+        assert_eq!(CMD_SEND_MULTI_DISORDER_TCP, "send_multi_disorder_tcp");
+        assert_eq!(CMD_SEND_ORDERED_TCP_SEGMENTS, "send_ordered_tcp_segments");
+        assert_eq!(CMD_SEND_IP_FRAGMENTED_TCP, "send_ip_fragmented_tcp");
+        assert_eq!(CMD_SEND_IP_FRAGMENTED_UDP, "send_ip_fragmented_udp");
+        assert_eq!(CMD_SEND_SYN_HIDE_TCP, "send_syn_hide_tcp");
+        assert_eq!(CMD_SEND_ICMP_WRAPPED_UDP, "send_icmp_wrapped_udp");
+        assert_eq!(CMD_RECV_ICMP_WRAPPED_UDP, "recv_icmp_wrapped_udp");
+        assert_eq!(CMD_SEND_RAW_IP_PACKET, "send_raw_ip_packet");
+        assert_eq!(CMD_SHUTDOWN, "shutdown");
+    }
+
+    #[test]
+    fn command_wire_strings_are_unique() {
+        let unique: std::collections::BTreeSet<&str> = ALL_COMMANDS.iter().copied().collect();
+        assert_eq!(unique.len(), ALL_COMMANDS.len(), "every CMD_* wire string must be distinct");
+    }
+
+    #[test]
+    fn command_wire_strings_are_lowercase_snake_case() {
+        for command in ALL_COMMANDS {
+            assert!(!command.is_empty(), "command string must not be empty");
+            assert!(
+                command.bytes().all(|byte| byte.is_ascii_lowercase() || byte == b'_'),
+                "command {command} must be lowercase snake_case",
+            );
+        }
+    }
+}
