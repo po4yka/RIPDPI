@@ -261,6 +261,14 @@ ANDROID_SERIAL=emulator-5554 ./test-lab/scripts/run-rooted-emulator-netem.sh
 
 The runner verifies root access, captures qdisc state, runs baseline diagnostics, applies `tc qdisc replace dev wlan0 root netem delay 200ms 40ms loss 1%`, reruns diagnostics, asserts DNS, HTTP, HTTPS, TCP, UDP, and relay readiness with no probe errors, and clears the qdisc before exit. This proves the rooted-emulator controlled-network lane; it does not replace the release row that requires a physical Pixel traffic path through a Linux routed netem VM/router.
 
+For repeatable physical or emulator DNS/UDP fault combinations using the host-side fallback helpers, run:
+
+```bash
+ANDROID_SERIAL=31130DLH2000EG ./test-lab/scripts/run-host-fault-matrix.sh --profile device
+```
+
+The runner starts per-scenario host DNS and UDP echo helpers on fresh ports, then probes baseline, DNS UDP drop, UDP echo drop, and combined DNS UDP plus UDP echo drop cases. It asserts DNS UDP loss recovers through DNS-over-TCP fallback, UDP echo loss surfaces as a typed recoverable timeout, and HTTP, HTTPS, TCP, and relay readiness remain healthy. This closes a fast local diagnostics-regression slice for same-LAN physical devices; it does not replace cellular, provider relay, or physical routed-netem evidence.
+
 For the controlled local relay-failure slice, run:
 
 ```bash
