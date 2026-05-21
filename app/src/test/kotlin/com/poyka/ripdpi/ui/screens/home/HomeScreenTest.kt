@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
@@ -35,6 +36,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -383,6 +385,9 @@ class HomeScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
             .performScrollTo()
+            .assertIsDisplayed()
+        composeRule
+            .onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.home_diagnostics_pcap_helper))
             .assertIsDisplayed()
     }
 

@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
+import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
 import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
@@ -69,7 +70,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -115,6 +115,8 @@ private fun DiagnosticsScreen(
     onRequestVpnPermission: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenModeEditor: () -> Unit = {},
+    rootModeEnabled: Boolean = false,
+    pcapRecording: Boolean = false,
 ) {
     DiagnosticsScreen(
         uiState = uiState,
@@ -159,6 +161,8 @@ private fun DiagnosticsScreen(
                 onOpenHistory = onOpenHistory,
                 onOpenModeEditor = onOpenModeEditor,
             ),
+        rootModeEnabled = rootModeEnabled,
+        pcapRecording = pcapRecording,
     )
 }
 
@@ -1644,6 +1648,42 @@ class DiagnosticsScreenTest {
         }
     }
 
+    private fun setToolsScreen(
+        rootModeEnabled: Boolean = false,
+        pcapRecording: Boolean = false,
+    ) {
+        composeRule.setContent {
+            RipDpiTheme {
+                ToolsSection(
+                    approaches = DiagnosticsApproachesUiModel(),
+                    share = DiagnosticsShareUiModel(),
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    shareActions =
+                        DiagnosticsShareActions(
+                            onShareSummary = {},
+                            onShareArchive = {},
+                            onSaveArchive = {},
+                            onSaveLogs = {},
+                        ),
+                    rootModeEnabled = rootModeEnabled,
+                    pcapRecording = pcapRecording,
+                )
+            }
+        }
+    }
+
+    private fun swipeToolsUntilTextVisible(text: String) {
+        repeat(4) {
+            runCatching {
+                composeRule.onNodeWithText(text, substring = true).assertIsDisplayed()
+                return
+            }
+            composeRule.onRoot().performTouchInput { swipeUp() }
+        }
+        composeRule.onNodeWithText(text, substring = true).assertIsDisplayed()
+    }
+
     @Suppress("UnusedPrivateMember")
     private fun workflowRestriction(
         title: String,
@@ -1778,6 +1818,22 @@ class DiagnosticsScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSharePreviewCard).fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsArchiveStateIndicator).fetchSemanticsNode()
+    }
+
+    @Test
+    fun shareArchiveCopyDisclosesLogcatPcapAndExplicitSharing() {
+        setToolsScreen()
+
+        swipeToolsUntilTextVisible("app-scoped logcat snapshot")
+        swipeToolsUntilTextVisible("Android share sheet after you choose a target")
+    }
+
+    @Test
+    fun packetCaptureCopyDisclosesRetentionPayloadAndExplicitExports() {
+        setToolsScreen(rootModeEnabled = true, pcapRecording = true)
+
+        swipeToolsUntilTextVisible("packet payloads")
+        swipeToolsUntilTextVisible("explicitly share or save after recording")
     }
 
     @Test

@@ -6,8 +6,10 @@ import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.permissions.BackgroundGuidanceUiState
 import com.poyka.ripdpi.permissions.PermissionItemUiState
 import com.poyka.ripdpi.permissions.PermissionKind
@@ -21,6 +23,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -49,6 +52,9 @@ class SettingsPreferencesScreenTest {
             .onNode(hasScrollToNodeAction())
             .performScrollToNode(hasTestTag(RipDpiTestTags.SettingsSupportBundle))
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsSupportBundle).fetchSemanticsNode()
+        composeRule
+            .onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.settings_support_debug_bundle_body))
+            .assertIsDisplayed()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsSupportBundle).performClick()
 
         assertTrue(clicked)

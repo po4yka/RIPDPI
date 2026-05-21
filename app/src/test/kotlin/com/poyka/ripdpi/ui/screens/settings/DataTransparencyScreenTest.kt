@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
@@ -7,6 +8,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
+import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -50,17 +53,19 @@ class DataTransparencyScreenTest {
     @Test
     fun doNotCollectNoBrowsingBulletIsDisplayed() {
         setScreen()
+        val copy = string(R.string.data_transparency_no_browsing)
 
-        scrollTo("No browsing history or URL content")
-        composeRule.onNodeWithText("No browsing history or URL content").assertIsDisplayed()
+        scrollTo(copy)
+        composeRule.onNodeWithText(copy).assertIsDisplayed()
     }
 
     @Test
     fun doNotCollectNoPersonalDataBulletIsDisplayed() {
         setScreen()
+        val copy = string(R.string.data_transparency_no_personal_data)
 
-        scrollTo("No personal data, accounts, or credentials")
-        composeRule.onNodeWithText("No personal data, accounts, or credentials").assertIsDisplayed()
+        scrollTo(copy)
+        composeRule.onNodeWithText(copy).assertIsDisplayed()
     }
 
     @Test
@@ -124,11 +129,10 @@ class DataTransparencyScreenTest {
     @Test
     fun howStoredExportExplicitBulletIsDisplayed() {
         setScreen()
+        val copy = string(R.string.data_transparency_export_explicit)
 
-        scrollTo("Export archives are only created when you explicitly request them")
-        composeRule
-            .onNodeWithText("Export archives are only created when you explicitly request them")
-            .assertIsDisplayed()
+        scrollTo(copy)
+        composeRule.onNodeWithText(copy).assertIsDisplayed()
     }
 
     @Test
@@ -142,19 +146,19 @@ class DataTransparencyScreenTest {
     @Test
     fun exportPrivacyExportRedactionBulletIsDisplayed() {
         setScreen()
+        val copy = string(R.string.data_transparency_export_redaction)
 
-        scrollTo("Exported archives redact IP addresses, WiFi identifiers, and other PII")
-        composeRule
-            .onNodeWithText("Exported archives redact IP addresses, WiFi identifiers, and other PII")
-            .assertIsDisplayed()
+        scrollTo(copy)
+        composeRule.onNodeWithText(copy).assertIsDisplayed()
     }
 
     @Test
     fun exportPrivacyExportControlBulletIsDisplayed() {
         setScreen()
+        val copy = string(R.string.data_transparency_export_control)
 
-        scrollTo("You control what is shared and with whom")
-        composeRule.onNodeWithText("You control what is shared and with whom").assertIsDisplayed()
+        scrollTo(copy)
+        composeRule.onNodeWithText(copy).assertIsDisplayed()
     }
 
     private fun scrollTo(text: String) {
@@ -170,4 +174,6 @@ class DataTransparencyScreenTest {
             }
         }
     }
+
+    private fun string(resId: Int): String = ApplicationProvider.getApplicationContext<Context>().getString(resId)
 }
