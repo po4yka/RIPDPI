@@ -13,7 +13,7 @@ internal fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         .withProxyDesyncSnapshot(this)
         .withQuicAdaptiveSnapshot(this)
         .withWarpSnapshot(this)
-        .withRelaySnapshot(this)
+        .withRelaySnapshot(toSettingsSections().relay)
         .withRoutingSnapshot(this)
         .withChainSnapshot(this)
         .withUiRuntimeSnapshot(this)
