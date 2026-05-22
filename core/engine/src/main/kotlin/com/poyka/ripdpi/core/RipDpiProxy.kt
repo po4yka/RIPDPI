@@ -360,7 +360,12 @@ class RipDpiProxy(
                 if (!startupSignal.isCompleted) {
                     startupSignal.completeExceptionally(IllegalStateException("Proxy exited before becoming ready"))
                 }
-                if (readinessSignal === startupSignal && startupSignal.getCompletionExceptionOrNull() == null) {
+                // Clear the readiness signal once this session's handle is
+                // retired, regardless of how the startup signal completed. An
+                // exceptionally completed signal left behind would make a
+                // later awaitReady() resurface this dead session's failure
+                // instead of reporting NotRunning.
+                if (readinessSignal === startupSignal) {
                     readinessSignal = null
                 }
             }
@@ -416,9 +421,13 @@ class RipDpiProxy(
     }
 
     override suspend fun stopProxy() {
-        // Exclusive: stop drains in-flight telemetry/snapshot reservations so
-        // the handle is not signalled to unwind while a read-style call runs.
-        reservations.withExclusive {
+        // Non-cancellable exclusive: stop drains in-flight telemetry/snapshot
+        // reservations so the handle is not signalled to unwind while a
+        // read-style call runs. Once the drain has started, caller
+        // cancellation cannot abandon it -- the native session must still be
+        // told to stop so the blocked startProxy can unwind and retire the
+        // handle. NotRunning when there is no live handle is still surfaced.
+        reservations.withExclusiveNonCancellable {
             if (handle == 0L) {
                 throw NativeError.NotRunning("Proxy")
             }

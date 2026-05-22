@@ -219,7 +219,12 @@ class RipDpiRelay(
                 if (!startupSignal.isCompleted) {
                     startupSignal.completeExceptionally(IllegalStateException("Relay exited before becoming ready"))
                 }
-                if (readinessSignal === startupSignal && startupSignal.getCompletionExceptionOrNull() == null) {
+                // Clear the readiness signal once this session's handle is
+                // retired, regardless of how the startup signal completed. An
+                // exceptionally completed signal left behind would make a
+                // later awaitReady() resurface this dead session's failure
+                // instead of reporting NotRunning.
+                if (readinessSignal === startupSignal) {
                     readinessSignal = null
                 }
             }

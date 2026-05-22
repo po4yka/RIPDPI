@@ -98,6 +98,13 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
 
     @Volatile var stopCompletesStartBlocker: Boolean = false
 
+    /**
+     * Invoked synchronously inside [stop], before the start blocker is
+     * released. Lets a test drive an action (e.g. cancelling the stop caller)
+     * at the exact point control is inside the native stop call.
+     */
+    @Volatile var onStop: ((Long) -> Unit)? = null
+
     @Volatile var startBlockTimeoutMillis: Long = DEFAULT_START_BLOCK_TIMEOUT_MS
     var lastCreatePayload: String? = null
     var lastStartedHandle: Long? = null
@@ -147,6 +154,7 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     override fun stop(handle: Long) {
         lastStoppedHandle = handle
         stoppedHandles += handle
+        onStop?.invoke(handle)
         if (stopCompletesStartBlocker) {
             startBlocker?.complete(Unit)
         }
