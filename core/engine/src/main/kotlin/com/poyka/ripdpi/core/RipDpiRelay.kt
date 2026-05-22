@@ -6,10 +6,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -233,38 +230,13 @@ class RipDpiRelay(
 
     override suspend fun awaitReady(timeoutMillis: Long) {
         val startupSignal = readinessSignal ?: throw NativeError.NotRunning("relay")
-        var lastState = "idle"
-        var lastEventMessage: String? = null
-        try {
-            withTimeout(timeoutMillis) {
-                while (true) {
-                    if (startupSignal.isCompleted) {
-                        startupSignal.await()
-                        return@withTimeout
-                    }
-                    val telemetry = pollTelemetry()
-                    lastState = telemetry.state
-                    lastEventMessage = telemetry.nativeEvents.lastOrNull()?.message
-                    if (telemetry.hasRuntimeReadyEvent()) {
-                        startupSignal.complete(Unit)
-                        startupSignal.await()
-                        return@withTimeout
-                    }
-                    delay(ReadyPollIntervalMs)
-                }
-            }
-        } catch (_: TimeoutCancellationException) {
-            error(
-                buildString {
-                    append("Relay readiness timed out state=")
-                    append(lastState)
-                    lastEventMessage?.let {
-                        append(" lastEvent=")
-                        append(it)
-                    }
-                },
-            )
-        }
+        awaitRuntimeReady(
+            startupSignal = startupSignal,
+            timeoutMillis = timeoutMillis,
+            pollIntervalMillis = ReadyPollIntervalMs,
+            timeoutMessagePrefix = "Relay readiness timed out",
+            pollTelemetry = { pollTelemetry() },
+        )
     }
 
     override suspend fun stop() {
@@ -296,5 +268,3 @@ class RipDpiRelay(
             ?: NativeRuntimeSnapshot.idle(source = "relay")
     }
 }
-
-private fun NativeRuntimeSnapshot.hasRuntimeReadyEvent(): Boolean = nativeEvents.any { it.kind == "runtime_ready" }
