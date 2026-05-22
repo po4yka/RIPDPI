@@ -25,13 +25,14 @@
 //! [`crate::Probe`] trait, so they are not part of this migration and must
 //! not be added to the inventory.
 //!
-//! ## Migration completion gate
+//! ## Probe-trait migration: complete
 //!
-//! The unified `ProbeDescriptor` table must NOT be built until every row
-//! in this inventory is [`ProbeTraitBacking::Backed`]. Every connectivity
-//! stage is now `Backed`, so [`unbacked_stages`] returns an empty list and
-//! that gate is satisfied — but building the `ProbeDescriptor` table remains
-//! a separate, deliberately deferred step.
+//! Every connectivity stage is [`ProbeTraitBacking::Backed`], so
+//! [`unbacked_stages`] returns an empty list. The unified descriptor table the
+//! migration was building toward now exists in [`crate::probe_descriptor`];
+//! [`ScheduledProbeStage::descriptor`] resolves a row to its
+//! [`crate::probe_descriptor::ProbeDescriptor`], and drift tests pin the two
+//! tables together.
 
 use crate::probes::circumvention_reachability::CIRCUMVENTION_REACHABILITY_PROBE_ID;
 use crate::probes::dns_integrity::DNS_INTEGRITY_PROBE_ID;
@@ -63,6 +64,18 @@ pub struct ScheduledProbeStage {
     pub runner: &'static str,
     /// Probe-trait backing status for this stage.
     pub backing: ProbeTraitBacking,
+}
+
+impl ScheduledProbeStage {
+    /// The [`crate::probe_descriptor::ProbeDescriptor`] metadata for this
+    /// scheduled stage, resolved by `probe_type`.
+    ///
+    /// Always `Some` for a stage drawn from [`SCHEDULED_PROBE_INVENTORY`]; a
+    /// `None` means the descriptor table has drifted from this inventory,
+    /// which the drift tests in [`crate::probe_descriptor`] reject.
+    pub fn descriptor(&self) -> Option<&'static crate::probe_descriptor::ProbeDescriptor> {
+        crate::probe_descriptor::descriptor_by_probe_type(self.probe_type)
+    }
 }
 
 /// Every scheduled connectivity stage runner in the `ripdpi-monitor-engine`,
@@ -172,5 +185,14 @@ mod tests {
     #[test]
     fn inventory_has_exactly_nine_rows() {
         assert_eq!(SCHEDULED_PROBE_INVENTORY.len(), 9);
+    }
+
+    #[test]
+    fn every_stage_resolves_its_descriptor() {
+        for stage in SCHEDULED_PROBE_INVENTORY {
+            let descriptor = stage.descriptor().unwrap_or_else(|| panic!("no descriptor for {}", stage.probe_type));
+            assert_eq!(descriptor.scheduled_probe_type, stage.probe_type);
+            assert_eq!(descriptor.runner, stage.runner);
+        }
     }
 }
