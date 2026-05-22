@@ -127,23 +127,6 @@ class NetworkDiagnosticsNativeBindings
         private external fun jniDestroy(handle: Long)
     }
 
-interface NetworkDiagnosticsBridge {
-    suspend fun startScan(
-        requestJson: String,
-        sessionId: String,
-    )
-
-    suspend fun cancelScan()
-
-    suspend fun pollProgressJson(): String?
-
-    suspend fun takeReportJson(): String?
-
-    suspend fun pollPassiveEventsJson(): String?
-
-    suspend fun destroy()
-}
-
 /**
  * Coroutine-friendly owner of a single native diagnostics handle (see
  * [NetworkDiagnosticsBindings] for the raw JNI contract).
