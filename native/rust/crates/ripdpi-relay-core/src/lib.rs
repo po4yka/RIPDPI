@@ -22,7 +22,7 @@ pub use config::{
 };
 pub use runtime::RelayRuntime;
 pub use telemetry::RelayTelemetry;
-pub use transport_descriptor::{relay_transport_descriptor, RelayTransportDescriptor, RELAY_TRANSPORT_DESCRIPTORS};
+pub use transport_descriptor::{relay_transport_descriptor, RelayTransportDescriptor};
 
 #[cfg(test)]
 mod tests;

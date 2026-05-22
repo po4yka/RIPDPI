@@ -1,21 +1,24 @@
 use std::io;
 
 use crate::backend::builder::builders::common::{finalmask_config, vless_reality_config};
-use crate::backend::builder::builders::BackendBuilder;
 use crate::backend::builder::BuildContext;
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
 use crate::protocols::{VlessRealitySessionFactory, XhttpSessionFactory, XhttpSessionMode};
 
-pub(crate) const XHTTP_BUILDER: BackendBuilder = BackendBuilder::new(supports_xhttp, build_xhttp);
-pub(crate) const BUILDER: BackendBuilder = BackendBuilder::new(supports, build);
-
-fn supports_xhttp(config: &ResolvedRelayRuntimeConfig) -> bool {
-    matches!(RelayKind::from_config(config), RelayKind::VlessReality { xhttp: true })
-}
-
-fn supports(config: &ResolvedRelayRuntimeConfig) -> bool {
-    matches!(RelayKind::from_config(config), RelayKind::VlessReality { xhttp: false })
+/// Build the VLESS Reality relay backend, dispatching by transport sub-mode.
+///
+/// The single `vless_reality` `relay_kind` splits across two `RelayBackend`
+/// variants: the `xhttp` transport routes through the multiplexed `Xhttp`
+/// backend, classic Reality through the TCP `VlessReality` backend. This
+/// sub-mode branch deliberately stays explicit inside the builder — it is not a
+/// `relay_kind`-keyed fact and so is not a `RelayTransportDescriptor` field.
+pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
+    if matches!(RelayKind::from_config(config), RelayKind::VlessReality { xhttp: true }) {
+        build_xhttp(config, context)
+    } else {
+        build_reality(config, context)
+    }
 }
 
 fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
@@ -47,7 +50,7 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
     )))
 }
 
-fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
+fn build_reality(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::VlessReality(vless) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected VLESS Reality config"));
     };

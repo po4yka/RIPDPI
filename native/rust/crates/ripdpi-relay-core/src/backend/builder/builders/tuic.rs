@@ -1,18 +1,11 @@
 use std::io;
 
-use crate::backend::builder::builders::BackendBuilder;
 use crate::backend::builder::BuildContext;
 use crate::backend::{PooledRelayBackend, RelayBackend};
-use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
+use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::TuicSessionFactory;
 
-pub(crate) const BUILDER: BackendBuilder = BackendBuilder::new(supports, build);
-
-fn supports(config: &ResolvedRelayRuntimeConfig) -> bool {
-    matches!(RelayKind::from_config(config), RelayKind::TuicV5)
-}
-
-fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
+pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::TuicV5(tuic) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected TUIC config"));
     };

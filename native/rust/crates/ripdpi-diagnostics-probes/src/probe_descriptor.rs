@@ -4,8 +4,8 @@
 //! [`crate::scheduled_inventory::SCHEDULED_PROBE_INVENTORY`] is
 //! [`crate::scheduled_inventory::ProbeTraitBacking::Backed`]), this module
 //! adds the unified descriptor table the migration was building toward — one
-//! [`ProbeDescriptor`] row per scheduled connectivity stage, analogous to
-//! `RELAY_TRANSPORT_DESCRIPTORS` in `ripdpi-relay-core`.
+//! [`ProbeDescriptor`] row per scheduled connectivity stage, analogous to the
+//! `RELAY_TRANSPORT_REGISTRATIONS` table in `ripdpi-relay-core`.
 //!
 //! ## Scope
 //!
