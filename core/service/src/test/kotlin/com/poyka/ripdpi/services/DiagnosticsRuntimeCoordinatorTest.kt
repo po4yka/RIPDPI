@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.service.runtime.control.DefaultRuntimeControlPlane
+import com.poyka.ripdpi.service.runtime.control.ServiceControllerRuntimeControlActions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +34,10 @@ class DiagnosticsRuntimeCoordinatorTest {
                 }
             val coordinator =
                 DefaultDiagnosticsRuntimeCoordinator(
-                    serviceController = controller,
+                    runtimeControlPlane =
+                        DefaultRuntimeControlPlane(
+                            ServiceControllerRuntimeControlActions(controller, stateStore),
+                        ),
                     serviceStateStore = stateStore,
                     appSettingsRepository = FakeCoordinatorSettingsRepository(),
                     waitAttempts = 2,
@@ -63,7 +68,10 @@ class DiagnosticsRuntimeCoordinatorTest {
                 }
             val coordinator =
                 DefaultDiagnosticsRuntimeCoordinator(
-                    serviceController = controller,
+                    runtimeControlPlane =
+                        DefaultRuntimeControlPlane(
+                            ServiceControllerRuntimeControlActions(controller, stateStore),
+                        ),
                     serviceStateStore = stateStore,
                     appSettingsRepository =
                         FakeCoordinatorSettingsRepository(
@@ -101,7 +109,10 @@ class DiagnosticsRuntimeCoordinatorTest {
                 }
             val coordinator =
                 DefaultDiagnosticsRuntimeCoordinator(
-                    serviceController = controller,
+                    runtimeControlPlane =
+                        DefaultRuntimeControlPlane(
+                            ServiceControllerRuntimeControlActions(controller, stateStore),
+                        ),
                     serviceStateStore = stateStore,
                     appSettingsRepository = FakeCoordinatorSettingsRepository(),
                     waitAttempts = 2,
@@ -128,7 +139,10 @@ class DiagnosticsRuntimeCoordinatorTest {
                 }
             val coordinator =
                 DefaultDiagnosticsRuntimeCoordinator(
-                    serviceController = controller,
+                    runtimeControlPlane =
+                        DefaultRuntimeControlPlane(
+                            ServiceControllerRuntimeControlActions(controller, stateStore),
+                        ),
                     serviceStateStore = stateStore,
                     appSettingsRepository =
                         FakeCoordinatorSettingsRepository(
@@ -163,7 +177,10 @@ class DiagnosticsRuntimeCoordinatorTest {
             val controller = FakeServiceController(stateStore)
             val coordinator =
                 DefaultDiagnosticsRuntimeCoordinator(
-                    serviceController = controller,
+                    runtimeControlPlane =
+                        DefaultRuntimeControlPlane(
+                            ServiceControllerRuntimeControlActions(controller, stateStore),
+                        ),
                     serviceStateStore = stateStore,
                     appSettingsRepository =
                         FakeCoordinatorSettingsRepository(
