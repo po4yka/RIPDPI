@@ -2,7 +2,8 @@
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyFactory, StrategyVerdict,
+    StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepParams, StrategyStepRegistration,
+    StrategyVerdict,
 };
 
 const IPV6_HEADER_LEN: usize = 40;
@@ -139,12 +140,30 @@ pub fn strategy_by_id(id: &str) -> Option<Box<dyn DesyncStrategy>> {
     }
 }
 
-fn make_ipv6_ext_strategy() -> Box<dyn DesyncStrategy> {
-    Box::new(Ipv6ExtHdrStrategy::default())
+/// Builds an [`Ipv6ExtHdrStrategy`] from the parsed config step's parameters.
+///
+/// Called with [`StrategyStepParams::default`] when `ipv6_ext` is registered as
+/// a bare built-in technique — `ext_type` then defaults to
+/// [`Ipv6ExtType::default`] (`DestOpts`), matching the historic
+/// `Ipv6ExtHdrStrategy::default()`.
+fn build_ipv6_ext(params: &StrategyStepParams) -> Box<dyn DesyncStrategy> {
+    let ext_type = params.ext_type.as_deref().and_then(Ipv6ExtType::parse).unwrap_or_default();
+    Box::new(Ipv6ExtHdrStrategy::new(ext_type))
 }
 
-#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
-static IPV6_EXT_FACTORY: StrategyFactory = StrategyFactory { id: "ipv6_ext", make: make_ipv6_ext_strategy };
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS)]
+static IPV6_EXT_REGISTRATION: StrategyStepRegistration = StrategyStepRegistration {
+    descriptor: StrategyStepDescriptor {
+        id: "ipv6_ext",
+        label: "IPv6 extension header injection",
+        aliases: &["ipv6Ext"],
+        required_tier: CapabilityTier::Tier3,
+        required_capabilities: &[RuntimeCapability::VpnMode],
+        needs_parameters: true,
+        parameter_schema: "ext_type: hopbyhop|destopts|routing (default destopts)",
+    },
+    factory: StrategyStepFactory::Configured(build_ipv6_ext),
+};
 
 impl Ipv6ExtType {
     /// Parses the YAML `ext_type` value used by strategy packs.

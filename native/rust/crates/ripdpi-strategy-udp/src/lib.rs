@@ -2,7 +2,8 @@
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, L7Protocol, RuntimeCapability, StrategyContext,
-    StrategyDescriptor, StrategyError, StrategyFactory, StrategyVerdict,
+    StrategyDescriptor, StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepParams,
+    StrategyStepRegistration, StrategyVerdict,
 };
 
 const IPV4_HEADER_MIN_LEN: usize = 20;
@@ -99,12 +100,29 @@ pub fn strategy_by_id(id: &str) -> Option<Box<dyn DesyncStrategy>> {
     }
 }
 
-fn make_udplen_strategy() -> Box<dyn DesyncStrategy> {
-    Box::new(UdpLenStrategy::default())
+/// Builds a [`UdpLenStrategy`] from the parsed config step's parameters.
+///
+/// Called with [`StrategyStepParams::default`] when `udplen` is registered as a
+/// bare built-in technique — `delta` then defaults to 4, matching the historic
+/// `UdpLenStrategy::default()`.
+fn build_udplen(params: &StrategyStepParams) -> Box<dyn DesyncStrategy> {
+    let delta = params.delta.unwrap_or(4).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16;
+    Box::new(UdpLenStrategy::new(delta))
 }
 
-#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
-static UDPLEN_FACTORY: StrategyFactory = StrategyFactory { id: "udplen", make: make_udplen_strategy };
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS)]
+static UDPLEN_REGISTRATION: StrategyStepRegistration = StrategyStepRegistration {
+    descriptor: StrategyStepDescriptor {
+        id: "udplen",
+        label: "UDP length falsification",
+        aliases: &[],
+        required_tier: CapabilityTier::Tier3,
+        required_capabilities: &[RuntimeCapability::VpnMode],
+        needs_parameters: true,
+        parameter_schema: "delta: signed UDP length-field delta (default 4)",
+    },
+    factory: StrategyStepFactory::Configured(build_udplen),
+};
 
 fn apply_udplen_ipv4(packet: &[u8], delta: i16) -> Option<Vec<u8>> {
     if packet.len() < IPV4_HEADER_MIN_LEN || packet[9] != UDP_NEXT_HEADER {

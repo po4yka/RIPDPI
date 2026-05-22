@@ -9,13 +9,17 @@ of `LoadedStrategy`, each a matcher plus ordered `StrategyStep`s), resolves
 
 ## Stable identifiers / contracts
 
-- `StepType` — the strategy step-kind enum. Its serde representation **is** the
-  YAML/TOML schema; the `#[serde(rename = ...)]` / `alias` attributes are a
+- `StepType` — the strategy step-kind enum. **String-backed** (known/unknown):
+  `StepType::from_wire` resolves every recognized `type:` spelling — the
+  canonical id, the camelCase form, and the legacy aliases — to a named
+  variant, and any other string to `StepType::Unknown` (which fails later at
+  registry resolution, not at serde decoding). The accepted spellings are a
   config-schema contract. `registry_id()` maps each variant to the stable
   string ID that `ripdpi-strategy-registry` resolves — that mapping must stay
-  in lock-step with the registry's IDs.
+  in lock-step with the registry's IDs and the `StrategyStepDescriptor`s, which
+  the `descriptor_drift` tests pin.
 - `OnFail`, `ProtocolName`, and the `StrategyStep` field set are likewise
-  schema. Renaming a variant, changing a `rename`/`alias`, or adding/removing a
+  schema. Renaming a variant, changing an accepted alias, or adding/removing a
   `StrategyStep` field changes the config schema.
 
 ## Not the Android settings path

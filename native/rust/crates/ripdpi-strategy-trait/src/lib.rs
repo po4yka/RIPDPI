@@ -7,10 +7,12 @@
 //! Strategy crates advertise themselves through two `linkme` distributed
 //! slices so the registry never needs a central match arm:
 //!
-//! - [`STRATEGY_FACTORIES`] — zero-argument default builders, keyed by stable
-//!   ID; this is the preferred registration seam.
+//! - [`STRATEGY_STEP_REGISTRATIONS`] — the descriptor/factory platform: one
+//!   [`StrategyStepRegistration`] per strategy step, pairing a static
+//!   [`StrategyStepDescriptor`] with the [`StrategyStepFactory`] that builds
+//!   it. This is the registration seam — adding a strategy is one entry here.
 //! - [`STRATEGY_DESCRIPTOR_REGISTRATIONS`] — descriptor-only entries for
-//!   strategies that cannot be built without runtime config.
+//!   planners (the `tcp_desync` chain planner) that are not config-step kinds.
 //!
 //! See `README.md` and `FEATURE_EXTENSION_GUIDE.md` §1 for how to add a
 //! strategy and which central edits each registration path requires.
@@ -32,7 +34,11 @@ pub enum FlowDirection {
 }
 
 /// Coarse runtime mode required by a strategy.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+///
+/// The variants are declared in ascending order, so the derived [`Ord`] is the
+/// capability ordering: a context satisfies a strategy's tier when
+/// `ctx.caps.tier >= strategy_required_tier`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum CapabilityTier {
     /// Plain user-space proxy operations.
     #[default]
@@ -367,22 +373,97 @@ pub trait DesyncStrategy: Send + Sync {
     fn describe(&self) -> StrategyDescriptor;
 }
 
-/// Link-time factory for stateless strategy implementations.
+/// Parameters extracted from a parsed strategy config step.
 ///
-/// Configured strategies that need per-profile parameters can still be
-/// materialized through their config loader. This registry is for stable,
-/// zero-argument defaults that can advertise themselves without central wiring.
-#[derive(Clone, Copy)]
-pub struct StrategyFactory {
-    /// Stable strategy identifier.
-    pub id: &'static str,
-    /// Builds a fresh strategy instance.
-    pub make: fn() -> Box<dyn DesyncStrategy>,
+/// This is the [`StrategyStepFactory::Configured`] input — a schema-neutral
+/// parameter bag, deliberately decoupled from `ripdpi-strategy-config`'s
+/// `StrategyStep` so a `ripdpi-strategy-*` crate can contribute a configured
+/// factory without depending on the file-schema crate. The registry fills it
+/// from a parsed `StrategyStep`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct StrategyStepParams {
+    /// Marker / position expression (`pos`).
+    pub pos: Option<String>,
+    /// Disorder flag.
+    pub disorder: bool,
+    /// TTL value for fake-packet techniques.
+    pub ttl: Option<u8>,
+    /// zapret-compatible SNI generation mode.
+    pub sni_mode: Option<String>,
+    /// Signed length delta (UDP length falsification).
+    pub delta: Option<i32>,
+    /// Generic unsigned value parameter.
+    pub value: Option<u32>,
+    /// Window size parameter.
+    pub size: Option<u32>,
+    /// Window scale parameter.
+    pub scale: Option<u8>,
+    /// IPv6 extension-header type token.
+    pub ext_type: Option<String>,
+    /// Lua strategy function name.
+    pub function: Option<String>,
+    /// Lua strategy script paths.
+    pub script_paths: Vec<String>,
+    /// Whether the original packet is forwarded alongside the strategy output.
+    pub forward_original: Option<bool>,
 }
 
-/// Link-time descriptor for strategies that cannot be built without runtime
+/// How the registry builds a registered strategy step.
+#[derive(Clone, Copy)]
+pub enum StrategyStepFactory {
+    /// Stateless default — a zero-argument builder. The step ignores any
+    /// per-profile parameters.
+    Stateless(fn() -> Box<dyn DesyncStrategy>),
+    /// Parameterized — built from the parsed config step's
+    /// [`StrategyStepParams`]. Called with the defaults when the step is
+    /// registered as a bare built-in technique.
+    Configured(fn(&StrategyStepParams) -> Box<dyn DesyncStrategy>),
+    /// Descriptor-only — the step kind is known and carries metadata, but has
+    /// no implementation yet. The registry registers a placeholder whose
+    /// `plan` fails, so an `OnFail::Next` chain skips past it.
+    Unimplemented,
+}
+
+/// Static, step-kind-keyed metadata for one strategy step — the descriptor
+/// half of a [`StrategyStepRegistration`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StrategyStepDescriptor {
+    /// Stable strategy / step-kind identifier — the registry ID a parsed
+    /// config step resolves to. A config wire contract; never renamed.
+    pub id: &'static str,
+    /// Human-readable label for diagnostics and inventory surfaces.
+    pub label: &'static str,
+    /// Accepted config aliases — every YAML/TOML `type:` spelling other than
+    /// [`id`](Self::id) that resolves to this step.
+    pub aliases: &'static [&'static str],
+    /// Required coarse capability tier.
+    pub required_tier: CapabilityTier,
+    /// Required fine-grained runtime capabilities.
+    pub required_capabilities: &'static [RuntimeCapability],
+    /// Whether the step consumes per-profile parameters from its config step.
+    pub needs_parameters: bool,
+    /// Human-readable hint describing the accepted parameters (empty when
+    /// [`needs_parameters`](Self::needs_parameters) is `false`).
+    pub parameter_schema: &'static str,
+}
+
+/// One strategy step's complete registration — its [`StrategyStepDescriptor`]
+/// merged with the [`StrategyStepFactory`] that builds it.
+///
+/// Adding a strategy is one entry in [`STRATEGY_STEP_REGISTRATIONS`]: the
+/// registry resolves the descriptor and the factory from this single row, with
+/// no central match arm.
+#[derive(Clone, Copy)]
+pub struct StrategyStepRegistration {
+    /// Static step-kind metadata.
+    pub descriptor: StrategyStepDescriptor,
+    /// How the registry builds this step.
+    pub factory: StrategyStepFactory,
+}
+
+/// Link-time descriptor for planners that cannot be built without runtime
 /// configuration, but should still be visible to diagnostics and inventory
-/// checks.
+/// checks (the `tcp_desync` chain planner).
 #[derive(Clone, Copy)]
 pub struct StrategyDescriptorRegistration {
     /// Stable strategy identifier.
@@ -391,9 +472,9 @@ pub struct StrategyDescriptorRegistration {
     pub describe: fn() -> StrategyDescriptor,
 }
 
-/// Factories contributed by linked strategy crates.
+/// Strategy step registrations contributed by linked strategy crates.
 #[linkme::distributed_slice]
-pub static STRATEGY_FACTORIES: [StrategyFactory] = [..];
+pub static STRATEGY_STEP_REGISTRATIONS: [StrategyStepRegistration] = [..];
 
 /// Descriptor-only registrations contributed by linked strategy crates.
 #[linkme::distributed_slice]

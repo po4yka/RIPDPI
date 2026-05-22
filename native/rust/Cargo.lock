@@ -4311,6 +4311,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-strategy-core"
+version = "0.1.0"
+dependencies = [
+ "linkme",
+ "ripdpi-strategy-trait",
+]
+
+[[package]]
 name = "ripdpi-strategy-http"
 version = "0.1.0"
 dependencies = [
@@ -4345,6 +4353,7 @@ version = "0.1.0"
 dependencies = [
  "ripdpi-desync",
  "ripdpi-strategy-config",
+ "ripdpi-strategy-core",
  "ripdpi-strategy-http",
  "ripdpi-strategy-ipv6",
  "ripdpi-strategy-lua",

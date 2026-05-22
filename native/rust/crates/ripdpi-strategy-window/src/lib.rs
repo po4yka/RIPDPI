@@ -8,7 +8,7 @@
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyFactory, StrategyVerdict,
+    StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepRegistration, StrategyVerdict,
 };
 
 /// TCP window clamp strategy using a direct byte value.
@@ -108,11 +108,33 @@ fn make_wssize_strategy() -> Box<dyn DesyncStrategy> {
     Box::new(WssizeStrategy::default())
 }
 
-#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
-static WSIZE_FACTORY: StrategyFactory = StrategyFactory { id: "wsize", make: make_wsize_strategy };
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS)]
+static WSIZE_REGISTRATION: StrategyStepRegistration = StrategyStepRegistration {
+    descriptor: StrategyStepDescriptor {
+        id: "wsize",
+        label: "TCP window size",
+        aliases: &[],
+        required_tier: CapabilityTier::Tier1,
+        required_capabilities: &[RuntimeCapability::TcpWindowClamp],
+        needs_parameters: false,
+        parameter_schema: "",
+    },
+    factory: StrategyStepFactory::Stateless(make_wsize_strategy),
+};
 
-#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
-static WSSIZE_FACTORY: StrategyFactory = StrategyFactory { id: "wssize", make: make_wssize_strategy };
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS)]
+static WSSIZE_REGISTRATION: StrategyStepRegistration = StrategyStepRegistration {
+    descriptor: StrategyStepDescriptor {
+        id: "wssize",
+        label: "TCP window scale size",
+        aliases: &[],
+        required_tier: CapabilityTier::Tier1,
+        required_capabilities: &[RuntimeCapability::TcpWindowClamp],
+        needs_parameters: false,
+        parameter_schema: "",
+    },
+    factory: StrategyStepFactory::Stateless(make_wssize_strategy),
+};
 
 fn plan_window_clamp(ctx: &StrategyContext<'_>, plan: &mut DesyncPlan, window: u32) -> Result<(), StrategyError> {
     if !ctx.caps.has(RuntimeCapability::TcpWindowClamp) {

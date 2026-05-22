@@ -14,15 +14,16 @@ implementation crate follows the same three steps:
    `WssizeStrategy`) — `id` / `matches` / `plan` / `describe`. `plan` is
    capability-gated (`RuntimeCapability::TcpWindowClamp`); a strategy that
    lacks its capability returns an empty plan rather than failing.
-2. **Contribute a `StrategyFactory`** to the `STRATEGY_FACTORIES` `linkme`
-   slice for each stable ID — `#[linkme::distributed_slice(...)]` over a
-   zero-argument `make` function.
+2. **Contribute a `StrategyStepRegistration`** to the
+   `STRATEGY_STEP_REGISTRATIONS` `linkme` slice for each stable ID —
+   `#[linkme::distributed_slice(...)]` over a `StrategyStepDescriptor` paired
+   with a `StrategyStepFactory::Stateless` zero-argument `make` function.
 3. `ripdpi-strategy-registry` **force-links** this crate
    (`extern crate ripdpi_strategy_window as _;`) so the slice entries reach the
-   final binary, then resolves `wsize` / `wssize` by ID with **no central match
-   arm**.
+   final binary, then resolves `wsize` / `wssize` by descriptor id with **no
+   central match arm**.
 
-The only central edit a factory-backed strategy needs is the `extern crate`
+The only central edit a registered strategy needs is the `extern crate`
 line in `ripdpi-strategy-registry`. See
 [`FEATURE_EXTENSION_GUIDE.md`](../../../../docs/architecture/FEATURE_EXTENSION_GUIDE.md)
 §1.

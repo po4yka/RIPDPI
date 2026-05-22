@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, FlowId, L7Protocol, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyFactory, StrategyVerdict,
+    StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepRegistration, StrategyVerdict,
 };
 
 /// Alternates HTTP Host value casing using the zapret2 `domcase` pattern.
@@ -178,18 +178,43 @@ fn make_unixeol_strategy() -> Box<dyn DesyncStrategy> {
     Box::new(UnixeolStrategy)
 }
 
-#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
-static HTTP_DOMCASE_FACTORY: StrategyFactory = StrategyFactory { id: "http_domcase", make: make_domcase_strategy };
+/// Builds an HTTP strategy [`StrategyStepRegistration`] — all four are
+/// stateless, `Tier0`, and need no runtime capability.
+const fn http_registration(
+    id: &'static str,
+    label: &'static str,
+    aliases: &'static [&'static str],
+    make: fn() -> Box<dyn DesyncStrategy>,
+) -> StrategyStepRegistration {
+    StrategyStepRegistration {
+        descriptor: StrategyStepDescriptor {
+            id,
+            label,
+            aliases,
+            required_tier: CapabilityTier::Tier0,
+            required_capabilities: &[],
+            needs_parameters: false,
+            parameter_schema: "",
+        },
+        factory: StrategyStepFactory::Stateless(make),
+    }
+}
 
-#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
-static HTTP_HOSTCASE_FACTORY: StrategyFactory = StrategyFactory { id: "http_hostcase", make: make_hostcase_strategy };
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS)]
+static HTTP_DOMCASE_REGISTRATION: StrategyStepRegistration =
+    http_registration("http_domcase", "HTTP domain case", &["httpDomcase"], make_domcase_strategy);
 
-#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
-static HTTP_METHODEOL_FACTORY: StrategyFactory =
-    StrategyFactory { id: "http_methodeol", make: make_methodeol_strategy };
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS)]
+static HTTP_HOSTCASE_REGISTRATION: StrategyStepRegistration =
+    http_registration("http_hostcase", "HTTP host random case", &["httpHostcase"], make_hostcase_strategy);
 
-#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_FACTORIES)]
-static HTTP_UNIXEOL_FACTORY: StrategyFactory = StrategyFactory { id: "http_unixeol", make: make_unixeol_strategy };
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS)]
+static HTTP_METHODEOL_REGISTRATION: StrategyStepRegistration =
+    http_registration("http_methodeol", "HTTP method EOL", &["httpMethodeol"], make_methodeol_strategy);
+
+#[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS)]
+static HTTP_UNIXEOL_REGISTRATION: StrategyStepRegistration =
+    http_registration("http_unixeol", "HTTP Unix EOL", &["httpUnixeol"], make_unixeol_strategy);
 
 fn find_host_value(input: &[u8]) -> Option<Range<usize>> {
     let (header_end, _) = header_body_separator(input)?;
