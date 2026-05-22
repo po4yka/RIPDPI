@@ -22,6 +22,8 @@ pub mod http_response_block;
 pub mod ip_block_suspect;
 #[path = "mtproto_reachability.rs"]
 pub mod mtproto_reachability;
+#[path = "network_environment.rs"]
+pub mod network_environment;
 #[path = "quic_probe.rs"]
 pub mod quic_probe;
 #[path = "service_reachability.rs"]
@@ -44,6 +46,7 @@ pub use http_injection::HttpInjectionOfflineProbe;
 pub use http_response_block::HttpResponseBlockOfflineProbe;
 pub use ip_block_suspect::IpBlockSuspectProbe;
 pub use mtproto_reachability::MtprotoReachabilityProbe;
+pub use network_environment::NetworkEnvironmentProbe;
 pub use quic_probe::QuicProbeOfflineProbe;
 pub use service_reachability::ServiceReachabilityProbe;
 pub use tcp_fat_header::TcpFatHeaderProbe;

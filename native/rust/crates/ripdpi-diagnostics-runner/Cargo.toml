@@ -23,6 +23,7 @@ rustls = { workspace = true }
 [dev-dependencies]
 local-network-fixture = { workspace = true }
 rcgen = { workspace = true }
+ripdpi-diagnostics-probes = { workspace = true }
 
 [features]
 hickory = [

@@ -231,4 +231,39 @@ mod tests {
         assert_eq!(probe.outcome, "network_unavailable");
         assert_eq!(probe_detail_value(&probe, "vpnServiceWasActive"), "false");
     }
+
+    /// The `network_environment` Probe-trait adapter
+    /// (`ripdpi-diagnostics-probes`) re-presents `build_network_environment_probe`'s
+    /// `ProbeResult` without changing its status or fields.
+    #[test]
+    fn network_environment_probe_feeds_the_probe_trait_adapter() {
+        use ripdpi_diagnostics_probes::{NetworkEnvironmentProbe, Probe};
+
+        let snapshots = [
+            NetworkSnapshot { transport: "wifi".to_string(), validated: true, ..NetworkSnapshot::default() },
+            NetworkSnapshot { transport: "none".to_string(), ..NetworkSnapshot::default() },
+            NetworkSnapshot {
+                transport: "none".to_string(),
+                vpn_service_was_active: true,
+                ..NetworkSnapshot::default()
+            },
+        ];
+
+        for snapshot in snapshots {
+            let expected = build_network_environment_probe(Some(&snapshot)).expect("probe");
+            let adapter = NetworkEnvironmentProbe::new(expected.clone());
+            let carried = adapter.report();
+
+            assert_eq!(carried.probe_type, "network_environment");
+            assert_eq!(carried.probe_type, expected.probe_type);
+            assert_eq!(carried.target, expected.target);
+            assert_eq!(carried.outcome, expected.outcome);
+            let carried_details: Vec<(&str, &str)> =
+                carried.details.iter().map(|detail| (detail.key.as_str(), detail.value.as_str())).collect();
+            let expected_details: Vec<(&str, &str)> =
+                expected.details.iter().map(|detail| (detail.key.as_str(), detail.value.as_str())).collect();
+            assert_eq!(carried_details, expected_details);
+            assert_eq!(adapter.id(), "network_environment");
+        }
+    }
 }

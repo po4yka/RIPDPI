@@ -124,8 +124,8 @@ pub mod scheduled_inventory;
 pub use probes::{
     CircumventionReachabilityProbe, DnsIntegrityProbe, DnsTamperingConfirmationProbe, DohSurveyProbe,
     DomainReachabilityProbe, EchHandshakeProbe, HickoryRustlsEchHandshakeDriver, HttpInjectionOfflineProbe,
-    HttpResponseBlockOfflineProbe, IpBlockSuspectProbe, MtprotoReachabilityProbe, QuicProbeOfflineProbe,
-    ServiceReachabilityProbe, TcpFatHeaderProbe, ThroughputProbe, TlsAlertOfflineProbe,
+    HttpResponseBlockOfflineProbe, IpBlockSuspectProbe, MtprotoReachabilityProbe, NetworkEnvironmentProbe,
+    QuicProbeOfflineProbe, ServiceReachabilityProbe, TcpFatHeaderProbe, ThroughputProbe, TlsAlertOfflineProbe,
 };
 
 #[cfg(feature = "compat-facade")]

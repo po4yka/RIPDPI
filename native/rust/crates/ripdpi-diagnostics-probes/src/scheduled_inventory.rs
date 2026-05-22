@@ -28,14 +28,16 @@
 //! ## Migration completion gate
 //!
 //! The unified `ProbeDescriptor` table must NOT be built until every row
-//! in this inventory is [`ProbeTraitBacking::Backed`]. As of this artifact
-//! the `network_environment` stage is the last remaining un-backed stage;
-//! [`unbacked_stages`] returns exactly that one `probe_type`.
+//! in this inventory is [`ProbeTraitBacking::Backed`]. Every connectivity
+//! stage is now `Backed`, so [`unbacked_stages`] returns an empty list and
+//! that gate is satisfied — but building the `ProbeDescriptor` table remains
+//! a separate, deliberately deferred step.
 
 use crate::probes::circumvention_reachability::CIRCUMVENTION_REACHABILITY_PROBE_ID;
 use crate::probes::dns_integrity::DNS_INTEGRITY_PROBE_ID;
 use crate::probes::domain_reachability::DOMAIN_REACHABILITY_PROBE_ID;
 use crate::probes::mtproto_reachability::MTPROTO_REACHABILITY_PROBE_ID;
+use crate::probes::network_environment::NETWORK_ENVIRONMENT_PROBE_ID;
 use crate::probes::quic_probe::QUIC_PROBE_OFFLINE_PROBE_ID;
 use crate::probes::service_reachability::SERVICE_REACHABILITY_PROBE_ID;
 use crate::probes::tcp_fat_header::TCP_FAT_HEADER_PROBE_ID;
@@ -72,7 +74,7 @@ pub const SCHEDULED_PROBE_INVENTORY: &[ScheduledProbeStage] = &[
     ScheduledProbeStage {
         probe_type: "network_environment",
         runner: "EnvironmentRunner",
-        backing: ProbeTraitBacking::NotBacked,
+        backing: ProbeTraitBacking::Backed(NETWORK_ENVIRONMENT_PROBE_ID),
     },
     ScheduledProbeStage {
         probe_type: "dns_integrity",
@@ -141,10 +143,21 @@ mod tests {
 
     #[test]
     fn unbacked_stages_is_frozen_expectation() {
-        // This list changes ONLY when a scheduled stage is migrated to the
-        // Probe trait (a row flips to `Backed`) or a new un-backed stage is
-        // added. Any other diff here is a regression.
-        assert_eq!(unbacked_stages(), vec!["network_environment"]);
+        // Every scheduled connectivity stage is now Probe-backed, so this is
+        // empty. It changes ONLY when a new un-backed stage is added; any
+        // other diff here is a regression.
+        assert_eq!(unbacked_stages(), Vec::<&'static str>::new());
+    }
+
+    #[test]
+    fn every_scheduled_stage_is_backed() {
+        for stage in SCHEDULED_PROBE_INVENTORY {
+            assert!(
+                matches!(stage.backing, ProbeTraitBacking::Backed(_)),
+                "scheduled stage {} is not Probe-backed",
+                stage.probe_type,
+            );
+        }
     }
 
     #[test]

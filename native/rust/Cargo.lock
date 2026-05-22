@@ -3668,6 +3668,7 @@ dependencies = [
  "ripdpi-diagnostics-candidates",
  "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-probes",
  "ripdpi-diagnostics-protocols",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
