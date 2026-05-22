@@ -1018,6 +1018,9 @@ jobs:
           retention-days: 14
 
   android-macrobenchmark:
+    # Runs StartupBenchmark on a Gradle Managed Device. The :baselineprofile module
+    # already tolerates emulator runs (androidx.benchmark.suppressErrors includes
+    # EMULATOR) and the regression check is warn-only.
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_macrobenchmark == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -1038,35 +1041,26 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Provision macrobenchmark emulator
+      - name: Install emulator and system image
         run: |
-          bash scripts/ci/start-android-emulator.sh \
-            --avd macrobench \
-            --api 34 \
-            --arch x86_64 \
-            --target aosp_atd
+          android sdk install \
+            "cmdline-tools/latest" \
+            "emulator" \
+            "system-images/android-34/aosp_atd/x86_64"
 
-      - name: Run macrobenchmarks
-        run: bash scripts/ci/run-android-macrobenchmark.sh
+      - name: Run macrobenchmarks on managed device
         env:
           RUSTC_WRAPPER: sccache
-
-      - name: Capture macrobenchmark emulator diagnostics
-        if: always()
         run: |
-          bash scripts/ci/capture-android-emulator-diagnostics.sh \
-            --avd macrobench \
-            --output-dir "$RUNNER_TEMP/android-macrobenchmark-diagnostics" \
-            --logcat-file android-logcat.txt
-
-      - name: Stop emulator
-        if: always()
-        run: bash scripts/ci/stop-android-emulator.sh --avd macrobench
+          ./gradlew :baselineprofile:pixel6Api34AtdDebugAndroidTest \
+            -Pripdpi.localNativeAbis=x86_64 \
+            -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.baselineprofile.StartupBenchmark \
+            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 
       - name: Check for regressions
         run: |
           python3 scripts/ci/check-macrobenchmark-regressions.py \
-            --results-dir baselineprofile/build/outputs/connected_android_test_additional_output \
+            --results-dir baselineprofile/build/outputs \
             --baseline scripts/ci/macrobenchmark-baseline.json \
             --warn-only \
             --markdown-output "$RUNNER_TEMP/macrobenchmark-summary.md"
@@ -1078,17 +1072,27 @@ jobs:
         with:
           name: macrobenchmark-artifacts
           path: |
-            android-logcat.txt
-            ${{ runner.temp }}/android-macrobenchmark-diagnostics/
             baselineprofile/build/outputs/
+            baselineprofile/build/reports/androidTests/
             ${{ runner.temp }}/macrobenchmark-summary.md
           retention-days: 7
 
-  android-integration-apks:
+  # Runs :app instrumented tests on Gradle Managed Devices — one runner per device.
+  # GMD builds the app + androidTest APKs itself; prebuilt x86_64 native shards from
+  # the rust-native matrix are staged via -Pripdpi.prebuilt*Dir so cargo is skipped.
+  android-instrumented-tests:
     if: github.event_name != 'schedule'
     needs: [rust-native]
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: pixel6Api34Atd
+            system-image: aosp_atd
+          - device: pixel6Api34Google
+            system-image: google_apis
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -1096,7 +1100,7 @@ jobs:
         with:
           rust-components: ""
           rust-targets: x86_64-linux-android
-          rust-cache-shared-key: rust-android-integration-apks
+          rust-cache-shared-key: rust-android-instrumented
           rust-cache-save: "false"
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
@@ -1116,108 +1120,41 @@ jobs:
           cp -r "$RUNNER_TEMP/native-shard-debug-x86_64/assetsBin-x86_64" "$assets_root/x86_64"
           find "$RUNNER_TEMP/prebuilt-integration" -maxdepth 3 -type f -print
 
-      - name: Build integration test APKs with prebuilt natives
-        env:
-          RUSTC_WRAPPER: sccache
-        run: |
-          ./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest \
-            -Pripdpi.nativeAbisOverride=x86_64 \
-            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
-            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin"
-
-      - name: Upload integration APKs
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: android-integration-apks
-          path: |
-            app/build/outputs/apk/github/debug/*.apk
-            app/build/outputs/apk/androidTest/github/debug/*.apk
-          if-no-files-found: error
-          retention-days: 7
-
-  android-integration-tests:
-    if: github.event_name != 'schedule'
-    needs: [android-integration-apks]
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        shard:
-          - name: service-native
-            classes: >-
-              com.poyka.ripdpi.integration.ServiceLifecycleIntegrationTest,com.poyka.ripdpi.integration.NativeBridgeInstrumentedTest
-          - name: ui
-            classes: >-
-              com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest,com.poyka.ripdpi.integration.MainActivityShellInstrumentedTest,com.poyka.ripdpi.integration.AutomationLaunchInstrumentedTest,com.poyka.ripdpi.integration.AutomationPermissionFlowInstrumentedTest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - uses: ./.github/actions/setup-android-rust
-        with:
-          rust-components: ""
-          rust-targets: ""
-          rust-cache-shared-key: rust-android
-          rust-cache-save: "false"
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
-
-      - name: Download integration APKs
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: android-integration-apks
-          path: ${{ runner.temp }}/android-integration-apks
-
       - name: Enable KVM for emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Provision integration emulator
+      - name: Install emulator and system image
         run: |
-          bash scripts/ci/start-android-emulator.sh \
-            --avd integration \
-            --api 34 \
-            --arch x86_64 \
-            --target aosp_atd \
-            --no-wait
+          android sdk install \
+            "cmdline-tools/latest" \
+            "emulator" \
+            "system-images/android-34/${{ matrix.system-image }}/x86_64"
 
-      - name: Wait for emulator
-        run: bash scripts/ci/wait-for-android-package-manager.sh
-
-      - name: Run connected Android integration tests
+      - name: Run instrumented tests on ${{ matrix.device }}
+        env:
+          RUSTC_WRAPPER: sccache
         run: |
-          bash scripts/ci/run-android-integration-emulator.sh \
-            --apk-dir "$RUNNER_TEMP/android-integration-apks" \
-            --classes "${{ matrix.shard.classes }}"
+          ./gradlew :app:${{ matrix.device }}GithubDebugAndroidTest \
+            -Pripdpi.nativeAbisOverride=x86_64 \
+            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
+            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration \
+            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 
-      - name: Capture integration emulator diagnostics
-        if: always()
-        run: |
-          bash scripts/ci/capture-android-emulator-diagnostics.sh \
-            --avd integration \
-            --output-dir "$RUNNER_TEMP/android-integration-diagnostics" \
-            --logcat-file android-logcat.txt
-
-      - name: Stop emulator
-        if: always()
-        run: bash scripts/ci/stop-android-emulator.sh --avd integration
-
-      - name: Upload Android integration artifacts
+      - name: Upload Android instrumented-test artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: android-integration-artifacts-${{ matrix.shard.name }}
+          name: android-instrumented-artifacts-${{ matrix.device }}
           path: |
-            android-logcat.txt
-            ${{ runner.temp }}/android-integration-diagnostics/
-            ${{ runner.temp }}/android-instrumented-target.txt
-            app/build/reports/androidTests/connected/
-            app/build/reports/coverage/
-            app/build/outputs/code_coverage/
-            app/build/outputs/androidTest-results/connected/
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            app/build/outputs/managed_device_android_test_additional_output/
           retention-days: 7
 
   rust-loom:

@@ -91,6 +91,11 @@ verify-spec-versions:
     python3 scripts/ci/verify_spec_versions.py
     bash scripts/ci/verify_spec_md_present.sh
 
+# Run :app instrumented tests on all CI managed devices (GMD)
+[group('test')]
+test-instrumented:
+    ./gradlew :app:ciDevicesGroupGithubDebugAndroidTest
+
 # ─── Lint ─────────────────────────────────────────────────────────
 
 # Run full Kotlin quality suite (detekt + ktlint + lint)

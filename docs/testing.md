@@ -314,6 +314,12 @@ Common commands:
 ./gradlew :app:connectedDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
 ```
 
+CI runs `:app` integration tests and the macrobenchmark suite on **Gradle Managed Devices**
+(the `android-instrumented-tests` and `android-macrobenchmark` jobs) — Pixel 6 / API 34,
+`aosp-atd` + `google_apis`. To reproduce on a managed emulator instead of a connected device,
+run `just test-instrumented` (or `./gradlew :app:pixel6Api34AtdGithubDebugAndroidTest`). The
+shared device registry lives in `build-logic/convention/src/main/kotlin/RipDpiManagedDevices.kt`.
+
 Useful runner filters:
 
 - `-Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration`

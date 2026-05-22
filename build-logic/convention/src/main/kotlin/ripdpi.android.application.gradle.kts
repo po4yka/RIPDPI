@@ -89,6 +89,8 @@ extensions.configure<ApplicationExtension> {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+
+    configureRipDpiManagedDevices()
 }
 
 extensions.configure<ApplicationAndroidComponentsExtension> {

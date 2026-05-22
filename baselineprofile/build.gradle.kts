@@ -1,5 +1,5 @@
 plugins {
-    id("com.android.test")
+    id("ripdpi.android.test")
 }
 
 android {
@@ -22,23 +22,7 @@ android {
 
     targetProjectPath = ":app"
     experimentalProperties["android.experimental.self-instrumenting"] = true
-
-    testOptions {
-        managedDevices {
-            localDevices {
-                create("pixel6Api34") {
-                    device = "Pixel 6"
-                    apiLevel = 34
-                    systemImageSource = "aosp"
-                }
-                create("pixel6Api34Atd") {
-                    device = "Pixel 6"
-                    apiLevel = 34
-                    systemImageSource = "aosp-atd"
-                }
-            }
-        }
-    }
+    // Managed devices (pixel6Api34Atd, pixel6Api34Google) come from ripdpi.android.test.
 }
 
 kotlin {
