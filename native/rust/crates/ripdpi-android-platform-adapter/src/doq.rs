@@ -12,7 +12,7 @@ use ripdpi_dns_resolver::{
     EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsErrorKind, EncryptedDnsProtocol,
     EncryptedDnsResolver, EncryptedDnsTransport,
 };
-use ripdpi_native_protect::{has_protect_callback, protect_socket_via_callback};
+use ripdpi_runtime_platform::protect::{has_protect_callback, protect_socket_via_callback};
 use serde::{Deserialize, Serialize};
 use tokio::time::timeout;
 

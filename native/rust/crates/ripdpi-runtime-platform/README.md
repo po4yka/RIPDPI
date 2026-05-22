@@ -78,16 +78,10 @@ deferred — none is a safe mechanical change today:
   change (`capability::detected_parallelism` → `process::detected_parallelism`)
   and would need every downstream caller updated plus a compatibility
   re-export.
-- **`protect` facade vs direct `ripdpi-native-protect` use.** `pub mod protect`
-  re-exports `ripdpi-native-protect`, but current workspace consumers import
-  `ripdpi-native-protect` directly and have zero references to
-  `ripdpi_runtime_platform::protect`. Either narrow `protect` to `pub(crate)`
-  (it would then exist only for the internal `vpn_protect` dispatch) or route
-  consumers through it — a deliberate decision, not a side-effect.
 - **`root_helper_client` visibility.** `pub mod root_helper_client` has no
   external workspace consumers; a live `RootHelperClient` is reachable only
   through the `root_helper` registry. It is a `pub(crate)` candidate, pending
-  the same deliberate decision as `protect`.
+  a deliberate visibility decision.
 - **OS-primitive sub-crate.** The nine OS-primitive adapter modules are a
   cohesive, dispatch-free group. If the crate grows further they could move to
   a dedicated `ripdpi-os-primitives` crate, leaving this crate as pure runtime

@@ -9,7 +9,7 @@ use base64::Engine;
 use bytes::Bytes;
 use http::header::{HeaderValue, LOCATION};
 use http::StatusCode;
-use ripdpi_native_protect::{register_protect_callback, unregister_protect_callback, ProtectCallback};
+use ripdpi_runtime_platform::protect::{register_protect_callback, unregister_protect_callback, ProtectCallback};
 use serde_json::Value;
 use url::Url;
 

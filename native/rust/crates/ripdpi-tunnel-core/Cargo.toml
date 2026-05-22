@@ -14,7 +14,7 @@ ripdpi-tun-driver = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-collections = { workspace = true }
 socket2 = { workspace = true }
-ripdpi-native-protect = { workspace = true }
+ripdpi-runtime-platform = { workspace = true }
 ripdpi-privileged-ops = { workspace = true }
 rustls = { workspace = true }
 ringbuf = { workspace = true }

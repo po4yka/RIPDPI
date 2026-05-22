@@ -16,7 +16,7 @@ hyper = { workspace = true }
 hyper-util = { workspace = true }
 jni = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
-ripdpi-native-protect = { workspace = true }
+ripdpi-runtime-platform = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 rustls = { workspace = true }
 serde = { workspace = true }

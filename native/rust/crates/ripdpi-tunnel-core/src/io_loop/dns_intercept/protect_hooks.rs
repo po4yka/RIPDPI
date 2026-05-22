@@ -36,8 +36,8 @@ fn bind_protected_udp(bind_addr: SocketAddr, protect_path: Option<&str>) -> io::
 }
 
 fn protect_socket_if_available<T: AsRawFd>(socket: &T, protect_path: Option<&str>) -> io::Result<()> {
-    if ripdpi_native_protect::has_protect_callback() {
-        return ripdpi_native_protect::protect_socket_via_callback(socket.as_raw_fd()).map_err(|error| {
+    if ripdpi_runtime_platform::protect::has_protect_callback() {
+        return ripdpi_runtime_platform::protect::protect_socket_via_callback(socket.as_raw_fd()).map_err(|error| {
             io::Error::new(error.kind(), format!("protect encrypted DNS socket via callback: {error}"))
         });
     }

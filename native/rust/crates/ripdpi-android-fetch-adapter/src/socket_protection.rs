@@ -4,7 +4,7 @@ use std::os::fd::AsRawFd;
 use std::time::Duration;
 
 use ripdpi_dns_resolver::EncryptedDnsConnectHooks;
-use ripdpi_native_protect::{has_protect_callback, protect_socket_via_callback};
+use ripdpi_runtime_platform::protect::{has_protect_callback, protect_socket_via_callback};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tokio::net::{TcpSocket, TcpStream};
 use tokio::time::timeout;
