@@ -9,6 +9,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -248,6 +249,15 @@ class Tun2SocksTunnel(
 
 const val defaultTun2SocksTunnelMtu: Int = 1500
 
+/**
+ * Current tunnel native-config wire schema version — carried as the additive
+ * `schemaVersion` field on [Tun2SocksConfig]. A payload with no `schemaVersion`
+ * is a legacy payload; the Rust side defaults it to this same value. Bumped
+ * only on a genuinely breaking shape change. See
+ * `docs/architecture/CONFIG_CONTRACTS.md` §8.
+ */
+const val Tun2SocksConfigSchemaVersion: Int = 1
+
 @Serializable
 data class Tun2SocksConfig(
     val tunnelName: String = "tun0",
@@ -294,4 +304,6 @@ data class Tun2SocksConfig(
     val logLevel: String = "warn",
     val limitNofile: Int? = null,
     val logContext: RipDpiLogContext? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val schemaVersion: Int = Tun2SocksConfigSchemaVersion,
 )

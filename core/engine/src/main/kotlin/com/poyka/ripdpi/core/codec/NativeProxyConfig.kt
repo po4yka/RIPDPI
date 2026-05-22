@@ -24,6 +24,8 @@ internal sealed interface NativeProxyConfig {
         val runtimeContext: NativeRuntimeContext? = null,
         val logContext: NativeLogContext? = null,
         val sessionOverrides: NativeSessionLocalProxyOverrides? = null,
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val schemaVersion: Int = NativeProxyConfigSchemaVersion,
     ) : NativeProxyConfig
 
     @Serializable
@@ -59,8 +61,19 @@ internal sealed interface NativeProxyConfig {
         val runtimeContext: NativeRuntimeContext? = null,
         val logContext: NativeLogContext? = null,
         val sessionOverrides: NativeSessionLocalProxyOverrides? = null,
+        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        val schemaVersion: Int = NativeProxyConfigSchemaVersion,
     ) : NativeProxyConfig
 }
+
+/**
+ * Current native-config wire schema version. Carried as the additive
+ * `schemaVersion` field on every [NativeProxyConfig] variant. A payload with no
+ * `schemaVersion` is a legacy payload — the Rust side defaults it to this same
+ * value. Bumped only on a genuinely breaking shape change; an additive field
+ * does not bump it. See `docs/architecture/CONFIG_CONTRACTS.md` §8.
+ */
+internal const val NativeProxyConfigSchemaVersion: Int = 1
 
 /**
  * Parses the wire form of [NativeProxyConfig.Ui.environmentKind] back into an
