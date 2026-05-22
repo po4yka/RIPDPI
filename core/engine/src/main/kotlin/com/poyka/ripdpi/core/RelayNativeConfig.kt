@@ -16,10 +16,12 @@ import kotlinx.serialization.Serializable
  * updating the Rust side in the same commit — see
  * `docs/architecture/CONFIG_CONTRACTS.md`.
  *
- * The `internal` `Relay*Section` models below give that flat field set a
- * concern-grouped structure for code within this module that builds or inspects
- * relay config; [toSections] and [RelayConfigSections.toResolvedConfig] convert
- * between the two losslessly. The section models never touch the wire — only
+ * The `Relay*Section` models below give that flat field set a concern-grouped
+ * structure: relay-config construction assembles the sections, then
+ * [RelayConfigSections.toResolvedConfig] flattens them into the wire DTO — the
+ * `core:service` resolver builds every [ResolvedRipDpiRelayConfig] this way.
+ * [toSections] is the lossless inverse, for code that inspects an existing
+ * config. The section models never touch the wire — only
  * [ResolvedRipDpiRelayConfig] is serialized — so they carry no `@Serializable`
  * annotation and impose no JSON-compatibility constraint.
  */
@@ -127,15 +129,16 @@ data class ResolvedRipDpiRelayConfig(
     val finalmask: ResolvedRelayFinalmaskConfig = ResolvedRelayFinalmaskConfig(),
 )
 
-// === Internal section models =============================================
+// === Section models ======================================================
 //
 // Each model groups one concern's slice of the flat [ResolvedRipDpiRelayConfig]
 // field set. Field names mirror the wire DTO 1:1 so [toSections] /
 // [RelayConfigSections.toResolvedConfig] are a flat, auditable mapping with no
-// renaming. These types are an in-module structuring aid only.
+// renaming. They are a construction- and inspection-time structuring aid; only
+// [ResolvedRipDpiRelayConfig] is serialized onto the JNI wire.
 
 /** Listener, transport-agnostic identity, and shared QUIC / TLS knobs. */
-internal data class RelayCommonSection(
+data class RelayCommonSection(
     val enabled: Boolean,
     val kind: String,
     val profileId: String,
@@ -153,7 +156,7 @@ internal data class RelayCommonSection(
 )
 
 /** VLESS Reality identity and transport (`reality_tcp` / `xhttp`). */
-internal data class RelayVlessSection(
+data class RelayVlessSection(
     val realityPublicKey: String,
     val realityShortId: String,
     val vlessTransport: String,
@@ -163,7 +166,7 @@ internal data class RelayVlessSection(
 )
 
 /** Chain-relay entry and exit hop fields. */
-internal data class RelayChainSection(
+data class RelayChainSection(
     val chainEntryServer: String,
     val chainEntryPort: Int,
     val chainEntryServerName: String,
@@ -181,7 +184,7 @@ internal data class RelayChainSection(
 )
 
 /** MASQUE endpoint, auth, and Privacy Pass fields. */
-internal data class RelayMasqueSection(
+data class RelayMasqueSection(
     val masqueUrl: String,
     val masqueUseHttp2Fallback: Boolean,
     val masqueCloudflareGeohashEnabled: Boolean,
@@ -195,7 +198,7 @@ internal data class RelayMasqueSection(
 )
 
 /** TUIC v5 transport tuning and credentials. */
-internal data class RelayTuicSection(
+data class RelayTuicSection(
     val tuicZeroRtt: Boolean,
     val tuicCongestionControl: String,
     val tuicUuid: String?,
@@ -203,20 +206,20 @@ internal data class RelayTuicSection(
 )
 
 /** ShadowTLS v3 inner-profile reference, resolved inner config, and credential. */
-internal data class RelayShadowTlsSection(
+data class RelayShadowTlsSection(
     val shadowTlsInnerProfileId: String,
     val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig?,
     val shadowTlsPassword: String?,
 )
 
 /** Hysteria2 credentials. */
-internal data class RelayHysteria2Section(
+data class RelayHysteria2Section(
     val hysteriaPassword: String?,
     val hysteriaSalamanderKey: String?,
 )
 
 /** Pluggable-transport fields: NaiveProxy plus obfs4 / WebTunnel / Snowflake. */
-internal data class RelayPluggableTransportSection(
+data class RelayPluggableTransportSection(
     val naivePath: String,
     val naiveUsername: String?,
     val naivePassword: String?,
@@ -227,7 +230,7 @@ internal data class RelayPluggableTransportSection(
 )
 
 /** Cloudflare Tunnel mode, publish origin, and credential references. */
-internal data class RelayCloudflareSection(
+data class RelayCloudflareSection(
     val cloudflareTunnelMode: String,
     val cloudflarePublishLocalOriginUrl: String,
     val cloudflareCredentialsRef: String,
@@ -236,7 +239,7 @@ internal data class RelayCloudflareSection(
 )
 
 /** Google Apps Script relay routing fields. */
-internal data class RelayAppsScriptSection(
+data class RelayAppsScriptSection(
     val appsScriptScriptIds: List<String>,
     val appsScriptGoogleIp: String,
     val appsScriptFrontDomain: String,
@@ -251,7 +254,7 @@ internal data class RelayAppsScriptSection(
  * The complete [ResolvedRipDpiRelayConfig] field set regrouped into section
  * models. Convert back to the flat wire DTO with [toResolvedConfig].
  */
-internal data class RelayConfigSections(
+data class RelayConfigSections(
     val common: RelayCommonSection,
     val vless: RelayVlessSection,
     val chain: RelayChainSection,
@@ -379,7 +382,7 @@ private fun ResolvedRipDpiRelayConfig.appsScriptSection(): RelayAppsScriptSectio
     )
 
 /** Regroup this flat relay config into concern-scoped [RelayConfigSections]. */
-internal fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
+fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
     RelayConfigSections(
         common = commonSection(),
         vless = vlessSection(),
@@ -399,7 +402,7 @@ internal fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
  * DTO. Inverse of [toSections]: `config.toSections().toResolvedConfig()`
  * reproduces `config` exactly.
  */
-internal fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
+fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
     ResolvedRipDpiRelayConfig(
         enabled = common.enabled,
         kind = common.kind,

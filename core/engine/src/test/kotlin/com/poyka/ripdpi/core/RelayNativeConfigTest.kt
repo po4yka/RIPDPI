@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Pins the [ResolvedRipDpiRelayConfig] wire contract and proves the `internal`
+ * Pins the [ResolvedRipDpiRelayConfig] wire contract and proves the
  * [RelayConfigSections] decomposition is lossless.
  *
  * [ResolvedRipDpiRelayConfig] is the JSON payload `RipDpiRelay` hands to the
@@ -80,26 +80,123 @@ class RelayNativeConfigTest {
         assertTrue("defaulted keys stay absent", wireObject.keys.none { it in defaultedWireKeys })
     }
 
+    // One focused config per relay kind: each sets its concern's section
+    // fields off-default so a misrouted field in toSections/toResolvedConfig
+    // surfaces as that kind's round-trip or JSON-preservation failure.
     private fun representativeConfigs(): List<ResolvedRipDpiRelayConfig> =
         listOf(
-            baseConfig("vless_reality"),
-            baseConfig("chain_relay"),
-            baseConfig("masque"),
-            baseConfig("shadowtls_v3").copy(
-                shadowTlsInner =
-                    ResolvedShadowTlsInnerRelayConfig(
-                        kind = "vless_reality",
-                        profileId = "inner-profile",
-                        server = "inner.example",
-                        serverPort = 8443,
-                        serverName = "inner-name.example",
-                        realityPublicKey = "inner-public-key",
-                        realityShortId = "inner-short-id",
-                        vlessTransport = "xhttp",
-                        vlessUuid = "inner-uuid",
-                    ),
-            ),
+            vlessRealityTcpConfig(),
+            vlessXhttpConfig(),
+            masqueConfig(),
+            tuicConfig(),
+            hysteria2Config(),
+            shadowTlsConfig(),
+            chainRelayConfig(),
+            cloudflareTunnelConfig(),
+            appsScriptConfig(),
+            finalmaskConfig(),
             fullyPopulatedRelayConfig(),
+        )
+
+    // --- Representative per-kind configs -------------------------------------
+
+    /** VLESS Reality over the default direct-TCP transport. */
+    private fun vlessRealityTcpConfig(): ResolvedRipDpiRelayConfig =
+        baseConfig("vless_reality").copy(vlessUuid = "vless-reality-uuid")
+
+    /** VLESS Reality over the xHTTP transport, exercising the xHTTP fields. */
+    private fun vlessXhttpConfig(): ResolvedRipDpiRelayConfig =
+        baseConfig("vless_reality").copy(
+            vlessTransport = "xhttp",
+            xhttpPath = "/xhttp/path",
+            xhttpHost = "xhttp.host.example",
+            vlessUuid = "vless-xhttp-uuid",
+        )
+
+    private fun masqueConfig(): ResolvedRipDpiRelayConfig =
+        baseConfig("masque").copy(
+            masqueCloudflareGeohashEnabled = true,
+            masqueAuthMode = "token",
+            masqueAuthToken = placeholder(1),
+            masqueCloudflareGeohashHeader = "masque-geohash-header",
+            masquePrivacyPassProviderUrl = "https://privacy-pass.example",
+            masquePrivacyPassProviderAuthToken = placeholder(2),
+        )
+
+    private fun tuicConfig(): ResolvedRipDpiRelayConfig =
+        baseConfig("tuic_v5").copy(
+            tuicZeroRtt = true,
+            tuicCongestionControl = "cubic",
+            tuicUuid = "tuic-uuid",
+            tuicPassword = placeholder(3),
+        )
+
+    private fun hysteria2Config(): ResolvedRipDpiRelayConfig =
+        baseConfig("hysteria2").copy(
+            hysteriaPassword = placeholder(4),
+            hysteriaSalamanderKey = "hysteria-salamander-key",
+        )
+
+    private fun shadowTlsConfig(): ResolvedRipDpiRelayConfig =
+        baseConfig("shadowtls_v3").copy(
+            shadowTlsInnerProfileId = "shadowtls-inner-profile-id",
+            shadowTlsPassword = placeholder(5),
+            shadowTlsInner =
+                ResolvedShadowTlsInnerRelayConfig(
+                    kind = "vless_reality",
+                    profileId = "inner-profile",
+                    server = "inner.example",
+                    serverPort = 8443,
+                    serverName = "inner-name.example",
+                    realityPublicKey = "inner-public-key",
+                    realityShortId = "inner-short-id",
+                    vlessTransport = "xhttp",
+                    vlessUuid = "inner-uuid",
+                ),
+        )
+
+    private fun chainRelayConfig(): ResolvedRipDpiRelayConfig =
+        baseConfig("chain_relay").copy(
+            chainEntryProfileId = "chain-entry-profile-id",
+            chainEntryUuid = "chain-entry-uuid",
+            chainExitProfileId = "chain-exit-profile-id",
+            chainExitUuid = "chain-exit-uuid",
+        )
+
+    private fun cloudflareTunnelConfig(): ResolvedRipDpiRelayConfig =
+        baseConfig("cloudflare_tunnel").copy(
+            cloudflareTunnelMode = "publish_managed",
+            cloudflarePublishLocalOriginUrl = "http://origin.local",
+            cloudflareCredentialsRef = "credentials-ref",
+            cloudflareTunnelToken = placeholder(6),
+            cloudflareTunnelCredentialsJson = "{\"cloudflare\":\"credentials\"}",
+        )
+
+    private fun appsScriptConfig(): ResolvedRipDpiRelayConfig =
+        baseConfig("google_apps_script").copy(
+            appsScriptScriptIds = listOf("apps-script-id-a", "apps-script-id-b"),
+            appsScriptGoogleIp = "10.1.2.3",
+            appsScriptFrontDomain = "apps-script-front.example",
+            appsScriptSniHosts = listOf("apps-script-sni.example"),
+            appsScriptVerifySsl = !DefaultRelayAppsScriptVerifySsl,
+            appsScriptParallelRelay = true,
+            appsScriptDirectHosts = listOf("apps-script-direct.example"),
+            appsScriptAuthKey = "apps-script-auth-key",
+        )
+
+    private fun finalmaskConfig(): ResolvedRipDpiRelayConfig =
+        baseConfig("vless_reality").copy(
+            finalmask =
+                ResolvedRelayFinalmaskConfig(
+                    type = "header_custom",
+                    headerHex = "aabb",
+                    trailerHex = "ccdd",
+                    randRange = "8-12",
+                    sudokuSeed = "finalmask-seed",
+                    fragmentPackets = 3,
+                    fragmentMinBytes = 32,
+                    fragmentMaxBytes = 96,
+                ),
         )
 
     // All 24 required fields, each with a distinct value so a misrouted field
