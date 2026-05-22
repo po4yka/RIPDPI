@@ -130,6 +130,17 @@ mod tests {
     }
 
     #[test]
+    fn warp_idle_telemetry_json_carries_schema_version() {
+        // The unknown-handle fallback in `poll` returns IDLE_TELEMETRY_JSON
+        // verbatim instead of going through `snapshot_from_telemetry`, so the
+        // hand-written constant needs its own schemaVersion guard. See
+        // docs/architecture/TELEMETRY_CONTRACT.md.
+        let value: serde_json::Value = serde_json::from_str(IDLE_TELEMETRY_JSON).expect("idle telemetry json is valid");
+        assert_eq!(value["schemaVersion"], serde_json::json!(SNAPSHOT_SCHEMA_VERSION));
+        assert_eq!(value["source"], serde_json::json!("warp"));
+    }
+
+    #[test]
     fn warp_snapshot_drains_runtime_ready_event_once() {
         let buffers = EventRingBuffers::new(RingConfig::default());
         let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));

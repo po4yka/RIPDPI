@@ -86,7 +86,7 @@ mod tests {
     use ripdpi_relay_core::RelayTelemetry as StandardRelayTelemetry;
     use tracing_subscriber::prelude::*;
 
-    use super::{NativeRuntimeEvent, NativeRuntimeSnapshot, SNAPSHOT_SCHEMA_VERSION};
+    use super::{NativeRuntimeEvent, NativeRuntimeSnapshot, IDLE_TELEMETRY_JSON, SNAPSHOT_SCHEMA_VERSION};
 
     fn sample_telemetry() -> StandardRelayTelemetry {
         StandardRelayTelemetry {
@@ -137,6 +137,17 @@ mod tests {
         };
         let value = serde_json::to_value(&snapshot).expect("serialize relay snapshot");
         assert_eq!(value["schemaVersion"], serde_json::json!(1));
+    }
+
+    #[test]
+    fn relay_idle_telemetry_json_carries_schema_version() {
+        // The unknown-handle fallback in `relay_poll_telemetry_entry` returns
+        // IDLE_TELEMETRY_JSON verbatim instead of going through
+        // `snapshot_from_telemetry`, so the hand-written constant needs its own
+        // schemaVersion guard. See docs/architecture/TELEMETRY_CONTRACT.md.
+        let value: serde_json::Value = serde_json::from_str(IDLE_TELEMETRY_JSON).expect("idle telemetry json is valid");
+        assert_eq!(value["schemaVersion"], serde_json::json!(SNAPSHOT_SCHEMA_VERSION));
+        assert_eq!(value["source"], serde_json::json!("relay"));
     }
 
     #[test]

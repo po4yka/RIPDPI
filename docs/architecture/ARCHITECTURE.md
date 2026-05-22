@@ -45,7 +45,9 @@ must fully function on **non-rooted devices**; root features degrade gracefully.
 ## 3. Android module ownership map
 
 Modules from [`settings.gradle.kts`](../../settings.gradle.kts). Dependency
-direction flows downward (`:app` depends on everything below it).
+direction flows downward (`:app` depends on everything below it). An
+auto-generated Mermaid dependency graph is kept at
+[`MODULE_GRAPH.md`](MODULE_GRAPH.md) — regenerate with `just module-graph`.
 
 | Module | Owns |
 |--------|------|
@@ -218,6 +220,7 @@ a per-socket (not per-packet) control-plane call required by the
 | Domain term definitions | [`architecture/GLOSSARY.md`](GLOSSARY.md) |
 | Runtime modes — proxy, VPN/TUN, diagnostics, relay, root helper | [`architecture/RUNTIME_MODES.md`](RUNTIME_MODES.md) |
 | Compact architecture notes (ownership, runtime behavior, follow-ups) | [`architecture/README.md`](README.md) |
+| Auto-generated inter-module dependency graph (Mermaid) | [`architecture/MODULE_GRAPH.md`](MODULE_GRAPH.md) |
 | Native Rust workspace taxonomy + dependency direction | [`architecture/NATIVE_RUST.md`](NATIVE_RUST.md) |
 | Adding a feature safely (strategy, relay, probe, setting, …) | [`architecture/FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) |
 | Kotlin ↔ Rust JNI boundary contract | [`architecture/JNI_CONTRACT.md`](JNI_CONTRACT.md) |

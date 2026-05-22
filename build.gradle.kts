@@ -30,7 +30,19 @@ plugins {
     alias(libs.plugins.ktlint) apply false
     alias(libs.plugins.roborazzi) apply false
     alias(libs.plugins.compose.preview) apply false
+    alias(libs.plugins.module.graph)
     jacoco
+}
+
+// Generates docs/architecture/MODULE_GRAPH.md -- a Mermaid graph of inter-module
+// dependencies. Regenerate with `./gradlew createModuleGraph` (or `just module-graph`);
+// CI fails (gradle-static-analysis job) if the committed file is stale.
+moduleGraphConfig {
+    readmePath = "docs/architecture/MODULE_GRAPH.md"
+    heading = "## Module Graph"
+    showFullPath = false
+    setStyleByModuleType = true
+    excludedConfigurationsRegex = ".*(test|androidTest|ksp|kapt).*"
 }
 
 @CacheableTask

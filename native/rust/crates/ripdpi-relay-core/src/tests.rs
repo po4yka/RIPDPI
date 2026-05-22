@@ -1,6 +1,8 @@
 use std::io;
 use std::time::Duration;
 
+use ripdpi_relay_mux::RelayPoolConfig;
+
 use crate::backend::{build_backend, RelayBackend};
 use crate::config::{
     ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig, MasqueRelayConfig,
@@ -9,8 +11,8 @@ use crate::config::{
 };
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
-    describe_upstream, planned_backend_capabilities, pool_config_for_backend, validate_finalmask_config,
-    validate_runtime_config,
+    describe_upstream, planned_backend_capabilities, planned_backend_fallback_mode, pool_config_for_backend,
+    validate_finalmask_config, validate_runtime_config,
 };
 
 fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
@@ -420,30 +422,74 @@ fn relay_planned_capabilities_are_pinned_for_every_kind() {
     assert_outbound_bind_ip_support("totally_unknown", &unsupported, true);
 }
 
-/// Drift guard: every `RelayKind` maps to exactly one transport descriptor and
-/// every descriptor `kind_id` maps back to a supported (non-`Unsupported`)
-/// `RelayKind`. The `descriptor_kind_id` match is exhaustive, so a new
-/// `RelayKind` variant fails to compile here until the table is extended.
+/// How the relay runtime dispatches a concrete `relay_kind`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RelayDispatchClass {
+    /// Served in-process: a `BUILDERS` entry constructs a `RelayBackend`
+    /// variant, and a `RELAY_TRANSPORT_DESCRIPTORS` row records its profile.
+    InProcessBackend,
+    /// A concrete kind with a descriptor row but no in-process backend builder;
+    /// it routes through an out-of-process subprocess. NaiveProxy is the only
+    /// such kind today -- `planned_backend_fallback_mode` reports `"subprocess"`
+    /// and `build_backend` deliberately yields `RelayBackend::Unsupported`.
+    SubprocessFallback,
+    /// Not a relay transport (`"off"`, unknown kinds): no builder, no descriptor.
+    Unsupported,
+}
+
+/// Exhaustive dispatch classification for every `RelayKind`. Adding a new
+/// `RelayKind` variant fails to compile here until its dispatch path is
+/// declared -- the drift guard tying the descriptor table to the
+/// builder/runtime-dispatch surface.
+fn relay_dispatch_class(kind: RelayKind<'_>) -> RelayDispatchClass {
+    match kind {
+        RelayKind::Hysteria2
+        | RelayKind::TuicV5
+        | RelayKind::VlessReality { .. }
+        | RelayKind::CloudflareTunnel
+        | RelayKind::ChainRelay
+        | RelayKind::Masque
+        | RelayKind::ShadowTlsV3 => RelayDispatchClass::InProcessBackend,
+        RelayKind::NaiveProxy => RelayDispatchClass::SubprocessFallback,
+        RelayKind::Unsupported(_) => RelayDispatchClass::Unsupported,
+    }
+}
+
+/// Compile-time drift guard for the runtime-dispatch backend enum. The
+/// `dispatch_pooled_backend!` macro routes SOCKS traffic by `RelayBackend`
+/// variant; this maps each variant back to the `relay_kind` it serves. A new
+/// `RelayBackend` variant fails to compile here until it is mapped, which
+/// forces a matching descriptor row. `Unsupported` carries no `relay_kind`.
+fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static str> {
+    match backend {
+        RelayBackend::Hysteria2(_) => Some("hysteria2"),
+        RelayBackend::Tuic(_) => Some("tuic_v5"),
+        RelayBackend::VlessReality(_) | RelayBackend::Xhttp(_) => Some("vless_reality"),
+        RelayBackend::ChainRelay(_) => Some("chain_relay"),
+        RelayBackend::Masque(_) => Some("masque"),
+        RelayBackend::ShadowTls(_) => Some("shadowtls_v3"),
+        RelayBackend::Unsupported { .. } => None,
+    }
+}
+
+/// Single relay-kind inventory cross-check tying `RELAY_TRANSPORT_DESCRIPTORS`
+/// to the builder/runtime-dispatch surface:
+///
+/// * every concrete `RelayKind` resolves to exactly one descriptor;
+/// * every descriptor `kind_id` resolves back to a supported, dispatched kind;
+/// * `"off"` / unknown kinds have no descriptor;
+/// * every builder/runtime-dispatch kind has a descriptor, with NaiveProxy the
+///   one documented subprocess-fallback exception (descriptor, no builder).
+///
+/// `relay_dispatch_class` and `relay_backend_kind_id` are both exhaustive
+/// matches, so a new `RelayKind` or `RelayBackend` variant fails to compile
+/// until the table is extended.
 #[test]
-fn relay_transport_descriptors_cover_every_kind_exactly_once() {
+fn relay_kind_inventory_is_consistent() {
     use crate::transport_descriptor::{relay_transport_descriptor, RELAY_TRANSPORT_DESCRIPTORS};
 
-    fn descriptor_kind_id(kind: RelayKind<'_>) -> Option<&'static str> {
-        match kind {
-            RelayKind::Hysteria2 => Some("hysteria2"),
-            RelayKind::TuicV5 => Some("tuic_v5"),
-            RelayKind::VlessReality { .. } => Some("vless_reality"),
-            RelayKind::CloudflareTunnel => Some("cloudflare_tunnel"),
-            RelayKind::ChainRelay => Some("chain_relay"),
-            RelayKind::Masque => Some("masque"),
-            RelayKind::ShadowTlsV3 => Some("shadowtls_v3"),
-            RelayKind::NaiveProxy => Some("naiveproxy"),
-            RelayKind::Unsupported(_) => None,
-        }
-    }
-
-    // One config per concrete RelayKind, both VLESS sub-modes, and an
-    // unsupported kind. `from_config` drives the classification.
+    // One config per concrete RelayKind, both VLESS sub-modes, plus "off" and an
+    // unknown kind. `from_config` drives the classification.
     let mut vless_xhttp = sample_config("vless_reality");
     vless_config_mut(&mut vless_xhttp).vless_transport = "xhttp".to_string();
     let configs = [
@@ -456,31 +502,50 @@ fn relay_transport_descriptors_cover_every_kind_exactly_once() {
         sample_config("masque"),
         sample_config("shadowtls_v3"),
         sample_config("naiveproxy"),
+        sample_config("off"),
         sample_config("totally_unknown"),
     ];
 
-    // Forward: every concrete kind resolves to exactly one descriptor row;
-    // the Unsupported catch-all resolves to none.
-    let mut covered = std::collections::BTreeSet::new();
+    // Forward: every dispatched (in-process or subprocess) kind resolves to
+    // exactly one descriptor row; "off"/unknown kinds resolve to none.
+    let mut descriptor_backed = std::collections::BTreeSet::new();
     for config in &configs {
-        match descriptor_kind_id(RelayKind::from_config(config)) {
-            Some(kind_id) => {
-                assert_eq!(kind_id, config.kind_id(), "RelayKind / config kind_id disagree");
+        let kind_id = config.kind_id();
+        let descriptor = relay_transport_descriptor(kind_id);
+        match relay_dispatch_class(RelayKind::from_config(config)) {
+            RelayDispatchClass::InProcessBackend | RelayDispatchClass::SubprocessFallback => {
+                let descriptor =
+                    descriptor.unwrap_or_else(|| panic!("dispatched relay kind {kind_id} must have a descriptor"));
+                assert_eq!(kind_id, descriptor.kind_id, "descriptor kind_id round-trip for {kind_id}");
                 let rows = RELAY_TRANSPORT_DESCRIPTORS.iter().filter(|d| d.kind_id == kind_id).count();
                 assert_eq!(1, rows, "{kind_id} must have exactly one descriptor row");
-                assert!(relay_transport_descriptor(kind_id).is_some(), "{kind_id} must resolve to a descriptor");
-                covered.insert(kind_id);
+                descriptor_backed.insert(kind_id);
             }
-            None => assert!(
-                relay_transport_descriptor(config.kind_id()).is_none(),
-                "Unsupported relay kind {} must not resolve to a descriptor",
-                config.kind_id(),
-            ),
+            RelayDispatchClass::Unsupported => {
+                assert!(descriptor.is_none(), "unsupported/off relay kind {kind_id} must not resolve to a descriptor");
+            }
         }
     }
 
-    // Reverse: every descriptor row is reachable from a supported RelayKind,
-    // and the table holds exactly the concrete kinds -- no orphan rows.
+    // NaiveProxy is the one documented exception: a concrete, descriptor-backed
+    // kind with no in-process builder -- it dispatches to the subprocess
+    // fallback rather than a `RelayBackend` variant.
+    assert_eq!(RelayDispatchClass::SubprocessFallback, relay_dispatch_class(RelayKind::NaiveProxy));
+    assert!(relay_transport_descriptor("naiveproxy").is_some(), "naiveproxy keeps a descriptor row");
+
+    // Every in-process `RelayBackend` dispatch variant maps to a descriptor.
+    // `relay_backend_kind_id` is exhaustive: a new variant breaks compilation.
+    assert_eq!(None, relay_backend_kind_id(&RelayBackend::Unsupported { kind: "off".to_string() }));
+    for kind_id in ["hysteria2", "tuic_v5", "vless_reality", "chain_relay", "masque", "shadowtls_v3"] {
+        assert!(
+            relay_transport_descriptor(kind_id).is_some(),
+            "runtime-dispatch backend kind {kind_id} must have a descriptor",
+        );
+    }
+
+    // Reverse: every descriptor row is a dispatched, supported kind, the lookup
+    // round-trips, and the table holds exactly the dispatched kinds -- no
+    // orphan rows.
     for descriptor in RELAY_TRANSPORT_DESCRIPTORS {
         assert!(descriptor.tcp, "{} descriptor: every relay transport relays TCP", descriptor.kind_id);
         assert!(!descriptor.label.is_empty(), "{} descriptor needs a label", descriptor.kind_id);
@@ -490,19 +555,82 @@ fn relay_transport_descriptors_cover_every_kind_exactly_once() {
             "{} descriptor lookup must round-trip",
             descriptor.kind_id,
         );
-        assert!(
-            !matches!(RelayKind::from_config(&sample_config(descriptor.kind_id)), RelayKind::Unsupported(_)),
-            "descriptor kind {} must map to a supported RelayKind",
+        assert_ne!(
+            RelayDispatchClass::Unsupported,
+            relay_dispatch_class(RelayKind::from_config(&sample_config(descriptor.kind_id))),
+            "descriptor kind {} must map to a dispatched RelayKind",
             descriptor.kind_id,
         );
-        assert!(covered.contains(descriptor.kind_id), "descriptor kind {} is unreachable", descriptor.kind_id);
+        assert!(
+            descriptor_backed.contains(descriptor.kind_id),
+            "descriptor kind {} is unreachable",
+            descriptor.kind_id
+        );
     }
     assert_eq!(
         RELAY_TRANSPORT_DESCRIPTORS.len(),
-        covered.len(),
-        "descriptor count must equal the number of concrete relay kinds",
+        descriptor_backed.len(),
+        "descriptor count must equal the number of dispatched relay kinds",
     );
 
     assert!(relay_transport_descriptor("off").is_none(), "\"off\" is not a relay transport");
     assert!(relay_transport_descriptor("totally_unknown").is_none(), "unknown kinds have no descriptor");
+}
+
+/// Pins `planned_backend_fallback_mode` and `pool_config_for_backend` for every
+/// concrete `RelayKind`. Both stay `match RelayKind` decisions -- pool sizing is
+/// transport-family tuning and the NaiveProxy subprocess fallback is
+/// backend-specific, so neither moved onto `RelayTransportDescriptor`. This test
+/// pins them against literal expectations so a wrong arm is caught here.
+///
+/// (`planned_backend_capabilities` and outbound-bind-IP validation are pinned
+/// for every kind by `relay_planned_capabilities_are_pinned_for_every_kind`.)
+#[test]
+fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
+    // kind_id, fallback_mode, pool max_active_leases, pool idle_timeout (secs)
+    let pinned: [(&str, Option<&str>, usize, u64); 8] = [
+        ("hysteria2", None, 64, 45),
+        ("tuic_v5", None, 64, 45),
+        ("vless_reality", None, 16, 5), // reality_tcp sub-mode
+        ("cloudflare_tunnel", None, 48, 20),
+        ("chain_relay", None, 16, 5),
+        ("masque", None, 64, 45),
+        ("shadowtls_v3", None, 16, 5),
+        ("naiveproxy", Some("subprocess"), 16, 5),
+    ];
+
+    for (kind_id, fallback, leases, idle_secs) in pinned {
+        let config = sample_config(kind_id);
+        assert_eq!(
+            fallback.map(str::to_string),
+            planned_backend_fallback_mode(&config),
+            "planned fallback mode drifted for {kind_id}",
+        );
+        let pool = pool_config_for_backend(&config);
+        assert_eq!(leases, pool.max_active_leases, "pool leases drifted for {kind_id}");
+        assert_eq!(Duration::from_secs(idle_secs), pool.idle_timeout, "pool idle timeout drifted for {kind_id}");
+    }
+
+    // VLESS Reality's `xhttp` sub-mode keeps the capability-bearing (None)
+    // fallback mode but takes the xhttp-family pool policy -- a `match
+    // RelayKind` sub-mode decision that the single `vless_reality` descriptor
+    // cannot express.
+    let mut vless_xhttp = sample_config("vless_reality");
+    vless_config_mut(&mut vless_xhttp).vless_transport = "xhttp".to_string();
+    assert_eq!(None, planned_backend_fallback_mode(&vless_xhttp));
+    let xhttp_pool = pool_config_for_backend(&vless_xhttp);
+    assert_eq!(48, xhttp_pool.max_active_leases, "vless xhttp pool leases");
+    assert_eq!(Duration::from_secs(20), xhttp_pool.idle_timeout, "vless xhttp pool idle timeout");
+
+    // The Unsupported catch-all reports an `unsupported:<kind>` fallback and the
+    // default pool config.
+    let unsupported = sample_config("totally_unknown");
+    assert_eq!(
+        Some("unsupported:totally_unknown".to_string()),
+        planned_backend_fallback_mode(&unsupported),
+        "unsupported relay kind must report an unsupported fallback mode",
+    );
+    let default_pool = pool_config_for_backend(&unsupported);
+    assert_eq!(RelayPoolConfig::default().max_active_leases, default_pool.max_active_leases);
+    assert_eq!(RelayPoolConfig::default().idle_timeout, default_pool.idle_timeout);
 }

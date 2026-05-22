@@ -123,6 +123,11 @@ fmt-check:
     echo "Checking Rust formatting..."
     cargo fmt --manifest-path {{rust_dir}}/Cargo.toml --all --check
 
+# Regenerate the module dependency graph (docs/architecture/MODULE_GRAPH.md)
+[group('lint')]
+module-graph:
+    ./gradlew createModuleGraph -Pripdpi.skipNativeBuild=true
+
 # ─── Run ──────────────────────────────────────────────────────────
 
 # Run desktop CLI proxy (e.g., just run-cli, just run-cli 8080 2)

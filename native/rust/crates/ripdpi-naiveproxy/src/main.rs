@@ -49,7 +49,11 @@ mod probe_tests {
         assert!(line.starts_with("RIPDPI-PROBE "), "probe line missing marker: {line}");
 
         let json_part = line.trim_start_matches("RIPDPI-PROBE ");
-        // Fields the Android manager parses.
+        // Fields the Android manager parses. NOTE: this `schema_version` is the
+        // helper probe-line schema -- a pre-launch capability handshake
+        // (snake_case key, hand-formatted, no serde). It is deliberately NOT
+        // the runtime telemetry `NativeRuntimeSnapshot` schema and emits no
+        // `schemaVersion` (camelCase) key. See docs/architecture/TELEMETRY_CONTRACT.md.
         assert!(json_part.contains("\"schema_version\":1"), "missing schema_version: {json_part}");
         assert!(json_part.contains("\"helper_version\":\"0.1.0\""), "missing helper_version: {json_part}");
         assert!(json_part.contains("\"features\":[\"a\",\"b\"]"), "wrong features array: {json_part}");

@@ -20,6 +20,7 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 ./gradlew testDebugUnitTest           # Run all unit tests
 ./gradlew :core:data:testDebugUnitTest  # Run tests for a single module
 ./gradlew staticAnalysis              # Run detekt + ktlint + Android lint
+./gradlew createModuleGraph           # Regenerate docs/architecture/MODULE_GRAPH.md (or: just module-graph)
 ```
 
 ## Project Rules
