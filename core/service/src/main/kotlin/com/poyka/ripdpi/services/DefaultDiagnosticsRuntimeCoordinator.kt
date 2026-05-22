@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlCommand
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlPlane
@@ -56,8 +57,8 @@ internal class DefaultDiagnosticsRuntimeCoordinator
         override suspend fun runRawPathScan(block: suspend () -> Unit) {
             reportingScanActivity("Raw-path scan") {
                 val (status, mode) = serviceStateStore.status.value
-                val shouldResume =
-                    status == AppStatus.Running && appSettingsRepository.snapshot().diagnosticsAutoResumeAfterRawScan
+                val diagnostics = appSettingsRepository.snapshot().toSettingsSections().diagnostics
+                val shouldResume = status == AppStatus.Running && diagnostics.diagnosticsAutoResumeAfterRawScan
 
                 if (status == AppStatus.Running) {
                     runtimeControlPlane.execute(

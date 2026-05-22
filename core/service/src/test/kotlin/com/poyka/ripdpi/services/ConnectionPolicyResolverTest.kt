@@ -26,6 +26,7 @@ import com.poyka.ripdpi.data.PreferredEdgeIpVersionV4
 import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
 import com.poyka.ripdpi.data.PreferredStack
 import com.poyka.ripdpi.data.QuicMode
+import com.poyka.ripdpi.data.RootSettingsSection
 import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.TcpFamily
 import com.poyka.ripdpi.data.TransportPolicy
@@ -429,10 +430,10 @@ class ConnectionPolicyResolverTest {
 
         override suspend fun syncRootMode(
             context: Context,
-            rootModeEnabled: Boolean,
+            root: RootSettingsSection,
         ): String? {
-            syncCalls += rootModeEnabled
-            activePath = startedSocketPath.takeIf { rootModeEnabled }
+            syncCalls += root.rootModeEnabled
+            activePath = startedSocketPath.takeIf { root.rootModeEnabled }
             return activePath
         }
 
