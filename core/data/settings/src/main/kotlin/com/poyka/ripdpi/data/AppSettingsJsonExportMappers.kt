@@ -9,7 +9,7 @@ internal fun AppSettings.toSnapshot(): AppSettingsSnapshot =
                 appTheme = appTheme,
                 mode = Mode.fromString(ripdpiMode.ifEmpty { AppSettingsSerializer.defaultValue.ripdpiMode }),
             ),
-    ).withDnsSnapshot(this)
+    ).withDnsSnapshot(toSettingsSections().dns, ipv6Enable)
         .withProxyDesyncSnapshot(this)
         .withQuicAdaptiveSnapshot(this)
         .withWarpSnapshot(this)
