@@ -40,6 +40,7 @@ These jobs exist in CI but are not curated by the wrapper yet:
 | `coverage` | Heavy | `./gradlew coverageReport` plus `bash scripts/ci/run-rust-coverage.sh` |
 | `rust-criterion-bench` | Likely | `cd native/rust && cargo bench --package ripdpi-bench` |
 | `android-macrobenchmark` | No | Needs emulator/KVM; use GitHub CI or a native Linux host |
+| `android-instrumented-tests` | No | GMD instrumented-test matrix; needs emulator/KVM -- use GitHub CI |
 | `rust-loom` | Likely | `cd native/rust && cargo test --features loom -- loom` |
 | `rust-native-load` | Maybe | `bash scripts/ci/run-rust-native-load.sh` |
 | `nightly-rust-coverage` | Heavy | Use the repo coverage scripts directly |

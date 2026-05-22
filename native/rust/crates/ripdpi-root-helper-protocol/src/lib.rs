@@ -1,10 +1,12 @@
 //! Root helper IPC protocol facade.
 
+mod command_descriptor;
 mod commands;
 mod params;
 mod scm_rights;
 mod wire;
 
+pub use command_descriptor::{command_descriptor, CommandDescriptor, COMMAND_DESCRIPTORS};
 pub use commands::{
     CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
     CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP,

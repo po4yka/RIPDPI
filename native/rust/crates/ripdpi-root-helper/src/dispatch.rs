@@ -61,3 +61,57 @@ where
 fn require_fd(received_fd: Option<RawFd>, error: &'static str) -> Result<RawFd, protocol::HelperResponse> {
     received_fd.ok_or_else(|| protocol::HelperResponse::error(error))
 }
+
+#[cfg(test)]
+mod tests {
+    use ripdpi_root_helper_protocol::{HelperRequest, COMMAND_DESCRIPTORS};
+
+    use super::dispatch_command;
+
+    fn request_for(command: &str) -> HelperRequest {
+        HelperRequest { command: command.to_string(), params: serde_json::json!({}), session_nonce: None }
+    }
+
+    /// Every command in the protocol descriptor inventory must resolve to a
+    /// real dispatch arm — never the `unknown command` catch-all. Each request
+    /// carries empty params and no fd, so fd-requiring handlers stop at the
+    /// `require_fd` gate and typed-params handlers stop at `decode_params`,
+    /// before any privileged syscall — the test needs no root.
+    #[test]
+    fn every_command_descriptor_has_a_dispatch_handler() {
+        for descriptor in COMMAND_DESCRIPTORS {
+            let outcome = dispatch_command(&request_for(descriptor.command), None);
+            let error = outcome.response.error.clone().unwrap_or_default();
+            assert!(
+                !error.starts_with("unknown command"),
+                "no dispatch handler for `{}` (response error: {error:?})",
+                descriptor.command,
+            );
+        }
+    }
+
+    /// The discriminator the coverage test relies on: an unrecognized command
+    /// really does fall through to the `unknown command` catch-all.
+    #[test]
+    fn unknown_command_falls_through_to_the_catch_all() {
+        let outcome = dispatch_command(&request_for("totally_unknown_command_v999"), None);
+        let error = outcome.response.error.unwrap_or_default();
+        assert!(error.starts_with("unknown command"), "unexpected response for an unknown command: {error:?}");
+    }
+
+    /// A descriptor that requires an inbound fd must make dispatch reject a
+    /// request that arrives without one — this ties the descriptor's
+    /// `requires_inbound_fd` flag to the helper's `require_fd` gate.
+    #[test]
+    fn fd_requiring_commands_reject_a_missing_inbound_fd() {
+        for descriptor in COMMAND_DESCRIPTORS {
+            if !descriptor.requires_inbound_fd {
+                continue;
+            }
+            let outcome = dispatch_command(&request_for(descriptor.command), None);
+            assert!(!outcome.response.ok, "{} must fail without an inbound fd", descriptor.command);
+            let error = outcome.response.error.unwrap_or_default();
+            assert!(error.contains("fd"), "{} should report a missing-fd error, got: {error:?}", descriptor.command,);
+        }
+    }
+}

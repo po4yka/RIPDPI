@@ -22,6 +22,12 @@ Wall time = `updatedAt - createdAt` per run. Cancelled runs excluded.
 
 Typical successful run: **42–50 min**. The p95 figure has improved significantly from 616 min to 60 min due to stabilized Android integration emulator setup and build-logic caching.
 
+> **Pending re-measurement (GMD migration):** the `android-integration-apks` and
+> `android-integration-tests` jobs were replaced by a single `android-instrumented-tests`
+> Gradle Managed Devices matrix, and `android-macrobenchmark` now runs on a managed device.
+> The figures above predate that change — re-run the measurement below once GMD has a few
+> clean runs on `main`.
+
 ## Recent runs (last 10)
 
 | Conclusion | Duration | Commit |

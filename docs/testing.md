@@ -563,6 +563,7 @@ PR CI runs:
 - `static-analysis` -- detekt + ktlint + Android lint + Rust fmt/clippy
 - `rust-network-e2e` -- host-side proxy E2E against local fixture
 - `android-network-e2e` -- instrumentation E2E on emulator
+- `android-instrumented-tests` -- `:app` integration tests on Gradle Managed Devices (Pixel 6 / API 34, `aosp-atd` + `google_apis`), one runner per device
 - `coverage` -- JaCoCo + Rust LLVM coverage
 - `rust-turmoil` -- deterministic fault-injection network tests
 - `rust-loom` -- exhaustive concurrency verification (20 min timeout)

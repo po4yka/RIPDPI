@@ -25,6 +25,7 @@ build
   -> coverage
   -> rust-network-e2e
   -> cli-packet-smoke
+  -> android-instrumented-tests
   -> rust-turmoil
   -> rust-criterion-bench
   -> android-macrobenchmark
@@ -130,7 +131,7 @@ Checklist:
 5. Use `if: always()` on artifact upload steps.
 6. Keep artifact names stable when downstream debugging depends on them.
 7. If the job is nightly-only, gate it explicitly on `schedule` or `workflow_dispatch`.
-8. If the job uses emulator infrastructure, prefer the existing `reactivecircus/android-emulator-runner@v2` pattern.
+8. If the job runs `:app` or `:baselineprofile` instrumented tests, use the Gradle Managed Device pattern: a `<device>...AndroidTest` task plus the shared device registry in `build-logic/convention/src/main/kotlin/RipDpiManagedDevices.kt` (see the `android-instrumented-tests` and `android-macrobenchmark` jobs). Specialized emulator lanes (journeys, relay-smoke, network-e2e) still use the `scripts/ci/start-android-emulator.sh` harness.
 
 ### Job Template
 
@@ -189,7 +190,7 @@ See `release-signing` for signing and R8 details.
 | Forgetting schedule/manual gating on soak or load jobs | Mirror the existing `schedule || workflow_dispatch` pattern |
 | Uploading artifacts only on success | Use `if: always()` so failure artifacts are preserved |
 | Treating CodeQL as if Kotlin were enabled | The current workflow analyzes only GitHub Actions files |
-| Testing Android emulator jobs with the wrong assumptions | Reuse the existing emulator-runner configuration and manual smoke gating |
+| Hand-rolling emulator setup for instrumented tests | Use the Gradle Managed Device pattern (`RipDpiManagedDevices.kt` + a `<device>...AndroidTest` task); reserve `scripts/ci/start-android-emulator.sh` for the journeys/relay/network-e2e lanes |
 
 ## See Also
 

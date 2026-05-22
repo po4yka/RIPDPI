@@ -254,7 +254,7 @@ Convention plugins live in `build-logic/convention/` and provide shared configur
 - `ripdpi.android.native`, `ripdpi.android.rust-native`, `ripdpi.android.protobuf`
 - `ripdpi.android.quality`, `ripdpi.android.coverage`, `ripdpi.android.jacoco`
 - `ripdpi.android.detekt`, `ripdpi.android.ktlint`, `ripdpi.android.lint`
-- `ripdpi.android.roborazzi`
+- `ripdpi.android.roborazzi`, `ripdpi.android.test`
 - `ripdpi.diagnostics.catalog`
 
 All dependency versions are in `gradle/libs.versions.toml`.
