@@ -1,0 +1,57 @@
+---
+title: "Wire Hysteria Realm STUN-discovered NAT traversal (sing-box v1.14.0-alpha.22)"
+type: task
+status: backlog
+area: transport
+priority: medium
+owner: unassigned
+parent: null
+blocks: []
+blocked_by: []
+created: 2026-05-22
+updated: 2026-05-22
+source_wiki_pages:
+  - "[[hysteria2-tuic]]"
+linked_task: ../../../../ripdpi-vpn-deploy/docs/tasks/issues/add-hysteria-realm-rendezvous-role.md
+---
+
+- [ ] #task Wire Hysteria Realm STUN-discovered NAT traversal #repo/RIPDPI #area/transport #status/backlog 🔼
+
+## Motivation
+
+sing-box v1.14.0-alpha.22 (2026-05-11) introduced a Hysteria Realm service that enables direct peer-to-peer Hysteria2 QUIC tunnels between two clients behind separate NATs — without a fixed listening server on a foreign datacenter ASN. TSPU policies targeting foreign-DC ASNs (the 15–20 KB freeze, session-volume caps) inherently apply to conventional Hysteria2 deployments; Realm provides structural bypass since the data peer can live on any RU residential or mobile ASN behind NAT.
+
+> [!warning] LOW dedup confidence
+> The `ripdpi-hysteria2` crate already exists. Realm is a new sing-box feature (v1.14.0-alpha.22, 2026-05-11) that the existing crate likely does not yet support; PR description must explicitly confirm Realm functionality was not previously available.
+
+## Proposed change
+
+Extend `ripdpi-hysteria2` (or add a sibling `ripdpi-hysteria-realm` crate) to support sing-box Realm rendezvous:
+
+1. STUN-discovered public address+port registration with the realm rendezvous server.
+2. UDP hole-punching from both peers based on rendezvous metadata.
+3. Direct Hysteria2 QUIC tunnel between peers post-hole-punch (realm leaves the data path).
+4. JNI/Kotlin diagnostic surface for realm-vs-direct-Hysteria2 mode selection in UI.
+
+### Linked deploy task
+
+`linked_task:` points to the sibling deploy task standing up the realm rendezvous server. Both must ship together.
+
+## Acceptance criteria
+
+- [ ] Two RIPDPI clients on separate NATs (test-lab `relay/` scenario or two real RU-ASN devices) successfully hole-punch and exchange data via Hysteria2 QUIC.
+- [ ] Empirical NAT-compatibility report: which RU mobile carrier CGNAT configurations succeed / fail with STUN hole-punch.
+- [ ] Diagnostic verdict surfaces `HYSTERIA_REALM_OK` / `HYSTERIA_REALM_FAIL_STUN` / `HYSTERIA_REALM_FAIL_PUNCH` distinguished by phase.
+- [ ] LOW-confidence dedup resolved in PR description: confirmed Realm functionality not previously available in `ripdpi-hysteria2`.
+
+## Risks / open questions
+
+- STUN-based hole-punching is unreliable for symmetric NATs (typical RU carrier-grade NAT). Empirical success rate from RU mobile CGNAT is the gating question.
+- Does TSPU drop "unsolicited inbound UDP after outbound STUN burst" as a class? If so, Realm fails at the hole-punch step.
+- QUIC connection ID persistence under typical RU CGNAT NAT-table timeouts — sustained connection over 30-min idle followed by burst traffic needs measurement.
+
+## References
+
+- [[hysteria2-tuic#Hysteria Realm NAT-Traversal (sing-box v1.14.0-alpha.22, 2026-05-11)]] — wiki concept page section
+- [[censorship-update-github-releases-2026-05-22]] — source digest
+- Linked deploy task: `add-hysteria-realm-rendezvous-role`
