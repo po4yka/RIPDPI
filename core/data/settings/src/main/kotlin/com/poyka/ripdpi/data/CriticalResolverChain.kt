@@ -27,9 +27,6 @@ enum class CriticalResolverProfile {
 
 private val cloudflareProviderIds = setOf(DnsProviderCloudflare, DnsProviderCloudflareIp)
 
-private val DnsProviderDefinition.isCloudflareDns: Boolean
-    get() = providerId in cloudflareProviderIds
-
 /**
  * Builds and filters the critical resolver chain for a given [CriticalResolverProfile].
  */
