@@ -20,7 +20,7 @@ package com.poyka.ripdpi.data
  * enforces that. See `docs/architecture/CONFIG_CONTRACTS.md`.
  */
 
-/** The local proxy listener and command-line transport settings. */
+/** The local proxy listener config inputs and command-line transport settings. */
 data class ProxySettingsSection(
     val ripdpiMode: String = "",
     val ipv6Enable: Boolean = false,
@@ -32,6 +32,9 @@ data class ProxySettingsSection(
     val bufferSize: Int = 0,
     val noDomain: Boolean = false,
     val tcpFastOpen: Boolean = false,
+    val defaultTtl: Int = 0,
+    val customTtl: Boolean = false,
+    val freezeDetectionEnabled: Boolean = false,
 )
 
 /** Plain and encrypted DNS resolution settings. */

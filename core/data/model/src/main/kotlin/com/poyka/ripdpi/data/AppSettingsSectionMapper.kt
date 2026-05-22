@@ -38,6 +38,9 @@ private fun AppSettings.proxySection(): ProxySettingsSection =
         bufferSize = bufferSize,
         noDomain = noDomain,
         tcpFastOpen = tcpFastOpen,
+        defaultTtl = defaultTtl,
+        customTtl = customTtl,
+        freezeDetectionEnabled = freezeDetectionEnabled,
     )
 
 private fun AppSettings.dnsSection(): DnsSettingsSection =

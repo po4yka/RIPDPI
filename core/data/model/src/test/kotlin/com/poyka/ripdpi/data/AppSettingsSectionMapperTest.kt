@@ -38,7 +38,15 @@ class AppSettingsSectionMapperTest {
         val sections = populatedSettings().toSettingsSections()
 
         assertEquals(
-            ProxySettingsSection(ripdpiMode = "proxy", ipv6Enable = true, proxyPort = 1080, tcpFastOpen = true),
+            ProxySettingsSection(
+                ripdpiMode = "proxy",
+                ipv6Enable = true,
+                proxyPort = 1080,
+                tcpFastOpen = true,
+                defaultTtl = 64,
+                customTtl = true,
+                freezeDetectionEnabled = true,
+            ),
             sections.proxy,
         )
         assertEquals(
@@ -116,6 +124,9 @@ class AppSettingsSectionMapperTest {
             .setIpv6Enable(true)
             .setProxyPort(1080)
             .setTcpFastOpen(true)
+            .setDefaultTtl(64)
+            .setCustomTtl(true)
+            .setFreezeDetectionEnabled(true)
             .setDnsMode("encrypted")
             .setEncryptedDnsPort(853)
             .addAllEncryptedDnsBootstrapIps(listOf("1.1.1.1", "1.0.0.1"))

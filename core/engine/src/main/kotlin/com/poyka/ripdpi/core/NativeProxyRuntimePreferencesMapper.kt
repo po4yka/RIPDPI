@@ -1,17 +1,18 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.ProxySettingsSection
 import com.poyka.ripdpi.proto.AppSettings
 
-internal fun buildListenConfig(settings: AppSettings): RipDpiListenConfig =
+internal fun buildListenConfig(proxy: ProxySettingsSection): RipDpiListenConfig =
     RipDpiListenConfig(
-        ip = settings.proxyIp.ifEmpty { "127.0.0.1" },
-        port = settings.proxyPort.takeIf { it > 0 } ?: 1080,
-        maxConnections = settings.maxConnections.takeIf { it > 0 } ?: 512,
-        bufferSize = settings.bufferSize.takeIf { it > 0 } ?: 16384,
-        tcpFastOpen = settings.tcpFastOpen,
-        defaultTtl = if (settings.customTtl) settings.defaultTtl else 0,
-        customTtl = settings.customTtl,
-        freezeDetectionEnabled = settings.freezeDetectionEnabled,
+        ip = proxy.proxyIp.ifEmpty { "127.0.0.1" },
+        port = proxy.proxyPort.takeIf { it > 0 } ?: 1080,
+        maxConnections = proxy.maxConnections.takeIf { it > 0 } ?: 512,
+        bufferSize = proxy.bufferSize.takeIf { it > 0 } ?: 16384,
+        tcpFastOpen = proxy.tcpFastOpen,
+        defaultTtl = if (proxy.customTtl) proxy.defaultTtl else 0,
+        customTtl = proxy.customTtl,
+        freezeDetectionEnabled = proxy.freezeDetectionEnabled,
     )
 
 internal fun buildProtocolConfig(settings: AppSettings): RipDpiProtocolConfig =
