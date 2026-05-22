@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use proptest::prelude::*;
 
-use crate::Config;
+use crate::{Config, ConfigError};
 
 const MINIMAL_VALID: &str = r#"
 socks5:
@@ -174,6 +174,51 @@ fn test_config_is_send_sync() {
     fn assert_send_sync<T: Send + Sync>() {}
 
     assert_send_sync::<Config>();
+}
+
+// --- schemaVersion envelope tests ---
+
+const SCHEMA_VERSION_ONE: &str = r#"
+schemaVersion: 1
+socks5:
+  port: 1080
+  address: 127.0.0.1
+"#;
+
+const SCHEMA_VERSION_TWO: &str = r#"
+schemaVersion: 2
+socks5:
+  port: 1080
+  address: 127.0.0.1
+"#;
+
+#[test]
+fn legacy_payload_without_schema_version_parses() {
+    // `MINIMAL_VALID` carries no `schemaVersion` key -- a legacy payload.
+    let result = Config::from_str(MINIMAL_VALID);
+
+    assert!(result.is_ok(), "legacy YAML without schemaVersion should parse: {result:?}");
+}
+
+#[test]
+fn payload_with_explicit_schema_version_one_parses() {
+    let result = Config::from_str(SCHEMA_VERSION_ONE);
+
+    assert!(result.is_ok(), "YAML with schemaVersion 1 should parse: {result:?}");
+}
+
+#[test]
+fn payload_with_unsupported_schema_version_is_rejected() {
+    let err = Config::from_str(SCHEMA_VERSION_TWO).expect_err("schemaVersion 2 should be rejected");
+
+    assert!(
+        matches!(err, ConfigError::UnsupportedSchemaVersion { found: 2 }),
+        "expected UnsupportedSchemaVersion {{ found: 2 }}, got: {err:?}"
+    );
+    assert!(
+        err.to_string().contains("unsupported native config schemaVersion 2"),
+        "error should name the found version, got: {err}"
+    );
 }
 
 fn build_minimal_yaml(port: u16, address: &str) -> String {

@@ -9,7 +9,12 @@ impl<'de> Deserialize<'de> for ResolvedRelayRuntimeConfig {
     where
         D: Deserializer<'de>,
     {
-        Ok(FlatResolvedRelayRuntimeConfig::deserialize(deserializer)?.into())
+        let flat = FlatResolvedRelayRuntimeConfig::deserialize(deserializer)?;
+        // Reject any payload carrying an unsupported `schemaVersion` envelope
+        // value. Runs on every deserialize path (`from_str` / `from_value` /
+        // `from_reader`) because they all funnel through this impl.
+        validate_schema_version(flat.schema_version).map_err(serde::de::Error::custom)?;
+        Ok(flat.into())
     }
 }
 

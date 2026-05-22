@@ -374,6 +374,8 @@ fn minimal_proxy_config_json() -> String {
         runtime_context: None,
         log_context: None,
         session_overrides: None,
+        // Current native-config wire schema version.
+        schema_version: 1,
     })
     .expect("proxy config json")
 }
