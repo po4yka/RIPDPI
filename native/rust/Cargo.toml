@@ -37,6 +37,7 @@ members = [
     "crates/ripdpi-runtime-api",
     "crates/ripdpi-runtime-adaptive",
     "crates/ripdpi-runtime-dns-cache",
+    "crates/ripdpi-runtime-decision-engine",
     "crates/ripdpi-runtime-decision-ports",
     "crates/ripdpi-runtime-policy",
     "crates/ripdpi-runtime-services",
@@ -144,6 +145,7 @@ ripdpi-proxy-runtime = { path = "crates/ripdpi-proxy-runtime" }
 ripdpi-runtime-api = { path = "crates/ripdpi-runtime-api" }
 ripdpi-runtime-adaptive = { path = "crates/ripdpi-runtime-adaptive" }
 ripdpi-runtime-dns-cache = { path = "crates/ripdpi-runtime-dns-cache" }
+ripdpi-runtime-decision-engine = { path = "crates/ripdpi-runtime-decision-engine" }
 ripdpi-runtime-decision-ports = { path = "crates/ripdpi-runtime-decision-ports" }
 ripdpi-runtime-policy = { path = "crates/ripdpi-runtime-policy" }
 ripdpi-runtime-services = { path = "crates/ripdpi-runtime-services" }

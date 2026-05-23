@@ -4155,6 +4155,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-runtime-decision-engine"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-config",
+ "ripdpi-proxy-config",
+ "ripdpi-runtime-decision-ports",
+ "ripdpi-runtime-services",
+]
+
+[[package]]
 name = "ripdpi-runtime-decision-ports"
 version = "0.1.0"
 dependencies = [
