@@ -13,6 +13,7 @@ use std::io;
 use std::net::SocketAddr;
 
 use ripdpi_failure_classifier::ClassifiedFailure;
+use ripdpi_runtime_decision_ports::snapshots::RuntimeDecisionSnapshot;
 
 /// Per-event telemetry port for a running proxy.
 ///
@@ -98,4 +99,17 @@ pub trait RuntimeTelemetrySink: Send + Sync {
         _strategy_family: Option<&str>,
     ) {
     }
+
+    /// Called once per runtime construction with the
+    /// [`RuntimeDecisionSnapshot`] the `RuntimeDecisionEngine` produced
+    /// from the current config / context / network-scope inputs. Sinks may
+    /// project it into structured telemetry, dump for debug, or ignore.
+    /// Default body is empty so adding this hook is non-breaking — existing
+    /// sinks continue to compile and emit no decision-snapshot event.
+    ///
+    /// No `schemaVersion` is bumped: the snapshot is the runtime's
+    /// per-feature view of `ProxyRuntimeContext` (whose wire shape is
+    /// owned by `ripdpi-proxy-config`) and carries no schema-versioned
+    /// fields of its own.
+    fn on_runtime_decision_snapshot(&self, _snapshot: &RuntimeDecisionSnapshot) {}
 }

@@ -4016,6 +4016,7 @@ dependencies = [
  "ripdpi-proxy-config",
  "ripdpi-proxy-runtime-desync-adapter",
  "ripdpi-runtime-api",
+ "ripdpi-runtime-decision-engine",
  "ripdpi-runtime-decision-ports",
  "ripdpi-runtime-platform",
  "ripdpi-runtime-services",
@@ -4152,6 +4153,7 @@ dependencies = [
  "loom",
  "ripdpi-failure-classifier",
  "ripdpi-proxy-config",
+ "ripdpi-runtime-decision-ports",
 ]
 
 [[package]]

@@ -11,6 +11,7 @@ workspace = true
 arc-swap = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
+ripdpi-runtime-decision-ports = { workspace = true }
 loom = { workspace = true, optional = true }
 
 [features]
