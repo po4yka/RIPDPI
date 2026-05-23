@@ -18,7 +18,7 @@
 <p align="center"><a href="README.md">English</a> | <a href="README-ru.md">Русский</a> | <a href="README-es.md">Español</a> | <a href="README-de.md">Deutsch</a> | <a href="README-fr.md">Français</a> | <a href="docs/fa/README.md">فارسی</a> | <b>简体中文</b></p>
 
 > [!WARNING]
-> ⚠️ **本项目正处于积极开发阶段。** 我们正在持续添加新功能，并经常进行大规模重构以提升代码库的质量。该工作高度依赖编码代理（coding agents），因此 `main` 分支目前**可能出现破坏性变更（breaking changes）、模式迁移以及部分功能不完整的情况**。如果遇到回归问题，请[提交 issue](https://github.com/po4yka/RIPDPI/issues)——您的反馈有助于稳定项目。
+> **本项目正处于积极开发阶段。** 我们正在持续添加新功能，并经常进行大规模重构以提升代码库的质量。该工作高度依赖编码代理（coding agents），因此 `main` 分支目前**可能出现破坏性变更（breaking changes）、模式迁移以及部分功能不完整的情况**。如果遇到回归问题，请[提交 issue](https://github.com/po4yka/RIPDPI/issues)——您的反馈有助于稳定项目。
 
 RIPDPI 是一款适用于 Android 的网络路径诊断与优化工具包。它可以在设备端应用可配置的数据包策略，可以连接到您自己控制的中继服务器，并且对每个连接运行诊断，识别每个目标失败或退化的原因。这三种能力可以独立工作，也可以组合使用。
 
