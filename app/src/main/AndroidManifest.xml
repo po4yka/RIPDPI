@@ -285,7 +285,8 @@
         <receiver
             android:name=".widget.ConnectToggleWidgetReceiver"
             android:exported="false"
-            android:label="@string/widget_description_connect_toggle">
+            android:label="@string/widget_description_connect_toggle"
+            tools:ignore="Instantiatable">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -297,7 +298,8 @@
         <receiver
             android:name=".widget.StatusDisplayWidgetReceiver"
             android:exported="false"
-            android:label="@string/widget_description_status">
+            android:label="@string/widget_description_status"
+            tools:ignore="Instantiatable">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -309,7 +311,8 @@
         <receiver
             android:name=".widget.TelemetryWidgetReceiver"
             android:exported="false"
-            android:label="@string/widget_description_telemetry">
+            android:label="@string/widget_description_telemetry"
+            tools:ignore="Instantiatable">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -321,7 +324,8 @@
         <receiver
             android:name=".widget.ModePickerWidgetReceiver"
             android:exported="false"
-            android:label="@string/widget_description_mode_picker">
+            android:label="@string/widget_description_mode_picker"
+            tools:ignore="Instantiatable">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
