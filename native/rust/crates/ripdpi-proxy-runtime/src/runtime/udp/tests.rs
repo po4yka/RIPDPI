@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_runtime_adapter::model::config::{
@@ -10,6 +12,8 @@ use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext
 use ripdpi_proxy_runtime_adapter::model::session::S_ATP_I4;
 
 use super::flow::udp_flow_at_capacity;
+#[cfg(unix)]
+use super::upstream_pump::ready_udp_poll_keys;
 use super::{build_udp_relay_sockets, encode_socks5_udp_packet, parse_socks5_udp_packet, sockets};
 use crate::runtime::routing::preferred_targets_for_transport;
 use crate::runtime::state::RuntimeState;
@@ -217,4 +221,29 @@ fn udp_flow_capacity_rejects_only_new_flows_once_limit_is_reached() {
 
     assert!(!udp_flow_at_capacity(&flow_state, (client, first_target), 2));
     assert!(udp_flow_at_capacity(&flow_state, (client, third_target), 2));
+}
+
+#[cfg(unix)]
+#[test]
+fn udp_upstream_poll_returns_only_ready_flow_keys() {
+    let ready_receiver =
+        std::net::UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).expect("ready receiver");
+    ready_receiver.set_nonblocking(true).expect("ready receiver nonblocking");
+    let idle_receiver =
+        std::net::UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).expect("idle receiver");
+    idle_receiver.set_nonblocking(true).expect("idle receiver nonblocking");
+    let sender = std::net::UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).expect("sender");
+
+    sender.send_to(b"ready", ready_receiver.local_addr().expect("ready receiver addr")).expect("send ready datagram");
+
+    let client = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 10_800);
+    let ready_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 30)), 443);
+    let idle_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 31)), 443);
+    let ready = ready_udp_poll_keys(&[
+        ((client, ready_target), ready_receiver.as_raw_fd()),
+        ((client, idle_target), idle_receiver.as_raw_fd()),
+    ])
+    .expect("poll ready udp sockets");
+
+    assert_eq!(ready, vec![(client, ready_target)]);
 }

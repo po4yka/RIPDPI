@@ -2,10 +2,13 @@ package com.poyka.ripdpi.activities
 
 import androidx.biometric.BiometricManager
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeCellularSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.WarpPayloadGenCatalog
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
@@ -18,6 +21,9 @@ import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -82,6 +88,63 @@ class SettingsUiStateAssemblerTest {
             assertEquals("quic_imitation", uiState.warp.amneziaSuggestedPresetId)
             assertEquals("QUIC imitation", uiState.warp.amneziaSuggestedPresetLabel)
         }
+
+    @Test
+    fun `assembler does not refresh routing snapshot for telemetry-only emissions`() =
+        runTest {
+            val serviceStateStore = FakeServiceStateStore()
+            val routingProtectionCatalogService = CountingRoutingProtectionCatalogService()
+            val settingsUiDependencies =
+                SettingsUiDependencies(
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    rememberedPolicySource =
+                        FlowRememberedPolicySource(
+                            MutableStateFlow(emptyList<DiagnosticsRememberedPolicy>()),
+                        ),
+                    serviceStateStore = serviceStateStore,
+                    hostAutolearnStoreController = FakeHostAutolearnStoreController(hasStore = true),
+                    routingProtectionCatalogService = routingProtectionCatalogService,
+                    warpPayloadGenCatalog =
+                        WarpPayloadGenCatalog(
+                            ApplicationProvider.getApplicationContext(),
+                        ),
+                    networkSnapshotProvider =
+                        FixedNetworkSnapshotProvider(
+                            NativeNetworkSnapshot(transport = "wifi"),
+                        ),
+                    enginePlatformCapabilities = FakeEnginePlatformCapabilities(),
+                )
+            val assembler = SettingsUiStateAssembler(FakeBiometricCapabilityChecker())
+            val uiState =
+                assembler.assemble(
+                    scope = backgroundScope,
+                    settingsUiDependencies = settingsUiDependencies,
+                    hostAutolearnStoreRefresh = MutableStateFlow(0),
+                )
+            val collector = backgroundScope.launch { uiState.collect {} }
+            advanceUntilIdle()
+            val callsAfterInitialAssembly = routingProtectionCatalogService.snapshotCalls
+
+            serviceStateStore.updateTelemetry(
+                ServiceTelemetrySnapshot(
+                    mode = Mode.VPN,
+                    status = AppStatus.Running,
+                    updatedAt = 1L,
+                ),
+            )
+            advanceUntilIdle()
+            serviceStateStore.updateTelemetry(
+                ServiceTelemetrySnapshot(
+                    mode = Mode.VPN,
+                    status = AppStatus.Halted,
+                    updatedAt = 2L,
+                ),
+            )
+            advanceUntilIdle()
+
+            assertEquals(callsAfterInitialAssembly, routingProtectionCatalogService.snapshotCalls)
+            collector.cancel()
+        }
 }
 
 private class FlowRememberedPolicySource(
@@ -112,6 +175,16 @@ private class FakeBiometricCapabilityChecker : BiometricCapabilityChecker {
 
 private class SnapshotRoutingProtectionCatalogService : RoutingProtectionCatalogService {
     override fun snapshot(): RoutingProtectionCatalogSnapshot = RoutingProtectionCatalogSnapshot()
+}
+
+private class CountingRoutingProtectionCatalogService : RoutingProtectionCatalogService {
+    var snapshotCalls = 0
+        private set
+
+    override fun snapshot(): RoutingProtectionCatalogSnapshot {
+        snapshotCalls += 1
+        return RoutingProtectionCatalogSnapshot()
+    }
 }
 
 private class FixedNetworkSnapshotProvider(

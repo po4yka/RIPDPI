@@ -39,6 +39,7 @@ import java.io.InterruptedIOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
+import java.util.TreeSet
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Named
@@ -500,27 +501,86 @@ private data class DnsGoogleAnswer(
 )
 
 fun summarizeStrategyProbeResults(results: List<StrategyProbeResult>): StrategyProbeAutomationReport {
-    val ranked =
-        results
-            .groupBy { it.strategyId }
-            .map { (strategyId, group) ->
-                val successes = group.count { it.success }
-                RankedStrategyProbeResult(
-                    strategyId = strategyId,
-                    strategyLabel = group.first().strategyLabel,
-                    total = group.size,
-                    successes = successes,
-                    successRate = successes.toDouble() / group.size.toDouble(),
-                    averageLatencyMs = group.map { it.latencyMs }.average().roundToLong(),
-                    dnsTamperedCount = group.count { it.dnsTampered },
-                )
-            }.sortedWith(
-                compareByDescending<RankedStrategyProbeResult> { it.successRate }
-                    .thenBy { it.averageLatencyMs }
-                    .thenBy { it.strategyId },
-            )
-    return StrategyProbeAutomationReport(results = results, rankedStrategies = ranked)
+    val summaries = StrategyProbeRankingSummaries()
+    results.forEach(summaries::add)
+    return StrategyProbeAutomationReport(results = results, rankedStrategies = summaries.rankedStrategies())
 }
+
+class StrategyProbeRankingAccumulator {
+    private val summaries = StrategyProbeRankingSummaries()
+    private val rankedSummaries = TreeSet(StrategyProbeRankingComparator)
+
+    fun add(result: StrategyProbeResult) {
+        summaries.currentRanked(result.strategyId)?.let(rankedSummaries::remove)
+        rankedSummaries += summaries.add(result)
+    }
+
+    fun rankedStrategies(): List<RankedStrategyProbeResult> = rankedSummaries.toList()
+}
+
+private class StrategyProbeRankingSummaries {
+    private val summariesByStrategyId = mutableMapOf<String, MutableStrategyProbeRankingSummary>()
+
+    fun add(result: StrategyProbeResult): RankedStrategyProbeResult {
+        val summary =
+            summariesByStrategyId.getOrPut(result.strategyId) {
+                MutableStrategyProbeRankingSummary(
+                    strategyId = result.strategyId,
+                    strategyLabel = result.strategyLabel,
+                )
+            }
+        return summary.add(result)
+    }
+
+    fun currentRanked(strategyId: String): RankedStrategyProbeResult? = summariesByStrategyId[strategyId]?.currentRanked
+
+    fun rankedStrategies(): List<RankedStrategyProbeResult> =
+        summariesByStrategyId
+            .values
+            .mapNotNull { it.currentRanked }
+            .sortedWith(StrategyProbeRankingComparator)
+}
+
+private class MutableStrategyProbeRankingSummary(
+    private val strategyId: String,
+    private val strategyLabel: String,
+) {
+    private var total = 0
+    private var successes = 0
+    private var latencySumMs = 0.0
+    private var dnsTamperedCount = 0
+
+    var currentRanked: RankedStrategyProbeResult? = null
+        private set
+
+    fun add(result: StrategyProbeResult): RankedStrategyProbeResult {
+        total += 1
+        if (result.success) {
+            successes += 1
+        }
+        latencySumMs += result.latencyMs.toDouble()
+        if (result.dnsTampered) {
+            dnsTamperedCount += 1
+        }
+        return toRanked().also { currentRanked = it }
+    }
+
+    private fun toRanked(): RankedStrategyProbeResult =
+        RankedStrategyProbeResult(
+            strategyId = strategyId,
+            strategyLabel = strategyLabel,
+            total = total,
+            successes = successes,
+            successRate = successes.toDouble() / total.toDouble(),
+            averageLatencyMs = (latencySumMs / total.toDouble()).roundToLong(),
+            dnsTamperedCount = dnsTamperedCount,
+        )
+}
+
+private val StrategyProbeRankingComparator =
+    compareByDescending<RankedStrategyProbeResult> { it.successRate }
+        .thenBy { it.averageLatencyMs }
+        .thenBy { it.strategyId }
 
 private fun StrategyProbeConnectionResult.toProbeResult(
     candidate: StrategyProbeCandidate,

@@ -5,7 +5,12 @@ import unittest
 from pathlib import Path
 
 from scripts.analytics.bless import bless_candidate_artifacts
-from scripts.analytics.cluster import run_cluster
+from scripts.analytics.cluster import (
+    MAX_GREEDY_CLUSTER_CANDIDATES,
+    candidate_cluster_indices,
+    greedy_cluster,
+    run_cluster,
+)
 from scripts.analytics.common import ROOT, load_json
 from scripts.analytics.extract import run_extract
 from scripts.analytics.publish import publish_outputs
@@ -18,6 +23,20 @@ SCHEMA_DIR = ROOT / "scripts/analytics/schemas"
 def sample_inputs() -> list[Path]:
     manifest = load_json(SAMPLE_MANIFEST)
     return [(ROOT / relative_path).resolve() for relative_path in manifest["inputs"]]
+
+
+def analytics_record(
+    record_id: str,
+    code: str = "ok",
+    observed_features: list[str] | None = None,
+) -> dict[str, object]:
+    return {
+        "recordId": record_id,
+        "connectivityAssessment": {"code": code},
+        "observedFeatures": observed_features or [],
+        "affectedTargets": [{"label": "example.com"}],
+        "winnerSummary": {},
+    }
 
 
 class OfflineAnalyticsPipelineTest(unittest.TestCase):
@@ -60,6 +79,60 @@ class OfflineAnalyticsPipelineTest(unittest.TestCase):
         self.assertEqual(2, bucket_support["tls_split"])
         self.assertEqual(1, bucket_support["service_runtime"])
         self.assertEqual(1, bucket_support["route_sensitive"])
+
+    def test_greedy_cluster_indexes_features_added_to_existing_cluster(self) -> None:
+        records = [
+            analytics_record("one", observed_features=["signal:a"]),
+            analytics_record("two", observed_features=["signal:a", "signal:b"]),
+            analytics_record("three", observed_features=["signal:b"]),
+        ]
+
+        clusters = greedy_cluster(records)
+
+        self.assertEqual(
+            [["one", "two", "three"]],
+            [[record["recordId"] for record in cluster] for cluster in clusters],
+        )
+
+    def test_greedy_cluster_candidates_are_bounded_for_feature_bearing_records(self) -> None:
+        existing_cluster_count = MAX_GREEDY_CLUSTER_CANDIDATES + 10
+        feature_cluster_index = {"shared:feature": list(range(existing_cluster_count))}
+        cluster_feature_unions = [
+            {"shared:feature", f"cluster:{index}"}
+            for index in range(existing_cluster_count)
+        ]
+
+        candidates = candidate_cluster_indices({"shared:feature"}, feature_cluster_index, cluster_feature_unions)
+
+        self.assertLess(len(candidates), existing_cluster_count)
+        self.assertLessEqual(len(candidates), MAX_GREEDY_CLUSTER_CANDIDATES)
+        self.assertEqual(candidates, sorted(candidates))
+
+    def test_cluster_keeps_empty_features_and_buckets_deterministic(self) -> None:
+        records = [
+            analytics_record("mixed-empty-b"),
+            analytics_record(
+                "resolver-shared",
+                code="resolver_interference",
+                observed_features=["shared:feature"],
+            ),
+            analytics_record("mixed-empty-a"),
+            analytics_record("mixed-shared", observed_features=["shared:feature"]),
+            analytics_record("service-empty", code="service_runtime_failure"),
+        ]
+
+        first = run_cluster({"records": records})
+        second = run_cluster({"records": list(reversed(records))})
+        clusters_by_bucket_and_records = {
+            (cluster["bucket"], tuple(cluster["records"]))
+            for cluster in first["clusters"]
+        }
+
+        self.assertEqual(first["clusters"], second["clusters"])
+        self.assertIn(("mixed", ("mixed-empty-a", "mixed-empty-b")), clusters_by_bucket_and_records)
+        self.assertIn(("mixed", ("mixed-shared",)), clusters_by_bucket_and_records)
+        self.assertIn(("resolver_interference", ("resolver-shared",)), clusters_by_bucket_and_records)
+        self.assertIn(("service_runtime", ("service-empty",)), clusters_by_bucket_and_records)
 
     def test_publish_emits_candidate_catalogs_and_report(self) -> None:
         extracted = run_extract(sample_inputs())

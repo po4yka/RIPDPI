@@ -4,6 +4,8 @@
 // configuration. Quiet the corresponding warnings rather than annotating
 // each item individually.
 #![cfg_attr(all(test, feature = "loom"), allow(dead_code, unused_imports))]
+#![deny(unsafe_op_in_unsafe_fn)]
+#![warn(clippy::undocumented_unsafe_blocks, clippy::multiple_unsafe_ops_per_block, clippy::missing_safety_doc)]
 
 mod sync;
 

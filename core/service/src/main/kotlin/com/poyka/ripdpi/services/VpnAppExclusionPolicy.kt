@@ -75,6 +75,8 @@ class DefaultVpnAppExclusionPolicy
         private val appRoutingCatalogProvider: AppRoutingCatalogProvider,
         private val installedPackagesProvider: InstalledPackagesProvider,
     ) : VpnAppExclusionPolicy {
+        private val indexedCatalogCache = AtomicReference<IndexedRoutingProtectionCatalog?>()
+
         override fun shouldExcludeOwnPackage(): Boolean = true
 
         override suspend fun russianAppsToExclude(): List<String> {
@@ -83,14 +85,19 @@ class DefaultVpnAppExclusionPolicy
             val presetIds = settings.effectiveAppRoutingEnabledPresetIds().toSet()
             if (presetIds.isEmpty()) return emptyList()
             val installedPackages = installedPackagesProvider.installedPackages()
-            val catalog = appRoutingCatalogProvider.load()
-            return catalog.presets
-                .asSequence()
-                .filter { it.id in presetIds }
-                .flatMap { it.resolvePackages(installedPackages).asSequence() }
-                .distinct()
-                .sorted()
-                .toList()
+            return indexedCatalogFor(appRoutingCatalogProvider.load())
+                .excludedPackagesFor(
+                    presetIds = presetIds,
+                    installedPackages = installedPackages,
+                )
+        }
+
+        private fun indexedCatalogFor(catalog: AppRoutingPolicyCatalog): IndexedRoutingProtectionCatalog {
+            val cached = indexedCatalogCache.get()
+            if (cached != null && (cached.source === catalog || cached.source == catalog)) {
+                return cached
+            }
+            return IndexedRoutingProtectionCatalog.from(catalog).also(indexedCatalogCache::set)
         }
     }
 

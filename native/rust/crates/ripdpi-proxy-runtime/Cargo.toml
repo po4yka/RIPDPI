@@ -12,6 +12,7 @@ ripdpi-proxy-runtime-adapter = { workspace = true }
 ripdpi-geo = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
 tracing = { workspace = true }
+libc = { workspace = true }
 loom = { workspace = true, optional = true }
 ripdpi-io-uring = { workspace = true, optional = true }
 
@@ -23,7 +24,6 @@ io-uring = ["dep:ripdpi-io-uring", "ripdpi-proxy-runtime-adapter/io-uring"]
 aes = { workspace = true }
 base64 = { workspace = true }
 ctr = "0.10"
-libc = { workspace = true }
 local-network-fixture = { workspace = true }
 native-soak-support = { workspace = true }
 ripdpi-packets = { workspace = true }

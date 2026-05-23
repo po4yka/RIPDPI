@@ -87,6 +87,15 @@ internal val BuiltInWarpEndpointPorts: List<Int> =
         8886,
     )
 
+internal val FastWarpEndpointPorts: List<Int> =
+    listOf(
+        2408,
+        500,
+        854,
+        1701,
+        4500,
+    )
+
 internal val BuiltInWarpEndpointPoolV6: List<String> =
     listOf(
         "2606:4700:d0::a29f:c001",
@@ -154,17 +163,51 @@ internal suspend fun scanWarpCandidatePool(
         bestWithinBudget ?: bestOverall
     }
 
+internal suspend fun scanAutomaticWarpCandidatePool(
+    endpointProbe: WarpEndpointProbe,
+    endpointStore: WarpEndpointStore,
+    profileId: String,
+    provisioned: WarpEndpointCacheEntry?,
+    timeoutMillis: Int,
+    parallelism: Int,
+): WarpEndpointCacheEntry? {
+    val preferredCandidates = buildPreferredWarpCandidatePool(endpointStore, profileId, provisioned)
+    val preferredCandidate =
+        scanWarpCandidatePool(
+            endpointProbe = endpointProbe,
+            candidates = preferredCandidates,
+            timeoutMillis = timeoutMillis,
+            parallelism = parallelism,
+        )
+
+    val fastBuiltInCandidates = builtInWarpPoolCandidates(profileId, provisioned, FastWarpEndpointPorts)
+    val fastBuiltInCandidate =
+        preferredCandidate ?: scanWarpCandidatePool(
+            endpointProbe = endpointProbe,
+            candidates = fastBuiltInCandidates,
+            timeoutMillis = timeoutMillis,
+            parallelism = parallelism,
+        )
+
+    return fastBuiltInCandidate ?: scanWarpCandidatePool(
+        endpointProbe = endpointProbe,
+        candidates =
+            builtInWarpPoolCandidates(profileId, provisioned, BuiltInWarpEndpointPorts)
+                .withoutWarpCandidates(fastBuiltInCandidates),
+        timeoutMillis = timeoutMillis,
+        parallelism = parallelism,
+    )
+}
+
 internal suspend fun buildWarpCandidatePool(
     endpointStore: WarpEndpointStore,
     profileId: String,
     provisioned: WarpEndpointCacheEntry?,
 ): List<WarpEndpointCacheEntry> {
-    val remembered = endpointStore.loadAll(profileId)
     val expanded =
         buildList {
-            remembered.forEach { addAll(expandWarpCandidate(it)) }
-            provisioned?.let { addAll(expandWarpCandidate(it)) }
-            addAll(builtInWarpPoolCandidates(profileId, provisioned))
+            addAll(buildPreferredWarpCandidatePool(endpointStore, profileId, provisioned))
+            addAll(builtInWarpPoolCandidates(profileId, provisioned, BuiltInWarpEndpointPorts))
         }
     return expanded.distinctBy(WarpEndpointCacheEntry::candidateIdentity)
 }
@@ -266,15 +309,30 @@ private suspend fun expandWarpCandidate(candidate: WarpEndpointCacheEntry): List
         expanded.values.toList()
     }
 
+private suspend fun buildPreferredWarpCandidatePool(
+    endpointStore: WarpEndpointStore,
+    profileId: String,
+    provisioned: WarpEndpointCacheEntry?,
+): List<WarpEndpointCacheEntry> {
+    val remembered = endpointStore.loadAll(profileId)
+    val expanded =
+        buildList {
+            remembered.forEach { addAll(expandWarpCandidate(it)) }
+            provisioned?.let { addAll(expandWarpCandidate(it)) }
+        }
+    return expanded.distinctBy(WarpEndpointCacheEntry::candidateIdentity)
+}
+
 private fun builtInWarpPoolCandidates(
     profileId: String,
     provisioned: WarpEndpointCacheEntry?,
+    ports: List<Int>,
 ): List<WarpEndpointCacheEntry> {
     val host = provisioned?.host?.takeIf(String::isNotBlank) ?: "engage.cloudflareclient.com"
     val ipv6Port = provisioned?.port?.takeIf { it > 0 } ?: 2408
     return buildList {
         BuiltInWarpEndpointPoolV4.forEach { ipv4 ->
-            BuiltInWarpEndpointPorts.forEach { port ->
+            ports.forEach { port ->
                 add(
                     WarpEndpointCacheEntry(
                         profileId = profileId,
@@ -300,6 +358,13 @@ private fun builtInWarpPoolCandidates(
             )
         }
     }
+}
+
+private fun List<WarpEndpointCacheEntry>.withoutWarpCandidates(
+    excluded: List<WarpEndpointCacheEntry>,
+): List<WarpEndpointCacheEntry> {
+    val excludedIdentities = excluded.mapTo(mutableSetOf(), WarpEndpointCacheEntry::candidateIdentity)
+    return filterNot { it.candidateIdentity() in excludedIdentities }
 }
 
 private fun WarpEndpointCacheEntry.candidateIdentity(): String =

@@ -8,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider
 import com.poyka.ripdpi.diagnostics.StrategyProbeConfig
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeService
+import com.poyka.ripdpi.diagnostics.summarizeStrategyProbeResults
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -46,6 +47,54 @@ class BlockcheckViewModelTest {
             assertEquals(BlockcheckRunState.Complete, state.runState)
             assertEquals("fake", state.bestStrategy?.strategyId)
             assertEquals(2, state.results.size)
+        }
+
+    @Test
+    fun `startProbe updates ranked strategies incrementally while stream is running`() =
+        runTest {
+            val probeService = StreamingStrategyProbeService()
+            val viewModel =
+                testViewModel(
+                    probeService = probeService,
+                    results = emptyList(),
+                )
+            val emittedResults =
+                listOf(
+                    result("split", success = false, latencyMs = 300),
+                    result("fake", success = false, latencyMs = 100),
+                    result("split", success = true, latencyMs = 50),
+                )
+
+            viewModel.startProbe()
+            advanceUntilIdle()
+            assertTrue(probeService.emit(emittedResults[0]))
+            advanceUntilIdle()
+            assertEquals(
+                listOf("split"),
+                viewModel.uiState.value.rankedStrategies
+                    .map { it.strategyId },
+            )
+            assertEquals(1, viewModel.uiState.value.results.size)
+
+            assertTrue(probeService.emit(emittedResults[1]))
+            advanceUntilIdle()
+            assertEquals(
+                listOf("fake", "split"),
+                viewModel.uiState.value.rankedStrategies
+                    .map { it.strategyId },
+            )
+            assertEquals(2, viewModel.uiState.value.results.size)
+
+            assertTrue(probeService.emit(emittedResults[2]))
+            advanceUntilIdle()
+            assertEquals(
+                summarizeStrategyProbeResults(emittedResults).rankedStrategies,
+                viewModel.uiState.value.rankedStrategies,
+            )
+            assertEquals(3, viewModel.uiState.value.results.size)
+
+            viewModel.cancelProbe()
+            advanceUntilIdle()
         }
 
     @Test

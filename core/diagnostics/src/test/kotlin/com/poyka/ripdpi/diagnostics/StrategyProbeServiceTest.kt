@@ -158,6 +158,28 @@ class StrategyProbeServiceTest {
     }
 
     @Test
+    fun `ranking accumulator matches full summary after each result`() {
+        val results =
+            listOf(
+                result("a", success = false, latencyMs = 300),
+                result("b", success = false, latencyMs = 100),
+                result("a", success = true, latencyMs = 50),
+                result("c", success = true, latencyMs = 200),
+                result("b", success = true, latencyMs = 100),
+            )
+        val accumulator = StrategyProbeRankingAccumulator()
+
+        results.forEachIndexed { index, result ->
+            accumulator.add(result)
+
+            assertEquals(
+                summarizeStrategyProbeResults(results.take(index + 1)).rankedStrategies,
+                accumulator.rankedStrategies(),
+            )
+        }
+    }
+
+    @Test
     fun `candidate provider does not expose lua strategies without tun egress support metadata`() =
         runTest {
             val provider =

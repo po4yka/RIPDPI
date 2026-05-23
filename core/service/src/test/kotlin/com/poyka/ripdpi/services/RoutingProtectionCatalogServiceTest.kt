@@ -142,5 +142,127 @@ class RoutingProtectionCatalogServiceTest {
         assertFalse(sberkids.vpnDetection)
         assertEquals(emptyList<String>(), sberkids.packageDetectionMethods)
         assertEquals("none", sberkids.severity)
+        assertEquals("transport_vpn", sberkids.detectionMethod)
     }
+
+    @Test
+    fun `snapshot preserves duplicate preset order and first package metadata`() {
+        val service =
+            DefaultRoutingProtectionCatalogService(
+                appRoutingCatalogProvider =
+                    object : AppRoutingCatalogProvider {
+                        override fun load(): AppRoutingPolicyCatalog =
+                            AppRoutingPolicyCatalog(
+                                presets =
+                                    listOf(
+                                        AppRoutingPolicyPreset(
+                                            id = "duplicate",
+                                            title = "First",
+                                            packages =
+                                                listOf(
+                                                    AppRoutingPackageEntry(
+                                                        packageName = "com.alpha",
+                                                        vpnDetection = true,
+                                                        detectionMethods = listOf("first-package"),
+                                                        severity = "high",
+                                                    ),
+                                                    AppRoutingPackageEntry(
+                                                        packageName = "com.alpha",
+                                                        vpnDetection = false,
+                                                        detectionMethods = listOf("second-package"),
+                                                        severity = "low",
+                                                    ),
+                                                    AppRoutingPackageEntry(packageName = "com.shared"),
+                                                ),
+                                            detectionMethod = "first-preset",
+                                            fixCoverage = "first coverage",
+                                        ),
+                                        AppRoutingPolicyPreset(
+                                            id = "duplicate",
+                                            title = "Second",
+                                            packages =
+                                                listOf(
+                                                    AppRoutingPackageEntry(packageName = "com.beta"),
+                                                    AppRoutingPackageEntry(packageName = "com.alpha"),
+                                                ),
+                                            detectionMethod = "second-preset",
+                                            fixCoverage = "second coverage",
+                                        ),
+                                    ),
+                            )
+                    },
+                installedPackagesProvider =
+                    object : InstalledPackagesProvider {
+                        override fun installedPackages(): Set<String> = emptySet()
+                    },
+            )
+
+        val snapshot = service.snapshot()
+
+        assertEquals(listOf("First", "Second"), snapshot.presets.map { it.title })
+        assertEquals(listOf("com.alpha", "com.shared"), snapshot.presets[0].matchedPackages)
+        assertEquals(listOf("com.alpha", "com.beta"), snapshot.presets[1].matchedPackages)
+        assertEquals(
+            listOf("com.alpha:First", "com.alpha:Second", "com.beta:Second", "com.shared:First"),
+            snapshot.detectedApps.map { "${it.packageName}:${it.presetTitle}" },
+        )
+
+        val alpha = snapshot.detectedApps.first { it.packageName == "com.alpha" }
+        assertTrue(alpha.vpnDetection)
+        assertEquals("first-package", alpha.detectionMethod)
+        assertEquals(listOf("first-package"), alpha.packageDetectionMethods)
+        assertEquals("high", alpha.severity)
+    }
+
+    @Test
+    fun `snapshot refreshes installed package regex matches when catalog index is cached`() {
+        val installedPackagesProvider =
+            MutableRoutingProtectionInstalledPackagesProvider(
+                setOf("com.example.one", "org.other"),
+            )
+        val service =
+            DefaultRoutingProtectionCatalogService(
+                appRoutingCatalogProvider =
+                    object : AppRoutingCatalogProvider {
+                        override fun load(): AppRoutingPolicyCatalog =
+                            AppRoutingPolicyCatalog(
+                                presets =
+                                    listOf(
+                                        AppRoutingPolicyPreset(
+                                            id = "regex",
+                                            title = "Regex",
+                                            packageRegexes = listOf("^com\\.example\\..+"),
+                                        ),
+                                    ),
+                            )
+                    },
+                installedPackagesProvider = installedPackagesProvider,
+            )
+
+        assertEquals(
+            listOf("com.example.one"),
+            service
+                .snapshot()
+                .presets
+                .single()
+                .matchedPackages,
+        )
+
+        installedPackagesProvider.packages = setOf("com.example.two", "org.other")
+
+        assertEquals(
+            listOf("com.example.two"),
+            service
+                .snapshot()
+                .presets
+                .single()
+                .matchedPackages,
+        )
+    }
+}
+
+private class MutableRoutingProtectionInstalledPackagesProvider(
+    var packages: Set<String>,
+) : InstalledPackagesProvider {
+    override fun installedPackages(): Set<String> = packages
 }

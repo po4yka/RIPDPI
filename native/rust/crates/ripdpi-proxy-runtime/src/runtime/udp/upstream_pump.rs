@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
+#[cfg(unix)]
+use std::os::fd::{AsRawFd, RawFd};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
@@ -11,15 +13,20 @@ use super::flow::UdpFlowActivationState;
 use super::migration::maybe_rebind_udp_source_port;
 use crate::runtime::state::RuntimeState;
 
+type UdpFlowKey = (SocketAddr, SocketAddr);
+
 pub(super) fn pump_udp_upstream_responses(
     state: &RuntimeState,
     client_relay: &UdpSocket,
     upstream_buffer: &mut [u8],
-    flow_state: &mut HashMap<(SocketAddr, SocketAddr), UdpFlowActivationState>,
+    flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
     protect_path: Option<&str>,
 ) -> io::Result<bool> {
     let mut made_progress = false;
-    for (&(client_addr, _logical_target), entry) in flow_state {
+    for (client_addr, logical_target) in ready_udp_flow_keys(flow_state)? {
+        let Some(entry) = flow_state.get_mut(&(client_addr, logical_target)) else {
+            continue;
+        };
         match entry.upstream.recv(upstream_buffer) {
             Ok(n) => {
                 made_progress = true;
@@ -37,6 +44,43 @@ pub(super) fn pump_udp_upstream_responses(
         }
     }
     Ok(made_progress)
+}
+
+#[cfg(unix)]
+fn ready_udp_flow_keys(flow_state: &HashMap<UdpFlowKey, UdpFlowActivationState>) -> io::Result<Vec<UdpFlowKey>> {
+    let entries = flow_state.iter().map(|(&key, entry)| (key, entry.upstream.as_raw_fd())).collect::<Vec<_>>();
+    ready_udp_poll_keys(&entries)
+}
+
+#[cfg(not(unix))]
+fn ready_udp_flow_keys(flow_state: &HashMap<UdpFlowKey, UdpFlowActivationState>) -> io::Result<Vec<UdpFlowKey>> {
+    Ok(flow_state.keys().copied().collect())
+}
+
+#[cfg(unix)]
+pub(super) fn ready_udp_poll_keys(entries: &[(UdpFlowKey, RawFd)]) -> io::Result<Vec<UdpFlowKey>> {
+    if entries.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut pollfds =
+        entries.iter().map(|&(_, fd)| libc::pollfd { fd, events: libc::POLLIN, revents: 0 }).collect::<Vec<_>>();
+    // SAFETY: `pollfds` is a live mutable buffer for the full call, and
+    // `libc::poll` only reads/writes within the pointer plus exact length.
+    let result = unsafe { libc::poll(pollfds.as_mut_ptr(), pollfds.len() as libc::nfds_t, 0) };
+    if result < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    if result == 0 {
+        return Ok(Vec::new());
+    }
+
+    const READY_EVENTS: libc::c_short = libc::POLLIN | libc::POLLERR | libc::POLLHUP | libc::POLLNVAL;
+    Ok(entries
+        .iter()
+        .zip(pollfds.iter())
+        .filter_map(|(&(key, _), pollfd)| (pollfd.revents & READY_EVENTS != 0).then_some(key))
+        .collect())
 }
 
 pub(super) fn send_udp_flow_payload(

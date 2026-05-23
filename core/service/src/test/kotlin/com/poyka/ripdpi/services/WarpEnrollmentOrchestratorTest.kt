@@ -477,7 +477,7 @@ class WarpEnrollmentOrchestratorTest {
         }
 
     @Test
-    fun `endpoint scanner uses built in warp pool when no cache exists`() =
+    fun `endpoint scanner uses provisioned endpoint before built in fast pool`() =
         runTest {
             val appSettingsRepository =
                 TestAppSettingsRepository(
@@ -488,17 +488,65 @@ class WarpEnrollmentOrchestratorTest {
                             .build(),
                 )
             val endpointStore = FakeWarpEndpointStore()
+            val probe =
+                FakeWarpEndpointProbe(
+                    responders =
+                        mapOf(
+                            "203.0.113.42:2408" to 27L,
+                            "188.114.99.1:2408" to 3L,
+                        ),
+                )
             val scanner =
                 DefaultWarpEndpointScanner(
                     appSettingsRepository = appSettingsRepository,
                     endpointStore = endpointStore,
-                    endpointProbe =
-                        FakeWarpEndpointProbe(
-                            responders =
-                                mapOf(
-                                    "188.114.99.1" to 11L,
-                                ),
+                    endpointProbe = probe,
+                )
+
+            val resolved =
+                scanner.resolveEndpoint(
+                    profileId = DefaultWarpProfileId,
+                    networkScopeKey = "wifi:travel",
+                    provisioned =
+                        WarpEndpointCacheEntry(
+                            profileId = DefaultWarpProfileId,
+                            networkScopeKey = "",
+                            ipv4 = "203.0.113.42",
+                            port = 2408,
+                            source = "registration",
                         ),
+                )
+
+            assertEquals("203.0.113.42", resolved?.ipv4)
+            assertEquals("wifi:travel", resolved?.networkScopeKey)
+            assertEquals(1, probe.calls)
+            assertEquals("203.0.113.42", endpointStore.load(DefaultWarpProfileId, GlobalWarpEndpointScopeKey)?.ipv4)
+        }
+
+    @Test
+    fun `endpoint scanner uses fast built in warp pool when no cache exists`() =
+        runTest {
+            val appSettingsRepository =
+                TestAppSettingsRepository(
+                    initial =
+                        com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setWarpScannerEnabled(true)
+                            .build(),
+                )
+            val endpointStore = FakeWarpEndpointStore()
+            val probe =
+                FakeWarpEndpointProbe(
+                    responders =
+                        mapOf(
+                            "188.114.99.1:2408" to 11L,
+                        ),
+                )
+            val scanner =
+                DefaultWarpEndpointScanner(
+                    appSettingsRepository = appSettingsRepository,
+                    endpointStore = endpointStore,
+                    endpointProbe = probe,
                 )
 
             val resolved =
@@ -511,10 +559,12 @@ class WarpEnrollmentOrchestratorTest {
             assertEquals("wifi:travel", resolved?.networkScopeKey)
             assertEquals("188.114.99.1", resolved?.ipv4)
             assertEquals("188.114.99.1", endpointStore.load(DefaultWarpProfileId, GlobalWarpEndpointScopeKey)?.ipv4)
+            assertEquals(fastBuiltInWarpMatrixSize(), probe.calls)
+            assertTrue(probe.calls < fullBuiltInWarpMatrixSize())
         }
 
     @Test
-    fun `endpoint scanner probes full built in port matrix`() =
+    fun `endpoint scanner falls back to full built in port matrix when fast pool misses`() =
         runTest {
             val appSettingsRepository =
                 TestAppSettingsRepository(
@@ -525,18 +575,18 @@ class WarpEnrollmentOrchestratorTest {
                             .build(),
                 )
             val endpointStore = FakeWarpEndpointStore()
+            val probe =
+                FakeWarpEndpointProbe(
+                    responders =
+                        mapOf(
+                            "188.114.96.1:8854" to 9L,
+                        ),
+                )
             val scanner =
                 DefaultWarpEndpointScanner(
                     appSettingsRepository = appSettingsRepository,
                     endpointStore = endpointStore,
-                    endpointProbe =
-                        FakeWarpEndpointProbe(
-                            responders =
-                                mapOf(
-                                    "188.114.96.1:8854" to 9L,
-                                    "188.114.96.1" to 40L,
-                                ),
-                        ),
+                    endpointProbe = probe,
                 )
 
             val resolved =
@@ -548,6 +598,46 @@ class WarpEnrollmentOrchestratorTest {
 
             assertEquals("188.114.96.1", resolved?.ipv4)
             assertEquals(8854, resolved?.port)
+            assertEquals(fullBuiltInWarpMatrixSize(), probe.calls)
+        }
+
+    @Test
+    fun `endpoint scanner probes full built in port matrix in manual scanner mode`() =
+        runTest {
+            val appSettingsRepository =
+                TestAppSettingsRepository(
+                    initial =
+                        com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setWarpScannerEnabled(true)
+                            .setWarpLastScannerMode(WarpScannerModeManual)
+                            .build(),
+                )
+            val endpointStore = FakeWarpEndpointStore()
+            val probe =
+                FakeWarpEndpointProbe(
+                    responders =
+                        mapOf(
+                            "188.114.96.1:8854" to 9L,
+                        ),
+                )
+            val scanner =
+                DefaultWarpEndpointScanner(
+                    appSettingsRepository = appSettingsRepository,
+                    endpointStore = endpointStore,
+                    endpointProbe = probe,
+                )
+
+            val resolved =
+                scanner.resolveEndpoint(
+                    profileId = DefaultWarpProfileId,
+                    networkScopeKey = "cellular:test",
+                    provisioned = null,
+                )
+
+            assertEquals("188.114.96.1", resolved?.ipv4)
+            assertEquals(8854, resolved?.port)
+            assertEquals(fullBuiltInWarpMatrixSize(), probe.calls)
         }
 
     private fun sampleProvisioningResult(): WarpProvisioningResult =
@@ -582,6 +672,12 @@ class WarpEnrollmentOrchestratorTest {
 
     private fun fixtureAccessValue(suffix: String): String = listOf("access", "value", suffix).joinToString("-")
 }
+
+private fun fullBuiltInWarpMatrixSize(): Int =
+    BuiltInWarpEndpointPoolV4.size * BuiltInWarpEndpointPorts.size + BuiltInWarpEndpointPoolV6.size
+
+private fun fastBuiltInWarpMatrixSize(): Int =
+    BuiltInWarpEndpointPoolV4.size * FastWarpEndpointPorts.size + BuiltInWarpEndpointPoolV6.size
 
 private class FakeWarpProvisioningClient(
     private val registerResult: WarpProvisioningResult,

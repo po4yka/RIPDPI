@@ -9,11 +9,12 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeCandidate
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider
 import com.poyka.ripdpi.diagnostics.StrategyProbeConfig
 import com.poyka.ripdpi.diagnostics.StrategyProbeFailureKind
+import com.poyka.ripdpi.diagnostics.StrategyProbeRankingAccumulator
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeService
-import com.poyka.ripdpi.diagnostics.summarizeStrategyProbeResults
 import com.poyka.ripdpi.services.NativeStrategyConfigRuntime
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -161,7 +162,8 @@ class BlockcheckViewModel
             domains: List<String>,
             candidates: List<StrategyProbeCandidate>,
         ) {
-            val collected = mutableListOf<StrategyProbeResult>()
+            var collected = persistentListOf<StrategyProbeResult>()
+            val rankingAccumulator = StrategyProbeRankingAccumulator()
             mutableUiState.value =
                 BlockcheckUiState(
                     runState = BlockcheckRunState.Running,
@@ -179,11 +181,12 @@ class BlockcheckViewModel
                         state.copy(runState = BlockcheckRunState.Error, message = error.userMessage())
                     }
                 }.collect { result ->
-                    collected += result
+                    collected = collected.add(result)
+                    rankingAccumulator.add(result)
                     mutableUiState.update { state ->
                         state.copy(
-                            results = collected.toList(),
-                            rankedStrategies = summarizeStrategyProbeResults(collected).rankedStrategies,
+                            results = collected,
+                            rankedStrategies = rankingAccumulator.rankedStrategies(),
                         )
                     }
                 }

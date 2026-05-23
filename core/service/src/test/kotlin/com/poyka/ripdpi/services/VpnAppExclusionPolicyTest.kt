@@ -64,6 +64,44 @@ class VpnAppExclusionPolicyTest {
 
             assertEquals(emptyList<String>(), policy.russianAppsToExclude())
         }
+
+    @Test
+    fun `policy refreshes installed package regex matches when catalog index is cached`() =
+        runTest {
+            val repository =
+                TestAppSettingsRepository(
+                    AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .clearAppRoutingEnabledPresetIds()
+                        .addAppRoutingEnabledPresetIds("routing")
+                        .build(),
+                )
+            val installedPackagesProvider = MutableVpnInstalledPackagesProvider(setOf("ru.yandex.music", "com.other"))
+            val policy =
+                DefaultVpnAppExclusionPolicy(
+                    appSettingsRepository = repository,
+                    appRoutingCatalogProvider =
+                        FakeAppRoutingCatalogProvider(
+                            AppRoutingPolicyCatalog(
+                                presets =
+                                    listOf(
+                                        AppRoutingPolicyPreset(
+                                            id = "routing",
+                                            title = "Routing",
+                                            packageRegexes = listOf("^ru\\.yandex\\..+"),
+                                        ),
+                                    ),
+                            ),
+                        ),
+                    installedPackagesProvider = installedPackagesProvider,
+                )
+
+            assertEquals(listOf("ru.yandex.music"), policy.russianAppsToExclude())
+
+            installedPackagesProvider.packages = setOf("ru.yandex.browser", "com.other")
+
+            assertEquals(listOf("ru.yandex.browser"), policy.russianAppsToExclude())
+        }
 }
 
 private class FakeAppRoutingCatalogProvider(
@@ -74,6 +112,12 @@ private class FakeAppRoutingCatalogProvider(
 
 private class FakeInstalledPackagesProvider(
     private val packages: Set<String>,
+) : InstalledPackagesProvider {
+    override fun installedPackages(): Set<String> = packages
+}
+
+private class MutableVpnInstalledPackagesProvider(
+    var packages: Set<String>,
 ) : InstalledPackagesProvider {
     override fun installedPackages(): Set<String> = packages
 }

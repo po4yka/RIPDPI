@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from bisect import insort
 from collections import Counter, defaultdict
 from typing import Any
 
@@ -14,6 +15,8 @@ from .common import (
 
 CLUSTER_MATCH_THRESHOLD = 0.45
 MAX_PAIRWISE_SIMILARITY_COMPARISONS = 4_096
+MAX_GREEDY_FEATURE_POSTINGS = 1_024
+MAX_GREEDY_CLUSTER_CANDIDATES = 256
 
 
 def run_cluster(extracted_payload: dict[str, Any]) -> dict[str, Any]:
@@ -59,22 +62,109 @@ def coarse_bucket_for_record(record: dict[str, Any]) -> str:
 def greedy_cluster(records: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     clusters: list[list[dict[str, Any]]] = []
     cluster_feature_unions: list[set[str]] = []
+    feature_cluster_index: dict[str, list[int]] = defaultdict(list)
+    empty_feature_cluster_index: int | None = None
     for record in records:
-        best_index = None
-        best_score = 0.0
         record_features = clustering_features(record)
-        for index, cluster_features in enumerate(cluster_feature_unions):
-            score = jaccard(record_features, cluster_features)
-            if score > best_score:
-                best_score = score
-                best_index = index
-        if best_index is not None and best_score >= CLUSTER_MATCH_THRESHOLD:
+        if not record_features:
+            if empty_feature_cluster_index is None:
+                empty_feature_cluster_index = len(clusters)
+                clusters.append([record])
+                cluster_feature_unions.append(set())
+            else:
+                clusters[empty_feature_cluster_index].append(record)
+            continue
+
+        best_index = best_matching_cluster_index(
+            record_features=record_features,
+            cluster_feature_unions=cluster_feature_unions,
+            feature_cluster_index=feature_cluster_index,
+        )
+        if best_index is not None:
             clusters[best_index].append(record)
+            new_features = record_features - cluster_feature_unions[best_index]
             cluster_feature_unions[best_index].update(record_features)
+            index_cluster_features(feature_cluster_index, best_index, new_features)
         else:
+            cluster_index = len(clusters)
             clusters.append([record])
             cluster_feature_unions.append(set(record_features))
+            index_cluster_features(feature_cluster_index, cluster_index, record_features)
     return clusters
+
+
+def best_matching_cluster_index(
+    record_features: set[str],
+    cluster_feature_unions: list[set[str]],
+    feature_cluster_index: dict[str, list[int]],
+) -> int | None:
+    best_index = None
+    best_score = 0.0
+    for index in candidate_cluster_indices(record_features, feature_cluster_index, cluster_feature_unions):
+        score = jaccard(record_features, cluster_feature_unions[index])
+        if score > best_score:
+            best_score = score
+            best_index = index
+    if best_index is not None and best_score >= CLUSTER_MATCH_THRESHOLD:
+        return best_index
+    return None
+
+
+def candidate_cluster_indices(
+    record_features: set[str],
+    feature_cluster_index: dict[str, list[int]],
+    cluster_feature_unions: list[set[str]],
+) -> list[int]:
+    if not record_features:
+        return []
+
+    candidate_overlap_counts: Counter[int] = Counter()
+    for _posting_size, _feature, cluster_indices in indexed_feature_postings(record_features, feature_cluster_index):
+        for index in bounded_cluster_posting(cluster_indices):
+            candidate_overlap_counts[index] += 1
+
+    ranked_candidates = sorted(
+        candidate_overlap_counts,
+        key=lambda index: (
+            -estimated_jaccard(record_features, cluster_feature_unions[index], candidate_overlap_counts[index]),
+            index,
+        ),
+    )
+    return sorted(ranked_candidates[:MAX_GREEDY_CLUSTER_CANDIDATES])
+
+
+def indexed_feature_postings(
+    record_features: set[str],
+    feature_cluster_index: dict[str, list[int]],
+) -> list[tuple[int, str, list[int]]]:
+    postings = []
+    for feature in sorted(record_features):
+        cluster_indices = feature_cluster_index.get(feature)
+        if cluster_indices:
+            postings.append((len(cluster_indices), feature, cluster_indices))
+    return sorted(postings, key=lambda item: (item[0], item[1]))
+
+
+def bounded_cluster_posting(cluster_indices: list[int]) -> list[int]:
+    if len(cluster_indices) <= MAX_GREEDY_FEATURE_POSTINGS:
+        return cluster_indices
+    head_count = MAX_GREEDY_FEATURE_POSTINGS // 2
+    tail_count = MAX_GREEDY_FEATURE_POSTINGS - head_count
+    return cluster_indices[:head_count] + cluster_indices[-tail_count:]
+
+
+def estimated_jaccard(record_features: set[str], cluster_features: set[str], overlap_count: int) -> float:
+    union = len(record_features) + len(cluster_features) - overlap_count
+    return overlap_count / union if union else 0.0
+
+
+def index_cluster_features(
+    feature_cluster_index: dict[str, list[int]],
+    cluster_index: int,
+    features: set[str],
+) -> None:
+    for feature in sorted(features):
+        insort(feature_cluster_index[feature], cluster_index)
 
 
 def clustering_features(record: dict[str, Any]) -> set[str]:
