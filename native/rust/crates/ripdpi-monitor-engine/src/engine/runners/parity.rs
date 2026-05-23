@@ -1,6 +1,6 @@
 use std::sync::atomic::AtomicBool;
 
-use super::{
+use super::connectivity::{
     CircumventionRunner, DnsRunner, EnvironmentRunner, QuicRunner, ServiceRunner, TcpRunner, TelegramRunner,
     ThroughputRunner, WebRunner,
 };
