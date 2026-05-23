@@ -17,6 +17,9 @@
 
 <p align="center"><a href="README.md">English</a> | <a href="README-ru.md">Русский</a> | <b>Español</b> | <a href="README-de.md">Deutsch</a> | <a href="README-fr.md">Français</a> | <a href="docs/fa/README.md">فارسی</a> | <a href="README-zh-CN.md">简体中文</a></p>
 
+> [!WARNING]
+> ⚠️ **El proyecto se encuentra en una fase activa de desarrollo.** Se están añadiendo nuevas funcionalidades y se realizan refactorizaciones de gran alcance con frecuencia para mejorar la calidad del código base. En este trabajo se utilizan agentes de codificación de forma intensiva, por lo que actualmente en `main` son posibles **cambios disruptivos (breaking changes), migraciones de esquema y funcionalidades parcialmente rotas**. Si encuentras una regresión, por favor [abre una issue](https://github.com/po4yka/RIPDPI/issues) — tus comentarios ayudan a estabilizar el proyecto.
+
 RIPDPI es un conjunto de herramientas de Android para el diagnóstico y la optimización de la ruta de red. Aplica estrategias de paquetes configurables en el dispositivo, puede conectarse a servidores de relevo que tú controlas y ejecuta diagnósticos por conexión para identificar por qué cada destino está fallando o degradándose. Las tres capacidades funcionan de forma independiente o combinada.
 
 ## Tres pilares
