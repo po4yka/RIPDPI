@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "family": "proxy_setting",
+  "name": "proxy_listen_port",
+  "wireId": "port",
+  "summary": "TCP listen port for the embedded SOCKS proxy on loopback.",
+  "layers": [
+    {
+      "id": "proto",
+      "path": "core/data/model/src/main/proto/app_settings.proto",
+      "marker": "int32 proxy_port",
+      "fixHint": "Reserve a free AppSettings field number and add the int32 in app_settings.proto. proto3 default of 0 must mean the inert / unset state."
+    },
+    {
+      "id": "kotlin_settings_section",
+      "path": "core/data/model/src/main/kotlin/com/poyka/ripdpi/data/SettingsSections.kt",
+      "marker": "val proxyPort",
+      "fixHint": "Add the field to ProxySettingsSection (or the matching section) with a Kotlin default that mirrors the proto default."
+    },
+    {
+      "id": "kotlin_section_mapper",
+      "path": "core/data/model/src/main/kotlin/com/poyka/ripdpi/data/AppSettingsSectionMapper.kt",
+      "marker": "proxyPort = proxyPort",
+      "fixHint": "Wire the proto field to the section field in AppSettings.toSettingsSections(). Forgetting this leaves the setting always at its Kotlin default."
+    },
+    {
+      "id": "rust_runtime_config",
+      "path": "native/rust/crates/ripdpi-config/src/model/runtime.rs",
+      "marker": "pub listen_port: u16",
+      "fixHint": "Add the field to the Rust runtime model with #[serde(default = \"…\")] so older JSON without the field still loads."
+    },
+    {
+      "id": "rust_defaults",
+      "path": "native/rust/crates/ripdpi-config/src/model/defaults.rs",
+      "marker": "listen_port: 1080",
+      "fixHint": "Add a matching default in defaults.rs so the runtime model reproduces the pre-existing inert behavior when the field is absent."
+    }
+  ],
+  "checklist": [
+    "core/data/model/src/main/proto/app_settings.proto — add the proto field at the next free number.",
+    "core/data/model/src/main/kotlin/com/poyka/ripdpi/data/SettingsSections.kt — add the field to the matching *SettingsSection data class.",
+    "core/data/model/src/main/kotlin/com/poyka/ripdpi/data/AppSettingsSectionMapper.kt — project the proto field into the section field.",
+    "core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxyJsonCodec.kt — surface the setting in the wire JSON if it should reach Rust.",
+    "native/rust/crates/ripdpi-config/src/model/runtime.rs — add the consuming field with `#[serde(default)]`.",
+    "native/rust/crates/ripdpi-config/src/model/defaults.rs — add a matching default to keep older configs loading.",
+    "Existing tests to extend: AppSettingsSectionMapperTest, RipDpiProxyJsonCodecTest, ripdpi-config model tests."
+  ]
+}

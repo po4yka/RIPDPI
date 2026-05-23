@@ -1136,6 +1136,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "feature-contract-harness"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-diagnostics-probes",
+ "ripdpi-relay-core",
+ "ripdpi-root-helper-protocol",
+ "ripdpi-strategy-config",
+ "ripdpi-strategy-registry",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "fiat-crypto"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

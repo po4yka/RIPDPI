@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/android-support",
+    "crates/feature-contract-harness",
     "crates/golden-test-support",
     "crates/ripdpi-dns-resolver",
     "crates/ripdpi-failure-classifier",

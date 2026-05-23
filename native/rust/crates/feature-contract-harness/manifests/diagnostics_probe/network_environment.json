@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "family": "diagnostics_probe",
+  "name": "network_environment",
+  "wireId": "network_environment",
+  "summary": "Network environment scheduled probe — always-on stage that reports the local network shape.",
+  "layers": [
+    {
+      "id": "probe_impl",
+      "path": "native/rust/crates/ripdpi-diagnostics-probes/src/network_environment.rs",
+      "marker": "pub const NETWORK_ENVIRONMENT_PROBE_ID: &str = \"network_environment\"",
+      "fixHint": "Define `pub const <PROBE>_PROBE_ID: &str = \"<wire id>\";` in the probe module and implement the Probe trait."
+    },
+    {
+      "id": "probe_descriptor",
+      "path": "native/rust/crates/ripdpi-diagnostics-probes/src/probe_descriptor.rs",
+      "marker": "scheduled_probe_type: \"network_environment\"",
+      "fixHint": "Add a ProbeDescriptor row to PROBE_DESCRIPTORS — id, family, scheduled_probe_type, runner, path_requirement, label. The `every_descriptor_id_is_non_empty_and_unique` and `every_scheduled_inventory_row_has_one_descriptor` tests pin this table."
+    },
+    {
+      "id": "scheduled_inventory",
+      "path": "native/rust/crates/ripdpi-diagnostics-probes/src/scheduled_inventory.rs",
+      "marker": "probe_type: \"network_environment\"",
+      "fixHint": "Mirror the descriptor row in SCHEDULED_PROBE_INVENTORY with ProbeTraitBacking::Backed(<PROBE>_PROBE_ID) — descriptor and inventory must agree on probe_type and runner."
+    },
+    {
+      "id": "engine_registry",
+      "path": "native/rust/crates/ripdpi-monitor-engine/src/engine/runners/registry.rs",
+      "marker": "probe_type: \"network_environment\"",
+      "fixHint": "Add a row to PROBE_STAGE_REGISTRATIONS in the monitor-engine registry binding probe_type and probe_id to a runner factory and a stage id."
+    }
+  ],
+  "checklist": [
+    "Define `pub const <PROBE>_PROBE_ID: &str = \"…\";` in the new probe module under ripdpi-diagnostics-probes/src/.",
+    "Implement the `Probe` trait for the probe (id, family, run).",
+    "Add a `ProbeDescriptor` row to `PROBE_DESCRIPTORS` in `probe_descriptor.rs` and to `SCHEDULED_PROBE_INVENTORY` in `scheduled_inventory.rs` (matching probe_type + runner).",
+    "Add a `ProbeStageRegistration` row in `ripdpi-monitor-engine/src/engine/runners/registry.rs` binding the runner factory.",
+    "Existing tests: probe_descriptor.rs tests (`every_descriptor_id_is_non_empty_and_unique`, `every_scheduled_inventory_row_has_one_descriptor`), monitor-engine `registry.rs` tests."
+  ]
+}

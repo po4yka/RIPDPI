@@ -1,0 +1,30 @@
+# Cross-layer feature-contract harness.
+#
+# Test-support only: not shipped in the APK, not part of any public API. The
+# crate carries one JSON manifest per existing cross-layer feature; the
+# `tests/` programs load every manifest and assert that each layer the feature
+# touches still contains the marker text the manifest pins. New
+# descriptor / settings-section / registry plumbing should land alongside a
+# new manifest under `manifests/<family>/`.
+#
+# Tests are split by family so a failure points at the platform that drifted.
+[package]
+name = "feature-contract-harness"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+ripdpi-strategy-config = { workspace = true }
+ripdpi-strategy-registry = { workspace = true }
+ripdpi-diagnostics-probes = { workspace = true }
+ripdpi-root-helper-protocol = { workspace = true }
+ripdpi-relay-core = { workspace = true }

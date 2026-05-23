@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "family": "root_helper_command",
+  "name": "cmd_send_fake_tcp",
+  "wireId": "send_fake_tcp",
+  "summary": "send_fake_tcp — raw-socket fake TCP segment ahead of the caller's payload (the canonical SCM_RIGHTS fd-carrying command).",
+  "layers": [
+    {
+      "id": "command_constant",
+      "path": "native/rust/crates/ripdpi-root-helper-protocol/src/commands.rs",
+      "marker": "pub const CMD_SEND_FAKE_TCP: &str = \"send_fake_tcp\"",
+      "fixHint": "Add `pub const CMD_<NAME>: &str = \"<wire>\";` in commands.rs. The string is a frozen cross-process contract — never rename."
+    },
+    {
+      "id": "params_struct",
+      "path": "native/rust/crates/ripdpi-root-helper-protocol/src/params.rs",
+      "marker": "pub struct FakeTcpParams",
+      "fixHint": "Add a serde-deserializable params struct. The descriptor's params_type field must record its type name; commands with no params leave params_type = None."
+    },
+    {
+      "id": "command_descriptor",
+      "path": "native/rust/crates/ripdpi-root-helper-protocol/src/command_descriptor.rs",
+      "marker": "command: CMD_SEND_FAKE_TCP",
+      "fixHint": "Add a CommandDescriptor row to COMMAND_DESCRIPTORS — command, params_type, requires_inbound_fd, may_return_outbound_fd, note. validate_request() and the dispatch coverage test consume the row."
+    },
+    {
+      "id": "dispatch_handler",
+      "path": "native/rust/crates/ripdpi-root-helper/src/dispatch.rs",
+      "marker": "CMD_SEND_FAKE_TCP => tcp_payload::dispatch_send_fake_tcp",
+      "fixHint": "Add a `CMD_<NAME> => <module>::dispatch_<name>(request, received_fd)` arm in dispatch.rs. The `every_command_descriptor_has_a_dispatch_handler` test pins this against COMMAND_DESCRIPTORS."
+    }
+  ],
+  "checklist": [
+    "native/rust/crates/ripdpi-root-helper-protocol/src/commands.rs — add the CMD_<NAME> constant (frozen wire string).",
+    "native/rust/crates/ripdpi-root-helper-protocol/src/params.rs — add the serde-deserializable params struct if the command carries params.",
+    "native/rust/crates/ripdpi-root-helper-protocol/src/command_descriptor.rs — add a CommandDescriptor row including the SCM_RIGHTS fd metadata, and extend ALL_COMMANDS / FD_CARRYING_COMMANDS in the same file.",
+    "native/rust/crates/ripdpi-root-helper/src/dispatch.rs — add the dispatch arm and the matching handler module.",
+    "Existing tests: command_descriptor.rs tests (`every_command_constant_has_exactly_one_descriptor`, `scm_rights_commands_are_marked_fd_carrying`, `validate_request_*`)."
+  ]
+}

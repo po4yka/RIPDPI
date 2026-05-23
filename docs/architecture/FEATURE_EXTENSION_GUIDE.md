@@ -601,6 +601,55 @@ whether an emitter runs, they do not change the taxonomy.
 
 ---
 
+## 8. The cross-layer feature-contract harness
+
+Any feature that lands in one of the five descriptor / section platforms
+covered by this guide — proxy setting (§5), relay transport (§2), strategy
+step (§1), diagnostics probe (§3), root-helper command (§7) — should also
+add or update a manifest in
+[`native/rust/crates/feature-contract-harness/manifests/`](../../native/rust/crates/feature-contract-harness/manifests/).
+
+The harness is a thin test layer over JSON manifests. Each manifest declares
+the cross-layer surface for one feature (proto field, settings section
+mapper, wire DTO, Rust descriptor / registration, …) and pins a stable
+marker substring per layer. When a contributor edits one layer and forgets
+the others, the harness fails with the file path, the missing marker, the
+per-layer fix hint, and the full shotgun-surgery checklist.
+
+### When to add or update a manifest
+
+| Trigger | Action |
+|---------|--------|
+| Adding a new feature to any of the 5 families | Add a new `manifests/<family>/<name>.json`. |
+| Intentionally renaming a marker or path | Update the manifest in the same commit as the rename. |
+| Adding a 6th cross-layer platform | Extend `KNOWN_FAMILIES` in `feature-contract-harness/src/lib.rs`, add a new family test under `tests/`, and add at least one manifest. |
+
+The manifest schema and authoring workflow live in the crate's
+[`README.md`](../../native/rust/crates/feature-contract-harness/README.md).
+
+### What it does NOT replace
+
+- Existing in-crate drift tests (`descriptor_drift.rs`, `command_descriptor.rs`
+  tests, `RelayKindDescriptorDriftTest`) — those pin platform-internal
+  invariants. The harness pins the cross-layer touchpoints.
+- The wire-format goldens for native config JSON, telemetry events, root-helper
+  protocol — those are governed by
+  [`.claude/rules/golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md).
+
+### Running
+
+```sh
+cargo test --locked --manifest-path native/rust/Cargo.toml -p feature-contract-harness
+./gradlew :core:data:model:test --tests 'ProxySettingFeatureContractTest'
+./gradlew :core:service:test --tests 'RelayKindFeatureContractTest'
+```
+
+The Rust side covers all 5 families. The Kotlin side covers the two families
+with Kotlin surface (proxy setting + relay kind) and reads the same manifest
+tree, so a single edit to a manifest propagates to both languages.
+
+---
+
 ## Cross-references
 
 | Topic | Source |

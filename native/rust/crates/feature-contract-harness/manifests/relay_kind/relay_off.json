@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "family": "relay_kind",
+  "name": "relay_off",
+  "wireId": "off",
+  "summary": "The 'off' relay state — the canonical no-relay passthrough; every other kind must mirror this layer set.",
+  "layers": [
+    {
+      "id": "proto",
+      "path": "core/data/model/src/main/proto/app_settings.proto",
+      "marker": "string relay_kind = 171",
+      "fixHint": "The relay_kind proto field uses a free-form string with the canonical kinds listed in a trailing comment. Add the new value to the comment so the Kotlin drift test sees it."
+    },
+    {
+      "id": "kotlin_relay_constant",
+      "path": "core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/RelaySettings.kt",
+      "marker": "const val RelayKindOff = \"off\"",
+      "fixHint": "Define the new RelayKind* constant alongside the existing ones in RelaySettings.kt. Constant must equal the wire string."
+    },
+    {
+      "id": "kotlin_descriptor",
+      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/RelayKindDescriptor.kt",
+      "marker": "kindId = RelayKindOff",
+      "fixHint": "Add a RelayKindDescriptor row to RelayKindDescriptors with kindId equal to the new constant. The RelayKindDescriptorDriftTest enforces a 1:1 mapping against the resolver registry."
+    },
+    {
+      "id": "rust_transport_descriptor",
+      "path": "native/rust/crates/ripdpi-relay-core/src/transport_descriptor.rs",
+      "marker": "\"off\"",
+      "fixHint": "Mirror the Kotlin descriptor row in RELAY_TRANSPORT_REGISTRATIONS with matching capability fields (tcp, udp, reusable, supports_outbound_bind_ip). The 'off' kind has no transport entry — it is the catch-all passthrough; any concrete relay kind needs a row."
+    }
+  ],
+  "checklist": [
+    "core/data/model/src/main/proto/app_settings.proto — add the new kind string to the trailing comment of `string relay_kind = 171;`.",
+    "core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/RelaySettings.kt — define the `RelayKind<Name>` constant.",
+    "core/service/src/main/kotlin/com/poyka/ripdpi/services/RelayKindDescriptor.kt — add a RelayKindDescriptor row (kindId, capability bits, finalmask, config-backing).",
+    "core/service/src/main/kotlin/com/poyka/ripdpi/services/RelayKindResolverRegistry.kt — register a resolver in buildRelayKindRegistrations(); the drift test fails if a descriptor has no resolver.",
+    "core/engine-api/src/main/kotlin/com/poyka/ripdpi/core/RelayNativeConfig.kt — add any new fields to the wire DTO if the kind needs parameters.",
+    "native/rust/crates/ripdpi-relay-core/src/transport_descriptor.rs — add a RelayTransportRegistration row whose capability bits match the Kotlin descriptor exactly.",
+    "native/rust/crates/ripdpi-relay-core/src/backend/builder/builders/mod.rs — add a BackendBuilder if the relay runs in-process.",
+    "Existing tests: RelayKindDescriptorDriftTest, relay_transport_descriptors_cover_every_kind_exactly_once, RelaySettingsSectionSnapshotTest."
+  ]
+}

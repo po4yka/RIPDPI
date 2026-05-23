@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "family": "strategy_step",
+  "name": "http_domcase",
+  "wireId": "http_domcase",
+  "summary": "HTTP domain-case desync strategy — flips Host-header casing to defeat token-match censors.",
+  "layers": [
+    {
+      "id": "strategy_impl",
+      "path": "native/rust/crates/ripdpi-strategy-http/src/lib.rs",
+      "marker": "\"http_domcase\"",
+      "fixHint": "Implement the DesyncStrategy in a ripdpi-strategy-* crate (a new crate or one of the existing buckets). Strategy id must equal the wireId."
+    },
+    {
+      "id": "strategy_registration",
+      "path": "native/rust/crates/ripdpi-strategy-http/src/lib.rs",
+      "marker": "HTTP_DOMCASE_REGISTRATION",
+      "fixHint": "Contribute a StrategyStepRegistration to STRATEGY_STEP_REGISTRATIONS via #[linkme::distributed_slice]. Pick the StrategyStepFactory variant (Stateless / Configured / Unimplemented) that matches the step shape."
+    },
+    {
+      "id": "config_step_type",
+      "path": "native/rust/crates/ripdpi-strategy-config/src/lib.rs",
+      "marker": "HttpDomcase",
+      "fixHint": "Add a StepType variant (and to StepType::ALL), the canonical wire id in registry_id(), and any historical aliases in from_wire(). descriptor_drift.rs pins this against the registry."
+    },
+    {
+      "id": "linked_crate",
+      "path": "native/rust/crates/ripdpi-strategy-registry/src/lib.rs",
+      "marker": "ripdpi_strategy_http",
+      "fixHint": "If the strategy lives in a NEW crate, add `extern crate ripdpi_strategy_<name> as _;` to ripdpi-strategy-registry/src/lib.rs so linkme picks up the slice entry. This is the only central edit the registration path needs."
+    }
+  ],
+  "checklist": [
+    "Implement `DesyncStrategy` in a ripdpi-strategy-* crate (id == wireId).",
+    "Contribute a StrategyStepRegistration to STRATEGY_STEP_REGISTRATIONS with the correct StrategyStepFactory variant.",
+    "Add the matching StepType variant in ripdpi-strategy-config (variant, ALL list, registry_id(), from_wire() including any legacy aliases).",
+    "If the strategy lives in a new crate, add `extern crate ripdpi_strategy_<name> as _;` to ripdpi-strategy-registry/src/lib.rs.",
+    "Existing drift tests in ripdpi-strategy-registry/tests/descriptor_drift.rs will catch any one-sided edit; verify they still pass."
+  ]
+}
