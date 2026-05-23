@@ -37,6 +37,7 @@ members = [
     "crates/ripdpi-runtime-api",
     "crates/ripdpi-runtime-adaptive",
     "crates/ripdpi-runtime-dns-cache",
+    "crates/ripdpi-runtime-decision-engine",
     "crates/ripdpi-runtime-decision-ports",
     "crates/ripdpi-runtime-policy",
     "crates/ripdpi-runtime-services",
@@ -83,6 +84,7 @@ members = [
     "crates/ripdpi-root-helper",
     "crates/ripdpi-relay-mux",
     "crates/ripdpi-strategy-config",
+    "crates/ripdpi-strategy-core",
     "crates/ripdpi-strategy-http",
     "crates/ripdpi-strategy-ipv6",
     "crates/ripdpi-strategy-lua",
@@ -143,6 +145,7 @@ ripdpi-proxy-runtime = { path = "crates/ripdpi-proxy-runtime" }
 ripdpi-runtime-api = { path = "crates/ripdpi-runtime-api" }
 ripdpi-runtime-adaptive = { path = "crates/ripdpi-runtime-adaptive" }
 ripdpi-runtime-dns-cache = { path = "crates/ripdpi-runtime-dns-cache" }
+ripdpi-runtime-decision-engine = { path = "crates/ripdpi-runtime-decision-engine" }
 ripdpi-runtime-decision-ports = { path = "crates/ripdpi-runtime-decision-ports" }
 ripdpi-runtime-policy = { path = "crates/ripdpi-runtime-policy" }
 ripdpi-runtime-services = { path = "crates/ripdpi-runtime-services" }
@@ -178,6 +181,7 @@ ripdpi-privileged-ops = { path = "crates/ripdpi-privileged-ops" }
 ripdpi-protocol-detect = { path = "crates/ripdpi-protocol-detect" }
 ripdpi-root-helper-protocol = { path = "crates/ripdpi-root-helper-protocol" }
 ripdpi-strategy-config = { path = "crates/ripdpi-strategy-config" }
+ripdpi-strategy-core = { path = "crates/ripdpi-strategy-core" }
 ripdpi-strategy-http = { path = "crates/ripdpi-strategy-http" }
 ripdpi-strategy-ipv6 = { path = "crates/ripdpi-strategy-ipv6" }
 ripdpi-strategy-lua = { path = "crates/ripdpi-strategy-lua" }

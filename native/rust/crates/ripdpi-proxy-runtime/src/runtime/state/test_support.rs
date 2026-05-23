@@ -26,6 +26,7 @@ impl RuntimeState {
         runtime_context: Option<ProxyRuntimeContext>,
     ) -> Self {
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
+        let decision_engine = new_decision_engine(&handle);
         let geo_matcher = super::super::geo::load_runtime_geo_matcher(&config);
         let RuntimeConfigProjection {
             listener_settings,
@@ -78,6 +79,7 @@ impl RuntimeState {
             response_failure_evidence_settings,
             geo_matcher,
             services: handle,
+            decision_engine,
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry,
             runtime_context,

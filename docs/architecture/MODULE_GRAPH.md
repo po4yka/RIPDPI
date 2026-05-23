@@ -20,6 +20,7 @@ graph LR
   subgraph :core
     :core:service["service"]
     :core:engine["engine"]
+    :core:engine-api["engine-api"]
     :core:data["data"]
     :core:diagnostics-data["diagnostics-data"]
     :core:detection["detection"]
@@ -39,8 +40,11 @@ graph LR
   :core:data:settings --> :quality:detekt-rules
   :core:service --> :quality:detekt-rules
   :core:service --> :core:engine
+  :core:service --> :core:engine-api
   :core:service --> :core:data
   :core:service --> :core:diagnostics-data
+  :core:engine-api --> :quality:detekt-rules
+  :core:engine-api --> :core:data
   :core:diagnostics-data --> :quality:detekt-rules
   :core:diagnostics-data --> :core:data
   :app --> :quality:detekt-rules
@@ -60,6 +64,8 @@ graph LR
   :core:diagnostics --> :core:detection
   :core:diagnostics --> :core:diagnostics-data
   :core:diagnostics --> :core:engine
+  :core:diagnostics --> :core:engine-api
+  :core:engine --> :core:engine-api
   :core:engine --> :quality:detekt-rules
   :core:engine --> :core:data
   :core:data:model --> :quality:detekt-rules
@@ -82,6 +88,7 @@ class :core:data:catalog android-library
 class :quality:detekt-rules kotlin-jvm
 class :core:service android-library
 class :core:engine android-library
+class :core:engine-api android-library
 class :core:data android-library
 class :core:diagnostics-data android-library
 class :app android-application

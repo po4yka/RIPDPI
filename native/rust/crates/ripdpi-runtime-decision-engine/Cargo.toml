@@ -1,0 +1,14 @@
+[package]
+name = "ripdpi-runtime-decision-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-config = { workspace = true }
+ripdpi-proxy-config = { workspace = true }
+ripdpi-runtime-decision-ports = { workspace = true }
+ripdpi-runtime-services = { workspace = true }

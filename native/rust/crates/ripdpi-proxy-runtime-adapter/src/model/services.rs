@@ -5,6 +5,9 @@ use super::ports::AdaptiveFeedbackPort;
 use super::proxy_config::ProxyRuntimeContext;
 use super::runtime_api::RuntimeTelemetrySink;
 
+pub use ripdpi_runtime_decision_engine::{
+    FlowRouteInputs, RuntimeDecisionEngine, RuntimeDecisionInputs, RuntimeDecisionOutputs,
+};
 pub use ripdpi_runtime_services::{GeoMatcher, ServicesState, ServicesStateHandle};
 
 pub fn new_services_handle(
@@ -13,6 +16,15 @@ pub fn new_services_handle(
     runtime_context: Option<ProxyRuntimeContext>,
 ) -> ServicesStateHandle {
     ServicesStateHandle::new(ServicesState::new(config, telemetry, runtime_context))
+}
+
+/// Construct a [`RuntimeDecisionEngine`] over an existing services handle.
+///
+/// The engine is a clone over the same underlying ports; constructing it
+/// here lets proxy-runtime hold the engine without depending on
+/// `ripdpi-runtime-decision-engine` directly — the adapter is the seam.
+pub fn new_decision_engine(services: &ServicesStateHandle) -> RuntimeDecisionEngine {
+    RuntimeDecisionEngine::new(services.clone())
 }
 
 #[derive(Clone)]

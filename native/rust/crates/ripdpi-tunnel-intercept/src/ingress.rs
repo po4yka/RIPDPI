@@ -109,7 +109,7 @@ impl SynAckStrategy {
                 return None;
             }
         };
-        parsed.strategies.iter().flat_map(|strategy| strategy.steps.iter()).find_map(|step| match step.kind {
+        parsed.strategies.iter().flat_map(|strategy| strategy.steps.iter()).find_map(|step| match &step.kind {
             StepType::SynAck => Some(Self::LowTtl { ttl: step.ttl.unwrap_or(5).max(1) }),
             StepType::SynAckSplit => Some(Self::Split { sequence_delta: DEFAULT_SYNACK_SPLIT_SEQUENCE_DELTA }),
             _ => None,

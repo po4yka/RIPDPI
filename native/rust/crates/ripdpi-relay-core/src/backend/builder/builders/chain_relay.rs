@@ -1,19 +1,12 @@
 use std::io;
 
 use crate::backend::builder::builders::common::vless_reality_config;
-use crate::backend::builder::builders::BackendBuilder;
 use crate::backend::builder::BuildContext;
 use crate::backend::{PooledRelayBackend, RelayBackend};
-use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
+use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::ChainRelaySessionFactory;
 
-pub(crate) const BUILDER: BackendBuilder = BackendBuilder::new(supports, build);
-
-fn supports(config: &ResolvedRelayRuntimeConfig) -> bool {
-    matches!(RelayKind::from_config(config), RelayKind::ChainRelay)
-}
-
-fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
+pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::ChainRelay(chain) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected chain relay config"));
     };

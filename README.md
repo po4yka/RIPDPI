@@ -17,6 +17,9 @@
 
 <p align="center"><b>English</b> | <a href="README-ru.md">Русский</a> | <a href="README-es.md">Español</a> | <a href="README-de.md">Deutsch</a> | <a href="README-fr.md">Français</a> | <a href="docs/fa/README.md">فارسی</a> | <a href="README-zh-CN.md">简体中文</a></p>
 
+> [!WARNING]
+> ⚠️ **The project is in an active phase of development.** New features are being added and large refactorings are frequently performed to improve the quality of the code base. Coding agents are used heavily for this work, so **breaking changes, schema migrations, and partially broken functionality are currently possible on `main`**. If you hit a regression, please [open an issue](https://github.com/po4yka/RIPDPI/issues) — your feedback helps stabilise the project.
+
 RIPDPI is an Android network-path diagnostics and optimization toolkit. It applies configurable packet strategies on-device, can connect to relay servers you control, and runs per-connection diagnostics to identify why each target is failing or degrading. The three capabilities work independently or in combination.
 
 ## Three pillars

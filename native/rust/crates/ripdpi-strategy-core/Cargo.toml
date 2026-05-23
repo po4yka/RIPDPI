@@ -1,0 +1,12 @@
+[package]
+name = "ripdpi-strategy-core"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+linkme = { workspace = true }
+ripdpi-strategy-trait = { workspace = true }

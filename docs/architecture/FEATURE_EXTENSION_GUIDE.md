@@ -91,49 +91,46 @@ file-/CLI-driven config — the `ripdpi-strategy-*` crates behind the
 
 | Crate | Role |
 |-------|------|
-| `ripdpi-strategy-trait` | The `DesyncStrategy` contract + the `STRATEGY_FACTORIES` / `STRATEGY_DESCRIPTOR_REGISTRATIONS` `linkme` slices |
+| `ripdpi-strategy-trait` | The `DesyncStrategy` contract + the `STRATEGY_STEP_REGISTRATIONS` / `STRATEGY_DESCRIPTOR_REGISTRATIONS` `linkme` slices, the `StrategyStepDescriptor` / `StrategyStepFactory` platform types |
+| `ripdpi-strategy-core` | The stateless core techniques (`split`, `disorder`, `fake`, `oob`, `fake_rst`, `seq_overlap`, `ip_frag`, `multi_disorder`, `tls_rec`, `tls_rand_rec`) + the descriptor-only `synack` / `synack_split` placeholders |
 | `ripdpi-strategy-{http,ipv6,udp,window,lua}` | Built-in strategy implementations |
 | `ripdpi-strategy-config` | YAML/TOML strategy-file model (`StepType`, `LoadedStrategyConfig`) |
 | `ripdpi-strategy-registry` | Aggregates the impls into a `StrategyRegistry` and executes the chain |
 
-**To add a factory-backed strategy** (a stateless default — the preferred,
-lowest-friction path):
+Strategy resolution is a **descriptor/factory platform**: every strategy step
+is one `StrategyStepRegistration` in the `STRATEGY_STEP_REGISTRATIONS` `linkme`
+slice — a `StrategyStepDescriptor` (id, label, accepted aliases, required tier
+and capabilities, parameter metadata) paired with the `StrategyStepFactory`
+that builds it. There is no `BUILTIN_TECHNIQUES` table and no central `match`
+over step ids.
 
-1. Implement `DesyncStrategy` in a `ripdpi-strategy-*` crate (new or existing).
-2. Contribute a `StrategyFactory` to `STRATEGY_FACTORIES` with
-   `#[linkme::distributed_slice(...)]`. `ripdpi-strategy-window` is the minimal
-   worked example.
+**To add a strategy:**
+
+1. Implement `DesyncStrategy` in a `ripdpi-strategy-*` crate (new or existing —
+   the stateless core techniques live in `ripdpi-strategy-core`).
+2. Contribute one `StrategyStepRegistration` to `STRATEGY_STEP_REGISTRATIONS`
+   with `#[linkme::distributed_slice(...)]`, choosing the `StrategyStepFactory`
+   variant: `Stateless` for a zero-argument default (`ripdpi-strategy-window`
+   is the minimal worked example, `ripdpi-strategy-core` the macro-driven one),
+   `Configured` for a step built from parsed parameters (`udplen`, `ipv6_ext`),
+   or `Unimplemented` for a descriptor-only placeholder (`synack`).
 3. **Central edit:** if the strategy lives in a *new* crate, add
    `extern crate ripdpi_strategy_<name> as _;` to
    `ripdpi-strategy-registry/src/lib.rs` — `linkme` only collects slice entries
-   from linked crates. This is the *only* central edit the factory path needs;
-   the registry then resolves the stable ID with no match arm.
+   from linked crates. This is the *only* central edit the registration path
+   needs; the registry then resolves the descriptor with no match arm.
 
-**Other central edit points** in the registry / config, needed only for the
-non-factory paths:
+For a new **YAML/TOML step kind**, also add a `StepType` variant in
+`ripdpi-strategy-config` and its spellings to `StepType::from_wire` /
+`StepType::registry_id`. `StepType` is string-backed (known/unknown): an
+unrecognized `type:` value parses to `StepType::Unknown` and fails at registry
+resolution rather than at serde decoding. Adding a variant is additive;
+renaming an id or alias is a schema break. The `descriptor_drift` tests pin the
+config parser, the descriptors, and registry resolution against each other.
 
-- `BUILTIN_TECHNIQUES` (`ripdpi-strategy-registry`) — a technique with no
-  linked factory; pairs with…
-- `BuiltinTechnique::plan`'s `match self.definition.id` — the `DesyncAction`
-  the built-in technique emits.
-- `configured_strategy_from_step` (`ripdpi-strategy-registry`) — a strategy
-  that must be built with config parameters (e.g. `UdpLenStrategy::new(delta)`).
-- `StepType` + `StepType::registry_id()` (`ripdpi-strategy-config`) — a new
-  YAML/TOML step kind. The `StepType` serde representation **is** config
-  schema: adding a variant is additive, renaming one (or its `rename`/`alias`)
-  is a schema break.
-
-> *Future improvement: `BuiltinTechnique::plan` carries a central
-> `match self.definition.id` mapping each built-in technique ID to its
-> `DesyncAction`. The `BuiltinTechniqueDefinition` table entries already hold
-> id / label / tier / capabilities but **not** the action, so the match cannot
-> today be replaced by a table lookup against an existing descriptor field.
-> Adding an `action: fn() -> Option<DesyncAction>` field to
-> `BuiltinTechniqueDefinition` would make `BUILTIN_TECHNIQUES` the single
-> source of truth and collapse `BuiltinTechnique::plan` to a fieldless table
-> dispatch, retiring the parallel ID list. It is behavior-neutral only if each
-> function pointer reproduces the exact `DesyncAction` the current arm pushes —
-> treat it as its own reviewed refactor, not a docs-pass change.*
+**Lua is the one special case.** `ripdpi-strategy-lua` is feature-gated
+(`lua-strategies`), so the `lua` step is resolved directly by the registry —
+not through the slice — and `LUA_STEP_DESCRIPTOR` is registry-owned.
 
 ### Compatibility checks
 

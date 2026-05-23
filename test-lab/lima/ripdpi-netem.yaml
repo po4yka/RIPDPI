@@ -1,0 +1,100 @@
+# Lima VM for RIPDPI netem + TSPU live + nested-Android experiments.
+#
+# Provides what Docker Desktop on macOS cannot:
+#   - real Linux nftables / iproute2 / tc-netem for routed-netem scenarios
+#     (docs/testing.md "Linux routed netem VM/router" gap)
+#   - python3-netfilterqueue + scapy for the TSPU live-mode handler
+#     (the same kernel surface .github/workflows/ uses for tspu-live)
+#   - dockerd inside the VM for ReDroid (Android-in-LXC) experiments
+#
+# Usage:
+#   limactl create --name=ripdpi-netem test-lab/lima/ripdpi-netem.yaml
+#   limactl start ripdpi-netem
+#   limactl shell ripdpi-netem
+#
+# Stop / dispose:
+#   limactl stop ripdpi-netem
+#   limactl delete ripdpi-netem
+
+vmType: "vz"
+arch: "aarch64"
+cpus: 4
+memory: "4GiB"
+disk: "40GiB"
+mountType: "virtiofs"
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+mounts:
+  - location: "~/GitHub/RIPDPI"
+    mountPoint: "/srv/ripdpi"
+    writable: true
+
+provision:
+  - mode: system
+    script: |
+      #!/usr/bin/env bash
+      set -eux
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y --no-install-recommends \
+        nftables iptables iproute2 \
+        tcpdump tshark \
+        python3 python3-pip python3-scapy python3-venv python3-dev \
+        build-essential libnetfilter-queue-dev libnfnetlink-dev \
+        ca-certificates curl gnupg \
+        kmod
+      # Use --system-site-packages so apt-installed python3-scapy is visible
+      # NetfilterQueue is only on PyPI for Ubuntu 24.04 arm64; install into a venv
+      # under /opt/ripdpi-venv to avoid PEP 668's externally-managed restriction.
+      python3 -m venv --system-site-packages /opt/ripdpi-venv
+      /opt/ripdpi-venv/bin/pip install --no-cache-dir NetfilterQueue
+      ln -sf /opt/ripdpi-venv/bin/python3 /usr/local/bin/ripdpi-python
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      chmod a+r /etc/apt/keyrings/docker.gpg
+      . /etc/os-release
+      echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" \
+        > /etc/apt/sources.list.d/docker.list
+      apt-get update
+      apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+      # Add the lima default user (matches the host user name) to docker group
+      for u in $(ls /home); do usermod -aG docker "$u" || true; done
+      systemctl enable --now docker
+
+  - mode: system
+    script: |
+      #!/usr/bin/env bash
+      set -eux
+      cat >/etc/sysctl.d/99-ripdpi-netem.conf <<'EOF'
+      net.ipv4.ip_forward = 1
+      net.ipv6.conf.all.forwarding = 1
+      EOF
+      sysctl -p /etc/sysctl.d/99-ripdpi-netem.conf
+
+probes:
+  - description: "nftables + netfilterqueue + docker ready"
+    script: |
+      #!/usr/bin/env bash
+      set -eux
+      command -v nft && command -v tc && command -v docker
+      python3 -c "import scapy.all, netfilterqueue"
+    hint: "limactl shell ripdpi-netem -- sudo apt-get install -y nftables python3-netfilterqueue docker.io"
+
+message: |
+  RIPDPI netem VM provisioned.
+
+  Inside-VM checks:
+    nft --version
+    sudo tc qdisc show
+    sudo python3 -c "import netfilterqueue; print(netfilterqueue.__file__)"
+
+  Host bind-mount: /srv/ripdpi -> ~/GitHub/RIPDPI
+
+  TSPU live mode (run inside the VM):
+    cd /srv/ripdpi
+    docker compose -f test-lab/docker-compose.yml \
+                    -f test-lab/chaos/tspu/docker-compose.tspu.yml \
+                    --profile chaos-live up tspu-live

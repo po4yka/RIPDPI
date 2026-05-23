@@ -129,7 +129,7 @@ abstract class ServiceControllerModule {
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class DiagnosticsRuntimeCoordinatorModule {
+internal abstract class DiagnosticsRuntimeCoordinatorModule {
     @Binds
     @Singleton
     abstract fun bindDiagnosticsRuntimeCoordinator(

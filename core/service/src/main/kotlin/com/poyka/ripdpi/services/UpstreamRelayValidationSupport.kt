@@ -7,7 +7,6 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
 import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindHysteria2
-import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
@@ -97,10 +96,11 @@ internal fun validateShadowTlsRelayCredentials(
 }
 
 internal fun validateSharedRelayTransportFeatures(config: RipDpiRelayConfig) {
-    require(
-        !config.udpEnabled || config.kind == RelayKindHysteria2 || config.kind == RelayKindMasque ||
-            config.kind == RelayKindTuicV5,
-    ) {
+    // UDP ASSOCIATE support is a generic, relay_kind-keyed capability: the
+    // RelayKindDescriptor table is the source of truth, mirroring the Rust
+    // RelayTransportDescriptor `udp` flag. An unrecognised kind has no
+    // descriptor row and is treated as UDP-incapable, as before.
+    require(!config.udpEnabled || relayKindDescriptor(config.kind)?.udp == true) {
         "Relay UDP mode is only available for Hysteria2, MASQUE, and TUIC profiles"
     }
     require(!(config.vlessTransport == RelayVlessTransportXhttp && config.udpEnabled)) {

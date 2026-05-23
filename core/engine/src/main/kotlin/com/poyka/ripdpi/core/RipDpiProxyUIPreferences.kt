@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.EnvironmentKind
 import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.formatChainSummary
+import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.proto.AppSettings
 
 @Suppress("LongParameterList")
@@ -105,7 +106,7 @@ class RipDpiProxyUIPreferences(
             environmentKind: EnvironmentKind = EnvironmentKind.Unknown,
         ): RipDpiProxyUIPreferences =
             RipDpiProxyUIPreferences(
-                listen = buildListenConfig(settings),
+                listen = buildListenConfig(settings.toSettingsSections().proxy),
                 protocols = buildProtocolConfig(settings),
                 chains = buildChainConfig(settings),
                 fakePackets = buildFakePacketConfig(settings),

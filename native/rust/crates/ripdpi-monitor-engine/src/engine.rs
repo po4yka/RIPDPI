@@ -5,6 +5,7 @@ mod runners;
 mod runtime;
 mod scan;
 
+pub use runners::probe_descriptors_as_json;
 pub use scan::run_engine_scan;
 
 pub(crate) use contract_fixture::connectivity_partial_report_contract_fixture;

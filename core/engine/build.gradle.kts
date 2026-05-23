@@ -14,6 +14,7 @@ extensions.configure<LibraryExtension> {
 }
 
 dependencies {
+    api(project(":core:engine-api"))
     implementation(project(":core:data"))
     implementation(libs.androidx.datastore)
     implementation(libs.kotlinx.coroutines.core)

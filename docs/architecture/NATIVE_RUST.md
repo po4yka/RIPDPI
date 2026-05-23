@@ -75,14 +75,14 @@ First-level composition of each artifact root (direct internal dependencies):
 
 ## 2. Crate taxonomy
 
-Nine layers. A crate appears in exactly one layer. Counts sum to 99.
+Nine layers. A crate appears in exactly one layer. Counts sum to 100.
 
 | # | Layer | Count | Crates |
 |---|-------|-------|--------|
 | L0 | **support / test / dev** | 5 | `golden-test-support`, `local-network-fixture`, `native-soak-support`, `ripdpi-bench`, `ripdpi-cli` |
 | L1 | **protocol / core** | 9 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver` |
 | L2 | **contracts / config** | 9 | `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`, `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`, `ripdpi-telemetry` |
-| L3 | **domain logic** | 15 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-routing`, `ripdpi-shared-priors`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry` |
+| L3 | **domain logic** | 16 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-routing`, `ripdpi-shared-priors`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry` |
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |
 | L5 | **platform / privileged** | 8 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
 | L6 | **diagnostics / monitor** | 18 | 14 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
@@ -208,6 +208,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-runtime-policy` | Runtime policy logic | Policy types | `ripdpi-desync`, `ripdpi-session`, `ripdpi-runtime-decision-ports`, … | Mid | Keep |
 | `ripdpi-runtime-adaptive` | Adaptive runtime (UCB1 / bandit scoring) | Scorer API | `ripdpi-runtime-policy`, `ripdpi-runtime-decision-ports`, … | Mid | Keep |
 | `ripdpi-runtime-strategy` | Runtime strategy selection | Selector API | `ripdpi-desync`, `ripdpi-shared-priors`, … | `ripdpi-shared-priors` is both dep and dev-dep | Keep |
+| `ripdpi-strategy-core` | Core stateless desync techniques (`split`, `fake`, `oob`, …) + `synack` placeholders | `impl` of strategy trait | `ripdpi-strategy-trait` | Registered via registry | Keep |
 | `ripdpi-strategy-http` | HTTP-mutation strategy impl | `impl` of strategy trait | `ripdpi-strategy-trait` | Registered via registry | Keep |
 | `ripdpi-strategy-ipv6` | IPv6 extension-header strategy impl | `impl` of strategy trait | `ripdpi-strategy-trait` | — | Keep |
 | `ripdpi-strategy-lua` | Lua `rawsend` strategy impl | `impl` of strategy trait | `ripdpi-strategy-trait` | Pulls `mlua`; consumed by `ripdpi-android` directly | Keep |
@@ -319,7 +320,8 @@ Every crate **except the 12 L8 crates** must not depend on `jni`,
 > `ripdpi-telemetry`, `ripdpi-desync`, `ripdpi-desync-runtime`,
 > `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-routing`,
 > `ripdpi-shared-priors`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`,
-> `ripdpi-runtime-strategy`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`,
+> `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`,
+> `ripdpi-strategy-ipv6`,
 > `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`,
 > `ripdpi-strategy-registry`, `ripdpi-proxy-runtime`,
 > `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`,

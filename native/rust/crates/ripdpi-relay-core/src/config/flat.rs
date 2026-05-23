@@ -1,6 +1,56 @@
+/// The single relay native-config wire schema version this build understands.
+///
+/// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant. A payload
+/// carrying any other version is rejected by [`validate_schema_version`].
+const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 1;
+
+/// `serde(default)` provider for the additive `schemaVersion` envelope field.
+///
+/// A legacy payload with no `schemaVersion` key is treated as version 1, which
+/// matches the Kotlin encoder: at version 1 the field is `@EncodeDefault(NEVER)`
+/// and never reaches the wire.
+fn default_native_config_schema_version() -> u32 {
+    SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION
+}
+
+/// Rejects a `schemaVersion` envelope value this build does not support.
+fn validate_schema_version(found: u32) -> Result<(), RelayConfigError> {
+    if found == SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION {
+        Ok(())
+    } else {
+        Err(RelayConfigError::UnsupportedSchemaVersion { found })
+    }
+}
+
+/// Typed relay config error surfaced through the [`ResolvedRelayRuntimeConfig`]
+/// deserialize path (wrapped in a `serde` error via `Error::custom`).
+///
+/// `relay-core` does not depend on `thiserror`, so `Display` / `Error` are
+/// implemented by hand for this single-variant enum.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum RelayConfigError {
+    UnsupportedSchemaVersion { found: u32 },
+}
+
+impl std::fmt::Display for RelayConfigError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RelayConfigError::UnsupportedSchemaVersion { found } => write!(
+                formatter,
+                "unsupported native config schemaVersion {found}; \
+                 this build supports {SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for RelayConfigError {}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FlatResolvedRelayRuntimeConfig {
+    #[serde(default = "default_native_config_schema_version")]
+    pub schema_version: u32,
     pub enabled: bool,
     pub kind: String,
     pub profile_id: String,

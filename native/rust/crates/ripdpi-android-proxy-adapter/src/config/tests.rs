@@ -69,6 +69,8 @@ fn ui_payload(config: ProxyUiConfig) -> ProxyConfigPayload {
         runtime_context: None,
         log_context: None,
         session_overrides: None,
+        // Current native-config wire schema version.
+        schema_version: 1,
     }
 }
 
@@ -79,6 +81,8 @@ fn command_line_payload(args: Vec<String>) -> ProxyConfigPayload {
         runtime_context: None,
         log_context: None,
         session_overrides: None,
+        // Current native-config wire schema version.
+        schema_version: 1,
     }
 }
 

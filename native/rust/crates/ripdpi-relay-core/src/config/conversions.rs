@@ -92,6 +92,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
 impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
     fn from(config: &ResolvedRelayRuntimeConfig) -> Self {
         let mut flat = Self {
+            schema_version: default_native_config_schema_version(),
             enabled: config.common.enabled,
             kind: config.kind_id().to_string(),
             profile_id: config.common.profile_id.clone(),

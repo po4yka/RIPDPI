@@ -9,6 +9,9 @@ import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore
+import com.poyka.ripdpi.service.runtime.control.DefaultRuntimeControlPlane
+import com.poyka.ripdpi.service.runtime.control.ServiceControllerRuntimeControlActions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,14 +33,7 @@ class DiagnosticsRuntimeCoordinatorTest {
                 FakeServiceController(stateStore).apply {
                     stopFailure = IOException("stop failed")
                 }
-            val coordinator =
-                DefaultDiagnosticsRuntimeCoordinator(
-                    serviceController = controller,
-                    serviceStateStore = stateStore,
-                    appSettingsRepository = FakeCoordinatorSettingsRepository(),
-                    waitAttempts = 2,
-                    waitDelayMs = 0,
-                )
+            val coordinator = buildCoordinator(controller, stateStore)
             var blockRan = false
 
             val error =
@@ -62,18 +58,15 @@ class DiagnosticsRuntimeCoordinatorTest {
                     startFailure = IOException("resume failed")
                 }
             val coordinator =
-                DefaultDiagnosticsRuntimeCoordinator(
-                    serviceController = controller,
-                    serviceStateStore = stateStore,
-                    appSettingsRepository =
-                        FakeCoordinatorSettingsRepository(
-                            AppSettingsSerializer.defaultValue
-                                .toBuilder()
-                                .setDiagnosticsAutoResumeAfterRawScan(true)
-                                .build(),
-                        ),
-                    waitAttempts = 2,
-                    waitDelayMs = 0,
+                buildCoordinator(
+                    controller,
+                    stateStore,
+                    FakeCoordinatorSettingsRepository(
+                        AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setDiagnosticsAutoResumeAfterRawScan(true)
+                            .build(),
+                    ),
                 )
             var blockRan = false
 
@@ -99,14 +92,7 @@ class DiagnosticsRuntimeCoordinatorTest {
                 FakeServiceController(stateStore).apply {
                     transitionOnStop = false
                 }
-            val coordinator =
-                DefaultDiagnosticsRuntimeCoordinator(
-                    serviceController = controller,
-                    serviceStateStore = stateStore,
-                    appSettingsRepository = FakeCoordinatorSettingsRepository(),
-                    waitAttempts = 2,
-                    waitDelayMs = 0,
-                )
+            val coordinator = buildCoordinator(controller, stateStore)
 
             val error =
                 runCatching {
@@ -127,18 +113,15 @@ class DiagnosticsRuntimeCoordinatorTest {
                     transitionOnStart = false
                 }
             val coordinator =
-                DefaultDiagnosticsRuntimeCoordinator(
-                    serviceController = controller,
-                    serviceStateStore = stateStore,
-                    appSettingsRepository =
-                        FakeCoordinatorSettingsRepository(
-                            AppSettingsSerializer.defaultValue
-                                .toBuilder()
-                                .setDiagnosticsAutoResumeAfterRawScan(true)
-                                .build(),
-                        ),
-                    waitAttempts = 2,
-                    waitDelayMs = 0,
+                buildCoordinator(
+                    controller,
+                    stateStore,
+                    FakeCoordinatorSettingsRepository(
+                        AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setDiagnosticsAutoResumeAfterRawScan(true)
+                            .build(),
+                    ),
                 )
             var blockRan = false
 
@@ -162,18 +145,15 @@ class DiagnosticsRuntimeCoordinatorTest {
             val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
             val controller = FakeServiceController(stateStore)
             val coordinator =
-                DefaultDiagnosticsRuntimeCoordinator(
-                    serviceController = controller,
-                    serviceStateStore = stateStore,
-                    appSettingsRepository =
-                        FakeCoordinatorSettingsRepository(
-                            AppSettingsSerializer.defaultValue
-                                .toBuilder()
-                                .setDiagnosticsAutoResumeAfterRawScan(false)
-                                .build(),
-                        ),
-                    waitAttempts = 2,
-                    waitDelayMs = 0,
+                buildCoordinator(
+                    controller,
+                    stateStore,
+                    FakeCoordinatorSettingsRepository(
+                        AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setDiagnosticsAutoResumeAfterRawScan(false)
+                            .build(),
+                    ),
                 )
             var blockRan = false
 
@@ -188,6 +168,21 @@ class DiagnosticsRuntimeCoordinatorTest {
             assertEquals(AppStatus.Running to Mode.Proxy, stateStore.status.value)
         }
 }
+
+private fun buildCoordinator(
+    controller: FakeServiceController,
+    stateStore: FakeCoordinatorStateStore,
+    settings: AppSettingsRepository = FakeCoordinatorSettingsRepository(),
+): DefaultDiagnosticsRuntimeCoordinator =
+    DefaultDiagnosticsRuntimeCoordinator(
+        runtimeControlPlane =
+            DefaultRuntimeControlPlane(ServiceControllerRuntimeControlActions(controller, stateStore)),
+        runtimeModeProjectionStore = RuntimeModeProjectionStore(stateStore, settings),
+        serviceStateStore = stateStore,
+        appSettingsRepository = settings,
+        waitAttempts = 2,
+        waitDelayMs = 0,
+    )
 
 private class FakeCoordinatorSettingsRepository(
     initial: AppSettings = AppSettingsSerializer.defaultValue,

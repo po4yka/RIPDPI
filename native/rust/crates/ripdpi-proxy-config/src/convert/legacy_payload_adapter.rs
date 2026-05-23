@@ -3,7 +3,7 @@ use std::{fmt, mem};
 use ripdpi_config::{DesyncMode, OffsetExpr};
 use serde::de::{Deserializer, IgnoredAny, MapAccess, Visitor};
 
-use crate::types::{ProxyConfigError, ProxyConfigPayload};
+use crate::types::{validate_schema_version, ProxyConfigError, ProxyConfigPayload};
 
 const GROUPED_UI_KEYS: &[&str] = &[
     "listen",
@@ -95,8 +95,10 @@ const LEGACY_FLAT_UI_KEYS: &[&str] = &[
 
 pub fn parse_proxy_config_json(json: &str) -> Result<ProxyConfigPayload, ProxyConfigError> {
     validate_ui_payload_shape(json)?;
-    serde_json::from_str::<ProxyConfigPayload>(json)
-        .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid proxy config JSON: {err}")))
+    let payload = serde_json::from_str::<ProxyConfigPayload>(json)
+        .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid proxy config JSON: {err}")))?;
+    validate_schema_version(&payload)?;
+    Ok(payload)
 }
 
 pub fn parse_desync_mode(value: &str) -> Result<DesyncMode, ProxyConfigError> {

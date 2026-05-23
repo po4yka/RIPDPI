@@ -5,6 +5,7 @@ import android.net.LocalSocket
 import android.net.LocalSocketAddress
 import android.os.Build
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.RootSettingsSection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -71,11 +72,11 @@ open class RootHelperManager
             get() = activeSocketPath
 
         /**
-         * Reconcile the helper process with the `root_mode_enabled` setting.
+         * Reconcile the helper process with the [RootSettingsSection].
          *
-         * When [rootModeEnabled] is `false` the helper is stopped and `null` is
-         * returned — preserving the non-root baseline. When `true`, the helper
-         * is started if it is not already running.
+         * When [root]'s `rootModeEnabled` is `false` the helper is stopped and
+         * `null` is returned — preserving the non-root baseline. When `true`,
+         * the helper is started if it is not already running.
          *
          * @return the helper Unix socket path while the helper is running, or
          *   `null` when root mode is off or the helper could not be started. A
@@ -84,9 +85,9 @@ open class RootHelperManager
          */
         open suspend fun syncRootMode(
             context: Context,
-            rootModeEnabled: Boolean,
+            root: RootSettingsSection,
         ): String? {
-            if (!rootModeEnabled) {
+            if (!root.rootModeEnabled) {
                 stop()
                 return null
             }

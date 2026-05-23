@@ -7,17 +7,23 @@
 //! hot-reloads on change ([`StrategyConfigReloader`]). The output is consumed
 //! by `ripdpi-strategy-registry` (`StrategyRegistry::from_loaded_config`).
 //!
-//! [`StepType`]'s serde representation **is** the YAML/TOML schema; its
-//! [`registry_id`](StepType::registry_id) mapping must stay in lock-step with
-//! the stable IDs in `ripdpi-strategy-registry`. This crate is distinct from
-//! the Android protobuf settings path (Kotlin `StrategyChain*`); see
-//! `README.md` and `FEATURE_EXTENSION_GUIDE.md` §1.
+//! [`StepType`] is a **string-backed known/unknown** step kind: every
+//! recognized YAML/TOML `type:` spelling — the canonical registry id, the
+//! camelCase form, and legacy aliases — resolves to a named variant, and any
+//! other string parses to [`StepType::Unknown`] rather than failing serde
+//! decoding, so an experimental strategy id fails later at registry
+//! resolution instead. Its [`registry_id`](StepType::registry_id) mapping must
+//! stay in lock-step with the stable IDs in `ripdpi-strategy-registry`. This
+//! crate is distinct from the Android protobuf settings path (Kotlin
+//! `StrategyChain*`); see `README.md` and `FEATURE_EXTENSION_GUIDE.md` §1.
 
+use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use serde::Deserialize;
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -109,47 +115,73 @@ pub struct StrategyStep {
     pub forward_original: Option<bool>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+/// A strategy chain step kind.
+///
+/// String-backed: a recognized YAML/TOML `type:` value resolves to a named
+/// variant; any other string parses to [`StepType::Unknown`] so an
+/// experimental strategy id can be carried through and rejected later at
+/// registry resolution rather than at serde decoding. Deserialization is
+/// hand-written ([`StepType::from_wire`]) so every known spelling — the
+/// canonical id, the camelCase form, and legacy aliases — is preserved.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StepType {
     Split,
     Disorder,
     Fake,
     Oob,
-    #[serde(alias = "fake_rst")]
     FakeRst,
-    #[serde(alias = "seq_overlap")]
     SeqOverlap,
-    #[serde(alias = "ip_frag")]
     IpFrag,
-    #[serde(alias = "multi_disorder")]
     MultiDisorder,
-    #[serde(rename = "tls_rec", alias = "tlsRec")]
     TlsRec,
-    #[serde(rename = "tls_rand_rec", alias = "tlsRandRec")]
     TlsRandRec,
     Udplen,
-    #[serde(alias = "http_domcase")]
     HttpDomcase,
-    #[serde(alias = "http_hostcase")]
     HttpHostcase,
-    #[serde(alias = "http_methodeol")]
     HttpMethodeol,
-    #[serde(alias = "http_unixeol")]
     HttpUnixeol,
     Wsize,
     Wssize,
-    #[serde(alias = "ipv6_ext")]
     Ipv6Ext,
-    #[serde(rename = "synack")]
     SynAck,
-    #[serde(rename = "synack_split")]
     SynAckSplit,
     Lua,
+    /// An unrecognized step kind — the raw `type:` string. Parses cleanly so
+    /// it surfaces as an `unknown strategy type` error at registry resolution.
+    Unknown(String),
 }
 
 impl StepType {
-    pub const fn registry_id(self) -> &'static str {
+    /// Every known step kind, in registry order. Excludes [`StepType::Unknown`].
+    pub const ALL: &'static [StepType] = &[
+        StepType::Split,
+        StepType::Disorder,
+        StepType::Fake,
+        StepType::Oob,
+        StepType::FakeRst,
+        StepType::SeqOverlap,
+        StepType::IpFrag,
+        StepType::MultiDisorder,
+        StepType::TlsRec,
+        StepType::TlsRandRec,
+        StepType::Udplen,
+        StepType::HttpDomcase,
+        StepType::HttpHostcase,
+        StepType::HttpMethodeol,
+        StepType::HttpUnixeol,
+        StepType::Wsize,
+        StepType::Wssize,
+        StepType::Ipv6Ext,
+        StepType::SynAck,
+        StepType::SynAckSplit,
+        StepType::Lua,
+    ];
+
+    /// The stable registry id this step resolves to.
+    ///
+    /// For a known variant this is the canonical id; for [`StepType::Unknown`]
+    /// it is the raw `type:` string, which the registry then rejects.
+    pub fn registry_id(&self) -> &str {
         match self {
             Self::Split => "split",
             Self::Disorder => "disorder",
@@ -172,7 +204,61 @@ impl StepType {
             Self::SynAck => "synack",
             Self::SynAckSplit => "synack_split",
             Self::Lua => "lua",
+            Self::Unknown(id) => id.as_str(),
         }
+    }
+
+    /// Resolves a YAML/TOML `type:` string to a step kind.
+    ///
+    /// Recognizes the canonical registry id, the camelCase spelling, and the
+    /// legacy `snake_case` aliases that the former `#[serde(alias = …)]` /
+    /// `#[serde(rename = …)]` attributes accepted. Any other string becomes
+    /// [`StepType::Unknown`].
+    pub fn from_wire(value: &str) -> Self {
+        match value {
+            "split" => Self::Split,
+            "disorder" => Self::Disorder,
+            "fake" => Self::Fake,
+            "oob" => Self::Oob,
+            "fakeRst" | "fake_rst" => Self::FakeRst,
+            "seqOverlap" | "seq_overlap" => Self::SeqOverlap,
+            "ipFrag" | "ip_frag" => Self::IpFrag,
+            "multiDisorder" | "multi_disorder" => Self::MultiDisorder,
+            "tlsRec" | "tls_rec" => Self::TlsRec,
+            "tlsRandRec" | "tls_rand_rec" => Self::TlsRandRec,
+            "udplen" => Self::Udplen,
+            "httpDomcase" | "http_domcase" => Self::HttpDomcase,
+            "httpHostcase" | "http_hostcase" => Self::HttpHostcase,
+            "httpMethodeol" | "http_methodeol" => Self::HttpMethodeol,
+            "httpUnixeol" | "http_unixeol" => Self::HttpUnixeol,
+            "wsize" => Self::Wsize,
+            "wssize" => Self::Wssize,
+            "ipv6Ext" | "ipv6_ext" => Self::Ipv6Ext,
+            "synack" => Self::SynAck,
+            "synack_split" => Self::SynAckSplit,
+            "lua" => Self::Lua,
+            other => Self::Unknown(other.to_owned()),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for StepType {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct StepTypeVisitor;
+
+        impl Visitor<'_> for StepTypeVisitor {
+            type Value = StepType;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a strategy step `type` string")
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<StepType, E> {
+                Ok(StepType::from_wire(value))
+            }
+        }
+
+        deserializer.deserialize_str(StepTypeVisitor)
     }
 }
 

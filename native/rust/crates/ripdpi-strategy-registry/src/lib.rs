@@ -5,20 +5,25 @@
 //! strategy whose [`plan`](DesyncStrategy::plan) succeeds wins, with a
 //! per-strategy [`OnFail`] policy on failure.
 //!
-//! Strategies are resolved through three paths:
+//! Strategy resolution is a **descriptor/factory platform**. Every strategy
+//! step is one [`StrategyStepRegistration`] in the
+//! [`STRATEGY_STEP_REGISTRATIONS`] `linkme` slice — a [`StrategyStepDescriptor`]
+//! paired with the [`StrategyStepFactory`] that builds it. The registry
+//! resolves a step by descriptor id and dispatches through the factory:
+//! `Stateless` for a zero-argument default, `Configured` for a step built from
+//! parsed parameters, `Unimplemented` for a known-but-not-yet-built kind. There
+//! is no `BUILTIN_TECHNIQUES` table and no central `match` over step ids —
+//! adding a strategy is one registration in its `ripdpi-strategy-*` crate.
 //!
-//! 1. **Linked factories** — [`STRATEGY_FACTORIES`] entries contributed by the
-//!    `extern crate ripdpi_strategy_* as _;` crates force-linked below. This
-//!    is the seam that needs no central match arm.
-//! 2. **`BUILTIN_TECHNIQUES`** — a static table of techniques that have no
-//!    linked factory; the `BuiltinTechnique` adapter plans them via the
-//!    central `match self.definition.id` in its `plan` method.
-//! 3. **`configured_strategy_from_step`** — strategies that need per-profile
-//!    parameters, materialized from a parsed [`StrategyStep`].
+//! Lua is the one special case: `ripdpi-strategy-lua` is feature-gated, so the
+//! `lua` step is resolved directly by the registry — not through the slice —
+//! and [`LUA_STEP_DESCRIPTOR`] is registry-owned.
 //!
-//! See `README.md` and `FEATURE_EXTENSION_GUIDE.md` §1 for the full central
-//! edit-point list and the documented future refactor of path 2.
+//! See `README.md` and `FEATURE_EXTENSION_GUIDE.md` §1 for how to add a
+//! strategy and the one central edit (the `extern crate` force-link) the
+//! `linkme` seam still needs.
 
+extern crate ripdpi_strategy_core as _;
 extern crate ripdpi_strategy_http as _;
 extern crate ripdpi_strategy_ipv6 as _;
 extern crate ripdpi_strategy_udp as _;
@@ -29,12 +34,29 @@ pub mod fixed_config;
 pub use fixed_config::{CandidateArm, CandidateArmViolation, FixedConfigProtocols, FIXED_CONFIG_PROTOCOL_AMNEZIAWG};
 
 use ripdpi_desync::AdaptivePlannerHints;
-use ripdpi_strategy_config::{LoadedStrategyConfig, OnFail as ConfigOnFail, StepType, StrategyStep};
+use ripdpi_strategy_config::{LoadedStrategyConfig, OnFail as ConfigOnFail, StrategyStep};
 use ripdpi_strategy_trait::{
-    CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyFactory, StrategyVerdict, STRATEGY_DESCRIPTOR_REGISTRATIONS, STRATEGY_FACTORIES,
+    CapabilityTier, DesyncPlan, DesyncStrategy, StrategyContext, StrategyDescriptor, StrategyError,
+    StrategyStepDescriptor, StrategyStepFactory, StrategyStepParams, StrategyStepRegistration, StrategyVerdict,
+    STRATEGY_DESCRIPTOR_REGISTRATIONS, STRATEGY_STEP_REGISTRATIONS,
 };
 use thiserror::Error;
+
+/// The `lua` strategy step descriptor.
+///
+/// Lua is feature-gated (`lua-strategies`) and special-cased in
+/// [`build_step_strategy`], so — unlike every other step kind — it is not
+/// contributed to [`STRATEGY_STEP_REGISTRATIONS`]; the registry owns its
+/// descriptor here. [`StrategyRegistry::step_descriptors`] folds it back in.
+pub const LUA_STEP_DESCRIPTOR: StrategyStepDescriptor = StrategyStepDescriptor {
+    id: "lua",
+    label: "Lua strategy",
+    aliases: &[],
+    required_tier: CapabilityTier::Tier0,
+    required_capabilities: &[],
+    needs_parameters: true,
+    parameter_schema: "function: Lua function name, script_paths: [Lua script path]",
+};
 
 /// Error policy applied when a strategy fails to build a plan.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -51,7 +73,7 @@ pub enum OnFail {
 /// Error returned when resolving a named strategy fails.
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
 pub enum StrategyRegistryError {
-    /// No built-in strategy exists for the requested ID.
+    /// No registered strategy exists for the requested ID.
     #[error("unknown strategy type: {0}")]
     UnknownType(String),
     /// Lua strategy configuration was invalid or failed to load.
@@ -77,37 +99,42 @@ impl StrategyRegistry {
         Self::default()
     }
 
-    /// Creates a registry preloaded with built-in desync technique descriptors.
+    /// Creates a registry preloaded with the built-in desync techniques.
     pub fn with_builtin_techniques() -> Self {
         let mut registry = Self::new();
         registry.register_builtin_techniques();
         registry
     }
 
-    /// Registers the built-in RIPDPI desync techniques.
+    /// Registers every link-time built-in strategy step, in stable id order.
     pub fn register_builtin_techniques(&mut self) {
-        for technique in BUILTIN_TECHNIQUES {
-            self.register_builtin_technique(technique.id).expect("built-in technique IDs must resolve");
+        let mut ids: Vec<&'static str> =
+            STRATEGY_STEP_REGISTRATIONS.iter().map(|registration| registration.descriptor.id).collect();
+        ids.sort_unstable();
+        for id in ids {
+            self.register_builtin_technique(id).expect("built-in technique IDs must resolve");
         }
     }
 
-    /// Registers one built-in RIPDPI desync technique by stable ID.
+    /// Registers one built-in strategy step by stable ID.
     pub fn register_builtin_technique(&mut self, id: &str) -> Result<(), StrategyRegistryError> {
         self.register_builtin_technique_with_policy(id, OnFail::Next)
     }
 
-    /// Registers one built-in RIPDPI desync technique by stable ID and failure policy.
+    /// Registers one built-in strategy step by stable ID and failure policy.
+    ///
+    /// A `Configured` step is built with [`StrategyStepParams::default`]; an
+    /// `Unimplemented` step registers a placeholder whose `plan` fails. `lua`
+    /// is not a bare built-in technique — it needs config — and resolves to
+    /// [`StrategyRegistryError::UnknownType`], as it always has.
     pub fn register_builtin_technique_with_policy(
         &mut self,
         id: &str,
         on_fail: OnFail,
     ) -> Result<(), StrategyRegistryError> {
-        if let Some(factory) = linked_strategy_factory(id) {
-            self.register_with_policy((factory.make)(), on_fail);
-        } else {
-            let definition = builtin_technique(id)?;
-            self.register_with_policy(Box::new(BuiltinTechnique { definition }), on_fail);
-        }
+        let registration = step_registration(id).ok_or_else(|| StrategyRegistryError::UnknownType(id.to_owned()))?;
+        let strategy = build_registered_strategy(registration, &StrategyStepParams::default());
+        self.register_with_policy(strategy, on_fail);
         Ok(())
     }
 
@@ -123,11 +150,8 @@ impl StrategyRegistry {
         for strategy in &config.strategies {
             let on_fail = on_fail_from_config(strategy.on_fail);
             for step in &strategy.steps {
-                if let Some(strategy) = configured_strategy_from_step(step)? {
-                    self.register_with_policy(strategy, on_fail);
-                } else {
-                    self.register_builtin_technique_with_policy(step.kind.registry_id(), on_fail)?;
-                }
+                let resolved = build_step_strategy(step)?;
+                self.register_with_policy(resolved, on_fail);
             }
         }
         Ok(())
@@ -199,19 +223,36 @@ impl StrategyRegistry {
         scored.into_iter().map(|(id, _score, _index)| id).collect()
     }
 
-    /// Returns strategy IDs contributed through link-time factory registration.
+    /// Returns strategy IDs contributed through link-time step registration.
     pub fn linked_strategy_ids() -> impl Iterator<Item = &'static str> {
-        STRATEGY_FACTORIES.iter().map(|factory| factory.id)
+        STRATEGY_STEP_REGISTRATIONS.iter().map(|registration| registration.descriptor.id)
     }
 
-    /// Returns descriptor-only IDs contributed through link-time registration.
+    /// Returns descriptor-only planner IDs contributed through link-time
+    /// registration (the `tcp_desync` chain planner).
     pub fn linked_descriptor_ids() -> impl Iterator<Item = &'static str> {
         STRATEGY_DESCRIPTOR_REGISTRATIONS.iter().map(|registration| registration.id)
     }
 
-    /// Returns descriptors contributed through link-time registration.
+    /// Returns descriptor-only planner metadata contributed through link-time
+    /// registration.
     pub fn linked_descriptors() -> impl Iterator<Item = StrategyDescriptor> {
         STRATEGY_DESCRIPTOR_REGISTRATIONS.iter().map(|registration| (registration.describe)())
+    }
+
+    /// Returns every strategy step descriptor the registry can resolve — the
+    /// link-time [`STRATEGY_STEP_REGISTRATIONS`] descriptors plus the
+    /// registry-owned [`LUA_STEP_DESCRIPTOR`].
+    pub fn step_descriptors() -> impl Iterator<Item = StrategyStepDescriptor> {
+        STRATEGY_STEP_REGISTRATIONS
+            .iter()
+            .map(|registration| registration.descriptor)
+            .chain(std::iter::once(LUA_STEP_DESCRIPTOR))
+    }
+
+    /// Looks up a strategy step descriptor by stable ID.
+    pub fn step_descriptor(id: &str) -> Option<StrategyStepDescriptor> {
+        Self::step_descriptors().find(|descriptor| descriptor.id == id)
     }
 
     /// Validates a candidate arm against the default fixed-config protocol hints.
@@ -229,192 +270,95 @@ impl StrategyRegistry {
     }
 }
 
+/// Placeholder for a [`StrategyStepFactory::Unimplemented`] step kind — a
+/// descriptor-only technique (`synack`, `synack_split`) with no `DesyncStrategy`
+/// implementation yet.
+///
+/// `plan` always fails, so an `OnFail::Next` chain skips past it exactly as the
+/// former `BuiltinTechnique` adapter did; `describe` still surfaces the
+/// descriptor's tier and capabilities for inventory and UI.
 #[derive(Clone, Copy, Debug)]
-struct BuiltinTechnique {
-    definition: &'static BuiltinTechniqueDefinition,
+struct UnimplementedStrategy {
+    descriptor: StrategyStepDescriptor,
 }
 
-impl DesyncStrategy for BuiltinTechnique {
+impl UnimplementedStrategy {
+    fn new(descriptor: StrategyStepDescriptor) -> Self {
+        Self { descriptor }
+    }
+}
+
+impl DesyncStrategy for UnimplementedStrategy {
     fn id(&self) -> &str {
-        self.definition.id
+        self.descriptor.id
     }
 
     fn matches(&self, ctx: &StrategyContext<'_>) -> bool {
-        tier_rank(ctx.caps.tier) >= tier_rank(self.definition.required_tier)
+        ctx.caps.tier >= self.descriptor.required_tier
     }
 
-    fn plan(&self, _ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<(), StrategyError> {
-        match self.definition.id {
-            "split" => plan.actions.push(DesyncAction::Split { offset: 0, disorder: false }),
-            "disorder" => plan.actions.push(DesyncAction::Split { offset: 0, disorder: true }),
-            "fake" => plan.actions.push(DesyncAction::WriteFake { ttl: None, sni_mode: None, payload_file: None }),
-            "oob" => plan.actions.push(DesyncAction::WriteUrgent { prefix: Vec::new(), urgent_byte: 0 }),
-            "fake_rst" => plan.actions.push(DesyncAction::SendFakeRst { ttl: None }),
-            "udplen" => plan.actions.push(DesyncAction::UdpLen { delta: 0 }),
-            "ip_frag" | "multi_disorder" => plan.actions.push(DesyncAction::RawSend(Vec::new())),
-            "seq_overlap" | "tls_rec" | "tls_rand_rec" => plan.actions.push(DesyncAction::Write(Vec::new())),
-            "ipv6_ext" | "http_domcase" | "http_hostcase" | "wsize" | "wssize" => {}
-            _ => {
-                return Err(StrategyError::InvalidConfig(format!("unknown built-in technique {}", self.definition.id)))
-            }
-        }
-        Ok(())
+    fn plan(&self, _ctx: &StrategyContext<'_>, _plan: &mut DesyncPlan) -> Result<(), StrategyError> {
+        Err(StrategyError::InvalidConfig(format!(
+            "strategy {} is registered but not yet implemented",
+            self.descriptor.id,
+        )))
     }
 
     fn describe(&self) -> StrategyDescriptor {
         StrategyDescriptor {
-            id: self.definition.id.to_owned(),
-            label: self.definition.label.to_owned(),
-            required_tier: self.definition.required_tier,
-            required_capabilities: self.definition.required_capabilities.to_vec(),
+            id: self.descriptor.id.to_owned(),
+            label: self.descriptor.label.to_owned(),
+            required_tier: self.descriptor.required_tier,
+            required_capabilities: self.descriptor.required_capabilities.to_vec(),
             ..StrategyDescriptor::default()
         }
     }
 }
 
-#[derive(Debug)]
-struct BuiltinTechniqueDefinition {
-    id: &'static str,
-    label: &'static str,
-    required_tier: CapabilityTier,
-    required_capabilities: &'static [RuntimeCapability],
+/// Looks up a step registration by stable ID.
+fn step_registration(id: &str) -> Option<&'static StrategyStepRegistration> {
+    STRATEGY_STEP_REGISTRATIONS.iter().find(|registration| registration.descriptor.id == id)
 }
 
-const TCP_REPAIR_CAPS: &[RuntimeCapability] = &[RuntimeCapability::ReplacementSocket];
-const VPN_CAPS: &[RuntimeCapability] = &[RuntimeCapability::VpnMode];
-const WINDOW_CLAMP_CAPS: &[RuntimeCapability] = &[RuntimeCapability::TcpWindowClamp];
-const SYNACK_CAPS: &[RuntimeCapability] =
-    &[RuntimeCapability::VpnMode, RuntimeCapability::RawTcpFakeSend, RuntimeCapability::VpnProtect];
+/// Builds the strategy a registration describes, dispatching through its
+/// [`StrategyStepFactory`].
+fn build_registered_strategy(
+    registration: &StrategyStepRegistration,
+    params: &StrategyStepParams,
+) -> Box<dyn DesyncStrategy> {
+    match registration.factory {
+        StrategyStepFactory::Stateless(make) => make(),
+        StrategyStepFactory::Configured(build) => build(params),
+        StrategyStepFactory::Unimplemented => Box::new(UnimplementedStrategy::new(registration.descriptor)),
+    }
+}
 
-const BUILTIN_TECHNIQUES: &[BuiltinTechniqueDefinition] = &[
-    BuiltinTechniqueDefinition {
-        id: "split",
-        label: "Split",
-        required_tier: CapabilityTier::Tier0,
-        required_capabilities: &[],
-    },
-    BuiltinTechniqueDefinition {
-        id: "disorder",
-        label: "Disorder",
-        required_tier: CapabilityTier::Tier2,
-        required_capabilities: TCP_REPAIR_CAPS,
-    },
-    BuiltinTechniqueDefinition {
-        id: "fake",
-        label: "Fake packet",
-        required_tier: CapabilityTier::Tier0,
-        required_capabilities: &[],
-    },
-    BuiltinTechniqueDefinition {
-        id: "oob",
-        label: "TCP urgent/OOB",
-        required_tier: CapabilityTier::Tier1,
-        required_capabilities: &[],
-    },
-    BuiltinTechniqueDefinition {
-        id: "fake_rst",
-        label: "Fake RST",
-        required_tier: CapabilityTier::Tier2,
-        required_capabilities: TCP_REPAIR_CAPS,
-    },
-    BuiltinTechniqueDefinition {
-        id: "seq_overlap",
-        label: "Sequence overlap",
-        required_tier: CapabilityTier::Tier2,
-        required_capabilities: TCP_REPAIR_CAPS,
-    },
-    BuiltinTechniqueDefinition {
-        id: "ip_frag",
-        label: "IP fragmentation",
-        required_tier: CapabilityTier::Tier3,
-        required_capabilities: VPN_CAPS,
-    },
-    BuiltinTechniqueDefinition {
-        id: "multi_disorder",
-        label: "Multi-disorder",
-        required_tier: CapabilityTier::Tier2,
-        required_capabilities: TCP_REPAIR_CAPS,
-    },
-    BuiltinTechniqueDefinition {
-        id: "tls_rec",
-        label: "TLS record split",
-        required_tier: CapabilityTier::Tier0,
-        required_capabilities: &[],
-    },
-    BuiltinTechniqueDefinition {
-        id: "tls_rand_rec",
-        label: "TLS random records",
-        required_tier: CapabilityTier::Tier0,
-        required_capabilities: &[],
-    },
-    BuiltinTechniqueDefinition {
-        id: "udplen",
-        label: "UDP length falsification",
-        required_tier: CapabilityTier::Tier3,
-        required_capabilities: VPN_CAPS,
-    },
-    BuiltinTechniqueDefinition {
-        id: "ipv6_ext",
-        label: "IPv6 extension header injection",
-        required_tier: CapabilityTier::Tier3,
-        required_capabilities: VPN_CAPS,
-    },
-    BuiltinTechniqueDefinition {
-        id: "http_domcase",
-        label: "HTTP domain case",
-        required_tier: CapabilityTier::Tier0,
-        required_capabilities: &[],
-    },
-    BuiltinTechniqueDefinition {
-        id: "http_hostcase",
-        label: "HTTP host case",
-        required_tier: CapabilityTier::Tier0,
-        required_capabilities: &[],
-    },
-    BuiltinTechniqueDefinition {
-        id: "http_methodeol",
-        label: "HTTP method EOL",
-        required_tier: CapabilityTier::Tier0,
-        required_capabilities: &[],
-    },
-    BuiltinTechniqueDefinition {
-        id: "http_unixeol",
-        label: "HTTP Unix EOL",
-        required_tier: CapabilityTier::Tier0,
-        required_capabilities: &[],
-    },
-    BuiltinTechniqueDefinition {
-        id: "wsize",
-        label: "TCP window size",
-        required_tier: CapabilityTier::Tier1,
-        required_capabilities: WINDOW_CLAMP_CAPS,
-    },
-    BuiltinTechniqueDefinition {
-        id: "wssize",
-        label: "TCP window scale size",
-        required_tier: CapabilityTier::Tier1,
-        required_capabilities: WINDOW_CLAMP_CAPS,
-    },
-    BuiltinTechniqueDefinition {
-        id: "synack",
-        label: "SYN-ACK low TTL",
-        required_tier: CapabilityTier::Tier3,
-        required_capabilities: SYNACK_CAPS,
-    },
-    BuiltinTechniqueDefinition {
-        id: "synack_split",
-        label: "SYN-ACK split",
-        required_tier: CapabilityTier::Tier3,
-        required_capabilities: SYNACK_CAPS,
-    },
-];
+/// Materializes the strategy a parsed config step resolves to.
+fn build_step_strategy(step: &StrategyStep) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
+    let id = step.kind.registry_id();
+    if id == "lua" {
+        return configured_lua_strategy_from_step(step);
+    }
+    let registration = step_registration(id).ok_or_else(|| StrategyRegistryError::UnknownType(id.to_owned()))?;
+    Ok(build_registered_strategy(registration, &params_from_step(step)))
+}
 
-fn tier_rank(tier: CapabilityTier) -> u8 {
-    match tier {
-        CapabilityTier::Tier0 => 0,
-        CapabilityTier::Tier1 => 1,
-        CapabilityTier::Tier2 => 2,
-        CapabilityTier::Tier3 => 3,
+/// Projects a parsed config step onto the schema-neutral parameter bag the
+/// configured-strategy factories consume.
+fn params_from_step(step: &StrategyStep) -> StrategyStepParams {
+    StrategyStepParams {
+        pos: step.pos.clone(),
+        disorder: step.disorder,
+        ttl: step.ttl,
+        sni_mode: step.sni_mode.clone(),
+        delta: step.delta,
+        value: step.value,
+        size: step.size,
+        scale: step.scale,
+        ext_type: step.ext_type.clone(),
+        function: step.function.clone(),
+        script_paths: step.script_paths.clone(),
+        forward_original: step.forward_original,
     }
 }
 
@@ -467,35 +411,8 @@ fn on_fail_from_config(on_fail: ConfigOnFail) -> OnFail {
     }
 }
 
-fn builtin_technique(id: &str) -> Result<&'static BuiltinTechniqueDefinition, StrategyRegistryError> {
-    BUILTIN_TECHNIQUES
-        .iter()
-        .find(|definition| definition.id == id)
-        .ok_or_else(|| StrategyRegistryError::UnknownType(id.to_owned()))
-}
-
-fn configured_strategy_from_step(
-    step: &StrategyStep,
-) -> Result<Option<Box<dyn DesyncStrategy>>, StrategyRegistryError> {
-    match step.kind {
-        StepType::Udplen => {
-            let delta = step.delta.unwrap_or(4).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16;
-            Ok(Some(Box::new(ripdpi_strategy_udp::UdpLenStrategy::new(delta))))
-        }
-        StepType::Ipv6Ext => {
-            let ext_type =
-                step.ext_type.as_deref().and_then(ripdpi_strategy_ipv6::Ipv6ExtType::parse).unwrap_or_default();
-            Ok(Some(Box::new(ripdpi_strategy_ipv6::Ipv6ExtHdrStrategy::new(ext_type))))
-        }
-        StepType::Lua => configured_lua_strategy_from_step(step),
-        _ => Ok(None),
-    }
-}
-
 #[cfg(feature = "lua-strategies")]
-fn configured_lua_strategy_from_step(
-    step: &StrategyStep,
-) -> Result<Option<Box<dyn DesyncStrategy>>, StrategyRegistryError> {
+fn configured_lua_strategy_from_step(step: &StrategyStep) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
     let function = step.function.as_deref().map(str::trim).filter(|value| !value.is_empty()).ok_or_else(|| {
         StrategyRegistryError::Lua { function: "<missing>".to_owned(), error: "missing Lua function name".to_owned() }
     })?;
@@ -522,21 +439,14 @@ fn configured_lua_strategy_from_step(
     }
     engine
         .make_strategy(function)
-        .map(Some)
         .map_err(|error| StrategyRegistryError::Lua { function: function.to_owned(), error: error.to_string() })
 }
 
 #[cfg(not(feature = "lua-strategies"))]
-fn configured_lua_strategy_from_step(
-    step: &StrategyStep,
-) -> Result<Option<Box<dyn DesyncStrategy>>, StrategyRegistryError> {
+fn configured_lua_strategy_from_step(step: &StrategyStep) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
     let function = step.function.as_deref().unwrap_or("<missing>");
     Err(StrategyRegistryError::Lua {
         function: function.to_owned(),
         error: "lua-strategies feature is disabled".to_owned(),
     })
-}
-
-fn linked_strategy_factory(id: &str) -> Option<&'static StrategyFactory> {
-    STRATEGY_FACTORIES.iter().find(|factory| factory.id == id)
 }

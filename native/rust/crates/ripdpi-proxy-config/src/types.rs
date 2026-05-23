@@ -41,6 +41,8 @@ pub use listen::ProxyUiListenConfig;
 pub use network::{CellularSnapshot, NetworkSnapshot, WifiSnapshot};
 pub use parser::ProxyUiParserEvasionConfig;
 pub use payload::{ProxyConfigError, ProxyConfigPayload, ProxySessionOverrides, RuntimeConfigEnvelope};
+// Schema-version envelope validation -- consumed by the `convert` entry points.
+pub(crate) use payload::validate_schema_version;
 pub use protocol::ProxyUiProtocolConfig;
 pub use quic::ProxyUiQuicConfig;
 pub use relay::ProxyUiRelayConfig;

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 /**
@@ -127,7 +128,18 @@ data class ResolvedRipDpiRelayConfig(
     val appsScriptDirectHosts: List<String> = emptyList(),
     val appsScriptAuthKey: String? = null,
     val finalmask: ResolvedRelayFinalmaskConfig = ResolvedRelayFinalmaskConfig(),
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val schemaVersion: Int = RelayNativeConfigSchemaVersion,
 )
+
+/**
+ * Current relay native-config wire schema version — carried as the additive
+ * `schemaVersion` field on [ResolvedRipDpiRelayConfig]. A payload with no
+ * `schemaVersion` is a legacy payload; the Rust side defaults it to this same
+ * value. Bumped only on a genuinely breaking shape change. See
+ * `docs/architecture/CONFIG_CONTRACTS.md` §8.
+ */
+const val RelayNativeConfigSchemaVersion: Int = 1
 
 // === Section models ======================================================
 //

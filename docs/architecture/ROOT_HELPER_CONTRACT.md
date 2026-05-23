@@ -59,7 +59,12 @@ cannot.
   Oversized or unterminated max-length messages are rejected.
 - **Request** — `HelperRequest { command: String, params: Value,
   session_nonce: Option<String> }`. **Response** — `HelperResponse { ok: bool,
-  error: Option<String>, data: Value }` (`src/wire.rs`).
+  error: Option<String>, data: Value, protocol_version: Option<u32>,
+  capability_version: Option<u32> }` (`src/wire.rs`). The helper stamps every
+  outgoing response with `PROTOCOL_VERSION` / `CAPABILITY_VERSION` from
+  `wire.rs`. Both version fields are `#[serde(skip_serializing_if =
+  "Option::is_none")]` and `#[serde(default)]` — a legacy client reads them
+  as `None` and a legacy helper response decodes cleanly on a new client.
 - The client connects **per operation**, sends one JSON command plus, for the
   socket-bound commands, the relevant socket file descriptor via **`SCM_RIGHTS`**
   ancillary data. The helper replies with a JSON response and, for
@@ -121,6 +126,26 @@ Per-command parameter structs live in
 `params` JSON value. The experimental commands (`send_syn_hide_tcp`,
 `send_icmp_wrapped_udp`, `recv_icmp_wrapped_udp`, `send_raw_ip_packet`) pass no
 fd — the helper opens its own raw socket; they are `lab_diagnostics_only` tier.
+
+### Descriptor-driven request validation
+
+Both the client (`ripdpi-runtime-platform::root_helper_client::transport`)
+and the helper dispatch (`ripdpi-root-helper::dispatch`) pre-validate every
+request against `command_descriptor::COMMAND_DESCRIPTORS` via
+`validate_request(command, has_inbound_fd, params_present)`. The validator
+returns a typed `DescriptorValidationError` — `UnknownCommand`, `MissingFd`,
+`UnexpectedFd`, `MissingParams` — whose `Display` form is reused as the error
+message on both sides. On the helper side, `UnexpectedFd` / `UnknownCommand`
+/ `MissingParams` rejections explicitly `close(2)` any inbound `SCM_RIGHTS`
+fd attached to the rejected request, closing the previous silent-leak path
+where a non-fd command received an unexpected descriptor.
+
+Per-handler `require_fd` / `decode_params` checks remain in place under the
+validator as defence-in-depth — the validator catches first, but a future
+refactor of either layer cannot silently disable the rule. The drift tests
+`every_dispatch_arm_has_a_descriptor` (in `dispatch.rs`) and
+`every_command_descriptor_has_a_dispatch_handler` (already present) pin the
+bidirectional coverage.
 
 ### File-descriptor passing
 

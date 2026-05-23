@@ -4016,6 +4016,7 @@ dependencies = [
  "ripdpi-proxy-config",
  "ripdpi-proxy-runtime-desync-adapter",
  "ripdpi-runtime-api",
+ "ripdpi-runtime-decision-engine",
  "ripdpi-runtime-decision-ports",
  "ripdpi-runtime-platform",
  "ripdpi-runtime-services",
@@ -4152,6 +4153,17 @@ dependencies = [
  "loom",
  "ripdpi-failure-classifier",
  "ripdpi-proxy-config",
+ "ripdpi-runtime-decision-ports",
+]
+
+[[package]]
+name = "ripdpi-runtime-decision-engine"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-config",
+ "ripdpi-proxy-config",
+ "ripdpi-runtime-decision-ports",
+ "ripdpi-runtime-services",
 ]
 
 [[package]]
@@ -4311,6 +4323,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-strategy-core"
+version = "0.1.0"
+dependencies = [
+ "linkme",
+ "ripdpi-strategy-trait",
+]
+
+[[package]]
 name = "ripdpi-strategy-http"
 version = "0.1.0"
 dependencies = [
@@ -4345,6 +4365,7 @@ version = "0.1.0"
 dependencies = [
  "ripdpi-desync",
  "ripdpi-strategy-config",
+ "ripdpi-strategy-core",
  "ripdpi-strategy-http",
  "ripdpi-strategy-ipv6",
  "ripdpi-strategy-lua",

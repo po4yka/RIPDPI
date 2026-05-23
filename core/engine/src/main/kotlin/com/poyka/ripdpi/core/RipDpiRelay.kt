@@ -13,18 +13,6 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
 
-interface RipDpiRelayRuntime {
-    suspend fun start(config: ResolvedRipDpiRelayConfig): Int
-
-    suspend fun awaitReady(timeoutMillis: Long = defaultRelayReadyTimeoutMs)
-
-    suspend fun stop()
-
-    suspend fun pollTelemetry(): NativeRuntimeSnapshot
-}
-
-internal const val defaultRelayReadyTimeoutMs = 5_000L
-
 /**
  * Thin JNI binding surface over the relay-transport native session in
  * `libripdpi-relay.so` (Rust crate `ripdpi-relay-android`). Each method maps

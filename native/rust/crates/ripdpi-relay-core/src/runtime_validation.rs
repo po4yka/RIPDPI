@@ -6,7 +6,7 @@ use ripdpi_relay_mux::{RelayCapabilities, RelayPoolConfig};
 
 use crate::backend::RelayBackend;
 use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
-use crate::transport_descriptor::{relay_transport_descriptor, RelayTransportDescriptor};
+use crate::transport_descriptor::{relay_transport_descriptor, relay_transport_registration, RelayTransportDescriptor};
 
 /// The [`RelayTransportDescriptor`] for `config`'s relay kind, or `None` for
 /// the `Unsupported` catch-all (which has no descriptor row).
@@ -35,10 +35,19 @@ pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) 
     RelayCapabilities { tcp: descriptor.tcp, udp: descriptor.udp, reusable: descriptor.reusable }
 }
 
+/// The relay backend's out-of-process fallback mode, or `None` for an
+/// in-process kind.
+///
+/// A registered kind reports its registration's `fallback_mode`
+/// (`Some("subprocess")` for NaiveProxy, `None` for every in-process kind). A
+/// kind with no registration is an `Unsupported` / `off` / unknown kind and
+/// reports the `unsupported:<kind>` marker — unchanged from the pre-registry
+/// `match RelayKind` form.
 pub(crate) fn planned_backend_fallback_mode(config: &ResolvedRelayRuntimeConfig) -> Option<String> {
+    if let Some(registration) = relay_transport_registration(config.kind_id()) {
+        return registration.fallback_mode.map(str::to_string);
+    }
     match RelayKind::from_config(config) {
-        RelayKind::NaiveProxy => Some("subprocess".to_string()),
-        _ if planned_backend_capabilities(config).tcp || planned_backend_capabilities(config).udp => None,
         RelayKind::Unsupported(kind) => Some(format!("unsupported:{kind}")),
         _ => None,
     }

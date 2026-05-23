@@ -9,36 +9,40 @@ host.
 
 ## How registration works
 
-Three resolution paths feed the registry:
+The registry is a **descriptor/factory platform**. Every strategy step is one
+`StrategyStepRegistration` in the `STRATEGY_STEP_REGISTRATIONS` `linkme` slice
+(from `ripdpi-strategy-trait`) — a `StrategyStepDescriptor` paired with the
+`StrategyStepFactory` that builds it. Implementation crates contribute the
+registrations; this crate force-links them with
+`extern crate ripdpi_strategy_* as _;` so the slice entries reach the final
+binary (`linkme` only collects from linked crates).
 
-1. **Linked factories.** `register_builtin_technique_with_policy` first looks
-   up `STRATEGY_FACTORIES` (the `linkme` slice from `ripdpi-strategy-trait`).
-   Implementation crates contribute factories; this crate force-links them with
-   `extern crate ripdpi_strategy_* as _;` so the slice entries are present in
-   the final binary (`linkme` only collects from linked crates).
-2. **Built-in technique table.** When no factory matches an ID, the
-   `BUILTIN_TECHNIQUES` table supplies a `BuiltinTechniqueDefinition`
-   (id / label / tier / capabilities) and the `BuiltinTechnique` adapter
-   plans it.
-3. **Config-materialized strategies.** `configured_strategy_from_step` builds
-   strategies that need per-profile parameters — `UdpLenStrategy::new(delta)`,
-   `Ipv6ExtHdrStrategy::new(...)`, Lua — from a parsed `StrategyStep`.
+The registry resolves a step by descriptor id and dispatches through the
+factory variant:
+
+- **`Stateless`** — a zero-argument default builder (`split`, `fake`, the HTTP
+  and window strategies).
+- **`Configured`** — a strategy built from the parsed step's parameters,
+  projected onto a schema-neutral `StrategyStepParams` (`udplen`, `ipv6_ext`).
+- **`Unimplemented`** — a descriptor-only placeholder (`synack`,
+  `synack_split`); the registry materializes a strategy whose `plan` fails, so
+  an `OnFail::Next` chain skips past it.
+
+There is no `BUILTIN_TECHNIQUES` table and no central `match` over step ids.
+
+`lua` is the one special case: `ripdpi-strategy-lua` is feature-gated, so the
+`lua` step is resolved directly by the registry and `LUA_STEP_DESCRIPTOR` is
+registry-owned.
 
 ## Central edit points
 
-Adding a strategy the registry must resolve touches, **in this crate**:
-
-- the `extern crate ripdpi_strategy_* as _;` list — force-link a new impl crate;
-- `BUILTIN_TECHNIQUES` — a technique with no linked factory;
-- `BuiltinTechnique::plan`'s `match self.definition.id` — the `DesyncAction` a
-  built-in technique emits;
-- `configured_strategy_from_step` — a strategy that needs config parameters.
-
-The first path (linked factory) needs **only** the `extern crate` line — the
-preferred seam. See
+Adding a strategy is **one** `StrategyStepRegistration` in its
+`ripdpi-strategy-*` crate. The only central edit is the
+`extern crate ripdpi_strategy_* as _;` force-link line here, needed solely when
+the strategy lives in a *new* crate. The `descriptor_drift` and `plan_parity`
+tests pin the platform; see
 [`FEATURE_EXTENSION_GUIDE.md`](../../../../docs/architecture/FEATURE_EXTENSION_GUIDE.md)
-§1, including the documented future refactor that would retire the
-`BuiltinTechnique::plan` match.
+§1.
 
 ## Dependency direction
 

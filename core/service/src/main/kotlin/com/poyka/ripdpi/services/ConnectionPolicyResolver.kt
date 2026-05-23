@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.toPolicyJson
+import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.Binds
 import dagger.Module
@@ -119,7 +120,7 @@ class DefaultConnectionPolicyResolver
             fingerprint: NetworkFingerprint?,
         ): BaselineConnectionPolicy {
             val settings = appSettingsRepository.snapshot()
-            rootHelperManager.syncRootMode(context, settings.rootModeEnabled)
+            rootHelperManager.syncRootMode(context, settings.toSettingsSections().root)
             val dnsResolution = resolveEffectiveDns(settings, resolverOverride)
             val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
             val networkScopeKey = fingerprintSnapshot?.scopeKey()

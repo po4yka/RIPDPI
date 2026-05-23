@@ -81,7 +81,8 @@ use ripdpi_proxy_runtime_adapter::model::runtime_api::{
 };
 use ripdpi_proxy_runtime_adapter::model::services::GeoMatcher;
 use ripdpi_proxy_runtime_adapter::model::services::{
-    new_services_handle, reprobe_reset_handle, ReprobeResetHandle, ServicesStateHandle,
+    new_decision_engine, new_services_handle, reprobe_reset_handle, ReprobeResetHandle, RuntimeDecisionEngine,
+    RuntimeDecisionInputs, ServicesStateHandle,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use ripdpi_proxy_runtime_adapter::raw_packet_requirements::{
@@ -116,6 +117,18 @@ pub(super) struct RuntimeState {
     response_failure_evidence_settings: ResponseFailureEvidenceSettings,
     geo_matcher: Option<std::sync::Arc<dyn GeoMatcher + Send + Sync>>,
     services: ServicesStateHandle,
+    /// Single decision boundary that proxy-runtime now composes through —
+    /// see `ripdpi-runtime-decision-engine`. Today this engine delegates
+    /// to the existing `services` ports byte-identically; consumers reach
+    /// for it instead of touching individual port traits so future
+    /// enrichment lands behind one seam, not at every call site. The
+    /// `dead_code` allow is the migration anchor: the field is held by
+    /// the state so per-flow routing call sites can switch to
+    /// `decide_flow_route` without further plumbing, and the startup
+    /// `on_runtime_decision_snapshot` telemetry hook already consumes
+    /// the per-runtime decision the engine produces.
+    #[allow(dead_code)]
+    decision_engine: RuntimeDecisionEngine,
     active_clients: Arc<AtomicUsize>,
     telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     runtime_context: Option<ProxyRuntimeContext>,
@@ -182,6 +195,21 @@ impl RuntimeState {
         let runtime_context = control.as_ref().and_then(|c| c.runtime_context());
 
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
+        let decision_engine = new_decision_engine(&handle);
+        // Compute the per-runtime decision snapshot once at startup. The
+        // snapshot derivation today is byte-identical to the previous
+        // direct call (the engine is a delegating facade) — see the engine
+        // crate's parity test. Telemetry sinks observe it via
+        // `on_runtime_decision_snapshot`; pre-versioned sinks fall through
+        // to the trait's default no-op.
+        let runtime_decision = decision_engine.decide_runtime(&RuntimeDecisionInputs {
+            config: None,
+            context: runtime_context.as_ref(),
+            network_scope_key: None,
+        });
+        if let Some(ref sink) = telemetry {
+            sink.on_runtime_decision_snapshot(&runtime_decision.snapshot);
+        }
         let geo_matcher = super::geo::load_runtime_geo_matcher(&config);
 
         let RuntimeConfigProjection {
@@ -235,6 +263,7 @@ impl RuntimeState {
             response_failure_evidence_settings,
             geo_matcher,
             services: handle,
+            decision_engine,
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry,
             runtime_context,

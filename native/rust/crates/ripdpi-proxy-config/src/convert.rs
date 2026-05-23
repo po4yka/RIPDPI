@@ -11,7 +11,9 @@ mod warp;
 use ripdpi_config::{RuntimeConfig, StartupEnv};
 
 use crate::presets;
-use crate::types::{ProxyConfigError, ProxyConfigPayload, ProxyUiConfig, RuntimeConfigEnvelope};
+use crate::types::{
+    validate_schema_version, ProxyConfigError, ProxyConfigPayload, ProxyUiConfig, RuntimeConfigEnvelope,
+};
 
 pub use chain::{parse_tcp_chain_step_kind, parse_udp_chain_step_kind};
 pub use fake_packet::{
@@ -27,6 +29,10 @@ pub fn runtime_config_from_payload(payload: ProxyConfigPayload) -> Result<Runtim
 pub fn runtime_config_envelope_from_payload(
     payload: ProxyConfigPayload,
 ) -> Result<RuntimeConfigEnvelope, ProxyConfigError> {
+    // Reject any payload carrying an unsupported `schemaVersion` envelope value.
+    // Covers payloads built outside `parse_proxy_config_json` (e.g. constructed
+    // directly or via `serde_json::from_value`).
+    validate_schema_version(&payload)?;
     match payload {
         ProxyConfigPayload::CommandLine {
             args,
@@ -34,6 +40,7 @@ pub fn runtime_config_envelope_from_payload(
             runtime_context,
             log_context,
             session_overrides,
+            schema_version: _,
         } => {
             let mut config = runtime_config_from_command_line(args)?;
             config.host_autolearn.store_path = host_autolearn_store_path
@@ -49,7 +56,14 @@ pub fn runtime_config_envelope_from_payload(
                 native_log_level: None,
             })
         }
-        ProxyConfigPayload::Ui { strategy_preset, mut config, runtime_context, log_context, session_overrides } => {
+        ProxyConfigPayload::Ui {
+            strategy_preset,
+            mut config,
+            runtime_context,
+            log_context,
+            session_overrides,
+            schema_version: _,
+        } => {
             let preset_id_opt = strategy_preset.as_deref().map(str::to_owned);
             if let Some(ref preset_id) = preset_id_opt {
                 presets::apply_preset(preset_id, &mut config)?;

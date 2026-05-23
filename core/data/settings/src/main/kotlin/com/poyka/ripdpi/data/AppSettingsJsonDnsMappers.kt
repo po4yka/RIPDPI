@@ -2,8 +2,24 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.proto.AppSettings
 
-internal fun AppSettingsSnapshot.withDnsSnapshot(settings: AppSettings): AppSettingsSnapshot {
-    val activeDns = settings.activeDnsSettings()
+internal fun AppSettingsSnapshot.withDnsSnapshot(
+    dns: DnsSettingsSection,
+    ipv6Enabled: Boolean,
+): AppSettingsSnapshot {
+    val activeDns =
+        activeDnsSettings(
+            dnsMode = dns.dnsMode,
+            dnsProviderId = dns.dnsProviderId,
+            dnsIp = dns.dnsIp,
+            encryptedDnsProtocol = dns.encryptedDnsProtocol,
+            encryptedDnsHost = dns.encryptedDnsHost,
+            encryptedDnsPort = dns.encryptedDnsPort,
+            encryptedDnsTlsServerName = dns.encryptedDnsTlsServerName,
+            encryptedDnsBootstrapIps = dns.encryptedDnsBootstrapIps,
+            encryptedDnsDohUrl = dns.encryptedDnsDohUrl,
+            encryptedDnsDnscryptProviderName = dns.encryptedDnsDnscryptProviderName,
+            encryptedDnsDnscryptPublicKey = dns.encryptedDnsDnscryptPublicKey,
+        )
     return copy(
         dns =
             AppSettingsDnsSnapshot(
@@ -18,7 +34,7 @@ internal fun AppSettingsSnapshot.withDnsSnapshot(settings: AppSettings): AppSett
                 encryptedDnsDohUrl = activeDns.encryptedDnsDohUrl,
                 encryptedDnsDnscryptProviderName = activeDns.encryptedDnsDnscryptProviderName,
                 encryptedDnsDnscryptPublicKey = activeDns.encryptedDnsDnscryptPublicKey,
-                ipv6Enabled = settings.ipv6Enable,
+                ipv6Enabled = ipv6Enabled,
             ),
     )
 }

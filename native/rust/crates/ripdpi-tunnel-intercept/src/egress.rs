@@ -132,7 +132,7 @@ enum EgressAction {
 
 impl EgressAction {
     fn from_step(step: &StrategyStep) -> Option<Self> {
-        match step.kind {
+        match &step.kind {
             StepType::Fake => {
                 let ttl = step.ttl.unwrap_or(5).max(1);
                 Some(Self::Fake { ttl })

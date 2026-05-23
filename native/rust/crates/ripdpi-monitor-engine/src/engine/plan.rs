@@ -2,9 +2,10 @@ use ripdpi_monitor_adapter::proxy_config::{parse_proxy_config_json, ProxyConfigP
 
 use crate::candidates::build_strategy_probe_suite;
 use crate::transport::TransportConfig;
-use crate::types::{ProbeTaskFamily, ScanKind, ScanRequest};
+use crate::types::{ScanKind, ScanRequest};
 use crate::util::probe_session_seed;
 
+use super::runners::{registration_for_family, PROBE_STAGE_REGISTRATIONS};
 use super::runtime::{ExecutionPlan, ExecutionStageId, StrategyExecutionPlan};
 
 pub(super) fn build_execution_plan(
@@ -51,34 +52,31 @@ fn build_strategy_execution_plan(session_id: &str, request: &ScanRequest) -> Res
 }
 
 pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionStageId> {
-    let mut ordered = vec![ExecutionStageId::Environment];
+    // Always-on stages — today only `Environment` — come first, in
+    // registration order. Followed by either the probe-task-driven sequence
+    // (user-supplied order, deduplicated) or the canonical registration
+    // order for all selectable stages.
+    let mut ordered: Vec<ExecutionStageId> = PROBE_STAGE_REGISTRATIONS
+        .iter()
+        .filter(|registration| registration.task_family_selector.is_none())
+        .map(|registration| registration.stage_id.clone())
+        .collect();
+
     if !request.probe_tasks.is_empty() {
         for task in &request.probe_tasks {
-            let stage = match task.family {
-                ProbeTaskFamily::Dns => ExecutionStageId::Dns,
-                ProbeTaskFamily::Web => ExecutionStageId::Web,
-                ProbeTaskFamily::Quic => ExecutionStageId::Quic,
-                ProbeTaskFamily::Tcp => ExecutionStageId::Tcp,
-                ProbeTaskFamily::Service => ExecutionStageId::Service,
-                ProbeTaskFamily::Circumvention => ExecutionStageId::Circumvention,
-                ProbeTaskFamily::Telegram => ExecutionStageId::Telegram,
-                ProbeTaskFamily::Throughput => ExecutionStageId::Throughput,
-            };
-            if !ordered.contains(&stage) {
-                ordered.push(stage);
+            if let Some(registration) = registration_for_family(&task.family) {
+                if !ordered.contains(&registration.stage_id) {
+                    ordered.push(registration.stage_id.clone());
+                }
             }
         }
         return ordered;
     }
-    ordered.extend([
-        ExecutionStageId::Dns,
-        ExecutionStageId::Web,
-        ExecutionStageId::Quic,
-        ExecutionStageId::Tcp,
-        ExecutionStageId::Service,
-        ExecutionStageId::Circumvention,
-        ExecutionStageId::Telegram,
-        ExecutionStageId::Throughput,
-    ]);
+
+    for registration in PROBE_STAGE_REGISTRATIONS {
+        if registration.task_family_selector.is_some() && !ordered.contains(&registration.stage_id) {
+            ordered.push(registration.stage_id.clone());
+        }
+    }
     ordered
 }
