@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use android_support::{
     android_log_level_from_debug_verbosity, android_log_level_from_str, set_android_log_scope_level,
-    throw_illegal_argument_env, throw_illegal_state_env, throw_io_exception_env,
+    throw_illegal_argument_env,
 };
 use jni::objects::JString;
 use jni::sys::{jint, jlong};
@@ -12,7 +12,10 @@ use ripdpi_proxy_config::NetworkSnapshot;
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
 use crate::config::{parse_proxy_config_json, runtime_config_envelope_from_payload};
-use ripdpi_android_bridge_support::JniProxyError;
+use ripdpi_android_bridge_support::{
+    throw_illegal_argument_env_with_payload, throw_illegal_state_env_with_payload, throw_io_exception_env_with_payload,
+    JniProxyError, NativeBridgeError, NativeBridgeErrorDomain,
+};
 use ripdpi_android_telemetry_adapter::{ProxyTelemetryObserver, ProxyTelemetryState};
 
 use super::registry::{
@@ -20,16 +23,30 @@ use super::registry::{
     try_mark_proxy_running, ProxySession, ProxySessionState, SESSIONS,
 };
 
+fn proxy_error(code: &'static str, message: impl Into<String>) -> NativeBridgeError {
+    NativeBridgeError::new(NativeBridgeErrorDomain::Proxy, code, message)
+}
+
 pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {
     let Ok(json) = config_json.try_to_string(env) else {
-        throw_illegal_argument_env(env, "Invalid proxy config payload");
+        throw_illegal_argument_env_with_payload(
+            env,
+            "Invalid proxy config payload",
+            &proxy_error("create_config_invalid", "Invalid proxy config payload")
+                .with_cause_class("java.lang.IllegalArgumentException"),
+        );
         return 0;
     };
 
     let payload = match parse_proxy_config_json(&json) {
         Ok(payload) => payload,
         Err(err) => {
-            err.throw(env);
+            let detail = err.to_string();
+            err.throw_with_payload(
+                env,
+                &proxy_error("create_config_parse_failed", detail)
+                    .with_cause_class("java.lang.IllegalArgumentException"),
+            );
             return 0;
         }
     };
@@ -37,7 +54,12 @@ pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {
     let envelope = match runtime_config_envelope_from_payload(payload) {
         Ok(envelope) => envelope,
         Err(err) => {
-            err.throw(env);
+            let detail = err.to_string();
+            err.throw_with_payload(
+                env,
+                &proxy_error("create_config_envelope_failed", detail)
+                    .with_cause_class("java.lang.IllegalArgumentException"),
+            );
             return 0;
         }
     };
@@ -45,7 +67,13 @@ pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {
         Some(value) => match android_log_level_from_str(value) {
             Some(level) => level,
             None => {
-                throw_illegal_argument_env(env, format!("Unsupported proxy nativeLogLevel: {value}"));
+                let detail = format!("Unsupported proxy nativeLogLevel: {value}");
+                throw_illegal_argument_env_with_payload(
+                    env,
+                    &detail,
+                    &proxy_error("create_unsupported_log_level", detail.clone())
+                        .with_cause_class("java.lang.IllegalArgumentException"),
+                );
                 return 0;
             }
         },
@@ -54,7 +82,13 @@ pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {
     let config = envelope.config;
 
     if let Err(err) = ripdpi_proxy_runtime::create_listener(&config) {
-        JniProxyError::Io(err).throw(env);
+        let detail = err.to_string();
+        JniProxyError::Io(err).throw_with_payload(
+            env,
+            &proxy_error("create_listener_probe_failed", detail)
+                .with_cause_class("java.io.IOException")
+                .retryable(true),
+        );
         return 0;
     }
 
@@ -92,7 +126,13 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong) -> jint {
     let session = match lookup_proxy_session(handle) {
         Ok(session) => session,
         Err(err) => {
-            err.throw(env);
+            let detail = err.to_string();
+            err.throw_with_payload(
+                env,
+                &proxy_error("start_handle_invalid", detail)
+                    .with_cause_class("java.lang.IllegalArgumentException")
+                    .with_handle_state("invalid_or_unknown"),
+            );
             return libc::EINVAL;
         }
     };
@@ -101,7 +141,14 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong) -> jint {
     let listener = match open_proxy_listener(&config, &session.telemetry) {
         Ok(listener) => listener,
         Err(err) => {
-            throw_io_exception_env(env, format!("Failed to open proxy listener: {err}"));
+            let detail = format!("Failed to open proxy listener: {err}");
+            throw_io_exception_env_with_payload(
+                env,
+                &detail,
+                &proxy_error("start_listener_open_failed", detail.clone())
+                    .with_cause_class("java.io.IOException")
+                    .retryable(true),
+            );
             return libc::EINVAL;
         }
     };
@@ -115,7 +162,13 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong) -> jint {
     {
         let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
         if let Err(message) = try_mark_proxy_running(&mut state, control.clone()) {
-            throw_illegal_state_env(env, message);
+            throw_illegal_state_env_with_payload(
+                env,
+                message,
+                &proxy_error("start_invalid_state", message)
+                    .with_cause_class("java.lang.IllegalStateException")
+                    .with_handle_state(message),
+            );
             return libc::EINVAL;
         }
     }
@@ -145,7 +198,13 @@ pub(crate) fn stop_session(env: &mut Env<'_>, handle: jlong) {
     let session = match lookup_proxy_session(handle) {
         Ok(session) => session,
         Err(err) => {
-            err.throw(env);
+            let detail = err.to_string();
+            err.throw_with_payload(
+                env,
+                &proxy_error("stop_handle_invalid", detail)
+                    .with_cause_class("java.lang.IllegalArgumentException")
+                    .with_handle_state("invalid_or_unknown"),
+            );
             return;
         }
     };
@@ -155,7 +214,13 @@ pub(crate) fn stop_session(env: &mut Env<'_>, handle: jlong) {
         match control_for_proxy_stop(&state) {
             Ok(control) => control,
             Err(message) => {
-                throw_illegal_state_env(env, message);
+                throw_illegal_state_env_with_payload(
+                    env,
+                    message,
+                    &proxy_error("stop_invalid_state", message)
+                        .with_cause_class("java.lang.IllegalStateException")
+                        .with_handle_state(message),
+                );
                 return;
             }
         }
@@ -195,13 +260,25 @@ pub(crate) fn destroy_session(env: &mut Env<'_>, handle: jlong) {
     let session = match lookup_proxy_session(handle) {
         Ok(session) => session,
         Err(err) => {
-            err.throw(env);
+            let detail = err.to_string();
+            err.throw_with_payload(
+                env,
+                &proxy_error("destroy_handle_invalid", detail)
+                    .with_cause_class("java.lang.IllegalArgumentException")
+                    .with_handle_state("invalid_or_unknown"),
+            );
             return;
         }
     };
     let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
     if let Err(message) = ensure_proxy_destroyable(&state) {
-        throw_illegal_state_env(env, message);
+        throw_illegal_state_env_with_payload(
+            env,
+            message,
+            &proxy_error("destroy_invalid_state", message)
+                .with_cause_class("java.lang.IllegalStateException")
+                .with_handle_state(message),
+        );
         return;
     }
     // Tombstone the session before releasing the lock so concurrent

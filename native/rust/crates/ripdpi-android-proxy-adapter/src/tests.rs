@@ -137,16 +137,55 @@ fn exported_jni_rejects_malformed_config_and_snapshot_json() {
     with_env(|env| {
         let handle = jni_create(env, "{");
         assert_eq!(handle, 0);
-        assert!(take_exception(env).starts_with("java.lang.IllegalArgumentException:"));
+        let exception = take_exception(env);
+        assert!(exception.starts_with("java.lang.IllegalArgumentException:"));
+        // `create` is on the typed-error path; the payload is appended.
+        assert_typed_bridge_exception(
+            &exception,
+            exception.lines().next().expect("first line"),
+            "create_config_parse_failed",
+        );
     });
 
     let handle = ProxyHandle::new();
     with_env(|env| {
         jni_update_network_snapshot(env, handle.raw(), "{");
+        // `update_network_snapshot` is intentionally NOT yet converted —
+        // it stays on the prefix-only path, validating the
+        // "no behavior change for callers that ignore typed errors"
+        // invariant for unconverted entries.
         assert!(
             take_exception(env).starts_with("java.lang.IllegalArgumentException: Failed to parse network snapshot:")
         );
     });
+}
+
+#[test]
+fn typed_bridge_payload_tolerates_unknown_future_fields() {
+    // Forward-compat invariant: the Kotlin parser ignores keys it does
+    // not know. Mirror that here so the Rust side is held to the same
+    // promise — a manually constructed payload with an extra key still
+    // round-trips via serde_json with the documented keys intact.
+    let raw_json = serde_json::json!({
+        "schemaVersion": 1,
+        "domain": "proxy",
+        "code": "start_handle_invalid",
+        "message": "Invalid proxy handle",
+        "retryable": false,
+        "handleState": "invalid_or_unknown",
+        // Future additive fields the current parser does not know.
+        "unstableExtension": "future",
+        "trace": {"span": "abc-123"},
+    });
+    let serialised = serde_json::to_string(&raw_json).expect("serialise");
+    let parsed: serde_json::Value = serde_json::from_str(&serialised).expect("parse");
+
+    assert_eq!(parsed["schemaVersion"].as_u64(), Some(1));
+    assert_eq!(parsed["domain"].as_str(), Some("proxy"));
+    assert_eq!(parsed["code"].as_str(), Some("start_handle_invalid"));
+    assert_eq!(parsed["retryable"].as_bool(), Some(false));
+    // Unknown keys are present in the JSON object — ignored, not rejected.
+    assert!(parsed.get("unstableExtension").is_some());
 }
 
 #[test]
@@ -193,33 +232,64 @@ fn exported_jni_invalid_handles_throw_and_reference_calls_return_null() {
     let _serial = lock_jni_tests();
     let snapshot_json = serde_json::to_string(&NetworkSnapshot::default()).expect("snapshot json");
 
+    // `start`, `stop`, `destroy` carry a typed NativeBridgeError payload
+    // appended after a sentinel line; the human-readable prefix is
+    // unchanged so callers that ignore the trailer still match exactly.
+    // `poll_telemetry` and `update_network_snapshot` are not yet
+    // converted to the typed-error path and remain prefix-only.
+    let typed_prefix = "java.lang.IllegalArgumentException: Invalid proxy handle";
+    let untyped = "java.lang.IllegalArgumentException: Invalid proxy handle";
+
     for handle in [0, -1] {
         with_env(|env| {
             assert_eq!(jni_start(env, handle), libc::EINVAL);
-            assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid proxy handle");
+            let actual = take_exception(env);
+            assert_typed_bridge_exception(&actual, typed_prefix, "start_handle_invalid");
         });
 
         with_env(|env| {
             jni_stop(env, handle);
-            assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid proxy handle");
+            let actual = take_exception(env);
+            assert_typed_bridge_exception(&actual, typed_prefix, "stop_handle_invalid");
         });
 
         with_env(|env| {
             let telemetry = jni_poll_telemetry(env, handle);
             assert!(decode_jstring(env, telemetry).is_none());
-            assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid proxy handle");
+            assert_eq!(take_exception(env), untyped);
         });
 
         with_env(|env| {
             jni_update_network_snapshot(env, handle, &snapshot_json);
-            assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid proxy handle");
+            assert_eq!(take_exception(env), untyped);
         });
 
         with_env(|env| {
             jni_destroy(env, handle);
-            assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: Invalid proxy handle");
+            let actual = take_exception(env);
+            assert_typed_bridge_exception(&actual, typed_prefix, "destroy_handle_invalid");
         });
     }
+}
+
+/// Assert that `exception` starts with `prefix`, carries the
+/// native-bridge sentinel, and the JSON trailer parses with the
+/// expected `code`. Encodes the new "leading line preserved + typed
+/// trailer appended" contract.
+fn assert_typed_bridge_exception(exception: &str, prefix: &str, expected_code: &str) {
+    use ripdpi_android_bridge_support::NATIVE_BRIDGE_ERROR_SENTINEL;
+
+    let first_line = exception.lines().next().expect("at least one line");
+    assert_eq!(first_line, prefix, "leading line should match prefix");
+    let (_, trailer) = exception
+        .split_once(NATIVE_BRIDGE_ERROR_SENTINEL)
+        .unwrap_or_else(|| panic!("missing sentinel in {exception:?}"));
+    let json_str = trailer.trim_start_matches('\n');
+    let parsed: serde_json::Value =
+        serde_json::from_str(json_str).unwrap_or_else(|err| panic!("trailer not JSON ({err}): {json_str:?}"));
+    assert_eq!(parsed["code"].as_str(), Some(expected_code), "code mismatch in {exception:?}");
+    assert_eq!(parsed["domain"].as_str(), Some("proxy"));
+    assert_eq!(parsed["schemaVersion"].as_u64(), Some(1));
 }
 
 #[derive(Clone, Copy, Debug)]

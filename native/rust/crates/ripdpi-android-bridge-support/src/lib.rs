@@ -35,6 +35,13 @@ use android_support::{
 use jni::sys::jlong;
 use jni::{Env, EnvUnowned};
 
+pub mod native_bridge_error;
+
+pub use native_bridge_error::{
+    decorate_message, NativeBridgeError, NativeBridgeErrorDomain, SCHEMA_VERSION as NATIVE_BRIDGE_ERROR_SCHEMA_VERSION,
+    SENTINEL as NATIVE_BRIDGE_ERROR_SENTINEL,
+};
+
 /// Native error categories raised by the proxy/geo JNI adapters, each mapped to
 /// a fixed Java exception class by [`JniProxyError::throw`].
 #[derive(Debug, thiserror::Error)]
@@ -98,6 +105,65 @@ impl JniProxyError {
     }
 }
 
+/// `throw` variant that also stamps a typed [`NativeBridgeError`]
+/// payload into the exception message via [`decorate_message`].
+///
+/// The Java exception **class** is unchanged from [`JniProxyError::throw`];
+/// callers that only read the leading message line continue to see
+/// exactly what they always saw, and the [`NATIVE_BRIDGE_ERROR_SENTINEL`]
+/// line lets typed callers recover the structured payload.
+impl JniProxyError {
+    pub fn throw_with_payload(self, env: &mut Env<'_>, payload: &NativeBridgeError) {
+        log::error!("JNI proxy error: {self:?}");
+        match self {
+            Self::InvalidConfig(message) => {
+                throw_illegal_argument_env(
+                    env,
+                    decorate_message(&format!("invalid configuration: {message}"), payload),
+                );
+            }
+            Self::InvalidArgument(message) => {
+                throw_illegal_argument_env(env, decorate_message(&message, payload));
+            }
+            Self::IllegalState(message) => {
+                throw_illegal_state_env(env, decorate_message(message, payload));
+            }
+            Self::Io(err) => {
+                let detail = format!("I/O failure: {err}");
+                throw_io_exception_env(env, decorate_message(&sanitize_error_message(&detail, "I/O failure"), payload));
+            }
+            Self::Serialization(err) => {
+                throw_runtime_exception_env(
+                    env,
+                    decorate_message(&sanitize_error_message(&err.to_string(), "Serialization failure"), payload),
+                );
+            }
+        }
+    }
+}
+
+/// `throw_illegal_argument_env` that appends a typed payload trailer.
+pub fn throw_illegal_argument_env_with_payload(env: &mut Env<'_>, message: &str, payload: &NativeBridgeError) {
+    throw_illegal_argument_env(env, decorate_message(message, payload));
+}
+
+/// `throw_illegal_state_env` that appends a typed payload trailer.
+pub fn throw_illegal_state_env_with_payload(env: &mut Env<'_>, message: &str, payload: &NativeBridgeError) {
+    throw_illegal_state_env(env, decorate_message(message, payload));
+}
+
+/// `throw_io_exception_env` that appends a typed payload trailer.
+pub fn throw_io_exception_env_with_payload(env: &mut Env<'_>, message: &str, payload: &NativeBridgeError) {
+    throw_io_exception_env(env, decorate_message(message, payload));
+}
+
+/// `throw_runtime_exception` (on `EnvUnowned`) that appends a typed
+/// payload trailer. The runtime-exception variant is what the proxy
+/// entry-point `Outcome::Err` / `Outcome::Panic` arms use.
+pub fn throw_runtime_exception_with_payload(env: &mut EnvUnowned<'_>, message: &str, payload: &NativeBridgeError) {
+    throw_runtime_exception(env, decorate_message(message, payload));
+}
+
 /// Extract a human-readable message from a `catch_unwind` panic payload,
 /// handling the `String` and `&str` payload shapes and falling back to
 /// `"unknown panic"` for any other type.
@@ -115,6 +181,19 @@ pub fn extract_panic_message(payload: Box<dyn Any + Send>) -> String {
 /// so a contained panic is reported to Kotlin instead of unwinding.
 pub fn throw_panic(env: &mut EnvUnowned<'_>, prefix: &str, payload: Box<dyn Any + Send>) {
     throw_runtime_exception(env, format!("{prefix}: {}", extract_panic_message(payload)));
+}
+
+/// `throw_panic` variant that augments the `RuntimeException` message
+/// with a typed [`NativeBridgeError`] trailer. The panic-message extraction
+/// itself is unchanged — only the trailer is added.
+pub fn throw_panic_with_payload(
+    env: &mut EnvUnowned<'_>,
+    prefix: &str,
+    payload: Box<dyn Any + Send>,
+    bridge: &NativeBridgeError,
+) {
+    let human = format!("{prefix}: {}", extract_panic_message(payload));
+    throw_runtime_exception(env, decorate_message(&human, bridge));
 }
 
 /// Decode the opaque `jlong` handle passed back from Kotlin into a native
@@ -277,6 +356,116 @@ mod tests {
         });
         let actual = serde_json::to_string_pretty(&fixture).expect("serialize fixture");
         assert_contract_fixture("proxy_start_codes.json", &actual);
+    }
+
+    #[test]
+    fn native_bridge_error_serialises_required_fields_only_when_unset() {
+        let payload = NativeBridgeError::new(NativeBridgeErrorDomain::Proxy, "create_failed", "bad config");
+        let json: serde_json::Value = serde_json::from_str(&payload.to_json()).expect("payload is valid json");
+        let obj = json.as_object().expect("top-level object");
+
+        // Required keys present and typed correctly.
+        assert_eq!(
+            obj.get("schemaVersion").and_then(serde_json::Value::as_u64),
+            Some(u64::from(NATIVE_BRIDGE_ERROR_SCHEMA_VERSION)),
+        );
+        assert_eq!(obj.get("domain").and_then(serde_json::Value::as_str), Some("proxy"));
+        assert_eq!(obj.get("code").and_then(serde_json::Value::as_str), Some("create_failed"));
+        assert_eq!(obj.get("message").and_then(serde_json::Value::as_str), Some("bad config"));
+        assert_eq!(obj.get("retryable").and_then(serde_json::Value::as_bool), Some(false));
+
+        // Optional keys absent when not set.
+        assert!(obj.get("causeClass").is_none());
+        assert!(obj.get("handleState").is_none());
+    }
+
+    #[test]
+    fn native_bridge_error_serialises_optional_fields_when_set() {
+        let payload = NativeBridgeError::new(NativeBridgeErrorDomain::Proxy, "start_failed", "listener bind failed")
+            .with_cause_class("java.io.IOException")
+            .with_handle_state("idle")
+            .retryable(true);
+        let json: serde_json::Value = serde_json::from_str(&payload.to_json()).expect("payload is valid json");
+        let obj = json.as_object().expect("top-level object");
+
+        assert_eq!(obj.get("causeClass").and_then(serde_json::Value::as_str), Some("java.io.IOException"));
+        assert_eq!(obj.get("handleState").and_then(serde_json::Value::as_str), Some("idle"));
+        assert_eq!(obj.get("retryable").and_then(serde_json::Value::as_bool), Some(true));
+    }
+
+    #[test]
+    fn native_bridge_error_domain_covers_every_documented_value() {
+        // Spec-mandated set from /goal: proxy/tunnel/relay/diagnostics/root/telemetry.
+        let expected = ["proxy", "tunnel", "relay", "diagnostics", "root", "telemetry"];
+        let actual = [
+            NativeBridgeErrorDomain::Proxy.as_str(),
+            NativeBridgeErrorDomain::Tunnel.as_str(),
+            NativeBridgeErrorDomain::Relay.as_str(),
+            NativeBridgeErrorDomain::Diagnostics.as_str(),
+            NativeBridgeErrorDomain::Root.as_str(),
+            NativeBridgeErrorDomain::Telemetry.as_str(),
+        ];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn decorate_message_appends_sentinel_and_json_after_human_prefix() {
+        let payload =
+            NativeBridgeError::new(NativeBridgeErrorDomain::Proxy, "destroy_failed", "session not destroyable");
+        let decorated = decorate_message("session not destroyable", &payload);
+
+        // Human prefix is the leading line — callers that ignore the
+        // typed payload see exactly what they always saw.
+        let first_line = decorated.lines().next().expect("at least one line");
+        assert_eq!(first_line, "session not destroyable");
+
+        // Sentinel appears on a line of its own, followed by the JSON.
+        assert!(decorated.contains(&format!("\n{NATIVE_BRIDGE_ERROR_SENTINEL}\n")));
+        let (_human, trailer) = decorated.split_once(NATIVE_BRIDGE_ERROR_SENTINEL).expect("sentinel present");
+        let json_str = trailer.trim_start_matches('\n');
+        let parsed: serde_json::Value = serde_json::from_str(json_str).expect("trailer is JSON");
+        assert_eq!(parsed["code"].as_str(), Some("destroy_failed"));
+    }
+
+    #[test]
+    fn throw_with_payload_decorates_argument_exception_with_sentinel() {
+        let _serial = lock_jni_tests();
+
+        with_env(|env| {
+            let payload =
+                NativeBridgeError::new(NativeBridgeErrorDomain::Proxy, "handle_unknown", "Unknown proxy handle")
+                    .with_handle_state("unknown_handle");
+            JniProxyError::unknown_handle().throw_with_payload(env, &payload);
+
+            let exception = take_exception(env);
+            // Existing leading prefix preserved verbatim.
+            assert!(exception.starts_with("java.lang.IllegalArgumentException: Unknown proxy handle"));
+            // Sentinel + payload appended.
+            assert!(exception.contains(NATIVE_BRIDGE_ERROR_SENTINEL));
+            assert!(exception.contains("\"code\":\"handle_unknown\""));
+            assert!(exception.contains("\"handleState\":\"unknown_handle\""));
+        });
+    }
+
+    #[test]
+    fn throw_panic_with_payload_decorates_runtime_exception_with_sentinel() {
+        let _serial = lock_jni_tests();
+
+        with_env(|env| {
+            let payload = NativeBridgeError::new(
+                NativeBridgeErrorDomain::Proxy,
+                "create_panic",
+                "Proxy session creation panicked",
+            );
+            let mut unowned = crate::test_support::env_to_unowned(env);
+            let panic_payload: Box<dyn Any + Send> = Box::new(String::from("boom"));
+            throw_panic_with_payload(&mut unowned, "Proxy session creation panicked", panic_payload, &payload);
+
+            let exception = take_exception(env);
+            assert!(exception.starts_with("java.lang.RuntimeException: Proxy session creation panicked: boom"));
+            assert!(exception.contains(NATIVE_BRIDGE_ERROR_SENTINEL));
+            assert!(exception.contains("\"code\":\"create_panic\""));
+        });
     }
 
     #[test]
