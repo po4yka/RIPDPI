@@ -18,7 +18,9 @@ use tracing::{error, info, warn};
 use std::process::Command;
 
 use ripdpi_root_helper_protocol as protocol;
-use ripdpi_root_helper_protocol::{valid_session_nonce, HelperRequest, HelperResponse};
+use ripdpi_root_helper_protocol::{
+    valid_session_nonce, HelperRequest, HelperResponse, CAPABILITY_VERSION, PROTOCOL_VERSION,
+};
 
 struct RootHelperConfig {
     socket_path: PathBuf,
@@ -113,7 +115,7 @@ fn handle_connection(stream: &UnixStream, session_nonce: &str) -> io::Result<()>
     if !session_nonce_matches(session_nonce, request.session_nonce.as_deref()) {
         close_received_fd(received_fd);
         warn!(command = %request.command, "rejected command with invalid root-helper session nonce");
-        send_response(stream, &HelperResponse::error("invalid root-helper session nonce"), None)?;
+        send_response(stream, HelperResponse::error("invalid root-helper session nonce"), None)?;
         return Ok(());
     }
 
@@ -134,14 +136,19 @@ fn handle_connection(stream: &UnixStream, session_nonce: &str) -> io::Result<()>
         }
     }
 
-    send_response(stream, &response, reply_fd)?;
+    send_response(stream, response, reply_fd)?;
 
     Ok(())
 }
 
-fn send_response(stream: &UnixStream, response: &HelperResponse, reply_fd: Option<RawFd>) -> io::Result<()> {
+fn send_response(stream: &UnixStream, response: HelperResponse, reply_fd: Option<RawFd>) -> io::Result<()> {
+    // Stamp every outbound response with the current protocol / capability
+    // version so clients can gate features on a known-recent helper. Pre-
+    // versioned clients tolerate the new fields (HelperResponse derives
+    // serde defaults).
+    let response = response.with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION);
     let json =
-        serde_json::to_vec(response).map_err(|e| io::Error::other(format!("failed to serialize response: {e}")))?;
+        serde_json::to_vec(&response).map_err(|e| io::Error::other(format!("failed to serialize response: {e}")))?;
     protocol::send_message(stream, &json, reply_fd)
 }
 

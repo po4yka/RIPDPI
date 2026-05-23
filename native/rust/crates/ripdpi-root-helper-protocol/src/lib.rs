@@ -6,7 +6,9 @@ mod params;
 mod scm_rights;
 mod wire;
 
-pub use command_descriptor::{command_descriptor, CommandDescriptor, COMMAND_DESCRIPTORS};
+pub use command_descriptor::{
+    command_descriptor, validate_request, CommandDescriptor, DescriptorValidationError, COMMAND_DESCRIPTORS,
+};
 pub use commands::{
     CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
     CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP,
@@ -18,4 +20,7 @@ pub use params::{
     OrderedTcpSegmentParams, OrderedTcpSegmentsParams, RawIpPacketParams, SegmentSpec, SeqOvlParams,
 };
 pub use scm_rights::{recv_message, send_message};
-pub use wire::{valid_session_nonce, HelperRequest, HelperResponse, MAX_SESSION_NONCE_BYTES, MIN_SESSION_NONCE_BYTES};
+pub use wire::{
+    valid_session_nonce, HelperRequest, HelperResponse, CAPABILITY_VERSION, MAX_SESSION_NONCE_BYTES,
+    MIN_SESSION_NONCE_BYTES, PROTOCOL_VERSION,
+};

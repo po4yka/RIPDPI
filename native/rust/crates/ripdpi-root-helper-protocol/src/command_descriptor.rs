@@ -164,9 +164,92 @@ pub fn command_descriptor(command: &str) -> Option<&'static CommandDescriptor> {
     COMMAND_DESCRIPTORS.iter().find(|descriptor| descriptor.command == command)
 }
 
+/// Typed failure modes for [`validate_request`].
+///
+/// Carried as the `Err` arm so callers (the client and the helper dispatch)
+/// can route a descriptor violation to a uniform error response — no string
+/// matching, no per-call-site re-implementation. `Display` produces a stable,
+/// human-readable form that already mentions the command name and the rule
+/// that fired; the existing `fd_requiring_commands_reject_a_missing_inbound_fd`
+/// test only matches the substring `"fd"`, so the wording stays compatible
+/// with the pre-existing per-handler messages.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DescriptorValidationError {
+    /// The `command` field is not a known `CMD_*` constant.
+    UnknownCommand(String),
+    /// The descriptor's `requires_inbound_fd == true`, but the request carried
+    /// no fd.
+    MissingFd { command: &'static str },
+    /// The descriptor's `requires_inbound_fd == false`, but the caller passed
+    /// an fd anyway. The helper REJECTS the request rather than silently
+    /// leaking the descriptor; the previous code closed the fd in `main.rs`
+    /// only on session-nonce rejection, so an extra fd for a non-fd command
+    /// would leak.
+    UnexpectedFd { command: &'static str },
+    /// The descriptor declares `params_type: Some(_)`, but the request's
+    /// `params` field was `null` / missing.
+    MissingParams { command: &'static str },
+}
+
+impl core::fmt::Display for DescriptorValidationError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::UnknownCommand(command) => write!(f, "unknown command: {command}"),
+            Self::MissingFd { command } => write!(f, "{command} requires a stream fd"),
+            Self::UnexpectedFd { command } => {
+                write!(f, "{command} does not accept a stream fd")
+            }
+            Self::MissingParams { command } => write!(f, "{command} requires a params object"),
+        }
+    }
+}
+
+impl core::error::Error for DescriptorValidationError {}
+
+/// Validate one [`HelperRequest`]-shaped tuple against its
+/// [`CommandDescriptor`].
+///
+/// Inputs:
+/// - `command` — the request's `command` wire string;
+/// - `has_inbound_fd` — `true` when the request arrived with a `SCM_RIGHTS`
+///   fd (the on-wire reality, not the descriptor's expectation);
+/// - `params_present` — `true` when the request's `params` field is anything
+///   other than JSON `null` (the on-wire reality). Empty `{}` counts as
+///   present.
+///
+/// Returns the matching `CommandDescriptor` on success so callers can keep
+/// the static metadata around without a second lookup. The validation rules
+/// are intentionally narrow: command known, inbound-fd presence matches
+/// `requires_inbound_fd` (in both directions), and the descriptor's
+/// `params_type.is_some()` implies `params_present`. The reverse direction —
+/// rejecting unexpected params for a no-params descriptor — is intentionally
+/// NOT enforced: handlers for no-params commands (probe_capabilities,
+/// shutdown) ignore the field, and several internal call sites pass an empty
+/// object instead of `Null`.
+///
+/// Param shape / contents are NOT validated here — that's the per-command
+/// `serde_json::from_value` decode step.
+pub fn validate_request(
+    command: &str,
+    has_inbound_fd: bool,
+    params_present: bool,
+) -> Result<&'static CommandDescriptor, DescriptorValidationError> {
+    let descriptor =
+        command_descriptor(command).ok_or_else(|| DescriptorValidationError::UnknownCommand(command.to_owned()))?;
+    match (descriptor.requires_inbound_fd, has_inbound_fd) {
+        (true, false) => return Err(DescriptorValidationError::MissingFd { command: descriptor.command }),
+        (false, true) => return Err(DescriptorValidationError::UnexpectedFd { command: descriptor.command }),
+        _ => {}
+    }
+    if descriptor.params_type.is_some() && !params_present {
+        return Err(DescriptorValidationError::MissingParams { command: descriptor.command });
+    }
+    Ok(descriptor)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{command_descriptor, COMMAND_DESCRIPTORS};
+    use super::{command_descriptor, validate_request, DescriptorValidationError, COMMAND_DESCRIPTORS};
     use crate::commands::{
         CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
         CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP,
@@ -253,6 +336,70 @@ mod tests {
                 descriptor.command,
             );
             assert!(!descriptor.is_fd_carrying(), "{} must not be marked fd-carrying", descriptor.command);
+        }
+    }
+
+    #[test]
+    fn validate_request_accepts_well_formed_requests() {
+        for descriptor in COMMAND_DESCRIPTORS {
+            let result =
+                validate_request(descriptor.command, descriptor.requires_inbound_fd, descriptor.params_type.is_some());
+            assert_eq!(result, Ok(descriptor), "well-formed `{}` must validate", descriptor.command);
+        }
+    }
+
+    #[test]
+    fn validate_request_rejects_unknown_commands() {
+        let result = validate_request("totally_unknown_command_v999", false, false);
+        assert_eq!(result, Err(DescriptorValidationError::UnknownCommand("totally_unknown_command_v999".to_owned())));
+    }
+
+    #[test]
+    fn validate_request_rejects_missing_inbound_fd_for_fd_carrying_commands() {
+        for command in FD_CARRYING_COMMANDS {
+            let descriptor = command_descriptor(command).expect("descriptor");
+            let result = validate_request(command, false, descriptor.params_type.is_some());
+            assert_eq!(result, Err(DescriptorValidationError::MissingFd { command: descriptor.command }));
+            // The Display impl must mention "fd" and the command name.
+            let rendered = result.unwrap_err().to_string();
+            assert!(rendered.contains("fd"), "MissingFd Display must mention fd: {rendered:?}");
+            assert!(rendered.contains(command), "MissingFd Display must mention command: {rendered:?}");
+        }
+    }
+
+    #[test]
+    fn validate_request_rejects_extra_inbound_fd_for_non_fd_commands() {
+        for descriptor in COMMAND_DESCRIPTORS {
+            if descriptor.requires_inbound_fd {
+                continue;
+            }
+            let result = validate_request(descriptor.command, true, descriptor.params_type.is_some());
+            assert_eq!(result, Err(DescriptorValidationError::UnexpectedFd { command: descriptor.command }));
+        }
+    }
+
+    #[test]
+    fn validate_request_rejects_missing_params_for_params_required_commands() {
+        for descriptor in COMMAND_DESCRIPTORS {
+            if descriptor.params_type.is_none() {
+                continue;
+            }
+            let result = validate_request(descriptor.command, descriptor.requires_inbound_fd, false);
+            assert_eq!(result, Err(DescriptorValidationError::MissingParams { command: descriptor.command }));
+        }
+    }
+
+    #[test]
+    fn validate_request_tolerates_extra_params_for_no_params_commands() {
+        // Handlers for no-params commands ignore the field; the validator
+        // matches that lenience so an empty `{}` from a legacy client is not
+        // rejected before reaching the handler.
+        for descriptor in COMMAND_DESCRIPTORS {
+            if descriptor.params_type.is_some() {
+                continue;
+            }
+            let result = validate_request(descriptor.command, descriptor.requires_inbound_fd, true);
+            assert_eq!(result, Ok(descriptor));
         }
     }
 

@@ -3,7 +3,9 @@ use std::os::fd::RawFd;
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
-use ripdpi_root_helper_protocol::{recv_message, send_message, valid_session_nonce, HelperRequest, HelperResponse};
+use ripdpi_root_helper_protocol::{
+    recv_message, send_message, valid_session_nonce, validate_request, HelperRequest, HelperResponse,
+};
 
 pub(super) struct ClientTransport {
     socket_path: String,
@@ -28,6 +30,15 @@ impl ClientTransport {
         params: serde_json::Value,
         fd: Option<RawFd>,
     ) -> io::Result<(HelperResponse, Option<RawFd>)> {
+        // Client-side descriptor pre-validation: an unknown command, a
+        // missing inbound fd for an fd-carrying command, or an extra fd for
+        // a non-fd command is rejected here, BEFORE we open the Unix socket
+        // and load the session nonce. Mirrors the helper's pre-dispatch
+        // check; both sides see the same typed error from
+        // `validate_request`.
+        validate_request(command, fd.is_some(), !params.is_null())
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
+
         let session_nonce = load_session_nonce(&self.session_nonce_path())?;
         let stream = UnixStream::connect(&self.socket_path)?;
         stream.set_read_timeout(Some(Duration::from_secs(30)))?;
@@ -67,11 +78,62 @@ fn load_session_nonce(path: &str) -> io::Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{load_session_nonce, session_nonce_path};
+    use super::{load_session_nonce, session_nonce_path, ClientTransport};
 
     #[test]
     fn derives_session_nonce_path_from_socket_path() {
         assert_eq!(session_nonce_path("/tmp/ripdpi-root-helper.sock"), "/tmp/ripdpi-root-helper.sock.nonce");
+    }
+
+    /// An unknown command is rejected by the client's descriptor pre-validator
+    /// before the socket is opened — the IO error kind discriminates the
+    /// validation rejection from a real connect/read failure.
+    #[test]
+    fn send_command_rejects_unknown_command_before_connecting() {
+        let transport = ClientTransport::new("/nonexistent/socket".into());
+        let error = transport
+            .send_command("totally_unknown_command_v999", serde_json::Value::Null, None)
+            .expect_err("unknown command must error");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(
+            error.to_string().contains("unknown command"),
+            "expected the validator's UnknownCommand message, got {error:?}",
+        );
+    }
+
+    /// A fd-carrying command sent without an fd is rejected by the client
+    /// before the socket is opened — the validator catches the same shape
+    /// the helper would reject.
+    #[test]
+    fn send_command_rejects_missing_fd_for_fd_carrying_command_before_connecting() {
+        let transport = ClientTransport::new("/nonexistent/socket".into());
+        let error = transport
+            .send_command(
+                ripdpi_root_helper_protocol::CMD_SEND_FAKE_RST,
+                serde_json::json!({ "default_ttl": 64 }),
+                None,
+            )
+            .expect_err("missing fd must error");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(
+            error.to_string().contains("fd"),
+            "expected the validator's MissingFd message to mention fd, got {error:?}",
+        );
+    }
+
+    /// A `probe_capabilities` request from a legacy client with no params
+    /// passes the validator and would proceed to the socket — the error
+    /// surfaces from the missing nonce file at `/nonexistent/...`, NOT from
+    /// the validator. This pins that valid no-fd / no-params calls keep
+    /// flowing through the validator unchanged.
+    #[test]
+    fn send_command_passes_well_formed_no_params_request_through_validator() {
+        let transport = ClientTransport::new("/nonexistent/socket".into());
+        let error = transport
+            .send_command(ripdpi_root_helper_protocol::CMD_PROBE_CAPABILITIES, serde_json::Value::Null, None)
+            .expect_err("missing nonce file must error");
+        // The validator passed — the failure is at the nonce file load step.
+        assert_ne!(error.kind(), std::io::ErrorKind::InvalidInput);
     }
 
     #[test]

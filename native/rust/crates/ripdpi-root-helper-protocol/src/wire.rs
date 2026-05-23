@@ -3,6 +3,21 @@ use serde::{Deserialize, Serialize};
 pub const MIN_SESSION_NONCE_BYTES: usize = 32;
 pub const MAX_SESSION_NONCE_BYTES: usize = 128;
 
+/// Wire-protocol version stamped by the helper on every response.
+///
+/// Bumped only on a backward-incompatible protocol change. Clients may use it
+/// to gate features they need a known-recent helper for; missing on responses
+/// from a pre-versioned helper, so consumers MUST tolerate `None`.
+pub const PROTOCOL_VERSION: u32 = 1;
+
+/// Capability-set version stamped by the helper on every response.
+///
+/// Bumped when the `probe_capabilities` JSON shape changes (new keys, new
+/// runtime capabilities). Independent from [`PROTOCOL_VERSION`]: the wire
+/// protocol can be stable while the capability set evolves. Missing on
+/// responses from a pre-versioned helper.
+pub const CAPABILITY_VERSION: u32 = 1;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HelperRequest {
     pub command: String,
@@ -19,15 +34,41 @@ pub struct HelperResponse {
     pub error: Option<String>,
     #[serde(default)]
     pub data: serde_json::Value,
+    /// Helper's [`PROTOCOL_VERSION`] at the time the response was minted.
+    /// `None` on pre-versioned helpers and on responses constructed before
+    /// `with_versions` was called.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub protocol_version: Option<u32>,
+    /// Helper's [`CAPABILITY_VERSION`] at the time the response was minted.
+    /// Same back-compat semantics as `protocol_version`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_version: Option<u32>,
 }
 
 impl HelperResponse {
     pub fn success(data: serde_json::Value) -> Self {
-        Self { ok: true, error: None, data }
+        Self { ok: true, error: None, data, protocol_version: None, capability_version: None }
     }
 
     pub fn error(msg: impl Into<String>) -> Self {
-        Self { ok: false, error: Some(msg.into()), data: serde_json::Value::Null }
+        Self {
+            ok: false,
+            error: Some(msg.into()),
+            data: serde_json::Value::Null,
+            protocol_version: None,
+            capability_version: None,
+        }
+    }
+
+    /// Stamp this response with the current `protocol_version` /
+    /// `capability_version`. Called by the helper just before
+    /// serialization — every response the helper emits carries the version
+    /// pair. Pure data; no I/O.
+    #[must_use]
+    pub fn with_versions(mut self, protocol_version: u32, capability_version: u32) -> Self {
+        self.protocol_version = Some(protocol_version);
+        self.capability_version = Some(capability_version);
+        self
     }
 }
 
@@ -39,7 +80,10 @@ pub fn valid_session_nonce(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{valid_session_nonce, HelperRequest, HelperResponse, MAX_SESSION_NONCE_BYTES, MIN_SESSION_NONCE_BYTES};
+    use super::{
+        valid_session_nonce, HelperRequest, HelperResponse, CAPABILITY_VERSION, MAX_SESSION_NONCE_BYTES,
+        MIN_SESSION_NONCE_BYTES, PROTOCOL_VERSION,
+    };
     use serde_json::{json, Value};
 
     #[test]
@@ -115,6 +159,8 @@ mod tests {
 
     #[test]
     fn helper_response_success_and_error_shapes_are_stable() {
+        // Bare constructors omit the version fields — wire shape is back-compat
+        // with pre-versioned clients (the version fields are `skip_serializing_if`).
         let success = HelperResponse::success(json!({ "raw_ipv4": true }));
         assert_eq!(serde_json::to_string(&success).expect("serialize"), r#"{"ok":true,"data":{"raw_ipv4":true}}"#);
 
@@ -123,5 +169,42 @@ mod tests {
             serde_json::to_string(&failure).expect("serialize"),
             r#"{"ok":false,"error":"invalid root-helper session nonce","data":null}"#,
         );
+    }
+
+    #[test]
+    fn helper_response_with_versions_appends_protocol_and_capability_versions() {
+        let success = HelperResponse::success(json!({ "raw_ipv4": true })).with_versions(7, 11);
+        let encoded = serde_json::to_string(&success).expect("serialize");
+        assert_eq!(encoded, r#"{"ok":true,"data":{"raw_ipv4":true},"protocol_version":7,"capability_version":11}"#,);
+    }
+
+    #[test]
+    fn old_response_json_without_version_fields_still_deserializes() {
+        // Wire compatibility — a pre-versioned helper response decodes cleanly,
+        // the new fields default to `None`. This pins the back-compat contract.
+        let legacy = r#"{"ok":true,"data":{"raw_ipv4":true}}"#;
+        let decoded: HelperResponse = serde_json::from_str(legacy).expect("legacy success decodes");
+        assert!(decoded.ok);
+        assert_eq!(decoded.data, json!({ "raw_ipv4": true }));
+        assert!(decoded.protocol_version.is_none());
+        assert!(decoded.capability_version.is_none());
+
+        let legacy_error = r#"{"ok":false,"error":"some failure","data":null}"#;
+        let decoded_error: HelperResponse = serde_json::from_str(legacy_error).expect("legacy error decodes");
+        assert!(!decoded_error.ok);
+        assert_eq!(decoded_error.error.as_deref(), Some("some failure"));
+        assert!(decoded_error.protocol_version.is_none());
+        assert!(decoded_error.capability_version.is_none());
+    }
+
+    #[test]
+    fn new_response_with_versions_round_trips_through_serde() {
+        let original =
+            HelperResponse::success(json!({ "raw_ipv4": true })).with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION);
+        let encoded = serde_json::to_string(&original).expect("encode");
+        let decoded: HelperResponse = serde_json::from_str(&encoded).expect("decode");
+        assert!(decoded.ok);
+        assert_eq!(decoded.protocol_version, Some(PROTOCOL_VERSION));
+        assert_eq!(decoded.capability_version, Some(CAPABILITY_VERSION));
     }
 }

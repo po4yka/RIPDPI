@@ -8,11 +8,38 @@ use std::os::fd::RawFd;
 
 use ripdpi_root_helper_protocol as protocol;
 use ripdpi_root_helper_protocol::{
-    HelperRequest, CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
-    CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP,
-    CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP,
-    CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
+    validate_request, DescriptorValidationError, HelperRequest, CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP,
+    CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP, CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP,
+    CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS,
+    CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
 };
+
+/// The wire strings the dispatch `match` below has an arm for, in match order.
+///
+/// Companion to `protocol::COMMAND_DESCRIPTORS` for the descriptor-coverage
+/// drift test: every entry here must have a descriptor and vice versa. Update
+/// this table whenever a dispatch arm is added or removed.
+///
+/// Test-only: the production dispatch path uses the match directly; this
+/// table exists so a future refactor that adds or removes a dispatch arm
+/// without updating the descriptor table fails the drift test.
+#[cfg(test)]
+pub(crate) const DISPATCH_COMMANDS: &[&str] = &[
+    CMD_PROBE_CAPABILITIES,
+    CMD_SEND_FAKE_TCP,
+    CMD_SEND_FAKE_RST,
+    CMD_SEND_FLAGGED_TCP_PAYLOAD,
+    CMD_SEND_SEQOVL_TCP,
+    CMD_SEND_MULTI_DISORDER_TCP,
+    CMD_SEND_ORDERED_TCP_SEGMENTS,
+    CMD_SEND_IP_FRAGMENTED_TCP,
+    CMD_SEND_IP_FRAGMENTED_UDP,
+    CMD_SEND_SYN_HIDE_TCP,
+    CMD_SEND_ICMP_WRAPPED_UDP,
+    CMD_RECV_ICMP_WRAPPED_UDP,
+    CMD_SEND_RAW_IP_PACKET,
+    CMD_SHUTDOWN,
+];
 
 pub(crate) struct DispatchOutcome {
     pub(crate) response: protocol::HelperResponse,
@@ -30,7 +57,30 @@ impl DispatchOutcome {
     }
 }
 
+/// Dispatch a single request against the descriptor-validated command set.
+///
+/// Order of operations:
+///
+/// 1. `validate_request` checks the request against the static
+///    `CommandDescriptor` table — unknown command, missing inbound fd, extra
+///    inbound fd, missing params. On failure the response is the typed
+///    error's `Display` form and no per-handler arm runs.
+/// 2. On `UnexpectedFd`, `UnknownCommand`, or `MissingParams` failure we
+///    `close_received_fd(received_fd)` so an inbound fd attached to a
+///    rejected request never leaks across the uid-0 boundary — the
+///    pre-validation helper used to silently leak in these paths.
+/// 3. On success the per-command match arm dispatches as before. The
+///    per-handler `require_fd` / `decode_params` checks remain in place as
+///    defence-in-depth.
 pub(crate) fn dispatch_command(request: &HelperRequest, received_fd: Option<RawFd>) -> DispatchOutcome {
+    match validate_request(&request.command, received_fd.is_some(), !request.params.is_null()) {
+        Ok(_) => {}
+        Err(error) => {
+            close_received_fd(received_fd);
+            return DispatchOutcome::command(protocol::HelperResponse::error(error.to_string()), None);
+        }
+    }
+
     match request.command.as_str() {
         CMD_PROBE_CAPABILITIES => capabilities::dispatch_probe_capabilities(),
         CMD_SEND_FAKE_TCP => tcp_payload::dispatch_send_fake_tcp(request, received_fd),
@@ -46,7 +96,34 @@ pub(crate) fn dispatch_command(request: &HelperRequest, received_fd: Option<RawF
         CMD_RECV_ICMP_WRAPPED_UDP => experimental::dispatch_recv_icmp_wrapped_udp(request),
         CMD_SEND_RAW_IP_PACKET => experimental::dispatch_send_raw_ip_packet(request),
         CMD_SHUTDOWN => shutdown::dispatch_shutdown(),
-        other => DispatchOutcome::command(protocol::HelperResponse::error(format!("unknown command: {other}")), None),
+        // Unreachable: validate_request above already maps every wire string
+        // in DISPATCH_COMMANDS to Ok and every other string to UnknownCommand
+        // — kept defensively so a missing arm produces a clear runtime error
+        // rather than a `match` non-exhaustiveness compile failure on a
+        // string. The drift test `every_dispatch_arm_has_a_descriptor` keeps
+        // DISPATCH_COMMANDS in sync.
+        other => DispatchOutcome::command(
+            protocol::HelperResponse::error(DescriptorValidationError::UnknownCommand(other.to_owned()).to_string()),
+            None,
+        ),
+    }
+}
+
+/// Close the inbound `SCM_RIGHTS` fd attached to a request the dispatch path
+/// refused to consume — descriptor-validation rejection paths and the
+/// catch-all.
+///
+/// Mirrors the same helper in `main.rs`; duplicated rather than shared to
+/// keep dispatch self-contained. The fd ownership was transferred to this
+/// process at `recv_message`; if no handler wraps it via `FromRawFd`, it
+/// leaks unless we close here.
+fn close_received_fd(fd: Option<RawFd>) {
+    if let Some(fd) = fd {
+        // SAFETY: `fd` was transferred to this process via `SCM_RIGHTS` and no
+        // handler has consumed it on this rejection path.
+        unsafe {
+            libc::close(fd);
+        }
     }
 }
 
@@ -64,9 +141,11 @@ fn require_fd(received_fd: Option<RawFd>, error: &'static str) -> Result<RawFd, 
 
 #[cfg(test)]
 mod tests {
+    use std::os::fd::AsRawFd;
+
     use ripdpi_root_helper_protocol::{HelperRequest, COMMAND_DESCRIPTORS};
 
-    use super::dispatch_command;
+    use super::{dispatch_command, DISPATCH_COMMANDS};
 
     fn request_for(command: &str) -> HelperRequest {
         HelperRequest { command: command.to_string(), params: serde_json::json!({}), session_nonce: None }
@@ -101,7 +180,8 @@ mod tests {
 
     /// A descriptor that requires an inbound fd must make dispatch reject a
     /// request that arrives without one — this ties the descriptor's
-    /// `requires_inbound_fd` flag to the helper's `require_fd` gate.
+    /// `requires_inbound_fd` flag to the helper's descriptor pre-validator and
+    /// the per-handler `require_fd` gate underneath it.
     #[test]
     fn fd_requiring_commands_reject_a_missing_inbound_fd() {
         for descriptor in COMMAND_DESCRIPTORS {
@@ -113,5 +193,70 @@ mod tests {
             let error = outcome.response.error.unwrap_or_default();
             assert!(error.contains("fd"), "{} should report a missing-fd error, got: {error:?}", descriptor.command,);
         }
+    }
+
+    /// A descriptor that does NOT require an inbound fd must reject a request
+    /// that arrives with one, instead of silently leaking the descriptor as
+    /// the pre-validation dispatch path used to. The validator-side test pins
+    /// the typed error; this test pins the helper end-to-end behavior.
+    #[test]
+    fn non_fd_commands_reject_an_unexpected_inbound_fd() {
+        // `/dev/null` is a cheap, side-effect-free, real fd suitable for
+        // exercising the SCM_RIGHTS rejection path. The dispatcher's
+        // `close_received_fd` closes it; the test re-opening `/dev/null`
+        // never observes a stale descriptor.
+        for descriptor in COMMAND_DESCRIPTORS {
+            if descriptor.requires_inbound_fd {
+                continue;
+            }
+            let dev_null = std::fs::File::open("/dev/null").expect("open /dev/null");
+            let raw_fd = dev_null.as_raw_fd();
+            std::mem::forget(dev_null); // give ownership to dispatcher.
+            let outcome = dispatch_command(&request_for(descriptor.command), Some(raw_fd));
+            assert!(!outcome.response.ok, "{} must reject an unexpected inbound fd", descriptor.command);
+            let error = outcome.response.error.unwrap_or_default();
+            assert!(
+                error.contains("does not accept a stream fd"),
+                "{} should report an unexpected-fd error, got: {error:?}",
+                descriptor.command,
+            );
+            assert!(outcome.reply_fd.is_none(), "{} must not return a reply fd on rejection", descriptor.command);
+        }
+    }
+
+    /// Every dispatch arm in `dispatch_command` has a matching descriptor in
+    /// `COMMAND_DESCRIPTORS`. Together with
+    /// `every_command_descriptor_has_a_dispatch_handler` this is the
+    /// bidirectional coverage pin: no orphan dispatch arm, no orphan
+    /// descriptor.
+    #[test]
+    fn every_dispatch_arm_has_a_descriptor() {
+        for command in DISPATCH_COMMANDS {
+            assert!(
+                COMMAND_DESCRIPTORS.iter().any(|descriptor| descriptor.command == *command),
+                "dispatch arm `{command}` has no entry in COMMAND_DESCRIPTORS",
+            );
+        }
+        assert_eq!(
+            DISPATCH_COMMANDS.len(),
+            COMMAND_DESCRIPTORS.len(),
+            "DISPATCH_COMMANDS and COMMAND_DESCRIPTORS must be the same size",
+        );
+    }
+
+    /// A legacy request JSON — three fields, no version metadata — still
+    /// deserializes and dispatches. Pins the wire back-compat contract.
+    #[test]
+    fn legacy_request_json_without_version_metadata_still_dispatches() {
+        let legacy_shutdown = r#"{"command":"shutdown"}"#;
+        let request: HelperRequest = serde_json::from_str(legacy_shutdown).expect("legacy shutdown JSON decodes");
+        let outcome = dispatch_command(&request, None);
+        assert!(outcome.response.ok, "legacy shutdown request must succeed");
+        assert!(outcome.shutdown_requested, "shutdown command must request shutdown");
+
+        let legacy_probe = r#"{"command":"probe_capabilities","params":null}"#;
+        let request: HelperRequest = serde_json::from_str(legacy_probe).expect("legacy probe JSON decodes");
+        let outcome = dispatch_command(&request, None);
+        assert!(outcome.response.ok, "legacy probe_capabilities request must succeed");
     }
 }
