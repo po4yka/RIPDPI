@@ -87,7 +87,7 @@
 - ~~**Kbd Shortcut** (`components-kbd-shortcut.html`)~~ — implemented in `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiKbdShortcut.kt`
 - **Live Counter** (`components-live-counter.html`)
 - ~~**Log Row** (`components-log-row.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/LogRow.kt`; golden `RdsComponentsScreenshotTest.logRow`
-- **Metric Pill** (`components-metric-pill.html`)
+- ~~**Metric Pill** (`components-metric-pill.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiMetricPill.kt`; golden `RdsComponentsScreenshotTest.metricPill`
 - **Preset Card** (`components-preset-card.html`)
 - **Stage Progress** (`components-stage-progress.html`)
 - **Stale Data Badge** (`components-stale-data-badge.html`)
