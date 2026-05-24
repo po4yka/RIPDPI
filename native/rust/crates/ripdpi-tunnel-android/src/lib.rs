@@ -17,6 +17,8 @@ pub use entry::{
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetTelemetry,
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStart,
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStop,
+    Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapListCaptures, Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapRedactToFile,
+    Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapStart, Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapStop,
 };
 
 use android_support::{init_android_logging, JNI_VERSION};

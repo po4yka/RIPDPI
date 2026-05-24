@@ -41,7 +41,8 @@ use jni::sys::{jint, jlong, jlongArray};
 use jni::EnvUnowned;
 
 use crate::session::{
-    tunnel_create_entry, tunnel_destroy_entry, tunnel_start_entry, tunnel_stats_entry, tunnel_stop_entry,
+    tunnel_create_entry, tunnel_destroy_entry, tunnel_pcap_list_captures_entry, tunnel_pcap_redact_entry,
+    tunnel_pcap_start_entry, tunnel_pcap_stop_entry, tunnel_start_entry, tunnel_stats_entry, tunnel_stop_entry,
     tunnel_telemetry_entry,
 };
 
@@ -98,4 +99,44 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniDes
     handle: jlong,
 ) {
     ffi_boundary((), move || tunnel_destroy_entry(env, handle));
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapStart(
+    env: EnvUnowned<'_>,
+    _class: JObject,
+    handle: jlong,
+    capture_dir: JString,
+    max_file_bytes: jlong,
+    max_files: jint,
+) -> jlong {
+    ffi_boundary(0, move || tunnel_pcap_start_entry(env, handle, capture_dir, max_file_bytes, max_files))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapStop(
+    env: EnvUnowned<'_>,
+    _class: JObject,
+    handle: jlong,
+) -> jni::sys::jstring {
+    ffi_boundary(core::ptr::null_mut(), move || tunnel_pcap_stop_entry(env, handle))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapListCaptures(
+    env: EnvUnowned<'_>,
+    _class: JObject,
+    capture_dir: JString,
+) -> jni::sys::jstring {
+    ffi_boundary(core::ptr::null_mut(), move || tunnel_pcap_list_captures_entry(env, capture_dir))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapRedactToFile(
+    env: EnvUnowned<'_>,
+    _class: JObject,
+    source_path: JString,
+    dest_fd: jint,
+) -> jlong {
+    ffi_boundary(0, move || tunnel_pcap_redact_entry(env, source_path, dest_fd))
 }

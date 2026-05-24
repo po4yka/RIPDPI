@@ -25,6 +25,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crossbeam_queue::ArrayQueue;
 use ripdpi_pcap::{PcapWriter, SNAPLEN_DEFAULT};
+use ripdpi_tunnel_core::PacketObserver;
 
 /// A single captured packet en route to the writer thread.
 #[derive(Debug, Clone)]
@@ -139,6 +140,50 @@ impl PcapCaptureSet {
     pub fn dir(&self) -> &Path {
         &self.dir
     }
+
+    /// Build an independent `PacketObserver` that points back to this
+    /// set's submission queue + drops counter. The returned `Arc` is
+    /// installed via [`ripdpi_tunnel_core::Stats::set_packet_observer`]
+    /// so the io_loop hot path enqueues each packet directly into the
+    /// writer-thread queue. The handle is decoupled from the set
+    /// lifetime — after [`Self::stop`] consumes the set and joins the
+    /// writer thread, any further `on_inbound`/`on_outbound` calls
+    /// silently enqueue (then drop, since no consumer remains).
+    pub fn observer_handle(&self) -> Arc<PcapPacketObserver> {
+        Arc::new(PcapPacketObserver { queue: self.queue.clone(), drops: self.drops.clone() })
+    }
+}
+
+/// Independent observer that owns clone-able handles to the
+/// [`PcapCaptureSet`] queue and drops counter. Held by
+/// `ripdpi_tunnel_core::Stats` so io_loop packets reach the queue
+/// without forcing `Stats` to know about [`PcapCaptureSet`].
+pub struct PcapPacketObserver {
+    queue: Arc<ArrayQueue<PcapCaptureRecord>>,
+    drops: Arc<AtomicU64>,
+}
+
+impl PcapPacketObserver {
+    fn try_push(&self, packet: &[u8]) {
+        let record = PcapCaptureRecord { ts_micros: now_micros(), bytes: packet.to_vec() };
+        if self.queue.push(record).is_err() {
+            self.drops.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
+impl PacketObserver for PcapPacketObserver {
+    fn on_inbound(&self, packet: &[u8]) {
+        self.try_push(packet);
+    }
+
+    fn on_outbound(&self, packet: &[u8]) {
+        self.try_push(packet);
+    }
+}
+
+fn now_micros() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_micros() as u64)
 }
 
 #[derive(Debug)]

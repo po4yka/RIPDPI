@@ -55,3 +55,17 @@ pub(crate) fn remove_tunnel_session(handle: jlong) -> Result<Arc<TunnelSession>,
     clear_android_log_scope_level(session.telemetry.log_scope());
     Ok(session)
 }
+
+/// If the session at `handle` is in the `Running` state, clone its
+/// `Arc<Stats>` and return it. Returns `None` if the handle is unknown
+/// OR the session is not currently running (Ready / Starting /
+/// Destroyed). Used by the PCAP JNI bridge to attach a packet observer
+/// onto a session that is already pumping packets.
+pub(crate) fn lookup_stats_for_session(handle: jlong) -> Option<Arc<Stats>> {
+    let session = lookup_tunnel_session(handle).ok()?;
+    let state = session.state.lock().ok()?;
+    match &*state {
+        TunnelSessionState::Running { stats, .. } => Some(stats.clone()),
+        _ => None,
+    }
+}
