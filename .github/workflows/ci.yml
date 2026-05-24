@@ -701,7 +701,7 @@ jobs:
       - name: Install rustdoc JSON toolchain for cargo-public-api
         run: rustup toolchain install nightly --profile minimal --no-self-update
       - name: Install cargo-public-api
-        run: cargo install cargo-public-api --quiet
+        run: cargo install cargo-public-api --version 0.51.0 --locked --quiet
       - name: Check Rust public API snapshots
         run: |
           python3 scripts/ci/test_rust_api_snapshots.py
