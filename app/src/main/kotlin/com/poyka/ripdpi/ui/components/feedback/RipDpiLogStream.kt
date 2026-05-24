@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,6 +37,9 @@ data class RipDpiLogEntry(
  * jumps to the bottom. Per-row colors are driven by [RipDpiLogLevel]
  * mapped to design system warning/destructive/info/muted tokens.
  *
+ * When [levelFilter] is non-null, only entries whose level is in the
+ * set are rendered. AutoScroll keys off the filtered list size.
+ *
  * Matches `components-log-stream.html`.
  */
 @Composable
@@ -44,13 +48,18 @@ fun RipDpiLogStream(
     modifier: Modifier = Modifier,
     height: Dp = 240.dp,
     autoScroll: Boolean = true,
+    levelFilter: Set<RipDpiLogLevel>? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val shape = RoundedCornerShape(RipDpiThemeTokens.spacing.sm)
     val state = rememberLazyListState()
-    LaunchedEffect(entries.size, autoScroll) {
-        if (autoScroll && entries.isNotEmpty()) {
-            state.animateScrollToItem(entries.lastIndex)
+    val filtered =
+        remember(entries, levelFilter) {
+            if (levelFilter == null) entries else entries.filter { it.level in levelFilter }
+        }
+    LaunchedEffect(filtered.size, autoScroll) {
+        if (autoScroll && filtered.isNotEmpty()) {
+            state.animateScrollToItem(filtered.lastIndex)
         }
     }
     LazyColumn(
@@ -63,7 +72,7 @@ fun RipDpiLogStream(
         state = state,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        items(entries) { entry ->
+        items(filtered) { entry ->
             val levelColor =
                 when (entry.level) {
                     RipDpiLogLevel.Trace -> colors.mutedForeground
@@ -129,6 +138,24 @@ private fun RipDpiLogStreamPreviewDark() {
                     RipDpiLogEntry(RipDpiLogLevel.Trace, "12:00:00", "vpn", "init"),
                     RipDpiLogEntry(RipDpiLogLevel.Info, "12:00:01", "vpn", "ready"),
                 ),
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "RipDpiLogStream Filtered")
+@Composable
+private fun RipDpiLogStreamFilteredPreview() {
+    RipDpiComponentPreview {
+        RipDpiLogStream(
+            entries =
+                listOf(
+                    RipDpiLogEntry(RipDpiLogLevel.Info, "12:00:01", "core", "tunnel up"),
+                    RipDpiLogEntry(RipDpiLogLevel.Debug, "12:00:02", "dns", "resolved 1.1.1.1"),
+                    RipDpiLogEntry(RipDpiLogLevel.Warn, "12:00:03", "net", "rtt 380ms"),
+                    RipDpiLogEntry(RipDpiLogLevel.Error, "12:00:04", "net", "TLS handshake failed"),
+                    RipDpiLogEntry(RipDpiLogLevel.Info, "12:00:05", "core", "reconnect scheduled"),
+                ),
+            levelFilter = setOf(RipDpiLogLevel.Warn, RipDpiLogLevel.Error),
         )
     }
 }
