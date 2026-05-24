@@ -13,7 +13,7 @@
 | **Components** | 47 | 47 | 0 | 0 | ✅ Complete |
 | **VPN flow screens** | 35 | 22 | 8 | 5 | ✅ Good |
 | **Android platform surfaces** | 16 | 12 | 3 | 1 | ✅ Good |
-| **Motion specs** | 9 | 6 | 3 | 0 | ✅ Good |
+| **Motion specs** | 9 | 9 | 0 | 0 | ✅ Complete |
 | **Diagnostic screens** | 6 | 5 | 1 | 0 | ✅ Good |
 | **Share flow** | 5 | 3 | 2 | 0 | ✅ Good |
 | **Gesture interactions** | 3 | 2 | 1 | 0 | ✅ Good |
@@ -21,11 +21,11 @@
 | **One-offs** | 6 | 5 | 1 | 0 | ✅ Good |
 | **Reference-only cards** | 24 | — | — | — | 📚 Docs |
 
-**Overall Coverage:** 103/122 implementable specs have verified Kotlin implementations (84%) — up from 72/122 (59%) before the RDS-implementation session.
+**Overall Coverage:** 106/122 implementable specs have verified Kotlin implementations (87%) — up from 72/122 (59%) before the RDS-implementation session. Remaining gaps: 5 VPN flow screens missing + 8 VPN partials + 3 Android platform partials + 1 Android missing (splash) + 1 share partial + 1 gesture partial + 1 onboarding partial + 1 diagnostic partial + 1 one-off partial.
 
 ---
 
-## Components (47 specs, 18 ✅ + 12 ⚠️ = 64% implemented)
+## Components (47 specs, 47 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
@@ -63,35 +63,35 @@
 
 ### ⚠️ Partial Implementation (pattern exists, gaps remain)
 
-- **Accordion** (`components-accordion.html`) — expandable sections exist but not as dedicated component
-- **Toggle Alternatives** (`components-toggle-alternatives.html`) — toggle groups missing formal alignment
-- **Spinner** (`components-spinner.html`) — progress indication present; branded variant incomplete
-- **Segmented Controls** (`components-segmented.html`) — segmented button groups present; spec alignment gaps
-- **Tooltip** (`components-tooltip.html`) — basic support; rich-content variants missing
-- **Command Palette** (`components-command-palette.html`) — search/action palette missing
-- **Combobox** (`components-combobox.html`) — dropdown + text input hybrid incomplete
+- ~~**Accordion** (`components-accordion.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiAccordion.kt`; golden `RdsComponentsScreenshotTest.accordion`
+- ~~**Toggle Alternatives** (`components-toggle-alternatives.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiToggleAlternatives.kt`; golden `RdsComponentsScreenshotTest.toggleAlternatives`
+- ~~**Spinner** (`components-spinner.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiSpinner.kt`; golden `RdsComponentsScreenshotTest.spinner`
+- ~~**Segmented Controls** (`components-segmented.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiSegmentedButton.kt`; golden `RdsComponentsScreenshotTest.segmentedButton`
+- ~~**Tooltip** (`components-tooltip.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiTooltip.kt` + rich variant `RipDpiTooltipRich.kt`; goldens `RdsComponentsScreenshotTest.tooltip` and `.tooltipRich`
+- ~~**Command Palette** (`components-command-palette.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiCommandPalette.kt` (Esc/Enter keyboard wired); golden `RdsComponentsScreenshotTest.commandPalettePlaceholder`
+- ~~**Combobox** (`components-combobox.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiCombobox.kt`; golden `RdsComponentsScreenshotTest.combobox`
 - ~~**Page Indicators** (`components-page-indicators.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiPageIndicators.kt`; golden `RdsComponentsScreenshotTest.pageIndicators`
-- **Progress Bar** (`components-progress-bar.html`) — linear progress present; variants incomplete
-- **Shimmer** (`components-shimmer.html`) — skeleton loading present; animation incomplete
-- **JSON Tree** (`components-json-tree.html`) — tree view for structured data missing
-- **Log Stream** (`components-log-stream.html`) — log rendering present; streaming UI spec gaps
+- ~~**Progress Bar** (`components-progress-bar.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiProgressBar.kt`; golden `RdsComponentsScreenshotTest.progressBar`
+- ~~**Shimmer** (`components-shimmer.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiShimmer.kt` (Modifier.ripDpiShimmer + RipDpiSkeletonBox); golden `RdsComponentsScreenshotTest.skeletonBox`. Uses `RipDpiMotion.shimmerSpec()`.
+- ~~**JSON Tree** (`components-json-tree.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiJsonTree.kt`; golden `RdsComponentsScreenshotTest.jsonTree`
+- ~~**Log Stream** (`components-log-stream.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiLogStream.kt` (with levelFilter integration); golden `RdsComponentsScreenshotTest.logStream`
 
-### ❌ Missing Implementation (5 specs)
+### ❌ Missing Implementation (0 specs — all closed)
 
-- **Actuator States** (`components-actuator-states.html`)
+- ~~**Actuator States** (`components-actuator-states.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiActuatorStates.kt` (gallery showcase composable); golden `RdsComponentsScreenshotTest.actuatorStatesGallery`
 - ~~**Analysis Progress** (`components-analysis-progress.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/AnalysisProgressIndicator.kt`; golden `RdsComponentsScreenshotTest.analysisProgress`
-- **Cidr Input** (`components-cidr-input.html`)
-- **Diff Viewer** (`components-diff-viewer.html`)
-- **Filter Bar** (`components-filter-bar.html`)
-- **Heartbeat Indicator** (`components-heartbeat-indicator.html`)
-- ~~**Kbd Shortcut** (`components-kbd-shortcut.html`)~~ — implemented in `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiKbdShortcut.kt`
-- **Live Counter** (`components-live-counter.html`)
+- ~~**Cidr Input** (`components-cidr-input.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiCidrInput.kt` (with IPv4/IPv6 family toggle); golden `RdsComponentsScreenshotTest.cidrInput`
+- ~~**Diff Viewer** (`components-diff-viewer.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiDiffViewer.kt` (unified + side-by-side layouts); golden `RdsComponentsScreenshotTest.diffViewer`
+- ~~**Filter Bar** (`components-filter-bar.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiFilterBar.kt`; golden `RdsComponentsScreenshotTest.filterBar`
+- ~~**Heartbeat Indicator** (`components-heartbeat-indicator.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiHeartbeatIndicator.kt`; golden `RdsComponentsScreenshotTest.heartbeatIndicator`. Uses `RipDpiMotion.pulseSpec()`.
+- ~~**Kbd Shortcut** (`components-kbd-shortcut.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiKbdShortcut.kt`; golden `RdsComponentsScreenshotTest.kbdShortcut`
+- ~~**Live Counter** (`components-live-counter.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiLiveCounter.kt`; golden `RdsComponentsScreenshotTest.liveCounter`
 - ~~**Log Row** (`components-log-row.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/LogRow.kt`; golden `RdsComponentsScreenshotTest.logRow`
 - ~~**Metric Pill** (`components-metric-pill.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiMetricPill.kt`; golden `RdsComponentsScreenshotTest.metricPill`
 - ~~**Preset Card** (`components-preset-card.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/PresetCard.kt`; golden `RdsComponentsScreenshotTest.presetCard`
 - ~~**Stage Progress** (`components-stage-progress.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/StageProgressIndicator.kt`; golden `RdsComponentsScreenshotTest.stageProgress`
-- **Stale Data Badge** (`components-stale-data-badge.html`)
-- ~~**Brand Badge** (`components-brand-badge.html`)~~ — implemented in `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiBrandBadge.kt`
+- ~~**Stale Data Badge** (`components-stale-data-badge.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiStaleDataBadge.kt` (Fresh tier wired to `RipDpiMotion.pulseSpec()`); golden `RdsComponentsScreenshotTest.staleDataBadge`
+- ~~**Brand Badge** (`components-brand-badge.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiBrandBadge.kt`; golden `RdsComponentsScreenshotTest.brandBadgeAllSizes`
 
 ---
 
@@ -173,25 +173,23 @@
 
 ---
 
-## Motion Specs (9 specs, 4 ✅ + 3 ⚠️ = 78% implemented)
+## Motion Specs (9 specs, 9 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
-- **Easing Curves** (`motion-easing-curves.html`) — Material3 easing in theme
-- **Reduced Motion** (`motion-reduced-motion.html`) — accessibility motion preferences respected
-- **Page Transitions** (`motion-page-transitions.html`) — screen navigation animations
-- **Tokens** (`motion-tokens.html`) — timing and curve tokens defined in theme
+- **Easing Curves** (`motion-easing-curves.html`) — `EmphasizedDecelerate`, `EmphasizedAccelerate`, `StandardEasing`, `EaseInOutEasing` exposed via `RipDpiMotion` companion
+- **Reduced Motion** (`motion-reduced-motion.html`) — `LocalReducedMotion` CompositionLocal + `RipDpiMotion.reducedMotion` field, wired via `ValueAnimator.areAnimatorsEnabled()` (covers `ANIMATOR_DURATION_SCALE == 0` and API 33+ "remove animations")
+- **Page Transitions** (`motion-page-transitions.html`) — `pageEnterSpec`, `pageExitSpec`, `modalEnterSpec`, `scrimFadeSpec` on `RipDpiMotion` (320 ms EmphasizedDecelerate)
+- **Tokens** (`motion-tokens.html`) — `RipDpiMotion` data class with `quick/state/emphasized/route` duration buckets + scale tokens
+- ~~**Skeleton Shimmer** (`motion-skeleton-shimmer.html`)~~ — `RipDpiMotion.shimmerSpec()` (1200 ms LinearEasing Restart), consumed by `Modifier.ripDpiShimmer()` and `RipDpiSkeletonBox`
+- ~~**Probe Pulse** (`motion-probe-pulse.html`)~~ — `RipDpiMotion.pulseSpec()` (900 ms LinearEasing Restart), consumed by `RipDpiHeartbeatIndicator` and `RipDpiStaleDataBadge` Fresh tier
+- ~~**Connection States** (`motion-connection-states.html`)~~ — `connectRingSpec()`, `tunnelBreatheSpec()`, `degradedWobbleSpec()` on `RipDpiMotion` (2 s StandardEasing / 1.6 s EaseInOut Reverse / 1.2 s LinearEasing)
+- ~~**Data Ticker** (`motion-data-ticker.html`)~~ — `digitSlideSpec()` (320 ms EmphasizedDecelerate one-shot) and `countdownSpec(totalMillis)` (Linear)
+- ~~**Toast Choreography** (`motion-toast-choreography.html`)~~ — `toastEnterSpec()`, `toastPushBackSpec()`, `toastExitSpec()` on `RipDpiMotion` (320 ms enter + 220 ms push-back/exit)
 
-### ⚠️ Partial Implementation
+### Lint enforcement
 
-- **Connection States** (`motion-connection-states.html`) — state transitions present; animation polish incomplete
-- **Data Ticker** (`motion-data-ticker.html`) — metric updates animated; timing refinement needed
-- **Toast Choreography** (`motion-toast-choreography.html`) — toast animations basic; coordination incomplete
-
-### ❌ Missing Implementation
-
-- **Skeleton Shimmer** (`motion-skeleton-shimmer.html`)
-- **Probe Pulse** (`motion-probe-pulse.html`)
+`RipDpiMotionTest.\`no raw tween or spring or cubicBezier literals outside ui-theme\`` walks every `.kt` under `app/src/main/kotlin/com/poyka/ripdpi/ui/` (excluding `ui/theme/`) and fails the build on any raw `tween(...)`, `spring(...)`, `cubicBezier(...)`, or `CubicBezierEasing(...)` literal — components must consume the named motion helpers above.
 
 ---
 
