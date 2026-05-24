@@ -70,6 +70,7 @@ fun RipDpiTheme(
         LocalRipDpiComponents provides DefaultRipDpiComponents,
         LocalRipDpiShapes provides DefaultRipDpiShapes,
         LocalRipDpiMotion provides motion,
+        LocalReducedMotion provides motion.reducedMotion,
         LocalRipDpiSurfaceTokens provides surfaces,
         LocalRipDpiStateTokens provides state,
     ) {

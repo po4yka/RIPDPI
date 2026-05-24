@@ -338,6 +338,21 @@ private fun <T> expressiveSpringSpec(): SpringSpec<T> =
 
 internal val LocalRipDpiMotion = staticCompositionLocalOf { DefaultRipDpiMotion }
 
+/**
+ * Ergonomic CompositionLocal for reduced-motion: components can read
+ * `LocalReducedMotion.current` directly without going through the full
+ * `RipDpiThemeTokens.motion` lookup. Always provided alongside
+ * `LocalRipDpiMotion` from `RipDpiTheme` and stays in lock-step with
+ * `RipDpiMotion.reducedMotion`.
+ *
+ * The underlying detection is `ValueAnimator.areAnimatorsEnabled()` —
+ * Google's canonical signal for the user's reduced-motion preference —
+ * which reflects `Settings.Global.ANIMATOR_DURATION_SCALE == 0f` AND
+ * the API 33+ "remove animations" accessibility setting in a single
+ * call. See `rememberRipDpiMotion()`.
+ */
+val LocalReducedMotion = staticCompositionLocalOf { false }
+
 @Composable
 internal fun rememberRipDpiMotion(): RipDpiMotion {
     val isInspectionMode = LocalInspectionMode.current
