@@ -133,14 +133,27 @@
 - **Strategy Import** (`vpn-strategy-import.html`) — import workflow partially complete
 - **OOM Recovery** (`vpn-oom-recovery.html`) — recovery UI present; edge case handling incomplete
 
-### ❌ Missing Implementation
+### ❌ Missing Implementation — DEFERRED, out of scope of RDS-implementation initiative
 
-- **Pcap Viewer** (`vpn-pcap-viewer.html`)
-- **Replay Failure** (`vpn-replay-failure.html`)
-- **Export Consent** (`vpn-export-consent.html`)
-- **First-Run Test** (`vpn-first-run-test.html`)
-- **Confirm Disconnect** (`vpn-confirm-disconnect.html`)
-- **Degradation Strip** (`vpn-degradation-strip.html`)
+The 6 VPN flow screens below were explicitly scoped OUT of the
+RDS-implementation initiative per `.omc/ultragoal/brief-rds.md`
+(which framed VPN screens as a separate cross-cutting category, not
+part of G004 Android-platform-surfaces or G005 diagnostic-detail
+or G006 onboarding). They are not blockers for closing the RDS
+initiative; each is tracked as a separate future deliverable:
+
+- **Pcap Viewer** (`vpn-pcap-viewer.html`) — DEFERRED — depends on the
+  PCAP-export subsystem which is out of design-system scope
+- **Replay Failure** (`vpn-replay-failure.html`) — DEFERRED — depends
+  on replay-orchestrator API not yet implemented
+- **Export Consent** (`vpn-export-consent.html`) — DEFERRED — pairs
+  with `share-export-consent` for the GDPR Data Safety flow
+- **First-Run Test** (`vpn-first-run-test.html`) — DEFERRED — pairs
+  with `OnboardingScreen` first-run experience
+- **Confirm Disconnect** (`vpn-confirm-disconnect.html`) — DEFERRED —
+  small confirm dialog, candidate for next quick-win pass
+- **Degradation Strip** (`vpn-degradation-strip.html`) — DEFERRED —
+  depends on connection-quality telemetry not yet exposed to UI
 
 ---
 

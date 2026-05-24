@@ -37,7 +37,6 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.ripDpiClickable
-import com.poyka.ripdpi.ui.theme.LocalReducedMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /** Anchor for a [RipDpiCoachMark] — circular spotlight cut into the scrim. */
@@ -66,9 +65,10 @@ private const val BUBBLE_GAP_DP = 24
  * primary action dismisses.
  *
  * The pulse animation is driven by `RipDpiMotion.connectRingSpec()`
- * and respects `LocalReducedMotion`: when the user has reduced motion
- * enabled, the ring is rendered statically (no scale or alpha
- * animation) so the spotlight stays still — per the brief's
+ * and respects `motion.allowsInfiniteMotion`: when the user has
+ * reduced motion enabled (or animations are disabled system-wide),
+ * the infinite transition is not subscribed and the ring renders
+ * statically at its initial scale + alpha — per the brief's
  * "reduced-motion path skipping auto-advance" requirement.
  *
  * Matches `onboarding-coach-mark.html`.
@@ -84,22 +84,36 @@ fun RipDpiCoachMark(
     if (!visible) return
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
-    val reduced = LocalReducedMotion.current
     val density = LocalDensity.current
 
-    val infiniteTransition = rememberInfiniteTransition(label = "coachMarkPulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = if (reduced) 1f else RING_PULSE_TARGET_SCALE,
-        animationSpec = motion.connectRingSpec(),
-        label = "coachMarkRingScale",
-    )
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = if (reduced) 1f else 0f,
-        animationSpec = motion.connectRingSpec(),
-        label = "coachMarkRingAlpha",
-    )
+    // Only subscribe to the infinite transition when motion is enabled —
+    // otherwise the ring renders statically at its initial scale + alpha,
+    // which matches the brief's reduced-motion contract and keeps the
+    // Roborazzi-captured frame deterministic.
+    val pulseScale: Float
+    val pulseAlpha: Float
+    if (motion.allowsInfiniteMotion) {
+        val infiniteTransition = rememberInfiniteTransition(label = "coachMarkPulse")
+        pulseScale =
+            infiniteTransition
+                .animateFloat(
+                    initialValue = 1f,
+                    targetValue = RING_PULSE_TARGET_SCALE,
+                    animationSpec = motion.connectRingSpec(),
+                    label = "coachMarkRingScale",
+                ).value
+        pulseAlpha =
+            infiniteTransition
+                .animateFloat(
+                    initialValue = 1f,
+                    targetValue = 0f,
+                    animationSpec = motion.connectRingSpec(),
+                    label = "coachMarkRingAlpha",
+                ).value
+    } else {
+        pulseScale = 1f
+        pulseAlpha = 1f
+    }
 
     Dialog(
         onDismissRequest = onDismiss,

@@ -96,13 +96,14 @@ fun RipDpiStaleDataBadge(
                 TierTones(colors.destructiveContainer, colors.destructive, Color.Transparent, Color.Transparent)
             }
         }
+    val motion = RipDpiThemeTokens.motion
     val freshPulseAlpha =
-        if (tier == RipDpiStaleTier.Fresh) {
+        if (tier == RipDpiStaleTier.Fresh && motion.allowsInfiniteMotion) {
             val transition = rememberInfiniteTransition(label = "freshPulse")
             val alpha by transition.animateFloat(
                 initialValue = 1f,
                 targetValue = 0.4f,
-                animationSpec = RipDpiThemeTokens.motion.pulseSpec(),
+                animationSpec = motion.pulseSpec(),
                 label = "freshPulse",
             )
             alpha

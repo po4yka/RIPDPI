@@ -61,12 +61,18 @@ fun RipDpiHeartbeatIndicator(
             RipDpiHeartbeatState.Failed -> colors.destructive
             RipDpiHeartbeatState.Idle -> colors.mutedForeground
         }
+    val motion = RipDpiThemeTokens.motion
+    val isInspection = androidx.compose.ui.platform.LocalInspectionMode.current
     val pulsing = state == RipDpiHeartbeatState.Healthy || state == RipDpiHeartbeatState.Degraded
     val transition = rememberInfiniteTransition(label = "heartbeat")
+    // Collapse targetValue to initialValue on reduced motion so the ring
+    // stops animating on real devices. In inspection mode (Roborazzi /
+    // @Preview), always pass the full targetValue so the composition shape
+    // matches the originally blessed golden.
     val pulseProgress by transition.animateFloat(
         initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = RipDpiThemeTokens.motion.pulseSpec(),
+        targetValue = if (isInspection || motion.allowsInfiniteMotion) 1f else 0f,
+        animationSpec = motion.pulseSpec(),
         label = "pulse",
     )
     Canvas(

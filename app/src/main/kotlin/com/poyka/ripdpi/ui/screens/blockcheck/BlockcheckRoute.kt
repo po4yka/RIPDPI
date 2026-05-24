@@ -121,7 +121,7 @@ internal fun BlockcheckScreen(
             RipDpiCard {
                 Text(
                     text = stringResource(R.string.blockcheck_dns_warning),
-                    color = MaterialTheme.colorScheme.error,
+                    color = RipDpiThemeTokens.colors.destructive,
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -221,7 +221,7 @@ private fun BlockcheckRankedRow(
                         result.averageLatencyMs,
                     ),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
         AssistChip(

@@ -120,4 +120,95 @@ class RipDpiMotionTest {
             offenders.isEmpty(),
         )
     }
+
+    /**
+     * Enforces the RDS rule: literal `Color(0x...)` hex constants MAY
+     * appear ONLY inside `ui/theme/`. Component / screen code must
+     * consume `RipDpiThemeTokens.colors.*` so the contrast tests + dark-
+     * mode token mappings stay centralized. Strict `.dp` literal check
+     * is intentionally NOT enforced — many spec-mandated component
+     * dimensions are correctly inlined per the component's own size
+     * token.
+     */
+    @Test
+    fun `no raw Color hex literals outside ui-theme`() {
+        val moduleRoot = File(System.getProperty("user.dir"))
+        val uiRoot = File(moduleRoot, "src/main/kotlin/com/poyka/ripdpi/ui")
+        check(uiRoot.isDirectory) { "ui root not found: $uiRoot" }
+        val sentinel = Regex("""Color\s*\(\s*0[xX][0-9a-fA-F]+""")
+        val themeDir = File(uiRoot, "theme").canonicalFile
+        val offenders = mutableListOf<String>()
+        uiRoot
+            .walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .filter { !it.canonicalFile.startsWith(themeDir) }
+            .forEach { file ->
+                file.useLines { lines ->
+                    lines.forEachIndexed { lineIndex, raw ->
+                        val trimmed = raw.trimStart()
+                        if (trimmed.startsWith("//") || trimmed.startsWith("*")) return@forEachIndexed
+                        if (sentinel.containsMatchIn(raw)) {
+                            offenders +=
+                                "${file.relativeTo(moduleRoot).path}:${lineIndex + 1}: ${raw.trim()}"
+                        }
+                    }
+                }
+            }
+        assertTrue(
+            buildString {
+                appendLine(
+                    "Raw `Color(0x...)` hex literals found outside ui/theme/ — every " +
+                        "color must come from RipDpiThemeTokens.colors.*:",
+                )
+                offenders.forEach { appendLine("  $it") }
+            },
+            offenders.isEmpty(),
+        )
+    }
+
+    /**
+     * Enforces the RDS rule: components consume the design-system
+     * extended-color tokens (`RipDpiThemeTokens.colors.*`), not
+     * Material 3 `colorScheme.*` directly. Bypassing the extended
+     * palette breaks the brand contract and the contrast tests in
+     * `RipDpiColorContrastTest`.
+     */
+    @Test
+    fun `no direct MaterialTheme colorScheme reads outside ui-theme`() {
+        val moduleRoot = File(System.getProperty("user.dir"))
+        val uiRoot = File(moduleRoot, "src/main/kotlin/com/poyka/ripdpi/ui")
+        check(uiRoot.isDirectory) { "ui root not found: $uiRoot" }
+        // Match `MaterialTheme.colorScheme.<anything>` outside theme files.
+        // Allow `MaterialTheme(colorScheme = …)` (constructor call) by anchoring
+        // on the `.colorScheme.` field-access form.
+        val sentinel = Regex("""MaterialTheme\s*\.\s*colorScheme\s*\.""")
+        val themeDir = File(uiRoot, "theme").canonicalFile
+        val offenders = mutableListOf<String>()
+        uiRoot
+            .walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .filter { !it.canonicalFile.startsWith(themeDir) }
+            .forEach { file ->
+                file.useLines { lines ->
+                    lines.forEachIndexed { lineIndex, raw ->
+                        val trimmed = raw.trimStart()
+                        if (trimmed.startsWith("//") || trimmed.startsWith("*")) return@forEachIndexed
+                        if (sentinel.containsMatchIn(raw)) {
+                            offenders +=
+                                "${file.relativeTo(moduleRoot).path}:${lineIndex + 1}: ${raw.trim()}"
+                        }
+                    }
+                }
+            }
+        assertTrue(
+            buildString {
+                appendLine(
+                    "Direct `MaterialTheme.colorScheme.*` reads found outside ui/theme/ — " +
+                        "components must read from RipDpiThemeTokens.colors.*:",
+                )
+                offenders.forEach { appendLine("  $it") }
+            },
+            offenders.isEmpty(),
+        )
+    }
 }

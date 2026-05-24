@@ -39,7 +39,6 @@ private const val StepperPreviewInitial = 3
 private const val StepperPreviewDisabled = 5
 private const val StepperDarkPreview = 4
 private val StepperOuterPadding = 2.dp
-private val StepperTouchTargetSize = 48.dp
 private val StepperButtonSize = 32.dp
 private val StepperButtonCornerRadius = 6.dp
 private val StepperValueMinWidth = 48.dp
@@ -110,31 +109,24 @@ private fun StepperButton(
     val colors = RipDpiThemeTokens.colors
     val container = if (enabled) colors.muted else colors.card
     val content = if (enabled) colors.foreground else colors.mutedForeground
-    // Outer 48dp box holds the 48dp Material-minimum touch target; the inner
-    // 32dp visual sits centered inside it. ripDpiClickable on the outer box
-    // makes the full 48dp area tappable while the painted surface stays at
-    // the spec-mandated 32dp.
+    // Visual 32dp; ripDpiClickable wraps the layout in
+    // minimumInteractiveComponentSize() internally, so the actual touch
+    // target is Android's 48dp Material minimum without enlarging the
+    // painted surface.
     Box(
         modifier =
             Modifier
-                .size(StepperTouchTargetSize)
+                .size(StepperButtonSize)
+                .background(container, RoundedCornerShape(StepperButtonCornerRadius))
                 .ripDpiClickable(enabled = enabled, onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(StepperButtonSize)
-                    .background(container, RoundedCornerShape(StepperButtonCornerRadius)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = description,
-                tint = content,
-                modifier = Modifier.size(StepperIconSize),
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            tint = content,
+            modifier = Modifier.size(StepperIconSize),
+        )
     }
 }
 
