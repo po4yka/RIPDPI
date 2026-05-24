@@ -42,7 +42,7 @@ enum class RipDpiBrandBadgeSize(
     Lockup(64.dp),
 }
 
-private const val GLYPH_SCALE = 0.58f
+private const val GlyphScale = 0.58f
 
 @Composable
 fun RipDpiBrandBadge(
@@ -71,14 +71,14 @@ fun RipDpiBrandBadge(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .scale(GLYPH_SCALE),
+                    .scale(GlyphScale),
         )
     }
 }
 
 @Preview(showBackground = true, name = "RipDpiBrandBadge — all sizes (light)")
 @Composable
-private fun RipDpiBrandBadgePreviewLight() {
+private fun RipDpiBrandBadgeLightPreview() {
     RipDpiComponentPreview {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -101,7 +101,7 @@ private fun RipDpiBrandBadgePreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiBrandBadge — all sizes (dark)")
 @Composable
-private fun RipDpiBrandBadgePreviewDark() {
+private fun RipDpiBrandBadgeDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Row(
             verticalAlignment = Alignment.CenterVertically,

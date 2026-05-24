@@ -113,7 +113,7 @@ fun RipDpiLogStream(
 
 @Preview(showBackground = true, name = "RipDpiLogStream (light)")
 @Composable
-private fun RipDpiLogStreamPreviewLight() {
+private fun RipDpiLogStreamLightPreview() {
     RipDpiComponentPreview {
         RipDpiLogStream(
             entries =
@@ -130,7 +130,7 @@ private fun RipDpiLogStreamPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiLogStream (dark)")
 @Composable
-private fun RipDpiLogStreamPreviewDark() {
+private fun RipDpiLogStreamDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiLogStream(
             entries =

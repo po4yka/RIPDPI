@@ -19,6 +19,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val SliderPreviewInitial = 0.6f
+private const val SliderPreviewMtu = 0.3f
+private const val SliderDarkPreview = 0.5f
+private const val SliderPreviewSteps = 4
+
 /**
  * Branded continuous slider wrapping Material3 [Slider]. Active track
  * and thumb use foreground; inactive track uses muted. Optional label
@@ -67,20 +72,20 @@ fun RipDpiSlider(
 
 @Preview(showBackground = true, name = "RipDpiSlider (light)")
 @Composable
-private fun RipDpiSliderPreviewLight() {
+private fun RipDpiSliderLightPreview() {
     RipDpiComponentPreview {
-        var v by remember { mutableFloatStateOf(0.6f) }
+        var v by remember { mutableFloatStateOf(SliderPreviewInitial) }
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             RipDpiSlider(value = v, onValueChange = { v = it }, label = "Throughput cap")
-            RipDpiSlider(value = 0.3f, onValueChange = {}, label = "MTU", steps = 4)
+            RipDpiSlider(value = SliderPreviewMtu, onValueChange = {}, label = "MTU", steps = SliderPreviewSteps)
         }
     }
 }
 
 @Preview(showBackground = true, name = "RipDpiSlider (dark)")
 @Composable
-private fun RipDpiSliderPreviewDark() {
+private fun RipDpiSliderDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
-        RipDpiSlider(value = 0.5f, onValueChange = {}, label = "Detection cooldown")
+        RipDpiSlider(value = SliderDarkPreview, onValueChange = {}, label = "Detection cooldown")
     }
 }

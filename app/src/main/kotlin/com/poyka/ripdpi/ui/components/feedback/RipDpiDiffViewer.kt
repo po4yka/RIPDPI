@@ -14,7 +14,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+private val diffRowGap = 1.dp
+private val diffUnifiedHorizontalPadding = 6.dp
+private val diffRowVerticalPadding = 2.dp
+private val diffUnifiedColumnGap = 8.dp
+private val diffSideBySideColumnGap = 4.dp
+private val diffSideBySideHorizontalPadding = 4.dp
+private const val diffUnifiedLineNumberWidth = 4
+private const val diffSideBySideLineNumberWidth = 3
 
 enum class RipDpiDiffKind { Added, Removed, Unchanged, Header }
 
@@ -70,7 +80,7 @@ fun RipDpiDiffViewer(
 private fun UnifiedDiffContent(
     lines: List<RipDpiDiffLine>,
     modifier: Modifier,
-    colors: com.poyka.ripdpi.ui.theme.RipDpiExtendedColors,
+    colors: RipDpiExtendedColors,
     shape: RoundedCornerShape,
 ) {
     Column(
@@ -79,7 +89,7 @@ private fun UnifiedDiffContent(
                 .fillMaxWidth()
                 .background(colors.card, shape)
                 .padding(RipDpiThemeTokens.spacing.sm),
-        verticalArrangement = Arrangement.spacedBy(1.dp),
+        verticalArrangement = Arrangement.spacedBy(diffRowGap),
     ) {
         lines.forEach { line ->
             val s = lineStyle(line.kind)
@@ -88,15 +98,15 @@ private fun UnifiedDiffContent(
                     Modifier
                         .fillMaxWidth()
                         .background(s.bg)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(horizontal = diffUnifiedHorizontalPadding, vertical = diffRowVerticalPadding),
+                horizontalArrangement = Arrangement.spacedBy(diffUnifiedColumnGap),
             ) {
                 Text(
                     text =
                         line.oldLineNumber
                             ?.toString()
                             .orEmpty()
-                            .padStart(4),
+                            .padStart(diffUnifiedLineNumberWidth),
                     style = RipDpiThemeTokens.type.monoSmall.copy(color = colors.mutedForeground),
                 )
                 Text(
@@ -104,7 +114,7 @@ private fun UnifiedDiffContent(
                         line.newLineNumber
                             ?.toString()
                             .orEmpty()
-                            .padStart(4),
+                            .padStart(diffUnifiedLineNumberWidth),
                     style = RipDpiThemeTokens.type.monoSmall.copy(color = colors.mutedForeground),
                 )
                 Text(text = s.sign, style = RipDpiThemeTokens.type.monoSmall.copy(color = s.fg))
@@ -122,7 +132,7 @@ private fun UnifiedDiffContent(
 private fun SideBySideDiffContent(
     lines: List<RipDpiDiffLine>,
     modifier: Modifier,
-    colors: com.poyka.ripdpi.ui.theme.RipDpiExtendedColors,
+    colors: RipDpiExtendedColors,
     shape: RoundedCornerShape,
 ) {
     val leftLines = lines.filter { it.kind != RipDpiDiffKind.Added }
@@ -134,7 +144,7 @@ private fun SideBySideDiffContent(
                 .fillMaxWidth()
                 .background(colors.card, shape)
                 .padding(RipDpiThemeTokens.spacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(diffSideBySideColumnGap),
     ) {
         SideBySideColumn(
             lines = leftLines,
@@ -155,10 +165,10 @@ private fun SideBySideDiffContent(
 private fun SideBySideColumn(
     lines: List<RipDpiDiffLine>,
     useOldLineNumber: Boolean,
-    colors: com.poyka.ripdpi.ui.theme.RipDpiExtendedColors,
+    colors: RipDpiExtendedColors,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(diffRowGap)) {
         lines.forEach { line ->
             val s = lineStyle(line.kind)
             val lineNum = if (useOldLineNumber) line.oldLineNumber else line.newLineNumber
@@ -167,11 +177,11 @@ private fun SideBySideColumn(
                     Modifier
                         .fillMaxWidth()
                         .background(s.bg)
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        .padding(horizontal = diffSideBySideHorizontalPadding, vertical = diffRowVerticalPadding),
+                horizontalArrangement = Arrangement.spacedBy(diffSideBySideColumnGap),
             ) {
                 Text(
-                    text = lineNum?.toString().orEmpty().padStart(3),
+                    text = lineNum?.toString().orEmpty().padStart(diffSideBySideLineNumberWidth),
                     style = RipDpiThemeTokens.type.monoSmall.copy(color = colors.mutedForeground),
                 )
                 Text(text = s.sign, style = RipDpiThemeTokens.type.monoSmall.copy(color = s.fg))
@@ -187,17 +197,22 @@ private fun SideBySideColumn(
 
 @Preview(showBackground = true, name = "RipDpiDiffViewer (light)")
 @Composable
-private fun RipDpiDiffViewerPreviewLight() {
+private fun RipDpiDiffViewerLightPreview() {
     RipDpiComponentPreview {
         RipDpiDiffViewer(
             lines =
                 listOf(
                     RipDpiDiffLine(RipDpiDiffKind.Header, "@@ -1,5 +1,6 @@"),
-                    RipDpiDiffLine(RipDpiDiffKind.Unchanged, "strategy = \"tlsrec\"", 1, 1),
-                    RipDpiDiffLine(RipDpiDiffKind.Removed, "fake_ttl = 2", 2, null),
-                    RipDpiDiffLine(RipDpiDiffKind.Added, "fake_ttl = 4", null, 2),
-                    RipDpiDiffLine(RipDpiDiffKind.Added, "oob = 0x00", null, 3),
-                    RipDpiDiffLine(RipDpiDiffKind.Unchanged, "dns = \"1.1.1.1\"", 3, 4),
+                    RipDpiDiffLine(
+                        RipDpiDiffKind.Unchanged,
+                        "strategy = \"tlsrec\"",
+                        oldLineNumber = 1,
+                        newLineNumber = 1,
+                    ),
+                    RipDpiDiffLine(RipDpiDiffKind.Removed, "fake_ttl = 2", oldLineNumber = 2, newLineNumber = null),
+                    RipDpiDiffLine(RipDpiDiffKind.Added, "fake_ttl = 4", oldLineNumber = null, newLineNumber = 2),
+                    RipDpiDiffLine(RipDpiDiffKind.Added, "oob = 0x00", oldLineNumber = null, newLineNumber = 3),
+                    RipDpiDiffLine(RipDpiDiffKind.Unchanged, "dns = \"1.1.1.1\"", oldLineNumber = 3, newLineNumber = 4),
                 ),
         )
     }
@@ -205,13 +220,13 @@ private fun RipDpiDiffViewerPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiDiffViewer (dark)")
 @Composable
-private fun RipDpiDiffViewerPreviewDark() {
+private fun RipDpiDiffViewerDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiDiffViewer(
             lines =
                 listOf(
-                    RipDpiDiffLine(RipDpiDiffKind.Removed, "old.example.com", 1, null),
-                    RipDpiDiffLine(RipDpiDiffKind.Added, "new.example.com", null, 1),
+                    RipDpiDiffLine(RipDpiDiffKind.Removed, "old.example.com", oldLineNumber = 1, newLineNumber = null),
+                    RipDpiDiffLine(RipDpiDiffKind.Added, "new.example.com", oldLineNumber = null, newLineNumber = 1),
                 ),
         )
     }
@@ -225,11 +240,16 @@ private fun RipDpiDiffViewerSideBySidePreview() {
             lines =
                 listOf(
                     RipDpiDiffLine(RipDpiDiffKind.Header, "@@ -1,5 +1,6 @@"),
-                    RipDpiDiffLine(RipDpiDiffKind.Unchanged, "strategy = \"tlsrec\"", 1, 1),
-                    RipDpiDiffLine(RipDpiDiffKind.Removed, "fake_ttl = 2", 2, null),
-                    RipDpiDiffLine(RipDpiDiffKind.Added, "fake_ttl = 4", null, 2),
-                    RipDpiDiffLine(RipDpiDiffKind.Added, "oob = 0x00", null, 3),
-                    RipDpiDiffLine(RipDpiDiffKind.Unchanged, "dns = \"1.1.1.1\"", 3, 4),
+                    RipDpiDiffLine(
+                        RipDpiDiffKind.Unchanged,
+                        "strategy = \"tlsrec\"",
+                        oldLineNumber = 1,
+                        newLineNumber = 1,
+                    ),
+                    RipDpiDiffLine(RipDpiDiffKind.Removed, "fake_ttl = 2", oldLineNumber = 2, newLineNumber = null),
+                    RipDpiDiffLine(RipDpiDiffKind.Added, "fake_ttl = 4", oldLineNumber = null, newLineNumber = 2),
+                    RipDpiDiffLine(RipDpiDiffKind.Added, "oob = 0x00", oldLineNumber = null, newLineNumber = 3),
+                    RipDpiDiffLine(RipDpiDiffKind.Unchanged, "dns = \"1.1.1.1\"", oldLineNumber = 3, newLineNumber = 4),
                 ),
             layout = RipDpiDiffLayout.SideBySide,
         )

@@ -20,6 +20,12 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val HeartbeatCanvasScale = 3
+private const val HeartbeatRingStrokeWidth = 1.5f
+private const val HeartbeatHighlightAlpha = 0.3f
+private const val HeartbeatHighlightRadiusScale = 0.4f
+private const val HeartbeatHighlightOffsetScale = 0.2f
+
 enum class RipDpiHeartbeatState {
     /** Active connection — pulses in success color. */
     Healthy,
@@ -66,7 +72,7 @@ fun RipDpiHeartbeatIndicator(
     Canvas(
         modifier =
             modifier
-                .size(diameter * 3)
+                .size(diameter * HeartbeatCanvasScale)
                 .semantics { contentDescription = "Heartbeat ${state.name.lowercase()}" },
     ) {
         val center = Offset(size.width / 2f, size.height / 2f)
@@ -78,21 +84,25 @@ fun RipDpiHeartbeatIndicator(
                 color = dotColor.copy(alpha = ringAlpha),
                 radius = ringRadius,
                 center = center,
-                style = Stroke(width = 1.5f),
+                style = Stroke(width = HeartbeatRingStrokeWidth),
             )
         }
         drawCircle(color = dotColor, radius = coreRadius, center = center)
         drawCircle(
-            color = Color.White.copy(alpha = 0.3f),
-            radius = coreRadius * 0.4f,
-            center = center.copy(x = center.x - coreRadius * 0.2f, y = center.y - coreRadius * 0.2f),
+            color = Color.White.copy(alpha = HeartbeatHighlightAlpha),
+            radius = coreRadius * HeartbeatHighlightRadiusScale,
+            center =
+                center.copy(
+                    x = center.x - coreRadius * HeartbeatHighlightOffsetScale,
+                    y = center.y - coreRadius * HeartbeatHighlightOffsetScale,
+                ),
         )
     }
 }
 
 @Preview(showBackground = true, name = "RipDpiHeartbeatIndicator (light)")
 @Composable
-private fun RipDpiHeartbeatIndicatorPreviewLight() {
+private fun RipDpiHeartbeatIndicatorLightPreview() {
     RipDpiComponentPreview {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.lg)) {
             RipDpiHeartbeatIndicator(state = RipDpiHeartbeatState.Healthy)
@@ -105,7 +115,7 @@ private fun RipDpiHeartbeatIndicatorPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiHeartbeatIndicator (dark)")
 @Composable
-private fun RipDpiHeartbeatIndicatorPreviewDark() {
+private fun RipDpiHeartbeatIndicatorDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.lg)) {
             RipDpiHeartbeatIndicator(state = RipDpiHeartbeatState.Healthy, diameter = 16.dp)

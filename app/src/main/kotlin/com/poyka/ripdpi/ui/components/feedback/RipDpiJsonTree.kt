@@ -19,6 +19,10 @@ import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val JsonIndentPerLevel = 16
+private val JsonRowVerticalPadding = 2.dp
+private val JsonChevronSize = 14.dp
+
 sealed interface RipDpiJsonNode {
     data class Leaf(
         val key: String?,
@@ -58,10 +62,17 @@ private fun JsonNodeRow(
     depth: Int,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val indent = (depth * 16).dp
+    val indent = (depth * JsonIndentPerLevel).dp
     when (node) {
         is RipDpiJsonNode.Leaf -> {
-            Row(modifier = Modifier.padding(start = indent, top = 2.dp, bottom = 2.dp)) {
+            Row(
+                modifier =
+                    Modifier.padding(
+                        start = indent,
+                        top = JsonRowVerticalPadding,
+                        bottom = JsonRowVerticalPadding,
+                    ),
+            ) {
                 if (node.key != null) {
                     Text(
                         text = "\"${node.key}\": ",
@@ -94,14 +105,14 @@ private fun JsonNodeRow(
             Row(
                 modifier =
                     Modifier
-                        .padding(start = indent, top = 2.dp, bottom = 2.dp)
+                        .padding(start = indent, top = JsonRowVerticalPadding, bottom = JsonRowVerticalPadding)
                         .ripDpiClickable(enabled = true) { open = !open },
             ) {
                 Icon(
                     imageVector = if (open) RipDpiIcons.KeyboardArrowDown else RipDpiIcons.ChevronRight,
                     contentDescription = if (open) "Collapse" else "Expand",
                     tint = colors.mutedForeground,
-                    modifier = Modifier.size(14.dp),
+                    modifier = Modifier.size(JsonChevronSize),
                 )
                 if (node.key != null) {
                     Text(
@@ -128,7 +139,7 @@ private fun JsonNodeRow(
 
 @Preview(showBackground = true, name = "RipDpiJsonTree (light)")
 @Composable
-private fun RipDpiJsonTreePreviewLight() {
+private fun RipDpiJsonTreeLightPreview() {
     val sample =
         RipDpiJsonNode.Branch(
             key = null,
@@ -155,7 +166,7 @@ private fun RipDpiJsonTreePreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiJsonTree (dark)")
 @Composable
-private fun RipDpiJsonTreePreviewDark() {
+private fun RipDpiJsonTreeDarkPreview() {
     val sample =
         RipDpiJsonNode.Branch(
             key = null,

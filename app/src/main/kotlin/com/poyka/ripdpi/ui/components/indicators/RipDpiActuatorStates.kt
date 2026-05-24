@@ -54,7 +54,7 @@ fun RipDpiActuatorStatesGallery(modifier: Modifier = Modifier) {
 
 @Preview(showBackground = true, name = "RipDpiActuatorStatesGallery (light)")
 @Composable
-private fun RipDpiActuatorStatesGalleryPreviewLight() {
+private fun RipDpiActuatorStatesGalleryLightPreview() {
     RipDpiComponentPreview {
         RipDpiActuatorStatesGallery()
     }
@@ -62,7 +62,7 @@ private fun RipDpiActuatorStatesGalleryPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiActuatorStatesGallery (dark)")
 @Composable
-private fun RipDpiActuatorStatesGalleryPreviewDark() {
+private fun RipDpiActuatorStatesGalleryDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiActuatorStatesGallery()
     }

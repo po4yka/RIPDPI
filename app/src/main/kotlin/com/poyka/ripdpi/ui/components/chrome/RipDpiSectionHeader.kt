@@ -52,7 +52,7 @@ fun RipDpiSectionHeader(
 
 @Preview(showBackground = true, name = "RipDpiSectionHeader (light)")
 @Composable
-private fun RipDpiSectionHeaderPreviewLight() {
+private fun RipDpiSectionHeaderLightPreview() {
     RipDpiComponentPreview {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             RipDpiSectionHeader(title = "Connection")
@@ -71,7 +71,7 @@ private fun RipDpiSectionHeaderPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiSectionHeader (dark)")
 @Composable
-private fun RipDpiSectionHeaderPreviewDark() {
+private fun RipDpiSectionHeaderDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             RipDpiSectionHeader(title = "Connection")

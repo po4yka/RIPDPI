@@ -17,6 +17,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val PreviewLatencyMillis = 1234
+private const val PreviewSuccessPercent = 87
+private const val PreviewByteCount = 42_500_000
+
 /**
  * A monospace counter whose displayed value animates between integer
  * targets via [animateIntAsState]. The text style defaults to
@@ -49,21 +53,21 @@ fun RipDpiLiveCounter(
 
 @Preview(showBackground = true, name = "RipDpiLiveCounter (light)")
 @Composable
-private fun RipDpiLiveCounterPreviewLight() {
+private fun RipDpiLiveCounterLightPreview() {
     RipDpiComponentPreview {
-        var n by remember { mutableIntStateOf(1234) }
+        var n by remember { mutableIntStateOf(PreviewLatencyMillis) }
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             RipDpiLiveCounter(value = n, suffix = " ms")
-            RipDpiLiveCounter(value = 87, suffix = " %")
-            RipDpiLiveCounter(value = 42_500_000, suffix = " B")
+            RipDpiLiveCounter(value = PreviewSuccessPercent, suffix = " %")
+            RipDpiLiveCounter(value = PreviewByteCount, suffix = " B")
         }
     }
 }
 
 @Preview(showBackground = true, name = "RipDpiLiveCounter (dark)")
 @Composable
-private fun RipDpiLiveCounterPreviewDark() {
+private fun RipDpiLiveCounterDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
-        RipDpiLiveCounter(value = 1234, suffix = " ms")
+        RipDpiLiveCounter(value = PreviewLatencyMillis, suffix = " ms")
     }
 }

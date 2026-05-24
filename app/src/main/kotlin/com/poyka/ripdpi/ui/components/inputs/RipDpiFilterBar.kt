@@ -68,7 +68,7 @@ fun RipDpiFilterBar(
 
 @Preview(showBackground = true, name = "RipDpiFilterBar (light)")
 @Composable
-private fun RipDpiFilterBarPreviewLight() {
+private fun RipDpiFilterBarLightPreview() {
     RipDpiComponentPreview {
         var sel by remember { mutableStateOf(setOf("errors")) }
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
@@ -95,7 +95,7 @@ private fun RipDpiFilterBarPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiFilterBar (dark)")
 @Composable
-private fun RipDpiFilterBarPreviewDark() {
+private fun RipDpiFilterBarDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiFilterBar(
             filters = listOf(RipDpiFilter("a", "Recent"), RipDpiFilter("b", "Connected")),

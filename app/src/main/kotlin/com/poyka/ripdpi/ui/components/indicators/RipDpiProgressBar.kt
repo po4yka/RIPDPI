@@ -14,6 +14,9 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val ProgressPercentFactor = 100
+private val ProgressBarHeight = 4.dp
+
 /**
  * Branded determinate linear progress. Wraps Material3
  * [LinearProgressIndicator] using `RipDpiThemeTokens.colors.foreground`
@@ -32,10 +35,10 @@ fun RipDpiProgressBar(
     val baseModifier =
         modifier
             .fillMaxWidth()
-            .height(4.dp)
+            .height(ProgressBarHeight)
             .semantics {
                 contentDescription =
-                    if (progress != null) "Progress ${(progress * 100).toInt()}%" else "Loading"
+                    if (progress != null) "Progress ${(progress * ProgressPercentFactor).toInt()}%" else "Loading"
             }
     if (progress == null) {
         LinearProgressIndicator(
@@ -55,7 +58,7 @@ fun RipDpiProgressBar(
 
 @Preview(showBackground = true, name = "RipDpiProgressBar (light)")
 @Composable
-private fun RipDpiProgressBarPreviewLight() {
+private fun RipDpiProgressBarLightPreview() {
     RipDpiComponentPreview {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             RipDpiProgressBar(progress = 0.0f)
@@ -69,7 +72,7 @@ private fun RipDpiProgressBarPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiProgressBar (dark)")
 @Composable
-private fun RipDpiProgressBarPreviewDark() {
+private fun RipDpiProgressBarDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             RipDpiProgressBar(progress = 0.5f)

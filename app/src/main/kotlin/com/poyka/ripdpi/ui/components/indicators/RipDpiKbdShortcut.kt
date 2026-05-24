@@ -133,7 +133,7 @@ fun RipDpiKbdShortcut(
 
 @Preview(showBackground = true, name = "RipDpiKbdShortcut — sizes (light)")
 @Composable
-private fun RipDpiKbdShortcutPreviewLight() {
+private fun RipDpiKbdShortcutLightPreview() {
     RipDpiComponentPreview {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             RipDpiKbdShortcut(keys = listOf("⌘", "K"), size = RipDpiKbdSize.Small)
@@ -146,7 +146,7 @@ private fun RipDpiKbdShortcutPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiKbdShortcut — sizes (dark)")
 @Composable
-private fun RipDpiKbdShortcutPreviewDark() {
+private fun RipDpiKbdShortcutDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             RipDpiKbdShortcut(keys = listOf("⌘", "K"))

@@ -23,7 +23,11 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
-private const val SHIMMER_BAND_WIDTH = 0.4f
+private const val ShimmerBandWidth = 0.4f
+private const val ShimmerBaseAlpha = 0.25f
+private const val ShimmerGradientMidpoint = 0.5f
+private const val shimmerCompactWidth = 0.75f
+private const val shimmerHalfWidth = 0.5f
 
 /**
  * Modifier that overlays a horizontal shimmer band, sweeping left to
@@ -35,22 +39,22 @@ private const val SHIMMER_BAND_WIDTH = 0.4f
  */
 fun Modifier.ripDpiShimmer(): Modifier =
     composed {
-        val baseColor = RipDpiThemeTokens.colors.mutedForeground.copy(alpha = 0.25f)
+        val baseColor = RipDpiThemeTokens.colors.mutedForeground.copy(alpha = ShimmerBaseAlpha)
         val transition = rememberInfiniteTransition(label = "shimmer")
         val progress by transition.animateFloat(
-            initialValue = -SHIMMER_BAND_WIDTH,
-            targetValue = 1f + SHIMMER_BAND_WIDTH,
+            initialValue = -ShimmerBandWidth,
+            targetValue = 1f + ShimmerBandWidth,
             animationSpec = RipDpiThemeTokens.motion.shimmerSpec(),
             label = "shimmerProgress",
         )
         drawWithCache {
             val width = size.width
-            val bandPx = width * SHIMMER_BAND_WIDTH
+            val bandPx = width * ShimmerBandWidth
             val startX = progress * width
             val brush =
                 Brush.horizontalGradient(
                     0f to baseColor.copy(alpha = 0f),
-                    0.5f to baseColor,
+                    ShimmerGradientMidpoint to baseColor,
                     1f to baseColor.copy(alpha = 0f),
                     startX = startX,
                     endX = startX + bandPx,
@@ -82,12 +86,12 @@ fun RipDpiSkeletonBox(
 
 @Preview(showBackground = true, name = "RipDpiShimmer skeleton (light)")
 @Composable
-private fun RipDpiShimmerPreviewLight() {
+private fun RipDpiShimmerLightPreview() {
     RipDpiComponentPreview {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             RipDpiSkeletonBox(height = 14.dp)
-            RipDpiSkeletonBox(height = 14.dp, modifier = Modifier.fillMaxWidth(0.75f))
-            RipDpiSkeletonBox(height = 14.dp, modifier = Modifier.fillMaxWidth(0.5f))
+            RipDpiSkeletonBox(height = 14.dp, modifier = Modifier.fillMaxWidth(shimmerCompactWidth))
+            RipDpiSkeletonBox(height = 14.dp, modifier = Modifier.fillMaxWidth(shimmerHalfWidth))
             RipDpiSkeletonBox(height = 64.dp)
         }
     }
@@ -95,7 +99,7 @@ private fun RipDpiShimmerPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiShimmer skeleton (dark)")
 @Composable
-private fun RipDpiShimmerPreviewDark() {
+private fun RipDpiShimmerDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             RipDpiSkeletonBox(height = 14.dp)

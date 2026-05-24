@@ -50,7 +50,7 @@ fun RipDpiTooltip(
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, name = "RipDpiTooltip (light)")
 @Composable
-private fun RipDpiTooltipPreviewLight() {
+private fun RipDpiTooltipLightPreview() {
     RipDpiComponentPreview {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             RipDpiTooltip(text = "Press to reconnect tunnel") {
@@ -66,7 +66,7 @@ private fun RipDpiTooltipPreviewLight() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, name = "RipDpiTooltip (dark)")
 @Composable
-private fun RipDpiTooltipPreviewDark() {
+private fun RipDpiTooltipDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiTooltip(text = "Open command palette · ⌘K") {
             Text("⌘K", style = RipDpiThemeTokens.type.monoSmall)

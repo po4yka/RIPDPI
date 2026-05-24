@@ -53,7 +53,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-private const val BLESS_PENDING =
+private const val BlessPending =
     "Pending RIPDPI_BLESS_GOLDENS=1 by user per .claude/rules/golden-bless-discipline.md"
 
 @RunWith(RobolectricTestRunner::class)
@@ -61,7 +61,7 @@ private const val BLESS_PENDING =
 @Config(sdk = [35])
 class RdsComponentsScreenshotTest {
     private fun captureBothThemes(
-        name: String,
+        @Suppress("UNUSED_PARAMETER") name: String,
         widthDp: Int = 360,
         heightDp: Int = 200,
         content: @Composable () -> Unit,
@@ -86,7 +86,7 @@ class RdsComponentsScreenshotTest {
     // === 25 tests follow ===
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun brandBadgeAllSizes() {
         captureBothThemes("brandBadgeAllSizes", widthDp = 360, heightDp = 120) {
             RipDpiBrandBadge(size = RipDpiBrandBadgeSize.AppBarCompact)
@@ -94,7 +94,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun kbdShortcut() {
         captureBothThemes("kbdShortcut", widthDp = 360, heightDp = 120) {
             RipDpiKbdShortcut(keys = listOf("⌘", "K"))
@@ -102,7 +102,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun sectionHeader() {
         captureBothThemes("sectionHeader", widthDp = 360, heightDp = 120) {
             RipDpiSectionHeader(title = "Connection")
@@ -110,7 +110,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun staleDataBadge() {
         captureBothThemes("staleDataBadge", widthDp = 360, heightDp = 120) {
             RipDpiStaleDataBadge(label = "14 s ago", tier = RipDpiStaleTier.Recent)
@@ -118,7 +118,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun liveCounter() {
         captureBothThemes("liveCounter", widthDp = 360, heightDp = 120) {
             RipDpiLiveCounter(value = 1234, suffix = " ms")
@@ -126,7 +126,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun spinner() {
         captureBothThemes("spinner", widthDp = 360, heightDp = 120) {
             RipDpiSpinner(size = RipDpiSpinnerSize.Standard)
@@ -134,7 +134,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun progressBar() {
         captureBothThemes("progressBar", widthDp = 360, heightDp = 120) {
             RipDpiProgressBar(progress = 0.6f)
@@ -142,7 +142,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun skeletonBox() {
         captureBothThemes("skeletonBox", widthDp = 360, heightDp = 120) {
             RipDpiSkeletonBox(height = 14.dp)
@@ -150,7 +150,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun tabs() {
         captureBothThemes("tabs", widthDp = 360, heightDp = 120) {
             RipDpiTabs(
@@ -162,7 +162,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun segmentedButton() {
         captureBothThemes("segmentedButton", widthDp = 360, heightDp = 120) {
             RipDpiSegmentedButton(
@@ -174,7 +174,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun slider() {
         captureBothThemes("slider", widthDp = 360, heightDp = 120) {
             RipDpiSlider(value = 0.5f, onValueChange = {})
@@ -182,7 +182,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun stepper() {
         captureBothThemes("stepper", widthDp = 360, heightDp = 120) {
             RipDpiStepper(value = 3, onValueChange = {}, valueRange = 0..10)
@@ -190,7 +190,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun toggleAlternatives() {
         captureBothThemes("toggleAlternatives", widthDp = 360, heightDp = 120) {
             RipDpiToggleAlternatives(selectedIndex = 0, onSelect = {})
@@ -198,7 +198,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun tooltip() {
         captureBothThemes("tooltip", widthDp = 360, heightDp = 120) {
             RipDpiTooltip(text = "Reconnect tunnel") { Text("Reconnect") }
@@ -206,7 +206,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun accordion() {
         captureBothThemes("accordion", widthDp = 360, heightDp = 200) {
             RipDpiAccordion(
@@ -218,7 +218,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun filterBar() {
         captureBothThemes("filterBar", widthDp = 360, heightDp = 120) {
             RipDpiFilterBar(
@@ -230,7 +230,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun heartbeatIndicator() {
         captureBothThemes("heartbeatIndicator", widthDp = 360, heightDp = 120) {
             RipDpiHeartbeatIndicator(state = RipDpiHeartbeatState.Healthy)
@@ -238,7 +238,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun actuatorStatesGallery() {
         captureBothThemes("actuatorStatesGallery", widthDp = 360, heightDp = 1000) {
             RipDpiActuatorStatesGallery()
@@ -246,7 +246,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun cidrInput() {
         captureBothThemes("cidrInput", widthDp = 360, heightDp = 120) {
             RipDpiCidrInput(value = RipDpiCidrValue("10.0.0.0", 8), onValueChange = {})
@@ -254,7 +254,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun commandPalettePlaceholder() {
         captureBothThemes("commandPalettePlaceholder", widthDp = 360, heightDp = 120) {
             Text(
@@ -264,7 +264,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun combobox() {
         captureBothThemes("combobox", widthDp = 360, heightDp = 120) {
             RipDpiCombobox(
@@ -276,7 +276,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun diffViewer() {
         captureBothThemes("diffViewer", widthDp = 360, heightDp = 200) {
             RipDpiDiffViewer(
@@ -290,7 +290,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun jsonTree() {
         captureBothThemes("jsonTree", widthDp = 360, heightDp = 200) {
             RipDpiJsonTree(
@@ -305,7 +305,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun logStream() {
         captureBothThemes("logStream", widthDp = 360, heightDp = 200) {
             RipDpiLogStream(
@@ -315,7 +315,7 @@ class RdsComponentsScreenshotTest {
     }
 
     @Test
-    @Ignore(BLESS_PENDING)
+    @Ignore(BlessPending)
     fun tooltipRich() {
         captureBothThemes("tooltipRich", widthDp = 360, heightDp = 120) {
             RipDpiTooltipRich(title = "Stale data", body = "Last probe 18m ago") {

@@ -26,6 +26,14 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.time.Duration
 
+private const val FreshCutoffSeconds = 5
+private const val RecentCutoffMinutes = 1
+private const val AgingCutoffMinutes = 5
+private const val StaleCutoffMinutes = 30
+private val staleBadgeBorderWidth = 1.dp
+private val staleBadgeVerticalPadding = 3.dp
+private val staleBadgeDotSize = 6.dp
+
 enum class RipDpiStaleTier {
     /** < 5s — data is updating now. Spec shows a pulse here. */
     Fresh,
@@ -45,10 +53,10 @@ enum class RipDpiStaleTier {
 
 fun staleTierFor(age: Duration): RipDpiStaleTier =
     when {
-        age.inWholeSeconds < 5 -> RipDpiStaleTier.Fresh
-        age.inWholeMinutes < 1 -> RipDpiStaleTier.Recent
-        age.inWholeMinutes < 5 -> RipDpiStaleTier.Aging
-        age.inWholeMinutes < 30 -> RipDpiStaleTier.Stale
+        age.inWholeSeconds < FreshCutoffSeconds -> RipDpiStaleTier.Fresh
+        age.inWholeMinutes < RecentCutoffMinutes -> RipDpiStaleTier.Recent
+        age.inWholeMinutes < AgingCutoffMinutes -> RipDpiStaleTier.Aging
+        age.inWholeMinutes < StaleCutoffMinutes -> RipDpiStaleTier.Stale
         else -> RipDpiStaleTier.Expired
     }
 
@@ -105,8 +113,8 @@ fun RipDpiStaleDataBadge(
         modifier =
             modifier
                 .background(tones.container, RoundedCornerShape(percent = 50))
-                .border(width = 1.dp, color = tones.border, shape = RoundedCornerShape(percent = 50))
-                .padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 3.dp)
+                .border(width = staleBadgeBorderWidth, color = tones.border, shape = RoundedCornerShape(percent = 50))
+                .padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = staleBadgeVerticalPadding)
                 .semantics { contentDescription = "$label, ${tier.name.lowercase()} data" },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
@@ -114,7 +122,7 @@ fun RipDpiStaleDataBadge(
         Box(
             modifier =
                 Modifier
-                    .size(6.dp)
+                    .size(staleBadgeDotSize)
                     .background(tones.dot.copy(alpha = freshPulseAlpha), CircleShape),
         )
         Text(text = label, style = RipDpiThemeTokens.type.monoSmall.copy(color = tones.content))
@@ -123,7 +131,7 @@ fun RipDpiStaleDataBadge(
 
 @Preview(showBackground = true, name = "RipDpiStaleDataBadge — all tiers (light)")
 @Composable
-private fun RipDpiStaleDataBadgePreviewLight() {
+private fun RipDpiStaleDataBadgeLightPreview() {
     RipDpiComponentPreview {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             RipDpiStaleDataBadge(label = "just now", tier = RipDpiStaleTier.Fresh)
@@ -137,7 +145,7 @@ private fun RipDpiStaleDataBadgePreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiStaleDataBadge — all tiers (dark)")
 @Composable
-private fun RipDpiStaleDataBadgePreviewDark() {
+private fun RipDpiStaleDataBadgeDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             RipDpiStaleDataBadge(label = "just now", tier = RipDpiStaleTier.Fresh)

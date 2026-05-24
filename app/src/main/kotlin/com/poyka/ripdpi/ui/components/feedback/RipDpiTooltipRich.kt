@@ -82,7 +82,7 @@ fun RipDpiTooltipRich(
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, name = "RipDpiTooltipRich (light)")
 @Composable
-private fun RipDpiTooltipRichPreviewLight() {
+private fun RipDpiTooltipRichLightPreview() {
     RipDpiComponentPreview {
         RipDpiTooltipRich(
             title = "Stale data",
@@ -97,7 +97,7 @@ private fun RipDpiTooltipRichPreviewLight() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, name = "RipDpiTooltipRich (dark)")
 @Composable
-private fun RipDpiTooltipRichPreviewDark() {
+private fun RipDpiTooltipRichDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiTooltipRich(
             title = "Strategy A/B",

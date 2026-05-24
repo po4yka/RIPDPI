@@ -39,6 +39,9 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private val commandPaletteItemGap = 2.dp
+private val commandPaletteIconSize = 16.dp
+
 data class RipDpiCommand(
     val key: String,
     val label: String,
@@ -61,108 +64,153 @@ fun RipDpiCommandPalette(
     modifier: Modifier = Modifier,
 ) {
     if (!visible) return
-    val colors = RipDpiThemeTokens.colors
-    val focusRequester = remember { FocusRequester() }
     var query by remember { mutableStateOf(TextFieldValue("")) }
-    val matches =
-        remember(query.text, commands) {
-            if (query.text.isBlank()) {
-                commands
-            } else {
-                val q = query.text.lowercase()
-                commands.filter { it.label.lowercase().contains(q) || it.hint?.lowercase()?.contains(q) == true }
-            }
-        }
+    val matches = remember(query.text, commands) { matchingCommands(query.text, commands) }
+    val focusRequester = remember { FocusRequester() }
+
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
-    // Esc is handled by Dialog's onDismissRequest — Compose maps the hardware Esc key to
-    // onDismissRequest in Dialog, so no separate key handler is needed here.
+    // Esc is handled by Dialog's onDismissRequest — Compose maps the hardware Esc key to onDismissRequest in Dialog.
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(
+        CommandPaletteContent(
+            query = query,
+            matches = matches,
+            focusRequester = focusRequester,
+            onQueryChange = { query = it },
+            onDismiss = onDismiss,
+            onCommand = onCommand,
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
+private fun CommandPaletteContent(
+    query: TextFieldValue,
+    matches: List<RipDpiCommand>,
+    focusRequester: FocusRequester,
+    onQueryChange: (TextFieldValue) -> Unit,
+    onDismiss: () -> Unit,
+    onCommand: (RipDpiCommand) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(RipDpiThemeTokens.spacing.lg),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Column(
             modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(RipDpiThemeTokens.spacing.lg),
-            contentAlignment = Alignment.TopCenter,
+                modifier
+                    .fillMaxWidth()
+                    .background(colors.card, RoundedCornerShape(RipDpiThemeTokens.spacing.md))
+                    .padding(RipDpiThemeTokens.spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
         ) {
-            Column(
-                modifier =
-                    modifier
-                        .fillMaxWidth()
-                        .background(colors.card, RoundedCornerShape(RipDpiThemeTokens.spacing.md))
-                        .padding(RipDpiThemeTokens.spacing.sm),
-                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-            ) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                    singleLine = true,
-                    placeholder = { Text("Type a command…", style = RipDpiThemeTokens.type.body) },
-                    textStyle = RipDpiThemeTokens.type.body,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                    keyboardActions =
-                        KeyboardActions(
-                            onGo = {
-                                matches.firstOrNull()?.let {
-                                    onCommand(it)
-                                    onDismiss()
-                                }
-                            },
-                        ),
-                )
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    items(matches) { cmd ->
-                        Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .ripDpiClickable(enabled = true) {
-                                        onCommand(cmd)
-                                        onDismiss()
-                                    }.padding(
-                                        horizontal = RipDpiThemeTokens.spacing.md,
-                                        vertical = RipDpiThemeTokens.spacing.sm,
-                                    ),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(cmd.label, style = RipDpiThemeTokens.type.bodyEmphasis)
-                                cmd.hint?.let {
-                                    Text(
-                                        it,
-                                        style =
-                                            RipDpiThemeTokens.type.monoSmall
-                                                .copy(color = colors.mutedForeground),
-                                    )
-                                }
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                singleLine = true,
+                placeholder = { Text("Type a command…", style = RipDpiThemeTokens.type.body) },
+                textStyle = RipDpiThemeTokens.type.body,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                keyboardActions =
+                    KeyboardActions(
+                        onGo = {
+                            matches.firstOrNull()?.let {
+                                onCommand(it)
+                                onDismiss()
                             }
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                                contentDescription = null,
-                                tint = colors.mutedForeground,
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
-                    }
-                    if (matches.isEmpty()) {
-                        items(listOf("empty")) {
-                            Text(
-                                "No matching command",
-                                modifier = Modifier.padding(RipDpiThemeTokens.spacing.md),
-                                style = RipDpiThemeTokens.type.body.copy(color = colors.mutedForeground),
-                            )
-                        }
-                    }
-                }
+                        },
+                    ),
+            )
+            CommandList(matches = matches, onDismiss = onDismiss, onCommand = onCommand)
+        }
+    }
+}
+
+@Composable
+private fun CommandList(
+    matches: List<RipDpiCommand>,
+    onDismiss: () -> Unit,
+    onCommand: (RipDpiCommand) -> Unit,
+) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(commandPaletteItemGap)) {
+        items(matches) { command ->
+            CommandRow(command = command, onDismiss = onDismiss, onCommand = onCommand)
+        }
+        if (matches.isEmpty()) {
+            items(listOf("empty")) {
+                Text(
+                    "No matching command",
+                    modifier = Modifier.padding(RipDpiThemeTokens.spacing.md),
+                    style = RipDpiThemeTokens.type.body.copy(color = RipDpiThemeTokens.colors.mutedForeground),
+                )
             }
         }
     }
 }
 
+@Composable
+private fun CommandRow(
+    command: RipDpiCommand,
+    onDismiss: () -> Unit,
+    onCommand: (RipDpiCommand) -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .ripDpiClickable(enabled = true) {
+                    onCommand(command)
+                    onDismiss()
+                }.padding(
+                    horizontal = RipDpiThemeTokens.spacing.md,
+                    vertical = RipDpiThemeTokens.spacing.sm,
+                ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(command.label, style = RipDpiThemeTokens.type.bodyEmphasis)
+            command.hint?.let {
+                Text(
+                    it,
+                    style =
+                        RipDpiThemeTokens.type.monoSmall
+                            .copy(color = colors.mutedForeground),
+                )
+            }
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+            contentDescription = null,
+            tint = colors.mutedForeground,
+            modifier = Modifier.size(commandPaletteIconSize),
+        )
+    }
+}
+
+private fun matchingCommands(
+    query: String,
+    commands: List<RipDpiCommand>,
+): List<RipDpiCommand> =
+    if (query.isBlank()) {
+        commands
+    } else {
+        val lowerQuery = query.lowercase()
+        commands.filter { command ->
+            command.label.lowercase().contains(lowerQuery) || command.hint?.lowercase()?.contains(lowerQuery) == true
+        }
+    }
+
 @Preview(showBackground = true, name = "RipDpiCommandPalette (light)")
 @Composable
-private fun RipDpiCommandPalettePreviewLight() {
+private fun RipDpiCommandPaletteLightPreview() {
     RipDpiComponentPreview {
         Text("Command palette is a modal Dialog; see runtime preview.")
     }

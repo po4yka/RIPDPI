@@ -78,7 +78,7 @@ fun RipDpiTabs(
 
 @Preview(showBackground = true, name = "RipDpiTabs (light)")
 @Composable
-private fun RipDpiTabsPreviewLight() {
+private fun RipDpiTabsLightPreview() {
     RipDpiComponentPreview {
         RipDpiTabs(
             tabs =
@@ -95,7 +95,7 @@ private fun RipDpiTabsPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiTabs (dark)")
 @Composable
-private fun RipDpiTabsPreviewDark() {
+private fun RipDpiTabsDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiTabs(
             tabs = listOf(RipDpiTab("a", "Live"), RipDpiTab("b", "History")),

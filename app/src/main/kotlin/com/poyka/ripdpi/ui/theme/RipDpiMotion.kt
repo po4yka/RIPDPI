@@ -153,20 +153,6 @@ data class RipDpiMotion(
             ) + fadeOut(animationSpec = quickTween(easing = EmphasizedAccelerate))
         }
 
-    /** Spring spec for interactive press/release animations (M3 Expressive standard scheme). */
-    fun <T> standardSpring(): SpringSpec<T> =
-        spring(
-            dampingRatio = StandardSpringDamping,
-            stiffness = StandardSpringStiffness,
-        )
-
-    /** Spring spec for selection pops and emphasis animations (M3 Expressive expressive scheme). */
-    fun <T> expressiveSpring(): SpringSpec<T> =
-        spring(
-            dampingRatio = ExpressiveSpringDamping,
-            stiffness = ExpressiveSpringStiffness,
-        )
-
     /** Linear sweep for skeleton shimmer: 1200ms, restart. */
     fun shimmerSpec(): InfiniteRepeatableSpec<Float> =
         infiniteRepeatable(
@@ -186,9 +172,9 @@ data class RipDpiMotion(
         if (reducedMotion || !animationsEnabled) {
             spring(dampingRatio = 1f, stiffness = StandardSpringStiffness)
         } else if (expressive) {
-            expressiveSpring()
+            expressiveSpringSpec()
         } else {
-            standardSpring()
+            standardSpringSpec()
         }
 
     companion object {
@@ -212,6 +198,20 @@ data class RipDpiMotion(
 }
 
 val DefaultRipDpiMotion = RipDpiMotion()
+
+/** Spring spec for interactive press/release animations (M3 Expressive standard scheme). */
+private fun <T> standardSpringSpec(): SpringSpec<T> =
+    spring(
+        dampingRatio = RipDpiMotion.StandardSpringDamping,
+        stiffness = RipDpiMotion.StandardSpringStiffness,
+    )
+
+/** Spring spec for selection pops and emphasis animations (M3 Expressive expressive scheme). */
+private fun <T> expressiveSpringSpec(): SpringSpec<T> =
+    spring(
+        dampingRatio = RipDpiMotion.ExpressiveSpringDamping,
+        stiffness = RipDpiMotion.ExpressiveSpringStiffness,
+    )
 
 internal val LocalRipDpiMotion = staticCompositionLocalOf { DefaultRipDpiMotion }
 

@@ -99,7 +99,7 @@ fun RipDpiAccordion(
 
 @Preview(showBackground = true, name = "RipDpiAccordion (light)")
 @Composable
-private fun RipDpiAccordionPreviewLight() {
+private fun RipDpiAccordionLightPreview() {
     RipDpiComponentPreview {
         var open1 by remember { mutableStateOf(true) }
         var open2 by remember { mutableStateOf(false) }
@@ -119,7 +119,7 @@ private fun RipDpiAccordionPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiAccordion (dark)")
 @Composable
-private fun RipDpiAccordionPreviewDark() {
+private fun RipDpiAccordionDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         var open by remember { mutableStateOf(true) }
         RipDpiAccordion(title = "Strategy details", expanded = open, onExpandedChange = { open = it }) {

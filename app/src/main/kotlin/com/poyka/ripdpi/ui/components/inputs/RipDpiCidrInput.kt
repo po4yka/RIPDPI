@@ -19,6 +19,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val Ipv4PartCount = 4
+private const val Ipv4MaxOctet = 255
+private const val Ipv4MaxPrefix = 32
+private const val Ipv6MaxPrefix = 128
+private const val DoubleColonLimit = 1
+private val ipv4PrefixRange = 0..Ipv4MaxPrefix
+private val ipv6PrefixRange = 0..Ipv6MaxPrefix
+private val ipv6AddressPattern = Regex("^[0-9a-fA-F:]+$")
+
 enum class RipDpiCidrFamily { Ipv4, Ipv6 }
 
 data class RipDpiCidrValue(
@@ -28,29 +37,24 @@ data class RipDpiCidrValue(
 ) {
     fun isValid(): Boolean =
         when (family) {
-            RipDpiCidrFamily.Ipv4 -> parseIpv4(address) && prefix in 0..32
-            RipDpiCidrFamily.Ipv6 -> parseIpv6(address) && prefix in 0..128
+            RipDpiCidrFamily.Ipv4 -> parseIpv4(address) && prefix in ipv4PrefixRange
+            RipDpiCidrFamily.Ipv6 -> parseIpv6(address) && prefix in ipv6PrefixRange
         }
 
     private fun parseIpv4(s: String): Boolean {
         val parts = s.split(".")
-        if (parts.size != 4) return false
+        if (parts.size != Ipv4PartCount) return false
         return parts.all { p ->
             val n = p.toIntOrNull()
-            n != null && n in 0..255
+            n != null && n in 0..Ipv4MaxOctet
         }
     }
 
     private fun parseIpv6(s: String): Boolean {
-        if (!s.contains(":")) return false
-        if (s.count { it == ':' && s.indexOf("::") != -1 } > 2 &&
-            s.indexOf("::") != s.lastIndexOf("::") + 1
-        ) {
-            return false
-        }
         val doubleColonCount = s.windowed(2).count { it == "::" }
-        if (doubleColonCount > 1) return false
-        return s.matches(Regex("^[0-9a-fA-F:]+$"))
+        return s.contains(":") &&
+            doubleColonCount <= DoubleColonLimit &&
+            s.matches(ipv6AddressPattern)
     }
 }
 
@@ -69,7 +73,7 @@ fun RipDpiCidrInput(
     label: String = "CIDR",
 ) {
     val colors = RipDpiThemeTokens.colors
-    val maxPrefix = if (value.family == RipDpiCidrFamily.Ipv4) 32 else 128
+    val maxPrefix = maxPrefixFor(value.family)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
         Text(label, style = RipDpiThemeTokens.type.secondaryBody.copy(color = colors.mutedForeground))
         RipDpiSegmentedButton(
@@ -77,7 +81,7 @@ fun RipDpiCidrInput(
             selectedIndex = if (value.family == RipDpiCidrFamily.Ipv4) 0 else 1,
             onSelect = { idx ->
                 val newFamily = if (idx == 0) RipDpiCidrFamily.Ipv4 else RipDpiCidrFamily.Ipv6
-                val newMax = if (newFamily == RipDpiCidrFamily.Ipv4) 32 else 128
+                val newMax = maxPrefixFor(newFamily)
                 onValueChange(value.copy(family = newFamily, address = "", prefix = value.prefix.coerceIn(0, newMax)))
             },
             modifier = Modifier.fillMaxWidth(),
@@ -122,16 +126,26 @@ fun RipDpiCidrInput(
     }
 }
 
+private fun maxPrefixFor(family: RipDpiCidrFamily): Int =
+    when (family) {
+        RipDpiCidrFamily.Ipv4 -> Ipv4MaxPrefix
+        RipDpiCidrFamily.Ipv6 -> Ipv6MaxPrefix
+    }
+
 @Preview(showBackground = true, name = "RipDpiCidrInput (light)")
 @Composable
-private fun RipDpiCidrInputPreviewLight() {
+private fun RipDpiCidrInputLightPreview() {
     RipDpiComponentPreview {
-        var v by remember { mutableStateOf(RipDpiCidrValue("10.0.0.0", 8)) }
+        var v by remember { mutableStateOf(RipDpiCidrValue(address = "10.0.0.0", prefix = 8)) }
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             RipDpiCidrInput(value = v, onValueChange = { v = it }, label = "Bypass subnet")
-            RipDpiCidrInput(value = RipDpiCidrValue("999.0.0.0", 8), onValueChange = {}, label = "Invalid example")
             RipDpiCidrInput(
-                value = RipDpiCidrValue("2001:db8::", 32, RipDpiCidrFamily.Ipv6),
+                value = RipDpiCidrValue(address = "999.0.0.0", prefix = 8),
+                onValueChange = {},
+                label = "Invalid example",
+            )
+            RipDpiCidrInput(
+                value = RipDpiCidrValue(address = "2001:db8::", prefix = 32, family = RipDpiCidrFamily.Ipv6),
                 onValueChange = {},
                 label = "IPv6 example",
             )
@@ -141,12 +155,12 @@ private fun RipDpiCidrInputPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiCidrInput (dark)")
 @Composable
-private fun RipDpiCidrInputPreviewDark() {
+private fun RipDpiCidrInputDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
-            RipDpiCidrInput(value = RipDpiCidrValue("192.168.1.0", 24), onValueChange = {})
+            RipDpiCidrInput(value = RipDpiCidrValue(address = "192.168.1.0", prefix = 24), onValueChange = {})
             RipDpiCidrInput(
-                value = RipDpiCidrValue("2001:db8::", 32, RipDpiCidrFamily.Ipv6),
+                value = RipDpiCidrValue(address = "2001:db8::", prefix = 32, family = RipDpiCidrFamily.Ipv6),
                 onValueChange = {},
             )
         }

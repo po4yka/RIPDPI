@@ -78,7 +78,7 @@ fun RipDpiCombobox(
 
 @Preview(showBackground = true, name = "RipDpiCombobox (light)")
 @Composable
-private fun RipDpiComboboxPreviewLight() {
+private fun RipDpiComboboxLightPreview() {
     RipDpiComponentPreview {
         var v by remember { mutableStateOf("") }
         Column(
@@ -97,7 +97,7 @@ private fun RipDpiComboboxPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiCombobox (dark)")
 @Composable
-private fun RipDpiComboboxPreviewDark() {
+private fun RipDpiComboboxDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiCombobox(
             value = "tls",

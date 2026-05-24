@@ -77,7 +77,7 @@ fun RipDpiSegmentedButton(
 
 @Preview(showBackground = true, name = "RipDpiSegmentedButton (light)")
 @Composable
-private fun RipDpiSegmentedPreviewLight() {
+private fun RipDpiSegmentedLightPreview() {
     RipDpiComponentPreview {
         var sel by remember { mutableIntStateOf(0) }
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
@@ -99,7 +99,7 @@ private fun RipDpiSegmentedPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiSegmentedButton (dark)")
 @Composable
-private fun RipDpiSegmentedPreviewDark() {
+private fun RipDpiSegmentedDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiSegmentedButton(
             options = listOf("On", "Off"),

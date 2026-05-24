@@ -80,7 +80,7 @@ fun RipDpiToggleAlternatives(
 
 @Preview(showBackground = true, name = "RipDpiToggleAlternatives (light)")
 @Composable
-private fun RipDpiToggleAlternativesPreviewLight() {
+private fun RipDpiToggleAlternativesLightPreview() {
     RipDpiComponentPreview {
         var sel by remember { mutableIntStateOf(0) }
         RipDpiToggleAlternatives(
@@ -93,7 +93,7 @@ private fun RipDpiToggleAlternativesPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiToggleAlternatives (dark)")
 @Composable
-private fun RipDpiToggleAlternativesPreviewDark() {
+private fun RipDpiToggleAlternativesDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiToggleAlternatives(
             selectedIndex = 1,

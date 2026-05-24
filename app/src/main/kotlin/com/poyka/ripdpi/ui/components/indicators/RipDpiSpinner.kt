@@ -48,7 +48,7 @@ fun RipDpiSpinner(
 
 @Preview(showBackground = true, name = "RipDpiSpinner (light)")
 @Composable
-private fun RipDpiSpinnerPreviewLight() {
+private fun RipDpiSpinnerLightPreview() {
     RipDpiComponentPreview {
         Row(
             horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.lg),
@@ -62,7 +62,7 @@ private fun RipDpiSpinnerPreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiSpinner (dark)")
 @Composable
-private fun RipDpiSpinnerPreviewDark() {
+private fun RipDpiSpinnerDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Row(
             horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.lg),
