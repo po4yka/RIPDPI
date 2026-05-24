@@ -2,10 +2,9 @@ package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -34,19 +33,17 @@ fun RipDpiTabs(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
-    TabRow(
+    SecondaryTabRow(
         selectedTabIndex = selectedIndex,
         modifier = modifier,
         containerColor = colors.card,
         contentColor = colors.foreground,
-        indicator = { tabPositions ->
-            if (selectedIndex in tabPositions.indices) {
-                SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
-                    height = 2.dp,
-                    color = colors.foreground,
-                )
-            }
+        indicator = {
+            SecondaryIndicator(
+                modifier = Modifier.tabIndicatorOffset(selectedIndex),
+                height = 2.dp,
+                color = colors.foreground,
+            )
         },
         divider = {},
     ) {

@@ -32,7 +32,7 @@ fun RipDpiTooltip(
     val colors = RipDpiThemeTokens.colors
     val state = rememberTooltipState()
     TooltipBox(
-        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
         tooltip = {
             PlainTooltip(
                 containerColor = colors.foreground,

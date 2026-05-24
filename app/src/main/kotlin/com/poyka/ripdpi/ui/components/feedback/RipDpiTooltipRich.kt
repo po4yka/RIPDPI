@@ -38,7 +38,7 @@ fun RipDpiTooltipRich(
     val colors = RipDpiThemeTokens.colors
     val state = rememberTooltipState(isPersistent = true)
     TooltipBox(
-        positionProvider = TooltipDefaults.rememberRichTooltipPositionProvider(),
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
         tooltip = {
             RichTooltip(
                 title = {
