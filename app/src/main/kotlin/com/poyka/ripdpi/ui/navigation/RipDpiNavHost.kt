@@ -47,11 +47,14 @@ import com.poyka.ripdpi.ui.screens.detection.DetectionCheckRoute
 import com.poyka.ripdpi.ui.screens.detection.DetectionSettingsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRouteCallbacks
+import com.poyka.ripdpi.ui.screens.diagnostics.PcapViewerRoute
+import com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.share.SharedResultRenderRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
+import com.poyka.ripdpi.ui.screens.onboarding.FirstRunTestRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmRoute
@@ -609,6 +612,18 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
     }
     composable<Route.DetectionSettings> {
         DetectionSettingsRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.FirstRunTest> {
+        FirstRunTestRoute(
+            onSkip = { navController.popBackStack() },
+            onApplyRecommendation = { navController.popBackStack() },
+        )
+    }
+    composable<Route.PcapViewer> {
+        PcapViewerRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.ReplayFailure> {
+        ReplayFailureRoute(onBack = { navController.popBackStack() })
     }
     composable<Route.OwnedStackBrowser> { backStackEntry ->
         val route = backStackEntry.toRoute<Route.OwnedStackBrowser>()

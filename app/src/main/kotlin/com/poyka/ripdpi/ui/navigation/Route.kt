@@ -175,6 +175,27 @@ sealed class Route {
     }
 
     @Serializable
+    data object FirstRunTest : Route() {
+        override val stableRoute = "first_run_test"
+        override val titleRes = R.string.title_first_run_test
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
+    data object PcapViewer : Route() {
+        override val stableRoute = "pcap_viewer"
+        override val titleRes = R.string.title_pcap_viewer
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
+    data object ReplayFailure : Route() {
+        override val stableRoute = "replay_failure"
+        override val titleRes = R.string.title_replay_failure
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class SharedDiagnosticResult(
         val fragment: String = "",
     ) : Route() {
@@ -273,6 +294,9 @@ sealed class Route {
                     DataTransparency,
                     DetectionCheck,
                     DetectionSettings,
+                    FirstRunTest,
+                    PcapViewer,
+                    ReplayFailure,
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),
