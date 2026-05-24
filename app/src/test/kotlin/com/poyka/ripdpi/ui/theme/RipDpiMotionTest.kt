@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class RipDpiMotionTest {
     @Test
@@ -55,5 +56,68 @@ class RipDpiMotionTest {
         assertSame(RipDpiMotion.EmphasizedDecelerate, DefaultRipDpiMotion.emphasizedTween<Float>().easing)
         assertSame(RipDpiMotion.EmphasizedDecelerate, DefaultRipDpiMotion.routeTween<Float>().easing)
         assertTrue(DefaultRipDpiMotion.allowsInfiniteMotion)
+    }
+
+    /**
+     * Enforces the RDS rule: raw `tween(`, `spring(`, `cubicBezier(` /
+     * `CubicBezierEasing(` literals MAY appear ONLY inside `ui/theme/`.
+     * Component / screen code must consume the named motion specs
+     * (stateTween, motionAwareSpring, shimmerSpec, pulseSpec, etc.) so
+     * the reduced-motion clamp + token discipline stays centralized.
+     *
+     * Sentinel patterns use a negative lookbehind to allow method calls
+     * like `motion.stateTween()` (preceded by `.`) and identifier prefixes
+     * like `motionAwareSpring(` (preceded by a letter).
+     */
+    @Test
+    fun `no raw tween or spring or cubicBezier literals outside ui-theme`() {
+        val moduleRoot = File(System.getProperty("user.dir"))
+        val uiRoot = File(moduleRoot, "src/main/kotlin/com/poyka/ripdpi/ui")
+        check(uiRoot.isDirectory) { "ui root not found: $uiRoot" }
+
+        // Negative lookbehind: don't match `.tween(`, `xyzTween(`, etc.
+        // infiniteRepeatable() is intentionally NOT in this list — it is a
+        // *container* that wraps a curve; the curve itself is what must come
+        // from a named motion helper.
+        val sentinels =
+            listOf(
+                Regex("""(?<![A-Za-z.])tween\s*\("""),
+                Regex("""(?<![A-Za-z.])spring\s*\("""),
+                Regex("""(?<![A-Za-z.])cubicBezier\s*\("""),
+                Regex("""(?<![A-Za-z.])CubicBezierEasing\s*\("""),
+            )
+
+        val themeDir = File(uiRoot, "theme").canonicalFile
+        val offenders = mutableListOf<String>()
+
+        uiRoot
+            .walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .filter { !it.canonicalFile.startsWith(themeDir) }
+            .forEach { file ->
+                file.useLines { lines ->
+                    lines.forEachIndexed { lineIndex, raw ->
+                        // Skip comments to reduce false positives.
+                        val trimmed = raw.trimStart()
+                        if (trimmed.startsWith("//") || trimmed.startsWith("*")) return@forEachIndexed
+                        sentinels.firstOrNull { it.containsMatchIn(raw) }?.let { hit ->
+                            val rel = file.relativeTo(moduleRoot).path
+                            offenders += "$rel:${lineIndex + 1}: ${raw.trim()}  (matched: ${hit.pattern})"
+                        }
+                    }
+                }
+            }
+
+        assertTrue(
+            buildString {
+                appendLine(
+                    "Raw motion literals found outside ui/theme/ — promote them to a " +
+                        "named RipDpiMotion helper (stateTween, motionAwareSpring, shimmerSpec, " +
+                        "pulseSpec, pageEnterSpec, toastEnterSpec, etc.):",
+                )
+                offenders.forEach { appendLine("  $it") }
+            },
+            offenders.isEmpty(),
+        )
     }
 }

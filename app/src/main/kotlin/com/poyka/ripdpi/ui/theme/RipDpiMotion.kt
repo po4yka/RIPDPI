@@ -153,19 +153,166 @@ data class RipDpiMotion(
             ) + fadeOut(animationSpec = quickTween(easing = EmphasizedAccelerate))
         }
 
-    /** Linear sweep for skeleton shimmer: 1200ms, restart. */
-    fun shimmerSpec(): InfiniteRepeatableSpec<Float> =
-        infiniteRepeatable(
-            animation = tween(durationMillis = 1200, easing = LinearEasing),
+    /** Linear sweep for skeleton shimmer: 1200ms, restart. Collapses to 1ms-snap when motion disabled. */
+    fun shimmerSpec(): InfiniteRepeatableSpec<Float> {
+        val effective = if (allowsInfiniteMotion) 1200 else 1
+        return infiniteRepeatable(
+            animation = tween(durationMillis = effective, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         )
+    }
 
-    /** Cardiac pulse for heartbeat / fresh-data badges: 900ms, restart. */
-    fun pulseSpec(): InfiniteRepeatableSpec<Float> =
-        infiniteRepeatable(
-            animation = tween(durationMillis = 900, easing = LinearEasing),
+    /** Cardiac pulse for heartbeat / fresh-data badges: 900ms, restart. Collapses to 1ms-snap when motion disabled. */
+    fun pulseSpec(): InfiniteRepeatableSpec<Float> {
+        val effective = if (allowsInfiniteMotion) 900 else 1
+        return infiniteRepeatable(
+            animation = tween(durationMillis = effective, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         )
+    }
+
+    /**
+     * Reversible alpha pulse for in-flight progress indicators where the
+     * caller picks the duration (e.g. AnalysisProgressIndicator uses
+     * different cadences for the active-segment pulse vs the pending
+     * shimmer). When `allowsInfiniteMotion` is false (reduced motion or
+     * animations disabled) the spec collapses to a 1 ms restart, which
+     * effectively snaps to the target value without invoking the curve.
+     */
+    fun smoothPulseSpec(durationMillis: Int): InfiniteRepeatableSpec<Float> {
+        val effective = if (allowsInfiniteMotion) duration(durationMillis).coerceAtLeast(1) else 1
+        return infiniteRepeatable(
+            animation = tween(durationMillis = effective, easing = LinearEasing),
+            repeatMode = if (allowsInfiniteMotion) RepeatMode.Reverse else RepeatMode.Restart,
+        )
+    }
+
+    // === Connection-state actuator motion fingerprints (motion-connection-states.html) ===
+
+    /**
+     * Concentric ring expansion for the Connecting state.
+     * Inset → scale(1.4), opacity 0.7 → 0, 2 s `StandardEasing`, infinite, restart.
+     * Animate a Float 0f → 1f and use it to drive both `scale` (1.0 + 0.4*t) and
+     * `alpha` (0.7 * (1 - t)).
+     */
+    fun connectRingSpec(): InfiniteRepeatableSpec<Float> {
+        val effective = if (allowsInfiniteMotion) 2_000 else 1
+        return infiniteRepeatable(
+            animation = tween(durationMillis = effective, easing = StandardEasing),
+            repeatMode = RepeatMode.Restart,
+        )
+    }
+
+    /**
+     * Slow inner-core breathe for the Tunneling state.
+     * Scale 1.0 ↔ 0.92, opacity 0.12 ↔ 0.22, 1.6 s ease-in-out, infinite reverse.
+     * Animate a Float 0f → 1f with `RepeatMode.Reverse` and use it to interpolate
+     * scale and alpha. Collapses to 1ms-snap when motion disabled.
+     */
+    fun tunnelBreatheSpec(): InfiniteRepeatableSpec<Float> {
+        val effective = if (allowsInfiniteMotion) 1_600 else 1
+        return infiniteRepeatable(
+            animation = tween(durationMillis = effective, easing = EaseInOutEasing),
+            repeatMode = if (allowsInfiniteMotion) RepeatMode.Reverse else RepeatMode.Restart,
+        )
+    }
+
+    /**
+     * Asymmetric two-step wobble flash for the Degraded state.
+     * 1.2 s total, two opacity flashes inside the cycle, scaled border ring.
+     * The infinite repeatable just paces; the consumer reads progress (Float)
+     * and applies the keyframe shape: opacity 0 → 0.5 (20-50%) → 0 (60-100%).
+     * Collapses to 1ms-snap when motion disabled.
+     */
+    fun degradedWobbleSpec(): InfiniteRepeatableSpec<Float> {
+        val effective = if (allowsInfiniteMotion) 1_200 else 1
+        return infiniteRepeatable(
+            animation = tween(durationMillis = effective, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        )
+    }
+
+    // === Data-ticker motion (motion-data-ticker.html) ===
+
+    /**
+     * Sliding-digit ticker for live metered values (KB/s, RTT, etc.).
+     * 320 ms `EmphasizedDecelerate`, one-shot per digit change. Each digit
+     * column animates its translationY between the value rows. The 320 ms
+     * matches the spec card's `cubic-bezier(0.05, 0.7, 0.1, 1)` decelerate.
+     */
+    fun digitSlideSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
+
+    /**
+     * Countdown bar for known-duration affordances (reconnect, snooze, probe).
+     * Linear easing — the user reads remaining time, so the visual rate must
+     * match clock time. The caller supplies the total countdown duration.
+     */
+    fun countdownSpec(totalMillis: Int): TweenSpec<Float> =
+        tween(durationMillis = duration(totalMillis), easing = LinearEasing)
+
+    // === Page-transition motion (motion-page-transitions.html) ===
+
+    /**
+     * Child page enters from the right (push). Drives translationX from
+     * 1.0f (off-screen right, screen-width units) to 0f. 320 ms
+     * EmphasizedDecelerate, matches OS-level forward-nav feel.
+     */
+    fun pageEnterSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
+
+    /**
+     * Parent page parallax-exits on push. Drives translationX from 0f to
+     * -0.25f (-25% of screen width) AND alpha from 1.0f to 0.5f in lock-step.
+     * Same 320 ms emphasized curve so it stays synchronized with the
+     * incoming child.
+     */
+    fun pageExitSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
+
+    /**
+     * Modal sheet slides up from the bottom. Drives translationY from 1.0f
+     * (off-screen bottom, sheet-height units) to 0f. Same 320 ms emphasized
+     * curve as horizontal page transitions for cross-axis consistency.
+     */
+    fun modalEnterSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
+
+    /**
+     * Scrim fade behind modal sheets. Drives alpha from 0f to 0.4f. Same
+     * 320 ms emphasized curve so scrim and sheet rise together.
+     */
+    fun scrimFadeSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
+
+    // === Toast choreography (motion-toast-choreography.html) ===
+
+    /**
+     * Toast rise from below into the front slot. Drives translationY from
+     * +80f (px below) to 0f and scale from 0.95f to 1.0f in lock-step.
+     * 320 ms EmphasizedDecelerate for a settled landing.
+     */
+    fun toastEnterSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
+
+    /**
+     * Toast pushed back to the next stack slot when a newer toast arrives.
+     * Drives translationY (0 -> -12 -> -26), scale (1.0 -> 0.97 -> 0.93),
+     * alpha (1.0 -> 0.75 -> 0.4). 220 ms state curve so the push-back is
+     * snappier than the enter; consumers chain two pushBack invocations
+     * for front -> slot-2 -> slot-3.
+     */
+    fun toastPushBackSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(stateDurationMillis), easing = StandardEasing)
+
+    /**
+     * Toast exit (auto-timeout or swipe-throw). Drives translationY from
+     * -26f (slot-3 settled) to -58f and alpha from 0.4f to 0f. 220 ms
+     * state curve. For swipe-dismiss, the consumer drives translationX
+     * 1:1 with the finger and triggers exitSpec at > 40 % screen width.
+     */
+    fun toastExitSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(stateDurationMillis), easing = StandardEasing)
 
     /** Spring spec that respects reducedMotion -- falls back to critically-damped (no bounce). */
     fun <T> motionAwareSpring(expressive: Boolean = false): SpringSpec<T> =
@@ -186,6 +333,9 @@ data class RipDpiMotion(
 
         /** M3 standard -- use for on-screen property changes (color, opacity). */
         val StandardEasing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
+
+        /** CSS ease-in-out (cubic-bezier(0.42, 0, 0.58, 1)) -- for symmetric breathe / pulse. */
+        val EaseInOutEasing = CubicBezierEasing(0.42f, 0.0f, 0.58f, 1.0f)
 
         /** M3 Expressive standard spring -- critically damped, no overshoot. */
         const val StandardSpringDamping = 1f
@@ -214,6 +364,21 @@ private fun <T> expressiveSpringSpec(): SpringSpec<T> =
     )
 
 internal val LocalRipDpiMotion = staticCompositionLocalOf { DefaultRipDpiMotion }
+
+/**
+ * Ergonomic CompositionLocal for reduced-motion: components can read
+ * `LocalReducedMotion.current` directly without going through the full
+ * `RipDpiThemeTokens.motion` lookup. Always provided alongside
+ * `LocalRipDpiMotion` from `RipDpiTheme` and stays in lock-step with
+ * `RipDpiMotion.reducedMotion`.
+ *
+ * The underlying detection is `ValueAnimator.areAnimatorsEnabled()` —
+ * Google's canonical signal for the user's reduced-motion preference —
+ * which reflects `Settings.Global.ANIMATOR_DURATION_SCALE == 0f` AND
+ * the API 33+ "remove animations" accessibility setting in a single
+ * call. See `rememberRipDpiMotion()`.
+ */
+val LocalReducedMotion = staticCompositionLocalOf { false }
 
 @Composable
 internal fun rememberRipDpiMotion(): RipDpiMotion {

@@ -74,7 +74,7 @@ fun AnalysisProgressIndicator(
     val spacing = RipDpiThemeTokens.spacing
     val typeScale = RipDpiThemeTokens.type
     val containerShape = RipDpiThemeTokens.shapes.lg
-    val (pulseAlpha, shimmerAlpha) = rememberPipelineAlphas(motion.allowsInfiniteMotion)
+    val (pulseAlpha, shimmerAlpha) = rememberPipelineAlphas(motion)
     val description = buildStageDescription(stages)
 
     Column(
@@ -132,54 +132,20 @@ private fun buildStageDescription(stages: ImmutableList<AnalysisStageUiState>): 
     }
 
 @Composable
-private fun rememberPipelineAlphas(allowsInfiniteMotion: Boolean): Pair<Float, Float> {
+private fun rememberPipelineAlphas(motion: com.poyka.ripdpi.ui.theme.RipDpiMotion): Pair<Float, Float> {
     val infiniteTransition = rememberInfiniteTransition(label = "analysisPulse")
-    val pulseAlpha by if (allowsInfiniteMotion) {
-        infiniteTransition.animateFloat(
-            initialValue = 1f,
-            targetValue = PulseTargetAlpha,
-            animationSpec =
-                infiniteRepeatable(
-                    animation = tween(durationMillis = PulseDurationMs, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-            label = "activeSegmentPulse",
-        )
-    } else {
-        infiniteTransition.animateFloat(
-            initialValue = 1f,
-            targetValue = 1f,
-            animationSpec =
-                infiniteRepeatable(
-                    animation = tween(durationMillis = 1, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart,
-                ),
-            label = "activeSegmentStatic",
-        )
-    }
-    val shimmerAlpha by if (allowsInfiniteMotion) {
-        infiniteTransition.animateFloat(
-            initialValue = ShimmerMinAlpha,
-            targetValue = ShimmerMaxAlpha,
-            animationSpec =
-                infiniteRepeatable(
-                    animation = tween(durationMillis = ShimmerDurationMs, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-            label = "pendingShimmer",
-        )
-    } else {
-        infiniteTransition.animateFloat(
-            initialValue = ShimmerMaxAlpha,
-            targetValue = ShimmerMaxAlpha,
-            animationSpec =
-                infiniteRepeatable(
-                    animation = tween(durationMillis = 1, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart,
-                ),
-            label = "pendingStatic",
-        )
-    }
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (motion.allowsInfiniteMotion) PulseTargetAlpha else 1f,
+        animationSpec = motion.smoothPulseSpec(PulseDurationMs),
+        label = "activeSegmentPulse",
+    )
+    val shimmerAlpha by infiniteTransition.animateFloat(
+        initialValue = if (motion.allowsInfiniteMotion) ShimmerMinAlpha else ShimmerMaxAlpha,
+        targetValue = ShimmerMaxAlpha,
+        animationSpec = motion.smoothPulseSpec(ShimmerDurationMs),
+        label = "pendingShimmer",
+    )
     return Pair(pulseAlpha, shimmerAlpha)
 }
 

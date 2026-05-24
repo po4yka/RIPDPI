@@ -72,7 +72,7 @@ fun RipDpiLogStream(
         state = state,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        items(filtered) { entry ->
+        items(filtered, key = { entry -> "${entry.timestamp}|${entry.tag}|${entry.message}" }) { entry ->
             val levelColor =
                 when (entry.level) {
                     RipDpiLogLevel.Trace -> colors.mutedForeground

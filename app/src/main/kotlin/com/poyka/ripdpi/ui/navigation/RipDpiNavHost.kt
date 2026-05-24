@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -152,6 +155,7 @@ fun RipDpiNavHost(
         },
     )
 
+    val isWideScreen = rememberIsWideScreen()
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
@@ -164,12 +168,65 @@ fun RipDpiNavHost(
             }
         },
         bottomBar = {
-            TopLevelBottomBar(
-                selectedTopLevel = selectedTopLevel,
-                onNavigate = { destination -> navController.navigateTopLevel(destination) },
-            )
+            if (!isWideScreen) {
+                TopLevelBottomBar(
+                    selectedTopLevel = selectedTopLevel,
+                    onNavigate = { destination -> navController.navigateTopLevel(destination) },
+                )
+            }
         },
     ) { innerPadding ->
+        ResponsiveNavContent(
+            isWideScreen = isWideScreen,
+            selectedTopLevel = selectedTopLevel,
+            innerPadding = innerPadding,
+            navController = navController,
+            startDestination = startDestination,
+            motion = motion,
+            actions = actions,
+            mainViewModel = mainViewModel,
+            mainUiState = mainUiState,
+            diagnosticsInitialSection = diagnosticsInitialSection.value,
+            onDiagnosticsInitialSectionChanged = { diagnosticsInitialSection.value = it },
+        )
+    }
+}
+
+@Composable
+private fun ResponsiveNavContent(
+    isWideScreen: Boolean,
+    selectedTopLevel: Route?,
+    innerPadding: PaddingValues,
+    navController: NavHostController,
+    startDestination: Route,
+    motion: RipDpiMotion,
+    actions: RipDpiNavHostActions,
+    mainViewModel: MainViewModel,
+    mainUiState: MainUiState,
+    diagnosticsInitialSection: DiagnosticsSection?,
+    onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
+) {
+    if (isWideScreen && selectedTopLevel != null) {
+        Row(modifier = Modifier.padding(innerPadding)) {
+            RipDpiNavRail(
+                selectedRoute = selectedTopLevel,
+                onNavigate = { destination -> navController.navigateTopLevel(destination) },
+            )
+            Box(modifier = Modifier.weight(1f)) {
+                RipDpiNavGraph(
+                    startDestination = startDestination,
+                    innerPadding = PaddingValues(),
+                    navController = navController,
+                    motion = motion,
+                    actions = actions,
+                    mainViewModel = mainViewModel,
+                    mainUiState = mainUiState,
+                    diagnosticsInitialSection = diagnosticsInitialSection,
+                    onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
+                )
+            }
+        }
+    } else {
         RipDpiNavGraph(
             startDestination = startDestination,
             innerPadding = innerPadding,
@@ -178,8 +235,8 @@ fun RipDpiNavHost(
             actions = actions,
             mainViewModel = mainViewModel,
             mainUiState = mainUiState,
-            diagnosticsInitialSection = diagnosticsInitialSection.value,
-            onDiagnosticsInitialSectionChanged = { diagnosticsInitialSection.value = it },
+            diagnosticsInitialSection = diagnosticsInitialSection,
+            onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
         )
     }
 }
