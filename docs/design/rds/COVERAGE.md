@@ -14,14 +14,14 @@
 | **VPN flow screens** | 35 | 22 | 8 | 5 | ✅ Good |
 | **Android platform surfaces** | 16 | 16 | 0 | 0 | ✅ Complete |
 | **Motion specs** | 9 | 9 | 0 | 0 | ✅ Complete |
-| **Diagnostic screens** | 6 | 5 | 1 | 0 | ✅ Good |
+| **Diagnostic screens** | 6 | 6 | 0 | 0 | ✅ Complete |
 | **Share flow** | 5 | 3 | 2 | 0 | ✅ Good |
 | **Gesture interactions** | 3 | 2 | 1 | 0 | ✅ Good |
 | **Onboarding** | 2 | 1 | 1 | 0 | ⚠️ Partial |
 | **One-offs** | 6 | 5 | 1 | 0 | ✅ Good |
 | **Reference-only cards** | 24 | — | — | — | 📚 Docs |
 
-**Overall Coverage:** 110/122 implementable specs have verified Kotlin implementations (90%) — up from 72/122 (59%) before the RDS-implementation session. Remaining gaps: 5 VPN flow screens missing + 8 VPN partials + 1 share partial + 1 gesture partial + 1 onboarding partial + 1 diagnostic partial + 1 one-off partial.
+**Overall Coverage:** 111/122 implementable specs have verified Kotlin implementations (91%) — up from 72/122 (59%) before the RDS-implementation session. Remaining gaps: 5 VPN flow screens missing + 8 VPN partials + 1 share partial + 1 gesture partial + 1 onboarding partial + 1 one-off partial.
 
 ---
 
@@ -193,7 +193,7 @@
 
 ---
 
-## Diagnostic Screens (6 specs, 5 ✅ + 1 ⚠️ = 100% implemented)
+## Diagnostic Screens (6 specs, 6 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
@@ -203,10 +203,10 @@
 - **MTU Scan** (`diagnostic-mtu-scan.html`) — MTU detection results display
 - **Report Summary** (`diagnostic-report-summary.html`) — summary card and export UI
 
-### ⚠️ Partial Implementation
+### ⚠️ Partial Implementation (0 specs — all closed)
 
-- **Port Matrix** (`diagnostic-port-matrix.html`) — port connectivity matrix view incomplete
-- **Censorship Signature** (`diagnostic-censorship-signature.html`) — signature detection partial
+- ~~**Port Matrix** (`diagnostic-port-matrix.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PortMatrixScreen.kt`; 12-port-column grid keyed to RipDpiPortVerdict tier (Ok/Warn/Bad/Skipped) with legend chips + horizontal scroll
+- ~~**Censorship Signature** (`diagnostic-censorship-signature.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/CensorshipSignatureScreen.kt`; severity-coded row list with mono evidence blocks + worst-tier header pill (CLEAR/OBSERVED/ANOMALOUS/BLOCKING)
 
 ---
 
