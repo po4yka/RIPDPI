@@ -283,15 +283,21 @@ jobs:
           echo "Assets-bin staging:"
           ls -la "$assets_root" || true
 
-      - name: Build debug APK with prebuilt natives
+      - name: Build debug APKs with prebuilt natives
         env:
           RUSTC_WRAPPER: sccache
         run: |
-          ./gradlew :app:assembleDebug \
-            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt/jniLibs" \
-            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt/assetsBin" \
-            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt/assetsBin" \
+          common_args=(
+            --no-parallel
+            --max-workers=2
+            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt/jniLibs"
+            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt/assetsBin"
+            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt/assetsBin"
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt/assetsBin"
+          )
+          ./gradlew :app:assembleGithubDebug "${common_args[@]}"
+          ./gradlew :app:assembleFdroidDebug "${common_args[@]}"
+          ./gradlew :app:assemblePlayDebug "${common_args[@]}"
 
       - name: Verify packaged native ELFs
         run: python3 scripts/ci/verify_native_elfs.py
