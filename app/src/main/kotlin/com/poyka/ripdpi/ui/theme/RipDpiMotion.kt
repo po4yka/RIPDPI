@@ -167,6 +167,22 @@ data class RipDpiMotion(
             repeatMode = RepeatMode.Restart,
         )
 
+    /**
+     * Reversible alpha pulse for in-flight progress indicators where the
+     * caller picks the duration (e.g. AnalysisProgressIndicator uses
+     * different cadences for the active-segment pulse vs the pending
+     * shimmer). When `allowsInfiniteMotion` is false (reduced motion or
+     * animations disabled) the spec collapses to a 1 ms restart, which
+     * effectively snaps to the target value without invoking the curve.
+     */
+    fun smoothPulseSpec(durationMillis: Int): InfiniteRepeatableSpec<Float> {
+        val effective = if (allowsInfiniteMotion) duration(durationMillis).coerceAtLeast(1) else 1
+        return infiniteRepeatable(
+            animation = tween(durationMillis = effective, easing = LinearEasing),
+            repeatMode = if (allowsInfiniteMotion) RepeatMode.Reverse else RepeatMode.Restart,
+        )
+    }
+
     // === Connection-state actuator motion fingerprints (motion-connection-states.html) ===
 
     /**
