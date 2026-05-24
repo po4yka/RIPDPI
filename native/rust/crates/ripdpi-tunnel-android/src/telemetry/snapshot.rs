@@ -77,6 +77,7 @@ impl TunnelTelemetryState {
                 ..Default::default()
             }
             .into_option(),
+            connection_quality: self.quality_window.snapshot(),
             captured_at: super::time::now_ms(),
         }
     }

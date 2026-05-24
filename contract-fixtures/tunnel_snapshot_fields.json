@@ -1,6 +1,13 @@
 [
   "activeSessions",
   "capturedAt",
+  "connectionQuality.jitterMs",
+  "connectionQuality.lossPct",
+  "connectionQuality.rttP50Ms",
+  "connectionQuality.rttP95Ms",
+  "connectionQuality.sampleCount",
+  "connectionQuality.transportKind",
+  "connectionQuality.windowStartAtMs",
   "dhtTriggerObservations",
   "dnsCacheHits",
   "dnsCacheMisses",

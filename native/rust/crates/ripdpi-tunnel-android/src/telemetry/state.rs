@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use android_support::clear_tunnel_events;
 use arc_swap::ArcSwapOption;
+use ripdpi_quality::{QualityWindow, TransportKind};
 use ripdpi_telemetry::LatencyHistogram;
 
 use crate::config::TunnelLogContext;
@@ -19,6 +20,7 @@ pub(crate) struct TunnelTelemetryState {
     pub(crate) upstream_address: ArcSwapOption<String>,
     pub(crate) last_error: ArcSwapOption<String>,
     pub(crate) dns_histogram: LatencyHistogram,
+    pub(crate) quality_window: Arc<QualityWindow>,
 }
 
 impl TunnelTelemetryState {
@@ -36,6 +38,7 @@ impl TunnelTelemetryState {
             upstream_address: ArcSwapOption::empty(),
             last_error: ArcSwapOption::empty(),
             dns_histogram: LatencyHistogram::new(),
+            quality_window: Arc::new(QualityWindow::new(TransportKind::TcpTunnel)),
         }
     }
 

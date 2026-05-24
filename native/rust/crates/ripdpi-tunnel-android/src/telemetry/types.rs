@@ -1,3 +1,4 @@
+use ripdpi_quality::ConnectionQualitySnapshot;
 use ripdpi_telemetry::LatencyDistributions;
 use serde::Serialize;
 
@@ -67,5 +68,7 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) native_events: Vec<NativeRuntimeEvent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) latency_distributions: Option<LatencyDistributions>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) connection_quality: Option<ConnectionQualitySnapshot>,
     pub(crate) captured_at: u64,
 }

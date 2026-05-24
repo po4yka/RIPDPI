@@ -4502,6 +4502,7 @@ dependencies = [
  "nix 0.31.3",
  "once_cell",
  "proptest",
+ "ripdpi-quality",
  "ripdpi-runtime-platform",
  "ripdpi-telemetry",
  "ripdpi-tun-driver",

@@ -312,6 +312,15 @@ fn tunnel_snapshot_field_manifest_matches_contract_fixture() {
                 count: 150,
             }),
         }),
+        connection_quality: Some(ripdpi_quality::ConnectionQualitySnapshot {
+            loss_pct: 0.0,
+            rtt_p50_ms: 12,
+            rtt_p95_ms: 24,
+            jitter_ms: 3,
+            sample_count: 10,
+            window_start_at_ms: 1000,
+            transport_kind: ripdpi_quality::TransportKind::TcpTunnel,
+        }),
         captured_at: 1000,
     };
 
@@ -352,4 +361,38 @@ fn tunnel_snapshot_json_carries_schema_version() {
 
     let value = serde_json::to_value(&snapshot).expect("serialize tunnel snapshot");
     assert_eq!(value["schemaVersion"], json!(1));
+}
+
+#[test]
+fn tunnel_snapshot_omits_connection_quality_until_sample_recorded() {
+    let state = TunnelTelemetryState::new(None);
+    let snapshot = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+    assert!(snapshot.connection_quality.is_none());
+
+    let value = serde_json::to_value(&snapshot).expect("serialize tunnel snapshot");
+    assert!(
+        value.get("connectionQuality").is_none(),
+        "connectionQuality must be skipped from JSON when no samples recorded, got: {value}",
+    );
+}
+
+#[test]
+fn tunnel_snapshot_includes_connection_quality_after_sample_recorded() {
+    use ripdpi_quality::QualitySample;
+
+    let state = TunnelTelemetryState::new(None);
+    state.quality_window.record(QualitySample { rtt_ms: 42, succeeded: true });
+    state.quality_window.record(QualitySample { rtt_ms: 0, succeeded: false });
+
+    let snapshot = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+    let quality = snapshot.connection_quality.as_ref().expect("connection_quality populated");
+    assert_eq!(quality.sample_count, 1);
+    assert_eq!(quality.rtt_p50_ms, 42);
+    assert!((quality.loss_pct - 50.0).abs() < 0.01, "loss_pct={}", quality.loss_pct);
+
+    let value = serde_json::to_value(&snapshot).expect("serialize tunnel snapshot");
+    let wire = value.get("connectionQuality").expect("connectionQuality present in JSON");
+    assert_eq!(wire["sampleCount"], json!(1));
+    assert_eq!(wire["rttP50Ms"], json!(42));
+    assert_eq!(wire["transportKind"], json!("tcp_tunnel"));
 }
