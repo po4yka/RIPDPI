@@ -224,6 +224,40 @@ data class RipDpiMotion(
     fun countdownSpec(totalMillis: Int): TweenSpec<Float> =
         tween(durationMillis = duration(totalMillis), easing = LinearEasing)
 
+    // === Page-transition motion (motion-page-transitions.html) ===
+
+    /**
+     * Child page enters from the right (push). Drives translationX from
+     * 1.0f (off-screen right, screen-width units) to 0f. 320 ms
+     * EmphasizedDecelerate, matches OS-level forward-nav feel.
+     */
+    fun pageEnterSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
+
+    /**
+     * Parent page parallax-exits on push. Drives translationX from 0f to
+     * -0.25f (-25% of screen width) AND alpha from 1.0f to 0.5f in lock-step.
+     * Same 320 ms emphasized curve so it stays synchronized with the
+     * incoming child.
+     */
+    fun pageExitSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
+
+    /**
+     * Modal sheet slides up from the bottom. Drives translationY from 1.0f
+     * (off-screen bottom, sheet-height units) to 0f. Same 320 ms emphasized
+     * curve as horizontal page transitions for cross-axis consistency.
+     */
+    fun modalEnterSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
+
+    /**
+     * Scrim fade behind modal sheets. Drives alpha from 0f to 0.4f. Same
+     * 320 ms emphasized curve so scrim and sheet rise together.
+     */
+    fun scrimFadeSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
+
     /** Spring spec that respects reducedMotion -- falls back to critically-damped (no bounce). */
     fun <T> motionAwareSpring(expressive: Boolean = false): SpringSpec<T> =
         if (reducedMotion || !animationsEnabled) {
