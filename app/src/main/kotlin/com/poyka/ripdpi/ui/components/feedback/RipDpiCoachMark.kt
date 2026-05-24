@@ -95,7 +95,7 @@ fun RipDpiCoachMark(
         label = "coachMarkRingScale",
     )
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = if (reduced) 1f else 1f,
+        initialValue = 1f,
         targetValue = if (reduced) 1f else 0f,
         animationSpec = motion.connectRingSpec(),
         label = "coachMarkRingAlpha",
@@ -126,7 +126,6 @@ fun RipDpiCoachMark(
             }
             CoachMarkBubble(
                 content = content,
-                anchor = anchor,
                 onDismiss = onDismiss,
                 modifier =
                     Modifier
@@ -151,7 +150,6 @@ fun RipDpiCoachMark(
 @Composable
 private fun CoachMarkBubble(
     content: RipDpiCoachMarkContent,
-    anchor: RipDpiCoachMarkAnchor,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -198,21 +196,39 @@ private fun CoachMarkBubble(
                 }
             }
         }
-        // anchor & onDismiss visible for analytics / focus-shift hooks
-        suppressUnused(anchor)
-        suppressUnused(onDismiss)
     }
 }
 
-private fun suppressUnused(
-    @Suppress("UNUSED_PARAMETER") value: Any?,
-) = Unit
-
-@Preview(showBackground = true, name = "RipDpiCoachMark (light)")
+@Preview(showBackground = true, name = "RipDpiCoachMark bubble (light)")
 @Composable
-private fun RipDpiCoachMarkPreviewLight() {
+private fun RipDpiCoachMarkBubblePreviewLight() {
     RipDpiComponentPreview {
-        // Modal preview placeholder — actual coach mark renders inside Dialog.
-        Text("Coach mark is a full-screen Dialog; see runtime preview.")
+        CoachMarkBubble(
+            content =
+                RipDpiCoachMarkContent(
+                    title = "Tap to connect",
+                    body = "The actuator is your single tap to engage or release the tunnel.",
+                    primaryActionLabel = "Got it",
+                    onPrimaryAction = {},
+                    secondaryActionLabel = "Show all tips",
+                    onSecondaryAction = {},
+                ),
+            onDismiss = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "RipDpiCoachMark bubble (dark)")
+@Composable
+private fun RipDpiCoachMarkBubblePreviewDark() {
+    RipDpiComponentPreview(themePreference = "dark") {
+        CoachMarkBubble(
+            content =
+                RipDpiCoachMarkContent(
+                    title = "Strategy details",
+                    body = "tlsrec_split_host splits the ClientHello after the SNI extension.",
+                ),
+            onDismiss = {},
+        )
     }
 }

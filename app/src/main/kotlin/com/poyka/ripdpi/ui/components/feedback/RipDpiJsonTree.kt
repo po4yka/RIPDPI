@@ -100,7 +100,7 @@ private fun JsonNodeRow(
         }
 
         is RipDpiJsonNode.Branch -> {
-            var open by remember { mutableStateOf(true) }
+            var open by remember(node.key ?: node.hashCode()) { mutableStateOf(true) }
             val (openBracket, closeBracket) = if (node.isArray) "[" to "]" else "{" to "}"
             Row(
                 modifier =

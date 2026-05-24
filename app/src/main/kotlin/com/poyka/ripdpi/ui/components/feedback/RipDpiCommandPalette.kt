@@ -139,7 +139,7 @@ private fun CommandList(
     onCommand: (RipDpiCommand) -> Unit,
 ) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(commandPaletteItemGap)) {
-        items(matches) { command ->
+        items(matches, key = { it.key }) { command ->
             CommandRow(command = command, onDismiss = onDismiss, onCommand = onCommand)
         }
         if (matches.isEmpty()) {
