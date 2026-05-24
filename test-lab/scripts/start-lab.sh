@@ -6,6 +6,8 @@ lab_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$lab_root/scripts/python.sh"
 # shellcheck source=test-lab/scripts/lab-corefile.sh
 source "$lab_root/scripts/lab-corefile.sh"
+# shellcheck source=test-lab/scripts/_preflight.sh
+source "$lab_root/scripts/_preflight.sh"
 profile="${RIPDPI_LAB_PROFILE:-emulator}"
 
 while [[ $# -gt 0 ]]; do
@@ -20,6 +22,14 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Bail loudly if free space is low: docker compose build + cargo + gradle
+# can chew >5 GiB of staging before they fail. Skip with RIPDPI_LAB_SKIP_PREFLIGHT=1
+# in throwaway CI envs that genuinely run tight.
+if [[ "${RIPDPI_LAB_SKIP_PREFLIGHT:-0}" != "1" ]]; then
+  preflight_disk_space "${RIPDPI_LAB_MIN_DISK_GIB:-10}" "$lab_root"
+  preflight_tmpdir "${RIPDPI_LAB_MIN_TMPDIR_GIB:-4}"
+fi
 
 detect_lan_ip() {
   for iface in "${RIPDPI_LAB_IFACE:-}" en0 en1 bridge100; do
