@@ -79,6 +79,23 @@ test-rust-turmoil:
 test-screenshots:
     ./gradlew verifyScreenshots
 
+# Run monkey against an installed app; distinguishes monkey's own self-exit
+# from a real app crash by scraping logcat for FATAL EXCEPTION / ANR markers.
+# Defaults: package com.poyka.ripdpi, 500 events, whichever device adb picks.
+[group('test')]
+test-monkey events="500":
+    bash scripts/test-monkey.sh -c {{events}}
+
+# End-to-end smoke against the sibling ripdpi-vpn-deploy stack: brings up the
+# published-ports molecule scenario, installs the debug APK on the connected
+# device/emulator, imports a VLESS REALITY deep-link built from the molecule
+# test-secrets fixture, and asserts proxy import via logcat.
+# Requires: a built debug APK (run `just build` first), a ready AVD/device, and
+# the sibling repo at $HOME/GitHub/ripdpi-vpn-deploy (override via RIPDPI_VPN_DEPLOY_DIR).
+[group('test')]
+e2e-vpn-deploy:
+    bash scripts/e2e-vpn-deploy.sh
+
 # Record new Roborazzi screenshot baselines
 [group('test')]
 [confirm("This overwrites existing screenshot baselines. Continue?")]
