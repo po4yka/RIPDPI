@@ -428,11 +428,11 @@ owner = "android-ffi"
 review_date = "2026-11-15"
 
 [[entries]]
-file = "native/rust/crates/ripdpi-android-vpn-protect-adapter/src/lib.rs"
+file = "native/rust/crates/ripdpi-android-vpn-protect-adapter/src/protect_callback.rs"
 pattern = "unsafe impl Send/Sync"
 reason = "JniProtectCallback (duplicate of the warp-android impl, same shape and SAFETY argument)"
 preconditions = "JavaVM is a wrapper around *mut sys::JavaVM (JVM is thread-safe); Global<JObject<'static>> is GC-pinned and safe across threads; `protect()` uses attach_current_thread for every invocation"
-enforcement = "JNI spec contract (NewGlobalRef/DeleteGlobalRef atomic, AttachCurrentThread invocation discipline); compile-fail const block locks the Send+Sync claim"
+enforcement = "JNI spec contract (NewGlobalRef/DeleteGlobalRef atomic, AttachCurrentThread invocation discipline); compile-fail const block in lib.rs locks the Send+Sync claim for the split callback type"
 owner = "android-ffi"
 review_date = "2026-11-15"
 
@@ -459,22 +459,31 @@ enforcement = "Mutex-guarded HashMap; no raw pointer dereference; functions are 
 owner = "io-uring"
 review_date = "2026-11-15"
 
-# ---------------------------------------------------------------------------
-# `ownership flag near drop/unsafe` — `RootHelperRegistration::registered`
-# is a `bool` field whose value gates the `unregister_root_helper()` call
-# in Drop. Per the issue-#11 audit, this would be unsound if safe code
-# could duplicate the guard or forge `registered: true` externally;
-# neither is possible because the struct is move-only and the field is
-# private. The bool is therefore diagnostic only — the actual ownership
-# of the registration is encoded by the move-only guard itself.
-# ---------------------------------------------------------------------------
 [[entries]]
-file = "native/rust/crates/ripdpi-proxy-runtime/src/runtime/listeners.rs"
-pattern = "ownership flag near drop/unsafe"
-reason = "`RootHelperRegistration::registered: bool` is a conditional-cleanup gate inside Drop"
-preconditions = "Struct is move-only (no `Copy`/`Clone`), field is private (cannot be forged from outside the module), constructor `for_config` sets the bool deterministically from config"
-enforcement = "Move semantics: Drop runs at most once per guard (no double-destroy). Field privacy: safe code cannot construct `Self { registered: true }` from elsewhere. Compile-fail `AmbiguousIfCopy`/`AmbiguousIfClone` const blocks lock the `!Copy + !Clone` claim. Runtime regressions in the `tests` module cover sequential lifecycle, no-op drop, and `mem::forget` leak documented limitation."
-owner = "proxy-runtime"
+file = "native/rust/crates/ripdpi-android-vpn-protect-adapter/src/entry.rs"
+pattern = "raw usize handle in public fn"
+reason = "`unregister_entry(token: i64)` consumes the monotonic generation token returned by `register_entry`; the token is not a pointer"
+preconditions = "Token originates from `ProtectGeneration::token()` or may be forged by Java/test callers; forged, zero, stale, or superseded tokens are accepted as safe no-ops"
+enforcement = "`ProtectGeneration::from_token` wraps the integer and `unregister_protect_callback_if` clears only when the registry generation matches; no raw pointer dereference or unchecked memory access occurs"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-android-vpn-protect-adapter/src/lib.rs"
+pattern = "raw usize handle in public fn"
+reason = "Public re-export of the VPN protect registration entry points carries a generation token across the JNI bridge; the integer is not a pointer"
+preconditions = "Token originates from `ProtectGeneration::token()` or may be forged by Java/test callers; forged, zero, stale, or superseded tokens are accepted as safe no-ops"
+enforcement = "Registry generation check in `unregister_protect_callback_if`; the exported functions never reinterpret the integer as an address"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-warp-android/src/vpn_protect.rs"
+pattern = "raw usize handle in public fn"
+reason = "`unregister_entry(token: i64)` consumes the monotonic generation token returned by WARP VPN protect registration; the token is not a pointer"
+preconditions = "Token originates from `ProtectGeneration::token()` or may be forged by Java/test callers; forged, zero, stale, or superseded tokens are accepted as safe no-ops"
+enforcement = "`ProtectGeneration::from_token` wraps the integer and `unregister_protect_callback_if` clears only when the registry generation matches; no raw pointer dereference or unchecked memory access occurs"
+owner = "android-ffi"
 review_date = "2026-11-15"
 
 # ---------------------------------------------------------------------------
@@ -509,6 +518,15 @@ reason = "`ServicesStateHandle(pub(crate) Arc<ServicesState>)` is a newtype wrap
 preconditions = "The sole field is `Arc<ServicesState>`; cloning the newtype delegates to `Arc::clone`"
 enforcement = "Refcounted shared ownership via `Arc<ServicesState>`; identical to the `ReprobeResetHandle` argument above. The newtype shape adds nominal typing without changing Clone semantics."
 owner = "runtime-services"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-monitor-engine/src/engine/runners/registry.rs"
+pattern = "derive Clone on owner-named type"
+reason = "`ProbeStageRegistration` is canonical stage metadata, not an ownership guard despite the name"
+preconditions = "Fields are `&'static str`, `ExecutionStageId`, `Option<ProbeTaskFamily>`, and a function pointer; the struct owns no allocation, file descriptor, registration slot, or exclusive resource"
+enforcement = "Metadata-only value semantics: Clone duplicates copy-trivial descriptors and the same runner factory function pointer. No resource is duplicated because no resource is held."
+owner = "diagnostics"
 review_date = "2026-11-15"
 
 # ---------------------------------------------------------------------------
