@@ -2605,4 +2605,12 @@ fake_burst 3</string>
     <string name="whats_new_badge">新</string>
     <string name="whats_new_later">稍后</string>
     <string name="whats_new_acknowledge">知道了</string>
+
+    <!-- Replay recommendations -->
+    <string name="vpn_replay_rec_rst_after_client_hello">可能 RST + SNI 检测 · 试试 tlsrec_split_host</string>
+    <string name="vpn_replay_rec_dns_tampered">DNS 可能被篡改 · 试试 DNS-over-HTTPS 解析器</string>
+    <string name="vpn_replay_rec_tcp_unreachable">目标 TCP 端口不可达 · 请检查目标</string>
+    <string name="vpn_replay_rec_handshake_alert">TLS 握手警报 · 试试其他 TLS 配置</string>
+    <string name="vpn_replay_rec_timeout_no_response">超时未响应 · 试试其他策略</string>
+    <string name="vpn_replay_rec_generic_fallback">探测失败 · 试试其他策略</string>
 </resources>

@@ -2604,4 +2604,12 @@ Origen: %2$s</string>
     <string name="whats_new_badge">Novedades</string>
     <string name="whats_new_later">Más tarde</string>
     <string name="whats_new_acknowledge">Entendido</string>
+
+    <!-- Replay recommendations -->
+    <string name="vpn_replay_rec_rst_after_client_hello">Posible RST + inspección SNI · prueba tlsrec_split_host</string>
+    <string name="vpn_replay_rec_dns_tampered">El DNS parece manipulado · prueba un resolutor DNS-over-HTTPS</string>
+    <string name="vpn_replay_rec_tcp_unreachable">Puerto TCP de destino inaccesible · revisa el destino</string>
+    <string name="vpn_replay_rec_handshake_alert">Alerta de handshake TLS · prueba otro perfil TLS</string>
+    <string name="vpn_replay_rec_timeout_no_response">Sin respuesta en el tiempo límite · prueba otra estrategia</string>
+    <string name="vpn_replay_rec_generic_fallback">La prueba falló · prueba otra estrategia</string>
 </resources>

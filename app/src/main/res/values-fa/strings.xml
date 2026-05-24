@@ -2609,4 +2609,12 @@ fakeddisorder endhost</string>
     <string name="whats_new_badge">تازه‌ها</string>
     <string name="whats_new_later">بعداً</string>
     <string name="whats_new_acknowledge">باشد</string>
+
+    <!-- Replay recommendations -->
+    <string name="vpn_replay_rec_rst_after_client_hello">احتمالاً RST + بازرسی SNI · tlsrec_split_host را امتحان کنید</string>
+    <string name="vpn_replay_rec_dns_tampered">به نظر می‌رسد DNS دستکاری شده · یک حل‌کننده DNS-over-HTTPS امتحان کنید</string>
+    <string name="vpn_replay_rec_tcp_unreachable">پورت TCP مقصد در دسترس نیست · مقصد را بررسی کنید</string>
+    <string name="vpn_replay_rec_handshake_alert">هشدار دست‌تکانی TLS · یک پروفایل TLS دیگر امتحان کنید</string>
+    <string name="vpn_replay_rec_timeout_no_response">پاسخی در زمان مهلت دریافت نشد · یک راهبرد دیگر امتحان کنید</string>
+    <string name="vpn_replay_rec_generic_fallback">کاوش ناموفق بود · یک راهبرد دیگر امتحان کنید</string>
 </resources>

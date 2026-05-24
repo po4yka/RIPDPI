@@ -2723,4 +2723,12 @@ fakeddisorder endhost</string>
     <string name="whats_new_badge">Что нового</string>
     <string name="whats_new_later">Позже</string>
     <string name="whats_new_acknowledge">Понятно</string>
+
+    <!-- Replay recommendations -->
+    <string name="vpn_replay_rec_rst_after_client_hello">Возможен RST + инспекция SNI · попробуйте tlsrec_split_host</string>
+    <string name="vpn_replay_rec_dns_tampered">DNS похоже подменяется · попробуйте резолвер DNS-over-HTTPS</string>
+    <string name="vpn_replay_rec_tcp_unreachable">Целевой TCP-порт недоступен · проверьте адрес назначения</string>
+    <string name="vpn_replay_rec_handshake_alert">TLS handshake alert · попробуйте другой TLS-профиль</string>
+    <string name="vpn_replay_rec_timeout_no_response">Нет ответа в течение тайм-аута · попробуйте другую стратегию</string>
+    <string name="vpn_replay_rec_generic_fallback">Проба не удалась · попробуйте другую стратегию</string>
 </resources>

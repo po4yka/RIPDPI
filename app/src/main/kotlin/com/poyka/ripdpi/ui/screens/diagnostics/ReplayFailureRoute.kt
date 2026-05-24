@@ -3,8 +3,10 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.poyka.ripdpi.R
 
 /**
  * Default replay target used until typed navigation arguments
@@ -61,35 +63,36 @@ fun ReplayFailureRoute(
 }
 
 /**
- * English-fallback resolver for recommendation keys emitted by
- * [com.poyka.ripdpi.diagnostics.replay.ReplayRecommendationEngine].
- * Real `R.string` lookups land in P4.5 alongside the 7-locale keys;
- * keeping the table in-file means the wiring is testable today without
- * blocking on the translation pass.
+ * Resolves recommendation keys emitted by
+ * [com.poyka.ripdpi.diagnostics.replay.ReplayRecommendationEngine]
+ * to localized strings backed by `R.string.vpn_replay_rec_*` across
+ * all 7 supported locales. Unknown keys fall back to the generic
+ * "probe failed" message.
  */
+@Composable
 private fun resolveRecommendation(key: String): String =
     when (key) {
         "vpn_replay_rec_rst_after_client_hello" -> {
-            "Possible RST + SNI inspection · try tlsrec_split_host instead"
+            stringResource(R.string.vpn_replay_rec_rst_after_client_hello)
         }
 
         "vpn_replay_rec_dns_tampered" -> {
-            "DNS appears tampered · try a DNS-over-HTTPS resolver"
+            stringResource(R.string.vpn_replay_rec_dns_tampered)
         }
 
         "vpn_replay_rec_tcp_unreachable" -> {
-            "Target TCP port unreachable · check the destination"
+            stringResource(R.string.vpn_replay_rec_tcp_unreachable)
         }
 
         "vpn_replay_rec_handshake_alert" -> {
-            "TLS handshake alert · try a different TLS profile"
+            stringResource(R.string.vpn_replay_rec_handshake_alert)
         }
 
         "vpn_replay_rec_timeout_no_response" -> {
-            "No response within timeout · try a different strategy"
+            stringResource(R.string.vpn_replay_rec_timeout_no_response)
         }
 
         else -> {
-            "Probe failed · try a different strategy"
+            stringResource(R.string.vpn_replay_rec_generic_fallback)
         }
     }

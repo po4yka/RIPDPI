@@ -2604,4 +2604,12 @@ Quelle: %2$s</string>
     <string name="whats_new_badge">Neu</string>
     <string name="whats_new_later">Später</string>
     <string name="whats_new_acknowledge">Verstanden</string>
+
+    <!-- Replay recommendations -->
+    <string name="vpn_replay_rec_rst_after_client_hello">Möglicher RST + SNI-Inspektion · versuche tlsrec_split_host</string>
+    <string name="vpn_replay_rec_dns_tampered">DNS scheint manipuliert · versuche einen DNS-over-HTTPS-Resolver</string>
+    <string name="vpn_replay_rec_tcp_unreachable">Ziel-TCP-Port nicht erreichbar · prüfe das Ziel</string>
+    <string name="vpn_replay_rec_handshake_alert">TLS-Handshake-Alert · versuche ein anderes TLS-Profil</string>
+    <string name="vpn_replay_rec_timeout_no_response">Keine Antwort im Zeitlimit · versuche eine andere Strategie</string>
+    <string name="vpn_replay_rec_generic_fallback">Probe fehlgeschlagen · versuche eine andere Strategie</string>
 </resources>
