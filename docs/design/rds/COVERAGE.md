@@ -88,7 +88,7 @@
 - **Live Counter** (`components-live-counter.html`)
 - ~~**Log Row** (`components-log-row.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/LogRow.kt`; golden `RdsComponentsScreenshotTest.logRow`
 - ~~**Metric Pill** (`components-metric-pill.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiMetricPill.kt`; golden `RdsComponentsScreenshotTest.metricPill`
-- **Preset Card** (`components-preset-card.html`)
+- ~~**Preset Card** (`components-preset-card.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/PresetCard.kt`; golden `RdsComponentsScreenshotTest.presetCard`
 - **Stage Progress** (`components-stage-progress.html`)
 - **Stale Data Badge** (`components-stale-data-badge.html`)
 - ~~**Brand Badge** (`components-brand-badge.html`)~~ — implemented in `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiBrandBadge.kt`
