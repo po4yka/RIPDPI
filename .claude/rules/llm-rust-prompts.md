@@ -62,6 +62,12 @@ Skim AI-generated Rust diffs first for these patterns. Each one is a 70%+ predic
 - `NetdClient.h::protectFromVpn` reference → non-ABI API, breaks between Android releases.
 - `serde_json::to_writer` to a path under `~/data` or `/data/data/.../files` without an explicit `fsync` call → state loss on LMK SIGKILL.
 
+**Deploy-stack adjacent (sibling `ripdpi-vpn-deploy` repo):**
+
+- xray `routing.rules` entry with `"type": "field"` and NO selector field (`domain`/`ip`/`port`/`network`/`source`/`user`/`inboundTag`/`protocol`/`attrs`) → xray v26+ rejects with `app/router: this rule has no effective fields` at start-test. A catch-all "default" rule must be expressed as `"network": "tcp,udp"`; the intuitively-empty form is invalid. See `ansible-molecule.md` Rule 3.
+- ansible molecule `scenario.yml` where the platform name appears at the top of `inventory.hosts.<name>` (no group nesting) → playbook `hosts: vpn` matches nothing, converge logs `PLAY RECAP : ok=0 changed=0` and exits 0. See `ansible-molecule.md` Rule 1.
+- ansible molecule scenario that references a variable from `ansible/group_vars/all.yml` without mirroring it under the scenario's `inventory.group_vars.all` block → role aborts with `<var> is undefined` mid-converge even though the variable *is* defined for the real playbook. See `ansible-molecule.md` Rule 2.
+
 ### Multi-model orchestration
 
 The two May-2026 frontier models have different shapes; use both, never just one for the same long task:
@@ -111,4 +117,5 @@ The LLM is wrong. The rules are derived from production failures, not theory. Pu
 - `rust-sanitizers-miri` skill — Miri configuration for the nightly UB-detection job.
 - `rust-security` skill — RUSTSEC triage SLA for advisories surfacing via `cargo audit`.
 - `rust-toolchain-pin.md` rule — toolchain channel pin and `--locked` discipline.
+- `ansible-molecule.md` rule — molecule scenario inventory / group_vars / xray routing-rule discipline for diffs touching the sibling `ripdpi-vpn-deploy` repo.
 - `async-cancel-safety` sub-agent — the automated audit for the cancel-safety requirements in this file.
