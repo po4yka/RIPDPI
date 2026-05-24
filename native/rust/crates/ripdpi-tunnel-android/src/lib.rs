@@ -6,6 +6,7 @@
 
 mod config;
 mod entry;
+mod pcap;
 mod session;
 mod telemetry;
 

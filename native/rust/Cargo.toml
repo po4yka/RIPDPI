@@ -273,6 +273,7 @@ tokio-boring = "=5.0.0"
 webpki-roots = "1.0"
 io-uring = "=0.7.12"
 flume = "0.12"
+crossbeam-queue = "0.3"
 waker-fn = "1"
 x25519-dalek = { version = "2", features = ["static_secrets", "getrandom"] }
 h3 = "0.0.8"

@@ -13,6 +13,8 @@ crate-type = ["cdylib"]
 [dependencies]
 android-support = { workspace = true }
 arc-swap = { workspace = true }
+crossbeam-queue = { workspace = true }
+ripdpi-pcap = { workspace = true }
 ripdpi-quality = { workspace = true }
 ripdpi-tunnel-config = { workspace = true }
 ripdpi-tunnel-core = { workspace = true }
@@ -37,6 +39,7 @@ libc = { workspace = true }
 local-network-fixture = { workspace = true }
 native-soak-support = { workspace = true }
 proptest = { workspace = true }
+tempfile = "3.27"
 tracing-subscriber = { workspace = true }
 
 [features]
