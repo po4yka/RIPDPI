@@ -5,9 +5,11 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Image
@@ -82,4 +84,6 @@ object RipDpiIcons {
     val PhotoCamera: ImageVector = Icons.Outlined.PhotoCamera
     val Image: ImageVector = Icons.Outlined.Image
     val Refresh: ImageVector = Icons.Outlined.Refresh
+    val Archive: ImageVector = Icons.Outlined.Archive
+    val Delete: ImageVector = Icons.Outlined.Delete
 }
