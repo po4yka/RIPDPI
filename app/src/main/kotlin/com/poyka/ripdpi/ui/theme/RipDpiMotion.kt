@@ -167,6 +167,44 @@ data class RipDpiMotion(
             repeatMode = RepeatMode.Restart,
         )
 
+    // === Connection-state actuator motion fingerprints (motion-connection-states.html) ===
+
+    /**
+     * Concentric ring expansion for the Connecting state.
+     * Inset → scale(1.4), opacity 0.7 → 0, 2 s `StandardEasing`, infinite, restart.
+     * Animate a Float 0f → 1f and use it to drive both `scale` (1.0 + 0.4*t) and
+     * `alpha` (0.7 * (1 - t)).
+     */
+    fun connectRingSpec(): InfiniteRepeatableSpec<Float> =
+        infiniteRepeatable(
+            animation = tween(durationMillis = 2_000, easing = StandardEasing),
+            repeatMode = RepeatMode.Restart,
+        )
+
+    /**
+     * Slow inner-core breathe for the Tunneling state.
+     * Scale 1.0 ↔ 0.92, opacity 0.12 ↔ 0.22, 1.6 s ease-in-out, infinite reverse.
+     * Animate a Float 0f → 1f with `RepeatMode.Reverse` and use it to interpolate
+     * scale and alpha.
+     */
+    fun tunnelBreatheSpec(): InfiniteRepeatableSpec<Float> =
+        infiniteRepeatable(
+            animation = tween(durationMillis = 1_600, easing = EaseInOutEasing),
+            repeatMode = RepeatMode.Reverse,
+        )
+
+    /**
+     * Asymmetric two-step wobble flash for the Degraded state.
+     * 1.2 s total, two opacity flashes inside the cycle, scaled border ring.
+     * The infinite repeatable just paces; the consumer reads progress (Float)
+     * and applies the keyframe shape: opacity 0 → 0.5 (20-50%) → 0 (60-100%).
+     */
+    fun degradedWobbleSpec(): InfiniteRepeatableSpec<Float> =
+        infiniteRepeatable(
+            animation = tween(durationMillis = 1_200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        )
+
     /** Spring spec that respects reducedMotion -- falls back to critically-damped (no bounce). */
     fun <T> motionAwareSpring(expressive: Boolean = false): SpringSpec<T> =
         if (reducedMotion || !animationsEnabled) {
@@ -186,6 +224,9 @@ data class RipDpiMotion(
 
         /** M3 standard -- use for on-screen property changes (color, opacity). */
         val StandardEasing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
+
+        /** CSS ease-in-out (cubic-bezier(0.42, 0, 0.58, 1)) -- for symmetric breathe / pulse. */
+        val EaseInOutEasing = CubicBezierEasing(0.42f, 0.0f, 0.58f, 1.0f)
 
         /** M3 Expressive standard spring -- critically damped, no overshoot. */
         const val StandardSpringDamping = 1f
