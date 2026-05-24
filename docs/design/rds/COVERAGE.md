@@ -17,11 +17,11 @@
 | **Diagnostic screens** | 6 | 6 | 0 | 0 | ✅ Complete |
 | **Share flow** | 5 | 3 | 2 | 0 | ✅ Good |
 | **Gesture interactions** | 3 | 2 | 1 | 0 | ✅ Good |
-| **Onboarding** | 2 | 1 | 1 | 0 | ⚠️ Partial |
+| **Onboarding** | 2 | 2 | 0 | 0 | ✅ Complete |
 | **One-offs** | 6 | 5 | 1 | 0 | ✅ Good |
 | **Reference-only cards** | 24 | — | — | — | 📚 Docs |
 
-**Overall Coverage:** 111/122 implementable specs have verified Kotlin implementations (91%) — up from 72/122 (59%) before the RDS-implementation session. Remaining gaps: 5 VPN flow screens missing + 8 VPN partials + 1 share partial + 1 gesture partial + 1 onboarding partial + 1 one-off partial.
+**Overall Coverage:** 112/122 implementable specs have verified Kotlin implementations (92%) — up from 72/122 (59%) before the RDS-implementation session. Remaining gaps: 5 VPN flow screens missing + 8 VPN partials + 1 share partial + 1 gesture partial + 1 one-off partial.
 
 ---
 
@@ -238,15 +238,12 @@
 
 ---
 
-## Onboarding (2 specs, 1 ✅ + 1 ⚠️ = 100% implemented)
+## Onboarding (2 specs, 2 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
 - **Tour Cards** (`onboarding-tour-cards.html`) — `OnboardingScreen.kt`
-
-### ⚠️ Partial Implementation
-
-- **Coach Mark** (`onboarding-coach-mark.html`) — onboarding hints; full annotation system incomplete
+- ~~**Coach Mark** (`onboarding-coach-mark.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiCoachMark.kt`; full-screen scrim + circular cutout at anchor, pulsing spotlight ring via `RipDpiMotion.connectRingSpec()`, reduced-motion path collapses to static ring per `LocalReducedMotion`
 
 ---
 
