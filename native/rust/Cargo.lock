@@ -3948,6 +3948,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-pcap"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+]
+
+[[package]]
 name = "ripdpi-privileged-ops"
 version = "0.1.0"
 dependencies = [

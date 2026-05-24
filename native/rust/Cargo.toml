@@ -63,6 +63,7 @@ members = [
     "crates/ripdpi-warp-core",
     "crates/ripdpi-warp-android",
     "crates/ripdpi-packets",
+    "crates/ripdpi-pcap",
     "crates/ripdpi-ipfrag",
     "crates/ripdpi-session",
     "crates/ripdpi-socks5-core",
@@ -170,6 +171,7 @@ ripdpi-relay-mux = { path = "crates/ripdpi-relay-mux" }
 ripdpi-apps-script-core = { path = "crates/ripdpi-apps-script-core" }
 ripdpi-warp-core = { path = "crates/ripdpi-warp-core" }
 ripdpi-packets = { path = "crates/ripdpi-packets" }
+ripdpi-pcap = { path = "crates/ripdpi-pcap" }
 ripdpi-ipfrag = { path = "crates/ripdpi-ipfrag" }
 ripdpi-session = { path = "crates/ripdpi-session" }
 ripdpi-socks5-core = { path = "crates/ripdpi-socks5-core" }
