@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:520px}</style></head>
+<body><div class="card">
+<style>
+.steps { display: flex; gap: 4px; align-items: center; padding-bottom: 14px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 14px; }
+.steps .s { flex: 1; height: 4px; border-radius: 2px; background: var(--rdp-outline-variant); }
+.steps .s.done { background: var(--rdp-foreground); }
+.steps .s.run  { background: var(--rdp-info); }
+.head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.head .ico { width: 32px; height: 32px; border-radius: 9999px; background: var(--rdp-info-container); color: var(--rdp-info); display: grid; place-items: center; flex-shrink: 0; }
+.head .body .crumb { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.head .body h1 { font: var(--rdp-type-screen-title); margin: 2px 0; }
+.head .body p  { font: var(--rdp-type-body); color: var(--rdp-muted-foreground); margin: 0; }
+.candidates { display: flex; flex-direction: column; gap: 6px; }
+.row { display: grid; grid-template-columns: 1fr 80px 60px; gap: 12px; padding: 10px 0; align-items: center; }
+.row + .row { border-top: 0.5px solid var(--rdp-divider); }
+.row .label { font: var(--rdp-type-body-emphasis); }
+.row .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 2px; }
+.row .bar { height: 6px; border-radius: 2px; background: var(--rdp-muted); position: relative; overflow: hidden; }
+.row .bar .fill { position: absolute; left: 0; top: 0; bottom: 0; }
+.row .bar .fill.pass { background: var(--rdp-success); }
+.row .bar .fill.warn { background: var(--rdp-warning); }
+.row .bar .fill.run  { background: var(--rdp-info); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.55; } }
+.row .pct { font: var(--rdp-type-mono-small); color: var(--rdp-foreground); text-align: right; font-variant-numeric: tabular-nums; }
+.row .pct.muted { color: var(--rdp-muted-foreground); }
+</style>
+<div class="steps"><span class="s done"></span><span class="s done"></span><span class="s run"></span><span class="s"></span><span class="s"></span></div>
+<div class="head">
+  <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 10h2v7h-2zM11 7h2v2h-2z"/></svg></span>
+  <span class="body"><div class="crumb">Step 3 of 5</div><h1>Picking a strategy</h1><p>Probing 4 candidate strategies against your network. Keep the app open until step 5.</p></span>
+</div>
+<div class="candidates">
+  <div class="row">
+    <div><div class="label">tlsrec_split_host</div><div class="sub">Splits ClientHello after SNI</div></div>
+    <div class="bar"><span class="fill pass" style="width: 100%"></span></div>
+    <span class="pct">8/8</span>
+  </div>
+  <div class="row">
+    <div><div class="label">desync_fake</div><div class="sub">Fake first packet, bad TTL</div></div>
+    <div class="bar"><span class="fill warn" style="width: 62%"></span></div>
+    <span class="pct">5/8</span>
+  </div>
+  <div class="row">
+    <div><div class="label">fragment_drop</div><div class="sub">Splits + drops first segment</div></div>
+    <div class="bar"><span class="fill run" style="width: 38%"></span></div>
+    <span class="pct">3/8 …</span>
+  </div>
+  <div class="row">
+    <div><div class="label">host_fake</div><div class="sub">Mismatched SNI fingerprint</div></div>
+    <div class="bar"></div>
+    <span class="pct muted">queued</span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 14px">Strategy probe wizard · auto-pick step · live per-candidate success bars · best candidate auto-selected at step 5.</div>
+</div></body></html>

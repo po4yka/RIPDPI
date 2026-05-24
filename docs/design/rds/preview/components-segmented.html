@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:340px}</style></head>
+<body><div class="card">
+<style>
+.sg { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.sg .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.sg .hd .t { font: var(--rdp-type-body-emphasis); }
+.sg .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.lbl { font: var(--rdp-type-mono-small); font-size: 10px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--rdp-muted-foreground); margin: 14px 0 8px; }
+
+.seg {
+  display: inline-flex; align-items: stretch;
+  background: var(--rdp-muted);
+  padding: 3px;
+  border-radius: 9999px;
+  border: 0.5px solid var(--rdp-border);
+}
+.seg .opt {
+  padding: 6px 14px;
+  font: var(--rdp-type-small-label);
+  font-size: 12px;
+  color: var(--rdp-muted-foreground);
+  border-radius: 9999px;
+  cursor: pointer;
+  white-space: nowrap;
+  border: none; background: transparent;
+  transition: background-color 220ms cubic-bezier(0.2,0,0,1);
+}
+.seg .opt.sel {
+  background: var(--rdp-card);
+  color: var(--rdp-foreground);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+
+/* Variants */
+.seg.flat .opt.sel { box-shadow: none; background: var(--rdp-foreground); color: var(--rdp-background); }
+.seg.flat { background: transparent; border-color: var(--rdp-border); }
+
+.seg.boxed {
+  background: transparent;
+  border: 0.5px solid var(--rdp-border);
+  border-radius: 8px;
+  padding: 0;
+}
+.seg.boxed .opt {
+  padding: 8px 14px;
+  border-radius: 0;
+  border-right: 0.5px solid var(--rdp-border);
+}
+.seg.boxed .opt:last-child { border-right: none; }
+.seg.boxed .opt.sel { background: var(--rdp-foreground); color: var(--rdp-background); box-shadow: none; }
+
+/* Compact mono */
+.seg.mono .opt { font: var(--rdp-type-mono-small); font-size: 11px; padding: 4px 10px; letter-spacing: 0.3px; }
+
+.row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 6px 0; }
+
+.with-counts .opt {
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.with-counts .opt .ct {
+  font: var(--rdp-type-mono-small); font-size: 9.5px;
+  padding: 1px 5px; border-radius: 9999px;
+  background: var(--rdp-accent); color: var(--rdp-muted-foreground);
+}
+.with-counts .opt.sel .ct {
+  background: var(--rdp-muted); color: var(--rdp-foreground);
+}
+</style>
+
+<div class="sg">
+  <div class="hd">
+    <span class="t">Segmented control</span>
+    <span class="sub">Single-select pill · 4 variants</span>
+  </div>
+
+  <div class="lbl">Standard (subtle)</div>
+  <div class="row">
+    <span class="seg">
+      <button class="opt sel">Light</button>
+      <button class="opt">Dark</button>
+    </span>
+    <span class="seg">
+      <button class="opt">1 h</button>
+      <button class="opt">6 h</button>
+      <button class="opt sel">24 h</button>
+      <button class="opt">7 d</button>
+    </span>
+  </div>
+
+  <div class="lbl">Flat (inverse-select)</div>
+  <div class="row">
+    <span class="seg flat">
+      <button class="opt">Quick</button>
+      <button class="opt sel">Advanced</button>
+    </span>
+    <span class="seg flat mono">
+      <button class="opt sel">TCP</button>
+      <button class="opt">UDP</button>
+      <button class="opt">QUIC</button>
+    </span>
+  </div>
+
+  <div class="lbl">Boxed</div>
+  <div class="row">
+    <span class="seg boxed">
+      <button class="opt">Logs</button>
+      <button class="opt sel">Pcap</button>
+      <button class="opt">Strategies</button>
+    </span>
+  </div>
+
+  <div class="lbl">With counts</div>
+  <div class="row">
+    <span class="seg with-counts">
+      <button class="opt sel">All <span class="ct">1 482</span></button>
+      <button class="opt">Warn <span class="ct">21</span></button>
+      <button class="opt">Error <span class="ct">3</span></button>
+    </span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Segmented control · 4 variants · standard for soft toggles, flat for inverse-select emphasis, boxed for split-button feel, count-bearing for filter heads.</div>
+</div></body></html>

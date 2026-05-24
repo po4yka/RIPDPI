@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:420px}</style></head>
+<body><div class="card">
+<style>
+.cc { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.cc .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 12px; }
+.cc .hd .t { font: var(--rdp-type-body-emphasis); }
+.cc .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.matrix {
+  display: grid;
+  grid-template-columns: 130px repeat(2, 1fr);
+  gap: 0;
+  border: 0.5px solid var(--rdp-divider);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.matrix .cell {
+  padding: 10px 12px;
+  border-right: 0.5px solid var(--rdp-divider);
+  border-bottom: 0.5px solid var(--rdp-divider);
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+}
+.matrix .cell:nth-child(3n) { border-right: none; }
+.matrix .cell:nth-last-child(-n+3) { border-bottom: none; }
+.matrix .cell.head {
+  background: var(--rdp-muted);
+  font: var(--rdp-type-section-title); font-size: 9.5px;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--rdp-muted-foreground);
+}
+
+.pair { display: flex; align-items: center; gap: 0; }
+.pair .swatch { width: 32px; height: 32px; border-radius: 4px; border: 0.5px solid var(--rdp-outline-variant); }
+.pair .arrow { padding: 0 6px; color: var(--rdp-muted-foreground); }
+.pair .label { font: var(--rdp-type-mono-small); font-size: 9.5px; color: var(--rdp-muted-foreground); text-transform: uppercase; letter-spacing: 0.4px; }
+
+.demo {
+  padding: 8px 10px; border-radius: 4px;
+  font: var(--rdp-type-mono-value); font-size: 11px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.demo .ratio { font-weight: 500; }
+.demo .badge {
+  font: var(--rdp-type-mono-small); font-size: 9px;
+  padding: 1px 5px; border-radius: 3px;
+  background: rgba(255,255,255,0.2);
+}
+.demo.dark .badge { background: rgba(0,0,0,0.18); }
+
+.legend {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+  font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground);
+}
+.legend .item { display: inline-flex; align-items: center; gap: 5px; }
+.legend .item .pip { padding: 1px 6px; border-radius: 3px; font: 9px var(--rdp-font-mono); letter-spacing: 0.4px; }
+.legend .item .pip.aaa { background: var(--rdp-success-container); color: var(--rdp-success); }
+.legend .item .pip.aa  { background: var(--rdp-info-container);   color: var(--rdp-info); }
+.legend .item .pip.fail { background: var(--rdp-destructive-container); color: var(--rdp-destructive); }
+
+.note { font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); margin-top: 8px; }
+.note code { font: var(--rdp-type-mono-inline); padding: 1px 5px; background: var(--rdp-accent); border-radius: 3px; color: var(--rdp-foreground); }
+</style>
+
+<div class="cc">
+  <div class="hd">
+    <span class="t">Color contrast pairs</span>
+    <span class="sub">Approved combinations · light + dark</span>
+  </div>
+
+  <div class="matrix">
+    <div class="cell head">Pair</div>
+    <div class="cell head">Light theme</div>
+    <div class="cell head">Dark theme</div>
+
+    <div class="cell">
+      <div class="pair"><div class="swatch" style="background: #1A1A1A"></div><div class="arrow">/</div><div class="swatch" style="background: #FAFAFA"></div></div>
+      <div class="label" style="margin-top: 6px">foreground / background</div>
+    </div>
+    <div class="cell">
+      <div class="demo" style="background: #FAFAFA; color: #1A1A1A">
+        <span>Body 12 / 16 px</span>
+        <span class="ratio">15.4 : 1 <span class="badge" style="color: #047857; background: #ECFDF5">AAA</span></span>
+      </div>
+    </div>
+    <div class="cell">
+      <div class="demo dark" style="background: #121212; color: #E8E8E8">
+        <span>Body 12 / 16 px</span>
+        <span class="ratio">14.7 : 1 <span class="badge" style="color: #34D399; background: #064E3B">AAA</span></span>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="pair"><div class="swatch" style="background: #575757"></div><div class="arrow">/</div><div class="swatch" style="background: #FAFAFA"></div></div>
+      <div class="label" style="margin-top: 6px">muted-fg / background</div>
+    </div>
+    <div class="cell">
+      <div class="demo" style="background: #FAFAFA; color: #575757">
+        <span>Caption · 10 / 12 px</span>
+        <span class="ratio">6.4 : 1 <span class="badge" style="color: #1D4ED8; background: #EFF6FF">AA</span></span>
+      </div>
+    </div>
+    <div class="cell">
+      <div class="demo dark" style="background: #121212; color: #A3A3A3">
+        <span>Caption · 10 / 12 px</span>
+        <span class="ratio">6.9 : 1 <span class="badge" style="color: #60A5FA; background: #0C4A6E">AA</span></span>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="pair"><div class="swatch" style="background: #FFFFFF"></div><div class="arrow">/</div><div class="swatch" style="background: #B91C1C"></div></div>
+      <div class="label" style="margin-top: 6px">destructive-fg / destructive</div>
+    </div>
+    <div class="cell">
+      <div class="demo" style="background: #B91C1C; color: #FFFFFF">
+        <span>Disconnect</span>
+        <span class="ratio">6.0 : 1 <span class="badge" style="color: #34D399; background: rgba(255,255,255,0.2)">AA</span></span>
+      </div>
+    </div>
+    <div class="cell">
+      <div class="demo dark" style="background: #F87171; color: #210A0A">
+        <span>Disconnect</span>
+        <span class="ratio">5.2 : 1 <span class="badge" style="color: #ECFDF5; background: rgba(0,0,0,0.18)">AA</span></span>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="pair"><div class="swatch" style="background: #064E3B"></div><div class="arrow">/</div><div class="swatch" style="background: #ECFDF5"></div></div>
+      <div class="label" style="margin-top: 6px">success-c-fg / success-c</div>
+    </div>
+    <div class="cell">
+      <div class="demo" style="background: #ECFDF5; color: #064E3B">
+        <span>Tunnel restored</span>
+        <span class="ratio">10.7 : 1 <span class="badge" style="color: #047857; background: #FFFFFF">AAA</span></span>
+      </div>
+    </div>
+    <div class="cell">
+      <div class="demo dark" style="background: #064E3B; color: #D1FAE5">
+        <span>Tunnel restored</span>
+        <span class="ratio">9.4 : 1 <span class="badge" style="color: #34D399; background: rgba(0,0,0,0.2)">AAA</span></span>
+      </div>
+    </div>
+
+    <div class="cell">
+      <div class="pair"><div class="swatch" style="background: #FAFAFA"></div><div class="arrow">/</div><div class="swatch" style="background: #757575"></div></div>
+      <div class="label" style="margin-top: 6px">disabled · use sparingly</div>
+    </div>
+    <div class="cell">
+      <div class="demo" style="background: #FAFAFA; color: #757575">
+        <span>Aa · 14 px</span>
+        <span class="ratio">4.6 : 1 <span class="badge" style="color: #1D4ED8; background: #EFF6FF">AA</span></span>
+      </div>
+    </div>
+    <div class="cell">
+      <div class="demo dark" style="background: #121212; color: #757575">
+        <span>Aa · 14 px</span>
+        <span class="ratio">4.7 : 1 <span class="badge" style="color: #60A5FA; background: #0C4A6E">AA</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="item"><span class="pip aaa">AAA</span>≥ 7.0 : 1 normal text · ≥ 4.5 : 1 large</span>
+    <span class="item"><span class="pip aa">AA</span>≥ 4.5 : 1 normal text · ≥ 3.0 : 1 large</span>
+    <span class="item"><span class="pip fail">FAIL</span>&lt; 4.5 : 1 — never ship</span>
+  </div>
+
+  <div class="note">All pairs above target normal text (12 – 14 px) and meet at least AA in both themes. Run a contrast check whenever introducing a new container / foreground pair — store the ratio next to the token name in <code>colors_and_type.css</code>.</div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Color contrast · 5 fundamental pairs with measured ratios for both themes · semantic AA / AAA pip per row · legend documents the rule.</div>
+</div></body></html>

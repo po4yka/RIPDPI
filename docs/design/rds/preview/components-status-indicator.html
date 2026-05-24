@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>html, body { min-height: 220px; }</style>
+</head>
+<body><div class="card">
+
+<style>
+.si { display:inline-flex; align-items:center; gap:8px; font: var(--rdp-type-brand-status) }
+.si .dot { width:8px; height:8px; border-radius:9999px; }
+.si .tri { width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; }
+.si .sq  { width:8px; height:8px; }
+.si .di  { width:9px; height:9px; transform: rotate(45deg) }
+.active .dot { background: var(--rdp-foreground); }
+.warning .tri { border-bottom: 10px solid var(--rdp-warning); }
+.error .sq { background: var(--rdp-destructive); }
+.idle .di { background: var(--rdp-muted-foreground); }
+</style>
+<div class="col" style="gap:14px">
+  <div class="row" style="gap:24px; flex-wrap:wrap">
+    <span class="si active"><span class="dot"></span>RUNNING</span>
+    <span class="si idle"><span class="di"></span>IDLE</span>
+    <span class="si warning"><span class="tri"></span>BUSY</span>
+    <span class="si error"><span class="sq"></span>FAILED</span>
+  </div>
+  <div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground)">StatusIndicator — four tones; each draws a distinct primitive (filled circle / diamond / triangle / square) so it's still readable to colorblind users. brandStatus type · 13/18 mono medium · pulse halo on Active and Warning.</div>
+  <div class="rdp-hairline"></div>
+  <div class="row" style="gap:8px; align-items:center">
+    <span class="si active"><span class="dot"></span></span>
+    <span style="font: var(--rdp-type-body-emphasis-bold)">Local DPI Bypass</span>
+    <span style="margin-left:auto; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground)">Connected 00:18:42</span>
+  </div>
+</div>
+
+</div></body></html>

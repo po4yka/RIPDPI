@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:460px}</style></head>
+<body><div class="card">
+<style>
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.side { padding: 16px; border: 1px solid var(--rdp-card-border); border-radius: 16px; background: var(--rdp-card); }
+.side.win { border-color: var(--rdp-success); }
+.side .head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 12px; }
+.side .head .name { font: var(--rdp-type-body-emphasis); }
+.side .head .badge { font: var(--rdp-type-mono-small); font-size: 10px; padding: 2px 8px; border-radius: 9999px; background: var(--rdp-muted); color: var(--rdp-muted-foreground); letter-spacing: 0.4px; }
+.side.win .head .badge { background: var(--rdp-success); color: #fff; }
+.side .score { font: 500 32px/1 var(--rdp-font-mono); font-variant-numeric: tabular-nums; margin-bottom: 12px; }
+.side .score .total { color: var(--rdp-muted-foreground); }
+.targets { display: flex; flex-direction: column; }
+.t { display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; padding: 4px 0; align-items: center; font: var(--rdp-type-mono-small); font-size: 11px; }
+.t .ico { width: 12px; height: 12px; }
+.t .ico.ok { color: var(--rdp-success); }
+.t .ico.bad { color: var(--rdp-destructive); }
+.t .name { color: var(--rdp-foreground); }
+.t .ms { color: var(--rdp-muted-foreground); font-variant-numeric: tabular-nums; }
+.action { padding: 14px 16px; background: var(--rdp-success-container); border-left: 2px solid var(--rdp-success); border-radius: 12px; margin-top: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.action .text { font: var(--rdp-type-body); font-size: 13px; color: var(--rdp-success-container-foreground); }
+.action .text b { color: inherit; font-weight: 500; }
+.action .btn { padding: 6px 14px; border-radius: 9999px; background: var(--rdp-success); color: #fff; font: var(--rdp-type-small-label); border: none; cursor: pointer; white-space: nowrap; }
+</style>
+<div class="compare">
+  <div class="side">
+    <div class="head"><span class="name">desync_fake</span><span class="badge">CURRENT</span></div>
+    <div class="score">3<span class="total">/4</span></div>
+    <div class="targets">
+      <div class="t"><svg class="ico ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg><span class="name">cloudflare-dns.com</span><span class="ms">18 ms</span></div>
+      <div class="t"><svg class="ico ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg><span class="name">discord.com</span><span class="ms">32 ms</span></div>
+      <div class="t"><svg class="ico bad" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 7h2v6h-2zM11 15h2v2h-2z"/></svg><span class="name">youtube.com</span><span class="ms">timeout</span></div>
+      <div class="t"><svg class="ico ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg><span class="name">openai.com</span><span class="ms">48 ms</span></div>
+    </div>
+  </div>
+  <div class="side win">
+    <div class="head"><span class="name">tlsrec_split_host</span><span class="badge">WINNER</span></div>
+    <div class="score">4<span class="total">/4</span></div>
+    <div class="targets">
+      <div class="t"><svg class="ico ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg><span class="name">cloudflare-dns.com</span><span class="ms">12 ms</span></div>
+      <div class="t"><svg class="ico ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg><span class="name">discord.com</span><span class="ms">28 ms</span></div>
+      <div class="t"><svg class="ico ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg><span class="name">youtube.com</span><span class="ms">62 ms</span></div>
+      <div class="t"><svg class="ico ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg><span class="name">openai.com</span><span class="ms">44 ms</span></div>
+    </div>
+  </div>
+</div>
+<div class="action">
+  <div class="text"><b>tlsrec_split_host</b> passed 1 more target. Average latency 36 ms (vs. 34 ms).</div>
+  <button class="btn">Switch</button>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Strategy A/B · side-by-side score · per-target detail · explicit "switch" CTA when there's a winner.</div>
+</div></body></html>

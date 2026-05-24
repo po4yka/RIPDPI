@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:400px}</style></head>
+<body><div class="card">
+<style>
+.sl { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.sl .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.sl .hd .t { font: var(--rdp-type-body-emphasis); }
+.sl .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.slot { padding: 14px 0; border-bottom: 0.5px solid var(--rdp-divider); }
+.slot:last-of-type { border-bottom: none; }
+.slot .ttl { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 28px; }
+.slot .ttl .lbl { font: var(--rdp-type-mono-value); font-size: 12px; }
+.slot .ttl .v { font: 500 14px/1 var(--rdp-font-mono); font-variant-numeric: tabular-nums; }
+.slot .ttl .v .unit { font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); margin-left: 2px; }
+
+.bar { position: relative; height: 24px; }
+.bar .track {
+  position: absolute; top: 50%; left: 0; right: 0;
+  height: 4px; transform: translateY(-50%);
+  background: var(--rdp-muted); border-radius: 2px;
+}
+.bar .fill {
+  position: absolute; top: 50%; left: 0;
+  height: 4px; transform: translateY(-50%);
+  background: var(--rdp-foreground); border-radius: 2px;
+}
+.bar .thumb {
+  position: absolute; top: 50%;
+  width: 18px; height: 18px;
+  border-radius: 9999px;
+  background: var(--rdp-card);
+  border: 1.5px solid var(--rdp-foreground);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: transform 120ms cubic-bezier(0.2,0,0,1);
+}
+.bar .thumb:hover { transform: translate(-50%, -50%) scale(1.1); }
+
+.bubble {
+  position: absolute; left: 50%; top: -28px; transform: translateX(-50%);
+  background: var(--rdp-foreground); color: var(--rdp-background);
+  padding: 3px 7px; border-radius: 4px;
+  font: 500 10.5px/1 var(--rdp-font-mono); font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.bubble::after { content: ""; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid var(--rdp-foreground); }
+
+.ticks {
+  position: relative; height: 14px;
+  margin-top: 6px;
+  font: 9.5px var(--rdp-font-mono); color: var(--rdp-muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.ticks span {
+  position: absolute; top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.ticks span::before {
+  content: ""; position: absolute; left: 50%; top: -6px;
+  transform: translateX(-50%);
+  width: 1px; height: 4px; background: var(--rdp-outline-variant);
+}
+
+/* Range (two-thumb) */
+.bar.range .fill { right: auto; }
+
+/* Disabled */
+.slot.disabled { opacity: 0.5; }
+.slot.disabled .thumb { cursor: not-allowed; }
+
+/* Snap markers */
+.snap { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 6px; height: 6px; background: var(--rdp-card); border: 1.5px solid var(--rdp-muted-foreground); border-radius: 9999px; }
+.snap.active { background: var(--rdp-foreground); border-color: var(--rdp-foreground); }
+
+/* Semantic */
+.bar.warn .fill { background: var(--rdp-warning); }
+.bar.warn .thumb { border-color: var(--rdp-warning); }
+.bar.warn .bubble { background: var(--rdp-warning); }
+.bar.warn .bubble::after { border-top-color: var(--rdp-warning); }
+</style>
+
+<div class="sl">
+  <div class="hd">
+    <span class="t">Slider</span>
+    <span class="sub">Numeric range · mono value bubble</span>
+  </div>
+
+  <div class="slot">
+    <div class="ttl">
+      <span class="lbl">MTU floor</span>
+      <span class="v">1380<span class="unit">b</span></span>
+    </div>
+    <div class="bar">
+      <span class="track"></span>
+      <span class="fill" style="width: 87%"></span>
+      <span class="thumb" style="left: 87%">
+        <span class="bubble">1380</span>
+      </span>
+    </div>
+    <div class="ticks">
+      <span style="left: 0%">576</span>
+      <span style="left: 45.9%">1000</span>
+      <span style="left: 76.2%">1280</span>
+      <span style="left: 100%">1500</span>
+    </div>
+  </div>
+
+  <div class="slot">
+    <div class="ttl">
+      <span class="lbl">Probe timeout</span>
+      <span class="v">2.5<span class="unit">s</span></span>
+    </div>
+    <div class="bar warn">
+      <span class="track"></span>
+      <span class="snap" style="left: 0%"></span>
+      <span class="snap" style="left: 10%"></span>
+      <span class="snap" style="left: 20%"></span>
+      <span class="snap active" style="left: 25%"></span>
+      <span class="snap" style="left: 50%"></span>
+      <span class="snap" style="left: 100%"></span>
+      <span class="fill" style="width: 25%"></span>
+      <span class="thumb" style="left: 25%"><span class="bubble">2.5 s</span></span>
+    </div>
+    <div class="ticks">
+      <span style="left: 0%">0 s</span>
+      <span style="left: 25%">2.5 s</span>
+      <span style="left: 50%">5 s</span>
+      <span style="left: 75%">7.5 s</span>
+      <span style="left: 100%">10 s</span>
+    </div>
+  </div>
+
+  <div class="slot">
+    <div class="ttl">
+      <span class="lbl">Acceptable RTT range</span>
+      <span class="v">20 – 120<span class="unit">ms</span></span>
+    </div>
+    <div class="bar range">
+      <span class="track"></span>
+      <span class="fill" style="left: 10%; width: 50%"></span>
+      <span class="thumb" style="left: 10%"><span class="bubble">20</span></span>
+      <span class="thumb" style="left: 60%"><span class="bubble">120</span></span>
+    </div>
+    <div class="ticks">
+      <span style="left: 0%">0</span>
+      <span style="left: 25%">50</span>
+      <span style="left: 50%">100</span>
+      <span style="left: 75%">150</span>
+      <span style="left: 100%">200 ms</span>
+    </div>
+  </div>
+
+  <div class="slot disabled">
+    <div class="ttl">
+      <span class="lbl">Encryption strength · (locked)</span>
+      <span class="v">256<span class="unit">bit</span></span>
+    </div>
+    <div class="bar">
+      <span class="track"></span>
+      <span class="fill" style="width: 100%"></span>
+      <span class="thumb" style="left: 100%"></span>
+    </div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Slider · single + range · mono value bubble follows thumb · snap markers for discrete steps · semantic tone reflects budget overruns · disabled drops opacity, keeps the value visible.</div>
+</div></body></html>

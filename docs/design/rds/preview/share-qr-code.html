@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>
+  html, body { min-height: 280px; }
+  body { padding: 20px 22px; }
+
+  /* Two-column layout: QR + metadata. Eliminates the tall vertical
+     dead space the centered layout had. */
+  .grid {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+
+  /* QR plate — white card holding a 29×29 grid (QR Version 3 size). */
+  .qr-plate {
+    width: 220px;
+    height: 220px;
+    background: #fff;
+    border: 1px solid var(--rdp-card-border);
+    border-radius: 12px;
+    padding: 14px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(29, 1fr);
+    grid-template-rows: repeat(29, 1fr);
+  }
+  .qr-plate i {
+    display: block;
+    background: transparent;
+  }
+  .qr-plate i.on { background: #0a0a0a; }
+
+  /* Metadata column */
+  .meta {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .meta .eyebrow {
+    font: var(--rdp-type-section-title);
+    letter-spacing: 0.72px;
+    text-transform: uppercase;
+    color: var(--rdp-muted-foreground);
+  }
+  .meta .title {
+    font: var(--rdp-type-body-emphasis);
+    color: var(--rdp-foreground);
+  }
+  .meta .specs {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 16px;
+    font: var(--rdp-type-mono-small);
+    font-variant-numeric: tabular-nums;
+  }
+  .meta .specs .k {
+    color: var(--rdp-muted-foreground);
+    letter-spacing: 0.6px;
+  }
+  .meta .specs .v { color: var(--rdp-foreground); }
+  .meta .cap {
+    font: var(--rdp-type-caption);
+    color: var(--rdp-muted-foreground);
+    line-height: 1.5;
+  }
+  .meta .cap b { color: var(--rdp-foreground); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="grid">
+    <div class="qr-plate" id="qr"></div>
+    <div class="meta">
+      <div class="eyebrow">QR share · v3</div>
+      <div class="title">Bundle 0a · 4 endpoints</div>
+      <div class="specs">
+        <span class="k">VERSION</span><span class="v">QR-3 (29×29)</span>
+        <span class="k">PAYLOAD</span><span class="v">184 chars</span>
+        <span class="k">SCHEMA</span><span class="v">v1</span>
+        <span class="k">ECC</span><span class="v">M · 15%</span>
+      </div>
+      <div class="cap">Scan with another RIPDPI install to import this diagnostic — <b>no network traffic</b>.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* Renders a plausibly-structured 29×29 QR grid (QR Version 3) with the
+     three corner finders, two timing lines, and a lower-right alignment
+     pattern. Data modules are deterministic pseudo-random fill at ~50%
+     density so it reads as "QR code" without being a real, scannable one. */
+  (() => {
+    const grid = document.getElementById('qr');
+    const SIZE = 29;
+    const cells = new Array(SIZE * SIZE).fill(0);
+
+    const idx = (r, c) => r * SIZE + c;
+    const fill = (r0, c0, r1, c1, v) => {
+      for (let r = r0; r <= r1; r++)
+        for (let c = c0; c <= c1; c++) cells[idx(r, c)] = v;
+    };
+
+    // 7×7 finder pattern at (br, bc): outer ring on, 1-module quiet ring
+    // off, inner 3×3 on.
+    const finder = (br, bc) => {
+      fill(br, bc, br + 6, bc + 6, 1);
+      fill(br + 1, bc + 1, br + 5, bc + 5, 0);
+      fill(br + 2, bc + 2, br + 4, bc + 4, 1);
+    };
+
+    // Three QR corner finders + 1-module separators around them.
+    finder(0, 0);
+    finder(0, SIZE - 7);
+    finder(SIZE - 7, 0);
+
+    // Timing patterns (alternating on/off) on row 6 and column 6.
+    for (let c = 8; c < SIZE - 8; c++) cells[idx(6, c)] = c % 2 === 0 ? 1 : 0;
+    for (let r = 8; r < SIZE - 8; r++) cells[idx(r, 6)] = r % 2 === 0 ? 1 : 0;
+
+    // Lower-right alignment pattern (5×5) — Version 3 has one.
+    const aR = SIZE - 9, aC = SIZE - 9;
+    fill(aR, aC, aR + 4, aC + 4, 1);
+    fill(aR + 1, aC + 1, aR + 3, aC + 3, 0);
+    cells[idx(aR + 2, aC + 2)] = 1;
+
+    // Mark "structural" cells so we don't randomize over them.
+    const reserved = cells.map(v => v === 1 || (v === 0 && false));
+    const isFinderZone = (r, c) => (
+      (r < 9 && c < 9) ||
+      (r < 9 && c >= SIZE - 9) ||
+      (r >= SIZE - 9 && c < 9)
+    );
+    const isAlignZone = (r, c) => (r >= aR - 1 && r <= aR + 5 && c >= aC - 1 && c <= aC + 5);
+    const isTimingZone = (r, c) => r === 6 || c === 6;
+
+    // xorshift32 PRNG with a fixed seed — deterministic across reloads
+    // and the high bit has much better statistical quality than an LCG's LSB.
+    let s = 0x4ec0c5;
+    const rnd = () => {
+      s ^= s << 13;
+      s ^= s >>> 17;
+      s ^= s << 5;
+      return s >>> 0;
+    };
+
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (isFinderZone(r, c) || isAlignZone(r, c) || isTimingZone(r, c)) continue;
+        // Use the high bit and bias to ~55% on, which matches a typical
+        // mid-density QR after masking.
+        cells[idx(r, c)] = ((rnd() % 100) < 55) ? 1 : 0;
+      }
+    }
+
+    const frag = document.createDocumentFragment();
+    for (const v of cells) {
+      const i = document.createElement('i');
+      if (v) i.className = 'on';
+      frag.appendChild(i);
+    }
+    grid.appendChild(frag);
+  })();
+</script>
+</body>
+</html>

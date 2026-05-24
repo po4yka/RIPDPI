@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:480px}</style></head>
+<body><div class="card">
+<style>
+.scrim { background: rgba(0,0,0,0.4); padding: 24px; border-radius: 16px; }
+.dlg { background: var(--rdp-card); border-radius: 28px; padding: 24px; max-width: 380px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.dlg .head { display: flex; gap: 12px; align-items: center; }
+.dlg .ico { width: 40px; height: 40px; border-radius: 9999px; background: var(--rdp-warning-container); color: var(--rdp-warning); display: grid; place-items: center; }
+.dlg h3 { font: var(--rdp-type-sheet-title); margin: 0; }
+.dlg .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 1px; }
+.dlg .contents { display: flex; flex-direction: column; padding: 12px 14px; background: var(--rdp-muted); border-radius: 12px; }
+.dlg .item { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; padding: 4px 0; align-items: center; font: var(--rdp-type-body); font-size: 13px; }
+.dlg .item + .item { border-top: 0.5px solid var(--rdp-divider); }
+.dlg .item .ico-row { color: var(--rdp-muted-foreground); }
+.dlg .item .meta { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.dlg .item.warn { color: var(--rdp-warning-container-foreground); }
+.dlg .opt-row { display: flex; align-items: center; gap: 12px; }
+.dlg .ck { width: 18px; height: 18px; border: 1.5px solid var(--rdp-outline); border-radius: 4px; flex-shrink: 0; display: grid; place-items: center; }
+.dlg .ck.on { background: var(--rdp-foreground); border-color: var(--rdp-foreground); color: var(--rdp-background); }
+.dlg .ck svg { width: 11px; height: 11px; }
+.dlg .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+.dlg .btn { padding: 8px 16px; border-radius: 12px; font: var(--rdp-type-button); font-size: 14px; border: none; background: transparent; color: var(--rdp-foreground); cursor: pointer; }
+.dlg .btn.primary { background: var(--rdp-foreground); color: var(--rdp-background); }
+</style>
+<div class="scrim">
+  <div class="dlg">
+    <div class="head">
+      <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+      <span><h3>Export ripdpi-2026-05-19.pcap</h3><div class="sub">128 KiB · 482 packets</div></span>
+    </div>
+    <div class="contents">
+      <div class="item"><span>•</span><span>Packet headers</span><span class="meta">all 482</span></div>
+      <div class="item"><span>•</span><span>TLS ClientHello SNI</span><span class="meta">12</span></div>
+      <div class="item warn"><span>!</span><span>Endpoint IPs</span><span class="meta">12 unique</span></div>
+      <div class="item"><span>•</span><span>Strategy fingerprint</span><span class="meta">tlsrec_split_host</span></div>
+    </div>
+    <div class="opt-row"><span class="ck on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span>Redact endpoint IPs to 0.0.0.0</span></div>
+    <div class="actions"><button class="btn">Cancel</button><button class="btn primary">Export</button></div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Export consent · names exactly what's in the file before sharing · IP redaction toggle on by default.</div>
+</div></body></html>

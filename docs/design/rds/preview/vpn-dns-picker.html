@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:440px}</style></head>
+<body><div class="card">
+<style>
+.head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.head .title { font: var(--rdp-type-body-emphasis); }
+.head .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.list { display: flex; flex-direction: column; }
+.opt { display: grid; grid-template-columns: 24px 1fr auto auto; gap: 12px; padding: 12px 0; align-items: center; }
+.opt + .opt { border-top: 0.5px solid var(--rdp-divider); }
+.opt .radio { width: 18px; height: 18px; border: 1.5px solid var(--rdp-outline); border-radius: 9999px; display: grid; place-items: center; }
+.opt.sel .radio { border-color: var(--rdp-foreground); border-width: 2px; }
+.opt.sel .radio::after { content: ""; width: 8px; height: 8px; border-radius: 9999px; background: var(--rdp-foreground); }
+.opt .body .name { font: var(--rdp-type-body-emphasis); }
+.opt .body .meta { display: flex; gap: 10px; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 2px; }
+.opt .body .meta .pill { padding: 0 6px; background: var(--rdp-muted); border-radius: 4px; }
+.opt .body .meta .pill.dnssec { background: var(--rdp-success-container); color: var(--rdp-success-container-foreground); }
+.opt .latency { font: var(--rdp-type-mono-value); font-variant-numeric: tabular-nums; }
+.opt .protocol { font: var(--rdp-type-mono-small); padding: 2px 8px; border-radius: 9999px; background: var(--rdp-info-container); color: var(--rdp-info); }
+</style>
+<div class="head">
+  <span class="title">DNS resolver</span>
+  <span class="sub">Used when VPN is up · falls back to system DNS otherwise</span>
+</div>
+<div class="list">
+  <div class="opt sel">
+    <span class="radio"></span>
+    <span class="body"><div class="name">AdGuard DNS</div><div class="meta"><span class="pill">94.140.14.14</span><span class="pill dnssec">DNSSEC</span><span class="pill">94.140.15.15</span></div></span>
+    <span class="latency">12 ms</span>
+    <span class="protocol">DoH</span>
+  </div>
+  <div class="opt">
+    <span class="radio"></span>
+    <span class="body"><div class="name">Cloudflare</div><div class="meta"><span class="pill">1.1.1.1</span><span class="pill dnssec">DNSSEC</span><span class="pill">1.0.0.1</span></div></span>
+    <span class="latency">18 ms</span>
+    <span class="protocol">DoH</span>
+  </div>
+  <div class="opt">
+    <span class="radio"></span>
+    <span class="body"><div class="name">Quad9</div><div class="meta"><span class="pill">9.9.9.9</span><span class="pill dnssec">DNSSEC</span></div></span>
+    <span class="latency">42 ms</span>
+    <span class="protocol">DoT</span>
+  </div>
+  <div class="opt">
+    <span class="radio"></span>
+    <span class="body"><div class="name">System DNS</div><div class="meta"><span class="pill">No tunnel</span></div></span>
+    <span class="latency">8 ms</span>
+    <span class="protocol" style="background: var(--rdp-muted); color: var(--rdp-muted-foreground)">UDP</span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">DNS resolver picker · protocol badge (DoH/DoT/UDP) · live latency · DNSSEC tag where supported · custom resolver row hidden for brevity.</div>
+</div></body></html>

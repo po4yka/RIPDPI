@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:340px}</style></head>
+<body><div class="card">
+<style>
+.host { padding: 14px 16px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 12px; font: var(--rdp-type-mono-value); }
+.head { display: flex; justify-content: space-between; padding-bottom: 10px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 10px; }
+.head .t { font: var(--rdp-type-body-emphasis); }
+.head .stage { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 9999px; background: var(--rdp-info-container); color: var(--rdp-info); font: var(--rdp-type-mono-small); }
+.head .stage .dot { width: 5px; height: 5px; border-radius: 9999px; background: var(--rdp-info); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0.3; } }
+.line { display: grid; grid-template-columns: 70px 60px 1fr auto; gap: 12px; padding: 4px 0; font-size: 12.5px; line-height: 20px; }
+.line .ts { color: var(--rdp-muted-foreground); }
+.line .stage-tag { font: var(--rdp-type-mono-small); padding: 1px 6px; border-radius: 4px; text-align: center; }
+.line .stage-tag.dns  { background: var(--rdp-info-container);    color: var(--rdp-info); }
+.line .stage-tag.tcp  { background: var(--rdp-success-container); color: var(--rdp-success); }
+.line .stage-tag.tls  { background: var(--rdp-warning-container); color: var(--rdp-warning); }
+.line .stage-tag.quic { background: var(--rdp-destructive-container); color: var(--rdp-destructive); }
+.line .msg { color: var(--rdp-foreground); }
+.line .meta { color: var(--rdp-muted-foreground); }
+</style>
+<div class="host">
+  <div class="head">
+    <span class="t">Active probe · cloudflare-dns.com</span>
+    <span class="stage"><span class="dot"></span>TLS · attempt 2</span>
+  </div>
+  <div class="line"><span class="ts">0.012s</span><span class="stage-tag dns">DNS</span><span class="msg">resolve cloudflare-dns.com → 1.1.1.1</span><span class="meta">12 ms</span></div>
+  <div class="line"><span class="ts">0.218s</span><span class="stage-tag tcp">TCP</span><span class="msg">connect 1.1.1.1:443</span><span class="meta">18 ms</span></div>
+  <div class="line"><span class="ts">0.247s</span><span class="stage-tag tls">TLS</span><span class="msg">ClientHello 512 B sent</span><span class="meta">—</span></div>
+  <div class="line"><span class="ts">0.752s</span><span class="stage-tag tls">TLS</span><span class="msg">no ServerHello after 500 ms</span><span class="meta">timeout</span></div>
+  <div class="line"><span class="ts">0.812s</span><span class="stage-tag tls">TLS</span><span class="msg">retry with desync_fake</span><span class="meta">…</span></div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Live probe view · streams DNS / TCP / TLS / QUIC stage transitions · stage tags use semantic-container fills · used during diagnostic scan.</div>
+</div></body></html>

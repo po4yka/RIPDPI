@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RIPDPI · Mobile VPN connection state</title>
+<meta name="viewport" content="width=1180, initial-scale=1">
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; }
+  body {
+    background: var(--rdp-background);
+    color: var(--rdp-foreground);
+    font: var(--rdp-type-body);
+    padding: 40px 24px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .info, .controls {
+    max-width: 380px;
+    display: flex; flex-direction: column; gap: 16px;
+    align-self: flex-start;
+    position: sticky; top: 40px;
+  }
+  .info .label { font: var(--rdp-type-section-title); letter-spacing: 0.72px; text-transform: uppercase; color: var(--rdp-muted-foreground); }
+  .info h1 { font: var(--rdp-type-screen-title); margin: 0; }
+  .info p { color: var(--rdp-muted-foreground); font: var(--rdp-type-body); margin: 0; }
+  .info ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+  .info ol li b { font-weight: 500; }
+  .info ol li span { color: var(--rdp-muted-foreground); }
+  .info code { font: var(--rdp-type-mono-small); }
+
+  .frame-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .frame {
+    width: 412px; height: 892px;
+    border-radius: 48px;
+    border: 10px solid #1A1A1A;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.25);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+  .frame.dark { border-color: #2A2A2A; }
+  .frame .notch {
+    position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+    width: 22px; height: 22px; border-radius: 99px; background: #2E2E2E; z-index: 10;
+  }
+  .frame .statusbar {
+    height: 36px; padding: 10px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    font: var(--rdp-type-mono-small);
+    flex-shrink: 0;
+  }
+  .frame .gesturebar { height: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .frame .gesturebar .pill { width: 108px; height: 4px; border-radius: 99px; opacity: 0.5; }
+  .frame .scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
+  .frame .scroll::-webkit-scrollbar { width: 0; }
+
+  .controls > div {
+    background: var(--rdp-card);
+    border: 1px solid var(--rdp-card-border);
+    border-radius: 16px; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .controls .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ctrl-btn {
+    padding: 8px 14px; min-height: 36px;
+    border: 1px solid var(--rdp-border);
+    background: transparent; color: var(--rdp-foreground);
+    border-radius: 12px;
+    font: var(--rdp-type-small-label);
+    cursor: pointer;
+    transition: background-color 220ms cubic-bezier(0.2,0,0,1);
+  }
+  .ctrl-btn.sel { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+  .ctrl-btn:hover:not(.sel) { background: var(--rdp-accent); }
+  .controls .ttl { font: var(--rdp-type-section-title); letter-spacing: 0.72px; text-transform: uppercase; color: var(--rdp-muted-foreground); }
+  .controls .legend { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font: var(--rdp-type-mono-small); }
+  .controls .legend b { font: var(--rdp-type-small-label); color: var(--rdp-muted-foreground); font-weight: 400; }
+  .controls .legend span { color: var(--rdp-foreground); }
+
+  @keyframes rdpSpin { to { transform: rotate(360deg); } }
+  @keyframes rdpRing { 0% { transform: scale(0.6); opacity: 0.6; } 100% { transform: scale(1.8); opacity: 0; } }
+  @keyframes rdpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  @keyframes rdpCountdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+  @media (max-width: 1100px) {
+    body { grid-template-columns: 1fr; place-items: center; }
+    .info, .controls { position: static; max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="info">
+  <div class="label">RIPDPI · Mobile adoption</div>
+  <h1>VPN connection state, on a phone.</h1>
+  <p>Six connection-state preview elements adopted into the Android UI kit. Each section is composed from existing kit primitives — <code>RipDpiCard</code>, <code>MetricPill</code>, <code>SectionHeader</code>, <code>RipDpiButton</code>, <code>WarningBanner</code> — with view-specific bits drawn from the same token contract.</p>
+  <ol>
+    <li><b>Lifecycle</b> <span>— linear state flow with current ring; desktop 2D graph re-expressed as a vertical column</span></li>
+    <li><b>Handshake timeline</b> <span>— 9 phases stacked, label above bar, NOW marker aligned to bar column</span></li>
+    <li><b>Session card</b> <span>— uptime, exit, sparklines, KPI strip, footer actions</span></li>
+    <li><b>Reconnect toasts</b> <span>— in-progress (with countdown), failed-after-N, recovered</span></li>
+    <li><b>Degradation strip</b> <span>— warn + critical variants, reason chips, action pair</span></li>
+    <li><b>State history</b> <span>— stacked summary + 24-cell ribbon + recent transitions log</span></li>
+  </ol>
+  <p style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground)">Source: <code>ui_kits/android/MobileVpnConnection.jsx</code>. Web previews at <code>preview/vpn-*.html</code>.</p>
+</div>
+
+<div class="frame-wrap">
+  <div id="frame-host"></div>
+  <div style="font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground)">412 × 892 · Android compact width</div>
+</div>
+
+<div id="controls-host"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="ui_kits/android/RipDpiComponents.jsx"></script>
+<script type="text/babel" src="ui_kits/android/MobileVpnConnection.jsx"></script>
+
+<script type="text/babel">
+function StatusBarChrome({ dark }) {
+  return (
+    <div className="statusbar" style={{ color: dark ? '#E8E8E8' : '#1A1A1A' }}>
+      <span>9:30</span>
+      <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+        <svg width="14" height="14" viewBox="0 0 16 16"><path d="M8 13.3L.67 5.97a10.37 10.37 0 0114.66 0L8 13.3z" fill="currentColor"/></svg>
+        <svg width="14" height="14" viewBox="0 0 16 16"><path d="M14.67 14.67V1.33L1.33 14.67h13.34z" fill="currentColor"/></svg>
+        <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0.5" y="0.5" width="13" height="11" rx="2" fill="none" stroke="currentColor"/><rect x="2" y="2" width="9" height="8" rx="1" fill="currentColor"/><rect x="14" y="4" width="2" height="4" rx="1" fill="currentColor"/></svg>
+      </span>
+    </div>
+  );
+}
+
+function ConnectionHeader() {
+  const { c } = useTheme();
+  return (
+    <div style={{ padding: '12px 20px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: `0.5px solid ${c.divider}` }}>
+      <RipDpiIconButton variant="ghost"
+        icon={
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        }/>
+      <div style={{ flex: 1 }}>
+        <div style={{ font: `500 18px/22px ${RDP.type.sans}` }}>Connection</div>
+        <div style={{ font: `400 12px/16px ${RDP.type.mono}`, color: c.mutedForeground }}>state · session · history</div>
+      </div>
+      <RipDpiIconButton variant="tonal"
+        icon={
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        }/>
+    </div>
+  );
+}
+
+const initialState = { dark: false };
+
+function App() {
+  const [state, setState] = React.useState(initialState);
+  return (
+    <RipDpiTheme dark={state.dark}>
+      <Host state={state} setState={setState}/>
+    </RipDpiTheme>
+  );
+}
+
+function Host({ state, setState }) {
+  const { c, dark } = useTheme();
+  return (
+    <>
+      {ReactDOM.createPortal(
+        <div className={'frame' + (dark ? ' dark' : '')} style={{ background: c.background }}>
+          <div className="notch"/>
+          <StatusBarChrome dark={dark}/>
+          <div className="scroll" style={{ background: c.background, color: c.foreground }}>
+            <ConnectionHeader/>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '16px 20px 24px' }}>
+              <MobileSessionCard/>
+
+              <SectionHeader>Current event</SectionHeader>
+              <MobileReconnectToast/>
+
+              <SectionHeader>Health</SectionHeader>
+              <MobileDegradationStrip/>
+
+              <SectionHeader>Handshake</SectionHeader>
+              <MobileHandshakeTimeline/>
+
+              <SectionHeader>Lifecycle</SectionHeader>
+              <MobileStateMachine/>
+
+              <SectionHeader>History</SectionHeader>
+              <MobileStateHistory/>
+            </div>
+          </div>
+          <div className="gesturebar" style={{ background: c.background }}>
+            <div className="pill" style={{ background: c.foreground }}/>
+          </div>
+        </div>,
+        document.getElementById('frame-host')
+      )}
+      {ReactDOM.createPortal(
+        <div className="controls">
+          <div>
+            <div className="ttl">Theme</div>
+            <div className="row">
+              <button className={'ctrl-btn ' + (!state.dark ? 'sel' : '')} onClick={() => setState(s => ({...s, dark: false}))}>Light</button>
+              <button className={'ctrl-btn ' + (state.dark ? 'sel' : '')} onClick={() => setState(s => ({...s, dark: true}))}>Dark</button>
+            </div>
+          </div>
+          <div>
+            <div className="ttl">Adoption notes</div>
+            <div className="legend">
+              <b>Card</b><span><code>RipDpiCard</code> · <code>status</code> for live session</span>
+              <b>Banner</b><span><code>WarningBanner</code>-shape strip · warn / critical</span>
+              <b>Buttons</b><span><code>RipDpiButton</code> · 36 px on dense rows, 48 px floor on actions</span>
+              <b>Pills</b><span>state-token pills (TUNL / DEGR / RECON / FAIL)</span>
+              <b>Charts</b><span>Gantt + ribbon both use CSS grids, no SVG layout drift</span>
+            </div>
+          </div>
+          <div>
+            <div className="ttl">Section anchors</div>
+            <div className="row">
+              {['Session','Toast','Degraded','Handshake','Lifecycle','History'].map((s, i) => (
+                <button key={s} className="ctrl-btn" onClick={() => {
+                  const scroll = document.querySelector('.frame .scroll');
+                  if (!scroll) return;
+                  const targets = [0, 540, 920, 1240, 1820, 2520];
+                  scroll.scrollTo({ top: targets[i], behavior: 'smooth' });
+                }}>{s}</button>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.getElementById('controls-host')
+      )}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.body.appendChild(document.createElement('div'))).render(<App/>);
+</script>
+</body>
+</html>

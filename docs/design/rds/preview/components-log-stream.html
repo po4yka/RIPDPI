@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:440px}</style></head>
+<body><div class="card">
+<style>
+.ls { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.ls .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 12px; }
+.ls .hd .t { font: var(--rdp-type-body-emphasis); }
+.ls .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 10px;
+  background: var(--rdp-muted);
+  border: 0.5px solid var(--rdp-divider);
+  border-radius: 8px 8px 0 0;
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+  color: var(--rdp-muted-foreground);
+}
+.toolbar .left { display: inline-flex; align-items: center; gap: 8px; }
+.toolbar .left .live { display: inline-flex; align-items: center; gap: 5px; color: var(--rdp-success); }
+.toolbar .left .live .pulse { width: 6px; height: 6px; background: var(--rdp-success); border-radius: 9999px; position: relative; }
+.toolbar .left .live .pulse::after { content: ""; position: absolute; inset: -2px; border: 1.5px solid var(--rdp-success); border-radius: 9999px; opacity: 0.4; animation: lsRing 1.6s ease-out infinite; }
+@keyframes lsRing { 0% { transform: scale(0.6); opacity: 0.6; } 100% { transform: scale(2); opacity: 0; } }
+.toolbar .right { display: inline-flex; gap: 4px; }
+.toolbar .btn {
+  padding: 3px 8px; border-radius: 4px;
+  font: var(--rdp-type-mono-small); font-size: 10px;
+  background: var(--rdp-card); border: 0.5px solid var(--rdp-border);
+  color: var(--rdp-foreground);
+  cursor: pointer;
+}
+.toolbar .btn.active { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+
+.stream {
+  height: 270px;
+  overflow: auto;
+  background: var(--rdp-card);
+  border: 0.5px solid var(--rdp-divider);
+  border-top: none;
+  font: var(--rdp-type-mono-log);
+  font-size: 11px;
+  line-height: 18px;
+  position: relative;
+}
+.stream::-webkit-scrollbar { width: 6px; }
+.stream::-webkit-scrollbar-thumb { background: var(--rdp-outline-variant); border-radius: 3px; }
+
+.line {
+  display: grid; grid-template-columns: 80px 56px 1fr;
+  gap: 10px; align-items: center;
+  padding: 0 12px;
+  border-bottom: 0.5px solid var(--rdp-divider);
+  min-height: 22px;
+}
+.line:hover { background: var(--rdp-muted); }
+.line .ts { font-variant-numeric: tabular-nums; color: var(--rdp-muted-foreground); font-size: 10px; }
+.line .lvl {
+  font: 9px var(--rdp-font-mono); letter-spacing: 0.5px;
+  padding: 1px 4px; border-radius: 3px; text-align: center;
+}
+.line.info  .lvl { background: var(--rdp-info-container);        color: var(--rdp-info); }
+.line.warn  .lvl { background: var(--rdp-warning-container);     color: var(--rdp-warning); }
+.line.error .lvl { background: var(--rdp-destructive-container); color: var(--rdp-destructive); }
+.line.debug .lvl { background: var(--rdp-muted);                 color: var(--rdp-muted-foreground); }
+.line.ok    .lvl { background: var(--rdp-success-container);     color: var(--rdp-success); }
+.line .msg { color: var(--rdp-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.line .msg em { font-style: normal; color: var(--rdp-info); }
+.line .msg code { font: var(--rdp-type-mono-inline); padding: 1px 4px; background: var(--rdp-muted); border-radius: 2px; color: var(--rdp-foreground); }
+
+.line.error .msg b { color: var(--rdp-destructive); font-weight: 500; }
+.line.warn  .msg b { color: var(--rdp-warning);     font-weight: 500; }
+
+.line.new { animation: lsArrive 220ms cubic-bezier(0.2,0,0,1); }
+@keyframes lsArrive {
+  from { opacity: 0; transform: translateY(-2px); background: var(--rdp-accent); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.gutter-jumper {
+  position: absolute; right: 10px; bottom: 10px;
+  background: var(--rdp-foreground); color: var(--rdp-background);
+  padding: 5px 10px; border-radius: 9999px;
+  font: var(--rdp-type-mono-small); font-size: 10px;
+  display: inline-flex; align-items: center; gap: 5px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  cursor: pointer;
+}
+
+.foot {
+  display: flex; justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--rdp-muted);
+  border: 0.5px solid var(--rdp-divider);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  font: var(--rdp-type-mono-small); font-size: 10px;
+  color: var(--rdp-muted-foreground);
+}
+.foot b { color: var(--rdp-foreground); font-weight: 500; }
+</style>
+
+<div class="ls">
+  <div class="hd">
+    <span class="t">Log stream</span>
+    <span class="sub">Live tail · pause-on-scroll · level filter</span>
+  </div>
+
+  <div class="toolbar">
+    <span class="left">
+      <span class="live"><span class="pulse"></span>LIVE</span>
+      <span>· 1 482 rows · 64 / sec</span>
+    </span>
+    <span class="right">
+      <button class="btn active">All</button>
+      <button class="btn">Info</button>
+      <button class="btn">Warn</button>
+      <button class="btn">Error</button>
+      <button class="btn">⏸</button>
+      <button class="btn">↓</button>
+    </span>
+  </div>
+
+  <div class="stream">
+    <div class="line info"><span class="ts">18:42:07.118</span><span class="lvl">INFO</span><span class="msg">probe: dns lookup <em>cloudflare-dns.com</em> · 24 ms · ttl=300</span></div>
+    <div class="line debug"><span class="ts">18:42:07.119</span><span class="lvl">DEBUG</span><span class="msg">socket: opened udp/443 · localport=49231</span></div>
+    <div class="line info"><span class="ts">18:42:07.164</span><span class="lvl">INFO</span><span class="msg">tls: ClientHello sent · sni=<em>youtube.com</em> · ECH outer</span></div>
+    <div class="line warn"><span class="ts">18:42:07.290</span><span class="lvl">WARN</span><span class="msg">mtu: <b>probe over budget</b> · 423 ms · 4 retries</span></div>
+    <div class="line error"><span class="ts">18:42:07.402</span><span class="lvl">ERROR</span><span class="msg">tcp: <b>RST received</b> · ttl=128 · seq=513 · injected (Δttl=75)</span></div>
+    <div class="line info"><span class="ts">18:42:07.404</span><span class="lvl">INFO</span><span class="msg">strategy: switching to <code>tlsrec_split_host</code></span></div>
+    <div class="line ok"><span class="ts">18:42:07.572</span><span class="lvl">OK</span><span class="msg">tls: handshake complete · 168 ms · ECH accepted</span></div>
+    <div class="line debug"><span class="ts">18:42:07.573</span><span class="lvl">DEBUG</span><span class="msg">route: install · 10.8.0.0/24 via tun0</span></div>
+    <div class="line info"><span class="ts">18:42:07.620</span><span class="lvl">INFO</span><span class="msg">first packet · 54 ms · 1 RTT</span></div>
+    <div class="line ok new"><span class="ts">18:42:07.642</span><span class="lvl">OK</span><span class="msg">tunnel: <b style="color:var(--rdp-success)">established</b> · 1.42 s total · exit AMS · Cloudflare</span></div>
+    <div class="gutter-jumper">Jump to live ↓</div>
+  </div>
+
+  <div class="foot">
+    <span>Showing <b>10</b> of <b>1 482</b> rows</span>
+    <span>Paused at 18:42:07.642 · <b>3 new</b> waiting</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Log stream · live tail with mono row layout (ts · level · message) · pulse marks live state · pause-on-scroll surfaces a &quot;jump to live&quot; affordance · new rows arrive with a 220 ms accent flash.</div>
+</div></body></html>

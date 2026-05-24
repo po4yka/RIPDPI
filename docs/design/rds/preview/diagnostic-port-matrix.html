@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:520px}</style></head>
+<body><div class="card">
+<style>
+.pm { padding: 16px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.pm .hd { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 12px; }
+.pm .hd .t { font: var(--rdp-type-body-emphasis); }
+.pm .hd .legend { display: inline-flex; gap: 10px; font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); letter-spacing: 0.3px; text-transform: uppercase; }
+.pm .hd .legend .lg { display: inline-flex; align-items: center; gap: 5px; }
+.pm .hd .legend .sw { width: 10px; height: 10px; border-radius: 2px; }
+.pm .hd .legend .sw.ok    { background: var(--rdp-success); }
+.pm .hd .legend .sw.warn  { background: var(--rdp-warning); }
+.pm .hd .legend .sw.bad   { background: var(--rdp-destructive); }
+.pm .hd .legend .sw.skip  { background: var(--rdp-accent); border: 1px solid var(--rdp-outline-variant); }
+
+.matrix-wrap { overflow: hidden; border: 0.5px solid var(--rdp-divider); border-radius: 8px; }
+.matrix {
+  display: grid;
+  grid-template-columns: 110px repeat(12, 1fr);
+  background: var(--rdp-card);
+}
+.matrix .hcell, .matrix .rcell, .matrix .cell { font: var(--rdp-type-mono-value); font-size: 11px; }
+.matrix .hcell {
+  padding: 8px 0;
+  text-align: center;
+  color: var(--rdp-muted-foreground);
+  background: var(--rdp-muted);
+  border-bottom: 0.5px solid var(--rdp-divider);
+}
+.matrix .hcell.corner { text-align: left; padding-left: 12px; color: var(--rdp-foreground); font: var(--rdp-type-section-title); letter-spacing: 0.5px; text-transform: uppercase; font-size: 10px; }
+.matrix .rcell {
+  padding: 10px 12px;
+  background: var(--rdp-muted);
+  border-right: 0.5px solid var(--rdp-divider);
+  color: var(--rdp-foreground);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.matrix .rcell .nm { font: var(--rdp-type-mono-value); font-size: 12px; }
+.matrix .rcell .sub { font: var(--rdp-type-mono-small); font-size: 9.5px; color: var(--rdp-muted-foreground); }
+.matrix .cell {
+  min-width: 0;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  font: 500 10px/1 var(--rdp-font-mono);
+  color: rgba(255,255,255,0.95);
+  border-right: 0.5px solid var(--rdp-card);
+  border-bottom: 0.5px solid var(--rdp-card);
+  font-variant-numeric: tabular-nums;
+}
+.matrix .cell.ok    { background: var(--rdp-success); }
+.matrix .cell.warn  { background: var(--rdp-warning); }
+.matrix .cell.bad   { background: var(--rdp-destructive); }
+.matrix .cell.skip  { background: var(--rdp-accent); color: var(--rdp-muted-foreground); }
+.matrix .row-end .cell:last-child, .matrix .row-end .rcell { border-bottom: none; }
+
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+.summary .s { padding: 8px 10px; background: var(--rdp-muted); border-radius: 8px; }
+.summary .s .k { font: var(--rdp-type-mono-small); font-size: 9.5px; color: var(--rdp-muted-foreground); letter-spacing: 0.5px; text-transform: uppercase; }
+.summary .s .v { font: 500 16px/1 var(--rdp-font-mono); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.summary .s .v.ok { color: var(--rdp-success); }
+.summary .s .v.warn { color: var(--rdp-warning); }
+.summary .s .v.bad { color: var(--rdp-destructive); }
+</style>
+
+<div class="pm">
+  <div class="hd">
+    <span class="t">Port reachability · outbound</span>
+    <span class="legend">
+      <span class="lg"><span class="sw ok"></span>Open</span>
+      <span class="lg"><span class="sw warn"></span>Slow</span>
+      <span class="lg"><span class="sw bad"></span>Blocked</span>
+      <span class="lg"><span class="sw skip"></span>Skip</span>
+    </span>
+  </div>
+
+  <div class="matrix-wrap">
+    <div class="matrix">
+      <div class="hcell corner">Target</div>
+      <div class="hcell">22</div>
+      <div class="hcell">53</div>
+      <div class="hcell">80</div>
+      <div class="hcell">123</div>
+      <div class="hcell">143</div>
+      <div class="hcell">443</div>
+      <div class="hcell">465</div>
+      <div class="hcell">587</div>
+      <div class="hcell">853</div>
+      <div class="hcell">993</div>
+      <div class="hcell">1194</div>
+      <div class="hcell">8443</div>
+    </div>
+    <div class="matrix">
+      <div class="rcell"><span class="nm">1.1.1.1</span><span class="sub">AS13335 · TCP</span></div>
+      <div class="cell bad">—</div><div class="cell ok">8</div><div class="cell ok">12</div><div class="cell skip">·</div><div class="cell skip">·</div><div class="cell ok">14</div><div class="cell skip">·</div><div class="cell skip">·</div><div class="cell ok">18</div><div class="cell skip">·</div><div class="cell skip">·</div><div class="cell ok">22</div>
+    </div>
+    <div class="matrix">
+      <div class="rcell"><span class="nm">8.8.8.8</span><span class="sub">AS15169 · TCP</span></div>
+      <div class="cell bad">—</div><div class="cell ok">11</div><div class="cell ok">14</div><div class="cell skip">·</div><div class="cell skip">·</div><div class="cell warn">280</div><div class="cell skip">·</div><div class="cell skip">·</div><div class="cell ok">22</div><div class="cell skip">·</div><div class="cell skip">·</div><div class="cell ok">24</div>
+    </div>
+    <div class="matrix">
+      <div class="rcell"><span class="nm">9.9.9.9</span><span class="sub">AS19281 · TCP</span></div>
+      <div class="cell bad">—</div><div class="cell ok">18</div><div class="cell ok">22</div><div class="cell skip">·</div><div class="cell skip">·</div><div class="cell bad">—</div><div class="cell skip">·</div><div class="cell skip">·</div><div class="cell warn">412</div><div class="cell skip">·</div><div class="cell skip">·</div><div class="cell bad">—</div>
+    </div>
+    <div class="matrix">
+      <div class="rcell"><span class="nm">smtp.fastmail</span><span class="sub">AS49224 · TCP</span></div>
+      <div class="cell bad">—</div><div class="cell skip">·</div><div class="cell ok">58</div><div class="cell skip">·</div><div class="cell ok">88</div><div class="cell ok">72</div><div class="cell ok">68</div><div class="cell ok">68</div><div class="cell skip">·</div><div class="cell ok">82</div><div class="cell skip">·</div><div class="cell skip">·</div>
+    </div>
+    <div class="matrix row-end">
+      <div class="rcell"><span class="nm">tunnel.relay</span><span class="sub">AS13335 · UDP</span></div>
+      <div class="cell skip">·</div><div class="cell ok">38</div><div class="cell skip">·</div><div class="cell ok">42</div><div class="cell skip">·</div><div class="cell ok">42</div><div class="cell skip">·</div><div class="cell skip">·</div><div class="cell skip">·</div><div class="cell skip">·</div><div class="cell bad">—</div><div class="cell skip">·</div>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="s"><div class="k">Open</div><div class="v ok">22 / 36</div></div>
+    <div class="s"><div class="k">Slow &gt; 200 ms</div><div class="v warn">2</div></div>
+    <div class="s"><div class="k">Blocked</div><div class="v bad">6</div></div>
+    <div class="s"><div class="k">Skipped</div><div class="v">6</div></div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Port reachability matrix · 5 targets × 12 ports · cell value is connect RTT (ms) · semantic fills · roll-up footer.</div>
+</div></body></html>

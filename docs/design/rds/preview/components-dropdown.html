@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:360px}</style></head>
+<body><div class="card">
+<style>
+.dd { display: flex; flex-direction: column; gap: 6px; }
+.dd .l { font: var(--rdp-type-small-label); color: var(--rdp-muted-foreground); }
+.dd .field { min-height: 48px; padding: 14px 17px; border: 1px solid var(--rdp-border); border-radius: 16px; background: var(--rdp-input-background); color: var(--rdp-foreground); font: var(--rdp-type-mono-value); display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+.dd.open .field { border-color: var(--rdp-foreground); padding: 13px 18px; }
+.dd .chev { color: var(--rdp-muted-foreground); transition: transform 220ms cubic-bezier(0.2,0,0,1); }
+.dd.open .chev { transform: rotate(180deg); }
+.dd .menu { background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 12px; padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+.dd .menu .item { padding: 12px 14px; border-radius: 8px; font: var(--rdp-type-mono-value); cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.dd .menu .item:hover { background: var(--rdp-accent); }
+.dd .menu .item.sel { background: var(--rdp-foreground); color: var(--rdp-background); }
+.dd .h { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); }
+</style>
+<div class="col" style="gap: 14px">
+  <div class="dd">
+    <div class="l">DNS resolver</div>
+    <div class="field"><span>AdGuard DoH</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+    <div class="h">Resolver picked when no manual override is set.</div>
+  </div>
+  <div class="dd open">
+    <div class="l">Transport</div>
+    <div class="field"><span>AmneziaWG</span><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+    <div class="menu">
+      <div class="item sel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>AmneziaWG</div>
+      <div class="item"><span style="width:14px"></span>OpenVPN</div>
+      <div class="item"><span style="width:14px"></span>WireGuard</div>
+      <div class="item"><span style="width:14px"></span>Outline</div>
+    </div>
+  </div>
+</div>
+</div></body></html>

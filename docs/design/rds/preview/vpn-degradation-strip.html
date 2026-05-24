@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:320px}</style></head>
+<body><div class="card">
+<style>
+.stack { display: flex; flex-direction: column; gap: 12px; }
+
+.strip {
+  display: grid;
+  grid-template-columns: 4px 28px 1fr auto;
+  gap: 12px;
+  padding: 14px 16px 14px 12px;
+  background: var(--rdp-warning-container);
+  border-radius: 12px;
+  align-items: flex-start;
+  position: relative;
+  overflow: hidden;
+}
+.strip::before { content: ""; grid-column: 1; align-self: stretch; background: var(--rdp-warning); border-radius: 2px; }
+
+.strip .ic {
+  width: 28px; height: 28px; border-radius: 6px;
+  display: grid; place-items: center;
+  background: var(--rdp-warning); color: var(--rdp-warning-foreground);
+  font: 500 11px/1 var(--rdp-font-mono); letter-spacing: 0.4px;
+}
+
+.strip .body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.strip .body .ttl { display: block; font: var(--rdp-type-body-emphasis); color: var(--rdp-warning-container-foreground); }
+.strip .body .desc { display: block; font: var(--rdp-type-body); color: var(--rdp-warning-container-foreground); font-size: 13px; line-height: 1.5; }
+
+.strip .reasons { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.strip .reasons .ch {
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: rgba(0,0,0,0.05);
+  color: var(--rdp-warning-container-foreground);
+  border: 0.5px solid rgba(0,0,0,0.12);
+  display: inline-flex; align-items: center; gap: 5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.strip .reasons .ch b { font-weight: 500; }
+.strip .reasons .ch .delta { color: var(--rdp-destructive); }
+
+.strip .actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
+.strip .actions button {
+  padding: 6px 12px;
+  border-radius: 9999px;
+  border: 1px solid var(--rdp-warning-container-foreground);
+  background: transparent;
+  color: var(--rdp-warning-container-foreground);
+  font: var(--rdp-type-mono-small);
+  font-size: 10.5px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.strip .actions button.primary {
+  background: var(--rdp-warning-container-foreground);
+  color: var(--rdp-warning-container);
+}
+
+/* Inline sparkline within body */
+.strip .since {
+  display: flex; align-items: center; gap: 8px;
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+  color: var(--rdp-warning-container-foreground);
+  opacity: 0.75;
+}
+.strip .since svg { display: block; }
+.strip .since svg path { stroke: var(--rdp-warning); fill: none; stroke-width: 1.25; }
+
+/* Destructive / failing variant */
+.strip.bad { background: var(--rdp-destructive-container); }
+.strip.bad::before { background: var(--rdp-destructive); }
+.strip.bad .ic { background: var(--rdp-destructive); color: var(--rdp-destructive-foreground); }
+.strip.bad .body .ttl, .strip.bad .body .desc, .strip.bad .reasons .ch, .strip.bad .since { color: var(--rdp-destructive-container-foreground); }
+.strip.bad .actions button { border-color: var(--rdp-destructive-container-foreground); color: var(--rdp-destructive-container-foreground); }
+.strip.bad .actions button.primary { background: var(--rdp-destructive-container-foreground); color: var(--rdp-destructive-container); }
+.strip.bad .since svg path { stroke: var(--rdp-destructive); }
+</style>
+
+<div class="stack">
+
+  <!-- Warn -->
+  <div class="strip">
+    <span class="ic">!</span>
+    <span class="body">
+      <span class="ttl">Connected · quality degraded</span>
+      <span class="desc">Tunnel is up but performance has dropped. Three indicators are outside their normal range; SNI handshakes are taking longer and packet loss is rising.</span>
+      <span class="reasons">
+        <span class="ch">Loss <b>4.1%</b> <span class="delta">↑ +3.2 pp</span></span>
+        <span class="ch">RTT p50 <b>168 ms</b> <span class="delta">↑ +44 ms</span></span>
+        <span class="ch">Jitter <b>22 ms</b> <span class="delta">↑ +18 ms</span></span>
+      </span>
+      <span class="since">
+        <svg width="120" height="14" viewBox="0 0 120 14" preserveAspectRatio="none"><path d="M0,12 L10,11 L20,10 L30,12 L40,9 L50,11 L60,8 L70,6 L80,7 L90,4 L100,5 L110,3 L120,2"/></svg>
+        Degraded for <b style="opacity:1;font-weight:500">3 m 12 s</b> · started 18:39 UTC
+      </span>
+    </span>
+    <span class="actions">
+      <button>Switch relay</button>
+      <button class="primary">Re-probe</button>
+    </span>
+  </div>
+
+  <!-- Bad / failing -->
+  <div class="strip bad">
+    <span class="ic">×</span>
+    <span class="body">
+      <span class="ttl">Tunnel about to drop</span>
+      <span class="desc">Loss above kill-switch threshold for 30 s. The tunnel will be torn down unless a new strategy is applied.</span>
+      <span class="reasons">
+        <span class="ch">Loss <b>21.4%</b> <span class="delta">↑ threshold 10%</span></span>
+        <span class="ch">Last byte <b>14 s ago</b></span>
+        <span class="ch">Strategy <b>tlsrec_split_host</b></span>
+      </span>
+    </span>
+    <span class="actions">
+      <button>Disconnect</button>
+      <button class="primary">Find a strategy</button>
+    </span>
+  </div>
+
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Degradation strip · warn + critical variants · indicator chips show value and delta vs baseline · primary action is always a re-probe / new-strategy path, never the destructive one.</div>
+</div></body></html>

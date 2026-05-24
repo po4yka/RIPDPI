@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>
+  html, body { min-height: 320px; }
+</style>
+</head>
+<body>
+<div class="card">
+
+<div class="col" style="gap:14px">
+  <div class="meta"><span class="label">Motion</span><span class="token">RipDpiMotion · go through duration() so reducedMotion is honored.</span></div>
+  <div class="col" style="gap:8px">
+    
+      <div class="row" style="align-items:center; gap:12px">
+        <div style="width:90px; font: var(--rdp-type-mono-value)">quick</div>
+        <div style="width:60px; height: 4px; background: var(--rdp-foreground)"></div>
+        <div style="font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); width:60px">120ms</div>
+        <div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground)">taps, scale on press, state changes</div>
+      </div>
+    
+      <div class="row" style="align-items:center; gap:12px">
+        <div style="width:90px; font: var(--rdp-type-mono-value)">state</div>
+        <div style="width:110px; height: 4px; background: var(--rdp-foreground)"></div>
+        <div style="font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); width:60px">220ms</div>
+        <div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground)">color / opacity transitions</div>
+      </div>
+    
+      <div class="row" style="align-items:center; gap:12px">
+        <div style="width:90px; font: var(--rdp-type-mono-value)">emphasized</div>
+        <div style="width:160px; height: 4px; background: var(--rdp-foreground)"></div>
+        <div style="font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); width:60px">320ms</div>
+        <div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground)">section expansion</div>
+      </div>
+    
+      <div class="row" style="align-items:center; gap:12px">
+        <div style="width:90px; font: var(--rdp-type-mono-value)">route</div>
+        <div style="width:130px; height: 4px; background: var(--rdp-foreground)"></div>
+        <div style="font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); width:60px">260ms</div>
+        <div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground)">navigation transitions</div>
+      </div>
+    
+  </div>
+  <div class="rdp-hairline"></div>
+  <div style="font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground)">EmphasizedDecelerate ⌫ entering &nbsp;·&nbsp; EmphasizedAccelerate ⌫ exiting &nbsp;·&nbsp; StandardEasing ⌫ in-place</div>
+  <div style="font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground)">Standard spring · damping 1.0 stiffness 500 (no overshoot) &nbsp;·&nbsp; Expressive spring · damping 0.7 stiffness 400 (slight bounce)</div>
+</div>
+
+</div>
+</body>
+</html>

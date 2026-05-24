@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>html, body { min-height: 350px; }</style>
+</head>
+<body><div class="card">
+
+<style>
+.field { display:flex; flex-direction:column; gap:6px; }
+.field .l { font: var(--rdp-type-small-label); color: var(--rdp-muted-foreground); }
+.field .box { min-height: 48px; padding: 14px 17px; border:1px solid var(--rdp-border); border-radius:16px; background: var(--rdp-input-background); color: var(--rdp-foreground); font: var(--rdp-type-mono-value); }
+.field .h { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); }
+.field.foc .box { border-color: var(--rdp-foreground); padding: 13px 18px; }
+.field.err .box { border-color: var(--rdp-destructive); }
+.field.err .h { color: var(--rdp-destructive); }
+.field.dis { opacity: 0.38; }
+</style>
+<div class="col" style="gap:14px">
+  <div class="field">
+    <div class="l">Server</div>
+    <div class="box">relay.example:443</div>
+    <div class="h">IPv4, IPv6, or hostname. Port optional, defaults to 443.</div>
+  </div>
+  <div class="field foc">
+    <div class="l">Strategy</div>
+    <div class="box">--desync=fake,split2 --ttl=8<span style="display:inline-block; width:2px; height:1em; background: var(--rdp-foreground); vertical-align: -0.15em; margin-left: 2px; animation: blink 1s steps(2) infinite"></span></div>
+    <div class="h">Focused · 18dp horizontal padding (1dp wider than rest)</div>
+  </div>
+  <div class="field err">
+    <div class="l">MTU</div>
+    <div class="box">1600</div>
+    <div class="h">Out of range — MTU must be between 576 and 1500.</div>
+  </div>
+</div>
+<style>@keyframes blink { 0%, 50% { opacity:1 } 50.01%, 100% { opacity:0 } }</style>
+
+</div></body></html>

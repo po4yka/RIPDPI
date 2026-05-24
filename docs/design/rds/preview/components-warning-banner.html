@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>html, body { min-height: 420px; }</style>
+</head>
+<body><div class="card">
+
+<style>
+.bnr { display:flex; gap:12px; padding: 16px; border-radius: 16px; border: 1px solid; align-items: flex-start; }
+.bnr .ico { width:28px; height:28px; border-radius: 9999px; display:grid; place-items:center; flex-shrink: 0; }
+.bnr .ico svg { width: 14px; height: 14px; }
+.bnr .col { display:flex; flex-direction:column; gap:4px; flex:1; }
+.warn { background: var(--rdp-warning-container); color: var(--rdp-warning-container-foreground); border-color: var(--rdp-warning); }
+.warn .ico { background: var(--rdp-warning); color: var(--rdp-warning-foreground); }
+.err  { background: var(--rdp-destructive-container); color: var(--rdp-destructive-container-foreground); border-color: var(--rdp-destructive); }
+.err  .ico { background: var(--rdp-destructive); color: var(--rdp-destructive-foreground); }
+.inf  { background: var(--rdp-info-container); color: var(--rdp-info-container-foreground); border-color: var(--rdp-info); }
+.inf  .ico { background: var(--rdp-info); color: var(--rdp-info-foreground); }
+.rst  { background: var(--rdp-restricted-container); color: var(--rdp-restricted-container-foreground); border-color: var(--rdp-restricted); }
+.rst  .ico { background: var(--rdp-restricted); color: var(--rdp-restricted-foreground); }
+</style>
+<div class="col" style="gap:10px">
+  <div class="bnr warn">
+    <div class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22z M11 16h2v2h-2z M11 10h2v5h-2z"/></svg></div>
+    <div class="col"><div class="rdp-body-emphasis">Validation warning</div><div style="font: var(--rdp-type-body)">Double-check the current values before saving the preset.</div></div>
+  </div>
+  <div class="bnr err">
+    <div class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 7h2v6h-2zM11 15h2v2h-2z"/></svg></div>
+    <div class="col"><div class="rdp-body-emphasis">Connection failed</div><div style="font: var(--rdp-type-body)">The service stopped before the tunnel could be established.</div></div>
+  </div>
+  <div class="bnr inf">
+    <div class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 10h2v7h-2zM11 7h2v2h-2z"/></svg></div>
+    <div class="col"><div class="rdp-body-emphasis">Manual step required</div><div style="font: var(--rdp-type-body)">VPN permission must be granted before the service can start.</div></div>
+  </div>
+  <div class="bnr rst">
+    <div class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6a5 5 0 10-10 0v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2zm-7 9a2 2 0 110-4 2 2 0 010 4zm3.1-9H8.9V6a3.1 3.1 0 016.2 0z"/></svg></div>
+    <div class="col"><div class="rdp-body-emphasis">Feature unavailable</div><div style="font: var(--rdp-type-body)">This control only applies when command-line mode is enabled.</div></div>
+  </div>
+</div>
+
+</div></body></html>

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>
+  html, body { min-height: 330px; }
+  body { padding: 12px 16px; }
+
+  /* Strict 2-column grid: label column | actuator rail. Every row is exactly
+     44px tall so the seven states read as variants of one component. */
+  .specimen {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    column-gap: 14px;
+    row-gap: 4px;
+    align-items: center;
+  }
+  .specimen .name {
+    font: 400 11px/1 var(--rdp-font-mono);
+    letter-spacing: 1.1px;
+    color: var(--rdp-muted-foreground);
+    opacity: 0.78;
+    align-self: center;
+  }
+  .specimen .name.warn { color: var(--rdp-warning); opacity: 0.95; }
+  .specimen .name.err  { color: var(--rdp-destructive); opacity: 0.95; }
+  .specimen .name.rst  { color: var(--rdp-restricted); opacity: 0.95; }
+
+  /* ── Rail (shared canonical geometry) ───────────────────────────────── */
+  .rail {
+    position: relative;
+    height: 44px;
+    border-radius: 9999px;
+    background: var(--rdp-muted);
+    border: 1px solid var(--rdp-border);
+  }
+  .rail .lbl {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font: var(--rdp-type-mono-small);
+    letter-spacing: 1px;
+    color: var(--rdp-muted-foreground);
+    opacity: 0.7;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  /* ── Carriage — one geometry, every state ───────────────────────────── */
+  .car {
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    width: 128px;
+    background: var(--rdp-foreground);
+    color: var(--rdp-background);
+    border-radius: 9999px;
+    display: grid;
+    grid-template-columns: 12px 1fr;
+    column-gap: 8px;
+    align-items: center;
+    padding: 0 14px 0 10px;
+    box-sizing: border-box;
+    font: 500 11.5px/1 var(--rdp-font-sans);
+    letter-spacing: 0.4px;
+  }
+  .grip {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    justify-self: center;
+  }
+  .grip i {
+    display: block;
+    width: 9px;
+    height: 1.5px;
+    background: currentColor;
+    opacity: 0.6;
+    border-radius: 1px;
+  }
+
+  /* ── 1 · Idle ────────────────────────────────────────────────────────── */
+  .r-idle .car { left: 5px; }
+  .r-idle .lbl { right: 22px; }
+
+  /* ── 2 · Dragging ────────────────────────────────────────────────────── */
+  /* Carriage left edge at exactly 55% of the rail's travel; threshold tick
+     at exactly 72% — the same coordinate space, so they read as one model. */
+  .r-drag .car { left: calc(55% - 64px); }
+  .r-drag .lbl.left  { left: 22px; opacity: 0.42; }
+  .r-drag .lbl.right { right: 22px; opacity: 0.42; }
+  .threshold {
+    position: absolute;
+    top: 10px;
+    bottom: 10px;
+    left: 72%;
+    width: 1px;
+    background: var(--rdp-foreground);
+    opacity: 0.28;
+  }
+  .threshold::after {
+    content: "72%";
+    position: absolute;
+    bottom: -11px;
+    left: 50%;
+    transform: translateX(-50%);
+    font: 400 8.5px/1 var(--rdp-font-mono);
+    letter-spacing: 0.4px;
+    color: var(--rdp-muted-foreground);
+    opacity: 0.7;
+  }
+
+  /* ── 3 · Connecting ──────────────────────────────────────────────────── */
+  .r-conn { overflow: hidden; }
+  /* Striped progress: 4% black on transparent — visible as motion, quiet
+     under text. Pattern animates 1.6s linear infinite. */
+  .progress {
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    left: 5px;
+    width: calc(70% - 5px);
+    border-radius: 9999px;
+    background:
+      repeating-linear-gradient(
+        -45deg,
+        rgba(0, 0, 0, 0.04) 0 6px,
+        transparent 6px 12px
+      );
+    animation: shift 1.6s linear infinite;
+  }
+  @keyframes shift { to { background-position: 17px 0; } }
+  .r-conn .car {
+    /* Leading edge of carriage matches the 70% progress edge. */
+    left: calc(70% - 128px);
+  }
+  .r-conn .lbl { left: 22px; opacity: 0.62; }
+
+  /* ── 4 · Connected ───────────────────────────────────────────────────── */
+  .r-locked .car { right: 5px; }
+  .r-locked .lbl { left: 22px; opacity: 0.78; }
+
+  /* ── 5 · Degraded ────────────────────────────────────────────────────── */
+  /* Diagnostic, not error: very subtle warm wash + 1dp amber left edge.
+     Black carriage stays; only a small amber dot signals the warning. */
+  .r-degraded {
+    background: rgba(180, 83, 9, 0.06);
+    border-color: var(--rdp-border);
+    box-shadow: inset 2px 0 0 0 var(--rdp-warning);
+  }
+  .r-degraded .car {
+    right: 5px;
+    /* The CONNECTED label plus indicator dot needs an extra ~8px of room
+       to stay on one line at 11.5px / 0.4px tracking. */
+    width: 136px;
+    padding-right: 12px;
+    white-space: nowrap;
+  }
+  .r-degraded .lbl { left: 22px; color: var(--rdp-warning); opacity: 0.85; letter-spacing: 0.9px; }
+  .r-degraded .car .indicator {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    background: var(--rdp-warning);
+    border-radius: 9999px;
+    margin-left: 5px;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+
+  /* ── 6 · Failed ──────────────────────────────────────────────────────── */
+  /* Actionable failure: low-saturation red wash + 2dp left edge as the
+     accent. Carriage IS the retry action. Red restricted to this row. */
+  .r-failed {
+    background: rgba(185, 28, 28, 0.06);
+    border-color: var(--rdp-border);
+    box-shadow: inset 2px 0 0 0 var(--rdp-destructive);
+  }
+  .r-failed .car {
+    left: 5px;
+    background: var(--rdp-destructive);
+    color: var(--rdp-destructive-foreground);
+  }
+  .r-failed .lbl { right: 22px; color: var(--rdp-destructive); opacity: 0.85; letter-spacing: 0.9px; }
+
+  /* ── 7 · Restricted ──────────────────────────────────────────────────── */
+  /* Recoverable permission gate: muted blue-gray surface, light dashed
+     outer edge signals "configurable" rather than "broken". */
+  .r-restricted {
+    background: var(--rdp-restricted-container);
+    border: 1px dashed var(--rdp-outline-variant);
+  }
+  .r-restricted .car {
+    left: 5px;
+    background: var(--rdp-restricted);
+    color: var(--rdp-restricted-foreground);
+  }
+  .r-restricted .lbl { right: 22px; color: var(--rdp-restricted); opacity: 0.9; letter-spacing: 0.9px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="specimen">
+
+    <span class="name">IDLE</span>
+    <div class="rail r-idle">
+      <span class="lbl">SLIDE TO CONNECT →</span>
+      <div class="car"><span class="grip"><i></i><i></i><i></i></span><span>DISCONNECTED</span></div>
+    </div>
+
+    <span class="name">DRAGGING</span>
+    <div class="rail r-drag">
+      <span class="lbl left">SLIDE →</span>
+      <span class="lbl right">LOCK IN</span>
+      <div class="threshold"></div>
+      <div class="car"><span class="grip"><i></i><i></i><i></i></span><span>HOLD</span></div>
+    </div>
+
+    <span class="name">CONNECTING</span>
+    <div class="rail r-conn">
+      <div class="progress"></div>
+      <span class="lbl">ESTABLISHING TUNNEL …</span>
+      <div class="car"><span class="grip"><i></i><i></i><i></i></span><span>0:01.3</span></div>
+    </div>
+
+    <span class="name">CONNECTED</span>
+    <div class="rail r-locked">
+      <span class="lbl">SECURE ROUTE LOCKED</span>
+      <div class="car"><span class="grip"><i></i><i></i><i></i></span><span>CONNECTED</span></div>
+    </div>
+
+    <span class="name warn">DEGRADED</span>
+    <div class="rail r-degraded">
+      <span class="lbl">TLS DOWNGRADED · TCP FALLBACK</span>
+      <div class="car"><span class="grip"><i></i><i></i><i></i></span><span>CONNECTED<span class="indicator"></span></span></div>
+    </div>
+
+    <span class="name err">FAILED</span>
+    <div class="rail r-failed">
+      <span class="lbl">ROUTE LOST · TAP TO RETRY</span>
+      <div class="car"><span class="grip"><i></i><i></i><i></i></span><span>RETRY</span></div>
+    </div>
+
+    <span class="name rst">RESTRICTED</span>
+    <div class="rail r-restricted">
+      <span class="lbl">VPN PERMISSION REQUIRED</span>
+      <div class="car"><span class="grip"><i></i><i></i><i></i></span><span>SETUP</span></div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

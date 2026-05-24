@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:420px}</style></head>
+<body><div class="card">
+<style>
+.ac { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.ac .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 12px; }
+.ac .hd .t { font: var(--rdp-type-body-emphasis); }
+.ac .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.list { border: 0.5px solid var(--rdp-divider); border-radius: 10px; overflow: hidden; }
+.item { background: var(--rdp-card); }
+.item + .item { border-top: 0.5px solid var(--rdp-divider); }
+
+.row {
+  display: grid; grid-template-columns: 20px 1fr auto auto;
+  gap: 12px; align-items: center;
+  padding: 12px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+.row:hover { background: var(--rdp-muted); }
+.row .chev {
+  color: var(--rdp-muted-foreground);
+  transition: transform 220ms cubic-bezier(0.2,0,0,1);
+  display: grid; place-items: center;
+}
+.item.open .row .chev { transform: rotate(90deg); }
+.row .ttl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.row .ttl .nm { font: var(--rdp-type-body-emphasis); font-size: 13px; color: var(--rdp-foreground); }
+.row .ttl .sub { font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); }
+.row .ico { color: var(--rdp-muted-foreground); }
+.row .ico.success { color: var(--rdp-success); }
+.row .ico.warn    { color: var(--rdp-warning); }
+.row .ico.bad     { color: var(--rdp-destructive); }
+.row .meta { font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); font-variant-numeric: tabular-nums; }
+
+.body {
+  padding: 0 14px 14px 46px;
+  font: var(--rdp-type-mono-small); font-size: 11px;
+  color: var(--rdp-muted-foreground);
+  line-height: 1.6;
+}
+.item:not(.open) .body { display: none; }
+.body code { font: var(--rdp-type-mono-inline); padding: 1px 4px; background: var(--rdp-muted); border-radius: 3px; color: var(--rdp-foreground); }
+.body .kvs { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin-top: 6px; }
+.body .kvs b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.body .kvs span { color: var(--rdp-foreground); }
+</style>
+
+<div class="ac">
+  <div class="hd">
+    <span class="t">Accordion</span>
+    <span class="sub">Disclosure rows · single + multi-open</span>
+  </div>
+
+  <div class="list">
+    <div class="item open">
+      <div class="row">
+        <span class="chev">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </span>
+        <span class="ttl"><span class="nm">SNI-based blocking</span><span class="sub">tls.sni · confidence 0.94</span></span>
+        <span class="ico bad">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </span>
+        <span class="meta">2 evidence</span>
+      </div>
+      <div class="body">
+        <p>ClientHello with the target SNI is dropped silently; the same target reached with `echo` SNI completes the handshake.</p>
+        <div class="kvs">
+          <b>0.247 s</b><span><code>tls.client_hello sni=youtube.com</code> → no ServerHello</span>
+          <b>0.812 s</b><span><code>tls.client_hello sni=echo.local</code> → ServerHello 88 ms</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="row">
+        <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+        <span class="ttl"><span class="nm">TCP reset injection</span><span class="sub">tcp.rst · confidence 0.97</span></span>
+        <span class="ico bad">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
+        </span>
+        <span class="meta">2 evidence</span>
+      </div>
+      <div class="body"></div>
+    </div>
+
+    <div class="item">
+      <div class="row">
+        <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+        <span class="ttl"><span class="nm">QUIC throttling</span><span class="sub">udp.qos · confidence 0.62</span></span>
+        <span class="ico warn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg></span>
+        <span class="meta">trace</span>
+      </div>
+      <div class="body"></div>
+    </div>
+
+    <div class="item">
+      <div class="row">
+        <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+        <span class="ttl"><span class="nm">ECH accepted</span><span class="sub">tls.ech · confidence 0.88</span></span>
+        <span class="ico success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="meta">bypassed</span>
+      </div>
+      <div class="body"></div>
+    </div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Accordion · chevron rotates 90° on open · status icon and meta sit in the row · body inherits parent left padding to align with the title.</div>
+</div></body></html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:420px}</style></head>
+<body><div class="card">
+<style>
+.report { padding: 20px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.report .hd { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-bottom: 14px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 14px; }
+.report .id-block .scan-id { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); font-size: 10px; letter-spacing: 0.4px; text-transform: uppercase; }
+.report .id-block .verdict { font: var(--rdp-type-screen-title); margin-top: 4px; }
+.report .id-block .meta-line { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 4px; }
+.report .badge { flex-shrink: 0; padding: 4px 10px; border-radius: 9999px; background: var(--rdp-warning-container); color: var(--rdp-warning); font: var(--rdp-type-mono-small); font-size: 11px; letter-spacing: 0.4px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; }
+.report .badge .sentinel { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 7px solid currentColor; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 0.5px solid var(--rdp-divider); border-radius: 12px; overflow: hidden; }
+.kpi { padding: 12px 14px; background: var(--rdp-muted); border-right: 0.5px solid var(--rdp-divider); border-bottom: 0.5px solid var(--rdp-divider); }
+.kpi:nth-child(3n) { border-right: none; }
+.kpi:nth-last-child(-n+3) { border-bottom: none; }
+.kpi .k { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); letter-spacing: 0.5px; text-transform: uppercase; }
+.kpi .v { font: 500 18px/22px var(--rdp-font-mono); margin-top: 4px; font-variant-numeric: tabular-nums; color: var(--rdp-foreground); }
+.kpi .v.warn { color: var(--rdp-warning); }
+.kpi .v.bad { color: var(--rdp-destructive); }
+.kpi .v.ok { color: var(--rdp-success); }
+.kpi .delta { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 2px; font-size: 10.5px; }
+.kpi .delta.up { color: var(--rdp-destructive); }
+.kpi .delta.down { color: var(--rdp-success); }
+
+.footer-strip { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider); }
+.footer-strip .stages { display: inline-flex; gap: 6px; align-items: center; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.footer-strip .stages .stage { padding: 2px 7px; border-radius: 4px; }
+.footer-strip .stages .stage.ok { background: var(--rdp-success-container); color: var(--rdp-success); }
+.footer-strip .stages .stage.warn { background: var(--rdp-warning-container); color: var(--rdp-warning); }
+.footer-strip .stages .stage.bad { background: var(--rdp-destructive-container); color: var(--rdp-destructive); }
+.footer-strip .actions { display: inline-flex; gap: 6px; }
+.footer-strip .actions button { padding: 6px 12px; border-radius: 9999px; border: 1px solid var(--rdp-border); background: transparent; color: var(--rdp-foreground); font: var(--rdp-type-small-label); cursor: pointer; }
+.footer-strip .actions button.primary { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+</style>
+
+<div class="report">
+  <div class="hd">
+    <div class="id-block">
+      <div class="scan-id">Scan · 2026-05-23T18:42:09Z · #4f7a</div>
+      <div class="verdict">Network somewhat restricted</div>
+      <div class="meta-line">Wi-Fi · ASN 12389 · MOW · 4 of 12 hosts degraded</div>
+    </div>
+    <span class="badge"><span class="sentinel"></span>Warning</span>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi"><div class="k">RTT p50</div><div class="v">32 ms</div><div class="delta up">+8 ms vs baseline</div></div>
+    <div class="kpi"><div class="k">Loss</div><div class="v warn">4.1%</div><div class="delta up">+3.2 pp</div></div>
+    <div class="kpi"><div class="k">Path MTU</div><div class="v">1380</div><div class="delta">−120 from link</div></div>
+    <div class="kpi"><div class="k">Exit ASN</div><div class="v">AS13335</div><div class="delta">Cloudflare · NL</div></div>
+    <div class="kpi"><div class="k">DPI signature</div><div class="v bad">SNI</div><div class="delta up">2 of 4 stages</div></div>
+    <div class="kpi"><div class="k">Leaks</div><div class="v warn">3 / 5</div><div class="delta up">IPv6, TZ, ASN</div></div>
+  </div>
+
+  <div class="footer-strip">
+    <span class="stages">
+      Stages
+      <span class="stage ok">DNS</span>
+      <span class="stage ok">TCP</span>
+      <span class="stage bad">TLS</span>
+      <span class="stage warn">QUIC</span>
+    </span>
+    <span class="actions">
+      <button>Export pcap</button>
+      <button class="primary">Find a strategy</button>
+    </span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Diagnostic report summary · top-of-report card · verdict + scan id + 6 KPIs + per-stage roll-up · one primary next action.</div>
+</div></body></html>

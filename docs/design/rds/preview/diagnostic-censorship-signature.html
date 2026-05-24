@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:540px}</style></head>
+<body><div class="card">
+<style>
+.cs { padding: 16px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.cs .hd { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 14px; gap: 16px; }
+.cs .hd .t { font: var(--rdp-type-body-emphasis); }
+.cs .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 4px; }
+.cs .hd .pill {
+  padding: 6px 12px; border-radius: 9999px; background: var(--rdp-destructive-container); color: var(--rdp-destructive);
+  font: var(--rdp-type-mono-small); font-size: 10.5px; letter-spacing: 0.4px; text-transform: uppercase;
+  display: inline-flex; align-items: center; gap: 6px;
+  flex-shrink: 0;
+}
+.cs .hd .pill .sq { width: 8px; height: 8px; background: currentColor; }
+
+.sig { display: grid; grid-template-columns: 28px 1fr 80px; gap: 12px; padding: 14px 0; align-items: flex-start; }
+.sig + .sig { border-top: 0.5px solid var(--rdp-divider); }
+
+.sig .ico { width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; background: var(--rdp-accent); color: var(--rdp-foreground); font: 500 11px/1 var(--rdp-font-mono); letter-spacing: 0.4px; }
+.sig.bad .ico { background: var(--rdp-destructive-container); color: var(--rdp-destructive); }
+.sig.warn .ico { background: var(--rdp-warning-container); color: var(--rdp-warning); }
+.sig.ok .ico { background: var(--rdp-success-container); color: var(--rdp-success); }
+
+.sig .body .nm { font: var(--rdp-type-body-emphasis); }
+.sig .body .nm .code { font: var(--rdp-type-mono-small); padding: 1px 6px; border-radius: 3px; background: var(--rdp-muted); color: var(--rdp-muted-foreground); margin-left: 6px; }
+.sig .body .desc { font: var(--rdp-type-body); color: var(--rdp-muted-foreground); margin-top: 4px; font-size: 13px; line-height: 1.5; }
+
+.evidence { margin-top: 8px; padding: 8px 10px; background: var(--rdp-muted); border-left: 2px solid var(--rdp-outline-variant); border-radius: 0 6px 6px 0; font: var(--rdp-type-mono-log); color: var(--rdp-foreground); }
+.sig.bad .evidence  { border-left-color: var(--rdp-destructive); }
+.sig.warn .evidence { border-left-color: var(--rdp-warning); }
+.sig.ok .evidence   { border-left-color: var(--rdp-success); }
+.evidence .row { display: flex; gap: 10px; font-size: 11.5px; line-height: 18px; }
+.evidence .ts { color: var(--rdp-muted-foreground); flex-shrink: 0; }
+.evidence .msg { color: var(--rdp-foreground); }
+.evidence .msg em { color: var(--rdp-destructive); font-style: normal; }
+
+.sig .conf { text-align: right; }
+.sig .conf .v { font: 500 18px/1 var(--rdp-font-mono); color: var(--rdp-foreground); font-variant-numeric: tabular-nums; }
+.sig.bad .conf .v  { color: var(--rdp-destructive); }
+.sig.warn .conf .v { color: var(--rdp-warning); }
+.sig.ok .conf .v   { color: var(--rdp-success); }
+.sig .conf .k { font: var(--rdp-type-mono-small); font-size: 9.5px; color: var(--rdp-muted-foreground); letter-spacing: 0.4px; text-transform: uppercase; margin-top: 4px; }
+.sig .conf .meter { width: 60px; height: 4px; background: var(--rdp-muted); border-radius: 2px; margin-top: 6px; margin-left: auto; overflow: hidden; }
+.sig .conf .meter .fill { display: block; height: 100%; background: var(--rdp-destructive); border-radius: 2px; }
+.sig.warn .conf .meter .fill { background: var(--rdp-warning); }
+.sig.ok .conf .meter .fill { background: var(--rdp-success); }
+
+.footnote { margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider); display: flex; justify-content: space-between; align-items: center; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.footnote a { color: var(--rdp-foreground); text-decoration: underline; text-decoration-color: var(--rdp-outline-variant); text-underline-offset: 3px; }
+</style>
+
+<div class="cs">
+  <div class="hd">
+    <div>
+      <div class="t">Interference signatures</div>
+      <div class="sub">4 of 6 detectors triggered · 14 evidence samples</div>
+    </div>
+    <span class="pill"><span class="sq"></span>3 high-confidence</span>
+  </div>
+
+  <div class="sig bad">
+    <span class="ico">SNI</span>
+    <span class="body">
+      <div class="nm">SNI-based blocking<span class="code">tls.sni</span></div>
+      <div class="desc">ClientHello with the target SNI is dropped silently; the same target reached with `echo` or no SNI completes the handshake.</div>
+      <div class="evidence">
+        <div class="row"><span class="ts">0.247s</span><span class="msg">tls.client_hello sni=<em>youtube.com</em> → no ServerHello (3 attempts)</span></div>
+        <div class="row"><span class="ts">0.812s</span><span class="msg">tls.client_hello sni=<em>echo.local</em> · same 5-tuple → ServerHello 88 ms</span></div>
+      </div>
+    </span>
+    <span class="conf"><div class="v">0.94</div><div class="meter"><span class="fill" style="width:94%"></span></div><div class="k">Confidence</div></span>
+  </div>
+
+  <div class="sig bad">
+    <span class="ico">RST</span>
+    <span class="body">
+      <div class="nm">TCP reset injection<span class="code">tcp.rst</span></div>
+      <div class="desc">RST received before the upstream server could have responded (TTL mismatch). Originates between hop 4 and hop 5.</div>
+      <div class="evidence">
+        <div class="row"><span class="ts">0.218s</span><span class="msg">SYN-ACK · ttl=53 · seq=0</span></div>
+        <div class="row"><span class="ts">0.249s</span><span class="msg"><em>RST</em> · ttl=128 · seq=513 · injected (Δttl=75)</span></div>
+      </div>
+    </span>
+    <span class="conf"><div class="v">0.97</div><div class="meter"><span class="fill" style="width:97%"></span></div><div class="k">Confidence</div></span>
+  </div>
+
+  <div class="sig bad">
+    <span class="ico">DNS</span>
+    <span class="body">
+      <div class="nm">DNS response forgery<span class="code">dns.poison</span></div>
+      <div class="desc">Plain-UDP DNS returns an answer that differs from DoH and DoT on the same name; forged answer arrives first.</div>
+      <div class="evidence">
+        <div class="row"><span class="ts">0.012s</span><span class="msg">UDP/53 youtube.com A → <em>10.10.34.34</em> · ttl=1 (forged)</span></div>
+        <div class="row"><span class="ts">0.084s</span><span class="msg">DoH youtube.com A → 142.250.74.142 · ttl=300</span></div>
+      </div>
+    </span>
+    <span class="conf"><div class="v">0.91</div><div class="meter"><span class="fill" style="width:91%"></span></div><div class="k">Confidence</div></span>
+  </div>
+
+  <div class="sig warn">
+    <span class="ico">QoS</span>
+    <span class="body">
+      <div class="nm">Throttling on QUIC<span class="code">udp.qos</span></div>
+      <div class="desc">UDP/443 throughput collapses to ≈64 KiB/s after first 2 MiB; TCP/443 to the same host sustains full rate. Pattern matches token-bucket shaper.</div>
+    </span>
+    <span class="conf"><div class="v">0.62</div><div class="meter"><span class="fill" style="width:62%"></span></div><div class="k">Confidence</div></span>
+  </div>
+
+  <div class="sig ok">
+    <span class="ico">ECH</span>
+    <span class="body">
+      <div class="nm">Encrypted ClientHello accepted<span class="code">tls.ech</span></div>
+      <div class="desc">ECH-wrapped handshake reaches origin; outer SNI is rewritten on path but does not affect the inner handshake.</div>
+    </span>
+    <span class="conf"><div class="v">0.88</div><div class="meter"><span class="fill" style="width:88%"></span></div><div class="k">Bypassed</div></span>
+  </div>
+
+  <div class="footnote">
+    <span>Signatures derived from <a>OONI heuristics</a> · local only · never reported</span>
+    <span>Detector v3.2</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Interference signatures · per-detector evidence row · numeric confidence + meter · semantic-container fills only · final row demonstrates a bypassed signature in success tone.</div>
+</div></body></html>

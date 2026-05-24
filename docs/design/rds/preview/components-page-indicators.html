@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:200px}</style></head>
+<body><div class="card">
+<style>
+.pi { display: flex; gap: 8px; align-items: center; }
+.pi .dot { width: 8px; height: 8px; border-radius: 9999px; background: var(--rdp-border); transition: width 220ms cubic-bezier(0.2,0,0,1), background-color 220ms cubic-bezier(0.2,0,0,1); }
+.pi .dot.sel { width: 24px; background: var(--rdp-foreground); }
+.pi .sep { width: 8px; }
+</style>
+<div class="col" style="gap: 18px">
+  <div class="pi" aria-label="step 1 of 3">
+    <span class="dot sel"></span><span class="dot"></span><span class="dot"></span>
+  </div>
+  <div class="pi" aria-label="step 2 of 3">
+    <span class="dot"></span><span class="dot sel"></span><span class="dot"></span>
+  </div>
+  <div class="pi" aria-label="step 3 of 5 with section break">
+    <span class="dot"></span><span class="dot"></span><span class="dot sel"></span><span class="sep"></span><span class="dot"></span><span class="dot"></span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 14px">RipDpiPageIndicators · 8dp dots, active expands to ~24dp pill · motion.motionAwareSpring for width, motion.stateTween for color · optional section-break gap.</div>
+</div></body></html>

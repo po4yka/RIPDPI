@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:360px}</style></head>
+<body><div class="card">
+<style>
+.fb { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.fb .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.fb .hd .t { font: var(--rdp-type-body-emphasis); }
+.fb .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  background: var(--rdp-muted);
+  border: 1px solid var(--rdp-border);
+  border-radius: 9999px;
+  flex-wrap: wrap;
+}
+
+.bar .search { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 200px; }
+.bar .search svg { color: var(--rdp-muted-foreground); flex-shrink: 0; }
+.bar .search input { flex: 1; background: transparent; border: none; outline: none;
+  font: var(--rdp-type-mono-value); font-size: 12px; color: var(--rdp-foreground); }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 9999px;
+  background: var(--rdp-foreground); color: var(--rdp-background);
+  font: var(--rdp-type-mono-small); font-size: 11px;
+  white-space: nowrap;
+  line-height: 1;
+}
+.chip .k { opacity: 0.6; margin-right: -2px; }
+.chip .x {
+  width: 16px; height: 16px; border-radius: 9999px;
+  display: inline-grid; place-items: center;
+  cursor: pointer;
+  background: rgba(255,255,255,0.18);
+  flex-shrink: 0;
+}
+.chip .x svg { width: 8px; height: 8px; display: block; }
+
+.chip.tone-info  { background: var(--rdp-info);        color: var(--rdp-info-foreground); }
+.chip.tone-warn  { background: var(--rdp-warning);     color: var(--rdp-warning-foreground); }
+.chip.tone-bad   { background: var(--rdp-destructive); color: var(--rdp-destructive-foreground); }
+.chip.tone-ok    { background: var(--rdp-success);     color: var(--rdp-success-foreground); }
+
+.bar .clear {
+  font: var(--rdp-type-mono-small); font-size: 11px;
+  color: var(--rdp-muted-foreground);
+  background: transparent; border: none; cursor: pointer;
+  padding: 4px 8px;
+  text-decoration: underline; text-decoration-color: var(--rdp-outline-variant);
+}
+
+.suggest {
+  margin-top: 12px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.suggest .lbl { font: var(--rdp-type-mono-small); font-size: 10px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--rdp-muted-foreground); margin-right: 4px; }
+.suggest .sg {
+  font: var(--rdp-type-mono-small); font-size: 11px;
+  padding: 3px 9px; border-radius: 9999px;
+  background: var(--rdp-card); border: 0.5px solid var(--rdp-border);
+  color: var(--rdp-foreground);
+  cursor: pointer;
+}
+.suggest .sg .k { color: var(--rdp-muted-foreground); }
+
+.results {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  display: flex; justify-content: space-between; font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground);
+}
+.results b { color: var(--rdp-foreground); font-weight: 500; }
+</style>
+
+<div class="fb">
+  <div class="hd">
+    <span class="t">Filter bar</span>
+    <span class="sub">Chip-based · key:value tokens · clear-all</span>
+  </div>
+
+  <div class="bar">
+    <div class="search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" value="" placeholder="Filter logs · key:value or text…"/>
+    </div>
+
+    <span class="chip tone-bad"><span class="k">level:</span>error<span class="x"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></span></span>
+    <span class="chip"><span class="k">stage:</span>tls<span class="x"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></span></span>
+    <span class="chip tone-warn"><span class="k">last:</span>30 m<span class="x"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></span></span>
+    <span class="chip"><span class="k">host:</span>youtube.com<span class="x"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></span></span>
+
+    <button class="clear">Clear all</button>
+  </div>
+
+  <div class="suggest">
+    <span class="lbl">Suggest</span>
+    <span class="sg"><span class="k">strategy:</span>tlsrec</span>
+    <span class="sg"><span class="k">asn:</span>13335</span>
+    <span class="sg"><span class="k">port:</span>443</span>
+    <span class="sg"><span class="k">duration:</span>&gt; 500 ms</span>
+    <span class="sg">timeout</span>
+    <span class="sg">RST</span>
+  </div>
+
+  <div class="results">
+    <span>Matched <b>14</b> of <b>1 482</b> rows</span>
+    <span>Press <kbd style="font:500 9.5px/1 var(--rdp-font-mono); padding: 2px 5px; background: var(--rdp-card); border:0.5px solid var(--rdp-border); border-radius:3px; color: var(--rdp-foreground)">⌘ S</kbd> to save filter</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Filter bar · search input + active chips inside a single pill · chips encode key:value, tone reflects severity · &quot;Suggest&quot; row offers tokens; <kbd style="font:500 9.5px/1 var(--rdp-font-mono); padding: 2px 5px; background: var(--rdp-card); border:0.5px solid var(--rdp-border); border-radius:3px">⌘ S</kbd> persists.</div>
+</div></body></html>

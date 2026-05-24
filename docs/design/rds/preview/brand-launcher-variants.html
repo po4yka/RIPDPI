@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>
+  html, body { min-height: 380px; }
+  body { padding: 24px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+  }
+  .grid + .grid { margin-top: 16px; }
+
+  .cell {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+
+  /* Squircle tile — Android launcher's adaptive-icon square treatment.
+     --ic-bg lets the dark "crack" paths punch through to the tile
+     background; --ic-fg controls the brand body color. Internal padding
+     reserves the adaptive-icon safe zone so the figure never crowds the
+     mask edge. */
+  .tile {
+    --ic-bg: var(--rdp-muted);
+    --ic-fg: var(--rdp-foreground);
+    width: 88px;
+    height: 88px;
+    background: var(--rdp-muted);
+    border: 1px solid var(--rdp-card-border);
+    border-radius: 22px;
+    display: grid;
+    place-items: center;
+    color: var(--rdp-foreground);
+    overflow: hidden;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+  .tile svg { width: 100%; height: 100%; display: block; }
+
+  /* Round tile — Android launcher's circular treatment. Same icons,
+     different mask shape. Slightly more padding than the squircle to
+     compensate for the visually larger circular area. */
+  .round {
+    --ic-bg: var(--rdp-muted);
+    --ic-fg: var(--rdp-foreground);
+    width: 88px;
+    height: 88px;
+    background: var(--rdp-muted);
+    border: 1px solid var(--rdp-card-border);
+    border-radius: 9999px;
+    display: grid;
+    place-items: center;
+    color: var(--rdp-foreground);
+    overflow: hidden;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  .round svg { width: 100%; height: 100%; display: block; }
+
+  .label {
+    font: var(--rdp-type-mono-small);
+    color: var(--rdp-muted-foreground);
+    letter-spacing: 0.2px;
+  }
+
+  .group-label {
+    font: var(--rdp-type-section-title);
+    letter-spacing: 0.72px;
+    text-transform: uppercase;
+    color: var(--rdp-muted-foreground);
+    opacity: 0.65;
+    margin-bottom: 10px;
+  }
+
+  .caption {
+    font: var(--rdp-type-caption);
+    color: var(--rdp-muted-foreground);
+    margin-top: 16px;
+    line-height: 1.45;
+  }
+  .caption strong { color: var(--rdp-foreground); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <div class="group-label">Squircle · adaptive icon</div>
+  <div class="grid">
+    <div class="cell"><div class="tile"><img src="../assets/icons/ic_launcher_foreground_ripdpi_clean.svg" alt="clean"/></div><div class="label">clean</div></div>
+    <div class="cell"><div class="tile"><img src="../assets/icons/ic_launcher_foreground_ripdpi_cracked.svg" alt="cracked"/></div><div class="label">cracked</div></div>
+    <div class="cell"><div class="tile"><img src="../assets/icons/ic_launcher_foreground_ripdpi_disintegrate.svg" alt="disintegrate"/></div><div class="label">disintegrate</div></div>
+    <div class="cell"><div class="tile"><img src="../assets/icons/ic_launcher_foreground_ripdpi_glitch.svg" alt="glitch"/></div><div class="label">glitch</div></div>
+    <div class="cell"><div class="tile"><img src="../assets/icons/ic_launcher_foreground_ripdpi_rubble.svg" alt="rubble"/></div><div class="label">rubble</div></div>
+    <div class="cell"><div class="tile"><img src="../assets/icons/ic_launcher_foreground_ripdpi_stitch.svg" alt="stitch"/></div><div class="label">stitch</div></div>
+  </div>
+
+  <div class="group-label" style="margin-top: 24px">Round · launcher mask</div>
+  <div class="grid">
+    <div class="cell"><div class="round"><img src="../assets/icons/ic_launcher_foreground_ripdpi_clean.svg" alt="clean"/></div><div class="label">clean</div></div>
+    <div class="cell"><div class="round"><img src="../assets/icons/ic_launcher_foreground_ripdpi_cracked.svg" alt="cracked"/></div><div class="label">cracked</div></div>
+    <div class="cell"><div class="round"><img src="../assets/icons/ic_launcher_foreground_ripdpi_disintegrate.svg" alt="disintegrate"/></div><div class="label">disintegrate</div></div>
+    <div class="cell"><div class="round"><img src="../assets/icons/ic_launcher_foreground_ripdpi_glitch.svg" alt="glitch"/></div><div class="label">glitch</div></div>
+    <div class="cell"><div class="round"><img src="../assets/icons/ic_launcher_foreground_ripdpi_rubble.svg" alt="rubble"/></div><div class="label">rubble</div></div>
+    <div class="cell"><div class="round"><img src="../assets/icons/ic_launcher_foreground_ripdpi_stitch.svg" alt="stitch"/></div><div class="label">stitch</div></div>
+  </div>
+
+  <div class="caption">Six brand-mark variants × two launcher mask shapes. Used only on launcher / splash / onboarding. <strong>clean</strong> is canonical everywhere else.</div>
+</div>
+</body>
+</html>

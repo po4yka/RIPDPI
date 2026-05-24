@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.snk { display: flex; align-items: center; gap: 12px; padding: 12px 16px; min-height: 48px; border-radius: 16px; border: 1px solid; }
+.snk .ico { width: 22px; height: 22px; flex-shrink: 0; }
+.snk .msg { flex: 1; font: var(--rdp-type-body); }
+.snk .action { font: var(--rdp-type-small-label); cursor: pointer; }
+.snk.default { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.snk.default .action { color: var(--rdp-background); opacity: 0.8 }
+.snk.info { background: var(--rdp-info-container); color: var(--rdp-info-container-foreground); border-color: var(--rdp-info); }
+.snk.info .action { color: var(--rdp-info); }
+.snk.warning { background: var(--rdp-warning-container); color: var(--rdp-warning-container-foreground); border-color: var(--rdp-warning); }
+.snk.warning .action { color: var(--rdp-warning); }
+.snk.error { background: var(--rdp-destructive-container); color: var(--rdp-destructive-container-foreground); border-color: var(--rdp-destructive); }
+.snk.error .action { color: var(--rdp-destructive); }
+.snk.restricted { background: var(--rdp-restricted-container); color: var(--rdp-restricted-container-foreground); border-color: var(--rdp-restricted); }
+.snk.restricted .action { color: var(--rdp-restricted); }
+</style>
+<div class="col" style="gap: 10px">
+  <div class="snk default">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <span class="msg">Preset saved</span>
+    <span class="action">UNDO</span>
+  </div>
+  <div class="snk info">
+    <svg class="ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 10h2v7h-2zM11 7h2v2h-2z"/></svg>
+    <span class="msg">VPN permission was granted</span>
+    <span class="action">DISMISS</span>
+  </div>
+  <div class="snk warning">
+    <svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22z M11 16h2v2h-2z M11 10h2v5h-2z"/></svg>
+    <span class="msg">QUIC handshake timed out — falling back to TCP</span>
+    <span class="action">RETRY</span>
+  </div>
+  <div class="snk error">
+    <svg class="ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 7h2v6h-2zM11 15h2v2h-2z"/></svg>
+    <span class="msg">Strategy file failed to parse at line 12</span>
+    <span class="action">OPEN</span>
+  </div>
+  <div class="snk restricted">
+    <svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6a5 5 0 10-10 0v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2zm-7 9a2 2 0 110-4 2 2 0 010 4zm3.1-9H8.9V6a3.1 3.1 0 016.2 0z"/></svg>
+    <span class="msg">PCAP recording requires root access</span>
+    <span class="action">SETUP</span>
+  </div>
+</div>
+</div></body></html>

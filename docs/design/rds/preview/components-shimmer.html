@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:340px}</style></head>
+<body><div class="card">
+<style>
+.sh { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.sh .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.sh .hd .t { font: var(--rdp-type-body-emphasis); }
+.sh .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+/* Primitive */
+.shim {
+  background: linear-gradient(90deg, var(--rdp-muted) 0%, var(--rdp-accent) 50%, var(--rdp-muted) 100%);
+  background-size: 200% 100%;
+  animation: shSweep 1.4s linear infinite;
+  border-radius: 4px;
+}
+@keyframes shSweep { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+.atoms { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+.atoms .a { background: var(--rdp-muted); padding: 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
+.atoms .a .lbl { font: var(--rdp-type-mono-small); font-size: 9.5px; color: var(--rdp-muted-foreground); letter-spacing: 0.4px; text-transform: uppercase; text-align: center; }
+
+.text-line  { height: 10px; }
+.text-block { display: flex; flex-direction: column; gap: 4px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; margin: 0 auto; }
+.square { width: 56px; height: 40px; border-radius: 6px; margin: 0 auto; }
+
+/* Composed example */
+.example {
+  padding: 16px;
+  background: var(--rdp-muted);
+  border-radius: 12px;
+  display: grid;
+  grid-template-columns: 40px 1fr 60px;
+  gap: 12px; align-items: center;
+}
+.example .sub { display: flex; flex-direction: column; gap: 4px; }
+
+.usage {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground);
+}
+.usage code { font: var(--rdp-type-mono-inline); padding: 1px 5px; background: var(--rdp-accent); border-radius: 3px; color: var(--rdp-foreground); }
+.usage b { color: var(--rdp-foreground); font-weight: 500; }
+</style>
+
+<div class="sh">
+  <div class="hd">
+    <span class="t">Shimmer primitive</span>
+    <span class="sub">Apply <code style="font: var(--rdp-type-mono-inline); padding: 1px 5px; background: var(--rdp-accent); border-radius: 3px">.shim</code> to any block</span>
+  </div>
+
+  <div class="atoms">
+    <div class="a">
+      <div class="lbl">Avatar</div>
+      <div class="shim avatar"></div>
+    </div>
+    <div class="a">
+      <div class="lbl">Square</div>
+      <div class="shim square"></div>
+    </div>
+    <div class="a">
+      <div class="lbl">Text line</div>
+      <div class="shim text-line"></div>
+    </div>
+    <div class="a">
+      <div class="lbl">Text block</div>
+      <div class="text-block">
+        <div class="shim" style="height: 10px"></div>
+        <div class="shim" style="height: 10px; width: 80%"></div>
+        <div class="shim" style="height: 10px; width: 60%"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="example">
+    <div class="shim avatar"></div>
+    <div class="sub">
+      <div class="shim" style="height: 12px; width: 60%"></div>
+      <div class="shim" style="height: 9px; width: 40%"></div>
+    </div>
+    <div class="shim" style="height: 14px"></div>
+  </div>
+
+  <div class="usage">
+    <b>Token:</b> <code>1.4 s linear infinite</code> sweep · muted → accent → muted · all dimensions inherited from the element <code>.shim</code> is applied to. Replace with real content via 220 ms cross-fade.
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Shimmer · single utility class · combine atoms (avatar, square, line, block) to build any skeleton screen · paired with the cross-fade swap.</div>
+</div></body></html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:320px}</style></head>
+<body><div class="card">
+<style>
+.row { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+.row .pill { padding: 6px 14px; border-radius: 9999px; background: var(--rdp-foreground); color: var(--rdp-background); font: var(--rdp-type-small-label); }
+.spec { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); flex: 1; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { padding: 4px 12px; border-radius: 12px; border: 1px solid var(--rdp-border); font: var(--rdp-type-body-emphasis); font-size: 13px; }
+.chip.sel { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.sw { width: 44px; height: 26px; border-radius: 9999px; background: var(--rdp-foreground); position: relative; }
+.sw .t { position: absolute; top: 3px; left: 21px; width: 20px; height: 20px; border-radius: 9999px; background: var(--rdp-background); }
+</style>
+<div class="col" style="gap: 10px">
+  <div class="row">
+    <span class="pill">BOOLEAN</span>
+    <span class="spec">RipDpiSwitch</span>
+    <span class="sw"><span class="t"></span></span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="row">
+    <span class="pill">SINGLE FROM N</span>
+    <span class="spec">RipDpiChip group (radio) or RipDpiDropdown</span>
+    <span class="chips"><span class="chip">TCP</span><span class="chip sel">QUIC</span><span class="chip">UDP</span></span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="row">
+    <span class="pill">MULTI FROM N</span>
+    <span class="spec">RipDpiChip multi-select</span>
+    <span class="chips"><span class="chip sel">A</span><span class="chip">B</span><span class="chip sel">C</span></span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="row">
+    <span class="pill">SINGLE PRESET</span>
+    <span class="spec">PresetCard (radio with description)</span>
+    <span style="font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground)">↗ see Preset card</span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">The system has no native checkbox or radio button. Use these canonical alternatives — adding new low-level togglers would break the engineering-tool register.</div>
+</div></body></html>

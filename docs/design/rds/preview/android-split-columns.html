@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:340px}</style></head>
+<body><div class="card">
+<style>
+.host { display: grid; grid-template-columns: 1fr 1.4fr; gap: 24px; padding: 20px; background: var(--rdp-background); border: 1px solid var(--rdp-card-border); border-radius: 16px; min-height: 240px; }
+.col-card { background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; padding: 16px; }
+.col-card .head { font: var(--rdp-type-section-title); letter-spacing: 0.72px; text-transform: uppercase; color: var(--rdp-muted-foreground); margin-bottom: 8px; }
+.col-card .row { display: flex; justify-content: space-between; padding: 8px 0; font: var(--rdp-type-body); }
+.col-card .row + .row { border-top: 0.5px solid var(--rdp-divider); }
+.col-card .row .v { font: var(--rdp-type-mono-value); color: var(--rdp-muted-foreground); }
+.col-card .row.sel { background: var(--rdp-muted); padding: 8px 12px; margin: 0 -12px; border-radius: 8px; border: none; }
+</style>
+<div class="host">
+  <div class="col-card">
+    <div class="head">Strategy presets</div>
+    <div class="row sel">tlsrec_split_host<span class="v">ACTIVE</span></div>
+    <div class="row">desync_fake</div>
+    <div class="row">fragment_drop</div>
+    <div class="row">host_fake</div>
+    <div class="row">seq_overlap</div>
+  </div>
+  <div class="col-card">
+    <div class="head">tlsrec_split_host · details</div>
+    <div class="row"><span>Server</span><span class="v">relay.example:443</span></div>
+    <div class="row"><span>MTU</span><span class="v">1500</span></div>
+    <div class="row"><span>Fragments</span><span class="v">8 / 1392 B</span></div>
+    <div class="row"><span>Strategy args</span><span class="v">--ttl=8</span></div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Split columns · Expanded width-class content grouping · primary list left, detail pane right · selection in the list updates the right pane in place.</div>
+</div></body></html>

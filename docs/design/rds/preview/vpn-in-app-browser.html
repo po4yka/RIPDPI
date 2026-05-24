@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:460px}</style></head>
+<body><div class="card">
+<style>
+.chrome { background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; overflow: hidden; }
+.chrome .url-bar { display: grid; grid-template-columns: 28px 1fr 28px; gap: 8px; padding: 10px 12px; align-items: center; border-bottom: 0.5px solid var(--rdp-divider); }
+.chrome .url-bar .nav { width: 24px; height: 24px; display: grid; place-items: center; color: var(--rdp-muted-foreground); }
+.chrome .url-bar .field { display: grid; grid-template-columns: 14px 1fr auto; gap: 6px; padding: 6px 10px; background: var(--rdp-muted); border-radius: 9999px; align-items: center; }
+.chrome .url-bar .field .lock { color: var(--rdp-success); }
+.chrome .url-bar .field .url { font: var(--rdp-type-mono-value); font-size: 13px; }
+.chrome .url-bar .field .badge { font: var(--rdp-type-mono-small); font-size: 9px; padding: 1px 6px; background: var(--rdp-foreground); color: var(--rdp-background); border-radius: 9999px; letter-spacing: 0.4px; }
+.chrome .body { padding: 16px; min-height: 180px; background: var(--rdp-background); display: flex; flex-direction: column; gap: 12px; }
+.chrome .body .h { width: 60%; height: 16px; background: var(--rdp-outline-variant); border-radius: 4px; }
+.chrome .body .p { width: 100%; height: 10px; background: var(--rdp-outline-variant); border-radius: 4px; opacity: 0.6; }
+.chrome .body .p.short { width: 75%; }
+.chrome .toolbar { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 0.5px solid var(--rdp-divider); }
+.chrome .toolbar .item { padding: 10px; text-align: center; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); cursor: pointer; }
+.chrome .toolbar .item.sel { color: var(--rdp-foreground); }
+.chrome .toolbar .item svg { width: 16px; height: 16px; display: block; margin: 0 auto 4px; }
+</style>
+<div class="chrome">
+  <div class="url-bar">
+    <span class="nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 6 9 12 15 18"/></svg></span>
+    <span class="field">
+      <svg class="lock" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6a5 5 0 10-10 0v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2z"/></svg>
+      <span class="url">discord.com</span>
+      <span class="badge">VPN</span>
+    </span>
+    <span class="nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></span>
+  </div>
+  <div class="body">
+    <div class="h"></div>
+    <div class="p"></div>
+    <div class="p"></div>
+    <div class="p short"></div>
+    <div class="p"></div>
+  </div>
+  <div class="toolbar">
+    <span class="item sel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>TEST</span>
+    <span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h12v2H3z"/></svg>LOG</span>
+    <span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>STRATEGY</span>
+    <span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>CLOSE</span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">In-app browser · isolated WebView for testing URLs through the tunnel · VPN badge in URL bar · bottom tools tie back to RIPDPI.</div>
+</div></body></html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.pp { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.pp .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.pp .hd .t { font: var(--rdp-type-body-emphasis); }
+.pp .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.spec { background: var(--rdp-muted); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.spec .nm { font: var(--rdp-type-mono-value); font-size: 12px; }
+.spec .tok { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); }
+
+.stage { position: relative; height: 90px; background: var(--rdp-card); border-radius: 8px; border: 0.5px solid var(--rdp-divider); display: grid; place-items: center; overflow: hidden; }
+
+/* Breathing dot */
+.breathe-dot {
+  width: 16px; height: 16px; border-radius: 9999px; background: var(--rdp-success);
+  position: relative;
+}
+.breathe-dot::after {
+  content:""; position: absolute; inset: -4px;
+  border: 1.5px solid var(--rdp-success); border-radius: 9999px;
+  animation: ppBreathe 1.6s ease-out infinite;
+}
+@keyframes ppBreathe {
+  0%   { transform: scale(0.6); opacity: 0.7; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* Radar sweep */
+.radar {
+  width: 72px; height: 72px; border-radius: 9999px;
+  border: 1px solid var(--rdp-outline-variant);
+  position: relative;
+  background: radial-gradient(circle at center, var(--rdp-card) 0%, var(--rdp-card) 30%, transparent 30%),
+              repeating-radial-gradient(circle at center, transparent 0 11px, var(--rdp-outline-variant) 11px 12px);
+}
+.radar::before {
+  content: ""; position: absolute; inset: 0;
+  border-radius: 9999px; overflow: hidden;
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 320deg, var(--rdp-info) 360deg);
+  mask: radial-gradient(circle at center, transparent 0 6px, black 6px 100%);
+  -webkit-mask: radial-gradient(circle at center, transparent 0 6px, black 6px 100%);
+  animation: ppRotate 2s linear infinite;
+}
+.radar::after {
+  content: ""; position: absolute; top: 50%; left: 50%; width: 6px; height: 6px;
+  background: var(--rdp-foreground); border-radius: 9999px;
+  transform: translate(-50%, -50%); z-index: 1;
+}
+@keyframes ppRotate { to { transform: rotate(360deg); } }
+
+/* Marching ants */
+.march {
+  width: 80%; height: 6px; border-radius: 3px;
+  background: repeating-linear-gradient(90deg, var(--rdp-foreground) 0 6px, var(--rdp-muted) 6px 12px);
+  background-size: 12px 100%;
+  animation: ppMarch 0.6s linear infinite;
+}
+@keyframes ppMarch { to { background-position: -12px 0; } }
+
+.meta {
+  display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px;
+  font: var(--rdp-type-mono-small); font-size: 10px;
+}
+.meta b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.meta span { color: var(--rdp-foreground); }
+
+.usage-row {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground);
+}
+.usage-row b { color: var(--rdp-foreground); font-weight: 500; }
+</style>
+
+<div class="pp">
+  <div class="hd">
+    <span class="t">Probe-pulse vocabulary</span>
+    <span class="sub">3 rhythms · used everywhere &quot;live&quot;</span>
+  </div>
+
+  <div class="grid">
+    <div class="spec">
+      <div><span class="nm">Breathing dot</span><span class="tok" style="margin-left:6px">probe / live data</span></div>
+      <div class="stage"><span class="breathe-dot"></span></div>
+      <div class="meta">
+        <b>Cycle</b><span>1.6 s ease-out · infinite</span>
+        <b>Scale</b><span>0.6 → 1.8</span>
+        <b>Opacity</b><span>0.7 → 0</span>
+      </div>
+    </div>
+
+    <div class="spec">
+      <div><span class="nm">Radar sweep</span><span class="tok" style="margin-left:6px">scanning / discovery</span></div>
+      <div class="stage"><span class="radar"></span></div>
+      <div class="meta">
+        <b>Cycle</b><span>2.0 s linear · infinite</span>
+        <b>Conic</b><span>40° wedge · info colour</span>
+        <b>Reduced-motion</b><span>fade in centre dot only</span>
+      </div>
+    </div>
+
+    <div class="spec">
+      <div><span class="nm">Marching ants</span><span class="tok" style="margin-left:6px">transit / handshake</span></div>
+      <div class="stage"><span class="march"></span></div>
+      <div class="meta">
+        <b>Cycle</b><span>0.6 s linear · infinite</span>
+        <b>Step</b><span>12 px slide left</span>
+        <b>Use</b><span>edges in state diagrams</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="usage-row">
+    <b>Rule of thumb:</b> &nbsp;breathing for ambient liveness · radar for active scanning · marching for directional transit. Never combine more than one on screen.
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Probe-pulse vocabulary · three named rhythms with cycle and amplitude tokens · same source for every &quot;live&quot; cue in the system.</div>
+</div></body></html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.hu { background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 28px; padding: 14px 16px; margin: 0 6px; }
+.hu + .hu { margin-top: 10px; }
+.hu.warn { background: var(--rdp-warning-container); border-color: var(--rdp-warning); }
+.hu.err  { background: var(--rdp-destructive-container); border-color: var(--rdp-destructive); }
+.row { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; }
+.ico { width: 28px; height: 28px; border-radius: 9999px; background: var(--rdp-foreground); color: var(--rdp-background); display: grid; place-items: center; }
+.hu.warn .ico { background: var(--rdp-warning); color: #fff; }
+.hu.err .ico  { background: var(--rdp-destructive); color: #fff; }
+.ico svg { width: 14px; height: 14px; }
+.meta { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.title { font: var(--rdp-type-body-emphasis); margin-top: 2px; }
+.text { font: var(--rdp-type-secondary-body); color: var(--rdp-muted-foreground); font-size: 13px; }
+.cta { padding: 6px 12px; border-radius: 9999px; background: var(--rdp-foreground); color: var(--rdp-background); font: var(--rdp-type-small-label); }
+.hu.warn .cta { background: var(--rdp-warning); color: #fff; }
+.hu.err .cta  { background: var(--rdp-destructive); color: #fff; }
+</style>
+<div class="hu warn">
+  <div class="row">
+    <span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22z M11 16h2v2h-2z M11 10h2v5h-2z"/></svg></span>
+    <span><div class="meta">RIPDPI · now</div><div class="title">QUIC handshake timed out</div><div class="text">Falling back to TCP with desync_fake.</div></span>
+    <span class="cta">DETAILS</span>
+  </div>
+</div>
+<div class="hu err">
+  <div class="row">
+    <span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 7h2v6h-2zM11 15h2v2h-2z"/></svg></span>
+    <span><div class="meta">RIPDPI · now</div><div class="title">Route lost</div><div class="text">VPN service stopped. Tap to retry.</div></span>
+    <span class="cta">RETRY</span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Heads-up notification · banner from top edge for warn / error states · single CTA, dismissible · uses semantic-container tone colors.</div>
+</div></body></html>

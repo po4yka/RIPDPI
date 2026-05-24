@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.wallpaper { background: linear-gradient(135deg, #2a3a4a 0%, #1a2530 100%); border-radius: 28px; padding: 24px; display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 16px; align-items: start; }
+.w { background: var(--rdp-card); color: var(--rdp-foreground); border-radius: 24px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.w .head { display: flex; align-items: center; gap: 8px; }
+.w .ico { width: 16px; height: 16px; border-radius: 9999px; background: var(--rdp-foreground); color: var(--rdp-background); display: grid; place-items: center; }
+.w .ico .glyph { display: block; width: 70%; height: 70%; background: currentColor;
+  -webkit-mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center / contain no-repeat;
+          mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center / contain no-repeat; }
+.w .head .name { font: var(--rdp-type-mono-small); letter-spacing: 0.5px; }
+.w .dot { width: 6px; height: 6px; border-radius: 9999px; }
+.w .stat { font: var(--rdp-type-body-emphasis); font-size: 13px; }
+.w .val { font: 500 18px/1.1 var(--rdp-font-mono); }
+.w .toggle { margin-top: auto; padding: 10px 0; text-align: center; border-radius: 12px; background: var(--rdp-foreground); color: var(--rdp-background); font: var(--rdp-type-small-label); letter-spacing: 0.4px; }
+.w.large .row { display: flex; justify-content: space-between; padding: 6px 0; border-top: 0.5px solid var(--rdp-divider); }
+.w.large .row:first-of-type { border-top: none; }
+.w.large .row .k { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.w.large .row .v { font: var(--rdp-type-mono-small); color: var(--rdp-foreground); }
+.success { background: var(--rdp-success); }
+</style>
+<div class="wallpaper">
+  <div class="w small">
+    <div class="head"><span class="ico"><span class="glyph"></span></span><span class="name">RIPDPI</span></div>
+    <div style="display: flex; align-items: center; gap: 6px"><span class="dot success"></span><span class="stat">Connected</span></div>
+    <div class="val">00:18:42</div>
+    <div class="toggle">DISCONNECT</div>
+  </div>
+  <div class="w medium">
+    <div class="head"><span class="ico"><span class="glyph"></span></span><span class="name">RIPDPI</span><span style="margin-left: auto; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground)">2×1</span></div>
+    <div style="display: flex; align-items: center; gap: 6px"><span class="dot success"></span><span class="stat">Connected · 00:18:42</span></div>
+    <div style="font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground)">relay.example · tlsrec_split_host</div>
+    <div class="toggle">DISCONNECT</div>
+  </div>
+  <div class="w large">
+    <div class="head"><span class="ico"><span class="glyph"></span></span><span class="name">RIPDPI</span><span style="margin-left: auto; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground)">4×2</span></div>
+    <div style="display: flex; align-items: center; gap: 6px"><span class="dot success"></span><span class="stat">Connected · 00:18:42</span></div>
+    <div style="display: flex; flex-direction: column">
+      <div class="row"><span class="k">RELAY</span><span class="v">relay.example</span></div>
+      <div class="row"><span class="k">STRATEGY</span><span class="v">tlsrec_split_host</span></div>
+      <div class="row"><span class="k">RTT</span><span class="v">12 ms</span></div>
+      <div class="row"><span class="k">DOWN</span><span class="v">128 KiB</span></div>
+    </div>
+    <div class="toggle">DISCONNECT</div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Glance widget · 1×1, 2×1, 4×2 layouts · RipDpiGlanceTheme mirrors Compose tokens · live status + tap to toggle.</div>
+</div></body></html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:360px}</style></head>
+<body><div class="card">
+<style>
+.dt { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.dt .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.dt .hd .t { font: var(--rdp-type-body-emphasis); }
+.dt .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.spec { background: var(--rdp-muted); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.spec .nm { font: var(--rdp-type-mono-value); font-size: 12px; }
+.spec .sub { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); margin-top: 2px; }
+
+/* Sliding-digit ticker — uses CSS counter via custom property */
+.ticker {
+  font: 500 36px/1 var(--rdp-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--rdp-foreground);
+  display: inline-flex; align-items: baseline; gap: 4px;
+}
+.digit-col {
+  position: relative;
+  height: 36px;
+  width: 22px;
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: bottom;
+}
+.digit-col .strip {
+  position: absolute; left: 0; top: 0;
+  display: flex; flex-direction: column;
+  transition: transform 320ms cubic-bezier(0.05,0.7,0.1,1);
+}
+.digit-col .strip span {
+  height: 36px; width: 22px; text-align: center;
+  font: 500 28px/36px var(--rdp-font-mono);
+}
+.digit-col.d0 .strip { transform: translateY(0%); }
+.digit-col.d2 .strip { transform: translateY(-72px); }
+.digit-col.d4 .strip { transform: translateY(-144px); }
+.digit-col.d8 .strip { transform: translateY(-288px); }
+.ticker .unit { font: var(--rdp-type-mono-small); font-size: 11px; color: var(--rdp-muted-foreground); margin-left: 4px; align-self: flex-end; padding-bottom: 4px; }
+
+.ticker-live {
+  font: 500 28px/36px var(--rdp-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--rdp-foreground);
+  display: inline-flex; align-items: baseline; gap: 4px;
+}
+.ticker-live .auto {
+  display: inline-block; min-width: 40px; text-align: right;
+  animation: dtCount 4s steps(40, end) infinite;
+}
+@keyframes dtCount { /* fake but illustrative; rendered values inline */ }
+
+/* Countdown bar */
+.countdown { position: relative; height: 24px; background: var(--rdp-card); border: 0.5px solid var(--rdp-divider); border-radius: 6px; overflow: hidden; }
+.countdown .fill {
+  position: absolute; top: 0; bottom: 0; left: 0;
+  background: var(--rdp-foreground); transform-origin: right center;
+  animation: dtCountdown 4s linear infinite;
+  width: 100%;
+}
+@keyframes dtCountdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.countdown .lbl {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font: 500 11px/1 var(--rdp-font-mono); letter-spacing: 0.4px;
+  color: var(--rdp-foreground); mix-blend-mode: difference;
+  color: var(--rdp-background);
+  z-index: 1;
+}
+
+.meta {
+  display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px;
+  font: var(--rdp-type-mono-small); font-size: 10px;
+}
+.meta b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.meta span { color: var(--rdp-foreground); }
+</style>
+
+<div class="dt">
+  <div class="hd">
+    <span class="t">Data ticker &amp; countdown</span>
+    <span class="sub">Two patterns for changing numbers</span>
+  </div>
+
+  <div class="grid">
+
+    <div class="spec">
+      <div><span class="nm">Digit-strip ticker</span><div class="sub">For metered values that jump (KB/s, RTT)</div></div>
+      <div style="display: grid; place-items: center; padding: 10px 0;">
+        <span class="ticker">
+          <span class="digit-col d2"><span class="strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span>
+          <span style="font: 500 28px/36px var(--rdp-font-mono)">.</span>
+          <span class="digit-col d4"><span class="strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span>
+          <span class="unit">MB/s</span>
+        </span>
+      </div>
+      <div class="meta">
+        <b>Slide</b><span>36 px per digit · 320 ms emphasized</span>
+        <b>Cadence</b><span>tied to data tick, ~250 ms min</span>
+        <b>Mono</b><span>fixed-width via tabular-nums</span>
+      </div>
+    </div>
+
+    <div class="spec">
+      <div><span class="nm">Countdown bar</span><div class="sub">For known durations (reconnect, snooze, probe)</div></div>
+      <div style="padding: 14px 0;">
+        <div class="countdown">
+          <span class="fill"></span>
+          <span class="lbl">Retry in 4 s</span>
+        </div>
+      </div>
+      <div class="meta">
+        <b>Easing</b><span>linear — predictable for time</span>
+        <b>Direction</b><span>shrinks from right (less remaining)</span>
+        <b>Pair with</b><span>numeric counter for clarity</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Data ticker · digit-strip for live metered numbers · countdown bar for known durations · both use mono, tabular-nums, and predictable easing (emphasized for change, linear for time).</div>
+</div></body></html>

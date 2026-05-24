@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>html, body { min-height: 220px; }</style>
+</head>
+<body><div class="card">
+
+<style>
+.mp { display:inline-flex; align-items:center; gap:6px; padding: 4px 10px; border-radius: 9999px; background: var(--rdp-muted); font: var(--rdp-type-mono-small); }
+.mp.success { background: var(--rdp-success-container); color: var(--rdp-success-container-foreground); }
+.mp.warning { background: var(--rdp-warning-container); color: var(--rdp-warning-container-foreground); }
+.mp.danger  { background: var(--rdp-destructive-container); color: var(--rdp-destructive-container-foreground); }
+.mp .dot { width:6px; height:6px; border-radius:9999px; background: currentColor; }
+</style>
+<div class="col" style="gap:14px">
+  <div class="row" style="gap:8px; flex-wrap: wrap; align-items:center">
+    <span class="mp"><span class="dot"></span>RTT 12 ms</span>
+    <span class="mp success"><span class="dot"></span>UP 99.4%</span>
+    <span class="mp warning"><span class="dot"></span>LOSS 4.1%</span>
+    <span class="mp danger"><span class="dot"></span>TIMEOUT</span>
+    <span class="mp">PCAP 128 KiB</span>
+    <span class="mp">MTU 1500</span>
+  </div>
+  <div class="row" style="gap:8px; flex-wrap: wrap; align-items:center">
+    <span class="mp">↓ 1.42 MiB</span>
+    <span class="mp">↑ 312 KiB</span>
+    <span class="mp">DURATION 00:18:42</span>
+    <span class="mp">FRAG 8 / 1392 B</span>
+  </div>
+  <div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground)">RipDpiMetricPill — compact 28dp pill, 4/10dp padding, mono small text, semantic container backgrounds.</div>
+</div>
+
+</div></body></html>

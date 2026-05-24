@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:340px}</style></head>
+<body><div class="card">
+<style>
+.sx { padding: 20px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; position: relative; overflow: hidden; }
+
+.sx .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.sx .top > div:first-child { min-width: 0; flex: 1; }
+.sx .top .exit { flex-shrink: 0; max-width: 280px; }
+.sx .ttl {
+  display: flex; align-items: center; gap: 10px;
+  font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground);
+  letter-spacing: 0.4px; text-transform: uppercase; font-size: 10.5px;
+}
+.sx .ttl .dot { width: 8px; height: 8px; border-radius: 9999px; background: var(--rdp-success); position: relative; }
+.sx .ttl .dot::after { content:""; position: absolute; inset: -3px; border-radius: 9999px; border: 1.5px solid var(--rdp-success); opacity: 0.35; animation: rdp-pulse-ring 1.6s ease-out infinite; }
+@keyframes rdp-pulse-ring { 0% { transform: scale(0.6); opacity: 0.6; } 100% { transform: scale(1.6); opacity: 0; } }
+
+.sx .uptime {
+  margin-top: 4px;
+  font: 500 36px/40px var(--rdp-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.sx .uptime .since {
+  font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground);
+  font-size: 11px; margin-top: 4px; letter-spacing: 0.2px; text-transform: none; display: block;
+}
+
+.sx .exit {
+  text-align: right;
+}
+.sx .exit .who { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.sx .exit .flag {
+  width: 28px; height: 20px;
+  background: linear-gradient(to bottom, #AE1C28 0 33%, #FFFFFF 33% 66%, #21468B 66% 100%);
+  border: 0.5px solid var(--rdp-outline-variant); border-radius: 2px;
+}
+.sx .exit .nm { font: var(--rdp-type-body-emphasis); white-space: nowrap; }
+.sx .exit .meta { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Sparkline */
+.spark-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin-top: 18px; padding: 14px 0;
+  border-top: 0.5px solid var(--rdp-divider);
+  border-bottom: 0.5px solid var(--rdp-divider);
+}
+.spark { display: flex; flex-direction: column; gap: 6px; }
+.spark .hdr { display: flex; justify-content: space-between; align-items: baseline; }
+.spark .hdr .k { font: var(--rdp-type-mono-small); font-size: 10px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--rdp-muted-foreground); }
+.spark .hdr .v { font: 500 18px/1 var(--rdp-font-mono); font-variant-numeric: tabular-nums; }
+.spark .hdr .v .unit { font: var(--rdp-type-mono-small); font-size: 11px; color: var(--rdp-muted-foreground); margin-left: 4px; }
+.spark svg { width: 100%; height: 36px; display: block; }
+.spark.in  svg path.line { stroke: var(--rdp-success); fill: none; stroke-width: 1.5; }
+.spark.in  svg path.area { fill: var(--rdp-success); opacity: 0.12; }
+.spark.out svg path.line { stroke: var(--rdp-info); fill: none; stroke-width: 1.5; }
+.spark.out svg path.area { fill: var(--rdp-info); opacity: 0.12; }
+
+.stat-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+  margin-top: 14px;
+}
+.stat { display: flex; flex-direction: column; gap: 2px; padding: 0 12px; border-right: 0.5px solid var(--rdp-divider); }
+.stat:first-child { padding-left: 0; }
+.stat:last-child { border-right: none; padding-right: 0; }
+.stat .k { font: var(--rdp-type-mono-small); font-size: 9.5px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--rdp-muted-foreground); }
+.stat .v { font: 500 14px/18px var(--rdp-font-mono); font-variant-numeric: tabular-nums; }
+.stat .v.warn { color: var(--rdp-warning); }
+.stat .v.ok   { color: var(--rdp-success); }
+
+.actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 16px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider); }
+.actions .strat { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.actions .strat code { font: var(--rdp-type-mono-inline); color: var(--rdp-foreground); padding: 1px 5px; background: var(--rdp-muted); border-radius: 3px; }
+.actions .btns { display: inline-flex; gap: 6px; flex-shrink: 0; }
+.actions button { padding: 6px 12px; border-radius: 9999px; border: 1px solid var(--rdp-border); background: transparent; color: var(--rdp-foreground); font: var(--rdp-type-small-label); cursor: pointer; white-space: nowrap; }
+.actions button.danger { color: var(--rdp-destructive); border-color: var(--rdp-destructive); }
+</style>
+
+<div class="sx">
+  <div class="top">
+    <div>
+      <div class="ttl"><span class="dot"></span>Connected · Tunneling</div>
+      <div class="uptime">
+        00:12:14
+        <span class="since">Since 18:30 UTC · this session</span>
+      </div>
+    </div>
+    <div class="exit">
+      <div class="who"><span class="flag" aria-label="Netherlands"></span><span class="nm">AMS · Amsterdam</span></div>
+      <div class="meta">141.101.65.232 · AS13335 · Cloudflare</div>
+    </div>
+  </div>
+
+  <div class="spark-row">
+    <div class="spark in">
+      <div class="hdr"><span class="k">↓ Down</span><span class="v">2.4<span class="unit">MB/s</span></span></div>
+      <svg viewBox="0 0 320 36" preserveAspectRatio="none">
+        <path class="area" d="M0,30 L0,28 L20,22 L40,24 L60,18 L80,20 L100,14 L120,16 L140,10 L160,12 L180,8 L200,12 L220,6 L240,10 L260,4 L280,8 L300,5 L320,3 L320,36 L0,36 Z"/>
+        <path class="line" d="M0,28 L20,22 L40,24 L60,18 L80,20 L100,14 L120,16 L140,10 L160,12 L180,8 L200,12 L220,6 L240,10 L260,4 L280,8 L300,5 L320,3"/>
+      </svg>
+    </div>
+    <div class="spark out">
+      <div class="hdr"><span class="k">↑ Up</span><span class="v">340<span class="unit">KB/s</span></span></div>
+      <svg viewBox="0 0 320 36" preserveAspectRatio="none">
+        <path class="area" d="M0,30 L0,30 L20,28 L40,30 L60,26 L80,30 L100,28 L120,30 L140,26 L160,28 L180,30 L200,28 L220,26 L240,30 L260,28 L280,30 L300,26 L320,28 L320,36 L0,36 Z"/>
+        <path class="line" d="M0,30 L20,28 L40,30 L60,26 L80,30 L100,28 L120,30 L140,26 L160,28 L180,30 L200,28 L220,26 L240,30 L260,28 L280,30 L300,26 L320,28"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat"><span class="k">Sent</span><span class="v">128 MiB</span></div>
+    <div class="stat"><span class="k">Received</span><span class="v">1.4 GiB</span></div>
+    <div class="stat"><span class="k">RTT p50</span><span class="v">32 ms</span></div>
+    <div class="stat"><span class="k">Loss</span><span class="v ok">0.2%</span></div>
+  </div>
+
+  <div class="actions">
+    <span class="strat">Strategy <code>tlsrec_split_host</code> · Cloudflare DoH</span>
+    <span class="btns">
+      <button>Pause 5 m</button>
+      <button class="danger">Disconnect</button>
+    </span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Session card · live uptime · two-channel sparklines · exit + ASN · 4 KPIs across the foot · pause and disconnect actions in the right register (outline + destructive outline).</div>
+</div></body></html>

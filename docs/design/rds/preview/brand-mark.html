@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>
+  html, body { min-height: 320px; }
+  body { padding: 24px; }
+
+  /* Specimen board — both modes treated as parallel tiles. */
+  .board {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .tile {
+    /* Strict grid: mark column (64px) + gutter (32px) + content column. */
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    column-gap: 32px;
+    align-items: center;
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid;
+  }
+
+  .tile.light {
+    background: var(--rdp-background);
+    color: var(--rdp-foreground);
+    border-color: var(--rdp-card-border);
+  }
+  .tile.dark {
+    background: #121212;
+    color: #E8E8E8;
+    border-color: #2A2A2A;
+  }
+
+  /* Geometry tag — small uppercase eyebrow per tile, top-right corner. */
+  .tile {
+    position: relative;
+  }
+  .tile .eyebrow {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    font: var(--rdp-type-section-title);
+    letter-spacing: 0.72px;
+    text-transform: uppercase;
+    opacity: 0.45;
+  }
+
+  /* The brand-mark medallion — identical geometry across both tiles, color
+     logic is the only thing that flips. Badge background = current foreground;
+     the icon is drawn in the surface color (inverse) via CSS mask-image so
+     the same SVG renders in either tone. */
+  .mark {
+    width: 64px;
+    height: 64px;
+    border-radius: 9999px;
+    background: currentColor;
+    display: grid;
+    place-items: center;
+  }
+  .mark .glyph {
+    width: 58%;
+    height: 58%;
+    -webkit-mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center 38% / contain no-repeat;
+            mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center 38% / contain no-repeat;
+  }
+  .tile.light .mark .glyph { background: var(--rdp-background); }
+  .tile.dark  .mark .glyph { background: #121212; }
+
+  /* Content column — wordmark + metadata stack, sharing a single left edge. */
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+    min-width: 0;
+  }
+  .wordmark {
+    /* brandMark · Geist Pixel Circle · 32/48 · letter-spacing 0.8 */
+    font: 400 32px/40px var(--rdp-font-brand);
+    letter-spacing: 0.8px;
+    color: inherit;
+    /* Optical centering against the 64px mark: trim half-leading via a margin
+       so the wordmark visually centers on the mark's optical midline. */
+    margin: 2px 0 0 0;
+  }
+  .meta {
+    font: var(--rdp-type-mono-small);
+    letter-spacing: 0.2px;
+    opacity: 0.55;
+  }
+
+  /* Soft divider — present but not an anchor. */
+  .sep {
+    height: 0;
+    border-top: 1px solid var(--rdp-foreground);
+    opacity: 0.08;
+    margin: 0;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="board">
+
+    <div class="tile light">
+      <div class="eyebrow">Light</div>
+      <div class="mark"><span class="glyph" aria-label="RIPDPI"></span></div>
+      <div class="content">
+        <div class="wordmark">RIPDPI</div>
+        <div class="meta">Geist Pixel Circle · 32/48 · letter-spacing 0.8</div>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="tile dark">
+      <div class="eyebrow">Dark</div>
+      <div class="mark"><span class="glyph" aria-label="RIPDPI"></span></div>
+      <div class="content">
+        <div class="wordmark">RIPDPI</div>
+        <div class="meta">Dark surface · #121212 background, #E8E8E8 foreground</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

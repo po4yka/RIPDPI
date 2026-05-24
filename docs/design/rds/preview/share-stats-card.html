@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.card-inner { background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.head { display: flex; justify-content: space-between; align-items: center; }
+.head .title { font: var(--rdp-type-body-emphasis-bold); }
+.head .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; background: var(--rdp-success-container); color: var(--rdp-success-container-foreground); font: var(--rdp-type-mono-small); }
+.head .pill .dot { width: 6px; height: 6px; border-radius: 9999px; background: var(--rdp-success); }
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stat { padding: 10px; background: var(--rdp-muted); border-radius: 12px; }
+.stat .k { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); font-size: 10px; letter-spacing: 0.6px; text-transform: uppercase; }
+.stat .v { font: 500 16px/1.1 var(--rdp-font-mono); color: var(--rdp-foreground); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.stat.warn .v { color: var(--rdp-warning); }
+.stat.err  .v { color: var(--rdp-destructive); }
+.actions { display: flex; gap: 8px; }
+.btn { flex: 1; min-height: 48px; padding: 10px 20px; border-radius: 16px; border: 1px solid var(--rdp-border); background: transparent; color: var(--rdp-foreground); font: var(--rdp-type-button); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn.primary { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.btn svg { width: 16px; height: 16px; }
+.foot { display: flex; justify-content: space-between; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+</style>
+<div class="card-inner">
+  <div class="head">
+    <span class="title">Last analysis</span>
+    <span class="pill"><span class="dot"></span>READY TO SHARE</span>
+  </div>
+  <div class="grid">
+    <div class="stat"><div class="k">PASSED</div><div class="v">3</div></div>
+    <div class="stat warn"><div class="k">DEGRADED</div><div class="v">1</div></div>
+    <div class="stat err"><div class="k">FAILED</div><div class="v">0</div></div>
+    <div class="stat"><div class="k">RTT P95</div><div class="v">128 ms</div></div>
+  </div>
+  <div class="actions">
+    <button class="btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      View details
+    </button>
+    <button class="btn primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      Share
+    </button>
+  </div>
+  <div class="foot">
+    <span>Bundle 0a · 4 endpoints</span>
+    <span>12:18 UTC · AS13335</span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Stats summary card · sits on Home / Diagnostics · stat grid uses semantic colors only for non-passing values · single primary Share action opens the bottom sheet.</div>
+</div></body></html>

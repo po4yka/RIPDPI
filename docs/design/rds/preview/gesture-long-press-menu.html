@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:440px}</style></head>
+<body><div class="card">
+<style>
+.lp { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.lp .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.lp .hd .t { font: var(--rdp-type-body-emphasis); }
+.lp .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.stage {
+  position: relative;
+  background: var(--rdp-muted);
+  border-radius: 12px;
+  padding: 18px;
+  min-height: 280px;
+  overflow: hidden;
+}
+.stage::before {
+  content: "Long-pressed · 320 ms emphasized";
+  position: absolute; top: 6px; right: 12px;
+  font: 9.5px var(--rdp-font-mono); color: var(--rdp-muted-foreground); letter-spacing: 0.3px; text-transform: uppercase;
+}
+
+.scrim {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+}
+
+/* Lifted card */
+.lifted {
+  position: absolute; top: 60px; left: 40px;
+  width: 260px;
+  background: var(--rdp-card);
+  border-radius: 10px;
+  padding: 12px 14px;
+  z-index: 2;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+  transform: scale(1.04);
+  display: grid; grid-template-columns: 32px 1fr;
+  gap: 10px; align-items: center;
+}
+.lifted .ic { width: 32px; height: 32px; border-radius: 6px; background: var(--rdp-muted); display: grid; place-items: center; }
+.lifted .ttl { font: var(--rdp-type-mono-value); font-size: 12px; }
+.lifted .sub { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); margin-top: 1px; }
+
+/* Menu */
+.menu {
+  position: absolute; top: 60px; left: 320px;
+  width: 220px;
+  background: var(--rdp-card);
+  border-radius: 10px;
+  padding: 6px 0;
+  z-index: 3;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+  transform-origin: top left;
+  animation: lpScale 320ms cubic-bezier(0.05,0.7,0.1,1);
+}
+@keyframes lpScale {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.menu .mi {
+  display: grid; grid-template-columns: 22px 1fr auto;
+  gap: 10px; align-items: center;
+  padding: 8px 14px;
+  font: var(--rdp-type-mono-value); font-size: 12px;
+  cursor: pointer;
+}
+.menu .mi:hover { background: var(--rdp-muted); }
+.menu .mi .ic { color: var(--rdp-muted-foreground); }
+.menu .mi .lbl { color: var(--rdp-foreground); }
+.menu .mi .kb { font: var(--rdp-type-mono-small); font-size: 9.5px; color: var(--rdp-muted-foreground); }
+.menu .sep { height: 0.5px; background: var(--rdp-divider); margin: 4px 0; }
+.menu .mi.danger .ic, .menu .mi.danger .lbl { color: var(--rdp-destructive); }
+
+.preview-content {
+  position: absolute; left: 16px; right: 16px; top: 50px;
+  bottom: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  opacity: 0.3;
+}
+.preview-content .row { height: 38px; background: var(--rdp-card); border-radius: 6px; }
+
+.spec-bar {
+  margin-top: 14px; padding: 12px;
+  background: var(--rdp-muted);
+  border-radius: 8px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+}
+.spec-bar .col .lbl { font: var(--rdp-type-mono-small); font-size: 9.5px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--rdp-muted-foreground); }
+.spec-bar .col .v   { font: var(--rdp-type-mono-value); font-size: 11.5px; color: var(--rdp-foreground); margin-top: 4px; }
+</style>
+
+<div class="lp">
+  <div class="hd">
+    <span class="t">Long-press menu</span>
+    <span class="sub">500 ms hold · lifts target · spawns menu</span>
+  </div>
+
+  <div class="stage">
+    <div class="preview-content">
+      <div class="row"></div>
+      <div class="row"></div>
+      <div class="row"></div>
+      <div class="row"></div>
+    </div>
+    <div class="scrim"></div>
+
+    <div class="lifted">
+      <span class="ic">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
+      </span>
+      <div>
+        <div class="ttl">14:02 · MTU probe timeout</div>
+        <div class="sub">19 m · tlsrec_split_host</div>
+      </div>
+    </div>
+
+    <div class="menu">
+      <div class="mi">
+        <span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21l-4.35-4.35"/><circle cx="11" cy="11" r="8"/></svg></span>
+        <span class="lbl">View pcap</span>
+      </div>
+      <div class="mi">
+        <span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></span>
+        <span class="lbl">Copy as JSON</span>
+        <span class="kb">⌘C</span>
+      </div>
+      <div class="mi">
+        <span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51 15.42 17.49M15.41 6.51 8.59 10.49"/></svg></span>
+        <span class="lbl">Share replay link</span>
+      </div>
+      <div class="mi">
+        <span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg></span>
+        <span class="lbl">Archive</span>
+      </div>
+      <div class="sep"></div>
+      <div class="mi danger">
+        <span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></span>
+        <span class="lbl">Delete</span>
+        <span class="kb">⌘⌫</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="spec-bar">
+    <div class="col"><div class="lbl">Hold time</div><div class="v">500 ms</div></div>
+    <div class="col"><div class="lbl">Target lift</div><div class="v">scale 1.04 · shadow xl</div></div>
+    <div class="col"><div class="lbl">Haptic</div><div class="v">medium tick at trigger</div></div>
+    <div class="col"><div class="lbl">Dismiss</div><div class="v">tap scrim · esc</div></div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Long-press menu · 500 ms hold · scrim + blur · target lifts and stays in place · menu scales in from top-left, max 5 items + 1 destructive section · ⌘ shortcuts shown alongside.</div>
+</div></body></html>

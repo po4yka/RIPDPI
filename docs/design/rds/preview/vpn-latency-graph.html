@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:320px}</style></head>
+<body><div class="card">
+<style>
+.head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.head .title { font: var(--rdp-type-body-emphasis); }
+.head .stat { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.head .stat b { color: var(--rdp-foreground); font-weight: 500; }
+.chart { width: 100%; height: 110px; background: var(--rdp-muted); border-radius: 12px; padding: 8px; box-sizing: border-box; position: relative; }
+.chart svg { width: 100%; height: 100%; }
+.chart .threshold { position: absolute; left: 8px; right: 8px; top: 38px; border-top: 1px dashed var(--rdp-warning); opacity: 0.5; }
+.chart .threshold::after { content: "100 ms"; position: absolute; right: 0; top: -16px; font: var(--rdp-type-mono-small); color: var(--rdp-warning); font-size: 9px; }
+.loss-row { margin-top: 10px; }
+.loss-row .lbl { display: flex; justify-content: space-between; font: var(--rdp-type-mono-small); margin-bottom: 4px; }
+.loss-row .lbl .v { color: var(--rdp-foreground); font-variant-numeric: tabular-nums; }
+.loss-row .bar { height: 6px; border-radius: 2px; background: var(--rdp-muted); overflow: hidden; position: relative; }
+.loss-row .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--rdp-warning); width: 4.1%; border-radius: 2px; }
+.legend-row { display: flex; gap: 14px; margin-top: 10px; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.legend-row b { color: var(--rdp-foreground); font-weight: 500; }
+.legend-row .err b { color: var(--rdp-destructive); }
+</style>
+<div class="head">
+  <span class="title">RTT & loss · last 60 s</span>
+  <span class="stat">p50 <b>32 ms</b> · p95 <b>128 ms</b></span>
+</div>
+<div class="chart">
+  <div class="threshold"></div>
+  <svg viewBox="0 0 600 110" preserveAspectRatio="none">
+    <path fill="none" stroke="var(--rdp-foreground)" stroke-width="2" stroke-linejoin="round" d="M0,70 L20,68 L40,72 L60,65 L80,70 L100,68 L120,58 L140,55 L160,62 L180,48 L200,40 L220,30 L240,25 L260,32 L280,40 L300,52 L320,60 L340,55 L360,58 L380,52 L400,55 L420,42 L440,38 L460,30 L480,22 L500,28 L520,38 L540,48 L560,55 L580,60 L600,52"/>
+  </svg>
+</div>
+<div class="loss-row">
+  <div class="lbl"><span>Packet loss</span><span class="v">4.1%</span></div>
+  <div class="bar"><span class="fill"></span></div>
+</div>
+<div class="legend-row">
+  <span>Now <b>32 ms</b></span>
+  <span>p99 <b>184 ms</b></span>
+  <span class="err">Spikes &gt;100 ms <b>3</b></span>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Latency / loss timeline · rolling 60 s · 100 ms dashed threshold · separate loss bar with current %.</div>
+</div></body></html>

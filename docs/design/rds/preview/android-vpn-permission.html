@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:360px}</style></head>
+<body><div class="card">
+<style>
+.scrim { background: rgba(0,0,0,0.6); padding: 32px 24px; border-radius: 16px; }
+.dlg { background: #FAFAFA; border-radius: 24px; padding: 24px; max-width: 360px; margin: 0 auto; }
+.dlg .ico { width: 32px; height: 32px; border-radius: 9999px; background: rgba(29,78,216,0.12); color: var(--rdp-info); display: grid; place-items: center; margin-bottom: 12px; }
+.dlg h3 { font: 400 18px/1.4 var(--rdp-font-sans); margin: 0 0 8px; color: #1A1A1A; }
+.dlg p { font: var(--rdp-type-body); color: #444; margin: 0 0 4px; }
+.dlg ul { font: var(--rdp-type-body); color: #444; margin: 8px 0; padding-left: 18px; }
+.dlg .src { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 12px; }
+.dlg .actions { display: flex; gap: 16px; justify-content: flex-end; margin-top: 16px; }
+.dlg .actions span { padding: 8px 16px; color: var(--rdp-info); font: var(--rdp-type-small-label); letter-spacing: 0.4px; cursor: pointer; }
+</style>
+<div class="scrim">
+  <div class="dlg">
+    <div class="ico">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+    </div>
+    <h3>Connection request</h3>
+    <p>RIPDPI wants to set up a VPN connection that lets it monitor network traffic. Only accept if you trust the source.</p>
+    <ul><li>A key icon appears in the status bar when in use.</li></ul>
+    <div class="src">From: <strong>com.poyka.ripdpi</strong></div>
+    <div class="actions"><span>CANCEL</span><span>OK</span></div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">System VPN permission · OS-rendered, RIPDPI does not own this UI · always shown on first <code>VpnService.prepare()</code> · do not customize.</div>
+</div></body></html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:480px}</style></head>
+<body><div class="card">
+<style>
+.cs { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.cs .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.cs .hd .t { font: var(--rdp-type-body-emphasis); }
+.cs .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.actuator-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.act-box { display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 14px 8px; background: var(--rdp-muted); border-radius: 12px; }
+.act-box .lbl { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); letter-spacing: 0.4px; text-transform: uppercase; }
+.act-box .actuator {
+  width: 80px; height: 80px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--rdp-border);
+  background: var(--rdp-card);
+  position: relative;
+  display: grid; place-items: center;
+  transition: border-color 220ms cubic-bezier(0.2,0,0,1), background-color 220ms cubic-bezier(0.2,0,0,1);
+}
+
+.actuator .icon { width: 28px; height: 28px; color: var(--rdp-foreground); }
+
+/* Disconnected */
+.act-disc .actuator { border-color: var(--rdp-border); }
+.act-disc .actuator::after { content: ""; position: absolute; inset: 6px; border-radius: 9999px; border: 0.5px dashed var(--rdp-outline-variant); }
+
+/* Connecting — concentric pulsing rings */
+.act-conn .actuator { border-color: var(--rdp-info); }
+.act-conn .actuator::before, .act-conn .actuator::after {
+  content: ""; position: absolute; inset: -2px; border-radius: 9999px;
+  border: 1.5px solid var(--rdp-info); opacity: 0;
+  animation: csRing 2s cubic-bezier(0.2,0,0,1) infinite;
+}
+.act-conn .actuator::after { animation-delay: 1s; }
+@keyframes csRing {
+  0%   { transform: scale(1);   opacity: 0.7; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+/* Tunneling — slow pulse */
+.act-tunl .actuator { border-color: var(--rdp-success); background: var(--rdp-success-container); }
+.act-tunl .actuator .icon { color: var(--rdp-success-container-foreground); }
+.act-tunl .actuator .core {
+  position: absolute; inset: 14px; border-radius: 9999px;
+  background: var(--rdp-success); opacity: 0.15;
+  animation: csBreathe 1.6s ease-in-out infinite;
+}
+@keyframes csBreathe {
+  0%,100% { transform: scale(1);   opacity: 0.12; }
+  50%     { transform: scale(0.92); opacity: 0.22; }
+}
+
+/* Degraded — warning border + slow asymmetric pulse */
+.act-degr .actuator { border-color: var(--rdp-warning); background: var(--rdp-warning-container); }
+.act-degr .actuator .icon { color: var(--rdp-warning-container-foreground); }
+.act-degr .actuator::after {
+  content:""; position: absolute; inset: -2px; border-radius: 9999px;
+  border: 2px solid var(--rdp-warning); opacity: 0;
+  animation: csWobble 1.2s steps(2, end) infinite;
+}
+@keyframes csWobble {
+  0%, 60% { opacity: 0; }
+  20%, 50% { opacity: 0.5; transform: scale(1.04); }
+}
+
+.demo-flow {
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--rdp-muted);
+  border-radius: 10px;
+  display: flex; align-items: center; gap: 12px;
+}
+.demo-flow .lbl { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); font-size: 10.5px; letter-spacing: 0.3px; text-transform: uppercase; flex-shrink: 0; }
+.demo-flow .stages { flex: 1; display: flex; align-items: center; gap: 0; font: var(--rdp-type-mono-small); font-size: 10.5px; }
+.demo-flow .pill {
+  padding: 3px 8px; border-radius: 9999px; background: var(--rdp-card); border: 0.5px solid var(--rdp-border);
+  color: var(--rdp-muted-foreground);
+  transition: all 220ms cubic-bezier(0.2,0,0,1);
+}
+.demo-flow .pill.now { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.demo-flow .arrow { color: var(--rdp-outline-variant); padding: 0 6px; }
+
+.tokens {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px;
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+}
+.tokens b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.tokens span { color: var(--rdp-foreground); }
+.tokens code { font: var(--rdp-type-mono-inline); background: var(--rdp-accent); padding: 1px 5px; border-radius: 3px; color: var(--rdp-foreground); }
+</style>
+
+<div class="cs">
+  <div class="hd">
+    <span class="t">Connection-state actuator motion</span>
+    <span class="sub">4 phases · the headline product animation</span>
+  </div>
+
+  <div class="actuator-grid">
+    <div class="act-box act-disc">
+      <div class="lbl">Disconnected</div>
+      <div class="actuator">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+      </div>
+    </div>
+    <div class="act-box act-conn">
+      <div class="lbl">Connecting</div>
+      <div class="actuator">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+    </div>
+    <div class="act-box act-tunl">
+      <div class="lbl">Tunneling</div>
+      <div class="actuator">
+        <span class="core"></span>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16.5" r="1"/></svg>
+      </div>
+    </div>
+    <div class="act-box act-degr">
+      <div class="lbl">Degraded</div>
+      <div class="actuator">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-flow">
+    <span class="lbl">Tap to connect</span>
+    <span class="stages">
+      <span class="pill">DISC</span>
+      <span class="arrow">→</span>
+      <span class="pill">CONN</span>
+      <span class="arrow">→</span>
+      <span class="pill now">TUNL</span>
+      <span class="arrow">↔</span>
+      <span class="pill">DEGR</span>
+    </span>
+  </div>
+
+  <div class="tokens">
+    <b>Connect ring expand</b><span><code>2 s ease-out</code> · loops infinite from inset to scale(1.4) opacity 0</span>
+    <b>Tunneling breathe</b><span><code>1.6 s ease-in-out</code> · 88% – 100% scale, 12% – 22% opacity</span>
+    <b>Degraded wobble</b><span><code>1.2 s steps(2)</code> · short asymmetric flash, eye-catch without panic</span>
+    <b>Stage transition</b><span><code>220 ms state</code> · border &amp; background swap simultaneously</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Connection-state actuator motion · the four atomic states with their specific motion fingerprints · transitions between any two use the 220 ms <code>state</code> token.</div>
+</div></body></html>

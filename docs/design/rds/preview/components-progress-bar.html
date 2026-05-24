@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.pb { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.pb .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.pb .hd .t { font: var(--rdp-type-body-emphasis); }
+.pb .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.section { display: flex; flex-direction: column; gap: 12px; }
+.section + .section { margin-top: 16px; padding-top: 14px; border-top: 0.5px solid var(--rdp-divider); }
+.section .lbl { font: var(--rdp-type-mono-small); font-size: 10px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--rdp-muted-foreground); }
+
+.row { display: grid; grid-template-columns: 1fr 60px; gap: 12px; align-items: center; }
+.row .nm { font: var(--rdp-type-mono-small); font-size: 11px; color: var(--rdp-foreground); margin-bottom: 4px; }
+.row .pct { text-align: right; font: var(--rdp-type-mono-value); font-size: 12px; font-variant-numeric: tabular-nums; }
+.row .pct.warn { color: var(--rdp-warning); }
+.row .pct.ok   { color: var(--rdp-success); }
+.row .pct.bad  { color: var(--rdp-destructive); }
+
+.bar { height: 6px; background: var(--rdp-muted); border-radius: 3px; overflow: hidden; position: relative; }
+.bar .fill { display: block; height: 100%; border-radius: 3px; background: var(--rdp-foreground); transition: width 220ms cubic-bezier(0.2,0,0,1); }
+.bar .fill.ok   { background: var(--rdp-success); }
+.bar .fill.warn { background: var(--rdp-warning); }
+.bar .fill.bad  { background: var(--rdp-destructive); }
+
+/* Indeterminate */
+.bar.indet { background: var(--rdp-muted); }
+.bar.indet .indet-fill {
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: 35%; background: var(--rdp-foreground); border-radius: 3px;
+  animation: pbIndet 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pbIndet {
+  0%   { left: -35%; }
+  60%  { left: 100%; }
+  100% { left: 100%; }
+}
+
+.size-grid { display: grid; grid-template-columns: 80px 1fr; gap: 12px; align-items: center; padding: 8px 0; }
+.size-grid + .size-grid { border-top: 0.5px solid var(--rdp-divider); }
+.size-grid .label { font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); }
+.bar.thin { height: 2px; }
+.bar.std  { height: 6px; }
+.bar.thick { height: 10px; }
+
+.with-pct { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
+.with-pct .v { font: 500 14px/1 var(--rdp-font-mono); font-variant-numeric: tabular-nums; }
+</style>
+
+<div class="pb">
+  <div class="hd">
+    <span class="t">Progress bar</span>
+    <span class="sub">Determinate + indeterminate · 3 sizes · semantic tones</span>
+  </div>
+
+  <div class="section">
+    <div class="lbl">Determinate — value known</div>
+
+    <div class="row">
+      <div>
+        <div class="nm">Strategy probe · running</div>
+        <div class="bar"><span class="fill" style="width:64%"></span></div>
+      </div>
+      <span class="pct">64%</span>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="nm">Quota used</div>
+        <div class="bar"><span class="fill warn" style="width:82%"></span></div>
+      </div>
+      <span class="pct warn">82%</span>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="nm">Disk full</div>
+        <div class="bar"><span class="fill bad" style="width:97%"></span></div>
+      </div>
+      <span class="pct bad">97%</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="lbl">Indeterminate — duration unknown</div>
+
+    <div class="row">
+      <div>
+        <div class="nm">Searching relays…</div>
+        <div class="bar indet"><span class="indet-fill"></span></div>
+      </div>
+      <span class="pct" style="color: var(--rdp-muted-foreground)">—</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="lbl">Sizes</div>
+
+    <div class="size-grid">
+      <span class="label">Thin · 2 px</span>
+      <div class="bar thin"><span class="fill" style="width:50%"></span></div>
+    </div>
+    <div class="size-grid">
+      <span class="label">Standard · 6 px</span>
+      <div class="bar std"><span class="fill" style="width:50%"></span></div>
+    </div>
+    <div class="size-grid">
+      <span class="label">Thick · 10 px</span>
+      <div class="bar thick"><span class="fill" style="width:50%"></span></div>
+    </div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Progress bar · determinate fills move on the 220 ms state curve · indeterminate sweep runs 1.4 s cubic-bezier(0.4, 0, 0.6, 1) ·sizes match the system stroke scale.</div>
+</div></body></html>

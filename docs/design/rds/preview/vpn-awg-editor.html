@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>
+  html, body { min-height: 510px; }
+  body { padding: 16px 18px; }
+
+  /* ── Toolbar ─────────────────────────────────────────────────────────── */
+  .toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--rdp-border);
+    border-radius: 10px;
+    background: var(--rdp-input-background);
+    min-height: 36px;
+  }
+  .search svg { color: var(--rdp-muted-foreground); flex-shrink: 0; }
+  .search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font: var(--rdp-type-mono-value);
+    font-size: 13px;
+    color: var(--rdp-foreground);
+  }
+  .toolbar .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    height: 36px;
+    border: 1px solid var(--rdp-border);
+    border-radius: 10px;
+    font: var(--rdp-type-mono-small);
+    color: var(--rdp-foreground);
+  }
+  .toolbar .toggle .sw {
+    width: 24px;
+    height: 14px;
+    border-radius: 9999px;
+    background: var(--rdp-foreground);
+    position: relative;
+  }
+  .toolbar .toggle .sw i {
+    position: absolute;
+    top: 2px;
+    left: 12px;
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: var(--rdp-background);
+  }
+  .toolbar .save {
+    padding: 0 14px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--rdp-foreground);
+    color: var(--rdp-background);
+    border: none;
+    font: var(--rdp-type-small-label);
+    cursor: pointer;
+  }
+
+  /* ── Section ─────────────────────────────────────────────────────────── */
+  .section {
+    border: 1px solid var(--rdp-card-border);
+    border-radius: 10px;
+    background: var(--rdp-card);
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .section .head {
+    display: grid;
+    grid-template-columns: 14px 1fr auto;
+    column-gap: 10px;
+    padding: 9px 12px;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+  }
+  .section .head .chev {
+    color: var(--rdp-muted-foreground);
+    transition: transform 220ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  .section.collapsed .head .chev { transform: rotate(-90deg); }
+  .section .head .title {
+    font: var(--rdp-type-body-emphasis);
+    color: var(--rdp-foreground);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section .head .title .badge {
+    font: var(--rdp-type-mono-small);
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--rdp-info-container);
+    color: var(--rdp-info);
+    letter-spacing: 0.4px;
+  }
+  .section .head .count {
+    font: var(--rdp-type-mono-small);
+    color: var(--rdp-muted-foreground);
+  }
+  .section.collapsed .body { display: none; }
+
+  /* ── Field row — fixed grid template so hint flows below without
+       overlapping the icon-button column. ─────────────────────────────── */
+  .field {
+    display: grid;
+    grid-template-columns: 116px 1fr auto;
+    grid-template-areas:
+      "label value ext"
+      "label hint  hint";
+    column-gap: 12px;
+    row-gap: 2px;
+    padding: 8px 12px;
+    border-top: 0.5px solid var(--rdp-divider);
+    align-items: center;
+  }
+  .field .label {
+    grid-area: label;
+    font: var(--rdp-type-small-label);
+    color: var(--rdp-foreground);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    align-self: center;
+  }
+  .field .label .req { color: var(--rdp-destructive); font: var(--rdp-type-mono-small); }
+  .field .value {
+    grid-area: value;
+    font: var(--rdp-type-mono-value);
+    font-size: 13px;
+    color: var(--rdp-foreground);
+    word-break: break-all;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    min-width: 0;
+  }
+  .field .value .muted { color: var(--rdp-muted-foreground); }
+  .field .ext {
+    grid-area: ext;
+    display: inline-flex;
+    gap: 2px;
+    align-items: center;
+    align-self: center;
+  }
+  .field .ext .ico-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    color: var(--rdp-muted-foreground);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+  }
+  .field .ext .ico-btn:hover { background: var(--rdp-accent); color: var(--rdp-foreground); }
+  .field .ext .ico-btn svg { width: 13px; height: 13px; }
+  .field .hint {
+    grid-area: hint;
+    font: var(--rdp-type-caption);
+    color: var(--rdp-muted-foreground);
+    line-height: 1.35;
+    padding-left: 8px;
+  }
+
+  /* Currently-editing row */
+  .field.editing { background: var(--rdp-accent); }
+  .field.editing .value {
+    border-color: var(--rdp-foreground);
+    background: var(--rdp-card);
+    padding: 4px 10px;
+  }
+  .field.editing .ext .commit {
+    background: var(--rdp-foreground);
+    color: var(--rdp-background);
+  }
+  .field.editing .ext .commit:hover { background: var(--rdp-foreground); }
+
+  /* Error row */
+  .field.error .value {
+    border: 1px solid var(--rdp-destructive);
+    background: var(--rdp-destructive-container);
+    color: var(--rdp-destructive-container-foreground);
+  }
+  .field.error .hint { color: var(--rdp-destructive); }
+
+  /* Footer */
+  .foot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    font: var(--rdp-type-mono-small);
+    color: var(--rdp-muted-foreground);
+  }
+  .foot .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: var(--rdp-warning-container);
+    color: var(--rdp-warning-container-foreground);
+    font-size: 10px;
+    letter-spacing: 0.4px;
+  }
+  .foot .pill .dot { width: 5px; height: 5px; border-radius: 9999px; background: var(--rdp-warning); }
+  .foot kbd {
+    font: var(--rdp-type-mono-small);
+    font-size: 10px;
+    padding: 1px 5px;
+    border: 1px solid var(--rdp-border);
+    border-radius: 3px;
+    background: var(--rdp-muted);
+    color: var(--rdp-foreground);
+  }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <div class="toolbar">
+    <div class="search">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input value="" placeholder="Find parameter (mtu, jmin, endpoint…)"/>
+    </div>
+    <span class="toggle"><span>Defaults</span><span class="sw"><i></i></span></span>
+    <button class="save">SAVE</button>
+  </div>
+
+  <!-- Interface -->
+  <div class="section">
+    <div class="head">
+      <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <span class="title">Interface</span>
+      <span class="count">4 fields</span>
+    </div>
+    <div class="body">
+      <div class="field">
+        <span class="label">Private key <span class="req">*</span></span>
+        <span class="value"><span class="muted">••••••••••••</span> cLmZ JyR8 …Pb=</span>
+        <span class="ext">
+          <button class="ico-btn" title="Show"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          <button class="ico-btn" title="Copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        </span>
+      </div>
+      <div class="field">
+        <span class="label">Address <span class="req">*</span></span>
+        <span class="value">10.7.0.42/32</span>
+        <span class="ext"><button class="ico-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></span>
+      </div>
+      <div class="field editing">
+        <span class="label">DNS</span>
+        <span class="value">10.7.0.1, 1.1.1.1<span style="display:inline-block;width:1px;height:1em;background:var(--rdp-foreground);vertical-align:-0.15em;margin-left:1px;animation:blink 1s steps(2) infinite"></span></span>
+        <span class="ext">
+          <button class="ico-btn">ESC</button>
+          <button class="ico-btn commit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+        </span>
+        <span class="hint">Comma-separated · IPv4 / IPv6 / hostname</span>
+      </div>
+      <div class="field error">
+        <span class="label">MTU</span>
+        <span class="value">1600</span>
+        <span class="ext"><button class="ico-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></span>
+        <span class="hint">Out of range — must be 576 ≤ mtu ≤ 1500 (AWG default 1280)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Peer -->
+  <div class="section">
+    <div class="head">
+      <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <span class="title">Peer · relay.example</span>
+      <span class="count">4 fields</span>
+    </div>
+    <div class="body">
+      <div class="field">
+        <span class="label">Public key <span class="req">*</span></span>
+        <span class="value">Qg2v H3kP rT9w …</span>
+        <span class="ext"><button class="ico-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></span>
+      </div>
+      <div class="field">
+        <span class="label">Endpoint <span class="req">*</span></span>
+        <span class="value">relay.example:51820 <span class="muted">(udp)</span></span>
+        <span class="ext"><button class="ico-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></span>
+      </div>
+      <div class="field">
+        <span class="label">Allowed IPs</span>
+        <span class="value">0.0.0.0/0, ::/0 <span class="muted">(route all)</span></span>
+        <span class="ext"><button class="ico-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></span>
+      </div>
+      <div class="field">
+        <span class="label">Keepalive</span>
+        <span class="value">25 <span class="muted">s</span></span>
+        <span class="ext"><button class="ico-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Amnezia obfuscation (collapsed by default) -->
+  <div class="section collapsed">
+    <div class="head">
+      <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <span class="title">Amnezia obfuscation <span class="badge">AWG</span></span>
+      <span class="count">9 fields · advanced</span>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span class="pill"><span class="dot"></span>1 ERROR</span>
+    <span><kbd>⏎</kbd> save · <kbd>Esc</kbd> cancel</span>
+    <span style="margin-left: auto">9 of 17 modified</span>
+  </div>
+
+</div>
+<style>@keyframes blink { 0%, 50% { opacity: 1 } 50.01%, 100% { opacity: 0 } }</style>
+</body>
+</html>

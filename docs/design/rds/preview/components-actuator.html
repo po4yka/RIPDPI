@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>
+  html, body { min-height: 168px; }
+  body {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+  }
+  /* Four-tier hierarchy, all on a strict 8px rhythm:
+       1. STATUS PROBE  — names the state plainly, primary anchor
+       2. ACTUATOR RAIL — the locked control
+       3. PIPELINE      — what's happening underneath
+       4. SPEC STRIP    — calibrated component dimensions, tertiary */
+  .system {
+    width: 100%;
+    display: grid;
+    gap: 8px;
+  }
+
+  /* ── 1. Status probe ─────────────────────────────────────────────────── */
+  /* Names the state at a glance so the viewer doesn't have to read the
+     metadata to understand what they're looking at. */
+  .probe {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font: var(--rdp-type-mono-small);
+    font-size: 11px;
+    letter-spacing: 1.2px;
+    color: var(--rdp-foreground);
+  }
+  .probe .dot {
+    width: 8px; height: 8px;
+    border-radius: 9999px;
+    background: var(--rdp-foreground);
+    flex-shrink: 0;
+  }
+  .probe .sep {
+    width: 2px; height: 2px;
+    border-radius: 9999px;
+    background: currentColor;
+    opacity: 0.4;
+  }
+  .probe .meta { color: var(--rdp-muted-foreground); opacity: 0.85; }
+
+  /* ── 2. Rail ─────────────────────────────────────────────────────────── */
+  .rail {
+    position: relative;
+    height: 44px;
+    border-radius: 9999px;
+    background: var(--rdp-muted);
+    border: 1px solid var(--rdp-border);
+  }
+  .rail-label {
+    position: absolute;
+    top: 50%;
+    left: 24px;
+    transform: translateY(-50%);
+    font: var(--rdp-type-mono-small);
+    letter-spacing: 1px;
+    color: var(--rdp-muted-foreground);
+    opacity: 0.7;
+    pointer-events: none;
+  }
+  .carriage {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    bottom: 5px;
+    width: 124px;
+    background: var(--rdp-foreground);
+    color: var(--rdp-background);
+    border-radius: 9999px;
+    display: grid;
+    grid-template-columns: 10px 1fr;
+    column-gap: 8px;
+    align-items: center;
+    padding: 0 14px 0 12px;
+    box-sizing: border-box;
+  }
+  /* Grip — three thin horizontal ticks; reads as a lock handle. */
+  .grip {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5px;
+    justify-self: center;
+  }
+  .grip i {
+    display: block;
+    width: 8px;
+    height: 1.5px;
+    background: currentColor;
+    opacity: 0.55;
+    border-radius: 1px;
+  }
+  .carriage .lbl {
+    font: 500 12px/1 var(--rdp-font-sans);
+    letter-spacing: 0.5px;
+  }
+
+  /* ── 3. Pipeline ─────────────────────────────────────────────────────── */
+  .pipe {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    height: 24px;
+    border: 1px solid var(--rdp-border);
+    border-radius: 9999px;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .pipe > div {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font: var(--rdp-type-mono-small);
+    font-size: 10.5px;
+    letter-spacing: 0.8px;
+    color: var(--rdp-muted-foreground);
+    background: transparent;
+  }
+  .pipe > div + div::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 1px;
+    background: var(--rdp-border);
+  }
+  .pipe .done {
+    background: var(--rdp-foreground);
+    color: var(--rdp-background);
+  }
+  /* Intra-fill seam between DNS and TCP — quiet so they read as one run. */
+  .pipe .done + .done::before { background: rgba(255, 255, 255, 0.16); }
+  /* TCP → TLS transition: a tiny "fallback" caret stamped on the divider so
+     the degradation point is visible without crowding the segments. */
+  .pipe .done + .warn::before { background: var(--rdp-warning); }
+  .pipe .warn {
+    background: rgba(180, 83, 9, 0.07);
+    color: var(--rdp-warning);
+    font-weight: 500;
+  }
+  .pipe .warn .cue {
+    width: 6px; height: 6px;
+    border-radius: 9999px;
+    background: var(--rdp-warning);
+    flex-shrink: 0;
+  }
+  /* QUIC — intentionally inactive: pale fill, thin top/bottom hatch reads
+     as "unavailable", muted-foreground label stays legible. */
+  .pipe .idle {
+    background: rgba(0, 0, 0, 0.025);
+    color: var(--rdp-muted-foreground);
+    opacity: 0.7;
+  }
+
+  /* ── 4. Spec strip ───────────────────────────────────────────────────── */
+  /* Reads as a measured component spec: small caps key, mono value. */
+  .spec {
+    margin-top: 0;
+    padding-top: 8px;
+    border-top: 0.5px solid var(--rdp-divider);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    font: var(--rdp-type-mono-small);
+    font-size: 10px;
+    color: var(--rdp-muted-foreground);
+    letter-spacing: 0.3px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.78;
+  }
+  .spec .pair {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .spec .pair .k {
+    font-size: 8.5px;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+  .spec .pair .v {
+    font-size: 10.5px;
+    color: var(--rdp-foreground);
+    opacity: 0.78;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="system">
+
+    <div class="probe" aria-label="connection state">
+      <span class="dot"></span>
+      <span>CONNECTED</span>
+      <span class="sep"></span>
+      <span class="meta">SECURE ROUTE LOCKED</span>
+    </div>
+
+    <div class="rail">
+      <span class="rail-label">SECURE ROUTE LOCKED</span>
+      <div class="carriage">
+        <span class="grip" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="lbl">CONNECTED</span>
+      </div>
+    </div>
+
+    <div class="pipe">
+      <div class="done">DNS</div>
+      <div class="done">TCP</div>
+      <div class="warn"><span class="cue" aria-hidden="true"></span>TLS</div>
+      <div class="idle">QUIC</div>
+    </div>
+
+    <div class="spec">
+      <div class="pair"><span class="k">SLOT</span>     <span class="v">116</span></div>
+      <div class="pair"><span class="k">RAIL</span>     <span class="v">48</span></div>
+      <div class="pair"><span class="k">CARRIAGE</span> <span class="v">128×40</span></div>
+      <div class="pair"><span class="k">ROLE</span>     <span class="v">Switch</span></div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

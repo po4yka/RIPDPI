@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.sk { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.sk .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.sk .hd .t { font: var(--rdp-type-body-emphasis); }
+.sk .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+/* Base shimmer block */
+.sh {
+  background: linear-gradient(
+    90deg,
+    var(--rdp-muted) 0%,
+    var(--rdp-accent) 50%,
+    var(--rdp-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: skShimmer 1.4s linear infinite;
+  border-radius: 4px;
+}
+@keyframes skShimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pane { display: flex; flex-direction: column; gap: 10px; }
+.pane .lbl { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); letter-spacing: 0.4px; text-transform: uppercase; }
+
+/* Card-shape skeleton */
+.skel-card { background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.skel-card .sh.title  { height: 14px; width: 60%; }
+.skel-card .sh.sub    { height: 10px; width: 40%; }
+.skel-card .sh.body   { height: 8px; }
+.skel-card .sh.body.short { width: 80%; }
+
+/* Row-shape skeleton */
+.skel-row {
+  display: grid; grid-template-columns: 32px 1fr 60px;
+  gap: 12px; align-items: center;
+  padding: 10px 0;
+}
+.skel-row + .skel-row { border-top: 0.5px solid var(--rdp-divider); }
+.skel-row .sh.avatar { width: 32px; height: 32px; border-radius: 6px; }
+.skel-row .lines { display: flex; flex-direction: column; gap: 5px; }
+.skel-row .sh.l1 { height: 11px; width: 70%; }
+.skel-row .sh.l2 { height: 9px; width: 50%; }
+.skel-row .sh.val { height: 14px; }
+
+/* Chart-shape skeleton */
+.skel-chart { height: 70px; background: var(--rdp-muted); border-radius: 6px; position: relative; overflow: hidden; padding: 0 6px; display: flex; align-items: end; gap: 4px; }
+.skel-chart .bar { width: 100%; background: var(--rdp-accent); border-radius: 1px; opacity: 0.7; animation: skShimmer 1.4s linear infinite; background: linear-gradient(180deg, var(--rdp-accent), var(--rdp-muted)); }
+
+.meta {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px;
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+}
+.meta b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.meta span { color: var(--rdp-foreground); }
+.meta code { font: var(--rdp-type-mono-inline); padding: 1px 5px; background: var(--rdp-accent); border-radius: 3px; }
+</style>
+
+<div class="sk">
+  <div class="hd">
+    <span class="t">Skeleton shimmer</span>
+    <span class="sub">Loading placeholders · 3 base shapes</span>
+  </div>
+
+  <div class="row">
+
+    <div class="pane">
+      <div class="lbl">Card-shape</div>
+      <div class="skel-card">
+        <span class="sh title"></span>
+        <span class="sh sub"></span>
+        <span class="sh body"></span>
+        <span class="sh body"></span>
+        <span class="sh body short"></span>
+      </div>
+    </div>
+
+    <div class="pane">
+      <div class="lbl">Row-shape</div>
+      <div>
+        <div class="skel-row">
+          <span class="sh avatar"></span>
+          <span class="lines"><span class="sh l1"></span><span class="sh l2"></span></span>
+          <span class="sh val"></span>
+        </div>
+        <div class="skel-row">
+          <span class="sh avatar"></span>
+          <span class="lines"><span class="sh l1" style="width: 60%"></span><span class="sh l2" style="width: 35%"></span></span>
+          <span class="sh val"></span>
+        </div>
+        <div class="skel-row">
+          <span class="sh avatar"></span>
+          <span class="lines"><span class="sh l1" style="width: 75%"></span><span class="sh l2" style="width: 45%"></span></span>
+          <span class="sh val"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="pane" style="grid-column: 1 / -1">
+      <div class="lbl">Chart-shape</div>
+      <div class="skel-chart">
+        <span class="bar" style="height: 30%"></span>
+        <span class="bar" style="height: 45%"></span>
+        <span class="bar" style="height: 28%"></span>
+        <span class="bar" style="height: 65%"></span>
+        <span class="bar" style="height: 50%"></span>
+        <span class="bar" style="height: 72%"></span>
+        <span class="bar" style="height: 38%"></span>
+        <span class="bar" style="height: 60%"></span>
+        <span class="bar" style="height: 88%"></span>
+        <span class="bar" style="height: 55%"></span>
+        <span class="bar" style="height: 42%"></span>
+        <span class="bar" style="height: 70%"></span>
+        <span class="bar" style="height: 35%"></span>
+        <span class="bar" style="height: 58%"></span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="meta">
+    <b>Shimmer</b><span><code>1.4 s linear infinite</code> · two-stop gradient sweeps left to right</span>
+    <b>Tones</b><span>muted (base) → accent (highlight) → muted · neither colour signals a state</span>
+    <b>Replaces with</b><span>cross-fade at 220 ms when real content arrives</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Skeleton shimmer · single primitive class <code>.sh</code> applied to card / row / chart shapes · base palette uses neutral muted ↔ accent so it never reads as a real coloured state.</div>
+</div></body></html>

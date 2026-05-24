@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.hh { padding: 4px 0; }
+.h-row { display: grid; grid-template-columns: 120px 1fr auto; gap: 12px; padding: 12px 0; align-items: center; }
+.h-row + .h-row { border-top: 0.5px solid var(--rdp-divider); }
+.h-row .when { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.h-row .body .title { font: var(--rdp-type-body-emphasis); }
+.h-row .body .sub { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 2px; font-family: var(--rdp-font-mono); }
+.h-row .status { display: inline-flex; align-items: center; gap: 6px; font: var(--rdp-type-mono-small); }
+.h-row .status .dot { width: 8px; height: 8px; border-radius: 9999px; }
+.success .dot { background: var(--rdp-success); }
+.warn .dot { background: var(--rdp-warning); }
+.err .dot { background: var(--rdp-destructive); }
+</style>
+<div class="hh">
+  <div class="h-row">
+    <span class="when">Today · 9:30</span>
+    <span class="body"><div class="title">tlsrec_split_host</div><div class="sub">relay.example · 18m</div></span>
+    <span class="status success"><span class="dot"></span>OK</span>
+  </div>
+  <div class="h-row">
+    <span class="when">Today · 8:11</span>
+    <span class="body"><div class="title">desync_fake</div><div class="sub">relay.example · 2h 04m</div></span>
+    <span class="status warn"><span class="dot"></span>DEGRADED</span>
+  </div>
+  <div class="h-row">
+    <span class="when">Yesterday · 22:45</span>
+    <span class="body"><div class="title">fragment_drop</div><div class="sub">relay.example · 12s</div></span>
+    <span class="status err"><span class="dot"></span>FAILED</span>
+  </div>
+  <div class="h-row">
+    <span class="when">Yesterday · 14:08</span>
+    <span class="body"><div class="title">tlsrec_split_host</div><div class="sub">relay.example · 6h 12m</div></span>
+    <span class="status success"><span class="dot"></span>OK</span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">History · session log of past connections · strategy + relay + duration + outcome · hairline dividers, no card chrome.</div>
+</div></body></html>

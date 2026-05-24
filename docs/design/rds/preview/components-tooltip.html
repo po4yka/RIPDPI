@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:280px}</style></head>
+<body><div class="card">
+<style>
+.bubble {
+  display: inline-block;
+  position: relative;
+  background: var(--rdp-foreground);
+  color: var(--rdp-background);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font: var(--rdp-type-caption);
+  max-width: 240px;
+}
+.bubble::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 20px;
+  width: 0; height: 0;
+  border: 5px solid transparent;
+  border-top-color: var(--rdp-foreground);
+}
+.inline-help { display: inline-flex; align-items: center; gap: 4px; font: var(--rdp-type-body); }
+.q { width: 16px; height: 16px; border-radius: 9999px; background: var(--rdp-muted); color: var(--rdp-muted-foreground); display: inline-grid; place-items: center; font: var(--rdp-type-small-label); font-size: 10px; cursor: help; }
+</style>
+<div class="col" style="gap: 24px">
+  <div>
+    <div style="margin-bottom: 8px"><span class="bubble">Strategy reloads require restarting the tunnel. Active connections will drop briefly.</span></div>
+    <div style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--rdp-muted); border-radius: 12px; font: var(--rdp-type-button); font-size: 14px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>Apply strategy</div>
+  </div>
+  <div class="inline-help">
+    <span>MTU</span>
+    <span class="q">?</span>
+    <span style="font: var(--rdp-type-mono-value); color: var(--rdp-muted-foreground)">1500</span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Tooltip · inverse-surface bubble, 8dp corner, caption type · trigger via long-press on touch surfaces. Inline-help uses a 16dp circular "?" badge with helper-text behavior.</div>
+</div></body></html>

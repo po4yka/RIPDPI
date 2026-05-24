@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:280px}</style></head>
+<body><div class="card">
+<style>
+.banner { display: flex; gap: 12px; padding: 16px; background: var(--rdp-warning-container); border: 1px solid var(--rdp-warning); border-radius: 16px; align-items: flex-start; }
+.banner .ico { width: 28px; height: 28px; border-radius: 9999px; background: var(--rdp-warning); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+.banner .body { flex: 1; }
+.banner .title { font: var(--rdp-type-body-emphasis); color: var(--rdp-warning-container-foreground); }
+.banner .text { font: var(--rdp-type-body); color: var(--rdp-warning-container-foreground); margin-top: 4px; font-size: 13px; }
+.banner .text code { font: var(--rdp-type-mono-inline); background: rgba(0,0,0,0.05); padding: 0 4px; border-radius: 4px; }
+.banner .actions { display: flex; gap: 8px; margin-top: 12px; }
+.banner .btn { padding: 6px 14px; border-radius: 9999px; border: 1px solid var(--rdp-warning); background: transparent; color: var(--rdp-warning); font: var(--rdp-type-small-label); cursor: pointer; }
+.banner .btn.primary { background: var(--rdp-warning); color: #fff; }
+.banner .dismiss { width: 24px; height: 24px; flex-shrink: 0; color: var(--rdp-warning); cursor: pointer; opacity: 0.6; }
+</style>
+<div class="banner">
+  <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22z M11 16h2v2h-2z M11 10h2v5h-2z"/></svg></span>
+  <span class="body">
+    <div class="title">RIPDPI was stopped by Android</div>
+    <div class="text">The system killed the VPN service at <code>12:42 UTC</code> (likely memory pressure). The tunnel was down for <strong>4 m 18 s</strong> before this restart.</div>
+    <div class="actions">
+      <button class="btn primary">Reconnect</button>
+      <button class="btn">View incident</button>
+    </div>
+  </span>
+  <svg class="dismiss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Restart-after-OOM banner · warning tone · names the kill-time and downtime · two recovery actions, dismissible.</div>
+</div></body></html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:540px}</style></head>
+<body><div class="card">
+<style>
+.score { padding: 20px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; display: flex; gap: 20px; align-items: center; margin-bottom: 14px; }
+.score .num { font: 500 56px/1 var(--rdp-font-mono); color: var(--rdp-warning); font-variant-numeric: tabular-nums; }
+.score .body .label { font: var(--rdp-type-body-emphasis); }
+.score .body .desc { font: var(--rdp-type-body); color: var(--rdp-muted-foreground); margin-top: 4px; font-size: 13px; line-height: 1.5; }
+.checks { display: flex; flex-direction: column; }
+.check { display: grid; grid-template-columns: 20px 1fr auto; gap: 12px; padding: 10px 0; align-items: center; }
+.check + .check { border-top: 0.5px solid var(--rdp-divider); }
+.check .ico { width: 16px; height: 16px; }
+.check .ico.ok { color: var(--rdp-success); }
+.check .ico.bad { color: var(--rdp-destructive); }
+.check .body .name { font: var(--rdp-type-body-emphasis); }
+.check .body .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 2px; }
+.check .tag { font: var(--rdp-type-mono-small); font-size: 10px; padding: 2px 8px; border-radius: 9999px; letter-spacing: 0.4px; }
+.check .tag.ok { background: var(--rdp-success-container); color: var(--rdp-success-container-foreground); }
+.check .tag.bad { background: var(--rdp-destructive-container); color: var(--rdp-destructive-container-foreground); }
+</style>
+<div class="score">
+  <span class="num">7/10</span>
+  <span class="body">
+    <div class="label">VPN somewhat detectable</div>
+    <div class="desc">Most sites won't notice; <strong>3 checks</strong> still leak. Tighten with strict DNS pinning + IPv6 disable.</div>
+  </span>
+</div>
+<div class="checks">
+  <div class="check"><svg class="ico ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span class="body"><div class="name">WebRTC leak</div><div class="sub">Local IP not exposed</div></span><span class="tag ok">PASS</span></div>
+  <div class="check"><svg class="ico ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span class="body"><div class="name">DNS leak</div><div class="sub">All DNS resolved through tunnel</div></span><span class="tag ok">PASS</span></div>
+  <div class="check"><svg class="ico bad" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 7h2v6h-2zM11 15h2v2h-2z"/></svg><span class="body"><div class="name">IPv6 leak</div><div class="sub">IPv6 still resolves outside the tunnel</div></span><span class="tag bad">LEAK</span></div>
+  <div class="check"><svg class="ico bad" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 7h2v6h-2zM11 15h2v2h-2z"/></svg><span class="body"><div class="name">Time-zone mismatch</div><div class="sub">Device TZ doesn't match exit IP country</div></span><span class="tag bad">LEAK</span></div>
+  <div class="check"><svg class="ico bad" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 7h2v6h-2zM11 15h2v2h-2z"/></svg><span class="body"><div class="name">ASN reputation</div><div class="sub">Exit ASN flagged on 2 of 18 lists</div></span><span class="tag bad">LEAK</span></div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Detection check · score with explanation · 5 leak tests · semantic tone restricted to leaks themselves.</div>
+</div></body></html>

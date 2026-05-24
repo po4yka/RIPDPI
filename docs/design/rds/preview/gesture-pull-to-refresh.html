@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:560px}</style></head>
+<body><div class="card">
+<style>
+.pr { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.pr .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.pr .hd .t { font: var(--rdp-type-body-emphasis); }
+.pr .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.phase { display: flex; flex-direction: column; gap: 10px; }
+.phase .lbl {
+  font: var(--rdp-type-mono-small); font-size: 10px; letter-spacing: 0.4px;
+  text-transform: uppercase; color: var(--rdp-muted-foreground); padding: 0 4px;
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.phase .lbl b { color: var(--rdp-foreground); font-weight: 500; }
+.phase .lbl small { font-size: 9.5px; color: var(--rdp-muted-foreground); text-transform: none; letter-spacing: 0.2px; }
+
+/* Stage = a fake phone canvas. The reveal-gap between head-strip and content
+   is sized per phase via a CSS variable so everything else (indicator
+   position, content offset) computes from it. */
+.stage {
+  --reveal: 0px;
+  position: relative;
+  height: 200px;
+  background: var(--rdp-card);
+  border-radius: 12px;
+  border: 0.5px solid var(--rdp-divider);
+  overflow: hidden;
+}
+
+.stage .head-strip {
+  position: absolute; left: 0; right: 0; top: 0;
+  height: 30px;
+  background: var(--rdp-card);
+  border-bottom: 0.5px solid var(--rdp-divider);
+  display: flex; align-items: center; justify-content: center;
+  font: 10.5px var(--rdp-font-mono); color: var(--rdp-muted-foreground);
+  z-index: 3;
+}
+
+/* Reveal zone sits BETWEEN the head-strip and the (pushed-down) content.
+   Its background is subtly tinted so the gesture-affordance area reads as a
+   distinct region. */
+.reveal-zone {
+  position: absolute; left: 0; right: 0; top: 30px;
+  height: var(--reveal);
+  background: var(--rdp-muted);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px;
+  overflow: hidden;
+  z-index: 1;
+  transition: height 220ms cubic-bezier(0.2,0,0,1);
+}
+
+.reveal-zone .glyph {
+  width: 28px; height: 28px; border-radius: 9999px;
+  display: grid; place-items: center;
+  background: var(--rdp-card);
+  color: var(--rdp-foreground);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.reveal-zone .glyph svg { display: block; transition: transform 220ms cubic-bezier(0.2,0,0,1); }
+.reveal-zone .label {
+  font: 9.5px var(--rdp-font-mono); color: var(--rdp-muted-foreground);
+  white-space: nowrap; letter-spacing: 0.3px; text-transform: uppercase;
+}
+
+/* Content rows slide down by --reveal so the head-strip stays put and the
+   reveal-zone opens between them. */
+.stage .content {
+  position: absolute; left: 0; right: 0; top: 30px; bottom: 0;
+  padding: 10px;
+  background: var(--rdp-card);
+  display: flex; flex-direction: column; gap: 4px;
+  transform: translateY(var(--reveal));
+  z-index: 2;
+}
+.stage .row {
+  height: 11px; border-radius: 3px;
+  background: var(--rdp-muted);
+}
+.stage .row:nth-child(even) { width: 70%; }
+
+/* Progress arc — used during the pulling phase */
+.arc {
+  width: 16px; height: 16px; border-radius: 9999px;
+  border: 2px solid var(--rdp-muted-foreground);
+  border-top-color: var(--rdp-foreground);
+}
+
+/* Per-phase CSS-variable values */
+.stage.idle    { --reveal: 0px;  }
+.stage.idle    .reveal-zone { display: none; }
+.stage.pulling { --reveal: 56px; }
+.stage.armed   { --reveal: 80px; }
+.stage.armed   .reveal-zone .glyph svg { transform: rotate(180deg); }
+.stage.armed   .reveal-zone .label { color: var(--rdp-foreground); font-weight: 500; }
+.stage.loading { --reveal: 56px; }
+.stage.loading .reveal-zone .glyph svg { animation: prSpin 1s linear infinite; transform-origin: center; }
+@keyframes prSpin { to { transform: rotate(360deg); } }
+
+/* Fingertip mark on the leading edge of the content — communicates the
+   gesture without overlapping the indicator. */
+.fingertip {
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  width: 32px; height: 4px;
+  border-radius: 2px;
+  background: var(--rdp-foreground);
+  opacity: 0.35;
+  z-index: 4;
+  pointer-events: none;
+}
+.stage.pulling .fingertip { top: calc(30px + var(--reveal) - 2px); }
+.stage.armed   .fingertip { top: calc(30px + var(--reveal) - 2px); }
+.stage.idle    .fingertip,
+.stage.loading .fingertip { display: none; }
+
+.meta {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px;
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+}
+.meta b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.meta span { color: var(--rdp-foreground); }
+.meta code { font: var(--rdp-type-mono-inline); padding: 1px 5px; background: var(--rdp-accent); border-radius: 3px; }
+</style>
+
+<div class="pr">
+  <div class="hd">
+    <span class="t">Pull-to-refresh</span>
+    <span class="sub">4 phases · gesture-driven</span>
+  </div>
+
+  <div class="grid">
+
+    <div class="phase">
+      <div class="lbl"><b>Idle</b><small>0 / no gesture</small></div>
+      <div class="stage idle">
+        <div class="head-strip">Logs · 18:42</div>
+        <div class="reveal-zone"></div>
+        <div class="content">
+          <span class="row"></span><span class="row"></span><span class="row"></span><span class="row"></span><span class="row"></span><span class="row"></span><span class="row"></span><span class="row"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="lbl"><b>Pulling</b><small>&lt; 60 px threshold</small></div>
+      <div class="stage pulling">
+        <div class="head-strip">Logs · 18:42</div>
+        <div class="reveal-zone">
+          <span class="glyph"><div class="arc"></div></span>
+          <span class="label">Pull to refresh</span>
+        </div>
+        <div class="content">
+          <span class="row"></span><span class="row"></span><span class="row"></span><span class="row"></span><span class="row"></span><span class="row"></span>
+        </div>
+        <span class="fingertip"></span>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="lbl"><b>Armed</b><small>&gt; 60 px · haptic tick</small></div>
+      <div class="stage armed">
+        <div class="head-strip">Logs · 18:42</div>
+        <div class="reveal-zone">
+          <span class="glyph">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </span>
+          <span class="label">Release to refresh</span>
+        </div>
+        <div class="content">
+          <span class="row"></span><span class="row"></span><span class="row"></span><span class="row"></span>
+        </div>
+        <span class="fingertip"></span>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="lbl"><b>Loading</b><small>min 600 ms</small></div>
+      <div class="stage loading">
+        <div class="head-strip">Logs · 18:42</div>
+        <div class="reveal-zone">
+          <span class="glyph">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+          </span>
+          <span class="label">Updating…</span>
+        </div>
+        <div class="content">
+          <span class="row"></span><span class="row"></span><span class="row"></span><span class="row"></span><span class="row"></span><span class="row"></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="meta">
+    <b>Pull distance</b><span>1 : 0.5 (resistive) · max 88 px before arming</span>
+    <b>Threshold</b><span>60 px · haptic light tick when crossed</span>
+    <b>Refresh anim</b><span>1 s linear spinner · min 600 ms even if data arrives faster</span>
+    <b>Snap back</b><span>320 ms emphasized</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Pull-to-refresh · the gap between head-strip and content is the &quot;reveal zone&quot; — tinted to read as a distinct region · indicator sits centred inside it · a thin foreground-tinted bar at the content's leading edge marks the fingertip contact point.</div>
+</div></body></html>

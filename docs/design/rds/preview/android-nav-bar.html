@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:290px}</style></head>
+<body><div class="card">
+<style>
+.nav-row { background: var(--rdp-muted); padding: 18px 0; display: flex; justify-content: center; border-radius: 0 0 28px 28px; }
+.nav-row + .nav-row { margin-top: 12px; }
+.nav-row.dark { background: #1A1A1A; }
+.pill { width: 108px; height: 4px; border-radius: 9999px; background: currentColor; opacity: 0.55; }
+.nav-row.light { color: #1A1A1A; }
+.nav-row.dark  { color: #E8E8E8; }
+.three-btn { display: flex; gap: 60px; justify-content: center; align-items: center; }
+.three-btn .tri { width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 16px solid currentColor; transform: rotate(-90deg); }
+.three-btn .sq { width: 18px; height: 18px; border: 2px solid currentColor; border-radius: 3px; }
+.three-btn .circ { width: 18px; height: 18px; border: 2px solid currentColor; border-radius: 9999px; }
+</style>
+<div class="nav-row light"><span class="pill"></span></div>
+<div class="nav-row dark"><span class="pill"></span></div>
+<div class="nav-row light"><div class="three-btn"><span class="tri"></span><span class="circ"></span><span class="sq"></span></div></div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Gesture nav (108×4 pill) · 3-button nav (back/home/recents) · 28dp ↓-corner radius on the system surface · pill tint follows theme.</div>
+</div></body></html>

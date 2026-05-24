@@ -1,0 +1,99 @@
+/* Shared layout for design-system preview cards.
+   Every card is ~700px wide; height varies. Cards live INSIDE the review pane,
+   so they have no titles or framing of their own — just the specimen. */
+
+@import url("../colors_and_type.css");
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--rdp-background);
+  color: var(--rdp-foreground);
+}
+body {
+  padding: 20px;
+  font: var(--rdp-type-body);
+}
+
+.card {
+  width: 100%;
+}
+
+.row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Split: left meta column, right specimen */
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.meta .label {
+  font: var(--rdp-type-section-title);
+  letter-spacing: 0.72px;
+  text-transform: uppercase;
+  color: var(--rdp-muted-foreground);
+}
+.meta .name {
+  font: var(--rdp-type-body-emphasis);
+}
+.meta .token {
+  font: var(--rdp-type-mono-inline);
+  color: var(--rdp-muted-foreground);
+}
+
+/* Two-pane theme split for color cards (light on left, dark on right) */
+.dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: var(--rdp-radius-xl);
+  border: 1px solid var(--rdp-card-border);
+  overflow: hidden;
+}
+.dual > .pane {
+  padding: 16px;
+}
+.dual > .pane.light { background: #FAFAFA; color: #1A1A1A; }
+.dual > .pane.dark  { background: #121212; color: #E8E8E8; }
+
+.swatch {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+}
+.swatch .chip {
+  width: 56px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid currentColor;
+  border-color: rgba(127,127,127,0.25);
+}
+.swatch .info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.swatch .info .nm {
+  font: var(--rdp-type-body-emphasis);
+}
+.swatch .info .vl {
+  font: var(--rdp-type-mono-small);
+  opacity: 0.7;
+}

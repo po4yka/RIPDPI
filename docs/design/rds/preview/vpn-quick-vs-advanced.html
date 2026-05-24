@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:360px}</style></head>
+<body><div class="card">
+<style>
+.fork { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.path { padding: 20px; border: 1px solid var(--rdp-card-border); border-radius: 16px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; min-height: 220px; }
+.path.recommended { background: var(--rdp-card); border-color: var(--rdp-foreground); border-width: 2px; padding: 19px; }
+.path.advanced { background: var(--rdp-card); }
+.path .ico { width: 40px; height: 40px; border-radius: 9999px; background: var(--rdp-muted); display: grid; place-items: center; margin-bottom: 4px; }
+.path .ico svg { width: 20px; height: 20px; }
+.path h2 { font: var(--rdp-type-sheet-title); margin: 0; }
+.path p { font: var(--rdp-type-body); color: var(--rdp-muted-foreground); margin: 0; flex: 1; }
+.path .badge { font: var(--rdp-type-mono-small); letter-spacing: 0.6px; padding: 2px 8px; border-radius: 9999px; align-self: flex-start; background: var(--rdp-foreground); color: var(--rdp-background); font-size: 10px; }
+.path ul { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin: 0; padding-left: 18px; }
+.path ul li + li { margin-top: 3px; }
+.path .cta { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 9999px; background: var(--rdp-foreground); color: var(--rdp-background); font: var(--rdp-type-small-label); align-self: flex-start; margin-top: 6px; }
+.path.advanced .cta { background: transparent; color: var(--rdp-foreground); border: 1px solid var(--rdp-border); }
+</style>
+<div class="fork">
+  <div class="path recommended">
+    <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+    <span class="badge">RECOMMENDED</span>
+    <h2>Pick a relay</h2>
+    <p>Most users want this. RIPDPI tests strategies and picks the one that works on your network.</p>
+    <ul><li>Auto-picks the best strategy</li><li>Adapts on network change</li><li>~30 seconds to set up</li></ul>
+    <span class="cta">Continue</span>
+  </div>
+  <div class="path advanced">
+    <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M21 12h-3M6 12H3M12 3v3M12 18v3"/></svg></span>
+    <h2>I have a config</h2>
+    <p>Paste a WireGuard / AmneziaWG / OpenVPN config, or write your own strategy.</p>
+    <ul><li>Manual strategy editing</li><li>Per-app routing</li><li>Power-user only</li></ul>
+    <span class="cta">Use my config</span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Onboarding fork · explicit recommendation · power-user path is clearly secondary but not hidden.</div>
+</div></body></html>

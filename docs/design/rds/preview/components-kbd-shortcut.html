@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:360px}</style></head>
+<body><div class="card">
+<style>
+.kb { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.kb .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.kb .hd .t { font: var(--rdp-type-body-emphasis); }
+.kb .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 500 11px/1 var(--rdp-font-mono);
+  padding: 4px 7px; min-width: 22px;
+  border-radius: 4px;
+  background: var(--rdp-card);
+  border: 0.5px solid var(--rdp-border);
+  box-shadow: 0 1px 0 0 var(--rdp-outline-variant);
+  color: var(--rdp-foreground);
+  text-align: center;
+  vertical-align: middle;
+  letter-spacing: 0.2px;
+}
+kbd.lg { font-size: 13px; padding: 6px 10px; min-width: 28px; }
+kbd.sm { font-size: 9.5px; padding: 2px 5px; min-width: 14px; box-shadow: none; }
+
+.combo { display: inline-flex; align-items: center; gap: 3px; }
+.combo .plus { color: var(--rdp-muted-foreground); font: var(--rdp-type-mono-small); font-size: 11px; margin: 0 1px; }
+
+.row {
+  display: grid; grid-template-columns: 240px 1fr;
+  gap: 16px; align-items: center;
+  padding: 12px 0;
+}
+.row + .row { border-top: 0.5px solid var(--rdp-divider); }
+.row .lbl { font: var(--rdp-type-mono-value); font-size: 12px; color: var(--rdp-foreground); }
+.row .lbl small { display: block; font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); margin-top: 2px; }
+
+.sizes-row { display: flex; gap: 24px; align-items: center; padding: 14px 0; border-top: 0.5px solid var(--rdp-divider); margin-top: 16px; }
+.sizes-row .pair { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.sizes-row .pair .label { font: var(--rdp-type-mono-small); font-size: 9.5px; color: var(--rdp-muted-foreground); letter-spacing: 0.4px; text-transform: uppercase; }
+</style>
+
+<div class="kb">
+  <div class="hd">
+    <span class="t">Keyboard shortcut · kbd</span>
+    <span class="sub">Keycap atoms · combine with combo</span>
+  </div>
+
+  <div class="row">
+    <span class="lbl">Open command palette<small>menu · global</small></span>
+    <span class="combo"><kbd>⌘</kbd><span class="plus">+</span><kbd>K</kbd></span>
+  </div>
+
+  <div class="row">
+    <span class="lbl">Reconnect tunnel<small>session</small></span>
+    <span class="combo"><kbd>⌘</kbd><span class="plus">+</span><kbd>R</kbd></span>
+  </div>
+
+  <div class="row">
+    <span class="lbl">Disconnect (confirm)<small>session · destructive</small></span>
+    <span class="combo"><kbd>⌘</kbd><span class="plus">+</span><kbd>⇧</kbd><span class="plus">+</span><kbd>D</kbd></span>
+  </div>
+
+  <div class="row">
+    <span class="lbl">Cycle relay<small>session · cycles to next ranked</small></span>
+    <span class="combo"><kbd>⌘</kbd><span class="plus">+</span><kbd>⌥</kbd><span class="plus">+</span><kbd>→</kbd></span>
+  </div>
+
+  <div class="row">
+    <span class="lbl">Toggle log stream<small>view</small></span>
+    <span class="combo"><kbd>⌘</kbd><span class="plus">+</span><kbd>L</kbd></span>
+  </div>
+
+  <div class="row">
+    <span class="lbl">Send escape · dismiss<small>any modal</small></span>
+    <span class="combo"><kbd>esc</kbd></span>
+  </div>
+
+  <div class="sizes-row">
+    <div class="pair"><span class="label">Small · 9.5 px</span><span class="combo"><kbd class="sm">⌘</kbd><kbd class="sm">K</kbd></span></div>
+    <div class="pair"><span class="label">Standard · 11 px</span><span class="combo"><kbd>⌘</kbd><kbd>K</kbd></span></div>
+    <div class="pair"><span class="label">Large · 13 px</span><span class="combo"><kbd class="lg">⌘</kbd><kbd class="lg">K</kbd></span></div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Keyboard shortcut · single <code>&lt;kbd&gt;</code> atom · combine with span <code>.plus</code> for legibility · 3 sizes (sm for inline, std for tooltips/lists, lg for first-run/empty states).</div>
+</div></body></html>

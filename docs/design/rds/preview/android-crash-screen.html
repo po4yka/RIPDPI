@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:460px}</style></head>
+<body><div class="card">
+<style>
+.cs { padding: 32px 24px; background: var(--rdp-background); border: 1px solid var(--rdp-card-border); border-radius: 16px; display: flex; flex-direction: column; gap: 16px; min-height: 360px; }
+.cs .head { display: flex; align-items: center; gap: 12px; }
+.cs .ico { width: 40px; height: 40px; border-radius: 9999px; background: var(--rdp-destructive-container); color: var(--rdp-destructive); display: grid; place-items: center; }
+.cs h1 { font: var(--rdp-type-screen-title); margin: 0; }
+.cs .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.cs .trace { background: var(--rdp-muted); border-radius: 12px; padding: 12px 14px; font: var(--rdp-type-mono-log); color: var(--rdp-foreground); overflow-x: auto; white-space: pre; }
+.cs .actions { display: flex; gap: 8px; margin-top: auto; }
+.cs .btn { flex: 1; min-height: 48px; padding: 10px 20px; border-radius: 16px; border: 1px solid var(--rdp-border); background: transparent; font: var(--rdp-type-button); cursor: pointer; }
+.cs .btn.primary { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+</style>
+<div class="cs">
+  <div class="head">
+    <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 7h2v6h-2zM11 15h2v2h-2z"/></svg></div>
+    <div><h1>RIPDPI stopped</h1><div class="sub">crash_2026-05-19T09:30:14Z · build 4.7.2-rc3</div></div>
+  </div>
+  <div class="trace">java.lang.IllegalStateException: probe.cidr_whitelist
+    at com.poyka.ripdpi.dns.WhitelistResolver.resolve(WhitelistResolver.kt:84)
+    at com.poyka.ripdpi.dns.DnsRouter.route(DnsRouter.kt:212)
+    at com.poyka.ripdpi.service.RipDpiService.start(RipDpiService.kt:147)</div>
+  <div class="actions">
+    <button class="btn">Open report</button>
+    <button class="btn primary">Restart RIPDPI</button>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Crash screen · in-app fallback when the service crashes · mono trace, copy-paste friendly · technical, no apology.</div>
+</div></body></html>

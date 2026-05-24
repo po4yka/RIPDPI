@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:540px}</style></head>
+<body><div class="card">
+<style>
+.modes { display: flex; gap: 8px; margin-bottom: 12px; }
+.mode { flex: 1; padding: 10px 14px; border: 1px solid var(--rdp-border); border-radius: 12px; cursor: pointer; }
+.mode.sel { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.mode .t { font: var(--rdp-type-body-emphasis); }
+.mode .s { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 2px; }
+.mode.sel .s { color: rgba(250,250,250,0.6); }
+.search { padding: 10px 14px; border: 1px solid var(--rdp-border); border-radius: 16px; background: var(--rdp-input-background); display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.search svg { color: var(--rdp-muted-foreground); flex-shrink: 0; }
+.search input { flex: 1; border: none; background: transparent; outline: none; font: var(--rdp-type-mono-value); }
+.apps { display: flex; flex-direction: column; gap: 0; }
+.app { display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: center; padding: 10px 0; }
+.app + .app { border-top: 0.5px solid var(--rdp-divider); }
+.app .ico { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font: 500 14px/1 var(--rdp-font-sans); color: var(--rdp-card-foreground); }
+.app .ico.a { background: #4285F4; color: #fff; }
+.app .ico.b { background: #25D366; color: #fff; }
+.app .ico.c { background: #1DA1F2; color: #fff; }
+.app .ico.d { background: #E1306C; color: #fff; }
+.app .ico.e { background: #0088CC; color: #fff; }
+.app .name { font: var(--rdp-type-body-emphasis); }
+.app .pkg  { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 1px; }
+.app .sw { width: 44px; height: 26px; border-radius: 9999px; background: var(--rdp-outline-variant); position: relative; }
+.app .sw .t { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 9999px; background: #fff; }
+.app.on .sw { background: var(--rdp-foreground); }
+.app.on .sw .t { left: 21px; background: var(--rdp-background); }
+</style>
+<div class="modes">
+  <div class="mode sel"><div class="t">Include</div><div class="s">Only selected apps go through VPN</div></div>
+  <div class="mode"><div class="t">Exclude</div><div class="s">Selected apps bypass VPN</div></div>
+</div>
+<div class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input value="" placeholder="Search apps"></div>
+<div class="apps">
+  <div class="app on"><span class="ico a">C</span><span><div class="name">Chrome</div><div class="pkg">com.android.chrome</div></span><span class="sw"><span class="t"></span></span></div>
+  <div class="app on"><span class="ico b">W</span><span><div class="name">WhatsApp</div><div class="pkg">com.whatsapp</div></span><span class="sw"><span class="t"></span></span></div>
+  <div class="app"><span class="ico c">T</span><span><div class="name">Twitter</div><div class="pkg">com.twitter.android</div></span><span class="sw"><span class="t"></span></span></div>
+  <div class="app on"><span class="ico d">I</span><span><div class="name">Instagram</div><div class="pkg">com.instagram.android</div></span><span class="sw"><span class="t"></span></span></div>
+  <div class="app"><span class="ico e">T</span><span><div class="name">Telegram</div><div class="pkg">org.telegram.messenger</div></span><span class="sw"><span class="t"></span></span></div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Per-app routing · include / exclude split-tunnel · searchable list · 32dp app icon, switch trailing.</div>
+</div></body></html>

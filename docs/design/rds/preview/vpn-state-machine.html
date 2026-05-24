@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:560px}</style></head>
+<body><div class="card">
+<style>
+.sm { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.sm .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.sm .hd .t { font: var(--rdp-type-body-emphasis); }
+.sm .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.sm .hd .sub b { color: var(--rdp-foreground); font-weight: 500; }
+
+/* Fixed 640 × 380 canvas — SVG edges and HTML nodes share one coordinate space.
+   Every node is a 120 × 52 rounded rect centred at (cx, cy); edges start and
+   end on the node's *edge* (not its centre), 4 px shy of the border for the
+   arrowhead. Parallel edges between the same pair of nodes are offset on
+   opposite sides and labelled on opposite sides so labels never collide. */
+.diagram { position: relative; width: 640px; height: 380px; margin: 0 auto; }
+
+.diagram svg {
+  position: absolute; inset: 0; width: 640px; height: 380px;
+  z-index: 1; pointer-events: none;
+}
+.diagram svg .edge        { fill: none; stroke: var(--rdp-outline-variant); stroke-width: 1.25; }
+.diagram svg .edge.active { stroke: var(--rdp-foreground); stroke-width: 1.5; stroke-dasharray: 4 3; animation: rdp-march 0.6s linear infinite; }
+.diagram svg .edge.fail   { stroke: var(--rdp-destructive); }
+
+.diagram svg text.lbl     { fill: var(--rdp-muted-foreground); font: 10px var(--rdp-font-mono); letter-spacing: 0.3px; }
+.diagram svg text.lbl.active { fill: var(--rdp-foreground); }
+.diagram svg text.lbl.fail   { fill: var(--rdp-destructive); }
+.diagram svg rect.lbl-bg  { fill: var(--rdp-card); }
+
+@keyframes rdp-march { to { stroke-dashoffset: -7; } }
+
+.node {
+  position: absolute;
+  width: 120px; height: 52px;
+  border-radius: 10px;
+  background: var(--rdp-card);
+  border: 1px solid var(--rdp-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+}
+.node .nm { font: 500 12px/14px var(--rdp-font-mono); letter-spacing: 0.2px; white-space: nowrap; }
+.node .meta { font: 9.5px var(--rdp-font-mono); color: var(--rdp-muted-foreground); letter-spacing: 0.4px; text-transform: uppercase; white-space: nowrap; }
+.node .dot { width: 6px; height: 6px; border-radius: 9999px; background: var(--rdp-muted-foreground); position: absolute; top: -3px; right: -3px; }
+
+.node.idle    .dot { background: var(--rdp-muted-foreground); }
+.node.conn    .dot { background: var(--rdp-info); }
+.node.tunl    { background: var(--rdp-success-container); border-color: var(--rdp-success); }
+.node.tunl    .nm { color: var(--rdp-success-container-foreground); }
+.node.tunl    .dot { background: var(--rdp-success); animation: rdp-pulse 1.6s ease-in-out infinite; }
+.node.degr    { background: var(--rdp-warning-container); border-color: var(--rdp-warning); }
+.node.degr    .nm { color: var(--rdp-warning-container-foreground); }
+.node.degr    .dot { background: var(--rdp-warning); }
+.node.fail    { background: var(--rdp-destructive-container); border-color: var(--rdp-destructive); }
+.node.fail    .nm { color: var(--rdp-destructive-container-foreground); }
+.node.fail    .dot { background: var(--rdp-destructive); }
+.node.recon   { background: var(--rdp-info-container); border-color: var(--rdp-info); }
+.node.recon   .nm { color: var(--rdp-info-container-foreground); }
+.node.recon   .dot { background: var(--rdp-info); }
+
+.node.current::after {
+  content: ""; position: absolute; inset: -4px; border-radius: 14px;
+  border: 1.5px solid var(--rdp-foreground); pointer-events: none;
+}
+
+@keyframes rdp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.legend {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--rdp-divider);
+  display: flex; flex-wrap: wrap; gap: 12px;
+  font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground);
+}
+.legend .item { display: inline-flex; align-items: center; gap: 5px; }
+.legend .sw { width: 10px; height: 10px; border-radius: 3px; border: 1px solid; }
+.legend .sw.idle  { background: var(--rdp-card);                 border-color: var(--rdp-border); }
+.legend .sw.recon { background: var(--rdp-info-container);       border-color: var(--rdp-info); }
+.legend .sw.tunl  { background: var(--rdp-success-container);    border-color: var(--rdp-success); }
+.legend .sw.degr  { background: var(--rdp-warning-container);    border-color: var(--rdp-warning); }
+.legend .sw.fail  { background: var(--rdp-destructive-container);border-color: var(--rdp-destructive); }
+</style>
+
+<div class="sm">
+  <div class="hd">
+    <span class="t">Connection state machine</span>
+    <span class="sub">Current · <b>Tunneling</b> · 9 transitions / 24 h</span>
+  </div>
+
+  <!--
+    Node grid (120 × 52, centre-anchored):
+      Disconnected (80, 80)     Permissioning (320, 80)   Connecting (550, 80)
+      Reconnecting (170, 210)                              Tunneling  (470, 210)
+      Failed       (170, 320)                              Degraded   (470, 320)
+    Node edges (L, R, T, B) = (cx-60, cx+60, cy-26, cy+26).
+  -->
+
+  <div class="diagram">
+    <svg viewBox="0 0 640 380" width="640" height="380">
+      <defs>
+        <marker id="arr-mute" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--rdp-outline-variant)"/>
+        </marker>
+        <marker id="arr-fg" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--rdp-foreground)"/>
+        </marker>
+        <marker id="arr-bad" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--rdp-destructive)"/>
+        </marker>
+      </defs>
+
+      <!-- 1. Disconnected.R(140,80) → Permissioning.L(260,80) -->
+      <path class="edge" marker-end="url(#arr-mute)" d="M 140 80 L 256 80"/>
+      <rect class="lbl-bg" x="164" y="62" width="72" height="12"/>
+      <text class="lbl" x="200" y="71" text-anchor="middle">tap connect</text>
+
+      <!-- 2. Permissioning.R(380,80) → Connecting.L(490,80) -->
+      <path class="edge" marker-end="url(#arr-mute)" d="M 380 80 L 486 80"/>
+      <rect class="lbl-bg" x="409" y="62" width="48" height="12"/>
+      <text class="lbl" x="433" y="71" text-anchor="middle">allowed</text>
+
+      <!-- 3. Connecting.B(550,106) → Tunneling.T(494,184) — ACTIVE -->
+      <path class="edge active" marker-end="url(#arr-fg)" d="M 550 106 Q 550 165 494 182"/>
+      <rect class="lbl-bg" x="447" y="138" width="78" height="12"/>
+      <text class="lbl active" x="525" y="147" text-anchor="end">handshake ok</text>
+
+      <!-- 4. Connecting.B(520,106) → Failed.T(212,290) — TIMEOUT
+           Label placed near the START so it sits clear of the busy middle
+           where edges 4 and 7 cross at ~(285, 246). -->
+      <path class="edge fail" marker-end="url(#arr-bad)" d="M 520 106 Q 360 200 212 290"/>
+      <rect class="lbl-bg" x="418" y="116" width="72" height="12"/>
+      <text class="lbl fail" x="490" y="125" text-anchor="end">timeout 8 s</text>
+
+      <!-- 5. Tunneling.B(440,236) → Degraded.T(440,290)    [LEFT  arrow] -->
+      <path class="edge" marker-end="url(#arr-mute)" d="M 440 236 L 440 290"/>
+      <rect class="lbl-bg" x="372" y="254" width="60" height="12"/>
+      <text class="lbl" x="432" y="263" text-anchor="end">loss &gt; 3%</text>
+
+      <!-- 6. Degraded.T(500,294) → Tunneling.B(500,240)    [RIGHT arrow] -->
+      <path class="edge" marker-end="url(#arr-mute)" d="M 500 294 L 500 240"/>
+      <rect class="lbl-bg" x="508" y="261" width="72" height="12"/>
+      <text class="lbl" x="508" y="270" text-anchor="start">loss &lt; 0.5%</text>
+
+      <!-- 7. Degraded.L(410,320) → Reconnecting.R(234,214) -->
+      <path class="edge" marker-end="url(#arr-mute)" d="M 410 320 Q 320 270 234 214"/>
+      <rect class="lbl-bg" x="277" y="259" width="90" height="12"/>
+      <text class="lbl" x="322" y="268" text-anchor="middle">network change</text>
+
+      <!-- 8. Reconnecting.R(230,205) → Tunneling.L(406,205) -->
+      <path class="edge" marker-end="url(#arr-mute)" d="M 230 205 L 406 205"/>
+      <rect class="lbl-bg" x="279" y="187" width="78" height="12"/>
+      <text class="lbl" x="318" y="196" text-anchor="middle">re-handshake</text>
+
+      <!-- 9. Reconnecting.B(170,236) → Failed.T(170,290) -->
+      <path class="edge fail" marker-end="url(#arr-bad)" d="M 170 236 L 170 290"/>
+      <rect class="lbl-bg" x="94" y="254" width="66" height="12"/>
+      <text class="lbl fail" x="160" y="263" text-anchor="end">3 attempts</text>
+
+      <!-- 10. Failed.L(110,320) → Disconnected.L(16,84) — DISMISS
+            Cubic sweeps down-left, around the canvas's left edge, and
+            up into Disconnected with the final tangent pointing RIGHT
+            so the arrowhead enters the node face-on. -->
+      <path class="edge" marker-end="url(#arr-mute)" d="M 110 320 C 20 320 10 84 16 84"/>
+      <rect class="lbl-bg" x="1" y="194" width="48" height="12"/>
+      <text class="lbl" x="25" y="203" text-anchor="middle">dismiss</text>
+    </svg>
+
+    <div class="node idle"  style="left: 80px;  top: 80px;"><span class="nm">Disconnected</span><span class="meta">idle</span><span class="dot"></span></div>
+    <div class="node conn"  style="left: 320px; top: 80px;"><span class="nm">Permissioning</span><span class="meta">os prompt</span><span class="dot"></span></div>
+    <div class="node conn"  style="left: 550px; top: 80px;"><span class="nm">Connecting</span><span class="meta">handshake</span><span class="dot"></span></div>
+    <div class="node tunl current" style="left: 470px; top: 210px;"><span class="nm">Tunneling</span><span class="meta">12 m 14 s</span><span class="dot"></span></div>
+    <div class="node recon" style="left: 170px; top: 210px;"><span class="nm">Reconnecting</span><span class="meta">backoff</span><span class="dot"></span></div>
+    <div class="node fail"  style="left: 170px; top: 320px;"><span class="nm">Failed</span><span class="meta">last 6 h: 0</span><span class="dot"></span></div>
+    <div class="node degr"  style="left: 470px; top: 320px;"><span class="nm">Degraded</span><span class="meta">2 in 24 h</span><span class="dot"></span></div>
+  </div>
+
+  <div class="legend">
+    <span class="item"><span class="sw idle"></span>Idle</span>
+    <span class="item"><span class="sw recon"></span>Transition</span>
+    <span class="item"><span class="sw tunl"></span>Healthy</span>
+    <span class="item"><span class="sw degr"></span>Degraded</span>
+    <span class="item"><span class="sw fail"></span>Failed</span>
+    <span class="item" style="margin-left: auto">— current state ringed</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Connection state machine · 7 states on a fixed 640 × 380 canvas · parallel arrows offset on opposite sides with labels on opposite sides (loss &gt; 3% left, loss &lt; 0.5% right) · backing rects fitted to text so no label boxes overlap · timeout label moved to the start of its curve to clear the busy middle.</div>
+</div></body></html>

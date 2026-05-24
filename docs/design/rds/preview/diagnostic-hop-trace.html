@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:520px}</style></head>
+<body><div class="card">
+<style>
+.trace { padding: 16px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.trace .hd { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 6px; }
+.trace .hd .t { font: var(--rdp-type-body-emphasis); }
+.trace .hd .meta { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.trace .hd .meta b { color: var(--rdp-foreground); font-weight: 500; }
+
+.hop {
+  display: grid;
+  grid-template-columns: 20px 24px 1fr 64px 80px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  font: var(--rdp-type-mono-value);
+  font-size: 13px;
+  line-height: 18px;
+  position: relative;
+}
+.hop + .hop { border-top: 0.5px solid var(--rdp-divider); }
+
+/* Spine rail */
+.hop .rail { position: relative; height: 100%; width: 20px; display: grid; place-items: center; align-self: stretch; }
+.hop .rail::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 9px; width: 2px;
+  background: var(--rdp-outline-variant);
+}
+.hop:first-of-type .rail::before { top: 50%; }
+.hop:last-of-type .rail::before { bottom: 50%; }
+.hop .rail .pip {
+  position: relative; z-index: 1; width: 10px; height: 10px;
+  border-radius: 9999px; background: var(--rdp-foreground);
+  box-shadow: 0 0 0 2px var(--rdp-card);
+}
+.hop.timeout .rail .pip { background: var(--rdp-destructive); }
+.hop.warn    .rail .pip { background: var(--rdp-warning); }
+.hop.you     .rail .pip { width: 12px; height: 12px; background: var(--rdp-card); border: 2px solid var(--rdp-foreground); }
+.hop.exit    .rail .pip { width: 12px; height: 12px; transform: rotate(45deg); border-radius: 2px; }
+
+.hop .n { color: var(--rdp-muted-foreground); font-size: 11px; text-align: right; }
+.hop .who { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.hop .who .ip { color: var(--rdp-foreground); }
+.hop .who .meta { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); font-size: 10.5px; }
+.hop.timeout .who .ip { color: var(--rdp-muted-foreground); }
+
+.hop .rtt { text-align: right; font-variant-numeric: tabular-nums; color: var(--rdp-foreground); }
+.hop.warn .rtt { color: var(--rdp-warning); }
+.hop.timeout .rtt { color: var(--rdp-destructive); }
+
+.hop .bar { width: 80px; height: 6px; background: var(--rdp-muted); border-radius: 2px; position: relative; overflow: hidden; }
+.hop .bar .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--rdp-foreground); border-radius: 2px; }
+.hop.warn    .bar .fill { background: var(--rdp-warning); }
+.hop.timeout .bar { background: repeating-linear-gradient(135deg, var(--rdp-destructive-container) 0 6px, transparent 6px 12px); }
+.hop.timeout .bar .fill { display: none; }
+
+.tag-row { display: flex; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
+.tag-row .tg { font: var(--rdp-type-mono-small); font-size: 9.5px; padding: 1px 5px; border-radius: 3px; background: var(--rdp-accent); color: var(--rdp-muted-foreground); letter-spacing: 0.3px; }
+.tag-row .tg.tunnel { background: var(--rdp-info-container); color: var(--rdp-info); }
+.tag-row .tg.exit   { background: var(--rdp-success-container); color: var(--rdp-success); }
+.tag-row .tg.dpi    { background: var(--rdp-destructive-container); color: var(--rdp-destructive); }
+</style>
+
+<div class="trace">
+  <div class="hd">
+    <span class="t">Hop trace · 1.1.1.1</span>
+    <span class="meta">14 hops · <b>168 ms</b> total · 2 timeout</span>
+  </div>
+
+  <div class="hop you"><span class="rail"><span class="pip"></span></span><span class="n">1</span><span class="who"><span class="ip">192.168.1.1</span><span class="meta">_gateway · LAN</span></span><span class="rtt">1 ms</span><span class="bar"><span class="fill" style="width:2%"></span></span></div>
+  <div class="hop"><span class="rail"><span class="pip"></span></span><span class="n">2</span><span class="who"><span class="ip">10.40.12.1</span><span class="meta">AS12389 · ROSTELECOM · MOW</span></span><span class="rtt">8 ms</span><span class="bar"><span class="fill" style="width:8%"></span></span></div>
+  <div class="hop"><span class="rail"><span class="pip"></span></span><span class="n">3</span><span class="who"><span class="ip">10.40.0.49</span><span class="meta">AS12389 · ROSTELECOM</span></span><span class="rtt">12 ms</span><span class="bar"><span class="fill" style="width:12%"></span></span></div>
+  <div class="hop timeout"><span class="rail"><span class="pip"></span></span><span class="n">4</span><span class="who"><span class="ip">* * *</span><span class="meta">No response · 3 probes</span></span><span class="rtt">timeout</span><span class="bar"></span></div>
+  <div class="hop warn"><span class="rail"><span class="pip"></span></span><span class="n">5</span><span class="who"><span class="ip">87.245.232.182</span><span class="meta">AS12389 · ROSTELECOM<div class="tag-row"><span class="tg dpi">RST injected</span></div></span></span><span class="rtt">42 ms</span><span class="bar"><span class="fill" style="width:48%"></span></span></div>
+  <div class="hop"><span class="rail"><span class="pip"></span></span><span class="n">6</span><span class="who"><span class="ip">194.85.41.10</span><span class="meta">AS3216 · SOVAM</span></span><span class="rtt">38 ms</span><span class="bar"><span class="fill" style="width:42%"></span></span></div>
+  <div class="hop"><span class="rail"><span class="pip"></span></span><span class="n">7</span><span class="who"><span class="ip">213.248.92.121</span><span class="meta">AS1299 · ARELION · STO</span></span><span class="rtt">58 ms</span><span class="bar"><span class="fill" style="width:62%"></span></span></div>
+  <div class="hop timeout"><span class="rail"><span class="pip"></span></span><span class="n">8</span><span class="who"><span class="ip">* * *</span><span class="meta">No response · 3 probes</span></span><span class="rtt">timeout</span><span class="bar"></span></div>
+  <div class="hop"><span class="rail"><span class="pip"></span></span><span class="n">9</span><span class="who"><span class="ip">141.101.65.232</span><span class="meta">AS13335 · CLOUDFLARE<div class="tag-row"><span class="tg tunnel">tunnel-entry</span></div></span></span><span class="rtt">82 ms</span><span class="bar"><span class="fill" style="width:78%"></span></span></div>
+  <div class="hop exit"><span class="rail"><span class="pip"></span></span><span class="n">10</span><span class="who"><span class="ip">1.1.1.1</span><span class="meta">AS13335 · CLOUDFLARE · AMS<div class="tag-row"><span class="tg exit">exit</span></div></span></span><span class="rtt">168 ms</span><span class="bar"><span class="fill" style="width:100%"></span></span></div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Hop trace · per-hop ASN, RTT, normalized bar · timeouts hatched · sentinel shape marks origin (ring) and exit (diamond) · DPI-flagged hops tagged inline.</div>
+</div></body></html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:420px}</style></head>
+<body><div class="card">
+<style>
+.ci { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.ci .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.ci .hd .t { font: var(--rdp-type-body-emphasis); }
+.ci .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.field { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; }
+.field .lbl { font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); }
+
+.input-wrap {
+  display: flex; align-items: center;
+  border: 1px solid var(--rdp-border);
+  border-radius: 8px;
+  background: var(--rdp-card);
+  font: var(--rdp-type-mono-value);
+  font-size: 13px;
+  padding: 0 2px;
+  height: 40px;
+  transition: border-color 120ms cubic-bezier(0.2,0,0,1);
+}
+.input-wrap:focus-within { border-color: var(--rdp-foreground); }
+.input-wrap input {
+  border: none; outline: none; background: transparent;
+  font: inherit; color: var(--rdp-foreground);
+  padding: 0;
+  text-align: center;
+  width: 3ch;
+  font-variant-numeric: tabular-nums;
+}
+.input-wrap input.short { width: 3ch; }
+.input-wrap input.long { width: 60px; text-align: left; padding-left: 8px; }
+.input-wrap .sep { color: var(--rdp-muted-foreground); padding: 0; margin: 0 -0.15ch; }
+
+.input-wrap.error { border-color: var(--rdp-destructive); background: var(--rdp-destructive-container); }
+.input-wrap.ok    { border-color: var(--rdp-success); }
+
+.helper {
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+  color: var(--rdp-muted-foreground);
+  display: flex; align-items: center; gap: 6px;
+}
+.helper.error { color: var(--rdp-destructive); }
+.helper.ok    { color: var(--rdp-success); }
+
+.derived {
+  display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px;
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+  padding-left: 4px;
+  margin-top: 4px;
+}
+.derived b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.derived span { color: var(--rdp-foreground); font-variant-numeric: tabular-nums; }
+
+.octet {
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.octet .badge {
+  display: inline-block;
+  width: 4px; height: 4px;
+  border-radius: 9999px;
+  background: var(--rdp-success);
+}
+.octet .badge.warn { background: var(--rdp-warning); }
+.octet .badge.bad  { background: var(--rdp-destructive); }
+</style>
+
+<div class="ci">
+  <div class="hd">
+    <span class="t">CIDR / IP input</span>
+    <span class="sub">Per-octet · validating · derives mask</span>
+  </div>
+
+  <div class="field">
+    <span class="lbl">IPv4 · valid · /24</span>
+    <span class="input-wrap ok">
+      <input value="192" class="short"/>
+      <span class="sep">.</span>
+      <input value="168" class="short"/>
+      <span class="sep">.</span>
+      <input value="1" class="short"/>
+      <span class="sep">.</span>
+      <input value="0" class="short"/>
+      <span class="sep">/</span>
+      <input value="24" class="short"/>
+    </span>
+    <span class="helper ok">✓ valid · 254 usable hosts</span>
+    <div class="derived">
+      <b>Mask</b><span>255.255.255.0</span>
+      <b>Range</b><span>192.168.1.1 – 192.168.1.254</span>
+      <b>Broadcast</b><span>192.168.1.255</span>
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="lbl">IPv4 · invalid octet</span>
+    <span class="input-wrap error">
+      <input value="10" class="short"/>
+      <span class="sep">.</span>
+      <input value="0" class="short"/>
+      <span class="sep">.</span>
+      <input value="299" class="short" style="color: var(--rdp-destructive)"/>
+      <span class="sep">.</span>
+      <input value="1" class="short"/>
+      <span class="sep">/</span>
+      <input value="32" class="short"/>
+    </span>
+    <span class="helper error">! octet 3 out of range (0 – 255) · expected ≤ 255</span>
+  </div>
+
+  <div class="field">
+    <span class="lbl">IPv6 · /64</span>
+    <span class="input-wrap ok">
+      <input value="2606:4700:4700::1111" class="long" style="width: 100%; text-align: left;"/>
+      <span class="sep">/</span>
+      <input value="64" class="short"/>
+    </span>
+    <span class="helper ok">✓ valid · cloudflare · 1.8e19 addresses</span>
+  </div>
+
+  <div class="field">
+    <span class="lbl">Port range</span>
+    <span class="input-wrap ok">
+      <input value="443" class="short" style="width: 50px"/>
+      <span class="sep">–</span>
+      <input value="465" class="short" style="width: 50px"/>
+    </span>
+    <span class="helper">443, 444, 445, 465 · 4 ports</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">CIDR / IP input · per-octet validation · live mask / range derivation · IPv6 collapses to a single field · error tints both border and field background.</div>
+</div></body></html>

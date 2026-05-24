@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:420px}</style></head>
+<body><div class="card">
+<style>
+.hx { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.hx .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.hx .hd .t { font: var(--rdp-type-body-emphasis); }
+.hx .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.hx .hd .sub b { color: var(--rdp-foreground); font-weight: 500; }
+
+.range-tabs { display: inline-flex; gap: 0; border: 0.5px solid var(--rdp-border); border-radius: 9999px; overflow: hidden; }
+.range-tabs button { background: transparent; border: none; padding: 4px 10px; font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); cursor: pointer; letter-spacing: 0.3px; }
+.range-tabs button.active { background: var(--rdp-foreground); color: var(--rdp-background); }
+
+/* Stacked-bar daily summary */
+.stack-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--rdp-muted);
+  margin-bottom: 8px;
+}
+.stack-bar .seg { display: block; height: 100%; }
+.stack-bar .seg.tunl { background: var(--rdp-success); }
+.stack-bar .seg.degr { background: var(--rdp-warning); }
+.stack-bar .seg.recon{ background: var(--rdp-info); }
+.stack-bar .seg.fail { background: var(--rdp-destructive); }
+.stack-bar .seg.off  { background: var(--rdp-muted-foreground); opacity: 0.5; }
+
+.stack-stats { display: flex; flex-wrap: wrap; gap: 12px 16px; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-bottom: 18px; }
+.stack-stats .item { display: inline-flex; align-items: center; gap: 5px; }
+.stack-stats .item .sw { width: 10px; height: 10px; border-radius: 2px; }
+.stack-stats .item .sw.tunl { background: var(--rdp-success); }
+.stack-stats .item .sw.degr { background: var(--rdp-warning); }
+.stack-stats .item .sw.recon{ background: var(--rdp-info); }
+.stack-stats .item .sw.fail { background: var(--rdp-destructive); }
+.stack-stats .item .sw.off  { background: var(--rdp-muted-foreground); opacity: 0.5; }
+.stack-stats .item b { color: var(--rdp-foreground); font-weight: 500; }
+
+/* Hour ribbon */
+.ribbon-wrap { position: relative; padding-bottom: 4px; }
+.ribbon {
+  display: grid; grid-template-columns: repeat(24, 1fr);
+  height: 22px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.cell { position: relative; }
+.cell::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  background: var(--rdp-foreground); opacity: 0.6;
+}
+.cell.tunl::before { background: var(--rdp-success); opacity: 1; }
+.cell.degr::before { background: var(--rdp-warning); opacity: 1; }
+.cell.recon::before{ background: var(--rdp-info); opacity: 1; }
+.cell.fail::before { background: var(--rdp-destructive); opacity: 1; }
+.cell.off::before  { background: var(--rdp-muted-foreground); opacity: 0.25; }
+
+.cell.mixed.degr::after { content:""; position: absolute; right: 0; top: 0; bottom: 0; width: 30%; background: var(--rdp-warning); }
+.cell.mixed.recon::after{ content:""; position: absolute; left: 0; top: 0; bottom: 0; width: 25%; background: var(--rdp-info); }
+
+.hour-axis { display: grid; grid-template-columns: repeat(24, 1fr); margin-top: 6px; font: 9.5px var(--rdp-font-mono); color: var(--rdp-muted-foreground); }
+.hour-axis span { text-align: center; }
+.hour-axis span.major { color: var(--rdp-foreground); }
+
+/* Recent transitions list */
+.tx-list { margin-top: 18px; padding-top: 14px; border-top: 0.5px solid var(--rdp-divider); }
+.tx-list .ttl { font: var(--rdp-type-mono-small); font-size: 9.5px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--rdp-muted-foreground); margin-bottom: 8px; }
+.tx {
+  display: grid; grid-template-columns: 60px 1fr 90px;
+  gap: 12px; align-items: center;
+  padding: 6px 0;
+  font: var(--rdp-type-mono-value); font-size: 12px;
+}
+.tx + .tx { border-top: 0.5px solid var(--rdp-divider); }
+.tx .ts { color: var(--rdp-muted-foreground); font-variant-numeric: tabular-nums; }
+.tx .what { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tx .what .arrow { color: var(--rdp-muted-foreground); }
+.tx .pill {
+  font: 9.5px var(--rdp-font-mono); padding: 2px 6px; border-radius: 3px; letter-spacing: 0.4px; text-transform: uppercase;
+  white-space: nowrap;
+}
+.tx .pill.tunl  { background: var(--rdp-success-container); color: var(--rdp-success); }
+.tx .pill.degr  { background: var(--rdp-warning-container); color: var(--rdp-warning); }
+.tx .pill.recon { background: var(--rdp-info-container); color: var(--rdp-info); }
+.tx .pill.fail  { background: var(--rdp-destructive-container); color: var(--rdp-destructive); }
+.tx .pill.off   { background: var(--rdp-muted); color: var(--rdp-muted-foreground); }
+.tx .reason { color: var(--rdp-muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.tx .dur { text-align: right; color: var(--rdp-foreground); font-variant-numeric: tabular-nums; }
+</style>
+
+<div class="hx">
+  <div class="hd">
+    <span>
+      <div class="t">State history</div>
+      <div class="sub" style="margin-top: 4px">Last 24 h · <b>91.4%</b> connected · <b>6</b> reconnects</div>
+    </span>
+    <span class="range-tabs">
+      <button>1 h</button>
+      <button>6 h</button>
+      <button class="active">24 h</button>
+      <button>7 d</button>
+    </span>
+  </div>
+
+  <!-- Stacked summary -->
+  <div class="stack-bar">
+    <span class="seg tunl"  style="width: 91.4%"></span>
+    <span class="seg degr"  style="width: 4.2%"></span>
+    <span class="seg recon" style="width: 2.1%"></span>
+    <span class="seg fail"  style="width: 1.3%"></span>
+    <span class="seg off"   style="width: 1.0%"></span>
+  </div>
+  <div class="stack-stats">
+    <span class="item"><span class="sw tunl"></span>Tunneling <b>21h 56m</b></span>
+    <span class="item"><span class="sw degr"></span>Degraded <b>1h 1m</b></span>
+    <span class="item"><span class="sw recon"></span>Reconnecting <b>30m</b></span>
+    <span class="item"><span class="sw fail"></span>Failed <b>19m</b></span>
+    <span class="item"><span class="sw off"></span>Off <b>14m</b></span>
+  </div>
+
+  <!-- Hour ribbon: 24 cells, 18:00 yesterday → 18:00 today -->
+  <div class="ribbon-wrap">
+    <div class="ribbon">
+      <div class="cell tunl"></div><div class="cell tunl"></div><div class="cell tunl"></div><div class="cell tunl"></div><div class="cell tunl"></div><div class="cell tunl"></div>
+      <div class="cell off"></div><div class="cell off"></div>
+      <div class="cell recon"></div><div class="cell tunl"></div><div class="cell tunl"></div><div class="cell tunl"></div><div class="cell tunl"></div>
+      <div class="cell tunl mixed degr"></div>
+      <div class="cell degr"></div>
+      <div class="cell fail"></div>
+      <div class="cell recon"></div>
+      <div class="cell tunl"></div><div class="cell tunl"></div><div class="cell tunl"></div>
+      <div class="cell tunl mixed degr"></div>
+      <div class="cell degr"></div>
+      <div class="cell tunl"></div><div class="cell tunl"></div>
+    </div>
+    <div class="hour-axis">
+      <span class="major">18</span><span></span><span></span><span></span><span></span><span></span>
+      <span class="major">00</span><span></span><span></span><span></span><span></span><span></span>
+      <span class="major">06</span><span></span><span></span><span></span><span></span><span></span>
+      <span class="major">12</span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+
+  <!-- Recent transitions -->
+  <div class="tx-list">
+    <div class="ttl">Recent transitions · 4 of 11</div>
+    <div class="tx">
+      <span class="ts">18:30</span>
+      <span class="what"><span class="pill recon">RECONN</span><span class="arrow">→</span><span class="pill tunl">TUNL</span><span class="reason">re-handshake · MTU 1380</span></span>
+      <span class="dur">4.8 s</span>
+    </div>
+    <div class="tx">
+      <span class="ts">18:28</span>
+      <span class="what"><span class="pill degr">DEGR</span><span class="arrow">→</span><span class="pill recon">RECONN</span><span class="reason">network change · Wi-Fi → mobile</span></span>
+      <span class="dur">2.1 s</span>
+    </div>
+    <div class="tx">
+      <span class="ts">14:02</span>
+      <span class="what"><span class="pill tunl">TUNL</span><span class="arrow">→</span><span class="pill fail">FAIL</span><span class="reason">timeout · MTU probe · 8 s</span></span>
+      <span class="dur">19 m</span>
+    </div>
+    <div class="tx">
+      <span class="ts">02:14</span>
+      <span class="what"><span class="pill off">OFF</span><span class="arrow">→</span><span class="pill recon">RECONN</span><span class="reason">manual connect · Cloudflare</span></span>
+      <span class="dur">1.4 s</span>
+    </div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">State history · stacked summary across the window + 24-cell ribbon + recent transition log · mixed cells split when the dominant state changed inside the hour.</div>
+</div></body></html>

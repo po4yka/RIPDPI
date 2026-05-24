@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>html, body { min-height: 180px; }</style>
+</head>
+<body><div class="card">
+
+<style>
+.bnav { display:grid; grid-template-columns: repeat(4, 1fr); height: 64px; border-top: 1px solid var(--rdp-divider); background: var(--rdp-card); }
+.bnav .it { display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 4px; padding-top: 8px; color: var(--rdp-muted-foreground); position: relative; }
+.bnav .it svg { width:22px; height:22px; }
+.bnav .it .lbl { font: var(--rdp-type-nav-label); }
+.bnav .it.sel { color: var(--rdp-foreground); }
+.bnav .it.sel .indicator { position:absolute; top: 10px; width:64px; height:28px; border-radius: 9999px; background: var(--rdp-accent); z-index:-1; }
+.bnav .it .stack { position: relative; display: grid; place-items:center; }
+</style>
+<div class="kard" style="background: var(--rdp-card); border:1px solid var(--rdp-card-border); border-radius:16px; padding:0; overflow:hidden">
+  <div class="bnav">
+    <div class="it sel"><span class="stack"><span class="indicator"></span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-2v9h-5v-6H10v6H5v-9H3z"/></svg></span><span class="lbl">Home</span></div>
+    <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M21 12h-3M6 12H3M12 3v3M12 18v3"/></svg><span class="lbl">Config</span></div>
+    <div class="it"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h12v2H3z"/></svg><span class="lbl">Logs</span></div>
+    <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg><span class="lbl">Diagnostics</span></div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top:8px">BottomNavBar — 64dp height, 64×28dp pill indicator behind selected icon, navLabel 12/16 Medium. On Expanded width class, reflows to a navigation rail.</div>
+
+</div></body></html>

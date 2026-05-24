@@ -1,0 +1,374 @@
+/* =========================================================================
+   RIPDPI Design System (RDS) — colors, type, spacing, motion, shape tokens.
+   Mirrors RipDpiThemeTokens in app/src/main/kotlin/com/poyka/ripdpi/ui/theme.
+   Light mode is the default; data-theme="dark" flips to the dark palette.
+   ========================================================================= */
+
+/* ---------- Fonts ---------- */
+@font-face {
+  font-family: "Geist Sans";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("fonts/geist_sans_regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Geist Sans";
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url("fonts/geist_sans_medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Geist Sans";
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url("fonts/geist_sans_bold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("fonts/geist_mono_regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url("fonts/geist_mono_medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url("fonts/geist_mono_bold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Geist Pixel Circle";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("fonts/geist_pixel_circle.ttf") format("truetype");
+}
+
+/* ---------- Light mode (default) ---------- */
+:root {
+  /* Surface */
+  --rdp-background: #FAFAFA;
+  --rdp-foreground: #1A1A1A;
+  --rdp-card: #FFFFFF;
+  --rdp-card-foreground: #1A1A1A;
+  --rdp-surface-variant: #F0F0F0;
+  --rdp-on-surface-variant: #444444;
+  --rdp-muted: #F5F5F5;
+  --rdp-muted-foreground: #575757;
+  --rdp-accent: #E8E8E8;
+  --rdp-accent-foreground: #1A1A1A;
+  --rdp-input-background: #F5F5F5;
+
+  /* Edges */
+  --rdp-border: #E0E0E0;
+  --rdp-card-border: #E8E8E8;
+  --rdp-divider: #F0F0F0;
+  --rdp-hairline: #666666; /* fixed across both modes */
+  --rdp-outline: #757575;
+  --rdp-outline-variant: #D0D0D0;
+  --rdp-scrim: rgba(0, 0, 0, 0.6);
+
+  /* Brand / primary swap (foreground ↔ background) */
+  --rdp-primary: #1A1A1A;
+  --rdp-primary-foreground: #FFFFFF;
+
+  /* Semantic — success / emerald */
+  --rdp-success: #047857;
+  --rdp-success-foreground: #FFFFFF;
+  --rdp-success-container: #ECFDF5;
+  --rdp-success-container-foreground: #064E3B;
+
+  /* Semantic — warning / amber */
+  --rdp-warning: #B45309;
+  --rdp-warning-foreground: #FFFFFF;
+  --rdp-warning-container: #FFF7ED;
+  --rdp-warning-container-foreground: #1A1A1A;
+
+  /* Semantic — destructive / red */
+  --rdp-destructive: #B91C1C;
+  --rdp-destructive-foreground: #FFFFFF;
+  --rdp-destructive-container: #FEF2F2;
+  --rdp-destructive-container-foreground: #7F1D1D;
+
+  /* Semantic — info / blue */
+  --rdp-info: #1D4ED8;
+  --rdp-info-foreground: #FFFFFF;
+  --rdp-info-container: #EFF6FF;
+  --rdp-info-container-foreground: #1E3A8A;
+
+  /* Semantic — restricted / slate (root-only / capability-gated) */
+  --rdp-restricted: #6B7280;
+  --rdp-restricted-foreground: #FFFFFF;
+  --rdp-restricted-container: #F3F4F6;
+  --rdp-restricted-container-foreground: #374151;
+
+  /* ---------- Type families ---------- */
+  --rdp-font-sans: "Geist Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Helvetica Neue", Arial, sans-serif;
+  --rdp-font-mono: "Geist Mono", "JetBrains Mono", "SF Mono", Menlo, Consolas,
+    monospace;
+  --rdp-font-brand: "Geist Pixel Circle", "Geist Mono", monospace;
+
+  /* ---------- Type scale (px / line-height in px) — closed scale ---------- */
+  --rdp-type-screen-title: 500 22px/28px var(--rdp-font-sans);
+  --rdp-type-screen-title-emphasis: 700 22px/28px var(--rdp-font-sans);
+  --rdp-type-appbar-title: 500 20px/28px var(--rdp-font-sans);
+  --rdp-type-sheet-title: 500 18px/24px var(--rdp-font-sans);
+  --rdp-type-section-title: 500 13px/18px var(--rdp-font-sans); /* + letter-spacing 0.72px, uppercase-feeling */
+  --rdp-type-intro-title: 500 22px/30px var(--rdp-font-sans);
+  --rdp-type-intro-body: 400 15px/22px var(--rdp-font-sans);
+  --rdp-type-body: 400 14px/20px var(--rdp-font-sans);
+  --rdp-type-body-emphasis: 500 14px/20px var(--rdp-font-sans);
+  --rdp-type-body-emphasis-bold: 700 14px/20px var(--rdp-font-sans);
+  --rdp-type-caption: 400 12px/16px var(--rdp-font-sans);
+  --rdp-type-small-label: 500 12px/16px var(--rdp-font-sans);
+  --rdp-type-button: 500 15px/20px var(--rdp-font-sans);
+  --rdp-type-nav-label: 500 12px/16px var(--rdp-font-sans);
+  --rdp-type-mono-value: 400 14px/20px var(--rdp-font-mono);
+  --rdp-type-mono-config: 400 14px/20px var(--rdp-font-mono);
+  --rdp-type-mono-inline: 400 13px/20px var(--rdp-font-mono);
+  --rdp-type-mono-log: 400 12px/20px var(--rdp-font-mono);
+  --rdp-type-mono-small: 400 12px/16px var(--rdp-font-mono);
+  --rdp-type-brand-mark: 400 32px/48px var(--rdp-font-brand); /* + letter-spacing 0.8px */
+  --rdp-type-brand-status: 500 13px/18px var(--rdp-font-mono);
+
+  /* ---------- Spacing — closed 9-step scale ---------- */
+  --rdp-space-xs: 4px;
+  --rdp-space-sm: 8px;
+  --rdp-space-md: 12px;
+  --rdp-space-lg: 16px;
+  --rdp-space-xl: 20px;
+  --rdp-space-2xl: 24px;
+  --rdp-space-3xl: 32px;
+  --rdp-space-section: 40px;
+  --rdp-space-screen: 48px;
+
+  /* ---------- Shape / corners ---------- */
+  --rdp-radius-xs: 4px;
+  --rdp-radius-sm: 8px;
+  --rdp-radius-md: 10px;
+  --rdp-radius-lg: 12px;          /* chip */
+  --rdp-radius-xl: 16px;          /* control / card */
+  --rdp-radius-xl-increased: 20px;
+  --rdp-radius-2xl: 28px;         /* pill */
+  --rdp-radius-2xl-increased: 32px;
+  --rdp-radius-3xl: 48px;         /* hero */
+  --rdp-radius-full: 9999px;
+
+  /* ---------- Strokes (no shadows by design) ---------- */
+  --rdp-stroke-thin: 1px;
+  --rdp-stroke-hairline: 0.5px;
+
+  /* ---------- Touch targets ---------- */
+  --rdp-control-height: 48px;
+  --rdp-touch-target: 48px;
+  --rdp-switch-height: 48px;
+  --rdp-switch-width: 52px;
+  --rdp-settings-row-min-height: 52px;
+  --rdp-settings-row-min-height-subtitle: 68px;
+  --rdp-actuator-height: 116px;
+  --rdp-actuator-rail-height: 48px;
+  --rdp-actuator-carriage-width: 128px;
+  --rdp-actuator-carriage-height: 52px;
+  --rdp-bottom-nav-height: 64px;
+
+  /* ---------- Layout (Compact width class is the default) ---------- */
+  --rdp-horizontal-padding: 20px;
+  --rdp-content-max-width: 560px;
+  --rdp-form-max-width: 520px;
+  --rdp-dialog-max-width: 560px;
+  --rdp-card-padding: 16px;
+  --rdp-section-gap: 20px;
+  --rdp-group-gap: 16px;
+  --rdp-appbar-min-height: 56px;
+
+  /* ---------- Motion ---------- */
+  --rdp-duration-quick: 120ms;
+  --rdp-duration-state: 220ms;
+  --rdp-duration-emphasized: 320ms;
+  --rdp-duration-route: 260ms;
+  --rdp-ease-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1.0);
+  --rdp-ease-emphasized-accelerate: cubic-bezier(0.3, 0.0, 0.8, 0.15);
+  --rdp-ease-standard: cubic-bezier(0.2, 0.0, 0.0, 1.0);
+  /* Spring approximation as CSS easing — for UI fall-throughs only.
+     Real product uses Compose SpringSpec (damping 1.0, stiffness 500). */
+  --rdp-ease-standard-spring: cubic-bezier(0.3, 0.0, 0.1, 1.0);
+  --rdp-ease-expressive-spring: cubic-bezier(0.34, 1.3, 0.36, 1.0); /* slight overshoot */
+}
+
+/* ---------- Medium width class — applied at ≥ 600px ---------- */
+@media (min-width: 600px) {
+  :root {
+    --rdp-horizontal-padding: 28px;
+    --rdp-content-max-width: 720px;
+    --rdp-form-max-width: 600px;
+    --rdp-dialog-max-width: 640px;
+    --rdp-card-padding: 18px;
+    --rdp-section-gap: 24px;
+    --rdp-group-gap: 20px;
+    --rdp-appbar-min-height: 60px;
+    --rdp-bottom-nav-height: 72px;
+  }
+}
+
+/* ---------- Expanded width class — applied at ≥ 840px ---------- */
+@media (min-width: 840px) {
+  :root {
+    --rdp-horizontal-padding: 32px;
+    --rdp-content-max-width: 960px;
+    --rdp-form-max-width: 680px;
+    --rdp-dialog-max-width: 720px;
+    --rdp-card-padding: 20px;
+    --rdp-section-gap: 28px;
+    --rdp-group-gap: 24px;
+    --rdp-appbar-min-height: 64px;
+  }
+}
+
+/* ---------- Dark mode ---------- */
+:root[data-theme="dark"],
+.rdp-dark {
+  --rdp-background: #121212; /* never pure black — avoids OLED smearing */
+  --rdp-foreground: #E8E8E8;
+  --rdp-card: #1A1A1A;
+  --rdp-card-foreground: #E8E8E8;
+  --rdp-surface-variant: #222222;
+  --rdp-on-surface-variant: #CCCCCC;
+  --rdp-muted: #1E1E1E;
+  --rdp-muted-foreground: #A3A3A3;
+  --rdp-accent: #2A2A2A;
+  --rdp-accent-foreground: #E8E8E8;
+  --rdp-input-background: #1E1E1E;
+
+  --rdp-border: #2A2A2A;
+  --rdp-card-border: #2A2A2A;
+  --rdp-divider: #222222;
+  --rdp-outline: #616161;
+  --rdp-outline-variant: #333333;
+  --rdp-scrim: rgba(0, 0, 0, 0.8);
+
+  --rdp-primary: #E8E8E8;
+  --rdp-primary-foreground: #121212;
+
+  --rdp-success: #34D399;
+  --rdp-success-foreground: #06281C;
+  --rdp-success-container: #064E3B;
+  --rdp-success-container-foreground: #D1FAE5;
+
+  --rdp-warning: #FBBF24;
+  --rdp-warning-foreground: #1C1917;
+  --rdp-warning-container: #451A03;
+  --rdp-warning-container-foreground: #FDE68A;
+
+  --rdp-destructive: #F87171;
+  --rdp-destructive-foreground: #210A0A;
+  --rdp-destructive-container: #450A0A;
+  --rdp-destructive-container-foreground: #FECACA;
+
+  --rdp-info: #60A5FA;
+  --rdp-info-foreground: #0A2342;
+  --rdp-info-container: #0C4A6E;
+  --rdp-info-container-foreground: #DBEAFE;
+
+  --rdp-restricted: #9CA3AF;
+  --rdp-restricted-foreground: #111827;
+  --rdp-restricted-container: #1F2937;
+  --rdp-restricted-container-foreground: #E5E7EB;
+}
+
+/* =========================================================================
+   Semantic element styles. Apply directly or piggy-back via @extend-style.
+   ========================================================================= */
+
+html, body {
+  background: var(--rdp-background);
+  color: var(--rdp-foreground);
+  font: var(--rdp-type-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, .rdp-screen-title {
+  font: var(--rdp-type-screen-title);
+  color: var(--rdp-foreground);
+  margin: 0;
+}
+h2, .rdp-appbar-title {
+  font: var(--rdp-type-appbar-title);
+  color: var(--rdp-foreground);
+  margin: 0;
+}
+h3, .rdp-sheet-title {
+  font: var(--rdp-type-sheet-title);
+  color: var(--rdp-foreground);
+  margin: 0;
+}
+h4, .rdp-section-title {
+  font: var(--rdp-type-section-title);
+  letter-spacing: 0.72px;
+  text-transform: uppercase;
+  color: var(--rdp-muted-foreground);
+  margin: 0;
+}
+p, .rdp-body {
+  font: var(--rdp-type-body);
+  color: var(--rdp-foreground);
+  margin: 0;
+}
+.rdp-body-emphasis { font: var(--rdp-type-body-emphasis); }
+.rdp-body-emphasis-bold { font: var(--rdp-type-body-emphasis-bold); }
+.rdp-caption {
+  font: var(--rdp-type-caption);
+  color: var(--rdp-muted-foreground);
+}
+.rdp-small-label { font: var(--rdp-type-small-label); }
+
+/* Mono — load-bearing: every machine-readable value (IPs, hex, packet
+   counts, latency, byte sizes, config keys, log lines) ships in mono. */
+code, kbd, samp, .rdp-mono, .rdp-mono-value {
+  font: var(--rdp-type-mono-value);
+  color: var(--rdp-foreground);
+}
+.rdp-mono-config { font: var(--rdp-type-mono-config); }
+.rdp-mono-inline { font: var(--rdp-type-mono-inline); }
+.rdp-mono-log    { font: var(--rdp-type-mono-log); }
+.rdp-mono-small  { font: var(--rdp-type-mono-small); }
+
+/* Brand */
+.rdp-brand-mark {
+  font: var(--rdp-type-brand-mark);
+  letter-spacing: 0.8px;
+  color: var(--rdp-foreground);
+}
+.rdp-brand-status {
+  font: var(--rdp-type-brand-status);
+  color: var(--rdp-foreground);
+}
+
+/* Generic surfaces */
+.rdp-card {
+  background: var(--rdp-card);
+  color: var(--rdp-card-foreground);
+  border: var(--rdp-stroke-thin) solid var(--rdp-card-border);
+  border-radius: var(--rdp-radius-xl);
+  padding: var(--rdp-card-padding);
+}
+.rdp-card--tonal { background: var(--rdp-muted); border-color: transparent; }
+.rdp-card--elevated { /* no shadow by design; use a slightly tinted surface */
+  background: var(--rdp-card);
+  border-color: var(--rdp-border);
+}
+
+.rdp-hairline { border-top: var(--rdp-stroke-hairline) solid var(--rdp-hairline); }
+.rdp-divider  { border-top: var(--rdp-stroke-thin) solid var(--rdp-divider); }

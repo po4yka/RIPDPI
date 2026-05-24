@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:440px}</style></head>
+<body><div class="card">
+<style>
+.jt { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.jt .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 12px; }
+.jt .hd .t { font: var(--rdp-type-body-emphasis); }
+.jt .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.tree {
+  font: var(--rdp-type-mono-log);
+  font-size: 12px;
+  line-height: 20px;
+  padding: 12px 14px;
+  background: var(--rdp-muted);
+  border-radius: 8px;
+  border: 0.5px solid var(--rdp-divider);
+  overflow-x: auto;
+}
+
+.node { display: block; position: relative; }
+.children { padding-left: 18px; border-left: 0.5px solid var(--rdp-outline-variant); margin-left: 6px; }
+
+.tog {
+  display: inline-block; width: 14px; text-align: center;
+  color: var(--rdp-muted-foreground); cursor: pointer;
+  font-size: 10px;
+}
+.tog::before { content: "▾"; }
+.collapsed > .tog::before { content: "▸"; }
+.collapsed > .children { display: none; }
+.collapsed > .summary { display: inline; color: var(--rdp-muted-foreground); margin-left: 4px; font-size: 11px; }
+.summary { display: none; }
+
+.key   { color: var(--rdp-foreground); font-weight: 500; }
+.punct { color: var(--rdp-muted-foreground); }
+.brace { color: var(--rdp-muted-foreground); }
+.str   { color: var(--rdp-success); }
+.num   { color: var(--rdp-info); }
+.bool  { color: var(--rdp-warning); }
+.null  { color: var(--rdp-destructive); font-style: italic; }
+.comment { color: var(--rdp-muted-foreground); font-style: italic; }
+
+.kbar { padding: 8px 12px; background: var(--rdp-card); border: 0.5px solid var(--rdp-divider); border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); }
+.kbar .btn { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-foreground); padding: 2px 8px; border: 0.5px solid var(--rdp-border); border-radius: 4px; background: var(--rdp-card); cursor: pointer; }
+.kbar .btn.active { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.kbar .actions { display: inline-flex; gap: 4px; }
+</style>
+
+<div class="jt">
+  <div class="hd">
+    <span class="t">JSON tree</span>
+    <span class="sub">Collapsible · type-coloured · path-aware</span>
+  </div>
+
+  <div class="kbar">
+    <span>path · <code style="color: var(--rdp-foreground)">.diagnostic.signatures[0]</code></span>
+    <span class="actions">
+      <button class="btn">Expand all</button>
+      <button class="btn">Collapse</button>
+      <button class="btn active">Tree</button>
+      <button class="btn">Raw</button>
+    </span>
+  </div>
+
+  <div class="tree">
+    <div class="node">
+      <span class="tog"></span><span class="brace">{</span>
+      <div class="children">
+        <div class="node">
+          <span class="key">"scan_id"</span><span class="punct">:</span> <span class="str">"4f7a"</span><span class="punct">,</span>
+        </div>
+        <div class="node">
+          <span class="key">"ts"</span><span class="punct">:</span> <span class="str">"2026-05-23T18:42:09Z"</span><span class="punct">,</span>
+        </div>
+        <div class="node">
+          <span class="key">"verdict"</span><span class="punct">:</span> <span class="str">"degraded"</span><span class="punct">,</span>
+        </div>
+        <div class="node">
+          <span class="tog"></span><span class="key">"diagnostic"</span><span class="punct">:</span> <span class="brace">{</span>
+          <div class="children">
+            <div class="node">
+              <span class="tog"></span><span class="key">"signatures"</span><span class="punct">:</span> <span class="brace">[</span><span class="comment"> // 5</span>
+              <div class="children">
+                <div class="node">
+                  <span class="tog"></span><span class="punct">[0]</span> <span class="brace">{</span>
+                  <div class="children">
+                    <div class="node"><span class="key">"code"</span><span class="punct">:</span> <span class="str">"tls.sni"</span><span class="punct">,</span></div>
+                    <div class="node"><span class="key">"confidence"</span><span class="punct">:</span> <span class="num">0.94</span><span class="punct">,</span></div>
+                    <div class="node"><span class="key">"bypassed"</span><span class="punct">:</span> <span class="bool">false</span><span class="punct">,</span></div>
+                    <div class="node">
+                      <span class="tog"></span><span class="key">"evidence"</span><span class="punct">:</span> <span class="brace">[</span><span class="comment"> // 2</span>
+                      <div class="children">
+                        <div class="node"><span class="punct">[0]</span> <span class="str">"tls.client_hello sni=youtube.com → no ServerHello"</span><span class="punct">,</span></div>
+                        <div class="node"><span class="punct">[1]</span> <span class="str">"tls.client_hello sni=echo.local → ServerHello 88 ms"</span></div>
+                      </div>
+                      <span class="brace">]</span>
+                    </div>
+                  </div>
+                  <span class="brace">}</span><span class="punct">,</span>
+                </div>
+                <div class="node collapsed">
+                  <span class="tog"></span><span class="punct">[1]</span> <span class="brace">{</span><span class="summary">3 keys</span><span class="brace">}</span><span class="punct">,</span>
+                </div>
+                <div class="node collapsed">
+                  <span class="tog"></span><span class="punct">[2]</span> <span class="brace">{</span><span class="summary">3 keys</span><span class="brace">}</span><span class="punct">,</span>
+                </div>
+                <div class="node collapsed">
+                  <span class="tog"></span><span class="punct">[3]</span> <span class="brace">{</span><span class="summary">3 keys</span><span class="brace">}</span><span class="punct">,</span>
+                </div>
+                <div class="node collapsed">
+                  <span class="tog"></span><span class="punct">[4]</span> <span class="brace">{</span><span class="summary">3 keys</span><span class="brace">}</span>
+                </div>
+              </div>
+              <span class="brace">]</span>
+            </div>
+          </div>
+          <span class="brace">}</span><span class="punct">,</span>
+        </div>
+        <div class="node">
+          <span class="key">"next_attempt"</span><span class="punct">:</span> <span class="null">null</span>
+        </div>
+      </div>
+      <span class="brace">}</span>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; margin-top: 12px; font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground)">
+    <span><span style="color: var(--rdp-success)">●</span> string · <span style="color: var(--rdp-info)">●</span> number · <span style="color: var(--rdp-warning)">●</span> bool · <span style="color: var(--rdp-destructive)">●</span> null</span>
+    <span>Collapsed objects show <span style="color: var(--rdp-foreground)">N keys</span> summary</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">JSON tree · type-coloured leaves · collapsible nodes show a count summary when closed · breadcrumb in the toolbar tracks the focused path.</div>
+</div></body></html>

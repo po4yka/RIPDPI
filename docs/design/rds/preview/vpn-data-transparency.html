@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:540px}</style></head>
+<body><div class="card">
+<style>
+.h { font: var(--rdp-type-section-title); letter-spacing: 0.72px; text-transform: uppercase; color: var(--rdp-muted-foreground); margin-bottom: 8px; }
+.section + .section { margin-top: 18px; }
+.row { display: grid; grid-template-columns: 20px 1fr auto; gap: 12px; padding: 8px 0; align-items: flex-start; }
+.row + .row { border-top: 0.5px solid var(--rdp-divider); }
+.row .ic { width: 16px; height: 16px; margin-top: 3px; }
+.row .ic.local { color: var(--rdp-success); }
+.row .ic.never { color: var(--rdp-foreground); }
+.row .ic.warn { color: var(--rdp-warning); }
+.row .body .t { font: var(--rdp-type-body); }
+.row .body .s { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 2px; }
+.row .tag { font: var(--rdp-type-mono-small); padding: 2px 8px; border-radius: 9999px; align-self: center; font-size: 10px; letter-spacing: 0.4px; }
+.row .tag.local { background: var(--rdp-success-container); color: var(--rdp-success-container-foreground); }
+.row .tag.never { background: var(--rdp-accent); color: var(--rdp-foreground); }
+.row .tag.warn  { background: var(--rdp-warning-container); color: var(--rdp-warning-container-foreground); }
+</style>
+<div class="section">
+  <div class="h">Stored on this device</div>
+  <div class="row"><svg class="ic local" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg><span class="body"><div class="t">Connection logs</div><div class="s">Last 1,000 events · purge anytime</div></span><span class="tag local">LOCAL</span></div>
+  <div class="row"><svg class="ic local" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg><span class="body"><div class="t">Diagnostic history</div><div class="s">For replay and comparison</div></span><span class="tag local">LOCAL</span></div>
+  <div class="row"><svg class="ic local" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg><span class="body"><div class="t">PCAP files (if enabled)</div><div class="s">Until you export or delete them</div></span><span class="tag warn">YOU SHARE</span></div>
+</div>
+<div class="section">
+  <div class="h">Never collected</div>
+  <div class="row"><svg class="ic never" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg><span class="body"><div class="t">Browsing history</div><div class="s">RIPDPI doesn't see what URLs you load</div></span><span class="tag never">NEVER</span></div>
+  <div class="row"><svg class="ic never" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg><span class="body"><div class="t">Personal identifiers</div><div class="s">No phone number, email, account, advertising ID</div></span><span class="tag never">NEVER</span></div>
+  <div class="row"><svg class="ic never" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg><span class="body"><div class="t">Telemetry / analytics</div><div class="s">No crash reporter, no usage stats, no remote logging</div></span><span class="tag never">NEVER</span></div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 14px">Data transparency · DataTransparencyScreen.kt · "local / you share / never" tagging · no marketing voice, just facts.</div>
+</div></body></html>

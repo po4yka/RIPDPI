@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>html, body { min-height: 230px; }</style>
+</head>
+<body><div class="card">
+
+<style>
+.chip { display:inline-flex; align-items:center; gap:6px; padding:6px 17px; min-height:32px;
+  border-radius:12px; border:1px solid var(--rdp-border); background: transparent;
+  color: var(--rdp-foreground); font: var(--rdp-type-body-emphasis); cursor:pointer;
+}
+.chip.sel { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.chip.dis { opacity: 0.38; pointer-events:none; }
+</style>
+<div class="col" style="gap:12px">
+  <div class="row" style="gap:8px; flex-wrap: wrap">
+    <span class="chip">tlsrec_split_host</span>
+    <span class="chip sel">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      desync_fake
+    </span>
+    <span class="chip">fragment_drop</span>
+    <span class="chip">host_fake</span>
+    <span class="chip dis">seq_overlap</span>
+  </div>
+  <div class="row" style="gap:8px; flex-wrap: wrap">
+    <span class="chip">TCP</span>
+    <span class="chip sel">QUIC</span>
+    <span class="chip">UDP</span>
+    <span class="chip">TLS 1.3</span>
+  </div>
+  <div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground)">RipDpiChip — 12dp corner, 17/6dp padding, leading-check on selected, motion.stateTween() colors, motion.motionAwareSpring() corner morph.</div>
+</div>
+
+</div></body></html>

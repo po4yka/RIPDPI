@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:460px}</style></head>
+<body><div class="card">
+<style>
+.ls { background: linear-gradient(180deg, #000 0%, #121212 100%); border-radius: 28px; padding: 32px 20px 20px; color: #E8E8E8; }
+.time { font: 400 56px/1 var(--rdp-font-mono); letter-spacing: -1px; text-align: center; margin-bottom: 8px; }
+.date { font: var(--rdp-type-mono-small); text-align: center; color: rgba(232,232,232,0.6); margin-bottom: 24px; }
+.notif { background: rgba(232,232,232,0.08); border-radius: 28px; padding: 14px; margin-bottom: 8px; }
+.row { display: grid; grid-template-columns: 22px 1fr auto; gap: 12px; align-items: center; }
+.ico { width: 22px; height: 22px; border-radius: 9999px; background: #E8E8E8; color: #121212; display: grid; place-items: center; }
+.ico .glyph { display: block; width: 70%; height: 70%; background: currentColor;
+  -webkit-mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center / contain no-repeat;
+          mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center / contain no-repeat; }
+.app { font: var(--rdp-type-mono-small); }
+.msg { font: var(--rdp-type-secondary-body); font-size: 13px; color: rgba(232,232,232,0.85); }
+.time-ago { font: var(--rdp-type-mono-small); color: rgba(232,232,232,0.5); }
+</style>
+<div class="ls">
+  <div class="time">9:30</div>
+  <div class="date">MONDAY · MAY 19</div>
+  <div class="notif">
+    <div class="row">
+      <span class="ico"><span class="glyph"></span></span>
+      <span><div class="app">RIPDPI</div><div class="msg">Notification hidden — content available when unlocked</div></span>
+      <span class="time-ago">now</span>
+    </div>
+  </div>
+  <div class="notif">
+    <div class="row">
+      <span class="ico"><span class="glyph"></span></span>
+      <span><div class="app">RIPDPI</div><div class="msg">VPN connected</div></span>
+      <span class="time-ago">3m</span>
+    </div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Lock screen · Visibility.SECRET hides content by default (only app name); Visibility.PUBLIC shows status line. Never expose strategy / relay / IP on lock surface.</div>
+</div></body></html>

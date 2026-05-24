@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:480px}</style></head>
+<body><div class="card">
+<style>
+.cp { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.cp .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.cp .hd .t { font: var(--rdp-type-body-emphasis); }
+.cp .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.pal {
+  background: var(--rdp-card);
+  border: 1px solid var(--rdp-border);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.18);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+.pal .search {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 0.5px solid var(--rdp-divider);
+}
+.pal .search svg { color: var(--rdp-muted-foreground); }
+.pal .search input {
+  flex: 1; background: transparent; border: none; outline: none;
+  font: 500 14px/1.2 var(--rdp-font-mono);
+  color: var(--rdp-foreground);
+  caret-color: var(--rdp-foreground);
+}
+.pal .search .kbd { display: inline-flex; align-items: center; gap: 3px; }
+
+.group-label {
+  padding: 8px 16px 4px;
+  font: var(--rdp-type-section-title); font-size: 9.5px; letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--rdp-muted-foreground);
+  background: var(--rdp-card);
+}
+.row {
+  display: grid; grid-template-columns: 22px 1fr auto;
+  gap: 12px; align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.row:hover { background: var(--rdp-muted); }
+.row.active { background: var(--rdp-foreground); color: var(--rdp-background); }
+.row.active .icon, .row.active .desc, .row.active .kbd kbd { color: inherit; opacity: 0.95; }
+.row.active .kbd kbd { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.28); color: inherit; }
+
+.row .icon { color: var(--rdp-muted-foreground); display: grid; place-items: center; }
+.row .label { font: var(--rdp-type-mono-value); font-size: 12px; }
+.row .label .match { background: var(--rdp-warning-container); color: var(--rdp-warning-container-foreground); padding: 0 2px; border-radius: 2px; }
+.row .desc { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); }
+
+.kbd { display: inline-flex; align-items: center; gap: 3px; }
+.kbd kbd {
+  font: 500 9.5px/1 var(--rdp-font-mono);
+  padding: 3px 5px; border-radius: 3px;
+  background: var(--rdp-muted);
+  border: 0.5px solid var(--rdp-border);
+  color: var(--rdp-foreground);
+  min-width: 14px; text-align: center;
+  text-transform: none;
+}
+
+.footer {
+  display: flex; justify-content: space-between;
+  padding: 8px 16px;
+  border-top: 0.5px solid var(--rdp-divider);
+  background: var(--rdp-muted);
+  font: var(--rdp-type-mono-small); font-size: 9.5px; color: var(--rdp-muted-foreground); letter-spacing: 0.3px;
+}
+.footer .hint { display: inline-flex; align-items: center; gap: 5px; }
+</style>
+
+<div class="cp">
+  <div class="hd">
+    <span class="t">Command palette</span>
+    <span class="sub">⌘ K · filtered by query, grouped by domain</span>
+  </div>
+
+  <div class="pal">
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" value="rec" placeholder="Search commands, presets, hosts…"/>
+      <span class="kbd"><kbd>esc</kbd></span>
+    </div>
+
+    <div class="group-label">Connection</div>
+    <div class="row active">
+      <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/></svg></span>
+      <span class="label"><span class="match">Rec</span>onnect tunnel</span>
+      <span class="kbd"><kbd>⌘</kbd><kbd>R</kbd></span>
+    </div>
+    <div class="row">
+      <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg></span>
+      <span class="label">Disconnect</span>
+      <span class="kbd"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>D</kbd></span>
+    </div>
+
+    <div class="group-label">Diagnostics</div>
+    <div class="row">
+      <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></span>
+      <span class="label"><span class="match">Rec</span>ord pcap</span>
+      <span class="desc">5 m window · 50 MB cap</span>
+    </div>
+    <div class="row">
+      <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+      <span class="label">Run probe wizard</span>
+      <span class="kbd"><kbd>⌘</kbd><kbd>P</kbd></span>
+    </div>
+    <div class="row">
+      <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg></span>
+      <span class="label"><span class="match">Rec</span>over from last failure</span>
+      <span class="desc">replays 14:02 attempt</span>
+    </div>
+
+    <div class="group-label">Strategy</div>
+    <div class="row">
+      <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+      <span class="label">Switch to <span class="match">Rec</span>ipe · TLSrec_split_host</span>
+      <span class="kbd"><kbd>⌘</kbd><kbd>1</kbd></span>
+    </div>
+
+    <div class="footer">
+      <span class="hint"><kbd style="font: 500 9.5px/1 var(--rdp-font-mono); padding: 1px 4px; border-radius: 2px; background: var(--rdp-card); border: 0.5px solid var(--rdp-border)">↑</kbd><kbd style="font: 500 9.5px/1 var(--rdp-font-mono); padding: 1px 4px; border-radius: 2px; background: var(--rdp-card); border: 0.5px solid var(--rdp-border)">↓</kbd> navigate · <kbd style="font: 500 9.5px/1 var(--rdp-font-mono); padding: 1px 4px; border-radius: 2px; background: var(--rdp-card); border: 0.5px solid var(--rdp-border)">↵</kbd> run</span>
+      <span>5 of 47 commands</span>
+    </div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Command palette · query field on top, grouped results below, footer hints · selected row uses inverse (foreground / background) colours · matches highlighted via warning-container.</div>
+</div></body></html>

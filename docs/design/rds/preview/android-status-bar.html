@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:220px}</style></head>
+<body><div class="card">
+<style>
+.sb { display: flex; align-items: center; justify-content: space-between; padding: 8px 24px; font: 500 14px/1 var(--rdp-font-mono); }
+.sb.light { background: #FAFAFA; color: #1A1A1A; border-radius: 12px 12px 0 0; }
+.sb.dark  { background: #121212; color: #E8E8E8; border-radius: 12px 12px 0 0; }
+.sb .ico { display: inline-flex; gap: 6px; align-items: center; }
+.sb .vpn-pill { padding: 1px 8px; border-radius: 9999px; font-size: 10px; letter-spacing: 0.6px; }
+.sb.light .vpn-pill { background: #1A1A1A; color: #FAFAFA; }
+.sb.dark .vpn-pill { background: #E8E8E8; color: #121212; }
+.frame { background: var(--rdp-muted); border-radius: 12px; border: 1px solid var(--rdp-card-border); margin-bottom: 12px; }
+.frame .ph { height: 60px; padding: 14px 24px; }
+.frame .ph .top-bar-stub { display: flex; align-items: center; gap: 8px; height: 100%; }
+.frame .ph .top-bar-stub .b1 { width: 100px; height: 16px; background: var(--rdp-outline-variant); border-radius: 4px; }
+.frame.dark { background: #1A1A1A; }
+.frame.dark .b1 { background: #333; }
+</style>
+<div class="frame">
+  <div class="sb light">
+    <span>9:30</span>
+    <span class="ico">
+      <span class="vpn-pill">VPN</span>
+      <svg width="14" height="14" viewBox="0 0 16 16"><path d="M8 13.3L.67 5.97a10.37 10.37 0 0114.66 0L8 13.3z" fill="currentColor"/></svg>
+      <svg width="14" height="14" viewBox="0 0 16 16"><path d="M14.67 14.67V1.33L1.33 14.67h13.34z" fill="currentColor"/></svg>
+      <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0.5" y="0.5" width="13" height="11" rx="2" fill="none" stroke="currentColor"/><rect x="2" y="2" width="9" height="8" rx="1" fill="currentColor"/></svg>
+    </span>
+  </div>
+  <div class="ph"><div class="top-bar-stub"><div class="b1"></div></div></div>
+</div>
+<div class="frame dark">
+  <div class="sb dark">
+    <span>9:30</span>
+    <span class="ico">
+      <span class="vpn-pill">VPN</span>
+      <svg width="14" height="14" viewBox="0 0 16 16"><path d="M8 13.3L.67 5.97a10.37 10.37 0 0114.66 0L8 13.3z" fill="currentColor"/></svg>
+      <svg width="14" height="14" viewBox="0 0 16 16"><path d="M14.67 14.67V1.33L1.33 14.67h13.34z" fill="currentColor"/></svg>
+      <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0.5" y="0.5" width="13" height="11" rx="2" fill="none" stroke="currentColor"/><rect x="2" y="2" width="9" height="8" rx="1" fill="currentColor"/></svg>
+    </span>
+  </div>
+  <div class="ph"><div class="top-bar-stub"><div class="b1"></div></div></div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 6px">Phone status bar · drives SystemUiController · VPN key pill appears whenever the tunnel is up · color tracks light/dark theme.</div>
+</div></body></html>

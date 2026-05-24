@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:600px}</style></head>
+<body><div class="card">
+<style>
+.sheet { background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 28px 28px 0 0; padding: 12px 0 0; }
+.sheet .handle { width: 36px; height: 4px; border-radius: 9999px; background: var(--rdp-outline-variant); margin: 0 auto; }
+.sheet .head { padding: 16px 20px 8px; display: flex; flex-direction: column; gap: 4px; }
+.sheet .head .title { font: var(--rdp-type-sheet-title); }
+.sheet .head .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.sheet .preview { margin: 0 20px 12px; padding: 12px 14px; border: 1px solid var(--rdp-card-border); border-radius: 12px; background: var(--rdp-muted); display: flex; flex-direction: column; gap: 6px; }
+.sheet .preview .row { display: flex; justify-content: space-between; gap: 12px; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.sheet .preview .row .v { color: var(--rdp-foreground); }
+.sheet .sec { padding: 6px 20px 4px; font: var(--rdp-type-section-title); letter-spacing: 0.72px; text-transform: uppercase; color: var(--rdp-muted-foreground); }
+.sheet .grid { padding: 4px 12px 12px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.sheet .item { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border-radius: 12px; cursor: pointer; }
+.sheet .item:hover { background: var(--rdp-accent); }
+.sheet .item .ico { width: 40px; height: 40px; border-radius: 9999px; background: var(--rdp-foreground); color: var(--rdp-background); display: grid; place-items: center; }
+.sheet .item .ico svg { width: 20px; height: 20px; }
+.sheet .item .ico.link { background: var(--rdp-info); color: #fff; }
+.sheet .item .ico.copy { background: var(--rdp-accent); color: var(--rdp-foreground); }
+.sheet .item .ico.qr { background: var(--rdp-muted); color: var(--rdp-foreground); border: 1px solid var(--rdp-border); }
+.sheet .item .ico.pcap { background: var(--rdp-success-container); color: var(--rdp-success); }
+.sheet .item .ico.txt { background: var(--rdp-warning-container); color: var(--rdp-warning); }
+.sheet .item .lbl { font: var(--rdp-type-mono-small); font-size: 10.5px; letter-spacing: 0.4px; text-align: center; color: var(--rdp-foreground); }
+.sheet .footer { display: flex; gap: 12px; padding: 12px 20px 20px; align-items: center; font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); border-top: 0.5px solid var(--rdp-divider); }
+.sheet .footer .ck { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--rdp-outline); flex-shrink: 0; }
+.sheet .footer .ck.on { background: var(--rdp-foreground); border-color: var(--rdp-foreground); display: grid; place-items: center; color: var(--rdp-background); }
+.sheet .footer .ck svg { width: 11px; height: 11px; }
+</style>
+
+<div class="sheet">
+  <div class="handle"></div>
+  <div class="head">
+    <span class="title">Share diagnostic</span>
+    <span class="sub">Bundle 0a · 4 endpoints · 2026-05-19 12:18 UTC</span>
+  </div>
+  <div class="preview">
+    <div class="row"><span>SUMMARY</span><span class="v">3 passed · 1 fail</span></div>
+    <div class="row"><span>STRATEGY</span><span class="v">tlsrec_split_host</span></div>
+    <div class="row"><span>ORIGIN</span><span class="v">AS13335</span></div>
+  </div>
+  <div class="sec">Send to</div>
+  <div class="grid">
+    <div class="item"><span class="ico link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span class="lbl">SHARE LINK</span></div>
+    <div class="item"><span class="ico copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></span><span class="lbl">COPY URL</span></div>
+    <div class="item"><span class="ico qr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" fill="currentColor"/></svg></span><span class="lbl">QR CODE</span></div>
+    <div class="item"><span class="ico pcap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span class="lbl">PCAP</span></div>
+    <div class="item"><span class="ico txt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span><span class="lbl">JSON</span></div>
+  </div>
+  <div class="footer">
+    <span class="ck on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+    <span>Redact endpoint addresses — hostnames replaced with hashes</span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 8px">Share bottom sheet · 28dp top corners · canonical RipDpiBottomSheet shell · 5 destination targets · redaction toggle is a system-wide default for share operations.</div>
+</div></body></html>

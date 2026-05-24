@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:460px}</style></head>
+<body><div class="card">
+<style>
+.toolbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: var(--rdp-muted); border: 1px solid var(--rdp-border); border-radius: 12px 12px 0 0; border-bottom: none; }
+.toolbar .name { font: var(--rdp-type-body-emphasis); }
+.toolbar .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 9999px; background: var(--rdp-warning-container); color: var(--rdp-warning-container-foreground); font: var(--rdp-type-mono-small); font-size: 10px; }
+.toolbar .pill .dot { width: 6px; height: 6px; border-radius: 9999px; background: var(--rdp-warning); }
+.editor { background: var(--rdp-card); border: 1px solid var(--rdp-border); border-radius: 0 0 12px 12px; padding: 0; display: grid; grid-template-columns: 36px 1fr; }
+.editor .gutter { padding: 12px 0; font: var(--rdp-type-mono-log); color: var(--rdp-muted-foreground); text-align: right; padding-right: 8px; border-right: 0.5px solid var(--rdp-divider); user-select: none; }
+.editor pre { margin: 0; padding: 12px 14px; font: var(--rdp-type-mono-value); line-height: 1.5; white-space: pre-wrap; overflow: visible; }
+.editor pre .flag { color: var(--rdp-info); }
+.editor pre .key  { color: var(--rdp-foreground); font-weight: 500; }
+.editor pre .val  { color: var(--rdp-warning); }
+.editor pre .err  { color: var(--rdp-destructive); text-decoration: wavy underline var(--rdp-destructive); text-underline-offset: 4px; }
+.editor pre .comment { color: var(--rdp-muted-foreground); font-style: italic; }
+.diag { padding: 10px 14px; background: var(--rdp-destructive-container); color: var(--rdp-destructive-container-foreground); border: 1px solid var(--rdp-destructive); border-radius: 12px; margin-top: 10px; display: flex; gap: 10px; align-items: flex-start; }
+.diag .ico { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; }
+.diag .msg { font: var(--rdp-type-body); font-size: 13px; }
+.diag .msg b { color: inherit; }
+.diag .msg code { font: var(--rdp-type-mono-inline); background: rgba(0,0,0,0.06); padding: 0 4px; border-radius: 4px; }
+.legend { display: flex; gap: 14px; margin-top: 8px; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.legend .sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle; }
+</style>
+<div class="toolbar">
+  <span class="name">tlsrec_split_host.cfg</span>
+  <span class="pill"><span class="dot"></span>UNSAVED</span>
+</div>
+<div class="editor">
+  <div class="gutter">1<br>2<br>3<br>4<br>5<br>6<br>7</div>
+  <pre><span class="comment"># Local DPI bypass — TLS ClientHello split after SNI</span>
+<span class="flag">--desync</span>=<span class="val">fake,split2</span>
+<span class="flag">--split-host</span>=<span class="val">true</span>
+<span class="flag">--ttl</span>=<span class="val">8</span>
+<span class="flag">--fake-ttl</span>=<span class="val">3</span>
+<span class="flag">--mtu</span>=<span class="err">1600</span>   <span class="comment"># ← invalid: must be 576–1500</span>
+<span class="flag">--fake-sni</span>=<span class="val">www.example.com</span></pre>
+</div>
+<div class="diag">
+  <svg class="ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 7h2v6h-2zM11 15h2v2h-2z"/></svg>
+  <div class="msg"><b>Line 5 — invalid value</b> for <code>--mtu</code>. Out of range; expected 576 ≤ mtu ≤ 1500.</div>
+</div>
+<div class="legend">
+  <span><span class="sw" style="background: var(--rdp-info)"></span>flag</span>
+  <span><span class="sw" style="background: var(--rdp-warning)"></span>value</span>
+  <span><span class="sw" style="background: var(--rdp-destructive)"></span>error</span>
+  <span><span class="sw" style="background: var(--rdp-muted-foreground)"></span>comment</span>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Manual strategy editor · monospace + light syntax color · live validation underlines · diagnostic banner below.</div>
+</div></body></html>

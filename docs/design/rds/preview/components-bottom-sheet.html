@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:360px}</style></head>
+<body><div class="card">
+<style>
+.sheet { background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 28px 28px 0 0; padding: 12px 20px 20px; display: flex; flex-direction: column; gap: 16px; }
+.sheet .handle { align-self: center; width: 36px; height: 4px; border-radius: 9999px; background: var(--rdp-outline-variant); }
+.sheet .ico { width: 40px; height: 40px; border-radius: 9999px; background: var(--rdp-muted); display: grid; place-items: center; align-self: flex-start; }
+.sheet h3 { font: var(--rdp-type-sheet-title); margin: 0; }
+.sheet p { font: var(--rdp-type-body); color: var(--rdp-muted-foreground); margin: 0; }
+.sheet .actions { display: flex; gap: 8px; margin-top: 4px; }
+.sheet .btn { flex: 1; min-height: 48px; padding: 10px 20px; border-radius: 16px; border: 1px solid var(--rdp-border); background: transparent; color: var(--rdp-foreground); font: var(--rdp-type-button); cursor: pointer; }
+.sheet .btn.primary { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+</style>
+<div class="sheet">
+  <div class="handle"></div>
+  <div class="ico">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22z M11 16h2v2h-2z M11 10h2v5h-2z"/></svg>
+  </div>
+  <h3>Apply strategy?</h3>
+  <p>This will restart the tunnel with <code>desync_fake</code>. Active connections will drop for ~1 s.</p>
+  <div class="actions">
+    <button class="btn">Cancel</button>
+    <button class="btn primary">Apply</button>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">RipDpiBottomSheet · 28dp top corners · 36×4 drag handle (12dp top padding per RipDpiSheetMetrics) · scrim #000 / 60–80% · primary + secondary action layout.</div>
+</div></body></html>

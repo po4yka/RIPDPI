@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.scan { background: #0a0a0a; height: 320px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; position: relative; overflow: hidden; }
+.viewport { position: relative; z-index: 1; width: 200px; height: 200px; }
+.viewport .corner { position: absolute; width: 24px; height: 24px; border: 2px solid #E8E8E8; }
+.viewport .corner.tl { top: 0; left: 0; border-right: none; border-bottom: none; }
+.viewport .corner.tr { top: 0; right: 0; border-left: none; border-bottom: none; }
+.viewport .corner.bl { bottom: 0; left: 0; border-right: none; border-top: none; }
+.viewport .corner.br { bottom: 0; right: 0; border-left: none; border-top: none; }
+.scan .prompt { color: rgba(232,232,232,0.85); font: var(--rdp-type-body); position: relative; z-index: 3; text-align: center; }
+.scan .prompt .sub { font: var(--rdp-type-mono-small); color: rgba(232,232,232,0.5); margin-top: 6px; }
+.scan .laser { position: absolute; left: calc(50% - 100px); top: 50%; width: 200px; height: 1px; background: var(--rdp-success); opacity: 0.85; z-index: 1; box-shadow: 0 0 8px var(--rdp-success); }
+</style>
+<div class="scan">
+  <div class="viewport">
+    <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+  </div>
+  <div class="laser"></div>
+  <div class="prompt">Align the proxy QR inside the frame<div class="sub">Or paste from clipboard</div></div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Scanner · CameraX viewfinder over dark scrim · 4 corner brackets at 24dp · success-tinted laser line · imperative single-sentence prompt.</div>
+</div></body></html>

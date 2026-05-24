@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:440px}</style></head>
+<body><div class="card">
+<style>
+.dv { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.dv .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 12px; }
+.dv .hd .t { font: var(--rdp-type-body-emphasis); }
+.dv .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px;
+  background: var(--rdp-muted);
+  border: 0.5px solid var(--rdp-divider);
+  border-radius: 8px 8px 0 0;
+  font: var(--rdp-type-mono-small); font-size: 10px;
+  color: var(--rdp-muted-foreground);
+}
+.toolbar .name {
+  font: var(--rdp-type-mono-value); font-size: 11px; color: var(--rdp-foreground);
+}
+.toolbar .counts { display: inline-flex; gap: 8px; align-items: center; }
+.toolbar .counts .add { color: var(--rdp-success); font-weight: 500; }
+.toolbar .counts .rem { color: var(--rdp-destructive); font-weight: 500; }
+
+.diff {
+  border: 0.5px solid var(--rdp-divider);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+  font: var(--rdp-type-mono-log);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.diff .pane { display: grid; grid-template-columns: 1fr 1fr; }
+.diff .col { display: flex; flex-direction: column; }
+.diff .col + .col { border-left: 0.5px solid var(--rdp-divider); }
+
+.diff .line {
+  display: grid; grid-template-columns: 36px 1fr;
+  gap: 0; align-items: stretch;
+  min-height: 18px;
+}
+.diff .ln {
+  text-align: right; padding: 0 8px;
+  color: var(--rdp-muted-foreground);
+  font: 10px var(--rdp-font-mono);
+  font-variant-numeric: tabular-nums;
+  background: var(--rdp-muted);
+  border-right: 0.5px solid var(--rdp-divider);
+  align-self: stretch;
+  display: flex; justify-content: flex-end; align-items: center;
+}
+.diff .code { padding: 0 8px; white-space: pre; }
+
+.diff .line.add { background: var(--rdp-success-container); }
+.diff .line.add .ln { background: var(--rdp-success); color: var(--rdp-success-foreground); }
+.diff .line.add .code { color: var(--rdp-success-container-foreground); }
+.diff .line.add .code::before { content: "+ "; color: var(--rdp-success); font-weight: 500; }
+
+.diff .line.rem { background: var(--rdp-destructive-container); }
+.diff .line.rem .ln { background: var(--rdp-destructive); color: var(--rdp-destructive-foreground); }
+.diff .line.rem .code { color: var(--rdp-destructive-container-foreground); }
+.diff .line.rem .code::before { content: "− "; color: var(--rdp-destructive); font-weight: 500; }
+
+.diff .line.empty { background: var(--rdp-muted); opacity: 0.5; }
+.diff .line.empty .code::before { content: ""; }
+
+.diff .line.hunk {
+  background: var(--rdp-accent);
+  font: 500 10px/1 var(--rdp-font-mono);
+  color: var(--rdp-muted-foreground);
+  padding: 4px 0;
+  grid-template-columns: 1fr;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+.diff .line.hunk .code::before { content: ""; }
+
+.legend { display: flex; gap: 14px; margin-top: 12px; font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); }
+.legend .sw { display: inline-flex; align-items: center; gap: 5px; }
+.legend .sw .b { width: 10px; height: 10px; border-radius: 2px; }
+</style>
+
+<div class="dv">
+  <div class="hd">
+    <span class="t">Diff viewer</span>
+    <span class="sub">Side-by-side · strategy A vs strategy B</span>
+  </div>
+
+  <div class="toolbar">
+    <span class="name">tlsrec_split_host.toml</span>
+    <span class="counts">
+      <span><span class="add">+ 4</span> additions</span>
+      <span><span class="rem">− 2</span> deletions</span>
+      <span>· 12 unchanged</span>
+    </span>
+  </div>
+
+  <div class="diff">
+    <div class="pane">
+      <div class="col">
+        <div class="line"><span class="ln">1</span><span class="code">[strategy]</span></div>
+        <div class="line"><span class="ln">2</span><span class="code">name = "tlsrec_v1"</span></div>
+        <div class="line rem"><span class="ln">3</span><span class="code">split = false</span></div>
+        <div class="line"><span class="ln">4</span><span class="code">resolver = "cloudflare"</span></div>
+        <div class="line hunk"><span class="code">@@ -8,3 +8,5 @@</span></div>
+        <div class="line"><span class="ln">8</span><span class="code">[probe]</span></div>
+        <div class="line"><span class="ln">9</span><span class="code">mtu_floor = 1280</span></div>
+        <div class="line rem"><span class="ln">10</span><span class="code">timeout_ms = 2000</span></div>
+        <div class="line empty"><span class="ln"></span><span class="code"></span></div>
+        <div class="line empty"><span class="ln"></span><span class="code"></span></div>
+      </div>
+      <div class="col">
+        <div class="line"><span class="ln">1</span><span class="code">[strategy]</span></div>
+        <div class="line"><span class="ln">2</span><span class="code">name = "tlsrec_v1"</span></div>
+        <div class="line add"><span class="ln">3</span><span class="code">split = true</span></div>
+        <div class="line"><span class="ln">4</span><span class="code">resolver = "cloudflare"</span></div>
+        <div class="line hunk"><span class="code">@@ -8,3 +8,5 @@</span></div>
+        <div class="line"><span class="ln">8</span><span class="code">[probe]</span></div>
+        <div class="line"><span class="ln">9</span><span class="code">mtu_floor = 1280</span></div>
+        <div class="line add"><span class="ln">10</span><span class="code">timeout_ms = 4000</span></div>
+        <div class="line add"><span class="ln">11</span><span class="code">retry = 3</span></div>
+        <div class="line add"><span class="ln">12</span><span class="code">backoff = "exp"</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="sw"><span class="b" style="background: var(--rdp-success-container)"></span>Added</span>
+    <span class="sw"><span class="b" style="background: var(--rdp-destructive-container)"></span>Removed</span>
+    <span class="sw"><span class="b" style="background: var(--rdp-muted); opacity:0.5"></span>Empty / gutter</span>
+    <span class="sw"><span class="b" style="background: var(--rdp-accent)"></span>Hunk separator</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Diff viewer · two-pane side-by-side · gutter line numbers with semantic-tone background · hunk separator spans full width · empty-line halves keep the panes aligned.</div>
+</div></body></html>

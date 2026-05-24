@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:480px}</style></head>
+<body><div class="card">
+<style>
+.input-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.input-row .field { flex: 1; padding: 12px 16px; border: 1px solid var(--rdp-border); border-radius: 16px; background: var(--rdp-input-background); font: var(--rdp-type-mono-value); }
+.input-row .btn { padding: 0 18px; border-radius: 16px; background: var(--rdp-foreground); color: var(--rdp-background); border: none; font: var(--rdp-type-button); cursor: pointer; }
+.result { padding: 16px; border: 1px solid; border-radius: 16px; }
+.result.blocked { background: var(--rdp-destructive-container); border-color: var(--rdp-destructive); }
+.result .head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.result .ico { width: 32px; height: 32px; border-radius: 9999px; background: var(--rdp-destructive); color: #fff; display: grid; place-items: center; }
+.result h3 { font: var(--rdp-type-sheet-title); color: var(--rdp-destructive-container-foreground); margin: 0; }
+.result .sub { font: var(--rdp-type-mono-small); color: var(--rdp-destructive); margin-top: 2px; }
+.result .tests { display: flex; flex-direction: column; gap: 0; }
+.result .test { display: grid; grid-template-columns: 100px 1fr auto; gap: 10px; padding: 6px 0; font: var(--rdp-type-mono-small); }
+.result .test + .test { border-top: 0.5px solid rgba(185, 28, 28, 0.15); }
+.result .test .name { color: var(--rdp-destructive-container-foreground); }
+.result .test .meta { color: var(--rdp-destructive); }
+.result .test .stat.ok    { color: var(--rdp-success); }
+.result .test .stat.bad   { color: var(--rdp-destructive); }
+.result .actions { display: flex; gap: 8px; margin-top: 14px; }
+.result .btn { padding: 8px 14px; border-radius: 9999px; border: 1px solid var(--rdp-destructive); background: transparent; color: var(--rdp-destructive); font: var(--rdp-type-small-label); cursor: pointer; }
+.result .btn.primary { background: var(--rdp-destructive); color: #fff; }
+</style>
+<div class="input-row">
+  <span class="field">youtube.com</span>
+  <button class="btn">CHECK</button>
+</div>
+<div class="result blocked">
+  <div class="head">
+    <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6a5 5 0 10-10 0v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2zm-7 9a2 2 0 110-4 2 2 0 010 4z"/></svg></span>
+    <div><h3>BLOCKED</h3><div class="sub">2 of 4 stages failed · likely SNI inspection</div></div>
+  </div>
+  <div class="tests">
+    <div class="test"><span class="name">DNS</span><span class="meta">resolve 1 IP · 12 ms</span><span class="stat ok">OK</span></div>
+    <div class="test"><span class="name">TCP :443</span><span class="meta">handshake 18 ms</span><span class="stat ok">OK</span></div>
+    <div class="test"><span class="name">TLS</span><span class="meta">ClientHello sent · no response</span><span class="stat bad">TIMEOUT</span></div>
+    <div class="test"><span class="name">QUIC</span><span class="meta">UDP :443 · 3 attempts</span><span class="stat bad">BLOCKED</span></div>
+  </div>
+  <div class="actions">
+    <button class="btn primary">Try with VPN</button>
+    <button class="btn">Find a strategy</button>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Block-check · single URL · per-stage result · suggests next action when blocked.</div>
+</div></body></html>

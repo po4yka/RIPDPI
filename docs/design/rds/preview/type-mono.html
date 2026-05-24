@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>
+  html, body { min-height: 320px; }
+</style>
+</head>
+<body>
+<div class="card">
+
+<div class="col" style="gap:14px">
+  <div class="meta"><span class="label">Mono — load-bearing</span><span class="token">Any value that's machine-readable is mono. IPs, hex, byte counts, latency, packet traces, config keys.</span></div>
+  <div>
+    <div style="font: var(--rdp-type-mono-value)">monoValue · 127.0.0.1:1080 · 14/20</div>
+  </div>
+  <div>
+    <div style="font: var(--rdp-type-mono-config)">monoConfig · --desync-mode=fake,split2 --ttl=8 · 14/20</div>
+  </div>
+  <div>
+    <div style="font: var(--rdp-type-mono-inline)">monoInline · `0xDEADBEEF` inline in body copy · 13/20</div>
+  </div>
+  <div style="background: var(--rdp-muted); border-radius: 8px; padding: 8px 12px">
+    <div style="font: var(--rdp-type-mono-log)">monoLog · 12:18:42.013  INFO  strategy.applied tlsrec_split_host</div>
+    <div style="font: var(--rdp-type-mono-log)">12:18:42.087  WARN  probe.timeout host=cloudflare-dns.com</div>
+    <div style="font: var(--rdp-type-mono-log)">12:18:43.005  INFO  fragment.send count=8 bytes=1392</div>
+  </div>
+  <div>
+    <div style="font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground)">monoSmall · 128 KiB · 12 ms · 1500 MTU · 12/16</div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

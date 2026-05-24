@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:520px}</style></head>
+<body><div class="card">
+<style>
+.mtu { padding: 16px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.mtu .hd { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 14px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 14px; }
+.mtu .hd .t { font: var(--rdp-type-body-emphasis); }
+.mtu .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 4px; }
+.mtu .hd .result { text-align: right; }
+.mtu .hd .result .v { font: 500 28px/1 var(--rdp-font-mono); color: var(--rdp-foreground); font-variant-numeric: tabular-nums; }
+.mtu .hd .result .v .unit { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-left: 6px; }
+.mtu .hd .result .lab { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 2px; font-size: 10.5px; letter-spacing: 0.4px; text-transform: uppercase; }
+
+/* Scale: 576 → 1500 bytes; gate at 1380 = (1380-576)/(1500-576) = 87.0% */
+.scale-wrap { position: relative; margin: 30px 0 36px; padding: 0 6px; }
+.scale-inner { position: relative; }
+.scale-track { height: 10px; border-radius: 3px; background: var(--rdp-muted); position: relative; overflow: hidden; }
+.scale-track .ok-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--rdp-foreground); }
+.scale-track .fail-fill { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, var(--rdp-destructive-container) 0 4px, transparent 4px 8px); }
+.scale-gate { position: absolute; top: -5px; bottom: -5px; width: 2px; background: var(--rdp-foreground); }
+
+.scale-pin {
+  position: absolute; bottom: calc(100% + 8px); transform: translateX(-50%);
+  font: 500 11px/1 var(--rdp-font-mono);
+  color: var(--rdp-background); background: var(--rdp-foreground);
+  padding: 3px 8px; border-radius: 4px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.scale-pin::after { content: ""; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--rdp-foreground); }
+
+/* Ticks positioned absolutely at their actual numeric position */
+.scale-ticks { position: absolute; left: 0; right: 0; top: calc(100% + 8px); height: 18px; }
+.scale-ticks .tick {
+  position: absolute; transform: translateX(-50%);
+  font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.scale-ticks .tick::before {
+  content: ""; position: absolute; left: 50%; top: -6px; transform: translateX(-50%);
+  width: 1px; height: 4px; background: var(--rdp-outline-variant);
+}
+.scale-ticks .tick.edge { color: var(--rdp-muted-foreground); }
+
+/* Below-track region labels */
+.scale-regions { position: absolute; left: 0; right: 0; top: calc(100% + 28px); height: 14px; font: var(--rdp-type-mono-small); font-size: 9.5px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--rdp-muted-foreground); }
+.scale-regions .reg { position: absolute; }
+.scale-regions .reg.pass { left: 0; }
+.scale-regions .reg.fail { right: 0; color: var(--rdp-destructive); }
+
+.ladder { font: var(--rdp-type-mono-value); font-size: 12.5px; line-height: 18px; }
+.row { display: grid; grid-template-columns: 24px 60px 70px 1fr 70px; gap: 10px; align-items: center; padding: 6px 0; }
+.row + .row { border-top: 0.5px solid var(--rdp-divider); }
+.row .ix { color: var(--rdp-muted-foreground); font-size: 10.5px; text-align: right; }
+.row .size { color: var(--rdp-foreground); font-variant-numeric: tabular-nums; }
+.row .frag { font: var(--rdp-type-mono-small); font-size: 10px; padding: 1px 6px; border-radius: 3px; text-align: center; }
+.row .frag.df { background: var(--rdp-accent); color: var(--rdp-muted-foreground); }
+.row .frag.frag { background: var(--rdp-warning-container); color: var(--rdp-warning); }
+.row .echo { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); font-size: 11px; }
+.row .stat { text-align: right; font: var(--rdp-type-mono-small); font-size: 11px; letter-spacing: 0.4px; text-transform: uppercase; }
+.row .stat.ok { color: var(--rdp-success); }
+.row .stat.bad { color: var(--rdp-destructive); }
+.row .stat.warn { color: var(--rdp-warning); }
+.row.gate { background: var(--rdp-muted); margin: 0 -8px; padding-left: 18px; padding-right: 18px; border-radius: 6px; }
+.row.gate .size { font-weight: 500; }
+</style>
+
+<div class="mtu">
+  <div class="hd">
+    <div>
+      <div class="t">Path-MTU scan</div>
+      <div class="sub">cloudflare-dns.com · binary search · DF set</div>
+    </div>
+    <div class="result">
+      <div class="v">1380<span class="unit">bytes</span></div>
+      <div class="lab">Effective path MTU</div>
+    </div>
+  </div>
+
+  <div class="scale-wrap">
+    <div class="scale-inner">
+      <span class="scale-pin" style="left:87%">1380 b</span>
+      <div class="scale-track">
+        <span class="ok-fill" style="width:87%"></span>
+        <span class="fail-fill" style="left:87%; right:0"></span>
+      </div>
+      <span class="scale-gate" style="left:87%"></span>
+      <div class="scale-ticks">
+        <span class="tick edge" style="left:0">576</span>
+        <span class="tick" style="left:45.9%">1000</span>
+        <span class="tick" style="left:76.2%">1280</span>
+        <span class="tick edge" style="left:100%">1500</span>
+      </div>
+      <div class="scale-regions">
+        <span class="reg pass">Pass</span>
+        <span class="reg fail">Drop</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ladder">
+    <div class="row"><span class="ix">1</span><span class="size">1500</span><span class="frag df">DF</span><span class="echo">no echo · ICMP frag-needed at hop 7</span><span class="stat bad">Too big</span></div>
+    <div class="row"><span class="ix">2</span><span class="size">1492</span><span class="frag df">DF</span><span class="echo">no echo · timeout 800 ms</span><span class="stat bad">Too big</span></div>
+    <div class="row"><span class="ix">3</span><span class="size">1400</span><span class="frag df">DF</span><span class="echo">no echo · timeout 800 ms</span><span class="stat bad">Too big</span></div>
+    <div class="row gate"><span class="ix">4</span><span class="size">1380</span><span class="frag df">DF</span><span class="echo">echo received · 38 ms</span><span class="stat ok">OK · gate</span></div>
+    <div class="row"><span class="ix">5</span><span class="size">1280</span><span class="frag df">DF</span><span class="echo">echo received · 36 ms</span><span class="stat ok">OK</span></div>
+    <div class="row"><span class="ix">6</span><span class="size">576</span><span class="frag df">DF</span><span class="echo">echo received · 34 ms</span><span class="stat ok">OK</span></div>
+    <div class="row"><span class="ix">7</span><span class="size">1500</span><span class="frag frag">FRAG</span><span class="echo">echo received · 41 ms · split 2 fragments</span><span class="stat warn">Frag OK</span></div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Path-MTU scan · binary search with DF set · hatched zone above gate = drop · result pinned · final FRAG row confirms link MTU when DF cleared.</div>
+</div></body></html>

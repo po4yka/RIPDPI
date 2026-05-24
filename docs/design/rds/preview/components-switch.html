@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>html, body { min-height: 280px; }</style>
+</head>
+<body><div class="card">
+
+<style>
+.sw { width:52px; height:32px; border-radius:9999px; background: var(--rdp-outline-variant); position:relative; transition: background-color var(--rdp-duration-state) var(--rdp-ease-standard); cursor:pointer; }
+.sw .thumb { width:24px; height:24px; border-radius:9999px; background: white; position:absolute; top:4px; left:4px;
+  transition: left var(--rdp-duration-state) var(--rdp-ease-standard); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.sw.on { background: var(--rdp-foreground); }
+.sw.on .thumb { left:24px; background: var(--rdp-background); }
+.sw.dis { opacity: 0.38; pointer-events:none; }
+.row-row { display:flex; align-items:center; justify-content:space-between; padding: 8px 0; gap:16px; min-height: 52px; }
+</style>
+<div class="col">
+  <div class="row-row">
+    <div class="col" style="gap:2px"><div class="rdp-body-emphasis">Auto-reconnect</div><div class="rdp-caption">Restart VPN when the network changes</div></div>
+    <span class="sw on"><span class="thumb"></span></span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="row-row">
+    <div class="col" style="gap:2px"><div class="rdp-body-emphasis">Record PCAP</div><div class="rdp-caption">Capture packets while diagnostic runs</div></div>
+    <span class="sw"><span class="thumb"></span></span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="row-row">
+    <div class="col" style="gap:2px"><div class="rdp-body-emphasis">Bypass IPv6</div><div class="rdp-caption" style="color: var(--rdp-restricted)">Requires command-line mode</div></div>
+    <span class="sw dis"><span class="thumb"></span></span>
+  </div>
+</div>
+
+</div></body></html>

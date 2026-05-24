@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>html, body { min-height: 360px; }</style>
+</head>
+<body><div class="card">
+
+<style>
+.srow { display:grid; grid-template-columns: 1fr auto; gap:16px; padding: 14px 0; min-height: 52px; align-items:center; }
+.srow.sub { min-height: 68px; }
+.srow .l1 { font: var(--rdp-type-body-emphasis); color: var(--rdp-foreground); }
+.srow .l2 { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top:2px; }
+.srow .v  { font: var(--rdp-type-mono-value); color: var(--rdp-muted-foreground); }
+.srow .chev { color: var(--rdp-muted-foreground); }
+</style>
+<div class="col">
+  <div class="srow sub">
+    <div><div class="l1">Strategy</div><div class="l2">Current active preset</div></div>
+    <div class="row" style="gap:8px; align-items:center"><div class="v">tlsrec_split_host</div><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 6 15 12 9 18"/></svg></div>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="srow sub">
+    <div><div class="l1">DNS resolver</div><div class="l2">DoH over TLS 1.3</div></div>
+    <div class="row" style="gap:8px; align-items:center"><div class="v">AdGuard DoH</div><svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 6 15 12 9 18"/></svg></div>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="srow">
+    <div class="l1">Block fingerprint</div>
+    <span style="width:52px; height:32px; border-radius:9999px; background: var(--rdp-foreground); position:relative"><span style="position:absolute; width:24px; height:24px; border-radius:9999px; background:var(--rdp-background); top:4px; left:24px"></span></span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="srow">
+    <div class="l1">MTU</div>
+    <div class="v">1500</div>
+  </div>
+</div>
+
+</div></body></html>

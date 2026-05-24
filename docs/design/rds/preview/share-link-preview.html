@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>
+  html, body { min-height: 440px; }
+  body { padding: 20px 22px; }
+
+  .stack { display: flex; flex-direction: column; gap: 20px; }
+
+  /* Generated URL block — large mono, broken into base + fragment so the
+     reader sees what's shared (the fragment) vs the host route. */
+  .url-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .url-block .eyebrow {
+    font: var(--rdp-type-section-title);
+    letter-spacing: 0.72px;
+    text-transform: uppercase;
+    color: var(--rdp-muted-foreground);
+  }
+  .url-frame {
+    background: var(--rdp-card);
+    border: 1px solid var(--rdp-card-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .url-frame .url {
+    flex: 1;
+    font: var(--rdp-type-mono-value);
+    color: var(--rdp-foreground);
+    overflow-x: auto;
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+  .url-frame .url .scheme { color: var(--rdp-muted-foreground); }
+  .url-frame .url .host   { color: var(--rdp-foreground); }
+  .url-frame .url .qs     { color: var(--rdp-muted-foreground); }
+  .url-frame .url .sep    { color: var(--rdp-muted-foreground); padding: 0 1px; }
+  .url-frame .url .frag   {
+    color: var(--rdp-foreground);
+    background: var(--rdp-warning-container);
+    padding: 1px 4px;
+    border-radius: 4px;
+    border: 1px solid var(--rdp-warning);
+  }
+  .url-frame .copy {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border-radius: 9999px;
+    background: var(--rdp-foreground);
+    color: var(--rdp-background);
+    font: var(--rdp-type-small-label);
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    border: none;
+  }
+
+  /* Two-tone legend: scheme keys on the left, plain explanations on the
+     right. Spec-table layout makes the structure immediately scannable. */
+  .legend {
+    border: 1px solid var(--rdp-card-border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .legend .row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    align-items: baseline;
+    column-gap: 16px;
+    padding: 10px 14px;
+  }
+  .legend .row + .row {
+    border-top: 0.5px solid var(--rdp-divider);
+  }
+  .legend .row .k {
+    font: var(--rdp-type-mono-value);
+    color: var(--rdp-foreground);
+  }
+  .legend .row .v {
+    font: var(--rdp-type-body);
+    color: var(--rdp-muted-foreground);
+  }
+  .legend .row .v b {
+    color: var(--rdp-foreground);
+    font-weight: 500;
+  }
+  .legend .row .v code {
+    font: var(--rdp-type-mono-inline);
+    color: var(--rdp-foreground);
+    background: var(--rdp-muted);
+    padding: 0 4px;
+    border-radius: 4px;
+  }
+
+  /* Privacy note — info tone, not warning. Less alarmist than the previous
+     amber treatment; the point is reassurance, not danger. */
+  .note {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    background: var(--rdp-info-container);
+    color: var(--rdp-info-container-foreground);
+    border: 1px solid var(--rdp-info);
+    border-radius: 12px;
+  }
+  .note .ico {
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    background: var(--rdp-info);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+  .note .ico svg { width: 10px; height: 10px; }
+  .note p {
+    margin: 0;
+    font: var(--rdp-type-body);
+    color: var(--rdp-info-container-foreground);
+  }
+  .note p b {
+    color: var(--rdp-info-container-foreground);
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="stack">
+
+    <div class="url-block">
+      <div class="eyebrow">Generated link</div>
+      <div class="url-frame">
+        <div class="url"><span class="scheme">https://</span><span class="host">po4yka.github.io/RIPDPI/share</span><span class="qs">?v=1</span><span class="sep">#</span><span class="frag">eJxkkE2OwjAMha9SeY1m</span><span class="qs">…</span></div>
+        <button class="copy">COPY</button>
+      </div>
+    </div>
+
+    <div class="url-block">
+      <div class="eyebrow">Fragment payload</div>
+      <div class="legend">
+        <div class="row"><span class="k">v</span><span class="v">Schema version — currently <b>1</b></span></div>
+        <div class="row"><span class="k">asn</span><span class="v">Origin ASN — <b>13335</b> (Cloudflare)</span></div>
+        <div class="row"><span class="k">ts</span><span class="v">Timestamp, in minutes since <code>2024-01-01 UTC</code></span></div>
+        <div class="row"><span class="k">commit</span><span class="v">Strategy-bundle hash — <b>0a</b></span></div>
+        <div class="row"><span class="k">items[]</span><span class="v">Per-endpoint <code>{alive, dpi}</code> tuples</span></div>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 10h2v7h-2zM11 7h2v2h-2z"/></svg></span>
+      <p>The fragment <b>never leaves the device</b> — it's decoded locally by the recipient. Hostnames are hashed unless redaction is off.</p>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

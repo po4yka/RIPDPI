@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.lc { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.lc .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.lc .hd .t { font: var(--rdp-type-body-emphasis); }
+.lc .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.spec { background: var(--rdp-muted); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.spec .nm { font: var(--rdp-type-mono-small); font-size: 10px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--rdp-muted-foreground); }
+.spec .v {
+  font: 500 26px/1 var(--rdp-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--rdp-foreground);
+  display: flex; align-items: baseline; gap: 6px;
+}
+.spec .v .unit { font: var(--rdp-type-mono-small); font-size: 12px; color: var(--rdp-muted-foreground); }
+.spec .meta { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); }
+.spec .meta b { color: var(--rdp-foreground); font-weight: 500; }
+
+/* Digit-strip counter */
+.counter { display: inline-flex; align-items: flex-end; gap: 1px; line-height: 1; }
+.digit { display: inline-block; height: 26px; width: 16px; overflow: hidden; position: relative; vertical-align: bottom; }
+.sep { display: inline-flex; align-items: center; justify-content: center; height: 26px; width: 8px; font: 500 22px/26px var(--rdp-font-mono); color: var(--rdp-foreground); vertical-align: bottom; padding-bottom: 4px; box-sizing: border-box; }
+.sep.colon { padding-bottom: 0; }
+.digit .strip {
+  position: absolute; top: 0; left: 0;
+  display: flex; flex-direction: column;
+  transition: transform 320ms cubic-bezier(0.05,0.7,0.1,1);
+}
+.digit .strip span { display: block; height: 26px; width: 16px; line-height: 26px; text-align: center; font: 500 22px/26px var(--rdp-font-mono); }
+
+/* Static positions */
+.digit.d0 .strip { transform: translateY(0); }
+.digit.d1 .strip { transform: translateY(-26px); }
+.digit.d2 .strip { transform: translateY(-52px); }
+.digit.d3 .strip { transform: translateY(-78px); }
+.digit.d4 .strip { transform: translateY(-104px); }
+.digit.d5 .strip { transform: translateY(-130px); }
+.digit.d6 .strip { transform: translateY(-156px); }
+.digit.d7 .strip { transform: translateY(-182px); }
+.digit.d8 .strip { transform: translateY(-208px); }
+.digit.d9 .strip { transform: translateY(-234px); }
+
+/* Animated ticker — cycles two values */
+.tick-anim { animation: lcTick 4s steps(2, end) infinite; }
+@keyframes lcTick {
+  0%, 49% { transform: translateY(-52px); }   /* 2 */
+  50%, 100% { transform: translateY(-78px); }  /* 3 */
+}
+
+.tick-anim-7 { animation: lcTick7 4s steps(2, end) infinite; }
+@keyframes lcTick7 {
+  0%, 49% { transform: translateY(-130px); }  /* 5 */
+  50%, 100% { transform: translateY(-182px); } /* 7 */
+}
+
+.delta {
+  display: inline-flex; align-items: center; gap: 4px;
+  font: var(--rdp-type-mono-small); font-size: 11px;
+}
+.delta.up   { color: var(--rdp-success); }
+.delta.down { color: var(--rdp-destructive); }
+
+.notes {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px;
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+}
+.notes b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.notes span { color: var(--rdp-foreground); }
+.notes code { font: var(--rdp-type-mono-inline); padding: 1px 5px; background: var(--rdp-accent); border-radius: 3px; }
+</style>
+
+<div class="lc">
+  <div class="hd">
+    <span class="t">Live counter</span>
+    <span class="sub">Digit-strip numeric ticker</span>
+  </div>
+
+  <div class="grid">
+    <div class="spec">
+      <span class="nm">RTT p50</span>
+      <span class="v">
+        <span class="counter">
+          <span class="digit"><span class="strip tick-anim"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span>
+          <span class="digit d8"><span class="strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span>
+        </span>
+        <span class="unit">ms</span>
+      </span>
+      <span class="meta"><span class="delta down">↓ −4 ms</span> over 10 s</span>
+    </div>
+
+    <div class="spec">
+      <span class="nm">Throughput</span>
+      <span class="v">
+        <span class="counter">
+          <span class="digit"><span class="strip tick-anim-7"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span>
+          <span class="sep">.</span>
+          <span class="digit d4"><span class="strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span>
+        </span>
+        <span class="unit">MB/s</span>
+      </span>
+      <span class="meta"><span class="delta up">↑ live</span></span>
+    </div>
+
+    <div class="spec">
+      <span class="nm">Uptime</span>
+      <span class="v">
+        <span class="counter">
+          <span class="digit d0"><span class="strip"><span>0</span><span>1</span></span></span>
+          <span class="digit d0"><span class="strip"><span>0</span><span>1</span></span></span>
+          <span class="sep colon">:</span>
+          <span class="digit d1"><span class="strip"><span>0</span><span>1</span></span></span>
+          <span class="digit d2"><span class="strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span>
+          <span class="sep colon">:</span>
+          <span class="digit"><span class="strip tick-anim"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span>
+          <span class="digit d4"><span class="strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span>
+        </span>
+      </span>
+      <span class="meta">since <b>18:30 UTC</b></span>
+    </div>
+  </div>
+
+  <div class="notes">
+    <b>Strip</b><span>One <code>&lt;span class="digit dN"&gt;</code> per place · contains a vertical strip of 10 digits</span>
+    <b>Slide</b><span><code>translateY(-26 px × N)</code> · 320 ms emphasized curve</span>
+    <b>Cap</b><span>Updates throttled to 4 Hz · faster values are coalesced</span>
+    <b>Reduced motion</b><span>Falls back to instant value swap (no transition)</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Live counter · digit-strip ticker built from one element per place · works for time, throughput, RTT, anything numeric · mono + tabular-nums fixes width across digits.</div>
+</div></body></html>

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:310px}</style></head>
+<body><div class="card">
+<style>
+.pc { background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; padding: 14px 17px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
+.pc.sel { background: var(--rdp-muted); border-color: transparent; }
+.pc .head { display: flex; align-items: center; gap: 8px; }
+.pc .radio { width: 18px; height: 18px; border: 1.5px solid var(--rdp-outline); border-radius: 9999px; display: grid; place-items: center; flex-shrink: 0; }
+.pc.sel .radio { border-color: var(--rdp-foreground); }
+.pc.sel .radio::after { content: ""; width: 10px; height: 10px; border-radius: 9999px; background: var(--rdp-foreground); }
+.pc .title { flex: 1; font: var(--rdp-type-body-emphasis); }
+.pc .badge { padding: 2px 8px; border-radius: 9999px; background: var(--rdp-foreground); color: var(--rdp-background); font: var(--rdp-type-small-label); font-size: 10px; letter-spacing: 0.6px; }
+.pc .desc { font: var(--rdp-type-secondary-body); color: var(--rdp-muted-foreground); margin-left: 26px; font-size: 13px; line-height: 18px; }
+</style>
+<div class="col" style="gap: 10px">
+  <div class="pc sel">
+    <div class="head"><span class="radio"></span><span class="title">tlsrec_split_host</span><span class="badge">ACTIVE</span></div>
+    <div class="desc">Splits TLS ClientHello after the SNI extension. Works for most YouTube / Discord blocks.</div>
+  </div>
+  <div class="pc">
+    <div class="head"><span class="radio"></span><span class="title">desync_fake</span></div>
+    <div class="desc">Sends a fake first packet with bad TTL; the real first packet arrives unmangled.</div>
+  </div>
+  <div class="pc">
+    <div class="head"><span class="radio"></span><span class="title">fragment_drop</span></div>
+    <div class="desc">Splits the ClientHello across two TCP segments and drops one until retransmission.</div>
+  </div>
+</div>
+</div></body></html>

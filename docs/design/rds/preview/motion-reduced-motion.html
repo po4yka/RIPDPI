@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:400px}</style></head>
+<body><div class="card">
+<style>
+.rm { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.rm .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.rm .hd .t { font: var(--rdp-type-body-emphasis); }
+.rm .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.grid {
+  display: grid;
+  grid-template-columns: max-content 1fr 1fr;
+  gap: 0;
+  border: 0.5px solid var(--rdp-divider);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.grid .cell {
+  padding: 12px 14px;
+  border-bottom: 0.5px solid var(--rdp-divider);
+  border-right: 0.5px solid var(--rdp-divider);
+  display: flex; align-items: center;
+  background: var(--rdp-card);
+}
+.grid .cell.head {
+  background: var(--rdp-muted);
+  font: var(--rdp-type-section-title); font-size: 10px;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--rdp-muted-foreground);
+}
+.grid .cell:nth-last-child(-n+3) { border-bottom: none; }
+.grid .cell:nth-child(3n) { border-right: none; }
+.grid .pat { font: var(--rdp-type-mono-value); font-size: 11px; }
+
+/* Demo cells share a fixed height so motion compares cleanly */
+.demo {
+  width: 100%; height: 36px;
+  background: var(--rdp-card);
+  border-radius: 6px; border: 0.5px solid var(--rdp-divider);
+  position: relative; overflow: hidden;
+  display: grid; place-items: center;
+}
+
+/* Pulse — standard: scaling ring */
+.demo.pulse .core { width: 12px; height: 12px; border-radius: 9999px; background: var(--rdp-success); position: relative; }
+.demo.pulse .core::after { content:""; position: absolute; inset: -4px; border: 1.5px solid var(--rdp-success); border-radius: 9999px; animation: rmRing 1.6s ease-out infinite; }
+@keyframes rmRing { 0% { transform: scale(0.6); opacity: 0.7; } 100% { transform: scale(1.8); opacity: 0; } }
+
+/* Pulse — reduced: just brightness change */
+.demo.pulse-rm .core { width: 12px; height: 12px; border-radius: 9999px; background: var(--rdp-success); animation: rmFade 1.6s ease-in-out infinite; }
+@keyframes rmFade { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* Slide — standard */
+.demo.slide .ball { position: absolute; top: 50%; left: 4px; width: 14px; height: 14px; background: var(--rdp-foreground); border-radius: 9999px; transform: translateY(-50%); animation: rmSlide 1.6s cubic-bezier(0.2,0,0,1) infinite alternate; }
+@keyframes rmSlide { from { left: 4px; } to { left: calc(100% - 18px); } }
+
+/* Slide — reduced: cross-fade between positions */
+.demo.slide-rm { display: flex; align-items: center; padding: 0 4px; }
+.demo.slide-rm .ball { position: relative; width: 14px; height: 14px; background: var(--rdp-foreground); border-radius: 9999px; animation: rmFadeBall 1.6s steps(2, end) infinite alternate; }
+@keyframes rmFadeBall { 0%, 49% { margin-left: 0; opacity: 0.5; } 50%, 100% { margin-left: calc(100% - 14px); opacity: 1; } }
+
+/* Marching ants — standard */
+.demo.march { padding: 0 6px; }
+.demo.march span { display: block; width: 100%; height: 6px; border-radius: 3px;
+  background: repeating-linear-gradient(90deg, var(--rdp-foreground) 0 6px, var(--rdp-muted) 6px 12px);
+  background-size: 12px 100%;
+  animation: rmMarch 0.6s linear infinite;
+}
+@keyframes rmMarch { to { background-position: -12px 0; } }
+
+/* Marching ants — reduced: static directional pattern with subtle blink */
+.demo.march-rm { padding: 0 6px; }
+.demo.march-rm span { display: block; width: 100%; height: 6px; border-radius: 3px;
+  background: repeating-linear-gradient(90deg, var(--rdp-foreground) 0 6px, var(--rdp-muted) 6px 12px);
+  background-size: 12px 100%;
+  animation: rmBlink 2.4s steps(2, end) infinite;
+}
+@keyframes rmBlink { 0%, 49% { opacity: 0.7; } 50%, 100% { opacity: 1; } }
+
+/* Skeleton shimmer — standard */
+.demo.shimmer { background: linear-gradient(90deg, var(--rdp-muted) 0%, var(--rdp-accent) 50%, var(--rdp-muted) 100%); background-size: 200% 100%; animation: rmShimmer 1.4s linear infinite; }
+@keyframes rmShimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+/* Skeleton — reduced: static muted block */
+.demo.shimmer-rm { background: var(--rdp-muted); }
+
+.foot {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground);
+}
+.foot code { font: var(--rdp-type-mono-inline); padding: 1px 5px; background: var(--rdp-accent); border-radius: 3px; color: var(--rdp-foreground); }
+.foot b { color: var(--rdp-foreground); font-weight: 500; }
+</style>
+
+<div class="rm">
+  <div class="hd">
+    <span class="t">Reduced-motion fallbacks</span>
+    <span class="sub">Required when <code style="font: var(--rdp-type-mono-inline); padding: 1px 5px; background: var(--rdp-accent); border-radius: 3px">prefers-reduced-motion</code></span>
+  </div>
+
+  <div class="grid">
+    <div class="cell head">Pattern</div>
+    <div class="cell head">Standard</div>
+    <div class="cell head">Reduced motion</div>
+
+    <div class="cell pat">Live pulse</div>
+    <div class="cell"><div class="demo pulse"><span class="core"></span></div></div>
+    <div class="cell"><div class="demo pulse-rm"><span class="core"></span></div></div>
+
+    <div class="cell pat">Slide</div>
+    <div class="cell"><div class="demo slide"><span class="ball"></span></div></div>
+    <div class="cell"><div class="demo slide-rm"><span class="ball"></span></div></div>
+
+    <div class="cell pat">Marching ants</div>
+    <div class="cell"><div class="demo march"><span></span></div></div>
+    <div class="cell"><div class="demo march-rm"><span></span></div></div>
+
+    <div class="cell pat">Shimmer</div>
+    <div class="cell"><div class="demo shimmer"></div></div>
+    <div class="cell"><div class="demo shimmer-rm"></div></div>
+  </div>
+
+  <div class="foot">
+    <b>Rule:</b> &nbsp;motion never <i>conveys information</i> alone — every pulse has a colour, every slide a final position. Reduced motion swaps movement for opacity / step changes; the meaning survives.
+    <br><br>
+    <b>Detect:</b> <code>@media (prefers-reduced-motion: reduce) { ... }</code> · Compose: <code>LocalReducedMotion.current.shouldReduce</code>.
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Reduced-motion fallbacks · 4 standard patterns paired with their non-moving equivalents · all preserve semantic information (state, direction, loadingness) without continuous motion.</div>
+</div></body></html>

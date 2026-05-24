@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Diagnostic reports — new elements</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+  body { padding: 32px var(--rdp-horizontal-padding); max-width: 1200px; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 16px; border-bottom: 1px solid var(--rdp-divider); margin-bottom: 24px; }
+  header h1 { font: var(--rdp-type-screen-title); }
+  header .meta { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--rdp-card);
+    border: 1px solid var(--rdp-card-border);
+    border-radius: var(--rdp-radius-xl);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .card .meta-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px;
+    border-bottom: 0.5px solid var(--rdp-divider);
+  }
+  .card .meta-row .nm { font: var(--rdp-type-body-emphasis); }
+  .card .meta-row .id { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+  .card .meta-row .id a { color: var(--rdp-foreground); text-decoration: underline; text-decoration-color: var(--rdp-outline-variant); text-underline-offset: 3px; }
+  .card .sub { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); padding: 8px 16px 12px; }
+  .card .frame { background: var(--rdp-background); border-top: 0.5px solid var(--rdp-divider); flex: 1; }
+  .card iframe { display: block; width: 100%; border: 0; }
+  footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--rdp-divider); font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Diagnostic reports — new elements</h1>
+  <span class="meta">6 cards · preview/diagnostic-*.html</span>
+</header>
+
+<div class="grid">
+  <div class="card">
+    <div class="meta-row"><span class="nm">Report summary</span><span class="id"><a href="preview/diagnostic-report-summary.html">diagnostic-report-summary</a></span></div>
+    <div class="sub">Top-of-report verdict card · scan id · 6 KPI grid · per-stage roll-up · one primary next action.</div>
+    <div class="frame"><iframe src="preview/diagnostic-report-summary.html" height="460" loading="lazy"></iframe></div>
+  </div>
+
+  <div class="card">
+    <div class="meta-row"><span class="nm">Hop trace</span><span class="id"><a href="preview/diagnostic-hop-trace.html">diagnostic-hop-trace</a></span></div>
+    <div class="sub">Per-hop ASN, RTT, normalized bar · timeouts hatched · sentinel shapes mark origin/exit · DPI-flagged hops tagged inline.</div>
+    <div class="frame"><iframe src="preview/diagnostic-hop-trace.html" height="560" loading="lazy"></iframe></div>
+  </div>
+
+  <div class="card">
+    <div class="meta-row"><span class="nm">Path-MTU scan</span><span class="id"><a href="preview/diagnostic-mtu-scan.html">diagnostic-mtu-scan</a></span></div>
+    <div class="sub">Binary search with DF set · hatched fail zone above gate · final FRAG row confirms link MTU when DF cleared.</div>
+    <div class="frame"><iframe src="preview/diagnostic-mtu-scan.html" height="500" loading="lazy"></iframe></div>
+  </div>
+
+  <div class="card">
+    <div class="meta-row"><span class="nm">Port reachability</span><span class="id"><a href="preview/diagnostic-port-matrix.html">diagnostic-port-matrix</a></span></div>
+    <div class="sub">5 targets × 12 ports · cell value is connect RTT in ms · semantic fills · roll-up footer.</div>
+    <div class="frame"><iframe src="preview/diagnostic-port-matrix.html" height="540" loading="lazy"></iframe></div>
+  </div>
+
+  <div class="card">
+    <div class="meta-row"><span class="nm">Interference signatures</span><span class="id"><a href="preview/diagnostic-censorship-signature.html">diagnostic-censorship-signature</a></span></div>
+    <div class="sub">Per-detector evidence row · numeric confidence + meter · final row demonstrates a bypassed signature in success tone.</div>
+    <div class="frame"><iframe src="preview/diagnostic-censorship-signature.html" height="760" loading="lazy"></iframe></div>
+  </div>
+
+  <div class="card">
+    <div class="meta-row"><span class="nm">DNS resolver health</span><span class="id"><a href="preview/diagnostic-dns-resolvers.html">diagnostic-dns-resolvers</a></span></div>
+    <div class="sub">Per-resolver transport, p50 RTT, 5-minute success rate, behavioural flags · per-row probe / promote action.</div>
+    <div class="frame"><iframe src="preview/diagnostic-dns-resolvers.html" height="560" loading="lazy"></iframe></div>
+  </div>
+</div>
+
+<footer>
+  Drawn from RDS tokens · Geist Sans + Mono · semantic fills only · no shadows, no gradients, no decorative copy.
+</footer>
+</body>
+</html>

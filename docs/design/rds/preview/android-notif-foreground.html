@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:400px}</style></head>
+<body><div class="card">
+<style>
+.shade { background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 28px; padding: 12px 14px; }
+.shade + .shade { margin-top: 10px; }
+.notif { display: grid; grid-template-columns: 24px 1fr auto; gap: 12px; align-items: flex-start; }
+.notif .ico { width: 24px; height: 24px; border-radius: 9999px; background: var(--rdp-foreground); color: var(--rdp-background); display: grid; place-items: center; }
+.notif .ico .glyph { display: block; width: 70%; height: 70%; background: currentColor;
+  -webkit-mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center / contain no-repeat;
+          mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center / contain no-repeat; }
+.notif .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.notif .body .row { display: flex; align-items: baseline; gap: 6px; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.notif .body .row b { font: var(--rdp-type-small-label); color: var(--rdp-foreground); letter-spacing: 0.3px; }
+.notif .body .title { font: var(--rdp-type-body-emphasis); }
+.notif .body .text { font: var(--rdp-type-secondary-body); color: var(--rdp-muted-foreground); font-size: 13px; }
+.actions { display: flex; gap: 4px; margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--rdp-divider); }
+.actions button { flex: 1; padding: 8px 12px; background: transparent; border: none; color: var(--rdp-foreground); font: var(--rdp-type-small-label); cursor: pointer; }
+.actions button:hover { background: var(--rdp-accent); }
+.actions button.dest { color: var(--rdp-destructive); }
+.stat-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; background: var(--rdp-muted); font: var(--rdp-type-mono-small); }
+.stat-pill .dot { width: 6px; height: 6px; border-radius: 9999px; background: var(--rdp-success); }
+</style>
+<div class="shade">
+  <div class="notif">
+    <span class="ico"><span class="glyph"></span></span>
+    <span class="body">
+      <span class="row"><b>RIPDPI</b><span>· now · ongoing</span></span>
+      <span class="title">Connected · 00:18:42</span>
+      <span class="text">tlsrec_split_host · relay.example</span>
+    </span>
+    <span class="stat-pill"><span class="dot"></span>VPN</span>
+  </div>
+</div>
+<div class="shade">
+  <div class="notif">
+    <span class="ico"><span class="glyph"></span></span>
+    <span class="body">
+      <span class="row"><b>RIPDPI</b><span>· now · expanded</span></span>
+      <span class="title">Connected · 00:18:42</span>
+      <span class="text">tlsrec_split_host · relay.example · ↓ 128 KiB · ↑ 12 KiB · RTT 12 ms</span>
+    </span>
+    <span class="stat-pill"><span class="dot"></span>VPN</span>
+  </div>
+  <div class="actions">
+    <button>PAUSE</button>
+    <button>DIAGNOSE</button>
+    <button class="dest">DISCONNECT</button>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Foreground service notification · collapsed + expanded · monochrome status icon · 3 action slots on expanded, none on collapsed · "ongoing" flag prevents user-dismiss.</div>
+</div></body></html>

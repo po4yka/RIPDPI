@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.pt { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.pt .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.pt .hd .t { font: var(--rdp-type-body-emphasis); }
+.pt .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.spec { display: flex; flex-direction: column; gap: 10px; }
+.spec .nm { font: var(--rdp-type-mono-value); font-size: 12px; }
+.spec .sub { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); }
+
+.stage {
+  position: relative;
+  background: var(--rdp-muted);
+  border-radius: 8px;
+  height: 130px;
+  overflow: hidden;
+  border: 0.5px solid var(--rdp-divider);
+}
+.page {
+  position: absolute; inset: 0;
+  padding: 14px;
+  display: flex; flex-direction: column;
+  background: var(--rdp-card);
+  border-right: 0.5px solid var(--rdp-divider);
+}
+.page .title { font: var(--rdp-type-body-emphasis); font-size: 11px; }
+.page .body  { font: var(--rdp-type-mono-small); font-size: 9px; color: var(--rdp-muted-foreground); margin-top: 4px; }
+.page::before { content: ""; display: block; height: 6px; width: 30px; background: var(--rdp-foreground); border-radius: 2px; margin-bottom: 8px; }
+
+/* Forward (push) — new page slides in from right */
+.stage.fwd .page-old { animation: ptOldFwd 1.6s cubic-bezier(0.05,0.7,0.1,1) infinite; }
+.stage.fwd .page-new { animation: ptNewFwd 1.6s cubic-bezier(0.05,0.7,0.1,1) infinite; }
+@keyframes ptOldFwd { 0% { transform: translateX(0); }      50%, 100% { transform: translateX(-25%); opacity: 0.5; } }
+@keyframes ptNewFwd { 0% { transform: translateX(100%); }   50%, 100% { transform: translateX(0); } }
+
+/* Back (pop) — old page slides out right, new slides in from -25% */
+.stage.back .page-old { animation: ptOldBack 1.6s cubic-bezier(0.05,0.7,0.1,1) infinite; }
+.stage.back .page-new { animation: ptNewBack 1.6s cubic-bezier(0.05,0.7,0.1,1) infinite; }
+@keyframes ptOldBack { 0% { transform: translateX(0); opacity: 1; }     50%, 100% { transform: translateX(100%); } }
+@keyframes ptNewBack { 0% { transform: translateX(-25%); opacity: 0.5; } 50%, 100% { transform: translateX(0); opacity: 1; } }
+
+/* Modal — sheet slides up with scrim fade */
+.stage.modal .scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.4); opacity: 0; animation: ptScrim 1.6s cubic-bezier(0.05,0.7,0.1,1) infinite; }
+.stage.modal .sheet {
+  position: absolute; left: 12px; right: 12px; bottom: 0;
+  background: var(--rdp-card); border-radius: 12px 12px 0 0;
+  padding: 12px; height: 65%;
+  border-top: 1px solid var(--rdp-card-border);
+  animation: ptSheet 1.6s cubic-bezier(0.05,0.7,0.1,1) infinite;
+}
+.stage.modal .sheet .handle { width: 32px; height: 4px; background: var(--rdp-outline-variant); border-radius: 2px; margin: 0 auto 8px; }
+.stage.modal .sheet .ttl { font: var(--rdp-type-body-emphasis); font-size: 11px; }
+@keyframes ptScrim { 0% { opacity: 0; } 50%, 100% { opacity: 1; } }
+@keyframes ptSheet { 0% { transform: translateY(100%); } 50%, 100% { transform: translateY(0); } }
+
+.tokens {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px;
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+}
+.tokens b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.tokens span { color: var(--rdp-foreground); }
+.tokens code { font: var(--rdp-type-mono-inline); padding: 1px 5px; background: var(--rdp-accent); border-radius: 3px; }
+</style>
+
+<div class="pt">
+  <div class="hd">
+    <span class="t">Page transitions</span>
+    <span class="sub">Forward · back · modal</span>
+  </div>
+
+  <div class="grid">
+    <div class="spec">
+      <div><span class="nm">Forward (push)</span><div class="sub">child arrives from →</div></div>
+      <div class="stage fwd">
+        <div class="page page-old"><div class="title">Home</div><div class="body">presets · profile</div></div>
+        <div class="page page-new"><div class="title">Strategy</div><div class="body">tlsrec_split_host</div></div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <div><span class="nm">Back (pop)</span><div class="sub">parent slides back from ←</div></div>
+      <div class="stage back">
+        <div class="page page-old" style="z-index: 2"><div class="title">Strategy</div><div class="body">tlsrec_split_host</div></div>
+        <div class="page page-new"><div class="title">Home</div><div class="body">presets · profile</div></div>
+      </div>
+    </div>
+
+    <div class="spec">
+      <div><span class="nm">Modal sheet</span><div class="sub">scrim fades, sheet slides up</div></div>
+      <div class="stage modal">
+        <div class="page"><div class="title">Home</div><div class="body">presets · profile</div></div>
+        <div class="scrim"></div>
+        <div class="sheet"><div class="handle"></div><div class="ttl">Confirm disconnect</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tokens">
+    <b>Forward / back</b><span>X-axis · child translates 100% → 0% · parent parallax-translates −25% (opacity 0.5)</span>
+    <b>Modal sheet</b><span>Y-axis · sheet 100% → 0% · scrim 0 → 0.4 · same curve</span>
+    <b>Curve</b><span><code>320 ms emphasized</code> for all three · matches OS-level navigation feel</span>
+    <b>Gesture</b><span>back-swipe from left edge cancels at &gt; 50% of width &amp; velocity &gt; 200 px/s</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Page transitions · three navigation primitives with their motion specs · all use the 320 ms emphasized curve · gesture-driven back interrupts the timeline.</div>
+</div></body></html>

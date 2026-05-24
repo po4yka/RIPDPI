@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:360px}</style></head>
+<body><div class="card">
+<style>
+.lr { display: grid; grid-template-columns: 110px 64px 1fr; gap: 12px; align-items: flex-start; padding: 8px 0; }
+.lr .ts { font: var(--rdp-type-mono-log); color: var(--rdp-muted-foreground); }
+.lr .badge { padding: 2px 8px; border-radius: 9999px; font: var(--rdp-type-small-label); font-size: 10px; letter-spacing: 0.6px; text-align: center; }
+.lr .badge.dns { background: var(--rdp-info-container); color: var(--rdp-info-container-foreground); }
+.lr .badge.conn { background: var(--rdp-muted); color: var(--rdp-foreground); }
+.lr .badge.warn { background: var(--rdp-warning-container); color: var(--rdp-warning-container-foreground); }
+.lr .badge.err { background: var(--rdp-destructive-container); color: var(--rdp-destructive-container-foreground); }
+.lr .msg { font: var(--rdp-type-mono-inline); color: var(--rdp-foreground); }
+.lr .meta { display: flex; gap: 6px; margin-top: 6px; margin-left: 196px; }
+.lr .chip { padding: 2px 8px; border-radius: 9999px; background: var(--rdp-input-background); color: var(--rdp-muted-foreground); font: var(--rdp-type-small-label); font-size: 10px; white-space: nowrap; }
+</style>
+<div class="col">
+  <div class="lr"><span class="ts">12:18:42.013</span><span class="badge conn">CONN</span><span class="msg">strategy.applied tlsrec_split_host</span></div>
+  <div class="rdp-hairline"></div>
+  <div class="lr"><span class="ts">12:18:42.087</span><span class="badge dns">DNS</span><span class="msg">resolve cloudflare-dns.com → 1.1.1.1</span></div>
+  <div class="rdp-hairline"></div>
+  <div class="lr"><span class="ts">12:18:42.804</span><span class="badge warn">WARN</span><span class="msg">probe.timeout host=cloudflare-dns.com</span></div>
+  <div style="display: flex; gap: 6px; margin-left: 196px"><span class="chip">RTT 1240 ms</span><span class="chip">ATTEMPT 2/3</span></div>
+  <div class="rdp-hairline"></div>
+  <div class="lr"><span class="ts">12:18:43.118</span><span class="badge err">ERR</span><span class="msg">quic.blocked reason=fingerprint host=youtube.com</span></div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 8px">LogRow · 4 tones (DNS · CONN · WARN · ERR) · timestamp in monoLog, badge in pill, message in monoInline · optional metadata chip row.</div>
+</div></body></html>

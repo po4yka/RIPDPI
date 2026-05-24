@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:560px}</style></head>
+<body><div class="card">
+<style>
+.tabs { display: flex; gap: 4px; padding-bottom: 10px; margin-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); }
+.tabs span { padding: 6px 12px; font: var(--rdp-type-mono-small); cursor: pointer; color: var(--rdp-muted-foreground); }
+.tabs span.sel { color: var(--rdp-foreground); border-bottom: 2px solid var(--rdp-foreground); margin-bottom: -10px; padding-bottom: 10px; }
+.preset { padding: 12px 0; display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: flex-start; }
+.preset + .preset { border-top: 0.5px solid var(--rdp-divider); }
+.preset .body .name { font: var(--rdp-type-body-emphasis); }
+.preset .body .desc { font: var(--rdp-type-body); color: var(--rdp-muted-foreground); font-size: 13px; margin: 4px 0 6px; line-height: 1.5; }
+.preset .body .meta { display: flex; gap: 12px; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.preset .body .meta b { color: var(--rdp-foreground); font-weight: 500; }
+.preset .body .meta .success { color: var(--rdp-success); }
+.preset .actions { display: flex; flex-direction: column; gap: 6px; }
+.preset .btn { padding: 6px 12px; border-radius: 9999px; border: 1px solid var(--rdp-border); background: transparent; font: var(--rdp-type-small-label); cursor: pointer; white-space: nowrap; }
+.preset .btn.primary { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+</style>
+<div class="tabs">
+  <span class="sel">Built-in</span>
+  <span>Community</span>
+  <span>My presets</span>
+</div>
+<div class="preset">
+  <div class="body">
+    <div class="name">tlsrec_split_host</div>
+    <div class="desc">TLS ClientHello split after SNI. Works against simple per-domain DPI without an inspection box.</div>
+    <div class="meta"><span class="success">▲ 87% success</span><span>last used <b>9:30</b></span><span>used <b>142×</b></span></div>
+  </div>
+  <div class="actions"><button class="btn primary">Apply</button><button class="btn">Edit</button></div>
+</div>
+<div class="preset">
+  <div class="body">
+    <div class="name">desync_fake</div>
+    <div class="desc">Sends a fake first packet with bad TTL before the real ClientHello. Bypasses stateful inspectors.</div>
+    <div class="meta"><span class="success">▲ 72% success</span><span>last used <b>yesterday</b></span><span>used <b>38×</b></span></div>
+  </div>
+  <div class="actions"><button class="btn">Apply</button><button class="btn">Edit</button></div>
+</div>
+<div class="preset">
+  <div class="body">
+    <div class="name">fragment_drop</div>
+    <div class="desc">Splits the ClientHello across two TCP segments and drops one until retransmission. Slower but durable.</div>
+    <div class="meta"><span style="color: var(--rdp-warning)">▲ 41% success</span><span>last used <b>2d ago</b></span><span>used <b>9×</b></span></div>
+  </div>
+  <div class="actions"><button class="btn">Apply</button><button class="btn">Edit</button></div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Presets gallery · 3 tabs · success-rate badge · last-used + frequency · primary action is Apply, secondary is Edit.</div>
+</div></body></html>

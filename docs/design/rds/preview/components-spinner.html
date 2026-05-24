@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:260px}</style></head>
+<body><div class="card">
+<style>
+.spin { display: inline-block; width: 20px; height: 20px; border-radius: 9999px; border: 2px solid var(--rdp-outline-variant); border-top-color: var(--rdp-foreground); animation: rdpSpin 0.8s linear infinite; }
+@keyframes rdpSpin { to { transform: rotate(360deg); } }
+.row { display: flex; align-items: center; gap: 16px; padding: 14px 0; }
+.row .lbl { flex: 1; }
+.row .lbl .t { font: var(--rdp-type-body-emphasis); }
+.row .lbl .s { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.row .big { width: 28px; height: 28px; border-width: 2.5px; }
+.row .sm  { width: 14px; height: 14px; border-width: 1.5px; }
+</style>
+<div class="col" style="gap: 2px">
+  <div class="row">
+    <span class="spin sm"></span>
+    <span class="lbl"><div class="t">Inline (14dp)</div><div class="s">Inside button labels, chips, status-pill prefixes</div></span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="row">
+    <span class="spin"></span>
+    <span class="lbl"><div class="t">Default (20dp)</div><div class="s">Inline list-row spinners, snackbar leading slot</div></span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="row">
+    <span class="spin big"></span>
+    <span class="lbl"><div class="t">Large (28dp)</div><div class="s">Centered loading state in a card or dialog</div></span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">CircularProgressIndicator from M3 · outline-variant track + foreground sweep · 0.8s linear · respects reducedMotion via RipDpiMotion.</div>
+</div></body></html>

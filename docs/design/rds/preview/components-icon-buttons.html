@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>html, body { min-height: 180px; }</style>
+</head>
+<body><div class="card">
+
+<style>
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-height:48px; padding:10px 20px; border-radius:16px; border:1px solid transparent;
+  font: var(--rdp-type-button); cursor:pointer; user-select:none;
+  transition: background-color var(--rdp-duration-state) var(--rdp-ease-standard),
+              color var(--rdp-duration-state) var(--rdp-ease-standard),
+              border-color var(--rdp-duration-quick) var(--rdp-ease-standard),
+              transform var(--rdp-duration-quick) var(--rdp-ease-standard);
+}
+.btn:active { transform: scale(0.98); }
+.btn.primary { background: var(--rdp-foreground); color: var(--rdp-background); }
+.btn.secondary { background: var(--rdp-muted); color: var(--rdp-foreground); }
+.btn.outline { background: transparent; color: var(--rdp-foreground); border-color: var(--rdp-border); }
+.btn.ghost { background: transparent; color: var(--rdp-foreground); }
+.btn.destructive { background: var(--rdp-destructive); color: var(--rdp-destructive-foreground); }
+.btn.disabled { opacity: 0.38; pointer-events: none; }
+.btn .lbl-row { display:inline-flex; align-items:center; gap:8px }
+
+.iconbtn { width:48px; height:48px; border-radius:16px; border:1px solid transparent;
+  display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+  transition: background-color var(--rdp-duration-state) var(--rdp-ease-standard); color: var(--rdp-foreground); background: transparent;
+}
+.iconbtn.outline { border-color: var(--rdp-border); }
+.iconbtn.tonal { background: var(--rdp-muted); }
+.iconbtn.solid { background: var(--rdp-foreground); color: var(--rdp-background); }
+</style>
+<div class="col" style="gap:12px">
+  <div class="row" style="gap:12px; align-items:center">
+    <span class="iconbtn"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14,12.94c0.04,-0.3 0.06,-0.61 0.06,-0.94c0,-0.32 -0.02,-0.64 -0.07,-0.94l2.03,-1.58c0.18,-0.14 0.23,-0.41 0.12,-0.61l-1.92,-3.32c-0.12,-0.22 -0.37,-0.29 -0.59,-0.22l-2.39,0.96c-0.5,-0.38 -1.03,-0.7 -1.62,-0.94L14.4,2.81c-0.04,-0.24 -0.24,-0.41 -0.48,-0.41h-3.84c-0.24,0 -0.43,0.17 -0.47,0.41L9.25,5.35C8.66,5.59 8.12,5.92 7.63,6.29L5.24,5.33c-0.22,-0.08 -0.47,0 -0.59,0.22L2.74,8.87C2.62,9.08 2.66,9.34 2.86,9.48l2.03,1.58C4.84,11.36 4.8,11.69 4.8,12s0.02,0.64 0.07,0.94l-2.03,1.58c-0.18,0.14 -0.23,0.41 -0.12,0.61l1.92,3.32c0.12,0.22 0.37,0.29 0.59,0.22l2.39,-0.96c0.5,0.38 1.03,0.7 1.62,0.94l0.36,2.54c0.05,0.24 0.24,0.41 0.48,0.41h3.84c0.24,0 0.44,-0.17 0.47,-0.41l0.36,-2.54c0.59,-0.24 1.13,-0.56 1.62,-0.94l2.39,0.96c0.22,0.08 0.47,0 0.59,-0.22l1.92,-3.32c0.12,-0.22 0.07,-0.47 -0.12,-0.61L19.14,12.94zM12,15.6c-1.98,0 -3.6,-1.62 -3.6,-3.6s1.62,-3.6 3.6,-3.6s3.6,1.62 3.6,3.6S13.98,15.6 12,15.6z"/></svg></span>
+    <span class="iconbtn outline"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16,8v8H8V8h8m2,-2H6v12h12V6z"/></svg></span>
+    <span class="iconbtn tonal"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M21 12h-3M6 12H3M12 3v3M12 18v3"/></svg></span>
+    <span class="iconbtn solid"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg></span>
+    <span class="iconbtn outline" style="opacity:0.38"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg></span>
+  </div>
+  <div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground)">RipDpiIconButton — 48×48, 16dp corner, variants: Ghost · Outline · Tonal · Solid · Disabled.</div>
+</div>
+
+</div></body></html>

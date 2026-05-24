@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>html, body { min-height: 280px; }</style>
+</head>
+<body><div class="card">
+
+<style>
+.kard { background: var(--rdp-card); color: var(--rdp-card-foreground); border:1px solid var(--rdp-card-border); border-radius:16px; padding: 16px; display:flex; flex-direction:column; gap:8px; }
+.kard.tonal { background: var(--rdp-muted); border-color: transparent; }
+.kard.elevated { background: var(--rdp-card); border-color: var(--rdp-border); }
+.kard.status  { background: var(--rdp-warning-container); color: var(--rdp-warning-container-foreground); border:1px solid var(--rdp-warning); }
+.tag { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground) }
+</style>
+<div class="row" style="gap:12px; align-items: stretch">
+  <div class="kard" style="flex:1">
+    <div class="tag">Outlined</div>
+    <div class="rdp-body-emphasis-bold">VPN with Remote Server</div>
+    <div class="rdp-caption">Inactive</div>
+  </div>
+  <div class="kard tonal" style="flex:1">
+    <div class="tag">Tonal · active</div>
+    <div class="rdp-body-emphasis-bold">Local DPI Bypass</div>
+    <div class="rdp-caption">Connected 00:18:42</div>
+  </div>
+</div>
+<div class="row" style="gap:12px; margin-top:12px; align-items: stretch">
+  <div class="kard elevated" style="flex:1">
+    <div class="tag">Elevated</div>
+    <div class="rdp-body-emphasis-bold">Diagnostic Scan</div>
+    <div class="rdp-caption">Stage 2 of 4 — Testing TCP</div>
+  </div>
+  <div class="kard status" style="flex:1">
+    <div class="tag" style="color: inherit; opacity:0.7">Status · warning</div>
+    <div class="rdp-body-emphasis-bold">Validation warning</div>
+    <div class="rdp-caption" style="color: inherit; opacity:0.85">Double-check current values</div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top:10px">RipDpiCard — Outlined · Tonal · Elevated · Status. 16dp corner. No drop shadow — depth via border + surface tint.</div>
+
+</div></body></html>

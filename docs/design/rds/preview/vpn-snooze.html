@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.host { padding: 20px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.head { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+.head .ico { width: 40px; height: 40px; border-radius: 9999px; background: var(--rdp-warning-container); color: var(--rdp-warning); display: grid; place-items: center; }
+.head h2 { font: var(--rdp-type-sheet-title); margin: 0; }
+.head .sub { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 1px; }
+.choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.chip { padding: 10px 8px; border: 1px solid var(--rdp-border); border-radius: 12px; text-align: center; cursor: pointer; }
+.chip.sel { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.chip .n { font: 500 18px/1 var(--rdp-font-mono); }
+.chip .u { font: var(--rdp-type-mono-small); opacity: 0.7; margin-top: 4px; }
+.custom { display: flex; gap: 8px; align-items: center; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--rdp-border); border-radius: 12px; }
+.custom .l { font: var(--rdp-type-small-label); color: var(--rdp-muted-foreground); }
+.custom input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font: var(--rdp-type-mono-value); }
+.custom .u { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.note { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 12px; }
+.note b { color: var(--rdp-foreground); font-weight: 500; }
+</style>
+<div class="host">
+  <div class="head">
+    <span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></span>
+    <span><h2>Pause for…</h2><div class="sub">Disconnects temporarily, then reconnects automatically</div></span>
+  </div>
+  <div class="choices">
+    <div class="chip"><div class="n">5</div><div class="u">min</div></div>
+    <div class="chip sel"><div class="n">15</div><div class="u">min</div></div>
+    <div class="chip"><div class="n">1</div><div class="u">hr</div></div>
+    <div class="chip"><div class="n">∞</div><div class="u">until I tap</div></div>
+  </div>
+  <div class="custom">
+    <span class="l">CUSTOM</span>
+    <input value="30" />
+    <span class="u">min</span>
+  </div>
+  <div class="note">Resumes <b>14:55</b> · 14 m 22 s left if started now.</div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Snooze sheet · 4 fixed durations + custom · resumes timestamp shown live · used from foreground-notif PAUSE action.</div>
+</div></body></html>

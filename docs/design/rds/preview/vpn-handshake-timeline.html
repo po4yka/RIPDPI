@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:460px}</style></head>
+<body><div class="card">
+<style>
+.hs { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.hs .hd { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 14px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 14px; }
+.hs .hd .t { font: var(--rdp-type-body-emphasis); }
+.hs .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 4px; }
+.hs .hd .total { text-align: right; }
+.hs .hd .total .v { font: 500 24px/1 var(--rdp-font-mono); font-variant-numeric: tabular-nums; }
+.hs .hd .total .v .unit { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-left: 4px; }
+.hs .hd .total .k { font: var(--rdp-type-mono-small); font-size: 9.5px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--rdp-muted-foreground); margin-top: 2px; }
+
+/* ─────────────────────────────────────────────────────────
+   Shared track grid: label | track | duration
+   Same on the axis row, every data row, and the NOW overlay
+   so all three columns line up to the pixel.
+   ───────────────────────────────────────────────────────── */
+.track-grid {
+  display: grid;
+  grid-template-columns: 130px 1fr 56px;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Axis lives in the centre column of its own track-grid row */
+.axis-row { padding: 0 0 8px; }
+.axis {
+  position: relative; height: 18px;
+  grid-column: 2;        /* placed in the 1fr track column */
+}
+.axis .tick {
+  position: absolute; transform: translateX(-50%);
+  font: 9.5px var(--rdp-font-mono); color: var(--rdp-muted-foreground);
+  font-variant-numeric: tabular-nums;
+  top: 0;
+}
+.axis .tick::before {
+  content: ""; position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%);
+  width: 1px; height: 4px; background: var(--rdp-outline-variant);
+}
+
+/* Data rows */
+.row { padding: 9px 0; }
+.row + .row { border-top: 0.5px solid var(--rdp-divider); }
+.row .lbl { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.row .lbl .nm { font: var(--rdp-type-mono-value); font-size: 12px; }
+.row .lbl .sub { font: 9.5px var(--rdp-font-mono); color: var(--rdp-muted-foreground); letter-spacing: 0.3px; }
+
+.bar-track { position: relative; height: 14px; background: var(--rdp-muted); border-radius: 3px; }
+.bar { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.bar.ok    { background: var(--rdp-success); }
+.bar.info  { background: var(--rdp-info); }
+.bar.warn  { background: var(--rdp-warning); }
+.bar.bad   { background: var(--rdp-destructive); }
+.bar.queued { background: repeating-linear-gradient(135deg, var(--rdp-outline-variant) 0 4px, transparent 4px 8px); }
+
+.bar .tip {
+  position: absolute; top: 50%; left: 100%; transform: translate(2px, -50%);
+  font: 9.5px var(--rdp-font-mono); color: var(--rdp-foreground); font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.row .dur { text-align: right; font: var(--rdp-type-mono-value); font-size: 12px; color: var(--rdp-foreground); font-variant-numeric: tabular-nums; }
+.row .dur.warn { color: var(--rdp-warning); }
+.row .dur.bad  { color: var(--rdp-destructive); }
+
+/* ─────────────────────────────────────────────────────────
+   NOW line — spans the rows block top-to-bottom and is
+   placed in the SAME coordinate space as the bars by
+   sharing the track-grid layout. The line itself lives in
+   the centre column and is positioned by left % of THAT
+   column (not the outer container).
+   ───────────────────────────────────────────────────────── */
+.rows-block { position: relative; }
+.now-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.now-overlay .now-track {
+  grid-column: 2;
+  position: relative;
+  height: 100%;
+}
+.now-overlay .now-line {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 1px;
+  background: var(--rdp-foreground);
+}
+.now-overlay .now-line::before {
+  content: "NOW";
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  font: 8.5px var(--rdp-font-mono);
+  letter-spacing: 0.5px;
+  background: var(--rdp-foreground);
+  color: var(--rdp-background);
+  padding: 1px 4px;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.footer { margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider); display: flex; justify-content: space-between; align-items: center; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.footer b { color: var(--rdp-foreground); font-weight: 500; }
+</style>
+
+<div class="hs">
+  <div class="hd">
+    <div>
+      <div class="t">Handshake timeline</div>
+      <div class="sub">cloudflare-dns.com · UDP/443 · attempt 1 of 3</div>
+    </div>
+    <div class="total">
+      <div class="v">1.42<span class="unit">s</span></div>
+      <div class="k">First packet ready</div>
+    </div>
+  </div>
+
+  <!-- 0 ms ── 1500 ms; bars and ticks share the same 1fr column. -->
+
+  <!-- Axis row — same grid as data rows, ticks placed inside the 1fr column. -->
+  <div class="track-grid axis-row" style="margin-top: 8px;">
+    <span></span>
+    <div class="axis">
+      <span class="tick" style="left:0%">0 ms</span>
+      <span class="tick" style="left:20%">300</span>
+      <span class="tick" style="left:40%">600</span>
+      <span class="tick" style="left:60%">900</span>
+      <span class="tick" style="left:80%">1200</span>
+      <span class="tick" style="left:100%">1500</span>
+    </div>
+    <span></span>
+  </div>
+
+  <div class="rows-block">
+    <div class="track-grid row">
+      <span class="lbl"><span class="nm">DNS</span><span class="sub">cloudflare resolver</span></span>
+      <span class="bar-track"><span class="bar ok" style="left: 0%; width: 1.6%"><span class="tip">24 ms</span></span></span>
+      <span class="dur">24 ms</span>
+    </div>
+    <div class="track-grid row">
+      <span class="lbl"><span class="nm">TCP / QUIC init</span><span class="sub">UDP 443 · I_INITIAL</span></span>
+      <span class="bar-track"><span class="bar info" style="left: 1.6%; width: 3%"><span class="tip">45 ms</span></span></span>
+      <span class="dur">45 ms</span>
+    </div>
+    <div class="track-grid row">
+      <span class="lbl"><span class="nm">TLS ClientHello</span><span class="sub">ECH outer · grease</span></span>
+      <span class="bar-track"><span class="bar info" style="left: 4.6%; width: 12.8%"><span class="tip">192 ms</span></span></span>
+      <span class="dur">192 ms</span>
+    </div>
+    <div class="track-grid row">
+      <span class="lbl"><span class="nm">Key exchange</span><span class="sub">X25519 · Noise IK</span></span>
+      <span class="bar-track"><span class="bar info" style="left: 17.4%; width: 7.6%"><span class="tip">114 ms</span></span></span>
+      <span class="dur">114 ms</span>
+    </div>
+    <div class="track-grid row">
+      <span class="lbl"><span class="nm">Auth</span><span class="sub">PSK + device cert</span></span>
+      <span class="bar-track"><span class="bar info" style="left: 25%; width: 5.4%"><span class="tip">81 ms</span></span></span>
+      <span class="dur">81 ms</span>
+    </div>
+    <div class="track-grid row">
+      <span class="lbl"><span class="nm">MTU probe</span><span class="sub">576 → 1380 (DF set)</span></span>
+      <span class="bar-track"><span class="bar warn" style="left: 30.4%; width: 28.2%"><span class="tip">423 ms · 4 retries</span></span></span>
+      <span class="dur warn">423 ms</span>
+    </div>
+    <div class="track-grid row">
+      <span class="lbl"><span class="nm">Route install</span><span class="sub">VpnService.Builder</span></span>
+      <span class="bar-track"><span class="bar ok" style="left: 58.6%; width: 4.6%"><span class="tip">69 ms</span></span></span>
+      <span class="dur">69 ms</span>
+    </div>
+    <div class="track-grid row">
+      <span class="lbl"><span class="nm">First packet</span><span class="sub">echo · 1 RTT</span></span>
+      <span class="bar-track"><span class="bar ok" style="left: 63.2%; width: 3.6%"><span class="tip">54 ms</span></span></span>
+      <span class="dur">54 ms</span>
+    </div>
+    <div class="track-grid row" style="opacity: 0.6">
+      <span class="lbl"><span class="nm">Keepalive</span><span class="sub">queued · t+25 s</span></span>
+      <span class="bar-track"><span class="bar queued" style="left: 66.8%; width: 33.2%"></span></span>
+      <span class="dur">—</span>
+    </div>
+
+    <!-- NOW overlay: shares the SAME track-grid columns, so the
+         line lives in the 1fr column and its left % matches the
+         bars' left % exactly. -->
+    <div class="track-grid now-overlay">
+      <span></span>
+      <div class="now-track"><span class="now-line" style="left: 66.8%"></span></div>
+      <span></span>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>Slowest stage <b>MTU probe</b> · &gt; budget by 100 ms</span>
+    <span>Next attempt budget <b>2.0 s</b></span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Handshake timeline · axis ticks, bars, and NOW line now share the SAME track-grid, so 66.8 % on the line lands on 66.8 % of the bar column — exactly where the first-packet edge sits and the keepalive queue begins.</div>
+</div></body></html>

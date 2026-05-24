@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:480px}</style></head>
+<body><div class="card">
+<style>
+.filter { display: flex; gap: 8px; margin-bottom: 12px; }
+.filter .pill { padding: 6px 12px; border-radius: 9999px; border: 1px solid var(--rdp-border); font: var(--rdp-type-mono-small); cursor: pointer; }
+.filter .pill.sel { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.list { display: flex; flex-direction: column; }
+.relay { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 12px; padding: 12px 0; align-items: center; }
+.relay + .relay { border-top: 0.5px solid var(--rdp-divider); }
+.relay .flag { width: 28px; height: 20px; background: var(--rdp-muted); border-radius: 3px; display: grid; place-items: center; font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); }
+.relay .body .name { font: var(--rdp-type-body-emphasis); }
+.relay .body .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 2px; }
+.relay .latency { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.relay .latency .ms { font: var(--rdp-type-mono-value); color: var(--rdp-foreground); font-variant-numeric: tabular-nums; }
+.relay .latency .bars { display: flex; gap: 1.5px; align-items: flex-end; height: 12px; }
+.relay .latency .bars i { width: 3px; background: var(--rdp-foreground); border-radius: 1px; }
+.relay .latency.med .bars i { background: var(--rdp-warning); }
+.relay .latency.bad .bars i { background: var(--rdp-destructive); }
+.relay .load { font: var(--rdp-type-mono-small); width: 56px; text-align: right; }
+.relay .load.bad { color: var(--rdp-warning); }
+</style>
+<div class="filter">
+  <span class="pill sel">All</span>
+  <span class="pill">EU</span>
+  <span class="pill">US</span>
+  <span class="pill">Asia</span>
+  <span class="pill">&lt; 50 ms</span>
+</div>
+<div class="list">
+  <div class="relay">
+    <span class="flag">DE</span>
+    <span class="body"><div class="name">relay-fra-1.example</div><div class="sub">Frankfurt · AS13335 · AmneziaWG</div></span>
+    <span class="latency"><div class="ms">12 ms</div><div class="bars"><i style="height:4px"></i><i style="height:7px"></i><i style="height:10px"></i><i style="height:12px"></i></div></span>
+    <span class="load">38%</span>
+  </div>
+  <div class="relay">
+    <span class="flag">NL</span>
+    <span class="body"><div class="name">relay-ams-1.example</div><div class="sub">Amsterdam · AS9009 · WireGuard</div></span>
+    <span class="latency"><div class="ms">28 ms</div><div class="bars"><i style="height:4px"></i><i style="height:7px"></i><i style="height:10px"></i><i style="height:8px;opacity:0.3"></i></div></span>
+    <span class="load">52%</span>
+  </div>
+  <div class="relay">
+    <span class="flag">US</span>
+    <span class="body"><div class="name">relay-nyc-1.example</div><div class="sub">New York · AS16509 · AmneziaWG</div></span>
+    <span class="latency med"><div class="ms">88 ms</div><div class="bars"><i style="height:4px"></i><i style="height:7px"></i><i style="height:6px;opacity:0.3"></i><i style="height:6px;opacity:0.3"></i></div></span>
+    <span class="load">61%</span>
+  </div>
+  <div class="relay">
+    <span class="flag">SG</span>
+    <span class="body"><div class="name">relay-sgp-1.example</div><div class="sub">Singapore · AS16509 · AmneziaWG</div></span>
+    <span class="latency bad"><div class="ms">204 ms</div><div class="bars"><i style="height:4px"></i><i style="height:4px;opacity:0.3"></i><i style="height:4px;opacity:0.3"></i><i style="height:4px;opacity:0.3"></i></div></span>
+    <span class="load bad">94%</span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Relay picker · flag · name + ASN + transport · 4-bar latency indicator with semantic tone · load %.</div>
+</div></body></html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.section { padding: 12px 0; }
+.section .h { font: var(--rdp-type-section-title); letter-spacing: 0.72px; text-transform: uppercase; color: var(--rdp-muted-foreground); margin-bottom: 10px; }
+.theme-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tcard { border: 1px solid var(--rdp-border); border-radius: 16px; padding: 12px; cursor: pointer; }
+.tcard.sel { border: 2px solid var(--rdp-foreground); padding: 11px; }
+.tcard .preview { height: 56px; border-radius: 8px; display: flex; padding: 6px; gap: 4px; margin-bottom: 8px; }
+.tcard.light .preview { background: #FAFAFA; }
+.tcard.dark  .preview { background: #121212; }
+.tcard.system .preview { background: linear-gradient(135deg, #FAFAFA 0%, #FAFAFA 50%, #121212 50%, #121212 100%); }
+.tcard .preview .a { width: 8px; height: 100%; border-radius: 2px; background: currentColor; opacity: 0.4; }
+.tcard.light { color: #1A1A1A; }
+.tcard.dark { color: #E8E8E8; }
+.tcard .label { font: var(--rdp-type-body-emphasis); color: var(--rdp-foreground); }
+.tcard .sub { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); }
+.contrast { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cc { border: 1px solid var(--rdp-border); border-radius: 12px; padding: 10px; text-align: center; cursor: pointer; }
+.cc.sel { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.cc .lbl { font: var(--rdp-type-body-emphasis); }
+.cc .sub { font: var(--rdp-type-mono-small); opacity: 0.7; margin-top: 2px; }
+</style>
+<div class="section">
+  <div class="h">Theme</div>
+  <div class="theme-row">
+    <div class="tcard light"><div class="preview"><span class="a"></span><span class="a"></span><span class="a"></span></div><div class="label">Light</div><div class="sub">#FAFAFA</div></div>
+    <div class="tcard dark sel"><div class="preview"><span class="a"></span><span class="a"></span><span class="a"></span></div><div class="label">Dark</div><div class="sub">#121212</div></div>
+    <div class="tcard system"><div class="preview"></div><div class="label">System</div><div class="sub">Follow OS</div></div>
+  </div>
+</div>
+<div class="section">
+  <div class="h">Contrast</div>
+  <div class="contrast">
+    <div class="cc"><div class="lbl">Standard</div><div class="sub">Default ratios</div></div>
+    <div class="cc sel"><div class="lbl">Medium</div><div class="sub">+20% blend</div></div>
+    <div class="cc"><div class="lbl">High</div><div class="sub">+45% blend</div></div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Customization · RipDpiContrastLevel picker (Standard / Medium / High) · theme picker (Light / Dark / System) · no dynamic color · enforced by RipDpiColorContrastTest.</div>
+</div></body></html>

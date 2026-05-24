@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:360px}</style></head>
+<body><div class="card">
+<style>
+.st { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.st .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.st .hd .t { font: var(--rdp-type-body-emphasis); }
+.st .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.lbl { font: var(--rdp-type-mono-small); font-size: 10px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--rdp-muted-foreground); margin: 14px 0 8px; }
+
+.steps { display: grid; grid-template-columns: repeat(5, 1fr); align-items: start; gap: 0; }
+.step { display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
+.step .bullet {
+  width: 24px; height: 24px; border-radius: 9999px;
+  background: var(--rdp-card); border: 1px solid var(--rdp-border);
+  display: grid; place-items: center;
+  font: 500 11px/1 var(--rdp-font-mono);
+  color: var(--rdp-muted-foreground);
+  z-index: 2;
+  transition: all 220ms cubic-bezier(0.2,0,0,1);
+}
+.step.done .bullet { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.step.done .bullet svg { width: 12px; height: 12px; }
+.step.now  .bullet { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); transform: scale(1.15); }
+.step.now  .bullet::after { content: ""; position: absolute; inset: -3px; border: 1.5px solid var(--rdp-foreground); border-radius: 9999px; }
+.step.failed .bullet { background: var(--rdp-destructive); color: var(--rdp-destructive-foreground); border-color: var(--rdp-destructive); }
+.step .name { font: var(--rdp-type-mono-small); font-size: 10.5px; text-align: center; }
+.step.done .name { color: var(--rdp-foreground); }
+.step.now  .name { color: var(--rdp-foreground); font-weight: 500; }
+.step:not(.done):not(.now) .name { color: var(--rdp-muted-foreground); }
+
+/* connectors */
+.step:not(:last-child)::after {
+  content: ""; position: absolute; top: 12px; left: calc(50% + 14px); right: calc(-50% + 14px); height: 2px;
+  background: var(--rdp-outline-variant);
+  z-index: 1;
+}
+.step.done:not(:last-child)::after { background: var(--rdp-foreground); }
+
+/* Vertical */
+.vsteps { display: flex; flex-direction: column; gap: 0; position: relative; padding-left: 6px; }
+.vstep { display: grid; grid-template-columns: 24px 1fr; column-gap: 14px; padding: 10px 0; position: relative; align-items: start; }
+.vstep .bullet {
+  width: 24px; height: 24px; border-radius: 9999px;
+  background: var(--rdp-card); border: 1px solid var(--rdp-border);
+  display: grid; place-items: center;
+  font: 500 11px/1 var(--rdp-font-mono);
+  color: var(--rdp-muted-foreground);
+  z-index: 2;
+  justify-self: center;
+  align-self: start;
+  margin-top: 1px;
+}
+.vstep.done .bullet { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.vstep.now  .bullet { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.vstep.failed .bullet { background: var(--rdp-destructive); color: var(--rdp-destructive-foreground); border-color: var(--rdp-destructive); }
+/* Connector line — bullet is 24 px wide in a 24 px column with justify-self:center,
+   so bullet x = 0–24 inside the vstep and its centre is at x = 12.  A 2 px-wide line
+   centred on x = 12 lives at left: 11 px. */
+.vstep:not(:last-child)::after {
+  content: ""; position: absolute; left: 11px; top: 36px; bottom: -2px; width: 2px;
+  background: var(--rdp-outline-variant);
+}
+.vstep.done:not(:last-child)::after { background: var(--rdp-foreground); }
+.vstep .body { display: flex; flex-direction: column; gap: 2px; padding: 3px 0; }
+.vstep .body .ttl { font: var(--rdp-type-mono-value); font-size: 12px; }
+.vstep .body .desc { font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); }
+.vstep.failed .body .ttl { color: var(--rdp-destructive); }
+</style>
+
+<div class="st">
+  <div class="hd">
+    <span class="t">Stepper</span>
+    <span class="sub">Wizard progress · horizontal &amp; vertical</span>
+  </div>
+
+  <div class="lbl">Horizontal · probe wizard</div>
+  <div class="steps">
+    <div class="step done">
+      <span class="bullet"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+      <span class="name">Pick host</span>
+    </div>
+    <div class="step done">
+      <span class="bullet"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+      <span class="name">Detect</span>
+    </div>
+    <div class="step now">
+      <span class="bullet">3</span>
+      <span class="name">Probe</span>
+    </div>
+    <div class="step">
+      <span class="bullet">4</span>
+      <span class="name">Review</span>
+    </div>
+    <div class="step">
+      <span class="bullet">5</span>
+      <span class="name">Apply</span>
+    </div>
+  </div>
+
+  <div class="lbl">Vertical · handshake (with failure)</div>
+  <div class="vsteps">
+    <div class="vstep done">
+      <span class="bullet"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+      <div class="body"><span class="ttl">DNS resolution</span><span class="desc">cloudflare-dns.com · 24 ms</span></div>
+    </div>
+    <div class="vstep done">
+      <span class="bullet"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+      <div class="body"><span class="ttl">TLS ClientHello</span><span class="desc">ECH outer · 192 ms</span></div>
+    </div>
+    <div class="vstep now">
+      <span class="bullet">3</span>
+      <div class="body"><span class="ttl">MTU probe</span><span class="desc">binary search · attempt 2 of 5</span></div>
+    </div>
+    <div class="vstep failed">
+      <span class="bullet">!</span>
+      <div class="body"><span class="ttl">First packet</span><span class="desc">timeout · 8 s budget exceeded</span></div>
+    </div>
+    <div class="vstep">
+      <span class="bullet">5</span>
+      <div class="body"><span class="ttl">Establish</span><span class="desc">awaiting · blocked by step 4</span></div>
+    </div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Stepper · horizontal for screen-wide wizards · vertical for timeline-style progress · failure state replaces bullet number with ! glyph and tints title destructive.</div>
+</div></body></html>

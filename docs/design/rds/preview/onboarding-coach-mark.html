@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:440px}</style></head>
+<body><div class="card">
+<style>
+.cm { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.cm .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.cm .hd .t { font: var(--rdp-type-body-emphasis); }
+.cm .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+/* Fixed 360 px tall stage; the actuator-spot, scrim cut-out, ring, and
+   bubble arrow all align to a single named coordinate: --spot-y = 100 px
+   from the top, x = 50%.  This was the misalignment before — every layer
+   was using a different positioning system. */
+.stage {
+  --spot-x: 50%;
+  --spot-y: 100px;
+  --spot-r: 56px;   /* hole radius */
+  --ring-r: 64px;   /* outer ring radius */
+  position: relative;
+  background: var(--rdp-muted);
+  border-radius: 12px;
+  height: 360px;
+  overflow: hidden;
+}
+
+.app-bg {
+  position: absolute; inset: 0;
+  padding: 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--rdp-card);
+}
+.app-bg .top {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0;
+}
+.app-bg .top .ttl { font: var(--rdp-type-body-emphasis); font-size: 13px; }
+.app-bg .top .ic-btn { width: 32px; height: 32px; border-radius: 9999px; background: var(--rdp-muted); display: grid; place-items: center; }
+.app-bg .body-row { height: 12px; background: var(--rdp-muted); border-radius: 3px; opacity: 0.5; }
+
+/* Actuator absolutely-positioned at the same anchor as everything else. */
+.app-bg .actuator-spot {
+  position: absolute; left: var(--spot-x); top: var(--spot-y);
+  transform: translate(-50%, -50%);
+  width: 92px; height: 92px;
+  border-radius: 9999px;
+  background: var(--rdp-success-container);
+  border: 1.5px solid var(--rdp-success);
+  display: grid; place-items: center;
+  color: var(--rdp-success-container-foreground);
+  font: 500 11px/1 var(--rdp-font-mono); letter-spacing: 0.5px; text-transform: uppercase;
+}
+
+/* Scrim with a perfectly-centred cut-out at the same anchor. */
+.scrim {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.55);
+  -webkit-mask:
+    radial-gradient(circle var(--ring-r) at var(--spot-x) var(--spot-y), transparent calc(var(--spot-r) + 0px), black calc(var(--ring-r) + 0px));
+  mask:
+    radial-gradient(circle var(--ring-r) at var(--spot-x) var(--spot-y), transparent calc(var(--spot-r) + 0px), black calc(var(--ring-r) + 0px));
+}
+
+/* Spotlight ring — centred on the anchor, pulses out to scale 1.15. */
+.spot-ring {
+  position: absolute; left: var(--spot-x); top: var(--spot-y);
+  width: calc(var(--ring-r) * 2); height: calc(var(--ring-r) * 2);
+  border-radius: 9999px;
+  border: 2px solid var(--rdp-foreground);
+  pointer-events: none;
+  animation: cmPulse 1.6s ease-out infinite;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+}
+@keyframes cmPulse {
+  0%   { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.18); opacity: 0; }
+}
+
+/* Bubble below the spotlight.  Top placed at spotlight bottom + 24 px gap,
+   so the arrow exactly bridges the ring to the bubble. */
+.bubble {
+  position: absolute;
+  left: var(--spot-x);
+  top: calc(var(--spot-y) + var(--ring-r) + 24px);
+  transform: translateX(-50%);
+  width: 280px;
+  background: var(--rdp-foreground);
+  color: var(--rdp-background);
+  border-radius: 12px;
+  padding: 14px;
+  z-index: 4;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+}
+.bubble::before {
+  content: ""; position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--rdp-foreground);
+}
+.bubble .step { font: var(--rdp-type-mono-small); font-size: 9.5px; letter-spacing: 0.4px; text-transform: uppercase; opacity: 0.6; }
+.bubble .ttl  { font: var(--rdp-type-body-emphasis); font-size: 14px; margin-top: 4px; }
+.bubble .body { font: var(--rdp-type-body); font-size: 12px; line-height: 1.5; margin-top: 6px; opacity: 0.85; }
+.bubble .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 8px; }
+.bubble .dots { display: inline-flex; gap: 4px; align-items: center; }
+.bubble .dots span { width: 5px; height: 5px; border-radius: 9999px; background: rgba(255,255,255,0.3); }
+.bubble .dots span.active { background: var(--rdp-background); width: 14px; border-radius: 9999px; }
+.bubble .actions { display: inline-flex; gap: 6px; }
+.bubble button {
+  background: transparent; border: 0.5px solid rgba(255,255,255,0.3);
+  color: var(--rdp-background); padding: 5px 10px; border-radius: 9999px;
+  font: var(--rdp-type-mono-small); font-size: 10px; letter-spacing: 0.3px; cursor: pointer;
+  white-space: nowrap;
+}
+.bubble button.solid { background: var(--rdp-background); color: var(--rdp-foreground); border-color: var(--rdp-background); }
+.bubble button.text  { border-color: transparent; opacity: 0.7; }
+
+.meta {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px;
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+}
+.meta b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.meta span { color: var(--rdp-foreground); }
+.meta code { font: var(--rdp-type-mono-inline); padding: 1px 5px; background: var(--rdp-accent); border-radius: 3px; }
+</style>
+
+<div class="cm">
+  <div class="hd">
+    <span class="t">Coach mark</span>
+    <span class="sub">Single-step spotlight + bubble</span>
+  </div>
+
+  <div class="stage">
+    <div class="app-bg">
+      <div class="top">
+        <span class="ttl">RIPDPI</span>
+        <span class="ic-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg></span>
+      </div>
+      <div class="body-row"></div>
+      <div class="body-row" style="width: 70%"></div>
+      <div class="body-row" style="width: 85%"></div>
+      <div class="actuator-spot">CONNECT</div>
+    </div>
+    <div class="scrim"></div>
+    <div class="spot-ring"></div>
+    <div class="bubble">
+      <div class="step">Step 2 of 4</div>
+      <div class="ttl">Tap to connect</div>
+      <div class="body">This is the only button you need most of the time. Long-press to pick a strategy without disconnecting.</div>
+      <div class="footer">
+        <span class="dots"><span></span><span class="active"></span><span></span><span></span></span>
+        <span class="actions">
+          <button class="text">Skip</button>
+          <button>Back</button>
+          <button class="solid">Next</button>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="meta">
+    <b>Anchor</b><span>Single <code>--spot-x</code> / <code>--spot-y</code> drives the cut-out, ring, and bubble · no drift between layers</span>
+    <b>Spotlight</b><span>56 px hole · 64 px ring · 4 px gap between hole and ring</span>
+    <b>Ring pulse</b><span>1.6 s ease-out · scale 1 → 1.18 · opacity 1 → 0</span>
+    <b>Bubble offset</b><span>24 px below the ring · arrow exactly bridges them</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Coach mark · all four layers (actuator, scrim cut-out, ring, bubble arrow) share one <code>--spot-x</code>/<code>--spot-y</code> anchor, so changing the target's position moves everything in lock-step.</div>
+</div></body></html>

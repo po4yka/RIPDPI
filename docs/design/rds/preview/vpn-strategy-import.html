@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:540px}</style></head>
+<body><div class="card">
+<style>
+.opts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.opt { padding: 16px; border: 1px solid var(--rdp-card-border); border-radius: 16px; background: var(--rdp-card); display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+.opt:hover { border-color: var(--rdp-outline); }
+.opt .ico { width: 36px; height: 36px; border-radius: 9999px; background: var(--rdp-muted); display: grid; place-items: center; flex-shrink: 0; }
+.opt .ico svg { width: 18px; height: 18px; }
+.opt .title { font: var(--rdp-type-body-emphasis); }
+.opt .sub { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 2px; line-height: 1.5; }
+.recent { margin-top: 16px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider); }
+.recent .head { font: var(--rdp-type-section-title); letter-spacing: 0.72px; text-transform: uppercase; color: var(--rdp-muted-foreground); margin-bottom: 6px; }
+.recent .row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
+.recent .row + .row { border-top: 0.5px solid var(--rdp-divider); }
+.recent .row .name { font: var(--rdp-type-mono-value); font-size: 13px; }
+.recent .row .when { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+</style>
+<div class="opts">
+  <div class="opt"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><div><div class="title">From file</div><div class="sub">.json, .cfg, or a saved bundle from another install</div></div></div>
+  <div class="opt"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span><div><div class="title">Scan QR</div><div class="sub">From a shared RIPDPI install or a relay invite</div></div></div>
+  <div class="opt"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><div><div class="title">From URL</div><div class="sub">https://po4yka.github.io/RIPDPI/share?v=1#…</div></div></div>
+  <div class="opt"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></span><div><div class="title">Paste from clipboard</div><div class="sub">Auto-detects URL, JSON, or raw strategy args</div></div></div>
+</div>
+<div class="recent">
+  <div class="head">Recent imports</div>
+  <div class="row"><span class="name">tlsrec_split_host_aggressive.cfg</span><span class="when">14:08</span></div>
+  <div class="row"><span class="name">desync_fake_relay_us.json</span><span class="when">Yesterday</span></div>
+  <div class="row"><span class="name">QR · po4yka.github.io/RIPDPI/share</span><span class="when">2d ago</span></div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Strategy import · 4 sources (file / QR / URL / clipboard) · auto-detection on paste · recent imports for fast re-import.</div>
+</div></body></html>

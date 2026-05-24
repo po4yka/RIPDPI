@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.tb { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.tb .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.tb .hd .t { font: var(--rdp-type-body-emphasis); }
+.tb .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.lbl { font: var(--rdp-type-mono-small); font-size: 10px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--rdp-muted-foreground); margin: 14px 0 8px; }
+
+/* Underlined */
+.tabs-underline { display: flex; gap: 0; border-bottom: 0.5px solid var(--rdp-divider); }
+.tabs-underline .tab {
+  padding: 10px 14px;
+  font: var(--rdp-type-small-label); font-size: 13px;
+  color: var(--rdp-muted-foreground);
+  position: relative; cursor: pointer;
+  background: transparent; border: none;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.tabs-underline .tab.sel { color: var(--rdp-foreground); font-weight: 500; }
+.tabs-underline .tab.sel::after {
+  content: ""; position: absolute; bottom: -1px; left: 8px; right: 8px;
+  height: 2px; background: var(--rdp-foreground); border-radius: 2px;
+}
+.tabs-underline .tab:hover:not(.sel) { color: var(--rdp-foreground); }
+
+.tab .badge {
+  font: var(--rdp-type-mono-small); font-size: 9.5px;
+  padding: 1px 5px; border-radius: 9999px;
+  background: var(--rdp-accent); color: var(--rdp-muted-foreground);
+}
+.tab.sel .badge { background: var(--rdp-muted); color: var(--rdp-foreground); }
+.tab .badge.tone-bad { background: var(--rdp-destructive-container); color: var(--rdp-destructive); }
+.tab .badge.tone-warn { background: var(--rdp-warning-container); color: var(--rdp-warning); }
+
+/* Pill */
+.tabs-pill {
+  display: inline-flex; gap: 4px;
+  background: var(--rdp-muted); padding: 3px; border-radius: 9999px;
+}
+.tabs-pill .tab {
+  padding: 5px 12px;
+  font: var(--rdp-type-small-label); font-size: 12px;
+  color: var(--rdp-muted-foreground);
+  background: transparent; border: none;
+  border-radius: 9999px; cursor: pointer;
+  transition: all 220ms cubic-bezier(0.2,0,0,1);
+}
+.tabs-pill .tab.sel {
+  background: var(--rdp-foreground); color: var(--rdp-background);
+}
+
+/* Boxed scrollable (mobile) */
+.tabs-scroll {
+  display: flex; gap: 0;
+  border-bottom: 0.5px solid var(--rdp-divider);
+  overflow-x: auto;
+  margin: 0 -18px;
+  padding: 0 18px;
+}
+.tabs-scroll::-webkit-scrollbar { display: none; }
+.tabs-scroll .tab {
+  padding: 10px 12px;
+  font: var(--rdp-type-mono-value); font-size: 11.5px;
+  color: var(--rdp-muted-foreground);
+  background: transparent; border: none;
+  position: relative; white-space: nowrap; cursor: pointer;
+}
+.tabs-scroll .tab.sel { color: var(--rdp-foreground); }
+.tabs-scroll .tab.sel::after {
+  content: ""; position: absolute; bottom: -1px; left: 6px; right: 6px;
+  height: 2px; background: var(--rdp-foreground); border-radius: 2px;
+}
+</style>
+
+<div class="tb">
+  <div class="hd">
+    <span class="t">Tabs</span>
+    <span class="sub">Underline · pill · scroll variants</span>
+  </div>
+
+  <div class="lbl">Underline · primary nav</div>
+  <div class="tabs-underline">
+    <button class="tab sel">
+      Overview
+    </button>
+    <button class="tab">
+      Logs <span class="badge">1.5k</span>
+    </button>
+    <button class="tab">
+      Pcap <span class="badge tone-warn">3</span>
+    </button>
+    <button class="tab">
+      Strategies
+    </button>
+    <button class="tab">
+      Issues <span class="badge tone-bad">2</span>
+    </button>
+  </div>
+
+  <div class="lbl">Pill · compact toggle</div>
+  <div class="tabs-pill">
+    <button class="tab sel">Live</button>
+    <button class="tab">Captured</button>
+    <button class="tab">Replays</button>
+  </div>
+
+  <div class="lbl">Scrollable · mobile-style sub-nav</div>
+  <div class="tabs-scroll">
+    <button class="tab">All hops</button>
+    <button class="tab sel">DPI signatures</button>
+    <button class="tab">Port matrix</button>
+    <button class="tab">MTU scan</button>
+    <button class="tab">DNS resolvers</button>
+    <button class="tab">Routing</button>
+    <button class="tab">Identity</button>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Tabs · underline for primary nav with optional count badges (and badge tones for status) · pill for binary or three-way toggles · scroll for dense mobile sub-nav with bleed-through edges.</div>
+</div></body></html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:240px}</style></head>
+<body><div class="card">
+<style>
+.api { background: rgba(29, 78, 216, 0.06); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.api .pipe { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; height: 6px; }
+.api .pipe div { border-radius: 2px; background: var(--rdp-outline-variant); }
+.api .pipe div.done { background: var(--rdp-foreground); }
+.api .pipe div.run {
+  position: relative;
+  background: var(--rdp-info);
+  overflow: hidden;
+  animation: rdpPulse 1.2s ease-in-out infinite;
+}
+.api .pipe div.run::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: rdpShimmer 1.8s linear infinite;
+}
+@keyframes rdpPulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+@keyframes rdpShimmer {
+  to { transform: translateX(100%); }
+}
+.api .label { font: var(--rdp-type-secondary-body); color: var(--rdp-muted-foreground); font-size: 13px; }
+</style>
+<div class="col" style="gap: 16px">
+  <div class="api">
+    <div class="pipe"><div class="done"></div><div class="done"></div><div class="run"></div><div></div><div></div></div>
+    <div class="label">Stage 3 of 5 — testing TLS handshakes with 4 candidate fingerprints</div>
+  </div>
+  <div class="api" style="background: rgba(4, 120, 87, 0.06)">
+    <div class="pipe"><div class="done"></div><div class="done"></div><div class="done"></div><div class="done"></div><div class="done"></div></div>
+    <div class="label" style="color: var(--rdp-success)">Complete — 5 of 5 stages passed</div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">AnalysisProgressIndicator · 6dp pipeline bar with 4dp gaps · info-tinted container · live region announces stage label and completion.</div>
+</div></body></html>

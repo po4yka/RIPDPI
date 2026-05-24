@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:260px}</style></head>
+<body><div class="card">
+<style>
+.qs-bg { background: #0a0a0a; border-radius: 28px; padding: 16px; }
+.qs-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.tile { background: rgba(232,232,232,0.08); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 4px; color: rgba(232,232,232,0.7); min-height: 80px; }
+.tile.active { background: #E8E8E8; color: #121212; }
+.tile .ico { width: 20px; height: 20px; border-radius: 9999px; background: currentColor; display: grid; place-items: center; }
+.tile .ico .glyph { display: block; width: 80%; height: 80%; background: #0a0a0a; border-radius: 9999px;
+  -webkit-mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center 38% / 70% no-repeat;
+          mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center 38% / 70% no-repeat; }
+.tile.active .ico .glyph { background: #E8E8E8; }
+.tile .label { font: var(--rdp-type-small-label); font-size: 12px; margin-top: auto; }
+.tile .sub { font: var(--rdp-type-mono-small); font-size: 10px; opacity: 0.7; }
+</style>
+<div class="qs-bg">
+  <div class="qs-grid">
+    <div class="tile active">
+      <span class="ico"><span class="glyph"></span></span>
+      <span class="label">RIPDPI</span>
+      <span class="sub">Connected</span>
+    </div>
+    <div class="tile">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M5 13l4 4L19 7l-1.4-1.4L9 14.2 6.4 11.6z"/></svg>
+      <span class="label">Wi-Fi</span>
+      <span class="sub">Home</span>
+    </div>
+    <div class="tile">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>
+      <span class="label">Bluetooth</span>
+    </div>
+    <div class="tile">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"/></svg>
+      <span class="label">DND</span>
+    </div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Quick Settings tile · TileService · active (light) / inactive (translucent) · single tap toggles connection · long-press opens app.</div>
+</div></body></html>

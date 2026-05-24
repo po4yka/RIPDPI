@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:480px}</style></head>
+<body><div class="card">
+<style>
+.dr { padding: 16px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.dr .hd { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 6px; }
+.dr .hd .t { font: var(--rdp-type-body-emphasis); }
+.dr .hd .meta { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.dr .hd .meta b { color: var(--rdp-foreground); font-weight: 500; }
+
+/* Grid: Resolver | Transport | RTT | Success (bar + %) | Notes (chips) | Action */
+.thead, .row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)   /* resolver */
+    52px             /* transport */
+    60px             /* rtt */
+    132px            /* success */
+    minmax(0, 150px) /* notes */
+    72px;            /* action */
+  gap: 14px;
+  align-items: center;
+}
+.thead {
+  padding: 10px 0 8px;
+  font: var(--rdp-type-section-title);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  font-size: 9.5px;
+  color: var(--rdp-muted-foreground);
+  border-bottom: 0.5px solid var(--rdp-divider);
+}
+.thead .num, .row .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.row { padding: 12px 0; }
+.row + .row { border-top: 0.5px solid var(--rdp-divider); }
+
+/* --- Resolver column --- */
+.who { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.who .nm { font: var(--rdp-type-body-emphasis); display: flex; align-items: center; gap: 8px; min-width: 0; }
+.who .nm .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who .nm .pri { font: var(--rdp-type-mono-small); font-size: 9.5px; padding: 1px 5px; border-radius: 3px; background: var(--rdp-info-container); color: var(--rdp-info); letter-spacing: 0.4px; flex-shrink: 0; }
+.who .nm .sentinel { width: 6px; height: 6px; border-radius: 9999px; flex-shrink: 0; }
+.who .nm .sentinel.ok   { background: var(--rdp-success); }
+.who .nm .sentinel.warn { background: var(--rdp-warning); }
+.who .nm .sentinel.bad  { background: var(--rdp-destructive); }
+.who .addr { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- Transport column --- */
+.tx {
+  font: var(--rdp-type-mono-small); font-size: 10px; letter-spacing: 0.4px; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 3px; text-align: center; justify-self: start;
+}
+.tx.doh   { background: var(--rdp-info-container); color: var(--rdp-info); }
+.tx.dot   { background: var(--rdp-accent); color: var(--rdp-foreground); }
+.tx.udp   { background: var(--rdp-muted); color: var(--rdp-muted-foreground); }
+.tx.doq   { background: var(--rdp-success-container); color: var(--rdp-success); }
+
+/* --- RTT --- */
+.lat { font: var(--rdp-type-mono-value); font-size: 13px; color: var(--rdp-foreground); }
+.lat.warn { color: var(--rdp-warning); }
+.lat.bad  { color: var(--rdp-destructive); }
+
+/* --- Success: horizontal bar + percentage on one line --- */
+.sr { display: grid; grid-template-columns: 1fr 44px; gap: 10px; align-items: center; }
+.sr .bar { height: 6px; background: var(--rdp-muted); border-radius: 3px; overflow: hidden; position: relative; }
+.sr .bar .fill { display: block; height: 100%; background: var(--rdp-success); border-radius: 3px; }
+.sr.warn .bar .fill { background: var(--rdp-warning); }
+.sr.bad  .bar .fill { background: var(--rdp-destructive); }
+.sr .v { font: var(--rdp-type-mono-value); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; color: var(--rdp-foreground); }
+.sr.warn .v { color: var(--rdp-warning); }
+.sr.bad  .v { color: var(--rdp-destructive); }
+
+/* --- Notes: chips, left-aligned, readable --- */
+.flags {
+  display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
+}
+.flags .fg {
+  font: var(--rdp-type-mono-small); font-size: 10.5px; padding: 2px 7px; border-radius: 4px;
+  background: var(--rdp-muted); color: var(--rdp-foreground); letter-spacing: 0.2px;
+  line-height: 14px; white-space: nowrap;
+}
+.flags .fg.warn { background: var(--rdp-warning-container); color: var(--rdp-warning); }
+.flags .fg.bad  { background: var(--rdp-destructive-container); color: var(--rdp-destructive); }
+.flags .fg.info { background: var(--rdp-info-container); color: var(--rdp-info); }
+
+/* --- Action --- */
+.act { justify-self: end; }
+.act button {
+  padding: 5px 11px; border-radius: 9999px; border: 1px solid var(--rdp-border); background: transparent;
+  color: var(--rdp-foreground); font: var(--rdp-type-mono-small); font-size: 10px;
+  letter-spacing: 0.3px; text-transform: uppercase; cursor: pointer;
+}
+.act button.primary { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+
+/* --- Tip strip --- */
+.tip {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-top: 14px; padding: 10px 12px;
+  background: var(--rdp-muted); border-radius: 8px;
+  border-left: 2px solid var(--rdp-info);
+}
+.tip .badge {
+  flex-shrink: 0;
+  font: var(--rdp-type-mono-small); font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 3px; background: var(--rdp-info-container); color: var(--rdp-info);
+  margin-top: 1px;
+}
+.tip .text { font: var(--rdp-type-body); font-size: 12.5px; line-height: 1.5; color: var(--rdp-foreground); }
+.tip .text b { font-weight: 500; }
+.tip .text code { font: var(--rdp-type-mono-small); font-size: 11.5px; padding: 1px 5px; border-radius: 3px; background: var(--rdp-card); color: var(--rdp-foreground); }
+
+.footer {
+  margin-top: 12px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground);
+  display: flex; justify-content: space-between;
+}
+.footer b { color: var(--rdp-foreground); font-weight: 500; }
+</style>
+
+<div class="dr">
+  <div class="hd">
+    <span class="t">DNS resolver health · last 5 m</span>
+    <span class="meta"><b>312</b> queries · fallback chain active</span>
+  </div>
+
+  <div class="thead">
+    <span>Resolver</span>
+    <span>Transport</span>
+    <span class="num">RTT p50</span>
+    <span>Success rate</span>
+    <span>Notes</span>
+    <span></span>
+  </div>
+
+  <div class="row">
+    <span class="who">
+      <span class="nm"><span class="sentinel ok"></span><span class="name">cloudflare-dns.com</span><span class="pri">PRIMARY</span></span>
+      <span class="addr">1.1.1.1 · 2606:4700:4700::1111</span>
+    </span>
+    <span class="tx doh">DoH</span>
+    <span class="lat num">14 ms</span>
+    <span class="sr">
+      <span class="bar"><span class="fill" style="width:99.8%"></span></span>
+      <span class="v">99.8%</span>
+    </span>
+    <span class="flags">
+      <span class="fg info">ECH</span>
+      <span class="fg">0-RTT</span>
+    </span>
+    <span class="act"><button>Probe</button></span>
+  </div>
+
+  <div class="row">
+    <span class="who">
+      <span class="nm"><span class="sentinel warn"></span><span class="name">quad9.net</span></span>
+      <span class="addr">9.9.9.9 · 2620:fe::fe</span>
+    </span>
+    <span class="tx dot">DoT</span>
+    <span class="lat num warn">142 ms</span>
+    <span class="sr warn">
+      <span class="bar"><span class="fill" style="width:94.2%"></span></span>
+      <span class="v">94.2%</span>
+    </span>
+    <span class="flags">
+      <span class="fg warn">slow p95</span>
+      <span class="fg">filter</span>
+    </span>
+    <span class="act"><button>Probe</button></span>
+  </div>
+
+  <div class="row">
+    <span class="who">
+      <span class="nm"><span class="sentinel ok"></span><span class="name">dns.adguard-dns.com</span></span>
+      <span class="addr">94.140.14.14 · 2a10:50c0::ad1:ff</span>
+    </span>
+    <span class="tx doq">DoQ</span>
+    <span class="lat num">28 ms</span>
+    <span class="sr">
+      <span class="bar"><span class="fill" style="width:99.4%"></span></span>
+      <span class="v">99.4%</span>
+    </span>
+    <span class="flags">
+      <span class="fg">block-ads</span>
+    </span>
+    <span class="act"><button>Probe</button></span>
+  </div>
+
+  <div class="row">
+    <span class="who">
+      <span class="nm"><span class="sentinel bad"></span><span class="name">system</span></span>
+      <span class="addr">192.168.1.1 · ISP-assigned</span>
+    </span>
+    <span class="tx udp">UDP/53</span>
+    <span class="lat num bad">timeout</span>
+    <span class="sr bad">
+      <span class="bar"><span class="fill" style="width:62.1%"></span></span>
+      <span class="v">62.1%</span>
+    </span>
+    <span class="flags">
+      <span class="fg bad">poison</span>
+      <span class="fg bad">cleartext</span>
+    </span>
+    <span class="act"><button>Probe</button></span>
+  </div>
+
+  <div class="row">
+    <span class="who">
+      <span class="nm"><span class="sentinel ok"></span><span class="name">dns.google</span></span>
+      <span class="addr">8.8.8.8 · 2001:4860:4860::8888</span>
+    </span>
+    <span class="tx doh">DoH</span>
+    <span class="lat num">22 ms</span>
+    <span class="sr">
+      <span class="bar"><span class="fill" style="width:99.6%"></span></span>
+      <span class="v">99.6%</span>
+    </span>
+    <span class="flags">
+      <span class="fg info">ECH</span>
+    </span>
+    <span class="act"><button class="primary">Promote</button></span>
+  </div>
+
+  <div class="tip">
+    <span class="badge">Tip</span>
+    <span class="text">
+      <b>system</b> is poisoning answers on cleartext UDP/53. Promote <b>dns.google</b> or keep <code>cloudflare-dns.com</code> as primary and disable the system resolver to remove the leak.
+    </span>
+  </div>
+
+  <div class="footer">
+    <span>Cache hit-rate <b>71.4%</b> · TTL median <b>180 s</b></span>
+    <span>Fail-over after <b>3</b> consecutive timeouts</span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">DNS resolver health · success rate now bar + value on one line · notes are readable chips, left-aligned to the column · contextual tip surfaces the actionable conclusion above the footer.</div>
+</div></body></html>

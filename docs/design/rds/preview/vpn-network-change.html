@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:400px}</style></head>
+<body><div class="card">
+<style>
+.timeline { display: flex; flex-direction: column; padding: 4px 0; }
+.evt { display: grid; grid-template-columns: 80px 24px 1fr; gap: 12px; padding: 12px 0; align-items: flex-start; position: relative; }
+.evt + .evt { border-top: 0.5px solid var(--rdp-divider); }
+.evt .ts { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); padding-top: 2px; }
+.evt .marker { width: 24px; display: grid; place-items: center; padding-top: 2px; }
+.evt .marker .ring { width: 12px; height: 12px; border-radius: 9999px; border: 2px solid currentColor; background: var(--rdp-background); }
+.evt .marker.warn { color: var(--rdp-warning); }
+.evt .marker.run  { color: var(--rdp-info); }
+.evt .marker.ok   { color: var(--rdp-success); }
+.evt .marker.run .ring { background: var(--rdp-info); animation: pulse 1.2s ease-in-out infinite; }
+.evt .marker.ok .ring  { background: var(--rdp-success); }
+@keyframes pulse { 50% { opacity: 0.5; } }
+.evt .body .title { font: var(--rdp-type-body-emphasis); }
+.evt .body .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 2px; }
+.evt .body .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--rdp-muted); color: var(--rdp-foreground); font: var(--rdp-type-mono-small); font-size: 10px; margin-left: 6px; }
+</style>
+<div class="timeline">
+  <div class="evt">
+    <span class="ts">12:18:42</span>
+    <span class="marker ok"><span class="ring"></span></span>
+    <span class="body"><div class="title">Connected · Wi-Fi</div><div class="sub">SSID "home" · tlsrec_split_host · relay.example</div></span>
+  </div>
+  <div class="evt">
+    <span class="ts">12:42:08</span>
+    <span class="marker warn"><span class="ring"></span></span>
+    <span class="body"><div class="title">Network changed</div><div class="sub">Wi-Fi lost · falling back to mobile data <span class="badge">HELD 4 s</span></div></span>
+  </div>
+  <div class="evt">
+    <span class="ts">12:42:12</span>
+    <span class="marker run"><span class="ring"></span></span>
+    <span class="body"><div class="title">Reconnecting on mobile</div><div class="sub">Carrier: T-Mobile · same strategy retained</div></span>
+  </div>
+  <div class="evt">
+    <span class="ts">12:42:14</span>
+    <span class="marker ok"><span class="ring"></span></span>
+    <span class="body"><div class="title">Connected · Mobile</div><div class="sub">Re-established in 6 s · RTT 38 ms</div></span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Network-change timeline · what RIPDPI did when wi-fi → mobile · auto-hold then retry · used in history detail.</div>
+</div></body></html>

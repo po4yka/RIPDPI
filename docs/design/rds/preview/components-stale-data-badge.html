@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.sd { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.sd .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.sd .hd .t { font: var(--rdp-type-body-emphasis); }
+.sd .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.tiers {
+  display: grid; grid-template-columns: 1fr; gap: 0;
+  border: 0.5px solid var(--rdp-divider); border-radius: 10px; overflow: hidden;
+}
+.tier {
+  display: grid;
+  grid-template-columns: 80px 1fr 220px;
+  gap: 16px;
+  padding: 14px 16px;
+  align-items: center;
+  background: var(--rdp-card);
+}
+.tier + .tier { border-top: 0.5px solid var(--rdp-divider); }
+
+.tier .age {
+  font: 500 11px/14px var(--rdp-font-mono);
+  letter-spacing: 0.4px; text-transform: uppercase;
+  color: var(--rdp-muted-foreground);
+}
+.tier .desc { font: var(--rdp-type-body); font-size: 12px; color: var(--rdp-foreground); }
+.tier .desc small { display: block; font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); margin-top: 2px; }
+
+/* Badge variants — one per tier */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  border: 0.5px solid;
+}
+.badge .dot { width: 6px; height: 6px; border-radius: 9999px; flex-shrink: 0; }
+
+.badge.fresh    { background: var(--rdp-success-container);     color: var(--rdp-success-container-foreground); border-color: rgba(0,0,0,0); }
+.badge.fresh    .dot { background: var(--rdp-success); }
+.badge.fresh    .dot::after { content:""; display:block; width: 6px; height: 6px; border-radius: 9999px; background: var(--rdp-success); animation: sdPulse 1.6s ease-out infinite; box-shadow: 0 0 0 0 var(--rdp-success); }
+
+.badge.recent   { background: var(--rdp-card);                  color: var(--rdp-foreground);                 border-color: var(--rdp-border); }
+.badge.recent   .dot { background: var(--rdp-muted-foreground); }
+
+.badge.aging    { background: var(--rdp-muted);                 color: var(--rdp-foreground);                 border-color: var(--rdp-border); }
+.badge.aging    .dot { background: var(--rdp-muted-foreground); opacity: 0.7; }
+
+.badge.stale    { background: var(--rdp-warning-container);     color: var(--rdp-warning); border-color: rgba(0,0,0,0); }
+.badge.stale    .dot { background: var(--rdp-warning); }
+
+.badge.expired  { background: var(--rdp-destructive-container); color: var(--rdp-destructive); border-color: rgba(0,0,0,0); }
+.badge.expired  .dot { background: var(--rdp-destructive); }
+
+@keyframes sdPulse {
+  0%   { box-shadow: 0 0 0 0 var(--rdp-success); }
+  100% { box-shadow: 0 0 0 4px transparent; }
+}
+
+.context {
+  margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.context .ex {
+  padding: 12px;
+  background: var(--rdp-muted);
+  border-radius: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.context .ex .ttl { font: var(--rdp-type-mono-value); font-size: 11px; }
+.context .ex .ttl-row { display: flex; align-items: center; gap: 8px; }
+.context .ex .body  { font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); }
+</style>
+
+<div class="sd">
+  <div class="hd">
+    <span class="t">Stale-data badge</span>
+    <span class="sub">Age tiers · pulse → fade across 5 thresholds</span>
+  </div>
+
+  <div class="tiers">
+    <div class="tier">
+      <span class="age">&lt; 5 s</span>
+      <span class="desc">Live<small>data updating now, treat as authoritative</small></span>
+      <span><span class="badge fresh"><span class="dot"></span>just now</span></span>
+    </div>
+    <div class="tier">
+      <span class="age">5 s – 1 m</span>
+      <span class="desc">Recent<small>still accurate, no refresh needed</small></span>
+      <span><span class="badge recent"><span class="dot"></span>14 s ago</span></span>
+    </div>
+    <div class="tier">
+      <span class="age">1 – 5 m</span>
+      <span class="desc">Aging<small>likely accurate but consider refreshing for time-sensitive decisions</small></span>
+      <span><span class="badge aging"><span class="dot"></span>3 m ago</span></span>
+    </div>
+    <div class="tier">
+      <span class="age">5 – 30 m</span>
+      <span class="desc">Stale<small>refresh before acting · network may have shifted</small></span>
+      <span><span class="badge stale"><span class="dot"></span>18 m ago</span></span>
+    </div>
+    <div class="tier">
+      <span class="age">&gt; 30 m</span>
+      <span class="desc">Expired<small>treat as historic · re-probe before any change</small></span>
+      <span><span class="badge expired"><span class="dot"></span>2 h ago</span></span>
+    </div>
+  </div>
+
+  <div class="context">
+    <div class="ex">
+      <div class="ttl-row"><span class="ttl">Diagnostic report</span><span class="badge stale"><span class="dot"></span>18 m ago</span></div>
+      <div class="body">Network somewhat restricted · 4 of 12 hosts degraded</div>
+    </div>
+    <div class="ex">
+      <div class="ttl-row"><span class="ttl">Session metrics</span><span class="badge fresh"><span class="dot"></span>just now</span></div>
+      <div class="body">RTT 32 ms · 0.2% loss · 2.4 MB/s down</div>
+    </div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Stale-data badge · age-driven tone shift from success → neutral → warning → destructive across 5 thresholds · fresh tier pulses, all others static · accompanies any computed metric.</div>
+</div></body></html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>html, body { min-height: 250px; }</style>
+</head>
+<body><div class="card">
+
+<style>
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-height:48px; padding:10px 20px; border-radius:16px; border:1px solid transparent;
+  font: var(--rdp-type-button); cursor:pointer; user-select:none;
+  transition: background-color var(--rdp-duration-state) var(--rdp-ease-standard),
+              color var(--rdp-duration-state) var(--rdp-ease-standard),
+              border-color var(--rdp-duration-quick) var(--rdp-ease-standard),
+              transform var(--rdp-duration-quick) var(--rdp-ease-standard);
+}
+.btn:active { transform: scale(0.98); }
+.btn.primary { background: var(--rdp-foreground); color: var(--rdp-background); }
+.btn.secondary { background: var(--rdp-muted); color: var(--rdp-foreground); }
+.btn.outline { background: transparent; color: var(--rdp-foreground); border-color: var(--rdp-border); }
+.btn.ghost { background: transparent; color: var(--rdp-foreground); }
+.btn.destructive { background: var(--rdp-destructive); color: var(--rdp-destructive-foreground); }
+.btn.disabled { opacity: 0.38; pointer-events: none; }
+.btn .lbl-row { display:inline-flex; align-items:center; gap:8px }
+</style>
+<div class="col" style="gap:14px">
+  <div class="row" style="gap:10px; flex-wrap:wrap">
+    <span class="btn primary">Connect</span>
+    <span class="btn secondary">Configure</span>
+    <span class="btn outline">Cancel</span>
+    <span class="btn ghost">Reset to defaults</span>
+    <span class="btn destructive">Reset cache</span>
+  </div>
+  <div class="row" style="gap:10px; flex-wrap:wrap">
+    <span class="btn primary disabled">Connect</span>
+    <span class="btn primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="36" stroke-dashoffset="20"/></svg>
+      Connecting
+    </span>
+    <span class="btn outline disabled">Apply</span>
+  </div>
+  <div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground)">RipDpiButton variants — Primary · Secondary · Outline · Ghost · Destructive. 48dp min-height, 16dp corner, 20/10dp padding, motion.stateTween() colors, motion.quickTween() border, motion.motionAwareSpring() press-scale 0.98.</div>
+</div>
+
+</div></body></html>

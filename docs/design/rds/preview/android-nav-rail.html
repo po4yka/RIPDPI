@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.rail-host { display: grid; grid-template-columns: 80px 1fr; gap: 0; border: 1px solid var(--rdp-card-border); border-radius: 16px; overflow: hidden; }
+.rail { background: var(--rdp-card); border-right: 1px solid var(--rdp-divider); padding: 16px 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.rail .brand { width: 40px; height: 40px; border-radius: 9999px; background: var(--rdp-foreground); display: grid; place-items: center; margin-bottom: 16px; }
+.rail .brand .glyph { display: block; width: 58%; height: 58%; background: var(--rdp-background);
+  -webkit-mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center 38% / contain no-repeat;
+          mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center 38% / contain no-repeat; }
+.rail .item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 12px; border-radius: 14px; color: var(--rdp-muted-foreground); cursor: pointer; }
+.rail .item.sel { background: var(--rdp-accent); color: var(--rdp-foreground); }
+.rail .item svg { width: 22px; height: 22px; }
+.rail .item .l { font: var(--rdp-type-nav-label); font-size: 10px; }
+.content { padding: 24px; min-height: 240px; }
+.content .crumb { font: var(--rdp-type-section-title); letter-spacing: 0.72px; text-transform: uppercase; color: var(--rdp-muted-foreground); }
+.content h2 { font: var(--rdp-type-screen-title); margin: 4px 0 12px; }
+</style>
+<div class="rail-host">
+  <div class="rail">
+    <div class="brand"><span class="glyph"></span></div>
+    <div class="item sel"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-2v9h-5v-6H10v6H5v-9H3z"/></svg><span class="l">Home</span></div>
+    <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M21 12h-3M6 12H3M12 3v3M12 18v3"/></svg><span class="l">Config</span></div>
+    <div class="item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h12v2H3z"/></svg><span class="l">Logs</span></div>
+    <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg><span class="l">Diag</span></div>
+  </div>
+  <div class="content">
+    <div class="crumb">Home</div>
+    <h2>Connected · 00:18:42</h2>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap">
+      <span style="padding: 4px 10px; border-radius: 9999px; background: var(--rdp-muted); font: var(--rdp-type-mono-small)">RTT 12 ms</span>
+      <span style="padding: 4px 10px; border-radius: 9999px; background: var(--rdp-success-container); color: var(--rdp-success-container-foreground); font: var(--rdp-type-mono-small)">UP 99.4%</span>
+    </div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Navigation rail · Expanded width class (≥ 840dp) · 80dp rail width · same 4 destinations as bottom nav · brand badge anchors top.</div>
+</div></body></html>

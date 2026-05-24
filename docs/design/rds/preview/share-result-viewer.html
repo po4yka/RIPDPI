@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:480px}</style></head>
+<body><div class="card">
+<style>
+.banner { background: var(--rdp-info-container); color: var(--rdp-info-container-foreground); border: 1px solid var(--rdp-info); border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+.banner .ico { width: 28px; height: 28px; border-radius: 9999px; background: var(--rdp-info); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+.banner .ico svg { width: 14px; height: 14px; }
+.banner .body { display: flex; flex-direction: column; gap: 2px; }
+.banner .body .title { font: var(--rdp-type-body-emphasis); }
+.banner .body .sub { font: var(--rdp-type-mono-small); }
+.snapshot { background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; padding: 16px; margin-top: 12px; }
+.snapshot .head { display: flex; justify-content: space-between; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 12px; }
+.snapshot .head .title { font: var(--rdp-type-body-emphasis); }
+.snapshot .head .meta { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.endpoint { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 10px 0; align-items: center; }
+.endpoint + .endpoint { border-top: 0.5px solid var(--rdp-divider); }
+.endpoint .label { font: var(--rdp-type-body-emphasis); }
+.endpoint .alive { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 2px; }
+.endpoint .stat { display: inline-flex; align-items: center; gap: 6px; font: var(--rdp-type-mono-small); }
+.endpoint .stat .dot { width: 8px; height: 8px; border-radius: 9999px; }
+.endpoint .stat.ok .dot { background: var(--rdp-success); }
+.endpoint .stat.dpi .dot { background: var(--rdp-warning); }
+.endpoint .stat.bad .dot { background: var(--rdp-destructive); }
+</style>
+<div class="banner">
+  <span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M11 10h2v7h-2zM11 7h2v2h-2z"/></svg></span>
+  <span class="body">
+    <span class="title">Snapshot from AS13335 — Cloudflare</span>
+    <span class="sub">2026-05-18 14:30 UTC · this is a snapshot, not a live test</span>
+  </span>
+</div>
+<div class="snapshot">
+  <div class="head">
+    <span class="title">Result snapshot</span>
+    <span class="meta">Bundle 0a · 4 endpoints</span>
+  </div>
+  <div class="endpoint">
+    <div><div class="label">Endpoint 1</div><div class="alive">Alive · TCP open</div></div>
+    <div class="stat ok"><span class="dot"></span>NO DPI</div>
+  </div>
+  <div class="endpoint">
+    <div><div class="label">Endpoint 2</div><div class="alive">Alive · TLS handshake</div></div>
+    <div class="stat dpi"><span class="dot"></span>SNI BLOCK</div>
+  </div>
+  <div class="endpoint">
+    <div><div class="label">Endpoint 3</div><div class="alive">Alive · DoH 200 OK</div></div>
+    <div class="stat ok"><span class="dot"></span>NO DPI</div>
+  </div>
+  <div class="endpoint">
+    <div><div class="label">Endpoint 4</div><div class="alive">Dead · timeout</div></div>
+    <div class="stat bad"><span class="dot"></span>RESET</div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Inbound share viewer · SharedResultRenderScreen.kt · info-tone banner reminds this is a snapshot · read-only, no actions on the data itself.</div>
+</div></body></html>

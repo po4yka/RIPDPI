@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:440px}</style></head>
+<body><div class="card">
+<style>
+.head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.head .body .title { font: var(--rdp-type-body-emphasis); }
+.head .body .sub { font: var(--rdp-type-mono-small); color: var(--rdp-destructive); margin-top: 2px; }
+.head .replay { padding: 6px 12px; border: 1px solid var(--rdp-border); border-radius: 9999px; background: transparent; font: var(--rdp-type-small-label); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.head .replay svg { width: 12px; height: 12px; }
+.timeline { display: flex; flex-direction: column; }
+.step { display: grid; grid-template-columns: 90px 32px 1fr; padding: 8px 0; gap: 12px; align-items: flex-start; }
+.step .when { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); padding-top: 2px; }
+.step .marker { display: grid; place-items: center; padding-top: 2px; }
+.step .marker .dot { width: 10px; height: 10px; border-radius: 9999px; background: var(--rdp-success); }
+.step.fail .marker .dot { background: var(--rdp-destructive); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.4; } }
+.step .marker .line { width: 1.5px; height: 20px; background: var(--rdp-divider); margin-top: 2px; }
+.step:last-child .marker .line { display: none; }
+.step .body .name { font: var(--rdp-type-body-emphasis); }
+.step.fail .body .name { color: var(--rdp-destructive); }
+.step .body .detail { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-top: 2px; }
+.step .body .detail code { color: var(--rdp-foreground); }
+</style>
+<div class="head">
+  <div class="body">
+    <div class="title">Last failure · 12:18:43</div>
+    <div class="sub">desync_fake · youtube.com · failed at TLS stage</div>
+  </div>
+  <button class="replay">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+    REPLAY
+  </button>
+</div>
+<div class="timeline">
+  <div class="step"><span class="when">+0.000s</span><span class="marker"><span class="dot"></span><span class="line"></span></span><span class="body"><div class="name">DNS resolve</div><div class="detail">youtube.com → <code>142.250.190.78</code> in <code>12 ms</code></div></span></div>
+  <div class="step"><span class="when">+0.012s</span><span class="marker"><span class="dot"></span><span class="line"></span></span><span class="body"><div class="name">TCP handshake</div><div class="detail">142.250.190.78:443 SYN→SYN/ACK→ACK in <code>18 ms</code></div></span></div>
+  <div class="step"><span class="when">+0.247s</span><span class="marker"><span class="dot"></span><span class="line"></span></span><span class="body"><div class="name">TLS ClientHello sent</div><div class="detail">512 B with fake-TTL prefix · SNI <code>www.youtube.com</code></div></span></div>
+  <div class="step fail"><span class="when">+0.752s</span><span class="marker"><span class="dot"></span></span><span class="body"><div class="name">No ServerHello after 500 ms</div><div class="detail">Possible RST + SNI inspection · try <code>tlsrec_split_host</code> instead</div></span></div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Replay failure · step-by-step trace of the last failed attempt · "REPLAY" re-runs the same probe with PCAP recording on.</div>
+</div></body></html>

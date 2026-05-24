@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:230px}</style></head>
+<body><div class="card">
+<style>
+.tab { display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: center; min-height: 56px; padding: 0 4px; }
+.tab .ico { width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; cursor: pointer; }
+.tab .ico:hover { background: var(--rdp-accent); }
+.tab .title { font: var(--rdp-type-appbar-title); }
+.tab .actions { display: flex; gap: 4px; }
+</style>
+<div class="col" style="gap: 6px">
+  <div class="tab">
+    <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg></span>
+    <span class="title">Logs</span>
+    <span class="actions">
+      <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+      <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/></svg></span>
+    </span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="tab" style="background: var(--rdp-card); border-radius: 12px; padding: 0 8px">
+    <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg></span>
+    <span class="title">Mode editor</span>
+    <span class="actions">
+      <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+    </span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">RipDpiTopAppBar · appBarTitle 20/28 Medium · 56dp min-height (Compact), 60/64 on Medium/Expanded · leading nav-icon + trailing actions, 48dp icon-button targets, 12dp gap.</div>
+</div></body></html>

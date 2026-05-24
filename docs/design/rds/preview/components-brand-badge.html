@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=700">
+<link rel="stylesheet" href="preview.css">
+<style>
+  html, body { min-height: 380px; }
+</style>
+</head>
+<body>
+<div class="card">
+<style>
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+  }
+  /* Badge: circular medallion in the foreground color. The icon glyph is
+     masked into the badge's inverse (text) color so the same SVG works at
+     every size without an extra asset variant. */
+  .badge {
+    background: var(--rdp-foreground);
+    color: var(--rdp-background);
+    border-radius: 9999px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+  .badge .glyph {
+    display: block;
+    width: 58%;
+    height: 58%;
+    background: currentColor;
+    -webkit-mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center 38% / contain no-repeat;
+            mask: url("../assets/icons/ic_launcher_foreground_ripdpi_clean.svg") center 38% / contain no-repeat;
+  }
+  .spec {
+    font: var(--rdp-type-mono-small);
+    color: var(--rdp-muted-foreground);
+    flex: 1;
+  }
+  .spec b { color: var(--rdp-foreground); font-weight: 500; }
+</style>
+<div class="col" style="gap: 4px">
+  <div class="row">
+    <span class="badge" style="width: 24px; height: 24px"><span class="glyph"></span></span>
+    <span class="spec"><b>24dp</b> · status-bar / list-row leading slot</span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="row">
+    <span class="badge" style="width: 32px; height: 32px"><span class="glyph"></span></span>
+    <span class="spec"><b>32dp</b> · top app bar — Compact width class</span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="row">
+    <span class="badge" style="width: 36px; height: 36px"><span class="glyph"></span></span>
+    <span class="spec"><b>36dp</b> · top app bar — Medium width class</span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="row">
+    <span class="badge" style="width: 40px; height: 40px"><span class="glyph"></span></span>
+    <span class="spec"><b>40dp</b> · top app bar — Expanded width class</span>
+  </div>
+  <div class="rdp-hairline"></div>
+  <div class="row">
+    <span class="badge" style="width: 64px; height: 64px"><span class="glyph"></span></span>
+    <span class="spec"><b>64dp</b> · brand-mark lockup (with wordmark)</span>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Brand badge · foreground-fill circle with the masked launcher glyph · 5 canonical sizes · companion to the Pixel Circle wordmark.</div>
+</div>
+</body>
+</html>

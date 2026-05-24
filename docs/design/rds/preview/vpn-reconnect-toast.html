@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:300px}</style></head>
+<body><div class="card">
+<style>
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.toast {
+  background: var(--rdp-foreground);
+  color: var(--rdp-background);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+.toast .ic {
+  width: 36px; height: 36px; border-radius: 9999px;
+  display: grid; place-items: center;
+  background: var(--rdp-background); color: var(--rdp-foreground);
+  position: relative;
+}
+.toast .ic svg { display: block; }
+.toast .ic .ring {
+  position: absolute; inset: -2px;
+  border-radius: 9999px;
+  border: 2px solid rgba(255,255,255,0.18);
+}
+.toast .ic .ring.spin {
+  border-top-color: rgba(255,255,255,0.85);
+  animation: rdp-spin 1.2s linear infinite;
+}
+@keyframes rdp-spin { to { transform: rotate(360deg); } }
+
+.toast .body { min-width: 0; }
+.toast .body .ttl { display: block; font: var(--rdp-type-body-emphasis); }
+.toast .body .desc { display: block; font: var(--rdp-type-mono-small); opacity: 0.7; margin-top: 2px; }
+.toast .body .desc b { opacity: 1; font-weight: 500; }
+
+.toast .meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.toast .meta .count { font: 500 13px/1 var(--rdp-font-mono); font-variant-numeric: tabular-nums; }
+.toast .meta .actions { display: inline-flex; gap: 6px; }
+.toast .meta button {
+  background: transparent;
+  color: var(--rdp-background);
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font: var(--rdp-type-mono-small);
+  font-size: 10.5px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.toast .meta button.solid {
+  background: var(--rdp-background);
+  color: var(--rdp-foreground);
+  border-color: var(--rdp-background);
+}
+
+/* countdown bar — anchored to bottom of toast */
+.toast {
+  position: relative;
+}
+.toast .cd {
+  position: absolute; left: 14px; right: 14px; bottom: 6px;
+  height: 2px; background: rgba(255,255,255,0.12); border-radius: 2px; overflow: hidden;
+}
+.toast .cd .fill {
+  display: block; height: 100%; background: rgba(255,255,255,0.85);
+  width: 100%;
+  transform-origin: right center;
+  animation: rdp-countdown 4s linear forwards;
+}
+@keyframes rdp-countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* Failed-after-N variant */
+.toast.failed {
+  background: var(--rdp-destructive-container);
+  color: var(--rdp-destructive-container-foreground);
+}
+.toast.failed .ic { background: var(--rdp-destructive); color: var(--rdp-destructive-foreground); }
+.toast.failed .ic .ring { border-color: rgba(0,0,0,0.1); }
+.toast.failed .meta button { border-color: var(--rdp-destructive); color: var(--rdp-destructive-container-foreground); }
+.toast.failed .meta button.solid { background: var(--rdp-destructive); color: var(--rdp-destructive-foreground); border-color: var(--rdp-destructive); }
+
+/* Recovered variant */
+.toast.ok {
+  background: var(--rdp-success-container);
+  color: var(--rdp-success-container-foreground);
+}
+.toast.ok .ic { background: var(--rdp-success); color: var(--rdp-success-foreground); }
+.toast.ok .meta button { border-color: rgba(0,0,0,0.15); color: var(--rdp-success-container-foreground); }
+</style>
+
+<div class="stack">
+
+  <!-- 1. Reconnecting — primary -->
+  <div class="toast">
+    <span class="ic">
+      <span class="ring spin"></span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/><path d="M20.49 15A9 9 0 015.64 18.36L1 14"/></svg>
+    </span>
+    <span class="body">
+      <span class="ttl">Reconnecting…</span>
+      <span class="desc">Network changed · <b>Wi-Fi → mobile</b> · attempt <b>2 of 3</b> · backoff 4 s</span>
+    </span>
+    <span class="meta">
+      <span class="count">00:03</span>
+      <span class="actions">
+        <button>Cancel</button>
+        <button class="solid">Retry now</button>
+      </span>
+    </span>
+    <span class="cd"><span class="fill"></span></span>
+  </div>
+
+  <!-- 2. Failed after attempts -->
+  <div class="toast failed">
+    <span class="ic">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </span>
+    <span class="body">
+      <span class="ttl">Could not reconnect</span>
+      <span class="desc">3 attempts failed · <b>handshake timeout @ MTU probe</b> · last try 12 s ago</span>
+    </span>
+    <span class="meta">
+      <span class="actions">
+        <button>Run diagnostic</button>
+        <button class="solid">Switch strategy</button>
+      </span>
+    </span>
+  </div>
+
+  <!-- 3. Recovered -->
+  <div class="toast ok">
+    <span class="ic">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </span>
+    <span class="body">
+      <span class="ttl">Tunnel restored</span>
+      <span class="desc">Recovered in <b>4.8 s</b> · AMS · Cloudflare · no kill-switch trip</span>
+    </span>
+    <span class="meta">
+      <span class="actions">
+        <button>Dismiss</button>
+      </span>
+    </span>
+  </div>
+
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Reconnect toast · 3 register variants · spinning ring during attempt · animated countdown bar tracks backoff · failure variant replaces the primary action with diagnostic / strategy switch.</div>
+</div></body></html>

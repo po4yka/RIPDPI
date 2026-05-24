@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:500px}</style></head>
+<body><div class="card">
+<style>
+.ks-host { padding: 16px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.ks-head { display: flex; justify-content: space-between; align-items: center; }
+.ks-head .body .title { font: var(--rdp-type-body-emphasis); }
+.ks-head .body .sub { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 2px; }
+.ks-head .sw { width: 52px; height: 32px; border-radius: 9999px; background: var(--rdp-destructive); position: relative; flex-shrink: 0; }
+.ks-head .sw .t { position: absolute; top: 4px; left: 24px; width: 24px; height: 24px; border-radius: 9999px; background: #fff; }
+.ks-warn { margin-top: 14px; padding: 12px 14px; background: var(--rdp-destructive-container); color: var(--rdp-destructive-container-foreground); border-left: 2px solid var(--rdp-destructive); border-radius: 12px; display: flex; gap: 10px; align-items: flex-start; }
+.ks-warn .ico { width: 14px; height: 14px; color: var(--rdp-destructive); flex-shrink: 0; margin-top: 2px; }
+.ks-warn .msg { font: var(--rdp-type-body); font-size: 13px; line-height: 1.4; }
+.ks-warn .msg b { color: inherit; }
+.opts { margin-top: 14px; }
+.opts .opt { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+.opts .opt + .opt { border-top: 0.5px solid var(--rdp-divider); }
+.opts .ck { width: 18px; height: 18px; border: 1.5px solid var(--rdp-outline); border-radius: 4px; flex-shrink: 0; display: grid; place-items: center; }
+.opts .ck.on { background: var(--rdp-foreground); border-color: var(--rdp-foreground); color: var(--rdp-background); }
+.opts .ck svg { width: 11px; height: 11px; }
+.opts .lbl { flex: 1; }
+.opts .lbl .t { font: var(--rdp-type-body); }
+.opts .lbl .s { font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 1px; }
+</style>
+<div class="ks-host">
+  <div class="ks-head">
+    <span class="body">
+      <div class="title">Kill switch</div>
+      <div class="sub">Block all traffic if the VPN drops unexpectedly</div>
+    </span>
+    <span class="sw"><span class="t"></span></span>
+  </div>
+  <div class="ks-warn">
+    <svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22z M11 16h2v2h-2z M11 10h2v5h-2z"/></svg>
+    <div class="msg"><b>Active.</b> Network traffic outside the tunnel will be dropped without warning. Some apps may show "no connection" until VPN reconnects.</div>
+  </div>
+  <div class="opts">
+    <div class="opt"><span class="ck on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span class="lbl"><div class="t">Block on connection start</div><div class="s">Until the tunnel is established</div></span></div>
+    <div class="opt"><span class="ck on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span class="lbl"><div class="t">Block on disconnect</div><div class="s">Forever after VPN drops, until restart</div></span></div>
+    <div class="opt"><span class="ck"></span><span class="lbl"><div class="t">Allow local network</div><div class="s">192.168.0.0/16, 10.0.0.0/8 keep working</div></span></div>
+  </div>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Kill switch · destructive-tone primary toggle · checklist of sub-rules · explicit warning when active.</div>
+</div></body></html>

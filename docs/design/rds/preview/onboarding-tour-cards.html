@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:440px}</style></head>
+<body><div class="card">
+<style>
+.tc { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.tc .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.tc .hd .t { font: var(--rdp-type-body-emphasis); }
+.tc .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.tour {
+  position: relative;
+  background: var(--rdp-muted);
+  border-radius: 12px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.cards-stack {
+  position: relative;
+  height: 280px;
+  width: 320px;
+  margin: 0 auto;
+}
+.card-pane {
+  position: absolute; inset: 0;
+  background: var(--rdp-card);
+  border: 1px solid var(--rdp-card-border);
+  border-radius: 16px;
+  padding: 22px 22px 16px;
+  display: flex; flex-direction: column;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+}
+.card-pane.behind-1 { transform: scale(0.96) translateY(12px); opacity: 0.6; z-index: 2; }
+.card-pane.behind-2 { transform: scale(0.92) translateY(24px); opacity: 0.3; z-index: 1; }
+.card-pane.front    { z-index: 3; }
+
+.illust {
+  height: 96px;
+  background: var(--rdp-muted);
+  border-radius: 8px;
+  display: grid; place-items: center;
+  color: var(--rdp-foreground);
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.illust .pulse-dot { width: 24px; height: 24px; border-radius: 9999px; background: var(--rdp-success); position: relative; }
+.illust .pulse-dot::after { content: ""; position: absolute; inset: -6px; border: 2px solid var(--rdp-success); border-radius: 9999px; animation: tcPulse 1.6s ease-out infinite; }
+@keyframes tcPulse { 0% { transform: scale(0.6); opacity: 0.6; } 100% { transform: scale(2); opacity: 0; } }
+
+.step-num { font: var(--rdp-type-mono-small); font-size: 9.5px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--rdp-muted-foreground); }
+.ttl { font: var(--rdp-type-body-emphasis); font-size: 16px; margin-top: 4px; }
+.body { font: var(--rdp-type-body); font-size: 13px; line-height: 1.55; color: var(--rdp-muted-foreground); margin-top: 8px; }
+
+.footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 12px; }
+.dots { display: inline-flex; gap: 5px; }
+.dots span {
+  width: 6px; height: 6px; border-radius: 9999px;
+  background: var(--rdp-outline-variant);
+  transition: all 220ms cubic-bezier(0.2,0,0,1);
+}
+.dots span.active { background: var(--rdp-foreground); width: 18px; border-radius: 9999px; }
+.actions { display: inline-flex; gap: 6px; }
+.actions button {
+  background: transparent; border: 1px solid var(--rdp-border);
+  padding: 6px 12px; border-radius: 9999px;
+  font: var(--rdp-type-small-label); cursor: pointer;
+}
+.actions button.solid { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.actions button.text  { border-color: transparent; color: var(--rdp-muted-foreground); }
+
+.specs {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px;
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+}
+.specs b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.specs span { color: var(--rdp-foreground); }
+.specs code { font: var(--rdp-type-mono-inline); padding: 1px 5px; background: var(--rdp-accent); border-radius: 3px; }
+</style>
+
+<div class="tc">
+  <div class="hd">
+    <span class="t">Tour cards</span>
+    <span class="sub">Sequenced full-screen intro · 3 of 4</span>
+  </div>
+
+  <div class="tour">
+    <div class="cards-stack">
+      <div class="card-pane behind-2">
+        <div class="illust"></div>
+        <div class="step-num">04 / 04</div>
+        <div class="ttl">Stay connected anywhere</div>
+      </div>
+      <div class="card-pane behind-1">
+        <div class="illust"></div>
+        <div class="step-num">03 / 04</div>
+        <div class="ttl">Pick the right strategy</div>
+      </div>
+      <div class="card-pane front">
+        <div class="illust">
+          <span class="pulse-dot"></span>
+        </div>
+        <div class="step-num">02 / 04</div>
+        <div class="ttl">Always-on health check</div>
+        <div class="body">RIPDPI probes your network state in the background to spot DPI changes <i>before</i> your tunnel drops. The breathing dot means it's listening.</div>
+        <div class="footer">
+          <span class="dots"><span></span><span class="active"></span><span></span><span></span></span>
+          <span class="actions">
+            <button class="text">Skip tour</button>
+            <button class="solid">Next →</button>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="specs">
+    <b>Stack</b><span>Up to 2 cards behind the front card · scale 0.96 / 0.92 · opacity 0.6 / 0.3</span>
+    <b>Advance</b><span>Swipe left or tap Next · <code>320 ms emphasized</code> · stack restacks</span>
+    <b>Step pill</b><span>Active dot becomes an 18 px pill · sandwich position visible</span>
+    <b>Skip</b><span>Always available · stores completion as <code>onboarded=v3</code></span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Tour cards · stack of 4 with the next 2 visible behind the front · illustration slot for animated content or static art · standard footer with active-dot indicator.</div>
+</div></body></html>

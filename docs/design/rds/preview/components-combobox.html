@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:440px}</style></head>
+<body><div class="card">
+<style>
+.cb { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.cb .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.cb .hd .t { font: var(--rdp-type-body-emphasis); }
+.cb .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; position: relative; }
+.field .lbl { font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); }
+
+.input {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--rdp-foreground);
+  border-radius: 8px;
+  background: var(--rdp-card);
+  height: 40px;
+}
+.input svg { color: var(--rdp-muted-foreground); }
+.input input { flex: 1; border: none; outline: none; background: transparent;
+  font: var(--rdp-type-mono-value); font-size: 13px; color: var(--rdp-foreground); }
+.input .clr {
+  cursor: pointer; padding: 4px; border-radius: 9999px; background: var(--rdp-muted);
+  width: 20px; height: 20px; display: grid; place-items: center;
+}
+
+.dropdown {
+  position: relative; margin-top: 4px;
+  background: var(--rdp-card);
+  border: 1px solid var(--rdp-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  overflow: hidden;
+  max-height: 280px;
+  display: flex; flex-direction: column;
+}
+
+.dd-group { padding: 6px 0; }
+.dd-group + .dd-group { border-top: 0.5px solid var(--rdp-divider); }
+.dd-group .lbl {
+  padding: 4px 14px;
+  font: var(--rdp-type-section-title); font-size: 9.5px;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--rdp-muted-foreground);
+}
+.opt {
+  display: grid; grid-template-columns: 16px 1fr auto;
+  gap: 10px; align-items: center;
+  padding: 7px 14px; cursor: pointer;
+}
+.opt:hover { background: var(--rdp-muted); }
+.opt.active { background: var(--rdp-foreground); color: var(--rdp-background); }
+.opt.active .desc { color: rgba(255,255,255,0.7); }
+.opt .ic { color: var(--rdp-muted-foreground); display: grid; place-items: center; }
+.opt.active .ic { color: var(--rdp-background); }
+.opt .lab { font: var(--rdp-type-mono-value); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.opt .lab .match { background: var(--rdp-warning-container); color: var(--rdp-warning-container-foreground); padding: 0 2px; border-radius: 2px; }
+.opt.active .lab .match { background: rgba(251,191,36,0.3); color: inherit; }
+.opt .desc { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); }
+.opt .meta { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); }
+
+.dd-foot {
+  padding: 6px 14px;
+  border-top: 0.5px solid var(--rdp-divider);
+  background: var(--rdp-muted);
+  font: var(--rdp-type-mono-small); font-size: 9.5px; color: var(--rdp-muted-foreground); letter-spacing: 0.3px;
+  display: flex; justify-content: space-between;
+}
+.dd-foot .keys { display: inline-flex; align-items: center; gap: 5px; }
+.dd-foot kbd { font: 500 9px/1 var(--rdp-font-mono); padding: 2px 4px; border-radius: 3px; background: var(--rdp-card); border: 0.5px solid var(--rdp-border); color: var(--rdp-foreground); }
+
+.empty {
+  padding: 20px;
+  text-align: center;
+  font: var(--rdp-type-mono-small); font-size: 11px;
+  color: var(--rdp-muted-foreground);
+}
+.empty .add {
+  display: inline-block; margin-top: 8px;
+  padding: 4px 10px; border-radius: 9999px;
+  background: var(--rdp-foreground); color: var(--rdp-background);
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+  cursor: pointer;
+}
+</style>
+
+<div class="cb">
+  <div class="hd">
+    <span class="t">Combobox</span>
+    <span class="sub">Autocomplete picker · grouped + create-on-miss</span>
+  </div>
+
+  <div class="field">
+    <span class="lbl">Pick relay</span>
+    <div class="input">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" value="ams"/>
+      <span class="clr">
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg>
+      </span>
+    </div>
+    <div class="dropdown">
+      <div class="dd-group">
+        <div class="lbl">Suggested · nearest</div>
+        <div class="opt active">
+          <span class="ic">📍</span>
+          <span class="lab"><span class="match">AMS</span> · Amsterdam<span class="desc" style="margin-left: 6px">NL · Cloudflare</span></span>
+          <span class="meta">38 ms</span>
+        </div>
+        <div class="opt">
+          <span class="ic"></span>
+          <span class="lab"><span class="match">AMS</span>terdam-IX</span>
+          <span class="meta">42 ms</span>
+        </div>
+      </div>
+      <div class="dd-group">
+        <div class="lbl">All relays</div>
+        <div class="opt">
+          <span class="ic"></span>
+          <span class="lab">FRA · Frankfurt</span>
+          <span class="meta">58 ms</span>
+        </div>
+        <div class="opt">
+          <span class="ic"></span>
+          <span class="lab">LHR · London</span>
+          <span class="meta">62 ms</span>
+        </div>
+        <div class="opt">
+          <span class="ic"></span>
+          <span class="lab">STO · Stockholm</span>
+          <span class="meta">71 ms</span>
+        </div>
+      </div>
+      <div class="dd-foot">
+        <span>Showing <b style="color: var(--rdp-foreground)">5</b> of 47</span>
+        <span class="keys"><kbd>↑</kbd><kbd>↓</kbd> nav · <kbd>↵</kbd> select · <kbd>esc</kbd> close</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="lbl">Add custom host · empty state</span>
+    <div class="input">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" value="my-relay.example.com"/>
+    </div>
+    <div class="dropdown">
+      <div class="empty">
+        No matching relay
+        <br>
+        <span class="add">+ Add <b>my-relay.example.com</b></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Combobox · search field + grouped results + create-on-miss · selected option in inverse colour · keyboard hints in the footer.</div>
+</div></body></html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:460px}</style></head>
+<body><div class="card">
+<style>
+.host { font: var(--rdp-type-mono-log); background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 12px; overflow: hidden; }
+.head { display: grid; grid-template-columns: 60px 100px 100px 90px 1fr; gap: 8px; padding: 8px 12px; background: var(--rdp-muted); border-bottom: 0.5px solid var(--rdp-divider); font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); letter-spacing: 0.4px; }
+.pkt { display: grid; grid-template-columns: 60px 100px 100px 90px 1fr; gap: 8px; padding: 5px 12px; font-size: 12px; align-items: center; }
+.pkt + .pkt { border-top: 0.5px solid var(--rdp-divider); }
+.pkt.sel { background: var(--rdp-accent); }
+.pkt .proto { padding: 1px 6px; border-radius: 4px; font-size: 10px; letter-spacing: 0.4px; text-align: center; }
+.pkt .proto.tcp { background: var(--rdp-info-container); color: var(--rdp-info); }
+.pkt .proto.udp { background: var(--rdp-success-container); color: var(--rdp-success-container-foreground); }
+.pkt .proto.tls { background: var(--rdp-warning-container); color: var(--rdp-warning); }
+.detail { padding: 12px 14px; background: var(--rdp-muted); border-top: 0.5px solid var(--rdp-divider); }
+.detail .h { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); margin-bottom: 6px; letter-spacing: 0.4px; }
+.detail pre { margin: 0; font: var(--rdp-type-mono-log); font-size: 11px; line-height: 16px; color: var(--rdp-foreground); white-space: pre-wrap; }
+</style>
+<div class="host">
+  <div class="head"><span>NO</span><span>TIME</span><span>SRC</span><span>DST</span><span>SUMMARY</span></div>
+  <div class="pkt"><span>1</span><span>0.000</span><span>10.7.0.42</span><span class="proto tcp">TCP</span><span>1.1.1.1:443 [SYN] seq=0 win=64240</span></div>
+  <div class="pkt"><span>2</span><span>0.012</span><span>1.1.1.1</span><span class="proto tcp">TCP</span><span>10.7.0.42 [SYN, ACK] seq=0 ack=1 win=65535</span></div>
+  <div class="pkt sel"><span>3</span><span>0.012</span><span>10.7.0.42</span><span class="proto tls">TLS</span><span>ClientHello SNI=cloudflare-dns.com 512 B</span></div>
+  <div class="pkt"><span>4</span><span>0.518</span><span>10.7.0.42</span><span class="proto tls">TLS</span><span>ClientHello (retransmit) SNI=cloudflare-dns.com</span></div>
+  <div class="pkt"><span>5</span><span>0.524</span><span>1.1.1.1</span><span class="proto tcp">TCP</span><span>10.7.0.42 [RST, ACK] seq=1 ack=513</span></div>
+</div>
+<div class="detail">
+  <div class="h">PACKET 3 · TLS HEX DUMP</div>
+  <pre>0000  16 03 01 02 00 01 00 01 fc 03 03 a8 e2 b1 c0 4f
+0010  92 d3 7e 1a 88 b9 6c d5 3b 8a 21 e0 4f a4 88 e1
+0020  cb 7e 5d 13 8a 22 0a 09 12 84 9c 7e 84 c9 b6 9e
+0030  00 0a 13 02 13 03 13 01 c0 2c c0 30 cc a9 cc a8</pre>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">PCAP viewer · packet list above, hex dump below · proto chip with semantic tone · tap a row to expand.</div>
+</div></body></html>

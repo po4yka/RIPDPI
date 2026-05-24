@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.hb { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.hb .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.hb .hd .t { font: var(--rdp-type-body-emphasis); }
+.hb .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.heart {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 20px; height: 20px;
+  vertical-align: middle;
+}
+.heart .core {
+  width: 8px; height: 8px; border-radius: 9999px;
+  display: block;
+}
+.heart .ring {
+  position: absolute; top: 50%; left: 50%;
+  width: 14px; height: 14px;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid currentColor; border-radius: 9999px;
+  opacity: 0.35;
+  animation: hbRing 1.6s ease-out infinite;
+  transform-origin: center center;
+}
+.heart.tunl   { color: var(--rdp-success); }
+.heart.tunl .core { background: var(--rdp-success); }
+.heart.degr   { color: var(--rdp-warning); }
+.heart.degr .core { background: var(--rdp-warning); }
+.heart.fail   { color: var(--rdp-destructive); }
+.heart.fail .core { background: var(--rdp-destructive); }
+.heart.info   { color: var(--rdp-info); }
+.heart.info .core { background: var(--rdp-info); }
+.heart.muted  { color: var(--rdp-muted-foreground); }
+.heart.muted .core { background: var(--rdp-muted-foreground); }
+.heart.muted .ring { animation: none; opacity: 0; }
+
+/* Sizes */
+.heart.sm { width: 16px; height: 16px; }
+.heart.sm .core { width: 6px; height: 6px; }
+.heart.sm .ring { width: 12px; height: 12px; }
+.heart.lg { width: 28px; height: 28px; }
+.heart.lg .core { width: 12px; height: 12px; }
+.heart.lg .ring { width: 20px; height: 20px; }
+
+@keyframes hbRing {
+  0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0.6; }
+  100% { transform: translate(-50%, -50%) scale(2);   opacity: 0; }
+}
+
+.row { display: grid; grid-template-columns: 28px 1fr max-content; gap: 12px; align-items: center; padding: 10px 0; }
+.row .heart { justify-self: center; }
+.row + .row { border-top: 0.5px solid var(--rdp-divider); }
+.row .nm { font: var(--rdp-type-mono-value); font-size: 12px; }
+.row .desc { font: var(--rdp-type-mono-small); font-size: 10px; color: var(--rdp-muted-foreground); }
+
+.usages { margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider); display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.usages .u { padding: 12px; background: var(--rdp-muted); border-radius: 8px; display: flex; align-items: center; gap: 10px; }
+.usages .u .lbl { font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground); }
+.usages .u .lbl b { color: var(--rdp-foreground); font-weight: 500; }
+
+.sizes { display: flex; gap: 24px; align-items: flex-end; padding: 16px 0 12px; }
+.sizes .pair { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 60px; }
+.sizes .pair .heart-slot { display: grid; place-items: center; height: 32px; }
+.sizes .pair .label { font: var(--rdp-type-mono-small); font-size: 9.5px; color: var(--rdp-muted-foreground); letter-spacing: 0.4px; text-transform: uppercase; }
+</style>
+
+<div class="hb">
+  <div class="hd">
+    <span class="t">Heartbeat indicator</span>
+    <span class="sub">Living state marker · 5 tones · 3 sizes</span>
+  </div>
+
+  <!-- Tones (one row each) -->
+  <div class="row">
+    <span class="heart tunl"><span class="core"></span><span class="ring"></span></span>
+    <span class="nm">Tunneling — healthy <span class="desc" style="margin-left: 8px">success</span></span>
+    <span class="desc">live data flowing</span>
+  </div>
+  <div class="row">
+    <span class="heart info"><span class="core"></span><span class="ring"></span></span>
+    <span class="nm">Probing — active scan <span class="desc" style="margin-left: 8px">info</span></span>
+    <span class="desc">awaiting response</span>
+  </div>
+  <div class="row">
+    <span class="heart degr"><span class="core"></span><span class="ring"></span></span>
+    <span class="nm">Degraded — needs attention <span class="desc" style="margin-left: 8px">warning</span></span>
+    <span class="desc">connected but unstable</span>
+  </div>
+  <div class="row">
+    <span class="heart fail"><span class="core"></span><span class="ring"></span></span>
+    <span class="nm">Failing — blocked <span class="desc" style="margin-left: 8px">destructive</span></span>
+    <span class="desc">about to drop</span>
+  </div>
+  <div class="row">
+    <span class="heart muted"><span class="core"></span><span class="ring"></span></span>
+    <span class="nm">Off — idle <span class="desc" style="margin-left: 8px">muted</span></span>
+    <span class="desc">no ring, no motion</span>
+  </div>
+
+  <!-- Sizes -->
+  <div class="sizes">
+    <div class="pair">
+      <span class="label">Small · 6 px</span>
+      <span class="heart-slot"><span class="heart tunl sm"><span class="core"></span><span class="ring"></span></span></span>
+    </div>
+    <div class="pair">
+      <span class="label">Standard · 8 px</span>
+      <span class="heart-slot"><span class="heart tunl"><span class="core"></span><span class="ring"></span></span></span>
+    </div>
+    <div class="pair">
+      <span class="label">Large · 12 px</span>
+      <span class="heart-slot"><span class="heart tunl lg"><span class="core"></span><span class="ring"></span></span></span>
+    </div>
+  </div>
+
+  <div class="usages">
+    <div class="u">
+      <span class="heart tunl"><span class="core"></span><span class="ring"></span></span>
+      <span class="lbl">In <b>row</b> labels</span>
+    </div>
+    <div class="u">
+      <span class="heart info"><span class="core"></span><span class="ring"></span></span>
+      <span class="lbl">In <b>status</b> chips</span>
+    </div>
+    <div class="u">
+      <span class="heart degr"><span class="core"></span><span class="ring"></span></span>
+      <span class="lbl">In <b>header</b> badges</span>
+    </div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Heartbeat indicator · single core dot + expanding ring · ring scale 0.6 → 2.0 opacity 0.6 → 0 over 1.6 s · the muted tone drops the ring to express &quot;idle / off&quot; without motion.</div>
+</div></body></html>

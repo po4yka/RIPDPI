@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:400px}</style></head>
+<body><div class="card">
+<style>
+.fr { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.fr .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.fr .hd .t { font: var(--rdp-type-body-emphasis); }
+.fr .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.row {
+  display: grid; grid-template-columns: 130px 1fr;
+  gap: 16px; align-items: center;
+  padding: 12px 0;
+}
+.row + .row { border-top: 0.5px solid var(--rdp-divider); }
+
+.row .label {
+  font: var(--rdp-type-mono-value); font-size: 11.5px;
+  color: var(--rdp-foreground);
+}
+.row .label small { display: block; font: var(--rdp-type-mono-small); font-size: 9.5px; color: var(--rdp-muted-foreground); margin-top: 3px; }
+
+.specs { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+
+/* The focus ring spec — applied to every type of interactive surface */
+.btn-primary  { padding: 8px 14px; border-radius: 9999px; background: var(--rdp-foreground); color: var(--rdp-background); border: 1px solid var(--rdp-foreground); font: var(--rdp-type-small-label); cursor: pointer; }
+.btn-outline  { padding: 8px 14px; border-radius: 9999px; background: transparent;          color: var(--rdp-foreground);  border: 1px solid var(--rdp-border);     font: var(--rdp-type-small-label); cursor: pointer; }
+.btn-text     { padding: 8px 14px; border-radius: 9999px; background: transparent;          color: var(--rdp-foreground);  border: 1px solid transparent;            font: var(--rdp-type-small-label); cursor: pointer; }
+
+.input-demo   {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--rdp-card);
+  border: 1px solid var(--rdp-border);
+  font: var(--rdp-type-mono-value); font-size: 12px;
+  color: var(--rdp-foreground);
+  outline: none;
+}
+
+.switch-demo {
+  width: 36px; height: 20px; border-radius: 9999px;
+  background: var(--rdp-foreground); position: relative; cursor: pointer;
+}
+.switch-demo::after {
+  content: ""; position: absolute; top: 2px; right: 2px;
+  width: 16px; height: 16px; background: var(--rdp-background); border-radius: 9999px;
+}
+
+.chip-demo {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 9999px;
+  background: var(--rdp-muted); border: 1px solid var(--rdp-border);
+  font: var(--rdp-type-mono-small); font-size: 11px;
+  cursor: pointer;
+}
+
+.tile-demo {
+  width: 60px; height: 44px;
+  background: var(--rdp-muted); border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Standard focused state */
+.focused {
+  outline: 2px solid var(--rdp-foreground);
+  outline-offset: 2px;
+}
+/* Light variant for dark surfaces */
+.btn-primary.focused {
+  outline-color: var(--rdp-foreground);
+  outline-offset: 3px;
+  /* halo card-coloured to separate from button colour */
+  box-shadow: 0 0 0 5px var(--rdp-card);
+}
+
+/* Destructive focus */
+.btn-destructive {
+  padding: 8px 14px; border-radius: 9999px; background: var(--rdp-destructive); color: var(--rdp-destructive-foreground); border: 1px solid var(--rdp-destructive);
+  font: var(--rdp-type-small-label); cursor: pointer;
+}
+.btn-destructive.focused {
+  outline: 2px solid var(--rdp-destructive);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px var(--rdp-card);
+}
+
+.rule {
+  margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px;
+  font: var(--rdp-type-mono-small); font-size: 10.5px;
+}
+.rule b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.rule span { color: var(--rdp-foreground); }
+.rule code { font: var(--rdp-type-mono-inline); padding: 1px 5px; background: var(--rdp-accent); border-radius: 3px; }
+</style>
+
+<div class="fr">
+  <div class="hd">
+    <span class="t">Focus rings</span>
+    <span class="sub">Single primitive · applied to every interactive</span>
+  </div>
+
+  <div class="row">
+    <span class="label">Buttons<small>:focus-visible</small></span>
+    <span class="specs">
+      <button class="btn-primary">Default</button>
+      <button class="btn-primary focused">Focused</button>
+      <button class="btn-outline">Default</button>
+      <button class="btn-outline focused">Focused</button>
+      <button class="btn-text">Default</button>
+      <button class="btn-text focused">Focused</button>
+    </span>
+  </div>
+
+  <div class="row">
+    <span class="label">Destructive<small>same ring, dest colour</small></span>
+    <span class="specs">
+      <button class="btn-destructive">Disconnect</button>
+      <button class="btn-destructive focused">Disconnect</button>
+    </span>
+  </div>
+
+  <div class="row">
+    <span class="label">Text field<small>border + ring overlay</small></span>
+    <span class="specs">
+      <input class="input-demo" value="cloudflare-dns.com"/>
+      <input class="input-demo focused" value="cloudflare-dns.com"/>
+    </span>
+  </div>
+
+  <div class="row">
+    <span class="label">Switch<small>focus ring on container</small></span>
+    <span class="specs">
+      <span class="switch-demo"></span>
+      <span class="switch-demo focused"></span>
+    </span>
+  </div>
+
+  <div class="row">
+    <span class="label">Chip<small>same ring</small></span>
+    <span class="specs">
+      <span class="chip-demo">tls.sni</span>
+      <span class="chip-demo focused">tls.sni</span>
+    </span>
+  </div>
+
+  <div class="row">
+    <span class="label">Tile / card<small>cards focused via :focus-within</small></span>
+    <span class="specs">
+      <span class="tile-demo"></span>
+      <span class="tile-demo focused"></span>
+    </span>
+  </div>
+
+  <div class="rule">
+    <b>Ring</b><span><code>2 px solid var(--rdp-foreground)</code> · <code>outline-offset: 2 px</code></span>
+    <b>Halo</b><span><code>0 0 0 5 px var(--rdp-card)</code> · only when ring sits on a coloured / dark surface</span>
+    <b>Trigger</b><span><code>:focus-visible</code> only · keyboard / accessibility · never on mouse-down</span>
+    <b>Destructive</b><span>same geometry · ring colour swaps to <code>var(--rdp-destructive)</code></span>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Focus rings · one spec (2 px solid foreground · 2 px offset · 5 px card halo when needed) applied to every interactive · keyboard-only via :focus-visible · destructive variants swap colour but keep geometry.</div>
+</div></body></html>

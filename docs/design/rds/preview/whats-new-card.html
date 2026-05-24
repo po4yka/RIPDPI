@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:420px}</style></head>
+<body><div class="card">
+<style>
+.wn { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.wn .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 14px; }
+.wn .hd .t { font: var(--rdp-type-body-emphasis); }
+.wn .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.release {
+  background: var(--rdp-card);
+  border: 1px solid var(--rdp-card-border);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.head-strip { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.head-strip .meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.head-strip .ver { font: 500 22px/1 var(--rdp-font-mono); font-variant-numeric: tabular-nums; color: var(--rdp-foreground); }
+.head-strip .date { font: var(--rdp-type-mono-small); font-size: 11px; color: var(--rdp-muted-foreground); }
+.head-strip .badge {
+  font: var(--rdp-type-mono-small); font-size: 10px;
+  padding: 3px 9px; border-radius: 9999px;
+  background: var(--rdp-info-container); color: var(--rdp-info);
+  letter-spacing: 0.4px; text-transform: uppercase;
+  display: inline-flex; align-items: center; gap: 5px;
+  flex-shrink: 0;
+}
+.head-strip .badge .dot { width: 6px; height: 6px; border-radius: 9999px; background: var(--rdp-info); }
+
+.hero {
+  height: 88px; border-radius: 8px;
+  background: var(--rdp-muted);
+  display: grid; place-items: center;
+  position: relative; overflow: hidden;
+}
+.hero .visual { font: 500 32px/1 var(--rdp-font-mono); color: var(--rdp-foreground); }
+.hero .stripe {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 4px;
+  background: var(--rdp-foreground);
+}
+
+.changes { display: flex; flex-direction: column; gap: 10px; }
+.change { display: grid; grid-template-columns: 82px 1fr; gap: 10px; align-items: flex-start; }
+.change .tag {
+  font: var(--rdp-type-mono-small); font-size: 9.5px;
+  padding: 2px 6px; border-radius: 3px;
+  text-align: center; align-self: flex-start; letter-spacing: 0.4px;
+  margin-top: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.change .tag.new   { background: var(--rdp-success-container);     color: var(--rdp-success); }
+.change .tag.fix   { background: var(--rdp-info-container);        color: var(--rdp-info); }
+.change .tag.brk   { background: var(--rdp-destructive-container); color: var(--rdp-destructive); }
+.change .ttl  { font: var(--rdp-type-body-emphasis); font-size: 13px; }
+.change .body { font: var(--rdp-type-mono-small); font-size: 11px; color: var(--rdp-muted-foreground); margin-top: 2px; }
+.change .body code { font: var(--rdp-type-mono-inline); padding: 1px 4px; background: var(--rdp-muted); border-radius: 3px; color: var(--rdp-foreground); }
+
+.footer {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: 12px; border-top: 0.5px solid var(--rdp-divider);
+}
+.footer .link {
+  font: var(--rdp-type-mono-small); font-size: 10.5px; color: var(--rdp-muted-foreground);
+  text-decoration: underline; text-decoration-color: var(--rdp-outline-variant);
+}
+.footer .actions { display: inline-flex; gap: 6px; }
+.footer button {
+  background: transparent; border: 1px solid var(--rdp-border);
+  padding: 6px 12px; border-radius: 9999px;
+  font: var(--rdp-type-small-label); cursor: pointer; color: var(--rdp-foreground);
+  white-space: nowrap;
+}
+.footer button.solid { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+</style>
+
+<div class="wn">
+  <div class="hd">
+    <span class="t">What's new card</span>
+    <span class="sub">Release notes pop-up · 3 categories</span>
+  </div>
+
+  <div class="release">
+    <div class="head-strip">
+      <div class="meta">
+        <div class="ver">v3.2.0</div>
+        <div class="date">Released 2026-05-15</div>
+      </div>
+      <span class="badge"><span class="dot"></span>What's new</span>
+    </div>
+
+    <div class="hero">
+      <div class="visual">v3.2</div>
+      <div class="stripe"></div>
+    </div>
+
+    <div class="changes">
+      <div class="change">
+        <span class="tag new">NEW</span>
+        <div>
+          <div class="ttl">DPI signature confidence meter</div>
+          <div class="body">Each detected signature now ships with a 0–1 confidence score and inline evidence excerpts. Tap to expand.</div>
+        </div>
+      </div>
+      <div class="change">
+        <span class="tag new">NEW</span>
+        <div>
+          <div class="ttl">Path-MTU binary search</div>
+          <div class="body">Probes converge on link MTU in 1.4 s on average · adds <code>FRAG</code> fallback row.</div>
+        </div>
+      </div>
+      <div class="change">
+        <span class="tag fix">FIX</span>
+        <div>
+          <div class="ttl">Reconnect backoff respects user cancel</div>
+          <div class="body">Cancelling during a backoff window now stops the chain immediately instead of waiting the remaining seconds.</div>
+        </div>
+      </div>
+      <div class="change">
+        <span class="tag brk">BREAKING</span>
+        <div>
+          <div class="ttl">Strategy schema · <code>retry</code> field renamed to <code>retries</code></div>
+          <div class="body">Imported strategies are auto-migrated; manually-edited <code>.toml</code> files need a one-character change.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <a class="link" href="#">Read full changelog →</a>
+      <span class="actions">
+        <button>Later</button>
+        <button class="solid">Got it</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">What's new card · version + date head, hero panel for the headline change, list of grouped changes (NEW / FIX / BREAKING) with semantic tag colours · changelog link in footer.</div>
+</div></body></html>

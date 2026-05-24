@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:380px}</style></head>
+<body><div class="card">
+<style>
+.head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.head .title { font: var(--rdp-type-body-emphasis); }
+.head .ranges { display: flex; gap: 4px; }
+.head .ranges button { padding: 4px 10px; border-radius: 9999px; border: 1px solid var(--rdp-border); background: transparent; font: var(--rdp-type-mono-small); cursor: pointer; color: var(--rdp-muted-foreground); }
+.head .ranges button.sel { background: var(--rdp-foreground); color: var(--rdp-background); border-color: var(--rdp-foreground); }
+.chart { width: 100%; height: 140px; background: var(--rdp-muted); border-radius: 12px; padding: 8px; box-sizing: border-box; }
+.chart svg { width: 100%; height: 100%; }
+.legend { display: flex; gap: 16px; margin-top: 10px; font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+.legend .item { display: inline-flex; align-items: center; gap: 6px; }
+.legend .sw { width: 10px; height: 2px; }
+.legend .sw.down { background: var(--rdp-foreground); }
+.legend .sw.up   { background: var(--rdp-info); }
+.legend .v { color: var(--rdp-foreground); margin-left: 4px; }
+.summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.summary .stat { padding: 8px 10px; background: var(--rdp-muted); border-radius: 10px; }
+.summary .stat .k { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); font-size: 10px; letter-spacing: 0.5px; }
+.summary .stat .v { font: 500 14px/1.1 var(--rdp-font-mono); margin-top: 4px; font-variant-numeric: tabular-nums; }
+</style>
+<div class="head">
+  <span class="title">Throughput</span>
+  <span class="ranges"><button>1m</button><button class="sel">5m</button><button>30m</button><button>1h</button></span>
+</div>
+<div class="chart">
+  <svg viewBox="0 0 600 140" preserveAspectRatio="none">
+    <path fill="none" stroke="var(--rdp-foreground)" stroke-width="2" stroke-linejoin="round" d="M0,80 L30,75 L60,82 L90,68 L120,72 L150,55 L180,60 L210,40 L240,45 L270,30 L300,50 L330,42 L360,35 L390,55 L420,48 L450,38 L480,52 L510,45 L540,32 L570,50 L600,42"/>
+    <path fill="var(--rdp-foreground)" fill-opacity="0.08" d="M0,80 L30,75 L60,82 L90,68 L120,72 L150,55 L180,60 L210,40 L240,45 L270,30 L300,50 L330,42 L360,35 L390,55 L420,48 L450,38 L480,52 L510,45 L540,32 L570,50 L600,42 L600,140 L0,140 Z"/>
+    <path fill="none" stroke="var(--rdp-info)" stroke-width="1.5" stroke-dasharray="0" stroke-linejoin="round" d="M0,115 L30,118 L60,112 L90,116 L120,108 L150,112 L180,105 L210,110 L240,102 L270,107 L300,98 L330,105 L360,100 L390,109 L420,104 L450,98 L480,107 L510,102 L540,95 L570,108 L600,100"/>
+  </svg>
+</div>
+<div class="summary">
+  <div class="stat"><div class="k">DOWN NOW</div><div class="v">1.42 MiB/s</div></div>
+  <div class="stat"><div class="k">UP NOW</div><div class="v">312 KiB/s</div></div>
+  <div class="stat"><div class="k">SESSION</div><div class="v">↓ 128 MiB</div></div>
+</div>
+<div class="legend">
+  <span class="item"><span class="sw down"></span>Down<span class="v">1.42 MiB/s</span></span>
+  <span class="item"><span class="sw up"></span>Up<span class="v">312 KiB/s</span></span>
+</div>
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Throughput graph · rolling 1m / 5m / 30m / 1h · down (foreground) + up (info) · session totals below.</div>
+</div></body></html>

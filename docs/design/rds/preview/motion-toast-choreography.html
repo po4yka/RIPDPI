@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=700"><link rel="stylesheet" href="preview.css"><style>html,body{min-height:480px}</style></head>
+<body><div class="card">
+<style>
+.tc { padding: 18px; background: var(--rdp-card); border: 1px solid var(--rdp-card-border); border-radius: 16px; }
+.tc .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 0.5px solid var(--rdp-divider); margin-bottom: 16px; }
+.tc .hd .t { font: var(--rdp-type-body-emphasis); }
+.tc .hd .sub { font: var(--rdp-type-mono-small); color: var(--rdp-muted-foreground); }
+
+.stage {
+  position: relative;
+  background: var(--rdp-muted);
+  border-radius: 12px;
+  height: 260px;
+  overflow: hidden;
+}
+.stage::before {
+  content: "Phone canvas · 6 s cycle"; position: absolute; top: 10px; left: 14px;
+  font: 9.5px var(--rdp-font-mono); color: var(--rdp-muted-foreground); letter-spacing: 0.3px; text-transform: uppercase;
+}
+.stage .live-dot {
+  position: absolute; top: 12px; right: 14px;
+  display: inline-flex; align-items: center; gap: 5px;
+  font: 9.5px var(--rdp-font-mono); color: var(--rdp-success); letter-spacing: 0.4px; text-transform: uppercase;
+}
+.stage .live-dot .pulse { width: 6px; height: 6px; background: var(--rdp-success); border-radius: 9999px; position: relative; }
+.stage .live-dot .pulse::after { content: ""; position: absolute; inset: -2px; border: 1.5px solid var(--rdp-success); border-radius: 9999px; opacity: 0.5; animation: tcRing 1.6s ease-out infinite; }
+@keyframes tcRing { 0% { transform: scale(0.6); opacity: 0.6; } 100% { transform: scale(2); opacity: 0; } }
+
+/* Stack area at bottom of canvas. Fixed height so toasts at slot-3 (translateY -26 px)
+   still sit inside the canvas, with comfortable padding. */
+.toast-area {
+  position: absolute; left: 18px; right: 18px; bottom: 18px;
+  height: 140px;
+}
+
+.toast {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--rdp-foreground); color: var(--rdp-background);
+  border-radius: 12px; padding: 11px 13px;
+  font: var(--rdp-type-body); font-size: 12px;
+  display: flex; align-items: center; gap: 8px;
+  transform-origin: center bottom;
+  animation: toastChoreo 6s cubic-bezier(0.05,0.7,0.1,1) infinite;
+  will-change: transform, opacity;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+.toast .ic {
+  width: 22px; height: 22px; border-radius: 9999px;
+  display: grid; place-items: center;
+  background: var(--rdp-background); color: var(--rdp-foreground);
+  flex-shrink: 0;
+}
+.toast .msg { flex: 1; min-width: 0; }
+.toast .meta { font: var(--rdp-type-mono-small); font-size: 10px; opacity: 0.65; flex-shrink: 0; }
+
+.toast.ok  { background: var(--rdp-success-container);     color: var(--rdp-success-container-foreground); }
+.toast.ok  .ic { background: var(--rdp-success);     color: var(--rdp-success-foreground); }
+.toast.bad { background: var(--rdp-destructive-container); color: var(--rdp-destructive-container-foreground); }
+.toast.bad .ic { background: var(--rdp-destructive); color: var(--rdp-destructive-foreground); }
+
+/* Three toasts perfectly offset across a 6 s cycle so the 3 stable slots
+   (front, slot-2, slot-3) are ALWAYS occupied — one toast settled in each.
+   The transitions are short and overlap, so there is no transparent gap. */
+.toast.t1 { animation-delay:  0s;    }
+.toast.t2 { animation-delay: -2s;    }
+.toast.t3 { animation-delay: -4s;    }
+
+@keyframes toastChoreo {
+  /* 0–2 % : rise from below into FRONT slot */
+  0%   { transform: translateY(80px)  scale(0.95); opacity: 0;   z-index: 4; }
+  2%   { transform: translateY(0)     scale(1);    opacity: 1;   z-index: 4; }
+
+  /* 2–33.3 % : settled at FRONT (newest)  · stays on top */
+  33.3% { transform: translateY(0)    scale(1);    opacity: 1;   z-index: 4; }
+
+  /* 33.3–35.3 % : pushed back to SLOT-2 (newer toast just arrived) */
+  35.3% { transform: translateY(-12px) scale(0.97); opacity: 0.75; z-index: 3; }
+
+  /* 35.3–66.7 % : settled at SLOT-2 */
+  66.7% { transform: translateY(-12px) scale(0.97); opacity: 0.75; z-index: 3; }
+
+  /* 66.7–68.7 % : pushed back to SLOT-3 (top, fading) */
+  68.7% { transform: translateY(-26px) scale(0.93); opacity: 0.4;  z-index: 2; }
+
+  /* 68.7–98 % : settled at SLOT-3 — visible behind front/slot-2 */
+  98%   { transform: translateY(-26px) scale(0.93); opacity: 0.4;  z-index: 2; }
+
+  /* 98–100 % : exit upward (220 ms state) — fades out behind */
+  100%  { transform: translateY(-58px) scale(0.88); opacity: 0;    z-index: 1; }
+}
+
+.specs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.spec { background: var(--rdp-muted); padding: 12px 14px; border-radius: 8px; }
+.spec .nm { font: var(--rdp-type-mono-value); font-size: 11px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.spec .nm .step { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 9999px; background: var(--rdp-foreground); color: var(--rdp-background); font: 500 9px/1 var(--rdp-font-mono); }
+.spec .meta { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; font: var(--rdp-type-mono-small); font-size: 10px; }
+.spec .meta b { color: var(--rdp-muted-foreground); font-weight: 400; }
+.spec .meta span { color: var(--rdp-foreground); }
+.spec .meta code { font: var(--rdp-type-mono-inline); padding: 1px 4px; background: var(--rdp-accent); border-radius: 3px; }
+</style>
+
+<div class="tc">
+  <div class="hd">
+    <span class="t">Toast choreography</span>
+    <span class="sub">Enter · queue · exit (6 s cycle · live)</span>
+  </div>
+
+  <div class="stage">
+    <span class="live-dot"><span class="pulse"></span>Cycling</span>
+    <div class="toast-area">
+      <div class="toast ok t1">
+        <span class="ic">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </span>
+        <span class="msg">Tunnel restored</span>
+        <span class="meta">4.8 s</span>
+      </div>
+      <div class="toast t2">
+        <span class="ic">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/></svg>
+        </span>
+        <span class="msg">Reconnecting…</span>
+        <span class="meta">2 / 3</span>
+      </div>
+      <div class="toast bad t3">
+        <span class="ic">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </span>
+        <span class="msg">Strategy switched · TLSrec</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="specs">
+    <div class="spec">
+      <div class="nm"><span class="step">1</span>Enter</div>
+      <div class="meta">
+        <b>Distance</b><span>+80 px from below · slot-3 of stack</span>
+        <b>Scale</b><span>0.95 → 1.0</span>
+        <b>Duration</b><span><code>320 ms emphasized</code></span>
+      </div>
+    </div>
+    <div class="spec">
+      <div class="nm"><span class="step">2</span>Push back to slot-2</div>
+      <div class="meta">
+        <b>Translate</b><span>0 → −12 px</span>
+        <b>Scale</b><span>1.0 → 0.97</span>
+        <b>Duration</b><span><code>220 ms state</code></span>
+      </div>
+    </div>
+    <div class="spec">
+      <div class="nm"><span class="step">3</span>Push back to slot-3</div>
+      <div class="meta">
+        <b>Translate</b><span>−12 → −26 px</span>
+        <b>Scale</b><span>0.97 → 0.93</span>
+        <b>Opacity</b><span>0.75 → 0.4</span>
+      </div>
+    </div>
+    <div class="spec">
+      <div class="nm"><span class="step">4</span>Exit + swipe-dismiss</div>
+      <div class="meta">
+        <b>Auto exit</b><span>+up 32 px · opacity → 0</span>
+        <b>Swipe X</b><span>follow finger 1 : 1 · throw at &gt; 40 % width</span>
+        <b>Duration</b><span><code>220 ms state</code></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="font: var(--rdp-type-caption); color: var(--rdp-muted-foreground); margin-top: 10px">Toast choreography · three toasts offset by exactly 33.3 % of a 6 s cycle so the front, slot-2, and slot-3 stack positions are always occupied at the same time · z-index drops with stack depth so the front toast never gets clipped by the one below it.</div>
+</div></body></html>
