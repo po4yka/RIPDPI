@@ -12,18 +12,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -31,7 +37,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 data class RipDpiCommand(
@@ -57,6 +62,7 @@ fun RipDpiCommandPalette(
 ) {
     if (!visible) return
     val colors = RipDpiThemeTokens.colors
+    val focusRequester = remember { FocusRequester() }
     var query by remember { mutableStateOf(TextFieldValue("")) }
     val matches =
         remember(query.text, commands) {
@@ -67,6 +73,9 @@ fun RipDpiCommandPalette(
                 commands.filter { it.label.lowercase().contains(q) || it.hint?.lowercase()?.contains(q) == true }
             }
         }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    // Esc is handled by Dialog's onDismissRequest — Compose maps the hardware Esc key to
+    // onDismissRequest in Dialog, so no separate key handler is needed here.
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
             modifier =
@@ -86,10 +95,20 @@ fun RipDpiCommandPalette(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
                     singleLine = true,
                     placeholder = { Text("Type a command…", style = RipDpiThemeTokens.type.body) },
                     textStyle = RipDpiThemeTokens.type.body,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                    keyboardActions =
+                        KeyboardActions(
+                            onGo = {
+                                matches.firstOrNull()?.let {
+                                    onCommand(it)
+                                    onDismiss()
+                                }
+                            },
+                        ),
                 )
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     items(matches) { cmd ->
@@ -119,7 +138,7 @@ fun RipDpiCommandPalette(
                                 }
                             }
                             Icon(
-                                imageVector = Icons.Outlined.ArrowForward,
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
                                 contentDescription = null,
                                 tint = colors.mutedForeground,
                                 modifier = Modifier.size(16.dp),
@@ -139,8 +158,6 @@ fun RipDpiCommandPalette(
             }
         }
     }
-    // suppress unused-icon warning
-    RipDpiIcons.Close.run {}
 }
 
 @Preview(showBackground = true, name = "RipDpiCommandPalette (light)")
