@@ -22,7 +22,7 @@ internal fun RipDpiComponentPreview(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     RipDpiTheme(themePreference = themePreference, contrastLevel = contrastLevel) {
-        Surface(color = MaterialTheme.colorScheme.background) {
+        Surface(color = RipDpiThemeTokens.colors.background) {
             Column(
                 modifier =
                     Modifier

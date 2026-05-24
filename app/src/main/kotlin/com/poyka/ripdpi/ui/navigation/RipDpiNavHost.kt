@@ -158,7 +158,7 @@ fun RipDpiNavHost(
     val isWideScreen = rememberIsWideScreen()
     Scaffold(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = RipDpiThemeTokens.colors.background,
         snackbarHost = {
             snackbarHostState?.let { hostState ->
                 RipDpiSnackbarHost(
