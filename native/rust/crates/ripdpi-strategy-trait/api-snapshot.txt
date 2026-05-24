@@ -1,0 +1,165 @@
+pub mod ripdpi_strategy_trait
+pub enum ripdpi_strategy_trait::CapabilityTier
+pub ripdpi_strategy_trait::CapabilityTier::Tier0
+pub ripdpi_strategy_trait::CapabilityTier::Tier1
+pub ripdpi_strategy_trait::CapabilityTier::Tier2
+pub ripdpi_strategy_trait::CapabilityTier::Tier3
+pub enum ripdpi_strategy_trait::DesyncAction
+pub ripdpi_strategy_trait::DesyncAction::RawSend(alloc::vec::Vec<u8>)
+pub ripdpi_strategy_trait::DesyncAction::RestoreDefaultTtl
+pub ripdpi_strategy_trait::DesyncAction::SendFakeRst
+pub ripdpi_strategy_trait::DesyncAction::SendFakeRst::ttl: core::option::Option<u8>
+pub ripdpi_strategy_trait::DesyncAction::SetTtl(u8)
+pub ripdpi_strategy_trait::DesyncAction::SetWindowClamp(u32)
+pub ripdpi_strategy_trait::DesyncAction::Split
+pub ripdpi_strategy_trait::DesyncAction::Split::disorder: bool
+pub ripdpi_strategy_trait::DesyncAction::Split::offset: usize
+pub ripdpi_strategy_trait::DesyncAction::UdpLen
+pub ripdpi_strategy_trait::DesyncAction::UdpLen::delta: i16
+pub ripdpi_strategy_trait::DesyncAction::Write(alloc::vec::Vec<u8>)
+pub ripdpi_strategy_trait::DesyncAction::WriteFake
+pub ripdpi_strategy_trait::DesyncAction::WriteFake::payload_file: core::option::Option<alloc::string::String>
+pub ripdpi_strategy_trait::DesyncAction::WriteFake::sni_mode: core::option::Option<alloc::string::String>
+pub ripdpi_strategy_trait::DesyncAction::WriteFake::ttl: core::option::Option<u8>
+pub ripdpi_strategy_trait::DesyncAction::WriteUrgent
+pub ripdpi_strategy_trait::DesyncAction::WriteUrgent::prefix: alloc::vec::Vec<u8>
+pub ripdpi_strategy_trait::DesyncAction::WriteUrgent::urgent_byte: u8
+pub enum ripdpi_strategy_trait::FlowDirection
+pub ripdpi_strategy_trait::FlowDirection::Inbound
+pub ripdpi_strategy_trait::FlowDirection::Outbound
+pub enum ripdpi_strategy_trait::L7Protocol
+pub ripdpi_strategy_trait::L7Protocol::Any
+pub ripdpi_strategy_trait::L7Protocol::BitTorrent(ripdpi_strategy_trait::BitTorrentDissect)
+pub ripdpi_strategy_trait::L7Protocol::Dht(ripdpi_strategy_trait::DhtDissect)
+pub ripdpi_strategy_trait::L7Protocol::Discord(ripdpi_strategy_trait::DiscordDissect)
+pub ripdpi_strategy_trait::L7Protocol::Dns(ripdpi_strategy_trait::DnsDissect)
+pub ripdpi_strategy_trait::L7Protocol::Dtls(ripdpi_strategy_trait::DtlsDissect)
+pub ripdpi_strategy_trait::L7Protocol::Http(ripdpi_strategy_trait::HttpDissect)
+pub ripdpi_strategy_trait::L7Protocol::Known
+pub ripdpi_strategy_trait::L7Protocol::Mtproto(ripdpi_strategy_trait::MtprotoDissect)
+pub ripdpi_strategy_trait::L7Protocol::Quic(ripdpi_strategy_trait::QuicDissect)
+pub ripdpi_strategy_trait::L7Protocol::Stun(ripdpi_strategy_trait::StunDissect)
+pub ripdpi_strategy_trait::L7Protocol::Tls(ripdpi_strategy_trait::TlsDissect)
+pub ripdpi_strategy_trait::L7Protocol::Unknown
+pub ripdpi_strategy_trait::L7Protocol::UtpBitTorrent(ripdpi_strategy_trait::UtpBitTorrentDissect)
+pub ripdpi_strategy_trait::L7Protocol::WireGuard(ripdpi_strategy_trait::WireGuardDissect)
+pub ripdpi_strategy_trait::L7Protocol::Xmpp(ripdpi_strategy_trait::XmppDissect)
+pub enum ripdpi_strategy_trait::MarkerName
+pub ripdpi_strategy_trait::MarkerName::Absolute
+pub ripdpi_strategy_trait::MarkerName::Data
+pub ripdpi_strategy_trait::MarkerName::End
+pub ripdpi_strategy_trait::MarkerName::ExtLen
+pub ripdpi_strategy_trait::MarkerName::Host
+pub ripdpi_strategy_trait::MarkerName::HostEnd
+pub ripdpi_strategy_trait::MarkerName::HostEndSld
+pub ripdpi_strategy_trait::MarkerName::HostMidSld
+pub ripdpi_strategy_trait::MarkerName::HostSld
+pub ripdpi_strategy_trait::MarkerName::HttpMethod
+pub ripdpi_strategy_trait::MarkerName::SniExt
+pub enum ripdpi_strategy_trait::RuntimeCapability
+pub ripdpi_strategy_trait::RuntimeCapability::RawTcpFakeSend
+pub ripdpi_strategy_trait::RuntimeCapability::RawUdpFragmentation
+pub ripdpi_strategy_trait::RuntimeCapability::ReplacementSocket
+pub ripdpi_strategy_trait::RuntimeCapability::TcpWindowClamp
+pub ripdpi_strategy_trait::RuntimeCapability::TtlWrite
+pub ripdpi_strategy_trait::RuntimeCapability::VpnMode
+pub ripdpi_strategy_trait::RuntimeCapability::VpnProtect
+pub enum ripdpi_strategy_trait::StrategyError
+pub ripdpi_strategy_trait::StrategyError::CapabilityUnavailable(ripdpi_strategy_trait::RuntimeCapability)
+pub ripdpi_strategy_trait::StrategyError::Execution(alloc::string::String)
+pub ripdpi_strategy_trait::StrategyError::InvalidConfig(alloc::string::String)
+pub ripdpi_strategy_trait::StrategyError::LuaTypeError(alloc::string::String)
+pub ripdpi_strategy_trait::StrategyError::ScriptLoad(alloc::string::String)
+pub enum ripdpi_strategy_trait::StrategyStepFactory
+pub ripdpi_strategy_trait::StrategyStepFactory::Configured(fn(&ripdpi_strategy_trait::StrategyStepParams) -> alloc::boxed::Box<dyn ripdpi_strategy_trait::DesyncStrategy>)
+pub ripdpi_strategy_trait::StrategyStepFactory::Stateless(fn() -> alloc::boxed::Box<dyn ripdpi_strategy_trait::DesyncStrategy>)
+pub ripdpi_strategy_trait::StrategyStepFactory::Unimplemented
+pub enum ripdpi_strategy_trait::StrategyVerdict
+pub ripdpi_strategy_trait::StrategyVerdict::Apply
+pub ripdpi_strategy_trait::StrategyVerdict::Drop
+pub ripdpi_strategy_trait::StrategyVerdict::FallbackPlain
+pub struct ripdpi_strategy_trait::BitTorrentDissect
+pub struct ripdpi_strategy_trait::Capabilities
+pub ripdpi_strategy_trait::Capabilities::available: alloc::vec::Vec<ripdpi_strategy_trait::RuntimeCapability>
+pub ripdpi_strategy_trait::Capabilities::tier: ripdpi_strategy_trait::CapabilityTier
+impl ripdpi_strategy_trait::Capabilities
+pub fn ripdpi_strategy_trait::Capabilities::has(&self, capability: ripdpi_strategy_trait::RuntimeCapability) -> bool
+pub struct ripdpi_strategy_trait::ConnectionState
+pub ripdpi_strategy_trait::ConnectionState::packet_count: u64
+pub struct ripdpi_strategy_trait::DesyncPlan
+pub ripdpi_strategy_trait::DesyncPlan::actions: alloc::vec::Vec<ripdpi_strategy_trait::DesyncAction>
+pub ripdpi_strategy_trait::DesyncPlan::verdict: ripdpi_strategy_trait::StrategyVerdict
+pub struct ripdpi_strategy_trait::DhtDissect
+pub struct ripdpi_strategy_trait::DiscordDissect
+pub struct ripdpi_strategy_trait::Dissect
+pub ripdpi_strategy_trait::Dissect::dst_port: u16
+pub ripdpi_strategy_trait::Dissect::is_ipv6: bool
+pub ripdpi_strategy_trait::Dissect::markers: std::collections::hash::map::HashMap<ripdpi_strategy_trait::MarkerName, usize>
+pub ripdpi_strategy_trait::Dissect::proto: ripdpi_strategy_trait::L7Protocol
+pub ripdpi_strategy_trait::Dissect::src_port: u16
+pub struct ripdpi_strategy_trait::DnsDissect
+pub ripdpi_strategy_trait::DnsDissect::is_query: bool
+pub struct ripdpi_strategy_trait::DtlsDissect
+pub ripdpi_strategy_trait::DtlsDissect::is_client_hello: bool
+pub struct ripdpi_strategy_trait::FlowId(pub u64)
+pub struct ripdpi_strategy_trait::HttpDissect
+pub ripdpi_strategy_trait::HttpDissect::host: core::option::Option<alloc::string::String>
+pub ripdpi_strategy_trait::HttpDissect::is_request: bool
+pub struct ripdpi_strategy_trait::MtprotoDissect
+pub struct ripdpi_strategy_trait::QuicDissect
+pub ripdpi_strategy_trait::QuicDissect::version: core::option::Option<u32>
+pub struct ripdpi_strategy_trait::StrategyContext<'a>
+pub ripdpi_strategy_trait::StrategyContext::caps: &'a ripdpi_strategy_trait::Capabilities
+pub ripdpi_strategy_trait::StrategyContext::conn: &'a ripdpi_strategy_trait::ConnectionState
+pub ripdpi_strategy_trait::StrategyContext::direction: ripdpi_strategy_trait::FlowDirection
+pub ripdpi_strategy_trait::StrategyContext::dissect: &'a ripdpi_strategy_trait::Dissect
+pub ripdpi_strategy_trait::StrategyContext::flow_id: ripdpi_strategy_trait::FlowId
+pub ripdpi_strategy_trait::StrategyContext::payload: &'a [u8]
+pub struct ripdpi_strategy_trait::StrategyDescriptor
+pub ripdpi_strategy_trait::StrategyDescriptor::id: alloc::string::String
+pub ripdpi_strategy_trait::StrategyDescriptor::label: alloc::string::String
+pub ripdpi_strategy_trait::StrategyDescriptor::required_capabilities: alloc::vec::Vec<ripdpi_strategy_trait::RuntimeCapability>
+pub ripdpi_strategy_trait::StrategyDescriptor::required_tier: ripdpi_strategy_trait::CapabilityTier
+pub ripdpi_strategy_trait::StrategyDescriptor::supported_protocols: alloc::vec::Vec<ripdpi_strategy_trait::L7Protocol>
+pub struct ripdpi_strategy_trait::StrategyDescriptorRegistration
+pub ripdpi_strategy_trait::StrategyDescriptorRegistration::describe: fn() -> ripdpi_strategy_trait::StrategyDescriptor
+pub ripdpi_strategy_trait::StrategyDescriptorRegistration::id: &'static str
+pub struct ripdpi_strategy_trait::StrategyStepDescriptor
+pub ripdpi_strategy_trait::StrategyStepDescriptor::aliases: &'static [&'static str]
+pub ripdpi_strategy_trait::StrategyStepDescriptor::id: &'static str
+pub ripdpi_strategy_trait::StrategyStepDescriptor::label: &'static str
+pub ripdpi_strategy_trait::StrategyStepDescriptor::needs_parameters: bool
+pub ripdpi_strategy_trait::StrategyStepDescriptor::parameter_schema: &'static str
+pub ripdpi_strategy_trait::StrategyStepDescriptor::required_capabilities: &'static [ripdpi_strategy_trait::RuntimeCapability]
+pub ripdpi_strategy_trait::StrategyStepDescriptor::required_tier: ripdpi_strategy_trait::CapabilityTier
+pub struct ripdpi_strategy_trait::StrategyStepParams
+pub ripdpi_strategy_trait::StrategyStepParams::delta: core::option::Option<i32>
+pub ripdpi_strategy_trait::StrategyStepParams::disorder: bool
+pub ripdpi_strategy_trait::StrategyStepParams::ext_type: core::option::Option<alloc::string::String>
+pub ripdpi_strategy_trait::StrategyStepParams::forward_original: core::option::Option<bool>
+pub ripdpi_strategy_trait::StrategyStepParams::function: core::option::Option<alloc::string::String>
+pub ripdpi_strategy_trait::StrategyStepParams::pos: core::option::Option<alloc::string::String>
+pub ripdpi_strategy_trait::StrategyStepParams::scale: core::option::Option<u8>
+pub ripdpi_strategy_trait::StrategyStepParams::script_paths: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_strategy_trait::StrategyStepParams::size: core::option::Option<u32>
+pub ripdpi_strategy_trait::StrategyStepParams::sni_mode: core::option::Option<alloc::string::String>
+pub ripdpi_strategy_trait::StrategyStepParams::ttl: core::option::Option<u8>
+pub ripdpi_strategy_trait::StrategyStepParams::value: core::option::Option<u32>
+pub struct ripdpi_strategy_trait::StrategyStepRegistration
+pub ripdpi_strategy_trait::StrategyStepRegistration::descriptor: ripdpi_strategy_trait::StrategyStepDescriptor
+pub ripdpi_strategy_trait::StrategyStepRegistration::factory: ripdpi_strategy_trait::StrategyStepFactory
+pub struct ripdpi_strategy_trait::StunDissect
+pub struct ripdpi_strategy_trait::TlsDissect
+pub ripdpi_strategy_trait::TlsDissect::is_client_hello: bool
+pub ripdpi_strategy_trait::TlsDissect::sni: core::option::Option<alloc::string::String>
+pub struct ripdpi_strategy_trait::UtpBitTorrentDissect
+pub struct ripdpi_strategy_trait::WireGuardDissect
+pub ripdpi_strategy_trait::WireGuardDissect::message_type: core::option::Option<u32>
+pub struct ripdpi_strategy_trait::XmppDissect
+pub static ripdpi_strategy_trait::STRATEGY_DESCRIPTOR_REGISTRATIONS: linkme::distributed_slice::DistributedSlice<[ripdpi_strategy_trait::StrategyDescriptorRegistration]>
+pub static ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS: linkme::distributed_slice::DistributedSlice<[ripdpi_strategy_trait::StrategyStepRegistration]>
+pub trait ripdpi_strategy_trait::DesyncStrategy: core::marker::Send + core::marker::Sync
+pub fn ripdpi_strategy_trait::DesyncStrategy::describe(&self) -> ripdpi_strategy_trait::StrategyDescriptor
+pub fn ripdpi_strategy_trait::DesyncStrategy::id(&self) -> &str
+pub fn ripdpi_strategy_trait::DesyncStrategy::matches(&self, ctx: &ripdpi_strategy_trait::StrategyContext<'_>) -> bool
+pub fn ripdpi_strategy_trait::DesyncStrategy::plan(&self, ctx: &ripdpi_strategy_trait::StrategyContext<'_>, plan: &mut ripdpi_strategy_trait::DesyncPlan) -> core::result::Result<(), ripdpi_strategy_trait::StrategyError>

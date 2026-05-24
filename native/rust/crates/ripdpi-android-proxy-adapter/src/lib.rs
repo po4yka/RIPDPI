@@ -3,6 +3,8 @@ mod entry;
 mod entry_error;
 mod geo_versions;
 mod lifecycle;
+mod lifecycle_create;
+mod lifecycle_start;
 mod pcap;
 mod registry;
 mod telemetry;

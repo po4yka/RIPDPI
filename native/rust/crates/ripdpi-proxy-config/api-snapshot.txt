@@ -4,17 +4,21 @@ pub fn ripdpi_proxy_config::presets::apply_preset(preset_id: &str, config: &mut 
 pub fn ripdpi_proxy_config::presets::apply_runtime_preset(preset_id: &str, config: &mut ripdpi_config::model::runtime::RuntimeConfig) -> core::result::Result<(), ripdpi_proxy_config::ProxyConfigError>
 pub enum ripdpi_proxy_config::ProxyConfigError
 pub ripdpi_proxy_config::ProxyConfigError::InvalidConfig(alloc::string::String)
+pub ripdpi_proxy_config::ProxyConfigError::UnsupportedSchemaVersion
+pub ripdpi_proxy_config::ProxyConfigError::UnsupportedSchemaVersion::found: u32
 pub enum ripdpi_proxy_config::ProxyConfigPayload
 pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine
 pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::args: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::host_autolearn_store_path: core::option::Option<alloc::string::String>
 pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::log_context: core::option::Option<ripdpi_proxy_config::ProxyLogContext>
 pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::runtime_context: core::option::Option<ripdpi_proxy_config::ProxyRuntimeContext>
+pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::schema_version: u32
 pub ripdpi_proxy_config::ProxyConfigPayload::CommandLine::session_overrides: core::option::Option<ripdpi_proxy_config::types::payload::ProxySessionOverrides>
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui::config: ripdpi_proxy_config::ProxyUiConfig
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui::log_context: core::option::Option<ripdpi_proxy_config::ProxyLogContext>
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui::runtime_context: core::option::Option<ripdpi_proxy_config::ProxyRuntimeContext>
+pub ripdpi_proxy_config::ProxyConfigPayload::Ui::schema_version: u32
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui::session_overrides: core::option::Option<ripdpi_proxy_config::types::payload::ProxySessionOverrides>
 pub ripdpi_proxy_config::ProxyConfigPayload::Ui::strategy_preset: core::option::Option<alloc::string::String>
 pub struct ripdpi_proxy_config::CellularSnapshot

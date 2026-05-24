@@ -35,6 +35,7 @@ pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_quic_migration_status(&self,
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_retry_paced(&self, _target: core::net::socket_addr::SocketAddr, _group_index: usize, _reason: &'static str, _backoff_ms: u64)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_route_advanced(&self, target: core::net::socket_addr::SocketAddr, from_group: usize, to_group: usize, trigger: u32, host: core::option::Option<&str>)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_route_selected(&self, target: core::net::socket_addr::SocketAddr, group_index: usize, host: core::option::Option<&str>, phase: &'static str)
+pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_runtime_decision_snapshot(&self, _snapshot: &ripdpi_runtime_decision_ports::snapshot::RuntimeDecisionSnapshot)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_telegram_dc_detected(&self, _target: core::net::socket_addr::SocketAddr, _dc: u8)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_tls_handshake_completed(&self, _target: core::net::socket_addr::SocketAddr, _latency_ms: u64)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_upstream_connected(&self, _upstream_addr: core::net::socket_addr::SocketAddr, _rtt_ms: core::option::Option<u64>)

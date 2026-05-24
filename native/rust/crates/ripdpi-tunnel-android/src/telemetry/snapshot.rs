@@ -77,11 +77,7 @@ impl TunnelTelemetryState {
                 ..Default::default()
             }
             .into_option(),
-            captured_at: now_ms(),
+            captured_at: super::time::now_ms(),
         }
     }
-}
-
-pub(crate) fn now_ms() -> u64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }

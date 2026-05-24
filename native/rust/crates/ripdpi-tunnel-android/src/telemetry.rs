@@ -1,8 +1,10 @@
+mod event;
 mod logging;
 mod snapshot;
 mod state;
 #[cfg(test)]
 mod tests;
+mod time;
 mod types;
 
 pub(crate) use state::TunnelTelemetryState;
