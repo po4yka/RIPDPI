@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.ReportProblem
 import androidx.compose.material.icons.outlined.Search
@@ -80,4 +81,5 @@ object RipDpiIcons {
     val QrCodeScanner: ImageVector = Icons.Outlined.QrCodeScanner
     val PhotoCamera: ImageVector = Icons.Outlined.PhotoCamera
     val Image: ImageVector = Icons.Outlined.Image
+    val Refresh: ImageVector = Icons.Outlined.Refresh
 }
