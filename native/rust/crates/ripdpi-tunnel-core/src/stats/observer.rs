@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::Stats;
+use super::{Stats, TcpConnectObservation};
 
 pub(crate) fn set_dns_latency_observer(stats: &Stats, observer: Arc<dyn Fn(u64) + Send + Sync>) {
     if let Ok(mut guard) = stats.dns_latency_observer.lock() {
@@ -22,6 +22,24 @@ pub(crate) fn notify_dns_latency(stats: &Stats, latency_ms: u64) {
     };
     if let Some(observer) = observer {
         observer(latency_ms);
+    }
+}
+
+pub(crate) fn set_quality_observer(stats: &Stats, observer: Arc<dyn Fn(TcpConnectObservation) + Send + Sync>) {
+    if let Ok(mut guard) = stats.quality_observer.lock() {
+        *guard = Some(observer);
+    }
+}
+
+pub(crate) fn notify_quality(stats: &Stats, obs: TcpConnectObservation) {
+    // Same reentrancy-safety contract as `notify_dns_latency`: clone the
+    // Arc inside the lock, release the lock, THEN invoke the observer.
+    let observer = match stats.quality_observer.lock() {
+        Ok(guard) => guard.as_ref().map(Arc::clone),
+        Err(_) => None,
+    };
+    if let Some(observer) = observer {
+        observer(obs);
     }
 }
 

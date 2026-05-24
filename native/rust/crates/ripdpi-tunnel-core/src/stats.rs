@@ -11,6 +11,19 @@ use std::sync::{Arc, Mutex};
 
 pub use snapshot::DnsStatsSnapshot;
 
+/// Observation emitted on every SOCKS5-connect attempt.
+///
+/// `rtt_ms` is wall-clock time from the start of `socks5::connect` to either
+/// its successful return or the error arm. Cancel-safety: callers must
+/// measure with `Instant::now()` BEFORE any `.await` and emit synchronously
+/// after the await resolves; never put an `.await` between the `Instant`
+/// capture and the observer invocation.
+#[derive(Debug, Clone, Copy)]
+pub struct TcpConnectObservation {
+    pub rtt_ms: u64,
+    pub succeeded: bool,
+}
+
 /// Per-tunnel traffic and DNS counters.
 ///
 /// Atomic counters use `Relaxed` ordering because the values are read only for
@@ -40,6 +53,11 @@ pub struct Stats {
     /// handle and share it with external histogram state without requiring
     /// ripdpi-tunnel-core to depend on any telemetry crate.
     pub dns_latency_observer: Mutex<Option<Arc<dyn Fn(u64) + Send + Sync>>>,
+    /// Optional callback invoked on every SOCKS5-connect attempt (both
+    /// success and failure). Kept in an `Arc<dyn Fn>` for the same reason
+    /// as `dns_latency_observer`: ripdpi-tunnel-core stays observer-pattern-
+    /// agnostic and does not depend on any telemetry/quality crate.
+    pub quality_observer: Mutex<Option<Arc<dyn Fn(TcpConnectObservation) + Send + Sync>>>,
 }
 
 impl Default for Stats {
@@ -71,6 +89,7 @@ impl Stats {
             last_dht_trigger_endpoint: Mutex::new(None),
             last_dht_trigger_at_ms: AtomicU64::new(0),
             dns_latency_observer: Mutex::new(None),
+            quality_observer: Mutex::new(None),
         }
     }
 
@@ -78,6 +97,21 @@ impl Stats {
     /// every successful DNS resolution. Call before the tunnel starts running.
     pub fn set_dns_latency_observer(&self, observer: Arc<dyn Fn(u64) + Send + Sync>) {
         observer::set_dns_latency_observer(self, observer);
+    }
+
+    /// Installs a callback that is invoked on every SOCKS5-connect attempt
+    /// (both success and failure). Call before the tunnel starts running.
+    /// The observer receives the round-trip time of the connect plus a
+    /// success flag — see `TcpConnectObservation`.
+    pub fn set_quality_observer(&self, observer: Arc<dyn Fn(TcpConnectObservation) + Send + Sync>) {
+        observer::set_quality_observer(self, observer);
+    }
+
+    /// Emit a SOCKS5-connect observation. Intended for call sites inside
+    /// `ripdpi-tunnel-core` (notably `TcpSession::run_with_proxy`) — kept
+    /// `pub(crate)` so external callers cannot fabricate observations.
+    pub(crate) fn emit_tcp_connect_observation(&self, obs: TcpConnectObservation) {
+        observer::notify_quality(self, obs);
     }
 
     pub fn snapshot(&self) -> (u64, u64, u64, u64) {

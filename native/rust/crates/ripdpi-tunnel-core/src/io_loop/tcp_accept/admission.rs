@@ -39,7 +39,7 @@ pub(crate) fn spawn_new_tcp_sessions(
     abort_unresolved_sessions(socket_set, pending_listens, unresolvable);
 
     for pending in new_sessions {
-        admit_session(socket_set, sessions, pending_listens, proxy_sockaddr, auth, cancel, dns_cache, pending);
+        admit_session(socket_set, sessions, pending_listens, proxy_sockaddr, auth, cancel, stats, dns_cache, pending);
     }
 }
 
@@ -71,6 +71,7 @@ fn collect_admissible_sessions(
     (new_sessions, unresolvable)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn admit_session(
     socket_set: &mut SocketSet<'static>,
     sessions: &mut ActiveSessions,
@@ -78,13 +79,14 @@ fn admit_session(
     proxy_sockaddr: SocketAddr,
     auth: &Auth,
     cancel: &CancellationToken,
+    stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
     pending: PendingTcpSession,
 ) {
     remove_pending_listen(pending_listens, pending.handle);
     pin_synthetic_ip(dns_cache, pending.synthetic_ip);
 
-    let session = create_session_duplex(proxy_sockaddr, auth, pending.target_addr, cancel);
+    let session = create_session_duplex(proxy_sockaddr, auth, pending.target_addr, cancel, stats);
     let entry = SessionEntry {
         smoltcp_side: session.smoltcp_side,
         cancel: session.cancel,

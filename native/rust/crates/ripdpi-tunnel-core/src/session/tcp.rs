@@ -1,12 +1,15 @@
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Instant;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
 use super::socks5::{Auth, TargetAddr};
+use crate::stats::{Stats, TcpConnectObservation};
 
 /// High-level TCP session: connect to SOCKS5 proxy, perform handshake,
 /// issue CONNECT to the target, then bidirectionally relay bytes until
@@ -15,11 +18,21 @@ pub struct TcpSession {
     proxy_addr: SocketAddr,
     auth: Auth,
     target: TargetAddr,
+    /// Stats handle for emitting `TcpConnectObservation`s. Optional so unit
+    /// tests that exercise the splice / handshake paths can construct a
+    /// session without standing up a full `Stats` plumb-through.
+    stats: Option<Arc<Stats>>,
 }
 
 impl TcpSession {
     pub fn new(proxy_addr: SocketAddr, auth: Auth, target: TargetAddr) -> Self {
-        Self { proxy_addr, auth, target }
+        Self { proxy_addr, auth, target, stats: None }
+    }
+
+    /// Construct a session that will emit `TcpConnectObservation`s into
+    /// `stats` on every SOCKS5-connect attempt (success and failure).
+    pub fn with_stats(proxy_addr: SocketAddr, auth: Auth, target: TargetAddr, stats: Arc<Stats>) -> Self {
+        Self { proxy_addr, auth, target, stats: Some(stats) }
     }
 
     /// Run the session to completion.
@@ -61,7 +74,32 @@ impl TcpSession {
     {
         super::socks5::handshake(proxy, &self.auth).await?;
         debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session SOCKS5 handshake complete");
-        super::socks5::connect(proxy, &self.target).await?;
+        // cancel-safe: the SOCKS5 connect future is awaited exactly once;
+        // `started` is captured BEFORE the await and the observer is
+        // invoked synchronously on each arm of the match — no `.await`
+        // separates the `Instant` capture from emission. Cancellation
+        // mid-await aborts both the connect and the emit (the task
+        // never resumes after cancel), losing at most one observation.
+        let started = Instant::now();
+        match super::socks5::connect(proxy, &self.target).await {
+            Ok(()) => {
+                if let Some(stats) = self.stats.as_deref() {
+                    stats.emit_tcp_connect_observation(TcpConnectObservation {
+                        rtt_ms: started.elapsed().as_millis() as u64,
+                        succeeded: true,
+                    });
+                }
+            }
+            Err(err) => {
+                if let Some(stats) = self.stats.as_deref() {
+                    stats.emit_tcp_connect_observation(TcpConnectObservation {
+                        rtt_ms: started.elapsed().as_millis() as u64,
+                        succeeded: false,
+                    });
+                }
+                return Err(err);
+            }
+        }
         debug!(proxy = %self.proxy_addr, target = ?self.target, "tcp session SOCKS5 CONNECT complete");
         tokio::select! {
             result = splice(local, proxy) => {
