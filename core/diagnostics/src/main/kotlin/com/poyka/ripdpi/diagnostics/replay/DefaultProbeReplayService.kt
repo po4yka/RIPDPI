@@ -50,6 +50,7 @@ class DefaultProbeReplayService
     @Inject
     constructor(
         private val clientFactory: ReplayHttpClientFactory,
+        private val recommendationEngine: ReplayRecommendationEngine,
     ) : ProbeReplayService {
         override fun run(request: ReplayProbeRequest): Flow<ReplayStepEvent> =
             channelFlow {
@@ -116,13 +117,20 @@ class DefaultProbeReplayService
                         onFailure = { ReplayVerdict.Failure },
                     )
                 val terminalStep = listener.terminalStep()
+                val recommendationKey =
+                    if (verdict == ReplayVerdict.Failure) {
+                        recommendationEngine.recommendationKeyFor(
+                            terminalStep = terminalStep,
+                            errorKind = listener.lastErrorKind(),
+                        )
+                    } else {
+                        ""
+                    }
                 events.send(
                     ReplayStepEvent.Finished(
                         verdict = verdict,
                         terminalStep = terminalStep,
-                        // P4.3 wires ReplayRecommendationEngine; until then,
-                        // emit the empty key so the UI uses the fallback path.
-                        recommendationKey = "",
+                        recommendationKey = recommendationKey,
                     ),
                 )
                 events.close()
@@ -167,9 +175,13 @@ private class ReplayEventListener(
     @Volatile private var currentStep: ReplayStepKind? = null
 
     @Volatile private var lastSuccessfulStep: ReplayStepKind? = null
+
+    @Volatile private var lastErrorKind: ReplayErrorKind? = null
     private val stepStartedAtMs = mutableMapOf<ReplayStepKind, Long>()
 
     fun terminalStep(): ReplayStepKind? = currentStep ?: lastSuccessfulStep
+
+    fun lastErrorKind(): ReplayErrorKind? = lastErrorKind
 
     private fun emit(event: ReplayStepEvent) {
         // UNLIMITED channel never fails to accept; ignore the Result.
@@ -200,6 +212,7 @@ private class ReplayEventListener(
         detail: String,
     ) {
         emit(ReplayStepEvent.StepFailed(step, errorKind, detail))
+        lastErrorKind = errorKind
         currentStep = null
     }
 

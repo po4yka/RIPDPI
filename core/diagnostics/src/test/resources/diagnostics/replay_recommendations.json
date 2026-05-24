@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "step": "TlsHandshake",
+      "errorKind": "ConnectionReset",
+      "recommendationKey": "vpn_replay_rec_rst_after_client_hello"
+    },
+    {
+      "step": "TlsClientHello",
+      "errorKind": "ConnectionReset",
+      "recommendationKey": "vpn_replay_rec_rst_after_client_hello"
+    },
+    {
+      "step": "DnsResolve",
+      "errorKind": "DnsTampered",
+      "recommendationKey": "vpn_replay_rec_dns_tampered"
+    },
+    {
+      "step": "TcpOpen",
+      "errorKind": "ConnectionRefused",
+      "recommendationKey": "vpn_replay_rec_tcp_unreachable"
+    },
+    {
+      "step": "TcpOpen",
+      "errorKind": "Timeout",
+      "recommendationKey": "vpn_replay_rec_tcp_unreachable"
+    },
+    {
+      "step": "TlsHandshake",
+      "errorKind": "TlsHandshakeFailed",
+      "recommendationKey": "vpn_replay_rec_handshake_alert"
+    },
+    {
+      "step": "FirstByte",
+      "errorKind": "Timeout",
+      "recommendationKey": "vpn_replay_rec_timeout_no_response"
+    }
+  ],
+  "defaultRecommendationKey": "vpn_replay_rec_generic_fallback"
+}

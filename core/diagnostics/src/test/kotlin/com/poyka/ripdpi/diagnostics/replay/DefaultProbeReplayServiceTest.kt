@@ -33,6 +33,17 @@ class DefaultProbeReplayServiceTest {
      * classification independently of TLS.
      */
 
+    private val recommendationEngine: ReplayRecommendationEngine =
+        ReplayRecommendationEngine.forTesting(
+            ReplayRecommendationCatalogParser.parse(
+                javaClass
+                    .getResourceAsStream("/diagnostics/replay_recommendations.json")
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+                    ?: error("test fixture diagnostics/replay_recommendations.json missing from classpath"),
+            ),
+        )
+
     @Test
     fun successfulProbe_emitsDnsTcpFirstByteThenSuccessFinished() =
         runTest {
@@ -40,7 +51,7 @@ class DefaultProbeReplayServiceTest {
                 server.enqueue(MockResponse.Builder().code(200).build())
                 server.start()
 
-                val service = DefaultProbeReplayService(httpFactory(server))
+                val service = DefaultProbeReplayService(httpFactory(server), recommendationEngine)
                 val events =
                     service
                         .run(ReplayProbeRequest(domain = "example.test", strategyId = "split", timeoutMs = 5_000))
@@ -76,7 +87,7 @@ class DefaultProbeReplayServiceTest {
                 )
                 server.start()
 
-                val service = DefaultProbeReplayService(httpFactory(server))
+                val service = DefaultProbeReplayService(httpFactory(server), recommendationEngine)
                 val events =
                     service
                         .run(ReplayProbeRequest(domain = "example.test", strategyId = "split", timeoutMs = 5_000))
@@ -112,7 +123,8 @@ class DefaultProbeReplayServiceTest {
                 )
                 server.start()
 
-                val service = DefaultProbeReplayService(httpFactory(server, timeoutMsOverride = 250))
+                val service =
+                    DefaultProbeReplayService(httpFactory(server, timeoutMsOverride = 250), recommendationEngine)
                 val events =
                     service
                         .run(ReplayProbeRequest(domain = "example.test", strategyId = "split", timeoutMs = 250))
@@ -143,7 +155,8 @@ class DefaultProbeReplayServiceTest {
                 )
                 server.start()
 
-                val service = DefaultProbeReplayService(httpFactory(server, timeoutMsOverride = 60_000))
+                val service =
+                    DefaultProbeReplayService(httpFactory(server, timeoutMsOverride = 60_000), recommendationEngine)
 
                 val request =
                     ReplayProbeRequest(
@@ -188,7 +201,7 @@ class DefaultProbeReplayServiceTest {
                 server.enqueue(MockResponse.Builder().code(200).build())
                 server.start()
 
-                val service = DefaultProbeReplayService(httpFactory(server))
+                val service = DefaultProbeReplayService(httpFactory(server), recommendationEngine)
                 val first =
                     service
                         .run(ReplayProbeRequest(domain = "example.test", strategyId = "split", timeoutMs = 5_000))
