@@ -166,6 +166,7 @@ data class NativeRuntimeSnapshot(
     val directPathLearningSignals: List<DirectPathLearningSignal> = emptyList(),
     val nativeEvents: List<NativeRuntimeEvent> = emptyList(),
     val latencyDistributions: LatencyDistributions? = null,
+    val connectionQuality: ConnectionQualitySnapshot? = null,
     val capturedAt: Long = 0,
 ) {
     companion object {
