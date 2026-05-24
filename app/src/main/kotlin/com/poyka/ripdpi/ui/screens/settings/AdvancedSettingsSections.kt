@@ -616,6 +616,72 @@ internal fun LazyListScope.wsTunnelSection(
     }
 }
 
+internal fun LazyListScope.pcapCaptureSection(
+    pcapCaptureEnabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+) {
+    item(key = "advanced_pcap_capture") {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.vpn_dev_pcap_section_title),
+            testTag = RipDpiTestTags.advancedSection("pcap_capture"),
+        ) {
+            RipDpiCard {
+                PcapCaptureToggle(
+                    enabled = pcapCaptureEnabled,
+                    onToggleChanged = onToggleChanged,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PcapCaptureToggle(
+    enabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+) {
+    var showConsent by remember { mutableStateOf(false) }
+
+    if (showConsent) {
+        RipDpiDialog(
+            onDismissRequest = { showConsent = false },
+            title = stringResource(R.string.vpn_dev_pcap_consent_title),
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.settings_biometric_confirm_cancel),
+                    onClick = { showConsent = false },
+                ),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.onboarding_continue),
+                    onClick = {
+                        showConsent = false
+                        onToggleChanged(AdvancedToggleSetting.PcapCaptureEnabled, true)
+                    },
+                ),
+            visuals =
+                RipDpiDialogVisuals(
+                    message = stringResource(R.string.vpn_dev_pcap_consent_warning),
+                    tone = RipDpiDialogTone.Info,
+                ),
+        )
+    }
+
+    SettingsRow(
+        title = stringResource(R.string.vpn_dev_pcap_toggle_label),
+        subtitle = stringResource(R.string.vpn_dev_pcap_toggle_desc),
+        checked = enabled,
+        onCheckedChange = { newValue ->
+            if (newValue && !enabled) {
+                showConsent = true
+            } else {
+                onToggleChanged(AdvancedToggleSetting.PcapCaptureEnabled, newValue)
+            }
+        },
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.PcapCaptureEnabled),
+    )
+}
+
 @Composable
 internal fun AdvancedSettingsSection(
     title: String,

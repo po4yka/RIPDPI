@@ -2628,4 +2628,11 @@ fakeddisorder endhost</string>
     <string name="vpn_quality_metric_loss">تلفات</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">ناپایداری</string>
+
+    <!-- P3.8: PCAP capture developer toggle -->
+    <string name="vpn_dev_pcap_section_title">توسعه‌دهنده</string>
+    <string name="vpn_dev_pcap_toggle_label">ضبط بسته‌ها (تشخیص)</string>
+    <string name="vpn_dev_pcap_toggle_desc">بسته‌های VPN را برای بررسی به‌صورت محلی ضبط می‌کند. به طور پیش‌فرض غیرفعال است.</string>
+    <string name="vpn_dev_pcap_consent_title">ضبط بسته‌ها فعال شود؟</string>
+    <string name="vpn_dev_pcap_consent_warning">پس از فعال‌سازی، هدرهای بسته، نام‌های میزبان SNI TLS، آدرس‌های IP مقصد و اثرانگشت استراتژی از جلسه VPN بعدی در یک فایل ضبط چرخشی ۶۴ مگابایتی روی دستگاه ذخیره می‌شوند. ضبط‌ها تا زمانی که آن‌ها را صریحاً خروجی بگیرید، خصوصی باقی می‌مانند.</string>
 </resources>

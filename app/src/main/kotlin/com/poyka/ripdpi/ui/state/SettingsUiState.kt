@@ -60,6 +60,7 @@ data class SettingsUiState(
     val diagnosticsHistoryRetentionDays: Int = 14,
     val diagnosticsExportIncludeHistory: Boolean = true,
     val strategyPackAllowRollbackOverride: Boolean = false,
+    val pcapCaptureEnabled: Boolean = false,
     val communityApiUrl: String = "",
     val serviceStatus: AppStatus = AppStatus.Halted,
     val isVpn: Boolean = true,

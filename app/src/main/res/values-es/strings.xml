@@ -2623,4 +2623,11 @@ Origen: %2$s</string>
     <string name="vpn_quality_metric_loss">Pérdida</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">Jitter</string>
+
+    <!-- P3.8: PCAP capture developer toggle -->
+    <string name="vpn_dev_pcap_section_title">Desarrollador</string>
+    <string name="vpn_dev_pcap_toggle_label">Captura de paquetes (diagnóstico)</string>
+    <string name="vpn_dev_pcap_toggle_desc">Captura paquetes VPN localmente para su inspección. Desactivado por defecto.</string>
+    <string name="vpn_dev_pcap_consent_title">¿Activar captura de paquetes?</string>
+    <string name="vpn_dev_pcap_consent_warning">Al activarlo, las cabeceras de paquetes, los nombres SNI de TLS, las IPs de destino y las huellas de estrategia de la próxima sesión VPN se escriben en un archivo de captura rotativo de hasta 64 MiB en disco. Las capturas permanecen privadas hasta que las exporte explícitamente.</string>
 </resources>

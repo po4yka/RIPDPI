@@ -2623,4 +2623,11 @@ Quelle: %2$s</string>
     <string name="vpn_quality_metric_loss">Verlust</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">Jitter</string>
+
+    <!-- P3.8: PCAP capture developer toggle -->
+    <string name="vpn_dev_pcap_section_title">Entwickler</string>
+    <string name="vpn_dev_pcap_toggle_label">Paketaufzeichnung (Diagnose)</string>
+    <string name="vpn_dev_pcap_toggle_desc">VPN-Pakete lokal zur Überprüfung aufzeichnen. Standardmäßig deaktiviert.</string>
+    <string name="vpn_dev_pcap_consent_title">Paketaufzeichnung aktivieren?</string>
+    <string name="vpn_dev_pcap_consent_warning">Wenn aktiviert, werden Paket-Header, TLS-SNI-Hostnamen, Ziel-IPs und Strategie-Fingerabdrücke der nächsten VPN-Sitzung in eine rotierende 64-MiB-Aufzeichnungsdatei auf dem Gerät geschrieben. Die Aufzeichnungen bleiben app-intern, bis Sie sie explizit exportieren.</string>
 </resources>

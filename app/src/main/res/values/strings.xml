@@ -2692,4 +2692,11 @@ Source: %2$s</string>
     <string name="vpn_quality_metric_loss">Loss</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">Jitter</string>
+
+    <!-- P3.8: PCAP capture developer toggle -->
+    <string name="vpn_dev_pcap_section_title">Developer</string>
+    <string name="vpn_dev_pcap_toggle_label">Packet capture (diagnostics)</string>
+    <string name="vpn_dev_pcap_toggle_desc">Capture VPN packets locally for inspection. Disabled by default.</string>
+    <string name="vpn_dev_pcap_consent_title">Enable packet capture?</string>
+    <string name="vpn_dev_pcap_consent_warning">When enabled, packet headers, TLS SNI hostnames, endpoint IPs, and strategy fingerprints from the next VPN session are written to a rotating 64 MiB on-disk capture. Captures stay app-private until you explicitly export them.</string>
 </resources>

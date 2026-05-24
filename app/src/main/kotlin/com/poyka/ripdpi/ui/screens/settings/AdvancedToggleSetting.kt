@@ -41,4 +41,5 @@ internal enum class AdvancedToggleSetting {
     AdaptiveFallbackHttpRedirect,
     AdaptiveFallbackConnectFailure,
     AdaptiveFallbackAutoSort,
+    PcapCaptureEnabled,
 }

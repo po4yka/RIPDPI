@@ -79,6 +79,7 @@ internal fun AppSettings.toUiState(
                 ?: AppSettingsSerializer.defaultValue.diagnosticsHistoryRetentionDays,
         diagnosticsExportIncludeHistory = diagnosticsExportIncludeHistory,
         strategyPackAllowRollbackOverride = strategyPackAllowRollbackOverride,
+        pcapCaptureEnabled = pcapCaptureEnabled,
         communityApiUrl = communityApiUrl,
         serviceStatus = serviceStatus,
         isVpn = isVpn,

@@ -2742,4 +2742,11 @@ fakeddisorder endhost</string>
     <string name="vpn_quality_metric_loss">Потери</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">Джиттер</string>
+
+    <!-- P3.8: PCAP capture developer toggle -->
+    <string name="vpn_dev_pcap_section_title">Разработчик</string>
+    <string name="vpn_dev_pcap_toggle_label">Захват пакетов (диагностика)</string>
+    <string name="vpn_dev_pcap_toggle_desc">Локальный захват пакетов VPN для анализа. По умолчанию отключён.</string>
+    <string name="vpn_dev_pcap_consent_title">Включить захват пакетов?</string>
+    <string name="vpn_dev_pcap_consent_warning">При включении заголовки пакетов, имена SNI TLS, IP-адреса конечных точек и сигнатуры стратегий из следующей VPN-сессии записываются в ротируемый файл захвата размером до 64 МиБ на устройстве. Файлы захвата остаются приватными и доступны только приложению, пока вы не экспортируете их явно.</string>
 </resources>

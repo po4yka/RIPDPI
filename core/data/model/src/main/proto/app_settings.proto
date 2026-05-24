@@ -367,4 +367,7 @@ message AppSettings {
   repeated string app_routing_enabled_preset_ids = 224;
   bool anti_correlation_enabled = 225;
   string dht_mitigation_mode = 226; // "off" | "bypass" | "drop_warn"
+
+  // P3.8: PCAP capture toggle (developer diagnostics)
+  bool pcap_capture_enabled = 286;
 }

@@ -2624,4 +2624,11 @@ fake_burst 3</string>
     <string name="vpn_quality_metric_loss">丢包</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">抖动</string>
+
+    <!-- P3.8: PCAP capture developer toggle -->
+    <string name="vpn_dev_pcap_section_title">开发者</string>
+    <string name="vpn_dev_pcap_toggle_label">数据包捕获（诊断）</string>
+    <string name="vpn_dev_pcap_toggle_desc">在本地捕获 VPN 数据包以供检查。默认禁用。</string>
+    <string name="vpn_dev_pcap_consent_title">启用数据包捕获？</string>
+    <string name="vpn_dev_pcap_consent_warning">启用后，下次 VPN 会话中的数据包头、TLS SNI 主机名、目标 IP 及策略指纹将被写入设备上的最大 64 MiB 循环捕获文件。捕获数据始终为应用私有，直到您主动导出为止。</string>
 </resources>

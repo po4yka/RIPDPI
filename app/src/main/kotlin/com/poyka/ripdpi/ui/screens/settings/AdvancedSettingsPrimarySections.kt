@@ -8,6 +8,10 @@ internal fun LazyListScope.advancedSettingsPrimarySections(
     actions: AdvancedSettingsActions,
     contentState: AdvancedSettingsContentState,
 ) {
+    pcapCaptureSection(
+        pcapCaptureEnabled = uiState.pcapCaptureEnabled,
+        onToggleChanged = actions.onToggleChanged,
+    )
     diagnosticsHistorySection(
         uiState = uiState,
         onToggleChanged = actions.onToggleChanged,
