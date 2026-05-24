@@ -258,6 +258,35 @@ data class RipDpiMotion(
     fun scrimFadeSpec(): TweenSpec<Float> =
         tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
 
+    // === Toast choreography (motion-toast-choreography.html) ===
+
+    /**
+     * Toast rise from below into the front slot. Drives translationY from
+     * +80f (px below) to 0f and scale from 0.95f to 1.0f in lock-step.
+     * 320 ms EmphasizedDecelerate for a settled landing.
+     */
+    fun toastEnterSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
+
+    /**
+     * Toast pushed back to the next stack slot when a newer toast arrives.
+     * Drives translationY (0 -> -12 -> -26), scale (1.0 -> 0.97 -> 0.93),
+     * alpha (1.0 -> 0.75 -> 0.4). 220 ms state curve so the push-back is
+     * snappier than the enter; consumers chain two pushBack invocations
+     * for front -> slot-2 -> slot-3.
+     */
+    fun toastPushBackSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(stateDurationMillis), easing = StandardEasing)
+
+    /**
+     * Toast exit (auto-timeout or swipe-throw). Drives translationY from
+     * -26f (slot-3 settled) to -58f and alpha from 0.4f to 0f. 220 ms
+     * state curve. For swipe-dismiss, the consumer drives translationX
+     * 1:1 with the finger and triggers exitSpec at > 40 % screen width.
+     */
+    fun toastExitSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(stateDurationMillis), easing = StandardEasing)
+
     /** Spring spec that respects reducedMotion -- falls back to critically-damped (no bounce). */
     fun <T> motionAwareSpring(expressive: Boolean = false): SpringSpec<T> =
         if (reducedMotion || !animationsEnabled) {
