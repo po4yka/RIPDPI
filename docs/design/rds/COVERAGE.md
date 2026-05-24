@@ -70,7 +70,7 @@
 - **Tooltip** (`components-tooltip.html`) — basic support; rich-content variants missing
 - **Command Palette** (`components-command-palette.html`) — search/action palette missing
 - **Combobox** (`components-combobox.html`) — dropdown + text input hybrid incomplete
-- **Page Indicators** (`components-page-indicators.html`) — pager dots missing
+- ~~**Page Indicators** (`components-page-indicators.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiPageIndicators.kt`; golden `RdsComponentsScreenshotTest.pageIndicators`
 - **Progress Bar** (`components-progress-bar.html`) — linear progress present; variants incomplete
 - **Shimmer** (`components-shimmer.html`) — skeleton loading present; animation incomplete
 - **JSON Tree** (`components-json-tree.html`) — tree view for structured data missing
