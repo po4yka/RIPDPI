@@ -153,23 +153,26 @@ data class RipDpiMotion(
             ) + fadeOut(animationSpec = quickTween(easing = EmphasizedAccelerate))
         }
 
-    /** Linear sweep for skeleton shimmer: 1200ms, restart. Collapses to 1ms-snap when motion disabled. */
-    fun shimmerSpec(): InfiniteRepeatableSpec<Float> {
-        val effective = if (allowsInfiniteMotion) 1200 else 1
-        return infiniteRepeatable(
-            animation = tween(durationMillis = effective, easing = LinearEasing),
+    /**
+     * Linear sweep for skeleton shimmer: 1200ms, restart. Callers MUST guard
+     * subscription with `motion.allowsInfiniteMotion` (a 1ms collapse would
+     * produce non-deterministic progress values at any capture point).
+     */
+    fun shimmerSpec(): InfiniteRepeatableSpec<Float> =
+        infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         )
-    }
 
-    /** Cardiac pulse for heartbeat / fresh-data badges: 900ms, restart. Collapses to 1ms-snap when motion disabled. */
-    fun pulseSpec(): InfiniteRepeatableSpec<Float> {
-        val effective = if (allowsInfiniteMotion) 900 else 1
-        return infiniteRepeatable(
-            animation = tween(durationMillis = effective, easing = LinearEasing),
+    /**
+     * Cardiac pulse for heartbeat / fresh-data badges: 900ms, restart.
+     * Callers MUST guard subscription with `motion.allowsInfiniteMotion`.
+     */
+    fun pulseSpec(): InfiniteRepeatableSpec<Float> =
+        infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         )
-    }
 
     /**
      * Reversible alpha pulse for in-flight progress indicators where the
@@ -195,42 +198,37 @@ data class RipDpiMotion(
      * Animate a Float 0f → 1f and use it to drive both `scale` (1.0 + 0.4*t) and
      * `alpha` (0.7 * (1 - t)).
      */
-    fun connectRingSpec(): InfiniteRepeatableSpec<Float> {
-        val effective = if (allowsInfiniteMotion) 2_000 else 1
-        return infiniteRepeatable(
-            animation = tween(durationMillis = effective, easing = StandardEasing),
+    fun connectRingSpec(): InfiniteRepeatableSpec<Float> =
+        infiniteRepeatable(
+            animation = tween(durationMillis = 2_000, easing = StandardEasing),
             repeatMode = RepeatMode.Restart,
         )
-    }
 
     /**
      * Slow inner-core breathe for the Tunneling state.
      * Scale 1.0 ↔ 0.92, opacity 0.12 ↔ 0.22, 1.6 s ease-in-out, infinite reverse.
      * Animate a Float 0f → 1f with `RepeatMode.Reverse` and use it to interpolate
-     * scale and alpha. Collapses to 1ms-snap when motion disabled.
+     * scale and alpha. Callers MUST guard subscription with
+     * `motion.allowsInfiniteMotion`.
      */
-    fun tunnelBreatheSpec(): InfiniteRepeatableSpec<Float> {
-        val effective = if (allowsInfiniteMotion) 1_600 else 1
-        return infiniteRepeatable(
-            animation = tween(durationMillis = effective, easing = EaseInOutEasing),
-            repeatMode = if (allowsInfiniteMotion) RepeatMode.Reverse else RepeatMode.Restart,
+    fun tunnelBreatheSpec(): InfiniteRepeatableSpec<Float> =
+        infiniteRepeatable(
+            animation = tween(durationMillis = 1_600, easing = EaseInOutEasing),
+            repeatMode = RepeatMode.Reverse,
         )
-    }
 
     /**
      * Asymmetric two-step wobble flash for the Degraded state.
      * 1.2 s total, two opacity flashes inside the cycle, scaled border ring.
      * The infinite repeatable just paces; the consumer reads progress (Float)
      * and applies the keyframe shape: opacity 0 → 0.5 (20-50%) → 0 (60-100%).
-     * Collapses to 1ms-snap when motion disabled.
+     * Callers MUST guard subscription with `motion.allowsInfiniteMotion`.
      */
-    fun degradedWobbleSpec(): InfiniteRepeatableSpec<Float> {
-        val effective = if (allowsInfiniteMotion) 1_200 else 1
-        return infiniteRepeatable(
-            animation = tween(durationMillis = effective, easing = LinearEasing),
+    fun degradedWobbleSpec(): InfiniteRepeatableSpec<Float> =
+        infiniteRepeatable(
+            animation = tween(durationMillis = 1_200, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         )
-    }
 
     // === Data-ticker motion (motion-data-ticker.html) ===
 
