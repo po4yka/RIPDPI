@@ -24,6 +24,28 @@ pub struct TcpConnectObservation {
     pub succeeded: bool,
 }
 
+/// Synchronous packet-flow observer. Invoked once per packet at the
+/// TUN drain (inbound from kernel -> userspace) and TUN flush
+/// (outbound from userspace -> kernel) boundaries of `io_loop_task`.
+///
+/// MUST be synchronous (no `.await`, no I/O) -- the io_loop hot path
+/// invokes this on every packet. The PCAP capture-set implementation
+/// in `ripdpi-tunnel-android` uses a lock-free `ArrayQueue::push` that
+/// returns immediately when the queue is full.
+///
+/// Cancel-safety: synchronous, no `.await` between invocations and
+/// continuation. Cannot introduce cancel-safety issues into
+/// `io_loop_task`.
+pub trait PacketObserver: Send + Sync {
+    /// Called when a packet was read from the TUN (inbound to the
+    /// userspace TCP/UDP stack).
+    fn on_inbound(&self, packet: &[u8]);
+
+    /// Called when a packet is about to be written to the TUN
+    /// (outbound from the userspace stack back to the kernel).
+    fn on_outbound(&self, packet: &[u8]);
+}
+
 /// Per-tunnel traffic and DNS counters.
 ///
 /// Atomic counters use `Relaxed` ordering because the values are read only for
@@ -58,6 +80,13 @@ pub struct Stats {
     /// as `dns_latency_observer`: ripdpi-tunnel-core stays observer-pattern-
     /// agnostic and does not depend on any telemetry/quality crate.
     pub quality_observer: Mutex<Option<Arc<dyn Fn(TcpConnectObservation) + Send + Sync>>>,
+    /// Optional synchronous packet observer. Invoked on every packet
+    /// at the TUN drain (inbound) and TUN flush (outbound) boundaries
+    /// of `io_loop_task`. When `None`, the hot-path helpers
+    /// `on_inbound_packet` / `on_outbound_packet` are a near-no-op
+    /// (single Mutex lock + Option check). Wired from the JNI layer
+    /// in `ripdpi-tunnel-android` to feed `PcapCaptureSet`.
+    pub packet_observer: Mutex<Option<Arc<dyn PacketObserver>>>,
 }
 
 impl Default for Stats {
@@ -90,6 +119,7 @@ impl Stats {
             last_dht_trigger_at_ms: AtomicU64::new(0),
             dns_latency_observer: Mutex::new(None),
             quality_observer: Mutex::new(None),
+            packet_observer: Mutex::new(None),
         }
     }
 
@@ -105,6 +135,35 @@ impl Stats {
     /// success flag — see `TcpConnectObservation`.
     pub fn set_quality_observer(&self, observer: Arc<dyn Fn(TcpConnectObservation) + Send + Sync>) {
         observer::set_quality_observer(self, observer);
+    }
+
+    /// Installs a synchronous packet observer that is invoked on every
+    /// packet at the TUN drain (inbound) and TUN flush (outbound)
+    /// boundaries of `io_loop_task`. Replaces any previously-installed
+    /// observer atomically (with respect to subsequent calls).
+    ///
+    /// The observer MUST be synchronous and bounded -- the io_loop hot
+    /// path invokes it once per packet on the calling tokio worker. See
+    /// [`PacketObserver`] for the contract.
+    pub fn set_packet_observer(&self, observer: Arc<dyn PacketObserver>) {
+        observer::set_packet_observer(self, observer);
+    }
+
+    /// Hot-path helper: invoke the installed packet observer's
+    /// `on_inbound` callback, if any. Called from `phases::drain_tun`
+    /// once per packet read from the TUN fd. When no observer is
+    /// installed this is a single mutex lock + Option check (no
+    /// allocation, no callback).
+    pub(crate) fn on_inbound_packet(&self, packet: &[u8]) {
+        observer::notify_inbound_packet(self, packet);
+    }
+
+    /// Hot-path helper: invoke the installed packet observer's
+    /// `on_outbound` callback, if any. Called from
+    /// `bridge::flush_device_tx_queue` once per packet written to the
+    /// TUN fd. Same no-observer cost as `on_inbound_packet`.
+    pub(crate) fn on_outbound_packet(&self, packet: &[u8]) {
+        observer::notify_outbound_packet(self, packet);
     }
 
     /// Emit a SOCKS5-connect observation. Intended for call sites inside
@@ -153,9 +212,10 @@ impl Stats {
 #[cfg(test)]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-    use std::sync::atomic::Ordering;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Mutex};
 
-    use super::{DnsStatsSnapshot, Stats};
+    use super::{DnsStatsSnapshot, PacketObserver, Stats};
 
     #[test]
     fn u08_stats_counters_increment() {
@@ -229,5 +289,65 @@ mod tests {
         assert_eq!(snapshot.dht_trigger_observations, 0);
         assert!(snapshot.last_dht_trigger_endpoint.is_none());
         assert!(snapshot.last_dht_trigger_at_ms.is_none());
+    }
+
+    // P3.3: PacketObserver — synchronous packet-flow observer wired
+    // into io_loop drain/flush phases. Tests verify (a) no observer
+    // is a safe no-op, (b) installed observer receives every packet,
+    // and (c) replacing the observer routes subsequent invocations
+    // to the new one.
+
+    struct RecordingObserver(Arc<Mutex<Vec<Vec<u8>>>>);
+    impl PacketObserver for RecordingObserver {
+        fn on_inbound(&self, packet: &[u8]) {
+            self.0.lock().expect("recorder lock").push(packet.to_vec());
+        }
+        fn on_outbound(&self, _packet: &[u8]) {}
+    }
+
+    struct CountingObserver(Arc<AtomicUsize>);
+    impl PacketObserver for CountingObserver {
+        fn on_inbound(&self, _packet: &[u8]) {
+            self.0.fetch_add(1, Ordering::Relaxed);
+        }
+        fn on_outbound(&self, _packet: &[u8]) {}
+    }
+
+    #[test]
+    fn no_packet_observer_is_noop() {
+        let stats = Stats::default();
+        stats.on_inbound_packet(b"hello");
+        stats.on_outbound_packet(b"world");
+        // No panic, no observer set — fine.
+    }
+
+    #[test]
+    fn set_packet_observer_then_inbound_is_called() {
+        let stats = Stats::default();
+        let captured: Arc<Mutex<Vec<Vec<u8>>>> = Arc::new(Mutex::new(Vec::new()));
+        stats.set_packet_observer(Arc::new(RecordingObserver(Arc::clone(&captured))));
+
+        stats.on_inbound_packet(b"hello");
+        stats.on_inbound_packet(b"world");
+
+        let recorded = captured.lock().expect("recorder lock");
+        assert_eq!(recorded.len(), 2);
+        assert_eq!(&recorded[0], b"hello");
+        assert_eq!(&recorded[1], b"world");
+    }
+
+    #[test]
+    fn replacing_observer_replaces_callbacks() {
+        let stats = Stats::default();
+        let count_a = Arc::new(AtomicUsize::new(0));
+        let count_b = Arc::new(AtomicUsize::new(0));
+
+        stats.set_packet_observer(Arc::new(CountingObserver(Arc::clone(&count_a))));
+        stats.on_inbound_packet(b"a");
+        stats.set_packet_observer(Arc::new(CountingObserver(Arc::clone(&count_b))));
+        stats.on_inbound_packet(b"b");
+
+        assert_eq!(count_a.load(Ordering::Relaxed), 1);
+        assert_eq!(count_b.load(Ordering::Relaxed), 1);
     }
 }

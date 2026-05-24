@@ -30,6 +30,11 @@ pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopSta
         state.stats.tx_bytes.fetch_add(n as u64, Ordering::Relaxed);
 
         let packet = &tun_read_buf[..n];
+        // P3.3: feed the inbound (TUN -> userspace) packet to the
+        // optional synchronous observer (e.g. PCAP capture-set) before
+        // routing. No `.await`, no allocation when no observer is
+        // installed -- cancel-safety of `drain_tun` is preserved.
+        state.stats.on_inbound_packet(packet);
         route_tun_packet(packet, state).await;
     }
 

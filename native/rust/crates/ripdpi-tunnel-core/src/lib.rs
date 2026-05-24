@@ -16,7 +16,7 @@ pub use {
     device::TunDevice,
     io_loop::io_loop_task,
     sessions::{ActiveSessions, SessionEntry},
-    stats::{DnsStatsSnapshot, Stats, TcpConnectObservation},
+    stats::{DnsStatsSnapshot, PacketObserver, Stats, TcpConnectObservation},
     tunnel_api::run_tunnel,
 };
 

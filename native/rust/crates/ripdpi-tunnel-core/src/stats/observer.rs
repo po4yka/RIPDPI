@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::{Stats, TcpConnectObservation};
+use super::{PacketObserver, Stats, TcpConnectObservation};
 
 pub(crate) fn set_dns_latency_observer(stats: &Stats, observer: Arc<dyn Fn(u64) + Send + Sync>) {
     if let Ok(mut guard) = stats.dns_latency_observer.lock() {
@@ -40,6 +40,38 @@ pub(crate) fn notify_quality(stats: &Stats, obs: TcpConnectObservation) {
     };
     if let Some(observer) = observer {
         observer(obs);
+    }
+}
+
+pub(crate) fn set_packet_observer(stats: &Stats, observer: Arc<dyn PacketObserver>) {
+    if let Ok(mut guard) = stats.packet_observer.lock() {
+        *guard = Some(observer);
+    }
+}
+
+pub(crate) fn notify_inbound_packet(stats: &Stats, packet: &[u8]) {
+    // Same reentrancy-safety contract as `notify_dns_latency`: clone the
+    // Arc inside the lock, release the lock, THEN invoke the observer.
+    // The Arc clone is one atomic refcount bump; the lock window is
+    // therefore O(1) and bounded -- critical for the per-packet io_loop
+    // hot path.
+    let observer = match stats.packet_observer.lock() {
+        Ok(guard) => guard.as_ref().map(Arc::clone),
+        Err(_) => None,
+    };
+    if let Some(observer) = observer {
+        observer.on_inbound(packet);
+    }
+}
+
+pub(crate) fn notify_outbound_packet(stats: &Stats, packet: &[u8]) {
+    // Same reentrancy-safety contract as `notify_inbound_packet`.
+    let observer = match stats.packet_observer.lock() {
+        Ok(guard) => guard.as_ref().map(Arc::clone),
+        Err(_) => None,
+    };
+    if let Some(observer) = observer {
+        observer.on_outbound(packet);
     }
 }
 

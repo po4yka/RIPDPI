@@ -16,6 +16,13 @@ pub(in crate::io_loop) async fn flush_device_tx_queue(
 ) -> io::Result<()> {
     while let Some(pkt) = device.tx_queue.pop_front() {
         synack_interceptor.handle_packet(&pkt);
+        // P3.3: feed the outbound (userspace -> TUN) packet to the
+        // optional synchronous observer (e.g. PCAP capture-set) before
+        // the write. We emit before `try_send` because the observer
+        // captures intent-to-write; a WouldBlock retry below still
+        // sends the SAME packet exactly once on success. No `.await`
+        // between observer invocation and continuation.
+        stats.on_outbound_packet(&pkt);
         loop {
             match tun.try_send(&pkt) {
                 Ok(_) => {
