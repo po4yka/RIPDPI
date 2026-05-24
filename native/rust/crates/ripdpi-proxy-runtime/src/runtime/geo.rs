@@ -94,3 +94,48 @@ fn log_warning(warning: GeoRuntimeWarning) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+    use tempfile::tempdir;
+
+    #[test]
+    fn runtime_geo_matcher_is_disabled_without_both_database_paths() {
+        let config = RuntimeConfig::default();
+        assert!(load_runtime_geo_matcher(&config).is_none());
+
+        let mut geoip_only = RuntimeConfig::default();
+        geoip_only.process.geoip_db_path = Some("/tmp/missing-geoip.mmdb".to_string());
+        assert!(load_runtime_geo_matcher(&geoip_only).is_none());
+    }
+
+    #[test]
+    fn runtime_geo_matcher_loads_empty_runtime_for_missing_optional_files() {
+        let temp = tempdir().expect("tempdir");
+        let geoip = temp.path().join("missing-geoip.mmdb");
+        let geosite = temp.path().join("missing-geosite.dat");
+        let mut config = RuntimeConfig::default();
+        config.process.geoip_db_path = Some(geoip.display().to_string());
+        config.process.geosite_db_path = Some(geosite.display().to_string());
+
+        let matcher = load_runtime_geo_matcher(&config).expect("missing files produce empty matcher");
+
+        assert!(!matcher.country_matches_ip("US", IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)));
+        assert!(!matcher.geosite_matches_host("category-ads", "example.com"));
+    }
+
+    #[test]
+    fn geo_database_helpers_tolerate_missing_optional_database_files() {
+        let temp = tempdir().expect("tempdir");
+        let geoip = temp.path().join("missing-geoip.mmdb");
+        let geosite = temp.path().join("missing-geosite.dat");
+
+        let versions = load_geo_database_versions(geoip.clone(), geosite.clone()).expect("missing files only warn");
+        assert_eq!(versions, RuntimeGeoDatabaseVersions { geoip: None, geosite: None });
+        let metadata = load_geoip_metadata(geoip, geosite, IpAddr::V4(std::net::Ipv4Addr::LOCALHOST))
+            .expect("missing files only warn");
+        assert!(metadata.is_none());
+    }
+}

@@ -5,11 +5,12 @@ use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RuntimeConfig};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::session::{
-    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_GEN,
-    S_VER5,
+    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, S4_OK, S_ATP_I4, S_ATP_I6, S_CMD_AUDP,
+    S_CMD_CONN, S_ER_GEN, S_VER4, S_VER5,
 };
-use std::io::{Read, Write};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
+use std::io::{ErrorKind, Read, Write};
+use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::thread;
 use std::time::Duration;
 
 fn connected_pair() -> (TcpStream, TcpStream) {
@@ -144,6 +145,51 @@ fn parse_shadowsocks_target_respects_ipv6_and_resolve_flags() {
 }
 
 #[test]
+fn read_shadowsocks_request_returns_fragmented_target_and_first_payload() {
+    let config = RuntimeConfig::default();
+    let state = runtime_state(config);
+    let (mut reader, mut writer) = connected_pair();
+    let payload = b"GET / HTTP/1.1\r\n\r\n";
+
+    writer.write_all(&[127, 0]).expect("write first fragment");
+    writer.write_all(&[0, 1, 0x01, 0xbb]).expect("write second fragment");
+    writer.write_all(payload).expect("write first payload");
+
+    let (target, first_payload) =
+        read_shadowsocks_request(&mut reader, S_ATP_I4, &state, resolve_ip_literal).expect("read shadowsocks request");
+
+    assert_eq!(target, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443));
+    assert_eq!(first_payload, payload);
+}
+
+#[test]
+fn read_shadowsocks_request_reports_eof_before_complete_target() {
+    let config = RuntimeConfig::default();
+    let state = runtime_state(config);
+    let (mut reader, writer) = connected_pair();
+    drop(writer);
+
+    let err = read_shadowsocks_request(&mut reader, 0x03, &state, resolve_ip_literal).expect_err("expected eof");
+
+    assert_eq!(err.kind(), ErrorKind::UnexpectedEof);
+}
+
+#[test]
+fn read_shadowsocks_request_rejects_unbounded_unresolved_target() {
+    let config = RuntimeConfig::default();
+    let state = runtime_state(config);
+    let (mut reader, mut writer) = connected_pair();
+    let writer_thread = thread::spawn(move || {
+        writer.write_all(&vec![b'a'; 70 * 1024]).expect("write oversized unresolved request");
+    });
+
+    let err = read_shadowsocks_request(&mut reader, 0x03, &state, |_| None).expect_err("expected request too large");
+
+    assert_eq!(err.kind(), ErrorKind::InvalidData);
+    writer_thread.join().expect("writer thread finished");
+}
+
+#[test]
 fn domain_protocols_resolve_through_encrypted_dns_runtime_context() {
     let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
     let runtime_context = fixture_runtime_context(stack.manifest().dns_http_port);
@@ -246,6 +292,162 @@ fn handle_client_sends_socks5_failure_reply_when_upstream_connect_fails() {
     client.read_exact(&mut failure).expect("read socks5 failure reply");
     assert_eq!(failure[0], S_VER5);
     assert_eq!(failure[1], S_ER_GEN);
+}
+
+#[test]
+fn handle_client_relays_successful_socks5_connect_flow() {
+    let upstream = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream listener");
+    let target = upstream.local_addr().expect("upstream addr");
+    let upstream_thread = thread::spawn(move || {
+        let (mut stream, _) = upstream.accept().expect("accept upstream");
+        let mut request = [0u8; 4];
+        stream.read_exact(&mut request).expect("read upstream payload");
+        assert_eq!(&request, b"ping");
+        stream.write_all(b"pong").expect("write upstream response");
+        let _ = stream.shutdown(Shutdown::Both);
+    });
+
+    let mut config = RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() };
+    config.network.resolve = false;
+    let state = runtime_state(config);
+    let (mut client, server) = connected_pair();
+    client.set_read_timeout(Some(Duration::from_secs(2))).expect("set client timeout");
+    let proxy_thread = thread::spawn(move || super::handle_client(server, &state));
+
+    let mut request = vec![S_VER5, 1, 0];
+    request.extend([S_VER5, S_CMD_CONN, 0, S_ATP_I4]);
+    request.extend_from_slice(&Ipv4Addr::LOCALHOST.octets());
+    request.extend_from_slice(&target.port().to_be_bytes());
+    request.extend_from_slice(b"ping");
+    client.write_all(&request).expect("write socks5 connect request");
+    client.shutdown(Shutdown::Write).expect("finish client write side");
+
+    let mut auth = [0u8; 2];
+    client.read_exact(&mut auth).expect("read socks5 auth reply");
+    assert_eq!(auth, [S_VER5, 0]);
+    let mut success = [0u8; 10];
+    client.read_exact(&mut success).expect("read socks5 success reply");
+    assert_eq!(success[0], S_VER5);
+    assert_eq!(success[1], 0);
+    let mut response = [0u8; 4];
+    client.read_exact(&mut response).expect("read relayed response");
+    assert_eq!(&response, b"pong");
+
+    upstream_thread.join().expect("upstream thread finished");
+    proxy_thread.join().expect("proxy thread finished").expect("proxy flow succeeds");
+}
+
+#[test]
+fn handle_client_relays_successful_socks4_connect_flow() {
+    let upstream = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream listener");
+    let target = upstream.local_addr().expect("upstream addr");
+    let upstream_thread = thread::spawn(move || {
+        let (mut stream, _) = upstream.accept().expect("accept upstream");
+        let mut request = [0u8; 4];
+        stream.read_exact(&mut request).expect("read upstream payload");
+        assert_eq!(&request, b"ping");
+        stream.write_all(b"pong").expect("write upstream response");
+        let _ = stream.shutdown(Shutdown::Both);
+    });
+
+    let mut config = RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() };
+    config.network.resolve = false;
+    let state = runtime_state(config);
+    let (mut client, server) = connected_pair();
+    client.set_read_timeout(Some(Duration::from_secs(2))).expect("set client timeout");
+    let proxy_thread = thread::spawn(move || super::handle_client(server, &state));
+
+    let mut request = vec![S_VER4, S_CMD_CONN];
+    request.extend_from_slice(&target.port().to_be_bytes());
+    request.extend_from_slice(&Ipv4Addr::LOCALHOST.octets());
+    request.push(0);
+    request.extend_from_slice(b"ping");
+    client.write_all(&request).expect("write socks4 connect request");
+    client.shutdown(Shutdown::Write).expect("finish client write side");
+
+    let mut success = [0u8; 8];
+    client.read_exact(&mut success).expect("read socks4 success reply");
+    assert_eq!(success[1], S4_OK);
+    let mut response = [0u8; 4];
+    client.read_exact(&mut response).expect("read relayed response");
+    assert_eq!(&response, b"pong");
+
+    upstream_thread.join().expect("upstream thread finished");
+    proxy_thread.join().expect("proxy thread finished").expect("proxy flow succeeds");
+}
+
+#[test]
+fn handle_client_rejects_unsupported_byte_prefixed_protocol() {
+    let state = runtime_state(RuntimeConfig::default());
+    let (mut client, server) = connected_pair();
+    client.write_all(&[0x99]).expect("write unsupported protocol byte");
+
+    let err = super::handle_client(server, &state).expect_err("unsupported protocol should fail");
+
+    assert_eq!(err.kind(), ErrorKind::InvalidData);
+}
+
+#[test]
+fn handle_client_sends_socks5_command_unsupported_when_udp_disabled() {
+    let mut config = RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() };
+    config.network.udp = false;
+    let state = runtime_state(config);
+    let (mut client, server) = connected_pair();
+    client.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
+
+    let request = [S_VER5, 1, 0, S_VER5, S_CMD_AUDP, 0, S_ATP_I4, 0, 0, 0, 0, 0, 0];
+    client.write_all(&request).expect("write socks5 udp associate request");
+
+    super::handle_client(server, &state).expect("udp associate disabled returns a protocol reply");
+
+    let mut auth = [0u8; 2];
+    client.read_exact(&mut auth).expect("read socks5 auth reply");
+    assert_eq!(auth, [S_VER5, 0]);
+    let mut failure = [0u8; 10];
+    client.read_exact(&mut failure).expect("read socks5 failure reply");
+    assert_eq!(failure[0], S_VER5);
+    assert_eq!(failure[1], RuntimeState::socks5_command_unsupported_code());
+}
+
+#[test]
+fn handle_socks5_rejects_invalid_version_when_called_directly() {
+    let state = runtime_state(RuntimeConfig::default());
+    let (_client, server) = connected_pair();
+
+    let err = super::handle_socks5(server, &state, S_VER4).expect_err("invalid socks5 version should fail");
+
+    assert_eq!(err.kind(), ErrorKind::InvalidData);
+}
+
+#[test]
+fn handle_socks4_writes_failure_for_unsupported_command() {
+    let state = runtime_state(RuntimeConfig::default());
+    let (mut client, server) = connected_pair();
+    client.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
+    let request = [S_VER4, 0x02, 0, 80, 127, 0, 0, 1, 0];
+    client.write_all(&request).expect("write socks4 bind request");
+
+    super::handle_socks4(server, &state, S_VER4).expect("unsupported socks4 command returns reply");
+
+    let mut failure = [0u8; 8];
+    client.read_exact(&mut failure).expect("read socks4 failure reply");
+    assert_ne!(failure[1], S4_OK);
+}
+
+#[test]
+fn handle_http_connect_writes_failure_for_invalid_request() {
+    let mut config = RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() };
+    config.network.http_connect = true;
+    let state = runtime_state(config);
+    let (mut client, server) = connected_pair();
+    client.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
+    client.write_all(b"GET / HTTP/1.1\r\n\r\n").expect("write invalid http connect request");
+
+    super::handle_http_connect(server, &state).expect("invalid http connect returns reply");
+
+    let mut reply = Vec::new();
+    client.read_to_end(&mut reply).expect("read http failure reply");
+    assert!(String::from_utf8(reply).expect("utf8 reply").starts_with("HTTP/1.1 503"));
 }
 
 #[test]

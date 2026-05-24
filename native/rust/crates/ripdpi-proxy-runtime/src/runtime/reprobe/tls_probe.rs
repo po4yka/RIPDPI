@@ -94,3 +94,32 @@ fn read_handshake_type(stream: &mut impl Read, header: [u8; 5]) -> Option<u8> {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn read_handshake_type_ignores_non_handshake_records() {
+        let mut stream = Cursor::new([0x02]);
+
+        assert_eq!(read_handshake_type(&mut stream, [0x15, 0x03, 0x03, 0x00, 0x02]), None);
+        assert_eq!(stream.position(), 0);
+    }
+
+    #[test]
+    fn read_handshake_type_reads_first_handshake_byte() {
+        let mut stream = Cursor::new([0x02, 0x00, 0x00, 0x00]);
+
+        assert_eq!(read_handshake_type(&mut stream, [0x16, 0x03, 0x03, 0x00, 0x04]), Some(0x02));
+        assert_eq!(stream.position(), 1);
+    }
+
+    #[test]
+    fn read_handshake_type_returns_none_when_payload_is_missing() {
+        let mut stream = Cursor::new([]);
+
+        assert_eq!(read_handshake_type(&mut stream, [0x16, 0x03, 0x03, 0x00, 0x01]), None);
+    }
+}

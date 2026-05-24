@@ -50,6 +50,13 @@ SKIP_PATTERNS=(
     --skip 'runtime::tests::window_clamp'
 )
 
+# This host UDP readiness test is timing-sensitive under cargo-llvm-cov
+# instrumentation and workspace load. It remains covered by the normal
+# workspace test lane, where it runs without coverage instrumentation.
+COVERAGE_ONLY_SKIP_PATTERNS=(
+    --skip 'runtime::udp::tests::udp_upstream_poll_returns_only_ready_flow_keys'
+)
+
 # Nightly coverage includes ignored tests for additional low-cost coverage, but
 # real TUN E2E requires CAP_NET_ADMIN and is covered by the dedicated Linux TUN
 # lanes instead.
@@ -64,7 +71,8 @@ run_coverage() {
         --no-report \
         -- \
         --test-threads=1 \
-        "${SKIP_PATTERNS[@]}"
+        "${SKIP_PATTERNS[@]}" \
+        "${COVERAGE_ONLY_SKIP_PATTERNS[@]}"
 
     if [[ "$include_ignored" == "1" ]]; then
         RUST_TEST_THREADS=1 cargo llvm-cov test \

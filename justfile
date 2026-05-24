@@ -169,7 +169,7 @@ run-cli-debug port="1080":
 coverage:
     ./gradlew coverageReport
 
-# Generate Rust LLVM coverage report
+# Generate the CI-scoped Rust LLVM coverage report
 [group('coverage')]
 coverage-rust:
     bash scripts/ci/run-rust-coverage.sh

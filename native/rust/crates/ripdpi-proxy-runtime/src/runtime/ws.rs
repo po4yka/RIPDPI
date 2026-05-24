@@ -150,3 +150,65 @@ pub(super) fn runtime_relay_ws_tunnel(
 ) -> io::Result<()> {
     relay_ws_tunnel(client, dc.into_adapter(), seed_request, config.as_adapter())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ripdpi_proxy_runtime_adapter::model::config::{ws_tunnel_settings, RuntimeConfig, WsTunnelMode};
+    use std::net::{Ipv4Addr, SocketAddr};
+    use std::time::Duration;
+
+    #[test]
+    fn ws_tunnel_mode_wrappers_select_known_telegram_targets() {
+        let target = SocketAddr::from((Ipv4Addr::new(149, 154, 167, 91), 443));
+        let unrelated = SocketAddr::from((Ipv4Addr::new(203, 0, 113, 10), 443));
+
+        let mut config = RuntimeConfig::default();
+        config.adaptive.ws_tunnel_mode = WsTunnelMode::Always;
+        let always = ws_tunnel_settings(&config);
+        assert_eq!(runtime_should_ws_tunnel_first(target, &always), Some(RuntimeTelegramDc::production(2)));
+        assert_eq!(runtime_should_ws_tunnel_first(unrelated, &always), None);
+        assert_eq!(runtime_should_ws_tunnel_fallback(target, &always), None);
+
+        config.adaptive.ws_tunnel_mode = WsTunnelMode::Fallback;
+        let fallback = ws_tunnel_settings(&config);
+        assert_eq!(runtime_should_ws_tunnel_fallback(target, &fallback), Some(RuntimeTelegramDc::production(2)));
+        assert_eq!(runtime_should_ws_tunnel_fallback(unrelated, &fallback), None);
+        assert_eq!(runtime_should_ws_tunnel_first(target, &fallback), None);
+    }
+
+    #[test]
+    fn ws_tunnel_config_and_dc_helpers_project_adapter_values() {
+        let resolved = SocketAddr::from((Ipv4Addr::LOCALHOST, 443));
+        let mut config = RuntimeConfig::default();
+        config.adaptive.ws_tunnel_fake_sni = Some("kws2.web.telegram.org".to_string());
+        config.timeouts.connect_timeout_ms = 1_250;
+        let settings = ws_tunnel_settings(&config);
+
+        let ws_config = runtime_ws_tunnel_config(&settings, Some(resolved));
+        assert_eq!(ws_config.resolved_addr, Some(resolved));
+        assert_eq!(ws_config.connect_timeout, Some(Duration::from_millis(1_250)));
+        assert_eq!(runtime_detect_telegram_dc(SocketAddr::from((Ipv4Addr::new(149, 154, 167, 91), 443))), Some(2));
+        assert_eq!(runtime_telegram_dc_host(4), "telegram-dc4");
+
+        let dc = RuntimeTelegramDc::from_raw(10_002).expect("test dc");
+        assert_eq!(dc.raw(), 10_002);
+        assert_eq!(dc.number(), 2);
+        assert!(format!("{:?}", dc.class()).contains("Test"));
+        assert_eq!(RuntimeTelegramDc::production(2).raw(), 2);
+    }
+
+    #[test]
+    fn encrypted_dns_ws_helpers_report_missing_runtime_context() {
+        let host_addr = runtime_resolve_host_via_encrypted_dns("kws2.web.telegram.org", None, None, true)
+            .expect("fallback host addr");
+        let answers = runtime_encrypted_dns_ip_answers_for_host("kws2.web.telegram.org", None, None)
+            .expect("fallback dns answers");
+        let tunnel_addr = runtime_resolve_ws_tunnel_addr(RuntimeTelegramDc::production(2), None, None)
+            .expect("fallback bootstrap addr");
+
+        assert_eq!(host_addr.port(), 0);
+        assert!(!answers.answers.is_empty());
+        assert_eq!(tunnel_addr.port(), 443);
+    }
+}

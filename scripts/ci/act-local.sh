@@ -206,6 +206,7 @@ run_native_release_verification() {
 run_native_coverage() {
   require_cmd cargo-llvm-cov "cargo install cargo-llvm-cov" || return
   "$REPO_ROOT/gradlew" -p "$REPO_ROOT" coverageReport || return
+  # Rust coverage uses the CI-scoped native package report from run-rust-coverage.sh.
   bash "$REPO_ROOT/scripts/ci/run-rust-coverage.sh"
 }
 

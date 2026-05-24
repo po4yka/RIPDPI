@@ -582,6 +582,26 @@ Nightly/manual lanes add:
 
 The CI jobs upload test reports, golden diffs, logcat, fixture logs, soak/load artifacts, and coverage reports when available.
 
+### Rust coverage lane
+
+Run the Rust coverage lane locally with:
+
+```bash
+bash scripts/ci/run-rust-coverage.sh
+```
+
+or:
+
+```bash
+just coverage-rust
+```
+
+The script uses `cargo llvm-cov` against the full native workspace for execution, but the generated report is intentionally scoped to the native packages that carry the user-facing proxy, tunnel, diagnostics, WebSocket tunnel, and Android JNI facade surfaces: `ripdpi-ws-tunnel`, `ripdpi-proxy-runtime`, `ripdpi-tunnel-core`, `ripdpi-monitor-engine`, `ripdpi-diagnostics-classification`, and `ripdpi-android`. Reports are written under `native/rust/target/coverage/` as HTML, LCOV, text summary, JSON summary, and `metrics.env`.
+
+Coverage enforcement is enabled in CI with `RIPDPI_ENFORCE_COVERAGE_THRESHOLDS=1`. The default minimum line threshold is `78%` (`RIPDPI_RUST_COVERAGE_MIN_LINE`), and `scripts/ci/rust-coverage-critical-files.txt` lists critical native files that must not fall to `0%` line coverage. The normal coverage lane skips privileged CAP_NET_ADMIN tests plus one host UDP readiness test that is unstable under `cargo llvm-cov` instrumentation; that UDP test remains covered by the non-instrumented workspace test lane.
+
+Nightly/manual coverage sets `RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED=1`, which adds ignored low-cost tests while still skipping real TUN E2E tests that are covered by the dedicated privileged Linux TUN lanes.
+
 For a remote sign-off pass, follow the repository ruleset first: push local commits to a review branch, let the pull request checks run, and merge to `main` only after required reviews/checks pass. For final sign-off on the merged commit, use the default workflow-dispatch inputs unless a release owner explicitly asks for the heavier emulator, soak, load, coverage, benchmark, or private-corpus lanes:
 
 ```bash

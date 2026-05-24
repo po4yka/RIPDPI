@@ -147,3 +147,134 @@ fn reconnect_route(
     let upstream = reconnect_target(target, state, route.clone(), host, Some(original_request))?.0;
     Ok(ReconnectedRoute { upstream, route })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::config::RuntimeConfig;
+    use crate::runtime::failure::RuntimeFailureStage;
+    use std::io::Read;
+    use std::net::{Ipv4Addr, TcpListener};
+    use std::time::Duration;
+
+    fn connected_pair() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let addr = listener.local_addr().expect("listener addr");
+        let client = TcpStream::connect(addr).expect("connect client");
+        let (server, _) = listener.accept().expect("accept client");
+        (client, server)
+    }
+
+    fn runtime_state() -> RuntimeState {
+        RuntimeState::test(RuntimeConfig::default())
+    }
+
+    fn route() -> RuntimeConnectionRoute {
+        RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 }
+    }
+
+    fn failure(
+        class: RuntimeFailureClass,
+        action: RuntimeFailureAction,
+        summary: &'static str,
+    ) -> RuntimeClassifiedFailure {
+        RuntimeClassifiedFailure::new(class, RuntimeFailureStage::FirstResponse, action, summary)
+    }
+
+    #[test]
+    fn first_response_failure_surfaces_resolver_override_without_retry() {
+        let state = runtime_state();
+        let route = route();
+        let target = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 443);
+        let failure = failure(
+            RuntimeFailureClass::DnsTampering,
+            RuntimeFailureAction::ResolverOverrideRecommended,
+            "resolver override",
+        );
+        let (mut client, _peer) = connected_pair();
+        let mut session = FirstOutboundSession::new();
+        let mut retry_state = RouteRetryState::default();
+
+        let result = handle_first_response_failure(
+            &mut client,
+            &mut session,
+            &mut retry_state,
+            FirstResponseFailureContext {
+                state: &state,
+                target,
+                route: &route,
+                host: Some("example.com".to_string()),
+                original_request: b"GET / HTTP/1.1\r\n\r\n",
+                failure: &failure,
+                response_bytes: None,
+            },
+        );
+        let Err(err) = result else {
+            panic!("resolver override should surface");
+        };
+
+        assert_eq!(err.kind(), io::ErrorKind::ConnectionReset);
+    }
+
+    #[test]
+    fn first_response_failure_forwards_retry_response_payload() {
+        let state = runtime_state();
+        let route = route();
+        let target = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 443);
+        let failure = failure(RuntimeFailureClass::Unknown, RuntimeFailureAction::None, "response available");
+        let (mut client, mut peer) = connected_pair();
+        let mut session = FirstOutboundSession::new();
+        let mut retry_state = RouteRetryState::default();
+        peer.set_read_timeout(Some(Duration::from_secs(1))).expect("set peer timeout");
+
+        let reconnected = handle_first_response_failure(
+            &mut client,
+            &mut session,
+            &mut retry_state,
+            FirstResponseFailureContext {
+                state: &state,
+                target,
+                route: &route,
+                host: None,
+                original_request: b"GET / HTTP/1.1\r\n\r\n",
+                failure: &failure,
+                response_bytes: Some(b"HTTP/1.1 403 Forbidden\r\n\r\n".to_vec()),
+            },
+        )
+        .expect("response forwarding succeeds");
+
+        let mut forwarded = [0u8; 26];
+        peer.read_exact(&mut forwarded).expect("read forwarded response");
+        assert!(reconnected.is_none());
+        assert_eq!(&forwarded, b"HTTP/1.1 403 Forbidden\r\n\r\n");
+    }
+
+    #[test]
+    fn first_response_failure_treats_silent_drop_as_terminal_without_error() {
+        let state = runtime_state();
+        let route = route();
+        let target = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 443);
+        let failure = failure(RuntimeFailureClass::SilentDrop, RuntimeFailureAction::None, "silent drop");
+        let (mut client, _peer) = connected_pair();
+        let mut session = FirstOutboundSession::new();
+        let mut retry_state = RouteRetryState::default();
+
+        let reconnected = handle_first_response_failure(
+            &mut client,
+            &mut session,
+            &mut retry_state,
+            FirstResponseFailureContext {
+                state: &state,
+                target,
+                route: &route,
+                host: None,
+                original_request: b"GET / HTTP/1.1\r\n\r\n",
+                failure: &failure,
+                response_bytes: None,
+            },
+        )
+        .expect("silent drop should not force reconnect");
+
+        assert!(reconnected.is_none());
+    }
+}

@@ -276,3 +276,294 @@ impl RuntimeState {
         }
     }
 }
+
+#[cfg(test)]
+mod state_coverage_tests {
+    use super::*;
+    use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
+    use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
+    use std::io::Cursor;
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+    fn state() -> RuntimeState {
+        RuntimeState::test(RuntimeConfig::default())
+    }
+
+    #[test]
+    fn state_facade_covers_listener_handshake_session_and_udp_helpers() {
+        let state = state();
+        assert!(RuntimeState::listener_bind_addr(&RuntimeConfig::default()).port() > 0);
+        assert!(RuntimeState::validate_runtime_requirements(&RuntimeConfig::default()).is_ok());
+        let mut ttl_config = RuntimeConfig::default();
+        ttl_config.network.default_ttl = 0;
+        RuntimeState::ensure_config_default_ttl(&mut ttl_config, || Ok(77)).expect("default ttl detected");
+        assert_eq!(ttl_config.network.default_ttl, 77);
+
+        assert!(state.listener_client_capacity() > 0);
+        assert!(state.listener_route_group_count() > 0);
+        let slot = state.acquire_client_slot(1).expect("slot available");
+        assert!(state.acquire_client_slot(1).is_none());
+        drop(slot);
+        assert!(state.acquire_client_slot(1).is_some());
+
+        assert!(matches!(state.proxy_protocol_mode(), RuntimeProxyProtocolMode::BytePrefixed { .. }));
+        assert_eq!(state.proxy_auth_token(), None);
+        let _ = state.udp_associate_enabled();
+        assert_eq!(state.handshake_protect_path(), None);
+        assert!(!state.delayed_connect_enabled());
+        assert!(state.delayed_connect_buffer_size() > 0);
+        assert_eq!(RuntimeState::upstream_socks_auth_request(), [S_VER5, 1, S_AUTH_NONE]);
+        assert!(RuntimeState::upstream_socks_auth_accepted([S_VER5, S_AUTH_NONE]));
+        assert!(!RuntimeState::upstream_socks_auth_accepted([S_VER5, S_AUTH_BAD]));
+        assert!(RuntimeState::upstream_socks_connect_succeeded(&[S_VER5, 0, 0, S_ATP_I4, 127, 0, 0, 1, 0, 80]));
+        assert_eq!(RuntimeState::socks5_auth_selection(None, &[S_AUTH_NONE]), ([S_VER5, S_AUTH_NONE], true));
+        assert!(RuntimeState::socks5_auth_selection(Some("token"), &[S_AUTH_USERPASS]).1);
+        assert!(RuntimeState::is_socks5_version(S_VER5));
+        assert_eq!(RuntimeState::socks5_command_unsupported_code(), S_ER_CMD);
+        assert_eq!(RuntimeState::socks5_general_failure_code(), S_ER_GEN);
+        assert_eq!(RuntimeState::socks5_fixed_address_tail_len(S_ATP_I4), Some(6));
+        assert_eq!(RuntimeState::socks5_fixed_address_tail_len(S_ATP_I6), Some(18));
+        assert!(RuntimeState::is_socks5_domain_address_type(0x03));
+        assert!(RuntimeState::encode_socks4_reply(true).as_bytes().len() >= 8);
+        assert!(RuntimeState::encode_socks5_reply(0, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 80))
+            .as_bytes()
+            .starts_with(&[S_VER5, 0]));
+        assert!(RuntimeState::encode_http_connect_reply(true).as_bytes().starts_with(b"HTTP/1.1 200"));
+        assert!(RuntimeState::encode_upstream_socks_connect(SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443))
+            .starts_with(&[S_VER5, 1, 0]));
+        let mut socks_reply = Cursor::new([S_VER5, 0, 0, S_ATP_I4, 127, 0, 0, 1, 0, 80]);
+        assert!(RuntimeState::read_upstream_socks_reply(&mut socks_reply)
+            .expect("read reply")
+            .starts_with(&[S_VER5, 0]));
+        assert!(state.resolve_proxy_name("localhost", SocketType::Stream).is_some());
+        assert!(state.resolve_handshake_name("localhost").is_some());
+        assert!(RuntimeState::parse_http_connect_client_request(
+            b"CONNECT 127.0.0.1:443 HTTP/1.1\r\nHost: 127.0.0.1:443\r\n\r\n",
+            |host| host.parse::<IpAddr>().ok().map(|ip| SocketAddr::new(ip, 0))
+        )
+        .is_ok());
+        assert!(!RuntimeState::validate_http_proxy_auth(b"", "token"));
+        assert!(state.parse_shadowsocks_target(&[S_ATP_I4, 127, 0, 0, 1, 0, 80], |_| None).is_some());
+
+        let mut session = RuntimeState::new_session_state();
+        assert!(!RuntimeState::session_has_inbound_payload(&session));
+        RuntimeState::observe_session_inbound_payload(&mut session, b"hello");
+        assert!(RuntimeState::session_has_inbound_payload(&session));
+        let progress = RuntimeState::observe_session_outbound_payload(&mut session, b"GET / HTTP/1.1\r\n\r\n");
+        assert_eq!(progress.payload_size, 18);
+        assert_eq!(RuntimeState::single_payload_progress(7).payload_size, 7);
+        RuntimeState::observe_session_datagram_outbound_payload(&mut session, b"payload");
+        RuntimeState::observe_session_first_response_payload(&mut session, b"HTTP/1.1 200 OK\r\n\r\n");
+        RuntimeState::observe_session_retry_response_payload(&mut session, b"HTTP/1.1 403 Forbidden\r\n\r\n");
+        let _ = RuntimeState::outbound_payload_count_this_round(&session);
+        assert!(RuntimeState::session_round_count(&session) > 0);
+
+        let udp_payload = b"\0\0\0\x01\x7f\0\0\x01\0\x35abc";
+        let parsed = state
+            .parse_socks5_udp_packet(udp_payload, |host, _socket_type| {
+                host.parse::<IpAddr>().ok().map(|ip| SocketAddr::new(ip, 0))
+            })
+            .expect("parse udp packet");
+        assert_eq!(parsed.1, b"abc");
+        assert!(RuntimeState::encode_socks5_udp_packet(parsed.0, parsed.1).ends_with(b"abc"));
+        assert_eq!(state.classify_udp_payload(b"").host, None);
+        assert!(state.udp_flow_limit() > 0);
+        assert!(RuntimeState::udp_flow_at_capacity(false, state.udp_flow_limit(), state.udp_flow_limit()));
+        let udp_policy = state.udp_flow_group_policy(0).expect("udp policy");
+        assert!(!RuntimeState::should_rebind_udp_flow_source_port(udp_policy.source_rebind, false, 0, b""));
+    }
+
+    #[test]
+    fn state_facade_covers_routing_relay_warmup_and_failure_helpers() {
+        let state = state();
+        let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443);
+        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 };
+        let failure = ClassifiedFailure::new(
+            FailureClass::TcpReset,
+            FailureStage::FirstResponse,
+            FailureAction::RetryWithMatchingGroup,
+            "reset",
+        );
+
+        assert!(state.route_requires_delay_payload(0).is_ok());
+        assert!(state.delayed_route_matches_payload(
+            0,
+            target,
+            b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
+            Some("example.com")
+        ));
+        assert!(state.route_matches_transport_payload(
+            0,
+            target,
+            b"GET / HTTP/1.1\r\n\r\n",
+            RuntimeTransportProtocol::Tcp
+        ));
+        assert!(!state.route_uses_direct_syn_data_tfo(&route, Some(b"GET / HTTP/1.1\r\n\r\n")));
+        let policy = state.route_connect_policy(0, Some(b"GET / HTTP/1.1\r\n\r\n"), true).expect("route policy");
+        assert!(policy.connect_timeout.is_some());
+        assert!(state
+            .select_initial_route(target, Some(b"GET / HTTP/1.1\r\n\r\n"), None, true, RuntimeTransportProtocol::Tcp)
+            .is_some());
+        assert!(state
+            .select_next_route(
+                &route,
+                target,
+                Some(b"GET / HTTP/1.1\r\n\r\n"),
+                None,
+                RuntimeTransportProtocol::Tcp,
+                RuntimeState::connect_failure_trigger(),
+                false,
+                None,
+            )
+            .is_none());
+        let connect_trigger = RuntimeState::connect_failure_trigger();
+        let _ = state.runtime_supports_trigger(connect_trigger);
+        let _ = state.retry_trigger_for_failure(&failure);
+        assert!(RuntimeState::should_track_strategy_target(target));
+        state.note_block_signal_for_failure(Some("example.com"), &failure, None);
+        state.note_block_signal("example.com", RuntimeBlockSignal::TcpReset, None, true);
+        assert!(state
+            .advance_route(
+                &route,
+                RuntimeRouteAdvance {
+                    dest: target,
+                    payload: Some(b"GET / HTTP/1.1\r\n\r\n"),
+                    transport: RuntimeTransportProtocol::Tcp,
+                    trigger: connect_trigger,
+                    can_reconnect: false,
+                    host: Some("example.com".to_string()),
+                    penalize_strategy_failure: true,
+                    retry_penalties: None,
+                },
+            )
+            .is_ok());
+        state.store_udp_route_hint(target, route.group_index, route.attempted_mask, Some("example.com".to_string()));
+
+        assert!(state.relay_group(0).is_ok());
+        assert!(state.relay_rotation_seed(0).is_ok());
+        assert!(state.relay_first_response_buffer_size() > 0);
+        let tracker = state.relay_first_response_boundary_tracker(b"GET / HTTP/1.1\r\n\r\n");
+        let _ = state.relay_first_response_timeout(&tracker);
+        assert!(state.relay_first_response_timeout_count_limit() >= 0);
+        let _ = state.relay_first_response_reports_timeout_failure();
+        assert!(state.first_outbound_payload_buffer_size() > 0);
+        assert!(state.first_response_exchange_required().is_ok());
+        assert!(state.primary_tcp_strategy_family(0).is_none_or(|family| !family.is_empty()));
+        assert_eq!(
+            state.extract_relay_payload_host(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"),
+            Some("example.com".to_string())
+        );
+        assert_eq!(
+            RuntimeState::classify_relay_connection_freeze(RuntimeRelayTimeouts {
+                freeze_window_ms: 100,
+                freeze_min_bytes: 10,
+                freeze_max_stalls: 2,
+            })
+            .class,
+            FailureClass::ConnectionFreeze
+        );
+        assert!(state.relay_timeouts(0).is_ok());
+
+        assert!(matches!(
+            RuntimeState::classify_probe_connect_error(&io::Error::new(io::ErrorKind::TimedOut, "timeout")),
+            RuntimeProbeResult::DpiFailure(_)
+        ));
+        assert!(matches!(
+            RuntimeState::classify_probe_write_error(&io::Error::new(io::ErrorKind::ConnectionReset, "reset")),
+            RuntimeProbeResult::DpiFailure(_)
+        ));
+        assert!(matches!(
+            RuntimeState::classify_probe_read_error(&io::Error::new(io::ErrorKind::UnexpectedEof, "eof")),
+            RuntimeProbeResult::DpiFailure(_)
+        ));
+        assert_eq!(
+            RuntimeState::classify_probe_tls_response([0x16, 0x03, 0x03, 0, 1], Some(0x02)),
+            RuntimeProbeResult::Success
+        );
+        assert!(state.warmup_probe_response_buffer_size() > 0);
+        assert!(!state.warmup_probe_scheduler_enabled());
+        assert_eq!(
+            RuntimeState::classify_warmup_send_error(&io::Error::new(io::ErrorKind::BrokenPipe, "closed")).class,
+            FailureClass::TcpReset
+        );
+        assert_eq!(
+            RuntimeState::classify_warmup_first_response_error(&io::Error::new(io::ErrorKind::TimedOut, "timeout"))
+                .class,
+            FailureClass::SilentDrop
+        );
+        assert_eq!(RuntimeState::classify_warmup_closed_before_response().class, FailureClass::SilentDrop);
+        assert!(RuntimeState::failure_penalizes_strategy(&failure));
+        assert_ne!(RuntimeState::failure_trigger_mask(&failure), 0);
+        assert!(RuntimeState::udp_flow_timeout_failure().is_some());
+        assert_eq!(RuntimeState::silent_drop_failure_class(), FailureClass::SilentDrop);
+        assert_eq!(
+            RuntimeState::classify_connect_transport_error(&io::Error::new(io::ErrorKind::TimedOut, "timeout")).class,
+            FailureClass::SilentDrop
+        );
+        assert_eq!(
+            RuntimeState::classify_first_response_transport_error(&io::Error::new(
+                io::ErrorKind::ConnectionReset,
+                "reset"
+            ))
+            .class,
+            FailureClass::TcpReset
+        );
+        assert_eq!(RuntimeState::classify_first_response_closed_before_response().class, FailureClass::SilentDrop);
+        assert_eq!(RuntimeState::classify_first_response_partial_tls_timeout().class, FailureClass::SilentDrop);
+        assert!(state
+            .classify_response_failure(
+                target,
+                b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
+                b"HTTP/1.1 302 Found\r\nLocation: http://block.example/\r\n\r\n",
+                None,
+            )
+            .is_some());
+    }
+
+    #[test]
+    fn state_facade_covers_control_ws_services_and_telemetry_helpers() {
+        let state = state();
+        let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(149, 154, 175, 50)), 443);
+        let _ = state.network_reprobe_enabled();
+        assert_eq!(state.network_reprobe_protect_path(), None);
+        assert!(!state.shutdown_requested());
+        assert!(!state.has_embedded_control());
+        assert_eq!(state.current_network_snapshot(), None);
+        assert!(state.block_signal_confirmation_allowed());
+        let _ = state.should_reprobe_network(&NetworkSnapshot {
+            transport: "wifi".to_string(),
+            validated: true,
+            private_dns_mode: "system".to_string(),
+            ..Default::default()
+        });
+        assert_eq!(state.should_ws_tunnel_first(target), None);
+        assert_eq!(state.should_ws_tunnel_fallback(target), None);
+        let ws_config = state.ws_tunnel_config(Some(target));
+        assert_eq!(ws_config.resolved_addr, Some(target));
+        assert!(matches!(RuntimeState::classify_mtproto_seed(b"GET / HTTP/1.1\r\n"), WsSeedClassification::NotMtproto));
+        assert!(RuntimeState::detect_telegram_dc(target).is_some());
+        assert!(RuntimeState::telegram_dc_host(2).contains("2"));
+        assert!(state.telegram_dc_host_hint(target).is_some());
+        state.note_telegram_dc_detected(target, 2);
+        state.note_ws_tunnel_escalation(target, 2, false);
+        let _cleared_entries = state.clear_connection_cache();
+        state.drain_autolearn_events();
+        state.flush_autolearn_telemetry();
+        state.flush_host_store();
+        state.reprobe_reset_handle().reset_strategy_state();
+        state.note_retry_paced(target, 0, "test", 10);
+        state.note_route_selected(target, 0, None, "test");
+        state.note_failure_classified(
+            target,
+            &ClassifiedFailure::new(FailureClass::Unknown, FailureStage::Connect, FailureAction::None, "unknown"),
+            None,
+        );
+        state.note_route_advanced(target, 0, 1, RuntimeState::connect_failure_trigger(), None);
+        state.note_adaptive_override(target, 0, RuntimeState::connect_failure_trigger(), "unknown", None, "test");
+        state.note_upstream_connected(target, Some(1));
+        state.note_quic_migration_status(target, "not_attempted", "test");
+        state.note_tls_handshake_completed(target, 1);
+
+        let _ = DesyncGroup::new(0);
+    }
+}

@@ -119,3 +119,110 @@ pub(super) fn observe_rotation_transport_failure(
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ripdpi_proxy_runtime_adapter::model::config::{
+        first_response_settings, DesyncGroup, OffsetBase, OffsetExpr, RotationCandidate, RotationPolicy, RuntimeConfig,
+        TcpChainStep, TcpChainStepKind,
+    };
+    use std::io::ErrorKind;
+    use std::net::{Ipv4Addr, SocketAddr, TcpListener};
+
+    fn connected_pair() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let addr = listener.local_addr().expect("listener addr");
+        let client = TcpStream::connect(addr).expect("connect client");
+        let (server, _) = listener.accept().expect("accept client");
+        (client, server)
+    }
+
+    fn rotation_controller() -> CircularTcpRotationController {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::host(2))];
+        CircularTcpRotationController::new(
+            group,
+            RotationPolicy {
+                candidates: vec![RotationCandidate {
+                    tcp_chain: vec![TcpChainStep::new(
+                        TcpChainStepKind::Fake,
+                        OffsetExpr::marker(OffsetBase::EndHost, 1),
+                    )],
+                }],
+                ..RotationPolicy::default()
+            },
+        )
+        .expect("rotation controller")
+    }
+
+    fn start_observed_round(rotation: &Arc<Mutex<CircularTcpRotationController>>, config: &RuntimeConfig) {
+        rotation.lock().expect("rotation lock").start_round(
+            first_response_settings(config),
+            1,
+            0,
+            b"GET / HTTP/1.1\r\n\r\n",
+            Some(0),
+            Some("example.com"),
+            None,
+        );
+        assert!(rotation.lock().expect("rotation lock").observed_round().is_some());
+    }
+
+    #[test]
+    fn remembered_host_value_returns_present_host_and_handles_poisoning() {
+        let remembered_host = Arc::new(Mutex::new(Some("example.com".to_string())));
+        assert_eq!(remembered_host_value(&remembered_host).as_deref(), Some("example.com"));
+
+        let poisoned = remembered_host.clone();
+        let _ = std::panic::catch_unwind(move || {
+            let _guard = poisoned.lock().expect("lock host");
+            panic!("poison host lock");
+        });
+
+        assert!(remembered_host_value(&remembered_host).is_none());
+    }
+
+    #[test]
+    fn inbound_observer_marks_ready_round_successful() {
+        let config = RuntimeConfig::default();
+        let state = RuntimeState::test(config.clone());
+        let remembered_host = Arc::new(Mutex::new(Some("example.com".to_string())));
+        let rotation = Arc::new(Mutex::new(rotation_controller()));
+        let (reader, _writer) = connected_pair();
+        start_observed_round(&rotation, &config);
+
+        observe_rotation_inbound_chunk(
+            &state,
+            None,
+            &remembered_host,
+            Some(&rotation),
+            &reader,
+            b"HTTP/1.1 200 OK\r\n\r\n",
+        );
+
+        assert!(rotation.lock().expect("rotation lock").observed_round().is_none());
+    }
+
+    #[test]
+    fn transport_observer_records_failure_after_observed_round() {
+        let config = RuntimeConfig::default();
+        let state = RuntimeState::test(config.clone());
+        let remembered_host = Arc::new(Mutex::new(Some("example.com".to_string())));
+        let rotation = Arc::new(Mutex::new(rotation_controller()));
+        let (reader, _writer) = connected_pair();
+        let target = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 443);
+        start_observed_round(&rotation, &config);
+
+        observe_rotation_transport_failure(
+            &state,
+            Some(target),
+            &remembered_host,
+            Some(&rotation),
+            &reader,
+            io::Error::new(ErrorKind::ConnectionReset, "reset"),
+        );
+
+        assert!(rotation.lock().expect("rotation lock").observed_round().is_none());
+    }
+}

@@ -100,3 +100,54 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::config::RuntimeConfig;
+    use crate::runtime::types::RuntimeConnectionRoute;
+    use crate::runtime::udp::flow::UdpFlowActivationState;
+    use crate::runtime::udp::session::UdpFlowSession;
+    use crate::runtime::udp::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy};
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+    use std::time::Instant;
+
+    fn flow_entry(awaiting_response: bool) -> UdpFlowActivationState {
+        let current_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443);
+        UdpFlowActivationState {
+            session: UdpFlowSession::new(),
+            last_used: Instant::now(),
+            route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },
+            socket_settings: RuntimeUdpSocketSettings { bind_low_port: false },
+            packet_settings: RuntimeUdpPacketSettings { default_ttl: 64, ip_id_mode: None },
+            source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
+            host: Some("example.com".to_string()),
+            payload: b"quic-initial".to_vec(),
+            awaiting_response,
+            upstream: UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind udp upstream"),
+            quic_migrated: false,
+            current_target,
+            target_candidates: vec![current_target],
+            target_index: 0,
+            cache_host: true,
+        }
+    }
+
+    #[test]
+    fn udp_first_response_success_is_idempotent_after_first_observation() {
+        let state = RuntimeState::test(RuntimeConfig::default());
+        let mut entry = flow_entry(true);
+
+        note_udp_first_response_success(&state, &mut entry).expect("record udp success");
+        assert!(!entry.awaiting_response);
+        note_udp_first_response_success(&state, &mut entry).expect("second success is ignored");
+    }
+
+    #[test]
+    fn udp_timeout_failure_records_failed_flow_without_next_route() {
+        let state = RuntimeState::test(RuntimeConfig::default());
+        let entry = flow_entry(true);
+
+        note_udp_flow_timeout_failure(&state, &entry).expect("record udp timeout");
+    }
+}
