@@ -2602,4 +2602,11 @@ fakeddisorder endhost</string>
     <string name="vpn_export_consent_redact_label">پوشاندن IPها به ۰.۰.۰.۰</string>
     <string name="vpn_export_consent_cancel">انصراف</string>
     <string name="vpn_export_consent_confirm">برون‌برد</string>
+
+    <!-- What's-new card -->
+    <string name="whats_new_title">تازه‌ها</string>
+    <string name="whats_new_subtitle">یادداشت‌های انتشار · ۳ دسته</string>
+    <string name="whats_new_badge">تازه‌ها</string>
+    <string name="whats_new_later">بعداً</string>
+    <string name="whats_new_acknowledge">باشد</string>
 </resources>

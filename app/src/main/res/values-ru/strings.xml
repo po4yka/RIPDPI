@@ -2716,4 +2716,11 @@ fakeddisorder endhost</string>
     <string name="vpn_export_consent_redact_label">Скрыть IP-адреса как 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">Отмена</string>
     <string name="vpn_export_consent_confirm">Экспортировать</string>
+
+    <!-- What's-new card -->
+    <string name="whats_new_title">Что нового</string>
+    <string name="whats_new_subtitle">Заметки о выпуске · 3 категории</string>
+    <string name="whats_new_badge">Что нового</string>
+    <string name="whats_new_later">Позже</string>
+    <string name="whats_new_acknowledge">Понятно</string>
 </resources>

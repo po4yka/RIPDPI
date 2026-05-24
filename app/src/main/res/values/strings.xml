@@ -2666,4 +2666,11 @@ Source: %2$s</string>
     <string name="vpn_export_consent_redact_label">Redact endpoint IPs to 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">Cancel</string>
     <string name="vpn_export_consent_confirm">Export</string>
+
+    <!-- What's-new card -->
+    <string name="whats_new_title">What\'s new card</string>
+    <string name="whats_new_subtitle">Release notes pop-up · 3 categories</string>
+    <string name="whats_new_badge">What\'s new</string>
+    <string name="whats_new_later">Later</string>
+    <string name="whats_new_acknowledge">Got it</string>
 </resources>

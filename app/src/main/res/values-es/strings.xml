@@ -2597,4 +2597,11 @@ Origen: %2$s</string>
     <string name="vpn_export_consent_redact_label">Ocultar IP de destino como 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">Cancelar</string>
     <string name="vpn_export_consent_confirm">Exportar</string>
+
+    <!-- What's-new card -->
+    <string name="whats_new_title">Novedades</string>
+    <string name="whats_new_subtitle">Notas de la versión · 3 categorías</string>
+    <string name="whats_new_badge">Novedades</string>
+    <string name="whats_new_later">Más tarde</string>
+    <string name="whats_new_acknowledge">Entendido</string>
 </resources>

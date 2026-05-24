@@ -2598,4 +2598,11 @@ fake_burst 3</string>
     <string name="vpn_export_consent_redact_label">将端点 IP 隐去为 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">取消</string>
     <string name="vpn_export_consent_confirm">导出</string>
+
+    <!-- What's-new card -->
+    <string name="whats_new_title">新功能</string>
+    <string name="whats_new_subtitle">发布说明 · 3 个类别</string>
+    <string name="whats_new_badge">新</string>
+    <string name="whats_new_later">稍后</string>
+    <string name="whats_new_acknowledge">知道了</string>
 </resources>

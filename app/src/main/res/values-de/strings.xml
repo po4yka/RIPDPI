@@ -2597,4 +2597,11 @@ Quelle: %2$s</string>
     <string name="vpn_export_consent_redact_label">Endpunkt-IPs als 0.0.0.0 anonymisieren</string>
     <string name="vpn_export_consent_cancel">Abbrechen</string>
     <string name="vpn_export_consent_confirm">Exportieren</string>
+
+    <!-- What's-new card -->
+    <string name="whats_new_title">Neuigkeiten</string>
+    <string name="whats_new_subtitle">Versionshinweise · 3 Kategorien</string>
+    <string name="whats_new_badge">Neu</string>
+    <string name="whats_new_later">Später</string>
+    <string name="whats_new_acknowledge">Verstanden</string>
 </resources>

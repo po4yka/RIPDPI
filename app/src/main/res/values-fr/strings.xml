@@ -2597,4 +2597,11 @@ Source : %2$s</string>
     <string name="vpn_export_consent_redact_label">Masquer les IP de destination en 0.0.0.0</string>
     <string name="vpn_export_consent_cancel">Annuler</string>
     <string name="vpn_export_consent_confirm">Exporter</string>
+
+    <!-- What's-new card -->
+    <string name="whats_new_title">Nouveautés</string>
+    <string name="whats_new_subtitle">Notes de version · 3 catégories</string>
+    <string name="whats_new_badge">Nouveau</string>
+    <string name="whats_new_later">Plus tard</string>
+    <string name="whats_new_acknowledge">Compris</string>
 </resources>
