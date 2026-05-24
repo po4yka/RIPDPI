@@ -205,6 +205,25 @@ data class RipDpiMotion(
             repeatMode = RepeatMode.Restart,
         )
 
+    // === Data-ticker motion (motion-data-ticker.html) ===
+
+    /**
+     * Sliding-digit ticker for live metered values (KB/s, RTT, etc.).
+     * 320 ms `EmphasizedDecelerate`, one-shot per digit change. Each digit
+     * column animates its translationY between the value rows. The 320 ms
+     * matches the spec card's `cubic-bezier(0.05, 0.7, 0.1, 1)` decelerate.
+     */
+    fun digitSlideSpec(): TweenSpec<Float> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
+
+    /**
+     * Countdown bar for known-duration affordances (reconnect, snooze, probe).
+     * Linear easing — the user reads remaining time, so the visual rate must
+     * match clock time. The caller supplies the total countdown duration.
+     */
+    fun countdownSpec(totalMillis: Int): TweenSpec<Float> =
+        tween(durationMillis = duration(totalMillis), easing = LinearEasing)
+
     /** Spring spec that respects reducedMotion -- falls back to critically-damped (no bounce). */
     fun <T> motionAwareSpring(expressive: Boolean = false): SpringSpec<T> =
         if (reducedMotion || !animationsEnabled) {
