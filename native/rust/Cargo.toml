@@ -35,6 +35,7 @@ members = [
     "crates/ripdpi-proxy-runtime-desync-adapter",
     "crates/ripdpi-proxy-runtime-adapter",
     "crates/ripdpi-proxy-runtime",
+    "crates/ripdpi-quality",
     "crates/ripdpi-runtime-api",
     "crates/ripdpi-runtime-adaptive",
     "crates/ripdpi-runtime-dns-cache",
@@ -143,6 +144,7 @@ ripdpi-monitor-proxy-runtime = { path = "crates/ripdpi-monitor-proxy-runtime" }
 ripdpi-proxy-runtime-desync-adapter = { path = "crates/ripdpi-proxy-runtime-desync-adapter" }
 ripdpi-proxy-runtime-adapter = { path = "crates/ripdpi-proxy-runtime-adapter" }
 ripdpi-proxy-runtime = { path = "crates/ripdpi-proxy-runtime" }
+ripdpi-quality = { path = "crates/ripdpi-quality" }
 ripdpi-runtime-api = { path = "crates/ripdpi-runtime-api" }
 ripdpi-runtime-adaptive = { path = "crates/ripdpi-runtime-adaptive" }
 ripdpi-runtime-dns-cache = { path = "crates/ripdpi-runtime-dns-cache" }

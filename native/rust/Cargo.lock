@@ -4060,6 +4060,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-quality"
+version = "0.1.0"
+dependencies = [
+ "arc-swap",
+ "hdrhistogram",
+ "proptest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ripdpi-relay-android"
 version = "0.1.0"
 dependencies = [
