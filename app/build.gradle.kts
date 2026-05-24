@@ -193,6 +193,14 @@ extensions.configure<ApplicationExtension> {
     testOptions {
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
         animationsDisabled = true
+        unitTests.all { task ->
+            // Roborazzi captures bitmaps; large screen catalogs (logsScreen,
+            // homeCompactScreen, etc.) accumulate heap under the default
+            // 512MB test JVM and OOM mid-run. 4GB matches the gradle daemon
+            // budget already set in gradle.properties and is enough for the
+            // full screenshot catalog.
+            task.maxHeapSize = "4g"
+        }
     }
 
     val gitCommit: String =
