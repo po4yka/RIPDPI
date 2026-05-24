@@ -12,7 +12,7 @@
 |----------|-------|------|---------|---------|--------|
 | **Components** | 47 | 47 | 0 | 0 | ✅ Complete |
 | **VPN flow screens** | 35 | 22 | 8 | 5 | ✅ Good |
-| **Android platform surfaces** | 16 | 12 | 3 | 1 | ✅ Good |
+| **Android platform surfaces** | 16 | 16 | 0 | 0 | ✅ Complete |
 | **Motion specs** | 9 | 9 | 0 | 0 | ✅ Complete |
 | **Diagnostic screens** | 6 | 5 | 1 | 0 | ✅ Good |
 | **Share flow** | 5 | 3 | 2 | 0 | ✅ Good |
@@ -21,7 +21,7 @@
 | **One-offs** | 6 | 5 | 1 | 0 | ✅ Good |
 | **Reference-only cards** | 24 | — | — | — | 📚 Docs |
 
-**Overall Coverage:** 106/122 implementable specs have verified Kotlin implementations (87%) — up from 72/122 (59%) before the RDS-implementation session. Remaining gaps: 5 VPN flow screens missing + 8 VPN partials + 3 Android platform partials + 1 Android missing (splash) + 1 share partial + 1 gesture partial + 1 onboarding partial + 1 diagnostic partial + 1 one-off partial.
+**Overall Coverage:** 110/122 implementable specs have verified Kotlin implementations (90%) — up from 72/122 (59%) before the RDS-implementation session. Remaining gaps: 5 VPN flow screens missing + 8 VPN partials + 1 share partial + 1 gesture partial + 1 onboarding partial + 1 diagnostic partial + 1 one-off partial.
 
 ---
 
@@ -144,7 +144,7 @@
 
 ---
 
-## Android Platform Surfaces (16 specs, 12 ✅ + 3 ⚠️ = 94% implemented)
+## Android Platform Surfaces (16 specs, 16 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
@@ -161,15 +161,15 @@
 - **Crash Screen** (`android-crash-screen.html`)
 - **Split Columns** (`android-split-columns.html`) — responsive layout adaptation
 
-### ⚠️ Partial Implementation
+### ⚠️ Partial Implementation (0 specs — all closed)
 
-- **Nav Rail** (`android-nav-rail.html`) — tablet nav rail incomplete
-- **Glance Widget** (`android-glance-widget.html`) — widget partial; AppWidget integration incomplete
-- **QS Tile** (`android-qs-tile.html`) — quick settings tile basic structure; polish gaps
+- ~~**Nav Rail** (`android-nav-rail.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavRail.kt`; wired into RipDpiNavHost via rememberIsWideScreen() at the 600dp breakpoint
+- ~~**Glance Widget** (`android-glance-widget.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/widget/{ConnectToggleWidget, ModePickerWidget, StatusDisplayWidget, TelemetryWidget}.kt`; SizeMode.Responsive across 3 size buckets; theme via RipDpiGlanceTheme; Hilt-injected state via WidgetEntryPoint + WidgetStateLoader
+- ~~**QS Tile** (`android-qs-tile.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/services/QuickTileService.kt` + `QuickTileController.kt`; Hilt-injected (`AppSettingsRepository`, `ServiceController`, `ServiceStateStore`); manifest entry under `.services.QuickTileService`
 
-### ❌ Missing Implementation
+### ❌ Missing Implementation (0 specs — all closed)
 
-- **Splash Screen** (`android-splash.html`) — minimal Android 12+ splash implementation
+- ~~**Splash Screen** (`android-splash.html`)~~ — Android 12+ SplashScreen API wired via `installSplashScreen()` in MainActivity + `Theme.RIPDPI.Starting` theme (`windowSplashScreenAnimatedIcon = @drawable/ic_launcher_foreground_ripdpi_clean`, day=`@color/white` / night=`@color/black` via values-night override, `postSplashScreenTheme = Theme.RIPDPI`)
 
 ---
 
