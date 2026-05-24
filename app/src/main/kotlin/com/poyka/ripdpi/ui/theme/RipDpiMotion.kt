@@ -6,8 +6,12 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.InfiniteRepeatableSpec
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.TweenSpec
+import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -161,6 +165,20 @@ data class RipDpiMotion(
         spring(
             dampingRatio = ExpressiveSpringDamping,
             stiffness = ExpressiveSpringStiffness,
+        )
+
+    /** Linear sweep for skeleton shimmer: 1200ms, restart. */
+    fun shimmerSpec(): InfiniteRepeatableSpec<Float> =
+        infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        )
+
+    /** Cardiac pulse for heartbeat / fresh-data badges: 900ms, restart. */
+    fun pulseSpec(): InfiniteRepeatableSpec<Float> =
+        infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
         )
 
     /** Spring spec that respects reducedMotion -- falls back to critically-damped (no bounce). */

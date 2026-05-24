@@ -1,11 +1,7 @@
 package com.poyka.ripdpi.ui.components.indicators
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,10 +23,6 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
-// RDS deviation: shimmer easing literal — candidate for promotion into
-// RipDpiMotion.shimmerSpec (1200ms linear sweep, restart). Documented per
-// .claude/rules/rds-spec.md until G002 phase 2 lands the motion token.
-private const val SHIMMER_DURATION_MS = 1200
 private const val SHIMMER_BAND_WIDTH = 0.4f
 
 /**
@@ -48,11 +40,7 @@ fun Modifier.ripDpiShimmer(): Modifier =
         val progress by transition.animateFloat(
             initialValue = -SHIMMER_BAND_WIDTH,
             targetValue = 1f + SHIMMER_BAND_WIDTH,
-            animationSpec =
-                infiniteRepeatable(
-                    animation = tween(SHIMMER_DURATION_MS, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart,
-                ),
+            animationSpec = RipDpiThemeTokens.motion.shimmerSpec(),
             label = "shimmerProgress",
         )
         drawWithCache {

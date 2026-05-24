@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.components.indicators
 
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,7 +27,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.time.Duration
 
 enum class RipDpiStaleTier {
-    /** < 5s — data is updating now. Spec shows a pulse here; deferred. */
+    /** < 5s — data is updating now. Spec shows a pulse here. */
     Fresh,
 
     /** 5s – 1m — still accurate. */
@@ -85,6 +88,19 @@ fun RipDpiStaleDataBadge(
                 TierTones(colors.destructiveContainer, colors.destructive, Color.Transparent, Color.Transparent)
             }
         }
+    val freshPulseAlpha =
+        if (tier == RipDpiStaleTier.Fresh) {
+            val transition = rememberInfiniteTransition(label = "freshPulse")
+            val alpha by transition.animateFloat(
+                initialValue = 1f,
+                targetValue = 0.4f,
+                animationSpec = RipDpiThemeTokens.motion.pulseSpec(),
+                label = "freshPulse",
+            )
+            alpha
+        } else {
+            1f
+        }
     Row(
         modifier =
             modifier
@@ -99,7 +115,7 @@ fun RipDpiStaleDataBadge(
             modifier =
                 Modifier
                     .size(6.dp)
-                    .background(tones.dot, CircleShape),
+                    .background(tones.dot.copy(alpha = freshPulseAlpha), CircleShape),
         )
         Text(text = label, style = RipDpiThemeTokens.type.monoSmall.copy(color = tones.content))
     }

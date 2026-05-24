@@ -1,11 +1,7 @@
 package com.poyka.ripdpi.ui.components.indicators
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,11 +19,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-
-// RDS deviation: pulse easing literal — candidate for promotion into
-// RipDpiMotion.pulseSpec (cardiac double-thump, 900ms loop). Documented
-// per .claude/rules/rds-spec.md until G002 phase 2 lands the motion token.
-private const val HEARTBEAT_DURATION_MS = 900
 
 enum class RipDpiHeartbeatState {
     /** Active connection — pulses in success color. */
@@ -69,11 +60,7 @@ fun RipDpiHeartbeatIndicator(
     val pulseProgress by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(HEARTBEAT_DURATION_MS, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
+        animationSpec = RipDpiThemeTokens.motion.pulseSpec(),
         label = "pulse",
     )
     Canvas(
