@@ -1,0 +1,6 @@
+interface:
+  display_name: "RIPDPI App Network Architect"
+  short_description: "Audit Android VPN/proxy, TUN, DNS, relay, diagnostics, and protocol strategy code."
+  default_prompt: "Use $ripdpi-app-network-architect to audit this RIPDPI app repository from a network-engineering perspective. Report only unless I explicitly ask for code changes."
+policy:
+  allow_implicit_invocation: true
