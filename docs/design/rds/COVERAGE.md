@@ -15,13 +15,13 @@
 | **Android platform surfaces** | 16 | 16 | 0 | 0 | ✅ Complete |
 | **Motion specs** | 9 | 9 | 0 | 0 | ✅ Complete |
 | **Diagnostic screens** | 6 | 6 | 0 | 0 | ✅ Complete |
-| **Share flow** | 5 | 3 | 2 | 0 | ✅ Good |
-| **Gesture interactions** | 3 | 2 | 1 | 0 | ✅ Good |
+| **Share flow** | 5 | 4 | 1 | 0 | ✅ Good |
+| **Gesture interactions** | 3 | 3 | 0 | 0 | ✅ Complete |
 | **Onboarding** | 2 | 2 | 0 | 0 | ✅ Complete |
-| **One-offs** | 6 | 5 | 1 | 0 | ✅ Good |
+| **One-offs** | 6 | 6 | 0 | 0 | ✅ Complete |
 | **Reference-only cards** | 17 | — | — | — | 📚 Docs |
 
-**Overall Coverage:** 118/129 implementable specs have verified Kotlin implementations (91%). Remaining gaps: 7 VPN-flow partials + 2 share partials + 1 gesture partial + 1 one-off partial = 11 polish items. **No missing rows in any category.**
+**Overall Coverage:** 121/129 implementable specs have verified Kotlin implementations (94%). Remaining gaps: 7 VPN-flow partials + 1 share partial (link-preview metadata extraction is feature work, not polish — defers to follow-on initiative). **No missing rows in any category.**
 
 Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47 components + 16 Android + 9 motion + 6 diagnostic + 5 share + 3 gesture + 2 onboarding + 6 one-offs = **129 implementable**; 8 color + 5 type + 2 brand + 2 a11y = **17 reference**; total = **146** ✓. (The pre-existing audit had loose totals — 122 implementable / 24 reference — that did not add up to the 146 inventory; this audit corrects them.)
 
@@ -227,8 +227,11 @@ telemetry, etc.) is ready to feed real data.
 
 ### ⚠️ Partial Implementation
 
-- **QR Code** (`share-qr-code.html`) — QR generation present; styling refinement incomplete
-- **Link Preview** (`share-link-preview.html`) — link metadata extraction incomplete
+- **Link Preview** (`share-link-preview.html`) — link metadata extraction not yet implemented; deferred as feature work (requires remote HTML fetch which must obey vpnservice-protect-invariant + network-fingerprint-privacy rules)
+
+### ✅ Recently Closed
+
+- ~~**QR Code** (`share-qr-code.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiQrCodeShareCard.kt`; styled wrapper around `QrCodeEncoder`-supplied ImageBitmap with version meta + ECC + schema sidebar
 
 ---
 
@@ -239,9 +242,9 @@ telemetry, etc.) is ready to feed real data.
 - **Pull-to-Refresh** (`gesture-pull-to-refresh.html`)
 - **Swipe Actions** (`gesture-swipe-actions.html`) — swipe-to-dismiss in lists
 
-### ⚠️ Partial Implementation
+### ⚠️ Partial Implementation (0 specs — all closed)
 
-- **Long-Press Menu** (`gesture-long-press-menu.html`) — long-press actions present; context menu polish incomplete
+- ~~**Long-Press Menu** (`gesture-long-press-menu.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiContextMenu.kt`; formalised Popup-based context menu with icon + label + shortcut + destructive tone; long-press detection stays at the call site
 
 ---
 
@@ -264,9 +267,9 @@ telemetry, etc.) is ready to feed real data.
 - **Strokes** (`strokes.html`) — stroke widths defined and applied
 - **Radii** (`radii.html`) — corner radius tokens in theme
 
-### ⚠️ Partial Implementation
+### ⚠️ Partial Implementation (0 specs — all closed)
 
-- **What's New Card** (`whats-new-card.html`) — notification of new features partial
+- ~~**What's New Card** (`whats-new-card.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiWhatsNewCard.kt`; outlined card with version/date header, tonal hero band, NEW/FIX/BREAKING tag chips, Later/Got-it footer actions
 
 ---
 
@@ -300,4 +303,4 @@ These are design tokens, brand guidelines, and accessibility references — no d
 
 ---
 
-**Audit Date:** 2026-05-24 | **Coverage:** 118/129 specs implemented (91%) | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
+**Audit Date:** 2026-05-24 | **Coverage:** 121/129 specs implemented (94%) | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
