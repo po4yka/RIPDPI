@@ -2568,4 +2568,34 @@ fake_burst 3</string>
     <string name="widget_mode_vpn">VPN</string>
     <string name="widget_mode_proxy">代理</string>
     <string name="widget_mode_picker_title">选择模式</string>
+
+    <!-- RDS deferred VPN surfaces -->
+    <string name="title_first_run_test">首次运行检查</string>
+    <string name="title_replay_failure">重放失败</string>
+    <string name="title_pcap_viewer">数据包捕获</string>
+    <string name="vpn_first_run_test_title">看看你的网络如何表现</string>
+    <string name="vpn_first_run_test_caption">RIPDPI 检查 5 个常用目标 · 约 10 秒</string>
+    <string name="vpn_first_run_test_skip">跳过</string>
+    <string name="vpn_first_run_test_apply">应用建议</string>
+    <string name="vpn_replay_failure_header_format">最近失败 · %1$s</string>
+    <string name="vpn_replay_failure_replay">重放</string>
+    <string name="vpn_replay_failure_recommendation_title">建议</string>
+    <string name="vpn_pcap_viewer_meta_format">%1$d 个数据包</string>
+    <string name="vpn_pcap_viewer_col_no">编号</string>
+    <string name="vpn_pcap_viewer_col_time">时间</string>
+    <string name="vpn_pcap_viewer_col_src">源</string>
+    <string name="vpn_pcap_viewer_col_dst">目的</string>
+    <string name="vpn_pcap_viewer_col_summary">摘要</string>
+    <string name="vpn_pcap_viewer_hex_label">十六进制</string>
+    <string name="vpn_confirm_disconnect_title">立即断开？</string>
+    <string name="vpn_confirm_disconnect_session_format">当前会话 · %1$s</string>
+    <string name="vpn_confirm_disconnect_body">断开连接将中断正在进行的下载并重置分析器状态。通话可能会被中断。</string>
+    <string name="vpn_confirm_disconnect_dont_ask">此配置不再询问</string>
+    <string name="vpn_confirm_disconnect_stay">保持连接</string>
+    <string name="vpn_confirm_disconnect_disconnect">断开</string>
+    <string name="vpn_export_consent_title_format">导出 %1$s</string>
+    <string name="vpn_export_consent_meta_format">%1$s · %2$d 个数据包</string>
+    <string name="vpn_export_consent_redact_label">将端点 IP 隐去为 0.0.0.0</string>
+    <string name="vpn_export_consent_cancel">取消</string>
+    <string name="vpn_export_consent_confirm">导出</string>
 </resources>

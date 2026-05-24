@@ -2567,4 +2567,34 @@ Quelle: %2$s</string>
     <string name="widget_mode_vpn">VPN</string>
     <string name="widget_mode_proxy">Proxy</string>
     <string name="widget_mode_picker_title">Modus wählen</string>
+
+    <!-- RDS deferred VPN surfaces -->
+    <string name="title_first_run_test">Erstprüfung</string>
+    <string name="title_replay_failure">Wiederholung fehlgeschlagen</string>
+    <string name="title_pcap_viewer">Paketmitschnitt</string>
+    <string name="vpn_first_run_test_title">Schauen wir, was dein Netzwerk macht</string>
+    <string name="vpn_first_run_test_caption">RIPDPI prüft 5 typische Ziele · etwa 10 s</string>
+    <string name="vpn_first_run_test_skip">Überspringen</string>
+    <string name="vpn_first_run_test_apply">Empfehlung anwenden</string>
+    <string name="vpn_replay_failure_header_format">Letzter Fehler · %1$s</string>
+    <string name="vpn_replay_failure_replay">Wiederholen</string>
+    <string name="vpn_replay_failure_recommendation_title">Empfehlung</string>
+    <string name="vpn_pcap_viewer_meta_format">%1$d Pakete</string>
+    <string name="vpn_pcap_viewer_col_no">NR.</string>
+    <string name="vpn_pcap_viewer_col_time">ZEIT</string>
+    <string name="vpn_pcap_viewer_col_src">QUELLE</string>
+    <string name="vpn_pcap_viewer_col_dst">ZIEL</string>
+    <string name="vpn_pcap_viewer_col_summary">ÜBERSICHT</string>
+    <string name="vpn_pcap_viewer_hex_label">HEX-DUMP</string>
+    <string name="vpn_confirm_disconnect_title">Jetzt trennen?</string>
+    <string name="vpn_confirm_disconnect_session_format">Aktive Sitzung · %1$s</string>
+    <string name="vpn_confirm_disconnect_body">Beim Trennen werden laufende Downloads abgebrochen und der Analyzer zurückgesetzt. Aktive Anrufe können unterbrochen werden.</string>
+    <string name="vpn_confirm_disconnect_dont_ask">Für dieses Profil nicht mehr fragen</string>
+    <string name="vpn_confirm_disconnect_stay">Verbunden bleiben</string>
+    <string name="vpn_confirm_disconnect_disconnect">Trennen</string>
+    <string name="vpn_export_consent_title_format">%1$s exportieren</string>
+    <string name="vpn_export_consent_meta_format">%1$s · %2$d Pakete</string>
+    <string name="vpn_export_consent_redact_label">Endpunkt-IPs als 0.0.0.0 anonymisieren</string>
+    <string name="vpn_export_consent_cancel">Abbrechen</string>
+    <string name="vpn_export_consent_confirm">Exportieren</string>
 </resources>

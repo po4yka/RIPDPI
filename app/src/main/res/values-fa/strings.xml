@@ -2572,4 +2572,34 @@ fakeddisorder endhost</string>
     <string name="widget_mode_vpn">VPN</string>
     <string name="widget_mode_proxy">پروکسی</string>
     <string name="widget_mode_picker_title">انتخاب حالت</string>
+
+    <!-- RDS deferred VPN surfaces -->
+    <string name="title_first_run_test">بررسی نخستین اجرا</string>
+    <string name="title_replay_failure">پخش مجدد ناموفق</string>
+    <string name="title_pcap_viewer">ضبط بسته‌ها</string>
+    <string name="vpn_first_run_test_title">ببینیم شبکه‌ی شما چه می‌کند</string>
+    <string name="vpn_first_run_test_caption">RIPDPI پنج مقصد متداول را بررسی می‌کند · حدود ۱۰ ثانیه</string>
+    <string name="vpn_first_run_test_skip">رد کردن</string>
+    <string name="vpn_first_run_test_apply">اعمال پیشنهاد</string>
+    <string name="vpn_replay_failure_header_format">آخرین خطا · %1$s</string>
+    <string name="vpn_replay_failure_replay">پخش مجدد</string>
+    <string name="vpn_replay_failure_recommendation_title">پیشنهاد</string>
+    <string name="vpn_pcap_viewer_meta_format">%1$d بسته</string>
+    <string name="vpn_pcap_viewer_col_no">ش</string>
+    <string name="vpn_pcap_viewer_col_time">زمان</string>
+    <string name="vpn_pcap_viewer_col_src">مبدأ</string>
+    <string name="vpn_pcap_viewer_col_dst">مقصد</string>
+    <string name="vpn_pcap_viewer_col_summary">خلاصه</string>
+    <string name="vpn_pcap_viewer_hex_label">HEX</string>
+    <string name="vpn_confirm_disconnect_title">اکنون قطع شود؟</string>
+    <string name="vpn_confirm_disconnect_session_format">نشست فعال · %1$s</string>
+    <string name="vpn_confirm_disconnect_body">قطع اتصال دانلودهای در حال انجام را متوقف می‌کند و وضعیت تحلیلگر را بازنشانی می‌کند. تماس‌های فعال ممکن است قطع شوند.</string>
+    <string name="vpn_confirm_disconnect_dont_ask">برای این پروفایل دیگر نپرس</string>
+    <string name="vpn_confirm_disconnect_stay">متصل بمان</string>
+    <string name="vpn_confirm_disconnect_disconnect">قطع کن</string>
+    <string name="vpn_export_consent_title_format">برون‌برد %1$s</string>
+    <string name="vpn_export_consent_meta_format">%1$s · %2$d بسته</string>
+    <string name="vpn_export_consent_redact_label">پوشاندن IPها به ۰.۰.۰.۰</string>
+    <string name="vpn_export_consent_cancel">انصراف</string>
+    <string name="vpn_export_consent_confirm">برون‌برد</string>
 </resources>

@@ -2686,4 +2686,34 @@ fakeddisorder endhost</string>
     <string name="widget_mode_vpn">VPN</string>
     <string name="widget_mode_proxy">Прокси</string>
     <string name="widget_mode_picker_title">Выбрать режим</string>
+
+    <!-- RDS deferred VPN surfaces -->
+    <string name="title_first_run_test">Первичная проверка</string>
+    <string name="title_replay_failure">Сбой повтора</string>
+    <string name="title_pcap_viewer">Захват пакетов</string>
+    <string name="vpn_first_run_test_title">Посмотрим, что делает ваша сеть</string>
+    <string name="vpn_first_run_test_caption">RIPDPI проверит 5 типичных целей · около 10 с</string>
+    <string name="vpn_first_run_test_skip">Пропустить</string>
+    <string name="vpn_first_run_test_apply">Применить рекомендацию</string>
+    <string name="vpn_replay_failure_header_format">Последний сбой · %1$s</string>
+    <string name="vpn_replay_failure_replay">Повторить</string>
+    <string name="vpn_replay_failure_recommendation_title">Рекомендация</string>
+    <string name="vpn_pcap_viewer_meta_format">%1$d пакетов</string>
+    <string name="vpn_pcap_viewer_col_no">№</string>
+    <string name="vpn_pcap_viewer_col_time">ВРЕМЯ</string>
+    <string name="vpn_pcap_viewer_col_src">ИСТ.</string>
+    <string name="vpn_pcap_viewer_col_dst">НАЗН.</string>
+    <string name="vpn_pcap_viewer_col_summary">СВОДКА</string>
+    <string name="vpn_pcap_viewer_hex_label">HEX-ДАМП</string>
+    <string name="vpn_confirm_disconnect_title">Отключиться сейчас?</string>
+    <string name="vpn_confirm_disconnect_session_format">Активный сеанс · %1$s</string>
+    <string name="vpn_confirm_disconnect_body">Отключение прервёт текущие загрузки и сбросит состояние анализатора. Активные звонки могут быть прерваны.</string>
+    <string name="vpn_confirm_disconnect_dont_ask">Не спрашивать снова для этого профиля</string>
+    <string name="vpn_confirm_disconnect_stay">Остаться на связи</string>
+    <string name="vpn_confirm_disconnect_disconnect">Отключить</string>
+    <string name="vpn_export_consent_title_format">Экспорт %1$s</string>
+    <string name="vpn_export_consent_meta_format">%1$s · %2$d пакетов</string>
+    <string name="vpn_export_consent_redact_label">Скрыть IP-адреса как 0.0.0.0</string>
+    <string name="vpn_export_consent_cancel">Отмена</string>
+    <string name="vpn_export_consent_confirm">Экспортировать</string>
 </resources>
