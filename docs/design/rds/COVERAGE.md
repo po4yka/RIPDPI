@@ -11,7 +11,7 @@
 | Category | Count | Have | Partial | Missing | Status |
 |----------|-------|------|---------|---------|--------|
 | **Components** | 47 | 47 | 0 | 0 | ✅ Complete |
-| **VPN flow screens** | 36 | 28 | 8 | 0 | ✅ Complete |
+| **VPN flow screens** | 35 | 28 | 7 | 0 | ✅ Complete |
 | **Android platform surfaces** | 16 | 16 | 0 | 0 | ✅ Complete |
 | **Motion specs** | 9 | 9 | 0 | 0 | ✅ Complete |
 | **Diagnostic screens** | 6 | 6 | 0 | 0 | ✅ Complete |
@@ -19,9 +19,11 @@
 | **Gesture interactions** | 3 | 2 | 1 | 0 | ✅ Good |
 | **Onboarding** | 2 | 2 | 0 | 0 | ✅ Complete |
 | **One-offs** | 6 | 5 | 1 | 0 | ✅ Good |
-| **Reference-only cards** | 24 | — | — | — | 📚 Docs |
+| **Reference-only cards** | 17 | — | — | — | 📚 Docs |
 
-**Overall Coverage:** 118/123 implementable specs have verified Kotlin implementations (96%) — up from 112/122 (92%) before the VPN-deferred-surfaces session. Remaining gaps: 8 VPN partials + 1 share partial + 1 gesture partial + 1 one-off partial. **No missing rows remain in any category.**
+**Overall Coverage:** 118/129 implementable specs have verified Kotlin implementations (91%). Remaining gaps: 7 VPN-flow partials + 2 share partials + 1 gesture partial + 1 one-off partial = 11 polish items. **No missing rows in any category.**
+
+Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47 components + 16 Android + 9 motion + 6 diagnostic + 5 share + 3 gesture + 2 onboarding + 6 one-offs = **129 implementable**; 8 color + 5 type + 2 brand + 2 a11y = **17 reference**; total = **146** ✓. (The pre-existing audit had loose totals — 122 implementable / 24 reference — that did not add up to the 146 inventory; this audit corrects them.)
 
 ---
 
@@ -124,7 +126,6 @@
 
 ### ⚠️ Partial Implementation
 
-- **Profile Variants** — base UI present; variant-specific polish incomplete
 - **State Machine** (`vpn-state-machine.html`) — state flow implemented; visual incomplete
 - **Handshake Timeline** (`vpn-handshake-timeline.html`) — timing view missing
 - **Throughput Graph** (`vpn-throughput-graph.html`) — graph present; real-time updates need refinement
@@ -299,4 +300,4 @@ These are design tokens, brand guidelines, and accessibility references — no d
 
 ---
 
-**Audit Date:** 2026-05-24 | **Coverage:** 118/123 specs implemented (96%) | **Implementable specs:** 123 | **Reference specs:** 24
+**Audit Date:** 2026-05-24 | **Coverage:** 118/129 specs implemented (91%) | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
