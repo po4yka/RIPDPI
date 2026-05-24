@@ -15,6 +15,9 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import com.github.takahirom.roborazzi.fontScale
 import com.github.takahirom.roborazzi.inspectionMode
 import com.github.takahirom.roborazzi.size
+import com.poyka.ripdpi.activities.AnalysisStageStatus
+import com.poyka.ripdpi.activities.AnalysisStageUiState
+import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiSectionHeader
 import com.poyka.ripdpi.ui.components.feedback.RipDpiAccordion
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDiffKind
@@ -27,6 +30,9 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiLogLevel
 import com.poyka.ripdpi.ui.components.feedback.RipDpiLogStream
 import com.poyka.ripdpi.ui.components.feedback.RipDpiTooltip
 import com.poyka.ripdpi.ui.components.feedback.RipDpiTooltipRich
+import com.poyka.ripdpi.ui.components.indicators.AnalysisProgressIndicator
+import com.poyka.ripdpi.ui.components.indicators.LogRow
+import com.poyka.ripdpi.ui.components.indicators.LogRowTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiActuatorStatesGallery
 import com.poyka.ripdpi.ui.components.indicators.RipDpiBrandBadge
 import com.poyka.ripdpi.ui.components.indicators.RipDpiBrandBadgeSize
@@ -34,12 +40,16 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiHeartbeatIndicator
 import com.poyka.ripdpi.ui.components.indicators.RipDpiHeartbeatState
 import com.poyka.ripdpi.ui.components.indicators.RipDpiKbdShortcut
 import com.poyka.ripdpi.ui.components.indicators.RipDpiLiveCounter
+import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricPill
+import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricTone
+import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSkeletonBox
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaleDataBadge
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaleTier
+import com.poyka.ripdpi.ui.components.indicators.StageProgressIndicator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiCidrInput
 import com.poyka.ripdpi.ui.components.inputs.RipDpiCidrValue
 import com.poyka.ripdpi.ui.components.inputs.RipDpiCombobox
@@ -53,6 +63,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
 import com.poyka.ripdpi.ui.components.inputs.RipDpiToggleAlternatives
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -316,6 +327,72 @@ class RdsComponentsScreenshotTest {
             RipDpiTooltipRich(title = "Stale data", body = "Last probe 18m ago") {
                 Text("18m ago")
             }
+        }
+    }
+
+    // === Spec-alignment gallery for the 6 audit-HAVE primitives ===
+
+    @Test
+    fun analysisProgress() {
+        captureBothThemes("analysisProgress", widthDp = 360, heightDp = 200) {
+            AnalysisProgressIndicator(
+                stages =
+                    persistentListOf(
+                        AnalysisStageUiState(AnalysisStageStatus.COMPLETED),
+                        AnalysisStageUiState(AnalysisStageStatus.COMPLETED),
+                        AnalysisStageUiState(AnalysisStageStatus.RUNNING, progress = 0.4f),
+                        AnalysisStageUiState(AnalysisStageStatus.PENDING),
+                        AnalysisStageUiState(AnalysisStageStatus.PENDING),
+                    ),
+                activeStageIndex = 2,
+                stageLabel = "Stage 3 of 5 — testing TLS handshakes",
+            )
+        }
+    }
+
+    @Test
+    fun logRow() {
+        captureBothThemes("logRow", widthDp = 360, heightDp = 200) {
+            LogRow(
+                timestamp = "12:18:42.013",
+                type = "CONN",
+                message = "strategy.applied tlsrec_split_host",
+                tone = LogRowTone.Connection,
+            )
+        }
+    }
+
+    @Test
+    fun metricPill() {
+        captureBothThemes("metricPill", widthDp = 360, heightDp = 120) {
+            RipDpiMetricPill(text = "RTT 12 ms", tone = RipDpiMetricTone.Positive)
+        }
+    }
+
+    @Test
+    fun presetCard() {
+        captureBothThemes("presetCard", widthDp = 360, heightDp = 200) {
+            PresetCard(
+                title = "tlsrec_split_host",
+                description = "Splits TLS ClientHello after the SNI extension.",
+                badgeText = "ACTIVE",
+                selected = true,
+                onClick = {},
+            )
+        }
+    }
+
+    @Test
+    fun stageProgress() {
+        captureBothThemes("stageProgress", widthDp = 360, heightDp = 120) {
+            StageProgressIndicator(completedCount = 3, failedCount = 1, totalCount = 6)
+        }
+    }
+
+    @Test
+    fun pageIndicators() {
+        captureBothThemes("pageIndicators", widthDp = 360, heightDp = 120) {
+            RipDpiPageIndicators(currentPage = 1, pageCount = 3)
         }
     }
 }

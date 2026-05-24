@@ -79,7 +79,7 @@
 ### ❌ Missing Implementation (5 specs)
 
 - **Actuator States** (`components-actuator-states.html`)
-- **Analysis Progress** (`components-analysis-progress.html`)
+- ~~**Analysis Progress** (`components-analysis-progress.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/AnalysisProgressIndicator.kt`; golden `RdsComponentsScreenshotTest.analysisProgress`
 - **Cidr Input** (`components-cidr-input.html`)
 - **Diff Viewer** (`components-diff-viewer.html`)
 - **Filter Bar** (`components-filter-bar.html`)
