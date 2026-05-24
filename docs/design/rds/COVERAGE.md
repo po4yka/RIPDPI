@@ -84,7 +84,7 @@
 - **Diff Viewer** (`components-diff-viewer.html`)
 - **Filter Bar** (`components-filter-bar.html`)
 - **Heartbeat Indicator** (`components-heartbeat-indicator.html`)
-- **Kbd Shortcut** (`components-kbd-shortcut.html`)
+- ~~**Kbd Shortcut** (`components-kbd-shortcut.html`)~~ — implemented in `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiKbdShortcut.kt`
 - **Live Counter** (`components-live-counter.html`)
 - **Log Row** (`components-log-row.html`)
 - **Metric Pill** (`components-metric-pill.html`)
