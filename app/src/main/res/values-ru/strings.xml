@@ -2731,6 +2731,7 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_rec_handshake_alert">TLS handshake alert · попробуйте другой TLS-профиль</string>
     <string name="vpn_replay_rec_timeout_no_response">Нет ответа в течение тайм-аута · попробуйте другую стратегию</string>
     <string name="vpn_replay_rec_generic_fallback">Проба не удалась · попробуйте другую стратегию</string>
+    <string name="vpn_replay_save_to_archive">Сохранить в архив диагностики</string>
     <string name="vpn_quality_strip_warning_title">Подключено · качество ухудшилось</string>
     <string name="vpn_quality_strip_critical_title">Подключено · качество резко упало</string>
     <string name="vpn_quality_strip_body_warning">Туннель активен, но производительность снизилась. Показатели вышли за нормальные пределы.</string>

@@ -2617,6 +2617,7 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_rec_handshake_alert">هشدار دست‌تکانی TLS · یک پروفایل TLS دیگر امتحان کنید</string>
     <string name="vpn_replay_rec_timeout_no_response">پاسخی در زمان مهلت دریافت نشد · یک راهبرد دیگر امتحان کنید</string>
     <string name="vpn_replay_rec_generic_fallback">کاوش ناموفق بود · یک راهبرد دیگر امتحان کنید</string>
+    <string name="vpn_replay_save_to_archive">ذخیره در بایگانی عیب‌یابی</string>
     <string name="vpn_quality_strip_warning_title">متصل · کیفیت کاهش یافت</string>
     <string name="vpn_quality_strip_critical_title">متصل · کیفیت بسیار افت کرد</string>
     <string name="vpn_quality_strip_body_warning">تونل فعال است اما کارایی افت کرده. شاخص‌ها خارج از محدوده طبیعی هستند.</string>

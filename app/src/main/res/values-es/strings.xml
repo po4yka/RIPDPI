@@ -2612,6 +2612,7 @@ Origen: %2$s</string>
     <string name="vpn_replay_rec_handshake_alert">Alerta de handshake TLS · prueba otro perfil TLS</string>
     <string name="vpn_replay_rec_timeout_no_response">Sin respuesta en el tiempo límite · prueba otra estrategia</string>
     <string name="vpn_replay_rec_generic_fallback">La prueba falló · prueba otra estrategia</string>
+    <string name="vpn_replay_save_to_archive">Guardar en archivo de diagnóstico</string>
     <string name="vpn_quality_strip_warning_title">Conectado · calidad degradada</string>
     <string name="vpn_quality_strip_critical_title">Conectado · degradado significativamente</string>
     <string name="vpn_quality_strip_body_warning">El túnel está activo pero el rendimiento ha caído. Los indicadores están fuera del rango normal.</string>

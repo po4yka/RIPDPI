@@ -2613,6 +2613,7 @@ fake_burst 3</string>
     <string name="vpn_replay_rec_handshake_alert">TLS 握手警报 · 试试其他 TLS 配置</string>
     <string name="vpn_replay_rec_timeout_no_response">超时未响应 · 试试其他策略</string>
     <string name="vpn_replay_rec_generic_fallback">探测失败 · 试试其他策略</string>
+    <string name="vpn_replay_save_to_archive">保存到诊断存档</string>
     <string name="vpn_quality_strip_warning_title">已连接 · 质量下降</string>
     <string name="vpn_quality_strip_critical_title">已连接 · 质量严重下降</string>
     <string name="vpn_quality_strip_body_warning">隧道已建立但性能下降。指标超出正常范围。</string>
