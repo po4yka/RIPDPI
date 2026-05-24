@@ -2612,4 +2612,14 @@ Quelle: %2$s</string>
     <string name="vpn_replay_rec_handshake_alert">TLS-Handshake-Alert · versuche ein anderes TLS-Profil</string>
     <string name="vpn_replay_rec_timeout_no_response">Keine Antwort im Zeitlimit · versuche eine andere Strategie</string>
     <string name="vpn_replay_rec_generic_fallback">Probe fehlgeschlagen · versuche eine andere Strategie</string>
+    <string name="vpn_quality_strip_warning_title">Verbunden · Qualität verschlechtert</string>
+    <string name="vpn_quality_strip_critical_title">Verbunden · stark verschlechtert</string>
+    <string name="vpn_quality_strip_body_warning">Der Tunnel ist aktiv, aber die Leistung ist gesunken. Indikatoren liegen außerhalb des normalen Bereichs.</string>
+    <string name="vpn_quality_strip_body_critical">Der Tunnel ist aktiv, aber die Qualität ist schlecht. Die meisten Indikatoren liegen weit außerhalb des normalen Bereichs.</string>
+    <string name="vpn_quality_strip_since_format">Seit %1$s</string>
+    <string name="vpn_quality_strip_reprobe">Erneut prüfen</string>
+    <string name="vpn_quality_strip_dismiss">Verwerfen</string>
+    <string name="vpn_quality_metric_loss">Verlust</string>
+    <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
+    <string name="vpn_quality_metric_jitter">Jitter</string>
 </resources>

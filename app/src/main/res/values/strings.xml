@@ -2681,4 +2681,14 @@ Source: %2$s</string>
     <string name="vpn_replay_rec_handshake_alert">TLS handshake alert · try a different TLS profile</string>
     <string name="vpn_replay_rec_timeout_no_response">No response within timeout · try a different strategy</string>
     <string name="vpn_replay_rec_generic_fallback">Probe failed · try a different strategy</string>
+    <string name="vpn_quality_strip_warning_title">Connected · quality degraded</string>
+    <string name="vpn_quality_strip_critical_title">Connected · degraded heavily</string>
+    <string name="vpn_quality_strip_body_warning">Tunnel is up but performance has dropped. Indicators are outside their normal range.</string>
+    <string name="vpn_quality_strip_body_critical">Tunnel is up but quality is poor. Most indicators are well outside normal range.</string>
+    <string name="vpn_quality_strip_since_format">Since %1$s</string>
+    <string name="vpn_quality_strip_reprobe">Re-probe</string>
+    <string name="vpn_quality_strip_dismiss">Dismiss</string>
+    <string name="vpn_quality_metric_loss">Loss</string>
+    <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
+    <string name="vpn_quality_metric_jitter">Jitter</string>
 </resources>
