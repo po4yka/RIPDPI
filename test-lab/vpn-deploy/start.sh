@@ -83,6 +83,80 @@ ANSIBLE_COLLECTIONS_PATH="${venv_dir}/share/ansible-collections" \
   "${venv_dir}/bin/ansible-galaxy" collection install \
     -r "${deploy_dir}/requirements.yml" >/dev/null
 
+# 2b. Pre-flight the molecule test-secrets fixture. Catches the failure
+#     classes that previously cost 10+ min of converge before erroring:
+#       - sha256 placeholders (`get_url` checksum mismatch)
+#       - REALITY private/public key not a real X25519 keypair (xray accepts
+#         the bytes but the client never completes a handshake)
+#       - cert/key PEMs that openssl rejects
+#     Runs against the molecule fixture, not the production secrets file —
+#     the deploy repo's scripts/validate-secrets.py covers the latter.
+log "pre-flighting test-secrets fixture"
+"${venv_dir}/bin/python3" - <<PY || err "test-secrets pre-flight failed; fix the fixture before retrying"
+import base64
+import re
+import subprocess as sp
+import sys
+import yaml
+from pathlib import Path
+
+secrets = Path("${deploy_dir}/ansible/molecule/full-stack/test-secrets.yaml")
+if not secrets.is_file():
+    print(f"  - missing: {secrets}", file=sys.stderr)
+    sys.exit(1)
+
+with secrets.open() as f:
+    d = yaml.safe_load(f) or {}
+
+errs: list[str] = []
+
+# sha256 fields per crate: exactly 64 lowercase hex chars.
+for section in ("xray", "hysteria"):
+    blob = d.get(section) or {}
+    for key in ("linux_amd64_sha256", "linux_arm64_sha256"):
+        v = blob.get(key, "")
+        if not isinstance(v, str) or not re.fullmatch(r"[0-9a-f]{64}", v):
+            errs.append(f"{section}.{key}: not a 64-char hex sha256 (got {v!r:.40})")
+
+# REALITY keys: 43-char base64url that decodes to 32 bytes (X25519 scalar).
+def _x25519_ok(key: object) -> bool:
+    if not isinstance(key, str) or len(key) != 43:
+        return False
+    try:
+        return len(base64.urlsafe_b64decode(key + "=")) == 32
+    except Exception:
+        return False
+
+xray_blob = d.get("xray") or {}
+for field in ("reality_private_key", "reality_public_key"):
+    if not _x25519_ok(xray_blob.get(field, "")):
+        errs.append(f"xray.{field}: not a 43-char base64url X25519 key")
+
+# Cert / key PEMs: openssl must parse them.
+def _openssl(pem: str, kind: str) -> tuple[bool, str]:
+    cmd = ["openssl", "x509" if kind == "cert" else "pkey", "-noout", "-in", "/dev/stdin"]
+    r = sp.run(cmd, input=pem, text=True, capture_output=True)
+    return r.returncode == 0, r.stderr.strip()
+
+for section in ("nginx_xhttp", "hysteria"):
+    blob = d.get(section) or {}
+    for field, kind in (("cert_pem", "cert"), ("key_pem", "key")):
+        pem = blob.get(field, "")
+        if not pem:
+            continue
+        ok, why = _openssl(pem, kind)
+        if not ok:
+            errs.append(f"{section}.{field}: openssl rejected ({why[:120]})")
+
+if errs:
+    print("  pre-flight findings:", file=sys.stderr)
+    for e in errs:
+        print(f"  - {e}", file=sys.stderr)
+    sys.exit(1)
+
+print("  test-secrets: OK")
+PY
+
 # 3. Run molecule converge against the published-ports scenario.
 log "running molecule converge for scenario '${scenario}'"
 cd "${deploy_dir}/ansible"
