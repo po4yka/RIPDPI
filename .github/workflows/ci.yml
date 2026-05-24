@@ -17,7 +17,7 @@ on:
           - smoke
           - full
       run_maestro_smoke:
-        description: Run Maestro smoke flows after Android instrumentation
+        description: Run Maestro UI coverage flows after Android instrumentation
         required: false
         default: false
         type: boolean

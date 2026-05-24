@@ -1,0 +1,11 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "home-screen"
+- assertVisible:
+    id: "home-connection-button"
+- assertVisible:
+    id: "home-connection-route-label"
+- assertVisible:
+    id: "route-stack"

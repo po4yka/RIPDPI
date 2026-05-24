@@ -1,0 +1,16 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "biometric_prompt-screen"
+- assertVisible:
+    id: "biometric-prompt-primary-action"
+- tapOn:
+    id: "biometric-prompt-secondary-action"
+- assertVisible:
+    id: "biometric-prompt-pin-field"
+- tapOn:
+    id: "biometric-prompt-pin-field"
+- inputText: "0000"
+- assertVisible:
+    id: "biometric-prompt-pin-field"

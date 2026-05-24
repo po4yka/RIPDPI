@@ -1,0 +1,44 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "onboarding-screen"
+- tapOn:
+    id: "onboarding-continue"
+- tapOn:
+    id: "onboarding-continue"
+- tapOn:
+    id: "onboarding-continue"
+- tapOn:
+    id: "onboarding-continue"
+- tapOn:
+    id: "onboarding-continue"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible:
+    id: "onboarding-mode-proxy"
+- tapOn:
+    id: "onboarding-mode-proxy"
+- tapOn:
+    id: "onboarding-continue"
+- scrollUntilVisible:
+    element:
+      id: "onboarding-dns-adguard"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "onboarding-dns-adguard"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible:
+    id: "onboarding-finish-anyway"
+- tapOn:
+    id: "onboarding-finish-anyway"
+- assertVisible:
+    id: "home-screen"
+- assertVisible:
+    id: "home-mode-primary-local-dpi-bypass"
+- tapOn:
+    id: "home-mode-primary-local-dpi-bypass"
+- assertVisible:
+    id: "home-mode-primary-local-dpi-bypass"

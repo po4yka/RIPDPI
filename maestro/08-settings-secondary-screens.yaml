@@ -1,0 +1,60 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "bottom-nav-settings"
+- assertVisible:
+    id: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-customization"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "settings-customization"
+- assertVisible:
+    id: "app_customization-screen"
+- assertVisible:
+    id: "customization-themed-icon"
+- pressKey: Back
+- assertVisible:
+    id: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-data-transparency"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "settings-data-transparency"
+- assertVisible:
+    id: "data_transparency-screen"
+- pressKey: Back
+- assertVisible:
+    id: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-about"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "settings-about"
+- assertVisible:
+    id: "about-screen"
+- scrollUntilVisible:
+    element:
+      id: "about-source-code"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "about-source-code"
+- scrollUntilVisible:
+    element:
+      id: "about-readme"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "about-readme"

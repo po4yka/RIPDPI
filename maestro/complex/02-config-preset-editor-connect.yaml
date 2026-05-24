@@ -1,0 +1,42 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "config-screen"
+- assertVisible:
+    id: "config-preset-proxy"
+- tapOn:
+    id: "config-preset-proxy"
+- assertVisible:
+    id: "config-mode-proxy"
+- tapOn:
+    id: "config-edit-current"
+- assertVisible:
+    id: "mode_editor-screen"
+- assertVisible:
+    id: "mode-editor-proxy-ip"
+- tapOn:
+    id: "mode-editor-proxy-ip"
+- eraseText
+- inputText: "127.0.0.1"
+- tapOn:
+    id: "mode-editor-proxy-port"
+- eraseText
+- inputText: "1082"
+- scrollUntilVisible:
+    element:
+      id: "mode-editor-save"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "mode-editor-save"
+- assertVisible:
+    id: "config-screen"
+- tapOn:
+    id: "bottom-nav-home"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "home-mode-primary-local-dpi-bypass"
+- assertVisible:
+    id: "home-mode-primary-local-dpi-bypass"

@@ -1,0 +1,34 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "home-screen"
+- assertVisible:
+    id: "home-mode-primary-local-dpi-bypass"
+- tapOn:
+    id: "home-mode-primary-local-dpi-bypass"
+- assertVisible:
+    id: "home-mode-primary-local-dpi-bypass"
+- tapOn:
+    id: "home-mode-primary-local-dpi-bypass"
+- assertVisible:
+    id: "home-mode-primary-local-dpi-bypass"
+- tapOn:
+    id: "home-mode-primary-remote-vpn"
+- tapOn:
+    text: "OK|Allow"
+    optional: true
+- assertVisible:
+    id: "home-mode-primary-remote-vpn"
+- tapOn:
+    id: "bottom-nav-diagnostics"
+- assertVisible:
+    id: "diagnostics-screen"
+- tapOn:
+    id: "diagnostics-section-scan"
+- tapOn:
+    id: "diagnostics-scan-run-in-path"
+- assertVisible:
+    id: "diagnostics-scan-progress-card"

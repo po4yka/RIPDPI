@@ -1,0 +1,48 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "bottom-nav-diagnostics"
+- assertVisible:
+    id: "diagnostics-screen"
+- assertVisible:
+    id: "diagnostics-section-dashboard"
+- assertVisible:
+    id: "diagnostics-overview-hero"
+- tapOn:
+    id: "diagnostics-section-scan"
+- assertVisible:
+    id: "diagnostics-scan-state-idle"
+- assertVisible:
+    id: "diagnostics-scan-run-raw"
+- assertVisible:
+    id: "diagnostics-scan-run-in-path"
+- tapOn:
+    id: "diagnostics-section-tools"
+- assertVisible:
+    id: "diagnostics-share-archive"
+- assertVisible:
+    id: "diagnostics-save-archive"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-share-summary"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "diagnostics-share-summary"
+- assertVisible:
+    id: "diagnostics-save-logs"
+- tapOn:
+    id: "diagnostics-top-history-action"
+- assertVisible:
+    id: "history-screen"
+- assertVisible:
+    id: "history-section-connections"
+- assertVisible:
+    id: "history-section-diagnostics"
+- assertVisible:
+    id: "history-section-events"

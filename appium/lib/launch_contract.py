@@ -23,7 +23,7 @@ VALID_SERVICE_PRESETS = {
 }
 VALID_DATA_PRESETS = {
     "clean_home", "settings_ready", "diagnostics_demo",
-    "diagnostics_report_demo", "biometric_locked",
+    "diagnostics_report_demo", "biometric_locked", "biometric_locked_with_pin",
 }
 VALID_ROUTES = {
     "onboarding", "home", "config", "diagnostics", "history", "logs",

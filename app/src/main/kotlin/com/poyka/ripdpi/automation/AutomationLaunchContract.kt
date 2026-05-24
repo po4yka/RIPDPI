@@ -66,6 +66,7 @@ enum class AutomationDataPreset(
     DiagnosticsDemo("diagnostics_demo"),
     DiagnosticsReportDemo("diagnostics_report_demo"),
     BiometricLocked("biometric_locked"),
+    BiometricLockedWithPin("biometric_locked_with_pin"),
     ;
 
     companion object {

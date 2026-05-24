@@ -1,0 +1,15 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "history-screen"
+- assertVisible:
+    id: "history-section-connections"
+- assertVisible:
+    id: "history-section-diagnostics"
+- tapOn:
+    id: "history-section-events"
+- assertVisible:
+    id: "history-events-search"
+- assertVisible:
+    id: "history-events-auto-scroll"

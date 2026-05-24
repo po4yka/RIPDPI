@@ -1,0 +1,15 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "diagnostics-screen"
+- assertVisible:
+    id: "diagnostics-section-dashboard"
+- assertVisible:
+    id: "diagnostics-strategy-probe-report"
+- assertVisible:
+    id: "diagnostics-strategy-probe-summary"
+- assertVisible:
+    id: "diagnostics-strategy-winning-path"
+- assertVisible:
+    id: "diagnostics-strategy-full-matrix-toggle"

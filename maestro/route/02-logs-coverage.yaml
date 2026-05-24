@@ -1,0 +1,25 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "logs-screen"
+- assertVisible:
+    id: "logs-save"
+- assertVisible:
+    id: "logs-clear"
+- scrollUntilVisible:
+    element:
+      id: "logs-auto-scroll"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "logs-auto-scroll"
+- scrollUntilVisible:
+    element:
+      id: "logs-subsystem-service"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "logs-subsystem-service"
+- assertVisible:
+    id: "logs-severity-info"

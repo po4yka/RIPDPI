@@ -1,0 +1,87 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "bottom-nav-settings"
+- assertVisible:
+    id: "settings-screen"
+- tapOn:
+    id: "settings-dns-settings"
+- assertVisible:
+    id: "dns_settings-screen"
+- assertVisible:
+    id: "dns-mode-encrypted"
+- assertVisible:
+    id: "dns-mode-plain-udp"
+- tapOn:
+    id: "dns-mode-encrypted"
+- assertVisible:
+    id: "dns-protocol-doh"
+- assertVisible:
+    id: "dns-protocol-dot"
+- assertVisible:
+    id: "dns-protocol-dnscrypt"
+- scrollUntilVisible:
+    element:
+      id: "dns-resolver-adguard"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "dns-resolver-adguard"
+- scrollUntilVisible:
+    element:
+      id: "dns-custom-doh-url"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "dns-custom-doh-url"
+- assertVisible:
+    id: "dns-custom-bootstrap"
+- scrollUntilVisible:
+    element:
+      id: "dns-protocol-dot"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "dns-protocol-dot"
+- scrollUntilVisible:
+    element:
+      id: "dns-custom-host"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "dns-custom-host"
+- assertVisible:
+    id: "dns-custom-port"
+- scrollUntilVisible:
+    element:
+      id: "dns-custom-tls-server-name"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "dns-custom-tls-server-name"
+- scrollUntilVisible:
+    element:
+      id: "dns-protocol-dnscrypt"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "dns-protocol-dnscrypt"
+- scrollUntilVisible:
+    element:
+      id: "dns-custom-dnscrypt-provider"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "dns-custom-dnscrypt-provider"
+- scrollUntilVisible:
+    element:
+      id: "dns-custom-dnscrypt-public-key"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "dns-custom-dnscrypt-public-key"

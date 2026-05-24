@@ -390,6 +390,8 @@ Run the committed Maestro smoke pack locally with:
 bash scripts/ci/run-maestro-smoke.sh
 ```
 
+The Maestro pack covers cold launch, top-tab navigation, settings and advanced-settings mutation, config and mode-editor reachability, DNS mode/protocol/custom-field controls, secondary settings screens, diagnostics dashboard/scan/tools/history paths, route-preset history/logs coverage, permission-banner surfaces, connected proxy/VPN seeded state, and seeded diagnostics strategy reports. `RUN_MAESTRO_ROUTE_FLOWS=0` skips the route-preset launches when debugging only visible navigation; `RUN_MAESTRO_COMPLEX_FLOWS=1` adds complex stateful journeys for onboarding, config edit/connect, DNS persistence, diagnostics report drill-down, permission repair, activation-window editing, logs/history filters, biometric PIN fallback, and background guidance dismissal; `RUN_MAESTRO_LAB_FLOWS=1` adds the live network lab flows in `test-lab/maestro/` after the lab/device environment is prepared.
+
 The smoke flows avoid `pm clear` and assert stable resource IDs. Use Appium or raw `adb shell am start` for launch extras such as:
 
 - `com.poyka.ripdpi.automation.ENABLED`

@@ -1,0 +1,50 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "logs-screen"
+- scrollUntilVisible:
+    element:
+      id: "logs-auto-scroll"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "logs-auto-scroll"
+- scrollUntilVisible:
+    element:
+      id: "logs-subsystem-diagnostics"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "logs-subsystem-diagnostics"
+- scrollUntilVisible:
+    element:
+      id: "logs-severity-warn"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "logs-severity-warn"
+- pressKey: Back
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "bottom-nav-diagnostics"
+- assertVisible:
+    id: "diagnostics-screen"
+- tapOn:
+    id: "diagnostics-top-history-action"
+- assertVisible:
+    id: "history-screen"
+- tapOn:
+    id: "history-section-events"
+- assertVisible:
+    id: "history-events-search"
+- tapOn:
+    id: "history-events-search"
+- inputText: "automation"
+- assertVisible:
+    id: "history-events-auto-scroll"
+- tapOn:
+    id: "history-events-auto-scroll"
+- assertVisible:
+    id: "history-events-auto-scroll"

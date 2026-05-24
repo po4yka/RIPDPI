@@ -1,0 +1,13 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "home-screen"
+- assertVisible:
+    id: "home-permission-issue-banner"
+- tapOn:
+    id: "bottom-nav-settings"
+- assertVisible:
+    id: "settings-screen"
+- assertVisible:
+    id: "settings-permission-vpn-consent"

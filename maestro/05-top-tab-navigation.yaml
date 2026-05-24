@@ -1,0 +1,23 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "bottom-nav-config"
+- assertVisible:
+    id: "config-screen"
+- tapOn:
+    id: "bottom-nav-diagnostics"
+- assertVisible:
+    id: "diagnostics-screen"
+- tapOn:
+    id: "bottom-nav-settings"
+- assertVisible:
+    id: "settings-screen"
+- tapOn:
+    id: "bottom-nav-home"
+- assertVisible:
+    id: "home-screen"

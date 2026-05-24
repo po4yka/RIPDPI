@@ -1,0 +1,60 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "diagnostics-screen"
+- tapOn:
+    id: "diagnostics-section-scan"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-strategy-probe-report"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "diagnostics-strategy-probe-summary"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-strategy-full-matrix-toggle"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "diagnostics-strategy-full-matrix-toggle"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-strategy-winning-path"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "diagnostics-strategy-winning-path"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-strategy-winning-tcp-action"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "diagnostics-strategy-winning-tcp-action"
+- assertVisible:
+    id: "diagnostics-screen"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-strategy-winning-quic-action"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "diagnostics-strategy-winning-quic-action"
+- assertVisible:
+    id: "diagnostics-screen"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-strategy-candidate-tlsrec-split-host"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "diagnostics-strategy-candidate-tlsrec-split-host"
+- assertVisible:
+    id: "diagnostics-strategy-candidate-detail-sheet"
+- assertVisible:
+    id: "diagnostics-strategy-candidate-notes-section"
+- pressKey: Back
+- assertVisible:
+    id: "diagnostics-screen"

@@ -293,6 +293,14 @@ class DebugAutomationController
                             setDnsProviderId("cloudflare")
                             setBiometricEnabled(true)
                         }
+
+                        AutomationDataPreset.BiometricLockedWithPin -> {
+                            setRipdpiMode(Mode.VPN.preferenceValue)
+                            setWebrtcProtectionEnabled(true)
+                            setDnsProviderId("cloudflare")
+                            setBiometricEnabled(true)
+                            setBackupPin("0000")
+                        }
                     }
                 }.build()
 

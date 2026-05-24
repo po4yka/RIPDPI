@@ -1,0 +1,17 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "home-screen"
+- assertVisible:
+    id: "home-background-guidance-banner"
+- tapOn:
+    id: "warning-banner-dismiss"
+- assertNotVisible:
+    id: "home-background-guidance-banner"
+- tapOn:
+    id: "bottom-nav-settings"
+- assertVisible:
+    id: "settings-screen"
+- assertNotVisible:
+    id: "settings-background-guidance-banner"

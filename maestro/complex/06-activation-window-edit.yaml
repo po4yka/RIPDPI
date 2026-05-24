@@ -1,0 +1,55 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "advanced_settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "advanced-section-activation-window"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "advanced-round-from"
+- tapOn:
+    id: "advanced-round-from"
+- eraseText
+- inputText: "1"
+- tapOn:
+    id: "advanced-round-to"
+- eraseText
+- inputText: "3"
+- tapOn:
+    id: "advanced-round-save"
+- scrollUntilVisible:
+    element:
+      id: "advanced-payload-size-from"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "advanced-payload-size-from"
+- eraseText
+- inputText: "32"
+- tapOn:
+    id: "advanced-payload-size-to"
+- eraseText
+- inputText: "512"
+- tapOn:
+    id: "advanced-payload-size-save"
+- pressKey: Back
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "bottom-nav-settings"
+- assertVisible:
+    id: "settings-screen"
+- tapOn:
+    id: "settings-advanced-settings"
+- assertVisible:
+    id: "advanced_settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "advanced-round-save"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "advanced-round-save"

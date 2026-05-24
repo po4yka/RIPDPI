@@ -1,0 +1,68 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "bottom-nav-settings"
+- assertVisible:
+    id: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-advanced-settings"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "settings-advanced-settings"
+- assertVisible:
+    id: "advanced_settings-screen"
+- assertVisible:
+    id: "advanced-section-diagnostics-history"
+- assertVisible:
+    id: "advanced-input-diagnostics-history-retention-days"
+- assertVisible:
+    id: "advanced-toggle-diagnostics-monitor-enabled"
+- scrollUntilVisible:
+    element:
+      id: "advanced-section-overrides"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "advanced-toggle-use-command-line"
+- scrollUntilVisible:
+    element:
+      id: "advanced-section-proxy"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "advanced-input-proxy-port"
+- tapOn:
+    id: "advanced-input-proxy-port"
+- eraseText
+- inputText: "1081"
+- tapOn:
+    id: "advanced-save-proxy-port"
+- assertVisible:
+    id: "advanced-save-proxy-port"
+- scrollUntilVisible:
+    element:
+      id: "advanced-section-protocols"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "advanced-toggle-desync-http"
+- assertVisible:
+    id: "advanced-toggle-desync-https"
+- scrollUntilVisible:
+    element:
+      id: "advanced-section-activation-window"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "advanced-round-from"
+- assertVisible:
+    id: "advanced-round-to"
+- assertVisible:
+    id: "advanced-round-save"

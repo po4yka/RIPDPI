@@ -1,0 +1,52 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "bottom-nav-settings"
+- assertVisible:
+    id: "settings-screen"
+- tapOn:
+    id: "settings-dns-settings"
+- assertVisible:
+    id: "dns_settings-screen"
+- tapOn:
+    id: "dns-mode-plain-udp"
+- scrollUntilVisible:
+    element:
+      id: "dns-plain-address"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "dns-plain-address"
+- eraseText
+- inputText: "9.9.9.9"
+- tapOn:
+    id: "dns-plain-save"
+- assertVisible:
+    id: "dns-plain-save"
+- pressKey: Back
+- assertVisible:
+    id: "settings-screen"
+- tapOn:
+    id: "bottom-nav-home"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "bottom-nav-settings"
+- assertVisible:
+    id: "settings-screen"
+- tapOn:
+    id: "settings-dns-settings"
+- assertVisible:
+    id: "dns_settings-screen"
+- tapOn:
+    id: "dns-mode-plain-udp"
+- scrollUntilVisible:
+    element:
+      id: "dns-plain-address"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "dns-plain-address"

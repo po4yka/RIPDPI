@@ -93,6 +93,25 @@ class DebugAutomationControllerTest {
         }
 
     @Test
+    fun `biometric locked with pin preset seeds backup pin fallback`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val controller = newController(repository)
+
+            controller.prepareLaunch(
+                automationIntent(
+                    dataPreset = AutomationDataPreset.BiometricLockedWithPin,
+                ),
+            )
+
+            val settings = repository.snapshot()
+            assertTrue(settings.onboardingComplete)
+            assertTrue(settings.biometricEnabled)
+            assertEquals("0000", settings.backupPin)
+            assertEquals("cloudflare", settings.dnsProviderId)
+        }
+
+    @Test
     fun `diagnostics report preset seeds completed report session`() =
         runTest {
             val repository = FakeAppSettingsRepository()

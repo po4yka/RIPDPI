@@ -1,0 +1,54 @@
+appId: com.poyka.ripdpi
+---
+- setOrientation: PORTRAIT
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "bottom-nav-config"
+- assertVisible:
+    id: "config-screen"
+- assertVisible:
+    id: "config-mode-vpn"
+- assertVisible:
+    id: "config-mode-proxy"
+- assertVisible:
+    id: "config-mode-section-local-bypass"
+- assertVisible:
+    id: "config-local-bypass-summary"
+- tapOn:
+    id: "config-mode-section-vpn"
+- assertVisible:
+    id: "config-vpn-summary"
+- assertVisible:
+    id: "config-vpn-relay"
+- assertVisible:
+    id: "config-vpn-protocol"
+- assertVisible:
+    id: "config-vpn-credentials"
+- tapOn:
+    id: "config-mode-section-local-bypass"
+- assertVisible:
+    id: "config-local-bypass-mode"
+- assertVisible:
+    id: "config-local-bypass-listen-address"
+- assertVisible:
+    id: "config-local-bypass-desync"
+- tapOn:
+    id: "config-dns-settings"
+- assertVisible:
+    id: "dns_settings-screen"
+- pressKey: Back
+- assertVisible:
+    id: "config-screen"
+- tapOn:
+    id: "config-edit-current"
+- assertVisible:
+    id: "mode_editor-screen"
+- assertVisible:
+    id: "mode-editor-proxy-ip"
+- assertVisible:
+    id: "mode-editor-proxy-port"
+- assertVisible:
+    id: "mode-editor-save"

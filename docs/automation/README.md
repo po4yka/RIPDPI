@@ -35,7 +35,7 @@ Supported preset values:
 
 - `PERMISSION_PRESET`: `granted`, `notifications_missing`, `vpn_missing`, `battery_review`
 - `SERVICE_PRESET`: `idle`, `connected_proxy`, `connected_vpn`, `live`
-- `DATA_PRESET`: `clean_home`, `settings_ready`, `diagnostics_demo`, `diagnostics_report_demo`, `biometric_locked`
+- `DATA_PRESET`: `clean_home`, `settings_ready`, `diagnostics_demo`, `diagnostics_report_demo`, `biometric_locked`, `biometric_locked_with_pin`
 
 Intent extras take precedence over mirrored instrumentation arguments with the same keys.
 
@@ -44,12 +44,12 @@ Intent extras take precedence over mirrored instrumentation arguments with the s
 Smoke flows live in [`maestro/`](../../maestro/README.md).
 
 ```bash
-maestro test maestro
+bash scripts/ci/run-maestro-smoke.sh
 ```
 
 Repository runners also accept `MAESTRO_BIN=/path/to/maestro` and Maestro's default `~/.maestro/bin/maestro` install location, which is useful when the CLI installer did not modify the shell `PATH`.
 
-The committed Maestro pack starts from the installed app and navigates through visible controls by resource ID. Use `adb shell am start` or Appium when a row must assert a specific launch-contract route or preset.
+The committed Maestro pack starts from the installed app and navigates through visible controls by resource ID for the always-safe flows. `scripts/ci/run-maestro-smoke.sh` additionally launches route-preset flows with `adb shell am start -a com.poyka.ripdpi.automation.LAUNCH`, which lets Maestro cover history, logs, permission banners, connected service states, and seeded diagnostics reports while still asserting stable resource IDs. Set `RUN_MAESTRO_ROUTE_FLOWS=0` to run only the visible-navigation flows, `RUN_MAESTRO_COMPLEX_FLOWS=1` to include complex stateful journeys, or `RUN_MAESTRO_LAB_FLOWS=1` to include the live network lab flows under `test-lab/maestro/`.
 
 ## Appium
 
