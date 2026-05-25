@@ -277,3 +277,4 @@ Fragment example:
 - `publish_local_origin` requires a loopback HTTP URL with explicit port.
 - MASQUE URLs must use `https://`.
 - Finalmask support is transport-specific; unsupported combinations fail at validation time.
+- Owner-operated relay promotion must satisfy the deployment-plane controls in [Relay Deployment Operations](relay-deployment-operations.md).

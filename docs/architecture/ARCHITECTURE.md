@@ -20,6 +20,8 @@ Project Rules). Three capabilities work independently or combined:
 2. **VPN relay** — chains local proxy or VPN traffic through encrypted relay
    protocols (VLESS Reality/xHTTP, WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS,
    NaiveProxy, AmneziaWG, Cloudflare Tunnel) to a server the user controls.
+   Owner-operated relay promotion is governed by the deployment-plane controls in
+   [`Relay Deployment Operations`](../relay-deployment-operations.md).
 3. **Diagnostics** — scans each connection target, produces a typed verdict,
    and stores it per network fingerprint for automatic replay.
 

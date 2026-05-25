@@ -1,6 +1,6 @@
 {
-  "version": "fleet_release_cadence_policy_v1",
-  "description": "Fleet release-gating and cadence policy for RIPDPI profile and fleet rollouts. Defines daily, weekly, release/rotation, staging, production, and client-release gate sets, plus the no-ship and warn-only failure policy. This artifact is the machine-readable source of truth enforced by scripts/ci/check_fleet_release_gates.py. The release gate produces a short sanitized report; raw probe logs and live endpoints belong under ops/live-infra/, never here.",
+  "version": "fleet_release_cadence_policy_v2",
+  "description": "Fleet release-gating and cadence policy for RIPDPI profile and fleet rollouts. Defines daily, weekly, release/rotation, staging, production, relay-deployment, and client-release gate sets, plus the no-ship and warn-only failure policy. This artifact is the machine-readable source of truth enforced by scripts/ci/check_fleet_release_gates.py. The release gate produces a short sanitized report; raw probe logs and live endpoints belong under ops/live-infra/, never here.",
   "ledgerKey": "add-fleet-release-gating-and-cadence-policy",
   "resultStates": [
     "PASS",
@@ -17,6 +17,7 @@
         "reality-non-ru-connect",
         "https-64kb-payload",
         "cert-expiry",
+        "firewall-drift-check",
         "backup-age"
       ]
     },
@@ -29,6 +30,8 @@
         "ipv6-leak",
         "active-probe-simulation",
         "revoked-credential",
+        "per-device-credential-revocation",
+        "incident-playbook-ready",
         "delivery-token-expiry-revocation"
       ]
     },
@@ -42,6 +45,11 @@
         "ru-mobile-smoke",
         "client-regression",
         "old-profile-revocation",
+        "certificate-rotation-drill",
+        "per-device-credential-revocation",
+        "disposable-relay-rebuild",
+        "firewall-drift-check",
+        "incident-playbook-ready",
         "fresh-backup-after-deploy"
       ]
     }
@@ -57,6 +65,11 @@
         "ru-mobile-smoke",
         "client-regression",
         "old-profile-revocation",
+        "certificate-rotation-drill",
+        "per-device-credential-revocation",
+        "disposable-relay-rebuild",
+        "firewall-drift-check",
+        "incident-playbook-ready",
         "fresh-backup-after-deploy"
       ]
     },
@@ -71,7 +84,22 @@
         "ipv6-leak",
         "android-kill-switch-primary-profile",
         "old-revoked-credential-fails",
+        "certificate-rotation-drill",
+        "per-device-credential-revocation",
+        "disposable-relay-rebuild",
+        "firewall-drift-check",
+        "incident-playbook-ready",
         "delivery-token-ttl-revocation"
+      ]
+    },
+    "relay-deployment": {
+      "description": "Owner-operated relay deployment gate set; must pass before a relay endpoint or profile is promoted as an operator-managed path.",
+      "requires": [
+        "certificate-rotation-drill",
+        "per-device-credential-revocation",
+        "disposable-relay-rebuild",
+        "firewall-drift-check",
+        "incident-playbook-ready"
       ]
     },
     "client-release": {
@@ -95,6 +123,11 @@
       "xray-config-validation",
       "sing-box-config-validation",
       "firewall-validation",
+      "certificate-rotation-drill",
+      "per-device-credential-revocation",
+      "disposable-relay-rebuild",
+      "firewall-drift-check",
+      "incident-playbook-ready",
       "dns-leak",
       "ipv6-leak",
       "kill-switch-failure",
@@ -115,5 +148,93 @@
   "report": {
     "format": "sanitized-summary",
     "description": "The release gate emits a short sanitized PASS/WARN/FAIL summary per gate set, never raw probe logs or live endpoints."
+  },
+  "deploymentPlane": {
+    "description": "First-class operational controls for owner-operated relay and server paths. These controls are required for production relay promotion and are documented in docs/relay-deployment-operations.md.",
+    "documentation": "docs/relay-deployment-operations.md",
+    "liveStateDirectory": "ops/live-infra/",
+    "redactionPolicy": "Only sanitized PASS/WARN/FAIL summaries and stable control IDs are committed. Live endpoints, raw probe logs, private keys, client UUIDs, tokens, and provider account identifiers stay outside the repo.",
+    "requiredControls": [
+      {
+        "id": "certificate-rotation-drill",
+        "area": "certificate-rotation",
+        "cadence": "release",
+        "gateSets": [
+          "staging",
+          "production",
+          "relay-deployment"
+        ],
+        "docAnchor": "certificate-rotation",
+        "evidence": [
+          "new certificate chain served by staging before production promotion",
+          "old certificate no longer served on the promoted endpoint",
+          "expiry margin and issuer chain recorded in the sanitized report"
+        ]
+      },
+      {
+        "id": "per-device-credential-revocation",
+        "area": "credential-revocation",
+        "cadence": "weekly",
+        "gateSets": [
+          "staging",
+          "production",
+          "relay-deployment"
+        ],
+        "docAnchor": "per-device-credential-revocation",
+        "evidence": [
+          "revoked device credential fails to connect",
+          "unrevoked canary credential still connects",
+          "profile export contains no revoked credential material"
+        ]
+      },
+      {
+        "id": "disposable-relay-rebuild",
+        "area": "disposable-rebuild",
+        "cadence": "release",
+        "gateSets": [
+          "staging",
+          "production",
+          "relay-deployment"
+        ],
+        "docAnchor": "disposable-rebuild",
+        "evidence": [
+          "fresh relay instance reaches readiness from checked-in IaC or documented bootstrap inputs",
+          "new instance receives only intended listener and firewall state",
+          "old instance can be drained and destroyed without reusing host-local secrets"
+        ]
+      },
+      {
+        "id": "firewall-drift-check",
+        "area": "firewall-drift",
+        "cadence": "daily",
+        "gateSets": [
+          "staging",
+          "production",
+          "relay-deployment"
+        ],
+        "docAnchor": "firewall-drift",
+        "evidence": [
+          "observed listener set matches the declared relay profile",
+          "provider firewall and host firewall rules match the expected allowlist",
+          "admin panels and metrics endpoints are not reachable from public networks"
+        ]
+      },
+      {
+        "id": "incident-playbook-ready",
+        "area": "incident-playbooks",
+        "cadence": "weekly",
+        "gateSets": [
+          "staging",
+          "production",
+          "relay-deployment"
+        ],
+        "docAnchor": "incident-playbooks",
+        "evidence": [
+          "IP burn response is documented with demotion and replacement steps",
+          "credential leak response is documented with per-device revocation steps",
+          "certificate-expiry and firewall-drift responses are documented with rollback steps"
+        ]
+      }
+    ]
   }
 }

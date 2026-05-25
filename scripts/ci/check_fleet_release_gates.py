@@ -39,7 +39,16 @@ from release_gate_results import VALID_RESULT_STATES, na_out_of_scope_violation,
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "quality/release-gates/fleet-release-cadence-policy.json"
 
-EXPECTED_VERSION = "fleet_release_cadence_policy_v1"
+EXPECTED_VERSION = "fleet_release_cadence_policy_v2"
+
+# Acceptance criteria -> required owner-operated relay deployment controls.
+REQUIRED_DEPLOYMENT_CONTROLS = {
+    "certificate-rotation-drill": "Certificate Rotation",
+    "per-device-credential-revocation": "Per-Device Credential Revocation",
+    "disposable-relay-rebuild": "Disposable Rebuild",
+    "firewall-drift-check": "Firewall Drift",
+    "incident-playbook-ready": "Incident Playbooks",
+}
 
 # Acceptance criteria -> required cadence checks.
 REQUIRED_CADENCE_CHECKS = {
@@ -49,6 +58,7 @@ REQUIRED_CADENCE_CHECKS = {
         "reality-non-ru-connect",
         "https-64kb-payload",
         "cert-expiry",
+        "firewall-drift-check",
         "backup-age",
     },
     "weekly": {
@@ -58,6 +68,8 @@ REQUIRED_CADENCE_CHECKS = {
         "ipv6-leak",
         "active-probe-simulation",
         "revoked-credential",
+        "per-device-credential-revocation",
+        "incident-playbook-ready",
         "delivery-token-expiry-revocation",
     },
     "release": {
@@ -68,6 +80,11 @@ REQUIRED_CADENCE_CHECKS = {
         "ru-mobile-smoke",
         "client-regression",
         "old-profile-revocation",
+        "certificate-rotation-drill",
+        "per-device-credential-revocation",
+        "disposable-relay-rebuild",
+        "firewall-drift-check",
+        "incident-playbook-ready",
         "fresh-backup-after-deploy",
     },
 }
@@ -93,7 +110,19 @@ REQUIRED_GATE_SETS = {
         "ipv6-leak",
         "android-kill-switch-primary-profile",
         "old-revoked-credential-fails",
+        "certificate-rotation-drill",
+        "per-device-credential-revocation",
+        "disposable-relay-rebuild",
+        "firewall-drift-check",
+        "incident-playbook-ready",
         "delivery-token-ttl-revocation",
+    },
+    "relay-deployment": {
+        "certificate-rotation-drill",
+        "per-device-credential-revocation",
+        "disposable-relay-rebuild",
+        "firewall-drift-check",
+        "incident-playbook-ready",
     },
     "client-release": {
         "android-api-matrix",
@@ -113,6 +142,11 @@ REQUIRED_NOSHIP_CONDITIONS = {
     "xray-config-validation",
     "sing-box-config-validation",
     "firewall-validation",
+    "certificate-rotation-drill",
+    "per-device-credential-revocation",
+    "disposable-relay-rebuild",
+    "firewall-drift-check",
+    "incident-playbook-ready",
     "dns-leak",
     "ipv6-leak",
     "kill-switch-failure",
@@ -201,9 +235,54 @@ def validate_policy(policy: dict) -> dict:
             + ", ".join(sorted(overlap))
         )
 
+    deployment_plane = policy.get("deploymentPlane")
+    if not isinstance(deployment_plane, dict):
+        raise ValueError("policy must declare a 'deploymentPlane' object")
+    documentation = deployment_plane.get("documentation")
+    if not isinstance(documentation, str) or not documentation:
+        raise ValueError("deploymentPlane.documentation must name a documentation file")
+    documentation_path = ROOT / documentation
+    if not documentation_path.is_file():
+        raise ValueError(f"deploymentPlane.documentation does not exist: {documentation}")
+    documentation_text = documentation_path.read_text(encoding="utf-8").lower()
+    controls = deployment_plane.get("requiredControls")
+    if not isinstance(controls, list):
+        raise ValueError("deploymentPlane.requiredControls must be a list")
+    controls_by_id = {
+        control.get("id"): control
+        for control in controls
+        if isinstance(control, dict)
+    }
+    missing_controls = set(REQUIRED_DEPLOYMENT_CONTROLS) - set(controls_by_id)
+    if missing_controls:
+        raise ValueError(
+            "deploymentPlane.requiredControls is missing: "
+            + ", ".join(sorted(missing_controls))
+        )
+    for control_id, heading in REQUIRED_DEPLOYMENT_CONTROLS.items():
+        control = controls_by_id[control_id]
+        gate_memberships = control.get("gateSets")
+        if not isinstance(gate_memberships, list) or "relay-deployment" not in gate_memberships:
+            raise ValueError(f"{control_id}: gateSets must include relay-deployment")
+        doc_anchor = control.get("docAnchor")
+        if not isinstance(doc_anchor, str) or not doc_anchor:
+            raise ValueError(f"{control_id}: docAnchor must be a non-empty string")
+        expected_anchor = heading.lower().replace(" ", "-")
+        if doc_anchor != expected_anchor:
+            raise ValueError(f"{control_id}: docAnchor must be {expected_anchor!r}")
+        if f"## {heading.lower()}" not in documentation_text:
+            raise ValueError(f"{control_id}: documentation is missing heading {heading!r}")
+        if control_id not in no_ship_conditions:
+            raise ValueError(f"{control_id}: deployment control must be no-ship")
+        if not any(control_id in set(entry.get("checks", [])) for entry in cadences.values()):
+            raise ValueError(f"{control_id}: deployment control is not assigned to a cadence")
+        if not any(control_id in set(entry.get("requires", [])) for entry in gate_sets.values()):
+            raise ValueError(f"{control_id}: deployment control is not assigned to a gate set")
+
     return {
         "cadences": sorted(cadences),
         "gateSets": sorted(gate_sets),
+        "deploymentControls": sorted(REQUIRED_DEPLOYMENT_CONTROLS),
         "noShipConditions": sorted(no_ship_conditions),
         "warnOnlyConditions": sorted(warn_only_conditions),
     }
@@ -273,6 +352,7 @@ def render_report(policy: dict, summary: dict) -> str:
     lines.append(f"- Policy version: `{policy.get('version')}`")
     lines.append(f"- Cadences: {', '.join(summary['cadences'])}")
     lines.append(f"- Gate sets: {', '.join(summary['gateSets'])}")
+    lines.append(f"- Deployment controls: {len(summary['deploymentControls'])}")
     lines.append(f"- No-ship conditions: {len(summary['noShipConditions'])}")
     lines.append(f"- Warn-only conditions: {len(summary['warnOnlyConditions'])}")
     lines.append("")

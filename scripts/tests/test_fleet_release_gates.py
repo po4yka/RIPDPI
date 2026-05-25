@@ -38,6 +38,8 @@ class FleetReleaseGatesPolicyTest(unittest.TestCase):
             self.assertIn(cadence, summary["cadences"])
         for gate_set in fleet.REQUIRED_GATE_SETS:
             self.assertIn(gate_set, summary["gateSets"])
+        for control in fleet.REQUIRED_DEPLOYMENT_CONTROLS:
+            self.assertIn(control, summary["deploymentControls"])
         for condition in fleet.REQUIRED_NOSHIP_CONDITIONS:
             self.assertIn(condition, summary["noShipConditions"])
         for condition in fleet.REQUIRED_WARNONLY_CONDITIONS:
@@ -75,6 +77,16 @@ class FleetReleaseGatesPolicyTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "gate set 'production' is missing"):
             fleet.validate_policy(broken)
 
+    def test_missing_relay_deployment_gate_is_rejected(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["gateSets"]["relay-deployment"]["requires"] = [
+            g
+            for g in broken["gateSets"]["relay-deployment"]["requires"]
+            if g != "disposable-relay-rebuild"
+        ]
+        with self.assertRaisesRegex(ValueError, "gate set 'relay-deployment' is missing"):
+            fleet.validate_policy(broken)
+
     def test_missing_client_release_gate_is_rejected(self) -> None:
         broken = copy.deepcopy(self.policy)
         broken["gateSets"]["client-release"]["requires"] = [
@@ -109,6 +121,44 @@ class FleetReleaseGatesPolicyTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cannot be both no-ship and warn-only"):
             fleet.validate_policy(broken)
 
+    def test_missing_deployment_control_is_rejected(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["deploymentPlane"]["requiredControls"] = [
+            control
+            for control in broken["deploymentPlane"]["requiredControls"]
+            if control["id"] != "certificate-rotation-drill"
+        ]
+        with self.assertRaisesRegex(ValueError, "deploymentPlane.requiredControls is missing"):
+            fleet.validate_policy(broken)
+
+    def test_missing_deployment_doc_is_rejected(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["deploymentPlane"]["documentation"] = "docs/missing-relay-deployment-operations.md"
+        with self.assertRaisesRegex(ValueError, "deploymentPlane.documentation does not exist"):
+            fleet.validate_policy(broken)
+
+    def test_deployment_doc_without_required_heading_is_rejected(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["deploymentPlane"]["documentation"] = "README.md"
+        with self.assertRaisesRegex(ValueError, "documentation is missing heading"):
+            fleet.validate_policy(broken)
+
+    def test_deployment_doc_anchor_must_match_heading(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["deploymentPlane"]["requiredControls"][0]["docAnchor"] = "certificate-rollover"
+        with self.assertRaisesRegex(ValueError, "docAnchor must be"):
+            fleet.validate_policy(broken)
+
+    def test_deployment_control_must_be_noship(self) -> None:
+        broken = copy.deepcopy(self.policy)
+        broken["noShipPolicy"]["conditions"] = [
+            condition
+            for condition in broken["noShipPolicy"]["conditions"]
+            if condition != "incident-playbook-ready"
+        ]
+        with self.assertRaisesRegex(ValueError, "noShipPolicy.conditions is missing"):
+            fleet.validate_policy(broken)
+
 
 class FleetReleaseGatesEvaluationTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -118,6 +168,12 @@ class FleetReleaseGatesEvaluationTest(unittest.TestCase):
     def test_all_pass_production(self) -> None:
         results = _pass_results(self.policy, "production")
         evaluation = fleet.evaluate_gate_set(self.policy, "production", {"gateResults": results})
+        self.assertEqual(evaluation["verdict"], "PASS")
+        self.assertEqual(evaluation["blocking"], [])
+
+    def test_all_pass_relay_deployment(self) -> None:
+        results = _pass_results(self.policy, "relay-deployment")
+        evaluation = fleet.evaluate_gate_set(self.policy, "relay-deployment", {"gateResults": results})
         self.assertEqual(evaluation["verdict"], "PASS")
         self.assertEqual(evaluation["blocking"], [])
 
