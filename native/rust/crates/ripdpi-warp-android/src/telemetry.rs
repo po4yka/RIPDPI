@@ -1,10 +1,20 @@
+use std::sync::Arc;
+
 use android_support::{drain_warp_events, NativeEventRecord};
 use jni::sys::jlong;
 use jni::{EnvUnowned, Outcome};
+use once_cell::sync::Lazy;
+use ripdpi_quality::{ConnectionQualitySnapshot, QualityWindow, TransportKind};
 use ripdpi_warp_core::{WarpRuntime, WarpTelemetry};
 use serde::Serialize;
 
 use crate::registry;
+
+/// Process-wide quality window for the warp runtime. P5.4 scoped subset —
+/// observer install (producer-side TCP-connect timing in ripdpi-proxy-runtime)
+/// is deferred to a follow-up; until then `snapshot()` returns `None` and the
+/// additive `connectionQuality` field is suppressed by `skip_serializing_if`.
+static QUALITY_WINDOW: Lazy<Arc<QualityWindow>> = Lazy::new(|| Arc::new(QualityWindow::new(TransportKind::TcpProxy)));
 
 const IDLE_TELEMETRY_JSON: &str =
     "{\"source\":\"warp\",\"schemaVersion\":1,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
@@ -42,6 +52,8 @@ struct WarpNativeRuntimeSnapshot {
     #[serde(flatten)]
     telemetry: WarpTelemetry,
     native_events: Vec<NativeRuntimeEvent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    connection_quality: Option<ConnectionQualitySnapshot>,
 }
 
 impl From<NativeEventRecord> for NativeRuntimeEvent {
@@ -66,6 +78,7 @@ fn snapshot_from_telemetry(telemetry: WarpTelemetry) -> WarpNativeRuntimeSnapsho
         schema_version: SNAPSHOT_SCHEMA_VERSION,
         telemetry,
         native_events: drain_warp_events().into_iter().map(NativeRuntimeEvent::from).collect(),
+        connection_quality: QUALITY_WINDOW.snapshot(),
     }
 }
 
@@ -115,6 +128,7 @@ mod tests {
             schema_version: SNAPSHOT_SCHEMA_VERSION,
             telemetry: sample_telemetry(),
             native_events: buffers.drain_warp().into_iter().map(NativeRuntimeEvent::from).collect(),
+            connection_quality: None,
         }
     }
 
@@ -124,6 +138,7 @@ mod tests {
             schema_version: SNAPSHOT_SCHEMA_VERSION,
             telemetry: sample_telemetry(),
             native_events: Vec::new(),
+            connection_quality: None,
         };
         let value = serde_json::to_value(&snapshot).expect("serialize warp snapshot");
         assert_eq!(value["schemaVersion"], serde_json::json!(1));

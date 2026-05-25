@@ -22,6 +22,7 @@ hyper-util = { workspace = true }
 jni = { workspace = true }
 once_cell = { workspace = true }
 ripdpi-native-protect = { workspace = true }
+ripdpi-quality = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 ripdpi-warp-core = { workspace = true }
 serde = { workspace = true }

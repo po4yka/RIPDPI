@@ -1,7 +1,17 @@
+use std::sync::Arc;
+
 use android_support::{drain_relay_events, NativeEventRecord};
+use once_cell::sync::Lazy;
+use ripdpi_quality::{ConnectionQualitySnapshot, QualityWindow, TransportKind};
 use serde::Serialize;
 
 use crate::runtime::SessionRuntime;
+
+/// Process-wide quality window for the relay runtime. P5.4 scoped subset —
+/// observer install (producer-side timing) is deferred to a follow-up; until
+/// then `snapshot()` returns `None` and the additive `connectionQuality`
+/// field is suppressed by `skip_serializing_if`.
+static QUALITY_WINDOW: Lazy<Arc<QualityWindow>> = Lazy::new(|| Arc::new(QualityWindow::new(TransportKind::UdpRelay)));
 
 pub(crate) const IDLE_TELEMETRY_JSON: &str =
     "{\"source\":\"relay\",\"schemaVersion\":1,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
@@ -39,6 +49,8 @@ struct NativeRuntimeSnapshot<T> {
     #[serde(flatten)]
     telemetry: T,
     native_events: Vec<NativeRuntimeEvent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    connection_quality: Option<ConnectionQualitySnapshot>,
 }
 
 impl From<NativeEventRecord> for NativeRuntimeEvent {
@@ -77,6 +89,7 @@ fn snapshot_from_telemetry<T>(telemetry: T) -> NativeRuntimeSnapshot<T> {
         schema_version: SNAPSHOT_SCHEMA_VERSION,
         telemetry,
         native_events: drain_relay_events().into_iter().map(NativeRuntimeEvent::from).collect(),
+        connection_quality: QUALITY_WINDOW.snapshot(),
     }
 }
 
@@ -125,6 +138,7 @@ mod tests {
             schema_version: SNAPSHOT_SCHEMA_VERSION,
             telemetry: sample_telemetry(),
             native_events: buffers.drain_relay().into_iter().map(NativeRuntimeEvent::from).collect(),
+            connection_quality: None,
         }
     }
 
@@ -134,6 +148,7 @@ mod tests {
             schema_version: SNAPSHOT_SCHEMA_VERSION,
             telemetry: sample_telemetry(),
             native_events: Vec::<NativeRuntimeEvent>::new(),
+            connection_quality: None,
         };
         let value = serde_json::to_value(&snapshot).expect("serialize relay snapshot");
         assert_eq!(value["schemaVersion"], serde_json::json!(1));
