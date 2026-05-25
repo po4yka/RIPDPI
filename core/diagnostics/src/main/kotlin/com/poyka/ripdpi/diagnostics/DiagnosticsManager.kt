@@ -447,17 +447,13 @@ abstract class DiagnosticsManagerModule {
         ): DiagnosticsArchiveFileStore = DiagnosticsArchiveFileStore(cacheDir = context.cacheDir, clock = clock)
 
         @Provides
-        @Named("automaticHandoverProbeDelayMs")
-        fun provideAutomaticHandoverProbeDelayMs(): Long = secondsToMillis(AutomaticHandoverProbeDelaySeconds)
-
-        @Provides
-        @Named("automaticHandoverProbeCooldownMs")
-        fun provideAutomaticHandoverProbeCooldownMs(): Long = hoursToMillis(AutomaticHandoverProbeCooldownHours)
-
-        @Provides
-        @Named("automaticStrategyFailureProbeCooldownMs")
-        fun provideAutomaticStrategyFailureProbeCooldownMs(): Long =
-            hoursToMillis(AutomaticStrategyFailureProbeCooldownHours)
+        @Singleton
+        internal fun provideActiveProbeSafetyPolicy(): ActiveProbeSafetyPolicy =
+            ActiveProbeSafetyPolicy(
+                automaticHandoverProbeDelayMs = secondsToMillis(AutomaticHandoverProbeDelaySeconds),
+                automaticHandoverProbeCooldownMs = hoursToMillis(AutomaticHandoverProbeCooldownHours),
+                automaticStrategyFailureProbeCooldownMs = hoursToMillis(AutomaticStrategyFailureProbeCooldownHours),
+            )
 
         @Provides
         @Named("importBundledProfilesOnInitialize")

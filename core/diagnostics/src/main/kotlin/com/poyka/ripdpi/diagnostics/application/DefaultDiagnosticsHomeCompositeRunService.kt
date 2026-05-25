@@ -61,6 +61,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         private val completedRuns = ConcurrentHashMap<String, DiagnosticsHomeCompositeOutcome>()
         private val runDetectionResults = ConcurrentHashMap<String, HomeDetectionStageOutcome>()
         private val runPcapRequested = ConcurrentHashMap<String, Boolean>()
+        private val activeProbeSafetyPolicy = ActiveProbeSafetyPolicy()
 
         override suspend fun startHomeAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted {
             val runId = UUID.randomUUID().toString()
@@ -141,35 +142,41 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     )
             }
             scope.launch {
-                DiagnosticsQuickScanRunner(scanRecordStore, diagnosticsHomeWorkflowService, json)
-                    .execute(
-                        runId = runId,
-                        executeStage = { rId, idx, spec, quickScan, maxCandidates ->
-                            stageExecutor.executeStageWithTimeout(
-                                runId = rId,
-                                stageIndex = idx,
-                                spec = spec,
-                                progressState = progressState,
-                                quickScan = quickScan,
-                                maxCandidates = maxCandidates,
-                            )
-                        },
-                        runDetectionStage = ::runDetectionStage,
-                        markStageFailure = { rId, idx, headline, summary ->
-                            stageExecutor.markStageFailure(progressState, rId, idx, headline, summary)
-                        },
-                        updateStage = { rId, idx, transform ->
-                            stageExecutor.updateStage(progressState, rId, idx, transform)
-                        },
-                        isAuditRunning = {
-                            progressState.value[runId]
-                                ?.stages
-                                ?.getOrNull(0)
-                                ?.status ==
-                                DiagnosticsHomeCompositeStageStatus.RUNNING
-                        },
-                        finalizeRun = ::finalizeRun,
+                val quickScanRunner =
+                    DiagnosticsQuickScanRunner(
+                        scanRecordStore,
+                        diagnosticsHomeWorkflowService,
+                        json,
+                        activeProbeSafetyPolicy,
                     )
+                quickScanRunner.execute(
+                    runId = runId,
+                    executeStage = { rId, idx, spec, quickScan, maxCandidates ->
+                        stageExecutor.executeStageWithTimeout(
+                            runId = rId,
+                            stageIndex = idx,
+                            spec = spec,
+                            progressState = progressState,
+                            quickScan = quickScan,
+                            maxCandidates = maxCandidates,
+                        )
+                    },
+                    runDetectionStage = ::runDetectionStage,
+                    markStageFailure = { rId, idx, headline, summary ->
+                        stageExecutor.markStageFailure(progressState, rId, idx, headline, summary)
+                    },
+                    updateStage = { rId, idx, transform ->
+                        stageExecutor.updateStage(progressState, rId, idx, transform)
+                    },
+                    isAuditRunning = {
+                        progressState.value[runId]
+                            ?.stages
+                            ?.getOrNull(0)
+                            ?.status ==
+                            DiagnosticsHomeCompositeStageStatus.RUNNING
+                    },
+                    finalizeRun = ::finalizeRun,
+                )
             }
             return DiagnosticsHomeCompositeRunStarted(runId = runId)
         }
@@ -310,11 +317,12 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                                 runDetectionStage(runId, stageIndex, spec)
                                 return@launch
                             }
-                            var result = stageExecutor.executeStage(runId, stageIndex, spec, progressState)
-                            if (result == null) {
-                                delay(StageRetryDelayMs)
-                                result = stageExecutor.executeStage(runId, stageIndex, spec, progressState)
-                            }
+                            val result =
+                                executeProfileStageWithRetry(
+                                    runId = runId,
+                                    stageIndex = stageIndex,
+                                    spec = spec,
+                                )
                             if (result != null) {
                                 val (sessionId, completedSession) = result
                                 val completedSummary =
@@ -368,12 +376,11 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                             " service targets in path.",
                 )
             }
-            var result =
-                stageExecutor.executeStageWithTimeout(
+            val result =
+                executeProfileStageWithRetry(
                     runId = runId,
                     stageIndex = stageIndex,
                     spec = spec,
-                    progressState = progressState,
                     targetOverrides =
                         DiagnosticsScanTargetOverrides(
                             domainTargets = selection.domainTargets,
@@ -381,22 +388,6 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                             circumventionTargets = selection.circumventionTargets,
                         ),
                 )
-            if (result == null) {
-                delay(StageRetryDelayMs)
-                result =
-                    stageExecutor.executeStageWithTimeout(
-                        runId = runId,
-                        stageIndex = stageIndex,
-                        spec = spec,
-                        progressState = progressState,
-                        targetOverrides =
-                            DiagnosticsScanTargetOverrides(
-                                domainTargets = selection.domainTargets,
-                                serviceTargets = selection.serviceTargets,
-                                circumventionTargets = selection.circumventionTargets,
-                            ),
-                    )
-            }
             if (result != null) {
                 val (sessionId, session) = result
                 val completedSummary =
@@ -418,6 +409,35 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     )
                 }
             }
+        }
+
+        private suspend fun executeProfileStageWithRetry(
+            runId: String,
+            stageIndex: Int,
+            spec: HomeCompositeStageSpec,
+            targetOverrides: DiagnosticsScanTargetOverrides? = null,
+        ): Pair<String, DiagnosticScanSession>? {
+            var result =
+                stageExecutor.executeStageWithTimeout(
+                    runId = runId,
+                    stageIndex = stageIndex,
+                    spec = spec,
+                    progressState = progressState,
+                    targetOverrides = targetOverrides,
+                )
+            repeat(activeProbeSafetyPolicy.stageRetryBudget) {
+                if (result != null) return result
+                delay(activeProbeSafetyPolicy.stageRetryDelayMs)
+                result =
+                    stageExecutor.executeStageWithTimeout(
+                        runId = runId,
+                        stageIndex = stageIndex,
+                        spec = spec,
+                        progressState = progressState,
+                        targetOverrides = targetOverrides,
+                    )
+            }
+            return result
         }
 
         private suspend fun runDetectionStage(
@@ -501,18 +521,12 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             var auditOutcome = currentAuditOutcome
             val dpiStrategySpec = HomeCompositeStageSpecs.last()
             val dpiStrategyIndex = HomeCompositeStageSpecs.lastIndex
-            var dpiStrategyResult =
-                stageExecutor.executeStageWithTimeout(
-                    runId,
-                    dpiStrategyIndex,
-                    dpiStrategySpec,
-                    progressState,
+            val dpiStrategyResult =
+                executeProfileStageWithRetry(
+                    runId = runId,
+                    stageIndex = dpiStrategyIndex,
+                    spec = dpiStrategySpec,
                 )
-            if (dpiStrategyResult == null) {
-                delay(StageRetryDelayMs)
-                dpiStrategyResult =
-                    stageExecutor.executeStageWithTimeout(runId, dpiStrategyIndex, dpiStrategySpec, progressState)
-            }
             if (dpiStrategyResult != null) {
                 val (dpiStrategySessionId, dpiStrategySession) = dpiStrategyResult
                 val dpiStrategySummary =

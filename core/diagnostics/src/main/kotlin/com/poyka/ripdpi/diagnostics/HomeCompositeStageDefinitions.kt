@@ -9,8 +9,6 @@ private const val SensitiveServicesStageTimeoutMs = 240_000L
 private const val QuickScanStrategyProbeTimeoutMs = 90_000L
 
 internal const val DetectionStageTimeoutMs = 90_000L
-internal const val StageRetryDelayMs = 2_000L
-internal const val QuickScanMaxCandidates = 5
 
 internal enum class HomeCompositeStageKind {
     PROFILE_SCAN,

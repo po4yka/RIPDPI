@@ -35,12 +35,7 @@ class AutomaticProbeScheduler
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val diagnosticsArtifactReadStore: DiagnosticsArtifactQueryStore,
         private val launcherProvider: Provider<AutomaticProbeLauncher>,
-        @param:Named("automaticHandoverProbeDelayMs")
-        private val automaticHandoverProbeDelayMs: Long,
-        @param:Named("automaticHandoverProbeCooldownMs")
-        private val automaticHandoverProbeCooldownMs: Long,
-        @param:Named("automaticStrategyFailureProbeCooldownMs")
-        private val automaticStrategyFailureProbeCooldownMs: Long,
+        private val activeProbeSafetyPolicy: ActiveProbeSafetyPolicy,
         @param:ApplicationIoScope
         private val scope: CoroutineScope,
     ) {
@@ -51,7 +46,7 @@ class AutomaticProbeScheduler
             pendingProbeJobs[event.mode]?.cancel()
             pendingProbeJobs[event.mode] =
                 scope.launch {
-                    delay(automaticHandoverProbeDelayMs)
+                    delay(activeProbeSafetyPolicy.automaticHandoverProbeDelayMs)
                     launchIfEligible(event)
                 }
         }
@@ -75,15 +70,13 @@ class AutomaticProbeScheduler
             isStrategyFailure: Boolean,
             now: Long,
         ): Boolean {
-            val effectiveCooldownMs =
-                if (isStrategyFailure) automaticStrategyFailureProbeCooldownMs else automaticHandoverProbeCooldownMs
             val baseEligibility =
                 AutomaticProbeCoordinator.evaluateBaseEligibility(
                     settings = settings,
                     event = event,
                     hasActiveScan = launcher.hasActiveScan(),
                     recentRuns = recentProbeRuns,
-                    cooldownMs = effectiveCooldownMs,
+                    cooldownMs = activeProbeSafetyPolicy.cooldownMsForHandoverClassification(event.classification),
                 )
             val baseAccepted = baseEligibility !is AutomaticProbeCoordinator.Eligibility.Rejected
             val rememberedPolicyBlocks =

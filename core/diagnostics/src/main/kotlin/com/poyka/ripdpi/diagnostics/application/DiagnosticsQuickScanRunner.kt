@@ -14,6 +14,7 @@ internal class DiagnosticsQuickScanRunner(
     private val scanRecordStore: DiagnosticsScanRecordStore,
     private val diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
     private val json: Json,
+    private val activeProbeSafetyPolicy: ActiveProbeSafetyPolicy,
 ) {
     suspend fun execute(
         runId: String,
@@ -60,11 +61,13 @@ internal class DiagnosticsQuickScanRunner(
 
         val sSpec = QuickScanStageSpecs.last()
         val sIndex = QuickScanStageSpecs.lastIndex
-        var sResult = executeStage(runId, sIndex, sSpec, true, QuickScanMaxCandidates)
-        if (sResult == null) {
-            delay(StageRetryDelayMs)
-            sResult = executeStage(runId, sIndex, sSpec, true, QuickScanMaxCandidates)
-        }
+        val sResult =
+            executeStrategyStageWithRetry(
+                runId = runId,
+                stageIndex = sIndex,
+                spec = sSpec,
+                executeStage = executeStage,
+            )
         var auditOutcome: DiagnosticsHomeAuditOutcome? = audit
         if (sResult != null) {
             val (sId, sSession) = sResult
@@ -81,6 +84,41 @@ internal class DiagnosticsQuickScanRunner(
             }
         }
         finalizeRun(runId, auditOutcome, null, false, false)
+    }
+
+    private suspend fun executeStrategyStageWithRetry(
+        runId: String,
+        stageIndex: Int,
+        spec: HomeCompositeStageSpec,
+        executeStage: suspend (
+            String,
+            Int,
+            HomeCompositeStageSpec,
+            Boolean,
+            Int?,
+        ) -> Pair<String, DiagnosticScanSession>?,
+    ): Pair<String, DiagnosticScanSession>? {
+        var result =
+            executeStage(
+                runId,
+                stageIndex,
+                spec,
+                true,
+                activeProbeSafetyPolicy.quickScanMaxCandidates,
+            )
+        repeat(activeProbeSafetyPolicy.stageRetryBudget) {
+            if (result != null) return result
+            delay(activeProbeSafetyPolicy.stageRetryDelayMs)
+            result =
+                executeStage(
+                    runId,
+                    stageIndex,
+                    spec,
+                    true,
+                    activeProbeSafetyPolicy.quickScanMaxCandidates,
+                )
+        }
+        return result
     }
 
     private fun skipRemaining(

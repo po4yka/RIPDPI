@@ -33,8 +33,11 @@ class AutomaticProbeSchedulerTest {
                             ),
                         ),
                     now = now,
-                    automaticHandoverProbeDelayMs = 1_000L,
-                    automaticHandoverProbeCooldownMs = Long.MAX_VALUE,
+                    activeProbeSafetyPolicy =
+                        ActiveProbeSafetyPolicy(
+                            automaticHandoverProbeDelayMs = 1_000L,
+                            automaticHandoverProbeCooldownMs = Long.MAX_VALUE,
+                        ),
                 )
 
             env.scheduler.schedule(handoverEvent())
@@ -96,7 +99,11 @@ class AutomaticProbeSchedulerTest {
                             ),
                         ),
                     now = now,
-                    automaticHandoverProbeCooldownMs = Long.MAX_VALUE,
+                    activeProbeSafetyPolicy =
+                        ActiveProbeSafetyPolicy(
+                            automaticHandoverProbeDelayMs = 100L,
+                            automaticHandoverProbeCooldownMs = Long.MAX_VALUE,
+                        ),
                 )
 
             env.scheduler.schedule(handoverEvent())
@@ -124,7 +131,10 @@ class AutomaticProbeSchedulerTest {
                             ),
                         ),
                     now = now,
-                    automaticHandoverProbeDelayMs = 1_000L,
+                    activeProbeSafetyPolicy =
+                        ActiveProbeSafetyPolicy(
+                            automaticHandoverProbeDelayMs = 1_000L,
+                        ),
                 )
 
             env.scheduler.schedule(handoverEvent(currentFingerprintHash = "fingerprint-a"))
@@ -375,8 +385,12 @@ class AutomaticProbeSchedulerTest {
         rememberedPolicies: List<RememberedNetworkPolicyEntity> = emptyList(),
         hasActiveScan: Boolean = false,
         now: Long = System.currentTimeMillis(),
-        automaticHandoverProbeDelayMs: Long = 100L,
-        automaticHandoverProbeCooldownMs: Long = 0L,
+        activeProbeSafetyPolicy: ActiveProbeSafetyPolicy =
+            ActiveProbeSafetyPolicy(
+                automaticHandoverProbeDelayMs = 100L,
+                automaticHandoverProbeCooldownMs = 0L,
+                automaticStrategyFailureProbeCooldownMs = 0L,
+            ),
     ): SchedulerEnv {
         val stores =
             FakeDiagnosticsHistoryStores().also {
@@ -395,9 +409,7 @@ class AutomaticProbeSchedulerTest {
                     ),
                 diagnosticsArtifactReadStore = stores,
                 launcherProvider = constantProvider(launcher),
-                automaticHandoverProbeDelayMs = automaticHandoverProbeDelayMs,
-                automaticHandoverProbeCooldownMs = automaticHandoverProbeCooldownMs,
-                automaticStrategyFailureProbeCooldownMs = automaticHandoverProbeCooldownMs,
+                activeProbeSafetyPolicy = activeProbeSafetyPolicy,
                 scope = backgroundScope,
             )
         return SchedulerEnv(

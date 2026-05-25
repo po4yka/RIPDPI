@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.toActiveDnsSettings
+import com.poyka.ripdpi.diagnostics.ActiveProbeSafetyPolicy
 import com.poyka.ripdpi.diagnostics.DefaultDiagnosticsPlanner
 import com.poyka.ripdpi.diagnostics.DefaultEngineRequestEncoder
 import com.poyka.ripdpi.diagnostics.DefaultScanContextCollector
@@ -52,8 +53,6 @@ internal enum class DiagnosticsScanOrigin {
 
 private const val AutomaticAuditProfileId = "automatic-audit"
 private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
-private const val AutomaticAuditDomainTargetCount = 3
-private const val AutomaticAuditQuicTargetCount = 2
 private val RequestFactoryLog = Logger.withTag("DiagnosticsScanRequestFactory")
 
 internal data class PreparedDiagnosticsScan(
@@ -87,6 +86,7 @@ internal class DiagnosticsScanRequestFactory
         private val scanContextCollector: ScanContextCollector,
         private val diagnosticsPlanner: DiagnosticsPlanner,
         private val engineRequestEncoder: EngineRequestEncoder,
+        private val activeProbeSafetyPolicy: ActiveProbeSafetyPolicy,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
@@ -106,6 +106,8 @@ internal class DiagnosticsScanRequestFactory
                                 pathMode,
                             ).copy(settings = original.settings),
                     isManual = false,
+                    scanOrigin = DiagnosticsScanOrigin.DNS_CORRECTED_REPROBE,
+                    activeProbeSafetyPolicy = activeProbeSafetyPolicy,
                 )
             val scanContext = scanContextCollector.collect(intent).copy(pathMode = pathMode)
             val effectivePreferredDnsPath = preferredDnsPathOverride ?: scanContext.preferredDnsPath
@@ -124,6 +126,10 @@ internal class DiagnosticsScanRequestFactory
                         preferredDnsPath = effectivePreferredDnsPath,
                         preferredEdges = scanContext.preferredEdges,
                         protectPath = resolveProtectPath(context),
+                    ).withActiveProbeSafetyBudget(
+                        scanOrigin = DiagnosticsScanOrigin.DNS_CORRECTED_REPROBE,
+                        requestedMaxCandidates = null,
+                        activeProbeSafetyPolicy = activeProbeSafetyPolicy,
                     ).withDiagnosticTlsKeylogPath(original.settings, context.filesDir)
             val now = System.currentTimeMillis()
             return PreparedDiagnosticsScan(
@@ -224,7 +230,16 @@ internal class DiagnosticsScanRequestFactory
                     sessionId = sessionId,
                     intent = intentResolver.resolve(profile.id, pathMode).copy(settings = settings),
                     isManual = scanOrigin == DiagnosticsScanOrigin.USER_INITIATED,
+                    scanOrigin = scanOrigin,
+                    activeProbeSafetyPolicy = activeProbeSafetyPolicy,
                 ).applyTargetOverrides(targetOverrides, pathMode)
+                    .let { selectedIntent ->
+                        activeProbeSafetyPolicy.enforceTargetBudget(
+                            intent = selectedIntent,
+                            scanOrigin = scanOrigin,
+                            isManual = scanOrigin == DiagnosticsScanOrigin.USER_INITIATED,
+                        )
+                    }
             val scanContext = scanContextCollector.collect(intent)
             val plan = diagnosticsPlanner.plan(intent, scanContext)
             val engineRequest =
@@ -241,17 +256,12 @@ internal class DiagnosticsScanRequestFactory
                         preferredDnsPath = scanContext.preferredDnsPath,
                         preferredEdges = scanContext.preferredEdges,
                         protectPath = resolveProtectPath(context),
+                    ).withActiveProbeSafetyBudget(
+                        scanOrigin = scanOrigin,
+                        requestedMaxCandidates = maxCandidates,
+                        activeProbeSafetyPolicy = activeProbeSafetyPolicy,
                     ).withDiagnosticTlsKeylogPath(settings, context.filesDir)
                     .copy(scanDeadlineMs = scanDeadlineMs)
-                    .let { request ->
-                        if (maxCandidates != null && request.strategyProbe != null) {
-                            request.copy(
-                                strategyProbe = request.strategyProbe.copy(maxCandidates = maxCandidates),
-                            )
-                        } else {
-                            request
-                        }
-                    }
             val now = System.currentTimeMillis()
             return PreparedDiagnosticsScan(
                 sessionId = sessionId,
@@ -395,6 +405,20 @@ private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
     )
 }
 
+private fun EngineScanRequestWire.withActiveProbeSafetyBudget(
+    scanOrigin: DiagnosticsScanOrigin,
+    requestedMaxCandidates: Int?,
+    activeProbeSafetyPolicy: ActiveProbeSafetyPolicy,
+): EngineScanRequestWire {
+    val strategyProbe = strategyProbe ?: return this
+    val maxCandidates =
+        activeProbeSafetyPolicy.enforceMaxCandidates(
+            scanOrigin = scanOrigin,
+            requestedMaxCandidates = requestedMaxCandidates ?: strategyProbe.maxCandidates,
+        )
+    return copy(strategyProbe = strategyProbe.copy(maxCandidates = maxCandidates))
+}
+
 private fun EngineScanRequestWire.withDiagnosticTlsKeylogPath(
     settings: com.poyka.ripdpi.proto.AppSettings,
     appFilesDir: File,
@@ -445,52 +469,59 @@ internal fun selectStrategyProbeTargetsForSession(
     sessionId: String,
     intent: DiagnosticsIntent,
     isManual: Boolean = false,
+    scanOrigin: DiagnosticsScanOrigin =
+        if (isManual) {
+            DiagnosticsScanOrigin.USER_INITIATED
+        } else {
+            DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND
+        },
+    activeProbeSafetyPolicy: ActiveProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
 ): DiagnosticsIntent {
     val strategyProbe = intent.strategyProbe
-    val validCohorts =
-        intent.strategyProbeTargetCohorts.filter { cohort ->
-            cohort.domainTargets.size == AutomaticAuditDomainTargetCount &&
-                cohort.quicTargets.size == AutomaticAuditQuicTargetCount
-        }
+    val validCohorts = activeProbeSafetyPolicy.validAutomaticAuditCohorts(intent)
     val isApplicable =
         strategyProbe != null &&
             strategyProbe.suiteId == StrategyProbeSuiteFullMatrixV1 &&
             intent.profileId == AutomaticAuditProfileId &&
             validCohorts.isNotEmpty()
-    if (!isApplicable) return intent
-    checkNotNull(strategyProbe)
-    return if (isManual) {
-        val allDomainTargets = validCohorts.flatMap { it.domainTargets }.distinctBy { it.host }
-        val allQuicTargets = validCohorts.flatMap { it.quicTargets }.distinctBy { it.host }
-        intent.copy(
-            domainTargets = allDomainTargets,
-            quicTargets = allQuicTargets,
-            strategyProbe =
-                strategyProbe.copy(
-                    targetSelection =
-                        StrategyProbeTargetSelection(
-                            cohortId = "all",
-                            cohortLabel = "All cohorts",
-                            domainHosts = allDomainTargets.map(DomainTarget::host),
-                            quicHosts = allQuicTargets.map(QuicTarget::host),
-                        ),
-                ),
-        )
-    } else {
-        val selectedCohort = validCohorts[Math.floorMod(sessionId.hashCode(), validCohorts.size)]
-        intent.copy(
-            domainTargets = selectedCohort.domainTargets,
-            quicTargets = selectedCohort.quicTargets,
-            strategyProbe =
-                strategyProbe.copy(
-                    targetSelection =
-                        StrategyProbeTargetSelection(
-                            cohortId = selectedCohort.id,
-                            cohortLabel = selectedCohort.label,
-                            domainHosts = selectedCohort.domainTargets.map(DomainTarget::host),
-                            quicHosts = selectedCohort.quicTargets.map(QuicTarget::host),
-                        ),
-                ),
-        )
+    if (!isApplicable) {
+        return activeProbeSafetyPolicy.enforceTargetBudget(intent, scanOrigin, isManual)
     }
+    checkNotNull(strategyProbe)
+    val selectedIntent =
+        if (isManual) {
+            val allDomainTargets = validCohorts.flatMap { it.domainTargets }.distinctBy { it.host }
+            val allQuicTargets = validCohorts.flatMap { it.quicTargets }.distinctBy { it.host }
+            intent.copy(
+                domainTargets = allDomainTargets,
+                quicTargets = allQuicTargets,
+                strategyProbe =
+                    strategyProbe.copy(
+                        targetSelection =
+                            StrategyProbeTargetSelection(
+                                cohortId = "all",
+                                cohortLabel = "All cohorts",
+                                domainHosts = allDomainTargets.map(DomainTarget::host),
+                                quicHosts = allQuicTargets.map(QuicTarget::host),
+                            ),
+                    ),
+            )
+        } else {
+            val selectedCohort = validCohorts[Math.floorMod(sessionId.hashCode(), validCohorts.size)]
+            intent.copy(
+                domainTargets = selectedCohort.domainTargets,
+                quicTargets = selectedCohort.quicTargets,
+                strategyProbe =
+                    strategyProbe.copy(
+                        targetSelection =
+                            StrategyProbeTargetSelection(
+                                cohortId = selectedCohort.id,
+                                cohortLabel = selectedCohort.label,
+                                domainHosts = selectedCohort.domainTargets.map(DomainTarget::host),
+                                quicHosts = selectedCohort.quicTargets.map(QuicTarget::host),
+                            ),
+                    ),
+            )
+        }
+    return activeProbeSafetyPolicy.enforceTargetBudget(selectedIntent, scanOrigin, isManual)
 }

@@ -209,6 +209,7 @@ internal fun createDiagnosticsServices(
                 ),
             diagnosticsPlanner = DefaultDiagnosticsPlanner(),
             engineRequestEncoder = DefaultEngineRequestEncoder(),
+            activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
             json = json,
         )
     val activeScanRegistry = ActiveScanRegistry(timelineSource)
@@ -249,9 +250,12 @@ internal fun createDiagnosticsServices(
                 object : Provider<AutomaticProbeLauncher> {
                     override fun get(): AutomaticProbeLauncher = scanController
                 },
-            automaticHandoverProbeDelayMs = automaticHandoverProbeDelayMs,
-            automaticHandoverProbeCooldownMs = automaticHandoverProbeCooldownMs,
-            automaticStrategyFailureProbeCooldownMs = automaticHandoverProbeCooldownMs,
+            activeProbeSafetyPolicy =
+                ActiveProbeSafetyPolicy(
+                    automaticHandoverProbeDelayMs = automaticHandoverProbeDelayMs,
+                    automaticHandoverProbeCooldownMs = automaticHandoverProbeCooldownMs,
+                    automaticStrategyFailureProbeCooldownMs = automaticHandoverProbeCooldownMs,
+                ),
             scope = scope,
         )
     val recommendationStore = DiagnosticsRecommendationStore(stores, json)

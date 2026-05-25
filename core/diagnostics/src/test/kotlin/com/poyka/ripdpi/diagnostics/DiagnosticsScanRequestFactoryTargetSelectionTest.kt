@@ -139,6 +139,52 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
     }
 
     @Test
+    fun `automatic audit fallback targets are capped when cohorts are invalid`() {
+        val intent =
+            strategyProbeIntent(
+                settings = defaultDiagnosticsAppSettings(),
+                baseProxyConfigJson = null,
+                profileId = "automatic-audit",
+                family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                suiteId = "full_matrix_v1",
+                domainTargets = (1..5).map { index -> DomainTarget(host = "fallback-$index.example") },
+                quicTargets = (1..4).map { index -> QuicTarget(host = "fallback-quic-$index.example") },
+                strategyProbeTargetCohorts =
+                    listOf(
+                        auditCohort(
+                            id = "invalid",
+                            label = "Invalid",
+                            domainHosts = listOf("only-one.example"),
+                            quicHosts = listOf("only-one-quic.example"),
+                        ),
+                    ),
+            )
+
+        val selected = selectStrategyProbeTargetsForSession("audit-session", intent)
+
+        assertEquals(3, selected.domainTargets.size)
+        assertEquals(2, selected.quicTargets.size)
+        assertNull(selected.strategyProbe?.targetSelection)
+    }
+
+    @Test
+    fun `automatic strategy request caps target overrides and max candidates`() =
+        runTest {
+            val request =
+                prepareStrategyProbeRequest(
+                    settings = defaultDiagnosticsAppSettings(),
+                    domainTargets = (1..6).map { index -> DomainTarget(host = "domain-$index.example") },
+                    quicTargets = (1..4).map { index -> QuicTarget(host = "quic-$index.example") },
+                    scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                    maxCandidates = 99,
+                )
+
+            assertEquals(3, request.domainTargets.size)
+            assertEquals(2, request.quicTargets.size)
+            assertEquals(5, request.strategyProbe?.maxCandidates)
+        }
+
+    @Test
     fun `manual analysis merges all valid cohorts`() {
         val intent =
             strategyProbeIntent(
@@ -441,6 +487,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
         preferredEdges: Map<String, List<PreferredEdgeCandidate>> = emptyMap(),
         strategyProbeTargetCohorts: List<StrategyProbeTargetCohortSpec> = emptyList(),
         scanOrigin: DiagnosticsScanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
+        maxCandidates: Int? = null,
     ): com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire {
         val json = diagnosticsTestJson()
         val intent =
@@ -486,6 +533,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                     },
                 diagnosticsPlanner = DefaultDiagnosticsPlanner(),
                 engineRequestEncoder = DefaultEngineRequestEncoder(),
+                activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
                 json = json,
             )
 
@@ -493,17 +541,17 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
             factory.prepareScan(
                 profile =
                     com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity(
-                        id = "strategy-probe",
+                        id = profileId,
                         name = "Strategy probe",
                         source = "test",
                         version = 1,
                         requestJson =
                             diagnosticsProfileRequestJson(
                                 json = json,
-                                profileId = "strategy-probe",
+                                profileId = profileId,
                                 displayName = "Strategy probe",
                                 kind = ScanKind.STRATEGY_PROBE,
-                                family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                                family = family,
                                 targets =
                                     DiagnosticsProfileTargets(
                                         strategyProbe = StrategyProbeRequest(suiteId = suiteId),
@@ -517,6 +565,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                 scanOrigin = scanOrigin,
                 exposeProgress = false,
                 registerActiveBridge = false,
+                maxCandidates = maxCandidates,
             )
 
         return json.decodeFromString(

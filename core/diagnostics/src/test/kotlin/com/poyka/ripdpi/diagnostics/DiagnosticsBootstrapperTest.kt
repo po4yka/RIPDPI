@@ -158,9 +158,12 @@ class DiagnosticsBootstrapperTest {
                         ),
                     diagnosticsArtifactReadStore = stores,
                     launcherProvider = constantProvider(automaticProbeLauncher),
-                    automaticHandoverProbeDelayMs = 100L,
-                    automaticHandoverProbeCooldownMs = 0L,
-                    automaticStrategyFailureProbeCooldownMs = 0L,
+                    activeProbeSafetyPolicy =
+                        ActiveProbeSafetyPolicy(
+                            automaticHandoverProbeDelayMs = 100L,
+                            automaticHandoverProbeCooldownMs = 0L,
+                            automaticStrategyFailureProbeCooldownMs = 0L,
+                        ),
                     scope = scope,
                 ),
             importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,

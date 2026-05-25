@@ -732,6 +732,7 @@ internal fun executionCoordinatorFixtures(
                 ),
             diagnosticsPlanner = DefaultDiagnosticsPlanner(),
             engineRequestEncoder = DefaultEngineRequestEncoder(),
+            activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
             json = json,
         )
     return ExecutionCoordinatorFixtures(

@@ -213,6 +213,7 @@ class DiagnosticsScanRequestFactoryTest {
                         },
                     diagnosticsPlanner = DefaultDiagnosticsPlanner(),
                     engineRequestEncoder = DefaultEngineRequestEncoder(),
+                    activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
                     json = json,
                 )
 
@@ -293,6 +294,7 @@ class DiagnosticsScanRequestFactoryTest {
                         },
                     diagnosticsPlanner = DefaultDiagnosticsPlanner(),
                     engineRequestEncoder = DefaultEngineRequestEncoder(),
+                    activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
                     json = json,
                 )
 
@@ -421,6 +423,7 @@ class DiagnosticsScanRequestFactoryTest {
                         },
                     diagnosticsPlanner = DefaultDiagnosticsPlanner(),
                     engineRequestEncoder = DefaultEngineRequestEncoder(),
+                    activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
                     json = json,
                 )
             val original =
@@ -506,6 +509,7 @@ class DiagnosticsScanRequestFactoryTest {
                     },
                 diagnosticsPlanner = DefaultDiagnosticsPlanner(),
                 engineRequestEncoder = DefaultEngineRequestEncoder(),
+                activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
                 json = json,
             )
 
