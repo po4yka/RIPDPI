@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.RootSettingsSection
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -20,6 +21,41 @@ import java.util.concurrent.TimeUnit
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class RootHelperManagerTest {
+    @Test
+    fun `start uses app private socket and nonce paths`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val fakeBinary = File(context.filesDir, "fake-root-helper").apply { writeText("bin") }
+            val fakeProcess = RecordingProcess()
+            lateinit var launchedSocket: File
+            lateinit var launchedNonce: File
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { fakeBinary },
+                    processLaunchAttempts = { _, socket, nonceFile ->
+                        launchedSocket = socket
+                        launchedNonce = nonceFile
+                        listOf(
+                            RootHelperLaunchAttempt("test root helper launcher") {
+                                fakeProcess
+                            },
+                        )
+                    },
+                    readinessProbe = { socket, _, _ ->
+                        assertEquals(launchedSocket, socket)
+                        true
+                    },
+                    rootProcessTerminator = {},
+                )
+
+            val result = manager.start(context)
+
+            assertEquals(File(context.filesDir, "root_helper.sock"), launchedSocket)
+            assertEquals(File(context.filesDir, "root_helper.sock.nonce"), launchedNonce)
+            assertEquals(launchedSocket.absolutePath, result)
+            assertEquals(result, manager.socketPath)
+        }
+
     @Test
     fun `start does not publish socket path until root helper socket is connectable`() =
         runTest {
@@ -218,6 +254,33 @@ class RootHelperManagerTest {
             assertEquals(listOf(result to nonceFile.absolutePath), shutdownRequests)
             assertTrue(fakeProcess.destroyed)
             assertTrue(rootTerminated)
+        }
+
+    @Test
+    fun `syncRootMode disabled stops live helper and degrades to null socket`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val fakeBinary = File(context.filesDir, "fake-root-helper").apply { writeText("bin") }
+            val fakeProcess = RecordingProcess()
+            var shutdownRequests = 0
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { fakeBinary },
+                    processLaunchAttempts = { _, _, _ ->
+                        listOf(RootHelperLaunchAttempt("test root helper launcher") { fakeProcess })
+                    },
+                    readinessProbe = { _, _, _ -> true },
+                    shutdownRequester = { _, _ -> shutdownRequests += 1 },
+                    rootProcessTerminator = {},
+                )
+
+            assertNotNull(manager.syncRootMode(context, RootSettingsSection(rootModeEnabled = true)))
+            val disabledResult = manager.syncRootMode(context, RootSettingsSection(rootModeEnabled = false))
+
+            assertNull(disabledResult)
+            assertNull(manager.socketPath)
+            assertTrue(fakeProcess.destroyed)
+            assertEquals(1, shutdownRequests)
         }
 }
 

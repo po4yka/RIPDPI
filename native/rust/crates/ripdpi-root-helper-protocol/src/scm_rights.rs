@@ -34,7 +34,7 @@ pub fn send_message(stream: &UnixStream, json: &[u8], fd: Option<RawFd>) -> io::
 /// Read a JSON-line message, optionally receiving one fd via SCM_RIGHTS.
 pub fn recv_message(stream: &UnixStream, eof_message: &'static str) -> io::Result<(Vec<u8>, Option<RawFd>)> {
     let mut buf = [0u8; MAX_MESSAGE_BYTES + 1];
-    let mut cmsg_buf = nix::cmsg_space!([RawFd; 1]);
+    let mut cmsg_buf = nix::cmsg_space!([RawFd; 2]);
     recv_line_with_optional_fd(stream.as_raw_fd(), &mut buf, &mut cmsg_buf, eof_message)
 }
 
@@ -72,16 +72,41 @@ fn recv_line_with_optional_fd(
 }
 
 fn extract_scm_rights_fd(msg: &socket::RecvMsg<'_, '_, ()>) -> io::Result<Option<RawFd>> {
+    let mut received_fds = Vec::new();
     for cmsg in msg.cmsgs().map_err(io::Error::from)? {
         if let ControlMessageOwned::ScmRights(fds) = cmsg {
-            return Ok(fds.first().copied());
+            received_fds.extend(fds);
         }
     }
-    Ok(None)
+    if msg.flags.contains(MsgFlags::MSG_CTRUNC) {
+        for fd in received_fds {
+            close_raw_fd(fd);
+        }
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "root-helper IPC control message was truncated"));
+    }
+    match received_fds.as_slice() {
+        [] => Ok(None),
+        [fd] => Ok(Some(*fd)),
+        _ => {
+            for fd in received_fds {
+                close_raw_fd(fd);
+            }
+            Err(io::Error::new(io::ErrorKind::InvalidData, "root-helper IPC message carried more than one fd"))
+        }
+    }
+}
+
+fn close_raw_fd(fd: RawFd) {
+    // SAFETY: fd ownership was transferred to this process by SCM_RIGHTS and
+    // this rejection path refuses to pass any of the descriptors to a caller.
+    unsafe {
+        libc::close(fd);
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::io::IoSlice;
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     use std::os::unix::net::UnixStream;
 
@@ -131,5 +156,33 @@ mod tests {
         let err = recv_message(&receiver, "closed").expect_err("truncated max-sized receive");
 
         assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn recv_message_rejects_multiple_scm_rights_fds() {
+        let (sender, receiver) = UnixStream::pair().expect("socket pair");
+        let first = std::fs::File::open("/dev/null").expect("open first fd");
+        let second = std::fs::File::open("/dev/null").expect("open second fd");
+        let fds = [first.as_raw_fd(), second.as_raw_fd()];
+        let cmsg = [nix::sys::socket::ControlMessage::ScmRights(&fds)];
+
+        nix::sys::socket::sendmsg::<()>(
+            sender.as_raw_fd(),
+            &[IoSlice::new(
+                br#"{"ok":true}
+"#,
+            )],
+            &cmsg,
+            nix::sys::socket::MsgFlags::empty(),
+            None,
+        )
+        .expect("raw send with two fds");
+
+        let err = recv_message(&receiver, "closed").expect_err("multi-fd receive must fail");
+
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+        assert!(err.to_string().contains("more than one fd"), "expected multi-fd rejection, got {err:?}",);
+        assert!(first.as_raw_fd() >= 0);
+        assert!(second.as_raw_fd() >= 0);
     }
 }
