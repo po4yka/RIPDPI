@@ -9,6 +9,7 @@ transport="${PHASE16_TRANSPORT:-unknown}"
 ip_family="${PHASE16_IP_FAMILY:-unknown}"
 rooted="${PHASE16_ROOTED:-unknown}"
 mode="${PHASE16_MODE:-unknown}"
+network_condition="${PHASE16_NETWORK_CONDITION:-baseline}"
 scenario_filter="${PHASE16_SCENARIO_FILTER:-}"
 capture_mode="${PHASE16_CAPTURE_MODE:-auto}"
 prepare_hook="${RIPDPI_PHASE16_PREPARE_HOOK:-}"
@@ -35,6 +36,7 @@ payload = {
     "ipFamily": os.environ.get("PHASE16_IP_FAMILY", "unknown"),
     "rooted": os.environ.get("PHASE16_ROOTED", "unknown"),
     "mode": os.environ.get("PHASE16_MODE", "unknown"),
+    "networkCondition": os.environ.get("PHASE16_NETWORK_CONDITION", "baseline"),
     "scenarioFilter": os.environ.get("PHASE16_SCENARIO_FILTER", ""),
     "captureMode": os.environ.get("PHASE16_CAPTURE_MODE", "auto"),
     "status": os.environ["PHASE16_RUN_STATUS"],
@@ -77,7 +79,11 @@ if [[ -n "$prepare_hook" ]]; then
     echo "$failure_message" >&2
     exit 1
   fi
-  "$prepare_hook" "$entry_id" "$transport" "$ip_family" "$rooted" "$mode" "$artifact_root"
+  "$prepare_hook" "$entry_id" "$transport" "$ip_family" "$rooted" "$mode" "$artifact_root" "$network_condition"
+elif [[ "$network_condition" != "baseline" ]]; then
+  failure_message="non-baseline Phase 16 entry requires RIPDPI_PHASE16_PREPARE_HOOK: $network_condition"
+  echo "$failure_message" >&2
+  exit 1
 fi
 
 case "$execution_kind" in

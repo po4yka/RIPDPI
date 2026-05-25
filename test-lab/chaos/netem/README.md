@@ -78,3 +78,23 @@ test-lab/scripts/adb-run-probe.sh \
 
 NETEM_DEV=eth0 test-lab/chaos/netem/clear.sh
 ```
+
+## Phase 16 fault profiles
+
+The Phase 16 matrix uses named `networkCondition` values so release rows cannot silently pass as ordinary baseline runs. Non-baseline entries require a runner-side `RIPDPI_PHASE16_PREPARE_HOOK`; the hook receives `entry_id transport ip_family rooted mode artifact_root network_condition` and should apply one of these profiles before the packet-smoke scenario starts:
+
+```bash
+case "$7" in
+  pmtud_blackhole)
+    NETEM_DEV=eth0 test-lab/chaos/netem/apply-mtu-blackhole.sh 1280
+    ;;
+  ipv6_extension_blackhole)
+    test-lab/chaos/netem/apply-ipv6-ext-blackhole.sh
+    ;;
+  carrier_nat_reorder)
+    NETEM_DEV=eth0 NETEM_NAT_SUBNET=192.0.2.0/24 test-lab/chaos/netem/apply-carrier-nat-reorder.sh
+    ;;
+esac
+```
+
+Always call `test-lab/chaos/netem/clear.sh` from the hook's cleanup path. It removes qdisc state, PMTUD ICMP drops, IPv6 extension-header drops, the optional NAT rule when `NETEM_NAT_SUBNET` is set, and restores the interface MTU saved by `apply-mtu-blackhole.sh`.

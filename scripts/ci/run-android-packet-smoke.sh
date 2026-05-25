@@ -169,8 +169,11 @@ start_device_capture() {
     local remote_pcap="/data/local/tmp/${scenario_id}.pcap"
     local remote_log="/data/local/tmp/${scenario_id}.tcpdump.log"
     local capture_filter="$device_capture_filter"
-    if [[ "$scenario_id" == "android_proxy_ipfrag2_family" ]]; then
+    if [[ "$scenario_id" == "android_proxy_ipfrag2_family" || "$scenario_id" == "android_proxy_ipfrag2_ipv6_ext_family" ]]; then
         capture_filter="(${device_capture_filter}) or (ip and host ${fixture_android_host})"
+        if [[ "$fixture_android_host" == *:* ]]; then
+            capture_filter="(${device_capture_filter}) or (ip6 and host ${fixture_android_host})"
+        fi
     fi
     adb_cmd shell "rm -f '$remote_pcap' '$remote_log'; nohup tcpdump -i any -U -n -s 0 -w '$remote_pcap' \"$capture_filter\" >'$remote_log' 2>&1 & echo \$!"
 }
@@ -483,6 +486,28 @@ validate_raw_fake_strategy_packet_pattern() {
         return 1
     fi
 
+    if [[ "$scenario_id" == "android_proxy_ipfrag2_ipv6_ext_family" ]]; then
+        local android_host
+        local ipv6_ext_count
+        android_host="$(jq -r '.androidHost' "$manifest")"
+        if [[ "$android_host" != *:* ]]; then
+            return 1
+        fi
+        ipv6_ext_count="$(
+            tshark -r "$pcap" \
+                -Y "ipv6.dst == ${android_host} && (ipv6.nxt == 0 || ipv6.nxt == 44 || ipv6.nxt == 60)" \
+                -T fields -e ipv6.src -e ipv6.dst -e ipv6.nxt 2>/dev/null |
+                awk 'NF { count += 1 } END { print count + 0 }'
+        )"
+        if [[ "$ipv6_ext_count" -ge 1 ]]; then
+            append_runner_log \
+                "$scenario_dir/test-output.txt" \
+                "==> raw ipfrag2 IPv6-extension packet pattern validated: captured IPv6 extension or fragment header traffic toward the TLS fixture"
+            return 0
+        fi
+        return 1
+    fi
+
     if [[ "$scenario_id" == "android_proxy_ipfrag2_family" ]]; then
         local android_host
         local fragment_pair_count
@@ -567,7 +592,7 @@ validate_raw_fake_strategy_packet_pattern() {
 
 raw_privileged_strategy_scenario() {
     case "$1" in
-        android_proxy_multidisorder_family|android_proxy_ipfrag2_family|android_proxy_seqovl_family|android_proxy_fakerst_family)
+        android_proxy_multidisorder_family|android_proxy_ipfrag2_family|android_proxy_ipfrag2_ipv6_ext_family|android_proxy_seqovl_family|android_proxy_fakerst_family)
             return 0
             ;;
         *)

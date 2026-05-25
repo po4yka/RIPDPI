@@ -55,6 +55,7 @@ jobs:
       PHASE16_IP_FAMILY: ${{ matrix.ipFamily }}
       PHASE16_ROOTED: ${{ matrix.rooted }}
       PHASE16_MODE: ${{ matrix.mode }}
+      PHASE16_NETWORK_CONDITION: ${{ matrix.networkCondition }}
       PHASE16_SCENARIO_FILTER: ${{ matrix.scenarioFilter }}
       PHASE16_CAPTURE_MODE: ${{ matrix.captureMode }}
       RIPDPI_PHASE16_PREPARE_HOOK: ${{ inputs.prepare_hook || '' }}

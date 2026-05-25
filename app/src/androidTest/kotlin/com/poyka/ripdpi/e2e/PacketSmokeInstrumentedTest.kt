@@ -247,6 +247,20 @@ class PacketSmokeInstrumentedTest {
 
     @Test
     @RawPacketValidationOnly
+    fun proxyIpFrag2Ipv6ExtSmokeFamilyRoutesTlsTraffic() {
+        runProxyTlsChainSmoke(
+            chainDsl =
+                """
+                [tcp]
+                ipfrag2 host+2 ipv6ext=hopByHopDestOpt
+                """.trimIndent(),
+            expectedScenario = "ipfrag2_ipv6_ext",
+            rootModeEnabled = true,
+        )
+    }
+
+    @Test
+    @RawPacketValidationOnly
     fun proxySeqOverlapSmokeFamilyRoutesTlsTraffic() {
         runProxyTlsChainSmoke(
             chainDsl =
@@ -1245,6 +1259,7 @@ class PacketSmokeInstrumentedTest {
         val rawPrivilegedScenario =
             expectedScenario == "multidisorder" ||
                 expectedScenario == "ipfrag2" ||
+                expectedScenario == "ipfrag2_ipv6_ext" ||
                 expectedScenario == "seqovl" ||
                 expectedScenario == "fakerst"
         val fixtureIsHostLoopback = fixture.androidHost == "127.0.0.1" || fixture.androidHost == "10.0.2.2"

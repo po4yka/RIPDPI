@@ -11,7 +11,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_proxy_tlsrec_family",
       "captureMode": "raw",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "wifi", "ipv4", "rooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "wifi",
+        "ipv4",
+        "rooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "wifi_ipv4_rooted_vpn",
@@ -22,7 +30,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_vpn_tunnel_baseline_family",
       "captureMode": "raw",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "wifi", "ipv4", "rooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "wifi",
+        "ipv4",
+        "rooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "wifi_ipv4_nonroot_proxy",
@@ -33,7 +49,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_proxy_tlsrec_family",
       "captureMode": "indirect",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "wifi", "ipv4", "nonrooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "wifi",
+        "ipv4",
+        "nonrooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "wifi_ipv4_nonroot_vpn",
@@ -44,7 +68,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_vpn_tunnel_baseline_family",
       "captureMode": "indirect",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "wifi", "ipv4", "nonrooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "wifi",
+        "ipv4",
+        "nonrooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "wifi_ipv6_rooted_proxy",
@@ -55,7 +87,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_proxy_tlsrec_family",
       "captureMode": "raw",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "wifi", "ipv6", "rooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "wifi",
+        "ipv6",
+        "rooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "wifi_ipv6_rooted_vpn",
@@ -66,7 +106,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_vpn_tunnel_baseline_family",
       "captureMode": "raw",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "wifi", "ipv6", "rooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "wifi",
+        "ipv6",
+        "rooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "wifi_ipv6_nonroot_proxy",
@@ -77,7 +125,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_proxy_tlsrec_family",
       "captureMode": "indirect",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "wifi", "ipv6", "nonrooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "wifi",
+        "ipv6",
+        "nonrooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "wifi_ipv6_nonroot_vpn",
@@ -88,7 +144,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_vpn_tunnel_baseline_family",
       "captureMode": "indirect",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "wifi", "ipv6", "nonrooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "wifi",
+        "ipv6",
+        "nonrooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "cellular_ipv4_rooted_proxy",
@@ -99,7 +163,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_proxy_tlsrec_family",
       "captureMode": "raw",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "cellular", "ipv4", "rooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "cellular",
+        "ipv4",
+        "rooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "cellular_ipv4_rooted_vpn",
@@ -110,7 +182,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_vpn_tunnel_baseline_family",
       "captureMode": "raw",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "cellular", "ipv4", "rooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "cellular",
+        "ipv4",
+        "rooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "cellular_ipv4_nonroot_proxy",
@@ -121,7 +201,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_proxy_tlsrec_family",
       "captureMode": "indirect",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "cellular", "ipv4", "nonrooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "cellular",
+        "ipv4",
+        "nonrooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "cellular_ipv4_nonroot_vpn",
@@ -132,7 +220,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_vpn_tunnel_baseline_family",
       "captureMode": "indirect",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "cellular", "ipv4", "nonrooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "cellular",
+        "ipv4",
+        "nonrooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "cellular_ipv6_rooted_proxy",
@@ -143,7 +239,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_proxy_tlsrec_family",
       "captureMode": "raw",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "cellular", "ipv6", "rooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "cellular",
+        "ipv6",
+        "rooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "cellular_ipv6_rooted_vpn",
@@ -154,7 +258,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_vpn_tunnel_baseline_family",
       "captureMode": "raw",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "cellular", "ipv6", "rooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "cellular",
+        "ipv6",
+        "rooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "cellular_ipv6_nonroot_proxy",
@@ -165,7 +277,15 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_proxy_tlsrec_family",
       "captureMode": "indirect",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "cellular", "ipv6", "nonrooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "cellular",
+        "ipv6",
+        "nonrooted"
+      ],
+      "networkCondition": "baseline"
     },
     {
       "id": "cellular_ipv6_nonroot_vpn",
@@ -176,7 +296,99 @@
       "executionKind": "android_packet_smoke",
       "scenarioFilter": "android_vpn_tunnel_baseline_family",
       "captureMode": "indirect",
-      "runsOn": ["self-hosted", "ripdpi-lab", "android", "cellular", "ipv6", "nonrooted"]
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "cellular",
+        "ipv6",
+        "nonrooted"
+      ],
+      "networkCondition": "baseline"
+    },
+    {
+      "id": "wifi_ipv4_nonroot_vpn_pmtud_blackhole",
+      "transport": "wifi",
+      "ipFamily": "ipv4",
+      "rooted": false,
+      "mode": "vpn",
+      "networkCondition": "pmtud_blackhole",
+      "executionKind": "android_packet_smoke",
+      "scenarioFilter": "android_vpn_tunnel_baseline_family",
+      "captureMode": "indirect",
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "wifi",
+        "ipv4",
+        "nonrooted",
+        "netem",
+        "pmtud-blackhole"
+      ]
+    },
+    {
+      "id": "wifi_ipv4_rooted_proxy_ipfrag2_pmtud_blackhole",
+      "transport": "wifi",
+      "ipFamily": "ipv4",
+      "rooted": true,
+      "mode": "proxy",
+      "networkCondition": "pmtud_blackhole",
+      "executionKind": "android_packet_smoke",
+      "scenarioFilter": "android_proxy_ipfrag2_family",
+      "captureMode": "raw",
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "wifi",
+        "ipv4",
+        "rooted",
+        "netem",
+        "pmtud-blackhole"
+      ]
+    },
+    {
+      "id": "wifi_ipv6_rooted_proxy_ipfrag2_ipv6_ext_blackhole",
+      "transport": "wifi",
+      "ipFamily": "ipv6",
+      "rooted": true,
+      "mode": "proxy",
+      "networkCondition": "ipv6_extension_blackhole",
+      "executionKind": "android_packet_smoke",
+      "scenarioFilter": "android_proxy_ipfrag2_ipv6_ext_family",
+      "captureMode": "raw",
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "wifi",
+        "ipv6",
+        "rooted",
+        "netem",
+        "ipv6-extension-blackhole"
+      ]
+    },
+    {
+      "id": "cellular_ipv4_nonroot_vpn_carrier_nat_reorder",
+      "transport": "cellular",
+      "ipFamily": "ipv4",
+      "rooted": false,
+      "mode": "vpn",
+      "networkCondition": "carrier_nat_reorder",
+      "executionKind": "android_packet_smoke",
+      "scenarioFilter": "android_vpn_doq_family",
+      "captureMode": "indirect",
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "cellular",
+        "ipv4",
+        "nonrooted",
+        "netem",
+        "carrier-nat-reorder"
+      ]
     }
   ]
 }

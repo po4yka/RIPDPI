@@ -247,6 +247,24 @@
     ]
   },
   {
+    "id": "android_proxy_ipfrag2_ipv6_ext_family",
+    "lane": "android_proxy",
+    "requiredCapability": "adb_raw_pcap_ipv6",
+    "testSelector": "com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest#proxyIpFrag2Ipv6ExtSmokeFamilyRoutesTlsTraffic",
+    "trafficKind": "tcp_tls_ipv6_ext",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "logcat.txt",
+      "dumpsys-connectivity.txt",
+      "ip-addr.txt",
+      "ip-route.txt",
+      "test-output.txt",
+      "failure-screenshot.png",
+      "device-capture.pcap"
+    ]
+  },
+  {
     "id": "android_proxy_seqovl_family",
     "lane": "android_proxy",
     "requiredCapability": "adb_raw_pcap",

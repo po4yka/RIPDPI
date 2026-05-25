@@ -32,6 +32,9 @@ packet_smoke_required_capability_supported() {
         adb_raw_pcap)
             [[ "$device_profile" != "physical_indirect" ]]
             ;;
+        adb_raw_pcap_ipv6)
+            [[ "$device_profile" != "physical_indirect" && "${fixture_android_host:-}" == *:* ]]
+            ;;
         *)
             return 1
             ;;

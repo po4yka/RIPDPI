@@ -11,6 +11,19 @@ REQUIRED_TRANSPORTS = {"wifi", "cellular"}
 REQUIRED_IP_FAMILIES = {"ipv4", "ipv6"}
 REQUIRED_MODES = {"proxy", "vpn"}
 REQUIRED_ROOTED = {True, False}
+BASELINE_NETWORK_CONDITION = "baseline"
+REQUIRED_NETWORK_CONDITIONS = {
+    BASELINE_NETWORK_CONDITION,
+    "pmtud_blackhole",
+    "ipv6_extension_blackhole",
+    "carrier_nat_reorder",
+}
+REQUIRED_STRESS_ENTRIES = {
+    "wifi_ipv4_nonroot_vpn_pmtud_blackhole",
+    "wifi_ipv4_rooted_proxy_ipfrag2_pmtud_blackhole",
+    "wifi_ipv6_rooted_proxy_ipfrag2_ipv6_ext_blackhole",
+    "cellular_ipv4_nonroot_vpn_carrier_nat_reorder",
+}
 MATRIX_VERSION = "phase16_lab_matrix_v1"
 
 
@@ -38,14 +51,18 @@ def validate_fixture(fixture: dict) -> None:
         raise ValueError("matrix fixture must contain a non-empty entries list")
 
     ids: set[str] = set()
-    combos: set[tuple[str, str, bool, str]] = set()
+    baseline_combos: set[tuple[str, str, bool, str]] = set()
+    network_conditions: set[str] = set()
     for entry in entries:
         validate_entry(entry)
         entry_id = entry["id"]
         if entry_id in ids:
             raise ValueError(f"duplicate matrix entry id: {entry_id}")
         ids.add(entry_id)
-        combos.add((entry["transport"], entry["ipFamily"], bool(entry["rooted"]), entry["mode"]))
+        network_condition = entry["networkCondition"]
+        network_conditions.add(network_condition)
+        if network_condition == BASELINE_NETWORK_CONDITION:
+            baseline_combos.add((entry["transport"], entry["ipFamily"], bool(entry["rooted"]), entry["mode"]))
 
     expected = {
         (transport, ip_family, rooted, mode)
@@ -54,10 +71,18 @@ def validate_fixture(fixture: dict) -> None:
         for rooted in REQUIRED_ROOTED
         for mode in REQUIRED_MODES
     }
-    missing = sorted(expected - combos)
-    extra = sorted(combos - expected)
+    missing = sorted(expected - baseline_combos)
+    extra = sorted(baseline_combos - expected)
     if missing or extra:
-        raise ValueError(f"matrix coverage mismatch; missing={missing}, extra={extra}")
+        raise ValueError(f"baseline matrix coverage mismatch; missing={missing}, extra={extra}")
+
+    missing_conditions = sorted(REQUIRED_NETWORK_CONDITIONS - network_conditions)
+    if missing_conditions:
+        raise ValueError(f"missing required network conditions: {missing_conditions}")
+
+    missing_stress_entries = sorted(REQUIRED_STRESS_ENTRIES - ids)
+    if missing_stress_entries:
+        raise ValueError(f"missing required stress entries: {missing_stress_entries}")
 
 
 def validate_entry(entry: dict) -> None:
@@ -67,6 +92,7 @@ def validate_entry(entry: dict) -> None:
         "ipFamily",
         "rooted",
         "mode",
+        "networkCondition",
         "executionKind",
         "scenarioFilter",
         "captureMode",
@@ -82,6 +108,8 @@ def validate_entry(entry: dict) -> None:
         raise ValueError(f"unsupported ipFamily in {entry['id']}: {entry['ipFamily']}")
     if entry["mode"] not in REQUIRED_MODES:
         raise ValueError(f"unsupported mode in {entry['id']}: {entry['mode']}")
+    if entry["networkCondition"] not in REQUIRED_NETWORK_CONDITIONS:
+        raise ValueError(f"unsupported networkCondition in {entry['id']}: {entry['networkCondition']}")
     if entry["captureMode"] not in {"raw", "indirect", "auto"}:
         raise ValueError(f"unsupported captureMode in {entry['id']}: {entry['captureMode']}")
     if entry["executionKind"] != "android_packet_smoke":
@@ -118,6 +146,7 @@ def emit_github_matrix(entries: Iterable[dict]) -> dict:
                 "ipFamily": entry["ipFamily"],
                 "rooted": entry["rooted"],
                 "mode": entry["mode"],
+                "networkCondition": entry["networkCondition"],
                 "executionKind": entry["executionKind"],
                 "scenarioFilter": entry["scenarioFilter"],
                 "captureMode": entry["captureMode"],

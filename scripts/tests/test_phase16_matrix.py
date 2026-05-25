@@ -19,14 +19,21 @@ def load_module(module_name: str, relative_path: str):
 
 phase16_matrix = load_module("phase16_matrix", "scripts/ci/phase16_matrix.py")
 phase16_pcap_summary = load_module("phase16_pcap_summary", "scripts/ci/phase16_pcap_summary.py")
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Phase16MatrixTest(unittest.TestCase):
-    def test_fixture_covers_all_16_axis_combinations(self) -> None:
+    def test_fixture_covers_all_baseline_axis_combinations_and_stress_rows(self) -> None:
         fixture = phase16_matrix.load_fixture()
         phase16_matrix.validate_fixture(fixture)
         self.assertEqual("phase16_lab_matrix_v1", fixture["version"])
-        self.assertEqual(16, len(fixture["entries"]))
+        baseline_entries = [entry for entry in fixture["entries"] if entry["networkCondition"] == "baseline"]
+        self.assertEqual(16, len(baseline_entries))
+        self.assertGreaterEqual(len(fixture["entries"]), 20)
+        stress_ids = {entry["id"] for entry in fixture["entries"] if entry["networkCondition"] != "baseline"}
+        self.assertTrue(phase16_matrix.REQUIRED_STRESS_ENTRIES.issubset(stress_ids))
+        conditions = {entry["networkCondition"] for entry in fixture["entries"]}
+        self.assertTrue(phase16_matrix.REQUIRED_NETWORK_CONDITIONS.issubset(conditions))
 
     def test_emit_github_matrix_preserves_runner_labels(self) -> None:
         fixture = phase16_matrix.load_fixture()
@@ -34,6 +41,7 @@ class Phase16MatrixTest(unittest.TestCase):
         self.assertEqual(1, len(payload["include"]))
         entry = payload["include"][0]
         self.assertEqual("wifi_ipv4_rooted_proxy", entry["id"])
+        self.assertEqual("baseline", entry["networkCondition"])
         self.assertEqual("raw", entry["captureMode"])
         self.assertEqual(
             ["self-hosted", "ripdpi-lab", "android", "wifi", "ipv4", "rooted"],
@@ -44,6 +52,13 @@ class Phase16MatrixTest(unittest.TestCase):
         fixture = phase16_matrix.load_fixture()
         with self.assertRaisesRegex(ValueError, "no matrix entries matched filter"):
             phase16_matrix.filtered_entries(fixture, "does_not_exist")
+
+    def test_matrix_scenario_filters_exist_in_packet_smoke_registry(self) -> None:
+        fixture = phase16_matrix.load_fixture()
+        registry = json.loads((REPO_ROOT / "scripts/ci/packet-smoke-scenarios.json").read_text(encoding="utf-8"))
+        scenario_ids = {entry["id"] for entry in registry}
+        missing = sorted({entry["scenarioFilter"] for entry in fixture["entries"]} - scenario_ids)
+        self.assertEqual([], missing)
 
 
 class Phase16PcapSummaryTest(unittest.TestCase):
