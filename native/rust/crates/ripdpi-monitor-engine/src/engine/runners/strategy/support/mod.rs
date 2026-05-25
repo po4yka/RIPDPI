@@ -21,4 +21,4 @@ pub(super) use capabilities::{
 };
 pub(super) use pilot_targets::{pilot_bucket_label, stratified_pilot_targets};
 pub(super) use progress::{record_not_applicable_tcp_candidate, strategy_probe_live_progress_with_targets};
-pub(super) use recommendation_config::resolve_recommended_proxy_config_json;
+pub(super) use recommendation_config::{resolve_recommended_proxy_config_json, select_promotable_candidate_index};

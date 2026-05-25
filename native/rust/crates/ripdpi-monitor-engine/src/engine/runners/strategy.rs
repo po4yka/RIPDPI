@@ -15,8 +15,8 @@ use support::baseline_has_tls_ech_only;
 #[cfg(test)]
 use support::{
     baseline_supports_ech_candidates, ordered_follow_up_tcp_candidates, pilot_bucket_label,
-    resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment, stratified_pilot_targets,
-    FamilyFailureTracker,
+    resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment, select_promotable_candidate_index,
+    stratified_pilot_targets, FamilyFailureTracker,
 };
 
 #[cfg(test)]

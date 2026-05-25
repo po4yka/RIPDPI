@@ -44,7 +44,8 @@ fn family_tracker_resets_on_different_family() {
 
 use super::{
     baseline_has_tls_ech_only, baseline_supports_ech_candidates, ordered_follow_up_tcp_candidates, pilot_bucket_label,
-    resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment, stratified_pilot_targets,
+    resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment, select_promotable_candidate_index,
+    stratified_pilot_targets,
 };
 use crate::candidates::{build_tcp_candidates, CandidateEligibility};
 use crate::classification::{interleave_candidate_families, reorder_tcp_candidates_for_failure};
@@ -202,6 +203,40 @@ fn resolve_recommended_proxy_config_json_falls_back_to_quic_winner_spec_config()
         }
         ProxyConfigPayload::CommandLine { .. } => panic!("expected UI proxy config"),
     }
+}
+
+#[test]
+fn promotable_winner_selection_ignores_successful_candidate_when_path_capability_missing() {
+    let specs = build_tcp_candidates(&ProxyUiConfig::default());
+    let summaries = vec![
+        strategy_candidate_summary("disorder_host", "disorder", 12, 12, 2, 2, false, "success"),
+        strategy_candidate_summary("split_host", "split", 6, 12, 1, 2, false, "partial"),
+    ];
+    let ipfrag_caps = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default();
+
+    let selected = select_promotable_candidate_index(&summaries, &specs, false, false, ipfrag_caps)
+        .expect("split candidate should remain promotable");
+
+    assert_eq!(summaries[selected].id, "split_host");
+}
+
+#[test]
+fn promotable_winner_selection_rejects_lab_only_candidate_even_when_it_scores_highest() {
+    let specs = crate::candidates::build_full_matrix_tcp_candidates(&ProxyUiConfig::default());
+    let summaries = vec![
+        strategy_candidate_summary("adaptive_fake_ttl", "fake", 12, 12, 2, 2, false, "success"),
+        strategy_candidate_summary("split_host", "split", 6, 12, 1, 2, false, "partial"),
+    ];
+    let ipfrag_caps = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+        raw_ipv4: true,
+        raw_ipv6: true,
+        tcp_repair: true,
+    };
+
+    let selected = select_promotable_candidate_index(&summaries, &specs, true, true, ipfrag_caps)
+        .expect("split candidate should remain promotable");
+
+    assert_eq!(summaries[selected].id, "split_host");
 }
 
 #[test]

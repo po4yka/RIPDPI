@@ -3,10 +3,18 @@ use std::cmp::Reverse;
 use crate::types::StrategyProbeCandidateSummary;
 
 pub fn winning_candidate_index(candidates: &[StrategyProbeCandidateSummary]) -> Option<usize> {
+    winning_candidate_index_with(candidates, |_| true)
+}
+
+pub fn winning_candidate_index_with(
+    candidates: &[StrategyProbeCandidateSummary],
+    is_promotable: impl Fn(&StrategyProbeCandidateSummary) -> bool,
+) -> Option<usize> {
     candidates
         .iter()
         .enumerate()
         .filter(|(_, candidate)| !candidate.skipped && candidate.outcome != "not_applicable")
+        .filter(|(_, candidate)| is_promotable(candidate))
         .max_by_key(|(index, candidate)| {
             (
                 candidate.weighted_success_score,

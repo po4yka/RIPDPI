@@ -11,7 +11,7 @@ pub use summary::{
     build_candidate_execution, eliminated_candidate_summary, failed_candidate_execution,
     not_applicable_candidate_execution, skipped_candidate_summary, CandidateExecution,
 };
-pub use winner_selection::winning_candidate_index;
+pub use winner_selection::{winning_candidate_index, winning_candidate_index_with};
 
 pub(in crate::execution) use summary::cancelled_candidate_execution;
 

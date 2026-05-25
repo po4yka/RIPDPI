@@ -149,6 +149,66 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
 
         assertNull(rememberedPolicy)
     }
+
+    @Test
+    fun `skipped selected candidate is not treated as a valid safe recommendation`() {
+        val report =
+            invariantScanReportWithStrategyProbe(
+                proxyConfigJson = invariantValidRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                tcpOutcome = "not_applicable",
+                tcpSkipped = true,
+                tcpSucceededTargets = 0,
+            )
+
+        val enriched =
+            DiagnosticsScanWorkflow.enrichScanReport(
+                report = report,
+                settings = settings,
+                preferredDnsPath = null,
+            )
+
+        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        assertNull(recommendation.tcpCandidateFamily)
+        assertNull(recommendation.quicCandidateFamily)
+        assertNull(recommendation.strategySignature)
+
+        val rememberedPolicy =
+            DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
+                strategyProbe = requireNotNull(report.strategyProbeReport),
+                settings = settings,
+                fingerprint = invariantNetworkFingerprint(),
+                hostAutolearnStorePath = null,
+                json = json,
+            )
+
+        assertNull(rememberedPolicy)
+    }
+
+    @Test
+    fun `rooted selected candidate is not safe for non-root settings`() {
+        val report =
+            invariantScanReportWithStrategyProbe(
+                proxyConfigJson = invariantValidRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                tcpEmitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
+                tcpExactEmitterRequiresRoot = true,
+            )
+
+        val enriched =
+            DiagnosticsScanWorkflow.enrichScanReport(
+                report = report,
+                settings = settings,
+                preferredDnsPath = null,
+            )
+
+        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        assertNull(recommendation.tcpCandidateFamily)
+        assertNull(recommendation.quicCandidateFamily)
+        assertNull(recommendation.strategySignature)
+    }
 }
 
 private fun invariantScanReportWithStrategyProbe(
@@ -157,6 +217,12 @@ private fun invariantScanReportWithStrategyProbe(
     quicFamily: String,
     suiteId: String = "quick_v1",
     auditAssessment: StrategyProbeAuditAssessment? = null,
+    tcpOutcome: String = "success",
+    tcpSkipped: Boolean = false,
+    tcpSucceededTargets: Int = 1,
+    tcpEmitterTier: StrategyEmitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
+    tcpExactEmitterRequiresRoot: Boolean = false,
+    tcpEmitterDowngraded: Boolean = false,
 ): ScanReport =
     ScanReport(
         sessionId = "session-1",
@@ -174,6 +240,12 @@ private fun invariantScanReportWithStrategyProbe(
                             id = "tcp-1",
                             label = "TCP candidate",
                             family = tcpFamily,
+                            outcome = tcpOutcome,
+                            skipped = tcpSkipped,
+                            succeededTargets = tcpSucceededTargets,
+                            emitterTier = tcpEmitterTier,
+                            exactEmitterRequiresRoot = tcpExactEmitterRequiresRoot,
+                            emitterDowngraded = tcpEmitterDowngraded,
                         ),
                     ),
                 quicCandidates =
@@ -201,18 +273,28 @@ private fun invariantStrategyCandidateSummary(
     id: String,
     label: String,
     family: String,
+    outcome: String = "success",
+    skipped: Boolean = false,
+    succeededTargets: Int = 1,
+    emitterTier: StrategyEmitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
+    exactEmitterRequiresRoot: Boolean = false,
+    emitterDowngraded: Boolean = false,
 ): StrategyProbeCandidateSummary =
     StrategyProbeCandidateSummary(
         id = id,
         label = label,
         family = family,
-        outcome = "success",
+        emitterTier = emitterTier,
+        exactEmitterRequiresRoot = exactEmitterRequiresRoot,
+        emitterDowngraded = emitterDowngraded,
+        outcome = outcome,
         rationale = "best",
-        succeededTargets = 1,
+        succeededTargets = succeededTargets,
         totalTargets = 1,
         weightedSuccessScore = 10,
         totalWeight = 10,
         qualityScore = 10,
+        skipped = skipped,
     )
 
 private fun invariantValidRecommendedProxyConfigJson(): String =

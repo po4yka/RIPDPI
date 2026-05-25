@@ -64,6 +64,7 @@ internal object DiagnosticsScanWorkflow {
             "quic_ipfrag2",
             "quic_ipfrag2_ipv6_ext",
         )
+    private val NonPromotableStrategyProbeOutcomes = setOf("failed", "skipped", "not_applicable", "eliminated")
 
     private data class ValidatedStrategyProbeRecommendation(
         val recommendation: StrategyProbeRecommendation,
@@ -282,7 +283,14 @@ internal object DiagnosticsScanWorkflow {
                             winningFamily = winningQuicCandidate.family,
                             derivableFamilies = DerivableQuicStrategyFamilies,
                         )
-                if (familiesMatch) Triple(preferences, winningTcpCandidate, winningQuicCandidate) else null
+                val winnersPromotable =
+                    winningTcpCandidate.isPromotableStrategyWinner(settings) &&
+                        winningQuicCandidate.isPromotableStrategyWinner(settings)
+                if (familiesMatch && winnersPromotable) {
+                    Triple(preferences, winningTcpCandidate, winningQuicCandidate)
+                } else {
+                    null
+                }
             } else {
                 null
             }
@@ -338,6 +346,17 @@ internal object DiagnosticsScanWorkflow {
             return true
         }
         return derivedFamily == winningFamily
+    }
+
+    private fun StrategyProbeCandidateSummary.isPromotableStrategyWinner(
+        settings: com.poyka.ripdpi.proto.AppSettings,
+    ): Boolean {
+        if (skipped || succeededTargets <= 0 || totalTargets <= 0) return false
+        if (outcome.lowercase() in NonPromotableStrategyProbeOutcomes) return false
+        if (emitterTier == StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY) return false
+        if (exactEmitterRequiresRoot && emitterDowngraded) return false
+        val rootedCandidate = exactEmitterRequiresRoot || emitterTier == StrategyEmitterTier.ROOTED_PRODUCTION
+        return !rootedCandidate || settings.rootModeEnabled
     }
 
     private fun hasWinningTargetSuccess(strategyProbe: StrategyProbeReport): Boolean {
