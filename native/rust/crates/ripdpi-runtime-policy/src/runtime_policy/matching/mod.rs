@@ -214,6 +214,17 @@ mod tests {
     }
 
     #[test]
+    fn tls_like_prefix_without_client_hello_structure_does_not_match_https_policy() {
+        let mut group = DesyncGroup::new(0);
+        group.matches.proto = IS_TCP | IS_HTTPS;
+        let config = config_with_groups(vec![group]);
+        let tls_like_prefix = [0x16, 0x03, 0x03, 0x00, 0x01, 0x01];
+
+        assert!(!is_tls_client_hello_payload(&tls_like_prefix));
+        assert!(!route_matches_payload(&config, 0, sample_dest(443), &tls_like_prefix, TransportProtocol::Tcp));
+    }
+
+    #[test]
     fn udp_host_filters_match_quic_initial_payloads() {
         let mut group = DesyncGroup::new(0);
         group.matches.proto = IS_UDP;

@@ -1,7 +1,7 @@
 use ripdpi_config::{QuicInitialMode, RuntimeConfig};
 use ripdpi_desync::{init_proto_info, ProtoInfo};
 use ripdpi_packets::classify::{default_registry, ProtocolId};
-use ripdpi_packets::{is_http, is_tls_client_hello, parse_quic_initial};
+use ripdpi_packets::{is_http, parse_quic_initial};
 
 use crate::runtime_policy::{ExtractedHost, HostSource};
 
@@ -43,9 +43,6 @@ pub(super) fn extract_host(config: &RuntimeConfig, payload: &[u8]) -> Option<Str
 }
 
 pub(super) fn is_tls_client_hello_payload(payload: &[u8]) -> bool {
-    if is_tls_client_hello(payload) {
-        return true;
-    }
     let mut info = ProtoInfo::default();
     init_proto_info(payload, &mut info);
     info.is_tls_client_hello()
