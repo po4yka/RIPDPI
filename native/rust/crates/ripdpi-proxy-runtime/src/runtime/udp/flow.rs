@@ -22,6 +22,7 @@ pub(super) struct UdpFlowActivationState {
     pub(super) awaiting_response: bool,
     pub(super) upstream: UdpSocket,
     pub(super) quic_migrated: bool,
+    pub(super) logical_target: SocketAddr,
     pub(super) current_target: SocketAddr,
     pub(super) target_candidates: Vec<SocketAddr>,
     pub(super) target_index: usize,

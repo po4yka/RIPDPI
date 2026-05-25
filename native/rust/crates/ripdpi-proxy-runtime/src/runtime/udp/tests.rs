@@ -1,7 +1,8 @@
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
+use std::time::Instant;
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_runtime_adapter::model::config::{
@@ -11,12 +12,18 @@ use ripdpi_proxy_runtime_adapter::model::decision::{ExtractedHost, HostSource, T
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::session::S_ATP_I4;
 
-use super::flow::udp_flow_at_capacity;
+use super::flow::{udp_flow_at_capacity, UdpFlowActivationState};
+use super::session::UdpFlowSession;
+use super::upstream_pump::pump_udp_upstream_responses;
 #[cfg(unix)]
 use super::upstream_pump::ready_udp_poll_keys;
-use super::{build_udp_relay_sockets, encode_socks5_udp_packet, parse_socks5_udp_packet, sockets};
+use super::{
+    build_udp_relay_sockets, encode_socks5_udp_packet, parse_socks5_udp_packet, sockets, RuntimeUdpPacketSettings,
+    RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy,
+};
 use crate::runtime::routing::preferred_targets_for_transport;
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::RuntimeConnectionRoute;
 
 fn test_runtime_state(config: RuntimeConfig) -> RuntimeState {
     test_runtime_state_with_context(config, None)
@@ -196,6 +203,60 @@ fn preferred_targets_for_transport_return_two_quic_edges_then_original_target() 
             original,
         ]
     );
+}
+
+#[test]
+fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
+    let state = test_runtime_state(RuntimeConfig::default());
+    let client_receiver =
+        UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).expect("client receiver");
+    client_receiver.set_read_timeout(Some(std::time::Duration::from_secs(1))).expect("client receiver timeout");
+    let client_relay = UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).expect("client relay");
+    let upstream = UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).expect("upstream socket");
+    upstream.set_nonblocking(true).expect("upstream nonblocking");
+    let upstream_peer = UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).expect("upstream peer");
+    upstream.connect(upstream_peer.local_addr().expect("upstream peer addr")).expect("connect upstream");
+    upstream_peer.connect(upstream.local_addr().expect("upstream addr")).expect("connect upstream peer");
+
+    let original_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 51, 100, 40)), 443);
+    let preferred_edge = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443);
+    let client_addr = client_receiver.local_addr().expect("client addr");
+    let mut flow_state = HashMap::new();
+    flow_state.insert(
+        (client_addr, original_target),
+        UdpFlowActivationState {
+            session: UdpFlowSession::new(),
+            last_used: Instant::now(),
+            route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },
+            socket_settings: RuntimeUdpSocketSettings { bind_low_port: false },
+            packet_settings: RuntimeUdpPacketSettings { default_ttl: 64, ip_id_mode: None },
+            source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
+            host: Some("example.org".to_string()),
+            payload: b"quic-initial".to_vec(),
+            awaiting_response: true,
+            upstream,
+            quic_migrated: false,
+            logical_target: original_target,
+            current_target: preferred_edge,
+            target_candidates: vec![preferred_edge, original_target],
+            target_index: 0,
+            cache_host: true,
+        },
+    );
+
+    upstream_peer.send(b"edge-response").expect("send upstream response");
+
+    let mut upstream_buffer = [0u8; 1500];
+    assert!(pump_udp_upstream_responses(&state, &client_relay, &mut upstream_buffer, &mut flow_state, None)
+        .expect("pump upstream response"));
+    let mut client_buffer = [0u8; 1500];
+    let (n, _) = client_receiver.recv_from(&mut client_buffer).expect("client response");
+    let (decoded_target, payload) =
+        parse_socks5_udp_packet(&client_buffer[..n], &state).expect("parse client response");
+
+    assert_eq!(decoded_target, original_target);
+    assert_ne!(decoded_target, preferred_edge);
+    assert_eq!(payload, b"edge-response");
 }
 
 #[test]

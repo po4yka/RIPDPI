@@ -134,7 +134,7 @@ pub(super) fn reselect_udp_flow_target(
 pub(super) fn store_udp_route_hint(state: &RuntimeState, entry: &UdpFlowActivationState) -> io::Result<()> {
     if let Some(host) = entry.host.clone().filter(|_| entry.cache_host) {
         state.store_udp_route_hint(
-            entry.current_target,
+            entry.logical_target,
             entry.route.group_index,
             entry.route.attempted_mask,
             Some(host),
@@ -213,6 +213,7 @@ fn build_initial_udp_flow_entry(
         awaiting_response: true,
         upstream: selection.upstream,
         quic_migrated: false,
+        logical_target: packet.original_target,
         current_target: selection.target,
         target_candidates,
         target_index: selection.target_index,

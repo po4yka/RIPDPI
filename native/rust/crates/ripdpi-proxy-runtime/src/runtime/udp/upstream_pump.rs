@@ -35,7 +35,7 @@ pub(super) fn pump_udp_upstream_responses(
                 entry.session.observe_upstream_response(&upstream_buffer[..n]);
                 note_udp_first_response_success(state, entry)?;
                 maybe_rebind_udp_source_port(state, entry, &upstream_buffer[..n], protect_path)?;
-                let packet = encode_socks5_udp_packet(entry.current_target, &upstream_buffer[..n]);
+                let packet = encode_socks5_udp_packet(entry.logical_target, &upstream_buffer[..n]);
                 client_relay.send_to(&packet, client_addr)?;
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}

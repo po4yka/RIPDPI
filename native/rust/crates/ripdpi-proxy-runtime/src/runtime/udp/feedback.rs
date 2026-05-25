@@ -126,6 +126,7 @@ mod tests {
             awaiting_response,
             upstream: UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind udp upstream"),
             quic_migrated: false,
+            logical_target: current_target,
             current_target,
             target_candidates: vec![current_target],
             target_index: 0,
