@@ -65,8 +65,10 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTab
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
 import com.poyka.ripdpi.ui.components.inputs.RipDpiToggleAlternatives
 import com.poyka.ripdpi.ui.screens.diagnostics.HandshakeTimelineScreen
+import com.poyka.ripdpi.ui.screens.diagnostics.LatencyGraphScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.ThroughputGraphScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleHandshakeTimelineState
+import com.poyka.ripdpi.ui.screens.diagnostics.sampleLatencyGraphState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleThroughputGraphState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -176,6 +178,24 @@ class RdsComponentsScreenshotTest {
                         downNowLabel = "1.42 MiB/s",
                         upNowLabel = "312 KiB/s",
                         sessionTotalLabel = "↓ 128 MiB",
+                    ),
+            )
+        }
+    }
+
+    @Test
+    fun latencyGraph() {
+        captureBothThemes("latencyGraph", widthDp = 720, heightDp = 480) {
+            LatencyGraphScreen(
+                state =
+                    sampleLatencyGraphState(
+                        title = "RTT & loss · last 60 s",
+                        p50Label = "32 ms",
+                        p95Label = "128 ms",
+                        nowLabel = "32 ms",
+                        p99Label = "184 ms",
+                        spikeCountLabel = "3",
+                        packetLossLabel = "4.1%",
                     ),
             )
         }

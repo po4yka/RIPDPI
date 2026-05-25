@@ -224,6 +224,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object LatencyGraph : Route() {
+        override val stableRoute = "latency_graph"
+        override val titleRes = R.string.title_latency_graph
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class SharedDiagnosticResult(
         val fragment: String = "",
     ) : Route() {
@@ -328,6 +335,8 @@ sealed class Route {
                     ReplayFailure,
                     ReplayHistory,
                     HandshakeTimeline,
+                    ThroughputGraph,
+                    LatencyGraph,
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),
