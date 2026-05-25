@@ -207,7 +207,6 @@ impl<T: AsyncRead + Unpin> PasswordAuthenticationImpl<T, password_states::Starte
         }
 
         let username = read_exact!(socket, vec![0u8; user_len as usize]).err_when("reading username")?;
-        debug!("username bytes: {:?}", &username);
 
         let [pass_len] = read_exact!(socket, [0u8; 1]).err_when("reading password len")?;
         debug!("Auth: [pass len: {len}]", len = pass_len,);
@@ -217,12 +216,24 @@ impl<T: AsyncRead + Unpin> PasswordAuthenticationImpl<T, password_states::Starte
         }
 
         let password = read_exact!(socket, vec![0u8; pass_len as usize]).err_when("reading password")?;
-        debug!("password bytes: {:?}", &password);
 
         let username = String::from_utf8(username).err_when("converting username")?;
         let password = String::from_utf8(password).err_when("converting password")?;
 
         Ok((username, password, PasswordAuthenticationImpl::new(socket)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn password_auth_logs_do_not_include_credential_bytes() {
+        let source = include_str!("protocol.rs");
+        let forbidden = ["username ".to_owned() + "bytes", "password ".to_owned() + "bytes"];
+
+        for phrase in forbidden {
+            assert!(!source.contains(&phrase), "secret-bearing log phrase must not appear: {phrase}");
+        }
     }
 }
 
