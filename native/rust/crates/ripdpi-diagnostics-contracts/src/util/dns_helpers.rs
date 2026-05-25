@@ -39,7 +39,10 @@ pub fn looks_like_sinkhole(value: &str) -> bool {
                 || addr.is_multicast()
         }
         Ok(IpAddr::V6(addr)) => {
-            addr.is_unspecified() || addr.is_loopback() || addr.is_multicast() || addr.segments()[0] == 0xfc00
+            let first_segment = addr.segments()[0];
+            let is_unique_local = (first_segment & 0xfe00) == 0xfc00;
+            let is_link_local = (first_segment & 0xffc0) == 0xfe80;
+            addr.is_unspecified() || addr.is_loopback() || addr.is_multicast() || is_unique_local || is_link_local
         }
         Err(_) => true,
     }

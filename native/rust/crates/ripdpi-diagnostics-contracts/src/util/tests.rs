@@ -232,6 +232,14 @@ fn answer_overlap_flags_substitution_on_loopback() {
 }
 
 #[test]
+fn answer_overlap_flags_substitution_on_ipv6_private_and_link_local() {
+    let unique_local = classify_dns_answer_overlap(&["fd00::53".to_string()], &["2606:4700:4700::1111".to_string()]);
+    assert_eq!(unique_local, DnsAnswerOverlap::SinkholeSubstitution);
+    let link_local = classify_dns_answer_overlap(&["fe80::53".to_string()], &["2606:4700:4700::1111".to_string()]);
+    assert_eq!(link_local, DnsAnswerOverlap::SinkholeSubstitution);
+}
+
+#[test]
 fn answer_overlap_matches_on_shared_v6_slash48() {
     let overlap =
         classify_dns_answer_overlap(&["2606:4700:4700::1111".to_string()], &["2606:4700:4700::1001".to_string()]);
@@ -245,6 +253,10 @@ fn sinkhole_detects_unspecified_and_private() {
     assert!(looks_like_sinkhole("10.1.2.3"));
     assert!(looks_like_sinkhole("192.168.0.1"));
     assert!(looks_like_sinkhole("::1"));
+    assert!(looks_like_sinkhole("fc12:3456::1"));
+    assert!(looks_like_sinkhole("fd12:3456::1"));
+    assert!(looks_like_sinkhole("fe80::1"));
+    assert!(looks_like_sinkhole("febf:ffff::1"));
     assert!(!looks_like_sinkhole("142.250.75.78"));
     assert!(!looks_like_sinkhole("2606:4700:4700::1111"));
     assert!(looks_like_sinkhole("not-an-ip"));
