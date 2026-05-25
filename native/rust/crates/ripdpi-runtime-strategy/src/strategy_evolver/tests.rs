@@ -1,7 +1,9 @@
 use std::hash::{Hash, Hasher};
 
 use ripdpi_config::{EntropyMode, OffsetBase, QuicFakeProfile};
-use ripdpi_desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
+use ripdpi_desync::{
+    AdaptiveOobBytePlacement, AdaptiveTimingJitterProfile, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile,
+};
 use ripdpi_failure_classifier::FailureClass;
 
 use super::selection::{combo_matches_bucket, pilot_combo_for_bucket};
@@ -120,6 +122,37 @@ fn evolver_respects_max_combos_limit() {
     }
 
     assert!(e.combos.len() <= 4, "should respect max_combos limit, got {}", e.combos.len());
+}
+
+#[test]
+fn combo_pool_includes_timing_jitter_and_oob_placement_axes() {
+    let combos: Vec<_> = (0..COMBO_POOL.len()).map(combo_from_pool).collect();
+
+    assert!(
+        combos.iter().any(|combo| combo.timing_jitter_profile == Some(AdaptiveTimingJitterProfile::Balanced)),
+        "bounded pool should explore timing jitter"
+    );
+    assert!(
+        combos.iter().any(|combo| combo.oob_byte_placement == Some(AdaptiveOobBytePlacement::PostSni)),
+        "bounded pool should explore OOB byte placement"
+    );
+}
+
+#[test]
+fn timing_and_oob_combos_match_tls_bucket() {
+    let timing = StrategyCombo {
+        timing_jitter_profile: Some(AdaptiveTimingJitterProfile::Aggressive),
+        ..StrategyCombo::default_combo()
+    };
+    let oob = StrategyCombo {
+        oob_byte_placement: Some(AdaptiveOobBytePlacement::MidPayload),
+        ..StrategyCombo::default_combo()
+    };
+
+    assert_eq!(timing.family(), StrategyFamily::TimingJitter);
+    assert_eq!(oob.family(), StrategyFamily::OobPlacement);
+    assert!(combo_matches_bucket(&timing, LearningTargetBucket::Tls));
+    assert!(combo_matches_bucket(&oob, LearningTargetBucket::Tls));
 }
 
 // Offline-learner hardening.
@@ -572,6 +605,8 @@ fn to_hints_maps_all_fields() {
         quic_fake_profile: Some(QuicFakeProfile::RealisticInitial),
         fake_ttl: Some(8),
         entropy_mode: Some(EntropyMode::Shannon),
+        timing_jitter_profile: Some(AdaptiveTimingJitterProfile::Balanced),
+        oob_byte_placement: Some(AdaptiveOobBytePlacement::PostSni),
     };
     let hints = combo.to_hints();
     assert_eq!(hints.split_offset_base, Some(OffsetBase::AutoHost));
@@ -580,6 +615,8 @@ fn to_hints_maps_all_fields() {
     assert_eq!(hints.udp_burst_profile, Some(AdaptiveUdpBurstProfile::Conservative));
     assert_eq!(hints.quic_fake_profile, Some(QuicFakeProfile::RealisticInitial));
     assert_eq!(hints.entropy_mode, Some(EntropyMode::Shannon));
+    assert_eq!(hints.timing_jitter_profile, Some(AdaptiveTimingJitterProfile::Balanced));
+    assert_eq!(hints.oob_byte_placement, Some(AdaptiveOobBytePlacement::PostSni));
 }
 
 #[test]
@@ -1187,6 +1224,8 @@ fn shared_prior_for_returns_loaded_record_by_canonical_hash() {
         quic_fake_profile: None,
         fake_ttl: Some(8),
         entropy_mode: None,
+        timing_jitter_profile: None,
+        oob_byte_placement: None,
     };
     let hash = canonical_combo_hash(&combo);
     let priors_json = format!("{{\"combo_hash\": {hash}, \"alpha\": 7.0, \"beta\": 3.0}}\n");

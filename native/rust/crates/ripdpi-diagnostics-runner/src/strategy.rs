@@ -9,11 +9,9 @@ mod failure;
 mod overrides;
 mod resolution;
 
-use self::adapters::candidates::{
-    strategy_probe_encrypted_dns_context, strategy_probe_encrypted_dns_endpoint, strategy_probe_encrypted_dns_label,
-    StrategyProbeBaseline,
-};
+use self::adapters::candidates::{strategy_probe_encrypted_dns_label, StrategyProbeBaseline};
 use self::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
+use crate::probe_context::ProbeExecutionContext;
 use crate::types::{DomainTarget, ProbeResult};
 
 use self::classification::classify_target_dns_integrity;
@@ -34,12 +32,24 @@ pub fn detect_strategy_probe_dns_tampering(
     targets: &[DomainTarget],
     runtime_context: Option<&ProxyRuntimeContext>,
 ) -> Option<StrategyProbeBaseline> {
+    let probe_context = ProbeExecutionContext::from_runtime_context(
+        ripdpi_diagnostics_protocols::transport::direct_transport(),
+        runtime_context,
+    )
+    .ok()?;
+    detect_strategy_probe_dns_tampering_with_context(targets, runtime_context, &probe_context)
+}
+
+pub fn detect_strategy_probe_dns_tampering_with_context(
+    targets: &[DomainTarget],
+    runtime_context: Option<&ProxyRuntimeContext>,
+    probe_context: &ProbeExecutionContext,
+) -> Option<StrategyProbeBaseline> {
     if targets.is_empty() {
         return None;
     }
 
-    let resolver_context = strategy_probe_encrypted_dns_context(runtime_context);
-    let resolver_endpoint = strategy_probe_encrypted_dns_endpoint(&resolver_context).ok()?;
+    let (resolver_context, resolver_endpoint) = probe_context.strategy_resolver_context(runtime_context).ok()?;
     let resolver_label = strategy_probe_encrypted_dns_label(&resolver_context);
     let mut results = Vec::new();
     let mut classified = None;
@@ -54,6 +64,7 @@ pub fn detect_strategy_probe_dns_tampering(
             target,
             resolver_endpoint.clone(),
             resolver_context.resolver_id.as_deref(),
+            probe_context,
         );
 
         let Some(evaluation) = evaluate_strategy_dns_target(

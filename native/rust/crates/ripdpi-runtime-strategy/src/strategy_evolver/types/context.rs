@@ -78,6 +78,8 @@ pub(crate) enum StrategyFamily {
     QuicFake,
     FakeTtl,
     Entropy,
+    TimingJitter,
+    OobPlacement,
     Mixed,
 }
 

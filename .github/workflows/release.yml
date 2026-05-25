@@ -30,6 +30,9 @@ jobs:
           rust-cache-save: "true"
           gradle-cache-read-only: "false"
 
+      - name: Check owned-stack TLS fingerprint snapshot
+        run: bash scripts/ci/check-owned-stack-tls-fingerprint.sh
+
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $GITHUB_WORKSPACE/release.keystore
 

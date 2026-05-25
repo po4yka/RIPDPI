@@ -4,6 +4,8 @@ mod entry;
 mod entry_dispatch;
 mod executor;
 mod native_ech;
+#[cfg(test)]
+mod owned_stack_fingerprint_snapshot_tests;
 mod redirect;
 mod request;
 mod socket_protection;

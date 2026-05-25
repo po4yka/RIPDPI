@@ -119,6 +119,7 @@ mod tests {
             started_at: 0,
             total_steps: 4,
             transport: direct_transport(),
+            probe_context: crate::connectivity::ProbeExecutionContext::new(direct_transport()),
             stage_order: Vec::new(),
             strategy: None,
         }

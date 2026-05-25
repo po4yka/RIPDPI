@@ -1,8 +1,8 @@
 //! Session-level strategy evolution for DPI evasion parameter combinations.
 //!
 //! This module implements a UCB1 multi-armed bandit that explores *combinations*
-//! across the 5 adaptive dimensions plus fake-TTL using epsilon-greedy + UCB1
-//! selection. It operates at the **session** level: a single [`StrategyEvolver`]
+//! across adaptive dimensions, fake-TTL, timing jitter, and OOB-byte placement
+//! using epsilon-greedy + UCB1 selection. It operates at the **session** level: a single [`StrategyEvolver`]
 //! instance picks one [`StrategyCombo`] at a time and holds it until feedback
 //! (success/failure) arrives.
 //!

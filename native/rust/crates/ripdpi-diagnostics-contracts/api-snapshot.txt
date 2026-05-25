@@ -107,6 +107,10 @@ pub ripdpi_diagnostics_contracts::types::TelegramVerdict::Error
 pub ripdpi_diagnostics_contracts::types::TelegramVerdict::Ok
 pub ripdpi_diagnostics_contracts::types::TelegramVerdict::Partial
 pub ripdpi_diagnostics_contracts::types::TelegramVerdict::Slow
+pub enum ripdpi_diagnostics_contracts::types::TelegramWsTunnelStatus
+pub ripdpi_diagnostics_contracts::types::TelegramWsTunnelStatus::Ok
+pub ripdpi_diagnostics_contracts::types::TelegramWsTunnelStatus::Unknown
+pub ripdpi_diagnostics_contracts::types::TelegramWsTunnelStatus::Unreachable
 pub enum ripdpi_diagnostics_contracts::types::ThroughputProbeStatus
 pub ripdpi_diagnostics_contracts::types::ThroughputProbeStatus::HttpUnreachable
 pub ripdpi_diagnostics_contracts::types::ThroughputProbeStatus::InvalidTarget
@@ -468,11 +472,19 @@ pub ripdpi_diagnostics_contracts::types::TelegramDcEndpoint::label: alloc::strin
 pub ripdpi_diagnostics_contracts::types::TelegramDcEndpoint::port: u16
 pub struct ripdpi_diagnostics_contracts::types::TelegramObservationFact
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::dc_reachable: usize
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::dc_results: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::dc_total: usize
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::download_avg_bps: u64
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::download_peak_bps: u64
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::download_status: ripdpi_diagnostics_contracts::TelegramTransferStatus
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::quality_score: i32
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::upload_avg_bps: u64
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::upload_peak_bps: u64
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::upload_status: ripdpi_diagnostics_contracts::TelegramTransferStatus
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::verdict: ripdpi_diagnostics_contracts::TelegramVerdict
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::ws_tunnel_error: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::ws_tunnel_rtt_ms: u64
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::ws_tunnel_status: ripdpi_diagnostics_contracts::TelegramWsTunnelStatus
 pub struct ripdpi_diagnostics_contracts::types::TelegramTarget
 pub ripdpi_diagnostics_contracts::types::TelegramTarget::dc_endpoints: alloc::vec::Vec<ripdpi_diagnostics_contracts::TelegramDcEndpoint>
 pub ripdpi_diagnostics_contracts::types::TelegramTarget::media_url: alloc::string::String
@@ -760,6 +772,10 @@ pub ripdpi_diagnostics_contracts::TelegramVerdict::Error
 pub ripdpi_diagnostics_contracts::TelegramVerdict::Ok
 pub ripdpi_diagnostics_contracts::TelegramVerdict::Partial
 pub ripdpi_diagnostics_contracts::TelegramVerdict::Slow
+pub enum ripdpi_diagnostics_contracts::TelegramWsTunnelStatus
+pub ripdpi_diagnostics_contracts::TelegramWsTunnelStatus::Ok
+pub ripdpi_diagnostics_contracts::TelegramWsTunnelStatus::Unknown
+pub ripdpi_diagnostics_contracts::TelegramWsTunnelStatus::Unreachable
 pub enum ripdpi_diagnostics_contracts::ThroughputProbeStatus
 pub ripdpi_diagnostics_contracts::ThroughputProbeStatus::HttpUnreachable
 pub ripdpi_diagnostics_contracts::ThroughputProbeStatus::InvalidTarget
@@ -1207,11 +1223,19 @@ pub ripdpi_diagnostics_contracts::TelegramDcEndpoint::label: alloc::string::Stri
 pub ripdpi_diagnostics_contracts::TelegramDcEndpoint::port: u16
 pub struct ripdpi_diagnostics_contracts::TelegramObservationFact
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::dc_reachable: usize
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::dc_results: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::dc_total: usize
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::download_avg_bps: u64
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::download_peak_bps: u64
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::download_status: ripdpi_diagnostics_contracts::TelegramTransferStatus
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::quality_score: i32
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::upload_avg_bps: u64
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::upload_peak_bps: u64
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::upload_status: ripdpi_diagnostics_contracts::TelegramTransferStatus
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::verdict: ripdpi_diagnostics_contracts::TelegramVerdict
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::ws_tunnel_error: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::ws_tunnel_rtt_ms: u64
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::ws_tunnel_status: ripdpi_diagnostics_contracts::TelegramWsTunnelStatus
 pub struct ripdpi_diagnostics_contracts::TelegramTarget
 pub ripdpi_diagnostics_contracts::TelegramTarget::dc_endpoints: alloc::vec::Vec<ripdpi_diagnostics_contracts::TelegramDcEndpoint>
 pub ripdpi_diagnostics_contracts::TelegramTarget::media_url: alloc::string::String

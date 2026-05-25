@@ -9,6 +9,7 @@ RIPDPI currently ships:
 - HTTP/3 `CONNECT` for TCP
 - HTTP/3 `CONNECT-UDP`
 - HTTP/2 TCP fallback
+- optional ECH configuration for owned MASQUE outbounds: HTTP/3 uses rustls ECH, HTTP/2 fallback applies the same ECHConfigList through the BoringSSL fingerprinted TLS path
 - bearer auth
 - preshared auth via `Proxy-Authorization: Preshared ...`
 - `privacy_pass` retry flow driven by a deployer-supplied token provider
@@ -29,6 +30,7 @@ The Cloudflare-direct path includes the interoperability fixes required for norm
 - non-HTTPS MASQUE URLs are rejected before native startup
 - Cloudflare mTLS auth failures are classified as identity or certificate rejection instead of being misreported as Privacy Pass retry paths
 - successful HTTP/3 to HTTP/2 fallback is recorded in runtime telemetry
+- MASQUE ECH configuration fails closed: rejected ECH with server retry configs is surfaced as an ECH retry requirement instead of silently retrying with cleartext SNI
 
 This moved MASQUE from basic plumbing to rollout-ready transport behavior.
 

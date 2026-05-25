@@ -3,6 +3,7 @@ use std::sync::Arc;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::run_domain_probe_with_key_log;
+use crate::connectivity::ProbeExecutionContext;
 use crate::engine::runtime::ExecutionPlan;
 use crate::types::{DomainTarget, ProbeResult};
 
@@ -29,6 +30,7 @@ impl ConnectivityProbeFamily for WebFamily {
     fn run_probe(
         target: &Self::Target,
         plan: &ExecutionPlan,
+        _probe_context: &ProbeExecutionContext,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> ProbeResult {
         run_domain_probe_with_key_log(

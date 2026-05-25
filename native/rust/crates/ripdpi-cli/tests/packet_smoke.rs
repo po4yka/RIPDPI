@@ -33,6 +33,7 @@ const ARTIFACT_DIR_ENV: &str = "RIPDPI_PACKET_SMOKE_ARTIFACT_DIR";
 const INTERFACE_ENV: &str = "RIPDPI_PACKET_SMOKE_IFACE";
 const TCPDUMP_BIN_ENV: &str = "RIPDPI_PACKET_SMOKE_TCPDUMP_BIN";
 const TSHARK_BIN_ENV: &str = "RIPDPI_PACKET_SMOKE_TSHARK_BIN";
+const GENERATOR_METADATA_ENV: &str = "RIPDPI_PACKET_SMOKE_GENERATOR_METADATA";
 
 #[test]
 fn cli_packet_smoke_tcp_split_family() {
@@ -227,6 +228,40 @@ fn cli_packet_smoke_adaptive_family() {
     );
 }
 
+#[test]
+fn cli_packet_smoke_generated_cell() {
+    if !packet_smoke_enabled() {
+        eprintln!("skipping cli_packet_smoke_generated_cell because {ENABLE_ENV} is not enabled");
+        return;
+    }
+    let metadata = generated_cell_metadata().expect("generated packet-smoke metadata");
+    let id = generated_cell_id(&metadata);
+    match generated_cell_traffic_kind(&metadata) {
+        "tcp_http" => run_capture_scenario(
+            id,
+            |_| generated_tcp_http_args(&metadata),
+            |manifest| format!("tcp and port {}", manifest.tcp_echo_port),
+            |proxy_port, fixture| drive_http_echo_best_effort(proxy_port, fixture, "generated-http"),
+            |run| assert_generated_tcp_http(run, &metadata),
+        ),
+        "tcp_tls" => run_capture_scenario(
+            id,
+            |_| generated_tcp_tls_args(&metadata),
+            |manifest| format!("tcp and port {}", manifest.tls_echo_port),
+            drive_tls_probe_best_effort,
+            |run| assert_generated_tcp_tls(run, &metadata),
+        ),
+        "udp_quic" => run_capture_scenario(
+            id,
+            |_| generated_udp_quic_args(&metadata),
+            |manifest| format!("udp and port {}", manifest.udp_echo_port),
+            drive_udp_quic_round_trip,
+            |run| assert_generated_udp_quic(run, &metadata),
+        ),
+        other => panic!("unsupported generated packet-smoke traffic kind: {other}"),
+    }
+}
+
 fn run_capture_scenario<Args, Filter, Drive, Assert>(
     id: &str,
     build_args: Args,
@@ -249,7 +284,8 @@ fn run_capture_scenario<Args, Filter, Drive, Assert>(
 
     let paths = ScenarioPaths::new(id).expect("create scenario artifact directory");
     let fixture = FixtureStack::start(dynamic_fixture_config()).expect("start local packet smoke fixture");
-    write_json_pretty(&paths.fixture_manifest, fixture.manifest()).expect("write fixture manifest artifact");
+    write_fixture_manifest_artifact(&paths.fixture_manifest, fixture.manifest())
+        .expect("write fixture manifest artifact");
 
     let listen_port = reserve_listen_port();
     let cli_args = build_cli_args(listen_port, build_args(&paths));
@@ -350,6 +386,161 @@ fn drive_adaptive_round_trip(proxy_port: u16, fixture: &FixtureStack) -> Result<
         drive_http_echo_strict(proxy_port, fixture, &format!("adaptive-{round}"))?;
     }
     Ok(())
+}
+
+fn generated_cell_metadata() -> Result<Value, String> {
+    let raw = env::var(GENERATOR_METADATA_ENV)
+        .map_err(|_| format!("{GENERATOR_METADATA_ENV} must be set for generated packet-smoke cells"))?;
+    serde_json::from_str(&raw).map_err(|err| format!("failed to parse {GENERATOR_METADATA_ENV}: {err}; payload={raw}"))
+}
+
+fn generated_cell_id(metadata: &Value) -> &str {
+    metadata.get("id").and_then(Value::as_str).expect("generated cell id")
+}
+
+fn generated_cell_traffic_kind(metadata: &Value) -> &str {
+    metadata.get("trafficKind").and_then(Value::as_str).expect("generated cell trafficKind")
+}
+
+fn generated_axis_value<'a>(metadata: &'a Value, name: &str) -> &'a str {
+    metadata
+        .get("generator_axis_values")
+        .and_then(|axis_values| axis_values.get(name))
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("generated cell missing axis {name}"))
+}
+
+fn generated_tcp_http_args(metadata: &Value) -> Vec<String> {
+    let split_offset = generated_axis_value(metadata, "split_offset");
+    let fake_ttl = generated_axis_value(metadata, "fake_ttl_ladder");
+    let oob_placement = generated_axis_value(metadata, "oob_byte_placement");
+    let mut args = vec!["-K".to_string(), "h".to_string()];
+    if fake_ttl != "off" {
+        push_args(&mut args, ["-t", fake_ttl]);
+    }
+    if oob_placement == "off" {
+        push_args(&mut args, ["-s", split_offset]);
+    } else {
+        push_args(&mut args, ["-o", split_offset, "--oob-data", generated_oob_data(oob_placement)]);
+    }
+    args
+}
+
+fn generated_tcp_tls_args(metadata: &Value) -> Vec<String> {
+    let split_offset = generated_axis_value(metadata, "split_offset");
+    let tls_record_split = generated_axis_value(metadata, "tls_record_split");
+    let tls_profile = generated_axis_value(metadata, "tlsrandrec_profile");
+    let fake_ttl = generated_axis_value(metadata, "fake_ttl_ladder");
+    let oob_placement = generated_axis_value(metadata, "oob_byte_placement");
+    let mut args = vec!["-K".to_string(), "t".to_string()];
+    if fake_ttl != "off" {
+        push_args(&mut args, ["-t", fake_ttl, "-f", split_offset]);
+        push_args(&mut args, ["--fake-tls-profile", generated_tls_profile(tls_profile)]);
+    } else {
+        push_args(&mut args, ["-s", split_offset]);
+    }
+    match tls_record_split {
+        "none" => {}
+        "sniext" => push_args(&mut args, ["--tlsrec", "sniext"]),
+        "extlen" => push_args(&mut args, ["--tlsrec", "extlen"]),
+        "auto_midsld" => push_args(&mut args, ["--tlsrec", "auto(midsld)"]),
+        other => panic!("unsupported tls_record_split generated axis value: {other}"),
+    }
+    if oob_placement != "off" {
+        push_args(&mut args, ["-o", split_offset, "--oob-data", generated_oob_data(oob_placement)]);
+    }
+    args
+}
+
+fn generated_udp_quic_args(metadata: &Value) -> Vec<String> {
+    let udp_burst = generated_axis_value(metadata, "udp_burst");
+    let quic_fake_profile = generated_axis_value(metadata, "quic_fake_profile");
+    let mut args = vec!["-K".to_string(), "u".to_string(), "-H".to_string(), ":docs.example.test".to_string()];
+    push_args(&mut args, ["--quic-sni-split"]);
+    if let Some(count) = generated_udp_burst_count(udp_burst) {
+        push_args(&mut args, ["-a", count]);
+    }
+    match quic_fake_profile {
+        "off" => {}
+        "compat_default" => push_args(&mut args, ["--fake-quic-profile", "compat_default"]),
+        "realistic_initial" => {
+            push_args(
+                &mut args,
+                ["--fake-quic-profile", "realistic_initial", "--fake-quic-host", "video.example.test"],
+            );
+            push_args(&mut args, ["--quic-dummy-prepend"]);
+        }
+        other => panic!("unsupported quic_fake_profile generated axis value: {other}"),
+    }
+    args
+}
+
+fn generated_tls_profile(profile: &str) -> &str {
+    match profile {
+        "off" => "google_chrome",
+        "iana_firefox" | "google_chrome" | "bigsize_iana" => profile,
+        other => panic!("unsupported tlsrandrec_profile generated axis value: {other}"),
+    }
+}
+
+fn generated_udp_burst_count(burst: &str) -> Option<&'static str> {
+    match burst {
+        "off" => None,
+        "low" => Some("1"),
+        "medium" => Some("2"),
+        "high" => Some("3"),
+        other => panic!("unsupported udp_burst generated axis value: {other}"),
+    }
+}
+
+fn generated_oob_data(placement: &str) -> &str {
+    match placement {
+        "pre_handshake" => "\\x41",
+        "post_sni" => "\\x42",
+        "mid_app" => "\\x43",
+        other => panic!("unsupported oob_byte_placement generated axis value: {other}"),
+    }
+}
+
+fn push_args<const N: usize>(args: &mut Vec<String>, values: [&str; N]) {
+    args.extend(values.into_iter().map(str::to_string));
+}
+
+fn assert_generated_tcp_http(run: &ScenarioRun, metadata: &Value) -> Result<(), String> {
+    if generated_axis_value(metadata, "oob_byte_placement") != "off" {
+        assert_outbound_urgent(run, run.manifest.tcp_echo_port)?;
+    } else {
+        assert_tcp_payload_split(run, run.manifest.tcp_echo_port)?;
+    }
+    assert_generated_ttl_if_enabled(run, metadata, run.manifest.tcp_echo_port)
+}
+
+fn assert_generated_tcp_tls(run: &ScenarioRun, metadata: &Value) -> Result<(), String> {
+    assert_tcp_payload_to_port_captured(run, run.manifest.tls_echo_port)?;
+    if generated_axis_value(metadata, "oob_byte_placement") != "off" {
+        assert_outbound_urgent(run, run.manifest.tls_echo_port)?;
+    }
+    assert_generated_ttl_if_enabled(run, metadata, run.manifest.tls_echo_port)
+        .or_else(|_| assert_stderr_contains(run, "strategy_family=fake"))
+}
+
+fn assert_generated_udp_quic(run: &ScenarioRun, metadata: &Value) -> Result<(), String> {
+    let burst_count = generated_udp_burst_count(generated_axis_value(metadata, "udp_burst"))
+        .and_then(|count| count.parse::<usize>().ok())
+        .unwrap_or_default();
+    assert_udp_outbound_count_at_least(run, run.manifest.udp_echo_port, 2 + burst_count)?;
+    assert_stderr_contains(run, "docs.example.test")?;
+    assert_stderr_contains(run, "other.example.test")
+}
+
+fn assert_generated_ttl_if_enabled(run: &ScenarioRun, metadata: &Value, port: u16) -> Result<(), String> {
+    match generated_axis_value(metadata, "fake_ttl_ladder") {
+        "off" => Ok(()),
+        ttl => {
+            let ttl = ttl.parse::<u8>().map_err(|err| format!("invalid fake_ttl_ladder value: {err}"))?;
+            assert_outbound_ttl(run, port, ttl)
+        }
+    }
 }
 
 fn build_cli_args(listen_port: u16, scenario_args: Vec<String>) -> Vec<String> {
@@ -573,6 +764,19 @@ fn assert_tcp_payload_split(run: &ScenarioRun, port: u16) -> Result<(), String> 
     }
 }
 
+fn assert_tcp_payload_to_port_captured(run: &ScenarioRun, port: u16) -> Result<(), String> {
+    let count = run
+        .packets
+        .iter()
+        .filter(|packet| is_tcp_outbound(packet, port) && field_u64(packet, "tcp.len").unwrap_or_default() > 0)
+        .count();
+    if count >= 1 {
+        Ok(())
+    } else {
+        Err(format!("expected at least 1 outbound TCP payload packet for port {port}, got {count}"))
+    }
+}
+
 fn assert_outbound_ttl(run: &ScenarioRun, port: u16, ttl: u8) -> Result<(), String> {
     if run.packets.iter().any(|packet| {
         is_outbound_to_port(packet, port)
@@ -757,6 +961,31 @@ fn test_guard() -> MutexGuard<'static, ()> {
 fn write_json_pretty<T: serde::Serialize>(path: &Path, value: &T) -> io::Result<()> {
     let payload = serde_json::to_vec_pretty(value).map_err(io::Error::other)?;
     fs::write(path, payload)
+}
+
+fn write_fixture_manifest_artifact(path: &Path, manifest: &FixtureManifest) -> io::Result<()> {
+    let mut value = serde_json::to_value(manifest).map_err(io::Error::other)?;
+    if let Some(metadata) = generator_metadata_from_env()? {
+        merge_generator_metadata(&mut value, &metadata);
+    }
+    write_json_pretty(path, &value)
+}
+
+fn generator_metadata_from_env() -> io::Result<Option<Value>> {
+    let Some(raw) = env::var_os(GENERATOR_METADATA_ENV) else {
+        return Ok(None);
+    };
+    let raw = raw.to_string_lossy();
+    let value = serde_json::from_str::<Value>(&raw).map_err(io::Error::other)?;
+    Ok(Some(value))
+}
+
+fn merge_generator_metadata(manifest: &mut Value, metadata: &Value) {
+    manifest["generator_seed"] = metadata.get("generator_seed").cloned().unwrap_or(Value::Null);
+    manifest["generator_axis_values"] = metadata.get("generator_axis_values").cloned().unwrap_or(Value::Null);
+    manifest["generator_origin"] = metadata.get("generator_origin").cloned().unwrap_or(Value::Null);
+    manifest["generator_scenario_id"] = metadata.get("id").cloned().unwrap_or(Value::Null);
+    manifest["generator_traffic_kind"] = metadata.get("trafficKind").cloned().unwrap_or(Value::Null);
 }
 
 struct ScenarioRun {

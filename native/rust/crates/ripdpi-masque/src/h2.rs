@@ -27,10 +27,18 @@ pub(crate) async fn attempt_h2_connect_tcp(
         .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
     apply_h2_client_auth(&mut connector_builder, config)?;
     let connector = connector_builder.build();
-    let ssl = connector
+    let mut ssl = connector
         .configure()
         .map_err(|error| io::Error::other(format!("failed to configure H2 TLS profile: {error}")))?;
+    ripdpi_tls_profiles::configure_boring_ech(&mut ssl, config.ech_config.as_ref())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("MASQUE H2 ECH: {error}")))?;
     let tls = tokio_boring::connect(ssl, &proxy_origin.host, tcp).await.map_err(|error| {
+        if config.ech_config.is_some() && error.ssl().is_some_and(|ssl| ssl.get_ech_retry_configs().is_some()) {
+            return io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("MASQUE H2 ECH: {}", ripdpi_tls_profiles::EchOutboundError::RetryRequired),
+            );
+        }
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("H2 TLS handshake failed: {error}"))
     })?;
 

@@ -7,15 +7,17 @@ pub use ripdpi_shared_priors::{
 };
 
 use crate::strategy_evolver::types::{
-    entropy_mode_disc, offset_base_disc, quic_fake_disc, tls_randrec_disc, udp_burst_disc, StrategyCombo,
+    entropy_mode_disc, offset_base_disc, oob_placement_disc, quic_fake_disc, timing_jitter_disc, tls_randrec_disc,
+    udp_burst_disc, StrategyCombo,
 };
 
 /// Stable canonical hash of a [`StrategyCombo`] used as the key in shared
 /// priors bundles. Independent of [`std::hash::Hasher`] (whose algorithm
-/// is version-dependent) — this hash is FNV-1a 64-bit over a fixed 14-byte
-/// wire form, so an external signing tool can compute the same value.
+/// is version-dependent). The first 14 bytes preserve the original 7-dimension
+/// wire form; timing and OOB dimensions are appended only when selected so
+/// hashes for legacy combos stay stable.
 pub fn canonical_combo_hash(combo: &StrategyCombo) -> u64 {
-    let mut bytes = [0u8; 14];
+    let mut bytes = Vec::with_capacity(18);
     write_dim(&mut bytes, 0, combo.split_offset_base.map(offset_base_disc));
     write_dim(&mut bytes, 1, combo.tls_record_offset_base.map(offset_base_disc));
     write_dim(&mut bytes, 2, combo.tlsrandrec_profile.map(tls_randrec_disc));
@@ -23,12 +25,16 @@ pub fn canonical_combo_hash(combo: &StrategyCombo) -> u64 {
     write_dim(&mut bytes, 4, combo.quic_fake_profile.map(quic_fake_disc));
     write_dim(&mut bytes, 5, combo.fake_ttl);
     write_dim(&mut bytes, 6, combo.entropy_mode.map(entropy_mode_disc));
+    if combo.timing_jitter_profile.is_some() || combo.oob_byte_placement.is_some() {
+        write_dim(&mut bytes, 7, combo.timing_jitter_profile.map(timing_jitter_disc));
+        write_dim(&mut bytes, 8, combo.oob_byte_placement.map(oob_placement_disc));
+    }
     fnv1a_64(&bytes)
 }
 
-fn write_dim(out: &mut [u8; 14], slot: usize, disc: Option<u8>) {
-    out[slot * 2] = slot as u8;
-    out[slot * 2 + 1] = disc.unwrap_or(0xFF);
+fn write_dim(out: &mut Vec<u8>, slot: usize, disc: Option<u8>) {
+    out.push(slot as u8);
+    out.push(disc.unwrap_or(0xFF));
 }
 
 fn fnv1a_64(bytes: &[u8]) -> u64 {
@@ -48,6 +54,7 @@ pub(crate) mod manifest {
 #[cfg(test)]
 mod tests {
     use ripdpi_config::OffsetBase;
+    use ripdpi_desync::{AdaptiveOobBytePlacement, AdaptiveTimingJitterProfile};
 
     use super::*;
     use crate::strategy_evolver::StrategyCombo;
@@ -62,6 +69,8 @@ mod tests {
             quic_fake_profile: None,
             fake_ttl: None,
             entropy_mode: None,
+            timing_jitter_profile: None,
+            oob_byte_placement: None,
         };
         let expected = fnv1a_64(&[0, 0xFF, 1, 0xFF, 2, 0xFF, 3, 0xFF, 4, 0xFF, 5, 0xFF, 6, 0xFF]);
         assert_eq!(canonical_combo_hash(&combo), expected);
@@ -77,6 +86,8 @@ mod tests {
             quic_fake_profile: None,
             fake_ttl: Some(8),
             entropy_mode: None,
+            timing_jitter_profile: None,
+            oob_byte_placement: None,
         };
         let combo_b = StrategyCombo {
             split_offset_base: Some(OffsetBase::MidSld),
@@ -86,7 +97,25 @@ mod tests {
             quic_fake_profile: None,
             fake_ttl: Some(8),
             entropy_mode: None,
+            timing_jitter_profile: None,
+            oob_byte_placement: None,
         };
         assert_ne!(canonical_combo_hash(&combo_a), canonical_combo_hash(&combo_b));
+    }
+
+    #[test]
+    fn canonical_combo_hash_separates_timing_and_oob_dimensions() {
+        let timing = StrategyCombo {
+            timing_jitter_profile: Some(AdaptiveTimingJitterProfile::Balanced),
+            ..StrategyCombo::default_combo()
+        };
+        let oob = StrategyCombo {
+            oob_byte_placement: Some(AdaptiveOobBytePlacement::PostSni),
+            ..StrategyCombo::default_combo()
+        };
+
+        assert_ne!(canonical_combo_hash(&timing), canonical_combo_hash(&StrategyCombo::default_combo()));
+        assert_ne!(canonical_combo_hash(&oob), canonical_combo_hash(&StrategyCombo::default_combo()));
+        assert_ne!(canonical_combo_hash(&timing), canonical_combo_hash(&oob));
     }
 }

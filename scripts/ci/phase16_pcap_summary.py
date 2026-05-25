@@ -10,7 +10,10 @@ from typing import Any
 
 
 SUMMARY_VERSION = "phase16_pcap_summary_v1"
-SUPPORT_DIRECTORIES = {"shared"}
+SUPPORT_DIRECTORIES = {"shared", "l7-adversarial"}
+L7_VERDICT_REPORT = "l7-adversarial/verdict-report.json"
+L7_FAIL_VERDICT = "blocked"
+L7_PARTIAL_VERDICTS = {"degraded", "inconclusive"}
 
 
 def repo_root() -> Path:
@@ -86,6 +89,79 @@ def optional_artifacts(expected_artifacts: list[str], run_metadata: dict[str, An
     if run_metadata.get("captureMode") == "indirect":
         optional.add("device-capture.pcap")
     return sorted(optional.intersection(expected_artifacts))
+
+
+def relative_artifact_path(artifact_root: Path, path: Path) -> str:
+    try:
+        return path.relative_to(artifact_root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def l7_report_relative_path(run_metadata: dict[str, Any]) -> str:
+    configured = run_metadata.get("l7VerdictReport")
+    return configured if isinstance(configured, str) and configured else L7_VERDICT_REPORT
+
+
+def summarize_l7_cells(cells: list[dict[str, Any]]) -> list[dict[str, str]]:
+    return [
+        {
+            "desyncModeId": str(cell.get("desync_mode_id", "")),
+            "patternId": str(cell.get("pattern_id", "")),
+            "verdict": str(cell.get("verdict", "")),
+        }
+        for cell in cells
+    ]
+
+
+def summarize_l7_verdict_report(artifact_root: Path, run_metadata: dict[str, Any]) -> dict[str, Any]:
+    relative_path = l7_report_relative_path(run_metadata)
+    report_path = artifact_root / relative_path
+    empty_summary = {
+        "present": False,
+        "reportPath": relative_path,
+        "gateVerdict": "",
+        "cellCount": 0,
+        "failedCellCount": 0,
+        "partialCellCount": 0,
+        "totals": {},
+        "failedCells": [],
+        "partialCells": [],
+    }
+    if not report_path.exists():
+        return empty_summary
+    report = read_json(report_path)
+    cells = report.get("cells", []) if isinstance(report, dict) else []
+    failed_cells = [
+        cell
+        for cell in cells
+        if isinstance(cell, dict) and cell.get("verdict") == L7_FAIL_VERDICT
+    ]
+    partial_cells = [
+        cell
+        for cell in cells
+        if isinstance(cell, dict) and cell.get("verdict") in L7_PARTIAL_VERDICTS
+    ]
+    if failed_cells:
+        gate_verdict = "fail"
+    elif partial_cells or not cells:
+        gate_verdict = "partial"
+    else:
+        gate_verdict = "pass"
+    return {
+        "present": True,
+        "reportPath": relative_artifact_path(artifact_root, report_path),
+        "gateVerdict": gate_verdict,
+        "reportSchemaVersion": report.get("report_schema_version") if isinstance(report, dict) else None,
+        "matrixVersion": report.get("matrix_version") if isinstance(report, dict) else None,
+        "mode": report.get("mode", "") if isinstance(report, dict) else "",
+        "cellCount": len(cells),
+        "failedCellCount": len(failed_cells),
+        "partialCellCount": len(partial_cells),
+        "totals": report.get("totals", {}) if isinstance(report, dict) else {},
+        "failedCells": summarize_l7_cells(failed_cells),
+        "partialCells": summarize_l7_cells(partial_cells),
+    }
 
 
 def flatten_values(value: Any) -> list[str]:
@@ -176,6 +252,7 @@ def summarize_artifact_root(artifact_root: Path, registry: dict[str, dict]) -> d
     if not artifact_root.exists():
         raise FileNotFoundError(f"artifact root does not exist: {artifact_root}")
     run_metadata = load_run_metadata(artifact_root)
+    l7_summary = summarize_l7_verdict_report(artifact_root, run_metadata)
     scenario_dirs = sorted(
         path for path in artifact_root.iterdir() if path.is_dir() and path.name not in SUPPORT_DIRECTORIES
     )
@@ -189,7 +266,14 @@ def summarize_artifact_root(artifact_root: Path, registry: dict[str, dict]) -> d
             "runnerRequired": run_metadata.get("runnerRequired", "lab"),
             "evidenceTier": run_metadata.get("evidenceTier", "synthetic-lab"),
             "carrierNamespace": run_metadata.get("carrierNamespace", ""),
+            "l7VerdictReport": run_metadata.get("l7VerdictReport", ""),
+            "realProvider": run_metadata.get("realProvider", {}),
+            "prepareHook": run_metadata.get("prepareHook", {}),
         },
+        "linkedArtifacts": {
+            "l7VerdictReport": l7_summary["reportPath"] if l7_summary["present"] else "",
+        },
+        "l7Adversarial": l7_summary,
         "scenarioCount": len(scenario_dirs),
         "scenarios": [summarize_scenario(path, registry, run_metadata) for path in scenario_dirs],
     }

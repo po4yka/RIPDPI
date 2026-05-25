@@ -121,6 +121,22 @@
     ]
   },
   {
+    "id": "cli_packet_smoke_generated_cell",
+    "lane": "cli",
+    "requiredCapability": "host_pcap",
+    "testSelector": "cli_packet_smoke_generated_cell",
+    "trafficKind": "generated",
+    "generatedTemplate": true,
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "cli-stderr.log",
+      "test-output.txt",
+      "capture.pcap",
+      "capture.tshark.json"
+    ]
+  },
+  {
     "id": "android_proxy_tlsrec_family",
     "lane": "android_proxy",
     "requiredCapability": "adb_observable",

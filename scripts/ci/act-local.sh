@@ -49,7 +49,7 @@ declare -A JOB_MODE=(
   [rust-loom]="native"
   [rust-turmoil]="native"
   [rust-fuzz-smoke]="native"
-  [tspu-dryrun]="native"
+  [l7-dryrun]="native"
   [rust-criterion-bench]="native"
   [rust-network-e2e]="native"
   [build]="native"
@@ -59,7 +59,7 @@ declare -A JOB_MODE=(
   [coverage]="native"
   [cli-packet-smoke]="act"
   [local-network-lab]="act"
-  [tspu-live]="act"
+  [l7-live]="act"
   [android-macrobenchmark]="skip"
   [android-network-e2e]="skip"
   [linux-tun-e2e]="skip"
@@ -79,18 +79,18 @@ declare -A JOB_SKIP_REASON=(
   [nightly-rust-coverage]="Schedule-only nightly job"
   [cli-packet-smoke]="Needs tcpdump/tshark + cap_net_raw (use --act-only or Linux)"
   [local-network-lab]="Runs Docker lab doctor and readiness preflights through act"
-  [tspu-live]="Runs Linux nfqueue/nftables TSPU live smoke through act"
+  [l7-live]="Runs Linux nfqueue/nftables L7 adversarial live smoke through act"
 )
 
 declare -A JOB_WORKFLOW=(
   [cli-packet-smoke]="${REPO_ROOT}/.github/workflows/ci.yml"
   [local-network-lab]="${REPO_ROOT}/.github/workflows/local-network-lab.yml"
-  [tspu-live]="${REPO_ROOT}/.github/workflows/tspu-live.yml"
+  [l7-live]="${REPO_ROOT}/.github/workflows/l7-adversarial-live.yml"
 )
 
 declare -A JOB_ACT_ID=(
   [local-network-lab]="lab-doctor"
-  [tspu-live]="smoke"
+  [l7-live]="smoke"
 )
 
 # Ordered by speed -- fast checks first for quick feedback
@@ -101,7 +101,7 @@ ALL_NATIVE_JOBS=(
   rust-loom
   rust-turmoil
   rust-fuzz-smoke
-  tspu-dryrun
+  l7-dryrun
   rust-network-e2e
   rust-criterion-bench
   rust-cross-check
@@ -112,7 +112,7 @@ ALL_NATIVE_JOBS=(
   coverage
 )
 
-ALL_ACT_JOBS=(cli-packet-smoke local-network-lab tspu-live)
+ALL_ACT_JOBS=(cli-packet-smoke local-network-lab l7-live)
 
 # ── Helpers ─────────────────────────────────────────────────────────
 
@@ -161,8 +161,8 @@ run_native_rust_fuzz_smoke() {
   bash "$REPO_ROOT/scripts/ci/run-rust-fuzz-smoke.sh"
 }
 
-run_native_tspu_dryrun() {
-  bash "$REPO_ROOT/scripts/ci/run-tspu-dryrun.sh"
+run_native_l7_dryrun() {
+  bash "$REPO_ROOT/scripts/ci/run-l7-adversarial-dryrun.sh"
 }
 
 run_native_rust_network_e2e() {

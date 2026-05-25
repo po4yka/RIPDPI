@@ -6,7 +6,7 @@ pub(crate) mod candidates {
 }
 
 pub(crate) mod dns {
-    pub use ripdpi_diagnostics_protocols::dns::{build_fallback_encrypted_dns_endpoints, resolve_via_encrypted_dns};
+    pub use ripdpi_diagnostics_protocols::dns::resolve_via_encrypted_dns;
 }
 
 pub(crate) mod dns_oracle {
@@ -14,9 +14,7 @@ pub(crate) mod dns_oracle {
 }
 
 pub(crate) mod transport {
-    pub use ripdpi_diagnostics_protocols::transport::{
-        direct_transport, domain_connect_target, resolve_addresses, TargetAddress,
-    };
+    pub use ripdpi_diagnostics_protocols::transport::{domain_connect_target, resolve_addresses, TargetAddress};
 }
 
 pub(crate) mod util {

@@ -229,7 +229,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-full",
             name = "Russia DPI Full",
-            version = 5,
+            version = 6,
             family = CatalogDiagnosticProfileFamily.DPI_FULL,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -272,6 +272,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             circumventionTargets = circumvention.circumventionTargets,
             throughputTargets = listOf(throttling.throughputTargets.single(), neutralControl.throughputTargets.first()),
             whitelistSni = control.whitelistSni,
+            telegramTarget = DiagnosticsCatalogSharedData.dpiTelegramTarget,
         )
     }
 }

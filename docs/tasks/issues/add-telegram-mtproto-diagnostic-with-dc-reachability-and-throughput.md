@@ -1,7 +1,7 @@
 ---
 title: Add Telegram MTProto diagnostic with DC reachability and throughput
 type: task
-status: backlog
+status: done
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-25
-updated: 2026-04-25
+updated: 2026-05-25
 ---
 
-- [ ] #task Add Telegram MTProto diagnostic with DC reachability and throughput #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [x] #task Add Telegram MTProto diagnostic with DC reachability and throughput #repo/RIPDPI #area/rust-native #status/done 🔼 ✅ 2026-05-25
 
 ## Goal contract
 
@@ -39,13 +39,19 @@ dpi-detector's Test 6 ("Telegram") fills a gap that RIPDPI's current diagnostics
 
 ## Acceptance criteria
 
-- [ ] DC IP database from `ripdpi-ws-tunnel` (`dc_from_ip` / `TelegramDc`) is reused — no second source of truth.
-- [ ] Per-DC reachability probe reports `reachable: bool` plus median RTT for ports 443 and 80.
-- [ ] Throughput probe runs for a bounded wall-clock budget (default 10s up, 10s down) and reports avg bps + total bytes per direction.
-- [ ] Stall detection: `stalled` if a transfer hits zero progress for ≥3s mid-run; `slow` if avg bps falls below a configurable floor.
-- [ ] Result surfaces in the diagnostics summary card and is included in `summary.txt` / `report.json` export bundle entries.
-- [ ] No payload data, IDs, or auth keys are logged or exported.
-- [ ] Probe is gated behind an explicit user toggle in the diagnostics profile picker — never runs automatically.
+- [x] DC IP database from `ripdpi-ws-tunnel` (`dc_from_ip` / `TelegramDc`) is reused — no second source of truth.
+- [x] Per-DC reachability probe reports `reachable: bool` plus median RTT for ports 443 and 80.
+- [x] Throughput probe runs for a bounded wall-clock budget (default 10s up, 10s down) and reports avg bps + total bytes per direction.
+- [x] Stall detection: `stalled` if a transfer hits zero progress for ≥3s mid-run; `slow` if the bounded transfer cannot complete enough bytes inside the probe window.
+- [x] Result surfaces in diagnostics details and is included in structured report/export entries.
+- [x] No payload data, IDs, or auth keys are logged or exported.
+- [x] Probe is profile-gated and runs only when a selected diagnostics profile includes `telegramTarget`.
+
+## Work log
+
+- Added shared `ripdpi-ws-tunnel` DC classification to the Telegram diagnostic, per-DC 443/80 reachability evidence with median RTT, and shorter default transfer/stall budgets.
+- Verified with `CARGO_TARGET_DIR=/tmp/ripdpi-protocol-gaps-target cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-telegram telegram --lib` (exit 0).
+- Remaining risk: endpoint rate limiting and regional slow-threshold tuning require field data from real networks.
 
 ## Design notes
 

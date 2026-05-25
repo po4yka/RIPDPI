@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::classification::classified_failure_probe_result;
-use crate::strategy::detect_strategy_probe_dns_tampering;
+use crate::strategy::detect_strategy_probe_dns_tampering_with_context;
 
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
@@ -35,7 +35,8 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
         };
         let targets = &plan.request.domain_targets;
         let context = strategy_plan.runtime_context.as_ref();
-        let Some(baseline) = detect_strategy_probe_dns_tampering(targets, context) else {
+        let Some(baseline) = detect_strategy_probe_dns_tampering_with_context(targets, context, &plan.probe_context)
+        else {
             return RunnerOutcome::Completed;
         };
         let artifacts = RunnerArtifacts::from_results(

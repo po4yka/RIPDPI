@@ -297,6 +297,13 @@ enum class TelegramTransferStatus {
 }
 
 @Serializable
+enum class TelegramWsTunnelStatus {
+    OK,
+    UNREACHABLE,
+    UNKNOWN,
+}
+
+@Serializable
 enum class ThroughputProbeStatus {
     MEASURED,
     HTTP_UNREACHABLE,
@@ -392,6 +399,14 @@ data class TelegramObservationFact(
     val uploadStatus: TelegramTransferStatus = TelegramTransferStatus.ERROR,
     val dcReachable: Int = 0,
     val dcTotal: Int = 0,
+    val downloadAvgBps: Long = 0,
+    val downloadPeakBps: Long = 0,
+    val uploadAvgBps: Long = 0,
+    val uploadPeakBps: Long = 0,
+    val dcResults: List<String> = emptyList(),
+    val wsTunnelStatus: TelegramWsTunnelStatus = TelegramWsTunnelStatus.UNKNOWN,
+    val wsTunnelRttMs: Long = 0,
+    val wsTunnelError: String? = null,
 )
 
 @Serializable

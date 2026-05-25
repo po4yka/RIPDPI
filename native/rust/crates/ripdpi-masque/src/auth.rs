@@ -212,6 +212,7 @@ mod tests {
             tls_fingerprint_profile: "native_default".to_string(),
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
+            ech_config: None,
         })
         .expect("header")
         .expect("some");
@@ -234,6 +235,7 @@ mod tests {
             tls_fingerprint_profile: "native_default".to_string(),
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
+            ech_config: None,
         })
         .expect("header");
 
@@ -257,6 +259,7 @@ mod tests {
             tls_fingerprint_profile: "native_default".to_string(),
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
+            ech_config: None,
         })
         .expect("header");
 

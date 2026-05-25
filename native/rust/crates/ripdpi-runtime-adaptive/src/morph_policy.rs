@@ -1,5 +1,8 @@
-use ripdpi_config::{DesyncGroup, EntropyMode, QuicFakeProfile, TcpChainStepKind};
-use ripdpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
+use ripdpi_config::{DesyncGroup, EntropyMode, OffsetBase, OffsetExpr, QuicFakeProfile, TcpChainStepKind};
+use ripdpi_desync::{
+    AdaptiveOobBytePlacement, AdaptivePlannerHints, AdaptiveTimingJitterProfile, AdaptiveTlsRandRecProfile,
+    AdaptiveUdpBurstProfile,
+};
 use ripdpi_proxy_config::ProxyMorphPolicy;
 use ripdpi_runtime_policy::runtime_policy::is_tls_client_hello_payload;
 
@@ -40,11 +43,12 @@ pub fn apply_tcp_morph_policy_to_group(
     payload: &[u8],
     hints: AdaptivePlannerHints,
 ) -> DesyncGroup {
-    let Some(policy) = policy else {
-        return group.clone();
-    };
-    let mutations = TcpMorphMutations::from_policy(policy, payload, hints);
-    mutations.apply_to(group)
+    let mut morphed = group.clone();
+    if let Some(policy) = policy {
+        let mutations = TcpMorphMutations::from_policy(policy, payload, hints);
+        morphed = mutations.apply_to(&morphed);
+    }
+    apply_tcp_adaptive_hints_to_group(&morphed, hints)
 }
 
 pub fn tcp_morph_hint_family(
@@ -84,6 +88,31 @@ struct TcpMorphMutations {
     entropy_padding_max: Option<u32>,
     fake_tls_size: Option<i32>,
     cadence: Vec<u32>,
+}
+
+fn apply_tcp_adaptive_hints_to_group(group: &DesyncGroup, hints: AdaptivePlannerHints) -> DesyncGroup {
+    if hints.timing_jitter_profile.is_none() && hints.oob_byte_placement.is_none() {
+        return group.clone();
+    }
+    let mut morphed = group.clone();
+    if let Some(profile) = hints.timing_jitter_profile {
+        let delay_ms = timing_jitter_delay_ms(profile);
+        for step in morphed.actions.tcp_chain.iter_mut().filter(|step| step_supports_cadence(step.kind())) {
+            *step = step.clone().with_inter_segment_delay_ms(delay_ms);
+        }
+    }
+    if let Some(placement) = hints.oob_byte_placement {
+        let offset = oob_byte_placement_offset(placement);
+        for step in morphed
+            .actions
+            .tcp_chain
+            .iter_mut()
+            .filter(|step| matches!(step.kind(), TcpChainStepKind::Oob | TcpChainStepKind::Disoob))
+        {
+            *step = step.clone().with_offset(offset);
+        }
+    }
+    morphed
 }
 
 impl TcpMorphMutations {
@@ -175,6 +204,22 @@ fn select_tcp_cadence(policy: &ProxyMorphPolicy, is_tls: bool) -> Vec<u32> {
     source.iter().map(|value| (*value).max(0) as u32).collect()
 }
 
+fn timing_jitter_delay_ms(profile: AdaptiveTimingJitterProfile) -> u32 {
+    match profile {
+        AdaptiveTimingJitterProfile::Conservative => 25,
+        AdaptiveTimingJitterProfile::Balanced => 50,
+        AdaptiveTimingJitterProfile::Aggressive => 150,
+    }
+}
+
+fn oob_byte_placement_offset(placement: AdaptiveOobBytePlacement) -> OffsetExpr {
+    match placement {
+        AdaptiveOobBytePlacement::PreHandshake => OffsetExpr::absolute(0),
+        AdaptiveOobBytePlacement::PostSni => OffsetExpr::marker(OffsetBase::EndHost, 0),
+        AdaptiveOobBytePlacement::MidPayload => OffsetExpr::marker(OffsetBase::PayloadMid, 0),
+    }
+}
+
 fn step_supports_cadence(kind: TcpChainStepKind) -> bool {
     matches!(
         kind,
@@ -190,4 +235,51 @@ fn step_supports_cadence(kind: TcpChainStepKind) -> bool {
             | TcpChainStepKind::TlsRec
             | TcpChainStepKind::TlsRandRec
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use ripdpi_config::{DesyncGroup, OffsetBase, OffsetExpr, TcpChainStep, TcpChainStepKind};
+    use ripdpi_desync::{AdaptiveOobBytePlacement, AdaptivePlannerHints, AdaptiveTimingJitterProfile};
+
+    use super::apply_tcp_morph_policy_to_group;
+
+    #[test]
+    fn adaptive_tcp_hints_apply_without_morph_policy() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain = vec![
+            TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::host(1)),
+            TcpChainStep::new(TcpChainStepKind::Oob, OffsetExpr::host(2)),
+        ];
+        let hints = AdaptivePlannerHints {
+            timing_jitter_profile: Some(AdaptiveTimingJitterProfile::Aggressive),
+            oob_byte_placement: Some(AdaptiveOobBytePlacement::MidPayload),
+            ..AdaptivePlannerHints::default()
+        };
+
+        let morphed =
+            apply_tcp_morph_policy_to_group(None, &group, b"GET / HTTP/1.1\r\nHost: example.test\r\n\r\n", hints);
+
+        assert_eq!(morphed.actions.tcp_chain[0].inter_segment_delay_ms(), 150);
+        assert_eq!(morphed.actions.tcp_chain[1].inter_segment_delay_ms(), 150);
+        assert_eq!(morphed.actions.tcp_chain[1].offset(), OffsetExpr::marker(OffsetBase::PayloadMid, 0));
+    }
+
+    #[test]
+    fn adaptive_oob_placement_only_changes_oob_family_steps() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain = vec![
+            TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::host(1)),
+            TcpChainStep::new(TcpChainStepKind::Disoob, OffsetExpr::host(2)),
+        ];
+        let hints = AdaptivePlannerHints {
+            oob_byte_placement: Some(AdaptiveOobBytePlacement::PostSni),
+            ..AdaptivePlannerHints::default()
+        };
+
+        let morphed = apply_tcp_morph_policy_to_group(None, &group, b"", hints);
+
+        assert_eq!(morphed.actions.tcp_chain[0].offset(), OffsetExpr::host(1));
+        assert_eq!(morphed.actions.tcp_chain[1].offset(), OffsetExpr::marker(OffsetBase::EndHost, 0));
+    }
 }

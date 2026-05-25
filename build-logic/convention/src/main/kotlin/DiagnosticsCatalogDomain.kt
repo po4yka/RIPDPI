@@ -113,8 +113,8 @@ internal data class TelegramTargetDefinition(
     val uploadIp: String,
     val uploadPort: Int = 443,
     val dcEndpoints: List<TelegramDcEndpointDefinition> = emptyList(),
-    val stallTimeoutMs: Long = 10_000,
-    val totalTimeoutMs: Long = 60_000,
+    val stallTimeoutMs: Long = 3_000,
+    val totalTimeoutMs: Long = 10_000,
     val uploadSizeBytes: Int = 10_485_760,
 )
 

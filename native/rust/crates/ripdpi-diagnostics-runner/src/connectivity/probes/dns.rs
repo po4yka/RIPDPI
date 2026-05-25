@@ -1,12 +1,10 @@
 use std::collections::BTreeSet;
 
-use crate::connectivity::adapters::dns::{
-    build_fallback_encrypted_dns_endpoints, encrypted_dns_endpoint_for_target, resolve_via_encrypted_dns_with_raw,
-    resolve_via_udp_with_observations,
-};
+use crate::connectivity::adapters::dns::{resolve_via_encrypted_dns_with_raw, resolve_via_udp_with_observations};
 use crate::connectivity::adapters::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::connectivity::adapters::util::{is_suspected_dns_tampering_outcome, DEFAULT_DNS_SERVER};
+use crate::probe_context::ProbeExecutionContext;
 use crate::types::{DnsTarget, ProbeDetail, ProbeResult, ScanPathMode};
 
 use super::super::trigger_fuzzing::append_dns_trigger_fuzzing_details;
@@ -59,27 +57,29 @@ pub fn is_dns_injection_suspected(udp_latency_ms: &str, outcome: &str) -> bool {
 }
 
 pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &ScanPathMode) -> ProbeResult {
+    let context = ProbeExecutionContext::new(transport.clone());
+    run_dns_probe_with_context(target, &context, path_mode)
+}
+
+pub fn run_dns_probe_with_context(
+    target: &DnsTarget,
+    context: &ProbeExecutionContext,
+    path_mode: &ScanPathMode,
+) -> ProbeResult {
     let udp_server = target.udp_server.clone().unwrap_or_else(|| DEFAULT_DNS_SERVER.to_string());
-    let (encrypted_endpoint, encrypted_bootstrap_ips) = match encrypted_dns_endpoint_for_target(target) {
+    let resolvers = match context.resolvers_for_dns_target(target) {
         Ok(value) => value,
         Err(err) => return dns_probe_unavailable_result(target, err),
     };
-    let udp_resolution = resolve_via_udp_with_observations(&target.domain, &udp_server, transport);
+    let udp_resolution = resolve_via_udp_with_observations(&target.domain, &udp_server, context.transport());
     let udp_latency_ms = udp_resolution.latency_ms.to_string();
-    let target_uses_default_resolver =
-        target.encrypted_host.is_none() && target.encrypted_doh_url.is_none() && target.encrypted_protocol.is_none();
-    let fallback_endpoints = if target_uses_default_resolver {
-        build_fallback_encrypted_dns_endpoints(encrypted_endpoint.resolver_id.as_deref())
-    } else {
-        Vec::new()
-    };
     let oracle_assessment = evaluate_dns_oracles(
-        encrypted_endpoint.clone(),
-        &fallback_endpoints,
+        resolvers.primary.clone(),
+        &resolvers.fallback,
         2,
         |endpoint| {
             let (result, raw_response) =
-                resolve_via_encrypted_dns_with_raw(&target.domain, endpoint.clone(), transport);
+                resolve_via_encrypted_dns_with_raw(&target.domain, endpoint.clone(), context.transport());
             result.map(|addresses| DnsOracleResponse { addresses, raw_response })
         },
         |answer| answer.addresses.clone(),
@@ -102,7 +102,7 @@ pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode:
     );
     let injection_suspected = is_dns_injection_suspected(&udp_latency_ms, &outcome);
     let selected_endpoint =
-        oracle_assessment.selected.as_ref().map_or(&encrypted_endpoint, |selected| &selected.endpoint);
+        oracle_assessment.selected.as_ref().map_or(&resolvers.primary, |selected| &selected.endpoint);
     let selected_bootstrap_ips = selected_endpoint.bootstrap_ips.iter().map(ToString::to_string).collect::<Vec<_>>();
     let encrypted_addresses = match &encrypted_result {
         Ok(addresses) if !addresses.is_empty() => addresses.join("|"),
@@ -123,8 +123,8 @@ pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode:
             udp_error_kind: udp_resolution.error_kind.as_deref(),
             udp_retry_recovered: udp_resolution.retry_recovered,
             udp_cache_hit: udp_resolution.cache_hit,
-            encrypted_endpoint: &encrypted_endpoint,
-            encrypted_bootstrap_ips: &encrypted_bootstrap_ips,
+            encrypted_endpoint: &resolvers.primary,
+            encrypted_bootstrap_ips: &resolvers.bootstrap_ips,
             selected_bootstrap_ips: &selected_bootstrap_ips,
             encrypted_result: &encrypted_result,
             encrypted_addresses: &encrypted_addresses,
@@ -140,7 +140,7 @@ pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode:
         &udp_resolution.result,
         &encrypted_result,
         selected_endpoint,
-        transport,
+        context.transport(),
         &oracle_assessment,
     );
     result.details.extend(oracle_assessment.detail_entries());
@@ -168,7 +168,7 @@ pub fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode:
         append_dns_trigger_fuzzing_details(
             &mut result.details,
             target,
-            transport,
+            context.transport(),
             result.outcome.as_str(),
             &encrypted_result,
         );

@@ -25,7 +25,7 @@
           "type": "0000"
         },
         {
-          "dataLen": 10,
+          "dataLen": 12,
           "type": "000a"
         },
         {
@@ -39,10 +39,6 @@
         {
           "dataLen": 14,
           "type": "0010"
-        },
-        {
-          "dataLen": 232,
-          "type": "0015"
         },
         {
           "dataLen": 0,
@@ -61,7 +57,7 @@
           "type": "002d"
         },
         {
-          "dataLen": 43,
+          "dataLen": 1263,
           "type": "0033"
         },
         {
@@ -77,7 +73,6 @@
         "000b",
         "000d",
         "0010",
-        "0015",
         "0017",
         "0023",
         "002b",
@@ -88,18 +83,20 @@
       "greaseExtensionCount": 2,
       "greaseKeyShareGroupCount": 1,
       "greaseSupportedGroupCount": 1,
-      "handshakePayloadLen": 508,
+      "handshakePayloadLen": 1494,
       "handshakeType": "01",
       "id": "chrome_stable",
       "keyShareGroupsNoGrease": [
+        "11ec",
         "001d"
       ],
-      "keyShareProfile": "x25519_primary",
+      "keyShareProfile": "x25519mlkem768_x25519",
       "recordChoreography": "host_tail_two_record",
       "recordLegacyVersion": "0301",
-      "recordPayloadLen": 512,
+      "recordPayloadLen": 1498,
       "sniHost": "template-validation.test",
       "supportedGroupsNoGrease": [
+        "11ec",
         "001d",
         "0017",
         "0018"
@@ -121,7 +118,7 @@
           "type": "0000"
         },
         {
-          "dataLen": 10,
+          "dataLen": 12,
           "type": "000a"
         },
         {
@@ -135,10 +132,6 @@
         {
           "dataLen": 14,
           "type": "0010"
-        },
-        {
-          "dataLen": 232,
-          "type": "0015"
         },
         {
           "dataLen": 0,
@@ -157,7 +150,7 @@
           "type": "002d"
         },
         {
-          "dataLen": 43,
+          "dataLen": 1263,
           "type": "0033"
         },
         {
@@ -173,7 +166,6 @@
         "000b",
         "000d",
         "0010",
-        "0015",
         "0017",
         "0023",
         "002b",
@@ -184,18 +176,20 @@
       "greaseExtensionCount": 2,
       "greaseKeyShareGroupCount": 1,
       "greaseSupportedGroupCount": 1,
-      "handshakePayloadLen": 508,
+      "handshakePayloadLen": 1494,
       "handshakeType": "01",
       "id": "chrome_desktop_stable",
       "keyShareGroupsNoGrease": [
+        "11ec",
         "001d"
       ],
-      "keyShareProfile": "x25519_primary",
+      "keyShareProfile": "x25519mlkem768_x25519",
       "recordChoreography": "host_tail_two_record",
       "recordLegacyVersion": "0301",
-      "recordPayloadLen": 512,
+      "recordPayloadLen": 1498,
       "sniHost": "template-validation.test",
       "supportedGroupsNoGrease": [
+        "11ec",
         "001d",
         "0017",
         "0018"
@@ -517,7 +511,7 @@
           "type": "0000"
         },
         {
-          "dataLen": 10,
+          "dataLen": 12,
           "type": "000a"
         },
         {
@@ -531,10 +525,6 @@
         {
           "dataLen": 14,
           "type": "0010"
-        },
-        {
-          "dataLen": 232,
-          "type": "0015"
         },
         {
           "dataLen": 0,
@@ -553,7 +543,7 @@
           "type": "002d"
         },
         {
-          "dataLen": 43,
+          "dataLen": 1263,
           "type": "0033"
         },
         {
@@ -569,7 +559,6 @@
         "000b",
         "000d",
         "0010",
-        "0015",
         "0017",
         "0023",
         "002b",
@@ -580,18 +569,20 @@
       "greaseExtensionCount": 2,
       "greaseKeyShareGroupCount": 1,
       "greaseSupportedGroupCount": 1,
-      "handshakePayloadLen": 508,
+      "handshakePayloadLen": 1494,
       "handshakeType": "01",
       "id": "edge_stable",
       "keyShareGroupsNoGrease": [
+        "11ec",
         "001d"
       ],
-      "keyShareProfile": "x25519_primary",
+      "keyShareProfile": "x25519mlkem768_x25519",
       "recordChoreography": "host_tail_two_record",
       "recordLegacyVersion": "0301",
-      "recordPayloadLen": 512,
+      "recordPayloadLen": 1498,
       "sniHost": "template-validation.test",
       "supportedGroupsNoGrease": [
+        "11ec",
         "001d",
         "0017",
         "0018"

@@ -39,11 +39,11 @@ pub fn default_telegram_dc_port() -> u16 {
 }
 
 pub fn default_telegram_stall_timeout_ms() -> u64 {
-    10_000
+    3_000
 }
 
 pub fn default_telegram_total_timeout_ms() -> u64 {
-    60_000
+    10_000
 }
 
 pub fn default_telegram_upload_size() -> usize {

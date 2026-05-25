@@ -1,8 +1,9 @@
 use std::net::{IpAddr, SocketAddr};
 
-use crate::strategy::adapters::dns::{build_fallback_encrypted_dns_endpoints, resolve_via_encrypted_dns};
+use crate::probe_context::ProbeExecutionContext;
+use crate::strategy::adapters::dns::resolve_via_encrypted_dns;
 use crate::strategy::adapters::dns_oracle::{evaluate_dns_oracles, DnsOracleAssessment, DnsOracleResponse};
-use crate::strategy::adapters::transport::{direct_transport, domain_connect_target, resolve_addresses, TargetAddress};
+use crate::strategy::adapters::transport::{domain_connect_target, resolve_addresses, TargetAddress};
 use crate::types::DomainTarget;
 
 pub(super) struct SystemDnsResolution {
@@ -44,14 +45,15 @@ pub(super) fn fallback_encrypted_dns_assessment(
     target: &DomainTarget,
     resolver_endpoint: ripdpi_dns_resolver::EncryptedDnsEndpoint,
     primary_resolver_id: Option<&str>,
+    probe_context: &ProbeExecutionContext,
 ) -> DnsOracleAssessment<DnsOracleResponse> {
-    let fallback_endpoints = build_fallback_encrypted_dns_endpoints(primary_resolver_id);
+    let fallback_endpoints = probe_context.approved_fallback_resolvers(primary_resolver_id);
     evaluate_dns_oracles(
         resolver_endpoint,
         &fallback_endpoints,
         fallback_endpoints.len(),
         |endpoint| {
-            resolve_via_encrypted_dns(&target.host, endpoint.clone(), &direct_transport())
+            resolve_via_encrypted_dns(&target.host, endpoint.clone(), probe_context.transport())
                 .map(|addresses| DnsOracleResponse { addresses, raw_response: None })
         },
         |answer| answer.addresses.clone(),

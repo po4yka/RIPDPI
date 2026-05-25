@@ -30,8 +30,16 @@ pub(crate) async fn create_connection(
             )?;
             let connector = ripdpi_tls_profiles::build_connector(&config.tls_fingerprint_profile, true)
                 .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
-            let ssl = connector.configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
+            let mut ssl = connector.configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
+            ripdpi_tls_profiles::configure_boring_ech(&mut ssl, config.ech_config.as_ref())
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("xHTTP ECH: {error}")))?;
             let tls = tokio_boring::connect(ssl, &config.server_name, transport).await.map_err(|error| {
+                if config.ech_config.is_some() && error.ssl().is_some_and(|ssl| ssl.get_ech_retry_configs().is_some()) {
+                    return io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("xHTTP ECH: {}", ripdpi_tls_profiles::EchOutboundError::RetryRequired),
+                    );
+                }
                 io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP TLS handshake: {error}"))
             })?;
             TokioIo::new(tls)

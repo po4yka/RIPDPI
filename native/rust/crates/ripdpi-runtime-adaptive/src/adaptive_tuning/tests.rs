@@ -10,7 +10,7 @@ use ripdpi_config::{
     UdpChainStep, UdpChainStepKind,
 };
 use ripdpi_desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
-use ripdpi_packets::{build_realistic_quic_initial, QUIC_V2_VERSION};
+use ripdpi_packets::{build_realistic_quic_initial, DEFAULT_FAKE_TLS, QUIC_V2_VERSION};
 
 fn addr(port: u16) -> SocketAddr {
     SocketAddr::from(([127, 0, 0, 1], port))
@@ -361,7 +361,7 @@ fn resolver_tcp_success_pins_state() {
 
 #[test]
 fn resolver_returns_default_hints_for_fresh_key() {
-    let payload = &[0x16, 0x03, 0x01, 0x00, 0x05, 0x01, 0x00, 0x01, 0x00, 0x00];
+    let payload = DEFAULT_FAKE_TLS;
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain =
         vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoBalanced))];

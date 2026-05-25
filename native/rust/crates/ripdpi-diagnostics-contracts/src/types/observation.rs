@@ -19,6 +19,6 @@ pub use http::HttpProbeStatus;
 pub use quic::{QuicObservationFact, QuicProbeStatus};
 pub use strategy::{StrategyObservationFact, StrategyProbeProtocol, StrategyProbeStatus};
 pub use tcp::{TcpObservationFact, TcpProbeStatus};
-pub use telegram::{TelegramObservationFact, TelegramTransferStatus, TelegramVerdict};
+pub use telegram::{TelegramObservationFact, TelegramTransferStatus, TelegramVerdict, TelegramWsTunnelStatus};
 pub use throughput::{ThroughputObservationFact, ThroughputProbeStatus};
 pub use tls::TlsProbeStatus;

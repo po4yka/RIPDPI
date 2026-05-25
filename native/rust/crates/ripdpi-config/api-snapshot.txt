@@ -455,6 +455,7 @@ pub fn ripdpi_config::TcpChainStep::with_activation_filter(self, activation_filt
 pub fn ripdpi_config::TcpChainStep::with_fake_host_template(self, fake_host_template: core::option::Option<alloc::string::String>) -> Self
 pub fn ripdpi_config::TcpChainStep::with_inter_segment_delay_ms(self, delay_ms: u32) -> Self
 pub fn ripdpi_config::TcpChainStep::with_midhost_offset(self, midhost_offset: core::option::Option<ripdpi_config::OffsetExpr>) -> Self
+pub fn ripdpi_config::TcpChainStep::with_offset(self, offset: ripdpi_config::OffsetExpr) -> Self
 pub fn ripdpi_config::TcpChainStep::with_random_fake_host(self, random_fake_host: bool) -> Self
 impl ripdpi_config::TcpChainStep
 pub const fn ripdpi_config::TcpChainStep::fake_flag_overrides(&self) -> ripdpi_config::TcpFlagOverrides

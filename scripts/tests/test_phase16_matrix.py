@@ -69,8 +69,10 @@ class Phase16MatrixTest(unittest.TestCase):
         self.assertFalse(
             any(phase16_matrix.entry_runner_required(entry) == "real-provider" for entry in default_entries)
         )
+        self.assertFalse(any(entry["id"] == "l7_adversarial_emulator_v1_1" for entry in default_entries))
         all_entries = phase16_matrix.filtered_entries(fixture, include_real_provider=True)
         self.assertTrue(any(phase16_matrix.entry_runner_required(entry) == "real-provider" for entry in all_entries))
+        self.assertFalse(any(entry["id"] == "l7_adversarial_emulator_v1_1" for entry in all_entries))
         with self.assertRaisesRegex(ValueError, "real-provider matrix entries require --include-real-provider"):
             phase16_matrix.filtered_entries(fixture, "real_provider_mts_cellular_ipv4_nonroot_vpn")
         filtered = phase16_matrix.filtered_entries(
@@ -85,11 +87,50 @@ class Phase16MatrixTest(unittest.TestCase):
         self.assertEqual("real-provider", entry["runnerRequired"])
         self.assertEqual("real-provider", entry["evidenceTier"])
         self.assertEqual("ns-mts", entry["carrierNamespace"])
+        self.assertEqual(
+            ["self-hosted", "ripdpi-lab", "android", "cellular", "ipv4", "nonrooted", "real-provider", "ns-mts"],
+            json.loads(entry["runsOnJson"]),
+        )
+
+    def test_l7_adversarial_entry_is_selectable_without_real_provider_hardware(self) -> None:
+        fixture = phase16_matrix.load_fixture()
+        filtered = phase16_matrix.filtered_entries(fixture, "l7_adversarial_emulator_v1_1")
+        self.assertEqual(1, len(filtered))
+        self.assertEqual("lab", phase16_matrix.entry_runner_required(filtered[0]))
+        self.assertEqual("synthetic-adversarial", phase16_matrix.entry_evidence_tier(filtered[0]))
+        payload = phase16_matrix.emit_github_matrix(filtered)
+        entry = payload["include"][0]
+        self.assertEqual("l7_adversarial_emulator", entry["executionKind"])
+        self.assertEqual("l7_adversarial_emulator", entry["networkCondition"])
+        self.assertEqual("synthetic-adversarial", entry["evidenceTier"])
+        self.assertEqual("", entry["carrierNamespace"])
+        self.assertEqual(["ubuntu-latest"], json.loads(entry["runsOnJson"]))
 
     def test_filtered_entries_rejects_unknown_filter(self) -> None:
         fixture = phase16_matrix.load_fixture()
         with self.assertRaisesRegex(ValueError, "no matrix entries matched filter"):
             phase16_matrix.filtered_entries(fixture, "does_not_exist")
+
+    def test_real_provider_runner_config_requires_namespace_and_scrub_policy(self) -> None:
+        valid_config = {
+            "version": "phase16_real_provider_runner_v1",
+            "namespaces": {
+                "ns-mts": {"pcapScrubPolicy": "required"},
+            },
+        }
+        phase16_matrix.validate_real_provider_config(valid_config, "ns-mts")
+        with self.assertRaisesRegex(ValueError, "does not define namespace ns-beeline"):
+            phase16_matrix.validate_real_provider_config(valid_config, "ns-beeline")
+        with self.assertRaisesRegex(ValueError, "pcapScrubPolicy=required"):
+            phase16_matrix.validate_real_provider_config(
+                {
+                    "version": "phase16_real_provider_runner_v1",
+                    "namespaces": {
+                        "ns-mts": {"pcapScrubPolicy": "optional"},
+                    },
+                },
+                "ns-mts",
+            )
 
     def test_cli_rejects_filtered_real_provider_without_traceback(self) -> None:
         result = subprocess.run(
@@ -113,7 +154,12 @@ class Phase16MatrixTest(unittest.TestCase):
         fixture = phase16_matrix.load_fixture()
         registry = json.loads((REPO_ROOT / "scripts/ci/packet-smoke-scenarios.json").read_text(encoding="utf-8"))
         scenario_ids = {entry["id"] for entry in registry}
-        missing = sorted({entry["scenarioFilter"] for entry in fixture["entries"]} - scenario_ids)
+        packet_smoke_filters = {
+            entry["scenarioFilter"]
+            for entry in fixture["entries"]
+            if entry["executionKind"] in {"android_packet_smoke", "host_cli_packet_smoke"}
+        }
+        missing = sorted(packet_smoke_filters - scenario_ids)
         self.assertEqual([], missing)
 
     def test_real_provider_runner_fails_closed_without_runner_config(self) -> None:
@@ -153,12 +199,179 @@ class Phase16MatrixTest(unittest.TestCase):
             self.assertEqual("real-provider", manifest["runnerRequired"])
             self.assertEqual("real-provider", manifest["evidenceTier"])
             self.assertEqual("ns-mts", manifest["carrierNamespace"])
+            self.assertEqual(
+                {
+                    "configRequired": True,
+                    "configPresent": False,
+                    "namespaceConfigured": False,
+                    "pcapScrubRequired": False,
+                },
+                manifest["realProvider"],
+            )
             summary = json.loads((artifact_root / "phase16-pcap-summary.json").read_text(encoding="utf-8"))
             self.assertEqual("runner_unavailable", summary["runMetadata"]["status"])
             self.assertIn("RIPDPI_PHASE16_REAL_PROVIDER_CONFIG", summary["runMetadata"]["failureMessage"])
             self.assertEqual("real-provider", summary["runMetadata"]["runnerRequired"])
             self.assertEqual("real-provider", summary["runMetadata"]["evidenceTier"])
             self.assertEqual("ns-mts", summary["runMetadata"]["carrierNamespace"])
+            self.assertEqual(manifest["realProvider"], summary["runMetadata"]["realProvider"])
+
+    def test_real_provider_prepare_hook_receives_namespace_without_log_or_artifact_secret_leak(self) -> None:
+        secret = "IMSI-001010123456789"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            artifact_root = temp_root / "artifacts"
+            selected_namespace_path = temp_root / "selected-namespace.txt"
+            config_path = temp_root / "real-provider-config.json"
+            hook_path = temp_root / "prepare-hook.sh"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "version": "phase16_real_provider_runner_v1",
+                        "namespaces": {
+                            "ns-mts": {"pcapScrubPolicy": "required"},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            hook_path.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env bash",
+                        "set -euo pipefail",
+                        f'printf "%s\\n" "$RIPDPI_PHASE16_REQUESTED_NAMESPACE" > "{selected_namespace_path}"',
+                        f'echo "{secret}"',
+                        f'echo "{secret}" >&2',
+                        "exit 42",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            hook_path.chmod(0o700)
+            env = os.environ.copy()
+            env.update(
+                {
+                    "PHASE16_ENTRY_ID": "real_provider_mts_cellular_ipv4_nonroot_vpn",
+                    "PHASE16_EXECUTION_KIND": "android_packet_smoke",
+                    "PHASE16_TRANSPORT": "cellular",
+                    "PHASE16_IP_FAMILY": "ipv4",
+                    "PHASE16_ROOTED": "false",
+                    "PHASE16_MODE": "vpn",
+                    "PHASE16_NETWORK_CONDITION": "baseline",
+                    "PHASE16_SCENARIO_FILTER": "android_vpn_tunnel_baseline_family",
+                    "PHASE16_CAPTURE_MODE": "indirect",
+                    "PHASE16_RUNNER_REQUIRED": "real-provider",
+                    "PHASE16_EVIDENCE_TIER": "real-provider",
+                    "PHASE16_CARRIER_NAMESPACE": "ns-mts",
+                    "RIPDPI_PHASE16_ARTIFACT_DIR": str(artifact_root),
+                    "RIPDPI_PHASE16_REAL_PROVIDER_CONFIG": str(config_path),
+                    "RIPDPI_PHASE16_PREPARE_HOOK": str(hook_path),
+                }
+            )
+            result = subprocess.run(
+                ["bash", str(REPO_ROOT / "scripts/ci/run-phase16-matrix-entry.sh")],
+                check=False,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertEqual("ns-mts\n", selected_namespace_path.read_text(encoding="utf-8"))
+            self.assertNotIn(secret, result.stdout)
+            self.assertNotIn(secret, result.stderr)
+            manifest = json.loads((artifact_root / "phase16-run.json").read_text(encoding="utf-8"))
+            self.assertEqual("runner_unavailable", manifest["status"])
+            self.assertEqual(
+                {
+                    "configRequired": True,
+                    "configPresent": True,
+                    "namespaceConfigured": True,
+                    "pcapScrubRequired": True,
+                },
+                manifest["realProvider"],
+            )
+            self.assertEqual({"configured": True, "executed": True}, manifest["prepareHook"])
+            prepare_status = json.loads((artifact_root / "phase16-prepare-hook.json").read_text(encoding="utf-8"))
+            self.assertEqual("failed", prepare_status["status"])
+            self.assertEqual(42, prepare_status["exitCode"])
+            self.assertEqual("ns-mts", prepare_status["carrierNamespace"])
+            for artifact in artifact_root.rglob("*"):
+                if artifact.is_file():
+                    self.assertNotIn(secret, artifact.read_text(encoding="utf-8"))
+
+    def test_l7_adversarial_runner_fails_closed_on_blocked_cell(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            artifact_root = temp_root / "artifacts"
+            dryrun_path = temp_root / "fake-l7-dryrun.sh"
+            dryrun_path.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env bash",
+                        "set -euo pipefail",
+                        'mkdir -p "$RIPDPI_L7_ADVERSARIAL_ARTIFACT_DIR"',
+                        'cat > "$RIPDPI_L7_ADVERSARIAL_ARTIFACT_DIR/verdict-report.json" <<\'JSON\'',
+                        json.dumps(
+                            {
+                                "report_schema_version": 1,
+                                "matrix_version": 11,
+                                "mode": "dry-run",
+                                "cells": [
+                                    {
+                                        "desync_mode_id": "split_offset_3_chlo",
+                                        "pattern_id": "rst-after-sni-match",
+                                        "verdict": "blocked",
+                                    }
+                                ],
+                                "totals": {"blocked": 1, "bypassed": 0, "degraded": 0, "inconclusive": 0},
+                            }
+                        ),
+                        "JSON",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            dryrun_path.chmod(0o700)
+            env = os.environ.copy()
+            env.update(
+                {
+                    "PHASE16_ENTRY_ID": "l7_adversarial_emulator_v1_1",
+                    "PHASE16_EXECUTION_KIND": "l7_adversarial_emulator",
+                    "PHASE16_TRANSPORT": "wifi",
+                    "PHASE16_IP_FAMILY": "ipv4",
+                    "PHASE16_ROOTED": "false",
+                    "PHASE16_MODE": "vpn",
+                    "PHASE16_NETWORK_CONDITION": "l7_adversarial_emulator",
+                    "PHASE16_SCENARIO_FILTER": "l7_adversarial_v1_1",
+                    "PHASE16_CAPTURE_MODE": "auto",
+                    "PHASE16_RUNNER_REQUIRED": "lab",
+                    "PHASE16_EVIDENCE_TIER": "synthetic-adversarial",
+                    "RIPDPI_PHASE16_ARTIFACT_DIR": str(artifact_root),
+                    "RIPDPI_PHASE16_L7_ADVERSARIAL_DRYRUN_SCRIPT": str(dryrun_path),
+                }
+            )
+            result = subprocess.run(
+                ["bash", str(REPO_ROOT / "scripts/ci/run-phase16-matrix-entry.sh")],
+                check=False,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("L7 adversarial release gate failed cells", result.stderr)
+            manifest = json.loads((artifact_root / "phase16-run.json").read_text(encoding="utf-8"))
+            self.assertEqual("failure", manifest["status"])
+            self.assertEqual("L7 adversarial verdict report contains failed cells", manifest["failureMessage"])
+            self.assertEqual("l7-adversarial/verdict-report.json", manifest["l7VerdictReport"])
+            summary = json.loads((artifact_root / "phase16-pcap-summary.json").read_text(encoding="utf-8"))
+            self.assertEqual("fail", summary["l7Adversarial"]["gateVerdict"])
+            self.assertEqual(1, summary["l7Adversarial"]["failedCellCount"])
+            self.assertEqual("l7-adversarial/verdict-report.json", summary["linkedArtifacts"]["l7VerdictReport"])
 
 
 class Phase16PcapSummaryTest(unittest.TestCase):
@@ -289,6 +502,56 @@ class Phase16PcapSummaryTest(unittest.TestCase):
             self.assertEqual("android_proxy_tlsrec_family", scenario["id"])
             self.assertEqual([], scenario["missingArtifacts"])
             self.assertEqual(["device-capture.pcap", "failure-screenshot.png"], scenario["optionalArtifacts"])
+
+    def test_summary_links_l7_verdict_report_and_excludes_support_dir_from_scenarios(self) -> None:
+        registry = phase16_pcap_summary.load_registry()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "phase16-run.json").write_text(
+                json.dumps(
+                    {
+                        "status": "success",
+                        "executionKind": "l7_adversarial_emulator",
+                        "evidenceTier": "synthetic-adversarial",
+                        "l7VerdictReport": "l7-adversarial/verdict-report.json",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            l7_dir = root / "l7-adversarial"
+            l7_dir.mkdir()
+            (l7_dir / "verdict-report.json").write_text(
+                json.dumps(
+                    {
+                        "report_schema_version": 1,
+                        "matrix_version": 11,
+                        "mode": "dry-run",
+                        "cells": [
+                            {
+                                "desync_mode_id": "tlsrandrec_profile_a",
+                                "pattern_id": "rst-after-sni-match",
+                                "verdict": "bypassed",
+                            },
+                            {
+                                "desync_mode_id": "partial_fixture",
+                                "pattern_id": "mtu-clamp",
+                                "verdict": "degraded",
+                            },
+                        ],
+                        "totals": {"bypassed": 1, "blocked": 0, "degraded": 1, "inconclusive": 0},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            summary = phase16_pcap_summary.summarize_artifact_root(root, registry)
+            self.assertEqual(0, summary["scenarioCount"])
+            self.assertEqual("l7-adversarial/verdict-report.json", summary["linkedArtifacts"]["l7VerdictReport"])
+            self.assertEqual("synthetic-adversarial", summary["runMetadata"]["evidenceTier"])
+            self.assertEqual("partial", summary["l7Adversarial"]["gateVerdict"])
+            self.assertEqual(2, summary["l7Adversarial"]["cellCount"])
+            self.assertEqual(0, summary["l7Adversarial"]["failedCellCount"])
+            self.assertEqual(1, summary["l7Adversarial"]["partialCellCount"])
 
 
 if __name__ == "__main__":

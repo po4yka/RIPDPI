@@ -391,6 +391,23 @@
       ]
     },
     {
+      "id": "l7_adversarial_emulator_v1_1",
+      "transport": "wifi",
+      "ipFamily": "ipv4",
+      "rooted": false,
+      "mode": "vpn",
+      "networkCondition": "l7_adversarial_emulator",
+      "executionKind": "l7_adversarial_emulator",
+      "scenarioFilter": "l7_adversarial_v1_1",
+      "captureMode": "auto",
+      "runnerRequired": "lab",
+      "evidenceTier": "synthetic-adversarial",
+      "defaultIncluded": false,
+      "runsOn": [
+        "ubuntu-latest"
+      ]
+    },
+    {
       "id": "real_provider_mts_cellular_ipv4_nonroot_vpn",
       "transport": "cellular",
       "ipFamily": "ipv4",

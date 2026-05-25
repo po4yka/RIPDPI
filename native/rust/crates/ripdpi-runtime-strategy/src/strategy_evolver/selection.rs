@@ -127,6 +127,8 @@ pub(super) fn combo_matches_bucket(combo: &StrategyCombo, bucket: LearningTarget
             combo.split_offset_base.is_some()
                 || combo.tls_record_offset_base.is_some()
                 || combo.tlsrandrec_profile.is_some()
+                || combo.timing_jitter_profile.is_some()
+                || combo.oob_byte_placement.is_some()
         }
         LearningTargetBucket::Ech => {
             combo.split_offset_base == Some(OffsetBase::EchExt)

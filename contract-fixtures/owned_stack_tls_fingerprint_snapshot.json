@@ -1,0 +1,66 @@
+{
+  "catalogVersion": "v1",
+  "corpusId": "owned_stack_tls_fingerprint_snapshot",
+  "fixtureEndpoint": {
+    "externalNetwork": false,
+    "serverName": "owned-stack-fixture.test",
+    "transport": "loopback"
+  },
+  "normalization": {
+    "extensionOrderSortedForJa4": true,
+    "fixtureContainsNoSecrets": true,
+    "greaseValuesExcluded": true,
+    "randomSessionAndKeyShareBytesExcluded": true
+  },
+  "ownedStackPath": "native_owned_tls_fetcher",
+  "schemaVersion": 1,
+  "snapshot": {
+    "alpnProtocols": [
+      "687474702f312e31"
+    ],
+    "cipherSuitesNoGrease": [
+      "1301",
+      "1302",
+      "1303",
+      "c02b",
+      "c02f",
+      "c02c",
+      "c030",
+      "cca9",
+      "cca8"
+    ],
+    "clientHelloLegacyVersion": "0303",
+    "containsX25519Mlkem768KeyShare": true,
+    "extensionTypesNoGreaseSorted": [
+      "0000",
+      "000a",
+      "000b",
+      "000d",
+      "0010",
+      "0017",
+      "0023",
+      "002b",
+      "002d",
+      "0033",
+      "ff01"
+    ],
+    "handshakePayloadLen": 1491,
+    "highestSupportedVersion": "0304",
+    "ja3NormalizedHash": "56ab32362dcc0c775e20717a02c074b8",
+    "ja4RipdpiV1": "t13d0911http/1.1_ecb029868bb8_ed2a405ecf89",
+    "ja4RipdpiV1Hash": "7ab3bc9b64c6a4eee3d1f2277b2926139fe0c1bcddb0228fd8490611eeec2557",
+    "keyShareGroupsNoGrease": [
+      "11ec",
+      "001d"
+    ],
+    "recordPayloadLen": 1495,
+    "requiresX25519Mlkem768KeyShare": true,
+    "supportedGroupsNoGrease": [
+      "11ec",
+      "001d",
+      "0017",
+      "0018"
+    ]
+  },
+  "tlsProfileId": "chrome_stable"
+}

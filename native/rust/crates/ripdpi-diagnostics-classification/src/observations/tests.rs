@@ -6,7 +6,7 @@ use super::*;
 use crate::types::{
     DnsObservationStatus, EndpointProbeStatus, HttpProbeStatus, ObservationKind, ProbeDetail, QuicProbeStatus,
     StrategyProbeProtocol, StrategyProbeStatus, TcpProbeStatus, TelegramTransferStatus, TelegramVerdict,
-    ThroughputProbeStatus, TlsProbeStatus, TransportFailureKind,
+    TelegramWsTunnelStatus, ThroughputProbeStatus, TlsProbeStatus, TransportFailureKind,
 };
 
 #[test]
@@ -419,6 +419,14 @@ fn telegram_observation_builds_from_probe() {
             ("uploadStatus", "slow"),
             ("dcReachable", "3"),
             ("dcTotal", "5"),
+            ("downloadAvgBps", "120000"),
+            ("downloadPeakBps", "180000"),
+            ("uploadAvgBps", "64000"),
+            ("uploadPeakBps", "96000"),
+            ("dcResults", "DC1:ok:42ms|DC2:fail|DC3:ok:50ms"),
+            ("wsTunnelStatus", "unreachable"),
+            ("wsTunnelRttMs", "250"),
+            ("wsTunnelError", "tls handshake failed"),
         ],
     );
     let obs = observation_for_probe(&result).expect("telegram observation");
@@ -430,6 +438,14 @@ fn telegram_observation_builds_from_probe() {
     assert_eq!(tg.upload_status, TelegramTransferStatus::Slow);
     assert_eq!(tg.dc_reachable, 3);
     assert_eq!(tg.dc_total, 5);
+    assert_eq!(tg.download_avg_bps, 120000);
+    assert_eq!(tg.download_peak_bps, 180000);
+    assert_eq!(tg.upload_avg_bps, 64000);
+    assert_eq!(tg.upload_peak_bps, 96000);
+    assert_eq!(tg.dc_results, vec!["DC1:ok:42ms", "DC2:fail", "DC3:ok:50ms"]);
+    assert_eq!(tg.ws_tunnel_status, TelegramWsTunnelStatus::Unreachable);
+    assert_eq!(tg.ws_tunnel_rtt_ms, 250);
+    assert_eq!(tg.ws_tunnel_error.as_deref(), Some("tls handshake failed"));
 }
 
 #[test]

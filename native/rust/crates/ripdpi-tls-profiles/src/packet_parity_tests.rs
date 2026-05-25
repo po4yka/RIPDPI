@@ -19,6 +19,7 @@ const EXT_SUPPORTED_GROUPS: u16 = 0x000a;
 const EXT_ALPN: u16 = 0x0010;
 const EXT_KEY_SHARE: u16 = 0x0033;
 const X25519: u16 = 0x001d;
+const X25519_MLKEM768: u16 = 0x11ec;
 const SECP256R1: u16 = 0x0017;
 const SECP384R1: u16 = 0x0018;
 const SECP521R1: u16 = 0x0019;
@@ -174,6 +175,7 @@ fn strip_grease(values: &[u16]) -> Vec<u16> {
 fn expected_supported_groups(profile: &str) -> &'static [u16] {
     match selected_profile_metadata(profile).template.supported_groups_profile {
         "x25519_p256_p384" => &[X25519, SECP256R1, SECP384R1],
+        "x25519mlkem768_x25519_p256_p384" => &[X25519_MLKEM768, X25519, SECP256R1, SECP384R1],
         "x25519_p256_p384_p521" => &[X25519, SECP256R1, SECP384R1, SECP521R1],
         other => panic!("unexpected supported-groups profile {other}"),
     }
@@ -344,6 +346,13 @@ fn captured_client_hello_matches_profile_packet_parity_metadata() {
                     strip_grease(&key_share_groups),
                     vec![X25519],
                     "{profile}: key-share payload drifted from x25519_primary profile"
+                );
+            }
+            "x25519mlkem768_x25519" => {
+                assert_eq!(
+                    strip_grease(&key_share_groups),
+                    vec![X25519_MLKEM768, X25519],
+                    "{profile}: key-share payload drifted from x25519mlkem768_x25519 profile"
                 );
             }
             "x25519_hybrid_ready" => {

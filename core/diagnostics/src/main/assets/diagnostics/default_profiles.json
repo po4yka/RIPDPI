@@ -1385,8 +1385,8 @@
               "port": 443
             }
           ],
-          "stallTimeoutMs": 10000,
-          "totalTimeoutMs": 60000,
+          "stallTimeoutMs": 3000,
+          "totalTimeoutMs": 10000,
           "uploadSizeBytes": 10485760
         }
       }
@@ -1597,8 +1597,8 @@
               "port": 443
             }
           ],
-          "stallTimeoutMs": 10000,
-          "totalTimeoutMs": 60000,
+          "stallTimeoutMs": 3000,
+          "totalTimeoutMs": 10000,
           "uploadSizeBytes": 10485760
         }
       }
@@ -1718,7 +1718,7 @@
     {
       "id": "ru-dpi-full",
       "name": "Russia DPI Full",
-      "version": 5,
+      "version": 6,
       "request": {
         "profileId": "ru-dpi-full",
         "displayName": "Russia DPI Full",
@@ -1871,7 +1871,42 @@
           "vk.com",
           "dzen.ru",
           "2gis.com"
-        ]
+        ],
+        "telegramTarget": {
+          "mediaUrl": "https://telegram.org/img/Telegram200million.png",
+          "uploadIp": "149.154.167.99",
+          "uploadPort": 443,
+          "dcEndpoints": [
+            {
+              "ip": "149.154.175.53",
+              "label": "DC1",
+              "port": 443
+            },
+            {
+              "ip": "149.154.167.51",
+              "label": "DC2",
+              "port": 443
+            },
+            {
+              "ip": "149.154.175.100",
+              "label": "DC3",
+              "port": 443
+            },
+            {
+              "ip": "149.154.167.91",
+              "label": "DC4",
+              "port": 443
+            },
+            {
+              "ip": "91.108.56.130",
+              "label": "DC5",
+              "port": 443
+            }
+          ],
+          "stallTimeoutMs": 3000,
+          "totalTimeoutMs": 10000,
+          "uploadSizeBytes": 10485760
+        }
       }
     }
   ]

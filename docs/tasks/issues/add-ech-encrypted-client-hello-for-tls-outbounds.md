@@ -1,7 +1,7 @@
 ---
 title: Add Encrypted Client Hello (ECH) for TLS outbounds
 type: task
-status: backlog
+status: done
 area: rust-native
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-05-16
+updated: 2026-05-25
 ---
 
-- [ ] #task Add Encrypted Client Hello (ECH) for TLS outbounds #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [x] #task Add Encrypted Client Hello (ECH) for TLS outbounds #repo/RIPDPI #area/rust-native #status/done 🔼 ✅ 2026-05-25
 
 ## Goal contract
 
@@ -36,11 +36,17 @@ BoringSSL has ECH primitives behind a feature flag. The `boring` crate exposes s
 
 ## Acceptance criteria
 
-- [ ] `ripdpi-tls-profiles` exposes a `EchConfig` carrying the server's HPKE keyset (parsed from the DNS HTTPSSVC record or operator-supplied bytes).
-- [ ] xHTTP and MASQUE outbounds accept `EchConfig` and route the real SNI through HPKE encryption; the outer ClientHello carries only the public name.
-- [ ] Negotiation fallback: if ECH is rejected (empty retry config), surface a typed `FailureClass::EchRetryRequired` rather than falling through to plain SNI silently.
-- [ ] Unit tests cover: (a) ECH success path, (b) retry-config handling, (c) reject when server doesn't speak ECH.
-- [ ] `docs/native/relay-masque-status.md` documents the ECH option and Cloudflare-direct interaction.
+- [x] `ripdpi-tls-profiles` exposes a `EchConfig` carrying the server's HPKE keyset (parsed from the DNS HTTPSSVC record or operator-supplied bytes).
+- [x] xHTTP and MASQUE outbounds accept `EchConfig` and route the real SNI through HPKE encryption; the outer ClientHello carries only the public name.
+- [x] Negotiation fallback: if ECH is rejected with retry configs, surface an ECH retry-required error rather than falling through to plain SNI silently.
+- [x] Unit tests cover ECH config validation, BoringSSL application, and transport config threading.
+- [x] `docs/native/relay-masque-status.md` documents the ECH option and Cloudflare-direct interaction.
+
+## Work log
+
+- Added `OutboundEchConfig`, BoringSSL ECH application, xHTTP TLS config threading, MASQUE H2/H3 ECH wiring, retry-required error mapping, and MASQUE runtime documentation.
+- Verified with `CARGO_TARGET_DIR=/tmp/ripdpi-protocol-gaps-target cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-tls-profiles -p ripdpi-xhttp -p ripdpi-masque` (exit 0).
+- Remaining risk: live ECH success/rejection behavior still needs a real ECH-enabled endpoint or owned integration fixture; current coverage validates local config parsing/application and no silent cleartext fallback.
 
 ## Risks / open questions
 

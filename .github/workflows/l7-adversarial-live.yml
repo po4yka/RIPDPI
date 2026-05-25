@@ -1,18 +1,20 @@
-name: TSPU live smoke
+name: L7 adversarial live smoke
 
 on:
   pull_request:
     paths:
       - "test-lab/chaos/tspu/**"
+      - "scripts/ci/run-l7-adversarial-live-smoke.sh"
       - "scripts/ci/run-tspu-live-smoke.sh"
-      - ".github/workflows/tspu-live.yml"
+      - ".github/workflows/l7-adversarial-live.yml"
   push:
     branches:
       - main
     paths:
       - "test-lab/chaos/tspu/**"
+      - "scripts/ci/run-l7-adversarial-live-smoke.sh"
       - "scripts/ci/run-tspu-live-smoke.sh"
-      - ".github/workflows/tspu-live.yml"
+      - ".github/workflows/l7-adversarial-live.yml"
   workflow_dispatch:
 
 permissions:
@@ -45,15 +47,15 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install NetfilterQueue
 
-      - name: Run TSPU live smoke
+      - name: Run L7 adversarial live smoke
         env:
-          RIPDPI_TSPU_LIVE_ARTIFACT_DIR: ${{ runner.temp }}/tspu-live
-        run: bash scripts/ci/run-tspu-live-smoke.sh
+          RIPDPI_L7_ADVERSARIAL_LIVE_ARTIFACT_DIR: ${{ runner.temp }}/l7-adversarial-live
+        run: bash scripts/ci/run-l7-adversarial-live-smoke.sh
 
       - name: Upload verdict report + handler logs
         if: ${{ always() && env.ACT != 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: tspu-live-artifacts
-          path: ${{ runner.temp }}/tspu-live
+          name: l7-adversarial-live-artifacts
+          path: ${{ runner.temp }}/l7-adversarial-live
           retention-days: 14

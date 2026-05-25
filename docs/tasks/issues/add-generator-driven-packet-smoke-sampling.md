@@ -1,7 +1,7 @@
 ---
 title: Add generator-driven packet-smoke sampling
 type: task
-status: backlog
+status: review
 area: testing
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-25
 updated: 2026-05-25
 ---
 
-- [ ] #task Add generator-driven packet-smoke sampling #repo/RIPDPI #area/testing #status/backlog 🔼
+- [ ] #task Add generator-driven packet-smoke sampling #repo/RIPDPI #area/testing #status/review 🔼
 
 ## Summary
 
@@ -29,12 +29,18 @@ Hand-authored packet-smoke scenarios preserve known recipes, but they do not cov
 
 ## Acceptance criteria
 
-- [ ] PR packet smoke runs all named scenarios plus a bounded generated sample set.
-- [ ] Nightly packet smoke runs a larger generated set and records enough metadata to reproduce any failure.
-- [ ] Generated fixtures include `generator_seed`, `generator_axis_values`, and `generator_origin`.
-- [ ] Unit tests prove the same seed produces stable cells and that scenario filters still exist in the registry.
+- [x] PR packet smoke runs all named scenarios plus a bounded generated sample set.
+- [x] Nightly packet smoke runs a larger generated set and records enough metadata to reproduce any failure.
+- [x] Generated fixtures include `generator_seed`, `generator_axis_values`, and `generator_origin`.
+- [x] Unit tests prove the same seed produces stable cells and that scenario filters still exist in the registry.
 
 ## Links
 
 - [Design spike: generator-driven packet-smoke](../../architecture/spike-generator-packet-smoke.md)
 - [Parent spike](spike-adversarial-network-harness-and-realprovider-matrix.md)
+
+## Work log
+
+- Changed files: `scripts/ci/packet-smoke-generator.py`, `scripts/ci/run-cli-packet-smoke.sh`, `scripts/ci/packet-smoke-scenarios.json`, `native/rust/crates/ripdpi-cli/tests/packet_smoke.rs`, `scripts/tests/test_packet_smoke_generator.py`, `.github/workflows/ci.yml`.
+- Tests: `python3 -m unittest scripts.tests.test_packet_smoke_generator`; `bash -n scripts/ci/run-cli-packet-smoke.sh`; `rustfmt --edition 2021 --check native/rust/crates/ripdpi-cli/tests/packet_smoke.rs`; `python3 scripts/ci/packet-smoke-generator.py --registry scripts/ci/packet-smoke-scenarios.json --seed smoke-test --budget 2 --origin random`; `CARGO_TARGET_DIR=/tmp/ripdpi-packet-smoke-target cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-cli --test packet_smoke -- --nocapture`; generated-cell packet smoke with `RIPDPI_RUN_PACKET_SMOKE=1` and focused metadata.
+- Remaining risk: full PR budget and scheduled nightly budget were not run end to end in this session; one generated cell was run through tcpdump/tshark to validate the harness and fixture metadata path.

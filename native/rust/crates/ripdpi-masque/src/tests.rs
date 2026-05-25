@@ -16,6 +16,13 @@ use crate::request::apply_request_headers;
 use crate::response::{validate_proxy_response, AttemptError};
 use crate::url::{build_connect_udp_path, parse_proxy_origin, parse_target, ProxyOrigin, TargetAuthority};
 
+const BORING_ECH_CONFIG_LIST: &[u8] = &[
+    0x00, 0x3e, 0xfe, 0x0d, 0x00, 0x3a, 0x00, 0x00, 0x20, 0x00, 0x20, 0xbb, 0x2f, 0x29, 0xe3, 0xe3, 0x05, 0x7e, 0x04,
+    0x19, 0xd5, 0x2f, 0xc5, 0xf4, 0x41, 0x18, 0x77, 0x6f, 0x8d, 0xb6, 0x1c, 0xea, 0x4f, 0xdf, 0x76, 0x07, 0x9b, 0x93,
+    0x60, 0x6c, 0x5a, 0x62, 0x48, 0x00, 0x08, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x03, 0x00, 0x07, 0x65, 0x63,
+    0x68, 0x2e, 0x63, 0x6f, 0x6d, 0x00, 0x00,
+];
+
 fn privacy_pass_test_config(provider_url: String, provider_auth_token: Option<&str>) -> MasqueConfig {
     MasqueConfig {
         url: "https://masque.example/".to_string(),
@@ -30,6 +37,7 @@ fn privacy_pass_test_config(provider_url: String, provider_auth_token: Option<&s
         tls_fingerprint_profile: "native_default".to_string(),
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
+        ech_config: None,
     }
 }
 
@@ -142,10 +150,37 @@ fn new_client_starts_with_not_attempted_quic_snapshot() {
         tls_fingerprint_profile: "native_default".to_string(),
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
+        ech_config: None,
     })
     .expect("client");
 
     assert_eq!((Some("not_attempted".to_string()), None), client.quic_migration_snapshot(),);
+}
+
+#[test]
+fn masque_config_accepts_ech_and_boring_h2_backend_can_apply_it() {
+    let ech = ripdpi_tls_profiles::OutboundEchConfig::new("ech.com", BORING_ECH_CONFIG_LIST.to_vec()).expect("ech");
+    let config = MasqueConfig {
+        url: "https://masque.example/".to_string(),
+        use_http2_fallback: true,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: Some(ech),
+    };
+
+    let connector_builder =
+        ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile).expect("connector builder");
+    let connector = connector_builder.build();
+    let mut ssl = connector.configure().expect("connect config");
+    ripdpi_tls_profiles::configure_boring_ech(&mut ssl, config.ech_config.as_ref()).expect("ECH applied");
 }
 
 #[test]
@@ -163,6 +198,7 @@ fn parse_proxy_origin_preserves_request_path_and_query() {
         tls_fingerprint_profile: "native_default".to_string(),
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
+        ech_config: None,
     })
     .expect("origin");
 
@@ -202,6 +238,7 @@ fn apply_request_headers_adds_geohash_without_auth() {
         tls_fingerprint_profile: "native_default".to_string(),
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
+        ech_config: None,
     };
 
     let request = apply_request_headers(Request::builder().method("CONNECT").uri("example.com:443"), &config, None)
@@ -299,6 +336,7 @@ async fn quic_migration_snapshot_records_http2_fallback_reason() {
         tls_fingerprint_profile: "native_default".to_string(),
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
+        ech_config: None,
     })
     .expect("client");
 

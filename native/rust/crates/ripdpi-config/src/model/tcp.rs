@@ -202,6 +202,11 @@ impl TcpChainStep {
         self.common.offset
     }
 
+    pub fn with_offset(mut self, offset: OffsetExpr) -> Self {
+        self.common.offset = offset;
+        self
+    }
+
     pub const fn activation_filter(&self) -> Option<ActivationFilter> {
         self.common.activation_filter
     }

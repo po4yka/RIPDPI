@@ -1,7 +1,7 @@
 ---
 title: Operate Phase-16 real-provider SIM runner
 type: task
-status: backlog
+status: review
 area: testing
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-25
 updated: 2026-05-25
 ---
 
-- [ ] #task Operate Phase-16 real-provider SIM runner #repo/RIPDPI #area/testing #status/backlog 🔼
+- [ ] #task Operate Phase-16 real-provider SIM runner #repo/RIPDPI #area/testing #status/review 🔼
 
 ## Summary
 
@@ -30,11 +30,17 @@ The repository now has a contract that separates synthetic lab evidence from rea
 ## Acceptance criteria
 
 - [ ] A self-hosted runner with `real-provider` and provider namespace labels can execute filtered real-provider Phase-16 rows.
-- [ ] The prepare hook selects the requested namespace without exposing SIM identifiers in logs or artifacts.
-- [ ] Missing runner config fails closed with a `phase16-run.json` failure and pcap summary metadata.
-- [ ] Release documentation names the exact workflow dispatch input and evidence artifact required before claiming real-provider confidence.
+- [x] The prepare hook selects the requested namespace without exposing SIM identifiers in logs or artifacts.
+- [x] Missing runner config fails closed with a `phase16-run.json` failure and pcap summary metadata.
+- [x] Release documentation names the exact workflow dispatch input and evidence artifact required before claiming real-provider confidence.
 
 ## Links
 
 - [Design spike: Phase-16 lab matrix on real-provider SIM](../../architecture/spike-phase16-real-provider.md)
 - [Parent spike](spike-adversarial-network-harness-and-realprovider-matrix.md)
+
+## Work log
+
+- 2026-05-25: Added fail-closed real-provider runner config validation for `phase16_real_provider_runner_v1`, symbolic namespace lookup, and required pcap scrub policy; real-provider prepare hooks now receive `RIPDPI_PHASE16_REQUESTED_NAMESPACE`, suppress hook stdout/stderr, and emit only non-secret hook metadata.
+- 2026-05-25: Extended `phase16-run.json` and `phase16-pcap-summary.json` metadata with real-provider config/hook status, and documented the exact `include_real_provider=true` workflow dispatch input plus required `phase16-<entry-id>` artifact evidence before release confidence can claim real-provider coverage.
+- 2026-05-25: Verification run: `python3 scripts/ci/phase16_matrix.py validate`, `bash -n scripts/ci/run-phase16-matrix-entry.sh`, targeted real-provider unittest cases, and full `python3 -m unittest scripts.tests.test_phase16_matrix` passed.

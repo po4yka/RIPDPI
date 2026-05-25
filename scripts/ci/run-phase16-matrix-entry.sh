@@ -17,12 +17,22 @@ evidence_tier="${PHASE16_EVIDENCE_TIER:-synthetic-lab}"
 carrier_namespace="${PHASE16_CARRIER_NAMESPACE:-}"
 prepare_hook="${RIPDPI_PHASE16_PREPARE_HOOK:-}"
 real_provider_config="${RIPDPI_PHASE16_REAL_PROVIDER_CONFIG:-}"
+l7_dryrun_script="${RIPDPI_PHASE16_L7_ADVERSARIAL_DRYRUN_SCRIPT:-${RIPDPI_PHASE16_TSPU_DRYRUN_SCRIPT:-$repo_root/scripts/ci/run-l7-adversarial-dryrun.sh}}"
+l7_artifact_dir="$artifact_root/l7-adversarial"
+l7_verdict_report="$l7_artifact_dir/verdict-report.json"
 summary_script="$repo_root/scripts/ci/phase16_pcap_summary.py"
 run_manifest="$artifact_root/phase16-run.json"
 pcap_summary="$artifact_root/phase16-pcap-summary.json"
 start_epoch="$(date +%s)"
 status="success"
 failure_message=""
+real_provider_config_required="false"
+real_provider_config_present="false"
+real_provider_namespace_configured="false"
+real_provider_pcap_scrub_required="false"
+prepare_hook_configured="false"
+prepare_hook_executed="false"
+prepare_hook_status_path="$artifact_root/phase16-prepare-hook.json"
 
 runner_unavailable() {
   status="runner_unavailable"
@@ -53,6 +63,17 @@ payload = {
     "runnerRequired": os.environ.get("PHASE16_RUNNER_REQUIRED", "lab"),
     "evidenceTier": os.environ.get("PHASE16_EVIDENCE_TIER", "synthetic-lab"),
     "carrierNamespace": os.environ.get("PHASE16_CARRIER_NAMESPACE", ""),
+    "l7VerdictReport": os.environ.get("PHASE16_L7_VERDICT_REPORT", ""),
+    "realProvider": {
+        "configRequired": os.environ.get("PHASE16_REAL_PROVIDER_CONFIG_REQUIRED") == "true",
+        "configPresent": os.environ.get("PHASE16_REAL_PROVIDER_CONFIG_PRESENT") == "true",
+        "namespaceConfigured": os.environ.get("PHASE16_REAL_PROVIDER_NAMESPACE_CONFIGURED") == "true",
+        "pcapScrubRequired": os.environ.get("PHASE16_REAL_PROVIDER_PCAP_SCRUB_REQUIRED") == "true",
+    },
+    "prepareHook": {
+        "configured": os.environ.get("PHASE16_PREPARE_HOOK_CONFIGURED") == "true",
+        "executed": os.environ.get("PHASE16_PREPARE_HOOK_EXECUTED") == "true",
+    },
     "status": os.environ["PHASE16_RUN_STATUS"],
     "failureMessage": os.environ.get("PHASE16_FAILURE_MESSAGE", ""),
     "artifactRoot": os.environ["RIPDPI_PHASE16_ARTIFACT_DIR"],
@@ -75,6 +96,12 @@ on_exit() {
   export PHASE16_FAILURE_MESSAGE="$failure_message"
   export PHASE16_STARTED_AT_EPOCH="$start_epoch"
   export PHASE16_FINISHED_AT_EPOCH="$(date +%s)"
+  export PHASE16_REAL_PROVIDER_CONFIG_REQUIRED="$real_provider_config_required"
+  export PHASE16_REAL_PROVIDER_CONFIG_PRESENT="$real_provider_config_present"
+  export PHASE16_REAL_PROVIDER_NAMESPACE_CONFIGURED="$real_provider_namespace_configured"
+  export PHASE16_REAL_PROVIDER_PCAP_SCRUB_REQUIRED="$real_provider_pcap_scrub_required"
+  export PHASE16_PREPARE_HOOK_CONFIGURED="$prepare_hook_configured"
+  export PHASE16_PREPARE_HOOK_EXECUTED="$prepare_hook_executed"
   export RIPDPI_PHASE16_ARTIFACT_DIR="$artifact_root"
   write_manifest || true
   if [[ -d "$artifact_root" ]]; then
@@ -87,19 +114,79 @@ trap on_exit EXIT
 mkdir -p "$artifact_root"
 export RIPDPI_PHASE16_ARTIFACT_DIR="$artifact_root"
 
+write_prepare_hook_status() {
+  local hook_status="$1"
+  local hook_exit_code="$2"
+  python3 - "$prepare_hook_status_path" "$hook_status" "$hook_exit_code" <<'PY'
+import json
+import os
+import sys
+
+path, hook_status, hook_exit_code = sys.argv[1:4]
+payload = {
+    "entryId": os.environ["PHASE16_ENTRY_ID"],
+    "carrierNamespace": os.environ.get("PHASE16_CARRIER_NAMESPACE", ""),
+    "runnerRequired": os.environ.get("PHASE16_RUNNER_REQUIRED", "lab"),
+    "status": hook_status,
+    "exitCode": int(hook_exit_code),
+}
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(payload, handle, indent=2, sort_keys=True)
+    handle.write("\n")
+PY
+}
+
+run_real_provider_prepare_hook() {
+  export RIPDPI_PHASE16_REQUESTED_NAMESPACE="$carrier_namespace"
+  export RIPDPI_PHASE16_REAL_PROVIDER_CONFIG="$real_provider_config"
+  local prepare_args=(
+    "$entry_id"
+    "$transport"
+    "$ip_family"
+    "$rooted"
+    "$mode"
+    "$artifact_root"
+    "$network_condition"
+    "$runner_required"
+    "$evidence_tier"
+    "$carrier_namespace"
+  )
+  prepare_hook_executed="true"
+  set +e
+  "$prepare_hook" "${prepare_args[@]}" >/dev/null 2>&1
+  local hook_exit_code=$?
+  set -e
+  if [[ "$hook_exit_code" -ne 0 ]]; then
+    write_prepare_hook_status "failed" "$hook_exit_code" || true
+    runner_unavailable "real-provider prepare hook failed for namespace $carrier_namespace"
+  fi
+  write_prepare_hook_status "success" "$hook_exit_code"
+}
+
 case "$runner_required" in
   lab)
     ;;
   real-provider)
+    real_provider_config_required="true"
     if [[ -z "$carrier_namespace" ]]; then
       runner_unavailable "real-provider Phase 16 entry requires PHASE16_CARRIER_NAMESPACE"
     fi
     if [[ -z "$real_provider_config" || ! -r "$real_provider_config" ]]; then
       runner_unavailable "real-provider Phase 16 entry requires readable RIPDPI_PHASE16_REAL_PROVIDER_CONFIG"
     fi
+    real_provider_config_present="true"
+    if ! python3 "$repo_root/scripts/ci/phase16_matrix.py" validate-real-provider-config \
+      --config "$real_provider_config" \
+      --namespace "$carrier_namespace"; then
+      runner_unavailable \
+        "real-provider Phase 16 runner config must define namespace $carrier_namespace with pcapScrubPolicy=required"
+    fi
+    real_provider_namespace_configured="true"
+    real_provider_pcap_scrub_required="true"
     if [[ -z "$prepare_hook" ]]; then
       runner_unavailable "real-provider Phase 16 entry requires RIPDPI_PHASE16_PREPARE_HOOK"
     fi
+    prepare_hook_configured="true"
     ;;
   *)
     failure_message="unsupported Phase 16 runner requirement: $runner_required"
@@ -117,8 +204,26 @@ if [[ -n "$prepare_hook" ]]; then
     echo "$failure_message" >&2
     exit 1
   fi
-  "$prepare_hook" "$entry_id" "$transport" "$ip_family" "$rooted" "$mode" "$artifact_root" "$network_condition" "$runner_required" "$evidence_tier" "$carrier_namespace"
-elif [[ "$network_condition" != "baseline" ]]; then
+  prepare_hook_configured="true"
+  if [[ "$runner_required" == "real-provider" ]]; then
+    run_real_provider_prepare_hook
+  else
+    prepare_args=(
+      "$entry_id"
+      "$transport"
+      "$ip_family"
+      "$rooted"
+      "$mode"
+      "$artifact_root"
+      "$network_condition"
+      "$runner_required"
+      "$evidence_tier"
+      "$carrier_namespace"
+    )
+    prepare_hook_executed="true"
+    "$prepare_hook" "${prepare_args[@]}"
+  fi
+elif [[ "$network_condition" != "baseline" && "$execution_kind" != "l7_adversarial_emulator" ]]; then
   failure_message="non-baseline Phase 16 entry requires RIPDPI_PHASE16_PREPARE_HOOK: $network_condition"
   echo "$failure_message" >&2
   exit 1
@@ -137,6 +242,59 @@ case "$execution_kind" in
     export RIPDPI_PACKET_SMOKE_CAPTURE_MODE="$capture_mode"
     export RIPDPI_RUN_PACKET_SMOKE=1
     bash "$repo_root/scripts/ci/run-cli-packet-smoke.sh"
+    ;;
+  l7_adversarial_emulator)
+    if [[ "$runner_required" != "lab" ]]; then
+      failure_message="L7 adversarial Phase 16 entry must use lab runner requirement"
+      echo "$failure_message" >&2
+      exit 1
+    fi
+    if [[ "$evidence_tier" != "synthetic-adversarial" ]]; then
+      failure_message="L7 adversarial Phase 16 entry must use synthetic-adversarial evidence tier"
+      echo "$failure_message" >&2
+      exit 1
+    fi
+    if [[ ! -x "$l7_dryrun_script" ]]; then
+      failure_message="L7 adversarial dry-run script is not executable: $l7_dryrun_script"
+      echo "$failure_message" >&2
+      exit 1
+    fi
+    export RIPDPI_L7_ADVERSARIAL_ARTIFACT_DIR="$l7_artifact_dir"
+    export RIPDPI_TSPU_ARTIFACT_DIR="$l7_artifact_dir"
+    export PHASE16_L7_VERDICT_REPORT="l7-adversarial/verdict-report.json"
+    bash "$l7_dryrun_script"
+    if [[ ! -s "$l7_verdict_report" ]]; then
+      failure_message="L7 adversarial verdict report missing or empty: $l7_verdict_report"
+      echo "$failure_message" >&2
+      exit 1
+    fi
+    if ! python3 - "$l7_verdict_report" <<'PY'
+import json
+import sys
+
+report_path = sys.argv[1]
+with open(report_path, "r", encoding="utf-8") as handle:
+    report = json.load(handle)
+cells = report.get("cells", [])
+if not isinstance(cells, list) or not cells:
+    print(f"L7 adversarial verdict report has no cells: {report_path}", file=sys.stderr)
+    sys.exit(2)
+failed = [
+    f"{cell.get('desync_mode_id', '<unknown>')}::{cell.get('pattern_id', '<unknown>')}"
+    for cell in cells
+    if cell.get("verdict") == "blocked"
+]
+if failed:
+    print("L7 adversarial release gate failed cells: " + ", ".join(failed[:10]), file=sys.stderr)
+    if len(failed) > 10:
+        print(f"... plus {len(failed) - 10} additional failed cells", file=sys.stderr)
+    sys.exit(1)
+print("L7 adversarial release gate passed")
+PY
+    then
+      failure_message="L7 adversarial verdict report contains failed cells"
+      exit 1
+    fi
     ;;
   *)
     failure_message="unsupported execution kind: $execution_kind"

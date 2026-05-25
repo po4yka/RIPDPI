@@ -1,5 +1,6 @@
 use std::net::IpAddr;
 
+use ripdpi_tls_profiles::OutboundEchConfig;
 use ripdpi_vless::addons::{FlowParseError, VlessFlow};
 use ripdpi_vless::config::VlessRealityConfig;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -124,6 +125,8 @@ pub struct XhttpTlsConfig {
     pub flow: VlessFlow,
     /// xHTTP protocol mode. Defaults to [`XhttpProtocolMode::StreamUp`].
     pub protocol_mode: XhttpProtocolMode,
+    /// Optional ECH config for owned xHTTP TLS outbounds.
+    pub ech_config: Option<OutboundEchConfig>,
 }
 
 impl XhttpTlsConfig {
@@ -150,6 +153,7 @@ impl XhttpTlsConfig {
             finalmask: FinalmaskConfig::default(),
             flow: VlessFlow::default(),
             protocol_mode: XhttpProtocolMode::default(),
+            ech_config: None,
         })
     }
 
@@ -180,6 +184,11 @@ impl XhttpTlsConfig {
     pub fn with_protocol_mode_str(self, mode: &str) -> Result<Self, ConfigError> {
         let parsed = XhttpProtocolMode::parse(mode)?;
         Ok(self.with_protocol_mode(parsed))
+    }
+
+    pub fn with_ech_config(mut self, ech_config: OutboundEchConfig) -> Self {
+        self.ech_config = Some(ech_config);
+        self
     }
 }
 

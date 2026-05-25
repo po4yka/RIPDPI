@@ -1,7 +1,10 @@
 use std::hash::{Hash, Hasher};
 
 use ripdpi_config::{EntropyMode, OffsetBase, QuicFakeProfile};
-use ripdpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
+use ripdpi_desync::{
+    AdaptiveOobBytePlacement, AdaptivePlannerHints, AdaptiveTimingJitterProfile, AdaptiveTlsRandRecProfile,
+    AdaptiveUdpBurstProfile,
+};
 
 use super::context::StrategyFamily;
 
@@ -16,6 +19,8 @@ pub struct StrategyCombo {
     pub quic_fake_profile: Option<QuicFakeProfile>,
     pub fake_ttl: Option<u8>,
     pub entropy_mode: Option<EntropyMode>,
+    pub timing_jitter_profile: Option<AdaptiveTimingJitterProfile>,
+    pub oob_byte_placement: Option<AdaptiveOobBytePlacement>,
 }
 
 impl Hash for StrategyCombo {
@@ -27,6 +32,8 @@ impl Hash for StrategyCombo {
         hash_option_disc(state, 4, self.quic_fake_profile.map(quic_fake_disc));
         hash_option_disc(state, 5, self.fake_ttl);
         hash_option_disc(state, 6, self.entropy_mode.map(entropy_mode_disc));
+        hash_option_disc(state, 7, self.timing_jitter_profile.map(timing_jitter_disc));
+        hash_option_disc(state, 8, self.oob_byte_placement.map(oob_placement_disc));
     }
 }
 
@@ -40,6 +47,8 @@ impl StrategyCombo {
             quic_fake_profile: None,
             fake_ttl: None,
             entropy_mode: None,
+            timing_jitter_profile: None,
+            oob_byte_placement: None,
         }
     }
 
@@ -51,6 +60,8 @@ impl StrategyCombo {
             udp_burst_profile: self.udp_burst_profile,
             quic_fake_profile: self.quic_fake_profile,
             entropy_mode: self.entropy_mode,
+            timing_jitter_profile: self.timing_jitter_profile,
+            oob_byte_placement: self.oob_byte_placement,
         }
     }
 
@@ -63,6 +74,8 @@ impl StrategyCombo {
             self.quic_fake_profile.is_some(),
             self.fake_ttl.is_some(),
             self.entropy_mode.is_some(),
+            self.timing_jitter_profile.is_some(),
+            self.oob_byte_placement.is_some(),
         ]
         .into_iter()
         .filter(|value| *value)
@@ -72,6 +85,10 @@ impl StrategyCombo {
         }
         if self.entropy_mode.is_some() {
             StrategyFamily::Entropy
+        } else if self.oob_byte_placement.is_some() {
+            StrategyFamily::OobPlacement
+        } else if self.timing_jitter_profile.is_some() {
+            StrategyFamily::TimingJitter
         } else if self.fake_ttl.is_some() {
             StrategyFamily::FakeTtl
         } else if self.quic_fake_profile.is_some() {
@@ -149,6 +166,22 @@ pub(crate) fn entropy_mode_disc(e: EntropyMode) -> u8 {
         EntropyMode::Shannon => 2,
         EntropyMode::Combined => 3,
         _ => 0,
+    }
+}
+
+pub(crate) fn timing_jitter_disc(profile: AdaptiveTimingJitterProfile) -> u8 {
+    match profile {
+        AdaptiveTimingJitterProfile::Conservative => 0,
+        AdaptiveTimingJitterProfile::Balanced => 1,
+        AdaptiveTimingJitterProfile::Aggressive => 2,
+    }
+}
+
+pub(crate) fn oob_placement_disc(placement: AdaptiveOobBytePlacement) -> u8 {
+    match placement {
+        AdaptiveOobBytePlacement::PreHandshake => 0,
+        AdaptiveOobBytePlacement::PostSni => 1,
+        AdaptiveOobBytePlacement::MidPayload => 2,
     }
 }
 

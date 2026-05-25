@@ -1,7 +1,7 @@
 use crate::types::{
     DnsObservationStatus, EndpointProbeStatus, HttpProbeStatus, ObservationKind, ProbeObservation, ProbeResult,
     QuicProbeStatus, StrategyProbeStatus, TcpProbeStatus, TelegramTransferStatus, TelegramVerdict,
-    ThroughputProbeStatus, TlsProbeStatus, TransportFailureKind,
+    TelegramWsTunnelStatus, ThroughputProbeStatus, TlsProbeStatus, TransportFailureKind,
 };
 
 pub(crate) fn base_observation(result: &ProbeResult, kind: ObservationKind) -> ProbeObservation {
@@ -147,6 +147,14 @@ pub(crate) fn telegram_transfer_status(value: &str) -> TelegramTransferStatus {
         "stalled" => TelegramTransferStatus::Stalled,
         "blocked" => TelegramTransferStatus::Blocked,
         _ => TelegramTransferStatus::Error,
+    }
+}
+
+pub(crate) fn telegram_ws_tunnel_status(value: &str) -> TelegramWsTunnelStatus {
+    match value {
+        "ok" => TelegramWsTunnelStatus::Ok,
+        "unreachable" => TelegramWsTunnelStatus::Unreachable,
+        _ => TelegramWsTunnelStatus::Unknown,
     }
 }
 

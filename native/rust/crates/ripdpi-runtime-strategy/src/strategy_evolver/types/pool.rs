@@ -1,9 +1,11 @@
 use ripdpi_config::{EntropyMode, OffsetBase, QuicFakeProfile};
-use ripdpi_desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
+use ripdpi_desync::{
+    AdaptiveOobBytePlacement, AdaptiveTimingJitterProfile, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile,
+};
 
 use super::identity::StrategyCombo;
 
-/// Pre-defined pool entry covering all 7 adaptive dimensions.
+/// Pre-defined pool entry covering adaptive planner dimensions and transport-shape knobs.
 pub(crate) struct PoolEntry {
     pub(crate) split_offset_base: Option<OffsetBase>,
     pub(crate) tls_record_offset_base: Option<OffsetBase>,
@@ -12,6 +14,8 @@ pub(crate) struct PoolEntry {
     pub(crate) quic_fake_profile: Option<QuicFakeProfile>,
     pub(crate) fake_ttl: Option<u8>,
     pub(crate) entropy_mode: Option<EntropyMode>,
+    pub(crate) timing_jitter_profile: Option<AdaptiveTimingJitterProfile>,
+    pub(crate) oob_byte_placement: Option<AdaptiveOobBytePlacement>,
 }
 
 impl PoolEntry {
@@ -24,11 +28,13 @@ impl PoolEntry {
             quic_fake_profile: None,
             fake_ttl: None,
             entropy_mode: None,
+            timing_jitter_profile: None,
+            oob_byte_placement: None,
         }
     }
 }
 
-/// Pre-defined pool of combos to explore across all 7 dimensions.
+/// Pre-defined pool of bounded combos to explore across adaptive dimensions.
 pub(crate) const COMBO_POOL: &[PoolEntry] = &[
     PoolEntry::new(),
     PoolEntry { split_offset_base: Some(OffsetBase::AutoHost), ..PoolEntry::new() },
@@ -61,6 +67,24 @@ pub(crate) const COMBO_POOL: &[PoolEntry] = &[
         entropy_mode: Some(EntropyMode::Combined),
         ..PoolEntry::new()
     },
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::AutoHost),
+        timing_jitter_profile: Some(AdaptiveTimingJitterProfile::Balanced),
+        ..PoolEntry::new()
+    },
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::AutoHost),
+        timing_jitter_profile: Some(AdaptiveTimingJitterProfile::Aggressive),
+        ..PoolEntry::new()
+    },
+    PoolEntry {
+        split_offset_base: Some(OffsetBase::MidSld),
+        timing_jitter_profile: Some(AdaptiveTimingJitterProfile::Conservative),
+        ..PoolEntry::new()
+    },
+    PoolEntry { oob_byte_placement: Some(AdaptiveOobBytePlacement::PreHandshake), ..PoolEntry::new() },
+    PoolEntry { oob_byte_placement: Some(AdaptiveOobBytePlacement::PostSni), ..PoolEntry::new() },
+    PoolEntry { oob_byte_placement: Some(AdaptiveOobBytePlacement::MidPayload), ..PoolEntry::new() },
     PoolEntry {
         split_offset_base: Some(OffsetBase::AutoHost),
         tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Tight),
@@ -154,5 +178,7 @@ pub(crate) fn combo_from_pool(index: usize) -> StrategyCombo {
         quic_fake_profile: entry.quic_fake_profile,
         fake_ttl: entry.fake_ttl,
         entropy_mode: entry.entropy_mode,
+        timing_jitter_profile: entry.timing_jitter_profile,
+        oob_byte_placement: entry.oob_byte_placement,
     }
 }

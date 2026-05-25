@@ -274,7 +274,7 @@ mod chrome_120_fingerprint_regression {
     ///
     /// To regenerate after an intentional profile update run:
     ///   cargo test -p ripdpi-tls-profiles -- --nocapture chrome_120_frozen_fingerprint_hash_unchanged
-    const CHROME_120_FROZEN_FINGERPRINT: &str = "ddfaf9775ab79531f803efa416b8f1ccbec4dd1892d1672f6a90664df5b6469f";
+    const CHROME_120_FROZEN_FINGERPRINT: &str = "a6e59fca8d6f7c665986a67c95d29117a21b56f5e1f838b9067815fef08738e1";
 
     fn compute_profile_fingerprint(profile_name: &str) -> String {
         let p = lookup_profile(profile_name);
@@ -374,7 +374,7 @@ mod chrome_120_fingerprint_regression {
         );
 
         // Supported groups (curves) — X25519 must be first per Chrome 120.
-        let expected_curves: &[&str] = &["X25519", "P-256", "P-384"];
+        let expected_curves: &[&str] = &["X25519MLKEM768", "X25519", "P-256", "P-384"];
         let actual_curves: Vec<&str> = profile.curves.split(':').map(str::trim).filter(|s| !s.is_empty()).collect();
         assert_eq!(actual_curves, expected_curves, "Chrome 120 curves order drifted from frozen reference");
     }

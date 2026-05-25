@@ -9,8 +9,8 @@ pub const CHROME_LATEST: ProfileConfig = ProfileConfig {
     alpn_template: "h2_http11",
     extension_order_family: "chromium_permuted",
     grease_style: "chromium_single_grease",
-    supported_groups_profile: "x25519_p256_p384",
-    key_share_profile: "x25519_primary",
+    supported_groups_profile: "x25519mlkem768_x25519_p256_p384",
+    key_share_profile: "x25519mlkem768_x25519",
     record_choreography: "host_tail_two_record",
     ech_capable: false,
     ech_bootstrap_policy: "none",
@@ -20,7 +20,7 @@ pub const CHROME_LATEST: ProfileConfig = ProfileConfig {
                         ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:\
                         ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305",
     ciphersuites_tls13: "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256",
-    curves: "X25519:P-256:P-384",
+    curves: "X25519MLKEM768:X25519:P-256:P-384",
     sigalgs: "ecdsa_secp256r1_sha256:rsa_pss_rsae_sha256:rsa_pkcs1_sha256:\
               ecdsa_secp384r1_sha384:rsa_pss_rsae_sha384:rsa_pkcs1_sha384:\
               rsa_pss_rsae_sha512:rsa_pkcs1_sha512",
@@ -41,8 +41,8 @@ pub const CHROME_DESKTOP_STABLE: ProfileConfig = ProfileConfig {
     alpn_template: "h2_http11",
     extension_order_family: "chromium_permuted",
     grease_style: "chromium_single_grease",
-    supported_groups_profile: "x25519_p256_p384",
-    key_share_profile: "x25519_primary",
+    supported_groups_profile: "x25519mlkem768_x25519_p256_p384",
+    key_share_profile: "x25519mlkem768_x25519",
     record_choreography: "host_tail_two_record",
     ech_capable: false,
     ech_bootstrap_policy: "none",
@@ -52,7 +52,7 @@ pub const CHROME_DESKTOP_STABLE: ProfileConfig = ProfileConfig {
                         ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:\
                         ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305",
     ciphersuites_tls13: "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256",
-    curves: "X25519:P-256:P-384",
+    curves: "X25519MLKEM768:X25519:P-256:P-384",
     sigalgs: "ecdsa_secp256r1_sha256:rsa_pss_rsae_sha256:rsa_pkcs1_sha256:\
               ecdsa_secp384r1_sha384:rsa_pss_rsae_sha384:rsa_pkcs1_sha384:\
               rsa_pss_rsae_sha512:rsa_pkcs1_sha512",

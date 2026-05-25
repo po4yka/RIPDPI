@@ -165,6 +165,20 @@ class DiagnosticsCatalogLegalSafetyTest {
     }
 
     @Test
+    fun `full dpi profile includes telegram availability audit target`() {
+        val index = DiagnosticsCatalogIndex(DefaultDiagnosticsCatalogPackSource.load())
+        val profiles = DefaultDiagnosticsCatalogProfileSource.load(index)
+
+        val fullProfile = profiles.single { it.id == "ru-dpi-full" }
+        val telegramTarget = requireNotNull(fullProfile.telegramTarget)
+
+        assertEquals(6, fullProfile.version)
+        assertEquals("https://telegram.org/img/Telegram200million.png", telegramTarget.mediaUrl)
+        assertEquals(5, telegramTarget.dcEndpoints.size)
+        assertEquals(listOf("DC1", "DC2", "DC3", "DC4", "DC5"), telegramTarget.dcEndpoints.map { it.label })
+    }
+
+    @Test
     fun `default diagnostics stays lightweight and resolver audit keeps full matrix expansion`() {
         val index = DiagnosticsCatalogIndex(DefaultDiagnosticsCatalogPackSource.load())
         val profiles = DefaultDiagnosticsCatalogProfileSource.load(index)

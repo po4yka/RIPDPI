@@ -67,6 +67,8 @@ impl AdaptivePlannerState {
             udp_burst_profile: self.udp_burst_profile.as_ref().and_then(ChoiceState::current),
             quic_fake_profile: self.quic_fake_profile.as_ref().and_then(ChoiceState::current),
             entropy_mode: None,
+            timing_jitter_profile: None,
+            oob_byte_placement: None,
         }
     }
 

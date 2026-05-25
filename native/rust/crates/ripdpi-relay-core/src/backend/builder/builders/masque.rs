@@ -24,6 +24,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
                 tls_fingerprint_profile: config.common.tls_fingerprint_profile.clone(),
                 quic_bind_low_port: config.common.quic_bind_low_port,
                 quic_migrate_after_handshake: config.common.quic_migrate_after_handshake,
+                ech_config: None,
             },
             migration: context.quic_migration.clone(),
         },

@@ -29,7 +29,19 @@ pub(super) fn build_execution_plan(
             ExecutionStageId::StrategyRecommendation,
         ],
     };
-    Ok(ExecutionPlan { session_id, request, started_at, total_steps: 0, transport, stage_order, strategy })
+    let runtime_context = strategy.as_ref().and_then(|plan| plan.runtime_context.as_ref());
+    let probe_context =
+        crate::connectivity::ProbeExecutionContext::from_runtime_context(transport.clone(), runtime_context)?;
+    Ok(ExecutionPlan {
+        session_id,
+        request,
+        started_at,
+        total_steps: 0,
+        transport,
+        probe_context,
+        stage_order,
+        strategy,
+    })
 }
 
 fn build_strategy_execution_plan(session_id: &str, request: &ScanRequest) -> Result<StrategyExecutionPlan, String> {

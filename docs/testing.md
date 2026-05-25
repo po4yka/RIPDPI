@@ -216,10 +216,35 @@ python3 scripts/ci/phase16_pcap_summary.py --artifact-root build/phase16-matrix/
 
 - `contract-fixtures/phase16_lab_matrix.json` is the source of truth for the repeated Wi-Fi/cellular x IPv4/IPv6 x rooted/non-rooted x proxy/VPN matrix.
 - Real-provider rows are present in the fixture as `runnerRequired=real-provider` and `evidenceTier=real-provider`; default matrix emission excludes them so normal scheduled lab runs do not queue on carrier hardware, and even explicitly filtered real-provider rows require `workflow_dispatch` with `include_real_provider=true`.
+- The L7 adversarial emulator row is present as `executionKind=l7_adversarial_emulator`, `networkCondition=l7_adversarial_emulator`, and `evidenceTier=synthetic-adversarial`; default matrix emission excludes it, but `workflow_dispatch` can select `matrix_filter=l7_adversarial_emulator_v1_1` without `include_real_provider` or carrier hardware.
+- Release sign-off for real-provider confidence must use the exact workflow dispatch input `include_real_provider=true` on `.github/workflows/phase16-matrix.yml`, normally paired with `matrix_filter=<real_provider_* entry id>` for the namespace being validated. The required evidence artifact is the uploaded `phase16-<entry-id>` artifact containing both `phase16-run.json` and `phase16-pcap-summary.json`; do not claim real-provider confidence from labels, logs, or synthetic-lab artifacts alone.
 - The same fixture also carries required non-baseline `networkCondition` rows for PMTUD blackholes, rooted IP fragmentation under MTU stress, IPv6 extension-header blackholes, and carrier-style NAT/reordering. Those rows require `RIPDPI_PHASE16_PREPARE_HOOK` so they fail closed instead of running against an unstressed baseline path.
 - `.github/workflows/phase16-matrix.yml` fans that fixture out onto self-hosted `ripdpi-lab` runners instead of pretending GitHub-hosted runners can provide those environments.
-- `scripts/ci/run-phase16-matrix-entry.sh` writes `phase16-run.json` plus `phase16-pcap-summary.json` for each entry so archive/export work can consume the same measurement evidence consistently; real-provider rows fail closed with `status=runner_unavailable` unless `RIPDPI_PHASE16_REAL_PROVIDER_CONFIG` is readable and a prepare hook is supplied.
+- `scripts/ci/run-phase16-matrix-entry.sh` writes `phase16-run.json` plus `phase16-pcap-summary.json` for each entry so archive/export work can consume the same measurement evidence consistently; real-provider rows fail closed with `status=runner_unavailable` unless `RIPDPI_PHASE16_REAL_PROVIDER_CONFIG` is readable, declares the requested `carrierNamespace`, sets `pcapScrubPolicy=required`, and `RIPDPI_PHASE16_PREPARE_HOOK` is executable. For real-provider rows the hook receives the requested namespace through the positional `carrierNamespace` argument and `RIPDPI_PHASE16_REQUESTED_NAMESPACE`; hook stdout/stderr is suppressed and only non-secret hook status metadata is written to artifacts.
+- For L7 emulator rows, `scripts/ci/run-phase16-matrix-entry.sh` runs `scripts/ci/run-l7-adversarial-dryrun.sh` under `build/phase16-matrix/<entry-id>/l7-adversarial/`, records `l7-adversarial/verdict-report.json`, and fails the lane when any adversary-pattern cell reports `blocked`; `degraded` or `inconclusive` cells are surfaced as a `partial` summary verdict for release-owner review.
 - `scripts/ci/phase16_pcap_summary.py` understands both host `capture.pcap`/`capture.tshark.json` artifacts and Android `device-capture.pcap`/`device-capture.tshark.json` artifacts.
+- `scripts/ci/phase16_pcap_summary.py` also links L7 emulator evidence through `linkedArtifacts.l7VerdictReport` and summarizes `l7Adversarial.gateVerdict`, `failedCells`, and `partialCells`; this is synthetic adversary-pattern evidence, not proof from a carrier SIM. Real-provider confidence still requires filtered rows with `evidenceTier=real-provider`, a namespace-specific private runner config, and SIM-backed captures whose identifiers are scrubbed before upload.
+
+Private real-provider runner config stays outside the repository and uses only symbolic namespace keys:
+
+```json
+{
+  "version": "phase16_real_provider_runner_v1",
+  "namespaces": {
+    "ns-mts": {
+      "pcapScrubPolicy": "required"
+    },
+    "ns-megafon": {
+      "pcapScrubPolicy": "required"
+    },
+    "ns-beeline": {
+      "pcapScrubPolicy": "required"
+    }
+  }
+}
+```
+
+The prepare hook owns the private modem/SIM mapping for those namespace keys. It must not print IMSI, subscriber IDs, APN secrets, carrier IPs, or modem identifiers; the repo runner discards real-provider hook output as a second boundary and emits only `phase16-prepare-hook.json` with entry id, symbolic namespace, status, and exit code.
 
 ## Docker Local Network Test Lab
 
@@ -512,7 +537,7 @@ Profiles:
 
 This section is the human-curated companion to the feature-test checklist. It records the small set of gaps where the test pyramid is intentionally thin or where work is still in flight. Sized so it can be re-verified in one pass.
 
-### Verified closed (2026-05-16)
+### Verified closed (updated 2026-05-25)
 
 Findings from earlier audits that were still open at the start of 2026-Q2 and have since landed. Re-verify before re-investigating.
 
@@ -521,37 +546,34 @@ Findings from earlier audits that were still open at the start of 2026-Q2 and ha
 - **E-1** -- "`adaptive_tuning.rs` has no dedicated unit tests." `#[cfg(test)] mod tests;` is declared and the module covers candidate cycling and dimension-order shuffling.
 - **VPN/DNS-leak instrumentation matrix** -- landed under `core:service`'s androidTest sources; the original task issue is marked `status: done`.
 - **HTTP-injection error-page probe** -- landed as `ripdpi-diagnostics-http::http_injection_probe`; task `status: done`.
+- **Owned-stack JA3/JA4 fingerprint snapshot** -- release CI runs `scripts/ci/check-owned-stack-tls-fingerprint.sh`, which captures the native owned-TLS fallback ClientHello against a loopback fixture and compares it with `contract-fixtures/owned_stack_tls_fingerprint_snapshot.json`. To intentionally accept a reviewed upstream TLS profile rotation, run `CARGO_TARGET_DIR=/tmp/ripdpi-owned-stack-fingerprint-target RIPDPI_REGENERATE_OWNED_STACK_TLS_FINGERPRINT_FIXTURE=1 cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-android-fetch-adapter owned_stack_tls_fingerprint_snapshot_matches_fixture -- --nocapture`, inspect the JSON diff for `ja4RipdpiV1`, `keyShareGroupsNoGrease`, and `containsX25519Mlkem768KeyShare`, then rerun `bash scripts/ci/check-owned-stack-tls-fingerprint.sh`.
+- **D-1 adaptive strategy residual** -- `ripdpi-runtime-strategy` now includes adaptive timing jitter and OOB byte placement in the evolver combo identity and shared-prior pool; `ripdpi-runtime-adaptive` threads those hints into the morph policy.
+- **A-1 ProbeExecutionContext enforcement** -- `ripdpi-diagnostics-runner::ProbeExecutionContext` now owns approved resolver policy and active transport config, and monitor connectivity/strategy DNS stages receive that context instead of rebuilding ad hoc direct resolver paths.
+- **ECH for TLS outbounds** -- `ripdpi-tls-profiles::OutboundEchConfig` is wired through xHTTP and MASQUE. Boring-backed xHTTP/MASQUE H2 applies `SSL_set1_ech_config_list`; MASQUE H3 uses rustls ECH; ECH retry configs are surfaced as retry-required errors rather than silent cleartext-SNI fallback.
+- **Telegram MTProto diagnostic** -- `ripdpi-diagnostics-telegram` reports download/upload status, WS tunnel status, and per-DC direct MTProto reachability using the shared `ripdpi-ws-tunnel` DC classifier with 443/80 port evidence and median RTT. Default transfer windows are 10s per direction with 3s stall detection.
 
 ### Open but tracked
 
 These have task issues under `docs/tasks/issues/` and are sized for routine roadmap work, not new design.
 
-- **D-1 residual** -- evolver combo space spans 5 adaptive dimensions plus fake-TTL (6 of 7). Timing-jitter and OOB-byte placement are not in the combo space and so are not explored by the bandit.
-- **A-1 spot-check** -- no `1.1.1.1`/`cloudflare-dns` literal remains in `ripdpi-monitor-engine`, but the new `ripdpi-diagnostics-probes::ProbeContext` contract should be threaded through as new probes migrate in so the fix becomes structurally enforced instead of vigilance-based.
-- ECH for TLS outbounds (`add-ech-encrypted-client-hello-for-tls-outbounds.md`).
-- Owned-stack JA3/JA4 fingerprint snapshot in release CI (`snapshot-owned-stack-ja4-fingerprint-in-release-ci.md`). Without this, transitive TLS dependency bumps can silently shift the ClientHello and fail evasion in production without any test signal.
-- Telegram MTProto DC reachability diagnostic (`add-telegram-mtproto-diagnostic-with-dc-reachability-and-throughput.md`).
 - Android lockdown / kill-switch onboarding health checks (`add-android-lockdown-onboarding-and-kill-switch-health-checks.md`).
 - Split-DNS interceptor leak coverage (`add-dns-interceptor-and-split-dns-leak-tests.md`, currently `blocked`).
 
-### Open implementation follow-ups
+### Phase-16 real-world confidence status
 
-The original infrastructure spike under [`spike-adversarial-network-harness-and-realprovider-matrix.md`](tasks/issues/spike-adversarial-network-harness-and-realprovider-matrix.md) is closed. The remaining work is tracked as concrete implementation follow-ups: [`gate-tspu-adversarial-emulator-in-phase16-release-matrix.md`](tasks/issues/gate-tspu-adversarial-emulator-in-phase16-release-matrix.md), [`add-generator-driven-packet-smoke-sampling.md`](tasks/issues/add-generator-driven-packet-smoke-sampling.md), and [`operate-phase16-real-provider-sim-runner.md`](tasks/issues/operate-phase16-real-provider-sim-runner.md).
+The original infrastructure spike under [`spike-adversarial-network-harness-and-realprovider-matrix.md`](tasks/issues/spike-adversarial-network-harness-and-realprovider-matrix.md) is closed. The Phase-16 follow-ups now have repo-side implementation: [`gate-l7-adversarial-emulator-in-phase16-release-matrix.md`](tasks/issues/gate-l7-adversarial-emulator-in-phase16-release-matrix.md) adds the synthetic-adversarial release lane, [`add-generator-driven-packet-smoke-sampling.md`](tasks/issues/add-generator-driven-packet-smoke-sampling.md) adds deterministic generated CLI packet-smoke samples, and [`operate-phase16-real-provider-sim-runner.md`](tasks/issues/operate-phase16-real-provider-sim-runner.md) adds the fail-closed real-provider runner contract. The only remaining non-repo requirement is running a private self-hosted SIM runner with the `real-provider` and namespace labels to collect real-provider artifacts.
 
-**TSPU adversarial emulator v1 landed.** Dry-run path is verifiable on any host:
+**L7 adversarial emulator v1 landed.** Dry-run behavior is verifiable on any host:
 
 ```bash
-cd test-lab/chaos/tspu
-python3 -m runner.cli dry-run \
-  --matrix matrix.json --fixtures fixtures --out-dir /tmp/tspu-dryrun-v1
-python3 -m unittest discover -s tests
+bash scripts/ci/run-l7-adversarial-dryrun.sh
 ```
 
-The live `nfqueue` mode is documented in [`test-lab/chaos/tspu/README.md`](../test-lab/chaos/tspu/README.md). Phase-16 now distinguishes `synthetic-lab` evidence from opt-in `real-provider` evidence in the matrix fixture, runner manifest, and pcap summary, but the private SIM runner operation remains a separate follow-up because provider secrets and modem mapping must stay outside the repository.
+The live `nfqueue` mode is documented with the emulator harness. Phase-16 now distinguishes `synthetic-lab`, `synthetic-adversarial`, and opt-in `real-provider` evidence in the matrix fixture, runner manifest, and pcap summary; release owners must keep those tiers separate when interpreting confidence.
 
-- **Adversarial TSPU emulator release gating.** The emulator exists; the next step is to promote its verdict report into Phase-16 release evidence so adversary-pattern failures cannot be hidden in standalone artifacts.
-- **Generator-driven packet-smoke.** `scripts/ci/packet-smoke-scenarios.json` hand-lists ~10-15 scenarios; the desync parameter space is 7-dimensional. Move to a generator that samples the space and replays a named TSPU pattern set per PR. The Probe trait landed in `ripdpi-diagnostics-probes` does not solve this on its own; it is the oracle, not the input source.
-- **Phase-16 lab matrix on real-provider SIMs.** The matrix now contains opt-in real-provider rows and evidence metadata, but release-time confidence still requires operating the private self-hosted SIM runner and collecting artifacts from it; GitHub-hosted runners cannot supply this signal.
+- **Adversarial L7 emulator release gating.** `matrix_filter=l7_adversarial_emulator_v1_1` selects the synthetic-adversarial row on GitHub-hosted Linux without carrier hardware. The row writes `l7-adversarial/verdict-report.json`, links it from `phase16-pcap-summary.json`, and fails closed when any adversary-pattern cell reports `blocked`.
+- **Generator-driven packet-smoke.** `scripts/ci/run-cli-packet-smoke.sh` runs all named CLI packet-smoke scenarios first, then generated samples from `scripts/ci/packet-smoke-generator.py`; PR/default runs use a bounded budget of 8 cells and scheduled runs use 64 cells unless overridden. Each generated fixture records `generator_seed`, `generator_axis_values`, and `generator_origin` in `fixture-manifest.json`.
+- **Phase-16 lab matrix on real-provider SIMs.** The repo-side contract is implemented: filtered real-provider rows require `include_real_provider=true`, a readable `RIPDPI_PHASE16_REAL_PROVIDER_CONFIG` with `pcapScrubPolicy=required`, and an executable `RIPDPI_PHASE16_PREPARE_HOOK`; missing or invalid runner state writes `runner_unavailable` metadata. Actual real-provider confidence still requires the private self-hosted SIM runner to execute the filtered rows and upload the `phase16-<entry-id>` evidence artifact.
 
 ### How to use this section
 
@@ -573,8 +595,8 @@ PR CI runs:
 - `rust-loom` -- exhaustive concurrency verification (20 min timeout)
 - `cli-packet-smoke` -- CLI proxy behavioral verification with pcap capture
 - `fleet-fixtures` -- structural drift gate + `*FleetCompat*` golden-file suite, on PRs touching the subscription/routing/AWG/relay models or the fleet fixtures
-- `tspu-dryrun` -- TSPU adversarial emulator matrix-runner dry-run + unittest suite, on PRs touching `test-lab/chaos/tspu/` or its CI script. Uploads `verdict-report.json` and per-cell `.pcap` artifacts for triage.
-- `tspu-live` -- TSPU adversarial emulator live-mode smoke. Installs `nftables` and `python3-netfilterqueue` on an ubuntu-latest runner, loads the CI nft ruleset that funnels TCP:8443 into nfqueue 0, runs the live handler with a watchdog `--timeout-seconds`, sends a synthetic TLS ClientHello with a blocklisted SNI, and asserts that the resulting `verdict-report.json` records at least one `blocked` cell. Uploads `verdict-report.json` and `handler.log` as artifacts.
+- `l7-dryrun` -- L7 adversarial emulator matrix-runner dry-run + unittest suite, on PRs touching the harness or its CI script. Uploads `verdict-report.json` and per-cell `.pcap` artifacts for triage.
+- `l7-live` -- L7 adversarial emulator live-mode smoke. Installs `nftables` and `python3-netfilterqueue` on an ubuntu-latest runner, loads the CI nft ruleset that funnels TCP:8443 into nfqueue 0, runs the live handler with a watchdog `--timeout-seconds`, sends a synthetic TLS ClientHello with a fixture-denylisted SNI, and asserts that the resulting `verdict-report.json` records at least one `blocked` cell. Uploads `verdict-report.json` and `handler.log` as artifacts.
 
 Nightly/manual lanes add:
 

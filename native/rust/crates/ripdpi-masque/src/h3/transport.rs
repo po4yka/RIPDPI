@@ -2,6 +2,8 @@ use std::io;
 use std::sync::Arc;
 
 use bytes::Bytes;
+use rustls::client::{EchConfig, EchMode};
+use rustls::pki_types::EchConfigListBytes;
 use rustls::RootCertStore;
 
 use super::socket::{build_client_udp_socket, maybe_rebind_quic_endpoint};
@@ -20,10 +22,23 @@ pub(super) async fn connect_h3_transport(
     let proxy_origin = parse_proxy_origin(config)?;
     let mut roots = RootCertStore::empty();
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    let tls_config = rustls::ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-        .with_safe_default_protocol_versions()
-        .expect("ring provider supports default TLS versions")
-        .with_root_certificates(roots);
+    let tls_config = if let Some(ech_config) = config.ech_config.as_ref() {
+        let provider = rustls::crypto::aws_lc_rs::default_provider();
+        let ech = EchConfig::new(
+            EchConfigListBytes::from(ech_config.config_list.clone()),
+            rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES,
+        )
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid MASQUE ECH config: {error}")))?;
+        rustls::ClientConfig::builder_with_provider(provider.into())
+            .with_ech(EchMode::Enable(ech))
+            .map_err(|error| io::Error::other(format!("failed to enable MASQUE ECH: {error}")))?
+            .with_root_certificates(roots)
+    } else {
+        rustls::ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
+            .with_root_certificates(roots)
+    };
     let mut tls_config = if let Some((certificates, private_key)) = load_client_identity(config)? {
         tls_config
             .with_client_auth_cert(certificates, private_key)

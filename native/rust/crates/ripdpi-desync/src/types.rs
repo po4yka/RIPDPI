@@ -100,6 +100,8 @@ pub struct AdaptivePlannerHints {
     pub udp_burst_profile: Option<AdaptiveUdpBurstProfile>,
     pub quic_fake_profile: Option<QuicFakeProfile>,
     pub entropy_mode: Option<EntropyMode>,
+    pub timing_jitter_profile: Option<AdaptiveTimingJitterProfile>,
+    pub oob_byte_placement: Option<AdaptiveOobBytePlacement>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -116,6 +118,22 @@ pub enum AdaptiveUdpBurstProfile {
     Balanced,
     Conservative,
     Aggressive,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum AdaptiveTimingJitterProfile {
+    Conservative,
+    #[default]
+    Balanced,
+    Aggressive,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum AdaptiveOobBytePlacement {
+    #[default]
+    PreHandshake,
+    PostSni,
+    MidPayload,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

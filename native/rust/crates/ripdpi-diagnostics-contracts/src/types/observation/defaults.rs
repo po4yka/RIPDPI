@@ -2,7 +2,7 @@ use crate::types::scan::TransportFailureKind;
 
 use super::{
     EndpointProbeStatus, HttpProbeStatus, QuicProbeStatus, StrategyProbeProtocol, StrategyProbeStatus,
-    TelegramTransferStatus, TlsProbeStatus,
+    TelegramTransferStatus, TelegramWsTunnelStatus, TlsProbeStatus,
 };
 
 pub(crate) fn transport_failure_none() -> TransportFailureKind {
@@ -27,6 +27,10 @@ pub(crate) fn endpoint_probe_status_not_run() -> EndpointProbeStatus {
 
 pub(crate) fn telegram_transfer_status_error() -> TelegramTransferStatus {
     TelegramTransferStatus::Error
+}
+
+pub(crate) fn telegram_ws_tunnel_status_unknown() -> TelegramWsTunnelStatus {
+    TelegramWsTunnelStatus::Unknown
 }
 
 pub(crate) fn strategy_probe_protocol_candidate() -> StrategyProbeProtocol {

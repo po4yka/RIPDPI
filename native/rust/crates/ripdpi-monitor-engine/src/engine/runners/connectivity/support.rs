@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
+use crate::connectivity::ProbeExecutionContext;
 use crate::engine::runtime::{CollectedStageOutcome, CollectedStep, ExecutionPlan, RunnerArtifacts};
 use crate::types::ProbeResult;
 
@@ -15,7 +16,7 @@ pub(super) trait ConnectivityProbeFamily {
     fn targets(plan: &ExecutionPlan) -> Vec<Self::Target>;
     fn message(target: &Self::Target) -> String;
     #[rustfmt::skip]
-    fn run_probe(target: &Self::Target, plan: &ExecutionPlan, tls_verifier: Option<&Arc<dyn ServerCertVerifier>>) -> ProbeResult;
+    fn run_probe(target: &Self::Target, plan: &ExecutionPlan, probe_context: &ProbeExecutionContext, tls_verifier: Option<&Arc<dyn ServerCertVerifier>>) -> ProbeResult;
 }
 
 pub(super) fn target_count<F: ConnectivityProbeFamily>(plan: &ExecutionPlan) -> usize {
@@ -34,7 +35,7 @@ pub(super) fn collect_family_steps<F: ConnectivityProbeFamily>(
             return CollectedStageOutcome::Cancelled(steps);
         }
         let message = F::message(&target);
-        let probe = F::run_probe(&target, plan, tls_verifier);
+        let probe = F::run_probe(&target, plan, &plan.probe_context, tls_verifier);
         let outcome = probe.outcome.clone();
         let artifacts = RunnerArtifacts::from_probe(probe, F::ARTIFACT_SOURCE, &plan.request.path_mode);
         steps.push(CollectedStep {
@@ -59,6 +60,7 @@ mod tests {
     use rustls::client::danger::ServerCertVerifier;
 
     use super::{collect_family_steps, ConnectivityProbeFamily};
+    use crate::connectivity::ProbeExecutionContext;
     use crate::engine::runtime::{CollectedStageOutcome, ExecutionPlan};
     use crate::transport::direct_transport;
     use crate::types::{DiagnosticProfileFamily, ProbeDetail, ProbeResult, ScanKind, ScanPathMode, ScanRequest};
@@ -89,6 +91,7 @@ mod tests {
         fn run_probe(
             target: &Self::Target,
             _plan: &ExecutionPlan,
+            _probe_context: &ProbeExecutionContext,
             _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
         ) -> ProbeResult {
             PROBE_CALL_COUNT.fetch_add(1, Ordering::Relaxed);
@@ -134,6 +137,7 @@ mod tests {
             started_at: 0,
             total_steps: 2,
             transport: direct_transport(),
+            probe_context: crate::connectivity::ProbeExecutionContext::new(direct_transport()),
             stage_order: Vec::new(),
             strategy: None,
         }
@@ -184,8 +188,10 @@ mod tests {
             fn run_probe(
                 _target: &Self::Target,
                 _plan: &ExecutionPlan,
+                probe_context: &ProbeExecutionContext,
                 _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
             ) -> ProbeResult {
+                assert!(probe_context.approved_primary_resolver().is_none());
                 let count = CANCEL_AFTER_FIRST_CALL_COUNT.fetch_add(1, Ordering::Relaxed);
                 if count == 0 {
                     // First call: set the cancel flag so the post-probe check

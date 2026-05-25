@@ -3,7 +3,8 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::connectivity::run_dns_probe;
+use crate::connectivity::run_dns_probe_with_context;
+use crate::connectivity::ProbeExecutionContext;
 use crate::engine::runtime::{CollectedStageOutcome, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
 use crate::types::{DnsTarget, ProbeResult};
 
@@ -30,9 +31,10 @@ impl ConnectivityProbeFamily for DnsFamily {
     fn run_probe(
         target: &Self::Target,
         plan: &ExecutionPlan,
+        probe_context: &ProbeExecutionContext,
         _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> ProbeResult {
-        run_dns_probe(target, &plan.transport, &plan.request.path_mode)
+        run_dns_probe_with_context(target, probe_context, &plan.request.path_mode)
     }
 }
 

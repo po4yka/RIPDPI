@@ -3,6 +3,7 @@ use std::sync::Arc;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::run_service_probe;
+use crate::connectivity::ProbeExecutionContext;
 use crate::engine::runtime::ExecutionPlan;
 use crate::tls::tls_key_log_callback_for_path;
 use crate::types::{ProbeResult, ServiceTarget};
@@ -30,6 +31,7 @@ impl ConnectivityProbeFamily for ServiceFamily {
     fn run_probe(
         target: &Self::Target,
         plan: &ExecutionPlan,
+        _probe_context: &ProbeExecutionContext,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> ProbeResult {
         let key_log = plan.request.diagnostic_tls_keylog_path.as_deref().map(tls_key_log_callback_for_path);

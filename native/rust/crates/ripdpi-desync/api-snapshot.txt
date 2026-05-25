@@ -2,6 +2,14 @@ pub mod ripdpi_desync
 pub enum ripdpi_desync::ActivationTransport
 pub ripdpi_desync::ActivationTransport::Tcp
 pub ripdpi_desync::ActivationTransport::Udp
+pub enum ripdpi_desync::AdaptiveOobBytePlacement
+pub ripdpi_desync::AdaptiveOobBytePlacement::MidPayload
+pub ripdpi_desync::AdaptiveOobBytePlacement::PostSni
+pub ripdpi_desync::AdaptiveOobBytePlacement::PreHandshake
+pub enum ripdpi_desync::AdaptiveTimingJitterProfile
+pub ripdpi_desync::AdaptiveTimingJitterProfile::Aggressive
+pub ripdpi_desync::AdaptiveTimingJitterProfile::Balanced
+pub ripdpi_desync::AdaptiveTimingJitterProfile::Conservative
 pub enum ripdpi_desync::AdaptiveTlsRandRecProfile
 pub ripdpi_desync::AdaptiveTlsRandRecProfile::Balanced
 pub ripdpi_desync::AdaptiveTlsRandRecProfile::Tight
@@ -70,8 +78,10 @@ pub ripdpi_desync::ActivationTcpState::mss: core::option::Option<i64>
 pub ripdpi_desync::ActivationTcpState::window_size: core::option::Option<i64>
 pub struct ripdpi_desync::AdaptivePlannerHints
 pub ripdpi_desync::AdaptivePlannerHints::entropy_mode: core::option::Option<ripdpi_config::model::group::EntropyMode>
+pub ripdpi_desync::AdaptivePlannerHints::oob_byte_placement: core::option::Option<ripdpi_desync::AdaptiveOobBytePlacement>
 pub ripdpi_desync::AdaptivePlannerHints::quic_fake_profile: core::option::Option<ripdpi_config::model::group::QuicFakeProfile>
 pub ripdpi_desync::AdaptivePlannerHints::split_offset_base: core::option::Option<ripdpi_config::model::offset::OffsetBase>
+pub ripdpi_desync::AdaptivePlannerHints::timing_jitter_profile: core::option::Option<ripdpi_desync::AdaptiveTimingJitterProfile>
 pub ripdpi_desync::AdaptivePlannerHints::tls_record_offset_base: core::option::Option<ripdpi_config::model::offset::OffsetBase>
 pub ripdpi_desync::AdaptivePlannerHints::tlsrandrec_profile: core::option::Option<ripdpi_desync::AdaptiveTlsRandRecProfile>
 pub ripdpi_desync::AdaptivePlannerHints::udp_burst_profile: core::option::Option<ripdpi_desync::AdaptiveUdpBurstProfile>

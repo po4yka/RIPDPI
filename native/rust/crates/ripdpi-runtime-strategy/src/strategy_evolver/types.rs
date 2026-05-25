@@ -14,7 +14,10 @@ pub use stats::ComboStats;
 #[cfg(test)]
 pub(crate) use context::FamilyStats;
 pub(crate) use context::{ContextBanditState, StrategyFamily};
-pub(crate) use identity::{entropy_mode_disc, offset_base_disc, quic_fake_disc, tls_randrec_disc, udp_burst_disc};
+pub(crate) use identity::{
+    entropy_mode_disc, offset_base_disc, oob_placement_disc, quic_fake_disc, timing_jitter_disc, tls_randrec_disc,
+    udp_burst_disc,
+};
 pub(crate) use pool::{combo_from_pool, COMBO_POOL};
 pub(crate) use stats::{combo_fitness_at, combo_fitness_at_with_penalties, CooldownTransition, FITNESS_LATENCY_CAP_MS};
 #[cfg(test)]

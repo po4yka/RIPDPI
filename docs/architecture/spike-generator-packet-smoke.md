@@ -4,7 +4,7 @@ Status: design proposal (2026-05-16) Tracks: [`spike-adversarial-network-harness
 
 ## Problem
 
-`scripts/ci/packet-smoke-scenarios.json` hand-lists ~10-15 named scenarios. The desync parameter space is at least 7-dimensional (split offset, TLS record split, TLS-randrec profile, UDP burst, QUIC fake profile, fake-TTL ladder, OOB-byte placement). A hand-curated list can cover the well-known TSPU bypass recipes but cannot defend against regressions in less-visited corners of the space.
+`scripts/ci/packet-smoke-scenarios.json` hand-lists ~10-15 named scenarios. The desync parameter space is at least 7-dimensional (split offset, TLS record split, TLS-randrec profile, UDP burst, QUIC fake profile, fake-TTL ladder, OOB-byte placement). A hand-curated list can cover the well-known L7 path-variation scenarios but cannot defend against regressions in less-visited corners of the space.
 
 ## Goal
 
@@ -28,7 +28,7 @@ The sample sets above are illustrative; the spike landing PR pins them against t
 
 ## Sampling strategy
 
-- **Named scenarios** run on every PR. These are the TSPU bypass recipes encoded today in `packet-smoke-scenarios.json`.
+- **Named scenarios** run on every PR. These are the L7 path-variation scenarios encoded today in `packet-smoke-scenarios.json`.
 - **Per-PR random samples** run N = 8 cells. The seed is per-PR and recorded in the artifact so failures reproduce. Sample without replacement across PRs in a rolling window so coverage spreads.
 - **Nightly** runs N = 64 random samples plus all 2-axis combinatorial sweeps (every pair of dimensions with every value-pair, holding the other 5 axes at their default). This is large but still finite.
 
@@ -49,7 +49,7 @@ Hand-curated lists encode our current threat model and grow slowly. Generator-dr
 
 1. v1 land the generator scaffolding + per-PR N=8 random sampling with recorded seed.
 2. v1.1 land nightly N=64 and 2-axis sweeps.
-3. v2 wire the generator-driven cells into the TSPU adversarial emulator's pattern matrix so cells run (desync × adversary pattern).
+3. v2 wire the generator-driven cells into the L7 adversarial emulator's pattern matrix so cells run (desync × adversary pattern).
 
 ## Open design questions
 

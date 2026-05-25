@@ -266,6 +266,53 @@ class DiagnosticsModelsCompatibilityTest {
     }
 
     @Test
+    fun `engine scan report round trips telegram throughput and ws tunnel observation`() {
+        val report =
+            EngineScanReportWire(
+                sessionId = "session-telegram",
+                profileId = "ru-messaging",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 1L,
+                finishedAt = 2L,
+                summary = "telegram",
+                observations =
+                    listOf(
+                        ObservationFact(
+                            kind = ObservationKind.TELEGRAM,
+                            target = "telegram.org",
+                            telegram =
+                                TelegramObservationFact(
+                                    verdict = TelegramVerdict.PARTIAL,
+                                    qualityScore = 120,
+                                    downloadStatus = TelegramTransferStatus.OK,
+                                    uploadStatus = TelegramTransferStatus.SLOW,
+                                    dcReachable = 4,
+                                    dcTotal = 5,
+                                    downloadAvgBps = 120_000,
+                                    downloadPeakBps = 180_000,
+                                    uploadAvgBps = 64_000,
+                                    uploadPeakBps = 96_000,
+                                    dcResults = listOf("DC1:ok:42ms", "DC2:fail"),
+                                    wsTunnelStatus = TelegramWsTunnelStatus.UNREACHABLE,
+                                    wsTunnelRttMs = 250,
+                                    wsTunnelError = "tls handshake failed",
+                                ),
+                        ),
+                    ),
+            )
+
+        val encoded = json.encodeToString(EngineScanReportWire.serializer(), report)
+        val decoded = json.decodeFromString(EngineScanReportWire.serializer(), encoded)
+        val telegram = requireNotNull(decoded.observations.single().telegram)
+
+        assertEquals(120_000, telegram.downloadAvgBps)
+        assertEquals(96_000, telegram.uploadPeakBps)
+        assertEquals(listOf("DC1:ok:42ms", "DC2:fail"), telegram.dcResults)
+        assertEquals(TelegramWsTunnelStatus.UNREACHABLE, telegram.wsTunnelStatus)
+        assertEquals("tls handshake failed", telegram.wsTunnelError)
+    }
+
+    @Test
     fun `engine scan request wire round trips probe tasks and target packs`() {
         val request =
             EngineScanRequestWire(

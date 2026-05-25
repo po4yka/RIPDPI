@@ -1,3 +1,5 @@
+use ripdpi_tls_profiles::OutboundEchConfig;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MasqueAuthMode {
     None,
@@ -34,6 +36,8 @@ pub struct MasqueConfig {
     pub quic_bind_low_port: bool,
     /// Rebind the owned QUIC transport after the handshake so Quinn performs RFC 9000 path validation.
     pub quic_migrate_after_handshake: bool,
+    /// Optional ECH config for owned MASQUE outbounds.
+    pub ech_config: Option<OutboundEchConfig>,
 }
 
 impl MasqueConfig {

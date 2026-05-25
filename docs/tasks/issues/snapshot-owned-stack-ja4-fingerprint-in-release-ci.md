@@ -1,7 +1,7 @@
 ---
 title: Snapshot owned-stack JA4 fingerprint in release CI
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-14
+updated: 2026-05-25
 ---
 
-- [ ] #task Snapshot owned-stack JA4 fingerprint in release CI #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [x] #task Snapshot owned-stack JA4 fingerprint in release CI #repo/RIPDPI #area/diagnostics #status/done 🔼 ✅ 2026-05-25
 
 ## Goal contract
 
@@ -34,10 +34,14 @@ Add a release-time CI step that records owned-stack outbound JA4 against a fixtu
 
 ## Acceptance criteria
 
-- [ ] CI step captures owned-stack outbound JA4 against a pinned fixture endpoint on every release build.
-- [ ] Expected JA4 baseline committed to the repo; build fails on drift.
-- [ ] Assertion explicitly verifies `X25519MLKEM768` is present in the ClientHello key-share list.
-- [ ] Runbook documents how to update the baseline when Conscrypt intentionally rotates browser-class fingerprint.
+- [x] CI step captures owned-stack outbound JA4 against a pinned fixture endpoint on every release build.
+- [x] Expected JA4 baseline committed to the repo; build fails on drift.
+- [x] Assertion explicitly verifies `X25519MLKEM768` is present in the ClientHello key-share list.
+- [x] Runbook documents how to update the baseline when Conscrypt intentionally rotates browser-class fingerprint.
+
+## Work log
+
+- 2026-05-25: Added `scripts/ci/check-owned-stack-tls-fingerprint.sh`, release workflow wiring, `contract-fixtures/owned_stack_tls_fingerprint_snapshot.json`, native owned-TLS snapshot tests, and the docs/testing runbook. Verification: `CARGO_TARGET_DIR=/tmp/ripdpi-owned-stack-fingerprint-target bash scripts/ci/check-owned-stack-tls-fingerprint.sh` exit 0; `CARGO_TARGET_DIR=/tmp/ripdpi-owned-stack-fingerprint-target cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-tls-profiles captured_client_hello_matches_profile_packet_parity_metadata -- --nocapture` exit 0; `CARGO_TARGET_DIR=/tmp/ripdpi-owned-stack-fingerprint-target cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-tls-profiles chrome_120_frozen_fingerprint_hash_unchanged -- --nocapture` exit 0.
 
 ## Links
 

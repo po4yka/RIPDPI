@@ -4,6 +4,13 @@ use crate::relay::{
 };
 use crate::{XhttpTlsConfig, XmuxConfig};
 
+const BORING_ECH_CONFIG_LIST: &[u8] = &[
+    0x00, 0x3e, 0xfe, 0x0d, 0x00, 0x3a, 0x00, 0x00, 0x20, 0x00, 0x20, 0xbb, 0x2f, 0x29, 0xe3, 0xe3, 0x05, 0x7e, 0x04,
+    0x19, 0xd5, 0x2f, 0xc5, 0xf4, 0x41, 0x18, 0x77, 0x6f, 0x8d, 0xb6, 0x1c, 0xea, 0x4f, 0xdf, 0x76, 0x07, 0x9b, 0x93,
+    0x60, 0x6c, 0x5a, 0x62, 0x48, 0x00, 0x08, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x03, 0x00, 0x07, 0x65, 0x63,
+    0x68, 0x2e, 0x63, 0x6f, 0x6d, 0x00, 0x00,
+];
+
 #[test]
 fn tls_config_normalizes_path_host_and_xmux_defaults() {
     let config = XhttpTlsConfig::from_strings(
@@ -146,4 +153,24 @@ fn with_protocol_mode_str_parses_xray_identifier() {
     .with_protocol_mode_str("stream-one")
     .expect("stream-one accepted");
     assert_eq!(XhttpProtocolMode::StreamOne, cfg.protocol_mode);
+}
+
+#[test]
+fn xhttp_tls_config_accepts_ech_and_boring_backend_can_apply_it() {
+    let ech = ripdpi_tls_profiles::OutboundEchConfig::new("ech.com", BORING_ECH_CONFIG_LIST.to_vec()).expect("ech");
+    let cfg = XhttpTlsConfig::from_strings(
+        "edge.example",
+        443,
+        "edge.example",
+        "550e8400-e29b-41d4-a716-446655440000",
+        "/api",
+        "",
+        "chrome_stable",
+    )
+    .expect("config")
+    .with_ech_config(ech);
+
+    let connector = ripdpi_tls_profiles::build_connector(&cfg.tls_fingerprint_profile, true).expect("connector");
+    let mut ssl = connector.configure().expect("connect config");
+    ripdpi_tls_profiles::configure_boring_ech(&mut ssl, cfg.ech_config.as_ref()).expect("ECH applied");
 }

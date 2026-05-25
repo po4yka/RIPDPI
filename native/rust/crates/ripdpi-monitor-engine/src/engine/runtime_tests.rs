@@ -57,6 +57,7 @@ fn test_plan() -> ExecutionPlan {
         started_at: 0,
         total_steps: 8,
         transport: direct_transport(),
+        probe_context: crate::connectivity::ProbeExecutionContext::new(direct_transport()),
         stage_order: Vec::new(),
         strategy: None,
     }
@@ -101,6 +102,7 @@ fn strategy_test_plan() -> ExecutionPlan {
         started_at: 0,
         total_steps: 8,
         transport: direct_transport(),
+        probe_context: crate::connectivity::ProbeExecutionContext::new(direct_transport()),
         stage_order: Vec::new(),
         strategy: Some(StrategyExecutionPlan {
             suite_id: "quick_v1".to_string(),
