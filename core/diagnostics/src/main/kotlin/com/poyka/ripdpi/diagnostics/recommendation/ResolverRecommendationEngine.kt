@@ -36,6 +36,8 @@ private const val SchemeHttps = "https://"
 private const val DefaultPortHttp = 80
 private const val DefaultPortDoh = 443
 private const val DefaultPortDot = 853
+private const val EmptyAddressSet = "[]"
+private const val DetailSeparator = "|"
 
 private data class Candidate(
     val path: EncryptedDnsPathCandidate,
@@ -403,6 +405,18 @@ private fun URI.resolvedPort(): Int =
     }
 
 private fun hasValidEncryptedAddresses(details: Map<String, String>): Boolean {
-    val addresses = details["encryptedAddresses"].orEmpty()
-    return addresses.isNotBlank() && !addresses.startsWith("error:")
+    val addresses =
+        details["encryptedAddresses"]
+            .orEmpty()
+            .split(DetailSeparator)
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+    return addresses.isNotEmpty() && addresses.none(String::isInvalidEncryptedAddressToken)
+}
+
+private fun String.isInvalidEncryptedAddressToken(): Boolean {
+    val normalized = lowercase(Locale.US)
+    return normalized == EmptyAddressSet ||
+        normalized.startsWith("error:") ||
+        normalized.startsWith("dns_oracle_")
 }

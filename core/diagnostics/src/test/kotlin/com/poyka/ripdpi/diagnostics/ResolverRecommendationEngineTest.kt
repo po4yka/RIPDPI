@@ -493,6 +493,50 @@ class ResolverRecommendationEngineTest {
     }
 
     @Test
+    fun `compute ignores resolver candidates with oracle error address tokens`() {
+        for (encryptedAddresses in listOf("dns_oracle_unavailable", "dns_oracle_disagreement", "[]")) {
+            val report =
+                ScanReport(
+                    sessionId = "s1",
+                    profileId = "p1",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    startedAt = 0,
+                    finishedAt = 100,
+                    summary = "",
+                    results =
+                        listOf(
+                            ProbeResult(
+                                probeType = "dns_integrity",
+                                target = "example.com",
+                                outcome = "udp_timeout_transient",
+                                details =
+                                    listOf(
+                                        ProbeDetail("encryptedResolverId", DnsProviderCloudflare),
+                                        ProbeDetail("encryptedProtocol", EncryptedDnsProtocolDoh),
+                                        ProbeDetail("encryptedEndpoint", "https://cloudflare-dns.com/dns-query"),
+                                        ProbeDetail("encryptedHost", "cloudflare-dns.com"),
+                                        ProbeDetail("encryptedPort", "443"),
+                                        ProbeDetail("encryptedAddresses", encryptedAddresses),
+                                        ProbeDetail("encryptedLatencyMs", "25"),
+                                    ),
+                            ),
+                        ),
+                )
+
+            val result =
+                ResolverRecommendationEngine.compute(
+                    report = report,
+                    settings =
+                        com.poyka.ripdpi.proto.AppSettings
+                            .getDefaultInstance(),
+                    preferredPath = null,
+                )
+
+            assertNull("expected no recommendation for encryptedAddresses=$encryptedAddresses", result)
+        }
+    }
+
+    @Test
     fun `compute selects best candidate by match count`() {
         val report =
             ScanReport(
