@@ -2829,4 +2829,11 @@ fakeddisorder endhost</string>
     <string name="oom_recovery_action_dismiss">Закрыть</string>
     <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
     <string name="oom_recovery_sample_downtime">4 мин 18 с</string>
+
+    <!-- Strategy A/B comparison surface -->
+    <string name="title_strategy_ab">Стратегия A/B</string>
+    <string name="strategy_ab_title">Стратегия A/B</string>
+    <string name="strategy_ab_action_switch">Переключить</string>
+    <string name="strategy_ab_badge_current">ТЕКУЩАЯ</string>
+    <string name="strategy_ab_badge_candidate">КАНДИДАТ</string>
 </resources>

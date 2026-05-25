@@ -2711,4 +2711,11 @@ fake_burst 3</string>
     <string name="oom_recovery_action_dismiss">关闭</string>
     <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
     <string name="oom_recovery_sample_downtime">4 分 18 秒</string>
+
+    <!-- Strategy A/B comparison surface -->
+    <string name="title_strategy_ab">策略 A/B</string>
+    <string name="strategy_ab_title">策略 A/B</string>
+    <string name="strategy_ab_action_switch">切换</string>
+    <string name="strategy_ab_badge_current">当前</string>
+    <string name="strategy_ab_badge_candidate">候选</string>
 </resources>

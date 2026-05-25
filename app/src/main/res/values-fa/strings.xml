@@ -2715,4 +2715,11 @@ fakeddisorder endhost</string>
     <string name="oom_recovery_action_dismiss">بستن</string>
     <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
     <string name="oom_recovery_sample_downtime">۴ دقیقه ۱۸ ثانیه</string>
+
+    <!-- Strategy A/B comparison surface -->
+    <string name="title_strategy_ab">استراتژی A/B</string>
+    <string name="strategy_ab_title">استراتژی A/B</string>
+    <string name="strategy_ab_action_switch">تغییر</string>
+    <string name="strategy_ab_badge_current">فعلی</string>
+    <string name="strategy_ab_badge_candidate">کاندید</string>
 </resources>

@@ -69,11 +69,13 @@ import com.poyka.ripdpi.ui.screens.diagnostics.LatencyGraphScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.OomRecoveryScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.OomRecoveryState
 import com.poyka.ripdpi.ui.screens.diagnostics.StateMachineScreen
+import com.poyka.ripdpi.ui.screens.diagnostics.StrategyAbScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.ThroughputGraphScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleHandshakeTimelineState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleLatencyGraphState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleOomRecoveryState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleStateMachineState
+import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyAbState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleThroughputGraphState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -238,6 +240,17 @@ class RdsComponentsScreenshotTest {
                 onReconnect = {},
                 onViewIncident = {},
                 onDismiss = {},
+                onBack = {},
+            )
+        }
+    }
+
+    @Test
+    fun strategyAb() {
+        captureBothThemes("strategyAb", widthDp = 420, heightDp = 480) {
+            StrategyAbScreen(
+                state = sampleStrategyAbState(),
+                onSwitch = {},
                 onBack = {},
             )
         }

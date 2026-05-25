@@ -2710,4 +2710,11 @@ Source : %2$s</string>
     <string name="oom_recovery_action_dismiss">Ignorer</string>
     <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
     <string name="oom_recovery_sample_downtime">4 min 18 s</string>
+
+    <!-- Strategy A/B comparison surface -->
+    <string name="title_strategy_ab">Stratégie A/B</string>
+    <string name="strategy_ab_title">Stratégie A/B</string>
+    <string name="strategy_ab_action_switch">Basculer</string>
+    <string name="strategy_ab_badge_current">ACTUELLE</string>
+    <string name="strategy_ab_badge_candidate">CANDIDATE</string>
 </resources>

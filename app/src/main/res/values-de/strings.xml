@@ -2710,4 +2710,11 @@ Quelle: %2$s</string>
     <string name="oom_recovery_action_dismiss">Verwerfen</string>
     <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
     <string name="oom_recovery_sample_downtime">4 Min. 18 Sek.</string>
+
+    <!-- Strategy A/B comparison surface -->
+    <string name="title_strategy_ab">Strategie A/B</string>
+    <string name="strategy_ab_title">Strategie A/B</string>
+    <string name="strategy_ab_action_switch">Wechseln</string>
+    <string name="strategy_ab_badge_current">AKTUELL</string>
+    <string name="strategy_ab_badge_candidate">KANDIDAT</string>
 </resources>
