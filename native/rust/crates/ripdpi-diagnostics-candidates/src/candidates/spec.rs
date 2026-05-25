@@ -78,6 +78,7 @@ pub(super) fn config_requires_fake_ttl(config: &ProxyUiConfig) -> bool {
 /// - `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, `disorder`, `disoob`
 ///   → [`RuntimeCapability::TtlWrite`] (TTL manipulation to expire fakes before target).
 /// - `fakerst` → [`RuntimeCapability::RawTcpFakeSend`] (raw-socket fake RST path).
+/// - `seqovl` → [`RuntimeCapability::ReplacementSocket`] (TCP_REPAIR replacement socket path).
 /// - `ipfrag2_udp` → [`RuntimeCapability::RawUdpFragmentation`] (raw IP UDP fragmentation path).
 /// - `multidisorder` → [`RuntimeCapability::RootHelperAvailable`] (TCP_REPAIR / root).
 ///
@@ -87,6 +88,7 @@ pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> &'static [
     static TTL_WRITE: &[RuntimeCapability] = &[RuntimeCapability::TtlWrite];
     static RAW_TCP: &[RuntimeCapability] = &[RuntimeCapability::RawTcpFakeSend];
     static RAW_UDP: &[RuntimeCapability] = &[RuntimeCapability::RawUdpFragmentation];
+    static REPLACEMENT_SOCKET: &[RuntimeCapability] = &[RuntimeCapability::ReplacementSocket];
     static ROOT_HELPER: &[RuntimeCapability] = &[RuntimeCapability::RootHelperAvailable];
 
     let all_steps = config.chains.tcp_steps.iter().chain(
@@ -102,6 +104,7 @@ pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> &'static [
     let mut needs_ttl = false;
     let mut needs_raw_tcp = false;
     let mut needs_raw_udp = false;
+    let mut needs_replacement_socket = false;
     let mut needs_root = false;
 
     for step in all_steps {
@@ -111,6 +114,9 @@ pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> &'static [
             }
             "fakerst" => {
                 needs_raw_tcp = true;
+            }
+            "seqovl" => {
+                needs_replacement_socket = true;
             }
             "multidisorder" => {
                 needs_root = true;
@@ -130,6 +136,8 @@ pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> &'static [
     // no single candidate currently needs more than one capability class.
     if needs_root {
         ROOT_HELPER
+    } else if needs_replacement_socket {
+        REPLACEMENT_SOCKET
     } else if needs_raw_udp {
         RAW_UDP
     } else if needs_raw_tcp {

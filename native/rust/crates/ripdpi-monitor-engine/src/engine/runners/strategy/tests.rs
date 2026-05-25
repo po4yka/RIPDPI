@@ -240,6 +240,25 @@ fn promotable_winner_selection_rejects_lab_only_candidate_even_when_it_scores_hi
 }
 
 #[test]
+fn promotable_winner_selection_rejects_seqovl_when_replacement_socket_is_missing() {
+    let specs = build_tcp_candidates(&ProxyUiConfig::default());
+    let summaries = vec![
+        strategy_candidate_summary("tlsrec_seqovl_midsld", "tlsrec_seqovl", 12, 12, 2, 2, false, "success"),
+        strategy_candidate_summary("split_host", "split", 6, 12, 1, 2, false, "partial"),
+    ];
+    let ipfrag_caps = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+        raw_ipv4: true,
+        raw_ipv6: true,
+        tcp_repair: false,
+    };
+
+    let selected = select_promotable_candidate_index(&summaries, &specs, true, false, ipfrag_caps)
+        .expect("capability-free split candidate should remain promotable");
+
+    assert_eq!(summaries[selected].id, "split_host");
+}
+
+#[test]
 fn baseline_ech_detection_recognizes_resolution_detail_and_tls_ech_only() {
     assert!(baseline_supports_ech_candidates(&[baseline_https_result("tls_ok", "ech_config_available")]));
     assert!(baseline_supports_ech_candidates(&[baseline_https_result("tls_ech_only", "none")]));

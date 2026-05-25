@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.strategyLabel
+import com.poyka.ripdpi.proto.AppSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -209,6 +210,85 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
         assertNull(recommendation.quicCandidateFamily)
         assertNull(recommendation.strategySignature)
     }
+
+    @Test
+    fun `low confidence selected candidate is not remembered as safe path`() {
+        val report =
+            invariantScanReportWithStrategyProbe(
+                proxyConfigJson = invariantValidRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                auditAssessment =
+                    invariantAuditAssessment().copy(
+                        confidence =
+                            invariantAuditAssessment().confidence.copy(
+                                level = StrategyProbeAuditConfidenceLevel.LOW,
+                                score = 30,
+                                rationale = "partial and ambiguous",
+                            ),
+                    ),
+            )
+
+        val rememberedPolicy =
+            DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
+                strategyProbe = requireNotNull(report.strategyProbeReport),
+                settings = settings,
+                fingerprint = invariantNetworkFingerprint(),
+                hostAutolearnStorePath = null,
+                json = json,
+            )
+
+        assertNull(rememberedPolicy)
+    }
+
+    @Test
+    fun `downgraded exact-root selected candidate is not remembered even with matching config`() {
+        val report =
+            invariantScanReportWithStrategyProbe(
+                proxyConfigJson = invariantValidRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                tcpEmitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
+                tcpExactEmitterRequiresRoot = true,
+                tcpEmitterDowngraded = true,
+                auditAssessment = invariantAuditAssessment(),
+            )
+
+        val rememberedPolicy =
+            DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
+                strategyProbe = requireNotNull(report.strategyProbeReport),
+                settings = rootEnabledSettings(),
+                fingerprint = invariantNetworkFingerprint(),
+                hostAutolearnStorePath = null,
+                json = json,
+            )
+
+        assertNull(rememberedPolicy)
+    }
+
+    @Test
+    fun `root enabled settings can remember exact-root candidate only when audit is strong`() {
+        val report =
+            invariantScanReportWithStrategyProbe(
+                proxyConfigJson = invariantValidRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                tcpEmitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
+                tcpExactEmitterRequiresRoot = true,
+                auditAssessment = invariantAuditAssessment(),
+            )
+
+        val rememberedPolicy =
+            DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
+                strategyProbe = requireNotNull(report.strategyProbeReport),
+                settings = rootEnabledSettings(),
+                fingerprint = invariantNetworkFingerprint(),
+                hostAutolearnStorePath = null,
+                json = json,
+            )
+
+        assertNotNull(rememberedPolicy)
+    }
 }
 
 private fun invariantScanReportWithStrategyProbe(
@@ -356,3 +436,9 @@ private fun invariantNetworkFingerprint(): NetworkFingerprint =
                 gateway = "192.0.2.1",
             ),
     )
+
+private fun rootEnabledSettings(): AppSettings =
+    defaultDiagnosticsAppSettings()
+        .toBuilder()
+        .setRootModeEnabled(true)
+        .build()

@@ -219,6 +219,7 @@ internal object DiagnosticsScanWorkflow {
         val isEligible =
             strategyProbe.suiteId != StrategyProbeSuiteFullMatrixV1 &&
                 recommendation.isValid &&
+                evaluateBackgroundAutoPersistEligibility(strategyProbe) == BackgroundAutoPersistEligibility.Eligible &&
                 hasWinningTargetSuccess(strategyProbe)
         if (!isEligible) return null
         val activeDns = settings.activeDnsSettings()

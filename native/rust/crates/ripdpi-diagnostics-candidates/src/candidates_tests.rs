@@ -247,6 +247,7 @@ fn seqovl_candidates_keep_rooted_tier_and_fallback_metadata() {
     assert_eq!(seqovl.emitter_tier, StrategyEmitterTier::RootedProduction);
     assert!(seqovl.exact_emitter_requires_root);
     assert_eq!(seqovl.approximate_fallback_family, Some("tlsrec_split"));
+    assert_eq!(seqovl.requires_capabilities, &[RuntimeCapability::ReplacementSocket]);
 }
 
 #[test]
