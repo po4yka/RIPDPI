@@ -25,9 +25,9 @@ internal fun buildArchiveProvenance(
     val context = selection.sessionContextModel ?: selection.latestContextModel
     val runtimeProvenance =
         DiagnosticsArchiveRuntimeProvenance(
-            runtimeId = allEvents.latestCorrelation { it.runtimeId },
+            runtimeId = allEvents.latestCorrelation { it.runtimeId }?.let(::redactDiagnosticsFreeText),
             mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode },
-            policySignature = allEvents.latestCorrelation { it.policySignature },
+            policySignature = allEvents.latestCorrelation { it.policySignature }?.let(::redactDiagnosticsFreeText),
             fingerprintHash =
                 selection.payload.telemetry
                     .firstOrNull()
@@ -131,10 +131,10 @@ internal fun buildRuntimeConfig(selection: DiagnosticsArchiveSelection): Diagnos
                 ?.takeIf { it.isNotBlank() }
                 ?.let(::sha256Hex),
         effectiveStrategySignature = selection.effectiveStrategySignature,
-        proxyRuntime = context?.service?.proxy,
-        tunnelRuntime = context?.service?.tunnel,
-        relayRuntime = context?.service?.relay,
-        warpRuntime = context?.service?.warp,
+        proxyRuntime = context?.service?.proxy?.redactedRuntimeAddresses(),
+        tunnelRuntime = context?.service?.tunnel?.redactedRuntimeAddresses(),
+        relayRuntime = context?.service?.relay?.redactedRuntimeAddresses(),
+        warpRuntime = context?.service?.warp?.redactedRuntimeAddresses(),
         connectivityAssessment = selection.homeCompositeOutcome?.connectivityAssessment,
     )
 }
@@ -220,7 +220,12 @@ private fun resolveResolverConfig(telemetry: TelemetrySampleEntity?): ResolvedRe
         ResolvedResolverConfig(
             resolverId = telemetry.resolverId ?: "unavailable",
             resolverProtocol = telemetry.resolverProtocol ?: "unavailable",
-            resolverEndpoint = telemetry.resolverEndpoint ?: "unavailable",
+            resolverEndpoint =
+                if (telemetry.resolverEndpoint.isNullOrBlank()) {
+                    "unavailable"
+                } else {
+                    "redacted"
+                },
             resolverLatencyMs = telemetry.resolverLatencyMs,
             resolverFallbackActive = telemetry.resolverFallbackActive,
             resolverFallbackReason = telemetry.resolverFallbackReason ?: "unavailable",
@@ -273,6 +278,12 @@ private fun resolveEnvironmentConfig(
         notificationPermissionState = permissions?.notificationPermissionState ?: "unavailable",
         networkMeteredState = environment?.networkMeteredState ?: "unavailable",
         roamingState = environment?.roamingState ?: "unavailable",
+    )
+
+private fun RuntimeComponentSummary.redactedRuntimeAddresses(): RuntimeComponentSummary =
+    copy(
+        listenerAddress = listenerAddress?.let { "redacted" },
+        upstreamAddress = upstreamAddress?.let { "redacted" },
     )
 
 internal fun List<NativeSessionEventEntity>.latestCorrelation(

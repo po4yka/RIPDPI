@@ -27,7 +27,7 @@
     "penalizedHostCount": 0,
     "powerSaveModeState": "off",
     "privateDnsMode": "strict",
-    "resolverEndpoint": "https://dns.adguard-dns.com/dns-query",
+    "resolverEndpoint": "redacted",
     "resolverFallbackActive": false,
     "resolverFallbackReason": "none",
     "resolverId": "adguard",

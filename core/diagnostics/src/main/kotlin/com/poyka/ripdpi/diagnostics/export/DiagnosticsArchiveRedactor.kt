@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics.export
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
+import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import kotlinx.serialization.json.Json
@@ -114,6 +115,12 @@ class DiagnosticsArchiveRedactor
                 policySignature = entity.policySignature?.let(::redactDiagnosticsFreeText),
             )
 
+        fun redact(entity: ProbeResultEntity): ProbeResultEntity =
+            entity.copy(
+                target = redactDiagnosticsArchiveText(entity.target),
+                detailJson = redactDiagnosticsArchiveText(entity.detailJson),
+            )
+
         fun decodeNetworkSnapshot(entity: NetworkSnapshotEntity?): NetworkSnapshotModel? =
             entity?.payloadJson?.let { payloadJson ->
                 runCatching {
@@ -147,9 +154,40 @@ internal fun redactDiagnosticsLogcat(value: String): String =
             "hostname=",
             "target=",
             "server=",
+            "resolverEndpoint=",
             "endpoint=",
             "addr=",
             "address=",
+        )
+
+internal fun redactDiagnosticsArchiveText(value: String): String =
+    redactDiagnosticsLogcat(value)
+        .replaceWhenContainsAny(
+            JsonTargetArrayRegex,
+            "$1[\"<redacted>\"]",
+            "\"affectedTargets\"",
+            "\"domainHosts\"",
+            "\"quicHosts\"",
+        ).replaceWhenContainsAny(
+            JsonEndpointFieldRegex,
+            "$1<redacted>\"",
+            "\"address\"",
+            "\"addr\"",
+            "\"bssid\"",
+            "\"dhcpServer\"",
+            "\"endpoint\"",
+            "\"gateway\"",
+            "\"host\"",
+            "\"hostname\"",
+            "\"ipAddress\"",
+            "\"listenerAddress\"",
+            "\"proxyEndpoint\"",
+            "\"resolverEndpoint\"",
+            "\"server\"",
+            "\"ssid\"",
+            "\"subnetMask\"",
+            "\"target\"",
+            "\"upstreamAddress\"",
         )
 
 private fun String.replaceWhenContainsAny(
@@ -170,4 +208,23 @@ private val BssidRegex = Regex("\\b[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}\\b")
 private val QuotedNetworkNameRegex = Regex("(?i)\\b(ssid|operator|carrier)=([\"']).*?\\2")
 private val UrlRegex = Regex("https?://\\S+", RegexOption.IGNORE_CASE)
 private val EndpointFieldRegex =
-    Regex("(?i)\\b(host|hostname|target|server|endpoint|addr|address)=([^\\s,;]+)")
+    Regex(
+        "(?i)\\b(host|hostname|target|server|resolverEndpoint|endpoint|addr|address)=" +
+            "([^\\s,;\"\\\\\\]}]+)",
+    )
+private val JsonEndpointFieldRegex =
+    Regex(
+        JsonEndpointFieldKeyPattern +
+            JsonEndpointFieldValuePattern,
+        RegexOption.IGNORE_CASE,
+    )
+private val JsonTargetArrayRegex =
+    Regex(
+        "(\"(?:affectedTargets|domainHosts|quicHosts)\"\\s*:\\s*)\\[[^]]*]",
+    )
+private const val JsonEndpointFieldKeyPattern =
+    "(\"(?:address|addr|bssid|dhcpServer|endpoint|gateway|host|hostname|ipAddress|" +
+        "listenerAddress|proxyEndpoint|resolverEndpoint|server|ssid|subnetMask|target|" +
+        "upstreamAddress)\"\\s*:\\s*\")"
+private const val JsonEndpointFieldValuePattern =
+    "(?!redacted|<redacted>|unavailable|unknown|none|null)(?:[^\"\\\\]|\\\\.)*\""

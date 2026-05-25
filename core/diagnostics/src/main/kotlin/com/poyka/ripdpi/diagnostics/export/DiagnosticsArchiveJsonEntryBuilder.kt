@@ -18,7 +18,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
     private val projector: DiagnosticsSummaryProjector,
     private val json: Json,
 ) {
-    private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json)
+    private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json, redactor)
 
     @Suppress("detekt.LongMethod")
     internal fun buildJsonEntries(
@@ -122,6 +122,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
     internal fun buildRedactedPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchivePayload =
         selection.payload.copy(
             primaryReport = selection.primaryReport,
+            results = selection.payload.results.map(redactor::redact),
             sessionSnapshots = selection.payload.sessionSnapshots.map(redactor::redact),
             sessionContexts = selection.payload.sessionContexts.map(redactor::redact),
             sessionEvents = selection.payload.sessionEvents.map(redactor::redact),
@@ -203,9 +204,9 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                             add("connectivityNextAction=${assessment.recommendedNextAction}")
                         }
                     }
-                    runtimeId?.let { add("runtimeId=$it") }
+                    runtimeId?.let { add("runtimeId=${redactDiagnosticsFreeText(it)}") }
                     mode?.let { add("mode=$it") }
-                    policySignature?.let { add("policySignature=$it") }
+                    policySignature?.let { add("policySignature=${redactDiagnosticsFreeText(it)}") }
                     fingerprintHash?.let {
                         add("fingerprintHash=$it")
                         add("networkScope=$it")
@@ -352,9 +353,9 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                 selection.payload.telemetry
                     .firstOrNull()
                     ?.toArchiveTelemetrySummary(),
-            runtimeId = runtimeId,
+            runtimeId = runtimeId?.let(::redactDiagnosticsFreeText),
             mode = mode,
-            policySignature = policySignature,
+            policySignature = policySignature?.let(::redactDiagnosticsFreeText),
             fingerprintHash = fingerprintHash,
             networkScope = fingerprintHash,
             lastFailure = recentWarnings.firstOrNull(),
@@ -461,13 +462,16 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             privacyMode = DiagnosticsArchiveFormat.privacyMode,
             session = stage.session,
             primaryReport = stage.report,
-            results = stage.results,
+            results = stage.results.map(redactor::redact),
             sessionSnapshots = stage.snapshots.map(redactor::redact),
             sessionContexts = stage.contexts.map(redactor::redact),
-            sessionEvents = stage.events,
+            sessionEvents = stage.events.map(redactor::redact),
             latestPassiveSnapshot = null,
             latestPassiveContext = null,
-            telemetry = selection.payload.telemetry,
+            telemetry =
+                selection.payload.telemetry.map { sample ->
+                    sample.copy(publicIp = if (sample.publicIp != null) "redacted" else null)
+                },
             globalEvents = emptyList(),
             approachSummaries = selection.payload.approachSummaries,
         )

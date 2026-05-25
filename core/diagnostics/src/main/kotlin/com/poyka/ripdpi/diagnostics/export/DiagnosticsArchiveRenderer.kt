@@ -16,7 +16,8 @@ class DiagnosticsArchiveRenderer
         private val json: Json,
     ) {
         private val jsonEntryBuilder = DiagnosticsArchiveJsonEntryBuilder(redactor, projector, json)
-        private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json)
+        private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json, redactor)
+        private val privacyGuard = DiagnosticsArchivePrivacyGuard()
 
         internal fun render(
             target: DiagnosticsArchiveTarget,
@@ -50,16 +51,20 @@ class DiagnosticsArchiveRenderer
                     compositeEntries = compositeEntries,
                     developerAnalytics = developerAnalytics,
                 )
-            return baseEntries +
-                DiagnosticsArchiveEntry(
-                    name = "integrity.json",
-                    bytes =
-                        json
-                            .encodeToString(
-                                DiagnosticsArchiveIntegrityPayload.serializer(),
-                                buildIntegrityPayload(target, baseEntries),
-                            ).toByteArray(),
-                )
+            val redactedEntries = privacyGuard.sanitize(baseEntries)
+            val entries =
+                redactedEntries +
+                    DiagnosticsArchiveEntry(
+                        name = "integrity.json",
+                        bytes =
+                            json
+                                .encodeToString(
+                                    DiagnosticsArchiveIntegrityPayload.serializer(),
+                                    buildIntegrityPayload(target, redactedEntries),
+                                ).toByteArray(),
+                    )
+            privacyGuard.requireSafe(entries)
+            return entries
         }
 
         private fun buildCoreEntries(
