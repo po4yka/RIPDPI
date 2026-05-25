@@ -10,7 +10,6 @@ import kotlinx.serialization.json.Json
 
 internal class DiagnosticsArchiveCsvEntryBuilder(
     private val json: Json,
-    private val redactor: DiagnosticsArchiveRedactor,
 ) {
     internal fun buildCsvEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveEntry> =
         buildList {
@@ -49,16 +48,15 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
         buildString {
             appendLine("sessionId,probeType,target,outcome,probeRetryCount,createdAt,detailJson")
             results.forEach { result ->
-                val redactedResult = redactor.redact(result)
                 appendLine(
                     listOf(
                         csvField(result.sessionId),
                         csvField(result.probeType),
-                        csvField(redactedResult.target),
+                        csvField(result.target),
                         csvField(result.outcome),
                         csvField(result.probeRetryCount().orEmpty()),
                         csvField(result.createdAt),
-                        csvField(redactedResult.detailJson),
+                        csvField(result.detailJson),
                     ).joinToString(","),
                 )
             }

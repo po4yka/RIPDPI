@@ -18,7 +18,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
     private val projector: DiagnosticsSummaryProjector,
     private val json: Json,
 ) {
-    private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json, redactor)
+    private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json)
 
     @Suppress("detekt.LongMethod")
     internal fun buildJsonEntries(

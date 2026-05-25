@@ -1892,6 +1892,10 @@ Quelle: %2$s</string>
     <string name="settings_language_title">Sprache</string>
     <string name="settings_permission_status_granted">Erteilt</string>
     <string name="settings_permissions_battery_needed">Empfohlen, damit Doze RIPDPI seltener pausiert, während es im Hintergrund läuft.</string>
+    <string name="settings_permissions_always_on_title">Immer-aktives VPN</string>
+    <string name="settings_permissions_always_on_ready">Android ist so konfiguriert, dass RIPDPI als immer aktives VPN ausgewählt bleibt.</string>
+    <string name="settings_permissions_always_on_needed">Aktivieren Sie Immer-aktives VPN für RIPDPI in den Android-VPN-Einstellungen, wenn Sie harten Leckschutz benötigen.</string>
+    <string name="settings_permissions_always_on_unknown">Android hat den Status des immer aktiven VPN noch nicht gemeldet. Öffnen Sie die VPN-Einstellungen zur Prüfung.</string>
     <string name="settings_permissions_vpn_active">Für den aktuell gewählten lokalen VPN-Modus erforderlich.</string>
     <string name="settings_reset_confirm">Zurücksetzen</string>
     <string name="settings_seqovl_unsupported_reason">Sequenzüberlappung erfordert Raw-Socket-Zugriff, der auf diesem Gerät nicht verfügbar ist. Aktivieren Sie den Root-Modus in den Einstellungen, um diese Funktion zu nutzen.</string>
@@ -2269,7 +2273,7 @@ Quelle: %2$s</string>
     <string name="notice_strategy_pack_refresh_failed_title">Strategie-Packs konnten nicht aktualisiert werden</string>
     <string name="onboarding_bypass_modes_body">Leiten Sie den Verkehr über ein lokales VPN für vollständige Abdeckung oder verwenden Sie einen lokalen Proxy für feingranulare Kontrolle. Jederzeit umschaltbar.</string>
     <string name="onboarding_get_started">Loslegen</string>
-    <string name="onboarding_permission_body">Android trennt dies in VPN-Berechtigung, Immer-aktives VPN, Verbindungen ohne VPN blockieren, Vordergrundbenachrichtigungen und Akkuoptimierung. Die VPN-Berechtigung lässt RIPDPI den lokalen Tunnel erstellen; Immer-aktiv und Blockieren ohne VPN sind Android-Kill-Switch-Einstellungen; Benachrichtigungen und Akkuoptionen halten den Dienst am Leben. Alles bleibt lokal — nichts wird an einen externen Server gesendet.</string>
+    <string name="onboarding_permission_body">Android benötigt die VPN-Berechtigung, um den Verkehr durch die App zu leiten. Alles bleibt lokal — nichts wird an einen externen Server gesendet.</string>
     <string name="onboarding_setup_dns_cloudflare_body">Schnelles, datenschutzfokussiertes DNS von Cloudflare.</string>
     <string name="onboarding_setup_dns_title">DNS-Anbieter wählen</string>
     <string name="onboarding_setup_mode_vpn_body">Leitet den gesamten Geräteverkehr durch einen lokalen VPN-Tunnel. Vollständige Abdeckung, kein Setup.</string>
@@ -2753,23 +2757,6 @@ Quelle: %2$s</string>
     <string name="profile_variants_cta_select">Auswählen</string>
     <string name="profile_variants_cta_selected">Aktiv</string>
     <string name="profile_variants_caption">Profilvarianten · Galerie der Strategie-Voreinstellungen (Ausgewogen / Aggressiv / Stealth) · farbiger Kopf-Chip · 3-zeilige Metrik-Leiste · Auswahl-CTA.</string>
-    <string name="settings_permission_status_unknown">Unbekannt</string>
-    <string name="settings_permission_action_open_vpn_settings">VPN-Einstellungen öffnen</string>
-    <string name="settings_permissions_always_on_title">Immer-aktives VPN</string>
-    <string name="settings_permissions_always_on_ready">Android ist so konfiguriert, dass RIPDPI als immer aktives VPN ausgewählt bleibt.</string>
-    <string name="settings_permissions_always_on_needed">Aktivieren Sie Immer-aktives VPN für RIPDPI in den Android-VPN-Einstellungen, wenn Sie harten Leckschutz benötigen.</string>
-    <string name="settings_permissions_always_on_unknown">Android hat den Status des immer aktiven VPN noch nicht gemeldet. Öffnen Sie die VPN-Einstellungen zur Prüfung.</string>
-    <string name="settings_permissions_lockdown_title">Ohne VPN blockieren</string>
-    <string name="settings_permissions_lockdown_ready">Android blockiert Verkehr, wenn das RIPDPI-VPN nicht verbunden ist.</string>
-    <string name="settings_permissions_lockdown_needed">Aktivieren Sie Verbindungen ohne VPN blockieren in den Android-VPN-Einstellungen für einen harten Kill-Switch.</string>
-    <string name="settings_permissions_lockdown_unknown">Android hat den Blockierungsstatus ohne VPN noch nicht gemeldet. Öffnen Sie die VPN-Einstellungen zur Prüfung.</string>
-    <string name="home_hard_kill_switch_enabled_title">Systemsperre aktiviert</string>
-    <string name="home_hard_kill_switch_not_enabled_title">Systemsperre nicht aktiviert</string>
-    <string name="home_hard_kill_switch_unknown_title">Systemsperre unbekannt</string>
-    <string name="home_hard_kill_switch_enabled_summary">Android kontrolliert den harten Kill-Switch. Trennsteuerungen sind begrenzt, während die Sperre den VPN-Lebenszyklus durch das System verwalten lässt.</string>
-    <string name="home_hard_kill_switch_not_enabled_summary">RIPDPI kann laufen, aber Android blockiert keinen Verkehr außerhalb des VPN, wenn der Tunnel stoppt.</string>
-    <string name="home_hard_kill_switch_unknown_summary">RIPDPI hat den Android-Status für Immer-aktiv und Sperre noch nicht beobachtet. Öffnen Sie die VPN-Einstellungen zur Bestätigung.</string>
-    <string name="home_connection_actuator_action_android_managed">Von Android-Sperre verwaltet</string>
 
     <!-- Share link preview card -->
     <string name="share_link_preview_eyebrow_link">Generierter Link</string>
@@ -2788,4 +2775,17 @@ Quelle: %2$s</string>
     <string name="diagnostics_pcap_captures_description">Aufgezeichnete PCAP-Dateien durchsuchen und exportieren</string>
     <string name="diagnostics_past_replays_label">Frühere Wiedergaben</string>
     <string name="diagnostics_past_replays_description">Archivierte Wiedergabesitzungen überprüfen</string>
+    <string name="home_connection_actuator_action_android_managed">Von Android-Sperre verwaltet</string>
+    <string name="home_hard_kill_switch_enabled_summary">Android kontrolliert den harten Kill-Switch. Trennsteuerungen sind begrenzt, während die Sperre den VPN-Lebenszyklus durch das System verwalten lässt.</string>
+    <string name="home_hard_kill_switch_enabled_title">Systemsperre aktiviert</string>
+    <string name="home_hard_kill_switch_not_enabled_summary">RIPDPI kann laufen, aber Android blockiert keinen Verkehr außerhalb des VPN, wenn der Tunnel stoppt.</string>
+    <string name="home_hard_kill_switch_not_enabled_title">Systemsperre nicht aktiviert</string>
+    <string name="home_hard_kill_switch_unknown_summary">RIPDPI hat den Android-Status für Immer-aktiv und Sperre noch nicht beobachtet. Öffnen Sie die VPN-Einstellungen zur Bestätigung.</string>
+    <string name="home_hard_kill_switch_unknown_title">Systemsperre unbekannt</string>
+    <string name="settings_permission_action_open_vpn_settings">VPN-Einstellungen öffnen</string>
+    <string name="settings_permission_status_unknown">Unbekannt</string>
+    <string name="settings_permissions_lockdown_needed">Aktivieren Sie Verbindungen ohne VPN blockieren in den Android-VPN-Einstellungen für einen harten Kill-Switch.</string>
+    <string name="settings_permissions_lockdown_ready">Android blockiert Verkehr, wenn das RIPDPI-VPN nicht verbunden ist.</string>
+    <string name="settings_permissions_lockdown_title">Ohne VPN blockieren</string>
+    <string name="settings_permissions_lockdown_unknown">Android hat den Blockierungsstatus ohne VPN noch nicht gemeldet. Öffnen Sie die VPN-Einstellungen zur Prüfung.</string>
 </resources>

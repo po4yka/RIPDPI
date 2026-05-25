@@ -15,7 +15,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.file.Files
@@ -289,96 +288,6 @@ class DiagnosticsArchiveRendererTest {
         )
     }
 
-    @Test
-    fun `renderer applies archive-wide privacy guard to logs probes telemetry routes and pcap names`() {
-        val pcapFile = Files.createTempFile("private-host-203.0.113.8-", ".pcap").toFile()
-        pcapFile.writeBytes(byteArrayOf(0x0A, 0x0D, 0x0D, 0x0A))
-        val sensitiveSelection =
-            buildFullRendererSelection().copy(
-                request = rendererArchiveRequest().copy(includePcap = true),
-                appSettings = rendererAppSettings().toBuilder().setRootModeEnabled(true).build(),
-                primaryResults =
-                    listOf(
-                        rendererProbeResult(
-                            sessionId = "session-1",
-                            target = "https://user:pass@private.example.test/path?token=abc123",
-                            detail = "resolverEndpoint=94.140.14.14:443 addr=203.0.113.10",
-                        ),
-                    ),
-                primaryEvents =
-                    listOf(
-                        rendererNativeEvent(
-                            id = "ev-sensitive",
-                            sessionId = "session-1",
-                            message =
-                                "Authorization: Bearer secret-token endpoint=private.example.test " +
-                                    "ssid=\"CoffeeShop\" bssid=11:22:33:44:55:66",
-                            runtimeId = "runtime-token=runtime-secret",
-                            policySignature = "policy-secret=route-key",
-                        ),
-                    ),
-                fileLogSnapshot = "server=private.example.test Authorization: Basic c2VjcmV0",
-                pcapFiles = listOf(pcapFile),
-            )
-        val target =
-            DiagnosticsArchiveTarget(
-                file = Files.createTempFile("archive-privacy", ".zip").toFile(),
-                fileName = "ripdpi-diagnostics-privacy.zip",
-                createdAt = 47L,
-            )
-
-        val entries = renderer.render(target, sensitiveSelection)
-        val allText =
-            entries
-                .filterNot { it.name.endsWith(".pcap") }
-                .joinToString("\n") { it.bytes.decodeToString() }
-
-        assertTrue(
-            "PCAP filenames must be normalized",
-            entries.any { entry ->
-                entry.name.startsWith("pcap/capture-") && entry.name.endsWith(".pcap")
-            },
-        )
-        listOf(
-            "private.example.test",
-            "abc123",
-            "94.140.14.14",
-            "203.0.113.10",
-            "secret-token",
-            "CoffeeShop",
-            "11:22:33:44:55:66",
-            "runtime-secret",
-            "route-key",
-            "c2VjcmV0",
-        ).forEach { forbidden ->
-            val leakingEntries =
-                entries
-                    .filterNot { it.name.endsWith(".pcap") }
-                    .filter { it.bytes.decodeToString().contains(forbidden) }
-                    .map(DiagnosticsArchiveEntry::name)
-            assertTrue("$forbidden must not appear verbatim in $leakingEntries", leakingEntries.isEmpty())
-        }
-        assertTrue("redaction marker must be present", allText.contains("redacted"))
-    }
-
-    @Test
-    fun `archive privacy guard rejects unredacted text artifacts`() {
-        val guard =
-            com.poyka.ripdpi.diagnostics.export
-                .DiagnosticsArchivePrivacyGuard()
-
-        assertThrows(IllegalStateException::class.java) {
-            guard.requireSafe(
-                listOf(
-                    DiagnosticsArchiveEntry(
-                        name = "unsafe.txt",
-                        bytes = "Authorization: Bearer secret-token endpoint=private.example.test".toByteArray(),
-                    ),
-                ),
-            )
-        }
-    }
-
     private fun buildFullRendererSelection(): DiagnosticsArchiveSelection =
         DiagnosticsArchiveSelection(
             runType = DiagnosticsArchiveRunType.SINGLE_SESSION,
@@ -633,23 +542,20 @@ class DiagnosticsArchiveRendererTest {
             finishedAt = if (status == "finished") startedAt + 5L else null,
         )
 
-    private fun rendererProbeResult(
-        sessionId: String,
-        target: String = "blocked.example",
-        detail: String = "baseline:fail|fallback:ok",
-    ) = ProbeResultEntity(
-        id = "probe-$sessionId",
-        sessionId = sessionId,
-        probeType = "dns",
-        target = target,
-        outcome = "substituted",
-        detailJson =
-            json.encodeToString(
-                ListSerializer(ProbeDetail.serializer()),
-                listOf(ProbeDetail("attempts", detail)),
-            ),
-        createdAt = 30L,
-    )
+    private fun rendererProbeResult(sessionId: String) =
+        ProbeResultEntity(
+            id = "probe-$sessionId",
+            sessionId = sessionId,
+            probeType = "dns",
+            target = "blocked.example",
+            outcome = "substituted",
+            detailJson =
+                json.encodeToString(
+                    ListSerializer(ProbeDetail.serializer()),
+                    listOf(ProbeDetail("attempts", "baseline:fail|fallback:ok")),
+                ),
+            createdAt = 30L,
+        )
 
     private fun rendererNetworkSnapshotEntity(
         id: String = "snap",
@@ -709,18 +615,13 @@ class DiagnosticsArchiveRendererTest {
         id: String,
         sessionId: String?,
         level: String = "info",
-        message: String = "warning",
-        runtimeId: String? = null,
-        policySignature: String? = null,
     ) = NativeSessionEventEntity(
         id = id,
         sessionId = sessionId,
         source = "proxy",
         level = level,
-        message = message,
+        message = "warning",
         createdAt = 60L,
-        runtimeId = runtimeId,
-        policySignature = policySignature,
     )
 
     private fun rendererApproachSummary(strategyId: String) =
