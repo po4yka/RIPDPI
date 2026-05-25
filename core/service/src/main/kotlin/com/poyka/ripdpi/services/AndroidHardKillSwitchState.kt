@@ -70,10 +70,12 @@ class SharedPreferencesAndroidHardKillSwitchStateStore
             return AndroidHardKillSwitchSnapshot(
                 status = status,
                 alwaysOn =
-                    preferences.getBoolean(KeyAlwaysOn, false)
+                    preferences
+                        .getBoolean(KeyAlwaysOn, false)
                         .takeIf { preferences.getBoolean(KeyHasAlwaysOn, false) },
                 lockdown =
-                    preferences.getBoolean(KeyLockdown, false)
+                    preferences
+                        .getBoolean(KeyLockdown, false)
                         .takeIf { preferences.getBoolean(KeyHasLockdown, false) },
                 updatedAtMillis = preferences.getLong(KeyUpdatedAt, 0L),
             )

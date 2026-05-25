@@ -37,7 +37,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
  * stay stable when these helpers are used across multiple test classes.
  */
 
-internal const val DEFAULT_TEST_CLASS_FQN =
+internal const val DefaultTestClassFqn =
     "com.poyka.ripdpi.ui.screenshot.RdsComponentsScreenshotTest"
 
 private val CROSS_PLATFORM_OPTIONS =
@@ -58,7 +58,7 @@ internal fun captureSingle(
     heightDp: Int,
     darkMode: Boolean,
     layoutDirection: LayoutDirection? = null,
-    testClassFqn: String = DEFAULT_TEST_CLASS_FQN,
+    testClassFqn: String = DefaultTestClassFqn,
     content: @Composable () -> Unit,
 ) {
     val moduleRoot = System.getProperty("user.dir")
@@ -107,7 +107,7 @@ internal fun captureBothThemes(
     name: String,
     widthDp: Int = 360,
     heightDp: Int = 200,
-    testClassFqn: String = DEFAULT_TEST_CLASS_FQN,
+    testClassFqn: String = DefaultTestClassFqn,
     content: @Composable () -> Unit,
 ) {
     listOf(false, true).forEach { darkMode ->

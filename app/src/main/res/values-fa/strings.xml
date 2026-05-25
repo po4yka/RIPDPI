@@ -2612,7 +2612,7 @@ fakeddisorder endhost</string>
     <string name="vpn_latency_graph_legend_now">اکنون</string>
     <string name="vpn_latency_graph_legend_p99">p99</string>
     <string name="vpn_latency_graph_legend_spikes">اوج‌ها &gt;۱۰۰ م‌ث</string>
-    <string name="vpn_latency_graph_caption">جدول زمانی تأخیر / اتلاف · پنجره ۶۰ ث · آستانه نقطه‌چین ۱۰۰ م‌ث · نوار اتلاف جداگانه با % فعلی.</string>
+    <string name="vpn_latency_graph_caption">جدول زمانی تأخیر / اتلاف · پنجره ۶۰ ث · آستانه نقطه‌چین ۱۰۰ م‌ث · نوار اتلاف جداگانه با %% فعلی.</string>
     <string name="title_state_machine">ماشین حالت اتصال</string>
     <string name="vpn_state_machine_title">ماشین حالت اتصال</string>
     <string name="vpn_state_machine_current_prefix">فعلی</string>

@@ -147,7 +147,9 @@ class DnsLeakMatrixTest {
 
             DnsResolverPlane.BLOCK,
             DnsResolverPlane.BOOTSTRAP,
-            -> Unit
+            -> {
+                Unit
+            }
         }
     }
 }

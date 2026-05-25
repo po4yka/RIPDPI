@@ -49,10 +49,13 @@ internal class MainPermissionActions(
     ) {
         when (kind) {
             PermissionKind.Notifications -> handleNotificationPermissionResult(result)
+
             PermissionKind.VpnConsent -> handleVpnPermissionResult(result)
+
             PermissionKind.AlwaysOnVpn,
             PermissionKind.VpnLockdown,
             -> handleVpnSettingsResult()
+
             PermissionKind.BatteryOptimization -> handleBatteryOptimizationResult()
         }
     }
@@ -91,7 +94,7 @@ internal class MainPermissionActions(
         val blockedBy = resolution.blockedBy
         if (blockedBy == null) {
             permissionState.update { it.copy(issue = null) }
-            continueResolvedAction(action, resolution.recommended)
+            continueResolvedAction(action)
             return
         }
 
@@ -129,7 +132,7 @@ internal class MainPermissionActions(
                     PermissionStatus.Granted,
                     PermissionStatus.NotApplicable,
                     -> {
-                        continueResolvedAction(action, emptyList())
+                        continueResolvedAction(action)
                     }
                 }
             }
@@ -297,16 +300,13 @@ internal class MainPermissionActions(
             )
         if (resolution.blockedBy == null) {
             permissionState.update { it.copy(issue = null) }
-            continueResolvedAction(action, resolution.recommended)
+            continueResolvedAction(action)
         } else {
             requestPermissionFor(action = action, blockedBy = resolution.blockedBy, snapshot = snapshot)
         }
     }
 
-    private fun continueResolvedAction(
-        action: PermissionAction,
-        recommended: List<PermissionKind>,
-    ) {
+    private fun continueResolvedAction(action: PermissionAction) {
         pendingPermissionAction = null
         when (action) {
             PermissionAction.StartConfiguredMode -> {

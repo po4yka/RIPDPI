@@ -912,10 +912,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     serviceStateStore = store,
                     networkFingerprintProvider = TestNetworkFingerprintProvider(initialFingerprint),
                     telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
-                    runtimeExperimentSelectionProvider =
-                        object : RuntimeExperimentSelectionProvider {
-                            override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
-                        },
+                    runtimeExperimentSelectionProvider = StaticRuntimeExperimentSelectionProvider,
                     clock = clock,
                 ),
             screenStateObserver = TestScreenStateObserver(),
@@ -1108,10 +1105,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         serviceStateStore = store,
                         networkFingerprintProvider = fingerprintProvider,
                         telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
-                        runtimeExperimentSelectionProvider =
-                            object : RuntimeExperimentSelectionProvider {
-                                override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
-                            },
+                        runtimeExperimentSelectionProvider = StaticRuntimeExperimentSelectionProvider,
                         clock = clock,
                     ),
                 screenStateObserver = TestScreenStateObserver(),
@@ -1137,6 +1131,10 @@ class VpnServiceRuntimeCoordinatorTest {
             events = events,
         )
     }
+}
+
+private object StaticRuntimeExperimentSelectionProvider : RuntimeExperimentSelectionProvider {
+    override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
 }
 
 private class DelayedStopVpnProxyRuntime(

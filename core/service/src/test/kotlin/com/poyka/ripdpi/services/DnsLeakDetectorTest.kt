@@ -100,12 +100,13 @@ class DnsLeakDetectorTest {
 
     @Test
     fun `allowlisted domain is a leak on default network when direct resolver is not configured`() {
-        val d = DnsLeakDetector(
-            SplitStrictDnsPolicy(
-                direct = null,
-                directAllowlist = listOf("ru"),
-            ),
-        )
+        val d =
+            DnsLeakDetector(
+                SplitStrictDnsPolicy(
+                    direct = null,
+                    directAllowlist = listOf("ru"),
+                ),
+            )
         val result = d.check(obs("yandex.ru", resolver = "8.8.8.8", viaDefault = true))
         assertTrue(result is DnsLeakCheckResult.Leaked)
     }

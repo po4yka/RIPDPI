@@ -253,7 +253,9 @@ class ResolverRecommendationEngineTest {
         assertEquals("", candidate.dohUrl)
         assertEquals("provider", candidate.dnscryptProviderName)
     }
+}
 
+class ResolverRecommendationEngineComputeTest {
     // -- compute --
 
     @Test

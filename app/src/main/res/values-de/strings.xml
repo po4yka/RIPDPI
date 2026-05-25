@@ -2607,7 +2607,7 @@ Quelle: %2$s</string>
     <string name="vpn_latency_graph_legend_now">Jetzt</string>
     <string name="vpn_latency_graph_legend_p99">p99</string>
     <string name="vpn_latency_graph_legend_spikes">Spitzen &gt;100 ms</string>
-    <string name="vpn_latency_graph_caption">Latenz-/Verlust-Zeitreihe · rollend 60 s · gestrichelter Schwellenwert 100 ms · separate Verlustleiste mit aktuellem %.</string>
+    <string name="vpn_latency_graph_caption">Latenz-/Verlust-Zeitreihe · rollend 60 s · gestrichelter Schwellenwert 100 ms · separate Verlustleiste mit aktuellem %%.</string>
     <string name="title_state_machine">Verbindungszustandsautomat</string>
     <string name="vpn_state_machine_title">Verbindungszustandsautomat</string>
     <string name="vpn_state_machine_current_prefix">Aktuell</string>

@@ -2607,7 +2607,7 @@ Source : %2$s</string>
     <string name="vpn_latency_graph_legend_now">Maintenant</string>
     <string name="vpn_latency_graph_legend_p99">p99</string>
     <string name="vpn_latency_graph_legend_spikes">Pics &gt;100 ms</string>
-    <string name="vpn_latency_graph_caption">Chronologie latence / perte · fenêtre 60 s · seuil pointillé 100 ms · barre de perte séparée avec % actuel.</string>
+    <string name="vpn_latency_graph_caption">Chronologie latence / perte · fenêtre 60 s · seuil pointillé 100 ms · barre de perte séparée avec %% actuel.</string>
     <string name="title_state_machine">Automate d\'état de connexion</string>
     <string name="vpn_state_machine_title">Automate d\'état de connexion</string>
     <string name="vpn_state_machine_current_prefix">Actuel</string>

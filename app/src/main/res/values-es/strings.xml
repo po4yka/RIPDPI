@@ -2607,7 +2607,7 @@ Origen: %2$s</string>
     <string name="vpn_latency_graph_legend_now">Ahora</string>
     <string name="vpn_latency_graph_legend_p99">p99</string>
     <string name="vpn_latency_graph_legend_spikes">Picos &gt;100 ms</string>
-    <string name="vpn_latency_graph_caption">Línea de tiempo de latencia / pérdida · ventana 60 s · umbral punteado 100 ms · barra de pérdida separada con % actual.</string>
+    <string name="vpn_latency_graph_caption">Línea de tiempo de latencia / pérdida · ventana 60 s · umbral punteado 100 ms · barra de pérdida separada con %% actual.</string>
     <string name="title_state_machine">Máquina de estados de conexión</string>
     <string name="vpn_state_machine_title">Máquina de estados de conexión</string>
     <string name="vpn_state_machine_current_prefix">Actual</string>

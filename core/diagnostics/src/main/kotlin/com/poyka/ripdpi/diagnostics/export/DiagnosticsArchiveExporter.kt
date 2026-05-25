@@ -41,6 +41,31 @@ internal class DefaultDiagnosticsArchiveExporter
 
         override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive {
             fileStore.cleanup()
+            val selection = buildArchiveSelection(request)
+            val target = fileStore.createTarget()
+            val developerAnalytics = collectDeveloperAnalytics(selection, target)
+            zipWriter.write(target.file, renderer.render(target, selection, developerAnalytics))
+            artifactWriteStore.insertExportRecord(
+                ExportRecordEntity(
+                    id = idGenerator.nextId(),
+                    sessionId = selection.primarySession?.id,
+                    uri = target.file.absolutePath,
+                    fileName = target.fileName,
+                    createdAt = target.createdAt,
+                ),
+            )
+            return DiagnosticsArchive(
+                fileName = target.fileName,
+                absolutePath = target.file.absolutePath,
+                sessionId = selection.primarySession?.id,
+                createdAt = target.createdAt,
+                scope = DiagnosticsArchiveFormat.scope,
+                schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
+                privacyMode = DiagnosticsArchiveFormat.privacyMode,
+            )
+        }
+
+        private suspend fun buildArchiveSelection(request: DiagnosticsArchiveRequest): DiagnosticsArchiveSelection {
             val sourceData = sourceLoader.load()
             val compositeOutcome =
                 request.homeRunId
@@ -84,7 +109,14 @@ internal class DefaultDiagnosticsArchiveExporter
                                 emptyList()
                             },
                     )
-            val target = fileStore.createTarget()
+            return selection
+        }
+
+        private suspend fun collectDeveloperAnalytics(
+            selection: DiagnosticsArchiveSelection,
+            target: DiagnosticsArchiveTarget,
+        ): DeveloperAnalyticsPayload {
+            val primarySession = selection.primarySession
             val analyticsContext =
                 DeveloperAnalyticsContext(
                     archiveCreatedAtMs = target.createdAt,
@@ -96,31 +128,11 @@ internal class DefaultDiagnosticsArchiveExporter
                     pcapFiles = selection.pcapFiles,
                     compositeSessionIds = selection.compositeStages.mapNotNull { it.session?.id },
                 )
-            val developerAnalytics =
-                runCatching { developerAnalyticsSource.collect(analyticsContext) }
-                    .getOrDefault(
-                        DeveloperAnalyticsPayload(
-                            notes = listOf("Developer analytics collection failed — payload is empty."),
-                        ),
-                    )
-            zipWriter.write(target.file, renderer.render(target, selection, developerAnalytics))
-            artifactWriteStore.insertExportRecord(
-                ExportRecordEntity(
-                    id = idGenerator.nextId(),
-                    sessionId = primarySession?.id,
-                    uri = target.file.absolutePath,
-                    fileName = target.fileName,
-                    createdAt = target.createdAt,
-                ),
-            )
-            return DiagnosticsArchive(
-                fileName = target.fileName,
-                absolutePath = target.file.absolutePath,
-                sessionId = primarySession?.id,
-                createdAt = target.createdAt,
-                scope = DiagnosticsArchiveFormat.scope,
-                schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
-                privacyMode = DiagnosticsArchiveFormat.privacyMode,
-            )
+            return runCatching { developerAnalyticsSource.collect(analyticsContext) }
+                .getOrDefault(
+                    DeveloperAnalyticsPayload(
+                        notes = listOf("Developer analytics collection failed — payload is empty."),
+                    ),
+                )
         }
     }

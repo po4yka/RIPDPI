@@ -58,9 +58,12 @@ internal class VpnTunnelRefreshCoordinator(
         )
 
     private fun ResolverRefreshPlan.requiresInterfacePolicyRebuild(): Boolean {
-        val currentSignature = connectionPolicy?.settings?.let(::vpnTunnelInterfacePolicySignature) ?: return false
-        val appliedSignature = dependencies.vpnTunnelRuntime.currentInterfacePolicySignature ?: return false
-        return dependencies.vpnTunnelRuntime.isRunning && currentSignature != appliedSignature
+        val currentSignature = connectionPolicy?.settings?.let(::vpnTunnelInterfacePolicySignature)
+        val appliedSignature = dependencies.vpnTunnelRuntime.currentInterfacePolicySignature
+        return dependencies.vpnTunnelRuntime.isRunning &&
+            currentSignature != null &&
+            appliedSignature != null &&
+            currentSignature != appliedSignature
     }
 }
 

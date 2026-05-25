@@ -352,12 +352,17 @@ internal object DiagnosticsScanWorkflow {
     private fun StrategyProbeCandidateSummary.isPromotableStrategyWinner(
         settings: com.poyka.ripdpi.proto.AppSettings,
     ): Boolean {
-        if (skipped || succeededTargets <= 0 || totalTargets <= 0) return false
-        if (outcome.lowercase() in NonPromotableStrategyProbeOutcomes) return false
-        if (emitterTier == StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY) return false
-        if (exactEmitterRequiresRoot && emitterDowngraded) return false
+        val hasTargetSuccess = !skipped && succeededTargets > 0 && totalTargets > 0
+        val hasPromotableOutcome = outcome.lowercase() !in NonPromotableStrategyProbeOutcomes
+        val hasProductionEmitter = emitterTier != StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY
+        val hasExactEmitter = !exactEmitterRequiresRoot || !emitterDowngraded
         val rootedCandidate = exactEmitterRequiresRoot || emitterTier == StrategyEmitterTier.ROOTED_PRODUCTION
-        return !rootedCandidate || settings.rootModeEnabled
+        val hasRootAccess = !rootedCandidate || settings.rootModeEnabled
+        return hasTargetSuccess &&
+            hasPromotableOutcome &&
+            hasProductionEmitter &&
+            hasExactEmitter &&
+            hasRootAccess
     }
 
     private fun hasWinningTargetSuccess(strategyProbe: StrategyProbeReport): Boolean {

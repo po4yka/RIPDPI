@@ -157,27 +157,39 @@ class AndroidPermissionStatusProvider
                         },
                     alwaysOnVpn =
                         when (hardKillSwitch.status) {
-                            AndroidHardKillSwitchStatus.ENABLED -> PermissionStatus.Granted
-                            AndroidHardKillSwitchStatus.NOT_ENABLED ->
+                            AndroidHardKillSwitchStatus.ENABLED -> {
+                                PermissionStatus.Granted
+                            }
+
+                            AndroidHardKillSwitchStatus.NOT_ENABLED -> {
                                 if (hardKillSwitch.alwaysOn == true) {
                                     PermissionStatus.Granted
                                 } else {
                                     PermissionStatus.RequiresSettings
                                 }
+                            }
 
-                            AndroidHardKillSwitchStatus.UNKNOWN -> PermissionStatus.Unknown
+                            AndroidHardKillSwitchStatus.UNKNOWN -> {
+                                PermissionStatus.Unknown
+                            }
                         },
                     vpnLockdown =
                         when (hardKillSwitch.status) {
-                            AndroidHardKillSwitchStatus.ENABLED -> PermissionStatus.Granted
-                            AndroidHardKillSwitchStatus.NOT_ENABLED ->
+                            AndroidHardKillSwitchStatus.ENABLED -> {
+                                PermissionStatus.Granted
+                            }
+
+                            AndroidHardKillSwitchStatus.NOT_ENABLED -> {
                                 if (hardKillSwitch.lockdown == true) {
                                     PermissionStatus.Granted
                                 } else {
                                     PermissionStatus.RequiresSettings
                                 }
+                            }
 
-                            AndroidHardKillSwitchStatus.UNKNOWN -> PermissionStatus.Unknown
+                            AndroidHardKillSwitchStatus.UNKNOWN -> {
+                                PermissionStatus.Unknown
+                            }
                         },
                     notifications =
                         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
