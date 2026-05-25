@@ -5,12 +5,12 @@ use std::time::Duration;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::{
-    build_quic_candidates_for_suite, candidate_pause_ms, probe_fake_ttl_capability, probe_ip_fragmentation_capabilities,
+    build_quic_candidates_for_suite, candidate_pause_ms, probe_fake_ttl_capability,
+    probe_ip_fragmentation_capabilities, probe_tcp_fast_open_capability,
 };
 use crate::classification::{filter_quic_candidates_for_failure, interleave_candidate_families, next_candidate_index};
 use crate::execution::{
-    skipped_candidate_summary, winning_candidate_index, CandidateRuntimeLauncher, DefaultStrategyLaneExecutor,
-    StrategyLaneExecutor,
+    skipped_candidate_summary, CandidateRuntimeLauncher, DefaultStrategyLaneExecutor, StrategyLaneExecutor,
 };
 use crate::types::StrategyProbeProgressLane;
 use crate::util::stable_probe_hash;
@@ -20,7 +20,7 @@ use super::super::super::runtime::{
 };
 use super::support::{
     annotate_emitter_execution, capability_available, capability_suffix, missing_capability_rationale,
-    strategy_probe_live_progress_with_targets, FamilyFailureTracker,
+    select_safe_or_baseline_candidate_index, strategy_probe_live_progress_with_targets, FamilyFailureTracker,
 };
 
 pub(in crate::engine::runners) struct StrategyQuicRunner {
@@ -55,8 +55,17 @@ impl ExecutionStageRunner for StrategyQuicRunner {
         let Some(strategy_plan) = plan.strategy.as_ref() else {
             return RunnerOutcome::Completed;
         };
-        let tcp_winner_id = winning_candidate_index(&runtime.strategy.tcp_candidates)
-            .map(|i| runtime.strategy.tcp_candidates[i].id.as_str());
+        let fake_ttl_available = probe_fake_ttl_capability();
+        let tcp_fast_open_available = probe_tcp_fast_open_capability();
+        let ipfrag_caps = probe_ip_fragmentation_capabilities();
+        let tcp_winner_id = select_safe_or_baseline_candidate_index(
+            &runtime.strategy.tcp_candidates,
+            &strategy_plan.suite.tcp_candidates,
+            fake_ttl_available,
+            tcp_fast_open_available,
+            ipfrag_caps,
+        )
+        .map(|i| runtime.strategy.tcp_candidates[i].id.as_str());
         let tcp_winner_spec = tcp_winner_id
             .and_then(|id| strategy_plan.suite.tcp_candidates.iter().find(|s| s.id == id))
             .or_else(|| strategy_plan.suite.tcp_candidates.first());
@@ -83,8 +92,6 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 pending_quic_specs.truncate(max);
             }
         }
-        let fake_ttl_available = probe_fake_ttl_capability();
-        let ipfrag_caps = probe_ip_fragmentation_capabilities();
         let mut quic_family_succeeded = false;
         let mut quic_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
         while !pending_quic_specs.is_empty() {

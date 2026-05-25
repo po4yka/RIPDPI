@@ -10,7 +10,7 @@ pub use runtime::{
 };
 pub(super) use scoring::{
     eliminated_candidate_summary, not_applicable_candidate_execution, skipped_candidate_summary,
-    winning_candidate_index, winning_candidate_index_with, CandidateExecution,
+    winning_candidate_index_with, CandidateExecution,
 };
 
 #[cfg(test)]

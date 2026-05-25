@@ -1,5 +1,7 @@
 use ripdpi_monitor_adapter::failure::FailureClass;
-use ripdpi_monitor_adapter::proxy_config::{parse_proxy_config_json, ProxyConfigPayload, ProxyUiConfig};
+use ripdpi_monitor_adapter::proxy_config::{
+    parse_proxy_config_json, ProxyConfigPayload, ProxyUiConfig, ProxyUiUdpChainStep,
+};
 
 use super::FamilyFailureTracker;
 
@@ -45,7 +47,7 @@ fn family_tracker_resets_on_different_family() {
 use super::{
     baseline_has_tls_ech_only, baseline_supports_ech_candidates, ordered_follow_up_tcp_candidates, pilot_bucket_label,
     resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment, select_promotable_candidate_index,
-    stratified_pilot_targets,
+    select_safe_or_baseline_candidate_index, stratified_pilot_targets,
 };
 use crate::candidates::{build_tcp_candidates, CandidateEligibility};
 use crate::classification::{interleave_candidate_families, reorder_tcp_candidates_for_failure};
@@ -256,6 +258,65 @@ fn promotable_winner_selection_rejects_seqovl_when_replacement_socket_is_missing
         .expect("capability-free split candidate should remain promotable");
 
     assert_eq!(summaries[selected].id, "split_host");
+}
+
+#[test]
+fn promotable_winner_selection_rejects_failed_and_eliminated_candidates() {
+    let specs = build_tcp_candidates(&ProxyUiConfig::default());
+    let summaries = vec![
+        strategy_candidate_summary("split_host", "split", 6, 12, 1, 2, false, "partial"),
+        strategy_candidate_summary("tlsrec_split_host", "tlsrec_split", 24, 24, 0, 2, false, "failed"),
+        strategy_candidate_summary("tlsrec_hostfake_split", "hostfake", 18, 24, 1, 1, false, "eliminated"),
+    ];
+    let ipfrag_caps = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+        raw_ipv4: true,
+        raw_ipv6: true,
+        tcp_repair: true,
+    };
+
+    let selected = select_promotable_candidate_index(&summaries, &specs, true, true, ipfrag_caps)
+        .expect("partial split candidate should be the only safe promotable result");
+
+    assert_eq!(summaries[selected].id, "split_host");
+}
+
+#[test]
+fn safe_or_baseline_selection_does_not_fall_back_to_unsafe_generic_winner() {
+    let specs = build_tcp_candidates(&ProxyUiConfig::default());
+    let summaries = vec![
+        strategy_candidate_summary("baseline_current", "baseline", 1, 12, 0, 2, false, "failed"),
+        strategy_candidate_summary("disorder_host", "disorder", 24, 24, 2, 2, false, "success"),
+        strategy_candidate_summary("tlsrec_hostfake_split", "hostfake", 18, 24, 1, 1, false, "eliminated"),
+    ];
+    let ipfrag_caps = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default();
+
+    let selected = select_safe_or_baseline_candidate_index(&summaries, &specs, false, false, ipfrag_caps)
+        .expect("baseline is the only safe fallback when scored winners require missing capabilities");
+
+    assert_eq!(summaries[selected].id, "baseline_current");
+}
+
+#[test]
+fn safe_or_baseline_selection_uses_quic_disabled_as_conservative_quic_fallback() {
+    let mut base = ProxyUiConfig::default();
+    base.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "ipfrag2_udp".to_string(),
+        count: 1,
+        split_bytes: 0,
+        activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
+    }];
+    let specs = crate::candidates::build_quic_candidates_for_suite("quick_v1", &base).expect("quick quic suite");
+    let summaries = vec![
+        strategy_candidate_summary("quic_ipfrag2", "quic_ipfrag2", 24, 24, 2, 2, false, "success"),
+        strategy_candidate_summary("quic_disabled", "quic_disabled", 1, 4, 0, 2, false, "failed"),
+    ];
+    let ipfrag_caps = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default();
+
+    let selected = select_safe_or_baseline_candidate_index(&summaries, &specs, false, false, ipfrag_caps)
+        .expect("QUIC disabled is the conservative fallback when QUIC winners require missing raw UDP support");
+
+    assert_eq!(summaries[selected].id, "quic_disabled");
 }
 
 #[test]

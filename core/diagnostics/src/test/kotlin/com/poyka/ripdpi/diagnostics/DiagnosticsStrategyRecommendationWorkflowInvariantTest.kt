@@ -188,6 +188,76 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
     }
 
     @Test
+    fun `failed selected candidate is not treated as a valid safe recommendation`() {
+        val report =
+            invariantScanReportWithStrategyProbe(
+                proxyConfigJson = invariantValidRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                tcpOutcome = "failed",
+                tcpSucceededTargets = 0,
+            )
+
+        val enriched =
+            DiagnosticsScanWorkflow.enrichScanReport(
+                report = report,
+                settings = settings,
+                preferredDnsPath = null,
+            )
+
+        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        assertNull(recommendation.tcpCandidateFamily)
+        assertNull(recommendation.quicCandidateFamily)
+        assertNull(recommendation.strategySignature)
+
+        val rememberedPolicy =
+            DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
+                strategyProbe = requireNotNull(report.strategyProbeReport),
+                settings = settings,
+                fingerprint = invariantNetworkFingerprint(),
+                hostAutolearnStorePath = null,
+                json = json,
+            )
+
+        assertNull(rememberedPolicy)
+    }
+
+    @Test
+    fun `eliminated selected candidate is not treated as a valid safe recommendation`() {
+        val report =
+            invariantScanReportWithStrategyProbe(
+                proxyConfigJson = invariantValidRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+                tcpOutcome = "eliminated",
+                tcpSucceededTargets = 1,
+            )
+
+        val enriched =
+            DiagnosticsScanWorkflow.enrichScanReport(
+                report = report,
+                settings = settings,
+                preferredDnsPath = null,
+            )
+
+        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        assertNull(recommendation.tcpCandidateFamily)
+        assertNull(recommendation.quicCandidateFamily)
+        assertNull(recommendation.strategySignature)
+
+        val rememberedPolicy =
+            DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
+                strategyProbe = requireNotNull(report.strategyProbeReport),
+                settings = settings,
+                fingerprint = invariantNetworkFingerprint(),
+                hostAutolearnStorePath = null,
+                json = json,
+            )
+
+        assertNull(rememberedPolicy)
+    }
+
+    @Test
     fun `rooted selected candidate is not safe for non-root settings`() {
         val report =
             invariantScanReportWithStrategyProbe(

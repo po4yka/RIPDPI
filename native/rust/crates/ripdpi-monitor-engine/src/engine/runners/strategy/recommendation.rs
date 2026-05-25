@@ -7,7 +7,6 @@ use crate::candidates::{
     probe_tcp_fast_open_capability,
 };
 use crate::connectivity::set_progress;
-use crate::execution::winning_candidate_index;
 use crate::types::{
     ScanProgress, StrategyProbeCompletionKind, StrategyProbeRecommendation, StrategyProbeReport,
     STRATEGY_PROBE_METHODOLOGY_VERSION,
@@ -18,7 +17,7 @@ use super::super::super::runtime::{
 };
 use super::support::{
     pilot_bucket_label, resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment,
-    select_promotable_candidate_index, stratified_pilot_targets,
+    select_safe_or_baseline_candidate_index, stratified_pilot_targets,
 };
 
 pub(in crate::engine::runners) struct StrategyRecommendationRunner;
@@ -78,24 +77,26 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
     let fake_ttl_available = probe_fake_ttl_capability();
     let tcp_fast_open_available = probe_tcp_fast_open_capability();
     let ipfrag_caps = probe_ip_fragmentation_capabilities();
-    let wi_tcp = select_promotable_candidate_index(
+    let Some(wi_tcp) = select_safe_or_baseline_candidate_index(
         &runtime.strategy.tcp_candidates,
         &strategy_plan.suite.tcp_candidates,
         fake_ttl_available,
         tcp_fast_open_available,
         ipfrag_caps,
-    )
-    .or_else(|| winning_candidate_index(&runtime.strategy.tcp_candidates))
-    .unwrap_or(0);
-    let wi_quic = select_promotable_candidate_index(
+    ) else {
+        runtime.strategy.summary = Some("Automatic probing finished without a safe TCP recommendation".to_string());
+        return false;
+    };
+    let Some(wi_quic) = select_safe_or_baseline_candidate_index(
         &runtime.strategy.quic_candidates,
         &strategy_plan.suite.quic_candidates,
         fake_ttl_available,
         tcp_fast_open_available,
         ipfrag_caps,
-    )
-    .or_else(|| winning_candidate_index(&runtime.strategy.quic_candidates))
-    .unwrap_or(0);
+    ) else {
+        runtime.strategy.summary = Some("Automatic probing finished without a safe QUIC recommendation".to_string());
+        return false;
+    };
     let tcp_w = &runtime.strategy.tcp_candidates[wi_tcp];
     let quic_w = &runtime.strategy.quic_candidates[wi_quic];
     let Some(quic_winner_spec) = strategy_plan

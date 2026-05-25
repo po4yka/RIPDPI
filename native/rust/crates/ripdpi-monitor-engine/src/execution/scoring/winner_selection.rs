@@ -2,6 +2,7 @@ use std::cmp::Reverse;
 
 use crate::types::StrategyProbeCandidateSummary;
 
+#[cfg(test)]
 pub fn winning_candidate_index(candidates: &[StrategyProbeCandidateSummary]) -> Option<usize> {
     winning_candidate_index_with(candidates, |_| true)
 }

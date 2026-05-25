@@ -22,11 +22,43 @@ pub(in crate::engine::runners::strategy) fn select_promotable_candidate_index(
     ipfrag_caps: ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities,
 ) -> Option<usize> {
     crate::execution::winning_candidate_index_with(candidates, |candidate| {
+        if !candidate_has_promotable_result(candidate) {
+            return false;
+        }
         let Some(spec) = specs.iter().find(|spec| spec.id == candidate.id) else {
             return false;
         };
         candidate_is_promotable_for_path(spec, fake_ttl_available, tcp_fast_open_available, ipfrag_caps)
     })
+}
+
+pub(in crate::engine::runners::strategy) fn select_safe_or_baseline_candidate_index(
+    candidates: &[CandidateSummary],
+    specs: &[StrategyCandidateSpec],
+    fake_ttl_available: bool,
+    tcp_fast_open_available: bool,
+    ipfrag_caps: ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities,
+) -> Option<usize> {
+    select_promotable_candidate_index(candidates, specs, fake_ttl_available, tcp_fast_open_available, ipfrag_caps)
+        .or_else(|| {
+            candidates
+                .iter()
+                .position(|candidate| matches!(candidate.id.as_str(), "baseline_current" | "quic_disabled"))
+        })
+        .or_else(|| {
+            candidates.iter().position(|candidate| {
+                specs.iter().find(|spec| spec.id == candidate.id).is_some_and(|spec| {
+                    candidate_is_promotable_for_path(spec, fake_ttl_available, tcp_fast_open_available, ipfrag_caps)
+                })
+            })
+        })
+}
+
+fn candidate_has_promotable_result(candidate: &CandidateSummary) -> bool {
+    if candidate.skipped || candidate.succeeded_targets == 0 || candidate.total_targets == 0 {
+        return false;
+    }
+    !matches!(candidate.outcome.as_str(), "failed" | "skipped" | "not_applicable" | "eliminated")
 }
 
 fn candidate_is_promotable_for_path(
