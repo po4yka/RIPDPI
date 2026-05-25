@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziComposeOptions
@@ -18,6 +19,8 @@ import com.github.takahirom.roborazzi.size
 import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.ui.components.cards.PresetCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiQrCodeMetadata
+import com.poyka.ripdpi.ui.components.cards.RipDpiQrCodeShareCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiSectionHeader
 import com.poyka.ripdpi.ui.components.feedback.RipDpiAccordion
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDiffKind
@@ -120,6 +123,26 @@ class RdsComponentsScreenshotTest {
     fun brandBadgeAllSizes() {
         captureBothThemes("brandBadgeAllSizes", widthDp = 360, heightDp = 120) {
             RipDpiBrandBadge(size = RipDpiBrandBadgeSize.AppBarCompact)
+        }
+    }
+
+    @Test
+    fun qrCodeShareCard() {
+        captureBothThemes("qrCodeShareCard", widthDp = 700, heightDp = 320) {
+            RipDpiQrCodeShareCard(
+                qrBitmap = ImageBitmap(160, 160),
+                metadata =
+                    RipDpiQrCodeMetadata(
+                        eyebrow = "QR share · v3",
+                        title = "Bundle 0a · 4 endpoints",
+                        versionLabel = "QR-3 (29x29)",
+                        payloadLabel = "184 chars",
+                        schemaLabel = "v1",
+                        eccLabel = "M · 15%",
+                        caption = "Scan with another RIPDPI install to import this diagnostic — no network traffic.",
+                        captionEmphasis = "no network traffic",
+                    ),
+            )
         }
     }
 

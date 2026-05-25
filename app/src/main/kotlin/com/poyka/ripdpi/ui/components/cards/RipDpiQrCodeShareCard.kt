@@ -15,7 +15,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -26,6 +31,13 @@ private const val SpecsLabelWeight = 0.4f
 private const val SpecsValueWeight = 0.6f
 private const val DebugQrPlaceholderSize = 160
 
+/**
+ * @param captionEmphasis Optional substring of [caption] to render in
+ * the foreground color (matches the `<b>no network traffic</b>`
+ * highlight in `docs/design/rds/preview/share-qr-code.html`). Must be
+ * a literal substring of [caption]; if not found, the caption renders
+ * unstyled.
+ */
 data class RipDpiQrCodeMetadata(
     val eyebrow: String,
     val title: String,
@@ -34,6 +46,7 @@ data class RipDpiQrCodeMetadata(
     val schemaLabel: String,
     val eccLabel: String,
     val caption: String,
+    val captionEmphasis: String? = null,
 )
 
 /**
@@ -91,12 +104,12 @@ fun RipDpiQrCodeShareCard(
                 )
                 Text(
                     text = metadata.title,
-                    style = type.sectionTitle,
+                    style = type.bodyEmphasis,
                     color = colors.foreground,
                 )
                 RipDpiQrCodeSpecs(metadata = metadata)
                 Text(
-                    text = metadata.caption,
+                    text = buildCaption(metadata, colors.foreground),
                     style = type.caption,
                     color = colors.mutedForeground,
                 )
@@ -153,6 +166,24 @@ private fun RipDpiQrCodeSpecRow(
     }
 }
 
+private fun buildCaption(
+    metadata: RipDpiQrCodeMetadata,
+    emphasisColor: Color,
+): AnnotatedString {
+    val highlight = metadata.captionEmphasis
+    if (highlight.isNullOrEmpty() || !metadata.caption.contains(highlight)) {
+        return AnnotatedString(metadata.caption)
+    }
+    val start = metadata.caption.indexOf(highlight)
+    return buildAnnotatedString {
+        append(metadata.caption.substring(0, start))
+        withStyle(SpanStyle(color = emphasisColor)) {
+            append(highlight)
+        }
+        append(metadata.caption.substring(start + highlight.length))
+    }
+}
+
 private fun debugQrPlaceholder(): ImageBitmap = ImageBitmap(DebugQrPlaceholderSize, DebugQrPlaceholderSize)
 
 private val SampleMetadata =
@@ -164,6 +195,7 @@ private val SampleMetadata =
         schemaLabel = "v1",
         eccLabel = "M · 15%",
         caption = "Scan with another RIPDPI install to import this diagnostic — no network traffic.",
+        captionEmphasis = "no network traffic",
     )
 
 @Preview(showBackground = true, name = "RipDpiQrCodeShareCard (light)")

@@ -231,7 +231,7 @@ telemetry, etc.) is ready to feed real data.
 
 ### ✅ Recently Closed
 
-- ~~**QR Code** (`share-qr-code.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiQrCodeShareCard.kt`; styled wrapper around `QrCodeEncoder`-supplied ImageBitmap with version meta + ECC + schema sidebar
+- ~~**QR Code** (`share-qr-code.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiQrCodeShareCard.kt`; styled wrapper around `QrCodeEncoder`-supplied ImageBitmap with version meta + ECC + schema sidebar. Spec-compliance refinements: title uses `type.bodyEmphasis` (was `sectionTitle`); caption supports optional `captionEmphasis` substring rendered in foreground color via `AnnotatedString` (matches `<b>no network traffic</b>` highlight). Roborazzi `qrCodeShareCard` screenshot test ships in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless.
 
 ---
 
