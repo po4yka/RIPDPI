@@ -6,6 +6,7 @@ mod tcp;
 
 pub(super) use dns_baseline::StrategyDnsBaselineRunner;
 pub(super) use quic::StrategyQuicRunner;
+pub(in crate::engine) use recommendation::prepare_strategy_probe_report;
 pub(super) use recommendation::StrategyRecommendationRunner;
 pub(super) use tcp::StrategyTcpRunner;
 
