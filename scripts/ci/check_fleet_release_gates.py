@@ -19,7 +19,8 @@ warn-only FAILs to WARN::
         --gate-set production --results run.json
 
 Exit code is 0 when the policy artifact is well-formed (and, when a results
-file is supplied, no no-ship gate FAILed); non-zero otherwise.
+file is supplied, no no-ship gate failed or used unscoped N/A); non-zero
+otherwise.
 """
 from __future__ import annotations
 
@@ -28,12 +29,17 @@ import json
 import sys
 from pathlib import Path
 
+CI_DIR = Path(__file__).resolve().parent
+if str(CI_DIR) not in sys.path:
+    sys.path.insert(0, str(CI_DIR))
+
+from release_gate_results import VALID_RESULT_STATES, na_out_of_scope_violation, normalize_gate_result
+
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "quality/release-gates/fleet-release-cadence-policy.json"
 
 EXPECTED_VERSION = "fleet_release_cadence_policy_v1"
-VALID_RESULT_STATES = {"PASS", "WARN", "FAIL", "N/A"}
 
 # Acceptance criteria -> required cadence checks.
 REQUIRED_CADENCE_CHECKS = {
@@ -206,9 +212,10 @@ def validate_policy(policy: dict) -> dict:
 def evaluate_gate_set(policy: dict, gate_set: str, results: dict) -> dict:
     """Evaluate a gate-set run and produce a short sanitized report.
 
-    ``results`` maps gate id -> result state. No-ship FAILs block (non-zero
-    exit); warn-only FAILs are demoted to WARN and surfaced in the report.
-    Missing gates and invalid states are no-ship blockers.
+    ``results`` maps gate id -> result state or structured result object.
+    No-ship FAILs block (non-zero exit); warn-only FAILs are demoted to WARN
+    and surfaced in the report. Missing gates, invalid states, and unscoped N/A
+    results are no-ship blockers.
     """
     gate_sets = policy.get("gateSets", {})
     if gate_set not in gate_sets:
@@ -224,23 +231,34 @@ def evaluate_gate_set(policy: dict, gate_set: str, results: dict) -> dict:
     rows: list[dict] = []
     blocking: list[str] = []
     for gate_id in required:
-        state = result_map.get(gate_id)
-        if state is None:
+        raw_result = result_map.get(gate_id)
+        if raw_result is None:
             rows.append({"gate": gate_id, "state": "FAIL", "note": "missing result"})
             blocking.append(f"{gate_id}: missing result")
             continue
-        if state not in VALID_RESULT_STATES:
-            rows.append({"gate": gate_id, "state": "FAIL", "note": f"invalid state {state!r}"})
-            blocking.append(f"{gate_id}: invalid state {state!r}")
+        try:
+            result = normalize_gate_result(gate_id, raw_result)
+        except ValueError as exc:
+            rows.append({"gate": gate_id, "state": "FAIL", "note": str(exc)})
+            blocking.append(str(exc))
             continue
-        if state == "FAIL":
+        if result.state not in VALID_RESULT_STATES:
+            rows.append({"gate": gate_id, "state": "FAIL", "note": f"invalid state {result.state!r}"})
+            blocking.append(f"{gate_id}: invalid state {result.state!r}")
+            continue
+        na_violation = na_out_of_scope_violation(gate_id, result, gate_set=gate_set)
+        if na_violation:
+            rows.append({"gate": gate_id, "state": "FAIL", "note": na_violation})
+            blocking.append(na_violation)
+        elif result.state == "FAIL":
             if gate_id in warn_only_conditions and gate_id not in no_ship_conditions:
                 rows.append({"gate": gate_id, "state": "WARN", "note": "warn-only: demoted"})
             else:
                 rows.append({"gate": gate_id, "state": "FAIL", "note": "no-ship"})
                 blocking.append(f"{gate_id}: FAIL (no-ship)")
         else:
-            rows.append({"gate": gate_id, "state": state, "note": ""})
+            note = f"out-of-scope: {result.reason}" if result.state == "N/A" else ""
+            rows.append({"gate": gate_id, "state": result.state, "note": note})
 
     return {
         "gateSet": gate_set,

@@ -18,7 +18,8 @@ policy against actual probe results::
     python3 scripts/ci/check_dns_ipv6_killswitch_gates.py --results run.json
 
 Exit code is 0 when the policy artifact is well-formed (and, when supplied,
-every no-ship gate result is PASS or N/A); non-zero otherwise.
+every no-ship gate result is PASS or a structured, scoped out-of-scope N/A);
+non-zero otherwise.
 """
 from __future__ import annotations
 
@@ -27,12 +28,17 @@ import json
 import sys
 from pathlib import Path
 
+CI_DIR = Path(__file__).resolve().parent
+if str(CI_DIR) not in sys.path:
+    sys.path.insert(0, str(CI_DIR))
+
+from release_gate_results import VALID_RESULT_STATES, na_out_of_scope_violation, normalize_gate_result
+
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "quality/release-gates/dns-ipv6-killswitch-gates.json"
 
 EXPECTED_VERSION = "dns_ipv6_killswitch_release_gates_v1"
-VALID_RESULT_STATES = {"PASS", "WARN", "FAIL", "N/A"}
 
 # Every acceptance criterion from docs/tasks/issues/
 # add-dns-ipv6-and-kill-switch-release-gates.md, expressed as the gate ids that
@@ -165,12 +171,13 @@ def validate_policy(policy: dict) -> dict:
     }
 
 
-def evaluate_results(policy: dict, results: dict) -> dict:
+def evaluate_results(policy: dict, results: dict, applies_to: str | None = None) -> dict:
     """Evaluate actual gate results against the no-ship policy.
 
-    ``results`` maps gate id -> result state (PASS/WARN/FAIL/N/A). Any FAIL on
-    a no-ship gate, any unknown state, or any missing gate is a no-ship
-    violation.
+    ``results`` maps gate id -> result state or structured result object. Any
+    FAIL/WARN/N/A on a no-ship gate, any unknown state, or any missing gate is a
+    no-ship violation unless N/A is explicitly marked out-of-scope for the
+    current appliesTo target with a reason.
     """
     gate_index = {gate["id"]: gate for gate in policy["gates"]}
     result_map = results.get("gateResults", results)
@@ -179,16 +186,25 @@ def evaluate_results(policy: dict, results: dict) -> dict:
 
     violations: list[str] = []
     for gate_id, gate in gate_index.items():
-        state = result_map.get(gate_id)
-        if state is None:
+        raw_result = result_map.get(gate_id)
+        if raw_result is None:
             violations.append(f"{gate_id}: missing result (no-ship gate)")
             continue
-        if state not in VALID_RESULT_STATES:
-            violations.append(f"{gate_id}: invalid result state {state!r}")
+        try:
+            result = normalize_gate_result(gate_id, raw_result)
+        except ValueError as exc:
+            violations.append(str(exc))
             continue
-        if state in ("FAIL", "WARN") and gate.get("noShip") is True:
+        if result.state not in VALID_RESULT_STATES:
+            violations.append(f"{gate_id}: invalid result state {result.state!r}")
+            continue
+        na_violation = na_out_of_scope_violation(gate_id, result, applies_to=applies_to)
+        if na_violation:
+            violations.append(na_violation)
+            continue
+        if result.state in ("FAIL", "WARN") and gate.get("noShip") is True:
             violations.append(
-                f"{gate_id}: {state} on no-ship gate "
+                f"{gate_id}: {result.state} on no-ship gate "
                 f"({gate.get('failureClassification')})"
             )
 
@@ -236,6 +252,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Optional gate-results JSON to enforce the no-ship policy against.",
     )
     parser.add_argument(
+        "--applies-to",
+        choices=("android-client-release", "fleet-profile-rollout"),
+        default=None,
+        help="Current release target for validating structured out-of-scope N/A results.",
+    )
+    parser.add_argument(
         "--report",
         action="store_true",
         help="Print a markdown summary of the policy instead of a plain log.",
@@ -264,13 +286,13 @@ def main(argv: list[str] | None = None) -> int:
         if not results_path.is_file():
             print(f"gate results file not found: {results_path}", file=sys.stderr)
             return 1
-        evaluation = evaluate_results(policy, load_json(results_path))
+        evaluation = evaluate_results(policy, load_json(results_path), applies_to=args.applies_to)
         if evaluation["violations"]:
             print("NO-SHIP: release gate violations detected:", file=sys.stderr)
             for violation in evaluation["violations"]:
                 print(f"  - {violation}", file=sys.stderr)
             return 1
-        print(f"All {evaluation['evaluated']} gate results PASS/N/A.")
+        print(f"All {evaluation['evaluated']} gate results PASS or scoped out-of-scope N/A.")
 
     return 0
 

@@ -115,12 +115,62 @@ class DnsIpv6KillSwitchGatesTest(unittest.TestCase):
         self.assertEqual(len(evaluation["violations"]), 1)
         self.assertIn("missing result", evaluation["violations"][0])
 
-    def test_results_na_is_allowed(self) -> None:
+    def test_results_na_without_scope_is_violation(self) -> None:
         gates.validate_policy(self.policy)
         results = {g["id"]: "PASS" for g in self.policy["gates"]}
         results["killswitch-android-always-on-block"] = "N/A"
         evaluation = gates.evaluate_results(self.policy, {"gateResults": results})
+        self.assertEqual(len(evaluation["violations"]), 1)
+        self.assertIn("outOfScope", evaluation["violations"][0])
+
+    def test_results_scoped_out_of_scope_na_is_allowed(self) -> None:
+        gates.validate_policy(self.policy)
+        results = {g["id"]: "PASS" for g in self.policy["gates"]}
+        results["killswitch-android-always-on-block"] = {
+            "state": "N/A",
+            "outOfScope": True,
+            "reason": "Always-on VPN is not available in this managed profile.",
+            "appliesTo": ["android-client-release"],
+        }
+        evaluation = gates.evaluate_results(
+            self.policy,
+            {"gateResults": results},
+            applies_to="android-client-release",
+        )
         self.assertEqual(evaluation["violations"], [])
+
+    def test_results_out_of_scope_na_missing_reason_is_violation(self) -> None:
+        gates.validate_policy(self.policy)
+        results = {g["id"]: "PASS" for g in self.policy["gates"]}
+        results["killswitch-android-always-on-block"] = {
+            "state": "N/A",
+            "outOfScope": True,
+            "appliesTo": ["android-client-release"],
+        }
+        evaluation = gates.evaluate_results(
+            self.policy,
+            {"gateResults": results},
+            applies_to="android-client-release",
+        )
+        self.assertEqual(len(evaluation["violations"]), 1)
+        self.assertIn("missing reason", evaluation["violations"][0])
+
+    def test_results_out_of_scope_na_wrong_applies_to_is_violation(self) -> None:
+        gates.validate_policy(self.policy)
+        results = {g["id"]: "PASS" for g in self.policy["gates"]}
+        results["killswitch-android-always-on-block"] = {
+            "state": "N/A",
+            "outOfScope": True,
+            "reason": "Only evaluated for fleet rollout.",
+            "appliesTo": ["fleet-profile-rollout"],
+        }
+        evaluation = gates.evaluate_results(
+            self.policy,
+            {"gateResults": results},
+            applies_to="android-client-release",
+        )
+        self.assertEqual(len(evaluation["violations"]), 1)
+        self.assertIn("appliesTo=android-client-release", evaluation["violations"][0])
 
     def test_main_validates_repo_policy(self) -> None:
         self.assertEqual(gates.main([]), 0)
