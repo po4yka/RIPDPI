@@ -3392,9 +3392,12 @@ dependencies = [
  "ripdpi-android-telemetry-adapter",
  "ripdpi-config",
  "ripdpi-diagnostics-pcap",
+ "ripdpi-failure-classifier",
  "ripdpi-proxy-config",
  "ripdpi-proxy-runtime",
+ "ripdpi-quality",
  "ripdpi-runtime-api",
+ "ripdpi-runtime-decision-ports",
  "serde",
  "serde_json",
 ]

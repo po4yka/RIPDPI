@@ -6,6 +6,7 @@ mod lifecycle;
 mod lifecycle_create;
 mod lifecycle_start;
 mod pcap;
+mod quality_sink;
 mod registry;
 mod telemetry;
 
