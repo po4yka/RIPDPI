@@ -955,6 +955,53 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(1, env.factory.runtimes.size)
         }
 
+    @Test
+    fun connectedAppRoutingPresetChangeRebuildsVpnTunnel() =
+        runTest {
+            val initialSettings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setAppRoutingPolicyMode("off")
+                    .clearAppRoutingEnabledPresetIds()
+                    .build()
+            val updatedSettings =
+                initialSettings
+                    .toBuilder()
+                    .setAppRoutingPolicyMode("prompt")
+                    .addAppRoutingEnabledPresetIds("russian-mainstream")
+                    .build()
+            val repository = TestAppSettingsRepository(initialSettings)
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                settings = initialSettings,
+                                activeDns = initialSettings.activeDnsSettings(),
+                            ),
+                        ),
+                    appSettingsRepository = repository,
+                )
+
+            env.coordinator.start()
+            runCurrent()
+            repository.replace(updatedSettings)
+            env.resolver.enqueue(
+                sampleResolution(
+                    mode = Mode.VPN,
+                    settings = updatedSettings,
+                    activeDns = updatedSettings.activeDnsSettings(),
+                ),
+            )
+            advanceTimeBy(1_000L)
+            runCurrent()
+
+            assertEquals(2, env.bridgeFactory.bridge.startedConfigs.size)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+            assertEquals(2, env.events.count { it == "vpn:establish" })
+        }
+
     private fun plainDnsResolution(): ConnectionPolicyResolution {
         val settings =
             AppSettingsSerializer.defaultValue
@@ -970,6 +1017,8 @@ class VpnServiceRuntimeCoordinatorTest {
         fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(),
         resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> =
             listOf(sampleResolution(mode = Mode.VPN)),
+        appSettingsRepository: TestAppSettingsRepository =
+            TestAppSettingsRepository(resolutions.firstOrNull()?.settings ?: AppSettingsSerializer.defaultValue),
         runtimeFactory: (MutableList<String>) -> TestProxyRuntime = { events -> TestProxyRuntime(events) },
     ): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -998,7 +1047,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val tunnelRuntime =
             VpnTunnelRuntime(
                 vpnHost = host,
-                appSettingsRepository = TestAppSettingsRepository(),
+                appSettingsRepository = appSettingsRepository,
                 tun2SocksBridgeFactory = bridgeFactory,
                 vpnTunnelSessionProvider = tunnelProvider,
             )

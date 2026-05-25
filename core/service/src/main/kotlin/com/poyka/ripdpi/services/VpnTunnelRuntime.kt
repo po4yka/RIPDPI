@@ -27,6 +27,9 @@ internal class VpnTunnelRuntime(
     var currentDnsSignature: String? = null
         private set
 
+    var currentInterfacePolicySignature: String? = null
+        private set
+
     var tunnelRecoveryRetryCount: Long = 0
         private set
 
@@ -65,6 +68,7 @@ internal class VpnTunnelRuntime(
             tun2SocksBridge = tunnelBridge
             tunSession = tunnelSession
             currentDnsSignature = dnsSignature(activeDns, overrideReason)
+            currentInterfacePolicySignature = vpnTunnelInterfacePolicySignature(settings)
             if (tunnelStartCount > 0) {
                 tunnelRecoveryRetryCount += 1
             }
@@ -105,6 +109,7 @@ internal class VpnTunnelRuntime(
 
     fun resetRuntimeState() {
         currentDnsSignature = null
+        currentInterfacePolicySignature = null
         tunnelStartCount = 0
         tunnelRecoveryRetryCount = 0L
     }

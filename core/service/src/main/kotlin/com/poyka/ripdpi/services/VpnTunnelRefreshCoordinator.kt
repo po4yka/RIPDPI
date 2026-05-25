@@ -15,7 +15,7 @@ internal class VpnTunnelRefreshCoordinator(
                 currentSignature = dependencies.vpnTunnelRuntime.currentDnsSignature,
                 tunnelRunning = dependencies.vpnTunnelRuntime.isRunning,
             )
-        if (!refreshPlan.requiresTunnelRebuild) return
+        if (!refreshPlan.requiresTunnelRebuild && !refreshPlan.requiresInterfacePolicyRebuild()) return
         dependencies.mutex.withLock {
             val activeSession = state.runtimeSession()
             val canRefresh =
@@ -29,22 +29,21 @@ internal class VpnTunnelRefreshCoordinator(
                     currentSignature = dependencies.vpnTunnelRuntime.currentDnsSignature,
                     tunnelRunning = dependencies.vpnTunnelRuntime.isRunning,
                 )
-            if (!latestRefreshPlan.requiresTunnelRebuild) return@withLock
-            val latestResolution =
-                checkNotNull(latestRefreshPlan.connectionPolicy) {
-                    "VPN resolver refresh plan missing connection policy"
-                }
+            if (!latestRefreshPlan.requiresTunnelRebuild && !latestRefreshPlan.requiresInterfacePolicyRebuild()) {
+                return@withLock
+            }
+            val latestConnectionPolicy = checkNotNull(latestRefreshPlan.connectionPolicy)
             dependencies.vpnTunnelRuntime.stop()
             dependencies.vpnTunnelRuntime.start(
-                activeDns = latestResolution.activeDns,
-                overrideReason = latestResolution.resolverFallbackReason,
+                activeDns = latestConnectionPolicy.activeDns,
+                overrideReason = latestConnectionPolicy.resolverFallbackReason,
                 logContext = refreshSession.buildLogContext(refreshSession.currentActiveConnectionPolicy),
                 localProxyEndpoint =
                     checkNotNull(state.currentLocalProxyEndpoint()) {
                         "VPN tunnel refresh requires an active local proxy endpoint"
                     },
             )
-            callbacks.updateRuntimeDnsState(refreshSession, latestResolution)
+            callbacks.updateRuntimeDnsState(refreshSession, latestConnectionPolicy)
         }
     }
 
@@ -57,6 +56,12 @@ internal class VpnTunnelRefreshCoordinator(
             currentDnsSignature = dependencies.vpnTunnelRuntime.currentDnsSignature ?: session.currentDnsSignature,
             telemetry = telemetry.tunnelTelemetry,
         )
+
+    private fun ResolverRefreshPlan.requiresInterfacePolicyRebuild(): Boolean {
+        val currentSignature = connectionPolicy?.settings?.let(::vpnTunnelInterfacePolicySignature) ?: return false
+        val appliedSignature = dependencies.vpnTunnelRuntime.currentInterfacePolicySignature ?: return false
+        return dependencies.vpnTunnelRuntime.isRunning && currentSignature != appliedSignature
+    }
 }
 
 internal interface VpnTunnelRefreshDependencies {
