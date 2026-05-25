@@ -32,7 +32,7 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
             selection.fileLogSnapshot?.let { content ->
                 add(DiagnosticsArchiveEntry(name = "app-log.txt", bytes = content.toByteArray()))
             }
-            if (selection.appSettings.rootModeEnabled) {
+            if (selection.request.includePcap && selection.appSettings.rootModeEnabled) {
                 selection.pcapFiles.forEach { pcapFile ->
                     add(DiagnosticsArchiveEntry(name = pcapFile.name, bytes = pcapFile.readBytes()))
                 }

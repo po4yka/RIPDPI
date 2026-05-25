@@ -541,6 +541,7 @@ class DiagnosticsArchiveExporterTest {
                         requestedSessionId = session.id,
                         reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
                         requestedAt = 104L,
+                        includePcap = true,
                     ),
                 )
 
@@ -552,9 +553,39 @@ class DiagnosticsArchiveExporterTest {
                         .filter { it.name.endsWith(".pcap") }
                         .toList()
                 assertTrue(
-                    "Expected at least one pcap entry with root mode enabled",
+                    "Expected at least one pcap entry with root mode and explicit includePcap",
                     pcapEntries.isNotEmpty(),
                 )
+            }
+        }
+
+    @Test
+    fun `createArchive excludes pcap when root mode enabled without explicit opt-in`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-root-default",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Root default session",
+                ).copy(serviceMode = "vpn")
+            seedSingleSessionStore(stores, session)
+            val context = TestContext()
+            seedPcapFile(context)
+            val exporter = createArchiveExporter(stores, context = context, rootModeEnabled = true)
+
+            val archive =
+                exporter.createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = session.id,
+                        reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                        requestedAt = 105L,
+                    ),
+                )
+
+            ZipFile(archive.absolutePath).use { zip ->
+                assertNoPcapEntries(zip)
             }
         }
 

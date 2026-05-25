@@ -37,6 +37,7 @@ data class DiagnosticsArchiveRequest(
     val homeRunId: String? = null,
     val reason: DiagnosticsArchiveReason,
     val requestedAt: Long,
+    val includePcap: Boolean = false,
 )
 
 @Serializable

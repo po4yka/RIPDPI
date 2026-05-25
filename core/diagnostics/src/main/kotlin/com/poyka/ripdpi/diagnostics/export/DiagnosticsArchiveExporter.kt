@@ -76,7 +76,14 @@ internal class DefaultDiagnosticsArchiveExporter
                         compositeOutcome = compositeOutcome,
                         compositeSessions = compositeSessions,
                         loadProbeResults = { sessionId -> sourceLoader.getProbeResults(sessionId) },
-                    ).copy(pcapFiles = fileStore.getRecentPcapFiles())
+                    ).copy(
+                        pcapFiles =
+                            if (request.includePcap && sourceData.appSettings.rootModeEnabled) {
+                                fileStore.getRecentPcapFiles()
+                            } else {
+                                emptyList()
+                            },
+                    )
             val target = fileStore.createTarget()
             val analyticsContext =
                 DeveloperAnalyticsContext(
