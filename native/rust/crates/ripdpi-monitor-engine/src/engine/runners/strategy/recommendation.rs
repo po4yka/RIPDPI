@@ -98,6 +98,7 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
         ),
         recommended_proxy_config_json: resolve_recommended_proxy_config_json(quic_w, quic_winner_spec),
     };
+    let is_dns_tampered = runtime.strategy.dns_override_domain_targets.is_some();
     let audit_assessment = resolve_strategy_probe_audit_assessment(
         &strategy_plan.suite_id,
         &runtime.strategy.tcp_candidates,
@@ -105,7 +106,7 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
         &recommendation,
         strategy_plan.suite.tcp_candidates.len(),
         strategy_plan.suite.quic_candidates.len(),
-        false,
+        is_dns_tampered,
     );
     let summary = build_strategy_probe_summary(
         &strategy_plan.suite_id,
@@ -118,7 +119,6 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
         .into_iter()
         .map(|target| pilot_bucket_label(&target))
         .collect();
-    let is_dns_tampered = runtime.strategy.dns_override_domain_targets.is_some();
     let is_partial = runtime.strategy.tcp_candidates.len() < strategy_plan.suite.tcp_candidates.len()
         || runtime.strategy.quic_candidates.len() < strategy_plan.suite.quic_candidates.len();
     runtime.strategy.strategy_probe_report = Some(StrategyProbeReport {

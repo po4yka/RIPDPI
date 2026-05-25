@@ -1,6 +1,7 @@
 use crate::types::{StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel};
 
 pub(in crate::engine::runners::strategy) struct AuditSignals {
+    pub(in crate::engine::runners::strategy) dns_tampering_with_fallback: bool,
     pub(in crate::engine::runners::strategy) weak_winner_coverage: bool,
     pub(in crate::engine::runners::strategy) low_tcp_execution: bool,
     pub(in crate::engine::runners::strategy) low_quic_execution: bool,
@@ -36,6 +37,10 @@ pub(in crate::engine::runners::strategy) fn build_audit_confidence(
             warnings.push(message.to_string());
         }
     }
+    if signals.dns_tampering_with_fallback {
+        warnings
+            .push("Baseline DNS tampering was detected; confidence reflects fallback strategy candidates.".to_string());
+    }
     let score = score.clamp(0, 100) as usize;
     let level = if score >= 80 {
         StrategyProbeAuditConfidenceLevel::High
@@ -55,6 +60,9 @@ pub(in crate::engine::runners::strategy) fn build_audit_confidence(
         }
         _ if signals.narrow_tcp_margin || signals.narrow_quic_margin => {
             "The winning candidates only narrowly outperformed the next-best options"
+        }
+        _ if signals.dns_tampering_with_fallback => {
+            "Baseline DNS tampering was detected, but fallback strategy candidates ran"
         }
         _ => "Matrix coverage and winner strength are consistent",
     }

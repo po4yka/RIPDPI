@@ -15,7 +15,7 @@ pub(in crate::engine::runners::strategy) fn resolve_strategy_probe_audit_assessm
     recommendation: &StrategyProbeRecommendation,
     tcp_candidates_planned: usize,
     quic_candidates_planned: usize,
-    dns_short_circuited: bool,
+    dns_tampered: bool,
 ) -> Option<StrategyProbeAuditAssessment> {
     if suite_id != STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 {
         return None;
@@ -29,8 +29,11 @@ pub(in crate::engine::runners::strategy) fn resolve_strategy_probe_audit_assessm
     let quic_winner_coverage = quic_winner.map_or(0, candidate_score_percent);
     let tcp_lane_coverage = round_percent(tcp_counts.executed, tcp_counts.applicable_planned());
     let quic_lane_coverage = round_percent(quic_counts.executed, quic_counts.applicable_planned());
+    let fallback_candidates_ran = tcp_counts.executed > 0 || quic_counts.executed > 0;
+    let dns_short_circuited = dns_tampered && !fallback_candidates_ran;
 
     let signals = AuditSignals {
+        dns_tampering_with_fallback: dns_tampered && fallback_candidates_ran,
         weak_winner_coverage: tcp_winner_coverage < 50 || quic_winner_coverage < 50,
         low_tcp_execution: tcp_counts.applicable_planned() > 0 && tcp_lane_coverage < 75,
         low_quic_execution: quic_counts.applicable_planned() > 0 && quic_lane_coverage < 75,
@@ -49,7 +52,7 @@ pub(in crate::engine::runners::strategy) fn resolve_strategy_probe_audit_assessm
         quic_winner_coverage,
     );
 
-    let no_evasion_needed = !dns_short_circuited
+    let no_evasion_needed = !dns_tampered
         && signals.all_tcp_tied
         && signals.all_quic_tied
         && recommendation.tcp_candidate_id == "baseline_current"

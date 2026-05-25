@@ -1081,7 +1081,11 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
 
     assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsTamperingWithFallback);
     assert!(!audit_assessment.dns_short_circuited);
-    // Confidence may not be Low anymore since strategies actually ran with fallback DNS.
+    assert!(audit_assessment
+        .confidence
+        .warnings
+        .iter()
+        .any(|warning| warning.contains("fallback strategy candidates")));
 }
 
 #[test]

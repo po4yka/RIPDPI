@@ -375,6 +375,27 @@ fn resolve_strategy_probe_audit_assessment_low_when_dns_short_circuited() {
 }
 
 #[test]
+fn resolve_strategy_probe_audit_assessment_preserves_dns_fallback_evidence_confidence() {
+    let tcp = vec![
+        strategy_candidate_summary("tcp_runner_up", "split", 40, 100, 2, 5, false, "partial"),
+        strategy_candidate_summary("tcp_winner", "hostfake", 100, 100, 5, 5, false, "success"),
+    ];
+    let quic = vec![
+        strategy_candidate_summary("quic_runner_up", "quic_disabled", 45, 100, 1, 2, false, "partial"),
+        strategy_candidate_summary("quic_winner", "quic_burst", 100, 100, 2, 2, false, "success"),
+    ];
+    let a = audit(&tcp, &quic, 2, 2, true).expect("audit assessment");
+    assert!(!a.dns_short_circuited);
+    assert_eq!(a.confidence.level, StrategyProbeAuditConfidenceLevel::High);
+    assert_eq!(a.confidence.score, 100);
+    assert_eq!(a.confidence.rationale, "Baseline DNS tampering was detected, but fallback strategy candidates ran");
+    assert!(a
+        .confidence
+        .warnings
+        .contains(&s("Baseline DNS tampering was detected; confidence reflects fallback strategy candidates.")));
+}
+
+#[test]
 fn resolve_strategy_probe_audit_assessment_penalizes_incomplete_lane_execution() {
     let tcp = vec![
         strategy_candidate_summary("tcp_runner_up", "split", 50, 100, 2, 5, false, "partial"),
