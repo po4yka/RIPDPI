@@ -103,7 +103,9 @@ qs = up.urlencode({
 print(f"vless://{client['uuid']}@{host}:{port}?{qs}#ripdpi-e2e-{client['name']}")
 PY
 )" || die "failed to construct VLESS URI from $secrets"
-log "constructed URI: ${uri:0:60}…"
+uri_summary="$(python3 "${repo_root}/scripts/e2e_vpn_deploy_uri_summary.py" "$uri")" \
+  || die "failed to construct redacted VLESS URI summary"
+log "constructed URI: $uri_summary"
 
 # 5. Hand the URI to the app. Clear logcat first so the scrape is scoped.
 adb "${adb_opt[@]}" logcat -c
@@ -113,7 +115,7 @@ adb "${adb_opt[@]}" shell am start -W \
   -c android.intent.category.BROWSABLE \
   -d "$uri" \
   "$pkg" >/dev/null \
-  || fail "am start failed for VIEW $uri"
+  || fail "am start failed for VIEW $uri_summary"
 
 # 6. Wait a few seconds, then scan logcat.
 sleep 5
