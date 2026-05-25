@@ -140,6 +140,7 @@ internal fun buildMainUiState(
                 hostPackCatalog = inputs.hostPackCatalog,
                 strategyPackRuntimeState = inputs.strategyPackRuntimeState,
             ),
+        connectionQuality = resolveConnectionQuality(inputs.telemetry.tunnelTelemetry),
     )
 }
 

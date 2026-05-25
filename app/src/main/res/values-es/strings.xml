@@ -2623,6 +2623,12 @@ Origen: %2$s</string>
     <string name="vpn_quality_metric_loss">Pérdida</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">Jitter</string>
+    <string name="vpn_quality_graph_throughput_title">Rendimiento</string>
+    <string name="vpn_quality_graph_latency_title">Latencia</string>
+    <string name="vpn_quality_graph_samples_format">%1$d muestras</string>
+    <string name="vpn_pcap_capture_list_empty">Aún sin capturas · habilitar en Ajustes</string>
+    <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d paquetes</string>
+    <string name="vpn_pcap_capture_drops_format">%1$d paquetes descartados bajo carga</string>
 
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">Desarrollador</string>

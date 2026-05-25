@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.ConnectionQualitySnapshot
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DirectTransportClass
@@ -218,6 +219,7 @@ data class MainUiState(
     val homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
     val modeCards: ImmutableList<HomeModeCardUiState> = DefaultHomeModeCards,
     val controlPlaneHealthSummary: ControlPlaneHealthSummaryUiModel? = null,
+    val connectionQuality: ConnectionQualitySnapshot? = null,
 ) {
     val localBypassCard: HomeModeCardUiState
         get() =

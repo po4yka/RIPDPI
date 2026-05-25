@@ -2742,6 +2742,12 @@ fakeddisorder endhost</string>
     <string name="vpn_quality_metric_loss">Потери</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">Джиттер</string>
+    <string name="vpn_quality_graph_throughput_title">Пропускная способность</string>
+    <string name="vpn_quality_graph_latency_title">Задержка</string>
+    <string name="vpn_quality_graph_samples_format">%1$d образцов</string>
+    <string name="vpn_pcap_capture_list_empty">Захватов пока нет · включите в настройках</string>
+    <string name="vpn_pcap_capture_meta_format">%1$d КиБ · %2$d пакетов</string>
+    <string name="vpn_pcap_capture_drops_format">%1$d пакетов потеряно под нагрузкой</string>
 
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">Разработчик</string>

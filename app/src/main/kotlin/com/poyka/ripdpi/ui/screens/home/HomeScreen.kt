@@ -21,10 +21,15 @@ import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
+import com.poyka.ripdpi.data.ConnectionQualitySnapshot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationMetric
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationStrip
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
@@ -37,6 +42,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.resolveDegradationTone
 import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Duration.Companion.ZERO
 
@@ -185,6 +191,11 @@ fun HomeScreen(
             }
         }
 
+        HomeDegradationStrip(
+            quality = uiState.connectionQuality,
+            onReprobe = onDiagnosticRun,
+        )
+
         HomeModeCardList(
             uiState = uiState,
             onBypassToggle = onBypassToggle,
@@ -255,6 +266,61 @@ private fun HomeModeCardList(
             )
         }
     }
+}
+
+@Composable
+private fun HomeDegradationStrip(
+    quality: ConnectionQualitySnapshot?,
+    onReprobe: () -> Unit,
+) {
+    if (quality == null) return
+    val tone = resolveDegradationTone(quality) ?: return
+    val titleRes =
+        when (tone) {
+            RipDpiDegradationTone.Warning -> R.string.vpn_quality_strip_warning_title
+            RipDpiDegradationTone.Critical -> R.string.vpn_quality_strip_critical_title
+        }
+    val bodyRes =
+        when (tone) {
+            RipDpiDegradationTone.Warning -> R.string.vpn_quality_strip_body_warning
+            RipDpiDegradationTone.Critical -> R.string.vpn_quality_strip_body_critical
+        }
+    val metrics =
+        persistentListOf(
+            RipDpiDegradationMetric(
+                label = stringResource(R.string.vpn_quality_metric_loss),
+                value = "%.1f%%".format(quality.lossPct),
+                delta = "",
+                deltaIsBad = false,
+            ),
+            RipDpiDegradationMetric(
+                label = stringResource(R.string.vpn_quality_metric_rtt_p50),
+                value = "${quality.rttP50Ms} ms",
+                delta = "",
+                deltaIsBad = false,
+            ),
+            RipDpiDegradationMetric(
+                label = stringResource(R.string.vpn_quality_metric_jitter),
+                value = "${quality.jitterMs} ms",
+                delta = "",
+                deltaIsBad = false,
+            ),
+        )
+    val sinceLabel = stringResource(R.string.vpn_quality_strip_since_format, "${quality.sampleCount} samples")
+    RipDpiDegradationStrip(
+        title = stringResource(titleRes),
+        body = stringResource(bodyRes),
+        metrics = metrics,
+        sinceLabel = sinceLabel,
+        primaryAction =
+            RipDpiDegradationAction(
+                label = stringResource(R.string.vpn_quality_strip_reprobe),
+                onClick = onReprobe,
+            ),
+        secondaryAction = null,
+        tone = tone,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Preview(showBackground = true)

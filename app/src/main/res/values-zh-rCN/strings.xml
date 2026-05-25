@@ -2624,6 +2624,12 @@ fake_burst 3</string>
     <string name="vpn_quality_metric_loss">丢包</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">抖动</string>
+    <string name="vpn_quality_graph_throughput_title">吞吐量</string>
+    <string name="vpn_quality_graph_latency_title">延迟</string>
+    <string name="vpn_quality_graph_samples_format">%1$d 个样本</string>
+    <string name="vpn_pcap_capture_list_empty">尚无捕获 · 在设置中启用</string>
+    <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d 个数据包</string>
+    <string name="vpn_pcap_capture_drops_format">高负载下丢弃了 %1$d 个数据包</string>
 
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">开发者</string>
