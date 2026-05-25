@@ -166,6 +166,12 @@ jobs:
       - name: Run fleet release-gating + cadence policy check
         run: python3 scripts/ci/check_fleet_release_gates.py
 
+      - name: Run cross-language runtime contract unit tests
+        run: python3 -m unittest scripts.tests.test_cross_language_runtime_contracts
+
+      - name: Run cross-language runtime contract policy check
+        run: python3 scripts/ci/check_cross_language_runtime_contracts.py
+
   # Builds Rust native libraries + helper binaries for each ABI × profile combination.
   # debug profile: standard dev build used by the debug APK.
   # release profile (android-jni): optimised build used by release-verification.

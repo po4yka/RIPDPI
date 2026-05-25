@@ -1,0 +1,263 @@
+{
+  "version": "cross_language_runtime_contracts_v1",
+  "description": "Machine-readable compatibility gate inventory for cross-language RIPDPI runtime contracts. Any Rust/Kotlin schema, diagnostics JSON, AppSettings protobuf, native config JSON, telemetry JSON, or JNI behavior field/default change must keep the listed sources, fixtures, invariants, and tests in sync. This artifact is enforced by scripts/ci/check_cross_language_runtime_contracts.py.",
+  "ledgerKey": "cross-language-runtime-contract-gates",
+  "surfaces": [
+    {
+      "id": "diagnostics-json-wire",
+      "area": "diagnostics",
+      "description": "Rust diagnostics wire structs and Kotlin EngineContract JSON models must decode the same shared request, progress, report, profile, and outcome fixtures.",
+      "changeTriggers": [
+        "Rust diagnostics wire field or serde default changes",
+        "Kotlin EngineContract field or kotlinx.serialization default changes",
+        "Diagnostics schemaVersion, outcome token, or profile catalog fixture changes"
+      ],
+      "sourcePaths": [
+        "native/rust/crates/ripdpi-diagnostics-contracts/src/types/strategy.rs",
+        "native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs",
+        "native/rust/crates/ripdpi-monitor-engine/tests/contract_fixtures.rs",
+        "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/contract/engine/EngineContract.kt",
+        "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsWireContractTest.kt",
+        "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContractGovernanceTest.kt"
+      ],
+      "fixturePaths": [
+        "diagnostics-contract-fixtures/engine_request_current.json",
+        "diagnostics-contract-fixtures/engine_report_current.json",
+        "diagnostics-contract-fixtures/engine_progress_current.json",
+        "diagnostics-contract-fixtures/profile_catalog_current.json",
+        "diagnostics-contract-fixtures/profile_spec_current.json",
+        "diagnostics-contract-fixtures/outcome_taxonomy_current.json",
+        "contract-fixtures/diagnostics_schema_version.json",
+        "contract-fixtures/diagnostics_progress_fields.json",
+        "contract-fixtures/diagnostics_scan_report_fields.json"
+      ],
+      "gateTests": [
+        {
+          "id": "rust-diagnostics-contract-fixtures",
+          "path": "native/rust/crates/ripdpi-monitor-engine/tests/contract_fixtures.rs",
+          "command": "cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine --test contract_fixtures"
+        },
+        {
+          "id": "kotlin-diagnostics-wire-contract",
+          "path": "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsWireContractTest.kt",
+          "command": "./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsWireContractTest' -Pripdpi.skipNativeBuild=true"
+        },
+        {
+          "id": "kotlin-diagnostics-governance-contract",
+          "path": "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContractGovernanceTest.kt",
+          "command": "./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsContractGovernanceTest' -Pripdpi.skipNativeBuild=true"
+        }
+      ],
+      "invariants": [
+        "DiagnosticsEngineSchemaVersion equals DIAGNOSTICS_ENGINE_SCHEMA_VERSION.",
+        "Kotlin and Rust both decode the same shared diagnostics contract fixtures.",
+        "Field manifests cover progress and report fields when new diagnostics JSON fields or defaults are added.",
+        "Native emitted outcome tokens are covered by the committed outcome taxonomy."
+      ]
+    },
+    {
+      "id": "app-settings-protobuf",
+      "area": "protobuf-settings",
+      "description": "Persisted AppSettings protobuf fields, reserved numbers, serializer defaults, and Rust-consuming feature manifests must evolve together.",
+      "changeTriggers": [
+        "AppSettings protobuf schema field number, reserved field, or field name changes",
+        "AppSettingsSerializer.defaultValue changes",
+        "Kotlin settings JSON export/import default changes",
+        "Rust runtime setting consumer marker changes"
+      ],
+      "sourcePaths": [
+        "core/data/model/src/main/proto/app_settings.proto",
+        "core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/AppSettingsSerializer.kt",
+        "core/data/src/test/kotlin/com/poyka/ripdpi/data/AppSettingsJsonTest.kt",
+        "core/data/model/src/test/kotlin/com/poyka/ripdpi/data/ProxySettingFeatureContractTest.kt",
+        "native/rust/crates/feature-contract-harness/tests/proxy_setting.rs"
+      ],
+      "fixturePaths": [
+        "native/rust/crates/feature-contract-harness/manifests/proxy_setting/proxy_listen_port.json"
+      ],
+      "gateTests": [
+        {
+          "id": "kotlin-app-settings-json-defaults",
+          "path": "core/data/src/test/kotlin/com/poyka/ripdpi/data/AppSettingsJsonTest.kt",
+          "command": "./gradlew :core:data:testDebugUnitTest --tests 'com.poyka.ripdpi.data.AppSettingsJsonTest'"
+        },
+        {
+          "id": "kotlin-proxy-setting-feature-contract",
+          "path": "core/data/model/src/test/kotlin/com/poyka/ripdpi/data/ProxySettingFeatureContractTest.kt",
+          "command": "./gradlew :core:data:model:testDebugUnitTest --tests 'com.poyka.ripdpi.data.ProxySettingFeatureContractTest'"
+        },
+        {
+          "id": "rust-proxy-setting-feature-contract",
+          "path": "native/rust/crates/feature-contract-harness/tests/proxy_setting.rs",
+          "command": "cargo test --manifest-path native/rust/Cargo.toml -p feature-contract-harness proxy_setting"
+        }
+      ],
+      "invariants": [
+        "Removed AppSettings fields stay listed in reserved field numbers and names.",
+        "Every non-zero/non-empty persisted default is represented in AppSettingsSerializer.defaultValue or an explicit compatibility mapper.",
+        "Feature manifests include a proto layer and at least one Rust-consuming layer for each cross-layer setting family."
+      ]
+    },
+    {
+      "id": "native-config-json",
+      "area": "native-config",
+      "description": "Kotlin native config JSON encoders and Rust proxy-config decoders must round-trip the same UI command/config fixtures.",
+      "changeTriggers": [
+        "RipDpiProxyUIPreferences field or default changes",
+        "Native proxy config serde field or default changes",
+        "Desync chain, relay, QUIC, parser-evasion, or adaptive fallback config changes"
+      ],
+      "sourcePaths": [
+        "core/engine/src/main/kotlin/com/poyka/ripdpi/core/codec/NativeProxyConfigValidation.kt",
+        "core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxyUIPreferences.kt",
+        "core/engine/src/test/kotlin/com/poyka/ripdpi/core/ConfigContractRoundTripTest.kt",
+        "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeConfigContractSnapshotTest.kt",
+        "native/rust/crates/ripdpi-proxy-config/src/lib.rs",
+        "native/rust/crates/ripdpi-proxy-config/tests/round_trip.rs"
+      ],
+      "fixturePaths": [
+        "core/engine/src/test/resources/fixtures/round-trip-tcp-heavy.json",
+        "core/engine/src/test/resources/fixtures/round-trip-udp-quic.json",
+        "core/engine/src/test/resources/fixtures/round-trip-relay-heavy.json"
+      ],
+      "gateTests": [
+        {
+          "id": "kotlin-native-config-round-trip",
+          "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/ConfigContractRoundTripTest.kt",
+          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.ConfigContractRoundTripTest' -Pripdpi.skipNativeBuild=true"
+        },
+        {
+          "id": "kotlin-native-config-snapshot",
+          "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeConfigContractSnapshotTest.kt",
+          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeConfigContractSnapshotTest' -Pripdpi.skipNativeBuild=true"
+        },
+        {
+          "id": "rust-proxy-config-round-trip",
+          "path": "native/rust/crates/ripdpi-proxy-config/tests/round_trip.rs",
+          "command": "cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-proxy-config --test round_trip"
+        }
+      ],
+      "invariants": [
+        "Kotlin-generated native config fixtures decode and re-encode through Rust without losing fields.",
+        "Native config defaults and explicit nulls remain stable across command_line and ui payloads.",
+        "Fixture scenarios cover TCP-heavy, UDP/QUIC, and relay-heavy config branches."
+      ]
+    },
+    {
+      "id": "native-jni-behavior",
+      "area": "jni",
+      "description": "JNI symbols, handles, error mappings, panic boundaries, and native binary behavior must remain compatible with Kotlin bridge call sites.",
+      "changeTriggers": [
+        "JNI export symbol, native library name, or Kotlin external binding changes",
+        "JNI bridge field, default, or handle sentinel value changes",
+        "Native handle sentinel or proxy start return code changes",
+        "Native error enum or mapped Java exception changes",
+        "Rust unsafe/JNI panic-boundary or VpnService.protect callback changes"
+      ],
+      "sourcePaths": [
+        "docs/architecture/JNI_CONTRACT.md",
+        "core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt",
+        "core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt",
+        "core/engine/src/test/kotlin/com/poyka/ripdpi/core/EngineApiContractBindingTest.kt",
+        "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeBinaryContractTest.kt",
+        "native/rust/crates/ripdpi-android/src/lib.rs",
+        "native/rust/crates/ripdpi-tunnel-android/src/lib.rs",
+        "scripts/ci/check_ffi_panic_boundary.py",
+        "scripts/ci/check_unsafe_boundaries.py",
+        "scripts/ci/check_native_architecture_contracts.py"
+      ],
+      "fixturePaths": [
+        "contract-fixtures/error_exception_mapping.json",
+        "contract-fixtures/handle_contract.json",
+        "contract-fixtures/proxy_start_codes.json",
+        "contract-fixtures/tunnel_exception_messages.json"
+      ],
+      "gateTests": [
+        {
+          "id": "kotlin-native-binary-contract",
+          "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeBinaryContractTest.kt",
+          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeBinaryContractTest' -Pripdpi.skipNativeBuild=true"
+        },
+        {
+          "id": "kotlin-engine-api-contract-binding",
+          "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/EngineApiContractBindingTest.kt",
+          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.EngineApiContractBindingTest' -Pripdpi.skipNativeBuild=true"
+        },
+        {
+          "id": "python-ffi-panic-boundary",
+          "path": "scripts/ci/check_ffi_panic_boundary.py",
+          "command": "python3 scripts/ci/check_ffi_panic_boundary.py"
+        },
+        {
+          "id": "python-native-architecture-contracts",
+          "path": "scripts/ci/check_native_architecture_contracts.py",
+          "command": "python3 scripts/ci/check_native_architecture_contracts.py"
+        }
+      ],
+      "invariants": [
+        "Every JNI export remains behind the project panic-boundary pattern.",
+        "Kotlin bridge types still bind to the same implementation contracts.",
+        "Handle sentinels, exception mappings, and return-code semantics stay fixture-backed.",
+        "Native/JNI crates remain isolated to the allowed Android boundary."
+      ]
+    },
+    {
+      "id": "runtime-telemetry-json",
+      "area": "telemetry",
+      "description": "Rust native telemetry snapshots/events and Kotlin NativeRuntimeSnapshot models must keep JSON fields, event payloads, and golden exports compatible.",
+      "changeTriggers": [
+        "Rust NativeRuntimeSnapshot or NativeRuntimeEvent field/default changes",
+        "Kotlin NativeRuntimeSnapshot or NativeRuntimeEvent field/default changes",
+        "Proxy/tunnel telemetry golden payload changes",
+        "Service or diagnostics archive telemetry export field changes"
+      ],
+      "sourcePaths": [
+        "native/rust/crates/ripdpi-android-telemetry-adapter/src/types.rs",
+        "native/rust/crates/ripdpi-tunnel-android/src/telemetry/types.rs",
+        "core/data/model/src/main/kotlin/com/poyka/ripdpi/data/NativeRuntimeSnapshot.kt",
+        "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeTelemetryGoldenTest.kt",
+        "core/service/src/test/kotlin/com/poyka/ripdpi/services/ServiceTelemetryGoldenTest.kt"
+      ],
+      "fixturePaths": [
+        "contract-fixtures/proxy_snapshot_fields.json",
+        "contract-fixtures/tunnel_snapshot_fields.json",
+        "contract-fixtures/proxy_event_fields.json",
+        "contract-fixtures/tunnel_event_fields.json",
+        "contract-fixtures/network_snapshot_fields.json",
+        "contract-fixtures/tunnel_stats_layout.json",
+        "core/engine/src/test/resources/golden/proxy_running_first_poll.json",
+        "core/engine/src/test/resources/golden/proxy_running_second_poll.json",
+        "core/engine/src/test/resources/golden/proxy_running_telegram_ws_events.json",
+        "core/engine/src/test/resources/golden/tunnel_ready.json"
+      ],
+      "gateTests": [
+        {
+          "id": "kotlin-native-telemetry-goldens",
+          "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeTelemetryGoldenTest.kt",
+          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeTelemetryGoldenTest' -Pripdpi.skipNativeBuild=true"
+        },
+        {
+          "id": "kotlin-service-telemetry-goldens",
+          "path": "core/service/src/test/kotlin/com/poyka/ripdpi/services/ServiceTelemetryGoldenTest.kt",
+          "command": "./gradlew :core:service:testDebugUnitTest --tests 'com.poyka.ripdpi.services.ServiceTelemetryGoldenTest' -Pripdpi.skipNativeBuild=true"
+        },
+        {
+          "id": "rust-android-telemetry-contracts",
+          "path": "native/rust/crates/ripdpi-android-telemetry-adapter/src/tests.rs",
+          "command": "cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-android-telemetry-adapter"
+        },
+        {
+          "id": "rust-tunnel-telemetry-contracts",
+          "path": "native/rust/crates/ripdpi-tunnel-android/src/telemetry/tests.rs",
+          "command": "cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-android telemetry"
+        }
+      ],
+      "invariants": [
+        "Kotlin NativeRuntimeSnapshot is a compatible superset of Rust proxy and tunnel snapshot field manifests.",
+        "NativeRuntimeEvent fields match the Rust event manifest exactly.",
+        "Telemetry golden files cover first poll, subsequent poll, Telegram WS events, and tunnel-ready states.",
+        "TunnelStats array indices remain fixture-backed."
+      ]
+    }
+  ]
+}
