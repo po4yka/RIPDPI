@@ -12,7 +12,7 @@ use crate::health::HealthRegistry;
 use crate::transport::{build_client_config, build_doh_client, normalize_endpoint};
 use crate::types::{
     DnsCryptCachedCertificate, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol,
-    EncryptedDnsTransport,
+    EncryptedDnsTransport, ResolverNetworkScope,
 };
 
 #[derive(Debug)]
@@ -33,6 +33,7 @@ pub(crate) struct ResolverInner {
     pub(crate) dnscrypt_state: Mutex<Option<DnsCryptCachedCertificate>>,
     pub(crate) connection_pool: ConnectionPool,
     pub(crate) health: Option<HealthRegistry>,
+    pub(crate) network_scope: ResolverNetworkScope,
     pub(crate) doq_endpoint: Option<quinn::Endpoint>,
     pub(crate) doq_connection: AsyncMutex<Option<quinn::Connection>>,
 }
@@ -43,6 +44,7 @@ pub(crate) fn build_inner(
     timeout: Duration,
     tls_roots: Vec<CertificateDer<'static>>,
     health: Option<HealthRegistry>,
+    network_scope: ResolverNetworkScope,
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     connect_hooks: EncryptedDnsConnectHooks,
 ) -> Result<ResolverInner, EncryptedDnsError> {
@@ -54,6 +56,7 @@ pub(crate) fn build_inner(
         timeout,
         &tls_roots,
         health.as_ref(),
+        &network_scope,
         tls_verifier.as_ref(),
         &connect_hooks,
     )?;
@@ -77,6 +80,7 @@ pub(crate) fn build_inner(
         dnscrypt_state: Mutex::new(None),
         connection_pool: ConnectionPool::default(),
         health,
+        network_scope,
         doq_endpoint,
         doq_connection: AsyncMutex::new(None),
     })
@@ -88,6 +92,7 @@ fn build_doh_client_for_endpoint(
     timeout: Duration,
     tls_roots: &[CertificateDer<'static>],
     health: Option<&HealthRegistry>,
+    network_scope: &ResolverNetworkScope,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     connect_hooks: &EncryptedDnsConnectHooks,
 ) -> Result<Option<reqwest::Client>, EncryptedDnsError> {
@@ -97,7 +102,7 @@ fn build_doh_client_for_endpoint(
         return Ok(None);
     }
 
-    build_doh_client(endpoint, transport, timeout, tls_roots, health, tls_verifier).map(Some)
+    build_doh_client(endpoint, transport, timeout, tls_roots, health, network_scope, tls_verifier).map(Some)
 }
 
 fn build_doq_endpoint_for_endpoint(

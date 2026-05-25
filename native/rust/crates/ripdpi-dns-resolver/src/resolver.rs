@@ -112,6 +112,28 @@ impl EncryptedDnsResolver {
         tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
         connect_hooks: EncryptedDnsConnectHooks,
     ) -> Result<Self, EncryptedDnsError> {
+        Self::with_health_in_scope(
+            endpoint,
+            transport,
+            timeout,
+            tls_roots,
+            health,
+            ResolverNetworkScope::global(),
+            tls_verifier,
+            connect_hooks,
+        )
+    }
+
+    pub(crate) fn with_health_in_scope(
+        endpoint: EncryptedDnsEndpoint,
+        transport: EncryptedDnsTransport,
+        timeout: Duration,
+        tls_roots: Vec<CertificateDer<'static>>,
+        health: Option<crate::health::HealthRegistry>,
+        network_scope: ResolverNetworkScope,
+        tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+        connect_hooks: EncryptedDnsConnectHooks,
+    ) -> Result<Self, EncryptedDnsError> {
         Ok(Self {
             inner: Arc::new(state::build_inner(
                 endpoint,
@@ -119,10 +141,20 @@ impl EncryptedDnsResolver {
                 timeout,
                 tls_roots,
                 health,
+                network_scope,
                 tls_verifier,
                 connect_hooks,
             )?),
         })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn ranked_bootstrap_ips_for_test(&self) -> Vec<std::net::IpAddr> {
+        if let Some(health) = &self.inner.health {
+            health.rank_bootstrap_ips_in_scope(&self.inner.network_scope, &self.inner.endpoint.bootstrap_ips)
+        } else {
+            self.inner.endpoint.bootstrap_ips.clone()
+        }
     }
 
     pub fn endpoint(&self) -> &EncryptedDnsEndpoint {

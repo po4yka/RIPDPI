@@ -9,7 +9,7 @@ use rustls::{ClientConfig, RootCertStore};
 use url::Url;
 
 use crate::health::HealthRegistry;
-use crate::types::{EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsTransport};
+use crate::types::{EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsTransport, ResolverNetworkScope};
 
 pub(crate) fn build_client_config(
     verifier: Option<&Arc<dyn ServerCertVerifier>>,
@@ -31,6 +31,7 @@ pub(crate) fn build_doh_client(
     timeout: Duration,
     tls_roots: &[CertificateDer<'static>],
     health: Option<&HealthRegistry>,
+    network_scope: &ResolverNetworkScope,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<Client, EncryptedDnsError> {
     let mut builder = Client::builder().timeout(timeout).connect_timeout(timeout);
@@ -43,7 +44,7 @@ pub(crate) fn build_doh_client(
         builder = add_reqwest_roots(builder, tls_roots)?;
     }
 
-    builder = configure_transport(builder, endpoint, transport, health)?;
+    builder = configure_transport(builder, endpoint, transport, health, network_scope)?;
     builder.build().map_err(|err| EncryptedDnsError::ClientBuild(err.to_string()))
 }
 
@@ -98,9 +99,10 @@ fn configure_transport(
     endpoint: &EncryptedDnsEndpoint,
     transport: &EncryptedDnsTransport,
     health: Option<&HealthRegistry>,
+    network_scope: &ResolverNetworkScope,
 ) -> Result<reqwest::ClientBuilder, EncryptedDnsError> {
     match transport {
-        EncryptedDnsTransport::Direct => Ok(configure_direct_transport(builder, endpoint, health)),
+        EncryptedDnsTransport::Direct => Ok(configure_direct_transport(builder, endpoint, health, network_scope)),
         EncryptedDnsTransport::Socks5 { host, port } => configure_socks5_transport(builder, host, *port),
     }
 }
@@ -109,9 +111,10 @@ fn configure_direct_transport(
     builder: reqwest::ClientBuilder,
     endpoint: &EncryptedDnsEndpoint,
     health: Option<&HealthRegistry>,
+    network_scope: &ResolverNetworkScope,
 ) -> reqwest::ClientBuilder {
     let ips = if let Some(h) = health {
-        h.rank_bootstrap_ips(&endpoint.bootstrap_ips)
+        h.rank_bootstrap_ips_in_scope(network_scope, &endpoint.bootstrap_ips)
     } else {
         endpoint.bootstrap_ips.clone()
     };

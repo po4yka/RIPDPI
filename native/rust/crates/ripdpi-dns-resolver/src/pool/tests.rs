@@ -260,3 +260,45 @@ fn ranking_persists_only_within_the_same_network_scope() {
         .unwrap();
     assert_eq!(cellular_pool.try_order()[0], 0, "different scope should not inherit wifi ranking");
 }
+
+#[test]
+fn bootstrap_ip_ranking_persists_only_within_the_same_network_scope() {
+    let shared = HealthRegistry::new(Duration::from_secs(60));
+    let wifi = ResolverNetworkScope::new("wifi:alpha");
+    let cellular = ResolverNetworkScope::new("cell:beta");
+    let primary = IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8));
+    let secondary = IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4));
+
+    for _ in 0..30 {
+        shared.record_bootstrap_outcome_in_scope(&wifi, primary, false, 4000);
+        shared.record_bootstrap_outcome_in_scope(&wifi, secondary, true, 20);
+    }
+
+    let wifi_pool = ResolverPool::builder()
+        .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+        .health_registry(shared.clone())
+        .network_scope(wifi.clone())
+        .build()
+        .unwrap();
+    assert_eq!(wifi_pool.inner.resolvers[0].ranked_bootstrap_ips_for_test()[0], secondary);
+
+    let rebuilt_wifi_pool = ResolverPool::builder()
+        .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+        .health_registry(shared.clone())
+        .network_scope(wifi)
+        .build()
+        .unwrap();
+    assert_eq!(rebuilt_wifi_pool.inner.resolvers[0].ranked_bootstrap_ips_for_test()[0], secondary);
+
+    let cellular_pool = ResolverPool::builder()
+        .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+        .health_registry(shared)
+        .network_scope(cellular)
+        .build()
+        .unwrap();
+    assert_eq!(
+        cellular_pool.inner.resolvers[0].ranked_bootstrap_ips_for_test()[0],
+        primary,
+        "different scope should not inherit wifi bootstrap ranking",
+    );
+}

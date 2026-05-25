@@ -93,7 +93,8 @@ impl ResolverPoolBuilder {
     pub fn build(self) -> Result<ResolverPool, EncryptedDnsError> {
         let health = self.health_registry.unwrap_or_else(|| HealthRegistry::new(self.health_half_life));
         let cache_size = NonZeroUsize::new(self.fallback_cache_size.max(1)).unwrap_or(NonZeroUsize::new(8).unwrap());
-        let (resolvers, labels) = build_resolvers(self.endpoints, self.timeout, self.tls_roots, health.clone())?;
+        let (resolvers, labels) =
+            build_resolvers(self.endpoints, self.timeout, self.tls_roots, health.clone(), self.network_scope.clone())?;
 
         Ok(ResolverPool {
             inner: Arc::new(PoolInner {
@@ -114,12 +115,20 @@ fn build_resolvers(
     timeout: Duration,
     tls_roots: Vec<CertificateDer<'static>>,
     health: HealthRegistry,
+    network_scope: ResolverNetworkScope,
 ) -> Result<(Vec<EncryptedDnsResolver>, Vec<String>), EncryptedDnsError> {
     let mut resolvers = Vec::with_capacity(endpoints.len());
     let mut labels = Vec::with_capacity(endpoints.len());
 
     for (endpoint, transport) in endpoints {
-        let resolver = instantiate_resolver(endpoint, transport, timeout, tls_roots.clone(), health.clone())?;
+        let resolver = instantiate_resolver(
+            endpoint,
+            transport,
+            timeout,
+            tls_roots.clone(),
+            health.clone(),
+            network_scope.clone(),
+        )?;
         labels.push(resolver.endpoint_label());
         resolvers.push(resolver);
     }
@@ -133,13 +142,15 @@ fn instantiate_resolver(
     timeout: Duration,
     tls_roots: Vec<CertificateDer<'static>>,
     health: HealthRegistry,
+    network_scope: ResolverNetworkScope,
 ) -> Result<EncryptedDnsResolver, EncryptedDnsError> {
-    EncryptedDnsResolver::with_health(
+    EncryptedDnsResolver::with_health_in_scope(
         endpoint,
         transport,
         timeout,
         tls_roots,
         Some(health),
+        network_scope,
         None,
         EncryptedDnsConnectHooks::default(),
     )
