@@ -381,8 +381,8 @@ fn tunnel_snapshot_includes_connection_quality_after_sample_recorded() {
     use ripdpi_quality::QualitySample;
 
     let state = TunnelTelemetryState::new(None);
-    state.quality_window.record(QualitySample { rtt_ms: 42, succeeded: true });
-    state.quality_window.record(QualitySample { rtt_ms: 0, succeeded: false });
+    state.quality_window.record(QualitySample { rtt_ms: 42, succeeded: true, loss_pct: 0.0 });
+    state.quality_window.record(QualitySample { rtt_ms: 0, succeeded: false, loss_pct: 0.0 });
 
     let snapshot = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
     let quality = snapshot.connection_quality.as_ref().expect("connection_quality populated");

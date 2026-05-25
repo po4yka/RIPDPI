@@ -22,6 +22,7 @@ mod bridge;
 mod dns_intercept;
 mod packet;
 mod phases;
+mod retransmit;
 mod routing;
 mod setup;
 mod setup_dns;
@@ -57,6 +58,11 @@ const PENDING_LISTEN_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// How often (in loop iterations) to sweep stale pending LISTEN entries.
 const PENDING_LISTEN_GC_INTERVAL: u32 = 100;
+
+/// How often (in loop iterations) to emit the TCP-retransmit-derived loss
+/// percentage via `Stats::emit_loss_pct`. Kept at 100 to match the GC
+/// interval — JNI overhead stays off the per-packet path.
+const LOSS_EMIT_INTERVAL: u32 = 100;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -125,6 +131,7 @@ pub async fn io_loop_task(
         phases::drain_dns(&mut state);
         phases::poll_smoltcp(&mut state);
         phases::gc_pending_listens(&mut state);
+        phases::emit_loss_sample(&mut state);
         phases::admit_tcp_sessions(&mut state);
         phases::pump_bridges(&mut state).await;
         phases::flush_tun(tun, &mut state).await?;

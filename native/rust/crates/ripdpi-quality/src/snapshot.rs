@@ -17,10 +17,16 @@ use serde::Serialize;
 /// `false` for any error arm of the TCP-session connect path; failed
 /// samples increment the loss counter but are NOT recorded into the
 /// latency histogram (their RTT is undefined).
+///
+/// `loss_pct` is the TCP retransmit-derived packet-loss estimate (0.0..=100.0).
+/// Pass `0.0` when the producer does not measure retransmits.
 #[derive(Debug, Clone, Copy)]
 pub struct QualitySample {
     pub rtt_ms: u64,
     pub succeeded: bool,
+    /// TCP retransmit-derived packet-loss estimate, 0.0..=100.0.
+    /// Pass `0.0` when the producer does not measure retransmits.
+    pub loss_pct: f32,
 }
 
 /// Frozen identifier for the runtime that produced a quality sample stream.

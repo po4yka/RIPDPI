@@ -10,7 +10,7 @@ use super::dns_intercept::drain_dns_responses;
 use super::routing::route_tun_packet;
 use super::state::LoopState;
 use super::tcp_accept::{gc_stale_pending_listens, spawn_new_tcp_sessions};
-use super::{PENDING_LISTEN_GC_INTERVAL, PENDING_LISTEN_TIMEOUT};
+use super::{LOSS_EMIT_INTERVAL, PENDING_LISTEN_GC_INTERVAL, PENDING_LISTEN_TIMEOUT};
 
 pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopState) {
     let mut tun_read_buf = std::mem::take(&mut state.tun_read_buf);
@@ -35,6 +35,9 @@ pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopSta
         // routing. No `.await`, no allocation when no observer is
         // installed -- cancel-safety of `drain_tun` is preserved.
         state.stats.on_inbound_packet(packet);
+        // P5#1: observe TCP retransmits for loss-percentage tracking.
+        // O(1) amortised; no logging on the hot path.
+        state.retransmit_tracker.observe(packet);
         route_tun_packet(packet, state).await;
     }
 
@@ -63,6 +66,20 @@ pub(in crate::io_loop) fn gc_pending_listens(state: &mut LoopState) {
     if state.loop_iteration.is_multiple_of(PENDING_LISTEN_GC_INTERVAL) {
         gc_stale_pending_listens(&mut state.pending_listens, &mut state.socket_set, PENDING_LISTEN_TIMEOUT);
     }
+}
+
+/// Emit the current retransmit-derived loss percentage via
+/// `Stats::emit_loss_pct` every `LOSS_EMIT_INTERVAL` loop iterations.
+/// Synchronous, O(1). No `.await`, no per-packet logging.
+///
+/// Cancel-safety: synchronous; cannot introduce cancel-safety issues.
+pub(in crate::io_loop) fn emit_loss_sample(state: &mut LoopState) {
+    if state.loop_iteration.wrapping_sub(state.last_loss_emit_iteration) < LOSS_EMIT_INTERVAL {
+        return;
+    }
+    state.last_loss_emit_iteration = state.loop_iteration;
+    let loss_pct = state.retransmit_tracker.current_loss_pct();
+    state.stats.emit_loss_pct(loss_pct);
 }
 
 pub(in crate::io_loop) fn admit_tcp_sessions(state: &mut LoopState) {
@@ -108,6 +125,7 @@ mod tests {
     use ripdpi_tunnel_intercept::egress::TunEgressPacketHandler;
     use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, TunIngressInterceptor};
 
+    use super::super::retransmit::RetransmitTracker;
     use super::super::state::{LoopRuntime, LoopState};
     use super::super::udp_assoc::{UdpEvictionEntry, DEFAULT_MAX_UDP_ASSOCIATIONS};
     use super::*;
@@ -189,6 +207,8 @@ mod tests {
             dns_req_tx: None,
             dns_resp_rx: None,
             tun_read_buf: vec![0u8; 1500],
+            retransmit_tracker: RetransmitTracker::new(),
+            last_loss_emit_iteration: 0,
         }
     }
 

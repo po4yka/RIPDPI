@@ -50,6 +50,10 @@ pub struct QualityWindow {
     jitter_acc: Arc<AtomicI64>,
     // Last recorded successful RTT in ms; -1 sentinel for "no prior sample".
     last_rtt_ms: Arc<AtomicI64>,
+    // Retransmit-derived loss accumulator. Stored as milli-percent (loss_pct
+    // × 1000) in AtomicI64 to avoid floating-point in the atomic path.
+    retransmit_loss_sum_milli: Arc<AtomicI64>,
+    retransmit_loss_count: Arc<AtomicU64>,
 }
 
 impl QualityWindow {
@@ -68,6 +72,8 @@ impl QualityWindow {
             window_start_at_ms: Arc::new(ArcSwapOption::empty()),
             jitter_acc: Arc::new(AtomicI64::new(0)),
             last_rtt_ms: Arc::new(AtomicI64::new(-1)),
+            retransmit_loss_sum_milli: Arc::new(AtomicI64::new(0)),
+            retransmit_loss_count: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -98,6 +104,22 @@ impl QualityWindow {
         } else {
             self.failure_count.fetch_add(1, Ordering::Relaxed);
         }
+
+        if sample.loss_pct > 0.0 {
+            self.accumulate_loss(sample.loss_pct);
+        }
+    }
+
+    /// Records a TCP-retransmit-derived loss percentage without touching
+    /// the RTT histogram or success/failure counters.
+    ///
+    /// Called from the io_loop retransmit observer every
+    /// `LOSS_EMIT_INTERVAL` loop iterations. Synchronous, cancel-safe.
+    pub fn record_loss(&self, loss_pct: f32) {
+        if self.window_start_at_ms.load().is_none() {
+            self.window_start_at_ms.store(Some(Arc::new(now_ms())));
+        }
+        self.accumulate_loss(loss_pct);
     }
 
     /// Resets all rolling state. Call on session stop to avoid stale history
@@ -114,6 +136,8 @@ impl QualityWindow {
         self.window_start_at_ms.store(None);
         self.jitter_acc.store(0, Ordering::Relaxed);
         self.last_rtt_ms.store(-1, Ordering::Relaxed);
+        self.retransmit_loss_sum_milli.store(0, Ordering::Relaxed);
+        self.retransmit_loss_count.store(0, Ordering::Relaxed);
     }
 
     /// Snapshot of the *instant* (60s) window suitable for the DegradationStrip.
@@ -122,11 +146,19 @@ impl QualityWindow {
         let h = self.instant.lock().ok()?;
         let success = self.success_count.load(Ordering::Relaxed);
         let failure = self.failure_count.load(Ordering::Relaxed);
-        if h.is_empty() && success == 0 && failure == 0 {
+        let loss_count = self.retransmit_loss_count.load(Ordering::Relaxed);
+        if h.is_empty() && success == 0 && failure == 0 && loss_count == 0 {
             return None;
         }
         let total = success + failure;
-        let loss_pct = if total == 0 { 0.0 } else { (failure as f32 / total as f32) * 100.0 };
+        let connect_failure_loss = if total == 0 { 0.0 } else { (failure as f32 / total as f32) * 100.0 };
+        let mean_retransmit_loss = if loss_count == 0 {
+            0.0
+        } else {
+            let sum_milli = self.retransmit_loss_sum_milli.load(Ordering::Relaxed).max(0);
+            (sum_milli as f64 / loss_count as f64 / 1000.0) as f32
+        };
+        let loss_pct = connect_failure_loss.max(mean_retransmit_loss).clamp(0.0, 100.0);
         let window_start = self.window_start_at_ms.load().as_ref().map_or(0, |arc| **arc);
         let jitter_fixed = self.jitter_acc.load(Ordering::Relaxed);
         let jitter_ms = (jitter_fixed.max(0) / 16) as u64;
@@ -154,6 +186,13 @@ impl QualityWindow {
         let delta_fixed = delta_abs * 16;
         let new_j = prev_j + ((delta_fixed - prev_j) / 16);
         self.jitter_acc.store(new_j, Ordering::Relaxed);
+    }
+
+    fn accumulate_loss(&self, loss_pct: f32) {
+        let clamped = if loss_pct.is_finite() { loss_pct.clamp(0.0, 100.0) } else { 0.0 };
+        let milli = (clamped * 1000.0) as i64;
+        self.retransmit_loss_sum_milli.fetch_add(milli, Ordering::Relaxed);
+        self.retransmit_loss_count.fetch_add(1, Ordering::Relaxed);
     }
 }
 

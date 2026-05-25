@@ -14,6 +14,7 @@ use crate::{ActiveSessions, Stats, TunDevice};
 
 use super::dns_intercept::{DnsRequest, DnsResponse, MapDnsRuntime};
 use super::packet::TcpFlowKey;
+use super::retransmit::RetransmitTracker;
 use super::udp_assoc::{UdpAssociation, UdpEvent, UdpEvictionEntry};
 use ripdpi_tunnel_intercept::egress::TunEgressPacketHandler;
 use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, TunIngressInterceptor};
@@ -48,4 +49,6 @@ pub(in crate::io_loop) struct LoopState {
     pub(in crate::io_loop) dns_req_tx: Option<Sender<DnsRequest>>,
     pub(in crate::io_loop) dns_resp_rx: Option<Receiver<DnsResponse>>,
     pub(in crate::io_loop) tun_read_buf: Vec<u8>,
+    pub(in crate::io_loop) retransmit_tracker: RetransmitTracker,
+    pub(in crate::io_loop) last_loss_emit_iteration: u32,
 }

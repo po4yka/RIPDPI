@@ -18,6 +18,7 @@ use crate::dns_cache::DnsCache;
 use crate::{ActiveSessions, Stats, TunDevice};
 
 use super::dns_intercept::{parse_dns_cache, parse_mapdns_runtime};
+use super::retransmit::RetransmitTracker;
 use super::setup_dns::{build_dns_worker, configure_resolver_fallback};
 use super::state::{LoopRuntime, LoopState};
 use super::tcp_accept::{make_auth, proxy_addr};
@@ -96,5 +97,7 @@ pub(in crate::io_loop) fn setup_io_loop(
         dns_req_tx,
         dns_resp_rx,
         tun_read_buf: vec![0u8; mtu + 64],
+        retransmit_tracker: RetransmitTracker::new(),
+        last_loss_emit_iteration: 0,
     })
 }

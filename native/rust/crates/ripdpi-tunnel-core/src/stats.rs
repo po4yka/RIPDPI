@@ -87,6 +87,11 @@ pub struct Stats {
     /// (single Mutex lock + Option check). Wired from the JNI layer
     /// in `ripdpi-tunnel-android` to feed `PcapCaptureSet`.
     pub packet_observer: Mutex<Option<Arc<dyn PacketObserver>>>,
+    /// Optional callback invoked every `LOSS_EMIT_INTERVAL` loop iterations
+    /// with the current TCP-retransmit-derived loss percentage (0.0..=100.0).
+    /// Kept in an `Arc<dyn Fn>` for the same reason as other observers:
+    /// ripdpi-tunnel-core stays observer-pattern-agnostic.
+    pub loss_observer: Mutex<Option<Arc<dyn Fn(f32) + Send + Sync>>>,
 }
 
 impl Default for Stats {
@@ -120,6 +125,7 @@ impl Stats {
             dns_latency_observer: Mutex::new(None),
             quality_observer: Mutex::new(None),
             packet_observer: Mutex::new(None),
+            loss_observer: Mutex::new(None),
         }
     }
 
@@ -147,6 +153,19 @@ impl Stats {
     /// [`PacketObserver`] for the contract.
     pub fn set_packet_observer(&self, observer: Arc<dyn PacketObserver>) {
         observer::set_packet_observer(self, observer);
+    }
+
+    /// Installs a callback that is invoked every `LOSS_EMIT_INTERVAL` loop
+    /// iterations with the current TCP-retransmit-derived loss percentage
+    /// (0.0..=100.0). Call before the tunnel starts running.
+    pub fn set_loss_observer(&self, observer: Arc<dyn Fn(f32) + Send + Sync>) {
+        observer::set_loss_observer(self, observer);
+    }
+
+    /// Emit a TCP-retransmit loss percentage observation. Kept `pub(crate)`
+    /// so only `io_loop` internals can fabricate observations.
+    pub(crate) fn emit_loss_pct(&self, loss_pct: f32) {
+        observer::notify_loss(self, loss_pct);
     }
 
     /// Hot-path helper: invoke the installed packet observer's

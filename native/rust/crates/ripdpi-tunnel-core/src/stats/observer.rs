@@ -43,6 +43,24 @@ pub(crate) fn notify_quality(stats: &Stats, obs: TcpConnectObservation) {
     }
 }
 
+pub(crate) fn set_loss_observer(stats: &Stats, observer: Arc<dyn Fn(f32) + Send + Sync>) {
+    if let Ok(mut guard) = stats.loss_observer.lock() {
+        *guard = Some(observer);
+    }
+}
+
+pub(crate) fn notify_loss(stats: &Stats, loss_pct: f32) {
+    // Same reentrancy-safety contract as `notify_dns_latency`: clone the
+    // Arc inside the lock, release the lock, THEN invoke the observer.
+    let observer = match stats.loss_observer.lock() {
+        Ok(guard) => guard.as_ref().map(Arc::clone),
+        Err(_) => None,
+    };
+    if let Some(observer) = observer {
+        observer(loss_pct);
+    }
+}
+
 pub(crate) fn set_packet_observer(stats: &Stats, observer: Arc<dyn PacketObserver>) {
     if let Ok(mut guard) = stats.packet_observer.lock() {
         *guard = Some(observer);

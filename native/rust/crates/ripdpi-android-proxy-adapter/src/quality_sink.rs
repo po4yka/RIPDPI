@@ -129,14 +129,14 @@ impl RuntimeTelemetrySink for QualityWindowSink {
         // wall-clock measurement (e.g. cached/synthetic success) — recording
         // those would skew the histogram and the RFC 3550 jitter accumulator.
         if let Some(rtt_ms) = rtt_ms {
-            self.window.record(QualitySample { rtt_ms, succeeded: true });
+            self.window.record(QualitySample { rtt_ms, succeeded: true, loss_pct: 0.0 });
         }
     }
 
     fn on_upstream_connect_failed(&self, _addr: SocketAddr, _rtt_ms: u64, _kind: io::ErrorKind) {
         // Failure path: increments the loss counter; rtt is undefined for
         // failed connects and is intentionally NOT fed into the histogram.
-        self.window.record(QualitySample { rtt_ms: 0, succeeded: false });
+        self.window.record(QualitySample { rtt_ms: 0, succeeded: false, loss_pct: 0.0 });
     }
 }
 
