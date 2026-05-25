@@ -141,6 +141,7 @@ internal fun createDiagnosticsServices(
                                 )
                         },
                     diagnosticsHomeCompositeRunService = FakeDiagnosticsHomeCompositeRunService(),
+                    replayResultStore = ReplayResultStore(),
                     json = json,
                 ),
             sessionSelector =
@@ -152,6 +153,12 @@ internal fun createDiagnosticsServices(
                 DiagnosticsArchiveRenderer(
                     redactor = DiagnosticsArchiveRedactor(json),
                     projector = DiagnosticsSummaryProjector(),
+                    replayArchiveEntryBuilder =
+                        ReplayArchiveEntryBuilder(
+                            ReplayArchiveRedactor(),
+                            DiagnosticsArchiveClock { System.currentTimeMillis() },
+                            json,
+                        ),
                     json = json,
                 ),
             fileStore =

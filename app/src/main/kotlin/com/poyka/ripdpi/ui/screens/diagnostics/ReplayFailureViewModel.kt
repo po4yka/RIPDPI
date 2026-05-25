@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.diagnostics.replay.ProbeReplayService
 import com.poyka.ripdpi.diagnostics.replay.ReplayErrorKind
 import com.poyka.ripdpi.diagnostics.replay.ReplayProbeRequest
+import com.poyka.ripdpi.diagnostics.replay.ReplayProbeResult
+import com.poyka.ripdpi.diagnostics.replay.ReplayResultStore
 import com.poyka.ripdpi.diagnostics.replay.ReplayStepEvent
 import com.poyka.ripdpi.diagnostics.replay.ReplayStepKind
+import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -22,6 +25,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 /**
@@ -49,11 +53,15 @@ class ReplayFailureViewModel
     @Inject
     constructor(
         private val replayService: ProbeReplayService,
+        private val replayResultStore: ReplayResultStore,
     ) : ViewModel() {
         private val mutableUiState = MutableStateFlow(ReplayFailureUiState())
         val uiState: StateFlow<ReplayFailureUiState> = mutableUiState.asStateFlow()
 
         private var currentJob: Job? = null
+        private var currentRequest: ReplayProbeRequest? = null
+        private var eventBuffer: MutableList<ReplayStepEvent> = mutableListOf()
+        private var recorded: AtomicBoolean = AtomicBoolean(false)
 
         fun start(
             domain: String,
@@ -61,6 +69,10 @@ class ReplayFailureViewModel
             timeoutMs: Long = DEFAULT_TIMEOUT_MS,
         ) {
             currentJob?.cancel()
+            val request = ReplayProbeRequest(domain, strategyId, timeoutMs)
+            currentRequest = request
+            eventBuffer = mutableListOf()
+            recorded = AtomicBoolean(false)
             val timestamp = currentTimestamp()
             val summary = "Probe replay · $domain · $strategyId"
             mutableUiState.value =
@@ -72,19 +84,27 @@ class ReplayFailureViewModel
                 )
             currentJob =
                 viewModelScope.launch {
-                    replayService
-                        .run(ReplayProbeRequest(domain, strategyId, timeoutMs))
-                        .catch { error ->
-                            if (error is CancellationException) {
-                                throw error
-                            }
-                            mutableUiState.update { state ->
-                                state.copy(
-                                    isRunning = false,
-                                    errorMessage = error.localizedMessage ?: error.javaClass.simpleName,
-                                )
-                            }
-                        }.collect { event -> handleEvent(event) }
+                    try {
+                        replayService
+                            .run(request)
+                            .catch { error ->
+                                if (error is CancellationException) {
+                                    throw error
+                                }
+                                mutableUiState.update { state ->
+                                    state.copy(
+                                        isRunning = false,
+                                        errorMessage = error.localizedMessage ?: error.javaClass.simpleName,
+                                    )
+                                }
+                            }.collect { event -> handleEvent(event) }
+                    } finally {
+                        // If the flow terminated without a Finished event
+                        // (cancellation, error, scope teardown) persist a
+                        // Cancelled-verdict aggregate so the user still has
+                        // a record of the attempt in the archive + history.
+                        recordCancelledIfNotYet()
+                    }
                 }
         }
 
@@ -100,6 +120,7 @@ class ReplayFailureViewModel
         }
 
         private fun handleEvent(event: ReplayStepEvent) {
+            eventBuffer.add(event)
             when (event) {
                 is ReplayStepEvent.StepStarted -> {
                     updateStep(event.step) { step ->
@@ -136,8 +157,37 @@ class ReplayFailureViewModel
                             recommendationKey = event.recommendationKey,
                         )
                     }
+                    recordTerminal(event)
                 }
             }
+        }
+
+        private fun recordTerminal(finished: ReplayStepEvent.Finished) {
+            if (!recorded.compareAndSet(false, true)) return
+            val request = currentRequest ?: return
+            replayResultStore.record(
+                ReplayProbeResult(
+                    request = request,
+                    events = eventBuffer.toPersistentList(),
+                    verdict = finished.verdict,
+                    terminalStep = finished.terminalStep,
+                    recommendationKey = finished.recommendationKey,
+                ),
+            )
+        }
+
+        private fun recordCancelledIfNotYet() {
+            if (!recorded.compareAndSet(false, true)) return
+            val request = currentRequest ?: return
+            replayResultStore.record(
+                ReplayProbeResult(
+                    request = request,
+                    events = eventBuffer.toPersistentList(),
+                    verdict = ReplayVerdict.Cancelled,
+                    terminalStep = null,
+                    recommendationKey = "",
+                ),
+            )
         }
 
         private fun updateStep(

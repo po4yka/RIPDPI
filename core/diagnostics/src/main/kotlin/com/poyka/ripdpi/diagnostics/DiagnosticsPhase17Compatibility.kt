@@ -30,6 +30,9 @@ internal typealias DiagnosticsArchiveSourceCounts =
 internal typealias DiagnosticsArchiveSourceData = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceData
 internal typealias DiagnosticsArchiveTarget = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveTarget
 internal typealias DiagnosticsArchiveZipWriter = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveZipWriter
+typealias ReplayArchiveEntryBuilder = com.poyka.ripdpi.diagnostics.export.ReplayArchiveEntryBuilder
+typealias ReplayArchiveRedactor = com.poyka.ripdpi.diagnostics.export.ReplayArchiveRedactor
+typealias ReplayResultStore = com.poyka.ripdpi.diagnostics.replay.ReplayResultStore
 
 internal object DiagnosticsArchiveFormat {
     const val directoryName = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.directoryName
@@ -47,11 +50,13 @@ internal object DiagnosticsArchiveFormat {
         logcatIncluded: Boolean,
         fileLogIncluded: Boolean = false,
         composite: Boolean = false,
+        replayIncluded: Boolean = false,
     ): List<String> =
         com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat.includedFiles(
             logcatIncluded = logcatIncluded,
             fileLogIncluded = fileLogIncluded,
             composite = composite,
+            replayIncluded = replayIncluded,
         )
 }
 

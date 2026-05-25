@@ -190,6 +190,7 @@ class DeveloperAnalyticsAllowListTest {
                         ),
                     buildInfoProvider = buildInfoProvider(),
                     diagnosticsHomeCompositeRunService = compositeRunService,
+                    replayResultStore = ReplayResultStore(),
                     json = json,
                 ),
             sessionSelector = DiagnosticsArchiveSessionSelector(DiagnosticsArchiveRedactor(json), json),
@@ -197,6 +198,11 @@ class DeveloperAnalyticsAllowListTest {
                 DiagnosticsArchiveRenderer(
                     DiagnosticsArchiveRedactor(json),
                     DiagnosticsSummaryProjector(),
+                    ReplayArchiveEntryBuilder(
+                        ReplayArchiveRedactor(),
+                        DiagnosticsArchiveClock { System.currentTimeMillis() },
+                        json,
+                    ),
                     json,
                 ),
             fileStore =

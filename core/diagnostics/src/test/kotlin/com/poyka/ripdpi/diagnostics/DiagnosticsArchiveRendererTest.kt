@@ -32,7 +32,17 @@ class DiagnosticsArchiveRendererTest {
         }
 
     private val redactor = DiagnosticsArchiveRedactor(json)
-    private val renderer = DiagnosticsArchiveRenderer(redactor, DiagnosticsSummaryProjector(), json)
+    private val renderer =
+        DiagnosticsArchiveRenderer(
+            redactor,
+            DiagnosticsSummaryProjector(),
+            ReplayArchiveEntryBuilder(
+                ReplayArchiveRedactor(),
+                DiagnosticsArchiveClock { System.currentTimeMillis() },
+                json,
+            ),
+            json,
+        )
 
     @Test
     fun `renderer emits redacted archive entries with manifest summaries`() {

@@ -2572,6 +2572,7 @@ fake_burst 3</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_first_run_test">首次运行检查</string>
     <string name="title_replay_failure">重放失败</string>
+    <string name="title_replay_history">过往重放</string>
     <string name="title_pcap_viewer">数据包捕获</string>
     <string name="title_pcap_capture_list">数据包捕获</string>
     <string name="vpn_first_run_test_title">看看你的网络如何表现</string>
@@ -2615,6 +2616,12 @@ fake_burst 3</string>
     <string name="vpn_replay_rec_timeout_no_response">超时未响应 · 试试其他策略</string>
     <string name="vpn_replay_rec_generic_fallback">探测失败 · 试试其他策略</string>
     <string name="vpn_replay_save_to_archive">保存到诊断存档</string>
+    <string name="vpn_replay_history_title">过往重放</string>
+    <string name="vpn_replay_history_empty">暂无重放 · 从故障页面运行一次</string>
+    <string name="vpn_replay_history_row_format">%1$s · %2$d 个事件</string>
+    <string name="vpn_replay_history_verdict_success">成功</string>
+    <string name="vpn_replay_history_verdict_failure">失败</string>
+    <string name="vpn_replay_history_verdict_cancelled">已取消</string>
     <string name="vpn_quality_strip_warning_title">已连接 · 质量下降</string>
     <string name="vpn_quality_strip_critical_title">已连接 · 质量严重下降</string>
     <string name="vpn_quality_strip_body_warning">隧道已建立但性能下降。指标超出正常范围。</string>

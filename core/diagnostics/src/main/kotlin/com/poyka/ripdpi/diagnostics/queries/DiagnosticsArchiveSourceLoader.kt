@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveBuildInfoProvider
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceData
+import com.poyka.ripdpi.diagnostics.replay.ReplayResultStore
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -27,6 +28,7 @@ internal class DiagnosticsArchiveSourceLoader
         private val fileLogWriter: FileLogWriter,
         private val buildInfoProvider: DiagnosticsArchiveBuildInfoProvider,
         private val diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService,
+        private val replayResultStore: ReplayResultStore,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
@@ -87,6 +89,7 @@ internal class DiagnosticsArchiveSourceLoader
                 collectionWarnings = collectionWarnings,
                 logcatSnapshot = logcatSnapshot,
                 fileLogSnapshot = fileLogSnapshot,
+                replayResults = replayResultStore.recent(),
             )
         }
 

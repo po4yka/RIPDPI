@@ -25,6 +25,7 @@ import com.poyka.ripdpi.diagnostics.RedactedNetworkSummary
 import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.replay.ReplayProbeResult
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -51,6 +52,12 @@ enum class DiagnosticsArchiveReason {
 internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
+
+    // Stays at 4: replay-results.json is a purely-additive optional file
+    // (mirrors PCAP-files inclusion at G008 P3 — they did not bump
+    // schemaVersion either). Downstream readers ignore unknown files /
+    // unknown payload fields. Bump to 5 only when an existing contract
+    // changes shape.
     const val schemaVersion = 4
     const val privacyMode = "split_output"
     const val scope = "hybrid"
@@ -64,6 +71,7 @@ internal object DiagnosticsArchiveFormat {
         logcatIncluded: Boolean,
         fileLogIncluded: Boolean = false,
         composite: Boolean = false,
+        replayIncluded: Boolean = false,
     ): List<String> =
         buildList {
             add("summary.txt")
@@ -89,6 +97,9 @@ internal object DiagnosticsArchiveFormat {
             }
             if (fileLogIncluded) {
                 add("app-log.txt")
+            }
+            if (replayIncluded) {
+                add("replay-results.json")
             }
             add("integrity.json")
         }
@@ -118,6 +129,7 @@ internal data class DiagnosticsArchiveSourceData(
     val collectionWarnings: List<String>,
     val logcatSnapshot: LogcatSnapshot?,
     val fileLogSnapshot: String?,
+    val replayResults: List<ReplayProbeResult> = emptyList(),
 )
 
 internal data class DiagnosticsArchiveSelection(
@@ -140,6 +152,7 @@ internal data class DiagnosticsArchiveSelection(
     val buildProvenance: DiagnosticsArchiveBuildProvenance,
     val sessionSelectionStatus: DiagnosticsArchiveSessionSelectionStatus,
     val pcapFiles: List<File> = emptyList(),
+    val replayResults: List<ReplayProbeResult> = emptyList(),
     val homeRunId: String? = null,
     val homeCompositeOutcome: DiagnosticsHomeCompositeOutcome? = null,
     val compositeStages: List<DiagnosticsArchiveCompositeStageSelection> = emptyList(),

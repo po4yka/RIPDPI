@@ -2571,6 +2571,7 @@ Origen: %2$s</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_first_run_test">Comprobación inicial</string>
     <string name="title_replay_failure">Repetición fallida</string>
+    <string name="title_replay_history">Reintentos anteriores</string>
     <string name="title_pcap_viewer">Captura de paquetes</string>
     <string name="title_pcap_capture_list">Capturas de paquetes</string>
     <string name="vpn_first_run_test_title">Veamos qué hace tu red</string>
@@ -2614,6 +2615,12 @@ Origen: %2$s</string>
     <string name="vpn_replay_rec_timeout_no_response">Sin respuesta en el tiempo límite · prueba otra estrategia</string>
     <string name="vpn_replay_rec_generic_fallback">La prueba falló · prueba otra estrategia</string>
     <string name="vpn_replay_save_to_archive">Guardar en archivo de diagnóstico</string>
+    <string name="vpn_replay_history_title">Reintentos anteriores</string>
+    <string name="vpn_replay_history_empty">Aún no hay reintentos · ejecute uno desde la pantalla de error</string>
+    <string name="vpn_replay_history_row_format">%1$s · %2$d eventos</string>
+    <string name="vpn_replay_history_verdict_success">Éxito</string>
+    <string name="vpn_replay_history_verdict_failure">Fallo</string>
+    <string name="vpn_replay_history_verdict_cancelled">Cancelado</string>
     <string name="vpn_quality_strip_warning_title">Conectado · calidad degradada</string>
     <string name="vpn_quality_strip_critical_title">Conectado · degradado significativamente</string>
     <string name="vpn_quality_strip_body_warning">El túnel está activo pero el rendimiento ha caído. Los indicadores están fuera del rango normal.</string>

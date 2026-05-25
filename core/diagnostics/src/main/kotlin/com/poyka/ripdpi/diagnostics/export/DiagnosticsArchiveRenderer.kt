@@ -11,6 +11,7 @@ class DiagnosticsArchiveRenderer
     constructor(
         private val redactor: DiagnosticsArchiveRedactor,
         private val projector: DiagnosticsSummaryProjector,
+        private val replayArchiveEntryBuilder: ReplayArchiveEntryBuilder,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
@@ -89,6 +90,7 @@ class DiagnosticsArchiveRenderer
                         selection = selection,
                     ),
                 )
+                replayArchiveEntryBuilder.build(selection.replayResults)?.let(::add)
             }
 
         internal fun buildSummary(

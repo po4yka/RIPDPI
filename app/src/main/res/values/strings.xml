@@ -2640,6 +2640,7 @@ Source: %2$s</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_first_run_test">First-run check</string>
     <string name="title_replay_failure">Replay failure</string>
+    <string name="title_replay_history">Past replays</string>
     <string name="title_pcap_viewer">Packet capture</string>
     <string name="title_pcap_capture_list">Packet captures</string>
     <string name="vpn_first_run_test_title">Let\'s see what your network does</string>
@@ -2683,6 +2684,12 @@ Source: %2$s</string>
     <string name="vpn_replay_rec_timeout_no_response">No response within timeout · try a different strategy</string>
     <string name="vpn_replay_rec_generic_fallback">Probe failed · try a different strategy</string>
     <string name="vpn_replay_save_to_archive">Save to diagnostics archive</string>
+    <string name="vpn_replay_history_title">Past replays</string>
+    <string name="vpn_replay_history_empty">No past replays yet · run a replay from a failure screen</string>
+    <string name="vpn_replay_history_row_format">%1$s · %2$d events</string>
+    <string name="vpn_replay_history_verdict_success">Success</string>
+    <string name="vpn_replay_history_verdict_failure">Failure</string>
+    <string name="vpn_replay_history_verdict_cancelled">Cancelled</string>
     <string name="vpn_quality_strip_warning_title">Connected · quality degraded</string>
     <string name="vpn_quality_strip_critical_title">Connected · degraded heavily</string>
     <string name="vpn_quality_strip_body_warning">Tunnel is up but performance has dropped. Indicators are outside their normal range.</string>

@@ -107,6 +107,7 @@ class DiagnosticsArchiveSessionSelector
                 compositeStages = compositeStages,
                 effectiveStrategySignature = primary.effectiveStrategySignature,
                 appSettings = sourceData.appSettings,
+                replayResults = sourceData.replayResults,
                 sourceCounts =
                     DiagnosticsArchiveSourceCounts(
                         telemetrySamples = sourceData.telemetry.size,
@@ -238,16 +239,19 @@ class DiagnosticsArchiveSessionSelector
         ): List<String> {
             val logcatIncluded = sourceData.logcatSnapshot != null
             val fileLogIncluded = sourceData.fileLogSnapshot != null
+            val replayIncluded = sourceData.replayResults.isNotEmpty()
             if (!isComposite) {
                 return DiagnosticsArchiveFormat.includedFiles(
                     logcatIncluded = logcatIncluded,
                     fileLogIncluded = fileLogIncluded,
+                    replayIncluded = replayIncluded,
                 )
             }
             return DiagnosticsArchiveFormat.includedFiles(
                 logcatIncluded = logcatIncluded,
                 fileLogIncluded = fileLogIncluded,
                 composite = true,
+                replayIncluded = replayIncluded,
             ) +
                 compositeStages.flatMap { stage ->
                     val prefix = "stages/${stage.stageSummary.stageKey}"

@@ -50,6 +50,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRouteCallbacks
 import com.poyka.ripdpi.ui.screens.diagnostics.PcapCaptureListRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.PcapViewerRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureRoute
+import com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.share.SharedResultRenderRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
@@ -633,6 +634,9 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
     }
     composable<Route.ReplayFailure> {
         ReplayFailureRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.ReplayHistory> {
+        ReplayHistoryRoute()
     }
     composable<Route.OwnedStackBrowser> { backStackEntry ->
         val route = backStackEntry.toRoute<Route.OwnedStackBrowser>()

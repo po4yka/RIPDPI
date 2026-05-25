@@ -2571,6 +2571,7 @@ Quelle: %2$s</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_first_run_test">Erstprüfung</string>
     <string name="title_replay_failure">Wiederholung fehlgeschlagen</string>
+    <string name="title_replay_history">Frühere Wiederholungen</string>
     <string name="title_pcap_viewer">Paketmitschnitt</string>
     <string name="title_pcap_capture_list">Paketmitschnitte</string>
     <string name="vpn_first_run_test_title">Schauen wir, was dein Netzwerk macht</string>
@@ -2614,6 +2615,12 @@ Quelle: %2$s</string>
     <string name="vpn_replay_rec_timeout_no_response">Keine Antwort im Zeitlimit · versuche eine andere Strategie</string>
     <string name="vpn_replay_rec_generic_fallback">Probe fehlgeschlagen · versuche eine andere Strategie</string>
     <string name="vpn_replay_save_to_archive">In Diagnose-Archiv speichern</string>
+    <string name="vpn_replay_history_title">Frühere Wiederholungen</string>
+    <string name="vpn_replay_history_empty">Noch keine Wiederholungen · starte eine von der Fehlerseite</string>
+    <string name="vpn_replay_history_row_format">%1$s · %2$d Ereignisse</string>
+    <string name="vpn_replay_history_verdict_success">Erfolg</string>
+    <string name="vpn_replay_history_verdict_failure">Fehler</string>
+    <string name="vpn_replay_history_verdict_cancelled">Abgebrochen</string>
     <string name="vpn_quality_strip_warning_title">Verbunden · Qualität verschlechtert</string>
     <string name="vpn_quality_strip_critical_title">Verbunden · stark verschlechtert</string>
     <string name="vpn_quality_strip_body_warning">Der Tunnel ist aktiv, aber die Leistung ist gesunken. Indikatoren liegen außerhalb des normalen Bereichs.</string>

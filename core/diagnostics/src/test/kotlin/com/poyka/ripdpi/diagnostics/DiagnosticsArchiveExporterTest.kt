@@ -640,6 +640,7 @@ class DiagnosticsArchiveExporterTest {
                         ),
                     buildInfoProvider = testBuildInfoProvider(),
                     diagnosticsHomeCompositeRunService = compositeRunService,
+                    replayResultStore = ReplayResultStore(),
                     json = json,
                 ),
             sessionSelector = DiagnosticsArchiveSessionSelector(DiagnosticsArchiveRedactor(json), json),
@@ -647,6 +648,11 @@ class DiagnosticsArchiveExporterTest {
                 DiagnosticsArchiveRenderer(
                     DiagnosticsArchiveRedactor(json),
                     DiagnosticsSummaryProjector(),
+                    ReplayArchiveEntryBuilder(
+                        ReplayArchiveRedactor(),
+                        DiagnosticsArchiveClock { System.currentTimeMillis() },
+                        json,
+                    ),
                     json,
                 ),
             fileStore =

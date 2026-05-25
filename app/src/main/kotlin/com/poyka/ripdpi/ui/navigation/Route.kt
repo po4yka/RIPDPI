@@ -203,6 +203,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object ReplayHistory : Route() {
+        override val stableRoute = "replay_history"
+        override val titleRes = R.string.title_replay_history
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class SharedDiagnosticResult(
         val fragment: String = "",
     ) : Route() {
@@ -305,6 +312,7 @@ sealed class Route {
                     PcapViewer,
                     PcapCaptureList,
                     ReplayFailure,
+                    ReplayHistory,
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),
