@@ -93,6 +93,28 @@ fn try_order_prefers_cold_start_fallback_when_no_health_data() {
 }
 
 #[test]
+fn cold_start_fallback_cache_is_network_scoped() {
+    let wifi = ResolverNetworkScope::new("wifi:alpha");
+    let cellular = ResolverNetworkScope::new("cell:beta");
+    let pool = ResolverPool::builder()
+        .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+        .add_endpoint(cloudflare_doh_endpoint(), EncryptedDnsTransport::Direct)
+        .network_scope(cellular)
+        .build()
+        .unwrap();
+
+    {
+        let cf_label = &pool.inner.labels[1];
+        if let Ok(mut cache) = pool.inner.fallback_cache.lock() {
+            cache.put(fallback_key(&wifi, cf_label), FallbackEntry { last_success: Instant::now() });
+        }
+    }
+
+    let order = pool.try_order();
+    assert_eq!(order[0], 0, "cellular scope must not inherit wifi fallback success");
+}
+
+#[test]
 fn try_order_prefers_healthier_endpoint_over_fallback() {
     let pool = ResolverPool::builder()
         .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)

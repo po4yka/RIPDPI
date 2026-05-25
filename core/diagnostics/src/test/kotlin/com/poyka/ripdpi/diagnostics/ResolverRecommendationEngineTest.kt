@@ -537,6 +537,133 @@ class ResolverRecommendationEngineTest {
     }
 
     @Test
+    fun `compute ignores preferred sinkhole candidate when encrypted answers are oracle errors`() {
+        val preferredPath =
+            EncryptedDnsPathCandidate(
+                resolverId = DnsProviderCloudflare,
+                resolverLabel = "Cloudflare",
+                protocol = EncryptedDnsProtocolDoh,
+                host = "cloudflare-dns.com",
+                port = 443,
+                tlsServerName = "cloudflare-dns.com",
+                bootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                dohUrl = "https://cloudflare-dns.com/dns-query",
+            )
+        val report =
+            ScanReport(
+                sessionId = "s1",
+                profileId = "p1",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 0,
+                finishedAt = 100,
+                summary = "",
+                results =
+                    listOf(
+                        dnsIntegrityResult(
+                            outcome = "dns_sinkhole_substitution",
+                            resolverId = DnsProviderCloudflare,
+                            protocol = EncryptedDnsProtocolDoh,
+                            host = "cloudflare-dns.com",
+                            endpoint = "https://cloudflare-dns.com/dns-query",
+                            bootstrapIps = "1.1.1.1|1.0.0.1",
+                            encryptedAddresses = "dns_oracle_unavailable",
+                            latencyMs = "5",
+                        ),
+                        dnsIntegrityResult(
+                            outcome = "dns_nxdomain_mismatch",
+                            resolverId = DnsProviderGoogle,
+                            protocol = EncryptedDnsProtocolDot,
+                            host = "dns.google",
+                            endpoint = "dns.google:853",
+                            bootstrapIps = "8.8.8.8|8.8.4.4",
+                            encryptedAddresses = "93.184.216.34",
+                            latencyMs = "90",
+                        ),
+                    ),
+            )
+
+        val result =
+            ResolverRecommendationEngine.compute(
+                report = report,
+                settings =
+                    com.poyka.ripdpi.proto.AppSettings
+                        .getDefaultInstance(),
+                preferredPath = preferredPath,
+            )
+
+        assertNotNull(result)
+        assertEquals(DnsProviderGoogle, result!!.selectedResolverId)
+        assertEquals("dns_sinkhole_substitution", result.triggerOutcome)
+    }
+
+    @Test
+    fun `compute demotes blocked bootstrap path before preferred path under sinkhole chaos`() {
+        val preferredPath =
+            EncryptedDnsPathCandidate(
+                resolverId = DnsProviderCloudflare,
+                resolverLabel = "Cloudflare",
+                protocol = EncryptedDnsProtocolDoh,
+                host = "cloudflare-dns.com",
+                port = 443,
+                tlsServerName = "cloudflare-dns.com",
+                bootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                dohUrl = "https://cloudflare-dns.com/dns-query",
+            )
+        val report =
+            ScanReport(
+                sessionId = "s1",
+                profileId = "p1",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 0,
+                finishedAt = 100,
+                summary = "",
+                results =
+                    listOf(
+                        ProbeResult(
+                            probeType = "tcp_fat_header",
+                            target = "1.1.1.1:443",
+                            outcome = "tcp_timeout",
+                        ),
+                        dnsIntegrityResult(
+                            outcome = "dns_sinkhole_substitution",
+                            resolverId = DnsProviderCloudflare,
+                            protocol = EncryptedDnsProtocolDoh,
+                            host = "cloudflare-dns.com",
+                            endpoint = "https://cloudflare-dns.com/dns-query",
+                            bootstrapIps = "1.1.1.1|1.0.0.1",
+                            encryptedAddresses = "93.184.216.34",
+                            latencyMs = "5",
+                            bootstrapValidated = true,
+                        ),
+                        dnsIntegrityResult(
+                            outcome = "dns_nxdomain_mismatch",
+                            resolverId = DnsProviderGoogle,
+                            protocol = EncryptedDnsProtocolDot,
+                            host = "dns.google",
+                            endpoint = "dns.google:853",
+                            bootstrapIps = "8.8.8.8|8.8.4.4",
+                            encryptedAddresses = "93.184.216.34",
+                            latencyMs = "80",
+                            bootstrapValidated = true,
+                        ),
+                    ),
+            )
+
+        val result =
+            ResolverRecommendationEngine.compute(
+                report = report,
+                settings =
+                    com.poyka.ripdpi.proto.AppSettings
+                        .getDefaultInstance(),
+                preferredPath = preferredPath,
+            )
+
+        assertNotNull(result)
+        assertEquals(DnsProviderGoogle, result!!.selectedResolverId)
+        assertTrue(result.rationale.contains("Avoided bootstrap IPs blocked by DPI: 1.1.1.1."))
+    }
+
+    @Test
     fun `compute selects best candidate by match count`() {
         val report =
             ScanReport(
@@ -642,3 +769,31 @@ class ResolverRecommendationEngineTest {
         assertNull(result)
     }
 }
+
+private fun dnsIntegrityResult(
+    outcome: String,
+    resolverId: String,
+    protocol: String,
+    host: String,
+    endpoint: String,
+    bootstrapIps: String,
+    encryptedAddresses: String,
+    latencyMs: String,
+    bootstrapValidated: Boolean = false,
+): ProbeResult =
+    ProbeResult(
+        probeType = "dns_integrity",
+        target = "example.com",
+        outcome = outcome,
+        details =
+            buildList {
+                add(ProbeDetail("encryptedResolverId", resolverId))
+                add(ProbeDetail("encryptedProtocol", protocol))
+                add(ProbeDetail("encryptedEndpoint", endpoint))
+                add(ProbeDetail("encryptedHost", host))
+                add(ProbeDetail("encryptedBootstrapIps", bootstrapIps))
+                add(ProbeDetail("encryptedAddresses", encryptedAddresses))
+                add(ProbeDetail("encryptedLatencyMs", latencyMs))
+                if (bootstrapValidated) add(ProbeDetail("encryptedBootstrapValidated", "true"))
+            },
+    )

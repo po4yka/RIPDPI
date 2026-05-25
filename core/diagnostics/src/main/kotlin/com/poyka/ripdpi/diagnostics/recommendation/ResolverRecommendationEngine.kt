@@ -363,10 +363,7 @@ private fun EncryptedDnsPathCandidate.protocolPreferenceHint(
     }
 
 private fun CandidateObservation.isHealthy(): Boolean =
-    result.outcome == OutcomeDnsMatch ||
-        result.outcome == OutcomeDnsSubstitution ||
-        result.outcome == OutcomeDnsSinkholeSubstitution ||
-        hasValidEncryptedAddresses(details)
+    result.outcome == OutcomeDnsMatch || hasValidEncryptedAddresses(details)
 
 private fun CandidateObservation.hasValidatedBootstrap(): Boolean =
     details["encryptedBootstrapValidated"].orEmpty().equals("true", ignoreCase = true)
