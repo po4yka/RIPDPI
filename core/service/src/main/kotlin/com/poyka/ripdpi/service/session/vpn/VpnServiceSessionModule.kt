@@ -138,6 +138,7 @@ internal object VpnServiceSessionModule {
     ): VpnServiceRuntimeCoordinator =
         VpnServiceRuntimeCoordinator(
             vpnHost = host,
+            appSettingsRepository = runtimeDependencies.appSettingsRepository,
             connectionPolicyResolver = runtimeDependencies.connectionPolicyResolver,
             resolverOverrideStore = runtimeDependencies.resolverOverrideStore,
             serviceRuntimeRegistry = runtimeDependencies.serviceRuntimeRegistry,

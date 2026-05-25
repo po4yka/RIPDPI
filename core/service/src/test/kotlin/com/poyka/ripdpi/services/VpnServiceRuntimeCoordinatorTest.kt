@@ -845,6 +845,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val overrides = TestResolverOverrideStore()
         val clock = TestServiceClock(now = 1_000L)
         val bridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events))
+        val appSettingsRepository = TestAppSettingsRepository()
         val tunnelProvider =
             TestVpnTunnelSessionProvider(
                 events = events,
@@ -852,6 +853,7 @@ class VpnServiceRuntimeCoordinatorTest {
             )
         return VpnServiceRuntimeCoordinator(
             vpnHost = host,
+            appSettingsRepository = appSettingsRepository,
             connectionPolicyResolver = resolver,
             resolverOverrideStore = overrides,
             serviceRuntimeRegistry = runtimeRegistry,
@@ -863,7 +865,7 @@ class VpnServiceRuntimeCoordinatorTest {
             vpnTunnelRuntime =
                 VpnTunnelRuntime(
                     vpnHost = host,
-                    appSettingsRepository = TestAppSettingsRepository(),
+                    appSettingsRepository = appSettingsRepository,
                     tun2SocksBridgeFactory = bridgeFactory,
                     vpnTunnelSessionProvider = tunnelProvider,
                 ),
@@ -956,7 +958,7 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun connectedAppRoutingPresetChangeRebuildsVpnTunnel() =
+    fun connectedAppRoutingPresetChangeImmediatelyRebuildsVpnTunnel() =
         runTest {
             val initialSettings =
                 AppSettingsSerializer.defaultValue
@@ -986,7 +988,6 @@ class VpnServiceRuntimeCoordinatorTest {
 
             env.coordinator.start()
             runCurrent()
-            repository.replace(updatedSettings)
             env.resolver.enqueue(
                 sampleResolution(
                     mode = Mode.VPN,
@@ -994,7 +995,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     activeDns = updatedSettings.activeDnsSettings(),
                 ),
             )
-            advanceTimeBy(1_000L)
+            repository.replace(updatedSettings)
             runCurrent()
 
             assertEquals(2, env.bridgeFactory.bridge.startedConfigs.size)
@@ -1054,6 +1055,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val coordinator =
             VpnServiceRuntimeCoordinator(
                 vpnHost = host,
+                appSettingsRepository = appSettingsRepository,
                 connectionPolicyResolver = resolver,
                 resolverOverrideStore = overrides,
                 serviceRuntimeRegistry = runtimeRegistry,
