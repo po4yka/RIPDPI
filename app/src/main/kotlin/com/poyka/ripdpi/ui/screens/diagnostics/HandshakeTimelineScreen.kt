@@ -25,6 +25,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
+// Label column width = section spacing × this factor (matches spec card layout).
+private const val LabelColumnSectionMultiplier = 4
+
 /**
  * Per-stage Gantt-style timeline of the connection handshake.
  * Matches `docs/design/rds/preview/vpn-handshake-timeline.html` —
@@ -107,7 +110,7 @@ private fun HandshakeAxisRow(tickLabels: ImmutableList<String>) {
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    val labelColumnWidth = spacing.section * 4
+    val labelColumnWidth = spacing.section * LabelColumnSectionMultiplier
     val durationColumnWidth = spacing.section + spacing.lg
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -147,7 +150,7 @@ private fun HandshakeStageRow(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    val labelColumnWidth = spacing.section * 4
+    val labelColumnWidth = spacing.section * LabelColumnSectionMultiplier
     val durationColumnWidth = spacing.section + spacing.lg
     val barTrackHeight = spacing.lg
     Row(

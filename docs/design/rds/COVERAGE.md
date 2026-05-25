@@ -1,6 +1,6 @@
 # RDS Design System Coverage Audit
 
-**Last Updated:** 2026-05-24 (post-VPN-deferred-surfaces session)  
+**Last Updated:** 2026-05-25 (share-link-preview closed, 129/129 = 100%)  
 **Spec Inventory:** 146 HTML preview files  
 **Audit Scope:** Kotlin implementation alignment with RDS specs
 
@@ -15,13 +15,13 @@
 | **Android platform surfaces** | 16 | 16 | 0 | 0 | ✅ Complete |
 | **Motion specs** | 9 | 9 | 0 | 0 | ✅ Complete |
 | **Diagnostic screens** | 6 | 6 | 0 | 0 | ✅ Complete |
-| **Share flow** | 5 | 4 | 1 | 0 | ✅ Good |
+| **Share flow** | 5 | 5 | 0 | 0 | ✅ Complete |
 | **Gesture interactions** | 3 | 3 | 0 | 0 | ✅ Complete |
 | **Onboarding** | 2 | 2 | 0 | 0 | ✅ Complete |
 | **One-offs** | 6 | 6 | 0 | 0 | ✅ Complete |
 | **Reference-only cards** | 17 | — | — | — | 📚 Docs |
 
-**Overall Coverage:** 128/129 implementable specs have verified Kotlin implementations (99%). Remaining gap: 1 share partial (link-preview metadata extraction is feature work, not polish — defers to follow-on initiative). **No missing rows in any category.**
+**Overall Coverage:** 129/129 implementable specs have verified Kotlin implementations (100%). **No missing or partial rows in any category.**
 
 Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47 components + 16 Android + 9 motion + 6 diagnostic + 5 share + 3 gesture + 2 onboarding + 6 one-offs = **129 implementable**; 8 color + 5 type + 2 brand + 2 a11y = **17 reference**; total = **146** ✓. (The pre-existing audit had loose totals — 122 implementable / 24 reference — that did not add up to the 146 inventory; this audit corrects them.)
 
@@ -218,21 +218,17 @@ telemetry, etc.) is ready to feed real data.
 
 ---
 
-## Share Flow (5 specs, 3 ✅ + 2 ⚠️ = 100% implemented)
+## Share Flow (5 specs, 5 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
 - **Result Viewer** (`share-result-viewer.html`) — `SharedResultRenderScreen.kt`
 - **Stats Card** (`share-stats-card.html`) — summary statistics card
 - **Bottom Sheet** (`share-bottom-sheet.html`) — share options bottom sheet
-
-### ⚠️ Partial Implementation
-
-- **Link Preview** (`share-link-preview.html`) — link metadata extraction not yet implemented; deferred as feature work (requires remote HTML fetch which must obey vpnservice-protect-invariant + network-fingerprint-privacy rules)
-
-### ✅ Recently Closed
-
+- ~~**Link Preview** (`share-link-preview.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiLinkPreviewCard.kt`; pre-share transparency card displaying RIPDPI's own self-generated share URL with coloured URL spans (scheme/host/query/fragment), a 5-row fragment payload legend, and an info-tone privacy reassurance (`WarningBanner(tone = Info)`). Pure presentation, no remote fetch — the previous "deferred — requires HTML scrape" note misread the spec, which only shows the URL the app already constructs locally. Roborazzi `linkPreviewCard` screenshot test added in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless.
 - ~~**QR Code** (`share-qr-code.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiQrCodeShareCard.kt`; styled wrapper around `QrCodeEncoder`-supplied ImageBitmap with version meta + ECC + schema sidebar. Spec-compliance refinements: title uses `type.bodyEmphasis` (was `sectionTitle`); caption supports optional `captionEmphasis` substring rendered in foreground color via `AnnotatedString` (matches `<b>no network traffic</b>` highlight). Roborazzi `qrCodeShareCard` screenshot test ships in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless.
+
+### ⚠️ Partial Implementation (0 specs — all closed)
 
 ---
 
@@ -296,12 +292,12 @@ These are design tokens, brand guidelines, and accessibility references — no d
 - Reduced-motion path wired via `LocalReducedMotion` CompositionLocal + `RipDpiMotion.reducedMotion`
 
 ### Remaining polish (none blocking)
-- 1 share-flow partial (link-preview metadata extraction is feature work — defers to follow-on initiative)
+- All share-flow specs now closed; link-preview was a pure presentation card, not a remote-fetch feature
 - All VPN-flow partials closed; all 35 VPN screens have verified Kotlin implementations
 
 ---
 
-**Audit Date:** 2026-05-25 | **Coverage:** 128/129 specs implemented (99%) | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
+**Audit Date:** 2026-05-25 | **Coverage:** 129/129 specs implemented (100%) | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
 
 ---
 

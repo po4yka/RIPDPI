@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screenshot
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,8 +20,11 @@ import com.github.takahirom.roborazzi.size
 import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.ui.components.cards.PresetCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiLinkPreviewCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiLinkPreviewStrings
 import com.poyka.ripdpi.ui.components.cards.RipDpiQrCodeMetadata
 import com.poyka.ripdpi.ui.components.cards.RipDpiQrCodeShareCard
+import com.poyka.ripdpi.ui.components.cards.sampleLinkPreviewState
 import com.poyka.ripdpi.ui.components.chrome.RipDpiSectionHeader
 import com.poyka.ripdpi.ui.components.feedback.RipDpiAccordion
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDiffKind
@@ -126,6 +130,7 @@ class RdsComponentsScreenshotTest {
                         modifier =
                             Modifier
                                 .fillMaxWidth()
+                                .height(heightDp.dp)
                                 .background(RipDpiThemeTokens.colors.background)
                                 .padding(16.dp),
                     ) { content() }
@@ -549,6 +554,33 @@ class RdsComponentsScreenshotTest {
             ProfileVariantsScreen(
                 state = sampleProfileVariantsState(),
                 onBack = {},
+            )
+        }
+    }
+
+    @Test
+    fun linkPreviewCard() {
+        captureBothThemes("linkPreviewCard", widthDp = 360, heightDp = 480) {
+            RipDpiLinkPreviewCard(
+                state =
+                    sampleLinkPreviewState(
+                        RipDpiLinkPreviewStrings(
+                            eyebrowLink = "Generated link",
+                            eyebrowPayload = "Fragment payload",
+                            copyLabel = "Copy",
+                            rowVersion = "Schema version — currently %1\$s",
+                            rowAsnFormat = "Origin ASN — %1\$s",
+                            rowAsnRedacted = "Origin ASN — redacted",
+                            rowTimestampFormat = "Timestamp, in minutes since %1\$s",
+                            rowCommitFormat = "Strategy-bundle hash — %1\$s",
+                            rowItemsFormat = "Per-endpoint {alive, dpi} tuples — %1\$d",
+                            privacyTitle = "Stays on device",
+                            privacyMessage =
+                                "The fragment never leaves the device — it’s decoded locally " +
+                                    "by the recipient. Hostnames are hashed unless redaction is off.",
+                            privacyEmphasis = "never leaves the device",
+                        ),
+                    ),
             )
         }
     }

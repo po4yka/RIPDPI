@@ -11,6 +11,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -119,6 +120,9 @@ class DefaultStrategyPackService
                 )
                 scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.ManualRefreshReseed)
             }.onFailure { error ->
+                if (error is CancellationException) {
+                    throw error
+                }
                 val currentState = stateStore.state.value
                 statePublisher.publishSelectionForSnapshot(
                     snapshot = currentState.snapshot,
@@ -221,6 +225,9 @@ class DefaultStrategyPackService
             }.onSuccess { snapshot ->
                 onRefreshSuccess(snapshot, key, currentJob, attemptedAt)
             }.onFailure { error ->
+                if (error is CancellationException) {
+                    throw error
+                }
                 onRefreshFailure(error, key, currentJob, attemptedAt)
             }
         }
@@ -270,6 +277,7 @@ class DefaultStrategyPackService
                     }
                 }
             if (shouldPublish) {
+                val currentState = stateStore.state.value
                 val retryDelayMs =
                     schedulingMutex.withLock {
                         refreshBackoffPolicy.nextFailureBackoff(consecutiveAutomaticFailures)
@@ -278,12 +286,14 @@ class DefaultStrategyPackService
                     "Automatic strategy-pack refresh failed; retrying in $retryDelayMs ms"
                 }
                 statePublisher.publishSelectionForSnapshot(
-                    snapshot = stateStore.state.value.snapshot,
+                    snapshot = currentState.snapshot,
                     key = key,
                     lastRefreshAttemptAtEpochMillis = attemptedAt,
                     lastRefreshError = error.message,
                     lastRefreshFailureCode = error.toFailureCode(),
                     lastRejectedSequence = error.toRejectedSequence(),
+                    cacheDegradationCode = currentState.cacheDegradationCode,
+                    cacheDegradationDetail = currentState.cacheDegradationDetail,
                 )
                 scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.RetryBackoff)
             }

@@ -17,6 +17,7 @@ import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.strategy.StrategyPackService
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -303,6 +304,64 @@ class AppStartupInitializerTest {
             assertEquals(1, invalidator.registerCalls)
         }
 
+    @Test
+    fun `startup cancellation propagates and stops remaining subsystems`() =
+        runTest {
+            val compatibilityResetter =
+                RecordingAppCompatibilityResetter(
+                    failure = CancellationException("startup-cancelled"),
+                )
+            val strategyPackService = RecordingStrategyPackService()
+            val diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper()
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = compatibilityResetter,
+                    strategyPackService = strategyPackService,
+                    diagnosticsBootstrapper = diagnosticsBootstrapper,
+                    scope = backgroundScope,
+                )
+
+            val thrown =
+                try {
+                    initializer.initializeSubsystems()
+                    null
+                } catch (error: CancellationException) {
+                    error
+                }
+
+            assertEquals("startup-cancelled", thrown?.message)
+            assertEquals(1, compatibilityResetter.calls)
+            assertEquals(0, strategyPackService.initializeCalls)
+            assertEquals(0, diagnosticsBootstrapper.calls)
+        }
+
+    @Test
+    fun `subscription worker enqueue failure is isolated after preceding startup steps`() =
+        runTest {
+            val proxyGroupRepository =
+                RecordingProxyGroupRepository(
+                    listFailure = IllegalStateException("subscription-list-boom"),
+                )
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    proxyGroupRepository = proxyGroupRepository,
+                    scope = backgroundScope,
+                )
+
+            val report = initializer.initializeSubsystems()
+
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.compatibilityReset.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.strategyPackInitialization.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.diagnosticsBootstrap.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchSeed.status)
+            assertEquals(AppStartupSubsystemStatus.Failed, report.subscriptionWorkerEnqueue.status)
+            assertEquals("subscription-list-boom", report.subscriptionWorkerEnqueue.errorMessage)
+            assertEquals(1, proxyGroupRepository.listCalls)
+        }
+
     private fun createInitializer(
         compatibilityResetter: AppCompatibilityResetter,
         strategyPackService: StrategyPackService,
@@ -310,6 +369,7 @@ class AppStartupInitializerTest {
         detectionObservationStarter: RecordingDetectionObservationStarter = RecordingDetectionObservationStarter(),
         dnsPathPreferenceInvalidator: RecordingDnsPathPreferenceInvalidator =
             RecordingDnsPathPreferenceInvalidator(application),
+        proxyGroupRepository: ProxyGroupRepository = EmptyProxyGroupRepository,
         scope: CoroutineScope,
     ): AppStartupInitializer =
         AppStartupInitializer(
@@ -320,12 +380,12 @@ class AppStartupInitializerTest {
             strategyPackService = strategyPackService,
             dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
             cdnEchSeedFromCache = CdnEchSeedFromCache(EmptyCdnEchPersistedCache),
-            proxyGroupRepository = EmptyProxyGroupRepository,
+            proxyGroupRepository = proxyGroupRepository,
             appShortcutsPublisher =
                 AppShortcutsPublisher(
                     context = application,
                     serviceStateStore = FakeServiceStateStore(),
-                    proxyGroupRepository = EmptyProxyGroupRepository,
+                    proxyGroupRepository = proxyGroupRepository,
                     selectorSelectionStore = NoOpSelectorSelectionStore,
                     applicationScope = scope,
                 ),
@@ -352,6 +412,27 @@ private object EmptyProxyGroupRepository : ProxyGroupRepository {
     override suspend fun delete(id: String) = Unit
 
     override suspend fun list(): List<ProxyGroup> = emptyList()
+
+    override fun groups(): kotlinx.coroutines.flow.Flow<List<ProxyGroup>> = kotlinx.coroutines.flow.flowOf(emptyList())
+}
+
+private class RecordingProxyGroupRepository(
+    private val listFailure: Throwable? = null,
+) : ProxyGroupRepository {
+    var listCalls: Int = 0
+        private set
+
+    override suspend fun add(group: ProxyGroup) = Unit
+
+    override suspend fun update(group: ProxyGroup) = Unit
+
+    override suspend fun delete(id: String) = Unit
+
+    override suspend fun list(): List<ProxyGroup> {
+        listCalls += 1
+        listFailure?.let { throw it }
+        return emptyList()
+    }
 
     override fun groups(): kotlinx.coroutines.flow.Flow<List<ProxyGroup>> = kotlinx.coroutines.flow.flowOf(emptyList())
 }

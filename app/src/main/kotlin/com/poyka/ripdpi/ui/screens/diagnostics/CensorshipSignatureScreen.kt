@@ -234,7 +234,7 @@ private fun severityToHeader(
 
 @Preview(showBackground = true, name = "CensorshipSignatureScreen (light)")
 @Composable
-private fun CensorshipSignatureScreenPreviewLight() {
+private fun CensorshipSignatureScreenLightPreview() {
     RipDpiComponentPreview {
         CensorshipSignatureScreen(
             signatures =
@@ -260,7 +260,7 @@ private fun CensorshipSignatureScreenPreviewLight() {
 
 @Preview(showBackground = true, name = "CensorshipSignatureScreen — empty (dark)")
 @Composable
-private fun CensorshipSignatureScreenPreviewEmpty() {
+private fun CensorshipSignatureScreenEmptyPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         CensorshipSignatureScreen(signatures = emptyList())
     }

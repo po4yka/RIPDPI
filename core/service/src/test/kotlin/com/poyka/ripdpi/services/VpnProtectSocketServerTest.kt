@@ -12,6 +12,7 @@ import java.io.FileDescriptor
 import java.io.FileInputStream
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 class VpnProtectSocketServerTest {
@@ -81,7 +82,39 @@ class VpnProtectSocketServerTest {
             assertFalse(server.dispatchClientSession(rejectedSession))
             assertTrue(rejectedSession.awaitAck())
             assertArrayEquals(byteArrayOf(1), rejectedSession.ackBytes())
+            assertEquals(0, rejectedSession.readCount())
             assertTrue(rejectedSession.awaitClosed())
+        } finally {
+            gate.release()
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `stop closes queued sessions without running pending handler`() {
+        val gate = HarnessStallGate()
+        val server =
+            createServer(
+                handlerConcurrency = 1,
+                maxPendingSessions = 1,
+                handlerJoinTimeoutMs = 100L,
+            )
+        val stalledSession = FakeProtectSocketClientSession(beforeRead = gate::stall)
+        val queuedSession = FakeProtectSocketClientSession()
+
+        try {
+            assertTrue(server.dispatchClientSession(stalledSession))
+            assertTrue(gate.awaitEntered())
+            assertTrue(server.dispatchClientSession(queuedSession))
+            assertArrayEquals(byteArrayOf(), queuedSession.ackBytes())
+
+            val stopper = thread(start = true) { server.stop() }
+
+            stopper.join(1_000L)
+            assertFalse(stopper.isAlive)
+            assertTrue(queuedSession.awaitClosed())
+            assertEquals(0, queuedSession.readCount())
+            assertArrayEquals(byteArrayOf(), queuedSession.ackBytes())
         } finally {
             gate.release()
             server.stop()
@@ -113,6 +146,20 @@ class VpnProtectSocketServerTest {
             gate.release()
             server.stop()
         }
+    }
+
+    @Test
+    fun `dispatch client session rejects after shutdown without running handler`() {
+        val server = createServer()
+        val session = FakeProtectSocketClientSession()
+
+        server.stop()
+
+        assertFalse(server.dispatchClientSession(session))
+        assertTrue(session.awaitAck())
+        assertArrayEquals(byteArrayOf(1), session.ackBytes())
+        assertEquals(0, session.readCount())
+        assertTrue(session.awaitClosed())
     }
 
     @Test
@@ -188,22 +235,28 @@ private class FakeProtectSocketClientSession(
     private val output = ByteArrayOutputStream()
     private val ackWritten = CountDownLatch(1)
     private val closed = CountDownLatch(1)
+    private val readAttempts = AtomicInteger(0)
 
     override fun readHandshake(): Int {
+        readAttempts.incrementAndGet()
         beforeRead()
         return 1
     }
 
     override fun writeAck(success: Boolean) {
-        output.write(if (success) 0 else 1)
+        synchronized(output) {
+            output.write(if (success) 0 else 1)
+        }
         ackWritten.countDown()
     }
 
-    fun ackBytes(): ByteArray = output.toByteArray()
+    fun ackBytes(): ByteArray = synchronized(output) { output.toByteArray() }
 
     fun awaitAck(): Boolean = ackWritten.await(5, TimeUnit.SECONDS)
 
     fun awaitClosed(): Boolean = closed.await(5, TimeUnit.SECONDS)
+
+    fun readCount(): Int = readAttempts.get()
 
     override fun close() {
         closed.countDown()

@@ -20,9 +20,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
@@ -32,6 +34,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
 private const val MaxGraphSamples = 60
+private const val AxisTickCount = 4
 
 /**
  * Presentation-only throughput graph matching
@@ -159,12 +162,10 @@ private fun ThroughputPlot(state: ThroughputGraphState) {
     val shapes = RipDpiThemeTokens.components.shapes
     val colors = RipDpiThemeTokens.colors
     val bgColor = colors.inputBackground
-    // download = foreground stroke + 8% fill underneath; upload = info color
     val downColor = colors.foreground
     val upColor = colors.info
     val downStroke = RipDpiStroke.Thick
     val upStroke = RipDpiStroke.Thin
-
     val plotHeight = spacing.section + spacing.xxxl + spacing.xxl + spacing.xs // 100 dp
 
     Canvas(
@@ -177,83 +178,88 @@ private fun ThroughputPlot(state: ThroughputGraphState) {
                         .RoundedCornerShape(shapes.largeCornerRadius),
                 ),
     ) {
-        // Background
         drawRect(color = bgColor)
+        drawThroughputCanvas(
+            downloadSamples = state.downloadSamples,
+            uploadSamples = state.uploadSamples,
+            downColor = downColor,
+            upColor = upColor,
+            downStroke = downStroke,
+            upStroke = upStroke,
+        )
+    }
+}
 
-        val downValues = state.downloadSamples
-        val upValues = state.uploadSamples
-
-        if (downValues.size < 2) return@Canvas
-
-        val window =
-            if (downValues.size > MaxGraphSamples) {
-                downValues.subList(downValues.size - MaxGraphSamples, downValues.size)
-            } else {
-                downValues
-            }
-        val upWindow =
-            if (upValues.size > MaxGraphSamples) {
-                upValues.subList(upValues.size - MaxGraphSamples, upValues.size)
-            } else {
-                upValues
-            }
-
-        val maxDown = window.maxOrNull()?.coerceAtLeast(1f) ?: 1f
-        val xStep = size.width / (window.size - 1).toFloat()
-
-        // Download fill path
-        val fillPath = Path()
-        window.forEachIndexed { i, v ->
-            val x = i * xStep
-            val y = size.height - (v / maxDown) * size.height
-            if (i == 0) fillPath.moveTo(x, y) else fillPath.lineTo(x, y)
+private fun DrawScope.drawThroughputCanvas(
+    downloadSamples: List<Float>,
+    uploadSamples: List<Float>,
+    downColor: Color,
+    upColor: Color,
+    downStroke: Dp,
+    upStroke: Dp,
+) {
+    if (downloadSamples.size < 2) return
+    val window =
+        if (downloadSamples.size > MaxGraphSamples) {
+            downloadSamples.subList(downloadSamples.size - MaxGraphSamples, downloadSamples.size)
+        } else {
+            downloadSamples
         }
-        // Close fill to bottom corners
-        fillPath.lineTo(size.width, size.height)
-        fillPath.lineTo(0f, size.height)
-        fillPath.close()
-        drawPath(path = fillPath, color = downColor.copy(alpha = 0.08f))
-
-        // Download line
-        val downPath = Path()
-        window.forEachIndexed { i, v ->
-            val x = i * xStep
+    val upWindow =
+        if (uploadSamples.size > MaxGraphSamples) {
+            uploadSamples.subList(uploadSamples.size - MaxGraphSamples, uploadSamples.size)
+        } else {
+            uploadSamples
+        }
+    val maxDown = window.maxOrNull()?.coerceAtLeast(1f) ?: 1f
+    val xStep = size.width / (window.size - 1).toFloat()
+    // Download fill — 8% opacity under the curve
+    val fillPath = Path()
+    window.forEachIndexed { i, v ->
+        val x = i * xStep
+        val y = size.height - (v / maxDown) * size.height
+        if (i == 0) fillPath.moveTo(x, y) else fillPath.lineTo(x, y)
+    }
+    fillPath.lineTo(size.width, size.height)
+    fillPath.lineTo(0f, size.height)
+    fillPath.close()
+    drawPath(path = fillPath, color = downColor.copy(alpha = 0.08f))
+    // Download line
+    val downPath = Path()
+    window.forEachIndexed { i, v ->
+        val x = i * xStep
+        val y = size.height - (v / maxDown) * size.height
+        if (i == 0) downPath.moveTo(x, y) else downPath.lineTo(x, y)
+    }
+    drawPath(
+        downPath,
+        downColor,
+        style = Stroke(width = downStroke.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+    )
+    // Upload line (same y-scale)
+    if (upWindow.size >= 2) {
+        val upXStep = size.width / (upWindow.size - 1).toFloat()
+        val upPath = Path()
+        upWindow.forEachIndexed { i, v ->
+            val x = i * upXStep
             val y = size.height - (v / maxDown) * size.height
-            if (i == 0) downPath.moveTo(x, y) else downPath.lineTo(x, y)
+            if (i == 0) upPath.moveTo(x, y) else upPath.lineTo(x, y)
         }
         drawPath(
-            path = downPath,
-            color = downColor,
-            style = Stroke(width = downStroke.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+            upPath,
+            upColor,
+            style = Stroke(width = upStroke.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
-
-        // Upload line (shares the same y-scale for legibility)
-        if (upWindow.size >= 2) {
-            val upXStep = size.width / (upWindow.size - 1).toFloat()
-            val upPath = Path()
-            upWindow.forEachIndexed { i, v ->
-                val x = i * upXStep
-                val y = size.height - (v / maxDown) * size.height
-                if (i == 0) upPath.moveTo(x, y) else upPath.lineTo(x, y)
-            }
-            drawPath(
-                path = upPath,
-                color = upColor,
-                style = Stroke(width = upStroke.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-            )
-        }
-
-        // Axis tick marks — faint vertical lines at 1/4 intervals
-        val tickCount = 4
-        for (t in 1 until tickCount) {
-            val x = size.width * t / tickCount
-            drawLine(
-                color = downColor.copy(alpha = 0.06f),
-                start = Offset(x, 0f),
-                end = Offset(x, size.height),
-                strokeWidth = RipDpiStroke.Hairline.toPx(),
-            )
-        }
+    }
+    // Axis tick marks — faint vertical lines at 1/4 intervals
+    for (t in 1 until AxisTickCount) {
+        val x = size.width * t / AxisTickCount
+        drawLine(
+            color = downColor.copy(alpha = 0.06f),
+            start = Offset(x, 0f),
+            end = Offset(x, size.height),
+            strokeWidth = RipDpiStroke.Hairline.toPx(),
+        )
     }
 }
 

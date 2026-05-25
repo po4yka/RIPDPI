@@ -2836,4 +2836,18 @@ Source: %2$s</string>
     <string name="profile_variants_cta_select">Select</string>
     <string name="profile_variants_cta_selected">Active</string>
     <string name="profile_variants_caption">Profile variants · gallery of strategy presets (Balanced / Aggressive / Stealth) · tinted header chip · 3-row metric strip · Select CTA.</string>
+
+    <!-- Share link preview card -->
+    <string name="share_link_preview_eyebrow_link">Generated link</string>
+    <string name="share_link_preview_eyebrow_payload">Fragment payload</string>
+    <string name="share_link_preview_copy_action">Copy</string>
+    <string name="share_link_preview_row_version">Schema version — currently %1$s</string>
+    <string name="share_link_preview_row_asn">Origin ASN — %1$s</string>
+    <string name="share_link_preview_row_asn_redacted">Origin ASN — redacted</string>
+    <string name="share_link_preview_row_timestamp">Timestamp, in minutes since %1$s</string>
+    <string name="share_link_preview_row_commit">Strategy-bundle hash — %1$s</string>
+    <string name="share_link_preview_row_items">Per-endpoint {alive, dpi} tuples — %1$d</string>
+    <string name="share_link_preview_privacy_title">Stays on device</string>
+    <string name="share_link_preview_privacy_message">The fragment never leaves the device — it\'s decoded locally by the recipient. Hostnames are hashed unless redaction is off.</string>
+    <string name="share_link_preview_privacy_emphasis">never leaves the device</string>
 </resources>

@@ -16,6 +16,8 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 
+private const val BytesPerKilobyte = 1024L
+
 /**
  * P3.7 of G008. Lists previously-captured .pcap files for the user
  * to view (routes to PcapViewerScreen) or export (routes to
@@ -59,7 +61,7 @@ fun PcapCaptureListScreen(
                     text =
                         stringResource(
                             R.string.vpn_pcap_capture_meta_format,
-                            capture.byteSize / 1024,
+                            capture.byteSize / BytesPerKilobyte,
                             capture.packetCount,
                         ),
                     style = type.monoSmall,

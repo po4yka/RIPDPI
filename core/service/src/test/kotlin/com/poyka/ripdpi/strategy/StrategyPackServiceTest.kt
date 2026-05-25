@@ -18,7 +18,9 @@ import com.poyka.ripdpi.data.StrategyPackSnapshot
 import com.poyka.ripdpi.data.StrategyPackTlsProfileSet
 import com.poyka.ripdpi.data.StrategyPackTransportModule
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
@@ -222,6 +224,58 @@ class StrategyPackServiceTest {
         }
 
     @Test
+    fun `switching to manual policy cancels in-flight automatic refresh without retry state`() =
+        runTest {
+            val refreshStarted = CompletableDeferred<Unit>()
+            val refreshCancelled = CompletableDeferred<Unit>()
+            val initialSnapshot = bundledSnapshot()
+            val repository =
+                FakeStrategyPackRepository(
+                    initialSnapshot = initialSnapshot,
+                    clock = clock(),
+                    refreshOutcomes =
+                        ArrayDeque(
+                            listOf(
+                                RefreshOutcome.SuspendUntilCancelled(
+                                    started = refreshStarted,
+                                    cancelled = refreshCancelled,
+                                ),
+                            ),
+                        ),
+                )
+            val appSettingsRepository = FakeAppSettingsRepository()
+            val stateStore = InMemoryStrategyPackStateStore()
+            val service =
+                newService(
+                    repository = repository,
+                    appSettingsRepository = appSettingsRepository,
+                    stateStore = stateStore,
+                )
+
+            service.initialize()
+            runCurrent()
+            refreshStarted.await()
+
+            appSettingsRepository.update {
+                setStrategyPackRefreshPolicy(StrategyPackRefreshPolicyManual)
+            }
+            runCurrent()
+            refreshCancelled.await()
+            runCurrent()
+
+            assertEquals(listOf("stable"), repository.refreshChannels)
+            assertEquals(StrategyPackRefreshPolicyManual, stateStore.state.value.refreshPolicy)
+            assertEquals(initialSnapshot, stateStore.state.value.snapshot)
+            assertNull(stateStore.state.value.lastRefreshError)
+            assertNull(stateStore.state.value.lastRefreshFailureCode)
+
+            advanceTimeBy(testInitialFailureBackoffMs)
+            runCurrent()
+
+            assertEquals(listOf("stable"), repository.refreshChannels)
+        }
+
+    @Test
     fun `automatic refresh retries with exponential backoff and resets after success`() =
         runTest {
             val repository =
@@ -275,6 +329,54 @@ class StrategyPackServiceTest {
             runCurrent()
             runCurrent()
             assertEquals(4, repository.refreshChannels.size)
+        }
+
+    @Test
+    fun `automatic refresh failure preserves cache degradation until later success clears it`() =
+        runTest {
+            val repository =
+                FakeStrategyPackRepository(
+                    initialSnapshot = bundledSnapshot(),
+                    clock = clock(),
+                    initialLoadDegradation =
+                        ControlPlaneCacheDegradation(
+                            code = ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+                            detail = "Unexpected EOF",
+                        ),
+                    refreshOutcomes =
+                        ArrayDeque(
+                            listOf(
+                                RefreshOutcome.Failure(IllegalStateException("network down")),
+                                RefreshOutcome.Success(downloadedSnapshot(fetchedAt = testInitialFailureBackoffMs)),
+                            ),
+                        ),
+                )
+            val stateStore = InMemoryStrategyPackStateStore()
+            val service =
+                newService(
+                    repository = repository,
+                    stateStore = stateStore,
+                )
+
+            service.initialize()
+            runCurrent()
+            runCurrent()
+
+            assertEquals("network down", stateStore.state.value.lastRefreshError)
+            assertEquals(
+                ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+                stateStore.state.value.cacheDegradationCode,
+            )
+            assertEquals("Unexpected EOF", stateStore.state.value.cacheDegradationDetail)
+
+            advanceTimeBy(testInitialFailureBackoffMs)
+            runCurrent()
+            runCurrent()
+
+            assertNull(stateStore.state.value.lastRefreshError)
+            assertNull(stateStore.state.value.cacheDegradationCode)
+            assertNull(stateStore.state.value.cacheDegradationDetail)
+            assertEquals(StrategyPackCatalogSourceDownloaded, stateStore.state.value.snapshot.source)
         }
 
     @Test
@@ -574,6 +676,15 @@ private class FakeStrategyPackRepository(
                 outcome.snapshot
             }
 
+            is RefreshOutcome.SuspendUntilCancelled -> {
+                try {
+                    outcome.started.complete(Unit)
+                    awaitCancellation()
+                } finally {
+                    outcome.cancelled.complete(Unit)
+                }
+            }
+
             null -> {
                 snapshot =
                     snapshot.copy(
@@ -620,6 +731,11 @@ private sealed interface RefreshOutcome {
 
     data class Failure(
         val throwable: Throwable,
+    ) : RefreshOutcome
+
+    data class SuspendUntilCancelled(
+        val started: CompletableDeferred<Unit>,
+        val cancelled: CompletableDeferred<Unit>,
     ) : RefreshOutcome
 }
 

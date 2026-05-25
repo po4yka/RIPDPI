@@ -5,6 +5,7 @@ use jni::Env;
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
 use crate::lifecycle::{open_proxy_listener, positive_os_error, proxy_error, IdleGuard};
+use crate::quality_sink::CompositeProxyTelemetrySink;
 use crate::registry::{lookup_proxy_session, try_mark_proxy_running, ProxySessionState};
 use ripdpi_android_bridge_support::{throw_illegal_state_env_with_payload, throw_io_exception_env_with_payload};
 use ripdpi_android_telemetry_adapter::ProxyTelemetryObserver;
@@ -41,8 +42,13 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong) -> jint {
     };
 
     session.telemetry.clear_last_error();
+    // G011 path B: install the QualityWindowSink alongside the existing
+    // ProxyTelemetryObserver so producer-side TCP-connect timing in
+    // ripdpi-proxy-runtime feeds the process-wide QualityWindow. See
+    // `quality_sink.rs` for the composition rationale.
+    let observer = ProxyTelemetryObserver { state: session.telemetry.clone() };
     let control = Arc::new(EmbeddedProxyControl::new_with_context(
-        Some(Arc::new(ProxyTelemetryObserver { state: session.telemetry.clone() })),
+        Some(Arc::new(CompositeProxyTelemetrySink::new(observer))),
         session.runtime_context.clone(),
     ));
 

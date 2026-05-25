@@ -14,6 +14,7 @@ import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.strategy.StrategyPackService
 import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -101,6 +102,9 @@ class AppStartupInitializer
             val failure =
                 runCatching { action() }
                     .exceptionOrNull()
+            if (failure is CancellationException) {
+                throw failure
+            }
             return if (failure == null) {
                 Logger.i { "App startup subsystem succeeded: ${subsystem.logLabel}" }
                 AppStartupSubsystemResult(

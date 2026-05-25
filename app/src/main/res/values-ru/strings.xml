@@ -2886,4 +2886,18 @@ fakeddisorder endhost</string>
     <string name="home_hard_kill_switch_not_enabled_summary">RIPDPI может работать, но Android не блокирует трафик вне VPN, если туннель остановится.</string>
     <string name="home_hard_kill_switch_unknown_summary">RIPDPI еще не наблюдал состояние Постоянного VPN и блокировки Android. Откройте настройки VPN для проверки.</string>
     <string name="home_connection_actuator_action_android_managed">Управляется блокировкой Android</string>
+
+    <!-- Share link preview card -->
+    <string name="share_link_preview_eyebrow_link">Сгенерированная ссылка</string>
+    <string name="share_link_preview_eyebrow_payload">Содержимое фрагмента</string>
+    <string name="share_link_preview_copy_action">Копировать</string>
+    <string name="share_link_preview_row_version">Версия схемы — текущая %1$s</string>
+    <string name="share_link_preview_row_asn">ASN источника — %1$s</string>
+    <string name="share_link_preview_row_asn_redacted">ASN источника — скрыт</string>
+    <string name="share_link_preview_row_timestamp">Временная метка, в минутах с %1$s</string>
+    <string name="share_link_preview_row_commit">Хэш пакета стратегий — %1$s</string>
+    <string name="share_link_preview_row_items">Кортежи {alive, dpi} на конечную точку — %1$d</string>
+    <string name="share_link_preview_privacy_title">Остаётся на устройстве</string>
+    <string name="share_link_preview_privacy_message">Фрагмент никогда не покидает устройство — он расшифровывается локально получателем. Имена хостов хэшируются, если редактирование не отключено.</string>
+    <string name="share_link_preview_privacy_emphasis">никогда не покидает устройство</string>
 </resources>

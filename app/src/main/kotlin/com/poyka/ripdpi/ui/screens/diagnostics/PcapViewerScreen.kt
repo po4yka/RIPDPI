@@ -50,13 +50,13 @@ data class PcapPacket(
     val hexDump: String,
 )
 
-private const val WEIGHT_NO = 0.7f
-private const val WEIGHT_TIME = 1f
-private const val WEIGHT_SRC = 1.3f
-private const val WEIGHT_DST = 1.3f
-private const val WEIGHT_SUMMARY = 1.5f
-private const val SELECTED_ROW_ALPHA = 0.2f
-private const val PROTOCOL_BADGE_ALPHA = 0.2f
+private const val WeightNo = 0.7f
+private const val WeightTime = 1f
+private const val WeightSrc = 1.3f
+private const val WeightDst = 1.3f
+private const val WeightSummary = 1.5f
+private const val SelectedRowAlpha = 0.2f
+private const val ProtocolBadgeAlpha = 0.2f
 
 @Composable
 fun PcapViewerScreen(
@@ -70,7 +70,6 @@ fun PcapViewerScreen(
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
     var selectedIndex by rememberSaveable { mutableIntStateOf(initiallySelectedIndex) }
     val listState = rememberLazyListState()
 
@@ -93,10 +92,7 @@ fun PcapViewerScreen(
             contentAlignment = Alignment.TopCenter,
         ) {
             LazyColumn(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .widthIn(max = layout.contentMaxWidth),
+                modifier = Modifier.fillMaxSize().widthIn(max = layout.contentMaxWidth),
                 state = listState,
                 contentPadding =
                     PaddingValues(
@@ -107,80 +103,70 @@ fun PcapViewerScreen(
                     ),
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
-                item(key = "pcap-header") {
-                    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-                        Text(
-                            text = fileName,
-                            style = type.bodyEmphasis,
-                            color = colors.foreground,
-                        )
-                        Text(
-                            text =
-                                stringResource(
-                                    R.string.vpn_pcap_viewer_meta_format,
-                                    packetCount,
-                                ),
-                            style = type.caption,
-                            color = colors.mutedForeground,
-                        )
-                    }
-                }
-                item(key = "pcap-column-headers") {
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = spacing.sm, vertical = spacing.xs),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                    ) {
-                        HeaderCell(
-                            text = stringResource(R.string.vpn_pcap_viewer_col_no),
-                            modifier = Modifier.weight(WEIGHT_NO),
-                        )
-                        HeaderCell(
-                            text = stringResource(R.string.vpn_pcap_viewer_col_time),
-                            modifier = Modifier.weight(WEIGHT_TIME),
-                        )
-                        HeaderCell(
-                            text = stringResource(R.string.vpn_pcap_viewer_col_src),
-                            modifier = Modifier.weight(WEIGHT_SRC),
-                        )
-                        HeaderCell(
-                            text = stringResource(R.string.vpn_pcap_viewer_col_dst),
-                            modifier = Modifier.weight(WEIGHT_DST),
-                        )
-                        HeaderCell(
-                            text = stringResource(R.string.vpn_pcap_viewer_col_summary),
-                            modifier = Modifier.weight(WEIGHT_SUMMARY),
-                        )
-                    }
-                }
+                item(key = "pcap-header") { PcapFileHeader(fileName, packetCount) }
+                item(key = "pcap-column-headers") { PcapColumnHeaders() }
                 items(packets, key = { it.index }) { packet ->
-                    Column {
-                        PcapPacketRow(
-                            packet = packet,
-                            isSelected = packet.index == selectedIndex,
-                            onClick = { selectedIndex = packet.index },
-                        )
-                        if (packet.index == selectedIndex) {
-                            RipDpiCard(
-                                variant = RipDpiCardVariant.Tonal,
-                                paddingValues = PaddingValues(spacing.md),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.vpn_pcap_viewer_hex_label),
-                                    style = type.smallLabel,
-                                    color = colors.mutedForeground,
-                                )
-                                Text(
-                                    text = packet.hexDump,
-                                    style = type.monoLog,
-                                    color = colors.mutedForeground,
-                                )
-                            }
-                        }
-                    }
+                    PcapPacketItem(packet, selectedIndex) { selectedIndex = packet.index }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PcapFileHeader(
+    fileName: String,
+    packetCount: Int,
+) {
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        Text(text = fileName, style = type.bodyEmphasis, color = colors.foreground)
+        Text(
+            text = stringResource(R.string.vpn_pcap_viewer_meta_format, packetCount),
+            style = type.caption,
+            color = colors.mutedForeground,
+        )
+    }
+}
+
+@Composable
+private fun PcapColumnHeaders() {
+    val spacing = RipDpiThemeTokens.spacing
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.sm, vertical = spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        HeaderCell(text = stringResource(R.string.vpn_pcap_viewer_col_no), modifier = Modifier.weight(WeightNo))
+        HeaderCell(text = stringResource(R.string.vpn_pcap_viewer_col_time), modifier = Modifier.weight(WeightTime))
+        HeaderCell(text = stringResource(R.string.vpn_pcap_viewer_col_src), modifier = Modifier.weight(WeightSrc))
+        HeaderCell(text = stringResource(R.string.vpn_pcap_viewer_col_dst), modifier = Modifier.weight(WeightDst))
+        HeaderCell(
+            text = stringResource(R.string.vpn_pcap_viewer_col_summary),
+            modifier = Modifier.weight(WeightSummary),
+        )
+    }
+}
+
+@Composable
+private fun PcapPacketItem(
+    packet: PcapPacket,
+    selectedIndex: Int,
+    onSelect: () -> Unit,
+) {
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    Column {
+        PcapPacketRow(packet = packet, isSelected = packet.index == selectedIndex, onClick = onSelect)
+        if (packet.index == selectedIndex) {
+            RipDpiCard(variant = RipDpiCardVariant.Tonal, paddingValues = PaddingValues(spacing.md)) {
+                Text(
+                    text = stringResource(R.string.vpn_pcap_viewer_hex_label),
+                    style = type.smallLabel,
+                    color = colors.mutedForeground,
+                )
+                Text(text = packet.hexDump, style = type.monoLog, color = colors.mutedForeground)
             }
         }
     }
@@ -210,7 +196,7 @@ private fun PcapPacketRow(
     val shapes = RipDpiThemeTokens.shapes
     val type = RipDpiThemeTokens.type
     val rowBackground =
-        if (isSelected) colors.accent.copy(alpha = SELECTED_ROW_ALPHA) else Color.Unspecified
+        if (isSelected) colors.accent.copy(alpha = SelectedRowAlpha) else Color.Unspecified
 
     Row(
         modifier =
@@ -225,33 +211,33 @@ private fun PcapPacketRow(
             text = packet.index.toString(),
             style = type.monoSmall,
             color = colors.mutedForeground,
-            modifier = Modifier.weight(WEIGHT_NO),
+            modifier = Modifier.weight(WeightNo),
         )
         Text(
             text = packet.timeLabel,
             style = type.monoSmall,
             color = colors.mutedForeground,
-            modifier = Modifier.weight(WEIGHT_TIME),
+            modifier = Modifier.weight(WeightTime),
         )
         Text(
             text = packet.src,
             style = type.monoSmall,
             color = colors.foreground,
-            modifier = Modifier.weight(WEIGHT_SRC),
+            modifier = Modifier.weight(WeightSrc),
         )
         Text(
             text = packet.dst,
             style = type.monoSmall,
             color = colors.foreground,
-            modifier = Modifier.weight(WEIGHT_DST),
+            modifier = Modifier.weight(WeightDst),
         )
         Row(
-            modifier = Modifier.weight(WEIGHT_SUMMARY),
+            modifier = Modifier.weight(WeightSummary),
             horizontalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
             Surface(
                 shape = shapes.sm,
-                color = protocolColor(packet.protocol, colors).copy(alpha = PROTOCOL_BADGE_ALPHA),
+                color = protocolColor(packet.protocol, colors).copy(alpha = ProtocolBadgeAlpha),
                 contentColor = colors.foreground,
             ) {
                 Text(

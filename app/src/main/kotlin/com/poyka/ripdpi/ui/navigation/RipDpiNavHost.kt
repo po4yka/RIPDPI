@@ -113,6 +113,7 @@ data class RipDpiNavHostLaunchRequests(
     val onRelockHandled: () -> Unit = {},
 )
 
+@Suppress("detekt.LongMethod")
 @Composable
 fun RipDpiNavHost(
     modifier: Modifier = Modifier,
