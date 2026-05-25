@@ -9,6 +9,7 @@ use super::ConnectRelayError;
 pub(super) enum AlwaysWsOutcome {
     Handled,
     FallbackToDesync { seed_request: Vec<u8> },
+    Failed(ConnectRelayError),
 }
 
 pub(super) fn run_ws_always_first<WriteSuccessReply, RunWsTunnel>(
@@ -53,19 +54,19 @@ fn always_ws_outcome(result: WsTunnelResult) -> AlwaysWsOutcome {
         }
         WsTunnelResult::BootstrapFailed { dc, seed_request, error } => {
             tracing::warn!(
-                "WS tunnel Always mode: bootstrap failed for raw DC {} (class {:?}): {error}",
+                "WS tunnel Always mode: bootstrap failed for validated MTProto raw DC {} (class {:?}), failing closed: {error}",
                 dc.raw(),
                 dc.class()
             );
-            AlwaysWsOutcome::FallbackToDesync { seed_request }
+            AlwaysWsOutcome::Failed(ConnectRelayError::with_seed_request(error, true, Some(seed_request)))
         }
         WsTunnelResult::WsOpenOrRelayFailed { dc, seed_request, error } => {
             tracing::warn!(
-                "WS tunnel Always mode: relay failed for raw DC {} (class {:?}): {error}",
+                "WS tunnel Always mode: relay failed for validated MTProto raw DC {} (class {:?}), failing closed: {error}",
                 dc.raw(),
                 dc.class()
             );
-            AlwaysWsOutcome::FallbackToDesync { seed_request }
+            AlwaysWsOutcome::Failed(ConnectRelayError::with_seed_request(error, true, Some(seed_request)))
         }
     }
 }

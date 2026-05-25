@@ -116,6 +116,7 @@ where
             AlwaysWsOutcome::FallbackToDesync { seed_request } => {
                 connect_after_ws_attempt_fn(client, target, state, host_hint, seed_request)
             }
+            AlwaysWsOutcome::Failed(err) => Err(err),
         };
     }
 

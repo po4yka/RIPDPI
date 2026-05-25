@@ -112,7 +112,7 @@ fn always_mode_replays_non_mtproto_seed_through_plain_connect() {
 }
 
 #[test]
-fn always_mode_replays_seed_through_plain_connect_after_bootstrap_failure() {
+fn always_mode_fails_closed_for_validated_mtproto_after_bootstrap_failure() {
     let (_peer, mut client) = connected_pair();
     let mut config = RuntimeConfig::default();
     config.adaptive.ws_tunnel_mode = WsTunnelMode::Always;
@@ -120,15 +120,21 @@ fn always_mode_replays_seed_through_plain_connect_after_bootstrap_failure() {
     let target = SocketAddr::from(([149, 154, 167, 91], 443));
     let seed_request = vec![7_u8; 64];
     let bootstrap_seed = seed_request.clone();
-    let expected_seed = seed_request.clone();
+    let write_count = StdArc::new(AtomicUsize::new(0));
 
-    let result = connect_and_relay_with(
+    let err = connect_and_relay_with(
         &mut client,
         target,
         &state,
         Some("telegram-dc2".to_string()),
         SuccessReply::Socks5,
-        |_client, _reply, _upstream| Ok(()),
+        {
+            let write_count = write_count.clone();
+            move |_client, _reply, _upstream| {
+                write_count.fetch_add(1, StdOrdering::Relaxed);
+                Ok(())
+            }
+        },
         move |_client, _state| WsTunnelResult::BootstrapFailed {
             dc: RuntimeTelegramDc::production(2),
             seed_request: bootstrap_seed.clone(),
@@ -138,15 +144,57 @@ fn always_mode_replays_seed_through_plain_connect_after_bootstrap_failure() {
         |_client, _state, _target, _host_hint, _handshake| unreachable!("desync path should not run"),
         |_client, _target, _state, _dc_host, _reply| unreachable!("plain immediate relay should not run"),
         |_client, _target, _state, _dc_host, _route, _payload| unreachable!("plain delayed relay should not run"),
-        move |_client, replay_target, _state, dc_host, replay_seed| {
-            assert_eq!(replay_target, target);
-            assert_eq!(dc_host.as_deref(), Some("telegram-dc2"));
-            assert_eq!(replay_seed, expected_seed);
-            Ok(())
-        },
-    );
+        |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
+    )
+    .expect_err("validated MTProto in Always mode must not fall back after bootstrap failure");
 
-    assert!(result.is_ok());
+    assert_eq!(err.kind(), io::ErrorKind::TimedOut);
+    assert!(err.success_reply_sent());
+    assert_eq!(err.seed_request(), Some(seed_request.as_slice()));
+    assert_eq!(write_count.load(StdOrdering::Relaxed), 1);
+}
+
+#[test]
+fn always_mode_fails_closed_for_validated_mtproto_after_ws_relay_failure() {
+    let (_peer, mut client) = connected_pair();
+    let mut config = RuntimeConfig::default();
+    config.adaptive.ws_tunnel_mode = WsTunnelMode::Always;
+    let state = runtime_state(config, None);
+    let target = SocketAddr::from(([149, 154, 167, 91], 443));
+    let seed_request = vec![8_u8; 64];
+    let relay_seed = seed_request.clone();
+    let write_count = StdArc::new(AtomicUsize::new(0));
+
+    let err = connect_and_relay_with(
+        &mut client,
+        target,
+        &state,
+        Some("telegram-dc2".to_string()),
+        SuccessReply::Socks5,
+        {
+            let write_count = write_count.clone();
+            move |_client, _reply, _upstream| {
+                write_count.fetch_add(1, StdOrdering::Relaxed);
+                Ok(())
+            }
+        },
+        move |_client, _state| WsTunnelResult::WsOpenOrRelayFailed {
+            dc: RuntimeTelegramDc::production(2),
+            seed_request: relay_seed.clone(),
+            error: io::Error::new(io::ErrorKind::ConnectionReset, "relay reset"),
+        },
+        |_client, _seed_request, _state| unreachable!("fallback WS should not be used"),
+        |_client, _state, _target, _host_hint, _handshake| unreachable!("desync path should not run"),
+        |_client, _target, _state, _dc_host, _reply| unreachable!("plain immediate relay should not run"),
+        |_client, _target, _state, _dc_host, _route, _payload| unreachable!("plain delayed relay should not run"),
+        |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
+    )
+    .expect_err("validated MTProto in Always mode must not fall back after relay failure");
+
+    assert_eq!(err.kind(), io::ErrorKind::ConnectionReset);
+    assert!(err.success_reply_sent());
+    assert_eq!(err.seed_request(), Some(seed_request.as_slice()));
+    assert_eq!(write_count.load(StdOrdering::Relaxed), 1);
 }
 
 #[test]
