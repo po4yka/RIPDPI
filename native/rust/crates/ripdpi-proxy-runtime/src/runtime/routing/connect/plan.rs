@@ -40,7 +40,7 @@ fn connect_target_via_group_with_policy(
     policy: &RouteConnectPolicy,
 ) -> Result<TcpStream, ConnectAttemptError> {
     let started = std::time::Instant::now();
-    let stream = if let Some(upstream_addr) = policy.upstream_socks_addr {
+    let connect_result = if let Some(upstream_addr) = policy.upstream_socks_addr {
         connect_via_socks(
             target,
             upstream_addr,
@@ -63,9 +63,26 @@ fn connect_target_via_group_with_policy(
             policy.connect_timeout,
             policy.pre_connect_rcvbuf,
         )
-    }?;
+    };
+    let stream = match connect_result {
+        Ok(stream) => stream,
+        Err(err) => {
+            // P5.4 producer-side failure-path timing — symmetric with the
+            // success-path emission in `record_connect_telemetry` so the
+            // QualityWindow sees both arms and `loss_pct` becomes meaningful.
+            let rtt_ms = started.elapsed().as_millis() as u64;
+            let kind = err.source.kind();
+            state.note_upstream_connect_failed(target, rtt_ms, kind);
+            return Err(err);
+        }
+    };
 
-    apply_group_socket_options(&stream, policy)?;
+    if let Err(err) = apply_group_socket_options(&stream, policy) {
+        let rtt_ms = started.elapsed().as_millis() as u64;
+        let kind = err.source.kind();
+        state.note_upstream_connect_failed(target, rtt_ms, kind);
+        return Err(err);
+    }
     record_connect_telemetry(state, &stream, target, group_index, started);
     Ok(stream)
 }

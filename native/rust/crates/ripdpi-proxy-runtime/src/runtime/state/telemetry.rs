@@ -1,3 +1,5 @@
+use std::io;
+
 use super::*;
 
 impl RuntimeState {
@@ -61,6 +63,11 @@ impl RuntimeState {
     pub(in crate::runtime) fn note_upstream_connected(&self, upstream_addr: SocketAddr, upstream_rtt_ms: Option<u64>) {
         if let Some(telemetry) = &self.telemetry {
             telemetry.on_upstream_connected(upstream_addr, upstream_rtt_ms);
+        }
+    }
+    pub(in crate::runtime) fn note_upstream_connect_failed(&self, addr: SocketAddr, rtt_ms: u64, kind: io::ErrorKind) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_upstream_connect_failed(addr, rtt_ms, kind);
         }
     }
     pub(in crate::runtime) fn note_quic_migration_status(

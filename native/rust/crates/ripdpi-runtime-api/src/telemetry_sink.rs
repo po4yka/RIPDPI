@@ -39,6 +39,22 @@ pub trait RuntimeTelemetrySink: Send + Sync {
 
     fn on_upstream_connected(&self, _upstream_addr: SocketAddr, _rtt_ms: Option<u64>) {}
 
+    /// Notify that an upstream TCP connect attempt **failed**.
+    ///
+    /// `rtt_ms` is the wall-clock time from connect-start to the error arm
+    /// (i.e. `Instant::now().duration_since(started).as_millis()` measured at
+    /// the producer site); `kind` is the [`io::ErrorKind`] that classified
+    /// the failure. The sink does NOT receive the underlying `io::Error`
+    /// itself — only the categorical kind — so that no host / address /
+    /// errno-string leaks into sinks that re-emit at lower trust levels.
+    ///
+    /// Default body is a no-op so existing impls don't have to change; only
+    /// consumers that want failure-path timing override.
+    ///
+    /// Cancel-safety: the caller emits synchronously between `Instant::now()`
+    /// capture and the error return — no `.await` is interposed.
+    fn on_upstream_connect_failed(&self, _addr: SocketAddr, _rtt_ms: u64, _kind: io::ErrorKind) {}
+
     /// Called when the first upstream response is received for a TLS connection,
     /// measuring the round-trip for the ClientHello -> ServerHello exchange.
     /// Only called when the first outbound request starts with a TLS record byte (0x16).
