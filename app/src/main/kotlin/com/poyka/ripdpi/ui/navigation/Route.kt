@@ -238,6 +238,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object OomRecovery : Route() {
+        override val stableRoute = "oom_recovery"
+        override val titleRes = R.string.title_oom_recovery
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class SharedDiagnosticResult(
         val fragment: String = "",
     ) : Route() {
@@ -345,6 +352,7 @@ sealed class Route {
                     ThroughputGraph,
                     LatencyGraph,
                     StateMachine,
+                    OomRecovery,
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),

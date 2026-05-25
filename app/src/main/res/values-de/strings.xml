@@ -2699,4 +2699,15 @@ Quelle: %2$s</string>
     <string name="vpn_dev_pcap_toggle_desc">VPN-Pakete lokal zur Überprüfung aufzeichnen. Standardmäßig deaktiviert.</string>
     <string name="vpn_dev_pcap_consent_title">Paketaufzeichnung aktivieren?</string>
     <string name="vpn_dev_pcap_consent_warning">Wenn aktiviert, werden Paket-Header, TLS-SNI-Hostnamen, Ziel-IPs und Strategie-Fingerabdrücke der nächsten VPN-Sitzung in eine rotierende 64-MiB-Aufzeichnungsdatei auf dem Gerät geschrieben. Die Aufzeichnungen bleiben app-intern, bis Sie sie explizit exportieren.</string>
+
+    <!-- OOM recovery surface -->
+    <string name="title_oom_recovery">OOM-Wiederherstellung</string>
+    <string name="oom_recovery_title">OOM-Wiederherstellung</string>
+    <string name="oom_recovery_banner_title">RIPDPI wurde von Android beendet</string>
+    <string name="oom_recovery_banner_body">Das System hat den VPN-Dienst um %1$s beendet (wahrscheinlich Speicherdruck). Der Tunnel war %2$s nicht verfügbar, bevor er neu gestartet wurde.</string>
+    <string name="oom_recovery_action_reconnect">Neu verbinden</string>
+    <string name="oom_recovery_action_view_incident">Vorfall anzeigen</string>
+    <string name="oom_recovery_action_dismiss">Verwerfen</string>
+    <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
+    <string name="oom_recovery_sample_downtime">4 Min. 18 Sek.</string>
 </resources>

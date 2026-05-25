@@ -2700,4 +2700,15 @@ fake_burst 3</string>
     <string name="vpn_dev_pcap_toggle_desc">在本地捕获 VPN 数据包以供检查。默认禁用。</string>
     <string name="vpn_dev_pcap_consent_title">启用数据包捕获？</string>
     <string name="vpn_dev_pcap_consent_warning">启用后，下次 VPN 会话中的数据包头、TLS SNI 主机名、目标 IP 及策略指纹将被写入设备上的最大 64 MiB 循环捕获文件。捕获数据始终为应用私有，直到您主动导出为止。</string>
+
+    <!-- OOM recovery surface -->
+    <string name="title_oom_recovery">OOM 恢复</string>
+    <string name="oom_recovery_title">OOM 恢复</string>
+    <string name="oom_recovery_banner_title">RIPDPI 被 Android 停止</string>
+    <string name="oom_recovery_banner_body">系统在 %1$s 终止了 VPN 服务（可能是内存压力）。在此次重启前，隧道中断了 %2$s。</string>
+    <string name="oom_recovery_action_reconnect">重新连接</string>
+    <string name="oom_recovery_action_view_incident">查看事件</string>
+    <string name="oom_recovery_action_dismiss">关闭</string>
+    <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
+    <string name="oom_recovery_sample_downtime">4 分 18 秒</string>
 </resources>

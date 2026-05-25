@@ -2818,4 +2818,15 @@ fakeddisorder endhost</string>
     <string name="vpn_dev_pcap_toggle_desc">Локальный захват пакетов VPN для анализа. По умолчанию отключён.</string>
     <string name="vpn_dev_pcap_consent_title">Включить захват пакетов?</string>
     <string name="vpn_dev_pcap_consent_warning">При включении заголовки пакетов, имена SNI TLS, IP-адреса конечных точек и сигнатуры стратегий из следующей VPN-сессии записываются в ротируемый файл захвата размером до 64 МиБ на устройстве. Файлы захвата остаются приватными и доступны только приложению, пока вы не экспортируете их явно.</string>
+
+    <!-- OOM recovery surface -->
+    <string name="title_oom_recovery">Восстановление после OOM</string>
+    <string name="oom_recovery_title">Восстановление после OOM</string>
+    <string name="oom_recovery_banner_title">RIPDPI был остановлен системой Android</string>
+    <string name="oom_recovery_banner_body">Система завершила VPN-сервис в %1$s (вероятно, нехватка памяти). Туннель не работал %2$s до этого перезапуска.</string>
+    <string name="oom_recovery_action_reconnect">Переподключиться</string>
+    <string name="oom_recovery_action_view_incident">Подробнее</string>
+    <string name="oom_recovery_action_dismiss">Закрыть</string>
+    <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
+    <string name="oom_recovery_sample_downtime">4 мин 18 с</string>
 </resources>

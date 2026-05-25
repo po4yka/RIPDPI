@@ -2768,4 +2768,15 @@ Source: %2$s</string>
     <string name="vpn_dev_pcap_toggle_desc">Capture VPN packets locally for inspection. Disabled by default.</string>
     <string name="vpn_dev_pcap_consent_title">Enable packet capture?</string>
     <string name="vpn_dev_pcap_consent_warning">When enabled, packet headers, TLS SNI hostnames, endpoint IPs, and strategy fingerprints from the next VPN session are written to a rotating 64 MiB on-disk capture. Captures stay app-private until you explicitly export them.</string>
+
+    <!-- OOM recovery surface -->
+    <string name="title_oom_recovery">OOM recovery</string>
+    <string name="oom_recovery_title">OOM recovery</string>
+    <string name="oom_recovery_banner_title">RIPDPI was stopped by Android</string>
+    <string name="oom_recovery_banner_body">The system killed the VPN service at %1$s (likely memory pressure). The tunnel was down for %2$s before this restart.</string>
+    <string name="oom_recovery_action_reconnect">Reconnect</string>
+    <string name="oom_recovery_action_view_incident">View incident</string>
+    <string name="oom_recovery_action_dismiss">Dismiss</string>
+    <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
+    <string name="oom_recovery_sample_downtime">4 m 18 s</string>
 </resources>

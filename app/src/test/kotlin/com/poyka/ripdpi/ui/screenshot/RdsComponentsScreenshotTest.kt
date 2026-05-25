@@ -66,10 +66,13 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
 import com.poyka.ripdpi.ui.components.inputs.RipDpiToggleAlternatives
 import com.poyka.ripdpi.ui.screens.diagnostics.HandshakeTimelineScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.LatencyGraphScreen
+import com.poyka.ripdpi.ui.screens.diagnostics.OomRecoveryScreen
+import com.poyka.ripdpi.ui.screens.diagnostics.OomRecoveryState
 import com.poyka.ripdpi.ui.screens.diagnostics.StateMachineScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.ThroughputGraphScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleHandshakeTimelineState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleLatencyGraphState
+import com.poyka.ripdpi.ui.screens.diagnostics.sampleOomRecoveryState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleStateMachineState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleThroughputGraphState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -219,6 +222,23 @@ class RdsComponentsScreenshotTest {
                         failedMetaLabel = "last 6 h: 0",
                         degradedMetaLabel = "2 in 24 h",
                     ),
+            )
+        }
+    }
+
+    @Test
+    fun oomRecovery() {
+        captureBothThemes("oomRecovery", widthDp = 420, heightDp = 300) {
+            OomRecoveryScreen(
+                state =
+                    sampleOomRecoveryState(
+                        killTimeLabel = "12:42 UTC",
+                        downtimeLabel = "4 m 18 s",
+                    ),
+                onReconnect = {},
+                onViewIncident = {},
+                onDismiss = {},
+                onBack = {},
             )
         }
     }

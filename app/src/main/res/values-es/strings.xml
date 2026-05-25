@@ -2699,4 +2699,15 @@ Origen: %2$s</string>
     <string name="vpn_dev_pcap_toggle_desc">Captura paquetes VPN localmente para su inspección. Desactivado por defecto.</string>
     <string name="vpn_dev_pcap_consent_title">¿Activar captura de paquetes?</string>
     <string name="vpn_dev_pcap_consent_warning">Al activarlo, las cabeceras de paquetes, los nombres SNI de TLS, las IPs de destino y las huellas de estrategia de la próxima sesión VPN se escriben en un archivo de captura rotativo de hasta 64 MiB en disco. Las capturas permanecen privadas hasta que las exporte explícitamente.</string>
+
+    <!-- OOM recovery surface -->
+    <string name="title_oom_recovery">Recuperación OOM</string>
+    <string name="oom_recovery_title">Recuperación OOM</string>
+    <string name="oom_recovery_banner_title">RIPDPI fue detenido por Android</string>
+    <string name="oom_recovery_banner_body">El sistema terminó el servicio VPN a las %1$s (probablemente por presión de memoria). El túnel estuvo caído %2$s antes de este reinicio.</string>
+    <string name="oom_recovery_action_reconnect">Reconectar</string>
+    <string name="oom_recovery_action_view_incident">Ver incidente</string>
+    <string name="oom_recovery_action_dismiss">Descartar</string>
+    <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
+    <string name="oom_recovery_sample_downtime">4 m 18 s</string>
 </resources>

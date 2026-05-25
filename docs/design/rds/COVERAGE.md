@@ -132,7 +132,7 @@ Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47
 - ~~**Latency Graph** (`vpn-latency-graph.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/LatencyGraphScreen.kt`; single-series Canvas RTT line plot with dashed 100 ms threshold band (warning color), packet-loss bar row, and legend (Now / p99 / spike count). Sample data in `LatencyGraphSampleData.kt`. Roborazzi `latencyGraph` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.LatencyGraph`.
 - **Strategy A/B** (`vpn-strategy-ab.html`) — A/B test UI framework incomplete
 - **Strategy Import** (`vpn-strategy-import.html`) — import workflow partially complete
-- **OOM Recovery** (`vpn-oom-recovery.html`) — recovery UI present; edge case handling incomplete
+- ~~**OOM Recovery** (`vpn-oom-recovery.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/OomRecoveryScreen.kt`; warning-tone banner with kill-time, downtime duration, Reconnect/View-incident actions, dismissible via close icon. Sample data in `OomRecoverySampleData.kt`. Roborazzi `oomRecovery` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.OomRecovery`.
 
 ### ❌ Missing Implementation (0 specs — all closed)
 

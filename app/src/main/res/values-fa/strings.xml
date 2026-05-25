@@ -2704,4 +2704,15 @@ fakeddisorder endhost</string>
     <string name="vpn_dev_pcap_toggle_desc">بسته‌های VPN را برای بررسی به‌صورت محلی ضبط می‌کند. به طور پیش‌فرض غیرفعال است.</string>
     <string name="vpn_dev_pcap_consent_title">ضبط بسته‌ها فعال شود؟</string>
     <string name="vpn_dev_pcap_consent_warning">پس از فعال‌سازی، هدرهای بسته، نام‌های میزبان SNI TLS، آدرس‌های IP مقصد و اثرانگشت استراتژی از جلسه VPN بعدی در یک فایل ضبط چرخشی ۶۴ مگابایتی روی دستگاه ذخیره می‌شوند. ضبط‌ها تا زمانی که آن‌ها را صریحاً خروجی بگیرید، خصوصی باقی می‌مانند.</string>
+
+    <!-- OOM recovery surface -->
+    <string name="title_oom_recovery">بازیابی OOM</string>
+    <string name="oom_recovery_title">بازیابی OOM</string>
+    <string name="oom_recovery_banner_title">RIPDPI توسط اندروید متوقف شد</string>
+    <string name="oom_recovery_banner_body">سیستم سرویس VPN را در %1$s خاموش کرد (احتمالاً به دلیل فشار حافظه). تونل %2$s قبل از این راه‌اندازی مجدد خاموش بود.</string>
+    <string name="oom_recovery_action_reconnect">اتصال مجدد</string>
+    <string name="oom_recovery_action_view_incident">مشاهده رویداد</string>
+    <string name="oom_recovery_action_dismiss">بستن</string>
+    <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
+    <string name="oom_recovery_sample_downtime">۴ دقیقه ۱۸ ثانیه</string>
 </resources>
