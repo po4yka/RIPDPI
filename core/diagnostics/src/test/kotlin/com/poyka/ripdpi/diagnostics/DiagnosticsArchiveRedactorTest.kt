@@ -2,7 +2,9 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
+import com.poyka.ripdpi.diagnostics.export.redactDiagnosticsLogcat
 import kotlinx.serialization.json.Json
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -145,5 +147,25 @@ class DiagnosticsArchiveRedactorTest {
         val encoded = redactedEntity.payloadJson
 
         assertTrue("unknown ssid sentinel must be preserved", encoded.contains("\"unknown\""))
+    }
+
+    @Test
+    fun `standalone log redactor uses diagnostics archive logcat policy`() {
+        val raw =
+            "Authorization: Bearer secret-token " +
+                "https://admin:hunter2@private.example.test/api?token=abc123 " +
+                "host=private.example.test addr=203.0.113.10 ssid=\"CoffeeShop\" bssid=11:22:33:44:55:66"
+
+        val redacted = DiagnosticsLogRedactor().redactLogcat(raw)
+
+        assertEquals(redactDiagnosticsLogcat(raw), redacted)
+        assertFalse("Bearer token must not appear verbatim", redacted.contains("secret-token"))
+        assertFalse("URL credential must not appear verbatim", redacted.contains("admin:hunter2"))
+        assertFalse("query token must not appear verbatim", redacted.contains("abc123"))
+        assertFalse("endpoint host must not appear verbatim", redacted.contains("private.example.test"))
+        assertFalse("endpoint address must not appear verbatim", redacted.contains("203.0.113.10"))
+        assertFalse("SSID value must not appear verbatim", redacted.contains("CoffeeShop"))
+        assertFalse("BSSID must not appear verbatim", redacted.contains("11:22:33:44:55:66"))
+        assertTrue("redacted marker must be present", redacted.contains("redacted"))
     }
 }

@@ -15,6 +15,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
+import com.poyka.ripdpi.diagnostics.DiagnosticsLogRedactor
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
 import dagger.Binds
@@ -83,6 +84,7 @@ internal class DefaultMainActivityHost
     constructor(
         private val diagnosticsShareService: DiagnosticsShareService,
         private val logcatSnapshotCollector: LogcatSnapshotCollector,
+        private val diagnosticsLogRedactor: DiagnosticsLogRedactor,
         private val automationController: Optional<AutomationController>,
     ) : MainActivityHost {
         private lateinit var activity: AppCompatActivity
@@ -233,7 +235,7 @@ internal class DefaultMainActivityHost
                     }
                 activity.contentResolver.openOutputStream(destination)?.use { stream ->
                     try {
-                        stream.write(logcatSnapshot.content.toByteArray())
+                        stream.write(diagnosticsLogRedactor.redactLogcat(logcatSnapshot.content).toByteArray())
                     } catch (error: IOException) {
                         Logger.e(error) { "Failed to save logs" }
                     }
