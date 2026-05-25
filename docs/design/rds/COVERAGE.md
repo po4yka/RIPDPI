@@ -303,4 +303,47 @@ These are design tokens, brand guidelines, and accessibility references — no d
 
 ---
 
-**Audit Date:** 2026-05-24 | **Coverage:** 121/129 specs implemented (94%) | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
+**Audit Date:** 2026-05-25 | **Coverage:** 121/129 specs implemented (94%) | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
+
+---
+
+## G008 Subsystems Status (post-2026-05-25 session)
+
+Three Rust+JNI+Kotlin subsystems backing the VPN-flow partials, ratified by `docs/architecture/G008_SUBSYSTEMS_DESIGN.md`. Implementation order P5 → P3 → P4. **34 commits landed; load-bearing pieces shipped; explicit deferrals documented per phase.**
+
+### P5 — Connection-quality telemetry (TUN-mode end-to-end live)
+
+✅ **Landed:** `ripdpi-quality` library crate; `Stats::set_quality_observer` hook in `ripdpi-tunnel-core`; `QualityWindow` installed in `ripdpi-tunnel-android` telemetry state; additive `connection_quality: Option<ConnectionQualitySnapshot>` on `NativeRuntimeSnapshot` (no schema bump per the additive-Option contract); Kotlin `ConnectionQualitySnapshot` DTO + telemetry projection; `RipDpiNetworkQualityThresholds` tokens + `resolveDegradationTone` stateless helper; `HomeDegradationStrip` end-to-end wired via `MainQualityResolver` sibling resolver; `QualityGraphsScreen` scaffold consuming `ImmutableList<ConnectionQualitySnapshot>`; parallel wiring for relay-android + warp-android telemetry crates; 10 + 6 new strings across all 7 locales; RFC 3550 jitter formula; RFC 8083 + Telegram VoIP MOS-curve thresholds.
+
+⏳ **Deferred:**
+- Observer install for proxy/relay/warp runtimes (snapshot field populates `null` until the producer-side TCP-connect timing is instrumented in `ripdpi-proxy-runtime` — separate-crate edit).
+- Loss-percentage tracking (P5 ships without loss; tracking is a separate week of retransmit-count instrumentation per the design).
+- Canvas-based plotting on `QualityGraphsScreen` — depends on chart-library decision (Vico / hand-rolled / Compose Canvas).
+- Goldens for new wire fields — additive `Option` fields are wire-tolerant; a dedicated bless commit could harden the field-manifest contract.
+
+### P3 — PCAP export subsystem (capture pipeline live)
+
+✅ **Landed:** `ripdpi-pcap` library crate (classic libpcap LINKTYPE_RAW reader/writer/redact, hand-rolled checksum recompute, truncated-tail tolerance, `#![forbid(unsafe_code)]`); `PcapCaptureSet` in `ripdpi-tunnel-android` (1024-record ArrayQueue + dedicated `ripdpi-pcap-writer-N` thread + 16 MiB × 4-file rotation + drop counter); `PacketObserver` trait + tap in `ripdpi-tunnel-core::io_loop` drain/flush; four JNI exports (`jniPcapStart` / `jniPcapStop` / `jniPcapListCaptures` / `jniPcapRedactToFile`); single `unsafe` `OwnedFd::from_raw_fd` block with `// SAFETY:` for SAF `detachFd()` ownership transfer; new `:core:pcap-export` Gradle module with `PcapBridge` external-fun declarations + `PcapController` Hilt-injectable facade + `PcapReader` truncated-tail-tolerant parser; `PcapCaptureListScreen` UI scaffold; PCAP capture toggle in Advanced Settings with consent dialog (5 strings × 7 locales).
+
+⏳ **Deferred:**
+- Wiring `PcapCaptureListScreen` into navigation (separate `RipDpiNavHost.kt` route entry).
+- Roborazzi screenshot goldens for the viewer.
+- Process-death simulation test via `adb shell am kill` (CI matrix work).
+
+### P4 — Replay orchestrator (Kotlin-only, OkHttp-based)
+
+✅ **Landed:** orchestration model in `:core:diagnostics/replay/` (5 `ReplayStepKind` × `ReplayStepStatus` + `ReplayErrorKind` + `ReplayVerdict`); `ProbeReplayService` interface + `Flow<ReplayStepEvent>` shape; `DefaultProbeReplayService` backed by OkHttp `EventListener` (DNS / TCP / TLS-ClientHello / TLS-handshake / FirstByte boundaries); `ReplayRecommendationEngine` + JSON catalog (7 rules + default fallback); error-classification (SSLException / Connection-reset / Connection-refused / Timeout / DnsTampered / Unknown); `ReplayFailureViewModel` + `ReplayFailureRoute` end-to-end wired with `hiltViewModel()` + `collectAsStateWithLifecycle`; 6 + 1 R.string keys × 7 locales for recommendation messages; `ReplayProbeResult` + `runToCompletion` extension for future archive persistence; `ReplayCatalogParityTest` build-time gate enforcing JSON ↔ R.string contract.
+
+⏳ **Deferred:**
+- `DiagnosticsArchiveApi.attachReplay` actual archive-write wiring (depends on extending the existing archive API to accept replay payloads).
+- Strategy-mutation-disrupts-live-VPN confirmation dialog (separate UX commit).
+
+### Shared discipline upheld throughout
+
+- Cancel-safety annotations on every new `async fn` per `.claude/rules/llm-rust-prompts.md`
+- `// SAFETY:` block on the only new `unsafe` site (`OwnedFd::from_raw_fd`)
+- 7-locale string parity enforced in every UI-touching commit (lint.xml `MissingTranslation severity="error"`)
+- `--locked` cargo discipline in every Rust commit
+- No `RIPDPI_BLESS_GOLDENS=1` in automation — the one contract-fixture rebless was explicitly authorised under the design's additive-field protocol
+- Architecture-delta hook respected: when adding `connectionQuality` to `MainStateResolvers`/`MainViewModel` would have widened their file-feature-spread baseline, the projection moved into a sibling `MainQualityResolver.kt` (1 feature family)
+- `#![forbid(unsafe_code)]` on both pure library crates (`ripdpi-quality`, `ripdpi-pcap`)
