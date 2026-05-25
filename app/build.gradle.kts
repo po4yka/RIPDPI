@@ -291,6 +291,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:detection"))
     implementation(project(":core:diagnostics"))
+    implementation(project(":core:pcap-export"))
     implementation(project(":core:service"))
 
     // Proto DataStore

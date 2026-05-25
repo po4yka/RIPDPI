@@ -2572,6 +2572,7 @@ Quelle: %2$s</string>
     <string name="title_first_run_test">Erstprüfung</string>
     <string name="title_replay_failure">Wiederholung fehlgeschlagen</string>
     <string name="title_pcap_viewer">Paketmitschnitt</string>
+    <string name="title_pcap_capture_list">Paketmitschnitte</string>
     <string name="vpn_first_run_test_title">Schauen wir, was dein Netzwerk macht</string>
     <string name="vpn_first_run_test_caption">RIPDPI prüft 5 typische Ziele · etwa 10 s</string>
     <string name="vpn_first_run_test_skip">Überspringen</string>

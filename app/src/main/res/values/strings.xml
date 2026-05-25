@@ -2641,6 +2641,7 @@ Source: %2$s</string>
     <string name="title_first_run_test">First-run check</string>
     <string name="title_replay_failure">Replay failure</string>
     <string name="title_pcap_viewer">Packet capture</string>
+    <string name="title_pcap_capture_list">Packet captures</string>
     <string name="vpn_first_run_test_title">Let\'s see what your network does</string>
     <string name="vpn_first_run_test_caption">RIPDPI checks 5 common targets · about 10 s</string>
     <string name="vpn_first_run_test_skip">Skip</string>

@@ -2573,6 +2573,7 @@ fake_burst 3</string>
     <string name="title_first_run_test">首次运行检查</string>
     <string name="title_replay_failure">重放失败</string>
     <string name="title_pcap_viewer">数据包捕获</string>
+    <string name="title_pcap_capture_list">数据包捕获</string>
     <string name="vpn_first_run_test_title">看看你的网络如何表现</string>
     <string name="vpn_first_run_test_caption">RIPDPI 检查 5 个常用目标 · 约 10 秒</string>
     <string name="vpn_first_run_test_skip">跳过</string>

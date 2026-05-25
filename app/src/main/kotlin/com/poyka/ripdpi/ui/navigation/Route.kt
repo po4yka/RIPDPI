@@ -189,6 +189,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object PcapCaptureList : Route() {
+        override val stableRoute = "pcap_capture_list"
+        override val titleRes = R.string.title_pcap_capture_list
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object ReplayFailure : Route() {
         override val stableRoute = "replay_failure"
         override val titleRes = R.string.title_replay_failure
@@ -296,6 +303,7 @@ sealed class Route {
                     DetectionSettings,
                     FirstRunTest,
                     PcapViewer,
+                    PcapCaptureList,
                     ReplayFailure,
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),

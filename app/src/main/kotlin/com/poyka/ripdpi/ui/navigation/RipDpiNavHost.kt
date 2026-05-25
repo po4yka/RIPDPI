@@ -47,6 +47,7 @@ import com.poyka.ripdpi.ui.screens.detection.DetectionCheckRoute
 import com.poyka.ripdpi.ui.screens.detection.DetectionSettingsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRouteCallbacks
+import com.poyka.ripdpi.ui.screens.diagnostics.PcapCaptureListRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.PcapViewerRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.share.SharedResultRenderRoute
@@ -621,6 +622,14 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
     }
     composable<Route.PcapViewer> {
         PcapViewerRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.PcapCaptureList> {
+        PcapCaptureListRoute(
+            onCaptureSelected = { _ ->
+                // No PcapViewer routing yet — wiring real capture-file -> PcapPacket
+                // flow depends on PcapReader integration in a follow-up.
+            },
+        )
     }
     composable<Route.ReplayFailure> {
         ReplayFailureRoute(onBack = { navController.popBackStack() })
