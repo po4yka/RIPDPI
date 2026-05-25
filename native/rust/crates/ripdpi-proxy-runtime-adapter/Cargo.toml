@@ -23,6 +23,7 @@ ripdpi-runtime-decision-ports = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-runtime-services = { workspace = true }
 ripdpi-session = { workspace = true }
+ripdpi-socks5-core = { workspace = true }
 ripdpi-ws-bootstrap = { workspace = true }
 socket2 = { workspace = true }
 tracing = { workspace = true }

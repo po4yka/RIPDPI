@@ -1,6 +1,8 @@
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
+use ripdpi_socks5_core::validate_udp_rsv_frag;
+
 /// Encode a SOCKS5 UDP request frame (RFC 1928 section 7).
 ///
 /// ```text
@@ -38,7 +40,9 @@ pub fn decode_udp_frame(frame: &[u8]) -> io::Result<(SocketAddr, &[u8])> {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5 UDP frame too short"));
     }
 
-    // frame[0..2] = RSV, frame[2] = FRAG (ignored), frame[3] = ATYP
+    validate_udp_rsv_frag(frame)
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, format!("SOCKS5 UDP: {err}")))?;
+
     let (addr, data_start) = match frame[3] {
         0x01 => {
             let ip = Ipv4Addr::new(frame[4], frame[5], frame[6], frame[7]);

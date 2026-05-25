@@ -4050,6 +4050,7 @@ dependencies = [
  "ripdpi-runtime-platform",
  "ripdpi-runtime-services",
  "ripdpi-session",
+ "ripdpi-socks5-core",
  "ripdpi-ws-bootstrap",
  "socket2",
  "tracing",

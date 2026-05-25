@@ -311,6 +311,8 @@ pub enum UdpHeaderError {
     ReadingError(#[source] io::Error),
     #[error("does not match the expected reserved field")]
     GarbageInReserved,
+    #[error("SOCKS5 UDP fragmentation is unsupported: FRAG={0}")]
+    FragmentationUnsupported(u8),
 }
 
 /// Generate UDP header
@@ -345,19 +347,31 @@ pub fn new_udp_header<T: ToTargetAddr>(target_addr: T) -> Result<Vec<u8>, UdpHea
     Ok(header)
 }
 
-/// Parse data from UDP client on raw buffer, return (frag, target_addr, payload).
-pub async fn parse_udp_request<'a>(mut req: &'a [u8]) -> Result<(u8, TargetAddr, &'a [u8]), UdpHeaderError> {
-    let rsv = read_exact!(req, [0u8; 2]).map_err(UdpHeaderError::ReadingError)?;
-
-    if !rsv.eq(&[0u8; 2]) {
+pub fn validate_udp_rsv_frag(packet: &[u8]) -> Result<(), UdpHeaderError> {
+    let header = packet.get(..3).ok_or_else(|| {
+        UdpHeaderError::ReadingError(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "SOCKS5 UDP header is shorter than RSV+FRAG",
+        ))
+    })?;
+    if header[..2] != [0, 0] {
         return Err(UdpHeaderError::GarbageInReserved);
     }
+    if header[2] != 0 {
+        return Err(UdpHeaderError::FragmentationUnsupported(header[2]));
+    }
+    Ok(())
+}
 
-    let [frag, atyp] = read_exact!(req, [0u8; 2]).map_err(UdpHeaderError::ReadingError)?;
+/// Parse data from UDP client on raw buffer, return (frag, target_addr, payload).
+pub async fn parse_udp_request<'a>(mut req: &'a [u8]) -> Result<(u8, TargetAddr, &'a [u8]), UdpHeaderError> {
+    let header = read_exact!(req, [0u8; 3]).map_err(UdpHeaderError::ReadingError)?;
+    validate_udp_rsv_frag(&header)?;
+    let [atyp] = read_exact!(req, [0u8; 1]).map_err(UdpHeaderError::ReadingError)?;
 
     let target_addr = read_address(&mut req, atyp).await?;
 
-    Ok((frag, target_addr, req))
+    Ok((0, target_addr, req))
 }
 
 #[cfg(test)]
@@ -368,7 +382,7 @@ mod test {
         sync::oneshot::Sender,
     };
 
-    use crate::{client, server, ReplyError, Socks5Command};
+    use crate::{client, parse_udp_request, server, validate_udp_rsv_frag, ReplyError, Socks5Command, UdpHeaderError};
     use std::{
         net::{SocketAddr, ToSocketAddrs},
         num::ParseIntError,
@@ -379,6 +393,25 @@ mod test {
     use tokio_test::block_on;
 
     fn init() {}
+
+    #[test]
+    fn udp_header_validator_rejects_nonzero_reserved_bytes() {
+        assert!(matches!(validate_udp_rsv_frag(&[0, 1, 0, 1]), Err(UdpHeaderError::GarbageInReserved)));
+    }
+
+    #[test]
+    fn udp_header_validator_rejects_nonzero_frag() {
+        assert!(matches!(validate_udp_rsv_frag(&[0, 0, 1, 1]), Err(UdpHeaderError::FragmentationUnsupported(1))));
+    }
+
+    #[test]
+    fn parse_udp_request_rejects_nonzero_frag() {
+        let packet = [0, 0, 1, 1, 127, 0, 0, 1, 0x01, 0xbb, b'x'];
+
+        let parsed = block_on(parse_udp_request(&packet));
+
+        assert!(matches!(parsed, Err(UdpHeaderError::FragmentationUnsupported(1))));
+    }
 
     async fn setup_socks_server(proxy_addr: &str, tx: Sender<SocketAddr>) -> Result<()> {
         let reply_ip = proxy_addr.parse::<SocketAddr>().unwrap().ip();

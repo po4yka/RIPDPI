@@ -287,3 +287,27 @@ fn decode_ipv4_frame_round_trips() {
 fn decode_frame_too_short_is_err() {
     assert!(decode_udp_frame(&[0u8; 5]).is_err());
 }
+
+#[test]
+fn decode_frame_rejects_nonzero_reserved_bytes() {
+    use std::net::{Ipv4Addr, SocketAddrV4};
+
+    let dst = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 1, 1), 53));
+    let mut frame = encode_udp_frame(dst, b"dns-query");
+    frame[1] = 0x01;
+
+    let err = decode_udp_frame(&frame).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+}
+
+#[test]
+fn decode_frame_rejects_nonzero_frag() {
+    use std::net::{Ipv4Addr, SocketAddrV4};
+
+    let dst = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 1, 1), 53));
+    let mut frame = encode_udp_frame(dst, b"dns-query");
+    frame[2] = 0x01;
+
+    let err = decode_udp_frame(&frame).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+}

@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket};
 
 use ripdpi_socks5_core::client::{Config as Socks5Config, Socks5Stream};
 use ripdpi_socks5_core::util::target_addr::TargetAddr as Socks5TargetAddr;
-use ripdpi_socks5_core::{Socks5Command, SocksError};
+use ripdpi_socks5_core::{validate_udp_rsv_frag, Socks5Command, SocksError};
 
 use crate::util::IO_TIMEOUT;
 
@@ -138,6 +138,7 @@ pub fn decode_socks5_udp_frame(frame: &[u8]) -> Result<(SocketAddr, Vec<u8>), St
     if frame.len() < 10 {
         return Err("SOCKS5 UDP frame too short".to_string());
     }
+    validate_udp_rsv_frag(frame).map_err(|err| format!("SOCKS5 UDP: {err}"))?;
     match frame[3] {
         0x01 => {
             let address = SocketAddr::new(
@@ -227,5 +228,25 @@ mod tests {
         let mut frame = vec![0x00, 0x00, 0x00, 0x02];
         frame.extend_from_slice(&[0; 10]);
         assert!(decode_socks5_udp_frame(&frame).is_err());
+    }
+
+    #[test]
+    fn decode_socks5_udp_frame_rejects_nonzero_reserved_bytes() {
+        let addr: SocketAddr = "1.2.3.4:5678".parse().unwrap();
+        let mut frame = encode_socks5_udp_frame(addr, b"payload");
+        frame[0] = 0x01;
+
+        let err = decode_socks5_udp_frame(&frame).unwrap_err();
+        assert!(err.contains("reserved"));
+    }
+
+    #[test]
+    fn decode_socks5_udp_frame_rejects_nonzero_frag() {
+        let addr: SocketAddr = "1.2.3.4:5678".parse().unwrap();
+        let mut frame = encode_socks5_udp_frame(addr, b"payload");
+        frame[2] = 0x01;
+
+        let err = decode_socks5_udp_frame(&frame).unwrap_err();
+        assert!(err.contains("fragmentation"));
     }
 }

@@ -1,6 +1,8 @@
 use std::io::{self, Read};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
+use ripdpi_socks5_core::validate_udp_rsv_frag;
+
 use super::super::config::{ipv6_enabled, name_resolution_enabled, RuntimeConfig, ShadowsocksTargetPolicy};
 use super::{SocketType, S_ATP_I4, S_ATP_I6, S_ATP_ID, S_CMD_CONN, S_VER5};
 
@@ -18,7 +20,7 @@ pub fn parse_socks5_udp_packet<'a>(
     config: &RuntimeConfig,
     mut resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
 ) -> Option<(SocketAddr, &'a [u8])> {
-    if packet.len() < 4 || packet[2] != 0 {
+    if packet.len() < 4 || validate_udp_rsv_frag(packet).is_err() {
         return None;
     }
     let atyp = packet[3];
@@ -194,5 +196,25 @@ mod tests {
         });
 
         assert_eq!(parsed, Some((SocketAddr::from(([203, 0, 113, 7], 443)), &b"x"[..])));
+    }
+
+    #[test]
+    fn udp_packet_parser_rejects_nonzero_reserved_bytes() {
+        let config = RuntimeConfig::default();
+        let packet = [0, 1, 0, S_ATP_I4, 192, 0, 2, 1, 0x01, 0xbb, b'x'];
+
+        let parsed = parse_socks5_udp_packet(&packet, &config, |_, _| None);
+
+        assert_eq!(parsed, None);
+    }
+
+    #[test]
+    fn udp_packet_parser_rejects_nonzero_frag() {
+        let config = RuntimeConfig::default();
+        let packet = [0, 0, 1, S_ATP_I4, 192, 0, 2, 1, 0x01, 0xbb, b'x'];
+
+        let parsed = parse_socks5_udp_packet(&packet, &config, |_, _| None);
+
+        assert_eq!(parsed, None);
     }
 }
