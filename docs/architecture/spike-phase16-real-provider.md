@@ -25,7 +25,7 @@ Add a real-provider lane to the existing `ripdpi-lab` runner pool so release-tim
 
 ## Fallback when the runner is offline
 
-Real-provider cells are marked `runnerRequired: real-provider` and `evidenceTier: real-provider`. When the runner is offline:
+Real-provider cells are marked `runnerRequired: real-provider` and `evidenceTier: real-provider`. They are excluded from normal matrix emission and require `--include-real-provider` even when the entry id is explicitly filtered. When the runner is unavailable:
 
 - PR CI ignores those cells (they are not on the PR critical path).
 - Release-gate CI fails closed with a `runner_unavailable` summary so releases cannot ship without the signal.
@@ -42,7 +42,7 @@ Adds three rows to the existing matrix per axis combination that today runs on s
 | ... | `ns-megafon` | `real-provider` |
 | ... | `ns-beeline` | `real-provider` |
 
-`phase16_pcap_summary.py` now carries `runnerRequired`, `evidenceTier`, and `carrierNamespace` from `phase16-run.json` into `runMetadata` so archive/export work can distinguish synthetic lab evidence from real-provider evidence without inspecting workflow labels.
+`phase16_pcap_summary.py` now carries `status`, `failureMessage`, `runnerRequired`, `evidenceTier`, and `carrierNamespace` from `phase16-run.json` into `runMetadata` so archive/export work can distinguish synthetic lab evidence from real-provider evidence without inspecting workflow labels.
 
 ## What this does *not* do
 

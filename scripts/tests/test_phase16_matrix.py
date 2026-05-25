@@ -63,7 +63,7 @@ class Phase16MatrixTest(unittest.TestCase):
             json.loads(entry["runsOnJson"]),
         )
 
-    def test_real_provider_entries_are_opt_in_unless_explicitly_filtered(self) -> None:
+    def test_real_provider_entries_are_opt_in_even_when_filtered(self) -> None:
         fixture = phase16_matrix.load_fixture()
         default_entries = phase16_matrix.filtered_entries(fixture)
         self.assertFalse(
@@ -71,7 +71,13 @@ class Phase16MatrixTest(unittest.TestCase):
         )
         all_entries = phase16_matrix.filtered_entries(fixture, include_real_provider=True)
         self.assertTrue(any(phase16_matrix.entry_runner_required(entry) == "real-provider" for entry in all_entries))
-        filtered = phase16_matrix.filtered_entries(fixture, "real_provider_mts_cellular_ipv4_nonroot_vpn")
+        with self.assertRaisesRegex(ValueError, "real-provider matrix entries require --include-real-provider"):
+            phase16_matrix.filtered_entries(fixture, "real_provider_mts_cellular_ipv4_nonroot_vpn")
+        filtered = phase16_matrix.filtered_entries(
+            fixture,
+            "real_provider_mts_cellular_ipv4_nonroot_vpn",
+            include_real_provider=True,
+        )
         self.assertEqual(1, len(filtered))
         self.assertEqual("real-provider", phase16_matrix.entry_runner_required(filtered[0]))
         payload = phase16_matrix.emit_github_matrix(filtered)
@@ -84,6 +90,24 @@ class Phase16MatrixTest(unittest.TestCase):
         fixture = phase16_matrix.load_fixture()
         with self.assertRaisesRegex(ValueError, "no matrix entries matched filter"):
             phase16_matrix.filtered_entries(fixture, "does_not_exist")
+
+    def test_cli_rejects_filtered_real_provider_without_traceback(self) -> None:
+        result = subprocess.run(
+            [
+                "python3",
+                str(REPO_ROOT / "scripts/ci/phase16_matrix.py"),
+                "emit-github-matrix",
+                "--filter",
+                "real_provider_mts_cellular_ipv4_nonroot_vpn",
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("require --include-real-provider", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_matrix_scenario_filters_exist_in_packet_smoke_registry(self) -> None:
         fixture = phase16_matrix.load_fixture()
@@ -124,11 +148,14 @@ class Phase16MatrixTest(unittest.TestCase):
             self.assertNotEqual(0, result.returncode)
             self.assertIn("RIPDPI_PHASE16_REAL_PROVIDER_CONFIG", result.stderr)
             manifest = json.loads((artifact_root / "phase16-run.json").read_text(encoding="utf-8"))
-            self.assertEqual("failure", manifest["status"])
+            self.assertEqual("runner_unavailable", manifest["status"])
+            self.assertIn("RIPDPI_PHASE16_REAL_PROVIDER_CONFIG", manifest["failureMessage"])
             self.assertEqual("real-provider", manifest["runnerRequired"])
             self.assertEqual("real-provider", manifest["evidenceTier"])
             self.assertEqual("ns-mts", manifest["carrierNamespace"])
             summary = json.loads((artifact_root / "phase16-pcap-summary.json").read_text(encoding="utf-8"))
+            self.assertEqual("runner_unavailable", summary["runMetadata"]["status"])
+            self.assertIn("RIPDPI_PHASE16_REAL_PROVIDER_CONFIG", summary["runMetadata"]["failureMessage"])
             self.assertEqual("real-provider", summary["runMetadata"]["runnerRequired"])
             self.assertEqual("real-provider", summary["runMetadata"]["evidenceTier"])
             self.assertEqual("ns-mts", summary["runMetadata"]["carrierNamespace"])
@@ -256,6 +283,7 @@ class Phase16PcapSummaryTest(unittest.TestCase):
             summary = phase16_pcap_summary.summarize_artifact_root(root, registry)
             self.assertEqual("lab", summary["runMetadata"]["runnerRequired"])
             self.assertEqual("synthetic-lab", summary["runMetadata"]["evidenceTier"])
+            self.assertEqual("", summary["runMetadata"]["failureMessage"])
             self.assertEqual(1, summary["scenarioCount"])
             scenario = summary["scenarios"][0]
             self.assertEqual("android_proxy_tlsrec_family", scenario["id"])

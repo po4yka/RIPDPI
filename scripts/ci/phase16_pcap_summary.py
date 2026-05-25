@@ -185,6 +185,7 @@ def summarize_artifact_root(artifact_root: Path, registry: dict[str, dict]) -> d
         "runMetadata": {
             "entryId": run_metadata.get("entryId", ""),
             "status": run_metadata.get("status", ""),
+            "failureMessage": run_metadata.get("failureMessage", ""),
             "runnerRequired": run_metadata.get("runnerRequired", "lab"),
             "evidenceTier": run_metadata.get("evidenceTier", "synthetic-lab"),
             "carrierNamespace": run_metadata.get("carrierNamespace", ""),

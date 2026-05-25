@@ -24,6 +24,13 @@ start_epoch="$(date +%s)"
 status="success"
 failure_message=""
 
+runner_unavailable() {
+  status="runner_unavailable"
+  failure_message="$1"
+  echo "$failure_message" >&2
+  exit 1
+}
+
 write_manifest() {
   local finish_epoch
   finish_epoch="$(date +%s)"
@@ -61,7 +68,7 @@ PY
 on_exit() {
   local exit_code=$?
   mkdir -p "$artifact_root"
-  if [[ "$exit_code" -ne 0 ]]; then
+  if [[ "$exit_code" -ne 0 && "$status" == "success" ]]; then
     status="failure"
   fi
   export PHASE16_RUN_STATUS="$status"
@@ -85,19 +92,13 @@ case "$runner_required" in
     ;;
   real-provider)
     if [[ -z "$carrier_namespace" ]]; then
-      failure_message="real-provider Phase 16 entry requires PHASE16_CARRIER_NAMESPACE"
-      echo "$failure_message" >&2
-      exit 1
+      runner_unavailable "real-provider Phase 16 entry requires PHASE16_CARRIER_NAMESPACE"
     fi
     if [[ -z "$real_provider_config" || ! -r "$real_provider_config" ]]; then
-      failure_message="real-provider Phase 16 entry requires readable RIPDPI_PHASE16_REAL_PROVIDER_CONFIG"
-      echo "$failure_message" >&2
-      exit 1
+      runner_unavailable "real-provider Phase 16 entry requires readable RIPDPI_PHASE16_REAL_PROVIDER_CONFIG"
     fi
     if [[ -z "$prepare_hook" ]]; then
-      failure_message="real-provider Phase 16 entry requires RIPDPI_PHASE16_PREPARE_HOOK"
-      echo "$failure_message" >&2
-      exit 1
+      runner_unavailable "real-provider Phase 16 entry requires RIPDPI_PHASE16_PREPARE_HOOK"
     fi
     ;;
   *)
@@ -110,6 +111,9 @@ esac
 if [[ -n "$prepare_hook" ]]; then
   if [[ ! -x "$prepare_hook" ]]; then
     failure_message="prepare hook is not executable: $prepare_hook"
+    if [[ "$runner_required" == "real-provider" ]]; then
+      runner_unavailable "$failure_message"
+    fi
     echo "$failure_message" >&2
     exit 1
   fi

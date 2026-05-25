@@ -172,6 +172,12 @@ def filtered_entries(
     filtered = [entry for entry in entries if entry["id"] in filters]
     if not filtered:
         raise ValueError(f"no matrix entries matched filter: {entry_filter}")
+    real_provider_ids = sorted(entry["id"] for entry in filtered if entry_runner_required(entry) == "real-provider")
+    if real_provider_ids and not include_real_provider:
+        raise ValueError(
+            "real-provider matrix entries require --include-real-provider: "
+            + ", ".join(real_provider_ids)
+        )
     return filtered
 
 
@@ -219,19 +225,22 @@ def main() -> int:
     list_parser.add_argument("--fixture", type=Path, default=default_fixture_path())
 
     args = parser.parse_args()
-    fixture = load_fixture(args.fixture)
-    validate_fixture(fixture)
+    try:
+        fixture = load_fixture(args.fixture)
+        validate_fixture(fixture)
 
-    if args.command == "validate":
-        return 0
-    if args.command == "emit-github-matrix":
-        payload = emit_github_matrix(filtered_entries(fixture, args.filter, args.include_real_provider))
-        print(json.dumps(payload, separators=(",", ":")))
-        return 0
-    if args.command == "list":
-        for entry in fixture["entries"]:
-            print(entry["id"])
-        return 0
+        if args.command == "validate":
+            return 0
+        if args.command == "emit-github-matrix":
+            payload = emit_github_matrix(filtered_entries(fixture, args.filter, args.include_real_provider))
+            print(json.dumps(payload, separators=(",", ":")))
+            return 0
+        if args.command == "list":
+            for entry in fixture["entries"]:
+                print(entry["id"])
+            return 0
+    except ValueError as exc:
+        parser.error(str(exc))
     raise AssertionError(f"unhandled command: {args.command}")
 
 

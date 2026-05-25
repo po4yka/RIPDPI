@@ -215,10 +215,10 @@ python3 scripts/ci/phase16_pcap_summary.py --artifact-root build/phase16-matrix/
 ```
 
 - `contract-fixtures/phase16_lab_matrix.json` is the source of truth for the repeated Wi-Fi/cellular x IPv4/IPv6 x rooted/non-rooted x proxy/VPN matrix.
-- Real-provider rows are present in the fixture as `runnerRequired=real-provider` and `evidenceTier=real-provider`; default matrix emission excludes them so normal scheduled lab runs do not queue on carrier hardware, while `workflow_dispatch` with `include_real_provider=true` includes the opt-in SIM lanes.
+- Real-provider rows are present in the fixture as `runnerRequired=real-provider` and `evidenceTier=real-provider`; default matrix emission excludes them so normal scheduled lab runs do not queue on carrier hardware, and even explicitly filtered real-provider rows require `workflow_dispatch` with `include_real_provider=true`.
 - The same fixture also carries required non-baseline `networkCondition` rows for PMTUD blackholes, rooted IP fragmentation under MTU stress, IPv6 extension-header blackholes, and carrier-style NAT/reordering. Those rows require `RIPDPI_PHASE16_PREPARE_HOOK` so they fail closed instead of running against an unstressed baseline path.
 - `.github/workflows/phase16-matrix.yml` fans that fixture out onto self-hosted `ripdpi-lab` runners instead of pretending GitHub-hosted runners can provide those environments.
-- `scripts/ci/run-phase16-matrix-entry.sh` writes `phase16-run.json` plus `phase16-pcap-summary.json` for each entry so archive/export work can consume the same measurement evidence consistently; real-provider rows fail closed unless `RIPDPI_PHASE16_REAL_PROVIDER_CONFIG` is readable and a prepare hook is supplied.
+- `scripts/ci/run-phase16-matrix-entry.sh` writes `phase16-run.json` plus `phase16-pcap-summary.json` for each entry so archive/export work can consume the same measurement evidence consistently; real-provider rows fail closed with `status=runner_unavailable` unless `RIPDPI_PHASE16_REAL_PROVIDER_CONFIG` is readable and a prepare hook is supplied.
 - `scripts/ci/phase16_pcap_summary.py` understands both host `capture.pcap`/`capture.tshark.json` artifacts and Android `device-capture.pcap`/`device-capture.tshark.json` artifacts.
 
 ## Docker Local Network Test Lab
