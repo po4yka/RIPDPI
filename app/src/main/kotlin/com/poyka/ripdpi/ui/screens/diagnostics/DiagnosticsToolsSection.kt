@@ -97,6 +97,12 @@ internal data class DiagnosticsShareActions(
     val onSaveLogs: () -> Unit,
 )
 
+internal data class DiagnosticsToolsNavActions(
+    val onOpenDetectionCheck: () -> Unit = {},
+    val onOpenPcapCaptureList: () -> Unit = {},
+    val onOpenPastReplays: () -> Unit = {},
+)
+
 @Composable
 internal fun ToolsSection(
     approaches: DiagnosticsApproachesUiModel,
@@ -109,7 +115,7 @@ internal fun ToolsSection(
     ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     dpiToolActions: DiagnosticsDpiToolActions = DiagnosticsDpiToolActions(),
-    onOpenDetectionCheck: () -> Unit = {},
+    navActions: DiagnosticsToolsNavActions = DiagnosticsToolsNavActions(),
     rootModeEnabled: Boolean = false,
     pcapRecording: Boolean = false,
     onTogglePcapRecording: () -> Unit = {},
@@ -132,6 +138,7 @@ internal fun ToolsSection(
             if (pcapRecording) {
                 disclosureItem()
             }
+            pcapCaptureListItem(navActions.onOpenPcapCaptureList)
         }
         shareItems(
             share = share,
@@ -147,7 +154,8 @@ internal fun ToolsSection(
             pluggableTransportTool = pluggableTransportTool,
             actions = dpiToolActions,
         )
-        detectionCheckItem(onOpenDetectionCheck)
+        detectionCheckItem(navActions.onOpenDetectionCheck)
+        pastReplaysItem(navActions.onOpenPastReplays)
     }
 }
 

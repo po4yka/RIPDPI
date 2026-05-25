@@ -2,17 +2,24 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
@@ -24,11 +31,21 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 
 private const val MaxPlotSamples = 60
+private const val QualityAxisTickCount = 4
 
 /**
- * P5.7 of G008. Throughput + latency graph cells over a rolling
- * sample window. Canvas-based line plots render above each card's
- * current-value text; no external chart library is used.
+ * Presentation-only RTT + jitter graphs matching the Canvas line-plot pattern
+ * established by [ThroughputGraphScreen] and [LatencyGraphScreen].
+ *
+ * Renders two [RipDpiCard]-wrapped charts driven by an
+ * [ImmutableList] of [ConnectionQualitySnapshot] values:
+ * - RTT chart: plots [ConnectionQualitySnapshot.rttP50Ms] (ms on Y, time on X),
+ *   with a fill under the line, axis ticks, header pill, and legend row.
+ * - Jitter chart: same layout for [ConnectionQualitySnapshot.jitterMs].
+ *
+ * Loss-percentage chart is deferred until [ConnectionQualitySnapshot.lossPct]
+ * is populated by the parallel tunnel-core retransmit-tracking PR.
+ * All visual values read exclusively from [RipDpiThemeTokens] and [RipDpiStroke].
  */
 @Composable
 fun QualityGraphsScreen(samples: ImmutableList<ConnectionQualitySnapshot>) {
@@ -39,15 +56,15 @@ fun QualityGraphsScreen(samples: ImmutableList<ConnectionQualitySnapshot>) {
     ) {
         QualityGraphCard(
             title = stringResource(R.string.vpn_quality_graph_throughput_title),
-            currentValue = samples.lastOrNull()?.let { "${it.rttP50Ms} ms p50" } ?: "—",
-            sampleCount = samples.size,
+            nowLabel = samples.lastOrNull()?.let { "${it.rttP50Ms} ms" } ?: "—",
+            p50Label = samples.lastOrNull()?.let { "p50 ${it.rttP50Ms} ms" } ?: "—",
             samples = samples,
             selector = { it.rttP50Ms },
         )
         QualityGraphCard(
             title = stringResource(R.string.vpn_quality_graph_latency_title),
-            currentValue = samples.lastOrNull()?.let { "${it.jitterMs} ms jitter" } ?: "—",
-            sampleCount = samples.size,
+            nowLabel = samples.lastOrNull()?.let { "${it.jitterMs} ms" } ?: "—",
+            p50Label = samples.lastOrNull()?.let { "avg ${it.jitterMs} ms" } ?: "—",
             samples = samples,
             selector = { it.jitterMs },
         )
@@ -57,34 +74,62 @@ fun QualityGraphsScreen(samples: ImmutableList<ConnectionQualitySnapshot>) {
 @Composable
 private fun QualityGraphCard(
     title: String,
-    currentValue: String,
-    sampleCount: Int,
+    nowLabel: String,
+    p50Label: String,
     samples: ImmutableList<ConnectionQualitySnapshot>,
     selector: (ConnectionQualitySnapshot) -> Long,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
-    val colors = RipDpiThemeTokens.colors
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-        Text(text = title, style = type.sectionTitle, color = colors.foreground)
+    RipDpiCard(modifier = Modifier.fillMaxWidth(), variant = RipDpiCardVariant.Outlined) {
+        QualityGraphHeader(title = title, nowLabel = nowLabel, p50Label = p50Label)
         Spacer(modifier = Modifier.height(spacing.sm))
-        // Canvas line plot — section(40) + xxxl(32) + xxl(24) + xs(4) = 100 dp
-        QualityLinePlot(
-            samples = samples,
-            selector = selector,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(spacing.section + spacing.xxxl + spacing.xxl + spacing.xs),
-        )
+        QualityLinePlot(samples = samples, selector = selector)
         Spacer(modifier = Modifier.height(spacing.sm))
-        Text(text = currentValue, style = type.monoValue, color = colors.foreground)
+        QualityLegend(nowLabel = nowLabel, p50Label = p50Label)
         Spacer(modifier = Modifier.height(spacing.xs))
         Text(
-            text = stringResource(R.string.vpn_quality_graph_samples_format, sampleCount),
-            style = type.caption,
-            color = colors.mutedForeground,
+            text = stringResource(R.string.vpn_quality_graph_caption),
+            style = RipDpiThemeTokens.type.caption,
+            color = RipDpiThemeTokens.colors.mutedForeground,
         )
+    }
+}
+
+@Composable
+private fun QualityGraphHeader(
+    title: String,
+    nowLabel: String,
+    p50Label: String,
+) {
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+            Text(
+                text = nowLabel,
+                style = type.monoSmall,
+                color = colors.mutedForeground,
+            )
+            Text(
+                text = "·",
+                style = type.monoSmall,
+                color = colors.mutedForeground,
+            )
+            Text(
+                text = p50Label,
+                style = type.monoSmall,
+                color = colors.mutedForeground,
+            )
+        }
     }
 }
 
@@ -94,43 +139,142 @@ private fun QualityLinePlot(
     selector: (ConnectionQualitySnapshot) -> Long,
     modifier: Modifier = Modifier,
 ) {
+    val spacing = RipDpiThemeTokens.spacing
+    val shapes = RipDpiThemeTokens.components.shapes
     val colors = RipDpiThemeTokens.colors
     val bgColor = colors.inputBackground
     val lineColor = colors.accent
-    val strokeWidthDp = RipDpiStroke.Thick
+    val lineStroke = RipDpiStroke.Thick
 
-    val window =
-        if (samples.size > MaxPlotSamples) {
-            samples.subList(samples.size - MaxPlotSamples, samples.size)
-        } else {
-            samples
+    // plotHeight = section(40) + xxxl(32) + xxl(24) + xs(4) = 100 dp
+    val plotHeight = spacing.section + spacing.xxxl + spacing.xxl + spacing.xs
+
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(plotHeight),
+    ) {
+        Canvas(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(plotHeight)
+                    .clip(
+                        androidx.compose.foundation.shape
+                            .RoundedCornerShape(shapes.largeCornerRadius),
+                    ),
+        ) {
+            drawRect(color = bgColor)
+
+            val window =
+                if (samples.size > MaxPlotSamples) {
+                    samples.subList(samples.size - MaxPlotSamples, samples.size)
+                } else {
+                    samples
+                }
+            val values = window.map { selector(it) }
+
+            if (values.size >= 2) {
+                drawQualityCanvas(
+                    values = values,
+                    lineColor = lineColor,
+                    lineStroke = lineStroke,
+                )
+            }
         }
-    val values = window.map { selector(it) }
+    }
+}
 
-    Canvas(modifier = modifier) {
-        drawRect(color = bgColor)
+private fun DrawScope.drawQualityCanvas(
+    values: List<Long>,
+    lineColor: androidx.compose.ui.graphics.Color,
+    lineStroke: androidx.compose.ui.unit.Dp,
+) {
+    val maxValue = values.max().coerceAtLeast(1L).toFloat()
+    val xStep = size.width / (values.size - 1).toFloat()
 
-        if (values.size < 2) return@Canvas
+    // Fill area — 8% opacity under the curve (mirrors ThroughputGraphScreen pattern)
+    val fillPath = Path()
+    values.forEachIndexed { i, v ->
+        val x = i * xStep
+        val y = size.height - (v.toFloat() / maxValue) * size.height
+        if (i == 0) fillPath.moveTo(x, y) else fillPath.lineTo(x, y)
+    }
+    fillPath.lineTo(size.width, size.height)
+    fillPath.lineTo(0f, size.height)
+    fillPath.close()
+    drawPath(path = fillPath, color = lineColor.copy(alpha = 0.08f))
 
-        val maxValue = values.max().coerceAtLeast(1L).toFloat()
-        val xStep = size.width / (values.size - 1).toFloat()
+    // Line
+    val linePath = Path()
+    values.forEachIndexed { i, v ->
+        val x = i * xStep
+        val y = size.height - (v.toFloat() / maxValue) * size.height
+        if (i == 0) linePath.moveTo(x, y) else linePath.lineTo(x, y)
+    }
+    drawPath(
+        path = linePath,
+        color = lineColor,
+        style =
+            Stroke(
+                width = lineStroke.toPx(),
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round,
+            ),
+    )
 
-        val path = Path()
-        values.forEachIndexed { index, value ->
-            val x = index * xStep
-            val y = size.height - (value.toFloat() / maxValue) * size.height
-            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-
-        drawPath(
-            path = path,
-            color = lineColor,
-            style =
-                Stroke(
-                    width = strokeWidthDp.toPx(),
-                    cap = StrokeCap.Round,
-                    join = StrokeJoin.Round,
-                ),
+    // Axis tick marks — faint vertical lines at 1/4 intervals (mirrors ThroughputGraphScreen)
+    for (t in 1 until QualityAxisTickCount) {
+        val x = size.width * t / QualityAxisTickCount
+        drawLine(
+            color = lineColor.copy(alpha = 0.06f),
+            start = Offset(x, 0f),
+            end = Offset(x, size.height),
+            strokeWidth = RipDpiStroke.Hairline.toPx(),
         )
+    }
+}
+
+@Composable
+private fun QualityLegend(
+    nowLabel: String,
+    p50Label: String,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.lg)) {
+        QualityLegendItem(
+            swatchColor = colors.accent,
+            label = stringResource(R.string.vpn_quality_graph_legend_now),
+            value = nowLabel,
+        )
+        QualityLegendItem(
+            swatchColor = colors.accent,
+            label = stringResource(R.string.vpn_quality_graph_legend_p50),
+            value = p50Label,
+        )
+    }
+}
+
+@Composable
+private fun QualityLegendItem(
+    swatchColor: androidx.compose.ui.graphics.Color,
+    label: String,
+    value: String,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        Canvas(modifier = Modifier.size(width = spacing.md, height = RipDpiStroke.Thick)) {
+            drawRect(color = swatchColor)
+        }
+        Text(text = label, style = type.monoSmall, color = colors.mutedForeground)
+        Text(text = value, style = type.monoSmall, color = colors.foreground)
     }
 }

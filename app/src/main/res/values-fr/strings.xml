@@ -2686,9 +2686,12 @@ Source : %2$s</string>
     <string name="vpn_quality_metric_loss">Perte</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">Gigue</string>
-    <string name="vpn_quality_graph_throughput_title">Débit</string>
-    <string name="vpn_quality_graph_latency_title">Latence</string>
+    <string name="vpn_quality_graph_throughput_title">RTT</string>
+    <string name="vpn_quality_graph_latency_title">Gigue</string>
     <string name="vpn_quality_graph_samples_format">%1$d échantillons</string>
+    <string name="vpn_quality_graph_legend_now">Maintenant</string>
+    <string name="vpn_quality_graph_legend_p50">p50</string>
+    <string name="vpn_quality_graph_caption">Graphiques RTT + gigue · fenêtre glissante 60 s.</string>
     <string name="vpn_pcap_capture_list_empty">Aucune capture · activez dans Paramètres</string>
     <string name="vpn_pcap_capture_meta_format">%1$d Kio · %2$d paquets</string>
     <string name="vpn_pcap_capture_drops_format">%1$d paquets perdus sous charge</string>
@@ -2781,4 +2784,8 @@ Source : %2$s</string>
     <string name="share_link_preview_privacy_title">Reste sur l\'appareil</string>
     <string name="share_link_preview_privacy_message">Le fragment ne quitte jamais l\'appareil — il est décodé localement par le destinataire. Les noms d\'hôte sont hachés sauf si la rédaction est désactivée.</string>
     <string name="share_link_preview_privacy_emphasis">ne quitte jamais l\'appareil</string>
+    <string name="diagnostics_pcap_captures_label">Captures de paquets</string>
+    <string name="diagnostics_pcap_captures_description">Parcourir et exporter les fichiers PCAP enregistrés</string>
+    <string name="diagnostics_past_replays_label">Anciennes relectures</string>
+    <string name="diagnostics_past_replays_description">Consulter les sessions de relecture archivées</string>
 </resources>

@@ -140,6 +140,8 @@ data class DiagnosticsScreenActions(
     val onOpenHistory: () -> Unit = {},
     val onOpenModeEditor: () -> Unit = {},
     val onOpenOwnedStackBrowser: (String) -> Unit = {},
+    val onOpenPcapCaptureList: () -> Unit = {},
+    val onOpenPastReplays: () -> Unit = {},
     val onTogglePcapRecording: () -> Unit = {},
     val onRunDnsIntegrityCheck: () -> Unit = {},
     val onRunDnsAvailabilitySurvey: () -> Unit = {},
@@ -388,7 +390,12 @@ private fun DiagnosticsToolsPagerPage(
         ipv4WhitelistTool = ipv4WhitelistTool,
         pluggableTransportTool = pluggableTransportTool,
         dpiToolActions = actions.toDiagnosticsDpiToolActions(),
-        onOpenDetectionCheck = actions.onOpenDetectionCheck,
+        navActions =
+            DiagnosticsToolsNavActions(
+                onOpenDetectionCheck = actions.onOpenDetectionCheck,
+                onOpenPcapCaptureList = actions.onOpenPcapCaptureList,
+                onOpenPastReplays = actions.onOpenPastReplays,
+            ),
         rootModeEnabled = rootModeEnabled,
         pcapRecording = pcapRecording,
         onTogglePcapRecording = actions.onTogglePcapRecording,

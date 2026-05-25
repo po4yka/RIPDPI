@@ -2691,9 +2691,12 @@ fakeddisorder endhost</string>
     <string name="vpn_quality_metric_loss">تلفات</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">ناپایداری</string>
-    <string name="vpn_quality_graph_throughput_title">گذردهی</string>
-    <string name="vpn_quality_graph_latency_title">تأخیر</string>
+    <string name="vpn_quality_graph_throughput_title">RTT</string>
+    <string name="vpn_quality_graph_latency_title">ناپایداری</string>
     <string name="vpn_quality_graph_samples_format">%1$d نمونه</string>
+    <string name="vpn_quality_graph_legend_now">اکنون</string>
+    <string name="vpn_quality_graph_legend_p50">p50</string>
+    <string name="vpn_quality_graph_caption">نمودارهای RTT + ناپایداری · پنجره 60 ثانیه‌ای.</string>
     <string name="vpn_pcap_capture_list_empty">هنوز ضبطی وجود ندارد · از تنظیمات فعال کنید</string>
     <string name="vpn_pcap_capture_meta_format">%1$d کیبی · %2$d بسته</string>
     <string name="vpn_pcap_capture_drops_format">%1$d بسته زیر بار از دست رفت</string>
@@ -2786,4 +2789,8 @@ fakeddisorder endhost</string>
     <string name="share_link_preview_privacy_title">روی دستگاه می‌ماند</string>
     <string name="share_link_preview_privacy_message">قطعه هرگز دستگاه را ترک نمی‌کند — توسط گیرنده به صورت محلی رمزگشایی می‌شود. نام میزبان‌ها هش می‌شوند مگر اینکه پاک‌سازی غیرفعال باشد.</string>
     <string name="share_link_preview_privacy_emphasis">هرگز دستگاه را ترک نمی‌کند</string>
+    <string name="diagnostics_pcap_captures_label">ضبط‌های بسته</string>
+    <string name="diagnostics_pcap_captures_description">مرور و صدور فایل‌های PCAP ضبط‌شده</string>
+    <string name="diagnostics_past_replays_label">بازپخش‌های قبلی</string>
+    <string name="diagnostics_past_replays_description">مرور جلسات بازپخش بایگانی‌شده</string>
 </resources>

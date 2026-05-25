@@ -2687,9 +2687,12 @@ fake_burst 3</string>
     <string name="vpn_quality_metric_loss">丢包</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">抖动</string>
-    <string name="vpn_quality_graph_throughput_title">吞吐量</string>
-    <string name="vpn_quality_graph_latency_title">延迟</string>
+    <string name="vpn_quality_graph_throughput_title">RTT</string>
+    <string name="vpn_quality_graph_latency_title">抖动</string>
     <string name="vpn_quality_graph_samples_format">%1$d 个样本</string>
+    <string name="vpn_quality_graph_legend_now">当前</string>
+    <string name="vpn_quality_graph_legend_p50">p50</string>
+    <string name="vpn_quality_graph_caption">RTT + 抖动图表 · 滚动 60 秒窗口。</string>
     <string name="vpn_pcap_capture_list_empty">尚无捕获 · 在设置中启用</string>
     <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d 个数据包</string>
     <string name="vpn_pcap_capture_drops_format">高负载下丢弃了 %1$d 个数据包</string>
@@ -2782,4 +2785,8 @@ fake_burst 3</string>
     <string name="share_link_preview_privacy_title">保留在设备上</string>
     <string name="share_link_preview_privacy_message">片段永远不会离开设备 — 由接收方在本地解码。除非已关闭编辑，否则主机名将被哈希处理。</string>
     <string name="share_link_preview_privacy_emphasis">永远不会离开设备</string>
+    <string name="diagnostics_pcap_captures_label">数据包捕获</string>
+    <string name="diagnostics_pcap_captures_description">浏览并导出已录制的 PCAP 文件</string>
+    <string name="diagnostics_past_replays_label">历史回放</string>
+    <string name="diagnostics_past_replays_description">查看已归档的回放会话</string>
 </resources>

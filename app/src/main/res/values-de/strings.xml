@@ -2686,9 +2686,12 @@ Quelle: %2$s</string>
     <string name="vpn_quality_metric_loss">Verlust</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">Jitter</string>
-    <string name="vpn_quality_graph_throughput_title">Durchsatz</string>
-    <string name="vpn_quality_graph_latency_title">Latenz</string>
+    <string name="vpn_quality_graph_throughput_title">RTT</string>
+    <string name="vpn_quality_graph_latency_title">Jitter</string>
     <string name="vpn_quality_graph_samples_format">%1$d Proben</string>
+    <string name="vpn_quality_graph_legend_now">Jetzt</string>
+    <string name="vpn_quality_graph_legend_p50">p50</string>
+    <string name="vpn_quality_graph_caption">RTT + Jitter-Diagramme · gleitendes 60-s-Fenster.</string>
     <string name="vpn_pcap_capture_list_empty">Noch keine Aufnahmen · in Einstellungen aktivieren</string>
     <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d Pakete</string>
     <string name="vpn_pcap_capture_drops_format">%1$d Pakete unter Last verworfen</string>
@@ -2781,4 +2784,8 @@ Quelle: %2$s</string>
     <string name="share_link_preview_privacy_title">Verbleibt auf dem Gerät</string>
     <string name="share_link_preview_privacy_message">Das Fragment verlässt das Gerät nie — es wird lokal vom Empfänger entschlüsselt. Hostnamen werden gehasht, sofern die Anonymisierung nicht deaktiviert ist.</string>
     <string name="share_link_preview_privacy_emphasis">verlässt das Gerät nie</string>
+    <string name="diagnostics_pcap_captures_label">Paketmitschnitte</string>
+    <string name="diagnostics_pcap_captures_description">Aufgezeichnete PCAP-Dateien durchsuchen und exportieren</string>
+    <string name="diagnostics_past_replays_label">Frühere Wiedergaben</string>
+    <string name="diagnostics_past_replays_description">Archivierte Wiedergabesitzungen überprüfen</string>
 </resources>

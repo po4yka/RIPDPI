@@ -319,6 +319,8 @@ private fun rememberDiagnosticsScreenActions(
         onOpenHistory = callbacks.onOpenHistory,
         onOpenModeEditor = callbacks.onOpenModeEditor,
         onOpenOwnedStackBrowser = callbacks.onOpenOwnedStackBrowser,
+        onOpenPcapCaptureList = callbacks.onOpenPcapCaptureList,
+        onOpenPastReplays = callbacks.onOpenPastReplays,
         onTogglePcapRecording = remember(viewModel) { viewModel::togglePcapRecording },
         onRunDnsIntegrityCheck = remember(viewModel) { viewModel::runDnsIntegrityCheck },
         onRunDnsAvailabilitySurvey = remember(viewModel) { viewModel::runDnsAvailabilitySurvey },
@@ -381,5 +383,7 @@ data class DiagnosticsRouteCallbacks(
     val onOpenHistory: () -> Unit = {},
     val onOpenModeEditor: () -> Unit = {},
     val onOpenOwnedStackBrowser: (String) -> Unit = {},
+    val onOpenPcapCaptureList: () -> Unit = {},
+    val onOpenPastReplays: () -> Unit = {},
     val onInitialSectionHandled: () -> Unit = {},
 )

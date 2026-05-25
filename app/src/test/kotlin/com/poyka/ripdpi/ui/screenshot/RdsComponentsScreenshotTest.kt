@@ -73,6 +73,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.LatencyGraphScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.OomRecoveryScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.OomRecoveryState
 import com.poyka.ripdpi.ui.screens.diagnostics.ProfileVariantsScreen
+import com.poyka.ripdpi.ui.screens.diagnostics.QualityGraphsScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.StateMachineScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.StrategyAbScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.StrategyImportScreen
@@ -81,6 +82,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.sampleHandshakeTimelineState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleLatencyGraphState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleOomRecoveryState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleProfileVariantsState
+import com.poyka.ripdpi.ui.screens.diagnostics.sampleQualityGraphsSnapshots
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleStateMachineState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyAbState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyImportState
@@ -581,6 +583,15 @@ class RdsComponentsScreenshotTest {
                             privacyEmphasis = "never leaves the device",
                         ),
                     ),
+            )
+        }
+    }
+
+    @Test
+    fun qualityGraphs() {
+        captureBothThemes("qualityGraphs", widthDp = 360, heightDp = 480) {
+            QualityGraphsScreen(
+                samples = sampleQualityGraphsSnapshots(),
             )
         }
     }

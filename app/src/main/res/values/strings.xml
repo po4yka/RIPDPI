@@ -2772,9 +2772,12 @@ Source: %2$s</string>
     <string name="vpn_quality_metric_loss">Loss</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">Jitter</string>
-    <string name="vpn_quality_graph_throughput_title">Throughput</string>
-    <string name="vpn_quality_graph_latency_title">Latency</string>
+    <string name="vpn_quality_graph_throughput_title">RTT</string>
+    <string name="vpn_quality_graph_latency_title">Jitter</string>
     <string name="vpn_quality_graph_samples_format">%1$d samples</string>
+    <string name="vpn_quality_graph_legend_now">Now</string>
+    <string name="vpn_quality_graph_legend_p50">p50</string>
+    <string name="vpn_quality_graph_caption">RTT + jitter graphs · rolling 60 s sample window.</string>
     <string name="vpn_pcap_capture_list_empty">No captures yet · enable in Settings</string>
     <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d packets</string>
     <string name="vpn_pcap_capture_drops_format">%1$d packets dropped under load</string>
@@ -2850,4 +2853,8 @@ Source: %2$s</string>
     <string name="share_link_preview_privacy_title">Stays on device</string>
     <string name="share_link_preview_privacy_message">The fragment never leaves the device — it\'s decoded locally by the recipient. Hostnames are hashed unless redaction is off.</string>
     <string name="share_link_preview_privacy_emphasis">never leaves the device</string>
+    <string name="diagnostics_pcap_captures_label">Packet captures</string>
+    <string name="diagnostics_pcap_captures_description">Browse and export recorded PCAP files</string>
+    <string name="diagnostics_past_replays_label">Past replays</string>
+    <string name="diagnostics_past_replays_description">Review archived replay sessions</string>
 </resources>

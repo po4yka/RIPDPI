@@ -472,6 +472,8 @@ private fun diagnosticsRouteCallbacks(
         onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
         onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
         onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
+        onOpenPcapCaptureList = { navController.navigate(Route.PcapCaptureList) },
+        onOpenPastReplays = { navController.navigate(Route.ReplayHistory) },
         onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },
     )
 

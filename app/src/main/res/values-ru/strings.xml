@@ -2805,9 +2805,12 @@ fakeddisorder endhost</string>
     <string name="vpn_quality_metric_loss">Потери</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">Джиттер</string>
-    <string name="vpn_quality_graph_throughput_title">Пропускная способность</string>
-    <string name="vpn_quality_graph_latency_title">Задержка</string>
+    <string name="vpn_quality_graph_throughput_title">RTT</string>
+    <string name="vpn_quality_graph_latency_title">Джиттер</string>
     <string name="vpn_quality_graph_samples_format">%1$d образцов</string>
+    <string name="vpn_quality_graph_legend_now">Сейчас</string>
+    <string name="vpn_quality_graph_legend_p50">p50</string>
+    <string name="vpn_quality_graph_caption">Графики RTT + джиттер · скользящее окно 60 с.</string>
     <string name="vpn_pcap_capture_list_empty">Захватов пока нет · включите в настройках</string>
     <string name="vpn_pcap_capture_meta_format">%1$d КиБ · %2$d пакетов</string>
     <string name="vpn_pcap_capture_drops_format">%1$d пакетов потеряно под нагрузкой</string>
@@ -2900,4 +2903,8 @@ fakeddisorder endhost</string>
     <string name="share_link_preview_privacy_title">Остаётся на устройстве</string>
     <string name="share_link_preview_privacy_message">Фрагмент никогда не покидает устройство — он расшифровывается локально получателем. Имена хостов хэшируются, если редактирование не отключено.</string>
     <string name="share_link_preview_privacy_emphasis">никогда не покидает устройство</string>
+    <string name="diagnostics_pcap_captures_label">Пакетные захваты</string>
+    <string name="diagnostics_pcap_captures_description">Просмотр и экспорт записанных PCAP-файлов</string>
+    <string name="diagnostics_past_replays_label">Прошлые воспроизведения</string>
+    <string name="diagnostics_past_replays_description">Просмотр архивных сессий воспроизведения</string>
 </resources>
