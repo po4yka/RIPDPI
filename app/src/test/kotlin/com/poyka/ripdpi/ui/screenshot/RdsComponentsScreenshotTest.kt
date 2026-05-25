@@ -1,22 +1,9 @@
 package com.poyka.ripdpi.ui.screenshot
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.dp
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziComposeOptions
-import com.github.takahirom.roborazzi.RoborazziOptions
-import com.github.takahirom.roborazzi.captureRoboImage
-import com.github.takahirom.roborazzi.fontScale
-import com.github.takahirom.roborazzi.inspectionMode
-import com.github.takahirom.roborazzi.size
 import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.ui.components.cards.PresetCard
@@ -87,8 +74,6 @@ import com.poyka.ripdpi.ui.screens.diagnostics.sampleStateMachineState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyAbState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyImportState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleThroughputGraphState
-import com.poyka.ripdpi.ui.theme.RipDpiTheme
-import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -96,52 +81,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-private val CROSS_PLATFORM_OPTIONS =
-    RoborazziOptions(
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01F),
-    )
-
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35])
 class RdsComponentsScreenshotTest {
-    @OptIn(ExperimentalRoborazziApi::class)
-    private fun captureBothThemes(
-        name: String,
-        widthDp: Int = 360,
-        heightDp: Int = 200,
-        content: @Composable () -> Unit,
-    ) {
-        val moduleRoot = System.getProperty("user.dir")
-        listOf("light", "dark").forEach { theme ->
-            captureRoboImage(
-                filePath =
-                    "$moduleRoot/src/test/screenshots/" +
-                        "com.poyka.ripdpi.ui.screenshot.RdsComponentsScreenshotTest." +
-                        "${name}_$theme.png",
-                roborazziOptions = CROSS_PLATFORM_OPTIONS,
-                roborazziComposeOptions =
-                    RoborazziComposeOptions {
-                        size(widthDp = widthDp, heightDp = heightDp)
-                        fontScale(1f)
-                        inspectionMode(true)
-                    },
-            ) {
-                RipDpiTheme(themePreference = theme) {
-                    Column(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(heightDp.dp)
-                                .background(RipDpiThemeTokens.colors.background)
-                                .padding(16.dp),
-                    ) { content() }
-                }
-            }
-        }
-    }
-
-    // === 25 tests follow ===
+    // capture helpers live in RoborazziCaptureHelpers.kt (same package)
 
     @Test
     fun brandBadgeAllSizes() {
@@ -578,7 +522,7 @@ class RdsComponentsScreenshotTest {
                             rowItemsFormat = "Per-endpoint {alive, dpi} tuples — %1\$d",
                             privacyTitle = "Stays on device",
                             privacyMessage =
-                                "The fragment never leaves the device — it’s decoded locally " +
+                                "The fragment never leaves the device — it's decoded locally " +
                                     "by the recipient. Hostnames are hashed unless redaction is off.",
                             privacyEmphasis = "never leaves the device",
                         ),
