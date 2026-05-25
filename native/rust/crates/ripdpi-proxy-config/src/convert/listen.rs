@@ -11,10 +11,17 @@ pub(crate) fn apply_listen_section(
 ) -> Result<(), ProxyConfigError> {
     let listen_ip =
         IpAddr::from_str(&listen.ip).map_err(|_| ProxyConfigError::InvalidConfig("Invalid proxy IP".to_string()))?;
+    let auth_token = listen.auth_token.clone().filter(|token| !token.is_empty());
+    if !listen_ip.is_loopback() && auth_token.is_none() {
+        return Err(ProxyConfigError::InvalidConfig(
+            "Non-loopback proxy listeners require listen.authToken".to_string(),
+        ));
+    }
+
     config.network.listen.listen_ip = listen_ip;
     config.network.listen.listen_port =
         u16::try_from(listen.port).map_err(|_| ProxyConfigError::InvalidConfig("Invalid proxy port".to_string()))?;
-    config.network.listen.auth_token = listen.auth_token.clone().filter(|token| !token.is_empty());
+    config.network.listen.auth_token = auth_token;
 
     if config.network.listen.listen_port == 0 {
         return Err(ProxyConfigError::InvalidConfig("Invalid proxy port".to_string()));

@@ -1433,6 +1433,52 @@ fn zero_port_is_rejected() {
 }
 
 #[test]
+fn loopback_listen_without_auth_is_accepted() {
+    let mut ui = minimal_ui();
+    ui.listen.ip = "::1".to_string();
+    ui.listen.auth_token = None;
+
+    let config = runtime_config_from_ui(ui).expect("loopback listener should not require auth");
+
+    assert_eq!(config.network.listen.listen_ip.to_string(), "::1");
+    assert!(config.network.listen.auth_token.is_none());
+}
+
+#[test]
+fn non_loopback_listen_without_auth_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.listen.ip = "192.0.2.10".to_string();
+    ui.listen.auth_token = None;
+
+    let err = runtime_config_from_ui(ui).expect_err("non-loopback listener without auth");
+
+    assert!(err.to_string().contains("listen.authToken"), "expected listen.authToken error, got: {err}");
+}
+
+#[test]
+fn unspecified_listen_without_auth_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.listen.ip = "0.0.0.0".to_string();
+    ui.listen.auth_token = Some(String::new());
+
+    let err = runtime_config_from_ui(ui).expect_err("unspecified listener without auth");
+
+    assert!(err.to_string().contains("listen.authToken"), "expected listen.authToken error, got: {err}");
+}
+
+#[test]
+fn non_loopback_listen_with_auth_is_accepted() {
+    let mut ui = minimal_ui();
+    ui.listen.ip = "192.0.2.10".to_string();
+    ui.listen.auth_token = Some("local-lan-proxy-token".to_string());
+
+    let config = runtime_config_from_ui(ui).expect("non-loopback listener with auth");
+
+    assert_eq!(config.network.listen.listen_ip.to_string(), "192.0.2.10");
+    assert_eq!(config.network.listen.auth_token.as_deref(), Some("local-lan-proxy-token"));
+}
+
+#[test]
 fn zero_max_connections_is_rejected() {
     let mut ui = minimal_ui();
     ui.listen.max_connections = 0;
