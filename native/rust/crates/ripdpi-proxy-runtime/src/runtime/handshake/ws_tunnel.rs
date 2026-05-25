@@ -170,7 +170,7 @@ mod tests {
     use crate::runtime::state::RuntimeState;
     use aes::cipher::{KeyIvInit, StreamCipher};
     use aes::Aes256;
-    use std::net::{Ipv4Addr, TcpListener};
+    use std::net::{IpAddr, Ipv4Addr, TcpListener};
     use std::thread;
     use std::time::Duration;
 
@@ -220,6 +220,13 @@ mod tests {
     }
 
     #[test]
+    fn detect_telegram_dc_extracts_dc_number_from_known_ipv6_target() {
+        let target = SocketAddr::new("2001:67c:4e8::1".parse::<IpAddr>().expect("parse Telegram v6"), 443);
+
+        assert_eq!(RuntimeState::detect_telegram_dc(target), Some(2));
+    }
+
+    #[test]
     fn telegram_dc_host_formats_virtual_hostname() {
         assert_eq!(RuntimeState::telegram_dc_host(4), "telegram-dc4");
     }
@@ -227,12 +234,14 @@ mod tests {
     #[test]
     fn ws_tunnel_target_checks_require_matching_mode_and_known_telegram_ip() {
         let target = SocketAddr::from((Ipv4Addr::new(149, 154, 167, 91), 443));
+        let ipv6_target = SocketAddr::new("2001:b28:f23f::1".parse::<IpAddr>().expect("parse Telegram v6"), 443);
         let non_telegram_target = SocketAddr::from((Ipv4Addr::new(203, 0, 113, 10), 443));
 
         let mut cfg = RuntimeConfig::default();
         cfg.adaptive.ws_tunnel_mode = WsTunnelMode::Always;
         let always = runtime_state_with_config(cfg);
         assert_eq!(should_ws_tunnel_first(target, &always), Some(RuntimeTelegramDc::production(2)));
+        assert_eq!(should_ws_tunnel_first(ipv6_target, &always), Some(RuntimeTelegramDc::production(3)));
         assert_eq!(should_ws_tunnel_first(non_telegram_target, &always), None);
         assert_eq!(should_ws_tunnel_fallback(target, &always), None);
 
@@ -240,6 +249,7 @@ mod tests {
         cfg.adaptive.ws_tunnel_mode = WsTunnelMode::Fallback;
         let fallback = runtime_state_with_config(cfg);
         assert_eq!(should_ws_tunnel_fallback(target, &fallback), Some(RuntimeTelegramDc::production(2)));
+        assert_eq!(should_ws_tunnel_fallback(ipv6_target, &fallback), Some(RuntimeTelegramDc::production(3)));
         assert_eq!(should_ws_tunnel_fallback(non_telegram_target, &fallback), None);
         assert_eq!(should_ws_tunnel_first(target, &fallback), None);
     }

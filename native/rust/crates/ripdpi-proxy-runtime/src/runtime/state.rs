@@ -524,6 +524,8 @@ mod state_coverage_tests {
     fn state_facade_covers_control_ws_services_and_telemetry_helpers() {
         let state = state();
         let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(149, 154, 175, 50)), 443);
+        let ipv6_target =
+            SocketAddr::new(IpAddr::V6("2001:b28:f23f::1".parse::<Ipv6Addr>().expect("parse Telegram v6")), 443);
         let _ = state.network_reprobe_enabled();
         assert_eq!(state.network_reprobe_protect_path(), None);
         assert!(!state.shutdown_requested());
@@ -542,8 +544,10 @@ mod state_coverage_tests {
         assert_eq!(ws_config.resolved_addr, Some(target));
         assert!(matches!(RuntimeState::classify_mtproto_seed(b"GET / HTTP/1.1\r\n"), WsSeedClassification::NotMtproto));
         assert!(RuntimeState::detect_telegram_dc(target).is_some());
+        assert_eq!(RuntimeState::detect_telegram_dc(ipv6_target), Some(3));
         assert!(RuntimeState::telegram_dc_host(2).contains("2"));
         assert!(state.telegram_dc_host_hint(target).is_some());
+        assert_eq!(state.telegram_dc_host_hint(ipv6_target).as_deref(), Some("telegram-dc3"));
         state.note_telegram_dc_detected(target, 2);
         state.note_ws_tunnel_escalation(target, 2, false);
         let _cleared_entries = state.clear_connection_cache();
