@@ -22,6 +22,7 @@ private const val ProbeTypeTcpFatHeader = "tcp_fat_header"
 private val TcpFatHeaderBlockedOutcomes = setOf("tcp_reset", "tcp_16kb_blocked", "tcp_timeout", "tls_handshake_failed")
 private const val OutcomeDnsMatch = "dns_match"
 private const val OutcomeDnsSubstitution = "dns_substitution"
+private const val OutcomeDnsSinkholeSubstitution = "dns_sinkhole_substitution"
 private const val OutcomeDnsNxdomain = "dns_nxdomain"
 private const val OutcomeDnsNxdomainMismatch = "dns_nxdomain_mismatch"
 private const val OutcomeUdpBlocked = "udp_blocked"
@@ -224,6 +225,7 @@ private fun collectCandidates(dnsResults: List<ProbeResult>): List<Candidate> =
 private fun List<ProbeResult>.firstRecommendationTrigger(): ProbeResult? =
     firstOrNull {
         it.outcome == OutcomeDnsSubstitution ||
+            it.outcome == OutcomeDnsSinkholeSubstitution ||
             it.outcome == OutcomeDnsNxdomain ||
             it.outcome == OutcomeDnsNxdomainMismatch ||
             it.outcome == OutcomeUdpBlocked ||
@@ -361,6 +363,7 @@ private fun EncryptedDnsPathCandidate.protocolPreferenceHint(
 private fun CandidateObservation.isHealthy(): Boolean =
     result.outcome == OutcomeDnsMatch ||
         result.outcome == OutcomeDnsSubstitution ||
+        result.outcome == OutcomeDnsSinkholeSubstitution ||
         hasValidEncryptedAddresses(details)
 
 private fun CandidateObservation.hasValidatedBootstrap(): Boolean =
