@@ -281,6 +281,20 @@ fn ipfrag_capability_helpers_split_tcp_and_udp_requirements() {
 }
 
 #[test]
+fn quic_ipfrag_candidate_records_udp_raw_capability_requirement() {
+    let spec = candidate_spec(
+        "quic_ipfrag2",
+        "QUIC IP fragmentation",
+        "quic_ipfrag2",
+        build_quic_ipfrag_candidate(&minimal_ui_config()),
+    );
+
+    assert_eq!(spec.config.chains.udp_steps[0].kind, "ipfrag2_udp");
+    assert_eq!(spec.requires_capabilities, &[RuntimeCapability::RawUdpFragmentation]);
+    assert_eq!(spec.emitter_tier, StrategyEmitterTier::RootedProduction);
+}
+
+#[test]
 fn default_runtime_encrypted_dns_context_returns_adguard_doh() {
     let ctx = default_runtime_encrypted_dns_context();
     assert_eq!(ctx.protocol, "doh");

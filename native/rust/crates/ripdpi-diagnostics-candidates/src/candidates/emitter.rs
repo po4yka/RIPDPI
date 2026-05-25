@@ -101,7 +101,7 @@ pub(super) fn tcp_step_kind(step: &ProxyUiTcpChainStep) -> Option<TcpChainStepKi
 }
 
 pub(super) fn udp_step_kind(step: &ProxyUiUdpChainStep) -> Option<UdpChainStepKind> {
-    match step.kind.as_str() {
+    parse_udp_chain_step_kind(&step.kind).ok().or(match step.kind.as_str() {
         "fake" => Some(UdpChainStepKind::FakeBurst),
         "dummy" => Some(UdpChainStepKind::DummyPrepend),
         "quicsnisplit" => Some(UdpChainStepKind::QuicSniSplit),
@@ -114,5 +114,5 @@ pub(super) fn udp_step_kind(step: &ProxyUiUdpChainStep) -> Option<UdpChainStepKi
         "quicmultiinitial" => Some(UdpChainStepKind::QuicMultiInitialRealistic),
         "ipfrag2" => Some(UdpChainStepKind::IpFrag2Udp),
         _ => None,
-    }
+    })
 }

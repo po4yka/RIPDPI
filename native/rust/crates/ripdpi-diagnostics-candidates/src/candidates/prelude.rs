@@ -8,9 +8,9 @@ pub(super) use ripdpi_diagnostics_contracts::{
 pub(super) use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 pub(super) use ripdpi_failure_classifier::ClassifiedFailure;
 pub(super) use ripdpi_proxy_config::{
-    ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig,
-    ProxyUiNumericRange, ProxyUiTcpChainStep, ProxyUiTcpRotationCandidate, ProxyUiTcpRotationConfig,
-    ProxyUiUdpChainStep, ADAPTIVE_FAKE_TTL_DEFAULT_DELTA, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
+    parse_udp_chain_step_kind, ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext,
+    ProxyUiActivationFilter, ProxyUiConfig, ProxyUiNumericRange, ProxyUiTcpChainStep, ProxyUiTcpRotationCandidate,
+    ProxyUiTcpRotationConfig, ProxyUiUdpChainStep, ADAPTIVE_FAKE_TTL_DEFAULT_DELTA, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
     ADAPTIVE_FAKE_TTL_DEFAULT_MAX, ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
 };
 pub(super) use ripdpi_runtime_platform::capability::RuntimeCapability;

@@ -78,6 +78,7 @@ pub(super) fn config_requires_fake_ttl(config: &ProxyUiConfig) -> bool {
 /// - `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, `disorder`, `disoob`
 ///   → [`RuntimeCapability::TtlWrite`] (TTL manipulation to expire fakes before target).
 /// - `fakerst` → [`RuntimeCapability::RawTcpFakeSend`] (raw-socket fake RST path).
+/// - `ipfrag2_udp` → [`RuntimeCapability::RawUdpFragmentation`] (raw IP UDP fragmentation path).
 /// - `multidisorder` → [`RuntimeCapability::RootHelperAvailable`] (TCP_REPAIR / root).
 ///
 /// Returns a `'static` slice so it can be stored in [`StrategyCandidateSpec`]
@@ -119,7 +120,7 @@ pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> &'static [
     }
 
     for step in &config.chains.udp_steps {
-        if step.kind == "ipfrag2" {
+        if matches!(parse_udp_chain_step_kind(&step.kind), Ok(UdpChainStepKind::IpFrag2Udp)) || step.kind == "ipfrag2" {
             needs_raw_udp = true;
         }
     }
