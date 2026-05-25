@@ -192,13 +192,57 @@ fn should_fallback_ipfrag_udp_error_kind(kind: io::ErrorKind) -> bool {
 }
 
 fn execute_udp_ttl_action(ctx: UdpActionExecContext<'_>, ttl: u8) -> io::Result<()> {
+    let socket = socket2::SockRef::from(ctx.upstream);
     match ctx.target {
-        SocketAddr::V4(_) => ctx.upstream.set_ttl(ttl as u32),
-        SocketAddr::V6(_) => Ok(()),
+        SocketAddr::V4(_) => socket.set_ttl_v4(ttl as u32),
+        SocketAddr::V6(_) => socket.set_unicast_hops_v6(ttl as u32),
     }
 }
 
 fn execute_udp_delay_action(ms: u16) -> io::Result<()> {
     thread::sleep(Duration::from_millis(u64::from(ms)));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::UdpSocket;
+
+    use socket2::SockRef;
+
+    use super::*;
+
+    #[test]
+    fn udp_ttl_action_sets_ipv4_ttl() {
+        let socket = UdpSocket::bind("127.0.0.1:0").expect("bind IPv4 UDP socket");
+        let ctx = UdpActionExecContext {
+            upstream: &socket,
+            target: "127.0.0.1:443".parse().expect("IPv4 target"),
+            default_ttl: 64,
+            protect_path: None,
+            ip_id_mode: None,
+        };
+
+        execute_udp_ttl_action(ctx, 17).expect("set IPv4 TTL");
+
+        assert_eq!(SockRef::from(&socket).ttl_v4().expect("read IPv4 TTL"), 17);
+    }
+
+    #[test]
+    fn udp_ttl_action_sets_ipv6_hop_limit() {
+        let Ok(socket) = UdpSocket::bind("[::1]:0") else {
+            return;
+        };
+        let ctx = UdpActionExecContext {
+            upstream: &socket,
+            target: "[::1]:443".parse().expect("IPv6 target"),
+            default_ttl: 64,
+            protect_path: None,
+            ip_id_mode: None,
+        };
+
+        execute_udp_ttl_action(ctx, 17).expect("set IPv6 hop limit");
+
+        assert_eq!(SockRef::from(&socket).unicast_hops_v6().expect("read IPv6 hop limit"), 17);
+    }
 }

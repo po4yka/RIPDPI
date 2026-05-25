@@ -4073,6 +4073,7 @@ dependencies = [
  "ripdpi-runtime-platform",
  "ripdpi-runtime-services",
  "ripdpi-session",
+ "socket2",
  "tracing",
 ]
 
