@@ -53,7 +53,6 @@ class RipDpiVpnService :
     private lateinit var shellDelegate: ServiceShellDelegate
     private lateinit var notificationController: VpnForegroundNotificationController
     private lateinit var underlyingNetworkBinder: VpnUnderlyingNetworkBinder
-    private var revoked = false
 
     override val serviceScope = lifecycleScope
 
@@ -72,7 +71,7 @@ class RipDpiVpnService :
     }
 
     override fun onDestroy() {
-        sessionLifecycle.destroy(revoked)
+        sessionLifecycle.destroy()
         rootHelperManager.stop()
         super.onDestroy()
     }
@@ -96,7 +95,7 @@ class RipDpiVpnService :
     }
 
     override fun onRevoke() {
-        revoked = true
+        sessionLifecycle.revoke()
         shellDelegate.onRevoke()
     }
 

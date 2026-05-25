@@ -15,6 +15,7 @@ internal class VpnServiceSessionLifecycle(
     private var sessionComponent: VpnServiceSessionComponent? = null
     private var coordinator: VpnServiceRuntimeCoordinator? = null
     private var protectSocketServer: VpnProtectSocketServer? = null
+    private val cleanup = VpnServiceSessionCleanup()
 
     fun createShellDelegate(): ServiceShellDelegate {
         val entryPoint = createSessionEntryPoint()
@@ -34,20 +35,32 @@ internal class VpnServiceSessionLifecycle(
                     sender = Sender.VPN,
                     reason = FailureReason.PermissionLost("VPN"),
                 )
-                runtimeCoordinator.stop()
+                try {
+                    runtimeCoordinator.stop()
+                } finally {
+                    cleanup.destroyCoordinator(runtimeCoordinator::onDestroy)
+                }
             },
         )
     }
 
-    fun destroy(revoked: Boolean) {
-        VpnNativeProtectRegistration.unregister()
-        protectSocketServer?.stop()
-        if (!revoked) {
-            coordinator?.onDestroy()
-        }
+    fun revoke() {
+        cleanupNativeProtect()
+    }
+
+    fun destroy() {
+        cleanupNativeProtect()
+        coordinator?.let { cleanup.destroyCoordinator(it::onDestroy) }
         protectSocketServer = null
         coordinator = null
         sessionComponent = null
+    }
+
+    private fun cleanupNativeProtect() {
+        cleanup.cleanupNativeProtect(
+            unregisterNativeProtect = VpnNativeProtectRegistration::unregister,
+            stopProtectSocketServer = { protectSocketServer?.stop() },
+        )
     }
 
     private fun createSessionEntryPoint(): VpnServiceSessionEntryPoint {
