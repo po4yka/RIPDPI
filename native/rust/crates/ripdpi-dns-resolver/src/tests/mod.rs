@@ -8,9 +8,12 @@ use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSec
 use hickory_proto::op::{Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, AAAA, CNAME, TXT};
 use hickory_proto::rr::{Name, RData, Record, RecordType};
+use local_network_fixture::{
+    FixtureConfig, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget, FixtureStack,
+};
 use rcgen::generate_simple_self_signed;
 use ring::signature::{Ed25519KeyPair, KeyPair};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, TcpListener, TcpStream};
@@ -33,6 +36,22 @@ fn build_query(name: &str) -> Vec<u8> {
 
 fn build_query_for_type(name: &str, record_type: RecordType) -> Vec<u8> {
     build_dns_query(name, record_type).expect("query serializes")
+}
+
+fn dynamic_fixture_config() -> FixtureConfig {
+    FixtureConfig {
+        tcp_echo_port: 0,
+        udp_echo_port: 0,
+        tls_echo_port: 0,
+        dns_udp_port: 0,
+        dns_http_port: 0,
+        dns_dot_port: 0,
+        dns_dnscrypt_port: 0,
+        dns_doq_port: 0,
+        socks5_port: 0,
+        control_port: 0,
+        ..FixtureConfig::default()
+    }
 }
 
 fn read_length_prefixed_frame(reader: &mut impl Read) -> io::Result<Vec<u8>> {
@@ -646,6 +665,40 @@ async fn direct_doq_udp_bind_hooks_are_used() {
 
     let _ = resolver.endpoint();
     assert_eq!(binds.load(Ordering::Relaxed), 1, "DoQ should use the direct UDP bind hook");
+}
+
+#[tokio::test]
+async fn doq_query_timeout_covers_stalled_response_stream() {
+    let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
+    stack.faults().set(FixtureFaultSpec {
+        target: FixtureFaultTarget::DnsDoq,
+        outcome: FixtureFaultOutcome::DnsTimeout,
+        scope: FixtureFaultScope::OneShot,
+        delay_ms: Some(1_500),
+    });
+    let manifest = stack.manifest();
+    let certificate = CertificateDer::from_pem_slice(manifest.tls_certificate_pem.as_bytes()).expect("parse pem");
+    let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doq,
+            resolver_id: Some("fixture-doq".to_string()),
+            host: manifest.fixture_domain.clone(),
+            port: manifest.dns_doq_port,
+            tls_server_name: Some(manifest.fixture_domain.clone()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        },
+        EncryptedDnsTransport::Direct,
+        Duration::from_millis(100),
+        vec![certificate],
+    )
+    .expect("build doq resolver");
+
+    let err = resolver.exchange(&build_query(&manifest.fixture_domain)).await.unwrap_err();
+
+    assert!(err.to_string().contains("DoQ query timeout"), "expected full-query timeout, got: {err}");
 }
 
 #[test]
