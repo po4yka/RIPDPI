@@ -2578,6 +2578,17 @@ Quelle: %2$s</string>
     <string name="vpn_handshake_timeline_first_packet_label">Erstes Paket bereit</string>
     <string name="vpn_handshake_timeline_slowest_default">Langsamste Phase: MTU probe · &gt; Budget um 100 ms</string>
     <string name="vpn_handshake_timeline_next_budget_default">Budget für nächsten Versuch 2,0 s</string>
+    <string name="title_throughput_graph">Durchsatzgraph</string>
+    <string name="vpn_throughput_graph_title">Durchsatz</string>
+    <string name="vpn_throughput_graph_down_now_default">1,42 MiB/s</string>
+    <string name="vpn_throughput_graph_up_now_default">312 KiB/s</string>
+    <string name="vpn_throughput_graph_session_default">↓ 128 MiB</string>
+    <string name="vpn_throughput_graph_stat_down_label">Download</string>
+    <string name="vpn_throughput_graph_stat_up_label">Upload</string>
+    <string name="vpn_throughput_graph_stat_session_label">Sitzung</string>
+    <string name="vpn_throughput_graph_legend_down">Download</string>
+    <string name="vpn_throughput_graph_legend_up">Upload</string>
+    <string name="vpn_throughput_graph_caption">Durchsatzgraph · rollend 1m / 5m / 30m / 1h · Download (Vordergrund) + Upload (Info) · Sitzungssummen unten.</string>
     <string name="title_pcap_viewer">Paketmitschnitt</string>
     <string name="title_pcap_capture_list">Paketmitschnitte</string>
     <string name="vpn_first_run_test_title">Schauen wir, was dein Netzwerk macht</string>

@@ -217,6 +217,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object ThroughputGraph : Route() {
+        override val stableRoute = "throughput_graph"
+        override val titleRes = R.string.title_throughput_graph
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class SharedDiagnosticResult(
         val fragment: String = "",
     ) : Route() {

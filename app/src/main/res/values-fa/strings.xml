@@ -2583,6 +2583,17 @@ fakeddisorder endhost</string>
     <string name="vpn_handshake_timeline_first_packet_label">اولین بسته آماده است</string>
     <string name="vpn_handshake_timeline_slowest_default">کندترین مرحله: MTU probe · &gt; بودجه ۱۰۰ میلی‌ثانیه</string>
     <string name="vpn_handshake_timeline_next_budget_default">بودجه تلاش بعدی ۲٫۰ ثانیه</string>
+    <string name="title_throughput_graph">نمودار توان عملیاتی</string>
+    <string name="vpn_throughput_graph_title">توان عملیاتی</string>
+    <string name="vpn_throughput_graph_down_now_default">۱٫۴۲ MiB/s</string>
+    <string name="vpn_throughput_graph_up_now_default">۳۱۲ KiB/s</string>
+    <string name="vpn_throughput_graph_session_default">↓ ۱۲۸ MiB</string>
+    <string name="vpn_throughput_graph_stat_down_label">دریافت</string>
+    <string name="vpn_throughput_graph_stat_up_label">ارسال</string>
+    <string name="vpn_throughput_graph_stat_session_label">جلسه</string>
+    <string name="vpn_throughput_graph_legend_down">دریافت</string>
+    <string name="vpn_throughput_graph_legend_up">ارسال</string>
+    <string name="vpn_throughput_graph_caption">نمودار توان عملیاتی · پنجره ۱م / ۵م / ۳۰م / ۱س · دریافت (پیش‌زمینه) + ارسال (اطلاعات) · مجموع جلسه در زیر.</string>
     <string name="title_pcap_viewer">ضبط بسته‌ها</string>
     <string name="title_pcap_capture_list">ضبط بسته‌ها</string>
     <string name="vpn_first_run_test_title">ببینیم شبکه‌ی شما چه می‌کند</string>

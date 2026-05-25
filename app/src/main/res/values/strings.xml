@@ -2647,6 +2647,17 @@ Source: %2$s</string>
     <string name="vpn_handshake_timeline_first_packet_label">First packet ready</string>
     <string name="vpn_handshake_timeline_slowest_default">Slowest stage MTU probe · &gt; budget by 100 ms</string>
     <string name="vpn_handshake_timeline_next_budget_default">Next attempt budget 2.0 s</string>
+    <string name="title_throughput_graph">Throughput graph</string>
+    <string name="vpn_throughput_graph_title">Throughput</string>
+    <string name="vpn_throughput_graph_down_now_default">1.42 MiB/s</string>
+    <string name="vpn_throughput_graph_up_now_default">312 KiB/s</string>
+    <string name="vpn_throughput_graph_session_default">↓ 128 MiB</string>
+    <string name="vpn_throughput_graph_stat_down_label">Down now</string>
+    <string name="vpn_throughput_graph_stat_up_label">Up now</string>
+    <string name="vpn_throughput_graph_stat_session_label">Session</string>
+    <string name="vpn_throughput_graph_legend_down">Down</string>
+    <string name="vpn_throughput_graph_legend_up">Up</string>
+    <string name="vpn_throughput_graph_caption">Throughput graph · rolling 1m / 5m / 30m / 1h · down (foreground) + up (info) · session totals below.</string>
     <string name="title_pcap_viewer">Packet capture</string>
     <string name="title_pcap_capture_list">Packet captures</string>
     <string name="vpn_first_run_test_title">Let\'s see what your network does</string>

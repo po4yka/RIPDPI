@@ -2578,6 +2578,17 @@ Source : %2$s</string>
     <string name="vpn_handshake_timeline_first_packet_label">Premier paquet prêt</string>
     <string name="vpn_handshake_timeline_slowest_default">Étape la plus lente : MTU probe · &gt; budget de 100 ms</string>
     <string name="vpn_handshake_timeline_next_budget_default">Budget de la prochaine tentative 2,0 s</string>
+    <string name="title_throughput_graph">Graphique de débit</string>
+    <string name="vpn_throughput_graph_title">Débit</string>
+    <string name="vpn_throughput_graph_down_now_default">1,42 Mio/s</string>
+    <string name="vpn_throughput_graph_up_now_default">312 Kio/s</string>
+    <string name="vpn_throughput_graph_session_default">↓ 128 Mio</string>
+    <string name="vpn_throughput_graph_stat_down_label">Réception</string>
+    <string name="vpn_throughput_graph_stat_up_label">Émission</string>
+    <string name="vpn_throughput_graph_stat_session_label">Session</string>
+    <string name="vpn_throughput_graph_legend_down">Réception</string>
+    <string name="vpn_throughput_graph_legend_up">Émission</string>
+    <string name="vpn_throughput_graph_caption">Graphique de débit · fenêtre 1m / 5m / 30m / 1h · réception (premier plan) + émission (info) · totaux de session ci-dessous.</string>
     <string name="title_pcap_viewer">Capture de paquets</string>
     <string name="title_pcap_capture_list">Captures de paquets</string>
     <string name="vpn_first_run_test_title">Voyons ce que fait votre réseau</string>

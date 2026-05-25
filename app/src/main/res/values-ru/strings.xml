@@ -2697,6 +2697,17 @@ fakeddisorder endhost</string>
     <string name="vpn_handshake_timeline_first_packet_label">Первый пакет готов</string>
     <string name="vpn_handshake_timeline_slowest_default">Самый долгий шаг: MTU probe · превышение на 100 мс</string>
     <string name="vpn_handshake_timeline_next_budget_default">Бюджет следующей попытки 2,0 с</string>
+    <string name="title_throughput_graph">График пропускной способности</string>
+    <string name="vpn_throughput_graph_title">Пропускная способность</string>
+    <string name="vpn_throughput_graph_down_now_default">1,42 МиБ/с</string>
+    <string name="vpn_throughput_graph_up_now_default">312 КиБ/с</string>
+    <string name="vpn_throughput_graph_session_default">↓ 128 МиБ</string>
+    <string name="vpn_throughput_graph_stat_down_label">Загрузка</string>
+    <string name="vpn_throughput_graph_stat_up_label">Отдача</string>
+    <string name="vpn_throughput_graph_stat_session_label">Сессия</string>
+    <string name="vpn_throughput_graph_legend_down">Загрузка</string>
+    <string name="vpn_throughput_graph_legend_up">Отдача</string>
+    <string name="vpn_throughput_graph_caption">График пропускной способности · окно 1м / 5м / 30м / 1ч · загрузка (основной) + отдача (info) · итоги сессии ниже.</string>
     <string name="title_pcap_viewer">Захват пакетов</string>
     <string name="title_pcap_capture_list">Захваты пакетов</string>
     <string name="vpn_first_run_test_title">Посмотрим, что делает ваша сеть</string>
