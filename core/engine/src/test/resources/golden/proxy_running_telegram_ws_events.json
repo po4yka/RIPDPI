@@ -10,6 +10,7 @@
     "capturedAt": 2,
     "chainEntryState": null,
     "chainExitState": null,
+    "connectionQuality": null,
     "dhtTriggerObservations": null,
     "directPathLearningSignals": [],
     "dnsCacheHits": 0,
