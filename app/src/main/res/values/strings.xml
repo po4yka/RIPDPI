@@ -2800,4 +2800,23 @@ Source: %2$s</string>
     <string name="strategy_import_source_clipboard_sub">Auto-detects URL, JSON, or raw strategy args</string>
     <string name="strategy_import_recent_title">Recent imports</string>
     <string name="strategy_import_caption">Strategy import · 4 sources (file / QR / URL / clipboard) · auto-detection on paste · recent imports for fast re-import.</string>
+
+    <!-- Profile Variants screen -->
+    <string name="title_profile_variants">Profile Variants</string>
+    <string name="profile_variants_title">Profile Variants</string>
+    <string name="profile_variants_chip_balanced">BALANCED</string>
+    <string name="profile_variants_chip_aggressive">AGGRESSIVE</string>
+    <string name="profile_variants_chip_stealth">STEALTH</string>
+    <string name="profile_variants_name_balanced">Balanced</string>
+    <string name="profile_variants_name_aggressive">Aggressive</string>
+    <string name="profile_variants_name_stealth">Stealth</string>
+    <string name="profile_variants_desc_balanced">Optimised balance of speed, reliability, and detection avoidance. Recommended for most networks.</string>
+    <string name="profile_variants_desc_aggressive">Maximum throughput with reduced overhead. Best for high-speed networks where detection risk is acceptable.</string>
+    <string name="profile_variants_desc_stealth">Minimises traffic fingerprint at the cost of speed. Suited for heavily monitored or restricted networks.</string>
+    <string name="profile_variants_metric_latency">Latency</string>
+    <string name="profile_variants_metric_throughput">Throughput</string>
+    <string name="profile_variants_metric_detection">Detection risk</string>
+    <string name="profile_variants_cta_select">Select</string>
+    <string name="profile_variants_cta_selected">Active</string>
+    <string name="profile_variants_caption">Profile variants · gallery of strategy presets (Balanced / Aggressive / Stealth) · tinted header chip · 3-row metric strip · Select CTA.</string>
 </resources>

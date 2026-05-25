@@ -2731,4 +2731,23 @@ Quelle: %2$s</string>
     <string name="strategy_import_source_clipboard_sub">Erkennt automatisch URL, JSON oder Strategie-Argumente</string>
     <string name="strategy_import_recent_title">Letzte Importe</string>
     <string name="strategy_import_caption">Strategie-Import · 4 Quellen (Datei / QR / URL / Zwischenablage) · automatische Erkennung beim Einfügen · schneller Reimport.</string>
+
+    <!-- Profile Variants screen -->
+    <string name="title_profile_variants">Profilvarianten</string>
+    <string name="profile_variants_title">Profilvarianten</string>
+    <string name="profile_variants_chip_balanced">AUSGEWOGEN</string>
+    <string name="profile_variants_chip_aggressive">AGGRESSIV</string>
+    <string name="profile_variants_chip_stealth">STEALTH</string>
+    <string name="profile_variants_name_balanced">Ausgewogen</string>
+    <string name="profile_variants_name_aggressive">Aggressiv</string>
+    <string name="profile_variants_name_stealth">Stealth</string>
+    <string name="profile_variants_desc_balanced">Optimales Gleichgewicht aus Geschwindigkeit, Zuverlässigkeit und Erkennungsvermeidung. Empfohlen für die meisten Netzwerke.</string>
+    <string name="profile_variants_desc_aggressive">Maximaler Durchsatz mit weniger Overhead. Ideal für schnelle Netzwerke, bei denen ein gewisses Erkennungsrisiko akzeptabel ist.</string>
+    <string name="profile_variants_desc_stealth">Minimiert den Traffic-Fingerabdruck auf Kosten der Geschwindigkeit. Geeignet für stark überwachte oder eingeschränkte Netzwerke.</string>
+    <string name="profile_variants_metric_latency">Latenz</string>
+    <string name="profile_variants_metric_throughput">Durchsatz</string>
+    <string name="profile_variants_metric_detection">Erkennungsrisiko</string>
+    <string name="profile_variants_cta_select">Auswählen</string>
+    <string name="profile_variants_cta_selected">Aktiv</string>
+    <string name="profile_variants_caption">Profilvarianten · Galerie der Strategie-Voreinstellungen (Ausgewogen / Aggressiv / Stealth) · farbiger Kopf-Chip · 3-zeilige Metrik-Leiste · Auswahl-CTA.</string>
 </resources>

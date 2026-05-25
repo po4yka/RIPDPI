@@ -2850,4 +2850,23 @@ fakeddisorder endhost</string>
     <string name="strategy_import_source_clipboard_sub">Автоопределение URL, JSON или аргументов стратегии</string>
     <string name="strategy_import_recent_title">Последние импорты</string>
     <string name="strategy_import_caption">Импорт стратегии · 4 источника (файл / QR / URL / буфер) · автоопределение при вставке · быстрый повторный импорт.</string>
+
+    <!-- Profile Variants screen -->
+    <string name="title_profile_variants">Варианты профиля</string>
+    <string name="profile_variants_title">Варианты профиля</string>
+    <string name="profile_variants_chip_balanced">СБАЛАНСИРОВАННЫЙ</string>
+    <string name="profile_variants_chip_aggressive">АГРЕССИВНЫЙ</string>
+    <string name="profile_variants_chip_stealth">НЕВИДИМЫЙ</string>
+    <string name="profile_variants_name_balanced">Сбалансированный</string>
+    <string name="profile_variants_name_aggressive">Агрессивный</string>
+    <string name="profile_variants_name_stealth">Невидимый</string>
+    <string name="profile_variants_desc_balanced">Оптимальный баланс скорости, надёжности и скрытности. Рекомендуется для большинства сетей.</string>
+    <string name="profile_variants_desc_aggressive">Максимальная пропускная способность с минимальными накладными расходами. Лучший выбор для быстрых сетей, где риск обнаружения допустим.</string>
+    <string name="profile_variants_desc_stealth">Минимизирует сигнатуру трафика в ущерб скорости. Подходит для сетей с усиленным мониторингом или ограничениями.</string>
+    <string name="profile_variants_metric_latency">Задержка</string>
+    <string name="profile_variants_metric_throughput">Пропускная способность</string>
+    <string name="profile_variants_metric_detection">Риск обнаружения</string>
+    <string name="profile_variants_cta_select">Выбрать</string>
+    <string name="profile_variants_cta_selected">Активен</string>
+    <string name="profile_variants_caption">Варианты профиля · галерея предустановок стратегий (Сбалансированный / Агрессивный / Невидимый) · цветной чип заголовка · 3 метрики · кнопка выбора.</string>
 </resources>

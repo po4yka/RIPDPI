@@ -2732,4 +2732,23 @@ fake_burst 3</string>
     <string name="strategy_import_source_clipboard_sub">自动检测 URL、JSON 或策略参数</string>
     <string name="strategy_import_recent_title">最近导入</string>
     <string name="strategy_import_caption">策略导入 · 4 个来源（文件 / 二维码 / URL / 剪贴板）· 粘贴时自动检测 · 快速重新导入。</string>
+
+    <!-- Profile Variants screen -->
+    <string name="title_profile_variants">配置文件变体</string>
+    <string name="profile_variants_title">配置文件变体</string>
+    <string name="profile_variants_chip_balanced">均衡</string>
+    <string name="profile_variants_chip_aggressive">激进</string>
+    <string name="profile_variants_chip_stealth">隐匿</string>
+    <string name="profile_variants_name_balanced">均衡</string>
+    <string name="profile_variants_name_aggressive">激进</string>
+    <string name="profile_variants_name_stealth">隐匿</string>
+    <string name="profile_variants_desc_balanced">速度、可靠性与规避检测之间的最优平衡。适用于大多数网络。</string>
+    <string name="profile_variants_desc_aggressive">以较低开销实现最大吞吐量。适合高速网络，可接受一定检测风险。</string>
+    <string name="profile_variants_desc_stealth">以牺牲速度为代价将流量指纹降至最低。适用于监控严格或访问受限的网络。</string>
+    <string name="profile_variants_metric_latency">延迟</string>
+    <string name="profile_variants_metric_throughput">吞吐量</string>
+    <string name="profile_variants_metric_detection">检测风险</string>
+    <string name="profile_variants_cta_select">选择</string>
+    <string name="profile_variants_cta_selected">已激活</string>
+    <string name="profile_variants_caption">配置文件变体 · 策略预设画廊（均衡 / 激进 / 隐匿）· 彩色标题芯片 · 3 行指标条 · 选择按钮。</string>
 </resources>

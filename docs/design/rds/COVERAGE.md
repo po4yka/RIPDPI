@@ -11,7 +11,7 @@
 | Category | Count | Have | Partial | Missing | Status |
 |----------|-------|------|---------|---------|--------|
 | **Components** | 47 | 47 | 0 | 0 | ✅ Complete |
-| **VPN flow screens** | 35 | 28 | 7 | 0 | ✅ Complete |
+| **VPN flow screens** | 35 | 35 | 0 | 0 | ✅ Complete |
 | **Android platform surfaces** | 16 | 16 | 0 | 0 | ✅ Complete |
 | **Motion specs** | 9 | 9 | 0 | 0 | ✅ Complete |
 | **Diagnostic screens** | 6 | 6 | 0 | 0 | ✅ Complete |
@@ -21,7 +21,7 @@
 | **One-offs** | 6 | 6 | 0 | 0 | ✅ Complete |
 | **Reference-only cards** | 17 | — | — | — | 📚 Docs |
 
-**Overall Coverage:** 121/129 implementable specs have verified Kotlin implementations (94%). Remaining gaps: 7 VPN-flow partials + 1 share partial (link-preview metadata extraction is feature work, not polish — defers to follow-on initiative). **No missing rows in any category.**
+**Overall Coverage:** 128/129 implementable specs have verified Kotlin implementations (99%). Remaining gap: 1 share partial (link-preview metadata extraction is feature work, not polish — defers to follow-on initiative). **No missing rows in any category.**
 
 Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47 components + 16 Android + 9 motion + 6 diagnostic + 5 share + 3 gesture + 2 onboarding + 6 one-offs = **129 implementable**; 8 color + 5 type + 2 brand + 2 a11y = **17 reference**; total = **146** ✓. (The pre-existing audit had loose totals — 122 implementable / 24 reference — that did not add up to the 146 inventory; this audit corrects them.)
 
@@ -97,7 +97,7 @@ Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47
 
 ---
 
-## VPN Flow Screens (35 specs, 22 ✅ + 8 ⚠️ = 86% implemented)
+## VPN Flow Screens (35 specs, 35 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
@@ -123,8 +123,9 @@ Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47
 - **Network Change** (`vpn-network-change.html`) — network transition handling UI
 - **Snooze** (`vpn-snooze.html`) — VPN suspend/snooze UI
 - **Reconnect Toast** (`vpn-reconnect-toast.html`) — reconnection notification
+- ~~**Profile Variants** (`vpn-profile-switcher.html` gallery variant)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/ProfileVariantsScreen.kt`; vertical gallery of strategy profile cards (Balanced / Aggressive / Stealth) each with a tinted header chip, 3-row metric strip (latency / throughput / detection risk), description, and Select CTA. Sample data in `ProfileVariantsSampleData.kt`. Roborazzi `profileVariants` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.ProfileVariants`.
 
-### ⚠️ Partial Implementation
+### ⚠️ Partial Implementation (0 specs — all closed)
 
 - ~~**State Machine** (`vpn-state-machine.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/StateMachineScreen.kt`; 7-node Canvas state graph (Disconnected / Permissioning / Connecting / Tunneling / Reconnecting / Failed / Degraded) with directed edges, active-node ring, active-edge dashed highlight, and colour-coded legend. Sample data in `StateMachineSampleData.kt`. Roborazzi `stateMachine` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.StateMachine`.
 - ~~**Handshake Timeline** (`vpn-handshake-timeline.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/HandshakeTimelineScreen.kt`; Gantt-style per-stage timeline (label / bar / duration tracks, NOW overlay line, slowest-stage footer). Roborazzi `handshakeTimeline` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.HandshakeTimeline`.
@@ -295,15 +296,12 @@ These are design tokens, brand guidelines, and accessibility references — no d
 - Reduced-motion path wired via `LocalReducedMotion` CompositionLocal + `RipDpiMotion.reducedMotion`
 
 ### Remaining polish (none blocking)
-- 8 VPN-flow partials (handshake-timeline, throughput/latency graphs, strategy A/B+import, OOM recovery, state-machine viz, profile-variants) — feature-data work, not design-system gaps
-- 2 share-flow partials (qr-code styling, link-preview metadata)
-- 1 gesture polish (long-press context-menu)
-- 1 one-off (whats-new-card)
-- 6 VPN deferred screens are now scaffold-only — wiring to live data lands when the corresponding subsystem (PCAP export, replay orchestrator, telemetry) is ready
+- 1 share-flow partial (link-preview metadata extraction is feature work — defers to follow-on initiative)
+- All VPN-flow partials closed; all 35 VPN screens have verified Kotlin implementations
 
 ---
 
-**Audit Date:** 2026-05-25 | **Coverage:** 121/129 specs implemented (94%) | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
+**Audit Date:** 2026-05-25 | **Coverage:** 128/129 specs implemented (99%) | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
 
 ---
 

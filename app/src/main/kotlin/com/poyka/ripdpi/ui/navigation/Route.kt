@@ -259,6 +259,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object ProfileVariants : Route() {
+        override val stableRoute = "profile_variants"
+        override val titleRes = R.string.title_profile_variants
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class SharedDiagnosticResult(
         val fragment: String = "",
     ) : Route() {
@@ -369,6 +376,7 @@ sealed class Route {
                     OomRecovery,
                     StrategyAb,
                     StrategyImport,
+                    ProfileVariants,
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),

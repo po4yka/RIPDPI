@@ -2731,4 +2731,23 @@ Origen: %2$s</string>
     <string name="strategy_import_source_clipboard_sub">Detecta automáticamente URL, JSON o argumentos de estrategia</string>
     <string name="strategy_import_recent_title">Importaciones recientes</string>
     <string name="strategy_import_caption">Importación de estrategia · 4 fuentes (archivo / QR / URL / portapapeles) · detección automática al pegar · reimportación rápida.</string>
+
+    <!-- Profile Variants screen -->
+    <string name="title_profile_variants">Variantes de perfil</string>
+    <string name="profile_variants_title">Variantes de perfil</string>
+    <string name="profile_variants_chip_balanced">EQUILIBRADO</string>
+    <string name="profile_variants_chip_aggressive">AGRESIVO</string>
+    <string name="profile_variants_chip_stealth">SIGILOSO</string>
+    <string name="profile_variants_name_balanced">Equilibrado</string>
+    <string name="profile_variants_name_aggressive">Agresivo</string>
+    <string name="profile_variants_name_stealth">Sigiloso</string>
+    <string name="profile_variants_desc_balanced">Balance óptimo de velocidad, fiabilidad y evasión de detección. Recomendado para la mayoría de las redes.</string>
+    <string name="profile_variants_desc_aggressive">Máximo rendimiento con menor sobrecarga. Ideal para redes de alta velocidad donde el riesgo de detección es aceptable.</string>
+    <string name="profile_variants_desc_stealth">Minimiza la huella de tráfico a costa de la velocidad. Adecuado para redes con monitorización intensa o restricciones.</string>
+    <string name="profile_variants_metric_latency">Latencia</string>
+    <string name="profile_variants_metric_throughput">Rendimiento</string>
+    <string name="profile_variants_metric_detection">Riesgo de detección</string>
+    <string name="profile_variants_cta_select">Seleccionar</string>
+    <string name="profile_variants_cta_selected">Activo</string>
+    <string name="profile_variants_caption">Variantes de perfil · galería de preajustes de estrategia (Equilibrado / Agresivo / Sigiloso) · chip de cabecera con color · franja de 3 métricas · CTA de selección.</string>
 </resources>

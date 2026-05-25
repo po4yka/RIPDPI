@@ -2731,4 +2731,23 @@ Source : %2$s</string>
     <string name="strategy_import_source_clipboard_sub">Détecte automatiquement URL, JSON ou arguments de stratégie</string>
     <string name="strategy_import_recent_title">Importations récentes</string>
     <string name="strategy_import_caption">Import de stratégie · 4 sources (fichier / QR / URL / presse-papiers) · détection automatique au collage · réimportation rapide.</string>
+
+    <!-- Profile Variants screen -->
+    <string name="title_profile_variants">Variantes de profil</string>
+    <string name="profile_variants_title">Variantes de profil</string>
+    <string name="profile_variants_chip_balanced">ÉQUILIBRÉ</string>
+    <string name="profile_variants_chip_aggressive">AGRESSIF</string>
+    <string name="profile_variants_chip_stealth">FURTIF</string>
+    <string name="profile_variants_name_balanced">Équilibré</string>
+    <string name="profile_variants_name_aggressive">Agressif</string>
+    <string name="profile_variants_name_stealth">Furtif</string>
+    <string name="profile_variants_desc_balanced">Équilibre optimal entre vitesse, fiabilité et discrétion. Recommandé pour la plupart des réseaux.</string>
+    <string name="profile_variants_desc_aggressive">Débit maximal avec un minimum de surcharge. Idéal pour les réseaux rapides où le risque de détection est acceptable.</string>
+    <string name="profile_variants_desc_stealth">Minimise l\'empreinte du trafic au détriment de la vitesse. Adapté aux réseaux fortement surveillés ou restreints.</string>
+    <string name="profile_variants_metric_latency">Latence</string>
+    <string name="profile_variants_metric_throughput">Débit</string>
+    <string name="profile_variants_metric_detection">Risque de détection</string>
+    <string name="profile_variants_cta_select">Sélectionner</string>
+    <string name="profile_variants_cta_selected">Actif</string>
+    <string name="profile_variants_caption">Variantes de profil · galerie de préréglages de stratégie (Équilibré / Agressif / Furtif) · puce d\'en-tête colorée · bande de 3 métriques · CTA de sélection.</string>
 </resources>

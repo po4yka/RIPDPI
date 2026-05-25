@@ -2736,4 +2736,23 @@ fakeddisorder endhost</string>
     <string name="strategy_import_source_clipboard_sub">تشخیص خودکار URL، JSON یا آرگومان‌های استراتژی</string>
     <string name="strategy_import_recent_title">واردسازی‌های اخیر</string>
     <string name="strategy_import_caption">وارد کردن استراتژی · ۴ منبع (فایل / QR / URL / کلیپ‌بورد) · تشخیص خودکار هنگام چسباندن · واردسازی مجدد سریع.</string>
+
+    <!-- Profile Variants screen -->
+    <string name="title_profile_variants">انواع پروفایل</string>
+    <string name="profile_variants_title">انواع پروفایل</string>
+    <string name="profile_variants_chip_balanced">متعادل</string>
+    <string name="profile_variants_chip_aggressive">تهاجمی</string>
+    <string name="profile_variants_chip_stealth">مخفیانه</string>
+    <string name="profile_variants_name_balanced">متعادل</string>
+    <string name="profile_variants_name_aggressive">تهاجمی</string>
+    <string name="profile_variants_name_stealth">مخفیانه</string>
+    <string name="profile_variants_desc_balanced">تعادل بهینه بین سرعت، پایداری و جلوگیری از شناسایی. برای اکثر شبکه‌ها توصیه می‌شود.</string>
+    <string name="profile_variants_desc_aggressive">حداکثر توان عملیاتی با سربار کمتر. مناسب شبکه‌های پرسرعت که ریسک شناسایی قابل قبول است.</string>
+    <string name="profile_variants_desc_stealth">اثر انگشت ترافیک را به قیمت کاهش سرعت به حداقل می‌رساند. مناسب شبکه‌های با نظارت سنگین یا محدودیت شدید.</string>
+    <string name="profile_variants_metric_latency">تأخیر</string>
+    <string name="profile_variants_metric_throughput">پهنای باند</string>
+    <string name="profile_variants_metric_detection">ریسک شناسایی</string>
+    <string name="profile_variants_cta_select">انتخاب</string>
+    <string name="profile_variants_cta_selected">فعال</string>
+    <string name="profile_variants_caption">انواع پروفایل · گالری پیش‌تنظیم‌های استراتژی (متعادل / تهاجمی / مخفیانه) · تراشه رنگی سربرگ · نوار ۳ معیاره · دکمه انتخاب.</string>
 </resources>
