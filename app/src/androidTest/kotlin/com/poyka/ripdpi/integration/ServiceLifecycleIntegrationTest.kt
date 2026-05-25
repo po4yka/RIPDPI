@@ -18,9 +18,12 @@ import com.poyka.ripdpi.core.testing.FaultSpec
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsRepositoryModule
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -29,6 +32,11 @@ import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
+import com.poyka.ripdpi.services.NetworkHandoverMonitor
+import com.poyka.ripdpi.services.NetworkHandoverMonitorModule
+import com.poyka.ripdpi.services.PermissionChangeEvent
+import com.poyka.ripdpi.services.PermissionWatchdog
+import com.poyka.ripdpi.services.PermissionWatchdogModule
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
@@ -61,6 +69,8 @@ import kotlin.time.Duration.Companion.seconds
     Tun2SocksBridgeFactoryModule::class,
     ServiceStateStoreModule::class,
     VpnTunnelSessionProviderModule::class,
+    NetworkHandoverMonitorModule::class,
+    PermissionWatchdogModule::class,
 )
 class ServiceLifecycleIntegrationTest {
     @get:Rule
@@ -97,6 +107,14 @@ class ServiceLifecycleIntegrationTest {
     @JvmField
     var vpnTunnelSessionProvider: VpnTunnelSessionProvider = IntegrationTestOverrides.vpnTunnelSessionProvider
 
+    @BindValue
+    @JvmField
+    var networkHandoverMonitor: NetworkHandoverMonitor = IntegrationTestOverrides.networkHandoverMonitor
+
+    @BindValue
+    @JvmField
+    var permissionWatchdog: PermissionWatchdog = IntegrationTestOverrides.permissionWatchdog
+
     @Inject
     lateinit var activeConnectionPolicyStore: ActiveConnectionPolicyStore
 
@@ -109,6 +127,8 @@ class ServiceLifecycleIntegrationTest {
         tun2SocksBridgeFactory = bindings.tun2SocksBridgeFactory
         serviceStateStore = bindings.serviceStateStore
         vpnTunnelSessionProvider = bindings.vpnTunnelSessionProvider
+        networkHandoverMonitor = bindings.networkHandoverMonitor
+        permissionWatchdog = bindings.permissionWatchdog
         hiltRule.inject()
         assertTrue(
             "VPN integration tests must use IntegrationTestOverrides.vpnTunnelSessionProvider and not platform consent UX.",
@@ -461,6 +481,88 @@ class ServiceLifecycleIntegrationTest {
     }
 
     @Test
+    fun vpnServiceStickyRestartDoesNotDuplicateTunnelOrDowngradeEncryptedDns() {
+        runBlocking {
+            IntegrationTestOverrides.appSettingsRepository.update {
+                dnsMode = DnsModeEncrypted
+                dnsIp = "1.1.1.1"
+            }
+            startService(RipDpiVpnService::class.java)
+            awaitStatus(AppStatus.Running, Mode.VPN)
+            awaitOrderEventCount("vpn:establish", 1)
+
+            appContext.startService(Intent(appContext, RipDpiVpnService::class.java))
+            delay(200)
+
+            assertEquals(1, IntegrationTestOverrides.orderSnapshot().count { it == "proxy:start" })
+            assertEquals(1, IntegrationTestOverrides.orderSnapshot().count { it == "vpn:establish" })
+            assertEquals(1, IntegrationTestOverrides.orderSnapshot().count { it == "tunnel:start" })
+            assertEquals(
+                "198.18.0.53",
+                IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.startedConfig
+                    ?.mapdnsAddress,
+            )
+        }
+    }
+
+    @Test
+    fun vpnServiceNetworkHandoverRebuildsTunnelWithoutPlainDnsFallback() {
+        runBlocking {
+            IntegrationTestOverrides.appSettingsRepository.update {
+                dnsMode = DnsModeEncrypted
+                dnsIp = "1.1.1.1"
+            }
+
+            startService(RipDpiVpnService::class.java)
+            awaitStatus(AppStatus.Running, Mode.VPN)
+            awaitOrderEventCount("vpn:establish", 1)
+
+            IntegrationTestOverrides.networkHandoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = testFingerprint(transport = "wifi", dnsServers = listOf("1.1.1.1")),
+                    currentFingerprint = testFingerprint(transport = "cellular", dnsServers = listOf("9.9.9.9")),
+                    classification = "transport_switch",
+                    occurredAt = System.currentTimeMillis(),
+                ),
+            )
+
+            awaitOrderEventCount("vpn:establish", 2)
+            awaitOrderEventCount("tunnel:start", 2)
+
+            val tunnelConfigs = IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.startedConfigs
+            assertEquals(2, tunnelConfigs.size)
+            tunnelConfigs.forEach { config ->
+                assertEquals("198.18.0.53", config.mapdnsAddress)
+                assertEquals(53, config.mapdnsPort)
+            }
+            assertEquals(1, IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.stopCount)
+            assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
+        }
+    }
+
+    @Test
+    fun vpnServicePermissionWatchdogRevocationFailsClosed() {
+        runBlocking {
+            startService(RipDpiVpnService::class.java)
+            awaitStatus(AppStatus.Running, Mode.VPN)
+
+            IntegrationTestOverrides.permissionWatchdog.emit(
+                PermissionChangeEvent(
+                    kind = PermissionChangeEvent.KIND_VPN_CONSENT,
+                    detectedAt = System.currentTimeMillis(),
+                ),
+            )
+
+            awaitFailure(Sender.VPN)
+            awaitStatus(AppStatus.Halted, Mode.VPN)
+            awaitVpnSessionClosed()
+
+            assertEquals(1, IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.stopCount)
+            assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
+        }
+    }
+
+    @Test
     fun proxyServiceStopFailureStillHaltsAndSecondStopDoesNotLoop() {
         runBlocking {
             startService(RipDpiProxyService::class.java)
@@ -678,6 +780,29 @@ class ServiceLifecycleIntegrationTest {
             }
         }
     }
+
+    private suspend fun awaitOrderEventCount(
+        event: String,
+        expected: Int,
+    ) {
+        withTimeout(10.seconds) {
+            while (IntegrationTestOverrides.orderSnapshot().count { it == event } != expected) {
+                delay(50)
+            }
+        }
+    }
+
+    private fun testFingerprint(
+        transport: String,
+        dnsServers: List<String>,
+    ): NetworkFingerprint =
+        NetworkFingerprint(
+            transport = transport,
+            networkValidated = true,
+            captivePortalDetected = false,
+            privateDnsMode = "system",
+            dnsServers = dnsServers,
+        )
 
     private fun assertContainsSubsequence(
         actual: List<String>,

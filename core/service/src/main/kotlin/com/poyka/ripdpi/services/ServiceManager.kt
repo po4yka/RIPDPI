@@ -28,6 +28,25 @@ interface ServiceController {
     fun stop()
 }
 
+interface ForegroundServiceStarter {
+    fun startForegroundService(
+        context: Context,
+        intent: Intent,
+    )
+}
+
+@Singleton
+class ContextCompatForegroundServiceStarter
+    @Inject
+    constructor() : ForegroundServiceStarter {
+        override fun startForegroundService(
+            context: Context,
+            intent: Intent,
+        ) {
+            ContextCompat.startForegroundService(context, intent)
+        }
+    }
+
 @Singleton
 class DefaultServiceController
     @Inject
@@ -35,6 +54,7 @@ class DefaultServiceController
         @param:ApplicationContext private val context: Context,
         private val serviceStateStore: ServiceStateStore,
         private val serviceAutomationController: Optional<ServiceAutomationController>,
+        private val foregroundServiceStarter: ForegroundServiceStarter,
     ) : ServiceController {
         @Suppress("ReturnCount")
         override fun start(mode: Mode) {
@@ -64,7 +84,7 @@ class DefaultServiceController
                             action = startAction
                         }
                     try {
-                        ContextCompat.startForegroundService(context, intent)
+                        foregroundServiceStarter.startForegroundService(context, intent)
                     } catch (e: IllegalStateException) {
                         // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
                         Logger.w(e) { "Foreground service start blocked" }
@@ -79,7 +99,7 @@ class DefaultServiceController
                             action = startAction
                         }
                     try {
-                        ContextCompat.startForegroundService(context, intent)
+                        foregroundServiceStarter.startForegroundService(context, intent)
                     } catch (e: IllegalStateException) {
                         // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
                         Logger.w(e) { "Foreground service start blocked" }
@@ -111,7 +131,7 @@ class DefaultServiceController
                     }
                 }
             try {
-                ContextCompat.startForegroundService(context, intent)
+                foregroundServiceStarter.startForegroundService(context, intent)
             } catch (e: IllegalStateException) {
                 // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
                 Logger.w(e) { "Foreground service start blocked" }
@@ -125,6 +145,14 @@ abstract class ServiceControllerModule {
     @Binds
     @Singleton
     abstract fun bindServiceController(serviceController: DefaultServiceController): ServiceController
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class ForegroundServiceStarterModule {
+    @Binds
+    @Singleton
+    abstract fun bindForegroundServiceStarter(starter: ContextCompatForegroundServiceStarter): ForegroundServiceStarter
 }
 
 @Module

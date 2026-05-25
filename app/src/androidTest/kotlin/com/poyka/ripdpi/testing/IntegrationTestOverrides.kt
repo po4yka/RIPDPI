@@ -19,12 +19,16 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.NetworkHandoverMonitor
+import com.poyka.ripdpi.services.PermissionChangeEvent
+import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.VpnTunnelSession
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import kotlinx.coroutines.CompletableDeferred
@@ -190,6 +194,7 @@ class RecordingTun2SocksBridge(
 ) : Tun2SocksBridge {
     var startedConfig: Tun2SocksConfig? = null
         private set
+    val startedConfigs = CopyOnWriteArrayList<Tun2SocksConfig>()
     var startedTunFd: Int? = null
         private set
     var stopCount: Int = 0
@@ -213,6 +218,7 @@ class RecordingTun2SocksBridge(
     ) {
         events += "tunnel:start"
         startedConfig = config
+        startedConfigs += config
         startedTunFd = tunFd
         faults.next(TunnelBridgeFaultTarget.START)?.throwOrIgnore()
         failOnStart?.let { throw it }
@@ -239,6 +245,7 @@ class RecordingTun2SocksBridge(
 
     fun reset() {
         startedConfig = null
+        startedConfigs.clear()
         startedTunFd = null
         stopCount = 0
         failOnStart = null
@@ -357,6 +364,26 @@ class MutableProxyPreferencesResolver(
     }
 }
 
+class RecordingNetworkHandoverMonitor : NetworkHandoverMonitor {
+    private val eventFlow = MutableSharedFlow<NetworkHandoverEvent>(extraBufferCapacity = 8)
+
+    override val events: SharedFlow<NetworkHandoverEvent> = eventFlow.asSharedFlow()
+
+    suspend fun emit(event: NetworkHandoverEvent) {
+        eventFlow.emit(event)
+    }
+}
+
+class RecordingPermissionWatchdog : PermissionWatchdog {
+    private val changeFlow = MutableSharedFlow<PermissionChangeEvent>(extraBufferCapacity = 8)
+
+    override val changes: SharedFlow<PermissionChangeEvent> = changeFlow.asSharedFlow()
+
+    fun emit(event: PermissionChangeEvent) {
+        changeFlow.tryEmit(event)
+    }
+}
+
 object IntegrationTestOverrides {
     private val orderEvents = CopyOnWriteArrayList<String>()
 
@@ -372,6 +399,10 @@ object IntegrationTestOverrides {
         private set
     lateinit var proxyPreferencesResolver: ProxyPreferencesResolver
         private set
+    lateinit var networkHandoverMonitor: RecordingNetworkHandoverMonitor
+        private set
+    lateinit var permissionWatchdog: RecordingPermissionWatchdog
+        private set
 
     init {
         reset()
@@ -385,6 +416,8 @@ object IntegrationTestOverrides {
         tun2SocksBridgeFactory = RecordingTun2SocksBridgeFactory(orderEvents)
         vpnTunnelSessionProvider = RecordingVpnTunnelSessionProvider(orderEvents)
         proxyPreferencesResolver = MutableProxyPreferencesResolver()
+        networkHandoverMonitor = RecordingNetworkHandoverMonitor()
+        permissionWatchdog = RecordingPermissionWatchdog()
     }
 
     fun overrideProxyPreferencesResolver(resolver: ProxyPreferencesResolver) {

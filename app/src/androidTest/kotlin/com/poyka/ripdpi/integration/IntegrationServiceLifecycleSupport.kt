@@ -12,6 +12,8 @@ import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.testing.IntegrationTestOverrides
+import com.poyka.ripdpi.testing.RecordingNetworkHandoverMonitor
+import com.poyka.ripdpi.testing.RecordingPermissionWatchdog
 import kotlinx.coroutines.delay
 
 internal data class ServiceLifecycleIntegrationBindings(
@@ -21,6 +23,8 @@ internal data class ServiceLifecycleIntegrationBindings(
     val tun2SocksBridgeFactory: Tun2SocksBridgeFactory,
     val serviceStateStore: ServiceStateStore,
     val vpnTunnelSessionProvider: VpnTunnelSessionProvider,
+    val networkHandoverMonitor: RecordingNetworkHandoverMonitor,
+    val permissionWatchdog: RecordingPermissionWatchdog,
 )
 
 internal fun resetServiceLifecycleIntegrationBindings(): ServiceLifecycleIntegrationBindings {
@@ -32,6 +36,8 @@ internal fun resetServiceLifecycleIntegrationBindings(): ServiceLifecycleIntegra
         tun2SocksBridgeFactory = IntegrationTestOverrides.tun2SocksBridgeFactory,
         serviceStateStore = IntegrationTestOverrides.serviceStateStore,
         vpnTunnelSessionProvider = IntegrationTestOverrides.vpnTunnelSessionProvider,
+        networkHandoverMonitor = IntegrationTestOverrides.networkHandoverMonitor,
+        permissionWatchdog = IntegrationTestOverrides.permissionWatchdog,
     )
 }
 
