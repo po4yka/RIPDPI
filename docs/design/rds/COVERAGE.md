@@ -127,7 +127,7 @@ Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47
 ### ⚠️ Partial Implementation
 
 - **State Machine** (`vpn-state-machine.html`) — state flow implemented; visual incomplete
-- **Handshake Timeline** (`vpn-handshake-timeline.html`) — timing view missing
+- ~~**Handshake Timeline** (`vpn-handshake-timeline.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/HandshakeTimelineScreen.kt`; Gantt-style per-stage timeline (label / bar / duration tracks, NOW overlay line, slowest-stage footer). Roborazzi `handshakeTimeline` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.HandshakeTimeline`.
 - **Throughput Graph** (`vpn-throughput-graph.html`) — graph present; real-time updates need refinement
 - **Latency Graph** (`vpn-latency-graph.html`) — graph present; legend and details incomplete
 - **Strategy A/B** (`vpn-strategy-ab.html`) — A/B test UI framework incomplete

@@ -210,6 +210,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object HandshakeTimeline : Route() {
+        override val stableRoute = "handshake_timeline"
+        override val titleRes = R.string.title_handshake_timeline
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class SharedDiagnosticResult(
         val fragment: String = "",
     ) : Route() {
@@ -313,6 +320,7 @@ sealed class Route {
                     PcapCaptureList,
                     ReplayFailure,
                     ReplayHistory,
+                    HandshakeTimeline,
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),

@@ -64,6 +64,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiStepper
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTab
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
 import com.poyka.ripdpi.ui.components.inputs.RipDpiToggleAlternatives
+import com.poyka.ripdpi.ui.screens.diagnostics.HandshakeTimelineScreen
+import com.poyka.ripdpi.ui.screens.diagnostics.sampleHandshakeTimelineState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
@@ -141,6 +143,22 @@ class RdsComponentsScreenshotTest {
                         eccLabel = "M · 15%",
                         caption = "Scan with another RIPDPI install to import this diagnostic — no network traffic.",
                         captionEmphasis = "no network traffic",
+                    ),
+            )
+        }
+    }
+
+    @Test
+    fun handshakeTimeline() {
+        captureBothThemes("handshakeTimeline", widthDp = 720, heightDp = 520) {
+            HandshakeTimelineScreen(
+                state =
+                    sampleHandshakeTimelineState(
+                        title = "Handshake timeline",
+                        subtitle = "cloudflare-dns.com · UDP/443 · attempt 1 of 3",
+                        totalLabel = "First packet ready",
+                        footerSlowest = "Slowest stage MTU probe · > budget by 100 ms",
+                        footerBudget = "Next attempt budget 2.0 s",
                     ),
             )
         }

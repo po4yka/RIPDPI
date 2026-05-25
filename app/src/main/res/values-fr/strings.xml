@@ -2572,6 +2572,12 @@ Source : %2$s</string>
     <string name="title_first_run_test">Vérification initiale</string>
     <string name="title_replay_failure">Échec de la relecture</string>
     <string name="title_replay_history">Rejeux passés</string>
+    <string name="title_handshake_timeline">Chronologie du handshake</string>
+    <string name="vpn_handshake_timeline_title">Chronologie du handshake</string>
+    <string name="vpn_handshake_timeline_subtitle_default">cloudflare-dns.com · UDP/443 · tentative 1 sur 3</string>
+    <string name="vpn_handshake_timeline_first_packet_label">Premier paquet prêt</string>
+    <string name="vpn_handshake_timeline_slowest_default">Étape la plus lente : MTU probe · &gt; budget de 100 ms</string>
+    <string name="vpn_handshake_timeline_next_budget_default">Budget de la prochaine tentative 2,0 s</string>
     <string name="title_pcap_viewer">Capture de paquets</string>
     <string name="title_pcap_capture_list">Captures de paquets</string>
     <string name="vpn_first_run_test_title">Voyons ce que fait votre réseau</string>

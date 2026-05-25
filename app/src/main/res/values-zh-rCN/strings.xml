@@ -2573,6 +2573,12 @@ fake_burst 3</string>
     <string name="title_first_run_test">首次运行检查</string>
     <string name="title_replay_failure">重放失败</string>
     <string name="title_replay_history">过往重放</string>
+    <string name="title_handshake_timeline">握手时间线</string>
+    <string name="vpn_handshake_timeline_title">握手时间线</string>
+    <string name="vpn_handshake_timeline_subtitle_default">cloudflare-dns.com · UDP/443 · 第 1 次尝试 / 共 3 次</string>
+    <string name="vpn_handshake_timeline_first_packet_label">首个数据包就绪</string>
+    <string name="vpn_handshake_timeline_slowest_default">最慢阶段：MTU probe · 超出预算 100 毫秒</string>
+    <string name="vpn_handshake_timeline_next_budget_default">下次尝试预算 2.0 秒</string>
     <string name="title_pcap_viewer">数据包捕获</string>
     <string name="title_pcap_capture_list">数据包捕获</string>
     <string name="vpn_first_run_test_title">看看你的网络如何表现</string>

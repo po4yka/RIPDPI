@@ -2691,6 +2691,12 @@ fakeddisorder endhost</string>
     <string name="title_first_run_test">Первичная проверка</string>
     <string name="title_replay_failure">Сбой повтора</string>
     <string name="title_replay_history">Прошлые повторы</string>
+    <string name="title_handshake_timeline">Хронология рукопожатия</string>
+    <string name="vpn_handshake_timeline_title">Хронология рукопожатия</string>
+    <string name="vpn_handshake_timeline_subtitle_default">cloudflare-dns.com · UDP/443 · попытка 1 из 3</string>
+    <string name="vpn_handshake_timeline_first_packet_label">Первый пакет готов</string>
+    <string name="vpn_handshake_timeline_slowest_default">Самый долгий шаг: MTU probe · превышение на 100 мс</string>
+    <string name="vpn_handshake_timeline_next_budget_default">Бюджет следующей попытки 2,0 с</string>
     <string name="title_pcap_viewer">Захват пакетов</string>
     <string name="title_pcap_capture_list">Захваты пакетов</string>
     <string name="vpn_first_run_test_title">Посмотрим, что делает ваша сеть</string>

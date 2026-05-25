@@ -2577,6 +2577,12 @@ fakeddisorder endhost</string>
     <string name="title_first_run_test">بررسی نخستین اجرا</string>
     <string name="title_replay_failure">پخش مجدد ناموفق</string>
     <string name="title_replay_history">بازپخش‌های قبلی</string>
+    <string name="title_handshake_timeline">گاه‌شمار دست‌دهی</string>
+    <string name="vpn_handshake_timeline_title">گاه‌شمار دست‌دهی</string>
+    <string name="vpn_handshake_timeline_subtitle_default">cloudflare-dns.com · UDP/443 · تلاش ۱ از ۳</string>
+    <string name="vpn_handshake_timeline_first_packet_label">اولین بسته آماده است</string>
+    <string name="vpn_handshake_timeline_slowest_default">کندترین مرحله: MTU probe · &gt; بودجه ۱۰۰ میلی‌ثانیه</string>
+    <string name="vpn_handshake_timeline_next_budget_default">بودجه تلاش بعدی ۲٫۰ ثانیه</string>
     <string name="title_pcap_viewer">ضبط بسته‌ها</string>
     <string name="title_pcap_capture_list">ضبط بسته‌ها</string>
     <string name="vpn_first_run_test_title">ببینیم شبکه‌ی شما چه می‌کند</string>
