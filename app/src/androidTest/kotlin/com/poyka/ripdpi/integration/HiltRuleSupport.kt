@@ -19,6 +19,8 @@ internal fun HiltAndroidRule.injectBeforeActivityRule(): TestRule =
 internal fun grantedPermissionSnapshot(): PermissionSnapshot =
     PermissionSnapshot(
         vpnConsent = PermissionStatus.Granted,
+        alwaysOnVpn = PermissionStatus.Granted,
+        vpnLockdown = PermissionStatus.Granted,
         notifications = PermissionStatus.Granted,
         batteryOptimization = PermissionStatus.Granted,
     )

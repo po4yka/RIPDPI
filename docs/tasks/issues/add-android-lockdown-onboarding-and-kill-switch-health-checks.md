@@ -1,7 +1,7 @@
 ---
 title: Add Android lockdown onboarding and kill-switch health checks
 type: task
-status: backlog
+status: done
 area: vpn
 priority: critical
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-25
 ---
 
-- [ ] #task Add Android lockdown onboarding and kill-switch health checks #repo/RIPDPI #area/vpn #status/backlog 🔺
+- [x] #task Add Android lockdown onboarding and kill-switch health checks #repo/RIPDPI #area/vpn #status/done 🔺 — Android lockdown state surfaced and verified
 
 ## Goal contract
 
@@ -39,11 +39,15 @@ App-level reconnect is not a hard kill switch. Android lockdown is user or devic
 
 ## Acceptance criteria
 
-- [ ] Onboarding distinguishes VPN permission, Always-on VPN, Block connections without VPN, battery optimization, and foreground-service health.
-- [ ] Connection screen shows `System lockdown enabled`, `not enabled`, or `unknown`.
-- [ ] Secure profiles can warn or block start when lockdown is required but not observed.
-- [ ] UI disables or explains disconnect actions when Android controls an always-on VPN lifecycle.
-- [ ] Tests cover the health-state reducer without requiring private Android APIs.
+- [x] Onboarding distinguishes VPN permission, Always-on VPN, Block connections without VPN, battery optimization, and foreground-service health.
+- [x] Connection screen shows `System lockdown enabled`, `not enabled`, or `unknown`.
+- [x] Secure profiles can warn or block start when lockdown is required but not observed.
+- [x] UI disables or explains disconnect actions when Android controls an always-on VPN lifecycle.
+- [x] Tests cover the health-state reducer without requiring private Android APIs.
+
+## Completion proof
+
+- `just test-module core:service` exit 0 on 2026-05-25.
 
 ## Design notes
 

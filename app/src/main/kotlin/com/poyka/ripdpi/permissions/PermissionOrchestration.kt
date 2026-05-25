@@ -9,6 +9,8 @@ import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.services.AndroidHardKillSwitchStateStore
+import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -22,6 +24,8 @@ import javax.inject.Singleton
 
 enum class PermissionKind {
     VpnConsent,
+    AlwaysOnVpn,
+    VpnLockdown,
     Notifications,
     BatteryOptimization,
 }
@@ -32,16 +36,21 @@ enum class PermissionStatus {
     RequiresSystemPrompt,
     RequiresSettings,
     NotApplicable,
+    Unknown,
 }
 
 data class PermissionSnapshot(
     val vpnConsent: PermissionStatus = PermissionStatus.RequiresSystemPrompt,
+    val alwaysOnVpn: PermissionStatus = PermissionStatus.Unknown,
+    val vpnLockdown: PermissionStatus = PermissionStatus.Unknown,
     val notifications: PermissionStatus = PermissionStatus.NotApplicable,
     val batteryOptimization: PermissionStatus = PermissionStatus.NotApplicable,
 ) {
     fun statusFor(kind: PermissionKind): PermissionStatus =
         when (kind) {
             PermissionKind.VpnConsent -> vpnConsent
+            PermissionKind.AlwaysOnVpn -> alwaysOnVpn
+            PermissionKind.VpnLockdown -> vpnLockdown
             PermissionKind.Notifications -> notifications
             PermissionKind.BatteryOptimization -> batteryOptimization
         }
@@ -52,6 +61,8 @@ data class PermissionSnapshot(
     ): PermissionSnapshot =
         when (kind) {
             PermissionKind.VpnConsent -> copy(vpnConsent = status)
+            PermissionKind.AlwaysOnVpn -> copy(alwaysOnVpn = status)
+            PermissionKind.VpnLockdown -> copy(vpnLockdown = status)
             PermissionKind.Notifications -> copy(notifications = status)
             PermissionKind.BatteryOptimization -> copy(batteryOptimization = status)
         }
@@ -132,8 +143,10 @@ class AndroidPermissionStatusProvider
     constructor(
         @param:ApplicationContext private val context: Context,
         private val automationController: Optional<AutomationController>,
+        private val hardKillSwitchStateStore: AndroidHardKillSwitchStateStore,
     ) : PermissionStatusProvider {
         override fun currentSnapshot(): PermissionSnapshot {
+            val hardKillSwitch = hardKillSwitchStateStore.snapshot.value
             val baseSnapshot =
                 PermissionSnapshot(
                     vpnConsent =
@@ -141,6 +154,30 @@ class AndroidPermissionStatusProvider
                             PermissionStatus.Granted
                         } else {
                             PermissionStatus.RequiresSystemPrompt
+                        },
+                    alwaysOnVpn =
+                        when (hardKillSwitch.status) {
+                            AndroidHardKillSwitchStatus.ENABLED -> PermissionStatus.Granted
+                            AndroidHardKillSwitchStatus.NOT_ENABLED ->
+                                if (hardKillSwitch.alwaysOn == true) {
+                                    PermissionStatus.Granted
+                                } else {
+                                    PermissionStatus.RequiresSettings
+                                }
+
+                            AndroidHardKillSwitchStatus.UNKNOWN -> PermissionStatus.Unknown
+                        },
+                    vpnLockdown =
+                        when (hardKillSwitch.status) {
+                            AndroidHardKillSwitchStatus.ENABLED -> PermissionStatus.Granted
+                            AndroidHardKillSwitchStatus.NOT_ENABLED ->
+                                if (hardKillSwitch.lockdown == true) {
+                                    PermissionStatus.Granted
+                                } else {
+                                    PermissionStatus.RequiresSettings
+                                }
+
+                            AndroidHardKillSwitchStatus.UNKNOWN -> PermissionStatus.Unknown
                         },
                     notifications =
                         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
@@ -217,9 +254,11 @@ class PermissionCoordinator
             val recommended =
                 when (action) {
                     PermissionAction.StartConfiguredMode,
-                    PermissionAction.StartProxyMode,
-                    PermissionAction.StartVpnMode,
-                    -> buildRecommendationList(snapshot)
+                    -> buildRecommendationList(mode = configuredMode, snapshot = snapshot)
+
+                    PermissionAction.StartProxyMode -> buildRecommendationList(mode = Mode.Proxy, snapshot = snapshot)
+
+                    PermissionAction.StartVpnMode -> buildRecommendationList(mode = Mode.VPN, snapshot = snapshot)
 
                     PermissionAction.RunHomeAnalysis,
                     is PermissionAction.RepairPermission,
@@ -246,8 +285,23 @@ class PermissionCoordinator
                 }
             }
 
-        private fun buildRecommendationList(snapshot: PermissionSnapshot): List<PermissionKind> =
+        private fun buildRecommendationList(
+            mode: Mode,
+            snapshot: PermissionSnapshot,
+        ): List<PermissionKind> =
             buildList {
+                if (mode == Mode.VPN &&
+                    snapshot.alwaysOnVpn != PermissionStatus.Granted &&
+                    snapshot.alwaysOnVpn != PermissionStatus.NotApplicable
+                ) {
+                    add(PermissionKind.AlwaysOnVpn)
+                }
+                if (mode == Mode.VPN &&
+                    snapshot.vpnLockdown != PermissionStatus.Granted &&
+                    snapshot.vpnLockdown != PermissionStatus.NotApplicable
+                ) {
+                    add(PermissionKind.VpnLockdown)
+                }
                 if (
                     snapshot.batteryOptimization != PermissionStatus.Granted &&
                     snapshot.batteryOptimization != PermissionStatus.NotApplicable

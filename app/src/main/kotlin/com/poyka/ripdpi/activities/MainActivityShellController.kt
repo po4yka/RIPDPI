@@ -107,6 +107,14 @@ internal class MainActivityShellController(
                         }
                     }
 
+                    com.poyka.ripdpi.permissions.PermissionKind.AlwaysOnVpn,
+                    com.poyka.ripdpi.permissions.PermissionKind.VpnLockdown,
+                    -> {
+                        effect.payload?.let { intent ->
+                            _hostCommands.tryEmit(MainActivityHostCommand.OpenIntent(intent))
+                        }
+                    }
+
                     com.poyka.ripdpi.permissions.PermissionKind.BatteryOptimization -> {
                         effect.payload?.let { intent ->
                             _hostCommands.tryEmit(MainActivityHostCommand.RequestBatteryOptimization(intent))

@@ -206,6 +206,7 @@ class MainActivityContentTest {
                     serviceStateStore = FakeServiceStateStore(),
                     serviceController = serviceController,
                     trafficStatsReader = FakeTrafficStatsReader(),
+                    hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
                 ),
             mainPermissionDependencies =
                 MainPermissionDependencies(

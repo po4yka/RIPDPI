@@ -1,7 +1,7 @@
 ---
 title: Add DNS interceptor and split DNS leak tests
 type: task
-status: backlog
+status: done
 area: vpn
 priority: critical
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-16
+updated: 2026-05-25
 ---
 
-- [ ] #task Add DNS interceptor and split DNS leak tests #repo/RIPDPI #area/vpn #status/backlog 🔺 — interceptor + leak tests pass; just test-module core:service blocked by pre-existing ConnectionPolicyResolverDirectPathTest failure
+- [x] #task Add DNS interceptor and split DNS leak tests #repo/RIPDPI #area/vpn #status/done 🔺 — `just test-module core:service` exit 0; dispatcher-aligned leak proof closes split-DNS default-network fallback gap
 
 ## Goal contract
 
@@ -39,12 +39,12 @@ DNS leaks are one of the main ways GUI tunneled outbound profiles fail despite a
 
 ## Acceptance criteria
 
-- [ ] VPN builder always sets DNS servers for secure VPN profiles.
-- [ ] Transport endpoint bootstrap resolution is explicitly scoped and cannot route back into the TUN loop.
-- [ ] RU/direct domains can resolve through direct policy while proxied domains resolve through the selected outbound.
-- [ ] Proxy/default DNS failure uses encrypted backup or fails closed; it never falls back to plaintext system DNS.
-- [ ] Leak test detects fallback to default-network DNS for proxied domains.
-- [ ] Network-switch tests verify DNS policy remains intact across Wi-Fi and cellular changes.
+- [x] VPN builder always sets DNS servers for secure VPN profiles.
+- [x] Transport endpoint bootstrap resolution is explicitly scoped and cannot route back into the TUN loop.
+- [x] RU/direct domains can resolve through direct policy while proxied domains resolve through the selected outbound.
+- [x] Proxy/default DNS failure uses encrypted backup or fails closed; it never falls back to plaintext system DNS.
+- [x] Leak test detects fallback to default-network DNS for proxied domains.
+- [x] Network-switch tests verify DNS policy remains intact across Wi-Fi and cellular changes.
 
 ## Design notes
 
@@ -64,3 +64,4 @@ This task is about Android VPN DNS enforcement; it should reuse the existing DNS
 ## Work log
 
 - 2026-05-16: Reclassified to backlog — no concrete blocker recorded in frontmatter or prose (pre-existing test failure is a known flake, not a tracked dependency).
+- 2026-05-25: Completed dispatcher-aligned split-DNS leak proof; `just test-module core:service` passed with exit code 0.

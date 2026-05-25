@@ -50,6 +50,9 @@ internal class MainPermissionActions(
         when (kind) {
             PermissionKind.Notifications -> handleNotificationPermissionResult(result)
             PermissionKind.VpnConsent -> handleVpnPermissionResult(result)
+            PermissionKind.AlwaysOnVpn,
+            PermissionKind.VpnLockdown,
+            -> handleVpnSettingsResult()
             PermissionKind.BatteryOptimization -> handleBatteryOptimizationResult()
         }
     }
@@ -117,6 +120,7 @@ internal class MainPermissionActions(
 
                     PermissionStatus.Denied,
                     PermissionStatus.RequiresSystemPrompt,
+                    PermissionStatus.Unknown,
                     -> {
                         permissionState.update { it.copy(issue = null, snapshot = snapshot) }
                         mutations.trySend(MainEffect.RequestPermission(kind = PermissionKind.Notifications))
@@ -155,6 +159,20 @@ internal class MainPermissionActions(
                         }
                     }
                 }
+            }
+
+            PermissionKind.AlwaysOnVpn,
+            PermissionKind.VpnLockdown,
+            -> {
+                val issue =
+                    createPermissionIssue(
+                        kind = blockedBy,
+                        status = snapshot.statusFor(blockedBy),
+                        blocking = false,
+                        stringResolver = stringResolver,
+                    )
+                permissionState.update { it.copy(issue = issue, snapshot = snapshot) }
+                mutations.trySend(MainEffect.OpenAppSettings(createVpnSettingsIntent()))
             }
 
             PermissionKind.BatteryOptimization -> {
@@ -255,6 +273,18 @@ internal class MainPermissionActions(
         }
     }
 
+    private fun handleVpnSettingsResult() {
+        refreshPermissionSnapshot()
+        val pending = pendingPermissionAction
+        if (pending is PermissionAction.RepairPermission &&
+            (pending.kind == PermissionKind.AlwaysOnVpn || pending.kind == PermissionKind.VpnLockdown)
+        ) {
+            pendingPermissionAction = null
+        } else {
+            resumePendingAction()
+        }
+    }
+
     private fun resumePendingAction() {
         val action = pendingPermissionAction ?: return
         val snapshot = mergeSnapshotWithOverrides(permissionStatusProvider.currentSnapshot())
@@ -296,7 +326,11 @@ internal class MainPermissionActions(
             }
 
             is PermissionAction.RepairPermission -> {
-                if (action.kind == PermissionKind.BatteryOptimization && recommended.isEmpty()) {
+                if (
+                    action.kind == PermissionKind.BatteryOptimization ||
+                    action.kind == PermissionKind.AlwaysOnVpn ||
+                    action.kind == PermissionKind.VpnLockdown
+                ) {
                     refreshPermissionSnapshot()
                 }
             }
@@ -334,6 +368,8 @@ internal class MainPermissionActions(
     }
 
     private fun createAppSettingsIntent(): Intent = permissionPlatformBridge.createAppSettingsIntent()
+
+    private fun createVpnSettingsIntent(): Intent = permissionPlatformBridge.createVpnSettingsIntent()
 
     private fun createBatteryOptimizationIntent(): Intent = permissionPlatformBridge.createBatteryOptimizationIntent()
 }

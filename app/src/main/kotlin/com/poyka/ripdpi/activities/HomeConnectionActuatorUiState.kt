@@ -76,10 +76,13 @@ data class HomeConnectionActuatorUiState(
     val actionLabel: String = "Engage secure line",
     val carriageFraction: Float = 0f,
     val stages: ImmutableList<HomeConnectionActuatorStageUiState> = DefaultHomeConnectionActuatorStages,
+    val deactivationEnabled: Boolean? = null,
 ) {
     val isActivationAvailable: Boolean
         get() = status == HomeConnectionActuatorStatus.Open || status == HomeConnectionActuatorStatus.Fault
 
     val isDeactivationAvailable: Boolean
-        get() = status == HomeConnectionActuatorStatus.Locked || status == HomeConnectionActuatorStatus.Degraded
+        get() =
+            deactivationEnabled ?: (status == HomeConnectionActuatorStatus.Locked ||
+                status == HomeConnectionActuatorStatus.Degraded)
 }

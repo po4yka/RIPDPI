@@ -1,10 +1,14 @@
 package com.poyka.ripdpi.services.leak
 
+import com.poyka.ripdpi.data.DnsResolverPlane
 import com.poyka.ripdpi.data.SplitStrictDnsPolicy
+import com.poyka.ripdpi.data.SplitStrictResolverSpec
+import com.poyka.ripdpi.services.DnsInterceptorDispatcher
 import com.poyka.ripdpi.services.DnsLeakCheckResult
 import com.poyka.ripdpi.services.DnsLeakDetector
 import com.poyka.ripdpi.services.DnsQueryObservation
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -14,7 +18,11 @@ import org.junit.Test
  * Uses [FakeNetworkPlane] as the JVM fake and [DnsLeakDetector] as the oracle.
  */
 class DnsLeakMatrixTest {
-    private val policy = SplitStrictDnsPolicy(directAllowlist = listOf("ru", "local.test"))
+    private val policy =
+        SplitStrictDnsPolicy(
+            direct = SplitStrictResolverSpec.directDefault(),
+            directAllowlist = listOf("ru", "local.test"),
+        )
     private val detector = DnsLeakDetector(policy)
     private val plane = FakeNetworkPlane()
 
@@ -75,10 +83,71 @@ class DnsLeakMatrixTest {
     }
 
     @Test
+    fun policyAwarePlaneLeakCheckAllowsOnlyDispatchedDirectDomainsOnDefaultNetwork() {
+        plane.dnsViaTunnel = false
+        plane.query("yandex.ru")
+        plane.query("secret.example.com")
+
+        val leaks = plane.leakedDnsQueries(policy)
+
+        assertEquals(listOf("secret.example.com"), leaks.map { it.domain })
+        assertTrue(plane.hasDnsLeak(policy))
+    }
+
+    @Test
+    fun interceptorDrivenSplitDnsFlowDoesNotLeakProxiedDomainsToDefaultNetwork() {
+        val dispatcher = DnsInterceptorDispatcher(policy)
+
+        routeThroughInterceptor(dispatcher, "secret.example.com")
+        routeThroughInterceptor(dispatcher, "yandex.ru")
+
+        assertEquals(
+            listOf(false, true),
+            plane.dnsQueries.map { it.viaDefaultNetwork },
+        )
+        assertFalse(plane.hasDnsLeak(policy))
+    }
+
+    @Test
+    fun allowlistedDomainWithoutDirectResolverIsStillALeakOnDefaultNetwork() {
+        val proxyOnlyPolicy = policy.copy(direct = null)
+        val dispatcher = DnsInterceptorDispatcher(proxyOnlyPolicy)
+        val dispatch = dispatcher.dispatch("yandex.ru")
+
+        plane.dnsViaTunnel = false
+        plane.query("yandex.ru")
+
+        assertEquals(DnsResolverPlane.PROXY, dispatch.plane)
+        assertTrue(plane.hasDnsLeak(proxyOnlyPolicy))
+    }
+
+    @Test
     fun resetClearsAllPlaneState() {
         plane.dnsViaTunnel = false
         plane.query("leak.example.com")
         plane.reset()
         assertTrue(plane.dnsQueries.isEmpty())
+    }
+
+    private fun routeThroughInterceptor(
+        dispatcher: DnsInterceptorDispatcher,
+        domain: String,
+    ) {
+        val dispatch = dispatcher.dispatch(domain)
+        when (dispatch.plane) {
+            DnsResolverPlane.DIRECT -> {
+                plane.dnsViaTunnel = false
+                plane.query(domain)
+            }
+
+            DnsResolverPlane.PROXY -> {
+                plane.dnsViaTunnel = true
+                plane.query(domain)
+            }
+
+            DnsResolverPlane.BLOCK,
+            DnsResolverPlane.BOOTSTRAP,
+            -> Unit
+        }
     }
 }

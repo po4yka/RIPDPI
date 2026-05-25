@@ -389,6 +389,78 @@
         "netem",
         "carrier-nat-reorder"
       ]
+    },
+    {
+      "id": "real_provider_mts_cellular_ipv4_nonroot_vpn",
+      "transport": "cellular",
+      "ipFamily": "ipv4",
+      "rooted": false,
+      "mode": "vpn",
+      "networkCondition": "baseline",
+      "executionKind": "android_packet_smoke",
+      "scenarioFilter": "android_vpn_tunnel_baseline_family",
+      "captureMode": "indirect",
+      "runnerRequired": "real-provider",
+      "evidenceTier": "real-provider",
+      "carrierNamespace": "ns-mts",
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "cellular",
+        "ipv4",
+        "nonrooted",
+        "real-provider",
+        "ns-mts"
+      ]
+    },
+    {
+      "id": "real_provider_megafon_cellular_ipv6_nonroot_vpn",
+      "transport": "cellular",
+      "ipFamily": "ipv6",
+      "rooted": false,
+      "mode": "vpn",
+      "networkCondition": "baseline",
+      "executionKind": "android_packet_smoke",
+      "scenarioFilter": "android_vpn_tunnel_baseline_family",
+      "captureMode": "indirect",
+      "runnerRequired": "real-provider",
+      "evidenceTier": "real-provider",
+      "carrierNamespace": "ns-megafon",
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "cellular",
+        "ipv6",
+        "nonrooted",
+        "real-provider",
+        "ns-megafon"
+      ]
+    },
+    {
+      "id": "real_provider_beeline_cellular_ipv4_nonroot_proxy",
+      "transport": "cellular",
+      "ipFamily": "ipv4",
+      "rooted": false,
+      "mode": "proxy",
+      "networkCondition": "baseline",
+      "executionKind": "android_packet_smoke",
+      "scenarioFilter": "android_proxy_tlsrec_family",
+      "captureMode": "indirect",
+      "runnerRequired": "real-provider",
+      "evidenceTier": "real-provider",
+      "carrierNamespace": "ns-beeline",
+      "runsOn": [
+        "self-hosted",
+        "ripdpi-lab",
+        "android",
+        "cellular",
+        "ipv4",
+        "nonrooted",
+        "real-provider",
+        "ns-beeline"
+      ]
     }
   ]
 }

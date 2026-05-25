@@ -24,6 +24,9 @@ REQUIRED_STRESS_ENTRIES = {
     "wifi_ipv6_rooted_proxy_ipfrag2_ipv6_ext_blackhole",
     "cellular_ipv4_nonroot_vpn_carrier_nat_reorder",
 }
+REQUIRED_REAL_PROVIDER_NAMESPACES = {"ns-mts", "ns-megafon", "ns-beeline"}
+RUNNER_REQUIRED_VALUES = {"lab", "real-provider"}
+EVIDENCE_TIERS = {"synthetic-lab", "real-provider"}
 MATRIX_VERSION = "phase16_lab_matrix_v1"
 
 
@@ -53,6 +56,7 @@ def validate_fixture(fixture: dict) -> None:
     ids: set[str] = set()
     baseline_combos: set[tuple[str, str, bool, str]] = set()
     network_conditions: set[str] = set()
+    real_provider_namespaces: set[str] = set()
     for entry in entries:
         validate_entry(entry)
         entry_id = entry["id"]
@@ -61,7 +65,9 @@ def validate_fixture(fixture: dict) -> None:
         ids.add(entry_id)
         network_condition = entry["networkCondition"]
         network_conditions.add(network_condition)
-        if network_condition == BASELINE_NETWORK_CONDITION:
+        if entry_runner_required(entry) == "real-provider":
+            real_provider_namespaces.add(entry.get("carrierNamespace", ""))
+        elif network_condition == BASELINE_NETWORK_CONDITION:
             baseline_combos.add((entry["transport"], entry["ipFamily"], bool(entry["rooted"]), entry["mode"]))
 
     expected = {
@@ -83,6 +89,10 @@ def validate_fixture(fixture: dict) -> None:
     missing_stress_entries = sorted(REQUIRED_STRESS_ENTRIES - ids)
     if missing_stress_entries:
         raise ValueError(f"missing required stress entries: {missing_stress_entries}")
+
+    missing_real_provider_namespaces = sorted(REQUIRED_REAL_PROVIDER_NAMESPACES - real_provider_namespaces)
+    if missing_real_provider_namespaces:
+        raise ValueError(f"missing real-provider namespaces: {missing_real_provider_namespaces}")
 
 
 def validate_entry(entry: dict) -> None:
@@ -120,15 +130,44 @@ def validate_entry(entry: dict) -> None:
         raise ValueError(f"runsOn must be a non-empty string list in {entry['id']}")
     if "self-hosted" not in entry["runsOn"]:
         raise ValueError(f"runsOn must include self-hosted for {entry['id']}")
+    runner_required = entry_runner_required(entry)
+    if runner_required not in RUNNER_REQUIRED_VALUES:
+        raise ValueError(f"unsupported runnerRequired in {entry['id']}: {runner_required}")
+    evidence_tier = entry_evidence_tier(entry)
+    if evidence_tier not in EVIDENCE_TIERS:
+        raise ValueError(f"unsupported evidenceTier in {entry['id']}: {evidence_tier}")
+    carrier_namespace = entry.get("carrierNamespace", "")
+    if runner_required == "real-provider":
+        if not isinstance(carrier_namespace, str) or not carrier_namespace:
+            raise ValueError(f"real-provider entry requires carrierNamespace in {entry['id']}")
+        if evidence_tier != "real-provider":
+            raise ValueError(f"real-provider entry must use evidenceTier=real-provider in {entry['id']}")
+        required_labels = {"real-provider", carrier_namespace}
+        missing_labels = sorted(required_labels - set(entry["runsOn"]))
+        if missing_labels:
+            raise ValueError(f"real-provider entry {entry['id']} missing runsOn labels: {missing_labels}")
+    elif carrier_namespace:
+        raise ValueError(f"lab entry must not set carrierNamespace in {entry['id']}")
+
+
+def entry_runner_required(entry: dict) -> str:
+    return entry.get("runnerRequired", "lab")
+
+
+def entry_evidence_tier(entry: dict) -> str:
+    return entry.get("evidenceTier", "synthetic-lab")
 
 
 def filtered_entries(
     fixture: dict,
     entry_filter: str | None = None,
+    include_real_provider: bool = False,
 ) -> list[dict]:
     entries = fixture["entries"]
     if not entry_filter:
-        return entries
+        if include_real_provider:
+            return entries
+        return [entry for entry in entries if entry_runner_required(entry) != "real-provider"]
     filters = {item.strip() for item in entry_filter.split(",") if item.strip()}
     filtered = [entry for entry in entries if entry["id"] in filters]
     if not filtered:
@@ -150,6 +189,9 @@ def emit_github_matrix(entries: Iterable[dict]) -> dict:
                 "executionKind": entry["executionKind"],
                 "scenarioFilter": entry["scenarioFilter"],
                 "captureMode": entry["captureMode"],
+                "runnerRequired": entry_runner_required(entry),
+                "evidenceTier": entry_evidence_tier(entry),
+                "carrierNamespace": entry.get("carrierNamespace", ""),
                 "runsOnJson": json.dumps(entry["runsOn"]),
                 "artifactName": f"phase16-{entry['id']}",
             }
@@ -167,6 +209,11 @@ def main() -> int:
     emit_parser = subparsers.add_parser("emit-github-matrix", help="Emit a GitHub Actions matrix JSON payload")
     emit_parser.add_argument("--fixture", type=Path, default=default_fixture_path())
     emit_parser.add_argument("--filter", default="", help="Comma-separated entry ids to include")
+    emit_parser.add_argument(
+        "--include-real-provider",
+        action="store_true",
+        help="Include opt-in real-provider rows that require carrier SIM runner hardware",
+    )
 
     list_parser = subparsers.add_parser("list", help="List matrix entry ids")
     list_parser.add_argument("--fixture", type=Path, default=default_fixture_path())
@@ -178,7 +225,7 @@ def main() -> int:
     if args.command == "validate":
         return 0
     if args.command == "emit-github-matrix":
-        payload = emit_github_matrix(filtered_entries(fixture, args.filter))
+        payload = emit_github_matrix(filtered_entries(fixture, args.filter, args.include_real_provider))
         print(json.dumps(payload, separators=(",", ":")))
         return 0
     if args.command == "list":

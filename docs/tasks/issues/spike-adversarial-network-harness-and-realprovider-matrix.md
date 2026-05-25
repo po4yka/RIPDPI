@@ -1,7 +1,7 @@
 ---
 title: Spike adversarial network harness, generator-driven packet-smoke, and real-provider Phase-16 matrix
 type: task
-status: backlog
+status: done
 area: testing
 priority: high
 owner: unassigned
@@ -9,10 +9,20 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-05-16
+updated: 2026-05-25
 ---
 
-- [ ] #task Spike adversarial network harness, generator-driven packet-smoke, and real-provider Phase-16 matrix #repo/RIPDPI #area/testing #status/backlog 🔼
+- [x] #task Spike adversarial network harness, generator-driven packet-smoke, and real-provider Phase-16 matrix #repo/RIPDPI #area/testing #status/done 🔼 — real-provider evidence contract wired into Phase-16 and follow-up issues filed
+
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `spike-adversarial-network-harness-and-realprovider-matrix`
+- **Verify:** `python3 scripts/ci/phase16_matrix.py validate && python3 -m unittest scripts.tests.test_phase16_matrix`
+- **Scope (only modify these + this file + the ledger):** `docs/architecture/**`, `docs/testing.md`, `docs/tasks/**`, `contract-fixtures/phase16_lab_matrix.json`, `.github/workflows/phase16-matrix.yml`, `scripts/ci/phase16_matrix.py`, `scripts/ci/run-phase16-matrix-entry.sh`, `scripts/ci/phase16_pcap_summary.py`, `scripts/tests/test_phase16_matrix.py`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
 
 ## Objective
 
@@ -34,10 +44,16 @@ Each is sized as a design-then-implement effort: the goal of this task is to lan
 
 ## Acceptance criteria
 
-- [ ] `docs/architecture/spike-tspu-adversarial-emulator.md` exists and enumerates the target adversary pattern set (RST-after-SNI, SNI-replace, IP-blackhole, QUIC-Initial-drop, MTU-clamp) with a proposed implementation surface (nftables + `nfqueue`/scapy or equivalent) and a contract for "the harness reports pass/fail/partial per (desync mode, adversary pattern) cell".
-- [ ] `docs/architecture/spike-generator-packet-smoke.md` exists and defines the 7-dimensional input space, the sampling strategy (named TSPU patterns always run + N random samples per PR), and the oracle (pcap-byte-shape vs. expected plan, using the existing `phase16_pcap_summary.py` summary contract or a successor).
-- [ ] `docs/architecture/spike-phase16-real-provider.md` exists and proposes how a self-hosted `ripdpi-lab` runner exposes real-provider SIM (MTC/MegaFon/Beeline or equivalent) to the existing `contract-fixtures/phase16_lab_matrix.json` fanout, including secret handling and a fallback that keeps PR CI viable when the runner is offline.
-- [ ] Each spike doc links back to this task and is referenced from `docs/testing.md` § "Known gaps & coverage roadmap".
+- [x] `docs/architecture/spike-tspu-adversarial-emulator.md` exists and enumerates the target adversary pattern set (RST-after-SNI, SNI-replace, IP-blackhole, QUIC-Initial-drop, MTU-clamp) with a proposed implementation surface (nftables + `nfqueue`/scapy or equivalent) and a contract for "the harness reports pass/fail/partial per (desync mode, adversary pattern) cell".
+- [x] `docs/architecture/spike-generator-packet-smoke.md` exists and defines the 7-dimensional input space, the sampling strategy (named TSPU patterns always run + N random samples per PR), and the oracle (pcap-byte-shape vs. expected plan, using the existing `phase16_pcap_summary.py` summary contract or a successor).
+- [x] `docs/architecture/spike-phase16-real-provider.md` exists and proposes how a self-hosted `ripdpi-lab` runner exposes real-provider SIM (MTC/MegaFon/Beeline or equivalent) to the existing `contract-fixtures/phase16_lab_matrix.json` fanout, including secret handling and a fallback that keeps PR CI viable when the runner is offline.
+- [x] Each spike doc links back to this task and is referenced from `docs/testing.md` § "Known gaps & coverage roadmap".
+
+## Completion proof
+
+- `python3 scripts/ci/phase16_matrix.py validate` exit 0 on 2026-05-25.
+- `python3 -m unittest scripts.tests.test_phase16_matrix` exit 0 on 2026-05-25.
+- Follow-up implementation issues filed: [`gate-tspu-adversarial-emulator-in-phase16-release-matrix.md`](gate-tspu-adversarial-emulator-in-phase16-release-matrix.md), [`add-generator-driven-packet-smoke-sampling.md`](add-generator-driven-packet-smoke-sampling.md), and [`operate-phase16-real-provider-sim-runner.md`](operate-phase16-real-provider-sim-runner.md).
 
 ## Definition of done
 

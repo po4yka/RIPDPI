@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.SplitStrictDnsPolicy
+import com.poyka.ripdpi.data.SplitStrictResolverSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -12,6 +13,7 @@ import org.junit.Test
 class DnsLeakDetectorTest {
     private val policy =
         SplitStrictDnsPolicy(
+            direct = SplitStrictResolverSpec.directDefault(),
             directAllowlist = listOf("ru", "local.test"),
         )
 
@@ -94,5 +96,17 @@ class DnsLeakDetectorTest {
         // viaDefaultNetwork=false means query went through the VPN
         val result = d.check(obs("secret.com", resolver = "1.1.1.1", viaDefault = false))
         assertFalse(result is DnsLeakCheckResult.Leaked)
+    }
+
+    @Test
+    fun `allowlisted domain is a leak on default network when direct resolver is not configured`() {
+        val d = DnsLeakDetector(
+            SplitStrictDnsPolicy(
+                direct = null,
+                directAllowlist = listOf("ru"),
+            ),
+        )
+        val result = d.check(obs("yandex.ru", resolver = "8.8.8.8", viaDefault = true))
+        assertTrue(result is DnsLeakCheckResult.Leaked)
     }
 }

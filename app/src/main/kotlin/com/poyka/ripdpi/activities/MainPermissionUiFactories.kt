@@ -54,6 +54,8 @@ internal fun buildPermissionSummary(
             listOf(
                 buildNotificationPermissionItem(snapshot.notifications, stringResolver),
                 buildVpnPermissionItem(snapshot.vpnConsent, configuredMode, stringResolver),
+                buildAlwaysOnVpnPermissionItem(snapshot.alwaysOnVpn, configuredMode, stringResolver),
+                buildVpnLockdownPermissionItem(snapshot.vpnLockdown, configuredMode, stringResolver),
                 buildBatteryPermissionItem(snapshot.batteryOptimization, stringResolver),
             ).toImmutableList(),
     )
@@ -87,6 +89,7 @@ internal fun buildNotificationPermissionItem(
 
         PermissionStatus.Denied,
         PermissionStatus.RequiresSystemPrompt,
+        PermissionStatus.Unknown,
         -> {
             PermissionItemUiState(
                 kind = PermissionKind.Notifications,
@@ -130,6 +133,7 @@ internal fun buildVpnPermissionItem(
         PermissionStatus.Denied,
         PermissionStatus.RequiresSettings,
         PermissionStatus.RequiresSystemPrompt,
+        PermissionStatus.Unknown,
         -> {
             PermissionItemUiState(
                 kind = PermissionKind.VpnConsent,
@@ -147,6 +151,104 @@ internal fun buildVpnPermissionItem(
                         stringResolver.getString(R.string.settings_permission_status_optional)
                     },
                 actionLabel = stringResolver.getString(R.string.permissions_vpn_continue),
+            )
+        }
+    }
+
+internal fun buildAlwaysOnVpnPermissionItem(
+    status: PermissionStatus,
+    configuredMode: Mode,
+    stringResolver: StringResolver,
+): PermissionItemUiState =
+    buildVpnSettingsPermissionItem(
+        kind = PermissionKind.AlwaysOnVpn,
+        title = stringResolver.getString(R.string.settings_permissions_always_on_title),
+        status = status,
+        configuredMode = configuredMode,
+        readySubtitle = stringResolver.getString(R.string.settings_permissions_always_on_ready),
+        neededSubtitle = stringResolver.getString(R.string.settings_permissions_always_on_needed),
+        unknownSubtitle = stringResolver.getString(R.string.settings_permissions_always_on_unknown),
+        stringResolver = stringResolver,
+    )
+
+internal fun buildVpnLockdownPermissionItem(
+    status: PermissionStatus,
+    configuredMode: Mode,
+    stringResolver: StringResolver,
+): PermissionItemUiState =
+    buildVpnSettingsPermissionItem(
+        kind = PermissionKind.VpnLockdown,
+        title = stringResolver.getString(R.string.settings_permissions_lockdown_title),
+        status = status,
+        configuredMode = configuredMode,
+        readySubtitle = stringResolver.getString(R.string.settings_permissions_lockdown_ready),
+        neededSubtitle = stringResolver.getString(R.string.settings_permissions_lockdown_needed),
+        unknownSubtitle = stringResolver.getString(R.string.settings_permissions_lockdown_unknown),
+        stringResolver = stringResolver,
+    )
+
+private fun buildVpnSettingsPermissionItem(
+    kind: PermissionKind,
+    title: String,
+    status: PermissionStatus,
+    configuredMode: Mode,
+    readySubtitle: String,
+    neededSubtitle: String,
+    unknownSubtitle: String,
+    stringResolver: StringResolver,
+): PermissionItemUiState =
+    when (status) {
+        PermissionStatus.Granted,
+        PermissionStatus.NotApplicable,
+        -> {
+            PermissionItemUiState(
+                kind = kind,
+                title = title,
+                subtitle =
+                    if (configuredMode == Mode.VPN) {
+                        readySubtitle
+                    } else {
+                        stringResolver.getString(R.string.settings_permissions_vpn_optional)
+                    },
+                statusLabel =
+                    if (status == PermissionStatus.NotApplicable) {
+                        stringResolver.getString(R.string.settings_permission_status_not_needed)
+                    } else {
+                        stringResolver.getString(R.string.settings_permission_status_granted)
+                    },
+            )
+        }
+
+        PermissionStatus.Denied,
+        PermissionStatus.RequiresSystemPrompt,
+        PermissionStatus.RequiresSettings,
+        -> {
+            PermissionItemUiState(
+                kind = kind,
+                title = title,
+                subtitle =
+                    if (configuredMode == Mode.VPN) {
+                        neededSubtitle
+                    } else {
+                        stringResolver.getString(R.string.settings_permissions_vpn_optional)
+                    },
+                statusLabel =
+                    if (configuredMode == Mode.VPN) {
+                        stringResolver.getString(R.string.settings_permission_status_required)
+                    } else {
+                        stringResolver.getString(R.string.settings_permission_status_optional)
+                    },
+                actionLabel = stringResolver.getString(R.string.settings_permission_action_open_vpn_settings),
+            )
+        }
+
+        PermissionStatus.Unknown -> {
+            PermissionItemUiState(
+                kind = kind,
+                title = title,
+                subtitle = unknownSubtitle,
+                statusLabel = stringResolver.getString(R.string.settings_permission_status_unknown),
+                actionLabel = stringResolver.getString(R.string.settings_permission_action_open_vpn_settings),
             )
         }
     }
@@ -175,6 +277,7 @@ internal fun buildBatteryPermissionItem(
         PermissionStatus.Denied,
         PermissionStatus.RequiresSystemPrompt,
         PermissionStatus.RequiresSettings,
+        PermissionStatus.Unknown,
         -> {
             PermissionItemUiState(
                 kind = PermissionKind.BatteryOptimization,
@@ -234,6 +337,28 @@ internal fun createPermissionIssue(
                 message = stringResolver.getString(R.string.permissions_vpn_error_body),
                 recovery = PermissionRecovery.ShowVpnPermissionDialog,
                 actionLabel = stringResolver.getString(R.string.permissions_vpn_continue),
+                blocking = blocking,
+            )
+        }
+
+        PermissionKind.AlwaysOnVpn -> {
+            PermissionIssueUiState(
+                kind = kind,
+                title = stringResolver.getString(R.string.settings_permissions_always_on_title),
+                message = stringResolver.getString(R.string.settings_permissions_always_on_needed),
+                recovery = PermissionRecovery.OpenSettings,
+                actionLabel = stringResolver.getString(R.string.settings_permission_action_open_vpn_settings),
+                blocking = blocking,
+            )
+        }
+
+        PermissionKind.VpnLockdown -> {
+            PermissionIssueUiState(
+                kind = kind,
+                title = stringResolver.getString(R.string.settings_permissions_lockdown_title),
+                message = stringResolver.getString(R.string.settings_permissions_lockdown_needed),
+                recovery = PermissionRecovery.OpenSettings,
+                actionLabel = stringResolver.getString(R.string.settings_permission_action_open_vpn_settings),
                 blocking = blocking,
             )
         }

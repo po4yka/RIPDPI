@@ -51,6 +51,9 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.PinVerifier
+import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
+import com.poyka.ripdpi.services.AndroidHardKillSwitchStateStore
+import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import com.poyka.ripdpi.services.ServiceController
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -199,14 +202,34 @@ class FakeTrafficStatsReader(
     override fun currentTransferredBytes(): Long = transferredBytes
 }
 
+class FakeAndroidHardKillSwitchStateStore(
+    initialSnapshot: AndroidHardKillSwitchSnapshot =
+        AndroidHardKillSwitchSnapshot(
+            status = AndroidHardKillSwitchStatus.ENABLED,
+            alwaysOn = true,
+            lockdown = true,
+        ),
+) : AndroidHardKillSwitchStateStore {
+    private val _snapshot = MutableStateFlow(initialSnapshot)
+
+    override val snapshot: StateFlow<AndroidHardKillSwitchSnapshot> = _snapshot.asStateFlow()
+
+    override fun update(snapshot: AndroidHardKillSwitchSnapshot) {
+        _snapshot.value = snapshot
+    }
+}
+
 class FakePermissionPlatformBridge(
     var vpnPermissionIntent: Intent? = Intent("fake.vpn.permission"),
     var appSettingsIntent: Intent = Intent("fake.app.settings"),
+    var vpnSettingsIntent: Intent = Intent("fake.vpn.settings"),
     var batteryOptimizationIntent: Intent = Intent("fake.battery.optimization"),
 ) : PermissionPlatformBridge {
     override fun prepareVpnPermissionIntent(): Intent? = vpnPermissionIntent
 
     override fun createAppSettingsIntent(): Intent = appSettingsIntent
+
+    override fun createVpnSettingsIntent(): Intent = vpnSettingsIntent
 
     override fun createBatteryOptimizationIntent(): Intent = batteryOptimizationIntent
 }

@@ -1,6 +1,6 @@
 # Design spike: Phase-16 lab matrix on real-provider SIM
 
-Status: design proposal (2026-05-16) Tracks: [`spike-adversarial-network-harness-and-realprovider-matrix.md`](../tasks/issues/spike-adversarial-network-harness-and-realprovider-matrix.md)
+Status: repository contract wired (2026-05-25); private runner operation remains tracked by [`operate-phase16-real-provider-sim-runner.md`](../tasks/issues/operate-phase16-real-provider-sim-runner.md) Tracks: [`spike-adversarial-network-harness-and-realprovider-matrix.md`](../tasks/issues/spike-adversarial-network-harness-and-realprovider-matrix.md)
 
 ## Problem
 
@@ -14,7 +14,7 @@ Add a real-provider lane to the existing `ripdpi-lab` runner pool so release-tim
 
 - 1 dedicated `ripdpi-lab` runner host with 3 USB-attached LTE modems, each holding a SIM from a distinct major RU carrier.
 - The modems present as separate network namespaces on the host (`ns-mts`, `ns-megafon`, `ns-beeline` or equivalent).
-- The existing matrix fanout reads a new `carrier_namespace` axis from `phase16_lab_matrix.json` and dispatches the matrix entry into the selected namespace.
+- The existing matrix fanout reads a new `carrierNamespace` axis from `phase16_lab_matrix.json` and dispatches the matrix entry into the selected namespace.
 - Synthetic environments stay; they continue to run on every PR. Real-provider cells gate releases only.
 
 ## Secret handling
@@ -25,7 +25,7 @@ Add a real-provider lane to the existing `ripdpi-lab` runner pool so release-tim
 
 ## Fallback when the runner is offline
 
-Real-provider cells are marked `runner_required: real-provider`. When the runner is offline:
+Real-provider cells are marked `runnerRequired: real-provider` and `evidenceTier: real-provider`. When the runner is offline:
 
 - PR CI ignores those cells (they are not on the PR critical path).
 - Release-gate CI fails closed with a `runner_unavailable` summary so releases cannot ship without the signal.
@@ -36,13 +36,13 @@ This keeps the day-to-day PR loop independent of carrier hardware availability w
 
 Adds three rows to the existing matrix per axis combination that today runs on synthetic only:
 
-| ... existing axes ... | carrier_namespace | runner_required |
+| ... existing axes ... | carrierNamespace | runnerRequired |
 |---|---|---|
 | ... | `ns-mts` | `real-provider` |
 | ... | `ns-megafon` | `real-provider` |
 | ... | `ns-beeline` | `real-provider` |
 
-`phase16_pcap_summary.py` already understands per-row evidence; no schema change required on the summarizer side.
+`phase16_pcap_summary.py` now carries `runnerRequired`, `evidenceTier`, and `carrierNamespace` from `phase16-run.json` into `runMetadata` so archive/export work can distinguish synthetic lab evidence from real-provider evidence without inspecting workflow labels.
 
 ## What this does *not* do
 

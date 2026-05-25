@@ -47,6 +47,9 @@ class RipDpiVpnService :
     lateinit var rootHelperManager: RootHelperManager
 
     @Inject
+    lateinit var hardKillSwitchStateStore: AndroidHardKillSwitchStateStore
+
+    @Inject
     internal lateinit var sessionComponentBuilderProvider: Provider<VpnServiceSessionComponentBuilder>
 
     private lateinit var sessionLifecycle: VpnServiceSessionLifecycle
@@ -68,6 +71,7 @@ class RipDpiVpnService :
                 sessionComponentBuilderProvider = sessionComponentBuilderProvider,
             )
         shellDelegate = sessionLifecycle.createShellDelegate()
+        refreshHardKillSwitchState()
     }
 
     override fun onDestroy() {
@@ -91,10 +95,12 @@ class RipDpiVpnService :
             return START_NOT_STICKY
         }
         notificationController.startForeground(this)
+        refreshHardKillSwitchState()
         return shellDelegate.onStartCommand(intent?.action, startId)
     }
 
     override fun onRevoke() {
+        refreshHardKillSwitchState()
         sessionLifecycle.revoke()
         shellDelegate.onRevoke()
     }
@@ -121,7 +127,10 @@ class RipDpiVpnService :
         )
 
     @android.annotation.SuppressLint("MissingPermission")
-    override fun syncUnderlyingNetworksFromActiveNetwork() = underlyingNetworkBinder.syncFromActiveNetwork()
+    override fun syncUnderlyingNetworksFromActiveNetwork() {
+        refreshHardKillSwitchState()
+        underlyingNetworkBinder.syncFromActiveNetwork()
+    }
 
     internal suspend fun createBuilder(
         dns: String,
@@ -162,7 +171,12 @@ class RipDpiVpnService :
         }
 
         applyDhtMitigation(builder)
+        refreshHardKillSwitchState()
         return builder
+    }
+
+    private fun refreshHardKillSwitchState() {
+        hardKillSwitchStateStore.update(AndroidHardKillSwitchStateReader.read(this))
     }
 
     private suspend fun applyDhtMitigation(builder: Builder) {

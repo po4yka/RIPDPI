@@ -117,11 +117,14 @@ class MutablePermissionStatusProvider(
 class FakeInstrumentedPermissionPlatformBridge(
     var vpnPermissionIntent: Intent? = Intent("fake.vpn.permission"),
     var appSettingsIntent: Intent = Intent("fake.app.settings"),
+    var vpnSettingsIntent: Intent = Intent("fake.vpn.settings"),
     var batteryOptimizationIntent: Intent = Intent("fake.battery.optimization"),
 ) : PermissionPlatformBridge {
     override fun prepareVpnPermissionIntent(): Intent? = vpnPermissionIntent
 
     override fun createAppSettingsIntent(): Intent = appSettingsIntent
+
+    override fun createVpnSettingsIntent(): Intent = vpnSettingsIntent
 
     override fun createBatteryOptimizationIntent(): Intent = batteryOptimizationIntent
 }

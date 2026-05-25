@@ -17,6 +17,8 @@ class PermissionCoordinatorTest {
                 snapshot =
                     PermissionSnapshot(
                         vpnConsent = PermissionStatus.RequiresSystemPrompt,
+                        alwaysOnVpn = PermissionStatus.Granted,
+                        vpnLockdown = PermissionStatus.Granted,
                         notifications = PermissionStatus.RequiresSystemPrompt,
                         batteryOptimization = PermissionStatus.RequiresSettings,
                     ),
@@ -39,6 +41,8 @@ class PermissionCoordinatorTest {
                 snapshot =
                     PermissionSnapshot(
                         vpnConsent = PermissionStatus.RequiresSystemPrompt,
+                        alwaysOnVpn = PermissionStatus.Granted,
+                        vpnLockdown = PermissionStatus.Granted,
                         notifications = PermissionStatus.Granted,
                         batteryOptimization = PermissionStatus.NotApplicable,
                     ),
@@ -57,6 +61,8 @@ class PermissionCoordinatorTest {
                 snapshot =
                     PermissionSnapshot(
                         vpnConsent = PermissionStatus.RequiresSystemPrompt,
+                        alwaysOnVpn = PermissionStatus.Granted,
+                        vpnLockdown = PermissionStatus.Granted,
                         notifications = PermissionStatus.Granted,
                         batteryOptimization = PermissionStatus.NotApplicable,
                     ),
@@ -75,6 +81,8 @@ class PermissionCoordinatorTest {
                 snapshot =
                     PermissionSnapshot(
                         vpnConsent = PermissionStatus.RequiresSystemPrompt,
+                        alwaysOnVpn = PermissionStatus.Granted,
+                        vpnLockdown = PermissionStatus.Granted,
                         notifications = PermissionStatus.Granted,
                         batteryOptimization = PermissionStatus.NotApplicable,
                     ),
@@ -93,6 +101,8 @@ class PermissionCoordinatorTest {
                 snapshot =
                     PermissionSnapshot(
                         vpnConsent = PermissionStatus.Granted,
+                        alwaysOnVpn = PermissionStatus.Granted,
+                        vpnLockdown = PermissionStatus.Granted,
                         notifications = PermissionStatus.Granted,
                         batteryOptimization = PermissionStatus.RequiresSettings,
                     ),
@@ -100,5 +110,32 @@ class PermissionCoordinatorTest {
 
         assertEquals(listOf(PermissionKind.BatteryOptimization), resolution.required)
         assertEquals(PermissionKind.BatteryOptimization, resolution.blockedBy)
+    }
+
+    @Test
+    fun `vpn start recommends always-on lockdown and battery without blocking startup`() {
+        val resolution =
+            coordinator.resolve(
+                action = PermissionAction.StartVpnMode,
+                configuredMode = Mode.Proxy,
+                snapshot =
+                    PermissionSnapshot(
+                        vpnConsent = PermissionStatus.Granted,
+                        alwaysOnVpn = PermissionStatus.RequiresSettings,
+                        vpnLockdown = PermissionStatus.Unknown,
+                        notifications = PermissionStatus.Granted,
+                        batteryOptimization = PermissionStatus.RequiresSettings,
+                    ),
+            )
+
+        assertTrue(resolution.required.isEmpty())
+        assertEquals(
+            listOf(
+                PermissionKind.AlwaysOnVpn,
+                PermissionKind.VpnLockdown,
+                PermissionKind.BatteryOptimization,
+            ),
+            resolution.recommended,
+        )
     }
 }

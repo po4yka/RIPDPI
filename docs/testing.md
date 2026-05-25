@@ -215,9 +215,10 @@ python3 scripts/ci/phase16_pcap_summary.py --artifact-root build/phase16-matrix/
 ```
 
 - `contract-fixtures/phase16_lab_matrix.json` is the source of truth for the repeated Wi-Fi/cellular x IPv4/IPv6 x rooted/non-rooted x proxy/VPN matrix.
+- Real-provider rows are present in the fixture as `runnerRequired=real-provider` and `evidenceTier=real-provider`; default matrix emission excludes them so normal scheduled lab runs do not queue on carrier hardware, while `workflow_dispatch` with `include_real_provider=true` includes the opt-in SIM lanes.
 - The same fixture also carries required non-baseline `networkCondition` rows for PMTUD blackholes, rooted IP fragmentation under MTU stress, IPv6 extension-header blackholes, and carrier-style NAT/reordering. Those rows require `RIPDPI_PHASE16_PREPARE_HOOK` so they fail closed instead of running against an unstressed baseline path.
 - `.github/workflows/phase16-matrix.yml` fans that fixture out onto self-hosted `ripdpi-lab` runners instead of pretending GitHub-hosted runners can provide those environments.
-- `scripts/ci/run-phase16-matrix-entry.sh` writes `phase16-run.json` plus `phase16-pcap-summary.json` for each entry so archive/export work can consume the same measurement evidence consistently.
+- `scripts/ci/run-phase16-matrix-entry.sh` writes `phase16-run.json` plus `phase16-pcap-summary.json` for each entry so archive/export work can consume the same measurement evidence consistently; real-provider rows fail closed unless `RIPDPI_PHASE16_REAL_PROVIDER_CONFIG` is readable and a prepare hook is supplied.
 - `scripts/ci/phase16_pcap_summary.py` understands both host `capture.pcap`/`capture.tshark.json` artifacts and Android `device-capture.pcap`/`device-capture.tshark.json` artifacts.
 
 ## Docker Local Network Test Lab
@@ -533,9 +534,9 @@ These have task issues under `docs/tasks/issues/` and are sized for routine road
 - Android lockdown / kill-switch onboarding health checks (`add-android-lockdown-onboarding-and-kill-switch-health-checks.md`).
 - Split-DNS interceptor leak coverage (`add-dns-interceptor-and-split-dns-leak-tests.md`, currently `blocked`).
 
-### Open and not yet tracked
+### Open implementation follow-ups
 
-Heavier infrastructure work tracked as a single design spike under [`spike-adversarial-network-harness-and-realprovider-matrix.md`](tasks/issues/spike-adversarial-network-harness-and-realprovider-matrix.md); the spike unblocks three separate implementation issues. Listed here so they are not silently forgotten.
+The original infrastructure spike under [`spike-adversarial-network-harness-and-realprovider-matrix.md`](tasks/issues/spike-adversarial-network-harness-and-realprovider-matrix.md) is closed. The remaining work is tracked as concrete implementation follow-ups: [`gate-tspu-adversarial-emulator-in-phase16-release-matrix.md`](tasks/issues/gate-tspu-adversarial-emulator-in-phase16-release-matrix.md), [`add-generator-driven-packet-smoke-sampling.md`](tasks/issues/add-generator-driven-packet-smoke-sampling.md), and [`operate-phase16-real-provider-sim-runner.md`](tasks/issues/operate-phase16-real-provider-sim-runner.md).
 
 **TSPU adversarial emulator v1 landed.** Dry-run path is verifiable on any host:
 
@@ -546,11 +547,11 @@ python3 -m runner.cli dry-run \
 python3 -m unittest discover -s tests
 ```
 
-The live `nfqueue` mode is documented in [`test-lab/chaos/tspu/README.md`](../test-lab/chaos/tspu/README.md) and follows in a separate PR. The generator-driven packet-smoke and real-provider Phase-16 spikes are still open; design docs live under `docs/architecture/spike-generator-packet-smoke.md` and `docs/architecture/spike-phase16-real-provider.md`.
+The live `nfqueue` mode is documented in [`test-lab/chaos/tspu/README.md`](../test-lab/chaos/tspu/README.md). Phase-16 now distinguishes `synthetic-lab` evidence from opt-in `real-provider` evidence in the matrix fixture, runner manifest, and pcap summary, but the private SIM runner operation remains a separate follow-up because provider secrets and modem mapping must stay outside the repository.
 
-- **Adversarial TSPU emulator in `test-lab/chaos/`.** Today `chaos/` ships Toxiproxy + netem for loss/latency/jitter; it does not reproduce the RU-TSPU behaviour set (RST-injection on SNI, blackhole after N bytes, selective QUIC-Initial drop, MTU-clamp). Without this, packet-smoke scenarios verify the *byte shape on the wire* but not *survival against a known adversary pattern*. Next step: container with nftables + `nfqueue`/scapy rules per documented TSPU pattern, matrix run against every desync mode.
+- **Adversarial TSPU emulator release gating.** The emulator exists; the next step is to promote its verdict report into Phase-16 release evidence so adversary-pattern failures cannot be hidden in standalone artifacts.
 - **Generator-driven packet-smoke.** `scripts/ci/packet-smoke-scenarios.json` hand-lists ~10-15 scenarios; the desync parameter space is 7-dimensional. Move to a generator that samples the space and replays a named TSPU pattern set per PR. The Probe trait landed in `ripdpi-diagnostics-probes` does not solve this on its own; it is the oracle, not the input source.
-- **Phase-16 lab matrix on real-provider SIMs.** `contract-fixtures/phase16_lab_matrix.json` is synthetic. Release-time confidence requires self-hosted runners on actual carrier SIMs; GitHub-hosted runners cannot supply this signal.
+- **Phase-16 lab matrix on real-provider SIMs.** The matrix now contains opt-in real-provider rows and evidence metadata, but release-time confidence still requires operating the private self-hosted SIM runner and collecting artifacts from it; GitHub-hosted runners cannot supply this signal.
 
 ### How to use this section
 

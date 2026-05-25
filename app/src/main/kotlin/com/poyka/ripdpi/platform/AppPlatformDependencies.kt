@@ -3,6 +3,7 @@ package com.poyka.ripdpi.platform
 import android.content.Context
 import android.content.Intent
 import android.net.VpnService
+import android.provider.Settings
 import androidx.annotation.StringRes
 import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.automation.AutomationController
@@ -65,6 +66,8 @@ interface PermissionPlatformBridge {
 
     fun createAppSettingsIntent(): Intent
 
+    fun createVpnSettingsIntent(): Intent
+
     fun createBatteryOptimizationIntent(): Intent
 }
 
@@ -93,6 +96,11 @@ class AndroidPermissionPlatformBridge
                         .createAppDetailsIntent(context.packageName)
                         .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
                 }
+
+        override fun createVpnSettingsIntent(): Intent =
+            Intent(Settings.ACTION_VPN_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
 
         override fun createBatteryOptimizationIntent(): Intent =
             automationController

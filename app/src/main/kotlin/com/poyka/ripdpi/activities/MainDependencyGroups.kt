@@ -12,6 +12,7 @@ import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.TrafficStatsReader
+import com.poyka.ripdpi.services.AndroidHardKillSwitchStateStore
 import com.poyka.ripdpi.services.ServiceController
 import javax.inject.Inject
 
@@ -21,6 +22,7 @@ class MainServiceDependencies
         val serviceStateStore: ServiceStateStore,
         val serviceController: ServiceController,
         val trafficStatsReader: TrafficStatsReader,
+        val hardKillSwitchStateStore: AndroidHardKillSwitchStateStore,
     )
 
 class MainPermissionDependencies

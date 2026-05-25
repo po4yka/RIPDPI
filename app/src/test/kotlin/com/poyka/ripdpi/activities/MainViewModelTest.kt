@@ -34,6 +34,8 @@ import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
+import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.collections.immutable.persistentListOf
@@ -195,6 +197,81 @@ class MainViewModelTest {
         assertEquals(HomeConnectionActuatorStatus.Locked, state.status)
         assertEquals(1f, state.carriageFraction)
         assertTrue(state.stages.all { it.state == HomeConnectionActuatorStageState.Complete })
+    }
+
+    @Test
+    fun `hard kill switch reducer surfaces observed lockdown states`() {
+        val stringResolver = FakeStringResolver()
+        val notEnabled =
+            buildHardKillSwitchUiState(
+                snapshot =
+                    AndroidHardKillSwitchSnapshot(
+                        status = AndroidHardKillSwitchStatus.NOT_ENABLED,
+                        alwaysOn = true,
+                        lockdown = false,
+                    ),
+                configuredMode = Mode.VPN,
+                activeMode = Mode.VPN,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                stringResolver = stringResolver,
+            )
+        val unknown =
+            buildHardKillSwitchUiState(
+                snapshot = AndroidHardKillSwitchSnapshot(),
+                configuredMode = Mode.VPN,
+                activeMode = Mode.VPN,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                stringResolver = stringResolver,
+            )
+
+        assertTrue(notEnabled.visible)
+        assertEquals(
+            stringResolver.getString(R.string.home_hard_kill_switch_not_enabled_title),
+            notEnabled.label,
+        )
+        assertEquals(
+            stringResolver.getString(R.string.home_hard_kill_switch_unknown_title),
+            unknown.label,
+        )
+    }
+
+    @Test
+    fun `connection actuator disables deactivation when Android lockdown owns VPN lifecycle`() {
+        val stringResolver = FakeStringResolver()
+        val hardKillSwitch =
+            buildHardKillSwitchUiState(
+                snapshot =
+                    AndroidHardKillSwitchSnapshot(
+                        status = AndroidHardKillSwitchStatus.ENABLED,
+                        alwaysOn = true,
+                        lockdown = true,
+                    ),
+                configuredMode = Mode.VPN,
+                activeMode = Mode.VPN,
+                appStatus = AppStatus.Running,
+                connectionState = ConnectionState.Connected,
+                stringResolver = stringResolver,
+            )
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                hardKillSwitch = hardKillSwitch,
+                stringResolver = stringResolver,
+            )
+
+        assertFalse(state.isDeactivationAvailable)
+        assertEquals(
+            stringResolver.getString(R.string.home_connection_actuator_action_android_managed),
+            state.actionLabel,
+        )
     }
 
     @Test
@@ -1268,6 +1345,7 @@ class MainViewModelTest {
                     serviceStateStore = serviceStateStore,
                     serviceController = serviceController,
                     trafficStatsReader = FakeTrafficStatsReader(),
+                    hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
                 ),
             mainPermissionDependencies =
                 MainPermissionDependencies(
@@ -1344,6 +1422,8 @@ class MainViewModelTest {
             snapshot =
                 PermissionSnapshot(
                     vpnConsent = PermissionStatus.Granted,
+                    alwaysOnVpn = PermissionStatus.Granted,
+                    vpnLockdown = PermissionStatus.Granted,
                     notifications = PermissionStatus.Granted,
                     batteryOptimization = PermissionStatus.Granted,
                 ),

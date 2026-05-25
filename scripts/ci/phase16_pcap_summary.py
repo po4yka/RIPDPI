@@ -182,6 +182,13 @@ def summarize_artifact_root(artifact_root: Path, registry: dict[str, dict]) -> d
     return {
         "version": SUMMARY_VERSION,
         "artifactRoot": str(artifact_root),
+        "runMetadata": {
+            "entryId": run_metadata.get("entryId", ""),
+            "status": run_metadata.get("status", ""),
+            "runnerRequired": run_metadata.get("runnerRequired", "lab"),
+            "evidenceTier": run_metadata.get("evidenceTier", "synthetic-lab"),
+            "carrierNamespace": run_metadata.get("carrierNamespace", ""),
+        },
         "scenarioCount": len(scenario_dirs),
         "scenarios": [summarize_scenario(path, registry, run_metadata) for path in scenario_dirs],
     }

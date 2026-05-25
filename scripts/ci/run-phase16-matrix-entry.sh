@@ -12,7 +12,11 @@ mode="${PHASE16_MODE:-unknown}"
 network_condition="${PHASE16_NETWORK_CONDITION:-baseline}"
 scenario_filter="${PHASE16_SCENARIO_FILTER:-}"
 capture_mode="${PHASE16_CAPTURE_MODE:-auto}"
+runner_required="${PHASE16_RUNNER_REQUIRED:-lab}"
+evidence_tier="${PHASE16_EVIDENCE_TIER:-synthetic-lab}"
+carrier_namespace="${PHASE16_CARRIER_NAMESPACE:-}"
 prepare_hook="${RIPDPI_PHASE16_PREPARE_HOOK:-}"
+real_provider_config="${RIPDPI_PHASE16_REAL_PROVIDER_CONFIG:-}"
 summary_script="$repo_root/scripts/ci/phase16_pcap_summary.py"
 run_manifest="$artifact_root/phase16-run.json"
 pcap_summary="$artifact_root/phase16-pcap-summary.json"
@@ -39,6 +43,9 @@ payload = {
     "networkCondition": os.environ.get("PHASE16_NETWORK_CONDITION", "baseline"),
     "scenarioFilter": os.environ.get("PHASE16_SCENARIO_FILTER", ""),
     "captureMode": os.environ.get("PHASE16_CAPTURE_MODE", "auto"),
+    "runnerRequired": os.environ.get("PHASE16_RUNNER_REQUIRED", "lab"),
+    "evidenceTier": os.environ.get("PHASE16_EVIDENCE_TIER", "synthetic-lab"),
+    "carrierNamespace": os.environ.get("PHASE16_CARRIER_NAMESPACE", ""),
     "status": os.environ["PHASE16_RUN_STATUS"],
     "failureMessage": os.environ.get("PHASE16_FAILURE_MESSAGE", ""),
     "artifactRoot": os.environ["RIPDPI_PHASE16_ARTIFACT_DIR"],
@@ -73,13 +80,40 @@ trap on_exit EXIT
 mkdir -p "$artifact_root"
 export RIPDPI_PHASE16_ARTIFACT_DIR="$artifact_root"
 
+case "$runner_required" in
+  lab)
+    ;;
+  real-provider)
+    if [[ -z "$carrier_namespace" ]]; then
+      failure_message="real-provider Phase 16 entry requires PHASE16_CARRIER_NAMESPACE"
+      echo "$failure_message" >&2
+      exit 1
+    fi
+    if [[ -z "$real_provider_config" || ! -r "$real_provider_config" ]]; then
+      failure_message="real-provider Phase 16 entry requires readable RIPDPI_PHASE16_REAL_PROVIDER_CONFIG"
+      echo "$failure_message" >&2
+      exit 1
+    fi
+    if [[ -z "$prepare_hook" ]]; then
+      failure_message="real-provider Phase 16 entry requires RIPDPI_PHASE16_PREPARE_HOOK"
+      echo "$failure_message" >&2
+      exit 1
+    fi
+    ;;
+  *)
+    failure_message="unsupported Phase 16 runner requirement: $runner_required"
+    echo "$failure_message" >&2
+    exit 1
+    ;;
+esac
+
 if [[ -n "$prepare_hook" ]]; then
   if [[ ! -x "$prepare_hook" ]]; then
     failure_message="prepare hook is not executable: $prepare_hook"
     echo "$failure_message" >&2
     exit 1
   fi
-  "$prepare_hook" "$entry_id" "$transport" "$ip_family" "$rooted" "$mode" "$artifact_root" "$network_condition"
+  "$prepare_hook" "$entry_id" "$transport" "$ip_family" "$rooted" "$mode" "$artifact_root" "$network_condition" "$runner_required" "$evidence_tier" "$carrier_namespace"
 elif [[ "$network_condition" != "baseline" ]]; then
   failure_message="non-baseline Phase 16 entry requires RIPDPI_PHASE16_PREPARE_HOOK: $network_condition"
   echo "$failure_message" >&2

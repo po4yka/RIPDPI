@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.data.DomainClass
+import com.poyka.ripdpi.data.DnsResolverPlane
 import com.poyka.ripdpi.data.SplitStrictDnsPolicy
 
 /**
@@ -23,7 +23,7 @@ internal sealed interface DnsLeakCheckResult {
     /** No leak detected; the query was routed through the expected plane. */
     data object Clean : DnsLeakCheckResult
 
-    /** A DNS leak was detected: a proxy-class domain was resolved via the default network. */
+    /** A DNS leak was detected: a non-direct domain was resolved via the default network. */
     data class Leaked(
         val domain: String,
         val resolverAddress: String,
@@ -33,8 +33,9 @@ internal sealed interface DnsLeakCheckResult {
 /**
  * Detects DNS leaks by inspecting [DnsQueryObservation] records.
  *
- * A leak is defined as: a domain whose [DomainClass] is [DomainClass.PROXY]
- * was resolved via the default network resolver instead of the VPN interceptor.
+ * A leak is defined as: a domain whose interceptor dispatch result is not
+ * [DnsResolverPlane.DIRECT] was resolved via the default network resolver
+ * instead of the VPN interceptor.
  *
  * The detector is stateless and side-effect free; callers drive it by recording
  * observations and checking results.
@@ -42,7 +43,7 @@ internal sealed interface DnsLeakCheckResult {
 internal class DnsLeakDetector(
     private val policy: SplitStrictDnsPolicy,
 ) {
-    private val classifier: DomainClassifier = AllowlistDomainClassifier(policy)
+    private val dispatcher = DnsInterceptorDispatcher(policy)
     private val observations = mutableListOf<DnsQueryObservation>()
 
     /** Records a new DNS query observation for later inspection. */
@@ -53,31 +54,31 @@ internal class DnsLeakDetector(
     /**
      * Checks [observation] for a leak immediately without storing it.
      *
-     * @return [DnsLeakCheckResult.Leaked] when the domain is proxy-class and was
+     * @return [DnsLeakCheckResult.Leaked] when the domain is not dispatched DIRECT and was
      *         resolved via the default network; [DnsLeakCheckResult.Clean] otherwise.
      */
     fun check(observation: DnsQueryObservation): DnsLeakCheckResult {
         if (!observation.viaDefaultNetwork) return DnsLeakCheckResult.Clean
-        val domainClass = classifier.classify(observation.domain)
-        return if (domainClass == DomainClass.PROXY) {
+        val dispatch = dispatcher.dispatch(observation.domain)
+        return if (dispatch.plane == DnsResolverPlane.DIRECT) {
+            DnsLeakCheckResult.Clean
+        } else {
             DnsLeakCheckResult.Leaked(
                 domain = observation.domain,
                 resolverAddress = observation.resolverAddress,
             )
-        } else {
-            DnsLeakCheckResult.Clean
         }
     }
 
     /**
      * Returns all leaked observations from [observations].
      *
-     * A leaked observation is one where a PROXY-class domain was resolved
-     * via the default network.
+     * A leaked observation is one where a non-DIRECT domain was resolved via
+     * the default network.
      */
     fun leakedObservations(): List<DnsQueryObservation> =
         observations.filter { obs ->
-            obs.viaDefaultNetwork && classifier.classify(obs.domain) == DomainClass.PROXY
+            check(obs) is DnsLeakCheckResult.Leaked
         }
 
     /** Clears all recorded observations. */

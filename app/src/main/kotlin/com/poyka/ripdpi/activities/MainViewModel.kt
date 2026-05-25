@@ -32,6 +32,7 @@ import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
 import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
@@ -215,6 +216,7 @@ data class MainUiState(
     val dataTransferred: Long = 0L,
     val errorMessage: String? = null,
     val permissionSummary: PermissionSummaryUiState = PermissionSummaryUiState(),
+    val hardKillSwitch: HardKillSwitchUiState = HardKillSwitchUiState(),
     val approachSummary: HomeApproachSummaryUiState? = null,
     val homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
     val modeCards: ImmutableList<HomeModeCardUiState> = DefaultHomeModeCards,
@@ -281,6 +283,7 @@ internal data class MainUiInputs(
     val runtime: ConnectionRuntimeState,
     val telemetry: ServiceTelemetrySnapshot,
     val permissions: PermissionRuntimeState,
+    val hardKillSwitch: AndroidHardKillSwitchSnapshot,
     val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
     val hostPackCatalog: HostPackCatalogUiState,
     val strategyPackRuntimeState: StrategyPackRuntimeState,
@@ -455,19 +458,28 @@ class MainViewModel
                     permissions = permissions,
                     approachStats = approachStats,
                 )
-            }.combine(mainControlPlaneDependencies.hostPackCatalogUiStateStore.state) { base, hostPackCatalog ->
-                base to hostPackCatalog
-            }.combine(mainServiceDependencies.serviceStateStore.telemetry) { (base, hostPackCatalog), telemetry ->
-                base.copy(telemetry = telemetry) to hostPackCatalog
+            }.combine(
+                mainServiceDependencies.hardKillSwitchStateStore.snapshot,
+            ) { base, hardKillSwitch ->
+                base to hardKillSwitch
+            }.combine(
+                mainControlPlaneDependencies.hostPackCatalogUiStateStore.state,
+            ) { (base, hardKillSwitch), hostPackCatalog ->
+                Triple(base, hardKillSwitch, hostPackCatalog)
+            }.combine(
+                mainServiceDependencies.serviceStateStore.telemetry,
+            ) { (base, hardKillSwitch, hostPackCatalog), telemetry ->
+                Triple(base.copy(telemetry = telemetry), hardKillSwitch, hostPackCatalog)
             }.combine(
                 mainControlPlaneDependencies.strategyPackStateStore.state,
-            ) { (base, hostPackCatalog), strategyPackRuntimeState ->
+            ) { (base, hardKillSwitch, hostPackCatalog), strategyPackRuntimeState ->
                 MainUiInputs(
                     settings = base.settings,
                     statusAndMode = base.statusAndMode,
                     runtime = base.runtime,
                     telemetry = base.telemetry,
                     permissions = base.permissions,
+                    hardKillSwitch = hardKillSwitch,
                     approachStats = base.approachStats,
                     hostPackCatalog = hostPackCatalog,
                     strategyPackRuntimeState = strategyPackRuntimeState,

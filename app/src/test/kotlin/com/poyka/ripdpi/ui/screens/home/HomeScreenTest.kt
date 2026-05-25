@@ -14,6 +14,7 @@ import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.activities.HardKillSwitchUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
@@ -27,6 +28,7 @@ import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
+import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -46,6 +48,41 @@ import org.robolectric.annotation.GraphicsMode
 class HomeScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun `hard kill switch banner surfaces Android lockdown state and opens vpn settings`() {
+        var repairedKind: PermissionKind? = null
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            hardKillSwitch =
+                                HardKillSwitchUiState(
+                                    status = AndroidHardKillSwitchStatus.NOT_ENABLED,
+                                    label = "System lockdown not enabled",
+                                    summary = "Android is not blocking traffic outside the VPN.",
+                                    actionLabel = "Open VPN settings",
+                                    visible = true,
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = { repairedKind = it },
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeHardKillSwitchBanner)
+            .assertIsDisplayed()
+            .assertHasClickAction()
+            .performClick()
+
+        assertEquals(PermissionKind.VpnLockdown, repairedKind)
+    }
 
     @Test
     fun backgroundGuidanceMergedIntoBatteryRecommendationBanner() {

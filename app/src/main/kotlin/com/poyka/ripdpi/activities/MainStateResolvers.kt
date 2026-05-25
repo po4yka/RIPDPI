@@ -92,6 +92,15 @@ internal fun buildMainUiState(
             appStatus = status,
             runtimeConnectionState = runtime.connectionState,
         )
+    val hardKillSwitch =
+        buildHardKillSwitchUiState(
+            snapshot = inputs.hardKillSwitch,
+            configuredMode = configuredMode,
+            activeMode = activeMode,
+            appStatus = status,
+            connectionState = effectiveConnectionState,
+            stringResolver = stringResolver,
+        )
     val homeDiagnosticsUiState =
         buildHomeDiagnosticsUiState(
             settings = settings,
@@ -117,12 +126,14 @@ internal fun buildMainUiState(
                 runtime = runtime,
                 telemetry = inputs.telemetry,
                 approachSummary = approachSummary,
+                hardKillSwitch = hardKillSwitch,
                 stringResolver = stringResolver,
             ),
         connectionDuration = runtime.connectionDuration,
         dataTransferred = runtime.dataTransferred,
         errorMessage = runtime.errorMessage,
         permissionSummary = permissionSummary,
+        hardKillSwitch = hardKillSwitch,
         approachSummary = approachSummary,
         homeDiagnostics = homeDiagnosticsUiState,
         modeCards =
@@ -153,6 +164,7 @@ internal fun buildConnectionActuatorUiState(
     runtime: ConnectionRuntimeState,
     telemetry: ServiceTelemetrySnapshot,
     approachSummary: HomeApproachSummaryUiState?,
+    hardKillSwitch: HardKillSwitchUiState = HardKillSwitchUiState(),
     stringResolver: StringResolver,
 ): HomeConnectionActuatorUiState {
     val mode = if (connectionState == ConnectionState.Connected) activeMode else configuredMode
@@ -201,8 +213,15 @@ internal fun buildConnectionActuatorUiState(
                 warningStage = warningStage,
                 failedStage = failedStage,
                 stringResolver = stringResolver,
-            ),
-        actionLabel = actuatorActionLabel(status, stringResolver),
+            ).let { description ->
+                if (hardKillSwitch.visible) {
+                    "$description. ${hardKillSwitch.label}. ${hardKillSwitch.summary}"
+                } else {
+                    description
+                }
+            },
+        actionLabel = hardKillSwitch.actionLabel.takeIf { hardKillSwitch.blocksDisconnect }
+            ?: actuatorActionLabel(status, stringResolver),
         carriageFraction =
             actuatorCarriageFraction(
                 status = status,
@@ -225,6 +244,7 @@ internal fun buildConnectionActuatorUiState(
                             ),
                     )
                 }.toImmutableList(),
+        deactivationEnabled = false.takeIf { hardKillSwitch.blocksDisconnect },
     )
 }
 

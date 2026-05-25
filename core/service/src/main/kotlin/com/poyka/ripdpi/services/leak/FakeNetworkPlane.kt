@@ -1,5 +1,10 @@
 package com.poyka.ripdpi.services.leak
 
+import com.poyka.ripdpi.data.SplitStrictDnsPolicy
+import com.poyka.ripdpi.services.DnsLeakCheckResult
+import com.poyka.ripdpi.services.DnsLeakDetector
+import com.poyka.ripdpi.services.DnsQueryObservation
+
 /**
  * JVM fake of the system DNS + IPv6 router used by leak matrix tests.
  *
@@ -46,6 +51,17 @@ internal class FakeNetworkPlane {
     /** Returns true if any DNS query leaked to the ISP resolver. */
     fun hasDnsLeak(): Boolean = dnsQueries.any { it.viaDefaultNetwork }
 
+    /** Returns true if any DNS query violates [policy]'s split-strict dispatch contract. */
+    fun hasDnsLeak(policy: SplitStrictDnsPolicy): Boolean = leakedDnsQueries(policy).isNotEmpty()
+
+    /** Returns DNS queries that violate [policy]'s split-strict dispatch contract. */
+    fun leakedDnsQueries(policy: SplitStrictDnsPolicy): List<FakeDnsQuery> {
+        val detector = DnsLeakDetector(policy)
+        return dnsQueries.filter { query ->
+            detector.check(query.toObservation()) is DnsLeakCheckResult.Leaked
+        }
+    }
+
     /** Returns true if any public IPv6 packet exited via the default network. */
     fun hasIpv6Leak(): Boolean = ipv6Packets.any { it.viaDefaultNetwork && !isPrivateIpv6(it.sourceAddress) }
 
@@ -70,7 +86,14 @@ internal data class FakeDnsQuery(
     val domain: String,
     val resolverAddress: String,
     val viaDefaultNetwork: Boolean,
-)
+) {
+    fun toObservation(): DnsQueryObservation =
+        DnsQueryObservation(
+            domain = domain,
+            resolverAddress = resolverAddress,
+            viaDefaultNetwork = viaDefaultNetwork,
+        )
+}
 
 internal data class FakeIpv6Packet(
     val sourceAddress: String,

@@ -211,6 +211,24 @@ class DebugAutomationController
                             true
                         }
 
+                        permissionSnapshot.alwaysOnVpn != PermissionStatus.Granted -> {
+                            grantPermission(
+                                kind = PermissionKind.AlwaysOnVpn,
+                                viewModel = viewModel,
+                                result = PermissionResult.ReturnedFromSettings,
+                            )
+                            true
+                        }
+
+                        permissionSnapshot.vpnLockdown != PermissionStatus.Granted -> {
+                            grantPermission(
+                                kind = PermissionKind.VpnLockdown,
+                                viewModel = viewModel,
+                                result = PermissionResult.ReturnedFromSettings,
+                            )
+                            true
+                        }
+
                         permissionSnapshot.batteryOptimization != PermissionStatus.Granted &&
                             permissionSnapshot.batteryOptimization != PermissionStatus.NotApplicable
                         -> {
@@ -595,6 +613,8 @@ class DebugAutomationController
                 AutomationPermissionPreset.Granted -> {
                     PermissionSnapshot(
                         vpnConsent = PermissionStatus.Granted,
+                        alwaysOnVpn = PermissionStatus.Granted,
+                        vpnLockdown = PermissionStatus.Granted,
                         notifications = PermissionStatus.Granted,
                         batteryOptimization = PermissionStatus.Granted,
                     )
@@ -603,6 +623,8 @@ class DebugAutomationController
                 AutomationPermissionPreset.NotificationsMissing -> {
                     PermissionSnapshot(
                         vpnConsent = PermissionStatus.Granted,
+                        alwaysOnVpn = PermissionStatus.Granted,
+                        vpnLockdown = PermissionStatus.Granted,
                         notifications = PermissionStatus.RequiresSystemPrompt,
                         batteryOptimization = PermissionStatus.Granted,
                     )
@@ -611,6 +633,8 @@ class DebugAutomationController
                 AutomationPermissionPreset.VpnMissing -> {
                     PermissionSnapshot(
                         vpnConsent = PermissionStatus.RequiresSystemPrompt,
+                        alwaysOnVpn = PermissionStatus.Granted,
+                        vpnLockdown = PermissionStatus.Granted,
                         notifications = PermissionStatus.Granted,
                         batteryOptimization = PermissionStatus.Granted,
                     )
@@ -619,6 +643,8 @@ class DebugAutomationController
                 AutomationPermissionPreset.BatteryReview -> {
                     PermissionSnapshot(
                         vpnConsent = PermissionStatus.Granted,
+                        alwaysOnVpn = PermissionStatus.Granted,
+                        vpnLockdown = PermissionStatus.Granted,
                         notifications = PermissionStatus.Granted,
                         batteryOptimization = PermissionStatus.RequiresSettings,
                     )
@@ -643,6 +669,18 @@ class DebugAutomationController
                             PermissionKind.VpnConsent -> {
                                 current.permissionSnapshot.copy(
                                     vpnConsent = PermissionStatus.Granted,
+                                )
+                            }
+
+                            PermissionKind.AlwaysOnVpn -> {
+                                current.permissionSnapshot.copy(
+                                    alwaysOnVpn = PermissionStatus.Granted,
+                                )
+                            }
+
+                            PermissionKind.VpnLockdown -> {
+                                current.permissionSnapshot.copy(
+                                    vpnLockdown = PermissionStatus.Granted,
                                 )
                             }
 

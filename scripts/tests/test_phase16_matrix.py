@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,13 +29,23 @@ class Phase16MatrixTest(unittest.TestCase):
         fixture = phase16_matrix.load_fixture()
         phase16_matrix.validate_fixture(fixture)
         self.assertEqual("phase16_lab_matrix_v1", fixture["version"])
-        baseline_entries = [entry for entry in fixture["entries"] if entry["networkCondition"] == "baseline"]
+        baseline_entries = [
+            entry
+            for entry in fixture["entries"]
+            if entry["networkCondition"] == "baseline" and phase16_matrix.entry_runner_required(entry) == "lab"
+        ]
         self.assertEqual(16, len(baseline_entries))
-        self.assertGreaterEqual(len(fixture["entries"]), 20)
+        self.assertGreaterEqual(len(fixture["entries"]), 23)
         stress_ids = {entry["id"] for entry in fixture["entries"] if entry["networkCondition"] != "baseline"}
         self.assertTrue(phase16_matrix.REQUIRED_STRESS_ENTRIES.issubset(stress_ids))
         conditions = {entry["networkCondition"] for entry in fixture["entries"]}
         self.assertTrue(phase16_matrix.REQUIRED_NETWORK_CONDITIONS.issubset(conditions))
+        real_provider_namespaces = {
+            entry["carrierNamespace"]
+            for entry in fixture["entries"]
+            if phase16_matrix.entry_runner_required(entry) == "real-provider"
+        }
+        self.assertEqual(phase16_matrix.REQUIRED_REAL_PROVIDER_NAMESPACES, real_provider_namespaces)
 
     def test_emit_github_matrix_preserves_runner_labels(self) -> None:
         fixture = phase16_matrix.load_fixture()
@@ -43,10 +55,30 @@ class Phase16MatrixTest(unittest.TestCase):
         self.assertEqual("wifi_ipv4_rooted_proxy", entry["id"])
         self.assertEqual("baseline", entry["networkCondition"])
         self.assertEqual("raw", entry["captureMode"])
+        self.assertEqual("lab", entry["runnerRequired"])
+        self.assertEqual("synthetic-lab", entry["evidenceTier"])
+        self.assertEqual("", entry["carrierNamespace"])
         self.assertEqual(
             ["self-hosted", "ripdpi-lab", "android", "wifi", "ipv4", "rooted"],
             json.loads(entry["runsOnJson"]),
         )
+
+    def test_real_provider_entries_are_opt_in_unless_explicitly_filtered(self) -> None:
+        fixture = phase16_matrix.load_fixture()
+        default_entries = phase16_matrix.filtered_entries(fixture)
+        self.assertFalse(
+            any(phase16_matrix.entry_runner_required(entry) == "real-provider" for entry in default_entries)
+        )
+        all_entries = phase16_matrix.filtered_entries(fixture, include_real_provider=True)
+        self.assertTrue(any(phase16_matrix.entry_runner_required(entry) == "real-provider" for entry in all_entries))
+        filtered = phase16_matrix.filtered_entries(fixture, "real_provider_mts_cellular_ipv4_nonroot_vpn")
+        self.assertEqual(1, len(filtered))
+        self.assertEqual("real-provider", phase16_matrix.entry_runner_required(filtered[0]))
+        payload = phase16_matrix.emit_github_matrix(filtered)
+        entry = payload["include"][0]
+        self.assertEqual("real-provider", entry["runnerRequired"])
+        self.assertEqual("real-provider", entry["evidenceTier"])
+        self.assertEqual("ns-mts", entry["carrierNamespace"])
 
     def test_filtered_entries_rejects_unknown_filter(self) -> None:
         fixture = phase16_matrix.load_fixture()
@@ -59,6 +91,47 @@ class Phase16MatrixTest(unittest.TestCase):
         scenario_ids = {entry["id"] for entry in registry}
         missing = sorted({entry["scenarioFilter"] for entry in fixture["entries"]} - scenario_ids)
         self.assertEqual([], missing)
+
+    def test_real_provider_runner_fails_closed_without_runner_config(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact_root = Path(temp_dir) / "artifacts"
+            env = os.environ.copy()
+            env.update(
+                {
+                    "PHASE16_ENTRY_ID": "real_provider_mts_cellular_ipv4_nonroot_vpn",
+                    "PHASE16_EXECUTION_KIND": "android_packet_smoke",
+                    "PHASE16_TRANSPORT": "cellular",
+                    "PHASE16_IP_FAMILY": "ipv4",
+                    "PHASE16_ROOTED": "false",
+                    "PHASE16_MODE": "vpn",
+                    "PHASE16_NETWORK_CONDITION": "baseline",
+                    "PHASE16_SCENARIO_FILTER": "android_vpn_tunnel_baseline_family",
+                    "PHASE16_CAPTURE_MODE": "indirect",
+                    "PHASE16_RUNNER_REQUIRED": "real-provider",
+                    "PHASE16_EVIDENCE_TIER": "real-provider",
+                    "PHASE16_CARRIER_NAMESPACE": "ns-mts",
+                    "RIPDPI_PHASE16_ARTIFACT_DIR": str(artifact_root),
+                }
+            )
+            result = subprocess.run(
+                ["bash", str(REPO_ROOT / "scripts/ci/run-phase16-matrix-entry.sh")],
+                check=False,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("RIPDPI_PHASE16_REAL_PROVIDER_CONFIG", result.stderr)
+            manifest = json.loads((artifact_root / "phase16-run.json").read_text(encoding="utf-8"))
+            self.assertEqual("failure", manifest["status"])
+            self.assertEqual("real-provider", manifest["runnerRequired"])
+            self.assertEqual("real-provider", manifest["evidenceTier"])
+            self.assertEqual("ns-mts", manifest["carrierNamespace"])
+            summary = json.loads((artifact_root / "phase16-pcap-summary.json").read_text(encoding="utf-8"))
+            self.assertEqual("real-provider", summary["runMetadata"]["runnerRequired"])
+            self.assertEqual("real-provider", summary["runMetadata"]["evidenceTier"])
+            self.assertEqual("ns-mts", summary["runMetadata"]["carrierNamespace"])
 
 
 class Phase16PcapSummaryTest(unittest.TestCase):
@@ -181,6 +254,8 @@ class Phase16PcapSummaryTest(unittest.TestCase):
                 (scenario_dir / artifact_name).write_text("", encoding="utf-8")
 
             summary = phase16_pcap_summary.summarize_artifact_root(root, registry)
+            self.assertEqual("lab", summary["runMetadata"]["runnerRequired"])
+            self.assertEqual("synthetic-lab", summary["runMetadata"]["evidenceTier"])
             self.assertEqual(1, summary["scenarioCount"])
             scenario = summary["scenarios"][0]
             self.assertEqual("android_proxy_tlsrec_family", scenario["id"])

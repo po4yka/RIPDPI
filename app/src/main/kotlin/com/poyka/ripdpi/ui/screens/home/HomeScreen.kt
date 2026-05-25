@@ -191,6 +191,33 @@ fun HomeScreen(
             }
         }
 
+        if (uiState.hardKillSwitch.visible) {
+            WarningBanner(
+                title = uiState.hardKillSwitch.label,
+                message = uiState.hardKillSwitch.summary,
+                tone =
+                    if (uiState.hardKillSwitch.warning) {
+                        WarningBannerTone.Warning
+                    } else {
+                        WarningBannerTone.Info
+                    },
+                testTag = RipDpiTestTags.HomeHardKillSwitchBanner,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (uiState.hardKillSwitch.warning) {
+                                Modifier.ripDpiClickable(
+                                    role = Role.Button,
+                                    onClick = { onRepairPermission(PermissionKind.VpnLockdown) },
+                                )
+                            } else {
+                                Modifier
+                            },
+                        ),
+            )
+        }
+
         HomeDegradationStrip(
             quality = uiState.connectionQuality,
             onReprobe = onDiagnosticRun,

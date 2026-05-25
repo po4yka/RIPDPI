@@ -18,6 +18,11 @@ on:
         required: false
         default: ""
         type: string
+      include_real_provider:
+        description: Include real-provider SIM rows; requires matching self-hosted carrier runners
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "0 5 * * 1"
 
@@ -38,7 +43,11 @@ jobs:
       - id: emit
         name: Emit GitHub matrix
         run: |
-          matrix_json="$(python3 scripts/ci/phase16_matrix.py emit-github-matrix --filter "${{ inputs.matrix_filter || '' }}")"
+          include_real_provider=()
+          if [[ "${{ inputs.include_real_provider || false }}" == "true" ]]; then
+            include_real_provider+=(--include-real-provider)
+          fi
+          matrix_json="$(python3 scripts/ci/phase16_matrix.py emit-github-matrix --filter "${{ inputs.matrix_filter || '' }}" "${include_real_provider[@]}")"
           echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
 
   phase16-matrix:
@@ -58,6 +67,9 @@ jobs:
       PHASE16_NETWORK_CONDITION: ${{ matrix.networkCondition }}
       PHASE16_SCENARIO_FILTER: ${{ matrix.scenarioFilter }}
       PHASE16_CAPTURE_MODE: ${{ matrix.captureMode }}
+      PHASE16_RUNNER_REQUIRED: ${{ matrix.runnerRequired }}
+      PHASE16_EVIDENCE_TIER: ${{ matrix.evidenceTier }}
+      PHASE16_CARRIER_NAMESPACE: ${{ matrix.carrierNamespace }}
       RIPDPI_PHASE16_PREPARE_HOOK: ${{ inputs.prepare_hook || '' }}
       ANDROID_SERIAL: ${{ inputs.android_serial || '' }}
     steps:
