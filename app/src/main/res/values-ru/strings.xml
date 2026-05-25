@@ -2836,4 +2836,18 @@ fakeddisorder endhost</string>
     <string name="strategy_ab_action_switch">Переключить</string>
     <string name="strategy_ab_badge_current">ТЕКУЩАЯ</string>
     <string name="strategy_ab_badge_candidate">КАНДИДАТ</string>
+
+    <!-- Strategy import screen -->
+    <string name="title_strategy_import">Импорт стратегии</string>
+    <string name="strategy_import_title">Импорт стратегии</string>
+    <string name="strategy_import_source_file_title">Из файла</string>
+    <string name="strategy_import_source_file_sub">.json, .cfg или сохранённый пакет с другого устройства</string>
+    <string name="strategy_import_source_qr_title">Сканировать QR</string>
+    <string name="strategy_import_source_qr_sub">Из другой установки RIPDPI или приглашения ретранслятора</string>
+    <string name="strategy_import_source_url_title">По URL</string>
+    <string name="strategy_import_source_url_sub">https://po4yka.github.io/RIPDPI/share?v=1#…</string>
+    <string name="strategy_import_source_clipboard_title">Вставить из буфера</string>
+    <string name="strategy_import_source_clipboard_sub">Автоопределение URL, JSON или аргументов стратегии</string>
+    <string name="strategy_import_recent_title">Последние импорты</string>
+    <string name="strategy_import_caption">Импорт стратегии · 4 источника (файл / QR / URL / буфер) · автоопределение при вставке · быстрый повторный импорт.</string>
 </resources>

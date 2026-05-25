@@ -2717,4 +2717,18 @@ Quelle: %2$s</string>
     <string name="strategy_ab_action_switch">Wechseln</string>
     <string name="strategy_ab_badge_current">AKTUELL</string>
     <string name="strategy_ab_badge_candidate">KANDIDAT</string>
+
+    <!-- Strategy import screen -->
+    <string name="title_strategy_import">Strategie importieren</string>
+    <string name="strategy_import_title">Strategie importieren</string>
+    <string name="strategy_import_source_file_title">Aus Datei</string>
+    <string name="strategy_import_source_file_sub">.json, .cfg oder ein gespeichertes Paket einer anderen Installation</string>
+    <string name="strategy_import_source_qr_title">QR scannen</string>
+    <string name="strategy_import_source_qr_sub">Von einer anderen RIPDPI-Installation oder einer Relay-Einladung</string>
+    <string name="strategy_import_source_url_title">Von URL</string>
+    <string name="strategy_import_source_url_sub">https://po4yka.github.io/RIPDPI/share?v=1#…</string>
+    <string name="strategy_import_source_clipboard_title">Aus Zwischenablage einfügen</string>
+    <string name="strategy_import_source_clipboard_sub">Erkennt automatisch URL, JSON oder Strategie-Argumente</string>
+    <string name="strategy_import_recent_title">Letzte Importe</string>
+    <string name="strategy_import_caption">Strategie-Import · 4 Quellen (Datei / QR / URL / Zwischenablage) · automatische Erkennung beim Einfügen · schneller Reimport.</string>
 </resources>

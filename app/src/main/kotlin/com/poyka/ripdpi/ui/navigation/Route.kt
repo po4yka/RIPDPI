@@ -252,6 +252,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object StrategyImport : Route() {
+        override val stableRoute = "strategy_import"
+        override val titleRes = R.string.title_strategy_import
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class SharedDiagnosticResult(
         val fragment: String = "",
     ) : Route() {
@@ -361,6 +368,7 @@ sealed class Route {
                     StateMachine,
                     OomRecovery,
                     StrategyAb,
+                    StrategyImport,
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),

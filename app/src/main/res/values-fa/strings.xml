@@ -2722,4 +2722,18 @@ fakeddisorder endhost</string>
     <string name="strategy_ab_action_switch">تغییر</string>
     <string name="strategy_ab_badge_current">فعلی</string>
     <string name="strategy_ab_badge_candidate">کاندید</string>
+
+    <!-- Strategy import screen -->
+    <string name="title_strategy_import">وارد کردن استراتژی</string>
+    <string name="strategy_import_title">وارد کردن استراتژی</string>
+    <string name="strategy_import_source_file_title">از فایل</string>
+    <string name="strategy_import_source_file_sub">‎.json، ‎.cfg یا یک بسته ذخیره‌شده از نصب دیگر</string>
+    <string name="strategy_import_source_qr_title">اسکن QR</string>
+    <string name="strategy_import_source_qr_sub">از نصب دیگر RIPDPI یا دعوت‌نامه رله</string>
+    <string name="strategy_import_source_url_title">از URL</string>
+    <string name="strategy_import_source_url_sub">https://po4yka.github.io/RIPDPI/share?v=1#…</string>
+    <string name="strategy_import_source_clipboard_title">چسباندن از کلیپ‌بورد</string>
+    <string name="strategy_import_source_clipboard_sub">تشخیص خودکار URL، JSON یا آرگومان‌های استراتژی</string>
+    <string name="strategy_import_recent_title">واردسازی‌های اخیر</string>
+    <string name="strategy_import_caption">وارد کردن استراتژی · ۴ منبع (فایل / QR / URL / کلیپ‌بورد) · تشخیص خودکار هنگام چسباندن · واردسازی مجدد سریع.</string>
 </resources>

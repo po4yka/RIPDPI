@@ -2718,4 +2718,18 @@ fake_burst 3</string>
     <string name="strategy_ab_action_switch">切换</string>
     <string name="strategy_ab_badge_current">当前</string>
     <string name="strategy_ab_badge_candidate">候选</string>
+
+    <!-- Strategy import screen -->
+    <string name="title_strategy_import">导入策略</string>
+    <string name="strategy_import_title">导入策略</string>
+    <string name="strategy_import_source_file_title">从文件</string>
+    <string name="strategy_import_source_file_sub">.json、.cfg 或来自其他安装的保存包</string>
+    <string name="strategy_import_source_qr_title">扫描二维码</string>
+    <string name="strategy_import_source_qr_sub">来自其他 RIPDPI 安装或中继邀请</string>
+    <string name="strategy_import_source_url_title">从 URL</string>
+    <string name="strategy_import_source_url_sub">https://po4yka.github.io/RIPDPI/share?v=1#…</string>
+    <string name="strategy_import_source_clipboard_title">从剪贴板粘贴</string>
+    <string name="strategy_import_source_clipboard_sub">自动检测 URL、JSON 或策略参数</string>
+    <string name="strategy_import_recent_title">最近导入</string>
+    <string name="strategy_import_caption">策略导入 · 4 个来源（文件 / 二维码 / URL / 剪贴板）· 粘贴时自动检测 · 快速重新导入。</string>
 </resources>

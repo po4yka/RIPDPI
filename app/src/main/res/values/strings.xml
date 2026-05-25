@@ -2786,4 +2786,18 @@ Source: %2$s</string>
     <string name="strategy_ab_action_switch">Switch</string>
     <string name="strategy_ab_badge_current">CURRENT</string>
     <string name="strategy_ab_badge_candidate">CANDIDATE</string>
+
+    <!-- Strategy import screen -->
+    <string name="title_strategy_import">Strategy Import</string>
+    <string name="strategy_import_title">Strategy Import</string>
+    <string name="strategy_import_source_file_title">From file</string>
+    <string name="strategy_import_source_file_sub">.json, .cfg, or a saved bundle from another install</string>
+    <string name="strategy_import_source_qr_title">Scan QR</string>
+    <string name="strategy_import_source_qr_sub">From a shared RIPDPI install or a relay invite</string>
+    <string name="strategy_import_source_url_title">From URL</string>
+    <string name="strategy_import_source_url_sub">https://po4yka.github.io/RIPDPI/share?v=1#…</string>
+    <string name="strategy_import_source_clipboard_title">Paste from clipboard</string>
+    <string name="strategy_import_source_clipboard_sub">Auto-detects URL, JSON, or raw strategy args</string>
+    <string name="strategy_import_recent_title">Recent imports</string>
+    <string name="strategy_import_caption">Strategy import · 4 sources (file / QR / URL / clipboard) · auto-detection on paste · recent imports for fast re-import.</string>
 </resources>
