@@ -7,6 +7,7 @@ use tokio::task::JoinHandle;
 use tokio::time::{timeout, Duration};
 
 use crate::config::{now_ms, parse_ipv4_cidr, resolve_endpoint, ResolvedWarpRuntimeConfig, WarpTelemetry};
+use crate::observe::TcpConnectObservation;
 use crate::platform::WarpPlatform;
 use crate::ports::{PortProtocol, UdpAssociationPool, VirtualPortPool};
 use crate::socks::handle_socks_client;
@@ -26,6 +27,7 @@ pub struct WarpRuntime {
     total_sessions: AtomicU64,
     listener_address: Mutex<Option<String>>,
     last_error: Mutex<Option<String>>,
+    quality_observer: Mutex<Option<Arc<dyn Fn(TcpConnectObservation) + Send + Sync>>>,
 }
 
 impl WarpRuntime {
@@ -43,11 +45,41 @@ impl WarpRuntime {
             total_sessions: AtomicU64::new(0),
             listener_address: Mutex::new(None),
             last_error: Mutex::new(None),
+            quality_observer: Mutex::new(None),
         })
     }
 
     pub fn stop(&self) {
         self.stop_requested.store(true, Ordering::SeqCst);
+    }
+
+    /// Install a quality observer invoked after every SOCKS session completes.
+    /// Replaces any previously installed observer.
+    ///
+    /// Note: WARP uses virtual TCP via smoltcp — no real RTT is available at
+    /// this layer. The observer receives `rtt_ms = 0` for succeeded sessions;
+    /// adapter code should only record failures into the loss counter.
+    ///
+    /// Cancel-safety: synchronous; no `.await` inside.
+    pub fn set_quality_observer(&self, observer: Arc<dyn Fn(TcpConnectObservation) + Send + Sync>) {
+        if let Ok(mut guard) = self.quality_observer.lock() {
+            *guard = Some(observer);
+        }
+    }
+
+    /// Fire the quality observer with `obs`. Clone the `Arc` inside the lock,
+    /// release the lock, then invoke — reentrancy-safe (mirrors tunnel-core
+    /// observer pattern from `stats/observer.rs`).
+    ///
+    /// Cancel-safety: synchronous; no `.await` inside.
+    fn emit_connect_observation(&self, obs: TcpConnectObservation) {
+        let observer = match self.quality_observer.lock() {
+            Ok(guard) => guard.as_ref().map(Arc::clone),
+            Err(_) => None,
+        };
+        if let Some(observer) = observer {
+            observer(obs);
+        }
     }
 
     pub fn telemetry(&self) -> WarpTelemetry {
@@ -145,8 +177,14 @@ impl WarpRuntime {
                     let tcp_pool = Arc::clone(&tcp_pool);
                     let udp_pool = Arc::clone(&udp_pool);
                     tokio::spawn(async move {
-                        if let Err(error) = handle_socks_client(stream, bus, tcp_pool, udp_pool).await {
-                            *runtime.last_error.lock().expect("last error") = Some(error.to_string());
+                        match handle_socks_client(stream, bus, tcp_pool, udp_pool).await {
+                            Ok(()) => {
+                                runtime.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: true });
+                            }
+                            Err(error) => {
+                                runtime.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: false });
+                                *runtime.last_error.lock().expect("last error") = Some(error.to_string());
+                            }
                         }
                         runtime.active_sessions.fetch_sub(1, Ordering::SeqCst);
                     });
@@ -181,4 +219,131 @@ fn emit_runtime_ready(bind_addr: &str) {
 
 fn emit_runtime_stopped() {
     tracing::info!(ring = "warp", subsystem = "warp", source = "warp", kind = "runtime_stopped", "listener stopped");
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+    use super::*;
+    use crate::config::{
+        ResolvedWarpRuntimeConfig, ResolvedWarpRuntimeEndpoint, WarpAmneziaConfig, WarpManualEndpoint,
+    };
+
+    fn dummy_config() -> ResolvedWarpRuntimeConfig {
+        let manual = WarpManualEndpoint {
+            host: "engage.cloudflareclient.com".to_string(),
+            ipv4: "162.159.192.1".to_string(),
+            ipv6: "2606:4700:d0::a29f:c001".to_string(),
+            port: 2408,
+        };
+        ResolvedWarpRuntimeConfig {
+            enabled: false,
+            profile_id: "test".to_string(),
+            account_kind: "free".to_string(),
+            device_id: "device".to_string(),
+            access_token: "token".to_string(),
+            private_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=".to_string(),
+            public_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=".to_string(),
+            peer_public_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=".to_string(),
+            client_id: None,
+            interface_address_v4: Some("172.16.0.2/32".to_string()),
+            interface_address_v6: None,
+            endpoint: ResolvedWarpRuntimeEndpoint {
+                host: manual.host.clone(),
+                ipv4: Some(manual.ipv4.clone()),
+                ipv6: Some(manual.ipv6.clone()),
+                port: manual.port,
+                source: "manual".to_string(),
+            },
+            route_mode: "all".to_string(),
+            route_hosts: String::new(),
+            built_in_rules_enabled: false,
+            endpoint_selection_mode: "manual".to_string(),
+            manual_endpoint: manual,
+            scanner_enabled: false,
+            scanner_parallelism: 0,
+            scanner_max_rtt_ms: 0,
+            mtu: 1280,
+            local_socks_host: "127.0.0.1".to_string(),
+            local_socks_port: 11_080,
+            amnezia: WarpAmneziaConfig::default(),
+        }
+    }
+
+    /// Smoke: observer is invoked when `emit_connect_observation` is called.
+    #[test]
+    fn observer_fires_on_emit() {
+        let runtime = WarpRuntime::new(dummy_config());
+        let count = Arc::new(AtomicU64::new(0));
+        let count_clone = Arc::clone(&count);
+        runtime.set_quality_observer(Arc::new(move |_obs| {
+            count_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+        runtime.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: true });
+        assert_eq!(count.load(Ordering::Relaxed), 1);
+    }
+
+    /// Observer receives the exact observation values.
+    #[test]
+    fn observer_receives_correct_values() {
+        let runtime = WarpRuntime::new(dummy_config());
+        let received_ok = Arc::new(AtomicBool::new(false));
+        let received_rtt = Arc::new(AtomicU64::new(u64::MAX));
+        let ok_clone = Arc::clone(&received_ok);
+        let rtt_clone = Arc::clone(&received_rtt);
+        runtime.set_quality_observer(Arc::new(move |obs| {
+            ok_clone.store(obs.succeeded, Ordering::Relaxed);
+            rtt_clone.store(obs.rtt_ms, Ordering::Relaxed);
+        }));
+        runtime.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: false });
+        assert!(!received_ok.load(Ordering::Relaxed));
+        assert_eq!(received_rtt.load(Ordering::Relaxed), 0);
+    }
+
+    /// No observer installed: `emit_connect_observation` is a no-op (no panic).
+    #[test]
+    fn no_observer_emit_is_noop() {
+        let runtime = WarpRuntime::new(dummy_config());
+        // Must not panic.
+        runtime.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: true });
+    }
+
+    /// `set_quality_observer` replaces the previous observer.
+    #[test]
+    fn set_quality_observer_replaces_previous() {
+        let runtime = WarpRuntime::new(dummy_config());
+        let first_count = Arc::new(AtomicU64::new(0));
+        let second_count = Arc::new(AtomicU64::new(0));
+
+        let first_clone = Arc::clone(&first_count);
+        runtime.set_quality_observer(Arc::new(move |_| {
+            first_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+
+        let second_clone = Arc::clone(&second_count);
+        runtime.set_quality_observer(Arc::new(move |_| {
+            second_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+
+        runtime.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: true });
+
+        assert_eq!(first_count.load(Ordering::Relaxed), 0, "first observer must not fire after replacement");
+        assert_eq!(second_count.load(Ordering::Relaxed), 1, "second observer must fire");
+    }
+
+    /// Multiple emit calls all reach the observer.
+    #[test]
+    fn observer_fires_for_every_emit() {
+        let runtime = WarpRuntime::new(dummy_config());
+        let count = Arc::new(AtomicU64::new(0));
+        let count_clone = Arc::clone(&count);
+        runtime.set_quality_observer(Arc::new(move |_| {
+            count_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+        for _ in 0..5 {
+            runtime.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: true });
+        }
+        assert_eq!(count.load(Ordering::Relaxed), 5);
+    }
 }

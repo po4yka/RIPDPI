@@ -17,7 +17,7 @@ use crate::runtime::listener::run_accept_loop;
 use crate::runtime::state::RuntimeState;
 use crate::runtime_validation::validate_runtime_config;
 use crate::socks::SocksTelemetry;
-use crate::telemetry::RelayTelemetry;
+use crate::telemetry::{RelayTelemetry, TcpConnectObservation};
 
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -37,6 +37,15 @@ impl RelayRuntime {
 
     pub fn telemetry(&self) -> RelayTelemetry {
         telemetry::build_telemetry(self)
+    }
+
+    /// Install a quality observer invoked for every upstream TCP connect
+    /// attempt. Replaces any previously installed observer. Delegates to
+    /// `RuntimeState::set_quality_observer`.
+    ///
+    /// Cancel-safety: synchronous; no `.await` inside.
+    pub fn set_quality_observer(&self, observer: Arc<dyn Fn(TcpConnectObservation) + Send + Sync>) {
+        self.state.set_quality_observer(observer);
     }
 
     pub async fn run(self: Arc<Self>) -> io::Result<()> {
@@ -65,5 +74,9 @@ impl SocksTelemetry for RelayRuntime {
 
     fn record_handshake_error(&self, error: String) {
         self.state.record_handshake_error(error);
+    }
+
+    fn emit_connect_observation(&self, obs: TcpConnectObservation) {
+        self.state.emit_connect_observation(obs);
     }
 }

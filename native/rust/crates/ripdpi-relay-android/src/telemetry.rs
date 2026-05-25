@@ -2,15 +2,14 @@ use std::sync::Arc;
 
 use android_support::{drain_relay_events, NativeEventRecord};
 use once_cell::sync::Lazy;
-use ripdpi_quality::{ConnectionQualitySnapshot, QualityWindow, TransportKind};
+use ripdpi_quality::{ConnectionQualitySnapshot, QualitySample, QualityWindow, TransportKind};
+use ripdpi_relay_core::TcpConnectObservation;
 use serde::Serialize;
 
 use crate::runtime::SessionRuntime;
 
-/// Process-wide quality window for the relay runtime. P5.4 scoped subset —
-/// observer install (producer-side timing) is deferred to a follow-up; until
-/// then `snapshot()` returns `None` and the additive `connectionQuality`
-/// field is suppressed by `skip_serializing_if`.
+/// Process-wide quality window for the relay runtime. Receives observations
+/// from the quality observer installed in `install_quality_observer`.
 static QUALITY_WINDOW: Lazy<Arc<QualityWindow>> = Lazy::new(|| Arc::new(QualityWindow::new(TransportKind::UdpRelay)));
 
 pub(crate) const IDLE_TELEMETRY_JSON: &str =
@@ -90,6 +89,33 @@ fn snapshot_from_telemetry<T>(telemetry: T) -> NativeRuntimeSnapshot<T> {
         telemetry,
         native_events: drain_relay_events().into_iter().map(NativeRuntimeEvent::from).collect(),
         connection_quality: QUALITY_WINDOW.snapshot(),
+    }
+}
+
+/// Install a quality observer on `session` that records every upstream TCP
+/// connect observation into the process-wide `QUALITY_WINDOW`.
+///
+/// `SessionRuntime::AppsScript` has no observer API; the arm is a silent
+/// no-op. Only `SessionRuntime::Standard` (`ripdpi_relay_core::RelayRuntime`)
+/// is wired.
+///
+/// Called once per session in `relay_create_entry`, before `insert_session`.
+///
+/// Cancel-safety: synchronous; no `.await` inside.
+pub(crate) fn install_quality_observer(session: &SessionRuntime) {
+    let window = QUALITY_WINDOW.clone();
+    let observer: Arc<dyn Fn(TcpConnectObservation) + Send + Sync> = Arc::new(move |obs| {
+        if obs.succeeded {
+            if obs.rtt_ms > 0 {
+                window.record(QualitySample { rtt_ms: obs.rtt_ms, succeeded: true, loss_pct: 0.0 });
+            }
+        } else {
+            window.record(QualitySample { rtt_ms: 0, succeeded: false, loss_pct: 0.0 });
+        }
+    });
+    match session {
+        SessionRuntime::Standard(runtime) => runtime.set_quality_observer(observer),
+        SessionRuntime::AppsScript(_) => { /* no observer API; skip */ }
     }
 }
 

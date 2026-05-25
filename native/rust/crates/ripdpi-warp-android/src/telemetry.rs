@@ -4,16 +4,14 @@ use android_support::{drain_warp_events, NativeEventRecord};
 use jni::sys::jlong;
 use jni::{EnvUnowned, Outcome};
 use once_cell::sync::Lazy;
-use ripdpi_quality::{ConnectionQualitySnapshot, QualityWindow, TransportKind};
-use ripdpi_warp_core::{WarpRuntime, WarpTelemetry};
+use ripdpi_quality::{ConnectionQualitySnapshot, QualitySample, QualityWindow, TransportKind};
+use ripdpi_warp_core::{TcpConnectObservation, WarpRuntime, WarpTelemetry};
 use serde::Serialize;
 
 use crate::registry;
 
-/// Process-wide quality window for the warp runtime. P5.4 scoped subset —
-/// observer install (producer-side TCP-connect timing in ripdpi-proxy-runtime)
-/// is deferred to a follow-up; until then `snapshot()` returns `None` and the
-/// additive `connectionQuality` field is suppressed by `skip_serializing_if`.
+/// Process-wide quality window for the warp runtime. Receives observations
+/// from the quality observer installed in `install_quality_observer`.
 static QUALITY_WINDOW: Lazy<Arc<QualityWindow>> = Lazy::new(|| Arc::new(QualityWindow::new(TransportKind::TcpProxy)));
 
 const IDLE_TELEMETRY_JSON: &str =
@@ -84,6 +82,30 @@ fn snapshot_from_telemetry(telemetry: WarpTelemetry) -> WarpNativeRuntimeSnapsho
 
 fn serialize(session: &WarpRuntime) -> Option<String> {
     serde_json::to_string(&snapshot_from_telemetry(session.telemetry())).ok()
+}
+
+/// Install a quality observer on `runtime` that records every SOCKS-session
+/// outcome into the process-wide `QUALITY_WINDOW`.
+///
+/// WARP uses virtual TCP via smoltcp — no real RTT is measurable at this
+/// layer. The observer receives `rtt_ms = 0` for all sessions; only failures
+/// are recorded into the loss counter. Successful sessions with `rtt_ms == 0`
+/// are intentionally skipped so the latency histogram is not polluted with
+/// zero values.
+///
+/// Called once per session in `lifecycle::create`, before `registry::insert`.
+///
+/// Cancel-safety: synchronous; no `.await` inside.
+pub(crate) fn install_quality_observer(runtime: &WarpRuntime) {
+    let window = QUALITY_WINDOW.clone();
+    let observer: Arc<dyn Fn(TcpConnectObservation) + Send + Sync> = Arc::new(move |obs| {
+        if !obs.succeeded {
+            window.record(QualitySample { rtt_ms: 0, succeeded: false, loss_pct: 0.0 });
+        }
+        // Successes with rtt_ms == 0 (all WARP virtual-TCP sessions) are
+        // intentionally not recorded into the latency histogram.
+    });
+    runtime.set_quality_observer(observer);
 }
 
 pub(crate) fn poll(mut env: EnvUnowned<'_>, handle: jlong) -> jni::sys::jstring {

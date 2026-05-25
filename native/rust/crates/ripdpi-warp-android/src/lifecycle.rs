@@ -14,6 +14,7 @@ use jni::{EnvUnowned, Outcome};
 use ripdpi_warp_core::{ResolvedWarpRuntimeConfig, WarpRuntime};
 
 use crate::registry;
+use crate::telemetry::install_quality_observer;
 use crate::vpn_protect;
 
 /// `JNI_OnLoad` body: mask `SIGPIPE`, install Android logging and the panic
@@ -36,8 +37,10 @@ pub(crate) fn create(mut env: EnvUnowned<'_>, config_json: JString<'_>) -> jlong
             let Ok(config) = serde_json::from_str::<ResolvedWarpRuntimeConfig>(&config_json) else {
                 return Ok(0);
             };
+            let runtime = WarpRuntime::with_platform(config, vpn_protect::warp_platform());
+            install_quality_observer(&runtime);
             clear_warp_events();
-            Ok(registry::insert(WarpRuntime::with_platform(config, vpn_protect::warp_platform())))
+            Ok(registry::insert(runtime))
         })
         .into_outcome()
     {

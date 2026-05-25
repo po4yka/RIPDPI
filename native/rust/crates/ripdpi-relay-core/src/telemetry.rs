@@ -3,6 +3,26 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
+/// A single TCP upstream-connect observation for quality telemetry.
+///
+/// `rtt_ms` is the elapsed time from the start of `connect_tcp` to the first
+/// byte of the upstream response (or the error). `succeeded` is `false` for
+/// any error arm of the connect path; failed samples increment the loss
+/// counter in `QualityWindow` but are NOT entered into the latency histogram
+/// (their RTT is undefined). Pass `rtt_ms = 0` when the producer cannot
+/// measure RTT.
+///
+/// Cancel-safety: the observation is a plain `Copy` value; caller drops it on
+/// cancellation with no side-effect.
+#[derive(Debug, Clone, Copy)]
+pub struct TcpConnectObservation {
+    /// Elapsed milliseconds from connect-start to first upstream byte, or 0 if
+    /// RTT is unavailable (e.g. virtual-TCP paths).
+    pub rtt_ms: u64,
+    /// `true` if the upstream TCP connection succeeded, `false` on any error.
+    pub succeeded: bool,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelayTelemetry {

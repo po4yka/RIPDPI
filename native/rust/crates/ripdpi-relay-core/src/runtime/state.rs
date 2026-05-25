@@ -1,10 +1,11 @@
 use std::io;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use arc_swap::ArcSwapOption;
 
 use crate::backend::RelayBackend;
+use crate::telemetry::TcpConnectObservation;
 
 pub(super) struct RuntimeState {
     stop_requested: AtomicBool,
@@ -16,6 +17,7 @@ pub(super) struct RuntimeState {
     last_target: ArcSwapOption<String>,
     last_error: ArcSwapOption<String>,
     last_handshake_error: ArcSwapOption<String>,
+    quality_observer: Mutex<Option<Arc<dyn Fn(TcpConnectObservation) + Send + Sync>>>,
 }
 
 impl RuntimeState {
@@ -30,6 +32,7 @@ impl RuntimeState {
             last_target: ArcSwapOption::empty(),
             last_error: ArcSwapOption::empty(),
             last_handshake_error: ArcSwapOption::empty(),
+            quality_observer: Mutex::new(None),
         }
     }
 
@@ -109,8 +112,138 @@ impl RuntimeState {
     pub(super) fn last_handshake_error(&self) -> Option<String> {
         load_optional_string(&self.last_handshake_error)
     }
+
+    /// Install a quality observer callback invoked for every upstream TCP
+    /// connect attempt. Replaces any previously installed observer.
+    ///
+    /// Cancel-safety: synchronous lock; no `.await` inside.
+    pub(super) fn set_quality_observer(&self, observer: Arc<dyn Fn(TcpConnectObservation) + Send + Sync>) {
+        if let Ok(mut guard) = self.quality_observer.lock() {
+            *guard = Some(observer);
+        }
+    }
+
+    /// Fire the quality observer with `obs`. Clone the `Arc` inside the lock,
+    /// release the lock, then invoke — reentrancy-safe (mirrors tunnel-core
+    /// observer pattern from `stats/observer.rs`).
+    ///
+    /// Cancel-safety: synchronous; no `.await` inside.
+    pub(super) fn emit_connect_observation(&self, obs: TcpConnectObservation) {
+        let observer = match self.quality_observer.lock() {
+            Ok(guard) => guard.as_ref().map(Arc::clone),
+            Err(_) => None,
+        };
+        if let Some(observer) = observer {
+            observer(obs);
+        }
+    }
 }
 
 fn load_optional_string(slot: &ArcSwapOption<String>) -> Option<String> {
     slot.load_full().as_deref().cloned()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use super::*;
+
+    /// Smoke: observer is invoked when `emit_connect_observation` is called.
+    #[test]
+    fn observer_fires_on_emit() {
+        let state = RuntimeState::new();
+        let count = Arc::new(AtomicU64::new(0));
+        let count_clone = Arc::clone(&count);
+        state.set_quality_observer(Arc::new(move |_obs| {
+            count_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+        state.emit_connect_observation(TcpConnectObservation { rtt_ms: 10, succeeded: true });
+        assert_eq!(count.load(Ordering::Relaxed), 1);
+    }
+
+    /// Observer receives the exact observation values that were passed.
+    #[test]
+    fn observer_receives_correct_values() {
+        let state = RuntimeState::new();
+        let recorded_rtt = Arc::new(AtomicU64::new(u64::MAX));
+        let recorded_succeeded = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let rtt_clone = Arc::clone(&recorded_rtt);
+        let ok_clone = Arc::clone(&recorded_succeeded);
+        state.set_quality_observer(Arc::new(move |obs| {
+            rtt_clone.store(obs.rtt_ms, Ordering::Relaxed);
+            ok_clone.store(obs.succeeded, Ordering::Relaxed);
+        }));
+        state.emit_connect_observation(TcpConnectObservation { rtt_ms: 42, succeeded: true });
+        assert_eq!(recorded_rtt.load(Ordering::Relaxed), 42);
+        assert!(recorded_succeeded.load(Ordering::Relaxed));
+    }
+
+    /// A failure observation sets `succeeded = false`.
+    #[test]
+    fn observer_receives_failure_observation() {
+        let state = RuntimeState::new();
+        let recorded_succeeded = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let ok_clone = Arc::clone(&recorded_succeeded);
+        state.set_quality_observer(Arc::new(move |obs| {
+            ok_clone.store(obs.succeeded, Ordering::Relaxed);
+        }));
+        state.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: false });
+        assert!(!recorded_succeeded.load(Ordering::Relaxed));
+    }
+
+    /// No observer installed: `emit_connect_observation` is a no-op (no panic).
+    #[test]
+    fn no_observer_emit_is_noop() {
+        let state = RuntimeState::new();
+        // Must not panic.
+        state.emit_connect_observation(TcpConnectObservation { rtt_ms: 5, succeeded: true });
+    }
+
+    /// `set_quality_observer` replaces the previous observer.
+    #[test]
+    fn set_quality_observer_replaces_previous() {
+        let state = RuntimeState::new();
+        let first_count = Arc::new(AtomicU64::new(0));
+        let second_count = Arc::new(AtomicU64::new(0));
+
+        let first_clone = Arc::clone(&first_count);
+        state.set_quality_observer(Arc::new(move |_| {
+            first_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+
+        let second_clone = Arc::clone(&second_count);
+        state.set_quality_observer(Arc::new(move |_| {
+            second_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+
+        state.emit_connect_observation(TcpConnectObservation { rtt_ms: 1, succeeded: true });
+
+        assert_eq!(first_count.load(Ordering::Relaxed), 0, "first observer must not fire after replacement");
+        assert_eq!(second_count.load(Ordering::Relaxed), 1, "second observer must fire");
+    }
+
+    /// Reentrancy: observer calls `set_quality_observer` on a separate state
+    /// instance without deadlock (mirrors tunnel-core reentrancy test shape).
+    #[test]
+    fn observer_reentrancy_does_not_deadlock() {
+        let state = Arc::new(RuntimeState::new());
+        let state_inner = Arc::clone(&state);
+        let replacement_count = Arc::new(AtomicU64::new(0));
+        let replacement_count_clone = Arc::clone(&replacement_count);
+
+        let first: Arc<dyn Fn(TcpConnectObservation) + Send + Sync> = Arc::new(move |_obs| {
+            // Replace observer on a *separate* instance to confirm reentrancy
+            // path does not deadlock on the same Mutex.
+            let count = Arc::clone(&replacement_count_clone);
+            state_inner.set_quality_observer(Arc::new(move |_| {
+                count.fetch_add(1, Ordering::Relaxed);
+            }));
+        });
+        state.set_quality_observer(first);
+        state.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: true });
+        // Second emit hits the replacement observer.
+        state.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: true });
+        assert_eq!(replacement_count.load(Ordering::Relaxed), 1);
+    }
 }

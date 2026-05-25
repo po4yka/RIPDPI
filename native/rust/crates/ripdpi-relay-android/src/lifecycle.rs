@@ -14,7 +14,7 @@ use jni::{EnvUnowned, JavaVM, Outcome};
 
 use crate::registry::{insert_session, remove_session, session_from_handle};
 use crate::runtime::create_session;
-use crate::telemetry::{serialize_runtime_telemetry, IDLE_TELEMETRY_JSON};
+use crate::telemetry::{install_quality_observer, serialize_runtime_telemetry, IDLE_TELEMETRY_JSON};
 
 /// `JNI_OnLoad` body: mask `SIGPIPE`, install Android logging and the panic
 /// hook, and install the default `rustls` crypto provider. Returns the JNI
@@ -43,6 +43,7 @@ pub(crate) fn relay_create_entry(mut env: EnvUnowned<'_>, config_json: JString) 
                 return Ok(0);
             };
 
+            install_quality_observer(&session);
             clear_relay_events();
             let handle = insert_session(session);
             Ok(jlong::try_from(handle).unwrap_or(0))

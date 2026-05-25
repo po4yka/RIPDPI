@@ -1,6 +1,7 @@
 mod amneziawg;
 mod config;
 mod endpoint_probe;
+mod observe;
 mod platform;
 mod ports;
 mod runtime;
@@ -14,5 +15,6 @@ pub use config::{
     WarpEndpointProbeResult, WarpManualEndpoint, WarpTelemetry,
 };
 pub use endpoint_probe::{probe_endpoint, probe_endpoint_with_platform};
+pub use observe::TcpConnectObservation;
 pub use platform::{WarpPlatform, WarpSocketProtector};
 pub use runtime::WarpRuntime;
