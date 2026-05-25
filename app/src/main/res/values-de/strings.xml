@@ -2750,4 +2750,18 @@ Quelle: %2$s</string>
     <string name="profile_variants_cta_select">Auswählen</string>
     <string name="profile_variants_cta_selected">Aktiv</string>
     <string name="profile_variants_caption">Profilvarianten · Galerie der Strategie-Voreinstellungen (Ausgewogen / Aggressiv / Stealth) · farbiger Kopf-Chip · 3-zeilige Metrik-Leiste · Auswahl-CTA.</string>
+
+    <!-- Share link preview card -->
+    <string name="share_link_preview_eyebrow_link">Generierter Link</string>
+    <string name="share_link_preview_eyebrow_payload">Fragment-Inhalt</string>
+    <string name="share_link_preview_copy_action">Kopieren</string>
+    <string name="share_link_preview_row_version">Schemaversion — aktuell %1$s</string>
+    <string name="share_link_preview_row_asn">Ursprungs-ASN — %1$s</string>
+    <string name="share_link_preview_row_asn_redacted">Ursprungs-ASN — geschwärzt</string>
+    <string name="share_link_preview_row_timestamp">Zeitstempel, in Minuten seit %1$s</string>
+    <string name="share_link_preview_row_commit">Strategie-Bundle-Hash — %1$s</string>
+    <string name="share_link_preview_row_items">{alive, dpi}-Tupel pro Endpunkt — %1$d</string>
+    <string name="share_link_preview_privacy_title">Verbleibt auf dem Gerät</string>
+    <string name="share_link_preview_privacy_message">Das Fragment verlässt das Gerät nie — es wird lokal vom Empfänger entschlüsselt. Hostnamen werden gehasht, sofern die Anonymisierung nicht deaktiviert ist.</string>
+    <string name="share_link_preview_privacy_emphasis">verlässt das Gerät nie</string>
 </resources>

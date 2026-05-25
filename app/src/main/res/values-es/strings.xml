@@ -2750,4 +2750,18 @@ Origen: %2$s</string>
     <string name="profile_variants_cta_select">Seleccionar</string>
     <string name="profile_variants_cta_selected">Activo</string>
     <string name="profile_variants_caption">Variantes de perfil · galería de preajustes de estrategia (Equilibrado / Agresivo / Sigiloso) · chip de cabecera con color · franja de 3 métricas · CTA de selección.</string>
+
+    <!-- Share link preview card -->
+    <string name="share_link_preview_eyebrow_link">Enlace generado</string>
+    <string name="share_link_preview_eyebrow_payload">Contenido del fragmento</string>
+    <string name="share_link_preview_copy_action">Copiar</string>
+    <string name="share_link_preview_row_version">Versión del esquema — actualmente %1$s</string>
+    <string name="share_link_preview_row_asn">ASN de origen — %1$s</string>
+    <string name="share_link_preview_row_asn_redacted">ASN de origen — ocultado</string>
+    <string name="share_link_preview_row_timestamp">Marca de tiempo, en minutos desde %1$s</string>
+    <string name="share_link_preview_row_commit">Hash del paquete de estrategia — %1$s</string>
+    <string name="share_link_preview_row_items">Tuplas {alive, dpi} por punto final — %1$d</string>
+    <string name="share_link_preview_privacy_title">Se queda en el dispositivo</string>
+    <string name="share_link_preview_privacy_message">El fragmento nunca abandona el dispositivo — el destinatario lo decodifica localmente. Los nombres de host se hashean a menos que la redacción esté desactivada.</string>
+    <string name="share_link_preview_privacy_emphasis">nunca abandona el dispositivo</string>
 </resources>

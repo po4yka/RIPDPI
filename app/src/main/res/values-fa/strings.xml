@@ -2755,4 +2755,18 @@ fakeddisorder endhost</string>
     <string name="profile_variants_cta_select">انتخاب</string>
     <string name="profile_variants_cta_selected">فعال</string>
     <string name="profile_variants_caption">انواع پروفایل · گالری پیش‌تنظیم‌های استراتژی (متعادل / تهاجمی / مخفیانه) · تراشه رنگی سربرگ · نوار ۳ معیاره · دکمه انتخاب.</string>
+
+    <!-- Share link preview card -->
+    <string name="share_link_preview_eyebrow_link">لینک تولید شده</string>
+    <string name="share_link_preview_eyebrow_payload">محتوای قطعه</string>
+    <string name="share_link_preview_copy_action">کپی</string>
+    <string name="share_link_preview_row_version">نسخه طرح — در حال حاضر %1$s</string>
+    <string name="share_link_preview_row_asn">ASN مبدأ — %1$s</string>
+    <string name="share_link_preview_row_asn_redacted">ASN مبدأ — پنهان شده</string>
+    <string name="share_link_preview_row_timestamp">مُهر زمانی، بر حسب دقیقه از %1$s</string>
+    <string name="share_link_preview_row_commit">هش بسته استراتژی — %1$s</string>
+    <string name="share_link_preview_row_items">تاپل‌های {alive, dpi} به ازای هر نقطه پایانی — %1$d</string>
+    <string name="share_link_preview_privacy_title">روی دستگاه می‌ماند</string>
+    <string name="share_link_preview_privacy_message">قطعه هرگز دستگاه را ترک نمی‌کند — توسط گیرنده به صورت محلی رمزگشایی می‌شود. نام میزبان‌ها هش می‌شوند مگر اینکه پاک‌سازی غیرفعال باشد.</string>
+    <string name="share_link_preview_privacy_emphasis">هرگز دستگاه را ترک نمی‌کند</string>
 </resources>

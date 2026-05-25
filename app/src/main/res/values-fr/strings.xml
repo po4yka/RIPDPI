@@ -2750,4 +2750,18 @@ Source : %2$s</string>
     <string name="profile_variants_cta_select">Sélectionner</string>
     <string name="profile_variants_cta_selected">Actif</string>
     <string name="profile_variants_caption">Variantes de profil · galerie de préréglages de stratégie (Équilibré / Agressif / Furtif) · puce d\'en-tête colorée · bande de 3 métriques · CTA de sélection.</string>
+
+    <!-- Share link preview card -->
+    <string name="share_link_preview_eyebrow_link">Lien généré</string>
+    <string name="share_link_preview_eyebrow_payload">Contenu du fragment</string>
+    <string name="share_link_preview_copy_action">Copier</string>
+    <string name="share_link_preview_row_version">Version du schéma — actuellement %1$s</string>
+    <string name="share_link_preview_row_asn">ASN d\'origine — %1$s</string>
+    <string name="share_link_preview_row_asn_redacted">ASN d\'origine — masqué</string>
+    <string name="share_link_preview_row_timestamp">Horodatage, en minutes depuis %1$s</string>
+    <string name="share_link_preview_row_commit">Hash du bundle de stratégie — %1$s</string>
+    <string name="share_link_preview_row_items">Tuples {alive, dpi} par point de terminaison — %1$d</string>
+    <string name="share_link_preview_privacy_title">Reste sur l\'appareil</string>
+    <string name="share_link_preview_privacy_message">Le fragment ne quitte jamais l\'appareil — il est décodé localement par le destinataire. Les noms d\'hôte sont hachés sauf si la rédaction est désactivée.</string>
+    <string name="share_link_preview_privacy_emphasis">ne quitte jamais l\'appareil</string>
 </resources>

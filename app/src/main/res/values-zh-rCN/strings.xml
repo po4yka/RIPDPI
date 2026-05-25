@@ -2751,4 +2751,18 @@ fake_burst 3</string>
     <string name="profile_variants_cta_select">选择</string>
     <string name="profile_variants_cta_selected">已激活</string>
     <string name="profile_variants_caption">配置文件变体 · 策略预设画廊（均衡 / 激进 / 隐匿）· 彩色标题芯片 · 3 行指标条 · 选择按钮。</string>
+
+    <!-- Share link preview card -->
+    <string name="share_link_preview_eyebrow_link">生成的链接</string>
+    <string name="share_link_preview_eyebrow_payload">片段内容</string>
+    <string name="share_link_preview_copy_action">复制</string>
+    <string name="share_link_preview_row_version">架构版本 — 当前 %1$s</string>
+    <string name="share_link_preview_row_asn">来源 ASN — %1$s</string>
+    <string name="share_link_preview_row_asn_redacted">来源 ASN — 已隐藏</string>
+    <string name="share_link_preview_row_timestamp">时间戳，自 %1$s 起的分钟数</string>
+    <string name="share_link_preview_row_commit">策略包哈希 — %1$s</string>
+    <string name="share_link_preview_row_items">每个端点的 {alive, dpi} 元组 — %1$d</string>
+    <string name="share_link_preview_privacy_title">保留在设备上</string>
+    <string name="share_link_preview_privacy_message">片段永远不会离开设备 — 由接收方在本地解码。除非已关闭编辑，否则主机名将被哈希处理。</string>
+    <string name="share_link_preview_privacy_emphasis">永远不会离开设备</string>
 </resources>
