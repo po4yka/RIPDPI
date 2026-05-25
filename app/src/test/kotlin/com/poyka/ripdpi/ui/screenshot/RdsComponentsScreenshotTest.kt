@@ -66,9 +66,11 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
 import com.poyka.ripdpi.ui.components.inputs.RipDpiToggleAlternatives
 import com.poyka.ripdpi.ui.screens.diagnostics.HandshakeTimelineScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.LatencyGraphScreen
+import com.poyka.ripdpi.ui.screens.diagnostics.StateMachineScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.ThroughputGraphScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleHandshakeTimelineState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleLatencyGraphState
+import com.poyka.ripdpi.ui.screens.diagnostics.sampleStateMachineState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleThroughputGraphState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -196,6 +198,26 @@ class RdsComponentsScreenshotTest {
                         p99Label = "184 ms",
                         spikeCountLabel = "3",
                         packetLossLabel = "4.1%",
+                    ),
+            )
+        }
+    }
+
+    @Test
+    fun stateMachine() {
+        captureBothThemes("stateMachine", widthDp = 720, heightDp = 480) {
+            StateMachineScreen(
+                state =
+                    sampleStateMachineState(
+                        currentStateLabel = "Tunneling",
+                        transitionCountLabel = "9 transitions / 24 h",
+                        disconnectedMetaLabel = "idle",
+                        permissioningMetaLabel = "os prompt",
+                        connectingMetaLabel = "handshake",
+                        tunnelingMetaLabel = "12 m 14 s",
+                        reconnectingMetaLabel = "backoff",
+                        failedMetaLabel = "last 6 h: 0",
+                        degradedMetaLabel = "2 in 24 h",
                     ),
             )
         }

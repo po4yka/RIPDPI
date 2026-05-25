@@ -231,6 +231,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object StateMachine : Route() {
+        override val stableRoute = "state_machine"
+        override val titleRes = R.string.title_state_machine
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class SharedDiagnosticResult(
         val fragment: String = "",
     ) : Route() {
@@ -337,6 +344,7 @@ sealed class Route {
                     HandshakeTimeline,
                     ThroughputGraph,
                     LatencyGraph,
+                    StateMachine,
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),

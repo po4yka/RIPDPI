@@ -53,6 +53,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.PcapCaptureListRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.PcapViewerRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryRoute
+import com.poyka.ripdpi.ui.screens.diagnostics.StateMachineRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.ThroughputGraphRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.share.SharedResultRenderRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
@@ -650,6 +651,9 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
     composable<Route.LatencyGraph> {
         LatencyGraphRoute()
     }
+    composable<Route.StateMachine> {
+        StateMachineRoute()
+    }
     composable<Route.OwnedStackBrowser> { backStackEntry ->
         val route = backStackEntry.toRoute<Route.OwnedStackBrowser>()
         OwnedStackBrowserRoute(
@@ -809,6 +813,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.SharedDiagnosticResult().stableRoute to { hasRoute<Route.SharedDiagnosticResult>() },
         Route.ProfileImportConfirm().stableRoute to { hasRoute<Route.ProfileImportConfirm>() },
         Route.SubscriptionImportConfirm().stableRoute to { hasRoute<Route.SubscriptionImportConfirm>() },
+        Route.StateMachine.stableRoute to { hasRoute<Route.StateMachine>() },
         Route.QrScanner.stableRoute to { hasRoute<Route.QrScanner>() },
         Route.AmneziaWgProfile.stableRoute to { hasRoute<Route.AmneziaWgProfile>() },
     )
