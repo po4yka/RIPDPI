@@ -2,6 +2,8 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
+import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
+import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExitSequence
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -111,9 +113,14 @@ class ProxyRuntimeSupervisorTest {
                     networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
                 )
             val exits = mutableListOf<SupervisorExitCause>()
+            val scriptedExits = ScriptedSupervisorExitSequence(ScriptedSupervisorExit.Crash(19))
 
-            supervisor.start(RipDpiProxyUIPreferences()) { exits += it }
-            supervisor.stop()
+            supervisor.start(RipDpiProxyUIPreferences()) { cause ->
+                exits += cause
+                supervisor.detach()
+            }
+            scriptedExits.applyTo(factory.lastRuntime)
+            runCurrent()
             advanceUntilIdle()
 
             supervisor.start(RipDpiProxyUIPreferences()) { exits += it }
@@ -121,11 +128,11 @@ class ProxyRuntimeSupervisorTest {
             advanceUntilIdle()
 
             assertEquals(2, factory.runtimes.size)
-            assertEquals(1, factory.runtimes[0].stopCount)
+            assertEquals(0, factory.runtimes[0].stopCount)
             assertEquals(1, factory.runtimes[1].stopCount)
             assertEquals(
                 listOf(
-                    SupervisorExitCause.ExpectedStop,
+                    SupervisorExitCause.Crash(19),
                     SupervisorExitCause.ExpectedStop,
                 ),
                 exits,

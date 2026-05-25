@@ -36,7 +36,7 @@ mod support;
 
 use std::io;
 use std::net::{Ipv4Addr, TcpListener};
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
 
@@ -190,14 +190,18 @@ fn proxy_thread_always_joins_after_shutdown_request() {
         let (control, handle) = spawn_proxy_cycle();
         control.request_shutdown();
 
-        let start = std::time::Instant::now();
-        while !handle.is_finished() {
-            assert!(
-                start.elapsed() < JOIN_TIMEOUT,
-                "cycle {cycle}: proxy thread did not finish within {JOIN_TIMEOUT:?}"
-            );
-            thread::sleep(Duration::from_millis(10));
-        }
-        handle.join().expect("proxy thread must not panic").expect("clean exit");
+        let (finished_tx, finished_rx) = mpsc::channel();
+        thread::spawn(move || {
+            let result = handle
+                .join()
+                .map_err(|_| "proxy thread panicked".to_string())
+                .and_then(|runtime_result| runtime_result.map_err(|error| error.to_string()));
+            let _ = finished_tx.send(result);
+        });
+
+        let result = finished_rx
+            .recv_timeout(JOIN_TIMEOUT)
+            .unwrap_or_else(|_| panic!("cycle {cycle}: proxy thread did not finish within {JOIN_TIMEOUT:?}"));
+        result.expect("clean exit");
     }
 }

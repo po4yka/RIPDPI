@@ -4,6 +4,8 @@ import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.service.warp.WarpRuntimeConfigResolver
+import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
+import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExitSequence
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -72,9 +74,14 @@ class WarpRuntimeSupervisorTest {
                     runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
                 )
             val exits = mutableListOf<SupervisorExitCause>()
+            val scriptedExits = ScriptedSupervisorExitSequence(ScriptedSupervisorExit.Crash(29))
 
-            supervisor.start(sampleWarpConfig()) { exits += it }
-            supervisor.stop()
+            supervisor.start(sampleWarpConfig()) { cause ->
+                exits += cause
+                supervisor.detach()
+            }
+            scriptedExits.applyTo(warpFactory.lastRuntime)
+            runCurrent()
             advanceUntilIdle()
 
             supervisor.start(sampleWarpConfig()) { exits += it }
@@ -82,11 +89,11 @@ class WarpRuntimeSupervisorTest {
             advanceUntilIdle()
 
             assertEquals(2, warpFactory.runtimes.size)
-            assertEquals(1, warpFactory.runtimes[0].stopCount)
+            assertEquals(0, warpFactory.runtimes[0].stopCount)
             assertEquals(1, warpFactory.runtimes[1].stopCount)
             assertEquals(
                 listOf(
-                    SupervisorExitCause.ExpectedStop,
+                    SupervisorExitCause.Crash(29),
                     SupervisorExitCause.ExpectedStop,
                 ),
                 exits,

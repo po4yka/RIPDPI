@@ -24,6 +24,8 @@ import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish
 import com.poyka.ripdpi.data.StrategyFeatureFinalmask
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
+import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExitSequence
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -110,12 +112,17 @@ class UpstreamRelaySupervisorTest {
                     runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
                 )
             val exits = mutableListOf<SupervisorExitCause>()
+            val scriptedExits = ScriptedSupervisorExitSequence(ScriptedSupervisorExit.Crash(23))
 
             supervisor.start(
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
-                onUnexpectedExit = { exits += it },
+                onUnexpectedExit = { cause ->
+                    exits += cause
+                    supervisor.detach()
+                },
             )
-            supervisor.stop()
+            scriptedExits.applyTo(relayFactory.lastRuntime)
+            runCurrent()
             advanceUntilIdle()
 
             supervisor.start(
@@ -126,11 +133,11 @@ class UpstreamRelaySupervisorTest {
             advanceUntilIdle()
 
             assertEquals(2, relayFactory.runtimes.size)
-            assertEquals(1, relayFactory.runtimes[0].stopCount)
+            assertEquals(0, relayFactory.runtimes[0].stopCount)
             assertEquals(1, relayFactory.runtimes[1].stopCount)
             assertEquals(
                 listOf(
-                    SupervisorExitCause.ExpectedStop,
+                    SupervisorExitCause.Crash(23),
                     SupervisorExitCause.ExpectedStop,
                 ),
                 exits,
