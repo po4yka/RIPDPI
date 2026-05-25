@@ -25,6 +25,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -161,6 +162,78 @@ private const val CanvasH = 380f
 private const val NodeHalfW = 60f
 private const val NodeHalfH = 26f
 
+// Arrow-head geometry multipliers (stroke-width proportional).
+private const val ArrowHeadCoerceMin = 0.001f
+private const val ArrowHeadLengthFactor = 4.5f
+private const val ArrowHeadWidthFactor = 1.8f
+
+// Dash pattern multipliers for active edges (dash len = stroke * 3, gap = stroke * 2.25).
+private const val EdgeDashLengthFactor = 3f
+private const val EdgeDashGapFactor = 2.25f
+
+// Edge endpoint Y-offsets from node centre (node bottom = cy + NodeHalfH).
+// Bottom exit Y for Connecting / Permissioning-row nodes (cy=80, bottom=106).
+private const val NodeBottomConnecting = 106f
+
+// Bezier control-point Y for Connecting→Tunneling arc.
+private const val EdgeConnectTunnelCpY = 165f
+
+// Tunneling node T-edge arrival point (cx=494, y=184 — slightly above node centre).
+private const val EdgeConnectTunnelX1 = 494f
+private const val EdgeConnectTunnelY1 = 184f
+
+// Bottom exit Y for Reconnecting / second-row nodes (cy=210, bottom=236).
+private const val NodeBottomRow2 = 236f
+
+// Top entry Y for Failed / third-row nodes (cy=320, top=294).
+private const val NodeTopRow3 = 294f
+
+// Connecting→Failed arc midpoint control.
+private const val EdgeConnectFailedCpX = 360f
+private const val EdgeConnectFailedCpY = 200f
+private const val EdgeConnectFailedX0 = 520f
+private const val EdgeConnectFailedX1 = 212f
+
+// Degraded←→Tunneling vertical edge X offsets (Tunneling cx=470, left=440, right=500).
+private const val EdgeTunnelDegradedLeftX = 440f
+private const val EdgeTunnelDegradedRightX = 500f
+
+// Degraded.L → Reconnecting.R arc control points.
+private const val EdgeDegradedReconnectX0 = 410f
+private const val EdgeDegradedReconnectCpX = 320f
+private const val EdgeDegradedReconnectCpY = 270f
+private const val EdgeDegradedReconnectX1 = 234f
+private const val EdgeDegradedReconnectY1 = 214f
+
+// Reconnecting.R → Tunneling.L straight edge (Reconnecting cx=170, right=230; Tunneling cx=470, left=406+4 gap).
+private const val EdgeReconnectTunnelX0 = 230f
+private const val EdgeReconnectTunnelY = 205f
+private const val EdgeReconnectTunnelX1 = 406f
+
+// Failed.L → Disconnected.L cubic left sweep control points.
+private const val EdgeFailedDiscX0 = 110f
+private const val EdgeFailedDiscCp1X = 20f
+private const val EdgeFailedDiscCp2X = 10f
+private const val EdgeFailedDiscCp2Y = 84f
+private const val EdgeFailedDiscX1 = 16f
+
+// Edge endpoint gap (4 dp inset so arrow tip clears node border).
+private const val EdgeNodeGap = 4f
+
+// Node-ring inset for the active-state highlight canvas (negative = expand outward).
+private const val NodeRingInset = -4f
+
+// Active-state ring stroke addend (base = RipDpiStroke.Thin; +0.5 makes it stand out).
+private const val NodeRingStrokeAddend = 0.5f
+
+// NodeSpecs list indices — named so that the index literals in StateMachineEdgeCanvas
+// are not treated as magic numbers.
+private const val NodeIndexDisconnected = 0
+private const val NodeIndexPermissioning = 1
+private const val NodeIndexConnecting = 2
+private const val NodeIndexReconnecting = 4
+private const val NodeIndexDegraded = 6
+
 // Node centres in spec coordinates (cx, cy).
 private data class NodeSpec(
     val state: VpnNodeState,
@@ -196,6 +269,213 @@ private fun StateMachineDiagram(state: StateMachineState) {
     }
 }
 
+private fun DrawScope.smArrowHead(
+    endX: Float,
+    endY: Float,
+    tanX: Float,
+    tanY: Float,
+    color: Color,
+    sw: Float,
+) {
+    val len = sqrt(tanX * tanX + tanY * tanY).coerceAtLeast(ArrowHeadCoerceMin)
+    val ux = tanX / len
+    val uy = tanY / len
+    val tl = sw * ArrowHeadLengthFactor
+    val tw = sw * ArrowHeadWidthFactor
+    drawPath(
+        Path().apply {
+            moveTo(endX, endY)
+            lineTo(endX - ux * tl - uy * tw, endY - uy * tl + ux * tw)
+            lineTo(endX - ux * tl + uy * tw, endY - uy * tl - ux * tw)
+            close()
+        },
+        color,
+    )
+}
+
+private fun DrawScope.smLineEdge(
+    x0: Float,
+    y0: Float,
+    x1: Float,
+    y1: Float,
+    color: Color,
+    thin: Float,
+    thick: Float,
+    active: Boolean = false,
+) {
+    val sw = if (active) thick else thin
+    val effect =
+        if (active) {
+            PathEffect.dashPathEffect(floatArrayOf(sw * EdgeDashLengthFactor, sw * EdgeDashGapFactor))
+        } else {
+            null
+        }
+    drawLine(color = color, start = Offset(x0, y0), end = Offset(x1, y1), strokeWidth = sw, pathEffect = effect)
+    smArrowHead(x1, y1, x1 - x0, y1 - y0, color, sw)
+}
+
+private fun DrawScope.smQuadEdge(
+    x0: Float,
+    y0: Float,
+    cpx: Float,
+    cpy: Float,
+    x1: Float,
+    y1: Float,
+    color: Color,
+    thin: Float,
+    thick: Float,
+    active: Boolean = false,
+) {
+    val sw = if (active) thick else thin
+    val effect =
+        if (active) {
+            PathEffect.dashPathEffect(floatArrayOf(sw * EdgeDashLengthFactor, sw * EdgeDashGapFactor))
+        } else {
+            null
+        }
+    val path =
+        Path().apply {
+            moveTo(x0, y0)
+            quadraticTo(cpx, cpy, x1, y1)
+        }
+    drawPath(path, color, style = Stroke(width = sw, pathEffect = effect))
+    smArrowHead(x1, y1, x1 - cpx, y1 - cpy, color, sw)
+}
+
+private fun DrawScope.smCubicEdge(
+    x0: Float,
+    y0: Float,
+    cp1x: Float,
+    cp1y: Float,
+    cp2x: Float,
+    cp2y: Float,
+    x1: Float,
+    y1: Float,
+    color: Color,
+    thin: Float,
+) {
+    val path =
+        Path().apply {
+            moveTo(x0, y0)
+            cubicTo(cp1x, cp1y, cp2x, cp2y, x1, y1)
+        }
+    drawPath(path, color, style = Stroke(width = thin))
+    smArrowHead(x1, y1, x1 - cp2x, y1 - cp2y, color, thin)
+}
+
+// Edges 1–4: top row (Disconnected → Permissioning → Connecting → Tunneling / Failed).
+private fun DrawScope.smTopRowEdges(
+    scaleX: Float,
+    scaleY: Float,
+    disconnectedCx: Float,
+    permissioningCx: Float,
+    connectingCx: Float,
+    topRowY: Float,
+    edgeMuted: Color,
+    edgeActive: Color,
+    edgeFail: Color,
+    thin: Float,
+    thick: Float,
+    isTunneling: Boolean,
+) {
+    fun sx(x: Float) = x * scaleX
+
+    fun sy(y: Float) = y * scaleY
+    val halfW = sx(NodeHalfW)
+    val gap = sx(EdgeNodeGap)
+    // 1. Disconnected.R → Permissioning.L
+    smLineEdge(disconnectedCx + halfW, topRowY, permissioningCx - halfW - gap, topRowY, edgeMuted, thin, thick)
+    // 2. Permissioning.R → Connecting.L
+    smLineEdge(permissioningCx + halfW, topRowY, connectingCx - halfW - gap, topRowY, edgeMuted, thin, thick)
+    // 3. Connecting.B → Tunneling.T
+    smQuadEdge(
+        connectingCx,
+        sy(NodeBottomConnecting),
+        connectingCx,
+        sy(EdgeConnectTunnelCpY),
+        sx(EdgeConnectTunnelX1),
+        sy(EdgeConnectTunnelY1),
+        if (isTunneling) edgeActive else edgeMuted,
+        thin,
+        thick,
+        isTunneling,
+    )
+    // 4. Connecting.B → Failed.T
+    smQuadEdge(
+        sx(EdgeConnectFailedX0),
+        sy(NodeBottomConnecting),
+        sx(EdgeConnectFailedCpX),
+        sy(EdgeConnectFailedCpY),
+        sx(EdgeConnectFailedX1),
+        sy(NodeTopRow3),
+        edgeFail,
+        thin,
+        thick,
+    )
+}
+
+// Edges 5–10: lower rows (Tunneling ↔ Degraded, Degraded → Reconnecting,
+// Reconnecting → Tunneling / Failed, Failed → Disconnected).
+private fun DrawScope.smLowerRowEdges(
+    scaleX: Float,
+    scaleY: Float,
+    reconnectingCx: Float,
+    degradedCy: Float,
+    edgeMuted: Color,
+    edgeFail: Color,
+    thin: Float,
+    thick: Float,
+) {
+    fun sx(x: Float) = x * scaleX
+
+    fun sy(y: Float) = y * scaleY
+    val leftX = sx(EdgeTunnelDegradedLeftX)
+    val rightX = sx(EdgeTunnelDegradedRightX)
+    val row2Bottom = sy(NodeBottomRow2)
+    val row3Top = sy(NodeTopRow3)
+    // 5. Tunneling.B → Degraded.T [left]
+    smLineEdge(leftX, row2Bottom, leftX, row3Top, edgeMuted, thin, thick)
+    // 6. Degraded.T → Tunneling.B [right]
+    smLineEdge(rightX, row3Top, rightX, row2Bottom, edgeMuted, thin, thick)
+    // 7. Degraded.L → Reconnecting.R
+    smQuadEdge(
+        sx(EdgeDegradedReconnectX0),
+        degradedCy,
+        sx(EdgeDegradedReconnectCpX),
+        sy(EdgeDegradedReconnectCpY),
+        sx(EdgeDegradedReconnectX1),
+        sy(EdgeDegradedReconnectY1),
+        edgeMuted,
+        thin,
+        thick,
+    )
+    // 8. Reconnecting.R → Tunneling.L
+    smLineEdge(
+        sx(EdgeReconnectTunnelX0),
+        sy(EdgeReconnectTunnelY),
+        sx(EdgeReconnectTunnelX1),
+        sy(EdgeReconnectTunnelY),
+        edgeMuted,
+        thin,
+        thick,
+    )
+    // 9. Reconnecting.B → Failed.T
+    smLineEdge(reconnectingCx, sy(NodeBottomRow2), reconnectingCx, sy(NodeTopRow3), edgeFail, thin, thick)
+    // 10. Failed.L → Disconnected.L
+    smCubicEdge(
+        sx(EdgeFailedDiscX0),
+        degradedCy,
+        sx(EdgeFailedDiscCp1X),
+        degradedCy,
+        sx(EdgeFailedDiscCp2X),
+        sy(EdgeFailedDiscCp2Y),
+        sx(EdgeFailedDiscX1),
+        sy(EdgeFailedDiscCp2Y),
+        edgeMuted,
+        thin,
+    )
+}
+
 @Composable
 private fun StateMachineEdgeCanvas(
     state: StateMachineState,
@@ -210,120 +490,30 @@ private fun StateMachineEdgeCanvas(
     val isTunneling = state.currentState == VpnNodeState.Tunneling
 
     Canvas(modifier = modifier) {
-        fun sx(x: Float) = x * scaleX
-
-        fun sy(y: Float) = y * scaleY
-
         val thin = RipDpiStroke.Thin.toPx()
         val thick = RipDpiStroke.Thick.toPx()
+        val disconnectedCx = NodeSpecs[NodeIndexDisconnected].cx * scaleX
+        val permissioningCx = NodeSpecs[NodeIndexPermissioning].cx * scaleX
+        val connectingCx = NodeSpecs[NodeIndexConnecting].cx * scaleX
+        val reconnectingCx = NodeSpecs[NodeIndexReconnecting].cx * scaleX
+        val topRowY = NodeSpecs[NodeIndexDisconnected].cy * scaleY
+        val degradedCy = NodeSpecs[NodeIndexDegraded].cy * scaleY
 
-        fun arrowHead(
-            endX: Float,
-            endY: Float,
-            tanX: Float,
-            tanY: Float,
-            color: Color,
-            sw: Float,
-        ) {
-            val len = sqrt(tanX * tanX + tanY * tanY).coerceAtLeast(0.001f)
-            val ux = tanX / len
-            val uy = tanY / len
-            val tl = sw * 4.5f
-            val tw = sw * 1.8f
-            val tip =
-                Path().apply {
-                    moveTo(endX, endY)
-                    lineTo(endX - ux * tl - uy * tw, endY - uy * tl + ux * tw)
-                    lineTo(endX - ux * tl + uy * tw, endY - uy * tl - ux * tw)
-                    close()
-                }
-            drawPath(tip, color)
-        }
-
-        fun lineEdge(
-            x0: Float,
-            y0: Float,
-            x1: Float,
-            y1: Float,
-            color: Color,
-            active: Boolean = false,
-        ) {
-            val sw = if (active) thick else thin
-            val effect = if (active) PathEffect.dashPathEffect(floatArrayOf(sw * 3f, sw * 2.25f)) else null
-            drawLine(color = color, start = Offset(x0, y0), end = Offset(x1, y1), strokeWidth = sw, pathEffect = effect)
-            arrowHead(x1, y1, x1 - x0, y1 - y0, color, sw)
-        }
-
-        fun quadEdge(
-            x0: Float,
-            y0: Float,
-            cpx: Float,
-            cpy: Float,
-            x1: Float,
-            y1: Float,
-            color: Color,
-            active: Boolean = false,
-        ) {
-            val sw = if (active) thick else thin
-            val effect = if (active) PathEffect.dashPathEffect(floatArrayOf(sw * 3f, sw * 2.25f)) else null
-            val path =
-                Path().apply {
-                    moveTo(x0, y0)
-                    quadraticTo(cpx, cpy, x1, y1)
-                }
-            drawPath(path, color, style = Stroke(width = sw, pathEffect = effect))
-            arrowHead(x1, y1, x1 - cpx, y1 - cpy, color, sw)
-        }
-
-        fun cubicEdge(
-            x0: Float,
-            y0: Float,
-            cp1x: Float,
-            cp1y: Float,
-            cp2x: Float,
-            cp2y: Float,
-            x1: Float,
-            y1: Float,
-            color: Color,
-        ) {
-            val path =
-                Path().apply {
-                    moveTo(x0, y0)
-                    cubicTo(cp1x, cp1y, cp2x, cp2y, x1, y1)
-                }
-            drawPath(path, color, style = Stroke(width = thin))
-            arrowHead(x1, y1, x1 - cp2x, y1 - cp2y, color, thin)
-        }
-
-        // 1. Disconnected.R → Permissioning.L — tap connect
-        lineEdge(sx(80f + NodeHalfW), sy(80f), sx(320f - NodeHalfW - 4f), sy(80f), edgeMuted)
-        // 2. Permissioning.R → Connecting.L — allowed
-        lineEdge(sx(320f + NodeHalfW), sy(80f), sx(550f - NodeHalfW - 4f), sy(80f), edgeMuted)
-        // 3. Connecting.B → Tunneling.T — handshake ok [ACTIVE when Tunneling]
-        quadEdge(
-            sx(550f),
-            sy(106f),
-            sx(550f),
-            sy(165f),
-            sx(494f),
-            sy(184f),
-            if (isTunneling) edgeActive else edgeMuted,
-            active = isTunneling,
+        smTopRowEdges(
+            scaleX,
+            scaleY,
+            disconnectedCx,
+            permissioningCx,
+            connectingCx,
+            topRowY,
+            edgeMuted,
+            edgeActive,
+            edgeFail,
+            thin,
+            thick,
+            isTunneling,
         )
-        // 4. Connecting.B → Failed.T — timeout 8 s [fail]
-        quadEdge(sx(520f), sy(106f), sx(360f), sy(200f), sx(212f), sy(294f), edgeFail)
-        // 5. Tunneling.B → Degraded.T — loss > 3% [left]
-        lineEdge(sx(440f), sy(236f), sx(440f), sy(294f), edgeMuted)
-        // 6. Degraded.T → Tunneling.B — loss < 0.5% [right]
-        lineEdge(sx(500f), sy(294f), sx(500f), sy(236f), edgeMuted)
-        // 7. Degraded.L → Reconnecting.R — network change
-        quadEdge(sx(410f), sy(320f), sx(320f), sy(270f), sx(234f), sy(214f), edgeMuted)
-        // 8. Reconnecting.R → Tunneling.L — re-handshake
-        lineEdge(sx(230f), sy(205f), sx(406f), sy(205f), edgeMuted)
-        // 9. Reconnecting.B → Failed.T — 3 attempts [fail]
-        lineEdge(sx(170f), sy(236f), sx(170f), sy(294f), edgeFail)
-        // 10. Failed.L → Disconnected.L — dismiss [cubic left sweep]
-        cubicEdge(sx(110f), sy(320f), sx(20f), sy(320f), sx(10f), sy(84f), sx(16f), sy(84f), edgeMuted)
+        smLowerRowEdges(scaleX, scaleY, reconnectingCx, degradedCy, edgeMuted, edgeFail, thin, thick)
     }
 }
 
@@ -381,6 +571,44 @@ private enum class NodeKind { Idle, Transition, Healthy, Degraded, Failed }
 private val NodeCorner = 10.dp
 private val DotSize = 6.dp
 
+private data class NodeCardColors(
+    val container: Color,
+    val border: Color,
+    val label: Color,
+    val dot: Color,
+)
+
+@Composable
+private fun nodeCardColors(nodeKind: NodeKind): NodeCardColors {
+    val colors = RipDpiThemeTokens.colors
+    return when (nodeKind) {
+        NodeKind.Idle -> {
+            NodeCardColors(colors.card, colors.border, colors.foreground, colors.mutedForeground)
+        }
+
+        NodeKind.Transition -> {
+            NodeCardColors(colors.card, colors.info, colors.foreground, colors.info)
+        }
+
+        NodeKind.Healthy -> {
+            NodeCardColors(colors.success.copy(alpha = 0.12f), colors.success, colors.success, colors.success)
+        }
+
+        NodeKind.Degraded -> {
+            NodeCardColors(colors.warningContainer, colors.warning, colors.warningContainerForeground, colors.warning)
+        }
+
+        NodeKind.Failed -> {
+            NodeCardColors(
+                colors.destructiveContainer,
+                colors.destructive,
+                colors.destructiveContainerForeground,
+                colors.destructive,
+            )
+        }
+    }
+}
+
 @Composable
 private fun NodeCard(
     modifier: Modifier,
@@ -392,61 +620,20 @@ private fun NodeCard(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
-
-    val containerColor: Color
-    val borderColor: Color
-    val labelColor: Color
-    val dotColor: Color
-
-    when (nodeKind) {
-        NodeKind.Idle -> {
-            containerColor = colors.card
-            borderColor = colors.border
-            labelColor = colors.foreground
-            dotColor = colors.mutedForeground
-        }
-
-        NodeKind.Transition -> {
-            containerColor = colors.card
-            borderColor = colors.info
-            labelColor = colors.foreground
-            dotColor = colors.info
-        }
-
-        NodeKind.Healthy -> {
-            containerColor = colors.success.copy(alpha = 0.12f)
-            borderColor = colors.success
-            labelColor = colors.success
-            dotColor = colors.success
-        }
-
-        NodeKind.Degraded -> {
-            containerColor = colors.warningContainer
-            borderColor = colors.warning
-            labelColor = colors.warningContainerForeground
-            dotColor = colors.warning
-        }
-
-        NodeKind.Failed -> {
-            containerColor = colors.destructiveContainer
-            borderColor = colors.destructive
-            labelColor = colors.destructiveContainerForeground
-            dotColor = colors.destructive
-        }
-    }
+    val nc = nodeCardColors(nodeKind)
 
     Box(modifier = modifier) {
         // Current-state ring — drawn as a Canvas overlay outside the Surface.
         if (isCurrent) {
             Canvas(modifier = Modifier.matchParentSize()) {
-                val inset = -4.dp.toPx()
+                val inset = NodeRingInset.dp.toPx()
                 val corner = NodeCorner.toPx() - inset
                 drawRoundRect(
                     color = colors.foreground,
                     topLeft = Offset(inset, inset),
                     size = Size(size.width - 2f * inset, size.height - 2f * inset),
                     cornerRadius = CornerRadius(corner),
-                    style = Stroke(width = RipDpiStroke.Thin.toPx() + 0.5f),
+                    style = Stroke(width = RipDpiStroke.Thin.toPx() + NodeRingStrokeAddend),
                 )
             }
         }
@@ -454,39 +641,24 @@ private fun NodeCard(
         Surface(
             modifier = Modifier.matchParentSize(),
             shape = RoundedCornerShape(NodeCorner),
-            color = containerColor,
-            contentColor = labelColor,
-            border = BorderStroke(RipDpiStroke.Thin, borderColor),
+            color = nc.container,
+            contentColor = nc.label,
+            border = BorderStroke(RipDpiStroke.Thin, nc.border),
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(spacing.xs)) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Text(
-                        text = label,
-                        style = type.monoSmall,
-                        color = labelColor,
-                        maxLines = 1,
-                    )
-                    Text(
-                        text = metaLabel,
-                        style = type.caption,
-                        color = colors.mutedForeground,
-                        maxLines = 1,
-                    )
+                    Text(text = label, style = type.monoSmall, color = nc.label, maxLines = 1)
+                    Text(text = metaLabel, style = type.caption, color = colors.mutedForeground, maxLines = 1)
                 }
             }
         }
 
         // Status dot — top-right corner of the Box.
-        Canvas(
-            modifier =
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .size(DotSize),
-        ) {
-            drawCircle(color = dotColor)
+        Canvas(modifier = Modifier.align(Alignment.TopEnd).size(DotSize)) {
+            drawCircle(color = nc.dot)
         }
     }
 }

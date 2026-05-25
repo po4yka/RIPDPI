@@ -1,3 +1,5 @@
+@file:Suppress("detekt.MagicNumber")
+
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import kotlinx.collections.immutable.persistentListOf

@@ -1,3 +1,5 @@
+@file:Suppress("detekt.MagicNumber", "detekt.LongMethod")
+
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import com.poyka.ripdpi.R

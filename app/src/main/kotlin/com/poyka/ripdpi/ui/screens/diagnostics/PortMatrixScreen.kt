@@ -207,10 +207,23 @@ private fun verdictColor(
         RipDpiPortVerdict.Skipped -> colors.accent
     }
 
+// Standard service ports referenced by the @Preview fixtures. Extracted to
+// top-level `private const val`s so the MagicNumber rule's
+// `ignorePropertyDeclaration: true` floor applies (the rule does NOT exempt
+// numeric literals appearing inside local `listOf(...)` / `mapOf(...)` calls).
+private const val PortHttp = 80
+private const val PortHttps = 443
+private const val PortDnsOverTls = 853
+private const val PortOpenVpn = 1194
+private const val PortIpsecNat = 4500
+private const val PortHttpsAlt = 8443
+
+private val PreviewLightPorts = listOf(PortHttp, PortHttps, PortDnsOverTls, PortOpenVpn, PortIpsecNat, PortHttpsAlt)
+private val PreviewDarkPorts = listOf(PortHttp, PortHttps, PortDnsOverTls)
+
 @Preview(showBackground = true, name = "PortMatrixScreen (light)")
 @Composable
-private fun PortMatrixScreenPreviewLight() {
-    val ports = listOf(80, 443, 853, 1194, 4500, 8443)
+private fun PortMatrixScreenLightPreview() {
     val rows =
         listOf(
             RipDpiPortMatrixRow(
@@ -218,12 +231,12 @@ private fun PortMatrixScreenPreviewLight() {
                 subtitle = "Cloudflare",
                 verdictByPort =
                     mapOf(
-                        80 to RipDpiPortVerdict.Ok,
-                        443 to RipDpiPortVerdict.Ok,
-                        853 to RipDpiPortVerdict.Ok,
-                        1194 to RipDpiPortVerdict.Warn,
-                        4500 to RipDpiPortVerdict.Bad,
-                        8443 to RipDpiPortVerdict.Skipped,
+                        PortHttp to RipDpiPortVerdict.Ok,
+                        PortHttps to RipDpiPortVerdict.Ok,
+                        PortDnsOverTls to RipDpiPortVerdict.Ok,
+                        PortOpenVpn to RipDpiPortVerdict.Warn,
+                        PortIpsecNat to RipDpiPortVerdict.Bad,
+                        PortHttpsAlt to RipDpiPortVerdict.Skipped,
                     ),
             ),
             RipDpiPortMatrixRow(
@@ -231,33 +244,32 @@ private fun PortMatrixScreenPreviewLight() {
                 subtitle = "Google",
                 verdictByPort =
                     mapOf(
-                        80 to RipDpiPortVerdict.Ok,
-                        443 to RipDpiPortVerdict.Ok,
-                        853 to RipDpiPortVerdict.Warn,
-                        1194 to RipDpiPortVerdict.Bad,
-                        4500 to RipDpiPortVerdict.Bad,
-                        8443 to RipDpiPortVerdict.Skipped,
+                        PortHttp to RipDpiPortVerdict.Ok,
+                        PortHttps to RipDpiPortVerdict.Ok,
+                        PortDnsOverTls to RipDpiPortVerdict.Warn,
+                        PortOpenVpn to RipDpiPortVerdict.Bad,
+                        PortIpsecNat to RipDpiPortVerdict.Bad,
+                        PortHttpsAlt to RipDpiPortVerdict.Skipped,
                     ),
             ),
         )
     RipDpiComponentPreview {
-        PortMatrixScreen(ports = ports, rows = rows)
+        PortMatrixScreen(ports = PreviewLightPorts, rows = rows)
     }
 }
 
 @Preview(showBackground = true, name = "PortMatrixScreen (dark)")
 @Composable
-private fun PortMatrixScreenPreviewDark() {
-    val ports = listOf(80, 443, 853)
+private fun PortMatrixScreenDarkPreview() {
     val rows =
         listOf(
             RipDpiPortMatrixRow(
                 host = "example.com",
                 subtitle = null,
-                verdictByPort = mapOf(80 to RipDpiPortVerdict.Ok, 443 to RipDpiPortVerdict.Bad),
+                verdictByPort = mapOf(PortHttp to RipDpiPortVerdict.Ok, PortHttps to RipDpiPortVerdict.Bad),
             ),
         )
     RipDpiComponentPreview(themePreference = "dark") {
-        PortMatrixScreen(ports = ports, rows = rows)
+        PortMatrixScreen(ports = PreviewDarkPorts, rows = rows)
     }
 }

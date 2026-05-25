@@ -55,8 +55,8 @@ data class RipDpiCoachMarkContent(
     val onSecondaryAction: (() -> Unit)? = null,
 )
 
-private const val RING_PULSE_TARGET_SCALE = 1.18f
-private const val BUBBLE_GAP_DP = 24
+private const val RingPulseTargetScale = 1.18f
+private const val BubbleGapDp = 24
 
 /**
  * Onboarding coach-mark: a full-screen scrim with a circular cutout
@@ -98,7 +98,7 @@ fun RipDpiCoachMark(
             infiniteTransition
                 .animateFloat(
                     initialValue = 1f,
-                    targetValue = RING_PULSE_TARGET_SCALE,
+                    targetValue = RingPulseTargetScale,
                     animationSpec = motion.connectRingSpec(),
                     label = "coachMarkRingScale",
                 ).value
@@ -150,7 +150,7 @@ fun RipDpiCoachMark(
                             val yPx =
                                 (
                                     anchor.center.y +
-                                        with(density) { (anchor.radius + BUBBLE_GAP_DP.dp).toPx() }
+                                        with(density) { (anchor.radius + BubbleGapDp.dp).toPx() }
                                 ).toInt()
                             layout(placeable.width, placeable.height) {
                                 placeable.place(xPx.coerceAtLeast(0), yPx.coerceAtLeast(0))
@@ -215,7 +215,7 @@ private fun CoachMarkBubble(
 
 @Preview(showBackground = true, name = "RipDpiCoachMark bubble (light)")
 @Composable
-private fun RipDpiCoachMarkBubblePreviewLight() {
+private fun RipDpiCoachMarkBubbleLightPreview() {
     RipDpiComponentPreview {
         CoachMarkBubble(
             content =
@@ -234,7 +234,7 @@ private fun RipDpiCoachMarkBubblePreviewLight() {
 
 @Preview(showBackground = true, name = "RipDpiCoachMark bubble (dark)")
 @Composable
-private fun RipDpiCoachMarkBubblePreviewDark() {
+private fun RipDpiCoachMarkBubbleDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         CoachMarkBubble(
             content =

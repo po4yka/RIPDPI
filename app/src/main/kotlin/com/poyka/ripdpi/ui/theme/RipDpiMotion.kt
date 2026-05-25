@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 
 private const val minReducedDurationMillis = 80
 
+@Suppress("detekt.TooManyFunctions")
 @Immutable
 data class RipDpiMotion(
     val animationsEnabled: Boolean = true,

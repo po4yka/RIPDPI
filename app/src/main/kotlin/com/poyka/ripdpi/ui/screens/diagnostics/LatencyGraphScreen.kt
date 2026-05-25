@@ -30,6 +30,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 
 private const val MaxLatencySamples = 60
+private const val LatencyAxisTickCount = 4
+private const val ThresholdLineAlpha = 0.5f
+private const val ThresholdDashMultiplier = 4f
 
 /**
  * Presentation-only latency graph matching
@@ -154,12 +157,12 @@ private fun LatencyPlot(state: LatencyGraphState) {
 
             // Dashed threshold band — drawn at state.thresholdFraction height
             val thresholdY = size.height - state.thresholdFraction * size.height
-            val dashLen = RipDpiStroke.Thin.toPx() * 4f
+            val dashLen = RipDpiStroke.Thin.toPx() * ThresholdDashMultiplier
             val gapLen = dashLen
             var dashX = 0f
             while (dashX < size.width) {
                 drawLine(
-                    color = thresholdColor.copy(alpha = 0.5f),
+                    color = thresholdColor.copy(alpha = ThresholdLineAlpha),
                     start = Offset(dashX, thresholdY),
                     end = Offset((dashX + dashLen).coerceAtMost(size.width), thresholdY),
                     strokeWidth = RipDpiStroke.Thin.toPx(),
@@ -186,9 +189,8 @@ private fun LatencyPlot(state: LatencyGraphState) {
             )
 
             // Axis tick marks — faint vertical lines at 1/4 intervals
-            val tickCount = 4
-            for (t in 1 until tickCount) {
-                val x = size.width * t / tickCount
+            for (t in 1 until LatencyAxisTickCount) {
+                val x = size.width * t / LatencyAxisTickCount
                 drawLine(
                     color = lineColor.copy(alpha = 0.06f),
                     start = Offset(x, 0f),
