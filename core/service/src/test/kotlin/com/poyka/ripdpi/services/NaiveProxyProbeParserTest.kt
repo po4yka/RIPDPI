@@ -25,7 +25,7 @@ class NaiveProxyProbeParserTest {
         val line =
             "RIPDPI-PROBE " +
                 """{"schema_version":1,"helper_version":"0.1.0","features":[""" +
-                """"socks5-listener","https-connect-upstream"]}"""
+                """"socks5-listener","http-front-listener","h2-connect-upstream","naive-padding"]}"""
 
         val probe = NaiveProxyProbeParser.parse(line)
 
@@ -33,7 +33,10 @@ class NaiveProxyProbeParserTest {
         probe!!
         assertEquals(1, probe.schemaVersion)
         assertEquals("0.1.0", probe.helperVersion)
-        assertEquals(listOf("socks5-listener", "https-connect-upstream"), probe.features)
+        assertEquals(
+            listOf("socks5-listener", "http-front-listener", "h2-connect-upstream", "naive-padding"),
+            probe.features,
+        )
     }
 
     @Test

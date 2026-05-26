@@ -26,7 +26,14 @@ const PROBE_SCHEMA_VERSION: u32 = 1;
 
 /// Capability tags reported by the probe. Service code can branch on
 /// these to enable features only when the helper supports them.
-const PROBE_FEATURES: &[&str] = &["socks5-listener", "https-connect-upstream", "structured-error", "ready-signal"];
+const PROBE_FEATURES: &[&str] = &[
+    "socks5-listener",
+    "http-front-listener",
+    "h2-connect-upstream",
+    "naive-padding",
+    "structured-error",
+    "ready-signal",
+];
 
 fn render_probe_line(schema_version: u32, helper_version: &str, features: &[&str]) -> String {
     // Hand-formatted JSON so this path stays free of a serde dependency
@@ -67,7 +74,14 @@ mod probe_tests {
         // The capability tags the manager branches on must remain stable
         // across helper releases; bumping requires PROBE_SCHEMA_VERSION
         // to bump too.
-        for required in ["socks5-listener", "https-connect-upstream", "ready-signal"] {
+        for required in [
+            "socks5-listener",
+            "http-front-listener",
+            "h2-connect-upstream",
+            "naive-padding",
+            "structured-error",
+            "ready-signal",
+        ] {
             assert!(PROBE_FEATURES.contains(&required), "expected feature {required} not in PROBE_FEATURES",);
         }
     }

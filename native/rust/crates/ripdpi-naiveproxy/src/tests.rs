@@ -1,6 +1,8 @@
+use std::ffi::OsString;
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 
+use crate::config::parse_config_from;
 use http_body_util::BodyExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -312,4 +314,64 @@ fn naive_config_with_auth() -> NaiveProxyConfig {
         path: Some("/proxy".to_owned()),
         tls_config: default_tls_config(),
     }
+}
+
+#[test]
+fn config_parses_final_cli_contract() {
+    let config = parse_config_args(&[
+        "--listen",
+        "127.0.0.1:1081",
+        "--server",
+        "proxy.example",
+        "--server-port",
+        "8443",
+        "--server-name",
+        "sni.example",
+        "--username",
+        "alice",
+        "--password",
+        "secret",
+        "--path",
+        "/proxy",
+    ])
+    .expect("parse final naiveproxy cli");
+
+    assert_eq!(config.listen, "127.0.0.1:1081");
+    assert_eq!(config.server, "proxy.example");
+    assert_eq!(config.server_port, 8443);
+    assert_eq!(config.server_name, "sni.example");
+    assert_eq!(config.username.as_deref(), Some("alice"));
+    assert_eq!(config.password.as_deref(), Some("secret"));
+    assert_eq!(config.path.as_deref(), Some("/proxy"));
+}
+
+#[test]
+fn config_rejects_partial_auth() {
+    let username_only = parse_config_args(&[
+        "--server",
+        "proxy.example",
+        "--server-port",
+        "443",
+        "--server-name",
+        "proxy.example",
+        "--username",
+        "alice",
+    ]);
+    let password_only = parse_config_args(&[
+        "--server",
+        "proxy.example",
+        "--server-port",
+        "443",
+        "--server-name",
+        "proxy.example",
+        "--password",
+        "secret",
+    ]);
+
+    assert!(username_only.is_err());
+    assert!(password_only.is_err());
+}
+
+fn parse_config_args(args: &[&str]) -> std::io::Result<NaiveProxyConfig> {
+    parse_config_from(pico_args::Arguments::from_vec(args.iter().map(OsString::from).collect()))
 }

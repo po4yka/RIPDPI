@@ -43,6 +43,30 @@ internal fun naiveProxyRestartDecision(
     }
 }
 
+internal fun naiveProxyCommandArguments(config: ResolvedRipDpiRelayConfig): List<String> =
+    buildList {
+        add("--listen")
+        add("${config.localSocksHost}:${config.localSocksPort}")
+        add("--server")
+        add(config.server)
+        add("--server-port")
+        add(config.serverPort.toString())
+        add("--server-name")
+        add(config.serverName)
+        config.naiveUsername?.let {
+            add("--username")
+            add(it)
+        }
+        config.naivePassword?.let {
+            add("--password")
+            add(it)
+        }
+        config.naivePath.takeIf(String::isNotBlank)?.let {
+            add("--path")
+            add(it)
+        }
+    }
+
 @Singleton
 class NaiveProxyManager
     @Inject
@@ -59,29 +83,7 @@ class NaiveProxyManager
                         runtimeKind = config.kind,
                         upstreamAddress = "${config.server}:${config.serverPort}",
                         redactedValues = listOfNotNull(config.naiveUsername, config.naivePassword),
-                        commandArguments =
-                            buildList {
-                                add("--listen")
-                                add("${config.localSocksHost}:${config.localSocksPort}")
-                                add("--server")
-                                add(config.server)
-                                add("--server-port")
-                                add(config.serverPort.toString())
-                                add("--server-name")
-                                add(config.serverName)
-                                config.naiveUsername?.let {
-                                    add("--username")
-                                    add(it)
-                                }
-                                config.naivePassword?.let {
-                                    add("--password")
-                                    add(it)
-                                }
-                                config.naivePath.takeIf(String::isNotBlank)?.let {
-                                    add("--path")
-                                    add(it)
-                                }
-                            },
+                        commandArguments = naiveProxyCommandArguments(config),
                     ),
             )
         }

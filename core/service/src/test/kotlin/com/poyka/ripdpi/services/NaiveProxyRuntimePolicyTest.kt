@@ -1,11 +1,49 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NaiveProxyRuntimePolicyTest {
+    @Test
+    fun `manager command arguments match final native cli contract`() {
+        val config =
+            sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(
+                server = "proxy.example",
+                serverPort = 8443,
+                serverName = "sni.example",
+                localSocksHost = "127.0.0.2",
+                localSocksPort = 11980,
+                naiveUsername = "alice",
+                naivePassword = "secret",
+                naivePath = "/proxy",
+            )
+
+        val args = naiveProxyCommandArguments(config)
+
+        assertEquals(
+            listOf(
+                "--listen",
+                "127.0.0.2:11980",
+                "--server",
+                "proxy.example",
+                "--server-port",
+                "8443",
+                "--server-name",
+                "sni.example",
+                "--username",
+                "alice",
+                "--password",
+                "secret",
+                "--path",
+                "/proxy",
+            ),
+            args,
+        )
+    }
+
     @Test
     fun `clean exit is not restarted`() {
         val decision = naiveProxyRestartDecision(exitCode = 0, lastFailureClass = null)

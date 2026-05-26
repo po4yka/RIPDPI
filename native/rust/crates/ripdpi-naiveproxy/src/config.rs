@@ -22,7 +22,7 @@ pub(crate) fn parse_config() -> io::Result<NaiveProxyConfig> {
     parse_config_from(pico_args::Arguments::from_env())
 }
 
-fn parse_config_from(mut args: pico_args::Arguments) -> io::Result<NaiveProxyConfig> {
+pub(crate) fn parse_config_from(mut args: pico_args::Arguments) -> io::Result<NaiveProxyConfig> {
     let listen = optional_value(&mut args, "--listen")?.unwrap_or_else(|| "127.0.0.1:11980".to_owned());
     let server_value: String = args
         .opt_value_from_str::<_, String>("--server")
