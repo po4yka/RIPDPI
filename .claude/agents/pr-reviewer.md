@@ -5,10 +5,12 @@ tools: Read, Grep, Glob, Bash
 model: opus
 maxTurns: 30
 skills:
-  - desync-engine
-  - diagnostics-system
+  - rust-discipline
   - rust-unsafe
-  - rust-security
+  - rust-android-jni
+  - rust-async-internals
+  - compose
+  - desync-engine
 memory: project
 ---
 

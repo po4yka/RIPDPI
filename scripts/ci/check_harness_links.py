@@ -31,8 +31,12 @@ _RE_SKILL_NAME = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9][a-z0-9]*)+)`\s{0,3}(?
 # Pattern 2: `agent-name` agent
 _RE_AGENT_NAME = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9][a-z0-9]*)+)`\s{0,3}agent", re.ASCII)
 
-# Pattern 3: backtick-quoted *.md filename (likely a rules file)
-_RE_MD_BACKTICK = re.compile(r"`([a-zA-Z0-9_-]+\.md)`", re.ASCII)
+# Pattern 3: backtick-quoted *.md filename that looks like a rules file.
+# Only lowercase-kebab-case names (e.g. `rds-spec.md`) qualify.
+# All-caps or mixed-case project-root files (AGENTS.md, CLAUDE.md, SKILL.md,
+# README.md, ARCHITECTURE.md, etc.) are prose mentions, not harness references,
+# and are intentionally excluded by the [a-z] anchor on the first character.
+_RE_MD_BACKTICK = re.compile(r"`([a-z][a-z0-9_-]*\.md)`", re.ASCII)
 
 # Pattern 4: bare .claude/-prefixed paths
 _RE_BARE_PATH = re.compile(r"(?<![`\w])\.claude/(?:skills/[^/\s`\"']+/SKILL\.md|rules/[^/\s`\"']+\.md|agents/[^/\s`\"']+\.md)", re.ASCII)
@@ -194,7 +198,7 @@ class HarnessLinkAuditor:
                 print(f"  {f.source_file}:{f.line_no}")
                 print(f"    reference: {f.reference}")
                 print(f"    expected:  {f.expected_path}")
-                print(f"    status:    NOT IN LOCAL .claude/skills/ (may be a global skill)")
+                print("    status:    NOT IN LOCAL .claude/skills/ (may be a global skill)")
                 print()
 
         if not dead and (not warns or not self.strict):
@@ -207,7 +211,7 @@ class HarnessLinkAuditor:
                 print(f"  {f.source_file}:{f.line_no}")
                 print(f"    reference: {f.reference}")
                 print(f"    expected:  {f.expected_path}")
-                print(f"    status:    NOT FOUND")
+                print("    status:    NOT FOUND")
                 print()
             print("exit 1")
             return 1

@@ -444,6 +444,7 @@ Project-local Codex subagents live in `.codex/agents/` and should be delegated e
 
 - **Codex agents** inherit the global default `gpt-5.5` from `~/.codex/config.toml` unless the agent file explicitly pins a model. Pin only when the work warrants it; agents that pin keep `model_reasoning_effort = "high"` only for security-critical or packet-level work (`dpi-desync-specialist`, `dns-resilience-specialist`, `security-auditor`).
 - **Claude agents** in `.claude/agents/` use the short aliases `opus`, `sonnet`, or `haiku` — never versioned IDs like `claude-opus-4-7`. Complex multi-file synthesis (PR review, unsafe audit, architecture, JNI, API surface, Kotlin design) maps to `opus`; pattern-matching test runners and profilers map to `sonnet`; parse-and-report tasks (coverage, golden, native size, regression) map to `haiku`.
+- **Known capability gap.** Codex agent definitions are TOML and do not support a `skills:` preload field. Claude agent definitions are Markdown frontmatter and do (e.g., `.claude/agents/rust-test-runner.md` preloads `cargo-workflows`). Codex agents reach skill content only by reading the file at runtime via `Read`. Author new Codex agents to do this discovery in their `developer_instructions` rather than relying on auto-injection.
 
 | Agent | Prefer when |
 |-------|-------------|

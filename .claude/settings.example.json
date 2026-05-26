@@ -63,6 +63,18 @@
           }
         ]
       }
+    ],
+    "//SubagentStop": "Observability for sub-agent completions. Logs every finish to .claude/logs/subagent-stop.log and warns when audit-class agents return without a recognized conclusion marker. Requires Claude Code v2.1.145+ which exposes last_assistant_message on this event. Never blocks; SubagentStop does not support additionalContext injection.",
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); bash \"$ROOT/.claude/scripts/subagent-stop-audit-log.sh\""
+          }
+        ]
+      }
     ]
   }
 }

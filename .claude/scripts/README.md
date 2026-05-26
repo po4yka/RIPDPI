@@ -18,6 +18,18 @@ Stop hook. Runs `cargo fmt --all --check` then `cargo clippy --workspace
 tree. Exits 2 on failure so the model sees gaps before the turn ends. Timeout
 60s for fmt-check, 180s for clippy. Skips silently when no Rust changes pending.
 
+### `subagent-stop-audit-log.sh`
+SubagentStop hook (Claude Code v2.1.145+). Logs every sub-agent finish to
+`.claude/logs/subagent-stop.log` with `agent_type`, `agent_id`, final-message
+length and a 200-char preview. For audit-class agents (`unsafe-code-auditor`,
+`jni-bridge-verifier`, `async-cancel-safety`, `arch-layer-auditor`,
+`rust-api-auditor`, `kotlin-design-auditor`) it also emits a `WARNING` line when
+the final message lacks a recognized conclusion marker (`findings`, `audit`,
+`violations`, `risk`, `cancel-safe`, `unsafe`, `reviewed`) — usually a sign the
+sub-agent finished without doing the audit. Pure observability: always exits 0
+because `SubagentStop` cannot inject `additionalContext` per Anthropic's docs.
+Disable with `RIPDPI_SUBAGENT_HOOKS=off`.
+
 ## Wiring (add to your `.claude/settings.json`)
 
 ```json

@@ -1,6 +1,7 @@
 ---
 name: protocol-innovation-lab
 description: Generate controlled, owner-infrastructure protocol and VPN/proxy topology experiments for restrictive or unreliable networks. Use for innovative network ideas, unconventional transport exploration, TURN/ICE/MASQUE/QUIC/WebTransport experiments, fallback topology design, and research backlogs. Do not use for abusing third-party infrastructure or unauthorized tunneling.
+disable-model-invocation: true
 ---
 
 # Protocol Innovation Lab

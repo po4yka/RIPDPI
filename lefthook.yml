@@ -71,6 +71,9 @@ pre-commit:
       glob: ".claude/**"
       run: python3 scripts/ci/check_harness_links.py --report-only
 
+    rules-drift-check:
+      run: bash scripts/ci/check-rules-drift.sh
+
 commit-msg:
   commands:
     conventional-commit:
