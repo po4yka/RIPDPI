@@ -6,6 +6,9 @@ license.workspace = true
 
 [dependencies]
 base64.workspace = true
+bytes = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
 pico-args.workspace = true
 rustls.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync"] }

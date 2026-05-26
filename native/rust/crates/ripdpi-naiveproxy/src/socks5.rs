@@ -5,7 +5,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum SocksTarget {
+pub enum SocksTarget {
     Domain(String, u16),
     Ip(SocketAddr),
 }

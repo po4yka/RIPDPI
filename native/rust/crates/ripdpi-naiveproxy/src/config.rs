@@ -7,7 +7,7 @@ use rustls::ClientConfig as RustlsClientConfig;
 use crate::tls::default_tls_config;
 
 #[derive(Clone)]
-pub(crate) struct NaiveProxyConfig {
+pub struct NaiveProxyConfig {
     pub(crate) listen: String,
     pub(crate) server: String,
     pub(crate) server_port: u16,

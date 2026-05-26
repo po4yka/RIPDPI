@@ -3939,7 +3939,10 @@ name = "ripdpi-naiveproxy"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "bytes",
  "golden-test-support",
+ "http",
+ "http-body-util",
  "pico-args",
  "rcgen",
  "rustls",

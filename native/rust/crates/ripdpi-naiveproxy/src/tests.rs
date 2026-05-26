@@ -3,6 +3,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
 use base64::prelude::{Engine as _, BASE64_STANDARD};
+use http_body_util::BodyExt;
 use rcgen::{CertificateParams, DistinguishedName, DnType, IsCa, KeyPair};
 use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::{ClientConfig as RustlsClientConfig, RootCertStore, ServerConfig as RustlsServerConfig};
@@ -13,6 +14,10 @@ use tokio_rustls::TlsAcceptor;
 
 use crate::config::NaiveProxyConfig;
 use crate::connect_tunnel::{build_connect_request, find_header_end, parse_status_code};
+use crate::h2_connect::{
+    build_h2_connect_request, negotiate_payload_padding_from_response, PayloadPaddingMode, CONNECT_PADDING_HEADER_MAX,
+    CONNECT_PADDING_HEADER_MIN, RESPONSE_PADDING_HEADER_MAX, RESPONSE_PADDING_HEADER_MIN,
+};
 use crate::padding::{PaddingDecoder, PaddingEncoder, MAX_PADDED_FRAMES};
 use crate::relay::serve_listener;
 use crate::socks5::SocksTarget;
@@ -157,6 +162,61 @@ fn padding_vectors_match_spec_golden() {
     golden_test_support::assert_text_golden(env!("CARGO_MANIFEST_DIR"), "tests/golden/padding_vectors.txt", &actual);
 }
 
+#[tokio::test]
+async fn h2_connect_request_sends_naive_headers() {
+    let config = naive_config_with_auth();
+    let padding = "~".repeat(CONNECT_PADDING_HEADER_MIN);
+    let request = build_h2_connect_request(&config, &SocksTarget::Domain("example.com".to_owned(), 443), padding)
+        .expect("build h2 connect request");
+
+    assert_eq!(request.method(), http::Method::CONNECT);
+    assert_eq!(request.uri(), "example.com:443");
+    assert_eq!(request.headers()["padding"].as_bytes().len(), CONNECT_PADDING_HEADER_MIN);
+    assert_eq!(request.headers()["padding-type-request"], "1");
+    assert_eq!(request.headers()["proxy-authorization"], "Basic dXNlcjpwYXNz");
+
+    let collected = request.into_body().collect().await.expect("collect body").to_bytes();
+    assert!(collected.is_empty(), "first CONNECT must not send DATA before response");
+}
+
+#[test]
+fn h2_connect_rejects_request_padding_outside_spec_range() {
+    let config = naive_config_with_auth();
+    let too_short = "~".repeat(CONNECT_PADDING_HEADER_MIN - 1);
+    let too_long = "~".repeat(CONNECT_PADDING_HEADER_MAX + 1);
+
+    assert!(build_h2_connect_request(&config, &SocksTarget::Domain("example.com".to_owned(), 443), too_short).is_err());
+    assert!(build_h2_connect_request(&config, &SocksTarget::Domain("example.com".to_owned(), 443), too_long).is_err());
+}
+
+#[test]
+fn h2_connect_response_without_padding_disables_payload_padding() {
+    let headers = http::HeaderMap::new();
+    let negotiated = negotiate_payload_padding_from_response(true, &headers).expect("negotiate no padding");
+
+    assert_eq!(negotiated, PayloadPaddingMode::Plain);
+}
+
+#[test]
+fn h2_connect_response_with_padding_reply_enables_variant1() {
+    let mut headers = http::HeaderMap::new();
+    headers.insert("padding", "~".repeat(RESPONSE_PADDING_HEADER_MIN).parse().expect("padding header"));
+    headers.insert("padding-type-reply", "1".parse().expect("padding type"));
+
+    let negotiated = negotiate_payload_padding_from_response(true, &headers).expect("negotiate variant1");
+
+    assert_eq!(negotiated, PayloadPaddingMode::Variant1);
+}
+
+#[test]
+fn h2_connect_rejects_response_padding_outside_spec_range() {
+    let mut headers = http::HeaderMap::new();
+    headers.insert("padding", "~".repeat(RESPONSE_PADDING_HEADER_MAX + 1).parse().expect("padding header"));
+    headers.insert("padding-type-reply", "1".parse().expect("padding type"));
+
+    assert!(negotiate_payload_padding_from_response(true, &headers).is_err());
+}
+
 async fn start_echo_server() -> SocketAddr {
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind echo");
     let address = listener.local_addr().expect("echo addr");
@@ -292,4 +352,17 @@ fn build_socks_connect_request(host: &str, port: u16) -> Vec<u8> {
     request.extend_from_slice(&address.octets());
     request.extend_from_slice(&port.to_be_bytes());
     request
+}
+
+fn naive_config_with_auth() -> NaiveProxyConfig {
+    NaiveProxyConfig {
+        listen: "127.0.0.1:11980".to_owned(),
+        server: "proxy.example".to_owned(),
+        server_port: 443,
+        server_name: "proxy.example".to_owned(),
+        username: Some("user".to_owned()),
+        password: Some("pass".to_owned()),
+        path: Some("/proxy".to_owned()),
+        tls_config: default_tls_config(),
+    }
 }

@@ -3,6 +3,7 @@
 mod config;
 mod connect_tunnel;
 mod errors;
+pub mod h2_connect;
 pub mod padding;
 mod relay;
 mod socks5;
