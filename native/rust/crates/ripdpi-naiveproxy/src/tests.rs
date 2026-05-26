@@ -13,6 +13,7 @@ use tokio_rustls::TlsAcceptor;
 
 use crate::config::NaiveProxyConfig;
 use crate::connect_tunnel::{build_connect_request, find_header_end, parse_status_code};
+use crate::padding::{PaddingDecoder, PaddingEncoder, MAX_PADDED_FRAMES};
 use crate::relay::serve_listener;
 use crate::socks5::SocksTarget;
 use crate::tls::{default_tls_config, ensure_rustls_provider};
@@ -78,6 +79,82 @@ fn build_connect_request_emits_basic_auth_header() {
     assert!(request.contains("CONNECT example.com:443 HTTP/1.1"));
     assert!(request.contains("Proxy-Authorization: Basic dXNlcjpwYXNz"));
     assert!(request.contains("X-Naive-Path: /proxy"));
+}
+
+#[test]
+fn padding_frame_encodes_big_endian_length_and_zero_padding() {
+    let mut encoder = PaddingEncoder::default();
+    let mut encoded = Vec::new();
+    let consumed = encoder.encode_with_padding_size(b"abc", 2, &mut encoded);
+
+    assert_eq!(consumed, 3);
+    assert_eq!(encoded, vec![0x00, 0x03, 0x02, b'a', b'b', b'c', 0x00, 0x00]);
+}
+
+#[test]
+fn padding_frame_splits_payload_larger_than_u16_max() {
+    let mut encoder = PaddingEncoder::default();
+    let mut encoded = Vec::new();
+    let payload = vec![b'x'; 65_536];
+    let consumed = encoder.encode_with_padding_size(&payload, 0, &mut encoded);
+
+    assert_eq!(consumed, 65_535);
+    assert_eq!(&encoded[..3], &[0xff, 0xff, 0x00]);
+    assert_eq!(encoded.len(), 3 + 65_535);
+}
+
+#[test]
+fn padding_decoder_handles_fragmented_header_payload_and_padding() {
+    let mut decoder = PaddingDecoder::default();
+    let frame = [0x00, 0x03, 0x02, b'a', b'b', b'c', 0x00, 0x00];
+    let mut decoded = Vec::new();
+
+    for byte in frame {
+        decoder.decode(&[byte], &mut decoded);
+    }
+
+    assert_eq!(decoded, b"abc");
+}
+
+#[test]
+fn padding_decoder_switches_to_plain_after_eight_frames() {
+    let mut decoder = PaddingDecoder::default();
+    let mut wire = Vec::new();
+    for index in 0..MAX_PADDED_FRAMES {
+        wire.extend_from_slice(&[0x00, 0x01, 0x00, b'a' + index as u8]);
+    }
+    wire.extend_from_slice(b"plain");
+
+    let mut decoded = Vec::new();
+    decoder.decode(&wire, &mut decoded);
+
+    assert_eq!(decoded, b"abcdefghplain");
+}
+
+#[test]
+fn padding_encoder_switches_to_plain_after_eight_frames() {
+    let mut encoder = PaddingEncoder::default();
+    let mut encoded = Vec::new();
+    for index in 0..MAX_PADDED_FRAMES {
+        let payload = [b'a' + index as u8];
+        assert_eq!(encoder.encode_with_padding_size(&payload, 0, &mut encoded), 1);
+    }
+    assert_eq!(encoder.encode_with_padding_size(b"plain", 255, &mut encoded), 5);
+
+    assert_eq!(&encoded[..4], &[0x00, 0x01, 0x00, b'a']);
+    assert_eq!(&encoded[32..], b"plain");
+}
+
+#[test]
+fn padding_vectors_match_spec_golden() {
+    let mut encoder = PaddingEncoder::default();
+    let mut encoded = Vec::new();
+    encoder.encode_with_padding_size(b"abc", 2, &mut encoded);
+    encoder.encode_with_padding_size(b"", 3, &mut encoded);
+    encoder.encode_with_padding_size(&[0xaa, 0xbb, 0xcc, 0xdd], 0, &mut encoded);
+
+    let actual = encoded.iter().map(|byte| format!("{byte:02x}")).collect::<Vec<_>>().join(" ");
+    golden_test_support::assert_text_golden(env!("CARGO_MANIFEST_DIR"), "tests/golden/padding_vectors.txt", &actual);
 }
 
 async fn start_echo_server() -> SocketAddr {

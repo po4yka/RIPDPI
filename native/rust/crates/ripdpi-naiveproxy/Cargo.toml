@@ -13,6 +13,7 @@ tokio-rustls.workspace = true
 webpki-roots.workspace = true
 
 [dev-dependencies]
+golden-test-support = { workspace = true }
 rcgen.workspace = true
 
 [lints]
