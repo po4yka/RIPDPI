@@ -121,7 +121,7 @@ class OnboardingScreenTest {
         composeRule
             .onNodeWithText("This can take a moment. If Android asks for permission, allow it to continue.")
             .assertExists()
-        composeRule.onNodeWithContentDescription("Step 6 of 6").assertExists()
+        composeRule.onNodeWithContentDescription("Step 4 of 4").assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkip).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
     }

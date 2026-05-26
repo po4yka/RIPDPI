@@ -45,18 +45,6 @@ internal val OnboardingPages: List<OnboardingPage> =
             buttonLabelRes = R.string.onboarding_continue,
             illustration = OnboardingIllustration.LocalFirst,
         ),
-        OnboardingPage.Informational(
-            titleRes = R.string.onboarding_bypass_modes_title,
-            descriptionRes = R.string.onboarding_bypass_modes_body,
-            buttonLabelRes = R.string.onboarding_continue,
-            illustration = OnboardingIllustration.BypassModes,
-        ),
-        OnboardingPage.Informational(
-            titleRes = R.string.onboarding_privacy_title,
-            descriptionRes = R.string.onboarding_privacy_body,
-            buttonLabelRes = R.string.onboarding_setup_next,
-            illustration = OnboardingIllustration.Privacy,
-        ),
         // -- Setup wizard pages --
         OnboardingPage.Setup(
             kind = SetupPageKind.ModeSelection,
@@ -75,4 +63,4 @@ internal val OnboardingPages: List<OnboardingPage> =
         ),
     )
 
-internal const val OnboardingInfoPageCount = 3
+internal const val OnboardingInfoPageCount = 1
