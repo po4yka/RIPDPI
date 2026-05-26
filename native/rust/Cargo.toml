@@ -514,6 +514,9 @@ inherits = "dev"
 panic = "unwind"
 opt-level = 1
 debug = "line-tables-only"
+# Pinned so a future tweak to [profile.dev] can't silently turn incremental
+# off for the local-dev Android profile and tank rebuild speed.
+incremental = true
 
 [workspace.metadata.ripdpi]
 # Crates that are test/bench/debug infrastructure only.

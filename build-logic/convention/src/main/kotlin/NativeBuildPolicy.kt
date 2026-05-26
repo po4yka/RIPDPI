@@ -38,6 +38,15 @@ internal fun Project.resolvedNativeCargoProfile(): String {
     }
 }
 
+// Maps the JVM's reported os.arch to the matching Android ABI identifier.
+// Returns null on unrecognized hosts so the resolver can fall back gracefully.
+private fun hostMatchingAndroidAbi(): String? =
+    when (System.getProperty("os.arch")?.lowercase()) {
+        "aarch64", "arm64" -> "arm64-v8a"
+        "x86_64", "amd64" -> "x86_64"
+        else -> null
+    }
+
 internal fun Project.resolvedNativeAbis(): List<String> {
     val ciOverrideAbis =
         providers
@@ -57,12 +66,38 @@ internal fun Project.resolvedNativeAbis(): List<String> {
             .orNull
             ?.let(::parseAbiList)
             .orEmpty()
-    val defaultLocalAbis =
+    val defaultLocalRaw =
         providers
             .gradleProperty("ripdpi.localNativeAbisDefault")
             .orNull
-            ?.let(::parseAbiList)
+            ?.trim()
             .orEmpty()
+    // Special token: "host" derives the local default from the JVM's os.arch.
+    // This makes Apple Silicon devs get arm64-v8a and Intel Mac / Linux x86_64
+    // devs get x86_64 without committing per-host overrides.
+    val defaultLocalAbis: List<String> =
+        when {
+            defaultLocalRaw.isEmpty() -> {
+                emptyList()
+            }
+
+            defaultLocalRaw.equals("host", ignoreCase = true) -> {
+                val host = hostMatchingAndroidAbi()
+                if (host == null) {
+                    logger.lifecycle(
+                        "ripdpi.localNativeAbisDefault=host but os.arch=${System.getProperty("os.arch")} " +
+                            "did not map to an Android ABI; falling back to ripdpi.nativeAbis.",
+                    )
+                    emptyList()
+                } else {
+                    listOf(host)
+                }
+            }
+
+            else -> {
+                parseAbiList(defaultLocalRaw)
+            }
+        }
     val canUseLocalAbis = !isCiBuild() && !isReleaseLikeBuild()
 
     return when {
@@ -72,8 +107,15 @@ internal fun Project.resolvedNativeAbis(): List<String> {
         }
 
         defaultLocalAbis.isNotEmpty() && canUseLocalAbis -> {
+            val suffix =
+                if (defaultLocalRaw.equals("host", ignoreCase = true)) {
+                    " (host=${System.getProperty("os.arch")})"
+                } else {
+                    ""
+                }
             logger.lifecycle(
-                "Using default local native ABI set for non-release build: ${defaultLocalAbis.joinToString()}",
+                "Using default local native ABI set for non-release build: " +
+                    "${defaultLocalAbis.joinToString()}$suffix",
             )
             defaultLocalAbis
         }

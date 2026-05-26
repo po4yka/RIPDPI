@@ -1,0 +1,29 @@
+# Template for ~/.gradle/gradle.properties overrides.
+#
+# Drop any subset of the lines below into ~/.gradle/gradle.properties (your
+# per-user file outside the repo). They override the values in the repo's
+# gradle.properties without committing per-host preferences.
+#
+# See docs/contributor/build-performance.md for context and verification.
+
+# --- Gradle pre-alpha: Isolated Projects.
+# Big sync wins on the 16-module + composite-build graph. Disable if Android
+# Studio sync errors mention "ProjectConfigurer", "subproject configuration",
+# or "build script isolation".
+# org.gradle.unsafe.isolated-projects=true
+
+# --- Force a specific ABI regardless of host detection.
+# (gradle.properties already sets ripdpi.localNativeAbisDefault=host, which
+# auto-picks arm64-v8a on Apple Silicon and x86_64 on Intel.)
+# ripdpi.localNativeAbis=arm64-v8a
+
+# --- Bigger daemons (only if you have RAM headroom — defaults target 32 GB).
+# org.gradle.jvmargs=-Xmx8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:SoftRefLRUPolicyMSPerMB=50 -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+# kotlin.daemon.jvmargs=-Xmx4g -XX:+UseG1GC -Dfile.encoding=UTF-8
+
+# --- Local Rust sccache.
+# After `brew install sccache`, set in your shell profile (not here):
+#   export RUSTC_WRAPPER=sccache
+#   export SCCACHE_DIR=$HOME/.cache/sccache
+#   export SCCACHE_CACHE_SIZE=20G
+# Note: aws-lc-sys / boring-sys C compilation is not wrapped (same as CI).
