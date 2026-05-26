@@ -20,7 +20,7 @@ updated: 2026-04-23
 - **Ledger key:** `epic-direct-mode-transport-policy-and-verdicts`
 - **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
 - **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
-- **Blocked-by (must be DONE in the ledger first):** `epic-encrypted-dns-and-https-svcb-classifier`, `gate-doq-on-udp-clean-classification`
+- **Blocked-by (must be DONE in the ledger first):** `epic-encrypted-dns-and-https-svcb-classifier`
 - **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
 <!-- /goal-contract:auto -->
 

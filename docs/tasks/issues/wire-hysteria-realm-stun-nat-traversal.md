@@ -17,6 +17,16 @@ linked_task: ../../../../ripdpi-vpn-deploy/docs/tasks/issues/add-hysteria-realm-
 
 - [ ] #task Wire Hysteria Realm STUN-discovered NAT traversal #repo/RIPDPI #area/transport #status/backlog 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `wire-hysteria-realm-stun-nat-traversal`
+- **Verify:** `TODO(verify): cargo test -p <transport-crate>`
+- **Scope (only modify these + this file + the ledger):** TODO(scope): <module path(s) this task may modify>
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Motivation
 
 sing-box v1.14.0-alpha.22 (2026-05-11) introduced a Hysteria Realm service that enables direct peer-to-peer Hysteria2 QUIC tunnels between two clients behind separate NATs — without a fixed listening server on a foreign datacenter ASN. TSPU policies targeting foreign-DC ASNs (the 15–20 KB freeze, session-volume caps) inherently apply to conventional Hysteria2 deployments; Realm provides structural bypass since the data peer can live on any RU residential or mobile ASN behind NAT.

@@ -14,6 +14,16 @@ updated: 2026-05-25
 
 - [ ] #task Operate Phase-16 real-provider SIM runner #repo/RIPDPI #area/testing #status/review 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `operate-phase16-real-provider-sim-runner`
+- **Verify:** `TODO(verify): ./gradlew test`
+- **Scope (only modify these + this file + the ledger):** `config/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Provision the private self-hosted carrier hardware and hook scripts required by the `runnerRequired=real-provider` Phase-16 rows.

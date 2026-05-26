@@ -17,6 +17,16 @@ linked_task: ../../../../ripdpi-vpn-deploy/docs/tasks/issues/add-dns-morph-bridg
 
 - [ ] #task Spike: DNS-Morph bootstrap as fallback bootstrap channel #repo/RIPDPI #area/transport #status/backlog 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `spike-dns-morph-bootstrap-fallback-channel`
+- **Verify:** `TODO(verify): cargo test -p <transport-crate>`
+- **Scope (only modify these + this file + the ledger):** `core/diagnostics-data//**`, `native/rust/crates//**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Motivation
 
 DNS-Morph (Ailabouni-Dunkelman-Bitan, CSCML 2021) splits the threat model: handshake uses DNS port-53 (a TSPU policy gap as of 2026-05-22), data plane uses any underlying transport. Provides a structurally new bootstrap surface that does not depend on TSPU not yet having signature-trained against TLS ClientHello or QUIC Initial. No mature Russia-targeting fork exists yet. Spike validates whether the bootstrap shim is buildable on Android and whether RU-ASN clients can complete the ~80 type-A query handshake under typical TSPU port-53 inspection.

@@ -20,7 +20,7 @@ updated: 2026-05-16
 - **Ledger key:** `introduce-protocol-version-enum-and-version-probe-diagnostic`
 - **Verify:** `cargo test -p ripdpi-vless -p ripdpi-tuic -p ripdpi-ws-tunnel -p ripdpi-diagnostics-protocols`
 - **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-vless/**`, `native/rust/crates/ripdpi-tuic/**`, `native/rust/crates/ripdpi-ws-tunnel/**`, `native/rust/crates/ripdpi-diagnostics-protocols/**`, `native/rust/crates/ripdpi-failure-classifier/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** `add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols`
+- **Blocked-by (must be DONE in the ledger first):** _none_
 - **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
 <!-- /goal-contract:auto -->
 

@@ -17,6 +17,16 @@ linked_task: ../../../../ripdpi-vpn-deploy/docs/tasks/issues/add-non-443-fallbac
 
 - [ ] #task Enforce per-exit-IP concurrent-TLS-connection cap #repo/RIPDPI #area/transport #status/backlog ⏫
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `enforce-per-exit-ip-concurrent-tls-cap`
+- **Verify:** `TODO(verify): cargo test -p <transport-crate>`
+- **Scope (only modify these + this file + the ledger):** TODO(scope): <module path(s) this task may modify>
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Motivation
 
 50+ RU home-ISP ASNs (MTS/MGTS, JustLan, LanInterCom, RTK Izhevsk, etc.) apply a TLS-handshake-level block when ~12 simultaneous TLS connections to a single foreign IP:port are opened on port 443. The block silently drops new ClientHellos for ~60–120 seconds. Block specifically targets VLESS+Reality+Vision; non-vision VLESS and non-TLS transports are unaffected.

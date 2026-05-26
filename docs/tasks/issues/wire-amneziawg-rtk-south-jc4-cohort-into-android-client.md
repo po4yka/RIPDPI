@@ -17,6 +17,16 @@ linked_task: ../../../../ripdpi-vpn-deploy/docs/tasks/issues/add-amneziawg-rtk-s
 
 - [ ] #task Wire AmneziaWG RTK South cohort (Jc=4) into Android client #repo/RIPDPI #area/transport #status/backlog 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `wire-amneziawg-rtk-south-jc4-cohort-into-android-client`
+- **Verify:** `TODO(verify): cargo test -p <transport-crate>`
+- **Scope (only modify these + this file + the ledger):** TODO(scope): <module path(s) this task may modify>
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Motivation
 
 Plain WireGuard at Rostelecom South (RTK юг, Rostov Oblast) experiences periodic 20–30 second interruptions every ~30 seconds — TSPU DPI identifies WireGuard via the deterministic 148-byte Initiation packet structure (4-byte type, 4-byte sender index, 32-byte ephemeral public key, 48-byte encrypted static key, 28-byte encrypted timestamp, 16-byte MAC1, 16-byte MAC2). AmneziaWG (AWG) randomizes this signature with junk/header/initialization parameters.

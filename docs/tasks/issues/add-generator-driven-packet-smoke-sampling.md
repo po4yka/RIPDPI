@@ -14,6 +14,16 @@ updated: 2026-05-25
 
 - [ ] #task Add generator-driven packet-smoke sampling #repo/RIPDPI #area/testing #status/review 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `add-generator-driven-packet-smoke-sampling`
+- **Verify:** `TODO(verify): ./gradlew test`
+- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-cli/**`
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Add a packet-smoke generator that samples the documented 7-dimensional desync parameter space, records the seed and axis values, and reuses the existing pcap-shape oracle.

@@ -14,6 +14,16 @@ updated: 2026-05-25
 
 - [ ] #task Gate L7 adversarial emulator in the Phase-16 release matrix #repo/RIPDPI #area/testing #status/review 🔼
 
+## Goal contract
+
+<!-- goal-contract:auto -->
+- **Ledger key:** `gate-l7-adversarial-emulator-in-phase16-release-matrix`
+- **Verify:** `TODO(verify): ./gradlew test`
+- **Scope (only modify these + this file + the ledger):** TODO(scope): <module path(s) this task may modify>
+- **Blocked-by (must be DONE in the ledger first):** _none_
+- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
+<!-- /goal-contract:auto -->
+
 ## Summary
 
 Promote the existing L7 adversarial emulator from standalone dry-run/live smoke coverage into a Phase-16 release-gate lane that reports adversary-pattern pass, fail, or partial verdicts next to packet-smoke evidence.
