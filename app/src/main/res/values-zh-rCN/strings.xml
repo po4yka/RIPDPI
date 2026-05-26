@@ -700,10 +700,13 @@
     <string name="onboarding_setup_mode_vpn_title">VPN 模式</string>
     <string name="onboarding_setup_test_run">运行测试</string>
     <string name="onboarding_setup_validate_title">验证你选择的模式</string>
+    <string name="onboarding_setup_validate_mode_title">验证 %1$s</string>
+    <string name="onboarding_step_progress">第 %1$d 步,共 %2$d 步</string>
     <string name="onboarding_validation_failed_generic">所选模式无法通过验证。</string>
     <string name="onboarding_validation_finish_keep_running">完成并保持运行</string>
     <string name="onboarding_validation_requesting_vpn_permission">正在请求 VPN 权限…</string>
     <string name="onboarding_validation_starting_vpn">正在启动 VPN 模式…</string>
+    <string name="onboarding_validation_busy_hint">这可能需要一点时间。如果 Android 请求权限,请允许以继续。</string>
     <string name="onboarding_validation_vpn_permission_denied">VPN 权限被拒绝,因此 RIPDPI 无法验证 VPN 模式。</string>
     <string name="owned_stack_browser_banner_android17">当平台栈提供 ECH 数据时,本设备可通过网络安全配置使用 Android 17 平台 ECH 偏好。</string>
     <string name="owned_stack_browser_empty_body">无响应正文。</string>

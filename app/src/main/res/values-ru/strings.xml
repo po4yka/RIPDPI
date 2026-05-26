@@ -1045,6 +1045,8 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_dns_quad9_body">DNS с акцентом на безопасность и блокировкой угроз.</string>
     <string name="onboarding_setup_dns_adguard_body">DNS со встроенной блокировкой рекламы и трекеров.</string>
     <string name="onboarding_setup_validate_title">Проверьте выбранный режим</string>
+    <string name="onboarding_setup_validate_mode_title">Проверьте %1$s</string>
+    <string name="onboarding_step_progress">Шаг %1$d из %2$d</string>
     <string name="onboarding_validation_run">Проверить выбранный режим</string>
     <string name="onboarding_validation_retry">Повторить проверку</string>
     <string name="onboarding_validation_finish_anyway">Завершить без проверки</string>
@@ -1055,6 +1057,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_validation_requesting_vpn_permission">Запрашивается разрешение VPN…</string>
     <string name="onboarding_validation_starting_vpn">Запускается режим VPN…</string>
     <string name="onboarding_validation_starting_proxy">Запускается режим Proxy…</string>
+    <string name="onboarding_validation_busy_hint">Это может занять немного времени. Если Android запросит разрешение, разрешите его, чтобы продолжить.</string>
     <string name="onboarding_validation_checking_vpn">Проверяем трафик через режим VPN…</string>
     <string name="onboarding_validation_checking_proxy">Проверяем трафик через режим Proxy…</string>
     <string name="onboarding_validation_success">%1$s проверен за %2$d мс.</string>

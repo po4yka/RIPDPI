@@ -1794,9 +1794,12 @@ Source : %2$s</string>
     <string name="onboarding_setup_mode_title">Choisissez votre mode</string>
     <string name="onboarding_setup_test_hint">Vérifiez votre connexion Internet avant de commencer.</string>
     <string name="onboarding_setup_validate_title">Valider le mode choisi</string>
+    <string name="onboarding_setup_validate_mode_title">Valider %1$s</string>
+    <string name="onboarding_step_progress">Étape %1$d sur %2$d</string>
     <string name="onboarding_validation_failed_generic">Le mode sélectionné n\'a pas pu être validé.</string>
     <string name="onboarding_validation_notifications_required">Autorisez les notifications afin que RIPDPI puisse démarrer le service de validation.</string>
     <string name="onboarding_validation_starting_proxy">Démarrage du mode proxy…</string>
+    <string name="onboarding_validation_busy_hint">Cela peut prendre un moment. Si Android demande une autorisation, accordez-la pour continuer.</string>
     <string name="onboarding_validation_vpn_permission_denied">L\'autorisation VPN a été refusée, RIPDPI n\'a donc pas pu valider le mode VPN.</string>
     <string name="owned_stack_browser_banner_fallback">Le HttpEngine de la plateforme Android est indisponible ici. RIPDPI utilise son chargeur TLS propriétaire natif afin que le shell du navigateur fonctionne toujours.</string>
     <string name="owned_stack_browser_open_action">Ouvrir dans le navigateur RIPDPI</string>

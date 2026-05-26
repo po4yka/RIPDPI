@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -15,6 +16,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -124,6 +130,7 @@ internal fun OnboardingModeValidationContent(
         modifier =
             modifier
                 .fillMaxWidth()
+                .fillMaxHeight()
                 .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -317,10 +324,17 @@ private fun ValidationFailedContent(
 private fun ValidationBusyState(message: String) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
+    val helper = stringResource(R.string.onboarding_validation_busy_hint)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier =
+            Modifier.semantics {
+                contentDescription = message
+                stateDescription = helper
+                liveRegion = LiveRegionMode.Polite
+            },
     ) {
         CircularProgressIndicator(
             color = colors.foreground,
@@ -335,11 +349,17 @@ private fun ValidationBusyState(message: String) {
             modifier =
                 Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus),
         )
+        Text(
+            text = helper,
+            style = type.caption,
+            color = colors.mutedForeground,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
-@Composable
-private fun modeLabelRes(mode: Mode): Int =
+internal fun modeLabelRes(mode: Mode): Int =
     when (mode) {
         Mode.VPN -> R.string.onboarding_setup_mode_vpn_title
         Mode.Proxy -> R.string.onboarding_setup_mode_proxy_title

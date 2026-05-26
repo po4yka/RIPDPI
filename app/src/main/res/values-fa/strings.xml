@@ -2260,7 +2260,10 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_test_failed">اتصال ناموفق بود: %1$s</string>
     <string name="onboarding_setup_test_running">در حال بررسی اتصال…</string>
     <string name="onboarding_setup_validate_title">حالت انتخاب‌شده خود را تأیید کنید</string>
+    <string name="onboarding_setup_validate_mode_title">تأیید %1$s</string>
+    <string name="onboarding_step_progress">مرحله %1$d از %2$d</string>
     <string name="onboarding_validation_checking_vpn">در حال بررسی ترافیک از طریق حالت VPN…</string>
+    <string name="onboarding_validation_busy_hint">این ممکن است کمی طول بکشد. اگر Android اجازه خواست، برای ادامه آن را مجاز کنید.</string>
     <string name="onboarding_validation_finish_anyway">به‌هرحال پایان دادن</string>
     <string name="onboarding_validation_idle_hint">پیش از پایان، %1$s را شروع کرده و مطمئن شوید ترافیک از طریق آن کار می‌کند.</string>
     <string name="onboarding_validation_requesting_vpn_permission">در حال درخواست مجوز VPN…</string>

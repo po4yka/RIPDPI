@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
@@ -24,13 +26,21 @@ fun RipDpiPageIndicators(
     pageCount: Int,
     modifier: Modifier = Modifier,
     sectionBreakAfter: Int? = null,
+    accessibilityLabel: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
     val motion = RipDpiThemeTokens.motion
 
     Row(
-        modifier = modifier,
+        modifier =
+            modifier.then(
+                if (accessibilityLabel != null) {
+                    Modifier.semantics { contentDescription = accessibilityLabel }
+                } else {
+                    Modifier
+                },
+            ),
         horizontalArrangement = Arrangement.spacedBy(introLayout.indicatorSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {

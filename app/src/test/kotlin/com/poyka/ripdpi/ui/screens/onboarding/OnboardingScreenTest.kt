@@ -3,7 +3,9 @@ package com.poyka.ripdpi.ui.screens.onboarding
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.activities.OnboardingValidationState
 import com.poyka.ripdpi.data.Mode
@@ -102,6 +104,25 @@ class OnboardingScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidationStatus).assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertCountEquals(0)
+    }
+
+    @Test
+    fun `validation busy state renders mode-specific copy and blocks skip`() {
+        renderValidationPage(
+            OnboardingUiState(
+                currentPage = OnboardingPages.lastIndex,
+                selectedMode = Mode.VPN,
+                validationState = OnboardingValidationState.StartingMode(Mode.VPN),
+            ),
+        )
+
+        composeRule.onNodeWithText("Validate VPN mode").assertExists()
+        composeRule
+            .onNodeWithText("This can take a moment. If Android asks for permission, allow it to continue.")
+            .assertExists()
+        composeRule.onNodeWithContentDescription("Step 9 of 9").assertExists()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkip).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
     }
 
     private fun renderValidationPage(uiState: OnboardingUiState) {

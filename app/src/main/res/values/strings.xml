@@ -1367,6 +1367,8 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_dns_quad9_body">Security-focused DNS that blocks threats.</string>
     <string name="onboarding_setup_dns_adguard_body">DNS with built-in ad and tracker blocking.</string>
     <string name="onboarding_setup_validate_title">Validate your chosen mode</string>
+    <string name="onboarding_setup_validate_mode_title">Validate %1$s</string>
+    <string name="onboarding_step_progress">Step %1$d of %2$d</string>
     <string name="onboarding_setup_test_title">Test your connection</string>
     <string name="onboarding_setup_test_run">Run test</string>
     <string name="onboarding_setup_test_running">Checking connection\u2026</string>
@@ -1383,6 +1385,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_validation_requesting_vpn_permission">Requesting VPN permission\u2026</string>
     <string name="onboarding_validation_starting_vpn">Starting VPN mode\u2026</string>
     <string name="onboarding_validation_starting_proxy">Starting proxy mode\u2026</string>
+    <string name="onboarding_validation_busy_hint">This can take a moment. If Android asks for permission, allow it to continue.</string>
     <string name="onboarding_validation_checking_vpn">Checking traffic through VPN mode\u2026</string>
     <string name="onboarding_validation_checking_proxy">Checking traffic through proxy mode\u2026</string>
     <string name="onboarding_validation_success">%1$s validated in %2$d ms.</string>

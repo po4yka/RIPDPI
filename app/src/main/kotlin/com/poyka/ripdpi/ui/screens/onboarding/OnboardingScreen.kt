@@ -287,20 +287,21 @@ fun OnboardingScreen(
                         .height(introLayout.topActionRowHeight),
                 contentAlignment = Alignment.CenterEnd,
             ) {
-                TextButton(
-                    onClick = onSkip,
-                    enabled = !validationBusy,
-                    modifier =
-                        Modifier
-                            .ripDpiTestTag(RipDpiTestTags.OnboardingSkip)
-                            .height(introLayout.topActionRowHeight)
-                            .padding(horizontal = 12.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.onboarding_skip),
-                        style = type.introAction,
-                        color = colors.mutedForeground,
-                    )
+                if (!validationBusy) {
+                    TextButton(
+                        onClick = onSkip,
+                        modifier =
+                            Modifier
+                                .ripDpiTestTag(RipDpiTestTags.OnboardingSkip)
+                                .height(introLayout.topActionRowHeight)
+                                .padding(horizontal = 12.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.onboarding_skip),
+                            style = type.introAction,
+                            color = colors.mutedForeground,
+                        )
+                    }
                 }
             }
         },
@@ -316,6 +317,12 @@ fun OnboardingScreen(
                     currentPage = settledPage,
                     pageCount = uiState.totalPages.coerceAtMost(OnboardingPages.size),
                     sectionBreakAfter = OnboardingInfoPageCount,
+                    accessibilityLabel =
+                        stringResource(
+                            R.string.onboarding_step_progress,
+                            settledPage + 1,
+                            uiState.totalPages.coerceAtMost(OnboardingPages.size),
+                        ),
                 )
                 if (!isLastPage) {
                     Spacer(modifier = Modifier.height(introLayout.footerProgressGap))
@@ -484,6 +491,17 @@ private fun OnboardingSetupPageScene(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
+    val selectedModeLabel = stringResource(modeLabelRes(uiState.selectedMode))
+    val title =
+        when (pageModel.kind) {
+            SetupPageKind.ConnectionTest -> {
+                stringResource(R.string.onboarding_setup_validate_mode_title, selectedModeLabel)
+            }
+
+            else -> {
+                stringResource(pageModel.titleRes)
+            }
+        }
 
     Column(
         modifier = modifier.padding(horizontal = introLayout.bodyHorizontalPadding),
@@ -491,7 +509,7 @@ private fun OnboardingSetupPageScene(
     ) {
         Spacer(modifier = Modifier.height(introLayout.illustrationToTitleGap))
         Text(
-            text = stringResource(pageModel.titleRes),
+            text = title,
             style = type.introTitle,
             color = colors.foreground,
             textAlign = TextAlign.Center,
@@ -525,6 +543,7 @@ private fun OnboardingSetupPageScene(
                     onFinishDisconnected = onFinishDisconnected,
                     onFinishAnyway = onFinishAnyway,
                     onAcceptSuggestedMode = onAcceptSuggestedMode,
+                    modifier = Modifier.fillMaxWidth().weight(1f),
                 )
             }
         }
