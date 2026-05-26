@@ -21,7 +21,6 @@ debug builds, and CI parity (CI behavior is unchanged).
 | `org.gradle.welcome` / `warning.mode` | `never` / `summary` | Quieter logs; surface warnings via `--warning-mode=all` when investigating. |
 | `kotlin.daemon.jvmargs` | `-Xmx3g` + G1 | KSP2 needs more than the 1.5 GB default. |
 | `kotlin.incremental` | `true` | Explicit (matches Kotlin default). |
-| `kotlin.incremental.useClasspathSnapshot` | `true` | Faster classpath-change detection on K2. |
 | `ksp.useKSP2` | `true` | Pin KSP2 (default in KSP 2.3.x; prevents silent regression). |
 | `android.nonTransitiveRClass` | `true` | Smaller library R classes. |
 | `android.nonFinalResIds` | `true` | AGP perf win for library modules; no behavior change. |
