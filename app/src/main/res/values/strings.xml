@@ -1341,10 +1341,10 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_next">Next</string>
     <string name="onboarding_setup_finish">Finish</string>
 
-    <string name="onboarding_local_first_title">Your data never leaves</string>
-    <string name="onboarding_local_first_body">RIPDPI runs entirely on your device. No servers, no accounts, no cloud. Just you and your network.</string>
+    <string name="onboarding_local_first_title">Local-first by default</string>
+    <string name="onboarding_local_first_body">RIPDPI runs its VPN, proxy, and configuration on your device. No accounts, no telemetry, and no cloud sync.</string>
     <string name="onboarding_permission_title">A local VPN, not a remote one</string>
-    <string name="onboarding_permission_body">Android requires VPN permission to route traffic through the app. Everything stays local \u2014 nothing is sent to any external server.</string>
+    <string name="onboarding_permission_body">Android requires VPN permission to route traffic through the app. RIPDPI uses a local tunnel, while DNS and connectivity checks may contact the provider or test endpoint you choose.</string>
     <string name="onboarding_modes_title">Presets or full control</string>
     <string name="onboarding_modes_body">Start with a preset that works out of the box, or configure every parameter manually. You can always change your mind.</string>
     <string name="onboarding_diagnostics_title">Built-in diagnostics</string>
@@ -1352,7 +1352,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_bypass_modes_title">VPN or Proxy \u2014 your choice</string>
     <string name="onboarding_bypass_modes_body">Route traffic through a local VPN for full coverage, or use a local proxy for fine-grained control. Switch anytime.</string>
     <string name="onboarding_privacy_title">Transparent by design</string>
-    <string name="onboarding_privacy_body">No telemetry, no tracking, no accounts. Every byte of data stays on your device.</string>
+    <string name="onboarding_privacy_body">No telemetry, no tracking, no accounts. Settings and diagnostics history stay on your device unless you explicitly export them.</string>
 
     <string name="onboarding_setup_mode_title">Pick your mode</string>
     <string name="onboarding_setup_mode_vpn_title">VPN mode</string>

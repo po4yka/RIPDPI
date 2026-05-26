@@ -692,8 +692,8 @@
     <string name="notice_strategy_pack_refresh_failed_message">RIPDPI 无法刷新最新的策略包目录。当前策略快照仍保持活动。</string>
     <string name="notice_telemetry_salt_reset_message">下次连接时将生成新的盐值。之前记录的指纹哈希将无法再被关联。</string>
     <string name="onboarding_continue">继续</string>
-    <string name="onboarding_local_first_body">RIPDPI 完全在你的设备上运行。无服务器、无账户、无云。只有你和你的网络。</string>
-    <string name="onboarding_permission_body">Android 需要 VPN 权限才能将流量路由经过应用。一切都保持在本地 — 不会发送到任何外部服务器。</string>
+    <string name="onboarding_local_first_body">RIPDPI 在你的设备上运行 VPN、代理和配置。无账号、无遥测、无云同步。</string>
+    <string name="onboarding_permission_body">Android 需要 VPN 权限才能将流量路由经过应用。RIPDPI 使用本地隧道，但 DNS 和连接检查可能会联系你选择的提供方或测试端点。</string>
     <string name="onboarding_setup_dns_adguard_body">内置广告和追踪器拦截的 DNS。</string>
     <string name="onboarding_setup_dns_system_body">原样使用你网络的 DNS 服务器。</string>
     <string name="onboarding_setup_mode_proxy_body">通过本地代理路由流量。为高级用户提供精细控制。</string>
@@ -1207,7 +1207,7 @@ fakeddisorder endhost</string>
     <string name="notice_strategy_pack_refresh_failed_title">无法刷新策略包</string>
     <string name="notice_telemetry_salt_reset_title">遥测盐值已重置</string>
     <string name="onboarding_diagnostics_body">无需离开应用即可检测 DPI 干扰并分析您的网络健康状况。</string>
-    <string name="onboarding_local_first_title">您的数据永不外流</string>
+    <string name="onboarding_local_first_title">默认本地优先</string>
     <string name="onboarding_permission_title">本地 VPN,而非远程 VPN</string>
     <string name="onboarding_setup_dns_cloudflare_body">由 Cloudflare 提供的快速、注重隐私的 DNS。</string>
     <string name="onboarding_setup_dns_system">系统默认</string>
@@ -1721,7 +1721,7 @@ fake_burst 3</string>
     <string name="onboarding_bypass_modes_body">通过本地 VPN 路由流量以获得完整覆盖,或使用本地代理进行精细控制。可随时切换。</string>
     <string name="onboarding_diagnostics_title">内置诊断</string>
     <string name="onboarding_modes_body">从开箱即用的预设开始,或手动配置每个参数。随时可改变主意。</string>
-    <string name="onboarding_privacy_body">无遥测、无追踪、无账号。每一字节数据都保留在您的设备上。</string>
+    <string name="onboarding_privacy_body">无遥测、无追踪、无账号。设置和诊断历史会保留在你的设备上，除非你明确导出。</string>
     <string name="onboarding_setup_dns_google_body">由 Google 提供的可靠 DNS。</string>
     <string name="onboarding_setup_dns_title">选择 DNS 提供方</string>
     <string name="onboarding_setup_mode_title">选择您的模式</string>

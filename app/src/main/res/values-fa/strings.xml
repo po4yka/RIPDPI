@@ -1841,9 +1841,9 @@ fakeddisorder endhost</string>
     <string name="notice_strategy_packs_refreshed_title">بسته‌های استراتژی به‌روزرسانی شدند</string>
     <string name="onboarding_bypass_modes_body">ترافیک را برای پوشش کامل از طریق یک VPN محلی مسیریابی کنید، یا برای کنترل دقیق از یک proxy محلی استفاده کنید. در هر زمان جابجا شوید.</string>
     <string name="onboarding_diagnostics_body">بدون خروج از برنامه، اختلال DPI را شناسایی کنید و سلامت شبکه خود را تحلیل کنید.</string>
-    <string name="onboarding_local_first_body">RIPDPI کاملاً روی دستگاه شما اجرا می‌شود. بدون سرور، بدون حساب کاربری، بدون ابر. فقط شما و شبکه‌تان.</string>
+    <string name="onboarding_local_first_body">RIPDPI VPN، پروکسی و پیکربندی را روی دستگاه شما اجرا می‌کند. بدون حساب کاربری، بدون تله‌متری و بدون همگام‌سازی ابری.</string>
     <string name="onboarding_modes_title">پیش‌تنظیم‌ها یا کنترل کامل</string>
-    <string name="onboarding_privacy_body">بدون تله‌متری، بدون ردیابی، بدون حساب کاربری. هر بایت داده روی دستگاه شما باقی می‌ماند.</string>
+    <string name="onboarding_privacy_body">بدون تله‌متری، بدون ردیابی، بدون حساب کاربری. تنظیمات و سابقهٔ عیب‌یابی روی دستگاه شما می‌مانند مگر اینکه آن‌ها را صریحاً صادر کنید.</string>
     <string name="onboarding_setup_dns_cloudflare_body">DNS سریع و حریم‌خصوصی‌محور از Cloudflare.</string>
     <string name="onboarding_setup_dns_system_body">از سرورهای DNS شبکه‌تان همان‌طور که هستند استفاده کنید.</string>
     <string name="onboarding_setup_finish">پایان</string>
@@ -2250,8 +2250,8 @@ fakeddisorder endhost</string>
     <string name="notice_telemetry_salt_reset_message">در اتصال بعدی یک salt جدید تولید خواهد شد. هش‌های اثرانگشت قبلاً ثبت‌شده دیگر قابل همبستگی نیستند.</string>
     <string name="onboarding_bypass_modes_title">VPN یا پراکسی — انتخاب با شماست</string>
     <string name="onboarding_diagnostics_title">تشخیص‌های داخلی</string>
-    <string name="onboarding_local_first_title">داده‌های شما هرگز خارج نمی‌شوند</string>
-    <string name="onboarding_permission_body">اندروید برای مسیریابی ترافیک از طریق برنامه به مجوز VPN نیاز دارد. همه چیز محلی باقی می‌ماند — هیچ چیز به سرور خارجی ارسال نمی‌شود.</string>
+    <string name="onboarding_local_first_title">محلی به‌صورت پیش‌فرض</string>
+    <string name="onboarding_permission_body">اندروید برای مسیریابی ترافیک از طریق برنامه به مجوز VPN نیاز دارد. RIPDPI از تونل محلی استفاده می‌کند، اما DNS و بررسی‌های اتصال ممکن است با ارائه‌دهنده یا نقطهٔ آزمایشی انتخابی شما تماس بگیرند.</string>
     <string name="onboarding_privacy_title">شفاف به‌طور طراحی‌شده</string>
     <string name="onboarding_setup_dns_google_body">DNS قابل‌اعتماد توسط Google.</string>
     <string name="onboarding_setup_dns_system">پیش‌فرض سیستم</string>
