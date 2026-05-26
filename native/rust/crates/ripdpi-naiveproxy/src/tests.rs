@@ -108,6 +108,49 @@ async fn socks5_client_round_trip_over_h2_naive_padding_fixture() {
     server.abort();
 }
 
+#[tokio::test]
+async fn http_front_connect_round_trip_over_h2_naive_padding_fixture() {
+    let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
+        .await
+        .expect("start naive h2 fixture");
+    let local_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind local listener");
+    let local_addr = local_listener.local_addr().expect("local addr");
+    let config = NaiveProxyConfig {
+        listen: local_addr.to_string(),
+        server: "127.0.0.1".to_owned(),
+        server_port: fixture.port(),
+        server_name: fixture.server_name().to_owned(),
+        username: Some("naive-user".to_owned()),
+        password: Some("naive-pass".to_owned()),
+        path: None,
+        tls_config: fixture.client_tls_config(),
+    };
+
+    let server = tokio::spawn(async move {
+        serve_listener(local_listener, Arc::new(config)).await.expect("serve listener");
+    });
+
+    let mut client = TcpStream::connect(local_addr).await.expect("connect local http front");
+    client
+        .write_all(b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n")
+        .await
+        .expect("write connect request");
+    let response = read_http_headers(&mut client).await.expect("read connect response");
+    assert!(response.starts_with("HTTP/1.1 200"), "unexpected CONNECT response: {response:?}");
+
+    client.write_all(b"ping-through-http-front").await.expect("write tunneled payload");
+    let mut echoed = vec![0u8; "ping-through-http-front".len()];
+    client.read_exact(&mut echoed).await.expect("read echo");
+    assert_eq!(&echoed, b"ping-through-http-front");
+
+    let observed = fixture.observed();
+    assert_eq!(observed.proxy_authorization.as_deref(), Some("Basic bmFpdmUtdXNlcjpuYWl2ZS1wYXNz"));
+    assert_eq!(observed.padding_type_request.as_deref(), Some("1"));
+    assert!(observed.request_padding_len.is_some_and(|len| (16..=32).contains(&len)));
+
+    server.abort();
+}
+
 #[test]
 fn padding_frame_encodes_big_endian_length_and_zero_padding() {
     let mut encoder = PaddingEncoder::default();
@@ -245,6 +288,17 @@ fn build_socks_connect_request(host: &str, port: u16) -> Vec<u8> {
     request.extend_from_slice(&address.octets());
     request.extend_from_slice(&port.to_be_bytes());
     request
+}
+
+async fn read_http_headers(client: &mut TcpStream) -> std::io::Result<String> {
+    let mut response = Vec::new();
+    let mut byte = [0u8; 1];
+    while !response.ends_with(b"\r\n\r\n") {
+        client.read_exact(&mut byte).await?;
+        response.push(byte[0]);
+    }
+    String::from_utf8(response)
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("invalid HTTP headers: {error}")))
 }
 
 fn naive_config_with_auth() -> NaiveProxyConfig {

@@ -7,6 +7,7 @@ use tokio::net::{TcpListener, TcpStream};
 use crate::config::NaiveProxyConfig;
 use crate::connect_tunnel::open_https_connect_tunnel;
 use crate::errors::emit_structured_error;
+use crate::http_front::{read_http_connect_request, write_http_connect_failure, write_http_connect_success};
 use crate::socks5::{negotiate_socks5, read_socks5_request, write_socks_reply};
 
 const STRUCTURED_READY_PREFIX: &str = "RIPDPI-READY|naiveproxy|";
@@ -31,7 +32,17 @@ pub(crate) async fn serve_listener(listener: TcpListener, config: Arc<NaiveProxy
     }
 }
 
-async fn handle_client(mut client: TcpStream, config: Arc<NaiveProxyConfig>) -> io::Result<()> {
+async fn handle_client(client: TcpStream, config: Arc<NaiveProxyConfig>) -> io::Result<()> {
+    let mut first_byte = [0u8; 1];
+    client.peek(&mut first_byte).await?;
+    if first_byte[0] == 0x05 {
+        return handle_socks5_client(client, config).await;
+    }
+
+    handle_http_front_client(client, config).await
+}
+
+async fn handle_socks5_client(mut client: TcpStream, config: Arc<NaiveProxyConfig>) -> io::Result<()> {
     negotiate_socks5(&mut client).await?;
     let target = read_socks5_request(&mut client).await?;
 
@@ -44,6 +55,23 @@ async fn handle_client(mut client: TcpStream, config: Arc<NaiveProxyConfig>) -> 
     };
 
     write_socks_reply(&mut client, 0x00).await?;
+    let mut upstream = upstream;
+    let _ = copy_bidirectional(&mut client, &mut upstream).await?;
+    Ok(())
+}
+
+async fn handle_http_front_client(mut client: TcpStream, config: Arc<NaiveProxyConfig>) -> io::Result<()> {
+    let target = read_http_connect_request(&mut client).await?;
+
+    let upstream = match open_https_connect_tunnel(&config, &target).await {
+        Ok(stream) => stream,
+        Err(error) => {
+            write_http_connect_failure(&mut client).await?;
+            return Err(error);
+        }
+    };
+
+    write_http_connect_success(&mut client).await?;
     let mut upstream = upstream;
     let _ = copy_bidirectional(&mut client, &mut upstream).await?;
     Ok(())
