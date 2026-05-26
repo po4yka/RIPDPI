@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.ui.screenshot
 
+import androidx.compose.runtime.Composable
+import com.poyka.ripdpi.activities.OnboardingUiState
+import com.poyka.ripdpi.activities.OnboardingValidationState
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.RipDpiAboutPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiAdvancedSettingsPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiBiometricPinPreviewScene
@@ -28,6 +32,10 @@ import com.poyka.ripdpi.ui.components.RipDpiSettingsDarkPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiSettingsMediumPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiStrategyConfigPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiVpnPermissionDialogPreviewScene
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingInfoPageCount
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
+import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -57,6 +65,78 @@ class RipDpiScreenCatalogScreenshotTest {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 900, fontScale = 1.3f) {
             RipDpiIntroLargeFontPreviewScene()
         }
+    }
+
+    @Test
+    fun onboardingIntroScreen() {
+        captureOnboardingScreen(OnboardingUiState(currentPage = 0))
+    }
+
+    @Test
+    fun onboardingModeSetupScreen() {
+        captureOnboardingScreen(
+            OnboardingUiState(
+                currentPage = OnboardingInfoPageCount,
+                selectedMode = Mode.VPN,
+            ),
+        )
+    }
+
+    @Test
+    fun onboardingDnsSetupScreen() {
+        captureOnboardingScreen(
+            uiState =
+                OnboardingUiState(
+                    currentPage = OnboardingInfoPageCount + 1,
+                    selectedMode = Mode.Proxy,
+                ),
+            heightDp = 1100,
+        )
+    }
+
+    @Test
+    fun onboardingValidationIdleScreen() {
+        captureOnboardingValidationScreen(OnboardingValidationState.Idle)
+    }
+
+    @Test
+    fun onboardingValidationRunningScreen() {
+        captureOnboardingValidationScreen(OnboardingValidationState.RunningTrafficCheck(Mode.VPN))
+    }
+
+    @Test
+    fun onboardingValidationStartingScreen() {
+        captureOnboardingValidationScreen(OnboardingValidationState.StartingMode(Mode.Proxy))
+    }
+
+    @Test
+    fun onboardingValidationRequestingNotificationsScreen() {
+        captureOnboardingValidationScreen(OnboardingValidationState.RequestingNotifications)
+    }
+
+    @Test
+    fun onboardingValidationRequestingVpnConsentScreen() {
+        captureOnboardingValidationScreen(OnboardingValidationState.RequestingVpnConsent)
+    }
+
+    @Test
+    fun onboardingValidationSuccessScreen() {
+        captureOnboardingValidationScreen(
+            OnboardingValidationState.Success(
+                latencyMs = 42,
+                mode = Mode.VPN,
+            ),
+        )
+    }
+
+    @Test
+    fun onboardingValidationFailureScreen() {
+        captureOnboardingValidationScreen(
+            OnboardingValidationState.Failed(
+                reason = "VPN permission was denied",
+                suggestedMode = Mode.Proxy,
+            ),
+        )
     }
 
     @Test
@@ -264,5 +344,59 @@ class RipDpiScreenCatalogScreenshotTest {
         captureRipDpiScreenshot(widthDp = 720, heightDp = 900) {
             RipDpiDetectionCheckPreviewScene()
         }
+    }
+
+    private fun captureOnboardingValidationScreen(validationState: OnboardingValidationState) {
+        val validationBusy =
+            when (validationState) {
+                OnboardingValidationState.Idle,
+                is OnboardingValidationState.Success,
+                is OnboardingValidationState.Failed,
+                -> false
+
+                OnboardingValidationState.RequestingNotifications,
+                OnboardingValidationState.RequestingVpnConsent,
+                is OnboardingValidationState.StartingMode,
+                is OnboardingValidationState.RunningTrafficCheck,
+                -> true
+            }
+        captureOnboardingScreen(
+            uiState =
+                OnboardingUiState(
+                    currentPage = OnboardingPages.lastIndex,
+                    validationState = validationState,
+                    canFinishAnyway = !validationBusy,
+                    canFinishKeepingRunning = validationState is OnboardingValidationState.Success,
+                    canFinishDisconnected = validationState is OnboardingValidationState.Success,
+                ),
+        )
+    }
+
+    private fun captureOnboardingScreen(
+        uiState: OnboardingUiState,
+        heightDp: Int = 900,
+    ) {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = heightDp) {
+            OnboardingScreenPreviewScene(uiState)
+        }
+    }
+}
+
+@Composable
+private fun OnboardingScreenPreviewScene(uiState: OnboardingUiState) {
+    RipDpiTheme(themePreference = "light") {
+        OnboardingScreen(
+            uiState = uiState,
+            onPageChanged = {},
+            onSkip = {},
+            onContinue = {},
+            onModeSelected = {},
+            onDnsSelected = {},
+            onRunValidation = {},
+            onFinishKeepingRunning = {},
+            onFinishDisconnected = {},
+            onFinishAnyway = {},
+            onAcceptSuggestedMode = {},
+        )
     }
 }
