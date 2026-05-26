@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -133,15 +134,18 @@ private fun buildStageDescription(stages: ImmutableList<AnalysisStageUiState>): 
 
 @Composable
 private fun rememberPipelineAlphas(motion: com.poyka.ripdpi.ui.theme.RipDpiMotion): Pair<Float, Float> {
+    if (LocalInspectionMode.current || !motion.allowsInfiniteMotion) {
+        return Pair(1f, ShimmerMaxAlpha)
+    }
     val infiniteTransition = rememberInfiniteTransition(label = "analysisPulse")
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = if (motion.allowsInfiniteMotion) PulseTargetAlpha else 1f,
+        targetValue = PulseTargetAlpha,
         animationSpec = motion.smoothPulseSpec(PulseDurationMs),
         label = "activeSegmentPulse",
     )
     val shimmerAlpha by infiniteTransition.animateFloat(
-        initialValue = if (motion.allowsInfiniteMotion) ShimmerMinAlpha else ShimmerMaxAlpha,
+        initialValue = ShimmerMinAlpha,
         targetValue = ShimmerMaxAlpha,
         animationSpec = motion.smoothPulseSpec(ShimmerDurationMs),
         label = "pendingShimmer",

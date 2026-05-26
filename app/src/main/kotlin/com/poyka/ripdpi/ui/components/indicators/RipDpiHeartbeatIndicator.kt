@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -62,19 +63,21 @@ fun RipDpiHeartbeatIndicator(
             RipDpiHeartbeatState.Idle -> colors.mutedForeground
         }
     val motion = RipDpiThemeTokens.motion
-    val isInspection = androidx.compose.ui.platform.LocalInspectionMode.current
     val pulsing = state == RipDpiHeartbeatState.Healthy || state == RipDpiHeartbeatState.Degraded
-    val transition = rememberInfiniteTransition(label = "heartbeat")
-    // Collapse targetValue to initialValue on reduced motion so the ring
-    // stops animating on real devices. In inspection mode (Roborazzi /
-    // @Preview), always pass the full targetValue so the composition shape
-    // matches the originally blessed golden.
-    val pulseProgress by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = if (isInspection || motion.allowsInfiniteMotion) 1f else 0f,
-        animationSpec = motion.pulseSpec(),
-        label = "pulse",
-    )
+    val staticMotion = LocalInspectionMode.current || !motion.allowsInfiniteMotion
+    val pulseProgress =
+        if (pulsing && !staticMotion) {
+            val transition = rememberInfiniteTransition(label = "heartbeat")
+            val animatedProgress by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = motion.pulseSpec(),
+                label = "pulse",
+            )
+            animatedProgress
+        } else {
+            StaticHeartbeatProgress
+        }
     Canvas(
         modifier =
             modifier
@@ -105,6 +108,8 @@ fun RipDpiHeartbeatIndicator(
         )
     }
 }
+
+private const val StaticHeartbeatProgress = 0f
 
 @Preview(showBackground = true, name = "RipDpiHeartbeatIndicator (light)")
 @Composable

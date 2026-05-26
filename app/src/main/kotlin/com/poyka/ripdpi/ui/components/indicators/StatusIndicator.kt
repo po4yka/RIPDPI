@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
@@ -49,6 +50,7 @@ fun StatusIndicator(
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
+    val staticMotion = LocalInspectionMode.current || !motion.allowsInfiniteMotion
     val indicatorColor =
         when (tone) {
             StatusIndicatorTone.Active -> colors.foreground
@@ -62,7 +64,7 @@ fun StatusIndicator(
         label = "statusIndicatorColor",
     )
     val pulseTransition =
-        if (motion.allowsInfiniteMotion && tone != StatusIndicatorTone.Idle && tone != StatusIndicatorTone.Error) {
+        if (!staticMotion && tone != StatusIndicatorTone.Idle && tone != StatusIndicatorTone.Error) {
             rememberInfiniteTransition(label = "statusPulse")
         } else {
             null

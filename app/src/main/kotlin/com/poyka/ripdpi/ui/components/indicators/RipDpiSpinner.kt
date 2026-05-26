@@ -1,11 +1,15 @@
 package com.poyka.ripdpi.ui.components.indicators
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -13,6 +17,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlin.math.min
 
 enum class RipDpiSpinnerSize(
     val dp: Dp,
@@ -35,16 +40,44 @@ fun RipDpiSpinner(
     modifier: Modifier = Modifier,
     size: RipDpiSpinnerSize = RipDpiSpinnerSize.Standard,
 ) {
+    val spinnerModifier =
+        modifier
+            .size(size.dp)
+            .semantics { contentDescription = "Loading" }
+    val foreground = RipDpiThemeTokens.colors.foreground
+    val track = RipDpiThemeTokens.colors.muted
+    val stroke = size.stroke
+
+    if (LocalInspectionMode.current || !RipDpiThemeTokens.motion.allowsInfiniteMotion) {
+        Canvas(modifier = spinnerModifier) {
+            val strokeWidth = stroke.toPx()
+            val radius = (min(this.size.width, this.size.height) - strokeWidth) / 2f
+            drawCircle(
+                color = track,
+                radius = radius,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+            )
+            drawArc(
+                color = foreground,
+                startAngle = StaticSpinnerStartAngle,
+                sweepAngle = StaticSpinnerSweepAngle,
+                useCenter = false,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+            )
+        }
+        return
+    }
+
     CircularProgressIndicator(
-        modifier =
-            modifier
-                .size(size.dp)
-                .semantics { contentDescription = "Loading" },
-        color = RipDpiThemeTokens.colors.foreground,
-        trackColor = RipDpiThemeTokens.colors.muted,
-        strokeWidth = size.stroke,
+        modifier = spinnerModifier,
+        color = foreground,
+        trackColor = track,
+        strokeWidth = stroke,
     )
 }
+
+private const val StaticSpinnerStartAngle = -90f
+private const val StaticSpinnerSweepAngle = 260f
 
 @Preview(showBackground = true, name = "RipDpiSpinner (light)")
 @Composable

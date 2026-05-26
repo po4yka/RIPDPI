@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -40,23 +41,14 @@ private const val shimmerHalfWidth = 0.5f
 fun Modifier.ripDpiShimmer(): Modifier =
     composed {
         val motion = RipDpiThemeTokens.motion
-        val isInspection = androidx.compose.ui.platform.LocalInspectionMode.current
+        if (LocalInspectionMode.current || !motion.allowsInfiniteMotion) {
+            return@composed this
+        }
         val baseColor = RipDpiThemeTokens.colors.mutedForeground.copy(alpha = ShimmerBaseAlpha)
         val transition = rememberInfiniteTransition(label = "shimmer")
-        // On real devices, collapse targetValue to initialValue under reduced
-        // motion so the band stays parked off-screen-left and never sweeps.
-        // In inspection mode (Roborazzi / @Preview), always pass the full
-        // targetValue so the composition shape matches the originally
-        // blessed golden — actual playback doesn't happen under inspection
-        // either way, so the visible frame is identical.
         val progress by transition.animateFloat(
             initialValue = -ShimmerBandWidth,
-            targetValue =
-                if (isInspection || motion.allowsInfiniteMotion) {
-                    1f + ShimmerBandWidth
-                } else {
-                    -ShimmerBandWidth
-                },
+            targetValue = 1f + ShimmerBandWidth,
             animationSpec = motion.shimmerSpec(),
             label = "shimmerProgress",
         )

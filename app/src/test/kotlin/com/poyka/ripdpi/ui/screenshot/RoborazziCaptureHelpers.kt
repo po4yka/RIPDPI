@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziComposeOptions
 import com.github.takahirom.roborazzi.RoborazziOptions
-import com.github.takahirom.roborazzi.captureRoboImage
 import com.github.takahirom.roborazzi.fontScale
 import com.github.takahirom.roborazzi.inspectionMode
 import com.github.takahirom.roborazzi.size
@@ -63,8 +62,10 @@ internal fun captureSingle(
 ) {
     val moduleRoot = System.getProperty("user.dir")
     val themePreference = if (darkMode) "dark" else "light"
-    captureRoboImage(
+    captureStaticRoboImage(
         filePath = "$moduleRoot/src/test/screenshots/$testClassFqn.$name.png",
+        widthDp = widthDp,
+        heightDp = heightDp,
         roborazziOptions = CROSS_PLATFORM_OPTIONS,
         roborazziComposeOptions =
             RoborazziComposeOptions {

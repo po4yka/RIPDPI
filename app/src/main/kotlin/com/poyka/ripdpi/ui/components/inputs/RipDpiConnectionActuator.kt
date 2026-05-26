@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -406,6 +407,7 @@ private fun StageSegment(
     modifier: Modifier = Modifier,
 ) {
     val motion = RipDpiThemeTokens.motion
+    val staticMotion = LocalInspectionMode.current || !motion.allowsInfiniteMotion
     val metrics = RipDpiThemeTokens.components.actuator
     val type = RipDpiThemeTokens.type
     val style =
@@ -413,7 +415,7 @@ private fun StageSegment(
             role = stage.state.toThemeRole(),
         )
     val pulse =
-        if (style.pulsing && motion.allowsInfiniteMotion) {
+        if (style.pulsing && !staticMotion) {
             val transition = rememberInfiniteTransition(label = "actuatorStagePulse")
             val pulseAlpha =
                 transition.animateFloat(

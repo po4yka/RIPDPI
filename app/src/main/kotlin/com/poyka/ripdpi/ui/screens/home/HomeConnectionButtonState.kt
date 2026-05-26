@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
@@ -150,6 +151,7 @@ internal fun rememberHomeConnectionButtonMotionState(
     val previousState = remember { mutableStateOf(state) }
     val performHaptic = rememberRipDpiHapticPerformer()
     val shakeDistance = with(density) { shakeDistanceDp.dp.toPx() }
+    val staticMotion = LocalInspectionMode.current || !motion.animationsEnabled
     val pressScale by animateFloatAsState(
         targetValue =
             if (isPressed && state != ConnectionState.Connecting) {
@@ -161,7 +163,7 @@ internal fun rememberHomeConnectionButtonMotionState(
         label = "homeConnectionPressScale",
     )
     val connectingPulse =
-        if (state == ConnectionState.Connecting && motion.allowsInfiniteMotion) {
+        if (state == ConnectionState.Connecting && !staticMotion && motion.allowsInfiniteMotion) {
             rememberInfiniteTransition(label = "connectingPulse")
         } else {
             null
@@ -187,19 +189,21 @@ internal fun rememberHomeConnectionButtonMotionState(
         )
     )
 
-    LaunchedEffect(state, motion.animationsEnabled) {
-        val priorState = previousState.value
-        previousState.value = state
-        animateHomeConnectionState(
-            state = state,
-            priorState = priorState,
-            motion = motion,
-            buttonScale = buttonScale,
-            haloScale = haloScale,
-            shakeOffset = shakeOffset,
-            shakeDistance = shakeDistance,
-            performHaptic = performHaptic,
-        )
+    if (!staticMotion) {
+        LaunchedEffect(state, motion.animationsEnabled) {
+            val priorState = previousState.value
+            previousState.value = state
+            animateHomeConnectionState(
+                state = state,
+                priorState = priorState,
+                motion = motion,
+                buttonScale = buttonScale,
+                haloScale = haloScale,
+                shakeOffset = shakeOffset,
+                shakeDistance = shakeDistance,
+                performHaptic = performHaptic,
+            )
+        }
     }
 
     return HomeConnectionButtonMotionState(
