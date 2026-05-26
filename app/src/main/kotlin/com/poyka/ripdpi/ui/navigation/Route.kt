@@ -175,13 +175,6 @@ sealed class Route {
     }
 
     @Serializable
-    data object FirstRunTest : Route() {
-        override val stableRoute = "first_run_test"
-        override val titleRes = R.string.title_first_run_test
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
     data object PcapViewer : Route() {
         override val stableRoute = "pcap_viewer"
         override val titleRes = R.string.title_pcap_viewer
@@ -364,7 +357,6 @@ sealed class Route {
                     DataTransparency,
                     DetectionCheck,
                     DetectionSettings,
-                    FirstRunTest,
                     PcapViewer,
                     PcapCaptureList,
                     ReplayFailure,

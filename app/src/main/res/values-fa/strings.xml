@@ -2581,7 +2581,6 @@ fakeddisorder endhost</string>
     <string name="widget_mode_picker_title">انتخاب حالت</string>
 
     <!-- RDS deferred VPN surfaces -->
-    <string name="title_first_run_test">بررسی نخستین اجرا</string>
     <string name="title_replay_failure">پخش مجدد ناموفق</string>
     <string name="title_replay_history">بازپخش‌های قبلی</string>
     <string name="title_handshake_timeline">گاه‌شمار دست‌دهی</string>

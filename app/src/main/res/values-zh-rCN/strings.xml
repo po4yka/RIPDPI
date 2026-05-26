@@ -2577,7 +2577,6 @@ fake_burst 3</string>
     <string name="widget_mode_picker_title">选择模式</string>
 
     <!-- RDS deferred VPN surfaces -->
-    <string name="title_first_run_test">首次运行检查</string>
     <string name="title_replay_failure">重放失败</string>
     <string name="title_replay_history">过往重放</string>
     <string name="title_handshake_timeline">握手时间线</string>

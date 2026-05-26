@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import com.poyka.ripdpi.activities.OnboardingUiState
+import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
 import com.poyka.ripdpi.activities.OnboardingValidationState
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.navigation.Route
@@ -120,9 +121,41 @@ class OnboardingScreenTest {
         composeRule
             .onNodeWithText("This can take a moment. If Android asks for permission, allow it to continue.")
             .assertExists()
-        composeRule.onNodeWithContentDescription("Step 9 of 9").assertExists()
+        composeRule.onNodeWithContentDescription("Step 6 of 6").assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkip).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
+    }
+
+    @Test
+    fun `notification permission failure renders allow recovery action`() {
+        renderValidationPage(
+            OnboardingUiState(
+                currentPage = OnboardingPages.lastIndex,
+                validationState =
+                    OnboardingValidationState.Failed(
+                        reason = "Notifications required",
+                        recoveryKind = OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS,
+                    ),
+            ),
+        )
+
+        composeRule.onNodeWithText("Allow").assertExists()
+    }
+
+    @Test
+    fun `vpn permission failure renders grant recovery action`() {
+        renderValidationPage(
+            OnboardingUiState(
+                currentPage = OnboardingPages.lastIndex,
+                validationState =
+                    OnboardingValidationState.Failed(
+                        reason = "VPN permission denied",
+                        recoveryKind = OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION,
+                    ),
+            ),
+        )
+
+        composeRule.onNodeWithText("Grant VPN permission").assertExists()
     }
 
     private fun renderValidationPage(uiState: OnboardingUiState) {

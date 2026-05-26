@@ -2695,7 +2695,6 @@ fakeddisorder endhost</string>
     <string name="widget_mode_picker_title">Выбрать режим</string>
 
     <!-- RDS deferred VPN surfaces -->
-    <string name="title_first_run_test">Первичная проверка</string>
     <string name="title_replay_failure">Сбой повтора</string>
     <string name="title_replay_history">Прошлые повторы</string>
     <string name="title_handshake_timeline">Хронология рукопожатия</string>

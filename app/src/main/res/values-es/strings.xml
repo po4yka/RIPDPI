@@ -2576,7 +2576,6 @@ Origen: %2$s</string>
     <string name="widget_mode_picker_title">Seleccionar modo</string>
 
     <!-- RDS deferred VPN surfaces -->
-    <string name="title_first_run_test">Comprobación inicial</string>
     <string name="title_replay_failure">Repetición fallida</string>
     <string name="title_replay_history">Reintentos anteriores</string>
     <string name="title_handshake_timeline">Cronología del handshake</string>

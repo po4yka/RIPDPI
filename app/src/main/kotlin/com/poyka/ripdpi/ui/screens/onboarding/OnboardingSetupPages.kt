@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.OnboardingUiState
+import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
 import com.poyka.ripdpi.activities.OnboardingValidationState
 import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.DnsProviderCloudflare
@@ -292,8 +293,26 @@ private fun ValidationFailedContent(
         textAlign = TextAlign.Center,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus),
     )
+    val primaryRecoveryLabel =
+        stringResource(
+            when (state.recoveryKind) {
+                OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS -> {
+                    R.string.settings_permission_action_allow
+                }
+
+                OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION -> {
+                    R.string.diagnostics_scan_grant_vpn_permission
+                }
+
+                OnboardingValidationRecoveryKind.RETRY,
+                OnboardingValidationRecoveryKind.SWITCH_MODE,
+                -> {
+                    R.string.onboarding_validation_retry
+                }
+            },
+        )
     RipDpiButton(
-        text = stringResource(R.string.onboarding_validation_retry),
+        text = primaryRecoveryLabel,
         onClick = onRunValidation,
         variant = RipDpiButtonVariant.Primary,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingValidateAction),

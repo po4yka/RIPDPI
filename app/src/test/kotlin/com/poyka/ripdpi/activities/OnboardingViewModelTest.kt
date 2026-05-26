@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.canonicalDefaultDnsProviderDefinition
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
@@ -50,6 +51,7 @@ class OnboardingViewModelTest {
                 val state = awaitItem()
                 assertEquals(0, state.currentPage)
                 assertEquals(OnboardingPages.size, state.totalPages)
+                assertEquals(canonicalDefaultDnsProviderDefinition().providerId, state.selectedDnsProviderId)
             }
         }
 

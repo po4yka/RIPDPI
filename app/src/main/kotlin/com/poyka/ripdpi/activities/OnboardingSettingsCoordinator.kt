@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.canonicalDefaultDnsProviderDefinition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private val DefaultOnboardingDnsProviderId = canonicalDefaultDnsProviderDefinition().providerId
 
 class OnboardingSettingsCoordinator
     @Inject
@@ -21,7 +23,7 @@ class OnboardingSettingsCoordinator
                     if (settings.onboardingComplete) return@collect
                     onSelectionChanged(
                         Mode.fromString(settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue }),
-                        settings.dnsProviderId.ifEmpty { DnsProviderCloudflare },
+                        settings.dnsProviderId.ifEmpty { DefaultOnboardingDnsProviderId },
                     )
                 }
             }
