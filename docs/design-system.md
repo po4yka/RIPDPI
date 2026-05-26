@@ -232,10 +232,10 @@ Onboarding and permission flows:
 
 - Build with `RipDpiDashboardScaffold` and keep warning or permission banners above the main dashboard content.
 - The main dashboard content is a single ordered mode-card list: local path optimization, remote tunneled outbound, then network diagnostic.
-- `HomeModeCard` is the stable Home primitive for connection and diagnostic entry points; route details, current status, loading state, configuration, and the primary action stay inside the relevant mode card.
+- `HomeModeCard` is the stable Home primitive for connection and diagnostic entry points; route details, current status, loading state, configuration, and the primary action stay inside the relevant mode card. The diagnostic card primary action runs Home analysis in place, while the body/configure affordance opens Diagnostics.
 - The default order is banners, degradation strip when present, the three `HomeModeCard` entries, optional diagnostic PCAP toggle, then Home diagnostic bottom-sheet host.
 - Do not render `HomeStatusCard`, `HomeDiagnosticsCard`, `HomeStatsGrid`, `HomeApproachCard`, or `HomeHistoryCard` in the current Home dashboard. Their old test tags are reserved for negative regression assertions.
-- Use `WarningBanner`, `HomeModeCard`, `RipDpiButton`, `RipDpiSwitch`, `StatusIndicator`, `StageProgressIndicator`, `AnalysisProgressIndicator`, and `RipDpiBottomSheet` as the default Home primitive set.
+- Use `WarningBanner`, `HomeModeCard`, `RipDpiButton`, `RipDpiSwitch`, `StatusIndicator`, `StageProgressIndicator`, and `RipDpiBottomSheet` as the default Home primitive set.
 - Expanded width should preserve the same mode order and avoid reviving the old two-column status/diagnostics split unless the screenshot contract is intentionally changed first.
 - Use `WarningBanner` only for service errors, permission recovery, or background-guidance issues. Do not restyle those concerns as neutral cards.
 - Do not introduce decorative hero art, floating metric tiles, alternate action bars above the mode-card list, or inline raw diagnostics tables that belong in Diagnostics or a bottom sheet.
@@ -269,7 +269,7 @@ Onboarding and permission flows:
 - Compose sections from `SettingsCategoryHeader`, `RipDpiCard`, and `SettingsRow`; a settings section should read as a compact list, not a collection of bespoke cards.
 - Keep connectivity, security, personalization, transparency, and maintenance concerns in separate sections with stable ordering.
 - A category should resolve to one primary grouped container with stable divider rhythm. Inline banners may precede the affected card, but banners do not replace section structure.
-- Use `WarningBanner` for VPN-specific cautions, permission guidance, or stateful advisories. Do not encode those states only through subtitle color.
+- Use `WarningBanner` for tunneled-outbound-specific cautions, permission guidance, or stateful advisories. Do not encode those states only through subtitle color.
 - Use `RipDpiDropdown`, `RipDpiTextField`, `RipDpiConfigTextField`, and dialogs for editable configuration, confirmation, and credential flows. Do not overload row subtitles with inline form editing.
 - Advanced settings should continue the same list-and-section language even when the content becomes dense; density may increase, but the primitive vocabulary should not change.
 - Do not introduce alternate typography hierarchies, floating save bars, decorative containers that break the settings rhythm, or multiple banners as a substitute for missing section hierarchy.
