@@ -6,6 +6,8 @@ A subprocess helper that exposes a local SOCKS5 listener and tunnels TCP through
 
 See `docs/native/relay-naiveproxy-runtime.md` for the operational model.
 
+The completion target is documented in `README.md`. The architecture remains subprocess-based through `NaiveProxyManager.kt`; this crate is not an in-process relay backend.
+
 ## Upstream
 
 - klzgrad/naiveproxy (https://github.com/klzgrad/naiveproxy)
@@ -31,6 +33,7 @@ A planned structured `RIPDPI-PROBE` JSON contract is tracked in `docs/tasks/issu
 ## Known divergences from upstream
 
 - This helper is not a full naiveproxy port; it shells SOCKS5↔CONNECT. Browser-engine features are explicitly out of scope.
+- As of the Step 0 audit, this helper still uses HTTP/1.1 CONNECT over rustls and does not implement upstream NaiveProxy HTTP/2 CONNECT or payload padding. `README.md` records the gap audit and test plan for the staged implementation.
 
 ## Non-goals
 
