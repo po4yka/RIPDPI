@@ -153,6 +153,51 @@ async fn http_front_connect_round_trip_over_h2_naive_padding_fixture() {
     server.abort();
 }
 
+#[tokio::test]
+async fn helper_reconnects_after_upstream_h2_stream_failure() {
+    let fixture = local_network_fixture::NaiveH2PaddingFixture::start_closing_first_tunnel_after_payload(
+        "naive-user",
+        "naive-pass",
+    )
+    .await
+    .expect("start naive h2 fixture");
+    let local_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind local listener");
+    let local_addr = local_listener.local_addr().expect("local addr");
+    let config = NaiveProxyConfig {
+        listen: local_addr.to_string(),
+        server: "127.0.0.1".to_owned(),
+        server_port: fixture.port(),
+        server_name: fixture.server_name().to_owned(),
+        username: Some("naive-user".to_owned()),
+        password: Some("naive-pass".to_owned()),
+        path: None,
+        tls_config: fixture.client_tls_config(),
+    };
+
+    let server = tokio::spawn(async move {
+        serve_listener(local_listener, Arc::new(config)).await.expect("serve listener");
+    });
+
+    let mut first_client = open_socks_tunnel(local_addr).await;
+    first_client.write_all(b"first-tunnel").await.expect("write first tunneled payload");
+    let mut dropped_echo = vec![0u8; "first-tunnel".len()];
+    assert!(
+        first_client.read_exact(&mut dropped_echo).await.is_err(),
+        "fixture should close the first upstream stream before echoing",
+    );
+
+    let mut second_client = open_socks_tunnel(local_addr).await;
+    second_client.write_all(b"second-tunnel").await.expect("write second tunneled payload");
+    let mut echoed = vec![0u8; "second-tunnel".len()];
+    second_client.read_exact(&mut echoed).await.expect("read second echo");
+    assert_eq!(&echoed, b"second-tunnel");
+
+    let observed = fixture.observed();
+    assert!(observed.decoded_payload_bytes >= "first-tunnel".len() + "second-tunnel".len());
+
+    server.abort();
+}
+
 #[test]
 fn padding_frame_encodes_big_endian_length_and_zero_padding() {
     let mut encoder = PaddingEncoder::default();
@@ -290,6 +335,21 @@ fn build_socks_connect_request(host: &str, port: u16) -> Vec<u8> {
     request.extend_from_slice(&address.octets());
     request.extend_from_slice(&port.to_be_bytes());
     request
+}
+
+async fn open_socks_tunnel(local_addr: std::net::SocketAddr) -> TcpStream {
+    let mut client = TcpStream::connect(local_addr).await.expect("connect local socks");
+    client.write_all(&[0x05, 0x01, 0x00]).await.expect("write greeting");
+    let mut auth_reply = [0u8; 2];
+    client.read_exact(&mut auth_reply).await.expect("read greeting reply");
+    assert_eq!(auth_reply, [0x05, 0x00]);
+
+    let connect_request = build_socks_connect_request("127.0.0.1", 443);
+    client.write_all(&connect_request).await.expect("write connect request");
+    let mut connect_reply = [0u8; 10];
+    client.read_exact(&mut connect_reply).await.expect("read connect reply");
+    assert_eq!(connect_reply[1], 0x00);
+    client
 }
 
 async fn read_http_headers(client: &mut TcpStream) -> std::io::Result<String> {

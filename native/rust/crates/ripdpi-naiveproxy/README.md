@@ -14,15 +14,15 @@ This crate intentionally does not aim for a TLS or HTTP/2 fingerprint identical 
 - klzgrad/naiveproxy source at upstream commit `d9d09c9cc55ed40f5ee725d046884dcb84f57589`: `src/net/tools/naive/naive_padding_framer.{h,cc}`, `naive_padding_socket.cc`, `naive_proxy_delegate.cc`, `http_proxy_server_socket.cc`, and `naive_protocol.{h,cc}`.
 - Cross-check only: `cfal/shoes` and `SagerNet/sing-box protocol/naive`. These are not implementation sources for this BSD-3-Clause crate.
 
-## Step 0 Gap Audit
+## Implementation Status
 
-- Current upstream tunnel is HTTP/1.1 CONNECT over rustls in `src/connect_tunnel.rs`; full support requires HTTP/2 CONNECT with `:method = CONNECT`, `:authority = target`, `proxy-authorization`, `padding`, and `padding-type-request` headers.
-- Current local front listener is SOCKS5 only in `src/socks5.rs` / `src/relay.rs`; full support requires keeping SOCKS5 and adding an HTTP CONNECT front listener.
-- Current payload relay uses raw `copy_bidirectional`; full support requires negotiated Naive padding after CONNECT response headers show server support.
-- Current CONNECT request sends no `padding` or `padding-type-request` header and reads no response padding headers; full support requires client opt-in and enabling payload padding only when both request and response carry `padding`.
-- Current `--path` flag is emitted as `X-Naive-Path`, which is not part of the upstream CONNECT padding negotiation. CLI changes, if any, must land with a Kotlin `NaiveProxyManager` test in the same implementation slice.
-- Current tests use an ad hoc HTTPS/HTTP/1.1 proxy in `src/tests.rs`; full support requires an offline deterministic HTTP/2 CONNECT plus Naive padding fixture in `local-network-fixture`, with regular CI E2E not depending on a real upstream Naive server.
-- Current TLS setup uses rustls with no explicit `h2` ALPN in this crate; full support requires an HTTP/2-capable TLS connection. Chromium-identical TLS/H2 fingerprinting remains a documented non-goal.
+- Upstream tunnels use HTTP/2 CONNECT over TLS with `h2` ALPN, `:method = CONNECT`, `:authority = target`, `Proxy-Authorization`, `padding`, and `padding-type-request: 1` headers.
+- Payload padding uses the NaiveProxy Variant1 frame format and is enabled only when the client sent request padding and the upstream response includes `padding` plus `padding-type-reply: 1`; otherwise the tunnel remains plain HTTP/2 proxy interop.
+- The local front listener accepts SOCKS5 and HTTP/1.x CONNECT on the same socket by sniffing the first byte, then relays both front protocols through the same HTTP/2 CONNECT upstream path.
+- The subprocess CLI contract is `--listen`, `--server`, `--server-port`, `--server-name`, optional paired `--username` / `--password`, and optional `--path`; Android `NaiveProxyManager.kt` has a unit test locking the emitted argument vector for `naiveUsername`, `naivePassword`, and `naivePath`.
+- `RIPDPI-PROBE` reports `socks5-listener`, `http-front-listener`, `h2-connect-upstream`, `naive-padding`, `structured-error`, and `ready-signal` capability tags.
+- Regular E2E coverage is offline and deterministic through `local-network-fixture::NaiveH2PaddingFixture`, including SOCKS5 round trip, HTTP CONNECT front round trip, Basic auth propagation, CONNECT padding ranges, payload padding, and reconnect after an upstream H2 stream failure.
+- Chromium-identical TLS/H2 fingerprinting remains a non-goal. The current implementation uses the workspace rustls/AWS-LC TLS stack with `h2` ALPN; future BoringSSL ClientHello approximation can be added without changing the subprocess architecture.
 
 ## Padding Protocol Notes
 

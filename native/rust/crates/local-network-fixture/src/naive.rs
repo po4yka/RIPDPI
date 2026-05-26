@@ -1,6 +1,7 @@
 use std::convert::Infallible;
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
@@ -40,13 +41,27 @@ pub struct NaiveH2PaddingFixture {
 
 impl NaiveH2PaddingFixture {
     pub async fn start(username: &str, password: &str) -> io::Result<Self> {
+        Self::start_with_options(username, password, false).await
+    }
+
+    pub async fn start_closing_first_tunnel_after_payload(username: &str, password: &str) -> io::Result<Self> {
+        Self::start_with_options(username, password, true).await
+    }
+
+    async fn start_with_options(
+        username: &str,
+        password: &str,
+        close_first_tunnel_after_payload: bool,
+    ) -> io::Result<Self> {
         let tls = tls_configs()?;
         let expected_auth = format!("Basic {}", base64_encode(format!("{username}:{password}").as_bytes()));
         let observed = Arc::new(Mutex::new(NaiveH2PaddingObserved::default()));
+        let close_first_tunnel_after_payload = Arc::new(AtomicBool::new(close_first_tunnel_after_payload));
         let (addr_tx, addr_rx) = std::sync::mpsc::channel();
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let server_config = Arc::clone(&tls.server);
         let observed_for_thread = Arc::clone(&observed);
+        let close_first_tunnel_for_thread = Arc::clone(&close_first_tunnel_after_payload);
 
         let thread = thread::spawn(move || {
             let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -56,7 +71,15 @@ impl NaiveH2PaddingFixture {
             runtime.block_on(async move {
                 let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind naive h2 fixture");
                 addr_tx.send(listener.local_addr().expect("fixture local addr")).ok();
-                serve(listener, server_config, expected_auth, observed_for_thread, shutdown_rx).await;
+                serve(
+                    listener,
+                    server_config,
+                    expected_auth,
+                    observed_for_thread,
+                    close_first_tunnel_for_thread,
+                    shutdown_rx,
+                )
+                .await;
             });
         });
 
@@ -134,6 +157,7 @@ async fn serve(
     server_config: Arc<ServerConfig>,
     expected_auth: String,
     observed: Arc<Mutex<NaiveH2PaddingObserved>>,
+    close_first_tunnel_after_payload: Arc<AtomicBool>,
     mut shutdown: oneshot::Receiver<()>,
 ) {
     let acceptor = TlsAcceptor::from(server_config);
@@ -147,12 +171,18 @@ async fn serve(
                 let acceptor = acceptor.clone();
                 let expected_auth = expected_auth.clone();
                 let observed = Arc::clone(&observed);
+                let close_first_tunnel_after_payload = Arc::clone(&close_first_tunnel_after_payload);
                 tokio::spawn(async move {
                     let Ok(tls) = acceptor.accept(socket).await else {
                         return;
                     };
                     let service = service_fn(move |request| {
-                        handle_request(request, expected_auth.clone(), Arc::clone(&observed))
+                        handle_request(
+                            request,
+                            expected_auth.clone(),
+                            Arc::clone(&observed),
+                            Arc::clone(&close_first_tunnel_after_payload),
+                        )
                     });
                     let mut builder = hyper::server::conn::http2::Builder::new(TokioExecutor::new());
                     builder.enable_connect_protocol();
@@ -167,6 +197,7 @@ async fn handle_request(
     request: Request<Incoming>,
     expected_auth: String,
     observed: Arc<Mutex<NaiveH2PaddingObserved>>,
+    close_first_tunnel_after_payload: Arc<AtomicBool>,
 ) -> Result<Response<Empty<Bytes>>, Infallible> {
     if request.method() != Method::CONNECT {
         return Ok(response(StatusCode::METHOD_NOT_ALLOWED));
@@ -194,7 +225,7 @@ async fn handle_request(
     let upgraded = hyper::upgrade::on(request);
     tokio::spawn(async move {
         if let Ok(upgraded) = upgraded.await {
-            echo_padded(TokioIo::new(upgraded), observed).await;
+            echo_padded(TokioIo::new(upgraded), observed, close_first_tunnel_after_payload).await;
         }
     });
 
@@ -210,7 +241,11 @@ fn response(status: StatusCode) -> Response<Empty<Bytes>> {
     Response::builder().status(status).body(Empty::<Bytes>::new()).expect("valid fixture response")
 }
 
-async fn echo_padded(mut io: TokioIo<hyper::upgrade::Upgraded>, observed: Arc<Mutex<NaiveH2PaddingObserved>>) {
+async fn echo_padded(
+    mut io: TokioIo<hyper::upgrade::Upgraded>,
+    observed: Arc<Mutex<NaiveH2PaddingObserved>>,
+    close_first_tunnel_after_payload: Arc<AtomicBool>,
+) {
     let mut decoder = FixturePaddingDecoder::default();
     let mut encoder = FixturePaddingEncoder::default();
     let mut buffer = [0u8; 4096];
@@ -227,6 +262,9 @@ async fn echo_padded(mut io: TokioIo<hyper::upgrade::Upgraded>, observed: Arc<Mu
             continue;
         }
         observed.lock().expect("fixture observations").decoded_payload_bytes += decoded.len();
+        if close_first_tunnel_after_payload.swap(false, Ordering::AcqRel) {
+            break;
+        }
         let mut encoded = Vec::new();
         let mut remaining = decoded.as_slice();
         while !remaining.is_empty() {
