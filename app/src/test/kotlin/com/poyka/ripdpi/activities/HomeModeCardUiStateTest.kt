@@ -82,6 +82,26 @@ class HomeModeCardUiStateTest {
     }
 
     @Test
+    fun `vpn card primary action is disabled when relay is disabled`() {
+        val cards =
+            buildCards(
+                settings =
+                    AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setRipdpiMode(Mode.VPN.preferenceValue)
+                        .setRelayEnabled(false)
+                        .build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Disconnected,
+            )
+
+        val remoteVpn = cards.single { it.mode == HomeMode.RemoteVpn }
+        assertEquals("Relay disabled", remoteVpn.primaryLabel)
+        assertFalse(remoteVpn.primaryActionEnabled)
+    }
+
+    @Test
     fun `vpn card is active for connected vpn mode and summarizes relay server`() {
         val cards =
             buildCards(

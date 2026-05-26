@@ -163,6 +163,7 @@ private fun buildRemoteVpnCard(
         isLoading =
             connectionState == ConnectionState.Connecting &&
                 isRemoteVpnMode(mode = configuredMode, relayEnabled = draft.relayEnabled),
+        primaryActionEnabled = draft.relayEnabled,
     )
 }
 
