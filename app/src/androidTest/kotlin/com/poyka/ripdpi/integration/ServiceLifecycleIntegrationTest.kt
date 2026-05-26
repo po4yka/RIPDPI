@@ -515,6 +515,7 @@ class ServiceLifecycleIntegrationTest {
 
             startService(RipDpiVpnService::class.java)
             awaitStatus(AppStatus.Running, Mode.VPN)
+            awaitHandoverMonitorSubscribers(1)
             awaitOrderEventCount("vpn:establish", 1)
 
             IntegrationTestOverrides.networkHandoverMonitor.emit(
@@ -787,6 +788,14 @@ class ServiceLifecycleIntegrationTest {
     ) {
         withTimeout(10.seconds) {
             while (IntegrationTestOverrides.orderSnapshot().count { it == event } != expected) {
+                delay(50)
+            }
+        }
+    }
+
+    private suspend fun awaitHandoverMonitorSubscribers(expected: Int) {
+        withTimeout(10.seconds) {
+            while (IntegrationTestOverrides.networkHandoverMonitor.subscriberCount < expected) {
                 delay(50)
             }
         }

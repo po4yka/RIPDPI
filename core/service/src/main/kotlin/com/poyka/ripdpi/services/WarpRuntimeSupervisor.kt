@@ -27,6 +27,8 @@ internal class WarpRuntimeSupervisor(
 ) {
     private var warpRuntime: RipDpiWarpRuntime? = null
     private var warpJob: Job? = null
+
+    @Volatile
     private var stopRequested: Boolean = false
     private var exitReporting: AtomicBoolean? = null
 

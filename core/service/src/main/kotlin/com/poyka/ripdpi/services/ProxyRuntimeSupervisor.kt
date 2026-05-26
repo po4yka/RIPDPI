@@ -29,6 +29,8 @@ internal class ProxyRuntimeSupervisor(
 ) {
     private var proxyRuntime: RipDpiProxyRuntime? = null
     private var proxyJob: Job? = null
+
+    @Volatile
     private var stopRequested: Boolean = false
     private var exitReporting: AtomicBoolean? = null
 

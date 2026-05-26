@@ -107,6 +107,8 @@ internal class UpstreamRelaySupervisor(
 
     private var relayRuntime: RipDpiRelayRuntime? = null
     private var relayJob: Job? = null
+
+    @Volatile
     private var stopRequested: Boolean = false
     private var exitReporting: AtomicBoolean? = null
 

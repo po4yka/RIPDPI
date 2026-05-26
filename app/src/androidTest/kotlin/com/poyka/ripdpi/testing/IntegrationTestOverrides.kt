@@ -119,6 +119,10 @@ class RecordingRipDpiProxyRuntime(
         private set
 
     override suspend fun startProxy(preferences: com.poyka.ripdpi.core.RipDpiProxyPreferences): Int {
+        if (exitCode.isCompleted) {
+            exitCode = CompletableDeferred()
+            ready = CompletableDeferred()
+        }
         lastPreferences = preferences
         events += "proxy:start"
         faults.next(ProxyRuntimeFaultTarget.START)?.throwOrIgnore()
@@ -327,6 +331,9 @@ class RecordingVpnTunnelSessionProvider(
         dns: String,
         ipv6: Boolean,
     ): VpnTunnelSession {
+        if (session.isClosed) {
+            session = RecordingVpnTunnelSession.open(events)
+        }
         lastDns = dns
         lastIpv6 = ipv6
         events += "vpn:establish"
@@ -368,6 +375,9 @@ class RecordingNetworkHandoverMonitor : NetworkHandoverMonitor {
     private val eventFlow = MutableSharedFlow<NetworkHandoverEvent>(extraBufferCapacity = 8)
 
     override val events: SharedFlow<NetworkHandoverEvent> = eventFlow.asSharedFlow()
+
+    val subscriberCount: Int
+        get() = eventFlow.subscriptionCount.value
 
     suspend fun emit(event: NetworkHandoverEvent) {
         eventFlow.emit(event)
