@@ -423,6 +423,7 @@ Long-form rules that apply to both Claude Code and Codex CLI live in `.claude/ru
 | `network-fingerprint-privacy.md` | Per-network policy cache, scope-key construction, anything that might log device identifiers (BSSID, IMEI, IP) — privacy + Play Data Safety implications. |
 | `compose-preview.md` | Rendering `@Preview` composables to PNG via `ee.schimke.composeai.preview` — Gradle tasks, output paths under `build/compose-previews/`, and the hard rule that this output is NEVER copied into Roborazzi golden paths. |
 | `ansible-molecule.md` | Authoring or editing `ansible/molecule/*/molecule.yml` in the sibling `ripdpi-vpn-deploy` repo (inventory shape, group_vars/all.yml mirroring) or `ansible/roles/xray/templates/config.json.j2` (selectorless routing rules). |
+| `rds-spec.md` | Any UI PR adding or changing a screen, component, motion spec, or surface — RIPDPI Design System contract under `docs/design/rds/`, token consumption from `RipDpiTheme` / `RipDpiMotion` / `RipDpiSurface` / `RipDpiState`, Glance widget theme parity, 7-locale string parity. |
 
 ## Design Sources
 
