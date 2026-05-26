@@ -9,7 +9,10 @@ base64.workspace = true
 bytes = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
 pico-args.workspace = true
+rand = { workspace = true }
 rustls.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync"] }
 tokio-rustls.workspace = true
@@ -17,6 +20,7 @@ webpki-roots.workspace = true
 
 [dev-dependencies]
 golden-test-support = { workspace = true }
+local-network-fixture = { workspace = true }
 rcgen.workspace = true
 
 [lints]

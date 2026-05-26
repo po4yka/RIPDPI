@@ -5,6 +5,7 @@ use bytes::Bytes;
 use http::header::PROXY_AUTHORIZATION;
 use http::{HeaderMap, HeaderValue, Request};
 use http_body_util::Empty;
+use rand::RngExt;
 
 use crate::config::NaiveProxyConfig;
 use crate::socks5::SocksTarget;
@@ -56,6 +57,12 @@ pub fn build_h2_connect_request(
     builder
         .body(Empty::<Bytes>::new())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid H2 CONNECT request: {error}")))
+}
+
+pub fn generate_connect_padding_header() -> String {
+    let mut rng = rand::rng();
+    let len = rng.random_range(CONNECT_PADDING_HEADER_MIN..=CONNECT_PADDING_HEADER_MAX);
+    "~".repeat(len)
 }
 
 pub fn negotiate_payload_padding_from_response(

@@ -8,7 +8,6 @@ use crate::config::NaiveProxyConfig;
 use crate::connect_tunnel::open_https_connect_tunnel;
 use crate::errors::emit_structured_error;
 use crate::socks5::{negotiate_socks5, read_socks5_request, write_socks_reply};
-use crate::tls::BufferedTlsStream;
 
 const STRUCTURED_READY_PREFIX: &str = "RIPDPI-READY|naiveproxy|";
 
@@ -45,7 +44,7 @@ async fn handle_client(mut client: TcpStream, config: Arc<NaiveProxyConfig>) -> 
     };
 
     write_socks_reply(&mut client, 0x00).await?;
-    let mut upstream = BufferedTlsStream::new(upstream.0, upstream.1);
+    let mut upstream = upstream;
     let _ = copy_bidirectional(&mut client, &mut upstream).await?;
     Ok(())
 }

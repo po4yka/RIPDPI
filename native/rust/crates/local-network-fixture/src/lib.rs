@@ -4,6 +4,7 @@ mod echo;
 mod event;
 mod fault;
 mod http;
+mod naive;
 mod socks;
 mod stack;
 mod tls;
@@ -12,6 +13,7 @@ mod util;
 
 pub use self::event::*;
 pub use self::fault::*;
+pub use self::naive::*;
 pub use self::stack::FixtureStack;
 pub use self::types::*;
 
