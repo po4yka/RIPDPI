@@ -24,7 +24,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.LanguagePickerSheet
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -318,11 +317,7 @@ internal fun SettingsPermissionsSection(
                 value = item.actionLabel ?: item.statusLabel,
                 onClick =
                     item.actionLabel?.let {
-                        if (item.kind == PermissionKind.VpnConsent) {
-                            actions.onOpenVpnPermissionDialog
-                        } else {
-                            { actions.onRepairPermission(item.kind) }
-                        }
+                        { actions.onRepairPermission(item.kind) }
                     },
                 enabled = item.enabled,
                 showDivider = index != permissionSummary.items.lastIndex,

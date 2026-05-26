@@ -666,6 +666,48 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `vpn consent repair updates permission without starting vpn`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val provider =
+                FakePermissionStatusProvider(
+                    snapshot =
+                        PermissionSnapshot(
+                            vpnConsent = PermissionStatus.RequiresSystemPrompt,
+                            notifications = PermissionStatus.Granted,
+                            batteryOptimization = PermissionStatus.Granted,
+                        ),
+                )
+            val viewModel =
+                createViewModel(
+                    serviceController = serviceController,
+                    permissionStatusProvider = provider,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.effects.test {
+                viewModel.onRepairPermissionRequested(PermissionKind.VpnConsent)
+                val effect = awaitItem() as MainEffect.RequestPermission
+                assertEquals(PermissionKind.VpnConsent, effect.kind)
+
+                provider.snapshot =
+                    provider.snapshot.copy(
+                        vpnConsent = PermissionStatus.Granted,
+                    )
+                viewModel.onPermissionResult(PermissionKind.VpnConsent, PermissionResult.Granted)
+                advanceUntilIdle()
+
+                expectNoEvents()
+                assertTrue(serviceController.startedModes.isEmpty())
+                assertNull(viewModel.uiState.value.permissionSummary.issue)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            collector.cancel()
+        }
+
+    @Test
     fun `pending action resumes across notifications and vpn consent`() =
         runTest {
             val serviceController = FakeServiceController()

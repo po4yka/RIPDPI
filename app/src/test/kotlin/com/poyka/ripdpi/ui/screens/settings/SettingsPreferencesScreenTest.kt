@@ -18,6 +18,8 @@ import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -104,7 +106,51 @@ class SettingsPreferencesScreenTest {
             .assertIsDisplayed()
     }
 
-    private fun testActions(onShareDebugBundle: () -> Unit = {}): SettingsScreenActions =
+    @Test
+    fun vpnConsentPermissionRowInvokesRepairCallback() {
+        var repairedKind: PermissionKind? = null
+        var openedVpnDialog = false
+
+        composeRule.setContent {
+            RipDpiTheme {
+                SettingsScreen(
+                    uiState = SettingsUiState(),
+                    actions =
+                        testActions(
+                            onRepairPermission = { repairedKind = it },
+                            onOpenVpnPermissionDialog = { openedVpnDialog = true },
+                        ),
+                    permissionSummary =
+                        PermissionSummaryUiState(
+                            items =
+                                persistentListOf(
+                                    PermissionItemUiState(
+                                        kind = PermissionKind.VpnConsent,
+                                        title = "VPN consent",
+                                        subtitle = "System VPN approval is missing.",
+                                        statusLabel = "Missing",
+                                        actionLabel = "Repair",
+                                    ),
+                                ),
+                        ),
+                )
+            }
+        }
+
+        composeRule
+            .onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasTestTag(RipDpiTestTags.settingsPermission(PermissionKind.VpnConsent)))
+        composeRule.onNodeWithTag(RipDpiTestTags.settingsPermission(PermissionKind.VpnConsent)).performClick()
+
+        assertEquals(PermissionKind.VpnConsent, repairedKind)
+        assertFalse(openedVpnDialog)
+    }
+
+    private fun testActions(
+        onShareDebugBundle: () -> Unit = {},
+        onRepairPermission: (PermissionKind) -> Unit = {},
+        onOpenVpnPermissionDialog: () -> Unit = {},
+    ): SettingsScreenActions =
         SettingsScreenActions(
             onOpenDnsSettings = {},
             onOpenAdvancedSettings = {},
@@ -112,8 +158,8 @@ class SettingsPreferencesScreenTest {
             onOpenAbout = {},
             onOpenDataTransparency = {},
             onShareDebugBundle = onShareDebugBundle,
-            onRepairPermission = {},
-            onOpenVpnPermissionDialog = {},
+            onRepairPermission = onRepairPermission,
+            onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
             onExcludeRussianAppsChanged = {},
