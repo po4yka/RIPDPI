@@ -278,11 +278,41 @@ mod tests {
                 None,
                 "203.0.113.10:443".parse().expect("target socket"),
                 Some("youtube.com"),
-                &[0x16, 0x03, 0x01, 0x00, 0x01, 0x01],
+                &minimal_tls_client_hello(),
             )
             .expect("strategy hints");
 
         assert_eq!(hints.tls_record_offset_base, Some(ripdpi_config::OffsetBase::AutoHost));
         clear_global_probe_results_for_tests();
+    }
+
+    fn minimal_tls_client_hello() -> Vec<u8> {
+        let sni = b"youtube.com";
+        let sni_len = sni.len();
+        let sni_ext_len = 2 + 1 + 2 + sni_len;
+        let ext_total_len = 2 + 2 + sni_ext_len;
+        let handshake_len = 2 + 32 + 1 + 2 + 2 + 1 + 1 + 2 + ext_total_len;
+        let mut payload = Vec::new();
+        payload.push(0x16);
+        payload.extend([0x03, 0x01]);
+        payload.extend(((handshake_len + 4) as u16).to_be_bytes());
+        payload.push(0x01);
+        payload.push(0x00);
+        payload.extend((handshake_len as u16).to_be_bytes());
+        payload.extend([0x03, 0x03]);
+        payload.extend([0u8; 32]);
+        payload.push(0x00);
+        payload.extend(2u16.to_be_bytes());
+        payload.extend([0x00, 0x2f]);
+        payload.push(0x01);
+        payload.push(0x00);
+        payload.extend((ext_total_len as u16).to_be_bytes());
+        payload.extend(0u16.to_be_bytes());
+        payload.extend((sni_ext_len as u16).to_be_bytes());
+        payload.extend(((sni_ext_len - 2) as u16).to_be_bytes());
+        payload.push(0x00);
+        payload.extend((sni_len as u16).to_be_bytes());
+        payload.extend(sni);
+        payload
     }
 }
