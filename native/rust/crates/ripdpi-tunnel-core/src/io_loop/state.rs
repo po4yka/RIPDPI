@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::{Duration, Instant as StdInstant};
+use std::time::Instant as StdInstant;
 
 use ripdpi_collections::bounded_heap::BoundedHeap;
 use smoltcp::iface::{Interface, SocketHandle, SocketSet};
@@ -9,26 +9,16 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_util::sync::CancellationToken;
 
 use crate::dns_cache::DnsCache;
-use crate::session::Auth;
 use crate::{ActiveSessions, Stats, TunDevice};
 
-use super::dns_intercept::{DnsRequest, DnsResponse, MapDnsRuntime};
+use super::dns_intercept::{DnsRequest, DnsResponse};
 use super::packet::TcpFlowKey;
 use super::retransmit::RetransmitTracker;
 use super::udp_assoc::{UdpAssociation, UdpEvent, UdpEvictionEntry};
-use ripdpi_tunnel_intercept::egress::TunEgressPacketHandler;
-use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, TunIngressInterceptor};
 
-pub(in crate::io_loop) struct LoopRuntime {
-    pub(in crate::io_loop) proxy_sockaddr: SocketAddr,
-    pub(in crate::io_loop) auth: Auth,
-    pub(in crate::io_loop) mapdns_runtime: Option<MapDnsRuntime>,
-    pub(in crate::io_loop) mapdns_classify: Option<(u32, u32, u16)>,
-    pub(in crate::io_loop) filter_injected_resets: bool,
-    pub(in crate::io_loop) tun_ingress_interceptor: TunIngressInterceptor<RawSynAckPacketInjector>,
-    pub(in crate::io_loop) tun_egress_interceptor: Box<dyn TunEgressPacketHandler>,
-    pub(in crate::io_loop) udp_idle_timeout: Duration,
-}
+mod runtime;
+
+pub(in crate::io_loop) use runtime::LoopRuntime;
 
 pub(in crate::io_loop) struct LoopState {
     pub(in crate::io_loop) device: TunDevice,

@@ -19,11 +19,9 @@ use super::listener::remove_pending_listen;
 use super::target::{pin_synthetic_ip, pinned_synthetic_ip, tcp_session_target_addr};
 use super::unresolved::{abort_unresolved_sessions, abort_unresolved_tcp_socket};
 
-struct PendingTcpSession {
-    handle: SocketHandle,
-    target_addr: SocketAddr,
-    synthetic_ip: Option<u32>,
-}
+mod pending;
+
+use pending::PendingTcpSession;
 
 pub(crate) fn spawn_new_tcp_sessions(
     socket_set: &mut SocketSet<'static>,

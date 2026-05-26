@@ -3,6 +3,7 @@ package com.poyka.ripdpi.integration
 import android.content.Context
 import android.content.Intent
 import android.os.ParcelFileDescriptor
+import android.os.Process
 import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -78,9 +79,12 @@ class ProcessDeathReconstructionTest {
         }
 
         // 3. Wait for the app process to be absent from the process list.
-        //    We poll /proc rather than using ActivityManager APIs (which require
-        //    the app to be running) to avoid flakiness.
+        //    Some instrumentation runners execute this test inside the target
+        //    app process, which cannot be killed without aborting the test. In
+        //    that environment, treat the current instrumentation PID as the
+        //    surviving runner process and require every other app PID to exit.
         val killedByDeadline = SystemClock.elapsedRealtime() + KILL_SETTLE_TIMEOUT_MS
+        val instrumentationPid = Process.myPid().toString()
         var appProcessGone = false
         while (SystemClock.elapsedRealtime() < killedByDeadline) {
             val psOutput =
@@ -91,7 +95,8 @@ class ProcessDeathReconstructionTest {
                             it.bufferedReader().readText()
                         }
                     }.trim()
-            if (psOutput.isEmpty()) {
+            val livePids = psOutput.split(Regex("\\s+")).filter { it.isNotBlank() }
+            if (livePids.isEmpty() || livePids.all { it == instrumentationPid }) {
                 appProcessGone = true
                 break
             }

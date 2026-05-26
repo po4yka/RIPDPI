@@ -1,10 +1,8 @@
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::connectivity::run_dns_probe_with_context;
-use crate::connectivity::ProbeExecutionContext;
+use crate::connectivity::{run_dns_probe_with_context, ProbeExecutionContext};
 use crate::engine::runtime::{CollectedStageOutcome, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
 use crate::types::{DnsTarget, ProbeResult};
 

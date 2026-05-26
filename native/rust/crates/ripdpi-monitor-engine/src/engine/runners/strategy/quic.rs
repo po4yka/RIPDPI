@@ -4,24 +4,22 @@ use std::time::Duration;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::candidates::{
-    build_quic_candidates_for_suite, candidate_pause_ms, probe_fake_ttl_capability,
-    probe_ip_fragmentation_capabilities, probe_tcp_fast_open_capability,
-};
-use crate::classification::{filter_quic_candidates_for_failure, interleave_candidate_families, next_candidate_index};
+use crate::candidates::{candidate_pause_ms, probe_fake_ttl_capability, probe_ip_fragmentation_capabilities};
+use crate::classification::next_candidate_index;
 use crate::execution::{
     skipped_candidate_summary, CandidateRuntimeLauncher, DefaultStrategyLaneExecutor, StrategyLaneExecutor,
 };
 use crate::types::StrategyProbeProgressLane;
-use crate::util::stable_probe_hash;
 
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
 };
 use super::support::{
     annotate_emitter_execution, capability_available, capability_suffix, missing_capability_rationale,
-    select_safe_or_baseline_candidate_index, strategy_probe_live_progress_with_targets, FamilyFailureTracker,
+    strategy_probe_live_progress_with_targets, FamilyFailureTracker,
 };
+
+mod selection;
 
 pub(in crate::engine::runners) struct StrategyQuicRunner {
     lane_executor: DefaultStrategyLaneExecutor,
@@ -56,41 +54,13 @@ impl ExecutionStageRunner for StrategyQuicRunner {
             return RunnerOutcome::Completed;
         };
         let fake_ttl_available = probe_fake_ttl_capability();
-        let tcp_fast_open_available = probe_tcp_fast_open_capability();
         let ipfrag_caps = probe_ip_fragmentation_capabilities();
-        let tcp_winner_id = select_safe_or_baseline_candidate_index(
-            &runtime.strategy.tcp_candidates,
-            &strategy_plan.suite.tcp_candidates,
-            fake_ttl_available,
-            tcp_fast_open_available,
-            ipfrag_caps,
-        )
-        .map(|i| runtime.strategy.tcp_candidates[i].id.as_str());
-        let tcp_winner_spec = tcp_winner_id
-            .and_then(|id| strategy_plan.suite.tcp_candidates.iter().find(|s| s.id == id))
-            .or_else(|| strategy_plan.suite.tcp_candidates.first());
-        let Some(tcp_winner_spec) = tcp_winner_spec else {
+        let Some(prepared) = selection::prepare_quic_candidates(plan, runtime, fake_ttl_available, ipfrag_caps) else {
             return RunnerOutcome::Completed;
         };
-        let quic_specs = filter_quic_candidates_for_failure(
-            build_quic_candidates_for_suite(&strategy_plan.suite_id, &tcp_winner_spec.config)
-                .unwrap_or_else(|_| strategy_plan.suite.quic_candidates.clone()),
-            runtime.strategy.baseline_failure.as_ref().map(|value| value.class),
-        );
-        // Use encrypted-DNS-resolved targets when DNS tampering was detected.
-        // Clone to avoid holding an immutable borrow on `runtime` across mutable calls.
-        let quic_targets =
-            runtime.strategy.dns_override_quic_targets.clone().unwrap_or_else(|| plan.request.quic_targets.clone());
-        let quic_candidate_total = quic_specs.len();
+        let selection::PreparedQuicCandidates { mut pending_quic_specs, quic_targets, quic_candidate_total } = prepared;
         if quic_candidate_total == 0 {
             return RunnerOutcome::Completed;
-        }
-        let mut pending_quic_specs =
-            interleave_candidate_families(quic_specs.clone(), stable_probe_hash(strategy_plan.probe_seed, "quic"));
-        if let Some(max) = strategy_plan.max_candidates {
-            if pending_quic_specs.len() > max {
-                pending_quic_specs.truncate(max);
-            }
         }
         let mut quic_family_succeeded = false;
         let mut quic_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);

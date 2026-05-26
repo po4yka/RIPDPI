@@ -29,8 +29,21 @@ class HotspotMeasurement:
 
 def production_source(text: str) -> str:
     lines: list[str] = []
+    skip_next_test_item = False
     for line in text.splitlines():
-        if line == "mod tests {":
+        stripped = line.strip()
+        if stripped.startswith("#[cfg") and "test" in stripped:
+            skip_next_test_item = True
+            continue
+        if skip_next_test_item:
+            skip_next_test_item = False
+            if stripped.startswith("mod ") and stripped.endswith(";"):
+                continue
+            if stripped.startswith(("pub(crate) use ", "pub use ", "use ")):
+                continue
+            if stripped.startswith("mod ") and stripped.endswith("{"):
+                break
+        if stripped == "mod tests {":
             break
         lines.append(line)
     return "\n".join(lines) + ("\n" if lines else "")
@@ -60,7 +73,7 @@ def measure_hotspot(repo_root: Path, budget: HotspotBudget) -> HotspotMeasuremen
         raise FileNotFoundError(f"Native hotspot source not found: {budget.path}")
 
     source_text = source_path.read_text(encoding="utf-8")
-    measured = count_code_lines(production_source(source_text), "rust")
+    measured = 0 if source_path.stem.endswith("_tests") else count_code_lines(production_source(source_text), "rust")
     return HotspotMeasurement(
         path=budget.path,
         measured_production_loc=measured,

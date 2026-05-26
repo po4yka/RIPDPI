@@ -1,9 +1,20 @@
 pub mod ripdpi_tls_profiles
+pub enum ripdpi_tls_profiles::EchConfigError
+pub ripdpi_tls_profiles::EchConfigError::MalformedConfigList
+pub ripdpi_tls_profiles::EchConfigError::MissingPublicName
+pub enum ripdpi_tls_profiles::EchOutboundError
+pub ripdpi_tls_profiles::EchOutboundError::ConfigRejected(alloc::string::String)
+pub ripdpi_tls_profiles::EchOutboundError::RetryRequired
+pub ripdpi_tls_profiles::EchOutboundError::UnsupportedBackend
+pub ripdpi_tls_profiles::EchOutboundError::UnsupportedBackend::backend: ripdpi_tls_profiles::OutboundEchBackend
 pub enum ripdpi_tls_profiles::Error
 pub ripdpi_tls_profiles::Error::Invariant
 pub ripdpi_tls_profiles::Error::Invariant::profile: &'static str
 pub ripdpi_tls_profiles::Error::Invariant::reason: &'static str
 pub ripdpi_tls_profiles::Error::Ssl(boring::error::ErrorStack)
+pub enum ripdpi_tls_profiles::OutboundEchBackend
+pub ripdpi_tls_profiles::OutboundEchBackend::Boring
+pub ripdpi_tls_profiles::OutboundEchBackend::Rustls
 pub enum ripdpi_tls_profiles::ProfileInvariantStatus
 pub ripdpi_tls_profiles::ProfileInvariantStatus::AvoidsBlocked517ByteClientHello
 pub ripdpi_tls_profiles::ProfileInvariantStatus::Satisfied
@@ -16,6 +27,11 @@ pub ripdpi_tls_profiles::RecordChoreography::SniEchTailAdaptive
 pub ripdpi_tls_profiles::RecordChoreography::SniTailTwoRecord
 impl ripdpi_tls_profiles::RecordChoreography
 pub const fn ripdpi_tls_profiles::RecordChoreography::as_str(self) -> &'static str
+pub struct ripdpi_tls_profiles::OutboundEchConfig
+pub ripdpi_tls_profiles::OutboundEchConfig::config_list: alloc::vec::Vec<u8>
+pub ripdpi_tls_profiles::OutboundEchConfig::public_name: alloc::string::String
+impl ripdpi_tls_profiles::OutboundEchConfig
+pub fn ripdpi_tls_profiles::OutboundEchConfig::new(public_name: impl core::convert::Into<alloc::string::String>, config_list: alloc::vec::Vec<u8>) -> core::result::Result<Self, ripdpi_tls_profiles::EchConfigError>
 pub struct ripdpi_tls_profiles::ProfileCatalog
 pub ripdpi_tls_profiles::ProfileCatalog::default_profile_set_id: &'static str
 pub ripdpi_tls_profiles::ProfileCatalog::profiles: &'static [&'static str]
@@ -81,6 +97,7 @@ pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::record_payload_boundaries: 
 pub const ripdpi_tls_profiles::AVAILABLE_PROFILES: &[&str]
 pub fn ripdpi_tls_profiles::apply_record_choreography(profile: &str, client_hello: &[u8]) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_tls_profiles::build_connector(profile: &str, verify: bool) -> core::result::Result<boring::ssl::connector::SslConnector, ripdpi_tls_profiles::Error>
+pub fn ripdpi_tls_profiles::configure_boring_ech(config: &mut boring::ssl::connector::ConnectConfiguration, ech_config: core::option::Option<&ripdpi_tls_profiles::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::EchOutboundError>
 pub fn ripdpi_tls_profiles::configure_builder(profile: &str) -> core::result::Result<boring::ssl::connector::SslConnectorBuilder, ripdpi_tls_profiles::Error>
 pub fn ripdpi_tls_profiles::plan_first_flight(profile: &str, client_hello: &[u8]) -> core::option::Option<ripdpi_tls_profiles::TlsTemplateFirstFlightPlan>
 pub fn ripdpi_tls_profiles::planned_record_payload_boundaries(profile: &str, client_hello: &[u8]) -> core::option::Option<alloc::vec::Vec<usize>>
@@ -88,6 +105,7 @@ pub fn ripdpi_tls_profiles::planned_record_payload_lengths(profile: &str, client
 pub fn ripdpi_tls_profiles::profile_catalog() -> &'static ripdpi_tls_profiles::ProfileCatalog
 pub fn ripdpi_tls_profiles::profile_catalog_version() -> &'static str
 pub fn ripdpi_tls_profiles::profile_metadata(name: &str) -> ripdpi_tls_profiles::ProfileMetadata
+pub fn ripdpi_tls_profiles::require_ech_backend_support(backend: ripdpi_tls_profiles::OutboundEchBackend, config: core::option::Option<&ripdpi_tls_profiles::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::EchOutboundError>
 pub fn ripdpi_tls_profiles::select_profile_for_connection(rotation_enabled: bool, default_profile: &str, domain: &str, session_seed: u64, allowed_profiles: &[alloc::string::String]) -> &'static str
 pub fn ripdpi_tls_profiles::select_rotated_profile(domain: &str, session_seed: u64, allowed_profiles: &[alloc::string::String]) -> &'static str
 pub fn ripdpi_tls_profiles::select_rotated_profile_with_set(authority: &str, session_seed: u64, profile_set_id: &str, allowed_profiles: &[alloc::string::String]) -> &'static str

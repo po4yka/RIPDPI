@@ -36,7 +36,7 @@ pub struct ProbeExecutionContext {
 enum ResolverPolicy {
     TargetOrCatalogFallback,
     Approved {
-        primary: PolicyApprovedEncryptedDnsEndpoint,
+        primary: Box<PolicyApprovedEncryptedDnsEndpoint>,
         fallback: Vec<PolicyApprovedEncryptedDnsEndpoint>,
         allow_fallback: bool,
     },
@@ -126,8 +126,7 @@ impl ProbeExecutionContext {
         let endpoint = self
             .approved_primary_resolver()
             .cloned()
-            .map(Ok)
-            .unwrap_or_else(|| strategy_probe_encrypted_dns_endpoint(&resolver_context))?;
+            .map_or_else(|| strategy_probe_encrypted_dns_endpoint(&resolver_context), Ok)?;
         Ok((resolver_context, endpoint))
     }
 
@@ -136,8 +135,9 @@ impl ProbeExecutionContext {
         encrypted_dns: &ProxyEncryptedDnsContext,
         allow_fallback: bool,
     ) -> Result<Self, String> {
-        let primary =
-            PolicyApprovedEncryptedDnsEndpoint { endpoint: strategy_probe_encrypted_dns_endpoint(encrypted_dns)? };
+        let primary = Box::new(PolicyApprovedEncryptedDnsEndpoint {
+            endpoint: strategy_probe_encrypted_dns_endpoint(encrypted_dns)?,
+        });
         let fallback = if allow_fallback {
             build_fallback_encrypted_dns_endpoints(encrypted_dns.resolver_id.as_deref())
                 .into_iter()

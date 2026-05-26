@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.ConnectionQualitySnapshot
 import com.poyka.ripdpi.data.LatencyDistributions
 import com.poyka.ripdpi.data.LatencyPercentiles
 import com.poyka.ripdpi.data.NativeCellularSnapshot
@@ -7,6 +8,7 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NativeWifiSnapshot
+import com.poyka.ripdpi.data.TransportKind
 import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -227,6 +229,9 @@ class NativeBinaryContractTest {
                 resolverLatencyAvgMs = 12,
                 resolverFallbackActive = true,
                 resolverFallbackReason = "timeout",
+                dhtTriggerObservations = 2,
+                lastDhtTriggerEndpoint = "203.0.113.53:443",
+                lastDhtTriggerAt = 1_700_000_000,
                 networkHandoverClass = "wifi_to_cellular",
                 lastTarget = "203.0.113.10:443",
                 lastHost = "example.org",
@@ -282,6 +287,16 @@ class NativeBinaryContractTest {
                                 count = 200,
                             ),
                         tlsHandshake = LatencyPercentiles(p50 = 20, p95 = 30, p99 = 40, min = 5, max = 80, count = 150),
+                    ),
+                connectionQuality =
+                    ConnectionQualitySnapshot(
+                        transportKind = TransportKind.TcpTunnel,
+                        rttP50Ms = 20,
+                        rttP95Ms = 40,
+                        jitterMs = 5,
+                        lossPct = 0.1f,
+                        sampleCount = 10,
+                        windowStartAtMs = 1_700_000_000,
                     ),
                 capturedAt = 1000,
             )

@@ -4,7 +4,9 @@ mod lifecycle;
 #[cfg(all(test, feature = "loom"))]
 mod loom;
 pub(crate) mod pcap;
+mod pcap_entries;
 mod registry;
+mod runtime;
 #[cfg(all(test, not(feature = "loom")))]
 mod state_machine;
 mod stats;
@@ -16,10 +18,11 @@ use jni::sys::{jint, jlong, jlongArray};
 use jni::{EnvUnowned, Outcome};
 
 use lifecycle::{create_session, destroy_session, start_session, stop_session};
+pub(crate) use pcap_entries::{
+    tunnel_pcap_list_captures_entry, tunnel_pcap_redact_entry, tunnel_pcap_start_entry, tunnel_pcap_stop_entry,
+};
 use stats::stats_session;
 use telemetry::telemetry_session;
-
-pub(crate) use registry::lookup_stats_for_session;
 
 #[cfg(test)]
 pub(crate) use lifecycle::{
@@ -27,9 +30,9 @@ pub(crate) use lifecycle::{
     validate_tun_fd,
 };
 #[cfg(test)]
-pub(crate) use registry::{
-    lookup_tunnel_session, remove_tunnel_session, shared_tunnel_runtime, TunnelSession, TunnelSessionState, SESSIONS,
-};
+pub(crate) use registry::{lookup_tunnel_session, remove_tunnel_session, TunnelSession, TunnelSessionState, SESSIONS};
+#[cfg(test)]
+pub(crate) use runtime::shared_tunnel_runtime;
 #[cfg(test)]
 pub(crate) use stats::stats_snapshots_for_state;
 
@@ -136,117 +139,6 @@ pub(crate) fn tunnel_telemetry_entry(mut env: EnvUnowned<'_>, handle: jlong) -> 
             log::error!("Tunnel telemetry retrieval panicked");
             throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel telemetry retrieval failed"));
             std::ptr::null_mut()
-        }
-    }
-}
-
-pub(crate) fn tunnel_pcap_start_entry(
-    mut env: EnvUnowned<'_>,
-    handle: jlong,
-    capture_dir: JString,
-    max_file_bytes: jlong,
-    max_files: jint,
-) -> jlong {
-    android_support::init_android_logging("ripdpi-tunnel-native");
-    match env
-        .with_env(move |env| -> jni::errors::Result<jlong> {
-            let dir_string = capture_dir.try_to_string(env).map_err(|_| jni::errors::Error::JavaException)?;
-            let dir = std::path::PathBuf::from(dir_string);
-            let max_bytes = u64::try_from(max_file_bytes).unwrap_or(0);
-            let max_count = u32::try_from(max_files).unwrap_or(0);
-            let set_id = pcap::pcap_start_entry(handle, dir, max_bytes, max_count);
-            if set_id > 0 {
-                if let (Some(observer), Some(stats)) =
-                    (pcap::observer_for_session(handle), lookup_stats_for_session(handle))
-                {
-                    stats.set_packet_observer(observer);
-                }
-            }
-            Ok(set_id)
-        })
-        .into_outcome()
-    {
-        Outcome::Ok(set_id) => set_id,
-        Outcome::Err(err) => {
-            log::error!("Tunnel pcap start failed: {err}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&err.to_string(), "Tunnel pcap start failed"));
-            0
-        }
-        Outcome::Panic(_) => {
-            log::error!("Tunnel pcap start panicked");
-            throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel pcap start failed"));
-            0
-        }
-    }
-}
-
-pub(crate) fn tunnel_pcap_stop_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jni::sys::jstring {
-    android_support::init_android_logging("ripdpi-tunnel-native");
-    match env
-        .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> {
-            let json = pcap::pcap_stop_entry(handle);
-            Ok(env.new_string(&json)?.into_raw())
-        })
-        .into_outcome()
-    {
-        Outcome::Ok(json) => json,
-        Outcome::Err(err) => {
-            log::error!("Tunnel pcap stop failed: {err}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&err.to_string(), "Tunnel pcap stop failed"));
-            std::ptr::null_mut()
-        }
-        Outcome::Panic(_) => {
-            log::error!("Tunnel pcap stop panicked");
-            throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel pcap stop failed"));
-            std::ptr::null_mut()
-        }
-    }
-}
-
-pub(crate) fn tunnel_pcap_list_captures_entry(mut env: EnvUnowned<'_>, capture_dir: JString) -> jni::sys::jstring {
-    android_support::init_android_logging("ripdpi-tunnel-native");
-    match env
-        .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> {
-            let dir_string = capture_dir.try_to_string(env).map_err(|_| jni::errors::Error::JavaException)?;
-            let json = pcap::pcap_list_captures_entry(std::path::PathBuf::from(dir_string));
-            Ok(env.new_string(&json)?.into_raw())
-        })
-        .into_outcome()
-    {
-        Outcome::Ok(json) => json,
-        Outcome::Err(err) => {
-            log::error!("Tunnel pcap list failed: {err}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&err.to_string(), "Tunnel pcap list failed"));
-            std::ptr::null_mut()
-        }
-        Outcome::Panic(_) => {
-            log::error!("Tunnel pcap list panicked");
-            throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel pcap list failed"));
-            std::ptr::null_mut()
-        }
-    }
-}
-
-pub(crate) fn tunnel_pcap_redact_entry(mut env: EnvUnowned<'_>, source_path: JString, dest_fd: jint) -> jlong {
-    android_support::init_android_logging("ripdpi-tunnel-native");
-    match env
-        .with_env(move |env| -> jni::errors::Result<jlong> {
-            let path_string = source_path.try_to_string(env).map_err(|_| jni::errors::Error::JavaException)?;
-            let bytes_written = pcap::pcap_redact_entry(std::path::PathBuf::from(path_string), dest_fd);
-            Ok(bytes_written as jlong)
-        })
-        .into_outcome()
-    {
-        Outcome::Ok(bytes) => bytes,
-        Outcome::Err(err) => {
-            log::error!("Tunnel pcap redact failed: {err}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&err.to_string(), "Tunnel pcap redact failed"));
-            0
-        }
-        Outcome::Panic(_) => {
-            log::error!("Tunnel pcap redact panicked");
-            throw_runtime_exception(&mut env, sanitize_error_message("panic", "Tunnel pcap redact failed"));
-            0
         }
     }
 }

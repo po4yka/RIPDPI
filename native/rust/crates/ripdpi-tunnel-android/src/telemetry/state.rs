@@ -1,14 +1,13 @@
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
-use android_support::clear_tunnel_events;
 use arc_swap::ArcSwapOption;
-use ripdpi_quality::{QualityWindow, TransportKind};
+use ripdpi_quality::QualityWindow;
 use ripdpi_telemetry::LatencyHistogram;
 
 use crate::config::TunnelLogContext;
 
-static NEXT_TUNNEL_SESSION_ID: AtomicU64 = AtomicU64::new(1);
+mod init;
 
 pub(crate) struct TunnelTelemetryState {
     pub(crate) session_id: String,
@@ -24,24 +23,6 @@ pub(crate) struct TunnelTelemetryState {
 }
 
 impl TunnelTelemetryState {
-    pub(crate) fn new(log_context: Option<TunnelLogContext>) -> Self {
-        let ordinal = NEXT_TUNNEL_SESSION_ID.fetch_add(1, Ordering::Relaxed);
-        let session_id = format!("tunnel-{ordinal}");
-        clear_tunnel_events();
-        Self {
-            log_scope: format!("tunnel:{session_id}"),
-            session_id,
-            log_context,
-            running: AtomicBool::new(false),
-            total_sessions: AtomicU64::new(0),
-            total_errors: AtomicU64::new(0),
-            upstream_address: ArcSwapOption::empty(),
-            last_error: ArcSwapOption::empty(),
-            dns_histogram: LatencyHistogram::new(),
-            quality_window: Arc::new(QualityWindow::new(TransportKind::TcpTunnel)),
-        }
-    }
-
     pub(crate) fn log_scope(&self) -> &str {
         &self.log_scope
     }

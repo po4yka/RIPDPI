@@ -4,6 +4,7 @@ mod report;
 mod runners;
 mod runtime;
 mod scan;
+mod strategy_plan;
 
 pub use runners::probe_descriptors_as_json;
 pub use scan::run_engine_scan;

@@ -1,27 +1,21 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use android_support::{
-    android_log_level_from_str, set_android_log_scope_level, throw_illegal_argument_env, throw_illegal_state_env,
-    throw_io_exception_env,
-};
-use jni::objects::JString;
+use android_support::{throw_illegal_argument_env, throw_illegal_state_env, throw_io_exception_env};
 use jni::sys::{jint, jlong};
 use jni::Env;
 use ripdpi_tunnel_core::Stats;
 use tokio_util::sync::CancellationToken;
 
-use crate::telemetry::TunnelTelemetryState;
+use super::registry::{lookup_tunnel_session, remove_tunnel_session, TunnelSessionState};
 
-use super::registry::{
-    lookup_tunnel_session, remove_tunnel_session, shared_tunnel_runtime, TunnelSession, TunnelSessionState, SESSIONS,
-};
-
+mod create;
 mod fd;
 mod state;
 mod telemetry;
 mod validation;
 mod worker;
 
+pub(crate) use create::create_session;
 pub(crate) use state::{
     ensure_tunnel_destroyable, ensure_tunnel_start_allowed, rollback_failed_tunnel_start, take_running_tunnel,
 };
@@ -29,40 +23,7 @@ pub(crate) use validation::validate_tun_fd;
 
 use fd::adopt_tun_fd;
 use telemetry::{mark_session_started, wire_session_telemetry};
-use validation::parse_session_config;
 use worker::{launch_tunnel_worker, WorkerLaunch};
-
-pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {
-    let parsed = match parse_session_config(env, config_json) {
-        Ok(parsed) => parsed,
-        Err(message) => {
-            throw_illegal_argument_env(env, message);
-            return 0;
-        }
-    };
-    let config = Arc::new(parsed.config);
-    let Some(native_log_level) = android_log_level_from_str(&config.misc.log_level) else {
-        throw_illegal_argument_env(env, format!("Unsupported tunnel logLevel: {}", config.misc.log_level));
-        return 0;
-    };
-    let runtime = match shared_tunnel_runtime() {
-        Ok(runtime) => runtime,
-        Err(err) => {
-            throw_io_exception_env(env, format!("Failed to initialize Tokio runtime: {err}"));
-            return 0;
-        }
-    };
-    let telemetry = Arc::new(TunnelTelemetryState::new(parsed.log_context));
-    set_android_log_scope_level(telemetry.log_scope().to_string(), native_log_level);
-
-    SESSIONS.insert(TunnelSession {
-        runtime,
-        config,
-        last_error: Arc::new(Mutex::new(None)),
-        telemetry,
-        state: Mutex::new(TunnelSessionState::Ready),
-    }) as jlong
-}
 
 pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong, tun_fd: jint) {
     let session = match lookup_tunnel_session(handle) {
