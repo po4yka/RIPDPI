@@ -48,15 +48,8 @@ genuine improvement that needs a coordinated or multi-file change.
 
 ### P1 — coherence gaps
 
-- **`AGENTS.md` proto path is stale.** It still cites
-  `core/data/src/main/proto/app_settings.proto`; the file lives at
-  `core/data/model/src/main/proto/app_settings.proto` (confirmed by
-  [`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md) §1). `ARCHITECTURE.md` §6 already
-  flags the discrepancy — the fix is a one-line `AGENTS.md` edit.
-- **`ARCHITECTURE.md` §3 `TODO verify`.** The responsibility split between
-  `:core:data:settings` and `:core:data:model` is still marked
-  *to-verify* against `core/data/settings/` and `core/data/model/`. Resolve it
-  and replace the TODO with the confirmed split.
+_All P1 coherence gaps were closed in the documentation audit pass — see
+§6 "Suggested next small tasks" for what was applied._
 
 ### P2 — coverage / consistency gaps
 
@@ -162,10 +155,12 @@ canonical docs claims any of them happened.
 
 Right-sized, accurate, low-risk — each is a single focused change:
 
-1. **Fix the `AGENTS.md` proto path** to
-   `core/data/model/src/main/proto/app_settings.proto` (P1, one line).
-2. **Resolve the `ARCHITECTURE.md` §3 `TODO verify`** for the
-   `:core:data:settings` ↔ `:core:data:model` split (P1, doc-only).
+1. ~~**Fix the `AGENTS.md` proto path** to
+   `core/data/model/src/main/proto/app_settings.proto`~~ — **done** in the
+   doc audit pass.
+2. ~~**Resolve the `ARCHITECTURE.md` §3 `TODO verify`** for the
+   `:core:data:settings` ↔ `:core:data:model` split~~ — **done** in the doc
+   audit pass; the split (schema vs. persistence) is now stated inline.
 3. **Rewrite the historical crate names** in the *bodies* of
    `docs/native/proxy-engine.md` and `docs/native/unsafe-audit.md` (the
    banners already point at the canonical map) (P2, doc-only).

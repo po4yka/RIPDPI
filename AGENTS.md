@@ -98,7 +98,7 @@ Deep-dive architecture references live under `docs/architecture/`: start with [`
 ### Modules
 
 - **`:app`** -- Jetpack Compose UI with Material 3, navigation, ViewModels
-- **`:core:data`** -- App settings via Protobuf (schema: `core/data/src/main/proto/app_settings.proto`) and Jetpack DataStore
+- **`:core:data`** -- Aggregator (`api`-exports) over `:core:data:model` (App-settings + geosite protobuf schemas at `core/data/model/src/main/proto/app_settings.proto`), `:core:data:settings` (Jetpack DataStore-backed `AppSettingsRepository`), `:core:data:runtime-state`, and `:core:data:catalog`
 - **`:core:diagnostics`** -- Active network diagnostics, passive telemetry collection, diagnostics UI logic
 - **`:core:diagnostics-data`** -- Protobuf schemas and data contracts for diagnostics
 - **`:core:engine`** -- Native proxy and tunnel engine with JNI bridge, built from repo-owned Rust crates

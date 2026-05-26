@@ -68,11 +68,15 @@ auto-generated Mermaid dependency graph is kept at
 | `:quality:detekt-rules` | Custom detekt rules (DI guardrails, Hilt ViewModel checks) |
 | `:baselineprofile` | Baseline profile generation for runtime performance |
 
-> **Note:** [AGENTS.md](../../AGENTS.md) § Architecture shows the older
-> single-module `:core:data` and does not list `:core:detection` or
-> `:xray-protos`. This table reflects the current `settings.gradle.kts`.
-> **TODO verify** the exact responsibility split between `:core:data:settings`
-> and `:core:data:model` against `core/data/settings/` and `core/data/model/`.
+> **Note:** This table reflects the current `settings.gradle.kts`. The split
+> between `:core:data:model` and `:core:data:settings` is **schema vs.
+> persistence**:
+> - `:core:data:model` owns the protobuf schemas (`app_settings.proto`,
+>   `geosite.proto`) and immutable domain/wire types (`AppStatus`,
+>   `NativeError`, `RuntimeTelemetry`, `StrategyChainModel`, …).
+> - `:core:data:settings` owns the DataStore-backed `AppSettingsRepository`,
+>   `AppSettingsJson*` mappers/snapshots, and runtime override stores
+>   (`ResolverOverrideStore`, …).
 
 **Boundary enforcement.** `:app` must not depend directly on `:core:engine` —
 it reaches the native layer only through `:core:service`

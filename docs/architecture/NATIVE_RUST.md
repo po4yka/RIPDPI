@@ -299,7 +299,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-android-telemetry-adapter` | Telemetry projection adapter | Projection API | `ripdpi-telemetry`, `ripdpi-runtime-api`, … (5) | **No `jni` dep** — pure projection, still L8 | Keep |
 | `ripdpi-android` | `libripdpi.so` — proxy/diagnostics/strategy JNI entrypoint | `cdylib` + `JNI_OnLoad` | the 7 `ripdpi-android-*` adapters + `android-support` + 2 strategy crates | `jni`; artifact root | Keep |
 | `ripdpi-tunnel-android` | `libripdpi-tunnel.so` — TUN bridge JNI entrypoint | `cdylib` + JNI | `ripdpi-tunnel-core`, `ripdpi-runtime-platform`, … | `jni`; artifact root | Keep |
-| `ripdpi-relay-android` | `libripdpi-relay.so` — relay JNI entrypoint (`RipDpiRelayNativeBindings`) | `cdylib` + JNI | `ripdpi-relay-core`, `ripdpi-apps-script-core`, `android-support` | `jni`; artifact root | **TODO verify** Kotlin counterpart `RipDpiRelayNativeBindings` + that `libripdpi-relay.so` is loaded — class not seen in `core/engine/.../core/` top-level listing |
+| `ripdpi-relay-android` | `libripdpi-relay.so` — relay JNI entrypoint (`RipDpiRelayNativeBindings`) | `cdylib` + JNI | `ripdpi-relay-core`, `ripdpi-apps-script-core`, `android-support` | `jni`; artifact root | Keep — Kotlin counterpart `RipDpiRelayNativeBindings` at `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt:82`; `System.loadLibrary("ripdpi-relay")` at `RipDpiRelayNativeLoader:76` |
 | `ripdpi-warp-android` | `libripdpi-warp.so` — WARP JNI entrypoint | `cdylib` + JNI | `ripdpi-warp-core`, `ripdpi-native-protect`, `ripdpi-tls-profiles`, `android-support` | `jni`; artifact root | Keep |
 
 ---
