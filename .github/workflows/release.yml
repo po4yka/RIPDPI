@@ -78,7 +78,8 @@ jobs:
 
       - name: Generate Rust SBOM
         run: |
-          cargo install cargo-cyclonedx --quiet
+          # Pin to 0.5.7 -- 0.5.8/0.5.9 removed --output-pattern with no documented replacement.
+          cargo install cargo-cyclonedx --version 0.5.7 --locked --quiet
           cd native/rust
           cargo cyclonedx --format json --output-pattern bom
           cp target/bom.json $GITHUB_WORKSPACE/rust-bom.json
