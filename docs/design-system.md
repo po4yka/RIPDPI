@@ -151,10 +151,10 @@ Current screenshot coverage already includes these checks through:
 Home:
 
 - Use `RipDpiDashboardScaffold`.
-- Keep a calm status summary above deeper operational detail.
-- Use `RipDpiConnectionActuator` as the primary connection primitive in `HomeStatusCard`; it replaces the circular VPN power button and owns activation intent, route label, stage pipeline, localized fault, and degraded-but-active visual states.
-- The actuator route label should name the selected Secure Route, not only the anti-DPI technique. Use Secure Route components when a screen needs to compare available VPN, proxy, WARP, relay, provider, or advanced technique opportunities.
-- In expanded layouts, split primary status/actions from secondary analysis or supporting content.
+- Keep warning, permission, and degradation guidance above the mode cards so recovery information precedes mode selection.
+- Use three `HomeModeCard` entries as the primary dashboard contract: local path optimization, remote tunneled outbound, and network diagnostic. Each card owns its own title, summary, status, primary action, and configuration affordance.
+- Do not reintroduce the legacy `HomeStatusCard`, `HomeDiagnosticsCard`, or `HomeStatsGrid` layout; current Home tests intentionally require the mode-card dashboard without those tags.
+- Keep diagnostic detail in the Home bottom sheets or the Diagnostics screen. The Home surface may expose the PCAP toggle after the diagnostic card, but it should not recreate the old diagnostics card stack.
 
 Settings and advanced settings:
 
@@ -231,15 +231,14 @@ Onboarding and permission flows:
 ### Home
 
 - Build with `RipDpiDashboardScaffold` and keep warning or permission banners above the main dashboard content.
-- The first primary block must be `HomeStatusCard`; connection state, verification state, and the primary toggle live there and should not be split across multiple cards.
-- `HomeStatusCard` must render `RipDpiConnectionActuator` with the stable root tag `home-connection-button` and stage tags `home-connection-stage-network`, `home-connection-stage-dns`, `home-connection-stage-handshake`, `home-connection-stage-tunnel`, and `home-connection-stage-route`.
-- The second primary block must be `HomeDiagnosticsCard`; it owns analysis actions, latest audit summary, remediation ladder, and scan-progress affordances.
-- Supporting overview content should stay in secondary cards such as `HomeApproachCard`, `HomeHistoryCard`, and `HomeStatsGrid`.
-- The default order is banners, `HomeStatusCard`, `HomeDiagnosticsCard`, optional `HomeApproachCard`, `HomeHistoryCard`, then overview stats.
-- Use `WarningBanner`, `RipDpiButton`, `StatusIndicator`, `DiagnosticsRemediationLadderCard`, `StageProgressIndicator`, `AnalysisProgressIndicator`, and `RipDpiBottomSheet` as the default Home primitive set.
-- Expanded width should preserve a two-column hierarchy: status and diagnostics on the primary column, overview and history on the secondary column.
+- The main dashboard content is a single ordered mode-card list: local path optimization, remote tunneled outbound, then network diagnostic.
+- `HomeModeCard` is the stable Home primitive for connection and diagnostic entry points; route details, current status, loading state, configuration, and the primary action stay inside the relevant mode card.
+- The default order is banners, degradation strip when present, the three `HomeModeCard` entries, optional diagnostic PCAP toggle, then Home diagnostic bottom-sheet host.
+- Do not render `HomeStatusCard`, `HomeDiagnosticsCard`, `HomeStatsGrid`, `HomeApproachCard`, or `HomeHistoryCard` in the current Home dashboard. Their old test tags are reserved for negative regression assertions.
+- Use `WarningBanner`, `HomeModeCard`, `RipDpiButton`, `RipDpiSwitch`, `StatusIndicator`, `StageProgressIndicator`, `AnalysisProgressIndicator`, and `RipDpiBottomSheet` as the default Home primitive set.
+- Expanded width should preserve the same mode order and avoid reviving the old two-column status/diagnostics split unless the screenshot contract is intentionally changed first.
 - Use `WarningBanner` only for service errors, permission recovery, or background-guidance issues. Do not restyle those concerns as neutral cards.
-- Do not introduce decorative hero art, floating metric tiles, alternate action bars above the status card, or inline raw diagnostics tables that belong in Diagnostics or a bottom sheet.
+- Do not introduce decorative hero art, floating metric tiles, alternate action bars above the mode-card list, or inline raw diagnostics tables that belong in Diagnostics or a bottom sheet.
 
 ### Diagnostics
 

@@ -399,12 +399,6 @@ private fun NavGraphBuilder.addPrimaryRoutes(
                     restoreState = true
                 }
             },
-            onRunDiagnosticsScan = {
-                onDiagnosticsInitialSectionChanged(DiagnosticsSection.Scan)
-                navController.navigate(Route.Diagnostics(autoStartScan = true)) {
-                    launchSingleTop = true
-                }
-            },
             onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
             onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
             onOpenModeEditor = { navController.navigate(Route.ModeEditor) },

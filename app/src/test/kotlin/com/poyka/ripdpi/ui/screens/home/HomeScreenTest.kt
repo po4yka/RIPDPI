@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.home
 
+import android.content.ClipboardManager
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -10,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
@@ -82,6 +84,43 @@ class HomeScreenTest {
             .performClick()
 
         assertEquals(PermissionKind.VpnLockdown, repairedKind)
+    }
+
+    @Test
+    fun `error banner copies message on click`() {
+        val error = "Failed to start VPN"
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            connectionState = ConnectionState.Error,
+                            errorMessage = error,
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeErrorBanner)
+            .performClick()
+
+        val clipboard =
+            RuntimeEnvironment
+                .getApplication()
+                .getSystemService(ClipboardManager::class.java)
+        assertEquals(
+            error,
+            clipboard.primaryClip
+                ?.getItemAt(0)
+                ?.text
+                ?.toString(),
+        )
     }
 
     @Test
@@ -426,6 +465,44 @@ class HomeScreenTest {
         composeRule
             .onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.home_diagnostics_pcap_helper))
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun `pcap toggle invokes callback when tapped`() {
+        var toggleCount = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            homeDiagnostics =
+                                HomeDiagnosticsUiState(
+                                    pcapToggleVisible = true,
+                                    pcapRecordingRequested = false,
+                                    analysisAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Run Full Analysis",
+                                            supportingText = "Ready",
+                                            enabled = true,
+                                        ),
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                    onTogglePcapRecording = { toggleCount += 1 },
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(1, toggleCount)
     }
 
     @Test

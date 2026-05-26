@@ -2,9 +2,7 @@ package com.poyka.ripdpi.ui.screens.home
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,7 +45,6 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Duration.Companion.ZERO
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     uiState: MainUiState,
@@ -88,20 +85,16 @@ fun HomeScreen(
         topBar = { HomeTopBar(title = stringResource(R.string.app_name)) },
     ) {
         if (uiState.connectionState == ConnectionState.Error && uiState.errorMessage != null) {
+            val errorMessage = uiState.errorMessage
             WarningBanner(
                 title = stringResource(R.string.home_status_error_title),
-                message = uiState.errorMessage,
+                message = errorMessage,
                 tone = WarningBannerTone.Error,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .combinedClickable(
-                            onClick = {},
-                            onLongClick = {
-                                clipboardManager?.setPrimaryClip(ClipData.newPlainText("error", uiState.errorMessage))
-                                performHaptic(RipDpiHapticFeedback.Acknowledge)
-                            },
-                        ),
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    clipboardManager?.setPrimaryClip(ClipData.newPlainText("error", errorMessage))
+                    performHaptic(RipDpiHapticFeedback.Acknowledge)
+                },
                 testTag = RipDpiTestTags.HomeErrorBanner,
             )
         }
@@ -333,7 +326,8 @@ private fun HomeDegradationStrip(
                 deltaIsBad = false,
             ),
         )
-    val sinceLabel = stringResource(R.string.vpn_quality_strip_since_format, "${quality.sampleCount} samples")
+    val sampleCountLabel = stringResource(R.string.vpn_quality_graph_samples_format, quality.sampleCount)
+    val sinceLabel = stringResource(R.string.vpn_quality_strip_since_format, sampleCountLabel)
     RipDpiDegradationStrip(
         title = stringResource(titleRes),
         body = stringResource(bodyRes),
