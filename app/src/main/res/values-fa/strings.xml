@@ -2641,10 +2641,6 @@ fakeddisorder endhost</string>
     <string name="vpn_state_machine_legend_failed">خطا</string>
     <string name="title_pcap_viewer">ضبط بسته‌ها</string>
     <string name="title_pcap_capture_list">ضبط بسته‌ها</string>
-    <string name="vpn_first_run_test_title">ببینیم شبکه‌ی شما چه می‌کند</string>
-    <string name="vpn_first_run_test_caption">RIPDPI پنج مقصد متداول را بررسی می‌کند · حدود ۱۰ ثانیه</string>
-    <string name="vpn_first_run_test_skip">رد کردن</string>
-    <string name="vpn_first_run_test_apply">اعمال پیشنهاد</string>
     <string name="vpn_replay_failure_header_format">آخرین خطا · %1$s</string>
     <string name="vpn_replay_failure_replay">پخش مجدد</string>
     <string name="vpn_replay_failure_recommendation_title">پیشنهاد</string>

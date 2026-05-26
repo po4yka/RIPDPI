@@ -2755,10 +2755,6 @@ fakeddisorder endhost</string>
     <string name="vpn_state_machine_legend_failed">Ошибка</string>
     <string name="title_pcap_viewer">Захват пакетов</string>
     <string name="title_pcap_capture_list">Захваты пакетов</string>
-    <string name="vpn_first_run_test_title">Посмотрим, что делает ваша сеть</string>
-    <string name="vpn_first_run_test_caption">RIPDPI проверит 5 типичных целей · около 10 с</string>
-    <string name="vpn_first_run_test_skip">Пропустить</string>
-    <string name="vpn_first_run_test_apply">Применить рекомендацию</string>
     <string name="vpn_replay_failure_header_format">Последний сбой · %1$s</string>
     <string name="vpn_replay_failure_replay">Повторить</string>
     <string name="vpn_replay_failure_recommendation_title">Рекомендация</string>

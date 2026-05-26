@@ -2705,10 +2705,6 @@ Source: %2$s</string>
     <string name="vpn_state_machine_legend_failed">Failed</string>
     <string name="title_pcap_viewer">Packet capture</string>
     <string name="title_pcap_capture_list">Packet captures</string>
-    <string name="vpn_first_run_test_title">Let\'s see what your network does</string>
-    <string name="vpn_first_run_test_caption">RIPDPI checks 5 common targets · about 10 s</string>
-    <string name="vpn_first_run_test_skip">Skip</string>
-    <string name="vpn_first_run_test_apply">Apply recommendation</string>
     <string name="vpn_replay_failure_header_format">Last failure · %1$s</string>
     <string name="vpn_replay_failure_replay">Replay</string>
     <string name="vpn_replay_failure_recommendation_title">Recommendation</string>

@@ -2636,10 +2636,6 @@ Origen: %2$s</string>
     <string name="vpn_state_machine_legend_failed">Error</string>
     <string name="title_pcap_viewer">Captura de paquetes</string>
     <string name="title_pcap_capture_list">Capturas de paquetes</string>
-    <string name="vpn_first_run_test_title">Veamos qué hace tu red</string>
-    <string name="vpn_first_run_test_caption">RIPDPI comprueba 5 destinos comunes · unos 10 s</string>
-    <string name="vpn_first_run_test_skip">Omitir</string>
-    <string name="vpn_first_run_test_apply">Aplicar recomendación</string>
     <string name="vpn_replay_failure_header_format">Último fallo · %1$s</string>
     <string name="vpn_replay_failure_replay">Repetir</string>
     <string name="vpn_replay_failure_recommendation_title">Recomendación</string>
