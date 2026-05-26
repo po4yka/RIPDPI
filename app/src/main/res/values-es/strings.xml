@@ -2281,7 +2281,11 @@ Origen: %2$s</string>
     <string name="onboarding_setup_dns_title">Elige un proveedor de DNS</string>
     <string name="onboarding_setup_mode_vpn_body">Enruta todo el tráfico del dispositivo a través de un túnel VPN local. Cobertura completa, sin configuración.</string>
     <string name="onboarding_setup_test_run">Ejecutar prueba</string>
-    <string name="onboarding_skip">Omitir</string>
+    <string name="onboarding_skip">Configurar más tarde</string>
+    <string name="onboarding_set_up_later">Configurar más tarde</string>
+    <string name="onboarding_skip_confirm_title">¿Terminar la configuración más tarde?</string>
+    <string name="onboarding_skip_confirm_body">Ya empezaste a elegir cómo debe ejecutarse RIPDPI. Puedes terminar más tarde desde ajustes, pero puede que la app no esté lista para conectarse hasta completar la configuración.</string>
+    <string name="onboarding_skip_confirm_continue">Continuar configuración</string>
     <string name="onboarding_validation_finish_anyway">Finalizar de todos modos</string>
     <string name="onboarding_validation_requesting_notifications">Solicitando permiso de notificaciones…</string>
     <string name="onboarding_validation_starting_vpn">Iniciando modo VPN…</string>

@@ -1214,7 +1214,11 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_mode_proxy_title">代理模式</string>
     <string name="onboarding_setup_next">下一步</string>
     <string name="onboarding_setup_test_running">正在检查连接…</string>
-    <string name="onboarding_skip">跳过</string>
+    <string name="onboarding_skip">稍后设置</string>
+    <string name="onboarding_set_up_later">稍后设置</string>
+    <string name="onboarding_skip_confirm_title">稍后完成设置？</string>
+    <string name="onboarding_skip_confirm_body">你已经开始选择 RIPDPI 的运行方式。可以稍后在设置中完成，但在完成设置前，应用可能还不能连接。</string>
+    <string name="onboarding_skip_confirm_continue">继续设置</string>
     <string name="onboarding_validation_failed">验证失败:%1$s</string>
     <string name="onboarding_validation_idle_hint">启动 %1$s 并在完成前确认流量可通过它。</string>
     <string name="onboarding_validation_retry">重试验证</string>

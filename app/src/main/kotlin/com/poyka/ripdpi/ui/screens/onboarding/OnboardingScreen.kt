@@ -28,8 +28,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -56,6 +59,9 @@ import com.poyka.ripdpi.activities.OnboardingViewModel
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiIntroScaffold
@@ -272,6 +278,17 @@ fun OnboardingScreen(
     val currentPage = OnboardingPages[settledPage]
     val isLastPage = settledPage == OnboardingPages.lastIndex
     val validationBusy = uiState.validationState.isBusy
+    var showSkipConfirmation by rememberSaveable { mutableStateOf(false) }
+
+    if (showSkipConfirmation) {
+        OnboardingSkipConfirmationDialog(
+            onDismiss = { showSkipConfirmation = false },
+            onConfirm = {
+                showSkipConfirmation = false
+                onSkip()
+            },
+        )
+    }
 
     RipDpiIntroScaffold(
         modifier =
@@ -289,7 +306,13 @@ fun OnboardingScreen(
             ) {
                 if (!validationBusy) {
                     TextButton(
-                        onClick = onSkip,
+                        onClick = {
+                            if (settledPage >= OnboardingInfoPageCount) {
+                                showSkipConfirmation = true
+                            } else {
+                                onSkip()
+                            }
+                        },
                         modifier =
                             Modifier
                                 .ripDpiTestTag(RipDpiTestTags.OnboardingSkip)
@@ -297,7 +320,7 @@ fun OnboardingScreen(
                                 .padding(horizontal = 12.dp),
                     ) {
                         Text(
-                            text = stringResource(R.string.onboarding_skip),
+                            text = stringResource(R.string.onboarding_set_up_later),
                             style = type.introAction,
                             color = colors.mutedForeground,
                         )
@@ -375,6 +398,34 @@ fun OnboardingScreen(
             }
         }
     }
+}
+
+@Composable
+private fun OnboardingSkipConfirmationDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.onboarding_skip_confirm_title),
+        dialogTestTag = RipDpiTestTags.OnboardingSkipConfirmDialog,
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.onboarding_skip_confirm_continue),
+                onClick = onDismiss,
+                testTag = RipDpiTestTags.OnboardingSkipConfirmContinue,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.onboarding_set_up_later),
+                onClick = onConfirm,
+                testTag = RipDpiTestTags.OnboardingSkipConfirmSetUpLater,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.onboarding_skip_confirm_body),
+            ),
+    )
 }
 
 private val OnboardingValidationState.isBusy: Boolean

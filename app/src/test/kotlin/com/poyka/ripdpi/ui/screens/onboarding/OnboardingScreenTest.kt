@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
 import com.poyka.ripdpi.activities.OnboardingValidationState
@@ -13,6 +14,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -49,7 +52,39 @@ class OnboardingScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.screen(Route.Onboarding)).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).assertExists()
+        composeRule.onNodeWithText("Set up later").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingContinue).assertExists()
+    }
+
+    @Test
+    fun `set up later on intro completes without confirmation`() {
+        var skipped = false
+        renderValidationPage(
+            uiState = OnboardingUiState(currentPage = 0),
+            onSkip = { skipped = true },
+        )
+
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).performClick()
+
+        assertTrue(skipped)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipConfirmDialog).assertCountEquals(0)
+    }
+
+    @Test
+    fun `set up later on setup page requires confirmation`() {
+        var skipped = false
+        renderValidationPage(
+            uiState = OnboardingUiState(currentPage = OnboardingInfoPageCount),
+            onSkip = { skipped = true },
+        )
+
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).performClick()
+
+        assertFalse(skipped)
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkipConfirmDialog).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkipConfirmContinue).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkipConfirmSetUpLater).performClick()
+        assertTrue(skipped)
     }
 
     @Test
@@ -158,13 +193,16 @@ class OnboardingScreenTest {
         composeRule.onNodeWithText("Grant VPN permission").assertExists()
     }
 
-    private fun renderValidationPage(uiState: OnboardingUiState) {
+    private fun renderValidationPage(
+        uiState: OnboardingUiState,
+        onSkip: () -> Unit = {},
+    ) {
         composeRule.setContent {
             RipDpiTheme {
                 OnboardingScreen(
                     uiState = uiState,
                     onPageChanged = {},
-                    onSkip = {},
+                    onSkip = onSkip,
                     onContinue = {},
                     onModeSelected = {},
                     onDnsSelected = {},

@@ -1438,7 +1438,11 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_mode_vpn_title">حالت VPN</string>
     <string name="onboarding_setup_test_hint">قبل از شروع، اتصال اینترنت خود را تأیید کنید.</string>
     <string name="onboarding_setup_test_success">متصل در %1$d میلی‌ثانیه</string>
-    <string name="onboarding_skip">رد کردن</string>
+    <string name="onboarding_skip">بعداً راه‌اندازی شود</string>
+    <string name="onboarding_set_up_later">بعداً راه‌اندازی شود</string>
+    <string name="onboarding_skip_confirm_title">راه‌اندازی را بعداً تمام کنید؟</string>
+    <string name="onboarding_skip_confirm_body">شما انتخاب نحوه اجرای RIPDPI را شروع کرده‌اید. می‌توانید بعداً از تنظیمات ادامه دهید، اما برنامه ممکن است تا پایان راه‌اندازی برای اتصال آماده نباشد.</string>
+    <string name="onboarding_skip_confirm_continue">ادامه راه‌اندازی</string>
     <string name="onboarding_validation_failed_generic">حالت انتخاب‌شده قابل اعتبارسنجی نبود.</string>
     <string name="onboarding_validation_finish_disconnected">پایان بدون اتصال</string>
     <string name="onboarding_validation_notifications_required">اجازه اعلان‌ها را بدهید تا RIPDPI بتواند سرویس اعتبارسنجی را شروع کند.</string>
