@@ -696,6 +696,7 @@
     <string name="onboarding_permission_body">Android 需要 VPN 权限才能将流量路由经过应用。RIPDPI 使用本地隧道，但 DNS 和连接检查可能会联系你选择的提供方或测试端点。</string>
     <string name="onboarding_setup_dns_adguard_body">内置广告和追踪器拦截的 DNS。</string>
     <string name="onboarding_setup_dns_system_body">原样使用你网络的 DNS 服务器。</string>
+    <string name="onboarding_setup_dns_provider_body">%1$s 解析器，主地址为 %2$s。</string>
     <string name="onboarding_setup_mode_proxy_body">通过本地代理路由流量。为高级用户提供精细控制。</string>
     <string name="onboarding_setup_mode_vpn_title">VPN 模式</string>
     <string name="onboarding_setup_test_run">运行测试</string>

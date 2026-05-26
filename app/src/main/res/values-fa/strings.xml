@@ -1850,6 +1850,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_privacy_body">بدون تله‌متری، بدون ردیابی، بدون حساب کاربری. تنظیمات و سابقهٔ عیب‌یابی روی دستگاه شما می‌مانند مگر اینکه آن‌ها را صریحاً صادر کنید.</string>
     <string name="onboarding_setup_dns_cloudflare_body">DNS سریع و حریم‌خصوصی‌محور از Cloudflare.</string>
     <string name="onboarding_setup_dns_system_body">از سرورهای DNS شبکه‌تان همان‌طور که هستند استفاده کنید.</string>
+    <string name="onboarding_setup_dns_provider_body">resolver %1$s که از %2$s به‌عنوان نشانی اصلی استفاده می‌کند.</string>
     <string name="onboarding_setup_finish">پایان</string>
     <string name="onboarding_setup_mode_title">حالت خود را انتخاب کنید</string>
     <string name="onboarding_setup_next">بعدی</string>

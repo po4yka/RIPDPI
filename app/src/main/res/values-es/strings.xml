@@ -1791,6 +1791,7 @@ Origen: %2$s</string>
     <string name="onboarding_modes_title">Preajustes o control total</string>
     <string name="onboarding_setup_dns_adguard_body">DNS con bloqueo integrado de anuncios y rastreadores.</string>
     <string name="onboarding_setup_dns_system_body">Usa los servidores DNS de tu red tal cual.</string>
+    <string name="onboarding_setup_dns_provider_body">Resolvedor %1$s que usa %2$s como dirección principal.</string>
     <string name="onboarding_setup_mode_title">Elige tu modo</string>
     <string name="onboarding_setup_test_hint">Verifica tu conexión a internet antes de empezar.</string>
     <string name="onboarding_setup_validate_title">Valida el modo elegido</string>

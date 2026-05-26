@@ -27,11 +27,9 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
 import com.poyka.ripdpi.activities.OnboardingValidationState
-import com.poyka.ripdpi.data.DnsProviderAdGuard
-import com.poyka.ripdpi.data.DnsProviderCloudflare
-import com.poyka.ripdpi.data.DnsProviderGoogle
-import com.poyka.ripdpi.data.DnsProviderQuad9
+import com.poyka.ripdpi.data.BuiltInDnsProviders
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.protocolDisplayName
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.PresetCard
@@ -74,18 +72,6 @@ internal fun OnboardingDnsSelectionContent(
     onDnsSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val providers =
-        listOf(
-            DnsProviderCloudflare to
-                Pair("Cloudflare", R.string.onboarding_setup_dns_cloudflare_body),
-            DnsProviderGoogle to
-                Pair("Google", R.string.onboarding_setup_dns_google_body),
-            DnsProviderQuad9 to
-                Pair("Quad9", R.string.onboarding_setup_dns_quad9_body),
-            DnsProviderAdGuard to
-                Pair("AdGuard", R.string.onboarding_setup_dns_adguard_body),
-        )
-
     Column(
         modifier =
             modifier
@@ -96,17 +82,25 @@ internal fun OnboardingDnsSelectionContent(
         PresetCard(
             title = stringResource(R.string.onboarding_setup_dns_system),
             description = stringResource(R.string.onboarding_setup_dns_system_body),
-            selected = selectedProviderId !in providers.map { it.first },
+            selected = BuiltInDnsProviders.none { it.providerId == selectedProviderId },
             onClick = { onDnsSelected("system") },
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.onboardingDnsProvider("system")),
         )
-        providers.forEach { (id, nameAndDesc) ->
+        BuiltInDnsProviders.forEach { provider ->
             PresetCard(
-                title = nameAndDesc.first,
-                description = stringResource(nameAndDesc.second),
-                selected = selectedProviderId == id,
-                onClick = { onDnsSelected(id) },
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.onboardingDnsProvider(id)),
+                title = provider.displayName,
+                description =
+                    stringResource(
+                        R.string.onboarding_setup_dns_provider_body,
+                        protocolDisplayName(provider.protocol),
+                        provider.primaryIp,
+                    ),
+                selected = selectedProviderId == provider.providerId,
+                onClick = { onDnsSelected(provider.providerId) },
+                modifier =
+                    Modifier.ripDpiTestTag(
+                        RipDpiTestTags.onboardingDnsProvider(provider.providerId),
+                    ),
             )
         }
     }

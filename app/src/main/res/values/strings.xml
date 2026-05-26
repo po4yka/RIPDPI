@@ -1366,6 +1366,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_dns_title">Choose a DNS provider</string>
     <string name="onboarding_setup_dns_system">System default</string>
     <string name="onboarding_setup_dns_system_body">Use your network\'s DNS servers as-is.</string>
+    <string name="onboarding_setup_dns_provider_body">%1$s resolver using %2$s as its primary address.</string>
     <string name="onboarding_setup_dns_cloudflare_body">Fast, privacy-focused DNS by Cloudflare.</string>
     <string name="onboarding_setup_dns_google_body">Reliable DNS by Google.</string>
     <string name="onboarding_setup_dns_quad9_body">Security-focused DNS that blocks threats.</string>

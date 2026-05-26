@@ -1044,6 +1044,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_dns_title">Выберите DNS-провайдера</string>
     <string name="onboarding_setup_dns_system">Системный по умолчанию</string>
     <string name="onboarding_setup_dns_system_body">Использовать DNS-серверы текущей сети без изменений.</string>
+    <string name="onboarding_setup_dns_provider_body">Резолвер %1$s с основным адресом %2$s.</string>
     <string name="onboarding_setup_dns_cloudflare_body">Быстрый DNS от Cloudflare с акцентом на приватность.</string>
     <string name="onboarding_setup_dns_google_body">Надёжный DNS от Google.</string>
     <string name="onboarding_setup_dns_quad9_body">DNS с акцентом на безопасность и блокировкой угроз.</string>

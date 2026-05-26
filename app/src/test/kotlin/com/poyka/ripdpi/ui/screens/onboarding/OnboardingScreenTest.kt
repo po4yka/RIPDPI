@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
 import com.poyka.ripdpi.activities.OnboardingValidationState
+import com.poyka.ripdpi.data.BuiltInDnsProviders
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -85,6 +86,23 @@ class OnboardingScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkipConfirmContinue).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkipConfirmSetUpLater).performClick()
         assertTrue(skipped)
+    }
+
+    @Test
+    fun `dns setup uses canonical built in provider catalog`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                OnboardingDnsSelectionContent(
+                    selectedProviderId = BuiltInDnsProviders.first().providerId,
+                    onDnsSelected = {},
+                )
+            }
+        }
+
+        BuiltInDnsProviders.forEach { provider ->
+            composeRule.onNodeWithTag(RipDpiTestTags.onboardingDnsProvider(provider.providerId)).assertExists()
+            composeRule.onNodeWithText(provider.displayName).assertExists()
+        }
     }
 
     @Test

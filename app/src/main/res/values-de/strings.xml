@@ -1791,6 +1791,7 @@ Quelle: %2$s</string>
     <string name="onboarding_modes_title">Voreinstellungen oder volle Kontrolle</string>
     <string name="onboarding_setup_dns_adguard_body">DNS mit integrierter Werbe- und Tracker-Blockierung.</string>
     <string name="onboarding_setup_dns_system_body">Verwenden Sie die DNS-Server Ihres Netzwerks unverändert.</string>
+    <string name="onboarding_setup_dns_provider_body">%1$s-Resolver mit %2$s als primärer Adresse.</string>
     <string name="onboarding_setup_mode_title">Wählen Sie Ihren Modus</string>
     <string name="onboarding_setup_test_hint">Überprüfen Sie Ihre Internetverbindung, bevor Sie loslegen.</string>
     <string name="onboarding_setup_validate_title">Gewählten Modus validieren</string>
