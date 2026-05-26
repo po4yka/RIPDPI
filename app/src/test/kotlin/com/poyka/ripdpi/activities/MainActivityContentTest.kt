@@ -9,6 +9,9 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
@@ -18,10 +21,13 @@ import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -77,7 +83,11 @@ class MainActivityContentTest {
                     requestStartConfiguredMode = true,
                 ),
             )
-        val viewModel = createViewModel(serviceController = serviceController)
+        val viewModel =
+            createViewModel(
+                serviceController = serviceController,
+                permissionStatusProvider = grantedStartupPermissionStatusProvider(),
+            )
 
         composeRule.setContent {
             MainActivityContent(
@@ -88,7 +98,51 @@ class MainActivityContentTest {
 
         composeRule.waitUntil(timeoutMillis = 5_000) { serviceController.startedModes.size == 1 }
 
-        assertEquals(1, serviceController.startedModes.size)
+        assertEquals(listOf(Mode.VPN), serviceController.startedModes)
+        assertFalse(controller.state.value.startConfiguredModeRequested)
+    }
+
+    @Test
+    fun `start configured mode request waits for loaded settings before starting`() {
+        val settingsRepository = DelayedAppSettingsRepository()
+        val serviceController = FakeServiceController()
+        val controller =
+            MainActivityShellController(
+                MainActivity.createLaunchIntent(
+                    context = RuntimeEnvironment.getApplication(),
+                    requestStartConfiguredMode = true,
+                ),
+            )
+        val viewModel =
+            createViewModel(
+                appSettingsRepository = settingsRepository,
+                serviceController = serviceController,
+                permissionStatusProvider = grantedStartupPermissionStatusProvider(),
+            )
+
+        composeRule.setContent {
+            MainActivityContent(
+                viewModel = viewModel,
+                controller = controller,
+            )
+        }
+        composeRule.waitForIdle()
+
+        assertTrue(serviceController.startedModes.isEmpty())
+        assertTrue(controller.state.value.startConfiguredModeRequested)
+
+        composeRule.runOnIdle {
+            settingsRepository.emitSettings(
+                AppSettings
+                    .newBuilder()
+                    .setOnboardingComplete(true)
+                    .setRipdpiMode("proxy")
+                    .build(),
+            )
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) { serviceController.startedModes.isNotEmpty() }
+
+        assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
         assertFalse(controller.state.value.startConfiguredModeRequested)
     }
 
@@ -178,7 +232,7 @@ class MainActivityContentTest {
     }
 
     private fun createViewModel(
-        appSettingsRepository: FakeAppSettingsRepository =
+        appSettingsRepository: AppSettingsRepository =
             FakeAppSettingsRepository(
                 AppSettings
                     .newBuilder()
@@ -279,5 +333,44 @@ class MainActivityContentTest {
                 ),
             stringResolver = FakeStringResolver(),
         )
+    }
+
+    private fun grantedStartupPermissionStatusProvider(): FakePermissionStatusProvider =
+        FakePermissionStatusProvider(
+            PermissionSnapshot(
+                vpnConsent = PermissionStatus.Granted,
+                notifications = PermissionStatus.Granted,
+                batteryOptimization = PermissionStatus.Granted,
+            ),
+        )
+
+    private class DelayedAppSettingsRepository(
+        initialSnapshot: AppSettings = AppSettingsSerializer.defaultValue,
+    ) : AppSettingsRepository {
+        private val emissions = MutableSharedFlow<AppSettings>(replay = 1)
+        private var latest = initialSnapshot
+
+        override val settings: Flow<AppSettings> = emissions
+
+        override suspend fun snapshot(): AppSettings = latest
+
+        override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+            replace(
+                latest
+                    .toBuilder()
+                    .apply(transform)
+                    .build(),
+            )
+        }
+
+        override suspend fun replace(settings: AppSettings) {
+            latest = settings
+            emissions.emit(settings)
+        }
+
+        fun emitSettings(settings: AppSettings) {
+            latest = settings
+            check(emissions.tryEmit(settings))
+        }
     }
 }

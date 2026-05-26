@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import android.content.Context
 import android.content.Intent
 import android.net.VpnService
+import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -73,6 +74,30 @@ class MainActivityPermissionTest {
         assertEquals(
             PermissionResult.Denied,
             MainActivity.mapVpnPermissionResult(RuntimeEnvironment.getApplication()),
+        )
+    }
+
+    @Test
+    fun `host command failure maps pending permission commands to terminal results`() {
+        assertEquals(
+            PermissionKind.Notifications to PermissionResult.Denied,
+            MainActivity.hostCommandFailurePermissionResult(MainActivityHostCommand.RequestNotificationsPermission),
+        )
+        assertEquals(
+            PermissionKind.VpnConsent to PermissionResult.Denied,
+            MainActivity.hostCommandFailurePermissionResult(
+                MainActivityHostCommand.RequestVpnConsent(Intent("shadow.vpn.permission")),
+            ),
+        )
+        assertEquals(
+            PermissionKind.BatteryOptimization to PermissionResult.ReturnedFromSettings,
+            MainActivity.hostCommandFailurePermissionResult(
+                MainActivityHostCommand.RequestBatteryOptimization(Intent("shadow.battery.permission")),
+            ),
+        )
+        assertEquals(
+            null,
+            MainActivity.hostCommandFailurePermissionResult(MainActivityHostCommand.OpenIntent(Intent("shadow.open"))),
         )
     }
 }

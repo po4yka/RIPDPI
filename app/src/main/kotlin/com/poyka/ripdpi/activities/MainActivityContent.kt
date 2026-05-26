@@ -41,6 +41,7 @@ internal fun MainActivityContent(
         viewModel = viewModel,
         controller = controller,
         shellState = shellState,
+        canHandleStartConfiguredModeRequest = startupState.isReady && uiState.settingsLoaded,
         connectionState = uiState.connectionState,
         snackbarHostState = snackbarHostState,
     )
@@ -100,6 +101,7 @@ private fun MainActivityEffects(
     viewModel: MainViewModel,
     controller: MainActivityShellController,
     shellState: MainActivityShellState,
+    canHandleStartConfiguredModeRequest: Boolean,
     connectionState: ConnectionState,
     snackbarHostState: SnackbarHostState,
 ) {
@@ -131,8 +133,8 @@ private fun MainActivityEffects(
         }
     }
 
-    LaunchedEffect(shellState.startConfiguredModeRequested) {
-        if (shellState.startConfiguredModeRequested) {
+    LaunchedEffect(shellState.startConfiguredModeRequested, canHandleStartConfiguredModeRequest) {
+        if (shellState.startConfiguredModeRequested && canHandleStartConfiguredModeRequest) {
             viewModel.onPrimaryConnectionAction()
             controller.consumeStartConfiguredModeRequest()
         }

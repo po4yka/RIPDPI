@@ -204,6 +204,7 @@ data class HomeDiagnosticsUiState(
 
 @Stable
 data class MainUiState(
+    val settingsLoaded: Boolean = false,
     val appStatus: AppStatus = AppStatus.Halted,
     val activeMode: Mode = Mode.VPN,
     val configuredMode: Mode = Mode.VPN,

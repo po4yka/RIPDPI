@@ -76,7 +76,7 @@ class QuickTileControllerTest {
                 )
             val host =
                 FakeQuickTileHost(
-                    notificationsPermissionGranted = false,
+                    vpnPermissionRequired = true,
                 )
             val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
 
@@ -211,7 +211,6 @@ class QuickTileControllerTest {
         }
 
     private class FakeQuickTileHost(
-        private val notificationsPermissionGranted: Boolean = true,
         private val vpnPermissionRequired: Boolean = false,
     ) : QuickTileHost {
         val renderedStates = mutableListOf<QuickTileVisualState>()
@@ -229,8 +228,6 @@ class QuickTileControllerTest {
         override fun launchStartResolution() {
             launchResolutionCount += 1
         }
-
-        override fun notificationsPermissionGranted(): Boolean = notificationsPermissionGranted
 
         override fun vpnPermissionRequired(): Boolean = vpnPermissionRequired
     }

@@ -439,7 +439,7 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `missing notifications requests notifications first`() =
+    fun `missing notifications do not block start`() =
         runTest {
             val serviceController = FakeServiceController()
             val viewModel =
@@ -458,19 +458,15 @@ class MainViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.effects.test {
-                viewModel.onPrimaryConnectionAction()
+            viewModel.onPrimaryConnectionAction()
+            advanceUntilIdle()
 
-                val effect = awaitItem() as MainEffect.RequestPermission
-                assertEquals(PermissionKind.Notifications, effect.kind)
-                assertTrue(serviceController.startedModes.isEmpty())
-                cancelAndIgnoreRemainingEvents()
-            }
+            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
             collector.cancel()
         }
 
     @Test
-    fun `notification denial blocks start and surfaces recovery state`() =
+    fun `notification denial from explicit request surfaces recovery state`() =
         runTest {
             val provider =
                 FakePermissionStatusProvider(
@@ -485,8 +481,14 @@ class MainViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.onPrimaryConnectionAction()
-            viewModel.onPermissionResult(PermissionKind.Notifications, PermissionResult.DeniedPermanently)
+            viewModel.effects.test {
+                viewModel.onRepairPermissionRequested(PermissionKind.Notifications)
+                val effect = awaitItem() as MainEffect.RequestPermission
+                assertEquals(PermissionKind.Notifications, effect.kind)
+
+                viewModel.onPermissionResult(PermissionKind.Notifications, PermissionResult.DeniedPermanently)
+                cancelAndIgnoreRemainingEvents()
+            }
             advanceUntilIdle()
 
             val issue = viewModel.uiState.value.permissionSummary.issue
@@ -500,7 +502,7 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `missing vpn consent opens vpn screen after notifications are granted`() =
+    fun `missing vpn consent opens vpn screen even when notifications are missing`() =
         runTest {
             val provider =
                 FakePermissionStatusProvider(
@@ -517,15 +519,6 @@ class MainViewModelTest {
 
             viewModel.effects.test {
                 viewModel.onPrimaryConnectionAction()
-                val first = awaitItem() as MainEffect.RequestPermission
-                assertEquals(PermissionKind.Notifications, first.kind)
-
-                provider.snapshot =
-                    provider.snapshot.copy(
-                        notifications = PermissionStatus.Granted,
-                    )
-                viewModel.onPermissionResult(PermissionKind.Notifications, PermissionResult.Granted)
-
                 assertEquals(MainEffect.ShowVpnPermissionDialog, awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
@@ -708,7 +701,7 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `pending action resumes across notifications and vpn consent`() =
+    fun `pending action resumes across vpn consent while notifications are recommended`() =
         runTest {
             val serviceController = FakeServiceController()
             val provider =
@@ -730,13 +723,6 @@ class MainViewModelTest {
 
             viewModel.effects.test {
                 viewModel.onPrimaryConnectionAction()
-                assertEquals(PermissionKind.Notifications, (awaitItem() as MainEffect.RequestPermission).kind)
-
-                provider.snapshot =
-                    provider.snapshot.copy(
-                        notifications = PermissionStatus.Granted,
-                    )
-                viewModel.onPermissionResult(PermissionKind.Notifications, PermissionResult.Granted)
                 assertEquals(MainEffect.ShowVpnPermissionDialog, awaitItem())
 
                 viewModel.onVpnPermissionContinueRequested()

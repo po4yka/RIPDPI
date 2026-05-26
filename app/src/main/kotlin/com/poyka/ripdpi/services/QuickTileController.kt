@@ -26,8 +26,6 @@ internal interface QuickTileHost {
 
     fun launchStartResolution()
 
-    fun notificationsPermissionGranted(): Boolean
-
     fun vpnPermissionRequired(): Boolean
 }
 
@@ -115,7 +113,7 @@ internal class QuickTileController(
     private fun needsPermissionResolution(
         mode: Mode,
         host: QuickTileHost,
-    ): Boolean = !host.notificationsPermissionGranted() || (mode == Mode.VPN && host.vpnPermissionRequired())
+    ): Boolean = mode == Mode.VPN && host.vpnPermissionRequired()
 
     private fun handleStartRejected(
         host: QuickTileHost,

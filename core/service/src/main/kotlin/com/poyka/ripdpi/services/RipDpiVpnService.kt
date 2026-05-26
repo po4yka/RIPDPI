@@ -1,13 +1,11 @@
 package com.poyka.ripdpi.services
 
-import android.Manifest
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.IpPrefix
 import android.os.Build
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.RipDpiLogContext
@@ -86,14 +84,6 @@ class RipDpiVpnService :
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
-        if (intent == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            Logger.w { "Sticky restart aborted: notification permission revoked" }
-            stopSelf(startId)
-            return START_NOT_STICKY
-        }
         notificationController.startForeground(this)
         refreshHardKillSwitchState()
         return shellDelegate.onStartCommand(intent?.action, startId)

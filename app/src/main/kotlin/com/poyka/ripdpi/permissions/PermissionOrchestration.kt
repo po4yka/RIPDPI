@@ -289,9 +289,6 @@ class PermissionCoordinator
             snapshot: PermissionSnapshot,
         ): List<PermissionKind> =
             buildList {
-                if (snapshot.notifications != PermissionStatus.Granted) {
-                    add(PermissionKind.Notifications)
-                }
                 if (mode == Mode.VPN && snapshot.vpnConsent != PermissionStatus.Granted) {
                     add(PermissionKind.VpnConsent)
                 }
@@ -302,6 +299,12 @@ class PermissionCoordinator
             snapshot: PermissionSnapshot,
         ): List<PermissionKind> =
             buildList {
+                if (
+                    snapshot.notifications != PermissionStatus.Granted &&
+                    snapshot.notifications != PermissionStatus.NotApplicable
+                ) {
+                    add(PermissionKind.Notifications)
+                }
                 if (mode == Mode.VPN &&
                     snapshot.alwaysOnVpn != PermissionStatus.Granted &&
                     snapshot.alwaysOnVpn != PermissionStatus.NotApplicable

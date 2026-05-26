@@ -49,7 +49,7 @@ class ServiceControllerForegroundDenialTest {
 
     @Test
     @Config(sdk = [Build.VERSION_CODES.TIRAMISU], shadows = [ShadowServiceControllerVpnPrepareService::class])
-    fun missingNotificationsRejectsStartBeforeForegroundIntent() {
+    fun missingNotificationsDoNotBlockForegroundIntent() {
         val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
         val starter = RecordingForegroundServiceStarter()
         val controller =
@@ -62,14 +62,9 @@ class ServiceControllerForegroundDenialTest {
 
         val result = controller.start(Mode.Proxy)
 
-        assertEquals(
-            ServiceStartResult.Rejected(
-                mode = Mode.Proxy,
-                reason = ServiceStartRejectionReason.NotificationsPermissionMissing,
-            ),
-            result,
-        )
-        assertEquals(0, starter.startCount)
+        assertEquals(ServiceStartResult.Accepted(Mode.Proxy), result)
+        assertEquals(1, starter.startCount)
+        assertEquals(RipDpiProxyService::class.java.name, starter.lastIntent?.component?.className)
     }
 
     @Test

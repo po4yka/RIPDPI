@@ -9,7 +9,7 @@ class PermissionCoordinatorTest {
     private val coordinator = PermissionCoordinator()
 
     @Test
-    fun `vpn start resolves notifications before vpn consent`() {
+    fun `vpn start requires vpn consent and recommends notifications`() {
         val resolution =
             coordinator.resolve(
                 action = PermissionAction.StartConfiguredMode,
@@ -25,11 +25,14 @@ class PermissionCoordinatorTest {
             )
 
         assertEquals(
-            listOf(PermissionKind.Notifications, PermissionKind.VpnConsent),
+            listOf(PermissionKind.VpnConsent),
             resolution.required,
         )
-        assertEquals(PermissionKind.Notifications, resolution.blockedBy)
-        assertEquals(listOf(PermissionKind.BatteryOptimization), resolution.recommended)
+        assertEquals(PermissionKind.VpnConsent, resolution.blockedBy)
+        assertEquals(
+            listOf(PermissionKind.Notifications, PermissionKind.BatteryOptimization),
+            resolution.recommended,
+        )
     }
 
     @Test
@@ -113,7 +116,7 @@ class PermissionCoordinatorTest {
     }
 
     @Test
-    fun `vpn start recommends always-on lockdown and battery without blocking startup`() {
+    fun `vpn start recommends notifications always-on lockdown and battery without blocking startup`() {
         val resolution =
             coordinator.resolve(
                 action = PermissionAction.StartVpnMode,
@@ -123,7 +126,7 @@ class PermissionCoordinatorTest {
                         vpnConsent = PermissionStatus.Granted,
                         alwaysOnVpn = PermissionStatus.RequiresSettings,
                         vpnLockdown = PermissionStatus.Unknown,
-                        notifications = PermissionStatus.Granted,
+                        notifications = PermissionStatus.RequiresSystemPrompt,
                         batteryOptimization = PermissionStatus.RequiresSettings,
                     ),
             )
@@ -131,6 +134,7 @@ class PermissionCoordinatorTest {
         assertTrue(resolution.required.isEmpty())
         assertEquals(
             listOf(
+                PermissionKind.Notifications,
                 PermissionKind.AlwaysOnVpn,
                 PermissionKind.VpnLockdown,
                 PermissionKind.BatteryOptimization,

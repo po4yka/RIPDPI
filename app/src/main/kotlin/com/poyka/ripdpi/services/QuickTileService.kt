@@ -1,15 +1,12 @@
 package com.poyka.ripdpi.services
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PendingIntent
-import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import androidx.core.service.quicksettings.PendingIntentActivityWrapper
 import androidx.core.service.quicksettings.TileServiceCompat
 import com.poyka.ripdpi.R
@@ -121,13 +118,6 @@ class QuickTileService :
                 Toast.LENGTH_SHORT,
             ).show()
     }
-
-    override fun notificationsPermissionGranted(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) == PackageManager.PERMISSION_GRANTED
 
     override fun vpnPermissionRequired(): Boolean = VpnService.prepare(this) != null
 

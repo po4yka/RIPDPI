@@ -11,8 +11,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
+import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.proxyimport.ImportHandlerActivity
 import com.poyka.ripdpi.proxyimport.ImportLaunchRoute
@@ -133,6 +135,33 @@ class MainActivity : AppCompatActivity() {
             } else {
                 PermissionResult.Denied
             }
+
+        internal fun hostCommandFailurePermissionResult(
+            command: MainActivityHostCommand,
+        ): Pair<PermissionKind, PermissionResult>? =
+            when (command) {
+                MainActivityHostCommand.RequestNotificationsPermission -> {
+                    PermissionKind.Notifications to PermissionResult.Denied
+                }
+
+                is MainActivityHostCommand.RequestVpnConsent -> {
+                    PermissionKind.VpnConsent to PermissionResult.Denied
+                }
+
+                is MainActivityHostCommand.RequestBatteryOptimization -> {
+                    PermissionKind.BatteryOptimization to PermissionResult.ReturnedFromSettings
+                }
+
+                is MainActivityHostCommand.OpenIntent,
+                MainActivityHostCommand.SaveLogs,
+                MainActivityHostCommand.ShareDebugBundle,
+                is MainActivityHostCommand.SaveDiagnosticsArchive,
+                is MainActivityHostCommand.ShareDiagnosticsArchive,
+                is MainActivityHostCommand.ShareDiagnosticsSummary,
+                -> {
+                    null
+                }
+            }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -151,6 +180,14 @@ class MainActivity : AppCompatActivity() {
                 runCatching { mainActivityHost.handle(command) }
                     .onFailure { error ->
                         Logger.e(error) { "Host command failed: $command" }
+                        hostCommandFailurePermissionResult(command)?.let { (kind, result) ->
+                            viewModel.onPermissionResult(kind = kind, result = result)
+                        }
+                        val message =
+                            error.message
+                                ?.takeIf { it.isNotBlank() }
+                                ?: getString(R.string.onboarding_validation_failed_generic)
+                        shellController.onEffect(MainEffect.ShowError(message))
                     }
             }
         }

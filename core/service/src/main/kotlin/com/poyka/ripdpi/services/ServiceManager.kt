@@ -1,11 +1,8 @@
 package com.poyka.ripdpi.services
 
-import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.VpnService
-import android.os.Build
 import androidx.core.content.ContextCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
@@ -83,15 +80,6 @@ class DefaultServiceController
         override fun start(mode: Mode): ServiceStartResult {
             if (serviceAutomationController.map { it.interceptStart(mode) }.orElse(false)) {
                 return ServiceStartResult.Accepted(mode)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                PackageManager.PERMISSION_GRANTED
-            ) {
-                Logger.i {
-                    "Cannot start service: POST_NOTIFICATIONS permission not granted"
-                }
-                return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.NotificationsPermissionMissing)
             }
             if (mode == Mode.VPN && VpnService.prepare(context) != null) {
                 Logger.i {

@@ -122,6 +122,7 @@ internal fun buildMainUiState(
             stringResolver = stringResolver,
         )
     return MainUiState(
+        settingsLoaded = true,
         appStatus = status,
         activeMode = activeMode,
         configuredMode = configuredMode,
