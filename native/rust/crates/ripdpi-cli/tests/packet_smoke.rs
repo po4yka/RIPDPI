@@ -414,11 +414,12 @@ fn generated_tcp_http_args(metadata: &Value) -> Vec<String> {
     let split_offset = generated_axis_value(metadata, "split_offset");
     let fake_ttl = generated_axis_value(metadata, "fake_ttl_ladder");
     let oob_placement = generated_axis_value(metadata, "oob_byte_placement");
-    let mut args = vec!["-K".to_string(), "h".to_string()];
-    if fake_ttl != "off" {
-        push_args(&mut args, ["-t", fake_ttl]);
-    }
-    if oob_placement == "off" {
+    let mut args = Vec::new();
+    if fake_ttl != "off" && oob_placement != "off" {
+        push_args(&mut args, ["-t", fake_ttl, "-q", split_offset, "--oob-data", generated_oob_data(oob_placement)]);
+    } else if fake_ttl != "off" {
+        push_args(&mut args, ["-t", fake_ttl, "-d", split_offset]);
+    } else if oob_placement == "off" {
         push_args(&mut args, ["-s", split_offset]);
     } else {
         push_args(&mut args, ["-o", split_offset, "--oob-data", generated_oob_data(oob_placement)]);
@@ -432,8 +433,10 @@ fn generated_tcp_tls_args(metadata: &Value) -> Vec<String> {
     let tls_profile = generated_axis_value(metadata, "tlsrandrec_profile");
     let fake_ttl = generated_axis_value(metadata, "fake_ttl_ladder");
     let oob_placement = generated_axis_value(metadata, "oob_byte_placement");
-    let mut args = vec!["-K".to_string(), "t".to_string()];
-    if fake_ttl != "off" {
+    let mut args = Vec::new();
+    if fake_ttl != "off" && oob_placement != "off" {
+        push_args(&mut args, ["-t", fake_ttl, "-q", split_offset, "--oob-data", generated_oob_data(oob_placement)]);
+    } else if fake_ttl != "off" {
         push_args(&mut args, ["-t", fake_ttl, "-f", split_offset]);
         push_args(&mut args, ["--fake-tls-profile", generated_tls_profile(tls_profile)]);
     } else {
@@ -446,7 +449,7 @@ fn generated_tcp_tls_args(metadata: &Value) -> Vec<String> {
         "auto_midsld" => push_args(&mut args, ["--tlsrec", "auto(midsld)"]),
         other => panic!("unsupported tls_record_split generated axis value: {other}"),
     }
-    if oob_placement != "off" {
+    if fake_ttl == "off" && oob_placement != "off" {
         push_args(&mut args, ["-o", split_offset, "--oob-data", generated_oob_data(oob_placement)]);
     }
     args

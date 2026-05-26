@@ -778,6 +778,8 @@ proptest! {
         };
 
         let mut ui = minimal_ui_config();
+        let parsed_ip = IpAddr::from_str(&ip).expect("valid generated ip");
+        let auth_token = if parsed_ip.is_loopback() { None } else { Some("valid-generated-token".to_string()) };
         ui.listen = ProxyUiListenConfig {
             ip: ip.clone(),
             port,
@@ -787,7 +789,7 @@ proptest! {
             default_ttl: 64,
             custom_ttl: true,
             freeze_detection_enabled: false,
-            auth_token: None,
+            auth_token,
         };
         ui.fake_packets.drop_sack = drop_sack;
         ui.hosts.mode = hosts_mode;
@@ -796,7 +798,7 @@ proptest! {
 
         let config = runtime_config_from_ui(ui).expect("valid payload");
 
-        prop_assert_eq!(config.network.listen.listen_ip, IpAddr::from_str(&ip).expect("valid ip"));
+        prop_assert_eq!(config.network.listen.listen_ip, parsed_ip);
         prop_assert_eq!(config.network.listen.listen_port, u16::try_from(port).expect("valid port"));
         prop_assert_eq!(config.network.max_open, max_connections);
         prop_assert_eq!(config.network.buffer_size, usize::try_from(buffer_size).expect("valid buffer size"));
