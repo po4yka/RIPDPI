@@ -79,7 +79,9 @@ jobs:
       - name: Generate Rust SBOM
         run: |
           # Pin to 0.5.7 -- 0.5.8/0.5.9 removed --output-pattern with no documented replacement.
-          cargo install cargo-cyclonedx --version 0.5.7 --locked --quiet
+          # --force is required because rust-cache may restore a newer binary; without it
+          # `cargo install --version 0.5.7` silently no-ops when any version is present.
+          cargo install cargo-cyclonedx --version 0.5.7 --locked --force --quiet
           cd native/rust
           cargo cyclonedx --format json --output-pattern bom
           cp target/bom.json $GITHUB_WORKSPACE/rust-bom.json
