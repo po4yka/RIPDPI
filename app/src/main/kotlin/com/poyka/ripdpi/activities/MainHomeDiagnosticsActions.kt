@@ -24,6 +24,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.coroutines.Job
@@ -77,7 +78,7 @@ internal class MainHomeDiagnosticsActions(
         observeLatestManualDiagnosticSession()
         observeVerificationSessions()
         observeVerifiedVpnConnection()
-        observeVpnConsentWhileWaiting()
+        observeBlockingPermissionWhileWaiting()
         observeServiceStatusForFingerprint()
     }
 
@@ -249,36 +250,46 @@ internal class MainHomeDiagnosticsActions(
         }
     }
 
-    private fun observeVpnConsentWhileWaiting() {
+    private fun observeBlockingPermissionWhileWaiting() {
         mutations.launch {
             permissionState
-                .map { it.issue?.kind }
+                .map { it.issue }
                 .distinctUntilChanged()
-                .collect { issueKind ->
+                .collect { issue ->
                     if (
                         homeDiagnosticsState.value.waitingForVerifiedVpnStart &&
-                        issueKind == PermissionKind.VpnConsent
+                        issue?.blocking == true
                     ) {
                         homeDiagnosticsState.update {
                             it.copy(
                                 waitingForVerifiedVpnStart = false,
                                 verificationProgress = null,
-                                verificationSheet =
-                                    DiagnosticsHomeVerificationOutcome(
-                                        sessionId = "",
-                                        success = false,
-                                        headline = "VPN permission is required",
-                                        summary =
-                                            stringResolver.getString(
-                                                R.string.home_diagnostics_permission_required,
-                                            ),
-                                    ),
+                                verificationSheet = blockedPermissionVerificationOutcome(issue),
                             )
                         }
                     }
                 }
         }
     }
+
+    private fun blockedPermissionVerificationOutcome(
+        issue: PermissionIssueUiState,
+    ): DiagnosticsHomeVerificationOutcome =
+        if (issue.kind == PermissionKind.VpnConsent) {
+            DiagnosticsHomeVerificationOutcome(
+                sessionId = "",
+                success = false,
+                headline = "VPN permission is required",
+                summary = stringResolver.getString(R.string.home_diagnostics_permission_required),
+            )
+        } else {
+            DiagnosticsHomeVerificationOutcome(
+                sessionId = "",
+                success = false,
+                headline = issue.title,
+                summary = issue.message,
+            )
+        }
 
     private fun observeServiceStatusForFingerprint() {
         mutations.launch {

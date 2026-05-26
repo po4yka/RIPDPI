@@ -15,6 +15,9 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.permissions.PermissionIssueUiState
+import com.poyka.ripdpi.permissions.PermissionKind
+import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -310,6 +313,62 @@ class MainHomeDiagnosticsActionsTest {
             assertFalse(homeDiagnosticsState.value.waitingForVerifiedVpnStart)
             assertEquals("VPN verification is busy", homeDiagnosticsState.value.verificationSheet?.headline)
             assertTrue(effects.replayCache.isEmpty())
+        }
+
+    @Test
+    fun `verified vpn flow clears waiting when notifications permission blocks startup`() =
+        runTest {
+            val permissionState =
+                MutableStateFlow(
+                    PermissionRuntimeState(
+                        snapshot =
+                            PermissionSnapshot(
+                                vpnConsent = PermissionStatus.Granted,
+                                notifications = PermissionStatus.RequiresSystemPrompt,
+                                batteryOptimization = PermissionStatus.Granted,
+                            ),
+                    ),
+                )
+            val homeDiagnosticsState =
+                MutableStateFlow(
+                    HomeDiagnosticsRuntimeState(
+                        latestCompositeOutcome = compositeOutcome(),
+                        currentFingerprintHash = "fp-1",
+                        waitingForVerifiedVpnStart = true,
+                        verificationProgress = "Starting VPN",
+                    ),
+                )
+            val actions =
+                createActions(
+                    scope = backgroundScope,
+                    permissionState = permissionState,
+                    homeDiagnosticsState = homeDiagnosticsState,
+                )
+
+            actions.initialize()
+            advanceUntilIdle()
+            permissionState.value =
+                permissionState.value.copy(
+                    issue =
+                        PermissionIssueUiState(
+                            kind = PermissionKind.Notifications,
+                            title = "Notifications required",
+                            message = "Allow notifications to start the foreground service.",
+                            recovery = PermissionRecovery.RetryPrompt,
+                            actionLabel = "Allow",
+                            blocking = true,
+                        ),
+                )
+            runCurrent()
+            advanceUntilIdle()
+
+            assertFalse(homeDiagnosticsState.value.waitingForVerifiedVpnStart)
+            assertNull(homeDiagnosticsState.value.verificationProgress)
+            assertEquals("Notifications required", homeDiagnosticsState.value.verificationSheet?.headline)
+            assertEquals(
+                "Allow notifications to start the foreground service.",
+                homeDiagnosticsState.value.verificationSheet?.summary,
+            )
         }
 
     @Test
