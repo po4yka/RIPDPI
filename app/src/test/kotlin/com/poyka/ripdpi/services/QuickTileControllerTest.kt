@@ -125,6 +125,70 @@ class QuickTileControllerTest {
         }
 
     @Test
+    fun `click launches resolution when start is rejected by stale vpn permission`() =
+        runTest {
+            val serviceController =
+                FakeServiceController().apply {
+                    nextStartResult =
+                        ServiceStartResult.Rejected(
+                            mode = Mode.VPN,
+                            reason = ServiceStartRejectionReason.VpnConsentMissing,
+                        )
+                }
+            val controller =
+                QuickTileController(
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    serviceController = serviceController,
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+            val host = FakeQuickTileHost()
+            val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
+
+            controller.onStartListening(host = host, scope = listeningScope)
+            listeningScope.advanceUntilIdle()
+            controller.onClick(host)
+            listeningScope.advanceUntilIdle()
+
+            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
+            assertEquals(1, host.launchResolutionCount)
+            assertEquals(QuickTileVisualState.Inactive, host.renderedStates.last())
+        }
+
+    @Test
+    fun `click shows start failure when foreground service start is rejected`() =
+        runTest {
+            val serviceController =
+                FakeServiceController().apply {
+                    nextStartResult =
+                        ServiceStartResult.Rejected(
+                            mode = Mode.Proxy,
+                            reason = ServiceStartRejectionReason.ForegroundServiceBlocked("blocked"),
+                        )
+                }
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setRipdpiMode(Mode.Proxy.preferenceValue)
+                    .build()
+            val controller =
+                QuickTileController(
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    serviceController = serviceController,
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+            val host = FakeQuickTileHost()
+            val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
+
+            controller.onStartListening(host = host, scope = listeningScope)
+            listeningScope.advanceUntilIdle()
+            controller.onClick(host)
+            listeningScope.advanceUntilIdle()
+
+            assertEquals(listOf("Proxy"), host.failures)
+            assertEquals(QuickTileVisualState.Inactive, host.renderedStates.last())
+        }
+
+    @Test
     fun `click stops service when runtime is active`() =
         runTest {
             val serviceController = FakeServiceController()

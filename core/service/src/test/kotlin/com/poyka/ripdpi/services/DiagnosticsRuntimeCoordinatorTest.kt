@@ -140,6 +140,41 @@ class DiagnosticsRuntimeCoordinatorTest {
         }
 
     @Test
+    fun `rejected resume start skips running wait after raw path scan block`() =
+        runTest {
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.VPN)
+            val controller =
+                FakeServiceController(stateStore).apply {
+                    nextStartResult =
+                        ServiceStartResult.Rejected(
+                            mode = Mode.VPN,
+                            reason = ServiceStartRejectionReason.VpnConsentMissing,
+                        )
+                }
+            val coordinator =
+                buildCoordinator(
+                    controller,
+                    stateStore,
+                    FakeCoordinatorSettingsRepository(
+                        AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setDiagnosticsAutoResumeAfterRawScan(true)
+                            .build(),
+                    ),
+                )
+            var blockRan = false
+
+            coordinator.runRawPathScan {
+                blockRan = true
+            }
+
+            assertTrue(blockRan)
+            assertEquals(1, controller.stopCount)
+            assertEquals(1, controller.startCount)
+            assertEquals(AppStatus.Halted to Mode.VPN, stateStore.status.value)
+        }
+
+    @Test
     fun `automatic raw path scan always resumes running service even when user auto resume is disabled`() =
         runTest {
             val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
@@ -243,13 +278,16 @@ private class FakeServiceController(
     var transitionOnStart: Boolean = true
     var stopCount: Int = 0
     var startCount: Int = 0
+    var nextStartResult: ServiceStartResult? = null
 
-    override fun start(mode: Mode) {
+    override fun start(mode: Mode): ServiceStartResult {
         startCount += 1
         startFailure?.let { throw it }
+        nextStartResult?.let { return it }
         if (transitionOnStart) {
             stateStore.setStatus(AppStatus.Running, mode)
         }
+        return ServiceStartResult.Accepted(mode)
     }
 
     override fun stop() {

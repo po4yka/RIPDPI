@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import com.poyka.ripdpi.services.OwnedTlsFingerprintSelection
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceStartRejectionReason
+import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -63,19 +65,121 @@ class OnboardingModeValidationRunnerTest {
             }
         }
 
+    @Test
+    fun `rejected vpn start returns permission failure without waiting for running status`() =
+        runTest {
+            val serviceStateStore = FakeServiceStateStore()
+            val serviceController =
+                RejectingServiceController(ServiceStartRejectionReason.VpnConsentMissing)
+            val runner =
+                validationRunner(
+                    serviceStateStore = serviceStateStore,
+                    serviceController = serviceController,
+                )
+
+            val result = runner.validate(Mode.VPN) { }
+
+            assertEquals(1, serviceController.startedModes.size)
+            val failure = result as OnboardingValidationResult.Failed
+            assertEquals(
+                com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION,
+                failure.recoveryKind,
+            )
+            assertEquals(Mode.Proxy, failure.suggestedMode)
+        }
+
+    @Test
+    fun `rejected notification start returns notification recovery without alternate mode`() =
+        runTest {
+            val runner =
+                validationRunner(
+                    serviceStateStore = FakeServiceStateStore(),
+                    serviceController =
+                        RejectingServiceController(
+                            ServiceStartRejectionReason.NotificationsPermissionMissing,
+                        ),
+                )
+
+            val result = runner.validate(Mode.VPN) { }
+
+            val failure = result as OnboardingValidationResult.Failed
+            assertEquals(
+                com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS,
+                failure.recoveryKind,
+            )
+            assertEquals(null, failure.suggestedMode)
+        }
+
+    @Test
+    fun `accepted start still times out when running status never arrives`() =
+        runTest {
+            val runner =
+                validationRunner(
+                    serviceStateStore = FakeServiceStateStore(),
+                    serviceController = AcceptedButIdleServiceController(),
+                )
+
+            val result = runner.validate(Mode.VPN) { }
+
+            val failure = result as OnboardingValidationResult.Failed
+            assertEquals(
+                com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind.RETRY,
+                failure.recoveryKind,
+            )
+            assertEquals(Mode.Proxy, failure.suggestedMode)
+        }
+
+    private fun validationRunner(
+        serviceStateStore: FakeServiceStateStore,
+        serviceController: ServiceController,
+    ): DefaultOnboardingModeValidationRunner =
+        DefaultOnboardingModeValidationRunner(
+            appSettingsRepository = FakeAppSettingsRepository(),
+            serviceController = serviceController,
+            serviceStateStore = serviceStateStore,
+            tlsClientFactory = RecordingOwnedTlsClientFactory(),
+            stringResolver = FakeStringResolver(),
+            dispatchers =
+                AppCoroutineDispatchers(
+                    default = UnconfinedTestDispatcher(),
+                    io = UnconfinedTestDispatcher(),
+                    main = UnconfinedTestDispatcher(),
+                ),
+        )
+
     private class RunningServiceController(
         private val serviceStateStore: FakeServiceStateStore,
     ) : ServiceController {
         val startedModes = mutableListOf<Mode>()
 
-        override fun start(mode: Mode) {
+        override fun start(mode: Mode): ServiceStartResult {
             startedModes += mode
             serviceStateStore.setStatus(AppStatus.Running, mode)
+            return ServiceStartResult.Accepted(mode)
         }
 
         override fun stop() {
             serviceStateStore.setStatus(AppStatus.Halted, serviceStateStore.status.value.second)
         }
+    }
+
+    private class RejectingServiceController(
+        private val reason: ServiceStartRejectionReason,
+    ) : ServiceController {
+        val startedModes = mutableListOf<Mode>()
+
+        override fun start(mode: Mode): ServiceStartResult {
+            startedModes += mode
+            return ServiceStartResult.Rejected(mode = mode, reason = reason)
+        }
+
+        override fun stop() = Unit
+    }
+
+    private class AcceptedButIdleServiceController : ServiceController {
+        override fun start(mode: Mode): ServiceStartResult = ServiceStartResult.Accepted(mode)
+
+        override fun stop() = Unit
     }
 
     private class RecordingOwnedTlsClientFactory : OwnedTlsClientFactory {

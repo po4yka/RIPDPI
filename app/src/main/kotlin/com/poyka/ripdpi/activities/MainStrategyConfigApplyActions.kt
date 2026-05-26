@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
@@ -33,7 +34,10 @@ internal class MainStrategyConfigApplyActions(
                     scope.launch {
                         serviceController.stop()
                         if (waitForServiceStatus(AppStatus.Halted)) {
-                            serviceController.start(mode)
+                            when (serviceController.start(mode)) {
+                                is ServiceStartResult.Accepted -> Unit
+                                is ServiceStartResult.Rejected -> Unit
+                            }
                         }
                     }
                 StrategyConfigApplyResult.RestartingActiveService

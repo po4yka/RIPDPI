@@ -23,9 +23,32 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 interface ServiceController {
-    fun start(mode: Mode)
+    fun start(mode: Mode): ServiceStartResult
 
     fun stop()
+}
+
+sealed interface ServiceStartResult {
+    val mode: Mode
+
+    data class Accepted(
+        override val mode: Mode,
+    ) : ServiceStartResult
+
+    data class Rejected(
+        override val mode: Mode,
+        val reason: ServiceStartRejectionReason,
+    ) : ServiceStartResult
+}
+
+sealed interface ServiceStartRejectionReason {
+    data object NotificationsPermissionMissing : ServiceStartRejectionReason
+
+    data object VpnConsentMissing : ServiceStartRejectionReason
+
+    data class ForegroundServiceBlocked(
+        val message: String?,
+    ) : ServiceStartRejectionReason
 }
 
 interface ForegroundServiceStarter {
@@ -57,9 +80,9 @@ class DefaultServiceController
         private val foregroundServiceStarter: ForegroundServiceStarter,
     ) : ServiceController {
         @Suppress("ReturnCount")
-        override fun start(mode: Mode) {
+        override fun start(mode: Mode): ServiceStartResult {
             if (serviceAutomationController.map { it.interceptStart(mode) }.orElse(false)) {
-                return
+                return ServiceStartResult.Accepted(mode)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -68,13 +91,13 @@ class DefaultServiceController
                 Logger.i {
                     "Cannot start service: POST_NOTIFICATIONS permission not granted"
                 }
-                return
+                return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.NotificationsPermissionMissing)
             }
             if (mode == Mode.VPN && VpnService.prepare(context) != null) {
                 Logger.i {
                     "Cannot start VPN service: VPN consent not given"
                 }
-                return
+                return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.VpnConsentMissing)
             }
             when (mode) {
                 Mode.VPN -> {
@@ -88,7 +111,10 @@ class DefaultServiceController
                     } catch (e: IllegalStateException) {
                         // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
                         Logger.w(e) { "Foreground service start blocked" }
-                        return
+                        return ServiceStartResult.Rejected(
+                            mode = mode,
+                            reason = ServiceStartRejectionReason.ForegroundServiceBlocked(e.message),
+                        )
                     }
                 }
 
@@ -103,10 +129,14 @@ class DefaultServiceController
                     } catch (e: IllegalStateException) {
                         // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
                         Logger.w(e) { "Foreground service start blocked" }
-                        return
+                        return ServiceStartResult.Rejected(
+                            mode = mode,
+                            reason = ServiceStartRejectionReason.ForegroundServiceBlocked(e.message),
+                        )
                     }
                 }
             }
+            return ServiceStartResult.Accepted(mode)
         }
 
         override fun stop() {

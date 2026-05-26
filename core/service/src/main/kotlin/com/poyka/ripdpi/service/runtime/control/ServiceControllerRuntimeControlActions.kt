@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.delay
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -36,10 +37,7 @@ internal class ServiceControllerRuntimeControlActions
         override suspend fun startRuntime(
             mode: Mode,
             reason: RuntimeControlReason,
-        ): RuntimeControlOutcome {
-            serviceController.start(mode)
-            return RuntimeControlOutcome.Completed
-        }
+        ): RuntimeControlOutcome = serviceController.start(mode).toRuntimeControlOutcome()
 
         override suspend fun stopRuntime(reason: RuntimeControlReason): RuntimeControlOutcome {
             serviceController.stop()
@@ -52,8 +50,7 @@ internal class ServiceControllerRuntimeControlActions
                 serviceController.stop()
                 awaitHalted()
             }
-            serviceController.start(mode)
-            return RuntimeControlOutcome.Completed
+            return serviceController.start(mode).toRuntimeControlOutcome()
         }
 
         override suspend fun applyNetworkSnapshot(reason: RuntimeControlReason): RuntimeControlOutcome =
@@ -85,6 +82,12 @@ internal class ServiceControllerRuntimeControlActions
                 "$command targets a live in-session runtime coordinator and is not serviced by the " +
                     "process-level control plane; that path keeps its direct coordinator call for now",
             )
+
+        private fun ServiceStartResult.toRuntimeControlOutcome(): RuntimeControlOutcome =
+            when (this) {
+                is ServiceStartResult.Accepted -> RuntimeControlOutcome.Completed
+                is ServiceStartResult.Rejected -> RuntimeControlOutcome.Rejected(mode = mode, reason = reason)
+            }
 
         private companion object {
             private const val RestartHaltPollAttempts = 50

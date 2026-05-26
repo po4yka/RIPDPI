@@ -8,6 +8,8 @@ import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceStartRejectionReason
+import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -56,6 +58,30 @@ class RuntimeControlPlaneTest {
             assertEquals(RuntimeControlOutcome.Completed, outcome)
             assertEquals(1, controller.stopCount)
             assertEquals(0, controller.startCount)
+        }
+
+    @Test
+    fun `start command returns rejected outcome when ServiceController rejects start`() =
+        runTest {
+            val stateStore = FakeServiceStateStore(AppStatus.Halted to Mode.VPN)
+            val rejected =
+                ServiceStartResult.Rejected(
+                    mode = Mode.VPN,
+                    reason = ServiceStartRejectionReason.VpnConsentMissing,
+                )
+            val controller =
+                FakeServiceController(stateStore).apply {
+                    nextStartResult = rejected
+                }
+            val plane = DefaultRuntimeControlPlane(ServiceControllerRuntimeControlActions(controller, stateStore))
+
+            val outcome =
+                plane.execute(
+                    RuntimeControlCommand.StartRuntime(Mode.VPN, RuntimeControlReason.ServiceStart),
+                )
+
+            assertEquals(RuntimeControlOutcome.Rejected(mode = Mode.VPN, reason = rejected.reason), outcome)
+            assertEquals(AppStatus.Halted to Mode.VPN, stateStore.status.value)
         }
 
     @Test
@@ -158,11 +184,14 @@ private class FakeServiceController(
         private set
     var lastStartMode: Mode? = null
         private set
+    var nextStartResult: ServiceStartResult? = null
 
-    override fun start(mode: Mode) {
+    override fun start(mode: Mode): ServiceStartResult {
         startCount += 1
         lastStartMode = mode
+        nextStartResult?.let { return it }
         stateStore.setStatus(AppStatus.Running, mode)
+        return ServiceStartResult.Accepted(mode)
     }
 
     override fun stop() {

@@ -36,10 +36,10 @@ class OnboardingValidationCoordinator
                     OnboardingValidationState.Failed(
                         reason = reason,
                         recoveryKind =
-                            if (suggestedMode != null) {
+                            if (recoveryKind == OnboardingValidationRecoveryKind.RETRY && suggestedMode != null) {
                                 OnboardingValidationRecoveryKind.SWITCH_MODE
                             } else {
-                                OnboardingValidationRecoveryKind.RETRY
+                                recoveryKind
                             },
                         suggestedMode = suggestedMode,
                     )

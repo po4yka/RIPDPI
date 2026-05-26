@@ -5,6 +5,7 @@ import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.services.ServiceStartResult
 import dagger.hilt.android.EntryPointAccessors
 
 val ModeKey = ActionParameters.Key<String>("mode")
@@ -23,6 +24,9 @@ class PickModeAction : ActionCallback {
                 context.applicationContext,
                 WidgetEntryPoint::class.java,
             )
-        ep.serviceController().start(mode)
+        when (ep.serviceController().start(mode)) {
+            is ServiceStartResult.Accepted -> Unit
+            is ServiceStartResult.Rejected -> Unit
+        }
     }
 }

@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.service.runtime.control
 
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.services.ServiceStartRejectionReason
+
 /**
  * The result of executing a [RuntimeControlCommand].
  *
@@ -20,5 +23,10 @@ internal sealed interface RuntimeControlOutcome {
      */
     data class Ignored(
         val detail: String,
+    ) : RuntimeControlOutcome
+
+    data class Rejected(
+        val mode: Mode,
+        val reason: ServiceStartRejectionReason,
     ) : RuntimeControlOutcome
 }

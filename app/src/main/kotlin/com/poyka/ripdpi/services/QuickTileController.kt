@@ -3,8 +3,12 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.services.ServiceStartRejectionReason.ForegroundServiceBlocked
+import com.poyka.ripdpi.services.ServiceStartRejectionReason.NotificationsPermissionMissing
+import com.poyka.ripdpi.services.ServiceStartRejectionReason.VpnConsentMissing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -95,7 +99,10 @@ internal class QuickTileController(
                         return@launch
                     }
 
-                    serviceController.start(mode)
+                    when (val result = serviceController.start(mode)) {
+                        is ServiceStartResult.Accepted -> Unit
+                        is ServiceStartResult.Rejected -> handleStartRejected(host, result)
+                    }
                 }
             }
 
@@ -109,6 +116,20 @@ internal class QuickTileController(
         mode: Mode,
         host: QuickTileHost,
     ): Boolean = !host.notificationsPermissionGranted() || (mode == Mode.VPN && host.vpnPermissionRequired())
+
+    private fun handleStartRejected(
+        host: QuickTileHost,
+        result: ServiceStartResult.Rejected,
+    ) {
+        updateStatus(host)
+        when (result.reason) {
+            NotificationsPermissionMissing,
+            VpnConsentMissing,
+            -> host.launchStartResolution()
+
+            is ForegroundServiceBlocked -> host.showStartFailure(result.mode.senderName)
+        }
+    }
 
     private fun updateStatus(host: QuickTileHost) {
         val state =
@@ -137,4 +158,11 @@ internal class QuickTileController(
         eventsJob?.cancel()
         eventsJob = null
     }
+
+    private val Mode.senderName: String
+        get() =
+            when (this) {
+                Mode.VPN -> Sender.VPN.senderName
+                Mode.Proxy -> Sender.Proxy.senderName
+            }
 }

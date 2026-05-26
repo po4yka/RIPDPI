@@ -4,10 +4,12 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlCommand
+import com.poyka.ripdpi.service.runtime.control.RuntimeControlOutcome
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlPlane
 import com.poyka.ripdpi.service.runtime.control.RuntimeControlReason
 import kotlinx.coroutines.delay
@@ -71,10 +73,9 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                     block()
                 } finally {
                     if (shouldResume) {
-                        runtimeControlPlane.execute(
-                            RuntimeControlCommand.StartRuntime(mode, RuntimeControlReason.DiagnosticsRawPathScan),
-                        )
-                        waitForStatus(AppStatus.Running)
+                        if (resumeRuntime(mode)) {
+                            waitForStatus(AppStatus.Running)
+                        }
                     }
                 }
             }
@@ -96,11 +97,32 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                     block()
                 } finally {
                     if (shouldResume) {
-                        runtimeControlPlane.execute(
-                            RuntimeControlCommand.StartRuntime(mode, RuntimeControlReason.DiagnosticsRawPathScan),
-                        )
-                        waitForStatus(AppStatus.Running)
+                        if (resumeRuntime(mode)) {
+                            waitForStatus(AppStatus.Running)
+                        }
                     }
+                }
+            }
+        }
+
+        private suspend fun resumeRuntime(mode: Mode): Boolean {
+            val outcome =
+                runtimeControlPlane.execute(
+                    RuntimeControlCommand.StartRuntime(mode, RuntimeControlReason.DiagnosticsRawPathScan),
+                )
+            return when (outcome) {
+                RuntimeControlOutcome.Completed -> {
+                    true
+                }
+
+                is RuntimeControlOutcome.Ignored -> {
+                    Logger.w { "Diagnostics runtime resume ignored: ${outcome.detail}" }
+                    false
+                }
+
+                is RuntimeControlOutcome.Rejected -> {
+                    Logger.w { "Diagnostics runtime resume rejected for ${outcome.mode}: ${outcome.reason}" }
+                    false
                 }
             }
         }

@@ -18,6 +18,7 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,7 +51,20 @@ internal class MainConnectionActions(
 
     fun startMode(mode: Mode) {
         setConnectingState()
-        serviceController.start(mode)
+        when (val result = serviceController.start(mode)) {
+            is ServiceStartResult.Accepted -> {
+                Unit
+            }
+
+            is ServiceStartResult.Rejected -> {
+                refreshPermissionSnapshot()
+                val message =
+                    stringResolver.getString(R.string.failed_to_start, result.mode.startSenderName) +
+                        ": " +
+                        result.reason.displayMessage(stringResolver)
+                showError(message)
+            }
+        }
     }
 
     fun stop() {
@@ -301,6 +315,13 @@ internal class MainConnectionActions(
 
     private fun currentTransferredBytes(): Long = trafficStatsReader.currentTransferredBytes()
 }
+
+private val Mode.startSenderName: String
+    get() =
+        when (this) {
+            Mode.VPN -> Sender.VPN.senderName
+            Mode.Proxy -> Sender.Proxy.senderName
+        }
 
 internal class ConnectionRuntimeStateReducer(
     private val state: MutableStateFlow<ConnectionRuntimeState>,

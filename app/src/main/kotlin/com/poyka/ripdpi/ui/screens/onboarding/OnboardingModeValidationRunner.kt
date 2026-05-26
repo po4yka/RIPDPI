@@ -2,7 +2,11 @@ package com.poyka.ripdpi.ui.screens.onboarding
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
 import com.poyka.ripdpi.activities.OnboardingValidationState
+import com.poyka.ripdpi.activities.displayMessage
+import com.poyka.ripdpi.activities.suggestedModeFor
+import com.poyka.ripdpi.activities.validationRecoveryKind
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
@@ -14,6 +18,8 @@ import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceStartRejectionReason
+import com.poyka.ripdpi.services.ServiceStartResult
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -51,6 +57,7 @@ sealed interface OnboardingValidationResult {
 
     data class Failed(
         val reason: String,
+        val recoveryKind: OnboardingValidationRecoveryKind = OnboardingValidationRecoveryKind.RETRY,
         val suggestedMode: Mode? = null,
     ) : OnboardingValidationResult
 }
@@ -105,6 +112,14 @@ class DefaultOnboardingModeValidationRunner
                     reason = e.message ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
                     suggestedMode = mode.alternateOrNull(),
                 )
+            } catch (e: ImmediateServiceStartRejected) {
+                Logger.w { "Onboarding validation start rejected for ${e.mode}: ${e.reason}" }
+                stopActiveValidation()
+                OnboardingValidationResult.Failed(
+                    reason = e.reason.displayMessage(stringResolver),
+                    recoveryKind = e.reason.validationRecoveryKind(),
+                    suggestedMode = e.reason.suggestedModeFor(e.mode),
+                )
             } catch (e: ServiceStartupRejectedException) {
                 Logger.w(e) { "Onboarding validation failed for $mode" }
                 stopActiveValidation()
@@ -140,8 +155,15 @@ class DefaultOnboardingModeValidationRunner
             onProgress(OnboardingValidationState.StartingMode(mode))
             val updated = serviceStateStore.status.value
             if (updated.first != AppStatus.Running || updated.second != mode) {
-                serviceController.start(mode)
-                ownedValidationMode = mode
+                when (val startResult = serviceController.start(mode)) {
+                    is ServiceStartResult.Accepted -> {
+                        ownedValidationMode = mode
+                    }
+
+                    is ServiceStartResult.Rejected -> {
+                        throw ImmediateServiceStartRejected(mode = mode, reason = startResult.reason)
+                    }
+                }
             }
             awaitRunning(mode)
         }
@@ -238,6 +260,11 @@ class DefaultOnboardingModeValidationRunner
             throw IOException(message, e)
         }
     }
+
+private class ImmediateServiceStartRejected(
+    val mode: Mode,
+    val reason: ServiceStartRejectionReason,
+) : RuntimeException()
 
 private fun Mode.alternateOrNull(): Mode? =
     when (this) {
