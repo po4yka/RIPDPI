@@ -40,11 +40,16 @@ pub enum EchLookupTransport {
 pub struct EchLookupRequest<'a> {
     pub inner_name: &'a str,
     pub transport: EchLookupTransport,
+    pub backend: OutboundEchBackend,
 }
 
 impl<'a> EchLookupRequest<'a> {
     pub const fn new(inner_name: &'a str, transport: EchLookupTransport) -> Self {
-        Self { inner_name, transport }
+        Self::for_backend(inner_name, transport, OutboundEchBackend::Boring)
+    }
+
+    pub const fn for_backend(inner_name: &'a str, transport: EchLookupTransport, backend: OutboundEchBackend) -> Self {
+        Self { inner_name, transport, backend }
     }
 }
 
@@ -52,12 +57,19 @@ impl<'a> EchLookupRequest<'a> {
 pub struct EchPolicy {
     pub enabled: bool,
     pub grease_when_unavailable: bool,
-    pub backend_opt_out: bool,
+    pub backend_opt_out: Option<OutboundEchBackend>,
 }
 
 impl Default for EchPolicy {
     fn default() -> Self {
-        Self { enabled: true, grease_when_unavailable: true, backend_opt_out: false }
+        Self { enabled: true, grease_when_unavailable: true, backend_opt_out: None }
+    }
+}
+
+impl EchPolicy {
+    pub const fn with_backend_opt_out(mut self, backend: OutboundEchBackend) -> Self {
+        self.backend_opt_out = Some(backend);
+        self
     }
 }
 
@@ -167,7 +179,7 @@ pub fn resolve_outbound_ech(
     policy: EchPolicy,
     resolver: &impl OutboundEchResolver,
 ) -> Result<EchSetup, EchFacadeError> {
-    if policy.backend_opt_out {
+    if policy.backend_opt_out == Some(request.backend) {
         return Ok(EchSetup::OptedOut);
     }
     if !policy.enabled {
@@ -369,6 +381,33 @@ mod tests {
 
         assert_eq!(grease, EchSetup::Grease);
         assert_eq!(unpublished.calls(), 1);
+    }
+
+    #[test]
+    fn outbound_facade_opt_out_is_scoped_to_the_requested_backend() {
+        let policy = EchPolicy::default().with_backend_opt_out(OutboundEchBackend::Rustls);
+        let rustls = FakeEchResolver::available("public.example", BORING_ECH_CONFIG_LIST);
+        let rustls_request = EchLookupRequest::for_backend(
+            "inner.example",
+            EchLookupTransport::EncryptedDns,
+            OutboundEchBackend::Rustls,
+        );
+
+        assert_eq!(resolve_outbound_ech(&rustls_request, policy, &rustls).expect("Rustls opt-out"), EchSetup::OptedOut);
+        assert_eq!(rustls.calls(), 0, "opt-out must skip HTTPS RR resolution");
+
+        let boring = FakeEchResolver::available("public.example", BORING_ECH_CONFIG_LIST);
+        let boring_request = EchLookupRequest::for_backend(
+            "inner.example",
+            EchLookupTransport::EncryptedDns,
+            OutboundEchBackend::Boring,
+        );
+
+        assert_eq!(
+            resolve_outbound_ech(&boring_request, policy, &boring).expect("Boring remains in scope"),
+            EchSetup::Real(OutboundEchConfig::new("public.example", BORING_ECH_CONFIG_LIST.to_vec()).expect("config"))
+        );
+        assert_eq!(boring.calls(), 1);
     }
 
     #[test]

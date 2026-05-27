@@ -8,7 +8,7 @@ ECH HTTPS RR lookup must be encrypted-DNS-only. The facade must call `resolve_ht
 
 When a real `ECHConfigList` is available, the facade configures the outbound TLS backend with that list and requires post-handshake ECH acceptance evidence where the backend exposes it. When no real config is published or resolvable for an in-scope backend, the facade enables ECH GREASE rather than sending a plain ClientHello. On `SSL_R_ECH_REJECTED`, the facade verifies the public name certificate context, consumes server retry configs, retries once, and reports failure instead of silently falling back to non-ECH.
 
-Per-backend opt-out is allowed only as an explicit policy input for compatibility or unsupported backend reasons. Opt-out must be visible in tests and must not become the default.
+Per-backend opt-out is allowed only as an explicit policy input for compatibility or unsupported backend reasons. Opt-out is scoped to the requested backend, must skip HTTPS RR lookup for that backend, must be visible in tests, and must not become the default. An opt-out does not authorize plaintext HTTPS RR fallback for ECH inner-SNI names; it means that backend is intentionally outside the ECH attempt for that connection.
 
 ## Non-Goals
 
