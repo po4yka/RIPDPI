@@ -1,0 +1,50 @@
+{
+  "bridge": {
+    "servername": "front.example",
+    "tlsProfile": "chrome_stable",
+    "utls": "hellochrome_auto"
+  },
+  "clientHello": {
+    "alpnProtocols": [
+      "6832",
+      "687474702f312e31"
+    ],
+    "clientHelloLegacyVersion": "0303",
+    "contentType": "16",
+    "extensionTypesNoGreaseSorted": [
+      "0000",
+      "000a",
+      "000b",
+      "000d",
+      "0010",
+      "0017",
+      "0023",
+      "002b",
+      "002d",
+      "0033",
+      "ff01"
+    ],
+    "greaseExtensionCount": 2,
+    "greaseKeyShareGroupCount": 1,
+    "greaseSupportedGroupCount": 1,
+    "handshakeType": "01",
+    "keyShareGroupsNoGrease": [
+      "11ec",
+      "001d"
+    ],
+    "recordLegacyVersion": "0301",
+    "sniHost": "front.example",
+    "supportedGroupsNoGrease": [
+      "11ec",
+      "001d",
+      "0017",
+      "0018"
+    ]
+  },
+  "schemaVersion": 1,
+  "source": {
+    "goTarget": "lyrebird hellochrome_auto via uTLS",
+    "parityMode": "structural",
+    "rustBackend": "boring"
+  }
+}

@@ -4709,7 +4709,10 @@ dependencies = [
 name = "ripdpi-webtunnel"
 version = "0.1.0"
 dependencies = [
+ "boring",
  "golden-test-support",
+ "ripdpi-packets",
+ "ripdpi-tls-profiles",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

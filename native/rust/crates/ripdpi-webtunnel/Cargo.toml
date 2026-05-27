@@ -5,12 +5,15 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+boring.workspace = true
+ripdpi-tls-profiles = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 url.workspace = true
 
 [dev-dependencies]
 golden-test-support = { workspace = true }
+ripdpi-packets = { workspace = true }
 serde_json.workspace = true
 
 [lints]
