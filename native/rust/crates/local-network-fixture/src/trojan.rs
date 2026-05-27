@@ -8,7 +8,7 @@ use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::ServerConfig;
 use sha2::{Digest, Sha224};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio::sync::oneshot;
 use tokio_rustls::TlsAcceptor;
 
@@ -27,6 +27,7 @@ pub struct TrojanLoopbackObserved {
 pub struct TrojanLoopback {
     address: SocketAddr,
     target_address: SocketAddr,
+    udp_target_address: SocketAddr,
     certificate_pem: String,
     observed: Arc<Mutex<TrojanLoopbackObserved>>,
     shutdown: Option<oneshot::Sender<()>>,
@@ -49,23 +50,28 @@ impl TrojanLoopback {
             runtime.block_on(async move {
                 let trojan_listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind trojan fixture");
                 let echo_listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind trojan target echo");
+                let udp_echo = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind trojan UDP target echo");
                 let trojan_address = trojan_listener.local_addr().expect("trojan fixture local addr");
                 let target_address = echo_listener.local_addr().expect("trojan echo local addr");
-                addr_tx.send((trojan_address, target_address)).ok();
+                let udp_target_address = udp_echo.local_addr().expect("trojan UDP echo local addr");
+                addr_tx.send((trojan_address, target_address, udp_target_address)).ok();
                 let echo_task = tokio::spawn(serve_echo(echo_listener));
+                let udp_echo_task = tokio::spawn(serve_udp_echo(udp_echo));
                 tokio::select! {
                     _ = shutdown_rx => {}
                     _ = serve_trojan(trojan_listener, server_config, expected_password_hash, observed_for_thread) => {}
                 }
                 echo_task.abort();
+                udp_echo_task.abort();
             });
         });
 
-        let (address, target_address) =
+        let (address, target_address, udp_target_address) =
             addr_rx.recv().map_err(|error| io::Error::other(format!("fixture failed to start: {error}")))?;
         Ok(Self {
             address,
             target_address,
+            udp_target_address,
             certificate_pem: tls.certificate_pem,
             observed,
             shutdown: Some(shutdown_tx),
@@ -79,6 +85,10 @@ impl TrojanLoopback {
 
     pub fn target_port(&self) -> u16 {
         self.target_address.port()
+    }
+
+    pub fn udp_target_port(&self) -> u16 {
+        self.udp_target_address.port()
     }
 
     pub fn server_name(&self) -> &'static str {
@@ -146,6 +156,18 @@ async fn serve_echo(listener: TcpListener) {
     }
 }
 
+async fn serve_udp_echo(socket: UdpSocket) {
+    let mut buffer = [0_u8; 4096];
+    loop {
+        let Ok((read, peer)) = socket.recv_from(&mut buffer).await else {
+            break;
+        };
+        if socket.send_to(&buffer[..read], peer).await.is_err() {
+            break;
+        }
+    }
+}
+
 async fn serve_trojan(
     listener: TcpListener,
     server_config: Arc<ServerConfig>,
@@ -196,6 +218,10 @@ async fn handle_connection(
         guard.target_port = Some(target_port);
     }
 
+    if command == 0x03 {
+        return handle_udp_associate(tls, observed).await;
+    }
+
     let mut upstream = TcpStream::connect(SocketAddr::new(target_addr, target_port)).await?;
     let mut first_payload = [0_u8; 4096];
     let first_payload_len = tls.read(&mut first_payload).await?;
@@ -207,8 +233,52 @@ async fn handle_connection(
     Ok(())
 }
 
+async fn handle_udp_associate(
+    mut tls: tokio_rustls::server::TlsStream<TcpStream>,
+    observed: Arc<Mutex<TrojanLoopbackObserved>>,
+) -> io::Result<()> {
+    let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?;
+    loop {
+        let Some((target, payload)) = read_udp_packet(&mut tls).await? else {
+            return Ok(());
+        };
+        socket.send_to(&payload, target).await?;
+        let mut buffer = vec![0_u8; 65_535];
+        let (read, source) = socket.recv_from(&mut buffer).await?;
+        let packet = encode_udp_packet(source, &buffer[..read])?;
+        tls.write_all(&packet).await?;
+        observed.lock().expect("fixture observations").initial_payload_len = read;
+    }
+}
+
+async fn read_udp_packet(
+    tls: &mut tokio_rustls::server::TlsStream<TcpStream>,
+) -> io::Result<Option<(SocketAddr, Vec<u8>)>> {
+    let atyp = match read_u8(tls).await {
+        Ok(atyp) => atyp,
+        Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let addr = read_address_with_atyp(tls, atyp).await?;
+    let mut port = [0_u8; 2];
+    tls.read_exact(&mut port).await?;
+    let mut len = [0_u8; 2];
+    tls.read_exact(&mut len).await?;
+    read_crlf(tls).await?;
+    let mut payload = vec![0_u8; usize::from(u16::from_be_bytes(len))];
+    tls.read_exact(&mut payload).await?;
+    Ok(Some((SocketAddr::new(addr, u16::from_be_bytes(port)), payload)))
+}
+
 async fn read_address(tls: &mut tokio_rustls::server::TlsStream<TcpStream>) -> io::Result<(IpAddr, u16)> {
     let atyp = read_u8(tls).await?;
+    let addr = read_address_with_atyp(tls, atyp).await?;
+    let mut port = [0_u8; 2];
+    tls.read_exact(&mut port).await?;
+    Ok((addr, u16::from_be_bytes(port)))
+}
+
+async fn read_address_with_atyp(tls: &mut tokio_rustls::server::TlsStream<TcpStream>, atyp: u8) -> io::Result<IpAddr> {
     let addr = match atyp {
         0x01 => {
             let mut octets = [0_u8; 4];
@@ -233,9 +303,7 @@ async fn read_address(tls: &mut tokio_rustls::server::TlsStream<TcpStream>) -> i
         }
         other => return Err(io::Error::new(io::ErrorKind::InvalidData, format!("invalid address type 0x{other:02x}"))),
     };
-    let mut port = [0_u8; 2];
-    tls.read_exact(&mut port).await?;
-    Ok((addr, u16::from_be_bytes(port)))
+    Ok(addr)
 }
 
 async fn read_crlf(tls: &mut tokio_rustls::server::TlsStream<TcpStream>) -> io::Result<()> {
@@ -257,6 +325,27 @@ fn hash_password(password: &str) -> String {
     let mut hasher = Sha224::new();
     hasher.update(password.as_bytes());
     hex::encode(hasher.finalize())
+}
+
+fn encode_udp_packet(source: SocketAddr, payload: &[u8]) -> io::Result<Vec<u8>> {
+    let payload_len = u16::try_from(payload.len())
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "UDP payload too long"))?;
+    let mut packet = Vec::with_capacity(1 + 16 + 2 + 2 + 2 + payload.len());
+    match source.ip() {
+        IpAddr::V4(ip) => {
+            packet.push(0x01);
+            packet.extend_from_slice(&ip.octets());
+        }
+        IpAddr::V6(ip) => {
+            packet.push(0x04);
+            packet.extend_from_slice(&ip.octets());
+        }
+    }
+    packet.extend_from_slice(&source.port().to_be_bytes());
+    packet.extend_from_slice(&payload_len.to_be_bytes());
+    packet.extend_from_slice(b"\r\n");
+    packet.extend_from_slice(payload);
+    Ok(packet)
 }
 
 fn to_io(error: impl std::fmt::Display) -> io::Error {

@@ -12,6 +12,7 @@ mod common;
 mod hysteria2;
 mod masque;
 mod shadowtls;
+mod trojan;
 mod tuic;
 mod vless_reality;
 
@@ -20,5 +21,6 @@ pub(crate) use cloudflare_tunnel::build as build_cloudflare_tunnel;
 pub(crate) use hysteria2::build as build_hysteria2;
 pub(crate) use masque::build as build_masque;
 pub(crate) use shadowtls::build as build_shadowtls;
+pub(crate) use trojan::build as build_trojan;
 pub(crate) use tuic::build as build_tuic;
 pub(crate) use vless_reality::build as build_vless_reality;

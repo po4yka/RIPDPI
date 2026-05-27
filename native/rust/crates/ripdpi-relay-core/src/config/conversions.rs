@@ -78,6 +78,10 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 inner_profile_id: flat.shadow_tls_inner_profile_id,
                 inner: flat.shadow_tls_inner,
             }),
+            "trojan" => RelayBackendConfig::Trojan(TrojanRelayConfig {
+                password: flat.trojan_password,
+                root_certificate_pem: flat.trojan_root_certificate_pem,
+            }),
             "naiveproxy" => RelayBackendConfig::NaiveProxy(NaiveProxyRelayConfig {
                 path: flat.naive_path,
                 username: flat.naive_username,
@@ -127,6 +131,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             tuic_congestion_control: String::new(),
             shadow_tls_inner_profile_id: String::new(),
             shadow_tls_inner: None,
+            trojan_root_certificate_pem: None,
             naive_path: String::new(),
             local_socks_host: config.common.local_socks_host.clone(),
             local_socks_port: config.common.local_socks_port,
@@ -142,6 +147,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             tuic_uuid: None,
             tuic_password: None,
             shadow_tls_password: None,
+            trojan_password: None,
             naive_username: None,
             naive_password: None,
             tls_fingerprint_profile: config.common.tls_fingerprint_profile.clone(),
@@ -217,6 +223,10 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.shadow_tls_password = config.password.clone();
                 flat.shadow_tls_inner_profile_id = config.inner_profile_id.clone();
                 flat.shadow_tls_inner = config.inner.clone();
+            }
+            RelayBackendConfig::Trojan(config) => {
+                flat.trojan_password = config.password.clone();
+                flat.trojan_root_certificate_pem = config.root_certificate_pem.clone();
             }
             RelayBackendConfig::NaiveProxy(config) => {
                 flat.naive_path = config.path.clone();

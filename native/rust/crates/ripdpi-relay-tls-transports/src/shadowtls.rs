@@ -3,21 +3,33 @@ use std::sync::Arc;
 
 use ripdpi_relay_mux::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
 
-use crate::config::ResolvedShadowTlsInnerRelayConfig;
+pub type ShadowTlsClientConfig = ripdpi_shadowtls::Config;
 
-#[derive(Clone)]
-pub(crate) struct ShadowTlsSessionFactory {
-    pub(crate) client_config: ripdpi_shadowtls::Config,
-    pub(crate) outer_server: String,
-    pub(crate) outer_server_port: i32,
-    pub(crate) inner: ResolvedShadowTlsInnerRelayConfig,
+#[derive(Debug, Clone)]
+pub struct ShadowTlsInnerConfig {
+    pub kind: String,
+    pub server: String,
+    pub server_port: i32,
+    pub server_name: String,
+    pub reality_public_key: String,
+    pub reality_short_id: String,
+    pub vless_transport: String,
+    pub vless_uuid: Option<String>,
 }
 
-pub(crate) struct ShadowTlsSession {
-    pub(crate) client_config: ripdpi_shadowtls::Config,
-    pub(crate) outer_server: String,
-    pub(crate) outer_server_port: i32,
-    pub(crate) inner: ResolvedShadowTlsInnerRelayConfig,
+#[derive(Clone)]
+pub struct ShadowTlsSessionFactory {
+    pub client_config: ripdpi_shadowtls::Config,
+    pub outer_server: String,
+    pub outer_server_port: i32,
+    pub inner: ShadowTlsInnerConfig,
+}
+
+pub struct ShadowTlsSession {
+    pub client_config: ripdpi_shadowtls::Config,
+    pub outer_server: String,
+    pub outer_server_port: i32,
+    pub inner: ShadowTlsInnerConfig,
 }
 
 impl RelaySession for ShadowTlsSession {

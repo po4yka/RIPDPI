@@ -10,7 +10,7 @@ use crate::backend::pool::BoxedIo;
 use crate::backend::udp::RelayUdpSession;
 use crate::protocols::{
     ChainRelaySessionFactory, Hysteria2SessionFactory, MasqueSessionFactory, ShadowTlsSessionFactory,
-    TuicSessionFactory, VlessRealitySessionFactory, XhttpSessionFactory,
+    TrojanSessionFactory, TuicSessionFactory, VlessRealitySessionFactory, XhttpSessionFactory,
 };
 use crate::socks::RelayTargetAddr;
 
@@ -27,6 +27,7 @@ macro_rules! dispatch_pooled_backend {
             RelayBackend::ChainRelay($backend) => $expr,
             RelayBackend::Masque($backend) => $expr,
             RelayBackend::ShadowTls($backend) => $expr,
+            RelayBackend::Trojan($backend) => $expr,
             RelayBackend::Unsupported { .. } => $unsupported,
         }
     };
@@ -49,6 +50,7 @@ pub(crate) enum RelayBackend {
     ChainRelay(PooledRelayBackend<ChainRelaySessionFactory>),
     Masque(PooledRelayBackend<MasqueSessionFactory>),
     ShadowTls(PooledRelayBackend<ShadowTlsSessionFactory>),
+    Trojan(PooledRelayBackend<TrojanSessionFactory>),
     Unsupported { kind: String },
 }
 
@@ -78,6 +80,7 @@ impl RelayBackend {
             | Self::Xhttp(_)
             | Self::ChainRelay(_)
             | Self::ShadowTls(_)
+            | Self::Trojan(_)
             | Self::Unsupported { .. } => (None, None),
         }
     }
@@ -98,6 +101,7 @@ impl RelayBackend {
             Self::Hysteria2(backend) => open_quic_udp_session!(backend, Hysteria2),
             Self::Tuic(backend) => open_quic_udp_session!(backend, Tuic),
             Self::Masque(backend) => open_quic_udp_session!(backend, Masque),
+            Self::Trojan(backend) => backend.open_udp_session(RelayUdpSession::Trojan).await,
             Self::VlessReality(_) | Self::Xhttp(_) | Self::ChainRelay(_) | Self::ShadowTls(_) => {
                 Err(io::Error::new(io::ErrorKind::Unsupported, "relay backend does not support UDP ASSOCIATE"))
             }

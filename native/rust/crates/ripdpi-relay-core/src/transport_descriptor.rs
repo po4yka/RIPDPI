@@ -177,6 +177,18 @@ pub(crate) static RELAY_TRANSPORT_REGISTRATIONS: &[RelayTransportRegistration] =
     },
     RelayTransportRegistration {
         descriptor: RelayTransportDescriptor {
+            kind_id: "trojan",
+            label: "Trojan",
+            tcp: true,
+            udp: true,
+            reusable: false,
+            supports_outbound_bind_ip: true,
+        },
+        builder: Some(builders::build_trojan),
+        fallback_mode: None,
+    },
+    RelayTransportRegistration {
+        descriptor: RelayTransportDescriptor {
             kind_id: "naiveproxy",
             label: "NaiveProxy",
             tcp: true,

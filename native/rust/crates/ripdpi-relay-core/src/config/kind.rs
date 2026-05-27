@@ -7,6 +7,7 @@ pub(crate) enum RelayKind<'a> {
     ChainRelay,
     Masque,
     ShadowTlsV3,
+    Trojan,
     NaiveProxy,
     Unsupported(&'a str),
 }
@@ -21,6 +22,7 @@ impl<'a> RelayKind<'a> {
             RelayBackendConfig::ChainRelay(_) => Self::ChainRelay,
             RelayBackendConfig::Masque(_) => Self::Masque,
             RelayBackendConfig::ShadowTlsV3(_) => Self::ShadowTlsV3,
+            RelayBackendConfig::Trojan(_) => Self::Trojan,
             RelayBackendConfig::NaiveProxy(_) => Self::NaiveProxy,
             RelayBackendConfig::Unsupported(unsupported) => Self::Unsupported(&unsupported.kind),
         }

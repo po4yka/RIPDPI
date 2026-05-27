@@ -5,6 +5,7 @@ include!("backend/cloudflare.rs");
 include!("backend/chain.rs");
 include!("backend/masque.rs");
 include!("backend/shadowtls.rs");
+include!("backend/trojan.rs");
 include!("backend/naive.rs");
 include!("backend/unsupported.rs");
 
@@ -17,6 +18,7 @@ pub enum RelayBackendConfig {
     ChainRelay(ChainRelayConfig),
     Masque(MasqueRelayConfig),
     ShadowTlsV3(ShadowTlsRelayConfig),
+    Trojan(TrojanRelayConfig),
     NaiveProxy(NaiveProxyRelayConfig),
     Unsupported(UnsupportedRelayConfig),
 }
@@ -31,6 +33,7 @@ impl RelayBackendConfig {
             Self::ChainRelay(_) => "chain_relay",
             Self::Masque(_) => "masque",
             Self::ShadowTlsV3(_) => "shadowtls_v3",
+            Self::Trojan(_) => "trojan",
             Self::NaiveProxy(_) => "naiveproxy",
             Self::Unsupported(config) => &config.kind,
         }

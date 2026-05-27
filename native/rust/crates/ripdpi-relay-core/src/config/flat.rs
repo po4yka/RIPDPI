@@ -113,6 +113,8 @@ struct FlatResolvedRelayRuntimeConfig {
     #[serde(default)]
     pub shadow_tls_inner: Option<ResolvedShadowTlsInnerRelayConfig>,
     #[serde(default)]
+    pub trojan_root_certificate_pem: Option<String>,
+    #[serde(default)]
     pub naive_path: String,
     pub local_socks_host: String,
     pub local_socks_port: i32,
@@ -136,6 +138,8 @@ struct FlatResolvedRelayRuntimeConfig {
     pub tuic_password: Option<String>,
     #[serde(default)]
     pub shadow_tls_password: Option<String>,
+    #[serde(default)]
+    pub trojan_password: Option<String>,
     #[serde(default)]
     pub naive_username: Option<String>,
     #[serde(default)]

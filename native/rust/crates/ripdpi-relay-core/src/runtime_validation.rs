@@ -64,6 +64,7 @@ pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> Re
         RelayKind::VlessReality { xhttp: false }
         | RelayKind::ChainRelay
         | RelayKind::ShadowTlsV3
+        | RelayKind::Trojan
         | RelayKind::NaiveProxy => RelayPoolConfig { max_active_leases: 16, idle_timeout: Duration::from_secs(5) },
         RelayKind::Unsupported(_) => RelayPoolConfig::default(),
     }

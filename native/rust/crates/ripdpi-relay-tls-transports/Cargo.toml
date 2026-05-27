@@ -1,0 +1,16 @@
+[package]
+name = "ripdpi-relay-tls-transports"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ripdpi-relay-mux = { workspace = true }
+ripdpi-shadowtls = { workspace = true }
+ripdpi-trojan = { workspace = true }
+ripdpi-vless = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "net"] }
+tokio-boring = { workspace = true }
+
+[lints]
+workspace = true

@@ -23,9 +23,9 @@ Trojan outbound client library for RIPDPI relay-core integration.
 - `src/lib.rs` has `hash_password`, `encode_addr`, `build_request`, `build_request_frame`, and `TrojanClient::write_request` for an already-established stream.
 - Request tests pin the independently verified `123456789` SHA224 vector and golden CONNECT frames for IPv4, domain, and IPv6 targets.
 - UDP ASSOCIATE datagram encoding/decoding is implemented with golden vectors for IPv4, domain, and IPv6 targets plus CRLF, length, truncation, and trailing-byte validation.
-- `TrojanClient::connect_tcp` opens a TCP socket, builds a BoringSSL TLS client from `ripdpi-tls-profiles`, sends SNI, uses the configured ALPN profile, verifies certificates, supports an extra PEM root for fixtures or pinned deployments, and sends the CONNECT request plus optional first payload inside TLS.
-- `local-network-fixture::TrojanLoopback` provides an offline TLS Trojan fixture that observes SNI/ALPN, validates the password hash and CONNECT framing, and pipes payloads to a local echo target.
-- `ripdpi-relay-core` does not depend on `ripdpi-trojan`, has no `RelayBackendConfig::Trojan`, no `RelayKind::Trojan`, no `RelayBackend::Trojan`, no `TrojanSessionFactory`, no `config/trojan_inner.rs`, and no transport registration row.
+- `TrojanClient::connect_tcp` and `TrojanClient::connect_udp_associate` open TCP sockets, build BoringSSL TLS clients from `ripdpi-tls-profiles`, send SNI, use the configured ALPN profile, verify certificates, support an extra PEM root for fixtures or pinned deployments, and send Trojan requests inside TLS.
+- `local-network-fixture::TrojanLoopback` provides an offline TLS Trojan fixture that observes SNI/ALPN, validates the password hash and CONNECT/UDP ASSOCIATE framing, pipes TCP payloads to a local echo target, and echoes UDP payloads through stream datagram packets.
+- `ripdpi-relay-core` now depends on `ripdpi-trojan`, has `RelayBackendConfig::Trojan`, `RelayKind::Trojan`, `RelayBackend::Trojan`, `TrojanSessionFactory`, a transport registration row, flattened Trojan config fields, and fixture-backed TCP/UDP tests.
 - Kotlin has `ProxyUriCodec.parseTrojan()` producing `ProxyProfile.Trojan`, but runtime relay config does not yet project that parsed profile into `RelayKind::Trojan` or native relay credentials.
 - `ResolvedRipDpiRelayConfig` / Rust `FlatResolvedRelayRuntimeConfig` schema version is currently `1`; adding Trojan credential/config fields is a native config schema migration and must be covered by `NativeConfigSchemaVersionTest`.
 

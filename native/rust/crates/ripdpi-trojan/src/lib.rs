@@ -16,7 +16,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use boring::x509::X509;
 use sha2::{Digest, Sha224};
-use tokio::io::{AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_boring::SslStream;
 
@@ -253,26 +253,13 @@ impl TrojanClient {
         target_port: u16,
         first_payload: &[u8],
     ) -> Result<SslStream<TcpStream>, TrojanError> {
-        let tcp = TcpStream::connect((config.server_host.as_str(), config.server_port)).await?;
-        tcp.set_nodelay(true)?;
+        connect_with_request(config, TrojanCommand::TcpConnect, target_addr, target_port, first_payload).await
+    }
 
-        let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
-            .map_err(|error| TrojanError::TlsProfile(error.to_string()))?;
-        if let Some(root_pem) = &config.root_certificate_pem {
-            let cert =
-                X509::from_pem(root_pem.as_bytes()).map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
-            builder.cert_store_mut().add_cert(cert).map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
-        }
-
-        let connector = builder.build();
-        let config_ssl = connector.configure().map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
-        let mut stream = tokio_boring::connect(config_ssl, &config.server_name, tcp)
+    /// Open a TCP connection to the Trojan server, complete TLS with certificate verification, then send a UDP ASSOCIATE request.
+    pub async fn connect_udp_associate(config: &TrojanClientConfig) -> Result<SslStream<TcpStream>, TrojanError> {
+        connect_with_request(config, TrojanCommand::UdpAssociate, &TrojanAddr::Ipv4(Ipv4Addr::UNSPECIFIED), 0, &[])
             .await
-            .map_err(|error| TrojanError::TlsHandshake(error.to_string()))?;
-        let frame =
-            build_request_frame(&config.password, TrojanCommand::TcpConnect, target_addr, target_port, first_payload)?;
-        stream.write_all(&frame).await?;
-        Ok(stream)
     }
 
     /// Write a Trojan request header onto `stream`.
@@ -293,6 +280,82 @@ impl TrojanClient {
         stream.write_all(&header).await?;
         Ok(())
     }
+}
+
+async fn connect_with_request(
+    config: &TrojanClientConfig,
+    command: TrojanCommand,
+    target_addr: &TrojanAddr,
+    target_port: u16,
+    first_payload: &[u8],
+) -> Result<SslStream<TcpStream>, TrojanError> {
+    let tcp = TcpStream::connect((config.server_host.as_str(), config.server_port)).await?;
+    tcp.set_nodelay(true)?;
+
+    let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
+        .map_err(|error| TrojanError::TlsProfile(error.to_string()))?;
+    if let Some(root_pem) = &config.root_certificate_pem {
+        let cert = X509::from_pem(root_pem.as_bytes()).map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
+        builder.cert_store_mut().add_cert(cert).map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
+    }
+
+    let connector = builder.build();
+    let config_ssl = connector.configure().map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
+    let mut stream = tokio_boring::connect(config_ssl, &config.server_name, tcp)
+        .await
+        .map_err(|error| TrojanError::TlsHandshake(error.to_string()))?;
+    let frame = build_request_frame(&config.password, command, target_addr, target_port, first_payload)?;
+    stream.write_all(&frame).await?;
+    Ok(stream)
+}
+
+/// Read one Trojan UDP ASSOCIATE packet from a stream.
+pub async fn read_udp_packet<S>(stream: &mut S) -> Result<TrojanUdpPacket, TrojanError>
+where
+    S: AsyncRead + Unpin,
+{
+    let atyp = read_stream_u8(stream).await?;
+    let addr = match atyp {
+        0x01 => {
+            let mut octets = [0_u8; 4];
+            stream.read_exact(&mut octets).await?;
+            TrojanAddr::Ipv4(Ipv4Addr::from(octets))
+        }
+        0x03 => {
+            let len = usize::from(read_stream_u8(stream).await?);
+            let mut bytes = vec![0_u8; len];
+            stream.read_exact(&mut bytes).await?;
+            TrojanAddr::Domain(String::from_utf8_lossy(&bytes).into_owned())
+        }
+        0x04 => {
+            let mut octets = [0_u8; 16];
+            stream.read_exact(&mut octets).await?;
+            TrojanAddr::Ipv6(Ipv6Addr::from(octets))
+        }
+        other => return Err(TrojanError::InvalidAddressType(other)),
+    };
+    let mut port = [0_u8; 2];
+    stream.read_exact(&mut port).await?;
+    let mut len = [0_u8; 2];
+    stream.read_exact(&mut len).await?;
+    let payload_len = usize::from(u16::from_be_bytes(len));
+    let mut crlf = [0_u8; 2];
+    stream.read_exact(&mut crlf).await?;
+    if crlf != *b"\r\n" {
+        return Err(TrojanError::InvalidCrlf);
+    }
+    let mut payload = vec![0_u8; payload_len];
+    stream.read_exact(&mut payload).await?;
+    Ok(TrojanUdpPacket { addr, port: u16::from_be_bytes(port), payload })
+}
+
+async fn read_stream_u8<S>(stream: &mut S) -> Result<u8, TrojanError>
+where
+    S: AsyncRead + Unpin,
+{
+    let mut byte = [0_u8; 1];
+    stream.read_exact(&mut byte).await?;
+    Ok(byte[0])
 }
 
 /// Helper: parse a raw IP address string into a [`TrojanAddr`].

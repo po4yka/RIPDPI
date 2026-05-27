@@ -1,19 +1,24 @@
 use std::io;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
+use local_network_fixture::TrojanLoopback;
 use ripdpi_relay_mux::RelayPoolConfig;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::backend::{build_backend, RelayBackend};
 use crate::config::{
     ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig, MasqueRelayConfig,
     NaiveProxyRelayConfig, RelayBackendConfig, RelayKind, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig,
-    ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, TuicRelayConfig, VlessRealityRelayConfig,
+    ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, TrojanRelayConfig, TuicRelayConfig,
+    VlessRealityRelayConfig,
 };
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
     describe_upstream, planned_backend_capabilities, planned_backend_fallback_mode, pool_config_for_backend,
     validate_finalmask_config, validate_runtime_config,
 };
+use crate::socks::RelayTargetAddr;
 
 fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
     let common = CommonRelayConfig {
@@ -79,6 +84,10 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             password: Some("secret".to_string()),
             ..ShadowTlsRelayConfig::default()
         }),
+        "trojan" => RelayBackendConfig::Trojan(TrojanRelayConfig {
+            password: Some("secret".to_string()),
+            root_certificate_pem: None,
+        }),
         "naiveproxy" => RelayBackendConfig::NaiveProxy(NaiveProxyRelayConfig::default()),
         other => RelayBackendConfig::Unsupported(crate::config::UnsupportedRelayConfig { kind: other.to_string() }),
     };
@@ -87,8 +96,16 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
 
 #[test]
 fn relay_runtime_config_round_trips_flattened_backend_fields() {
-    for kind in ["hysteria2", "tuic_v5", "vless_reality", "cloudflare_tunnel", "chain_relay", "masque", "shadowtls_v3"]
-    {
+    for kind in [
+        "hysteria2",
+        "tuic_v5",
+        "vless_reality",
+        "cloudflare_tunnel",
+        "chain_relay",
+        "masque",
+        "shadowtls_v3",
+        "trojan",
+    ] {
         let config = sample_config(kind);
         let serialized = serde_json::to_value(&config).expect("serialize relay config");
 
@@ -142,6 +159,13 @@ fn shadowtls_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut ShadowT
     match &mut config.backend {
         RelayBackendConfig::ShadowTlsV3(shadowtls) => shadowtls,
         _ => panic!("expected ShadowTLS config"),
+    }
+}
+
+fn trojan_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut TrojanRelayConfig {
+    match &mut config.backend {
+        RelayBackendConfig::Trojan(trojan) => trojan,
+        _ => panic!("expected Trojan config"),
     }
 }
 
@@ -354,6 +378,56 @@ async fn relay_runtime_builds_shadowtls_backend_with_inner_vless_profile() {
     }
 }
 
+#[tokio::test]
+async fn relay_runtime_builds_trojan_backend_and_connects_tcp_fixture() {
+    const PAYLOAD: &[u8] = b"relay-core trojan tcp payload";
+
+    let fixture = TrojanLoopback::start("secret").await.expect("start trojan fixture");
+    let mut config = sample_config("trojan");
+    config.common.server = "127.0.0.1".to_string();
+    config.common.server_port = i32::from(fixture.port());
+    config.common.server_name = fixture.server_name().to_string();
+    trojan_config_mut(&mut config).root_certificate_pem = Some(fixture.certificate_pem().to_string());
+
+    let backend = build_backend(&config).await.expect("trojan backend");
+    match &backend {
+        RelayBackend::Trojan(_) => {}
+        other => panic!("expected Trojan backend, got {:?}", std::mem::discriminant(other)),
+    }
+
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.target_port()));
+    let mut stream = backend.connect_tcp(&target).await.expect("trojan connect tcp");
+    stream.write_all(PAYLOAD).await.expect("write tunnel payload");
+    let mut echoed = vec![0_u8; PAYLOAD.len()];
+    stream.read_exact(&mut echoed).await.expect("read tunnel payload");
+    assert_eq!(echoed, PAYLOAD);
+}
+
+#[tokio::test]
+async fn relay_runtime_builds_trojan_udp_associate_fixture() {
+    const PAYLOAD: &[u8] = b"relay-core trojan udp payload";
+
+    let fixture = TrojanLoopback::start("secret").await.expect("start trojan fixture");
+    let mut config = sample_config("trojan");
+    config.common.udp_enabled = true;
+    config.common.server = "127.0.0.1".to_string();
+    config.common.server_port = i32::from(fixture.port());
+    config.common.server_name = fixture.server_name().to_string();
+    trojan_config_mut(&mut config).root_certificate_pem = Some(fixture.certificate_pem().to_string());
+
+    let capabilities = planned_backend_capabilities(&config);
+    assert!(capabilities.udp, "Trojan should report UDP capability");
+    let backend = build_backend(&config).await.expect("trojan backend");
+    validate_runtime_config(&config, &backend).expect("trojan udp should validate");
+
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.udp_target_port()));
+    let mut udp = backend.open_udp_session().await.expect("trojan udp session");
+    udp.send_to(&target, PAYLOAD).await.expect("send udp payload");
+    let (source, echoed) = udp.recv_from().await.expect("receive udp payload");
+    assert_eq!(source, target);
+    assert_eq!(echoed, PAYLOAD);
+}
+
 /// Asserts whether `validate_runtime_config` accepts an outbound bind IP for a
 /// relay kind, exercising the descriptor-driven capability gate end to end.
 fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeConfig, supported: bool) {
@@ -377,7 +451,7 @@ fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeCon
 #[test]
 fn relay_planned_capabilities_are_pinned_for_every_kind() {
     // kind_id, tcp, udp, reusable, supports_outbound_bind_ip
-    let pinned: [(&str, bool, bool, bool, bool); 8] = [
+    let pinned: [(&str, bool, bool, bool, bool); 9] = [
         ("hysteria2", true, true, true, false),
         ("tuic_v5", true, true, true, true),
         ("vless_reality", true, false, false, true),
@@ -385,6 +459,7 @@ fn relay_planned_capabilities_are_pinned_for_every_kind() {
         ("chain_relay", true, false, false, true),
         ("masque", true, true, true, false),
         ("shadowtls_v3", true, false, false, true),
+        ("trojan", true, true, false, true),
         ("naiveproxy", true, false, false, true),
     ];
 
@@ -449,7 +524,8 @@ fn relay_dispatch_class(kind: RelayKind<'_>) -> RelayDispatchClass {
         | RelayKind::CloudflareTunnel
         | RelayKind::ChainRelay
         | RelayKind::Masque
-        | RelayKind::ShadowTlsV3 => RelayDispatchClass::InProcessBackend,
+        | RelayKind::ShadowTlsV3
+        | RelayKind::Trojan => RelayDispatchClass::InProcessBackend,
         RelayKind::NaiveProxy => RelayDispatchClass::SubprocessFallback,
         RelayKind::Unsupported(_) => RelayDispatchClass::Unsupported,
     }
@@ -468,6 +544,7 @@ fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static str> {
         RelayBackend::ChainRelay(_) => Some("chain_relay"),
         RelayBackend::Masque(_) => Some("masque"),
         RelayBackend::ShadowTls(_) => Some("shadowtls_v3"),
+        RelayBackend::Trojan(_) => Some("trojan"),
         RelayBackend::Unsupported { .. } => None,
     }
 }
@@ -503,6 +580,7 @@ fn relay_transport_registry_is_consistent() {
         sample_config("chain_relay"),
         sample_config("masque"),
         sample_config("shadowtls_v3"),
+        sample_config("trojan"),
         sample_config("naiveproxy"),
         sample_config("off"),
         sample_config("totally_unknown"),
@@ -582,7 +660,7 @@ fn relay_transport_registry_is_consistent() {
     // kind. `relay_backend_kind_id` is exhaustive: a new variant breaks
     // compilation until mapped.
     assert_eq!(None, relay_backend_kind_id(&RelayBackend::Unsupported { kind: "off".to_string() }));
-    for kind_id in ["hysteria2", "tuic_v5", "vless_reality", "chain_relay", "masque", "shadowtls_v3"] {
+    for kind_id in ["hysteria2", "tuic_v5", "vless_reality", "chain_relay", "masque", "shadowtls_v3", "trojan"] {
         assert!(
             relay_transport_registration(kind_id).is_some(),
             "runtime-dispatch backend kind {kind_id} must have a registration",
@@ -626,7 +704,7 @@ async fn relay_transport_registry_dispatches_vless_sub_modes() {
 #[test]
 fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
     // kind_id, fallback_mode, pool max_active_leases, pool idle_timeout (secs)
-    let pinned: [(&str, Option<&str>, usize, u64); 8] = [
+    let pinned: [(&str, Option<&str>, usize, u64); 9] = [
         ("hysteria2", None, 64, 45),
         ("tuic_v5", None, 64, 45),
         ("vless_reality", None, 16, 5), // reality_tcp sub-mode
@@ -634,6 +712,7 @@ fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
         ("chain_relay", None, 16, 5),
         ("masque", None, 64, 45),
         ("shadowtls_v3", None, 16, 5),
+        ("trojan", None, 16, 5),
         ("naiveproxy", Some("subprocess"), 16, 5),
     ];
 

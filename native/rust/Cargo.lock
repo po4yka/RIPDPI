@@ -4134,10 +4134,11 @@ name = "ripdpi-relay-core"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
+ "local-network-fixture",
  "ripdpi-hysteria2",
  "ripdpi-masque",
  "ripdpi-relay-mux",
- "ripdpi-shadowtls",
+ "ripdpi-relay-tls-transports",
  "ripdpi-tuic",
  "ripdpi-vless",
  "ripdpi-xhttp",
@@ -4155,6 +4156,18 @@ dependencies = [
  "rand 0.10.1",
  "thiserror 2.0.18",
  "tokio",
+]
+
+[[package]]
+name = "ripdpi-relay-tls-transports"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-relay-mux",
+ "ripdpi-shadowtls",
+ "ripdpi-trojan",
+ "ripdpi-vless",
+ "tokio",
+ "tokio-boring",
 ]
 
 [[package]]
