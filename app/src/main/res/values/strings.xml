@@ -570,6 +570,13 @@
     <string name="config_relay_vless_uuid">VLESS UUID</string>
     <string name="config_relay_hysteria_password">Hysteria password</string>
     <string name="config_relay_hysteria_salamander">Salamander key</string>
+    <string name="config_relay_naive_username">NaiveProxy username</string>
+    <string name="config_relay_naive_username_helper">Used for upstream HTTP Basic authentication.</string>
+    <string name="config_relay_naive_password">NaiveProxy password</string>
+    <string name="config_relay_naive_password_helper">Stored in the secure relay credential store.</string>
+    <string name="config_relay_naive_path">HTTP path (optional)</string>
+    <string name="config_relay_naive_path_helper">Leave blank for the default CONNECT endpoint, or use an absolute path such as /proxy.</string>
+    <string name="config_relay_naive_path_error_absolute">Path must start with /.</string>
     <string name="config_relay_chain_entry_server">Entry hop server</string>
     <string name="config_relay_chain_entry_port">Entry hop port</string>
     <string name="config_relay_chain_entry_sni">Entry hop server name</string>

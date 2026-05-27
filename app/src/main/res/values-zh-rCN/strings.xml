@@ -1999,6 +1999,13 @@ fake_burst 3</string>
     <string name="config_relay_chain_exit_server">出口跳点服务器</string>
     <string name="config_relay_cloudflare_tunnel_note">请在此处使用您自管的 Cloudflare Tunnel 主机名。P0 期望该主机名前置于您自己的 xHTTP/VLESS 源站;RIPDPI 不管理 cloudflared 令牌或 TryCloudflare 配置。</string>
     <string name="config_relay_hysteria_password">Hysteria 密码</string>
+    <string name="config_relay_naive_username">NaiveProxy 用户名</string>
+    <string name="config_relay_naive_username_helper">用于上游 HTTP Basic 认证。</string>
+    <string name="config_relay_naive_password">NaiveProxy 密码</string>
+    <string name="config_relay_naive_password_helper">存储在安全的中继凭据存储中。</string>
+    <string name="config_relay_naive_path">HTTP 路径（可选）</string>
+    <string name="config_relay_naive_path_helper">留空以使用默认 CONNECT 端点，或使用 /proxy 这样的绝对路径。</string>
+    <string name="config_relay_naive_path_error_absolute">路径必须以 / 开头。</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_local_port_helper">主 RIPDPI 代理链接到此回环监听器。</string>
     <string name="config_relay_masque_auth_preshared">预共享</string>

@@ -22,6 +22,7 @@ import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -64,6 +65,18 @@ class ConfigViewModelTest {
         ).joinToString("\n")
 
     private val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
+
+    private fun validNaiveProxyDraft(relayNaivePath: String): ConfigDraft =
+        defaultDraft.copy(
+            relayEnabled = true,
+            relayKind = RelayKindNaiveProxy,
+            relayServer = "relay.example",
+            relayServerPort = "443",
+            relayServerName = "relay.example",
+            relayNaiveUsername = "naive-user",
+            relayNaivePassword = "naive-" + "credential",
+            relayNaivePath = relayNaivePath,
+        )
 
     @Test
     fun `config draft defaults match canonical encrypted dns settings`() {
@@ -342,6 +355,49 @@ class ConfigViewModelTest {
             )
 
         assertEquals(null, errors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation rejects naiveproxy missing credentials`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindNaiveProxy,
+                    relayServer = "relay.example",
+                    relayServerPort = "443",
+                    relayServerName = "relay.example",
+                ),
+            )
+
+        assertEquals("required", errors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation accepts naiveproxy blank or absolute path`() {
+        val blankPathErrors =
+            validateConfigDraft(
+                validNaiveProxyDraft(relayNaivePath = ""),
+            )
+        val absolutePathErrors =
+            validateConfigDraft(
+                validNaiveProxyDraft(relayNaivePath = "/proxy"),
+            )
+
+        assertEquals(null, blankPathErrors[ConfigFieldRelayNaivePath])
+        assertEquals(null, absolutePathErrors[ConfigFieldRelayNaivePath])
+        assertEquals(null, blankPathErrors[ConfigFieldRelayCredentials])
+        assertEquals(null, absolutePathErrors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation rejects naiveproxy relative path`() {
+        val errors =
+            validateConfigDraft(
+                validNaiveProxyDraft(relayNaivePath = "proxy"),
+            )
+
+        assertEquals("absolute_path", errors[ConfigFieldRelayNaivePath])
     }
 
     @Test

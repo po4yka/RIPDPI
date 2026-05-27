@@ -232,6 +232,7 @@ internal const val ConfigFieldRelayServerPort = "relayServerPort"
 internal const val ConfigFieldRelayLocalSocksPort = "relayLocalSocksPort"
 internal const val ConfigFieldRelayServer = "relayServer"
 internal const val ConfigFieldRelayCredentials = "relayCredentials"
+internal const val ConfigFieldRelayNaivePath = "relayNaivePath"
 internal const val ConfigFieldRelayCloudflarePublishOrigin = "relayCloudflarePublishOrigin"
 internal const val ConfigFieldRelayFinalmask = "relayFinalmask"
 

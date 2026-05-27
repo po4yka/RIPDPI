@@ -569,6 +569,13 @@
     <string name="config_relay_xhttp_host">جایگزینی میزبان xHTTP</string>
     <string name="config_relay_vless_uuid">VLESS UUID</string>
     <string name="config_relay_hysteria_password">رمز عبور Hysteria</string>
+    <string name="config_relay_naive_username">نام کاربری NaiveProxy</string>
+    <string name="config_relay_naive_username_helper">برای احراز هویت HTTP Basic در بالادست استفاده می‌شود.</string>
+    <string name="config_relay_naive_password">رمز عبور NaiveProxy</string>
+    <string name="config_relay_naive_password_helper">در مخزن امن اعتبارنامه‌های رله ذخیره می‌شود.</string>
+    <string name="config_relay_naive_path">مسیر HTTP (اختیاری)</string>
+    <string name="config_relay_naive_path_helper">برای نقطه پایانی پیش‌فرض CONNECT خالی بگذارید، یا یک مسیر مطلق مانند /proxy وارد کنید.</string>
+    <string name="config_relay_naive_path_error_absolute">مسیر باید با / شروع شود.</string>
     <string name="config_relay_hysteria_salamander">کلید Salamander</string>
     <string name="config_relay_chain_entry_server">سرور پرش ورودی</string>
     <string name="config_relay_chain_entry_port">پورت پرش ورودی</string>

@@ -2021,6 +2021,13 @@ Quelle: %2$s</string>
     <string name="config_relay_chain_exit_port">Port des Ausstiegshops</string>
     <string name="config_relay_chain_exit_uuid">UUID des Ausstiegshops</string>
     <string name="config_relay_hysteria_password">Hysteria-Passwort</string>
+    <string name="config_relay_naive_username">NaiveProxy-Benutzername</string>
+    <string name="config_relay_naive_username_helper">Wird für die HTTP-Basic-Authentifizierung beim Upstream verwendet.</string>
+    <string name="config_relay_naive_password">NaiveProxy-Passwort</string>
+    <string name="config_relay_naive_password_helper">Wird im sicheren Relay-Anmeldedatenspeicher gespeichert.</string>
+    <string name="config_relay_naive_path">HTTP-Pfad (optional)</string>
+    <string name="config_relay_naive_path_helper">Leer lassen für den Standard-CONNECT-Endpunkt oder einen absoluten Pfad wie /proxy verwenden.</string>
+    <string name="config_relay_naive_path_error_absolute">Der Pfad muss mit / beginnen.</string>
     <string name="config_relay_kind_hysteria2">Hysteria2</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_client_certificate_chain_helper">Fügen Sie die PEM-Kette ein oder importieren Sie eine Zertifikatsdatei.</string>

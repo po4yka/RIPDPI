@@ -2049,6 +2049,13 @@ fakeddisorder endhost</string>
     <string name="config_relay_credentials_title">Отсутствуют учётные данные реле</string>
     <string name="config_relay_enable">Включить восходящее реле</string>
     <string name="config_relay_hysteria_password">Пароль Hysteria</string>
+    <string name="config_relay_naive_username">Имя пользователя NaiveProxy</string>
+    <string name="config_relay_naive_username_helper">Используется для HTTP Basic-аутентификации на upstream-сервере.</string>
+    <string name="config_relay_naive_password">Пароль NaiveProxy</string>
+    <string name="config_relay_naive_password_helper">Хранится в защищённом хранилище учётных данных реле.</string>
+    <string name="config_relay_naive_path">HTTP-путь (необязательно)</string>
+    <string name="config_relay_naive_path_helper">Оставьте пустым для стандартной конечной точки CONNECT или укажите абсолютный путь, например /proxy.</string>
+    <string name="config_relay_naive_path_error_absolute">Путь должен начинаться с /.</string>
     <string name="config_relay_hysteria_salamander">Ключ Salamander</string>
     <string name="config_relay_import">Импорт</string>
     <string name="config_relay_kind_chain">Цепное реле</string>

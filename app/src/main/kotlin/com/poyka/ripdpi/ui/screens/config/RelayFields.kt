@@ -89,7 +89,7 @@ internal fun RelayFieldsContent(
         }
 
         RelayKindNaiveProxy -> {
-            NaiveProxyRelayFields(draft = draft, actions = actions.misc)
+            NaiveProxyRelayFields(draft = draft, uiState = uiState, actions = actions.misc)
         }
 
         RelayKindSnowflake -> {

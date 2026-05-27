@@ -133,6 +133,9 @@ internal fun validateConfigDraft(
                 RelayKindNaiveProxy -> {
                     if (draft.relayServer.isBlank()) put(ConfigFieldRelayServer, "required")
                     if (!validatePort(draft.relayServerPort)) put(ConfigFieldRelayServerPort, "invalid_port")
+                    if (draft.relayNaivePath.isNotBlank() && !draft.relayNaivePath.startsWith("/")) {
+                        put(ConfigFieldRelayNaivePath, "absolute_path")
+                    }
                     if (
                         draft.relayServerName.isBlank() ||
                         draft.relayNaiveUsername.isBlank() ||

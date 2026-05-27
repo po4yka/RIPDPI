@@ -2021,6 +2021,13 @@ Source : %2$s</string>
     <string name="config_relay_chain_exit_port">Port du saut de sortie</string>
     <string name="config_relay_chain_exit_uuid">UUID du saut de sortie</string>
     <string name="config_relay_hysteria_password">Mot de passe Hysteria</string>
+    <string name="config_relay_naive_username">Nom d\'utilisateur NaiveProxy</string>
+    <string name="config_relay_naive_username_helper">Utilisé pour l\'authentification HTTP Basic auprès de l\'upstream.</string>
+    <string name="config_relay_naive_password">Mot de passe NaiveProxy</string>
+    <string name="config_relay_naive_password_helper">Stocké dans le magasin sécurisé des identifiants de relais.</string>
+    <string name="config_relay_naive_path">Chemin HTTP (facultatif)</string>
+    <string name="config_relay_naive_path_helper">Laisser vide pour le point de terminaison CONNECT par défaut, ou utiliser un chemin absolu comme /proxy.</string>
+    <string name="config_relay_naive_path_error_absolute">Le chemin doit commencer par /.</string>
     <string name="config_relay_kind_hysteria2">Hysteria2</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_client_certificate_chain_helper">Collez la chaîne PEM ou importez un fichier de certificat.</string>
