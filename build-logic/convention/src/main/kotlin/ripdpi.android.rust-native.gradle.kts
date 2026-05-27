@@ -38,11 +38,13 @@ data class RustNativeArtifact(
 
 data class PluggableTransportSource(
     val id: String,
-    val repoUrl: String,
-    val commit: String,
+    val sourceType: String,
+    val repoUrl: String?,
+    val commit: String?,
     val goToolchain: String?,
     val cgoEnabled: Boolean,
-    val packagePath: String,
+    val packagePath: String?,
+    val packageName: String?,
     val sourceBinaryName: String,
     val outputNames: List<String>,
 )
@@ -562,6 +564,9 @@ abstract class BuildPluggableTransportAssetsTask
         abstract val goExecutable: Property<String>
 
         @get:Input
+        abstract val cargoExecutable: Property<String>
+
+        @get:Input
         abstract val sdkDir: Property<String>
 
         @get:Input
@@ -569,6 +574,9 @@ abstract class BuildPluggableTransportAssetsTask
 
         @get:Input
         abstract val minSdk: Property<Int>
+
+        @get:Input
+        abstract val cargoProfile: Property<String>
 
         @get:Input
         abstract val buildMode: Property<String>
@@ -592,6 +600,8 @@ abstract class BuildPluggableTransportAssetsTask
             val workRoot = workDir.get().asFile
             val sources = parseSourcesManifest(sourcesManifest.get().asFile)
             val strictMode = strictFailures.get()
+            val hasGoSources = sources.any { it.sourceType == "go" }
+            val hasRustSources = sources.any { it.sourceType == "rust" }
             val buildFromSource =
                 when (mode) {
                     "source" -> {
@@ -603,8 +613,9 @@ abstract class BuildPluggableTransportAssetsTask
                     }
 
                     "auto" -> {
-                        executableAvailable(gitExecutable.get(), "--version") &&
-                            executableAvailable(goExecutable.get(), "version")
+                        (!hasGoSources || executableAvailable(gitExecutable.get(), "--version")) &&
+                            (!hasGoSources || executableAvailable(goExecutable.get(), "version")) &&
+                            (!hasRustSources || executableAvailable(cargoExecutable.get(), "--version"))
                     }
 
                     else -> {
@@ -612,11 +623,14 @@ abstract class BuildPluggableTransportAssetsTask
                     }
                 }
 
-            if (mode == "source" && !executableAvailable(gitExecutable.get(), "--version")) {
+            if (mode == "source" && hasGoSources && !executableAvailable(gitExecutable.get(), "--version")) {
                 throw GradleException("git is required for ripdpi.pluggableTransportAssetsMode=source")
             }
-            if (mode == "source" && !executableAvailable(goExecutable.get(), "version")) {
+            if (mode == "source" && hasGoSources && !executableAvailable(goExecutable.get(), "version")) {
                 throw GradleException("go is required for ripdpi.pluggableTransportAssetsMode=source")
+            }
+            if (mode == "source" && hasRustSources && !executableAvailable(cargoExecutable.get(), "--version")) {
+                throw GradleException("cargo is required for ripdpi.pluggableTransportAssetsMode=source")
             }
 
             try {
@@ -636,14 +650,37 @@ abstract class BuildPluggableTransportAssetsTask
                         val sourceBuildResult =
                             if (buildFromSource) {
                                 runCatching {
-                                    val repoDir = syncPinnedRepo(reposDir, source)
-                                    buildGoBinary(
-                                        source = source,
-                                        abi = abi,
-                                        repoDir = repoDir,
-                                        cacheDir = cacheDir.resolve(abi).resolve(source.id),
-                                        modCacheDir = modCacheDir,
-                                    )
+                                    when (source.sourceType) {
+                                        "go" -> {
+                                            val repoDir = syncPinnedRepo(reposDir, source)
+                                            buildGoBinary(
+                                                source = source,
+                                                abi = abi,
+                                                repoDir = repoDir,
+                                                cacheDir = cacheDir.resolve(abi).resolve(source.id),
+                                                modCacheDir = modCacheDir,
+                                            )
+                                        }
+
+                                        "rust" -> {
+                                            buildRustBinary(
+                                                source = source,
+                                                abi = abi,
+                                                targetDir =
+                                                    workRoot
+                                                        .resolve(
+                                                            "cargo-target",
+                                                        ).resolve(abi)
+                                                        .resolve(source.id),
+                                            )
+                                        }
+
+                                        else -> {
+                                            throw GradleException(
+                                                "Unsupported pluggable transport source type: ${source.sourceType}",
+                                            )
+                                        }
+                                    }
                                 }.getOrElse { error ->
                                     if (strictMode) {
                                         throw error
@@ -687,11 +724,13 @@ abstract class BuildPluggableTransportAssetsTask
                                     "abi" to abi,
                                     "outputName" to outputName,
                                     "sourceId" to source.id,
+                                    "sourceType" to source.sourceType,
                                     "repoUrl" to source.repoUrl,
                                     "commit" to source.commit,
                                     "goToolchain" to source.goToolchain,
                                     "cgoEnabled" to source.cgoEnabled,
                                     "packagePath" to source.packagePath,
+                                    "packageName" to source.packageName,
                                     "mode" to if (sourceBuildResult != null) "source" else "stub",
                                     "buildError" to buildError,
                                     "launcherSha256" to sha256(launcher),
@@ -715,11 +754,13 @@ abstract class BuildPluggableTransportAssetsTask
                                     sources.map { source ->
                                         mapOf(
                                             "id" to source.id,
+                                            "sourceType" to source.sourceType,
                                             "repoUrl" to source.repoUrl,
                                             "commit" to source.commit,
                                             "goToolchain" to source.goToolchain,
                                             "cgoEnabled" to source.cgoEnabled,
                                             "packagePath" to source.packagePath,
+                                            "packageName" to source.packageName,
                                             "sourceBinaryName" to source.sourceBinaryName,
                                             "outputNames" to source.outputNames,
                                         )
@@ -742,16 +783,34 @@ abstract class BuildPluggableTransportAssetsTask
             val sources = root["sources"] as? List<*> ?: error("pluggable transport source manifest missing sources")
             return sources.map { entry ->
                 val data = entry as Map<*, *>
+                val sourceType = data["sourceType"]?.toString()?.takeIf(String::isNotBlank) ?: "go"
                 PluggableTransportSource(
                     id = data.requireString("id"),
-                    repoUrl = data.requireString("repoUrl"),
-                    commit = data.requireString("commit"),
+                    sourceType = sourceType,
+                    repoUrl = data["repoUrl"]?.toString()?.takeIf(String::isNotBlank),
+                    commit = data["commit"]?.toString()?.takeIf(String::isNotBlank),
                     goToolchain = data["goToolchain"]?.toString()?.takeIf(String::isNotBlank),
                     cgoEnabled = data["cgoEnabled"]?.toString()?.toBooleanStrictOrNull() ?: false,
-                    packagePath = data.requireString("packagePath"),
+                    packagePath = data["packagePath"]?.toString()?.takeIf(String::isNotBlank),
+                    packageName = data["packageName"]?.toString()?.takeIf(String::isNotBlank),
                     sourceBinaryName = data.requireString("sourceBinaryName"),
                     outputNames = (data["outputNames"] as? List<*>)?.map { it.toString() }.orEmpty(),
                 ).also { source ->
+                    require(source.sourceType == "go" || source.sourceType == "rust") {
+                        "Source ${source.id} has unsupported sourceType=${source.sourceType}"
+                    }
+                    if (source.sourceType == "go") {
+                        require(!source.repoUrl.isNullOrBlank()) { "Go source ${source.id} must declare repoUrl" }
+                        require(!source.commit.isNullOrBlank()) { "Go source ${source.id} must declare commit" }
+                        require(
+                            !source.packagePath.isNullOrBlank(),
+                        ) { "Go source ${source.id} must declare packagePath" }
+                    }
+                    if (source.sourceType == "rust") {
+                        require(
+                            !source.packageName.isNullOrBlank(),
+                        ) { "Rust source ${source.id} must declare packageName" }
+                    }
                     require(
                         source.outputNames.isNotEmpty(),
                     ) { "Source ${source.id} must declare at least one output name" }
@@ -763,6 +822,8 @@ abstract class BuildPluggableTransportAssetsTask
             reposDir: File,
             source: PluggableTransportSource,
         ): File {
+            val repoUrl = requireNotNull(source.repoUrl) { "Go source ${source.id} is missing repoUrl" }
+            val commit = requireNotNull(source.commit) { "Go source ${source.id} is missing commit" }
             val repoDir = reposDir.resolve(source.id)
             if (!repoDir.resolve(".git").exists()) {
                 fileSystemOperations.delete { delete(repoDir) }
@@ -772,7 +833,7 @@ abstract class BuildPluggableTransportAssetsTask
                             gitExecutable.get(),
                             "clone",
                             "--filter=blob:none",
-                            source.repoUrl,
+                            repoUrl,
                             repoDir.absolutePath,
                         )
                     }.assertNormalExitValue()
@@ -780,12 +841,12 @@ abstract class BuildPluggableTransportAssetsTask
             execOperations
                 .exec {
                     workingDir = repoDir
-                    commandLine(gitExecutable.get(), "fetch", "--depth", "1", "origin", source.commit)
+                    commandLine(gitExecutable.get(), "fetch", "--depth", "1", "origin", commit)
                 }.assertNormalExitValue()
             execOperations
                 .exec {
                     workingDir = repoDir
-                    commandLine(gitExecutable.get(), "checkout", "--force", source.commit)
+                    commandLine(gitExecutable.get(), "checkout", "--force", commit)
                 }.assertNormalExitValue()
             execOperations
                 .exec {
@@ -802,6 +863,7 @@ abstract class BuildPluggableTransportAssetsTask
             cacheDir: File,
             modCacheDir: File,
         ): File {
+            val packagePath = requireNotNull(source.packagePath) { "Go source ${source.id} is missing packagePath" }
             val outputFile = workDir.get().asFile.resolve("built/$abi/${source.id}/${source.sourceBinaryName}")
             outputFile.parentFile.mkdirs()
             cacheDir.mkdirs()
@@ -832,12 +894,84 @@ abstract class BuildPluggableTransportAssetsTask
                         "-ldflags=-s -w -buildid=",
                         "-o",
                         outputFile.absolutePath,
-                        source.packagePath,
+                        packagePath,
                     )
                 }.assertNormalExitValue()
             if (!outputFile.isFile) {
                 throw GradleException(
                     "Expected pluggable transport binary was not produced: ${outputFile.absolutePath}",
+                )
+            }
+            return outputFile
+        }
+
+        private fun buildRustBinary(
+            source: PluggableTransportSource,
+            abi: String,
+            targetDir: File,
+        ): File {
+            val packageName = requireNotNull(source.packageName) { "Rust source ${source.id} is missing packageName" }
+            val target = abiToRustTarget(abi)
+            val clangTarget = abiToClangTarget(abi)
+            val hostBinDir = resolveNdkToolchainBinDir()
+            val linker = hostBinDir.resolve("${clangTarget}${minSdk.get()}-clang")
+            val cxx = hostBinDir.resolve("${clangTarget}${minSdk.get()}-clang++")
+            val ar = hostBinDir.resolve("llvm-ar")
+            require(
+                linker.isFile,
+            ) { "Android linker not found for pluggable transport build ($abi): ${linker.absolutePath}" }
+            require(
+                cxx.isFile,
+            ) { "Android C++ linker not found for pluggable transport build ($abi): ${cxx.absolutePath}" }
+            require(ar.isFile) { "Android archiver not found for pluggable transport build ($abi): ${ar.absolutePath}" }
+
+            val targetEnv = target.replace('-', '_').uppercase()
+            val targetKey = target.replace('-', '_')
+            val ndkHome = File(sdkDir.get()).resolve("ndk").resolve(ndkVersion.get())
+            val cargoEnvironment =
+                mutableMapOf(
+                    "ANDROID_NDK_HOME" to ndkHome.absolutePath,
+                    "CC_$targetEnv" to linker.absolutePath,
+                    "CC_$targetKey" to linker.absolutePath,
+                    "CXX_$targetEnv" to cxx.absolutePath,
+                    "CXX_$targetKey" to cxx.absolutePath,
+                    "AR_$targetEnv" to ar.absolutePath,
+                    "AR_$targetKey" to ar.absolutePath,
+                    "CARGO_TARGET_${targetEnv}_LINKER" to linker.absolutePath,
+                    "CARGO_TARGET_${targetEnv}_AR" to ar.absolutePath,
+                    "CARGO_TARGET_DIR" to targetDir.absolutePath,
+                    "BORING_BSSL_RUST_CPPLIB" to "c++_static",
+                )
+            resolveAndroidSdkCmake()?.let { cargoEnvironment["CMAKE"] = it.absolutePath }
+
+            val manifest =
+                project.layout.projectDirectory
+                    .file("native/rust/Cargo.toml")
+                    .asFile
+            execOperations
+                .exec {
+                    workingDir = manifest.parentFile
+                    environment(cargoEnvironment)
+                    appleHostEnvKeys().forEach(environment::remove)
+                    commandLine(
+                        cargoExecutable.get(),
+                        "build",
+                        "--manifest-path",
+                        manifest.absolutePath,
+                        "-p",
+                        packageName,
+                        "--locked",
+                        "--target",
+                        target,
+                        "--profile",
+                        cargoProfile.get(),
+                    )
+                }.assertNormalExitValue()
+
+            val outputFile = targetDir.resolve("$target/${cargoProfile.get()}/${source.sourceBinaryName}")
+            if (!outputFile.isFile) {
+                throw GradleException(
+                    "Expected Rust pluggable transport binary was not produced: ${outputFile.absolutePath}",
                 )
             }
             return outputFile
@@ -877,6 +1011,43 @@ abstract class BuildPluggableTransportAssetsTask
                     ?: throw GradleException("Unsupported NDK host toolchain layout in ${toolchainsDir.absolutePath}")
             return toolchainsDir.resolve(hostTag).resolve("bin")
         }
+
+        private fun resolveAndroidSdkCmake(): File? =
+            File(sdkDir.get())
+                .resolve("cmake")
+                .takeIf { it.isDirectory }
+                ?.listFiles()
+                ?.filter { it.isDirectory }
+                ?.maxByOrNull { it.name }
+                ?.resolve("bin/cmake")
+                ?.takeIf { it.isFile }
+
+        private fun appleHostEnvKeys(): List<String> =
+            listOf(
+                "SDKROOT",
+                "MACOSX_DEPLOYMENT_TARGET",
+                "IPHONEOS_DEPLOYMENT_TARGET",
+                "TVOS_DEPLOYMENT_TARGET",
+                "WATCHOS_DEPLOYMENT_TARGET",
+                "XROS_DEPLOYMENT_TARGET",
+                "ARCHFLAGS",
+                "RC_ARCHS",
+                "CMAKE_OSX_ARCHITECTURES",
+                "CMAKE_OSX_SYSROOT",
+                "CFLAGS",
+                "CXXFLAGS",
+                "CPPFLAGS",
+                "LDFLAGS",
+            )
+
+        private fun abiToRustTarget(abi: String): String =
+            when (abi) {
+                "armeabi-v7a" -> "armv7-linux-androideabi"
+                "arm64-v8a" -> "aarch64-linux-android"
+                "x86" -> "i686-linux-android"
+                "x86_64" -> "x86_64-linux-android"
+                else -> throw GradleException("Unsupported ABI for pluggable transport build: $abi")
+            }
 
         private fun abiToClangTarget(abi: String): String =
             when (abi) {
@@ -921,7 +1092,7 @@ abstract class BuildPluggableTransportAssetsTask
         ): String =
             """
             |#!/system/bin/sh
-            |echo "$outputName could not be source-built from ${source.id}@${source.commit}." >&2
+            |echo "$outputName could not be source-built from ${source.id}${source.commit?.let { "@$it" } ?: ""}." >&2
             |echo "${buildError.replace("\"", "\\\"")}" >&2
             |exit 78
             """.trimMargin()
@@ -934,7 +1105,7 @@ abstract class BuildPluggableTransportAssetsTask
             |#!/system/bin/sh
             |echo "$outputName is unavailable in this APK because pluggable transport source builds were skipped." >&2
             |echo "Rebuild with -Pripdpi.pluggableTransportAssetsMode=source" >&2
-            |echo "to compile ${source.id} from ${source.repoUrl}." >&2
+            |echo "to compile ${source.id}${source.repoUrl?.let { " from $it" } ?: ""}." >&2
             |exit 78
             """.trimMargin()
 
@@ -1244,9 +1415,11 @@ val buildPluggableTransportAssets =
         sourcesManifest.set(ptSourcesManifestFile)
         gitExecutable.set(resolveHostTool("git"))
         goExecutable.set(resolveHostTool("go"))
+        cargoExecutable.set(resolveHostTool("cargo"))
         sdkDir.set(resolveAndroidSdkDir())
         ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
+        cargoProfile.set(rustNativeCargoProfile)
         buildMode.set(pluggableTransportAssetsMode)
         strictFailures.set(pluggableTransportAssetsStrictFailures)
         abis.set(rustNativeAbis)

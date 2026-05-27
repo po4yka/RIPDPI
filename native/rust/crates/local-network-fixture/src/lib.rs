@@ -12,6 +12,7 @@ mod tls;
 mod trojan;
 mod types;
 mod util;
+mod webtunnel;
 
 pub use self::event::*;
 pub use self::fault::*;
@@ -20,6 +21,7 @@ pub use self::shadowsocks::*;
 pub use self::stack::FixtureStack;
 pub use self::trojan::*;
 pub use self::types::*;
+pub use self::webtunnel::*;
 
 #[cfg(test)]
 mod tests {

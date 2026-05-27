@@ -11,8 +11,16 @@
       "sourceBinaryName": "lyrebird",
       "outputNames": [
         "ripdpi-snowflake",
-        "ripdpi-webtunnel",
         "ripdpi-obfs4"
+      ]
+    },
+    {
+      "id": "ripdpi-webtunnel",
+      "sourceType": "rust",
+      "packageName": "ripdpi-webtunnel",
+      "sourceBinaryName": "ripdpi-webtunnel",
+      "outputNames": [
+        "ripdpi-webtunnel"
       ]
     },
     {

@@ -11,6 +11,7 @@ use std::time::Duration;
 use thiserror::Error;
 
 use crate::bridge_line::{parse_bridge_line, BridgeLineError, WebTunnelBridgeConfig};
+use crate::client::{connect_webtunnel, WebTunnelStream};
 
 const TRANSPORT_NAME: &str = "webtunnel";
 const SUPPORTED_MANAGED_VERSION: &str = "1";
@@ -237,8 +238,19 @@ fn handle_socks_client(mut stream: TcpStream) -> io::Result<()> {
     stream.set_read_timeout(Some(IO_TIMEOUT))?;
     stream.set_write_timeout(Some(IO_TIMEOUT))?;
     let request = read_socks5_request(&mut stream)?;
-    let _ = request;
-    write_socks_reply(&mut stream, SOCKS_GENERAL_FAILURE)
+    let Some(bridge) = request.bridge else {
+        return write_socks_reply(&mut stream, SOCKS_GENERAL_FAILURE);
+    };
+    match connect_webtunnel(&bridge, false) {
+        Ok(mut webtunnel) => {
+            write_socks_reply(&mut stream, 0x00)?;
+            relay_socks_over_webtunnel(&mut stream, &mut webtunnel)
+        }
+        Err(error) => {
+            let _ = write_socks_reply(&mut stream, SOCKS_GENERAL_FAILURE);
+            Err(io::Error::other(error.to_string()))
+        }
+    }
 }
 
 fn read_socks5_request(stream: &mut TcpStream) -> io::Result<SocksConnectRequest> {
@@ -324,6 +336,43 @@ fn read_socks_host(stream: &mut TcpStream) -> io::Result<String> {
 fn write_socks_reply(stream: &mut TcpStream, reply: u8) -> io::Result<()> {
     stream.write_all(&[SOCKS_VERSION, reply, 0x00, SOCKS_ATYP_IPV4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])?;
     stream.flush()
+}
+
+fn relay_socks_over_webtunnel(client: &mut TcpStream, webtunnel: &mut WebTunnelStream) -> io::Result<()> {
+    client.set_read_timeout(Some(Duration::from_millis(100)))?;
+    webtunnel.get_mut().set_read_timeout(Some(Duration::from_millis(100)))?;
+    let mut client_closed = false;
+    let mut bridge_closed = false;
+    let mut buffer = [0_u8; 8192];
+    while !client_closed || !bridge_closed {
+        if !client_closed {
+            match client.read(&mut buffer) {
+                Ok(0) => client_closed = true,
+                Ok(read) => {
+                    webtunnel.write_all(&buffer[..read])?;
+                    webtunnel.flush()?;
+                }
+                Err(error) if is_retryable_io(&error) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        if !bridge_closed {
+            match webtunnel.read(&mut buffer) {
+                Ok(0) => bridge_closed = true,
+                Ok(read) => {
+                    client.write_all(&buffer[..read])?;
+                    client.flush()?;
+                }
+                Err(error) if is_retryable_io(&error) => {}
+                Err(error) => return Err(error),
+            }
+        }
+    }
+    Ok(())
+}
+
+fn is_retryable_io(error: &io::Error) -> bool {
+    matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut)
 }
 
 fn read_u8(stream: &mut TcpStream) -> io::Result<u8> {

@@ -8,9 +8,6 @@ Implemented scope:
 - Browser-mimicking TLS through BoringSSL via `ripdpi-tls-profiles`, golden-tested against an explicit uTLS-derived target profile.
 - HTTP/1.1 Upgrade to the bridge secret path, preserving post-upgrade bytes for raw bidirectional tunneling.
 - Tor PT managed-client IPC with `VERSION`, `CMETHOD webtunnel socks5`, `CMETHODS DONE`, RFC1929 bridge-argument decoding, and stdin-close shutdown.
-
-Planned scope:
-
 - Full WebTunnel client dial path that connects the managed SOCKS5 listener to TLS, HTTP Upgrade, and post-upgrade relay.
 - Local-network-fixture E2E coverage and Gradle PT manifest packaging from the in-repository Rust crate.
 

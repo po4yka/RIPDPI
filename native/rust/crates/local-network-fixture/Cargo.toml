@@ -15,6 +15,7 @@ hickory-proto = { workspace = true }
 hex = { workspace = true }
 bytes = { workspace = true }
 base64 = { workspace = true }
+boring = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }

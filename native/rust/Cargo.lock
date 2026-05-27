@@ -2210,6 +2210,7 @@ name = "local-network-fixture"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "boring",
  "bytes",
  "crypto_box",
  "hex",
@@ -4711,6 +4712,7 @@ version = "0.1.0"
 dependencies = [
  "boring",
  "golden-test-support",
+ "local-network-fixture",
  "ripdpi-packets",
  "ripdpi-tls-profiles",
  "serde",
