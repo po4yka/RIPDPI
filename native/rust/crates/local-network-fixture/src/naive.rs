@@ -35,7 +35,6 @@ pub struct NaiveH2PaddingFixture {
     address: SocketAddr,
     client_tls_config: Arc<ClientConfig>,
     observed: Arc<Mutex<NaiveH2PaddingObserved>>,
-    // Drop order: shutdown teardown-before thread; signal the server before joining the worker.
     shutdown: Option<oneshot::Sender<()>>,
     thread: Option<JoinHandle<()>>,
 }
