@@ -45,39 +45,37 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.poyka.ripdpi.data.FailureClass as RuntimeFailureClass
 
+private const val sampleMasqueValue = "sample-masque-value"
+
+private val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
+
+private fun sampleCertificatePem(): String =
+    listOf(
+        "-----BEGIN CERTIFICATE-----",
+        "fixture",
+        "-----END CERTIFICATE-----",
+    ).joinToString("\n")
+
+private fun samplePrivateKeyPem(): String =
+    listOf(
+        "-----BEGIN PRIVATE" + " KEY-----",
+        "fixture",
+        "-----END PRIVATE" + " KEY-----",
+    ).joinToString("\n")
+
+private fun validNaiveProxyDraft(relayNaivePath: String): ConfigDraft =
+    defaultDraft.copy(
+        relayEnabled = true,
+        relayKind = RelayKindNaiveProxy,
+        relayServer = "relay.example",
+        relayServerPort = "443",
+        relayServerName = "relay.example",
+        relayNaiveUsername = "naive-user",
+        relayNaivePassword = "naive-" + "credential",
+        relayNaivePath = relayNaivePath,
+    )
+
 class ConfigViewModelTest {
-    private companion object {
-        const val SampleMasqueValue = "sample-masque-value"
-    }
-
-    private fun sampleCertificatePem(): String =
-        listOf(
-            "-----BEGIN CERTIFICATE-----",
-            "fixture",
-            "-----END CERTIFICATE-----",
-        ).joinToString("\n")
-
-    private fun samplePrivateKeyPem(): String =
-        listOf(
-            "-----BEGIN PRIVATE" + " KEY-----",
-            "fixture",
-            "-----END PRIVATE" + " KEY-----",
-        ).joinToString("\n")
-
-    private val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
-
-    private fun validNaiveProxyDraft(relayNaivePath: String): ConfigDraft =
-        defaultDraft.copy(
-            relayEnabled = true,
-            relayKind = RelayKindNaiveProxy,
-            relayServer = "relay.example",
-            relayServerPort = "443",
-            relayServerName = "relay.example",
-            relayNaiveUsername = "naive-user",
-            relayNaivePassword = "naive-" + "credential",
-            relayNaivePath = relayNaivePath,
-        )
-
     @Test
     fun `config draft defaults match canonical encrypted dns settings`() {
         val defaultDns = canonicalDefaultEncryptedDnsSettings()
@@ -287,7 +285,7 @@ class ConfigViewModelTest {
                     relayKind = RelayKindMasque,
                     relayMasqueUrl = "https://masque.example/",
                     relayMasqueAuthMode = RelayMasqueAuthModeBearer,
-                    relayMasqueAuthToken = SampleMasqueValue,
+                    relayMasqueAuthToken = sampleMasqueValue,
                     relayFinalmaskType = RelayFinalmaskTypeFragment,
                     relayFinalmaskFragmentPackets = "3",
                     relayFinalmaskFragmentMinBytes = "32",
@@ -529,7 +527,9 @@ class ConfigViewModelTest {
 
         assertTrue(suggestion?.reason?.contains("whitelist-style routing pressure") == true)
     }
+}
 
+class ConfigViewModelRelayRecommendationTest {
     @Test
     fun `relay preset suggestion uses stored capability evidence when runtime is idle`() {
         val suggestion =
@@ -781,32 +781,32 @@ class ConfigViewModelTest {
                 credentialStore.load("legacy-chain__ripdpi_chain_exit")?.vlessUuid,
             )
         }
+}
 
-    private class InMemoryRelayProfileStore : RelayProfileStore {
-        private val records = LinkedHashMap<String, RelayProfileRecord>()
+private class InMemoryRelayProfileStore : RelayProfileStore {
+    private val records = LinkedHashMap<String, RelayProfileRecord>()
 
-        override suspend fun load(profileId: String): RelayProfileRecord? = records[profileId]
+    override suspend fun load(profileId: String): RelayProfileRecord? = records[profileId]
 
-        override suspend fun save(profile: RelayProfileRecord) {
-            records[profile.id] = profile
-        }
-
-        override suspend fun clear(profileId: String) {
-            records.remove(profileId)
-        }
+    override suspend fun save(profile: RelayProfileRecord) {
+        records[profile.id] = profile
     }
 
-    private class InMemoryRelayCredentialStore : RelayCredentialStore {
-        private val records = LinkedHashMap<String, RelayCredentialRecord>()
+    override suspend fun clear(profileId: String) {
+        records.remove(profileId)
+    }
+}
 
-        override suspend fun load(profileId: String): RelayCredentialRecord? = records[profileId]
+private class InMemoryRelayCredentialStore : RelayCredentialStore {
+    private val records = LinkedHashMap<String, RelayCredentialRecord>()
 
-        override suspend fun save(credentials: RelayCredentialRecord) {
-            records[credentials.profileId] = credentials
-        }
+    override suspend fun load(profileId: String): RelayCredentialRecord? = records[profileId]
 
-        override suspend fun clear(profileId: String) {
-            records.remove(profileId)
-        }
+    override suspend fun save(credentials: RelayCredentialRecord) {
+        records[credentials.profileId] = credentials
+    }
+
+    override suspend fun clear(profileId: String) {
+        records.remove(profileId)
     }
 }

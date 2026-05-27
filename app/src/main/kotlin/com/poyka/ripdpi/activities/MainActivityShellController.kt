@@ -40,11 +40,11 @@ internal class MainActivityShellController(
     private val _state =
         MutableStateFlow(
             MainActivityShellState(
-                launchHomeRequested = MainActivity.requestsHomeTab(initialIntent),
-                sharedDiagnosticFragmentRequested = MainActivity.diagnosticShareFragment(initialIntent),
-                importRouteRequested = MainActivity.importRouteFrom(initialIntent),
-                startConfiguredModeRequested = MainActivity.requestsConfiguredStart(initialIntent),
-                stopConfiguredModeRequested = MainActivity.requestsConfiguredStop(initialIntent),
+                launchHomeRequested = requestsHomeTab(initialIntent),
+                sharedDiagnosticFragmentRequested = diagnosticShareFragment(initialIntent),
+                importRouteRequested = importRouteFrom(initialIntent),
+                startConfiguredModeRequested = requestsConfiguredStart(initialIntent),
+                stopConfiguredModeRequested = requestsConfiguredStop(initialIntent),
                 selectorSelectionRequested = selectorRequestFrom(initialIntent),
             ),
         )
@@ -67,15 +67,15 @@ internal class MainActivityShellController(
     fun onNewIntent(intent: Intent?) {
         _state.update { current ->
             current.copy(
-                launchHomeRequested = current.launchHomeRequested || MainActivity.requestsHomeTab(intent),
+                launchHomeRequested = current.launchHomeRequested || requestsHomeTab(intent),
                 sharedDiagnosticFragmentRequested =
-                    MainActivity.diagnosticShareFragment(intent) ?: current.sharedDiagnosticFragmentRequested,
+                    diagnosticShareFragment(intent) ?: current.sharedDiagnosticFragmentRequested,
                 importRouteRequested =
-                    MainActivity.importRouteFrom(intent) ?: current.importRouteRequested,
+                    importRouteFrom(intent) ?: current.importRouteRequested,
                 startConfiguredModeRequested =
-                    current.startConfiguredModeRequested || MainActivity.requestsConfiguredStart(intent),
+                    current.startConfiguredModeRequested || requestsConfiguredStart(intent),
                 stopConfiguredModeRequested =
-                    current.stopConfiguredModeRequested || MainActivity.requestsConfiguredStop(intent),
+                    current.stopConfiguredModeRequested || requestsConfiguredStop(intent),
                 selectorSelectionRequested =
                     selectorRequestFrom(intent) ?: current.selectorSelectionRequested,
             )
@@ -83,8 +83,8 @@ internal class MainActivityShellController(
     }
 
     private fun selectorRequestFrom(intent: Intent?): SelectorSelectionRequest? =
-        MainActivity.selectorGroupIdFrom(intent)?.let { groupId ->
-            MainActivity.selectorProfileIdFrom(intent)?.let { profileId ->
+        selectorGroupIdFrom(intent)?.let { groupId ->
+            selectorProfileIdFrom(intent)?.let { profileId ->
                 SelectorSelectionRequest(groupId = groupId, profileId = profileId)
             }
         }

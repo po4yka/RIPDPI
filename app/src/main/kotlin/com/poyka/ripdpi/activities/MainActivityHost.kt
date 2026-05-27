@@ -111,7 +111,7 @@ internal class DefaultMainActivityHost
                 activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
                     viewModel.onPermissionResult(
                         kind = com.poyka.ripdpi.permissions.PermissionKind.VpnConsent,
-                        result = MainActivity.mapVpnPermissionResult(activity),
+                        result = mapVpnPermissionResult(activity),
                     )
                 }
             notificationPermissionLauncher =
@@ -124,7 +124,7 @@ internal class DefaultMainActivityHost
                         }
                     viewModel.onPermissionResult(
                         kind = com.poyka.ripdpi.permissions.PermissionKind.Notifications,
-                        result = MainActivity.mapNotificationPermissionResult(granted, shouldShowRationale),
+                        result = mapNotificationPermissionResult(granted, shouldShowRationale),
                     )
                 }
             batteryOptimizationLauncher =

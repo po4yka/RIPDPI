@@ -2,7 +2,6 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
@@ -602,123 +601,107 @@ class MainHomeDiagnosticsActionsTest {
                 ?.authority,
         )
     }
+}
 
-    private fun createActions(
-        scope: CoroutineScope,
-        effects: MutableSharedFlow<MainEffect> = MutableSharedFlow(replay = 16, extraBufferCapacity = 16),
-        diagnosticsTimelineSource: StubDiagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
-        diagnosticsScanController: StubDiagnosticsScanController = StubDiagnosticsScanController(),
-        diagnosticsShareService: StubDiagnosticsShareService = StubDiagnosticsShareService(),
-        diagnosticsHomeWorkflowService: StubDiagnosticsHomeWorkflowService = StubDiagnosticsHomeWorkflowService(),
-        diagnosticsHomeCompositeRunService: StubDiagnosticsHomeCompositeRunService =
-            StubDiagnosticsHomeCompositeRunService(),
-        serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
-        runtimeState: MutableStateFlow<ConnectionRuntimeState> = MutableStateFlow(ConnectionRuntimeState()),
-        permissionState: MutableStateFlow<PermissionRuntimeState> =
-            MutableStateFlow(
-                PermissionRuntimeState(
-                    snapshot =
-                        PermissionSnapshot(
-                            vpnConsent = PermissionStatus.Granted,
-                            notifications = PermissionStatus.Granted,
-                            batteryOptimization = PermissionStatus.Granted,
-                        ),
+private fun createActions(
+    scope: CoroutineScope,
+    effects: MutableSharedFlow<MainEffect> = MutableSharedFlow(replay = 16, extraBufferCapacity = 16),
+    diagnosticsTimelineSource: StubDiagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
+    diagnosticsScanController: StubDiagnosticsScanController = StubDiagnosticsScanController(),
+    diagnosticsShareService: StubDiagnosticsShareService = StubDiagnosticsShareService(),
+    diagnosticsHomeWorkflowService: StubDiagnosticsHomeWorkflowService = StubDiagnosticsHomeWorkflowService(),
+    diagnosticsHomeCompositeRunService: StubDiagnosticsHomeCompositeRunService =
+        StubDiagnosticsHomeCompositeRunService(),
+    serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
+    runtimeState: MutableStateFlow<ConnectionRuntimeState> = MutableStateFlow(ConnectionRuntimeState()),
+    permissionState: MutableStateFlow<PermissionRuntimeState> =
+        MutableStateFlow(
+            PermissionRuntimeState(
+                snapshot =
+                    PermissionSnapshot(
+                        vpnConsent = PermissionStatus.Granted,
+                        notifications = PermissionStatus.Granted,
+                        batteryOptimization = PermissionStatus.Granted,
+                    ),
+            ),
+        ),
+    homeDiagnosticsState: MutableStateFlow<HomeDiagnosticsRuntimeState> =
+        MutableStateFlow(HomeDiagnosticsRuntimeState()),
+    requestVpnStart: () -> Unit = {},
+): MainHomeDiagnosticsActions =
+    MainHomeDiagnosticsActions(
+        mutations =
+            MainMutationRunner(
+                scope = scope,
+                effects = effects,
+                currentUiState = { MainUiState() },
+            ),
+        diagnosticsTimelineSource = diagnosticsTimelineSource,
+        diagnosticsScanController = diagnosticsScanController,
+        diagnosticsShareService = diagnosticsShareService,
+        diagnosticsHomeWorkflowService = diagnosticsHomeWorkflowService,
+        diagnosticsHomeCompositeRunService = diagnosticsHomeCompositeRunService,
+        serviceStateStore = serviceStateStore,
+        latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
+        runtimeState = runtimeState,
+        permissionState = permissionState,
+        homeDiagnosticsState = homeDiagnosticsState,
+        stringResolver = FakeStringResolver(),
+        requestVpnStart = requestVpnStart,
+    )
+
+private fun compositeOutcome(
+    runId: String = "home-run",
+    fingerprintHash: String = "fp-1",
+    actionable: Boolean = true,
+): DiagnosticsHomeCompositeOutcome =
+    DiagnosticsHomeCompositeOutcome(
+        runId = runId,
+        fingerprintHash = fingerprintHash,
+        actionable = actionable,
+        headline = "Analysis complete and settings applied",
+        summary = "Ready to verify",
+        recommendedSessionId = "audit-session",
+        stageSummaries =
+            listOf(
+                stage(
+                    key = "automatic_audit",
+                    label = "Automatic audit",
+                    profileId = "automatic-audit",
+                    sessionId = "audit-session",
+                    status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                    recommendationContributor = actionable,
+                ),
+                stage(
+                    key = "default_connectivity",
+                    label = "Default diagnostics",
+                    profileId = "default",
+                    sessionId = "default-session",
+                    status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
                 ),
             ),
-        homeDiagnosticsState: MutableStateFlow<HomeDiagnosticsRuntimeState> =
-            MutableStateFlow(HomeDiagnosticsRuntimeState()),
-        requestVpnStart: () -> Unit = {},
-    ): MainHomeDiagnosticsActions =
-        MainHomeDiagnosticsActions(
-            mutations =
-                MainMutationRunner(
-                    scope = scope,
-                    effects = effects,
-                    currentUiState = { MainUiState() },
-                ),
-            diagnosticsTimelineSource = diagnosticsTimelineSource,
-            diagnosticsScanController = diagnosticsScanController,
-            diagnosticsShareService = diagnosticsShareService,
-            diagnosticsHomeWorkflowService = diagnosticsHomeWorkflowService,
-            diagnosticsHomeCompositeRunService = diagnosticsHomeCompositeRunService,
-            serviceStateStore = serviceStateStore,
-            latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
-            runtimeState = runtimeState,
-            permissionState = permissionState,
-            homeDiagnosticsState = homeDiagnosticsState,
-            stringResolver = FakeStringResolver(),
-            requestVpnStart = requestVpnStart,
-        )
+        completedStageCount = 2,
+        failedStageCount = 0,
+        skippedStageCount = 0,
+        bundleSessionIds = listOf("audit-session", "default-session"),
+    )
 
-    private fun compositeOutcome(
-        runId: String = "home-run",
-        fingerprintHash: String = "fp-1",
-        actionable: Boolean = true,
-    ): DiagnosticsHomeCompositeOutcome =
-        DiagnosticsHomeCompositeOutcome(
-            runId = runId,
-            fingerprintHash = fingerprintHash,
-            actionable = actionable,
-            headline = "Analysis complete and settings applied",
-            summary = "Ready to verify",
-            recommendedSessionId = "audit-session",
-            stageSummaries =
-                listOf(
-                    stage(
-                        key = "automatic_audit",
-                        label = "Automatic audit",
-                        profileId = "automatic-audit",
-                        sessionId = "audit-session",
-                        status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                        recommendationContributor = actionable,
-                    ),
-                    stage(
-                        key = "default_connectivity",
-                        label = "Default diagnostics",
-                        profileId = "default",
-                        sessionId = "default-session",
-                        status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                    ),
-                ),
-            completedStageCount = 2,
-            failedStageCount = 0,
-            skippedStageCount = 0,
-            bundleSessionIds = listOf("audit-session", "default-session"),
-        )
-
-    private fun stage(
-        key: String,
-        label: String,
-        profileId: String,
-        sessionId: String,
-        status: DiagnosticsHomeCompositeStageStatus,
-        recommendationContributor: Boolean = false,
-    ): DiagnosticsHomeCompositeStageSummary =
-        DiagnosticsHomeCompositeStageSummary(
-            stageKey = key,
-            stageLabel = label,
-            profileId = profileId,
-            pathMode = ScanPathMode.RAW_PATH,
-            sessionId = sessionId,
-            status = status,
-            headline = label,
-            summary = "$label summary",
-            recommendationContributor = recommendationContributor,
-        )
-
-    @Suppress("UnusedPrivateMember")
-    private fun completedSession(
-        id: String,
-        summary: String = "Verification complete",
-    ): DiagnosticScanSession =
-        DiagnosticScanSession(
-            id = id,
-            profileId = "default",
-            pathMode = ScanPathMode.IN_PATH.name,
-            serviceMode = "VPN",
-            status = "completed",
-            summary = summary,
-            startedAt = 10L,
-            finishedAt = 20L,
-        )
-}
+private fun stage(
+    key: String,
+    label: String,
+    profileId: String,
+    sessionId: String,
+    status: DiagnosticsHomeCompositeStageStatus,
+    recommendationContributor: Boolean = false,
+): DiagnosticsHomeCompositeStageSummary =
+    DiagnosticsHomeCompositeStageSummary(
+        stageKey = key,
+        stageLabel = label,
+        profileId = profileId,
+        pathMode = ScanPathMode.RAW_PATH,
+        sessionId = sessionId,
+        status = status,
+        headline = label,
+        summary = "$label summary",
+        recommendationContributor = recommendationContributor,
+    )
