@@ -267,22 +267,28 @@ class MainActivityShellInstrumentedTest {
     }
 
     @Test
-    fun missingNotificationsEmitsHostCommandInsteadOfStartingService() {
+    fun missingNotificationsStartConfiguredModeWithoutHostCommand() {
         mutablePermissionStatusProvider.snapshot =
             PermissionSnapshot(
                 vpnConsent = PermissionStatus.Granted,
                 notifications = PermissionStatus.RequiresSystemPrompt,
                 batteryOptimization = PermissionStatus.Granted,
             )
+        composeRule.runOnUiThread {
+            recordingMainActivityHost.refreshPermissionSnapshot()
+        }
 
         val originalIntent = sendConfiguredStartIntent()
 
         try {
-            composeRule.waitUntil(timeoutMillis = 5_000) {
-                recordingMainActivityHost.commands.contains(MainActivityHostCommand.RequestNotificationsPermission)
+            composeRule.waitUntil(timeoutMillis = 15_000) {
+                recordingServiceController.startedModes.size == 1
             }
 
-            assertTrue(recordingServiceController.startedModes.isEmpty())
+            assertEquals(com.poyka.ripdpi.data.Mode.VPN, recordingServiceController.startedModes.single())
+            assertTrue(
+                !recordingMainActivityHost.commands.contains(MainActivityHostCommand.RequestNotificationsPermission),
+            )
         } finally {
             restoreScenarioIntent(originalIntent)
         }
@@ -334,10 +340,11 @@ class MainActivityShellInstrumentedTest {
         val originalIntent = Intent(composeRule.activity.intent)
         composeRule.runOnUiThread {
             composeRule.activity.startActivity(
-                MainActivity.createLaunchIntent(
-                    context = composeRule.activity,
-                    requestStartConfiguredMode = true,
-                ),
+                MainActivity
+                    .createLaunchIntent(
+                        context = composeRule.activity,
+                        requestStartConfiguredMode = true,
+                    ).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
             )
         }
         return originalIntent

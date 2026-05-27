@@ -35,6 +35,7 @@ pub struct NaiveH2PaddingFixture {
     address: SocketAddr,
     client_tls_config: Arc<ClientConfig>,
     observed: Arc<Mutex<NaiveH2PaddingObserved>>,
+    // Drop order: shutdown teardown-before thread; signal the server before joining the worker.
     shutdown: Option<oneshot::Sender<()>>,
     thread: Option<JoinHandle<()>>,
 }
@@ -249,10 +250,7 @@ async fn echo_padded(
     let mut decoder = FixturePaddingDecoder::default();
     let mut encoder = FixturePaddingEncoder::default();
     let mut buffer = [0u8; 4096];
-    loop {
-        let Ok(read) = io.read(&mut buffer).await else {
-            break;
-        };
+    while let Ok(read) = io.read(&mut buffer).await {
         if read == 0 {
             break;
         }

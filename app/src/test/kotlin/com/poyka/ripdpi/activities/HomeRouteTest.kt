@@ -87,90 +87,96 @@ class HomeRouteTest {
             )
         return MainViewModel(
             appSettingsRepository = appSettingsRepository,
-            mainServiceDependencies =
-                MainServiceDependencies(
-                    serviceStateStore = FakeServiceStateStore(),
-                    serviceController = FakeServiceController(),
-                    trafficStatsReader = FakeTrafficStatsReader(),
-                    hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
-                ),
-            mainPermissionDependencies =
-                MainPermissionDependencies(
-                    permissionPlatformBridge =
-                        FakePermissionPlatformBridge(
-                            vpnPermissionIntent = Intent("fake.vpn.permission"),
-                        ),
-                    permissionStatusProvider = FakePermissionStatusProvider(),
-                    permissionCoordinator = PermissionCoordinator(),
-                ),
-            mainDiagnosticsDependencies =
-                MainDiagnosticsDependencies(
-                    diagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
-                    diagnosticsScanController = StubDiagnosticsScanController(),
-                    diagnosticsShareService = StubDiagnosticsShareService(),
-                    homeDiagnosticsServices =
-                        HomeDiagnosticsServices(
-                            workflowService = StubDiagnosticsHomeWorkflowService(),
-                            compositeRunService = StubDiagnosticsHomeCompositeRunService(),
-                        ),
-                    latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
-                ),
-            mainControlPlaneDependencies =
-                MainControlPlaneDependencies(
-                    hostPackCatalogUiStateStore =
-                        com.poyka.ripdpi.hosts
-                            .HostPackCatalogUiStateStore(),
-                    hostPackCatalogUiStateCoordinator =
-                        com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator(
-                            repository =
-                                object : com.poyka.ripdpi.hosts.HostPackCatalogRepository {
-                                    override suspend fun loadSnapshot(): com.poyka.ripdpi.hosts
-                                        .HostPackCatalogLoadResult =
-                                        com.poyka.ripdpi.hosts.HostPackCatalogLoadResult(
-                                            snapshot =
-                                                com.poyka.ripdpi.data
-                                                    .HostPackCatalogSnapshot(),
-                                        )
-
-                                    override suspend fun refreshSnapshot(): com.poyka.ripdpi.data
-                                        .HostPackCatalogSnapshot =
-                                        com.poyka.ripdpi.data
-                                            .HostPackCatalogSnapshot()
-                                },
-                            clock =
-                                com.poyka.ripdpi.hosts
-                                    .HostPackCatalogClock { 0L },
-                            stateStore =
-                                com.poyka.ripdpi.hosts
-                                    .HostPackCatalogUiStateStore(),
-                        ),
-                    strategyPackStateStore =
-                        com.poyka.ripdpi.data
-                            .InMemoryStrategyPackStateStore(),
-                ),
-            mainLifecycleDependencies =
-                MainLifecycleDependencies(
-                    appLockLifecycleCoordinator =
-                        MainAppLockLifecycleCoordinator(
-                            com.poyka.ripdpi.security.AppLockLifecycleObserver(
-                                RuntimeEnvironment.getApplication(),
-                            ),
-                        ),
-                    startupSideEffectsCoordinator =
-                        MainStartupSideEffectsCoordinator(
-                            appSettingsRepository = appSettingsRepository,
-                            crashReportReader = crashReportReader,
-                        ),
-                    settingsDismissCoordinator =
-                        MainSettingsDismissCoordinator(
-                            appSettingsRepository = appSettingsRepository,
-                        ),
-                    crashReportCoordinator =
-                        MainCrashReportCoordinator(
-                            crashReportReader = crashReportReader,
-                        ),
-                ),
+            mainServiceDependencies = homeRouteServiceDependencies(),
+            mainPermissionDependencies = homeRoutePermissionDependencies(),
+            mainDiagnosticsDependencies = homeRouteDiagnosticsDependencies(),
+            mainControlPlaneDependencies = homeRouteControlPlaneDependencies(),
+            mainLifecycleDependencies = homeRouteLifecycleDependencies(appSettingsRepository, crashReportReader),
             stringResolver = FakeStringResolver(),
         ).also(MainViewModel::initialize)
     }
+}
+
+private fun homeRouteServiceDependencies(): MainServiceDependencies =
+    MainServiceDependencies(
+        serviceStateStore = FakeServiceStateStore(),
+        serviceController = FakeServiceController(),
+        trafficStatsReader = FakeTrafficStatsReader(),
+        hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
+    )
+
+private fun homeRoutePermissionDependencies(): MainPermissionDependencies =
+    MainPermissionDependencies(
+        permissionPlatformBridge =
+            FakePermissionPlatformBridge(
+                vpnPermissionIntent = Intent("fake.vpn.permission"),
+            ),
+        permissionStatusProvider = FakePermissionStatusProvider(),
+        permissionCoordinator = PermissionCoordinator(),
+    )
+
+private fun homeRouteDiagnosticsDependencies(): MainDiagnosticsDependencies =
+    MainDiagnosticsDependencies(
+        diagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
+        diagnosticsScanController = StubDiagnosticsScanController(),
+        diagnosticsShareService = StubDiagnosticsShareService(),
+        homeDiagnosticsServices =
+            HomeDiagnosticsServices(
+                workflowService = StubDiagnosticsHomeWorkflowService(),
+                compositeRunService = StubDiagnosticsHomeCompositeRunService(),
+            ),
+        latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
+    )
+
+private fun homeRouteControlPlaneDependencies(): MainControlPlaneDependencies =
+    MainControlPlaneDependencies(
+        hostPackCatalogUiStateStore =
+            com.poyka.ripdpi.hosts
+                .HostPackCatalogUiStateStore(),
+        hostPackCatalogUiStateCoordinator =
+            com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator(
+                repository = EmptyHostPackCatalogRepository,
+                clock =
+                    com.poyka.ripdpi.hosts
+                        .HostPackCatalogClock { 0L },
+                stateStore =
+                    com.poyka.ripdpi.hosts
+                        .HostPackCatalogUiStateStore(),
+            ),
+        strategyPackStateStore =
+            com.poyka.ripdpi.data
+                .InMemoryStrategyPackStateStore(),
+    )
+
+private fun homeRouteLifecycleDependencies(
+    appSettingsRepository: AppSettingsRepository,
+    crashReportReader: com.poyka.ripdpi.diagnostics.crash.CrashReportReader,
+): MainLifecycleDependencies =
+    MainLifecycleDependencies(
+        appLockLifecycleCoordinator =
+            MainAppLockLifecycleCoordinator(
+                com.poyka.ripdpi.security
+                    .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
+            ),
+        startupSideEffectsCoordinator =
+            MainStartupSideEffectsCoordinator(
+                appSettingsRepository = appSettingsRepository,
+                crashReportReader = crashReportReader,
+            ),
+        settingsDismissCoordinator = MainSettingsDismissCoordinator(appSettingsRepository = appSettingsRepository),
+        crashReportCoordinator = MainCrashReportCoordinator(crashReportReader = crashReportReader),
+    )
+
+private object EmptyHostPackCatalogRepository : com.poyka.ripdpi.hosts.HostPackCatalogRepository {
+    override suspend fun loadSnapshot(): com.poyka.ripdpi.hosts.HostPackCatalogLoadResult =
+        com.poyka.ripdpi.hosts
+            .HostPackCatalogLoadResult(
+                snapshot =
+                    com.poyka.ripdpi.data
+                        .HostPackCatalogSnapshot(),
+            )
+
+    override suspend fun refreshSnapshot(): com.poyka.ripdpi.data.HostPackCatalogSnapshot =
+        com.poyka.ripdpi.data
+            .HostPackCatalogSnapshot()
 }

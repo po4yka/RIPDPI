@@ -41,127 +41,18 @@ class MainActivity : AppCompatActivity() {
     private val shellController by lazy(LazyThreadSafetyMode.NONE) { MainActivityShellController(intent) }
 
     companion object {
-        private const val EXTRA_OPEN_HOME = "com.poyka.ripdpi.extra.OPEN_HOME"
-        private const val EXTRA_START_CONFIGURED_MODE = "com.poyka.ripdpi.extra.START_CONFIGURED_MODE"
-        private const val EXTRA_STOP_CONFIGURED_MODE = "com.poyka.ripdpi.extra.STOP_CONFIGURED_MODE"
-
         fun createLaunchIntent(
             context: Context,
             openHome: Boolean = false,
             requestStartConfiguredMode: Boolean = false,
             requestStopConfiguredMode: Boolean = false,
         ): Intent =
-            Intent(context, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                if (openHome) {
-                    putExtra(EXTRA_OPEN_HOME, true)
-                }
-                if (requestStartConfiguredMode) {
-                    putExtra(EXTRA_START_CONFIGURED_MODE, true)
-                }
-                if (requestStopConfiguredMode) {
-                    putExtra(EXTRA_STOP_CONFIGURED_MODE, true)
-                }
-            }
-
-        internal fun requestsHomeTab(intent: Intent?): Boolean = intent?.getBooleanExtra(EXTRA_OPEN_HOME, false) == true
-
-        internal fun requestsConfiguredStart(intent: Intent?): Boolean =
-            intent?.getBooleanExtra(EXTRA_START_CONFIGURED_MODE, false) == true
-
-        internal fun requestsConfiguredStop(intent: Intent?): Boolean =
-            intent?.getBooleanExtra(EXTRA_STOP_CONFIGURED_MODE, false) == true ||
-                intent?.data?.toString() == "ripdpi://disconnect"
-
-        internal fun selectorGroupIdFrom(intent: Intent?): String? =
-            intent?.getStringExtra(com.poyka.ripdpi.shortcuts.ExtraSelectGroupId)
-
-        internal fun selectorProfileIdFrom(intent: Intent?): String? =
-            intent?.getStringExtra(com.poyka.ripdpi.shortcuts.ExtraSelectProfileId)
-
-        internal fun diagnosticShareFragment(intent: Intent?): String? =
-            DiagnosticShareLinkDeepLink.fragmentFrom(intent)
-
-        /**
-         * Resolves the import-confirmation [Route] an inbound intent forwarded from
-         * [ImportHandlerActivity] should open, or `null` when the intent carries no
-         * import payload. Never throws — a malformed payload resolves to `null`.
-         */
-        @Suppress("ReturnCount")
-        internal fun importRouteFrom(intent: Intent?): Route? {
-            val route = intent?.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE) ?: return null
-            return when (route) {
-                ImportLaunchRoute.PROFILE_CONFIRM -> {
-                    val profileJson =
-                        intent.getStringExtra(ImportHandlerActivity.EXTRA_PROFILE_JSON) ?: return null
-                    // Validate the payload up front so navigation never lands on a broken screen.
-                    if (decodeImportedProfile(profileJson) == null) return null
-                    Route.ProfileImportConfirm(profileJson = profileJson)
-                }
-
-                ImportLaunchRoute.SUBSCRIPTION_CONFIRM -> {
-                    val url =
-                        intent.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_URL) ?: return null
-                    Route.SubscriptionImportConfirm(
-                        url = url,
-                        name = intent.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_NAME).orEmpty(),
-                        bootstrap =
-                            intent.getBooleanExtra(
-                                ImportHandlerActivity.EXTRA_SUBSCRIPTION_BOOTSTRAP,
-                                false,
-                            ),
-                    )
-                }
-
-                else -> {
-                    null
-                }
-            }
-        }
-
-        internal fun mapNotificationPermissionResult(
-            granted: Boolean,
-            shouldShowRationale: Boolean,
-        ): PermissionResult =
-            when {
-                granted -> PermissionResult.Granted
-                shouldShowRationale -> PermissionResult.Denied
-                else -> PermissionResult.DeniedPermanently
-            }
-
-        internal fun mapVpnPermissionResult(context: Context): PermissionResult =
-            if (VpnService.prepare(context) == null) {
-                PermissionResult.Granted
-            } else {
-                PermissionResult.Denied
-            }
-
-        internal fun hostCommandFailurePermissionResult(
-            command: MainActivityHostCommand,
-        ): Pair<PermissionKind, PermissionResult>? =
-            when (command) {
-                MainActivityHostCommand.RequestNotificationsPermission -> {
-                    PermissionKind.Notifications to PermissionResult.Denied
-                }
-
-                is MainActivityHostCommand.RequestVpnConsent -> {
-                    PermissionKind.VpnConsent to PermissionResult.Denied
-                }
-
-                is MainActivityHostCommand.RequestBatteryOptimization -> {
-                    PermissionKind.BatteryOptimization to PermissionResult.ReturnedFromSettings
-                }
-
-                is MainActivityHostCommand.OpenIntent,
-                MainActivityHostCommand.SaveLogs,
-                MainActivityHostCommand.ShareDebugBundle,
-                is MainActivityHostCommand.SaveDiagnosticsArchive,
-                is MainActivityHostCommand.ShareDiagnosticsArchive,
-                is MainActivityHostCommand.ShareDiagnosticsSummary,
-                -> {
-                    null
-                }
-            }
+            createMainActivityLaunchIntent(
+                context = context,
+                openHome = openHome,
+                requestStartConfiguredMode = requestStartConfiguredMode,
+                requestStopConfiguredMode = requestStopConfiguredMode,
+            )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -224,3 +115,119 @@ class MainActivity : AppCompatActivity() {
             }
     }
 }
+
+private const val extraOpenHome = "com.poyka.ripdpi.extra.OPEN_HOME"
+private const val extraStartConfiguredMode = "com.poyka.ripdpi.extra.START_CONFIGURED_MODE"
+private const val extraStopConfiguredMode = "com.poyka.ripdpi.extra.STOP_CONFIGURED_MODE"
+
+internal fun createMainActivityLaunchIntent(
+    context: Context,
+    openHome: Boolean = false,
+    requestStartConfiguredMode: Boolean = false,
+    requestStopConfiguredMode: Boolean = false,
+): Intent =
+    Intent(context, MainActivity::class.java).apply {
+        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        if (openHome) {
+            putExtra(extraOpenHome, true)
+        }
+        if (requestStartConfiguredMode) {
+            putExtra(extraStartConfiguredMode, true)
+        }
+        if (requestStopConfiguredMode) {
+            putExtra(extraStopConfiguredMode, true)
+        }
+    }
+
+internal fun requestsHomeTab(intent: Intent?): Boolean = intent?.getBooleanExtra(extraOpenHome, false) == true
+
+internal fun requestsConfiguredStart(intent: Intent?): Boolean =
+    intent?.getBooleanExtra(extraStartConfiguredMode, false) == true
+
+internal fun requestsConfiguredStop(intent: Intent?): Boolean =
+    intent?.getBooleanExtra(extraStopConfiguredMode, false) == true ||
+        intent?.data?.toString() == "ripdpi://disconnect"
+
+internal fun selectorGroupIdFrom(intent: Intent?): String? =
+    intent?.getStringExtra(com.poyka.ripdpi.shortcuts.ExtraSelectGroupId)
+
+internal fun selectorProfileIdFrom(intent: Intent?): String? =
+    intent?.getStringExtra(com.poyka.ripdpi.shortcuts.ExtraSelectProfileId)
+
+internal fun diagnosticShareFragment(intent: Intent?): String? = DiagnosticShareLinkDeepLink.fragmentFrom(intent)
+
+@Suppress("ReturnCount")
+internal fun importRouteFrom(intent: Intent?): Route? {
+    val route = intent?.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE) ?: return null
+    return when (route) {
+        ImportLaunchRoute.PROFILE_CONFIRM -> {
+            val profileJson =
+                intent.getStringExtra(ImportHandlerActivity.EXTRA_PROFILE_JSON) ?: return null
+            // Validate the payload up front so navigation never lands on a broken screen.
+            if (decodeImportedProfile(profileJson) == null) return null
+            Route.ProfileImportConfirm(profileJson = profileJson)
+        }
+
+        ImportLaunchRoute.SUBSCRIPTION_CONFIRM -> {
+            val url =
+                intent.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_URL) ?: return null
+            Route.SubscriptionImportConfirm(
+                url = url,
+                name = intent.getStringExtra(ImportHandlerActivity.EXTRA_SUBSCRIPTION_NAME).orEmpty(),
+                bootstrap =
+                    intent.getBooleanExtra(
+                        ImportHandlerActivity.EXTRA_SUBSCRIPTION_BOOTSTRAP,
+                        false,
+                    ),
+            )
+        }
+
+        else -> {
+            null
+        }
+    }
+}
+
+internal fun mapNotificationPermissionResult(
+    granted: Boolean,
+    shouldShowRationale: Boolean,
+): PermissionResult =
+    when {
+        granted -> PermissionResult.Granted
+        shouldShowRationale -> PermissionResult.Denied
+        else -> PermissionResult.DeniedPermanently
+    }
+
+internal fun mapVpnPermissionResult(context: Context): PermissionResult =
+    if (VpnService.prepare(context) == null) {
+        PermissionResult.Granted
+    } else {
+        PermissionResult.Denied
+    }
+
+internal fun hostCommandFailurePermissionResult(
+    command: MainActivityHostCommand,
+): Pair<PermissionKind, PermissionResult>? =
+    when (command) {
+        MainActivityHostCommand.RequestNotificationsPermission -> {
+            PermissionKind.Notifications to PermissionResult.Denied
+        }
+
+        is MainActivityHostCommand.RequestVpnConsent -> {
+            PermissionKind.VpnConsent to PermissionResult.Denied
+        }
+
+        is MainActivityHostCommand.RequestBatteryOptimization -> {
+            PermissionKind.BatteryOptimization to PermissionResult.ReturnedFromSettings
+        }
+
+        is MainActivityHostCommand.OpenIntent,
+        MainActivityHostCommand.SaveLogs,
+        MainActivityHostCommand.ShareDebugBundle,
+        is MainActivityHostCommand.SaveDiagnosticsArchive,
+        is MainActivityHostCommand.ShareDiagnosticsArchive,
+        is MainActivityHostCommand.ShareDiagnosticsSummary,
+        -> {
+            null
+        }
+    }

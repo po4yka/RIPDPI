@@ -3,12 +3,15 @@ package com.poyka.ripdpi.activities
 import android.content.Intent
 import com.poyka.ripdpi.ui.navigation.Route
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 
 internal data class MainActivityShellState(
@@ -40,11 +43,11 @@ internal class MainActivityShellController(
     private val _state =
         MutableStateFlow(
             MainActivityShellState(
-                launchHomeRequested = MainActivity.requestsHomeTab(initialIntent),
-                sharedDiagnosticFragmentRequested = MainActivity.diagnosticShareFragment(initialIntent),
-                importRouteRequested = MainActivity.importRouteFrom(initialIntent),
-                startConfiguredModeRequested = MainActivity.requestsConfiguredStart(initialIntent),
-                stopConfiguredModeRequested = MainActivity.requestsConfiguredStop(initialIntent),
+                launchHomeRequested = requestsHomeTab(initialIntent),
+                sharedDiagnosticFragmentRequested = diagnosticShareFragment(initialIntent),
+                importRouteRequested = importRouteFrom(initialIntent),
+                startConfiguredModeRequested = requestsConfiguredStart(initialIntent),
+                stopConfiguredModeRequested = requestsConfiguredStop(initialIntent),
                 selectorSelectionRequested = selectorRequestFrom(initialIntent),
             ),
         )
@@ -55,27 +58,24 @@ internal class MainActivityShellController(
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
     private val _hostCommands =
-        MutableSharedFlow<MainActivityHostCommand>(
-            extraBufferCapacity = 1,
-            onBufferOverflow = BufferOverflow.DROP_OLDEST,
-        )
+        Channel<MainActivityHostCommand>(capacity = Channel.BUFFERED)
 
     val state: StateFlow<MainActivityShellState> = _state.asStateFlow()
     val uiEvents: SharedFlow<MainActivityUiEvent> = _uiEvents.asSharedFlow()
-    val hostCommands: SharedFlow<MainActivityHostCommand> = _hostCommands.asSharedFlow()
+    val hostCommands: Flow<MainActivityHostCommand> = _hostCommands.receiveAsFlow()
 
     fun onNewIntent(intent: Intent?) {
         _state.update { current ->
             current.copy(
-                launchHomeRequested = current.launchHomeRequested || MainActivity.requestsHomeTab(intent),
+                launchHomeRequested = current.launchHomeRequested || requestsHomeTab(intent),
                 sharedDiagnosticFragmentRequested =
-                    MainActivity.diagnosticShareFragment(intent) ?: current.sharedDiagnosticFragmentRequested,
+                    diagnosticShareFragment(intent) ?: current.sharedDiagnosticFragmentRequested,
                 importRouteRequested =
-                    MainActivity.importRouteFrom(intent) ?: current.importRouteRequested,
+                    importRouteFrom(intent) ?: current.importRouteRequested,
                 startConfiguredModeRequested =
-                    current.startConfiguredModeRequested || MainActivity.requestsConfiguredStart(intent),
+                    current.startConfiguredModeRequested || requestsConfiguredStart(intent),
                 stopConfiguredModeRequested =
-                    current.stopConfiguredModeRequested || MainActivity.requestsConfiguredStop(intent),
+                    current.stopConfiguredModeRequested || requestsConfiguredStop(intent),
                 selectorSelectionRequested =
                     selectorRequestFrom(intent) ?: current.selectorSelectionRequested,
             )
@@ -83,8 +83,8 @@ internal class MainActivityShellController(
     }
 
     private fun selectorRequestFrom(intent: Intent?): SelectorSelectionRequest? =
-        MainActivity.selectorGroupIdFrom(intent)?.let { groupId ->
-            MainActivity.selectorProfileIdFrom(intent)?.let { profileId ->
+        selectorGroupIdFrom(intent)?.let { groupId ->
+            selectorProfileIdFrom(intent)?.let { profileId ->
                 SelectorSelectionRequest(groupId = groupId, profileId = profileId)
             }
         }
@@ -98,12 +98,12 @@ internal class MainActivityShellController(
             is MainEffect.RequestPermission -> {
                 when (effect.kind) {
                     com.poyka.ripdpi.permissions.PermissionKind.Notifications -> {
-                        _hostCommands.tryEmit(MainActivityHostCommand.RequestNotificationsPermission)
+                        _hostCommands.trySend(MainActivityHostCommand.RequestNotificationsPermission)
                     }
 
                     com.poyka.ripdpi.permissions.PermissionKind.VpnConsent -> {
                         effect.payload?.let { intent ->
-                            _hostCommands.tryEmit(MainActivityHostCommand.RequestVpnConsent(intent))
+                            _hostCommands.trySend(MainActivityHostCommand.RequestVpnConsent(intent))
                         }
                     }
 
@@ -111,20 +111,20 @@ internal class MainActivityShellController(
                     com.poyka.ripdpi.permissions.PermissionKind.VpnLockdown,
                     -> {
                         effect.payload?.let { intent ->
-                            _hostCommands.tryEmit(MainActivityHostCommand.OpenIntent(intent))
+                            _hostCommands.trySend(MainActivityHostCommand.OpenIntent(intent))
                         }
                     }
 
                     com.poyka.ripdpi.permissions.PermissionKind.BatteryOptimization -> {
                         effect.payload?.let { intent ->
-                            _hostCommands.tryEmit(MainActivityHostCommand.RequestBatteryOptimization(intent))
+                            _hostCommands.trySend(MainActivityHostCommand.RequestBatteryOptimization(intent))
                         }
                     }
                 }
             }
 
             is MainEffect.OpenAppSettings -> {
-                _hostCommands.tryEmit(MainActivityHostCommand.OpenIntent(effect.intent))
+                _hostCommands.trySend(MainActivityHostCommand.OpenIntent(effect.intent))
             }
 
             MainEffect.ShowVpnPermissionDialog -> {
@@ -195,7 +195,7 @@ internal class MainActivityShellController(
     }
 
     internal fun emitHostCommand(command: MainActivityHostCommand) {
-        _hostCommands.tryEmit(command)
+        _hostCommands.trySend(command)
     }
 }
 

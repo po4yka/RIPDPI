@@ -111,6 +111,7 @@ class RecordingInstrumentedServiceController : ServiceController {
 }
 
 class MutablePermissionStatusProvider(
+    @Volatile
     var snapshot: PermissionSnapshot = PermissionSnapshot(),
 ) : PermissionStatusProvider {
     override fun currentSnapshot(): PermissionSnapshot = snapshot
@@ -181,6 +182,10 @@ internal class RecordingMainActivityHost : MainActivityHost {
         commands.clear()
     }
 
+    fun refreshPermissionSnapshot() {
+        viewModel?.refreshPermissionSnapshot()
+    }
+
     fun dispatchNotificationPermissionResult(
         granted: Boolean,
         shouldShowRationale: Boolean,
@@ -188,10 +193,11 @@ internal class RecordingMainActivityHost : MainActivityHost {
         viewModel?.onPermissionResult(
             kind = com.poyka.ripdpi.permissions.PermissionKind.Notifications,
             result =
-                com.poyka.ripdpi.activities.MainActivity.mapNotificationPermissionResult(
-                    granted,
-                    shouldShowRationale,
-                ),
+                when {
+                    granted -> com.poyka.ripdpi.permissions.PermissionResult.Granted
+                    shouldShowRationale -> com.poyka.ripdpi.permissions.PermissionResult.Denied
+                    else -> com.poyka.ripdpi.permissions.PermissionResult.DeniedPermanently
+                },
         )
     }
 

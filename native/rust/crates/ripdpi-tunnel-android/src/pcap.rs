@@ -301,7 +301,7 @@ pub fn list_captures(dir: &Path) -> Vec<PcapCaptureMetadata> {
         if path.extension().and_then(|s| s.to_str()) != Some("pcap") {
             continue;
         }
-        let byte_size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+        let byte_size = entry.metadata().map_or(0, |m| m.len());
         files.push(PcapCaptureMetadata {
             path: path.display().to_string(),
             byte_size,
