@@ -20,6 +20,7 @@ if cargo nextest --version >/dev/null 2>&1; then
       -p ripdpi-hysteria2 \
       -p ripdpi-tuic \
       -p ripdpi-shadowtls \
+      -p ripdpi-anytls \
       -p ripdpi-masque \
       -p ripdpi-cloudflare-origin \
       -p ripdpi-naiveproxy \
@@ -47,6 +48,7 @@ else
       -p ripdpi-hysteria2 \
       -p ripdpi-tuic \
       -p ripdpi-shadowtls \
+      -p ripdpi-anytls \
       -p ripdpi-masque \
       -p ripdpi-cloudflare-origin \
       -p ripdpi-naiveproxy \

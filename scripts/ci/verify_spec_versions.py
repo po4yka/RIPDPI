@@ -21,6 +21,7 @@ CRATES = [
     "ripdpi-hysteria2",
     "ripdpi-tuic",
     "ripdpi-shadowtls",
+    "ripdpi-anytls",
     "ripdpi-naiveproxy",
     "ripdpi-ws-tunnel",
 ]
