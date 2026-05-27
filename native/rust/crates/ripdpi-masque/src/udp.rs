@@ -2,16 +2,15 @@ use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
 
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use h3_datagram::datagram_handler::DatagramSender;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
+use crate::capsule::encode_connect_udp_payload;
 use crate::client::MasqueClientInner;
 use crate::h3::attempt_h3_connect_udp;
 use crate::response::{classify_attempt_failure, AttemptError};
-
-pub(crate) const UDP_CONTEXT_ID: u8 = 0;
 
 type H3DatagramSender = DatagramSender<h3_quinn::datagram::SendDatagramHandler, Bytes>;
 
@@ -112,11 +111,10 @@ impl MasqueUdpRelay {
 
 impl MasqueUdpFlow {
     fn send(&mut self, payload: &[u8]) -> io::Result<()> {
-        let mut datagram = BytesMut::with_capacity(1 + payload.len());
-        datagram.extend_from_slice(&[UDP_CONTEXT_ID]);
-        datagram.extend_from_slice(payload);
+        let datagram = encode_connect_udp_payload(0, payload)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
         self.sender
-            .send_datagram(datagram.freeze())
+            .send_datagram(Bytes::from(datagram))
             .map_err(|error| io::Error::other(format!("failed to send MASQUE UDP datagram: {error}")))
     }
 }

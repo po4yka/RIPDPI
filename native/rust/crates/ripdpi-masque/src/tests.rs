@@ -208,8 +208,7 @@ fn parse_proxy_origin_preserves_request_path_and_query() {
 
 #[test]
 fn decode_udp_payload_requires_context_zero() {
-    let error = decode_udp_payload(Bytes::from_static(&[1, 2, 3])).expect_err("must reject non-zero context");
-    assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    assert!(decode_udp_payload(Bytes::from_static(&[1, 2, 3])).expect("decode").is_none());
 }
 
 #[test]

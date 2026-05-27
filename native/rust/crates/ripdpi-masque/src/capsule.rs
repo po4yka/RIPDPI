@@ -2,6 +2,9 @@ use std::error::Error;
 use std::fmt;
 
 const DATAGRAM_CAPSULE_TYPE: u64 = 0x00;
+pub const H3_DATAGRAM_ERROR: u64 = 0x33;
+pub const MAX_CONNECT_UDP_PAYLOAD_LEN: usize = 65_527;
+pub const MAX_QUARTER_STREAM_ID: u64 = (1_u64 << 60) - 1;
 const MAX_QUIC_VARINT: u64 = (1_u64 << 62) - 1;
 const TWO_BYTE_VARINT_LIMIT: u64 = (1_u64 << 14) - 1;
 const FOUR_BYTE_VARINT_LIMIT: u64 = (1_u64 << 30) - 1;
@@ -21,6 +24,10 @@ pub struct CapsuleError {
 impl CapsuleError {
     pub fn kind(&self) -> CapsuleErrorKind {
         self.kind
+    }
+
+    pub fn error_code(&self) -> u64 {
+        H3_DATAGRAM_ERROR
     }
 
     fn truncated(message: &'static str) -> Self {
@@ -114,6 +121,44 @@ pub fn decode_datagram_capsules(input: &[u8]) -> Result<Vec<Vec<u8>>, CapsuleErr
     Ok(payloads)
 }
 
+pub fn encode_http_datagram(quarter_stream_id: u64, payload: &[u8]) -> Result<Vec<u8>, CapsuleError> {
+    if quarter_stream_id > MAX_QUARTER_STREAM_ID {
+        return Err(CapsuleError::value_too_large("HTTP Datagram quarter stream ID exceeds 60-bit maximum"));
+    }
+    let mut encoded = encode_quic_varint(quarter_stream_id)?;
+    encoded.extend_from_slice(payload);
+    Ok(encoded)
+}
+
+pub fn decode_http_datagram(input: &[u8]) -> Result<(u64, Vec<u8>), CapsuleError> {
+    let (quarter_stream_id, prefix_len) = decode_quic_varint(input)?;
+    if quarter_stream_id > MAX_QUARTER_STREAM_ID {
+        return Err(CapsuleError::value_too_large("HTTP Datagram quarter stream ID exceeds 60-bit maximum"));
+    }
+    Ok((quarter_stream_id, input[prefix_len..].to_vec()))
+}
+
+pub fn encode_connect_udp_payload(context_id: u64, payload: &[u8]) -> Result<Vec<u8>, CapsuleError> {
+    if payload.len() > MAX_CONNECT_UDP_PAYLOAD_LEN {
+        return Err(CapsuleError::value_too_large("CONNECT-UDP payload exceeds RFC 9298 limit"));
+    }
+    let mut encoded = encode_quic_varint(context_id)?;
+    encoded.extend_from_slice(payload);
+    Ok(encoded)
+}
+
+pub fn decode_connect_udp_payload(input: &[u8]) -> Result<Option<(u64, Vec<u8>)>, CapsuleError> {
+    let (context_id, context_len) = decode_quic_varint(input)?;
+    let payload = &input[context_len..];
+    if payload.len() > MAX_CONNECT_UDP_PAYLOAD_LEN {
+        return Err(CapsuleError::value_too_large("CONNECT-UDP payload exceeds RFC 9298 limit"));
+    }
+    if context_id != 0 {
+        return Ok(None);
+    }
+    Ok(Some((context_id, payload.to_vec())))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,5 +218,59 @@ mod tests {
 
         assert_eq!(encoded, [0x00, 0x00]);
         assert_eq!(decode_datagram_capsules(&encoded).expect("decode"), vec![Vec::<u8>::new()]);
+    }
+
+    #[test]
+    fn http_datagram_encodes_quarter_stream_id_prefix() {
+        let encoded = encode_http_datagram(17, &[0xaa, 0xbb]).expect("encode");
+
+        assert_eq!(encoded, [0x11, 0xaa, 0xbb]);
+        assert_eq!(decode_http_datagram(&encoded).expect("decode"), (17, vec![0xaa, 0xbb]));
+    }
+
+    #[test]
+    fn http_datagram_rejects_oversized_quarter_stream_id() {
+        let error = encode_http_datagram(MAX_QUARTER_STREAM_ID + 1, &[]).expect_err("oversized id must fail");
+
+        assert_eq!(error.error_code(), H3_DATAGRAM_ERROR);
+    }
+
+    #[test]
+    fn truncated_http_datagram_quarter_stream_id_maps_to_h3_datagram_error() {
+        let error = decode_http_datagram(&[0x40]).expect_err("truncated quarter stream id must fail");
+
+        assert_eq!(error.error_code(), H3_DATAGRAM_ERROR);
+    }
+
+    #[test]
+    fn connect_udp_payload_encodes_context_id_zero_as_varint() {
+        let encoded = encode_connect_udp_payload(0, &[0x01, 0x02]).expect("encode");
+
+        assert_eq!(encoded, [0x00, 0x01, 0x02]);
+        assert_eq!(decode_connect_udp_payload(&encoded).expect("decode"), Some((0, vec![0x01, 0x02])));
+    }
+
+    #[test]
+    fn connect_udp_payload_supports_multibyte_context_ids() {
+        let encoded = encode_connect_udp_payload(64, &[0xaa]).expect("encode");
+
+        assert_eq!(encoded, [0x40, 0x40, 0xaa]);
+        assert_eq!(decode_quic_varint(&encoded).expect("decode context"), (64, 2));
+        assert_eq!(decode_connect_udp_payload(&encoded).expect("decode payload"), None);
+    }
+
+    #[test]
+    fn connect_udp_payload_unknown_context_is_dropped() {
+        let decoded = decode_connect_udp_payload(&[0x01, 0xaa]).expect("decode");
+
+        assert!(decoded.is_none());
+    }
+
+    #[test]
+    fn connect_udp_payload_rejects_payloads_above_rfc_limit() {
+        let payload = vec![0u8; MAX_CONNECT_UDP_PAYLOAD_LEN + 1];
+        let error = encode_connect_udp_payload(0, &payload).expect_err("oversized UDP payload must fail");
+
+        assert_eq!(error.kind(), CapsuleErrorKind::ValueTooLarge);
     }
 }

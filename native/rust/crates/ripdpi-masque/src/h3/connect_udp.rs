@@ -66,10 +66,13 @@ pub(crate) async fn attempt_h3_connect_udp(
             }
             let payload = datagram.into_payload();
             match decode_udp_payload(payload) {
-                Ok(payload) => {
+                Ok(Some(payload)) => {
                     if incoming_tx.send((target_label.clone(), payload)).await.is_err() {
                         break;
                     }
+                }
+                Ok(None) => {
+                    tracing::debug!(target = %target_label, "ignored MASQUE UDP datagram for unsupported context id");
                 }
                 Err(error) => {
                     tracing::debug!(error = %error, target = %target_label, "ignored malformed MASQUE UDP datagram");
