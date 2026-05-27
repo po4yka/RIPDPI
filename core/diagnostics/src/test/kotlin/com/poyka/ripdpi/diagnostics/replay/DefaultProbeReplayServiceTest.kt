@@ -4,10 +4,12 @@ import app.cash.turbine.test
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -177,6 +179,11 @@ class DefaultProbeReplayServiceTest {
                                         val ev = awaitItem()
                                         if (ev is ReplayStepEvent.StepCompleted && ev.step == ReplayStepKind.TcpOpen) {
                                             break
+                                        }
+                                    }
+                                    withTimeout(10_000) {
+                                        while (server.requestCount == 0) {
+                                            delay(10)
                                         }
                                     }
                                     cancelAndIgnoreRemainingEvents()

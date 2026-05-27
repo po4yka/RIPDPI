@@ -60,7 +60,18 @@ def traffic_kind_for(axis_values: dict[str, str]) -> str:
 def iter_axis_cells() -> list[dict[str, str]]:
     names = tuple(AXES.keys())
     values = (AXES[name] for name in names)
-    return [dict(zip(names, combination, strict=True)) for combination in itertools.product(*values)]
+    cells: list[dict[str, str]] = []
+    for combination in itertools.product(*values):
+        cell = dict(zip(names, combination, strict=True))
+        if is_supported_cell(cell):
+            cells.append(cell)
+    return cells
+
+
+def is_supported_cell(axis_values: dict[str, str]) -> bool:
+    if traffic_kind_for(axis_values) == "tcp_tls" and axis_values["oob_byte_placement"] != "off":
+        return False
+    return True
 
 
 def random_cells(seed: str, budget: int) -> list[dict[str, str]]:
@@ -79,6 +90,8 @@ def sweep_cells(seed: str, budget: int) -> list[dict[str, str]]:
                     cell = dict(DEFAULT_AXIS_VALUES)
                     cell[left_name] = left_value
                     cell[right_name] = right_value
+                    if not is_supported_cell(cell):
+                        continue
                     cells.append(cell)
     ranked = sorted(cells, key=lambda cell: stable_digest(f"sweep:{seed}", cell))
     return ranked[:budget]

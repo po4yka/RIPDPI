@@ -64,6 +64,21 @@ class PacketSmokeGeneratorTest(unittest.TestCase):
         self.assertEqual(["cli_packet_smoke_generated_cell"], [entry["id"] for entry in generated_templates])
         self.assertTrue(all(entry["lane"] == "cli" for entry in generated_templates))
 
+    def test_generated_cells_exclude_tls_oob_combinations(self):
+        generator = load_generator_module()
+
+        scenarios = generator.generate("schedule:refs/heads/main:example", 256, "random")
+
+        self.assertEqual(
+            [],
+            [
+                scenario
+                for scenario in scenarios
+                if scenario["trafficKind"] == "tcp_tls"
+                and scenario["generator_axis_values"]["oob_byte_placement"] != "off"
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
