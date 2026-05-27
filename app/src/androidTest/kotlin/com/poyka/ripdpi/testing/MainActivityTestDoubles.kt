@@ -188,10 +188,11 @@ internal class RecordingMainActivityHost : MainActivityHost {
         viewModel?.onPermissionResult(
             kind = com.poyka.ripdpi.permissions.PermissionKind.Notifications,
             result =
-                com.poyka.ripdpi.activities.MainActivity.mapNotificationPermissionResult(
-                    granted,
-                    shouldShowRationale,
-                ),
+                when {
+                    granted -> com.poyka.ripdpi.permissions.PermissionResult.Granted
+                    shouldShowRationale -> com.poyka.ripdpi.permissions.PermissionResult.Denied
+                    else -> com.poyka.ripdpi.permissions.PermissionResult.DeniedPermanently
+                },
         )
     }
 
