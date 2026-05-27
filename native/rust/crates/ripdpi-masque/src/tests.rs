@@ -4,6 +4,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use http::{HeaderMap, Request, StatusCode};
 use hyper::ext::Protocol as H2Protocol;
+use local_network_fixture::MasqueH2ConnectUdpFixture;
 use serde_json::to_string;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -437,4 +438,39 @@ async fn privacy_pass_provider_non_success_is_permission_denied() {
 
     provider_task.await.expect("provider task").expect("provider result");
     assert_eq!(requests.lock().await.len(), 1);
+}
+
+#[tokio::test]
+async fn udp_session_round_trips_through_conformant_h2_connect_udp_fixture() {
+    let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
+    let client = MasqueClient::new(MasqueConfig {
+        url: fixture.masque_url(),
+        use_http2_fallback: true,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    })
+    .expect("client");
+
+    let mut udp = client.udp_session();
+    udp.send_to(&fixture.udp_echo_target(), b"masque-rfc9298").await.expect("send via MASQUE");
+    let (target, payload) = tokio::time::timeout(std::time::Duration::from_secs(10), udp.recv_from())
+        .await
+        .expect("receive timeout")
+        .expect("receive via MASQUE");
+
+    assert_eq!(target, fixture.udp_echo_target());
+    assert_eq!(payload, b"masque-rfc9298");
+    let observed = fixture.observed_requests();
+    assert_eq!(observed.len(), 1);
+    assert_eq!(observed[0].protocol.as_deref(), Some("connect-udp"));
+    assert_eq!(observed[0].capsule_protocol.as_deref(), Some("?1"));
 }

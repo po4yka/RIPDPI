@@ -3865,6 +3865,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "local-network-fixture",
  "quinn",
  "reqwest",
  "ring",

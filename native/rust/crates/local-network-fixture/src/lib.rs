@@ -4,6 +4,7 @@ mod echo;
 mod event;
 mod fault;
 mod http;
+mod masque;
 mod naive;
 mod shadowsocks;
 mod socks;
@@ -16,6 +17,7 @@ mod webtunnel;
 
 pub use self::event::*;
 pub use self::fault::*;
+pub use self::masque::*;
 pub use self::naive::*;
 pub use self::shadowsocks::*;
 pub use self::stack::FixtureStack;

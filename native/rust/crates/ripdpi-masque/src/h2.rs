@@ -1,5 +1,7 @@
 use std::io;
 
+#[cfg(test)]
+use boring::ssl::SslVerifyMode;
 use bytes::Bytes;
 use hyper::ext::Protocol;
 use hyper_util::rt::TokioIo;
@@ -59,6 +61,8 @@ pub(crate) async fn attempt_h2_connect_tcp(
     let mut connector_builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
     apply_h2_client_auth(&mut connector_builder, config)?;
+    #[cfg(test)]
+    relax_loopback_fixture_certificate_verification(&mut connector_builder, &proxy_origin.host);
     let connector = connector_builder.build();
     let mut ssl = connector
         .configure()
@@ -121,6 +125,8 @@ pub(crate) async fn attempt_h2_connect_udp(
     let mut connector_builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
     apply_h2_client_auth(&mut connector_builder, config)?;
+    #[cfg(test)]
+    relax_loopback_fixture_certificate_verification(&mut connector_builder, &proxy_origin.host);
     let connector = connector_builder.build();
     let mut ssl = connector
         .configure()
@@ -217,4 +223,11 @@ pub(crate) async fn attempt_h2_connect_udp(
     });
 
     Ok(MasqueUdpFlow { sender: MasqueUdpSender::H2(outgoing_tx), driver_task: writer_task, reader_task })
+}
+
+#[cfg(test)]
+fn relax_loopback_fixture_certificate_verification(builder: &mut boring::ssl::SslConnectorBuilder, proxy_host: &str) {
+    if matches!(proxy_host, "127.0.0.1" | "localhost") {
+        builder.set_verify(SslVerifyMode::NONE);
+    }
 }
