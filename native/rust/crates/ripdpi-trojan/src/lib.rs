@@ -1,7 +1,4 @@
-//! Trojan outbound client — wire-format framing only.
-//!
-//! The caller is responsible for establishing the TLS stream before calling
-//! [`TrojanClient::write_request`]. This crate never creates its own TLS context.
+//! Trojan outbound client and wire-format framing.
 //!
 //! # Wire format
 //! ```text
@@ -17,8 +14,11 @@
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
+use boring::x509::X509;
 use sha2::{Digest, Sha224};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
+use tokio::net::TcpStream;
+use tokio_boring::SslStream;
 
 /// Trojan command byte.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,6 +63,12 @@ pub enum TrojanError {
     TrailingBytes(usize),
     #[error("I/O error writing Trojan request: {0}")]
     Io(#[from] std::io::Error),
+    #[error("TLS profile error: {0}")]
+    TlsProfile(String),
+    #[error("TLS configuration error: {0}")]
+    TlsConfig(String),
+    #[error("TLS handshake error: {0}")]
+    TlsHandshake(String),
 }
 
 /// Decoded Trojan UDP ASSOCIATE packet.
@@ -228,7 +234,47 @@ fn read_exact<'a>(
 /// The caller must then pipe payload bytes directly through the same stream.
 pub struct TrojanClient;
 
+/// TLS CONNECT client configuration.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TrojanClientConfig {
+    pub server_host: String,
+    pub server_port: u16,
+    pub server_name: String,
+    pub password: String,
+    pub tls_fingerprint_profile: String,
+    pub root_certificate_pem: Option<String>,
+}
+
 impl TrojanClient {
+    /// Open a TCP connection to the Trojan server, complete TLS with certificate verification, then send a CONNECT request and optional first payload.
+    pub async fn connect_tcp(
+        config: &TrojanClientConfig,
+        target_addr: &TrojanAddr,
+        target_port: u16,
+        first_payload: &[u8],
+    ) -> Result<SslStream<TcpStream>, TrojanError> {
+        let tcp = TcpStream::connect((config.server_host.as_str(), config.server_port)).await?;
+        tcp.set_nodelay(true)?;
+
+        let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
+            .map_err(|error| TrojanError::TlsProfile(error.to_string()))?;
+        if let Some(root_pem) = &config.root_certificate_pem {
+            let cert =
+                X509::from_pem(root_pem.as_bytes()).map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
+            builder.cert_store_mut().add_cert(cert).map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
+        }
+
+        let connector = builder.build();
+        let config_ssl = connector.configure().map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
+        let mut stream = tokio_boring::connect(config_ssl, &config.server_name, tcp)
+            .await
+            .map_err(|error| TrojanError::TlsHandshake(error.to_string()))?;
+        let frame =
+            build_request_frame(&config.password, TrojanCommand::TcpConnect, target_addr, target_port, first_payload)?;
+        stream.write_all(&frame).await?;
+        Ok(stream)
+    }
+
     /// Write a Trojan request header onto `stream`.
     ///
     /// `password` is the plaintext password; it is SHA-224-hashed in memory

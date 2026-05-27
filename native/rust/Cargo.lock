@@ -2224,6 +2224,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "tokio-rustls",
 ]
@@ -4495,10 +4496,14 @@ dependencies = [
 name = "ripdpi-trojan"
 version = "0.1.0"
 dependencies = [
+ "boring",
  "hex",
+ "local-network-fixture",
+ "ripdpi-tls-profiles",
  "sha2",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-boring",
  "tracing",
 ]
 

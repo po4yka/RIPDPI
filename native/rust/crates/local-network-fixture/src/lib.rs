@@ -8,6 +8,7 @@ mod naive;
 mod socks;
 mod stack;
 mod tls;
+mod trojan;
 mod types;
 mod util;
 
@@ -15,6 +16,7 @@ pub use self::event::*;
 pub use self::fault::*;
 pub use self::naive::*;
 pub use self::stack::FixtureStack;
+pub use self::trojan::*;
 pub use self::types::*;
 
 #[cfg(test)]

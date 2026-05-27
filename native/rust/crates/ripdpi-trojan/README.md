@@ -20,11 +20,11 @@ Trojan outbound client library for RIPDPI relay-core integration.
 
 ## Current Gap Audit
 
-- `src/lib.rs` has `hash_password`, `encode_addr`, `build_request`, and `TrojanClient::write_request` for an already-established stream.
-- Existing tests check shape and internal consistency, but they do not pin the normative `123456789` SHA224 vector and several tests compute expected hashes with the same implementation dependency they exercise.
-- There is no UDP ASSOCIATE datagram codec, parser, or golden vector coverage.
-- There is no TLS client, no SNI/ALPN/certificate-verification path, and no BoringSSL integration.
-- There is no full CONNECT tunnel integration test against an offline TLS Trojan fixture.
+- `src/lib.rs` has `hash_password`, `encode_addr`, `build_request`, `build_request_frame`, and `TrojanClient::write_request` for an already-established stream.
+- Request tests pin the independently verified `123456789` SHA224 vector and golden CONNECT frames for IPv4, domain, and IPv6 targets.
+- UDP ASSOCIATE datagram encoding/decoding is implemented with golden vectors for IPv4, domain, and IPv6 targets plus CRLF, length, truncation, and trailing-byte validation.
+- `TrojanClient::connect_tcp` opens a TCP socket, builds a BoringSSL TLS client from `ripdpi-tls-profiles`, sends SNI, uses the configured ALPN profile, verifies certificates, supports an extra PEM root for fixtures or pinned deployments, and sends the CONNECT request plus optional first payload inside TLS.
+- `local-network-fixture::TrojanLoopback` provides an offline TLS Trojan fixture that observes SNI/ALPN, validates the password hash and CONNECT framing, and pipes payloads to a local echo target.
 - `ripdpi-relay-core` does not depend on `ripdpi-trojan`, has no `RelayBackendConfig::Trojan`, no `RelayKind::Trojan`, no `RelayBackend::Trojan`, no `TrojanSessionFactory`, no `config/trojan_inner.rs`, and no transport registration row.
 - Kotlin has `ProxyUriCodec.parseTrojan()` producing `ProxyProfile.Trojan`, but runtime relay config does not yet project that parsed profile into `RelayKind::Trojan` or native relay credentials.
 - `ResolvedRipDpiRelayConfig` / Rust `FlatResolvedRelayRuntimeConfig` schema version is currently `1`; adding Trojan credential/config fields is a native config schema migration and must be covered by `NativeConfigSchemaVersionTest`.
