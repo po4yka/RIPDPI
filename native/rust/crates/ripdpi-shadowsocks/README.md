@@ -5,7 +5,7 @@
 ## Intended Support
 
 - SIP004 AEAD methods: `aes-128-gcm`, `aes-256-gcm`, and `chacha20-ietf-poly1305`.
-- SIP022 AEAD-2022 methods: `2022-blake3-aes-128-gcm`, `2022-blake3-aes-256-gcm`, and optional `2022-blake3-chacha20-poly1305` only where its SIP022 construction is explicitly implemented and tested.
+- SIP022 AEAD-2022 methods: `2022-blake3-aes-128-gcm`, `2022-blake3-aes-256-gcm`, and `2022-blake3-chacha20-poly1305`.
 - TCP and UDP framing for supported methods.
 - SIP022 replay protection for TCP salts and UDP packet windows.
 - SIP002 `ss://` import/export semantics needed by the Android runtime path.
@@ -18,4 +18,4 @@
 
 ## Current Status
 
-The cipher layer has SIP004/SIP022 fixed-vector coverage for KDF and AEAD operations. TCP chunk framing now covers SIP004 and SIP022 payload caps, nonce counters, and partial-frame behavior. UDP framing now covers SIP004 round trips, SIP022 AES-GCM separate headers, SIP022 ChaCha20-Poly1305 XChaCha packet shape, server-to-client client-session IDs, and per-session replay filtering. URI parity and relay-core wiring are still tracked in `docs/native/shadowsocks-step0-audit.md`.
+The cipher layer has SIP004/SIP022 fixed-vector coverage for KDF and AEAD operations. TCP chunk framing covers SIP004 and SIP022 payload caps, nonce counters, and partial-frame behavior. UDP framing covers SIP004 round trips, SIP022 AES-GCM separate headers, SIP022 ChaCha20-Poly1305 XChaCha packet shape, server-to-client client-session IDs, and per-session replay filtering. Native relay-core wiring is implemented through `RelayBackend::Shadowsocks`, `RelayBackendConfig::Shadowsocks`, `ShadowsocksSessionFactory`, and the local-network fixture oracle. Android import/runtime wiring accepts supported SIP002 `ss://` methods, rejects legacy stream-cipher imports before runtime, bumps `RelayNativeConfigSchemaVersion` to v3, and projects method/password credentials into the native relay config.
