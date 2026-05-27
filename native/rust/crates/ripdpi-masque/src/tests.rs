@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use http::{HeaderMap, Request, StatusCode};
+use hyper::ext::Protocol as H2Protocol;
 use serde_json::to_string;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -11,9 +12,10 @@ use tokio::sync::Mutex;
 use super::*;
 use crate::auth::PrivacyPassProviderResponse;
 use crate::config::{MasqueAuthMode, MasqueConfig};
+use crate::h2::{build_h2_connect_udp_request, decode_h2_datagram_capsules, encode_h2_datagram_capsule};
 use crate::h3::decode_udp_payload;
 use crate::request::apply_request_headers;
-use crate::response::{validate_proxy_response, AttemptError};
+use crate::response::{validate_connect_udp_response, validate_proxy_response, AttemptError};
 use crate::url::{build_connect_udp_path, parse_proxy_origin, parse_target, ProxyOrigin, TargetAuthority};
 
 const BORING_ECH_CONFIG_LIST: &[u8] = &[
@@ -274,6 +276,69 @@ fn privacy_pass_challenge_requires_private_token_header() {
         panic!("expected io error");
     };
     assert_eq!(io::ErrorKind::InvalidData, error.kind());
+}
+
+#[test]
+fn connect_udp_success_response_requires_capsule_protocol_header() {
+    let error = validate_connect_udp_response(StatusCode::OK, &HeaderMap::new(), MasqueAuthMode::None)
+        .expect_err("CONNECT-UDP success without Capsule-Protocol must fail");
+
+    let AttemptError::Io(error) = error else {
+        panic!("expected io error");
+    };
+    assert_eq!(io::ErrorKind::InvalidData, error.kind());
+    assert!(error.to_string().contains("Capsule-Protocol"));
+}
+
+#[test]
+fn connect_udp_success_response_accepts_true_capsule_protocol_header() {
+    let mut headers = HeaderMap::new();
+    headers.insert("capsule-protocol", "?1".parse().expect("header"));
+
+    validate_connect_udp_response(StatusCode::OK, &headers, MasqueAuthMode::None).expect("valid response");
+}
+
+#[test]
+fn connect_udp_rejection_includes_proxy_status_details() {
+    let mut headers = HeaderMap::new();
+    headers.insert("proxy-status", "masque.example; error=dns_error; details=\"blocked\"".parse().expect("header"));
+
+    let error = validate_connect_udp_response(StatusCode::BAD_GATEWAY, &headers, MasqueAuthMode::None)
+        .expect_err("CONNECT-UDP rejection must fail");
+
+    let AttemptError::Io(error) = error else {
+        panic!("expected io error");
+    };
+    assert_eq!(io::ErrorKind::PermissionDenied, error.kind());
+    assert!(error.to_string().contains("dns_error"));
+    assert!(error.to_string().contains("blocked"));
+}
+
+#[test]
+fn h2_connect_udp_datagrams_use_capsule_protocol_tlv() {
+    let encoded = encode_h2_datagram_capsule(&[0x00, 0xde, 0xad]).expect("encode");
+
+    assert_eq!(encoded, [0x00, 0x03, 0x00, 0xde, 0xad]);
+    assert_eq!(decode_h2_datagram_capsules(&encoded).expect("decode"), vec![vec![0x00, 0xde, 0xad]]);
+}
+
+#[test]
+fn h2_connect_udp_request_uses_extended_connect_and_capsule_protocol() {
+    let proxy_origin = ProxyOrigin {
+        host: "masque.example".to_string(),
+        authority: "masque.example".to_string(),
+        request_uri: "/.well-known/masque/ip".to_string(),
+        udp_base_path: "/.well-known/masque".to_string(),
+    };
+    let target = TargetAuthority { host: "example.com".to_string(), port: 443 };
+    let request = build_h2_connect_udp_request(&proxy_origin, &target, None).expect("request");
+
+    assert_eq!(request.method(), "CONNECT");
+    assert_eq!(request.uri(), "https://masque.example/.well-known/masque/udp/example.com/443/");
+    assert_eq!(request.extensions().get::<H2Protocol>().expect("protocol").as_ref(), b"connect-udp",);
+    assert_eq!(request.uri().scheme_str(), Some("https"));
+    assert_eq!(request.uri().authority().map(http::uri::Authority::as_str), Some("masque.example"));
+    assert_eq!(request.headers().get("capsule-protocol").expect("capsule"), "?1");
 }
 
 #[tokio::test]

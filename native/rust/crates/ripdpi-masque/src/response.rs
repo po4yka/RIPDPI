@@ -5,6 +5,7 @@ use http::{HeaderMap, StatusCode};
 use crate::auth::parse_privacy_pass_challenge;
 use crate::config::MasqueAuthMode;
 
+#[derive(Debug)]
 pub(crate) enum AttemptError {
     Io(io::Error),
     PrivacyPassChallenge(String),
@@ -35,6 +36,7 @@ pub(crate) fn validate_proxy_response(
         }
     }
 
+    let proxy_status = proxy_status_details(headers);
     let message = match auth_mode {
         MasqueAuthMode::CloudflareMtls if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN => {
             format!("MASQUE proxy rejected the Cloudflare direct client identity with status {status}")
@@ -49,9 +51,49 @@ pub(crate) fn validate_proxy_response(
         {
             format!("MASQUE proxy rejected Privacy Pass authentication with status {status}")
         }
-        _ => format!("MASQUE proxy rejected request with status {status}"),
+        _ => match proxy_status {
+            Some(proxy_status) => {
+                format!("MASQUE proxy rejected request with status {status}; Proxy-Status: {proxy_status}")
+            }
+            None => format!("MASQUE proxy rejected request with status {status}"),
+        },
     };
     Err(io::Error::new(io::ErrorKind::PermissionDenied, message).into())
+}
+
+pub(crate) fn validate_connect_udp_response(
+    status: StatusCode,
+    headers: &HeaderMap,
+    auth_mode: MasqueAuthMode,
+) -> Result<(), AttemptError> {
+    validate_proxy_response(status, headers, auth_mode)?;
+    let Some(capsule_protocol) = headers.get("capsule-protocol") else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "CONNECT-UDP success response is missing Capsule-Protocol: ?1",
+        )
+        .into());
+    };
+    let capsule_protocol = capsule_protocol
+        .to_str()
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid Capsule-Protocol response header"))?;
+    if capsule_protocol.trim() != "?1" {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "CONNECT-UDP success response did not enable Capsule-Protocol: ?1",
+        )
+        .into());
+    }
+    Ok(())
+}
+
+fn proxy_status_details(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("proxy-status")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
 }
 
 pub(crate) fn classify_attempt_failure(error: &io::Error) -> &'static str {
