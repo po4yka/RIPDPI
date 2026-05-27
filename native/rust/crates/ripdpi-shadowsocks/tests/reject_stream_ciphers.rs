@@ -113,6 +113,7 @@ fn aead_ciphers_are_accepted() {
     assert!(Cipher::from_name("aes-128-gcm").is_ok());
     assert!(Cipher::from_name("aes-256-gcm").is_ok());
     assert!(Cipher::from_name("chacha20-ietf-poly1305").is_ok());
+    assert!(Cipher::from_name("2022-blake3-aes-128-gcm").is_ok());
     assert!(Cipher::from_name("2022-blake3-aes-256-gcm").is_ok());
     assert!(Cipher::from_name("2022-blake3-chacha20-poly1305").is_ok());
 }

@@ -2,9 +2,9 @@
 //!
 //! # AEAD-2022 key derivation (SIP022)
 //!
-//! For `2022-blake3-*` ciphers the pre-shared key is 32 bytes of raw binary
+//! For `2022-blake3-*` ciphers the pre-shared key is fixed-length raw binary
 //! (not hex, not base64 in the AEAD sense — the password field in the URI is
-//! base64 and decoded to raw bytes before use).  Session-subkeys are derived
+//! base64 and decoded to raw bytes before use). Session-subkeys are derived
 //! with BLAKE3 KDF:
 //!
 //! ```text
@@ -59,6 +59,34 @@ impl std::fmt::Display for SecretString {
     }
 }
 
+/// A decoded SIP022 pre-shared key whose length has been validated against the selected AEAD-2022 cipher.
+pub struct PresharedKey(Vec<u8>);
+
+impl PresharedKey {
+    /// Decodes a SIP022 base64 PSK and validates that its byte length matches `cipher`.
+    pub fn from_base64(cipher: Cipher, encoded: &str) -> Result<Self, CipherError> {
+        if !cipher.is_aead_2022() {
+            return Err(CipherError::Unsupported(format!("{cipher:?}")));
+        }
+        let key = decode_base64_psk(encoded)?;
+        if key.len() != cipher.key_len() {
+            return Err(CipherError::KeyLength);
+        }
+        Ok(Self(key))
+    }
+
+    /// Returns the raw PSK bytes for SIP022 BLAKE3 subkey derivation.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl std::fmt::Debug for PresharedKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("PresharedKey(<redacted>)")
+    }
+}
+
 /// Errors produced by cipher operations.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum CipherError {
@@ -89,6 +117,8 @@ pub enum CipherError {
 /// [`CipherError::Unsupported`], never a variant here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cipher {
+    /// `2022-blake3-aes-128-gcm` — AEAD-2022 with AES-128-GCM (SIP022).
+    Aead2022Blake3Aes128Gcm,
     /// `2022-blake3-aes-256-gcm` — AEAD-2022 with AES-256-GCM (SIP022).
     Aead2022Blake3Aes256Gcm,
     /// `2022-blake3-chacha20-poly1305` — AEAD-2022 with ChaCha20-Poly1305 (SIP022).
@@ -140,6 +170,7 @@ impl Cipher {
         }
 
         match lower.as_str() {
+            "2022-blake3-aes-128-gcm" => Ok(Self::Aead2022Blake3Aes128Gcm),
             "2022-blake3-aes-256-gcm" => Ok(Self::Aead2022Blake3Aes256Gcm),
             "2022-blake3-chacha20-poly1305" => Ok(Self::Aead2022Blake3Chacha20Poly1305),
             "aes-128-gcm" => Ok(Self::AeadAes128Gcm),
@@ -152,7 +183,7 @@ impl Cipher {
     /// Key length in bytes for this cipher.
     pub fn key_len(self) -> usize {
         match self {
-            Self::AeadAes128Gcm => 16,
+            Self::Aead2022Blake3Aes128Gcm | Self::AeadAes128Gcm => 16,
             Self::Aead2022Blake3Aes256Gcm | Self::AeadAes256Gcm => 32,
             Self::Aead2022Blake3Chacha20Poly1305 | Self::AeadChacha20IetfPoly1305 => 32,
         }
@@ -161,7 +192,7 @@ impl Cipher {
     /// Salt length in bytes (random bytes prepended to every TCP/UDP message).
     pub fn salt_len(self) -> usize {
         match self {
-            Self::AeadAes128Gcm => 16,
+            Self::Aead2022Blake3Aes128Gcm | Self::AeadAes128Gcm => 16,
             _ => 32,
         }
     }
@@ -179,7 +210,10 @@ impl Cipher {
 
     /// Whether this cipher uses AEAD-2022 (BLAKE3) key derivation.
     pub fn is_aead_2022(self) -> bool {
-        matches!(self, Self::Aead2022Blake3Aes256Gcm | Self::Aead2022Blake3Chacha20Poly1305)
+        matches!(
+            self,
+            Self::Aead2022Blake3Aes128Gcm | Self::Aead2022Blake3Aes256Gcm | Self::Aead2022Blake3Chacha20Poly1305
+        )
     }
 }
 
@@ -195,6 +229,9 @@ impl CipherKey {
     /// `psk` is the raw binary pre-shared key (decoded from base64 in the URI).
     /// `salt` is the random session salt (32 bytes for AEAD-2022).
     pub fn derive_aead2022(cipher: Cipher, psk: &[u8], salt: &[u8]) -> Result<Self, CipherError> {
+        if !cipher.is_aead_2022() {
+            return Err(CipherError::Unsupported(format!("{cipher:?}")));
+        }
         if psk.len() != cipher.key_len() {
             return Err(CipherError::KeyLength);
         }
@@ -215,6 +252,9 @@ impl CipherKey {
     /// `password` is the raw password string from the URI.
     /// `salt` is the random session salt.
     pub fn derive_legacy(cipher: Cipher, password: &SecretString, salt: &[u8]) -> Result<Self, CipherError> {
+        if cipher.is_aead_2022() {
+            return Err(CipherError::Unsupported(format!("{cipher:?}")));
+        }
         if salt.len() != cipher.salt_len() {
             return Err(CipherError::IvLength);
         }
@@ -247,7 +287,7 @@ impl CipherKey {
 fn dispatch_encrypt(cipher: Cipher, key: &[u8], nonce: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, CipherError> {
     use aes_gcm::aead::generic_array::GenericArray;
     match cipher {
-        Cipher::AeadAes128Gcm => {
+        Cipher::Aead2022Blake3Aes128Gcm | Cipher::AeadAes128Gcm => {
             let k = aes_gcm::Key::<Aes128Gcm>::from_slice(key);
             let c = Aes128Gcm::new(k);
             let n = GenericArray::from_slice(nonce);
@@ -271,7 +311,7 @@ fn dispatch_encrypt(cipher: Cipher, key: &[u8], nonce: &[u8], plaintext: &[u8]) 
 fn dispatch_decrypt(cipher: Cipher, key: &[u8], nonce: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, CipherError> {
     use aes_gcm::aead::generic_array::GenericArray;
     match cipher {
-        Cipher::AeadAes128Gcm => {
+        Cipher::Aead2022Blake3Aes128Gcm | Cipher::AeadAes128Gcm => {
             let k = aes_gcm::Key::<Aes128Gcm>::from_slice(key);
             let c = Aes128Gcm::new(k);
             let n = GenericArray::from_slice(nonce);
@@ -290,6 +330,16 @@ fn dispatch_decrypt(cipher: Cipher, key: &[u8], nonce: &[u8], ciphertext: &[u8])
             c.decrypt(n, Payload { msg: ciphertext, aad: b"" }).map_err(|_| CipherError::AeadFailed)
         }
     }
+}
+
+fn decode_base64_psk(encoded: &str) -> Result<Vec<u8>, CipherError> {
+    use base64::engine::Engine;
+
+    let trimmed = encoded.trim();
+    base64::engine::general_purpose::STANDARD
+        .decode(trimmed)
+        .or_else(|_| base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(trimmed))
+        .map_err(|_| CipherError::KeyLength)
 }
 
 /// OpenSSL `EVP_BytesToKey` with MD5 and no salt (Shadowsocks legacy key derivation).

@@ -3,6 +3,7 @@
 //! # Supported ciphers
 //!
 //! AEAD-2022 (SIP022):
+//! - `2022-blake3-aes-128-gcm`
 //! - `2022-blake3-aes-256-gcm`
 //! - `2022-blake3-chacha20-poly1305`
 //!
@@ -26,7 +27,7 @@ pub mod tcp;
 pub mod udp;
 pub mod uri;
 
-pub use cipher::{Cipher, CipherError, CipherKey, SecretString};
+pub use cipher::{Cipher, CipherError, CipherKey, PresharedKey, SecretString};
 pub use tcp::TcpStream;
 pub use udp::UdpPacket;
 pub use uri::{ShadowsocksUri, UriError};

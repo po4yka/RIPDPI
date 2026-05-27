@@ -18,4 +18,4 @@
 
 ## Current Status
 
-The crate already contains cipher, TCP, UDP, URI modules and integration tests, but STEP 0 audit notes in `docs/native/shadowsocks-step0-audit.md` identify remaining SIP004/SIP022 conformance gaps before relay-core wiring should begin.
+The cipher layer has SIP004/SIP022 fixed-vector coverage for KDF and AEAD operations. TCP, UDP, replay protection, URI parity, and relay-core wiring are still tracked in `docs/native/shadowsocks-step0-audit.md`.

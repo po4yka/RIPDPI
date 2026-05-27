@@ -9,7 +9,11 @@
 //! implementation; instead we verify KDF + AEAD in one round-trip with
 //! known fixed inputs so any regression in either layer breaks the test.
 
-use ripdpi_shadowsocks::cipher::{Cipher, CipherKey};
+use ripdpi_shadowsocks::cipher::{Cipher, CipherError, CipherKey, PresharedKey};
+
+fn decode_hex(value: &str) -> Vec<u8> {
+    hex::decode(value).expect("fixture hex must decode")
+}
 
 /// Fixed 32-byte PSK for `2022-blake3-aes-256-gcm` tests (fixture data only).
 const FIXTURE_PSK_AES256: &[u8; 32] = b"fixture-psk-aes256gcm-32bytekey!";
@@ -22,6 +26,83 @@ const FIXTURE_PSK_CHACHA: &[u8; 32] = b"fixture-psk-chacha20poly1305-key";
 
 /// All-zero 12-byte nonce used in KAT vectors.
 const ZERO_NONCE: [u8; 12] = [0u8; 12];
+
+const SIP022_KAT_PLAINTEXT: &[u8] = b"RIPDPI shadowsocks SIP022 KAT";
+const SIP022_KAT_NONCE: [u8; 12] = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b];
+const SIP022_AES128_PSK_B64: &str = "AAECAwQFBgcICQoLDA0ODw==";
+const SIP022_AES128_SALT: &[u8; 16] = b"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f";
+const SIP022_AES256_PSK_B64: &str = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
+const SIP022_AES256_SALT: &[u8; 32] = b" !\"#$%&'()*+,-./0123456789:;<=>?";
+const SIP022_CHACHA_SALT: &[u8; 32] = b"@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_";
+
+#[test]
+fn sip022_aes128gcm_required_method_matches_independent_blake3_and_aead_vector() {
+    assert_eq!(
+        Cipher::from_name("2022-blake3-aes-128-gcm").expect("required SIP022 method"),
+        Cipher::Aead2022Blake3Aes128Gcm
+    );
+    let psk = PresharedKey::from_base64(Cipher::Aead2022Blake3Aes128Gcm, SIP022_AES128_PSK_B64).expect("base64 psk");
+    let key = CipherKey::derive_aead2022(Cipher::Aead2022Blake3Aes128Gcm, psk.as_bytes(), SIP022_AES128_SALT)
+        .expect("derive");
+
+    assert_eq!(hex::encode(&key.key), "bc32fb8d5205f7b84f9691dfb9f04ff3");
+    let ciphertext = key.encrypt(&SIP022_KAT_NONCE, SIP022_KAT_PLAINTEXT).expect("encrypt");
+    assert_eq!(
+        ciphertext,
+        decode_hex("6192d5fd13562315f0b2550dcdff0f0b54cb2d1dd58f1040c3a1f24ae056a48e69fc4bf831ab974213daaae71e"),
+    );
+    assert_eq!(key.decrypt(&SIP022_KAT_NONCE, &ciphertext).expect("decrypt"), SIP022_KAT_PLAINTEXT);
+}
+
+#[test]
+fn sip022_aes256gcm_matches_independent_blake3_and_aead_vector() {
+    let psk = PresharedKey::from_base64(Cipher::Aead2022Blake3Aes256Gcm, SIP022_AES256_PSK_B64).expect("base64 psk");
+    let key = CipherKey::derive_aead2022(Cipher::Aead2022Blake3Aes256Gcm, psk.as_bytes(), SIP022_AES256_SALT)
+        .expect("derive");
+
+    assert_eq!(hex::encode(&key.key), "374fca03e4dae7f998fd7e59c1edfcc8e3197f4db1c19ca1671be3b66a92ddda");
+    let ciphertext = key.encrypt(&SIP022_KAT_NONCE, SIP022_KAT_PLAINTEXT).expect("encrypt");
+    assert_eq!(
+        ciphertext,
+        decode_hex("e6b3160151326354adb3937dabc102a1dbfedb3e9b4bae7f5036f905cd7b1ca194357512414c7b148aa9232c3a"),
+    );
+    assert_eq!(key.decrypt(&SIP022_KAT_NONCE, &ciphertext).expect("decrypt"), SIP022_KAT_PLAINTEXT);
+}
+
+#[test]
+fn sip022_chacha20_poly1305_matches_independent_blake3_and_aead_vector() {
+    let psk =
+        PresharedKey::from_base64(Cipher::Aead2022Blake3Chacha20Poly1305, SIP022_AES256_PSK_B64).expect("base64 psk");
+    let key = CipherKey::derive_aead2022(Cipher::Aead2022Blake3Chacha20Poly1305, psk.as_bytes(), SIP022_CHACHA_SALT)
+        .expect("derive");
+
+    assert_eq!(hex::encode(&key.key), "cb4edecf23461aaaeee9dcb3c1eb1be555c77e3661c7dd58c96bd5c3bcb6a064");
+    let ciphertext = key.encrypt(&SIP022_KAT_NONCE, SIP022_KAT_PLAINTEXT).expect("encrypt");
+    assert_eq!(
+        ciphertext,
+        decode_hex("d4e0616718a43e1aeab75c17768cc0968208044b72c0086e00b41e2aa723ded39940dc7ad0cbfdb8d4a0b7f775"),
+    );
+    assert_eq!(key.decrypt(&SIP022_KAT_NONCE, &ciphertext).expect("decrypt"), SIP022_KAT_PLAINTEXT);
+}
+
+#[test]
+fn sip022_psk_parser_rejects_non_base64_and_wrong_length_material() {
+    assert_eq!(
+        PresharedKey::from_base64(Cipher::Aead2022Blake3Aes128Gcm, "not base64").expect_err("invalid base64"),
+        CipherError::KeyLength,
+    );
+    assert_eq!(
+        PresharedKey::from_base64(Cipher::Aead2022Blake3Aes256Gcm, SIP022_AES128_PSK_B64).expect_err("wrong length"),
+        CipherError::KeyLength,
+    );
+}
+
+#[test]
+fn sip022_derivation_rejects_legacy_cipher_family() {
+    let psk = PresharedKey::from_base64(Cipher::Aead2022Blake3Aes128Gcm, SIP022_AES128_PSK_B64).expect("base64 psk");
+    let result = CipherKey::derive_aead2022(Cipher::AeadAes128Gcm, psk.as_bytes(), SIP022_AES128_SALT);
+    assert!(matches!(result, Err(CipherError::Unsupported(_))));
+}
 
 #[test]
 fn aead2022_aes256gcm_encrypt_decrypt_roundtrip() {

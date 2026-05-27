@@ -4,10 +4,14 @@
 //! Tests verify HKDF-SHA1 key derivation (EVP_BytesToKey + HKDF-SHA1) plus
 //! AEAD encrypt/decrypt round-trips with fixed inputs.
 
-use ripdpi_shadowsocks::cipher::{Cipher, CipherKey, SecretString};
+use ripdpi_shadowsocks::cipher::{Cipher, CipherError, CipherKey, SecretString};
 
 fn fixture_secret(s: &str) -> SecretString {
     SecretString::new(s.to_owned())
+}
+
+fn decode_hex(value: &str) -> Vec<u8> {
+    hex::decode(value).expect("fixture hex must decode")
 }
 
 /// 16-byte salt for aes-128-gcm.
@@ -17,6 +21,62 @@ const SALT_16: &[u8; 16] = b"fixture-salt-16b";
 const SALT_32: &[u8; 32] = b"fixture-salt-32bytes-for-testing";
 
 const ZERO_NONCE: [u8; 12] = [0u8; 12];
+
+const SIP004_KAT_PASSWORD: &str = "correct horse battery staple";
+const SIP004_KAT_SALT_16: &[u8; 16] = b"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f";
+const SIP004_KAT_SALT_32: &[u8; 32] = b" !\"#$%&'()*+,-./0123456789:;<=>?";
+const SIP004_KAT_NONCE: [u8; 12] = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b];
+const SIP004_KAT_PLAINTEXT: &[u8] = b"RIPDPI shadowsocks SIP004 KAT";
+
+#[test]
+fn sip004_aes128gcm_matches_independent_kdf_and_aead_vector() {
+    let password = fixture_secret(SIP004_KAT_PASSWORD);
+    let key = CipherKey::derive_legacy(Cipher::AeadAes128Gcm, &password, SIP004_KAT_SALT_16).expect("derive legacy");
+
+    assert_eq!(hex::encode(&key.key), "741ba530dc7cb08412118302a3833ce4");
+    let ciphertext = key.encrypt(&SIP004_KAT_NONCE, SIP004_KAT_PLAINTEXT).expect("encrypt");
+    assert_eq!(
+        ciphertext,
+        decode_hex("1f851d140360d510c8c53d5badd86f9c393fd2bc6a524cf59be74657480c4a3dd4ea732eabdd2dddce65609cc3"),
+    );
+    assert_eq!(key.decrypt(&SIP004_KAT_NONCE, &ciphertext).expect("decrypt"), SIP004_KAT_PLAINTEXT);
+}
+
+#[test]
+fn sip004_aes256gcm_matches_independent_kdf_and_aead_vector() {
+    let password = fixture_secret(SIP004_KAT_PASSWORD);
+    let key = CipherKey::derive_legacy(Cipher::AeadAes256Gcm, &password, SIP004_KAT_SALT_32).expect("derive legacy");
+
+    assert_eq!(hex::encode(&key.key), "28155bba8880a98e1ba58f9da9e7a2e6ca87796e1341abfbcf40e64ee2df3e40");
+    let ciphertext = key.encrypt(&SIP004_KAT_NONCE, SIP004_KAT_PLAINTEXT).expect("encrypt");
+    assert_eq!(
+        ciphertext,
+        decode_hex("4740660f75a6718dbc27093d5972890579549057cb17a5d060fbd6c4399350154c64e5089c24ace2fe46540d16"),
+    );
+    assert_eq!(key.decrypt(&SIP004_KAT_NONCE, &ciphertext).expect("decrypt"), SIP004_KAT_PLAINTEXT);
+}
+
+#[test]
+fn sip004_chacha20_ietf_poly1305_matches_independent_kdf_and_aead_vector() {
+    let password = fixture_secret(SIP004_KAT_PASSWORD);
+    let key = CipherKey::derive_legacy(Cipher::AeadChacha20IetfPoly1305, &password, SIP004_KAT_SALT_32)
+        .expect("derive legacy");
+
+    assert_eq!(hex::encode(&key.key), "28155bba8880a98e1ba58f9da9e7a2e6ca87796e1341abfbcf40e64ee2df3e40");
+    let ciphertext = key.encrypt(&SIP004_KAT_NONCE, SIP004_KAT_PLAINTEXT).expect("encrypt");
+    assert_eq!(
+        ciphertext,
+        decode_hex("bca85439e450e89b06ded0c158c091e40aa0c528af464e501c18ad224e0c1a5e4bde24320d068608582a93515f"),
+    );
+    assert_eq!(key.decrypt(&SIP004_KAT_NONCE, &ciphertext).expect("decrypt"), SIP004_KAT_PLAINTEXT);
+}
+
+#[test]
+fn sip004_legacy_derivation_rejects_2022_cipher_family() {
+    let password = fixture_secret(SIP004_KAT_PASSWORD);
+    let result = CipherKey::derive_legacy(Cipher::Aead2022Blake3Aes256Gcm, &password, SIP004_KAT_SALT_32);
+    assert!(matches!(result, Err(CipherError::Unsupported(_))));
+}
 
 #[test]
 fn legacy_aes128gcm_roundtrip() {
