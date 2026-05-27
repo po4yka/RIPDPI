@@ -276,14 +276,8 @@ class MainActivityShellInstrumentedTest {
             )
         composeRule.runOnUiThread {
             recordingMainActivityHost.refreshPermissionSnapshot()
+            recordingMainActivityHost.requestVpnStart()
         }
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule
-                .onAllNodes(hasTestTag(RipDpiTestTags.HomeConnectionButton))
-                .fetchSemanticsNodes()
-                .isNotEmpty()
-        }
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionButton).performClick()
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
             recordingMainActivityHost.commands.contains(MainActivityHostCommand.RequestNotificationsPermission)
