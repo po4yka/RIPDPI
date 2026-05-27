@@ -3,7 +3,7 @@ use thiserror::Error;
 mod apply;
 mod builder;
 mod chrome;
-mod ech;
+pub mod ech;
 mod edge;
 mod firefox;
 mod invariants;
@@ -20,8 +20,9 @@ mod tests;
 
 pub use builder::{build_connector, configure_builder};
 pub use ech::{
-    configure_boring_ech, require_ech_backend_support, EchConfigError, EchOutboundError, OutboundEchBackend,
-    OutboundEchConfig,
+    configure_boring_ech, configure_ech, require_ech_backend_support, EchConfigError, EchFacadeError, EchLookupOutcome,
+    EchLookupRequest, EchLookupTransport, EchOutboundError, EchPolicy, EchSetup, OutboundEchBackend, OutboundEchConfig,
+    OutboundEchResolver,
 };
 pub use profile::{
     profile_catalog, profile_metadata, ProfileCatalog, ProfileConfig, ProfileInvariantStatus, ProfileMetadata,

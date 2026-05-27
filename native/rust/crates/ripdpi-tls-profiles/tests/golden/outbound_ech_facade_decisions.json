@@ -1,0 +1,12 @@
+[
+  {
+    "configListLen": 64,
+    "name": "encrypted-real",
+    "publicName": "public.example",
+    "setup": "real"
+  },
+  {
+    "name": "encrypted-unpublished",
+    "setup": "grease"
+  }
+]
