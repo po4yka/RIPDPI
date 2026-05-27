@@ -4706,6 +4706,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-webtunnel"
+version = "0.1.0"
+dependencies = [
+ "golden-test-support",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "url",
+]
+
+[[package]]
 name = "ripdpi-ws-bootstrap"
 version = "0.1.0"
 dependencies = [

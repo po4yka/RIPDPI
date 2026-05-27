@@ -104,6 +104,7 @@ members = [
     "crates/ripdpi-naiveproxy",
     "crates/ripdpi-cloudflare-origin",
     "crates/ripdpi-tls-profiles",
+    "crates/ripdpi-webtunnel",
     "crates/ripdpi-xhttp",
     "crates/ripdpi-trojan",
 ]
@@ -202,6 +203,7 @@ ripdpi-shadowtls = { path = "crates/ripdpi-shadowtls" }
 ripdpi-masque = { path = "crates/ripdpi-masque" }
 ripdpi-tuic = { path = "crates/ripdpi-tuic" }
 ripdpi-tls-profiles = { path = "crates/ripdpi-tls-profiles" }
+ripdpi-webtunnel = { path = "crates/ripdpi-webtunnel" }
 ripdpi-xhttp = { path = "crates/ripdpi-xhttp" }
 ripdpi-trojan = { path = "crates/ripdpi-trojan" }
 ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }

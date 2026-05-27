@@ -1,0 +1,62 @@
+[
+  {
+    "config": {
+      "addr": "front.example:443",
+      "cert": null,
+      "cert_domain": null,
+      "http_host": "front.example",
+      "secret_path": "/secret-path",
+      "servername": "front.example",
+      "tls_profile": "chrome_stable",
+      "url": "https://front.example/secret-path",
+      "utls": "hellochrome_auto",
+      "version": "1"
+    },
+    "name": "bridge-prefix-defaults"
+  },
+  {
+    "config": {
+      "addr": "203.0.113.9:9443",
+      "cert": null,
+      "cert_domain": null,
+      "http_host": "cdn.example",
+      "secret_path": "/a%2Fb",
+      "servername": "real.example",
+      "tls_profile": "chrome_stable",
+      "url": "https://cdn.example/a%2Fb",
+      "utls": "hellochrome_auto",
+      "version": null
+    },
+    "name": "explicit-addr-servername"
+  },
+  {
+    "config": {
+      "addr": "front.example:8443",
+      "cert": null,
+      "cert_domain": null,
+      "http_host": "front.example",
+      "secret_path": "/secret",
+      "servername": "front.example",
+      "tls_profile": "chrome_stable",
+      "url": "https://front.example:8443/secret?ignored=1",
+      "utls": "hellochrome_auto",
+      "version": null
+    },
+    "name": "defaults-with-query-ignored"
+  },
+  {
+    "config": {
+      "addr": "front.example:443",
+      "cert": "YWJj",
+      "cert_domain": "verify.example",
+      "http_host": "front.example",
+      "secret_path": "/s",
+      "servername": "front.example",
+      "tls_profile": "chrome_stable",
+      "url": "https://front.example/s",
+      "utls": "hellochrome_auto",
+      "version": null
+    },
+    "name": "cert-options-preserved"
+  }
+]
