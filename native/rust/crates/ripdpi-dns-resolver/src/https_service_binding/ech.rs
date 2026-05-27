@@ -5,7 +5,7 @@ use super::dto::{EchCipherSuite, EchConfig, EchConfigEntry, EchExtension, HttpsS
 
 const ECH_CONFIG_VERSION_V18: u16 = 0xfe0d;
 
-pub(super) fn parse_ech_config_list(bytes: &[u8]) -> Result<EchConfig, HttpsSvcbParseError> {
+pub fn parse_ech_config_list(bytes: &[u8]) -> Result<EchConfig, HttpsSvcbParseError> {
     let mut cursor = ByteCursor::new(bytes);
     let total_len = usize::from(cursor.read_u16("ECHConfigList length")?);
     if total_len == 0 {

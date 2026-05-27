@@ -16,6 +16,7 @@ ripdpi-xhttp = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
 local-network-fixture = { workspace = true }

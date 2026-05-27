@@ -20,8 +20,8 @@ pub use doh_pipeline::{
 };
 pub use health::{HealthRegistry, HealthScoreSnapshot};
 pub use https_service_binding::{
-    parse_https_service_bindings, EchCipherSuite, EchConfig, EchConfigEntry, EchExtension, HttpsRr, HttpsRrRecordType,
-    HttpsSvcbParseError,
+    parse_ech_config_list, parse_https_service_bindings, EchCipherSuite, EchConfig, EchConfigEntry, EchExtension,
+    HttpsRr, HttpsRrRecordType, HttpsSvcbParseError,
 };
 pub use pool::{ResolverPool, ResolverPoolBuilder};
 pub use resolver::EncryptedDnsResolver;

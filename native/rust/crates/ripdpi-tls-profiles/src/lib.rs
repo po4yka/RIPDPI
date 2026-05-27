@@ -21,9 +21,9 @@ mod tests;
 pub use builder::{build_connector, configure_builder};
 pub use ech::{
     configure_boring_ech, configure_ech, extract_boring_ech_rejection, prepare_ech_retry, require_ech_backend_support,
-    EchConfigError, EchFacadeError, EchLookupOutcome, EchLookupRequest, EchLookupTransport, EchOutboundError,
-    EchPolicy, EchPublicNameVerifier, EchRejectedHandshake, EchRetryState, EchSetup, OutboundEchBackend,
-    OutboundEchConfig, OutboundEchResolver,
+    resolve_outbound_ech, EchConfigError, EchFacadeError, EchLookupOutcome, EchLookupRequest, EchLookupTransport,
+    EchOutboundError, EchPolicy, EchPublicNameVerifier, EchRejectedHandshake, EchRetryState, EchSetup,
+    OutboundEchBackend, OutboundEchConfig, OutboundEchResolver,
 };
 pub use profile::{
     profile_catalog, profile_metadata, ProfileCatalog, ProfileConfig, ProfileInvariantStatus, ProfileMetadata,

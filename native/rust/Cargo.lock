@@ -3884,6 +3884,7 @@ dependencies = [
  "quinn",
  "reqwest",
  "ring",
+ "ripdpi-diagnostics-dns",
  "ripdpi-hysteria2",
  "ripdpi-tls-profiles",
  "rustls",
@@ -4164,6 +4165,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+ "url",
 ]
 
 [[package]]
