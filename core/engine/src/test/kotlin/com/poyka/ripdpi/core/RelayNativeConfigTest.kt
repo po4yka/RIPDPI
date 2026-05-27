@@ -91,6 +91,7 @@ class RelayNativeConfigTest {
             tuicConfig(),
             hysteria2Config(),
             trojanConfig(),
+            shadowsocksConfig(),
             shadowTlsConfig(),
             chainRelayConfig(),
             cloudflareTunnelConfig(),
@@ -144,10 +145,16 @@ class RelayNativeConfigTest {
             trojanRootCertificatePem = "-----BEGIN CERTIFICATE-----\ntrojan-root\n-----END CERTIFICATE-----",
         )
 
+    private fun shadowsocksConfig(): ResolvedRipDpiRelayConfig =
+        baseConfig("shadowsocks").copy(
+            shadowsocksMethod = "aes-256-gcm",
+            shadowsocksPassword = placeholder(6),
+        )
+
     private fun shadowTlsConfig(): ResolvedRipDpiRelayConfig =
         baseConfig("shadowtls_v3").copy(
             shadowTlsInnerProfileId = "shadowtls-inner-profile-id",
-            shadowTlsPassword = placeholder(6),
+            shadowTlsPassword = placeholder(7),
             shadowTlsInner =
                 ResolvedShadowTlsInnerRelayConfig(
                     kind = "vless_reality",
@@ -175,7 +182,7 @@ class RelayNativeConfigTest {
             cloudflareTunnelMode = "publish_managed",
             cloudflarePublishLocalOriginUrl = "http://origin.local",
             cloudflareCredentialsRef = "credentials-ref",
-            cloudflareTunnelToken = placeholder(6),
+            cloudflareTunnelToken = placeholder(7),
             cloudflareTunnelCredentialsJson = "{\"cloudflare\":\"credentials\"}",
         )
 
@@ -240,7 +247,7 @@ class RelayNativeConfigTest {
     // secret-scanner pre-commit hook is not tripped by fake test credentials.
     private fun placeholder(slot: Int): String = "relay-fixture-placeholder-$slot"
 
-    // Every defaulted field set to a non-default value so all 74 wire keys
+    // Every defaulted field set to a non-default value so all 78 wire keys
     // appear and every field exercises the section round-trip.
     private fun fullyPopulatedRelayConfig(): ResolvedRipDpiRelayConfig =
         baseConfig("vless_reality").copy(
@@ -284,6 +291,8 @@ class RelayNativeConfigTest {
             tuicUuid = "tuic-uuid",
             tuicPassword = placeholder(2),
             shadowTlsPassword = placeholder(3),
+            shadowsocksMethod = "2022-blake3-aes-256-gcm",
+            shadowsocksPassword = placeholder(10),
             naiveUsername = "naive-username",
             naivePassword = placeholder(4),
             tlsFingerprintProfile = "firefox_stable",
@@ -349,7 +358,7 @@ class RelayNativeConfigTest {
                 "tcpFallbackEnabled",
             )
 
-        // The 52 keys carrying a default; emitted only when set off-default.
+        // The 54 keys carrying a default; emitted only when set off-default.
         private val defaultedWireKeys =
             setOf(
                 "outboundBindIp",
@@ -382,6 +391,8 @@ class RelayNativeConfigTest {
                 "tuicPassword",
                 "shadowTlsPassword",
                 "trojanPassword",
+                "shadowsocksMethod",
+                "shadowsocksPassword",
                 "trojanRootCertificatePem",
                 "naiveUsername",
                 "naivePassword",
@@ -406,7 +417,7 @@ class RelayNativeConfigTest {
                 "finalmask",
             )
 
-        // The complete flat wire object: required + defaulted = 76 keys.
+        // The complete flat wire object: required + defaulted = 78 keys.
         private val expectedWireKeys = requiredWireKeys + defaultedWireKeys
     }
 }

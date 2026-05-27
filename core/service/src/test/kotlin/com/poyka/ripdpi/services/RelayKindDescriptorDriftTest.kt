@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindOff
+import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
@@ -112,6 +113,7 @@ class RelayKindDescriptorDriftTest {
                 "masque" to listOf(true, true, true, false),
                 "shadowtls_v3" to listOf(true, false, false, true),
                 "trojan" to listOf(true, true, false, true),
+                "shadowsocks" to listOf(true, true, false, true),
                 "naiveproxy" to listOf(true, false, false, true),
             )
         rustPinned.forEach { (kindId, caps) ->
@@ -150,7 +152,13 @@ class RelayKindDescriptorDriftTest {
 
     @Test
     fun `udp gate accepts udp-capable kinds through the descriptor`() {
-        listOf(RelayKindHysteria2, RelayKindMasque, RelayKindTrojan, RelayKindTuicV5).forEach { kind ->
+        listOf(
+            RelayKindHysteria2,
+            RelayKindMasque,
+            RelayKindShadowsocks,
+            RelayKindTrojan,
+            RelayKindTuicV5,
+        ).forEach { kind ->
             validateSharedRelayTransportFeatures(RipDpiRelayConfig(kind = kind, udpEnabled = true))
         }
     }

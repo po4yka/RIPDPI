@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
@@ -470,6 +471,44 @@ class UpstreamRelayRuntimeConfigResolverTest {
             assertTrue(resolved.udpEnabled)
             assertEquals("trojan.example", resolved.serverName)
             assertEquals(credentialFixture("trojan"), resolved.trojanPassword)
+        }
+
+    @Test
+    fun `resolve shadowsocks family carries method password and udp setting`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "shadowsocks",
+                                    shadowsocksMethod = "aes-256-gcm",
+                                    shadowsocksPassword = credentialFixture("shadowsocks"),
+                                ),
+                            )
+                        },
+                )
+
+            val resolved =
+                resolver.resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindShadowsocks,
+                            profileId = "shadowsocks",
+                            server = "ss.example",
+                            serverPort = 8388,
+                            serverName = "ss.example",
+                            udpEnabled = true,
+                        ),
+                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                )
+
+            assertEquals(RelayKindShadowsocks, resolved.kind)
+            assertTrue(resolved.udpEnabled)
+            assertEquals("aes-256-gcm", resolved.shadowsocksMethod)
+            assertEquals(credentialFixture("shadowsocks"), resolved.shadowsocksPassword)
         }
 
     @Test

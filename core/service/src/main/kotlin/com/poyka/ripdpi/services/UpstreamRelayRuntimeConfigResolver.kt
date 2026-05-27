@@ -10,6 +10,7 @@ import com.poyka.ripdpi.core.RelayHysteria2Section
 import com.poyka.ripdpi.core.RelayMasqueSection
 import com.poyka.ripdpi.core.RelayPluggableTransportSection
 import com.poyka.ripdpi.core.RelayShadowTlsSection
+import com.poyka.ripdpi.core.RelayShadowsocksSection
 import com.poyka.ripdpi.core.RelayTrojanSection
 import com.poyka.ripdpi.core.RelayTuicSection
 import com.poyka.ripdpi.core.RelayVlessSection
@@ -137,6 +138,7 @@ private class ResolvedRelayConfigBuilder(
             tuic = tuicSection(),
             shadowTls = shadowTlsSection(),
             trojan = trojanSection(),
+            shadowsocks = shadowsocksSection(),
             hysteria2 = hysteria2Section(),
             pluggableTransport = pluggableTransportSection(),
             cloudflare = cloudflareSection(),
@@ -225,6 +227,12 @@ private class ResolvedRelayConfigBuilder(
         RelayTrojanSection(
             trojanPassword = credentials?.trojanPassword,
             trojanRootCertificatePem = null,
+        )
+
+    private fun shadowsocksSection(): RelayShadowsocksSection =
+        RelayShadowsocksSection(
+            shadowsocksMethod = credentials?.shadowsocksMethod,
+            shadowsocksPassword = credentials?.shadowsocksPassword,
         )
 
     private fun hysteria2Section(): RelayHysteria2Section =

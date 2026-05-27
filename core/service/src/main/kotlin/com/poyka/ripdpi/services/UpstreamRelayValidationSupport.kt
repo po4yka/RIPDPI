@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
 import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
@@ -38,11 +39,30 @@ internal fun validateDefaultRelayCredentials(
 ) {
     val hasRequiredCredentials =
         when (relayKind) {
-            RelayKindVlessReality -> !credentials?.vlessUuid.isNullOrBlank()
-            RelayKindHysteria2 -> !credentials?.hysteriaPassword.isNullOrBlank()
-            RelayKindTuicV5 -> !credentials?.tuicUuid.isNullOrBlank() && !credentials.tuicPassword.isNullOrBlank()
-            RelayKindGoogleAppsScript -> !credentials?.appsScriptAuthKey.isNullOrBlank()
-            else -> true
+            RelayKindVlessReality -> {
+                !credentials?.vlessUuid.isNullOrBlank()
+            }
+
+            RelayKindHysteria2 -> {
+                !credentials?.hysteriaPassword.isNullOrBlank()
+            }
+
+            RelayKindShadowsocks -> {
+                !credentials?.shadowsocksMethod.isNullOrBlank() &&
+                    !credentials.shadowsocksPassword.isNullOrBlank()
+            }
+
+            RelayKindTuicV5 -> {
+                !credentials?.tuicUuid.isNullOrBlank() && !credentials.tuicPassword.isNullOrBlank()
+            }
+
+            RelayKindGoogleAppsScript -> {
+                !credentials?.appsScriptAuthKey.isNullOrBlank()
+            }
+
+            else -> {
+                true
+            }
         }
     requireRelayCredentials(profileId, hasRequiredCredentials)
 }
@@ -108,7 +128,7 @@ internal fun validateSharedRelayTransportFeatures(config: RipDpiRelayConfig) {
     // RelayTransportDescriptor `udp` flag. An unrecognised kind has no
     // descriptor row and is treated as UDP-incapable, as before.
     require(!config.udpEnabled || relayKindDescriptor(config.kind)?.udp == true) {
-        "Relay UDP mode is only available for Hysteria2, MASQUE, Trojan, and TUIC profiles"
+        "Relay UDP mode is only available for Hysteria2, MASQUE, Shadowsocks, Trojan, and TUIC profiles"
     }
     require(!(config.vlessTransport == RelayVlessTransportXhttp && config.udpEnabled)) {
         "xHTTP transport does not support UDP mode"

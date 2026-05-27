@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
@@ -83,32 +84,86 @@ class ProfileImportConfirmViewModel
         private suspend fun nextOrder(): Int = repository.list().size
 
         private suspend fun activateNativeRelayProfile(profile: ProxyProfile) {
-            if (profile !is ProxyProfile.Trojan) return
+            if (profile !is ProxyProfile.Trojan && profile !is ProxyProfile.Shadowsocks) return
             val profileId = DefaultRelayProfileId
+            val relayKind =
+                when (profile) {
+                    is ProxyProfile.Trojan -> RelayKindTrojan
+                    is ProxyProfile.Shadowsocks -> RelayKindShadowsocks
+                }
+            val endpoint = relayEndpoint(profile)
             relayProfileStore.save(
                 RelayProfileRecord(
                     id = profileId,
-                    kind = RelayKindTrojan,
-                    server = profile.server,
-                    serverPort = profile.serverPort,
-                    serverName = profile.server,
+                    kind = relayKind,
+                    server = endpoint.server,
+                    serverPort = endpoint.serverPort,
+                    serverName = endpoint.server,
                     udpEnabled = true,
                 ),
             )
             relayCredentialStore.save(
-                RelayCredentialRecord(
-                    profileId = profileId,
-                    trojanPassword = profile.password,
-                ),
+                relayCredentials(profileId, profile),
             )
             settingsRepository.update {
                 setRelayEnabled(true)
-                setRelayKind(RelayKindTrojan)
+                setRelayKind(relayKind)
                 setRelayProfileId(profileId)
-                setRelayServer(profile.server)
-                setRelayServerPort(profile.serverPort)
-                setRelayServerName(profile.server)
+                setRelayServer(endpoint.server)
+                setRelayServerPort(endpoint.serverPort)
+                setRelayServerName(endpoint.server)
                 setRelayUdpEnabled(true)
             }
         }
+
+        private fun relayEndpoint(profile: ProxyProfile): RelayImportEndpoint =
+            when (profile) {
+                is ProxyProfile.Trojan -> {
+                    RelayImportEndpoint(
+                        server = profile.server,
+                        serverPort = profile.serverPort,
+                    )
+                }
+
+                is ProxyProfile.Shadowsocks -> {
+                    RelayImportEndpoint(
+                        server = profile.server,
+                        serverPort = profile.serverPort,
+                    )
+                }
+
+                else -> {
+                    error("unsupported relay import profile ${profile::class.simpleName}")
+                }
+            }
+
+        private fun relayCredentials(
+            profileId: String,
+            profile: ProxyProfile,
+        ): RelayCredentialRecord =
+            when (profile) {
+                is ProxyProfile.Trojan -> {
+                    RelayCredentialRecord(
+                        profileId = profileId,
+                        trojanPassword = profile.password,
+                    )
+                }
+
+                is ProxyProfile.Shadowsocks -> {
+                    RelayCredentialRecord(
+                        profileId = profileId,
+                        shadowsocksMethod = profile.method,
+                        shadowsocksPassword = profile.password,
+                    )
+                }
+
+                else -> {
+                    error("unsupported relay import profile ${profile::class.simpleName}")
+                }
+            }
     }
+
+private data class RelayImportEndpoint(
+    val server: String,
+    val serverPort: Int,
+)

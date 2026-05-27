@@ -85,6 +85,18 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `rejects ss uri with unsupported stream cipher method`() {
+        val userInfo =
+            java.util.Base64
+                .getUrlEncoder()
+                .withoutPadding()
+                .encodeToString("aes-256-cfb:legacy-secret".toByteArray())
+        val uri = "ss://$userInfo@legacy.example.com:8388#legacy-ss"
+
+        assertNull(ProxyUriCodec.parse(uri))
+    }
+
+    @Test
     fun `parses trojan uri into a trojan profile`() {
         val uri = "trojan://trojan-pass@trojan.example.com:443?sni=trojan.example.com#tj-node"
 

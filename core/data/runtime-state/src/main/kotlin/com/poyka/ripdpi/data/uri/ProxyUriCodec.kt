@@ -121,6 +121,7 @@ object ProxyUriCodec {
         if (methodSep <= 0) return null
         val method = userInfo.substring(0, methodSep)
         val password = userInfo.substring(methodSep + 1)
+        if (!isSupportedShadowsocksMethod(method)) return null
         if (password.isEmpty()) return null
         return ProxyProfile.Shadowsocks(
             id = newId(),
@@ -132,6 +133,19 @@ object ProxyUriCodec {
             password = password,
         )
     }
+
+    private fun isSupportedShadowsocksMethod(method: String): Boolean =
+        when (method.trim().lowercase()) {
+            "aes-128-gcm",
+            "aes-256-gcm",
+            "chacha20-ietf-poly1305",
+            "2022-blake3-aes-128-gcm",
+            "2022-blake3-aes-256-gcm",
+            "2022-blake3-chacha20-poly1305",
+            -> true
+
+            else -> false
+        }
 
     @Suppress("ReturnCount")
     private fun parseTrojan(uri: String): ProxyProfile? {

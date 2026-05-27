@@ -87,6 +87,8 @@ data class RelayCredentialRecord(
     val tuicPassword: String? = null,
     val shadowTlsPassword: String? = null,
     val trojanPassword: String? = null,
+    val shadowsocksMethod: String? = null,
+    val shadowsocksPassword: String? = null,
     val naiveUsername: String? = null,
     val naivePassword: String? = null,
     val masqueAuthMode: String? = null,

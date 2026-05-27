@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
@@ -199,6 +200,17 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
         RelayKindDescriptor(
             kindId = RelayKindTrojan,
             label = "Trojan",
+            tcp = true,
+            udp = true,
+            reusable = false,
+            supportsOutboundBindIp = true,
+            subprocessBacked = false,
+            finalmaskSupport = RelayFinalmaskSupport.NONE,
+            configBacking = RelayConfigBacking.INLINE_SETTINGS_BACKED,
+        ),
+        RelayKindDescriptor(
+            kindId = RelayKindShadowsocks,
+            label = "Shadowsocks",
             tcp = true,
             udp = true,
             reusable = false,

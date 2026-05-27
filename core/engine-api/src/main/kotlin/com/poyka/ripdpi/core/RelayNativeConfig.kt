@@ -109,6 +109,8 @@ data class ResolvedRipDpiRelayConfig(
     val tuicPassword: String? = null,
     val shadowTlsPassword: String? = null,
     val trojanPassword: String? = null,
+    val shadowsocksMethod: String? = null,
+    val shadowsocksPassword: String? = null,
     val naiveUsername: String? = null,
     val naivePassword: String? = null,
     val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
@@ -141,7 +143,7 @@ data class ResolvedRipDpiRelayConfig(
  * value. Bumped only on a genuinely breaking shape change. See
  * `docs/architecture/CONFIG_CONTRACTS.md` §8.
  */
-const val RelayNativeConfigSchemaVersion: Int = 2
+const val RelayNativeConfigSchemaVersion: Int = 3
 
 // === Section models ======================================================
 //
@@ -232,6 +234,12 @@ data class RelayTrojanSection(
     val trojanRootCertificatePem: String?,
 )
 
+/** Shadowsocks method and credential. */
+data class RelayShadowsocksSection(
+    val shadowsocksMethod: String?,
+    val shadowsocksPassword: String?,
+)
+
 /** Hysteria2 credentials. */
 data class RelayHysteria2Section(
     val hysteriaPassword: String?,
@@ -282,6 +290,7 @@ data class RelayConfigSections(
     val tuic: RelayTuicSection,
     val shadowTls: RelayShadowTlsSection,
     val trojan: RelayTrojanSection,
+    val shadowsocks: RelayShadowsocksSection,
     val hysteria2: RelayHysteria2Section,
     val pluggableTransport: RelayPluggableTransportSection,
     val cloudflare: RelayCloudflareSection,
@@ -370,6 +379,12 @@ private fun ResolvedRipDpiRelayConfig.trojanSection(): RelayTrojanSection =
         trojanRootCertificatePem = trojanRootCertificatePem,
     )
 
+private fun ResolvedRipDpiRelayConfig.shadowsocksSection(): RelayShadowsocksSection =
+    RelayShadowsocksSection(
+        shadowsocksMethod = shadowsocksMethod,
+        shadowsocksPassword = shadowsocksPassword,
+    )
+
 private fun ResolvedRipDpiRelayConfig.hysteria2Section(): RelayHysteria2Section =
     RelayHysteria2Section(
         hysteriaPassword = hysteriaPassword,
@@ -418,6 +433,7 @@ fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
         tuic = tuicSection(),
         shadowTls = shadowTlsSection(),
         trojan = trojanSection(),
+        shadowsocks = shadowsocksSection(),
         hysteria2 = hysteria2Section(),
         pluggableTransport = pluggableTransportSection(),
         cloudflare = cloudflareSection(),
@@ -487,6 +503,8 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         tuicPassword = tuic.tuicPassword,
         shadowTlsPassword = shadowTls.shadowTlsPassword,
         trojanPassword = trojan.trojanPassword,
+        shadowsocksMethod = shadowsocks.shadowsocksMethod,
+        shadowsocksPassword = shadowsocks.shadowsocksPassword,
         naiveUsername = pluggableTransport.naiveUsername,
         naivePassword = pluggableTransport.naivePassword,
         tlsFingerprintProfile = common.tlsFingerprintProfile,

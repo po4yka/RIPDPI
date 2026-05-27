@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
@@ -109,6 +110,48 @@ class ImportConfirmViewModelTest {
             assertEquals("trojan.example", relayProfile?.server)
             assertEquals("trojan.example", relayProfile?.serverName)
             assertEquals(trojanCredential, relayCredentials?.trojanPassword)
+        }
+
+    @Test
+    fun `confirming a shadowsocks profile import activates the native relay profile`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val shadowsocksCredential = relayImportCredentialFixture("shadowsocks")
+            val profile =
+                ProxyProfile.Shadowsocks(
+                    id = "ss-node",
+                    displayName = "Shadowsocks",
+                    groupId = "",
+                    server = "ss.example",
+                    serverPort = 8388,
+                    method = "2022-blake3-aes-256-gcm",
+                    password = shadowsocksCredential,
+                )
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    repository = repository,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
+                    settingsRepository = settingsRepository,
+                )
+
+            viewModel.setProfile(profile)
+            viewModel.confirm()
+            advanceUntilIdle()
+
+            val settings = settingsRepository.snapshot()
+            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
+            val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
+            assertEquals(RelayKindShadowsocks, settings.relayKind)
+            assertTrue(settings.relayEnabled)
+            assertEquals(RelayKindShadowsocks, relayProfile?.kind)
+            assertEquals("ss.example", relayProfile?.server)
+            assertEquals("ss.example", relayProfile?.serverName)
+            assertEquals("2022-blake3-aes-256-gcm", relayCredentials?.shadowsocksMethod)
+            assertEquals(shadowsocksCredential, relayCredentials?.shadowsocksPassword)
         }
 
     @Test
