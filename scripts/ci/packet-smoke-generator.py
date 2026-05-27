@@ -39,7 +39,7 @@ DEFAULT_AXIS_VALUES = {
     "oob_byte_placement": "off",
 }
 
-HOST_RELATIVE_SPLIT_OFFSETS = frozenset(("host+0", "host+1", "host+2", "host+3"))
+GENERATED_FAKE_TLS_SPLIT_OFFSET = "host+1"
 
 
 def stable_digest(seed: str, axis_values: dict[str, str]) -> str:
@@ -76,7 +76,10 @@ def is_supported_cell(axis_values: dict[str, str]) -> bool:
     if (
         traffic_kind_for(axis_values) == "tcp_tls"
         and axis_values["fake_ttl_ladder"] != "off"
-        and axis_values["split_offset"] not in HOST_RELATIVE_SPLIT_OFFSETS
+        and (
+            axis_values["split_offset"] != GENERATED_FAKE_TLS_SPLIT_OFFSET
+            or axis_values["tls_record_split"] != "none"
+        )
     ):
         return False
     return True
