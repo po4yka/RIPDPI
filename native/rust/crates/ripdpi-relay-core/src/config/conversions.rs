@@ -82,6 +82,10 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 password: flat.trojan_password,
                 root_certificate_pem: flat.trojan_root_certificate_pem,
             }),
+            "shadowsocks" => RelayBackendConfig::Shadowsocks(ShadowsocksRelayConfig {
+                method: flat.shadowsocks_method,
+                password: flat.shadowsocks_password,
+            }),
             "naiveproxy" => RelayBackendConfig::NaiveProxy(NaiveProxyRelayConfig {
                 path: flat.naive_path,
                 username: flat.naive_username,
@@ -148,6 +152,8 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             tuic_password: None,
             shadow_tls_password: None,
             trojan_password: None,
+            shadowsocks_method: String::new(),
+            shadowsocks_password: None,
             naive_username: None,
             naive_password: None,
             tls_fingerprint_profile: config.common.tls_fingerprint_profile.clone(),
@@ -227,6 +233,10 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             RelayBackendConfig::Trojan(config) => {
                 flat.trojan_password = config.password.clone();
                 flat.trojan_root_certificate_pem = config.root_certificate_pem.clone();
+            }
+            RelayBackendConfig::Shadowsocks(config) => {
+                flat.shadowsocks_method = config.method.clone();
+                flat.shadowsocks_password = config.password.clone();
             }
             RelayBackendConfig::NaiveProxy(config) => {
                 flat.naive_path = config.path.clone();

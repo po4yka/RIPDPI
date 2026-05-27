@@ -2,7 +2,7 @@
 ///
 /// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant. A payload
 /// carrying any other version is rejected by [`validate_schema_version`].
-const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 2;
+const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 3;
 
 /// `serde(default)` provider for the additive `schemaVersion` envelope field.
 ///
@@ -139,6 +139,10 @@ struct FlatResolvedRelayRuntimeConfig {
     pub shadow_tls_password: Option<String>,
     #[serde(default)]
     pub trojan_password: Option<String>,
+    #[serde(default)]
+    pub shadowsocks_method: String,
+    #[serde(default)]
+    pub shadowsocks_password: Option<String>,
     #[serde(default)]
     pub naive_username: Option<String>,
     #[serde(default)]

@@ -2221,6 +2221,7 @@ dependencies = [
  "rcgen",
  "ring",
  "ripdpi-dns-resolver",
+ "ripdpi-shadowsocks",
  "rustls",
  "serde",
  "serde_json",
@@ -4162,7 +4163,9 @@ dependencies = [
 name = "ripdpi-relay-tls-transports"
 version = "0.1.0"
 dependencies = [
+ "rand 0.10.1",
  "ripdpi-relay-mux",
+ "ripdpi-shadowsocks",
  "ripdpi-shadowtls",
  "ripdpi-trojan",
  "ripdpi-vless",

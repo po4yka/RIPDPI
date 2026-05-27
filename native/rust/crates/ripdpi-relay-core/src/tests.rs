@@ -2,7 +2,7 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
-use local_network_fixture::TrojanLoopback;
+use local_network_fixture::{ShadowsocksLoopback, TrojanLoopback};
 use ripdpi_relay_mux::RelayPoolConfig;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -10,8 +10,8 @@ use crate::backend::{build_backend, RelayBackend};
 use crate::config::{
     ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig, MasqueRelayConfig,
     NaiveProxyRelayConfig, RelayBackendConfig, RelayKind, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig,
-    ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, TrojanRelayConfig, TuicRelayConfig,
-    VlessRealityRelayConfig,
+    ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, ShadowsocksRelayConfig, TrojanRelayConfig,
+    TuicRelayConfig, VlessRealityRelayConfig,
 };
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
@@ -88,6 +88,10 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             password: Some("secret".to_string()),
             root_certificate_pem: None,
         }),
+        "shadowsocks" => RelayBackendConfig::Shadowsocks(ShadowsocksRelayConfig {
+            method: "aes-256-gcm".to_string(),
+            password: Some("secret".to_string()),
+        }),
         "naiveproxy" => RelayBackendConfig::NaiveProxy(NaiveProxyRelayConfig::default()),
         other => RelayBackendConfig::Unsupported(crate::config::UnsupportedRelayConfig { kind: other.to_string() }),
     };
@@ -105,6 +109,7 @@ fn relay_runtime_config_round_trips_flattened_backend_fields() {
         "masque",
         "shadowtls_v3",
         "trojan",
+        "shadowsocks",
     ] {
         let config = sample_config(kind);
         let serialized = serde_json::to_value(&config).expect("serialize relay config");
@@ -166,6 +171,13 @@ fn trojan_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut TrojanRela
     match &mut config.backend {
         RelayBackendConfig::Trojan(trojan) => trojan,
         _ => panic!("expected Trojan config"),
+    }
+}
+
+fn shadowsocks_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut ShadowsocksRelayConfig {
+    match &mut config.backend {
+        RelayBackendConfig::Shadowsocks(shadowsocks) => shadowsocks,
+        _ => panic!("expected Shadowsocks config"),
     }
 }
 
@@ -428,6 +440,53 @@ async fn relay_runtime_builds_trojan_udp_associate_fixture() {
     assert_eq!(echoed, PAYLOAD);
 }
 
+#[tokio::test]
+async fn relay_runtime_builds_shadowsocks_backend_and_connects_tcp_fixture() {
+    const PAYLOAD: &[u8] = b"relay-core shadowsocks tcp payload";
+
+    let fixture = ShadowsocksLoopback::start("aes-256-gcm", "secret").await.expect("start shadowsocks fixture");
+    let mut config = sample_config("shadowsocks");
+    config.common.server = "127.0.0.1".to_string();
+    config.common.server_port = i32::from(fixture.port());
+    shadowsocks_config_mut(&mut config).method = "aes-256-gcm".to_string();
+
+    let backend = build_backend(&config).await.expect("shadowsocks backend");
+    match &backend {
+        RelayBackend::Shadowsocks(_) => {}
+        other => panic!("expected Shadowsocks backend, got {:?}", std::mem::discriminant(other)),
+    }
+
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.target_port()));
+    let mut stream = backend.connect_tcp(&target).await.expect("shadowsocks connect tcp");
+    stream.write_all(PAYLOAD).await.expect("write tunnel payload");
+    let mut echoed = vec![0_u8; PAYLOAD.len()];
+    stream.read_exact(&mut echoed).await.expect("read tunnel payload");
+    assert_eq!(echoed, PAYLOAD);
+}
+
+#[tokio::test]
+async fn relay_runtime_builds_shadowsocks_udp_associate_fixture() {
+    const PAYLOAD: &[u8] = b"relay-core shadowsocks udp payload";
+
+    let fixture = ShadowsocksLoopback::start("aes-256-gcm", "secret").await.expect("start shadowsocks fixture");
+    let mut config = sample_config("shadowsocks");
+    config.common.udp_enabled = true;
+    config.common.server = "127.0.0.1".to_string();
+    config.common.server_port = i32::from(fixture.port());
+
+    let capabilities = planned_backend_capabilities(&config);
+    assert!(capabilities.udp, "Shadowsocks should report UDP capability");
+    let backend = build_backend(&config).await.expect("shadowsocks backend");
+    validate_runtime_config(&config, &backend).expect("shadowsocks udp should validate");
+
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.udp_target_port()));
+    let mut udp = backend.open_udp_session().await.expect("shadowsocks udp session");
+    udp.send_to(&target, PAYLOAD).await.expect("send udp payload");
+    let (source, echoed) = udp.recv_from().await.expect("receive udp payload");
+    assert_eq!(source, target);
+    assert_eq!(echoed, PAYLOAD);
+}
+
 /// Asserts whether `validate_runtime_config` accepts an outbound bind IP for a
 /// relay kind, exercising the descriptor-driven capability gate end to end.
 fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeConfig, supported: bool) {
@@ -451,7 +510,7 @@ fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeCon
 #[test]
 fn relay_planned_capabilities_are_pinned_for_every_kind() {
     // kind_id, tcp, udp, reusable, supports_outbound_bind_ip
-    let pinned: [(&str, bool, bool, bool, bool); 9] = [
+    let pinned: [(&str, bool, bool, bool, bool); 10] = [
         ("hysteria2", true, true, true, false),
         ("tuic_v5", true, true, true, true),
         ("vless_reality", true, false, false, true),
@@ -460,6 +519,7 @@ fn relay_planned_capabilities_are_pinned_for_every_kind() {
         ("masque", true, true, true, false),
         ("shadowtls_v3", true, false, false, true),
         ("trojan", true, true, false, true),
+        ("shadowsocks", true, true, false, true),
         ("naiveproxy", true, false, false, true),
     ];
 
@@ -525,7 +585,8 @@ fn relay_dispatch_class(kind: RelayKind<'_>) -> RelayDispatchClass {
         | RelayKind::ChainRelay
         | RelayKind::Masque
         | RelayKind::ShadowTlsV3
-        | RelayKind::Trojan => RelayDispatchClass::InProcessBackend,
+        | RelayKind::Trojan
+        | RelayKind::Shadowsocks => RelayDispatchClass::InProcessBackend,
         RelayKind::NaiveProxy => RelayDispatchClass::SubprocessFallback,
         RelayKind::Unsupported(_) => RelayDispatchClass::Unsupported,
     }
@@ -545,6 +606,7 @@ fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static str> {
         RelayBackend::Masque(_) => Some("masque"),
         RelayBackend::ShadowTls(_) => Some("shadowtls_v3"),
         RelayBackend::Trojan(_) => Some("trojan"),
+        RelayBackend::Shadowsocks(_) => Some("shadowsocks"),
         RelayBackend::Unsupported { .. } => None,
     }
 }
@@ -581,6 +643,7 @@ fn relay_transport_registry_is_consistent() {
         sample_config("masque"),
         sample_config("shadowtls_v3"),
         sample_config("trojan"),
+        sample_config("shadowsocks"),
         sample_config("naiveproxy"),
         sample_config("off"),
         sample_config("totally_unknown"),
@@ -660,7 +723,9 @@ fn relay_transport_registry_is_consistent() {
     // kind. `relay_backend_kind_id` is exhaustive: a new variant breaks
     // compilation until mapped.
     assert_eq!(None, relay_backend_kind_id(&RelayBackend::Unsupported { kind: "off".to_string() }));
-    for kind_id in ["hysteria2", "tuic_v5", "vless_reality", "chain_relay", "masque", "shadowtls_v3", "trojan"] {
+    for kind_id in
+        ["hysteria2", "tuic_v5", "vless_reality", "chain_relay", "masque", "shadowtls_v3", "trojan", "shadowsocks"]
+    {
         assert!(
             relay_transport_registration(kind_id).is_some(),
             "runtime-dispatch backend kind {kind_id} must have a registration",
@@ -704,7 +769,7 @@ async fn relay_transport_registry_dispatches_vless_sub_modes() {
 #[test]
 fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
     // kind_id, fallback_mode, pool max_active_leases, pool idle_timeout (secs)
-    let pinned: [(&str, Option<&str>, usize, u64); 9] = [
+    let pinned: [(&str, Option<&str>, usize, u64); 10] = [
         ("hysteria2", None, 64, 45),
         ("tuic_v5", None, 64, 45),
         ("vless_reality", None, 16, 5), // reality_tcp sub-mode
@@ -713,6 +778,7 @@ fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
         ("masque", None, 64, 45),
         ("shadowtls_v3", None, 16, 5),
         ("trojan", None, 16, 5),
+        ("shadowsocks", None, 16, 5),
         ("naiveproxy", Some("subprocess"), 16, 5),
     ];
 
@@ -774,16 +840,16 @@ fn legacy_payload_without_schema_version_defaults_to_current_version() {
     assert_eq!("hysteria2", config.kind_id());
     // The flat form re-serializes with the defaulted `schemaVersion`.
     let reserialized = serde_json::to_value(&config).expect("reserialize relay config");
-    assert_eq!(reserialized["schemaVersion"], serde_json::json!(2), "absent schemaVersion defaults to 2");
+    assert_eq!(reserialized["schemaVersion"], serde_json::json!(3), "absent schemaVersion defaults to 3");
 }
 
 #[test]
-fn payload_with_explicit_schema_version_two_deserializes() {
+fn payload_with_explicit_schema_version_three_deserializes() {
     let mut object = relay_config_json_object();
-    object.insert("schemaVersion".to_string(), serde_json::json!(2));
+    object.insert("schemaVersion".to_string(), serde_json::json!(3));
 
     let config: ResolvedRelayRuntimeConfig = serde_json::from_value(serde_json::Value::Object(object))
-        .expect("payload with schemaVersion 2 should deserialize");
+        .expect("payload with schemaVersion 3 should deserialize");
 
     assert_eq!("hysteria2", config.kind_id());
 }
@@ -791,13 +857,13 @@ fn payload_with_explicit_schema_version_two_deserializes() {
 #[test]
 fn payload_with_unsupported_schema_version_is_rejected() {
     let mut object = relay_config_json_object();
-    object.insert("schemaVersion".to_string(), serde_json::json!(3));
+    object.insert("schemaVersion".to_string(), serde_json::json!(4));
 
     let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(serde_json::Value::Object(object))
-        .expect_err("payload with schemaVersion 3 should be rejected");
+        .expect_err("payload with schemaVersion 4 should be rejected");
 
     assert!(
-        err.to_string().contains("unsupported native config schemaVersion 3"),
+        err.to_string().contains("unsupported native config schemaVersion 4"),
         "error should name the found version, got: {err}"
     );
 }
