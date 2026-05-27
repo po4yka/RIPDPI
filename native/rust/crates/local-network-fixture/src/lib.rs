@@ -1,3 +1,4 @@
+mod anytls;
 mod control;
 mod dns;
 mod echo;
@@ -15,6 +16,7 @@ mod types;
 mod util;
 mod webtunnel;
 
+pub use self::anytls::*;
 pub use self::event::*;
 pub use self::fault::*;
 pub use self::masque::*;

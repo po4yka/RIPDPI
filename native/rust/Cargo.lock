@@ -2218,6 +2218,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "md5",
  "quinn",
  "rcgen",
  "ring",
@@ -3446,8 +3447,14 @@ dependencies = [
 name = "ripdpi-anytls"
 version = "0.1.0"
 dependencies = [
+ "boring",
+ "local-network-fixture",
  "md5",
+ "ripdpi-tls-profiles",
+ "sha2",
  "thiserror 2.0.18",
+ "tokio",
+ "tokio-boring",
 ]
 
 [[package]]

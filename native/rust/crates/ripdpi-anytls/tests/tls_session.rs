@@ -1,0 +1,171 @@
+use std::net::Ipv4Addr;
+
+use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig};
+use ripdpi_anytls::padding::PaddingScheme;
+use ripdpi_anytls::session::{AnyTlsClient, AnyTlsClientConfig, AnyTlsError, TargetAddr};
+use ripdpi_anytls::DEFAULT_PADDING_SCHEME;
+use sha2::{Digest, Sha256};
+
+fn client_config(fixture: &AnyTlsLoopback, password: &str) -> AnyTlsClientConfig {
+    AnyTlsClientConfig {
+        server_host: "127.0.0.1".to_owned(),
+        server_port: fixture.port(),
+        server_name: fixture.server_name().to_owned(),
+        password: password.to_owned(),
+        tls_fingerprint_profile: "chrome".to_owned(),
+        root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
+        client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
+    }
+}
+
+#[tokio::test]
+async fn auth_packet_uses_sha256_password_and_padding0_before_session_loop() {
+    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let mut stream =
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("open stream");
+    stream.write_all(b"hello over anytls").await.expect("write");
+    assert_eq!(stream.read_exact_len(17).await.expect("read"), b"hello over anytls");
+
+    let observed = fixture.observed();
+    let expected_hash = Sha256::digest(b"fixture-password");
+    let default_scheme = PaddingScheme::parse(DEFAULT_PADDING_SCHEME.as_bytes()).expect("default scheme");
+    assert_eq!(&observed.auth_packet[..32], expected_hash.as_slice());
+    assert_eq!(
+        u16::from_be_bytes([observed.auth_packet[32], observed.auth_packet[33]]) as usize,
+        default_scheme.auth_padding0_len(0).expect("padding0 len")
+    );
+    assert_eq!(observed.auth_packet.len(), 34 + default_scheme.auth_padding0_len(0).expect("padding0 len"));
+}
+
+#[tokio::test]
+async fn bad_password_is_not_reported_as_a_successful_stream() {
+    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "wrong-password")).expect("client");
+
+    let err = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect_err("bad auth must fail");
+
+    assert!(matches!(err, AnyTlsError::AuthenticationRejected | AnyTlsError::SessionClosed));
+}
+
+#[tokio::test]
+async fn settings_synack_tcp_echo_and_multiplexing_share_one_tls_session() {
+    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let mut first =
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("open first stream");
+    let mut second = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect("open second stream");
+
+    first.write_all(b"first").await.expect("write first");
+    second.write_all(b"second").await.expect("write second");
+
+    assert_eq!(first.read_exact_len(5).await.expect("read first"), b"first");
+    assert_eq!(second.read_exact_len(6).await.expect("read second"), b"second");
+
+    let observed = fixture.observed();
+    assert_eq!(observed.tls_session_count, 1, "new streams must reuse the newest idle AnyTLS session");
+    assert_eq!(observed.settings_padding_md5.len(), 1);
+    assert_eq!(observed.syn_stream_ids, vec![1, 2]);
+    assert_eq!(observed.synack_successes, vec![1, 2]);
+    assert_eq!(observed.tcp_targets.len(), 2);
+}
+
+#[tokio::test]
+async fn synack_error_closes_only_the_rejected_stream() {
+    let fixture = AnyTlsLoopback::start(
+        "fixture-password",
+        AnyTlsLoopbackConfig { reject_next_synack: Some("dial failed".to_owned()), ..AnyTlsLoopbackConfig::default() },
+    )
+    .await
+    .expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let err = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect_err("synack data is an open error");
+
+    assert!(matches!(err, AnyTlsError::StreamOpenRejected(message) if message == "dial failed"));
+}
+
+#[tokio::test]
+async fn update_padding_scheme_is_persisted_for_later_sessions_to_same_server() {
+    let pushed_scheme = "stop=3\n0=9-9\n1=10-10\n2=11-11";
+    let fixture = AnyTlsLoopback::start(
+        "fixture-password",
+        AnyTlsLoopbackConfig {
+            server_padding_scheme: Some(pushed_scheme.to_owned()),
+            close_after_update: true,
+            ..AnyTlsLoopbackConfig::default()
+        },
+    )
+    .await
+    .expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let first_err = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect_err("first session closes after update");
+    assert!(matches!(first_err, AnyTlsError::SessionClosed));
+
+    let mut stream = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect("second session uses pushed padding");
+    stream.write_all(b"updated").await.expect("write");
+    assert_eq!(stream.read_exact_len(7).await.expect("read"), b"updated");
+
+    let observed = fixture.observed();
+    let default_md5 =
+        PaddingScheme::parse(DEFAULT_PADDING_SCHEME.as_bytes()).expect("default").padding_md5().to_owned();
+    let pushed_md5 = PaddingScheme::parse(pushed_scheme.as_bytes()).expect("pushed").padding_md5().to_owned();
+    assert_eq!(observed.settings_padding_md5, vec![default_md5, pushed_md5]);
+    assert_eq!(observed.update_padding_scheme_count, 1);
+}
+
+#[tokio::test]
+async fn heart_request_gets_response_and_alert_closes_session() {
+    let fixture = AnyTlsLoopback::start(
+        "fixture-password",
+        AnyTlsLoopbackConfig {
+            send_heart_request_after_settings: true,
+            send_alert_after_first_syn: Some("upgrade required".to_owned()),
+            ..AnyTlsLoopbackConfig::default()
+        },
+    )
+    .await
+    .expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let err = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect_err("alert closes session");
+
+    assert!(matches!(err, AnyTlsError::Alert(message) if message == "upgrade required"));
+    assert_eq!(fixture.observed().heart_responses, 1);
+}
+
+#[tokio::test]
+async fn udp_uses_sing_box_udp_over_tcp_v2_magic_target() {
+    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let mut udp = client.open_udp_over_tcp().await.expect("open udp-over-tcp");
+    udp.send_datagram(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.udp_target_port(), b"dns")
+        .await
+        .expect("send udp");
+    let datagram = udp.recv_datagram().await.expect("recv udp");
+
+    assert_eq!(datagram.payload, b"dns");
+    assert_eq!(fixture.observed().udp_magic_targets, vec!["sp.v2.udp-over-tcp.arpa:0".to_owned()]);
+}
