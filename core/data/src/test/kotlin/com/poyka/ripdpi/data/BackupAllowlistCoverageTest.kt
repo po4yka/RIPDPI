@@ -62,6 +62,16 @@ class BackupAllowlistCoverageTest {
                     serverPort = 8443,
                     password = "pw",
                 ),
+            "anytls" to
+                ProxyProfile.AnyTls(
+                    id = "anytls-1",
+                    displayName = "AnyTLS",
+                    groupId = "g-1",
+                    server = "anytls.example.com",
+                    serverPort = 443,
+                    serverName = "front.example.com",
+                    password = "pw",
+                ),
             "trojan-go" to
                 ProxyProfile.TrojanGo(
                     id = "tgo-1",

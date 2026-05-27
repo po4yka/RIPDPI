@@ -129,6 +129,15 @@ private fun profileSummary(profile: ProxyProfile): String =
             )
         }
 
+        is ProxyProfile.AnyTls -> {
+            stringResource(
+                R.string.import_profile_summary_endpoint,
+                "AnyTLS",
+                profile.server,
+                profile.serverPort,
+            )
+        }
+
         is ProxyProfile.TrojanGo -> {
             stringResource(
                 R.string.import_profile_summary_endpoint,

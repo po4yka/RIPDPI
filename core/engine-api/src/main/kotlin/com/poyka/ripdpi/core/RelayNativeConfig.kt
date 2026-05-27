@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -105,6 +106,8 @@ data class ResolvedRipDpiRelayConfig(
     val chainExitUuid: String? = null,
     val hysteriaPassword: String? = null,
     val hysteriaSalamanderKey: String? = null,
+    @SerialName("anytlsPassword")
+    val anyTlsPassword: String? = null,
     val tuicUuid: String? = null,
     val tuicPassword: String? = null,
     val shadowTlsPassword: String? = null,
@@ -143,7 +146,7 @@ data class ResolvedRipDpiRelayConfig(
  * value. Bumped only on a genuinely breaking shape change. See
  * `docs/architecture/CONFIG_CONTRACTS.md` §8.
  */
-const val RelayNativeConfigSchemaVersion: Int = 3
+const val RelayNativeConfigSchemaVersion: Int = 4
 
 // === Section models ======================================================
 //
@@ -246,6 +249,11 @@ data class RelayHysteria2Section(
     val hysteriaSalamanderKey: String?,
 )
 
+/** AnyTLS credential. */
+data class RelayAnyTlsSection(
+    val anyTlsPassword: String?,
+)
+
 /** Pluggable-transport fields: NaiveProxy plus obfs4 / WebTunnel / Snowflake. */
 data class RelayPluggableTransportSection(
     val naivePath: String,
@@ -292,6 +300,7 @@ data class RelayConfigSections(
     val trojan: RelayTrojanSection,
     val shadowsocks: RelayShadowsocksSection,
     val hysteria2: RelayHysteria2Section,
+    val anyTls: RelayAnyTlsSection,
     val pluggableTransport: RelayPluggableTransportSection,
     val cloudflare: RelayCloudflareSection,
     val appsScript: RelayAppsScriptSection,
@@ -391,6 +400,11 @@ private fun ResolvedRipDpiRelayConfig.hysteria2Section(): RelayHysteria2Section 
         hysteriaSalamanderKey = hysteriaSalamanderKey,
     )
 
+private fun ResolvedRipDpiRelayConfig.anyTlsSection(): RelayAnyTlsSection =
+    RelayAnyTlsSection(
+        anyTlsPassword = anyTlsPassword,
+    )
+
 private fun ResolvedRipDpiRelayConfig.pluggableTransportSection(): RelayPluggableTransportSection =
     RelayPluggableTransportSection(
         naivePath = naivePath,
@@ -435,6 +449,7 @@ fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
         trojan = trojanSection(),
         shadowsocks = shadowsocksSection(),
         hysteria2 = hysteria2Section(),
+        anyTls = anyTlsSection(),
         pluggableTransport = pluggableTransportSection(),
         cloudflare = cloudflareSection(),
         appsScript = appsScriptSection(),
@@ -499,6 +514,7 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         chainExitUuid = chain.chainExitUuid,
         hysteriaPassword = hysteria2.hysteriaPassword,
         hysteriaSalamanderKey = hysteria2.hysteriaSalamanderKey,
+        anyTlsPassword = anyTls.anyTlsPassword,
         tuicUuid = tuic.tuicUuid,
         tuicPassword = tuic.tuicPassword,
         shadowTlsPassword = shadowTls.shadowTlsPassword,

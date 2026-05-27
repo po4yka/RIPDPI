@@ -194,8 +194,25 @@ object SingBoxSubscriptionParser {
                 }
             }
 
+            "anytls" -> {
+                val password = obj.string("password")
+                if (server != null && port != null && password != null) {
+                    ProxyProfile.AnyTls(
+                        id = newId(),
+                        displayName = name,
+                        groupId = groupId,
+                        server = server,
+                        serverPort = port,
+                        serverName = obj.nestedString("tls", "server_name") ?: obj.string("server_name") ?: server,
+                        password = password,
+                    )
+                } else {
+                    rawConfig(name, groupId, obj)
+                }
+            }
+
             else -> {
-                // hysteria (v1), tuic, wireguard, anytls, shadowtls, ssh, … — no
+                // hysteria (v1), tuic, wireguard, shadowtls, ssh, … — no
                 // first-class subtype; round-trip the raw JSON fragment so the
                 // engine can still consume it via the custom-config path.
                 rawConfig(name, groupId, obj)
@@ -219,6 +236,11 @@ object SingBoxSubscriptionParser {
 
     private fun JsonObject.string(key: String): String? =
         (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+
+    private fun JsonObject.nestedString(
+        objectKey: String,
+        valueKey: String,
+    ): String? = (this[objectKey] as? JsonObject)?.string(valueKey)
 
     private fun JsonObject.int(key: String): Int? {
         val primitive = this[key] as? JsonPrimitive ?: return null

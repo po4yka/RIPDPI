@@ -152,6 +152,18 @@ sealed interface ProxyProfile {
     ) : ProxyProfile
 
     @Serializable
+    @SerialName("anytls")
+    data class AnyTls(
+        override val id: String,
+        override val displayName: String,
+        override val groupId: String,
+        val server: String,
+        val serverPort: Int,
+        val serverName: String,
+        val password: String,
+    ) : ProxyProfile
+
+    @Serializable
     @SerialName("trojan-go")
     data class TrojanGo(
         override val id: String,

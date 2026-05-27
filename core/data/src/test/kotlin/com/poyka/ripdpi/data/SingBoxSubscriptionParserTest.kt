@@ -92,6 +92,36 @@ class SingBoxSubscriptionParserTest {
     }
 
     @Test
+    fun `maps anytls outbound to anytls profile`() {
+        val json =
+            """
+            {
+              "outbounds": [
+                {
+                  "type": "anytls",
+                  "tag": "anytls-node",
+                  "server": "anytls.example.com",
+                  "server_port": 443,
+                  "password": "anytls-secret",
+                  "tls": {"server_name": "front.example"}
+                }
+              ]
+            }
+            """.trimIndent()
+
+        val parsed = success(SingBoxSubscriptionParser.parse(json, groupId))
+
+        val profile = parsed.profiles.single()
+        assertTrue(profile is ProxyProfile.AnyTls)
+        profile as ProxyProfile.AnyTls
+        assertEquals("anytls-node", profile.displayName)
+        assertEquals("anytls.example.com", profile.server)
+        assertEquals(443, profile.serverPort)
+        assertEquals("front.example", profile.serverName)
+        assertEquals("anytls-secret", profile.password)
+    }
+
+    @Test
     fun `ignores inbounds route and dns sections`() {
         val json =
             """

@@ -15,7 +15,7 @@ import java.util.UUID
  * URI into a [ProxyProfile].
  *
  * Supported schemes: `vless://`, `vmess://`, `ss://` (SIP002), `trojan://`,
- * `hysteria2://` / `hy2://`, `tuic://`. An unrecognised scheme — or a
+ * `hysteria2://` / `hy2://`, `anytls://`, `tuic://`. An unrecognised scheme — or a
  * structurally malformed URI of a known scheme — yields `null` so callers can
  * skip the line.
  *
@@ -55,6 +55,7 @@ object ProxyUriCodec {
                 "ss" -> parseShadowsocks(trimmed)
                 "trojan" -> parseTrojan(trimmed)
                 "hysteria2", "hy2" -> parseHysteria2(trimmed)
+                "anytls" -> parseAnyTls(trimmed)
                 "tuic" -> parseTuic(trimmed)
                 else -> null
             }
@@ -180,6 +181,23 @@ object ProxyUriCodec {
     }
 
     @Suppress("ReturnCount")
+    private fun parseAnyTls(uri: String): ProxyProfile? {
+        val parsed = URI(uri)
+        val password = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
+        val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
+        val port = parsed.port.takeIf { it > 0 } ?: return null
+        return ProxyProfile.AnyTls(
+            id = newId(),
+            displayName = displayName(parsed.fragment, host),
+            groupId = "",
+            server = host,
+            serverPort = port,
+            serverName = queryValue(parsed.rawQuery, "sni") ?: queryValue(parsed.rawQuery, "serverName") ?: host,
+            password = password,
+        )
+    }
+
+    @Suppress("ReturnCount")
     private fun parseTuic(uri: String): ProxyProfile? {
         // TUIC has no first-class ProxyProfile subtype; round-trip as RawConfig
         // while still validating it is a structurally usable node URI.
@@ -211,6 +229,24 @@ object ProxyUriCodec {
         val decoded = fragment?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrNull() ?: it }
         return decoded?.takeIf { it.isNotBlank() } ?: host
     }
+
+    private fun queryValue(
+        rawQuery: String?,
+        key: String,
+    ): String? =
+        rawQuery
+            ?.split('&')
+            ?.asSequence()
+            ?.mapNotNull { part ->
+                val separator = part.indexOf('=')
+                if (separator <= 0) {
+                    null
+                } else {
+                    part.substring(0, separator) to part.substring(separator + 1)
+                }
+            }?.firstOrNull { (name, value) -> name == key && value.isNotBlank() }
+            ?.second
+            ?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
 
     @Suppress("ReturnCount")
     private fun decodeBase64(raw: String): String? {

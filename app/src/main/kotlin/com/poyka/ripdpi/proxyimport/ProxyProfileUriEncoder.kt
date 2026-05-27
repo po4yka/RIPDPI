@@ -44,6 +44,10 @@ object ProxyProfileUriEncoder {
                 userInfoUri("hysteria2", profile.password, profile.server, profile.serverPort, profile.displayName)
             }
 
+            is ProxyProfile.AnyTls -> {
+                userInfoUri("anytls", profile.password, profile.server, profile.serverPort, profile.displayName)
+            }
+
             is ProxyProfile.TrojanGo -> {
                 userInfoUri("trojan-go", profile.password, profile.server, profile.serverPort, profile.displayName)
             }

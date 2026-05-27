@@ -31,8 +31,8 @@ data class ClashSubscriptionResult(
  * Detection mirrors NekoBox's `RawUpdater.parseRaw()`: a payload is treated as
  * Clash YAML when it carries a top-level `proxies:` key. Each entry is
  * dispatched on its `type:` field; `ss`, `vmess`, `vless`, `trojan`,
- * `hysteria2` map to first-class [ProxyProfile] subtypes, every other type
- * (`socks5`, `http`, `hysteria`, `anytls`, `tuic`, …) round-trips as
+ * `hysteria2`, `anytls` map to first-class [ProxyProfile] subtypes, every other type
+ * (`socks5`, `http`, `hysteria`, `tuic`, …) round-trips as
  * [ProxyProfile.RawConfig]. Unknown keys on a node are ignored. Routing
  * sections (`rules:`, `proxy-groups:`) are not consulted.
  */
@@ -153,9 +153,22 @@ object ClashSubscriptionParser {
                 )
             }
 
+            "anytls" -> {
+                val server = node.requireString("server", index)
+                ProxyProfile.AnyTls(
+                    id = newId(),
+                    displayName = name,
+                    groupId = groupId,
+                    server = server,
+                    serverPort = node.requirePort("port", index),
+                    serverName = node.string("sni") ?: node.string("servername") ?: server,
+                    password = node.requireString("password", index),
+                )
+            }
+
             else -> {
-                // socks5, http, hysteria (v1), anytls, tuic, … — no first-class
-                // subtype, so round-trip the node as an opaque raw config.
+                // socks5, http, hysteria (v1), tuic, … — no first-class subtype,
+                // so round-trip the node as an opaque raw config.
                 ProxyProfile.RawConfig(
                     id = newId(),
                     displayName = name,

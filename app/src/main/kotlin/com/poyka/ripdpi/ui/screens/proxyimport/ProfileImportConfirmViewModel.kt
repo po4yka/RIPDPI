@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -84,12 +85,18 @@ class ProfileImportConfirmViewModel
         private suspend fun nextOrder(): Int = repository.list().size
 
         private suspend fun activateNativeRelayProfile(profile: ProxyProfile) {
-            if (profile !is ProxyProfile.Trojan && profile !is ProxyProfile.Shadowsocks) return
+            if (profile !is ProxyProfile.Trojan &&
+                profile !is ProxyProfile.Shadowsocks &&
+                profile !is ProxyProfile.AnyTls
+            ) {
+                return
+            }
             val profileId = DefaultRelayProfileId
             val relayKind =
                 when (profile) {
                     is ProxyProfile.Trojan -> RelayKindTrojan
                     is ProxyProfile.Shadowsocks -> RelayKindShadowsocks
+                    is ProxyProfile.AnyTls -> RelayKindAnyTls
                 }
             val endpoint = relayEndpoint(profile)
             relayProfileStore.save(
@@ -98,7 +105,7 @@ class ProfileImportConfirmViewModel
                     kind = relayKind,
                     server = endpoint.server,
                     serverPort = endpoint.serverPort,
-                    serverName = endpoint.server,
+                    serverName = endpoint.serverName,
                     udpEnabled = true,
                 ),
             )
@@ -111,7 +118,7 @@ class ProfileImportConfirmViewModel
                 setRelayProfileId(profileId)
                 setRelayServer(endpoint.server)
                 setRelayServerPort(endpoint.serverPort)
-                setRelayServerName(endpoint.server)
+                setRelayServerName(endpoint.serverName)
                 setRelayUdpEnabled(true)
             }
         }
@@ -122,6 +129,7 @@ class ProfileImportConfirmViewModel
                     RelayImportEndpoint(
                         server = profile.server,
                         serverPort = profile.serverPort,
+                        serverName = profile.server,
                     )
                 }
 
@@ -129,6 +137,15 @@ class ProfileImportConfirmViewModel
                     RelayImportEndpoint(
                         server = profile.server,
                         serverPort = profile.serverPort,
+                        serverName = profile.server,
+                    )
+                }
+
+                is ProxyProfile.AnyTls -> {
+                    RelayImportEndpoint(
+                        server = profile.server,
+                        serverPort = profile.serverPort,
+                        serverName = profile.serverName,
                     )
                 }
 
@@ -157,6 +174,13 @@ class ProfileImportConfirmViewModel
                     )
                 }
 
+                is ProxyProfile.AnyTls -> {
+                    RelayCredentialRecord(
+                        profileId = profileId,
+                        anyTlsPassword = profile.password,
+                    )
+                }
+
                 else -> {
                     error("unsupported relay import profile ${profile::class.simpleName}")
                 }
@@ -166,4 +190,5 @@ class ProfileImportConfirmViewModel
 private data class RelayImportEndpoint(
     val server: String,
     val serverPort: Int,
+    val serverName: String,
 )

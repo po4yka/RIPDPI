@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiRelayConfig
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindOff
@@ -111,6 +112,7 @@ class RelayKindDescriptorDriftTest {
                 "cloudflare_tunnel" to listOf(true, false, true, true),
                 "chain_relay" to listOf(true, false, false, true),
                 "masque" to listOf(true, true, true, false),
+                "anytls" to listOf(true, true, true, true),
                 "shadowtls_v3" to listOf(true, false, false, true),
                 "trojan" to listOf(true, true, false, true),
                 "shadowsocks" to listOf(true, true, false, true),
@@ -154,6 +156,7 @@ class RelayKindDescriptorDriftTest {
     fun `udp gate accepts udp-capable kinds through the descriptor`() {
         listOf(
             RelayKindHysteria2,
+            RelayKindAnyTls,
             RelayKindMasque,
             RelayKindShadowsocks,
             RelayKindTrojan,

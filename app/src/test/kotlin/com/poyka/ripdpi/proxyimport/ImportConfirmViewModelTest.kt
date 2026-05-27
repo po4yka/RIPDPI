@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -152,6 +153,47 @@ class ImportConfirmViewModelTest {
             assertEquals("ss.example", relayProfile?.serverName)
             assertEquals("2022-blake3-aes-256-gcm", relayCredentials?.shadowsocksMethod)
             assertEquals(shadowsocksCredential, relayCredentials?.shadowsocksPassword)
+        }
+
+    @Test
+    fun `confirming an anytls profile import activates the native relay profile`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val anyTlsCredential = relayImportCredentialFixture("anytls")
+            val profile =
+                ProxyProfile.AnyTls(
+                    id = "anytls-node",
+                    displayName = "AnyTLS",
+                    groupId = "",
+                    server = "anytls.example",
+                    serverPort = 443,
+                    serverName = "front.example",
+                    password = anyTlsCredential,
+                )
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    repository = repository,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
+                    settingsRepository = settingsRepository,
+                )
+
+            viewModel.setProfile(profile)
+            viewModel.confirm()
+            advanceUntilIdle()
+
+            val settings = settingsRepository.snapshot()
+            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
+            val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
+            assertEquals(RelayKindAnyTls, settings.relayKind)
+            assertTrue(settings.relayEnabled)
+            assertEquals(RelayKindAnyTls, relayProfile?.kind)
+            assertEquals("anytls.example", relayProfile?.server)
+            assertEquals("front.example", relayProfile?.serverName)
+            assertEquals(anyTlsCredential, relayCredentials?.anyTlsPassword)
         }
 
     @Test

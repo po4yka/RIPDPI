@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
+import com.poyka.ripdpi.core.RelayAnyTlsSection
 import com.poyka.ripdpi.core.RelayAppsScriptSection
 import com.poyka.ripdpi.core.RelayChainSection
 import com.poyka.ripdpi.core.RelayCloudflareSection
@@ -140,6 +141,7 @@ private class ResolvedRelayConfigBuilder(
             trojan = trojanSection(),
             shadowsocks = shadowsocksSection(),
             hysteria2 = hysteria2Section(),
+            anyTls = anyTlsSection(),
             pluggableTransport = pluggableTransportSection(),
             cloudflare = cloudflareSection(),
             appsScript = appsScriptSection(),
@@ -239,6 +241,11 @@ private class ResolvedRelayConfigBuilder(
         RelayHysteria2Section(
             hysteriaPassword = credentials?.hysteriaPassword,
             hysteriaSalamanderKey = credentials?.hysteriaSalamanderKey,
+        )
+
+    private fun anyTlsSection(): RelayAnyTlsSection =
+        RelayAnyTlsSection(
+            anyTlsPassword = credentials?.anyTlsPassword,
         )
 
     private fun pluggableTransportSection(): RelayPluggableTransportSection =

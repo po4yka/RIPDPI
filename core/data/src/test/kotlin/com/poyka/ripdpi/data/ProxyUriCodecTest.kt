@@ -152,6 +152,21 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `parses anytls uri into an anytls profile`() {
+        val uri = "anytls://anytls-pass@anytls.example.com:443?sni=front.example#anytls-node"
+
+        val profile = ProxyUriCodec.parse(uri)
+
+        assertTrue(profile is ProxyProfile.AnyTls)
+        profile as ProxyProfile.AnyTls
+        assertEquals("anytls.example.com", profile.server)
+        assertEquals(443, profile.serverPort)
+        assertEquals("front.example", profile.serverName)
+        assertEquals("anytls-pass", profile.password)
+        assertEquals("anytls-node", profile.displayName)
+    }
+
+    @Test
     fun `unknown scheme returns null`() {
         assertNull(ProxyUriCodec.parse("wireguard://something@host:51820"))
         assertNull(ProxyUriCodec.parse("not-a-uri-at-all"))

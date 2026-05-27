@@ -85,6 +85,7 @@ data class RelayCredentialRecord(
     val hysteriaSalamanderKey: String? = null,
     val tuicUuid: String? = null,
     val tuicPassword: String? = null,
+    val anyTlsPassword: String? = null,
     val shadowTlsPassword: String? = null,
     val trojanPassword: String? = null,
     val shadowsocksMethod: String? = null,

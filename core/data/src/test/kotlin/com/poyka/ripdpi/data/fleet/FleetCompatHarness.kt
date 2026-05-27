@@ -291,6 +291,7 @@ object FleetCompatHarness {
             is ProxyProfile.Shadowsocks -> "shadowsocks|$server|$serverPort"
             is ProxyProfile.Trojan -> "trojan|$server|$serverPort"
             is ProxyProfile.Hysteria2 -> "hysteria2|$server|$serverPort"
+            is ProxyProfile.AnyTls -> "anytls|$server|$serverPort"
             is ProxyProfile.TrojanGo -> "trojan-go|$server|$serverPort"
             is ProxyProfile.RawConfig -> null
         }
@@ -317,6 +318,10 @@ object FleetCompatHarness {
 
             is ProxyProfile.Hysteria2 -> {
                 mapOf("type" to "hysteria2", "name" to displayName, "server" to server, "port" to serverPort.toString())
+            }
+
+            is ProxyProfile.AnyTls -> {
+                mapOf("type" to "anytls", "name" to displayName, "server" to server, "port" to serverPort.toString())
             }
 
             is ProxyProfile.TrojanGo -> {

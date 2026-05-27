@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
@@ -160,6 +161,17 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             udp = true,
             reusable = true,
             supportsOutboundBindIp = false,
+            subprocessBacked = false,
+            finalmaskSupport = RelayFinalmaskSupport.NONE,
+            configBacking = RelayConfigBacking.INLINE_SETTINGS_BACKED,
+        ),
+        RelayKindDescriptor(
+            kindId = RelayKindAnyTls,
+            label = "AnyTLS",
+            tcp = true,
+            udp = true,
+            reusable = true,
+            supportsOutboundBindIp = true,
             subprocessBacked = false,
             finalmaskSupport = RelayFinalmaskSupport.NONE,
             configBacking = RelayConfigBacking.INLINE_SETTINGS_BACKED,

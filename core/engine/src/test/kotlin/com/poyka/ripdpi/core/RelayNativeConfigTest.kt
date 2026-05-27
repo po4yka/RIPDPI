@@ -90,6 +90,7 @@ class RelayNativeConfigTest {
             masqueConfig(),
             tuicConfig(),
             hysteria2Config(),
+            anyTlsConfig(),
             trojanConfig(),
             shadowsocksConfig(),
             shadowTlsConfig(),
@@ -137,6 +138,12 @@ class RelayNativeConfigTest {
         baseConfig("hysteria2").copy(
             hysteriaPassword = placeholder(4),
             hysteriaSalamanderKey = "hysteria-salamander-key",
+        )
+
+    private fun anyTlsConfig(): ResolvedRipDpiRelayConfig =
+        baseConfig("anytls").copy(
+            anyTlsPassword = placeholder(11),
+            udpEnabled = true,
         )
 
     private fun trojanConfig(): ResolvedRipDpiRelayConfig =
@@ -288,6 +295,7 @@ class RelayNativeConfigTest {
             chainExitUuid = "chain-exit-uuid",
             hysteriaPassword = placeholder(1),
             hysteriaSalamanderKey = "hysteria-salamander-key",
+            anyTlsPassword = placeholder(11),
             tuicUuid = "tuic-uuid",
             tuicPassword = placeholder(2),
             shadowTlsPassword = placeholder(3),
@@ -358,7 +366,7 @@ class RelayNativeConfigTest {
                 "tcpFallbackEnabled",
             )
 
-        // The 54 keys carrying a default; emitted only when set off-default.
+        // The 55 keys carrying a default; emitted only when set off-default.
         private val defaultedWireKeys =
             setOf(
                 "outboundBindIp",
@@ -387,6 +395,7 @@ class RelayNativeConfigTest {
                 "chainExitUuid",
                 "hysteriaPassword",
                 "hysteriaSalamanderKey",
+                "anytlsPassword",
                 "tuicUuid",
                 "tuicPassword",
                 "shadowTlsPassword",
@@ -417,7 +426,7 @@ class RelayNativeConfigTest {
                 "finalmask",
             )
 
-        // The complete flat wire object: required + defaulted = 78 keys.
+        // The complete flat wire object: required + defaulted = 79 keys.
         private val expectedWireKeys = requiredWireKeys + defaultedWireKeys
     }
 }

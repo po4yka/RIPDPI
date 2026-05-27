@@ -2,7 +2,7 @@
 ///
 /// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant. A payload
 /// carrying any other version is rejected by [`validate_schema_version`].
-const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 3;
+const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 4;
 
 /// `serde(default)` provider for the additive `schemaVersion` envelope field.
 ///

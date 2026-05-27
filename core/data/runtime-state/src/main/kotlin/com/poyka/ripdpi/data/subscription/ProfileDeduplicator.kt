@@ -71,6 +71,7 @@ object ProfileDeduplicator {
             is ProxyProfile.Shadowsocks -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
             is ProxyProfile.Trojan -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
             is ProxyProfile.Hysteria2 -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
+            is ProxyProfile.AnyTls -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
             is ProxyProfile.TrojanGo -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
             is ProxyProfile.RawConfig -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
         }
@@ -85,6 +86,7 @@ object ProfileDeduplicator {
             is ProxyProfile.Shadowsocks -> profile.copy(displayName = displayName)
             is ProxyProfile.Trojan -> profile.copy(displayName = displayName)
             is ProxyProfile.Hysteria2 -> profile.copy(displayName = displayName)
+            is ProxyProfile.AnyTls -> profile.copy(displayName = displayName)
             is ProxyProfile.TrojanGo -> profile.copy(displayName = displayName)
             is ProxyProfile.RawConfig -> profile.copy(displayName = displayName)
         }

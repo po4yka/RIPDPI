@@ -133,6 +133,31 @@ class ClashSubscriptionParserTest {
     }
 
     @Test
+    fun `maps anytls nodes to anytls profiles`() {
+        val yaml =
+            """
+            proxies:
+              - name: anytls-node
+                type: anytls
+                server: anytls.example.com
+                port: 443
+                password: anytls-secret
+                sni: front.example
+            """.trimIndent()
+
+        val result = ClashSubscriptionParser.parse(yaml, groupId)
+
+        assertTrue(result.errors.isEmpty())
+        val profile = result.profiles.single()
+        assertTrue(profile is ProxyProfile.AnyTls)
+        profile as ProxyProfile.AnyTls
+        assertEquals("anytls.example.com", profile.server)
+        assertEquals(443, profile.serverPort)
+        assertEquals("front.example", profile.serverName)
+        assertEquals("anytls-secret", profile.password)
+    }
+
+    @Test
     fun `surfaces a typed error with the failing node index for a malformed node`() {
         val yaml =
             """

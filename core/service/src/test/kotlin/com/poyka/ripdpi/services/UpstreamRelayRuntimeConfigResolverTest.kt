@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -584,5 +585,42 @@ class UpstreamRelayRuntimeConfigResolverTest {
             assertEquals(RelayKindHysteria2, resolved.kind)
             assertEquals(credentialFixture("hysteria"), resolved.hysteriaPassword)
             assertEquals("salamander-key", resolved.hysteriaSalamanderKey)
+        }
+
+    @Test
+    fun `resolve anytls family carries password and udp setting`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "anytls",
+                                    anyTlsPassword = credentialFixture("anytls"),
+                                ),
+                            )
+                        },
+                )
+
+            val resolved =
+                resolver.resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindAnyTls,
+                            profileId = "anytls",
+                            server = "anytls.example",
+                            serverPort = 443,
+                            serverName = "front.example",
+                            udpEnabled = true,
+                        ),
+                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                )
+
+            assertEquals(RelayKindAnyTls, resolved.kind)
+            assertTrue(resolved.udpEnabled)
+            assertEquals("front.example", resolved.serverName)
+            assertEquals(credentialFixture("anytls"), resolved.anyTlsPassword)
         }
 }

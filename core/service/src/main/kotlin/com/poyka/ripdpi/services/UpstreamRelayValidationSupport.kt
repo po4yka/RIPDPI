@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindShadowsocks
@@ -45,6 +46,10 @@ internal fun validateDefaultRelayCredentials(
 
             RelayKindHysteria2 -> {
                 !credentials?.hysteriaPassword.isNullOrBlank()
+            }
+
+            RelayKindAnyTls -> {
+                !credentials?.anyTlsPassword.isNullOrBlank()
             }
 
             RelayKindShadowsocks -> {
@@ -128,7 +133,7 @@ internal fun validateSharedRelayTransportFeatures(config: RipDpiRelayConfig) {
     // RelayTransportDescriptor `udp` flag. An unrecognised kind has no
     // descriptor row and is treated as UDP-incapable, as before.
     require(!config.udpEnabled || relayKindDescriptor(config.kind)?.udp == true) {
-        "Relay UDP mode is only available for Hysteria2, MASQUE, Shadowsocks, Trojan, and TUIC profiles"
+        "Relay UDP mode is only available for Hysteria2, AnyTLS, MASQUE, Shadowsocks, Trojan, and TUIC profiles"
     }
     require(!(config.vlessTransport == RelayVlessTransportXhttp && config.udpEnabled)) {
         "xHTTP transport does not support UDP mode"
@@ -188,6 +193,10 @@ internal fun validateDefaultRelayFeatures(
         require(config.appsScriptScriptIds.isNotEmpty()) {
             "Google Apps Script relay requires at least one Apps Script deployment id"
         }
+    }
+    if (config.kind == RelayKindAnyTls) {
+        require(config.server.isNotBlank()) { "AnyTLS requires a server hostname" }
+        require(config.serverName.isNotBlank()) { "AnyTLS requires a TLS server name" }
     }
 }
 

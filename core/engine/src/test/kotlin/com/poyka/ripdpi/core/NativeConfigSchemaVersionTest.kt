@@ -94,11 +94,11 @@ class NativeConfigSchemaVersionTest {
         val versioned =
             relayJson.decodeFromString(
                 ResolvedRipDpiRelayConfig.serializer(),
-                encoded.replaceFirst("{", """{"schemaVersion":3,"""),
+                encoded.replaceFirst("{", """{"schemaVersion":4,"""),
             )
 
         assertEquals(RelayNativeConfigSchemaVersion, legacy.schemaVersion)
-        assertEquals(3, RelayNativeConfigSchemaVersion)
+        assertEquals(4, RelayNativeConfigSchemaVersion)
         assertEquals(RelayNativeConfigSchemaVersion, versioned.schemaVersion)
     }
 

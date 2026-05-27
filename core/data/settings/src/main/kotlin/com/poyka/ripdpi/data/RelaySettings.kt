@@ -8,6 +8,7 @@ const val RelayKindVless = "vless"
 const val RelayKindHysteria2 = "hysteria2"
 const val RelayKindChainRelay = "chain_relay"
 const val RelayKindMasque = "masque"
+const val RelayKindAnyTls = "anytls"
 const val RelayKindCloudflareTunnel = "cloudflare_tunnel"
 const val RelayKindTuicV5 = "tuic_v5"
 const val RelayKindShadowTlsV3 = "shadowtls_v3"
@@ -49,6 +50,7 @@ fun normalizeRelayKind(value: String): String =
         RelayKindHysteria2 -> RelayKindHysteria2
         RelayKindChainRelay -> RelayKindChainRelay
         RelayKindMasque -> RelayKindMasque
+        RelayKindAnyTls -> RelayKindAnyTls
         RelayKindCloudflareTunnel -> RelayKindCloudflareTunnel
         RelayKindTuicV5 -> RelayKindTuicV5
         RelayKindShadowTlsV3 -> RelayKindShadowTlsV3

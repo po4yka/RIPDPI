@@ -140,6 +140,15 @@ object BackupAllowlist {
                 "password" to Classification.REDACTED,
             )
 
+    private val anyTlsFields: Map<String, Classification> =
+        commonFields +
+            mapOf(
+                "server" to Classification.PUBLIC,
+                "serverPort" to Classification.PUBLIC,
+                "serverName" to Classification.PUBLIC,
+                "password" to Classification.REDACTED,
+            )
+
     private val trojanGoFields: Map<String, Classification> =
         commonFields +
             mapOf(
@@ -160,6 +169,7 @@ object BackupAllowlist {
             "shadowsocks" to shadowsocksFields,
             "trojan" to trojanFields,
             "hysteria2" to hysteria2Fields,
+            "anytls" to anyTlsFields,
             "trojan-go" to trojanGoFields,
             "raw-config" to rawConfigFields,
         )
