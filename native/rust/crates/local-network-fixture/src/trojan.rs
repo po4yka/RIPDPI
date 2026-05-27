@@ -30,6 +30,7 @@ pub struct TrojanLoopback {
     udp_target_address: SocketAddr,
     certificate_pem: String,
     observed: Arc<Mutex<TrojanLoopbackObserved>>,
+    // Drop order: shutdown teardown-before thread; signal the server before joining the worker.
     shutdown: Option<oneshot::Sender<()>>,
     thread: Option<JoinHandle<()>>,
 }
