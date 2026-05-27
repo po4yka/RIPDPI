@@ -274,6 +274,9 @@ class MainActivityShellInstrumentedTest {
                 notifications = PermissionStatus.RequiresSystemPrompt,
                 batteryOptimization = PermissionStatus.Granted,
             )
+        composeRule.runOnIdle {
+            recordingMainActivityHost.refreshPermissionSnapshot()
+        }
 
         val originalIntent = sendConfiguredStartIntent()
 
