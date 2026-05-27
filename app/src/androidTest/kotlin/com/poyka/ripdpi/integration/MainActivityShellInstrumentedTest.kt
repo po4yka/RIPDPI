@@ -274,21 +274,17 @@ class MainActivityShellInstrumentedTest {
                 notifications = PermissionStatus.RequiresSystemPrompt,
                 batteryOptimization = PermissionStatus.Granted,
             )
-        composeRule.runOnIdle {
-            recordingMainActivityHost.refreshPermissionSnapshot()
+        val host: RecordingMainActivityHost = recordingMainActivityHost
+        composeRule.runOnUiThread {
+            host.refreshPermissionSnapshot()
+            host.requestPrimaryConnectionAction()
         }
 
-        val originalIntent = sendConfiguredStartIntent()
-
-        try {
-            composeRule.waitUntil(timeoutMillis = 5_000) {
-                recordingMainActivityHost.commands.contains(MainActivityHostCommand.RequestNotificationsPermission)
-            }
-
-            assertTrue(recordingServiceController.startedModes.isEmpty())
-        } finally {
-            restoreScenarioIntent(originalIntent)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            recordingMainActivityHost.commands.contains(MainActivityHostCommand.RequestNotificationsPermission)
         }
+
+        assertTrue(recordingServiceController.startedModes.isEmpty())
     }
 
     @Test

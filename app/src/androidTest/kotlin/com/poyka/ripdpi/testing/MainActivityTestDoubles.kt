@@ -186,6 +186,10 @@ internal class RecordingMainActivityHost : MainActivityHost {
         viewModel?.refreshPermissionSnapshot()
     }
 
+    fun requestPrimaryConnectionAction() {
+        viewModel?.onPrimaryConnectionAction()
+    }
+
     fun dispatchNotificationPermissionResult(
         granted: Boolean,
         shouldShowRationale: Boolean,
