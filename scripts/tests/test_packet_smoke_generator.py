@@ -79,6 +79,36 @@ class PacketSmokeGeneratorTest(unittest.TestCase):
             ],
         )
 
+    def test_generated_cells_exclude_fake_tls_non_host_offsets(self):
+        generator = load_generator_module()
+
+        scenarios = generator.generate("schedule:refs/heads/main:example", 512, "random")
+
+        self.assertEqual(
+            [],
+            [
+                scenario
+                for scenario in scenarios
+                if scenario["trafficKind"] == "tcp_tls"
+                and scenario["generator_axis_values"]["fake_ttl_ladder"] != "off"
+                and scenario["generator_axis_values"]["split_offset"] not in generator.HOST_RELATIVE_SPLIT_OFFSETS
+            ],
+        )
+
+    def test_latest_push_seed_does_not_emit_unsupported_fake_tls_cell(self):
+        generator = load_generator_module()
+
+        scenarios = generator.generate(
+            "push:refs/heads/main:795cd09eba864b1c1a7227249f10a4e773a6b141",
+            8,
+            "random",
+        )
+
+        self.assertNotIn(
+            "cli_packet_smoke_generated_random_003_000492d1fb",
+            [scenario["id"] for scenario in scenarios],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

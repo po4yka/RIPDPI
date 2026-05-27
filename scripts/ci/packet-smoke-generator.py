@@ -39,6 +39,8 @@ DEFAULT_AXIS_VALUES = {
     "oob_byte_placement": "off",
 }
 
+HOST_RELATIVE_SPLIT_OFFSETS = frozenset(("host+0", "host+1", "host+2", "host+3"))
+
 
 def stable_digest(seed: str, axis_values: dict[str, str]) -> str:
     payload = json.dumps(axis_values, sort_keys=True, separators=(",", ":"))
@@ -70,6 +72,12 @@ def iter_axis_cells() -> list[dict[str, str]]:
 
 def is_supported_cell(axis_values: dict[str, str]) -> bool:
     if traffic_kind_for(axis_values) == "tcp_tls" and axis_values["oob_byte_placement"] != "off":
+        return False
+    if (
+        traffic_kind_for(axis_values) == "tcp_tls"
+        and axis_values["fake_ttl_ladder"] != "off"
+        and axis_values["split_offset"] not in HOST_RELATIVE_SPLIT_OFFSETS
+    ):
         return False
     return True
 
