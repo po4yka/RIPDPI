@@ -4339,6 +4339,7 @@ dependencies = [
 name = "ripdpi-shadowsocks"
 version = "0.1.0"
 dependencies = [
+ "aes 0.9.0",
  "aes-gcm",
  "base64 0.22.1",
  "blake3",

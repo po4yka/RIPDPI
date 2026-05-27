@@ -18,4 +18,4 @@
 
 ## Current Status
 
-The cipher layer has SIP004/SIP022 fixed-vector coverage for KDF and AEAD operations. TCP, UDP, replay protection, URI parity, and relay-core wiring are still tracked in `docs/native/shadowsocks-step0-audit.md`.
+The cipher layer has SIP004/SIP022 fixed-vector coverage for KDF and AEAD operations. TCP chunk framing now covers SIP004 and SIP022 payload caps, nonce counters, and partial-frame behavior. UDP framing now covers SIP004 round trips, SIP022 AES-GCM separate headers, SIP022 ChaCha20-Poly1305 XChaCha packet shape, server-to-client client-session IDs, and per-session replay filtering. URI parity and relay-core wiring are still tracked in `docs/native/shadowsocks-step0-audit.md`.

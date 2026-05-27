@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+aes = { workspace = true }
 aes-gcm = "0.10"
 chacha20poly1305 = "0.10"
 blake3 = "1"

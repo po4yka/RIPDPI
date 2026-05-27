@@ -29,5 +29,5 @@ pub mod uri;
 
 pub use cipher::{Cipher, CipherError, CipherKey, PresharedKey, SecretString};
 pub use tcp::TcpStream;
-pub use udp::UdpPacket;
+pub use udp::{Aead2022UdpPacket, Aead2022UdpPacketType, Aead2022UdpSession, UdpPacket};
 pub use uri::{ShadowsocksUri, UriError};

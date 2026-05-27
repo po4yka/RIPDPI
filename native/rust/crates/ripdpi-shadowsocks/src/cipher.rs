@@ -108,6 +108,14 @@ pub enum CipherError {
     /// AEAD tag verification failed (decryption error).
     #[error("AEAD authentication failed")]
     AeadFailed,
+
+    /// Packet replay or stale timestamp detected.
+    #[error("packet replay detected")]
+    Replay,
+
+    /// Packet authenticated but failed protocol-level validation.
+    #[error("invalid packet: {0}")]
+    InvalidPacket(&'static str),
 }
 
 /// AEAD-only cipher set supported by `ripdpi-shadowsocks`.
@@ -243,6 +251,21 @@ impl CipherKey {
         let mut ikm = Vec::with_capacity(psk.len() + salt.len());
         ikm.extend_from_slice(psk);
         ikm.extend_from_slice(salt);
+        let key = blake3::derive_key("shadowsocks 2022 session subkey", &ikm);
+        Ok(Self { cipher, key: key[..cipher.key_len()].to_vec() })
+    }
+
+    /// Derives the SIP022 UDP session key from the 8-byte session ID.
+    pub fn derive_aead2022_udp(cipher: Cipher, psk: &[u8], session_id: &[u8; 8]) -> Result<Self, CipherError> {
+        if !cipher.is_aead_2022() {
+            return Err(CipherError::Unsupported(format!("{cipher:?}")));
+        }
+        if psk.len() != cipher.key_len() {
+            return Err(CipherError::KeyLength);
+        }
+        let mut ikm = Vec::with_capacity(psk.len() + session_id.len());
+        ikm.extend_from_slice(psk);
+        ikm.extend_from_slice(session_id);
         let key = blake3::derive_key("shadowsocks 2022 session subkey", &ikm);
         Ok(Self { cipher, key: key[..cipher.key_len()].to_vec() })
     }
