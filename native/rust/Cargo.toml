@@ -60,6 +60,7 @@ members = [
     "crates/ripdpi-relay-core",
     "crates/ripdpi-relay-tls-transports",
     "crates/ripdpi-relay-android",
+    "crates/ripdpi-anytls",
     "crates/ripdpi-apps-script-core",
     "crates/ripdpi-warp-core",
     "crates/ripdpi-warp-android",
@@ -171,6 +172,7 @@ ripdpi-android-vpn-protect-adapter = { path = "crates/ripdpi-android-vpn-protect
 ripdpi-relay-core = { path = "crates/ripdpi-relay-core" }
 ripdpi-relay-tls-transports = { path = "crates/ripdpi-relay-tls-transports" }
 ripdpi-relay-mux = { path = "crates/ripdpi-relay-mux" }
+ripdpi-anytls = { path = "crates/ripdpi-anytls" }
 ripdpi-apps-script-core = { path = "crates/ripdpi-apps-script-core" }
 ripdpi-warp-core = { path = "crates/ripdpi-warp-core" }
 ripdpi-packets = { path = "crates/ripdpi-packets" }

@@ -3443,6 +3443,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-anytls"
+version = "0.1.0"
+dependencies = [
+ "md5",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ripdpi-apps-script-core"
 version = "0.1.0"
 dependencies = [
