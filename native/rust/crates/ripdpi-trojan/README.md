@@ -11,7 +11,7 @@ Trojan outbound client library for RIPDPI relay-core integration.
 - The Trojan request is SOCKS5-like: `CMD ATYP DST.ADDR DST.PORT`, where `CMD` is `0x01` for CONNECT or `0x03` for UDP ASSOCIATE, `ATYP` is `0x01` for IPv4, `0x03` for domain name, or `0x04` for IPv6, and `DST.PORT` is two bytes in network byte order.
 - Domain addresses use a single length byte followed by the domain bytes; this library must reject domains longer than 255 bytes before writing a frame.
 - For UDP ASSOCIATE, each datagram inside the TLS stream is framed as `ATYP DST.ADDR DST.PORT Length CRLF Payload`, where `Length` is two bytes in network byte order.
-- The spec hash vector is password `123456789` -> `462c1c933bf971099ac771e783855ad8763548b6b5854b09864a5344`.
+- The independently verified SHA224 vector used by the request-codec tests is password `123456789` -> `9b3e61bf29f17c75572fae2e86e17809a4513d07c8a18152acf34521`; the protocol spec mandates `hex(SHA224(password))` but does not publish this vector.
 
 ## Non-Goals
 

@@ -101,15 +101,29 @@ pub fn build_request(
     addr: &TrojanAddr,
     port: u16,
 ) -> Result<Vec<u8>, TrojanError> {
+    build_request_frame(password, command, addr, port, &[])
+}
+
+/// Build a Trojan request frame with an optional first payload.
+///
+/// Layout: `password_hex CRLF command addr_block CRLF payload`
+pub fn build_request_frame(
+    password: &str,
+    command: TrojanCommand,
+    addr: &TrojanAddr,
+    port: u16,
+    payload: &[u8],
+) -> Result<Vec<u8>, TrojanError> {
     let hex_pw = hash_password(password);
     let addr_bytes = encode_addr(addr, port)?;
 
-    let mut buf = Vec::with_capacity(56 + 2 + 1 + addr_bytes.len() + 2);
-    buf.extend_from_slice(hex_pw.as_bytes()); // 56-char hex
+    let mut buf = Vec::with_capacity(56 + 2 + 1 + addr_bytes.len() + 2 + payload.len());
+    buf.extend_from_slice(hex_pw.as_bytes());
     buf.extend_from_slice(b"\r\n");
     buf.push(command.byte());
     buf.extend_from_slice(&addr_bytes);
     buf.extend_from_slice(b"\r\n");
+    buf.extend_from_slice(payload);
     Ok(buf)
 }
 
@@ -160,28 +174,80 @@ mod tests {
     use std::net::{Ipv4Addr, Ipv6Addr};
     use tokio::io::duplex;
 
-    // Known SHA-224 fixture: echo -n "trojan-fixture-pw" | sha224sum
-    // = 95f4b22cdc3d4cf5dd8e2e8ded7f98f0d4c4ef0a3b4dc0fa
-    // (full 56-char hex computed below in the test itself for correctness)
+    const SPEC_PASSWORD: &str = "123456789";
+    const SPEC_PASSWORD_SHA224_HEX: &str = "9b3e61bf29f17c75572fae2e86e17809a4513d07c8a18152acf34521";
 
     #[test]
-    fn password_hash_length_is_56() {
-        let h = hash_password("trojan-fixture-pw");
-        assert_eq!(h.len(), 56, "SHA-224 hex output must be 56 chars");
+    fn password_hash_matches_spec_vector() {
+        assert_eq!(hash_password(SPEC_PASSWORD), SPEC_PASSWORD_SHA224_HEX);
     }
 
     #[test]
-    fn password_hash_fixture_value() {
-        // SHA-224("trojan-fixture-pw") reference value (computed offline):
-        // 95f4b22cdc3d4cf5dd8e2e8ded7f98f0d4c4ef0a3b4dc0fa — wait, that's 48
-        // chars (SHA-224 = 28 bytes = 56 hex chars). Let's compute directly.
-        let h = hash_password("trojan-fixture-pw");
-        // Re-derive with sha2 directly to assert idempotence.
-        let mut hasher = sha2::Sha224::new();
-        sha2::Digest::update(&mut hasher, b"trojan-fixture-pw");
-        let expected = hex::encode(hasher.finalize());
-        assert_eq!(h, expected);
-        assert_eq!(h.len(), 56);
+    fn password_hash_spec_vector_is_56_ascii_hex_chars() {
+        let hash = hash_password(SPEC_PASSWORD);
+        assert_eq!(hash.len(), 56);
+        assert!(hash.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()));
+    }
+
+    #[test]
+    fn connect_ipv4_request_frame_matches_spec_golden() {
+        let frame = build_request_frame(
+            SPEC_PASSWORD,
+            TrojanCommand::TcpConnect,
+            &TrojanAddr::Ipv4(Ipv4Addr::new(1, 2, 3, 4)),
+            443,
+            b"GET / HTTP/1.1\r\n",
+        )
+        .unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(SPEC_PASSWORD_SHA224_HEX.as_bytes());
+        expected.extend_from_slice(b"\r\n");
+        expected.extend_from_slice(&[0x01, 0x01, 1, 2, 3, 4, 0x01, 0xbb]);
+        expected.extend_from_slice(b"\r\nGET / HTTP/1.1\r\n");
+        assert_eq!(frame, expected);
+    }
+
+    #[test]
+    fn connect_domain_request_frame_matches_spec_golden() {
+        let frame = build_request_frame(
+            SPEC_PASSWORD,
+            TrojanCommand::TcpConnect,
+            &TrojanAddr::Domain("example.com".to_owned()),
+            8443,
+            b"",
+        )
+        .unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(SPEC_PASSWORD_SHA224_HEX.as_bytes());
+        expected.extend_from_slice(b"\r\n");
+        expected.extend_from_slice(&[0x01, 0x03, 11]);
+        expected.extend_from_slice(b"example.com");
+        expected.extend_from_slice(&[0x20, 0xfb]);
+        expected.extend_from_slice(b"\r\n");
+        assert_eq!(frame, expected);
+    }
+
+    #[test]
+    fn udp_associate_ipv6_request_frame_matches_spec_golden() {
+        let frame = build_request_frame(
+            SPEC_PASSWORD,
+            TrojanCommand::UdpAssociate,
+            &TrojanAddr::Ipv6(Ipv6Addr::LOCALHOST),
+            53,
+            b"",
+        )
+        .unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(SPEC_PASSWORD_SHA224_HEX.as_bytes());
+        expected.extend_from_slice(b"\r\n");
+        expected.extend_from_slice(&[0x03, 0x04]);
+        expected.extend_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        expected.extend_from_slice(&[0x00, 0x35]);
+        expected.extend_from_slice(b"\r\n");
+        assert_eq!(frame, expected);
     }
 
     #[test]
