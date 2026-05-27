@@ -1,163 +1,102 @@
-//! `MasqueProviderAdapter` trait — the planned decoupling surface for
-//! Cloudflare-direct, Privacy Pass, and bearer/preshared auth flows.
+//! Generic provider adapter for self-hosted RFC 9298 MASQUE endpoints.
 //!
-//! This module ships the *trait + stub implementations* only. The
-//! existing `auth.rs` continues to branch on `MasqueAuthMode` directly;
-//! the migration to dispatch through `Arc<dyn MasqueProviderAdapter>`
-//! is tracked under
-//! `docs/tasks/issues/extract-masque-provider-adapter-trait-to-decouple-cloudflare.md`.
-//!
-//! Shipping the trait alone (without rewiring callers) lets new
-//! out-of-tree provider integrations design against a stable surface
-//! while the in-tree refactor is sequenced separately.
+//! The crate intentionally does not implement commercial relay provider adapters. Proprietary enrollment and authorization flows such as iCloud Private Relay and Cloudflare-specific routing remain outside this module; the in-tree adapter covers standards-based endpoint selection plus bearer or TLS client certificate authentication.
 
-use crate::config::MasqueAuthMode;
+use std::io;
 
-/// Stable adapter surface for a MASQUE auth provider.
-///
-/// Implementations describe how a single provider:
-///
-/// 1. Identifies itself (`provider_id`),
-/// 2. Reports the underlying auth mode it pairs with (`auth_mode`),
-/// 3. Whether it ever wants the deployer-supplied Privacy Pass retry
-///    flow to fire (`uses_privacy_pass_retry`).
-///
-/// The richer methods (header construction, challenge classification,
-/// retry policy) will be added when the in-tree refactor lands. The
-/// initial trait is intentionally narrow so the adapter shape can be
-/// reviewed without a sweeping rewrite of `auth.rs`.
+use crate::auth::AuthHeader;
+use crate::config::{MasqueAuthMode, MasqueConfig};
+
+/// Stable adapter surface for MASQUE provider authentication.
 pub trait MasqueProviderAdapter: Send + Sync {
-    /// Short, stable identifier (e.g. `"cloudflare_mtls"`,
-    /// `"privacy_pass"`, `"bearer"`, `"preshared"`, `"none"`).
+    /// Short, stable identifier for telemetry and tests.
     fn provider_id(&self) -> &'static str;
 
-    /// Which `MasqueAuthMode` this adapter pairs with on the wire.
+    /// Which configured auth mode this adapter represents.
     fn auth_mode(&self) -> MasqueAuthMode;
 
-    /// Whether this adapter ever requests the deployer-supplied
-    /// Privacy Pass retry flow. Only the Privacy Pass adapter returns
-    /// `true`; Cloudflare-direct mTLS does not.
-    fn uses_privacy_pass_retry(&self) -> bool;
+    /// Build the HTTP auth header for this provider, if authentication happens at the HTTP layer.
+    fn auth_header(&self, config: &MasqueConfig) -> io::Result<Option<AuthHeader>>;
 
-    /// Whether this adapter requires a client certificate at TLS
-    /// handshake time. Only `CloudflareDirectAdapter` returns `true`
-    /// today; the other adapters authenticate at the HTTP layer with
-    /// headers and bearer tokens.
-    ///
-    /// Default = `false` so future adapter implementors that don't
-    /// touch client certs need not override.
-    fn requires_client_certificate(&self) -> bool {
+    /// Whether Privacy Pass retry handling may be used for this provider.
+    fn uses_privacy_pass_retry(&self) -> bool {
         false
     }
 
-    /// Whether this adapter wants the optional `sec-ch-geohash`
-    /// header attached to outbound requests. Cloudflare's edge uses
-    /// this header to route requests by geohash; other providers
-    /// don't expect it.
-    ///
-    /// Default = `false`.
+    /// Whether this provider authenticates with a TLS client certificate.
+    fn requires_client_certificate(&self, _config: &MasqueConfig) -> bool {
+        false
+    }
+
+    /// Generic providers do not request proprietary geohash routing headers.
     fn wants_geohash_header(&self) -> bool {
         false
     }
 }
 
-/// No-auth adapter. Pairs with `MasqueAuthMode::None`.
-pub struct NoneAdapter;
+pub struct GenericSelfHostedAdapter {
+    auth_mode: MasqueAuthMode,
+}
 
-impl MasqueProviderAdapter for NoneAdapter {
-    fn provider_id(&self) -> &'static str {
-        "none"
-    }
-    fn auth_mode(&self) -> MasqueAuthMode {
-        MasqueAuthMode::None
-    }
-    fn uses_privacy_pass_retry(&self) -> bool {
-        false
+impl GenericSelfHostedAdapter {
+    pub fn new(auth_mode: MasqueAuthMode) -> Self {
+        Self { auth_mode }
     }
 }
 
-/// Bearer-token adapter.
-pub struct BearerAdapter;
-
-impl MasqueProviderAdapter for BearerAdapter {
+impl MasqueProviderAdapter for GenericSelfHostedAdapter {
     fn provider_id(&self) -> &'static str {
-        "bearer"
+        match self.auth_mode {
+            MasqueAuthMode::CloudflareMtls => "generic_self_hosted_tls_client_cert",
+            MasqueAuthMode::None | MasqueAuthMode::Bearer | MasqueAuthMode::Preshared => "generic_self_hosted",
+            MasqueAuthMode::PrivacyPass => "privacy_pass",
+        }
     }
+
     fn auth_mode(&self) -> MasqueAuthMode {
-        MasqueAuthMode::Bearer
+        self.auth_mode
     }
+
+    fn auth_header(&self, config: &MasqueConfig) -> io::Result<Option<AuthHeader>> {
+        match self.auth_mode {
+            MasqueAuthMode::Bearer | MasqueAuthMode::Preshared => {
+                let secret = config
+                    .auth_token
+                    .as_ref()
+                    .filter(|value| !value.trim().is_empty())
+                    .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing MASQUE auth secret"))?;
+
+                Ok(Some(match self.auth_mode {
+                    MasqueAuthMode::Bearer => AuthHeader { name: "authorization", value: format!("Bearer {secret}") },
+                    MasqueAuthMode::Preshared => {
+                        AuthHeader { name: "proxy-authorization", value: format!("Preshared {secret}") }
+                    }
+                    MasqueAuthMode::None | MasqueAuthMode::PrivacyPass | MasqueAuthMode::CloudflareMtls => {
+                        unreachable!("handled above")
+                    }
+                }))
+            }
+            MasqueAuthMode::None | MasqueAuthMode::PrivacyPass | MasqueAuthMode::CloudflareMtls => Ok(None),
+        }
+    }
+
     fn uses_privacy_pass_retry(&self) -> bool {
-        false
+        self.auth_mode == MasqueAuthMode::PrivacyPass
     }
-}
 
-/// Preshared `Proxy-Authorization` adapter.
-pub struct PresharedAdapter;
-
-impl MasqueProviderAdapter for PresharedAdapter {
-    fn provider_id(&self) -> &'static str {
-        "preshared"
-    }
-    fn auth_mode(&self) -> MasqueAuthMode {
-        MasqueAuthMode::Preshared
-    }
-    fn uses_privacy_pass_retry(&self) -> bool {
-        false
-    }
-}
-
-/// Privacy Pass adapter (deployer-supplied provider drives the retry
-/// challenge flow).
-pub struct PrivacyPassAdapter;
-
-impl MasqueProviderAdapter for PrivacyPassAdapter {
-    fn provider_id(&self) -> &'static str {
-        "privacy_pass"
-    }
-    fn auth_mode(&self) -> MasqueAuthMode {
-        MasqueAuthMode::PrivacyPass
-    }
-    fn uses_privacy_pass_retry(&self) -> bool {
-        true
-    }
-}
-
-/// Cloudflare-direct mTLS adapter (client certificate + optional
-/// `sec-ch-geohash` header). Pairs with `MasqueAuthMode::CloudflareMtls`.
-pub struct CloudflareDirectAdapter;
-
-impl MasqueProviderAdapter for CloudflareDirectAdapter {
-    fn provider_id(&self) -> &'static str {
-        "cloudflare_mtls"
-    }
-    fn auth_mode(&self) -> MasqueAuthMode {
-        MasqueAuthMode::CloudflareMtls
-    }
-    fn uses_privacy_pass_retry(&self) -> bool {
-        false
-    }
-    fn requires_client_certificate(&self) -> bool {
-        true
-    }
-    fn wants_geohash_header(&self) -> bool {
-        true
+    fn requires_client_certificate(&self, _config: &MasqueConfig) -> bool {
+        self.auth_mode == MasqueAuthMode::CloudflareMtls
     }
 }
 
 /// Pick the adapter matching a configured `MasqueAuthMode`.
-///
-/// Returned as `Box<dyn MasqueProviderAdapter>` so the caller can hold
-/// adapters with different concrete types behind a single handle. The
-/// in-tree code does not consume this yet; once the refactor lands it
-/// will replace the `match` on `MasqueAuthMode` in `auth.rs`.
 pub fn adapter_for(mode: MasqueAuthMode) -> Box<dyn MasqueProviderAdapter> {
-    match mode {
-        MasqueAuthMode::None => Box::new(NoneAdapter),
-        MasqueAuthMode::Bearer => Box::new(BearerAdapter),
-        MasqueAuthMode::Preshared => Box::new(PresharedAdapter),
-        MasqueAuthMode::PrivacyPass => Box::new(PrivacyPassAdapter),
-        MasqueAuthMode::CloudflareMtls => Box::new(CloudflareDirectAdapter),
-    }
+    Box::new(GenericSelfHostedAdapter::new(mode))
+}
+
+/// Pick the adapter matching a full MASQUE client configuration.
+pub fn adapter_for_config(config: &MasqueConfig) -> Box<dyn MasqueProviderAdapter> {
+    adapter_for(config.effective_auth_mode())
 }
 
 #[cfg(test)]
@@ -167,12 +106,13 @@ mod tests {
     #[test]
     fn adapter_for_each_mode_reports_consistent_metadata() {
         let cases = [
-            (MasqueAuthMode::None, "none", false),
-            (MasqueAuthMode::Bearer, "bearer", false),
-            (MasqueAuthMode::Preshared, "preshared", false),
+            (MasqueAuthMode::None, "generic_self_hosted", false),
+            (MasqueAuthMode::Bearer, "generic_self_hosted", false),
+            (MasqueAuthMode::Preshared, "generic_self_hosted", false),
             (MasqueAuthMode::PrivacyPass, "privacy_pass", true),
-            (MasqueAuthMode::CloudflareMtls, "cloudflare_mtls", false),
+            (MasqueAuthMode::CloudflareMtls, "generic_self_hosted_tls_client_cert", false),
         ];
+        let config = test_config(None, None, None, None);
         for (mode, expected_id, expected_pp_retry) in cases {
             let adapter = adapter_for(mode);
             assert_eq!(adapter.provider_id(), expected_id, "id mismatch for {mode:?}");
@@ -182,6 +122,10 @@ mod tests {
                 expected_pp_retry,
                 "uses_privacy_pass_retry mismatch for {mode:?}",
             );
+            assert!(!adapter.wants_geohash_header(), "{mode:?} must not request proprietary geohash routing");
+            if mode != MasqueAuthMode::CloudflareMtls {
+                assert!(!adapter.requires_client_certificate(&config), "{mode:?} must not require TLS client auth");
+            }
         }
     }
 
@@ -199,28 +143,79 @@ mod tests {
     }
 
     #[test]
-    fn only_cloudflare_adapter_requires_client_certificate() {
-        for mode in
-            [MasqueAuthMode::None, MasqueAuthMode::Bearer, MasqueAuthMode::Preshared, MasqueAuthMode::PrivacyPass]
-        {
-            assert!(!adapter_for(mode).requires_client_certificate(), "{mode:?} must NOT require a client certificate",);
-        }
-        assert!(
-            adapter_for(MasqueAuthMode::CloudflareMtls).requires_client_certificate(),
-            "cloudflare_mtls adapter must require a client certificate",
+    fn client_certificate_mode_requires_standard_tls_client_certificate() {
+        let config = test_config(
+            Some("cloudflare_mtls"),
+            None,
+            Some("-----BEGIN CERTIFICATE-----\nZm9v\n-----END CERTIFICATE-----"),
+            Some("-----BEGIN PRIVATE KEY-----\nZm9v\n-----END PRIVATE KEY-----"),
         );
+
+        assert!(adapter_for(MasqueAuthMode::CloudflareMtls).requires_client_certificate(&config));
     }
 
     #[test]
-    fn only_cloudflare_adapter_wants_geohash_header() {
-        for mode in
-            [MasqueAuthMode::None, MasqueAuthMode::Bearer, MasqueAuthMode::Preshared, MasqueAuthMode::PrivacyPass]
-        {
+    fn no_adapter_wants_proprietary_geohash_header() {
+        for mode in [
+            MasqueAuthMode::None,
+            MasqueAuthMode::Bearer,
+            MasqueAuthMode::Preshared,
+            MasqueAuthMode::PrivacyPass,
+            MasqueAuthMode::CloudflareMtls,
+        ] {
             assert!(!adapter_for(mode).wants_geohash_header(), "{mode:?} must NOT want the geohash header");
         }
-        assert!(
-            adapter_for(MasqueAuthMode::CloudflareMtls).wants_geohash_header(),
-            "cloudflare_mtls adapter must want the geohash header",
+    }
+
+    #[test]
+    fn bearer_mode_uses_generic_self_hosted_adapter_and_standard_authorization() {
+        let config = test_config(Some("bearer"), Some("secret"), None, None);
+        let adapter = adapter_for_config(&config);
+
+        assert_eq!(adapter.provider_id(), "generic_self_hosted");
+        let header = adapter.auth_header(&config).expect("auth header").expect("bearer header");
+        assert_eq!(header.name, "authorization");
+        assert_eq!(header.value, "Bearer secret");
+        assert!(!adapter.requires_client_certificate(&config));
+        assert!(!adapter.wants_geohash_header());
+    }
+
+    #[test]
+    fn client_certificate_mode_uses_generic_self_hosted_tls_adapter() {
+        let config = test_config(
+            Some("cloudflare_mtls"),
+            None,
+            Some("-----BEGIN CERTIFICATE-----\nZm9v\n-----END CERTIFICATE-----"),
+            Some("-----BEGIN PRIVATE KEY-----\nZm9v\n-----END PRIVATE KEY-----"),
         );
+        let adapter = adapter_for_config(&config);
+
+        assert_eq!(adapter.provider_id(), "generic_self_hosted_tls_client_cert");
+        assert!(adapter.auth_header(&config).expect("auth header").is_none());
+        assert!(adapter.requires_client_certificate(&config));
+        assert!(!adapter.wants_geohash_header());
+    }
+
+    fn test_config(
+        auth_mode: Option<&str>,
+        auth_token: Option<&str>,
+        client_certificate_chain_pem: Option<&str>,
+        client_private_key_pem: Option<&str>,
+    ) -> MasqueConfig {
+        MasqueConfig {
+            url: "https://masque.example/".to_string(),
+            use_http2_fallback: true,
+            auth_mode: auth_mode.map(ToOwned::to_owned),
+            auth_token: auth_token.map(ToOwned::to_owned),
+            client_certificate_chain_pem: client_certificate_chain_pem.map(ToOwned::to_owned),
+            client_private_key_pem: client_private_key_pem.map(ToOwned::to_owned),
+            cloudflare_geohash_header: Some("u4pruyd-GB".to_string()),
+            privacy_pass_provider_url: None,
+            privacy_pass_provider_auth_token: None,
+            tls_fingerprint_profile: "native_default".to_string(),
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+            ech_config: None,
+        }
     }
 }

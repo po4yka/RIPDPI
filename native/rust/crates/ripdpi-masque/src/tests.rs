@@ -225,7 +225,7 @@ fn parse_target_supports_domain_and_ipv6_authorities() {
 }
 
 #[test]
-fn apply_request_headers_adds_geohash_without_auth() {
+fn apply_request_headers_does_not_add_proprietary_geohash() {
     let config = MasqueConfig {
         url: "https://masque.example/".to_string(),
         use_http2_fallback: true,
@@ -247,13 +247,13 @@ fn apply_request_headers_adds_geohash_without_auth() {
         .body(())
         .expect("request");
 
-    assert_eq!(request.headers().get("sec-ch-geohash").unwrap(), "u4pruyd-GB");
+    assert!(request.headers().get("sec-ch-geohash").is_none());
     assert!(request.headers().get("authorization").is_none());
     assert!(request.headers().get("proxy-authorization").is_none());
 }
 
 #[test]
-fn cloudflare_mtls_auth_rejection_does_not_require_privacy_pass_challenge() {
+fn tls_client_auth_rejection_does_not_require_privacy_pass_challenge() {
     let error = validate_proxy_response(StatusCode::FORBIDDEN, &HeaderMap::new(), MasqueAuthMode::CloudflareMtls)
         .expect_err("expected rejection");
 
@@ -261,7 +261,7 @@ fn cloudflare_mtls_auth_rejection_does_not_require_privacy_pass_challenge() {
         panic!("expected io rejection");
     };
     assert_eq!(io::ErrorKind::PermissionDenied, error.kind());
-    assert!(error.to_string().contains("client identity"));
+    assert!(error.to_string().contains("TLS client identity"));
 }
 
 #[test]

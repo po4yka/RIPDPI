@@ -39,7 +39,7 @@ pub(crate) fn validate_proxy_response(
     let proxy_status = proxy_status_details(headers);
     let message = match auth_mode {
         MasqueAuthMode::CloudflareMtls if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN => {
-            format!("MASQUE proxy rejected the Cloudflare direct client identity with status {status}")
+            format!("MASQUE proxy rejected the configured TLS client identity with status {status}")
         }
         MasqueAuthMode::Bearer | MasqueAuthMode::Preshared
             if status == StatusCode::UNAUTHORIZED || status == StatusCode::PROXY_AUTHENTICATION_REQUIRED =>

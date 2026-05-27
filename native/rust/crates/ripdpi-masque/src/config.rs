@@ -20,11 +20,11 @@ pub struct MasqueConfig {
     pub auth_mode: Option<String>,
     /// Shared secret used by bearer and preshared auth modes.
     pub auth_token: Option<String>,
-    /// Client certificate chain used by Cloudflare direct mTLS mode.
+    /// Client certificate chain used by the generic TLS client certificate mode.
     pub client_certificate_chain_pem: Option<String>,
-    /// Client private key used by Cloudflare direct mTLS mode.
+    /// Client private key used by the generic TLS client certificate mode.
     pub client_private_key_pem: Option<String>,
-    /// Optional sec-ch-geohash header resolved on the Android side.
+    /// Legacy config field retained for wire compatibility; generic providers do not emit proprietary geohash headers.
     pub cloudflare_geohash_header: Option<String>,
     /// Deployer-supplied Privacy Pass provider endpoint.
     pub privacy_pass_provider_url: Option<String>,

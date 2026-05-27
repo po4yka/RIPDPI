@@ -2,7 +2,7 @@
 
 ## Scope
 
-MASQUE client supporting HTTP/3 and HTTP/2 transports, including CONNECT (TCP) and CONNECT-UDP. Includes provider-specific extensions for Cloudflare-direct (mTLS + `sec-ch-geohash`) and Privacy Pass.
+MASQUE client supporting HTTP/3 and HTTP/2 transports, including CONNECT (TCP) and CONNECT-UDP. Includes generic/self-hosted RFC 9298 provider authentication with bearer tokens or TLS client certificates, plus the deployer-supplied Privacy Pass token flow.
 
 ## Standards
 
@@ -14,7 +14,8 @@ MASQUE client supporting HTTP/3 and HTTP/2 transports, including CONNECT (TCP) a
 
 Provider extensions:
 
-- Cloudflare mTLS — vendor-specific
+- Generic/self-hosted bearer authentication — `Authorization: Bearer <token>`
+- Generic/self-hosted TLS client certificate authentication — standard TLS client auth
 - Privacy Pass — deployer-supplied provider plug-in
 
 ## Auth modes
@@ -24,7 +25,7 @@ Provider extensions:
 | Bearer | `auth.rs` | Static token |
 | Preshared | `auth.rs` | `Proxy-Authorization: Preshared <token>` |
 | Privacy Pass | `privacy_pass.rs` | Deployer-supplied provider; retry on challenge |
-| `cloudflare_mtls` | `tls.rs`, `auth.rs` | Client cert + optional geohash header |
+| `cloudflare_mtls` | `tls.rs`, `provider_adapter.rs` | Legacy mode string retained for schema compatibility; treated as generic TLS client certificate auth |
 
 ## Transport selection
 
@@ -37,10 +38,11 @@ Non-HTTPS URLs are rejected before native startup. Endpoint path and query are p
 
 ## Known divergences from standards
 
-- Cloudflare-direct flow couples the crate to one vendor; the `MasqueProviderAdapter` extraction in `docs/tasks/issues/extract-masque-provider-adapter-trait-to-decouple-cloudflare.md` is the planned decoupling.
 - H3-to-H2 fallback telemetry is incomplete; see `docs/tasks/issues/add-h3-to-h2-fallback-telemetry-rollout-validation.md`.
 
 ## Non-goals
 
 - Server-side MASQUE.
 - Pure HTTP/2 MASQUE without the H3 attempt (the H2 fallback is reactive, not primary).
+- Commercial-relay provider adapters such as iCloud Private Relay or Cloudflare proprietary auth.
+- CONNECT-IP from RFC 9484.

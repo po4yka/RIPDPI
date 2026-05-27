@@ -5,7 +5,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use http::HeaderValue;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{MasqueAuthMode, MasqueConfig};
+use crate::config::MasqueConfig;
+use crate::provider_adapter::adapter_for_config;
 
 #[derive(Debug, Clone)]
 pub struct AuthHeader {
@@ -72,27 +73,7 @@ impl PrivacyPassProviderResponse {
 }
 
 pub fn build_static_auth_header(config: &MasqueConfig) -> io::Result<Option<AuthHeader>> {
-    let auth_mode = config.effective_auth_mode();
-    match auth_mode {
-        MasqueAuthMode::Bearer | MasqueAuthMode::Preshared => {
-            let secret = config
-                .auth_token
-                .as_ref()
-                .filter(|value| !value.trim().is_empty())
-                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing MASQUE auth secret"))?;
-
-            Ok(Some(match auth_mode {
-                MasqueAuthMode::Bearer => AuthHeader { name: "authorization", value: format!("Bearer {secret}") },
-                MasqueAuthMode::Preshared => {
-                    AuthHeader { name: "proxy-authorization", value: format!("Preshared {secret}") }
-                }
-                MasqueAuthMode::None | MasqueAuthMode::PrivacyPass | MasqueAuthMode::CloudflareMtls => {
-                    unreachable!("handled above")
-                }
-            }))
-        }
-        MasqueAuthMode::None | MasqueAuthMode::PrivacyPass | MasqueAuthMode::CloudflareMtls => Ok(None),
-    }
+    adapter_for_config(config).auth_header(config)
 }
 
 pub fn parse_privacy_pass_challenge(value: Option<&HeaderValue>) -> io::Result<String> {
