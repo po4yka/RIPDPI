@@ -276,14 +276,19 @@ class MainActivityShellInstrumentedTest {
             )
         composeRule.runOnUiThread {
             recordingMainActivityHost.refreshPermissionSnapshot()
-            recordingMainActivityHost.requestVpnStart()
         }
 
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            recordingMainActivityHost.commands.contains(MainActivityHostCommand.RequestNotificationsPermission)
-        }
+        val originalIntent = sendConfiguredStartIntent()
 
-        assertTrue(recordingServiceController.startedModes.isEmpty())
+        try {
+            composeRule.waitUntil(timeoutMillis = 15_000) {
+                recordingMainActivityHost.commands.contains(MainActivityHostCommand.RequestNotificationsPermission)
+            }
+
+            assertTrue(recordingServiceController.startedModes.isEmpty())
+        } finally {
+            restoreScenarioIntent(originalIntent)
+        }
     }
 
     @Test

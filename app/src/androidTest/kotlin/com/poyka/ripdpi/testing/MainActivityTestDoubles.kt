@@ -186,10 +186,6 @@ internal class RecordingMainActivityHost : MainActivityHost {
         viewModel?.refreshPermissionSnapshot()
     }
 
-    fun requestVpnStart() {
-        viewModel?.onToggleVpn(enabled = true)
-    }
-
     fun dispatchNotificationPermissionResult(
         granted: Boolean,
         shouldShowRationale: Boolean,
