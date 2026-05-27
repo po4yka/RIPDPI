@@ -1,109 +1,83 @@
-# Shadowsocks STEP 0 Audit And Test Plan
+# Shadowsocks Step 0 Audit
 
-Date: 2026-05-27
+This note is the pre-implementation gate for full Shadowsocks support. It records the normative protocol reading, current crate/test coverage, relay-core integration points, and the TDD plan that must be reviewed before any implementation slice starts.
 
-Scope: STEP 0 for full Shadowsocks support. This note records the normative protocol audit, existing `ripdpi-shadowsocks` test inventory, identified gaps, relay-core integration touch points, and the TDD test plan to execute after review. No protocol implementation is changed in this slice.
+## References Read
 
-## References
+- SIP004 AEAD Ciphers, Shadowsocks org wiki: `https://github.com/shadowsocks/shadowsocks-org/wiki/AEAD-Ciphers`
+- SIP002 URI Scheme, Shadowsocks org wiki: `https://github.com/shadowsocks/shadowsocks-org/wiki/SIP002-URI-Scheme`
+- SIP022 AEAD-2022 Ciphers, Shadowsocks docs: `https://shadowsocks.org/doc/sip022.html`
+- shadowsocks-rust repository, reference only for cross-checking behavior and fixture shape: `https://github.com/shadowsocks/shadowsocks-rust`
 
-- SIP002 URI Scheme: https://github.com/shadowsocks/shadowsocks-org/wiki/SIP002-URI-Scheme
-- SIP004 AEAD Ciphers: https://github.com/shadowsocks/shadowsocks-org/wiki/AEAD-Ciphers
-- SIP022 AEAD-2022 Ciphers: https://shadowsocks.org/doc/sip022.html
-- shadowsocks-rust: https://github.com/shadowsocks/shadowsocks-rust, used only as a behavioral cross-check and not as a source for copied code.
+The SIPs are normative. `shadowsocks-rust` is only a reference implementation for comparison and must not be copied into this repository.
 
 ## Normative Constants
 
-| Area | Normative source | Required behavior | Current status |
-| --- | --- | --- | --- |
-| SIP004 methods | SIP004 AEAD cipher table | Support `aes-128-gcm`, `aes-256-gcm`, and `chacha20-ietf-poly1305`; salt lengths are 16, 32, 32; nonce is 12 bytes; tag is 16 bytes. | Present in `cipher.rs`; round-trip tests exist but not fixed byte goldens. |
-| SIP004 KDF | SIP004 Key Derivation | Password-derived master key uses OpenSSL-compatible `EVP_BytesToKey` with MD5, then per-session subkey uses HKDF-SHA1 with info string `ss-subkey`. | Present in `CipherKey::derive_legacy`; needs fixed vectors for EVP output, HKDF subkey, and AEAD ciphertext. |
-| SIP004 TCP | SIP004 TCP | TCP starts with salt, then chunks: encrypted 2-byte big-endian length plus tag, encrypted payload plus tag; plaintext payload is capped at `0x3FFF`; nonce starts at zero and increments as an unsigned little-endian 96-bit integer after each AEAD operation. | Chunk shape and `0x3FFF` cap are partly present; nonce is implemented as big-endian in `counter_nonce`, and no boundary/partial-read/counter goldens exist. |
-| SIP004 UDP | SIP004 UDP | UDP packet is salt plus encrypted payload plus tag; each packet uses a derived key and all-zero nonce. | Present for legacy AEAD; needs fixed byte vectors and parser failure coverage. |
-| SIP022 PSK | SIP022 section 2.1 | 2022 methods require a user-supplied fixed-length base64 PSK; implementations must not use `EVP_BytesToKey` or any password-to-key fallback. | The crate decodes base64 PSKs for 2022, but API shape still passes `SecretString` and needs tests that reject non-base64 and wrong-length PSKs before any framing. |
-| SIP022 KDF | SIP022 section 2.2 | Session subkey uses BLAKE3 derive-key with context `shadowsocks 2022 session subkey` and key material `key + salt`; salt length equals key length. | Present for AES-256/ChaCha; missing required `2022-blake3-aes-128-gcm`; needs fixed subkey vectors. |
-| SIP022 required methods | SIP022 section 3 | Required methods are `2022-blake3-aes-128-gcm` and `2022-blake3-aes-256-gcm`; optional methods include `2022-blake3-chacha20-poly1305` variants. | AES-256 and ChaCha20 are present; AES-128 is missing, so the current method set is not SIP022-complete. |
-| SIP022 TCP framing | SIP022 sections 3.1.1-3.1.5 | TCP request stream starts with salt and two standalone encrypted header chunks, response starts with salt and one fixed-length header chunk; payload cap is `0xFFFF`; stream type is 0 for request and 1 for response; timestamps older/newer than 30 seconds are replay; incoming request salts are stored for 60 seconds with no false-positive filter. | Current 2022 TCP uses SIP004-like chunks only; request/response headers, timestamps, salt replay protection, request-salt response binding, `0xFFFF` cap, and one-write header buffering are absent. |
-| SIP022 UDP AES-GCM construction | SIP022 sections 3.2.1-3.2.4 | UDP packet has encrypted 16-byte separate header containing session ID and big-endian packet ID; body uses session subkey derived from PSK and session ID; body nonce is separate-header bytes 4..16; main header carries type 0/1 and timestamp; replay protection uses per-session sliding window and must update only after semantic validation. | Current 2022 UDP uses SIP004 salt-plus-payload framing; session IDs, packet IDs, encrypted separate headers, timestamp validation, and sliding-window replay protection are absent. |
-| SIP022 optional ChaCha UDP | SIP022 section 4.1 | `2022-blake3-chacha20-poly1305` UDP uses XChaCha20-Poly1305 with a 24-byte random nonce and main-header session/packet IDs. | Current ChaCha 2022 UDP uses the same SIP004-shaped 12-byte nonce path; either implement optional construction correctly or keep it disabled for UDP until covered. |
-| SIP002 URI | SIP002 URI Scheme | URI format is `ss://userinfo@hostname:port[/][?plugin][#tag]`; userinfo may be base64url for SIP004 but must not be base64url for SIP022; plain userinfo method and password must be percent encoded. | Rust and Kotlin both parse SIP002 separately; both need SIP022 plain percent-encoded userinfo coverage and explicit plugin rejection/non-support behavior. |
+- SIP004 AEAD methods are `aes-128-gcm`, `aes-256-gcm`, and `chacha20-ietf-poly1305`; key/salt/nonce/tag sizes are 16/16/12/16 for AES-128-GCM and 32/32/12/16 for AES-256-GCM and ChaCha20-IETF-Poly1305.
+- SIP004 master key derivation follows OpenSSL `EVP_BytesToKey` with MD5, and the per-session subkey is `HKDF_SHA1(key, salt, info = "ss-subkey")`.
+- SIP004 TCP starts with a random salt, then encrypted chunks shaped as encrypted 2-byte big-endian payload length plus tag, then encrypted payload plus tag. The plaintext payload length is capped at `0x3FFF`; the nonce counter starts at zero and increments as an unsigned little-endian integer after every AEAD operation, so each chunk consumes two nonce values.
+- SIP004 UDP is `[salt][encrypted payload][tag]`; each datagram is independent and uses an all-zero nonce with the salt-derived subkey.
+- SIP002 `ss://` format is `ss://userinfo@hostname:port[/][?plugin][#tag]`, where `userinfo` is either Base64URL UTF-8 `method:password` or plain `method:password`; for AEAD-2022, Base64URL-encoded `userinfo` is forbidden and plain `method:password` must be percent-encoded.
+- SIP002 plugin query arguments are SIP003/SIP003u territory and are out of scope for RIPDPI Shadowsocks support; they must not silently activate plugin behavior.
+- SIP022 PSK is user-supplied base64 raw key material whose byte length must match the method; implementations MUST NOT use `EVP_BytesToKey` or any password-to-key derivation for AEAD-2022.
+- SIP022 subkey derivation is BLAKE3 derive-key with context `shadowsocks 2022 session subkey` and input key material `psk || salt`.
+- SIP022 required methods are `2022-blake3-aes-128-gcm` and `2022-blake3-aes-256-gcm`; optional methods include `2022-blake3-chacha20-poly1305`.
+- SIP022 TCP inherits the AEAD length-chunk-payload-chunk model but adds standalone header chunks for request and response, carries a 1-byte stream type with request `0` and response `1`, uses the 2022 PSK/BLAKE3 KDF, requires replay protection, and lifts the payload cap to `0xFFFF`.
+- SIP022 UDP does not use SIP004 `[salt][body]` framing. AES-GCM methods use an encrypted 16-byte separate header containing 8-byte session ID and 8-byte big-endian packet ID, derive the session subkey from `psk || separate_header[0..8]`, and seal the body with nonce `separate_header[4..16]`.
+- SIP022 UDP main headers carry message type `0` for client packet and `1` for server packet, an 8-byte big-endian Unix timestamp, padding length, optional padding, SOCKS address, and port; server-to-client adds the client session ID.
+- SIP022 UDP replay protection is mandatory: sessions are remembered for at least 60 seconds, timestamp skew over 30 seconds is replay, and incoming packet IDs are checked with a sliding window that must not update until header validation succeeds.
+- SIP022 ChaCha20 UDP uses a distinct XChaCha20-Poly1305 construction with a 24-byte random nonce and merged session/packet IDs in the main header; it shares the replay window requirement.
 
-## Existing Test Inventory
+## Existing Test Classification
 
-`ripdpi-shadowsocks` currently has 651 lines of integration tests under `native/rust/crates/ripdpi-shadowsocks/tests/`: 113 lines for AEAD-2022 vectors, 105 for SIP004 AEAD vectors, 125 for stream-cipher rejection, 105 for TCP round trips, 78 for UDP round trips, and 125 for URI parsing.
+- `tests/aead_legacy_vectors.rs` has SIP004 KDF and AEAD known-answer coverage for AES-128-GCM, AES-256-GCM, and ChaCha20-IETF-Poly1305, including tamper/wrong-password/different-salt checks. Gap: vector provenance should be kept independent of the implementation and documented as SIP004 constants; no relay-level use exists yet.
+- `tests/aead_2022_vectors.rs` has SIP022 BLAKE3 KDF and AEAD known-answer coverage for AES-128-GCM, AES-256-GCM, and ChaCha20-Poly1305, plus PSK length/base64 rejection and family mismatch checks. Gap: these validate primitive KDF/AEAD only, not SIP022 TCP header chunks or UDP separate-header replay semantics.
+- `tests/tcp_roundtrip.rs` covers TCP round trips, incomplete data buffering, little-endian nonce use, SIP004 `0x3FFF` chunk splitting, SIP022 `0xFFFF` chunk cap, partial payload retry behavior, and AES-128-GCM 2022 round trip. Current checkout includes pre-existing staged TCP changes for little-endian nonce and 2022 cap behavior. Gap: no SIP022 standalone header chunk, stream type, associated request salt, or replay salt pool checks yet.
+- `tests/udp_roundtrip.rs` currently treats both SIP004 and SIP022 as `[salt][AEAD body]` independent datagrams. This is valid for SIP004 but not SIP022 AES-GCM or SIP022 ChaCha20 UDP. Gap: SIP022 UDP must be rewritten around separate headers, packet IDs, timestamps, padding, address headers, and replay windows.
+- `tests/uri_parse.rs` covers SIP002 Base64URL userinfo, plain userinfo, legacy whole-URI base64, tag decode, IPv6, stream-cipher rejection, and basic malformed inputs. Gaps: AEAD-2022 Base64URL userinfo rejection, percent-decoded plain userinfo, plugin query parse/reject policy, Kotlin `ProxyUriCodec` parity, and one-source-of-truth runtime import are not covered.
+- `tests/reject_stream_ciphers.rs` pins stream-cipher rejection and must remain green. No implementation slice may add stream cipher support or downgrade a rejected name.
 
-The current tests are mostly self-consistent round trips: they prove encrypt/decrypt symmetry, authentication failure on tamper/wrong key for selected paths, stream cipher rejection, basic SIP002 forms, incomplete TCP chunks, and short UDP packet rejection. They do not yet prove byte-for-byte conformance to SIP004/SIP022 constants because the existing vectors are generated by the implementation under test rather than an independent oracle.
+## Current Implementation Gap Audit
 
-## Current Gap Audit
-
-- `cipher.rs`: supports SIP004 AEAD methods and 2022 AES-256/ChaCha, but misses required `2022-blake3-aes-128-gcm`; 2022 PSK handling needs a typed raw-key path to make accidental `EVP_BytesToKey` use impossible; fixed KDF/AEAD vectors are missing.
-- `tcp.rs`: implements one generic SIP004-style chunk stream for both SIP004 and SIP022; nonce construction is big-endian despite SIP004/SIP022 requiring unsigned little-endian 96-bit counters; no public coverage for boundary chunking at `0x3FFF`, 2022 payload cap `0xFFFF`, multiple chunks, exact bytes consumed, partial length vs partial payload buffering, or nonce rollover behavior.
-- `udp.rs`: implements SIP004 UDP framing for both SIP004 and SIP022; SIP022 AES-GCM separate header, session ID routing, packet ID, timestamp, client/server type bytes, and replay window are missing.
-- `uri.rs`: handles base64 and plain SIP002 userinfo, legacy whole-URI base64, tags, and IPv6, but 2022 plain percent-encoded userinfo and plugin non-goal behavior need explicit tests; Kotlin `ProxyUriCodec` duplicates parsing behavior and can drift from Rust.
-- `lib.rs`: crate docs already list supported ciphers and stream-cipher rejection, but a README is needed to record implemented scope and non-goals.
-- `relay-core`: `ripdpi-shadowsocks` is present in the workspace but not used by `ripdpi-relay-core`; there is no `RelayBackendConfig::Shadowsocks`, no `RelayKind::Shadowsocks`, no transport descriptor row, no backend builder/factory, no `RelayBackend::Shadowsocks`, no UDP session arm, and no flattened native config fields.
-- Kotlin/runtime config: `RelayNativeConfigSchemaVersion` is 2; `ResolvedRipDpiRelayConfig` has no Shadowsocks method/password fields; `RelayKindDescriptors`, `RelaySettings`, `RelayKindResolverRegistry`, `NativeConfigSchemaVersionTest`, and the proto relay_kind comment need alignment.
-- Import path: `ProxyUriCodec` and `ripdpi-shadowsocks::uri` parse `ss://` independently; the later implementation should make one source of truth for validation semantics, with parity tests if physical sharing is not feasible across Kotlin/Rust.
+- `src/cipher.rs` is mostly aligned for SIP004 and SIP022 KDF primitives: it rejects stream ciphers, uses `EVP_BytesToKey` plus HKDF-SHA1 for SIP004, validates SIP022 PSK length, and uses BLAKE3 derive-key for 2022 subkeys. Open checks: ensure `2022-blake3-chacha20-poly1305` is only advertised when TCP and UDP constructions are actually implemented and tested, and keep PSK handling separate from `SecretString` password semantics in relay-core.
+- `src/tcp.rs` has SIP004-like chunk framing and, with current staged changes, uses little-endian nonces and separate `0x3FFF`/`0xFFFF` caps. Gaps: SIP022 request/response standalone header chunks, stream type byte, associated request salt, and replay salt storage are not modeled.
+- `src/udp.rs` is SIP004-only framing under a method-agnostic API. Gaps: SIP022 AES-GCM separate-header encryption, main header construction/parsing, session ID and packet ID counters, timestamp validation, sliding replay window, and the distinct XChaCha20 UDP construction for optional ChaCha20 2022.
+- `src/uri.rs` parses a useful SIP002 subset but does not enforce AEAD-2022 plain-userinfo-only semantics, does not percent-decode plain userinfo, does not expose plugin policy explicitly, and has no Kotlin parity contract.
+- The crate is an orphan library today: no `ripdpi-relay-core` dependency edge consumes it, and no native relay backend can build Shadowsocks sessions.
+- `README.md` already records intended support and non-goals; it must be updated after each completed slice to reflect implemented behavior, especially that legacy stream ciphers and SIP003/SIP003u plugins remain non-goals.
 
 ## Relay-Core Touch Points
 
-The integration should mirror existing in-process backends, closest to Trojan for TCP+UDP over a single remote server and TUIC/Hysteria/MASQUE for UDP-capability plumbing.
+- Follow the in-process backend pattern used by Trojan because it already covers TCP and UDP fixture E2E: add a `ShadowsocksRelayConfig` include under `src/config/backend/`, extend `RelayBackendConfig`, `RelayKind`, `config/conversions.rs`, `config/flat.rs`, `runtime_validation.rs`, `tests.rs`, and `transport_descriptor.rs`.
+- Add a `ShadowsocksSessionFactory` under `src/protocols/` or the nearest existing transport-adapter module, backed by `ripdpi-shadowsocks` rather than moving Shadowsocks protocol logic into relay-core.
+- Add a `RelayBackend::Shadowsocks` variant and route it through `dispatch_pooled_backend!`, `connect_tcp`, UDP capability checks, and `RelayUdpSession` send/receive.
+- Add a `backend/builder/builders/shadowsocks.rs` builder that validates server port, cipher method, credential material, UDP enablement, and outbound bind behavior consistently with the descriptor.
+- Add `ripdpi-shadowsocks` to `ripdpi-relay-core/Cargo.toml` only when the first relay-core red test is in place.
+- Extend `local-network-fixture` with a minimal offline Shadowsocks server for SIP004 and SIP022 TCP/UDP E2E, similar in scope to `TrojanLoopback`, and use it from relay-core tests.
+- Preserve `ripdpi-shadowsocks` as a protocol leaf crate; `ripdpi-relay-core` depends on it, not the other way around.
 
-- Add `ShadowsocksRelayConfig` in `native/rust/crates/ripdpi-relay-core/src/config/backend/shadowsocks.rs` with method, password or PSK, and any SIP022 replay/session policy knobs that must be explicit.
-- Extend `RelayBackendConfig`, `RelayKind`, `kind_id`, `sample_config`, flat config serde conversion, and runtime round-trip tests with stable kind id `shadowsocks`.
-- Add `RelayTransportDescriptor` row: TCP true, UDP true, reusable likely false until a pooled session design is proven, outbound-bind-IP true if the outbound TCP/UDP sockets use the same binding path as Trojan; finalmask unsupported.
-- Add a builder under `backend/builder/builders/shadowsocks.rs` that creates a `ShadowsocksSessionFactory` from `ripdpi-shadowsocks`.
-- Add `RelayBackend::Shadowsocks` and `RelayUdpSession::Shadowsocks` arms; `connect_tcp` opens a TCP connection to the Shadowsocks server and writes the encrypted target request, and `open_udp_session` exposes SIP004/SIP022 UDP encapsulation.
-- Add `ripdpi-shadowsocks` as a relay-core dependency only when the backend slice begins; keep the crate orphaned as requested rather than folding protocol logic into relay-core.
-- Extend local-network-fixture with a minimal offline Shadowsocks server for SIP004 and SIP022 so relay-core E2E does not depend on external infrastructure.
+## Kotlin And Schema Touch Points
 
-## Kotlin Touch Points
+- Add a stable `RelayKindShadowsocks` string constant in the relay settings model and align the `app_settings.proto` field 171 comment, `RelayKindDescriptor`, resolver registry, feature-contract harness, and descriptor drift tests.
+- Add Shadowsocks fields to `ResolvedRipDpiRelayConfig` and the section model in `core/engine-api/src/main/kotlin/com/poyka/ripdpi/core/RelayNativeConfig.kt`, then mirror the same fields in Rust `FlatResolvedRelayRuntimeConfig`.
+- Bump `RelayNativeConfigSchemaVersion` and Rust `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` together because the wire DTO shape changes, and update `NativeConfigSchemaVersionTest`.
+- Add a `ShadowsocksRelayKindResolver` only if default resolver cannot safely project method/password fields; otherwise document why the default resolver is sufficient and still add a descriptor-backed registration.
+- Reconcile `ss://` import so Kotlin and Rust agree on SIP002 semantics. Kotlin `ProxyUriCodec` is currently the runtime import source; either keep Kotlin as source of truth and add Rust parity tests for `uri.rs`, or expose a native parser through a tested path. The chosen source must enforce AEAD-2022 non-Base64 userinfo and percent-decoding.
+- Add credential persistence for Shadowsocks method/password or PSK through the existing relay credential path rather than reparsing `ss://` at runtime.
 
-- Add `RelayKindShadowsocks = "shadowsocks"` and update normalization, proto comment, descriptor row, relay presets/draft support where required, and resolver registration.
-- Add Shadowsocks fields to `ResolvedRipDpiRelayConfig` and section models, then bump both Kotlin `RelayNativeConfigSchemaVersion` and Rust `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` because the flat wire DTO gains new runtime fields.
-- Add native-config schema tests that version 3 decodes and legacy/default omission behavior still holds, with Rust deserialization tests rejecting stale explicit schema versions.
-- Reconcile `ss://` import so SIP002 handling for 2022 userinfo is consistent between Kotlin and Rust; short-term acceptable outcome is shared test vectors loaded by both test suites, while a longer-term single implementation boundary should be chosen before the Kotlin slice lands.
+## TDD Test Plan
 
-## TDD Slice Plan
+1. Cipher and KDF slice: add failing goldens that independently pin SIP004 `EVP_BytesToKey(MD5)` plus `HKDF_SHA1(..., "ss-subkey")`, SIP004 method sizes, SIP022 base64 PSK length validation, SIP022 `EVP_BytesToKey` rejection, and SIP022 BLAKE3 context `shadowsocks 2022 session subkey`; run `cargo test -p ripdpi-shadowsocks aead_legacy_vectors aead_2022_vectors reject_stream_ciphers`; implement only the failing primitive gaps; run `cargo test -p ripdpi-shadowsocks`, `cargo clippy -p ripdpi-shadowsocks --all-targets -- -D warnings`, and `cargo fmt --check`; commit as `test/feat(shadowsocks)` with body citing SIP004 key derivation and SIP022 section 2.
+2. TCP framing slice: add failing tests for SIP004 `[salt][len][payload]` chunk framing, 2-byte big-endian length, `0x3FFF` SIP004 cap, little-endian nonce increments by two per chunk, incomplete reads that do not advance nonce state, SIP022 `0xFFFF` payload cap, SIP022 request stream type `0`, response stream type `1`, associated request salt in response header, and duplicate incoming 2022 salt replay rejection for at least 60 seconds; run `cargo test -p ripdpi-shadowsocks tcp_roundtrip`; implement the minimal TCP API changes; rerun full crate tests, clippy, and fmt; commit with body citing SIP004 TCP and SIP022 section 3.1 constants.
+3. UDP framing and replay slice: add failing tests for SIP004 `[salt][AEAD payload]` all-zero nonce, SIP022 AES-GCM encrypted 16-byte separate header, session ID salt derivation from `separate_header[0..8]`, body nonce from `separate_header[4..16]`, packet ID `u64be`, message type `0`/`1`, timestamp skew rejection over 30 seconds, packet-ID duplicate/out-of-window rejection, replay state update only after successful header validation, and optional SIP022 ChaCha20 24-byte nonce construction if kept supported; run `cargo test -p ripdpi-shadowsocks udp_roundtrip`; implement minimal UDP/session/replay types; rerun full crate tests, clippy, and fmt; commit with body citing SIP004 UDP and SIP022 sections 3.2 and 4.1.
+4. Relay-core slice: add failing relay-core tests for `RelayBackendConfig::Shadowsocks`, `RelayKind::Shadowsocks`, config JSON round trip including method/password or PSK fields, descriptor capabilities `(tcp=true, udp=true, reusable=false unless pooling is proven safe, supports_outbound_bind_ip=true if builder actually binds sockets)`, runtime validation of unsupported methods and missing credentials, backend builder dispatch, `RelayUdpSession` routing, and full TCP/UDP E2E against a new `local-network-fixture` Shadowsocks loopback; run `cargo test -p ripdpi-relay-core shadowsocks`; implement relay-core builder/protocol adapter/config/schema fields and fixture server; rerun `cargo test -p ripdpi-shadowsocks -p ripdpi-relay-core -p local-network-fixture`, clippy for touched crates, and fmt; commit as `feat(shadowsocks): wire relay-core backend` with body citing SIP004/SIP022 TCP+UDP clauses.
+5. Kotlin import and native schema slice: add failing JVM tests for `ProxyUriCodec` SIP002 AEAD-2022 plain-userinfo-only behavior, percent-decoded PSK, plugin non-goal handling, Shadowsocks profile import into relay settings/credentials, `RelayKindDescriptor`/registry drift, `ResolvedRipDpiRelayConfig` Shadowsocks fields, and `NativeConfigSchemaVersionTest` bump; run focused Gradle tests for `core:data`, `core:service`, and `core:engine`; implement Kotlin resolver/descriptor/schema/import changes; rerun the focused tests plus `./gradlew staticAnalysis` if the slice touches lint-sensitive Kotlin; commit with body citing SIP002 and the native config schema migration.
+6. Fixture and golden hardening slice: add non-tautological goldens through the existing `RIPDPI_BLESS_GOLDENS`/`golden-test-support` harness where wire bytes are derived from fixed SIP constants, not from newly generated implementation output; add local-network fixture coverage for TCP connect and UDP associate for at least one SIP004 method and both SIP022 required AES-GCM methods; run the fixture tests in the same command CI will use; commit with body citing the covered SIP constants.
+7. Final verification slice: update `native/rust/crates/ripdpi-shadowsocks/README.md` with implemented support and non-goals, update architecture/config docs if drift tests require it, then run `cargo test -p ripdpi-shadowsocks -p ripdpi-relay-core -p local-network-fixture`, `cargo clippy -p ripdpi-shadowsocks -p ripdpi-relay-core -p local-network-fixture --all-targets -- -D warnings`, `cargo fmt --check`, `cargo deny check`, and focused Gradle tests including `NativeConfigSchemaVersionTest`; commit docs/verification only if changes were needed.
 
-Each slice starts with a failing test and the failing command output, then minimal implementation, green verification, refactor only while green, and one atomic Conventional Commit. Existing passing tests must remain in place; no `#[ignore]`, tautological goldens, or mocks of the unit under test.
+## Stop Rules
 
-### Slice 1: cipher and KDF conformance
-
-1. Add independent fixed vectors for SIP004 `EVP_BytesToKey` MD5 output, HKDF-SHA1 `ss-subkey`, salt/key/tag lengths, and AEAD ciphertext/decryption for `aes-128-gcm`, `aes-256-gcm`, and `chacha20-ietf-poly1305`, citing SIP004 Key Derivation and AEAD table.
-2. Add vectors for SIP022 PSK parsing, BLAKE3 subkey derivation with context `shadowsocks 2022 session subkey`, and required methods `2022-blake3-aes-128-gcm` and `2022-blake3-aes-256-gcm`, citing SIP022 sections 2.1, 2.2, and 3.
-3. Add negative tests proving 2022 methods reject non-base64 and wrong-length PSKs without invoking legacy `EVP_BytesToKey`, citing SIP022 section 2.1.
-4. Keep `reject_stream_ciphers.rs` green and add any missing stream aliases only if the test first exposes a gap.
-5. Verification: `cd native/rust && cargo test -p ripdpi-shadowsocks --locked`, `cargo clippy -p ripdpi-shadowsocks --all-targets --locked -- -D warnings`, and `cargo fmt --check`.
-
-### Slice 2: TCP framing conformance
-
-1. Add SIP004 TCP goldens for salt plus encrypted chunks, 2-byte big-endian length, `0x3FFF` cap, partial length-frame buffering, partial payload-frame buffering, multiple chunks, exact bytes consumed, and unsigned little-endian 96-bit nonce increments by two per chunk, citing SIP004 TCP.
-2. Add SIP022 TCP tests for request fixed header type 0, timestamp, variable header with SOCKS address and padding/initial payload rule, response fixed header type 1 plus request salt binding, `0xFFFF` payload cap, little-endian nonce, and stale timestamp/reused salt rejection, citing SIP022 sections 3.1.1-3.1.5.
-3. Add a detection-prevention test that initial salt and standalone header chunks are emitted as one contiguous first write from the codec adapter boundary, citing SIP022 section 3.1.4.
-4. Verification: `cd native/rust && cargo test -p ripdpi-shadowsocks --locked`, clippy, fmt.
-
-### Slice 3: UDP framing and 2022 replay protection
-
-1. Add SIP004 UDP fixed packet vectors for `[salt][encrypted payload][tag]` and all-zero nonce, citing SIP004 UDP.
-2. Add SIP022 AES-GCM UDP tests for encrypted separate header layout, session ID, big-endian packet ID, BLAKE3 subkey from `key + session_id`, body nonce from separate header bytes 4..16, client/server type bytes 0/1, timestamp replay rejection, and server-session-ID distinction, citing SIP022 sections 3.2.1-3.2.4.
-3. Add sliding-window replay tests for duplicate packet ID, out-of-window packet ID, and "do not update replay window before semantic validation", citing SIP022 section 3.2.4.
-4. Decide optional `2022-blake3-chacha20-poly1305` UDP: either implement SIP022 section 4.1 with XChaCha20-Poly1305 vectors or reject UDP for that optional method with an explicit test and README note.
-5. Verification: `cd native/rust && cargo test -p ripdpi-shadowsocks --locked`, clippy, fmt.
-
-### Slice 4: native relay-core integration
-
-1. Add failing relay-core config tests for `RelayBackendConfig::Shadowsocks`, `RelayKind::Shadowsocks`, flat JSON round-trip, descriptor coverage, planned TCP/UDP capabilities, and runtime validation with UDP enabled.
-2. Add failing builder/session tests for `RelayBackend::Shadowsocks`, `ShadowsocksSessionFactory`, TCP target CONNECT framing, UDP session send/recv framing, and unsupported-method validation.
-3. Add `local-network-fixture` minimal Shadowsocks server and offline E2E tests that tunnel TCP and UDP through relay-core against fixture targets for SIP004 and SIP022.
-4. Verification: `cd native/rust && cargo test -p ripdpi-shadowsocks -p ripdpi-relay-core -p local-network-fixture --locked`, targeted relay fixture tests, clippy for touched crates, fmt.
-
-### Slice 5: Kotlin runtime config and import-to-runtime path
-
-1. Add failing Kotlin tests for `RelayKindShadowsocks`, `RelayKindDescriptor` drift, resolver registry coverage, `ResolvedRipDpiRelayConfig` Shadowsocks fields, and `NativeConfigSchemaVersionTest` version bump.
-2. Add SIP002 parity tests for Kotlin `ProxyUriCodec` and Rust `uri.rs`: SIP004 base64 userinfo, SIP004 plain userinfo, SIP022 plain percent-encoded userinfo, plugin rejection/non-goal behavior, and unsupported stream cipher rejection, citing SIP002 and SIP022 section 2.1.
-3. Wire imported `ProxyProfile.Shadowsocks` into relay settings/runtime resolution so `ss://` import can produce a native `shadowsocks` relay config with method, server, port, and credential material.
-4. Verification: focused JVM tests for proxy import, relay resolver, descriptor drift, native schema version, plus Rust schema tests; then `./gradlew staticAnalysis` or the narrow module equivalent if the slice remains localized.
-
-## Commit Policy For Later Slices
-
-After STEP 0, each completed slice must end in one green Conventional Commit with scope `shadowsocks`, and the commit body must cite the SIP section(s) covered by that slice. Do not amend across slices.
+- No implementation starts until this Step 0 plan is reviewed.
+- Every implementation slice starts with a failing test command captured in the work log before source changes.
+- No `#[ignore]`, tautological goldens, mocked unit under test, deleted tests, stream-cipher support, plugin support, or "for now" stubs.
+- Do not commit red. Each slice commit must be green for its stated cargo/Gradle scope.
