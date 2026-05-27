@@ -13,15 +13,18 @@
 //! [payload ciphertext + tag (length_plaintext + tag_len bytes)]
 //! ```
 //!
-//! The nonce for chunk N is the 96-bit big-endian representation of N,
+//! The nonce for chunk N is the 96-bit little-endian representation of N,
 //! incremented by 1 for each chunk (counter mode).
 
 use rand::RngExt;
 
 use crate::cipher::{Cipher, CipherError, CipherKey, SecretString};
 
-/// Maximum plaintext payload per chunk (Shadowsocks spec: 0x3FFF = 16383 bytes).
-const MAX_CHUNK_LEN: usize = 0x3FFF;
+/// Maximum plaintext payload per SIP004 chunk.
+const SIP004_MAX_CHUNK_LEN: usize = 0x3FFF;
+
+/// Maximum plaintext payload per SIP022 chunk.
+const SIP022_MAX_CHUNK_LEN: usize = 0xFFFF;
 
 /// Shadowsocks TCP stream framer/deframer.
 ///
@@ -78,8 +81,9 @@ impl TcpStream {
     pub fn encrypt_payload(&mut self, plaintext: &[u8]) -> Result<Vec<u8>, CipherError> {
         let mut out = Vec::new();
         let mut offset = 0;
+        let max_chunk_len = max_chunk_len(self.cipher);
         while offset < plaintext.len() || (plaintext.is_empty() && offset == 0) {
-            let end = (offset + MAX_CHUNK_LEN).min(plaintext.len());
+            let end = (offset + max_chunk_len).min(plaintext.len());
             let chunk = &plaintext[offset..end];
             let len_bytes = (chunk.len() as u16).to_be_bytes();
 
@@ -137,11 +141,19 @@ impl TcpStream {
     }
 }
 
-/// Builds a 12-byte big-endian nonce from a 64-bit counter (upper 4 bytes = 0).
+/// Builds a 12-byte little-endian nonce from a 64-bit counter (upper 4 bytes = 0).
 fn counter_nonce(counter: u64) -> Vec<u8> {
     let mut nonce = [0u8; 12];
-    nonce[4..].copy_from_slice(&counter.to_be_bytes());
+    nonce[..8].copy_from_slice(&counter.to_le_bytes());
     nonce.to_vec()
+}
+
+fn max_chunk_len(cipher: Cipher) -> usize {
+    if cipher.is_aead_2022() {
+        SIP022_MAX_CHUNK_LEN
+    } else {
+        SIP004_MAX_CHUNK_LEN
+    }
 }
 
 /// Minimal base64 decode helper scoped to this module.
