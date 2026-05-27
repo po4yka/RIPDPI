@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
@@ -432,6 +433,43 @@ class UpstreamRelayRuntimeConfigResolverTest {
             assertEquals("/xhttp", resolved.xhttpPath)
             assertEquals("origin.example", resolved.xhttpHost)
             assertEquals("44444444-4444-4444-4444-444444444444", resolved.vlessUuid)
+        }
+
+    @Test
+    fun `resolve trojan family carries password and udp setting`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "trojan",
+                                    trojanPassword = credentialFixture("trojan"),
+                                ),
+                            )
+                        },
+                )
+
+            val resolved =
+                resolver.resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindTrojan,
+                            profileId = "trojan",
+                            server = "trojan.example",
+                            serverPort = 443,
+                            serverName = "trojan.example",
+                            udpEnabled = true,
+                        ),
+                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                )
+
+            assertEquals(RelayKindTrojan, resolved.kind)
+            assertTrue(resolved.udpEnabled)
+            assertEquals("trojan.example", resolved.serverName)
+            assertEquals(credentialFixture("trojan"), resolved.trojanPassword)
         }
 
     @Test

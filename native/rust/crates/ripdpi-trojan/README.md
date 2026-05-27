@@ -25,9 +25,9 @@ Trojan outbound client library for RIPDPI relay-core integration.
 - UDP ASSOCIATE datagram encoding/decoding is implemented with golden vectors for IPv4, domain, and IPv6 targets plus CRLF, length, truncation, and trailing-byte validation.
 - `TrojanClient::connect_tcp` and `TrojanClient::connect_udp_associate` open TCP sockets, build BoringSSL TLS clients from `ripdpi-tls-profiles`, send SNI, use the configured ALPN profile, verify certificates, support an extra PEM root for fixtures or pinned deployments, and send Trojan requests inside TLS.
 - `local-network-fixture::TrojanLoopback` provides an offline TLS Trojan fixture that observes SNI/ALPN, validates the password hash and CONNECT/UDP ASSOCIATE framing, pipes TCP payloads to a local echo target, and echoes UDP payloads through stream datagram packets.
-- `ripdpi-relay-core` now depends on `ripdpi-trojan`, has `RelayBackendConfig::Trojan`, `RelayKind::Trojan`, `RelayBackend::Trojan`, `TrojanSessionFactory`, a transport registration row, flattened Trojan config fields, and fixture-backed TCP/UDP tests.
-- Kotlin has `ProxyUriCodec.parseTrojan()` producing `ProxyProfile.Trojan`, but runtime relay config does not yet project that parsed profile into `RelayKind::Trojan` or native relay credentials.
-- `ResolvedRipDpiRelayConfig` / Rust `FlatResolvedRelayRuntimeConfig` schema version is currently `1`; adding Trojan credential/config fields is a native config schema migration and must be covered by `NativeConfigSchemaVersionTest`.
+- `ripdpi-relay-tls-transports` adapts `ripdpi-trojan` into relay-core with `TrojanSessionFactory` and stream-datagram UDP sessions; `ripdpi-relay-core` has `RelayBackendConfig::Trojan`, `RelayKind::Trojan`, `RelayBackend::Trojan`, a transport registration row, flattened Trojan config fields, and fixture-backed TCP/UDP tests.
+- Kotlin keeps the existing `ProxyUriCodec.parseTrojan()` parser, projects confirmed Trojan imports into the default relay profile, persists `trojanPassword` through `RelayCredentialRecord`, emits `RelayKindTrojan`, and includes Trojan fields in `ResolvedRipDpiRelayConfig`.
+- `ResolvedRipDpiRelayConfig` / Rust `FlatResolvedRelayRuntimeConfig` schema version is `2`; the bump covers the Trojan native relay fields and is pinned by `NativeConfigSchemaVersionTest` plus relay-core schema tests.
 
 ## Relay-Core Touchpoints
 

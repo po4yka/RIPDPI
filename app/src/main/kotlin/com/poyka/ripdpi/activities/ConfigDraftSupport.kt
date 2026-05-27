@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
@@ -116,6 +117,7 @@ data class ConfigDraft(
     val relayTuicCongestionControl: String = RelayCongestionControlBbr,
     val relayShadowTlsPassword: String = "",
     val relayShadowTlsInnerProfileId: String = "",
+    val relayTrojanPassword: String = "",
     val relayNaiveUsername: String = "",
     val relayNaivePassword: String = "",
     val relayNaivePath: String = "",
@@ -147,6 +149,7 @@ data class ConfigDraft(
                 relayKind == RelayKindCloudflareTunnel -> "Cloudflare Tunnel"
                 relayKind == RelayKindTuicV5 -> "TUIC v5"
                 relayKind == RelayKindShadowTlsV3 -> "ShadowTLS v3"
+                relayKind == RelayKindTrojan -> "Trojan"
                 relayKind == RelayKindNaiveProxy -> "NaiveProxy"
                 relayKind == RelayKindSnowflake -> "Snowflake"
                 relayKind == RelayKindWebTunnel -> "WebTunnel"

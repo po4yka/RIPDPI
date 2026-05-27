@@ -28,6 +28,7 @@ internal fun ConfigDraft.withRelayArtifacts(
         relayTuicUuid = credentials?.tuicUuid.orEmpty(),
         relayTuicPassword = credentials?.tuicPassword.orEmpty(),
         relayShadowTlsPassword = credentials?.shadowTlsPassword.orEmpty(),
+        relayTrojanPassword = credentials?.trojanPassword.orEmpty(),
         relayNaiveUsername = credentials?.naiveUsername.orEmpty(),
         relayNaivePassword = credentials?.naivePassword.orEmpty(),
         relayCloudflareCredentialsRef =
@@ -125,6 +126,7 @@ internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCreden
         tuicUuid = relayTuicUuid.ifBlank { null },
         tuicPassword = relayTuicPassword.ifBlank { null },
         shadowTlsPassword = relayShadowTlsPassword.ifBlank { null },
+        trojanPassword = relayTrojanPassword.ifBlank { null },
         naiveUsername = relayNaiveUsername.ifBlank { null },
         naivePassword = relayNaivePassword.ifBlank { null },
         masqueAuthMode = normalizeRelayMasqueAuthMode(relayMasqueAuthMode),

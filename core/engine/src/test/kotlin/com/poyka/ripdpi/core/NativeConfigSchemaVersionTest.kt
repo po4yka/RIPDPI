@@ -11,12 +11,12 @@ import org.junit.Test
  * Golden coverage for the additive `schemaVersion` envelope field on the
  * proxy, relay, and tunnel native-config wire DTOs.
  *
- * The field is `@EncodeDefault(NEVER)`, so at version 1 it never reaches the
- * wire — every config payload is byte-identical to the pre-`schemaVersion`
- * form (the "old payload"). These tests pin both halves of the contract: a
- * legacy payload that omits `schemaVersion` decodes to version 1, a payload
- * that carries `schemaVersion = 1` decodes to the same, and the encoder emits
- * no `schemaVersion` key. See `docs/architecture/CONFIG_CONTRACTS.md` §8.
+ * The field is `@EncodeDefault(NEVER)`, so the current version never reaches
+ * the wire when the default value is used. These tests pin both halves of the
+ * contract: a legacy relay payload that omits `schemaVersion` decodes to the
+ * current relay schema version, a payload that carries the current version
+ * decodes to the same, and the encoder emits no `schemaVersion` key for
+ * defaulted payloads. See `docs/architecture/CONFIG_CONTRACTS.md` §8.
  */
 class NativeConfigSchemaVersionTest {
     private val proxyJson =
@@ -86,18 +86,19 @@ class NativeConfigSchemaVersionTest {
     }
 
     @Test
-    fun `relay payload — legacy and versioned forms both decode to version 1`() {
+    fun `relay payload — legacy and versioned forms both decode to current relay schema version`() {
         val encoded = relayJson.encodeToString(ResolvedRipDpiRelayConfig.serializer(), sampleRelayConfig())
-        assertFalse("relay payload must not carry schemaVersion at v1", encoded.contains("schemaVersion"))
+        assertFalse("relay payload must not carry schemaVersion at current default", encoded.contains("schemaVersion"))
 
         val legacy = relayJson.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), encoded)
         val versioned =
             relayJson.decodeFromString(
                 ResolvedRipDpiRelayConfig.serializer(),
-                encoded.replaceFirst("{", """{"schemaVersion":1,"""),
+                encoded.replaceFirst("{", """{"schemaVersion":2,"""),
             )
 
         assertEquals(RelayNativeConfigSchemaVersion, legacy.schemaVersion)
+        assertEquals(2, RelayNativeConfigSchemaVersion)
         assertEquals(RelayNativeConfigSchemaVersion, versioned.schemaVersion)
     }
 

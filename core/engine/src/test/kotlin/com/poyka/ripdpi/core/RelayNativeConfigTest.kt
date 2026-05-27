@@ -90,6 +90,7 @@ class RelayNativeConfigTest {
             masqueConfig(),
             tuicConfig(),
             hysteria2Config(),
+            trojanConfig(),
             shadowTlsConfig(),
             chainRelayConfig(),
             cloudflareTunnelConfig(),
@@ -137,10 +138,16 @@ class RelayNativeConfigTest {
             hysteriaSalamanderKey = "hysteria-salamander-key",
         )
 
+    private fun trojanConfig(): ResolvedRipDpiRelayConfig =
+        baseConfig("trojan").copy(
+            trojanPassword = placeholder(5),
+            trojanRootCertificatePem = "-----BEGIN CERTIFICATE-----\ntrojan-root\n-----END CERTIFICATE-----",
+        )
+
     private fun shadowTlsConfig(): ResolvedRipDpiRelayConfig =
         baseConfig("shadowtls_v3").copy(
             shadowTlsInnerProfileId = "shadowtls-inner-profile-id",
-            shadowTlsPassword = placeholder(5),
+            shadowTlsPassword = placeholder(6),
             shadowTlsInner =
                 ResolvedShadowTlsInnerRelayConfig(
                     kind = "vless_reality",
@@ -281,13 +288,15 @@ class RelayNativeConfigTest {
             naivePassword = placeholder(4),
             tlsFingerprintProfile = "firefox_stable",
             masqueAuthMode = "token",
-            masqueAuthToken = placeholder(5),
+            trojanPassword = placeholder(5),
+            trojanRootCertificatePem = "-----BEGIN CERTIFICATE-----\ntrojan-root\n-----END CERTIFICATE-----",
+            masqueAuthToken = placeholder(6),
             masqueClientCertificateChainPem = "masque-cert-chain-pem",
             masqueClientPrivateKeyPem = "masque-private-key-pem",
             masqueCloudflareGeohashHeader = "masque-geohash-header",
             masquePrivacyPassProviderUrl = "https://privacy-pass.example",
-            masquePrivacyPassProviderAuthToken = placeholder(6),
-            cloudflareTunnelToken = placeholder(7),
+            masquePrivacyPassProviderAuthToken = placeholder(7),
+            cloudflareTunnelToken = placeholder(8),
             cloudflareTunnelCredentialsJson = "{\"cloudflare\":\"credentials\"}",
             appsScriptScriptIds = listOf("apps-script-id"),
             appsScriptGoogleIp = "10.1.2.3",
@@ -340,7 +349,7 @@ class RelayNativeConfigTest {
                 "tcpFallbackEnabled",
             )
 
-        // The 50 keys carrying a default; emitted only when set off-default.
+        // The 52 keys carrying a default; emitted only when set off-default.
         private val defaultedWireKeys =
             setOf(
                 "outboundBindIp",
@@ -372,6 +381,8 @@ class RelayNativeConfigTest {
                 "tuicUuid",
                 "tuicPassword",
                 "shadowTlsPassword",
+                "trojanPassword",
+                "trojanRootCertificatePem",
                 "naiveUsername",
                 "naivePassword",
                 "tlsFingerprintProfile",
@@ -395,7 +406,7 @@ class RelayNativeConfigTest {
                 "finalmask",
             )
 
-        // The complete flat wire object: required + defaulted = 74 keys.
+        // The complete flat wire object: required + defaulted = 76 keys.
         private val expectedWireKeys = requiredWireKeys + defaultedWireKeys
     }
 }

@@ -95,13 +95,20 @@ internal fun validateShadowTlsRelayCredentials(
     requireRelayCredentials(profileId, !credentials?.shadowTlsPassword.isNullOrBlank())
 }
 
+internal fun validateTrojanRelayCredentials(
+    profileId: String,
+    credentials: RelayCredentialRecord?,
+) {
+    requireRelayCredentials(profileId, !credentials?.trojanPassword.isNullOrBlank())
+}
+
 internal fun validateSharedRelayTransportFeatures(config: RipDpiRelayConfig) {
     // UDP ASSOCIATE support is a generic, relay_kind-keyed capability: the
     // RelayKindDescriptor table is the source of truth, mirroring the Rust
     // RelayTransportDescriptor `udp` flag. An unrecognised kind has no
     // descriptor row and is treated as UDP-incapable, as before.
     require(!config.udpEnabled || relayKindDescriptor(config.kind)?.udp == true) {
-        "Relay UDP mode is only available for Hysteria2, MASQUE, and TUIC profiles"
+        "Relay UDP mode is only available for Hysteria2, MASQUE, Trojan, and TUIC profiles"
     }
     require(!(config.vlessTransport == RelayVlessTransportXhttp && config.udpEnabled)) {
         "xHTTP transport does not support UDP mode"
@@ -229,6 +236,11 @@ internal fun validateShadowTlsRelayFeatures(
             FailureReason.RelayConfigRejected("ShadowTLS inner profile cannot reference itself"),
         )
     }
+}
+
+internal fun validateTrojanRelayFeatures(config: RipDpiRelayConfig) {
+    require(config.server.isNotBlank()) { "Trojan requires a server hostname" }
+    require(config.serverName.isNotBlank()) { "Trojan requires a TLS server name" }
 }
 
 internal fun validateFinalmaskFeature(

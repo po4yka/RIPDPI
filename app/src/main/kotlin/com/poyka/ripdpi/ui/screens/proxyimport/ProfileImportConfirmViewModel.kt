@@ -2,10 +2,17 @@ package com.poyka.ripdpi.ui.screens.proxyimport
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelayProfileStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +42,9 @@ class ProfileImportConfirmViewModel
     @Inject
     constructor(
         private val repository: ProxyGroupRepository,
+        private val relayProfileStore: RelayProfileStore,
+        private val relayCredentialStore: RelayCredentialStore,
+        private val settingsRepository: AppSettingsRepository,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(ProfileImportConfirmUiState())
         val uiState: StateFlow<ProfileImportConfirmUiState> = _uiState.asStateFlow()
@@ -65,9 +75,40 @@ class ProfileImportConfirmViewModel
                         subscription = null,
                     ),
                 )
+                activateNativeRelayProfile(profile)
                 _uiState.update { it.copy(importing = false, imported = true) }
             }
         }
 
         private suspend fun nextOrder(): Int = repository.list().size
+
+        private suspend fun activateNativeRelayProfile(profile: ProxyProfile) {
+            if (profile !is ProxyProfile.Trojan) return
+            val profileId = DefaultRelayProfileId
+            relayProfileStore.save(
+                RelayProfileRecord(
+                    id = profileId,
+                    kind = RelayKindTrojan,
+                    server = profile.server,
+                    serverPort = profile.serverPort,
+                    serverName = profile.server,
+                    udpEnabled = true,
+                ),
+            )
+            relayCredentialStore.save(
+                RelayCredentialRecord(
+                    profileId = profileId,
+                    trojanPassword = profile.password,
+                ),
+            )
+            settingsRepository.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindTrojan)
+                setRelayProfileId(profileId)
+                setRelayServer(profile.server)
+                setRelayServerPort(profile.serverPort)
+                setRelayServerName(profile.server)
+                setRelayUdpEnabled(true)
+            }
+        }
     }

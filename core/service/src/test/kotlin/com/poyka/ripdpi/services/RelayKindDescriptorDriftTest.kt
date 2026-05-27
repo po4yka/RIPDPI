@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import org.junit.Assert.assertEquals
@@ -65,6 +66,7 @@ class RelayKindDescriptorDriftTest {
                 SnowflakeRelayKindResolver::class,
                 ChainRelayKindResolver::class,
                 ShadowTlsRelayKindResolver::class,
+                TrojanRelayKindResolver::class,
                 NaiveRelayKindResolver::class,
                 LocalPathRelayKindResolver::class,
                 DefaultRelayKindResolver::class,
@@ -109,6 +111,7 @@ class RelayKindDescriptorDriftTest {
                 "chain_relay" to listOf(true, false, false, true),
                 "masque" to listOf(true, true, true, false),
                 "shadowtls_v3" to listOf(true, false, false, true),
+                "trojan" to listOf(true, true, false, true),
                 "naiveproxy" to listOf(true, false, false, true),
             )
         rustPinned.forEach { (kindId, caps) ->
@@ -147,7 +150,7 @@ class RelayKindDescriptorDriftTest {
 
     @Test
     fun `udp gate accepts udp-capable kinds through the descriptor`() {
-        listOf(RelayKindHysteria2, RelayKindMasque, RelayKindTuicV5).forEach { kind ->
+        listOf(RelayKindHysteria2, RelayKindMasque, RelayKindTrojan, RelayKindTuicV5).forEach { kind ->
             validateSharedRelayTransportFeatures(RipDpiRelayConfig(kind = kind, udpEnabled = true))
         }
     }

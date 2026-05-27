@@ -2,13 +2,12 @@
 ///
 /// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant. A payload
 /// carrying any other version is rejected by [`validate_schema_version`].
-const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 1;
+const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 2;
 
 /// `serde(default)` provider for the additive `schemaVersion` envelope field.
 ///
-/// A legacy payload with no `schemaVersion` key is treated as version 1, which
-/// matches the Kotlin encoder: at version 1 the field is `@EncodeDefault(NEVER)`
-/// and never reaches the wire.
+/// A legacy payload with no `schemaVersion` key is treated as this build's
+/// current relay schema version, matching the Kotlin default.
 fn default_native_config_schema_version() -> u32 {
     SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION
 }

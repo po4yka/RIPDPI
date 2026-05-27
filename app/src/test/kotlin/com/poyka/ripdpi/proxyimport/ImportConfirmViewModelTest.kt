@@ -1,10 +1,19 @@
 package com.poyka.ripdpi.proxyimport
 
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.SubscriptionKind
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -12,6 +21,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -42,7 +52,13 @@ class ImportConfirmViewModelTest {
                     serverPort = 443,
                     uuid = "uuid",
                 )
-            val viewModel = ProfileImportConfirmViewModel(repository)
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    repository = repository,
+                    relayProfileStore = FakeRelayProfileStore(),
+                    relayCredentialStore = FakeRelayCredentialStore(),
+                    settingsRepository = FakeAppSettingsRepository(),
+                )
 
             viewModel.setProfile(profile)
             viewModel.confirm()
@@ -52,6 +68,47 @@ class ImportConfirmViewModelTest {
             assertEquals(1, groups.size)
             assertEquals(ProxyGroupType.BASIC, groups.single().type)
             assertTrue(viewModel.uiState.value.imported)
+        }
+
+    @Test
+    fun `confirming a trojan profile import activates the native relay profile`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val trojanCredential = relayImportCredentialFixture("trojan")
+            val profile =
+                ProxyProfile.Trojan(
+                    id = "trojan-node",
+                    displayName = "Trojan",
+                    groupId = "",
+                    server = "trojan.example",
+                    serverPort = 443,
+                    password = trojanCredential,
+                )
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    repository = repository,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
+                    settingsRepository = settingsRepository,
+                )
+
+            viewModel.setProfile(profile)
+            viewModel.confirm()
+            advanceUntilIdle()
+
+            val settings = settingsRepository.snapshot()
+            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
+            val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
+            assertEquals(RelayKindTrojan, settings.relayKind)
+            assertTrue(settings.relayEnabled)
+            assertEquals(DefaultRelayProfileId, settings.relayProfileId)
+            assertEquals(RelayKindTrojan, relayProfile?.kind)
+            assertEquals("trojan.example", relayProfile?.server)
+            assertEquals("trojan.example", relayProfile?.serverName)
+            assertEquals(trojanCredential, relayCredentials?.trojanPassword)
         }
 
     @Test
@@ -165,3 +222,54 @@ private class FakeProxyGroupRepository : ProxyGroupRepository {
 
     override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
 }
+
+private class FakeRelayProfileStore : RelayProfileStore {
+    private val profiles = mutableMapOf<String, RelayProfileRecord>()
+
+    override suspend fun load(profileId: String): RelayProfileRecord? = profiles[profileId]
+
+    override suspend fun save(profile: RelayProfileRecord) {
+        profiles[profile.id] = profile
+    }
+
+    override suspend fun clear(profileId: String) {
+        profiles.remove(profileId)
+    }
+}
+
+private class FakeRelayCredentialStore : RelayCredentialStore {
+    private val credentials = mutableMapOf<String, RelayCredentialRecord>()
+
+    override suspend fun load(profileId: String): RelayCredentialRecord? = credentials[profileId]
+
+    override suspend fun save(credentials: RelayCredentialRecord) {
+        this.credentials[credentials.profileId] = credentials
+    }
+
+    override suspend fun clear(profileId: String) {
+        credentials.remove(profileId)
+    }
+}
+
+private class FakeAppSettingsRepository : AppSettingsRepository {
+    private val state = MutableStateFlow(AppSettingsSerializer.defaultValue)
+
+    override val settings: Flow<AppSettings> = state.asStateFlow()
+
+    override suspend fun snapshot(): AppSettings = settings.first()
+
+    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+        state.value =
+            state.value
+                .toBuilder()
+                .apply(transform)
+                .build()
+    }
+
+    override suspend fun replace(settings: AppSettings) {
+        state.value = settings
+    }
+}
+
+private fun relayImportCredentialFixture(label: String): String =
+    listOf("relay", "import", "credential", label).joinToString("-")

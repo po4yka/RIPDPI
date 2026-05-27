@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayPresetDefinition
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
@@ -56,4 +57,4 @@ internal fun ConfigDraft.applyRelayPresetDefinition(preset: RelayPresetDefinitio
     )
 
 internal fun String.supportsRelayUdpMode(): Boolean =
-    this == RelayKindHysteria2 || this == RelayKindMasque || this == RelayKindTuicV5
+    this == RelayKindHysteria2 || this == RelayKindMasque || this == RelayKindTrojan || this == RelayKindTuicV5

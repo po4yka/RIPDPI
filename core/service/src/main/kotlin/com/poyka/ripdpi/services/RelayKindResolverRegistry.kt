@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayProfileStore
 import javax.inject.Inject
@@ -38,6 +39,7 @@ internal fun buildRelayKindRegistrations(
     snowflakeRelayKindResolver: SnowflakeRelayKindResolver,
     chainRelayKindResolver: ChainRelayKindResolver,
     shadowTlsRelayKindResolver: ShadowTlsRelayKindResolver,
+    trojanRelayKindResolver: TrojanRelayKindResolver,
     naiveRelayKindResolver: NaiveRelayKindResolver,
     localPathRelayKindResolver: LocalPathRelayKindResolver,
     defaultRelayKindResolver: DefaultRelayKindResolver,
@@ -49,6 +51,7 @@ internal fun buildRelayKindRegistrations(
             put(RelayKindSnowflake, snowflakeRelayKindResolver)
             put(RelayKindChainRelay, chainRelayKindResolver)
             put(RelayKindShadowTlsV3, shadowTlsRelayKindResolver)
+            put(RelayKindTrojan, trojanRelayKindResolver)
             put(RelayKindNaiveProxy, naiveRelayKindResolver)
             put(RelayKindWebTunnel, localPathRelayKindResolver)
             put(RelayKindObfs4, localPathRelayKindResolver)
@@ -84,6 +87,7 @@ internal class RelayKindResolverRegistry
         snowflakeRelayKindResolver: SnowflakeRelayKindResolver,
         chainRelayKindResolver: ChainRelayKindResolver,
         shadowTlsRelayKindResolver: ShadowTlsRelayKindResolver,
+        trojanRelayKindResolver: TrojanRelayKindResolver,
         naiveRelayKindResolver: NaiveRelayKindResolver,
         localPathRelayKindResolver: LocalPathRelayKindResolver,
         defaultRelayKindResolver: DefaultRelayKindResolver,
@@ -95,6 +99,7 @@ internal class RelayKindResolverRegistry
                 snowflakeRelayKindResolver = snowflakeRelayKindResolver,
                 chainRelayKindResolver = chainRelayKindResolver,
                 shadowTlsRelayKindResolver = shadowTlsRelayKindResolver,
+                trojanRelayKindResolver = trojanRelayKindResolver,
                 naiveRelayKindResolver = naiveRelayKindResolver,
                 localPathRelayKindResolver = localPathRelayKindResolver,
                 defaultRelayKindResolver = defaultRelayKindResolver,
@@ -133,6 +138,7 @@ internal fun createDefaultRelayKindResolverRegistry(
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
             ),
+        trojanRelayKindResolver = TrojanRelayKindResolver(),
         naiveRelayKindResolver = NaiveRelayKindResolver(),
         localPathRelayKindResolver = LocalPathRelayKindResolver(),
         defaultRelayKindResolver = DefaultRelayKindResolver(),
