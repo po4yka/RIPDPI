@@ -267,7 +267,7 @@ class MainActivityShellInstrumentedTest {
     }
 
     @Test
-    fun missingNotificationsEmitsHostCommandInsteadOfStartingService() {
+    fun missingNotificationsStartConfiguredModeWithoutHostCommand() {
         mutablePermissionStatusProvider.snapshot =
             PermissionSnapshot(
                 vpnConsent = PermissionStatus.Granted,
@@ -282,10 +282,13 @@ class MainActivityShellInstrumentedTest {
 
         try {
             composeRule.waitUntil(timeoutMillis = 15_000) {
-                recordingMainActivityHost.commands.contains(MainActivityHostCommand.RequestNotificationsPermission)
+                recordingServiceController.startedModes.size == 1
             }
 
-            assertTrue(recordingServiceController.startedModes.isEmpty())
+            assertEquals(com.poyka.ripdpi.data.Mode.VPN, recordingServiceController.startedModes.single())
+            assertTrue(
+                !recordingMainActivityHost.commands.contains(MainActivityHostCommand.RequestNotificationsPermission),
+            )
         } finally {
             restoreScenarioIntent(originalIntent)
         }
