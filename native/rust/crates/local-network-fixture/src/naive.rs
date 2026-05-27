@@ -249,10 +249,7 @@ async fn echo_padded(
     let mut decoder = FixturePaddingDecoder::default();
     let mut encoder = FixturePaddingEncoder::default();
     let mut buffer = [0u8; 4096];
-    loop {
-        let Ok(read) = io.read(&mut buffer).await else {
-            break;
-        };
+    while let Ok(read) = io.read(&mut buffer).await {
         if read == 0 {
             break;
         }
