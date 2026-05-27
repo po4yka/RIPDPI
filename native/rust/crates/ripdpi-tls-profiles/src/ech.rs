@@ -209,6 +209,38 @@ pub fn configure_ech(config: &mut boring::ssl::ConnectConfiguration, setup: &Ech
     Ok(())
 }
 
+pub fn configure_rustls_ech(
+    builder: rustls::ConfigBuilder<rustls::ClientConfig, rustls::WantsVersions>,
+    setup: &EchSetup,
+) -> Result<rustls::ConfigBuilder<rustls::ClientConfig, rustls::WantsVerifier>, EchFacadeError> {
+    match setup {
+        EchSetup::Real(ech_config) => {
+            let config = rustls::client::EchConfig::new(
+                rustls::pki_types::EchConfigListBytes::from(ech_config.config_list.clone()),
+                rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES,
+            )
+            .map_err(|error| EchOutboundError::ConfigRejected(error.to_string()))?;
+            builder
+                .with_ech(rustls::client::EchMode::Enable(config))
+                .map_err(|error| EchOutboundError::ConfigRejected(error.to_string()).into())
+        }
+        EchSetup::Grease => {
+            let suite = rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES
+                .first()
+                .ok_or_else(|| EchOutboundError::ConfigRejected("missing Rustls HPKE suite".to_string()))?;
+            let (placeholder_key, _) =
+                suite.generate_key_pair().map_err(|error| EchOutboundError::ConfigRejected(error.to_string()))?;
+            let grease = rustls::client::EchGreaseConfig::new(*suite, placeholder_key);
+            builder
+                .with_ech(rustls::client::EchMode::Grease(grease))
+                .map_err(|error| EchOutboundError::ConfigRejected(error.to_string()).into())
+        }
+        EchSetup::OptedOut => builder
+            .with_safe_default_protocol_versions()
+            .map_err(|error| EchOutboundError::ConfigRejected(error.to_string()).into()),
+    }
+}
+
 pub fn prepare_ech_retry(
     rejected: &EchRejectedHandshake,
     verifier: &impl EchPublicNameVerifier,
@@ -387,6 +419,28 @@ mod tests {
     }
 
     #[test]
+    fn rustls_configure_ech_enables_real_ech_extension() {
+        let payload = capture_rustls_client_hello_with_ech_setup(EchSetup::Real(config()));
+        let layout = ripdpi_packets::parse_tls_client_hello_layout(&payload).expect("parse ClientHello");
+
+        assert!(
+            layout.extensions.iter().any(|extension| extension.ext_type == 0xfe0d),
+            "Rustls real ECH must add the encrypted_client_hello extension"
+        );
+    }
+
+    #[test]
+    fn rustls_configure_ech_enables_grease_extension() {
+        let payload = capture_rustls_client_hello_with_ech_setup(EchSetup::Grease);
+        let layout = ripdpi_packets::parse_tls_client_hello_layout(&payload).expect("parse ClientHello");
+
+        assert!(
+            layout.extensions.iter().any(|extension| extension.ext_type == 0xfe0d),
+            "Rustls GREASE must add the encrypted_client_hello extension"
+        );
+    }
+
+    #[test]
     fn outbound_facade_builds_single_retry_only_after_public_name_verification() {
         let rejected = EchRejectedHandshake::new(Some(b"ech.com".to_vec()), Some(BORING_ECH_CONFIG_LIST.to_vec()));
         let mut state = EchRetryState::default();
@@ -461,6 +515,24 @@ mod tests {
         stream.set_write_timeout(Some(Duration::from_secs(5))).expect("set client write timeout");
         let _ = tls_config.connect("inner.example", stream);
         server.join().expect("server join")
+    }
+
+    fn capture_rustls_client_hello_with_ech_setup(setup: EchSetup) -> Vec<u8> {
+        let mut roots = rustls::RootCertStore::empty();
+        roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        let mut config = configure_rustls_ech(
+            rustls::ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into()),
+            &setup,
+        )
+        .expect("configure rustls ECH")
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+        config.alpn_protocols = vec![b"h2".to_vec()];
+        let server_name = rustls::pki_types::ServerName::try_from("inner.example").expect("server name");
+        let mut conn = rustls::ClientConnection::new(std::sync::Arc::new(config), server_name).expect("client conn");
+        let mut bytes = Vec::new();
+        conn.write_tls(&mut bytes).expect("write ClientHello");
+        bytes
     }
 
     #[derive(Clone)]

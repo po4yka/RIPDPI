@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use reqwest::{Client, Proxy};
+use ripdpi_tls_profiles::{EchFacadeError, EchSetup};
 use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig, RootCertStore};
@@ -69,17 +70,26 @@ fn doh_tls_config(
     tls_roots: &[CertificateDer<'static>],
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> ClientConfig {
-    let builder = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-        .with_safe_default_protocol_versions()
-        .expect("ring provider supports default TLS versions");
+    doh_tls_config_with_ech_setup(tls_roots, tls_verifier, &EchSetup::Grease)
+        .expect("DoH TLS ECH GREASE config must build")
+}
 
+fn doh_tls_config_with_ech_setup(
+    tls_roots: &[CertificateDer<'static>],
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    setup: &EchSetup,
+) -> Result<ClientConfig, EchFacadeError> {
+    let builder = ripdpi_tls_profiles::configure_rustls_ech(
+        ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into()),
+        setup,
+    )?;
     let mut config = if let Some(verifier) = tls_verifier {
         builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()
     } else {
         builder.with_root_certificates(default_root_store(tls_roots)).with_no_client_auth()
     };
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-    config
+    Ok(config)
 }
 
 fn add_reqwest_roots(
@@ -130,4 +140,27 @@ fn configure_socks5_transport(
     let proxy = Proxy::all(format!("socks5h://{host}:{port}"))
         .map_err(|err| EncryptedDnsError::ClientBuild(err.to_string()))?;
     Ok(builder.proxy(proxy))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ripdpi_tls_profiles::EchSetup;
+
+    #[test]
+    fn doh_tls_config_uses_ech_facade_grease_for_https_resolver() {
+        let config = doh_tls_config_with_ech_setup(&[], None, &EchSetup::Grease).expect("ECH DoH TLS config");
+
+        assert_eq!(config.alpn_protocols, vec![b"h2".to_vec(), b"http/1.1".to_vec()]);
+        assert!(rustls_client_hello_has_ech_extension(config), "DoH outbound TLS must send ECH or GREASE");
+    }
+
+    fn rustls_client_hello_has_ech_extension(config: ClientConfig) -> bool {
+        let server_name = rustls::pki_types::ServerName::try_from("resolver.example").expect("server name");
+        let mut conn = rustls::ClientConnection::new(Arc::new(config), server_name).expect("client conn");
+        let mut bytes = Vec::new();
+        conn.write_tls(&mut bytes).expect("write ClientHello");
+        let layout = ripdpi_packets::parse_tls_client_hello_layout(&bytes).expect("parse ClientHello");
+        layout.extensions.iter().any(|extension| extension.ext_type == 0xfe0d)
+    }
 }
