@@ -336,10 +336,7 @@ fn decode_base64_psk(encoded: &str) -> Result<Vec<u8>, CipherError> {
     use base64::engine::Engine;
 
     let trimmed = encoded.trim();
-    base64::engine::general_purpose::STANDARD
-        .decode(trimmed)
-        .or_else(|_| base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(trimmed))
-        .map_err(|_| CipherError::KeyLength)
+    base64::engine::general_purpose::STANDARD.decode(trimmed).map_err(|_| CipherError::KeyLength)
 }
 
 /// OpenSSL `EVP_BytesToKey` with MD5 and no salt (Shadowsocks legacy key derivation).

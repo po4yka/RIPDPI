@@ -98,6 +98,19 @@ fn sip022_psk_parser_rejects_non_base64_and_wrong_length_material() {
 }
 
 #[test]
+fn sip022_psk_parser_rejects_base64url_no_padding_material() {
+    let standard_psk = "+/v7+/v7+/v7+/v7+/v7+w==";
+    let urlsafe_no_padding_psk = "-_v7-_v7-_v7-_v7-_v7-w";
+
+    assert!(PresharedKey::from_base64(Cipher::Aead2022Blake3Aes128Gcm, standard_psk).is_ok());
+    assert_eq!(
+        PresharedKey::from_base64(Cipher::Aead2022Blake3Aes128Gcm, urlsafe_no_padding_psk)
+            .expect_err("SIP022 PSK must use standard base64, not Base64URL without padding"),
+        CipherError::KeyLength,
+    );
+}
+
+#[test]
 fn sip022_derivation_rejects_legacy_cipher_family() {
     let psk = PresharedKey::from_base64(Cipher::Aead2022Blake3Aes128Gcm, SIP022_AES128_PSK_B64).expect("base64 psk");
     let result = CipherKey::derive_aead2022(Cipher::AeadAes128Gcm, psk.as_bytes(), SIP022_AES128_SALT);
