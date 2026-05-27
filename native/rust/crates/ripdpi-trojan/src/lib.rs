@@ -51,8 +51,26 @@ pub enum TrojanAddr {
 pub enum TrojanError {
     #[error("domain name too long ({0} bytes, max 255)")]
     DomainTooLong(usize),
+    #[error("UDP payload too long ({0} bytes, max 65535)")]
+    PayloadTooLong(usize),
+    #[error("invalid address type byte 0x{0:02x}")]
+    InvalidAddressType(u8),
+    #[error("invalid CRLF delimiter")]
+    InvalidCrlf,
+    #[error("truncated Trojan UDP packet while reading {0}")]
+    Truncated(&'static str),
+    #[error("Trojan UDP packet has {0} trailing bytes after payload")]
+    TrailingBytes(usize),
     #[error("I/O error writing Trojan request: {0}")]
     Io(#[from] std::io::Error),
+}
+
+/// Decoded Trojan UDP ASSOCIATE packet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TrojanUdpPacket {
+    pub addr: TrojanAddr,
+    pub port: u16,
+    pub payload: Vec<u8>,
 }
 
 /// Hash a password with SHA-224 and return the 56-character hex string.
@@ -125,6 +143,83 @@ pub fn build_request_frame(
     buf.extend_from_slice(b"\r\n");
     buf.extend_from_slice(payload);
     Ok(buf)
+}
+
+/// Encode one Trojan UDP ASSOCIATE packet.
+///
+/// Layout: `ATYP ADDR PORT Length CRLF Payload`
+pub fn encode_udp_packet(addr: &TrojanAddr, port: u16, payload: &[u8]) -> Result<Vec<u8>, TrojanError> {
+    let payload_len = u16::try_from(payload.len()).map_err(|_| TrojanError::PayloadTooLong(payload.len()))?;
+    let addr_bytes = encode_addr(addr, port)?;
+    let mut buf = Vec::with_capacity(addr_bytes.len() + 2 + 2 + payload.len());
+    buf.extend_from_slice(&addr_bytes);
+    buf.extend_from_slice(&payload_len.to_be_bytes());
+    buf.extend_from_slice(b"\r\n");
+    buf.extend_from_slice(payload);
+    Ok(buf)
+}
+
+/// Decode one complete Trojan UDP ASSOCIATE packet.
+///
+/// Layout: `ATYP ADDR PORT Length CRLF Payload`
+pub fn decode_udp_packet(packet: &[u8]) -> Result<TrojanUdpPacket, TrojanError> {
+    let mut cursor = 0;
+    let addr = decode_addr(packet, &mut cursor)?;
+    let port = read_u16(packet, &mut cursor, "port")?;
+    let payload_len = usize::from(read_u16(packet, &mut cursor, "payload length")?);
+    let crlf = read_exact(packet, &mut cursor, 2, "CRLF")?;
+    if crlf != b"\r\n" {
+        return Err(TrojanError::InvalidCrlf);
+    }
+    let payload = read_exact(packet, &mut cursor, payload_len, "payload")?.to_vec();
+    if cursor != packet.len() {
+        return Err(TrojanError::TrailingBytes(packet.len() - cursor));
+    }
+    Ok(TrojanUdpPacket { addr, port, payload })
+}
+
+fn decode_addr(packet: &[u8], cursor: &mut usize) -> Result<TrojanAddr, TrojanError> {
+    let atyp = read_u8(packet, cursor, "address type")?;
+    match atyp {
+        0x01 => {
+            let bytes = read_exact(packet, cursor, 4, "IPv4 address")?;
+            Ok(TrojanAddr::Ipv4(Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3])))
+        }
+        0x03 => {
+            let len = usize::from(read_u8(packet, cursor, "domain length")?);
+            let bytes = read_exact(packet, cursor, len, "domain address")?;
+            let domain = String::from_utf8_lossy(bytes).into_owned();
+            Ok(TrojanAddr::Domain(domain))
+        }
+        0x04 => {
+            let bytes = read_exact(packet, cursor, 16, "IPv6 address")?;
+            let mut octets = [0_u8; 16];
+            octets.copy_from_slice(bytes);
+            Ok(TrojanAddr::Ipv6(Ipv6Addr::from(octets)))
+        }
+        other => Err(TrojanError::InvalidAddressType(other)),
+    }
+}
+
+fn read_u8(packet: &[u8], cursor: &mut usize, field: &'static str) -> Result<u8, TrojanError> {
+    Ok(read_exact(packet, cursor, 1, field)?[0])
+}
+
+fn read_u16(packet: &[u8], cursor: &mut usize, field: &'static str) -> Result<u16, TrojanError> {
+    let bytes = read_exact(packet, cursor, 2, field)?;
+    Ok(u16::from_be_bytes([bytes[0], bytes[1]]))
+}
+
+fn read_exact<'a>(
+    packet: &'a [u8],
+    cursor: &mut usize,
+    len: usize,
+    field: &'static str,
+) -> Result<&'a [u8], TrojanError> {
+    let end = cursor.checked_add(len).ok_or(TrojanError::Truncated(field))?;
+    let bytes = packet.get(*cursor..end).ok_or(TrojanError::Truncated(field))?;
+    *cursor = end;
+    Ok(bytes)
 }
 
 /// Stateless Trojan client helper.
@@ -248,6 +343,54 @@ mod tests {
         expected.extend_from_slice(&[0x00, 0x35]);
         expected.extend_from_slice(b"\r\n");
         assert_eq!(frame, expected);
+    }
+
+    #[test]
+    fn udp_ipv4_packet_matches_spec_golden() {
+        let packet = encode_udp_packet(&TrojanAddr::Ipv4(Ipv4Addr::new(8, 8, 8, 8)), 53, &[0xde, 0xad]).unwrap();
+
+        assert_eq!(packet, vec![0x01, 8, 8, 8, 8, 0x00, 0x35, 0x00, 0x02, 0x0d, 0x0a, 0xde, 0xad]);
+    }
+
+    #[test]
+    fn udp_domain_packet_matches_spec_golden() {
+        let packet = encode_udp_packet(&TrojanAddr::Domain("dns.example".to_owned()), 5353, b"dns").unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&[0x03, 11]);
+        expected.extend_from_slice(b"dns.example");
+        expected.extend_from_slice(&[0x14, 0xe9, 0x00, 0x03, 0x0d, 0x0a]);
+        expected.extend_from_slice(b"dns");
+        assert_eq!(packet, expected);
+    }
+
+    #[test]
+    fn udp_ipv6_packet_round_trips() {
+        let packet = encode_udp_packet(&TrojanAddr::Ipv6(Ipv6Addr::LOCALHOST), 443, b"payload").unwrap();
+
+        let decoded = decode_udp_packet(&packet).unwrap();
+
+        assert_eq!(decoded.addr, TrojanAddr::Ipv6(Ipv6Addr::LOCALHOST));
+        assert_eq!(decoded.port, 443);
+        assert_eq!(decoded.payload, b"payload");
+    }
+
+    #[test]
+    fn udp_packet_rejects_invalid_crlf() {
+        let packet = vec![0x01, 1, 1, 1, 1, 0x00, 0x35, 0x00, 0x01, 0x0a, 0x0d, 0xff];
+
+        let error = decode_udp_packet(&packet).unwrap_err();
+
+        assert!(matches!(error, TrojanError::InvalidCrlf));
+    }
+
+    #[test]
+    fn udp_packet_rejects_payloads_over_u16_length() {
+        let payload = vec![0; usize::from(u16::MAX) + 1];
+
+        let error = encode_udp_packet(&TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST), 53, &payload).unwrap_err();
+
+        assert!(matches!(error, TrojanError::PayloadTooLong(65536)));
     }
 
     #[test]
